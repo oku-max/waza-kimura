@@ -444,14 +444,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 </style>
 
-<!-- Firebase SDK -->
+<!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-// Firebase compat mode (no imports needed)
-(function() {
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
 
+<script>
+(function(){
 const firebaseConfig = {
   apiKey: "AIzaSyC1VafF24ys4XdTZe7lqIDAZjSmOUqM6Lw",
   authDomain: "waza-kimura.firebaseapp.com",
@@ -461,21 +462,18 @@ const firebaseConfig = {
   appId: "1:502684957551:web:0e16f0d37868851479869a"
 };
 
-const app = firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-const provider = new firebase.auth.GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
 
 let currentUser = null;
+let tokenClient = null;
 
 // ── Auth state ──
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   updateAuthUI(user);
-  if(user) {
-    await loadUserData(user.uid);
-  }
+  if(user) await loadUserData(user.uid);
 });
 
 function updateAuthUI(user) {
@@ -485,48 +483,33 @@ function updateAuthUI(user) {
   if(user) {
     btn.textContent = 'ログアウト';
     btn.onclick = () => auth.signOut();
-    if(avatar) {
-      avatar.src = user.photoURL || '';
-      avatar.style.display = user.photoURL ? 'block' : 'none';
-    }
-    // Show import button
+    if(avatar) { avatar.src = user.photoURL||''; avatar.style.display = user.photoURL?'block':'none'; }
     const imp = document.getElementById('yt-import-btn');
     if(imp) imp.style.display = 'flex';
   } else {
     btn.textContent = 'Googleでログイン';
     btn.onclick = () => {
       const p = new firebase.auth.GoogleAuthProvider();
-      p.addScope('https://www.googleapis.com/auth/youtube.readonly');
-      auth.signInWithPopup(p)
-      .then(result => {
-        const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-        if(credential?.accessToken) {
-          window._ytToken = credential.accessToken;
-          console.log('YT token stored:', window._ytToken ? 'yes' : 'no');
-        }
-      }).catch(e => console.error('login error:', e));
+      auth.signInWithPopup(p).catch(e => console.error('login error:', e));
     };
     if(avatar) avatar.style.display = 'none';
     const imp = document.getElementById('yt-import-btn');
     if(imp) imp.style.display = 'none';
+    window._ytToken = null;
   }
 }
 
-// ── Load user video data from Firestore ──
+// ── Load/Save Firestore ──
 async function loadUserData(uid) {
   try {
     const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
     if(snap.exists) {
       const saved = snap.data()?.videos;
       if(saved && saved.length) {
-        // Merge saved metadata into videos array
         saved.forEach(sv => {
           const v = window.videos?.find(v => v.id === sv.id);
-          if(v) {
-            Object.assign(v, sv);
-          } else if(window.videos) {
-            window.videos.push(sv);
-          }
+          if(v) Object.assign(v, sv);
+          else if(window.videos) window.videos.push(sv);
         });
         if(window.AF) window.AF();
         showToast('✅ データを読み込みました');
@@ -535,7 +518,6 @@ async function loadUserData(uid) {
   } catch(e) { console.error('loadUserData:', e); }
 }
 
-// ── Save user video data to Firestore ──
 async function saveUserData() {
   if(!currentUser) return;
   try {
@@ -544,37 +526,53 @@ async function saveUserData() {
       updatedAt: new Date().toISOString()
     });
     showToast('💾 保存しました');
-  } catch(e) {
-    showToast('⚠️ 保存に失敗しました: ' + e.message);
+  } catch(e) { showToast('⚠️ 保存に失敗しました: ' + e.message); }
+}
+
+// ── YouTube import via Google Identity Services ──
+function importYouTubePlaylists() {
+  if(!currentUser) { showToast('⚠️ 先にGoogleでログインしてください'); return; }
+
+  // Initialize token client if needed
+  if(!tokenClient) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: '902402722703-pntspungo868l9jh0ng4nvijdbij1qb4.apps.googleusercontent.com',
+      scope: 'https://www.googleapis.com/auth/youtube.readonly',
+      callback: async (tokenResponse) => {
+        if(tokenResponse.error) { showToast('⚠️ 認証エラー: ' + tokenResponse.error); return; }
+        window._ytToken = tokenResponse.access_token;
+        await fetchPlaylists(window._ytToken);
+      }
+    });
+  }
+
+  // Request token (shows Google consent popup)
+  if(window._ytToken) {
+    // Already have token, use it
+    fetchPlaylists(window._ytToken);
+  } else {
+    tokenClient.requestAccessToken();
   }
 }
 
-// ── YouTube Playlist Import ──
-async function importYouTubePlaylists() {
-  let token = window._ytToken;
-  if(!token) {
-    showToast('⚠️ 一度ログアウトして再ログインしてください');
-    return;
-  }
-
+async function fetchPlaylists(token) {
   showToast('📥 プレイリストを取得中...');
   try {
-    // Get playlists
-    const plRes = await fetch(
+    const res = await fetch(
       'https://www.googleapis.com/youtube/v3/playlists?part=snippet&mine=true&maxResults=50',
       { headers: { Authorization: 'Bearer ' + token } }
     );
-    const plData = await plRes.json();
-    if(plData.error) { showToast('⚠️ ' + plData.error.message); return; }
-
-    const playlists = plData.items || [];
+    const data = await res.json();
+    if(data.error) {
+      // Token expired, refresh
+      window._ytToken = null;
+      showToast('⚠️ トークン期限切れ。再度「YT取込」を押してください');
+      return;
+    }
+    const playlists = data.items || [];
     if(!playlists.length) { showToast('プレイリストが見つかりません'); return; }
-
-    // Show playlist selector
     showPlaylistSelector(playlists, token);
-  } catch(e) {
-    showToast('⚠️ 取得エラー: ' + e.message);
-  }
+  } catch(e) { showToast('⚠️ 取得エラー: ' + e.message); }
 }
 
 function showPlaylistSelector(playlists, token) {
@@ -582,11 +580,12 @@ function showPlaylistSelector(playlists, token) {
   const list = document.getElementById('yt-pl-list');
   if(!ov || !list) return;
   list.innerHTML = playlists.map(pl => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer">
-      <input type="checkbox" value="${pl.id}" data-title="${pl.snippet.title}" style="width:18px;height:18px">
-      <img src="${pl.snippet.thumbnails?.default?.url||''}" style="width:48px;height:36px;object-fit:cover;border-radius:4px">
+    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" value="${pl.id}" data-title="${pl.snippet.title.replace(/"/g,'&quot;')}" style="width:18px;height:18px">
+      <img src="${pl.snippet.thumbnails?.default?.url||''}" style="width:48px;height:36px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'">
       <div>
         <div style="font-size:13px;font-weight:600">${pl.snippet.title}</div>
+        <div style="font-size:11px;color:var(--text3)">${pl.contentDetails?.itemCount||''}本</div>
       </div>
     </label>
   `).join('');
@@ -599,7 +598,6 @@ async function importSelected(token) {
   if(!checks.length) { showToast('プレイリストを選択してください'); return; }
   document.getElementById('yt-import-ov').classList.remove('open');
   showToast('📥 動画を取得中...');
-
   let added = 0;
   for(const cb of checks) {
     const plId = cb.value;
@@ -613,31 +611,18 @@ async function importSelected(token) {
         const s = item.snippet;
         const vid = s.resourceId?.videoId;
         if(!vid) return;
-        if(window.videos?.find(v => v.ytId === vid)) return; // skip duplicates
+        if(window.videos?.find(v => v.ytId === vid)) return;
         window.videos = window.videos || [];
         window.videos.push({
-          id: 'yt-' + vid,
-          ytId: vid,
-          pt: 'youtube',
-          title: s.title,
-          src: 'youtube',
+          id: 'yt-' + vid, ytId: vid, pt: 'youtube',
+          title: s.title, src: 'youtube',
           url: 'https://www.youtube.com/watch?v=' + vid,
           thumb: s.thumbnails?.medium?.url || '',
           ch: s.videoOwnerChannelTitle || '',
           channel: s.videoOwnerChannelTitle || '',
-          pl: plTitle,
-          tb: [],
-          ac: [],
-          pos: [],
-          tech: [],
-          watched: false,
-          fav: false,
-          status: '未着手',
-          prio: 'そのうち',
-          shared: 0,
-          archived: false,
-          memo: '',
-          ai: ''
+          pl: plTitle, tb: [], ac: [], pos: [], tech: [],
+          watched: false, fav: false, status: '未着手',
+          prio: 'そのうち', shared: 0, archived: false, memo: '', ai: ''
         });
         added++;
       });
@@ -658,10 +643,8 @@ function showToast(msg) {
   setTimeout(() => t.remove(), 3000);
 }
 
-// Expose to global scope
 window.importYouTubePlaylists = importYouTubePlaylists;
 window.saveUserData = saveUserData;
-window._auth = auth;
 })();
 </script>
 
