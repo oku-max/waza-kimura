@@ -599,39 +599,49 @@ async function importSelected(token) {
   document.getElementById('yt-import-ov').classList.remove('open');
   showToast('📥 動画を取得中...');
   let added = 0;
-  for(const cb of checks) {
-    const plId = cb.value;
-    const plTitle = cb.dataset.title;
-    let pageToken = '';
-    do {
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken?'&pageToken='+pageToken:''}`;
-      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-      const data = await res.json();
-      (data.items||[]).forEach(item => {
-        const s = item.snippet;
-        const vid = s.resourceId?.videoId;
-        if(!vid) return;
-        if(window.videos?.find(v => v.ytId === vid)) return;
-        window.videos = window.videos || [];
-        window.videos.push({
-          id: 'yt-' + vid, ytId: vid, pt: 'youtube',
-          title: s.title, src: 'youtube',
-          url: 'https://www.youtube.com/watch?v=' + vid,
-          thumb: s.thumbnails?.medium?.url || '',
-          ch: s.videoOwnerChannelTitle || '',
-          channel: s.videoOwnerChannelTitle || '',
-          pl: plTitle, tb: [], ac: [], pos: [], tech: [],
-          watched: false, fav: false, status: '未着手',
-          prio: 'そのうち', shared: 0, archived: false, memo: '', ai: ''
+  try {
+    for(const cb of checks) {
+      const plId = cb.value;
+      const plTitle = cb.dataset.title;
+      console.log('importing playlist:', plId, plTitle);
+      let pageToken = '';
+      do {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken?'&pageToken='+pageToken:''}`;
+        console.log('fetching:', url);
+        const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        console.log('response:', data);
+        if(data.error) { showToast('⚠️ API error: ' + data.error.message); return; }
+        (data.items||[]).forEach(item => {
+          const s = item.snippet;
+          const vid = s.resourceId?.videoId;
+          if(!vid) return;
+          if(window.videos?.find(v => v.ytId === vid)) return;
+          window.videos = window.videos || [];
+          window.videos.push({
+            id: 'yt-' + vid, ytId: vid, pt: 'youtube',
+            title: s.title, src: 'youtube',
+            url: 'https://www.youtube.com/watch?v=' + vid,
+            thumb: s.thumbnails?.medium?.url || '',
+            ch: s.videoOwnerChannelTitle || '',
+            channel: s.videoOwnerChannelTitle || '',
+            pl: plTitle, tb: [], ac: [], pos: [], tech: [],
+            watched: false, fav: false, status: '未着手',
+            prio: 'そのうち', shared: 0, archived: false, memo: '', ai: ''
+          });
+          added++;
         });
-        added++;
-      });
-      pageToken = data.nextPageToken || '';
-    } while(pageToken);
+        pageToken = data.nextPageToken || '';
+      } while(pageToken);
+    }
+    console.log('total added:', added);
+    if(window.AF) window.AF();
+    await saveUserData();
+    showToast(`✅ ${added}本の動画を追加しました`);
+  } catch(e) {
+    console.error('importSelected error:', e);
+    showToast('⚠️ エラー: ' + e.message);
   }
-  if(window.AF) window.AF();
-  await saveUserData();
-  showToast(`✅ ${added}本の動画を追加しました`);
 }
 
 function showToast(msg) {
