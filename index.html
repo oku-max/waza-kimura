@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v14</title>
+<title>WAZA KIMURA v39b</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -101,11 +101,75 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .ai-bar{padding:6px 12px;border-top:1px solid var(--border2);background:var(--gold-soft);display:flex;gap:6px;align-items:flex-start;}
 .ai-bar-text{font-size:10px;color:var(--text);line-height:1.55;flex:1;}
 .memo-bar{padding:5px 12px 7px;font-size:10px;color:var(--text2);font-style:italic;border-top:1px solid var(--border2);}
-.card-player{display:none;padding:10px;background:var(--surface2);border-top:1px solid var(--border2);}
-.card-player.show{display:block;}
-.iframe-wrap{position:relative;padding-bottom:56.25%;height:0;border-radius:8px;overflow:hidden;}
-.iframe-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
-.player-ext-btn{width:100%;margin-top:8px;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;}
+/* PC: side panel instead */
+.vp-panel {
+  display:none;
+  position:fixed;
+  top:52px; right:0; bottom:0;
+  width:360px;
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  z-index:70;
+  flex-direction:column;
+  box-shadow:-4px 0 20px rgba(0,0,0,.1);
+  overflow-y:auto;
+}
+.vp-panel.show { display:flex; }
+.vp-panel-video {
+  position:relative;
+  padding-bottom:56.25%;
+  height:0;
+  background:#000;
+  flex-shrink:0;
+}
+.vp-panel-video iframe {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:none;
+}
+.vp-panel-header {
+  padding:10px 14px;
+  border-bottom:1px solid var(--border2);
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+}
+.vp-panel-title {
+  font-size:12px;
+  font-weight:700;
+  line-height:1.4;
+  flex:1;
+}
+.vp-panel-close {
+  width:28px;
+  height:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  border:1.5px solid var(--border);
+  background:var(--surface2);
+  cursor:pointer;
+  font-size:12px;
+  flex-shrink:0;
+}
+.vp-panel-body {
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  flex:1;
+  overflow-y:auto;
+}
+/* PC: push main area left when panel open */
+@media(min-width:1200px){
+  .main-area.panel-open { margin-right:360px; }
+}
+@media(min-width:768px) and (max-width:1199px){
+  .main-area.panel-open { margin-right:360px; }
+}
 /* Community */
 .belt-chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:2px solid transparent;user-select:none;}
 .belt-chip.white{background:#f5f5f5;color:#555;border-color:#ddd;}
@@ -149,11 +213,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* Archive */
 .arch-card{background:var(--surface);border:1.5px solid var(--border2);border-radius:var(--radius);margin:0 10px 10px;padding:10px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow);}
 /* Bulk bar */
-.bulk-bar{display:none;position:fixed;bottom:80px;left:0;right:0;z-index:150;padding:10px 14px;background:var(--surface);border-top:2px solid var(--accent);box-shadow:0 -4px 20px rgba(100,50,20,.15);}
+.bulk-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:150;padding:6px 12px 8px;background:var(--surface);border-top:2px solid var(--accent);box-shadow:0 -4px 20px rgba(100,50,20,.15);}
 .bulk-bar.show{display:block;}
 .bulk-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;}
 .bulk-actions{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;}
 .ba{padding:8px 13px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;}
+.bbt{padding:4px 9px;border-radius:5px;font-size:10.5px;font-weight:600;cursor:pointer;border:none;white-space:nowrap;background:var(--bc,var(--surface2));color:var(--tc,var(--text2));transition:opacity .1s;flex-shrink:0;}
+.bbt:hover{opacity:.75;}
+.bbt:active{opacity:.5;}
+.bgrp{display:flex;flex-direction:column;gap:4px;flex-shrink:0;padding:0 10px;}
+.bgrp:first-child{padding-left:0;}
+.bgrp-lbl{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.bgrp-row{display:flex;gap:4px;align-items:center;}
+.bsep{width:1px;background:var(--border2);align-self:stretch;flex-shrink:0;margin:0 2px;}
+.bulk-scroll{display:flex;gap:0;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#c0c0bc #e6e6e2;padding-bottom:4px;}
+.bulk-scroll::-webkit-scrollbar{height:5px;}
+.bulk-scroll::-webkit-scrollbar-track{background:#e6e6e2;border-radius:3px;}
+.bulk-scroll::-webkit-scrollbar-thumb{background:#c0c0bc;border-radius:3px;}
+.bulk-picker{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:5px;border:1.5px solid var(--border);background:var(--surface2);font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--text2);min-width:80px;justify-content:space-between;}
+.bulk-picker:hover{border-color:var(--accent);color:var(--text);}
+.bulk-picker.active{border-color:var(--accent);background:#fff0ec;color:var(--accent);}
+.bp-arr{font-size:9px;color:var(--text3);}
+.bp-opt{padding:6px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);}
+.bp-opt:hover{background:var(--surface2);}
+.bp-opt.sel{background:var(--accent);color:#fff;}
 /* Overlay / Sheet */
 .overlay{display:none;position:fixed;inset:0;background:rgba(60,20,5,.55);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
 .overlay.open{display:flex;}
@@ -279,9 +362,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sb-cr{display:flex;flex-wrap:wrap;gap:4px;}
 /* Main */
 .main-area{flex:1;margin-left:0;display:flex;flex-direction:column;min-height:100vh;}
-.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 20px;position:sticky;top:0;z-index:80;}
-.tb-logo{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text);display:none;}
-.tb-logo span{color:var(--text3);}
+
+
+
 .srch{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 12px;}
 .srch input{background:none;border:none;outline:none;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;flex:1;}
 .srch input::placeholder{color:var(--text3);}
@@ -306,7 +389,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .mob-fl:first-child{margin-top:0;}
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:100;}
 /* Tablet nav (topbar内) */
-.topbar-nav{display:none;align-items:center;gap:2px;}
+
 .tn-i{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);white-space:nowrap;}
 .tn-i:hover{background:var(--surface2);}
 .tn-i.active{background:var(--surface2);color:var(--text);}
@@ -317,10 +400,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .fs-nav-i.active{background:var(--surface2);color:var(--text);}
 .mn-i{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 0;cursor:pointer;color:var(--text3);font-size:9.5px;gap:2px;font-weight:500;}
 .mn-i.active{color:var(--text);}
+
+@media(max-width:767px) {
+  
+  
+  .srch { flex: 1; min-width: 0; }
+}
+
 @media(max-width:767px){
   .sidebar{display:none;}
   .main-area{margin-left:0;}
-  .tb-logo{display:flex;}
+  
   .mobile-nav{display:flex;}
   .fbar{padding:8px 12px 2px;}
   .fbar-lbl{width:52px;font-size:9px;}
@@ -341,7 +431,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     min-width:220px;
     flex-shrink:0;
     position:sticky;
-    top:0;
+    top:96px;
     height:100vh;
     overflow-y:hidden;
     background:var(--surface);
@@ -404,7 +494,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   .mobile-nav{ display:flex; }
 }
 @media(min-width:768px) and (max-width:1199px){
-  .topbar-nav{ display:flex; }
+  
 }
 @media(min-width:1200px){
   .fs-nav{ display:block; }
@@ -442,6 +532,351 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 #sbResizer:hover{ background:rgba(0,0,0,0.15); }
 #sbResizer.dragging{ background:var(--accent); }
 
+
+.edit-drawer{display:none;border-top:1px solid var(--border2);margin-top:8px;}
+.edit-drawer.open{display:block;}
+.drawer-inner{padding:12px 4px 4px;}
+.player-edit-btn{padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.drawer-inner .vp-lbl{font-size:8px;}.drawer-inner .vp-chip{font-size:10px;padding:3px 8px;}.drawer-inner .vp-memo{font-size:11px;}
+.player-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+.vp-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.vp-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.vp-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.vp-chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text2);border:1.5px solid var(--border);transition:all .15s;}
+.vp-chip:hover{border-color:var(--accent);color:var(--text);}
+.vp-chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.vp-tag-input{border:none;outline:none;background:transparent;font-size:11px;color:var(--text);width:120px;padding:4px 6px;}
+.vp-memo{width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;background:var(--surface2);color:var(--text);}
+.vp-memo:focus{outline:none;border-color:var(--accent);}
+.vp-btn{padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;}
+.vp-btn.active{background:var(--green-soft);color:var(--green);border-color:var(--green);}
+.vp-btn.fav{background:#fef8f0;color:#c07800;border-color:#e0a020;}
+
+@media(min-width:1200px){
+  
+}
+
+/* ═══ LANDSCAPE MODAL (mobile横向き) ═══ */
+.ls-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  flex-direction: row;
+  background: #000;
+}
+.ls-modal.show { display: flex; }
+@media (orientation: portrait) { .ls-modal { display: none !important; } }
+
+.ls-video {
+  width: 55vw;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  background: #000;
+}
+.ls-video iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border: none;
+}
+.ls-edit {
+  flex: 1;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Phone landscape: vertical layout */
+.ls-modal.ls-phone {
+  flex-direction: column;
+  background: var(--surface);
+}
+.ls-modal.ls-phone .ls-video {
+  width: 100%;
+  flex-shrink: 0;
+}
+.ls-modal.ls-phone .ls-video iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+}
+.ls-edit-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ls-edit-hdr-title {
+  font-size: 11px;
+  font-weight: 700;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ls-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ls-edit-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+@media(max-width:390px) {
+  /* Topbar: tighter padding, smaller elements */
+  
+  
+  .search-wrap { min-width: 0; }
+  .search-bar { font-size: 12px; padding: 7px 10px 7px 32px; }
+  
+  /* Hide "Googleでログイン" text, show icon only */
+  #topLoginBtn span.btn-label { display: none; }
+  /* card-list: less padding */
+  .card-list { padding: 6px 8px; gap: 6px; }
+  /* card-main thumbnail smaller */
+  .card-thumb { width: 88px !important; min-width: 88px !important; height: 50px !important; }
+  /* topbar-fbar tighter */  
+  
+  .fbar-lbl { width: 40px !important; font-size: 8px !important; }
+}
+
+/* Very narrow screens (Fold outer, etc.) */
+@media(max-width:400px) {
+  
+  .fbar-lbl { width: 44px !important; font-size: 8px !important; }
+  .fbar-row { gap: 4px; }
+  .chip { font-size: 11px; padding: 4px 8px; }
+  .card-thumb { width: 96px !important; min-width: 96px !important; height: 54px !important; }
+  .card-title { font-size: 11px; }
+  .card-channel { font-size: 10px; }
+  .tag { font-size: 9px; padding: 1px 5px; }
+  
+  .search-bar { font-size: 12px; }
+}
+
+/* Hide scrollbar on mobile */
+@media(max-width:1199px) {
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+}
+
+@media(max-width:400px) {
+  .results-count-topbar { display: none; }
+  #auth-btn { font-size: 11px !important; padding: 4px 7px !important; }
+  
+}
+
+@media(max-width:767px) {
+  
+  #topbar-btns button { font-size: 11px !important; padding: 4px 8px !important; }
+  #topbar-btns { gap: 5px !important; }
+}
+@media(max-width:400px) {
+  #topbar-btns button { font-size: 10px !important; padding: 3px 6px !important; }
+  #topbar-btns { gap: 4px !important; }
+  /* Hide YT import btn (rarely used) */
+  #yt-import-btn { display: none !important; }
+}
+
+
+/* ═══ VPANEL OVERLAY ═══ */
+.vpanel{position:fixed;inset:0;z-index:300;display:none;pointer-events:none;}
+.vpanel.open{display:flex;pointer-events:auto;}
+.vpanel-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
+.vpanel-inner{
+  position:relative;display:flex;width:100%;height:100%;
+  background:var(--surface);
+  flex-direction:column; /* 1カラム(スマホ): 上下 */
+  overflow:hidden;
+}
+.vpanel-video{background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.vpanel-video iframe{width:100%;aspect-ratio:16/9;border:none;display:block;}
+.vpanel-edit{flex:1;padding:14px;overflow-y:auto;min-height:0;}
+.vpanel-title{font-size:13px;font-weight:800;line-height:1.4;margin-bottom:8px;color:var(--text);}
+.vpanel-close{position:absolute;top:10px;right:12px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* 2カラム(タブレット・PC以外): 左右分割 */
+@media(min-width:768px) and (max-width:1199px){
+  .vpanel-inner{flex-direction:row;}
+  .vpanel-video{flex:0 0 55%;height:100%;}
+  .vpanel-video iframe{width:100%;height:100%;aspect-ratio:unset;}
+  .vpanel-edit{max-height:100vh;}
+}
+
+/* ── topbar・カードグリッド 右端切れ修正 ── */
+
+
+.srch { flex: 1; min-width: 0; }
+#topbar-btns { flex-shrink: 0; display: flex; gap: 4px; align-items: center; }
+
+/* 2カラムグリッド: コンテナが画面幅を超えないよう保証 */
+.main-area { min-width: 0; overflow-x: hidden; }
+.card-list { box-sizing: border-box; width: 100%; }
+
+/* ── フィルターオーバーレイ ── */
+#filter-overlay {
+  display: none;
+}
+#filter-overlay.show { display: block; }
+#filter-overlay-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.3);
+  z-index: 199;
+}
+#filter-overlay-panel {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.15);
+  max-height: 85vh;
+  overflow-y: auto;
+  z-index: 200;
+}
+@media(min-width:1200px){
+  #filter-overlay { display: none !important; }
+}
+#filter-toggle-btn.active {
+  background: var(--text);
+  color: var(--surface);
+}
+
+/* ═══ TOPBAR ═══ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* 1カラム（〜767px）: 2行レイアウト */
+.tb-row1 { display: none; } /* 2カラム専用 */
+.tb-row-logo {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px 0;
+}
+.tb-row-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 8px;
+}
+
+/* 2カラム（768px〜）: 2行レイアウト */
+@media(min-width:768px) {
+  .tb-row-logo {
+    padding: 6px 16px 0;
+  }
+  .tb-row-main {
+    padding: 4px 16px 8px;
+    gap: 8px;
+  }
+}
+
+/* ロゴ */
+.tb-logo {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.3px;
+  color: var(--text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tb-logo span { color: var(--text3); font-weight: 400; }
+
+/* ナビ（2カラムのみ表示） */
+.topbar-nav {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+@media(min-width:768px) {
+  .topbar-nav { display: flex; }
+}
+.tn-i {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text2);
+}
+.tn-i:hover { background: var(--surface2); }
+.tn-i.active { background: var(--text); color: var(--surface); }
+
+/* 検索バー */
+.srch {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 12px;
+}
+.srch input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 12px;
+  width: 100%;
+  color: var(--text);
+}
+
+/* ボタン群 */
+.topbar-btn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.topbar-btn:hover { background: var(--surface3); }
+#filter-toggle-btn.active {
+  background: var(--text);
+  color: var(--surface);
+}
+
+/* PC: topbar非表示、サイドバー通常表示 */
+@media(min-width:1200px) {
+  .topbar { display: none !important; }
+  .app-shell { margin-top: 0 !important; }
+  .filter-sidebar { top: 0 !important; height: 100vh !important; }
+}
+
+@media(min-width:1200px) {
+  .topbar-fbar { display: none !important; }
+}
 </style>
 
 <!-- Firebase SDK (compat) -->
@@ -477,22 +912,26 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 function updateAuthUI(user) {
-  const btn = document.getElementById('auth-btn');
+  const btn    = document.getElementById('auth-btn');
   const avatar = document.getElementById('auth-avatar');
-  if(!btn) return;
+  const fsBtn    = document.getElementById('fs-auth-btn');
+  const fsAvatar = document.getElementById('fs-auth-avatar');
+  const signIn = () => {
+    const p = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(p).catch(e => console.error('login error:', e));
+  };
   if(user) {
-    btn.textContent = 'ログアウト';
-    btn.onclick = () => auth.signOut();
-    if(avatar) { avatar.src = user.photoURL||''; avatar.style.display = user.photoURL?'block':'none'; }
+    if(btn)    { btn.textContent = 'ログアウト';    btn.onclick    = () => auth.signOut(); }
+    if(fsBtn)  { fsBtn.textContent = 'ログアウト';  fsBtn.onclick  = () => auth.signOut(); }
+    if(avatar)   { avatar.src   = user.photoURL||''; avatar.style.display   = user.photoURL?'block':'none'; }
+    if(fsAvatar) { fsAvatar.src = user.photoURL||''; fsAvatar.style.display = user.photoURL?'block':'none'; }
     const imp = document.getElementById('yt-import-btn');
     if(imp) imp.style.display = 'flex';
   } else {
-    btn.textContent = 'Googleでログイン';
-    btn.onclick = () => {
-      const p = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(p).catch(e => console.error('login error:', e));
-    };
-    if(avatar) avatar.style.display = 'none';
+    if(btn)   { btn.textContent   = 'Googleでログイン'; btn.onclick   = signIn; }
+    if(fsBtn) { fsBtn.textContent = 'Googleでログイン'; fsBtn.onclick = signIn; }
+    if(avatar)   avatar.style.display   = 'none';
+    if(fsAvatar) fsAvatar.style.display = 'none';
     const imp = document.getElementById('yt-import-btn');
     if(imp) imp.style.display = 'none';
     window._ytToken = null;
@@ -559,7 +998,7 @@ async function fetchPlaylists(token) {
   showToast('📥 プレイリストを取得中...');
   try {
     const res = await fetch(
-      'https://www.googleapis.com/youtube/v3/playlists?part=snippet&mine=true&maxResults=50',
+      'https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50',
       { headers: { Authorization: 'Bearer ' + token } }
     );
     const data = await res.json();
@@ -575,74 +1014,150 @@ async function fetchPlaylists(token) {
   } catch(e) { showToast('⚠️ 取得エラー: ' + e.message); }
 }
 
+let _ytImportToken = null;
+let _ytPendingVideos = {}; // plId -> [{vid,title,thumb,channel}]
+
 function showPlaylistSelector(playlists, token) {
+  _ytImportToken = token;
   const ov = document.getElementById('yt-import-ov');
   const list = document.getElementById('yt-pl-list');
   if(!ov || !list) return;
-  list.innerHTML = playlists.map(pl => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:4px">
-      <input type="checkbox" value="${pl.id}" data-title="${pl.snippet.title.replace(/"/g,'&quot;')}" style="width:18px;height:18px">
-      <img src="${pl.snippet.thumbnails?.default?.url||''}" style="width:48px;height:36px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'">
-      <div>
-        <div style="font-size:13px;font-weight:600">${pl.snippet.title}</div>
-        <div style="font-size:11px;color:var(--text3)">${pl.contentDetails?.itemCount||''}本</div>
+
+  // Show stage 1
+  document.getElementById('yt-stage1').style.display='';
+  document.getElementById('yt-stage2').style.display='none';
+
+  list.innerHTML = playlists.map(pl => {
+    const count = pl.contentDetails?.itemCount || '?';
+    const thumb = pl.snippet.thumbnails?.medium?.url || pl.snippet.thumbnails?.default?.url || '';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <input type="checkbox" value="${pl.id}" data-title="${pl.snippet.title.replace(/"/g,'&quot;')}" data-count="${count}" style="width:18px;height:18px;flex-shrink:0">
+      <img src="${thumb}" style="width:52px;height:39px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pl.snippet.title}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${count}本</div>
       </div>
-    </label>
-  `).join('');
+    </label>`;
+  }).join('');
+
   ov.classList.add('open');
-  document.getElementById('yt-import-ok').onclick = () => importSelected(token);
+  document.getElementById('yt-import-ok').onclick = () => ytFetchSelectedPlVideos(token);
 }
 
-async function importSelected(token) {
+async function ytFetchSelectedPlVideos(token) {
   const checks = document.querySelectorAll('#yt-pl-list input:checked');
   if(!checks.length) { showToast('プレイリストを選択してください'); return; }
-  document.getElementById('yt-import-ov').classList.remove('open');
-  showToast('📥 動画を取得中...');
-  let added = 0;
-  try {
-    for(const cb of checks) {
-      const plId = cb.value;
-      const plTitle = cb.dataset.title;
-      console.log('importing playlist:', plId, plTitle);
-      let pageToken = '';
-      do {
-        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken?'&pageToken='+pageToken:''}`;
-        console.log('fetching:', url);
-        const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-        const data = await res.json();
-        console.log('response:', data);
-        if(data.error) { showToast('⚠️ API error: ' + data.error.message); return; }
-        (data.items||[]).forEach(item => {
-          const s = item.snippet;
-          const vid = s.resourceId?.videoId;
-          if(!vid) return;
-          if(window.videos?.find(v => v.ytId === vid)) return;
-          window.videos = window.videos || [];
-          window.videos.push({
-            id: 'yt-' + vid, ytId: vid, pt: 'youtube',
-            title: s.title, src: 'youtube',
-            url: 'https://www.youtube.com/watch?v=' + vid,
-            thumb: s.thumbnails?.medium?.url || '',
-            ch: s.videoOwnerChannelTitle || '',
-            channel: s.videoOwnerChannelTitle || '',
-            pl: plTitle, tb: [], ac: [], pos: [], tech: [],
-            watched: false, fav: false, status: '未着手',
-            prio: 'そのうち', shared: 0, archived: false, memo: '', ai: ''
-          });
-          added++;
+
+  document.getElementById('yt-import-ok').textContent = '読込中...';
+  document.getElementById('yt-import-ok').disabled = true;
+
+  const existingYtIds = new Set((window.videos||[]).filter(v=>v.ytId).map(v=>v.ytId));
+  _ytPendingVideos = {};
+
+  for(const cb of checks) {
+    const plId = cb.value;
+    const plTitle = cb.dataset.title;
+    const items = [];
+    let pageToken = '';
+    do {
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken?'&pageToken='+pageToken:''}`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      const data = await res.json();
+      if(data.error) { showToast('⚠️ '+data.error.message); break; }
+      (data.items||[]).forEach(item => {
+        const s = item.snippet;
+        const vid = s.resourceId?.videoId;
+        if(!vid) return;
+        items.push({
+          vid, plId, plTitle,
+          title: s.title,
+          thumb: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+          channel: s.videoOwnerChannelTitle || '',
+          already: existingYtIds.has(vid)
         });
-        pageToken = data.nextPageToken || '';
-      } while(pageToken);
-    }
-    console.log('total added:', added);
-    if(window.AF) window.AF();
-    await saveUserData();
-    showToast(`✅ ${added}本の動画を追加しました`);
-  } catch(e) {
-    console.error('importSelected error:', e);
-    showToast('⚠️ エラー: ' + e.message);
+      });
+      pageToken = data.nextPageToken || '';
+    } while(pageToken);
+    _ytPendingVideos[plId] = { title: plTitle, items };
   }
+
+  document.getElementById('yt-import-ok').textContent = '次へ →';
+  document.getElementById('yt-import-ok').disabled = false;
+
+  ytShowVideoStage();
 }
+
+function ytShowVideoStage() {
+  document.getElementById('yt-stage1').style.display='none';
+  document.getElementById('yt-stage2').style.display='';
+
+  const allItems = Object.values(_ytPendingVideos).flatMap(pl => pl.items);
+  const total = allItems.length;
+  const alreadyCount = allItems.filter(i=>i.already).length;
+
+  document.getElementById('yt-stage2-title').textContent = `動画を選択 (${total}本 / 取込済 ${alreadyCount}本)`;
+
+  const list = document.getElementById('yt-video-list');
+  list.innerHTML = Object.values(_ytPendingVideos).map(pl => `
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:6px 0 4px">${pl.title}</div>
+    ${pl.items.map(item => `
+      <label style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:${item.already?'var(--surface2)':'var(--surface)'};${item.already?'opacity:.5;':'cursor:pointer;'}">
+        <input type="checkbox" class="yt-vid-cb" data-vid="${item.vid}" data-title="${item.title.replace(/"/g,'&quot;')}" data-thumb="${item.thumb}" data-channel="${item.channel.replace(/"/g,'&quot;')}" data-pl="${item.plTitle.replace(/"/g,'&quot;')}" ${item.already?'disabled checked':''}  style="width:16px;height:16px;flex-shrink:0">
+        <img src="${item.thumb}" style="width:56px;height:42px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${item.title}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${item.channel}${item.already?' · ✅ 取込済み':''}</div>
+        </div>
+      </label>`).join('')}
+  `).join('');
+
+  ytUpdateSelCount();
+  list.querySelectorAll('.yt-vid-cb:not([disabled])').forEach(cb => cb.addEventListener('change', ytUpdateSelCount));
+
+  document.getElementById('yt-video-ok').onclick = () => ytImportCheckedVideos();
+}
+
+function ytUpdateSelCount(){
+  const checked = document.querySelectorAll('#yt-video-list .yt-vid-cb:not([disabled]):checked').length;
+  const total = document.querySelectorAll('#yt-video-list .yt-vid-cb:not([disabled])').length;
+  document.getElementById('yt-sel-count').textContent = `${checked} / ${total}本を選択中`;
+}
+function ytSelAllVideos(){document.querySelectorAll('#yt-video-list .yt-vid-cb:not([disabled])').forEach(c=>{c.checked=true;});ytUpdateSelCount();}
+function ytSelNoneVideos(){document.querySelectorAll('#yt-video-list .yt-vid-cb:not([disabled])').forEach(c=>{c.checked=false;});ytUpdateSelCount();}
+function ytBackToPlaylists(){
+  document.getElementById('yt-stage1').style.display='';
+  document.getElementById('yt-stage2').style.display='none';
+}
+
+async function ytImportCheckedVideos() {
+  const checks = document.querySelectorAll('#yt-video-list .yt-vid-cb:not([disabled]):checked');
+  if(!checks.length) { showToast('動画を選択してください'); return; }
+  document.getElementById('yt-import-ov').classList.remove('open');
+  let added = 0;
+  checks.forEach(cb => {
+    const vid = cb.dataset.vid;
+    if(window.videos?.find(v=>v.ytId===vid)) return;
+    window.videos = window.videos || [];
+    window.videos.push({
+      id: 'yt-' + vid, ytId: vid, pt: 'youtube',
+      title: cb.dataset.title,
+      src: 'youtube',
+      url: 'https://www.youtube.com/watch?v=' + vid,
+      thumb: cb.dataset.thumb,
+      ch: cb.dataset.channel,
+      channel: cb.dataset.channel,
+      pl: cb.dataset.pl,
+      watched: false, fav: false, status: '未着手',
+      prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
+      ...(() => { const t=autoTagFromTitle(cb.dataset.title); return {tb:t.tb,ac:t.ac,pos:t.pos,tech:t.tech}; })()
+    });
+    added++;
+  });
+  if(window.AF) window.AF();
+  await saveUserData();
+  showToast(`✅ ${added}本の動画を追加しました`);
+}
+
 
 function showToast(msg) {
   if(window.toast) { window.toast(msg); return; }
@@ -660,13 +1175,102 @@ window.saveUserData = saveUserData;
 
 </head>
 <body>
+<div class="topbar">
+  <!-- 1カラム: ロゴ行 / 2カラム: ロゴ＋ナビ行 -->
+  <div class="tb-row-logo">
+    <div class="tb-logo">WAZA <span>KIMURA</span></div>
+    <nav class="topbar-nav" style="margin-left:8px">
+      <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
+      <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
+      <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')">≡ Organize</div>
+      <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
+    </nav>
+  </div>
+  <!-- 検索＋ボタン行 -->
+  <div class="tb-row-main">
+    <div class="srch"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search title, technique, series..." oninput="AF()"></div>
+    <img id="auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;flex-shrink:0">
+    <button id="auth-btn" class="topbar-btn" onclick="">Googleでログイン</button>
+    <button id="yt-import-btn" onclick="importYouTubePlaylists()" style="display:none;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:#ff0000;color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">▶ YT取込</button>
+    <button onclick="saveUserData()" class="topbar-btn">💾 保存</button>
+    <button id="filter-toggle-btn" onclick="toggleFilterOverlay()" class="topbar-btn">☰ フィルター</button>
+    <button id="bulk-sel-btn" onclick="enterBulk()" class="topbar-btn">☑ 一括編集</button>
+  </div>
+  <span id="totalCount" class="topbar-count" style="display:none"></span>
+</div>
+
+
+<!-- フィルターオーバーレイ -->
+<div id="filter-overlay">
+  <div id="filter-overlay-bg" onclick="toggleFilterOverlay()"></div>
+  <div id="filter-overlay-panel">
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Status</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <div class="chip c-fav" id="fov-chip-fav" onclick="togFav();syncFilterOvChips()">★ Fav</div>
+        <div class="chip c-unw" id="fov-chip-unw" onclick="togUnw();syncFilterOvChips()">Unseen</div>
+        <div class="chip" id="fov-chip-watched" onclick="togWatched();syncFilterOvChips()">視聴済み</div>
+      </div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Progress</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <div class="chip" onclick="togF('status','未着手',this)">未着手</div>
+        <div class="chip" onclick="togF('status','練習中',this)">練習中</div>
+        <div class="chip" onclick="togF('status','マスター',this)">マスター</div>
+      </div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Priority</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <div class="chip" onclick="togF('prio','今すぐ',this)">今すぐ</div>
+        <div class="chip" onclick="togF('prio','そのうち',this)">そのうち</div>
+        <div class="chip" onclick="togF('prio','保留',this)">保留</div>
+      </div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">T / B</span>
+      <div class="hrow" id="fov-srow-tb"></div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Action</span>
+      <div class="hrow" id="fov-srow-ac"></div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Position</span>
+      <div class="hrow" id="fov-srow-pos"></div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Series</span>
+      <div class="hrow" id="fov-srow-pl"></div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:5px">
+      <span class="fbar-lbl">Technique</span>
+      <div class="hrow" id="fov-srow-tech"></div>
+    </div>
+    <div class="fbar-row" style="margin-bottom:8px">
+      <span class="fbar-lbl">Channel</span>
+      <div class="hrow" id="fov-srow-ch"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span id="fov-rc" style="font-size:11px;color:var(--text3)"></span>
+      <button class="btn-sub" onclick="resetFilters();toggleFilterOverlay()">× Reset</button>
+    </div>
+  </div>
+</div>
 <div class="app-shell">
 
 
 <aside class="filter-sidebar" id="filterSidebar">
   <div class="fs-scroll">
   <div class="fs-section" style="padding:14px;border-bottom:1px solid var(--border)">
-    <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">WAZA <span style="color:var(--text3)">KIMURA</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;margin-bottom:10px">WAZA <span style="color:var(--text3)">KIMURA</span></div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
+      <img id="fs-auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;margin:4px 10px;">
+      <div id="fs-auth-btn" onclick="" class="fs-nav-i" style="font-weight:400">Googleでログイン</div>
+      <div onclick="saveUserData()" class="fs-nav-i" style="font-weight:400">💾 保存</div>
+      <div id="fs-bulk-sel-btn" onclick="enterBulk()" class="fs-nav-i" style="font-weight:400">☑ 一括編集</div>
+    </div>
   </div>
   <nav class="fs-nav">
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
@@ -718,68 +1322,20 @@ window.saveUserData = saveUserData;
     <span class="fs-label">Technique</span>
     <div class="fs-hrow" id="fs-srow-tech"></div>
   </div>
+  <div class="fs-section">
+    <span class="fs-label">Channel</span>
+    <div class="fs-hrow" id="fs-srow-ch"></div>
+  </div>
   <div class="fs-reset">
     <button class="clear-btn" onclick="clearAll()" style="width:100%">✕ Reset all</button>
   </div>
   </div><!-- /fs-scroll -->
 </aside><div id="sbResizer"></div><div class="main-area">
-<div class="topbar">
-  <div class="tb-logo">WAZA <span>KIMURA</span></div>
-  <nav class="topbar-nav">
-    <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
-    <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
-    <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')">≡ Organize</div>
-    <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
-  </nav>
-  <div class="srch"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search title, technique, series..." oninput="AF()"></div>
-  <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
-    <img id="auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none">
-    <button id="auth-btn" onclick="" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Googleでログイン</button>
-    <button id="yt-import-btn" onclick="importYouTubePlaylists()" style="display:none;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;border:none;background:#ff0000;color:#fff;font-size:12px;font-weight:600;cursor:pointer">▶ YT取込</button>
-    <button onclick="saveUserData()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);font-size:12px;font-weight:600;cursor:pointer">💾 保存</button>
-  </div>
-  <span id="totalCount"  style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap"></span>
-</div>
-<div style="background:var(--surface);border-bottom:1px solid var(--border);padding:6px 20px;">
-  <div class="fbar-row" style="margin-bottom:5px">
-    <span class="fbar-lbl">Status</span>
-    <div style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center;">
-      <div class="chip c-fav" id="chip-fav" onclick="togFav()">★ Fav</div>
-      <div class="chip c-unw" id="chip-unw" onclick="togUnw()">Unseen</div>
-      <div class="chip" id="chip-watched" onclick="togWatched()">視聴済み</div>
-    </div>
-  </div>
-  <div class="fbar-row" style="margin-bottom:5px">
-    <span class="fbar-lbl">Progress</span>
-    <div style="display:flex;gap:5px;flex-wrap:nowrap;">
-      <div class="chip" onclick="togF('status','未着手',this)">未着手</div>
-      <div class="chip" onclick="togF('status','練習中',this)">練習中</div>
-      <div class="chip" onclick="togF('status','マスター',this)">マスター</div>
-    </div>
-  </div>
-  <div class="fbar-row" style="margin-bottom:0">
-    <span class="fbar-lbl">Priority</span>
-    <div style="display:flex;gap:5px;flex-wrap:nowrap;">
-      <div class="chip" onclick="togF('prio','今すぐ',this)">今すぐ</div>
-      <div class="chip" onclick="togF('prio','そのうち',this)">そのうち</div>
-      <div class="chip" onclick="togF('prio','保留',this)">保留</div>
-    </div>
-  </div>
-</div>
-<div class="fbar">
-  <div class="fbar-row"><span class="fbar-lbl">T / B</span><div class="hrow" id="srow-tb"></div></div>
-  <div class="fbar-row"><span class="fbar-lbl">Action</span><div class="hrow" id="srow-ac"></div></div>
-  <div class="fbar-row"><span class="fbar-lbl">Position</span><div class="hrow" id="srow-pos"></div></div>
-  <div class="fbar-row"><span class="fbar-lbl">Series</span><div class="hrow" id="srow-pl"></div></div>
-  <div class="fbar-row"><span class="fbar-lbl">Technique</span><div class="hrow" id="srow-tech"></div></div>
-  <div id="techFC" style="display:none"></div>
-  <div style="display:flex;justify-content:flex-end;padding:2px 0 6px"><button class="clear-btn" onclick="clearAll()">✕ Reset</button></div>
-</div>
 
 <!-- HOME -->
 
 <div class="tab-panel active" id="homeTab">
-  <div class="results-header"><span class="results-count" id="rc"></span><button class="bulk-btn" id="bulk-sel-btn" onclick="enterBulk()">☑ Select</button></div>
+  <div class="results-header"><span class="results-count" id="rc"></span></div>
   <div class="swipe-hint" id="sh" style="font-size:10px;color:var(--text3);padding:3px 16px">← Archive  /  → Watched</div>
   <div class="card-list" id="cardList"></div>
 </div>
@@ -831,43 +1387,87 @@ window.saveUserData = saveUserData;
 
 <!-- BULK BAR -->
 <div class="bulk-bar" id="bulkBar">
-  <!-- Row 1: 件数 + 選択操作 + キャンセル -->
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-    <span class="bulk-title" id="bulkTit">0本を選択中</span>
-    <button class="ba" onclick="selAll()">全選択</button>
-    <button class="ba" onclick="selNone()">全解除</button>
-    <button class="ba" style="margin-left:auto;background:var(--surface2);color:var(--text)" onclick="exitBulk()">✕ キャンセル</button>
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:6px;padding-bottom:5px;margin-bottom:5px;border-bottom:1px solid var(--border2)">
+    <span id="bulkTit" style="font-size:11px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace;min-width:56px">0本選択</span>
+    <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="selAll()">全選択</button>
+    <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="selNone()">解除</button>
+    <button class="bbt" style="--bc:#edf2f8;--tc:#1a3a5c;margin-left:8px" onclick="bulkUndo()">↩ 取消</button>
+    <button class="bbt" style="--bc:var(--surface3);--tc:var(--text2);margin-left:auto" onclick="exitBulk()">✕ 終了</button>
   </div>
-  <!-- Row 2: 視聴・お気に入り -->
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-    <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);width:64px;flex-shrink:0">Status</span>
-    <button class="ba" style="background:var(--green-soft);color:var(--green)" onclick="bulkDo('watched')">✅ 視聴済み</button>
-    <button class="ba" style="background:var(--surface2);color:var(--text2)" onclick="bulkDo('unwatched')">👁 未視聴</button>
-    <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
-    <button class="ba" style="background:#fef8f0;color:#7a5000" onclick="bulkDo('fav-add')">⭐ Fav追加</button>
-    <button class="ba" style="background:var(--surface2);color:var(--text2)" onclick="bulkDo('fav-remove')">☆ Fav解除</button>
+  <!-- Scrollable actions -->
+  <div class="bulk-scroll">
+    <!-- Status (視聴+Fav) -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Status</span>
+      <div class="bgrp-row">
+        <div class="bulk-picker" id="bp-status" onclick="openBulkPicker('status',this)">
+          <span id="bp-status-lbl">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="bsep"></div>
+    <!-- Priority picker -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Priority</span>
+      <div class="bgrp-row">
+        <div class="bulk-picker" id="bp-prio" onclick="openBulkPicker('prio',this)">
+          <span id="bp-prio-lbl">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="bsep"></div>
+    <!-- Progress picker -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Progress</span>
+      <div class="bgrp-row">
+        <div class="bulk-picker" id="bp-prog" onclick="openBulkPicker('prog',this)">
+          <span id="bp-prog-lbl">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="bsep"></div>
+    <!-- T/B picker -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">T / B</span>
+      <div class="bgrp-row">
+        <div class="bulk-picker" id="bp-tb" onclick="openBulkPicker('tb',this)">
+          <span id="bp-tb-lbl">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="bsep"></div>
+    <!-- Action picker -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Action</span>
+      <div class="bgrp-row">
+        <div class="bulk-picker" id="bp-ac" onclick="openBulkPicker('ac',this)">
+          <span id="bp-ac-lbl">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="bsep"></div>
+    <!-- Position picker -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Position</span>
+      <div class="bgrp-row">
+        <div class="bulk-picker" id="bp-pos" onclick="openBulkPicker('pos',this)">
+          <span id="bp-pos-lbl">▾</span>
+        </div>
+      </div>
+    </div>
+    <div class="bsep"></div>
+    <!-- Other -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Other</span>
+      <div class="bgrp-row">
+        <button class="bbt" style="--bc:var(--purple-soft);--tc:var(--purple)" onclick="bulkDo('archive')">📦 Archive</button>
+        <button class="bbt" style="--bc:#fdecea;--tc:var(--accent)" onclick="bulkDo('remove')">✂ PL除外</button>
+      </div>
+    </div>
   </div>
-  <!-- Row 3: Priority -->
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-    <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);width:64px;flex-shrink:0">Priority</span>
-    <button class="ba" style="background:#fef8f0;color:#7a5000" onclick="bulkSetPrio('今すぐ')">🔴 今すぐ</button>
-    <button class="ba" style="background:#fefbf0;color:#5a4a00" onclick="bulkSetPrio('そのうち')">🟡 そのうち</button>
-    <button class="ba" style="background:var(--surface2);color:var(--text3)" onclick="bulkSetPrio('保留')">⚪ 保留</button>
-  </div>
-  <!-- Row 4: Progress -->
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-    <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);width:64px;flex-shrink:0">Progress</span>
-    <button class="ba" style="background:var(--surface2);color:var(--text3)" onclick="bulkSetProg('未着手')">📋 未着手</button>
-    <button class="ba" style="background:#edf2f8;color:#1a3a5c" onclick="bulkSetProg('練習中')">🔵 練習中</button>
-    <button class="ba" style="background:#edf5f1;color:#1e5a38" onclick="bulkSetProg('マスター')">✅ マスター</button>
-  </div>
-  <!-- Row 5: その他 -->
-  <div style="display:flex;align-items:center;gap:6px">
-    <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);width:64px;flex-shrink:0">Other</span>
-    <button class="ba" style="background:#e3f2fd;color:var(--blue)" onclick="bulkDo('share')">🌐 シェア</button>
-    <button class="ba" style="background:var(--purple-soft);color:var(--purple)" onclick="bulkDo('archive')">📦 アーカイブ</button>
-    <button class="ba" style="background:#fdecea;color:var(--accent)" onclick="bulkDo('remove')">📋 PL除外</button>
-  </div>
+  <!-- Bulk picker dropdown -->
+  <div id="bulk-picker-drop" style="display:none;position:absolute;bottom:100%;left:0;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:8px;box-shadow:var(--shadow-lg);z-index:200;min-width:160px;max-height:240px;overflow-y:auto"></div>
 </div>
 
 
@@ -1038,13 +1638,13 @@ const TECH=["十字絞め","RNC","ギロチン","アナコンダ","ダースチ�
 const BELT_L={white:'白帯',blue:'青帯',purple:'紫帯',brown:'茶帯',black:'黒帯'};
 
 let videos=[
-  {id:"dQw4w9WgXcQ",pt:"youtube",title:"Kimura from Closed Guard - Complete System",ch:"Bernardo Faria BJJ",pl:"クローズドガード",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["クローズドガード"],tech:["キムラ"],prio:"今すぐ",fav:true,memo:"右手の位置に注意",watched:true,status:"練習中",archived:false,shared:2,ai:"クローズドガードからのキムラを体系的に解説。グリップ→腰の角度→フィニッシュの流れ。"},
-  {id:"oHg5SJYRHA0",pt:"youtube",title:"Hip Escape Drill - Escape Every Position",ch:"Gordon Ryan",pl:"エスケープ",tb:["ボトム"],ac:["エスケープ","ドリル"],pos:["サイドコントロール","マウント"],tech:[],prio:"今すぐ",fav:true,memo:"毎練習の最初に見る",watched:false,status:"練習中",archived:false,shared:0,ai:"ヒップエスケープのドリルを各ポジション別に解説。"},
+  {id:"GFE83wYIZYs",ytId:"GFE83wYIZYs",pt:"youtube",title:"Kimura from Closed Guard - Bernardo Faria",ch:"Bernardo Faria BJJ Fanatics",pl:"クローズドガード",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["クローズドガード"],tech:["キムラ"],prio:"今すぐ",fav:true,memo:"右手の位置に注意",watched:true,status:"練習中",archived:false,shared:2,ai:"クローズドガードからのキムラを体系的に解説。グリップ→腰の角度→フィニッシュの流れ。"},
+  {id:"nh7-7JMNqQg",ytId:"nh7-7JMNqQg",pt:"youtube",title:"Hip Escape (Shrimp) Drill - BJJ Fundamentals",ch:"Invisible Jiu-Jitsu",pl:"エスケープ",tb:["ボトム"],ac:["エスケープ・ディフェンス","ドリル"],pos:["サイドコントロール","マウント"],tech:[],prio:"今すぐ",fav:true,memo:"毎練習の最初に見る",watched:false,status:"練習中",archived:false,shared:0,ai:"ヒップエスケープのドリルを各ポジション別に解説。"},
+  {id:"6G1R5gfMQCE",ytId:"6G1R5gfMQCE",pt:"youtube",title:"Triangle Choke from Closed Guard - Step by Step",ch:"Knight Jiu-Jitsu",pl:"クローズドガード",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["クローズドガード"],tech:["十字絞め","アームバー"],prio:"今すぐ",fav:true,memo:"角度の調整が重要",watched:false,status:"マスター",archived:false,shared:2,ai:"クローズドガードからのトライアングルを詳細解説。首の角度と腰の位置の関係性に注目。"},
+  {id:"2_oMGCFHbH8",ytId:"2_oMGCFHbH8",pt:"youtube",title:"Half Guard Sweep - Old School Sweep",ch:"Bernardo Faria BJJ Fanatics",pl:"ハーフガード",tb:["ボトム"],ac:["スイープ"],pos:["ハーフガード"],tech:["シザースイープ"],prio:"保留",fav:false,memo:"試合前に再確認",watched:true,status:"未着手",archived:false,shared:1,ai:"ニーシールドを中心としたハーフガードスイープのシステムを解説。"},
   {id:"76979871",pt:"vimeo",title:"X-Guard Complete System - John Danaher",ch:"Danaher Death Squad",pl:"オープンガード",tb:["ボトム"],ac:["スイープ","アタック"],pos:["Xガード"],tech:["SLXスイープ","アームバー"],prio:"今すぐ",fav:true,memo:"エントリーの細部を練習中",watched:false,status:"練習中",archived:false,shared:2,ai:"ダナハーによるXガードの完全システム。エントリー・スイープ・フィニッシュまで体系的に解説。"},
-  {id:"M7lc1UVf-VE",pt:"youtube",title:"Half Guard Sweep - Knee Shield System",ch:"Tom DeBlass",pl:"ハーフガード",tb:["ボトム"],ac:["スイープ"],pos:["ハーフガード"],tech:["シザースイープ"],prio:"保留",fav:false,memo:"試合前に再確認",watched:true,status:"未着手",archived:false,shared:1,ai:"ニーシールドを中心としたハーフガードスイープのシステムを解説。"},
-  {id:"9bsuvPFNLvE",pt:"youtube",title:"Triangle Choke Setup & Finish from Closed Guard",ch:"Lachlan Giles",pl:"クローズドガード",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["クローズドガード"],tech:["十字絞め","アームバー"],prio:"今すぐ",fav:true,memo:"角度の調整が重要",watched:false,status:"マスター",archived:false,shared:2,ai:"クローズドガードからのトライアングルを詳細解説。首の角度と腰の位置の関係性に注目。"},
   {id:"148751763",pt:"vimeo",title:"Heel Hook Fundamentals - Leg Lock Entry System",ch:"Gordon Ryan Instructionals",pl:"レッグロック",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["Xガード"],tech:["ヒールフック","インサイドヒールフック"],prio:"そのうち",fav:false,memo:"",watched:false,status:"未着手",archived:false,shared:0,ai:"レッグロックエントリーの基礎。50/50、SLXからのヒールフックシステム。"},
-];
+]
 window.videos = videos;
 const CUSERS=[
   {id:"u1",name:"Kenji_BJJ",belt:"blue",gym:"Tri-force新宿",vids:23,fols:41,following:false},
@@ -1061,7 +1661,7 @@ const CVIDS=[
 const TRENDING=["Xガード","クローズドガード","バックコントロール","ハーフガード","ヒールフック","十字絞め","キムラ","ベリンボロ","RNC","エスケープ","ベリンボロ","デラヒーバ"];
 const plVids={"クローズドガード":[{id:"dQw4w9WgXcQ",title:"Kimura from Closed Guard",ch:"Bernardo Faria BJJ"},{id:"9bsuvPFNLvE",title:"Triangle Choke from Closed Guard",ch:"Lachlan Giles"},{id:"xA001",title:"Armbar from Closed Guard",ch:"Bernardo Faria BJJ"}],"ハーフガード":[{id:"M7lc1UVf-VE",title:"Half Guard Sweep",ch:"Tom DeBlass"},{id:"xA002",title:"Deep Half Entry",ch:"Jeff Glover"}],"バックコントロール":[{id:"xA003",title:"Back Take from Turtle",ch:"John Danaher"},{id:"xA004",title:"RNC Finish",ch:"Gordon Ryan"}],"エスケープ":[{id:"oHg5SJYRHA0",title:"Hip Escape Drill",ch:"Gordon Ryan"},{id:"xA005",title:"Mount Escape",ch:"Marcelo Garcia"}]};
 
-let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set()};
+let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set(),channel:new Set()};
 let favOnly=false,unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
 let selIds=new Set(),openPlayer=null,editId=null;
 let dTags={tb:new Set(),action:new Set(),pos:new Set(),tech:new Set()};
@@ -1085,10 +1685,10 @@ function togPlat(p){filters.platform.has(p)?filters.platform.delete(p):filters.p
 function togFav(){favOnly=!favOnly;['chip-fav','m-chip-fav','fs-chip-fav'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',favOnly);});AF();}
 function togUnw(){unwOnly=!unwOnly;['chip-unw','m-chip-unw','fs-chip-unw'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',unwOnly);});AF();}
 function togWatched(){watchedOnly=!watchedOnly;['chip-watched','fs-chip-watched'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',watchedOnly);});AF();}
-function clearAll(){filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set()};favOnly=false;unwOnly=false;watchedOnly=false;document.getElementById('si').value='';document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));renderTFC();AF();}
+function clearAll(){filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set(),channel:new Set()};favOnly=false;unwOnly=false;watchedOnly=false;document.getElementById('si').value='';document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));renderTFC();AF();}
 
 function filt(list){const q=document.getElementById('si').value.toLowerCase();return list.filter(v=>{if(v.archived)return false;if(favOnly&&!v.fav)return false;if(unwOnly&&v.watched)return false;
-    if(watchedOnly&&!v.watched)return false;if(filters.platform.size&&!filters.platform.has(v.pt))return false;if(q&&!v.title.toLowerCase().includes(q)&&!v.ch.toLowerCase().includes(q)&&!v.pl.toLowerCase().includes(q)&&!v.tech.some(t=>t.toLowerCase().includes(q)))return false;if(filters.playlist.size&&!filters.playlist.has(v.pl))return false;if(filters.prio.size&&!filters.prio.has(v.prio))return false;if(filters.status.size&&!filters.status.has(v.status))return false;if(filters.tb.size&&!v.tb.some(t=>filters.tb.has(t)))return false;if(filters.action.size&&!v.ac.some(a=>filters.action.has(a)))return false;if(filters.position.size&&!v.pos.some(p=>filters.position.has(p)))return false;if(filters.tech.size&&!v.tech.some(t=>filters.tech.has(t)))return false;return true;});}
+    if(watchedOnly&&!v.watched)return false;if(filters.platform.size&&!filters.platform.has(v.pt))return false;if(q&&!v.title.toLowerCase().includes(q)&&!v.ch.toLowerCase().includes(q)&&!v.pl.toLowerCase().includes(q)&&!v.tech.some(t=>t.toLowerCase().includes(q)))return false;if(filters.playlist.size&&!filters.playlist.has(v.pl))return false;if(filters.prio.size&&!filters.prio.has(v.prio))return false;if(filters.status.size&&!filters.status.has(v.status))return false;if(filters.tb.size&&!v.tb.some(t=>filters.tb.has(t)))return false;if(filters.action.size&&!v.ac.some(a=>filters.action.has(a)))return false;if(filters.position.size&&!v.pos.some(p=>filters.position.has(p)))return false;if(filters.tech.size&&!v.tech.some(t=>filters.tech.has(t)))return false;if(filters.channel.size&&!filters.channel.has(v.ch))return false;return true;});}
 function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' videos';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();}
 function updatePLC(){buildPlSrow();}
 function renderTFC(){const el=document.getElementById('techFC');if(el)el.innerHTML=[...filters.tech].map(t=>`<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');}
@@ -1102,25 +1702,386 @@ function togPL(p,el){filters.playlist.has(p)?filters.playlist.delete(p):filters.
 
 function renderCards(list,cid){const c=document.getElementById(cid);if(!list.length){c.innerHTML='<div class="empty"><div class="e">🔍</div><p>動画が見つかりませんでした</p></div>';return;}const ord={"今すぐ":0,"そのうち":1,"保留":2};c.innerHTML=[...list].sort((a,b)=>ord[a.prio]-ord[b.prio]).map(v=>cardHTML(v)).join('');}
 function cardHTML(v){
-  // normalize fields - safe defaults for imported videos
   v.tb=v.tb||[];v.ac=v.ac||[];v.pos=v.pos||[];v.tech=v.tech||[];
   v.pt=v.pt||v.src||'youtube';
   const isYT=v.pt==='youtube';
-  const ytId=v.ytId||v.id;
-  const vmId=v.id.replace('yt-','');
+  const ytId=v.ytId||(isYT?v.id:'');
+  const vmId=isYT?'':(v.id||'').replace('yt-','');
   const thumb=isYT?(v.thumb||`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`):`https://vumbnail.com/${vmId}.jpg`;
   const emb=isYT?`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`:`https://player.vimeo.com/video/${vmId}?autoplay=1`;
-  const ext=isYT?`https://www.youtube.com/watch?v=${ytId}`:`https://vimeo.com/${vmId}`;const pc=v.prio==="今すぐ"?"p1":v.prio==="そのうち"?"p2":"p3";const pe=v.prio==="今すぐ"?"🔴":v.prio==="そのうち"?"🟡":"⚪";const sc=v.status==="練習中"?"s1":v.status==="マスター"?"s2":"s0";const se=v.status==="練習中"?"🔵":v.status==="マスター"?"✅":"📋";return`<div class="card-wrap" id="wrap-${v.id}"><div class="swipe-bg"><div class="swipe-bg-l">✅ 視聴済み</div><div class="swipe-bg-r">📦 アーカイブ</div></div><div class="card" id="card-${v.id}"><div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${v.id}"><div class="sel-circle ${selIds.has(v.id)?'chk':''}" onclick="togSel('${v.id}')">${selIds.has(v.id)?'✓':''}</div></div><div class="card-main"><div class="card-thumb" onclick="togPlayer('${v.id}','${emb}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div>${v.watched?'<div class="watched-ov"><span style="font-size:22px">✅</span></div>':''}<div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':'pb-vm'}">${isYT?'YouTube':'Vimeo'}</div><div class="pl-badge">${v.pl}</div></div><div class="card-body"><div class="card-title" style="${v.watched?'opacity:.6':''}">${v.title}</div><div class="card-channel">📺 ${v.ch}</div><div class="card-tags">${v.tb.map(t=>`<span class="tag tag-tb">${t}</span>`).join('')}${v.ac.map(a=>`<span class="tag tag-act">${a}</span>`).join('')}${v.pos.map(p=>`<span class="tag tag-pos">${p}</span>`).join('')}${v.tech.map(t=>`<span class="tag tag-tech">${t}</span>`).join('')}</div><div class="card-footer"><span class="prio-badge ${pc}">${pe} ${v.prio}</span><span class="st-badge ${sc}">${se} ${v.status}</span>${v.shared?`<span class="sh-badge">${v.shared===2?'🌐':'👥'} シェア中</span>`:''}<span class="fav-star" onclick="qFav('${v.id}')">${v.fav?'⭐':'☆'}</span></div></div></div>${v.ai?`<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>`:''}<div class="card-actions"><button class="ca-btn" onclick="togPlayer('${v.id}','${emb}')">▶ 再生</button><button class="ca-btn ${v.watched?'done':''}" onclick="qWatch('${v.id}')">${v.watched?'✅ 済':'👁 見た'}</button><button class="ca-btn" onclick="openEdit('${v.id}')">✏️ 編集</button><button class="ca-btn" onclick="window.open('${ext}','_blank')">${isYT?'📱 YT':'🎥 Vimeo'}</button><button class="ca-btn danger" onclick="archOne('${v.id}')">📦</button></div><div class="card-player" id="player-${v.id}"><div class="iframe-wrap"><iframe id="iframe-${v.id}" src="" allowfullscreen allow="autoplay;encrypted-media"></iframe></div><button class="player-ext-btn" onclick="window.open('${ext}','_blank')">${isYT?'📱 YouTubeアプリで開く':'🎥 Vimeoで開く'}</button></div></div></div>`;}
+  const ext=isYT?`https://www.youtube.com/watch?v=${ytId}`:`https://vimeo.com/${vmId}`;
+  const pc=v.prio==='今すぐ'?'p1':v.prio==='そのうち'?'p2':'p3';
+  const pe=v.prio==='今すぐ'?'🔴':v.prio==='そのうち'?'🟡':'⚪';
+  const sc=v.status==='練習中'?'s1':v.status==='マスター'?'s2':'s0';
+  const se=v.status==='練習中'?'🔵':v.status==='マスター'?'✅':'📋';
+  // Encode emb/ext as data attributes to avoid quote hell
+  const vid=v.id;
+  return`<div class="card-wrap" id="wrap-${vid}"><div class="swipe-bg"><div class="swipe-bg-l">✅ 視聴済み</div><div class="swipe-bg-r">📦 アーカイブ</div></div><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':'vm'}"><div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div>${v.watched?'<div class="watched-ov"><span style="font-size:22px">✅</span></div>':''}<div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':'pb-vm'}">${isYT?'YouTube':'Vimeo'}</div><div class="pl-badge">${v.pl}</div></div><div class="card-body"><div class="card-title" style="${v.watched?'opacity:.6':''}">${v.title}</div><div class="card-channel">📺 ${v.ch}</div><div class="card-tags">${v.tb.map(t=>`<span class="tag tag-tb">${t}</span>`).join('')}${v.ac.map(a=>`<span class="tag tag-act">${a}</span>`).join('')}${v.pos.map(p=>`<span class="tag tag-pos">${p}</span>`).join('')}${v.tech.map(t=>`<span class="tag tag-tech">${t}</span>`).join('')}</div><div class="card-footer"><span class="prio-badge ${pc}">${pe} ${v.prio}</span><span class="st-badge ${sc}">${se} ${v.status}</span>${v.shared?`<span class="sh-badge">${v.shared===2?'🌐':'👥'} シェア中</span>`:''}<span class="fav-star" onclick="event.stopPropagation();qFav('${vid}')">${v.fav?'⭐':'☆'}</span></div></div></div>${v.ai?`<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>`:''}<div class="card-actions"><button class="ca-btn" onclick="openVPanel('${vid}')">▶ 再生</button><button class="ca-btn ${v.watched?'done':''}" onclick="qWatch('${vid}')">${v.watched?'✅ 済':'👁 見た'}</button><button class="ca-btn" onclick="openEdit('${vid}')">✏️ 編集</button><button class="ca-btn" onclick="vpOpenExt('${vid}')">${isYT?'📱 YT':'🎥 Vimeo'}</button><button class="ca-btn danger" onclick="archOne('${vid}')">📦</button></div></div></div>`;
+}
 
-function togPlayer(id,emb){const pl=document.getElementById(`player-${id}`),ifr=document.getElementById(`iframe-${id}`);if(!pl||!ifr)return;const open=pl.classList.contains('show');if(openPlayer&&openPlayer!==id){const op=document.getElementById(`player-${openPlayer}`),oi=document.getElementById(`iframe-${openPlayer}`);if(op)op.classList.remove('show');if(oi)oi.src='';}if(open){pl.classList.remove('show');ifr.src='';openPlayer=null;}else{pl.classList.add('show');ifr.src=emb;openPlayer=id;setTimeout(()=>document.getElementById(`card-${id}`)?.scrollIntoView({behavior:'smooth',block:'nearest'}),100);}}
+// ── Video Player (vpanel overlay) ──
+let openVPanelId = null;
+
+function openVPanel(id) {
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  const emb = card.dataset.emb;
+  const ext = card.dataset.ext;
+  const plat = card.dataset.plat;
+  const v = videos.find(v => v.id === id);
+  if (!v) return;
+
+  // PC: サイドパネル
+  if (window.innerWidth >= 1200) {
+    _openPanel(id, emb, ext, plat);
+    return;
+  }
+
+  // モバイル/タブレット: vpanelオーバーレイ
+  openVPanelId = id;
+  const panel = document.getElementById('vpanel');
+  const iframe = document.getElementById('vpanel-iframe');
+  const editArea = document.getElementById('vpanel-edit-area');
+
+  iframe.src = emb;
+  editArea.innerHTML = buildDrawerHTML(id);
+  editArea.querySelectorAll('.vp-tech-rm').forEach(el => {
+    el.onclick = function() { vpRemoveTechEl(this); };
+  });
+
+  const titleEl = document.getElementById('vpanel-title');
+  if (titleEl) titleEl.textContent = v.title;
+
+  const extBtn = document.getElementById('vpanel-ext-btn');
+  if (extBtn) {
+    extBtn.textContent = plat === 'yt' ? '📱 YouTubeで開く' : '🎥 Vimeoで開く';
+    extBtn.onclick = () => window.open(ext, '_blank');
+  }
+
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVPanel() {
+  const panel = document.getElementById('vpanel');
+  const iframe = document.getElementById('vpanel-iframe');
+  if (openVPanelId) vpSave(openVPanelId);
+  iframe.src = '';
+  panel.classList.remove('open');
+  document.body.style.overflow = '';
+  openVPanelId = null;
+}
+
+// カードのサムネイル・再生ボタンから呼ばれる
+function togPlayerByCard(el) {
+  const card = el.closest('.card');
+  if (!card) return;
+  openVPanel(card.dataset.id);
+}
+
+// 互換エイリアス
+function togPlayer(id) { openVPanel(id); }
+function _closePlayer(id) { closeVPanel(); }
+
+
+function togVpDrawer(id) {
+  const drawer = document.getElementById('drawer-' + id);
+  const editBtn = document.getElementById('vedit-' + id);
+  if(!drawer) return;
+  const isOpen = drawer.classList.contains('show');
+  if(isOpen) {
+    drawer.classList.remove('show');
+    editBtn.classList.remove('open');
+  } else {
+    drawer.innerHTML = buildDrawerHTML(id);
+    drawer.classList.add('show');
+    editBtn.classList.add('open');
+    // Bind tech remove chips
+    drawer.querySelectorAll('.vp-tech-rm').forEach(el => {
+      el.onclick = function(){ vpRemoveTechEl(this); };
+    });
+  }
+}
+
+function buildDrawerHTML(id) {
+  const v = videos.find(v => v.id === id);
+  if(!v) return '';
+
+  const TB_OPTS = ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'];
+  const AC_OPTS = ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル'];
+  const POS_OPTS = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+
+  const prioChips = [
+    {v:'今すぐ',l:'🔴 今すぐ',c:'on-p1'},
+    {v:'そのうち',l:'🟡 そのうち',c:'on-p2'},
+    {v:'保留',l:'⚪ 保留',c:'on-p3'}
+  ].map(o=>`<span class="vp-chip${v.prio===o.v?' '+o.c:''}" onclick="vpSet('${id}','prio','${o.v}',this,'${o.c}')">${o.l}</span>`).join('');
+
+  const progChips = [
+    {v:'未着手',l:'📋 未着手',c:'on-s0'},
+    {v:'練習中',l:'🔵 練習中',c:'on-s1'},
+    {v:'マスター',l:'✅ マスター',c:'on-s2'}
+  ].map(o=>`<span class="vp-chip${v.status===o.v?' '+o.c:''}" onclick="vpSet('${id}','status','${o.v}',this,'${o.c}')">${o.l}</span>`).join('');
+
+  const tbChips = TB_OPTS.map(t=>`<span class="vp-chip${(v.tb||[]).includes(t)?' on-tb':''}" onclick="vpTog('${id}','tb','${t}',this,'on-tb')">${t}</span>`).join('');
+  const acChips = AC_OPTS.map(a=>`<span class="vp-chip${(v.ac||[]).includes(a)?' on-ac':''}" onclick="vpTog('${id}','ac','${a}',this,'on-ac')">${a}</span>`).join('');
+  const posChips = POS_OPTS.map(p=>`<span class="vp-chip${(v.pos||[]).includes(p)?' on-pos':''}" onclick="vpTog('${id}','pos','${p}',this,'on-pos')">${p}</span>`).join('');
+  const techChips = (v.tech||[]).map(t=>`<span class="vp-chip on-tech vp-tech-rm" data-id="${id}" data-val="${t.replace(/"/g,'&quot;')}">${t} ×</span>`).join('');
+
+  return `
+    <div class="vp-row">
+      <span class="vp-lbl">Priority</span>
+      <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Progress</span>
+      <div class="vp-chips" id="vp-prog-${id}">${progChips}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">T / B</span>
+      <div class="vp-chips" id="vp-tb-${id}">${tbChips}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Action</span>
+      <div class="vp-chips" id="vp-ac-${id}">${acChips}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Position</span>
+      <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Technique</span>
+      <div class="vp-chips" id="vp-tech-${id}">${techChips}<input class="vp-tech-inp" placeholder="＋ 追加" onkeydown="vpAddTech('${id}',event,this)"></div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Memo</span>
+      <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど...">${v.memo||''}</textarea>
+    </div>
+    <div class="vp-toggles">
+      <div class="vp-tog${v.watched?' on-watch':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'✅ 視聴済み':'👁 未視聴'}</div>
+      <div class="vp-tog${v.fav?' on-fav':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">${v.fav?'⭐ Fav':'☆ Fav'}</div>
+    </div>
+    <button class="vp-save-btn" onclick="vpSave('${id}')">💾 保存</button>
+  `;
+}
+
+// ── VP edit functions ──
+function vpSet(id, field, val, el, cls) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  v[field] = val;
+  el.parentElement.querySelectorAll('.vp-chip').forEach(c => {
+    c.classList.remove('on-p1','on-p2','on-p3','on-s0','on-s1','on-s2');
+  });
+  el.classList.add(cls);
+}
+
+function vpTog(id, field, val, el, cls) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  const arr = v[field] || [];
+  if(arr.includes(val)) {
+    v[field] = arr.filter(x=>x!==val);
+    el.classList.remove(cls);
+  } else {
+    v[field] = [...arr, val];
+    el.classList.add(cls);
+  }
+}
+
+function vpAddTech(id, e, inp) {
+  if(e.key !== 'Enter') return;
+  const val = inp.value.trim(); if(!val) return;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  if(!(v.tech||[]).includes(val)) {
+    v.tech = [...(v.tech||[]), val];
+    // Add chip before input
+    const chip = document.createElement('span');
+    chip.className = 'vp-chip on-tech';
+    chip.textContent = val + ' ×';
+    chip.dataset.id = id; chip.dataset.val = val;
+    chip.classList.add('vp-tech-rm');
+    chip.onclick = function(){ vpRemoveTechEl(this); };
+    inp.parentElement.insertBefore(chip, inp);
+  }
+  inp.value = '';
+}
+
+function vpRemoveTechEl(el) {
+  const id = el.dataset.id;
+  const val = el.dataset.val;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  v.tech = (v.tech||[]).filter(t=>t!==val);
+  el.remove();
+}
+
+function vpTogWatch(id, el) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  v.watched = !v.watched;
+  el.className = 'vp-tog' + (v.watched ? ' on-watch' : '');
+  el.textContent = v.watched ? '✅ 視聴済み' : '👁 未視聴';
+}
+
+function vpTogFav(id, el) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  v.fav = !v.fav;
+  el.className = 'vp-tog' + (v.fav ? ' on-fav' : '');
+  el.textContent = v.fav ? '⭐ Fav' : '☆ Fav';
+}
+
+function vpSave(id) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  const memo = document.getElementById('vp-memo-' + id);
+  if(memo) v.memo = memo.value.trim();
+  AF();
+  toast('💾 保存しました');
+}
+
+// ── PC Side Panel ──
+let panelId = null;
+function _openPanel(id, emb, ext, plat) {
+  panelId = id;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  let panel = document.getElementById('vp-panel');
+  if(!panel) {
+    panel = document.createElement('div');
+    panel.id = 'vp-panel';
+    panel.className = 'vp-panel';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `
+    <div class="vp-panel-video"><iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>
+    <div class="vp-panel-header">
+      <div class="vp-panel-title">${v.title}</div>
+      <div class="vp-panel-close" onclick="closePanel()">✕</div>
+    </div>
+    <div class="vp-panel-body">
+      <button class="vp-ext-btn" onclick="window.open('${ext}','_blank')">${plat==='yt'?'📱 YouTubeで開く':'🎥 Vimeoで開く'}</button>
+      ${buildDrawerHTML(id)}
+    </div>
+  `;
+  panel.classList.add('show');
+  document.querySelector('.main-area').classList.add('panel-open');
+  // close prev inline player if any
+  if(openPlayer) _closePlayer(openPlayer);
+  openPlayer = id;
+}
+
+function closePanel() {
+  const panel = document.getElementById('vp-panel');
+  if(panel) panel.classList.remove('show');
+  document.querySelector('.main-area').classList.remove('panel-open');
+  if(openPlayer) { _closePlayer(openPlayer); openPlayer = null; }
+  panelId = null;
+}
+
 
 function qFav(id){const v=videos.find(v=>v.id===id);if(v){v.fav=!v.fav;AF();toast(v.fav?'⭐ お気に入り追加':'お気に入り解除');}}
 function qWatch(id){const v=videos.find(v=>v.id===id);if(v){v.watched=!v.watched;AF();toast(v.watched?'✅ 視聴済み':'👁 未視聴に戻しました');}}
 function archOne(id){const v=videos.find(v=>v.id===id);if(v){v.archived=true;AF();toast('📦 アーカイブ');}}
 function addSwipe(){document.querySelectorAll('.card[id^="card-"]').forEach(card=>{let sx=0,sy=0,mv=false;card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;mv=false;},{passive:true});card.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-sx,dy=Math.abs(e.touches[0].clientY-sy);if(dy>20)return;if(Math.abs(dx)>8){mv=true;card.style.transform=`translateX(${dx*.4}px)`;}},{passive:true});card.addEventListener('touchend',e=>{card.style.transform='';if(!mv)return;const dx=e.changedTouches[0].clientX-sx,id=card.id.replace('card-','');if(dx>60)qWatch(id);else if(dx<-60)archOne(id);});});}
 
-function enterBulk(ctx='home'){bulkMode=true;bulkCtx=ctx;selIds.clear();document.getElementById('bulkBar').classList.add('show');document.getElementById('sh').style.display='none';AF();updBulk();}
-function exitBulk(){bulkMode=false;selIds.clear();document.getElementById('bulkBar').classList.remove('show');document.getElementById('sh').style.display='';AF();if(bulkCtx==='organize')renderOrg();}
+let bulkUndoStack=[];
+function enterBulk(ctx='home'){bulkMode=true;bulkCtx=ctx;selIds.clear();bulkUndoStack=[];document.getElementById('bulkBar').classList.add('show');const sh=document.getElementById('sh');if(sh)sh.style.display='none';AF();updBulk();}
+function bulkSnapshot(){bulkUndoStack.push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],ac:[...(v.ac||[])],pos:[...(v.pos||[])],tech:[...(v.tech||[])],pl:v.pl,archived:v.archived})));}
+// ─── Bulk Picker ───
+const BULK_PICKER_OPTS = {
+  status: [{val:'watched',label:'✅ 視聴済み'},{val:'unwatched',label:'👁 未視聴'},{val:'fav-add',label:'★ Fav追加'},{val:'fav-remove',label:'☆ Fav解除'}],
+  prio: [{val:'今すぐ',label:'🔴 今すぐ'},{val:'そのうち',label:'🟡 そのうち'},{val:'保留',label:'⚪ 保留'}],
+  prog: [{val:'未着手',label:'📋 未着手'},{val:'練習中',label:'🔵 練習中'},{val:'マスター',label:'✅ マスター'}],
+  tb:   [{val:'トップ',label:'▲ トップ'},{val:'ボトム',label:'▽ ボトム'},{val:'スタンディング',label:'↑ スタンディング'},{val:'バック',label:'↩ バック'},{val:'ハーフ',label:'½ ハーフ'},{val:'ドリル',label:'🔁 ドリル'}],
+  ac:   [{val:'エスケープ・ディフェンス',label:'🛡 Escape'},{val:'パスガード',label:'→ Pass'},{val:'アタック',label:'⚡ Attack'},{val:'スイープ',label:'↩ Sweep'},{val:'リテンション',label:'🔄 Retention'},{val:'コントロール',label:'✊ Control'},{val:'テイクダウン',label:'↓ Takedown'},{val:'フィニッシュ',label:'🔒 Finish'},{val:'ドリル',label:'🔁 Drill'}],
+  pos:  [{val:'クローズドガード',label:'🛡 Closed'},{val:'ハーフガード',label:'½ Half'},{val:'マウント',label:'▲ Mount'},{val:'サイドコントロール',label:'▷ Side'},{val:'バック',label:'↩ Back'},{val:'タートル',label:'🐢 Turtle'},{val:'Xガード',label:'✕ X-Guard'},{val:'デラヒーバ',label:'🌀 DLR'},{val:'バタフライガード',label:'🦋 Butterfly'},{val:'オープンガード',label:'○ Open'},{val:'50/50',label:'⚖ 50/50'},{val:'スタンディング',label:'↑ Standing'}]
+};
+let activeBulkPicker = null;
+
+function openBulkPicker(type, el) {
+  const drop = document.getElementById('bulk-picker-drop');
+  if(activeBulkPicker === type) {
+    drop.style.display = 'none';
+    activeBulkPicker = null;
+    return;
+  }
+  activeBulkPicker = type;
+  const opts = BULK_PICKER_OPTS[type] || [];
+  const isToggle = ['tb','ac','pos'].includes(type);
+  const field = type === 'prog' ? 'status' : type === 'prio' ? 'prio' : type === 'tb' ? 'tb' : type === 'ac' ? 'ac' : 'pos';
+
+  drop.innerHTML = opts.map(o => {
+    const isSel = isToggle
+      ? [...selIds].some(id => { const v=videos.find(v=>v.id===id); return v&&(v[field]||[]).includes(o.val); })
+      : false;
+    return `<div class="bp-opt${isSel?' sel':''}" onclick="applyBulkPicker('${type}','${o.val}',this)">${o.label}</div>`;
+  }).join('');
+
+  // Position dropdown above the picker button
+  const rect = el.getBoundingClientRect();
+  const barRect = document.getElementById('bulkBar').getBoundingClientRect();
+  drop.style.display = 'block';
+  drop.style.left = (rect.left - barRect.left) + 'px';
+  drop.style.bottom = (barRect.height + 2) + 'px';
+}
+
+function applyBulkPicker(type, val, optEl) {
+  bulkSnapshot();
+  const ids = [...selIds];
+  if(type === 'status') {
+    bulkDo(val);
+    const statusLabels = {watched:'✅ 済み',unwatched:'👁 未視聴','fav-add':'★ Fav','fav-remove':'☆ 解除'};
+    document.getElementById('bp-status-lbl').textContent = (statusLabels[val]||val) + ' ▾';
+    document.getElementById('bp-status').classList.add('active');
+    document.getElementById('bulk-picker-drop').style.display = 'none';
+    activeBulkPicker = null;
+    return;
+  } else if(type === 'prio') {
+    ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.prio=val; });
+    document.getElementById('bp-prio-lbl').textContent = val + ' ▾';
+    document.getElementById('bp-prio').classList.add('active');
+    toast('✅ '+ids.length+'本 → Priority: '+val);
+  } else if(type === 'prog') {
+    ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.status=val; });
+    document.getElementById('bp-prog-lbl').textContent = val + ' ▾';
+    document.getElementById('bp-prog').classList.add('active');
+    toast('✅ '+ids.length+'本 → Progress: '+val);
+  } else {
+    // toggle tag
+    const field = type === 'tb' ? 'tb' : type === 'ac' ? 'ac' : 'pos';
+    let added=0, removed=0;
+    ids.forEach(id => {
+      const v=videos.find(v=>v.id===id); if(!v) return;
+      const arr=v[field]||[];
+      if(arr.includes(val)) { v[field]=arr.filter(x=>x!==val); removed++; }
+      else { v[field]=[...arr,val]; added++; }
+    });
+    optEl.classList.toggle('sel');
+    const lblId = 'bp-'+type+'-lbl';
+    document.getElementById(lblId).textContent = (val.length > 6 ? val.slice(0,6)+'…' : val) + ' ▾';
+    document.getElementById('bp-'+type).classList.add('active');
+    toast((added?'＋'+added+' ':'')+( removed?'−'+removed+' ':'')+val);
+  }
+  AF();
+  // Don't close dropdown - user might want to apply more
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', function(e) {
+  if(activeBulkPicker && !e.target.closest('.bulk-picker') && !e.target.closest('#bulk-picker-drop')) {
+    document.getElementById('bulk-picker-drop').style.display = 'none';
+    activeBulkPicker = null;
+  }
+});
+
+function bulkUndo(){if(!bulkUndoStack.length){toast('元に戻す履歴がありません');return;}const snap=bulkUndoStack.pop();snap.forEach(s=>{const v=videos.find(v=>v.id===s.id);if(v)Object.assign(v,s);});AF();toast('↩ 元に戻しました');}
+function resetBulkPickers(){
+  ['status','prio','prog','tb','ac','pos'].forEach(t=>{
+    const lbl=document.getElementById('bp-'+t+'-lbl');
+    if(lbl)lbl.textContent='▾';
+    const el=document.getElementById('bp-'+t);
+    if(el)el.classList.remove('active');
+  });
+  const drop=document.getElementById('bulk-picker-drop');
+  if(drop)drop.style.display='none';
+  activeBulkPicker=null;
+}
+function exitBulk(){bulkMode=false;selIds.clear();resetBulkPickers();document.getElementById('bulkBar').classList.remove('show');document.getElementById('sh').style.display='';AF();if(bulkCtx==='organize')renderOrg();}
 function togSel(id){selIds.has(id)?selIds.delete(id):selIds.add(id);const c=document.getElementById(`sel-${id}`)?.querySelector('.sel-circle');if(c){c.classList.toggle('chk',selIds.has(id));c.textContent=selIds.has(id)?'✓':'';}updBulk();}
 function updBulk(){
   document.getElementById('bulkTit').textContent=selIds.size+'本を選択中';
@@ -1129,9 +2090,10 @@ function updBulk(){
 }
 function selAll(){const f=filt(videos);f.forEach(v=>selIds.add(v.id));AF();}
 function selNone(){selIds.clear();AF();updBulk();}
-function bulkSetPrio(val){const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.prio=val;});toast('🔴 '+ids.length+'本のPriorityを「'+val+'」に変更');closeOv('bulkPrioOv');exitBulk();}
-function bulkSetProg(val){const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.status=val;});toast('🔵 '+ids.length+'本のProgressを「'+val+'」に変更');closeOv('bulkProgOv');exitBulk();}
-function bulkDo(type){if(!selIds.size){toast('動画を選択してください');return;}const ids=[...selIds];if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});toast('✅ '+ids.length+'本を視聴済みに');exitBulk();}else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});toast('👁 '+ids.length+'本を未視聴に戻した');exitBulk();}else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});toast('⭐ '+ids.length+'本をお気に入りに追加');exitBulk();}else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});toast('☆ '+ids.length+'本のお気に入りを解除');exitBulk();}else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});toast('📦 '+ids.length+'本をアーカイブ');exitBulk();}else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});toast('🌐 '+ids.length+'本を全体公開にシェア');exitBulk();}else if(type==='remove'){showConf('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});toast('除外しました');exitBulk();});}}
+function bulkSetPrio(val){bulkSnapshot();const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.prio=val;});AF();toast('✅ '+ids.length+'本 → Priority: '+val);}
+function bulkSetProg(val){bulkSnapshot();const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.status=val;});AF();toast('✅ '+ids.length+'本 → Progress: '+val);}
+function bulkTogTag(field,val){bulkSnapshot();const ids=[...selIds];let added=0,removed=0;ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(!v)return;const arr=v[field]||[];if(arr.includes(val)){v[field]=arr.filter(x=>x!==val);removed++;}else{v[field]=[...arr,val];added++;}});toast((added?'＋'+added+'本に追加 ':'')+( removed?'−'+removed+'本から除去 ':'')+val);AF();}
+function bulkDo(type){if(!selIds.size){toast('動画を選択してください');return;}const ids=[...selIds];if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});AF();toast('✅ '+ids.length+'本を視聴済みに');}else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});AF();toast('👁 '+ids.length+'本を未視聴に戻した');}else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});AF();toast('⭐ '+ids.length+'本をお気に入りに追加');}else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});AF();toast('☆ '+ids.length+'本のお気に入りを解除');}else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});AF();toast('📦 '+ids.length+'本をアーカイブ');}else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});AF();toast('🌐 '+ids.length+'本を全体公開にシェア');}else if(type==='remove'){showConf('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});AF();toast('✂ 除外しました');});}}
 
 function setOrg(v,el){orgView=v;document.querySelectorAll('.org-btn').forEach(b=>{b.classList.remove('on');});el.classList.add('on');renderOrg();}
 function renderOrg(){let list=videos.filter(v=>!v.archived);if(orgView==='no-tech')list=list.filter(v=>!v.tech.length);else if(orgView==='unwatched')list=list.filter(v=>!v.watched);else if(orgView==='no-memo')list=list.filter(v=>!v.memo);else if(orgView==='by-pl'){const pls=[...new Set(list.map(v=>v.pl))];document.getElementById('orgList').innerHTML=pls.map(pl=>`<div style="padding:10px 2px 4px;font-size:13px;font-weight:800;color:var(--text2)">📋 ${pl} (${list.filter(v=>v.pl===pl).length}本)</div>`+list.filter(v=>v.pl===pl).map(v=>cardHTML(v)).join('')).join('');document.getElementById('oc').textContent=`${list.length}本`;addSwipe();return;}renderCards(list,'orgList');document.getElementById('oc').textContent=`${list.length}本`;addSwipe();}
@@ -1179,7 +2141,67 @@ function addCT(t){if(t&&!dTags.tech.has(t)){dTags.tech.add(t);document.getElemen
 function techKD(e){if(e.key==='Enter'){const q=document.getElementById('techSrch').value.trim();if(q)addCT(q);}}
 function renderST(){document.getElementById('selTechs').innerHTML=[...dTags.tech].map(t=>`<div class="tech-chip" onclick="rmT('${t}')">${t} <span>×</span></div>`).join('');}
 function rmT(t){dTags.tech.delete(t);filterTechs();renderST();}
-function runAI(){const v=videos.find(v=>v.id===editId);if(!v)return;const btn=document.getElementById('aiBtn');btn.textContent='⏳...';btn.disabled=true;setTimeout(()=>{const tl=v.title.toLowerCase();const demo=tl.includes('kimura')?["キムラ"]:tl.includes('triangle')||tl.includes('choke')?["十字絞め","アームバー"]:tl.includes('back')?["バックテイク","ボウアンドアロー"]:tl.includes('sweep')?["シザースイープ"]:tl.includes('heel')||tl.includes('leg')?["ヒールフック","インサイドヒールフック"]:tl.includes('x-guard')||tl.includes('x guard')?["SLXスイープ","アームバー"]:["アームバー"];demo.forEach(t=>dTags.tech.add(t));renderST();filterTechs();btn.textContent='✨ AI自動';btn.disabled=false;toast(`✨ ${demo.length}件のテクニックを検出`);},1200);}
+function autoTagFromTitle(title) {
+  const tl = title.toLowerCase();
+  const tech = [];
+  const tb = [];
+  const ac = [];
+  const pos = [];
+  // Technique detection
+  if(tl.includes('kimura')||tl.includes('キムラ')) tech.push('キムラ');
+  if(tl.includes('triangle')||tl.includes('トライアングル')) tech.push('十字絞め');
+  if(tl.includes('armbar')||tl.includes('arm bar')) tech.push('アームバー');
+  if(tl.includes('rear naked')||tl.includes('rnc')) tech.push('RNC');
+  if(tl.includes('guillotine')||tl.includes('ギロチン')) tech.push('ギロチン');
+  if(tl.includes('heel hook')||tl.includes('heelhook')) tech.push('ヒールフック');
+  if(tl.includes('inside heel')) tech.push('インサイドヒールフック');
+  if(tl.includes('outside heel')) tech.push('アウトサイドヒールフック');
+  if(tl.includes('toe hold')) tech.push('トーホールド');
+  if(tl.includes('kneebar')||tl.includes('knee bar')) tech.push('ニーバー');
+  if(tl.includes('americana')) tech.push('アメリカーナ');
+  if(tl.includes('omoplata')||tl.includes('オモプラッタ')) tech.push('オモプラッタ');
+  if(tl.includes('berimbolo')||tl.includes('ベリンボロ')) tech.push('ベリンボロ');
+  if(tl.includes('bow and arrow')) tech.push('ボウアンドアロー');
+  if(tl.includes('double leg')) tech.push('ダブルレッグ');
+  if(tl.includes('single leg')) tech.push('シングルレッグ');
+  if(tl.includes('x guard')||tl.includes('x-guard')) { tech.push('SLXスイープ'); pos.push('Xガード'); }
+  if(tl.includes('slx')) { tech.push('SLXスイープ'); }
+  if(tl.includes('butterfly')||tl.includes('バタフライ')) { tech.push('バタフライスイープ'); pos.push('バタフライガード'); }
+  // Position detection
+  if(tl.includes('closed guard')||tl.includes('クローズド')) pos.push('クローズドガード');
+  if(tl.includes('half guard')||tl.includes('ハーフ')) pos.push('ハーフガード');
+  if(tl.includes('back')||tl.includes('バック')) { pos.push('バック'); tb.push('バック'); }
+  if(tl.includes('mount')||tl.includes('マウント')) pos.push('マウント');
+  if(tl.includes('side control')||tl.includes('サイド')) pos.push('サイドコントロール');
+  if(tl.includes('turtle')||tl.includes('タートル')) pos.push('タートル');
+  if(tl.includes('deep half')) pos.push('ハーフガード');
+  if(tl.includes('dela riva')||tl.includes('delariva')) pos.push('デラヒーバ');
+  // Action detection
+  if(tl.includes('sweep')||tl.includes('スイープ')) ac.push('スイープ');
+  if(tl.includes('escape')||tl.includes('エスケープ')) ac.push('エスケープ・ディフェンス');
+  if(tl.includes('pass')||tl.includes('パス')) ac.push('パスガード');
+  if(tl.includes('finish')||tl.includes('フィニッシュ')) ac.push('フィニッシュ');
+  if(tl.includes('drill')||tl.includes('ドリル')) ac.push('ドリル');
+  if(tl.includes('attack')||tl.includes('アタック')) ac.push('アタック');
+  if(tl.includes('takedown')) ac.push('テイクダウン');
+  // Top/Bottom
+  if(tl.includes('top')||tl.includes('トップ')) tb.push('トップ');
+  if(tl.includes('bottom')||tl.includes('ボトム')||tl.includes('guard')) tb.push('ボトム');
+  if(tl.includes('standing')||tl.includes('スタンディング')||tl.includes('takedown')) tb.push('スタンディング');
+  return { tech: [...new Set(tech)], tb: [...new Set(tb)], ac: [...new Set(ac)], pos: [...new Set(pos)] };
+}
+
+function runAI(){const v=videos.find(v=>v.id===editId);if(!v)return;const btn=document.getElementById('aiBtn');btn.textContent='⏳...';btn.disabled=true;setTimeout(()=>{
+  const tags = autoTagFromTitle(v.title);
+  tags.tech.forEach(t=>dTags.tech.add(t));
+  tags.tb.forEach(t=>dTags.tb.add(t));
+  tags.ac.forEach(t=>dTags.action.add(t));
+  tags.pos.forEach(t=>dTags.pos.add(t));
+  renderST();filterTechs();syncUI(v);
+  btn.textContent='✨ AI自動';btn.disabled=false;
+  const total=tags.tech.length+tags.tb.length+tags.ac.length+tags.pos.length;
+  toast(`✨ ${total}件のタグを自動設定`);
+},600);}
 function saveEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.fav=dFav;v.watched=dWatch;v.prio=dPrio||v.prio;v.status=dStat||v.status;v.shared=dShare;v.tb=[...dTags.tb];v.ac=[...dTags.action];const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};v.pos=[...dTags.pos].map(p=>pm[p]||p);v.tech=[...dTags.tech];v.memo=document.getElementById('dMemo').value.trim();closeOv('editOv');AF();toast('💾 保存しました');}
 function archEdit(){const v=videos.find(v=>v.id===editId);if(v){v.archived=true;closeOv('editOv');AF();toast('📦 アーカイブ');}}
 function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');AF();toast('除外しました');});}
@@ -1433,6 +2455,8 @@ function buildAllSliders() {
   buildFsPosSrow();
   buildFsPlSrow();
   buildFsTechSrow();
+  buildChSrow();
+  buildFsChSrow();
 }
 
 
@@ -1578,6 +2602,53 @@ function buildFsPlSrow(){
   const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
   btn.textContent='＋ 選ぶ';btn.onclick=openPL;row.appendChild(btn);
 }
+function buildChSrow(){
+  const row=document.getElementById('srow-ch');if(!row)return;
+  row.innerHTML='';
+  row.appendChild(mkChip('すべて',filters.channel.size===0,function(){filters.channel.clear();buildChSrow();buildFsChSrow();AF();}));
+  [...filters.channel].forEach(function(c){
+    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
+    el.textContent=c+' ×';el.onclick=function(){filters.channel.delete(c);buildChSrow();buildFsChSrow();AF();};row.appendChild(el);
+  });
+  // Picker button
+  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
+  btn.textContent='＋ チャンネルを選ぶ';btn.onclick=openChPicker;row.appendChild(btn);
+}
+function buildFsChSrow(){
+  const row=document.getElementById('fs-srow-ch');if(!row)return;
+  row.innerHTML='';
+  row.appendChild(mkChip('すべて',filters.channel.size===0,function(){filters.channel.clear();buildChSrow();buildFsChSrow();AF();}));
+  [...filters.channel].forEach(function(c){
+    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
+    el.textContent=c+' ×';el.onclick=function(){filters.channel.delete(c);buildChSrow();buildFsChSrow();AF();};row.appendChild(el);
+  });
+  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
+  btn.textContent='＋ 選ぶ';btn.onclick=openChPicker;row.appendChild(btn);
+}
+function openChPicker(){
+  const q='';
+  const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
+  // Reuse pos overlay
+  document.getElementById('pos-s').value='';
+  const posOv=document.getElementById('posOv');
+  posOv.querySelector('[style*="font-size:14px"]').textContent='📺 チャンネルフィルター';
+  document.getElementById('pos-s').placeholder='チャンネル名で絞り込み...';
+  document.getElementById('pos-s').oninput=function(){renderChPicker(this.value);};
+  renderChPicker('');
+  posOv.querySelector('.btn-save').onclick=()=>{
+    posOv.classList.remove('open');
+    // restore pos picker
+    posOv.querySelector('[style*="font-size:14px"]').textContent='📍 ポジションフィルター';
+    document.getElementById('pos-s').placeholder='ポジション名で絞り込み...';
+    document.getElementById('pos-s').oninput=function(){renderPos();};
+  };
+  posOv.classList.add('open');
+}
+function renderChPicker(q){
+  const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
+  document.getElementById('posR').innerHTML=channels.filter(c=>!q||c.toLowerCase().includes(q.toLowerCase())).map(c=>`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">チャンネルなし</div>';
+}
+function togCh(c,el){filters.channel.has(c)?filters.channel.delete(c):filters.channel.add(c);el.classList.toggle('active');buildChSrow();buildFsChSrow();AF();}
 function buildFsTechSrow(){
   const row=document.getElementById('fs-srow-tech');if(!row)return;
   row.innerHTML='';
@@ -1590,12 +2661,119 @@ function buildFsTechSrow(){
   btn.textContent='＋ 選ぶ';btn.onclick=openTF;row.appendChild(btn);
 }
 
+
+function toggleFilterOverlay() {
+  const ov = document.getElementById('filter-overlay');
+  const btn = document.getElementById('filter-toggle-btn');
+  const isOpen = ov.classList.toggle('show');
+  btn.classList.toggle('active', isOpen);
+  if (isOpen) {
+    // スライダー行を同期
+    syncFilterOvRows();
+    const rc = document.getElementById('rc');
+    const fovRc = document.getElementById('fov-rc');
+    if (rc && fovRc) fovRc.textContent = rc.textContent;
+  }
+}
+
+function syncFilterOvRows() {
+  // T/B と ACTION はタグ一覧をそのまま表示
+  buildSrow('fov-srow-tb', TB_TAGS, 'tb', false);
+  buildSrow('fov-srow-ac', AC_TAGS, 'action', true);
+
+  // POSITION: モーダル方式
+  (function(){
+    const row = document.getElementById('fov-srow-pos'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', filters.position.size===0, function(){ filters.position.clear(); syncFilterOvRows(); AF(); }));
+    [...filters.position].forEach(function(p){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=p+' ×'; el.onclick=function(){ filters.position.delete(p); syncFilterOvRows(); AF(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ ポジションを選ぶ'; btn.onclick=openPos; row.appendChild(btn);
+  })();
+
+  // SERIES: モーダル方式
+  (function(){
+    const row = document.getElementById('fov-srow-pl'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', filters.playlist.size===0, function(){ filters.playlist.clear(); syncFilterOvRows(); AF(); }));
+    [...filters.playlist].forEach(function(p){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=p+' ×'; el.onclick=function(){ filters.playlist.delete(p); syncFilterOvRows(); AF(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ シリーズを選ぶ'; btn.onclick=openPL; row.appendChild(btn);
+  })();
+
+  // TECHNIQUE: モーダル方式
+  (function(){
+    const row = document.getElementById('fov-srow-tech'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', filters.tech.size===0, function(){ filters.tech.clear(); syncFilterOvRows(); AF(); }));
+    [...filters.tech].forEach(function(t){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=t+' ×'; el.onclick=function(){ filters.tech.delete(t); syncFilterOvRows(); AF(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ テクニックを選ぶ'; btn.onclick=openTF; row.appendChild(btn);
+  })();
+
+  // CHANNEL: モーダル方式
+  (function(){
+    const row = document.getElementById('fov-srow-ch'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', filters.channel.size===0, function(){ filters.channel.clear(); syncFilterOvRows(); AF(); }));
+    [...filters.channel].forEach(function(c){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=c+' ×'; el.onclick=function(){ filters.channel.delete(c); syncFilterOvRows(); AF(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ チャンネルを選ぶ'; btn.onclick=openChPicker; row.appendChild(btn);
+  })();
+}
+
+
+function syncFilterOvChips() {
+  // topbar-fbarのチップ状態をoverlayに同期（active classを反映）
+  ['fav','unw','watched'].forEach(function(k) {
+    const src = document.getElementById('chip-' + k);
+    const dst = document.getElementById('fov-chip-' + k);
+    if (src && dst) {
+      dst.className = src.className;
+    }
+  });
+}
+
 // ─── INIT ───
 window.videos = videos;
 window.AF = AF;
 buildAllSliders();
 buildMirrorRows();
 AF();
+
+// topbar高さに合わせてapp-shellのmargin-topを動的調整
+function adjustTopbarOffset() {
+  const tb = document.querySelector('.topbar');
+  const shell = document.querySelector('.app-shell');
+  const sidebar = document.getElementById('filterSidebar');
+  if (!tb || !shell) return;
+  const h = tb.offsetHeight;
+  shell.style.marginTop = h + 'px';
+  if (sidebar) {
+    sidebar.style.top = h + 'px';
+    sidebar.style.height = 'calc(100vh - ' + h + 'px)';
+  }
+}
+window.addEventListener('load', adjustTopbarOffset);
+window.addEventListener('resize', adjustTopbarOffset);
+
+
+
+
+
+// Orientation change handler
 
 
 
@@ -1637,14 +2815,55 @@ AF();
 
 <!-- YouTube Import Overlay -->
 <div class="overlay" id="yt-import-ov" onclick="this.classList.remove('open')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:70vh">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:85vh;width:100%;max-width:560px">
     <div class="sheet-handle"></div>
-    <div style="font-size:15px;font-weight:800;margin-bottom:4px">📥 YouTubeプレイリストを取込</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">取り込むプレイリストを選択してください</div>
-    <div id="yt-pl-list" style="display:flex;flex-direction:column;gap:8px;overflow-y:auto;max-height:45vh;margin-bottom:14px"></div>
-    <div style="display:flex;gap:8px">
-      <button id="yt-import-ok" class="modal-btn" style="flex:1">取込む</button>
-      <button class="modal-btn" style="flex:1;background:var(--surface2);color:var(--text)" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+    <!-- Stage 1: Playlist select -->
+    <div id="yt-stage1">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px">📥 プレイリストを選択</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">取り込むプレイリストを選んでください</div>
+      <div id="yt-pl-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px">
+        <button id="yt-import-ok" class="btn-save" style="flex:1">次へ →</button>
+        <button class="btn-sub" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+      </div>
+    </div>
+    <!-- Stage 2: Video select -->
+    <div id="yt-stage2" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <button onclick="ytBackToPlaylists()" style="border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2)">← 戻る</button>
+        <div style="font-size:14px;font-weight:800" id="yt-stage2-title">動画を選択</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="ytSelAllVideos()">全選択</button>
+        <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="ytSelNoneVideos()">全解除</button>
+        <span id="yt-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto;align-self:center"></span>
+      </div>
+      <div id="yt-video-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
+      <div id="player-${v.id}" style="display:none">
+  <div style="padding:2px 10px 4px">
+    <button class="player-ext-btn" style="width:100%" onclick="window.open('${ext}','_blank')">${isYT?'📱 YouTubeで開く':'🎥 Vimeoで開く'}</button>
+  </div>
+  <div class="edit-drawer" id="drawer-${v.id}"></div>
+</div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<!-- VIDEO PLAYER PANEL -->
+<div class="vpanel" id="vpanel">
+  <div class="vpanel-bg" onclick="closeVPanel()"></div>
+  <div class="vpanel-inner">
+    <button class="vpanel-close" onclick="closeVPanel()">✕</button>
+    <div class="vpanel-video">
+      <iframe id="vpanel-iframe" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+    </div>
+    <div class="vpanel-edit">
+      <div class="vpanel-title" id="vpanel-title"></div>
+      <button class="vp-ext-btn" id="vpanel-ext-btn" style="width:100%;margin-bottom:8px"></button>
+      <div id="vpanel-edit-area"></div>
     </div>
   </div>
 </div>
