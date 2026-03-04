@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>BJJTube v7</title>
+<title>WAZA KIMURA</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -445,12 +445,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </style>
 
 <!-- Firebase SDK -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, collection, getDocs }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// Firebase compat mode (no imports needed)
+(function() {
 
 const firebaseConfig = {
   apiKey: "AIzaSyC1VafF24ys4XdTZe7lqIDAZjSmOUqM6Lw",
@@ -461,16 +461,16 @@ const firebaseConfig = {
   appId: "1:502684957551:web:0e16f0d37868851479869a"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+const app = firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const provider = new firebase.auth.GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/youtube.readonly');
 
 let currentUser = null;
 
 // ── Auth state ──
-onAuthStateChanged(auth, async (user) => {
+auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   updateAuthUI(user);
   if(user) {
@@ -484,7 +484,7 @@ function updateAuthUI(user) {
   if(!btn) return;
   if(user) {
     btn.textContent = 'ログアウト';
-    btn.onclick = () => signOut(auth);
+    btn.onclick = () => auth.signOut();
     if(avatar) {
       avatar.src = user.photoURL || '';
       avatar.style.display = user.photoURL ? 'block' : 'none';
@@ -494,10 +494,10 @@ function updateAuthUI(user) {
     if(imp) imp.style.display = 'flex';
   } else {
     btn.textContent = 'Googleでログイン';
-    btn.onclick = () => signInWithPopup(auth, provider)
+    btn.onclick = () => auth.signInWithPopup(provider)
       .then(result => {
         // Store YouTube access token
-        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
         if(credential?.accessToken) {
           window._ytToken = credential.accessToken;
         }
@@ -511,9 +511,9 @@ function updateAuthUI(user) {
 // ── Load user video data from Firestore ──
 async function loadUserData(uid) {
   try {
-    const snap = await getDoc(doc(db, 'users', uid, 'data', 'videos'));
-    if(snap.exists()) {
-      const saved = snap.data().videos;
+    const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
+    if(snap.exists) {
+      const saved = snap.data()?.videos;
       if(saved && saved.length) {
         // Merge saved metadata into videos array
         saved.forEach(sv => {
@@ -535,7 +535,7 @@ async function loadUserData(uid) {
 async function saveUserData() {
   if(!currentUser) return;
   try {
-    await setDoc(doc(db, 'users', currentUser.uid, 'data', 'videos'), {
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('videos').set({
       videos: window.videos || [],
       updatedAt: new Date().toISOString()
     });
@@ -551,8 +551,8 @@ async function importYouTubePlaylists() {
   // Try to get a fresh token
   if(!token) {
     try {
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const result = await auth.signInWithPopup(provider);
+      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
       token = credential?.accessToken;
       window._ytToken = token;
     } catch(e) {
@@ -623,18 +623,26 @@ async function importSelected(token) {
         window.videos.push({
           id: 'yt-' + vid,
           ytId: vid,
+          pt: 'youtube',
           title: s.title,
           src: 'youtube',
           url: 'https://www.youtube.com/watch?v=' + vid,
           thumb: s.thumbnails?.medium?.url || '',
+          ch: s.videoOwnerChannelTitle || '',
           channel: s.videoOwnerChannelTitle || '',
           pl: plTitle,
+          tb: [],
+          ac: [],
+          pos: [],
+          tech: [],
           watched: false,
           fav: false,
           status: '未着手',
           prio: 'そのうち',
-          tags: [],
-          memo: ''
+          shared: 0,
+          archived: false,
+          memo: '',
+          ai: ''
         });
         added++;
       });
@@ -659,6 +667,7 @@ function showToast(msg) {
 window.importYouTubePlaylists = importYouTubePlaylists;
 window.saveUserData = saveUserData;
 window._auth = auth;
+})();
 </script>
 
 </head>
@@ -669,7 +678,7 @@ window._auth = auth;
 <aside class="filter-sidebar" id="filterSidebar">
   <div class="fs-scroll">
   <div class="fs-section" style="padding:14px;border-bottom:1px solid var(--border)">
-    <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">BJJ<span style="color:var(--text3)">tube</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">WAZA <span style="color:var(--text3)">KIMURA</span></div>
   </div>
   <nav class="fs-nav">
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
@@ -727,7 +736,7 @@ window._auth = auth;
   </div><!-- /fs-scroll -->
 </aside><div id="sbResizer"></div><div class="main-area">
 <div class="topbar">
-  <div class="tb-logo">BJJ<span>tube</span></div>
+  <div class="tb-logo">WAZA <span>KIMURA</span></div>
   <nav class="topbar-nav">
     <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
     <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
@@ -1048,6 +1057,7 @@ let videos=[
   {id:"9bsuvPFNLvE",pt:"youtube",title:"Triangle Choke Setup & Finish from Closed Guard",ch:"Lachlan Giles",pl:"クローズドガード",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["クローズドガード"],tech:["十字絞め","アームバー"],prio:"今すぐ",fav:true,memo:"角度の調整が重要",watched:false,status:"マスター",archived:false,shared:2,ai:"クローズドガードからのトライアングルを詳細解説。首の角度と腰の位置の関係性に注目。"},
   {id:"148751763",pt:"vimeo",title:"Heel Hook Fundamentals - Leg Lock Entry System",ch:"Gordon Ryan Instructionals",pl:"レッグロック",tb:["ボトム"],ac:["アタック","フィニッシュ"],pos:["Xガード"],tech:["ヒールフック","インサイドヒールフック"],prio:"そのうち",fav:false,memo:"",watched:false,status:"未着手",archived:false,shared:0,ai:"レッグロックエントリーの基礎。50/50、SLXからのヒールフックシステム。"},
 ];
+window.videos = videos;
 const CUSERS=[
   {id:"u1",name:"Kenji_BJJ",belt:"blue",gym:"Tri-force新宿",vids:23,fols:41,following:false},
   {id:"u2",name:"Tanaka_Grappler",belt:"purple",gym:"草加柔術",vids:67,fols:128,following:true},
