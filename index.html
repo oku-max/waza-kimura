@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v40</title>
+<title>WAZA KIMURA v40.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -107,12 +107,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   position:fixed;
   top:52px; right:0; bottom:0;
   width:360px;
+  min-width:280px;
+  max-width:600px;
   background:var(--surface);
   border-left:1px solid var(--border);
   z-index:70;
   flex-direction:column;
   box-shadow:-4px 0 20px rgba(0,0,0,.1);
   overflow-y:auto;
+}
+.vp-panel-resizer {
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:6px;
+  cursor:col-resize;
+  z-index:10;
+  background:transparent;
+  transition:background .15s;
+}
+.vp-panel-resizer:hover, .vp-panel-resizer.dragging {
+  background:var(--accent);
+  opacity:.4;
 }
 .vp-panel.show { display:flex; }
 .vp-panel-video {
@@ -1951,6 +1966,7 @@ function _openPanel(id, emb, ext, plat) {
     document.body.appendChild(panel);
   }
   panel.innerHTML = `
+    <div class="vp-panel-resizer" id="vpResizer"></div>
     <div class="vp-panel-video"><iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>
     <div class="vp-panel-header">
       <div class="vp-panel-title">${v.title}</div>
@@ -1962,7 +1978,9 @@ function _openPanel(id, emb, ext, plat) {
     </div>
   `;
   panel.classList.add('show');
-  document.querySelector('.main-area').classList.add('panel-open');
+  var ma=document.querySelector('.main-area');
+  ma.classList.add('panel-open');
+  ma.style.marginRight=panel.offsetWidth+'px';
   // close prev inline player if any
   if(openPlayer) _closePlayer(openPlayer);
   openPlayer = id;
@@ -1975,10 +1993,47 @@ function closePanel() {
     if(iframe) iframe.src = '';
     panel.classList.remove('show');
   }
-  document.querySelector('.main-area').classList.remove('panel-open');
+  var ma2=document.querySelector('.main-area');
+  ma2.classList.remove('panel-open');
+  ma2.style.marginRight='';
   if(openPlayer) { _closePlayer(openPlayer); openPlayer = null; }
   panelId = null;
 }
+
+// ═══ VP PANEL RESIZER ═══
+(function(){
+  var VP_MIN=280, VP_MAX=600;
+  var dragging=false, startX=0, startW=0;
+
+  document.addEventListener('mousedown', function(e){
+    if(!e.target || e.target.id !== 'vpResizer') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    dragging=true;
+    startX=e.clientX;
+    var panel=document.getElementById('vp-panel');
+    startW=panel ? panel.offsetWidth : 360;
+    e.target.classList.add('dragging');
+  });
+
+  document.addEventListener('mousemove', function(e){
+    if(!dragging) return;
+    var panel=document.getElementById('vp-panel');
+    if(!panel) return;
+    var w=startW-(e.clientX-startX);
+    w=Math.max(VP_MIN,Math.min(VP_MAX,w));
+    panel.style.width=w+'px';
+    var ma=document.querySelector('.main-area');
+    if(ma && ma.classList.contains('panel-open')) ma.style.marginRight=w+'px';
+  }, true);
+
+  document.addEventListener('mouseup', function(e){
+    if(!dragging) return;
+    dragging=false;
+    var r=document.getElementById('vpResizer');
+    if(r) r.classList.remove('dragging');
+  }, true);
+})();
 
 
 function qFav(id){const v=videos.find(v=>v.id===id);if(v){v.fav=!v.fav;AF();toast(v.fav?'⭐ お気に入り追加':'お気に入り解除');}}
