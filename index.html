@@ -877,6 +877,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 @media(min-width:1200px) {
   .topbar-fbar { display: none !important; }
 }
+
+.vp-chip.on-fav-chip { background:#fef8f0; color:#c07800; border-color:#e0a020; }
+.vp-save-btn { width:100%; padding:9px; border-radius:8px; border:none; background:var(--text); color:var(--surface); font-size:12px; font-weight:700; cursor:pointer; margin-top:4px; }
+.vp-save-btn:hover { opacity:.85; }
+/* タグ選択状態 */
+.vp-chip.on-tb   { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+.vp-chip.on-ac   { background:#2d3561; color:#fff; border-color:#2d3561; }
+.vp-chip.on-pos  { background:#0f4c75; color:#fff; border-color:#0f4c75; }
+.vp-chip.on-tech { background:#1b4332; color:#fff; border-color:#1b4332; }
+/* Priority */
+.vp-chip.on-p1 { background:#c0392b; color:#fff; border-color:#c0392b; }
+.vp-chip.on-p2 { background:#e67e22; color:#fff; border-color:#e67e22; }
+.vp-chip.on-p3 { background:#7f8c8d; color:#fff; border-color:#7f8c8d; }
+/* Progress */
+.vp-chip.on-s0 { background:#95a5a6; color:#fff; border-color:#95a5a6; }
+.vp-chip.on-s1 { background:#27ae60; color:#fff; border-color:#27ae60; }
+.vp-chip.on-s2 { background:#2980b9; color:#fff; border-color:#2980b9; }
 </style>
 
 <!-- Firebase SDK (compat) -->
@@ -1269,6 +1286,7 @@ window.saveUserData = saveUserData;
       <img id="fs-auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;margin:4px 10px;">
       <div id="fs-auth-btn" onclick="" class="fs-nav-i" style="font-weight:400">Googleでログイン</div>
       <div onclick="saveUserData()" class="fs-nav-i" style="font-weight:400">💾 保存</div>
+      <div onclick="importYouTubePlaylists()" class="fs-nav-i" style="font-weight:400">▶ 取り込み</div>
       <div id="fs-bulk-sel-btn" onclick="enterBulk()" class="fs-nav-i" style="font-weight:400">☑ 一括編集</div>
     </div>
   </div>
@@ -1474,43 +1492,7 @@ window.saveUserData = saveUserData;
 
 
 
-<!-- EDIT SHEET -->
-<div class="overlay" id="editOv" onclick="closeOv('editOv')">
- <div class="sheet" onclick="event.stopPropagation()">
-  <div class="sheet-handle"></div>
-  <div style="font-size:16px;font-weight:800;margin-bottom:2px">✏️ 動画を編集</div>
-  <div style="font-size:11px;color:var(--text3);margin-bottom:14px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden" id="editSub"></div>
-  <div class="form-group"><div class="form-label">⭐ お気に入り</div><div class="fav-toggle" id="favTog" onclick="dFavF()"><span style="font-size:20px">⭐</span><span class="fav-txt" id="favTxt">お気に入りに追加</span></div></div>
-  <div class="form-group">
-    <div class="form-label">🌐 シェア設定</div>
-    <div class="share-opts">
-      <div class="share-opt sel" id="sh0" onclick="setShare(0)">🔒 非公開</div>
-      <div class="share-opt" id="sh1" onclick="setShare(1)">👥 フォロワー</div>
-      <div class="share-opt" id="sh2" onclick="setShare(2)">🌐 全公開</div>
-    </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:5px">公開時はタグ・習得度・メモがコミュニティ検索に表示されます</div>
-  </div>
-  <div class="form-group"><div class="form-label">👁 視聴ステータス</div><div class="prio-opt" id="watchOpt" onclick="dWatchF()" style="text-align:center"></div></div>
-  <div class="form-group"><div class="form-label">🎓 習得度</div><div class="status-opts"><div class="status-opt" onclick="dStatF('未着手',this)">📋 未着手</div><div class="status-opt" onclick="dStatF('練習中',this)">🔵 練習中</div><div class="status-opt" onclick="dStatF('マスター',this)">✅ マスター</div></div></div>
-  <div class="form-group"><div class="form-label">📊 優先度</div><div class="prio-opts"><div class="prio-opt" onclick="dPrioF('今すぐ',this)">🔴 今すぐ</div><div class="prio-opt" onclick="dPrioF('そのうち',this)">🟡 そのうち</div><div class="prio-opt" onclick="dPrioF('保留',this)">⚪ 保留</div></div></div>
-  <div class="form-group"><div class="form-label">🔄 T/B</div><div class="tag-grid" id="dTb"><div class="tag-opt" onclick="dTag('tb','トップ',this)">トップ</div><div class="tag-opt" onclick="dTag('tb','ボトム',this)">ボトム</div><div class="tag-opt" onclick="dTag('tb','スタンディング',this)">スタンディング</div><div class="tag-opt" onclick="dTag('tb','バック',this)">バック</div></div></div>
-  <div class="form-group"><div class="form-label">⚡ アクション</div><div class="tag-grid" id="dAct"><div class="tag-opt" onclick="dTag('action','エスケープ',this)">エスケープ</div><div class="tag-opt" onclick="dTag('action','パスガード',this)">パスガード</div><div class="tag-opt" onclick="dTag('action','アタック',this)">アタック</div><div class="tag-opt" onclick="dTag('action','スイープ',this)">スイープ</div><div class="tag-opt" onclick="dTag('action','フィニッシュ',this)">フィニッシュ</div><div class="tag-opt" onclick="dTag('action','ドリル',this)">ドリル</div><div class="tag-opt" onclick="dTag('action','その他',this)">その他</div></div></div>
-  <div class="form-group"><div class="form-label">📍 ポジション</div><div class="tag-grid" id="dPos"><div class="tag-opt" onclick="dTag('pos','クローズドガード',this)">クローズド</div><div class="tag-opt" onclick="dTag('pos','ハーフガード',this)">ハーフ</div><div class="tag-opt" onclick="dTag('pos','マウント',this)">マウント</div><div class="tag-opt" onclick="dTag('pos','サイドコントロール',this)">サイド</div><div class="tag-opt" onclick="dTag('pos','バック',this)">バック</div><div class="tag-opt" onclick="dTag('pos','タートル',this)">タートル</div><div class="tag-opt" onclick="dTag('pos','オープンガード',this)">オープン</div><div class="tag-opt" onclick="dTag('pos','バタフライガード',this)">バタフライ</div><div class="tag-opt" onclick="dTag('pos','Xガード',this)">Xガード</div><div class="tag-opt" onclick="dTag('pos','デラヒーバガード',this)">デラヒーバ</div><div class="tag-opt" onclick="dTag('pos','スタンディング',this)">スタンディング</div></div></div>
-  <div class="form-group">
-    <div class="form-label">🥋 テクニック <button onclick="runAI()" id="aiBtn" style="margin-left:auto;padding:4px 10px;background:linear-gradient(135deg,var(--gold),#e65100);color:#fff;border:none;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer">✨ AI自動</button></div>
-    <div class="tech-search"><span>🔍</span><input type="text" id="techSrch" placeholder="テクニック名を検索 or 新規入力..." oninput="filterTechs()" onkeydown="techKD(event)"></div>
-    <div class="tech-results" id="techRes"></div>
-    <div style="font-size:10px;color:var(--text3);margin:4px 0 3px">選択中:</div>
-    <div class="sel-techs" id="selTechs"></div>
-  </div>
-  <div class="form-group"><div class="form-label">💬 メモ（公開時にコミュニティに表示されます）</div><textarea class="form-textarea" id="dMemo" rows="3" placeholder="このテクニックのポイント、練習時の気づきなど..."></textarea></div>
-  <div class="divider"></div>
-  <div class="sheet-btns"><button class="btn-cancel" onclick="closeOv('editOv')">キャンセル</button><button class="btn-save" onclick="saveEdit()">💾 保存</button></div>
-  <button class="btn-sub arch" onclick="archEdit()">📦 アーカイブ</button>
-  <button class="btn-sub rem" onclick="rmPl()">📋 プレイリストから除外（YouTube/Vimeo側にも反映）</button>
-  <button class="btn-sub rem" onclick="delEdit()" style="margin-top:5px">🗑 削除</button>
- </div>
-</div>
+
 
 <!-- URL SHEET -->
 <div class="overlay" id="urlOv" onclick="closeOv('urlOv')">
@@ -1716,7 +1698,7 @@ function cardHTML(v){
   const se=v.status==='練習中'?'🔵':v.status==='マスター'?'✅':'📋';
   // Encode emb/ext as data attributes to avoid quote hell
   const vid=v.id;
-  return`<div class="card-wrap" id="wrap-${vid}"><div class="swipe-bg"><div class="swipe-bg-l">✅ 視聴済み</div><div class="swipe-bg-r">📦 アーカイブ</div></div><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':'vm'}"><div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div>${v.watched?'<div class="watched-ov"><span style="font-size:22px">✅</span></div>':''}<div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':'pb-vm'}">${isYT?'YouTube':'Vimeo'}</div><div class="pl-badge">${v.pl}</div></div><div class="card-body"><div class="card-title" style="${v.watched?'opacity:.6':''}">${v.title}</div><div class="card-channel">📺 ${v.ch}</div><div class="card-tags">${v.tb.map(t=>`<span class="tag tag-tb">${t}</span>`).join('')}${v.ac.map(a=>`<span class="tag tag-act">${a}</span>`).join('')}${v.pos.map(p=>`<span class="tag tag-pos">${p}</span>`).join('')}${v.tech.map(t=>`<span class="tag tag-tech">${t}</span>`).join('')}</div><div class="card-footer"><span class="prio-badge ${pc}">${pe} ${v.prio}</span><span class="st-badge ${sc}">${se} ${v.status}</span>${v.shared?`<span class="sh-badge">${v.shared===2?'🌐':'👥'} シェア中</span>`:''}<span class="fav-star" onclick="event.stopPropagation();qFav('${vid}')">${v.fav?'⭐':'☆'}</span></div></div></div>${v.ai?`<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>`:''}<div class="card-actions"><button class="ca-btn" onclick="openVPanel('${vid}')">▶ 再生</button><button class="ca-btn ${v.watched?'done':''}" onclick="qWatch('${vid}')">${v.watched?'✅ 済':'👁 見た'}</button><button class="ca-btn" onclick="openEdit('${vid}')">✏️ 編集</button><button class="ca-btn" onclick="vpOpenExt('${vid}')">${isYT?'📱 YT':'🎥 Vimeo'}</button><button class="ca-btn danger" onclick="archOne('${vid}')">📦</button></div></div></div>`;
+  return`<div class="card-wrap" id="wrap-${vid}"><div class="swipe-bg"><div class="swipe-bg-l">✅ 視聴済み</div><div class="swipe-bg-r">📦 アーカイブ</div></div><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':'vm'}"><div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div>${v.watched?'<div class="watched-ov"><span style="font-size:22px">✅</span></div>':''}<div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':'pb-vm'}">${isYT?'YouTube':'Vimeo'}</div><div class="pl-badge">${v.pl}</div></div><div class="card-body"><div class="card-title" style="${v.watched?'opacity:.6':''}">${v.title}</div><div class="card-channel">📺 ${v.ch}</div><div class="card-tags">${v.tb.map(t=>`<span class="tag tag-tb">${t}</span>`).join('')}${v.ac.map(a=>`<span class="tag tag-act">${a}</span>`).join('')}${v.pos.map(p=>`<span class="tag tag-pos">${p}</span>`).join('')}${v.tech.map(t=>`<span class="tag tag-tech">${t}</span>`).join('')}</div><div class="card-footer"><span class="prio-badge ${pc}">${pe} ${v.prio}</span><span class="st-badge ${sc}">${se} ${v.status}</span>${v.shared?`<span class="sh-badge">${v.shared===2?'🌐':'👥'} シェア中</span>`:''}<span class="fav-star" onclick="event.stopPropagation();qFav('${vid}')">${v.fav?'⭐':'☆'}</span></div></div></div>${v.ai?`<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>`:''}<div class="card-actions"><button class="ca-btn" onclick="openVPanel('${vid}')">▶ 再生/編集</button><button class="ca-btn ${v.watched?'done':''}" onclick="qWatch('${vid}')">${v.watched?'✅ 済':'👁 見た'}</button><button class="ca-btn" onclick="vpOpenExt('${vid}')">${isYT?'📱 YT':'🎥 Vimeo'}</button><button class="ca-btn danger" onclick="archOne('${vid}')">📦</button></div></div></div>`;
 }
 
 // ── Video Player (vpanel overlay) ──
@@ -1830,12 +1812,19 @@ function buildDrawerHTML(id) {
 
   return `
     <div class="vp-row">
-      <span class="vp-lbl">Priority</span>
-      <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
+      <span class="vp-lbl">Status</span>
+      <div class="vp-chips">
+        <span class="vp-chip${v.watched?' on-s1':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'✅ 視聴済み':'👁 未視聴'}</span>
+        <span class="vp-chip${v.fav?' on-fav-chip':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">${v.fav?'⭐ Fav':'☆ Fav'}</span>
+      </div>
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Progress</span>
       <div class="vp-chips" id="vp-prog-${id}">${progChips}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Priority</span>
+      <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
     </div>
     <div class="vp-row">
       <span class="vp-lbl">T / B</span>
@@ -1857,9 +1846,13 @@ function buildDrawerHTML(id) {
       <span class="vp-lbl">Memo</span>
       <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど...">${v.memo||''}</textarea>
     </div>
-    <div class="vp-toggles">
-      <div class="vp-tog${v.watched?' on-watch':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'✅ 視聴済み':'👁 未視聴'}</div>
-      <div class="vp-tog${v.fav?' on-fav':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">${v.fav?'⭐ Fav':'☆ Fav'}</div>
+    <div class="vp-row">
+      <span class="vp-lbl">Share</span>
+      <div class="vp-chips" id="vp-share-${id}">
+        <span class="vp-chip${(v.shared||0)===0?' on-s0':''}" onclick="vpSetShare('${id}',0,this)">🔒 非公開</span>
+        <span class="vp-chip${(v.shared||0)===1?' on-s1':''}" onclick="vpSetShare('${id}',1,this)">👥 フォロワー</span>
+        <span class="vp-chip${(v.shared||0)===2?' on-s0':''}" onclick="vpSetShare('${id}',2,this)">🌐 全公開</span>
+      </div>
     </div>
     <button class="vp-save-btn" onclick="vpSave('${id}')">💾 保存</button>
   `;
@@ -1916,23 +1909,33 @@ function vpRemoveTechEl(el) {
 function vpTogWatch(id, el) {
   const v = videos.find(v=>v.id===id); if(!v) return;
   v.watched = !v.watched;
-  el.className = 'vp-tog' + (v.watched ? ' on-watch' : '');
+  el.className = 'vp-chip' + (v.watched ? ' on-s1' : '');
   el.textContent = v.watched ? '✅ 視聴済み' : '👁 未視聴';
 }
 
 function vpTogFav(id, el) {
   const v = videos.find(v=>v.id===id); if(!v) return;
   v.fav = !v.fav;
-  el.className = 'vp-tog' + (v.fav ? ' on-fav' : '');
+  el.className = 'vp-chip' + (v.fav ? ' on-fav-chip' : '');
   el.textContent = v.fav ? '⭐ Fav' : '☆ Fav';
 }
 
+
+function vpSetShare(id, val, el) {
+  const v = videos.find(v => v.id === id);
+  if (!v) return;
+  v.shared = val;
+  const row = document.getElementById('vp-share-' + id);
+  if (row) row.querySelectorAll('.vp-chip').forEach((c, i) => {
+    c.className = 'vp-chip' + (i === val ? ' on-s0' : '');
+  });
+}
 function vpSave(id) {
   const v = videos.find(v=>v.id===id); if(!v) return;
   const memo = document.getElementById('vp-memo-' + id);
   if(memo) v.memo = memo.value.trim();
   AF();
-  toast('💾 保存しました');
+  saveUserData();
 }
 
 // ── PC Side Panel ──
