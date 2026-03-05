@@ -2827,7 +2827,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div id="yt-pl-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
       <div style="display:flex;gap:8px">
         <button id="yt-import-ok" class="btn-save" style="flex:1">次へ →</button>
-        <button class="btn-sub" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+        <button class="btn-sub" style="width:auto;flex:1;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
       </div>
     </div>
     <!-- Stage 2: Video select -->
@@ -2843,8 +2843,8 @@ window.addEventListener('resize', adjustTopbarOffset);
       </div>
       <div id="yt-video-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
       <div style="display:flex;gap:8px;">
-        <button id="yt-video-ok" class="btn-save" style="flex:1">取り込む</button>
-        <button class="btn-sub" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+        <button id="yt-video-ok" class="btn-save" style="flex:1">取り込む ✓</button>
+        <button class="btn-sub" style="width:auto;flex:1;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
       </div>
     </div>
   </div>
