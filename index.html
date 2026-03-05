@@ -2842,12 +2842,10 @@ window.addEventListener('resize', adjustTopbarOffset);
         <span id="yt-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto;align-self:center"></span>
       </div>
       <div id="yt-video-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
-      <div id="player-${v.id}" style="display:none">
-  <div style="padding:2px 10px 4px">
-    <button class="player-ext-btn" style="width:100%" onclick="window.open('${ext}','_blank')">${isYT?'📱 YouTubeで開く':'🎥 Vimeoで開く'}</button>
-  </div>
-  <div class="edit-drawer" id="drawer-${v.id}"></div>
-</div>
+      <div style="display:flex;gap:8px;">
+        <button id="yt-video-ok" class="btn-save" style="flex:1">取り込む</button>
+        <button class="btn-sub" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+      </div>
     </div>
   </div>
 </div>
