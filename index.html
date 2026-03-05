@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v40.3</title>
+<title>WAZA KIMURA v41.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -901,6 +901,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .vp-chip.on-ac   { background:#2d3561; color:#fff; border-color:#2d3561; }
 .vp-chip.on-pos  { background:#0f4c75; color:#fff; border-color:#0f4c75; }
 .vp-chip.on-tech { background:#1b4332; color:#fff; border-color:#1b4332; }
+.vp-tech-wrap { display:flex; flex-direction:column; gap:6px; width:100%; }
+.vp-tech-inp-row { display:flex; gap:4px; align-items:center; }
+.vp-tech-inp { flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:6px; padding:5px 8px; font-size:12px; color:var(--text); outline:none; font-family:inherit; }
+.vp-tech-inp:focus { border-color:var(--accent); }
+.vp-tech-add-btn { width:28px; height:28px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.vp-tech-suggest { display:flex; flex-wrap:wrap; gap:4px; }
+.vp-tech-sug-chip { font-size:11px; padding:2px 8px; border-radius:12px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; }
+.vp-tech-sug-chip:hover { border-color:var(--accent); color:var(--accent); }
 /* Priority */
 .vp-chip.on-p1 { background:#c0392b; color:#fff; border-color:#c0392b; }
 .vp-chip.on-p2 { background:#e67e22; color:#fff; border-color:#e67e22; }
@@ -1226,6 +1234,7 @@ window.saveUserData = saveUserData;
     <button id="yt-import-btn" onclick="importYouTubePlaylists()" style="display:none;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:#ff0000;color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">▶ YT取込</button>
     <button onclick="saveUserData()" class="topbar-btn">💾 保存</button>
     <button id="filter-toggle-btn" onclick="toggleFilterOverlay()" class="topbar-btn">☰ フィルター</button>
+    <button id="filter-reset-btn" onclick="resetFilters()" class="topbar-btn" style="color:var(--accent);display:none">× Reset</button>
     <button id="bulk-sel-btn" onclick="enterBulk()" class="topbar-btn">☑ 一括編集</button>
   </div>
   <span id="totalCount" class="topbar-count" style="display:none"></span>
@@ -1286,7 +1295,7 @@ window.saveUserData = saveUserData;
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center">
       <span id="fov-rc" style="font-size:11px;color:var(--text3)"></span>
-      <button class="btn-sub" onclick="resetFilters();toggleFilterOverlay()">× Reset</button>
+      <button class="btn-sub" onclick="resetFilters()">× Reset</button>
     </div>
   </div>
 </div>
@@ -1682,20 +1691,70 @@ function togPlat(p){filters.platform.has(p)?filters.platform.delete(p):filters.p
 function togFav(){favOnly=!favOnly;['chip-fav','m-chip-fav','fs-chip-fav'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',favOnly);});AF();}
 function togUnw(){unwOnly=!unwOnly;['chip-unw','m-chip-unw','fs-chip-unw'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',unwOnly);});AF();}
 function togWatched(){watchedOnly=!watchedOnly;['chip-watched','fs-chip-watched'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',watchedOnly);});AF();}
-function clearAll(){filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set(),channel:new Set()};favOnly=false;unwOnly=false;watchedOnly=false;document.getElementById('si').value='';document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));renderTFC();AF();}
+function clearAll(){
+  Object.keys(filters).forEach(k=>filters[k].clear());
+  favOnly=false;unwOnly=false;watchedOnly=false;
+  const si=document.getElementById('si');if(si)si.value='';
+  // Fav/Unseen/視聴済みのchipのみリセット（T/B・ACTIONなどはAF()内の再描画で正しく反映）
+  ['chip-fav','chip-unw','chip-watched','m-chip-fav','m-chip-unw','fs-chip-fav','fs-chip-unw','fs-chip-watched',
+   'fov-chip-fav','fov-chip-unw','fov-chip-watched'].forEach(function(id){
+    const el=document.getElementById(id);if(el)el.classList.remove('active');
+  });
+  renderTFC();syncFilterOvRows();AF();
+}
+function resetFilters(){ clearAll(); }
+function updateResetBtn(){
+  const btn=document.getElementById('filter-reset-btn'); if(!btn) return;
+  const active=Object.values(filters).some(s=>s.size>0)||favOnly||unwOnly||watchedOnly;
+  btn.style.display=active?'':'none';
+}
 
 function filt(list){const q=document.getElementById('si').value.toLowerCase();return list.filter(v=>{if(v.archived)return false;if(favOnly&&!v.fav)return false;if(unwOnly&&v.watched)return false;
     if(watchedOnly&&!v.watched)return false;if(filters.platform.size&&!filters.platform.has(v.pt))return false;if(q&&!v.title.toLowerCase().includes(q)&&!v.ch.toLowerCase().includes(q)&&!v.pl.toLowerCase().includes(q)&&!v.tech.some(t=>t.toLowerCase().includes(q)))return false;if(filters.playlist.size&&!filters.playlist.has(v.pl))return false;if(filters.prio.size&&!filters.prio.has(v.prio))return false;if(filters.status.size&&!filters.status.has(v.status))return false;if(filters.tb.size&&!v.tb.some(t=>filters.tb.has(t)))return false;if(filters.action.size&&!v.ac.some(a=>filters.action.has(a)))return false;if(filters.position.size&&!v.pos.some(p=>filters.position.has(p)))return false;if(filters.tech.size&&!v.tech.some(t=>filters.tech.has(t)))return false;if(filters.channel.size&&!filters.channel.has(v.ch))return false;return true;});}
-function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' videos';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();}
+function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' videos';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();updateResetBtn();}
 function updatePLC(){buildPlSrow();}
 function renderTFC(){const el=document.getElementById('techFC');if(el)el.innerHTML=[...filters.tech].map(t=>`<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');}
 function rmTF(t){filters.tech.delete(t);renderTFC();AF();}
 function openTF(){document.getElementById('tfs').value='';renderTF();document.getElementById('tfOv').classList.add('open');}
-function renderTF(){const q=document.getElementById('tfs').value.toLowerCase();const used=[...new Set(videos.flatMap(v=>v.tech))];document.getElementById('tfR').innerHTML=used.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>`<div class="tech-pill ${filters.tech.has(t)?'active':''}" onclick="togTF('${t}',this)">${t}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';}
-function togTF(t,el){filters.tech.has(t)?filters.tech.delete(t):filters.tech.add(t);el.classList.toggle('active');buildTechSrow();renderTFC();AF();}
+function renderTF(){
+  const q=document.getElementById('tfs').value.toLowerCase();
+  const used=[...new Set(videos.flatMap(v=>v.tech))];
+  const container=document.getElementById('tfR');
+  const filtered=used.filter(t=>!q||t.toLowerCase().includes(q));
+  if(!filtered.length){container.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';return;}
+  container.innerHTML='';
+  filtered.forEach(t=>{
+    const el=document.createElement('div');
+    el.className='tech-pill'+(filters.tech.has(t)?' active':'');
+    el.textContent=t;
+    el.addEventListener('click',function(){
+      filters.tech.has(t)?filters.tech.delete(t):filters.tech.add(t);
+      el.classList.toggle('active');
+      buildTechSrow();buildFsTechSrow();syncFilterOvRows();renderTFC();AF();
+    });
+    container.appendChild(el);
+  });
+}
 function openPL(){document.getElementById('pls').value='';renderPL();document.getElementById('plOv').classList.add('open');}
-function renderPL(){const q=document.getElementById('pls').value.toLowerCase();const pls=[...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))];document.getElementById('plR').innerHTML=pls.filter(p=>!q||p.toLowerCase().includes(q)).map(p=>`<div class="tech-pill ${filters.playlist.has(p)?'active':''}" onclick="togPL('${p}',this)">${p}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';}
-function togPL(p,el){filters.playlist.has(p)?filters.playlist.delete(p):filters.playlist.add(p);el.classList.toggle('active');buildPlSrow();AF();}
+function renderPL(){
+  const q=document.getElementById('pls').value.toLowerCase();
+  const pls=[...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))];
+  const container=document.getElementById('plR');
+  const filtered=pls.filter(p=>!q||p.toLowerCase().includes(q));
+  if(!filtered.length){container.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';return;}
+  container.innerHTML='';
+  filtered.forEach(p=>{
+    const el=document.createElement('div');
+    el.className='tech-pill'+(filters.playlist.has(p)?' active':'');
+    el.textContent=p;
+    el.addEventListener('click',function(){
+      filters.playlist.has(p)?filters.playlist.delete(p):filters.playlist.add(p);
+      el.classList.toggle('active');
+      buildPlSrow();syncFilterOvRows();AF();
+    });
+    container.appendChild(el);
+  });
+}
 
 function renderCards(list,cid){const c=document.getElementById(cid);if(!list.length){c.innerHTML='<div class="empty"><div class="e">🔍</div><p>動画が見つかりませんでした</p></div>';return;}const ord={"今すぐ":0,"そのうち":1,"保留":2};c.innerHTML=[...list].sort((a,b)=>ord[a.prio]-ord[b.prio]).map(v=>cardHTML(v)).join('');}
 function cardHTML(v){
@@ -1744,6 +1803,9 @@ function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   editArea.querySelectorAll('.vp-tech-rm').forEach(el => {
     el.onclick = function() { vpRemoveTechEl(this); };
+  });
+  editArea.querySelectorAll('.vp-pos-rm').forEach(el => {
+    el.onclick = function() { vpRemovePosEl(this); };
   });
 
   const titleEl = document.getElementById('vpanel-title');
@@ -1797,6 +1859,9 @@ function togVpDrawer(id) {
     drawer.querySelectorAll('.vp-tech-rm').forEach(el => {
       el.onclick = function(){ vpRemoveTechEl(this); };
     });
+    drawer.querySelectorAll('.vp-pos-rm').forEach(el => {
+      el.onclick = function(){ vpRemovePosEl(this); };
+    });
   }
 }
 
@@ -1822,7 +1887,7 @@ function buildDrawerHTML(id) {
 
   const tbChips = TB_OPTS.map(t=>`<span class="vp-chip${(v.tb||[]).includes(t)?' on-tb':''}" onclick="vpTog('${id}','tb','${t}',this,'on-tb')">${t}</span>`).join('');
   const acChips = AC_OPTS.map(a=>`<span class="vp-chip${(v.ac||[]).includes(a)?' on-ac':''}" onclick="vpTog('${id}','ac','${a}',this,'on-ac')">${a}</span>`).join('');
-  const posChips = POS_OPTS.map(p=>`<span class="vp-chip${(v.pos||[]).includes(p)?' on-pos':''}" onclick="vpTog('${id}','pos','${p}',this,'on-pos')">${p}</span>`).join('');
+  const posChips = (v.pos||[]).map(p=>`<span class="vp-chip on-pos vp-pos-rm" data-id="${id}" data-val="${p.replace(/"/g,'&quot;')}">${p} ×</span>`).join('');
   const techChips = (v.tech||[]).map(t=>`<span class="vp-chip on-tech vp-tech-rm" data-id="${id}" data-val="${t.replace(/"/g,'&quot;')}">${t} ×</span>`).join('');
 
   return `
@@ -1851,11 +1916,25 @@ function buildDrawerHTML(id) {
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Position</span>
-      <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
+      <div class="vp-tech-wrap">
+        <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
+        <div class="vp-tech-inp-row">
+          <input class="vp-tech-inp" id="vp-pos-inp-${id}" placeholder="ポジション名を入力..." oninput="vpPosSuggest('${id}',this)" onfocus="vpPosSuggest('${id}',this)" onkeydown="vpAddPos('${id}',event,this)">
+          <button class="vp-tech-add-btn" onclick="vpAddPosBtn('${id}')">＋</button>
+        </div>
+        <div class="vp-tech-suggest" id="vp-pos-sug-${id}"></div>
+      </div>
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Technique</span>
-      <div class="vp-chips" id="vp-tech-${id}">${techChips}<input class="vp-tech-inp" placeholder="＋ 追加" onkeydown="vpAddTech('${id}',event,this)"></div>
+      <div class="vp-tech-wrap">
+        <div class="vp-chips" id="vp-tech-${id}">${techChips}</div>
+        <div class="vp-tech-inp-row">
+          <input class="vp-tech-inp" id="vp-tech-inp-${id}" placeholder="テクニック名を入力..." oninput="vpTechSuggest('${id}',this)" onfocus="vpTechSuggest('${id}',this)" onkeydown="vpAddTech('${id}',event,this)">
+          <button class="vp-tech-add-btn" onclick="vpAddTechBtn('${id}')">＋</button>
+        </div>
+        <div class="vp-tech-suggest" id="vp-tech-sug-${id}"></div>
+      </div>
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Memo</span>
@@ -1897,20 +1976,99 @@ function vpTog(id, field, val, el, cls) {
 
 function vpAddTech(id, e, inp) {
   if(e.key !== 'Enter') return;
-  const val = inp.value.trim(); if(!val) return;
-  const v = videos.find(v=>v.id===id); if(!v) return;
-  if(!(v.tech||[]).includes(val)) {
-    v.tech = [...(v.tech||[]), val];
-    // Add chip before input
-    const chip = document.createElement('span');
-    chip.className = 'vp-chip on-tech';
-    chip.textContent = val + ' ×';
-    chip.dataset.id = id; chip.dataset.val = val;
-    chip.classList.add('vp-tech-rm');
-    chip.onclick = function(){ vpRemoveTechEl(this); };
-    inp.parentElement.insertBefore(chip, inp);
-  }
+  vpAddTechVal(id, inp.value.trim());
   inp.value = '';
+  vpTechSuggest(id, inp);
+}
+
+function vpAddTechBtn(id) {
+  const inp = document.getElementById('vp-tech-inp-' + id);
+  if(!inp) return;
+  vpAddTechVal(id, inp.value.trim());
+  inp.value = '';
+  vpTechSuggest(id, inp);
+}
+
+function vpAddTechVal(id, val) {
+  if(!val) return;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  if((v.tech||[]).includes(val)) return;
+  v.tech = [...(v.tech||[]), val];
+  const container = document.getElementById('vp-tech-' + id);
+  if(!container) return;
+  const chip = document.createElement('span');
+  chip.className = 'vp-chip on-tech vp-tech-rm';
+  chip.textContent = val + ' ×';
+  chip.dataset.id = id; chip.dataset.val = val;
+  chip.onclick = function(){ vpRemoveTechEl(this); };
+  container.appendChild(chip);
+}
+
+function vpAddPos(id, e, inp) {
+  if(e.key !== 'Enter') return;
+  vpAddPosVal(id, inp.value.trim());
+  inp.value = '';
+  vpPosSuggest(id, inp);
+}
+
+function vpAddPosBtn(id) {
+  const inp = document.getElementById('vp-pos-inp-' + id);
+  if(!inp) return;
+  vpAddPosVal(id, inp.value.trim());
+  inp.value = '';
+  vpPosSuggest(id, inp);
+}
+
+function vpAddPosVal(id, val) {
+  if(!val) return;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  if((v.pos||[]).includes(val)) return;
+  v.pos = [...(v.pos||[]), val];
+  const container = document.getElementById('vp-pos-' + id);
+  if(!container) return;
+  const chip = document.createElement('span');
+  chip.className = 'vp-chip on-pos vp-pos-rm';
+  chip.textContent = val + ' ×';
+  chip.dataset.id = id; chip.dataset.val = val;
+  chip.onclick = function(){ vpRemovePosEl(this); };
+  container.appendChild(chip);
+}
+
+function vpRemovePosEl(el) {
+  const id = el.dataset.id;
+  const val = el.dataset.val;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  v.pos = (v.pos||[]).filter(p=>p!==val);
+  el.remove();
+}
+
+function vpPosSuggest(id, inp) {
+  const q = inp.value.trim().toLowerCase();
+  const sug = document.getElementById('vp-pos-sug-' + id);
+  if(!sug) return;
+  const v = videos.find(v=>v.id===id);
+  const current = v ? (v.pos||[]) : [];
+  const POS_OPTS = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const all = [...new Set([...POS_OPTS, ...videos.flatMap(v=>v.pos||[])])].sort();
+  const filtered = all.filter(p => !current.includes(p) && (q ? p.toLowerCase().includes(q) : true));
+  sug.innerHTML = filtered.slice(0,16).map(p =>
+    `<span class="vp-tech-sug-chip" onclick="vpAddPosVal('${id}','${p.replace(/'/g,"\'")}');document.getElementById('vp-pos-inp-${id}').value='';vpPosSuggest('${id}',document.getElementById('vp-pos-inp-${id}'))">${p}</span>`
+  ).join('');
+}
+
+function vpTechSuggest(id, inp) {
+  const q = inp.value.trim().toLowerCase();
+  const sug = document.getElementById('vp-tech-sug-' + id);
+  if(!sug) return;
+  const v = videos.find(v=>v.id===id);
+  const current = v ? (v.tech||[]) : [];
+  // 既存動画のtechタグ + TECHリスト を合わせて重複排除・ソート
+  const all = [...new Set([...TECH, ...videos.flatMap(v=>v.tech||[])])].sort();
+  // 未入力時は全候補（未選択のもの）を表示、入力時は絞り込み
+  const filtered = all.filter(t => !current.includes(t) && (q ? t.toLowerCase().includes(q) : true));
+  sug.innerHTML = filtered.slice(0,16).map(t =>
+    `<span class="vp-tech-sug-chip" onclick="vpAddTechVal('${id}','${t.replace(/'/g,"\'")}');document.getElementById('vp-tech-inp-${id}').value='';vpTechSuggest('${id}',document.getElementById('vp-tech-inp-${id}'))">${t}</span>`
+  ).join('');
 }
 
 function vpRemoveTechEl(el) {
@@ -2045,14 +2203,20 @@ let bulkUndoStack=[];
 function enterBulk(ctx='home'){bulkMode=true;bulkCtx=ctx;selIds.clear();bulkUndoStack=[];document.getElementById('bulkBar').classList.add('show');const sh=document.getElementById('sh');if(sh)sh.style.display='none';AF();updBulk();}
 function bulkSnapshot(){bulkUndoStack.push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],ac:[...(v.ac||[])],pos:[...(v.pos||[])],tech:[...(v.tech||[])],pl:v.pl,archived:v.archived})));}
 // ─── Bulk Picker ───
-const BULK_PICKER_OPTS = {
-  status: [{val:'watched',label:'✅ 視聴済み'},{val:'unwatched',label:'👁 未視聴'},{val:'fav-add',label:'★ Fav追加'},{val:'fav-remove',label:'☆ Fav解除'}],
-  prio: [{val:'今すぐ',label:'🔴 今すぐ'},{val:'そのうち',label:'🟡 そのうち'},{val:'保留',label:'⚪ 保留'}],
-  prog: [{val:'未着手',label:'📋 未着手'},{val:'練習中',label:'🔵 練習中'},{val:'マスター',label:'✅ マスター'}],
-  tb:   [{val:'トップ',label:'▲ トップ'},{val:'ボトム',label:'▽ ボトム'},{val:'スタンディング',label:'↑ スタンディング'},{val:'バック',label:'↩ バック'},{val:'ハーフ',label:'½ ハーフ'},{val:'ドリル',label:'🔁 ドリル'}],
-  ac:   [{val:'エスケープ・ディフェンス',label:'🛡 Escape'},{val:'パスガード',label:'→ Pass'},{val:'アタック',label:'⚡ Attack'},{val:'スイープ',label:'↩ Sweep'},{val:'リテンション',label:'🔄 Retention'},{val:'コントロール',label:'✊ Control'},{val:'テイクダウン',label:'↓ Takedown'},{val:'フィニッシュ',label:'🔒 Finish'},{val:'ドリル',label:'🔁 Drill'}],
-  pos:  [{val:'クローズドガード',label:'🛡 Closed'},{val:'ハーフガード',label:'½ Half'},{val:'マウント',label:'▲ Mount'},{val:'サイドコントロール',label:'▷ Side'},{val:'バック',label:'↩ Back'},{val:'タートル',label:'🐢 Turtle'},{val:'Xガード',label:'✕ X-Guard'},{val:'デラヒーバ',label:'🌀 DLR'},{val:'バタフライガード',label:'🦋 Butterfly'},{val:'オープンガード',label:'○ Open'},{val:'50/50',label:'⚖ 50/50'},{val:'スタンディング',label:'↑ Standing'}]
+const BULK_PICKER_OPTS_BASE = {
+  status: [{val:'watched',label:'視聴済み'},{val:'unwatched',label:'未視聴'},{val:'fav-add',label:'Fav 追加'},{val:'fav-remove',label:'Fav 解除'}],
+  prio: [{val:'今すぐ',label:'今すぐ'},{val:'そのうち',label:'そのうち'},{val:'保留',label:'保留'}],
+  prog: [{val:'未着手',label:'未着手'},{val:'練習中',label:'練習中'},{val:'マスター',label:'マスター'}],
+  tb:   [{val:'トップ',label:'トップ'},{val:'ボトム',label:'ボトム'},{val:'スタンディング',label:'スタンディング'},{val:'バック',label:'バック'},{val:'ハーフ',label:'ハーフ'},{val:'ドリル',label:'ドリル'}],
+  ac:   [{val:'エスケープ・ディフェンス',label:'エスケープ・ディフェンス'},{val:'パスガード',label:'パスガード'},{val:'アタック',label:'アタック'},{val:'スイープ',label:'スイープ'},{val:'リテンション',label:'リテンション'},{val:'コントロール',label:'コントロール'},{val:'テイクダウン',label:'テイクダウン'},{val:'フィニッシュ',label:'フィニッシュ'},{val:'ドリル',label:'ドリル'}]
 };
+function getBulkPickerOpts(type) {
+  if(type !== 'pos') return BULK_PICKER_OPTS_BASE[type] || [];
+  // Positionはライブラリ既存データ＋固定リストを統合
+  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
+  return all.map(p => ({val:p, label:p}));
+}
 let activeBulkPicker = null;
 
 function openBulkPicker(type, el) {
@@ -2063,7 +2227,7 @@ function openBulkPicker(type, el) {
     return;
   }
   activeBulkPicker = type;
-  const opts = BULK_PICKER_OPTS[type] || [];
+  const opts = getBulkPickerOpts(type);
   const isToggle = ['tb','ac','pos'].includes(type);
   const field = type === 'prog' ? 'status' : type === 'prio' ? 'prio' : type === 'tb' ? 'tb' : type === 'ac' ? 'ac' : 'pos';
 
@@ -2393,7 +2557,7 @@ function buildMirrorPosSrow() {
 }
 function openPos(){document.getElementById('pos-s').value='';renderPos();document.getElementById('posOv').classList.add('open');}
 function renderPos(){const q=document.getElementById('pos-s').value.toLowerCase();document.getElementById('posR').innerHTML=POS_TAGS.filter(p=>!q||p.toLowerCase().includes(q)).map(p=>`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p}',this)">${p}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';}
-function togPos(p,el){filters.position.has(p)?filters.position.delete(p):filters.position.add(p);el.classList.toggle('active');buildPosSrow();buildMirrorPosSrow();AF();}
+function togPos(p,el){filters.position.has(p)?filters.position.delete(p):filters.position.add(p);el.classList.toggle('active');buildPosSrow();buildMirrorPosSrow();syncFilterOvRows();AF();}
 
 function buildPlSrow() {
   const row = document.getElementById('srow-pl');
@@ -2710,7 +2874,7 @@ function renderChPicker(q){
   const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
   document.getElementById('posR').innerHTML=channels.filter(c=>!q||c.toLowerCase().includes(q.toLowerCase())).map(c=>`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">チャンネルなし</div>';
 }
-function togCh(c,el){filters.channel.has(c)?filters.channel.delete(c):filters.channel.add(c);el.classList.toggle('active');buildChSrow();buildFsChSrow();AF();}
+function togCh(c,el){filters.channel.has(c)?filters.channel.delete(c):filters.channel.add(c);el.classList.toggle('active');buildChSrow();buildFsChSrow();syncFilterOvRows();AF();}
 function buildFsTechSrow(){
   const row=document.getElementById('fs-srow-tech');if(!row)return;
   row.innerHTML='';
