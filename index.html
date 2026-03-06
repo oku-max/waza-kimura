@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v41.3</title>
+<title>WAZA KIMURA v43.4</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -114,8 +114,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   z-index:70;
   flex-direction:column;
   box-shadow:-4px 0 20px rgba(0,0,0,.1);
-  overflow-y:auto;
+  overflow:hidden;
 }
+.vp-pl-btn {
+  padding:4px 10px;border-radius:6px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--text2);font-size:11px;font-weight:600;
+  cursor:pointer;font-family:inherit;
+}
+.vp-pl-btn:hover { border-color:var(--accent);color:var(--accent); }
+.vp-pl-btn-del { border-color:#fcd;color:#c44; }
+.vp-pl-btn-del:hover { background:#fdecea;border-color:#c44; }
 .vp-panel-resizer {
   position:absolute;
   left:0; top:0; bottom:0;
@@ -145,11 +153,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   border:none;
 }
 .vp-panel-header {
-  padding:10px 14px;
+  padding:10px 10px 10px 14px;
   border-bottom:1px solid var(--border2);
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap:8px;
+  flex-shrink:0;
+  position:sticky;
+  top:0;
+  background:var(--surface);
+  z-index:5;
 }
 .vp-panel-title {
   font-size:12px;
@@ -158,8 +171,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   flex:1;
 }
 .vp-panel-close {
-  width:28px;
-  height:28px;
+  width:32px;
+  height:32px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -167,8 +180,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   border:1.5px solid var(--border);
   background:var(--surface2);
   cursor:pointer;
-  font-size:12px;
+  font-size:13px;
   flex-shrink:0;
+  margin-right:4px;
+  z-index:10;
+}
+.vp-panel-close:hover {
+  background:var(--surface3);
+  border-color:var(--text2);
 }
 .vp-panel-body {
   padding:12px 14px;
@@ -253,7 +272,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .bp-opt:hover{background:var(--surface2);}
 .bp-opt.sel{background:var(--accent);color:#fff;}
 /* Overlay / Sheet */
-.overlay{display:none;position:fixed;inset:0;background:rgba(60,20,5,.55);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
+.overlay{display:none;position:fixed;inset:0;background:rgba(60,20,5,.55);z-index:300;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
 .overlay.open{display:flex;}
 .sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:620px;padding:20px;border-top:3px solid var(--accent);max-height:90vh;overflow-y:auto;}
 .sheet-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
@@ -1224,6 +1243,7 @@ window.saveUserData = saveUserData;
       <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
       <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')">≡ Organize</div>
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
+      <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
     </nav>
   </div>
   <!-- 検索＋ボタン行 -->
@@ -1282,7 +1302,7 @@ window.saveUserData = saveUserData;
       <div class="hrow" id="fov-srow-pos"></div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">
-      <span class="fbar-lbl">Series</span>
+      <span class="fbar-lbl">Playlist</span>
       <div class="hrow" id="fov-srow-pl"></div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">
@@ -1319,6 +1339,7 @@ window.saveUserData = saveUserData;
     <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')"><span>◎</span> Community</div>
     <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')"><span>≡</span> Organize</div>
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')"><span>◫</span> Archive</div>
+    <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
   </nav>
   <div class="fs-section">
     <span class="fs-label">Status</span>
@@ -1357,7 +1378,7 @@ window.saveUserData = saveUserData;
     <div class="fs-hrow" id="fs-srow-pos"></div>
   </div>
   <div class="fs-section">
-    <span class="fs-label">Series</span>
+    <span class="fs-label">Playlist</span>
     <div class="fs-hrow" id="fs-srow-pl"></div>
   </div>
   <div class="fs-section">
@@ -1425,6 +1446,30 @@ window.saveUserData = saveUserData;
   <div style="padding:11px 13px;background:var(--surface);border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text2);background:var(--purple-soft);border:1px solid #e1bee7;border-radius:8px;padding:8px 11px">📦 削除せず非表示にした動画。いつでも復元できます。</div></div>
   <div class="results-header"><span class="results-count" id="arc"></span></div>
   <div id="archList"></div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div class="tab-panel" id="settingsTab">
+  <div style="max-width:640px;margin:0 auto;padding:16px 14px 80px;">
+
+    <!-- ヘッダー -->
+    <div style="font-size:16px;font-weight:800;margin-bottom:4px">⚙️ Settings</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:20px">タグのカスタマイズ・表示設定</div>
+
+    <!-- タグ管理セクション -->
+    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase">タグ管理</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">属性名・候補値・表示のON/OFFを設定できます。内部データは変わらないため既存の動画データに影響しません。</div>
+
+    <div id="tag-settings-list"></div>
+
+    <!-- 表示設定 -->
+    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">表示設定</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:10px">カードに表示するタグ</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="tag-visibility-btns"></div>
+    </div>
+
+  </div>
 </div>
 
 <!-- BULK BAR -->
@@ -1499,12 +1544,21 @@ window.saveUserData = saveUserData;
       </div>
     </div>
     <div class="bsep"></div>
+    <!-- Playlist -->
+    <div class="bgrp">
+      <span class="bgrp-lbl">Playlist</span>
+      <div class="bgrp-row">
+        <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="openBulkPlOp('move')">↪ 移動</button>
+        <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="openBulkPlOp('copy')">⧉ コピー</button>
+        <button class="bbt" style="--bc:#fdecea;--tc:#c44" onclick="bulkPlRemove()">✕ 削除</button>
+      </div>
+    </div>
+    <div class="bsep"></div>
     <!-- Other -->
     <div class="bgrp">
       <span class="bgrp-lbl">Other</span>
       <div class="bgrp-row">
         <button class="bbt" style="--bc:var(--purple-soft);--tc:var(--purple)" onclick="bulkDo('archive')">📦 Archive</button>
-        <button class="bbt" style="--bc:#fdecea;--tc:var(--accent)" onclick="bulkDo('remove')">✂ PL除外</button>
       </div>
     </div>
   </div>
@@ -1555,8 +1609,8 @@ window.saveUserData = saveUserData;
 <div class="overlay" id="plOv" onclick="closeOv('plOv')">
  <div class="sheet" onclick="event.stopPropagation()" style="max-height:55vh">
   <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 シリーズフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="pls" placeholder="シリーズ名で絞り込み..." oninput="renderPL()"></div>
+  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 プレイリストフィルター</div>
+  <div class="tech-search"><span>🔍</span><input type="text" id="pls" placeholder="プレイリスト名で絞り込み..." oninput="renderPL()"></div>
   <div class="tech-results" id="plR" style="max-height:180px"></div>
   <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('plOv')">完了</button>
  </div>
@@ -1636,10 +1690,200 @@ window.saveUserData = saveUserData;
   <div class="mn-i" id="mnav-community" onclick="switchTab('community')"><span>◎</span>Community</div>
   <div class="mn-i" id="mnav-organize" onclick="switchTab('organize')"><span>≡</span>Organize</div>
   <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')"><span>◫</span>Archive</div>
+  <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
 </nav>
 </div><!-- /main-area -->
 </div><!-- /app-shell -->
 <script>
+// ═══ TAG SETTINGS ═══
+let tagSettings = [
+  { key:'ac',   label:'Action',    visible:true,  presets:['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'] },
+  { key:'pos',  label:'Position',  visible:true,  presets:['サイドコントロール','マウント','クローズドガード','ニーオン','ハーフガード','バタフライ','Xガード','デラヒーバ','バック','タートル','オープンガード','50/50','スタンディング','その他'] },
+  { key:'tech', label:'Technique', visible:true,  presets:[] }
+];
+
+function saveTagSettings(){
+  try{ localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); }catch(e){}
+}
+function loadTagSettings(){
+  try{
+    const s=localStorage.getItem('wk_tagSettings');
+    if(s){ const p=JSON.parse(s); if(Array.isArray(p)&&p.length) tagSettings=p; }
+  }catch(e){}
+}
+loadTagSettings();
+
+function renderSettings(){
+  renderTagSettingsList();
+  renderTagVisibilityBtns();
+}
+
+function renderTagSettingsList(){
+  const el=document.getElementById('tag-settings-list'); if(!el) return;
+  el.innerHTML='';
+  tagSettings.forEach(function(tag, i){
+    const card=document.createElement('div');
+    card.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;';
+    card.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);min-width:44px">属性${i+1}</div>
+        <input id="ts-label-${i}" value="${tag.label}" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:5px 9px;font-size:13px;font-weight:700;color:var(--text);outline:none;font-family:inherit"
+          onchange="tagSettings[${i}].label=this.value;saveTagSettings()">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" ${tag.visible?'checked':''} onchange="tagSettings[${i}].visible=this.checked;saveTagSettings();renderTagVisibilityBtns()">
+          表示
+        </label>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:7px">候補値</div>
+      <div id="ts-presets-${i}" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <input id="ts-new-${i}" placeholder="候補を追加..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+          onkeydown="if(event.key==='Enter')addTagPreset(${i})">
+        <button onclick="addTagPreset(${i})" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;cursor:pointer">＋</button>
+      </div>`;
+    el.appendChild(card);
+    renderTagPresets(i);
+  });
+}
+
+function renderTagPresets(i){
+  const el=document.getElementById('ts-presets-'+i); if(!el) return;
+  el.innerHTML='';
+
+  // ── 登録済み候補 ──
+  if(tagSettings[i].presets.length){
+    tagSettings[i].presets.forEach(function(p, pi){
+      const chip=document.createElement('span');
+      chip.style.cssText='display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:var(--surface2);border:1.5px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;';
+      chip.title='クリックで名前を変更';
+      // ラベル部分（クリックで編集）
+      const lbl=document.createElement('span');
+      lbl.textContent=p;
+      lbl.onclick=function(){ startRenamePreset(i, pi, chip, lbl, p); };
+      // 削除ボタン
+      const del=document.createElement('span');
+      del.textContent='×';
+      del.style.cssText='cursor:pointer;color:var(--text3);font-size:11px;margin-left:2px;';
+      del.onclick=function(e){ e.stopPropagation(); removeTagPreset(i,pi); };
+      chip.appendChild(lbl);
+      chip.appendChild(del);
+      el.appendChild(chip);
+    });
+  } else {
+    const empty=document.createElement('span');
+    empty.style.cssText='font-size:11px;color:var(--text3);';
+    empty.textContent='候補なし（自由入力のみ）';
+    el.appendChild(empty);
+  }
+
+  // ── ライブラリから収集した未登録タグ ──
+  const key = tagSettings[i].key;
+  const fieldMap = {ac:'ac', pos:'pos', tech:'tech'};
+  const field = fieldMap[key];
+  if(!field) return;
+  const existing = new Set(tagSettings[i].presets);
+  const fromLibrary = [...new Set(videos.flatMap(v=>v[field]||[]))].filter(t=>!existing.has(t)).sort();
+  if(!fromLibrary.length) return;
+
+  const sep=document.createElement('div');
+  sep.style.cssText='width:100%;margin:8px 0 5px;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;';
+  sep.textContent='ライブラリ内の既存データ（タップで候補に追加）';
+  el.appendChild(sep);
+
+  fromLibrary.forEach(function(t){
+    const chip=document.createElement('span');
+    chip.style.cssText='display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:var(--surface);border:1.5px dashed var(--border);font-size:11px;color:var(--text3);cursor:pointer;';
+    chip.textContent='＋ '+t;
+    chip.onclick=function(){
+      if(!tagSettings[i].presets.includes(t)){
+        tagSettings[i].presets.push(t);
+        saveTagSettings();
+        renderTagPresets(i);
+      }
+    };
+    el.appendChild(chip);
+  });
+}
+
+function startRenamePreset(i, pi, chip, lbl, oldVal){
+  // インライン入力欄に切り替え
+  const inp=document.createElement('input');
+  inp.value=oldVal;
+  inp.style.cssText='width:80px;background:var(--surface);border:1.5px solid var(--accent);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--text);outline:none;font-family:inherit;';
+  chip.replaceChild(inp, lbl);
+  inp.focus();
+  inp.select();
+
+  function commit(){
+    const newVal=inp.value.trim();
+    if(newVal && newVal!==oldVal){
+      renameTagPreset(i, pi, oldVal, newVal);
+    } else {
+      renderTagPresets(i); // キャンセル時は再描画
+    }
+  }
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', function(e){
+    if(e.key==='Enter'){ inp.blur(); }
+    if(e.key==='Escape'){ inp.removeEventListener('blur', commit); renderTagPresets(i); }
+  });
+}
+
+function renameTagPreset(i, pi, oldVal, newVal){
+  // 1. presetsを更新
+  tagSettings[i].presets[pi]=newVal;
+  saveTagSettings();
+  // 2. 動画データを一括更新
+  const field=tagSettings[i].key; // ac / pos / tech
+  let count=0;
+  videos.forEach(function(v){
+    const arr=v[field]||[];
+    const idx=arr.indexOf(oldVal);
+    if(idx!==-1){ arr[idx]=newVal; count++; }
+  });
+  renderTagPresets(i);
+  if(count>0){
+    toast(`✅ "${oldVal}" → "${newVal}" に変更（${count}本の動画に反映）`);
+    AF();
+  } else {
+    toast(`✅ "${oldVal}" → "${newVal}" に変更`);
+  }
+}
+
+function addTagPreset(i){
+  const inp=document.getElementById('ts-new-'+i); if(!inp) return;
+  const val=inp.value.trim(); if(!val) return;
+  if(!tagSettings[i].presets.includes(val)){
+    tagSettings[i].presets.push(val);
+    saveTagSettings();
+    renderTagPresets(i);
+  }
+  inp.value='';
+}
+
+function removeTagPreset(i, pi){
+  tagSettings[i].presets.splice(pi,1);
+  saveTagSettings();
+  renderTagPresets(i);
+}
+
+function renderTagVisibilityBtns(){
+  const el=document.getElementById('tag-visibility-btns'); if(!el) return;
+  el.innerHTML='';
+  tagSettings.forEach(function(tag, i){
+    const btn=document.createElement('button');
+    btn.style.cssText=`padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:${tag.visible?'var(--text)':'var(--surface2)'};color:${tag.visible?'#fff':'var(--text2)'};`;
+    btn.textContent=tag.label;
+    btn.onclick=function(){
+      tagSettings[i].visible=!tagSettings[i].visible;
+      saveTagSettings();
+      renderTagVisibilityBtns();
+      renderTagSettingsList();
+    };
+    el.appendChild(btn);
+  });
+}
+
 const TECH=["十字絞め","RNC","ギロチン","アナコンダ","ダースチョーク","ノースサウスチョーク","ボウアンドアロー","アームバー","キムラ","アメリカーナ","オモプラッタ","ヒールフック","インサイドヒールフック","アウトサイドヒールフック","ニーバー","トーホールド","アンクルロック","カーフスライサー","シザースイープ","フラワースイープ","ヒップバンプスイープ","バタフライスイープ","SLXスイープ","バックテイク","ダブルレッグ","シングルレッグ","ベリンボロ","トレアンダー","ニーカット","トレアンダーパス","ブルファイターパス","レッグドラッグ","スタックパス","スマッシュパス","バックステップ","X-パス","ディープハーフエントリー","クレーンロール","ガスペダル","カウンター"];
 const BELT_L={white:'白帯',blue:'青帯',purple:'紫帯',brown:'茶帯',black:'黒帯'};
 
@@ -1676,15 +1920,12 @@ let orgView='all',urlPrio='保留',urlDet=null;
 let beltF=new Set(),cStF=new Set();
 let impPl='',impSel=new Set();
 
-function switchTab(t){['home','community','organize','archive'].forEach(n=>{
+function switchTab(t){['home','community','organize','archive','settings'].forEach(n=>{
     const p=document.getElementById(n+'Tab');if(p)p.className='tab-panel'+(t===n?' active':'');
-    // mobile nav
     const m=document.getElementById('mnav-'+n);if(m)m.className='mn-i'+(t===n?' active':'');
-    // topbar nav
     const tn=document.getElementById('tnav-'+n);if(tn)tn.className='tn-i'+(t===n?' active':'');
-    // sidebar nav
     const fn=document.getElementById('fnav-'+n);if(fn)fn.className='fs-nav-i'+(t===n?' active':'');
-  });if(t==='community')renderComm();if(t==='organize')renderOrg();if(t==='archive')renderArch();}
+  });if(t==='community')renderComm();if(t==='organize')renderOrg();if(t==='archive')renderArch();if(t==='settings')renderSettings();}
 
 function togF(type,val,el){filters[type].has(val)?(filters[type].delete(val),el.classList.remove('active')):(filters[type].add(val),el.classList.add('active'));AF();}
 function togPlat(p){filters.platform.has(p)?filters.platform.delete(p):filters.platform.add(p);const isYT=p==='youtube';[isYT?'chip-yt':'chip-vimeo',isYT?'m-chip-yt':'m-chip-vimeo'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',filters.platform.has(p));});AF();}
@@ -1937,6 +2178,19 @@ function buildDrawerHTML(id) {
       </div>
     </div>
     <div class="vp-row">
+      <span class="vp-lbl">Playlist</span>
+      <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="vp-chip on-pl" id="vp-pl-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.pl||'未分類'}</span>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','move')">↪ 移動</button>
+          <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','copy')">⧉ コピー</button>
+          <button class="vp-pl-btn vp-pl-btn-del" onclick="vpRemoveFromPl('${id}')">✕ 削除</button>
+        </div>
+      </div>
+    </div>
+    <div class="vp-row">
       <span class="vp-lbl">Memo</span>
       <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど...">${v.memo||''}</textarea>
     </div>
@@ -2032,6 +2286,87 @@ function vpAddPosVal(id, val) {
   chip.dataset.id = id; chip.dataset.val = val;
   chip.onclick = function(){ vpRemovePosEl(this); };
   container.appendChild(chip);
+}
+
+// ═══ PLAYLIST OPERATIONS ═══
+let _vpPlOp = null; // {id, mode}
+
+function openVpPlaylistOp(id, mode) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  _vpPlOp = {id, mode};
+  resetVpPlModal();
+  const title = document.getElementById('vpPlOvTitle');
+  const desc  = document.getElementById('vpPlOvDesc');
+  const list  = document.getElementById('vpPlOvList');
+  const inp   = document.getElementById('vpPlOvNew');
+  title.textContent = mode==='move' ? '↪ プレイリストに移動' : '⧉ プレイリストにコピー';
+  desc.textContent  = mode==='move'
+    ? `現在：「${v.pl}」→ 移動先を選んでください`
+    : `「${v.pl}」からコピーして追加`;
+  inp.value = '';
+  // 既存プレイリスト一覧（現在のものを除く）
+  const pls = [...new Set(videos.filter(x=>!x.archived).map(x=>x.pl))]
+    .filter(p => mode==='move' ? p!==v.pl : true)
+    .sort();
+  list.innerHTML = '';
+  if(!pls.length){
+    list.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px">他のプレイリストがありません</div>';
+  } else {
+    pls.forEach(p => {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'width:100%;text-align:left;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;';
+      btn.textContent = p;
+      btn.onmouseover = ()=>{ btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)'; };
+      btn.onmouseout  = ()=>{ btn.style.borderColor='var(--border)';  btn.style.color='var(--text)'; };
+      btn.onclick = () => vpPlOvConfirm(p);
+      list.appendChild(btn);
+    });
+  }
+  // body末尾に移動して確実に最前面に表示
+  const ov = document.getElementById('vpPlOv');
+  document.body.appendChild(ov);
+  ov.classList.add('open');
+}
+
+function vpPlOvConfirm(targetPl) {
+  if(!_vpPlOp || !targetPl.trim()) return;
+  const {id, mode} = _vpPlOp;
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  if(mode==='move') {
+    const oldPl = v.pl;
+    v.pl = targetPl.trim();
+    updateVpPlBadge(id, v.pl);
+    toast(`↪ 「${oldPl}」→「${v.pl}」に移動しました`);
+  } else {
+    // コピー：新しいオブジェクトを生成してlibraryに追加
+    const copy = JSON.parse(JSON.stringify(v));
+    copy.id = v.id + '_copy_' + Date.now();
+    copy.pl = targetPl.trim();
+    videos.push(copy);
+    toast(`⧉ 「${copy.pl}」にコピーしました`);
+  }
+  closeOv('vpPlOv');
+  AF();
+}
+
+function vpPlOvConfirmNew() {
+  const val = document.getElementById('vpPlOvNew').value.trim();
+  if(!val) { toast('プレイリスト名を入力してください'); return; }
+  vpPlOvConfirm(val);
+}
+
+function vpRemoveFromPl(id) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  const old = v.pl;
+  v.pl = '未分類';
+  updateVpPlBadge(id, v.pl);
+  toast(`✕ 「${old}」から削除（未分類に移動）`);
+  AF();
+}
+
+function updateVpPlBadge(id, newPl) {
+  const badge = document.getElementById('vp-pl-badge-'+id);
+  if(badge) badge.textContent = newPl;
 }
 
 function vpRemovePosEl(el) {
@@ -2145,17 +2480,18 @@ function _openPanel(id, emb, ext, plat) {
 }
 
 function closePanel() {
-  const panel = document.getElementById('vp-panel');
-  if(panel) {
-    const iframe = panel.querySelector('iframe');
-    if(iframe) iframe.src = '';
-    panel.classList.remove('show');
-  }
-  var ma2=document.querySelector('.main-area');
-  ma2.classList.remove('panel-open');
-  ma2.style.marginRight='';
-  if(openPlayer) { _closePlayer(openPlayer); openPlayer = null; }
-  panelId = null;
+  try {
+    const panel = document.getElementById('vp-panel');
+    if(panel) {
+      const iframe = panel.querySelector('iframe');
+      if(iframe) iframe.src = '';
+      panel.classList.remove('show');
+    }
+    const ma2 = document.querySelector('.main-area');
+    if(ma2) { ma2.classList.remove('panel-open'); ma2.style.marginRight=''; }
+    openPlayer = null;
+    panelId = null;
+  } catch(e) { console.warn('closePanel error:', e); }
 }
 
 // ═══ VP PANEL RESIZER ═══
@@ -2319,6 +2655,92 @@ function selNone(){selIds.clear();AF();updBulk();}
 function bulkSetPrio(val){bulkSnapshot();const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.prio=val;});AF();toast('✅ '+ids.length+'本 → Priority: '+val);}
 function bulkSetProg(val){bulkSnapshot();const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.status=val;});AF();toast('✅ '+ids.length+'本 → Progress: '+val);}
 function bulkTogTag(field,val){bulkSnapshot();const ids=[...selIds];let added=0,removed=0;ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(!v)return;const arr=v[field]||[];if(arr.includes(val)){v[field]=arr.filter(x=>x!==val);removed++;}else{v[field]=[...arr,val];added++;}});toast((added?'＋'+added+'本に追加 ':'')+( removed?'−'+removed+'本から除去 ':'')+val);AF();}
+// ═══ BULK PLAYLIST OPERATIONS ═══
+let _bulkPlMode = null; // 'move' or 'copy'
+
+function openBulkPlOp(mode) {
+  if(!selIds.size){ toast('動画を選択してください'); return; }
+  _bulkPlMode = mode;
+  _vpPlOp = {id: null, mode: mode}; // モーダルを再利用
+
+  const title = document.getElementById('vpPlOvTitle');
+  const desc  = document.getElementById('vpPlOvDesc');
+  const list  = document.getElementById('vpPlOvList');
+  const inp   = document.getElementById('vpPlOvNew');
+
+  const count = selIds.size;
+  title.textContent = mode==='move' ? `↪ プレイリストに移動（${count}本）` : `⧉ プレイリストにコピー（${count}本）`;
+  desc.textContent  = mode==='move'
+    ? '選択した動画を移動先プレイリストに移動します'
+    : '選択した動画を別のプレイリストにコピーします';
+  inp.value = '';
+
+  // 既存プレイリスト一覧
+  const pls = [...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))].sort();
+  list.innerHTML = '';
+  pls.forEach(p => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'width:100%;text-align:left;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;margin-bottom:2px;';
+    btn.textContent = p;
+    btn.onmouseover = ()=>{ btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)'; };
+    btn.onmouseout  = ()=>{ btn.style.borderColor='var(--border)';  btn.style.color='var(--text)'; };
+    btn.onclick = () => bulkPlConfirm(p);
+    list.appendChild(btn);
+  });
+
+  // モーダルをbulk用に切り替える（vpPlOvConfirmをbulk用に上書き）
+  document.getElementById('vpPlOvNew').onkeydown = function(e){
+    if(e.key==='Enter') bulkPlConfirmNew();
+  };
+  document.querySelector('#vpPlOv .btn-save').onclick = ()=>{ closeOv('vpPlOv'); };
+  document.getElementById('vpPlOv').classList.add('open');
+}
+
+function bulkPlConfirm(targetPl) {
+  const ids = [...selIds];
+  const mode = _bulkPlMode;
+  if(mode==='move'){
+    ids.forEach(id=>{ const v=videos.find(v=>v.id===id); if(v) v.pl=targetPl; });
+    closeOv('vpPlOv');
+    AF();
+    toast(`↪ ${ids.length}本を「${targetPl}」に移動しました`);
+  } else {
+    const copies = ids.map(id=>{
+      const v=videos.find(v=>v.id===id); if(!v) return null;
+      const copy=JSON.parse(JSON.stringify(v));
+      copy.id=v.id+'_copy_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+      copy.pl=targetPl;
+      return copy;
+    }).filter(Boolean);
+    copies.forEach(c=>videos.push(c));
+    closeOv('vpPlOv');
+    AF();
+    toast(`⧉ ${copies.length}本を「${targetPl}」にコピーしました`);
+  }
+}
+
+function bulkPlConfirmNew() {
+  const val = document.getElementById('vpPlOvNew').value.trim();
+  if(!val){ toast('プレイリスト名を入力してください'); return; }
+  bulkPlConfirm(val);
+}
+
+function bulkPlRemove() {
+  if(!selIds.size){ toast('動画を選択してください'); return; }
+  const ids = [...selIds];
+  showConf('✕ プレイリストから削除', `${ids.length}本を「未分類」に移動します。`, ()=>{
+    ids.forEach(id=>{ const v=videos.find(v=>v.id===id); if(v) v.pl='未分類'; });
+    AF();
+    toast(`✕ ${ids.length}本を未分類に移動しました`);
+  });
+}
+
+// 個別動画のvpPlOvConfirmNewをモーダル再利用に合わせてリセット
+function resetVpPlModal() {
+  const inp = document.getElementById('vpPlOvNew');
+  if(inp) inp.onkeydown = function(e){ if(e.key==='Enter') vpPlOvConfirmNew(); };
+}
+
 function bulkDo(type){if(!selIds.size){toast('動画を選択してください');return;}const ids=[...selIds];if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});AF();toast('✅ '+ids.length+'本を視聴済みに');}else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});AF();toast('👁 '+ids.length+'本を未視聴に戻した');}else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});AF();toast('⭐ '+ids.length+'本をお気に入りに追加');}else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});AF();toast('☆ '+ids.length+'本のお気に入りを解除');}else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});AF();toast('📦 '+ids.length+'本をアーカイブ');}else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});AF();toast('🌐 '+ids.length+'本を全体公開にシェア');}else if(type==='remove'){showConf('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});AF();toast('✂ 除外しました');});}}
 
 function setOrg(v,el){orgView=v;document.querySelectorAll('.org-btn').forEach(b=>{b.classList.remove('on');});el.classList.add('on');renderOrg();}
@@ -2580,7 +3002,7 @@ function buildPlSrow() {
   const btn = document.createElement('div');
   btn.className = 'chip';
   btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-  btn.textContent = '＋ シリーズを選ぶ';
+  btn.textContent = '＋ プレイリストを選ぶ';
   btn.onclick = openPL;
   row.appendChild(btn);
 }
@@ -2750,7 +3172,7 @@ function buildMirrorRows(){
     });
     const btn=document.createElement('div');
     btn.className='chip'; btn.style.borderStyle='dashed';
-    btn.textContent='＋ シリーズを選ぶ'; btn.onclick=openPL;
+    btn.textContent='＋ プレイリストを選ぶ'; btn.onclick=openPL;
     mpl.appendChild(btn);
   }
   // Technique mirror: selected as chips + picker button
@@ -2920,7 +3342,7 @@ function syncFilterOvRows() {
     btn.textContent='＋ ポジションを選ぶ'; btn.onclick=openPos; row.appendChild(btn);
   })();
 
-  // SERIES: モーダル方式
+  // PLAYLIST: モーダル方式
   (function(){
     const row = document.getElementById('fov-srow-pl'); if(!row) return;
     row.innerHTML = '';
@@ -2930,7 +3352,7 @@ function syncFilterOvRows() {
       el.textContent=p+' ×'; el.onclick=function(){ filters.playlist.delete(p); syncFilterOvRows(); AF(); }; row.appendChild(el);
     });
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
-    btn.textContent='＋ シリーズを選ぶ'; btn.onclick=openPL; row.appendChild(btn);
+    btn.textContent='＋ プレイリストを選ぶ'; btn.onclick=openPL; row.appendChild(btn);
   })();
 
   // TECHNIQUE: モーダル方式
@@ -3038,6 +3460,26 @@ window.addEventListener('resize', adjustTopbarOffset);
   }, true); // capture phase
 })();
 </script>
+
+<!-- Playlist Operation Modal -->
+<div class="overlay" id="vpPlOv" onclick="closeOv('vpPlOv')">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:65vh;width:100%;max-width:480px">
+    <div class="sheet-handle"></div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px" id="vpPlOvTitle">プレイリストに移動</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px" id="vpPlOvDesc"></div>
+    <!-- 既存プレイリスト一覧 -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">既存のプレイリスト</div>
+    <div id="vpPlOvList" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:12px"></div>
+    <!-- 新規プレイリスト入力 -->
+    <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">新しいプレイリスト名</div>
+    <div style="display:flex;gap:6px">
+      <input id="vpPlOvNew" placeholder="プレイリスト名を入力..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+        onkeydown="if(event.key==='Enter')vpPlOvConfirmNew()">
+      <button onclick="vpPlOvConfirmNew()" style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">決定</button>
+    </div>
+    <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('vpPlOv')">キャンセル</button>
+  </div>
+</div>
 
 <!-- YouTube Import Overlay -->
 <div class="overlay" id="yt-import-ov" onclick="this.classList.remove('open')">
