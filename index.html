@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v43.4</title>
+<title>WAZA KIMURA v45.3</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -366,6 +366,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-toolbar::-webkit-scrollbar{display:none;}
 .org-btn{padding:5px 12px;border-radius:5px;font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap;font-family:'DM Sans',sans-serif;}
 .org-btn.on{background:var(--text);color:#fff;border-color:var(--text);}
+/* ── 整理タブ（表形式） ── */
+.org-header { padding:10px 12px; background:var(--surface); border-bottom:1.5px solid var(--border); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.org-pl-sel { flex:1; min-width:120px; background:var(--surface2); border:1.5px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--text); font-family:'DM Sans',sans-serif; outline:none; }
+.org-show-toggle { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text3); white-space:nowrap; cursor:pointer; }
+.org-table { width:100%; border-collapse:collapse; }
+.org-table-wrap { overflow-x:auto; }
+.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 10px; border-bottom:2px solid var(--border); background:var(--surface); text-align:left; white-space:nowrap; position:sticky; top:0; z-index:2; }
+.org-tr { border-bottom:1px solid var(--border); transition:background .15s; }
+.org-tr:hover { background:var(--surface2); }
+.org-td { padding:8px 10px; font-size:12px; vertical-align:middle; }
+.org-td-title { max-width:180px; }
+.org-title-text { font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.4; cursor:pointer; }
+.org-title-text:hover { color:var(--accent); }
+.org-ch { font-size:10px; color:var(--text3); margin-top:2px; }
+.org-thumb { width:56px; height:32px; border-radius:4px; object-fit:cover; background:var(--surface3); cursor:pointer; flex-shrink:0; }
+.org-tag-chip { display:inline-block; font-size:10px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); margin:1px 2px 1px 0; white-space:nowrap; }
+.org-judge { display:flex; gap:4px; }
+.org-judge-btn { padding:4px 9px; border-radius:12px; border:none; font-size:10px; font-weight:700; cursor:pointer; white-space:nowrap; font-family:'DM Sans',sans-serif; transition:opacity .15s; }
+.org-judge-btn:hover { opacity:.8; }
+.org-judge-btn.watch  { background:#e8f5e9; color:#2e7d32; }
+.org-judge-btn.skip   { background:#fdecea; color:#c62828; }
+.org-judge-btn.later  { background:#fff8e1; color:#f57f17; }
+.org-judge-btn.done-watch { background:#2e7d32; color:#fff; }
+.org-judge-btn.done-skip  { background:#c62828; color:#fff; }
+.org-judge-btn.done-later { background:#f57f17; color:#fff; }
+.org-empty { padding:40px; text-align:center; color:var(--text3); font-size:13px; }
+.org-count-bar { padding:7px 12px; font-size:11px; color:var(--text3); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+
 .comm-search-wrap{padding:12px 13px;background:var(--surface);border-bottom:1px solid var(--border);}
 .comm-bar{display:flex;align-items:center;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius);padding:9px 13px;gap:8px;margin-bottom:10px;}
 .comm-bar input{background:none;border:none;outline:none;color:var(--text);font-size:13px;flex:1;font-family:inherit;}
@@ -1132,6 +1160,7 @@ async function ytFetchSelectedPlVideos(token) {
           title: s.title,
           thumb: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
           channel: s.videoOwnerChannelTitle || '',
+          addedAt: s.publishedAt || '',   // プレイリストへの追加日時
           already: existingYtIds.has(vid)
         });
       });
@@ -1161,7 +1190,7 @@ function ytShowVideoStage() {
     <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:6px 0 4px">${pl.title}</div>
     ${pl.items.map(item => `
       <label style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:${item.already?'var(--surface2)':'var(--surface)'};${item.already?'opacity:.5;':'cursor:pointer;'}">
-        <input type="checkbox" class="yt-vid-cb" data-vid="${item.vid}" data-title="${item.title.replace(/"/g,'&quot;')}" data-thumb="${item.thumb}" data-channel="${item.channel.replace(/"/g,'&quot;')}" data-pl="${item.plTitle.replace(/"/g,'&quot;')}" ${item.already?'disabled checked':''}  style="width:16px;height:16px;flex-shrink:0">
+        <input type="checkbox" class="yt-vid-cb" data-vid="${item.vid}" data-title="${item.title.replace(/"/g,'&quot;')}" data-thumb="${item.thumb}" data-channel="${item.channel.replace(/"/g,'&quot;')}" data-pl="${item.plTitle.replace(/"/g,'&quot;')}" data-addedat="${item.addedAt||''}" ${item.already?'disabled checked':''}  style="width:16px;height:16px;flex-shrink:0">
         <img src="${item.thumb}" style="width:56px;height:42px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${item.title}</div>
@@ -1206,6 +1235,7 @@ async function ytImportCheckedVideos() {
       ch: cb.dataset.channel,
       channel: cb.dataset.channel,
       pl: cb.dataset.pl,
+      addedAt: cb.dataset.addedat || '',  // プレイリストへの追加日
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       ...(() => { const t=autoTagFromTitle(cb.dataset.title); return {tb:t.tb,ac:t.ac,pos:t.pos,tech:t.tech}; })()
@@ -1253,8 +1283,8 @@ window.saveUserData = saveUserData;
     <button id="auth-btn" class="topbar-btn" onclick="">Googleでログイン</button>
     <button id="yt-import-btn" onclick="importYouTubePlaylists()" style="display:none;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:#ff0000;color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">▶ YT取込</button>
     <button onclick="saveUserData()" class="topbar-btn">💾 保存</button>
-    <button id="filter-toggle-btn" onclick="toggleFilterOverlay()" class="topbar-btn">☰ フィルター</button>
-    <button id="filter-reset-btn" onclick="resetFilters()" class="topbar-btn" style="color:var(--accent);display:none">× Reset</button>
+    <button id="filter-toggle-btn" onclick="toggleFilterOverlay()" class="topbar-btn">☰ フィルター</button><button id="filter-reset-btn" onclick="resetFilters()" style="display:none;margin-left:4px;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× フィルター解除</button>
+
     <button id="bulk-sel-btn" onclick="enterBulk()" class="topbar-btn">☑ 一括編集</button>
   </div>
   <span id="totalCount" class="topbar-count" style="display:none"></span>
@@ -1267,11 +1297,12 @@ window.saveUserData = saveUserData;
   <div id="filter-overlay-panel">
     <div class="fbar-row" style="margin-bottom:5px">
       <span class="fbar-lbl">Status</span>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <div style="display:flex;gap:5px;flex-wrap:wrap;flex:1">
         <div class="chip c-fav" id="fov-chip-fav" onclick="togFav();syncFilterOvChips()">★ Fav</div>
         <div class="chip c-unw" id="fov-chip-unw" onclick="togUnw();syncFilterOvChips()">Unseen</div>
         <div class="chip" id="fov-chip-watched" onclick="togWatched();syncFilterOvChips()">視聴済み</div>
       </div>
+      <div id="fov-hit-badge" style="flex-shrink:0;background:var(--accent);color:#fff;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;padding:4px 10px;border-radius:20px;white-space:nowrap;align-self:center">0 件</div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">
       <span class="fbar-lbl">Progress</span>
@@ -1313,9 +1344,19 @@ window.saveUserData = saveUserData;
       <span class="fbar-lbl">Channel</span>
       <div class="hrow" id="fov-srow-ch"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span id="fov-rc" style="font-size:11px;color:var(--text3)"></span>
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:4px">
       <button class="btn-sub" onclick="resetFilters()">× Reset</button>
+    </div>
+    <span id="fov-rc" style="display:none"></span>
+    <!-- 検索条件の保存・呼び出し -->
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.8px;margin-bottom:6px">🔖 保存した検索条件</div>
+      <div id="fov-saved-list" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;min-height:20px"></div>
+      <div style="display:flex;gap:6px">
+        <input id="fov-save-name" placeholder="条件名を入力..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--text);outline:none;font-family:inherit"
+          onkeydown="if(event.key==='Enter')saveFilterPreset()">
+        <button onclick="saveFilterPreset()" style="padding:5px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer">保存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1430,15 +1471,50 @@ window.saveUserData = saveUserData;
 
 <!-- ORGANIZE -->
 <div class="tab-panel" id="organizeTab">
-  <div class="org-toolbar">
-    <button class="org-btn on" onclick="setOrg('all',this)">すべて</button>
-    <button class="org-btn" onclick="setOrg('no-tech',this)">🥋 テクニック未設定</button>
-    <button class="org-btn" onclick="setOrg('unwatched',this)">👁 未視聴</button>
-    <button class="org-btn" onclick="setOrg('no-memo',this)">💬 メモなし</button>
-    <button class="org-btn" onclick="setOrg('by-pl',this)">📋 PL別</button>
+  <!-- ヘッダー：プレイリスト選択 + 表示切り替え -->
+  <div class="org-header">
+    <select id="org-pl-sel" class="org-pl-sel" onchange="renderOrg()">
+      <option value="__all__">📋 すべてのプレイリスト</option>
+    </select>
+    <select id="org-sort-sel" class="org-pl-sel" style="flex:0 0 auto;min-width:0;width:auto;font-size:11px" onchange="renderOrg()">
+      <option value="added-desc">追加日 新しい順</option>
+      <option value="added-asc">追加日 古い順</option>
+      <option value="title-asc">タイトル順</option>
+    </select>
+    <label class="org-show-toggle">
+      <input type="checkbox" id="org-show-done" onchange="renderOrg()" style="accent-color:var(--accent)">
+      整理済みも表示
+    </label>
   </div>
-  <div class="results-header"><span class="results-count" id="oc"></span><button class="bulk-btn" onclick="enterBulk('organize')">☑ 一括選択</button></div>
-  <div class="card-list" id="orgList"></div>
+  <!-- カウントバー -->
+  <div class="org-count-bar">
+    <span id="oc"></span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span id="org-done-count" style="color:var(--accent);font-weight:700"></span>
+      <button class="bulk-btn" onclick="enterBulk('organize')" id="org-bulk-btn">☑ 一括編集</button>
+    </div>
+  </div>
+  <!-- 表形式リスト -->
+  <div class="org-table-wrap">
+    <table class="org-table">
+      <thead>
+        <tr>
+          <th class="org-th" style="width:32px;padding:7px 6px"><input type="checkbox" id="org-sel-all" onchange="orgTogSelAll(this)" style="accent-color:var(--accent)"></th>
+          <th class="org-th" style="width:56px"></th>
+          <th class="org-th">タイトル / チャンネル</th>
+          <th class="org-th" style="min-width:80px;white-space:nowrap">追加日</th>
+          <th class="org-th" style="min-width:120px">タグ</th>
+          <th class="org-th" style="min-width:130px">Priority</th>
+        </tr>
+      </thead>
+      <tbody id="orgList"></tbody>
+    </table>
+  </div>
+  <div id="org-empty" class="org-empty" style="display:none">
+    <div style="font-size:28px;margin-bottom:8px">✅</div>
+    <div>未整理の動画はありません</div>
+    <div style="font-size:11px;margin-top:4px">「判断済みも表示」で全件確認できます</div>
+  </div>
 </div>
 
 <!-- ARCHIVE -->
@@ -1943,28 +2019,85 @@ function clearAll(){
   });
   renderTFC();syncFilterOvRows();AF();
 }
+// ═══ FILTER PRESETS ═══
+let filterPresets = JSON.parse(localStorage.getItem('wk_filterPresets') || '[]');
+
+function saveFilterPresets() {
+  localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
+}
+
+function saveFilterPreset() {
+  const name = document.getElementById('fov-save-name').value.trim();
+  if(!name) { toast('条件名を入力してください'); return; }
+  const snapshot = {
+    name,
+    filters: Object.fromEntries(Object.entries(filters).map(([k,v])=>[k,[...v]])),
+    favOnly, unwOnly, watchedOnly
+  };
+  const idx = filterPresets.findIndex(p=>p.name===name);
+  if(idx>=0) filterPresets[idx] = snapshot; else filterPresets.push(snapshot);
+  saveFilterPresets();
+  document.getElementById('fov-save-name').value = '';
+  renderFilterPresets();
+  toast('🔖 「' + name + '」を保存しました');
+}
+
+function loadFilterPreset(idx) {
+  const p = filterPresets[idx]; if(!p) return;
+  Object.keys(filters).forEach(k => { filters[k] = new Set(p.filters[k] || []); });
+  favOnly = p.favOnly || false;
+  unwOnly = p.unwOnly || false;
+  watchedOnly = p.watchedOnly || false;
+  AF(); syncFilterOvRows(); updateResetBtn();
+  toast('🔖 「' + p.name + '」を適用しました');
+}
+
+function deleteFilterPreset(idx) {
+  const name = filterPresets[idx] ? filterPresets[idx].name : '';
+  filterPresets.splice(idx, 1);
+  saveFilterPresets();
+  renderFilterPresets();
+  toast('🗑 「' + name + '」を削除しました');
+}
+
+function renderFilterPresets() {
+  const list = document.getElementById('fov-saved-list');
+  if(!list) return;
+  if(!filterPresets.length) {
+    list.innerHTML = '<span style="font-size:10px;color:var(--text3)">まだ保存された条件はありません</span>';
+    return;
+  }
+  list.innerHTML = filterPresets.map(function(p, i) {
+    return '<div style="display:flex;align-items:center;gap:3px;background:var(--surface2);border:1.5px solid var(--border);border-radius:16px;padding:3px 8px 3px 10px">'
+      + '<span style="font-size:11px;cursor:pointer;color:var(--text)" onclick="loadFilterPreset(' + i + ')">' + p.name + '</span>'
+      + '<span style="font-size:11px;color:var(--text3);cursor:pointer;margin-left:2px" onclick="deleteFilterPreset(' + i + ')">×</span>'
+      + '</div>';
+  }).join('');
+}
+
 function resetFilters(){ clearAll(); }
 function updateResetBtn(){
   const btn=document.getElementById('filter-reset-btn'); if(!btn) return;
   const active=Object.values(filters).some(s=>s.size>0)||favOnly||unwOnly||watchedOnly;
-  btn.style.display=active?'':'none';
+  btn.style.display=active?'inline-block':'none';
 }
 
 function filt(list){const q=document.getElementById('si').value.toLowerCase();return list.filter(v=>{if(v.archived)return false;if(favOnly&&!v.fav)return false;if(unwOnly&&v.watched)return false;
     if(watchedOnly&&!v.watched)return false;if(filters.platform.size&&!filters.platform.has(v.pt))return false;if(q&&!v.title.toLowerCase().includes(q)&&!v.ch.toLowerCase().includes(q)&&!v.pl.toLowerCase().includes(q)&&!v.tech.some(t=>t.toLowerCase().includes(q)))return false;if(filters.playlist.size&&!filters.playlist.has(v.pl))return false;if(filters.prio.size&&!filters.prio.has(v.prio))return false;if(filters.status.size&&!filters.status.has(v.status))return false;if(filters.tb.size&&!v.tb.some(t=>filters.tb.has(t)))return false;if(filters.action.size&&!v.ac.some(a=>filters.action.has(a)))return false;if(filters.position.size&&!v.pos.some(p=>filters.position.has(p)))return false;if(filters.tech.size&&!v.tech.some(t=>filters.tech.has(t)))return false;if(filters.channel.size&&!filters.channel.has(v.ch))return false;return true;});}
-function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' videos';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();updateResetBtn();}
+function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' 本 表示中';const rct=document.getElementById('rc-topbar');if(rct){const hasFilter=Object.values(filters).some(s=>s.size>0)||favOnly||unwOnly||watchedOnly||document.getElementById('si').value.trim();rct.textContent=f.length+' 件';rct.style.display=hasFilter?'inline':'none';}const fhn=document.getElementById('fov-hit-num');if(fhn)fhn.textContent=f.length;const fhb=document.getElementById('fov-hit-badge');if(fhb)fhb.textContent=f.length+' 件';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();updateResetBtn();}
 function updatePLC(){buildPlSrow();}
 function renderTFC(){const el=document.getElementById('techFC');if(el)el.innerHTML=[...filters.tech].map(t=>`<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');}
 function rmTF(t){filters.tech.delete(t);renderTFC();AF();}
 function openTF(){document.getElementById('tfs').value='';renderTF();document.getElementById('tfOv').classList.add('open');}
 function renderTF(){
-  const q=document.getElementById('tfs').value.toLowerCase();
-  const used=[...new Set(videos.flatMap(v=>v.tech))];
+  const q=document.getElementById('tfs').value.trim();
+  const ql=q.toLowerCase();
+  // 既存タグ = TECH定数 + 動画のtechタグ を合わせて重複排除・ソート
+  const allTech=[...new Set([...TECH,...videos.flatMap(v=>v.tech||[])])].sort();
+  const matched=allTech.filter(t=>!ql||t.toLowerCase().includes(ql));
   const container=document.getElementById('tfR');
-  const filtered=used.filter(t=>!q||t.toLowerCase().includes(q));
-  if(!filtered.length){container.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';return;}
   container.innerHTML='';
-  filtered.forEach(t=>{
+  matched.forEach(t=>{
     const el=document.createElement('div');
     el.className='tech-pill'+(filters.tech.has(t)?' active':'');
     el.textContent=t;
@@ -1975,6 +2108,21 @@ function renderTF(){
     });
     container.appendChild(el);
   });
+  // ヒットなし or 完全一致なし → 新規追加ボタン
+  if(q && !allTech.some(t=>t.toLowerCase()===ql)){
+    const el=document.createElement('div');
+    el.className='tech-pill';
+    el.style.cssText='border-style:dashed;color:var(--accent)';
+    el.textContent='＋ 「'+q+'」を追加';
+    el.onclick=function(){
+      filters.tech.add(q);
+      buildTechSrow();buildFsTechSrow();syncFilterOvRows();renderTFC();AF();
+      document.getElementById('tfs').value='';renderTF();
+      closeOv('tfOv');
+    };
+    container.appendChild(el);
+  }
+  if(!matched.length && !q) container.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px">タグなし</div>';
 }
 function openPL(){document.getElementById('pls').value='';renderPL();document.getElementById('plOv').classList.add('open');}
 function renderPL(){
@@ -2192,7 +2340,7 @@ function buildDrawerHTML(id) {
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Memo</span>
-      <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど...">${v.memo||''}</textarea>
+      <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど..." onblur="vpSaveMemo('${id}')">${v.memo||''}</textarea>
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Share</span>
@@ -2202,7 +2350,7 @@ function buildDrawerHTML(id) {
         <span class="vp-chip${(v.shared||0)===2?' on-s0':''}" onclick="vpSetShare('${id}',2,this)">🌐 全公開</span>
       </div>
     </div>
-    <button class="vp-save-btn" onclick="vpSave('${id}')">💾 保存</button>
+    <div id="vp-autosave-${id}" style="text-align:center;font-size:10px;color:var(--text3);opacity:0;transition:opacity .3s;padding:4px 0 8px;letter-spacing:.5px;">✓ 自動保存済み</div>
   `;
 }
 
@@ -2214,6 +2362,7 @@ function vpSet(id, field, val, el, cls) {
     c.classList.remove('on-p1','on-p2','on-p3','on-s0','on-s1','on-s2');
   });
   el.classList.add(cls);
+  autoSaveVp(id);
 }
 
 function vpTog(id, field, val, el, cls) {
@@ -2226,6 +2375,7 @@ function vpTog(id, field, val, el, cls) {
     v[field] = [...arr, val];
     el.classList.add(cls);
   }
+  autoSaveVp(id);
 }
 
 function vpAddTech(id, e, inp) {
@@ -2256,6 +2406,7 @@ function vpAddTechVal(id, val) {
   chip.dataset.id = id; chip.dataset.val = val;
   chip.onclick = function(){ vpRemoveTechEl(this); };
   container.appendChild(chip);
+  autoSaveVp(id);
 }
 
 function vpAddPos(id, e, inp) {
@@ -2301,8 +2452,8 @@ function openVpPlaylistOp(id, mode) {
   const inp   = document.getElementById('vpPlOvNew');
   title.textContent = mode==='move' ? '↪ プレイリストに移動' : '⧉ プレイリストにコピー';
   desc.textContent  = mode==='move'
-    ? `現在：「${v.pl}」→ 移動先を選んでください`
-    : `「${v.pl}」からコピーして追加`;
+    ? '現在：「' + v.pl + '」→ 移動先を選んでください'
+    : '「' + v.pl + '」からコピーして追加';
   inp.value = '';
   // 既存プレイリスト一覧（現在のものを除く）
   const pls = [...new Set(videos.filter(x=>!x.archived).map(x=>x.pl))]
@@ -2375,6 +2526,7 @@ function vpRemovePosEl(el) {
   const v = videos.find(v=>v.id===id); if(!v) return;
   v.pos = (v.pos||[]).filter(p=>p!==val);
   el.remove();
+  autoSaveVp(id);
 }
 
 function vpPosSuggest(id, inp) {
@@ -2412,6 +2564,7 @@ function vpRemoveTechEl(el) {
   const v = videos.find(v=>v.id===id); if(!v) return;
   v.tech = (v.tech||[]).filter(t=>t!==val);
   el.remove();
+  autoSaveVp(id);
 }
 
 function vpTogWatch(id, el) {
@@ -2419,6 +2572,7 @@ function vpTogWatch(id, el) {
   v.watched = !v.watched;
   el.className = 'vp-chip' + (v.watched ? ' on-s1' : '');
   el.textContent = v.watched ? '✅ 視聴済み' : '👁 未視聴';
+  autoSaveVp(id);
 }
 
 function vpTogFav(id, el) {
@@ -2426,6 +2580,7 @@ function vpTogFav(id, el) {
   v.fav = !v.fav;
   el.className = 'vp-chip' + (v.fav ? ' on-fav-chip' : '');
   el.textContent = v.fav ? '⭐ Fav' : '☆ Fav';
+  autoSaveVp(id);
 }
 
 
@@ -2437,7 +2592,28 @@ function vpSetShare(id, val, el) {
   if (row) row.querySelectorAll('.vp-chip').forEach((c, i) => {
     c.className = 'vp-chip' + (i === val ? ' on-s0' : '');
   });
+  autoSaveVp(id);
 }
+// ── VP Memo保存（blur時）──
+function vpSaveMemo(id) {
+  const v = videos.find(v=>v.id===id); if(!v) return;
+  const memo = document.getElementById('vp-memo-' + id);
+  if(memo) v.memo = memo.value.trim();
+  autoSaveVp(id);
+}
+
+// ── VP 自動保存 ──
+function autoSaveVp(id) {
+  saveUserData();
+  // 保存インジケーターを一瞬表示
+  const ind = document.getElementById('vp-autosave-' + id);
+  if(ind) {
+    ind.style.opacity = '1';
+    clearTimeout(ind._t);
+    ind._t = setTimeout(()=>{ ind.style.opacity='0'; }, 1200);
+  }
+}
+
 function vpSave(id) {
   const v = videos.find(v=>v.id===id); if(!v) return;
   const memo = document.getElementById('vp-memo-' + id);
@@ -2536,7 +2712,18 @@ function archOne(id){const v=videos.find(v=>v.id===id);if(v){v.archived=true;AF(
 function addSwipe(){document.querySelectorAll('.card[id^="card-"]').forEach(card=>{let sx=0,sy=0,mv=false;card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;mv=false;},{passive:true});card.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-sx,dy=Math.abs(e.touches[0].clientY-sy);if(dy>20)return;if(Math.abs(dx)>8){mv=true;card.style.transform=`translateX(${dx*.4}px)`;}},{passive:true});card.addEventListener('touchend',e=>{card.style.transform='';if(!mv)return;const dx=e.changedTouches[0].clientX-sx,id=card.id.replace('card-','');if(dx>60)qWatch(id);else if(dx<-60)archOne(id);});});}
 
 let bulkUndoStack=[];
-function enterBulk(ctx='home'){bulkMode=true;bulkCtx=ctx;selIds.clear();bulkUndoStack=[];document.getElementById('bulkBar').classList.add('show');const sh=document.getElementById('sh');if(sh)sh.style.display='none';AF();updBulk();}
+function enterBulk(ctx='home'){
+  bulkMode=true;bulkCtx=ctx;selIds.clear();bulkUndoStack=[];
+  document.getElementById('bulkBar').classList.add('show');
+  const sh=document.getElementById('sh');if(sh)sh.style.display='none';
+  if(ctx==='organize'){
+    const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='none';
+    renderOrg();
+  } else {
+    AF();
+  }
+  updBulk();
+}
 function bulkSnapshot(){bulkUndoStack.push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],ac:[...(v.ac||[])],pos:[...(v.pos||[])],tech:[...(v.tech||[])],pl:v.pl,archived:v.archived})));}
 // ─── Bulk Picker ───
 const BULK_PICKER_OPTS_BASE = {
@@ -2620,6 +2807,7 @@ function applyBulkPicker(type, val, optEl) {
     toast((added?'＋'+added+' ':'')+( removed?'−'+removed+' ':'')+val);
   }
   AF();
+  if(bulkCtx==='organize') renderOrg();
   // Don't close dropdown - user might want to apply more
 }
 
@@ -2631,7 +2819,7 @@ document.addEventListener('click', function(e) {
   }
 });
 
-function bulkUndo(){if(!bulkUndoStack.length){toast('元に戻す履歴がありません');return;}const snap=bulkUndoStack.pop();snap.forEach(s=>{const v=videos.find(v=>v.id===s.id);if(v)Object.assign(v,s);});AF();toast('↩ 元に戻しました');}
+function bulkUndo(){if(!bulkUndoStack.length){toast('元に戻す履歴がありません');return;}const snap=bulkUndoStack.pop();snap.forEach(s=>{const v=videos.find(v=>v.id===s.id);if(v)Object.assign(v,s);});AF();if(bulkCtx==='organize')renderOrg();toast('↩ 元に戻しました');}
 function resetBulkPickers(){
   ['status','prio','prog','tb','ac','pos'].forEach(t=>{
     const lbl=document.getElementById('bp-'+t+'-lbl');
@@ -2643,15 +2831,79 @@ function resetBulkPickers(){
   if(drop)drop.style.display='none';
   activeBulkPicker=null;
 }
-function exitBulk(){bulkMode=false;selIds.clear();resetBulkPickers();document.getElementById('bulkBar').classList.remove('show');document.getElementById('sh').style.display='';AF();if(bulkCtx==='organize')renderOrg();}
+function exitBulk(){
+  bulkMode=false;selIds.clear();resetBulkPickers();
+  document.getElementById('bulkBar').classList.remove('show');
+  document.getElementById('sh').style.display='';
+  if(bulkCtx==='organize'){
+    const selAllCb=document.getElementById('org-sel-all');if(selAllCb)selAllCb.checked=false;
+    const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='';
+    renderOrg();
+  } else {
+    AF();
+  }
+}
 function togSel(id){selIds.has(id)?selIds.delete(id):selIds.add(id);const c=document.getElementById(`sel-${id}`)?.querySelector('.sel-circle');if(c){c.classList.toggle('chk',selIds.has(id));c.textContent=selIds.has(id)?'✓':'';}updBulk();}
+
+function orgRowClick(event, id) {
+  // 判断ボタン・チェックボックス・サムネイル・タイトルは各自のハンドラに委ねる
+  if(event.target.closest('.org-judge') || event.target.closest('.org-thumb') || event.target.closest('.org-title-text') || event.target.type==='checkbox') return;
+  // 一括編集モードでない場合 → 自動で一括編集開始
+  if(!bulkMode) enterBulk('organize');
+  // 選択トグル
+  const cb = document.getElementById('org-cb-'+id);
+  if(!cb) return;
+  cb.checked = !cb.checked;
+  orgTogSel(id, cb);
+}
+function orgTogSel(id, cb) {
+  cb.checked ? selIds.add(id) : selIds.delete(id);
+  // 全選択チェックボックスの状態を更新
+  const total = document.querySelectorAll('[id^="org-row-"]').length;
+  const selAllCb = document.getElementById('org-sel-all');
+  if (selAllCb) selAllCb.checked = selIds.size === total && total > 0;
+  updBulk();
+}
+function orgTogSelAll(cb) {
+  document.querySelectorAll('[id^="org-row-"]').forEach(tr => {
+    const id = tr.id.replace('org-row-', '');
+    cb.checked ? selIds.add(id) : selIds.delete(id);
+    const rowCb = tr.querySelector('input[type=checkbox]');
+    if (rowCb) rowCb.checked = cb.checked;
+  });
+  updBulk();
+}
 function updBulk(){
   document.getElementById('bulkTit').textContent=selIds.size+'本を選択中';
   const btn=document.getElementById('bulk-sel-btn');
   if(btn)btn.textContent=bulkMode&&selIds.size>0?'☑ '+selIds.size+' 選択中':'☑ Select';
+  // 整理タブ行のハイライト更新
+  if(bulkCtx==='organize'){document.querySelectorAll('[id^="org-row-"]').forEach(tr=>{const id=tr.id.replace('org-row-','');tr.style.background=selIds.has(id)?'var(--surface2)':'';}); }
 }
-function selAll(){const f=filt(videos);f.forEach(v=>selIds.add(v.id));AF();}
-function selNone(){selIds.clear();AF();updBulk();}
+function selAll(){
+  if(bulkCtx==='organize'){
+    // 整理タブ: 現在表示中の行を全選択
+    document.querySelectorAll('[id^="org-row-"]').forEach(tr=>{
+      const id=tr.id.replace('org-row-','');
+      selIds.add(id);
+      const cb=tr.querySelector('input[type=checkbox]');if(cb)cb.checked=true;
+    });
+    const selAllCb=document.getElementById('org-sel-all');if(selAllCb)selAllCb.checked=true;
+  } else {
+    const f=filt(videos);f.forEach(v=>selIds.add(v.id));AF();
+  }
+  updBulk();
+}
+function selNone(){
+  selIds.clear();
+  if(bulkCtx==='organize'){
+    document.querySelectorAll('[id^="org-row-"] input[type=checkbox]').forEach(cb=>cb.checked=false);
+    const selAllCb=document.getElementById('org-sel-all');if(selAllCb)selAllCb.checked=false;
+    updBulk();
+  } else {
+    AF();updBulk();
+  }
+}
 function bulkSetPrio(val){bulkSnapshot();const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.prio=val;});AF();toast('✅ '+ids.length+'本 → Priority: '+val);}
 function bulkSetProg(val){bulkSnapshot();const ids=[...selIds];ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.status=val;});AF();toast('✅ '+ids.length+'本 → Progress: '+val);}
 function bulkTogTag(field,val){bulkSnapshot();const ids=[...selIds];let added=0,removed=0;ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(!v)return;const arr=v[field]||[];if(arr.includes(val)){v[field]=arr.filter(x=>x!==val);removed++;}else{v[field]=[...arr,val];added++;}});toast((added?'＋'+added+'本に追加 ':'')+( removed?'−'+removed+'本から除去 ':'')+val);AF();}
@@ -2743,8 +2995,116 @@ function resetVpPlModal() {
 
 function bulkDo(type){if(!selIds.size){toast('動画を選択してください');return;}const ids=[...selIds];if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});AF();toast('✅ '+ids.length+'本を視聴済みに');}else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});AF();toast('👁 '+ids.length+'本を未視聴に戻した');}else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});AF();toast('⭐ '+ids.length+'本をお気に入りに追加');}else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});AF();toast('☆ '+ids.length+'本のお気に入りを解除');}else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});AF();toast('📦 '+ids.length+'本をアーカイブ');}else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});AF();toast('🌐 '+ids.length+'本を全体公開にシェア');}else if(type==='remove'){showConf('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});AF();toast('✂ 除外しました');});}}
 
-function setOrg(v,el){orgView=v;document.querySelectorAll('.org-btn').forEach(b=>{b.classList.remove('on');});el.classList.add('on');renderOrg();}
-function renderOrg(){let list=videos.filter(v=>!v.archived);if(orgView==='no-tech')list=list.filter(v=>!v.tech.length);else if(orgView==='unwatched')list=list.filter(v=>!v.watched);else if(orgView==='no-memo')list=list.filter(v=>!v.memo);else if(orgView==='by-pl'){const pls=[...new Set(list.map(v=>v.pl))];document.getElementById('orgList').innerHTML=pls.map(pl=>`<div style="padding:10px 2px 4px;font-size:13px;font-weight:800;color:var(--text2)">📋 ${pl} (${list.filter(v=>v.pl===pl).length}本)</div>`+list.filter(v=>v.pl===pl).map(v=>cardHTML(v)).join('')).join('');document.getElementById('oc').textContent=`${list.length}本`;addSwipe();return;}renderCards(list,'orgList');document.getElementById('oc').textContent=`${list.length}本`;addSwipe();}
+// ── 整理タブ ──
+// 判断ステータス管理（videoオブジェクトのjudge フィールドを使用）
+// judge: undefined/'pending' = 未判断, 'watch' = 見る, 'skip' = 見ない, 'later' = 後で
+
+function renderOrg() {
+  // プレイリストセレクターを更新
+  const sel = document.getElementById('org-pl-sel');
+  if (sel) {
+    const currentPl = sel.value;
+    const pls = [...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))].sort();
+    sel.innerHTML = '<option value="__all__">📋 すべてのプレイリスト</option>' +
+      pls.map(p => `<option value="${p.replace(/"/g,'&quot;')}"${currentPl===p?' selected':''}>${p}</option>`).join('');
+  }
+
+  const selectedPl = sel ? sel.value : '__all__';
+  const showDone = document.getElementById('org-show-done') && document.getElementById('org-show-done').checked;
+
+  let list = videos.filter(v => !v.archived);
+  if (selectedPl !== '__all__') list = list.filter(v => v.pl === selectedPl);
+
+  const totalCount = list.length;
+  // 「整理済み」= Priority が 保留以外に設定されている
+  const doneList = list.filter(v => v.prio && v.prio !== '保留');
+  const pendingList = list.filter(v => !v.prio || v.prio === '保留');
+
+  // 表示するリスト
+  const displayList = showDone ? list : pendingList;
+
+  // カウント表示
+  const oc = document.getElementById('oc');
+  if (oc) oc.textContent = showDone ? `${totalCount} 本` : `未整理 ${pendingList.length} 本`;
+  const dc = document.getElementById('org-done-count');
+  if (dc) dc.textContent = doneList.length > 0 ? `整理済み ${doneList.length} 本` : '';
+
+  // 空状態
+  const empty = document.getElementById('org-empty');
+  const tableWrap = document.querySelector('.org-table-wrap');
+  if (!displayList.length) {
+    if (empty) empty.style.display = '';
+    if (tableWrap) tableWrap.style.display = 'none';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (tableWrap) tableWrap.style.display = '';
+
+  // 行を描画
+  const tbody = document.getElementById('orgList');
+  if (!tbody) return;
+  tbody.innerHTML = displayList.map(v => {
+    const thumb = v.pt === 'youtube'
+      ? `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`
+      : `https://vumbnail.com/${v.id}.jpg`;
+    const judge = v.judge || 'pending';
+    const tags = [
+      ...(v.tb||[]).map(t=>`<span class="org-tag-chip" style="background:#e3f2fd;color:#1565c0">${t}</span>`),
+      ...(v.ac||[]).map(t=>`<span class="org-tag-chip" style="background:#f3e5f5;color:#6a1b9a">${t}</span>`),
+      ...(v.pos||[]).map(t=>`<span class="org-tag-chip" style="background:#e8f5e9;color:#2e7d32">${t}</span>`),
+      ...(v.tech||[]).map(t=>`<span class="org-tag-chip">${t}</span>`)
+    ].join('') || '<span style="font-size:10px;color:var(--text3)">未設定</span>';
+
+    // Priority ボタンのスタイル（選択中は色付き）
+    const prioCls = {
+      '今すぐ': '#ff5252', 'そのうち': '#42a5f5', '保留': '#bdbdbd'
+    };
+    const prioBg = {
+      '今すぐ': '#fdecea', 'そのうち': '#e3f2fd', '保留': '#f5f5f5'
+    };
+    const prio = v.prio || '保留';
+    // 保留以外なら整理済みとみなして薄く
+    const rowStyle = prio !== '保留' ? 'opacity:.6' : '';
+
+    return `<tr class="org-tr" style="${rowStyle}" id="org-row-${v.id}" onclick="orgRowClick(event,'${v.id}')">
+      <td class="org-td" style="padding:6px 6px;width:32px" id="org-chk-cell-${v.id}">
+        <input type="checkbox" id="org-cb-${v.id}" ${selIds.has(v.id)?'checked':''} onchange="orgTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">
+      </td>
+      <td class="org-td" style="padding:6px 8px">
+        <img class="org-thumb" src="${thumb}" onerror="this.style.display='none'" onclick="openVPanel('${v.id}')">
+      </td>
+      <td class="org-td org-td-title" onclick="openVPanel('${v.id}')">
+        <div class="org-title-text">${v.title}</div>
+        <div class="org-ch">${v.ch || ''} · ${v.pl || ''}</div>
+      </td>
+      <td class="org-td">${tags}</td>
+      <td class="org-td">
+        <div class="org-judge">
+          ${['今すぐ','そのうち','保留'].map(p => {
+            const active = prio === p;
+            const col = prioCls[p];
+            const bg = active ? prioBg[p] : 'var(--surface2)';
+            const border = active ? col : 'var(--border)';
+            const textCol = active ? col : 'var(--text3)';
+            const fw = active ? '800' : '500';
+            return `<button class="org-judge-btn" style="background:${bg};border:1.5px solid ${border};color:${textCol};font-weight:${fw}" onclick="event.stopPropagation();setPrio('${v.id}','${p}')">${p}</button>`;
+          }).join('')}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function setPrio(id, prio) {
+  const v = videos.find(v => v.id === id);
+  if (!v) return;
+  // トグル：同じボタンを押したら「保留」に戻す
+  v.prio = (v.prio === prio) ? '保留' : prio;
+  saveUserData();
+  renderOrg();
+  const emoji = {'今すぐ':'🔴','そのうち':'🔵','保留':'⬜'}[v.prio] || '';
+  toast(emoji + ' Priority: ' + v.prio);
+}
 
 function renderArch(){const arc=videos.filter(v=>v.archived);document.getElementById('arc').textContent=`${arc.length}本`;const c=document.getElementById('archList');if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';return;}c.innerHTML=arc.map(v=>`<div class="arch-card"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${v.pt==='youtube'?`https://img.youtube.com/vi/${v.id}/mqdefault.jpg`:`https://vumbnail.com/${v.id}.jpg`}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl} | ${v.pt==='vimeo'?'🎥 Vimeo':'▶ YouTube'}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`).join('');}
 function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;renderArch();AF();toast('↩ 復元しました');}}
@@ -2898,9 +3258,7 @@ function buildSrow(rowId, tagList, filterKey, addable) {
   const allEl = mkChip('すべて', filters[filterKey].size === 0, function() {
     filters[filterKey].clear();
     buildSrow(rowId, tagList, filterKey, addable);
-    renderCards(filt(videos), 'cardList');
-    document.getElementById('rc').textContent = filt(videos).length + '本 表示中';
-    addSwipe();
+    AF();
   });
   row.appendChild(allEl);
 
@@ -2912,9 +3270,7 @@ function buildSrow(rowId, tagList, filterKey, addable) {
         filters[filterKey].add(tag);
       }
       buildSrow(rowId, tagList, filterKey, addable);
-      renderCards(filt(videos), 'cardList');
-      document.getElementById('rc').textContent = filt(videos).length + '本 表示中';
-      addSwipe();
+      AF();
     });
     row.appendChild(el);
   });
@@ -2978,7 +3334,28 @@ function buildMirrorPosSrow() {
   row.appendChild(btn);
 }
 function openPos(){document.getElementById('pos-s').value='';renderPos();document.getElementById('posOv').classList.add('open');}
-function renderPos(){const q=document.getElementById('pos-s').value.toLowerCase();document.getElementById('posR').innerHTML=POS_TAGS.filter(p=>!q||p.toLowerCase().includes(q)).map(p=>`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p}',this)">${p}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';}
+function renderPos(){
+  const q=document.getElementById('pos-s').value.trim();
+  const ql=q.toLowerCase();
+  // 既存タグ = POS_TAGS + 動画に付いているposタグを合わせて重複排除・ソート
+  const allPos=[...new Set([...POS_TAGS,...videos.flatMap(v=>v.pos||[])])].sort();
+  const matched=allPos.filter(p=>!ql||p.toLowerCase().includes(ql));
+  let html=matched.map(p=>`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}</div>`).join('');
+  // ヒットなし or 完全一致なし → 新規追加ボタン
+  if(q && !allPos.some(p=>p.toLowerCase()===ql)){
+    html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewPos('${q.replace(/'/g,"\\'")}')">＋ 「${q}」を追加</div>`;
+  }
+  document.getElementById('posR').innerHTML=html||'<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';
+}
+function addNewPos(val){
+  if(!val.trim())return;
+  togF('position',val,{classList:{add:()=>{},remove:()=>{},toggle:()=>{},has:()=>false}});
+  filters.position.add(val);
+  buildPosSrow();buildMirrorPosSrow();syncFilterOvRows();AF();
+  document.getElementById('pos-s').value='';
+  renderPos();
+  closeOv('posOv');
+}
 function togPos(p,el){filters.position.has(p)?filters.position.delete(p):filters.position.add(p);el.classList.toggle('active');buildPosSrow();buildMirrorPosSrow();syncFilterOvRows();AF();}
 
 function buildPlSrow() {
@@ -3016,9 +3393,7 @@ function buildTechSrow() {
   const allEl = mkChip('すべて', filters.tech.size === 0, function() {
     filters.tech.clear();
     buildTechSrow();
-    renderCards(filt(videos), 'cardList');
-    document.getElementById('rc').textContent = filt(videos).length + '本 表示中';
-    addSwipe();
+    AF();
   });
   row.appendChild(allEl);
 
@@ -3030,9 +3405,7 @@ function buildTechSrow() {
     el.onclick = function() {
       filters.tech.delete(t);
       buildTechSrow();
-      renderCards(filt(videos), 'cardList');
-      document.getElementById('rc').textContent = filt(videos).length + '本 表示中';
-      addSwipe();
+      AF();
     };
     row.appendChild(el);
   });
@@ -3281,20 +3654,39 @@ function openChPicker(){
   const posOv=document.getElementById('posOv');
   posOv.querySelector('[style*="font-size:14px"]').textContent='📺 チャンネルフィルター';
   document.getElementById('pos-s').placeholder='チャンネル名で絞り込み...';
-  document.getElementById('pos-s').oninput=function(){renderChPicker(this.value);};
+  const posInp=document.getElementById('pos-s');
+  posInp.placeholder='チャンネル名で検索...';
+  posInp.value='';
+  posInp.oninput=function(){renderChPicker(this.value);};
   renderChPicker('');
   posOv.querySelector('.btn-save').onclick=()=>{
     posOv.classList.remove('open');
     // restore pos picker
     posOv.querySelector('[style*="font-size:14px"]').textContent='📍 ポジションフィルター';
     document.getElementById('pos-s').placeholder='ポジション名で絞り込み...';
-    document.getElementById('pos-s').oninput=function(){renderPos();};
+    const posInp2=document.getElementById('pos-s');
+  posInp2.placeholder='ポジション名で検索...';
+  posInp2.value='';
+  posInp2.oninput=function(){renderPos();};
   };
   posOv.classList.add('open');
 }
 function renderChPicker(q){
   const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
-  document.getElementById('posR').innerHTML=channels.filter(c=>!q||c.toLowerCase().includes(q.toLowerCase())).map(c=>`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px">チャンネルなし</div>';
+  const ql=(q||'').toLowerCase();
+  const matched=channels.filter(c=>!ql||c.toLowerCase().includes(ql));
+  let html=matched.map(c=>`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('');
+  // ヒットなし or 完全一致なし → 新規追加ボタン
+  if(q && !channels.some(c=>c.toLowerCase()===ql)){
+    html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewChFilter('${q.replace(/'/g,"\\'")}')">＋ 「${q}」で検索</div>`;
+  }
+  document.getElementById('posR').innerHTML=html||'<div style="font-size:11px;color:var(--text3);padding:8px">チャンネルなし</div>';
+}
+function addNewChFilter(val){
+  if(!val.trim())return;
+  filters.channel.add(val);
+  buildChSrow();buildFsChSrow();syncFilterOvRows();AF();
+  closeOv('posOv');
 }
 function togCh(c,el){filters.channel.has(c)?filters.channel.delete(c):filters.channel.add(c);el.classList.toggle('active');buildChSrow();buildFsChSrow();syncFilterOvRows();AF();}
 function buildFsTechSrow(){
@@ -3321,6 +3713,8 @@ function toggleFilterOverlay() {
     const rc = document.getElementById('rc');
     const fovRc = document.getElementById('fov-rc');
     if (rc && fovRc) fovRc.textContent = rc.textContent;
+    // 保存した検索条件を描画
+    renderFilterPresets();
   }
 }
 
