@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v45.3</title>
+<title>WAZA KIMURA v45.5</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -2084,6 +2084,21 @@ function updateResetBtn(){
 
 function filt(list){const q=document.getElementById('si').value.toLowerCase();return list.filter(v=>{if(v.archived)return false;if(favOnly&&!v.fav)return false;if(unwOnly&&v.watched)return false;
     if(watchedOnly&&!v.watched)return false;if(filters.platform.size&&!filters.platform.has(v.pt))return false;if(q&&!v.title.toLowerCase().includes(q)&&!v.ch.toLowerCase().includes(q)&&!v.pl.toLowerCase().includes(q)&&!v.tech.some(t=>t.toLowerCase().includes(q)))return false;if(filters.playlist.size&&!filters.playlist.has(v.pl))return false;if(filters.prio.size&&!filters.prio.has(v.prio))return false;if(filters.status.size&&!filters.status.has(v.status))return false;if(filters.tb.size&&!v.tb.some(t=>filters.tb.has(t)))return false;if(filters.action.size&&!v.ac.some(a=>filters.action.has(a)))return false;if(filters.position.size&&!v.pos.some(p=>filters.position.has(p)))return false;if(filters.tech.size&&!v.tech.some(t=>filters.tech.has(t)))return false;if(filters.channel.size&&!filters.channel.has(v.ch))return false;return true;});}
+
+// ── タグ別動画本数カウント ──
+function countByField(field, val) {
+  return videos.filter(v => !v.archived && (v[field]||[]).includes(val)).length;
+}
+function countByPl(pl) {
+  return videos.filter(v => !v.archived && v.pl === pl).length;
+}
+function countByCh(ch) {
+  return videos.filter(v => !v.archived && v.ch === ch).length;
+}
+function cntBadge(n) {
+  if (!n) return '';
+  return `<span style="font-size:9px;background:var(--surface3);color:var(--text3);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600">${n}</span>`;
+}
 function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' 本 表示中';const rct=document.getElementById('rc-topbar');if(rct){const hasFilter=Object.values(filters).some(s=>s.size>0)||favOnly||unwOnly||watchedOnly||document.getElementById('si').value.trim();rct.textContent=f.length+' 件';rct.style.display=hasFilter?'inline':'none';}const fhn=document.getElementById('fov-hit-num');if(fhn)fhn.textContent=f.length;const fhb=document.getElementById('fov-hit-badge');if(fhb)fhb.textContent=f.length+' 件';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();updateResetBtn();}
 function updatePLC(){buildPlSrow();}
 function renderTFC(){const el=document.getElementById('techFC');if(el)el.innerHTML=[...filters.tech].map(t=>`<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');}
@@ -2100,7 +2115,8 @@ function renderTF(){
   matched.forEach(t=>{
     const el=document.createElement('div');
     el.className='tech-pill'+(filters.tech.has(t)?' active':'');
-    el.textContent=t;
+    const n=countByField('tech',t);
+    el.innerHTML=t+cntBadge(n);
     el.addEventListener('click',function(){
       filters.tech.has(t)?filters.tech.delete(t):filters.tech.add(t);
       el.classList.toggle('active');
@@ -2135,7 +2151,8 @@ function renderPL(){
   filtered.forEach(p=>{
     const el=document.createElement('div');
     el.className='tech-pill'+(filters.playlist.has(p)?' active':'');
-    el.textContent=p;
+    const n=countByPl(p);
+    el.innerHTML=p+cntBadge(n);
     el.addEventListener('click',function(){
       filters.playlist.has(p)?filters.playlist.delete(p):filters.playlist.add(p);
       el.classList.toggle('active');
@@ -3262,6 +3279,10 @@ function buildSrow(rowId, tagList, filterKey, addable) {
   });
   row.appendChild(allEl);
 
+  // filterKey → videoフィールドのマッピング
+  const fieldMap = {'tb':'tb','action':'ac','position':'pos','tech':'tech'};
+  const countField = fieldMap[filterKey];
+
   tagList.forEach(function(tag) {
     const el = mkChip(tag, filters[filterKey].has(tag), function() {
       if (filters[filterKey].has(tag)) {
@@ -3272,6 +3293,16 @@ function buildSrow(rowId, tagList, filterKey, addable) {
       buildSrow(rowId, tagList, filterKey, addable);
       AF();
     });
+    // 本数バッジを追加（対応フィールドがある場合）
+    if (countField) {
+      const n = countByField(countField, tag);
+      if (n > 0) {
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';
+        badge.textContent = n;
+        el.appendChild(badge);
+      }
+    }
     row.appendChild(el);
   });
 
@@ -3340,7 +3371,7 @@ function renderPos(){
   // 既存タグ = POS_TAGS + 動画に付いているposタグを合わせて重複排除・ソート
   const allPos=[...new Set([...POS_TAGS,...videos.flatMap(v=>v.pos||[])])].sort();
   const matched=allPos.filter(p=>!ql||p.toLowerCase().includes(ql));
-  let html=matched.map(p=>`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}</div>`).join('');
+  let html=matched.map(p=>{const n=countByField('pos',p);return`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}${cntBadge(n)}</div>`;}).join('');
   // ヒットなし or 完全一致なし → 新規追加ボタン
   if(q && !allPos.some(p=>p.toLowerCase()===ql)){
     html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewPos('${q.replace(/'/g,"\\'")}')">＋ 「${q}」を追加</div>`;
@@ -3594,10 +3625,10 @@ function buildFsAcSrow(){
   btn.textContent='＋ 選ぶ';btn.onclick=openAcPicker;row.appendChild(btn);
 }
 function openTbPicker(){document.getElementById('tb-picker-s').value='';renderTbPicker();document.getElementById('tbPickerOv').classList.add('open');}
-function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();document.getElementById('tbPickerR').innerHTML=TB_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}</div>`).join('');}
+function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();document.getElementById('tbPickerR').innerHTML=TB_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countByField('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
 function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',TB_TAGS,'tb',false);AF();}
 function openAcPicker(){document.getElementById('ac-picker-s').value='';renderAcPicker();document.getElementById('acPickerOv').classList.add('open');}
-function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();document.getElementById('acPickerR').innerHTML=AC_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}</div>`).join('');}
+function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();document.getElementById('acPickerR').innerHTML=AC_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countByField('ac',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
 function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',AC_TAGS,'action',true);AF();}
 
 // ─── Filter sidebar builders ───
@@ -3675,7 +3706,7 @@ function renderChPicker(q){
   const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
   const ql=(q||'').toLowerCase();
   const matched=channels.filter(c=>!ql||c.toLowerCase().includes(ql));
-  let html=matched.map(c=>`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}</div>`).join('');
+  let html=matched.map(c=>{const n=countByCh(c);return`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}${cntBadge(n)}</div>`;}).join('');
   // ヒットなし or 完全一致なし → 新規追加ボタン
   if(q && !channels.some(c=>c.toLowerCase()===ql)){
     html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewChFilter('${q.replace(/'/g,"\\'")}')">＋ 「${q}」で検索</div>`;
