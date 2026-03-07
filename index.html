@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v46.69</title>
+<title>WAZA KIMURA v46.81</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -420,26 +420,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-table-wrap {
   width:100%;
   overflow-x: scroll;
-  overflow-y: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling:touch;
   position:relative;
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--border) transparent; /* Firefox */
-  /* デフォルト(モバイル): mobile-nav(56px) + count-bar(36px) + actionbar(44px) = 136px */
-  height: calc(100vh - 136px);
-}
-@media(min-width:768px) {
-  /* タブレット: count-bar(36px) + topbar */
-  .org-table-wrap { height: calc(100vh - var(--topbar-h, 72px) - 36px); }
+  scrollbar-color: var(--text3) transparent; /* Firefox */
 }
 .org-table { border-collapse:collapse; table-layout:fixed; width:max-content; min-width:100%; }
 /* Organizeテーブル スクロールバー（WebKit） */
 .org-table-wrap::-webkit-scrollbar { width:7px; height:7px; }
 .org-table-wrap::-webkit-scrollbar-track { background:transparent; }
-.org-table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+.org-table-wrap::-webkit-scrollbar-thumb { background:var(--text3); border-radius:4px; }
 .org-table-wrap::-webkit-scrollbar-thumb:hover { background:var(--text3); }
 .org-table-wrap::-webkit-scrollbar-corner { background:transparent; }
-.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box; }
+.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:136px; z-index:10; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box; }
 .org-tr { border-bottom:1px solid var(--border); transition:background .15s; }
 .org-tr:hover { background:var(--surface2); }
 .org-td { padding:8px 10px; font-size:12px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
@@ -535,6 +529,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* Tab panels */
 .tab-panel{display:none;}
 .tab-panel.active{display:block;}
+#organizeTab { overflow-x:hidden; }
 /* Mobile */
 .mob-fp{display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 14px;}
 .mob-fp.open{display:block;}
@@ -948,6 +943,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   border-radius:16px 16px 0 0;
   box-shadow:0 -4px 32px rgba(0,0,0,.2);
 }
+.vpanel-resizer {
+  position:absolute;
+  top:0; left:0; right:0;
+  height:20px;
+  cursor:ns-resize;
+  z-index:10;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.vpanel-resizer::after {
+  content:'';
+  width:40px; height:4px;
+  background:var(--border);
+  border-radius:2px;
+}
+/* タブレット以上: 幅リサイズハンドル（左端） */
+@media(min-width:768px) {
+  .vpanel-resizer {
+    top:0; left:0; bottom:0; right:auto;
+    width:8px; height:auto;
+    cursor:ew-resize;
+    flex-direction:column;
+  }
+  .vpanel-resizer::after {
+    width:4px; height:40px;
+  }
+}
 .vpanel-video{background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .vpanel-video iframe{width:100%;aspect-ratio:16/9;border:none;display:block;}
 .vpanel-edit{flex:1;padding:14px;overflow-y:auto;min-height:0;}
@@ -992,7 +1015,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   position: fixed;
   top: 0; left: 0; right: 0;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent);
   padding: 10px 12px 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,.15);
   max-height: 85vh;
@@ -1249,6 +1272,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .fbar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
 .fbar-lbl { font-size:9px; font-weight:700; letter-spacing:.7px; color:var(--text3); text-transform:uppercase; min-width:60px; flex-shrink:0; }
 
+
+@media(min-width:1200px) {
+  /* PC: actionbarは非表示なのでtheadのtopをtopbar+countbar分に */
+  .org-th { top: calc(var(--topbar-h, 72px) + 36px) !important; }
+}
 </style>
 
 <!-- Firebase SDK (compat) -->
@@ -1471,9 +1499,20 @@ function ytShowVideoStage() {
   document.getElementById('yt-stage2-title').textContent = `動画を選択 (${total}本 / 取込済 ${alreadyCount}本)`;
 
   const list = document.getElementById('yt-video-list');
-  list.innerHTML = Object.values(_ytPendingVideos).map(pl => `
+  ytRenderVideoList();
+}
+
+function ytRenderVideoList() {
+  const list = document.getElementById('yt-video-list');
+  if (!list || !_ytPendingVideos) return;
+  const hideImported = document.getElementById('yt-hide-imported')?.checked;
+
+  list.innerHTML = Object.values(_ytPendingVideos).map(pl => {
+    const visibleItems = pl.items.filter(item => !(hideImported && item.already));
+    if (visibleItems.length === 0) return '';
+    return `
     <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:6px 0 4px">${pl.title}</div>
-    ${pl.items.map(item => `
+    ${visibleItems.map(item => `
       <label style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:${item.already?'var(--surface2)':'var(--surface)'};${item.already?'opacity:.5;':'cursor:pointer;'}">
         <input type="checkbox" class="yt-vid-cb" data-vid="${item.vid}" data-title="${item.title.replace(/"/g,'&quot;')}" data-thumb="${item.thumb}" data-channel="${item.channel.replace(/"/g,'&quot;')}" data-pl="${item.plTitle.replace(/"/g,'&quot;')}" data-addedat="${item.addedAt||''}" ${item.already?'disabled checked':''}  style="width:16px;height:16px;flex-shrink:0">
         <img src="${item.thumb}" style="width:56px;height:42px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
@@ -1482,7 +1521,8 @@ function ytShowVideoStage() {
           <div style="font-size:10px;color:var(--text3);margin-top:2px">${item.channel}${item.already?' · ✅ 取込済み':''}</div>
         </div>
       </label>`).join('')}
-  `).join('');
+  `;
+  }).join('');
 
   ytUpdateSelCount();
   list.querySelectorAll('.yt-vid-cb:not([disabled])').forEach(cb => cb.addEventListener('change', ytUpdateSelCount));
@@ -2490,29 +2530,44 @@ function switchTab(t){
   }
 }
 
-function togF(type,val,el){filters[type].has(val)?(filters[type].delete(val),el.classList.remove('active')):(filters[type].add(val),el.classList.add('active'));try{syncSidebarChipStates();}catch(e){}AF();}
+function togF(type, val, el) {
+  filters[type].has(val) ? (filters[type].delete(val), el.classList.remove('active')) : (filters[type].add(val), el.classList.add('active'));
+  AF();
+}
 function togPlat(p){filters.platform.has(p)?filters.platform.delete(p):filters.platform.add(p);const isYT=p==='youtube';[isYT?'chip-yt':'chip-vimeo',isYT?'m-chip-yt':'m-chip-vimeo'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',filters.platform.has(p));});AF();}
-function togFav(){favOnly=!favOnly;['chip-fav','m-chip-fav','fs-chip-fav'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',favOnly);});try{syncFovChips();}catch(e){}AF();}
-function togUnw(){unwOnly=!unwOnly;['chip-unw','m-chip-unw','fs-chip-unw'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',unwOnly);});try{syncFovChips();}catch(e){}AF();}
+function togFav() {
+  favOnly = !favOnly;
+  ['chip-fav','m-chip-fav','fs-chip-fav2','fov-chip-fav'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', favOnly); });
+  AF();
+}
+function togUnw() {
+  unwOnly = !unwOnly;
+  ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', unwOnly); });
+  AF();
+}
 function togWatched(){watchedOnly=!watchedOnly;['chip-watched','fs-chip-watched'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',watchedOnly);});AF();}
-function clearAll(){
-  Object.keys(filters).forEach(k=>filters[k].clear());
-  favOnly=false;unwOnly=false;watchedOnly=false;
-  const si=document.getElementById('si');if(si)si.value='';
-  // Fav/Unseen/視聴済みのchipのみリセット（T/B・ACTIONなどはAF()内の再描画で正しく反映）
-  ['chip-fav','chip-unw','chip-watched','m-chip-fav','m-chip-unw','fs-chip-fav','fs-chip-unw','fs-chip-watched',
-   'fov-chip-fav','fov-chip-unw','fov-chip-watched'].forEach(function(id){
-    const el=document.getElementById(id);if(el)el.classList.remove('active');
-  });
-  renderTFC();try{try{buildFovRows();}catch(e){}}catch(e){}
-  try{syncFovChips();buildFovRows();}catch(e){}
+function clearAll() {
+  Object.keys(filters).forEach(k => filters[k].clear());
+  favOnly = false; unwOnly = false; watchedOnly = false;
+  const si = document.getElementById('si'); if(si) si.value = '';
+  const siPc = document.getElementById('si-pc'); if(siPc) siPc.value = '';
+  // オーバーレイの全行を再構築（OrganizeのsyncOrgFilterOvRowsと同一方式）
+  syncFilterOvRows();
+  // サイドバーのchipをリセット
+  document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
+  renderTFC();
   AF();
 }
 // ═══ FILTER PRESETS ═══
+// 保存した検索条件は全タブ共通（filterPresetsのみ使用）
 let filterPresets = JSON.parse(localStorage.getItem('wk_filterPresets') || '[]');
+let orgFilterPresets = filterPresets; // エイリアス（後方互換）
 
 function saveFilterPresets() {
   localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
+}
+function saveOrgFilterPresets() {
+  saveFilterPresets(); // filterPresetsと同じストレージに保存
 }
 
 function saveFilterPreset() {
@@ -2531,14 +2586,34 @@ function saveFilterPreset() {
   toast('🔖 「' + name + '」を保存しました');
 }
 
+function saveOrgFilterPreset() {
+  const name = document.getElementById('org-fov-save-name').value.trim();
+  if(!name) { toast('条件名を入力してください'); return; }
+  const snapshot = {
+    name,
+    filters: Object.fromEntries(Object.entries(orgFilters).map(([k,v])=>[k,[...v]])),
+    favOnly: orgFavOnly, unwOnly: orgUnwOnly
+  };
+  const idx = orgFilterPresets.findIndex(p=>p.name===name);
+  if(idx>=0) orgFilterPresets[idx] = snapshot; else orgFilterPresets.push(snapshot);
+  saveOrgFilterPresets();
+  document.getElementById('org-fov-save-name').value = '';
+  renderOrgFilterPresets();
+  toast('🔖 「' + name + '」を保存しました');
+}
+
 function loadFilterPreset(idx) {
   const p = filterPresets[idx]; if(!p) return;
-  Object.keys(filters).forEach(k => { filters[k] = new Set(p.filters[k] || []); });
+  Object.keys(filters).forEach(k => filters[k].clear());
+  const fs = p.filters || {};
+  Object.keys(fs).forEach(k => { if(filters[k]) fs[k].forEach(v => filters[k].add(v)); });
   favOnly = p.favOnly || false;
   unwOnly = p.unwOnly || false;
   watchedOnly = p.watchedOnly || false;
-  AF(); try{buildFovRows();}catch(e){} updateResetBtn();
-  toast('🔖 「' + p.name + '」を適用しました');
+  syncFilterOvRows();
+  AF();
+  closeFilterOverlay();
+  toast('🔖 「' + p.name + '」を読み込みました');
 }
 
 function deleteFilterPreset(idx) {
@@ -2549,9 +2624,31 @@ function deleteFilterPreset(idx) {
   toast('🗑 「' + name + '」を削除しました');
 }
 
+function renderOrgFilterPresets() {
+  // filterPresetsと統合済み → renderFilterPresetsに委譲
+  renderFilterPresets();
+}
+function loadOrgFilterPreset(idx) {
+  const p = orgFilterPresets[idx]; if(!p) return;
+  Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
+  const fs = p.filters || {};
+  Object.keys(fs).forEach(k => { if(orgFilters[k]) fs[k].forEach(v => orgFilters[k].add(v)); });
+  orgFavOnly = p.favOnly || false;
+  orgUnwOnly = p.unwOnly || false;
+  syncOrgFilterOvRows();
+  renderOrg();
+  closeOrgFilterOverlay();
+  toast('🔖 「' + p.name + '」を読み込みました');
+}
+
+function deleteOrgFilterPreset(i) {
+  deleteFilterPreset(i); // filterPresetsと統合済み
+}
+
 function renderFilterPresets() {
-  // ライブラリとOrganizeサイドバーの両方を更新
-  const targets = ['fs-saved-list','org-fs-saved-list'].map(id=>document.getElementById(id)).filter(Boolean);
+  // ライブラリとOrganizeサイドバー＋オーバーレイの保存リストを更新
+  // 全タブ共通: Library・Organizeのサイドバー＋オーバーレイ全リストを更新
+  const targets = ['fs-saved-list','org-fs-saved-list','fov-preset-list','org-fov-preset-list'].map(id=>document.getElementById(id)).filter(Boolean);
   targets.forEach(function(list) {
     if (!filterPresets.length) {
       list.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:4px 0">保存した検索条件はありません</div>';
@@ -3445,6 +3542,83 @@ function closePanel() {
   document.addEventListener('touchcancel', endDrag, true);
 })();
 
+// ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
+(function(){
+  var TABLET = 768;
+  var MIN_H = 40, MAX_H = 95;   // vh
+  var MIN_W = 320, MAX_W = 900; // px
+  var dragging = false, startPos = 0, startSize = 0;
+
+  function isTablet() { return window.innerWidth >= TABLET; }
+
+  function startDrag(pos) {
+    var inner = document.getElementById('vpanelInner');
+    if (!inner) return;
+    dragging = true;
+    if (isTablet()) {
+      startPos = pos;
+      startSize = inner.offsetWidth || 480;
+    } else {
+      startPos = pos;
+      startSize = (inner.offsetHeight / window.innerHeight) * 100;
+    }
+    var r = document.getElementById('vpanelResizer');
+    if (r) r.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+  }
+
+  function moveDrag(pos) {
+    if (!dragging) return;
+    var inner = document.getElementById('vpanelInner');
+    if (!inner) return;
+    if (isTablet()) {
+      // 幅: 左へドラッグ→広く、右へ→狭く
+      var newW = Math.max(MIN_W, Math.min(MAX_W, startSize - (pos - startPos)));
+      inner.style.width = newW + 'px';
+      inner.style.maxWidth = newW + 'px';
+      // main-areaのmarginも追従
+      var ma = document.querySelector('.main-area');
+      if (ma && ma.classList.contains('panel-open')) ma.style.marginRight = newW + 'px';
+    } else {
+      // 高さ: 上へドラッグ→高く
+      var deltaVh = ((startPos - pos) / window.innerHeight) * 100;
+      var newH = Math.max(MIN_H, Math.min(MAX_H, startSize + deltaVh));
+      inner.style.height = newH + 'vh';
+    }
+  }
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    var r = document.getElementById('vpanelResizer');
+    if (r) r.classList.remove('dragging');
+    document.body.style.userSelect = '';
+  }
+
+  document.addEventListener('mousedown', function(e) {
+    if (!e.target || e.target.id !== 'vpanelResizer') return;
+    e.preventDefault();
+    startDrag(isTablet() ? e.clientX : e.clientY);
+  });
+  document.addEventListener('mousemove', function(e) {
+    moveDrag(isTablet() ? e.clientX : e.clientY);
+  }, true);
+  document.addEventListener('mouseup', endDrag, true);
+
+  document.addEventListener('touchstart', function(e) {
+    if (!e.target || e.target.id !== 'vpanelResizer') return;
+    e.preventDefault();
+    startDrag(isTablet() ? e.touches[0].clientX : e.touches[0].clientY);
+  }, {passive:false});
+  document.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    moveDrag(isTablet() ? e.touches[0].clientX : e.touches[0].clientY);
+  }, {passive:false, capture:true});
+  document.addEventListener('touchend', endDrag, true);
+  document.addEventListener('touchcancel', endDrag, true);
+})();
+
 
 function qFav(id){const v=videos.find(v=>v.id===id);if(v){v.fav=!v.fav;AF();toast(v.fav?'⭐ お気に入り追加':'お気に入り解除');}}
 function qWatch(id){const v=videos.find(v=>v.id===id);if(v){v.watched=!v.watched;AF();toast(v.watched?'✅ 視聴済み':'👁 未視聴に戻しました');}}
@@ -3782,23 +3956,19 @@ function openFilterOverlay() {
   if (!ov) return;
   ov.classList.add('show');
   document.body.style.overflow = 'hidden';
+  // OrganizeのopenOrgFilterOverlayと同一: syncFilterOvRowsが全行＋Status/Priority同期を担う
   syncFilterOvRows();
-  try {
-    const rc = document.getElementById('rc');
-    const fovRc = document.getElementById('fov-rc');
-    if (rc && fovRc) fovRc.textContent = rc.textContent;
-  } catch(e) {}
   try { renderFilterPresets && renderFilterPresets(); } catch(e) {}
 }
 function toggleFilterOverlay(){ openFilterOverlay(); }
 
 
 function syncFilterOvRows() {
-  // T/B と ACTION はタグ一覧をそのまま表示
+  // T/B
   buildSrow('fov-srow-tb', TB_TAGS, 'tb', false);
+  // ACTION
   buildSrow('fov-srow-ac', AC_TAGS, 'action', true);
-
-  // POSITION: モーダル方式
+  // POSITION: ピッカー方式
   (function(){
     const row = document.getElementById('fov-srow-pos'); if(!row) return;
     row.innerHTML = '';
@@ -3810,8 +3980,7 @@ function syncFilterOvRows() {
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
     btn.textContent='＋ ポジションを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openPos(); }; row.appendChild(btn);
   })();
-
-  // PLAYLIST: モーダル方式
+  // PLAYLIST
   (function(){
     const row = document.getElementById('fov-srow-pl'); if(!row) return;
     row.innerHTML = '';
@@ -3823,8 +3992,7 @@ function syncFilterOvRows() {
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
     btn.textContent='＋ プレイリストを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openPL(); }; row.appendChild(btn);
   })();
-
-  // TECHNIQUE: モーダル方式
+  // TECHNIQUE
   (function(){
     const row = document.getElementById('fov-srow-tech'); if(!row) return;
     row.innerHTML = '';
@@ -3836,19 +4004,28 @@ function syncFilterOvRows() {
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
     btn.textContent='＋ テクニックを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openTF(); }; row.appendChild(btn);
   })();
-
-  // CHANNEL: モーダル方式
+  // CHANNEL
   (function(){
     const row = document.getElementById('fov-srow-ch'); if(!row) return;
     row.innerHTML = '';
     row.appendChild(mkChip('すべて', filters.channel.size===0, function(){ filters.channel.clear(); syncFilterOvRows(); AF(); }));
-    [...filters.channel].forEach(function(c){
+    [...filters.channel].forEach(function(ch){
       const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
-      el.textContent=c+' ×'; el.onclick=function(){ filters.channel.delete(c); syncFilterOvRows(); AF(); }; row.appendChild(el);
+      el.textContent=ch+' ×'; el.onclick=function(){ filters.channel.delete(ch); syncFilterOvRows(); AF(); }; row.appendChild(el);
     });
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
     btn.textContent='＋ チャンネルを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openChPicker(); }; row.appendChild(btn);
   })();
+  // Status/Fav同期（OrganizeのsyncOrgFilterOvRowsと同一）
+  ['fov-stat-未着手','fov-stat-練習中','fov-stat-マスター'].forEach(function(id){
+    const el=document.getElementById(id); if(el) el.classList.toggle('active', filters.status.has(id.replace('fov-stat-','')));
+  });
+  ['fov-prio-今すぐ','fov-prio-そのうち','fov-prio-保留'].forEach(function(id){
+    const el=document.getElementById(id); if(el) el.classList.toggle('active', filters.prio.has(id.replace('fov-prio-','')));
+  });
+  const favEl=document.getElementById('fov-chip-fav'); if(favEl) favEl.classList.toggle('active', favOnly);
+  const unwEl=document.getElementById('fov-chip-unw'); if(unwEl) unwEl.classList.toggle('active', unwOnly);
+  const watEl=document.getElementById('fov-chip-watched'); if(watEl) watEl.classList.toggle('active', watchedOnly);
 }
 
 function countForFilter(key, val) {
@@ -4459,7 +4636,8 @@ function initOrgFixedHeaders() {
     const th = document.createElement('th');
     th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
     th.dataset.fixed = def.key;
-    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
+    const topVal = window.innerWidth >= 1200 ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')||'72') + 36) + 'px' : '136px';
+      th.style.cssText = `position:sticky;top:${topVal};left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
       th.title = 'クリックでソート';
@@ -4515,8 +4693,10 @@ function clearOrgFilters() {
   orgFavOnly = false; orgUnwOnly = false;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
-  // チップのactive解除
-  document.querySelectorAll('[id^="org-fs-"],[id^="org-fov-"]').forEach(el => el.classList.remove('active'));
+  // フィルターオーバーレイの表示を再構築（選択タグ行をリセット）
+  syncOrgFilterOvRows();
+  // サイドバーのchipもリセット
+  document.querySelectorAll('[id^="org-fs-"]').forEach(el => el.classList.remove('active'));
   renderOrg();
 }
 
@@ -4557,9 +4737,9 @@ function closeOrgFilterOverlay() {
 }
 function syncOrgFilterOvRows() {
   // T/B
-  buildOrgSrow('org-fov-srow-tb', TB_TAGS, 'tb', false);
+  buildSrow('org-fov-srow-tb', TB_TAGS, 'tb', false, orgFilters, renderOrg);
   // ACTION
-  buildOrgSrow('org-fov-srow-ac', AC_TAGS, 'action', true);
+  buildSrow('org-fov-srow-ac', AC_TAGS, 'action', true, orgFilters, renderOrg);
   // POSITION: ピッカー方式
   (function(){
     const row = document.getElementById('org-fov-srow-pos'); if(!row) return;
@@ -4619,40 +4799,13 @@ function syncOrgFilterOvRows() {
   const unwEl=document.getElementById('org-fov-chip-unw'); if(unwEl) unwEl.classList.toggle('active', orgUnwOnly);
 }
 
+// buildOrgSrow → buildSrow(汎用版)に統一
 function buildOrgSrow(rowId, tagList, filterKey, addable) {
-  const row = document.getElementById(rowId); if (!row) return;
-  row.innerHTML = '';
-  row.appendChild(mkOrgChip('すべて', orgFilters[filterKey].size === 0, function() {
-    orgFilters[filterKey].clear(); buildOrgSrow(rowId, tagList, filterKey, addable); renderOrg();
-  }));
-  tagList.forEach(function(tag) {
-    const el = mkOrgChip(tag, orgFilters[filterKey].has(tag), function() {
-      orgFilters[filterKey].has(tag) ? orgFilters[filterKey].delete(tag) : orgFilters[filterKey].add(tag);
-      buildOrgSrow(rowId, tagList, filterKey, addable); renderOrg();
-    });
-    row.appendChild(el);
-  });
-  if (addable) {
-    const inp = document.createElement('input');
-    inp.className = 'add-tag-inp'; inp.placeholder = '＋ 追加...';
-    inp.addEventListener('keydown', function(e) {
-      if (e.key !== 'Enter') return;
-      const v = inp.value.trim();
-      if (v && !tagList.includes(v)) { tagList.push(v); inp.value = ''; buildOrgSrow(rowId, tagList, filterKey, addable); }
-      else inp.value = '';
-    });
-    row.appendChild(inp);
-  }
+  buildSrow(rowId, tagList, filterKey, addable, orgFilters, renderOrg);
 }
 
-function mkOrgChip(label, isActive, onClick) {
-  const el = document.createElement('div');
-  el.className = 'chip' + (isActive ? ' active' : '');
-  el.style.flexShrink = '0';
-  el.textContent = label;
-  el.onclick = onClick;
-  return el;
-}
+// mkOrgChip → mkChip に統一
+function mkOrgChip(label, isActive, onClick) { return mkChip(label, isActive, onClick); }
 
 function showOrgFsBulkBtn(show) {
   // 常時表示のため何もしない
@@ -4669,7 +4822,7 @@ function toggleOrgAcc(key) {
   if (open) {
     if (key === 'pl') renderOrgAccChips('pl');
     if (key === 'ch') renderOrgAccChips('ch');
-    if (key === 'saved') renderFilterPresets();
+    if (key === 'saved') renderOrgFilterPresets();
   }
 }
 
@@ -4766,15 +4919,7 @@ function closeOrgOv(id){
 }
 
 function adjustOrgTableHeight() {
-  // CSSのcalcで高さは設定済み。JSでは実測値で上書きして正確に合わせる
-  const orgTab = document.getElementById('organizeTab');
-  if (!orgTab || !orgTab.classList.contains('active')) return;
-  const wrap = document.querySelector('.org-table-wrap');
-  if (!wrap) return;
-  const rect = wrap.getBoundingClientRect();
-  if (rect.top < 10) return; // まだ正しく描画されていない
-  const h = Math.max(200, window.innerHeight - rect.top - 1);
-  wrap.style.height = h + 'px';
+  // overflow-y:visible にしたため height制御不要
 }
 
 function renderOrg() {
@@ -5423,34 +5568,34 @@ function scr(id, dir) {
 
 // ─── Build a scrollable chip row ───
 // filterKey: key in `filters` object  |  addable: show text input at end
-function buildSrow(rowId, tagList, filterKey, addable) {
+function buildSrow(rowId, tagList, filterKey, addable, filterObj, renderFn) {
+  // filterObj: 使用するfiltersオブジェクト（省略時はLibraryのfilters）
+  // renderFn: 再描画関数（省略時はAF）
+  var fobj = filterObj || filters;
+  var rfn = renderFn || AF;
   const row = document.getElementById(rowId);
   if (!row) return;
   row.innerHTML = '';
 
   // "すべて" chip
-  const allEl = mkChip('すべて', filters[filterKey].size === 0, function() {
-    filters[filterKey].clear();
-    buildSrow(rowId, tagList, filterKey, addable);
-    AF();
+  const allEl = mkChip('すべて', fobj[filterKey].size === 0, function() {
+    fobj[filterKey].clear();
+    buildSrow(rowId, tagList, filterKey, addable, fobj, rfn);
+    rfn();
   });
   row.appendChild(allEl);
 
-  // filterKey → videoフィールドのマッピング
+  // filterKey → videoフィールドのマッピング（本数バッジ用）
   const fieldMap = {'tb':'tb','action':'ac','position':'pos','tech':'tech'};
   const countField = fieldMap[filterKey];
 
   tagList.forEach(function(tag) {
-    const el = mkChip(tag, filters[filterKey].has(tag), function() {
-      if (filters[filterKey].has(tag)) {
-        filters[filterKey].delete(tag);
-      } else {
-        filters[filterKey].add(tag);
-      }
-      buildSrow(rowId, tagList, filterKey, addable);
-      AF();
+    const el = mkChip(tag, fobj[filterKey].has(tag), function() {
+      fobj[filterKey].has(tag) ? fobj[filterKey].delete(tag) : fobj[filterKey].add(tag);
+      buildSrow(rowId, tagList, filterKey, addable, fobj, rfn);
+      rfn();
     });
-    // 本数バッジを追加（対応フィールドがある場合）
+    // 本数バッジ
     if (countField) {
       const n = countByField(countField, tag);
       if (n > 0) {
@@ -5473,7 +5618,7 @@ function buildSrow(rowId, tagList, filterKey, addable) {
       if (v && !tagList.includes(v)) {
         tagList.push(v);
         inp.value = '';
-        buildSrow(rowId, tagList, filterKey, addable);
+        buildSrow(rowId, tagList, filterKey, addable, fobj, rfn);
         toast('タグを追加: ' + v);
       } else {
         inp.value = '';
@@ -6068,6 +6213,83 @@ window.addEventListener('resize', adjustTopbarOffset);
   document.addEventListener('touchend', endDrag, true);
   document.addEventListener('touchcancel', endDrag, true);
 })();
+
+// ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
+(function(){
+  var TABLET = 768;
+  var MIN_H = 40, MAX_H = 95;   // vh
+  var MIN_W = 320, MAX_W = 900; // px
+  var dragging = false, startPos = 0, startSize = 0;
+
+  function isTablet() { return window.innerWidth >= TABLET; }
+
+  function startDrag(pos) {
+    var inner = document.getElementById('vpanelInner');
+    if (!inner) return;
+    dragging = true;
+    if (isTablet()) {
+      startPos = pos;
+      startSize = inner.offsetWidth || 480;
+    } else {
+      startPos = pos;
+      startSize = (inner.offsetHeight / window.innerHeight) * 100;
+    }
+    var r = document.getElementById('vpanelResizer');
+    if (r) r.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+  }
+
+  function moveDrag(pos) {
+    if (!dragging) return;
+    var inner = document.getElementById('vpanelInner');
+    if (!inner) return;
+    if (isTablet()) {
+      // 幅: 左へドラッグ→広く、右へ→狭く
+      var newW = Math.max(MIN_W, Math.min(MAX_W, startSize - (pos - startPos)));
+      inner.style.width = newW + 'px';
+      inner.style.maxWidth = newW + 'px';
+      // main-areaのmarginも追従
+      var ma = document.querySelector('.main-area');
+      if (ma && ma.classList.contains('panel-open')) ma.style.marginRight = newW + 'px';
+    } else {
+      // 高さ: 上へドラッグ→高く
+      var deltaVh = ((startPos - pos) / window.innerHeight) * 100;
+      var newH = Math.max(MIN_H, Math.min(MAX_H, startSize + deltaVh));
+      inner.style.height = newH + 'vh';
+    }
+  }
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    var r = document.getElementById('vpanelResizer');
+    if (r) r.classList.remove('dragging');
+    document.body.style.userSelect = '';
+  }
+
+  document.addEventListener('mousedown', function(e) {
+    if (!e.target || e.target.id !== 'vpanelResizer') return;
+    e.preventDefault();
+    startDrag(isTablet() ? e.clientX : e.clientY);
+  });
+  document.addEventListener('mousemove', function(e) {
+    moveDrag(isTablet() ? e.clientX : e.clientY);
+  }, true);
+  document.addEventListener('mouseup', endDrag, true);
+
+  document.addEventListener('touchstart', function(e) {
+    if (!e.target || e.target.id !== 'vpanelResizer') return;
+    e.preventDefault();
+    startDrag(isTablet() ? e.touches[0].clientX : e.touches[0].clientY);
+  }, {passive:false});
+  document.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    moveDrag(isTablet() ? e.touches[0].clientX : e.touches[0].clientY);
+  }, {passive:false, capture:true});
+  document.addEventListener('touchend', endDrag, true);
+  document.addEventListener('touchcancel', endDrag, true);
+})();
 </script>
 
 <!-- Playlist Operation Modal -->
@@ -6110,9 +6332,13 @@ window.addEventListener('resize', adjustTopbarOffset);
         <button onclick="ytBackToPlaylists()" style="border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2)">← 戻る</button>
         <div style="font-size:14px;font-weight:800" id="yt-stage2-title">動画を選択</div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
         <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="ytSelAllVideos()">全選択</button>
         <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="ytSelNoneVideos()">全解除</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);cursor:pointer;margin-left:4px">
+          <input type="checkbox" id="yt-hide-imported" onchange="ytRenderVideoList()" style="accent-color:var(--accent);width:13px;height:13px">
+          取込済を非表示
+        </label>
         <span id="yt-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto;align-self:center"></span>
       </div>
       <div id="yt-video-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
@@ -6130,7 +6356,8 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- VIDEO PLAYER PANEL -->
 <div class="vpanel" id="vpanel" onclick="closeVPanel()">
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
-  <div class="vpanel-inner" onclick="event.stopPropagation()">
+  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
+    <div class="vpanel-resizer" id="vpanelResizer"></div>
     <button class="vpanel-close" onclick="closeVPanel()">✕</button>
     <div class="vpanel-video">
       <iframe id="vpanel-iframe" allowfullscreen allow="autoplay; encrypted-media"></iframe>
@@ -6153,7 +6380,7 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div id="org-filter-overlay-bg" onclick="closeOrgFilterOverlay()" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
   <div id="org-filter-overlay-panel" style="position:absolute;top:0;left:0;right:0;background:var(--surface);padding:14px 16px;overflow-y:auto;max-height:85vh;border-bottom:2px solid var(--accent)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <span style="font-weight:700;font-size:13px">⊟ Organizeフィルター</span>
+      <span style="font-weight:700;font-size:13px">⊟ フィルター</span>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn-sub" onclick="clearOrgFilters()">× Reset</button>
         <button onclick="closeOrgFilterOverlay()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:0 4px">✕</button>
@@ -6206,6 +6433,19 @@ window.addEventListener('resize', adjustTopbarOffset);
       <span class="fbar-lbl">Channel</span>
       <div class="hrow" id="org-fov-srow-ch"></div>
     </div>
+    <!-- 保存した検索条件 -->
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">💾 検索条件を保存</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="org-fov-save-name" type="text" placeholder="条件名を入力..." style="flex:1;font-size:11px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text1);min-width:0">
+        <button class="bbt" style="font-size:11px;--bc:var(--accent);--tc:#fff;flex-shrink:0" onclick="saveOrgFilterPreset()">保存</button>
+      </div>
+      <div id="org-fov-preset-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
+    </div>
+    <!-- Reset -->
+    <div style="padding-top:4px">
+      <button class="btn-sub" style="width:100%" onclick="clearOrgFilters()">× Reset</button>
+    </div>
   </div>
 </div>
 
@@ -6246,6 +6486,10 @@ window.addEventListener('resize', adjustTopbarOffset);
 <div id="filter-overlay">
   <div id="filter-overlay-bg" onclick="closeFilterOverlay()"></div>
   <div id="filter-overlay-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-weight:700;font-size:13px">⊟ フィルター</span>
+      <button onclick="closeFilterOverlay()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:0 4px">✕</button>
+    </div>
     <div class="fbar-row" style="margin-bottom:5px">
       <span class="fbar-lbl">Status</span>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
@@ -6294,11 +6538,20 @@ window.addEventListener('resize', adjustTopbarOffset);
       <span class="fbar-lbl">Channel</span>
       <div class="hrow" id="fov-srow-ch"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span id="fov-rc" style="display:none"></span>
-      <button class="btn-sub" onclick="clearAll()">× Reset</button>
+    <!-- 保存した検索条件 -->
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">💾 検索条件を保存</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="fov-save-name" type="text" placeholder="条件名を入力..." style="flex:1;font-size:11px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text1);min-width:0">
+        <button class="bbt" style="font-size:11px;--bc:var(--accent);--tc:#fff;flex-shrink:0" onclick="saveFilterPreset()">保存</button>
+      </div>
+      <div id="fov-preset-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
     </div>
-    <!-- 保存した検索条件はサイドバーのアコーディオンに統合 -->
+    <!-- Reset -->
+    <div style="padding-top:4px">
+      <button class="btn-sub" style="width:100%" onclick="clearAll()">× Reset</button>
+    </div>
+    <span id="fov-rc" style="display:none"></span>
   </div>
 </div>
 
