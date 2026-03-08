@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v46.81</title>
+<title>WAZA KIMURA v46.92</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -420,12 +420,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-table-wrap {
   width:100%;
   overflow-x: scroll;
-  overflow-y: visible;
+  overflow-y: auto;
   -webkit-overflow-scrolling:touch;
   position:relative;
+  flex:1;
+  min-height:0;
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: var(--text3) transparent; /* Firefox */
 }
+/* org-table-wrap height: controlled by flex layout */
 .org-table { border-collapse:collapse; table-layout:fixed; width:max-content; min-width:100%; }
 /* Organizeテーブル スクロールバー（WebKit） */
 .org-table-wrap::-webkit-scrollbar { width:7px; height:7px; }
@@ -433,7 +436,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-table-wrap::-webkit-scrollbar-thumb { background:var(--text3); border-radius:4px; }
 .org-table-wrap::-webkit-scrollbar-thumb:hover { background:var(--text3); }
 .org-table-wrap::-webkit-scrollbar-corner { background:transparent; }
-.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:136px; z-index:10; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box; }
+.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; box-sizing:border-box; }
 .org-tr { border-bottom:1px solid var(--border); transition:background .15s; }
 .org-tr:hover { background:var(--surface2); }
 .org-td { padding:8px 10px; font-size:12px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
@@ -459,7 +462,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-col-vis-btn:hover { background:var(--surface2) !important; }
 .org-settings-btn:hover { background:var(--surface2); }
 /* ── 整理タブ 列ドラッグ ── */
-.org-th-draggable { user-select:none; cursor:grab; position:relative; overflow:hidden; }
+.org-th-draggable { user-select:none; cursor:grab; overflow:hidden; }
 .org-th-draggable:active { cursor:grabbing; }
 .org-th-drag-over { outline:2px solid var(--accent) !important; background:var(--surface2) !important; }
 .org-th-dragging  { opacity:.4; }
@@ -528,7 +531,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .hrow::-webkit-scrollbar-thumb:hover{background:#888;}
 /* Tab panels */
 .tab-panel{display:none;}
-.tab-panel.active{display:block;}
+.tab-panel.active{display:block; overflow:visible !important;}
+#organizeTab.active{
+  display:flex;
+  flex-direction:column;
+  position:fixed;
+  top:var(--topbar-h, 72px);
+  left:var(--sbw, 0px);
+  right:0;
+  bottom:0;
+  overflow:hidden;
+  background:var(--surface);
+  z-index:15;
+}
+@media(max-width:767px){
+  #organizeTab.active{ left:0; top:var(--topbar-h, 56px); }
+}
 #organizeTab { overflow-x:hidden; }
 /* Mobile */
 .mob-fp{display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:10px 14px;}
@@ -1273,10 +1291,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .fbar-lbl { font-size:9px; font-weight:700; letter-spacing:.7px; color:var(--text3); text-transform:uppercase; min-width:60px; flex-shrink:0; }
 
 
-@media(min-width:1200px) {
-  /* PC: actionbarは非表示なのでtheadのtopをtopbar+countbar分に */
-  .org-th { top: calc(var(--topbar-h, 72px) + 36px) !important; }
-}
+
 </style>
 
 <!-- Firebase SDK (compat) -->
@@ -2487,6 +2502,15 @@ function switchTab(t){
   // タブ切り替え時にVPanel/vp-panelを閉じる
   if(openVPanelId) closeVPanel();
   if(document.getElementById('vp-panel')?.classList.contains('show')) closePanel();
+  // Organizeタブ: position:fixedのleftをmain-areaの実際の位置に合わせる
+  if (t === 'organize') {
+    const ma = document.querySelector('.main-area');
+    const orgTab = document.getElementById('organizeTab');
+    if (ma && orgTab) {
+      const left = ma.getBoundingClientRect().left;
+      orgTab.style.left = left + 'px';
+    }
+  }
   ['home','community','organize','archive','settings'].forEach(n=>{
     const p=document.getElementById(n+'Tab');if(p)p.className='tab-panel'+(t===n?' active':'');
     const m=document.getElementById('mnav-'+n);if(m)m.className='mn-i'+(t===n?' active':'');
@@ -4625,7 +4649,9 @@ function bulkDo(type){if(!selIds.size){toast('動画を選択してください'
 
 function initOrgFixedHeaders() {
   const thead = document.getElementById('orgTheadRow');
-  if (!thead || thead.querySelector('th[data-fixed]')) return;
+  if (!thead) return;
+  // 毎回再構築（guardなし）
+  [...thead.querySelectorAll('th[data-fixed]')].forEach(el => el.remove());
   const fixedDefs = [
     {key:'chk',   w:40,  label:''},
     {key:'thumb', w:76,  label:''},
@@ -4636,8 +4662,7 @@ function initOrgFixedHeaders() {
     const th = document.createElement('th');
     th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
     th.dataset.fixed = def.key;
-    const topVal = window.innerWidth >= 1200 ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')||'72') + 36) + 'px' : '136px';
-      th.style.cssText = `position:sticky;top:${topVal};left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
+      th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
       th.title = 'クリックでソート';
@@ -4919,7 +4944,17 @@ function closeOrgOv(id){
 }
 
 function adjustOrgTableHeight() {
-  // overflow-y:visible にしたため height制御不要
+  const orgTab = document.getElementById('organizeTab');
+  if (!orgTab || !orgTab.classList.contains('active')) return;
+  // position:fixed + flex:1 で高さは自動制御。wrap.style.heightをリセット
+  const wrap = document.querySelector('.org-table-wrap');
+  if (wrap) wrap.style.height = '';
+  // leftもここで更新
+  const ma = document.querySelector('.main-area');
+  if (ma && orgTab) {
+    const left = ma.getBoundingClientRect().left;
+    orgTab.style.left = left + 'px';
+  }
 }
 
 function renderOrg() {
@@ -4971,9 +5006,12 @@ function renderOrg() {
   const tbody = document.getElementById('orgList');
   if (!tbody) return;
   tbody.innerHTML = displayList.map(v => {
+    // v.idは'yt-XXXXX'形式のため、YouTubeはv.ytId、VimeoはvideoId部分を使用
+    const _ytId = v.ytId || (v.id||'').replace(/^yt-/,'');
+    const _vmId = (v.id||'').replace(/^vm-/,'');
     const thumb = v.pt === 'youtube'
-      ? `https://img.youtube.com/vi/${v.id}/mqdefault.jpg`
-      : `https://vumbnail.com/${v.id}.jpg`;
+      ? `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`
+      : `https://vumbnail.com/${_vmId}.jpg`;
 
     const prio = v.prio || '保留';
     const prioCols = {'今すぐ':['#fdecea','#ff5252'],'そのうち':['#e3f2fd','#42a5f5'],'保留':['#fff8e1','#f59e0b']};
@@ -5031,7 +5069,6 @@ function renderOrg() {
     </tr>`;
   }).join('');
   syncOrgColHeaders();
-  // データ描画後にテーブル高さを調整（ヘッダー固定のため）
   requestAnimationFrame(adjustOrgTableHeight);
 }
 
@@ -5041,6 +5078,8 @@ let orgColVisibility = {tb: true, action: true, position: true, technique: true,
 const ORG_COL_LABELS = {tb:'T/B', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
 let orgSortCol = null, orgSortAsc = true;
+
+
 
 function syncOrgColHeaders() {
   const thead = document.querySelector('.org-table thead tr');
@@ -5420,7 +5459,7 @@ function setPrio(id, prio) {
   toast(emoji + ' Priority: ' + v.prio);
 }
 
-function renderArch(){const arc=videos.filter(v=>v.archived);document.getElementById('arc').textContent=`${arc.length}本`;const c=document.getElementById('archList');if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';return;}c.innerHTML=arc.map(v=>`<div class="arch-card"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${v.pt==='youtube'?`https://img.youtube.com/vi/${v.id}/mqdefault.jpg`:`https://vumbnail.com/${v.id}.jpg`}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl} | ${v.pt==='vimeo'?'🎥 Vimeo':'▶ YouTube'}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`).join('');}
+function renderArch(){const arc=videos.filter(v=>v.archived);document.getElementById('arc').textContent=`${arc.length}本`;const c=document.getElementById('archList');if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';return;}c.innerHTML=arc.map(v=>`<div class="arch-card"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl} | ${v.pt==='vimeo'?'🎥 Vimeo':'▶ YouTube'}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`).join('');}
 function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;renderArch();AF();toast('↩ 復元しました');}}
 function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{videos=videos.filter(v=>v.id!==id);renderArch();AF();toast('削除しました');});}
 
@@ -6336,7 +6375,7 @@ window.addEventListener('resize', adjustTopbarOffset);
         <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="ytSelAllVideos()">全選択</button>
         <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="ytSelNoneVideos()">全解除</button>
         <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);cursor:pointer;margin-left:4px">
-          <input type="checkbox" id="yt-hide-imported" onchange="ytRenderVideoList()" style="accent-color:var(--accent);width:13px;height:13px">
+          <input type="checkbox" id="yt-hide-imported" onchange="setTimeout(ytRenderVideoList,0)" style="accent-color:var(--accent);width:13px;height:13px">
           取込済を非表示
         </label>
         <span id="yt-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto;align-self:center"></span>
