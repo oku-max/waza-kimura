@@ -23,7 +23,6 @@
     ytSelNoneVideos, ytBackToPlaylists, ytImportCheckedVideos
   } from './js/youtube.js';
 
-  // グローバル公開（script[1]のIIFEから参照される関数）
   window.saveUserData           = saveUserData;
   window.importYouTubePlaylists = importYouTubePlaylists;
   window.ytFetchSelectedPlVideos = ytFetchSelectedPlVideos;
@@ -896,7 +895,6 @@ function renderTagVisibilityBtns(){
   });
 }
 
-const TECH=["十字絞め","RNC","ギロチン","アナコンダ","ダースチョーク","ノースサウスチョーク","ボウアンドアロー","アームバー","キムラ","アメリカーナ","オモプラッタ","ヒールフック","インサイドヒールフック","アウトサイドヒールフック","ニーバー","トーホールド","アンクルロック","カーフスライサー","シザースイープ","フラワースイープ","ヒップバンプスイープ","バタフライスイープ","SLXスイープ","バックテイク","ダブルレッグ","シングルレッグ","ベリンボロ","トレアンダー","ニーカット","トレアンダーパス","ブルファイターパス","レッグドラッグ","スタックパス","スマッシュパス","バックステップ","X-パス","ディープハーフエントリー","クレーンロール","ガスペダル","カウンター"];
 const BELT_L={white:'白帯',blue:'青帯',purple:'紫帯',brown:'茶帯',black:'黒帯'};
 
 let videos=[
@@ -4029,9 +4027,6 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 
 
 // ─── Editable tag lists ───
-const TB_TAGS  = ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'];
-const AC_TAGS  = ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'];
-const POS_TAGS = ['サイドコントロール','マウント','クローズドガード','ニーオン','ハーフガード','ニーシールド','スパイダー・ラッソー','バタフライ','Xガード','デラヒーバ','バック','タートル','オープンガード','50/50','スタンディング','その他'];
 
 // ─── Scroll helper ───
 function scr(id, dir) {
