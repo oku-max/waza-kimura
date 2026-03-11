@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.3</title>
+<title>WAZA KIMURA v47.4</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -805,6 +805,18 @@ const plVids={"クローズドガード":[{id:"dQw4w9WgXcQ",title:"Kimura from C
 let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set(),channel:new Set()};
 let favOnly=false,unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
 let selIds=new Set(),openPlayer=null,editId=null;
+// ES Module側からアクセスできるようwindowに公開
+window.filters=filters; window.favOnly=false; window.unwOnly=false; window.watchedOnly=false;
+window.bulkMode=false; window.bulkCtx='home'; window.selIds=selIds;
+// favOnly等はプリミティブなので setter経由で同期
+Object.defineProperty(window,'favOnly',{get:()=>favOnly,set:v=>{favOnly=v;}});
+Object.defineProperty(window,'unwOnly',{get:()=>unwOnly,set:v=>{unwOnly=v;}});
+Object.defineProperty(window,'watchedOnly',{get:()=>watchedOnly,set:v=>{watchedOnly=v;}});
+Object.defineProperty(window,'bulkMode',{get:()=>bulkMode,set:v=>{bulkMode=v;}});
+Object.defineProperty(window,'bulkCtx',{get:()=>bulkCtx,set:v=>{bulkCtx=v;}});
+Object.defineProperty(window,'selIds',{get:()=>selIds,set:v=>{selIds=v;}});
+Object.defineProperty(window,'editId',{get:()=>editId,set:v=>{editId=v;}});
+Object.defineProperty(window,'openPlayer',{get:()=>openPlayer,set:v=>{openPlayer=v;}});
 let dTags={tb:new Set(),action:new Set(),pos:new Set(),tech:new Set()};
 let dFav=false,dWatch=false,dPrio='',dStat='',dShare=0;
 let orgView='all',urlPrio='保留',urlDet=null;
@@ -2706,6 +2718,9 @@ let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
 // ═══ ORGANIZE専用フィルター状態（Libraryとは完全独立）═══
 let orgFilters = {prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tech:new Set(),platform:new Set(),channel:new Set()};
 let orgFavOnly = false, orgUnwOnly = false;
+window.orgFilters = orgFilters;
+Object.defineProperty(window,'orgFavOnly',{get:()=>orgFavOnly,set:v=>{orgFavOnly=v;}});
+Object.defineProperty(window,'orgUnwOnly',{get:()=>orgUnwOnly,set:v=>{orgUnwOnly=v;}});
 
 function togOrgF(type, val, el) {
   orgFilters[type].has(val) ? (orgFilters[type].delete(val), el.classList.remove('active')) : (orgFilters[type].add(val), el.classList.add('active'));
