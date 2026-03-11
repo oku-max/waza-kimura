@@ -22,17 +22,26 @@
     ytRenderVideoList, ytUpdateSelCount, ytSelAllVideos,
     ytSelNoneVideos, ytBackToPlaylists, ytImportCheckedVideos
   } from './js/youtube.js';
+  import { debounceSave, qFav, qWatch, archOne, setPrio } from './js/data.js';
 
-  window.saveUserData           = saveUserData;
-  window.importYouTubePlaylists = importYouTubePlaylists;
+  // firebase
+  window.saveUserData            = saveUserData;
+  // youtube
+  window.importYouTubePlaylists  = importYouTubePlaylists;
   window.ytFetchSelectedPlVideos = ytFetchSelectedPlVideos;
-  window.ytShowVideoStage       = ytShowVideoStage;
-  window.ytRenderVideoList      = ytRenderVideoList;
-  window.ytUpdateSelCount       = ytUpdateSelCount;
-  window.ytSelAllVideos         = ytSelAllVideos;
-  window.ytSelNoneVideos        = ytSelNoneVideos;
-  window.ytBackToPlaylists      = ytBackToPlaylists;
-  window.ytImportCheckedVideos  = ytImportCheckedVideos;
+  window.ytShowVideoStage        = ytShowVideoStage;
+  window.ytRenderVideoList       = ytRenderVideoList;
+  window.ytUpdateSelCount        = ytUpdateSelCount;
+  window.ytSelAllVideos          = ytSelAllVideos;
+  window.ytSelNoneVideos         = ytSelNoneVideos;
+  window.ytBackToPlaylists       = ytBackToPlaylists;
+  window.ytImportCheckedVideos   = ytImportCheckedVideos;
+  // data
+  window.debounceSave            = debounceSave;
+  window.qFav                    = qFav;
+  window.qWatch                  = qWatch;
+  window.archOne                 = archOne;
+  window.setPrio                 = setPrio;
 </script>
 
 </head>
@@ -693,18 +702,7 @@
 </div><!-- /app-shell -->
 <script>
 
-// ─── 自動保存（debounce: 3秒後にFirebase書き込み）───
-let _autoSaveTimer = null;
-function debounceSave() {
-  clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(async () => {
-    try {
-      if (window.saveUserData) {
-        await window.saveUserData();
-      }
-    } catch(e) { console.error('debounceSave error:', e); }
-  }, 3000); // 3秒待って保存
-}
+// debounceSave → js/data.js に移動
 
 // ═══ TAG SETTINGS ═══
 let tagSettings = [
@@ -2076,9 +2074,9 @@ function closePanel() {
 })();
 
 
-function qFav(id){const v=videos.find(v=>v.id===id);if(v){v.fav=!v.fav;AF();toast(v.fav?'⭐ お気に入り追加':'お気に入り解除');}}
-function qWatch(id){const v=videos.find(v=>v.id===id);if(v){v.watched=!v.watched;AF();toast(v.watched?'✅ 視聴済み':'👁 未視聴に戻しました');}}
-function archOne(id){const v=videos.find(v=>v.id===id);if(v){v.archived=true;AF();toast('📦 アーカイブ');}}
+// qFav → js/data.js に移動
+// qWatch → js/data.js に移動
+// archOne → js/data.js に移動
 function addSwipe(){document.querySelectorAll('.card[id^="card-"]').forEach(card=>{let sx=0,sy=0,mv=false;card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;mv=false;},{passive:true});card.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-sx,dy=Math.abs(e.touches[0].clientY-sy);if(dy>20)return;if(Math.abs(dx)>8){mv=true;card.style.transform=`translateX(${dx*.4}px)`;}},{passive:true});card.addEventListener('touchend',e=>{card.style.transform='';if(!mv)return;const dx=e.changedTouches[0].clientX-sx,id=card.id.replace('card-','');if(dx>60)qWatch(id);else if(dx<-60)archOne(id);});});}
 
 let bulkUndoStack=[];
@@ -3880,16 +3878,7 @@ function openTagFilterFor(colKey, filterKey, thEl, highlightTag) {
   // Organize個別セルからは何もしない（VPanelからのみ編集）
   return;
 }
-function setPrio(id, prio) {
-  const v = videos.find(v => v.id === id);
-  if (!v) return;
-  // トグル：同じボタンを押したら「保留」に戻す
-  v.prio = (v.prio === prio) ? '保留' : prio;
-  debounceSave();
-  renderOrg();
-  const emoji = {'今すぐ':'🔴','そのうち':'🔵','保留':'⬜'}[v.prio] || '';
-  toast(emoji + ' Priority: ' + v.prio);
-}
+// setPrio → js/data.js に移動
 
 function renderArch(){const arc=videos.filter(v=>v.archived);document.getElementById('arc').textContent=`${arc.length}本`;const c=document.getElementById('archList');if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';return;}c.innerHTML=arc.map(v=>`<div class="arch-card"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl} | ${v.pt==='vimeo'?'🎥 Vimeo':'▶ YouTube'}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`).join('');}
 function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;renderArch();AF();toast('↩ 復元しました');}}
