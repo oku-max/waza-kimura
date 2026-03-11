@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.2</title>
+<title>WAZA KIMURA v47.3</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -30,6 +30,15 @@
     renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns
   } from './js/settings.js';
+  import {
+    togF, togPlat, togFav, togUnw, togWatched, clearAll,
+    filterPresets, orgFilterPresets, saveFilterPresets, saveOrgFilterPresets,
+    saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
+    renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
+    renderFilterPresets, resetFilters, updateResetBtn,
+    filt, countByField, countByPl, countByCh, cntBadge,
+    AF, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL
+  } from './js/filter.js';
 
   // firebase
   window.saveUserData            = saveUserData;
@@ -69,6 +78,40 @@
   window.addTagPreset            = addTagPreset;
   window.removeTagPreset         = removeTagPreset;
   window.renderTagVisibilityBtns = renderTagVisibilityBtns;
+  // filter
+  window.togF                  = togF;
+  window.togPlat               = togPlat;
+  window.togFav                = togFav;
+  window.togUnw                = togUnw;
+  window.togWatched            = togWatched;
+  window.clearAll              = clearAll;
+  window.filterPresets         = filterPresets;
+  window.orgFilterPresets      = orgFilterPresets;
+  window.saveFilterPresets     = saveFilterPresets;
+  window.saveOrgFilterPresets  = saveOrgFilterPresets;
+  window.saveFilterPreset      = saveFilterPreset;
+  window.saveOrgFilterPreset   = saveOrgFilterPreset;
+  window.loadFilterPreset      = loadFilterPreset;
+  window.deleteFilterPreset    = deleteFilterPreset;
+  window.renderOrgFilterPresets= renderOrgFilterPresets;
+  window.loadOrgFilterPreset   = loadOrgFilterPreset;
+  window.deleteOrgFilterPreset = deleteOrgFilterPreset;
+  window.renderFilterPresets   = renderFilterPresets;
+  window.resetFilters          = resetFilters;
+  window.updateResetBtn        = updateResetBtn;
+  window.filt                  = filt;
+  window.countByField          = countByField;
+  window.countByPl             = countByPl;
+  window.countByCh             = countByCh;
+  window.cntBadge              = cntBadge;
+  window.AF                    = AF;
+  window.updatePLC             = updatePLC;
+  window.renderTFC             = renderTFC;
+  window.rmTF                  = rmTF;
+  window.openTF                = openTF;
+  window.renderTF              = renderTF;
+  window.openPL                = openPL;
+  window.renderPL              = renderPL;
 </script>
 
 </head>
@@ -770,243 +813,9 @@ let impPl='',impSel=new Set();
 
 // switchTab → js/ui.js に移動
 
-function togF(type, val, el) {
-  filters[type].has(val) ? (filters[type].delete(val), el.classList.remove('active')) : (filters[type].add(val), el.classList.add('active'));
-  AF();
-}
-function togPlat(p){filters.platform.has(p)?filters.platform.delete(p):filters.platform.add(p);const isYT=p==='youtube';[isYT?'chip-yt':'chip-vimeo',isYT?'m-chip-yt':'m-chip-vimeo'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',filters.platform.has(p));});AF();}
-function togFav() {
-  favOnly = !favOnly;
-  ['chip-fav','m-chip-fav','fs-chip-fav2','fov-chip-fav'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', favOnly); });
-  AF();
-}
-function togUnw() {
-  unwOnly = !unwOnly;
-  ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', unwOnly); });
-  AF();
-}
-function togWatched(){watchedOnly=!watchedOnly;['chip-watched','fs-chip-watched'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',watchedOnly);});AF();}
-function clearAll() {
-  Object.keys(filters).forEach(k => filters[k].clear());
-  favOnly = false; unwOnly = false; watchedOnly = false;
-  const si = document.getElementById('si'); if(si) si.value = '';
-  const siPc = document.getElementById('si-pc'); if(siPc) siPc.value = '';
-  // オーバーレイの全行を再構築（OrganizeのsyncOrgFilterOvRowsと同一方式）
-  syncFilterOvRows();
-  // サイドバーのchipをリセット
-  document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
-  renderTFC();
-  AF();
-}
-// ═══ FILTER PRESETS ═══
-// 保存した検索条件は全タブ共通（filterPresetsのみ使用）
-let filterPresets = JSON.parse(localStorage.getItem('wk_filterPresets') || '[]');
-let orgFilterPresets = filterPresets; // エイリアス（後方互換）
 
-function saveFilterPresets() {
-  localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
-}
-function saveOrgFilterPresets() {
-  saveFilterPresets(); // filterPresetsと同じストレージに保存
-}
+// togF〜renderPL → js/filter.js に移動
 
-function saveFilterPreset() {
-  const name = document.getElementById('fov-save-name').value.trim();
-  if(!name) { toast('条件名を入力してください'); return; }
-  const snapshot = {
-    name,
-    filters: Object.fromEntries(Object.entries(filters).map(([k,v])=>[k,[...v]])),
-    favOnly, unwOnly, watchedOnly
-  };
-  const idx = filterPresets.findIndex(p=>p.name===name);
-  if(idx>=0) filterPresets[idx] = snapshot; else filterPresets.push(snapshot);
-  saveFilterPresets();
-  document.getElementById('fov-save-name').value = '';
-  renderFilterPresets();
-  toast('🔖 「' + name + '」を保存しました');
-}
-
-function saveOrgFilterPreset() {
-  const name = document.getElementById('org-fov-save-name').value.trim();
-  if(!name) { toast('条件名を入力してください'); return; }
-  const snapshot = {
-    name,
-    filters: Object.fromEntries(Object.entries(orgFilters).map(([k,v])=>[k,[...v]])),
-    favOnly: orgFavOnly, unwOnly: orgUnwOnly
-  };
-  const idx = orgFilterPresets.findIndex(p=>p.name===name);
-  if(idx>=0) orgFilterPresets[idx] = snapshot; else orgFilterPresets.push(snapshot);
-  saveOrgFilterPresets();
-  document.getElementById('org-fov-save-name').value = '';
-  renderOrgFilterPresets();
-  toast('🔖 「' + name + '」を保存しました');
-}
-
-function loadFilterPreset(idx) {
-  const p = filterPresets[idx]; if(!p) return;
-  Object.keys(filters).forEach(k => filters[k].clear());
-  const fs = p.filters || {};
-  Object.keys(fs).forEach(k => { if(filters[k]) fs[k].forEach(v => filters[k].add(v)); });
-  favOnly = p.favOnly || false;
-  unwOnly = p.unwOnly || false;
-  watchedOnly = p.watchedOnly || false;
-  syncFilterOvRows();
-  AF();
-  closeFilterOverlay();
-  toast('🔖 「' + p.name + '」を読み込みました');
-}
-
-function deleteFilterPreset(idx) {
-  const name = filterPresets[idx] ? filterPresets[idx].name : '';
-  filterPresets.splice(idx, 1);
-  saveFilterPresets();
-  renderFilterPresets();
-  toast('🗑 「' + name + '」を削除しました');
-}
-
-function renderOrgFilterPresets() {
-  // filterPresetsと統合済み → renderFilterPresetsに委譲
-  renderFilterPresets();
-}
-function loadOrgFilterPreset(idx) {
-  const p = orgFilterPresets[idx]; if(!p) return;
-  Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
-  const fs = p.filters || {};
-  Object.keys(fs).forEach(k => { if(orgFilters[k]) fs[k].forEach(v => orgFilters[k].add(v)); });
-  orgFavOnly = p.favOnly || false;
-  orgUnwOnly = p.unwOnly || false;
-  syncOrgFilterOvRows();
-  renderOrg();
-  closeOrgFilterOverlay();
-  toast('🔖 「' + p.name + '」を読み込みました');
-}
-
-function deleteOrgFilterPreset(i) {
-  deleteFilterPreset(i); // filterPresetsと統合済み
-}
-
-function renderFilterPresets() {
-  // ライブラリとOrganizeサイドバー＋オーバーレイの保存リストを更新
-  // 全タブ共通: Library・Organizeのサイドバー＋オーバーレイ全リストを更新
-  const targets = ['fs-saved-list','org-fs-saved-list','fov-preset-list','org-fov-preset-list'].map(id=>document.getElementById(id)).filter(Boolean);
-  targets.forEach(function(list) {
-    if (!filterPresets.length) {
-      list.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:4px 0">保存した検索条件はありません</div>';
-      return;
-    }
-    list.innerHTML = filterPresets.map(function(p, i) {
-      const count = videos.filter(function(v) {
-        if (v.archived) return false;
-        if (p.favOnly && !v.fav) return false;
-        if (p.unwOnly && v.watched) return false;
-        if (p.watchedOnly && !v.watched) return false;
-        const fs = p.filters || {};
-        if (fs.platform && fs.platform.length && !fs.platform.includes(v.pt)) return false;
-        if (fs.playlist && fs.playlist.length && !fs.playlist.includes(v.pl)) return false;
-        if (fs.prio && fs.prio.length && !fs.prio.includes(v.prio)) return false;
-        if (fs.status && fs.status.length && !fs.status.includes(v.status)) return false;
-        if (fs.tb && fs.tb.length && !v.tb.some(t => fs.tb.includes(t))) return false;
-        if (fs.action && fs.action.length && !v.ac.some(a => fs.action.includes(a))) return false;
-        if (fs.position && fs.position.length && !v.pos.some(x => fs.position.includes(x))) return false;
-        if (fs.tech && fs.tech.length && !v.tech.some(t => fs.tech.includes(t))) return false;
-        if (fs.channel && fs.channel.length && !fs.channel.includes(v.ch)) return false;
-        return true;
-      }).length;
-      const badge = '<span style="font-size:9px;background:var(--accent);color:#fff;border-radius:8px;padding:1px 6px;margin-left:5px;font-weight:700">'+count+'</span>';
-      return '<div class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:3px;max-width:100%">'
-        + '<span onclick="loadFilterPreset('+i+')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">'+p.name+badge+'</span>'
-        + '<span style="color:var(--text3);font-size:12px;flex-shrink:0;padding-left:4px" onclick="deleteFilterPreset('+i+')">×</span>'
-        + '</div>';
-    }).join('');
-  });
-}
-
-function resetFilters(){ clearAll(); }
-function updateResetBtn(){
-  const btn=document.getElementById('filter-reset-btn'); if(!btn) return;
-  const active=Object.values(filters).some(s=>s.size>0)||favOnly||unwOnly||watchedOnly;
-  btn.style.display=active?'inline-block':'none';
-}
-
-function filt(list){const siEl=document.getElementById('si');const siPcEl=document.getElementById('si-lib-pc');const q=(siEl?siEl.value:'').toLowerCase()||(siPcEl?siPcEl.value:'').toLowerCase();return list.filter(v=>{if(v.archived)return false;if(favOnly&&!v.fav)return false;if(unwOnly&&v.watched)return false;
-    if(watchedOnly&&!v.watched)return false;if(filters.platform.size&&!filters.platform.has(v.pt))return false;if(q&&!v.title.toLowerCase().includes(q)&&!v.ch.toLowerCase().includes(q)&&!v.pl.toLowerCase().includes(q)&&!v.tech.some(t=>t.toLowerCase().includes(q)))return false;if(filters.playlist.size&&!filters.playlist.has(v.pl))return false;if(filters.prio.size&&!filters.prio.has(v.prio))return false;if(filters.status.size&&!filters.status.has(v.status))return false;if(filters.tb.size&&!v.tb.some(t=>filters.tb.has(t)))return false;if(filters.action.size&&!v.ac.some(a=>filters.action.has(a)))return false;if(filters.position.size&&!v.pos.some(p=>filters.position.has(p)))return false;if(filters.tech.size&&!v.tech.some(t=>filters.tech.has(t)))return false;if(filters.channel.size&&!filters.channel.has(v.ch))return false;return true;});}
-
-// ── タグ別動画本数カウント ──
-function countByField(field, val) {
-  return videos.filter(v => !v.archived && (v[field]||[]).includes(val)).length;
-}
-function countByPl(pl) {
-  return videos.filter(v => !v.archived && v.pl === pl).length;
-}
-function countByCh(ch) {
-  return videos.filter(v => !v.archived && v.ch === ch).length;
-}
-function cntBadge(n) {
-  if (!n) return '';
-  return `<span style="font-size:9px;background:var(--surface3);color:var(--text3);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600">${n}</span>`;
-}
-function AF(){const f=filt(videos);renderCards(f,'cardList');const total=videos.filter(v=>!v.archived).length;const rc=document.getElementById('rc');if(rc)rc.textContent=f.length+' 本 表示中';const rct=document.getElementById('rc-topbar');if(rct){const hasFilter=Object.values(filters).some(s=>s.size>0)||favOnly||unwOnly||watchedOnly||document.getElementById('si').value.trim();rct.textContent=f.length+' 件';rct.style.display=hasFilter?'inline':'none';}const fhn=document.getElementById('fov-hit-num');if(fhn)fhn.textContent=f.length;const fhb=document.getElementById('fov-hit-badge');if(fhb)fhb.textContent=f.length+' 件';const tc=document.getElementById('totalCount');if(tc)tc.textContent=total+' videos';const sc=document.getElementById('snav-cnt');if(sc)sc.textContent=total;buildSrcRow('srow-src');buildPrioRow('srow-prio');buildStatRow('srow-stat');buildPlSrow();buildTechSrow();buildFsTbSrow();buildFsAcSrow();buildFsPlSrow();buildFsTechSrow();buildFsPosSrow();renderTFC();addSwipe();if(bulkMode)updBulk();updateResetBtn();}
-function updatePLC(){buildPlSrow();}
-function renderTFC(){const el=document.getElementById('techFC');if(el)el.innerHTML=[...filters.tech].map(t=>`<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');}
-function rmTF(t){filters.tech.delete(t);renderTFC();AF();}
-function openTF(){document.getElementById('tfs').value='';renderTF();document.getElementById('tfOv').classList.add('open');}
-function renderTF(){
-  const q=document.getElementById('tfs').value.trim();
-  const ql=q.toLowerCase();
-  // 既存タグ = TECH定数 + 動画のtechタグ を合わせて重複排除・ソート
-  const allTech=[...new Set([...TECH,...videos.flatMap(v=>v.tech||[])])].sort();
-  const matched=allTech.filter(t=>!ql||t.toLowerCase().includes(ql));
-  const container=document.getElementById('tfR');
-  container.innerHTML='';
-  matched.forEach(t=>{
-    const el=document.createElement('div');
-    el.className='tech-pill'+(filters.tech.has(t)?' active':'');
-    const n=countByField('tech',t);
-    el.innerHTML=t+cntBadge(n);
-    el.addEventListener('click',function(){
-      filters.tech.has(t)?filters.tech.delete(t):filters.tech.add(t);
-      el.classList.toggle('active');
-      buildTechSrow();buildFsTechSrow();try{buildFovRows();}catch(e){}renderTFC();AF();
-    });
-    container.appendChild(el);
-  });
-  // ヒットなし or 完全一致なし → 新規追加ボタン
-  if(q && !allTech.some(t=>t.toLowerCase()===ql)){
-    const el=document.createElement('div');
-    el.className='tech-pill';
-    el.style.cssText='border-style:dashed;color:var(--accent)';
-    el.textContent='＋ 「'+q+'」を追加';
-    el.onclick=function(){
-      filters.tech.add(q);
-      buildTechSrow();buildFsTechSrow();try{buildFovRows();}catch(e){}renderTFC();AF();
-      document.getElementById('tfs').value='';renderTF();
-      closeOv('tfOv');
-    };
-    container.appendChild(el);
-  }
-  if(!matched.length && !q) container.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px">タグなし</div>';
-}
-function openPL(){document.getElementById('pls').value='';renderPL();document.getElementById('plOv').classList.add('open');}
-function renderPL(){
-  const q=document.getElementById('pls').value.toLowerCase();
-  const pls=[...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))];
-  const container=document.getElementById('plR');
-  const filtered=pls.filter(p=>!q||p.toLowerCase().includes(q));
-  if(!filtered.length){container.innerHTML='<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';return;}
-  container.innerHTML='';
-  filtered.forEach(p=>{
-    const el=document.createElement('div');
-    el.className='tech-pill'+(filters.playlist.has(p)?' active':'');
-    const n=countByPl(p);
-    el.innerHTML=p+cntBadge(n);
-    el.addEventListener('click',function(){
-      filters.playlist.has(p)?filters.playlist.delete(p):filters.playlist.add(p);
-      el.classList.toggle('active');
-      buildPlSrow();try{buildFovRows();}catch(e){}AF();
-    });
-    container.appendChild(el);
-  });
-}
 
 // renderCards/cardHTML → js/cards.js に移動
 
