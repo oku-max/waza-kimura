@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.6</title>
+<title>WAZA KIMURA v47.7</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -2587,6 +2587,34 @@ window.addEventListener('resize', adjustTopbarOffset);
   }, {passive:false, capture:true});
   document.addEventListener('touchend', endDrag, true);
   document.addEventListener('touchcancel', endDrag, true);
+
+  // IIFE内関数をwindowに公開
+  window.renderOrg = renderOrg;
+  window.renderArch = renderArch;
+  window.renderComm = renderComm;
+  window.adjustOrgTableHeight = adjustOrgTableHeight;
+  window.showOrgFsBulkBtn = showOrgFsBulkBtn;
+  window.saveSettings = saveSettings;
+  window.loadSettings = loadSettings;
+  window.showConf = showConf;
+  window.openPos = openPos;
+  window.openChPicker = openChPicker;
+  window.buildBbPosRow = buildBbPosRow;
+  window.buildBbTechRow = buildBbTechRow;
+  window.openOrgFilterOverlay = openOrgFilterOverlay;
+  window.closeOrgFilterOverlay = closeOrgFilterOverlay;
+  window.syncOrgFilterOvRows = syncOrgFilterOvRows;
+  window.renderOrgAccChips = renderOrgAccChips;
+  window.renderOrgPos = renderOrgPos;
+  window.renderOrgPL = renderOrgPL;
+  window.renderOrgTF = renderOrgTF;
+  window.renderOrgChPicker = renderOrgChPicker;
+  window.orgSetSort = orgSetSort;
+  window.openEdit = openEdit;
+  window.closeOv = closeOv;
+  window.buildSrow = buildSrow;
+  window.buildSrcRow = buildSrcRow;
+
 })();
 </script>
 
