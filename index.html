@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.7</title>
+<title>WAZA KIMURA v47.8</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -1353,6 +1353,52 @@ let orgColVisibility = {tb: true, action: true, position: true, technique: true,
 const ORG_COL_LABELS = {tb:'T/B', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
 let orgSortCol = null, orgSortAsc = true;
+let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
+
+function initOrgFixedHeaders() {
+  const thead = document.getElementById('orgTheadRow');
+  if (!thead) return;
+  [...thead.querySelectorAll('th[data-fixed]')].forEach(el => el.remove());
+  const fixedDefs = [
+    {key:'chk',   w:40,  label:''},
+    {key:'thumb', w:76,  label:''},
+    {key:'title', w:180, label:'Title', sep:true, sortKey:'title'},
+  ];
+  let left = 0;
+  fixedDefs.forEach(def => {
+    const th = document.createElement('th');
+    th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
+    th.dataset.fixed = def.key;
+    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
+    if (def.sortKey) {
+      th.style.cursor = 'pointer';
+      th.title = 'クリックでソート';
+      th.addEventListener('click', e => { if(e.target.closest('.rh')) return; orgSetSort(def.sortKey); });
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = def.label;
+      th.appendChild(labelSpan);
+      const sortInd = document.createElement('span');
+      sortInd.className = 'org-sort-ind';
+      sortInd.dataset.sortCol = def.sortKey;
+      sortInd.style.cssText = 'margin-left:3px;font-size:9px;opacity:.4;';
+      sortInd.textContent = orgSortCol === def.sortKey ? (orgSortAsc ? '▲' : '▼') : '⇅';
+      if (orgSortCol === def.sortKey) sortInd.style.opacity = '1';
+      th.appendChild(sortInd);
+    } else {
+      th.textContent = def.label;
+    }
+    if (def.key === 'chk') {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'org-sel-all';
+      cb.onchange = function(){ orgTogSelAll(this); };
+      cb.style.cssText = 'accent-color:var(--accent);cursor:pointer';
+      th.appendChild(cb);
+    }
+    thead.appendChild(th);
+    left += def.w;
+  });
+  _orgFixedLefts = {chk:0, thumb:40, title:116};
+}
 
 
 
@@ -2590,6 +2636,8 @@ window.addEventListener('resize', adjustTopbarOffset);
 
   // IIFE内関数をwindowに公開
   window.renderOrg = renderOrg;
+  window.initOrgFixedHeaders = initOrgFixedHeaders;
+  window.orgSetSort = orgSetSort;
   window.renderArch = renderArch;
   window.renderComm = renderComm;
   window.adjustOrgTableHeight = adjustOrgTableHeight;
