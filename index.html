@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.11</title>
+<title>WAZA KIMURA v47.12</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -246,6 +246,10 @@
   window.filterAccChips        = filterAccChips;
   window.showFsBulkBtn         = showFsBulkBtn;
   window.mkChip                = mkChip;
+
+  // ── 初期化（モジュール側） ──
+  loadTagSettings();
+  AF();
 </script>
 
 </head>
@@ -2638,6 +2642,25 @@ window.addEventListener('resize', adjustTopbarOffset);
   }, {passive:false, capture:true});
   document.addEventListener('touchend', endDrag, true);
   document.addEventListener('touchcancel', endDrag, true);
+
+  // ── topbar高さ管理 ──
+  function updateTopbarHeight() {
+    try {
+      const tb = document.querySelector('.topbar');
+      if (tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px');
+    } catch(e) {}
+  }
+  window.addEventListener('resize', updateTopbarHeight);
+  window.addEventListener('resize', adjustOrgTableHeight);
+  document.addEventListener('DOMContentLoaded', () => {
+    updateTopbarHeight();
+    setTimeout(updateTopbarHeight, 100);
+  });
+
+  // ── 初期化（IIFE内で完結する処理のみ） ──
+  loadSettings();
+  buildAllSliders();
+  buildMirrorRows();
 
   // IIFE内関数をwindowに公開
   window.renderOrg = renderOrg;
