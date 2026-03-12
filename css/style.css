@@ -430,7 +430,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-table-wrap::-webkit-scrollbar-thumb { background:var(--text3); border-radius:4px; }
 .org-table-wrap::-webkit-scrollbar-thumb:hover { background:var(--text3); }
 .org-table-wrap::-webkit-scrollbar-corner { background:transparent; }
-.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; box-sizing:border-box; overflow:visible; }
+.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; box-sizing:border-box; }
 .org-tr { border-bottom:1px solid var(--border); transition:background .15s; }
 .org-tr:hover { background:var(--surface2); }
 .org-td { padding:8px 10px; font-size:12px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
@@ -461,6 +461,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-th-drag-over { outline:2px solid var(--accent) !important; background:var(--surface2) !important; }
 .org-th-dragging  { opacity:.4; }
 .org-col-fixed, .org-td-fixed { position:sticky; background:var(--surface); z-index:3; }
+.org-th.org-col-fixed { position:sticky; top:0; z-index:11; overflow:visible; }
 .org-col-sep { border-right:2px solid var(--border) !important; }
 .org-tr:hover .org-td-fixed { background:var(--surface2); }
 /* 固定列のleft/width はJSで動的設定 */
