@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.5</title>
+<title>WAZA KIMURA v46.93</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--gold:#7a6200;--gold-soft:#fdf8e8;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--blue:#1a3a5c;--blue-soft:#edf2f8;--purple:#3a3a7a;--purple-soft:#f0f0f8;--radius:8px;--shadow:0 1px 4px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.12);--sbw:196px;}
@@ -420,12 +420,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-table-wrap {
   width:100%;
   overflow-x: scroll;
-  overflow-y: visible;
+  overflow-y: auto;
   -webkit-overflow-scrolling:touch;
   position:relative;
+  flex:1;
+  min-height:0;
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: var(--text3) transparent; /* Firefox */
 }
+/* org-table-wrap height: controlled by flex layout */
 .org-table { border-collapse:collapse; table-layout:fixed; width:max-content; min-width:100%; }
 /* Organizeテーブル スクロールバー（WebKit） */
 .org-table-wrap::-webkit-scrollbar { width:7px; height:7px; }
@@ -433,8 +436,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .org-table-wrap::-webkit-scrollbar-thumb { background:var(--text3); border-radius:4px; }
 .org-table-wrap::-webkit-scrollbar-thumb:hover { background:var(--text3); }
 .org-table-wrap::-webkit-scrollbar-corner { background:transparent; }
-.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:100px; z-index:10; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box; }
-@media(min-width:768px){ .org-th { top:calc(var(--topbar-h, 72px) + 36px); } }
+.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; box-sizing:border-box; }
 .org-tr { border-bottom:1px solid var(--border); transition:background .15s; }
 .org-tr:hover { background:var(--surface2); }
 .org-td { padding:8px 10px; font-size:12px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
@@ -1289,10 +1291,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .fbar-lbl { font-size:9px; font-weight:700; letter-spacing:.7px; color:var(--text3); text-transform:uppercase; min-width:60px; flex-shrink:0; }
 
 
-@media(min-width:1200px) {
-  /* PC: actionbarは非表示なのでtheadのtopをtopbar+countbar分に */
-  .org-th { top: calc(var(--topbar-h, 72px) + 36px) !important; }
-}
+
 </style>
 
 <!-- Firebase SDK (compat) -->
@@ -1589,78 +1588,6 @@ async function ytImportCheckedVideos() {
 }
 
 
-
-// ─── AI タグ付け ───────────────────────────────────────────────────
-async function autoTagWithAI(video) {
-  const tbList   = (typeof TB_TAGS  !== 'undefined') ? TB_TAGS.join(',') : '';
-  const acList   = (typeof AC_TAGS  !== 'undefined') ? AC_TAGS.join(',') : '';
-  const posList  = (typeof POS_TAGS !== 'undefined') ? POS_TAGS.join(',') : '';
-  const techList = (typeof TECH     !== 'undefined') ? TECH.join(',') : '';
-
-  const systemPrompt = `あなたはBJJ動画タグ付けAIです。動画タイトル・チャンネル名・説明欄から最適なタグを選んでください。
-T/B: ${tbList}
-Action: ${acList}
-Position: ${posList}
-Technique: ${techList}
-各カテゴリ最大3個。選択肢外は使わない（Techniqueのみ例外可）。
-必ずJSON形式のみで返答: {"tb":[],"ac":[],"pos":[],"tech":[]}`;
-
-  const desc = (video.description || '').substring(0, 500);
-  const userPrompt = `タイトル: ${video.title || ''}
-チャンネル: ${video.channel || video.ch || ''}
-プレイリスト: ${video.pl || ''}${desc ? '\n説明欄: ' + desc : ''}`;
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content?.[0]?.text || '{}';
-    const tags = JSON.parse(text.replace(/```json|```/g, '').trim());
-    return {
-      tb:   Array.isArray(tags.tb)   ? tags.tb   : [],
-      ac:   Array.isArray(tags.ac)   ? tags.ac   : [],
-      pos:  Array.isArray(tags.pos)  ? tags.pos  : [],
-      tech: Array.isArray(tags.tech) ? tags.tech : []
-    };
-  } catch(e) { console.warn('AI tag error:', e); return null; }
-}
-
-async function aiTagSelected() {
-  const checked = document.querySelectorAll('#orgList .org-cb:checked');
-  const targets = checked.length > 0
-    ? [...checked].map(cb => window.videos?.find(v => v.id === cb.dataset.id)).filter(Boolean)
-    : window.videos?.filter(v => !v.archived) || [];
-  if (!targets.length) { showToast('対象動画がありません'); return; }
-  const btn = document.getElementById('org-ai-tag-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '処理中...'; }
-  showToast(`AIタグ付け中... (${targets.length}本)`, 60000);
-  let done = 0;
-  for (const v of targets) {
-    const tags = await autoTagWithAI(v);
-    if (tags) {
-      if (tags.tb.length)   v.tb   = tags.tb;
-      if (tags.ac.length)   v.ac   = tags.ac;
-      if (tags.pos.length)  v.pos  = tags.pos;
-      if (tags.tech.length) v.tech = tags.tech;
-    }
-    done++;
-    if (btn) btn.textContent = `${done}/${targets.length}本...`;
-  }
-  if (window.AF) window.AF();
-  await saveUserData();
-  if (btn) { btn.disabled = false; btn.textContent = 'AIタグ付け'; }
-  showToast(`AIタグ付け完了 (${done}本)`);
-}
-// ─────────────────────────────────────────────────────────────────────
-
 function showToast(msg, duration=3000) {
   if(window.toast) { window.toast(msg); return; }
   const t = document.createElement('div');
@@ -1680,7 +1607,6 @@ window.ytBackToPlaylists = ytBackToPlaylists;
 window.ytSelAllVideos = ytSelAllVideos;
 window.ytSelNoneVideos = ytSelNoneVideos;
 window.ytImportCheckedVideos = ytImportCheckedVideos;
-window.aiTagSelected = aiTagSelected;
 })();
 </script>
 
@@ -2584,6 +2510,15 @@ function switchTab(t){
   // タブ切り替え時にVPanel/vp-panelを閉じる
   if(openVPanelId) closeVPanel();
   if(document.getElementById('vp-panel')?.classList.contains('show')) closePanel();
+  // Organizeタブ: position:fixedのleftをmain-areaの実際の位置に合わせる
+  if (t === 'organize') {
+    const ma = document.querySelector('.main-area');
+    const orgTab = document.getElementById('organizeTab');
+    if (ma && orgTab) {
+      const left = ma.getBoundingClientRect().left;
+      orgTab.style.left = left + 'px';
+    }
+  }
   ['home','community','organize','archive','settings'].forEach(n=>{
     const p=document.getElementById(n+'Tab');if(p)p.className='tab-panel'+(t===n?' active':'');
     const m=document.getElementById('mnav-'+n);if(m)m.className='mn-i'+(t===n?' active':'');
@@ -4735,8 +4670,7 @@ function initOrgFixedHeaders() {
     const th = document.createElement('th');
     th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
     th.dataset.fixed = def.key;
-    const topVal = window.innerWidth >= 1200 ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')||'72') + 36) + 'px' : '136px';
-      th.style.cssText = `position:sticky;top:${topVal};left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
+      th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
       th.title = 'クリックでソート';
@@ -5018,7 +4952,17 @@ function closeOrgOv(id){
 }
 
 function adjustOrgTableHeight() {
-  // overflow-y:visible にしたため height制御不要
+  const orgTab = document.getElementById('organizeTab');
+  if (!orgTab || !orgTab.classList.contains('active')) return;
+  // position:fixed + flex:1 で高さは自動制御。wrap.style.heightをリセット
+  const wrap = document.querySelector('.org-table-wrap');
+  if (wrap) wrap.style.height = '';
+  // leftもここで更新
+  const ma = document.querySelector('.main-area');
+  if (ma && orgTab) {
+    const left = ma.getBoundingClientRect().left;
+    orgTab.style.left = left + 'px';
+  }
 }
 
 function renderOrg() {
@@ -5133,7 +5077,6 @@ function renderOrg() {
     </tr>`;
   }).join('');
   syncOrgColHeaders();
-  updateOrgHeaderTop();
   requestAnimationFrame(adjustOrgTableHeight);
 }
 
@@ -5145,36 +5088,7 @@ const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:
 let orgSortCol = null, orgSortAsc = true;
 
 
-// ── Organizeテーブルヘッダーのtop位置を実測して更新 ──
-function updateOrgHeaderTop() {
-  requestAnimationFrame(function() {
-    const cb = document.querySelector('.org-count-bar');
-    if (!cb) return;
-    const bottom = cb.getBoundingClientRect().bottom + window.scrollY;
-    const topPx = bottom + 'px';
-    document.querySelectorAll('.org-th').forEach(function(el) {
-      el.style.top = topPx;
-    });
-    // fixed th (initOrgFixedHeadersで生成) にも適用
-    const thead = document.getElementById('orgTheadRow');
-    if (thead) {
-      thead.querySelectorAll('th').forEach(function(el) {
-        el.style.top = topPx;
-      });
-    }
-  });
-}
 
-function updateOrgHeaderTop() {
-  requestAnimationFrame(function() {
-    const cb = document.querySelector('.org-count-bar');
-    if (!cb) return;
-    const topPx = (cb.getBoundingClientRect().bottom + window.scrollY) + 'px';
-    document.querySelectorAll('#orgTheadRow th').forEach(function(el) {
-      el.style.top = topPx;
-    });
-  });
-}
 function syncOrgColHeaders() {
   const thead = document.querySelector('.org-table thead tr');
   if (!thead) return;
