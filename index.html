@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.5</title>
+<title>WAZA KIMURA v47.6</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -159,6 +159,7 @@
   window._openPanel            = _openPanel;
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;
+  document.dispatchEvent(new Event('waza-modules-ready'));
 </script>
 
 </head>
@@ -3394,7 +3395,9 @@ loadSettings();
 
 buildAllSliders();
 buildMirrorRows();
-AF();
+document.addEventListener('waza-modules-ready', function() {
+  if (window.AF) window.AF();
+}, { once: true });
 
 // topbar高さに合わせてapp-shellのmargin-topを動的調整
 function adjustTopbarOffset() {
