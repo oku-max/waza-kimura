@@ -159,7 +159,6 @@
   window._openPanel            = _openPanel;
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;
-  document.dispatchEvent(new Event('waza-modules-ready'));
 </script>
 
 </head>
@@ -3367,7 +3366,6 @@ document.addEventListener('mousedown', function(e){
 
 // ─── INIT ───
 window.videos = videos;
-window.AF = AF;
 
 // ── 設定の保存・読み込み ──
 function scrollToSetting(id) {
@@ -3395,9 +3393,13 @@ loadSettings();
 
 buildAllSliders();
 buildMirrorRows();
-document.addEventListener('waza-modules-ready', function() {
-  if (window.AF) window.AF();
-}, { once: true });
+(function waitForAF() {
+  if (window.AF) {
+    window.AF();
+  } else {
+    setTimeout(waitForAF, 50);
+  }
+})();
 
 // topbar高さに合わせてapp-shellのmargin-topを動的調整
 function adjustTopbarOffset() {
