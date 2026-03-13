@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.61</title>
+<title>WAZA KIMURA v47.5</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -3366,6 +3366,7 @@ document.addEventListener('mousedown', function(e){
 
 // ─── INIT ───
 window.videos = videos;
+window.AF = AF;
 
 // ── 設定の保存・読み込み ──
 function scrollToSetting(id) {
@@ -3393,13 +3394,7 @@ loadSettings();
 
 buildAllSliders();
 buildMirrorRows();
-(function waitForAF() {
-  if (window.AF) {
-    window.AF();
-  } else {
-    setTimeout(waitForAF, 50);
-  }
-})();
+AF();
 
 // topbar高さに合わせてapp-shellのmargin-topを動的調整
 function adjustTopbarOffset() {
@@ -3448,6 +3443,8 @@ window.addEventListener('resize', adjustTopbarOffset);
     w=Math.max(SB_MIN,Math.min(SB_MAX,w));
     sidebar.style.width=w+'px';
     sidebar.style.minWidth=w+'px';
+    var btn=document.getElementById('sidebar-toggle-btn');
+    if(btn) btn.style.left=w+'px';
   }
   function endDrag(){
     if(!dragging) return;
