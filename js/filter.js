@@ -158,10 +158,10 @@ export function renderFilterPresets() {
         if (fs.playlist && fs.playlist.length && !fs.playlist.includes(v.pl)) return false;
         if (fs.prio && fs.prio.length && !fs.prio.includes(v.prio)) return false;
         if (fs.status && fs.status.length && !fs.status.includes(v.status)) return false;
-        if (fs.tb && fs.tb.length && !v.tb.some(t => fs.tb.includes(t))) return false;
-        if (fs.action && fs.action.length && !v.ac.some(a => fs.action.includes(a))) return false;
-        if (fs.position && fs.position.length && !v.pos.some(x => fs.position.includes(x))) return false;
-        if (fs.tech && fs.tech.length && !v.tech.some(t => fs.tech.includes(t))) return false;
+        if (fs.tb && fs.tb.length && !(v.tb||[]).some(t => fs.tb.includes(t))) return false;
+        if (fs.action && fs.action.length && !(v.ac||[]).some(a => fs.action.includes(a))) return false;
+        if (fs.position && fs.position.length && !(v.pos||[]).some(x => fs.position.includes(x))) return false;
+        if (fs.tech && fs.tech.length && !(v.tech||[]).some(t => fs.tech.includes(t))) return false;
         if (fs.channel && fs.channel.length && !fs.channel.includes(v.ch)) return false;
         return true;
       }).length;
@@ -193,14 +193,18 @@ export function filt(list) {
     if (window.unwOnly && v.watched) return false;
     if (window.watchedOnly && !v.watched) return false;
     if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
-    if (q && !v.title.toLowerCase().includes(q) && !v.ch.toLowerCase().includes(q) && !v.pl.toLowerCase().includes(q) && !v.tech.some(t => t.toLowerCase().includes(q))) return false;
+    // ▼ 修正: ch / pl / tech が undefined の動画でもクラッシュしないよう || '' / || [] でガード
+    if (q && !(v.title||'').toLowerCase().includes(q)
+          && !(v.ch||'').toLowerCase().includes(q)
+          && !(v.pl||'').toLowerCase().includes(q)
+          && !(v.tech||[]).some(t => t.toLowerCase().includes(q))) return false;
     if (window.filters.playlist.size && !window.filters.playlist.has(v.pl)) return false;
     if (window.filters.prio.size && !window.filters.prio.has(v.prio)) return false;
     if (window.filters.status.size && !window.filters.status.has(v.status)) return false;
-    if (window.filters.tb.size && !v.tb.some(t => window.filters.tb.has(t))) return false;
-    if (window.filters.action.size && !v.ac.some(a => window.filters.action.has(a))) return false;
-    if (window.filters.position.size && !v.pos.some(p => window.filters.position.has(p))) return false;
-    if (window.filters.tech.size && !v.tech.some(t => window.filters.tech.has(t))) return false;
+    if (window.filters.tb.size && !(v.tb||[]).some(t => window.filters.tb.has(t))) return false;
+    if (window.filters.action.size && !(v.ac||[]).some(a => window.filters.action.has(a))) return false;
+    if (window.filters.position.size && !(v.pos||[]).some(p => window.filters.position.has(p))) return false;
+    if (window.filters.tech.size && !(v.tech||[]).some(t => window.filters.tech.has(t))) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.ch)) return false;
     return true;
   });
@@ -229,7 +233,8 @@ export function AF() {
   const rc = document.getElementById('rc'); if (rc) rc.textContent = f.length + ' 本 表示中';
   const rct = document.getElementById('rc-topbar');
   if (rct) {
-    const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || document.getElementById('si').value.trim();
+    const siEl = document.getElementById('si');
+    const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || (siEl && siEl.value.trim());
     rct.textContent = f.length + ' 件';
     rct.style.display = hasFilter ? 'inline' : 'none';
   }
