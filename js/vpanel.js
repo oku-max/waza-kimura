@@ -582,6 +582,10 @@ function _initPanelResizer(panel) {
     _panelDragging = false;
     document.body.style.userSelect = '';
     resizer.style.background = '';
+    // ドラッグ終了直後のクリックイベントで誤ってパネルが閉じないよう
+    // 一時的にリスナーを外し、200ms後に再登録する
+    document.removeEventListener('click', _closePanelOutside);
+    setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 200);
   }
 
   resizer.addEventListener('mousedown', function(e) {
