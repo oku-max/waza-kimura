@@ -516,8 +516,14 @@ export function vpSave(id) {
 
 // ── PC Side Panel ──
 let panelId = null;
+let _panelDragging = false;
+let _panelStartX = 0;
+let _panelStartW = 0;
 
 export function _openPanel(id, emb, ext, plat) {
+  // ★ Fix 1: 前回のクリックリスナーを必ずクリアしてから開く
+  document.removeEventListener('click', _closePanelOutside);
+
   panelId = id;
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   let panel = document.getElementById('vp-panel');
@@ -544,8 +550,55 @@ export function _openPanel(id, emb, ext, plat) {
   if (ma) { ma.classList.add('panel-open'); ma.style.marginRight = panel.offsetWidth + 'px'; }
   if (window.openPlayer) _closePlayer(window.openPlayer);
   window.openPlayer = id;
+
+  // ★ Fix 2: リサイザーのドラッグ処理を登録
+  _initPanelResizer(panel);
+
   panel.onclick = function(e) { e.stopPropagation(); };
   setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 0);
+}
+
+function _initPanelResizer(panel) {
+  const resizer = document.getElementById('vpResizer');
+  if (!resizer) return;
+
+  function startDrag(x) {
+    _panelDragging = true;
+    _panelStartX = x;
+    _panelStartW = panel.offsetWidth;
+    document.body.style.userSelect = 'none';
+    resizer.style.background = 'var(--accent)';
+  }
+  function doDrag(x) {
+    if (!_panelDragging) return;
+    const MIN_W = 280, MAX_W = Math.floor(window.innerWidth * 0.6);
+    const newW = Math.max(MIN_W, Math.min(MAX_W, _panelStartW - (x - _panelStartX)));
+    panel.style.width = newW + 'px';
+    const ma = document.querySelector('.main-area');
+    if (ma && ma.classList.contains('panel-open')) ma.style.marginRight = newW + 'px';
+  }
+  function endDrag() {
+    if (!_panelDragging) return;
+    _panelDragging = false;
+    document.body.style.userSelect = '';
+    resizer.style.background = '';
+  }
+
+  resizer.addEventListener('mousedown', function(e) {
+    e.stopPropagation(); e.preventDefault();
+    startDrag(e.clientX);
+  });
+  document.addEventListener('mousemove', function(e) { doDrag(e.clientX); });
+  document.addEventListener('mouseup', endDrag);
+
+  resizer.addEventListener('touchstart', function(e) {
+    e.stopPropagation(); e.preventDefault();
+    startDrag(e.touches[0].clientX);
+  }, {passive: false});
+  document.addEventListener('touchmove', function(e) {
+    if (_panelDragging) { e.preventDefault(); doDrag(e.touches[0].clientX); }
+  }, {passive: false});
+  document.addEventListener('touchend', endDrag);
 }
 
 export function _closePanelOutside() {
