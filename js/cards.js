@@ -17,7 +17,7 @@ export function cardHTML(v) {
   const ytId  = v.ytId || (isYT ? v.id : '');
   const vmId  = isYT ? '' : (v.id || '').replace('yt-', '');
   const thumb = isYT ? (v.thumb || `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`) : `https://vumbnail.com/${vmId}.jpg`;
-  const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0` : `https://player.vimeo.com/video/${vmId}?autoplay=1`;
+  const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?rel=0` : `https://player.vimeo.com/video/${vmId}`;
   const ext   = isYT ? `https://www.youtube.com/watch?v=${ytId}` : `https://vimeo.com/${vmId}`;
   const pc    = v.prio === '今すぐ' ? 'p1' : v.prio === 'そのうち' ? 'p2' : 'p3';
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
