@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.9</title>
+<title>WAZA KIMURA v47.10</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -37,7 +37,7 @@
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
     renderFilterPresets, resetFilters, updateResetBtn,
     filt, countByField, countByPl, countByCh, cntBadge,
-    AF, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL
+    AF, sortVideos, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL
   } from './js/filter.js';
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
@@ -115,6 +115,7 @@
   window.countByCh             = countByCh;
   window.cntBadge              = cntBadge;
   window.AF                    = AF;
+  window.sortVideos             = sortVideos;
   window.updatePLC             = updatePLC;
   window.renderTFC             = renderTFC;
   window.rmTF                  = rmTF;
@@ -445,6 +446,16 @@
     <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
     <button id="bulk-sel-btn" onclick="enterBulk()" class="tab-bar-btn">☑ 一括編集</button>
     <div class="tab-srch"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search title, technique, series..." oninput="window.AF?.()"></div>
+    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+      <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+        <option value="default">並び頻: 標準</option>
+        <option value="addedAt">追加日</option>
+        <option value="title">タイトル</option>
+        <option value="prio">Priority</option>
+        <option value="status">Progress</option>
+      </select>
+      <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇麊順切替">↑</button>
+    </div>
     <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
   <div class="results-header"><span class="results-count" id="rc"></span></div>
