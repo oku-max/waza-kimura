@@ -533,9 +533,16 @@ export function _openPanel(id, emb, ext, plat) {
     panel.className = 'vp-panel';
     document.body.appendChild(panel);
   }
+  // autoplay設定を読む
+  const autoplayEl = document.getElementById('setting-autoplay');
+  const autoplay = autoplayEl ? autoplayEl.checked : true;
+  let embedSrc = emb;
+  if (autoplay) {
+    embedSrc = emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1';
+  }
   panel.innerHTML = `
     <div class="vp-panel-resizer" id="vpResizer"></div>
-    <div class="vp-panel-video"><iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>
+    <div class="vp-panel-video"><iframe src="${embedSrc}" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>
     <div class="vp-panel-header">
       <div class="vp-panel-title">${v.title}</div>
       <div class="vp-panel-close" onclick="closePanel()">✕</div>
