@@ -46,7 +46,7 @@ export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
   window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
   const si = document.getElementById('si'); if (si) si.value = '';
-  const siPc = document.getElementById('si-pc'); if (siPc) siPc.value = '';
+  const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
   window.syncFilterOvRows?.();
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
   window.renderTFC?.();
@@ -225,9 +225,39 @@ export function cntBadge(n) {
   return `<span style="font-size:9px;background:var(--surface3);color:var(--text3);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600">${n}</span>`;
 }
 
+// ── ソート ──
+export function sortVideos(list) {
+  const key = window.sortKey || 'default';
+  const asc = window.sortAsc !== false;
+  const sorted = [...list];
+  if (key === 'default') return sorted;
+  sorted.sort((a, b) => {
+    let va, vb;
+    if (key === 'addedAt') {
+      va = a.addedAt || a.id || '';
+      vb = b.addedAt || b.id || '';
+    } else if (key === 'title') {
+      va = (a.title || '').toLowerCase();
+      vb = (b.title || '').toLowerCase();
+    } else if (key === 'prio') {
+      const ord = { '今すぐ': 0, 'そのうち': 1, '保留': 2 };
+      va = ord[a.prio] ?? 9;
+      vb = ord[b.prio] ?? 9;
+    } else if (key === 'status') {
+      const ord = { '未着手': 0, '練習中': 1, 'マスター': 2 };
+      va = ord[a.status] ?? 9;
+      vb = ord[b.status] ?? 9;
+    }
+    if (va < vb) return asc ? -1 : 1;
+    if (va > vb) return asc ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
 // ── AF（Apply Filters）：全体再描画 ──
 export function AF() {
-  const f = filt(window.videos);
+  const f = sortVideos(filt(window.videos));
   window.renderCards(f, 'cardList');
   const total = (window.videos||[]).filter(v => !v.archived).length;
   const rc = document.getElementById('rc'); if (rc) rc.textContent = f.length + ' 本 表示中';
