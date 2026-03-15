@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.12</title>
+<title>WAZA KIMURA v47.13</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -41,6 +41,7 @@
   } from './js/filter.js';
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
+    vpSkip, vpAddBm, vpDeleteBm, vpSeekBm,
     togVpDrawer, buildDrawerHTML,
     vpSet, vpTog, vpAddTechVal, vpAddPosVal,
     openVpPlaylistOp, vpPlOvConfirm, vpPlOvConfirmNew, vpRemoveFromPl, updateVpPlBadge,
@@ -160,6 +161,10 @@
   window._openPanel            = _openPanel;
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;
+  window.vpSkip               = vpSkip;
+  window.vpAddBm              = vpAddBm;
+  window.vpDeleteBm           = vpDeleteBm;
+  window.vpSeekBm             = vpSeekBm;
 </script>
 
 </head>
@@ -3634,8 +3639,9 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div class="vpanel-resizer" id="vpanelResizer"></div>
     <button class="vpanel-close" onclick="closeVPanel()">✕</button>
     <div class="vpanel-video">
-      <iframe id="vpanel-iframe" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      <div id="vpanel-iframe-container" style="width:100%;height:100%"><div id="vpanel-yt-player"></div></div>
     </div>
+    <div id="vpanel-skip-area"></div>
     <div class="vpanel-edit">
       <div class="vpanel-title" id="vpanel-title"></div>
       <button class="vp-ext-btn" id="vpanel-ext-btn" style="width:100%;margin-bottom:8px"></button>
