@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.14</title>
+<title>WAZA KIMURA v47.15</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -41,7 +41,8 @@
   } from './js/filter.js';
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
-    vpSkip, vpAddBm, vpDeleteBm, vpSeekBm, vpEditBm, vpEditBmTime,
+    vpSkip, vpAddBm, vpDeleteBm, vpSeekBm, vpEditBm,
+    vpTogBmTimeEditor, vpAdjustBmTime, vpSetBmTimeToCurrent, vpSetBmTimeFromInput,
     togVpDrawer, buildDrawerHTML,
     vpSet, vpTog, vpAddTechVal, vpAddPosVal,
     openVpPlaylistOp, vpPlOvConfirm, vpPlOvConfirmNew, vpRemoveFromPl, updateVpPlBadge,
@@ -165,8 +166,11 @@
   window.vpAddBm              = vpAddBm;
   window.vpDeleteBm           = vpDeleteBm;
   window.vpSeekBm             = vpSeekBm;
-  window.vpEditBm             = vpEditBm;
-  window.vpEditBmTime         = vpEditBmTime;
+  window.vpEditBm                = vpEditBm;
+  window.vpTogBmTimeEditor       = vpTogBmTimeEditor;
+  window.vpAdjustBmTime          = vpAdjustBmTime;
+  window.vpSetBmTimeToCurrent    = vpSetBmTimeToCurrent;
+  window.vpSetBmTimeFromInput    = vpSetBmTimeFromInput;
 </script>
 
 </head>
