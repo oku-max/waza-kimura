@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.13</title>
+<title>WAZA KIMURA v47.14</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -41,7 +41,7 @@
   } from './js/filter.js';
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
-    vpSkip, vpAddBm, vpDeleteBm, vpSeekBm,
+    vpSkip, vpAddBm, vpDeleteBm, vpSeekBm, vpEditBm, vpEditBmTime,
     togVpDrawer, buildDrawerHTML,
     vpSet, vpTog, vpAddTechVal, vpAddPosVal,
     openVpPlaylistOp, vpPlOvConfirm, vpPlOvConfirmNew, vpRemoveFromPl, updateVpPlBadge,
@@ -165,6 +165,8 @@
   window.vpAddBm              = vpAddBm;
   window.vpDeleteBm           = vpDeleteBm;
   window.vpSeekBm             = vpSeekBm;
+  window.vpEditBm             = vpEditBm;
+  window.vpEditBmTime         = vpEditBmTime;
 </script>
 
 </head>
@@ -3645,6 +3647,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div class="vpanel-edit">
       <div class="vpanel-title" id="vpanel-title"></div>
       <button class="vp-ext-btn" id="vpanel-ext-btn" style="width:100%;margin-bottom:8px"></button>
+      <div id="vpanel-bm-area"></div>
       <div id="vpanel-edit-area"></div>
     </div>
   </div>
