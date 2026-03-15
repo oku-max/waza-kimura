@@ -1,6 +1,178 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v2 ═══
+// YouTube iFrame Player API対応版
+// モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
-// ── VPanel オープン/クローズ ──
+// ── YT.Player管理 ──
+let _ytPlayer = null;       // 現在アクティブなYT.Playerインスタンス
+let _ytPlayerReady = false; // プレイヤーが操作可能な状態か
+let _ytApiLoaded = false;   // YouTube iFrame API読み込み済みか
+
+// YouTube iFrame APIを非同期で読み込む（初回のみ）
+function _loadYTApi() {
+  if (_ytApiLoaded || document.getElementById('yt-iframe-api-script')) return;
+  _ytApiLoaded = true;
+  const tag = document.createElement('script');
+  tag.id = 'yt-iframe-api-script';
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+
+// YouTube iFrame APIの準備完了コールバック（グローバル必須）
+window.onYouTubeIframeAPIReady = function() {
+  // APIが準備できた後にプレイヤーが待機中なら初期化
+  if (window._pendingYTInit) {
+    window._pendingYTInit();
+    window._pendingYTInit = null;
+  }
+};
+
+// YT.Playerを初期化する
+// containerId: iframeを入れるdivのid
+// ytId: YouTubeのvideo ID
+// autoplay: 自動再生するか
+// onReady: 準備完了後のコールバック
+function _initYTPlayer(containerId, ytId, autoplay, onReady) {
+  // 既存プレイヤーを破棄
+  if (_ytPlayer) {
+    try { _ytPlayer.destroy(); } catch(e) {}
+    _ytPlayer = null;
+    _ytPlayerReady = false;
+  }
+
+  const doInit = () => {
+    _ytPlayer = new YT.Player(containerId, {
+      videoId: ytId,
+      playerVars: {
+        autoplay: autoplay ? 1 : 0,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1
+      },
+      events: {
+        onReady: (e) => {
+          _ytPlayerReady = true;
+          if (onReady) onReady(e);
+        },
+        onError: (e) => {
+          console.warn('YT player error:', e.data);
+        }
+      }
+    });
+  };
+
+  if (window.YT && window.YT.Player) {
+    doInit();
+  } else {
+    // APIが未ロードなら読み込んでから初期化
+    _loadYTApi();
+    window._pendingYTInit = doInit;
+  }
+}
+
+// 現在の再生位置（秒）を取得
+function _getCurrentTime() {
+  if (!_ytPlayer || !_ytPlayerReady) return null;
+  try { return Math.floor(_ytPlayer.getCurrentTime()); } catch(e) { return null; }
+}
+
+// 指定秒数にシーク
+function _seekTo(sec) {
+  if (!_ytPlayer || !_ytPlayerReady) return;
+  try { _ytPlayer.seekTo(sec, true); } catch(e) {}
+}
+
+// 秒数を mm:ss 形式に変換
+function _formatTime(sec) {
+  if (sec == null || isNaN(sec)) return '?:??';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+// ── スキップボタンHTML ──
+function _skipBtnsHTML() {
+  return `
+    <div class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0">
+      <button class="vp-skip-btn" onclick="vpSkip(-30)" title="-30秒">⏪ 30s</button>
+      <button class="vp-skip-btn" onclick="vpSkip(-10)" title="-10秒">⏪ 10s</button>
+      <button class="vp-skip-btn" onclick="vpSkip(10)" title="+10秒">10s ⏩</button>
+      <button class="vp-skip-btn" onclick="vpSkip(30)" title="+30秒">30s ⏩</button>
+      <button class="vp-skip-btn" onclick="vpSkip(60)" title="+1分">1m ⏩</button>
+    </div>`;
+}
+
+export function vpSkip(sec) {
+  const cur = _getCurrentTime();
+  if (cur == null) { window.toast?.('動画を再生してからスキップしてください'); return; }
+  _seekTo(Math.max(0, cur + sec));
+}
+
+// ── ブックマーク関連 ──
+function _getBookmarks(id) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v) return [];
+  return v.bookmarks || [];
+}
+
+function _bookmarkListHTML(id) {
+  const bms = _getBookmarks(id);
+  if (!bms.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
+  return bms.map((bm, i) => `
+    <div class="vp-bm-row" style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <button class="vp-bm-time" onclick="vpSeekBm('${id}',${bm.time})" style="flex-shrink:0;padding:2px 7px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${_formatTime(bm.time)}</button>
+      <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bm.label || '（ラベルなし）'}</span>
+      <button onclick="vpDeleteBm('${id}',${i})" style="padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:10px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+function _bookmarkSectionHTML(id) {
+  return `
+    <div class="vp-row" id="vp-bm-section-${id}">
+      <span class="vp-lbl">🔖 ブックマーク</span>
+      <div style="width:100%">
+        <div id="vp-bm-list-${id}" style="margin-bottom:6px">${_bookmarkListHTML(id)}</div>
+        <div style="display:flex;gap:5px">
+          <button onclick="vpAddBm('${id}')" style="padding:4px 10px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">＋ 現在地を記録</button>
+          <input id="vp-bm-label-${id}" class="vp-memo" placeholder="ラベル（例：グリップの解説）" style="flex:1;font-size:11px;padding:4px 8px">
+        </div>
+      </div>
+    </div>`;
+}
+
+export function vpAddBm(id) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v) return;
+  const time = _getCurrentTime();
+  if (time == null) { window.toast?.('動画を再生中にブックマークしてください'); return; }
+  const labelEl = document.getElementById('vp-bm-label-' + id);
+  const label = labelEl ? labelEl.value.trim() : '';
+  if (!v.bookmarks) v.bookmarks = [];
+  v.bookmarks.push({ time, label });
+  v.bookmarks.sort((a, b) => a.time - b.time);
+  if (labelEl) labelEl.value = '';
+  _refreshBmList(id);
+  window.debounceSave?.();
+  window.toast?.('🔖 ' + _formatTime(time) + ' を記録しました');
+}
+
+export function vpDeleteBm(id, idx) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v || !v.bookmarks) return;
+  v.bookmarks.splice(idx, 1);
+  _refreshBmList(id);
+  window.debounceSave?.();
+}
+
+export function vpSeekBm(id, time) {
+  _seekTo(time);
+}
+
+function _refreshBmList(id) {
+  const el = document.getElementById('vp-bm-list-' + id);
+  if (el) el.innerHTML = _bookmarkListHTML(id);
+}
+
+// ── VPanel オープン/クローズ（モバイル用） ──
 export function openVPanel(id) {
   const menu = document.getElementById('org-col-menu');
   if (menu) menu.remove();
@@ -19,19 +191,16 @@ export function openVPanel(id) {
 
   window.openVPanelId = id;
   const panel    = document.getElementById('vpanel');
-  const iframe   = document.getElementById('vpanel-iframe');
   const editArea = document.getElementById('vpanel-edit-area');
 
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
-  let embedSrc = emb;
-  if (autoplay) {
-    embedSrc = emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1';
+
+  // iframeコンテナをリセット
+  const iframeContainer = document.getElementById('vpanel-iframe-container');
+  if (iframeContainer) {
+    iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
-  iframe.src = embedSrc;
-  editArea.innerHTML = buildDrawerHTML(id);
-  editArea.querySelectorAll('.vp-tech-rm').forEach(el => { el.onclick = function() { vpRemoveTechEl(this); }; });
-  editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { vpRemovePosEl(this);  }; });
 
   const titleEl = document.getElementById('vpanel-title');
   if (titleEl) titleEl.textContent = v.title;
@@ -42,19 +211,43 @@ export function openVPanel(id) {
     extBtn.onclick = () => window.open(ext, '_blank');
   }
 
+  if (plat === 'yt') {
+    const ytId = _extractYtId(emb);
+    if (ytId) {
+      _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+    }
+  } else {
+    // Vimeo: 従来通りiframe
+    if (iframeContainer) {
+      const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+      iframeContainer.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+    }
+  }
+
+  // スキップボタンをプレイヤーエリアに挿入
+  const skipArea = document.getElementById('vpanel-skip-area');
+  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+
+  editArea.innerHTML = buildDrawerHTML(id);
+  _bindDrawerEvents(editArea, id);
+
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
 export function closeVPanel() {
   try {
-    const panel  = document.getElementById('vpanel');
-    const iframe = document.getElementById('vpanel-iframe');
     if (window.openVPanelId) {
-      try { vpSave(window.openVPanelId); } catch(e) { console.error('vpSave error:', e); }
+      try { vpSave(window.openVPanelId); } catch(e) {}
     }
-    if (iframe) iframe.src = '';
-    if (panel)  panel.classList.remove('open');
+    // YTプレイヤーを停止・破棄
+    if (_ytPlayer && _ytPlayerReady) {
+      try { _ytPlayer.stopVideo(); } catch(e) {}
+    }
+    const iframeContainer = document.getElementById('vpanel-iframe-container');
+    if (iframeContainer) iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
+    const panel = document.getElementById('vpanel');
+    if (panel) panel.classList.remove('open');
     document.body.style.overflow = '';
     window.openVPanelId = null;
   } catch(e) {
@@ -63,6 +256,12 @@ export function closeVPanel() {
     if (panel) panel.classList.remove('open');
     document.body.style.overflow = '';
   }
+}
+
+// emb URLからYouTube video IDを抽出
+function _extractYtId(emb) {
+  const m = emb.match(/embed\/([^?&]+)/);
+  return m ? m[1] : null;
 }
 
 export function togPlayerByCard(el) {
@@ -81,14 +280,18 @@ export function togVpDrawer(id) {
   const isOpen = drawer.classList.contains('show');
   if (isOpen) {
     drawer.classList.remove('show');
-    editBtn.classList.remove('open');
+    if (editBtn) editBtn.classList.remove('open');
   } else {
     drawer.innerHTML = buildDrawerHTML(id);
     drawer.classList.add('show');
-    editBtn.classList.add('open');
-    drawer.querySelectorAll('.vp-tech-rm').forEach(el => { el.onclick = function(){ vpRemoveTechEl(this); }; });
-    drawer.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function(){ vpRemovePosEl(this);  }; });
+    if (editBtn) editBtn.classList.add('open');
+    _bindDrawerEvents(drawer, id);
   }
+}
+
+function _bindDrawerEvents(container, id) {
+  container.querySelectorAll('.vp-tech-rm').forEach(el => { el.onclick = function() { vpRemoveTechEl(this); }; });
+  container.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { vpRemovePosEl(this);  }; });
 }
 
 export function buildDrawerHTML(id) {
@@ -185,6 +388,7 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
+    ${_bookmarkSectionHTML(id)}
     <div class="vp-row">
       <span class="vp-lbl">Memo</span>
       <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど..." onblur="vpSaveMemo('${id}')">${v.memo||''}</textarea>
@@ -521,7 +725,6 @@ let _panelStartX = 0;
 let _panelStartW = 0;
 
 export function _openPanel(id, emb, ext, plat) {
-  // ★ Fix 1: 前回のクリックリスナーを必ずクリアしてから開く
   document.removeEventListener('click', _closePanelOutside);
 
   panelId = id;
@@ -533,16 +736,16 @@ export function _openPanel(id, emb, ext, plat) {
     panel.className = 'vp-panel';
     document.body.appendChild(panel);
   }
-  // autoplay設定を読む
+
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay = autoplayEl ? autoplayEl.checked : true;
-  let embedSrc = emb;
-  if (autoplay) {
-    embedSrc = emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1';
-  }
+
   panel.innerHTML = `
     <div class="vp-panel-resizer" id="vpResizer"></div>
-    <div class="vp-panel-video"><iframe src="${embedSrc}" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>
+    <div class="vp-panel-video">
+      <div id="vp-panel-yt-player" style="width:100%;height:100%"></div>
+    </div>
+    ${_skipBtnsHTML().replace('class="vp-skip-row"', 'class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--border)"')}
     <div class="vp-panel-header">
       <div class="vp-panel-title">${v.title}</div>
       <div class="vp-panel-close" onclick="closePanel()">✕</div>
@@ -552,15 +755,27 @@ export function _openPanel(id, emb, ext, plat) {
       ${buildDrawerHTML(id)}
     </div>
   `;
+
   panel.classList.add('show');
   const ma = document.querySelector('.main-area');
   if (ma) { ma.classList.add('panel-open'); ma.style.marginRight = panel.offsetWidth + 'px'; }
   if (window.openPlayer) _closePlayer(window.openPlayer);
   window.openPlayer = id;
 
-  // ★ Fix 2: リサイザーのドラッグ処理を登録
-  _initPanelResizer(panel);
+  // YT.Player初期化（PC用）
+  if (plat === 'yt') {
+    const ytId = _extractYtId(emb);
+    if (ytId) {
+      _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+    }
+  } else {
+    // Vimeo
+    const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+    const playerDiv = document.getElementById('vp-panel-yt-player');
+    if (playerDiv) playerDiv.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+  }
 
+  _initPanelResizer(panel);
   panel.onclick = function(e) { e.stopPropagation(); };
   setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 0);
 }
@@ -589,26 +804,15 @@ function _initPanelResizer(panel) {
     _panelDragging = false;
     document.body.style.userSelect = '';
     resizer.style.background = '';
-    // ドラッグ終了直後のクリックイベントで誤ってパネルが閉じないよう
-    // 一時的にリスナーを外し、200ms後に再登録する
     document.removeEventListener('click', _closePanelOutside);
     setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 200);
   }
 
-  resizer.addEventListener('mousedown', function(e) {
-    e.stopPropagation(); e.preventDefault();
-    startDrag(e.clientX);
-  });
+  resizer.addEventListener('mousedown', function(e) { e.stopPropagation(); e.preventDefault(); startDrag(e.clientX); });
   document.addEventListener('mousemove', function(e) { doDrag(e.clientX); });
   document.addEventListener('mouseup', endDrag);
-
-  resizer.addEventListener('touchstart', function(e) {
-    e.stopPropagation(); e.preventDefault();
-    startDrag(e.touches[0].clientX);
-  }, {passive: false});
-  document.addEventListener('touchmove', function(e) {
-    if (_panelDragging) { e.preventDefault(); doDrag(e.touches[0].clientX); }
-  }, {passive: false});
+  resizer.addEventListener('touchstart', function(e) { e.stopPropagation(); e.preventDefault(); startDrag(e.touches[0].clientX); }, {passive: false});
+  document.addEventListener('touchmove', function(e) { if (_panelDragging) { e.preventDefault(); doDrag(e.touches[0].clientX); } }, {passive: false});
   document.addEventListener('touchend', endDrag);
 }
 
@@ -620,8 +824,12 @@ export function _closePanelOutside() {
 export function closePanel() {
   document.removeEventListener('click', _closePanelOutside);
   try {
+    // YTプレイヤーを停止
+    if (_ytPlayer && _ytPlayerReady) {
+      try { _ytPlayer.stopVideo(); } catch(e) {}
+    }
     const panel = document.getElementById('vp-panel');
-    if (panel) { const iframe = panel.querySelector('iframe'); if (iframe) iframe.src = ''; panel.classList.remove('show'); }
+    if (panel) { panel.classList.remove('show'); }
     const ma2 = document.querySelector('.main-area');
     if (ma2) { ma2.classList.remove('panel-open'); ma2.style.marginRight = ''; }
     window.openPlayer = null;
@@ -629,7 +837,6 @@ export function closePanel() {
   } catch(e) { console.warn('closePanel error:', e); }
 }
 
-// ── vpanel 外部公開用の状態変数 ──
 export function initVpanelState() {
   Object.defineProperty(window, 'openVPanelId', {
     get: () => _openVPanelId,
