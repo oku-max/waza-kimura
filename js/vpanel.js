@@ -121,12 +121,37 @@ function _bookmarkListHTML(id) {
   const bms = _getBookmarks(id);
   if (!bms.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
   return bms.map((bm, i) => `
-    <div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid var(--border)">
-      <button onclick="vpSeekBm('${id}',${bm.time})" style="flex-shrink:0;padding:1px 6px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" title="ここから再生">${_formatTime(bm.time)}</button>
-      <span id="vp-bm-label-disp-${id}-${i}" style="flex:1;font-size:11px;color:var(--text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="vpEditBm('${id}',${i})" title="クリックで編集">${bm.label || '（ラベルなし）'}</span>
-      <button onclick="vpEditBmTime('${id}',${i})" style="padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer" title="時間を編集">✏</button>
-      <button onclick="vpDeleteBm('${id}',${i})" style="padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer">✕</button>
+    <div style="border-bottom:1px solid var(--border);padding:5px 0">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+        <button onclick="vpSeekBm('${id}',${bm.time})" style="flex-shrink:0;padding:1px 6px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" title="ここから再生">${_formatTime(bm.time)}</button>
+        <span id="vp-bm-label-disp-${id}-${i}" style="flex:1;font-size:11px;color:var(--text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="vpEditBm('${id}',${i})" title="タップでラベル編集">${bm.label || '（ラベルなし）'}</span>
+        <button onclick="vpTogBmTimeEditor('${id}',${i})" style="padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer" title="時間を編集">時間編集</button>
+        <button onclick="vpDeleteBm('${id}',${i})" style="padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer">✕</button>
+      </div>
+      <div id="vp-bm-time-editor-${id}-${i}" style="display:none;padding:4px 0 2px">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text3);flex-shrink:0">調整:</span>
+          <button onclick="vpAdjustBmTime('${id}',${i},-10)" style="${_adjBtnStyle()}">-10s</button>
+          <button onclick="vpAdjustBmTime('${id}',${i},-5)"  style="${_adjBtnStyle()}">-5s</button>
+          <button onclick="vpAdjustBmTime('${id}',${i},-3)"  style="${_adjBtnStyle()}">-3s</button>
+          <button onclick="vpAdjustBmTime('${id}',${i}, 3)"  style="${_adjBtnStyle()}">+3s</button>
+          <button onclick="vpAdjustBmTime('${id}',${i}, 5)"  style="${_adjBtnStyle()}">+5s</button>
+          <button onclick="vpAdjustBmTime('${id}',${i},10)"  style="${_adjBtnStyle()}">+10s</button>
+          <button onclick="vpSetBmTimeToCurrent('${id}',${i})" style="${_adjBtnStyle('var(--accent)', '#fff')}">現在地に更新</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+          <span style="font-size:10px;color:var(--text3)">直接入力:</span>
+          <input id="vp-bm-time-inp-${id}-${i}" type="text" value="${_formatTime(bm.time)}" placeholder="m:ss" style="width:55px;font-size:11px;padding:2px 6px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit;text-align:center" onkeydown="if(event.key==='Enter')vpSetBmTimeFromInput('${id}',${i})">
+          <button onclick="vpSetBmTimeFromInput('${id}',${i})" style="${_adjBtnStyle('var(--accent)', '#fff')}">確定</button>
+        </div>
+      </div>
     </div>`).join('');
+}
+
+function _adjBtnStyle(bg, color) {
+  bg = bg || 'var(--surface2)';
+  color = color || 'var(--text2)';
+  return `padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:${bg};color:${color};font-size:10px;font-weight:600;cursor:pointer;font-family:inherit`;
 }
 
 function _bookmarkSectionHTML(id) {
@@ -136,7 +161,7 @@ function _bookmarkSectionHTML(id) {
       <div style="width:100%">
         <div id="vp-bm-list-${id}" style="margin-bottom:6px">${_bookmarkListHTML(id)}</div>
         <div style="display:flex;gap:5px;align-items:center">
-          <button onclick="vpAddBm('${id}')" style="flex-shrink:0;padding:3px 9px;border-radius:7px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 記録</button>
+          <button onclick="vpAddBm('${id}')" style="flex-shrink:0;padding:3px 9px;border-radius:7px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋ ブックマーク</button>
           <input id="vp-bm-label-${id}" class="vp-dd-search" placeholder="ラベル（例：グリップの解説）" style="flex:1;font-size:11px;padding:3px 8px;min-width:0">
         </div>
       </div>
@@ -168,23 +193,63 @@ export function vpEditBm(id, idx) {
   });
 }
 
-// ブックマークの時間をインライン編集
-export function vpEditBmTime(id, idx) {
+// 時間編集パネルの開閉
+export function vpTogBmTimeEditor(id, idx) {
+  const el = document.getElementById(`vp-bm-time-editor-${id}-${idx}`);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ±秒で時間を調整
+export function vpAdjustBmTime(id, idx, delta) {
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
   const bm = v.bookmarks[idx];
+  bm.time = Math.max(0, bm.time + delta);
+  // 入力フィールドも更新
+  const inp = document.getElementById(`vp-bm-time-inp-${id}-${idx}`);
+  if (inp) inp.value = _formatTime(bm.time);
+  // 時間ラベルボタンを更新
+  const seekBtn = document.querySelector(`#vp-bm-list-${id} button[onclick="vpSeekBm('${id}',${bm.time - delta})"]`);
+  // リスト全体を再描画
+  _refreshBmList(id);
+  window.debounceSave?.();
+}
+
+// 現在の再生位置に更新
+export function vpSetBmTimeToCurrent(id, idx) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
   const cur = _getCurrentTime();
-  if (cur != null) {
-    if (confirm(`現在の再生位置（${_formatTime(cur)}）に更新しますか？\n現在の値：${_formatTime(bm.time)}`)) {
-      bm.time = cur;
-      v.bookmarks.sort((a, b) => a.time - b.time);
-      window.debounceSave?.();
-      _refreshBmList(id);
-      window.toast?.(`🔖 ${_formatTime(cur)} に更新しました`);
-    }
+  if (cur == null) { window.toast?.('動画を再生中に操作してください'); return; }
+  v.bookmarks[idx].time = cur;
+  v.bookmarks.sort((a, b) => a.time - b.time);
+  window.debounceSave?.();
+  _refreshBmList(id);
+  window.toast?.(`🔖 ${_formatTime(cur)} に更新しました`);
+}
+
+// 直接入力（m:ss形式）で時間を設定
+export function vpSetBmTimeFromInput(id, idx) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
+  const inp = document.getElementById(`vp-bm-time-inp-${id}-${idx}`);
+  if (!inp) return;
+  const val = inp.value.trim();
+  // m:ss または ss 形式を解析
+  let sec = 0;
+  if (val.includes(':')) {
+    const parts = val.split(':');
+    sec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
   } else {
-    window.toast?.('動画を再生中に時間を編集してください');
+    sec = parseInt(val);
   }
+  if (isNaN(sec) || sec < 0) { window.toast?.('正しい時間を入力してください（例: 1:30 または 90）'); return; }
+  v.bookmarks[idx].time = sec;
+  v.bookmarks.sort((a, b) => a.time - b.time);
+  window.debounceSave?.();
+  _refreshBmList(id);
+  window.toast?.(`🔖 ${_formatTime(sec)} に設定しました`);
 }
 
 export function vpAddBm(id) {
