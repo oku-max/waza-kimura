@@ -91,14 +91,17 @@ function _formatTime(sec) {
 
 // ── スキップボタンHTML ──
 function _skipBtnsHTML() {
-  return `
-    <div class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0">
-      <button class="vp-skip-btn" onclick="vpSkip(-30)" title="-30秒">⏪ 30s</button>
-      <button class="vp-skip-btn" onclick="vpSkip(-10)" title="-10秒">⏪ 10s</button>
-      <button class="vp-skip-btn" onclick="vpSkip(10)" title="+10秒">10s ⏩</button>
-      <button class="vp-skip-btn" onclick="vpSkip(30)" title="+30秒">30s ⏩</button>
-      <button class="vp-skip-btn" onclick="vpSkip(60)" title="+1分">1m ⏩</button>
-    </div>`;
+  const btns = [
+    {sec:-60, label:'-1m'},
+    {sec:-30, label:'-30s'},
+    {sec:-10, label:'-10s'},
+    {sec: 10, label:'+10s'},
+    {sec: 30, label:'+30s'},
+    {sec: 60, label:'+1m'},
+  ];
+  return `<div style="display:flex;gap:4px;padding:5px 10px;flex-wrap:wrap">${
+    btns.map(b => `<button onclick="vpSkip(${b.sec})" style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px">${b.label}</button>`).join('')
+  }</div>`;
 }
 
 export function vpSkip(sec) {
@@ -118,10 +121,11 @@ function _bookmarkListHTML(id) {
   const bms = _getBookmarks(id);
   if (!bms.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
   return bms.map((bm, i) => `
-    <div class="vp-bm-row" style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border)">
-      <button class="vp-bm-time" onclick="vpSeekBm('${id}',${bm.time})" style="flex-shrink:0;padding:2px 7px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${_formatTime(bm.time)}</button>
-      <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bm.label || '（ラベルなし）'}</span>
-      <button onclick="vpDeleteBm('${id}',${i})" style="padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:10px;cursor:pointer">✕</button>
+    <div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <button onclick="vpSeekBm('${id}',${bm.time})" style="flex-shrink:0;padding:1px 6px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" title="ここから再生">${_formatTime(bm.time)}</button>
+      <span id="vp-bm-label-disp-${id}-${i}" style="flex:1;font-size:11px;color:var(--text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="vpEditBm('${id}',${i})" title="クリックで編集">${bm.label || '（ラベルなし）'}</span>
+      <button onclick="vpEditBmTime('${id}',${i})" style="padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer" title="時間を編集">✏</button>
+      <button onclick="vpDeleteBm('${id}',${i})" style="padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer">✕</button>
     </div>`).join('');
 }
 
@@ -131,12 +135,56 @@ function _bookmarkSectionHTML(id) {
       <span class="vp-lbl">🔖 ブックマーク</span>
       <div style="width:100%">
         <div id="vp-bm-list-${id}" style="margin-bottom:6px">${_bookmarkListHTML(id)}</div>
-        <div style="display:flex;gap:5px">
-          <button onclick="vpAddBm('${id}')" style="padding:4px 10px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">＋ 現在地を記録</button>
-          <input id="vp-bm-label-${id}" class="vp-memo" placeholder="ラベル（例：グリップの解説）" style="flex:1;font-size:11px;padding:4px 8px">
+        <div style="display:flex;gap:5px;align-items:center">
+          <button onclick="vpAddBm('${id}')" style="flex-shrink:0;padding:3px 9px;border-radius:7px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 記録</button>
+          <input id="vp-bm-label-${id}" class="vp-dd-search" placeholder="ラベル（例：グリップの解説）" style="flex:1;font-size:11px;padding:3px 8px;min-width:0">
         </div>
       </div>
     </div>`;
+}
+
+// ブックマークのラベルをインライン編集
+export function vpEditBm(id, idx) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
+  const bm = v.bookmarks[idx];
+  const dispEl = document.getElementById(`vp-bm-label-disp-${id}-${idx}`);
+  if (!dispEl) return;
+  const inp = document.createElement('input');
+  inp.value = bm.label || '';
+  inp.style.cssText = 'flex:1;font-size:11px;padding:2px 6px;border:1.5px solid var(--accent);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit;min-width:0;width:100%';
+  inp.placeholder = 'ラベルを入力...';
+  dispEl.replaceWith(inp);
+  inp.focus(); inp.select();
+  const commit = () => {
+    bm.label = inp.value.trim();
+    window.debounceSave?.();
+    _refreshBmList(id);
+  };
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') inp.blur();
+    if (e.key === 'Escape') { inp.removeEventListener('blur', commit); _refreshBmList(id); }
+  });
+}
+
+// ブックマークの時間をインライン編集
+export function vpEditBmTime(id, idx) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
+  const bm = v.bookmarks[idx];
+  const cur = _getCurrentTime();
+  if (cur != null) {
+    if (confirm(`現在の再生位置（${_formatTime(cur)}）に更新しますか？\n現在の値：${_formatTime(bm.time)}`)) {
+      bm.time = cur;
+      v.bookmarks.sort((a, b) => a.time - b.time);
+      window.debounceSave?.();
+      _refreshBmList(id);
+      window.toast?.(`🔖 ${_formatTime(cur)} に更新しました`);
+    }
+  } else {
+    window.toast?.('動画を再生中に時間を編集してください');
+  }
 }
 
 export function vpAddBm(id) {
@@ -227,6 +275,10 @@ export function openVPanel(id) {
   // スキップボタンをプレイヤーエリアに挿入
   const skipArea = document.getElementById('vpanel-skip-area');
   if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+
+  // ブックマーク＋スキップをextBtnの直後に挿入
+  const bmContainer = document.getElementById('vpanel-bm-area');
+  if (bmContainer) bmContainer.innerHTML = _bookmarkSectionHTML(window.openVPanelId || id);
 
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
@@ -388,7 +440,6 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
-    ${_bookmarkSectionHTML(id)}
     <div class="vp-row">
       <span class="vp-lbl">Memo</span>
       <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど..." onblur="vpSaveMemo('${id}')">${v.memo||''}</textarea>
@@ -752,6 +803,7 @@ export function _openPanel(id, emb, ext, plat) {
     </div>
     <div class="vp-panel-body">
       <button class="vp-ext-btn" onclick="window.open('${ext}','_blank')">${plat==='yt'?'📱 YouTubeで開く':'🎥 Vimeoで開く'}</button>
+      ${_bookmarkSectionHTML(id)}
       ${buildDrawerHTML(id)}
     </div>
   `;
