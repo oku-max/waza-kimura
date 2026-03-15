@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.15</title>
+<title>WAZA KIMURA v47.16</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -3416,6 +3416,51 @@ loadSettings();
 
 buildAllSliders();
 buildMirrorRows();
+
+// カードアクション関数
+function cardCyclePrio(id, el) {
+  var v = videos.find(function(v){ return v.id === id; });
+  if (!v) return;
+  var order = ['今すぐ', 'そのうち', '保留'];
+  var pe = {'今すぐ':'🔴', 'そのうち':'🟡', '保留':'⚪'};
+  v.prio = order[(order.indexOf(v.prio) + 1) % 3];
+  el.textContent = pe[v.prio] + ' ' + v.prio;
+  el.dataset.prio = v.prio;
+  window.debounceSave?.();
+  window.AF?.();
+}
+function cardCycleProg(id, el) {
+  var v = videos.find(function(v){ return v.id === id; });
+  if (!v) return;
+  var order = ['未着手', '練習中', 'マスター'];
+  var se = {'未着手':'📋', '練習中':'🔵', 'マスター':'✅'};
+  v.status = order[(order.indexOf(v.status) + 1) % 3];
+  el.textContent = se[v.status] + ' ' + v.status;
+  el.dataset.prog = v.status;
+  window.debounceSave?.();
+  window.AF?.();
+}
+function cardShowMemo(id) {
+  var v = videos.find(function(v){ return v.id === id; });
+  if (!v) return;
+  document.getElementById('card-memo-title').textContent = v.title;
+  var ta = document.getElementById('card-memo-ta');
+  ta.value = v.memo || '';
+  ta.dataset.id = id;
+  document.getElementById('card-memo-ov').classList.add('open');
+}
+function cardSaveMemo() {
+  var ta = document.getElementById('card-memo-ta');
+  var id = ta.dataset.id;
+  var v = videos.find(function(v){ return v.id === id; });
+  if (!v) return;
+  v.memo = ta.value.trim();
+  var btn = document.querySelector('#card-' + id + ' .ca-btn[onclick*="cardShowMemo"]');
+  if (btn) btn.className = 'ca-btn' + (v.memo ? ' ca-memo-on' : '');
+  window.debounceSave?.();
+  closeOv('card-memo-ov');
+  toast(v.memo ? '💬 メモを保存しました' : '💬 メモを消去しました');
+}
 (function waitForAF(){
   if (window.AF) { window.AF(); }
   else { setTimeout(waitForAF, 50); }
@@ -3576,6 +3621,20 @@ window.addEventListener('resize', adjustTopbarOffset);
   document.addEventListener('touchcancel', endDrag, true);
 })();
 </script>
+
+<!-- Card Memo Popup -->
+<div class="overlay" id="card-memo-ov" onclick="closeOv('card-memo-ov')">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:70vh;width:100%;max-width:500px">
+    <div class="sheet-handle"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:4px">💬 メモ</div>
+    <div id="card-memo-title" style="font-size:13px;font-weight:700;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    <textarea id="card-memo-ta" class="vp-memo" placeholder="ポイント、気づき、試合前に見る理由など..." style="min-height:120px;width:100%;margin-bottom:10px"></textarea>
+    <div style="display:flex;gap:8px">
+      <button onclick="cardSaveMemo()" style="flex:1;padding:9px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
+      <button onclick="closeOv('card-memo-ov')" style="padding:9px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;cursor:pointer">キャンセル</button>
+    </div>
+  </div>
+</div>
 
 <!-- Playlist Operation Modal -->
 <div class="overlay" id="vpPlOv" onclick="closeOv('vpPlOv')">
@@ -3843,4 +3902,5 @@ window.addEventListener('resize', adjustTopbarOffset);
 </div>
 
 </body>
-</html>
+</html.ca-memo-on{color:var(--accent) !important;border-color:var(--accent) !important;}
+>
