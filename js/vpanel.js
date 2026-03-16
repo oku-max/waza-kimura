@@ -923,6 +923,7 @@ export function _openPanel(id, emb, ext, plat) {
       <div id="vp-panel-yt-player" style="width:100%;height:100%"></div>
     </div>
     ${_skipBtnsHTML().replace('class="vp-skip-row"', 'class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--border)"')}
+    ${_abBarHTML()}
     <div class="vp-panel-header">
       <div class="vp-panel-title">${v.title}</div>
       <div class="vp-panel-close" onclick="closePanel()">✕</div>
