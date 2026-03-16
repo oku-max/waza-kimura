@@ -99,9 +99,11 @@ function _skipBtnsHTML() {
     {sec: 30, label:'+30s'},
     {sec: 60, label:'+1m'},
   ];
-  return `<div style="display:flex;gap:4px;padding:5px 10px;flex-wrap:wrap">${
-    btns.map(b => `<button onclick="vpSkip(${b.sec})" style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px">${b.label}</button>`).join('')
-  }</div>`;
+  const btnStyle = 'padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px';
+  const sep = '<div style="width:1px;background:var(--border);height:20px;align-self:center;flex-shrink:0"></div>';
+  const left  = btns.slice(0,3).map(b => `<button onclick="vpSkip(${b.sec})" style="${btnStyle}">${b.label}</button>`).join('');
+  const right = btns.slice(3).map(b => `<button onclick="vpSkip(${b.sec})" style="${btnStyle}">${b.label}</button>`).join('');
+  return `<div style="display:flex;gap:4px;padding:5px 10px;justify-content:center;align-items:center">${left}${sep}${right}</div>`;
 }
 
 export function vpSkip(sec) {
