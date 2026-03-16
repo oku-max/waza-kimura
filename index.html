@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.19</title>
+<title>WAZA KIMURA v47.21</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -236,6 +236,17 @@
       <div style="display:flex;gap:4px">
         <button class="tab-bar-btn" id="fs-filter-btn" onclick="openFilterOverlay()" style="flex:1;font-size:11px">⊟ フィルター</button>
         <button class="tab-bar-btn" onclick="clearAll()" style="font-size:11px;padding:0 8px" title="フィルターリセット">✕</button>
+      </div>
+      <!-- ソート（PC） -->
+      <div style="display:flex;align-items:center;gap:4px">
+        <select id="sort-key-pc" onchange="document.getElementById('sort-key').value=this.value;window.sortKey=this.value;window.AF?.()" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="default">並び順: 標準</option>
+          <option value="addedAt">追加日</option>
+          <option value="title">タイトル</option>
+          <option value="prio">Priority</option>
+          <option value="status">Progress</option>
+        </select>
+        <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
       </div>
       <!-- 一括編集（フィルター直下） -->
       <div id="fs-bulk-area2">
@@ -3749,14 +3760,16 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
     <div class="vpanel-resizer" id="vpanelResizer"></div>
-    <button class="vpanel-close" onclick="closeVPanel()">✕</button>
     <div class="vpanel-video">
       <div id="vpanel-iframe-container" style="width:100%;height:100%"><div id="vpanel-yt-player"></div></div>
     </div>
     <div id="vpanel-skip-area"></div>
     <div class="vpanel-edit">
-      <div class="vpanel-title" id="vpanel-title"></div>
-      <button class="vp-ext-btn" id="vpanel-ext-btn" style="width:100%;margin-bottom:8px"></button>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div class="vpanel-title" id="vpanel-title" style="margin-bottom:0;flex:1"></div>
+        <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
+      </div>
+      <button class="vp-ext-btn" id="vpanel-ext-btn"></button>
       <div id="vpanel-bm-area"></div>
       <div id="vpanel-edit-area"></div>
     </div>
