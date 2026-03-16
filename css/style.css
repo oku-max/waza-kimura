@@ -1304,3 +1304,4 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   background: transparent;
 }
 .card-memo-preview:hover { border-color: var(--accent); color: var(--text); }
+.card-memo-preview + .card-actions { border-top: none; }
