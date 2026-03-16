@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.171</title>
+<title>WAZA KIMURA v47.19</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -3482,8 +3482,28 @@ function cardSaveMemo() {
   var v = videos.find(function(v){ return v.id === id; });
   if (!v) return;
   v.memo = ta.value.trim();
+  // メモボタンのスタイル更新
   var btn = document.querySelector('#card-' + id + ' .ca-btn[onclick*="cardShowMemo"]');
   if (btn) btn.className = 'ca-btn' + (v.memo ? ' ca-memo-on' : '');
+  // メモプレビューの即時更新
+  var cardEl = document.getElementById('card-' + id);
+  if (cardEl) {
+    var existing = cardEl.querySelector('.card-memo-preview');
+    if (v.memo) {
+      if (existing) {
+        existing.textContent = v.memo;
+      } else {
+        var preview = document.createElement('div');
+        preview.className = 'card-memo-preview';
+        preview.textContent = v.memo;
+        preview.onclick = function(e) { e.stopPropagation(); cardShowMemo(id); };
+        var actions = cardEl.querySelector('.card-actions');
+        if (actions) actions.before(preview);
+      }
+    } else {
+      if (existing) existing.remove();
+    }
+  }
   window.debounceSave?.();
   closeOv('card-memo-ov');
   toast(v.memo ? '💬 メモを保存しました' : '💬 メモを消去しました');
@@ -3929,5 +3949,4 @@ window.addEventListener('resize', adjustTopbarOffset);
 </div>
 
 </body>
-</html.ca-memo-on{color:var(--accent) !important;border-color:var(--accent) !important;}
->
+</html>
