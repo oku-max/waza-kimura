@@ -1287,7 +1287,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 
 /* ── v47.19追加 ── */
-.ca-memo-on { color: var(--accent) !important; border-color: var(--accent) !important; border-right-color: var(--border2) !important; }
+.ca-memo-on { color: var(--accent) !important; }
 .card-memo-preview {
   margin: 0 8px 4px;
   padding: 4px 8px;
