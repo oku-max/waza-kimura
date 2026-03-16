@@ -112,6 +112,64 @@ export function vpSkip(sec) {
   _seekTo(Math.max(0, cur + sec));
 }
 
+// ── AB ループ ──
+const _ab = { a: null, b: null, loop: false, timer: null };
+
+function _abBtnStyle(active) {
+  return `padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid ${active ? 'var(--accent)' : 'var(--border)'};background:${active ? 'var(--accent)' : 'var(--surface2)'};color:${active ? '#fff' : 'var(--text2)'};`;
+}
+
+function _abBarHTML() {
+  const aLabel = _ab.a != null ? _formatTime(Math.floor(_ab.a)) : '--:--';
+  const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
+  const loopActive = _ab.loop;
+  return `<div id="vp-ab-bar" style="display:flex;gap:6px;padding:4px 10px 6px;justify-content:center;align-items:center;border-top:1px solid var(--border2)">
+    <button onclick="vpAbSet('a')" style="${_abBtnStyle(_ab.a != null)}">A: ${aLabel}</button>
+    <span style="font-size:10px;color:var(--text3)">↔</span>
+    <button onclick="vpAbSet('b')" style="${_abBtnStyle(_ab.b != null)}">B: ${bLabel}</button>
+    <button onclick="vpAbToggleLoop()" style="${_abBtnStyle(loopActive)}">🔁${loopActive ? ' ON' : ''}</button>
+    <button onclick="vpAbReset()" style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--surface2);color:var(--text3)">✕</button>
+  </div>`;
+}
+
+function _abRefresh() {
+  const bar = document.getElementById('vp-ab-bar');
+  if (bar) bar.outerHTML = _abBarHTML();
+}
+
+export function vpAbSet(point) {
+  const cur = _getCurrentTime();
+  if (cur == null) { window.toast?.('動画を再生してください'); return; }
+  _ab[point] = cur;
+  // A>B になったら相手をクリア
+  if (_ab.a != null && _ab.b != null && _ab.a >= _ab.b) {
+    _ab[point === 'a' ? 'b' : 'a'] = null;
+  }
+  _abRefresh();
+}
+
+export function vpAbToggleLoop() {
+  if (_ab.a == null || _ab.b == null) { window.toast?.('A点とB点を両方設定してください'); return; }
+  _ab.loop = !_ab.loop;
+  if (_ab.loop) {
+    _ab.timer = setInterval(() => {
+      if (!_ab.loop || _ab.a == null || _ab.b == null) return;
+      const cur = _getCurrentTime();
+      if (cur != null && cur >= _ab.b) _seekTo(_ab.a);
+    }, 200);
+  } else {
+    clearInterval(_ab.timer);
+    _ab.timer = null;
+  }
+  _abRefresh();
+}
+
+export function vpAbReset() {
+  _ab.a = null; _ab.b = null; _ab.loop = false;
+  clearInterval(_ab.timer); _ab.timer = null;
+  _abRefresh();
+}
+
 // ── ブックマーク関連 ──
 function _getBookmarks(id) {
   const v = (window.videos||[]).find(v => v.id === id);
@@ -339,9 +397,9 @@ export function openVPanel(id) {
     }
   }
 
-  // スキップボタンをプレイヤーエリアに挿入
+  // スキップボタン＋ABバーをプレイヤーエリアに挿入
   const skipArea = document.getElementById('vpanel-skip-area');
-  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+  if (skipArea) skipArea.innerHTML = _skipBtnsHTML() + _abBarHTML();
 
   // ブックマーク＋スキップをextBtnの直後に挿入
   const bmContainer = document.getElementById('vpanel-bm-area');
@@ -356,6 +414,7 @@ export function openVPanel(id) {
 
 export function closeVPanel() {
   try {
+    _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
