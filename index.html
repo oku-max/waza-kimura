@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.24</title>
+<title>WAZA KIMURA v47.26</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -41,7 +41,7 @@
   } from './js/filter.js';
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
-    vpSkip, vpAbSet, vpAbToggleLoop, vpAbReset, vpAbSaveAsBm,
+    vpSkip, vpAbSet, vpAbToggleLoop, vpAbReset, vpAbSaveAsBm, vpAbSetFromBm,
     vpAddBm, vpDeleteBm, vpSeekBm, vpEditBm, vpSaveBmLabel,
     vpTogBmTimeEditor, vpAdjustBmTime, vpSetBmTimeToCurrent, vpSetBmTimeFromInput,
     togVpDrawer, buildDrawerHTML,
@@ -168,6 +168,7 @@
   window.vpAbToggleLoop       = vpAbToggleLoop;
   window.vpAbReset            = vpAbReset;
   window.vpAbSaveAsBm         = vpAbSaveAsBm;
+  window.vpAbSetFromBm        = vpAbSetFromBm;
   window.vpAddBm              = vpAddBm;
   window.vpDeleteBm           = vpDeleteBm;
   window.vpSeekBm             = vpSeekBm;
