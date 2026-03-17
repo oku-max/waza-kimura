@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.26 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.28 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -373,14 +373,9 @@ export function vpSeekBm(id, time) {
   _seekTo(time);
 }
 
-// ブックマークの時間をAB再生のA点またはB点にセットしてシーク
+// ブックマークの時間をAB再生のA点またはB点にセット
 export function vpAbSetFromBm(time, point) {
   _ab[point] = time;
-  // A>B になったら相手をクリア
-  if (_ab.a != null && _ab.b != null && _ab.a >= _ab.b) {
-    _ab[point === 'a' ? 'b' : 'a'] = null;
-  }
-  _seekTo(time);
   _abRefresh();
   window.toast?.(`${point.toUpperCase()}点を ${_formatTime(time)} にセットしました`);
 }
