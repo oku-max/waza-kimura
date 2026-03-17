@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v2 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.26 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -202,6 +202,8 @@ function _bookmarkListHTML(id) {
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
         <button onclick="vpSeekBm('${id}',${bm.time})" style="flex-shrink:0;padding:1px 6px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" title="ここから再生">${_formatTime(bm.time)}</button>
         <span id="vp-bm-label-disp-${id}-${i}" style="flex:1;font-size:11px;color:var(--text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="vpSeekBm('${id}',${bm.time})" title="タップで再生">${bm.label || '（ラベルなし）'}</span>
+        <button onclick="vpAbSetFromBm(${bm.time},'a')" style="padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer" title="A点にセット">→A</button>
+        <button onclick="vpAbSetFromBm(${bm.time},'b')" style="padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer" title="B点にセット">→B</button>
         <button onclick="vpTogBmTimeEditor('${id}',${i})" style="padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer" title="編集">編集</button>
         <button onclick="vpDeleteBm('${id}',${i})" style="padding:1px 5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer">✕</button>
       </div>
@@ -369,6 +371,18 @@ export function vpDeleteBm(id, idx) {
 
 export function vpSeekBm(id, time) {
   _seekTo(time);
+}
+
+// ブックマークの時間をAB再生のA点またはB点にセットしてシーク
+export function vpAbSetFromBm(time, point) {
+  _ab[point] = time;
+  // A>B になったら相手をクリア
+  if (_ab.a != null && _ab.b != null && _ab.a >= _ab.b) {
+    _ab[point === 'a' ? 'b' : 'a'] = null;
+  }
+  _seekTo(time);
+  _abRefresh();
+  window.toast?.(`${point.toUpperCase()}点を ${_formatTime(time)} にセットしました`);
 }
 
 function _refreshBmList(id) {
