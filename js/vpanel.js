@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.44 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.49 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -921,6 +921,9 @@ export function openVPanel(id) {
   document.body.style.overflow = 'hidden';
   // メイン画面をぼかす
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
+
+  // 縦横判定してis-portraitクラスを付与
+  _vpUpdateOrientation();
 }
 
 export function closeVPanel() {
@@ -937,6 +940,8 @@ export function closeVPanel() {
     if (iframeContainer) iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
     const panel = document.getElementById('vpanel');
     if (panel) panel.classList.remove('open');
+    const inner = document.getElementById('vpanelInner');
+    if (inner) inner.classList.remove('is-portrait');
     document.body.style.overflow = '';
     window.openVPanelId = null;
     document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
@@ -947,6 +952,26 @@ export function closeVPanel() {
     document.body.style.overflow = '';
   }
 }
+
+// 縦横判定してis-portraitクラスを付与・除去
+function _vpUpdateOrientation() {
+  const inner = document.getElementById('vpanelInner');
+  if (!inner) return;
+  const isPortrait = window.innerHeight > window.innerWidth;
+  inner.classList.toggle('is-portrait', isPortrait);
+}
+
+// orientationchange / resizeで再判定
+window.addEventListener('resize', () => {
+  const panel = document.getElementById('vpanel');
+  if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    const panel = document.getElementById('vpanel');
+    if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
+  }, 100);
+});
 
 // emb URLからYouTube video IDを抽出
 function _extractYtId(emb) {
