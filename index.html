@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.30</title>
+<title>WAZA KIMURA v47.29</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -205,49 +205,92 @@
 </script>
 
 <style>
-/* ── Vパネル 左右レイアウト（横向き・ブラウザ） ── */
+/* ══ Vパネル 左右レイアウト ══ */
 
-/* スマホ縦向き: 上下配置（デフォルト・変更なし） */
-#vpanel-video-wrap {
+/* 共通: vpanel-innerは常に横並び */
+#vpanelInner {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 左カラム: 動画 + スキップボタン */
+#vpanel-left-col {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  min-width: 200px;
   flex-shrink: 0;
+  height: 100%;
+  background: #000;
 }
-#vpanel-edit-wrap {
+#vpanel-left-col .vpanel-video,
+#vpanel-left-col #vpanel-iframe-container {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  width: 100%;
+}
+#vpanel-left-col #vpanel-iframe-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+#vpanel-skip-area {
+  flex-shrink: 0;
+  background: var(--surface);
 }
 
-/* スマホ横向き OR ブラウザ（幅600px以上） */
-@media (orientation: landscape), (min-width: 600px) {
+/* ドラッグリサイザー */
+#vpanel-col-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  position: relative;
+  transition: background .15s;
+}
+#vpanel-col-resizer:hover,
+#vpanel-col-resizer.dragging {
+  background: var(--accent);
+}
+
+/* 右カラム: ABバー + 編集エリア */
+#vpanel-right-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+}
+#vpanel-ab-area {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* スマホ縦向きのみ上下配置に変更 */
+@media (orientation: portrait) and (max-width: 599px) {
   #vpanelInner {
-    flex-direction: row !important;
-    height: 100% !important;
-  }
-  #vpanel-video-wrap {
-    width: 50%;
-    flex-shrink: 0;
-    flex-grow: 0;
-    display: flex;
     flex-direction: column;
-    height: 100%;
   }
-  #vpanel-video-wrap .vpanel-video {
-    flex: 1;
+  #vpanel-left-col {
+    width: 100%;
     height: auto;
-  }
-  #vpanel-skip-area {
     flex-shrink: 0;
   }
-  #vpanel-edit-wrap {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    overflow-y: auto;
-    border-left: 1px solid var(--border);
+  #vpanel-left-col #vpanel-iframe-container {
+    aspect-ratio: 16/9;
+    flex: none;
   }
-  /* リサイザーを横向きでは非表示 */
-  #vpanelResizer {
+  #vpanel-col-resizer {
     display: none;
+  }
+  #vpanel-right-col {
+    flex: 1;
+    min-height: 0;
   }
 }
 </style>
@@ -3836,19 +3879,25 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- VIDEO PLAYER PANEL -->
 <div class="vpanel" id="vpanel" onclick="closeVPanel()">
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
-  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner" style="display:flex;flex-direction:column;height:100%">
-    <div class="vpanel-resizer" id="vpanelResizer"></div>
-    <div class="vpanel-video" id="vpanel-video-wrap" style="flex-shrink:0">
-      <div id="vpanel-iframe-container" style="width:100%;height:100%"><div id="vpanel-yt-player"></div></div>
+  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
+    <!-- 左カラム: 動画 + スキップボタン -->
+    <div id="vpanel-left-col">
+      <div class="vpanel-video" id="vpanel-iframe-container" style="width:100%;flex:1;min-height:0"><div id="vpanel-yt-player"></div></div>
+      <div id="vpanel-skip-area" style="flex-shrink:0"></div>
     </div>
-    <div id="vpanel-skip-area" style="flex-shrink:0"></div>
-    <div class="vpanel-edit" id="vpanel-edit-wrap" style="flex:1;overflow-y:auto;min-height:0">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div class="vpanel-title" id="vpanel-title" style="margin-bottom:0;flex:1"></div>
-        <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
+    <!-- ドラッグリサイザー -->
+    <div id="vpanel-col-resizer" title="ドラッグで幅を調整"></div>
+    <!-- 右カラム: ABバー + タイトル + BM + 編集 -->
+    <div id="vpanel-right-col">
+      <div id="vpanel-ab-area"></div>
+      <div class="vpanel-edit" id="vpanel-edit-wrap" style="flex:1;overflow-y:auto;min-height:0;padding:10px 12px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div class="vpanel-title" id="vpanel-title" style="margin-bottom:0;flex:1"></div>
+          <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
+        </div>
+        <div id="vpanel-bm-area"></div>
+        <div id="vpanel-edit-area"></div>
       </div>
-      <div id="vpanel-bm-area"></div>
-      <div id="vpanel-edit-area"></div>
     </div>
   </div>
 </div>
@@ -4038,5 +4087,52 @@ window.addEventListener('resize', adjustTopbarOffset);
   </div>
 </div>
 
+<script>
+// ── Vパネル 左右リサイザー ──
+(function() {
+  let dragging = false, startX = 0, startW = 0;
+
+  document.addEventListener('mousedown', onDown);
+  document.addEventListener('touchstart', onDown, {passive:false});
+
+  function onDown(e) {
+    const el = e.target;
+    if (el.id !== 'vpanel-col-resizer') return;
+    e.preventDefault();
+    dragging = true;
+    startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const left = document.getElementById('vpanel-left-col');
+    startW = left ? left.offsetWidth : 0;
+    el.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, {passive:false});
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const dx = x - startX;
+    const left = document.getElementById('vpanel-left-col');
+    const inner = document.getElementById('vpanelInner');
+    if (!left || !inner) return;
+    const minW = 180, maxW = inner.offsetWidth - 220;
+    const newW = Math.max(minW, Math.min(maxW, startW + dx));
+    left.style.width = newW + 'px';
+  }
+
+  function onUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    document.getElementById('vpanel-col-resizer')?.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchend', onUp);
+  }
+})();
+</script>
 </body>
 </html>
