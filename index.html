@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.44</title>
+<title>WAZA KIMURA v47.45</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -212,9 +212,9 @@
 #vpanelInner {
   display: flex !important;
   flex-direction: row !important;
-  align-items: flex-start !important;
-  height: auto !important;
-  overflow: visible !important;
+  align-items: stretch !important;
+  height: 90vh !important;
+  overflow: hidden !important;
 }
 
 /* 左カラム */
@@ -225,7 +225,8 @@
   min-width: 200px !important;
   flex-shrink: 0 !important;
   background: #000 !important;
-  height: auto !important;
+  height: 100% !important;
+  overflow: hidden !important;
 }
 
 /* 動画: 幅から16:9で高さ自動 */
@@ -287,14 +288,15 @@
   flex-direction: column !important;
   overflow: hidden !important;
   background: var(--surface) !important;
-  height: auto !important;
+  height: 100% !important;
 }
 #vpanel-ab-area {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
 #vpanel-edit-wrap {
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto !important;
 }
 
