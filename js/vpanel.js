@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.35 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.37 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -843,8 +843,11 @@ export function openVPanel(id) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
 
-  const titleEl = document.getElementById('vpanel-title');
-  if (titleEl) titleEl.textContent = v.title;
+  // タイトルを左カラム（動画の下）に表示
+  const titleEl = document.getElementById('vpanel-title-area');
+  if (titleEl) {
+    titleEl.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>`;
+  }
 
 
 
