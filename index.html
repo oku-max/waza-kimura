@@ -42,7 +42,10 @@
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
     vpSkip, vpAbSet, vpAbToggleLoop, vpAbReset, vpAbSaveAsBm, vpAbSetFromBm,
+    vpAbOpenPanel, vpAbClosePanel, vpAbQpAdj, vpAbQpSetCurrent, vpAbQpSet, vpAbQpClear,
+    vpAbAddBm, vpAbConfirmAddBm, vpAbCancelAddBm,
     vpAddBm, vpDeleteBm, vpSeekBm, vpEditBm, vpSaveBmLabel,
+    vpBmTimeClick, vpBmToggleEdit, vpBmActivateField, vpBmSave, vpBmClose, vpBmReset,
     vpTogBmTimeEditor, vpAdjustBmTime, vpSetBmTimeToCurrent, vpSetBmTimeFromInput,
     vpAdjustBmField, vpSetBmFieldToCurrent, vpSetBmEndFromStart, vpClearBmEnd, vpSetActiveBmField,
     togVpDrawer, buildDrawerHTML,
@@ -170,9 +173,24 @@
   window.vpAbReset            = vpAbReset;
   window.vpAbSaveAsBm         = vpAbSaveAsBm;
   window.vpAbSetFromBm        = vpAbSetFromBm;
+  window.vpAbOpenPanel        = vpAbOpenPanel;
+  window.vpAbClosePanel       = vpAbClosePanel;
+  window.vpAbQpAdj            = vpAbQpAdj;
+  window.vpAbQpSetCurrent     = vpAbQpSetCurrent;
+  window.vpAbQpSet            = vpAbQpSet;
+  window.vpAbQpClear          = vpAbQpClear;
+  window.vpAbAddBm            = vpAbAddBm;
+  window.vpAbConfirmAddBm     = vpAbConfirmAddBm;
+  window.vpAbCancelAddBm      = vpAbCancelAddBm;
   window.vpAddBm              = vpAddBm;
   window.vpDeleteBm           = vpDeleteBm;
   window.vpSeekBm             = vpSeekBm;
+  window.vpBmTimeClick        = vpBmTimeClick;
+  window.vpBmToggleEdit       = vpBmToggleEdit;
+  window.vpBmActivateField    = vpBmActivateField;
+  window.vpBmSave             = vpBmSave;
+  window.vpBmClose            = vpBmClose;
+  window.vpBmReset            = vpBmReset;
   window.vpEditBm                = vpEditBm;
   window.vpSaveBmLabel           = vpSaveBmLabel;
   window.vpTogBmTimeEditor       = vpTogBmTimeEditor;
