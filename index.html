@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.47</title>
+<title>WAZA KIMURA v47.48</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -254,7 +254,7 @@
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
 
-/* ぼかしエリア */
+/* ぼかしエリア: 横長時のみ表示。背景は透明でメイン画面が透けて見える */
 #vpanel-blur-area {
   flex: 1;
   min-height: 40px;
@@ -269,7 +269,7 @@
   pointer-events: none;
 }
 
-/* リサイザー */
+/* リサイザー（横長時のみ表示） */
 #vpanel-col-resizer {
   width: 5px;
   flex-shrink: 0;
@@ -303,8 +303,8 @@
   overflow-y: auto !important;
 }
 
-/* スマホ縦向き: 上下配置 */
-@media (orientation: portrait) and (max-width: 599px) {
+/* 縦長（portrait）: 幅問わず上下配置 */
+@media (orientation: portrait) {
   #vpanelInner {
     flex-direction: column !important;
     align-items: stretch !important;
@@ -314,12 +314,14 @@
     width: 100% !important;
     height: auto !important;
     flex-shrink: 0 !important;
+    background: #000 !important;
   }
   #vpanel-right-col {
     flex: 1 !important;
     height: auto !important;
     min-height: 0 !important;
   }
+  /* 縦長時はblur-areaとリサイザー不要 */
   #vpanel-blur-area { display: none !important; }
   #vpanel-col-resizer { display: none !important; }
   #vpanel-edit-wrap { flex: 1 !important; min-height: 0 !important; }
