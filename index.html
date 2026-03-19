@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.46</title>
+<title>WAZA KIMURA v47.47</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -207,7 +207,7 @@
 <style>
 /* ══ Vパネル レイアウト ══ */
 
-/* vpanel本体: position固定でオーバーレイ */
+/* vpanel本体 */
 #vpanel .vpanel-inner,
 #vpanelInner {
   display: flex !important;
@@ -219,16 +219,16 @@
   overflow: hidden !important;
 }
 
-/* 左カラム */
+/* 左カラム: !importantなし → JSのinline styleで幅変更可能 */
 #vpanel-left-col {
-  display: flex !important;
-  flex-direction: column !important;
-  width: 70% !important;
-  min-width: 200px !important;
-  flex-shrink: 0 !important;
-  background: #000 !important;
-  height: 100% !important;
-  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  width: 70%;
+  min-width: 180px;
+  flex-shrink: 0;
+  background: #000;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* 動画: 幅から16:9で高さ自動 */
@@ -254,7 +254,7 @@
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
 
-/* ぼかしエリア: メイン画面に filter:blur を掛けてぼかして見せる */
+/* ぼかしエリア */
 #vpanel-blur-area {
   flex: 1;
   min-height: 40px;
@@ -263,7 +263,6 @@
   overflow: hidden;
   background: transparent;
 }
-/* メイン画面側にblurを掛けるクラス */
 .vpanel-main-blur {
   filter: blur(4px) !important;
   transition: filter .2s;
@@ -278,6 +277,7 @@
   cursor: col-resize;
   align-self: stretch;
   transition: background .15s;
+  z-index: 10;
 }
 #vpanel-col-resizer:hover,
 #vpanel-col-resizer.dragging { background: var(--accent); }
@@ -295,25 +295,34 @@
 #vpanel-ab-area {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
 }
 #vpanel-edit-wrap {
-  flex: 1;
-  min-height: 0;
+  flex: 1 !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
 }
 
-/* スマホ縦向きのみ上下配置 */
+/* スマホ縦向き: 上下配置 */
 @media (orientation: portrait) and (max-width: 599px) {
   #vpanelInner {
     flex-direction: column !important;
     align-items: stretch !important;
+    height: 90vh !important;
   }
   #vpanel-left-col {
     width: 100% !important;
+    height: auto !important;
+    flex-shrink: 0 !important;
+  }
+  #vpanel-right-col {
+    flex: 1 !important;
+    height: auto !important;
+    min-height: 0 !important;
   }
   #vpanel-blur-area { display: none !important; }
   #vpanel-col-resizer { display: none !important; }
-  #vpanel-edit-wrap { max-height: 45vh; }
+  #vpanel-edit-wrap { flex: 1 !important; min-height: 0 !important; }
 }
 </style>
 </head>
