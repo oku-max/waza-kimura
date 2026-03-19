@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.34 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.35 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -166,42 +166,10 @@ function _abBarHTML() {
 }
 
 function _abRefresh(id) {
-  // ABバーを再描画（outerHTMLではなくcontainerごと）
+  // ABバーを再描画
   const html = _abBarHTML();
-  // モバイル
-  const mBar = document.getElementById('vp-ab-bar');
-  if (mBar) {
-    const wrap = mBar.parentElement;
-    if (wrap) {
-      // バー以降のクイックパネルも含めて再描画
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = html;
-      // 既存のvp-ab-bar, vp-ab-quick-panel, vp-ab-add-bm-row を置換
-      ['vp-ab-bar','vp-ab-quick-panel','vp-ab-add-bm-row'].forEach(eid => {
-        const old = document.getElementById(eid);
-        if (old) old.remove();
-      });
-      while (tempDiv.firstChild) {
-        wrap.insertBefore(tempDiv.firstChild, wrap.querySelector('#vp-skip-row') || null);
-      }
-    }
-  }
-  // PCパネル
-  const pcBar = document.getElementById('vp-pc-ab-bar');
-  if (pcBar) {
-    const wrap = pcBar.parentElement;
-    if (wrap) {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = html.replace(/id="vp-ab-/g, 'id="vp-pc-ab-');
-      ['vp-pc-ab-bar','vp-pc-ab-quick-panel','vp-pc-ab-add-bm-row'].forEach(eid => {
-        const old = document.getElementById(eid);
-        if (old) old.remove();
-      });
-      while (tempDiv.firstChild) {
-        wrap.insertBefore(tempDiv.firstChild, wrap.querySelector('.vp-panel-header') || null);
-      }
-    }
-  }
+  const abArea = document.getElementById('vpanel-ab-area');
+  if (abArea) abArea.innerHTML = html;
   // クイックパネルが開いていれば再バインド
   if (_ab.setMode) _abOpenQuickPanel(_ab.setMode, id);
 }
@@ -893,11 +861,15 @@ export function openVPanel(id) {
     }
   }
 
-  // スキップボタン＋ABバーをプレイヤーエリアに挿入
+  // スキップボタンは動画の真下（左カラム）
   const skipArea = document.getElementById('vpanel-skip-area');
-  if (skipArea) skipArea.innerHTML = _skipBtnsHTML() + _abBarHTML();
+  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
 
-  // ブックマーク＋スキップをextBtnの直後に挿入
+  // ABバーは右カラムの一番上
+  const abArea = document.getElementById('vpanel-ab-area');
+  if (abArea) abArea.innerHTML = _abBarHTML();
+
+  // ブックマークセクション
   const bmContainer = document.getElementById('vpanel-bm-area');
   if (bmContainer) bmContainer.innerHTML = _bookmarkSectionHTML(window.openVPanelId || id);
 
