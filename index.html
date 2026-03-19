@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.48</title>
+<title>WAZA KIMURA v47.49</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -215,7 +215,7 @@
   align-items: stretch !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: 90vh !important;
+  height: 100vh !important;
   overflow: hidden !important;
 }
 
@@ -226,7 +226,7 @@
   width: 70%;
   min-width: 180px;
   flex-shrink: 0;
-  background: #000;
+  background: var(--bg);
   height: 100%;
   overflow: hidden;
 }
@@ -254,14 +254,15 @@
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
 
-/* ぼかしエリア: 横長時のみ表示。背景は透明でメイン画面が透けて見える */
+/* ぼかしエリア: メイン画面色で透過 */
 #vpanel-blur-area {
   flex: 1;
   min-height: 40px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  background: transparent;
+  background: var(--bg);
+  opacity: 0.85;
 }
 .vpanel-main-blur {
   filter: blur(4px) !important;
@@ -269,7 +270,7 @@
   pointer-events: none;
 }
 
-/* リサイザー（横長時のみ表示） */
+/* リサイザー */
 #vpanel-col-resizer {
   width: 5px;
   flex-shrink: 0;
@@ -303,29 +304,23 @@
   overflow-y: auto !important;
 }
 
-/* 縦長（portrait）: 幅問わず上下配置 */
-@media (orientation: portrait) {
-  #vpanelInner {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    height: 90vh !important;
-  }
-  #vpanel-left-col {
-    width: 100% !important;
-    height: auto !important;
-    flex-shrink: 0 !important;
-    background: #000 !important;
-  }
-  #vpanel-right-col {
-    flex: 1 !important;
-    height: auto !important;
-    min-height: 0 !important;
-  }
-  /* 縦長時はblur-areaとリサイザー不要 */
-  #vpanel-blur-area { display: none !important; }
-  #vpanel-col-resizer { display: none !important; }
-  #vpanel-edit-wrap { flex: 1 !important; min-height: 0 !important; }
+/* 縦長モード（JSがis-portraitクラスを付与） */
+#vpanelInner.is-portrait {
+  flex-direction: column !important;
+  align-items: stretch !important;
 }
+#vpanelInner.is-portrait #vpanel-left-col {
+  width: 100% !important;
+  height: auto !important;
+  flex-shrink: 0 !important;
+}
+#vpanelInner.is-portrait #vpanel-right-col {
+  flex: 1 !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+#vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
+#vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
 </style>
 </head>
 <body>
