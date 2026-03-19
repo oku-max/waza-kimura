@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.37</title>
+<title>WAZA KIMURA v47.38</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -219,7 +219,7 @@
 #vpanel-left-col {
   display: flex;
   flex-direction: column;
-  width: 60%;
+  width: 30%;
   min-width: 200px;
   flex-shrink: 0;
   height: 100%;
@@ -4113,7 +4113,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     dragging = true;
     startX = e.touches ? e.touches[0].clientX : e.clientX;
     const left = document.getElementById('vpanel-left-col');
-    startW = left ? left.offsetWidth : 0;
+    startW = left ? left.getBoundingClientRect().width : 0;
     e.currentTarget.classList.add('dragging');
     document.addEventListener('mousemove', onMove);
     document.addEventListener('touchmove', onMove, {passive:false});
