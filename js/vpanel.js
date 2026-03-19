@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.38 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.41 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -149,7 +149,7 @@ function _abBarHTML() {
     <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${_abBtnStyleNew(_ab.b != null, _ab.loop && _ab.b != null)}">B: ${bLabel}</button>
     <span style="font-family:'DM Mono',monospace;font-size:9px;${durColor};flex:1;text-align:center;min-width:0">${dur}</span>
     <button onclick="vpAbToggleLoop()" style="${_loopBtnStyle()}" title="ABループ">${_loopSVG()}</button>
-    <button onclick="vpAbAddBm()" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0" title="ブックマークに追加">＋BM</button>
+    <button onclick="vpAbAddBm()" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0" title="ブックマークに追加">＋ブックマーク</button>
     <button onclick="vpAbReset()" style="font-size:10px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>
   </div>
   <div id="vp-ab-quick-panel" style="display:none"></div>
@@ -380,7 +380,9 @@ export function vpAbConfirmAddBm() {
   if (noteEl)  noteEl.value  = '';
   const row = document.getElementById('vp-ab-add-bm-row');
   if (row) row.style.display = 'none';
-  _refreshBmList(id);
+  // 追加後のインデックスを特定
+  const addedIdx = v.bookmarks.findIndex(b => b.time === t && b.label === label);
+  _refreshBmList(id, addedIdx >= 0 ? addedIdx : v.bookmarks.length - 1);
   window.debounceSave?.();
   window.toast?.('🔖 ブックマークを追加しました');
 }
@@ -496,7 +498,11 @@ function _bookmarkListHTML(id) {
         </div>
       </div>` : '';
 
-    return `<div style="border-bottom:1px solid var(--border);padding:6px 0${isExpanded ? ';background:var(--surface2)' : ''}">
+    // 編集中: アクセントカラー背景＋左ボーダー強調、非編集中: グレーアウト
+    const rowStyle = isExpanded
+      ? 'border-bottom:1px solid var(--border);padding:6px 8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent);margin:2px 0;border-radius:4px'
+      : 'border-bottom:1px solid var(--border);padding:6px 8px;opacity:0.45';
+    return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
         <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
@@ -710,7 +716,7 @@ export function vpAbSetFromBm(time, point) {
   window.toast?.(`${point.toUpperCase()}点を ${_formatTime(time)} にセットしました`);
 }
 
-function _refreshBmList(id) {
+function _refreshBmList(id, flashIdx) {
   const el = document.getElementById('vp-bm-list-' + id);
   if (el) {
     el.innerHTML = _bookmarkListHTML(id);
@@ -726,6 +732,24 @@ function _refreshBmList(id) {
       sl.addEventListener('input', _onBmSliderInput);
       sl.addEventListener('change', _onBmSliderInput);
     });
+    // フラッシュアニメーション（新規追加・保存後）
+    if (flashIdx != null) {
+      const items = el.querySelectorAll('[data-bm-idx]');
+      const target = el.querySelector(`[data-bm-idx="${flashIdx}"]`);
+      if (target) {
+        target.style.transition = 'none';
+        target.style.outline = '2.5px solid var(--accent,#c8831a)';
+        target.style.outlineOffset = '0px';
+        target.style.boxShadow = '0 0 0 4px rgba(200,131,26,0.25)';
+        setTimeout(() => {
+          target.style.transition = 'outline .6s, box-shadow .6s';
+          target.style.outline = '2.5px solid transparent';
+          target.style.boxShadow = 'none';
+        }, 50);
+        // スクロールして見えるように
+        setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 30);
+      }
+    }
   }
 }
 
@@ -793,10 +817,13 @@ export function vpBmSave(id, idx) {
   if (lbl) v.bookmarks[idx].label = lbl.value.trim();
   if (nte) v.bookmarks[idx].note  = nte.value.trim();
   v.bookmarks.sort((a, b) => a.time - b.time);
+  // 保存後のインデックス（ソート後の位置）を特定
+  const savedTime = v.bookmarks[idx]?.time;
+  const newIdx = savedTime != null ? v.bookmarks.findIndex(b => b.time === savedTime) : idx;
   if (!window._vpBmExpanded) window._vpBmExpanded = {};
   delete window._vpBmExpanded[id];
   window.debounceSave?.();
-  _refreshBmList(id);
+  _refreshBmList(id, newIdx);
   window.toast?.('🔖 保存しました');
 }
 
@@ -843,10 +870,13 @@ export function openVPanel(id) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
 
-  // タイトルを左カラム（動画の下）に表示
+  // タイトル+✕ボタン（右端）を左カラム（動画の下）に表示
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
-    titleEl.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>`;
+    titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px 5px 10px">
+      <div style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
+      <button onclick="closeVPanel()" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+    </div>`;
   }
 
 
@@ -874,7 +904,15 @@ export function openVPanel(id) {
 
   // ブックマークセクション
   const bmContainer = document.getElementById('vpanel-bm-area');
-  if (bmContainer) bmContainer.innerHTML = _bookmarkSectionHTML(window.openVPanelId || id);
+  if (bmContainer) {
+    const vid = window.openVPanelId || id;
+    const vd = (window.videos||[]).find(vx => vx.id === vid);
+    bmContainer.innerHTML = _bookmarkSectionHTML(vid)
+      + `<div class="vp-row" style="margin-top:8px">
+          <span class="vp-lbl">Memo</span>
+          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="ポイント、気づきなど..." onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
+        </div>`;
+  }
 
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
@@ -1037,10 +1075,7 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Memo</span>
-      <textarea class="vp-memo" id="vp-memo-${id}" placeholder="ポイント、気づきなど..." onblur="vpSaveMemo('${id}')">${v.memo||''}</textarea>
-    </div>
+
     <div class="vp-row">
       <span class="vp-lbl">Share</span>
       <div class="vp-chips" id="vp-share-${id}">
