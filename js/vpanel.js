@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.49 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.50 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -852,11 +852,6 @@ export function openVPanel(id) {
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return;
 
-  if (window.innerWidth >= 1200) {
-    _openPanel(id, emb, ext, plat);
-    return;
-  }
-
   window.openVPanelId = id;
   const panel    = document.getElementById('vpanel');
   const editArea = document.getElementById('vpanel-edit-area');
@@ -932,7 +927,6 @@ export function closeVPanel() {
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
-    // YTプレイヤーを停止・破棄
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
     }
@@ -953,15 +947,12 @@ export function closeVPanel() {
   }
 }
 
-// 縦横判定してis-portraitクラスを付与・除去
 function _vpUpdateOrientation() {
   const inner = document.getElementById('vpanelInner');
   if (!inner) return;
-  const isPortrait = window.innerHeight > window.innerWidth;
-  inner.classList.toggle('is-portrait', isPortrait);
+  inner.classList.toggle('is-portrait', window.innerHeight > window.innerWidth);
 }
 
-// orientationchange / resizeで再判定
 window.addEventListener('resize', () => {
   const panel = document.getElementById('vpanel');
   if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
