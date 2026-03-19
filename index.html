@@ -3789,18 +3789,17 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- VIDEO PLAYER PANEL -->
 <div class="vpanel" id="vpanel" onclick="closeVPanel()">
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
-  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
+  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner" style="display:flex;flex-direction:column">
     <div class="vpanel-resizer" id="vpanelResizer"></div>
-    <div class="vpanel-video">
+    <div class="vpanel-video" style="flex-shrink:0">
       <div id="vpanel-iframe-container" style="width:100%;height:100%"><div id="vpanel-yt-player"></div></div>
     </div>
-    <div id="vpanel-skip-area"></div>
-    <div class="vpanel-edit">
+    <div id="vpanel-skip-area" style="flex-shrink:0"></div>
+    <div class="vpanel-edit" style="flex:1;overflow-y:auto;min-height:0">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
         <div class="vpanel-title" id="vpanel-title" style="margin-bottom:0;flex:1"></div>
         <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
       </div>
-      <button class="vp-ext-btn" id="vpanel-ext-btn"></button>
       <div id="vpanel-bm-area"></div>
       <div id="vpanel-edit-area"></div>
     </div>
