@@ -204,6 +204,53 @@
   window.vpSetActiveBmField      = vpSetActiveBmField;
 </script>
 
+<style>
+/* ── Vパネル 左右レイアウト（横向き・ブラウザ） ── */
+
+/* スマホ縦向き: 上下配置（デフォルト・変更なし） */
+#vpanel-video-wrap {
+  flex-shrink: 0;
+}
+#vpanel-edit-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* スマホ横向き OR ブラウザ（幅600px以上） */
+@media (orientation: landscape), (min-width: 600px) {
+  #vpanelInner {
+    flex-direction: row !important;
+    height: 100% !important;
+  }
+  #vpanel-video-wrap {
+    width: 50%;
+    flex-shrink: 0;
+    flex-grow: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  #vpanel-video-wrap .vpanel-video {
+    flex: 1;
+    height: auto;
+  }
+  #vpanel-skip-area {
+    flex-shrink: 0;
+  }
+  #vpanel-edit-wrap {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    border-left: 1px solid var(--border);
+  }
+  /* リサイザーを横向きでは非表示 */
+  #vpanelResizer {
+    display: none;
+  }
+}
+</style>
 </head>
 <body>
 <div class="topbar">
@@ -3789,13 +3836,13 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- VIDEO PLAYER PANEL -->
 <div class="vpanel" id="vpanel" onclick="closeVPanel()">
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
-  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner" style="display:flex;flex-direction:column">
+  <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner" style="display:flex;flex-direction:column;height:100%">
     <div class="vpanel-resizer" id="vpanelResizer"></div>
-    <div class="vpanel-video" style="flex-shrink:0">
+    <div class="vpanel-video" id="vpanel-video-wrap" style="flex-shrink:0">
       <div id="vpanel-iframe-container" style="width:100%;height:100%"><div id="vpanel-yt-player"></div></div>
     </div>
     <div id="vpanel-skip-area" style="flex-shrink:0"></div>
-    <div class="vpanel-edit" style="flex:1;overflow-y:auto;min-height:0">
+    <div class="vpanel-edit" id="vpanel-edit-wrap" style="flex:1;overflow-y:auto;min-height:0">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
         <div class="vpanel-title" id="vpanel-title" style="margin-bottom:0;flex:1"></div>
         <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
