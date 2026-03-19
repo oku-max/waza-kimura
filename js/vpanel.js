@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.30 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.33 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -450,6 +450,11 @@ function _bookmarkListHTML(id) {
       `<button onclick="vpSetBmEndFromStart('${id}',${i},${d})" style="${_adjBtnStyle('var(--surface2)','var(--accent)')}">+${d}s</button>`
     ).join('');
 
+    // アクティブフィールド（デフォルトは開始）
+    const activeField = (window._vpBmActiveField?.[id+'-'+i]) || 'start';
+    const startActive = activeField === 'start';
+    const endActive   = activeField === 'end';
+
     const editorHTML = isExpanded ? `
       <div style="padding:8px 0 2px">
         <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
@@ -461,15 +466,15 @@ function _bookmarkListHTML(id) {
             style="flex:1;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0">
         </div>
 
-        <!-- 開始フィールド -->
-        <div id="vp-tf-start-${id}-${i}" style="border:1.5px solid var(--accent);border-radius:8px;margin-bottom:8px;background:var(--surface);overflow:hidden">
+        <!-- 開始フィールド（アコーディオン） -->
+        <div style="border:1.5px solid ${startActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:6px;background:var(--surface);overflow:hidden">
           <div onclick="vpBmActivateField('${id}',${i},'start')"
-            style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--accent)">
-            <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);flex-shrink:0">▶ 開始</span>
-            <span id="vp-tf-disp-start-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:var(--accent)">${_formatTime(bm.time)}</span>
-            <span style="font-size:9px;color:var(--text3)">編集中</span>
+            style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${startActive ? 'border-bottom:1px solid var(--accent)' : ''}">
+            <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${startActive ? 'var(--accent)' : 'var(--text3)'};flex-shrink:0">▶ 開始</span>
+            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
+            <span style="font-size:9px;color:var(--text3)">${startActive ? '編集中' : 'タップで編集'}</span>
           </div>
-          <div style="padding:8px 10px">
+          ${startActive ? `<div style="padding:8px 10px">
             <div style="margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:4px"><span>0:00</span><span>—</span></div>
               <input type="range" class="vp-bm-sl" id="vp-sl-start-${id}-${i}" data-vid="${id}" data-idx="${i}" data-field="start"
@@ -480,18 +485,18 @@ function _bookmarkListHTML(id) {
               ${fineButtons('start')}
               <button onclick="vpSetBmFieldToCurrent('${id}',${i},'start')" style="${_adjBtnStyle('var(--accent)','#fff')}">現在地</button>
             </div>
-          </div>
+          </div>` : ''}
         </div>
 
-        <!-- 終了フィールド -->
-        <div id="vp-tf-end-${id}-${i}" style="border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:8px;background:var(--surface);overflow:hidden">
+        <!-- 終了フィールド（アコーディオン） -->
+        <div style="border:1.5px solid ${endActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:8px;background:var(--surface);overflow:hidden">
           <div onclick="vpBmActivateField('${id}',${i},'end')"
-            style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:1px solid ${hasEnd ? 'var(--accent)' : 'var(--border)'}">
-            <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${hasEnd ? 'var(--accent)' : 'var(--text3)'};flex-shrink:0">⏹ 終了</span>
-            <span id="vp-tf-disp-end-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${hasEnd ? 'var(--accent)' : 'var(--text3)'}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
-            <span style="font-size:9px;color:var(--text3)">タップで選択</span>
+            style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${endActive ? 'border-bottom:1px solid var(--accent)' : ''}">
+            <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')};flex-shrink:0">⏹ 終了</span>
+            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
+            <span style="font-size:9px;color:var(--text3)">${endActive ? '編集中' : 'タップで編集'}</span>
           </div>
-          <div style="padding:8px 10px">
+          ${endActive ? `<div style="padding:8px 10px">
             <div style="margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:4px"><span>0:00</span><span>—</span></div>
               <input type="range" class="vp-bm-sl" id="vp-sl-end-${id}-${i}" data-vid="${id}" data-idx="${i}" data-field="end"
@@ -507,7 +512,7 @@ function _bookmarkListHTML(id) {
               ${fromStartBtns}
               ${hasEnd ? `<button onclick="vpClearBmEnd('${id}',${i})" style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;font-family:inherit;margin-left:auto">終了を削除</button>` : ''}
             </div>
-          </div>
+          </div>` : ''}
         </div>
 
         <!-- 確定行 -->
@@ -798,9 +803,17 @@ export function vpBmToggleEdit(id, idx) {
   _refreshBmList(id);
 }
 
-// フィールドアクティブ化（現時点ではスタイル切替のみ、将来的に拡張可能）
+// フィールドアクティブ化（アコーディオン切り替え）
 export function vpBmActivateField(id, idx, field) {
-  // 現在はスライダーが常時表示なので不要、将来の拡張用
+  if (!window._vpBmActiveField) window._vpBmActiveField = {};
+  const key = id + '-' + idx;
+  // 同じフィールドをタップしたらトグル（閉じる）→ 開始に戻す
+  if (window._vpBmActiveField[key] === field) {
+    window._vpBmActiveField[key] = field === 'start' ? 'end' : 'start';
+  } else {
+    window._vpBmActiveField[key] = field;
+  }
+  _refreshBmList(id);
 }
 
 // 保存
@@ -823,6 +836,7 @@ export function vpBmSave(id, idx) {
 export function vpBmClose(id, idx) {
   if (!window._vpBmExpanded) window._vpBmExpanded = {};
   delete window._vpBmExpanded[id];
+  if (window._vpBmActiveField) delete window._vpBmActiveField[id+'-'+idx];
   _refreshBmList(id);
 }
 
@@ -864,11 +878,7 @@ export function openVPanel(id) {
   const titleEl = document.getElementById('vpanel-title');
   if (titleEl) titleEl.textContent = v.title;
 
-  const extBtn = document.getElementById('vpanel-ext-btn');
-  if (extBtn) {
-    extBtn.textContent = plat === 'yt' ? '📱 YouTubeで開く' : '🎥 Vimeoで開く';
-    extBtn.onclick = () => window.open(ext, '_blank');
-  }
+
 
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
@@ -1415,7 +1425,7 @@ export function _openPanel(id, emb, ext, plat) {
       <div class="vp-panel-close" onclick="closePanel()">✕</div>
     </div>
     <div class="vp-panel-body">
-      <button class="vp-ext-btn" onclick="window.open('${ext}','_blank')">${plat==='yt'?'📱 YouTubeで開く':'🎥 Vimeoで開く'}</button>
+
       ${_bookmarkSectionHTML(id)}
       ${buildDrawerHTML(id)}
     </div>
