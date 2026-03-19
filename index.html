@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.29</title>
+<title>WAZA KIMURA v47.37</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -219,7 +219,7 @@
 #vpanel-left-col {
   display: flex;
   flex-direction: column;
-  width: 50%;
+  width: 60%;
   min-width: 200px;
   flex-shrink: 0;
   height: 100%;
@@ -3880,9 +3880,10 @@ window.addEventListener('resize', adjustTopbarOffset);
 <div class="vpanel" id="vpanel" onclick="closeVPanel()">
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
-    <!-- 左カラム: 動画 + スキップボタン -->
+    <!-- 左カラム: 動画 + タイトル + スキップボタン -->
     <div id="vpanel-left-col">
       <div class="vpanel-video" id="vpanel-iframe-container" style="width:100%;flex:1;min-height:0"><div id="vpanel-yt-player"></div></div>
+      <div id="vpanel-title-area" style="flex-shrink:0;padding:6px 10px;background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area" style="flex-shrink:0"></div>
     </div>
     <!-- ドラッグリサイザー -->
@@ -3891,8 +3892,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div id="vpanel-right-col">
       <div id="vpanel-ab-area"></div>
       <div class="vpanel-edit" id="vpanel-edit-wrap" style="flex:1;overflow-y:auto;min-height:0;padding:10px 12px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-          <div class="vpanel-title" id="vpanel-title" style="margin-bottom:0;flex:1"></div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">
           <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
         </div>
         <div id="vpanel-bm-area"></div>
@@ -4092,18 +4092,29 @@ window.addEventListener('resize', adjustTopbarOffset);
 (function() {
   let dragging = false, startX = 0, startW = 0;
 
-  document.addEventListener('mousedown', onDown);
-  document.addEventListener('touchstart', onDown, {passive:false});
+  // リサイザー要素に直接イベントをバインド（DOMロード後）
+  function bindResizer() {
+    const resizer = document.getElementById('vpanel-col-resizer');
+    if (!resizer) return;
+    resizer.addEventListener('mousedown', onDown);
+    resizer.addEventListener('touchstart', onDown, {passive:false});
+  }
+
+  // DOM構築後にバインド
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindResizer);
+  } else {
+    bindResizer();
+  }
 
   function onDown(e) {
-    const el = e.target;
-    if (el.id !== 'vpanel-col-resizer') return;
     e.preventDefault();
+    e.stopPropagation();
     dragging = true;
     startX = e.touches ? e.touches[0].clientX : e.clientX;
     const left = document.getElementById('vpanel-left-col');
     startW = left ? left.offsetWidth : 0;
-    el.classList.add('dragging');
+    e.currentTarget.classList.add('dragging');
     document.addEventListener('mousemove', onMove);
     document.addEventListener('touchmove', onMove, {passive:false});
     document.addEventListener('mouseup', onUp);
@@ -4123,7 +4134,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     left.style.width = newW + 'px';
   }
 
-  function onUp(e) {
+  function onUp() {
     if (!dragging) return;
     dragging = false;
     document.getElementById('vpanel-col-resizer')?.classList.remove('dragging');
