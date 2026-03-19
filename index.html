@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.38</title>
+<title>WAZA KIMURA v47.41</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -219,7 +219,7 @@
 #vpanel-left-col {
   display: flex;
   flex-direction: column;
-  width: 30%;
+  width: 70%;
   min-width: 200px;
   flex-shrink: 0;
   height: 100%;
@@ -3883,7 +3883,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- 左カラム: 動画 + タイトル + スキップボタン -->
     <div id="vpanel-left-col">
       <div class="vpanel-video" id="vpanel-iframe-container" style="width:100%;flex:1;min-height:0"><div id="vpanel-yt-player"></div></div>
-      <div id="vpanel-title-area" style="flex-shrink:0;padding:6px 10px;background:var(--surface);border-top:1px solid var(--border)"></div>
+      <div id="vpanel-title-area" style="flex-shrink:0;background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area" style="flex-shrink:0"></div>
     </div>
     <!-- ドラッグリサイザー -->
@@ -3892,9 +3892,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div id="vpanel-right-col">
       <div id="vpanel-ab-area"></div>
       <div class="vpanel-edit" id="vpanel-edit-wrap" style="flex:1;overflow-y:auto;min-height:0;padding:10px 12px">
-        <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">
-          <button class="vpanel-close" onclick="closeVPanel()" style="position:static;flex-shrink:0">✕</button>
-        </div>
+
         <div id="vpanel-bm-area"></div>
         <div id="vpanel-edit-area"></div>
       </div>
