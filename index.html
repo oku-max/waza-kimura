@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.41</title>
+<title>WAZA KIMURA v47.43</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -207,39 +207,58 @@
 <style>
 /* ══ Vパネル 左右レイアウト ══ */
 
-/* 共通: vpanel-innerは常に横並び */
+/* vpanel-innerは常に横並び・高さは右カラムに合わせて自動 */
 #vpanelInner {
   display: flex;
   flex-direction: row;
-  height: 100%;
-  overflow: hidden;
+  align-items: flex-start;
 }
 
-/* 左カラム: 動画 + スキップボタン */
+/* 左カラム: 動画 + タイトル + スキップ + ぼかし余白 */
 #vpanel-left-col {
   display: flex;
   flex-direction: column;
   width: 70%;
   min-width: 200px;
   flex-shrink: 0;
-  height: 100%;
+  background: #000;
+  align-self: stretch;
+}
+/* 動画エリア: 幅から16:9で高さ自動決定 */
+#vpanel-left-col #vpanel-iframe-container {
+  width: 100%;
+  aspect-ratio: 16/9;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
   background: #000;
 }
-#vpanel-left-col .vpanel-video,
-#vpanel-left-col #vpanel-iframe-container {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-}
-#vpanel-left-col #vpanel-iframe-container iframe {
-  width: 100%;
-  height: 100%;
+#vpanel-left-col #vpanel-iframe-container iframe,
+#vpanel-left-col #vpanel-iframe-container > div {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
   border: none;
   display: block;
+}
+#vpanel-title-area {
+  flex-shrink: 0;
 }
 #vpanel-skip-area {
   flex-shrink: 0;
   background: var(--surface);
+}
+/* ぼかしエリア: 余白をメイン画面のぼかしで埋める */
+#vpanel-blur-area {
+  flex: 1;
+  min-height: 0;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  background: rgba(var(--surface-rgb, 255,255,255), 0.25);
 }
 
 /* ドラッグリサイザー */
@@ -248,7 +267,7 @@
   flex-shrink: 0;
   background: var(--border);
   cursor: col-resize;
-  position: relative;
+  align-self: stretch;
   transition: background .15s;
 }
 #vpanel-col-resizer:hover,
@@ -256,13 +275,12 @@
   background: var(--accent);
 }
 
-/* 右カラム: ABバー + 編集エリア */
+/* 右カラム */
 #vpanel-right-col {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
   overflow: hidden;
   background: var(--surface);
 }
@@ -271,19 +289,18 @@
   border-bottom: 1px solid var(--border);
 }
 
-/* スマホ縦向きのみ上下配置に変更 */
+/* スマホ縦向きのみ上下配置 */
 @media (orientation: portrait) and (max-width: 599px) {
   #vpanelInner {
     flex-direction: column;
+    align-items: stretch;
   }
   #vpanel-left-col {
     width: 100%;
-    height: auto;
-    flex-shrink: 0;
+    align-self: auto;
   }
-  #vpanel-left-col #vpanel-iframe-container {
-    aspect-ratio: 16/9;
-    flex: none;
+  #vpanel-blur-area {
+    display: none;
   }
   #vpanel-col-resizer {
     display: none;
@@ -3880,11 +3897,12 @@ window.addEventListener('resize', adjustTopbarOffset);
 <div class="vpanel" id="vpanel" onclick="closeVPanel()">
   <div class="vpanel-bg" onclick="closeVPanel()"></div>
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
-    <!-- 左カラム: 動画 + タイトル + スキップボタン -->
+    <!-- 左カラム: 動画 + タイトル + スキップボタン + ぼかし余白 -->
     <div id="vpanel-left-col">
-      <div class="vpanel-video" id="vpanel-iframe-container" style="width:100%;flex:1;min-height:0"><div id="vpanel-yt-player"></div></div>
-      <div id="vpanel-title-area" style="flex-shrink:0;background:var(--surface);border-top:1px solid var(--border)"></div>
-      <div id="vpanel-skip-area" style="flex-shrink:0"></div>
+      <div id="vpanel-iframe-container"><div id="vpanel-yt-player"></div></div>
+      <div id="vpanel-title-area" style="background:var(--surface);border-top:1px solid var(--border)"></div>
+      <div id="vpanel-skip-area"></div>
+      <div id="vpanel-blur-area" onclick="closeVPanel()"></div>
     </div>
     <!-- ドラッグリサイザー -->
     <div id="vpanel-col-resizer" title="ドラッグで幅を調整"></div>
