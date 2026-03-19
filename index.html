@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.43</title>
+<title>WAZA KIMURA v47.44</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -205,63 +205,69 @@
 </script>
 
 <style>
-/* ══ Vパネル 左右レイアウト ══ */
+/* ══ Vパネル レイアウト ══ */
 
-/* vpanel-innerは常に横並び・高さは右カラムに合わせて自動 */
+/* vpanel本体: position固定でオーバーレイ */
+#vpanel .vpanel-inner,
 #vpanelInner {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 
-/* 左カラム: 動画 + タイトル + スキップ + ぼかし余白 */
+/* 左カラム */
 #vpanel-left-col {
-  display: flex;
-  flex-direction: column;
-  width: 70%;
-  min-width: 200px;
-  flex-shrink: 0;
-  background: #000;
-  align-self: stretch;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 70% !important;
+  min-width: 200px !important;
+  flex-shrink: 0 !important;
+  background: #000 !important;
+  height: auto !important;
 }
-/* 動画エリア: 幅から16:9で高さ自動決定 */
-#vpanel-left-col #vpanel-iframe-container {
-  width: 100%;
-  aspect-ratio: 16/9;
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-  background: #000;
+
+/* 動画: 幅から16:9で高さ自動 */
+#vpanel-iframe-container {
+  width: 100% !important;
+  aspect-ratio: 16/9 !important;
+  height: auto !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  background: #000 !important;
 }
-#vpanel-left-col #vpanel-iframe-container iframe,
-#vpanel-left-col #vpanel-iframe-container > div {
-  position: absolute;
-  top: 0; left: 0;
+#vpanel-iframe-container iframe,
+#vpanel-iframe-container > div {
+  position: absolute !important;
+  top: 0 !important; left: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  border: none;
-  display: block;
+  border: none !important;
+  display: block !important;
 }
-#vpanel-title-area {
-  flex-shrink: 0;
-}
-#vpanel-skip-area {
-  flex-shrink: 0;
-  background: var(--surface);
-}
-/* ぼかしエリア: 余白をメイン画面のぼかしで埋める */
+
+#vpanel-title-area { flex-shrink: 0; }
+#vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
+
+/* ぼかしエリア: メイン画面に filter:blur を掛けてぼかして見せる */
 #vpanel-blur-area {
   flex: 1;
-  min-height: 0;
+  min-height: 40px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  background: rgba(var(--surface-rgb, 255,255,255), 0.25);
+  background: transparent;
+}
+/* メイン画面側にblurを掛けるクラス */
+.vpanel-main-blur {
+  filter: blur(4px) !important;
+  transition: filter .2s;
+  pointer-events: none;
 }
 
-/* ドラッグリサイザー */
+/* リサイザー */
 #vpanel-col-resizer {
   width: 5px;
   flex-shrink: 0;
@@ -271,44 +277,39 @@
   transition: background .15s;
 }
 #vpanel-col-resizer:hover,
-#vpanel-col-resizer.dragging {
-  background: var(--accent);
-}
+#vpanel-col-resizer.dragging { background: var(--accent); }
 
 /* 右カラム */
 #vpanel-right-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--surface);
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: var(--surface) !important;
+  height: auto !important;
 }
 #vpanel-ab-area {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
+#vpanel-edit-wrap {
+  max-height: 60vh;
+  overflow-y: auto !important;
+}
 
 /* スマホ縦向きのみ上下配置 */
 @media (orientation: portrait) and (max-width: 599px) {
   #vpanelInner {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
   #vpanel-left-col {
-    width: 100%;
-    align-self: auto;
+    width: 100% !important;
   }
-  #vpanel-blur-area {
-    display: none;
-  }
-  #vpanel-col-resizer {
-    display: none;
-  }
-  #vpanel-right-col {
-    flex: 1;
-    min-height: 0;
-  }
+  #vpanel-blur-area { display: none !important; }
+  #vpanel-col-resizer { display: none !important; }
+  #vpanel-edit-wrap { max-height: 45vh; }
 }
 </style>
 </head>
