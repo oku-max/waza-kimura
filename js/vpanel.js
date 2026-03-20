@@ -920,6 +920,7 @@ export function openVPanel(id) {
   // scrollTo(0,1)でアドレスバーを消し、その後dvhが確定してからレイアウトを適用
   window.scrollTo(0, 1);
   setTimeout(() => _vpUpdateOrientation(), 80);
+}
 
 export function closeVPanel() {
   try {
