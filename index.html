@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.52</title>
+<title>WAZA KIMURA v47.53</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -4119,8 +4119,8 @@ window.addEventListener('resize', adjustTopbarOffset);
 // ── Vパネル 左右リサイザー ──
 (function() {
   let dragging = false, startX = 0, startW = 0;
+  let overlay = null;
 
-  // リサイザー要素に直接イベントをバインド（DOMロード後）
   function bindResizer() {
     const resizer = document.getElementById('vpanel-col-resizer');
     if (!resizer) return;
@@ -4128,7 +4128,6 @@ window.addEventListener('resize', adjustTopbarOffset);
     resizer.addEventListener('touchstart', onDown, {passive:false});
   }
 
-  // DOM構築後にバインド
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindResizer);
   } else {
@@ -4143,6 +4142,12 @@ window.addEventListener('resize', adjustTopbarOffset);
     const left = document.getElementById('vpanel-left-col');
     startW = left ? left.getBoundingClientRect().width : 0;
     e.currentTarget.classList.add('dragging');
+
+    // iframeのマウスイベント横取りを防ぐ透明オーバーレイを追加
+    overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;cursor:col-resize;';
+    document.body.appendChild(overlay);
+
     document.addEventListener('mousemove', onMove);
     document.addEventListener('touchmove', onMove, {passive:false});
     document.addEventListener('mouseup', onUp);
@@ -4166,6 +4171,10 @@ window.addEventListener('resize', adjustTopbarOffset);
     if (!dragging) return;
     dragging = false;
     document.getElementById('vpanel-col-resizer')?.classList.remove('dragging');
+
+    // オーバーレイを除去
+    if (overlay) { overlay.remove(); overlay = null; }
+
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('mouseup', onUp);
