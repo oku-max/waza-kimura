@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.62 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.61 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -185,8 +185,8 @@ function _abBarHTML() {
     <span style="font-size:9px;color:var(--text3);flex-shrink:0">↔</span>
     <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${btnB}">B: ${bLabel}</button>
     <span style="flex:1"></span>
-    <button onclick="vpAbToggleLoop()" style="${loopBtn}" title="ABループ">${_loopSVG()}</button>
-    <button onclick="vpAbAddBm()" style="${btnBase}border:1px solid var(--border);background:var(--surface2);color:var(--text2);" title="ブックマークに追加">＋ブックマーク</button>
+    <button onclick="vpAbToggleLoop()" style="${loopBtn}" title="ABループ">↻ ループ</button>
+    <button onclick="vpAbAddBm()" style="${btnBase}border:1px solid var(--border);background:var(--surface2);color:var(--text2);" title="ブックマークに追加">＋ BM</button>
     <button onclick="vpAbReset()" style="${btnBase}border:1px solid var(--border);background:transparent;color:var(--text3);">✕</button>
   </div>
   <div id="vp-ab-quick-panel" style="display:none"></div>
@@ -1343,7 +1343,7 @@ export function vpTogDd(id, type) {
   if (isOpen) { dd.style.display = 'none'; return; }
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; }
+  if (inp) { inp.value = ''; inp.focus(); }
   vpRenderDdList(id, type, '');
 }
 
