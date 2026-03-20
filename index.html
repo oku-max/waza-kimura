@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.55</title>
+<title>WAZA KIMURA v47.57</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -168,6 +168,7 @@
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;
   window.vpSkip               = vpSkip;
+  window.vpProgressClick      = vpProgressClick;
   window.vpAbSet              = vpAbSet;
   window.vpAbToggleLoop       = vpAbToggleLoop;
   window.vpAbReset            = vpAbReset;
@@ -206,148 +207,27 @@
 
 <style>
 /* ══ Vパネル レイアウト ══ */
-
-/* vpanel本体 */
-#vpanel .vpanel-inner,
-#vpanelInner {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: stretch !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  overflow: hidden !important;
-}
-
-/* 左カラム: position:relative で戻るボタンの基準に */
-#vpanel-left-col {
-  display: flex;
-  flex-direction: column;
-  width: 70%;
-  min-width: 180px;
-  flex-shrink: 0;
-  background: var(--bg);
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-/* 動画: 幅から16:9で高さ自動 */
-#vpanel-iframe-container {
-  width: 100% !important;
-  aspect-ratio: 16/9 !important;
-  height: auto !important;
-  flex-shrink: 0 !important;
-  position: relative !important;
-  overflow: hidden !important;
-  background: #000 !important;
-}
-#vpanel-iframe-container iframe,
-#vpanel-iframe-container > div {
-  position: absolute !important;
-  top: 0 !important; left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  border: none !important;
-  display: block !important;
-}
-
-#vpanel-title-area { flex-shrink: 0; }
-#vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
-
-/* blur-area: 次の動画リスト */
-#vpanel-blur-area {
-  flex: 1;
-  min-height: 60px;
-  position: relative;
-  overflow-y: auto;
-  background: var(--surface);
-  -webkit-overflow-scrolling: touch;
-}
-.vpanel-main-blur {
-  filter: blur(4px) !important;
-  transition: filter .2s;
-  pointer-events: none;
-}
-
-/* 戻るボタン: #vpanel-left-col左上に固定 */
-#vpanel-back-btn {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(0,0,0,0.6);
-  border: 1.5px solid rgba(255,255,255,0.25);
-  border-radius: 20px;
-  padding: 5px 12px;
-  cursor: pointer;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: background .15s;
-  pointer-events: auto;
-}
-#vpanel-back-btn:hover { background: rgba(0,0,0,0.8); }
-
-/* リサイザー */
-#vpanel-col-resizer {
-  width: 5px;
-  flex-shrink: 0;
-  background: var(--border);
-  cursor: col-resize;
-  align-self: stretch;
-  transition: background .15s;
-  z-index: 10;
-}
-#vpanel-col-resizer:hover,
-#vpanel-col-resizer.dragging { background: var(--accent); }
-
-/* 右カラム */
-#vpanel-right-col {
-  flex: 1 !important;
-  min-width: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  background: var(--surface) !important;
-  height: 100% !important;
-}
-#vpanel-ab-area {
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-}
-#vpanel-edit-wrap {
-  flex: 1 !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-}
-
-/* 縦長モード（JSがis-portraitクラスを付与） */
-#vpanelInner.is-portrait {
-  flex-direction: column !important;
-  align-items: stretch !important;
-}
-#vpanelInner.is-portrait #vpanel-left-col {
-  width: 100% !important;
-  height: auto !important;
-  flex-shrink: 0 !important;
-}
-#vpanelInner.is-portrait #vpanel-right-col {
-  flex: 1 !important;
-  height: auto !important;
-  min-height: 0 !important;
-}
-#vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
-#vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
-#vpanelInner.is-portrait #vpanel-back-btn { display: none !important; }
+#vpanel .vpanel-inner,#vpanelInner{display:flex !important;flex-direction:row !important;align-items:stretch !important;width:100% !important;max-width:100% !important;height:100vh !important;height:100dvh !important;overflow:hidden !important;}
+#vpanel-left-col{display:flex;flex-direction:column;width:70%;min-width:180px;flex-shrink:0;background:var(--bg);height:100%;overflow:hidden;position:relative;}
+#vpanel-iframe-container{width:100% !important;aspect-ratio:16/9 !important;height:auto !important;flex-shrink:0 !important;position:relative !important;overflow:hidden !important;background:#000 !important;}
+#vpanel-iframe-container iframe,#vpanel-iframe-container > div{position:absolute !important;top:0 !important;left:0 !important;width:100% !important;height:100% !important;border:none !important;display:block !important;}
+#vpanel-title-area{flex-shrink:0;}
+#vpanel-skip-area{flex-shrink:0;background:var(--surface);}
+#vpanel-blur-area{flex:1;min-height:60px;position:relative;overflow-y:auto;background:var(--surface);-webkit-overflow-scrolling:touch;}
+.vpanel-main-blur{filter:blur(4px) !important;transition:filter .2s;pointer-events:none;}
+#vpanel-back-btn{position:absolute;top:8px;left:8px;z-index:50;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.6);border:1.5px solid rgba(255,255,255,0.25);border-radius:20px;padding:5px 12px;cursor:pointer;color:#fff;font-size:12px;font-weight:600;font-family:inherit;transition:background .15s;pointer-events:auto;}
+#vpanel-back-btn:hover{background:rgba(0,0,0,0.8);}
+#vpanel-col-resizer{width:5px;flex-shrink:0;background:var(--border);cursor:col-resize;align-self:stretch;transition:background .15s;z-index:10;}
+#vpanel-col-resizer:hover,#vpanel-col-resizer.dragging{background:var(--accent);}
+#vpanel-right-col{flex:1 !important;min-width:0 !important;display:flex !important;flex-direction:column !important;overflow:hidden !important;background:var(--surface) !important;height:100% !important;}
+#vpanel-ab-area{flex-shrink:0;border-bottom:1px solid var(--border);overflow-x:auto;}
+#vpanel-edit-wrap{flex:1 !important;min-height:0 !important;overflow-y:auto !important;}
+#vpanelInner.is-portrait{flex-direction:column !important;align-items:stretch !important;}
+#vpanelInner.is-portrait #vpanel-left-col{width:100% !important;height:auto !important;flex-shrink:0 !important;}
+#vpanelInner.is-portrait #vpanel-right-col{flex:1 !important;height:auto !important;min-height:0 !important;}
+#vpanelInner.is-portrait #vpanel-blur-area{display:none !important;}
+#vpanelInner.is-portrait #vpanel-col-resizer{display:none !important;}
+#vpanelInner.is-portrait #vpanel-back-btn{display:none !important;}
 </style>
 </head>
 <body>
