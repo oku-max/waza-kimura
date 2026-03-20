@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.59 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.60 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -965,7 +965,7 @@ function _renderBlurArea(id) {
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 現在の動画を除く全件（前も後ろも表示順のまま）
+  // 現在の動画を除く全件（表示順のまま）
   const candidates = all.filter((_, i) => i !== idx);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
