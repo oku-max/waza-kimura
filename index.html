@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.54</title>
+<title>WAZA KIMURA v47.55</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -220,7 +220,7 @@
   overflow: hidden !important;
 }
 
-/* 左カラム: !importantなし → JSのinline styleで幅変更可能 */
+/* 左カラム: position:relative で戻るボタンの基準に */
 #vpanel-left-col {
   display: flex;
   flex-direction: column;
@@ -230,6 +230,7 @@
   background: var(--bg);
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* 動画: 幅から16:9で高さ自動 */
@@ -255,19 +256,45 @@
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
 
-/* blur-area: 戻るボタン＋次の動画リスト */
+/* blur-area: 次の動画リスト */
 #vpanel-blur-area {
   flex: 1;
   min-height: 60px;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
   background: var(--surface);
+  -webkit-overflow-scrolling: touch;
 }
 .vpanel-main-blur {
   filter: blur(4px) !important;
   transition: filter .2s;
   pointer-events: none;
 }
+
+/* 戻るボタン: #vpanel-left-col左上に固定 */
+#vpanel-back-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0,0,0,0.6);
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background .15s;
+  pointer-events: auto;
+}
+#vpanel-back-btn:hover { background: rgba(0,0,0,0.8); }
 
 /* リサイザー */
 #vpanel-col-resizer {
@@ -320,6 +347,7 @@
 }
 #vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
 #vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
+#vpanelInner.is-portrait #vpanel-back-btn { display: none !important; }
 </style>
 </head>
 <body>
@@ -3909,10 +3937,11 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
     <!-- 左カラム: 動画 + タイトル + スキップボタン + ぼかし余白 -->
     <div id="vpanel-left-col">
+      <button id="vpanel-back-btn" onclick="closeVPanel()">← 戻る</button>
       <div id="vpanel-iframe-container"><div id="vpanel-yt-player"></div></div>
       <div id="vpanel-title-area" style="background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area"></div>
-      <div id="vpanel-blur-area" onclick="closeVPanel()"></div>
+      <div id="vpanel-blur-area"></div>
     </div>
     <!-- ドラッグリサイザー -->
     <div id="vpanel-col-resizer" title="ドラッグで幅を調整"></div>
