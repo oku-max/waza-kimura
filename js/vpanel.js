@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.62 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.65 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -51,12 +51,7 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
       events: {
         onReady: (e) => {
           _ytPlayerReady = true;
-          _startTimeDisplay();
           if (onReady) onReady(e);
-        },
-        onStateChange: (e) => {
-          if (e.data === 1) { _startTimeDisplay(); }
-          else { _stopTimeDisplay(); _updateTimeDisplay(); }
         },
         onError: (e) => {
           console.warn('YT player error:', e.data);
@@ -92,32 +87,6 @@ function _formatTime(sec) {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return m + ':' + String(s).padStart(2, '0');
-}
-
-// ── タイトルバー時間表示 ──
-let _timeDisplayTimer = null;
-
-function _startTimeDisplay() {
-  _stopTimeDisplay();
-  _timeDisplayTimer = setInterval(_updateTimeDisplay, 500);
-  _updateTimeDisplay();
-}
-
-function _stopTimeDisplay() {
-  if (_timeDisplayTimer) { clearInterval(_timeDisplayTimer); _timeDisplayTimer = null; }
-}
-
-function _updateTimeDisplay() {
-  const el = document.getElementById('vp-title-time');
-  if (!el) return;
-  if (!_ytPlayer || !_ytPlayerReady) return;
-  try {
-    const cur = _ytPlayer.getCurrentTime?.() ?? 0;
-    const dur = _ytPlayer.getDuration?.() ?? 0;
-    if (dur > 0) {
-      el.innerHTML = `${_formatTime(Math.floor(cur))}<span style="font-size:9px;color:var(--text3)"> / ${_formatTime(Math.floor(dur))}</span>`;
-    }
-  } catch(e) {}
 }
 
 // ── スキップボタンHTML ──
@@ -171,23 +140,17 @@ function _loopSVG() {
 function _abBarHTML() {
   const aLabel = _ab.a != null ? _formatTime(Math.floor(_ab.a)) : '--:--';
   const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
+  const dur = (_ab.a != null && _ab.b != null) ? Math.abs(_ab.b - _ab.a) + '秒' : '—';
   const hasConflict = _ab.a != null && _ab.b != null && _ab.a >= _ab.b;
-  const btnBase = 'padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
-  const btnA = _ab.a != null
-    ? btnBase + 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);'
-    : btnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
-  const btnB = _ab.b != null
-    ? btnBase + (hasConflict ? 'border:1.5px solid var(--danger,#c84040);background:var(--surface2);color:var(--danger,#c84040);' : 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);')
-    : btnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
-  const loopBtn = `padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;border:1px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--accent)' : 'var(--surface2)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};`;
-  return `<div id="vp-ab-bar" style="display:flex;gap:5px;padding:5px 10px;align-items:center;border-top:1px solid var(--border2)">
-    <button id="vp-ab-btn-a" onclick="vpAbOpenPanel('a')" style="${btnA}">A: ${aLabel}</button>
+  const durColor = hasConflict ? 'color:var(--danger,#c84040)' : (_ab.loop ? 'color:var(--accent)' : 'color:var(--text3)');
+  return `<div id="vp-ab-bar" style="display:flex;gap:5px;padding:7px 10px;align-items:center;border-top:1px solid var(--border2)">
+    <button id="vp-ab-btn-a" onclick="vpAbOpenPanel('a')" style="${_abBtnStyleNew(_ab.a != null, _ab.loop && _ab.a != null)}">A: ${aLabel}</button>
     <span style="font-size:9px;color:var(--text3);flex-shrink:0">↔</span>
-    <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${btnB}">B: ${bLabel}</button>
-    <span style="flex:1"></span>
-    <button onclick="vpAbToggleLoop()" style="${loopBtn}" title="ABループ">${_loopSVG()}</button>
-    <button onclick="vpAbAddBm()" style="${btnBase}border:1px solid var(--border);background:var(--surface2);color:var(--text2);" title="ブックマークに追加">＋ブックマーク</button>
-    <button onclick="vpAbReset()" style="${btnBase}border:1px solid var(--border);background:transparent;color:var(--text3);">✕</button>
+    <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${_abBtnStyleNew(_ab.b != null, _ab.loop && _ab.b != null)}">B: ${bLabel}</button>
+    <span style="font-family:'DM Mono',monospace;font-size:9px;${durColor};flex:1;text-align:center;min-width:0">${dur}</span>
+    <button onclick="vpAbToggleLoop()" style="${_loopBtnStyle()}" title="ABループ">${_loopSVG()}</button>
+    <button onclick="vpAbAddBm()" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0" title="ブックマークに追加">＋ブックマーク</button>
+    <button onclick="vpAbReset()" style="font-size:10px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>
   </div>
   <div id="vp-ab-quick-panel" style="display:none"></div>
   <div id="vp-ab-add-bm-row" style="display:none;padding:5px 10px 7px;border-top:1px solid var(--border2);background:var(--surface2)">
@@ -478,7 +441,7 @@ function _bookmarkListHTML(id) {
           <div onclick="vpBmActivateField('${id}',${i},'start')"
             style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${startActive ? 'border-bottom:1px solid var(--accent)' : ''}">
             <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${startActive ? 'var(--accent)' : 'var(--text3)'};flex-shrink:0">▶ 開始</span>
-            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
+            <span id="vp-tf-disp-start-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
             <span style="font-size:9px;color:var(--text3)">${startActive ? '編集中' : 'タップで編集'}</span>
           </div>
           ${startActive ? `<div style="padding:8px 10px">
@@ -500,7 +463,7 @@ function _bookmarkListHTML(id) {
           <div onclick="vpBmActivateField('${id}',${i},'end')"
             style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${endActive ? 'border-bottom:1px solid var(--accent)' : ''}">
             <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')};flex-shrink:0">⏹ 終了</span>
-            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
+            <span id="vp-tf-disp-end-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
             <span style="font-size:9px;color:var(--text3)">${endActive ? '編集中' : 'タップで編集'}</span>
           </div>
           ${endActive ? `<div style="padding:8px 10px">
@@ -889,6 +852,11 @@ export function openVPanel(id) {
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return;
 
+  if (window.innerWidth >= 1200) {
+    _openPanel(id, emb, ext, plat);
+    return;
+  }
+
   window.openVPanelId = id;
   const panel    = document.getElementById('vpanel');
   const editArea = document.getElementById('vpanel-edit-area');
@@ -902,12 +870,11 @@ export function openVPanel(id) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
 
-  // タイトル+時間表示+✕ボタン（右端）を左カラム（動画の下）に表示
+  // タイトル+✕ボタン（右端）を左カラム（動画の下）に表示
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px 5px 10px">
       <div style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
-      <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
       <button onclick="closeVPanel()" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
     </div>`;
   }
@@ -950,56 +917,19 @@ export function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
 
-  // blur-area: 次の動画リスト（現在の動画の前1件＋以降）
-  _renderBlurArea(id);
-
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
+  // メイン画面をぼかす
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
-
-  window.scrollTo(0, 1);
-  setTimeout(() => _vpUpdateOrientation(), 80);
-}
-
-// ── blur-area: 次の動画リスト ──
-function _renderBlurArea(id) {
-  const area = document.getElementById('vpanel-blur-area');
-  if (!area) return;
-
-  // フィルター済み配列を優先、なければ全件
-  const all = window.filteredVideos || window.videos || [];
-  const idx = all.findIndex(v => v.id === id);
-  if (idx < 0) { area.innerHTML = ''; return; }
-
-  // 現在の動画を除く全件（表示順のまま）
-  const candidates = all.filter((_, i) => i !== idx);
-
-  if (candidates.length === 0) { area.innerHTML = ''; return; }
-
-  area.innerHTML = `
-    <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
-    ${candidates.map((rv) => {
-      const ytId = _extractYtId(rv.emb || '');
-      const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
-      return `<div onclick="openVPanel('${rv.id}')" style="display:flex;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;transition:background .12s;border-top:1px solid var(--border2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-        <div style="width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)">
-          ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">` : ''}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${rv.title || '(タイトルなし)'}</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${rv.channel || ''}</div>
-        </div>
-      </div>`;
-    }).join('')}`;
 }
 
 export function closeVPanel() {
   try {
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
-    _stopTimeDisplay();
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
+    // YTプレイヤーを停止・破棄
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
     }
@@ -1007,8 +937,6 @@ export function closeVPanel() {
     if (iframeContainer) iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
     const panel = document.getElementById('vpanel');
     if (panel) panel.classList.remove('open');
-    const inner = document.getElementById('vpanelInner');
-    if (inner) inner.classList.remove('is-portrait');
     document.body.style.overflow = '';
     window.openVPanelId = null;
     document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
@@ -1019,26 +947,6 @@ export function closeVPanel() {
     document.body.style.overflow = '';
   }
 }
-
-function _vpUpdateOrientation() {
-  const inner = document.getElementById('vpanelInner');
-  if (!inner) return;
-  inner.classList.toggle('is-portrait', window.innerHeight > window.innerWidth);
-}
-
-window.addEventListener('resize', () => {
-  const panel = document.getElementById('vpanel');
-  if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
-});
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => {
-    window.scrollTo(0, 1);
-    setTimeout(() => {
-      const panel = document.getElementById('vpanel');
-      if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
-    }, 150);
-  }, 100);
-});
 
 // emb URLからYouTube video IDを抽出
 function _extractYtId(emb) {
@@ -1343,7 +1251,7 @@ export function vpTogDd(id, type) {
   if (isOpen) { dd.style.display = 'none'; return; }
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; }
+  if (inp) { inp.value = ''; inp.focus(); }
   vpRenderDdList(id, type, '');
 }
 
@@ -1432,15 +1340,7 @@ export function vpRemoveTag(id, type, val, el) {
 
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.vp-dd-wrap')) {
-    // 開いているddを探してチップ更新してから閉じる
-    document.querySelectorAll('.vp-dd').forEach(d => {
-      if (d.style.display !== 'none') {
-        // id="vp-dd-{type}-{videoId}" からtype/idを取得
-        const m = d.id.match(/^vp-dd-(\w+)-(.+)$/);
-        if (m) vpRefreshChips(m[2], m[1]);
-        d.style.display = 'none';
-      }
-    });
+    document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   }
 });
 
