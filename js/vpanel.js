@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.60 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.61 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -171,17 +171,23 @@ function _loopSVG() {
 function _abBarHTML() {
   const aLabel = _ab.a != null ? _formatTime(Math.floor(_ab.a)) : '--:--';
   const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
-  const dur = (_ab.a != null && _ab.b != null) ? Math.abs(_ab.b - _ab.a) + '秒' : '—';
   const hasConflict = _ab.a != null && _ab.b != null && _ab.a >= _ab.b;
-  const durColor = hasConflict ? 'color:var(--danger,#c84040)' : (_ab.loop ? 'color:var(--accent)' : 'color:var(--text3)');
-  return `<div id="vp-ab-bar" style="display:flex;gap:5px;padding:7px 10px;align-items:center;border-top:1px solid var(--border2)">
-    <button id="vp-ab-btn-a" onclick="vpAbOpenPanel('a')" style="${_abBtnStyleNew(_ab.a != null, _ab.loop && _ab.a != null)}">A: ${aLabel}</button>
+  const btnBase = 'padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
+  const btnA = _ab.a != null
+    ? btnBase + 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);'
+    : btnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
+  const btnB = _ab.b != null
+    ? btnBase + (hasConflict ? 'border:1.5px solid var(--danger,#c84040);background:var(--surface2);color:var(--danger,#c84040);' : 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);')
+    : btnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
+  const loopBtn = `padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;border:1px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--accent)' : 'var(--surface2)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};`;
+  return `<div id="vp-ab-bar" style="display:flex;gap:5px;padding:5px 10px;align-items:center;border-top:1px solid var(--border2)">
+    <button id="vp-ab-btn-a" onclick="vpAbOpenPanel('a')" style="${btnA}">A: ${aLabel}</button>
     <span style="font-size:9px;color:var(--text3);flex-shrink:0">↔</span>
-    <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${_abBtnStyleNew(_ab.b != null, _ab.loop && _ab.b != null)}">B: ${bLabel}</button>
-    <span style="font-family:'DM Mono',monospace;font-size:9px;${durColor};flex:1;text-align:center;min-width:0">${dur}</span>
-    <button onclick="vpAbToggleLoop()" style="${_loopBtnStyle()}" title="ABループ">${_loopSVG()}</button>
-    <button onclick="vpAbAddBm()" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0" title="ブックマークに追加">＋ブックマーク</button>
-    <button onclick="vpAbReset()" style="font-size:10px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>
+    <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${btnB}">B: ${bLabel}</button>
+    <span style="flex:1"></span>
+    <button onclick="vpAbToggleLoop()" style="${loopBtn}" title="ABループ">↻ ループ</button>
+    <button onclick="vpAbAddBm()" style="${btnBase}border:1px solid var(--border);background:var(--surface2);color:var(--text2);" title="ブックマークに追加">＋ BM</button>
+    <button onclick="vpAbReset()" style="${btnBase}border:1px solid var(--border);background:transparent;color:var(--text3);">✕</button>
   </div>
   <div id="vp-ab-quick-panel" style="display:none"></div>
   <div id="vp-ab-add-bm-row" style="display:none;padding:5px 10px 7px;border-top:1px solid var(--border2);background:var(--surface2)">
@@ -1426,7 +1432,15 @@ export function vpRemoveTag(id, type, val, el) {
 
 document.addEventListener('click', function(e) {
   if (!e.target.closest('.vp-dd-wrap')) {
-    document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
+    // 開いているddを探してチップ更新してから閉じる
+    document.querySelectorAll('.vp-dd').forEach(d => {
+      if (d.style.display !== 'none') {
+        // id="vp-dd-{type}-{videoId}" からtype/idを取得
+        const m = d.id.match(/^vp-dd-(\w+)-(.+)$/);
+        if (m) vpRefreshChips(m[2], m[1]);
+        d.style.display = 'none';
+      }
+    });
   }
 });
 
