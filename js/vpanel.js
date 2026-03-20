@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.68 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.69 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -794,6 +794,12 @@ function _onBmSliderInput(e) {
   const val = parseInt(sl.value);
   const v = (window.videos||[]).find(v => v.id === vid);
   if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
+  // 初回操作前にスナップショットを保存（なければ）
+  const snapKey = vid + '-' + idx;
+  if (!window._vpBmSnapshot) window._vpBmSnapshot = {};
+  if (!window._vpBmSnapshot[snapKey]) {
+    window._vpBmSnapshot[snapKey] = JSON.parse(JSON.stringify(v.bookmarks[idx]));
+  }
   if (field === 'start') v.bookmarks[idx].time = val;
   else v.bookmarks[idx].endTime = val;
   const disp = document.getElementById(`vp-tf-disp-${field}-${vid}-${idx}`);
