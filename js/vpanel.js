@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.54 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.55 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -912,7 +912,7 @@ export function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
 
-  // blur-area: 戻るボタン（案A）＋次の動画リスト（案3）
+  // blur-area: 次の動画リスト（現在の動画の前1件＋以降）
   _renderBlurArea(id);
 
   panel.classList.add('open');
@@ -923,76 +923,39 @@ export function openVPanel(id) {
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
 
-// ── blur-area: 戻るボタン＋次の動画リスト ──
+// ── blur-area: 次の動画リスト ──
 function _renderBlurArea(id) {
   const area = document.getElementById('vpanel-blur-area');
   if (!area) return;
 
-  const v = (window.videos||[]).find(v => v.id === id);
-  if (!v) return;
+  const all = window.videos || [];
+  const idx = all.findIndex(v => v.id === id);
+  if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 同タグ・同プレイリストの関連動画を最大5件取得（現在の動画を除く）
-  const related = _getRelatedVideos(v, 5);
+  // 前1件 + 現在以降の動画（現在は除く）
+  const candidates = [];
+  if (idx > 0) candidates.push(all[idx - 1]);
+  for (let i = idx + 1; i < all.length; i++) candidates.push(all[i]);
 
-  const relatedHTML = related.length > 0 ? `
-    <div style="padding:8px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
-    ${related.map(rv => {
-      const thumb = rv.thumb || `https://img.youtube.com/vi/${_extractYtId(rv.emb||'')}/mqdefault.jpg`;
-      return `<div onclick="openVPanel('${rv.id}')" style="display:flex;gap:8px;align-items:center;padding:5px 10px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-        <div style="width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3);position:relative">
-          <img src="${thumb}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${rv.title||'(タイトルなし)'}</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${rv.channel||''}</div>
-        </div>
-      </div>`;
-    }).join('')}
-  ` : `<div style="flex:1"></div>`;
+  if (candidates.length === 0) { area.innerHTML = ''; return; }
 
   area.innerHTML = `
-    <div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden">
-      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0) 0%,rgba(0,0,0,0.45) 100%);pointer-events:none;z-index:0"></div>
-      <button onclick="closeVPanel()" style="position:absolute;top:8px;left:8px;z-index:10;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.55);border:1.5px solid rgba(255,255,255,0.25);border-radius:20px;padding:5px 12px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,0.75)'" onmouseout="this.style.background='rgba(0,0,0,0.55)'">
-        <span style="font-size:12px;color:#fff">←</span>
-        <span style="font-size:11px;color:rgba(255,255,255,0.9);font-weight:600">戻る</span>
-      </button>
-      <div style="flex:1;overflow-y:auto;padding-top:40px;position:relative;z-index:1;-webkit-overflow-scrolling:touch;background:var(--surface)">
-        ${relatedHTML}
-      </div>
-    </div>`;
-}
-
-// 関連動画取得: 同プレイリスト優先、次に同タグ
-function _getRelatedVideos(v, limit) {
-  const all = window.videos || [];
-  const others = all.filter(x => x.id !== v.id);
-
-  // 同プレイリスト
-  const samePl = v.playlists?.length
-    ? others.filter(x => x.playlists?.some(p => v.playlists.includes(p)))
-    : [];
-
-  // 同タグ（tb/action/pos/tech）
-  const myTags = [...(v.tb||[]), ...(v.action||[]), ...(v.pos||[]), ...(v.tech||[])];
-  const sameTag = myTags.length
-    ? others.filter(x => {
-        const xTags = [...(x.tb||[]), ...(x.action||[]), ...(x.pos||[]), ...(x.tech||[])];
-        return xTags.some(t => myTags.includes(t));
-      })
-    : [];
-
-  // 重複排除してlimit件
-  const seen = new Set();
-  const result = [];
-  for (const rv of [...samePl, ...sameTag, ...others]) {
-    if (!seen.has(rv.id)) {
-      seen.add(rv.id);
-      result.push(rv);
-      if (result.length >= limit) break;
-    }
-  }
-  return result;
+    <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
+    ${candidates.map((rv, i) => {
+      const ytId = _extractYtId(rv.emb || '');
+      const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
+      const isPrev = i === 0 && idx > 0;
+      return `<div onclick="openVPanel('${rv.id}')" style="display:flex;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;transition:background .12s;border-top:1px solid var(--border2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <div style="position:relative;width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)">
+          ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">` : ''}
+          ${isPrev ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700">↑ 前</div>` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${rv.title || '(タイトルなし)'}</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${rv.channel || ''}</div>
+        </div>
+      </div>`;
+    }).join('')}`;
 }
 
 export function closeVPanel() {
