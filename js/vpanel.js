@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.50 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.52 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -914,12 +914,12 @@ export function openVPanel(id) {
 
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
-  // メイン画面をぼかす
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
 
-  // 縦横判定してis-portraitクラスを付与
-  _vpUpdateOrientation();
-}
+  // アドレスバーを隠してから縦横判定
+  // scrollTo(0,1)でアドレスバーを消し、その後dvhが確定してからレイアウトを適用
+  window.scrollTo(0, 1);
+  setTimeout(() => _vpUpdateOrientation(), 80);
 
 export function closeVPanel() {
   try {
@@ -959,8 +959,11 @@ window.addEventListener('resize', () => {
 });
 window.addEventListener('orientationchange', () => {
   setTimeout(() => {
-    const panel = document.getElementById('vpanel');
-    if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
+    window.scrollTo(0, 1);
+    setTimeout(() => {
+      const panel = document.getElementById('vpanel');
+      if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
+    }, 150);
   }, 100);
 });
 
