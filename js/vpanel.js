@@ -463,4 +463,5 @@ function _bookmarkListHTML(id) {
           <input id="vp-bm-lbl-${id}-${i}" type="text" value="${(bm.label||'').replace(/"/g,'&quot;')}" placeholder="ブックマーク名（空欄でも可）"
             style="flex:1;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0">
         </div>
+
         <div style="display:flex;gap:5px;a
