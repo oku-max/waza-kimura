@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.67 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.68 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -826,6 +826,12 @@ export function vpBmToggleEdit(id, idx) {
     delete window._vpBmExpanded[vid];
   } else {
     window._vpBmExpanded[vid] = idx;
+    // 編集開始時にスナップショットを保存
+    const v = (window.videos||[]).find(v => v.id === id);
+    if (v && v.bookmarks && v.bookmarks[idx]) {
+      if (!window._vpBmSnapshot) window._vpBmSnapshot = {};
+      window._vpBmSnapshot[id+'-'+idx] = JSON.parse(JSON.stringify(v.bookmarks[idx]));
+    }
   }
   _refreshBmList(id);
 }
@@ -857,6 +863,7 @@ export function vpBmSave(id, idx) {
   const newIdx = savedTime != null ? v.bookmarks.findIndex(b => b.time === savedTime) : idx;
   if (!window._vpBmExpanded) window._vpBmExpanded = {};
   delete window._vpBmExpanded[id];
+  if (window._vpBmSnapshot) delete window._vpBmSnapshot[id+'-'+idx];
   window.debounceSave?.();
   _refreshBmList(id, newIdx);
   window.toast?.('🔖 保存しました');
@@ -867,12 +874,19 @@ export function vpBmClose(id, idx) {
   if (!window._vpBmExpanded) window._vpBmExpanded = {};
   delete window._vpBmExpanded[id];
   if (window._vpBmActiveField) delete window._vpBmActiveField[id+'-'+idx];
+  if (window._vpBmSnapshot) delete window._vpBmSnapshot[id+'-'+idx];
   _refreshBmList(id);
 }
 
-// リセット（作業内容を元に戻す）
+// リセット（スナップショットから元の値に戻す）
 export function vpBmReset(id, idx) {
-  _refreshBmList(id); // 再描画で入力欄を元の値に戻す
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v || !v.bookmarks || !v.bookmarks[idx]) return;
+  const snap = window._vpBmSnapshot?.[id+'-'+idx];
+  if (snap) {
+    v.bookmarks[idx] = JSON.parse(JSON.stringify(snap));
+  }
+  _refreshBmList(id);
 }
 
 // ── VPanel オープン/クローズ（モバイル用） ──
