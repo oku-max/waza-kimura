@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.69 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.70 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -475,7 +475,7 @@ function _bookmarkListHTML(id) {
         <div style="border:1.5px solid ${startActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:6px;background:var(--surface);overflow:hidden">
           <div onclick="vpBmActivateField('${id}',${i},'start')"
             style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${startActive ? 'border-bottom:1px solid var(--accent)' : ''}">
-            <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${startActive ? 'var(--accent)' : 'var(--text3)'};flex-shrink:0">▶ 開始</span>
+            <span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:${startActive ? '#fff' : 'var(--text3)'};background:${startActive ? 'var(--accent)' : 'var(--surface3)'};padding:2px 7px;border-radius:4px;flex-shrink:0">▶ 開始</span>
             <span id="vp-tf-disp-start-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
             <span style="font-size:9px;color:var(--text3)">${startActive ? '編集中' : 'タップで編集'}</span>
           </div>
@@ -497,7 +497,7 @@ function _bookmarkListHTML(id) {
         <div style="border:1.5px solid ${endActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:8px;background:var(--surface);overflow:hidden">
           <div onclick="vpBmActivateField('${id}',${i},'end')"
             style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${endActive ? 'border-bottom:1px solid var(--accent)' : ''}">
-            <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')};flex-shrink:0">⏹ 終了</span>
+            <span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:${endActive ? '#fff' : (hasEnd ? 'var(--text2)' : 'var(--text3)')};background:${endActive ? 'var(--accent)' : 'var(--surface3)'};padding:2px 7px;border-radius:4px;flex-shrink:0">⏹ 終了</span>
             <span id="vp-tf-disp-end-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
             <span style="font-size:9px;color:var(--text3)">${endActive ? '編集中' : 'タップで編集'}</span>
           </div>
@@ -773,14 +773,15 @@ function _refreshBmList(id, flashIdx) {
       const target = el.querySelector(`[data-bm-idx="${flashIdx}"]`);
       if (target) {
         target.style.transition = 'none';
-        target.style.outline = '2.5px solid var(--accent,#c8831a)';
-        target.style.outlineOffset = '0px';
-        target.style.boxShadow = '0 0 0 4px rgba(200,131,26,0.25)';
+        target.style.outline = '3px solid var(--accent,#c8831a)';
+        target.style.outlineOffset = '2px';
+        target.style.boxShadow = '0 0 0 6px rgba(200,131,26,0.35)';
+        target.style.borderRadius = '6px';
         setTimeout(() => {
-          target.style.transition = 'outline .6s, box-shadow .6s';
-          target.style.outline = '2.5px solid transparent';
+          target.style.transition = 'outline 1.2s, box-shadow 1.2s';
+          target.style.outline = '3px solid transparent';
           target.style.boxShadow = 'none';
-        }, 50);
+        }, 400);
         // スクロールして見えるように
         setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 30);
       }
