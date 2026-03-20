@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.58 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.59 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -960,27 +960,24 @@ function _renderBlurArea(id) {
   const area = document.getElementById('vpanel-blur-area');
   if (!area) return;
 
-  const all = window.videos || [];
+  // フィルター済み配列を優先、なければ全件
+  const all = window.filteredVideos || window.videos || [];
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 前1件 + 現在以降の動画（現在は除く）
-  const candidates = [];
-  if (idx > 0) candidates.push(all[idx - 1]);
-  for (let i = idx + 1; i < all.length; i++) candidates.push(all[i]);
+  // 現在の動画を除く全件（前も後ろも表示順のまま）
+  const candidates = all.filter((_, i) => i !== idx);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
 
   area.innerHTML = `
     <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
-    ${candidates.map((rv, i) => {
+    ${candidates.map((rv) => {
       const ytId = _extractYtId(rv.emb || '');
       const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
-      const isPrev = i === 0 && idx > 0;
       return `<div onclick="openVPanel('${rv.id}')" style="display:flex;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;transition:background .12s;border-top:1px solid var(--border2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-        <div style="position:relative;width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)">
+        <div style="width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)">
           ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">` : ''}
-          ${isPrev ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700">↑ 前</div>` : ''}
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${rv.title || '(タイトルなし)'}</div>
