@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.59</title>
+<title>WAZA KIMURA v47.60</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -126,11 +126,10 @@
   const _origAF = window.AF;
   window.AF = function() {
     _origAF.apply(this, arguments);
-    // #cardList内のcard要素のDOM順でフィルター済み配列を更新
-    // カードIDは "card-{video.id}" 形式
-    const cardEls = document.querySelectorAll('#cardList [id^="card-"]');
-    if (cardEls.length > 0) {
-      const ids = [...cardEls].map(el => el.id.replace(/^card-/, ''));
+    // .cardクラスを持つ要素のみ対象（子要素の誤ヒットを防ぐ）
+    const cards = document.querySelectorAll('#cardList .card[id^="card-"]');
+    if (cards.length > 0) {
+      const ids = [...cards].map(el => el.id.replace(/^card-/, ''));
       window.filteredVideos = ids.map(id => (window.videos||[]).find(v => v.id === id)).filter(Boolean);
     }
   };
@@ -180,6 +179,7 @@
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;
   window.vpSkip               = vpSkip;
+  window.vpProgressClick      = vpProgressClick;
   window.vpAbSet              = vpAbSet;
   window.vpAbToggleLoop       = vpAbToggleLoop;
   window.vpAbReset            = vpAbReset;
@@ -219,25 +219,30 @@
 <style>
 /* ══ Vパネル レイアウト ══ */
 
-/* vpanel本体: position固定でオーバーレイ */
+/* vpanel本体 */
 #vpanel .vpanel-inner,
 #vpanelInner {
   display: flex !important;
   flex-direction: row !important;
-  align-items: flex-start !important;
-  height: auto !important;
-  overflow: visible !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
 }
 
-/* 左カラム */
+/* 左カラム: position:relative で戻るボタンの基準に */
 #vpanel-left-col {
-  display: flex !important;
-  flex-direction: column !important;
-  width: 70% !important;
-  min-width: 200px !important;
-  flex-shrink: 0 !important;
-  background: #000 !important;
-  height: auto !important;
+  display: flex;
+  flex-direction: column;
+  width: 70%;
+  min-width: 180px;
+  flex-shrink: 0;
+  background: var(--bg);
+  height: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
 /* 動画: 幅から16:9で高さ自動 */
@@ -263,21 +268,45 @@
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
 
-/* ぼかしエリア: メイン画面に filter:blur を掛けてぼかして見せる */
+/* blur-area: 次の動画リスト */
 #vpanel-blur-area {
   flex: 1;
-  min-height: 40px;
-  cursor: pointer;
+  min-height: 60px;
   position: relative;
-  overflow: hidden;
-  background: transparent;
+  overflow-y: auto;
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
 }
-/* メイン画面側にblurを掛けるクラス */
 .vpanel-main-blur {
   filter: blur(4px) !important;
   transition: filter .2s;
   pointer-events: none;
 }
+
+/* 戻るボタン: #vpanel-left-col左上に固定 */
+#vpanel-back-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0,0,0,0.6);
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background .15s;
+  pointer-events: auto;
+}
+#vpanel-back-btn:hover { background: rgba(0,0,0,0.8); }
 
 /* リサイザー */
 #vpanel-col-resizer {
@@ -287,6 +316,7 @@
   cursor: col-resize;
   align-self: stretch;
   transition: background .15s;
+  z-index: 10;
 }
 #vpanel-col-resizer:hover,
 #vpanel-col-resizer.dragging { background: var(--accent); }
@@ -299,30 +329,37 @@
   flex-direction: column !important;
   overflow: hidden !important;
   background: var(--surface) !important;
-  height: auto !important;
+  height: 100% !important;
 }
 #vpanel-ab-area {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
 }
 #vpanel-edit-wrap {
-  max-height: 60vh;
+  flex: 1 !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
 }
 
-/* スマホ縦向きのみ上下配置 */
-@media (orientation: portrait) and (max-width: 599px) {
-  #vpanelInner {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
-  #vpanel-left-col {
-    width: 100% !important;
-  }
-  #vpanel-blur-area { display: none !important; }
-  #vpanel-col-resizer { display: none !important; }
-  #vpanel-edit-wrap { max-height: 45vh; }
+/* 縦長モード（JSがis-portraitクラスを付与） */
+#vpanelInner.is-portrait {
+  flex-direction: column !important;
+  align-items: stretch !important;
 }
+#vpanelInner.is-portrait #vpanel-left-col {
+  width: 100% !important;
+  height: auto !important;
+  flex-shrink: 0 !important;
+}
+#vpanelInner.is-portrait #vpanel-right-col {
+  flex: 1 !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+#vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
+#vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
+#vpanelInner.is-portrait #vpanel-back-btn { display: none !important; }
 </style>
 </head>
 <body>
@@ -3912,10 +3949,11 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
     <!-- 左カラム: 動画 + タイトル + スキップボタン + ぼかし余白 -->
     <div id="vpanel-left-col">
+      <button id="vpanel-back-btn" onclick="closeVPanel()">← 戻る</button>
       <div id="vpanel-iframe-container"><div id="vpanel-yt-player"></div></div>
       <div id="vpanel-title-area" style="background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area"></div>
-      <div id="vpanel-blur-area" onclick="closeVPanel()"></div>
+      <div id="vpanel-blur-area"></div>
     </div>
     <!-- ドラッグリサイザー -->
     <div id="vpanel-col-resizer" title="ドラッグで幅を調整"></div>
