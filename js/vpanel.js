@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.61 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.66 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -390,9 +390,7 @@ export function vpAbAddBm() {
     const inp = document.getElementById('vp-ab-bm-label');
     if (inp) {
       const hasAB = _ab.a != null && _ab.b != null;
-      inp.placeholder = hasAB
-        ? `AB: ${_formatTime(_ab.a)} → ${_formatTime(_ab.b)}`
-        : _ab.a != null ? `開始: ${_formatTime(_ab.a)}` : 'ブックマーク名（空欄でも可）';
+      inp.placeholder = 'ブックマーク名（空欄でも可）';
       inp.focus();
     }
   }
@@ -478,7 +476,7 @@ function _bookmarkListHTML(id) {
           <div onclick="vpBmActivateField('${id}',${i},'start')"
             style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${startActive ? 'border-bottom:1px solid var(--accent)' : ''}">
             <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${startActive ? 'var(--accent)' : 'var(--text3)'};flex-shrink:0">▶ 開始</span>
-            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
+            <span id="vp-tf-disp-start-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
             <span style="font-size:9px;color:var(--text3)">${startActive ? '編集中' : 'タップで編集'}</span>
           </div>
           ${startActive ? `<div style="padding:8px 10px">
@@ -500,7 +498,7 @@ function _bookmarkListHTML(id) {
           <div onclick="vpBmActivateField('${id}',${i},'end')"
             style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${endActive ? 'border-bottom:1px solid var(--accent)' : ''}">
             <span style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')};flex-shrink:0">⏹ 終了</span>
-            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
+            <span id="vp-tf-disp-end-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
             <span style="font-size:9px;color:var(--text3)">${endActive ? '編集中' : 'タップで編集'}</span>
           </div>
           ${endActive ? `<div style="padding:8px 10px">
@@ -1343,7 +1341,7 @@ export function vpTogDd(id, type) {
   if (isOpen) { dd.style.display = 'none'; return; }
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) { inp.value = ''; }
   vpRenderDdList(id, type, '');
 }
 
