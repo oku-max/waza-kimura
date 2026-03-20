@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.55 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.57 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -51,7 +51,12 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
       events: {
         onReady: (e) => {
           _ytPlayerReady = true;
+          _startProgressTimer();
           if (onReady) onReady(e);
+        },
+        onStateChange: (e) => {
+          if (e.data === 1) { _startProgressTimer(); }
+          else { _stopProgressTimer(); _updateProgress(); }
         },
         onError: (e) => {
           console.warn('YT player error:', e.data);
@@ -89,29 +94,96 @@ function _formatTime(sec) {
   return m + ':' + String(s).padStart(2, '0');
 }
 
-// ── スキップボタンHTML ──
+
+export function vpSkip(sec) {
+  const cur = _getCurrentTime();
+  if (cur == null) { window.toast?.('動画を再生してからスキップしてください'); return; }
+  const newPos = Math.max(0, cur + sec);
+  _seekTo(newPos);
+  _showSkipToast(sec, newPos);
+}
+
+// スキップトースト
+let _skipToastTimer = null;
+function _showSkipToast(sec, newPos) {
+  const container = document.getElementById('vpanel-iframe-container');
+  if (!container) return;
+  let toast = document.getElementById('vp-skip-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'vp-skip-toast';
+    toast.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(15,15,15,0.82);border-radius:10px;padding:8px 16px;pointer-events:none;z-index:30;display:flex;align-items:baseline;gap:8px;white-space:nowrap;transition:opacity .25s';
+    container.appendChild(toast);
+  }
+  const label = sec > 0 ? `+${sec}s` : `${sec}s`;
+  const curStr = _formatTime(Math.floor(newPos));
+  let durPart = '';
+  try {
+    const dur = _ytPlayer?.getDuration?.();
+    if (dur && dur > 0) durPart = `<span style="font-size:12px;color:rgba(255,255,255,0.45);font-family:'DM Mono',monospace">/ ${_formatTime(Math.floor(dur))}</span>`;
+  } catch(e) {}
+  toast.innerHTML = `<span style="font-size:13px;color:rgba(255,255,255,0.55);font-family:'DM Mono',monospace">${label}</span><span style="font-size:17px;font-weight:600;color:#fff;font-family:'DM Mono',monospace">${curStr}</span>${durPart}`;
+  toast.style.opacity = '1';
+  clearTimeout(_skipToastTimer);
+  _skipToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 1200);
+}
+
+// スキップボタンHTML（プログレスバー付き）
 function _skipBtnsHTML() {
   const btns = [
-    {sec:-60, label:'-1m'},
-    {sec:-30, label:'-30s'},
-    {sec:-10, label:'-10s'},
-    {sec: -3, label:'-3s'},
-    {sec:  3, label:'+3s'},
-    {sec: 10, label:'+10s'},
-    {sec: 30, label:'+30s'},
-    {sec: 60, label:'+1m'},
+    {sec:-60, label:'-1m'},{sec:-30, label:'-30s'},{sec:-10, label:'-10s'},{sec:-3, label:'-3s'},
+    {sec:3, label:'+3s'},{sec:10, label:'+10s'},{sec:30, label:'+30s'},{sec:60, label:'+1m'},
   ];
   const btnStyle = 'flex:1;padding:3px 2px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;text-align:center';
   const sep = '<div style="width:2px;background:var(--border);height:20px;align-self:center;flex-shrink:0"></div>';
   const left  = btns.slice(0,4).map(b => `<button onclick="vpSkip(${b.sec})" style="${btnStyle}">${b.label}</button>`).join('');
   const right = btns.slice(4).map(b => `<button onclick="vpSkip(${b.sec})" style="${btnStyle}">${b.label}</button>`).join('');
-  return `<div style="display:flex;gap:3px;padding:5px 10px;justify-content:center;align-items:center">${left}${sep}${right}</div>`;
+  return `<div style="padding:5px 10px 2px;background:var(--surface)">
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span id="vp-time-cur" style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text3)">0:00</span>
+      <span id="vp-time-dur" style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text3)">--:--</span>
+    </div>
+    <div id="vp-progress-track" onclick="vpProgressClick(event)" style="width:100%;height:3px;background:var(--border);border-radius:0;cursor:pointer;position:relative;overflow:hidden">
+      <div id="vp-progress-bar" style="height:100%;width:0%;background:var(--accent,#c8831a);transition:width .4s linear;pointer-events:none"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:3px;padding:4px 10px 5px;justify-content:center;align-items:center">${left}${sep}${right}</div>`;
 }
 
-export function vpSkip(sec) {
-  const cur = _getCurrentTime();
-  if (cur == null) { window.toast?.('動画を再生してからスキップしてください'); return; }
-  _seekTo(Math.max(0, cur + sec));
+// プログレスバー更新
+let _progressTimer = null;
+function _startProgressTimer() {
+  _stopProgressTimer();
+  _progressTimer = setInterval(_updateProgress, 500);
+  _updateProgress();
+}
+function _stopProgressTimer() {
+  if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
+}
+function _updateProgress() {
+  if (!_ytPlayer || !_ytPlayerReady) return;
+  try {
+    const cur = _ytPlayer.getCurrentTime?.() ?? 0;
+    const dur = _ytPlayer.getDuration?.() ?? 0;
+    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+    const bar = document.getElementById('vp-progress-bar');
+    const timeCur = document.getElementById('vp-time-cur');
+    const timeDur = document.getElementById('vp-time-dur');
+    if (bar) bar.style.width = pct + '%';
+    if (timeCur) timeCur.textContent = _formatTime(Math.floor(cur));
+    if (timeDur) timeDur.textContent = dur > 0 ? _formatTime(Math.floor(dur)) : '--:--';
+  } catch(e) {}
+}
+export function vpProgressClick(e) {
+  if (!_ytPlayer || !_ytPlayerReady) return;
+  try {
+    const track = document.getElementById('vp-progress-track');
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const dur = _ytPlayer.getDuration?.() ?? 0;
+    if (dur > 0) _seekTo(Math.floor(ratio * dur));
+  } catch(e) {}
 }
 
 // ── AB ループ ──
@@ -912,9 +984,6 @@ export function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
 
-  // blur-area: 次の動画リスト（現在の動画の前1件＋以降）
-  _renderBlurArea(id);
-
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
@@ -923,44 +992,10 @@ export function openVPanel(id) {
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
 
-// ── blur-area: 次の動画リスト ──
-function _renderBlurArea(id) {
-  const area = document.getElementById('vpanel-blur-area');
-  if (!area) return;
-
-  const all = window.videos || [];
-  const idx = all.findIndex(v => v.id === id);
-  if (idx < 0) { area.innerHTML = ''; return; }
-
-  // 前1件 + 現在以降の動画（現在は除く）
-  const candidates = [];
-  if (idx > 0) candidates.push(all[idx - 1]);
-  for (let i = idx + 1; i < all.length; i++) candidates.push(all[i]);
-
-  if (candidates.length === 0) { area.innerHTML = ''; return; }
-
-  area.innerHTML = `
-    <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
-    ${candidates.map((rv, i) => {
-      const ytId = _extractYtId(rv.emb || '');
-      const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
-      const isPrev = i === 0 && idx > 0;
-      return `<div onclick="openVPanel('${rv.id}')" style="display:flex;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;transition:background .12s;border-top:1px solid var(--border2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-        <div style="position:relative;width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)">
-          ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">` : ''}
-          ${isPrev ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700">↑ 前</div>` : ''}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${rv.title || '(タイトルなし)'}</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${rv.channel || ''}</div>
-        </div>
-      </div>`;
-    }).join('')}`;
-}
-
 export function closeVPanel() {
   try {
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
+    _stopProgressTimer();
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
