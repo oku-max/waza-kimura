@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.75 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.76 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -178,8 +178,8 @@ function _loopSectionHTML() {
   const hasA = _ab.a != null;
   const hasB = _ab.b != null;
   const hasConflict = hasA && hasB && _ab.a >= _ab.b;
-  const loopIconSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-loop,#2e7bd6)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
-  const sectionBase = 'border-top:2.5px solid #2e7bd6;border-bottom:2.5px solid #2e7bd6;';
+  const loopIconSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+  const sectionBase = 'border-top:2px solid var(--border);border-bottom:2px solid var(--border);';
 
   // 折りたたみ状態
   const statusText = _ab.loop
@@ -189,10 +189,10 @@ function _loopSectionHTML() {
       : `<span style="font-size:10px;color:var(--text3);">未設定</span>`;
   const expandLabel = isExpanded ? '∧ 閉じる' : (_ab.loop ? '編集 ∨' : '設定する ∨');
 
-  const collapsedRow = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#ebf5ff;">
-    <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#185fa5;flex:1;">${loopIconSVG}ループ再生</span>
+  const collapsedRow = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2);">
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--text2);flex:1;">${loopIconSVG}ループ再生</span>
     ${statusText}
-    <button onclick="vpAbToggleExpand()" style="font-size:10px;padding:2px 10px;border:1px solid #2e7bd6;border-radius:12px;background:transparent;color:#2e7bd6;cursor:pointer;white-space:nowrap;flex-shrink:0;">${expandLabel}</button>
+    <button onclick="vpAbToggleExpand()" style="font-size:10px;padding:2px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;">${expandLabel}</button>
   </div>`;
 
   if (!isExpanded) {
@@ -223,7 +223,7 @@ function _loopSectionHTML() {
 
   return `<div id="vp-loop-section" style="${sectionBase}">
     ${collapsedRow}
-    <div style="padding:8px 12px 10px;background:#ebf5ff;">
+    <div style="padding:8px 12px 10px;background:var(--surface2);">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <button onclick="vpAbSwitchField('start')" style="${startStyle}">開始: ${aLabel}</button>
         <span style="font-size:10px;color:#2e7bd6;">↔</span>
@@ -617,7 +617,7 @@ function _bookmarkListHTML(id) {
       : 'border-bottom:1px solid var(--border);padding:6px 8px;opacity:0.45';
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
-        <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:"DM Mono",monospace;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
+        <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
         <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
         <button onclick="vpBmToggleEdit('${id}',${i})" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer;font-family:inherit${isExpanded ? ';color:var(--accent);border-color:var(--accent)' : ''}">編集</button>
       </div>
