@@ -189,9 +189,16 @@ function _loopSectionHTML() {
       : `<span style="font-size:10px;color:var(--text3);">未設定</span>`;
   const expandLabel = isExpanded ? '∧ 閉じる' : (_ab.loop ? '編集 ∨' : '設定する ∨');
 
+  // 時間が両方設定済みならON/OFFボタンを表示
+  const canToggle = hasA && hasB;
+  const toggleBtn = canToggle
+    ? `<button onclick="vpAbToggleLoop()" style="font-size:10px;padding:2px 8px;border:1px solid ${_ab.loop ? '#2e7bd6' : 'var(--border)'};border-radius:12px;background:${_ab.loop ? '#2e7bd6' : 'var(--surface)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${_ab.loop ? 'OFF' : 'ON'}</button>`
+    : '';
+
   const collapsedRow = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2);">
     <span class="vp-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:0;">${loopIconSVG}ループ再生</span>
     ${statusText}
+    ${toggleBtn}
     <button onclick="vpAbToggleExpand()" style="font-size:10px;padding:2px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;">${expandLabel}</button>
   </div>`;
 
@@ -892,8 +899,25 @@ function _onBmSliderInput(e) {
   }
   if (field === 'start') v.bookmarks[idx].time = val;
   else v.bookmarks[idx].endTime = val;
-  const disp = document.getElementById(`vp-tf-disp-${field}-${vid}-${idx}`);
-  if (disp) disp.textContent = _formatTime(val);
+  // 新タブUI: スライダーの近くにある大きな時間表示を更新
+  // data-bm-idx行の中のDM Mono 20px要素を探す
+  const row = sl.closest('[data-bm-idx]');
+  if (row) {
+    // 新UIの時間表示（font-size:20px のDM Mono div）
+    const timeDisp = row.querySelector('div[style*="font-size:20px"]');
+    if (timeDisp) timeDisp.textContent = _formatTime(val);
+    // 旧UI対応（念のため）
+    const oldDisp = document.getElementById(`vp-tf-disp-${field}-${vid}-${idx}`);
+    if (oldDisp) oldDisp.textContent = _formatTime(val);
+    // ブックマーク行の時間バッジも更新
+    const timeBadge = row.querySelector('button[style*="DM Mono"], button[style*="font-family"]');
+    if (timeBadge) {
+      const bm = v.bookmarks[idx];
+      const hasEnd = bm.endTime != null;
+      const tl = hasEnd ? `${_formatTime(bm.time)} → ${_formatTime(bm.endTime)}` : _formatTime(bm.time);
+      timeBadge.textContent = tl;
+    }
+  }
 }
 
 // BMタイムスタンプタップの挙動
