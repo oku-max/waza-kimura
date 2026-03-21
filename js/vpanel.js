@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.72 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.73 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -153,9 +153,9 @@ function _abBtnStyle(active) {
 }
 
 function _abBtnStyleNew(isSet, isLoop) {
-  if (isLoop) return 'font-family:"DM Mono",monospace;font-size:11px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(var(--accent-rgb,200,131,26),.12);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
-  if (isSet)  return 'font-family:"DM Mono",monospace;font-size:11px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
-  return 'font-family:"DM Mono",monospace;font-size:11px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
+  if (isLoop) return 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(var(--accent-rgb,200,131,26),.12);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
+  if (isSet)  return 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
+  return 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
 }
 
 function _loopBtnStyle() {
@@ -173,20 +173,23 @@ function _abBarHTML() {
   const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
   const hasConflict = _ab.a != null && _ab.b != null && _ab.a >= _ab.b;
   const btnBase = 'padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
+  const abBtnBase = 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;';
   const btnA = _ab.a != null
-    ? btnBase + 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);'
-    : btnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
+    ? abBtnBase + 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);'
+    : abBtnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
   const btnB = _ab.b != null
-    ? btnBase + (hasConflict ? 'border:1.5px solid var(--danger,#c84040);background:var(--surface2);color:var(--danger,#c84040);' : 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);')
-    : btnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
-  const loopBtn = `padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;border:1px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--accent)' : 'var(--surface2)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};`;
+    ? abBtnBase + (hasConflict ? 'border:1.5px solid var(--danger,#c84040);background:var(--surface2);color:var(--danger,#c84040);' : 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);')
+    : abBtnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
+  const loopIconStyle = `width:28px;height:28px;border-radius:6px;border:1.5px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--text)' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .12s`;
+  const loopLabelStyle = `display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap;flex-shrink:0;font-family:inherit;`;
+  const loopIconSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
   return `<div id="vp-ab-bar" style="display:flex;gap:5px;padding:5px 10px;align-items:center;border-top:1px solid var(--border2)">
+    <span style="${loopLabelStyle}">${loopIconSVG}ループ再生</span>
     <button id="vp-ab-btn-a" onclick="vpAbOpenPanel('a')" style="${btnA}">A: ${aLabel}</button>
     <span style="font-size:9px;color:var(--text3);flex-shrink:0">↔</span>
     <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${btnB}">B: ${bLabel}</button>
+    <button onclick="vpAbToggleLoop()" style="${loopIconStyle}" title="ABループ">${_loopSVG()}</button>
     <span style="flex:1"></span>
-    <button onclick="vpAbToggleLoop()" style="${loopBtn}" title="ABループ">${_loopSVG()}</button>
-    <button onclick="vpAbAddBm()" style="${btnBase}border:1px solid var(--border);background:var(--surface2);color:var(--text2);" title="ブックマークに追加">＋ブックマーク</button>
     <button onclick="vpAbReset()" style="${btnBase}border:1px solid var(--border);background:transparent;color:var(--text3);">✕</button>
   </div>
   <div id="vp-ab-quick-panel" style="display:none"></div>
@@ -209,6 +212,17 @@ function _abRefresh(id) {
   if (abArea) abArea.innerHTML = html;
   // クイックパネルが開いていれば再バインド
   if (_ab.setMode) _abOpenQuickPanel(_ab.setMode, id);
+  // ブックマーク追加ボタンの文言・動作をAB状態に応じて更新
+  const vid = id || window.openVPanelId;
+  const bmAddBtn = document.getElementById('vp-bm-add-btn-' + vid);
+  if (bmAddBtn) {
+    const hasAB = _ab.a != null && _ab.b != null;
+    bmAddBtn.textContent = hasAB ? '＋ ループ区間をブックマーク' : '＋ 現在位置でブックマーク';
+    bmAddBtn.setAttribute('onclick', hasAB ? "vpAddAbBm('" + vid + "')" : "vpAddBm('" + vid + "')");
+    bmAddBtn.style.border = hasAB ? '1px solid var(--accent)' : '1px solid var(--border)';
+    bmAddBtn.style.color = hasAB ? 'var(--accent)' : 'var(--text2)';
+    bmAddBtn.style.fontWeight = hasAB ? '600' : '';
+  }
 }
 
 export function vpAbSet(point) {
@@ -536,7 +550,7 @@ function _bookmarkListHTML(id) {
       : 'border-bottom:1px solid var(--border);padding:6px 8px;opacity:0.45';
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
-        <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
+        <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:"DM Mono",monospace;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
         <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
         <button onclick="vpBmToggleEdit('${id}',${i})" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:9px;cursor:pointer;font-family:inherit${isExpanded ? ';color:var(--accent);border-color:var(--accent)' : ''}">編集</button>
       </div>
@@ -553,9 +567,18 @@ function _adjBtnStyle(bg, color) {
 }
 
 function _bookmarkSectionHTML(id) {
+  const hasAB = _ab.a != null && _ab.b != null;
+  const bmBtnLabel = hasAB ? '＋ ループ区間をブックマーク' : '＋ 現在位置でブックマーク';
+  const bmBtnOnclick = hasAB ? `vpAddAbBm('${id}')` : `vpAddBm('${id}')`;
+  const bmBtnStyle = hasAB
+    ? 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600;'
+    : 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">
-      <span class="vp-lbl">🔖 ブックマーク</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px">
+        <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
+        <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
+      </div>
       <div style="width:100%">
         <div id="vp-bm-list-${id}">${_bookmarkListHTML(id)}</div>
       </div>
@@ -727,6 +750,18 @@ export function vpAddBm(id) {
   _refreshBmList(id);
   window.debounceSave?.();
   window.toast?.('🔖 ' + _formatTime(time) + ' を記録しました');
+}
+
+export function vpAddAbBm(id) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v) return;
+  if (_ab.a == null || _ab.b == null) { window.toast?.('A点・B点をセットしてください'); return; }
+  if (!v.bookmarks) v.bookmarks = [];
+  v.bookmarks.push({ time: _ab.a, endTime: _ab.b, label: '', note: '' });
+  v.bookmarks.sort((a, b) => a.time - b.time);
+  _refreshBmList(id);
+  window.debounceSave?.();
+  window.toast?.('🔖 ' + _formatTime(_ab.a) + ' → ' + _formatTime(_ab.b) + ' を記録しました');
 }
 
 export function vpDeleteBm(id, idx) {
