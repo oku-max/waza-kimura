@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.76 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.77 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -614,7 +614,7 @@ function _bookmarkListHTML(id) {
     // 編集中: アクセントカラー背景＋左ボーダー強調、非編集中: グレーアウト
     const rowStyle = isExpanded
       ? 'border-bottom:1px solid var(--border);padding:6px 8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent);margin:2px 0;border-radius:4px'
-      : 'border-bottom:1px solid var(--border);padding:6px 8px;opacity:0.45';
+      : 'border-bottom:1px solid var(--border);padding:6px 8px;';
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
