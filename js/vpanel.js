@@ -183,7 +183,7 @@ function _loopSectionHTML() {
 
   // 折りたたみ状態
   const statusText = _ab.loop
-    ? `<span style="font-size:10px;padding:1px 8px;border-radius:10px;background:#2e7bd6;color:#fff;font-weight:600;white-space:nowrap;">🔁 ON &nbsp;${aLabel} → ${bLabel}</span>`
+    ? `<span onclick="vpAbToggleLoop()" style="font-size:10px;padding:1px 8px;border-radius:10px;background:#2e7bd6;color:#fff;font-weight:600;white-space:nowrap;cursor:pointer;" title="タップでループOFF">🔁 ON &nbsp;${aLabel} → ${bLabel} ✕</span>`
     : (hasA || hasB)
       ? `<span style="font-size:10px;color:var(--text3);">${aLabel} → ${bLabel}</span>`
       : `<span style="font-size:10px;color:var(--text3);">未設定</span>`;
@@ -269,7 +269,7 @@ function _abRefresh(id) {
   const vid = id || window.openVPanelId;
   const bmAddBtn = document.getElementById('vp-bm-add-btn-' + vid);
   if (bmAddBtn) {
-    const hasAB = _ab.a != null && _ab.b != null;
+    const hasAB = _ab.a != null && _ab.b != null && _ab.loop;
     bmAddBtn.textContent = hasAB ? '＋ ループ区間をブックマーク' : '＋ 現在位置でブックマーク';
     bmAddBtn.setAttribute('onclick', hasAB ? "vpAddAbBm('" + vid + "')" : "vpAddBm('" + vid + "')");
     bmAddBtn.style.border = hasAB ? '1px solid var(--accent)' : '1px solid var(--border)';
@@ -538,73 +538,63 @@ function _bookmarkListHTML(id) {
     const startActive = activeField === 'start';
     const endActive   = activeField === 'end';
 
+    // タブ式統合エディタ（ループ再生と同じUI）
+    const curVal = startActive ? bm.time : (hasEnd ? bm.endTime : bm.time);
+    const adjBtnsStart = [-10,-5,-3,-1,1,3,5,10].map(d =>
+      `<button onclick="vpAdjustBmField('${id}',${i},'start',${d})" style="${_adjBtnStyle()}">${d>0?'+':''}${d}s</button>`
+    ).join('');
+    const adjBtnsEnd = [-10,-5,-3,-1,1,3,5,10].map(d =>
+      `<button onclick="vpAdjustBmField('${id}',${i},'end',${d})" style="${_adjBtnStyle()}">${d>0?'+':''}${d}s</button>`
+    ).join('');
+
+    const tabStyleStart = startActive
+      ? 'flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);background:var(--accent);color:#fff;'
+      : 'flex:1;text-align:center;font-size:11px;font-weight:500;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);color:var(--text2);background:var(--surface2);';
+    const tabStyleEnd = endActive
+      ? 'flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;background:var(--accent);color:#fff;'
+      : 'flex:1;text-align:center;font-size:11px;font-weight:500;padding:6px 4px;cursor:pointer;color:var(--text2);background:var(--surface2);';
+
     const editorHTML = isExpanded ? `
       <div style="padding:8px 0 2px">
-        <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-          <input id="vp-bm-lbl-${id}-${i}" type="text" value="${(bm.label||'').replace(/"/g,'&quot;')}" placeholder="ブックマーク名（空欄でも可）"
-            style="flex:1;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0">
-        </div>
-        <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px">
-          <input id="vp-bm-note-${id}-${i}" type="text" value="${(bm.note||'').replace(/"/g,'&quot;')}" placeholder="コメント（空欄でも可）"
-            style="flex:1;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0">
-        </div>
+        <input id="vp-bm-lbl-${id}-${i}" type="text" value="${(bm.label||'').replace(/"/g,'&quot;')}" placeholder="ブックマーク名（空欄でも可）"
+          style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0;box-sizing:border-box;margin-bottom:5px;">
+        <input id="vp-bm-note-${id}-${i}" type="text" value="${(bm.note||'').replace(/"/g,'&quot;')}" placeholder="コメント（空欄でも可）"
+          style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0;box-sizing:border-box;margin-bottom:8px;">
 
-        <!-- 開始フィールド（アコーディオン） -->
-        <div style="border:1.5px solid ${startActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:6px;background:var(--surface);overflow:hidden">
-          <div onclick="vpBmActivateField('${id}',${i},'start')"
-            style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${startActive ? 'border-bottom:1px solid var(--accent)' : ''}">
-            <span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:${startActive ? '#fff' : 'var(--text3)'};background:${startActive ? 'var(--accent)' : 'var(--surface3)'};padding:2px 7px;border-radius:4px;flex-shrink:0">▶ 開始</span>
-            <span id="vp-tf-disp-start-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${startActive ? 'var(--accent)' : 'var(--text2)'}">${_formatTime(bm.time)}</span>
-            <span style="font-size:9px;color:var(--text3)">${startActive ? '編集中' : 'タップで編集'}</span>
+        <!-- タブ式エディタ -->
+        <div style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;background:var(--surface);">
+          <div style="display:flex;border-bottom:0.5px solid var(--border);">
+            <div onclick="vpBmActivateField('${id}',${i},'start')" style="${tabStyleStart}">▶ 開始</div>
+            <div onclick="vpBmActivateField('${id}',${i},'end')" style="${tabStyleEnd}">⏹ 終了</div>
           </div>
-          ${startActive ? `<div style="padding:8px 10px">
-            <div style="margin-bottom:8px">
-              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:4px"><span>0:00</span><span>—</span></div>
-              <input type="range" class="vp-bm-sl" id="vp-sl-start-${id}-${i}" data-vid="${id}" data-idx="${i}" data-field="start"
-                min="0" max="600" value="${bm.time}" step="1"
-                style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none">
+          <div style="padding:8px 10px;">
+            <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;">
+              ${startActive ? _formatTime(bm.time) : (hasEnd ? _formatTime(bm.endTime) : '——')}
             </div>
-            <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
-              ${fineButtons('start')}
-              <button onclick="vpSetBmFieldToCurrent('${id}',${i},'start')" style="${_adjBtnStyle('var(--accent)','#fff')}">現在地</button>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-bm-sl-dur-${id}-${i}">—</span></div>
+            <input type="range" class="vp-bm-sl" id="vp-sl-${startActive?'start':'end'}-${id}-${i}"
+              data-vid="${id}" data-idx="${i}" data-field="${startActive?'start':'end'}"
+              min="0" max="600" value="${curVal}" step="1"
+              style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
+            <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
+              ${startActive ? adjBtnsStart : adjBtnsEnd}
+              <button onclick="vpSetBmFieldToCurrent('${id}',${i},'${startActive?'start':'end'}')" style="${_adjBtnStyle('var(--accent)','#fff')}">現在地</button>
             </div>
-          </div>` : ''}
-        </div>
-
-        <!-- 終了フィールド（アコーディオン） -->
-        <div style="border:1.5px solid ${endActive ? 'var(--accent)' : 'var(--border)'};border-radius:8px;margin-bottom:8px;background:var(--surface);overflow:hidden">
-          <div onclick="vpBmActivateField('${id}',${i},'end')"
-            style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;${endActive ? 'border-bottom:1px solid var(--accent)' : ''}">
-            <span style="font-size:10px;font-weight:800;letter-spacing:.5px;color:${endActive ? '#fff' : (hasEnd ? 'var(--text2)' : 'var(--text3)')};background:${endActive ? 'var(--accent)' : 'var(--surface3)'};padding:2px 7px;border-radius:4px;flex-shrink:0">⏹ 終了</span>
-            <span id="vp-tf-disp-end-${id}-${i}" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;flex:1;text-align:center;color:${endActive ? 'var(--accent)' : (hasEnd ? 'var(--text2)' : 'var(--text3)')}">${hasEnd ? _formatTime(bm.endTime) : '——'}</span>
-            <span style="font-size:9px;color:var(--text3)">${endActive ? '編集中' : 'タップで編集'}</span>
-          </div>
-          ${endActive ? `<div style="padding:8px 10px">
-            <div style="margin-bottom:8px">
-              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:4px"><span>0:00</span><span>—</span></div>
-              <input type="range" class="vp-bm-sl" id="vp-sl-end-${id}-${i}" data-vid="${id}" data-idx="${i}" data-field="end"
-                min="0" max="600" value="${hasEnd ? bm.endTime : bm.time}" step="1"
-                style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none">
-            </div>
-            <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;margin-bottom:5px">
-              ${fineButtons('end')}
-              <button onclick="vpSetBmFieldToCurrent('${id}',${i},'end')" style="${_adjBtnStyle('var(--accent)','#fff')}">現在地</button>
-            </div>
-            <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">
-              <span style="font-size:9px;color:var(--text3);flex-shrink:0">開始から:</span>
+            ${endActive ? `<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;margin-top:5px;">
+              <span style="font-size:9px;color:var(--text3);flex-shrink:0;">開始から:</span>
               ${fromStartBtns}
-              ${hasEnd ? `<button onclick="vpClearBmEnd('${id}',${i})" style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;font-family:inherit;margin-left:auto">終了を削除</button>` : ''}
-            </div>
-          </div>` : ''}
+              ${hasEnd ? `<button onclick="vpClearBmEnd('${id}',${i})" style="font-size:9px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;font-family:inherit;margin-left:auto;">終了を削除</button>` : ''}
+            </div>` : ''}
+          </div>
         </div>
 
-        <!-- 確定行 -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--border)">
-          <div style="display:flex;gap:5px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;">
+          <div style="display:flex;gap:5px;">
             <button onclick="vpBmReset('${id}',${i})" style="${_adjBtnStyle()}">↺ リセット</button>
             <button onclick="vpDeleteBm('${id}',${i})" style="${_adjBtnStyle('var(--surface2)','var(--danger,#c84040)')}">🗑 削除</button>
           </div>
-          <div style="display:flex;gap:5px">
+          <div style="display:flex;gap:5px;">
             <button onclick="vpBmClose('${id}',${i})" style="${_adjBtnStyle()}">閉じる</button>
             <button onclick="vpBmSave('${id}',${i})" style="${_adjBtnStyle('var(--text)','#fff')}">✔ 保存</button>
           </div>
@@ -634,7 +624,7 @@ function _adjBtnStyle(bg, color) {
 }
 
 function _bookmarkSectionHTML(id) {
-  const hasAB = _ab.a != null && _ab.b != null;
+  const hasAB = _ab.a != null && _ab.b != null && _ab.loop;
   const bmBtnLabel = hasAB ? '＋ ループ区間をブックマーク' : '＋ 現在位置でブックマーク';
   const bmBtnOnclick = hasAB ? `vpAddAbBm('${id}')` : `vpAddBm('${id}')`;
   const bmBtnStyle = hasAB
