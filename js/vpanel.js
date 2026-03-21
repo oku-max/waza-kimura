@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.73 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v47.75 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -168,41 +168,94 @@ function _loopSVG() {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 }
 
-function _abBarHTML() {
+// ── ループセクションのアクティブフィールド（'start'|'end'）
+let _abActiveField = 'start';
+
+function _loopSectionHTML() {
+  const isExpanded = _ab.setMode === 'loop';
   const aLabel = _ab.a != null ? _formatTime(Math.floor(_ab.a)) : '--:--';
   const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
-  const hasConflict = _ab.a != null && _ab.b != null && _ab.a >= _ab.b;
-  const btnBase = 'padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
-  const abBtnBase = 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;';
-  const btnA = _ab.a != null
-    ? abBtnBase + 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);'
-    : abBtnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
-  const btnB = _ab.b != null
-    ? abBtnBase + (hasConflict ? 'border:1.5px solid var(--danger,#c84040);background:var(--surface2);color:var(--danger,#c84040);' : 'border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);')
-    : abBtnBase + 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);';
-  const loopIconStyle = `width:28px;height:28px;border-radius:6px;border:1.5px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--text)' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .12s`;
-  const loopLabelStyle = `display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap;flex-shrink:0;font-family:inherit;`;
-  const loopIconSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
-  return `<div id="vp-ab-bar" style="display:flex;gap:5px;padding:5px 10px;align-items:center;border-top:1px solid var(--border2)">
-    <span style="${loopLabelStyle}">${loopIconSVG}ループ再生</span>
-    <button id="vp-ab-btn-a" onclick="vpAbOpenPanel('a')" style="${btnA}">A: ${aLabel}</button>
-    <span style="font-size:9px;color:var(--text3);flex-shrink:0">↔</span>
-    <button id="vp-ab-btn-b" onclick="vpAbOpenPanel('b')" style="${btnB}">B: ${bLabel}</button>
-    <button onclick="vpAbToggleLoop()" style="${loopIconStyle}" title="ABループ">${_loopSVG()}</button>
-    <span style="flex:1"></span>
-    <button onclick="vpAbReset()" style="${btnBase}border:1px solid var(--border);background:transparent;color:var(--text3);">✕</button>
-  </div>
-  <div id="vp-ab-quick-panel" style="display:none"></div>
-  <div id="vp-ab-add-bm-row" style="display:none;padding:5px 10px 7px;border-top:1px solid var(--border2);background:var(--surface2)">
-    <div style="display:flex;gap:5px;align-items:center;margin-bottom:4px">
-      <input id="vp-ab-bm-label" type="text" placeholder="ブックマーク名（空欄でも可）" style="flex:1;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0">
-    </div>
-    <div style="display:flex;gap:5px;align-items:center">
-      <input id="vp-ab-bm-note" type="text" placeholder="コメント（空欄でも可）" style="flex:1;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0">
-      <button onclick="vpAbConfirmAddBm()" style="font-size:10px;padding:4px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">追加</button>
-      <button onclick="vpAbCancelAddBm()" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>
+  const hasA = _ab.a != null;
+  const hasB = _ab.b != null;
+  const hasConflict = hasA && hasB && _ab.a >= _ab.b;
+  const loopIconSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-loop,#2e7bd6)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+  const sectionBase = 'border-top:2.5px solid #2e7bd6;border-bottom:2.5px solid #2e7bd6;';
+
+  // 折りたたみ状態
+  const statusText = _ab.loop
+    ? `<span style="font-size:10px;padding:1px 8px;border-radius:10px;background:#2e7bd6;color:#fff;font-weight:600;white-space:nowrap;">🔁 ON &nbsp;${aLabel} → ${bLabel}</span>`
+    : (hasA || hasB)
+      ? `<span style="font-size:10px;color:var(--text3);">${aLabel} → ${bLabel}</span>`
+      : `<span style="font-size:10px;color:var(--text3);">未設定</span>`;
+  const expandLabel = isExpanded ? '∧ 閉じる' : (_ab.loop ? '編集 ∨' : '設定する ∨');
+
+  const collapsedRow = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#ebf5ff;">
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#185fa5;flex:1;">${loopIconSVG}ループ再生</span>
+    ${statusText}
+    <button onclick="vpAbToggleExpand()" style="font-size:10px;padding:2px 10px;border:1px solid #2e7bd6;border-radius:12px;background:transparent;color:#2e7bd6;cursor:pointer;white-space:nowrap;flex-shrink:0;">${expandLabel}</button>
+  </div>`;
+
+  if (!isExpanded) {
+    return `<div id="vp-loop-section" style="${sectionBase}">${collapsedRow}</div>`;
+  }
+
+  // 展開状態
+  const startStyle = hasA
+    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid #2e7bd6;border-radius:6px;background:#fff;color:#2e7bd6;white-space:nowrap;flex-shrink:0;cursor:pointer;'
+    : 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;cursor:pointer;';
+  const endStyle = hasConflict
+    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid #c84040;border-radius:6px;background:#fff;color:#c84040;white-space:nowrap;flex-shrink:0;cursor:pointer;'
+    : hasB
+      ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid #2e7bd6;border-radius:6px;background:#fff;color:#2e7bd6;white-space:nowrap;flex-shrink:0;cursor:pointer;'
+      : 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;cursor:pointer;';
+  const loopToggleStyle = `width:28px;height:26px;border-radius:6px;border:1.5px solid ${_ab.loop ? '#2e7bd6' : 'var(--border)'};background:${_ab.loop ? '#2e7bd6' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;`;
+  const loopToggleSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${_ab.loop ? '#fff' : 'var(--text)'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+
+  // タブエディタ（開始/終了共通）
+  const isStart = _abActiveField === 'start';
+  const curVal = isStart ? (_ab.a ?? 0) : (_ab.b ?? _ab.a ?? 0);
+  const tabStart = `<div onclick="vpAbSwitchField('start')" style="flex:1;text-align:center;font-size:11px;font-weight:${isStart?'600':'500'};padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);${isStart?'background:#2e7bd6;color:#fff;':'color:var(--text2);background:var(--surface2);'}">▶ 開始</div>`;
+  const tabEnd   = `<div onclick="vpAbSwitchField('end')" style="flex:1;text-align:center;font-size:11px;font-weight:${!isStart?'600':'500'};padding:6px 4px;cursor:pointer;${!isStart?'background:#2e7bd6;color:#fff;':'color:var(--text2);background:var(--surface2);'}">⏹ 終了</div>`;
+
+  const adjBtns = [-10,-5,-3,-1,1,3,5,10].map(d =>
+    `<button onclick="vpAbAdjField(${d})" style="font-size:10px;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:#2e7bd6;cursor:pointer;font-family:inherit;">${d>0?'+':''}${d}s</button>`
+  ).join('');
+
+  return `<div id="vp-loop-section" style="${sectionBase}">
+    ${collapsedRow}
+    <div style="padding:8px 12px 10px;background:#ebf5ff;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <button onclick="vpAbSwitchField('start')" style="${startStyle}">開始: ${aLabel}</button>
+        <span style="font-size:10px;color:#2e7bd6;">↔</span>
+        <button onclick="vpAbSwitchField('end')" style="${endStyle}">終了: ${bLabel}</button>
+        <button onclick="vpAbToggleLoop()" style="${loopToggleStyle}" title="ループON/OFF">${loopToggleSVG}</button>
+        <span style="flex:1;"></span>
+        <button onclick="vpAbReset()" style="font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;">✕ クリア</button>
+      </div>
+      <div id="vp-ab-editor" style="border:1.5px solid #2e7bd6;border-radius:8px;overflow:hidden;background:var(--surface);">
+        <div style="display:flex;border-bottom:0.5px solid var(--border);">${tabStart}${tabEnd}</div>
+        <div style="padding:8px 10px;">
+          <div id="vp-ab-time-disp" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;">${_formatTime(Math.floor(curVal))}</div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-ab-sl-dur">—</span></div>
+          <input type="range" id="vp-ab-sl" min="0" max="600" value="${Math.floor(curVal)}" step="1"
+            style="width:100%;height:4px;cursor:pointer;display:block;accent-color:#2e7bd6;outline:none;touch-action:none;margin-bottom:6px;">
+          <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
+            ${adjBtns}
+            <button onclick="vpAbSetCurrentField()" style="font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:#2e7bd6;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;">現在地</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button onclick="vpAbSaveLoop()" style="font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:#2e7bd6;color:#fff;font-weight:700;cursor:pointer;">✔ 保存</button>
+      </div>
     </div>
   </div>`;
+}
+
+// 後方互換（_abBarHTMLを呼んでいる箇所のため）
+function _abBarHTML() {
+  return _loopSectionHTML();
 }
 
 function _abRefresh(id) {
@@ -210,8 +263,8 @@ function _abRefresh(id) {
   const html = _abBarHTML();
   const abArea = document.getElementById('vpanel-ab-area');
   if (abArea) abArea.innerHTML = html;
-  // クイックパネルが開いていれば再バインド
-  if (_ab.setMode) _abOpenQuickPanel(_ab.setMode, id);
+  // 展開中ならスライダーをバインド
+  if (_ab.setMode === 'loop') _abBindLoopSlider();
   // ブックマーク追加ボタンの文言・動作をAB状態に応じて更新
   const vid = id || window.openVPanelId;
   const bmAddBtn = document.getElementById('vp-bm-add-btn-' + vid);
@@ -253,124 +306,139 @@ function _abCloseQuickPanel() {
   });
 }
 
-function _abOpenQuickPanel(pt, videoId) {
-  const panelId = 'vp-ab-quick-panel';
-  const panel = document.getElementById(panelId);
-  if (!panel) return;
-
-  const val = _ab[pt];
-  const hasV = val != null;
-  const color = pt === 'a' ? 'var(--accent)' : 'var(--accent)';
-  const label = pt === 'a' ? 'A 点を設定' : 'B 点を設定';
-  const initVal = hasV ? val : (_getCurrentTime() ?? 0);
-  const TOTAL = 600; // 仮の総秒数（実際はプレイヤーから取得）
-
-  panel.style.display = 'block';
-  panel.innerHTML = `<div style="padding:8px 10px 10px;background:var(--surface2);border-top:1px solid var(--border2)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-      <span style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent)">${label}</span>
-      <button onclick="vpAbClosePanel()" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--text3);padding:0 2px">✕</button>
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:4px">
-        <span>0:00</span><span id="vp-aqp-dur">合計</span>
-      </div>
-      <input type="range" id="vp-aqp-sl" min="0" max="${TOTAL}" value="${initVal}" step="1"
-        style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none">
-    </div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
-      <span style="font-size:9px;color:var(--text3);font-family:inherit;width:100%;margin-bottom:2px">微調整</span>
-      ${[-10,-5,-3,-1,1,3,5,10].map(d => `<button onclick="vpAbQpAdj(${d})" style="font-size:10px;padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit">${d>0?'+':''}${d}s</button>`).join('')}
-      <button onclick="vpAbQpSetCurrent()" style="font-size:10px;padding:3px 8px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit">現在地</button>
-    </div>
-    <div style="display:flex;gap:6px;justify-content:space-between">
-      <button onclick="vpAbQpClear()" style="font-size:10px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;font-family:inherit;${hasV?'':'display:none'}">クリア</button>
-      <button onclick="vpAbQpSet()" style="font-size:10px;padding:4px 12px;border-radius:5px;border:none;background:var(--text);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;margin-left:auto">✔ セット</button>
-    </div>
-  </div>`;
-
-  // スライダーバインド（touch-action:noneで確実に動作）
-  const sl = panel.querySelector('#vp-aqp-sl');
+// ── ループエディタのスライダーバインド ──
+function _abBindLoopSlider() {
+  const sl = document.getElementById('vp-ab-sl');
   if (!sl) return;
-
-  // 総秒数を取得してmaxをセット
+  // 総秒数をmaxにセット
   try {
     const dur = _ytPlayer?.getDuration?.();
     if (dur && dur > 0) {
       sl.max = Math.floor(dur);
-      const durEl = panel.querySelector('#vp-aqp-dur');
+      const durEl = document.getElementById('vp-ab-sl-dur');
       if (durEl) durEl.textContent = _formatTime(Math.floor(dur));
     }
   } catch(e) {}
 
-  window._vpAbQpVal = initVal;
-  window._vpAbQpPt  = pt;
-  window._vpAbQpVid = videoId;
-
-  function updateQpVal(v) {
-    window._vpAbQpVal = Math.max(0, Math.min(parseInt(sl.max)||600, v));
-    sl.value = window._vpAbQpVal;
-    // ABバーのボタンテキストをリアルタイム更新
-    const btn = document.getElementById(pt === 'a' ? 'vp-ab-btn-a' : 'vp-ab-btn-b');
-    if (btn) btn.textContent = (pt === 'a' ? 'A: ' : 'B: ') + _formatTime(window._vpAbQpVal);
+  function applyVal(v) {
+    const max = parseInt(sl.max) || 600;
+    v = Math.max(0, Math.min(max, v));
+    sl.value = v;
+    // 即時確定
+    if (_abActiveField === 'start') _ab.a = v;
+    else _ab.b = v;
+    // 表示更新
+    const disp = document.getElementById('vp-ab-time-disp');
+    if (disp) disp.textContent = _formatTime(Math.floor(v));
+    // ヘッダーチップも更新
+    _abUpdateChips();
   }
-
-  sl.addEventListener('input', () => updateQpVal(parseInt(sl.value)));
-  sl.addEventListener('change', () => updateQpVal(parseInt(sl.value)));
-  updateQpVal(initVal);
+  sl.addEventListener('input',  () => applyVal(parseInt(sl.value)));
+  sl.addEventListener('change', () => applyVal(parseInt(sl.value)));
 }
 
-export function vpAbClosePanel() {
-  _ab.setMode = null;
-  _abCloseQuickPanel();
+// ヘッダーチップ（開始/終了ボタン）のテキスト更新
+function _abUpdateChips() {
+  const aLabel = _ab.a != null ? _formatTime(Math.floor(_ab.a)) : '--:--';
+  const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
+  // ループセクションを再描画（軽量）
+  const sec = document.getElementById('vp-loop-section');
+  if (sec) {
+    const abArea = document.getElementById('vpanel-ab-area');
+    if (abArea) abArea.innerHTML = _loopSectionHTML();
+    _abBindLoopSlider();
+    // BM追加ボタンも更新
+    const vid = window.openVPanelId;
+    const bmAddBtn = document.getElementById('vp-bm-add-btn-' + vid);
+    if (bmAddBtn) {
+      const hasAB = _ab.a != null && _ab.b != null;
+      bmAddBtn.textContent = hasAB ? '＋ ループ区間をブックマーク' : '＋ 現在位置でブックマーク';
+      bmAddBtn.setAttribute('onclick', hasAB ? "vpAddAbBm('" + vid + "')" : "vpAddBm('" + vid + "')");
+      bmAddBtn.style.border = hasAB ? '1px solid var(--accent)' : '1px solid var(--border)';
+      bmAddBtn.style.color = hasAB ? 'var(--accent)' : 'var(--text2)';
+      bmAddBtn.style.fontWeight = hasAB ? '600' : '';
+    }
+  }
+}
+
+// タブ切替（開始/終了）
+export function vpAbSwitchField(field) {
+  _abActiveField = field;
+  const abArea = document.getElementById('vpanel-ab-area');
+  if (abArea) abArea.innerHTML = _loopSectionHTML();
+  _abBindLoopSlider();
+}
+
+// 展開/折りたたみトグル
+export function vpAbToggleExpand() {
+  _ab.setMode = _ab.setMode === 'loop' ? null : 'loop';
+  _abActiveField = 'start';
   _abRefresh();
 }
 
-export function vpAbQpAdj(delta) {
-  if (window._vpAbQpVal == null) return;
-  const sl = document.getElementById('vp-aqp-sl');
-  const max = sl ? parseInt(sl.max)||600 : 600;
-  window._vpAbQpVal = Math.max(0, Math.min(max, (window._vpAbQpVal||0) + delta));
-  if (sl) sl.value = window._vpAbQpVal;
-  const pt = window._vpAbQpPt;
-  const btn = document.getElementById(pt === 'a' ? 'vp-ab-btn-a' : 'vp-ab-btn-b');
-  if (btn) btn.textContent = (pt === 'a' ? 'A: ' : 'B: ') + _formatTime(window._vpAbQpVal);
+// ±ボタンで即時確定
+export function vpAbAdjField(delta) {
+  const cur = _abActiveField === 'start' ? (_ab.a ?? 0) : (_ab.b ?? _ab.a ?? 0);
+  const sl = document.getElementById('vp-ab-sl');
+  const max = sl ? parseInt(sl.max) || 600 : 600;
+  const nv = Math.max(0, Math.min(max, cur + delta));
+  if (_abActiveField === 'start') _ab.a = nv; else _ab.b = nv;
+  const disp = document.getElementById('vp-ab-time-disp');
+  if (disp) disp.textContent = _formatTime(Math.floor(nv));
+  if (sl) sl.value = nv;
+  _abUpdateChips();
 }
 
-export function vpAbQpSetCurrent() {
+// 現在地ボタンで即時確定
+export function vpAbSetCurrentField() {
   const cur = _getCurrentTime();
-  if (cur == null) return;
-  window._vpAbQpVal = cur;
-  const sl = document.getElementById('vp-aqp-sl');
+  if (cur == null) { window.toast?.('動画を再生してください'); return; }
+  if (_abActiveField === 'start') _ab.a = cur; else _ab.b = cur;
+  const disp = document.getElementById('vp-ab-time-disp');
+  if (disp) disp.textContent = _formatTime(Math.floor(cur));
+  const sl = document.getElementById('vp-ab-sl');
   if (sl) sl.value = cur;
-  const pt = window._vpAbQpPt;
-  const btn = document.getElementById(pt === 'a' ? 'vp-ab-btn-a' : 'vp-ab-btn-b');
-  if (btn) btn.textContent = (pt === 'a' ? 'A: ' : 'B: ') + _formatTime(cur);
+  _abUpdateChips();
 }
 
-export function vpAbQpSet() {
-  const pt = window._vpAbQpPt;
-  const val = window._vpAbQpVal;
-  if (pt && val != null) _ab[pt] = val;
-  _ab.setMode = null;
-  _abCloseQuickPanel();
+// 保存ボタン → ループONにして折りたたむ
+export function vpAbSaveLoop() {
+  if (_ab.a == null && _ab.b == null) { window.toast?.('開始・終了を設定してください'); return; }
+  if (_ab.a != null && _ab.b != null && _ab.a >= _ab.b) { window.toast?.('⚠ 開始が終了より後になっています'); return; }
+  // ループ開始
+  if (_ab.a != null && _ab.b != null) {
+    _ab.loop = true;
+    clearInterval(_ab.timer);
+    _seekTo(_ab.a);
+    _ab.timer = setInterval(() => {
+      if (!_ab.loop || _ab.a == null || _ab.b == null) return;
+      const cur = _getCurrentTime();
+      if (cur != null && cur >= _ab.b) _seekTo(_ab.a);
+    }, 200);
+  }
+  _ab.setMode = null; // 折りたたむ
   _abRefresh();
+  window.toast?.('🔁 ループを開始しました');
 }
 
+// 後方互換：旧関数名をそのまま維持
+export function vpAbClosePanel() { vpAbToggleExpand(); }
+export function vpAbQpAdj(delta) { vpAbAdjField(delta); }
+export function vpAbQpSetCurrent() { vpAbSetCurrentField(); }
+export function vpAbQpSet() { vpAbSaveLoop(); }
 export function vpAbQpClear() {
-  const pt = window._vpAbQpPt;
-  if (pt) _ab[pt] = null;
-  _ab.setMode = null;
-  _abCloseQuickPanel();
+  if (_abActiveField === 'start') _ab.a = null; else _ab.b = null;
+  if (_ab.loop) { _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; }
   _abRefresh();
 }
 
 export function vpAbToggleLoop() {
-  if (_ab.a == null || _ab.b == null) { window.toast?.('A点とB点を両方設定してください'); return; }
-  if (_ab.a >= _ab.b) { window.toast?.('⚠ A点がB点より後になっています'); return; }
+  if (_ab.a == null || _ab.b == null) { window.toast?.('開始・終了を両方設定してください'); return; }
+  if (_ab.a >= _ab.b) { window.toast?.('⚠ 開始が終了より後になっています'); return; }
   _ab.loop = !_ab.loop;
   if (_ab.loop) {
     _seekTo(_ab.a);
+    clearInterval(_ab.timer);
     _ab.timer = setInterval(() => {
       if (!_ab.loop || _ab.a == null || _ab.b == null) return;
       const cur = _getCurrentTime();
@@ -386,7 +454,6 @@ export function vpAbToggleLoop() {
 export function vpAbReset() {
   _ab.a = null; _ab.b = null; _ab.loop = false; _ab.setMode = null;
   clearInterval(_ab.timer); _ab.timer = null;
-  _abCloseQuickPanel();
   _abRefresh();
 }
 
