@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>WAZA KIMURA v47.74</title>
+<title>WAZA KIMURA v47.75</title>
 <link rel="stylesheet" href="css/style.css">
 
 <!-- Firebase SDK (compat) -->
@@ -42,7 +42,7 @@
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
     vpSkip, vpAbSet, vpAbToggleLoop, vpAbReset, vpAbSaveAsBm, vpAbSetFromBm,
-    vpAbOpenPanel, vpAbClosePanel, vpAbQpAdj, vpAbQpSetCurrent, vpAbQpSet, vpAbQpClear,
+    vpAbToggleExpand, vpAbSwitchField, vpAbAdjField, vpAbSetCurrentField, vpAbSaveLoop,
     vpAbAddBm, vpAbConfirmAddBm, vpAbCancelAddBm,
     vpAddBm, vpAddAbBm, vpDeleteBm, vpSeekBm, vpEditBm, vpSaveBmLabel,
     vpBmTimeClick, vpBmToggleEdit, vpBmActivateField, vpBmSave, vpBmClose, vpBmReset,
@@ -186,6 +186,12 @@
   window.vpAbSetFromBm        = vpAbSetFromBm;
   window.vpAbOpenPanel        = vpAbOpenPanel;
   window.vpAbClosePanel       = vpAbClosePanel;
+  window.vpAbQpAdj            = vpAbQpAdj;
+  window.vpAbToggleExpand     = vpAbToggleExpand;
+  window.vpAbSwitchField      = vpAbSwitchField;
+  window.vpAbAdjField         = vpAbAdjField;
+  window.vpAbSetCurrentField  = vpAbSetCurrentField;
+  window.vpAbSaveLoop         = vpAbSaveLoop;
   window.vpAbQpAdj            = vpAbQpAdj;
   window.vpAbQpSetCurrent     = vpAbQpSetCurrent;
   window.vpAbQpSet            = vpAbQpSet;
@@ -333,8 +339,7 @@
 }
 #vpanel-ab-area {
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 #vpanel-edit-wrap {
   flex: 1 !important;
