@@ -43,7 +43,7 @@
     saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
     renderFilterPresets, resetFilters, updateResetBtn,
-    filt, countByField, countByPl, countByCh, cntBadge,
+    filt, countByField, countByPl, countByCh, cntBadge, countContextual,
     AF, sortVideos, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL
   } from './js/filter.js';
   import {
@@ -150,6 +150,7 @@
   window.renderTF              = renderTF;
   window.openPL                = openPL;
   window.renderPL              = renderPL;
+  window.countContextual       = countContextual;
   // vpanel
   window.openVPanel            = openVPanel;
   window.closeVPanel           = closeVPanel;
@@ -1453,10 +1454,30 @@ function toggleFilterOverlay(){ openFilterOverlay(); }
 
 
 function syncFilterOvRows() {
-  // T/B
-  buildSrow('fov-srow-tb', TB_TAGS, 'tb', false);
-  // ACTION
-  buildSrow('fov-srow-ac', AC_TAGS, 'action', true);
+  // T/B: ピッカー方式（Positionと同じ）
+  (function(){
+    const row = document.getElementById('fov-srow-tb'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', filters.tb.size===0, function(){ filters.tb.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...filters.tb].forEach(function(t){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=t+' ×'; el.onclick=function(){ filters.tb.delete(t); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ 選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openTbPicker(); }; row.appendChild(btn);
+  })();
+  // ACTION: ピッカー方式（Positionと同じ）
+  (function(){
+    const row = document.getElementById('fov-srow-ac'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', filters.action.size===0, function(){ filters.action.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...filters.action].forEach(function(a){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=a+' ×'; el.onclick=function(){ filters.action.delete(a); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ 選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openAcPicker(); }; row.appendChild(btn);
+  })();
   // POSITION: ピッカー方式
   (function(){
     const row = document.getElementById('fov-srow-pos'); if(!row) return;
@@ -3166,7 +3187,7 @@ function renderPos(){
   // 既存タグ = POS_TAGS + 動画に付いているposタグを合わせて重複排除・ソート
   const allPos=[...new Set([...POS_TAGS,...videos.flatMap(v=>v.pos||[])])].sort();
   const matched=allPos.filter(p=>!ql||p.toLowerCase().includes(ql));
-  let html=matched.map(p=>{const n=countByField('pos',p);return`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}${cntBadge(n)}</div>`;}).join('');
+  let html=matched.map(p=>{const n=countContextual('position',p);return`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}${cntBadge(n)}</div>`;}).join('');
   // ヒットなし or 完全一致なし → 新規追加ボタン
   if(q && !allPos.some(p=>p.toLowerCase()===ql)){
     html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewPos('${q.replace(/'/g,"\\'")}')">＋ 「${q}」を追加</div>`;
@@ -3426,10 +3447,10 @@ function buildFsAcSrow(){
   btn.textContent='＋ 選ぶ';btn.onclick=openAcPicker;row.appendChild(btn);
 }
 function openTbPicker(){document.getElementById('tb-picker-s').value='';renderTbPicker();document.getElementById('tbPickerOv').classList.add('open');}
-function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();document.getElementById('tbPickerR').innerHTML=TB_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countByField('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
+function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();document.getElementById('tbPickerR').innerHTML=TB_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
 function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',TB_TAGS,'tb',false);window.AF?.();}
 function openAcPicker(){document.getElementById('ac-picker-s').value='';renderAcPicker();document.getElementById('acPickerOv').classList.add('open');}
-function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();document.getElementById('acPickerR').innerHTML=AC_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countByField('ac',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
+function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();document.getElementById('acPickerR').innerHTML=AC_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('action',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
 function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',AC_TAGS,'action',true);window.AF?.();}
 
 // ─── Filter sidebar builders ───
