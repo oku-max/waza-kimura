@@ -308,7 +308,6 @@ export function AF() {
   window.buildFsTechSrow?.();
   window.buildFsPosSrow?.();
   renderTFC();
-  window.addSwipe?.();
   if (window.bulkMode) window.updBulk?.();
   updateResetBtn();
 }
