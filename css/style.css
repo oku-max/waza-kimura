@@ -1284,6 +1284,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .fbar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
 .fbar-lbl { font-size:9px; font-weight:700; letter-spacing:.7px; color:var(--text3); text-transform:uppercase; min-width:60px; flex-shrink:0; }
 
+/* ── フィルターセクション グループ分け ── */
+.fsec {
+  border-radius: 7px;
+  padding: 8px 10px 5px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  background: #fafaf9;
+}
+.fsec-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 7px;
+}
+
 
 
 /* ── v47.19追加 ── */
