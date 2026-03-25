@@ -245,7 +245,7 @@ function _loopSectionHTML() {
           <div id="vp-ab-time-disp" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;">${_formatTime(Math.floor(curVal))}</div>
           <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-ab-sl-dur">—</span></div>
           <input type="range" id="vp-ab-sl" min="0" max="600" value="${Math.floor(curVal)}" step="1"
-            style="width:calc(100% - 20px);height:4px;cursor:pointer;display:block;accent-color:#2e7bd6;outline:none;touch-action:none;margin-bottom:6px;">
+            style="width:75%;height:4px;cursor:pointer;display:block;accent-color:#2e7bd6;outline:none;touch-action:none;margin-bottom:6px;">
           <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
             ${adjBtns}
@@ -582,7 +582,7 @@ function _bookmarkListHTML(id) {
             <input type="range" class="vp-bm-sl" id="vp-sl-${startActive?'start':'end'}-${id}-${i}"
               data-vid="${id}" data-idx="${i}" data-field="${startActive?'start':'end'}"
               min="0" max="600" value="${curVal}" step="1"
-              style="width:calc(100% - 20px);height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
+              style="width:75%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
             <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
               <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
               ${startActive ? adjBtnsStart : adjBtnsEnd}
