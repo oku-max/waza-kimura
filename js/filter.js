@@ -239,6 +239,48 @@ export function countByPl(pl) {
 export function countByCh(ch) {
   return (window.videos||[]).filter(v => !v.archived && v.ch === ch).length;
 }
+
+// ── コンテキスト件数：現在のフィルター状態を考慮した件数 ──
+// key以外のアクティブなフィルターを適用した上で、そのkeyにvalを追加したときの件数を返す
+export function countContextual(key, val) {
+  const vids = window.videos || [];
+  const f    = window.filters || {};
+  const siEl   = document.getElementById('si');
+  const siPcEl = document.getElementById('si-lib-pc');
+  const q = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).toLowerCase();
+  return vids.filter(v => {
+    if (v.archived) return false;
+    if (window.favOnly     && !v.fav)                                    return false;
+    if (window.unwOnly     && v.watched)                                 return false;
+    if (window.watchedOnly && !v.watched)                                return false;
+    if (window.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
+    if (window.memoOnly    && !v.memo)                                   return false;
+    if (q && !(v.title||'').toLowerCase().includes(q)
+          && !(v.ch||'').toLowerCase().includes(q)
+          && !(v.pl||'').toLowerCase().includes(q)
+          && !(v.tech||[]).some(t => t.toLowerCase().includes(q)))       return false;
+    // key以外のフィルターを適用
+    if (key !== 'platform' && f.platform?.size && !f.platform.has(v.pt))                      return false;
+    if (key !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                      return false;
+    if (key !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                        return false;
+    if (key !== 'status'   && f.status?.size   && !f.status.has(v.status))                    return false;
+    if (key !== 'tb'       && f.tb?.size       && !(v.tb||[]).some(t => f.tb.has(t)))         return false;
+    if (key !== 'action'   && f.action?.size   && !(v.ac||[]).some(a => f.action.has(a)))     return false;
+    if (key !== 'position' && f.position?.size && !(v.pos||[]).some(p => f.position.has(p))) return false;
+    if (key !== 'tech'     && f.tech?.size     && !(v.tech||[]).some(t => f.tech.has(t)))    return false;
+    if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.ch))                       return false;
+    // このvalが該当するか
+    if (key === 'tb')       return (v.tb||[]).includes(val);
+    if (key === 'action')   return (v.ac||[]).includes(val);
+    if (key === 'position') return (v.pos||[]).includes(val);
+    if (key === 'tech')     return (v.tech||[]).includes(val);
+    if (key === 'playlist') return v.pl === val;
+    if (key === 'channel')  return v.ch === val;
+    if (key === 'status')   return v.status === val;
+    if (key === 'prio')     return v.prio === val;
+    return false;
+  }).length;
+}
 export function cntBadge(n) {
   if (!n) return '';
   return `<span style="font-size:9px;background:var(--surface3);color:var(--text3);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600">${n}</span>`;
@@ -336,7 +378,7 @@ export function renderTF() {
   matched.forEach(t => {
     const el = document.createElement('div');
     el.className = 'tech-pill' + (window.filters.tech.has(t) ? ' active' : '');
-    const n = countByField('tech', t);
+    const n = countContextual('tech', t);
     el.innerHTML = t + cntBadge(n);
     el.addEventListener('click', function() {
       window.filters.tech.has(t) ? window.filters.tech.delete(t) : window.filters.tech.add(t);
@@ -381,7 +423,7 @@ export function renderPL() {
   filtered.forEach(p => {
     const el = document.createElement('div');
     el.className = 'tech-pill' + (window.filters.playlist.has(p) ? ' active' : '');
-    const n = countByPl(p);
+    const n = countContextual('playlist', p);
     el.innerHTML = p + cntBadge(n);
     el.addEventListener('click', function() {
       window.filters.playlist.has(p) ? window.filters.playlist.delete(p) : window.filters.playlist.add(p);

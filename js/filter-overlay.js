@@ -140,9 +140,11 @@ export function buildFovHscroll(rowId, tags, filterKey, allChipId) {
   const vids    = window.videos  || [];
   row.innerHTML = '';
   tags.forEach(tag => {
-    const cnt = filterKey === 'tb'
-      ? vids.filter(v => !v.archived && (v.tb||[]).includes(tag)).length
-      : vids.filter(v => !v.archived && (v.ac||[]).includes(tag)).length;
+    const cnt = window.countContextual
+      ? window.countContextual(filterKey, tag)
+      : (filterKey === 'tb'
+          ? vids.filter(v => !v.archived && (v.tb||[]).includes(tag)).length
+          : vids.filter(v => !v.archived && (v.ac||[]).includes(tag)).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(tag) ? ' active' : '');
     el.style.flexShrink = '0';
@@ -166,10 +168,12 @@ export function buildFovPickerRow(rowId, filterKey, allChipId, getAll) {
   row.innerHTML = '';
   const allItems = getAll();
   allItems.forEach(val => {
-    const cnt = filterKey === 'playlist' ? vids.filter(v => !v.archived && v.pl === val).length
-              : filterKey === 'channel'  ? vids.filter(v => !v.archived && v.ch === val).length
-              : filterKey === 'tech'     ? vids.filter(v => !v.archived && (v.tech||[]).includes(val)).length
-              :                            vids.filter(v => !v.archived && (v.pos||[]).includes(val)).length;
+    const cnt = window.countContextual
+      ? window.countContextual(filterKey, val)
+      : (filterKey === 'playlist' ? vids.filter(v => !v.archived && v.pl === val).length
+       : filterKey === 'channel'  ? vids.filter(v => !v.archived && v.ch === val).length
+       : filterKey === 'tech'     ? vids.filter(v => !v.archived && (v.tech||[]).includes(val)).length
+       :                            vids.filter(v => !v.archived && (v.pos||[]).includes(val)).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(val) ? ' active' : '');
     el.style.flexShrink = '0';
@@ -371,11 +375,11 @@ export function renderAccChips(type) {
   if (type === 'pl') {
     items = [...new Set(vids.map(v => v.pl).filter(Boolean))].sort();
     filterKey = 'playlist';
-    countFn = v => vids.filter(x => !x.archived && x.pl === v).length;
+    countFn = v => window.countContextual ? window.countContextual('playlist', v) : vids.filter(x => !x.archived && x.pl === v).length;
   } else {
     items = [...new Set(vids.map(v => v.ch).filter(Boolean))].sort();
     filterKey = 'channel';
-    countFn = v => vids.filter(x => !x.archived && x.ch === v).length;
+    countFn = v => window.countContextual ? window.countContextual('channel', v) : vids.filter(x => !x.archived && x.ch === v).length;
   }
 
   const filtered = q ? items.filter(v => v.toLowerCase().includes(q)) : items;
