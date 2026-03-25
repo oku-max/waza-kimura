@@ -38,7 +38,7 @@
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns
   } from './js/settings.js';
   import {
-    togF, togPlat, togFav, togUnw, togWatched, clearAll,
+    togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, clearAll,
     filterPresets, orgFilterPresets, saveFilterPresets, saveOrgFilterPresets,
     saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
@@ -108,6 +108,8 @@
   window.togFav                = togFav;
   window.togUnw                = togUnw;
   window.togWatched            = togWatched;
+  window.togBm                 = togBm;
+  window.togMemo               = togMemo;
   window.clearAll              = clearAll;
   window.filterPresets         = filterPresets;
   window.orgFilterPresets      = orgFilterPresets;
@@ -437,6 +439,8 @@
           <option value="title">タイトル</option>
           <option value="prio">Priority</option>
           <option value="status">Progress</option>
+          <option value="lastPlayed">最近再生した</option>
+          <option value="playCount">再生回数</option>
         </select>
         <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
       </div>
@@ -668,6 +672,8 @@
         <option value="title">タイトル</option>
         <option value="prio">Priority</option>
         <option value="status">Progress</option>
+        <option value="lastPlayed">最近再生した</option>
+        <option value="playCount">再生回数</option>
       </select>
       <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇麊順切替">↑</button>
     </div>
@@ -1508,6 +1514,8 @@ function syncFilterOvRows() {
   const favEl=document.getElementById('fov-chip-fav'); if(favEl) favEl.classList.toggle('active', favOnly);
   const unwEl=document.getElementById('fov-chip-unw'); if(unwEl) unwEl.classList.toggle('active', unwOnly);
   const watEl=document.getElementById('fov-chip-watched'); if(watEl) watEl.classList.toggle('active', watchedOnly);
+  const bmEl=document.getElementById('fov-chip-bm'); if(bmEl) bmEl.classList.toggle('active', window.bmOnly||false);
+  const memoEl=document.getElementById('fov-chip-memo'); if(memoEl) memoEl.classList.toggle('active', window.memoOnly||false);
 }
 
 function countForFilter(key, val) {
@@ -3531,7 +3539,9 @@ function updateFovChipBadges() {
   const favN    = videos.filter(v => !v.archived && v.fav).length;
   const unseenN = videos.filter(v => !v.archived && !v.watched).length;
   const watchedN= videos.filter(v => !v.archived && v.watched).length;
-  [['fov-chip-fav', favN], ['fov-chip-unw', unseenN], ['fov-chip-watched', watchedN]].forEach(function([id, n]) {
+  const bmN   = videos.filter(v => !v.archived && v.bookmarks && v.bookmarks.length > 0).length;
+  const memoN = videos.filter(v => !v.archived && v.memo).length;
+  [['fov-chip-fav', favN], ['fov-chip-unw', unseenN], ['fov-chip-watched', watchedN], ['fov-chip-bm', bmN], ['fov-chip-memo', memoN]].forEach(function([id, n]) {
     const el = document.getElementById(id);
     if (!el) return;
     const existing = el.querySelector('.fov-cnt');
@@ -4099,6 +4109,8 @@ window.addEventListener('resize', adjustTopbarOffset);
         <div class="chip c-fav" id="fov-chip-fav" onclick="togFav()">★ Fav</div>
         <div class="chip c-unw" id="fov-chip-unw" onclick="togUnw()">Unseen</div>
         <div class="chip" id="fov-chip-watched" onclick="togWatched()">視聴済み</div>
+        <div class="chip" id="fov-chip-bm" onclick="togBm()">🔖 BKあり</div>
+        <div class="chip" id="fov-chip-memo" onclick="togMemo()">💬 メモあり</div>
       </div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">

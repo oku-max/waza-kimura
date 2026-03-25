@@ -1022,6 +1022,9 @@ export function openVPanel(id) {
   if (!v) return;
 
   window.openVPanelId = id;
+  v.lastPlayed = Date.now();
+  v.playCount = (v.playCount || 0) + 1;
+  window.debounceSave?.();
   const panel    = document.getElementById('vpanel');
   const editArea = document.getElementById('vpanel-edit-area');
 

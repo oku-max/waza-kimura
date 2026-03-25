@@ -42,9 +42,26 @@ export function togWatched() {
   window.AF();
 }
 
+export function togBm() {
+  window.bmOnly = !window.bmOnly;
+  ['fov-chip-bm'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.bmOnly);
+  });
+  window.AF();
+}
+
+export function togMemo() {
+  window.memoOnly = !window.memoOnly;
+  ['fov-chip-memo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.memoOnly);
+  });
+  window.AF();
+}
+
 export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
   window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.bmOnly = false; window.memoOnly = false;
   const si = document.getElementById('si'); if (si) si.value = '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
   window.syncFilterOvRows?.();
@@ -178,7 +195,7 @@ export function resetFilters() { clearAll(); }
 
 export function updateResetBtn() {
   const btn = document.getElementById('filter-reset-btn'); if (!btn) return;
-  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly;
+  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
   btn.style.display = active ? 'inline-block' : 'none';
 }
 
@@ -192,6 +209,8 @@ export function filt(list) {
     if (window.favOnly && !v.fav) return false;
     if (window.unwOnly && v.watched) return false;
     if (window.watchedOnly && !v.watched) return false;
+    if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;
+    if (window.memoOnly && !v.memo) return false;
     if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
     // ▼ 修正: ch / pl / tech が undefined の動画でもクラッシュしないよう || '' / || [] でガード
     if (q && !(v.title||'').toLowerCase().includes(q)
@@ -247,6 +266,12 @@ export function sortVideos(list) {
       const ord = { '未着手': 0, '練習中': 1, 'マスター': 2 };
       va = ord[a.status] ?? 9;
       vb = ord[b.status] ?? 9;
+    } else if (key === 'lastPlayed') {
+      va = a.lastPlayed || 0;
+      vb = b.lastPlayed || 0;
+    } else if (key === 'playCount') {
+      va = a.playCount || 0;
+      vb = b.playCount || 0;
     }
     if (va < vb) return asc ? -1 : 1;
     if (va > vb) return asc ? 1 : -1;
