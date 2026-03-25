@@ -665,9 +665,13 @@
     <button id="bulk-sel-btn" onclick="enterBulk()" class="tab-bar-btn">☑ 一括編集</button>
     <div class="tab-srch"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search title, technique, series..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'flex':'none'"></div>
     <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
-    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
+  </div>
+  <div class="results-header">
+    <span class="results-count" id="rc"></span>
+    <div style="display:flex;align-items:center;gap:4px">
       <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-        <option value="default">並び頻: 標準</option>
+        <option value="default">並び順: 標準</option>
         <option value="addedAt">追加日</option>
         <option value="title">タイトル</option>
         <option value="prio">Priority</option>
@@ -675,11 +679,9 @@
         <option value="lastPlayed">最近再生した</option>
         <option value="playCount">再生回数</option>
       </select>
-      <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇麊順切替">↑</button>
+      <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇順切替">↑</button>
     </div>
-    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
-  <div class="results-header"><span class="results-count" id="rc"></span></div>
   <div class="card-list" id="cardList"></div>
 </div>
 <!-- COMMUNITY -->
