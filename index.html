@@ -30,8 +30,8 @@
     ytSelNoneVideos, ytBackToPlaylists, ytImportCheckedVideos
   } from './js/youtube.js';
   import { debounceSave, qFav, qWatch, archOne, setPrio } from './js/data.js';
-  import { toast, scr, switchTab } from './js/ui.js';
-  import { renderCards, cardHTML, addSwipe } from './js/cards.js';
+  import { toast, toastUndo, scr, switchTab } from './js/ui.js';
+  import { renderCards, cardHTML } from './js/cards.js';
   import {
     tagSettings, saveTagSettings, loadTagSettings, renderSettings,
     renderTagSettingsList, renderTagPresets, startRenamePreset,
@@ -84,12 +84,12 @@
   window.setPrio                 = setPrio;
   // ui
   window.toast                   = toast;
+  window.toastUndo               = toastUndo;
   window.scr                     = scr;
   window.switchTab               = switchTab;
   // cards
   window.renderCards             = renderCards;
   window.cardHTML                = cardHTML;
-  window.addSwipe                = addSwipe;
   // settings
   window.tagSettings             = tagSettings;
   window.saveTagSettings         = saveTagSettings;
@@ -680,7 +680,6 @@
     <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
   <div class="results-header"><span class="results-count" id="rc"></span></div>
-  <div class="swipe-hint" id="sh" style="font-size:10px;color:var(--text3);padding:3px 16px">← Archive  /  → Watched</div>
   <div class="card-list" id="cardList"></div>
 </div>
 <!-- COMMUNITY -->
@@ -2106,7 +2105,7 @@ function resetVpPlModal() {
   if(inp) inp.onkeydown = function(e){ if(e.key==='Enter') vpPlOvConfirmNew(); };
 }
 
-function bulkDo(type){if(!selIds.size){toast('動画を選択してください');return;}const ids=[...selIds];if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();toast('✅ '+ids.length+'本を視聴済みに');}else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();toast('👁 '+ids.length+'本を未視聴に戻した');}else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();toast('⭐ '+ids.length+'本をお気に入りに追加');}else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();toast('☆ '+ids.length+'本のお気に入りを解除');}else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();toast('📦 '+ids.length+'本をアーカイブ');}else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});window.AF?.();toast('🌐 '+ids.length+'本を全体公開にシェア');}else if(type==='remove'){showConf('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});window.AF?.();toast('✂ 除外しました');});}}
+function bulkDo(type){if(!selIds.size){toast('動画を選択してください');return;}const ids=[...selIds];if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();toast('✅ '+ids.length+'本を視聴済みに');}else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();toast('👁 '+ids.length+'本を未視聴に戻した');}else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();toast('⭐ '+ids.length+'本をお気に入りに追加');}else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();toast('☆ '+ids.length+'本のお気に入りを解除');}else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();toastUndo('📦 '+ids.length+'本をアーカイブ',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=false;});window.AF?.();});}else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});window.AF?.();toast('🌐 '+ids.length+'本を全体公開にシェア');}else if(type==='remove'){showConf('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});window.AF?.();toast('✂ 除外しました');});}}
 
 // ── 整理タブ ──
 // 判断ステータス管理（videoオブジェクトのjudge フィールドを使用）
@@ -3024,7 +3023,7 @@ function runAI(){const v=videos.find(v=>v.id===editId);if(!v)return;const btn=do
   toast(`✨ ${total}件のタグを自動設定`);
 },600);}
 function saveEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.fav=dFav;v.watched=dWatch;v.prio=dPrio||v.prio;v.status=dStat||v.status;v.shared=dShare;v.tb=[...dTags.tb];v.ac=[...dTags.action];const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};v.pos=[...dTags.pos].map(p=>pm[p]||p);v.tech=[...dTags.tech];v.memo=document.getElementById('dMemo').value.trim();closeOv('editOv');window.AF?.();toast('💾 保存しました');}
-function archEdit(){const v=videos.find(v=>v.id===editId);if(v){v.archived=true;closeOv('editOv');window.AF?.();toast('📦 アーカイブ');}}
+function archEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.archived=true;closeOv('editOv');window.AF?.();toastUndo('📦 アーカイブ',()=>{v.archived=false;window.AF?.();});}
 function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');window.AF?.();toast('除外しました');});}
 function delEdit(){const v=videos.find(v=>v.id===editId);showConf('🗑 削除',`「${v?.title}」を削除しますか？`,()=>{videos=videos.filter(v=>v.id!==editId);closeOv('editOv');window.AF?.();toast('削除しました');});}
 
@@ -4106,7 +4105,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- ▌グループ1：ステータス・進捗・優先度 -->
     <div class="fsec fsec-1">
       <div class="fsec-title">ステータス・進捗・優先度</div>
-      <div class="fbar-row" style="margin-bottom:5px">
+      <div class="fbar-row">
         <span class="fbar-lbl">Status</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip c-fav" id="fov-chip-fav" onclick="togFav()">★ Fav</div>
@@ -4116,7 +4115,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div class="chip" id="fov-chip-memo" onclick="togMemo()">💬 メモあり</div>
         </div>
       </div>
-      <div class="fbar-row" style="margin-bottom:5px">
+      <div class="fbar-row">
         <span class="fbar-lbl">Progress</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip" id="fov-stat-未着手" onclick="togF('status','未着手',this)">未着手</div>
@@ -4124,7 +4123,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div class="chip" id="fov-stat-マスター" onclick="togF('status','マスター',this)">マスター</div>
         </div>
       </div>
-      <div class="fbar-row" style="margin-bottom:3px">
+      <div class="fbar-row" style="margin-bottom:2px">
         <span class="fbar-lbl">Priority</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip" id="fov-prio-今すぐ" onclick="togF('prio','今すぐ',this)">今すぐ</div>
@@ -4136,11 +4135,11 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- ▌グループ2：チャンネル・プレイリスト -->
     <div class="fsec fsec-2">
       <div class="fsec-title">チャンネル・プレイリスト</div>
-      <div class="fbar-row" style="margin-bottom:5px">
+      <div class="fbar-row">
         <span class="fbar-lbl">Playlist</span>
         <div class="hrow" id="fov-srow-pl"></div>
       </div>
-      <div class="fbar-row" style="margin-bottom:3px">
+      <div class="fbar-row" style="margin-bottom:2px">
         <span class="fbar-lbl">Channel</span>
         <div class="hrow" id="fov-srow-ch"></div>
       </div>
@@ -4148,19 +4147,19 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- ▌グループ3：ポジション・テクニック -->
     <div class="fsec fsec-3">
       <div class="fsec-title">ポジション・テクニック</div>
-      <div class="fbar-row" style="margin-bottom:5px">
+      <div class="fbar-row">
         <span class="fbar-lbl">T / B</span>
         <div class="hrow" id="fov-srow-tb"></div>
       </div>
-      <div class="fbar-row" style="margin-bottom:5px">
+      <div class="fbar-row">
         <span class="fbar-lbl">Action</span>
         <div class="hrow" id="fov-srow-ac"></div>
       </div>
-      <div class="fbar-row" style="margin-bottom:5px">
+      <div class="fbar-row">
         <span class="fbar-lbl">Position</span>
         <div class="hrow" id="fov-srow-pos"></div>
       </div>
-      <div class="fbar-row" style="margin-bottom:3px">
+      <div class="fbar-row" style="margin-bottom:2px">
         <span class="fbar-lbl">Technique</span>
         <div class="hrow" id="fov-srow-tech"></div>
       </div>

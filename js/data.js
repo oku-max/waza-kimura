@@ -26,7 +26,10 @@ export function qWatch(id) {
 
 export function archOne(id) {
   const v = window.videos?.find(v => v.id === id);
-  if (v) { v.archived = true; window.AF(); window.toast('📦 アーカイブ'); }
+  if (!v) return;
+  v.archived = true;
+  window.AF();
+  window.toastUndo('📦 アーカイブ', () => { v.archived = false; window.AF(); });
 }
 
 export function setPrio(id, prio) {

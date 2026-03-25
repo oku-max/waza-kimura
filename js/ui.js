@@ -15,9 +15,26 @@ export function showToast(msg, duration = 3000) {
 // アプリ内トースト（#toastエレメント使用）
 export function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  clearTimeout(t._tid);
+  t.innerHTML = '';
+  t.appendChild(document.createTextNode(msg));
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  t._tid = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// 取り消しボタン付きトースト
+export function toastUndo(msg, undoFn) {
+  const t = document.getElementById('toast');
+  clearTimeout(t._tid);
+  t.innerHTML = '';
+  t.appendChild(document.createTextNode(msg));
+  const btn = document.createElement('button');
+  btn.textContent = '↩ 取り消し';
+  btn.className = 'toast-undo-btn';
+  btn.onclick = () => { clearTimeout(t._tid); t.classList.remove('show'); undoFn(); };
+  t.appendChild(btn);
+  t.classList.add('show');
+  t._tid = setTimeout(() => t.classList.remove('show'), 5000);
 }
 
 // スクロールヘルパー
