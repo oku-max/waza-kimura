@@ -79,7 +79,7 @@ function buildBulkDrawerHTML() {
       <div class="vp-chips" id="bvp-prio">${prioChips}</div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">T / B</span>
+      <span class="vp-lbl">トップ/ボトム</span>
       <div class="vp-chips" id="bvp-tb">${tbChips}</div>
     </div>
     <div class="vp-row">
