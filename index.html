@@ -36,7 +36,7 @@
     tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
-    renderAiSettings, applyTagVisibility, applyRemoteSettings
+    renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, clearAll,
@@ -123,7 +123,9 @@
   window.renderTagVisibilityBtns = renderTagVisibilityBtns;
   window.renderAiSettings        = renderAiSettings;
   window.applyTagVisibility      = applyTagVisibility;
+  window.applyTagLabels          = applyTagLabels;
   applyTagVisibility();
+  applyTagLabels();
   // filter
   window.togF                  = togF;
   window.togPlat               = togPlat;
@@ -893,7 +895,7 @@
 
     <!-- T/B (コンパクト2列) -->
     <div class="bgrp bb-bgrp-tb">
-      <span class="bgrp-lbl">TOP/BOTTOM</span>
+      <span class="bgrp-lbl" data-tag-key="tb">TOP/BOTTOM</span>
       <div class="bgrp-2col" id="bb-tb-row">
         <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="トップ"        onclick="bulkChipToggle('tb','トップ'       ,this)">トップ</button>
         <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="ボトム"        onclick="bulkChipToggle('tb','ボトム'       ,this)">ボトム</button>
@@ -907,7 +909,7 @@
 
     <!-- Action (コンパクト2列) -->
     <div class="bgrp bb-bgrp-ac">
-      <span class="bgrp-lbl">Action</span>
+      <span class="bgrp-lbl" data-tag-key="ac">Action</span>
       <div class="bgrp-2col" id="bb-ac-row">
         <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="アタック"    onclick="bulkChipToggle('ac','アタック'   ,this)">アタック</button>
         <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="スイープ"    onclick="bulkChipToggle('ac','スイープ'   ,this)">スイープ</button>
@@ -924,7 +926,7 @@
 
     <!-- Position (ポップアップグリッド) -->
     <div class="bgrp bb-bgrp-pos" style="position:relative">
-      <span class="bgrp-lbl">Position</span>
+      <span class="bgrp-lbl" data-tag-key="pos">Position</span>
       <div class="bgrp-row">
         <button class="bbt" id="bb-pos-trigger" onclick="toggleBbPanel('pos')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-pos-count" style="font-weight:700;color:var(--accent)"></span></button>
         <div id="bb-pos-preview" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
@@ -935,7 +937,7 @@
 
     <!-- Technique (ポップアップグリッド) -->
     <div class="bgrp bb-bgrp-tech" style="position:relative">
-      <span class="bgrp-lbl">Technique</span>
+      <span class="bgrp-lbl" data-tag-key="tech">Technique</span>
       <div class="bgrp-row">
         <button class="bbt" id="bb-tech-trigger" onclick="toggleBbPanel('tech')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-tech-count" style="font-weight:700;color:var(--accent)"></span></button>
         <div id="bb-tech-preview" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
@@ -2269,15 +2271,15 @@ window.addEventListener('resize', adjustTopbarOffset);
       </div>
     </div>
     <div class="fbar-row fov-row-tb" style="margin-bottom:5px">
-      <span class="fbar-lbl">TOP/BOTTOM</span>
+      <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
       <div class="hrow" id="org-fov-srow-tb"></div>
     </div>
     <div class="fbar-row fov-row-ac" style="margin-bottom:5px">
-      <span class="fbar-lbl">Action</span>
+      <span class="fbar-lbl" data-tag-key="ac">Action</span>
       <div class="hrow" id="org-fov-srow-ac"></div>
     </div>
     <div class="fbar-row fov-row-pos" style="margin-bottom:5px">
-      <span class="fbar-lbl">Position</span>
+      <span class="fbar-lbl" data-tag-key="pos">Position</span>
       <div class="hrow" id="org-fov-srow-pos"></div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">
@@ -2285,7 +2287,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div class="hrow" id="org-fov-srow-pl"></div>
     </div>
     <div class="fbar-row fov-row-tech" style="margin-bottom:5px">
-      <span class="fbar-lbl">Technique</span>
+      <span class="fbar-lbl" data-tag-key="tech">Technique</span>
       <div class="hrow" id="org-fov-srow-tech"></div>
     </div>
     <div class="fbar-row" style="margin-bottom:8px">
@@ -2395,19 +2397,19 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div class="fsec fsec-3">
       <div class="fsec-title">ポジション・テクニック</div>
       <div class="fbar-row fov-row-tb">
-        <span class="fbar-lbl">TOP/BOTTOM</span>
+        <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
         <div class="hrow" id="fov-srow-tb"></div>
       </div>
       <div class="fbar-row fov-row-ac">
-        <span class="fbar-lbl">Action</span>
+        <span class="fbar-lbl" data-tag-key="ac">Action</span>
         <div class="hrow" id="fov-srow-ac"></div>
       </div>
       <div class="fbar-row fov-row-pos">
-        <span class="fbar-lbl">Position</span>
+        <span class="fbar-lbl" data-tag-key="pos">Position</span>
         <div class="hrow" id="fov-srow-pos"></div>
       </div>
       <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
-        <span class="fbar-lbl">Technique</span>
+        <span class="fbar-lbl" data-tag-key="tech">Technique</span>
         <div class="hrow" id="fov-srow-tech"></div>
       </div>
     </div>
