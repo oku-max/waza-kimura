@@ -6,7 +6,10 @@
 let _ytPlayer = null;       // 現在アクティブなYT.Playerインスタンス
 let _ytPlayerReady = false; // プレイヤーが操作可能な状態か
 let _ytApiLoaded = false;   // YouTube iFrame API読み込み済みか
-let _gdVideoEl = null;      // GDrive再生中の<video>要素への参照
+// GDrive用タイマー（iframeはcross-originのためJS APIで時間取得不可 → 経過時間で代替）
+let _gdCurrentFileId = null;  // 再生中のfileId
+let _gdTimerStart    = null;  // タイマー開始時刻（Date.now()）
+let _gdTimerElapsed  = 0;     // シーク後の開始秒数
 
 // YouTube iFrame APIを非同期で読み込む（初回のみ）
 function _loadYTApi() {
@@ -77,9 +80,9 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
 
 // 現在の再生位置（秒）を取得
 function _getCurrentTime() {
-  if (_gdVideoEl && !_gdVideoEl.error) {
-    const t = _gdVideoEl.currentTime;
-    return isNaN(t) ? null : Math.floor(t);
+  if (_gdCurrentFileId) {
+    if (_gdTimerStart == null) return null;
+    return Math.floor(_gdTimerElapsed + (Date.now() - _gdTimerStart) / 1000);
   }
   if (!_ytPlayer || !_ytPlayerReady) return null;
   try { return Math.floor(_ytPlayer.getCurrentTime()); } catch(e) { return null; }
@@ -87,8 +90,11 @@ function _getCurrentTime() {
 
 // 指定秒数にシーク
 function _seekTo(sec) {
-  if (_gdVideoEl && !_gdVideoEl.error) {
-    _gdVideoEl.currentTime = sec;
+  if (_gdCurrentFileId) {
+    _gdTimerElapsed = sec;
+    _gdTimerStart   = null; // iframeロード完了時に再開
+    const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
+    if (iframe) iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
     return;
   }
   if (!_ytPlayer || !_ytPlayerReady) return;
@@ -119,6 +125,11 @@ function _stopTimeDisplay() {
 function _updateTimeDisplay() {
   const el = document.getElementById('vp-title-time');
   if (!el) return;
+  if (_gdCurrentFileId) {
+    const t = _getCurrentTime();
+    if (t != null) el.textContent = _formatTime(t);
+    return;
+  }
   if (!_ytPlayer || !_ytPlayerReady) return;
   try {
     const cur = _ytPlayer.getCurrentTime?.() ?? 0;
@@ -1040,8 +1051,8 @@ export function openVPanel(id) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
 
-  // iframeコンテナをリセット
-  _gdVideoEl = null;
+  // GDriveタイマーリセット
+  _gdCurrentFileId = null; _gdTimerStart = null; _gdTimerElapsed = 0;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
   if (iframeContainer) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
@@ -1065,17 +1076,12 @@ export function openVPanel(id) {
       _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
     }
   } else if (plat === 'gd') {
-    // Google Drive: Drive APIで直接ストリーミング（<video>タグ）→ currentTime取得可能
+    // Google Drive: previewページをiframe表示（ブラウザのGoogleセッション利用・認証不要）
+    // currentTimeはiframeロード時から経過時間タイマーで近似
     const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
     const fileId = fileIdMatch ? fileIdMatch[1] : '';
     if (iframeContainer && fileId) {
-      _gdVideoEl = null;
-      const cachedToken = window.getDriveTokenIfAvailable?.();
-      if (cachedToken) {
-        _playGDriveVideo(iframeContainer, fileId, cachedToken, autoplay);
-      } else {
-        _showGDriveAuthUI(iframeContainer, fileId, autoplay);
-      }
+      _playGDriveIframe(iframeContainer, fileId, emb);
     }
   } else {
     // Vimeo: 従来通りiframe
@@ -1198,62 +1204,23 @@ window.addEventListener('orientationchange', () => {
   }, 100);
 });
 
-// ── Google Drive 再生ヘルパー ──
-function _playGDriveVideo(container, fileId, token, autoplay) {
-  const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
-  container.innerHTML = `<video controls playsinline ${autoplay ? 'autoplay' : ''}
-    style="width:100%;height:100%;background:#000"></video>`;
-  _gdVideoEl = container.querySelector('video');
-  _gdVideoEl.src = src;
-  _gdVideoEl.addEventListener('error', () => window._onGDriveVideoError(_gdVideoEl, fileId));
+// ── Google Drive 再生ヘルパー（iframe方式・認証不要）──
+function _playGDriveIframe(container, fileId, emb) {
+  _gdCurrentFileId = fileId;
+  _gdTimerElapsed  = 0;
+  _gdTimerStart    = null;
+  const iframe = document.createElement('iframe');
+  iframe.src = emb;
+  iframe.style.cssText = 'width:100%;height:100%;border:none';
+  iframe.allowFullscreen = true;
+  iframe.allow = 'autoplay;encrypted-media';
+  iframe.addEventListener('load', () => {
+    _gdTimerStart = Date.now();
+    _startTimeDisplay();
+  });
+  container.innerHTML = '';
+  container.appendChild(iframe);
 }
-
-function _showGDriveAuthUI(container, fileId, autoplay) {
-  container.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;padding:20px;box-sizing:border-box">
-    <div style="color:#aaa;font-size:12px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
-    <button id="gd-auth-play-btn" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
-      Googleで認証して再生
-    </button>
-    <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
-       style="color:#888;font-size:11px;text-decoration:underline;cursor:pointer">Driveで開く</a>
-  </div>`;
-  const btn = container.querySelector('#gd-auth-play-btn');
-  if (btn) btn.onclick = async () => {
-    btn.textContent = '認証中...';
-    btn.disabled = true;
-    const token = await window.ensureDriveToken?.();
-    if (token) {
-      _playGDriveVideo(container, fileId, token, autoplay);
-    } else {
-      btn.textContent = '認証に失敗しました。再試行';
-      btn.disabled = false;
-    }
-  };
-}
-
-window._onGDriveVideoError = function(videoEl, fileId) {
-  const container = videoEl.parentElement;
-  if (!container) return;
-  console.error('GDrive video error:', videoEl.error?.code, videoEl.error?.message, videoEl.src?.slice(0, 80));
-  // トークンをクリアして再認証UIを表示（consent強制でスコープを確実に付与）
-  window.clearDriveToken?.();
-  container.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;padding:20px;box-sizing:border-box">
-    <div style="color:#f66;font-size:13px;text-align:center">再生に失敗しました</div>
-    <div style="color:#888;font-size:11px;text-align:center;line-height:1.6">認証の有効期限が切れているか、ファイルへのアクセス権がない可能性があります</div>
-    <button id="gd-retry-btn" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
-    <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
-       style="color:#888;font-size:11px;text-decoration:underline">Driveで開く</a>
-  </div>`;
-  const btn = container.querySelector('#gd-retry-btn');
-  if (btn) btn.onclick = async () => {
-    btn.textContent = '認証中...'; btn.disabled = true;
-    // initDriveAuth(true)でconsentを強制 → drive.readonlyスコープを確実に付与
-    const ok = await window.initDriveAuth?.(true);
-    const token = ok ? window.getDriveTokenIfAvailable?.() : null;
-    if (token) { _playGDriveVideo(container, fileId, token, false); }
-    else { btn.textContent = '認証に失敗しました。再試行'; btn.disabled = false; }
-  };
-};
 
 // emb URLからYouTube video IDを抽出
 function _extractYtId(emb) {
@@ -1781,18 +1748,12 @@ export function _openPanel(id, emb, ext, plat) {
       _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
     }
   } else if (plat === 'gd') {
-    // Google Drive: Drive APIで直接ストリーミング（<video>タグ）→ currentTime取得可能
+    // Google Drive: previewページをiframe表示（ブラウザのGoogleセッション利用・認証不要）
     const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
     const fileId = fileIdMatch ? fileIdMatch[1] : '';
     const playerDiv = document.getElementById('vp-panel-yt-player');
     if (playerDiv && fileId) {
-      _gdVideoEl = null;
-      const cachedToken = window.getDriveTokenIfAvailable?.();
-      if (cachedToken) {
-        _playGDriveVideo(playerDiv, fileId, cachedToken, autoplay);
-      } else {
-        _showGDriveAuthUI(playerDiv, fileId, autoplay);
-      }
+      _playGDriveIframe(playerDiv, fileId, emb);
     }
   } else {
     // Vimeo
