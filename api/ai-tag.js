@@ -12,28 +12,30 @@ const POS_TAGS     = ['クローズドガード','ハーフガード','マウン
 const TECH_TAGS    = ['十字絞め','RNC','ギロチン','アナコンダ','ダースチョーク','ノースサウスチョーク','ボウアンドアロー','アームバー','キムラ','アメリカーナ','オモプラッタ','ヒールフック','インサイドヒールフック','アウトサイドヒールフック','ニーバー','トーホールド','アンクルロック','カーフスライサー','シザースイープ','フラワースイープ','ヒップバンプスイープ','バタフライスイープ','SLXスイープ','バックテイク','ダブルレッグ','シングルレッグ','ベリンボロ','トレアンダー','ニーカット','トレアンダーパス','ブルファイターパス','レッグドラッグ','スタックパス','スマッシュパス','バックステップ','X-パス','ディープハーフエントリー','クレーンロール','ガスペダル','カウンター'];
 
 const SYSTEM_PROMPT = `あなたはブラジリアン柔術（BJJ）動画のタグ付けアシスタントです。
-動画のタイトル・チャンネル名・プレイリスト名を見て、以下のリストから最適なタグを選んでください。
+動画のタイトル・チャンネル名・プレイリスト名を見て、最適なタグをJSONで返してください。
 
-【TOP/BOTTOM】（選択肢）
+【TOP/BOTTOM】選択肢から選ぶ：
 ${TB_TAGS.join(' / ')}
 
-【ACTION】（選択肢）
+【ACTION】選択肢から選ぶ：
 ${AC_TAGS.join(' / ')}
 
-【POSITION】（選択肢）
+【POSITION】選択肢から選ぶ：
 ${POS_TAGS.join(' / ')}
 
-【TECHNIQUE】（選択肢）
-${TECH_TAGS.join(' / ')}
+【TECHNIQUE】技術名をタイトルから直接抽出する（リストは参考）：
+参考リスト: ${TECH_TAGS.join(' / ')}
+★ リストにない技術名でもタイトルに含まれていれば必ず抽出すること
+★ 例: 「キスオブザドラゴン」「Kガード」「ニーシールド」「クロスガード」等
 
-厳守ルール：
-- 各タグは必ず上記リストの言葉をそのままコピーする（一字一句変えない）
-- リストにない言葉は絶対に使わない
+ルール：
+- TOP/BOTTOM・ACTION・POSITIONは必ず選択肢の言葉をそのまま使う
+- TECHNIQUEはタイトルから技術名を積極的に抽出（日本語・英語カタカナ）
 - 確信が持てないカテゴリは空配列にする
 - JSONのみを返す（説明文・コードブロック不要）
 
 返却形式（例）：
-{"tb":["ボトム"],"action":["スイープ"],"position":["ハーフガード"],"tech":["バタフライスイープ"]}`;
+{"tb":["ボトム"],"action":["スイープ"],"position":["ハーフガード"],"tech":["キスオブザドラゴン"]}`;
 
 export default async function handler(req, res) {
   // CORS
@@ -98,11 +100,15 @@ export default async function handler(req, res) {
     const safe = (arr, allowed) =>
       (Array.isArray(arr) ? arr : []).filter(v => allowed.includes(v));
 
+    // tech はタイトルから自由抽出するためフィルタなし（長さ上限のみ）
+    const safeTech = Array.isArray(tags.tech)
+      ? tags.tech.filter(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 40)
+      : [];
     return res.status(200).json({
       tb:       safe(tags.tb,       TB_TAGS),
       action:   safe(tags.action,   AC_TAGS),
       position: safe(tags.position, POS_TAGS),
-      tech:     safe(tags.tech,     TECH_TAGS),
+      tech:     safeTech,
     });
 
   } catch (e) {

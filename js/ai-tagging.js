@@ -187,18 +187,48 @@ export function showAiTagPanel(videoId, suggestions) {
     }
   };
 
-  // ── 手動タグ追加 ──
+  // ── 手動タグ追加（値があれば追加、なければプリセットピッカーを表示） ──
   window._aiAddManual = (key, input) => {
     const val = (input.value || '').trim();
-    if (!val) return;
-    const chipsDiv = document.querySelector(`[data-cat="${key}"] div[style*="flex-wrap"]`);
-    if (!chipsDiv) return;
-    const label = document.createElement('label');
-    label.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1.5px solid var(--accent);background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);user-select:none';
-    label.innerHTML = `<input type="checkbox" data-key="${key}" data-val="${val.replace(/"/g,'&quot;')}" checked style="accent-color:var(--accent);width:13px;height:13px"> ${val}`;
-    chipsDiv.appendChild(label);
-    input.value = '';
-    input.focus();
+    if (val) {
+      // テキストがあれば即追加
+      const chipsDiv = document.querySelector(`[data-cat="${key}"] div[style*="flex-wrap"]`);
+      if (!chipsDiv) return;
+      const label = document.createElement('label');
+      label.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1.5px solid var(--accent);background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);user-select:none';
+      label.innerHTML = `<input type="checkbox" data-key="${key}" data-val="${val.replace(/"/g,'&quot;')}" checked style="accent-color:var(--accent);width:13px;height:13px"> ${val}`;
+      chipsDiv.appendChild(label);
+      input.value = '';
+      input.focus();
+    } else {
+      // テキストが空ならプリセットピッカーを表示
+      const catDiv = document.querySelector(`[data-cat="${key}"]`);
+      if (!catDiv) return;
+      catDiv.querySelector('.ai-preset-picker')?.remove();
+      const fieldKey = KEY_TO_FIELD[key];
+      const presets = (window.tagSettings || []).find(s => s.key === fieldKey)?.presets || [];
+      if (!presets.length) { input.focus(); return; }
+      const picker = document.createElement('div');
+      picker.className = 'ai-preset-picker';
+      picker.style.cssText = 'background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:8px;margin-top:4px;display:flex;flex-wrap:wrap;gap:5px;box-shadow:0 4px 16px rgba(0,0,0,.14);';
+      presets.forEach(preset => {
+        const chip = document.createElement('span');
+        chip.style.cssText = 'padding:4px 11px;border-radius:20px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:var(--surface2);color:var(--text);';
+        chip.textContent = preset;
+        chip.onclick = (e) => {
+          e.stopPropagation();
+          input.value = preset;
+          window._aiAddManual(key, input);
+          picker.remove();
+        };
+        picker.appendChild(chip);
+      });
+      catDiv.appendChild(picker);
+      setTimeout(() => {
+        const close = (e) => { if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', close); } };
+        document.addEventListener('click', close);
+      }, 10);
+    }
   };
 
   // ── 適用ボタン ──
@@ -239,7 +269,9 @@ function applyAiTags(videoId, panel, mode = 'add') {
   });
 
   window.debounceSave?.();
-  window.vpRefreshChips?.();
+  // VPanel 内のタグチップを全カテゴリ即時更新
+  ['tb','ac','pos','tech'].forEach(type => window.vpRefreshChips?.(videoId, type));
+  window.AF?.();
   const modeLabel = mode === 'overwrite' ? '上書き' : '追加';
   window.toast?.(`🤖 ${added}件のタグを${modeLabel}しました`);
   panel.remove();
