@@ -96,9 +96,18 @@ function _seekTo(sec) {
     const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
     if (iframe) {
       iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
-      // iframeロード後にpostMessageで再生命令（Drive playerがYT IFrame API形式に応答する場合）
       iframe.addEventListener('load', () => {
-        try { iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":[]}', '*'); } catch(e) {}
+        _gdTimerStart = Date.now();
+        // 複数フォーマットでDriveに再生命令を試みる
+        const cmds = [
+          '{"event":"command","func":"playVideo","args":[]}',
+          '{"method":"play"}',
+          '{"type":"video","command":"play"}',
+        ];
+        for (const cmd of cmds) {
+          try { iframe.contentWindow?.postMessage(cmd, 'https://drive.google.com'); } catch(_) {}
+          try { iframe.contentWindow?.postMessage(cmd, '*'); } catch(_) {}
+        }
       }, { once: true });
     }
     return;
@@ -1210,6 +1219,19 @@ window.addEventListener('orientationchange', () => {
   }, 100);
 });
 
+// ── Google Drive playerからのpostMessage受信（再生/停止を検出してタイマー制御）──
+window.addEventListener('message', (e) => {
+  if (!_gdCurrentFileId) return;
+  if (!e.origin.includes('google.com')) return;
+  let data = e.data;
+  if (typeof data === 'string') { try { data = JSON.parse(data); } catch(_) { return; } }
+  if (typeof data !== 'object' || !data) return;
+  // YouTube IFrame API 形式（Drive playerが同形式を使う場合）
+  const ps = data.info?.playerState ?? (data.event === 'onStateChange' ? data.info : undefined);
+  if (ps === 1)           { _startTimeDisplay(); }                          // 再生中
+  else if (ps === 2 || ps === 0) { _stopTimeDisplay(); _updateTimeDisplay(); } // 停止/終了
+});
+
 // ── Google Drive 再生ヘルパー（iframe方式・認証不要）──
 function _playGDriveIframe(container, fileId, emb) {
   _gdCurrentFileId = fileId;
@@ -1223,6 +1245,8 @@ function _playGDriveIframe(container, fileId, emb) {
   iframe.addEventListener('load', () => {
     if (_gdTimerStart === null) _gdTimerStart = Date.now();
     _startTimeDisplay();
+    // Drive playerにイベント通知を要求（対応している場合のみ動作）
+    try { iframe.contentWindow?.postMessage('{"event":"listening"}', 'https://drive.google.com'); } catch(_) {}
   });
   container.innerHTML = '';
   container.appendChild(iframe);
