@@ -8,6 +8,7 @@ export let tagSettings = [
 
 export function saveTagSettings() {
   try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
+  window.saveUserSettings?.();
 }
 
 export function loadTagSettings() {
@@ -168,6 +169,7 @@ export let aiSettings = {
 export function saveAiSettings() {
   try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
   window.aiSettings = aiSettings;
+  window.saveUserSettings?.();
 }
 
 export function loadAiSettings() {
@@ -279,4 +281,21 @@ export function renderTagVisibilityBtns() {
     };
     el.appendChild(btn);
   });
+}
+
+// クラウドから読み込んだ設定を適用（デバイス間同期用）
+export function applyRemoteSettings(data) {
+  if (data.tagSettings && Array.isArray(data.tagSettings) && data.tagSettings.length) {
+    tagSettings = data.tagSettings;
+    window.tagSettings = tagSettings;
+    try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
+  }
+  if (data.aiSettings && typeof data.aiSettings === 'object') {
+    aiSettings = { ...aiSettings, ...data.aiSettings, categories: { ...aiSettings.categories, ...(data.aiSettings.categories || {}) } };
+    window.aiSettings = aiSettings;
+    try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
+  }
+  // 設定画面が開いていれば再描画、フィルターも更新
+  renderSettings();
+  window.AF?.();
 }

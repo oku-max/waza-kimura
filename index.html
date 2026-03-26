@@ -23,7 +23,7 @@
 <script src="js/config.js"></script>
 <script type="module">
   import { showToast } from './js/ui.js';
-  import { saveUserData, loadUserData, updateAuthUI } from './js/firebase.js';
+  import { saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings } from './js/firebase.js';
   import {
     importYouTubePlaylists, ytFetchSelectedPlVideos, ytShowVideoStage,
     ytRenderVideoList, ytUpdateSelCount, ytSelAllVideos,
@@ -36,7 +36,8 @@
     tagSettings, saveTagSettings, loadTagSettings, renderSettings,
     renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
-    aiSettings, saveAiSettings, loadAiSettings, renderAiSettings, setAiDefaultMode
+    aiSettings, saveAiSettings, loadAiSettings, renderAiSettings, setAiDefaultMode,
+    applyRemoteSettings
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, clearAll,
@@ -80,6 +81,9 @@
 
   // firebase
   window.saveUserData            = saveUserData;
+  window.saveUserSettings        = saveUserSettings;
+  window.loadUserSettings        = loadUserSettings;
+  window.applyRemoteSettings     = applyRemoteSettings;
   // youtube
   window.importYouTubePlaylists  = importYouTubePlaylists;
   window.ytFetchSelectedPlVideos = ytFetchSelectedPlVideos;
