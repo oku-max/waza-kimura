@@ -94,7 +94,13 @@ function _seekTo(sec) {
     _gdTimerElapsed = sec;
     _gdTimerStart   = null; // iframeロード時に再開
     const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
-    if (iframe) iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}&autoplay=1`;
+    if (iframe) {
+      iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
+      // iframeロード後にpostMessageで再生命令（Drive playerがYT IFrame API形式に応答する場合）
+      iframe.addEventListener('load', () => {
+        try { iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":[]}', '*'); } catch(e) {}
+      }, { once: true });
+    }
     return;
   }
   if (!_ytPlayer || !_ytPlayerReady) return;
@@ -125,8 +131,11 @@ function _stopTimeDisplay() {
 function _updateTimeDisplay() {
   const el = document.getElementById('vp-title-time');
   if (!el) return;
-  // GDriveはタイマーをUIに表示しない（pause検出不可のため常時カウントになる）
-  if (_gdCurrentFileId) return;
+  if (_gdCurrentFileId) {
+    const t = _getCurrentTime();
+    if (t != null) el.textContent = _formatTime(t);
+    return;
+  }
   if (!_ytPlayer || !_ytPlayerReady) return;
   try {
     const cur = _ytPlayer.getCurrentTime?.() ?? 0;
@@ -1212,8 +1221,8 @@ function _playGDriveIframe(container, fileId, emb) {
   iframe.allowFullscreen = true;
   iframe.allow = 'autoplay;encrypted-media';
   iframe.addEventListener('load', () => {
-    // タイマーをリセット（ブックマーク記録用・UI表示はしない）
     if (_gdTimerStart === null) _gdTimerStart = Date.now();
+    _startTimeDisplay();
   });
   container.innerHTML = '';
   container.appendChild(iframe);
