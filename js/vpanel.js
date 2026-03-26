@@ -1249,7 +1249,7 @@ export function buildDrawerHTML(id) {
       <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
     </div>
     <div class="vp-row vp-row-tb">
-      <span class="vp-lbl">TOP/BOTTOM</span>
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-tb-${id}">${tbChips}</div>
         <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tb')">＋ 追加</div>
@@ -1260,7 +1260,7 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     <div class="vp-row vp-row-ac">
-      <span class="vp-lbl">Action</span>
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='ac')?.label||'Action'}</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-ac-${id}">${acChips}</div>
         <div class="vp-dd-trigger" onclick="vpTogDd('${id}','ac')">＋ 追加</div>
@@ -1271,7 +1271,7 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     <div class="vp-row vp-row-pos">
-      <span class="vp-lbl">Position</span>
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='pos')?.label||'Position'}</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
         <div class="vp-dd-trigger" onclick="vpTogDd('${id}','pos')">＋ 追加</div>
@@ -1282,7 +1282,7 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     <div class="vp-row vp-row-tech">
-      <span class="vp-lbl">Technique</span>
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tech')?.label||'Technique'}</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-tech-${id}">${techChips}</div>
         <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tech')">＋ 追加</div>
