@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -rn \"Archive / \\\\|Watched\\\\b\" C:UsersokusoDocumentswaza-kimura.claudeworktreesmusing-bose --include=*.html --include=*.js --include=*.css)",
+      "Bash(grep -rn \"swipe\\\\|hint-bar\\\\|touchstart\\\\|touchmove\" C:UsersokusoDocumentswaza-kimura.claudeworktreesmusing-bose --include=*.js --include=*.html)",
+      "Bash(grep -rn \"T/B\\\\|T / B\\\\|T\\\\/B\\\\|tb.*lbl\\\\|lbl.*tb\\\\|tbPicker\\\\|T.B\" C:UsersokusoDocumentswaza-kimura.claudeworktreesmusing-bose --include=*.html --include=*.js --include=*.css)",
+      "Bash(grep -h \"^export function\" /c/Users/okuso/Documents/waza-kimura/.claude/worktrees/musing-bose/js/*.js)",
+      "Bash(node -e \":*)",
+      "Bash(grep -n \"// ══════════════════════════════════════$\\\\|// BULK VPANEL\\\\|setPrio → js/data.js に移動\\\\|^function renderArch\" \"C:\\\\Users\\\\okuso\\\\Documents\\\\waza-kimura\\\\.claude\\\\worktrees\\\\musing-bose\\\\index.html\")",
+      "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__list_projects",
+      "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__get_project",
+      "Read(//c/Users/okuso/Documents/waza-kimura/**)",
+      "Read(//c/Users/okuso/Documents/waza-kimura/.vercel/**)",
+      "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__get_deployment",
+      "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__list_teams",
+      "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__list_deployments",
+      "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__get_deployment_build_logs",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"serviceWorker\\\\|sw.js\\\\|Service Worker\" C:UsersokusoDocumentswaza-kimura --include=*.js --include=*.html -l)"
+    ]
+  }
+}
