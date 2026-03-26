@@ -42,7 +42,8 @@ export function initDriveAuth(forceConsent = false) {
     }
     const provider = new window.firebase.auth.GoogleAuthProvider();
     provider.addScope(GD_SCOPE);
-    provider.setCustomParameters({ prompt: forceConsent ? 'consent' : 'select_account' });
+    // 常にconsentを要求してdrive.readonlyスコープを確実に付与させる
+    provider.setCustomParameters({ prompt: 'consent' });
 
     fbAuth.signInWithPopup(provider)
       .then(result => {
