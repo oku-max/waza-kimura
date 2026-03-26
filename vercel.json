@@ -1,12 +1,6 @@
 {
   "version": 2,
-  "buildCommand": null,
   "outputDirectory": ".",
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/$1" }
   ]
