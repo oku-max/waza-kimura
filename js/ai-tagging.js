@@ -6,15 +6,39 @@ const CATEGORY_KEYS = ['tb', 'action', 'position', 'tech'];
 const LABELS = { tb: 'TOP/BOTTOM', action: 'ACTION', position: 'POSITION', tech: 'TECHNIQUE' };
 const KEY_TO_FIELD = { tb: 'tb', action: 'ac', position: 'pos', tech: 'tech' };
 
+// カテゴリキー → tagSettings.key のマッピング
+const KEY_TO_SETTING = { tb: 'tb', action: 'ac', position: 'pos', tech: 'tech' };
+
+// tagSettingsからpresets取得
+function getPresets(key) {
+  const sk = KEY_TO_SETTING[key];
+  return (window.tagSettings || []).find(s => s.key === sk)?.presets || [];
+}
+
+// タグがpresetに含まれるか
+function isPresetTag(key, val) {
+  return getPresets(key).includes(val);
+}
+
 // ── タグ提案を取得 ──
 export async function fetchAiTags(video) {
+  const s = window.aiSettings || {};
+  // ユーザーのpresetをAPIに送る（dynamicプロンプト生成用）
+  const presets = {
+    tb:   getPresets('tb'),
+    ac:   getPresets('action'),
+    pos:  getPresets('position'),
+    tech: getPresets('tech'),
+  };
   const res = await fetch(AI_TAG_ENDPOINT, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      title:    video.title || '',
-      channel:  video.ch    || '',
-      playlist: video.pl    || '',
+      title:       video.title || '',
+      channel:     video.ch    || '',
+      playlist:    video.pl    || '',
+      flexibility: s.flexibility || 'standard',
+      presets,
     }),
   });
   if (!res.ok) throw new Error('AI APIエラー: ' + res.status);
@@ -69,14 +93,20 @@ export function showAiTagPanel(videoId, suggestions) {
          </div>`
       : '';
 
-    const chips = suggested.map(v => `
-      <label style="display:inline-flex;align-items:center;gap:5px;
-        padding:5px 10px;border-radius:20px;border:1.5px solid var(--accent);
-        background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600;
-        color:var(--accent);user-select:none">
-        <input type="checkbox" data-key="${key}" data-val="${v.replace(/"/g,'&quot;')}"
-          checked style="accent-color:var(--accent);width:13px;height:13px"> ${v}
-      </label>`).join('');
+    const newTagAllowed = (window.aiSettings?.newTagProposal !== false);
+    const chips = suggested
+      .filter(v => isPresetTag(key, v) || newTagAllowed)
+      .map(v => {
+        const isNew = !isPresetTag(key, v);
+        const chipStyle = isNew
+          ? 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1.5px dashed #e67e22;background:#fef9f0;cursor:pointer;font-size:12px;font-weight:600;color:#e67e22;user-select:none'
+          : 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1.5px solid var(--accent);background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);user-select:none';
+        const label = isNew ? `${v} <span style="font-size:10px;opacity:.8">新規</span>` : v;
+        return `<label style="${chipStyle}">
+          <input type="checkbox" data-key="${key}" data-val="${v.replace(/"/g,'&quot;')}"
+            data-new="${isNew}" checked style="accent-color:var(--accent);width:13px;height:13px"> ${label}
+        </label>`;
+      }).join('');
 
     const noSuggestion = !suggested.length
       ? `<span style="font-size:11px;color:var(--text3);font-style:italic">AIの提案なし</span>`
@@ -267,6 +297,22 @@ function applyAiTags(videoId, panel, mode = 'add') {
       });
     }
   });
+
+  // autoAddToPresets: 新規タグをtagSettingsのpresetに自動登録
+  if (window.aiSettings?.autoAddToPresets) {
+    let presetsUpdated = false;
+    panel.querySelectorAll('input[type=checkbox]:checked[data-new="true"]').forEach(cb => {
+      const key = cb.dataset.key;
+      const val = cb.dataset.val;
+      const sk = KEY_TO_SETTING[key];
+      const ts = (window.tagSettings || []).find(s => s.key === sk);
+      if (ts && val && !ts.presets.includes(val)) {
+        ts.presets.push(val);
+        presetsUpdated = true;
+      }
+    });
+    if (presetsUpdated) window.saveTagSettings?.();
+  }
 
   window.debounceSave?.();
   // VPanel 内のタグチップを全カテゴリ即時更新

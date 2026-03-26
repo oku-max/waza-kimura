@@ -159,11 +159,14 @@ export function removeTagPreset(i, pi) {
 // ══════════════════════════════════════
 
 export let aiSettings = {
-  enabled:         true,
-  defaultMode:     'add',
-  categories:      { tb: true, action: true, position: true, tech: true },
-  autoTagOnImport: false,
-  bulkConfirm:     true,
+  enabled:          true,
+  defaultMode:      'add',
+  categories:       { tb: true, action: true, position: true, tech: true },
+  autoTagOnImport:  false,
+  bulkConfirm:      true,
+  newTagProposal:   true,       // 設定外タグを「新規追加」として提案
+  flexibility:      'standard', // 'strict' | 'standard' | 'flexible'
+  autoAddToPresets: false,      // 新規タグをpresetに自動登録
 };
 
 export function saveAiSettings() {
@@ -246,7 +249,7 @@ export function renderAiSettings() {
       </label>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
       <div>
         <div style="font-size:12px;font-weight:600;margin-bottom:2px">一括適用前の確認ダイアログ</div>
         <div style="font-size:11px;color:var(--text3)">「○本に適用しますか？」の確認を表示します</div>
@@ -257,6 +260,48 @@ export function renderAiSettings() {
         <span class="settings-toggle-slider"></span>
       </label>
     </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">新規タグ提案</div>
+        <div style="font-size:11px;color:var(--text3)">設定外の用語を「◯◯（新規追加）」として提案します</div>
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="ai-new-tag" ${s.newTagProposal ? 'checked' : ''}
+          onchange="aiSettings.newTagProposal=this.checked;saveAiSettings();renderAiSettings()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>
+
+    ${s.newTagProposal ? `
+    <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px">提案の柔軟性</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">新規タグをどれくらい積極的に提案するか</div>
+      <div style="display:flex;gap:6px">
+        ${[['strict','がちがち'],['standard','標準'],['flexible','柔軟']].map(([val, label]) => `
+          <button onclick="aiSettings.flexibility='${val}';saveAiSettings();renderAiSettings()"
+            style="flex:1;padding:7px 4px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+              ${s.flexibility===val ? 'background:var(--accent);color:#fff;border:none' : 'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
+            ${label}
+          </button>`).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:7px">
+        ${{strict:'設定済みpresetのみ提案（新規なし）',standard:'タイトルに明確な用語があれば新規提案',flexible:'関連する用語・技術名を積極的に新規提案'}[s.flexibility]}
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">新規タグをプリセットに自動登録</div>
+        <div style="font-size:11px;color:var(--text3)">採用した新規タグをタグ管理のpresetにも追加</div>
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="ai-auto-presets" ${s.autoAddToPresets ? 'checked' : ''}
+          onchange="aiSettings.autoAddToPresets=this.checked;saveAiSettings()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>
+    ` : `<div style="padding-top:14px;font-size:11px;color:var(--text3)">新規タグ提案OFFのため、設定済みpresetのタグのみ提案します</div>`}
   `;
 }
 

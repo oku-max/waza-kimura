@@ -11,31 +11,43 @@ const AC_TAGS      = ['エスケープ・ディフェンス','パスガード','
 const POS_TAGS     = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
 const TECH_TAGS    = ['十字絞め','RNC','ギロチン','アナコンダ','ダースチョーク','ノースサウスチョーク','ボウアンドアロー','アームバー','キムラ','アメリカーナ','オモプラッタ','ヒールフック','インサイドヒールフック','アウトサイドヒールフック','ニーバー','トーホールド','アンクルロック','カーフスライサー','シザースイープ','フラワースイープ','ヒップバンプスイープ','バタフライスイープ','SLXスイープ','バックテイク','ダブルレッグ','シングルレッグ','ベリンボロ','トレアンダー','ニーカット','トレアンダーパス','ブルファイターパス','レッグドラッグ','スタックパス','スマッシュパス','バックステップ','X-パス','ディープハーフエントリー','クレーンロール','ガスペダル','カウンター'];
 
-const SYSTEM_PROMPT = `あなたはブラジリアン柔術（BJJ）動画のタグ付けアシスタントです。
-動画のタイトル・チャンネル名・プレイリスト名を見て、最適なタグをJSONで返してください。
+function buildSystemPrompt(presets, flexibility) {
+  const tbList    = (presets?.tb     || TB_TAGS).join(' / ');
+  const acList    = (presets?.ac     || AC_TAGS).join(' / ');
+  const posList   = (presets?.pos    || POS_TAGS).join(' / ');
+  const techList  = (presets?.tech   || TECH_TAGS).join(' / ');
 
-【TOP/BOTTOM】選択肢から選ぶ：
-${TB_TAGS.join(' / ')}
+  const flexNote = {
+    strict:   `- 各カテゴリは必ず上記リストの言葉のみ使う。リスト外の単語は絶対に使わない。`,
+    standard: `- TOP/BOTTOM・ACTION・POSITIONは上記リストから選ぶ。
+- TECHNIQUEはリストを優先しつつ、タイトルに明確に含まれるBJJ技術名は新規追加可（カタカナ・日本語）。`,
+    flexible: `- TOP/BOTTOM・ACTION・POSITIONは上記リストを優先しつつ、関連用語があれば新規追加可。
+- TECHNIQUEはタイトルから技術名を積極的に抽出し新規追加可。BJJ用語として妥当なものを提案すること。`,
+  }[flexibility || 'standard'];
 
-【ACTION】選択肢から選ぶ：
-${AC_TAGS.join(' / ')}
+  return `あなたはブラジリアン柔術（BJJ）の専門知識を持つタグ付けアシスタントです。
+動画タイトル・チャンネル名・プレイリスト名を分析し、最適なタグをJSONで返してください。
 
-【POSITION】選択肢から選ぶ：
-${POS_TAGS.join(' / ')}
+【TOP/BOTTOM】ユーザー設定リスト：
+${tbList}
 
-【TECHNIQUE】技術名をタイトルから直接抽出する（リストは参考）：
-参考リスト: ${TECH_TAGS.join(' / ')}
-★ リストにない技術名でもタイトルに含まれていれば必ず抽出すること
-★ 例: 「キスオブザドラゴン」「Kガード」「ニーシールド」「クロスガード」等
+【ACTION】ユーザー設定リスト：
+${acList}
+
+【POSITION】ユーザー設定リスト：
+${posList}
+
+【TECHNIQUE】ユーザー設定リスト（参考）：
+${techList}
 
 ルール：
-- TOP/BOTTOM・ACTION・POSITIONは必ず選択肢の言葉をそのまま使う
-- TECHNIQUEはタイトルから技術名を積極的に抽出（日本語・英語カタカナ）
+${flexNote}
 - 確信が持てないカテゴリは空配列にする
 - JSONのみを返す（説明文・コードブロック不要）
 
 返却形式（例）：
 {"tb":["ボトム"],"action":["スイープ"],"position":["ハーフガード"],"tech":["キスオブザドラゴン"]}`;
+}
 
 export default async function handler(req, res) {
   // CORS
@@ -56,10 +68,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' });
   }
 
-  const { title, channel, playlist } = req.body || {};
+  const { title, channel, playlist, flexibility, presets } = req.body || {};
   if (!title) {
     return res.status(400).json({ error: 'title is required' });
   }
+
+  const systemPrompt = buildSystemPrompt(presets, flexibility);
 
   const userMessage = [
     `タイトル：${title}`,
@@ -77,8 +91,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model:      'claude-haiku-4-5',
-        max_tokens: 256,
-        system:     SYSTEM_PROMPT,
+        max_tokens: 300,
+        system:     systemPrompt,
         messages:   [{ role: 'user', content: userMessage }],
       }),
     });
