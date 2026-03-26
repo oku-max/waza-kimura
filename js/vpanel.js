@@ -1314,6 +1314,15 @@ export function buildDrawerHTML(id) {
         <span class="vp-chip${(v.shared||0)===2?' on-s0':''}" onclick="vpSetShare('${id}',2,this)">🌐 全公開</span>
       </div>
     </div>
+    <div style="padding:8px 16px 4px">
+      <button id="vp-ai-tag-btn"
+        onclick="window.onAiTagBtn?.('${id}')"
+        style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
+               background:var(--surface2);color:var(--accent);font-size:13px;
+               font-weight:700;cursor:pointer;letter-spacing:.3px">
+        🤖 AIタグ提案
+      </button>
+    </div>
     <div id="vp-autosave-${id}" style="text-align:center;font-size:10px;color:var(--text3);opacity:0;transition:opacity .3s;padding:4px 0 8px;letter-spacing:.5px;">✓ 自動保存済み</div>
   `;
 }
