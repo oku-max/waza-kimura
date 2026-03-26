@@ -1196,6 +1196,8 @@ body.bulk-mode .card-sel-ov{display:block;}
   text-align: left;
 }
 .tab-bar-btn:hover { background: var(--surface3); }
+.tab-bar-btn.bulk-active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.tab-bar-btn.bulk-active:hover { background: #333; }
 #filter-toggle-btn.active {
   background: var(--text);
   color: var(--surface);
