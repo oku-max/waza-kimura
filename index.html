@@ -68,7 +68,8 @@
   import './js/bulk.js';
   import './js/ai-tagging.js';
   import {
-    initDriveAuth, ensureDriveToken, switchImportTab,
+    initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
+    switchImportTab,
     gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
     gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport
   } from './js/gdrive.js';
@@ -101,6 +102,8 @@
   // google drive
   window.initDriveAuth           = initDriveAuth;
   window.ensureDriveToken        = ensureDriveToken;
+  window.getDriveTokenIfAvailable = getDriveTokenIfAvailable;
+  window.clearDriveToken         = clearDriveToken;
   window.switchImportTab         = switchImportTab;
   window.gdOpenBrowser           = gdOpenBrowser;
   window.gdBrowserEnter          = gdBrowserEnter;

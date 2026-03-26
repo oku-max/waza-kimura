@@ -68,7 +68,6 @@ export function initDriveAuth(forceConsent = false) {
 // ── トークン取得（再生時・スキャン時に使用）──
 export async function ensureDriveToken() {
   if (_token) return _token;
-  // セッションキャッシュから復元
   const cached = _loadCachedToken();
   if (cached) {
     _token = cached;
@@ -77,6 +76,21 @@ export async function ensureDriveToken() {
   }
   const ok = await initDriveAuth();
   return ok ? _token : null;
+}
+
+// ── キャッシュのみ確認（認証ポップアップを出さない）──
+export function getDriveTokenIfAvailable() {
+  if (_token) return _token;
+  const cached = _loadCachedToken();
+  if (cached) { _token = cached; _setAuthUI(true); return _token; }
+  return null;
+}
+
+// ── トークンを破棄して再認証を促す ──
+export function clearDriveToken() {
+  _token = null;
+  try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
+  _setAuthUI(false);
 }
 
 function _setAuthUI(authed) {

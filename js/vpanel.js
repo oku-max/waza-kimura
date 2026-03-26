@@ -1059,18 +1059,12 @@ export function openVPanel(id) {
     const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
     const fileId = fileIdMatch ? fileIdMatch[1] : '';
     if (iframeContainer && fileId) {
-      iframeContainer.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:13px">読み込み中...</div>`;
-      window.ensureDriveToken?.().then(token => {
-        if (!token) {
-          iframeContainer.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#000">
-            <div style="color:#fff;font-size:13px">再生にはGoogle認証が必要です</div>
-            <button onclick="window.ensureDriveToken?.().then(t=>{ if(t) window.openVPanel?.(window._currentVid); })" style="padding:8px 20px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">認証して再生</button>
-          </div>`;
-          return;
-        }
-        const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
-        iframeContainer.innerHTML = `<video src="${src}" ${autoplay ? 'autoplay' : ''} controls playsinline style="width:100%;height:100%;background:#000"></video>`;
-      });
+      const cachedToken = window.getDriveTokenIfAvailable?.();
+      if (cachedToken) {
+        _playGDriveVideo(iframeContainer, fileId, cachedToken, autoplay);
+      } else {
+        _showGDriveAuthUI(iframeContainer, fileId, autoplay);
+      }
     }
   } else {
     // Vimeo: 従来通りiframe
@@ -1192,6 +1186,58 @@ window.addEventListener('orientationchange', () => {
     }, 150);
   }, 100);
 });
+
+// ── Google Drive 再生ヘルパー ──
+function _playGDriveVideo(container, fileId, token, autoplay) {
+  const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
+  container.innerHTML = `<video src="${src}" ${autoplay ? 'autoplay' : ''} controls playsinline
+    style="width:100%;height:100%;background:#000"
+    onerror="window._onGDriveVideoError(this,'${fileId}')"></video>`;
+}
+
+function _showGDriveAuthUI(container, fileId, autoplay) {
+  container.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;padding:20px;box-sizing:border-box">
+    <div style="color:#aaa;font-size:12px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
+    <button id="gd-auth-play-btn" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
+      Googleで認証して再生
+    </button>
+    <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
+       style="color:#888;font-size:11px;text-decoration:underline;cursor:pointer">Driveで開く</a>
+  </div>`;
+  const btn = container.querySelector('#gd-auth-play-btn');
+  if (btn) btn.onclick = async () => {
+    btn.textContent = '認証中...';
+    btn.disabled = true;
+    const token = await window.ensureDriveToken?.();
+    if (token) {
+      _playGDriveVideo(container, fileId, token, autoplay);
+    } else {
+      btn.textContent = '認証に失敗しました。再試行';
+      btn.disabled = false;
+    }
+  };
+}
+
+window._onGDriveVideoError = function(videoEl, fileId) {
+  const container = videoEl.parentElement;
+  if (!container) return;
+  // トークンエラーの可能性 → キャッシュをクリアして再認証ボタンを表示
+  window.clearDriveToken?.();
+  container.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;padding:20px;box-sizing:border-box">
+    <div style="color:#f66;font-size:13px;text-align:center">再生に失敗しました</div>
+    <div style="color:#888;font-size:11px;text-align:center;line-height:1.6">認証の有効期限が切れているか、ファイルへのアクセス権がない可能性があります</div>
+    <button id="gd-retry-btn" style="padding:10px 24px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
+    <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
+       style="color:#888;font-size:11px;text-decoration:underline">Driveで開く</a>
+  </div>`;
+  const btn = container.querySelector('#gd-retry-btn');
+  if (btn) btn.onclick = async () => {
+    btn.textContent = '認証中...'; btn.disabled = true;
+    const token = await window.ensureDriveToken?.();
+    if (token) { _playGDriveVideo(container, fileId, token, false); }
+    else { btn.textContent = '認証に失敗しました。再試行'; btn.disabled = false; }
+  };
+};
 
 // emb URLからYouTube video IDを抽出
 function _extractYtId(emb) {
@@ -1723,18 +1769,12 @@ export function _openPanel(id, emb, ext, plat) {
     const fileId = fileIdMatch ? fileIdMatch[1] : '';
     const playerDiv = document.getElementById('vp-panel-yt-player');
     if (playerDiv && fileId) {
-      playerDiv.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:13px">読み込み中...</div>`;
-      window.ensureDriveToken?.().then(token => {
-        if (!token) {
-          playerDiv.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#000">
-            <div style="color:#fff;font-size:13px">再生にはGoogle認証が必要です</div>
-            <button onclick="window.ensureDriveToken?.().then(t=>{ if(t) window.openVPanel?.(window._currentVid); })" style="padding:8px 20px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">認証して再生</button>
-          </div>`;
-          return;
-        }
-        const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
-        playerDiv.innerHTML = `<video src="${src}" ${autoplay ? 'autoplay' : ''} controls playsinline style="width:100%;height:100%;background:#000"></video>`;
-      });
+      const cachedToken = window.getDriveTokenIfAvailable?.();
+      if (cachedToken) {
+        _playGDriveVideo(playerDiv, fileId, cachedToken, autoplay);
+      } else {
+        _showGDriveAuthUI(playerDiv, fileId, autoplay);
+      }
     }
   } else {
     // Vimeo
