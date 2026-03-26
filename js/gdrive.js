@@ -7,17 +7,18 @@ const VIDEO_MIMES = new Set([
 ]);
 
 const GD_CLIENT_ID = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
-const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
 const TOKEN_TTL    = 55 * 60 * 1000; // 55分（Googleトークンの有効期限1時間より短め）
+const CACHE_KEY    = 'gd_token_v2';  // v2 = drive.readonly scope
 
 let _token       = null;
 let _tokenClient = null;
 let _scannedTree = null;
 
-// ── セッションキャッシュ ──
+// ── トークンキャッシュ（localStorage: ブラウザ再起動後も有効、TTL内のみ使用）──
 function _loadCachedToken() {
   try {
-    const cached = JSON.parse(sessionStorage.getItem('gd_token') || 'null');
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     if (cached && (Date.now() - cached.ts) < TOKEN_TTL) return cached.token;
   } catch(e) {}
   return null;
@@ -25,7 +26,10 @@ function _loadCachedToken() {
 
 function _saveToken(token) {
   _token = token;
-  try { sessionStorage.setItem('gd_token', JSON.stringify({ token, ts: Date.now() })); } catch(e) {}
+  try {
+    sessionStorage.removeItem('gd_token'); // 旧キャッシュ削除
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ token, ts: Date.now() }));
+  } catch(e) {}
 }
 
 // ── 認証（GISトークンクライアント）──
