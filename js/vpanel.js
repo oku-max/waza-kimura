@@ -1249,7 +1249,7 @@ export function buildDrawerHTML(id) {
       <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">トップ/ボトム</span>
+      <span class="vp-lbl">TOP/BOTTOM</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-tb-${id}">${tbChips}</div>
         <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tb')">＋ 追加</div>
