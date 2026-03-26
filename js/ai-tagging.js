@@ -164,13 +164,13 @@ export function showAiTagPanel(videoId, suggestions) {
   document.body.appendChild(panel);
   panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
 
+  // ── モード管理 ──
+  let _mode = window.aiSettings?.defaultMode || 'add';
+
   // 設定のデフォルトモードを初期反映
   if (_mode === 'overwrite') {
     setTimeout(() => window._aiSetMode?.('overwrite'), 0);
   }
-
-  // ── モード管理 ──
-  let _mode = window.aiSettings?.defaultMode || 'add';
   window._aiSetMode = (mode) => {
     _mode = mode;
     const btnAdd = document.getElementById('ai-mode-add');
