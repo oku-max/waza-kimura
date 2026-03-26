@@ -387,7 +387,7 @@ export function exitBulk(){
   window.bulkMode=false; (window.selIds||new Set()).clear(); resetBulkPickers();
   document.body.classList.remove('bulk-mode');
   document.getElementById('bulkBar').classList.remove('show');
-  document.getElementById('sh').style.display='';
+  const _sh=document.getElementById('sh');if(_sh)_sh.style.display='';
   closeBulkVPanel();
   // card-sel-ov の vis クラスと sel-circle を直接除去（AF再描画を待たずに即座に非表示）
   document.querySelectorAll('.card-sel-ov').forEach(el => { el.classList.remove('vis'); });
