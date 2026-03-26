@@ -171,7 +171,7 @@ export function buildFovRows() {
       const el = document.createElement('div');
       el.className = 'chip' + (filters.platform?.has(val) ? ' active' : '');
       el.style.flexShrink = '0';
-      el.textContent = label + (cnt ? ' ' + cnt : '');
+      el.textContent = `${label} ${cnt}`;
       el.onclick = () => {
         if (filters.platform) {
           filters.platform.has(val) ? filters.platform.delete(val) : filters.platform.add(val);
