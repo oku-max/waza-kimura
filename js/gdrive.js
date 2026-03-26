@@ -90,7 +90,6 @@ function parseFolderUrl(input) {
 
 function cleanTitle(filename, stripSuffix) {
   let t = filename.replace(/\.[^.]+$/, '');   // 拡張子
-  t = t.replace(/^\d+\.\s*/, '');             // 先頭番号 "1. "
   if (stripSuffix?.trim()) {
     const idx = t.indexOf(stripSuffix.trim());
     if (idx > 0) t = t.slice(0, idx).trim();
