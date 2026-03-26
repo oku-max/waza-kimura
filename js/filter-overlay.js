@@ -158,8 +158,31 @@ export function countForFilter(key, val) {
 
 // ── 行ビルダー（フィルターオーバーレイ内） ──
 export function buildFovRows() {
-  const vids = window.videos || [];
+  const vids    = window.videos || [];
+  const filters = window.filters || {};
   const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+
+  // Source（固定2択）
+  const srcRow = document.getElementById('fov-srow-src');
+  if (srcRow) {
+    srcRow.innerHTML = '';
+    [['youtube','YouTube'], ['gdrive','Google Drive']].forEach(([val, label]) => {
+      const cnt = vids.filter(v => !v.archived && v.pt === val).length;
+      const el = document.createElement('div');
+      el.className = 'chip' + (filters.platform?.has(val) ? ' active' : '');
+      el.style.flexShrink = '0';
+      el.textContent = label + (cnt ? ' ' + cnt : '');
+      el.onclick = () => {
+        if (filters.platform) {
+          filters.platform.has(val) ? filters.platform.delete(val) : filters.platform.add(val);
+        }
+        buildFovRows();
+        window.AF?.();
+      };
+      srcRow.appendChild(el);
+    });
+  }
+
   buildFovHscroll('fov-srow-tb', window.TB_TAGS||[], 'tb', 'fov-all-tb');
   buildFovHscroll('fov-srow-ac', window.AC_TAGS||[], 'action', 'fov-all-ac');
   buildFovPickerRow('fov-srow-pos',  'position', 'fov-all-pos', () => [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
