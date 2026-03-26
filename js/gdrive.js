@@ -16,13 +16,11 @@ export async function initDriveAuth() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
     provider.setCustomParameters({ prompt: 'consent', access_type: 'online' });
-    const user = firebase.auth().currentUser;
-    const result = user
-      ? await user.reauthenticateWithPopup(provider)
-      : await firebase.auth().signInWithPopup(provider);
-    const cred = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-    if (!cred?.accessToken) throw new Error('accessToken not returned');
-    _token = cred.accessToken;
+    const result = await firebase.auth().signInWithPopup(provider);
+    const cred  = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+    const token = cred?.accessToken || result._tokenResponse?.oauthAccessToken;
+    if (!token) throw new Error('accessToken not returned');
+    _token = token;
     _setAuthUI(true);
     return true;
   } catch(e) {
