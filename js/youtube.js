@@ -10,7 +10,7 @@ export function importYouTubePlaylists() {
   if (!currentUser) { showToast('⚠️ 先にGoogleでログインしてください'); return; }
   if (!tokenClient) {
     tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: '902402722703-pntspungo868l9jh0ng4nvijdbij1qb4.apps.googleusercontent.com',
+      client_id: '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com',
       scope: 'https://www.googleapis.com/auth/youtube.readonly',
       callback: async (tokenResponse) => {
         if (tokenResponse.error) { showToast('⚠️ 認証エラー: ' + tokenResponse.error); return; }
