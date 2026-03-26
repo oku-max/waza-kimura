@@ -387,6 +387,14 @@ export function exitBulk(){
   document.getElementById('bulkBar').classList.remove('show');
   document.getElementById('sh').style.display='';
   closeBulkVPanel();
+  // ○ボタンを即時非表示（AF再描画を待たずに直接DOM操作）
+  document.querySelectorAll('.card-sel-ov').forEach(el => el.classList.remove('vis'));
+  document.querySelectorAll('.sel-circle').forEach(el => { el.classList.remove('chk'); el.textContent = ''; });
+  // Selectボタンをリセット
+  const selBtn=document.getElementById('bulk-sel-btn');
+  if(selBtn){selBtn.textContent='☑ 一括編集';selBtn.classList.remove('active');}
+  const orgSelBtn=document.getElementById('org-bulk-sel-btn');
+  if(orgSelBtn){orgSelBtn.textContent='☑ 一括編集';orgSelBtn.classList.remove('active');}
   // PCサイドバーの一括ボタンを元に戻す
   const fsBtn=document.getElementById('fs-bulk-sel-btn');
   if(fsBtn){fsBtn.textContent='☑ 一括編集';fsBtn.onclick=()=>enterBulk();fsBtn.style.color='var(--accent)';}
