@@ -92,9 +92,9 @@ function _getCurrentTime() {
 function _seekTo(sec) {
   if (_gdCurrentFileId) {
     _gdTimerElapsed = sec;
-    _gdTimerStart   = null; // iframeロード完了時に再開
+    _gdTimerStart   = null; // iframeロード時に再開
     const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
-    if (iframe) iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
+    if (iframe) iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}&autoplay=1`;
     return;
   }
   if (!_ytPlayer || !_ytPlayerReady) return;
@@ -125,11 +125,8 @@ function _stopTimeDisplay() {
 function _updateTimeDisplay() {
   const el = document.getElementById('vp-title-time');
   if (!el) return;
-  if (_gdCurrentFileId) {
-    const t = _getCurrentTime();
-    if (t != null) el.textContent = _formatTime(t);
-    return;
-  }
+  // GDriveはタイマーをUIに表示しない（pause検出不可のため常時カウントになる）
+  if (_gdCurrentFileId) return;
   if (!_ytPlayer || !_ytPlayerReady) return;
   try {
     const cur = _ytPlayer.getCurrentTime?.() ?? 0;
@@ -1215,8 +1212,8 @@ function _playGDriveIframe(container, fileId, emb) {
   iframe.allowFullscreen = true;
   iframe.allow = 'autoplay;encrypted-media';
   iframe.addEventListener('load', () => {
-    _gdTimerStart = Date.now();
-    _startTimeDisplay();
+    // タイマーをリセット（ブックマーク記録用・UI表示はしない）
+    if (_gdTimerStart === null) _gdTimerStart = Date.now();
   });
   container.innerHTML = '';
   container.appendChild(iframe);
