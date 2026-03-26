@@ -311,6 +311,7 @@ export function bvpTechSuggest(inp) {
 
 export function enterBulk(ctx='home', preserveSel=false){
   window.bulkMode=true; window.bulkCtx=ctx;
+  document.body.classList.add('bulk-mode');
   if(!preserveSel) (window.selIds||new Set()).clear();
   window.bulkUndoStack=[];
   document.getElementById('bulkBar').classList.add('show');
@@ -384,11 +385,11 @@ export function resetBulkPickers(){
 
 export function exitBulk(){
   window.bulkMode=false; (window.selIds||new Set()).clear(); resetBulkPickers();
+  document.body.classList.remove('bulk-mode');
   document.getElementById('bulkBar').classList.remove('show');
   document.getElementById('sh').style.display='';
   closeBulkVPanel();
-  // ○ボタンを即時非表示（AF再描画を待たずに直接DOM操作）
-  document.querySelectorAll('.card-sel-ov').forEach(el => el.classList.remove('vis'));
+  // 選択チェックをリセット
   document.querySelectorAll('.sel-circle').forEach(el => { el.classList.remove('chk'); el.textContent = ''; });
   // Selectボタンをリセット
   const selBtn=document.getElementById('bulk-sel-btn');
