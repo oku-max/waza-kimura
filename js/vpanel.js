@@ -92,14 +92,24 @@ function _getCurrentTime() {
 function _seekTo(sec) {
   if (_gdCurrentFileId) {
     _gdTimerElapsed = sec;
-    _gdTimerStart   = null; // iframeロード時に再開
+    _gdTimerStart   = Date.now();
     const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
     if (iframe) {
-      iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
-      // iframeロード後にpostMessageで再生命令（Drive playerがYT IFrame API形式に応答する場合）
-      iframe.addEventListener('load', () => {
-        try { iframe.contentWindow?.postMessage('{"event":"command","func":"playVideo","args":[]}', '*'); } catch(e) {}
-      }, { once: true });
+      const win = iframe.contentWindow;
+      // seekTo を即時送信
+      const seekCmd = JSON.stringify({event:'command', func:'seekTo', args:[sec, true]});
+      try { win?.postMessage(seekCmd, 'https://drive.google.com'); } catch(_) {}
+      try { win?.postMessage(seekCmd, '*'); } catch(_) {}
+      // playVideo はseek完了を待って遅延送信（100ms・300ms・600ms の3段階）
+      const playCmd  = JSON.stringify({event:'command', func:'playVideo', args:[]});
+      const playCmd2 = JSON.stringify({method:'play'});
+      [100, 300, 600].forEach(delay => {
+        setTimeout(() => {
+          try { win?.postMessage(playCmd,  'https://drive.google.com'); } catch(_) {}
+          try { win?.postMessage(playCmd,  '*'); } catch(_) {}
+          try { win?.postMessage(playCmd2, '*'); } catch(_) {}
+        }, delay);
+      });
     }
     return;
   }
@@ -1210,6 +1220,19 @@ window.addEventListener('orientationchange', () => {
   }, 100);
 });
 
+// ── Google Drive playerからのpostMessage受信（再生/停止を検出してタイマー制御）──
+window.addEventListener('message', (e) => {
+  if (!_gdCurrentFileId) return;
+  if (!e.origin.includes('google.com')) return;
+  let data = e.data;
+  if (typeof data === 'string') { try { data = JSON.parse(data); } catch(_) { return; } }
+  if (typeof data !== 'object' || !data) return;
+  // YouTube IFrame API 形式（Drive playerが同形式を使う場合）
+  const ps = data.info?.playerState ?? (data.event === 'onStateChange' ? data.info : undefined);
+  if (ps === 1)           { _startTimeDisplay(); }                          // 再生中
+  else if (ps === 2 || ps === 0) { _stopTimeDisplay(); _updateTimeDisplay(); } // 停止/終了
+});
+
 // ── Google Drive 再生ヘルパー（iframe方式・認証不要）──
 function _playGDriveIframe(container, fileId, emb) {
   _gdCurrentFileId = fileId;
@@ -1223,6 +1246,8 @@ function _playGDriveIframe(container, fileId, emb) {
   iframe.addEventListener('load', () => {
     if (_gdTimerStart === null) _gdTimerStart = Date.now();
     _startTimeDisplay();
+    // Drive playerにイベント通知を要求（対応している場合のみ動作）
+    try { iframe.contentWindow?.postMessage('{"event":"listening"}', 'https://drive.google.com'); } catch(_) {}
   });
   container.innerHTML = '';
   container.appendChild(iframe);
