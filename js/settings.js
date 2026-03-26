@@ -1,10 +1,12 @@
 // ═══ WAZA KIMURA — タグ設定 ═══
 
-export let tagSettings = [
-  { key:'ac',   label:'Action',    visible:true,  presets:['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'] },
-  { key:'pos',  label:'Position',  visible:true,  presets:['サイドコントロール','マウント','クローズドガード','ニーオン','ハーフガード','バタフライ','Xガード','デラヒーバ','バック','タートル','オープンガード','50/50','スタンディング','その他'] },
-  { key:'tech', label:'Technique', visible:true,  presets:[] }
+const DEFAULT_TAG_SETTINGS = [
+  { key:'tb',   label:'TOP/BOTTOM', visible:true,  presets:['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'] },
+  { key:'ac',   label:'Action',     visible:true,  presets:['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'] },
+  { key:'pos',  label:'Position',   visible:true,  presets:['サイドコントロール','マウント','クローズドガード','ニーオン','ハーフガード','バタフライ','Xガード','デラヒーバ','バック','タートル','オープンガード','50/50','スタンディング','その他'] },
+  { key:'tech', label:'Technique',  visible:true,  presets:[] }
 ];
+export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({...d, presets:[...d.presets]}));
 
 export function saveTagSettings() {
   try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
@@ -14,7 +16,18 @@ export function saveTagSettings() {
 export function loadTagSettings() {
   try {
     const s = localStorage.getItem('wk_tagSettings');
-    if (s) { const p = JSON.parse(s); if (Array.isArray(p) && p.length) tagSettings = p; }
+    if (s) {
+      const p = JSON.parse(s);
+      if (Array.isArray(p) && p.length) {
+        tagSettings = p;
+        // 旧データにtbエントリがなければマイグレーション追加
+        DEFAULT_TAG_SETTINGS.forEach(def => {
+          if (!tagSettings.find(t => t.key === def.key)) {
+            tagSettings.unshift({...def, presets:[...def.presets]});
+          }
+        });
+      }
+    }
   } catch(e) {}
 }
 loadTagSettings();

@@ -9,10 +9,15 @@ const KEY_TO_FIELD = { tb: 'tb', action: 'ac', position: 'pos', tech: 'tech' };
 // カテゴリキー → tagSettings.key のマッピング
 const KEY_TO_SETTING = { tb: 'tb', action: 'ac', position: 'pos', tech: 'tech' };
 
+// tbがtagSettingsにない旧データ向けフォールバック
+const PRESET_FALLBACK = { tb: ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'] };
+
 // tagSettingsからpresets取得
 function getPresets(key) {
   const sk = KEY_TO_SETTING[key];
-  return (window.tagSettings || []).find(s => s.key === sk)?.presets || [];
+  const ts = (window.tagSettings || []).find(s => s.key === sk);
+  if (ts) return ts.presets || [];
+  return PRESET_FALLBACK[sk] || [];
 }
 
 // タグがpresetに含まれるか
