@@ -839,7 +839,7 @@
 
     <!-- T/B (コンパクト2列) -->
     <div class="bgrp">
-      <span class="bgrp-lbl">T / B</span>
+      <span class="bgrp-lbl">トップ/ボトム</span>
       <div class="bgrp-2col" id="bb-tb-row">
         <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="トップ"        onclick="bulkChipToggle('tb','トップ'       ,this)">トップ</button>
         <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="ボトム"        onclick="bulkChipToggle('tb','ボトム'       ,this)">ボトム</button>
@@ -976,7 +976,7 @@
 <div class="overlay" id="tbPickerOv" onclick="closeOv('tbPickerOv')">
  <div class="sheet" onclick="event.stopPropagation()" style="max-height:55vh">
   <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">🔝 T / B フィルター</div>
+  <div style="font-size:14px;font-weight:800;margin-bottom:10px">🔝 トップ/ボトム フィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="tb-picker-s" placeholder="絞り込み..." oninput="renderTbPicker()"></div>
   <div class="tech-results" id="tbPickerR" style="max-height:180px"></div>
   <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('tbPickerOv')">完了</button>
@@ -1200,7 +1200,7 @@ function buildBulkDrawerHTML() {
       <div class="vp-chips" id="bvp-prio">${prioChips}</div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">T / B</span>
+      <span class="vp-lbl">トップ/ボトム</span>
       <div class="vp-chips" id="bvp-tb">${tbChips}</div>
     </div>
     <div class="vp-row">
@@ -1464,7 +1464,7 @@ function syncFilterOvRows() {
       el.textContent=t+' ×'; el.onclick=function(){ filters.tb.delete(t); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
     });
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
-    btn.textContent='＋ 選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openTbPicker(); }; row.appendChild(btn);
+    btn.textContent='＋ トップ/ボトムを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openTbPicker(); }; row.appendChild(btn);
   })();
   // ACTION: ピッカー方式（Positionと同じ）
   (function(){
@@ -1476,7 +1476,7 @@ function syncFilterOvRows() {
       el.textContent=a+' ×'; el.onclick=function(){ filters.action.delete(a); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
     });
     const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
-    btn.textContent='＋ 選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openAcPicker(); }; row.appendChild(btn);
+    btn.textContent='＋ アクションを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); openAcPicker(); }; row.appendChild(btn);
   })();
   // POSITION: ピッカー方式
   (function(){
@@ -2566,7 +2566,7 @@ function renderOrg() {
 // ── 整理タブ 列並び替え ──
 let orgColOrder = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
 let orgColVisibility = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
-const ORG_COL_LABELS = {tb:'T/B', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
+const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
 let orgSortCol = null, orgSortAsc = true;
 
@@ -4045,7 +4045,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       </div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">
-      <span class="fbar-lbl">T / B</span>
+      <span class="fbar-lbl">トップ/ボトム</span>
       <div class="hrow" id="org-fov-srow-tb"></div>
     </div>
     <div class="fbar-row" style="margin-bottom:5px">
@@ -4171,7 +4171,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div class="fsec fsec-3">
       <div class="fsec-title">ポジション・テクニック</div>
       <div class="fbar-row">
-        <span class="fbar-lbl">T / B</span>
+        <span class="fbar-lbl">トップ/ボトム</span>
         <div class="hrow" id="fov-srow-tb"></div>
       </div>
       <div class="fbar-row">
