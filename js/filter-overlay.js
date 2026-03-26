@@ -177,6 +177,7 @@ export function buildFovRows() {
           filters.platform.has(val) ? filters.platform.delete(val) : filters.platform.add(val);
         }
         buildFovRows();
+        syncFilterOvRows();
         window.AF?.();
       };
       srcRow.appendChild(el);
