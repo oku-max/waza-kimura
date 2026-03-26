@@ -6,6 +6,7 @@
 let _ytPlayer = null;       // 現在アクティブなYT.Playerインスタンス
 let _ytPlayerReady = false; // プレイヤーが操作可能な状態か
 let _ytApiLoaded = false;   // YouTube iFrame API読み込み済みか
+let _gdVideoEl = null;      // GDrive再生中の<video>要素への参照
 
 // YouTube iFrame APIを非同期で読み込む（初回のみ）
 function _loadYTApi() {
@@ -76,12 +77,20 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
 
 // 現在の再生位置（秒）を取得
 function _getCurrentTime() {
+  if (_gdVideoEl && !_gdVideoEl.error) {
+    const t = _gdVideoEl.currentTime;
+    return isNaN(t) ? null : Math.floor(t);
+  }
   if (!_ytPlayer || !_ytPlayerReady) return null;
   try { return Math.floor(_ytPlayer.getCurrentTime()); } catch(e) { return null; }
 }
 
 // 指定秒数にシーク
 function _seekTo(sec) {
+  if (_gdVideoEl && !_gdVideoEl.error) {
+    _gdVideoEl.currentTime = sec;
+    return;
+  }
   if (!_ytPlayer || !_ytPlayerReady) return;
   try { _ytPlayer.seekTo(sec, true); } catch(e) {}
 }
@@ -1032,6 +1041,7 @@ export function openVPanel(id) {
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
 
   // iframeコンテナをリセット
+  _gdVideoEl = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
   if (iframeContainer) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
@@ -1055,9 +1065,17 @@ export function openVPanel(id) {
       _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
     }
   } else if (plat === 'gd') {
-    // Google Drive: previewページをiframeで表示（認証不要・ブラウザのGoogleセッション利用）
-    if (iframeContainer) {
-      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+    // Google Drive: Drive APIで直接ストリーミング（<video>タグ）→ currentTime取得可能
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    if (iframeContainer && fileId) {
+      _gdVideoEl = null;
+      const cachedToken = window.getDriveTokenIfAvailable?.();
+      if (cachedToken) {
+        _playGDriveVideo(iframeContainer, fileId, cachedToken, autoplay);
+      } else {
+        _showGDriveAuthUI(iframeContainer, fileId, autoplay);
+      }
     }
   } else {
     // Vimeo: 従来通りiframe
@@ -1183,9 +1201,11 @@ window.addEventListener('orientationchange', () => {
 // ── Google Drive 再生ヘルパー ──
 function _playGDriveVideo(container, fileId, token, autoplay) {
   const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
-  container.innerHTML = `<video src="${src}" ${autoplay ? 'autoplay' : ''} controls playsinline
-    style="width:100%;height:100%;background:#000"
-    onerror="window._onGDriveVideoError(this,'${fileId}')"></video>`;
+  container.innerHTML = `<video controls playsinline ${autoplay ? 'autoplay' : ''}
+    style="width:100%;height:100%;background:#000"></video>`;
+  _gdVideoEl = container.querySelector('video');
+  _gdVideoEl.src = src;
+  _gdVideoEl.addEventListener('error', () => window._onGDriveVideoError(_gdVideoEl, fileId));
 }
 
 function _showGDriveAuthUI(container, fileId, autoplay) {
@@ -1758,10 +1778,18 @@ export function _openPanel(id, emb, ext, plat) {
       _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
     }
   } else if (plat === 'gd') {
-    // Google Drive: previewページをiframeで表示（認証不要・ブラウザのGoogleセッション利用）
+    // Google Drive: Drive APIで直接ストリーミング（<video>タグ）→ currentTime取得可能
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
     const playerDiv = document.getElementById('vp-panel-yt-player');
-    if (playerDiv) {
-      playerDiv.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+    if (playerDiv && fileId) {
+      _gdVideoEl = null;
+      const cachedToken = window.getDriveTokenIfAvailable?.();
+      if (cachedToken) {
+        _playGDriveVideo(playerDiv, fileId, cachedToken, autoplay);
+      } else {
+        _showGDriveAuthUI(playerDiv, fileId, autoplay);
+      }
     }
   } else {
     // Vimeo
