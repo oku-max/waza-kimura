@@ -23,7 +23,7 @@
 <script src="js/config.js"></script>
 <script type="module">
   import { showToast } from './js/ui.js';
-  import { saveUserData, loadUserData, updateAuthUI } from './js/firebase.js';
+  import { saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings } from './js/firebase.js';
   import {
     importYouTubePlaylists, ytFetchSelectedPlVideos, ytShowVideoStage,
     ytRenderVideoList, ytUpdateSelCount, ytSelAllVideos,
@@ -33,10 +33,10 @@
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderCards, cardHTML } from './js/cards.js';
   import {
-    tagSettings, saveTagSettings, loadTagSettings, renderSettings,
-    renderTagSettingsList, renderTagPresets, startRenamePreset,
+    tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
+    renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
-    aiSettings, saveAiSettings, loadAiSettings, renderAiSettings, setAiDefaultMode
+    renderAiSettings, applyTagVisibility, applyRemoteSettings
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, clearAll,
@@ -80,6 +80,9 @@
 
   // firebase
   window.saveUserData            = saveUserData;
+  window.saveUserSettings        = saveUserSettings;
+  window.loadUserSettings        = loadUserSettings;
+  window.applyRemoteSettings     = applyRemoteSettings;
   // youtube
   window.importYouTubePlaylists  = importYouTubePlaylists;
   window.ytFetchSelectedPlVideos = ytFetchSelectedPlVideos;
@@ -106,7 +109,9 @@
   window.cardHTML                = cardHTML;
   // settings
   window.tagSettings             = tagSettings;
+  window.aiSettings              = aiSettings;
   window.saveTagSettings         = saveTagSettings;
+  window.saveAiSettings          = saveAiSettings;
   window.loadTagSettings         = loadTagSettings;
   window.renderSettings          = renderSettings;
   window.renderTagSettingsList   = renderTagSettingsList;
@@ -116,10 +121,9 @@
   window.addTagPreset            = addTagPreset;
   window.removeTagPreset         = removeTagPreset;
   window.renderTagVisibilityBtns = renderTagVisibilityBtns;
-  window.aiSettings              = aiSettings;
-  window.saveAiSettings          = saveAiSettings;
   window.renderAiSettings        = renderAiSettings;
-  window.setAiDefaultMode        = setAiDefaultMode;
+  window.applyTagVisibility      = applyTagVisibility;
+  applyTagVisibility();
   // filter
   window.togF                  = togF;
   window.togPlat               = togPlat;
@@ -817,11 +821,9 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap" id="tag-visibility-btns"></div>
     </div>
 
-    <!-- AI タグ設定 -->
-    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">🤖 AIタグ設定</div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
-      <div id="ai-settings-container"></div>
-    </div>
+    <!-- AI設定 -->
+    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">AI設定</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;" id="ai-settings-section"></div>
 
     <!-- 再生設定 -->
     <div id="play-settings" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">再生設定</div>
@@ -890,7 +892,7 @@
     <div class="bsep"></div>
 
     <!-- T/B (コンパクト2列) -->
-    <div class="bgrp">
+    <div class="bgrp bb-bgrp-tb">
       <span class="bgrp-lbl">TOP/BOTTOM</span>
       <div class="bgrp-2col" id="bb-tb-row">
         <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="トップ"        onclick="bulkChipToggle('tb','トップ'       ,this)">トップ</button>
@@ -904,7 +906,7 @@
     <div class="bsep"></div>
 
     <!-- Action (コンパクト2列) -->
-    <div class="bgrp">
+    <div class="bgrp bb-bgrp-ac">
       <span class="bgrp-lbl">Action</span>
       <div class="bgrp-2col" id="bb-ac-row">
         <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="アタック"    onclick="bulkChipToggle('ac','アタック'   ,this)">アタック</button>
@@ -921,7 +923,7 @@
     <div class="bsep"></div>
 
     <!-- Position (ポップアップグリッド) -->
-    <div class="bgrp" style="position:relative">
+    <div class="bgrp bb-bgrp-pos" style="position:relative">
       <span class="bgrp-lbl">Position</span>
       <div class="bgrp-row">
         <button class="bbt" id="bb-pos-trigger" onclick="toggleBbPanel('pos')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-pos-count" style="font-weight:700;color:var(--accent)"></span></button>
@@ -932,7 +934,7 @@
     <div class="bsep"></div>
 
     <!-- Technique (ポップアップグリッド) -->
-    <div class="bgrp" style="position:relative">
+    <div class="bgrp bb-bgrp-tech" style="position:relative">
       <span class="bgrp-lbl">Technique</span>
       <div class="bgrp-row">
         <button class="bbt" id="bb-tech-trigger" onclick="toggleBbPanel('tech')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-tech-count" style="font-weight:700;color:var(--accent)"></span></button>
@@ -2266,15 +2268,15 @@ window.addEventListener('resize', adjustTopbarOffset);
         <div class="chip" id="org-fov-prio-保留" onclick="togOrgF('prio','保留',this)">保留</div>
       </div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
+    <div class="fbar-row fov-row-tb" style="margin-bottom:5px">
       <span class="fbar-lbl">TOP/BOTTOM</span>
       <div class="hrow" id="org-fov-srow-tb"></div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
+    <div class="fbar-row fov-row-ac" style="margin-bottom:5px">
       <span class="fbar-lbl">Action</span>
       <div class="hrow" id="org-fov-srow-ac"></div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
+    <div class="fbar-row fov-row-pos" style="margin-bottom:5px">
       <span class="fbar-lbl">Position</span>
       <div class="hrow" id="org-fov-srow-pos"></div>
     </div>
@@ -2282,7 +2284,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       <span class="fbar-lbl">Playlist</span>
       <div class="hrow" id="org-fov-srow-pl"></div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
+    <div class="fbar-row fov-row-tech" style="margin-bottom:5px">
       <span class="fbar-lbl">Technique</span>
       <div class="hrow" id="org-fov-srow-tech"></div>
     </div>
@@ -2392,19 +2394,19 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- ▌グループ3：ポジション・テクニック -->
     <div class="fsec fsec-3">
       <div class="fsec-title">ポジション・テクニック</div>
-      <div class="fbar-row">
+      <div class="fbar-row fov-row-tb">
         <span class="fbar-lbl">TOP/BOTTOM</span>
         <div class="hrow" id="fov-srow-tb"></div>
       </div>
-      <div class="fbar-row">
+      <div class="fbar-row fov-row-ac">
         <span class="fbar-lbl">Action</span>
         <div class="hrow" id="fov-srow-ac"></div>
       </div>
-      <div class="fbar-row">
+      <div class="fbar-row fov-row-pos">
         <span class="fbar-lbl">Position</span>
         <div class="hrow" id="fov-srow-pos"></div>
       </div>
-      <div class="fbar-row" style="margin-bottom:2px">
+      <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
         <span class="fbar-lbl">Technique</span>
         <div class="hrow" id="fov-srow-tech"></div>
       </div>

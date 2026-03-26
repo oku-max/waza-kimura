@@ -1196,6 +1196,8 @@ body.bulk-mode .card-sel-ov{display:block;}
   text-align: left;
 }
 .tab-bar-btn:hover { background: var(--surface3); }
+.tab-bar-btn.bulk-active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.tab-bar-btn.bulk-active:hover { background: #333; }
 #filter-toggle-btn.active {
   background: var(--text);
   color: var(--surface);
@@ -1324,3 +1326,20 @@ body.bulk-mode .card-sel-ov{display:block;}
 .card-memo-preview + .card-actions { border-top: none; }
 .vp-ext-btn { width:100%; padding:6px 10px; border-radius:6px; border:1.5px solid var(--border); background:var(--surface2); color:var(--text2); font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; margin-bottom:8px; }
 .vp-ext-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── タグカテゴリ非表示（body classで制御） ── */
+body.hide-tb  .vp-row-tb,
+body.hide-tb  .bb-bgrp-tb,
+body.hide-tb  .fov-row-tb  { display: none !important; }
+
+body.hide-ac  .vp-row-ac,
+body.hide-ac  .bb-bgrp-ac,
+body.hide-ac  .fov-row-ac  { display: none !important; }
+
+body.hide-pos .vp-row-pos,
+body.hide-pos .bb-bgrp-pos,
+body.hide-pos .fov-row-pos { display: none !important; }
+
+body.hide-tech .vp-row-tech,
+body.hide-tech .bb-bgrp-tech,
+body.hide-tech .fov-row-tech { display: none !important; }

@@ -318,7 +318,11 @@ export function enterBulk(ctx='home', preserveSel=false){
   const sh=document.getElementById('sh');if(sh)sh.style.display='none';
   // PCサイドバーの一括ボタンを「終了」に切り替え
   const fsBtn=document.getElementById('fs-bulk-sel-btn');
-  if(fsBtn){fsBtn.textContent='✕ 一括終了';fsBtn.onclick=exitBulk;fsBtn.style.color='var(--accent)';}
+  if(fsBtn){fsBtn.textContent='✕ 一括キャンセル';fsBtn.onclick=exitBulk;fsBtn.style.color='';fsBtn.classList.add('bulk-active');}
+  const orgFsBtn=document.getElementById('org-fs-bulk-sel-btn');
+  if(orgFsBtn){orgFsBtn.textContent='✕ 一括キャンセル';orgFsBtn.onclick=exitBulk;orgFsBtn.classList.add('bulk-active');}
+  const selBtn2=document.getElementById('bulk-sel-btn');
+  if(selBtn2){selBtn2.textContent='✕ 一括キャンセル';selBtn2.classList.add('bulk-active');}
   if(ctx==='organize'){
     const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='none';
     if(!preserveSel) window.renderOrg?.();
@@ -387,18 +391,21 @@ export function exitBulk(){
   window.bulkMode=false; (window.selIds||new Set()).clear(); resetBulkPickers();
   document.body.classList.remove('bulk-mode');
   document.getElementById('bulkBar').classList.remove('show');
-  document.getElementById('sh').style.display='';
+  const _sh=document.getElementById('sh');if(_sh)_sh.style.display='';
   closeBulkVPanel();
-  // 選択チェックをリセット
+  // card-sel-ov の vis クラスと sel-circle を直接除去（AF再描画を待たずに即座に非表示）
+  document.querySelectorAll('.card-sel-ov').forEach(el => { el.classList.remove('vis'); });
   document.querySelectorAll('.sel-circle').forEach(el => { el.classList.remove('chk'); el.textContent = ''; });
   // Selectボタンをリセット
   const selBtn=document.getElementById('bulk-sel-btn');
-  if(selBtn){selBtn.textContent='☑ 一括編集';selBtn.classList.remove('active');}
+  if(selBtn){selBtn.textContent='☑ 一括編集';selBtn.classList.remove('active','bulk-active');}
   const orgSelBtn=document.getElementById('org-bulk-sel-btn');
-  if(orgSelBtn){orgSelBtn.textContent='☑ 一括編集';orgSelBtn.classList.remove('active');}
+  if(orgSelBtn){orgSelBtn.textContent='☑ 一括編集';orgSelBtn.classList.remove('active','bulk-active');}
   // PCサイドバーの一括ボタンを元に戻す
   const fsBtn=document.getElementById('fs-bulk-sel-btn');
-  if(fsBtn){fsBtn.textContent='☑ 一括編集';fsBtn.onclick=()=>enterBulk();fsBtn.style.color='var(--accent)';}
+  if(fsBtn){fsBtn.textContent='☑ 一括編集';fsBtn.onclick=()=>enterBulk();fsBtn.style.color='';fsBtn.classList.remove('bulk-active');}
+  const orgFsBtn=document.getElementById('org-fs-bulk-sel-btn');
+  if(orgFsBtn){orgFsBtn.textContent='☑ 一括編集';orgFsBtn.onclick=()=>enterBulk('organize');orgFsBtn.classList.remove('bulk-active');}
   if(window.bulkCtx==='organize'){
     const selAllCb=document.getElementById('org-sel-all');if(selAllCb)selAllCb.checked=false;
     const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='';
@@ -460,7 +467,7 @@ export function orgTogSelAll(cb) {
 export function updBulk(){
   document.getElementById('bulkTit').textContent=(window.selIds||new Set()).size+'本を選択中';
   const btn=document.getElementById('bulk-sel-btn');
-  if(btn)btn.textContent=(window.bulkMode||false)&&(window.selIds||new Set()).size>0?'☑ '+(window.selIds||new Set()).size+' 選択中':'☑ Select';
+  if(btn){if(window.bulkMode){btn.textContent='✕ 一括キャンセル';btn.classList.add('bulk-active');}else{btn.textContent='☑ 一括編集';btn.classList.remove('bulk-active');}}
   // 一括編集ボタンの有効/無効
   const editBtn=document.getElementById('bulk-edit-vpanel-btn');
   if(editBtn){

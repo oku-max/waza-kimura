@@ -19,7 +19,10 @@ export let currentUser = null;
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   updateAuthUI(user);
-  if (user) await loadUserData(user.uid);
+  if (user) {
+    await loadUserData(user.uid);
+    await loadUserSettings(user.uid);
+  }
 });
 
 export function updateAuthUI(user) {
@@ -76,4 +79,25 @@ export async function saveUserData() {
     });
     showToast('💾 保存', 1500);
   } catch (e) { showToast('⚠️ 保存に失敗しました: ' + e.message); }
+}
+
+export async function saveUserSettings() {
+  if (!currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set({
+      tagSettings: window.tagSettings || [],
+      aiSettings:  window.aiSettings  || {},
+      updatedAt: new Date().toISOString()
+    });
+  } catch (e) { console.error('saveUserSettings:', e); }
+}
+
+export async function loadUserSettings(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('data').doc('settings').get();
+    if (snap.exists) {
+      const data = snap.data();
+      window.applyRemoteSettings?.(data);
+    }
+  } catch (e) { console.error('loadUserSettings:', e); }
 }
