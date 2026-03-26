@@ -7,39 +7,74 @@ const VIDEO_MIMES = new Set([
 ]);
 
 const GD_CLIENT_ID = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
-const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
+const TOKEN_TTL    = 55 * 60 * 1000; // 55分（Googleトークンの有効期限1時間より短め）
+const CACHE_KEY    = 'gd_token_v2';  // v2 = drive.readonly scope
 
 let _token       = null;
 let _tokenClient = null;
 let _scannedTree = null;
 
+// ── トークンキャッシュ（localStorage: ブラウザ再起動後も有効、TTL内のみ使用）──
+function _loadCachedToken() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (cached && (Date.now() - cached.ts) < TOKEN_TTL) return cached.token;
+  } catch(e) {}
+  return null;
+}
+
+function _saveToken(token) {
+  _token = token;
+  try {
+    sessionStorage.removeItem('gd_token'); // 旧キャッシュ削除
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ token, ts: Date.now() }));
+  } catch(e) {}
+}
+
 // ── 認証（GISトークンクライアント）──
-export function initDriveAuth() {
+export function initDriveAuth(forceConsent = false) {
   return new Promise((resolve) => {
+    const doRequest = () => {
+      _tokenClient.requestAccessToken({ prompt: forceConsent ? 'consent' : '' });
+    };
+
     if (!_tokenClient) {
       _tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GD_CLIENT_ID,
         scope:     GD_SCOPE,
         callback:  (resp) => {
           if (resp.error) {
+            if ((resp.error === 'interaction_required' || resp.error === 'access_denied') && !forceConsent) {
+              // サイレント失敗 → consent付きで再試行
+              _tokenClient.requestAccessToken({ prompt: 'consent' });
+              return;
+            }
             console.error('Drive token error:', resp);
             window.toast?.('認証に失敗しました: ' + resp.error);
             resolve(false);
             return;
           }
-          _token = resp.access_token;
+          _saveToken(resp.access_token);
           _setAuthUI(true);
           resolve(true);
         },
       });
     }
-    _tokenClient.requestAccessToken({ prompt: 'consent' });
+    doRequest();
   });
 }
 
-// ── トークン取得（再生時に使用）──
+// ── トークン取得（再生時・スキャン時に使用）──
 export async function ensureDriveToken() {
   if (_token) return _token;
+  // セッションキャッシュから復元
+  const cached = _loadCachedToken();
+  if (cached) {
+    _token = cached;
+    _setAuthUI(true);
+    return _token;
+  }
   const ok = await initDriveAuth();
   return ok ? _token : null;
 }
@@ -55,7 +90,12 @@ function _setAuthUI(authed) {
 async function driveGet(url) {
   if (!_token) throw new Error('not authenticated');
   const res = await fetch(url, { headers: { Authorization: `Bearer ${_token}` } });
-  if (res.status === 401) { _token = null; _setAuthUI(false); throw new Error('token expired'); }
+  if (res.status === 401) {
+    _token = null;
+    try { sessionStorage.removeItem('gd_token'); } catch(e) {}
+    _setAuthUI(false);
+    throw new Error('token expired');
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -88,15 +128,8 @@ async function scanFolder(folderId, folderName, depth) {
 }
 
 // ── ユーティリティ ──
-function parseFolderUrl(input) {
-  const m = (input || '').match(/folders\/([a-zA-Z0-9_-]+)/);
-  if (m) return m[1];
-  if (/^[a-zA-Z0-9_-]{15,}$/.test((input || '').trim())) return input.trim();
-  return null;
-}
-
 function cleanTitle(filename, stripSuffix) {
-  let t = filename.replace(/\.[^.]+$/, '');   // 拡張子
+  let t = filename.replace(/\.[^.]+$/, '');   // 拡張子のみ除去（先頭番号は保持）
   if (stripSuffix?.trim()) {
     const idx = t.indexOf(stripSuffix.trim());
     if (idx > 0) t = t.slice(0, idx).trim();

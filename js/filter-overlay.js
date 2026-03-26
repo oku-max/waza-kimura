@@ -38,6 +38,7 @@ export function openFilterOverlay() {
   if (!ov) return;
   ov.classList.add('show');
   document.body.style.overflow = 'hidden';
+  try { buildFovRows(); } catch(e) {}
   syncFilterOvRows();
   try { window.renderFilterPresets?.(); } catch(e) {}
 }
@@ -166,14 +167,15 @@ export function buildFovRows() {
   if (srcRow) {
     srcRow.innerHTML = '';
     [['youtube','YouTube'], ['gdrive','Google Drive']].forEach(([val, label]) => {
-      const cnt = window.countContextual ? window.countContextual('platform', val)
-                : vids.filter(v => !v.archived && v.pt === val).length;
+      const cnt = vids.filter(v => !v.archived && v.pt === val).length;
       const el = document.createElement('div');
-      el.className   = 'chip' + (filters.platform?.has(val) ? ' active' : '');
+      el.className = 'chip' + (filters.platform?.has(val) ? ' active' : '');
       el.style.flexShrink = '0';
       el.textContent = label + (cnt ? ' ' + cnt : '');
       el.onclick = () => {
-        filters.platform?.has(val) ? filters.platform.delete(val) : filters.platform?.add(val);
+        if (filters.platform) {
+          filters.platform.has(val) ? filters.platform.delete(val) : filters.platform.add(val);
+        }
         buildFovRows();
         window.AF?.();
       };
