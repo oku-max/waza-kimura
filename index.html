@@ -35,7 +35,8 @@
   import {
     tagSettings, saveTagSettings, loadTagSettings, renderSettings,
     renderTagSettingsList, renderTagPresets, startRenamePreset,
-    renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns
+    renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
+    aiSettings, saveAiSettings, loadAiSettings, renderAiSettings, setAiDefaultMode
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, clearAll,
@@ -115,6 +116,10 @@
   window.addTagPreset            = addTagPreset;
   window.removeTagPreset         = removeTagPreset;
   window.renderTagVisibilityBtns = renderTagVisibilityBtns;
+  window.aiSettings              = aiSettings;
+  window.saveAiSettings          = saveAiSettings;
+  window.renderAiSettings        = renderAiSettings;
+  window.setAiDefaultMode        = setAiDefaultMode;
   // filter
   window.togF                  = togF;
   window.togPlat               = togPlat;
@@ -810,6 +815,12 @@
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
       <div style="font-size:12px;font-weight:600;margin-bottom:10px">カードに表示するタグ</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap" id="tag-visibility-btns"></div>
+    </div>
+
+    <!-- AI タグ設定 -->
+    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">🤖 AIタグ設定</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+      <div id="ai-settings-container"></div>
     </div>
 
     <!-- 再生設定 -->

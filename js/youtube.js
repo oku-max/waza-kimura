@@ -161,12 +161,15 @@ export async function ytImportCheckedVideos() {
   if (!checks.length) { showToast('動画を選択してください'); return; }
   document.getElementById('yt-import-ov').classList.remove('open');
   let added = 0;
+  const newIds = [];
   checks.forEach(cb => {
     const vid = cb.dataset.vid;
     if (window.videos?.find(v => v.ytId === vid)) return;
     window.videos = window.videos || [];
+    const newId = 'yt-' + vid;
+    newIds.push(newId);
     window.videos.push({
-      id: 'yt-' + vid, ytId: vid, pt: 'youtube',
+      id: newId, ytId: vid, pt: 'youtube',
       title: cb.dataset.title,
       src: 'youtube',
       url: 'https://www.youtube.com/watch?v=' + vid,
@@ -184,4 +187,9 @@ export async function ytImportCheckedVideos() {
   if (window.AF) window.AF();
   await saveUserData();
   showToast(`✅ ${added}本の動画を追加しました`);
+
+  // 自動AIタグ付け
+  if (window.aiSettings?.autoTagOnImport && newIds.length > 0) {
+    window.autoTagNewVideos?.(newIds);
+  }
 }

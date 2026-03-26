@@ -21,6 +21,7 @@ loadTagSettings();
 export function renderSettings() {
   renderTagSettingsList();
   renderTagVisibilityBtns();
+  renderAiSettings();
 }
 
 export function renderTagSettingsList() {
@@ -150,6 +151,117 @@ export function removeTagPreset(i, pi) {
   tagSettings[i].presets.splice(pi, 1);
   saveTagSettings();
   renderTagPresets(i);
+}
+
+// ══════════════════════════════════════
+// AI タグ設定
+// ══════════════════════════════════════
+
+export let aiSettings = {
+  enabled:         true,
+  defaultMode:     'add',
+  categories:      { tb: true, action: true, position: true, tech: true },
+  autoTagOnImport: false,
+  bulkConfirm:     true,
+};
+
+export function saveAiSettings() {
+  try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
+  window.aiSettings = aiSettings;
+}
+
+export function loadAiSettings() {
+  try {
+    const s = localStorage.getItem('wk_aiSettings');
+    if (s) {
+      const p = JSON.parse(s);
+      aiSettings = { ...aiSettings, ...p, categories: { ...aiSettings.categories, ...(p.categories || {}) } };
+    }
+  } catch(e) {}
+  window.aiSettings = aiSettings;
+}
+loadAiSettings();
+
+export function renderAiSettings() {
+  const el = document.getElementById('ai-settings-container');
+  if (!el) return;
+
+  const s = aiSettings;
+  const catLabels = { tb: 'TOP/BOTTOM', action: 'ACTION', position: 'POSITION', tech: 'TECHNIQUE' };
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">AIタグ機能</div>
+        <div style="font-size:11px;color:var(--text3)">🤖 AIタグ提案ボタンの有効/無効</div>
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="ai-enabled" ${s.enabled ? 'checked' : ''}
+          onchange="aiSettings.enabled=this.checked;saveAiSettings()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>
+
+    <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">デフォルト適用モード</div>
+      <div style="display:flex;gap:8px">
+        <button id="ai-mode-btn-add" onclick="setAiDefaultMode('add')"
+          style="padding:6px 18px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;
+            ${s.defaultMode === 'add' ? 'background:var(--accent);color:#fff;border:none' : 'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
+          ＋ 追加
+        </button>
+        <button id="ai-mode-btn-overwrite" onclick="setAiDefaultMode('overwrite')"
+          style="padding:6px 18px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;
+            ${s.defaultMode === 'overwrite' ? 'background:var(--accent);color:#fff;border:none' : 'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
+          上書き
+        </button>
+      </div>
+    </div>
+
+    <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">提案するカテゴリ</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${Object.entries(catLabels).map(([key, label]) => `
+          <label style="display:flex;align-items:center;gap:6px;padding:6px 14px;
+            border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);
+            cursor:pointer;font-size:12px;font-weight:600">
+            <input type="checkbox" ${s.categories[key] ? 'checked' : ''}
+              onchange="aiSettings.categories['${key}']=this.checked;saveAiSettings()"
+              style="accent-color:var(--accent);width:13px;height:13px"> ${label}
+          </label>`).join('')}
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">YouTube取り込み時に自動AI分析</div>
+        <div style="font-size:11px;color:var(--text3)">取り込んだ動画にAIが自動でタグを追加します</div>
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="ai-auto-import" ${s.autoTagOnImport ? 'checked' : ''}
+          onchange="aiSettings.autoTagOnImport=this.checked;saveAiSettings()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">一括適用前の確認ダイアログ</div>
+        <div style="font-size:11px;color:var(--text3)">「○本に適用しますか？」の確認を表示します</div>
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" id="ai-bulk-confirm" ${s.bulkConfirm ? 'checked' : ''}
+          onchange="aiSettings.bulkConfirm=this.checked;saveAiSettings()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>
+  `;
+}
+
+export function setAiDefaultMode(mode) {
+  aiSettings.defaultMode = mode;
+  saveAiSettings();
+  renderAiSettings();
 }
 
 export function renderTagVisibilityBtns() {
