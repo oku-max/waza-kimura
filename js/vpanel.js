@@ -1234,7 +1234,8 @@ function _showGDriveAuthUI(container, fileId, autoplay) {
 window._onGDriveVideoError = function(videoEl, fileId) {
   const container = videoEl.parentElement;
   if (!container) return;
-  // トークンエラーの可能性 → キャッシュをクリアして再認証ボタンを表示
+  console.error('GDrive video error:', videoEl.error?.code, videoEl.error?.message, videoEl.src?.slice(0, 80));
+  // トークンをクリアして再認証UIを表示（consent強制でスコープを確実に付与）
   window.clearDriveToken?.();
   container.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;padding:20px;box-sizing:border-box">
     <div style="color:#f66;font-size:13px;text-align:center">再生に失敗しました</div>
@@ -1246,7 +1247,9 @@ window._onGDriveVideoError = function(videoEl, fileId) {
   const btn = container.querySelector('#gd-retry-btn');
   if (btn) btn.onclick = async () => {
     btn.textContent = '認証中...'; btn.disabled = true;
-    const token = await window.ensureDriveToken?.();
+    // initDriveAuth(true)でconsentを強制 → drive.readonlyスコープを確実に付与
+    const ok = await window.initDriveAuth?.(true);
+    const token = ok ? window.getDriveTokenIfAvailable?.() : null;
     if (token) { _playGDriveVideo(container, fileId, token, false); }
     else { btn.textContent = '認証に失敗しました。再試行'; btn.disabled = false; }
   };
