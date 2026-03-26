@@ -15,16 +15,20 @@ export async function initDriveAuth() {
     window.toast?.('Google Drive に接続中...');
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
-    const result = await firebase.auth().signInWithPopup(provider);
-    const cred   = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+    provider.setCustomParameters({ prompt: 'consent', access_type: 'online' });
+    const user = firebase.auth().currentUser;
+    const result = user
+      ? await user.reauthenticateWithPopup(provider)
+      : await firebase.auth().signInWithPopup(provider);
+    const cred = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
     if (!cred?.accessToken) throw new Error('accessToken not returned');
     _token = cred.accessToken;
     _setAuthUI(true);
     return true;
   } catch(e) {
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return false;
-    console.error('Drive auth:', e.code || e.message, e);
-    window.toast?.('認証に失敗しました: ' + (e.code || e.message));
+    console.error('Drive auth error:', e.code, e.message);
+    window.toast?.('認証に失敗: ' + (e.code || e.message));
     return false;
   }
 }
