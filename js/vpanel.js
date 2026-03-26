@@ -95,21 +95,20 @@ function _seekTo(sec) {
     _gdTimerStart   = Date.now();
     const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
     if (iframe) {
-      const win = iframe.contentWindow;
-      // seekTo を即時送信
-      const seekCmd = JSON.stringify({event:'command', func:'seekTo', args:[sec, true]});
-      try { win?.postMessage(seekCmd, 'https://drive.google.com'); } catch(_) {}
-      try { win?.postMessage(seekCmd, '*'); } catch(_) {}
-      // playVideo はseek完了を待って遅延送信（100ms・300ms・600ms の3段階）
-      const playCmd  = JSON.stringify({event:'command', func:'playVideo', args:[]});
-      const playCmd2 = JSON.stringify({method:'play'});
-      [100, 300, 600].forEach(delay => {
-        setTimeout(() => {
-          try { win?.postMessage(playCmd,  'https://drive.google.com'); } catch(_) {}
-          try { win?.postMessage(playCmd,  '*'); } catch(_) {}
-          try { win?.postMessage(playCmd2, '*'); } catch(_) {}
-        }, delay);
-      });
+      // ?t=sec でiframeリロード（確実にシーク）
+      iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
+      // ロード完了後にplayVideoを複数タイミングで送信
+      iframe.addEventListener('load', () => {
+        _gdTimerStart = Date.now();
+        const win = iframe.contentWindow;
+        const playCmd = JSON.stringify({event:'command', func:'playVideo', args:[]});
+        [50, 200, 500, 1000].forEach(delay => {
+          setTimeout(() => {
+            try { win?.postMessage(playCmd, 'https://drive.google.com'); } catch(_) {}
+            try { win?.postMessage(playCmd, '*'); } catch(_) {}
+          }, delay);
+        });
+      }, { once: true });
     }
     return;
   }
