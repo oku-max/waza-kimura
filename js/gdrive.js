@@ -6,13 +6,11 @@ const VIDEO_MIMES = new Set([
   'video/x-flv','video/ogg',
 ]);
 
-const GD_CLIENT_ID = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
-const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
-const TOKEN_TTL    = 55 * 60 * 1000; // 55分（Googleトークンの有効期限1時間より短め）
-const CACHE_KEY    = 'gd_token_v2';  // v2 = drive.readonly scope
+const GD_SCOPE  = 'https://www.googleapis.com/auth/drive.readonly';
+const TOKEN_TTL = 55 * 60 * 1000;
+const CACHE_KEY = 'gd_token_v2';
 
 let _token       = null;
-let _tokenClient = null;
 let _scannedTree = null;
 
 // ── トークンキャッシュ（localStorage: ブラウザ再起動後も有効、TTL内のみ使用）──
@@ -32,36 +30,47 @@ function _saveToken(token) {
   } catch(e) {}
 }
 
-// ── 認証（GISトークンクライアント）──
+// ── 認証（Firebase Google Provider経由 — waza-kimura.firebaseapp.com リダイレクトを使用）──
+// GISのinitTokenClientはJS origins設定が必要だがFirebaseは不要なのでこちらを採用
 export function initDriveAuth(forceConsent = false) {
   return new Promise((resolve) => {
-    const doRequest = () => {
-      _tokenClient.requestAccessToken({ prompt: forceConsent ? 'consent' : '' });
-    };
+    const fbAuth = window.firebase?.auth?.();
+    if (!fbAuth) {
+      window.toast?.('Firebase未初期化');
+      resolve(false);
+      return;
+    }
+    const provider = new window.firebase.auth.GoogleAuthProvider();
+    provider.addScope(GD_SCOPE);
+    provider.setCustomParameters({ prompt: forceConsent ? 'consent' : 'select_account' });
 
-    if (!_tokenClient) {
-      _tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GD_CLIENT_ID,
-        scope:     GD_SCOPE,
-        callback:  (resp) => {
-          if (resp.error) {
-            if ((resp.error === 'interaction_required' || resp.error === 'access_denied') && !forceConsent) {
-              // サイレント失敗 → consent付きで再試行
-              _tokenClient.requestAccessToken({ prompt: 'consent' });
-              return;
-            }
-            console.error('Drive token error:', resp);
-            window.toast?.('認証に失敗しました: ' + resp.error);
-            resolve(false);
-            return;
-          }
-          _saveToken(resp.access_token);
+    fbAuth.signInWithPopup(provider)
+      .then(result => {
+        // Firebase v8: result.credential.accessToken または _tokenResponse.oauthAccessToken
+        const token = result.credential?.accessToken
+                   || result._tokenResponse?.oauthAccessToken
+                   || null;
+        if (token) {
+          _saveToken(token);
           _setAuthUI(true);
           resolve(true);
-        },
+        } else if (!forceConsent) {
+          // トークンなし → consent強制で再試行
+          initDriveAuth(true).then(resolve);
+        } else {
+          window.toast?.('Drive認証に失敗しました（トークン取得不可）');
+          resolve(false);
+        }
+      })
+      .catch(e => {
+        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+          resolve(false);
+          return;
+        }
+        console.error('Drive auth error:', e);
+        window.toast?.('Drive認証エラー: ' + (e.message || e.code || ''));
+        resolve(false);
       });
-    }
-    doRequest();
   });
 }
 
