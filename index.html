@@ -70,7 +70,7 @@
   import './js/bulk.js';
   import './js/ai-tagging.js';
   import {
-    initDriveAuth, switchImportTab, gdOpenBrowser,
+    initDriveAuth, ensureDriveToken, switchImportTab, gdOpenBrowser,
     gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
     gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport
   } from './js/gdrive.js';
@@ -102,6 +102,7 @@
   window.ytImportCheckedVideos   = ytImportCheckedVideos;
   // google drive
   window.initDriveAuth           = initDriveAuth;
+  window.ensureDriveToken        = ensureDriveToken;
   window.switchImportTab         = switchImportTab;
   window.gdOpenBrowser           = gdOpenBrowser;
   window.gdBrowserEnter          = gdBrowserEnter;

@@ -37,6 +37,13 @@ export function initDriveAuth() {
   });
 }
 
+// ── トークン取得（再生時に使用）──
+export async function ensureDriveToken() {
+  if (_token) return _token;
+  const ok = await initDriveAuth();
+  return ok ? _token : null;
+}
+
 function _setAuthUI(authed) {
   const btn    = document.getElementById('gd-auth-btn');
   const status = document.getElementById('gd-auth-status');
