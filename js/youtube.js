@@ -10,7 +10,7 @@ export function importYouTubePlaylists() {
   if (!currentUser) { showToast('⚠️ 先にGoogleでログインしてください'); return; }
   if (!tokenClient) {
     tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: '902402722703-pntspungo868l9jh0ng4nvijdbij1qb4.apps.googleusercontent.com',
+      client_id: '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com',
       scope: 'https://www.googleapis.com/auth/youtube.readonly',
       callback: async (tokenResponse) => {
         if (tokenResponse.error) { showToast('⚠️ 認証エラー: ' + tokenResponse.error); return; }
@@ -161,12 +161,15 @@ export async function ytImportCheckedVideos() {
   if (!checks.length) { showToast('動画を選択してください'); return; }
   document.getElementById('yt-import-ov').classList.remove('open');
   let added = 0;
+  const newIds = [];
   checks.forEach(cb => {
     const vid = cb.dataset.vid;
     if (window.videos?.find(v => v.ytId === vid)) return;
     window.videos = window.videos || [];
+    const newId = 'yt-' + vid;
+    newIds.push(newId);
     window.videos.push({
-      id: 'yt-' + vid, ytId: vid, pt: 'youtube',
+      id: newId, ytId: vid, pt: 'youtube',
       title: cb.dataset.title,
       src: 'youtube',
       url: 'https://www.youtube.com/watch?v=' + vid,
@@ -184,4 +187,9 @@ export async function ytImportCheckedVideos() {
   if (window.AF) window.AF();
   await saveUserData();
   showToast(`✅ ${added}本の動画を追加しました`);
+
+  // 自動AIタグ付け
+  if (window.aiSettings?.autoTagOnImport && newIds.length > 0) {
+    window.autoTagNewVideos?.(newIds);
+  }
 }

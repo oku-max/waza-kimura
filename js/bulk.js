@@ -79,16 +79,16 @@ export function buildBulkDrawerHTML() {
       <span class="vp-lbl">Priority</span>
       <div class="vp-chips" id="bvp-prio">${prioChips}</div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">TOP/BOTTOM</span>
+    <div class="vp-row vp-row-tb">
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-chips" id="bvp-tb">${tbChips}</div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Action</span>
+    <div class="vp-row vp-row-ac">
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='ac')?.label||'Action'}</span>
       <div class="vp-chips" id="bvp-ac">${acChips}</div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Position
+    <div class="vp-row vp-row-pos">
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='pos')?.label||'Position'}
         <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">共通タグ表示・追加で全動画に一括追加</span>
       </span>
       <div class="vp-tech-wrap">
@@ -103,8 +103,8 @@ export function buildBulkDrawerHTML() {
         <div class="vp-tech-suggest" id="bvp-pos-sug"></div>
       </div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Technique
+    <div class="vp-row vp-row-tech">
+      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tech')?.label||'Technique'}
         <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">共通タグ表示・追加で全動画に一括追加</span>
       </span>
       <div class="vp-tech-wrap">

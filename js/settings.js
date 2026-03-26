@@ -19,6 +19,7 @@ export let aiSettings = {
 
 export function saveTagSettings() {
   try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
+  applyTagLabels();
   window.saveUserSettings?.();
 }
 
@@ -64,7 +65,17 @@ export function applyRemoteSettings(data) {
     window.aiSettings = aiSettings;
   }
   applyTagVisibility();
+  applyTagLabels();
   if (document.getElementById('tag-settings-list')) renderSettings();
+}
+
+// ── タグカテゴリのラベルをDOM全体に反映 ──
+export function applyTagLabels() {
+  tagSettings.forEach(function(tag) {
+    document.querySelectorAll('[data-tag-key="' + tag.key + '"]').forEach(function(el) {
+      el.textContent = tag.label;
+    });
+  });
 }
 
 // ── 非表示カテゴリを body クラスで制御 ──
