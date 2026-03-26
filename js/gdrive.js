@@ -146,30 +146,50 @@ export function switchImportTab(tab) {
   tabGd.style.color      = isYt ? 'var(--text2)' : '#fff';
 }
 
-// ── UI: フォルダスキャン ──
-export async function gdScanFolder() {
+// ── UI: フォルダピッカーを開く ──
+export async function gdOpenPicker() {
   if (!_token) {
     const ok = await initDriveAuth();
     if (!ok) return;
   }
-  const folderId = parseFolderUrl(document.getElementById('gd-folder-url')?.value);
-  if (!folderId) { window.toast?.('フォルダURLを入力してください'); return; }
+  // gapiが読み込まれているか確認
+  if (typeof gapi === 'undefined') {
+    window.toast?.('Google API の読み込み中です。少し待ってからもう一度お試しください');
+    return;
+  }
+  gapi.load('picker', () => {
+    const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+      .setSelectFolderEnabled(true)
+      .setMimeTypes('application/vnd.google-apps.folder');
+    const picker = new google.picker.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(_token)
+      .setDeveloperKey('AIzaSyC1VafF24ys4XdTZe7lqIDAZjSmOUqM6Lw')
+      .setTitle('取り込むフォルダを選択')
+      .setCallback(async (data) => {
+        if (data.action === google.picker.Action.PICKED) {
+          const folder = data.docs[0];
+          await _scanAndShow(folder.id, folder.name);
+        }
+      })
+      .build();
+    picker.setVisible(true);
+  });
+}
 
+// ── フォルダスキャンして一覧表示 ──
+async function _scanAndShow(folderId, folderName) {
   const btn = document.getElementById('gd-scan-btn');
   if (btn) { btn.textContent = 'スキャン中...'; btn.disabled = true; }
-
   try {
-    const folderName = await getFolderName(folderId);
     _scannedTree = await scanFolder(folderId, folderName, 0);
-
     // 全ファイル名収集 → サフィックス自動検出
     const allNames = [];
     function collect(node) { node.videos.forEach(v => allNames.push(v.name)); node.folders.forEach(collect); }
     collect(_scannedTree);
     const detected = detectCommonSuffix(allNames);
     const suffixEl = document.getElementById('gd-strip-suffix');
-    if (suffixEl && !suffixEl.value) suffixEl.value = detected;
-
+    if (suffixEl) suffixEl.value = detected;
     document.getElementById('gd-stage2-title').textContent = folderName;
     document.getElementById('gd-stage1').style.display = 'none';
     document.getElementById('gd-stage2').style.display = '';
@@ -178,7 +198,7 @@ export async function gdScanFolder() {
     console.error('scan error:', e);
     window.toast?.('スキャンに失敗しました: ' + e.message);
   } finally {
-    if (btn) { btn.textContent = 'スキャン →'; btn.disabled = false; }
+    if (btn) { btn.textContent = '📁 フォルダを選択'; btn.disabled = false; }
   }
 }
 
