@@ -1,5 +1,15 @@
 // ═══ WAZA KIMURA — フィルターオーバーレイ & サイドバー ═══
 
+// ── ユーティリティ ──
+export function mkChip(label, isActive, onClick) {
+  const el = document.createElement('div');
+  el.className = 'chip' + (isActive ? ' active' : '');
+  el.style.flexShrink = '0';
+  el.textContent = label;
+  el.onclick = onClick;
+  return el;
+}
+
 // ── サイドバー開閉 ──
 export function toggleSidebar() {
   const shell = document.getElementById('appShell');
@@ -11,14 +21,14 @@ export function toggleSidebar() {
 }
 
 export function syncSidebarChipStates() {
-  const filters = window.filters || {};
+  const f = window.filters || {};
   ['未着手','練習中','マスター'].forEach(v => {
-    const el  = document.getElementById('fs-stat-' + v);  if (el)  el.classList.toggle('active', filters.status?.has(v));
-    const el2 = document.getElementById('fov-stat-' + v); if (el2) el2.classList.toggle('active', filters.status?.has(v));
+    const el  = document.getElementById('fs-stat-' + v);  if (el)  el.classList.toggle('active', f.status?.has(v));
+    const el2 = document.getElementById('fov-stat-' + v); if (el2) el2.classList.toggle('active', f.status?.has(v));
   });
   ['今すぐ','そのうち','保留'].forEach(v => {
-    const el  = document.getElementById('fs-prio-' + v);  if (el)  el.classList.toggle('active', filters.prio?.has(v));
-    const el2 = document.getElementById('fov-prio-' + v); if (el2) el2.classList.toggle('active', filters.prio?.has(v));
+    const el  = document.getElementById('fs-prio-' + v);  if (el)  el.classList.toggle('active', f.prio?.has(v));
+    const el2 = document.getElementById('fov-prio-' + v); if (el2) el2.classList.toggle('active', f.prio?.has(v));
   });
 }
 
@@ -31,6 +41,7 @@ export function openFilterOverlay() {
   syncFilterOvRows();
   try { window.renderFilterPresets?.(); } catch(e) {}
 }
+
 export function toggleFilterOverlay() { openFilterOverlay(); }
 
 export function closeFilterOverlay() {
@@ -39,72 +50,96 @@ export function closeFilterOverlay() {
   document.body.style.overflow = '';
 }
 
+// ── フィルター行同期（オーバーレイ内） ──
 export function syncFilterOvRows() {
-  const filters = window.filters || {};
-  // T/B
-  window.buildSrow?.('fov-srow-tb', window.TB_TAGS, 'tb', false);
-  // Action
-  window.buildSrow?.('fov-srow-ac', window.AC_TAGS, 'action', true);
-  // Position
-  (function() {
-    const row = document.getElementById('fov-srow-pos'); if (!row) return;
+  const f = window.filters || {};
+  // T/B: ピッカー方式
+  (function(){
+    const row = document.getElementById('fov-srow-tb'); if(!row) return;
     row.innerHTML = '';
-    row.appendChild(mkChip('すべて', filters.position?.size === 0, function() { filters.position?.clear(); syncFilterOvRows(); window.AF?.(); }));
-    [...(filters.position||[])].forEach(function(p) {
-      const el = document.createElement('div'); el.className = 'chip active'; el.style.flexShrink = '0';
-      el.textContent = p + ' ×'; el.onclick = function() { filters.position?.delete(p); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    row.appendChild(mkChip('すべて', f.tb?.size===0, function(){ f.tb?.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...(f.tb||[])].forEach(function(t){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=t+' ×'; el.onclick=function(){ f.tb?.delete(t); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
     });
-    const btn = document.createElement('div'); btn.className = 'chip'; btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-    btn.textContent = '＋ ポジションを選ぶ'; btn.onclick = function() { closeFilterOverlay(); window.openPos?.(); }; row.appendChild(btn);
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ トップ/ボトムを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); window.openTbPicker?.(); }; row.appendChild(btn);
   })();
-  // Playlist
-  (function() {
-    const row = document.getElementById('fov-srow-pl'); if (!row) return;
+  // ACTION: ピッカー方式
+  (function(){
+    const row = document.getElementById('fov-srow-ac'); if(!row) return;
     row.innerHTML = '';
-    row.appendChild(mkChip('すべて', filters.playlist?.size === 0, function() { filters.playlist?.clear(); syncFilterOvRows(); window.AF?.(); }));
-    [...(filters.playlist||[])].forEach(function(p) {
-      const el = document.createElement('div'); el.className = 'chip active'; el.style.flexShrink = '0';
-      el.textContent = p + ' ×'; el.onclick = function() { filters.playlist?.delete(p); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    row.appendChild(mkChip('すべて', f.action?.size===0, function(){ f.action?.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...(f.action||[])].forEach(function(a){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=a+' ×'; el.onclick=function(){ f.action?.delete(a); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
     });
-    const btn = document.createElement('div'); btn.className = 'chip'; btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-    btn.textContent = '＋ プレイリストを選ぶ'; btn.onclick = function() { closeFilterOverlay(); window.openPL?.(); }; row.appendChild(btn);
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ アクションを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); window.openAcPicker?.(); }; row.appendChild(btn);
   })();
-  // Technique
-  (function() {
-    const row = document.getElementById('fov-srow-tech'); if (!row) return;
+  // POSITION: ピッカー方式
+  (function(){
+    const row = document.getElementById('fov-srow-pos'); if(!row) return;
     row.innerHTML = '';
-    row.appendChild(mkChip('すべて', filters.tech?.size === 0, function() { filters.tech?.clear(); syncFilterOvRows(); window.AF?.(); }));
-    [...(filters.tech||[])].forEach(function(t) {
-      const el = document.createElement('div'); el.className = 'chip active'; el.style.flexShrink = '0';
-      el.textContent = t + ' ×'; el.onclick = function() { filters.tech?.delete(t); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    row.appendChild(mkChip('すべて', f.position?.size===0, function(){ f.position?.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...(f.position||[])].forEach(function(p){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=p+' ×'; el.onclick=function(){ f.position?.delete(p); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
     });
-    const btn = document.createElement('div'); btn.className = 'chip'; btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-    btn.textContent = '＋ テクニックを選ぶ'; btn.onclick = function() { closeFilterOverlay(); window.openTF?.(); }; row.appendChild(btn);
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ ポジションを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); window.openPos?.(); }; row.appendChild(btn);
   })();
-  // Channel
-  (function() {
-    const row = document.getElementById('fov-srow-ch'); if (!row) return;
+  // PLAYLIST
+  (function(){
+    const row = document.getElementById('fov-srow-pl'); if(!row) return;
     row.innerHTML = '';
-    row.appendChild(mkChip('すべて', filters.channel?.size === 0, function() { filters.channel?.clear(); syncFilterOvRows(); window.AF?.(); }));
-    [...(filters.channel||[])].forEach(function(ch) {
-      const el = document.createElement('div'); el.className = 'chip active'; el.style.flexShrink = '0';
-      el.textContent = ch + ' ×'; el.onclick = function() { filters.channel?.delete(ch); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    row.appendChild(mkChip('すべて', f.playlist?.size===0, function(){ f.playlist?.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...(f.playlist||[])].forEach(function(p){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=p+' ×'; el.onclick=function(){ f.playlist?.delete(p); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
     });
-    const btn = document.createElement('div'); btn.className = 'chip'; btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-    btn.textContent = '＋ チャンネルを選ぶ'; btn.onclick = function() { closeFilterOverlay(); window.openChPicker?.(); }; row.appendChild(btn);
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ プレイリストを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); window.openPL?.(); }; row.appendChild(btn);
   })();
-  // Status / Fav 同期
-  ['fov-stat-未着手','fov-stat-練習中','fov-stat-マスター'].forEach(function(id) {
-    const el = document.getElementById(id); if (el) el.classList.toggle('active', filters.status?.has(id.replace('fov-stat-','')));
+  // TECHNIQUE
+  (function(){
+    const row = document.getElementById('fov-srow-tech'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', f.tech?.size===0, function(){ f.tech?.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...(f.tech||[])].forEach(function(t){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=t+' ×'; el.onclick=function(){ f.tech?.delete(t); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ テクニックを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); window.openTF?.(); }; row.appendChild(btn);
+  })();
+  // CHANNEL
+  (function(){
+    const row = document.getElementById('fov-srow-ch'); if(!row) return;
+    row.innerHTML = '';
+    row.appendChild(mkChip('すべて', f.channel?.size===0, function(){ f.channel?.clear(); syncFilterOvRows(); window.AF?.(); }));
+    [...(f.channel||[])].forEach(function(ch){
+      const el=document.createElement('div'); el.className='chip active'; el.style.flexShrink='0';
+      el.textContent=ch+' ×'; el.onclick=function(){ f.channel?.delete(ch); syncFilterOvRows(); window.AF?.(); }; row.appendChild(el);
+    });
+    const btn=document.createElement('div'); btn.className='chip'; btn.style.cssText='border-style:dashed;flex-shrink:0';
+    btn.textContent='＋ チャンネルを選ぶ'; btn.onclick=function(){ closeFilterOverlay(); window.openChPicker?.(); }; row.appendChild(btn);
+  })();
+  // Status/Fav同期
+  ['fov-stat-未着手','fov-stat-練習中','fov-stat-マスター'].forEach(function(id){
+    const el=document.getElementById(id); if(el) el.classList.toggle('active', f.status?.has(id.replace('fov-stat-','')));
   });
-  ['fov-prio-今すぐ','fov-prio-そのうち','fov-prio-保留'].forEach(function(id) {
-    const el = document.getElementById(id); if (el) el.classList.toggle('active', filters.prio?.has(id.replace('fov-prio-','')));
+  ['fov-prio-今すぐ','fov-prio-そのうち','fov-prio-保留'].forEach(function(id){
+    const el=document.getElementById(id); if(el) el.classList.toggle('active', f.prio?.has(id.replace('fov-prio-','')));
   });
-  const favEl = document.getElementById('fov-chip-fav');     if (favEl) favEl.classList.toggle('active', window.favOnly);
-  const unwEl = document.getElementById('fov-chip-unw');     if (unwEl) unwEl.classList.toggle('active', window.unwOnly);
-  const watEl = document.getElementById('fov-chip-watched'); if (watEl) watEl.classList.toggle('active', window.watchedOnly);
+  const favEl =document.getElementById('fov-chip-fav');     if(favEl)  favEl.classList.toggle('active',  window.favOnly||false);
+  const unwEl =document.getElementById('fov-chip-unw');     if(unwEl)  unwEl.classList.toggle('active',  window.unwOnly||false);
+  const watEl =document.getElementById('fov-chip-watched'); if(watEl)  watEl.classList.toggle('active',  window.watchedOnly||false);
+  const bmEl  =document.getElementById('fov-chip-bm');      if(bmEl)   bmEl.classList.toggle('active',   window.bmOnly||false);
+  const memoEl=document.getElementById('fov-chip-memo');    if(memoEl) memoEl.classList.toggle('active', window.memoOnly||false);
 }
 
+// ── カウントヘルパー ──
 export function countForFilter(key, val) {
   try {
     const vids = window.videos || [];
@@ -120,14 +155,13 @@ export function countForFilter(key, val) {
   return 0;
 }
 
+// ── 行ビルダー（フィルターオーバーレイ内） ──
 export function buildFovRows() {
   const vids = window.videos || [];
+  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
   buildFovHscroll('fov-srow-tb', window.TB_TAGS||[], 'tb', 'fov-all-tb');
   buildFovHscroll('fov-srow-ac', window.AC_TAGS||[], 'action', 'fov-all-ac');
-  buildFovPickerRow('fov-srow-pos',  'position', 'fov-all-pos', () => {
-    const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
-    return [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort();
-  });
+  buildFovPickerRow('fov-srow-pos',  'position', 'fov-all-pos', () => [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
   buildFovPickerRow('fov-srow-pl',   'playlist', 'fov-all-pl',  () => [...new Set(vids.map(v => v.pl).filter(Boolean))].sort());
   buildFovPickerRow('fov-srow-tech', 'tech',     'fov-all-tech',() => [...new Set(vids.flatMap(v => v.tech||[]))].sort());
   buildFovPickerRow('fov-srow-ch',   'channel',  'fov-all-ch',  () => [...new Set(vids.map(v => v.ch).filter(Boolean))].sort());
@@ -137,14 +171,11 @@ export function buildFovHscroll(rowId, tags, filterKey, allChipId) {
   const row     = document.getElementById(rowId); if (!row) return;
   const allChip = document.getElementById(allChipId);
   const filters = window.filters || {};
-  const vids    = window.videos  || [];
   row.innerHTML = '';
   tags.forEach(tag => {
     const cnt = window.countContextual
       ? window.countContextual(filterKey, tag)
-      : (filterKey === 'tb'
-          ? vids.filter(v => !v.archived && (v.tb||[]).includes(tag)).length
-          : vids.filter(v => !v.archived && (v.ac||[]).includes(tag)).length);
+      : ((window.videos||[]).filter(v => !v.archived && (filterKey==='tb' ? (v.tb||[]).includes(tag) : (v.ac||[]).includes(tag))).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(tag) ? ' active' : '');
     el.style.flexShrink = '0';
@@ -164,16 +195,16 @@ export function buildFovPickerRow(rowId, filterKey, allChipId, getAll) {
   const row     = document.getElementById(rowId); if (!row) return;
   const allChip = document.getElementById(allChipId);
   const filters = window.filters || {};
-  const vids    = window.videos  || [];
   row.innerHTML = '';
   const allItems = getAll();
   allItems.forEach(val => {
     const cnt = window.countContextual
       ? window.countContextual(filterKey, val)
-      : (filterKey === 'playlist' ? vids.filter(v => !v.archived && v.pl === val).length
-       : filterKey === 'channel'  ? vids.filter(v => !v.archived && v.ch === val).length
-       : filterKey === 'tech'     ? vids.filter(v => !v.archived && (v.tech||[]).includes(val)).length
-       :                            vids.filter(v => !v.archived && (v.pos||[]).includes(val)).length);
+      : ((window.videos||[]).filter(v => !v.archived && (
+          filterKey==='playlist' ? v.pl===val :
+          filterKey==='channel'  ? v.ch===val :
+          filterKey==='tech'     ? (v.tech||[]).includes(val) :
+          (v.pos||[]).includes(val))).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(val) ? ' active' : '');
     el.style.flexShrink = '0';
@@ -189,26 +220,27 @@ export function buildFovPickerRow(rowId, filterKey, allChipId, getAll) {
   if (allChip) allChip.classList.toggle('inactive', filters[filterKey]?.size > 0);
 }
 
+// ── 状態同期 ──
 export function syncFovChips() {
-  const filters = window.filters || {};
-  const favChip = document.getElementById('fov-chip-fav');     if (favChip) favChip.classList.toggle('active', window.favOnly);
-  const unwChip = document.getElementById('fov-chip-unw');     if (unwChip) unwChip.classList.toggle('active', window.unwOnly);
-  const watChip = document.getElementById('fov-chip-watched'); if (watChip) watChip.classList.toggle('active', window.watchedOnly);
+  const f = window.filters || {};
+  const favChip = document.getElementById('fov-chip-fav');     if (favChip) favChip.classList.toggle('active', window.favOnly||false);
+  const unwChip = document.getElementById('fov-chip-unw');     if (unwChip) unwChip.classList.toggle('active', window.unwOnly||false);
+  const watChip = document.getElementById('fov-chip-watched'); if (watChip) watChip.classList.toggle('active', window.watchedOnly||false);
   ['未着手','練習中','マスター'].forEach(v => {
-    const el = document.getElementById('fov-stat-' + v); if (el) el.classList.toggle('active', filters.status?.has(v));
+    const el = document.getElementById('fov-stat-' + v); if (el) el.classList.toggle('active', f.status?.has(v));
   });
   ['今すぐ','そのうち','保留'].forEach(v => {
-    const el = document.getElementById('fov-prio-' + v); if (el) el.classList.toggle('active', filters.prio?.has(v));
+    const el = document.getElementById('fov-prio-' + v); if (el) el.classList.toggle('active', f.prio?.has(v));
   });
 }
 
 export function clearFovField(fieldKey) {
-  const filters  = window.filters || {};
-  const keyMap   = {tb:'tb', action:'action', pos:'position', playlist:'playlist', tech:'tech', ch:'channel'};
-  const allMap   = {tb:'fov-all-tb', action:'fov-all-ac', pos:'fov-all-pos', playlist:'fov-all-pl', tech:'fov-all-tech', ch:'fov-all-ch'};
-  const rowMap   = {tb:'fov-srow-tb', action:'fov-srow-ac', pos:'fov-srow-pos', playlist:'fov-srow-pl', tech:'fov-srow-tech', ch:'fov-srow-ch'};
+  const f = window.filters || {};
+  const keyMap = {tb:'tb', action:'action', pos:'position', playlist:'playlist', tech:'tech', ch:'channel'};
+  const allMap = {tb:'fov-all-tb', action:'fov-all-ac', pos:'fov-all-pos', playlist:'fov-all-pl', tech:'fov-all-tech', ch:'fov-all-ch'};
+  const rowMap = {tb:'fov-srow-tb', action:'fov-srow-ac', pos:'fov-srow-pos', playlist:'fov-srow-pl', tech:'fov-srow-tech', ch:'fov-srow-ch'};
   const fk = keyMap[fieldKey];
-  if (fk && filters[fk]) filters[fk].clear();
+  if (fk && f[fk]) f[fk].clear();
   const allChip = document.getElementById(allMap[fieldKey]); if (allChip) allChip.classList.remove('inactive');
   const row = document.getElementById(rowMap[fieldKey]); if (row) row.querySelectorAll('.chip').forEach(el => el.classList.remove('active'));
   window.AF?.();
@@ -242,7 +274,7 @@ export function populateFsPicker(type) {
   const sel     = filters[key] || new Set();
   panel.innerHTML = all.map(v => {
     const isSel = sel.has(v);
-    return `<span class="fs-picker-chip${isSel?' sel':''}" onmousedown="event.preventDefault();fsPick('${type}','${v.replace(/'/g,"\\'")}',this)">${v}</span>`;
+    return `<span class="fs-picker-chip${isSel?' sel':''}" onmousedown="event.preventDefault();fsPick('${type}','${v.replace(/'/g,"\\'")}'  ,this)">${v}</span>`;
   }).join('');
 }
 
@@ -294,22 +326,22 @@ document.addEventListener('mousedown', function(e) {
 let savedSearches = JSON.parse(localStorage.getItem('wk-saved-searches') || '[]');
 
 export function saveCurrentSearch() {
-  const filters = window.filters || {};
+  const f = window.filters || {};
   const state = {
     favOnly: window.favOnly, unwOnly: window.unwOnly, watchedOnly: window.watchedOnly,
-    filters: Object.fromEntries(Object.entries(filters).map(([k,v]) => [k, [...v]])),
+    filters: Object.fromEntries(Object.entries(f).map(([k,v]) => [k, [...v]])),
     query: (document.getElementById('si')||{}).value || (document.getElementById('si-lib-pc')||{}).value || ''
   };
   const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
     Object.values(state.filters).some(a => a.length > 0) || state.query;
-  if (!hasFilter) { window.toast('フィルターが設定されていません'); return; }
+  if (!hasFilter) { window.toast?.('フィルターが設定されていません'); return; }
   const name = prompt('検索条件の名前を入力してください:');
   if (!name) return;
   savedSearches.unshift({ name, state, createdAt: Date.now() });
   if (savedSearches.length > 20) savedSearches = savedSearches.slice(0, 20);
   localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
   renderSavedSearches();
-  window.toast('💾 「' + name + '」を保存しました');
+  window.toast?.('💾 「' + name + '」を保存しました');
 }
 
 export function applySavedSearch(idx) {
@@ -317,12 +349,12 @@ export function applySavedSearch(idx) {
   window.clearAll?.();
   const s = ss.state;
   window.favOnly = s.favOnly; window.unwOnly = s.unwOnly; window.watchedOnly = s.watchedOnly || false;
-  const filters = window.filters || {};
-  Object.entries(s.filters||{}).forEach(([k,v]) => { filters[k] = new Set(v); });
+  const f = window.filters || {};
+  Object.entries(s.filters||{}).forEach(([k,v]) => { if (f[k]) { f[k].clear(); v.forEach(x => f[k].add(x)); } });
   const si   = document.getElementById('si');        if (si)   si.value   = s.query || '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = s.query || '';
   window.AF?.(); renderSavedSearches();
-  window.toast('🔍 「' + ss.name + '」を適用しました');
+  window.toast?.('🔍 「' + ss.name + '」を適用しました');
 }
 
 export function deleteSavedSearch(idx, e) {
@@ -346,8 +378,6 @@ export function renderSavedSearches() {
     </div>
   `).join('');
 }
-
-setTimeout(renderSavedSearches, 500);
 
 // ── アコーディオン ──
 export function toggleAcc(key) {
@@ -409,14 +439,4 @@ export function filterAccChips(type) { renderAccChips(type); }
 
 export function showFsBulkBtn(show) {
   // 常時表示のため何もしない
-}
-
-// ── mkChip ユーティリティ（filter-overlay内で使用）──
-export function mkChip(label, isActive, onClick) {
-  const el = document.createElement('div');
-  el.className = 'chip' + (isActive ? ' active' : '');
-  el.style.flexShrink = '0';
-  el.textContent = label;
-  el.onclick = onClick;
-  return el;
 }
