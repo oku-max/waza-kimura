@@ -389,7 +389,8 @@ export function exitBulk(){
   document.getElementById('bulkBar').classList.remove('show');
   document.getElementById('sh').style.display='';
   closeBulkVPanel();
-  // 選択チェックをリセット
+  // card-sel-ov の vis クラスと sel-circle を直接除去（AF再描画を待たずに即座に非表示）
+  document.querySelectorAll('.card-sel-ov').forEach(el => { el.classList.remove('vis'); });
   document.querySelectorAll('.sel-circle').forEach(el => { el.classList.remove('chk'); el.textContent = ''; });
   // Selectボタンをリセット
   const selBtn=document.getElementById('bulk-sel-btn');
