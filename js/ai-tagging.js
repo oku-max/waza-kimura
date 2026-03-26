@@ -142,7 +142,7 @@ export function showAiTagPanel(videoId, suggestions) {
     </div>
 
     <div id="ai-tag-rows">
-      ${CATEGORY_KEYS.map(k => buildRow(k)).join('')}
+      ${CATEGORY_KEYS.filter(k => window.aiSettings?.categories?.[k] !== false).map(k => buildRow(k)).join('')}
     </div>
 
     <div style="display:flex;gap:8px;margin-top:16px">
@@ -164,8 +164,13 @@ export function showAiTagPanel(videoId, suggestions) {
   document.body.appendChild(panel);
   panel.addEventListener('click', e => { if (e.target === panel) panel.remove(); });
 
+  // 設定のデフォルトモードを初期反映
+  if (_mode === 'overwrite') {
+    setTimeout(() => window._aiSetMode?.('overwrite'), 0);
+  }
+
   // ── モード管理 ──
-  let _mode = 'add';
+  let _mode = window.aiSettings?.defaultMode || 'add';
   window._aiSetMode = (mode) => {
     _mode = mode;
     const btnAdd = document.getElementById('ai-mode-add');
@@ -242,6 +247,10 @@ function applyAiTags(videoId, panel, mode = 'add') {
 
 // ── VPanel の AI ボタンクリック処理 ──
 export async function onAiTagBtn(videoId) {
+  if (window.aiSettings?.enabled === false) {
+    window.toast?.('AIタグ機能が無効になっています（Settings で有効化できます）');
+    return;
+  }
   const btn = document.getElementById('vp-ai-tag-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 分析中…'; }
 
@@ -264,6 +273,12 @@ export async function onAiTagBtn(videoId) {
 export async function bulkAiTagApply() {
   const ids = [...(window.selIds || new Set())];
   if (!ids.length) { window.toast?.('動画を選択してください'); return; }
+
+  // 確認ダイアログ
+  if (window.aiSettings?.bulkConfirm !== false) {
+    const ok = window.confirm(`選択中の ${ids.length} 本にAIタグを自動追加します。よろしいですか？`);
+    if (!ok) return;
+  }
 
   const btn = document.getElementById('bulk-ai-btn');
   if (btn) { btn.style.pointerEvents = 'none'; btn.textContent = '⏳ 準備中...'; }
@@ -318,6 +333,43 @@ export async function bulkAiTagApply() {
   if (btn) { btn.style.pointerEvents = ''; btn.textContent = '🤖 AIタグ一括適用'; }
 }
 
+// ── YouTube取り込み後の自動AIタグ付け ──
+export async function autoTagNewVideos(newIds) {
+  if (!newIds?.length) return;
+  const videos = window.videos || [];
+  let added = 0;
+
+  for (const id of newIds) {
+    const video = videos.find(v => v.id === id);
+    if (!video) continue;
+    try {
+      const res = await fetch(AI_TAG_ENDPOINT, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: video.title || '', channel: video.ch || '', playlist: video.pl || '' }),
+      });
+      if (!res.ok) continue;
+      const tags = await res.json();
+      const append = (field, arr) => {
+        if (!arr?.length) return;
+        if (!video[field]) video[field] = [];
+        arr.forEach(val => { if (!video[field].includes(val)) { video[field].push(val); added++; } });
+      };
+      append('tb',   tags.tb);
+      append('ac',   tags.action);
+      append('pos',  tags.position);
+      append('tech', tags.tech);
+    } catch(e) { console.error('autoTagNewVideos:', e); }
+  }
+
+  if (added > 0) {
+    window.debounceSave?.();
+    window.AF?.();
+    window.toast?.(`🤖 ${newIds.length}本にAIタグを自動追加しました（${added}件）`);
+  }
+}
+
 // window 登録
-window.onAiTagBtn    = onAiTagBtn;
-window.bulkAiTagApply = bulkAiTagApply;
+window.onAiTagBtn      = onAiTagBtn;
+window.bulkAiTagApply  = bulkAiTagApply;
+window.autoTagNewVideos = autoTagNewVideos;
