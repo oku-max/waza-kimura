@@ -92,23 +92,21 @@ function _getCurrentTime() {
 function _seekTo(sec) {
   if (_gdCurrentFileId) {
     _gdTimerElapsed = sec;
-    _gdTimerStart   = null; // iframeロード時に再開
+    _gdTimerStart   = Date.now();
     const iframe = document.querySelector('#vpanel-iframe-container iframe, #vp-panel-yt-player iframe');
     if (iframe) {
-      iframe.src = `https://drive.google.com/file/d/${_gdCurrentFileId}/preview?t=${sec}`;
-      iframe.addEventListener('load', () => {
-        _gdTimerStart = Date.now();
-        // 複数フォーマットでDriveに再生命令を試みる
-        const cmds = [
-          '{"event":"command","func":"playVideo","args":[]}',
-          '{"method":"play"}',
-          '{"type":"video","command":"play"}',
-        ];
-        for (const cmd of cmds) {
-          try { iframe.contentWindow?.postMessage(cmd, 'https://drive.google.com'); } catch(_) {}
-          try { iframe.contentWindow?.postMessage(cmd, '*'); } catch(_) {}
-        }
-      }, { once: true });
+      // iframeリロードなし: seekTo→playVideoを即時postMessageで送信（停止しない）
+      const win = iframe.contentWindow;
+      const cmds = [
+        JSON.stringify({event:'command', func:'seekTo',    args:[sec, true]}),
+        JSON.stringify({event:'command', func:'playVideo', args:[]}),
+        JSON.stringify({method:'seek',  value:sec}),
+        JSON.stringify({method:'play'}),
+      ];
+      for (const cmd of cmds) {
+        try { win?.postMessage(cmd, 'https://drive.google.com'); } catch(_) {}
+        try { win?.postMessage(cmd, '*'); } catch(_) {}
+      }
     }
     return;
   }
