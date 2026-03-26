@@ -1054,6 +1054,24 @@ export function openVPanel(id) {
     if (ytId) {
       _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
     }
+  } else if (plat === 'gd') {
+    // Google Drive: Drive API直接ストリーミング（<video>タグ）
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    if (iframeContainer && fileId) {
+      iframeContainer.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:13px">読み込み中...</div>`;
+      window.ensureDriveToken?.().then(token => {
+        if (!token) {
+          iframeContainer.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#000">
+            <div style="color:#fff;font-size:13px">再生にはGoogle認証が必要です</div>
+            <button onclick="window.ensureDriveToken?.().then(t=>{ if(t) window.openVPanel?.(window._currentVid); })" style="padding:8px 20px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">認証して再生</button>
+          </div>`;
+          return;
+        }
+        const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
+        iframeContainer.innerHTML = `<video src="${src}" ${autoplay ? 'autoplay' : ''} controls playsinline style="width:100%;height:100%;background:#000"></video>`;
+      });
+    }
   } else {
     // Vimeo: 従来通りiframe
     if (iframeContainer) {
@@ -1699,6 +1717,24 @@ export function _openPanel(id, emb, ext, plat) {
     const ytId = _extractYtId(emb);
     if (ytId) {
       _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+    }
+  } else if (plat === 'gd') {
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    const playerDiv = document.getElementById('vp-panel-yt-player');
+    if (playerDiv && fileId) {
+      playerDiv.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:13px">読み込み中...</div>`;
+      window.ensureDriveToken?.().then(token => {
+        if (!token) {
+          playerDiv.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#000">
+            <div style="color:#fff;font-size:13px">再生にはGoogle認証が必要です</div>
+            <button onclick="window.ensureDriveToken?.().then(t=>{ if(t) window.openVPanel?.(window._currentVid); })" style="padding:8px 20px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">認証して再生</button>
+          </div>`;
+          return;
+        }
+        const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
+        playerDiv.innerHTML = `<video src="${src}" ${autoplay ? 'autoplay' : ''} controls playsinline style="width:100%;height:100%;background:#000"></video>`;
+      });
     }
   } else {
     // Vimeo

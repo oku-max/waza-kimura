@@ -6,29 +6,73 @@ const VIDEO_MIMES = new Set([
   'video/x-flv','video/ogg',
 ]);
 
-let _token      = null;
+const GD_CLIENT_ID = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
+const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+const TOKEN_TTL    = 55 * 60 * 1000; // 55分（Googleトークンの有効期限1時間より短め）
+
+let _token       = null;
+let _tokenClient = null;
 let _scannedTree = null;
 
-// ── 認証 ──
-export async function initDriveAuth() {
+// ── セッションキャッシュ ──
+function _loadCachedToken() {
   try {
-    window.toast?.('Google Drive に接続中...');
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
-    provider.setCustomParameters({ prompt: 'consent', access_type: 'online' });
-    const result = await firebase.auth().signInWithPopup(provider);
-    const cred  = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-    const token = cred?.accessToken || result._tokenResponse?.oauthAccessToken;
-    if (!token) throw new Error('accessToken not returned');
-    _token = token;
+    const cached = JSON.parse(sessionStorage.getItem('gd_token') || 'null');
+    if (cached && (Date.now() - cached.ts) < TOKEN_TTL) return cached.token;
+  } catch(e) {}
+  return null;
+}
+
+function _saveToken(token) {
+  _token = token;
+  try { sessionStorage.setItem('gd_token', JSON.stringify({ token, ts: Date.now() })); } catch(e) {}
+}
+
+// ── 認証（GISトークンクライアント）──
+export function initDriveAuth(forceConsent = false) {
+  return new Promise((resolve) => {
+    const doRequest = () => {
+      _tokenClient.requestAccessToken({ prompt: forceConsent ? 'consent' : '' });
+    };
+
+    if (!_tokenClient) {
+      _tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GD_CLIENT_ID,
+        scope:     GD_SCOPE,
+        callback:  (resp) => {
+          if (resp.error) {
+            if ((resp.error === 'interaction_required' || resp.error === 'access_denied') && !forceConsent) {
+              // サイレント失敗 → consent付きで再試行
+              _tokenClient.requestAccessToken({ prompt: 'consent' });
+              return;
+            }
+            console.error('Drive token error:', resp);
+            window.toast?.('認証に失敗しました: ' + resp.error);
+            resolve(false);
+            return;
+          }
+          _saveToken(resp.access_token);
+          _setAuthUI(true);
+          resolve(true);
+        },
+      });
+    }
+    doRequest();
+  });
+}
+
+// ── トークン取得（再生時・スキャン時に使用）──
+export async function ensureDriveToken() {
+  if (_token) return _token;
+  // セッションキャッシュから復元
+  const cached = _loadCachedToken();
+  if (cached) {
+    _token = cached;
     _setAuthUI(true);
-    return true;
-  } catch(e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return false;
-    console.error('Drive auth error:', e.code, e.message);
-    window.toast?.('認証に失敗: ' + (e.code || e.message));
-    return false;
+    return _token;
   }
+  const ok = await initDriveAuth();
+  return ok ? _token : null;
 }
 
 function _setAuthUI(authed) {
@@ -42,7 +86,12 @@ function _setAuthUI(authed) {
 async function driveGet(url) {
   if (!_token) throw new Error('not authenticated');
   const res = await fetch(url, { headers: { Authorization: `Bearer ${_token}` } });
-  if (res.status === 401) { _token = null; _setAuthUI(false); throw new Error('token expired'); }
+  if (res.status === 401) {
+    _token = null;
+    try { sessionStorage.removeItem('gd_token'); } catch(e) {}
+    _setAuthUI(false);
+    throw new Error('token expired');
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -75,16 +124,8 @@ async function scanFolder(folderId, folderName, depth) {
 }
 
 // ── ユーティリティ ──
-function parseFolderUrl(input) {
-  const m = (input || '').match(/folders\/([a-zA-Z0-9_-]+)/);
-  if (m) return m[1];
-  if (/^[a-zA-Z0-9_-]{15,}$/.test((input || '').trim())) return input.trim();
-  return null;
-}
-
 function cleanTitle(filename, stripSuffix) {
-  let t = filename.replace(/\.[^.]+$/, '');   // 拡張子
-  t = t.replace(/^\d+\.\s*/, '');             // 先頭番号 "1. "
+  let t = filename.replace(/\.[^.]+$/, '');   // 拡張子のみ除去（先頭番号は保持）
   if (stripSuffix?.trim()) {
     const idx = t.indexOf(stripSuffix.trim());
     if (idx > 0) t = t.slice(0, idx).trim();
@@ -140,30 +181,113 @@ export function switchImportTab(tab) {
   tabGd.style.color      = isYt ? 'var(--text2)' : '#fff';
 }
 
-// ── UI: フォルダスキャン ──
-export async function gdScanFolder() {
+// ── カスタムフォルダブラウザ ──
+let _browserStack = [];
+let _browserCurrentId   = 'root';
+let _browserCurrentName = 'My Drive';
+
+export async function gdOpenBrowser() {
   if (!_token) {
     const ok = await initDriveAuth();
     if (!ok) return;
   }
-  const folderId = parseFolderUrl(document.getElementById('gd-folder-url')?.value);
-  if (!folderId) { window.toast?.('フォルダURLを入力してください'); return; }
+  _browserStack       = [];
+  _browserCurrentId   = 'root';
+  _browserCurrentName = 'My Drive';
+  document.getElementById('gd-stage1').style.display          = 'none';
+  document.getElementById('gd-stage-browser').style.display   = '';
+  await _browserRender();
+}
 
-  const btn = document.getElementById('gd-scan-btn');
-  if (btn) { btn.textContent = 'スキャン中...'; btn.disabled = true; }
+async function _browserRender() {
+  const titleEl = document.getElementById('gd-browser-title');
+  const listEl  = document.getElementById('gd-browser-list');
+  const breadEl = document.getElementById('gd-browser-breadcrumb');
+  const backBtn = document.getElementById('gd-browser-back');
+
+  if (titleEl) titleEl.textContent = _browserCurrentName;
+  if (backBtn) backBtn.style.visibility = _browserStack.length ? 'visible' : 'hidden';
+
+  // パンくず
+  if (breadEl) {
+    const crumbs = [{ id: 'root', name: 'My Drive' }, ..._browserStack];
+    breadEl.innerHTML = crumbs.map((c, i) =>
+      `<span onclick="gdBrowserJump(${i})" style="cursor:pointer;color:var(--accent);text-decoration:underline">${c.name}</span>`
+    ).join(' › ');
+  }
+
+  if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:12px 4px">読み込み中...</div>';
 
   try {
-    const folderName = await getFolderName(folderId);
-    _scannedTree = await scanFolder(folderId, folderName, 0);
+    const files   = await listFolder(_browserCurrentId);
+    const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+    const vCount  = files.filter(f => VIDEO_MIMES.has(f.mimeType)).length;
 
+    let html = '';
+    if (vCount > 0) {
+      html += `<div style="font-size:11px;color:var(--accent);padding:4px 6px 8px;font-weight:600">🎬 このフォルダに動画 ${vCount} 本</div>`;
+    }
+    if (folders.length === 0 && vCount === 0) {
+      html = '<div style="font-size:12px;color:var(--text3);padding:12px 4px">フォルダが空です</div>';
+    } else {
+      html += folders.map(f =>
+        `<div onclick="gdBrowserEnter('${f.id.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')"
+          style="display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:6px;background:var(--surface2)">
+          <span style="font-size:18px">📁</span>
+          <span style="font-size:13px;color:var(--text);flex:1">${f.name}</span>
+          <span style="color:var(--text3);font-size:16px">›</span>
+        </div>`
+      ).join('');
+    }
+    if (listEl) listEl.innerHTML = html;
+  } catch(e) {
+    console.error('browse error:', e);
+    if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:#e74c3c;padding:12px 4px">読み込みに失敗しました</div>';
+  }
+}
+
+export function gdBrowserEnter(folderId, folderName) {
+  _browserStack.push({ id: _browserCurrentId, name: _browserCurrentName });
+  _browserCurrentId   = folderId;
+  _browserCurrentName = folderName;
+  _browserRender();
+}
+
+export function gdBrowserBack() {
+  if (!_browserStack.length) return;
+  const prev = _browserStack.pop();
+  _browserCurrentId   = prev.id;
+  _browserCurrentName = prev.name;
+  _browserRender();
+}
+
+export function gdBrowserJump(index) {
+  const crumbs = [{ id: 'root', name: 'My Drive' }, ..._browserStack];
+  const target = crumbs[index];
+  _browserStack       = _browserStack.slice(0, index);
+  _browserCurrentId   = target.id;
+  _browserCurrentName = target.name;
+  _browserRender();
+}
+
+export async function gdBrowserSelect() {
+  document.getElementById('gd-stage-browser').style.display = 'none';
+  await _scanAndShow(_browserCurrentId, _browserCurrentName);
+}
+
+// ── フォルダスキャンして一覧表示 ──
+async function _scanAndShow(folderId, folderName) {
+  const btn = document.getElementById('gd-scan-btn');
+  if (btn) { btn.textContent = 'スキャン中...'; btn.disabled = true; }
+  try {
+    _scannedTree = await scanFolder(folderId, folderName, 0);
     // 全ファイル名収集 → サフィックス自動検出
     const allNames = [];
     function collect(node) { node.videos.forEach(v => allNames.push(v.name)); node.folders.forEach(collect); }
     collect(_scannedTree);
     const detected = detectCommonSuffix(allNames);
     const suffixEl = document.getElementById('gd-strip-suffix');
-    if (suffixEl && !suffixEl.value) suffixEl.value = detected;
-
+    if (suffixEl) suffixEl.value = detected;
     document.getElementById('gd-stage2-title').textContent = folderName;
     document.getElementById('gd-stage1').style.display = 'none';
     document.getElementById('gd-stage2').style.display = '';
@@ -172,7 +296,7 @@ export async function gdScanFolder() {
     console.error('scan error:', e);
     window.toast?.('スキャンに失敗しました: ' + e.message);
   } finally {
-    if (btn) { btn.textContent = 'スキャン →'; btn.disabled = false; }
+    if (btn) { btn.textContent = '📁 フォルダを選択'; btn.disabled = false; }
   }
 }
 
@@ -233,8 +357,9 @@ export function gdSelAll()  { document.querySelectorAll('#gd-file-list .gd-vid-c
 export function gdSelNone() { document.querySelectorAll('#gd-file-list .gd-vid-cb:not([disabled])').forEach(c => { c.checked = false; }); gdUpdateCount(); }
 
 export function gdBackToStage1() {
-  document.getElementById('gd-stage1').style.display = '';
-  document.getElementById('gd-stage2').style.display = 'none';
+  document.getElementById('gd-stage1').style.display          = '';
+  document.getElementById('gd-stage2').style.display          = 'none';
+  document.getElementById('gd-stage-browser').style.display   = 'none';
 }
 
 // ── 取り込み実行 ──

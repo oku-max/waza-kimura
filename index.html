@@ -68,8 +68,9 @@
   import './js/bulk.js';
   import './js/ai-tagging.js';
   import {
-    initDriveAuth, switchImportTab, gdScanFolder, gdRenderFileList,
-    gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport
+    initDriveAuth, ensureDriveToken, switchImportTab,
+    gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
+    gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport
   } from './js/gdrive.js';
   import {
     mkChip, toggleSidebar, syncSidebarChipStates,
@@ -99,8 +100,13 @@
   window.ytImportCheckedVideos   = ytImportCheckedVideos;
   // google drive
   window.initDriveAuth           = initDriveAuth;
+  window.ensureDriveToken        = ensureDriveToken;
   window.switchImportTab         = switchImportTab;
-  window.gdScanFolder            = gdScanFolder;
+  window.gdOpenBrowser           = gdOpenBrowser;
+  window.gdBrowserEnter          = gdBrowserEnter;
+  window.gdBrowserBack           = gdBrowserBack;
+  window.gdBrowserJump           = gdBrowserJump;
+  window.gdBrowserSelect         = gdBrowserSelect;
   window.gdRenderFileList        = gdRenderFileList;
   window.gdUpdateCount           = gdUpdateCount;
   window.gdSelAll                = gdSelAll;
@@ -2235,19 +2241,26 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div style="font-size:15px;font-weight:800">📁 Google Drive から取り込む</div>
           <span id="gd-auth-status" style="font-size:11px;color:var(--accent)"></span>
         </div>
-        <button id="gd-auth-btn" class="btn-save" style="width:100%;margin-bottom:14px" onclick="initDriveAuth()">Googleアカウントで認証</button>
-        <div style="margin-bottom:10px">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:5px">フォルダURL</div>
-          <input id="gd-folder-url" type="text" placeholder="https://drive.google.com/drive/folders/..."
-            style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
-        </div>
         <div style="margin-bottom:14px">
           <div style="font-size:11px;color:var(--text3);margin-bottom:5px">チャンネル名</div>
           <input id="gd-channel" type="text" placeholder="例: Triforce"
             style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
         </div>
         <div style="display:flex;gap:8px">
-          <button id="gd-scan-btn" class="btn-save" style="flex:1" onclick="gdScanFolder()">スキャン →</button>
+          <button id="gd-scan-btn" class="btn-save" style="flex:1" onclick="gdOpenBrowser()">📁 フォルダを選択</button>
+          <button class="btn-sub" style="flex:1;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+        </div>
+      </div>
+      <!-- GD Stage browser: フォルダナビ -->
+      <div id="gd-stage-browser" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <button id="gd-browser-back" onclick="gdBrowserBack()" style="border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2);visibility:hidden">← 戻る</button>
+          <div style="font-size:14px;font-weight:800" id="gd-browser-title">My Drive</div>
+        </div>
+        <div id="gd-browser-breadcrumb" style="font-size:11px;color:var(--text3);margin-bottom:10px;min-height:16px"></div>
+        <div id="gd-browser-list" style="overflow-y:auto;max-height:48vh;margin-bottom:14px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-save" style="flex:1" onclick="gdBrowserSelect()">✓ このフォルダを選択</button>
           <button class="btn-sub" style="flex:1;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
         </div>
       </div>
