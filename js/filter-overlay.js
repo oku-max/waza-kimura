@@ -38,6 +38,7 @@ export function openFilterOverlay() {
   if (!ov) return;
   ov.classList.add('show');
   document.body.style.overflow = 'hidden';
+  try { buildFovRows(); } catch(e) {}
   syncFilterOvRows();
   try { window.renderFilterPresets?.(); } catch(e) {}
 }
