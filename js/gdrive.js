@@ -6,29 +6,35 @@ const VIDEO_MIMES = new Set([
   'video/x-flv','video/ogg',
 ]);
 
-let _token      = null;
+const GD_CLIENT_ID = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
+const GD_SCOPE     = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+
+let _token       = null;
+let _tokenClient = null;
 let _scannedTree = null;
 
-// ── 認証 ──
-export async function initDriveAuth() {
-  try {
-    window.toast?.('Google Drive に接続中...');
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
-    provider.setCustomParameters({ prompt: 'consent', access_type: 'online' });
-    const result = await firebase.auth().signInWithPopup(provider);
-    const cred  = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-    const token = cred?.accessToken || result._tokenResponse?.oauthAccessToken;
-    if (!token) throw new Error('accessToken not returned');
-    _token = token;
-    _setAuthUI(true);
-    return true;
-  } catch(e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return false;
-    console.error('Drive auth error:', e.code, e.message);
-    window.toast?.('認証に失敗: ' + (e.code || e.message));
-    return false;
-  }
+// ── 認証（GISトークンクライアント）──
+export function initDriveAuth() {
+  return new Promise((resolve) => {
+    if (!_tokenClient) {
+      _tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GD_CLIENT_ID,
+        scope:     GD_SCOPE,
+        callback:  (resp) => {
+          if (resp.error) {
+            console.error('Drive token error:', resp);
+            window.toast?.('認証に失敗しました: ' + resp.error);
+            resolve(false);
+            return;
+          }
+          _token = resp.access_token;
+          _setAuthUI(true);
+          resolve(true);
+        },
+      });
+    }
+    _tokenClient.requestAccessToken({ prompt: 'consent' });
+  });
 }
 
 function _setAuthUI(authed) {
