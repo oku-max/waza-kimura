@@ -1055,16 +1055,9 @@ export function openVPanel(id) {
       _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
     }
   } else if (plat === 'gd') {
-    // Google Drive: Drive API直接ストリーミング（<video>タグ）
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
-    if (iframeContainer && fileId) {
-      const cachedToken = window.getDriveTokenIfAvailable?.();
-      if (cachedToken) {
-        _playGDriveVideo(iframeContainer, fileId, cachedToken, autoplay);
-      } else {
-        _showGDriveAuthUI(iframeContainer, fileId, autoplay);
-      }
+    // Google Drive: previewページをiframeで表示（認証不要・ブラウザのGoogleセッション利用）
+    if (iframeContainer) {
+      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
     }
   } else {
     // Vimeo: 従来通りiframe
@@ -1765,16 +1758,10 @@ export function _openPanel(id, emb, ext, plat) {
       _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
     }
   } else if (plat === 'gd') {
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    // Google Drive: previewページをiframeで表示（認証不要・ブラウザのGoogleセッション利用）
     const playerDiv = document.getElementById('vp-panel-yt-player');
-    if (playerDiv && fileId) {
-      const cachedToken = window.getDriveTokenIfAvailable?.();
-      if (cachedToken) {
-        _playGDriveVideo(playerDiv, fileId, cachedToken, autoplay);
-      } else {
-        _showGDriveAuthUI(playerDiv, fileId, autoplay);
-      }
+    if (playerDiv) {
+      playerDiv.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
     }
   } else {
     // Vimeo
