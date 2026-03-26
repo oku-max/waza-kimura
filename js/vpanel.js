@@ -1248,7 +1248,7 @@ export function buildDrawerHTML(id) {
       <span class="vp-lbl">Priority</span>
       <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
     </div>
-    <div class="vp-row">
+    <div class="vp-row vp-row-tb">
       <span class="vp-lbl">TOP/BOTTOM</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-tb-${id}">${tbChips}</div>
@@ -1259,7 +1259,7 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
-    <div class="vp-row">
+    <div class="vp-row vp-row-ac">
       <span class="vp-lbl">Action</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-ac-${id}">${acChips}</div>
@@ -1270,7 +1270,7 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
-    <div class="vp-row">
+    <div class="vp-row vp-row-pos">
       <span class="vp-lbl">Position</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
@@ -1281,7 +1281,7 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
-    <div class="vp-row">
+    <div class="vp-row vp-row-tech">
       <span class="vp-lbl">Technique</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="vp-tech-${id}">${techChips}</div>
