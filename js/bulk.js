@@ -128,6 +128,14 @@ export function buildBulkDrawerHTML() {
       </div>
     </div>
     <div class="vp-row">
+      <span class="vp-lbl">AI</span>
+      <div class="vp-chips">
+        <span class="vp-chip" id="bulk-ai-btn"
+          onclick="window.bulkAiTagApply()"
+          style="color:var(--accent);font-weight:700">🤖 AIタグ一括適用</span>
+      </div>
+    </div>
+    <div class="vp-row">
       <span class="vp-lbl">その他</span>
       <div class="vp-chips">
         <span class="vp-chip" onclick="bulkDo('watched')">👁 視聴済みにする</span>
