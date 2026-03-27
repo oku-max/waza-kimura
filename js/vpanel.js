@@ -1365,6 +1365,21 @@ export function buildDrawerHTML(id) {
       <span class="vp-lbl">Priority</span>
       <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
     </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Channel</span>
+      <div class="vp-dd-wrap">
+        ${v.channel ? `<div class="vp-chips"><span class="vp-chip on-pl" id="vp-ch-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.channel}</span></div>` : ''}
+        <div class="vp-dd-trigger" onclick="vpTogChannelDd('${id}')">
+          ${v.channel ? '✎ 変更' : '＋ 設定'}
+        </div>
+        <div class="vp-dd" id="vp-dd-ch-${id}" style="display:none">
+          <input class="vp-dd-search" placeholder="検索・新規追加..."
+            oninput="vpRenderChannelDdList('${id}',this.value)"
+            onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetChannel('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
+          <div class="vp-dd-list" id="vp-dd-list-ch-${id}"></div>
+        </div>
+      </div>
+    </div>
     <div class="vp-row vp-row-tb">
       <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-dd-wrap">
@@ -1414,6 +1429,15 @@ export function buildDrawerHTML(id) {
       <div style="display:flex;flex-direction:column;gap:6px;width:100%">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span class="vp-chip on-pl" id="vp-pl-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.pl||'未分類'}</span>
+        </div>
+        <div class="vp-dd-wrap">
+          <div class="vp-dd-trigger" onclick="vpTogPlNameDd('${id}')">変更・検索</div>
+          <div class="vp-dd" id="vp-dd-plname-${id}" style="display:none">
+            <input class="vp-dd-search" placeholder="検索・新規追加..."
+              oninput="vpRenderPlNameDdList('${id}',this.value)"
+              onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetPlName('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
+            <div class="vp-dd-list" id="vp-dd-list-plname-${id}"></div>
+          </div>
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','move')">↪ 移動</button>
@@ -1666,6 +1690,95 @@ export function vpDdAddNew(id, type, val) {
   if (dd) dd.style.display = 'none';
   window.debounceSave?.();
   window.toast('＋ 「'+val+'」を追加');
+}
+
+// ── Channel 単一値ドロップダウン ──
+export function vpTogChannelDd(id) {
+  const dd = document.getElementById('vp-dd-ch-' + id);
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
+  if (isOpen) return;
+  dd.style.display = 'block';
+  const inp = dd.querySelector('.vp-dd-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+  vpRenderChannelDdList(id, '');
+}
+
+export function vpRenderChannelDdList(id, q) {
+  const list = document.getElementById('vp-dd-list-ch-' + id);
+  if (!list) return;
+  const videos = window.videos || [];
+  const all = [...new Set(videos.map(v => v.channel).filter(Boolean))].sort();
+  const ql = q.toLowerCase();
+  const filtered = all.filter(c => !ql || c.toLowerCase().includes(ql));
+  const isNew = q.trim() && !all.some(c => c.toLowerCase() === ql);
+  list.innerHTML = filtered.map(c =>
+    `<div class="vp-dd-item" onclick="vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')">${c}</div>`
+  ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetChannel('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
+}
+
+export function vpSetChannel(id, val) {
+  const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
+  v.channel = val;
+  const badge = document.getElementById('vp-ch-badge-' + id);
+  if (badge) { badge.textContent = val; }
+  else {
+    // バッジがなければトリガーの前に挿入
+    const wrap = document.querySelector(`#vp-dd-ch-${id}`)?.closest('.vp-dd-wrap');
+    if (wrap) {
+      const chips = document.createElement('div'); chips.className = 'vp-chips';
+      const chip = document.createElement('span');
+      chip.className = 'vp-chip on-pl'; chip.id = 'vp-ch-badge-' + id;
+      chip.style.cssText = 'background:var(--surface2);border-color:var(--border);color:var(--text)';
+      chip.textContent = val;
+      chips.appendChild(chip); wrap.insertBefore(chips, wrap.firstChild);
+    }
+  }
+  // トリガーテキスト更新
+  const trigger = document.querySelector(`[onclick="vpTogChannelDd('${id}')"]`);
+  if (trigger) trigger.textContent = '✎ 変更';
+  const dd = document.getElementById('vp-dd-ch-' + id);
+  if (dd) dd.style.display = 'none';
+  window.debounceSave?.();
+  window.toast?.('チャンネルを「' + val + '」に設定');
+}
+
+// ── Playlist 名前変更ドロップダウン ──
+export function vpTogPlNameDd(id) {
+  const dd = document.getElementById('vp-dd-plname-' + id);
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
+  if (isOpen) return;
+  dd.style.display = 'block';
+  const inp = dd.querySelector('.vp-dd-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+  vpRenderPlNameDdList(id, '');
+}
+
+export function vpRenderPlNameDdList(id, q) {
+  const list = document.getElementById('vp-dd-list-plname-' + id);
+  if (!list) return;
+  const videos = window.videos || [];
+  const all = [...new Set(videos.map(v => v.pl).filter(Boolean))].sort();
+  const ql = q.toLowerCase();
+  const filtered = all.filter(p => !ql || p.toLowerCase().includes(ql));
+  const isNew = q.trim() && !all.some(p => p.toLowerCase() === ql);
+  list.innerHTML = filtered.map(p =>
+    `<div class="vp-dd-item" onclick="vpSetPlName('${id}','${p.replace(/'/g,"\\'")}')">${p}</div>`
+  ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetPlName('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
+}
+
+export function vpSetPlName(id, val) {
+  const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
+  v.pl = val;
+  const badge = document.getElementById('vp-pl-badge-' + id);
+  if (badge) badge.textContent = val;
+  const dd = document.getElementById('vp-dd-plname-' + id);
+  if (dd) dd.style.display = 'none';
+  window.AF?.(); window.debounceSave?.();
+  window.toast?.('プレイリストを「' + val + '」に変更');
 }
 
 export function vpRefreshChips(id, type) {

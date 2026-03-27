@@ -79,6 +79,21 @@ export function buildBulkDrawerHTML() {
       <span class="vp-lbl">Priority</span>
       <div class="vp-chips" id="bvp-prio">${prioChips}</div>
     </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Channel
+        <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">既存から検索・選択、または新規入力で全動画を一括更新</span>
+      </span>
+      <div class="vp-tech-wrap">
+        <div class="vp-tech-inp-row">
+          <input class="vp-tech-inp" id="bvp-ch-inp" placeholder="検索・新規追加..."
+            oninput="bvpChSuggest(this)" onfocus="bvpChSuggest(this)"
+            onblur="setTimeout(()=>{const s=document.getElementById('bvp-ch-sug');if(s)s.innerHTML='';},200)"
+            onkeydown="if(event.key==='Enter'){bvpSetChannel();event.preventDefault();}">
+          <button class="vp-tech-add-btn" style="width:auto;padding:0 10px;font-size:11px;white-space:nowrap" onclick="bvpSetChannel()">変更</button>
+        </div>
+        <div class="vp-tech-suggest" id="bvp-ch-sug"></div>
+      </div>
+    </div>
     <div class="vp-row vp-row-tb">
       <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-chips" id="bvp-tb">${tbChips}</div>
@@ -120,11 +135,24 @@ export function buildBulkDrawerHTML() {
       </div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">Playlist</span>
-      <div class="vp-chips">
-        <span class="vp-chip" onclick="openBulkPlOp('move')">↪ 移動</span>
-        <span class="vp-chip" onclick="openBulkPlOp('copy')">⧉ コピー</span>
-        <span class="vp-chip" style="color:var(--red)" onclick="bulkPlRemove()">✕ 削除</span>
+      <span class="vp-lbl">Playlist
+        <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">既存から検索・選択、または新規入力で名前を変更</span>
+      </span>
+      <div class="vp-tech-wrap">
+        <div class="vp-tech-inp-row">
+          <input class="vp-tech-inp" id="bvp-pl-inp" placeholder="検索・新規追加..."
+            oninput="bvpPlSuggest(this)" onfocus="bvpPlSuggest(this)"
+            onblur="setTimeout(()=>{const s=document.getElementById('bvp-pl-sug');if(s)s.innerHTML='';},200)"
+            onkeydown="if(event.key==='Enter'){bvpSetPlaylist();event.preventDefault();}">
+          <button class="vp-tech-add-btn" style="width:auto;padding:0 10px;font-size:11px;white-space:nowrap" onclick="bvpSetPlaylist()">変更</button>
+        </div>
+        <div class="vp-tech-suggest" id="bvp-pl-sug"></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:4px 0">
+        <div class="vp-chips">
+          <span class="vp-chip" onclick="openBulkPlOp('move')">↪ 移動</span>
+          <span class="vp-chip" onclick="openBulkPlOp('copy')">⧉ コピー</span>
+          <span class="vp-chip" style="color:var(--red)" onclick="bulkPlRemove()">✕ 削除</span>
+        </div>
       </div>
     </div>
     <div class="vp-row">
@@ -301,6 +329,60 @@ export function bvpTechSuggest(inp) {
 }
 
 
+export function bvpChSuggest(inp) {
+  const q = inp.value.trim().toLowerCase();
+  const videos = window.videos || [];
+  const all = [...new Set(videos.map(v=>v.channel).filter(Boolean))].sort();
+  const sug = document.getElementById('bvp-ch-sug');
+  if (!sug) return;
+  const matches = q ? all.filter(c=>c.toLowerCase().includes(q)) : all;
+  sug.innerHTML = matches.slice(0,16).map(c =>
+    `<span class="vp-tech-sug-chip" onmousedown="event.preventDefault();document.getElementById('bvp-ch-inp').value='${c.replace(/'/g,"\\'")}';bvpSetChannel()">${c}</span>`
+  ).join('');
+}
+
+export function bvpSetChannel() {
+  const inp = document.getElementById('bvp-ch-inp');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  bulkSnapshot();
+  const ids = [...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.channel=val; });
+  inp.value = '';
+  const sug = document.getElementById('bvp-ch-sug'); if(sug) sug.innerHTML='';
+  window.toast?.((window.selIds||new Set()).size+'本のチャンネルを「'+val+'」に設定');
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpPlSuggest(inp) {
+  const q = inp.value.trim().toLowerCase();
+  const videos = window.videos || [];
+  const all = [...new Set(videos.map(v=>v.pl).filter(Boolean))].sort();
+  const sug = document.getElementById('bvp-pl-sug');
+  if (!sug) return;
+  const matches = q ? all.filter(p=>p.toLowerCase().includes(q)) : all;
+  sug.innerHTML = matches.slice(0,16).map(p =>
+    `<span class="vp-tech-sug-chip" onmousedown="event.preventDefault();document.getElementById('bvp-pl-inp').value='${p.replace(/'/g,"\\'")}';bvpSetPlaylist()">${p}</span>`
+  ).join('');
+}
+
+export function bvpSetPlaylist() {
+  const inp = document.getElementById('bvp-pl-inp');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  bulkSnapshot();
+  const ids = [...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.pl=val; });
+  inp.value = '';
+  const sug = document.getElementById('bvp-pl-sug'); if(sug) sug.innerHTML='';
+  window.toast?.((window.selIds||new Set()).size+'本のプレイリストを「'+val+'」に変更');
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
 export function enterBulk(ctx='home', preserveSel=false){
   window.bulkMode=true; window.bulkCtx=ctx;
   document.body.classList.add('bulk-mode');
@@ -328,7 +410,7 @@ export function enterBulk(ctx='home', preserveSel=false){
 
 export function bulkSnapshot(){
   const videos = window.videos || [];
-  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],ac:[...(v.ac||[])],pos:[...(v.pos||[])],tech:[...(v.tech||[])],pl:v.pl,archived:v.archived})));
+  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],ac:[...(v.ac||[])],pos:[...(v.pos||[])],tech:[...(v.tech||[])],pl:v.pl,channel:v.channel,archived:v.archived})));
 }
 
 // ─── Bulk Picker ───
@@ -785,6 +867,10 @@ window.bvpAddPos = bvpAddPos;
 window.bvpAddTech = bvpAddTech;
 window.bvpPosSuggest = bvpPosSuggest;
 window.bvpTechSuggest = bvpTechSuggest;
+window.bvpChSuggest = bvpChSuggest;
+window.bvpSetChannel = bvpSetChannel;
+window.bvpPlSuggest = bvpPlSuggest;
+window.bvpSetPlaylist = bvpSetPlaylist;
 window.enterBulk = enterBulk;
 window.bulkSnapshot = bulkSnapshot;
 window.BULK_PICKER_OPTS_BASE = BULK_PICKER_OPTS_BASE;
