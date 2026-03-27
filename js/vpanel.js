@@ -1033,13 +1033,29 @@ export function vpBmReset(id, idx) {
 export function openVPanel(id) {
   const menu = document.getElementById('org-col-menu');
   if (menu) menu.remove();
-  const card = document.getElementById('card-' + id);
-  if (!card) return;
-  const emb  = card.dataset.emb;
-  const ext  = card.dataset.ext;
-  const plat = card.dataset.plat;
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return;
+  // カード要素がなければ（Organizeタブ等）ビデオオブジェクトから算出
+  const card = document.getElementById('card-' + id);
+  let emb, ext, plat;
+  if (card) {
+    emb  = card.dataset.emb;
+    ext  = card.dataset.ext;
+    plat = card.dataset.plat;
+  } else {
+    const isYT = v.pt === 'youtube';
+    const isGD = v.pt === 'gdrive';
+    const ytId = v.ytId || (isYT ? v.id : '');
+    const gdId = isGD ? (v.id || '').replace('gd-', '') : '';
+    const vmId = (!isYT && !isGD) ? (v.id || '').replace('yt-', '') : '';
+    plat = isYT ? 'yt' : isGD ? 'gd' : 'vm';
+    emb  = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
+         : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
+         : `https://player.vimeo.com/video/${vmId}?autoplay=1`;
+    ext  = isYT ? `https://www.youtube.com/watch?v=${ytId}`
+         : isGD ? `https://drive.google.com/file/d/${gdId}/view`
+         : `https://vimeo.com/${vmId}`;
+  }
 
   window.openVPanelId = id;
   v.lastPlayed = Date.now();
