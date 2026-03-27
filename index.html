@@ -63,6 +63,7 @@
     vpTogWatch, vpTogFav, vpSetShare, vpSaveMemo, autoSaveVp, vpSave,
     vpTogChannelDd, vpRenderChannelDdList, vpSetChannel,
     vpTogPlNameDd, vpRenderPlNameDdList, vpSetPlName,
+    vpDdSubtab,
     vpEditTitle, vpSaveTitle,
     _openPanel, _closePanelOutside, closePanel
   } from './js/vpanel.js';
@@ -80,7 +81,8 @@
     mkChip, toggleSidebar, syncSidebarChipStates,
     openFilterOverlay, toggleFilterOverlay, closeFilterOverlay,
     syncFilterOvRows, countForFilter,
-    buildFovRows, buildFovHscroll, buildFovPickerRow,
+    buildFovRows, buildFovDdRow, fovDdOpen, fovDdFilter, fovDdToggleItem, fovDdRemove, fovFilterClear,
+    buildFovHscroll, buildFovPickerRow,
     syncFovChips, clearFovField,
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
     saveCurrentSearch, applySavedSearch, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
@@ -212,6 +214,12 @@
   window.syncFilterOvRows      = syncFilterOvRows;
   window.countForFilter        = countForFilter;
   window.buildFovRows          = buildFovRows;
+  window.buildFovDdRow         = buildFovDdRow;
+  window.fovDdOpen             = fovDdOpen;
+  window.fovDdFilter           = fovDdFilter;
+  window.fovDdToggleItem       = fovDdToggleItem;
+  window.fovDdRemove           = fovDdRemove;
+  window.fovFilterClear        = fovFilterClear;
   window.buildFovHscroll       = buildFovHscroll;
   window.buildFovPickerRow     = buildFovPickerRow;
   window.syncFovChips          = syncFovChips;
@@ -271,6 +279,7 @@
   window.vpTogPlNameDd         = vpTogPlNameDd;
   window.vpRenderPlNameDdList  = vpRenderPlNameDdList;
   window.vpSetPlName           = vpSetPlName;
+  window.vpDdSubtab            = vpDdSubtab;
   window.vpEditTitle           = vpEditTitle;
   window.vpSaveTitle           = vpSaveTitle;
   window._openPanel            = _openPanel;
@@ -2565,19 +2574,19 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div class="fsec-title">ポジション・テクニック</div>
       <div class="fbar-row fov-row-tb">
         <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
-        <div class="hrow" id="fov-srow-tb"></div>
+        <div class="fov-dd-row" id="fov-srow-tb"></div>
       </div>
       <div class="fbar-row fov-row-ac">
         <span class="fbar-lbl" data-tag-key="ac">Action</span>
-        <div class="hrow" id="fov-srow-ac"></div>
+        <div class="fov-dd-row" id="fov-srow-ac"></div>
       </div>
       <div class="fbar-row fov-row-pos">
         <span class="fbar-lbl" data-tag-key="pos">Position</span>
-        <div class="hrow" id="fov-srow-pos"></div>
+        <div class="fov-dd-row" id="fov-srow-pos"></div>
       </div>
       <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
         <span class="fbar-lbl" data-tag-key="tech">Technique</span>
-        <div class="hrow" id="fov-srow-tech"></div>
+        <div class="fov-dd-row" id="fov-srow-tech"></div>
       </div>
     </div>
     <!-- 保存した検索条件 -->
