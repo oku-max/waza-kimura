@@ -1373,9 +1373,9 @@ export function buildDrawerHTML(id) {
     <div class="vp-row">
       <span class="vp-lbl">Channel</span>
       <div class="vp-dd-wrap">
-        ${v.channel ? `<div class="vp-chips"><span class="vp-chip on-pl" id="vp-ch-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.channel}</span></div>` : ''}
-        <div class="vp-dd-trigger" onclick="vpTogChannelDd('${id}')">
-          ${v.channel ? '✎ 変更' : '＋ 設定'}
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+          ${v.channel ? `<span class="chip active" id="vp-ch-badge-${id}">${v.channel}</span>` : ''}
+          <div class="chip" style="border-style:dashed" onclick="vpTogChannelDd('${id}')">${v.channel ? '✎ 変更' : '＋ チャンネルを選ぶ'}</div>
         </div>
         <div class="vp-dd" id="vp-dd-ch-${id}" style="display:none">
           <input class="vp-dd-search" placeholder="検索・新規追加..."
@@ -1387,18 +1387,16 @@ export function buildDrawerHTML(id) {
     </div>
     <div class="vp-row">
       <span class="vp-lbl">Playlist</span>
-      <div style="display:flex;flex-direction:column;gap:6px;width:100%">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span class="vp-chip on-pl" id="vp-pl-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.pl||'未分類'}</span>
+      <div class="vp-dd-wrap">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+          <span class="chip active" id="vp-pl-badge-${id}">${v.pl||'未分類'}</span>
+          <div class="chip" style="border-style:dashed" onclick="vpTogPlNameDd('${id}')">✎ 変更・検索</div>
         </div>
-        <div class="vp-dd-wrap">
-          <div class="vp-dd-trigger" onclick="vpTogPlNameDd('${id}')">変更・検索</div>
-          <div class="vp-dd" id="vp-dd-plname-${id}" style="display:none">
-            <input class="vp-dd-search" placeholder="検索・新規追加..."
-              oninput="vpRenderPlNameDdList('${id}',this.value)"
-              onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetPlName('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
-            <div class="vp-dd-list" id="vp-dd-list-plname-${id}"></div>
-          </div>
+        <div class="vp-dd" id="vp-dd-plname-${id}" style="display:none">
+          <input class="vp-dd-search" placeholder="検索・新規追加..."
+            oninput="vpRenderPlNameDdList('${id}',this.value)"
+            onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetPlName('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
+          <div class="vp-dd-list" id="vp-dd-list-plname-${id}"></div>
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','move')">↪ 移動</button>
@@ -1729,15 +1727,13 @@ export function vpSetChannel(id, val) {
   const badge = document.getElementById('vp-ch-badge-' + id);
   if (badge) { badge.textContent = val; }
   else {
-    // バッジがなければトリガーの前に挿入
-    const wrap = document.querySelector(`#vp-dd-ch-${id}`)?.closest('.vp-dd-wrap');
-    if (wrap) {
-      const chips = document.createElement('div'); chips.className = 'vp-chips';
+    // バッジがなければチップ行の先頭に挿入
+    const chipsRow = document.querySelector(`#vp-dd-ch-${id}`)?.closest('.vp-dd-wrap')?.querySelector('div[style*="display:flex"]');
+    if (chipsRow) {
       const chip = document.createElement('span');
-      chip.className = 'vp-chip on-pl'; chip.id = 'vp-ch-badge-' + id;
-      chip.style.cssText = 'background:var(--surface2);border-color:var(--border);color:var(--text)';
+      chip.className = 'chip active'; chip.id = 'vp-ch-badge-' + id;
       chip.textContent = val;
-      chips.appendChild(chip); wrap.insertBefore(chips, wrap.firstChild);
+      chipsRow.insertBefore(chip, chipsRow.firstChild);
     }
   }
   // トリガーテキスト更新
