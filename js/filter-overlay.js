@@ -349,6 +349,22 @@ document.addEventListener('mousedown', function(e) {
 
 // ── 保存した検索条件 ──
 let savedSearches = JSON.parse(localStorage.getItem('wk-saved-searches') || '[]');
+window.savedSearches = savedSearches; // Firebase同期用に公開
+
+function _persistSavedSearches() {
+  localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
+  window.savedSearches = savedSearches;
+  window.saveUserSettings?.();   // Firebaseにも保存
+}
+
+// Firebase復元時に呼ばれる（firebase.js の loadUserSettings から）
+export function loadSavedSearchesFromRemote(arr) {
+  if (!Array.isArray(arr) || !arr.length) return;
+  savedSearches = arr;
+  window.savedSearches = savedSearches;
+  localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
+  renderSavedSearches();
+}
 
 export function saveCurrentSearch() {
   const f = window.filters || {};
@@ -364,7 +380,7 @@ export function saveCurrentSearch() {
   if (!name) return;
   savedSearches.unshift({ name, state, createdAt: Date.now() });
   if (savedSearches.length > 20) savedSearches = savedSearches.slice(0, 20);
-  localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
+  _persistSavedSearches();
   renderSavedSearches();
   window.toast?.('💾 「' + name + '」を保存しました');
 }
@@ -385,7 +401,7 @@ export function applySavedSearch(idx) {
 export function deleteSavedSearch(idx, e) {
   e.stopPropagation();
   savedSearches.splice(idx, 1);
-  localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
+  _persistSavedSearches();
   renderSavedSearches();
 }
 
