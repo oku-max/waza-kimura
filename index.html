@@ -2342,52 +2342,71 @@ window.addEventListener('resize', adjustTopbarOffset);
         <button onclick="closeOrgFilterOverlay()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text2);padding:0 4px">✕</button>
       </div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
-      <span class="fbar-lbl">Status</span>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <div class="chip c-fav" id="org-fov-chip-fav" onclick="togOrgFav()">★ Fav</div>
-        <div class="chip c-unw" id="org-fov-chip-unw" onclick="togOrgUnw()">Unseen</div>
+    <!-- ▌グループ1：ステータス・進捗・優先度 -->
+    <div class="fsec fsec-1">
+      <div class="fsec-title">ステータス・進捗・優先度</div>
+      <div class="fbar-row">
+        <span class="fbar-lbl">Status</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <div class="chip c-fav" id="org-fov-chip-fav" onclick="togOrgFav()">★ Fav</div>
+          <div class="chip c-unw" id="org-fov-chip-unw" onclick="togOrgUnw()">Unseen</div>
+          <div class="chip" id="org-fov-chip-watched" onclick="togOrgWatched()">視聴済み</div>
+          <div class="chip" id="org-fov-chip-bm" onclick="togOrgBm()">🔖 ブックマークあり</div>
+          <div class="chip" id="org-fov-chip-memo" onclick="togOrgMemo()">💬 メモあり</div>
+        </div>
+      </div>
+      <div class="fbar-row">
+        <span class="fbar-lbl">Progress</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <div class="chip" id="org-fov-stat-未着手" onclick="togOrgF('status','未着手',this)">未着手</div>
+          <div class="chip" id="org-fov-stat-練習中" onclick="togOrgF('status','練習中',this)">練習中</div>
+          <div class="chip" id="org-fov-stat-マスター" onclick="togOrgF('status','マスター',this)">マスター</div>
+        </div>
+      </div>
+      <div class="fbar-row">
+        <span class="fbar-lbl">Priority</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <div class="chip" id="org-fov-prio-今すぐ" onclick="togOrgF('prio','今すぐ',this)">今すぐ</div>
+          <div class="chip" id="org-fov-prio-そのうち" onclick="togOrgF('prio','そのうち',this)">そのうち</div>
+          <div class="chip" id="org-fov-prio-保留" onclick="togOrgF('prio','保留',this)">保留</div>
+        </div>
       </div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
-      <span class="fbar-lbl">Progress</span>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <div class="chip" id="org-fov-stat-未着手" onclick="togOrgF('status','未着手',this)">未着手</div>
-        <div class="chip" id="org-fov-stat-練習中" onclick="togOrgF('status','練習中',this)">練習中</div>
-        <div class="chip" id="org-fov-stat-マスター" onclick="togOrgF('status','マスター',this)">マスター</div>
+    <!-- ▌グループ2：ソース・チャンネル・プレイリスト -->
+    <div class="fsec fsec-2">
+      <div class="fsec-title">ソース・チャンネル・プレイリスト</div>
+      <div class="fbar-row">
+        <span class="fbar-lbl">Source</span>
+        <div class="hrow" id="org-fov-srow-src"></div>
+      </div>
+      <div class="fbar-row">
+        <span class="fbar-lbl">Channel</span>
+        <div class="hrow" id="org-fov-srow-ch"></div>
+      </div>
+      <div class="fbar-row" style="margin-bottom:2px">
+        <span class="fbar-lbl">Playlist</span>
+        <div class="hrow" id="org-fov-srow-pl"></div>
       </div>
     </div>
-    <div class="fbar-row" style="margin-bottom:5px">
-      <span class="fbar-lbl">Priority</span>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <div class="chip" id="org-fov-prio-今すぐ" onclick="togOrgF('prio','今すぐ',this)">今すぐ</div>
-        <div class="chip" id="org-fov-prio-そのうち" onclick="togOrgF('prio','そのうち',this)">そのうち</div>
-        <div class="chip" id="org-fov-prio-保留" onclick="togOrgF('prio','保留',this)">保留</div>
+    <!-- ▌グループ3：ポジション・テクニック -->
+    <div class="fsec fsec-3">
+      <div class="fsec-title">ポジション・テクニック</div>
+      <div class="fbar-row fov-row-tb">
+        <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
+        <div class="hrow" id="org-fov-srow-tb"></div>
       </div>
-    </div>
-    <div class="fbar-row fov-row-tb" style="margin-bottom:5px">
-      <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
-      <div class="hrow" id="org-fov-srow-tb"></div>
-    </div>
-    <div class="fbar-row fov-row-ac" style="margin-bottom:5px">
-      <span class="fbar-lbl" data-tag-key="ac">Action</span>
-      <div class="hrow" id="org-fov-srow-ac"></div>
-    </div>
-    <div class="fbar-row fov-row-pos" style="margin-bottom:5px">
-      <span class="fbar-lbl" data-tag-key="pos">Position</span>
-      <div class="hrow" id="org-fov-srow-pos"></div>
-    </div>
-    <div class="fbar-row" style="margin-bottom:5px">
-      <span class="fbar-lbl">Playlist</span>
-      <div class="hrow" id="org-fov-srow-pl"></div>
-    </div>
-    <div class="fbar-row fov-row-tech" style="margin-bottom:5px">
-      <span class="fbar-lbl" data-tag-key="tech">Technique</span>
-      <div class="hrow" id="org-fov-srow-tech"></div>
-    </div>
-    <div class="fbar-row" style="margin-bottom:8px">
-      <span class="fbar-lbl">Channel</span>
-      <div class="hrow" id="org-fov-srow-ch"></div>
+      <div class="fbar-row fov-row-ac">
+        <span class="fbar-lbl" data-tag-key="ac">Action</span>
+        <div class="hrow" id="org-fov-srow-ac"></div>
+      </div>
+      <div class="fbar-row fov-row-pos">
+        <span class="fbar-lbl" data-tag-key="pos">Position</span>
+        <div class="hrow" id="org-fov-srow-pos"></div>
+      </div>
+      <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
+        <span class="fbar-lbl" data-tag-key="tech">Technique</span>
+        <div class="hrow" id="org-fov-srow-tech"></div>
+      </div>
     </div>
     <!-- 保存した検索条件 -->
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">

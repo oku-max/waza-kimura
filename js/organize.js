@@ -6,7 +6,7 @@ export let orgFilters = {
   playlist: new Set(), status: new Set(), tech: new Set(),
   platform: new Set(), channel: new Set()
 };
-export let orgFavOnly = false, orgUnwOnly = false;
+export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false;
 export let orgColOrder = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
 export let orgColVisibility = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
@@ -16,8 +16,11 @@ let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
 
 // Register state on window so inline HTML handlers can access them
 window.orgFilters = orgFilters;
-Object.defineProperty(window, 'orgFavOnly', {get: () => orgFavOnly, set: v => { orgFavOnly = v; }});
-Object.defineProperty(window, 'orgUnwOnly', {get: () => orgUnwOnly, set: v => { orgUnwOnly = v; }});
+Object.defineProperty(window, 'orgFavOnly',     {get: () => orgFavOnly,     set: v => { orgFavOnly = v; }});
+Object.defineProperty(window, 'orgUnwOnly',     {get: () => orgUnwOnly,     set: v => { orgUnwOnly = v; }});
+Object.defineProperty(window, 'orgWatchedOnly', {get: () => orgWatchedOnly, set: v => { orgWatchedOnly = v; }});
+Object.defineProperty(window, 'orgBmOnly',      {get: () => orgBmOnly,      set: v => { orgBmOnly = v; }});
+Object.defineProperty(window, 'orgMemoOnly',    {get: () => orgMemoOnly,    set: v => { orgMemoOnly = v; }});
 Object.defineProperty(window, 'orgColOrder', {get: () => orgColOrder, set: v => { orgColOrder = v; }});
 Object.defineProperty(window, 'orgColVisibility', {get: () => orgColVisibility, set: v => { orgColVisibility = v; }});
 Object.defineProperty(window, 'orgSortCol', {get: () => orgSortCol, set: v => { orgSortCol = v; }});
@@ -91,9 +94,27 @@ export function togOrgUnw() {
   renderOrg();
 }
 
+export function togOrgWatched() {
+  orgWatchedOnly = !orgWatchedOnly;
+  const el = document.getElementById('org-fov-chip-watched'); if(el) el.classList.toggle('active', orgWatchedOnly);
+  renderOrg();
+}
+
+export function togOrgBm() {
+  orgBmOnly = !orgBmOnly;
+  const el = document.getElementById('org-fov-chip-bm'); if(el) el.classList.toggle('active', orgBmOnly);
+  renderOrg();
+}
+
+export function togOrgMemo() {
+  orgMemoOnly = !orgMemoOnly;
+  const el = document.getElementById('org-fov-chip-memo'); if(el) el.classList.toggle('active', orgMemoOnly);
+  renderOrg();
+}
+
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
-  orgFavOnly = false; orgUnwOnly = false;
+  orgFavOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
   // フィルターオーバーレイの表示を再構築（選択タグ行をリセット）
@@ -109,8 +130,11 @@ export function orgFilt(list) {
   const q = ((siEl?siEl.value:'') || (siPcEl?siPcEl.value:'')).toLowerCase();
   return list.filter(v => {
     if (v.archived) return false;
-    if (orgFavOnly && !v.fav) return false;
-    if (orgUnwOnly && v.watched) return false;
+    if (orgFavOnly     && !v.fav) return false;
+    if (orgUnwOnly     && v.watched) return false;
+    if (orgWatchedOnly && !v.watched) return false;
+    if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
+    if (orgMemoOnly    && !v.memo) return false;
     if (orgFilters.platform.size && !orgFilters.platform.has(v.pt)) return false;
     if (q && !v.title.toLowerCase().includes(q) && !(v.ch||'').toLowerCase().includes(q) && !(v.pl||'').toLowerCase().includes(q) && !(v.tech||[]).some(t=>t.toLowerCase().includes(q))) return false;
     if (orgFilters.playlist.size && !orgFilters.playlist.has(v.pl)) return false;
@@ -132,7 +156,31 @@ export function openOrgFilterOverlay() {
   if (!ov) return;
   ov.classList.add('show');
   document.body.style.overflow = 'hidden';
+  buildOrgFovRows();
   syncOrgFilterOvRows();
+}
+
+// ── Source行ビルド（動的カウント付き）──
+export function buildOrgFovRows() {
+  const vids = window.videos || [];
+  const srcRow = document.getElementById('org-fov-srow-src');
+  if (srcRow) {
+    srcRow.innerHTML = '';
+    [['youtube','YouTube'], ['gdrive','Google Drive']].forEach(([val, label]) => {
+      const cnt = vids.filter(v => !v.archived && v.pt === val).length;
+      const el = document.createElement('div');
+      el.className = 'chip' + (orgFilters.platform?.has(val) ? ' active' : '');
+      el.style.flexShrink = '0';
+      el.textContent = `${label} ${cnt}`;
+      el.onclick = () => {
+        orgFilters.platform.has(val) ? orgFilters.platform.delete(val) : orgFilters.platform.add(val);
+        buildOrgFovRows();
+        syncOrgFilterOvRows();
+        renderOrg();
+      };
+      srcRow.appendChild(el);
+    });
+  }
 }
 
 export function closeOrgFilterOverlay() {
@@ -201,8 +249,11 @@ export function syncOrgFilterOvRows() {
   ['fov-prio-今すぐ','fov-prio-そのうち','fov-prio-保留'].forEach(function(id){
     const el=document.getElementById('org-'+id); if(el) el.classList.toggle('active', orgFilters.prio.has(id.replace('fov-prio-','')));
   });
-  const favEl=document.getElementById('org-fov-chip-fav'); if(favEl) favEl.classList.toggle('active', orgFavOnly);
-  const unwEl=document.getElementById('org-fov-chip-unw'); if(unwEl) unwEl.classList.toggle('active', orgUnwOnly);
+  const favEl    = document.getElementById('org-fov-chip-fav');     if(favEl)     favEl.classList.toggle('active', orgFavOnly);
+  const unwEl    = document.getElementById('org-fov-chip-unw');     if(unwEl)     unwEl.classList.toggle('active', orgUnwOnly);
+  const watEl    = document.getElementById('org-fov-chip-watched'); if(watEl)     watEl.classList.toggle('active', orgWatchedOnly);
+  const bmEl     = document.getElementById('org-fov-chip-bm');      if(bmEl)      bmEl.classList.toggle('active', orgBmOnly);
+  const memoEl   = document.getElementById('org-fov-chip-memo');    if(memoEl)    memoEl.classList.toggle('active', orgMemoOnly);
 }
 
 // buildOrgSrow → buildSrow(汎用版)に統一
@@ -753,6 +804,10 @@ window.initOrgFixedHeaders = initOrgFixedHeaders;
 window.togOrgF = togOrgF;
 window.togOrgFav = togOrgFav;
 window.togOrgUnw = togOrgUnw;
+window.togOrgWatched = togOrgWatched;
+window.togOrgBm = togOrgBm;
+window.togOrgMemo = togOrgMemo;
+window.buildOrgFovRows = buildOrgFovRows;
 window.clearOrgFilters = clearOrgFilters;
 window.orgFilt = orgFilt;
 window.openOrgFilterOverlay = openOrgFilterOverlay;
