@@ -6,12 +6,15 @@ const VIDEO_MIMES = new Set([
   'video/x-flv','video/ogg',
 ]);
 
-const GD_SCOPE  = 'https://www.googleapis.com/auth/drive.readonly';
-const TOKEN_TTL = 55 * 60 * 1000;
-const CACHE_KEY = 'gd_token_v2';
+const GD_SCOPE   = 'https://www.googleapis.com/auth/drive.readonly';
+const TOKEN_TTL  = 55 * 60 * 1000;   // 55分（Google上限60分）
+const REFRESH_AT = 50 * 60 * 1000;   // 50分経過でプロアクティブ刷新
+const CACHE_KEY  = 'gd_token_v2';
+const CLIENT_ID  = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
 
-let _token       = null;
-let _scannedTree = null;
+let _token        = null;
+let _scannedTree  = null;
+let _refreshTimer = null;
 
 // ── トークンキャッシュ（localStorage: ブラウザ再起動後も有効、TTL内のみ使用）──
 function _loadCachedToken() {
@@ -28,6 +31,38 @@ function _saveToken(token) {
     sessionStorage.removeItem('gd_token'); // 旧キャッシュ削除
     localStorage.setItem(CACHE_KEY, JSON.stringify({ token, ts: Date.now() }));
   } catch(e) {}
+  _scheduleRefresh();
+}
+
+// ── プロアクティブ刷新スケジューラ ──
+function _scheduleRefresh() {
+  if (_refreshTimer) clearTimeout(_refreshTimer);
+  _refreshTimer = setTimeout(() => {
+    _silentRefresh().catch(() => {/* バックグラウンド刷新失敗は無視 */});
+  }, REFRESH_AT);
+}
+
+// ── GIS サイレント刷新（ポップアップなし）──
+function _silentRefresh() {
+  return new Promise((resolve, reject) => {
+    const gis = window.google?.accounts?.oauth2;
+    if (!gis) { reject(new Error('GIS not loaded')); return; }
+    const client = gis.initTokenClient({
+      client_id: CLIENT_ID,
+      scope:     GD_SCOPE,
+      prompt:    '',   // スコープ取得済みならUIなしで刷新
+      callback:  (resp) => {
+        if (resp.error || !resp.access_token) {
+          reject(new Error(resp.error || 'no token'));
+        } else {
+          _saveToken(resp.access_token);
+          _setAuthUI(true);
+          resolve(resp.access_token);
+        }
+      },
+    });
+    client.requestAccessToken({ prompt: '' });
+  });
 }
 
 // ── 認証（Firebase Google Provider経由 — waza-kimura.firebaseapp.com リダイレクトを使用）──
@@ -82,7 +117,15 @@ export async function ensureDriveToken() {
   if (cached) {
     _token = cached;
     _setAuthUI(true);
+    _scheduleRefresh();
     return _token;
+  }
+  // キャッシュ切れ → GISサイレント刷新を先に試みる（ポップアップなし）
+  try {
+    const t = await _silentRefresh();
+    if (t) return t;
+  } catch(e) {
+    // サイレント刷新失敗（初回 or スコープ未付与）→ Firebaseポップアップへ
   }
   const ok = await initDriveAuth();
   return ok ? _token : null;
@@ -92,13 +135,14 @@ export async function ensureDriveToken() {
 export function getDriveTokenIfAvailable() {
   if (_token) return _token;
   const cached = _loadCachedToken();
-  if (cached) { _token = cached; _setAuthUI(true); return _token; }
+  if (cached) { _token = cached; _setAuthUI(true); _scheduleRefresh(); return _token; }
   return null;
 }
 
 // ── トークンを破棄して再認証を促す ──
 export function clearDriveToken() {
   _token = null;
+  if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
   try { localStorage.removeItem(CACHE_KEY); } catch(e) {}
   _setAuthUI(false);
 }
