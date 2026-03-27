@@ -1237,6 +1237,21 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-dd-item.selected::after { content:"✓"; font-size:11px; }
 .vp-dd-new { padding:6px 12px; font-size:12px; cursor:pointer; color:var(--accent); border-top:1px solid var(--border); font-weight:600; }
 .vp-dd-new:hover { background:var(--surface2); }
+/* フィルターオーバーレイDDコンテナ */
+.fov-dd-row { flex:1; min-width:0; }
+.fov-dd { position:fixed !important; z-index:300; min-width:200px; max-width:360px; }
+/* DD内 最近みた + サブタブ */
+.vp-dd-sec-hd { font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:6px 12px 3px; }
+.vp-dd-sec-div { height:1px; background:var(--border); margin:4px 0; }
+.vp-dd-item-recent { color:var(--accent); font-weight:500; }
+.vp-dd-item-recent .vp-dd-cnt { color:var(--accent); opacity:.7; }
+.vp-dd-cnt { font-size:10px; color:var(--text3); flex-shrink:0; }
+.vp-dd-subtabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
+.vp-dd-subtab { flex:1; padding:5px 4px; font-size:10.5px; text-align:center; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.vp-dd-subtab.on { color:var(--accent); border-bottom-color:var(--accent); font-weight:700; }
+.vp-dd-subpanel { display:none; }
+.vp-dd-subpanel.on { display:block; }
+.vp-dd-alpha-hd { padding:4px 12px 2px; font-size:9px; font-weight:800; color:var(--accent); background:var(--surface2); border-top:1px solid var(--border); position:sticky; top:0; z-index:1; }
 /* 設定トグルスイッチ */
 .settings-toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
 .settings-toggle input { opacity:0; width:0; height:0; }

@@ -1715,27 +1715,104 @@ export function vpTogChannelDd(id) {
   vpRenderChannelDdList(id, '');
 }
 
+function _getAlphaGroup(str) {
+  if (!str) return '#';
+  const c = str[0];
+  const code = c.charCodeAt(0);
+  // Hiragana
+  if (code >= 0x3041 && code <= 0x3096) {
+    const hGroups = [['あ','い','う','え','お'],['か','き','く','け','こ','が','ぎ','ぐ','げ','ご'],['さ','し','す','せ','そ','ざ','じ','ず','ぜ','ぞ'],['た','ち','つ','て','と','だ','ぢ','づ','で','ど'],['な','に','ぬ','ね','の'],['は','ひ','ふ','へ','ほ','ば','び','ぶ','べ','ぼ','ぱ','ぴ','ぷ','ぺ','ぽ'],['ま','み','む','め','も'],['や','ゆ','よ'],['ら','り','る','れ','ろ'],['わ','を','ん']];
+    const labels = ['あ行','か行','さ行','た行','な行','は行','ま行','や行','ら行','わ行'];
+    for (let i = 0; i < hGroups.length; i++) { if (hGroups[i].includes(c)) return labels[i]; }
+  }
+  // Katakana: convert to hiragana range
+  if (code >= 0x30A1 && code <= 0x30F6) {
+    const h = String.fromCharCode(code - 0x60);
+    return _getAlphaGroup(h);
+  }
+  // A-Z
+  if (/[A-Za-z]/.test(c)) return c.toUpperCase();
+  // Other (kanji etc.)
+  return c;
+}
+
+function _buildDdAlphaHTML(items, countMap, onclickFn) {
+  const groups = {};
+  items.forEach(item => {
+    const g = _getAlphaGroup(item);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(item);
+  });
+  // Sort: A-Z first, then Japanese rows, then others
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    const isAlphaA = /^[A-Z]$/.test(a), isAlphaB = /^[B-Z]$/.test(b);
+    if (isAlphaA && !isAlphaB) return -1;
+    if (!isAlphaA && isAlphaB) return 1;
+    return a.localeCompare(b, 'ja');
+  });
+  return sortedKeys.map(g =>
+    `<div class="vp-dd-alpha-hd">${g}</div>` +
+    groups[g].map(item => {
+      const cnt = countMap[item] || 0;
+      return `<div class="vp-dd-item" onclick="${onclickFn(item)}">${item}<span class="vp-dd-cnt">${cnt}本</span></div>`;
+    }).join('')
+  ).join('');
+}
+
 export function vpRenderChannelDdList(id, q) {
   const list = document.getElementById('vp-dd-list-ch-' + id);
   if (!list) return;
+  const v = (window.videos||[]).find(v => v.id === id);
+  const isGdrive = v?.pt === 'gdrive';
   const videos = window.videos || [];
-  const all = [...new Set(videos.map(v => v.channel).filter(Boolean))].sort();
-  const ql = q.toLowerCase();
-  const filtered = all.filter(c => !ql || c.toLowerCase().includes(ql));
-  const isNew = q.trim() && !all.some(c => c.toLowerCase() === ql);
-  const hint = !q.trim() ? `<div style="padding:5px 12px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)">入力してEnterで新規追加</div>` : '';
-  list.innerHTML = filtered.map(c =>
-    `<div class="vp-dd-item" onclick="vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')">${c}</div>`
-  ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetChannel('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '') + hint;
+  const chMap = {};
+  videos.forEach(vid => { if (vid.channel) chMap[vid.channel] = (chMap[vid.channel]||0) + 1; });
+  const allChannels = Object.keys(chMap).sort((a,b) => a.localeCompare(b, 'ja'));
+
+  if (q.trim()) {
+    const ql = q.toLowerCase();
+    const filtered = allChannels.filter(c => c.toLowerCase().includes(ql));
+    const isNew = isGdrive && !allChannels.some(c => c.toLowerCase() === ql);
+    list.innerHTML = filtered.map(c =>
+      `<div class="vp-dd-item" onclick="vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')">${c}<span class="vp-dd-cnt">${chMap[c]||0}本</span></div>`
+    ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetChannel('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
+    return;
+  }
+
+  list.style.maxHeight = '300px';
+  const recents = (window._recentChannels||[]).filter(c => chMap[c]).slice(0, 5);
+  const recentHTML = recents.length ? `
+    <div class="vp-dd-sec-hd">🕐 最近みた</div>
+    ${recents.map(c => `<div class="vp-dd-item vp-dd-item-recent" onclick="vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')">${c}<span class="vp-dd-cnt">${chMap[c]||0}本</span></div>`).join('')}
+    <div class="vp-dd-sec-div"></div>
+  ` : '';
+
+  const alphaHTML = _buildDdAlphaHTML(allChannels, chMap, c => `vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')`);
+  const countSorted = [...allChannels].sort((a,b) => (chMap[b]||0)-(chMap[a]||0));
+  const countHTML = countSorted.map(c =>
+    `<div class="vp-dd-item" onclick="vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')">${c}<span class="vp-dd-cnt">${chMap[c]||0}本</span></div>`
+  ).join('');
+
+  list.innerHTML = recentHTML +
+    `<div class="vp-dd-sec-hd" style="padding-bottom:0">全チャンネル</div>
+    <div class="vp-dd-subtabs">
+      <div class="vp-dd-subtab on" onclick="vpDdSubtab(event,'vp-dd-sub-ch-alpha-${id}','vp-dd-sub-ch-count-${id}')">ABC / あいうえお順</div>
+      <div class="vp-dd-subtab" onclick="vpDdSubtab(event,'vp-dd-sub-ch-count-${id}','vp-dd-sub-ch-alpha-${id}')">件数順</div>
+    </div>
+    <div class="vp-dd-subpanel on" id="vp-dd-sub-ch-alpha-${id}">${alphaHTML}</div>
+    <div class="vp-dd-subpanel" id="vp-dd-sub-ch-count-${id}">${countHTML}</div>
+    ${isGdrive ? `<div class="vp-dd-new" onclick="this.closest('.vp-dd').querySelector('.vp-dd-search').focus()">＋ 新規（検索欄に入力してEnter）</div>` : ''}`;
 }
 
 export function vpSetChannel(id, val) {
   const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
   v.channel = val;
+  // 最近みた履歴を更新
+  if (!window._recentChannels) window._recentChannels = [];
+  window._recentChannels = [val, ...window._recentChannels.filter(c => c !== val)].slice(0, 10);
   const badge = document.getElementById('vp-ch-badge-' + id);
   if (badge) { badge.textContent = val; }
   else {
-    // バッジがなければチップ行の先頭に挿入
     const chipsRow = document.querySelector(`#vp-dd-ch-${id}`)?.closest('.vp-dd-wrap')?.querySelector('div[style*="display:flex"]');
     if (chipsRow) {
       const chip = document.createElement('span');
@@ -1744,7 +1821,6 @@ export function vpSetChannel(id, val) {
       chipsRow.insertBefore(chip, chipsRow.firstChild);
     }
   }
-  // トリガーテキスト更新
   const trigger = document.querySelector(`[onclick="vpTogChannelDd('${id}')"]`);
   if (trigger) trigger.textContent = '✎ 変更';
   const dd = document.getElementById('vp-dd-ch-' + id);
@@ -1770,24 +1846,70 @@ export function vpRenderPlNameDdList(id, q) {
   const list = document.getElementById('vp-dd-list-plname-' + id);
   if (!list) return;
   const videos = window.videos || [];
-  const all = [...new Set(videos.map(v => v.pl).filter(Boolean))].sort();
-  const ql = q.toLowerCase();
-  const filtered = all.filter(p => !ql || p.toLowerCase().includes(ql));
-  const isNew = q.trim() && !all.some(p => p.toLowerCase() === ql);
-  list.innerHTML = filtered.map(p =>
-    `<div class="vp-dd-item" onclick="vpSetPlName('${id}','${p.replace(/'/g,"\\'")}')">${p}</div>`
-  ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetPlName('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
+  const plMap = {};
+  videos.forEach(vid => { if (vid.pl) plMap[vid.pl] = (plMap[vid.pl]||0) + 1; });
+  const allPls = Object.keys(plMap).sort((a,b) => a.localeCompare(b, 'ja'));
+
+  if (q.trim()) {
+    const ql = q.toLowerCase();
+    const filtered = allPls.filter(p => p.toLowerCase().includes(ql));
+    const isNew = !allPls.some(p => p.toLowerCase() === ql);
+    list.innerHTML = filtered.map(p =>
+      `<div class="vp-dd-item" onclick="vpSetPlName('${id}','${p.replace(/'/g,"\\'")}')">${p}<span class="vp-dd-cnt">${plMap[p]||0}本</span></div>`
+    ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetPlName('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
+    return;
+  }
+
+  list.style.maxHeight = '300px';
+  const recents = (window._recentPlaylists||[]).filter(p => plMap[p]).slice(0, 5);
+  const recentHTML = recents.length ? `
+    <div class="vp-dd-sec-hd">🕐 最近みた</div>
+    ${recents.map(p => `<div class="vp-dd-item vp-dd-item-recent" onclick="vpSetPlName('${id}','${p.replace(/'/g,"\\'")}')">${p}<span class="vp-dd-cnt">${plMap[p]||0}本</span></div>`).join('')}
+    <div class="vp-dd-sec-div"></div>
+  ` : '';
+
+  const alphaHTML = _buildDdAlphaHTML(allPls, plMap, p => `vpSetPlName('${id}','${p.replace(/'/g,"\\'")}')`);
+  const countSorted = [...allPls].sort((a,b) => (plMap[b]||0)-(plMap[a]||0));
+  const countHTML = countSorted.map(p =>
+    `<div class="vp-dd-item" onclick="vpSetPlName('${id}','${p.replace(/'/g,"\\'")}')">${p}<span class="vp-dd-cnt">${plMap[p]||0}本</span></div>`
+  ).join('');
+
+  list.innerHTML = recentHTML +
+    `<div class="vp-dd-sec-hd" style="padding-bottom:0">全プレイリスト</div>
+    <div class="vp-dd-subtabs">
+      <div class="vp-dd-subtab on" onclick="vpDdSubtab(event,'vp-dd-sub-pl-alpha-${id}','vp-dd-sub-pl-count-${id}')">ABC / あいうえお順</div>
+      <div class="vp-dd-subtab" onclick="vpDdSubtab(event,'vp-dd-sub-pl-count-${id}','vp-dd-sub-pl-alpha-${id}')">件数順</div>
+    </div>
+    <div class="vp-dd-subpanel on" id="vp-dd-sub-pl-alpha-${id}">${alphaHTML}</div>
+    <div class="vp-dd-subpanel" id="vp-dd-sub-pl-count-${id}">${countHTML}</div>
+    <div class="vp-dd-new" onclick="this.closest('.vp-dd').querySelector('.vp-dd-search').focus()">＋ 新規（検索欄に入力してEnter）</div>`;
 }
 
 export function vpSetPlName(id, val) {
   const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
   v.pl = val;
+  // 最近みた履歴を更新
+  if (!window._recentPlaylists) window._recentPlaylists = [];
+  window._recentPlaylists = [val, ...window._recentPlaylists.filter(p => p !== val)].slice(0, 10);
   const badge = document.getElementById('vp-pl-badge-' + id);
   if (badge) badge.textContent = val;
   const dd = document.getElementById('vp-dd-plname-' + id);
   if (dd) dd.style.display = 'none';
   window.AF?.(); window.debounceSave?.();
   window.toast?.('プレイリストを「' + val + '」に変更');
+}
+
+export function vpDdSubtab(event, showId, hideId) {
+  const show = document.getElementById(showId);
+  const hide = document.getElementById(hideId);
+  if (show) show.classList.add('on');
+  if (hide) hide.classList.remove('on');
+  // Update tab styles
+  const tabs = event.target.closest('.vp-dd-subtabs');
+  if (tabs) {
+    tabs.querySelectorAll('.vp-dd-subtab').forEach(t => t.classList.remove('on'));
+    event.target.classList.add('on');
+  }
 }
 
 // ── GDrive タイトル編集 ──
