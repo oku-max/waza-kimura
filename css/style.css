@@ -1294,13 +1294,11 @@ body.bulk-mode .card-sel-ov{display:block;}
   overflow-y: auto;
   z-index: 99999;
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   #filter-overlay-panel {
-    left: 50%;
     right: auto;
-    transform: translateX(-50%);
-    width: min(640px, calc(100% - 32px));
-    border-radius: 0 0 10px 10px;
+    width: 580px;
+    border-radius: 0 0 10px 0;
   }
 }
 .fbar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
