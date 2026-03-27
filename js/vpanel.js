@@ -1338,16 +1338,16 @@ export function buildDrawerHTML(id) {
   if (!v) return '';
 
   const prioChips = [
-    {v:'今すぐ',  l:'🔴 今すぐ',  c:'on-p1'},
-    {v:'そのうち',l:'🟡 そのうち',c:'on-p2'},
-    {v:'保留',    l:'⚪ 保留',    c:'on-p3'}
-  ].map(o => `<span class="vp-chip${v.prio===o.v?' '+o.c:''}" onclick="vpSet('${id}','prio','${o.v}',this,'${o.c}')">${o.l}</span>`).join('');
+    {v:'今すぐ',  l:'今すぐ'},
+    {v:'そのうち',l:'そのうち'},
+    {v:'保留',    l:'保留'}
+  ].map(o => `<span class="chip${v.prio===o.v?' active':''}" onclick="vpSet('${id}','prio','${o.v}',this)">${o.l}</span>`).join('');
 
   const progChips = [
-    {v:'未着手',  l:'📋 未着手',  c:'on-s0'},
-    {v:'練習中',  l:'🔵 練習中',  c:'on-s1'},
-    {v:'マスター',l:'✅ マスター',c:'on-s2'}
-  ].map(o => `<span class="vp-chip${v.status===o.v?' '+o.c:''}" onclick="vpSet('${id}','status','${o.v}',this,'${o.c}')">${o.l}</span>`).join('');
+    {v:'未着手',  l:'未着手'},
+    {v:'練習中',  l:'練習中'},
+    {v:'マスター',l:'マスター'}
+  ].map(o => `<span class="chip${v.status===o.v?' active':''}" onclick="vpSet('${id}','status','${o.v}',this)">${o.l}</span>`).join('');
 
   const tbChips   = (v.tb||[]).map(t  => `<span class="vp-chip on-tb"   onclick="vpRemoveTag('${id}','tb','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
   const acChips   = (v.ac||[]).map(a  => `<span class="vp-chip on-ac"   onclick="vpRemoveTag('${id}','ac','${a.replace(/'/g,"\\'")}',this)">${a} ×</span>`).join('');
@@ -1355,23 +1355,28 @@ export function buildDrawerHTML(id) {
   const techChips = (v.tech||[]).map(t=> `<span class="vp-chip on-tech" onclick="vpRemoveTag('${id}','tech','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
 
   return `
-    <div class="vp-row">
-      <span class="vp-lbl">Status</span>
-      <div class="vp-chips">
-        <span class="vp-chip${v.watched?' on-s1':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'✅ 視聴済み':'👁 未視聴'}</span>
-        <span class="vp-chip${v.fav?' on-fav-chip':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">${v.fav?'⭐ Fav':'☆ Fav'}</span>
+    <div class="fsec">
+      <div class="fsec-title">ステータス・進捗・優先度</div>
+      <div class="vp-row">
+        <span class="vp-lbl">Status</span>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          <span class="chip${v.watched?' active':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'視聴済み':'未視聴'}</span>
+          <span class="chip${v.fav?' active c-fav':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">★ Fav</span>
+        </div>
+      </div>
+      <div class="vp-row">
+        <span class="vp-lbl">Progress</span>
+        <div style="display:flex;flex-wrap:wrap;gap:5px" id="vp-prog-${id}">${progChips}</div>
+      </div>
+      <div class="vp-row">
+        <span class="vp-lbl">Priority</span>
+        <div style="display:flex;flex-wrap:wrap;gap:5px" id="vp-prio-${id}">${prioChips}</div>
       </div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Progress</span>
-      <div class="vp-chips" id="vp-prog-${id}">${progChips}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Priority</span>
-      <div class="vp-chips" id="vp-prio-${id}">${prioChips}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Channel</span>
+    <div class="fsec">
+      <div class="fsec-title">チャンネル・プレイリスト</div>
+      <div class="vp-row">
+        <span class="vp-lbl">Channel</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           ${v.channel ? `<span class="chip active" id="vp-ch-badge-${id}">${v.channel}</span>` : ''}
@@ -1405,6 +1410,9 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">ポジション・テクニック</div>
     <div class="vp-row vp-row-tb">
       <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-dd-wrap">
@@ -1449,6 +1457,7 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
+    </div>
 
     <div class="vp-row">
       <span class="vp-lbl">Share</span>
@@ -1472,13 +1481,11 @@ export function buildDrawerHTML(id) {
 }
 
 // ── VP edit functions ──
-export function vpSet(id, field, val, el, cls) {
+export function vpSet(id, field, val, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v[field] = val;
-  el.parentElement.querySelectorAll('.vp-chip').forEach(c => {
-    c.classList.remove('on-p1','on-p2','on-p3','on-s0','on-s1','on-s2');
-  });
-  el.classList.add(cls);
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
   autoSaveVp(id);
 }
 
@@ -1716,9 +1723,10 @@ export function vpRenderChannelDdList(id, q) {
   const ql = q.toLowerCase();
   const filtered = all.filter(c => !ql || c.toLowerCase().includes(ql));
   const isNew = q.trim() && !all.some(c => c.toLowerCase() === ql);
+  const hint = !q.trim() ? `<div style="padding:5px 12px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)">入力してEnterで新規追加</div>` : '';
   list.innerHTML = filtered.map(c =>
     `<div class="vp-dd-item" onclick="vpSetChannel('${id}','${c.replace(/'/g,"\\'")}')">${c}</div>`
-  ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetChannel('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
+  ).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpSetChannel('${id}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '') + hint;
 }
 
 export function vpSetChannel(id, val) {
@@ -1894,16 +1902,15 @@ export function vpRemoveTechEl(el) {
 export function vpTogWatch(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.watched = !v.watched;
-  el.className = 'vp-chip' + (v.watched ? ' on-s1' : '');
-  el.textContent = v.watched ? '✅ 視聴済み' : '👁 未視聴';
+  el.className = 'chip' + (v.watched ? ' active' : '');
+  el.textContent = v.watched ? '視聴済み' : '未視聴';
   autoSaveVp(id);
 }
 
 export function vpTogFav(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.fav = !v.fav;
-  el.className = 'vp-chip' + (v.fav ? ' on-fav-chip' : '');
-  el.textContent = v.fav ? '⭐ Fav' : '☆ Fav';
+  el.className = 'chip' + (v.fav ? ' active c-fav' : '');
   autoSaveVp(id);
 }
 
