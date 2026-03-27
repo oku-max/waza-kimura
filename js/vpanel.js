@@ -1385,6 +1385,28 @@ export function buildDrawerHTML(id) {
         </div>
       </div>
     </div>
+    <div class="vp-row">
+      <span class="vp-lbl">Playlist</span>
+      <div style="display:flex;flex-direction:column;gap:6px;width:100%">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="vp-chip on-pl" id="vp-pl-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.pl||'未分類'}</span>
+        </div>
+        <div class="vp-dd-wrap">
+          <div class="vp-dd-trigger" onclick="vpTogPlNameDd('${id}')">変更・検索</div>
+          <div class="vp-dd" id="vp-dd-plname-${id}" style="display:none">
+            <input class="vp-dd-search" placeholder="検索・新規追加..."
+              oninput="vpRenderPlNameDdList('${id}',this.value)"
+              onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetPlName('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
+            <div class="vp-dd-list" id="vp-dd-list-plname-${id}"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','move')">↪ 移動</button>
+          <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','copy')">⧉ コピー</button>
+          <button class="vp-pl-btn vp-pl-btn-del" onclick="vpRemoveFromPl('${id}')">✕ 削除</button>
+        </div>
+      </div>
+    </div>
     <div class="vp-row vp-row-tb">
       <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-dd-wrap">
@@ -1426,28 +1448,6 @@ export function buildDrawerHTML(id) {
         <div class="vp-dd" id="vp-dd-tech-${id}" style="display:none">
           <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','tech',this.value)" onkeydown="vpDdKey('${id}','tech',event,this)">
           <div class="vp-dd-list" id="vp-dd-list-tech-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Playlist</span>
-      <div style="display:flex;flex-direction:column;gap:6px;width:100%">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span class="vp-chip on-pl" id="vp-pl-badge-${id}" style="background:var(--surface2);border-color:var(--border);color:var(--text)">${v.pl||'未分類'}</span>
-        </div>
-        <div class="vp-dd-wrap">
-          <div class="vp-dd-trigger" onclick="vpTogPlNameDd('${id}')">変更・検索</div>
-          <div class="vp-dd" id="vp-dd-plname-${id}" style="display:none">
-            <input class="vp-dd-search" placeholder="検索・新規追加..."
-              oninput="vpRenderPlNameDdList('${id}',this.value)"
-              onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetPlName('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
-            <div class="vp-dd-list" id="vp-dd-list-plname-${id}"></div>
-          </div>
-        </div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">
-          <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','move')">↪ 移動</button>
-          <button class="vp-pl-btn" onclick="openVpPlaylistOp('${id}','copy')">⧉ コピー</button>
-          <button class="vp-pl-btn vp-pl-btn-del" onclick="vpRemoveFromPl('${id}')">✕ 削除</button>
         </div>
       </div>
     </div>
