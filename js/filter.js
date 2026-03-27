@@ -82,13 +82,23 @@ export function saveOrgFilterPresets() {
   saveFilterPresets();
 }
 
-// Firebase復元時に呼ばれる
+// Firebase復元時に呼ばれる — ローカルと統合（上書きしない）
 export function loadFilterPresetsFromRemote(arr) {
-  if (!Array.isArray(arr) || !arr.length) return;
-  filterPresets.length = 0;
-  arr.forEach(p => filterPresets.push(p));
-  localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
-  renderFilterPresets?.();
+  if (!Array.isArray(arr) || !arr.length) {
+    // Firebaseが空でもローカルにデータがあれば逆同期
+    if (filterPresets.length > 0) window.saveUserSettings?.();
+    return;
+  }
+  const localNames = new Set(filterPresets.map(p => p.name));
+  let added = false;
+  arr.forEach(p => {
+    if (!localNames.has(p.name)) { filterPresets.push(p); added = true; }
+  });
+  if (added) {
+    localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
+    window.saveUserSettings?.(); // Firebaseにも最新を保存
+  }
+  window.renderFilterPresets?.();
 }
 
 export function saveFilterPreset() {

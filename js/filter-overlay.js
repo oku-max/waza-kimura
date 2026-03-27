@@ -66,9 +66,19 @@ function _fovGetAlphaGroup(str) {
   return c;
 }
 
+// ── コンテキスト判定（org vs main）──
+function _getCtx(rowId) {
+  const el = document.getElementById(rowId);
+  const isOrg = el?.dataset.ctx === 'org';
+  return {
+    f: isOrg ? (window.orgFilters||{}) : (window.filters||{}),
+    af() { isOrg ? window.renderOrg?.() : window.AF?.(); }
+  };
+}
+
 // ── フィルターDD ヘルパー ──
 function _fovDdUpdateChips(rowId, filterKey) {
-  const f = window.filters || {};
+  const { f } = _getCtx(rowId);
   const chipsEl = document.getElementById(rowId + '-chips');
   if (!chipsEl) return;
   const selected = [...(f[filterKey]||[])];
@@ -80,9 +90,10 @@ function _fovDdUpdateChips(rowId, filterKey) {
   chipsEl.innerHTML = html;
 }
 
-export function buildFovDdRow(rowId, filterKey, items, placeholder) {
+export function buildFovDdRow(rowId, filterKey, items, placeholder, isOrg=false) {
   const row = document.getElementById(rowId);
   if (!row) return;
+  row.dataset.ctx = isOrg ? 'org' : 'main';
   row.innerHTML = `
     <div class="vp-dd-wrap" style="gap:5px">
       <div id="${rowId}-chips" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
@@ -101,7 +112,7 @@ export function buildFovDdRow(rowId, filterKey, items, placeholder) {
 function _fovDdRenderList(rowId, filterKey, items, q) {
   const listEl = document.getElementById(rowId + '-ddlist');
   if (!listEl) return;
-  const f = window.filters || {};
+  const { f } = _getCtx(rowId);
   const ql = q.toLowerCase();
   const filtered = ql ? items.filter(v => v.toLowerCase().includes(ql)) : items;
   listEl.innerHTML = filtered.map(v => {
@@ -112,9 +123,10 @@ function _fovDdRenderList(rowId, filterKey, items, q) {
 }
 
 // ── チャンネル/プレイリスト 最近みた+2サブタブ DD ──
-export function buildFovPickerDdRow(rowId, filterKey, label) {
+export function buildFovPickerDdRow(rowId, filterKey, label, isOrg=false) {
   const row = document.getElementById(rowId);
   if (!row) return;
+  row.dataset.ctx = isOrg ? 'org' : 'main';
   row.innerHTML = `
     <div class="vp-dd-wrap" style="gap:5px">
       <div id="${rowId}-chips" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
@@ -143,7 +155,7 @@ function _fovPickerCountMap(filterKey) {
 function _fovPickerDdRenderList(rowId, filterKey, q) {
   const listEl = document.getElementById(rowId + '-ddlist');
   if (!listEl) return;
-  const f = window.filters || {};
+  const { f } = _getCtx(rowId);
   const countMap = _fovPickerCountMap(filterKey);
   const allItems = Object.keys(countMap).sort((a,b) => a.localeCompare(b, 'ja'));
 
@@ -222,7 +234,7 @@ export function fovPickerDdOpen(rowId, filterKey) {
 }
 
 export function fovPickerDdToggle(rowId, filterKey, val) {
-  const f = window.filters || {};
+  const { f, af } = _getCtx(rowId);
   if (f[filterKey]?.has(val)) {
     f[filterKey].delete(val);
   } else {
@@ -233,7 +245,7 @@ export function fovPickerDdToggle(rowId, filterKey, val) {
   }
   _fovDdUpdateChips(rowId, filterKey);
   _fovPickerDdRenderList(rowId, filterKey, document.querySelector(`#${rowId}-dd .vp-dd-search`)?.value || '');
-  window.AF?.();
+  af();
 }
 
 export function fovPickerDdFilter(rowId, filterKey, q) {
@@ -281,7 +293,7 @@ export function fovDdFilter(rowId, filterKey, q) {
 }
 
 export function fovDdToggleItem(rowId, filterKey, val, el) {
-  const f = window.filters || {};
+  const { f, af } = _getCtx(rowId);
   if (f[filterKey]?.has(val)) {
     f[filterKey].delete(val);
     el?.classList.remove('selected');
@@ -290,11 +302,11 @@ export function fovDdToggleItem(rowId, filterKey, val, el) {
     el?.classList.add('selected');
   }
   _fovDdUpdateChips(rowId, filterKey);
-  window.AF?.();
+  af();
 }
 
 export function fovDdRemove(rowId, filterKey, val) {
-  const f = window.filters || {};
+  const { f, af } = _getCtx(rowId);
   f[filterKey]?.delete(val);
   _fovDdUpdateChips(rowId, filterKey);
   const listEl = document.getElementById(rowId + '-ddlist');
@@ -303,40 +315,39 @@ export function fovDdRemove(rowId, filterKey, val) {
       if (item.childNodes[0]?.textContent?.trim() === val) item.classList.remove('selected');
     });
   }
-  window.AF?.();
+  af();
 }
 
 export function fovFilterClear(rowId, filterKey) {
-  const f = window.filters || {};
+  const { f, af } = _getCtx(rowId);
   f[filterKey]?.clear();
   _fovDdUpdateChips(rowId, filterKey);
   document.querySelectorAll(`#${rowId}-ddlist .vp-dd-item`).forEach(el => el.classList.remove('selected'));
-  window.AF?.();
+  af();
 }
 
-// ── フィルター行同期（オーバーレイ内） ──
-export function syncFilterOvRows() {
-  const f = window.filters || {};
-  // TB/AC/POS/TECH: DDスタイル（チップ更新のみ、DDは閉じない）
-  _fovDdUpdateChips('fov-srow-tb',   'tb');
-  _fovDdUpdateChips('fov-srow-ac',   'action');
-  _fovDdUpdateChips('fov-srow-pos',  'position');
-  _fovDdUpdateChips('fov-srow-tech', 'tech');
-  // PLAYLIST / CHANNEL: DDスタイル（チップ更新のみ）
-  _fovDdUpdateChips('fov-srow-pl', 'playlist');
-  _fovDdUpdateChips('fov-srow-ch', 'channel');
-  // Status/Fav同期
-  ['fov-stat-未着手','fov-stat-練習中','fov-stat-マスター'].forEach(function(id){
-    const el=document.getElementById(id); if(el) el.classList.toggle('active', f.status?.has(id.replace('fov-stat-','')));
+// ── フィルター行同期（オーバーレイ内）── isOrg=true でオーガナイズ用にも使用可
+export function syncFilterOvRows(isOrg=false) {
+  const p = isOrg ? 'org-fov' : 'fov';
+  const f = isOrg ? (window.orgFilters||{}) : (window.filters||{});
+  // TB/AC/POS/TECH/PL/CH: DDチップ更新（data-ctxはbuildFovRowsで設定済み）
+  ['tb','ac','pos','tech','pl','ch'].forEach(k => {
+    const fk = {tb:'tb',ac:'action',pos:'position',tech:'tech',pl:'playlist',ch:'channel'}[k];
+    _fovDdUpdateChips(`${p}-srow-${k}`, fk);
   });
-  ['fov-prio-今すぐ','fov-prio-そのうち','fov-prio-保留'].forEach(function(id){
-    const el=document.getElementById(id); if(el) el.classList.toggle('active', f.prio?.has(id.replace('fov-prio-','')));
+  // Status/Prio
+  ['未着手','練習中','マスター'].forEach(v => {
+    const el = document.getElementById(`${p}-stat-${v}`); if(el) el.classList.toggle('active', f.status?.has(v));
   });
-  const favEl =document.getElementById('fov-chip-fav');     if(favEl)  favEl.classList.toggle('active',  window.favOnly||false);
-  const unwEl =document.getElementById('fov-chip-unw');     if(unwEl)  unwEl.classList.toggle('active',  window.unwOnly||false);
-  const watEl =document.getElementById('fov-chip-watched'); if(watEl)  watEl.classList.toggle('active',  window.watchedOnly||false);
-  const bmEl  =document.getElementById('fov-chip-bm');      if(bmEl)   bmEl.classList.toggle('active',   window.bmOnly||false);
-  const memoEl=document.getElementById('fov-chip-memo');    if(memoEl) memoEl.classList.toggle('active', window.memoOnly||false);
+  ['今すぐ','そのうち','保留'].forEach(v => {
+    const el = document.getElementById(`${p}-prio-${v}`); if(el) el.classList.toggle('active', f.prio?.has(v));
+  });
+  // Fav/Unw/Watched/Bm/Memo
+  const favEl  = document.getElementById(`${p}-chip-fav`);     if(favEl)  favEl.classList.toggle('active',  (isOrg ? window.orgFavOnly      : window.favOnly)||false);
+  const unwEl  = document.getElementById(`${p}-chip-unw`);     if(unwEl)  unwEl.classList.toggle('active',  (isOrg ? window.orgUnwOnly      : window.unwOnly)||false);
+  const watEl  = document.getElementById(`${p}-chip-watched`); if(watEl)  watEl.classList.toggle('active',  (isOrg ? window.orgWatchedOnly  : window.watchedOnly)||false);
+  const bmEl   = document.getElementById(`${p}-chip-bm`);      if(bmEl)   bmEl.classList.toggle('active',   (isOrg ? window.orgBmOnly       : window.bmOnly)||false);
+  const memoEl = document.getElementById(`${p}-chip-memo`);    if(memoEl) memoEl.classList.toggle('active', (isOrg ? window.orgMemoOnly     : window.memoOnly)||false);
 }
 
 // ── カウントヘルパー ──
@@ -355,40 +366,39 @@ export function countForFilter(key, val) {
   return 0;
 }
 
-// ── 行ビルダー（フィルターオーバーレイ内） ──
-export function buildFovRows() {
-  const vids    = window.videos || [];
-  const filters = window.filters || {};
+// ── 行ビルダー（フィルターオーバーレイ内）── isOrg=true でオーガナイズ用にも使用可
+export function buildFovRows(isOrg=false) {
+  const p    = isOrg ? 'org-fov' : 'fov';
+  const f    = isOrg ? (window.orgFilters||{}) : (window.filters||{});
+  const vids = window.videos || [];
   const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
 
   // Source（固定2択）
-  const srcRow = document.getElementById('fov-srow-src');
+  const srcRow = document.getElementById(`${p}-srow-src`);
   if (srcRow) {
     srcRow.innerHTML = '';
     [['youtube','YouTube'], ['gdrive','Google Drive']].forEach(([val, label]) => {
       const cnt = vids.filter(v => !v.archived && v.pt === val).length;
       const el = document.createElement('div');
-      el.className = 'chip' + (filters.platform?.has(val) ? ' active' : '');
+      el.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
       el.style.flexShrink = '0';
       el.textContent = `${label} ${cnt}`;
       el.onclick = () => {
-        if (filters.platform) {
-          filters.platform.has(val) ? filters.platform.delete(val) : filters.platform.add(val);
-        }
-        buildFovRows();
-        syncFilterOvRows();
-        window.AF?.();
+        if (f.platform) f.platform.has(val) ? f.platform.delete(val) : f.platform.add(val);
+        buildFovRows(isOrg);
+        syncFilterOvRows(isOrg);
+        isOrg ? window.renderOrg?.() : window.AF?.();
       };
       srcRow.appendChild(el);
     });
   }
 
-  buildFovDdRow('fov-srow-tb',   'tb',       window.TB_TAGS||[],                                                         'TOP/BOTTOM検索...');
-  buildFovDdRow('fov-srow-ac',   'action',   window.AC_TAGS||[],                                                         'Action検索...');
-  buildFovDdRow('fov-srow-pos',  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(),        'Position検索...');
-  buildFovDdRow('fov-srow-tech', 'tech',     [...new Set(vids.flatMap(v => v.tech||[]))].sort(),                         'Technique検索...');
-  buildFovPickerDdRow('fov-srow-pl', 'playlist', 'プレイリストを選ぶ');
-  buildFovPickerDdRow('fov-srow-ch', 'channel',  'チャンネルを選ぶ');
+  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_TAGS||[], 'TOP/BOTTOM検索...', isOrg);
+  buildFovDdRow(`${p}-srow-ac`,   'action',   window.AC_TAGS||[], 'Action検索...', isOrg);
+  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), 'Position検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tech`, 'tech',     [...new Set(vids.flatMap(v => v.tech||[]))].sort(), 'Technique検索...', isOrg);
+  buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
+  buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
 
 export function buildFovHscroll(rowId, tags, filterKey, allChipId) {

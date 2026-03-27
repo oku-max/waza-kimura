@@ -1295,7 +1295,8 @@ body.bulk-mode .card-sel-ov{display:block;}
   z-index: 99999;
 }
 @media (min-width: 1024px) {
-  #filter-overlay-panel {
+  #filter-overlay-panel,
+  #org-filter-overlay-panel {
     right: auto;
     width: 580px;
     border-radius: 0 0 10px 0;

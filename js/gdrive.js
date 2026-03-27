@@ -496,3 +496,36 @@ export async function renameGdFile(fileId, newName) {
   }
   return res.json();
 }
+
+// ── GDrive チャンネル選択DD ──
+export function gdChDdOpen() {
+  const dd = document.getElementById('gd-ch-dd');
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  if (isOpen) { dd.style.display = 'none'; return; }
+  gdChDdFilter('');
+  dd.style.display = 'block';
+  document.getElementById('gd-ch-search')?.focus();
+}
+
+export function gdChDdFilter(q) {
+  const listEl = document.getElementById('gd-ch-ddlist');
+  if (!listEl) return;
+  const chMap = {};
+  (window.videos||[]).forEach(v => { if (v.channel) chMap[v.channel] = (chMap[v.channel]||0) + 1; });
+  const channels = Object.keys(chMap).sort((a,b) => a.localeCompare(b, 'ja'));
+  const ql = (q||'').trim().toLowerCase();
+  const filtered = ql ? channels.filter(c => c.toLowerCase().includes(ql)) : channels;
+  listEl.innerHTML = filtered.map(c =>
+    `<div class="vp-dd-item" onclick="gdChSelect('${c.replace(/'/g,"\\'")}')">
+      ${c}<span class="vp-dd-cnt">${chMap[c]}本</span>
+    </div>`
+  ).join('') || '<div style="padding:8px 12px;font-size:11px;color:var(--text3)">チャンネルなし</div>';
+}
+
+export function gdChSelect(val) {
+  const inp = document.getElementById('gd-channel');
+  if (inp) inp.value = val;
+  const dd = document.getElementById('gd-ch-dd');
+  if (dd) dd.style.display = 'none';
+}

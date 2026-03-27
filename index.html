@@ -75,7 +75,7 @@
     switchImportTab,
     gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
     gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport,
-    renameGdFile
+    renameGdFile, gdChDdOpen, gdChDdFilter, gdChSelect
   } from './js/gdrive.js';
   import {
     mkChip, toggleSidebar, syncSidebarChipStates,
@@ -123,6 +123,9 @@
   window.gdBackToStage1          = gdBackToStage1;
   window.gdImport                = gdImport;
   window.renameGdFile            = renameGdFile;
+  window.gdChDdOpen              = gdChDdOpen;
+  window.gdChDdFilter            = gdChDdFilter;
+  window.gdChSelect              = gdChSelect;
   // data
   window.debounceSave            = debounceSave;
   window.qFav                    = qFav;
@@ -2310,8 +2313,19 @@ window.addEventListener('resize', adjustTopbarOffset);
         </div>
         <div style="margin-bottom:14px">
           <div style="font-size:11px;color:var(--text3);margin-bottom:5px">チャンネル名</div>
-          <input id="gd-channel" type="text" placeholder="例: Triforce"
-            style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+          <div style="position:relative">
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="gd-channel" type="text" placeholder="例: Triforce（直接入力または↓から選択）"
+                style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+                oninput="gdChDdFilter(this.value)">
+              <div class="vp-dd-trigger" onclick="gdChDdOpen()" style="white-space:nowrap;padding:7px 10px">▼ 既存</div>
+            </div>
+            <div class="vp-dd" id="gd-ch-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:2px">
+              <input class="vp-dd-search" id="gd-ch-search" placeholder="チャンネル名で検索..."
+                oninput="gdChDdFilter(this.value)">
+              <div class="vp-dd-list" id="gd-ch-ddlist"></div>
+            </div>
+          </div>
         </div>
         <div style="display:flex;gap:8px">
           <button id="gd-scan-btn" class="btn-save" style="flex:1" onclick="gdOpenBrowser()">📁 フォルダを選択</button>
@@ -2446,11 +2460,11 @@ window.addEventListener('resize', adjustTopbarOffset);
       </div>
       <div class="fbar-row">
         <span class="fbar-lbl">Channel</span>
-        <div class="hrow" id="org-fov-srow-ch"></div>
+        <div class="fov-dd-row" id="org-fov-srow-ch"></div>
       </div>
       <div class="fbar-row" style="margin-bottom:2px">
         <span class="fbar-lbl">Playlist</span>
-        <div class="hrow" id="org-fov-srow-pl"></div>
+        <div class="fov-dd-row" id="org-fov-srow-pl"></div>
       </div>
     </div>
     <!-- ▌グループ3：ポジション・テクニック -->
@@ -2458,19 +2472,19 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div class="fsec-title">ポジション・テクニック</div>
       <div class="fbar-row fov-row-tb">
         <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
-        <div class="hrow" id="org-fov-srow-tb"></div>
+        <div class="fov-dd-row" id="org-fov-srow-tb"></div>
       </div>
       <div class="fbar-row fov-row-ac">
         <span class="fbar-lbl" data-tag-key="ac">Action</span>
-        <div class="hrow" id="org-fov-srow-ac"></div>
+        <div class="fov-dd-row" id="org-fov-srow-ac"></div>
       </div>
       <div class="fbar-row fov-row-pos">
         <span class="fbar-lbl" data-tag-key="pos">Position</span>
-        <div class="hrow" id="org-fov-srow-pos"></div>
+        <div class="fov-dd-row" id="org-fov-srow-pos"></div>
       </div>
       <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
         <span class="fbar-lbl" data-tag-key="tech">Technique</span>
-        <div class="hrow" id="org-fov-srow-tech"></div>
+        <div class="fov-dd-row" id="org-fov-srow-tech"></div>
       </div>
     </div>
     <!-- 保存した検索条件 -->
