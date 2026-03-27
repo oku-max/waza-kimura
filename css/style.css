@@ -1239,7 +1239,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-dd-new:hover { background:var(--surface2); }
 /* フィルターオーバーレイDDコンテナ */
 .fov-dd-row { flex:1; min-width:0; }
-.fov-dd { position:fixed !important; z-index:300; min-width:200px; max-width:360px; }
+.fov-dd { position:fixed !important; z-index:100000; min-width:200px; max-width:360px; }
 /* DD内 最近みた + サブタブ */
 .vp-dd-sec-hd { font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:6px 12px 3px; }
 .vp-dd-sec-div { height:1px; background:var(--border); margin:4px 0; }
@@ -1293,6 +1293,15 @@ body.bulk-mode .card-sel-ov{display:block;}
   max-height: 85vh;
   overflow-y: auto;
   z-index: 99999;
+}
+@media (min-width: 768px) {
+  #filter-overlay-panel {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(640px, calc(100% - 32px));
+    border-radius: 0 0 10px 10px;
+  }
 }
 .fbar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .fbar-lbl { font-size:9px; font-weight:800; letter-spacing:.7px; color:var(--text2); text-transform:uppercase; min-width:60px; flex-shrink:0; }

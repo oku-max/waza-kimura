@@ -87,7 +87,7 @@ export function buildFovDdRow(rowId, filterKey, items, placeholder) {
     <div class="vp-dd-wrap" style="gap:5px">
       <div id="${rowId}-chips" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
       <div class="vp-dd-trigger" onclick="fovDdOpen('${rowId}')">＋ 追加</div>
-      <div class="vp-dd fov-dd" id="${rowId}-dd" style="display:none">
+      <div class="vp-dd fov-dd" id="${rowId}-dd" style="display:none" data-filterkey="${filterKey}">
         <input class="vp-dd-search" placeholder="${placeholder||'検索...'}"
           oninput="fovDdFilter('${rowId}','${filterKey}',this.value)"
           onkeydown="if(event.key==='Escape'){document.getElementById('${rowId}-dd').style.display='none';}">
@@ -193,12 +193,12 @@ function _fovPickerDdRenderList(rowId, filterKey, q) {
   const secLabel = filterKey === 'channel' ? '全チャンネル' : '全プレイリスト';
   listEl.innerHTML = recentHTML +
     `<div class="vp-dd-sec-hd" style="padding-bottom:0">${secLabel}</div>
-    <div class="vp-dd-tabs">
-      <span class="vp-dd-tab${activeTab==='alpha'?' active':''}" onclick="fovPickerDdTab('${rowId}','${filterKey}','alpha')">ABC/あいうえお</span>
-      <span class="vp-dd-tab${activeTab==='count'?' active':''}" onclick="fovPickerDdTab('${rowId}','${filterKey}','count')">件数順</span>
+    <div class="vp-dd-subtabs">
+      <div class="vp-dd-subtab on" onclick="vpDdSubtab(event,'${rowId}-tab-alpha','${rowId}-tab-count')">ABC / あいうえお順</div>
+      <div class="vp-dd-subtab" onclick="vpDdSubtab(event,'${rowId}-tab-count','${rowId}-tab-alpha')">件数順</div>
     </div>
-    <div id="${rowId}-tab-alpha" style="display:${activeTab==='alpha'?'block':'none'}">${alphaHTML}</div>
-    <div id="${rowId}-tab-count" style="display:${activeTab==='count'?'block':'none'}">${countTabHTML}</div>`;
+    <div class="vp-dd-subpanel on" id="${rowId}-tab-alpha">${alphaHTML}</div>
+    <div class="vp-dd-subpanel" id="${rowId}-tab-count">${countTabHTML}</div>`;
 }
 
 export function fovPickerDdOpen(rowId, filterKey) {
@@ -264,6 +264,9 @@ export function fovDdOpen(rowId) {
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) { inp.value = ''; inp.focus(); }
+  // リストを必ず再描画（初期ロード時の空白対策）
+  const fk = dd.dataset.filterkey;
+  if (fk) fovDdFilter(rowId, fk, '');
 }
 
 export function fovDdFilter(rowId, filterKey, q) {
