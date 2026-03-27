@@ -1204,79 +1204,43 @@ window.addEventListener('orientationchange', () => {
   }, 100);
 });
 
-// ── Google Drive 再生（OAuth + <video>タグ方式）──
-async function _playGDriveVideo(container, fileId) {
-  _gdFileId = fileId;
+// ── Google Drive 再生（drive.google.com/uc 方式 ─ OAuthトークン不要）──
+// ブラウザのGoogleセッション（Cookie）を利用するためOAuth不要
+// googleapis.com/drive/v3?alt=media&access_token= は廃止されつつあり動画ストリーミングで失敗するためこちらを採用
+function _playGDriveVideo(container, fileId) {
+  _gdFileId  = fileId;
   _gdVideoEl = null;
-  const token = window.getDriveTokenIfAvailable?.();
-  if (token) {
-    _createGDriveVideoEl(container, fileId, token);
-  } else {
-    _showGDriveAuthUI(container, fileId);
-  }
-}
-
-function _createGDriveVideoEl(container, fileId, token) {
-  const src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${token}`;
+  const src = `https://drive.google.com/uc?id=${fileId}&export=download&confirm=t`;
   const video = document.createElement('video');
-  video.controls = true;
+  video.controls   = true;
   video.playsinline = true;
-  video.autoplay = true;
+  video.autoplay   = true;
   video.style.cssText = 'width:100%;height:100%;background:#000';
-  video.addEventListener('play',  ()  => _startTimeDisplay());
-  video.addEventListener('pause', ()  => { _stopTimeDisplay(); _updateTimeDisplay(); });
-  video.addEventListener('ended', ()  => { _stopTimeDisplay(); _updateTimeDisplay(); });
-  video.addEventListener('error', ()  => _onGDriveVideoError(container, fileId));
-  video.src = src;
+  video.addEventListener('play',  () => _startTimeDisplay());
+  video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
+  video.addEventListener('ended', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
+  video.addEventListener('error', () => {
+    console.error('GDrive video error:', video.error?.code, video.error?.message, src);
+    _onGDriveVideoError(container, fileId);
+  });
+  video.src  = src;
   _gdVideoEl = video;
   container.innerHTML = '';
   container.appendChild(video);
 }
 
-function _showGDriveAuthUI(container, fileId) {
-  container.innerHTML = `
-    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
-      <div style="color:#aaa;font-size:13px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
-      <button id="gd-auth-play-btn" style="padding:10px 28px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
-        Googleで認証して再生
-      </button>
-    </div>`;
-  const btn = container.querySelector('#gd-auth-play-btn');
-  if (btn) btn.onclick = async () => {
-    btn.textContent = '認証中...';
-    btn.disabled = true;
-    const token = await window.ensureDriveToken?.();
-    if (token) {
-      _createGDriveVideoEl(container, fileId, token);
-    } else {
-      btn.textContent = '認証に失敗しました。再試行';
-      btn.disabled = false;
-    }
-  };
-}
-
 function _onGDriveVideoError(container, fileId) {
-  window.clearDriveToken?.();
   _gdVideoEl = null;
   _stopTimeDisplay();
   container.innerHTML = `
     <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
       <div style="color:#f66;font-size:13px;text-align:center">再生に失敗しました</div>
-      <div style="color:#888;font-size:11px;text-align:center;line-height:1.6">認証の期限切れか、ファイルへのアクセス権がない可能性があります</div>
-      <button id="gd-retry-btn" style="padding:10px 28px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
+      <div style="color:#888;font-size:11px;text-align:center;line-height:1.6">Googleにログインしているか、ファイルへのアクセス権があるか確認してください</div>
+      <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
+         style="padding:8px 20px;background:#333;color:#fff;border-radius:8px;font-size:13px;text-decoration:none;cursor:pointer">
+        Driveで開く
+      </a>
     </div>`;
-  const btn = container.querySelector('#gd-retry-btn');
-  if (btn) btn.onclick = async () => {
-    btn.textContent = '認証中...';
-    btn.disabled = true;
-    const token = await window.ensureDriveToken?.();
-    if (token) {
-      _createGDriveVideoEl(container, fileId, token);
-    } else {
-      btn.textContent = '認証に失敗しました。再試行';
-      btn.disabled = false;
-    }
-  };
 }
 
 // emb URLからYouTube video IDを抽出
