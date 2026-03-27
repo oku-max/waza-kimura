@@ -29,7 +29,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .add-tag-inp{border:1.5px dashed var(--border);border-radius:20px;padding:4px 9px;font-size:11px;color:var(--text);font-family:inherit;outline:none;background:var(--surface2);width:76px;flex-shrink:0;transition:width .2s;}
 .add-tag-inp:focus{border-color:var(--accent);width:120px;}
 .fl{font-size:10px;color:var(--text2);white-space:nowrap;min-width:52px;font-weight:700;}
-.chip{background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:5px;font-size:11.5px;cursor:pointer;white-space:nowrap;transition:all .12s;user-select:none;font-weight:400;font-family:'DM Sans',sans-serif;flex-shrink:0;}
+.chip{background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:20px;font-size:11.5px;cursor:pointer;white-space:nowrap;transition:all .12s;user-select:none;font-weight:400;font-family:'DM Sans',sans-serif;flex-shrink:0;}
 .chip.active{color:#fff;font-weight:500;border-color:var(--text);background:var(--text);}
 .chip.active.c-yt{background:#c0392b;border-color:#c0392b;}
 .chip.active.c-vm{background:#1ab7ea;border-color:#1ab7ea;}
@@ -110,7 +110,7 @@ body.bulk-mode .card-sel-ov{display:block;}
   overflow:hidden;
 }
 .vp-pl-btn {
-  padding:4px 10px;border-radius:6px;border:1.5px solid var(--border);
+  padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);
   background:var(--surface2);color:var(--text2);font-size:11px;font-weight:600;
   cursor:pointer;font-family:inherit;
 }
