@@ -1710,8 +1710,9 @@ export function vpTogChannelDd(id) {
   document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
   dd.style.display = 'block';
+  window.adjustDdListHeight?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   vpRenderChannelDdList(id, '');
 }
 
@@ -1837,8 +1838,9 @@ export function vpTogPlNameDd(id) {
   document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
   dd.style.display = 'block';
+  window.adjustDdListHeight?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   vpRenderPlNameDdList(id, '');
 }
 
