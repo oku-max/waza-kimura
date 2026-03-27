@@ -61,6 +61,9 @@
     vpRemovePosEl, vpGetAllOpts, vpTogDd, vpRenderDdList, vpDdFilter, vpDdKey,
     vpDdSelect, vpDdAddNew, vpRefreshChips, vpRemoveTag, vpRemoveTechEl,
     vpTogWatch, vpTogFav, vpSetShare, vpSaveMemo, autoSaveVp, vpSave,
+    vpTogChannelDd, vpRenderChannelDdList, vpSetChannel,
+    vpTogPlNameDd, vpRenderPlNameDdList, vpSetPlName,
+    vpEditTitle, vpSaveTitle,
     _openPanel, _closePanelOutside, closePanel
   } from './js/vpanel.js';
   import './js/organize.js';
@@ -70,7 +73,8 @@
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
     gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
-    gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport
+    gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport,
+    renameGdFile
   } from './js/gdrive.js';
   import {
     mkChip, toggleSidebar, syncSidebarChipStates,
@@ -79,7 +83,7 @@
     buildFovRows, buildFovHscroll, buildFovPickerRow,
     syncFovChips, clearFovField,
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
-    saveCurrentSearch, applySavedSearch, deleteSavedSearch, renderSavedSearches,
+    saveCurrentSearch, applySavedSearch, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
     toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn
   } from './js/filter-overlay.js';
 
@@ -115,6 +119,7 @@
   window.gdSelNone               = gdSelNone;
   window.gdBackToStage1          = gdBackToStage1;
   window.gdImport                = gdImport;
+  window.renameGdFile            = renameGdFile;
   // data
   window.debounceSave            = debounceSave;
   window.qFav                    = qFav;
@@ -219,7 +224,8 @@
   window.saveCurrentSearch     = saveCurrentSearch;
   window.applySavedSearch      = applySavedSearch;
   window.deleteSavedSearch     = deleteSavedSearch;
-  window.renderSavedSearches   = renderSavedSearches;
+  window.renderSavedSearches        = renderSavedSearches;
+  window.loadSavedSearchesFromRemote = loadSavedSearchesFromRemote;
   window.toggleAcc             = toggleAcc;
   window.renderAccChips        = renderAccChips;
   window.filterAccChips        = filterAccChips;
@@ -259,6 +265,14 @@
   window.vpSaveMemo            = vpSaveMemo;
   window.autoSaveVp            = autoSaveVp;
   window.vpSave                = vpSave;
+  window.vpTogChannelDd        = vpTogChannelDd;
+  window.vpRenderChannelDdList = vpRenderChannelDdList;
+  window.vpSetChannel          = vpSetChannel;
+  window.vpTogPlNameDd         = vpTogPlNameDd;
+  window.vpRenderPlNameDdList  = vpRenderPlNameDdList;
+  window.vpSetPlName           = vpSetPlName;
+  window.vpEditTitle           = vpEditTitle;
+  window.vpSaveTitle           = vpSaveTitle;
   window._openPanel            = _openPanel;
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;

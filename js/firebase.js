@@ -85,8 +85,9 @@ export async function saveUserSettings() {
   if (!currentUser) return;
   try {
     await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set({
-      tagSettings: window.tagSettings || [],
-      aiSettings:  window.aiSettings  || {},
+      tagSettings:   window.tagSettings   || [],
+      aiSettings:    window.aiSettings    || {},
+      savedSearches: window.savedSearches || [],
       updatedAt: new Date().toISOString()
     });
   } catch (e) { console.error('saveUserSettings:', e); }
@@ -98,6 +99,10 @@ export async function loadUserSettings(uid) {
     if (snap.exists) {
       const data = snap.data();
       window.applyRemoteSettings?.(data);
+      // 保存した検索条件を復元
+      if (Array.isArray(data.savedSearches) && data.savedSearches.length) {
+        window.loadSavedSearchesFromRemote?.(data.savedSearches);
+      }
     }
   } catch (e) { console.error('loadUserSettings:', e); }
 }
