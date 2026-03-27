@@ -821,6 +821,13 @@
 <div class="tab-panel" id="archiveTab">
   <div style="padding:11px 13px;background:var(--surface);border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text2);background:var(--purple-soft);border:1px solid #e1bee7;border-radius:8px;padding:8px 11px">📦 削除せず非表示にした動画。いつでも復元できます。</div></div>
   <div class="results-header"><span class="results-count" id="arc"></span></div>
+  <!-- 一括操作バー -->
+  <div id="arch-bulk-bar" style="display:none;padding:7px 12px;align-items:center;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border)">
+    <input type="checkbox" id="arch-sel-all" onchange="archTogSelAll(this)" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0">
+    <span id="arch-sel-count" style="font-size:11px;color:var(--text2);flex:1">すべて選択</span>
+    <button id="arch-restore-btn" onclick="bulkRestoreArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 一括復元</button>
+    <button id="arch-delete-btn" onclick="bulkDeleteArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 一括削除</button>
+  </div>
   <div id="archList"></div>
 </div>
 
@@ -1197,9 +1204,37 @@ window.bulkUndoStack=[];
 
 // ══ Bulk / Organize 関数は js/bulk.js・js/organize.js モジュールに移動 ══
 
-function renderArch(){const arc=videos.filter(v=>v.archived);document.getElementById('arc').textContent=`${arc.length}本`;const c=document.getElementById('archList');if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';return;}c.innerHTML=arc.map(v=>`<div class="arch-card"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl} | ${v.pt==='vimeo'?'🎥 Vimeo':'▶ YouTube'}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`).join('');}
-function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;renderArch();window.AF?.();toast('↩ 復元しました');}}
-function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{videos=videos.filter(v=>v.id!==id);renderArch();window.AF?.();toast('削除しました');});}
+let archSelIds = new Set();
+function _updateArchBulkBar(){
+  const arc=videos.filter(v=>v.archived);
+  const bar=document.getElementById('arch-bulk-bar');
+  if(bar) bar.style.display=arc.length?'flex':'none';
+  const cnt=document.getElementById('arch-sel-count');
+  if(cnt) cnt.textContent=archSelIds.size>0?`${archSelIds.size}本選択中`:'すべて選択';
+  const selAll=document.getElementById('arch-sel-all');
+  if(selAll){selAll.checked=arc.length>0&&arc.every(v=>archSelIds.has(v.id));selAll.indeterminate=archSelIds.size>0&&!selAll.checked;}
+  const rb=document.getElementById('arch-restore-btn');const db=document.getElementById('arch-delete-btn');
+  if(rb) rb.style.display=archSelIds.size>0?'':'none';
+  if(db) db.style.display=archSelIds.size>0?'':'none';
+}
+function archTogSel(id,cb){if(cb.checked)archSelIds.add(id);else archSelIds.delete(id);_updateArchBulkBar();}
+function archTogSelAll(cb){const arc=videos.filter(v=>v.archived);if(cb.checked)arc.forEach(v=>archSelIds.add(v.id));else archSelIds.clear();renderArch();}
+function bulkRestoreArch(){const ids=[...archSelIds];if(!ids.length)return;ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=false;});archSelIds.clear();renderArch();window.AF?.();toast(`↩ ${ids.length}本を復元しました`);}
+function bulkDeleteArch(){const ids=[...archSelIds];if(!ids.length)return;showConf('🗑 一括削除',`選択した${ids.length}本を完全に削除しますか？`,()=>{videos=videos.filter(v=>!ids.includes(v.id));archSelIds.clear();renderArch();window.AF?.();toast(`削除しました（${ids.length}本）`);});}
+function renderArch(){
+  const arc=videos.filter(v=>v.archived);
+  document.getElementById('arc').textContent=`${arc.length}本`;
+  const c=document.getElementById('archList');
+  if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';_updateArchBulkBar();return;}
+  c.innerHTML=arc.map(v=>{
+    const thumb=v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:v.pt==='gdrive'?`https://drive.google.com/thumbnail?id=${(v.id||'').replace(/^gd-/,'')}&sz=w320-h180`:`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`;
+    const platLabel=v.pt==='vimeo'?'🎥 Vimeo':v.pt==='gdrive'?'📁 GDrive':'▶ YouTube';
+    return `<div class="arch-card"><input type="checkbox" id="arch-cb-${v.id}" ${archSelIds.has(v.id)?'checked':''} onchange="archTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${thumb}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl||'—'} | ${platLabel}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`;
+  }).join('');
+  _updateArchBulkBar();
+}
+function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;archSelIds.delete(id);renderArch();window.AF?.();toast('↩ 復元しました');}}
+function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{videos=videos.filter(v=>v.id!==id);archSelIds.delete(id);renderArch();window.AF?.();toast('削除しました');});}
 
 function togBelt(b,el){beltF.has(b)?beltF.delete(b):beltF.add(b);el.classList.toggle('sel');renderComm();}
 function togCSt(s,el){cStF.has(s)?cStF.delete(s):cStF.add(s);el.classList.toggle('active');renderComm();}
