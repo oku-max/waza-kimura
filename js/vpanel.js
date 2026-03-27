@@ -1077,9 +1077,14 @@ export function openVPanel(id) {
   // タイトル+時間表示+✕ボタン（右端）を左カラム（動画の下）に表示
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
-    titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px 5px 10px">
-      <div style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
+    const isGd = v.pt === 'gdrive';
+    const editBtn = isGd
+      ? `<button id="vp-title-edit-btn" onclick="vpEditTitle('${id}')" title="タイトルを変更" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✎</button>`
+      : '';
+    titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
+      <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
       <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+      ${editBtn}
       <button onclick="closeVPanel()" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
     </div>`;
   }
@@ -1779,6 +1784,69 @@ export function vpSetPlName(id, val) {
   if (dd) dd.style.display = 'none';
   window.AF?.(); window.debounceSave?.();
   window.toast?.('プレイリストを「' + val + '」に変更');
+}
+
+// ── GDrive タイトル編集 ──
+export function vpEditTitle(id) {
+  const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
+  const area = document.getElementById('vpanel-title-area'); if (!area) return;
+  const titleDiv = document.getElementById('vp-title-text-' + id); if (!titleDiv) return;
+  const current = v.title || '';
+  // テキスト表示をインライン入力に置換
+  titleDiv.style.display = 'none';
+  const editBtn = document.getElementById('vp-title-edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
+  const inp = document.createElement('input');
+  inp.id = 'vp-title-inp-' + id;
+  inp.value = current;
+  inp.style.cssText = 'flex:1;font-size:12px;font-weight:700;border:1.5px solid var(--accent);border-radius:6px;padding:3px 6px;outline:none;font-family:inherit;color:var(--text);background:var(--surface);min-width:0';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = '保存';
+  saveBtn.style.cssText = 'flex-shrink:0;padding:3px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
+  saveBtn.onclick = () => vpSaveTitle(id);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'キャンセル';
+  cancelBtn.style.cssText = 'flex-shrink:0;padding:3px 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit';
+  cancelBtn.onclick = () => { inp.remove(); saveBtn.remove(); cancelBtn.remove(); titleDiv.style.display=''; if(editBtn)editBtn.style.display=''; };
+  inp.onkeydown = e => { if(e.key==='Enter'){vpSaveTitle(id);} else if(e.key==='Escape'){cancelBtn.click();} };
+  titleDiv.parentNode.insertBefore(inp, titleDiv);
+  titleDiv.parentNode.insertBefore(saveBtn, titleDiv);
+  titleDiv.parentNode.insertBefore(cancelBtn, titleDiv);
+  inp.focus(); inp.select();
+}
+
+export async function vpSaveTitle(id) {
+  const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
+  const inp = document.getElementById('vp-title-inp-' + id); if (!inp) return;
+  const newTitle = inp.value.trim();
+  if (!newTitle) { window.toast?.('タイトルを入力してください'); return; }
+  // ローカル更新
+  v.title = newTitle;
+  window.debounceSave?.();
+  window.AF?.();
+  // タイトル表示を更新して編集モード終了
+  const titleDiv = document.getElementById('vp-title-text-' + id);
+  if (titleDiv) { titleDiv.textContent = newTitle; titleDiv.style.display = ''; }
+  inp.nextSibling?.remove(); inp.nextSibling?.remove(); // save/cancelボタン除去
+  inp.remove();
+  const editBtn = document.getElementById('vp-title-edit-btn');
+  if (editBtn) editBtn.style.display = '';
+  // タイトルバーも更新
+  const panelTitle = document.querySelector('.vp-panel-title');
+  if (panelTitle) panelTitle.textContent = newTitle;
+  // GDrive API でファイル名を変更
+  if (v.pt === 'gdrive') {
+    const fileId = v.id.replace('gd-', '');
+    try {
+      await window.renameGdFile?.(fileId, newTitle);
+      window.toast?.('✅ タイトルを変更しました（Drive上のファイル名も更新）');
+    } catch(e) {
+      console.warn('Drive rename failed:', e);
+      window.toast?.('✅ タイトルを変更しました（Drive上のファイル名は未変更: ' + e.message + '）');
+    }
+  } else {
+    window.toast?.('✅ タイトルを変更しました');
+  }
 }
 
 export function vpRefreshChips(id, type) {

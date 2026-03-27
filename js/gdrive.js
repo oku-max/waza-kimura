@@ -6,7 +6,7 @@ const VIDEO_MIMES = new Set([
   'video/x-flv','video/ogg',
 ]);
 
-const GD_SCOPE   = 'https://www.googleapis.com/auth/drive.readonly';
+const GD_SCOPE   = 'https://www.googleapis.com/auth/drive.file';
 const TOKEN_TTL  = 55 * 60 * 1000;   // 55分（Google上限60分）
 const REFRESH_AT = 50 * 60 * 1000;   // 50分経過でプロアクティブ刷新
 const CACHE_KEY  = 'gd_token_v2';
@@ -476,4 +476,23 @@ export async function gdImport() {
   if (window.aiSettings?.autoTagOnImport && newIds.length) {
     window.autoTagNewVideos?.(newIds);
   }
+}
+
+// ── Google Drive ファイルのタイトルを変更 ──
+export async function renameGdFile(fileId, newName) {
+  const token = await ensureDriveToken();
+  if (!token) throw new Error('Drive token unavailable');
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({ name: newName }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Drive API error ${res.status}`);
+  }
+  return res.json();
 }

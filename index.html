@@ -63,6 +63,7 @@
     vpTogWatch, vpTogFav, vpSetShare, vpSaveMemo, autoSaveVp, vpSave,
     vpTogChannelDd, vpRenderChannelDdList, vpSetChannel,
     vpTogPlNameDd, vpRenderPlNameDdList, vpSetPlName,
+    vpEditTitle, vpSaveTitle,
     _openPanel, _closePanelOutside, closePanel
   } from './js/vpanel.js';
   import './js/organize.js';
@@ -72,7 +73,8 @@
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
     gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
-    gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport
+    gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToStage1, gdImport,
+    renameGdFile
   } from './js/gdrive.js';
   import {
     mkChip, toggleSidebar, syncSidebarChipStates,
@@ -117,6 +119,7 @@
   window.gdSelNone               = gdSelNone;
   window.gdBackToStage1          = gdBackToStage1;
   window.gdImport                = gdImport;
+  window.renameGdFile            = renameGdFile;
   // data
   window.debounceSave            = debounceSave;
   window.qFav                    = qFav;
@@ -267,6 +270,8 @@
   window.vpTogPlNameDd         = vpTogPlNameDd;
   window.vpRenderPlNameDdList  = vpRenderPlNameDdList;
   window.vpSetPlName           = vpSetPlName;
+  window.vpEditTitle           = vpEditTitle;
+  window.vpSaveTitle           = vpSaveTitle;
   window._openPanel            = _openPanel;
   window._closePanelOutside    = _closePanelOutside;
   window.closePanel            = closePanel;
