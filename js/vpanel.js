@@ -1711,7 +1711,7 @@ export function vpTogChannelDd(id) {
   if (isOpen) return;
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   vpRenderChannelDdList(id, '');
 }
 
@@ -1838,7 +1838,7 @@ export function vpTogPlNameDd(id) {
   if (isOpen) return;
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   vpRenderPlNameDdList(id, '');
 }
 

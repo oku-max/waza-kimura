@@ -505,7 +505,6 @@ export function gdChDdOpen() {
   if (isOpen) { dd.style.display = 'none'; return; }
   gdChDdFilter('');
   dd.style.display = 'block';
-  document.getElementById('gd-ch-search')?.focus();
 }
 
 export function gdChDdFilter(q) {

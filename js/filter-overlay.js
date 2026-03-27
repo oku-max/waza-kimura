@@ -229,7 +229,7 @@ export function fovPickerDdOpen(rowId, filterKey) {
   }
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   _fovPickerDdRenderList(rowId, filterKey, '');
 }
 
@@ -275,7 +275,7 @@ export function fovDdOpen(rowId) {
   }
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   // リストを必ず再描画（初期ロード時の空白対策）
   const fk = dd.dataset.filterkey;
   if (fk) fovDdFilter(rowId, fk, '');
