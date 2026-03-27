@@ -1380,14 +1380,14 @@ export function buildDrawerHTML(id) {
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           ${v.channel ? `<span class="chip active" id="vp-ch-badge-${id}">${v.channel}</span>` : ''}
-          <div class="chip" style="border-style:dashed" onclick="vpTogChannelDd('${id}')">${v.channel ? '✎ 変更' : '＋ チャンネルを選ぶ'}</div>
+          ${v.pt === 'gdrive' ? `<div class="chip" style="border-style:dashed" onclick="vpTogChannelDd('${id}')">${v.channel ? '✎ 変更' : '＋ チャンネルを選ぶ'}</div>` : ''}
         </div>
-        <div class="vp-dd" id="vp-dd-ch-${id}" style="display:none">
+        ${v.pt === 'gdrive' ? `<div class="vp-dd" id="vp-dd-ch-${id}" style="display:none">
           <input class="vp-dd-search" placeholder="検索・新規追加..."
             oninput="vpRenderChannelDdList('${id}',this.value)"
             onkeydown="if(event.key==='Enter'&&this.value.trim()){vpSetChannel('${id}',this.value.trim());event.preventDefault();}if(event.key==='Escape'){this.closest('.vp-dd').style.display='none';}">
           <div class="vp-dd-list" id="vp-dd-list-ch-${id}"></div>
-        </div>
+        </div>` : ''}
       </div>
     </div>
     <div class="vp-row">
