@@ -85,9 +85,10 @@ export async function saveUserSettings() {
   if (!currentUser) return;
   try {
     await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set({
-      tagSettings:   window.tagSettings   || [],
-      aiSettings:    window.aiSettings    || {},
-      savedSearches: window.savedSearches || [],
+      tagSettings:    window.tagSettings    || [],
+      aiSettings:     window.aiSettings     || {},
+      savedSearches:  window.savedSearches  || [],
+      filterPresets:  window.filterPresets  || [],
       updatedAt: new Date().toISOString()
     });
   } catch (e) { console.error('saveUserSettings:', e); }
@@ -102,6 +103,9 @@ export async function loadUserSettings(uid) {
       // 保存した検索条件を復元
       if (Array.isArray(data.savedSearches) && data.savedSearches.length) {
         window.loadSavedSearchesFromRemote?.(data.savedSearches);
+      }
+      if (Array.isArray(data.filterPresets) && data.filterPresets.length) {
+        window.loadFilterPresetsFromRemote?.(data.filterPresets);
       }
     }
   } catch (e) { console.error('loadUserSettings:', e); }

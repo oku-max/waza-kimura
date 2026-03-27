@@ -42,7 +42,7 @@
     filterPresets, orgFilterPresets, saveFilterPresets, saveOrgFilterPresets,
     saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
-    renderFilterPresets, resetFilters, updateResetBtn,
+    renderFilterPresets, resetFilters, updateResetBtn, loadFilterPresetsFromRemote,
     filt, countByField, countByPl, countByCh, cntBadge, countContextual,
     AF, sortVideos, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL
   } from './js/filter.js';
@@ -165,8 +165,9 @@
   window.togBm                 = togBm;
   window.togMemo               = togMemo;
   window.clearAll              = clearAll;
-  window.filterPresets         = filterPresets;
-  window.orgFilterPresets      = orgFilterPresets;
+  window.filterPresets              = filterPresets;
+  window.orgFilterPresets           = orgFilterPresets;
+  window.loadFilterPresetsFromRemote = loadFilterPresetsFromRemote;
   window.saveFilterPresets     = saveFilterPresets;
   window.saveOrgFilterPresets  = saveOrgFilterPresets;
   window.saveFilterPreset      = saveFilterPreset;
