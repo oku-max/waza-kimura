@@ -1220,7 +1220,7 @@ function _updateArchBulkBar(){
 function archTogSel(id,cb){if(cb.checked)archSelIds.add(id);else archSelIds.delete(id);_updateArchBulkBar();}
 function archTogSelAll(cb){const arc=videos.filter(v=>v.archived);if(cb.checked)arc.forEach(v=>archSelIds.add(v.id));else archSelIds.clear();renderArch();}
 function bulkRestoreArch(){const ids=[...archSelIds];if(!ids.length)return;ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=false;});archSelIds.clear();renderArch();window.AF?.();toast(`↩ ${ids.length}本を復元しました`);}
-function bulkDeleteArch(){const ids=[...archSelIds];if(!ids.length)return;showConf('🗑 一括削除',`選択した${ids.length}本を完全に削除しますか？`,()=>{videos=videos.filter(v=>!ids.includes(v.id));archSelIds.clear();renderArch();window.AF?.();toast(`削除しました（${ids.length}本）`);});}
+function bulkDeleteArch(){const ids=[...archSelIds];if(!ids.length)return;showConf('🗑 一括削除',`選択した${ids.length}本を完全に削除しますか？`,()=>{videos=videos.filter(v=>!ids.includes(v.id));window.videos=videos;archSelIds.clear();renderArch();window.AF?.();window.saveUserData?.();toast(`削除しました（${ids.length}本）`);});}
 function renderArch(){
   const arc=videos.filter(v=>v.archived);
   document.getElementById('arc').textContent=`${arc.length}本`;
@@ -1234,7 +1234,7 @@ function renderArch(){
   _updateArchBulkBar();
 }
 function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;archSelIds.delete(id);renderArch();window.AF?.();toast('↩ 復元しました');}}
-function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{videos=videos.filter(v=>v.id!==id);archSelIds.delete(id);renderArch();window.AF?.();toast('削除しました');});}
+function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{videos=videos.filter(v=>v.id!==id);window.videos=videos;archSelIds.delete(id);renderArch();window.AF?.();window.saveUserData?.();toast('削除しました');});}
 
 function togBelt(b,el){beltF.has(b)?beltF.delete(b):beltF.add(b);el.classList.toggle('sel');renderComm();}
 function togCSt(s,el){cStF.has(s)?cStF.delete(s):cStF.add(s);el.classList.toggle('active');renderComm();}
