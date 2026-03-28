@@ -67,6 +67,7 @@ export function clearAll() {
   window.syncFilterOvRows?.();
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
   window.buildSidebarFovRows?.();
+  window.refreshOpenSbAccordions?.();
   window.renderTFC?.();
   window.AF?.();
 }

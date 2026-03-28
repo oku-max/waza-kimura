@@ -88,7 +88,10 @@
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
     saveCurrentSearch, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
     toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn,
-    buildSidebarFovRows, trackRecentView, renderRecentSidebar
+    buildSidebarFovRows, trackRecentView, renderRecentSidebar,
+    buildSbPickerInline, sbPickerInlineFilter, sbPickerInlineToggle, sbPickerInlineTabSwitch,
+    buildSbTagInline, sbTagInlineFilter, sbTagInlineToggle,
+    refreshOpenSbAccordions
   } from './js/filter-overlay.js';
 
   // firebase
@@ -251,9 +254,17 @@
   window.renderAccChips        = renderAccChips;
   window.filterAccChips        = filterAccChips;
   window.showFsBulkBtn         = showFsBulkBtn;
-  window.buildSidebarFovRows   = buildSidebarFovRows;
-  window.trackRecentView       = trackRecentView;
-  window.renderRecentSidebar   = renderRecentSidebar;
+  window.buildSidebarFovRows       = buildSidebarFovRows;
+  window.trackRecentView           = trackRecentView;
+  window.renderRecentSidebar       = renderRecentSidebar;
+  window.buildSbPickerInline       = buildSbPickerInline;
+  window.sbPickerInlineFilter      = sbPickerInlineFilter;
+  window.sbPickerInlineToggle      = sbPickerInlineToggle;
+  window.sbPickerInlineTabSwitch   = sbPickerInlineTabSwitch;
+  window.buildSbTagInline          = buildSbTagInline;
+  window.sbTagInlineFilter         = sbTagInlineFilter;
+  window.sbTagInlineToggle         = sbTagInlineToggle;
+  window.refreshOpenSbAccordions   = refreshOpenSbAccordions;
   setTimeout(renderSavedSearches, 500);
   setTimeout(() => { window.buildSidebarFovRows?.(); window.renderRecentSidebar?.(); }, 800);
   // vpanel — wrap openVPanel to track recently viewed
@@ -617,12 +628,8 @@
         <div class="fs-acc-hdr" onclick="toggleAcc('ch')">
           <span>Channel</span><span class="fs-acc-arrow" id="fs-acc-arr-ch">▶</span>
         </div>
-        <div class="fs-acc-body" id="fs-acc-body-ch" style="display:none;padding:6px 10px 10px">
-          <div class="tab-srch" style="width:100%;box-sizing:border-box;margin-bottom:6px">
-            <span style="color:var(--text3);font-size:12px">🔍</span>
-            <input id="acc-ch-search" type="text" placeholder="チャンネルを検索..." oninput="filterAccChips('ch')" style="width:100%;font-size:11px">
-          </div>
-          <div id="fs-acc-ch-chips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        <div class="fs-acc-body" id="fs-acc-body-ch" style="display:none">
+          <div id="sb-ch-picker"></div>
         </div>
       </div>
 
@@ -631,12 +638,8 @@
         <div class="fs-acc-hdr" onclick="toggleAcc('pl')">
           <span>Playlist</span><span class="fs-acc-arrow" id="fs-acc-arr-pl">▶</span>
         </div>
-        <div class="fs-acc-body" id="fs-acc-body-pl" style="display:none;padding:6px 10px 10px">
-          <div class="tab-srch" style="width:100%;box-sizing:border-box;margin-bottom:6px">
-            <span style="color:var(--text3);font-size:12px">🔍</span>
-            <input id="acc-pl-search" type="text" placeholder="プレイリストを検索..." oninput="filterAccChips('pl')" style="width:100%;font-size:11px">
-          </div>
-          <div id="fs-acc-pl-chips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        <div class="fs-acc-body" id="fs-acc-body-pl" style="display:none">
+          <div id="sb-pl-picker"></div>
         </div>
       </div>
 
@@ -645,8 +648,8 @@
         <div class="fs-acc-hdr" onclick="toggleAcc('tb')">
           <span>Top / Bottom</span><span class="fs-acc-arrow" id="fs-acc-arr-tb">▶</span>
         </div>
-        <div class="fs-acc-body" id="fs-acc-body-tb" style="display:none;padding:6px 12px 10px">
-          <div class="fs-chips" id="fs-acc-tb-chips"></div>
+        <div class="fs-acc-body" id="fs-acc-body-tb" style="display:none">
+          <div id="sb-tb-picker"></div>
         </div>
       </div>
 
@@ -655,8 +658,8 @@
         <div class="fs-acc-hdr" onclick="toggleAcc('ac')">
           <span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-ac">▶</span>
         </div>
-        <div class="fs-acc-body" id="fs-acc-body-ac" style="display:none;padding:6px 12px 10px">
-          <div class="fs-chips" id="fs-acc-ac-chips"></div>
+        <div class="fs-acc-body" id="fs-acc-body-ac" style="display:none">
+          <div id="sb-ac-picker"></div>
         </div>
       </div>
 
@@ -665,8 +668,8 @@
         <div class="fs-acc-hdr" onclick="toggleAcc('pos')">
           <span>Position</span><span class="fs-acc-arrow" id="fs-acc-arr-pos">▶</span>
         </div>
-        <div class="fs-acc-body" id="fs-acc-body-pos" style="display:none;padding:6px 12px 10px">
-          <div class="fs-chips" id="fs-acc-pos-chips"></div>
+        <div class="fs-acc-body" id="fs-acc-body-pos" style="display:none">
+          <div id="sb-pos-picker"></div>
         </div>
       </div>
 
@@ -675,8 +678,8 @@
         <div class="fs-acc-hdr" onclick="toggleAcc('tech')">
           <span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tech">▶</span>
         </div>
-        <div class="fs-acc-body" id="fs-acc-body-tech" style="display:none;padding:6px 12px 10px">
-          <div class="fs-chips" id="fs-acc-tech-chips"></div>
+        <div class="fs-acc-body" id="fs-acc-body-tech" style="display:none">
+          <div id="sb-tech-picker"></div>
         </div>
       </div>
 

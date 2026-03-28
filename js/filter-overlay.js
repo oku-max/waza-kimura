@@ -662,9 +662,21 @@ export function toggleAcc(key) {
   body.style.display = open ? 'block' : 'none';
   if (arrow) arrow.classList.toggle('open', open);
   if (open) {
-    if (key === 'pl')    renderAccChips('pl');
-    if (key === 'ch')    renderAccChips('ch');
-    if (key === 'saved') window.renderFilterPresets?.();
+    if (key === 'ch')     buildSbPickerInline('sb-ch-picker', 'channel');
+    if (key === 'pl')     buildSbPickerInline('sb-pl-picker', 'playlist');
+    if (key === 'saved')  window.renderFilterPresets?.();
+    if (key === 'tb')     buildSbTagInline('sb-tb-picker', 'tb', window.TB_TAGS||[]);
+    if (key === 'ac')     buildSbTagInline('sb-ac-picker', 'action', window.AC_TAGS||[]);
+    if (key === 'pos') {
+      const vids = window.videos || [];
+      buildSbTagInline('sb-pos-picker', 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
+    }
+    if (key === 'tech') {
+      const vids = window.videos || [];
+      buildSbTagInline('sb-tech-picker', 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort());
+    }
+    if (key === 'src')    buildSidebarFovRows();
+    if (key === 'recent') renderRecentSidebar();
   }
 }
 
@@ -789,4 +801,164 @@ export function renderRecentSidebar() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── サイドバー インライン ピッカー (Channel / Playlist) ──
+const _SB_POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+const _sbTagItems  = {};
+
+function _sbPickerCountMap(filterKey) {
+  const videos = window.videos || [];
+  const m = {};
+  videos.forEach(v => {
+    const k = filterKey === 'channel' ? v.channel : v.pl;
+    if (k) m[k] = (m[k] || 0) + 1;
+  });
+  return m;
+}
+
+function _sbPickerRenderList(containerId, filterKey, q) {
+  const listEl = document.getElementById(containerId + '-list');
+  if (!listEl) return;
+  const f = window.filters || {};
+  const countMap = _sbPickerCountMap(filterKey);
+  const allItems = Object.keys(countMap).sort((a, b) => a.localeCompare(b, 'ja'));
+  const secLabel  = filterKey === 'channel' ? '全チャンネル' : '全プレイリスト';
+
+  const mkItem = v => {
+    const sel = f[filterKey]?.has(v);
+    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="sbPickerInlineToggle('${containerId}','${filterKey}','${v.replace(/'/g,"\\'")}')">${v}<span class="vp-dd-cnt">${countMap[v] || 0}本</span></div>`;
+  };
+
+  if (q.trim()) {
+    const ql = q.toLowerCase();
+    listEl.innerHTML = allItems.filter(v => v.toLowerCase().includes(ql)).map(mkItem).join('');
+    return;
+  }
+
+  // アルファベット / あいうえお順グループ化
+  const groups = {};
+  allItems.forEach(item => {
+    const g = _fovGetAlphaGroup(item);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(item);
+  });
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    const ia = /^[A-Z]$/.test(a), ib = /^[A-Z]$/.test(b);
+    if (ia && !ib) return -1; if (!ia && ib) return 1;
+    return a.localeCompare(b, 'ja');
+  });
+  const alphaHTML = sortedKeys.map(g =>
+    `<div class="vp-dd-alpha-hd">${g}</div>` + groups[g].map(mkItem).join('')
+  ).join('');
+  const countHTML = [...allItems].sort((a, b) => (countMap[b] || 0) - (countMap[a] || 0)).map(mkItem).join('');
+
+  const aId = containerId + '-alpha', cId = containerId + '-cnt';
+  const aTId = containerId + '-tab-alpha', cTId = containerId + '-tab-count';
+  listEl.innerHTML =
+    `<div class="vp-dd-sec-hd" style="padding-bottom:0">${secLabel}</div>
+    <div class="vp-dd-subtabs">
+      <div class="vp-dd-subtab on" id="${aTId}" onclick="sbPickerInlineTabSwitch('${containerId}','alpha')">ABC / あいうえお順</div>
+      <div class="vp-dd-subtab" id="${cTId}" onclick="sbPickerInlineTabSwitch('${containerId}','count')">件数順</div>
+    </div>
+    <div class="vp-dd-subpanel on" id="${aId}">${alphaHTML}</div>
+    <div class="vp-dd-subpanel"    id="${cId}">${countHTML}</div>`;
+}
+
+export function buildSbPickerInline(containerId, filterKey) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `
+    <input class="vp-dd-search" id="${containerId}-search" placeholder="検索..."
+      oninput="sbPickerInlineFilter('${containerId}','${filterKey}',this.value)">
+    <div id="${containerId}-list"></div>`;
+  _sbPickerRenderList(containerId, filterKey, '');
+}
+
+export function sbPickerInlineFilter(containerId, filterKey, q) {
+  _sbPickerRenderList(containerId, filterKey, q);
+}
+
+export function sbPickerInlineToggle(containerId, filterKey, val) {
+  const f = window.filters || {};
+  if (!f[filterKey]) f[filterKey] = new Set();
+  f[filterKey].has(val) ? f[filterKey].delete(val) : f[filterKey].add(val);
+  const q = document.getElementById(containerId + '-search')?.value || '';
+  _sbPickerRenderList(containerId, filterKey, q);
+  window.AF?.();
+}
+
+export function sbPickerInlineTabSwitch(containerId, tab) {
+  const aId = containerId + '-alpha', cId = containerId + '-cnt';
+  const aTId = containerId + '-tab-alpha', cTId = containerId + '-tab-count';
+  const isAlpha = tab === 'alpha';
+  [document.getElementById(aId),  document.getElementById(cId)]
+    .forEach((el, i) => el?.classList.toggle('on', isAlpha ? i === 0 : i === 1));
+  [document.getElementById(aTId), document.getElementById(cTId)]
+    .forEach((el, i) => el?.classList.toggle('on', isAlpha ? i === 0 : i === 1));
+}
+
+// ── サイドバー インライン タグリスト (TB / Action / Position / Technique) ──
+function _sbTagRenderList(containerId, filterKey, items, q) {
+  const listEl = document.getElementById(containerId + '-list');
+  if (!listEl) return;
+  const f = window.filters || {};
+  const ql = q.toLowerCase();
+  const filtered = ql ? items.filter(v => v.toLowerCase().includes(ql)) : items;
+  if (!filtered.length) {
+    listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:8px 12px">項目がありません</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(v => {
+    const sel = f[filterKey]?.has(v);
+    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="sbTagInlineToggle('${containerId}','${filterKey}','${v.replace(/'/g,"\\'")}')">${v}</div>`;
+  }).join('');
+}
+
+export function buildSbTagInline(containerId, filterKey, items) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  _sbTagItems[containerId] = { filterKey, items };
+  el.innerHTML = `
+    <input class="vp-dd-search" id="${containerId}-search" placeholder="検索..."
+      oninput="sbTagInlineFilter('${containerId}','${filterKey}',this.value)">
+    <div id="${containerId}-list"></div>`;
+  _sbTagRenderList(containerId, filterKey, items, '');
+}
+
+export function sbTagInlineFilter(containerId, filterKey, q) {
+  const stored = _sbTagItems[containerId];
+  if (stored) _sbTagRenderList(containerId, stored.filterKey, stored.items, q);
+}
+
+export function sbTagInlineToggle(containerId, filterKey, val) {
+  const f = window.filters || {};
+  if (!f[filterKey]) f[filterKey] = new Set();
+  f[filterKey].has(val) ? f[filterKey].delete(val) : f[filterKey].add(val);
+  const stored = _sbTagItems[containerId];
+  if (!stored) return;
+  const q = document.getElementById(containerId + '-search')?.value || '';
+  _sbTagRenderList(containerId, filterKey, stored.items, q);
+  window.AF?.();
+}
+
+// フィルタークリア後に開いているアコーディオンを再描画
+export function refreshOpenSbAccordions() {
+  const isOpen = key => {
+    const b = document.getElementById('fs-acc-body-' + key);
+    return b && b.style.display !== 'none';
+  };
+  if (isOpen('ch'))   buildSbPickerInline('sb-ch-picker', 'channel');
+  if (isOpen('pl'))   buildSbPickerInline('sb-pl-picker', 'playlist');
+  if (isOpen('tb'))   buildSbTagInline('sb-tb-picker', 'tb', window.TB_TAGS||[]);
+  if (isOpen('ac'))   buildSbTagInline('sb-ac-picker', 'action', window.AC_TAGS||[]);
+  if (isOpen('pos')) {
+    const vids = window.videos || [];
+    buildSbTagInline('sb-pos-picker', 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
+  }
+  if (isOpen('tech')) {
+    const vids = window.videos || [];
+    buildSbTagInline('sb-tech-picker', 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort());
+  }
+  if (isOpen('src')) buildSidebarFovRows();
 }
