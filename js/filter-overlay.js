@@ -280,6 +280,7 @@ export function fovDdOpen(rowId) {
     dd.style.width = '';
   }
   dd.style.display = 'block';
+  adjustDdListHeight(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
   // リストを必ず再描画（初期ロード時の空白対策）

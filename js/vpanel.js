@@ -1709,7 +1709,19 @@ export function vpTogChannelDd(id) {
   const isOpen = dd.style.display !== 'none';
   document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
+  // position:fixed でVPanelのoverflow:hiddenから脱出
+  const wrap = dd.closest('.vp-dd-wrap');
+  if (wrap) {
+    const rect = wrap.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.top = (rect.bottom + 2) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.right = (window.innerWidth - rect.right) + 'px';
+    dd.style.width = '';
+    dd.style.zIndex = '400';
+  }
   dd.style.display = 'block';
+  window.adjustDdListHeight?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
   vpRenderChannelDdList(id, '');
@@ -1836,7 +1848,19 @@ export function vpTogPlNameDd(id) {
   const isOpen = dd.style.display !== 'none';
   document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
+  // position:fixed でVPanelのoverflow:hiddenから脱出
+  const wrap = dd.closest('.vp-dd-wrap');
+  if (wrap) {
+    const rect = wrap.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.top = (rect.bottom + 2) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.right = (window.innerWidth - rect.right) + 'px';
+    dd.style.width = '';
+    dd.style.zIndex = '400';
+  }
   dd.style.display = 'block';
+  window.adjustDdListHeight?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
   vpRenderPlNameDdList(id, '');

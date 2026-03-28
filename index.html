@@ -87,7 +87,8 @@
     syncFovChips, clearFovField,
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
     saveCurrentSearch, applySavedSearch, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
-    toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn
+    toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn,
+    adjustDdListHeight
   } from './js/filter-overlay.js';
 
   // firebase
@@ -248,6 +249,7 @@
   window.renderAccChips        = renderAccChips;
   window.filterAccChips        = filterAccChips;
   window.showFsBulkBtn         = showFsBulkBtn;
+  window.adjustDdListHeight    = adjustDdListHeight;
   setTimeout(renderSavedSearches, 500);
   // vpanel
   window.openVPanel            = openVPanel;
