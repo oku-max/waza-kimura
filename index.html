@@ -91,7 +91,8 @@
     buildSidebarFovRows, trackRecentView, renderRecentSidebar,
     buildSbPickerInline, sbPickerInlineFilter, sbPickerInlineToggle, sbPickerInlineTabSwitch,
     buildSbTagInline, sbTagInlineFilter, sbTagInlineToggle,
-    refreshOpenSbAccordions
+    refreshOpenSbAccordions,
+    openSbPopup, closeSbPopup
   } from './js/filter-overlay.js';
 
   // firebase
@@ -265,6 +266,8 @@
   window.sbTagInlineFilter         = sbTagInlineFilter;
   window.sbTagInlineToggle         = sbTagInlineToggle;
   window.refreshOpenSbAccordions   = refreshOpenSbAccordions;
+  window.openSbPopup               = openSbPopup;
+  window.closeSbPopup              = closeSbPopup;
   setTimeout(renderSavedSearches, 500);
   setTimeout(() => { window.buildSidebarFovRows?.(); window.renderRecentSidebar?.(); }, 800);
   // vpanel — wrap openVPanel to track recently viewed
@@ -625,61 +628,43 @@
 
       <!-- 📺 チャンネル -->
       <div class="fs-acc-sec" id="fs-acc-ch">
-        <div class="fs-acc-hdr" onclick="toggleAcc('ch')">
+        <div class="fs-acc-hdr" onclick="openSbPopup('ch', this)">
           <span>Channel</span><span class="fs-acc-arrow" id="fs-acc-arr-ch">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-ch" style="display:none">
-          <div id="sb-ch-picker"></div>
         </div>
       </div>
 
       <!-- 📋 プレイリスト -->
       <div class="fs-acc-sec" id="fs-acc-pl">
-        <div class="fs-acc-hdr" onclick="toggleAcc('pl')">
+        <div class="fs-acc-hdr" onclick="openSbPopup('pl', this)">
           <span>Playlist</span><span class="fs-acc-arrow" id="fs-acc-arr-pl">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-pl" style="display:none">
-          <div id="sb-pl-picker"></div>
         </div>
       </div>
 
       <!-- Top / Bottom -->
       <div class="fs-acc-sec" id="fs-acc-tb">
-        <div class="fs-acc-hdr" onclick="toggleAcc('tb')">
+        <div class="fs-acc-hdr" onclick="openSbPopup('tb', this)">
           <span>Top / Bottom</span><span class="fs-acc-arrow" id="fs-acc-arr-tb">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-tb" style="display:none">
-          <div id="sb-tb-picker"></div>
         </div>
       </div>
 
       <!-- Action -->
       <div class="fs-acc-sec" id="fs-acc-ac">
-        <div class="fs-acc-hdr" onclick="toggleAcc('ac')">
+        <div class="fs-acc-hdr" onclick="openSbPopup('ac', this)">
           <span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-ac">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-ac" style="display:none">
-          <div id="sb-ac-picker"></div>
         </div>
       </div>
 
       <!-- Position -->
       <div class="fs-acc-sec" id="fs-acc-pos">
-        <div class="fs-acc-hdr" onclick="toggleAcc('pos')">
+        <div class="fs-acc-hdr" onclick="openSbPopup('pos', this)">
           <span>Position</span><span class="fs-acc-arrow" id="fs-acc-arr-pos">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-pos" style="display:none">
-          <div id="sb-pos-picker"></div>
         </div>
       </div>
 
       <!-- Technique -->
       <div class="fs-acc-sec" id="fs-acc-tech">
-        <div class="fs-acc-hdr" onclick="toggleAcc('tech')">
+        <div class="fs-acc-hdr" onclick="openSbPopup('tech', this)">
           <span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tech">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-tech" style="display:none">
-          <div id="sb-tech-picker"></div>
         </div>
       </div>
 
@@ -821,7 +806,18 @@
     </div><!-- /org-fs-accordion-area -->
 
   </div><!-- /fs-scroll -->
-</aside><div id="sbResizer"></div><div class="main-area">
+</aside>
+
+<!-- サイドバー フィルターポップアップ -->
+<div id="sb-filter-popup" style="display:none;position:fixed;z-index:10001;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.45);overflow:hidden;width:320px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface2)">
+    <span id="sb-popup-title" style="font-size:12px;font-weight:700;color:var(--text)"></span>
+    <span onclick="closeSbPopup()" style="cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:2px 4px" title="閉じる">✕</span>
+  </div>
+  <div id="sb-popup-body" style="max-height:420px;overflow-y:auto"></div>
+</div>
+
+<div id="sbResizer"></div><div class="main-area">
 
 <!-- HOME -->
 

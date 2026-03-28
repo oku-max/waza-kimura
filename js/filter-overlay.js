@@ -662,23 +662,82 @@ export function toggleAcc(key) {
   body.style.display = open ? 'block' : 'none';
   if (arrow) arrow.classList.toggle('open', open);
   if (open) {
-    if (key === 'ch')     buildSbPickerInline('sb-ch-picker', 'channel');
-    if (key === 'pl')     buildSbPickerInline('sb-pl-picker', 'playlist');
     if (key === 'saved')  window.renderFilterPresets?.();
-    if (key === 'tb')     buildSbTagInline('sb-tb-picker', 'tb', window.TB_TAGS||[]);
-    if (key === 'ac')     buildSbTagInline('sb-ac-picker', 'action', window.AC_TAGS||[]);
-    if (key === 'pos') {
-      const vids = window.videos || [];
-      buildSbTagInline('sb-pos-picker', 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
-    }
-    if (key === 'tech') {
-      const vids = window.videos || [];
-      buildSbTagInline('sb-tech-picker', 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort());
-    }
     if (key === 'src')    buildSidebarFovRows();
     if (key === 'recent') renderRecentSidebar();
   }
 }
+
+// ── サイドバー フィルターポップアップ ──
+function _sbPopupRender(key) {
+  const cId = 'sb-popup-inner';
+  const body = document.getElementById('sb-popup-body');
+  if (!body) return;
+  body.innerHTML = `<div id="${cId}"></div>`;
+  if (key === 'ch')   buildSbPickerInline(cId, 'channel');
+  else if (key === 'pl')   buildSbPickerInline(cId, 'playlist');
+  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_TAGS||[]);
+  else if (key === 'ac')   buildSbTagInline(cId, 'action', window.AC_TAGS||[]);
+  else if (key === 'pos') {
+    const vids = window.videos || [];
+    buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
+  } else if (key === 'tech') {
+    const vids = window.videos || [];
+    buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort());
+  }
+}
+
+const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', ac:'Action', pos:'Position', tech:'Technique' };
+
+export function openSbPopup(key, triggerEl) {
+  const popup = document.getElementById('sb-filter-popup');
+  if (!popup) return;
+  // 同じキーなら閉じる
+  if (popup.dataset.activeKey === key && popup.style.display !== 'none') {
+    closeSbPopup(); return;
+  }
+  popup.dataset.activeKey = key;
+  const titleEl = document.getElementById('sb-popup-title');
+  if (titleEl) titleEl.textContent = _SB_POPUP_LABELS[key] || key;
+  _sbPopupRender(key);
+
+  // サイドバーの右端の右隣に配置
+  const sidebar = document.getElementById('filterSidebar');
+  const sRect = sidebar ? sidebar.getBoundingClientRect() : { right: 224, top: 0, bottom: window.innerHeight };
+  const tRect = triggerEl.getBoundingClientRect();
+
+  popup.style.display = 'block';
+  popup.style.left   = (sRect.right + 4) + 'px';
+  popup.style.right  = 'auto';
+  popup.style.width  = '320px';
+
+  // 縦位置: トリガーの上端に合わせ、画面下にはみ出たら上方向に調整
+  let top = tRect.top;
+  popup.style.top = top + 'px';
+  const pRect = popup.getBoundingClientRect();
+  if (pRect.bottom > window.innerHeight - 16) {
+    top = Math.max(8, window.innerHeight - 16 - pRect.height);
+    popup.style.top = top + 'px';
+  }
+
+  // アロー更新
+  document.querySelectorAll('.fs-acc-arrow').forEach(a => a.classList.remove('open'));
+  const arr = document.getElementById('fs-acc-arr-' + key);
+  if (arr) arr.classList.add('open');
+}
+
+export function closeSbPopup() {
+  const popup = document.getElementById('sb-filter-popup');
+  if (popup) { popup.style.display = 'none'; popup.dataset.activeKey = ''; }
+  document.querySelectorAll('.fs-acc-arrow').forEach(a => a.classList.remove('open'));
+}
+
+// クリック外で閉じる
+document.addEventListener('click', e => {
+  const popup = document.getElementById('sb-filter-popup');
+  if (!popup || popup.style.display === 'none') return;
+  if (!popup.contains(e.target) && !e.target.closest('.fs-acc-hdr')) closeSbPopup();
+}, true);
 
 export function renderAccChips(type) {
   const container = document.getElementById('fs-acc-' + type + '-chips'); if (!container) return;
@@ -942,23 +1001,11 @@ export function sbTagInlineToggle(containerId, filterKey, val) {
   window.AF?.();
 }
 
-// フィルタークリア後に開いているアコーディオンを再描画
+// フィルタークリア後に開いているポップアップを再描画
 export function refreshOpenSbAccordions() {
-  const isOpen = key => {
-    const b = document.getElementById('fs-acc-body-' + key);
-    return b && b.style.display !== 'none';
-  };
-  if (isOpen('ch'))   buildSbPickerInline('sb-ch-picker', 'channel');
-  if (isOpen('pl'))   buildSbPickerInline('sb-pl-picker', 'playlist');
-  if (isOpen('tb'))   buildSbTagInline('sb-tb-picker', 'tb', window.TB_TAGS||[]);
-  if (isOpen('ac'))   buildSbTagInline('sb-ac-picker', 'action', window.AC_TAGS||[]);
-  if (isOpen('pos')) {
-    const vids = window.videos || [];
-    buildSbTagInline('sb-pos-picker', 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
+  const popup = document.getElementById('sb-filter-popup');
+  if (popup && popup.style.display !== 'none' && popup.dataset.activeKey) {
+    _sbPopupRender(popup.dataset.activeKey);
   }
-  if (isOpen('tech')) {
-    const vids = window.videos || [];
-    buildSbTagInline('sb-tech-picker', 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort());
-  }
-  if (isOpen('src')) buildSidebarFovRows();
+  if (document.getElementById('fs-acc-body-src')?.style.display !== 'none') buildSidebarFovRows();
 }
