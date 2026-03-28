@@ -12,6 +12,10 @@ export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.p
 // ── aiSettings ──
 export let aiSettings = {
   enabled:          true,
+  defaultMode:      'add',
+  categories:       { tb: true, action: true, position: true, tech: true },
+  autoTagOnImport:  false,
+  bulkConfirm:      true,
   newTagProposal:   true,
   flexibility:      'standard',
   autoAddToPresets: false,
@@ -44,7 +48,14 @@ export function loadTagSettings() {
   _migrateTagSettings();
   try {
     const a = localStorage.getItem('wk_aiSettings');
-    if (a) { const p = JSON.parse(a); if (p && typeof p === 'object') Object.assign(aiSettings, p); }
+    if (a) {
+      const p = JSON.parse(a);
+      if (p && typeof p === 'object') {
+        const cats = p.categories;
+        Object.assign(aiSettings, p);
+        if (cats && typeof cats === 'object') aiSettings.categories = { ...aiSettings.categories, ...cats };
+      }
+    }
   } catch(e) {}
   window.tagSettings = tagSettings;
   window.aiSettings  = aiSettings;
@@ -239,34 +250,85 @@ export function renderTagVisibilityBtns() {
 // ── AI設定UI ──
 export function renderAiSettings() {
   const el = document.getElementById('ai-settings-section'); if (!el) return;
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700">AI タグ提案</div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-        <input type="checkbox" ${aiSettings.enabled?'checked':''} onchange="aiSettings.enabled=this.checked;saveAiSettings();renderAiSettings()"> 有効
-      </label>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;opacity:${aiSettings.enabled?1:.4};pointer-events:${aiSettings.enabled?'auto':'none'}">
+  const s = aiSettings;
+  const catLabels = { tb: 'TOP/BOTTOM', action: 'ACTION', position: 'POSITION', tech: 'TECHNIQUE' };
+  const row = (label, desc, checkbox) =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
       <div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">提案の柔軟度</div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">${label}</div>
+        ${desc ? `<div style="font-size:11px;color:var(--text3)">${desc}</div>` : ''}
+      </div>
+      ${checkbox}
+    </div>`;
+  const toggle = (prop, extra='') =>
+    `<label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" ${s[prop]?'checked':''} onchange="aiSettings.${prop}=this.checked;saveAiSettings();renderAiSettings()" style="accent-color:var(--accent);width:14px;height:14px"${extra}> 有効
+    </label>`;
+
+  el.innerHTML = `
+    ${row('AIタグ機能', '🤖 AIタグ提案ボタンの有効/無効', toggle('enabled'))}
+    <div style="opacity:${s.enabled?1:.4};pointer-events:${s.enabled?'auto':'none'}">
+
+      <!-- デフォルト適用モード -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">デフォルト適用モード</div>
+        <div style="display:flex;gap:8px">
+          ${['add','overwrite'].map(v => `
+            <button onclick="aiSettings.defaultMode='${v}';saveAiSettings();renderAiSettings()"
+              style="padding:6px 18px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;
+                ${s.defaultMode===v?'background:var(--accent);color:#fff;border:none':'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
+              ${{add:'＋ 追加',overwrite:'上書き'}[v]}
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <!-- 提案するカテゴリ -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">提案するカテゴリ</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${Object.entries(catLabels).map(([key, label]) => `
+            <label style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;
+              border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600">
+              <input type="checkbox" ${s.categories[key]?'checked':''}
+                onchange="aiSettings.categories['${key}']=this.checked;saveAiSettings()"
+                style="accent-color:var(--accent);width:13px;height:13px"> ${label}
+            </label>`).join('')}
+        </div>
+      </div>
+
+      <!-- 提案の柔軟度 -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px">提案の柔軟度</div>
         <div style="display:flex;gap:6px">
           ${['strict','standard','flexible'].map(v => `
             <button onclick="aiSettings.flexibility='${v}';saveAiSettings();renderAiSettings()"
               style="flex:1;padding:5px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;cursor:pointer;font-family:inherit;
-                background:${aiSettings.flexibility===v?'var(--accent)':'var(--surface2)'};
-                color:${aiSettings.flexibility===v?'#fff':'var(--text2)'}">
+                background:${s.flexibility===v?'var(--accent)':'var(--surface2)'};
+                color:${s.flexibility===v?'#fff':'var(--text2)'}">
               ${{strict:'がちがち',standard:'標準',flexible:'柔軟'}[v]}
             </button>`).join('')}
         </div>
       </div>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:12px;cursor:pointer">
-        <span>新規タグ提案を許可</span>
-        <input type="checkbox" ${aiSettings.newTagProposal?'checked':''} onchange="aiSettings.newTagProposal=this.checked;saveAiSettings();renderAiSettings()">
-      </label>
-      ${aiSettings.newTagProposal ? `
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:12px;cursor:pointer">
-        <span>承認時に自動でプリセットへ追加</span>
-        <input type="checkbox" ${aiSettings.autoAddToPresets?'checked':''} onchange="aiSettings.autoAddToPresets=this.checked;saveAiSettings()">
-      </label>` : ''}
+
+      <!-- YouTube取り込み時に自動AI分析 -->
+      ${row('YouTube取り込み時に自動AI分析', '取り込んだ動画にAIが自動でタグを追加します', toggle('autoTagOnImport'))}
+
+      <!-- 新規タグ提案を許可 -->
+      ${row('新規タグ提案を許可', 'プリセット外の新しいタグをAIが提案できます',
+        `<label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" ${s.newTagProposal?'checked':''} onchange="aiSettings.newTagProposal=this.checked;saveAiSettings();renderAiSettings()" style="accent-color:var(--accent);width:14px;height:14px"> 有効
+        </label>`)}
+
+      ${s.newTagProposal ? row('承認時に自動でプリセットへ追加', '新規提案タグを承認した際にプリセットへ自動登録します', toggle('autoAddToPresets')) : ''}
+
+      <!-- 一括適用前の確認ダイアログ -->
+      ${row('一括適用前の確認ダイアログ', '「○本に適用しますか？」の確認を表示します', toggle('bulkConfirm'))}
+
     </div>`;
+}
+
+export function setAiDefaultMode(mode) {
+  aiSettings.defaultMode = mode;
+  saveAiSettings();
+  renderAiSettings();
 }
