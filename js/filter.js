@@ -177,14 +177,12 @@ export function deleteOrgFilterPreset(i) {
 }
 
 export function renderFilterPresets() {
-  const targets = ['fs-saved-list','org-fs-saved-list','fov-preset-list','org-fov-preset-list']
-    .map(id => document.getElementById(id)).filter(Boolean);
-  targets.forEach(function(list) {
+  // オーバーレイのプリセットのみ管理。サイドバー(fs-saved-list, org-fs-saved-list)はrenderSavedSearchesが担当
+  const makeHTML = (loadFn) => {
     if (!filterPresets.length) {
-      list.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:4px 0">保存した検索条件はありません</div>';
-      return;
+      return '<div style="font-size:10px;color:var(--text3);padding:4px 0">保存した検索条件はありません</div>';
     }
-    list.innerHTML = filterPresets.map(function(p, i) {
+    return filterPresets.map(function(p, i) {
       const count = (window.videos||[]).filter(function(v) {
         if (v.archived) return false;
         if (p.favOnly && !v.fav) return false;
@@ -204,11 +202,15 @@ export function renderFilterPresets() {
       }).length;
       const badge = '<span style="font-size:9px;background:var(--accent);color:#fff;border-radius:8px;padding:1px 6px;margin-left:5px;font-weight:700">'+count+'</span>';
       return '<div class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:3px;max-width:100%">'
-        + '<span onclick="loadFilterPreset('+i+')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">'+p.name+badge+'</span>'
+        + '<span onclick="'+loadFn+'('+i+')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">'+p.name+badge+'</span>'
         + '<span style="color:var(--text3);font-size:12px;flex-shrink:0;padding-left:4px" onclick="deleteFilterPreset('+i+')">×</span>'
         + '</div>';
     }).join('');
-  });
+  };
+  const libOv = document.getElementById('fov-preset-list');
+  if (libOv) libOv.innerHTML = makeHTML('loadFilterPreset');
+  const orgOv = document.getElementById('org-fov-preset-list');
+  if (orgOv) orgOv.innerHTML = makeHTML('loadOrgFilterPreset');
 }
 
 export function resetFilters() { clearAll(); }
