@@ -226,13 +226,7 @@ export function fovPickerDdOpen(rowId, filterKey) {
   document.querySelectorAll('.fov-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
   const rowEl = document.getElementById(rowId);
-  if (rowEl) {
-    const rect = rowEl.getBoundingClientRect();
-    dd.style.top = (rect.bottom + 2) + 'px';
-    dd.style.left = rect.left + 'px';
-    dd.style.right = (window.innerWidth - rect.right) + 'px';
-    dd.style.width = '';
-  }
+  if (rowEl) _positionFovDd(dd, rowEl);
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
@@ -264,21 +258,28 @@ export function fovPickerDdTab(rowId, filterKey, tab) {
   _fovPickerDdRenderList(rowId, filterKey, document.querySelector(`#${rowId}-dd .vp-dd-search`)?.value || '');
 }
 
+function _positionFovDd(dd, rowEl) {
+  const rect = rowEl.getBoundingClientRect();
+  dd.style.left  = rect.left + 'px';
+  dd.style.right = (window.innerWidth - rect.right) + 'px';
+  dd.style.width = '';
+  if (window.innerHeight - rect.bottom < 280) {
+    dd.style.top    = 'auto';
+    dd.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+  } else {
+    dd.style.top    = (rect.bottom + 2) + 'px';
+    dd.style.bottom = 'auto';
+  }
+}
+
 export function fovDdOpen(rowId) {
   const dd = document.getElementById(rowId + '-dd');
   if (!dd) return;
   const isOpen = dd.style.display !== 'none';
   document.querySelectorAll('.fov-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
-  // Position using fixed coordinates from the row container
   const rowEl = document.getElementById(rowId);
-  if (rowEl) {
-    const rect = rowEl.getBoundingClientRect();
-    dd.style.top = (rect.bottom + 2) + 'px';
-    dd.style.left = rect.left + 'px';
-    dd.style.right = (window.innerWidth - rect.right) + 'px';
-    dd.style.width = '';
-  }
+  if (rowEl) _positionFovDd(dd, rowEl);
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';

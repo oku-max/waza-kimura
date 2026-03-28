@@ -1225,7 +1225,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-tech-add-btn { width:28px; height:28px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .vp-tech-suggest { display:flex; flex-wrap:wrap; gap:4px; }
 /* VP ドロップダウン */
-.vp-dd-wrap { display:flex; flex-direction:column; gap:5px; width:100%; position:relative; }
+.vp-dd-wrap { display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:5px; width:100%; position:relative; }
 .vp-dd-trigger { font-size:11px; color:var(--accent); cursor:pointer; padding:2px 8px; border:1.5px dashed var(--accent); border-radius:14px; width:fit-content; user-select:none; }
 .vp-dd-trigger:hover { background:var(--accent); color:#fff; }
 .vp-dd { position:absolute; top:100%; left:0; right:0; z-index:50; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.15); overflow:hidden; }
