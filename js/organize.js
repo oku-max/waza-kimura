@@ -157,6 +157,7 @@ export function openOrgFilterOverlay() {
   document.body.style.overflow = 'hidden';
   buildOrgFovRows();
   syncOrgFilterOvRows();
+  window.renderSavedSearches?.();
 }
 
 // ── フィルター行ビルド — filter-overlay.js の共有関数に委譲 ──

@@ -86,7 +86,7 @@
     buildFovHscroll, buildFovPickerRow,
     syncFovChips, clearFovField,
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
-    saveCurrentSearch, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
+    saveCurrentSearch, saveCurrentSearchFromInput, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
     toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn,
     buildSidebarFovRows, trackRecentView, renderRecentSidebar,
     buildSbPickerInline, sbPickerInlineFilter, sbPickerInlineToggle, sbPickerInlineTabSwitch,
@@ -246,7 +246,8 @@
   window.fsPick                = fsPick;
   window.renderFsSelTags       = renderFsSelTags;
   window.clearFsField          = clearFsField;
-  window.saveCurrentSearch     = saveCurrentSearch;
+  window.saveCurrentSearch          = saveCurrentSearch;
+  window.saveCurrentSearchFromInput = saveCurrentSearchFromInput;
   window.applySavedSearch      = applySavedSearch;
   window.applySavedSearchToOrg = applySavedSearchToOrg;
   window.deleteSavedSearch     = deleteSavedSearch;
@@ -2571,9 +2572,9 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div style="font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">💾 検索条件を保存</div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <input id="org-fov-save-name" type="text" placeholder="条件名を入力..." style="flex:1;font-size:11px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text1);min-width:0">
-        <button class="bbt" style="font-size:11px;--bc:var(--accent);--tc:#fff;flex-shrink:0" onclick="saveOrgFilterPreset()">保存</button>
+        <button class="bbt" style="font-size:11px;--bc:var(--accent);--tc:#fff;flex-shrink:0" onclick="saveCurrentSearchFromInput('org-fov-save-name', true)">保存</button>
       </div>
-      <div id="org-fov-preset-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
+      <div id="org-fov-preset-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
     </div>
     <!-- Reset -->
     <div style="padding-top:4px">
@@ -2694,9 +2695,9 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div style="font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--text3);margin-bottom:6px">💾 検索条件を保存</div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <input id="fov-save-name" type="text" placeholder="条件名を入力..." style="flex:1;font-size:11px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text1);min-width:0">
-        <button class="bbt" style="font-size:11px;--bc:var(--accent);--tc:#fff;flex-shrink:0" onclick="saveFilterPreset()">保存</button>
+        <button class="bbt" style="font-size:11px;--bc:var(--accent);--tc:#fff;flex-shrink:0" onclick="saveCurrentSearchFromInput('fov-save-name')">保存</button>
       </div>
-      <div id="fov-preset-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
+      <div id="fov-preset-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
     </div>
     <!-- Reset -->
     <div style="padding-top:4px">

@@ -46,7 +46,7 @@ export function openFilterOverlay() {
   document.body.style.overflow = 'hidden';
   try { buildFovRows(); } catch(e) {}
   syncFilterOvRows();
-  try { window.renderFilterPresets?.(); } catch(e) {}
+  renderSavedSearches();
 }
 
 export function toggleFilterOverlay() { openFilterOverlay(); }
@@ -596,6 +596,34 @@ export function saveCurrentSearch() {
   window.toast?.('💾 「' + name + '」を保存しました');
 }
 
+// オーバーレイの入力フィールドから直接保存（Library/Organize 共通）
+export function saveCurrentSearchFromInput(inputId, isOrg = false) {
+  const input = document.getElementById(inputId);
+  const name = input?.value?.trim();
+  if (!name) { window.toast?.('名前を入力してください'); return; }
+  const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+  const state = {
+    favOnly:     isOrg ? (window.orgFavOnly     || false) : (window.favOnly     || false),
+    unwOnly:     isOrg ? (window.orgUnwOnly     || false) : (window.unwOnly     || false),
+    watchedOnly: isOrg ? (window.orgWatchedOnly || false) : (window.watchedOnly || false),
+    filters: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v]])),
+    query: isOrg
+      ? (document.getElementById('si-org')?.value || document.getElementById('si-org-pc')?.value || '')
+      : (document.getElementById('si')?.value     || document.getElementById('si-lib-pc')?.value || '')
+  };
+  const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
+    Object.values(state.filters).some(a => a.length > 0) || state.query;
+  if (!hasFilter) { window.toast?.('フィルターが設定されていません'); return; }
+  const existing = savedSearches.findIndex(s => s.name === name);
+  if (existing >= 0) savedSearches[existing] = { name, state, createdAt: Date.now() };
+  else savedSearches.unshift({ name, state, createdAt: Date.now() });
+  if (savedSearches.length > 20) savedSearches = savedSearches.slice(0, 20);
+  _persistSavedSearches();
+  renderSavedSearches();
+  if (input) input.value = '';
+  window.toast?.('💾 「' + name + '」を保存しました');
+}
+
 export function applySavedSearch(idx) {
   const ss = savedSearches[idx]; if (!ss) return;
   window.clearAll?.();
@@ -605,6 +633,7 @@ export function applySavedSearch(idx) {
   Object.entries(s.filters||{}).forEach(([k,v]) => { if (f[k]) { f[k].clear(); v.forEach(x => f[k].add(x)); } });
   const si   = document.getElementById('si');        if (si)   si.value   = s.query || '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = s.query || '';
+  window.syncFilterOvRows?.();
   window.AF?.(); renderSavedSearches();
   window.toast?.('🔍 「' + ss.name + '」を適用しました');
 }
@@ -646,6 +675,11 @@ export function renderSavedSearches() {
   if (libList) libList.innerHTML = makeHTML('applySavedSearch');
   const orgList = document.getElementById('org-fs-saved-list');
   if (orgList) orgList.innerHTML = makeHTML('applySavedSearchToOrg');
+  // オーバーレイにも同じリストを反映（Library / Organize 共通）
+  const fovList = document.getElementById('fov-preset-list');
+  if (fovList) fovList.innerHTML = makeHTML('applySavedSearch');
+  const orgFovList = document.getElementById('org-fov-preset-list');
+  if (orgFovList) orgFovList.innerHTML = makeHTML('applySavedSearchToOrg');
 }
 
 // ── アコーディオン ──
