@@ -176,18 +176,14 @@ function _fovPickerDdRenderList(rowId, filterKey, q) {
     return;
   }
 
-  // 最近みた
-  const recentKey = filterKey === 'channel' ? '_recentFovChannels' : '_recentFovPlaylists';
-  const recents = (window[recentKey]||[]).filter(c => countMap[c]).slice(0, 5);
-  const recentHTML = recents.length ? `
-    <div class="vp-dd-sec-hd">🕐 最近みた</div>
-    ${recents.map(mkItem).join('')}
-    <div class="vp-dd-sec-div"></div>
-  ` : '';
-
-  // 2サブタブ
-  if (!window._fovPickerTab) window._fovPickerTab = {};
-  const activeTab = window._fovPickerTab[rowId] || 'alpha';
+  // 最近タブ（localStorage + 選択済みは常に含む）
+  const recentList = _getRecentFilters(filterKey)
+    .filter(v => (v in countMap) || f[filterKey]?.has(v)).slice(0, 15);
+  const hasRecents = recentList.length > 0;
+  const defTab     = hasRecents ? 'recent' : 'alpha';
+  const recentPanelHTML = hasRecents
+    ? recentList.map(mkItem).join('')
+    : `<div style="font-size:10px;color:var(--text3);padding:14px 12px;text-align:center">最近選んだものはありません</div>`;
 
   // Alpha tab
   const groups = {};
@@ -208,15 +204,16 @@ function _fovPickerDdRenderList(rowId, filterKey, q) {
   // Count tab
   const countTabHTML = [...allItems].sort((a,b) => (countMap[b]||0)-(countMap[a]||0)).map(mkItem).join('');
 
-  const secLabel = filterKey === 'channel' ? '全チャンネル' : '全プレイリスト';
-  listEl.innerHTML = recentHTML +
-    `<div class="vp-dd-sec-hd" style="padding-bottom:0">${secLabel}</div>
-    <div class="vp-dd-subtabs">
-      <div class="vp-dd-subtab on" onclick="vpDdSubtab(event,'${rowId}-tab-alpha','${rowId}-tab-count')">ABC / あいうえお順</div>
-      <div class="vp-dd-subtab" onclick="vpDdSubtab(event,'${rowId}-tab-count','${rowId}-tab-alpha')">件数順</div>
+  const p = rowId; // prefix
+  listEl.innerHTML =
+    `<div class="vp-dd-subtabs">
+      <div class="vp-dd-subtab${defTab==='recent'?' on':''}" id="${p}-ttab-recent" onclick="fovPickerTab3('${p}','recent')">🕐 最近</div>
+      <div class="vp-dd-subtab${defTab==='alpha'?' on':''}" id="${p}-ttab-alpha"  onclick="fovPickerTab3('${p}','alpha')">ABC / あいうえお順</div>
+      <div class="vp-dd-subtab" id="${p}-ttab-count" onclick="fovPickerTab3('${p}','count')">件数順</div>
     </div>
-    <div class="vp-dd-subpanel on" id="${rowId}-tab-alpha">${alphaHTML}</div>
-    <div class="vp-dd-subpanel" id="${rowId}-tab-count">${countTabHTML}</div>`;
+    <div class="vp-dd-subpanel${defTab==='recent'?' on':''}" id="${p}-tab-recent">${recentPanelHTML}</div>
+    <div class="vp-dd-subpanel${defTab==='alpha'?' on':''}"  id="${p}-tab-alpha">${alphaHTML}</div>
+    <div class="vp-dd-subpanel" id="${p}-tab-count">${countTabHTML}</div>`;
 }
 
 export function fovPickerDdOpen(rowId, filterKey) {
@@ -239,9 +236,7 @@ export function fovPickerDdToggle(rowId, filterKey, val) {
     f[filterKey].delete(val);
   } else {
     f[filterKey]?.add(val);
-    const rk = filterKey === 'channel' ? '_recentFovChannels' : '_recentFovPlaylists';
-    if (!window[rk]) window[rk] = [];
-    window[rk] = [val, ...window[rk].filter(c => c !== val)].slice(0, 10);
+    _addRecentFilter(filterKey, val);
   }
   _fovDdUpdateChips(rowId, filterKey);
   _fovPickerDdRenderList(rowId, filterKey, document.querySelector(`#${rowId}-dd .vp-dd-search`)?.value || '');
@@ -856,6 +851,20 @@ export function renderRecentSidebar() {
 const _SB_POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
 const _sbTagItems  = {};
 
+// ── 最近選んだフィルター項目（localStorage 永続化、最大15件）──
+const _RF_STORE = { channel: 'wk_recent_filter_ch', playlist: 'wk_recent_filter_pl' };
+function _getRecentFilters(filterKey) {
+  const key = _RF_STORE[filterKey];
+  if (!key) return [];
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) { return []; }
+}
+function _addRecentFilter(filterKey, val) {
+  const key = _RF_STORE[filterKey];
+  if (!key) return;
+  const updated = [val, ..._getRecentFilters(filterKey).filter(v => v !== val)].slice(0, 15);
+  localStorage.setItem(key, JSON.stringify(updated));
+}
+
 // コンテキスト（lib / org）からfilter/af取得
 function _getSbCtx(containerId) {
   const el = document.getElementById(containerId);
@@ -933,16 +942,26 @@ function _sbPickerRenderList(containerId, filterKey, q) {
   ).join('');
   const countHTML = [...allItems].sort((a, b) => (countMap[b] || 0) - (countMap[a] || 0)).map(mkItem).join('');
 
-  const aId = containerId + '-alpha', cId = containerId + '-cnt';
-  const aTId = containerId + '-tab-alpha', cTId = containerId + '-tab-count';
+  // 最近タブ
+  const recentList = _getRecentFilters(filterKey)
+    .filter(v => (v in countMap) || f[filterKey]?.has(v)).slice(0, 15);
+  const hasRecents = recentList.length > 0;
+  const defTab = hasRecents ? 'recent' : 'alpha';
+  const recentPanelHTML = hasRecents
+    ? recentList.map(mkItem).join('')
+    : `<div style="font-size:10px;color:var(--text3);padding:14px 12px;text-align:center">最近選んだものはありません</div>`;
+
+  const p = containerId;
   listEl.innerHTML =
     `<div class="vp-dd-sec-hd" style="padding-bottom:0">${secLabel}</div>
     <div class="vp-dd-subtabs">
-      <div class="vp-dd-subtab on" id="${aTId}" onclick="sbPickerInlineTabSwitch('${containerId}','alpha')">ABC / あいうえお順</div>
-      <div class="vp-dd-subtab" id="${cTId}" onclick="sbPickerInlineTabSwitch('${containerId}','count')">件数順</div>
+      <div class="vp-dd-subtab${defTab==='recent'?' on':''}" id="${p}-ttab-recent" onclick="sbPickerInlineTabSwitch('${p}','recent')">🕐 最近</div>
+      <div class="vp-dd-subtab${defTab==='alpha'?' on':''}"  id="${p}-ttab-alpha"  onclick="sbPickerInlineTabSwitch('${p}','alpha')">ABC / あいうえお順</div>
+      <div class="vp-dd-subtab" id="${p}-ttab-count" onclick="sbPickerInlineTabSwitch('${p}','count')">件数順</div>
     </div>
-    <div class="vp-dd-subpanel on" id="${aId}">${alphaHTML}</div>
-    <div class="vp-dd-subpanel"    id="${cId}">${countHTML}</div>`;
+    <div class="vp-dd-subpanel${defTab==='recent'?' on':''}" id="${p}-tab-recent">${recentPanelHTML}</div>
+    <div class="vp-dd-subpanel${defTab==='alpha'?' on':''}"  id="${p}-tab-alpha">${alphaHTML}</div>
+    <div class="vp-dd-subpanel" id="${p}-tab-count">${countHTML}</div>`;
 }
 
 export function buildSbPickerInline(containerId, filterKey, ctx='lib') {
@@ -963,20 +982,29 @@ export function sbPickerInlineFilter(containerId, filterKey, q) {
 export function sbPickerInlineToggle(containerId, filterKey, val) {
   const { f, af } = _getSbCtx(containerId);
   if (!f[filterKey]) f[filterKey] = new Set();
-  f[filterKey].has(val) ? f[filterKey].delete(val) : f[filterKey].add(val);
+  if (!f[filterKey].has(val)) {
+    f[filterKey].add(val);
+    _addRecentFilter(filterKey, val);
+  } else {
+    f[filterKey].delete(val);
+  }
   const q = document.getElementById(containerId + '-search')?.value || '';
   _sbPickerRenderList(containerId, filterKey, q);
   af();
 }
 
 export function sbPickerInlineTabSwitch(containerId, tab) {
-  const aId = containerId + '-alpha', cId = containerId + '-cnt';
-  const aTId = containerId + '-tab-alpha', cTId = containerId + '-tab-count';
-  const isAlpha = tab === 'alpha';
-  [document.getElementById(aId),  document.getElementById(cId)]
-    .forEach((el, i) => el?.classList.toggle('on', isAlpha ? i === 0 : i === 1));
-  [document.getElementById(aTId), document.getElementById(cTId)]
-    .forEach((el, i) => el?.classList.toggle('on', isAlpha ? i === 0 : i === 1));
+  ['recent','alpha','count'].forEach(t => {
+    document.getElementById(`${containerId}-tab-${t}`)?.classList.toggle('on', t === tab);
+    document.getElementById(`${containerId}-ttab-${t}`)?.classList.toggle('on', t === tab);
+  });
+}
+
+export function fovPickerTab3(rowId, tab) {
+  ['recent','alpha','count'].forEach(t => {
+    document.getElementById(`${rowId}-tab-${t}`)?.classList.toggle('on', t === tab);
+    document.getElementById(`${rowId}-ttab-${t}`)?.classList.toggle('on', t === tab);
+  });
 }
 
 // ── サイドバー インライン タグリスト (TB / Action / Position / Technique) ──
