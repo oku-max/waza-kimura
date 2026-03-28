@@ -75,7 +75,7 @@ function _fovGetAlphaGroup(str) {
 // ── コンテキスト判定（org vs main）──
 function _getCtx(rowId) {
   const el = document.getElementById(rowId);
-  const isOrg = el?.dataset.ctx === 'org';
+  const isOrg = el?.dataset.ctx === 'org' || rowId.startsWith('org-');
   return {
     f: isOrg ? (window.orgFilters||{}) : (window.filters||{}),
     af() { isOrg ? window.renderOrg?.() : window.AF?.(); }
