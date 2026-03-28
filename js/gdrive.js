@@ -252,12 +252,30 @@ export function switchImportTab(tab) {
   tabYt.style.color      = isYt ? '#fff' : 'var(--text2)';
   tabGd.style.background = isYt ? 'var(--surface2)' : 'var(--text)';
   tabGd.style.color      = isYt ? 'var(--text2)' : '#fff';
+  if (!isYt) gdOpenBrowser();
 }
 
 // ── カスタムフォルダブラウザ ──
 let _browserStack = [];
 let _browserCurrentId   = 'root';
 let _browserCurrentName = 'My Drive';
+
+// ── お気に入りフォルダ (localStorage) ──
+const FAV_KEY = 'gd_fav_folders';
+function _loadFavs() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return []; }
+}
+function _saveFavs(favs) {
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch(e) {}
+}
+export function gdFavToggle(folderId, folderName) {
+  let favs = _loadFavs();
+  const idx = favs.findIndex(f => f.id === folderId);
+  if (idx >= 0) favs.splice(idx, 1);
+  else favs.unshift({ id: folderId, name: folderName });
+  _saveFavs(favs);
+  _browserRender();
+}
 
 export async function gdOpenBrowser() {
   if (!_token) {
@@ -267,9 +285,25 @@ export async function gdOpenBrowser() {
   _browserStack       = [];
   _browserCurrentId   = 'root';
   _browserCurrentName = 'My Drive';
-  document.getElementById('gd-stage1').style.display          = 'none';
-  document.getElementById('gd-stage-browser').style.display   = '';
+  document.getElementById('gd-stage-browser').style.display = '';
+  document.getElementById('gd-stage2').style.display        = 'none';
   await _browserRender();
+}
+
+function _folderItemHtml(f, isFav) {
+  const eid  = f.id.replace(/'/g,"\\'");
+  const ename = f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const star = isFav ? '★' : '☆';
+  const starColor = isFav ? '#c8a000' : 'var(--text3)';
+  const bg   = isFav ? 'background:#fdf8e8;border-color:#e8d870;' : '';
+  return `<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:5px;background:var(--surface2);${bg}">
+    <span style="font-size:17px" onclick="gdBrowserEnter('${eid}','${ename}')">📁</span>
+    <span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="gdBrowserEnter('${eid}','${ename}')">${f.name}</span>
+    <button onclick="event.stopPropagation();gdFavToggle('${eid}','${ename}')"
+      style="background:none;border:none;cursor:pointer;font-size:16px;color:${starColor};padding:2px 4px;line-height:1;flex-shrink:0"
+      title="${isFav ? 'お気に入りから外す' : 'お気に入りに追加'}">${star}</button>
+    <span style="color:var(--text3);font-size:14px;flex-shrink:0" onclick="gdBrowserEnter('${eid}','${ename}')">›</span>
+  </div>`;
 }
 
 async function _browserRender() {
@@ -295,22 +329,25 @@ async function _browserRender() {
     const files   = await listFolder(_browserCurrentId);
     const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
     const vCount  = files.filter(f => VIDEO_MIMES.has(f.mimeType)).length;
+    const favs    = _loadFavs();
+    const favIds  = new Set(favs.map(f => f.id));
 
     let html = '';
+
+    // お気に入りセクション（ルート表示時のみ）
+    if (_browserStack.length === 0 && favs.length > 0) {
+      html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7a6200;padding:4px 0 6px;display:flex;align-items:center;gap:6px">★ お気に入り<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
+      html += favs.map(f => _folderItemHtml(f, true)).join('');
+      html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;gap:6px">全フォルダ<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
+    }
+
     if (vCount > 0) {
       html += `<div style="font-size:11px;color:var(--accent);padding:4px 6px 8px;font-weight:600">🎬 このフォルダに動画 ${vCount} 本</div>`;
     }
     if (folders.length === 0 && vCount === 0) {
-      html = '<div style="font-size:12px;color:var(--text3);padding:12px 4px">フォルダが空です</div>';
+      html += '<div style="font-size:12px;color:var(--text3);padding:12px 4px">フォルダが空です</div>';
     } else {
-      html += folders.map(f =>
-        `<div onclick="gdBrowserEnter('${f.id.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')"
-          style="display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:6px;background:var(--surface2)">
-          <span style="font-size:18px">📁</span>
-          <span style="font-size:13px;color:var(--text);flex:1">${f.name}</span>
-          <span style="color:var(--text3);font-size:16px">›</span>
-        </div>`
-      ).join('');
+      html += folders.map(f => _folderItemHtml(f, favIds.has(f.id))).join('');
     }
     if (listEl) listEl.innerHTML = html;
   } catch(e) {
@@ -345,6 +382,9 @@ export function gdBrowserJump(index) {
 
 export async function gdBrowserSelect() {
   document.getElementById('gd-stage-browser').style.display = 'none';
+  // プレイリスト名をフォルダ名でプリセット
+  const plInp = document.getElementById('gd-playlist');
+  if (plInp) plInp.value = _browserCurrentName;
   await _scanAndShow(_browserCurrentId, _browserCurrentName);
 }
 
@@ -429,10 +469,9 @@ export function gdUpdateCount() {
 export function gdSelAll()  { document.querySelectorAll('#gd-file-list .gd-vid-cb:not([disabled])').forEach(c => { c.checked = true;  }); gdUpdateCount(); }
 export function gdSelNone() { document.querySelectorAll('#gd-file-list .gd-vid-cb:not([disabled])').forEach(c => { c.checked = false; }); gdUpdateCount(); }
 
-export function gdBackToStage1() {
-  document.getElementById('gd-stage1').style.display          = '';
+export function gdBackToBrowser() {
   document.getElementById('gd-stage2').style.display          = 'none';
-  document.getElementById('gd-stage-browser').style.display   = 'none';
+  document.getElementById('gd-stage-browser').style.display   = '';
 }
 
 // ── 取り込み実行 ──
@@ -441,7 +480,7 @@ export async function gdImport() {
   if (!checks.length) { window.toast?.('動画を選択してください'); return; }
 
   const channel  = (document.getElementById('gd-channel')?.value || '').trim();
-  const playlist = _scannedTree?.name || '';
+  const playlist = (document.getElementById('gd-playlist')?.value || '').trim();
 
   document.getElementById('yt-import-ov')?.classList.remove('open');
 
