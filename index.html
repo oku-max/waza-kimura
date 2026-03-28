@@ -718,7 +718,8 @@
         <input id="si-org-pc" type="text" placeholder="Search..." oninput="renderOrg()" style="width:100%">
       </div>
       <div style="display:flex;align-items:center;gap:4px">
-        <button onclick="clearOrgFilters()" style="font-size:11px;padding:4px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text3);cursor:pointer;width:100%" title="フィルターリセット">× すべてリセット</button>
+        <span style="flex:1;font-size:11px;color:var(--text3);font-weight:500">並び順: 表示順</span>
+        <button onclick="clearOrgFilters()" style="font-size:11px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text3);cursor:pointer" title="フィルターリセット">✕</button>
       </div>
       <div id="org-fs-bulk-area">
         <button id="org-fs-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
@@ -815,6 +816,11 @@
           </div>
           <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px">＋ 現在の検索条件を保存</button>
         </div>
+      </div>
+
+      <!-- リセット -->
+      <div style="padding:10px 12px 16px">
+        <button onclick="clearOrgFilters()" class="btn-sub" style="width:100%;font-size:11px">× すべてリセット</button>
       </div>
 
     </div><!-- /org-fs-accordion-area -->

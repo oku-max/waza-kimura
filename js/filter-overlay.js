@@ -1035,7 +1035,8 @@ function _sbTagRenderList(containerId, filterKey, items, q) {
   }
   listEl.innerHTML = visible.map(v => {
     const sel = selected.has(v);
-    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="sbTagInlineToggle('${containerId}','${filterKey}','${v.replace(/'/g,"\\'")}')">${v}</div>`;
+    const cnt = ctxVids.filter(vid => (vid[field]||[]).includes(v)).length;
+    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="sbTagInlineToggle('${containerId}','${filterKey}','${v.replace(/'/g,"\\'")}')">${v}<span class="vp-dd-cnt">${cnt}本</span></div>`;
   }).join('');
 }
 
