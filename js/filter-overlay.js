@@ -148,11 +148,11 @@ export function buildFovPickerDdRow(rowId, filterKey, label, isOrg=false) {
   _fovPickerDdRenderList(rowId, filterKey, '');
 }
 
-function _fovPickerCountMap(filterKey) {
-  const videos = window.videos || [];
+function _fovPickerCountMap(filterKey, f) {
   const countMap = {};
-  videos.forEach(v => {
-    const key = filterKey === 'channel' ? v.channel : v.pl;
+  _sbContextVideos(filterKey, f).forEach(v => {
+    if (v.archived) return;
+    const key = filterKey === 'channel' ? (v.channel || v.ch) : v.pl;
     if (key) countMap[key] = (countMap[key]||0) + 1;
   });
   return countMap;
@@ -162,7 +162,10 @@ function _fovPickerDdRenderList(rowId, filterKey, q) {
   const listEl = document.getElementById(rowId + '-ddlist');
   if (!listEl) return;
   const { f } = _getCtx(rowId);
-  const countMap = _fovPickerCountMap(filterKey);
+  const countMap = _fovPickerCountMap(filterKey, f);
+  // 選択済み項目はゼロ件でも必ず含める（解除できるように）
+  const selected = [...(f[filterKey] || [])];
+  selected.forEach(v => { if (!(v in countMap)) countMap[v] = 0; });
   const allItems = Object.keys(countMap).sort((a,b) => a.localeCompare(b, 'ja'));
 
   const mkItem = (v) => {
