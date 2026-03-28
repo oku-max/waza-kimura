@@ -873,10 +873,17 @@ function _getSbCtx(containerId) {
   };
 }
 
-function _sbPickerCountMap(filterKey) {
+function _sbPickerCountMap(filterKey, f) {
   const videos = window.videos || [];
   const m = {};
+  // プレイリスト表示時、チャンネルが絞り込まれていればそのチャンネルの動画のみ対象
+  const chFilter = (filterKey === 'playlist' && f?.channel?.size) ? f.channel : null;
   videos.forEach(v => {
+    if (v.archived) return;
+    if (chFilter) {
+      const ch = v.channel || v.ch;
+      if (!chFilter.has(ch)) return;
+    }
     const k = filterKey === 'channel' ? (v.channel || v.ch) : v.pl;
     if (k) m[k] = (m[k] || 0) + 1;
   });
@@ -887,9 +894,14 @@ function _sbPickerRenderList(containerId, filterKey, q) {
   const listEl = document.getElementById(containerId + '-list');
   if (!listEl) return;
   const { f } = _getSbCtx(containerId);
-  const countMap = _sbPickerCountMap(filterKey);
+  const countMap = _sbPickerCountMap(filterKey, f);
   const allItems = Object.keys(countMap).sort((a, b) => a.localeCompare(b, 'ja'));
-  const secLabel  = filterKey === 'channel' ? '全チャンネル' : '全プレイリスト';
+
+  // チャンネル絞り込み中はプレイリストのヘッダーに注記を表示
+  const chFiltered = filterKey === 'playlist' && f?.channel?.size > 0;
+  const secLabel = filterKey === 'channel' ? '全チャンネル'
+    : chFiltered ? `選択チャンネル内のプレイリスト (${allItems.length}件)`
+    : '全プレイリスト';
 
   const mkItem = v => {
     const sel = f[filterKey]?.has(v);
