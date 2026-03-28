@@ -6,10 +6,11 @@ const VIDEO_MIMES = new Set([
   'video/x-flv','video/ogg',
 ]);
 
-const GD_SCOPE   = 'https://www.googleapis.com/auth/drive.file';
+// drive: フォルダブラウジング・ファイル操作の両方に対応（drive.readonlyではroot一覧が空になる場合あり）
+const GD_SCOPE   = 'https://www.googleapis.com/auth/drive';
 const TOKEN_TTL  = 55 * 60 * 1000;   // 55分（Google上限60分）
 const REFRESH_AT = 50 * 60 * 1000;   // 50分経過でプロアクティブ刷新
-const CACHE_KEY  = 'gd_token_v2';
+const CACHE_KEY  = 'gd_token_v4';    // スコープ変更のためキャッシュキー更新（強制再認証）
 const CLIENT_ID  = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com';
 
 let _token        = null;

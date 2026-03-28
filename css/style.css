@@ -1230,7 +1230,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-dd-trigger:hover { background:var(--accent); color:#fff; }
 .vp-dd { position:absolute; top:100%; left:0; right:0; z-index:50; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,.15); overflow:hidden; }
 .vp-dd-search { width:100%; box-sizing:border-box; padding:8px 10px; font-size:12px; border:none; border-bottom:1px solid var(--border); background:var(--surface2); color:var(--text); outline:none; font-family:inherit; }
-.vp-dd-list { max-height:180px; overflow-y:auto; padding:4px 0; }
+.vp-dd-list { max-height:360px; overflow-y:auto; padding:4px 0; }
 .vp-dd-item { padding:6px 12px; font-size:12px; cursor:pointer; color:var(--text2); display:flex; align-items:center; justify-content:space-between; }
 .vp-dd-item:hover { background:var(--surface2); color:var(--text); }
 .vp-dd-item.selected { color:var(--accent); font-weight:700; }
