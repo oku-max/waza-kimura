@@ -197,8 +197,9 @@ export function toggleOrgAcc(key) {
   body.style.display = open ? 'block' : 'none';
   if (arrow) arrow.classList.toggle('open', open);
   if (open) {
-    if (key === 'saved') window.renderSavedSearches?.();
-    if (key === 'src')   window.buildOrgSbSrcChips?.();
+    if (key === 'recent') window.renderRecentSidebar?.();
+    if (key === 'saved')  window.renderSavedSearches?.();
+    if (key === 'src')    window.buildOrgSbSrcChips?.();
   }
 }
 

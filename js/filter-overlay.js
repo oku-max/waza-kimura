@@ -863,14 +863,9 @@ export function trackRecentView(id) {
 }
 
 export function renderRecentSidebar() {
-  const container = document.getElementById('fs-recent-list');
-  if (!container) return;
   const recents = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]');
-  if (!recents.length) {
-    container.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:8px 14px">まだ視聴した動画はありません</div>';
-    return;
-  }
-  container.innerHTML = recents.map(v => {
+  const emptyHTML = '<div style="font-size:10px;color:var(--text3);padding:8px 14px">まだ視聴した動画はありません</div>';
+  const listHTML = recents.length ? recents.map(v => {
     const thumb = v.ytId
       ? `<img src="https://i.ytimg.com/vi/${v.ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
       : '';
@@ -881,7 +876,11 @@ export function renderRecentSidebar() {
         <div style="font-size:9px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.channel||''}</div>
       </div>
     </div>`;
-  }).join('');
+  }).join('') : emptyHTML;
+  ['fs-recent-list', 'org-fs-recent-list'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = listHTML;
+  });
 }
 
 // ── サイドバー インライン ピッカー (Channel / Playlist / タグ) ──
