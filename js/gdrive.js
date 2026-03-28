@@ -402,7 +402,7 @@ async function _scanAndShow(folderId, folderName) {
     const suffixEl = document.getElementById('gd-strip-suffix');
     if (suffixEl) suffixEl.value = detected;
     document.getElementById('gd-stage2-title').textContent = folderName;
-    document.getElementById('gd-stage1').style.display = 'none';
+    document.getElementById('gd-stage-browser').style.display = 'none';
     document.getElementById('gd-stage2').style.display = '';
     gdRenderFileList();
   } catch(e) {
