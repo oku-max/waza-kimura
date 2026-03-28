@@ -86,7 +86,7 @@
     buildFovHscroll, buildFovPickerRow,
     syncFovChips, clearFovField,
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
-    saveCurrentSearch, applySavedSearch, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
+    saveCurrentSearch, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
     toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn
   } from './js/filter-overlay.js';
 
@@ -242,6 +242,7 @@
   window.clearFsField          = clearFsField;
   window.saveCurrentSearch     = saveCurrentSearch;
   window.applySavedSearch      = applySavedSearch;
+  window.applySavedSearchToOrg = applySavedSearchToOrg;
   window.deleteSavedSearch     = deleteSavedSearch;
   window.renderSavedSearches        = renderSavedSearches;
   window.loadSavedSearchesFromRemote = loadSavedSearchesFromRemote;

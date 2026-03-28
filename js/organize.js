@@ -199,7 +199,7 @@ export function toggleOrgAcc(key) {
   if (open) {
     if (key === 'pl') renderOrgAccChips('pl');
     if (key === 'ch') renderOrgAccChips('ch');
-    if (key === 'saved') window.renderOrgFilterPresets?.();
+    if (key === 'saved') window.renderSavedSearches?.();
   }
 }
 

@@ -614,6 +614,21 @@ export function applySavedSearch(idx) {
   window.toast?.('🔍 「' + ss.name + '」を適用しました');
 }
 
+export function applySavedSearchToOrg(idx) {
+  const ss = savedSearches[idx]; if (!ss) return;
+  const s = ss.state;
+  const f = window.orgFilters || {};
+  Object.entries(s.filters||{}).forEach(([k,v]) => { if (f[k]) { f[k].clear(); v.forEach(x => f[k].add(x)); } });
+  if (s.favOnly  !== undefined) window.orgFavOnly  = s.favOnly;
+  if (s.unwOnly  !== undefined) window.orgUnwOnly  = s.unwOnly;
+  const si   = document.getElementById('si-org');    if (si)   si.value   = s.query || '';
+  const siPc = document.getElementById('si-org-pc'); if (siPc) siPc.value = s.query || '';
+  window.renderOrg?.();
+  window.syncOrgFilterOvRows?.();
+  renderSavedSearches();
+  window.toast?.('🔍 「' + ss.name + '」をOrganizeに適用しました');
+}
+
 export function deleteSavedSearch(idx, e) {
   e.stopPropagation();
   savedSearches.splice(idx, 1);
@@ -622,18 +637,20 @@ export function deleteSavedSearch(idx, e) {
 }
 
 export function renderSavedSearches() {
-  const list = document.getElementById('fs-saved-list'); if (!list) return;
-  if (!savedSearches.length) {
-    list.innerHTML = '<div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>';
-    return;
-  }
-  list.innerHTML = savedSearches.map((ss, i) => `
-    <div onclick="applySavedSearch(${i})" style="display:flex;align-items:center;justify-content:space-between;
-      padding:5px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);font-size:11px;font-weight:500">
-      <span>${ss.name}</span>
-      <span onclick="deleteSavedSearch(${i},event)" style="color:var(--text3);font-size:10px;padding:2px 4px">✕</span>
-    </div>
-  `).join('');
+  const makeHTML = (applyFn) => {
+    if (!savedSearches.length) return '<div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>';
+    return savedSearches.map((ss, i) => `
+      <div onclick="${applyFn}(${i})" style="display:flex;align-items:center;justify-content:space-between;
+        padding:5px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);font-size:11px;font-weight:500">
+        <span>${ss.name}</span>
+        <span onclick="deleteSavedSearch(${i},event)" style="color:var(--text3);font-size:10px;padding:2px 4px">✕</span>
+      </div>
+    `).join('');
+  };
+  const libList = document.getElementById('fs-saved-list');
+  if (libList) libList.innerHTML = makeHTML('applySavedSearch');
+  const orgList = document.getElementById('org-fs-saved-list');
+  if (orgList) orgList.innerHTML = makeHTML('applySavedSearchToOrg');
 }
 
 // ── アコーディオン ──
