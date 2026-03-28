@@ -669,41 +669,38 @@ export function toggleAcc(key) {
 }
 
 // ── サイドバー フィルターポップアップ ──
-function _sbPopupRender(key) {
+function _sbPopupRender(key, ctx='lib') {
   const cId = 'sb-popup-inner';
   const body = document.getElementById('sb-popup-body');
   if (!body) return;
   body.innerHTML = `<div id="${cId}"></div>`;
-  if (key === 'ch')   buildSbPickerInline(cId, 'channel');
-  else if (key === 'pl')   buildSbPickerInline(cId, 'playlist');
-  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_TAGS||[]);
-  else if (key === 'ac')   buildSbTagInline(cId, 'action', window.AC_TAGS||[]);
-  else if (key === 'pos') {
-    const vids = window.videos || [];
-    buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
-  } else if (key === 'tech') {
-    const vids = window.videos || [];
-    buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort());
-  }
+  const vids = window.videos || [];
+  if (key === 'ch')        buildSbPickerInline(cId, 'channel', ctx);
+  else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
+  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_TAGS||[], ctx);
+  else if (key === 'ac')   buildSbTagInline(cId, 'action', window.AC_TAGS||[], ctx);
+  else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
+  else if (key === 'tech') buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort(), ctx);
 }
 
 const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', ac:'Action', pos:'Position', tech:'Technique' };
 
-export function openSbPopup(key, triggerEl) {
+export function openSbPopup(key, triggerEl, ctx='lib') {
   const popup = document.getElementById('sb-filter-popup');
   if (!popup) return;
-  // 同じキーなら閉じる
-  if (popup.dataset.activeKey === key && popup.style.display !== 'none') {
+  // 同じキー＆同じctxなら閉じる
+  if (popup.dataset.activeKey === key && popup.dataset.activeCtx === ctx && popup.style.display !== 'none') {
     closeSbPopup(); return;
   }
   popup.dataset.activeKey = key;
+  popup.dataset.activeCtx = ctx;
   const titleEl = document.getElementById('sb-popup-title');
   if (titleEl) titleEl.textContent = _SB_POPUP_LABELS[key] || key;
-  _sbPopupRender(key);
+  _sbPopupRender(key, ctx);
 
   // サイドバーの右端の右隣に配置
   const sidebar = document.getElementById('filterSidebar');
-  const sRect = sidebar ? sidebar.getBoundingClientRect() : { right: 224, top: 0, bottom: window.innerHeight };
+  const sRect = sidebar ? sidebar.getBoundingClientRect() : { right: 224 };
   const tRect = triggerEl.getBoundingClientRect();
 
   popup.style.display = 'block';
@@ -711,7 +708,6 @@ export function openSbPopup(key, triggerEl) {
   popup.style.right  = 'auto';
   popup.style.width  = '320px';
 
-  // 縦位置: トリガーの上端に合わせ、画面下にはみ出たら上方向に調整
   let top = tRect.top;
   popup.style.top = top + 'px';
   const pRect = popup.getBoundingClientRect();
@@ -720,15 +716,16 @@ export function openSbPopup(key, triggerEl) {
     popup.style.top = top + 'px';
   }
 
-  // アロー更新
+  // アロー更新（lib/orgそれぞれのプレフィックスで更新）
+  const prefix = ctx === 'org' ? 'org-fs-acc-arr-' : 'fs-acc-arr-';
   document.querySelectorAll('.fs-acc-arrow').forEach(a => a.classList.remove('open'));
-  const arr = document.getElementById('fs-acc-arr-' + key);
+  const arr = document.getElementById(prefix + key);
   if (arr) arr.classList.add('open');
 }
 
 export function closeSbPopup() {
   const popup = document.getElementById('sb-filter-popup');
-  if (popup) { popup.style.display = 'none'; popup.dataset.activeKey = ''; }
+  if (popup) { popup.style.display = 'none'; popup.dataset.activeKey = ''; popup.dataset.activeCtx = ''; }
   document.querySelectorAll('.fs-acc-arrow').forEach(a => a.classList.remove('open'));
 }
 
@@ -862,15 +859,25 @@ export function renderRecentSidebar() {
   }).join('');
 }
 
-// ── サイドバー インライン ピッカー (Channel / Playlist) ──
+// ── サイドバー インライン ピッカー (Channel / Playlist / タグ) ──
 const _SB_POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
 const _sbTagItems  = {};
+
+// コンテキスト（lib / org）からfilter/af取得
+function _getSbCtx(containerId) {
+  const el = document.getElementById(containerId);
+  const isOrg = el?.dataset.sbCtx === 'org';
+  return {
+    f:  isOrg ? (window.orgFilters || {}) : (window.filters || {}),
+    af: isOrg ? () => window.renderOrg?.() : () => window.AF?.()
+  };
+}
 
 function _sbPickerCountMap(filterKey) {
   const videos = window.videos || [];
   const m = {};
   videos.forEach(v => {
-    const k = filterKey === 'channel' ? v.channel : v.pl;
+    const k = filterKey === 'channel' ? (v.channel || v.ch) : v.pl;
     if (k) m[k] = (m[k] || 0) + 1;
   });
   return m;
@@ -879,7 +886,7 @@ function _sbPickerCountMap(filterKey) {
 function _sbPickerRenderList(containerId, filterKey, q) {
   const listEl = document.getElementById(containerId + '-list');
   if (!listEl) return;
-  const f = window.filters || {};
+  const { f } = _getSbCtx(containerId);
   const countMap = _sbPickerCountMap(filterKey);
   const allItems = Object.keys(countMap).sort((a, b) => a.localeCompare(b, 'ja'));
   const secLabel  = filterKey === 'channel' ? '全チャンネル' : '全プレイリスト';
@@ -895,7 +902,6 @@ function _sbPickerRenderList(containerId, filterKey, q) {
     return;
   }
 
-  // アルファベット / あいうえお順グループ化
   const groups = {};
   allItems.forEach(item => {
     const g = _fovGetAlphaGroup(item);
@@ -924,9 +930,10 @@ function _sbPickerRenderList(containerId, filterKey, q) {
     <div class="vp-dd-subpanel"    id="${cId}">${countHTML}</div>`;
 }
 
-export function buildSbPickerInline(containerId, filterKey) {
+export function buildSbPickerInline(containerId, filterKey, ctx='lib') {
   const el = document.getElementById(containerId);
   if (!el) return;
+  el.dataset.sbCtx = ctx;
   el.innerHTML = `
     <input class="vp-dd-search" id="${containerId}-search" placeholder="検索..."
       oninput="sbPickerInlineFilter('${containerId}','${filterKey}',this.value)">
@@ -939,12 +946,12 @@ export function sbPickerInlineFilter(containerId, filterKey, q) {
 }
 
 export function sbPickerInlineToggle(containerId, filterKey, val) {
-  const f = window.filters || {};
+  const { f, af } = _getSbCtx(containerId);
   if (!f[filterKey]) f[filterKey] = new Set();
   f[filterKey].has(val) ? f[filterKey].delete(val) : f[filterKey].add(val);
   const q = document.getElementById(containerId + '-search')?.value || '';
   _sbPickerRenderList(containerId, filterKey, q);
-  window.AF?.();
+  af();
 }
 
 export function sbPickerInlineTabSwitch(containerId, tab) {
@@ -961,7 +968,7 @@ export function sbPickerInlineTabSwitch(containerId, tab) {
 function _sbTagRenderList(containerId, filterKey, items, q) {
   const listEl = document.getElementById(containerId + '-list');
   if (!listEl) return;
-  const f = window.filters || {};
+  const { f } = _getSbCtx(containerId);
   const ql = q.toLowerCase();
   const filtered = ql ? items.filter(v => v.toLowerCase().includes(ql)) : items;
   if (!filtered.length) {
@@ -974,9 +981,10 @@ function _sbTagRenderList(containerId, filterKey, items, q) {
   }).join('');
 }
 
-export function buildSbTagInline(containerId, filterKey, items) {
+export function buildSbTagInline(containerId, filterKey, items, ctx='lib') {
   const el = document.getElementById(containerId);
   if (!el) return;
+  el.dataset.sbCtx = ctx;
   _sbTagItems[containerId] = { filterKey, items };
   el.innerHTML = `
     <input class="vp-dd-search" id="${containerId}-search" placeholder="検索..."
@@ -991,21 +999,43 @@ export function sbTagInlineFilter(containerId, filterKey, q) {
 }
 
 export function sbTagInlineToggle(containerId, filterKey, val) {
-  const f = window.filters || {};
+  const { f, af } = _getSbCtx(containerId);
   if (!f[filterKey]) f[filterKey] = new Set();
   f[filterKey].has(val) ? f[filterKey].delete(val) : f[filterKey].add(val);
   const stored = _sbTagItems[containerId];
   if (!stored) return;
   const q = document.getElementById(containerId + '-search')?.value || '';
   _sbTagRenderList(containerId, filterKey, stored.items, q);
-  window.AF?.();
+  af();
 }
 
-// フィルタークリア後に開いているポップアップを再描画
-export function refreshOpenSbAccordions() {
+// フィルタークリア後に開いているポップアップを再描画（ctx照合）
+export function refreshOpenSbAccordions(ctx='lib') {
   const popup = document.getElementById('sb-filter-popup');
-  if (popup && popup.style.display !== 'none' && popup.dataset.activeKey) {
-    _sbPopupRender(popup.dataset.activeKey);
+  if (popup && popup.style.display !== 'none'
+      && popup.dataset.activeKey && popup.dataset.activeCtx === ctx) {
+    _sbPopupRender(popup.dataset.activeKey, ctx);
   }
-  if (document.getElementById('fs-acc-body-src')?.style.display !== 'none') buildSidebarFovRows();
+  if (ctx === 'lib' && document.getElementById('fs-acc-body-src')?.style.display !== 'none') buildSidebarFovRows();
+  if (ctx === 'org' && document.getElementById('org-fs-acc-body-src')?.style.display !== 'none') buildOrgSbSrcChips();
+}
+
+export function buildOrgSbSrcChips() {
+  const el = document.getElementById('org-fs-acc-src-chips');
+  if (!el) return;
+  const vids = window.videos || [];
+  const f = window.orgFilters || {};
+  el.innerHTML = '';
+  [['youtube','YouTube'],['gdrive','GDrive']].forEach(([val, label]) => {
+    const cnt = vids.filter(v => !v.archived && v.pt === val).length;
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
+    chip.textContent = label + (cnt ? ' ' + cnt : '');
+    chip.onclick = () => {
+      f.platform?.has(val) ? f.platform.delete(val) : f.platform?.add(val);
+      buildOrgSbSrcChips();
+      window.renderOrg?.();
+    };
+    el.appendChild(chip);
+  });
 }

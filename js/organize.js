@@ -96,19 +96,19 @@ export function togOrgUnw() {
 
 export function togOrgWatched() {
   orgWatchedOnly = !orgWatchedOnly;
-  const el = document.getElementById('org-fov-chip-watched'); if(el) el.classList.toggle('active', orgWatchedOnly);
+  ['org-fov-chip-watched','org-fs-chip-watched'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgWatchedOnly); });
   renderOrg();
 }
 
 export function togOrgBm() {
   orgBmOnly = !orgBmOnly;
-  const el = document.getElementById('org-fov-chip-bm'); if(el) el.classList.toggle('active', orgBmOnly);
+  ['org-fov-chip-bm','org-fs-chip-bm'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgBmOnly); });
   renderOrg();
 }
 
 export function togOrgMemo() {
   orgMemoOnly = !orgMemoOnly;
-  const el = document.getElementById('org-fov-chip-memo'); if(el) el.classList.toggle('active', orgMemoOnly);
+  ['org-fov-chip-memo','org-fs-chip-memo'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgMemoOnly); });
   renderOrg();
 }
 
@@ -117,10 +117,9 @@ export function clearOrgFilters() {
   orgFavOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
-  // フィルターオーバーレイの表示を再構築（選択タグ行をリセット）
   syncOrgFilterOvRows();
-  // サイドバーのchipもリセット
   document.querySelectorAll('[id^="org-fs-"]').forEach(el => el.classList.remove('active'));
+  window.refreshOpenSbAccordions?.('org');
   renderOrg();
 }
 
@@ -197,9 +196,8 @@ export function toggleOrgAcc(key) {
   body.style.display = open ? 'block' : 'none';
   if (arrow) arrow.classList.toggle('open', open);
   if (open) {
-    if (key === 'pl') renderOrgAccChips('pl');
-    if (key === 'ch') renderOrgAccChips('ch');
     if (key === 'saved') window.renderSavedSearches?.();
+    if (key === 'src')   window.buildOrgSbSrcChips?.();
   }
 }
 
