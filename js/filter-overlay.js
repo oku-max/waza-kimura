@@ -714,3 +714,79 @@ export function filterAccChips(type) { renderAccChips(type); }
 export function showFsBulkBtn(show) {
   // 常時表示のため何もしない
 }
+
+// ── サイドバー タグフィルターチップ ──
+function _buildSbTagChips(elId, filterKey, items) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const f = window.filters || {};
+  el.innerHTML = items.map(v => {
+    const safe = v.replace(/'/g, "\\'");
+    return `<div class="chip${f[filterKey]?.has(v) ? ' active' : ''}" style="font-size:10.5px" onclick="togF('${filterKey}','${safe}',this)">${v}</div>`;
+  }).join('');
+}
+
+export function buildSidebarFovRows() {
+  const vids = window.videos || [];
+  const f = window.filters || {};
+  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+
+  // Source chips
+  const srcEl = document.getElementById('fs-acc-src-chips');
+  if (srcEl) {
+    srcEl.innerHTML = '';
+    [['youtube','YouTube'],['gdrive','GDrive']].forEach(([val, label]) => {
+      const cnt = vids.filter(v => !v.archived && v.pt === val).length;
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
+      chip.textContent = label + (cnt ? ' ' + cnt : '');
+      chip.onclick = () => {
+        f.platform?.has(val) ? f.platform.delete(val) : f.platform?.add(val);
+        buildSidebarFovRows();
+        window.AF?.();
+      };
+      srcEl.appendChild(chip);
+    });
+  }
+
+  _buildSbTagChips('fs-acc-tb-chips',   'tb',       window.TB_TAGS || []);
+  _buildSbTagChips('fs-acc-ac-chips',   'action',   window.AC_TAGS || []);
+  _buildSbTagChips('fs-acc-pos-chips',  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort());
+  _buildSbTagChips('fs-acc-tech-chips', 'tech',     [...new Set(vids.flatMap(v => v.tech||[]))].sort());
+}
+
+// ── 最近みた動画 ──
+const _RECENT_KEY = 'wk_recent_views';
+
+export function trackRecentView(id) {
+  const vid = (window.videos||[]).find(v => v.id === id);
+  if (!vid) return;
+  let recents = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]');
+  recents = recents.filter(r => r.id !== id);
+  recents.unshift({ id, title: vid.title||'', channel: vid.channel||'', ytId: vid.ytId||'' });
+  recents = recents.slice(0, 10);
+  localStorage.setItem(_RECENT_KEY, JSON.stringify(recents));
+  renderRecentSidebar();
+}
+
+export function renderRecentSidebar() {
+  const container = document.getElementById('fs-recent-list');
+  if (!container) return;
+  const recents = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]');
+  if (!recents.length) {
+    container.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:8px 14px">まだ視聴した動画はありません</div>';
+    return;
+  }
+  container.innerHTML = recents.map(v => {
+    const thumb = v.ytId
+      ? `<img src="https://i.ytimg.com/vi/${v.ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+      : '';
+    return `<div onclick="window.openVPanel?.('${v.id}')" style="display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <div style="width:44px;min-width:44px;height:28px;background:var(--surface3);border-radius:4px;overflow:hidden;flex-shrink:0">${thumb}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.title}</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.channel||''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}

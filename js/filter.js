@@ -36,7 +36,7 @@ export function togUnw() {
 
 export function togWatched() {
   window.watchedOnly = !window.watchedOnly;
-  ['chip-watched','fs-chip-watched'].forEach(id => {
+  ['chip-watched','fs-chip-watched','fov-chip-watched'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.watchedOnly);
   });
   window.AF();
@@ -44,7 +44,7 @@ export function togWatched() {
 
 export function togBm() {
   window.bmOnly = !window.bmOnly;
-  ['fov-chip-bm'].forEach(id => {
+  ['fov-chip-bm','fs-chip-bm'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.bmOnly);
   });
   window.AF();
@@ -52,7 +52,7 @@ export function togBm() {
 
 export function togMemo() {
   window.memoOnly = !window.memoOnly;
-  ['fov-chip-memo'].forEach(id => {
+  ['fov-chip-memo','fs-chip-memo'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.memoOnly);
   });
   window.AF();
@@ -66,6 +66,7 @@ export function clearAll() {
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
   window.syncFilterOvRows?.();
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
+  window.buildSidebarFovRows?.();
   window.renderTFC?.();
   window.AF?.();
 }
