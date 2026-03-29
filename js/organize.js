@@ -9,15 +9,18 @@ export let orgFilters = {
 export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false;
 const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
+const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
     const v = localStorage.getItem('wk_orgColVisibility');
+    const w = localStorage.getItem('wk_orgColWidths');
     return {
-      order: o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
-      vis:   v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
+      order:  o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
+      vis:    v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
+      widths: w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS},
     };
-  } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS} }; }
+  } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
 }
 const _orgPrefs = _loadOrgColPrefs();
 export let orgColOrder = _orgPrefs.order;
@@ -26,11 +29,12 @@ function _saveOrgColPrefs() {
   try {
     localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
     localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
+    localStorage.setItem('wk_orgColWidths', JSON.stringify(ORG_COL_WIDTHS));
   } catch(e) {}
   window.saveUserSettings?.();
 }
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
-export const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
+export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
 
@@ -563,6 +567,8 @@ export function initOrgResize() {
     table.querySelectorAll('th[data-col]').forEach(th => {
       addResizeHandle(th, (col, w) => {
         ORG_COL_WIDTHS[col] = w + 'px';
+      }, () => {
+        _saveOrgColPrefs();
       });
     });
 
@@ -585,7 +591,7 @@ export function initOrgResize() {
   } catch(e) { console.error('initOrgResize error:', e); }
 }
 
-export function addResizeHandle(th, onResize) {
+export function addResizeHandle(th, onResize, onEnd) {
   const rh = document.createElement('div');
   rh.className = 'rh';
   th.appendChild(rh);
@@ -626,6 +632,7 @@ export function addResizeHandle(th, onResize) {
     document.body.style.userSelect = '';
     rh.style.background = '';
     rh.style.opacity = '';
+    if (onEnd) onEnd();
   }
 
   rh.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); startDrag(e.clientX); });
