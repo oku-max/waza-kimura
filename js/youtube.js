@@ -78,7 +78,7 @@ function _parseDuration(iso) {
 
 export async function fetchMissingYtDetails(token) {
   const missing = (window.videos || []).filter(v =>
-    v.src === 'youtube' && v.ytId && (!v.duration || !v.addedAt)
+    v.pt === 'youtube' && v.ytId && (!v.duration || !v.addedAt)
   );
   if (!missing.length) return;
   const ids = missing.map(v => v.ytId);
