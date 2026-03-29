@@ -756,19 +756,19 @@ export function bulkDo(type){
   if(!(window.selIds||new Set()).size){ window.toast?.('動画を選択してください'); return; }
   const ids=[...(window.selIds||new Set())];
   const videos = window.videos || [];
-  if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();window.toast?.('✅ '+ids.length+'本を視聴済みに');}
-  else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();window.toast?.('👁 '+ids.length+'本を未視聴に戻した');}
-  else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();window.toast?.('⭐ '+ids.length+'本をお気に入りに追加');}
-  else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();window.toast?.('☆ '+ids.length+'本のお気に入りを解除');}
-  else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.toast?.('📦 '+ids.length+'本をアーカイブ');}
+  if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();window.debounceSave?.();window.toast?.('✅ '+ids.length+'本を視聴済みに');}
+  else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();window.debounceSave?.();window.toast?.('👁 '+ids.length+'本を未視聴に戻した');}
+  else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();window.debounceSave?.();window.toast?.('⭐ '+ids.length+'本をお気に入りに追加');}
+  else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();window.debounceSave?.();window.toast?.('☆ '+ids.length+'本のお気に入りを解除');}
+  else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.debounceSave?.();window.toast?.('📦 '+ids.length+'本をアーカイブ');}
   else if(type==='delete'){
-    window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', () => {
+    window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', async () => {
       window.videos = (window.videos||[]).filter(v => !ids.includes(v.id));
       window.selIds?.clear();
       closeBulkVPanel();
       exitBulk();
       window.AF?.(); window.renderOrg?.();
-      window.debounceSave?.();
+      await window.saveUserData?.();
       window.toast?.('🗑 '+ids.length+'本を削除しました');
     });
     return;
