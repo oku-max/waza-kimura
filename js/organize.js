@@ -477,7 +477,8 @@ export function syncOrgColHeaders() {
     th.dataset.col = col;
     th.id = 'org-th-' + col;
     th.draggable = true;
-    th.style.minWidth = ORG_COL_WIDTHS[col] || '120px';
+    th.style.width = ORG_COL_WIDTHS[col] || '120px';
+    th.style.minWidth = '40px';
     /* position:sticky はCSSクラス org-th で設定 - ここでrelativeを上書きしない */
     // ソート対応列の設定
     const sortableCols = ['channel','playlist','prio','addedAt','duration','fav','tb','action','position','technique'];
