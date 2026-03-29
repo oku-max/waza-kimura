@@ -26,8 +26,10 @@
   import {
     importYouTubePlaylists, ytFetchSelectedPlVideos, ytShowVideoStage,
     ytRenderVideoList, ytUpdateSelCount, ytSelAllVideos,
-    ytSelNoneVideos, ytBackToPlaylists, ytImportCheckedVideos
+    ytSelNoneVideos, ytBackToPlaylists, ytImportCheckedVideos,
+    parseYtTimestamps
   } from './js/youtube.js';
+  window.parseYtTimestamps = parseYtTimestamps;
   import { debounceSave, qFav, qWatch, archOne, setPrio } from './js/data.js';
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderCards, cardHTML } from './js/cards.js';

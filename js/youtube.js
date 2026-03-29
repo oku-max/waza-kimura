@@ -51,7 +51,7 @@ async function fetchPlaylists(token) {
   } catch (e) { showToast('⚠️ 取得エラー: ' + e.message); }
 }
 
-function parseYtTimestamps(description) {
+export function parseYtTimestamps(description) {
   if (!description) return [];
   const results = [];
   const re = /(?:^|\n)\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?[\s\-–]+(.+)/g;

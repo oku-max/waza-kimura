@@ -652,7 +652,15 @@ function _adjBtnStyle(bg, color) {
 
 function _chapterSectionHTML(id) {
   const v = (window.videos||[]).find(v => v.id === id);
-  if (!v?.ytChapters?.length) return '';
+  const isYt = !!(v?.ytId);
+  if (!v?.ytChapters?.length) {
+    if (!isYt) return '';
+    return `
+    <div class="vp-row" id="vp-chapters-${id}">
+      <span class="vp-lbl">📑 チャプター</span>
+      <button onclick="vpRefetchChapters('${id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">再取得</button>
+    </div>`;
+  }
   const items = v.ytChapters.map(ch => {
     const tot = ch.t, h = Math.floor(tot/3600), m = Math.floor((tot%3600)/60), s = tot%60;
     const time = h > 0
@@ -669,6 +677,30 @@ function _chapterSectionHTML(id) {
       <div style="width:100%;max-height:180px;overflow-y:auto">${items}</div>
     </div>`;
 }
+
+export async function vpRefetchChapters(id) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v?.ytId) return;
+  const token = window._ytToken;
+  if (!token) { window.toast?.('⚠️ YouTubeの認証が必要です。動画取込ボタンから再認証してください'); return; }
+  const btn = document.querySelector(`#vp-chapters-${id} button`);
+  if (btn) btn.textContent = '取得中...';
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${v.ytId}&maxResults=1`;
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    const data = await res.json();
+    if (data.error) { window.toast?.('⚠️ 取得エラー: ' + data.error.message); return; }
+    const desc = data.items?.[0]?.snippet?.description || '';
+    const chapters = window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
+    v.ytChapters = chapters;
+    window.debounceSave?.();
+    // セクションを再描画
+    const sec = document.getElementById(`vp-chapters-${id}`);
+    if (sec) sec.outerHTML = _chapterSectionHTML(id);
+    window.toast?.(chapters.length ? `📑 ${chapters.length}件のチャプターを取得しました` : 'チャプターが見つかりませんでした');
+  } catch(e) { window.toast?.('⚠️ 取得エラー: ' + e.message); }
+}
+window.vpRefetchChapters = vpRefetchChapters;
 
 export function vpChapterClick(sec) { _seekTo(sec); }
 window.vpChapterClick = vpChapterClick;
