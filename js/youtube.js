@@ -111,11 +111,6 @@ export async function ytFetchSelectedPlVideos(token) {
   document.getElementById('yt-import-ok').textContent = '読込中...';
   document.getElementById('yt-import-ok').disabled = true;
   const existingYtIds = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
-  // タイムスタンプ lookup map
-  const vidTimestampMap = {};
-  Object.values(_ytPendingVideos || {}).forEach(pl => {
-    (pl.items || []).forEach(item => { vidTimestampMap[item.vid] = item.timestamps || []; });
-  });
   _ytPendingVideos = {};
   for (const cb of checks) {
     const plId = cb.value;
@@ -211,6 +206,11 @@ export async function ytImportCheckedVideos() {
   const checks = document.querySelectorAll('#yt-video-list .yt-vid-cb:not([disabled]):checked');
   if (!checks.length) { showToast('動画を選択してください'); return; }
   document.getElementById('yt-import-ov').classList.remove('open');
+  // タイムスタンプ lookup map（_ytPendingVideos から組み立て）
+  const vidTimestampMap = {};
+  Object.values(_ytPendingVideos || {}).forEach(pl => {
+    (pl.items || []).forEach(item => { vidTimestampMap[item.vid] = item.timestamps || []; });
+  });
   let added = 0;
   const newIds = [];
   checks.forEach(cb => {
