@@ -4,7 +4,8 @@
 export let orgFilters = {
   prio: new Set(), tb: new Set(), action: new Set(), position: new Set(),
   playlist: new Set(), status: new Set(), tech: new Set(),
-  platform: new Set(), channel: new Set()
+  platform: new Set(), channel: new Set(),
+  fav: new Set(), memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
 export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false;
 const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
@@ -169,6 +170,23 @@ export function orgFilt(list) {
     if (orgFilters.position.size && !(v.pos||[]).some(p=>orgFilters.position.has(p))) return false;
     if (orgFilters.tech.size && !(v.tech||[]).some(t=>orgFilters.tech.has(t))) return false;
     if (orgFilters.channel.size && !orgFilters.channel.has(v.ch)) return false;
+    if (orgFilters.fav.size) {
+      const favVal = v.fav ? '★ Fav' : '☆ 未Fav';
+      if (!orgFilters.fav.has(favVal)) return false;
+    }
+    if (orgFilters.memo.size) {
+      const memoVal = v.memo ? 'あり' : 'なし';
+      if (!orgFilters.memo.has(memoVal)) return false;
+    }
+    if (orgFilters.addedAtFilter.size) {
+      const ym = v.addedAt ? (() => { const d = new Date(v.addedAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : '不明';
+      if (!orgFilters.addedAtFilter.has(ym)) return false;
+    }
+    if (orgFilters.durationFilter.size) {
+      const s = v.duration || 0;
+      const bucket = !s ? '不明' : s < 300 ? '〜5分' : s < 900 ? '5〜15分' : s < 1800 ? '15〜30分' : '30分以上';
+      if (!orgFilters.durationFilter.has(bucket)) return false;
+    }
     return true;
   });
 }
@@ -475,7 +493,6 @@ export function syncOrgColHeaders() {
   const thead = document.querySelector('.org-table thead tr');
   if (!thead) return;
   [...thead.querySelectorAll('th[data-col]')].forEach(el => el.remove());
-  const tagCols = {tb:'tb', action:'action', position:'position', technique:'tech'};
   orgColOrder.filter(col => orgColVisibility[col] !== false).forEach(col => {
     const th = document.createElement('th');
     th.className = 'org-th org-th-draggable';
@@ -487,23 +504,13 @@ export function syncOrgColHeaders() {
     th.style.maxWidth = cw;
     th.style.minWidth = '0';
     /* position:sticky はCSSクラス org-th で設定 - ここでrelativeを上書きしない */
-    // ソート対応列の設定
-    const sortableCols = ['channel','playlist','prio','addedAt','duration','fav','tb','action','position','technique'];
-    if (tagCols[col]) {
-      th.style.cursor = 'pointer';
-      th.title = ORG_COL_LABELS[col] + 'フィルターを開く / クリックでソート';
-      const fk = tagCols[col];
-      const colKey = col;
-      th.addEventListener('click', e => {
-        if(e.target.closest('.rh')) return;
-        if (e.target === th || e.target.tagName === 'SPAN') { orgSetSort(col); return; }
-        openTagFilterFor(colKey, fk, th);
-      });
-    } else if (sortableCols.includes(col)) {
-      th.style.cursor = 'pointer';
-      th.title = 'クリックでソート';
-      th.addEventListener('click', e => { if(e.target.closest('.rh')) return; orgSetSort(col); });
-    }
+    // 全列: クリックで並替え＋フィルタードロップダウンを開く
+    th.style.cursor = 'pointer';
+    th.title = 'クリックでソート・フィルター';
+    th.addEventListener('click', e => {
+      if (e.target.closest('.rh')) return;
+      openOrgColFilter(col, th);
+    });
     // ソートインジケーター
     const sortIndicator = document.createElement('span');
     sortIndicator.className = 'org-sort-ind';
@@ -516,6 +523,16 @@ export function syncOrgColHeaders() {
     th.textContent = '';
     th.appendChild(labelSpan);
     th.appendChild(sortIndicator);
+    // フィルターアクティブインジケーター
+    const filtCfg = _colFilterConfig[col];
+    if (filtCfg) {
+      const hasActive = orgFilters[filtCfg.filterKey] && orgFilters[filtCfg.filterKey].size > 0;
+      const filtIcon = document.createElement('span');
+      filtIcon.className = 'org-filt-icon';
+      filtIcon.textContent = '▾';
+      filtIcon.style.cssText = `margin-left:2px;font-size:9px;opacity:${hasActive?'1':'0.4'};color:${hasActive?'var(--accent)':'var(--text3)'}`;
+      th.appendChild(filtIcon);
+    }
     thead.appendChild(th);
   });
   // テーブル幅を全列の合計に明示設定（width:max-contentによる列幅の再分配を防止）
@@ -789,10 +806,213 @@ export function bindOrgDrag() {
   });
 }
 
-// ── 整理タブ タグ列クリックでフィルターを開く ──
-export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) {
-  // Organize個別セルからは何もしない（VPanelからのみ編集）
-  return;
+// ── 整理タブ タグ列クリックでフィルターを開く（後方互換のため残す）──
+export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return; }
+
+// ── 列フィルター設定 ──
+const _colFilterConfig = {
+  tb:             { filterKey: 'tb',             valueGetter: v => v.tb   || [] },
+  action:         { filterKey: 'action',         valueGetter: v => v.ac   || [] },
+  position:       { filterKey: 'position',       valueGetter: v => v.pos  || [] },
+  technique:      { filterKey: 'tech',           valueGetter: v => v.tech || [] },
+  channel:        { filterKey: 'channel',        valueGetter: v => v.ch   ? [v.ch]    : [] },
+  prio:           { filterKey: 'prio',           valueGetter: v => [v.prio || '保留'] },
+  playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl   ? [v.pl]    : [] },
+  fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'] },
+  memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし']   },
+  addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
+    if (!v.addedAt) return ['不明'];
+    const d = new Date(v.addedAt);
+    return [`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`];
+  }},
+  duration:       { filterKey: 'durationFilter', valueGetter: v => {
+    const s = v.duration || 0;
+    return [!s ? '不明' : s < 300 ? '〜5分' : s < 900 ? '5〜15分' : s < 1800 ? '15〜30分' : '30分以上'];
+  }},
+};
+
+// duration バケットの並び順
+const _durOrder = ['〜5分','5〜15分','15〜30分','30分以上','不明'];
+
+let _openColFilterEl  = null;
+let _openColFilterCol = null;
+
+export function closeOrgColFilter() {
+  if (_openColFilterEl) { _openColFilterEl.remove(); _openColFilterEl = null; }
+  _openColFilterCol = null;
+}
+
+export function openOrgColFilter(col, thEl) {
+  // 同じ列を再クリック → 閉じる
+  const isSame = (_openColFilterCol === col);
+  closeOrgColFilter();
+  if (isSame) return;
+  _openColFilterCol = col;
+
+  const cfg = _colFilterConfig[col];
+  const videos = (window.videos || []).filter(v => !v.archived);
+
+  // 一意な値とカウントを集計
+  const valueCounts = new Map();
+  videos.forEach(v => {
+    (cfg ? cfg.valueGetter(v) : []).forEach(val => {
+      if (val != null && val !== '') valueCounts.set(val, (valueCounts.get(val) || 0) + 1);
+    });
+  });
+  // ソート（duration列はバケット順、それ以外はアルファベット順）
+  const sortedVals = [...valueCounts.keys()].sort((a, b) => {
+    if (col === 'duration') {
+      return _durOrder.indexOf(a) - _durOrder.indexOf(b);
+    }
+    return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+  });
+
+  const filterSet = cfg ? (orgFilters[cfg.filterKey] || (orgFilters[cfg.filterKey] = new Set())) : new Set();
+  const sortableCols = ['channel','playlist','prio','addedAt','duration','fav','tb','action','position','technique','memo'];
+
+  // ─ ドロップダウン構築 ─
+  const dd = document.createElement('div');
+  dd.id = 'org-col-filter-dd';
+  dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:200px;max-width:260px;max-height:400px;display:flex;flex-direction:column;gap:6px;font-size:12px';
+  document.body.appendChild(dd);  // 先に追加して幅を取得
+
+  // 位置決め
+  const rect = thEl.getBoundingClientRect();
+  let left = rect.left;
+  const ddW = dd.offsetWidth || 210;
+  if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
+  dd.style.left = Math.max(4, left) + 'px';
+  dd.style.top  = (rect.bottom + 4) + 'px';
+
+  // ── ソートボタン ──
+  if (sortableCols.includes(col)) {
+    const sortRow = document.createElement('div');
+    sortRow.style.cssText = 'display:flex;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border)';
+    const mkSortBtn = (label, asc) => {
+      const btn = document.createElement('button');
+      btn.innerHTML = label;
+      const isActive = orgSortCol === col && orgSortAsc === asc;
+      btn.style.cssText = `flex:1;padding:5px 0;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;transition:background .1s;background:${isActive?'var(--accent)':'var(--surface2)'};color:${isActive?'#fff':'var(--text2)'}`;
+      btn.addEventListener('click', () => {
+        orgSortCol = col; orgSortAsc = asc;
+        renderOrg();
+        closeOrgColFilter();
+      });
+      return btn;
+    };
+    sortRow.appendChild(mkSortBtn('▲ 昇順', true));
+    sortRow.appendChild(mkSortBtn('▼ 降順', false));
+    dd.appendChild(sortRow);
+  }
+
+  // ── フィルターセクション ──
+  if (cfg && sortedVals.length > 0) {
+    const filtLabel = document.createElement('div');
+    filtLabel.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px';
+    filtLabel.textContent = 'フィルター';
+    dd.appendChild(filtLabel);
+
+    // 検索ボックス
+    const searchBox = document.createElement('input');
+    searchBox.type = 'text';
+    searchBox.placeholder = '値を検索...';
+    searchBox.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
+    dd.appendChild(searchBox);
+
+    // 全選択 / クリアボタン行
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:5px';
+    const mkBtn = (label) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = 'flex:1;padding:3px 0;font-size:10px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);cursor:pointer;color:var(--text2)';
+      return b;
+    };
+    const btnSelAll = mkBtn('全選択');
+    const btnClear  = mkBtn('クリア');
+    btnRow.appendChild(btnSelAll);
+    btnRow.appendChild(btnClear);
+    dd.appendChild(btnRow);
+
+    // 値リスト
+    const listEl = document.createElement('div');
+    listEl.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1px;min-height:50px';
+    dd.appendChild(listEl);
+
+    const renderList = (q) => {
+      const ql = (q || '').toLowerCase();
+      const filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : sortedVals;
+      listEl.innerHTML = '';
+      if (!filtered.length) {
+        listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">該当なし</div>';
+        return;
+      }
+      filtered.forEach(val => {
+        const cnt = valueCounts.get(val) || 0;
+        const lbl = document.createElement('label');
+        lbl.style.cssText = 'display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 5px;border-radius:5px';
+        lbl.onmouseover = () => { lbl.style.background = 'var(--surface2)'; };
+        lbl.onmouseout  = () => { lbl.style.background = ''; };
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = filterSet.has(val);
+        cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
+        cb.addEventListener('change', () => {
+          cb.checked ? filterSet.add(val) : filterSet.delete(val);
+          renderOrg();
+          _syncFiltIcon(col);
+        });
+        const txt = document.createElement('span');
+        txt.style.cssText = 'flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+        txt.textContent = val || '(空)';
+        const cntEl = document.createElement('span');
+        cntEl.style.cssText = 'font-size:10px;color:var(--text3);flex-shrink:0';
+        cntEl.textContent = cnt;
+        lbl.appendChild(cb); lbl.appendChild(txt); lbl.appendChild(cntEl);
+        listEl.appendChild(lbl);
+      });
+    };
+
+    renderList('');
+    searchBox.addEventListener('input', () => renderList(searchBox.value));
+
+    btnSelAll.addEventListener('click', () => {
+      sortedVals.forEach(v => filterSet.add(v));
+      renderList(searchBox.value);
+      renderOrg(); _syncFiltIcon(col);
+    });
+    btnClear.addEventListener('click', () => {
+      filterSet.clear();
+      renderList(searchBox.value);
+      renderOrg(); _syncFiltIcon(col);
+    });
+
+    requestAnimationFrame(() => searchBox.focus());
+  }
+
+  _openColFilterEl = dd;
+
+  // 外側クリックで閉じる
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (_openColFilterEl && !_openColFilterEl.contains(e.target)) {
+        closeOrgColFilter();
+        document.removeEventListener('mousedown', closeHandler);
+      }
+    };
+    document.addEventListener('mousedown', closeHandler);
+  }, 50);
+}
+
+function _syncFiltIcon(col) {
+  const th = document.getElementById('org-th-' + col);
+  if (!th) return;
+  const icon = th.querySelector('.org-filt-icon');
+  if (!icon) return;
+  const cfg = _colFilterConfig[col];
+  const active = cfg && orgFilters[cfg.filterKey] && orgFilters[cfg.filterKey].size > 0;
+  icon.style.color   = active ? 'var(--accent)' : 'var(--text3)';
+  icon.style.opacity = active ? '1' : '0.4';
 }
 
 // ═══ Register all exported functions on window for inline HTML handler access ═══
@@ -841,5 +1061,7 @@ window.orgTogSelAll = orgTogSelAll;
 window.toggleOrgColMenu = toggleOrgColMenu;
 window.bindOrgDrag = bindOrgDrag;
 window.openTagFilterFor = openTagFilterFor;
+window.openOrgColFilter  = openOrgColFilter;
+window.closeOrgColFilter = closeOrgColFilter;
 window.ORG_COL_LABELS = ORG_COL_LABELS;
 window.ORG_COL_WIDTHS = ORG_COL_WIDTHS;
