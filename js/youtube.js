@@ -40,12 +40,9 @@ async function fetchPlaylists(token) {
       return;
     }
     const playlists = data.items || [];
-    // 特別プレイリスト（あとで見る）を先頭に追加
+    // 特別プレイリスト（高評価）を先頭に追加
+    // ※「あとで見る(WL)」はYouTube APIの制限でサードパーティからアクセス不可
     const special = [{
-      id: 'WL',
-      snippet: { title: '⏰ あとで見る (Watch Later)', thumbnails: {} },
-      contentDetails: { itemCount: '?' }
-    }, {
       id: 'LL',
       snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} },
       contentDetails: { itemCount: '?' }
