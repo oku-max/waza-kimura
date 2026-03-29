@@ -36,13 +36,53 @@ async function fetchPlaylists(token) {
     const data = await res.json();
     if (data.error) {
       window._ytToken = null;
-      showToast('⚠️ トークン期限切れ。再度「YT取込」を押してください');
+      showToast('⚠️ トークン期限切れ。再度「動画取込」を押してください');
       return;
     }
     const playlists = data.items || [];
-    if (!playlists.length) { showToast('プレイリストが見つかりません'); return; }
-    showPlaylistSelector(playlists, token);
+    // 特別プレイリスト（あとで見る）を先頭に追加
+    const special = [{
+      id: 'WL',
+      snippet: { title: '⏰ あとで見る (Watch Later)', thumbnails: {} },
+      contentDetails: { itemCount: '?' }
+    }, {
+      id: 'LL',
+      snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} },
+      contentDetails: { itemCount: '?' }
+    }];
+    showPlaylistSelector([...special, ...playlists], token);
   } catch (e) { showToast('⚠️ 取得エラー: ' + e.message); }
+}
+
+function parseYtTimestamps(description) {
+  if (!description) return [];
+  const results = [];
+  const re = /(?:^|\n)\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?[\s\-–]+(.+)/g;
+  let m;
+  while ((m = re.exec(description)) !== null) {
+    const parts = m[1].split(':').map(Number);
+    const secs = parts.length === 3
+      ? parts[0]*3600 + parts[1]*60 + parts[2]
+      : parts[0]*60 + parts[1];
+    const label = m[2].trim().slice(0, 80);
+    if (label) results.push({ t: secs, label });
+    if (results.length >= 100) break;
+  }
+  return results;
+}
+
+async function fetchVideoDescriptions(vids, token) {
+  const descMap = {};
+  for (let i = 0; i < vids.length; i += 50) {
+    const batch = vids.slice(i, i + 50);
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${batch.join(',')}&maxResults=50`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      const data = await res.json();
+      (data.items || []).forEach(v => { descMap[v.id] = v.snippet?.description || ''; });
+    } catch (e) { /* ignore */ }
+  }
+  return descMap;
 }
 
 function showPlaylistSelector(playlists, token) {
@@ -74,6 +114,11 @@ export async function ytFetchSelectedPlVideos(token) {
   document.getElementById('yt-import-ok').textContent = '読込中...';
   document.getElementById('yt-import-ok').disabled = true;
   const existingYtIds = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
+  // タイムスタンプ lookup map
+  const vidTimestampMap = {};
+  Object.values(_ytPendingVideos || {}).forEach(pl => {
+    (pl.items || []).forEach(item => { vidTimestampMap[item.vid] = item.timestamps || []; });
+  });
   _ytPendingVideos = {};
   for (const cb of checks) {
     const plId = cb.value;
@@ -101,6 +146,15 @@ export async function ytFetchSelectedPlVideos(token) {
       pageToken = data.nextPageToken || '';
     } while (pageToken);
     _ytPendingVideos[plId] = { title: plTitle, items };
+  }
+  // チャプター（タイムスタンプ）をフェッチ
+  const allVids = Object.values(_ytPendingVideos).flatMap(pl => pl.items).map(i => i.vid);
+  if (allVids.length) {
+    document.getElementById('yt-import-ok').textContent = 'チャプター取得中...';
+    const descMap = await fetchVideoDescriptions(allVids, token);
+    Object.values(_ytPendingVideos).forEach(pl => {
+      pl.items.forEach(item => { item.timestamps = parseYtTimestamps(descMap[item.vid] || ''); });
+    });
   }
   document.getElementById('yt-import-ok').textContent = '次へ →';
   document.getElementById('yt-import-ok').disabled = false;
@@ -178,6 +232,7 @@ export async function ytImportCheckedVideos() {
       channel: cb.dataset.channel,
       pl: cb.dataset.pl,
       addedAt: cb.dataset.addedat || '',
+      ytChapters: vidTimestampMap[vid] || [],
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       ...(() => { const t = window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : {tb:[],ac:[],pos:[],tech:[]}; return { tb: t.tb, ac: t.ac, pos: t.pos, tech: t.tech }; })()

@@ -650,6 +650,29 @@ function _adjBtnStyle(bg, color) {
   return `padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:${bg};color:${color};font-size:10px;font-weight:600;cursor:pointer;font-family:inherit`;
 }
 
+function _chapterSectionHTML(id) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v?.ytChapters?.length) return '';
+  const items = v.ytChapters.map(ch => {
+    const tot = ch.t, h = Math.floor(tot/3600), m = Math.floor((tot%3600)/60), s = tot%60;
+    const time = h > 0
+      ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      : `${m}:${String(s).padStart(2,'0')}`;
+    return `<div onclick="vpChapterClick(${ch.t})" style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <span style="font-size:11px;font-weight:600;color:var(--accent);font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0">${time}</span>
+      <span style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ch.label}</span>
+    </div>`;
+  }).join('');
+  return `
+    <div class="vp-row" id="vp-chapters-${id}">
+      <span class="vp-lbl" style="margin-bottom:4px">📑 チャプター</span>
+      <div style="width:100%;max-height:180px;overflow-y:auto">${items}</div>
+    </div>`;
+}
+
+export function vpChapterClick(sec) { _seekTo(sec); }
+window.vpChapterClick = vpChapterClick;
+
 function _bookmarkSectionHTML(id) {
   const hasAB = _ab.a != null && _ab.b != null && _ab.loop;
   const bmBtnLabel = hasAB ? '＋ ループ区間をブックマーク' : '＋ 現在位置でブックマーク';
@@ -1123,7 +1146,7 @@ export function openVPanel(id) {
   if (bmContainer) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
-    bmContainer.innerHTML = _bookmarkSectionHTML(vid)
+    bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" style="margin-top:8px">
           <span class="vp-lbl">Memo</span>
           <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
@@ -2130,6 +2153,7 @@ export function _openPanel(id, emb, ext, plat) {
     </div>
     <div class="vp-panel-body">
 
+      ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       ${buildDrawerHTML(id)}
     </div>
