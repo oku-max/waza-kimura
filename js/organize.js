@@ -7,8 +7,27 @@ export let orgFilters = {
   platform: new Set(), channel: new Set()
 };
 export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false;
-export let orgColOrder = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
-export let orgColVisibility = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
+const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
+function _loadOrgColPrefs() {
+  try {
+    const o = localStorage.getItem('wk_orgColOrder');
+    const v = localStorage.getItem('wk_orgColVisibility');
+    return {
+      order: o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
+      vis:   v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
+    };
+  } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS} }; }
+}
+const _orgPrefs = _loadOrgColPrefs();
+export let orgColOrder = _orgPrefs.order;
+export let orgColVisibility = _orgPrefs.vis;
+function _saveOrgColPrefs() {
+  try {
+    localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
+    localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
+  } catch(e) {}
+}
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 export const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
 export let orgSortCol = null, orgSortAsc = true;
@@ -672,7 +691,7 @@ export function toggleOrgColMenu() {
   menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列</div>' +
     orgColOrder.map(col => `
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 0">
-        <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
+        <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
         ${ORG_COL_LABELS[col]||col}
       </label>`).join('');
   document.body.appendChild(menu);
@@ -708,6 +727,7 @@ export function bindOrgDrag() {
       if (from < 0 || to < 0) return;
       orgColOrder.splice(from, 1);
       orgColOrder.splice(to, 0, dragSrc);
+      _saveOrgColPrefs();
       renderOrg();
     };
   });
@@ -720,6 +740,7 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) {
 }
 
 // ═══ Register all exported functions on window for inline HTML handler access ═══
+window._saveOrgColPrefs = _saveOrgColPrefs;
 window.initOrgFixedHeaders = initOrgFixedHeaders;
 window.togOrgF = togOrgF;
 window.togOrgFav = togOrgFav;
