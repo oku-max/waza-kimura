@@ -31,7 +31,7 @@ export async function fetchAiTags(video) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       title:       video.title   || '',
-      channel:     video.ch      || '',
+      channel:     video.ch || video.channel || '',
       playlist:    video.pl      || '',
       flexibility: ai.flexibility || 'standard',
       presets,
