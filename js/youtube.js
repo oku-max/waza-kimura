@@ -68,15 +68,28 @@ export function parseYtTimestamps(description) {
   return results;
 }
 
+function _parseDuration(iso) {
+  if (!iso) return 0;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1]||0)*3600) + (parseInt(m[2]||0)*60) + parseInt(m[3]||0);
+}
+
 async function fetchVideoDescriptions(vids, token) {
   const descMap = {};
   for (let i = 0; i < vids.length; i += 50) {
     const batch = vids.slice(i, i + 50);
     try {
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${batch.join(',')}&maxResults=50`;
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${batch.join(',')}&maxResults=50`;
       const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
       const data = await res.json();
-      (data.items || []).forEach(v => { descMap[v.id] = v.snippet?.description || ''; });
+      (data.items || []).forEach(v => {
+        descMap[v.id] = {
+          desc:        v.snippet?.description || '',
+          duration:    _parseDuration(v.contentDetails?.duration),
+          publishedAt: v.snippet?.publishedAt || '',
+        };
+      });
     } catch (e) { /* ignore */ }
   }
   return descMap;
@@ -145,7 +158,12 @@ export async function ytFetchSelectedPlVideos(token) {
     document.getElementById('yt-import-ok').textContent = 'チャプター取得中...';
     const descMap = await fetchVideoDescriptions(allVids, token);
     Object.values(_ytPendingVideos).forEach(pl => {
-      pl.items.forEach(item => { item.timestamps = parseYtTimestamps(descMap[item.vid] || ''); });
+      pl.items.forEach(item => {
+        const d = descMap[item.vid] || {};
+        item.timestamps  = parseYtTimestamps(d.desc || '');
+        item.duration    = d.duration    || 0;
+        item.publishedAt = d.publishedAt || '';
+      });
     });
   }
   document.getElementById('yt-import-ok').textContent = '次へ →';
@@ -207,9 +225,15 @@ export async function ytImportCheckedVideos() {
   if (!checks.length) { showToast('動画を選択してください'); return; }
   document.getElementById('yt-import-ov').classList.remove('open');
   // タイムスタンプ lookup map（_ytPendingVideos から組み立て）
-  const vidTimestampMap = {};
+  const vidTimestampMap   = {};
+  const vidDurationMap    = {};
+  const vidPublishedAtMap = {};
   Object.values(_ytPendingVideos || {}).forEach(pl => {
-    (pl.items || []).forEach(item => { vidTimestampMap[item.vid] = item.timestamps || []; });
+    (pl.items || []).forEach(item => {
+      vidTimestampMap[item.vid]   = item.timestamps   || [];
+      vidDurationMap[item.vid]    = item.duration     || 0;
+      vidPublishedAtMap[item.vid] = item.publishedAt  || '';
+    });
   });
   let added = 0;
   const newIds = [];
@@ -228,7 +252,8 @@ export async function ytImportCheckedVideos() {
       ch: cb.dataset.channel,
       channel: cb.dataset.channel,
       pl: cb.dataset.pl,
-      addedAt: cb.dataset.addedat || '',
+      addedAt:    cb.dataset.addedat || vidPublishedAtMap[vid] || '',
+      duration:   vidDurationMap[vid] || 0,
       ytChapters: vidTimestampMap[vid] || [],
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
