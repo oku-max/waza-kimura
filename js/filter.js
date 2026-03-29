@@ -199,7 +199,7 @@ export function renderFilterPresets() {
         if (fs.action && fs.action.length && !(v.ac||[]).some(a => fs.action.includes(a))) return false;
         if (fs.position && fs.position.length && !(v.pos||[]).some(x => fs.position.includes(x))) return false;
         if (fs.tech && fs.tech.length && !(v.tech||[]).some(t => fs.tech.includes(t))) return false;
-        if (fs.channel && fs.channel.length && !fs.channel.includes(v.ch)) return false;
+        if (fs.channel && fs.channel.length && !fs.channel.includes(v.channel || v.ch)) return false;
         return true;
       }).length;
       const badge = '<span style="font-size:9px;background:var(--accent);color:#fff;border-radius:8px;padding:1px 6px;margin-left:5px;font-weight:700">'+count+'</span>';
@@ -238,7 +238,7 @@ export function filt(list) {
     if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
     // ▼ 修正: ch / pl / tech が undefined の動画でもクラッシュしないよう || '' / || [] でガード
     if (q && !(v.title||'').toLowerCase().includes(q)
-          && !(v.ch||'').toLowerCase().includes(q)
+          && !(v.channel||v.ch||'').toLowerCase().includes(q)
           && !(v.pl||'').toLowerCase().includes(q)
           && !(v.tech||[]).some(t => t.toLowerCase().includes(q))) return false;
     if (window.filters.playlist.size && !window.filters.playlist.has(v.pl)) return false;
@@ -248,7 +248,7 @@ export function filt(list) {
     if (window.filters.action.size && !(v.ac||[]).some(a => window.filters.action.has(a))) return false;
     if (window.filters.position.size && !(v.pos||[]).some(p => window.filters.position.has(p))) return false;
     if (window.filters.tech.size && !(v.tech||[]).some(t => window.filters.tech.has(t))) return false;
-    if (window.filters.channel.size && !window.filters.channel.has(v.ch)) return false;
+    if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
     return true;
   });
 }
@@ -261,7 +261,7 @@ export function countByPl(pl) {
   return (window.videos||[]).filter(v => !v.archived && v.pl === pl).length;
 }
 export function countByCh(ch) {
-  return (window.videos||[]).filter(v => !v.archived && v.ch === ch).length;
+  return (window.videos||[]).filter(v => !v.archived && (v.channel || v.ch) === ch).length;
 }
 
 // ── コンテキスト件数：現在のフィルター状態を考慮した件数 ──
@@ -280,7 +280,7 @@ export function countContextual(key, val) {
     if (window.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly    && !v.memo)                                   return false;
     if (q && !(v.title||'').toLowerCase().includes(q)
-          && !(v.ch||'').toLowerCase().includes(q)
+          && !(v.channel||v.ch||'').toLowerCase().includes(q)
           && !(v.pl||'').toLowerCase().includes(q)
           && !(v.tech||[]).some(t => t.toLowerCase().includes(q)))       return false;
     // key以外のフィルターを適用
@@ -292,14 +292,14 @@ export function countContextual(key, val) {
     if (key !== 'action'   && f.action?.size   && !(v.ac||[]).some(a => f.action.has(a)))     return false;
     if (key !== 'position' && f.position?.size && !(v.pos||[]).some(p => f.position.has(p))) return false;
     if (key !== 'tech'     && f.tech?.size     && !(v.tech||[]).some(t => f.tech.has(t)))    return false;
-    if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.ch))                       return false;
+    if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
     // このvalが該当するか
     if (key === 'tb')       return (v.tb||[]).includes(val);
     if (key === 'action')   return (v.ac||[]).includes(val);
     if (key === 'position') return (v.pos||[]).includes(val);
     if (key === 'tech')     return (v.tech||[]).includes(val);
     if (key === 'playlist') return v.pl === val;
-    if (key === 'channel')  return v.ch === val;
+    if (key === 'channel')  return (v.channel || v.ch) === val;
     if (key === 'status')   return v.status === val;
     if (key === 'prio')     return v.prio === val;
     return false;
