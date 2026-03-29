@@ -27,6 +27,7 @@ function _saveOrgColPrefs() {
     localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
     localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
   } catch(e) {}
+  window.saveUserSettings?.();
 }
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 export const ORG_COL_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};

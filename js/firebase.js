@@ -85,10 +85,12 @@ export async function saveUserSettings() {
   if (!currentUser) return;
   try {
     await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set({
-      tagSettings:    window.tagSettings    || [],
-      aiSettings:     window.aiSettings     || {},
-      savedSearches:  window.savedSearches  || [],
-      filterPresets:  window.filterPresets  || [],
+      tagSettings:       window.tagSettings       || [],
+      aiSettings:        window.aiSettings        || {},
+      savedSearches:     window.savedSearches     || [],
+      filterPresets:     window.filterPresets     || [],
+      orgColOrder:       window.orgColOrder       || [],
+      orgColVisibility:  window.orgColVisibility  || {},
       updatedAt: new Date().toISOString()
     });
   } catch (e) { console.error('saveUserSettings:', e); }
@@ -106,6 +108,14 @@ export async function loadUserSettings(uid) {
       }
       if (Array.isArray(data.filterPresets) && data.filterPresets.length) {
         window.loadFilterPresetsFromRemote?.(data.filterPresets);
+      }
+      if (Array.isArray(data.orgColOrder) && data.orgColOrder.length) {
+        window.orgColOrder = data.orgColOrder;
+        try { localStorage.setItem('wk_orgColOrder', JSON.stringify(data.orgColOrder)); } catch(e) {}
+      }
+      if (data.orgColVisibility && typeof data.orgColVisibility === 'object') {
+        window.orgColVisibility = { ...window.orgColVisibility, ...data.orgColVisibility };
+        try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
     }
   } catch (e) { console.error('loadUserSettings:', e); }
