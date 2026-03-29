@@ -260,7 +260,7 @@ function detectCommonSuffix(names) {
   const titles = names.map(n => n.replace(/\.[^.]+$/, '').replace(/^\d+\.\s*/, ''));
   if (titles.length < 3) return '';
   const ref = titles[0];
-  for (let len = Math.min(ref.length, 50); len >= 8; len--) {
+  for (let len = Math.min(ref.length, 100); len >= 8; len--) {
     for (let s = Math.max(0, ref.length - len); s < ref.length - len + 1; s++) {
       const sub = ref.slice(s, s + len).trim();
       if (sub && titles.every(t => t.includes(sub))) return sub;
