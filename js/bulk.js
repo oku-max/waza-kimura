@@ -8,9 +8,6 @@ export function openBulkVPanel() {
   if (!panel || !body) return;
   if (sub) sub.textContent = window.selIds.size + '本の動画を編集中';
   body.innerHTML = buildBulkDrawerHTML();
-  // イベントバインド
-  body.querySelectorAll('.vp-tech-rm').forEach(el => { el.onclick = function(){ bvpRemoveTag('tech', this); }; });
-  body.querySelectorAll('.vp-pos-rm').forEach(el =>  { el.onclick = function(){ bvpRemoveTag('pos',  this); }; });
   panel.classList.add('show');
   document.body.style.overflow = 'hidden';
 }
@@ -21,152 +18,206 @@ export function closeBulkVPanel() {
   document.body.style.overflow = '';
 }
 
-// 一括編集VPanel用のDrawerHTML（動画プレビューなし）
+// 一括編集VPanel用のDrawerHTML（vパネルスタイル）
 export function buildBulkDrawerHTML() {
-  const TB_OPTS = ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'];
-  const AC_OPTS = ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル'];
-  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
-  const videos = window.videos || [];
-  const POS_ALL = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
-  const TECH_ALL = [...new Set(videos.flatMap(v=>v.tech||[]))].sort();
+  const ts = window.tagSettings || [];
+  const TB_OPTS  = [...new Set([...(ts.find(t=>t.key==='tb')?.presets  || ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル']), ...(window.videos||[]).flatMap(v=>v.tb||[])])];
+  const AC_OPTS  = [...new Set([...(ts.find(t=>t.key==='ac')?.presets  || ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル']), ...(window.videos||[]).flatMap(v=>v.ac||[])])];
+  const POS_BASE = ts.find(t=>t.key==='pos')?.presets || ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_ALL  = [...new Set([...POS_BASE,  ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort();
+  const TECH_ALL = [...new Set((window.videos||[]).flatMap(v=>v.tech||[]))].sort();
 
-  // 共通タグ（選択中の全動画が持っているタグ）
-  const selVids = [...(window.selIds||new Set())].map(id => videos.find(v=>v.id===id)).filter(Boolean);
-  const commonPos  = POS_ALL.filter(p  => selVids.every(v => (v.pos||[]).includes(p)));
-  const commonTech = TECH_ALL.filter(t => selVids.every(v => (v.tech||[]).includes(t)));
+  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
+  const common = (arr, field) => arr.filter(x => selVids.every(v => (v[field]||[]).includes(x)));
+  const commonTb   = common(TB_OPTS,  'tb');
+  const commonAc   = common(AC_OPTS,  'ac');
+  const commonPos  = common(POS_ALL,  'pos');
+  const commonTech = common(TECH_ALL, 'tech');
+  const commonCh   = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
+  const commonPl   = selVids.every(v=>(v.pl||'')===(selVids[0]?.pl||'')) ? (selVids[0]?.pl||'未分類') : '（複数）';
 
-  const prioChips = ['今すぐ','そのうち','保留'].map(p => {
-    const cls = ['on-p1','on-p2','on-p3'][['今すぐ','そのうち','保留'].indexOf(p)];
-    const label = ['🔴 今すぐ','🟡 そのうち','⚪ 保留'][['今すぐ','そのうち','保留'].indexOf(p)];
-    return `<span class="vp-chip" onclick="bvpSet('prio','${p}',this,'${cls}')">${label}</span>`;
+  const prioChips = ['今すぐ','そのうち','保留'].map((p,i) => {
+    const cls = ['on-p1','on-p2','on-p3'][i];
+    const lbl = ['🔴 今すぐ','🟡 そのうち','⚪ 保留'][i];
+    return `<span class="vp-chip" onclick="bvpSet('prio','${p}',this,'${cls}')">${lbl}</span>`;
+  }).join('');
+  const progChips = ['未着手','練習中','マスター'].map((s,i) => {
+    const cls = ['on-s0','on-s1','on-s2'][i];
+    const lbl = ['📋 未着手','🔵 練習中','✅ マスター'][i];
+    return `<span class="vp-chip" onclick="bvpSet('status','${s}',this,'${cls}')">${lbl}</span>`;
   }).join('');
 
-  const progChips = ['未着手','練習中','マスター'].map(s => {
-    const cls = ['on-s0','on-s1','on-s2'][['未着手','練習中','マスター'].indexOf(s)];
-    const label = ['📋 未着手','🔵 練習中','✅ マスター'][['未着手','練習中','マスター'].indexOf(s)];
-    return `<span class="vp-chip" onclick="bvpSet('status','${s}',this,'${cls}')">${label}</span>`;
-  }).join('');
+  const sec = (label, content) =>
+    `<div style="border:1px solid var(--border);border-radius:10px;margin:10px 12px 8px;overflow:hidden">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);padding:8px 14px 4px">${label}</div>
+      ${content}
+    </div>`;
 
-  const tbChips = TB_OPTS.map(t =>
-    `<span class="vp-chip" onclick="bvpToggle('tb','${t}',this,'on-tb')">${t}</span>`
-  ).join('');
+  const mkTagRow = (key, label, opts, commonTags) => {
+    const onCls = {tb:'on-tb',ac:'on-ac',pos:'on-pos',tech:'on-tech'}[key];
+    const chips = commonTags.map(v =>
+      `<span class="vp-chip ${onCls}" onclick="bvpChipRm('${key}','${v.replace(/'/g,"\\'")}',this)" style="cursor:pointer">${v} ×</span>`
+    ).join('');
+    const ddItems = opts.map(o => {
+      const sel = commonTags.includes(o);
+      return `<div class="vp-dd-item${sel?' selected':''}" onclick="bvpDdToggle('${key}','${o.replace(/'/g,"\\'")}',this)">${o}</div>`;
+    }).join('');
+    return `<div class="vp-row" style="border-top:1px solid var(--border2)">
+      <span class="vp-lbl">${label}</span>
+      <div class="vp-dd-wrap">
+        <div class="vp-chips" id="bvp-${key}">${chips}</div>
+        <div class="vp-dd-trigger" onclick="bvpTogDd('${key}')">＋ 追加</div>
+        <div class="vp-dd" id="bvp-dd-${key}" style="display:none">
+          <input class="vp-dd-search" placeholder="検索..." oninput="bvpDdFilter('${key}',this.value)">
+          <div class="vp-dd-list" id="bvp-dd-list-${key}">${ddItems}</div>
+        </div>
+      </div>
+    </div>`;
+  };
 
-  const acChips = AC_OPTS.map(a =>
-    `<span class="vp-chip" onclick="bvpToggle('ac','${a}',this,'on-ac')">${a}</span>`
-  ).join('');
-
-  const posChips = commonPos.map(p =>
-    `<span class="vp-chip on-pos vp-pos-rm" data-val="${p.replace(/"/g,'&quot;')}">${p} ×</span>`
-  ).join('');
-
-  const techChips = commonTech.map(t =>
-    `<span class="vp-chip on-tech vp-tech-rm" data-val="${t.replace(/"/g,'&quot;')}">${t} ×</span>`
-  ).join('');
-
-  return `
-    <div class="vp-row">
-      <span class="vp-lbl">Status</span>
+  return sec('ステータス・進捗・優先度', `
+    <div class="vp-row" style="border-top:1px solid var(--border2)">
+      <span class="vp-lbl">STATUS</span>
       <div class="vp-chips">
-        <span class="vp-chip" onclick="bvpToggleWatch(this)">${'👁 視聴済み'}</span>
-        <span class="vp-chip" onclick="bvpToggleFav(this)">${'☆ Fav'}</span>
+        <span class="vp-chip" onclick="bvpToggleWatch(this)">👁 視聴済み</span>
+        <span class="vp-chip" onclick="bvpToggleFav(this)">★ Fav</span>
       </div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Progress</span>
+    <div class="vp-row" style="border-top:1px solid var(--border2)">
+      <span class="vp-lbl">PROGRESS</span>
       <div class="vp-chips" id="bvp-prog">${progChips}</div>
     </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Priority</span>
+    <div class="vp-row" style="border-top:1px solid var(--border2)">
+      <span class="vp-lbl">PRIORITY</span>
       <div class="vp-chips" id="bvp-prio">${prioChips}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Channel
-        <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">既存から検索・選択、または新規入力で全動画を一括更新</span>
-      </span>
-      <div class="vp-tech-wrap">
-        <div class="vp-tech-inp-row">
-          <input class="vp-tech-inp" id="bvp-ch-inp" placeholder="検索・新規追加..."
+    </div>`)
+  + sec('チャンネル・プレイリスト', `
+    <div class="vp-row" style="border-top:1px solid var(--border2)">
+      <span class="vp-lbl">CHANNEL</span>
+      <div class="vp-dd-wrap">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="vp-chip" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${commonCh}</span>
+          <span class="vp-dd-trigger" onclick="bvpTogDd('ch')">✎ 変更</span>
+        </div>
+        <div class="vp-dd" id="bvp-dd-ch" style="display:none">
+          <input class="vp-dd-search" id="bvp-ch-inp" placeholder="検索・新規追加..."
             oninput="bvpChSuggest(this)" onfocus="bvpChSuggest(this)"
             onblur="setTimeout(()=>{const s=document.getElementById('bvp-ch-sug');if(s)s.innerHTML='';},200)"
             onkeydown="if(event.key==='Enter'){bvpSetChannel();event.preventDefault();}">
-          <button class="vp-tech-add-btn" style="width:auto;padding:0 10px;font-size:11px;white-space:nowrap" onclick="bvpSetChannel()">変更</button>
+          <div class="vp-dd-list" id="bvp-ch-sug"></div>
+          <button class="vp-tech-add-btn" style="width:100%;margin-top:6px" onclick="bvpSetChannel()">✓ 変更する</button>
         </div>
-        <div class="vp-tech-suggest" id="bvp-ch-sug"></div>
       </div>
     </div>
-    <div class="vp-row vp-row-tb">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
-      <div class="vp-chips" id="bvp-tb">${tbChips}</div>
-    </div>
-    <div class="vp-row vp-row-ac">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='ac')?.label||'Action'}</span>
-      <div class="vp-chips" id="bvp-ac">${acChips}</div>
-    </div>
-    <div class="vp-row vp-row-pos">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='pos')?.label||'Position'}
-        <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">共通タグ表示・追加で全動画に一括追加</span>
-      </span>
-      <div class="vp-tech-wrap">
-        <div class="vp-chips" id="bvp-pos">${posChips}</div>
-        <div class="vp-tech-inp-row">
-          <input class="vp-tech-inp" id="bvp-pos-inp" placeholder="ポジション名を入力..."
-            oninput="bvpPosSuggest(this)" onfocus="bvpPosSuggest(this)"
-            onblur="setTimeout(()=>{const s=document.getElementById('bvp-pos-sug');if(s)s.innerHTML='';},200)"
-            onkeydown="if(event.key==='Enter'){bvpAddPos();event.preventDefault();}">
-          <button class="vp-tech-add-btn" onclick="bvpAddPos()">＋</button>
+    <div class="vp-row" style="border-top:1px solid var(--border2)">
+      <span class="vp-lbl">PLAYLIST</span>
+      <div class="vp-dd-wrap">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="vp-chip" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${commonPl}</span>
+          <span class="vp-dd-trigger" onclick="bvpTogDd('pl')">✎ 変更・検索</span>
         </div>
-        <div class="vp-tech-suggest" id="bvp-pos-sug"></div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-tech">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tech')?.label||'Technique'}
-        <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">共通タグ表示・追加で全動画に一括追加</span>
-      </span>
-      <div class="vp-tech-wrap">
-        <div class="vp-chips" id="bvp-tech">${techChips}</div>
-        <div class="vp-tech-inp-row">
-          <input class="vp-tech-inp" id="bvp-tech-inp" placeholder="テクニック名を入力..."
-            oninput="bvpTechSuggest(this)" onfocus="bvpTechSuggest(this)"
-            onblur="setTimeout(()=>{const s=document.getElementById('bvp-tech-sug');if(s)s.innerHTML='';},200)"
-            onkeydown="if(event.key==='Enter'){bvpAddTech();event.preventDefault();}">
-          <button class="vp-tech-add-btn" onclick="bvpAddTech()">＋</button>
-        </div>
-        <div class="vp-tech-suggest" id="bvp-tech-sug"></div>
-      </div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">Playlist
-        <span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">既存から検索・選択、または新規入力で名前を変更</span>
-      </span>
-      <div class="vp-tech-wrap">
-        <div class="vp-tech-inp-row">
-          <input class="vp-tech-inp" id="bvp-pl-inp" placeholder="検索・新規追加..."
+        <div class="vp-dd" id="bvp-dd-pl" style="display:none">
+          <input class="vp-dd-search" id="bvp-pl-inp" placeholder="検索・新規追加..."
             oninput="bvpPlSuggest(this)" onfocus="bvpPlSuggest(this)"
             onblur="setTimeout(()=>{const s=document.getElementById('bvp-pl-sug');if(s)s.innerHTML='';},200)"
             onkeydown="if(event.key==='Enter'){bvpSetPlaylist();event.preventDefault();}">
-          <button class="vp-tech-add-btn" style="width:auto;padding:0 10px;font-size:11px;white-space:nowrap" onclick="bvpSetPlaylist()">変更</button>
+          <div class="vp-dd-list" id="bvp-pl-sug"></div>
+          <button class="vp-tech-add-btn" style="width:100%;margin-top:6px" onclick="bvpSetPlaylist()">✓ 変更する</button>
         </div>
-        <div class="vp-tech-suggest" id="bvp-pl-sug"></div>
-        <hr style="border:none;border-top:1px solid var(--border);margin:4px 0">
-        <div class="vp-chips">
+        <div class="vp-chips" style="margin-top:6px">
           <span class="vp-chip" onclick="openBulkPlOp('move')">↪ 移動</span>
           <span class="vp-chip" onclick="openBulkPlOp('copy')">⧉ コピー</span>
           <span class="vp-chip" style="color:var(--red)" onclick="bulkPlRemove()">✕ 削除</span>
         </div>
       </div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">その他</span>
-      <div class="vp-chips">
-        <span class="vp-chip" onclick="bulkDo('watched')">👁 視聴済みにする</span>
-        <span class="vp-chip" onclick="bulkDo('unwatched')">👁 未視聴にする</span>
-        <span class="vp-chip" onclick="bulkDo('fav-add')">★ Fav追加</span>
-        <span class="vp-chip" onclick="bulkDo('fav-remove')">☆ Fav解除</span>
-        <span class="vp-chip" style="color:var(--purple)" onclick="bulkDo('archive')">📦 Archive</span>
-      </div>
-    </div>
-    <div style="height:40px"></div>
-  `;
+    </div>`)
+  + sec('ポジション・テクニック',
+      mkTagRow('tb',   (ts.find(t=>t.key==='tb')?.label  ||'TOP/BOTTOM'), TB_OPTS,  commonTb)
+    + mkTagRow('ac',   (ts.find(t=>t.key==='ac')?.label  ||'Action'),     AC_OPTS,  commonAc)
+    + mkTagRow('pos',  (ts.find(t=>t.key==='pos')?.label ||'Position'),   POS_ALL,  commonPos)
+    + mkTagRow('tech', (ts.find(t=>t.key==='tech')?.label||'Technique'),  TECH_ALL, commonTech))
+  + `<div style="padding:4px 12px 20px">
+      <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
+        style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
+               background:var(--surface2);color:var(--accent);font-size:13px;
+               font-weight:700;cursor:pointer;letter-spacing:.3px">
+        🤖 AIタグ提案
+      </button>
+    </div>`;
+}
+
+// ── BVP ドロップダウン制御 ──
+export function bvpTogDd(key) {
+  const dd = document.getElementById('bvp-dd-' + key);
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  ['tb','ac','pos','tech','ch','pl'].forEach(k => {
+    const d = document.getElementById('bvp-dd-' + k);
+    if (d) d.style.display = 'none';
+  });
+  if (!isOpen) { dd.style.display = 'block'; dd.querySelector('.vp-dd-search')?.focus(); }
+}
+
+export function bvpDdFilter(key, q) {
+  const listEl = document.getElementById('bvp-dd-list-' + key);
+  if (!listEl) return;
+  const ql = q.toLowerCase();
+  listEl.querySelectorAll('.vp-dd-item').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(ql) ? '' : 'none';
+  });
+}
+
+export function bvpDdToggle(key, val, el) {
+  const fieldMap = {tb:'tb', ac:'ac', pos:'pos', tech:'tech'};
+  const field = fieldMap[key]; if (!field) return;
+  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
+  if (!selVids.length) return;
+  bulkSnapshot();
+  const isSelected = el?.classList.contains('selected');
+  selVids.forEach(v => {
+    if (!v[field]) v[field] = [];
+    if (isSelected) { v[field] = v[field].filter(t => t !== val); }
+    else if (!v[field].includes(val)) { v[field].push(val); }
+  });
+  if (el) el.classList.toggle('selected', !isSelected);
+  _bvpRefreshChips(key, field, selVids);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpChipRm(key, val) {
+  const fieldMap = {tb:'tb', ac:'ac', pos:'pos', tech:'tech'};
+  const field = fieldMap[key]; if (!field) return;
+  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
+  bulkSnapshot();
+  selVids.forEach(v => { if (v[field]) v[field] = v[field].filter(t => t !== val); });
+  _bvpRefreshChips(key, field, selVids);
+  // ドロップダウンのselectedも外す
+  document.querySelectorAll(`#bvp-dd-list-${key} .vp-dd-item`).forEach(item => {
+    if (item.textContent === val) item.classList.remove('selected');
+  });
+  window.toast?.((window.selIds||new Set()).size+'本から「'+val+'」を削除');
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+function _bvpRefreshChips(key, field, selVids) {
+  const onCls = {tb:'on-tb',ac:'on-ac',pos:'on-pos',tech:'on-tech'}[key];
+  const common = selVids.length ? (selVids[0][field]||[]).filter(v => selVids.every(sv=>(sv[field]||[]).includes(v))) : [];
+  const chipsEl = document.getElementById('bvp-' + key);
+  if (!chipsEl) return;
+  chipsEl.innerHTML = common.map(v =>
+    `<span class="vp-chip ${onCls}" onclick="bvpChipRm('${key}','${v.replace(/'/g,"\\'")}',this)" style="cursor:pointer">${v} ×</span>`
+  ).join('');
+}
+
+// ── 一括AIタグ提案（1件ずつ個別分析） ──
+export async function onBulkAiTagBtn(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 分析中...'; }
+  const selIds = [...(window.selIds||new Set())];
+  await window.autoTagNewVideos?.(selIds);
+  if (btn) { btn.disabled = false; btn.textContent = '🤖 AIタグ提案'; }
+  // パネルを再描画して新しいタグを表示
+  const body = document.getElementById('bulk-vpanel-body');
+  if (body) body.innerHTML = buildBulkDrawerHTML();
 }
 
 // ── BVP操作関数 ──
@@ -871,6 +922,11 @@ window.bvpChSuggest = bvpChSuggest;
 window.bvpSetChannel = bvpSetChannel;
 window.bvpPlSuggest = bvpPlSuggest;
 window.bvpSetPlaylist = bvpSetPlaylist;
+window.bvpTogDd = bvpTogDd;
+window.bvpDdFilter = bvpDdFilter;
+window.bvpDdToggle = bvpDdToggle;
+window.bvpChipRm = bvpChipRm;
+window.onBulkAiTagBtn = onBulkAiTagBtn;
 window.enterBulk = enterBulk;
 window.bulkSnapshot = bulkSnapshot;
 window.BULK_PICKER_OPTS_BASE = BULK_PICKER_OPTS_BASE;

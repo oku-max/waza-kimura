@@ -293,6 +293,7 @@ export async function onAiTagBtn(videoId) {
 }
 
 window.onAiTagBtn = onAiTagBtn;
+window.fetchAiTags = fetchAiTags;
 
 // ── 取り込み時の自動AIタグ付け ──
 async function _applyTagsDirect(videoId, suggestions) {
