@@ -52,26 +52,6 @@ export function updateAuthUI(user) {
   }
 }
 
-// テスト動画タイトル（Claude が追加したダミーデータ）— ロード後に一度だけ除去
-const _TEST_TITLES = new Set([
-  'Kimura from Closed Guard – Bernardo Faria',
-  'Kimura from Closed Guard - Bernardo Faria',
-  'Hip Escape (Shrimp) Drill – BJJ Fundamentals',
-  'Hip Escape (Shrimp) Drill - BJJ Fundamentals',
-  'Triangle Choke from Closed Guard – Step by Step',
-  'Triangle Choke from Closed Guard - Step by Step',
-  'X-Guard Complete System – John Danaher',
-  'X-Guard Complete System - John Danaher',
-  'Heel Hook Fundamentals – Leg Lock Entry System',
-  'Heel Hook Fundamentals - Leg Lock Entry System',
-  'Half Guard Sweep – Old School Techniques by Bernardo',
-  'Half Guard Sweep - Old School Techniques by Bernardo',
-  'Guard Passing Fundamentals – Pressure Pass Series',
-  'Guard Passing Fundamentals - Pressure Pass Series',
-  'Back Take from Turtle Position – Competition Footage',
-  'Back Take from Turtle Position - Competition Footage',
-]);
-
 export async function loadUserData(uid) {
   try {
     const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
@@ -83,13 +63,6 @@ export async function loadUserData(uid) {
           if (v) Object.assign(v, sv);
           else if (window.videos) window.videos.push(sv);
         });
-        // テスト動画を除去して即時保存
-        const before = (window.videos || []).length;
-        window.videos = (window.videos || []).filter(v => !_TEST_TITLES.has(v.title));
-        if (window.videos.length < before) {
-          await saveUserData();
-          console.log(`🧹 テスト動画 ${before - window.videos.length}本 を削除しました`);
-        }
         if (window.AF) window.AF();
         showToast('✅ データを読み込みました');
       }
