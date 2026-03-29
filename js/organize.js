@@ -1029,9 +1029,9 @@ export function bulkRenamePl(from, to) {
   if (count > 0) {
     window.debounceSave?.();
     if (window.AF) window.AF();
-    showToast(`✅ ${count}本の動画のプレイリスト名を更新：「${from}」→「${to}」`);
+    window.showToast?.(`✅ ${count}本の動画のプレイリスト名を更新：「${from}」→「${to}」`);
   } else {
-    showToast('該当する動画がありませんでした');
+    window.showToast?.('該当する動画がありませんでした');
   }
   return count;
 }
