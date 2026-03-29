@@ -422,7 +422,7 @@ export function renderOrg() {
       if (col === 'action')    return mkTagCell(v.ac||[], 'action', 'action');
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
       if (col === 'technique') return mkTagCell(v.tech||[], 'tech', 'technique');
-      if (col === 'channel')   return `<td class="org-td" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||'—'}</div></td>`;
+      if (col === 'channel')   return `<td class="org-td" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
       if (col === 'prio')      return `<td class="org-td" style="white-space:nowrap;overflow:hidden">
         <div class="org-judge">
           ${['今すぐ','そのうち','保留'].map(p => {
