@@ -477,8 +477,10 @@ export function syncOrgColHeaders() {
     th.dataset.col = col;
     th.id = 'org-th-' + col;
     th.draggable = true;
-    th.style.width = ORG_COL_WIDTHS[col] || '120px';
-    th.style.minWidth = '40px';
+    const cw = ORG_COL_WIDTHS[col] || '120px';
+    th.style.width = cw;
+    th.style.maxWidth = cw;
+    th.style.minWidth = '0';
     /* position:sticky はCSSクラス org-th で設定 - ここでrelativeを上書きしない */
     // ソート対応列の設定
     const sortableCols = ['channel','playlist','prio','addedAt','duration','fav','tb','action','position','technique'];
@@ -559,8 +561,8 @@ export function initOrgResize() {
 
     // スクロール列（data-col属性のth）にリサイズハンドルを追加
     table.querySelectorAll('th[data-col]').forEach(th => {
-      addResizeHandle(th, col => {
-        ORG_COL_WIDTHS[col] = th.offsetWidth + 'px';
+      addResizeHandle(th, (col, w) => {
+        ORG_COL_WIDTHS[col] = w + 'px';
       });
     });
 
@@ -603,7 +605,8 @@ export function addResizeHandle(th, onResize) {
     if (!dragging) return;
     const newW = Math.max(20, startW + (x - startX));
     th.style.width = newW + 'px';
-    th.style.minWidth = '';
+    th.style.maxWidth = newW + 'px';
+    th.style.minWidth = '0';
     // 同列のtdも更新
     if (col) {
       const table = th.closest('table');
@@ -611,11 +614,11 @@ export function addResizeHandle(th, onResize) {
         const colIdx = [...th.parentNode.children].indexOf(th);
         table.querySelectorAll('tbody tr').forEach(tr => {
           const td = tr.children[colIdx];
-          if (td) { td.style.width = newW + 'px'; td.style.minWidth = ''; }
+          if (td) { td.style.width = newW + 'px'; td.style.maxWidth = newW + 'px'; td.style.minWidth = '0'; }
         });
       }
     }
-    if (onResize) onResize(col);
+    if (onResize) onResize(col, newW);
   }
   function endDrag() {
     if (!dragging) return;
