@@ -136,12 +136,20 @@ export function buildBulkDrawerHTML() {
     + mkTagRow('ac',   (ts.find(t=>t.key==='ac')?.label  ||'Action'),     AC_OPTS,  commonAc)
     + mkTagRow('pos',  (ts.find(t=>t.key==='pos')?.label ||'Position'),   POS_ALL,  commonPos)
     + mkTagRow('tech', (ts.find(t=>t.key==='tech')?.label||'Technique'),  TECH_ALL, commonTech))
-  + `<div style="padding:4px 12px 20px">
+  + `<div style="padding:4px 12px 4px">
       <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
                background:var(--surface2);color:var(--accent);font-size:13px;
                font-weight:700;cursor:pointer;letter-spacing:.3px">
         🤖 AIタグ提案
+      </button>
+    </div>
+    <div style="padding:4px 12px 20px">
+      <button onclick="bulkDo('delete')"
+        style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--red,#ef4444);
+               background:transparent;color:var(--red,#ef4444);font-size:13px;
+               font-weight:700;cursor:pointer;letter-spacing:.3px">
+        🗑 選択した動画を削除
       </button>
     </div>`;
 }
@@ -753,6 +761,18 @@ export function bulkDo(type){
   else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();window.toast?.('⭐ '+ids.length+'本をお気に入りに追加');}
   else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();window.toast?.('☆ '+ids.length+'本のお気に入りを解除');}
   else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.toast?.('📦 '+ids.length+'本をアーカイブ');}
+  else if(type==='delete'){
+    window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', () => {
+      window.videos = (window.videos||[]).filter(v => !ids.includes(v.id));
+      window.selIds?.clear();
+      closeBulkVPanel();
+      exitBulk();
+      window.AF?.(); window.renderOrg?.();
+      window.debounceSave?.();
+      window.toast?.('🗑 '+ids.length+'本を削除しました');
+    });
+    return;
+  }
   else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});window.AF?.();window.toast?.('🌐 '+ids.length+'本を全体公開にシェア');}
   else if(type==='remove'){window.showConf?.('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});window.AF?.();window.toast?.('✂ 除外しました');});}
 }
