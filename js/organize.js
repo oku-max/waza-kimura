@@ -15,27 +15,23 @@ function _loadOrgColPrefs() {
     const o = localStorage.getItem('wk_orgColOrder');
     const v = localStorage.getItem('wk_orgColVisibility');
     const w = localStorage.getItem('wk_orgColWidths');
-    console.log('[DEBUG _loadOrgColPrefs] raw wk_orgColWidths from localStorage:', w);
     const result = {
       order:  o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
       vis:    v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
       widths: w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS},
     };
-    console.log('[DEBUG _loadOrgColPrefs] final widths:', JSON.stringify(result.widths));
     return result;
-  } catch(e) { console.error('[DEBUG _loadOrgColPrefs] ERROR:', e); return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
+  } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
 }
 const _orgPrefs = _loadOrgColPrefs();
 export let orgColOrder = _orgPrefs.order;
 export let orgColVisibility = _orgPrefs.vis;
 function _saveOrgColPrefs() {
-  console.log('[DEBUG _saveOrgColPrefs] CALLED. ORG_COL_WIDTHS:', JSON.stringify(ORG_COL_WIDTHS));
   try {
     localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
     localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
     localStorage.setItem('wk_orgColWidths', JSON.stringify(ORG_COL_WIDTHS));
-    console.log('[DEBUG _saveOrgColPrefs] localStorage WRITTEN. Verify:', localStorage.getItem('wk_orgColWidths'));
-  } catch(e) { console.error('[DEBUG _saveOrgColPrefs] ERROR:', e); }
+  } catch(e) {}
   window.saveUserSettings?.();
 }
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
@@ -522,6 +518,16 @@ export function syncOrgColHeaders() {
     th.appendChild(sortIndicator);
     thead.appendChild(th);
   });
+  // テーブル幅を全列の合計に明示設定（width:max-contentによる列幅の再分配を防止）
+  const table = thead.closest('table');
+  if (table) {
+    const fixedW = 40 + 76 + 180; // chk + thumb + title
+    let scrollW = 0;
+    thead.querySelectorAll('th[data-col]').forEach(th => {
+      scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
+    });
+    table.style.width = (fixedW + scrollW) + 'px';
+  }
   bindOrgDrag();
   initOrgResize();
 }
@@ -606,7 +612,6 @@ let _resizeOnResize = null;
 let _resizeOnEnd = null;
 
 function _resizeStart(th, col, x, onResize, onEnd) {
-  console.log('[DEBUG _resizeStart] col:', col, 'x:', x, 'hasOnEnd:', !!onEnd);
   _resizeDragging = true;
   _resizeTh = th;
   _resizeCol = col;
@@ -641,7 +646,6 @@ function _resizeMove(x) {
 
 function _resizeEnd() {
   if (!_resizeDragging) { return; }
-  console.log('[DEBUG _resizeEnd] CALLED. col:', _resizeCol, 'width:', _resizeTh?.style.width, 'hasOnEnd:', !!_resizeOnEnd);
   _resizeDragging = false;
   document.body.style.userSelect = '';
   if (_resizeTh) {
@@ -650,6 +654,18 @@ function _resizeEnd() {
     _resizeTh.draggable = true; // ドラッグを再有効化
   }
   if (_resizeOnEnd) _resizeOnEnd();
+  // テーブル幅を再計算（列幅変更後にテーブル全体の幅を更新）
+  if (_resizeTh) {
+    const table = _resizeTh.closest('table');
+    if (table) {
+      const fixedW = 40 + 76 + 180;
+      let scrollW = 0;
+      table.querySelectorAll('th[data-col]').forEach(th => {
+        scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
+      });
+      table.style.width = (fixedW + scrollW) + 'px';
+    }
+  }
   _resizeTh = null;
   _resizeCol = null;
   _resizeOnResize = null;
