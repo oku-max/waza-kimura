@@ -601,9 +601,9 @@ export function addResizeHandle(th, onResize) {
   }
   function doDrag(x) {
     if (!dragging) return;
-    const newW = Math.max(40, startW + (x - startX));
+    const newW = Math.max(20, startW + (x - startX));
     th.style.width = newW + 'px';
-    th.style.minWidth = newW + 'px';
+    th.style.minWidth = '';
     // 同列のtdも更新
     if (col) {
       const table = th.closest('table');
@@ -611,7 +611,7 @@ export function addResizeHandle(th, onResize) {
         const colIdx = [...th.parentNode.children].indexOf(th);
         table.querySelectorAll('tbody tr').forEach(tr => {
           const td = tr.children[colIdx];
-          if (td) { td.style.width = newW + 'px'; td.style.minWidth = newW + 'px'; }
+          if (td) { td.style.width = newW + 'px'; td.style.minWidth = ''; }
         });
       }
     }
