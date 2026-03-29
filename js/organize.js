@@ -591,57 +591,78 @@ export function initOrgResize() {
   } catch(e) { console.error('initOrgResize error:', e); }
 }
 
+// ── 列リサイズ: グローバルステート（リスナー累積を防止）──
+let _resizeDragging = false;
+let _resizeStartX = 0;
+let _resizeStartW = 0;
+let _resizeTh = null;
+let _resizeCol = null;
+let _resizeOnResize = null;
+let _resizeOnEnd = null;
+
+function _resizeStart(th, col, x, onResize, onEnd) {
+  _resizeDragging = true;
+  _resizeTh = th;
+  _resizeCol = col;
+  _resizeStartX = x;
+  _resizeStartW = th.offsetWidth;
+  _resizeOnResize = onResize;
+  _resizeOnEnd = onEnd;
+  th.draggable = false; // ネイティブドラッグを無効化してmouseupを確実に受ける
+  document.body.style.userSelect = 'none';
+  const rh = th.querySelector('.rh');
+  if (rh) { rh.style.background = 'var(--accent)'; rh.style.opacity = '0.6'; }
+}
+
+function _resizeMove(x) {
+  if (!_resizeDragging || !_resizeTh) return;
+  const newW = Math.max(20, _resizeStartW + (x - _resizeStartX));
+  _resizeTh.style.width = newW + 'px';
+  _resizeTh.style.maxWidth = newW + 'px';
+  _resizeTh.style.minWidth = '0';
+  if (_resizeCol) {
+    const table = _resizeTh.closest('table');
+    if (table) {
+      const colIdx = [..._resizeTh.parentNode.children].indexOf(_resizeTh);
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const td = tr.children[colIdx];
+        if (td) { td.style.width = newW + 'px'; td.style.maxWidth = newW + 'px'; td.style.minWidth = '0'; }
+      });
+    }
+  }
+  if (_resizeOnResize) _resizeOnResize(_resizeCol, newW);
+}
+
+function _resizeEnd() {
+  if (!_resizeDragging) return;
+  _resizeDragging = false;
+  document.body.style.userSelect = '';
+  if (_resizeTh) {
+    const rh = _resizeTh.querySelector('.rh');
+    if (rh) { rh.style.background = ''; rh.style.opacity = ''; }
+    _resizeTh.draggable = true; // ドラッグを再有効化
+  }
+  if (_resizeOnEnd) _resizeOnEnd();
+  _resizeTh = null;
+  _resizeCol = null;
+  _resizeOnResize = null;
+  _resizeOnEnd = null;
+}
+
+// グローバルリスナー（1回だけ登録）
+document.addEventListener('mousemove', e => _resizeMove(e.clientX));
+document.addEventListener('mouseup', _resizeEnd);
+document.addEventListener('touchmove', e => { if (_resizeDragging) { e.preventDefault(); _resizeMove(e.touches[0].clientX); } }, {passive: false});
+document.addEventListener('touchend', _resizeEnd);
+
 export function addResizeHandle(th, onResize, onEnd) {
   const rh = document.createElement('div');
   rh.className = 'rh';
   th.appendChild(rh);
-
-  let startX = 0, startW = 0, dragging = false;
   const col = th.dataset.col;
-
-  function startDrag(x) {
-    dragging = true;
-    startX = x;
-    startW = th.offsetWidth;
-    document.body.style.userSelect = 'none';
-    rh.style.background = 'var(--accent)';
-    rh.style.opacity = '0.6';
-  }
-  function doDrag(x) {
-    if (!dragging) return;
-    const newW = Math.max(20, startW + (x - startX));
-    th.style.width = newW + 'px';
-    th.style.maxWidth = newW + 'px';
-    th.style.minWidth = '0';
-    // 同列のtdも更新
-    if (col) {
-      const table = th.closest('table');
-      if (table) {
-        const colIdx = [...th.parentNode.children].indexOf(th);
-        table.querySelectorAll('tbody tr').forEach(tr => {
-          const td = tr.children[colIdx];
-          if (td) { td.style.width = newW + 'px'; td.style.maxWidth = newW + 'px'; td.style.minWidth = '0'; }
-        });
-      }
-    }
-    if (onResize) onResize(col, newW);
-  }
-  function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    document.body.style.userSelect = '';
-    rh.style.background = '';
-    rh.style.opacity = '';
-    if (onEnd) onEnd();
-  }
-
-  rh.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); startDrag(e.clientX); });
-  document.addEventListener('mousemove', e => doDrag(e.clientX));
-  document.addEventListener('mouseup', endDrag);
-
-  rh.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); startDrag(e.touches[0].clientX); }, {passive:false});
-  document.addEventListener('touchmove', e => { if(dragging){ e.preventDefault(); doDrag(e.touches[0].clientX); } }, {passive:false});
-  document.addEventListener('touchend', endDrag);
+  rh.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); _resizeStart(th, col, e.clientX, onResize, onEnd); });
+  rh.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); _resizeStart(th, col, e.touches[0].clientX, onResize, onEnd); }, {passive: false});
+  rh.addEventListener('dragstart', e => e.preventDefault()); // ネイティブドラッグを完全に防止
 }
 
 // ─── Organizeテーブル: 行選択 ───
