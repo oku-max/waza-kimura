@@ -161,7 +161,7 @@ export function orgFilt(list) {
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (orgMemoOnly    && !v.memo) return false;
     if (orgFilters.platform.size && !orgFilters.platform.has(v.pt)) return false;
-    if (q && !v.title.toLowerCase().includes(q) && !(v.ch||'').toLowerCase().includes(q) && !(v.pl||'').toLowerCase().includes(q) && !(v.tech||[]).some(t=>t.toLowerCase().includes(q))) return false;
+    if (q && !v.title.toLowerCase().includes(q) && !(v.channel||v.ch||'').toLowerCase().includes(q) && !(v.pl||'').toLowerCase().includes(q) && !(v.tech||[]).some(t=>t.toLowerCase().includes(q))) return false;
     if (orgFilters.playlist.size && !orgFilters.playlist.has(v.pl)) return false;
     if (orgFilters.prio.size && !orgFilters.prio.has(v.prio)) return false;
     if (orgFilters.status.size && !orgFilters.status.has(v.status)) return false;
@@ -169,7 +169,7 @@ export function orgFilt(list) {
     if (orgFilters.action.size && !(v.ac||[]).some(a=>orgFilters.action.has(a))) return false;
     if (orgFilters.position.size && !(v.pos||[]).some(p=>orgFilters.position.has(p))) return false;
     if (orgFilters.tech.size && !(v.tech||[]).some(t=>orgFilters.tech.has(t))) return false;
-    if (orgFilters.channel.size && !orgFilters.channel.has(v.ch)) return false;
+    if (orgFilters.channel.size && !orgFilters.channel.has(v.channel || v.ch)) return false;
     if (orgFilters.fav.size) {
       const favVal = v.fav ? '★ Fav' : '☆ 未Fav';
       if (!orgFilters.fav.has(favVal)) return false;
@@ -815,7 +815,7 @@ const _colFilterConfig = {
   action:         { filterKey: 'action',         valueGetter: v => v.ac   || [] },
   position:       { filterKey: 'position',       valueGetter: v => v.pos  || [] },
   technique:      { filterKey: 'tech',           valueGetter: v => v.tech || [] },
-  channel:        { filterKey: 'channel',        valueGetter: v => v.ch   ? [v.ch]    : [] },
+  channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel || v.ch; return c ? [c] : []; } },
   prio:           { filterKey: 'prio',           valueGetter: v => [v.prio || '保留'] },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl   ? [v.pl]    : [] },
   fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'] },
