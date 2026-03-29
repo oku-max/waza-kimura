@@ -58,6 +58,7 @@ function _silentRefresh() {
         } else {
           _saveToken(resp.access_token);
           _setAuthUI(true);
+          fetchMissingGdDurations(); // 既存動画のduration補完
           resolve(resp.access_token);
         }
       },
@@ -172,7 +173,7 @@ async function driveGet(url) {
 async function listFolder(folderId) {
   const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
   const data = await driveGet(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&orderBy=name&pageSize=1000`
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,videoMediaMetadata)&orderBy=name&pageSize=1000`
   );
   return data.files || [];
 }
@@ -182,6 +183,34 @@ async function getFolderName(folderId) {
   return data.name || folderId;
 }
 
+// ── 既存GDrive動画のduration補完 ──
+export async function fetchMissingGdDurations() {
+  const missing = (window.videos || []).filter(v =>
+    v.pt === 'gdrive' && !v.duration && v.id
+  );
+  if (!missing.length) return;
+  let updated = 0;
+  for (const v of missing) {
+    try {
+      const fileId = v.id.replace(/^gd-/, '');
+      const data = await driveGet(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=videoMediaMetadata`
+      );
+      const dur = data.videoMediaMetadata?.durationMillis;
+      if (dur) {
+        v.duration = Math.round(Number(dur) / 1000);
+        updated++;
+      }
+    } catch(e) { /* skip errors for individual files */ }
+  }
+  if (updated > 0) {
+    window.debounceSave?.();
+    window.toast?.(`✅ ${updated}本のGDrive動画の長さを取得しました`);
+    window.AF?.();
+  }
+}
+window.fetchMissingGdDurations = fetchMissingGdDurations;
+
 async function scanFolder(folderId, folderName, depth) {
   const files   = await listFolder(folderId);
   const videos  = [];
@@ -190,7 +219,8 @@ async function scanFolder(folderId, folderName, depth) {
     if (f.mimeType === 'application/vnd.google-apps.folder') {
       if (depth < 3) folders.push(await scanFolder(f.id, f.name, depth + 1));
     } else if (VIDEO_MIMES.has(f.mimeType)) {
-      videos.push({ id: f.id, name: f.name });
+      const dur = f.videoMediaMetadata?.durationMillis;
+      videos.push({ id: f.id, name: f.name, duration: dur ? Math.round(Number(dur) / 1000) : 0 });
     }
   }
   return { id: folderId, name: folderName, videos, folders };
@@ -233,6 +263,7 @@ function flattenTree(tree, stripSuffix) {
         title:      cleanTitle(v.name, stripSuffix),
         folderName: node.name,
         isQR:       isQRFile(v.name),
+        duration:   v.duration || 0,
       });
     }
     for (const sub of node.folders) walk(sub);
@@ -444,6 +475,7 @@ export function gdRenderFileList() {
           data-title="${item.title.replace(/"/g, '&quot;')}"
           data-folder="${item.folderName.replace(/"/g, '&quot;')}"
           data-isqr="${item.isQR}"
+          data-duration="${item.duration || 0}"
           ${done ? 'disabled checked' : 'checked'}
           style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0"
           onchange="gdUpdateCount()">
@@ -503,6 +535,7 @@ export async function gdImport() {
       watched:  false, fav: false, status: '未着手',
       prio:     'そのうち', shared: 0, archived: false, memo: '', ai: '',
       isQR:     cb.dataset.isqr === 'true',
+      duration: parseInt(cb.dataset.duration) || 0,
       tb: [], ac: [], pos: [], tech: [],
     });
     newIds.push(newId);
