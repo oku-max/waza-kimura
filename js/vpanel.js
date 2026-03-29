@@ -678,27 +678,44 @@ function _chapterSectionHTML(id) {
     </div>`;
 }
 
-export async function vpRefetchChapters(id) {
+async function _doFetchChapters(id, token) {
   const v = (window.videos||[]).find(v => v.id === id);
-  if (!v?.ytId) return;
-  const token = window._ytToken;
-  if (!token) { window.toast?.('⚠️ YouTubeの認証が必要です。動画取込ボタンから再認証してください'); return; }
+  if (!v) return;
   const btn = document.querySelector(`#vp-chapters-${id} button`);
-  if (btn) btn.textContent = '取得中...';
+  if (btn) { btn.textContent = '取得中...'; btn.disabled = true; }
   try {
     const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${v.ytId}&maxResults=1`;
     const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
     const data = await res.json();
-    if (data.error) { window.toast?.('⚠️ 取得エラー: ' + data.error.message); return; }
+    if (data.error) { window.toast?.('⚠️ 取得エラー: ' + data.error.message); if (btn) { btn.textContent = '再取得'; btn.disabled = false; } return; }
     const desc = data.items?.[0]?.snippet?.description || '';
     const chapters = window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
     v.ytChapters = chapters;
     window.debounceSave?.();
-    // セクションを再描画
     const sec = document.getElementById(`vp-chapters-${id}`);
     if (sec) sec.outerHTML = _chapterSectionHTML(id);
     window.toast?.(chapters.length ? `📑 ${chapters.length}件のチャプターを取得しました` : 'チャプターが見つかりませんでした');
-  } catch(e) { window.toast?.('⚠️ 取得エラー: ' + e.message); }
+  } catch(e) { window.toast?.('⚠️ 取得エラー: ' + e.message); if (btn) { btn.textContent = '再取得'; btn.disabled = false; } }
+}
+
+export function vpRefetchChapters(id) {
+  const v = (window.videos||[]).find(v => v.id === id);
+  if (!v?.ytId) return;
+  if (window._ytToken) {
+    _doFetchChapters(id, window._ytToken);
+    return;
+  }
+  // トークンがない場合は認証してから実行
+  const tc = google.accounts.oauth2.initTokenClient({
+    client_id: '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com',
+    scope: 'https://www.googleapis.com/auth/youtube.readonly',
+    callback: async (resp) => {
+      if (resp.error) { window.toast?.('⚠️ 認証エラー: ' + resp.error); return; }
+      window._ytToken = resp.access_token;
+      await _doFetchChapters(id, resp.access_token);
+    }
+  });
+  tc.requestAccessToken();
 }
 window.vpRefetchChapters = vpRefetchChapters;
 

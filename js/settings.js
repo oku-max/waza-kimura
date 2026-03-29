@@ -11,14 +11,15 @@ export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.p
 
 // ── aiSettings ──
 export let aiSettings = {
-  enabled:          true,
-  defaultMode:      'add',
-  categories:       { tb: true, action: true, position: true, tech: true },
-  autoTagOnImport:  false,
-  bulkConfirm:      true,
-  newTagProposal:   true,
-  flexibility:      'standard',
-  autoAddToPresets: false,
+  enabled:               true,
+  defaultMode:           'add',
+  categories:            { tb: true, action: true, position: true, tech: true },
+  autoTagOnImport:       false,
+  fetchChaptersOnImport: true,
+  bulkConfirm:           true,
+  newTagProposal:        true,
+  flexibility:           'standard',
+  autoAddToPresets:      false,
 };
 
 export function saveTagSettings() {
@@ -309,6 +310,9 @@ export function renderAiSettings() {
             </button>`).join('')}
         </div>
       </div>
+
+      <!-- YouTube取り込み時にチャプター取得 -->
+      ${row('YouTube取り込み時にチャプターを取得', '動画説明文からタイムスタンプを解析してチャプター一覧を保存します', toggle('fetchChaptersOnImport'))}
 
       <!-- YouTube取り込み時に自動AI分析 -->
       ${row('YouTube取り込み時に自動AI分析', '取り込んだ動画にAIが自動でタグを追加します', toggle('autoTagOnImport'))}

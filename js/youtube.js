@@ -139,9 +139,9 @@ export async function ytFetchSelectedPlVideos(token) {
     } while (pageToken);
     _ytPendingVideos[plId] = { title: plTitle, items };
   }
-  // チャプター（タイムスタンプ）をフェッチ
+  // チャプター（タイムスタンプ）をフェッチ（設定で有効な場合のみ）
   const allVids = Object.values(_ytPendingVideos).flatMap(pl => pl.items).map(i => i.vid);
-  if (allVids.length) {
+  if (allVids.length && window.aiSettings?.fetchChaptersOnImport !== false) {
     document.getElementById('yt-import-ok').textContent = 'チャプター取得中...';
     const descMap = await fetchVideoDescriptions(allVids, token);
     Object.values(_ytPendingVideos).forEach(pl => {
