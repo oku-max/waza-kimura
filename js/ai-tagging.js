@@ -293,3 +293,41 @@ export async function onAiTagBtn(videoId) {
 }
 
 window.onAiTagBtn = onAiTagBtn;
+
+// ── 取り込み時の自動AIタグ付け ──
+async function _applyTagsDirect(videoId, suggestions) {
+  const v = (window.videos || []).find(v => v.id === videoId);
+  if (!v) return 0;
+  const ai = window.aiSettings || {};
+  const cats = ai.categories || {};
+  let added = 0;
+  if (cats.tb     !== false && Array.isArray(suggestions.tb))       suggestions.tb.forEach(t       => { if (!v.tb)   v.tb   = []; if (!v.tb.includes(t))   { v.tb.push(t);   added++; } });
+  if (cats.action !== false && Array.isArray(suggestions.action))   suggestions.action.forEach(t   => { if (!v.ac)   v.ac   = []; if (!v.ac.includes(t))   { v.ac.push(t);   added++; } });
+  if (cats.position !== false && Array.isArray(suggestions.position)) suggestions.position.forEach(t => { if (!v.pos)  v.pos  = []; if (!v.pos.includes(t))  { v.pos.push(t);  added++; } });
+  if (cats.tech   !== false && Array.isArray(suggestions.tech))     suggestions.tech.forEach(t     => { if (!v.tech) v.tech = []; if (!v.tech.includes(t)) { v.tech.push(t); added++; } });
+  return added;
+}
+
+export async function autoTagNewVideos(ids) {
+  if (!ids?.length) return;
+  const videos = window.videos || [];
+  let done = 0, totalAdded = 0, errors = 0;
+  window.toast?.(`🤖 AIタグ付けを開始します (${ids.length}本)`);
+  for (const id of ids) {
+    const video = videos.find(v => v.id === id);
+    if (!video) continue;
+    try {
+      const suggestions = await fetchAiTags(video);
+      totalAdded += await _applyTagsDirect(id, suggestions);
+    } catch (e) {
+      console.warn('autoTag failed for', id, e);
+      errors++;
+    }
+    done++;
+    if (ids.length > 1) window.toast?.(`🤖 AIタグ付け中... ${done}/${ids.length}`);
+  }
+  if (totalAdded > 0) window.debounceSave?.();
+  const errNote = errors ? ` (${errors}件失敗)` : '';
+  window.toast?.(`🤖 AIタグ付け完了: ${totalAdded}件追加${errNote}`);
+}
+window.autoTagNewVideos = autoTagNewVideos;
