@@ -110,7 +110,6 @@ export async function loadUserSettings(uid) {
         window.loadFilterPresetsFromRemote?.(data.filterPresets);
       }
       if (Array.isArray(data.orgColOrder) && data.orgColOrder.length) {
-        console.log('[OrgCol] Firestore override:', JSON.stringify(data.orgColOrder));
         window.orgColOrder = data.orgColOrder;
         try { localStorage.setItem('wk_orgColOrder', JSON.stringify(data.orgColOrder)); } catch(e) {}
       }

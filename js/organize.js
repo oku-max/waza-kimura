@@ -13,7 +13,6 @@ function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
     const v = localStorage.getItem('wk_orgColVisibility');
-    console.log('[OrgCol] load from localStorage:', o);
     return {
       order: o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
       vis:   v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
@@ -24,12 +23,10 @@ const _orgPrefs = _loadOrgColPrefs();
 export let orgColOrder = _orgPrefs.order;
 export let orgColVisibility = _orgPrefs.vis;
 function _saveOrgColPrefs() {
-  console.log('[OrgCol] saving:', JSON.stringify(orgColOrder));
   try {
     localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
     localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
-    console.log('[OrgCol] localStorage write OK');
-  } catch(e) { console.error('[OrgCol] localStorage write FAILED:', e); }
+  } catch(e) {}
   window.saveUserSettings?.();
 }
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
