@@ -15,6 +15,7 @@ export function importYouTubePlaylists() {
       callback: async (tokenResponse) => {
         if (tokenResponse.error) { showToast('⚠️ 認証エラー: ' + tokenResponse.error); return; }
         window._ytToken = tokenResponse.access_token;
+        fetchMissingYtDetails(window._ytToken);
         await fetchPlaylists(window._ytToken);
       }
     });
@@ -74,6 +75,30 @@ function _parseDuration(iso) {
   if (!m) return 0;
   return (parseInt(m[1]||0)*3600) + (parseInt(m[2]||0)*60) + parseInt(m[3]||0);
 }
+
+export async function fetchMissingYtDetails(token) {
+  const missing = (window.videos || []).filter(v =>
+    v.src === 'youtube' && v.ytId && (!v.duration || !v.addedAt)
+  );
+  if (!missing.length) return;
+  const ids = missing.map(v => v.ytId);
+  const descMap = await fetchVideoDescriptions(ids, token);
+  let updated = 0;
+  missing.forEach(v => {
+    const info = descMap[v.ytId];
+    if (!info) return;
+    let changed = false;
+    if (!v.duration && info.duration) { v.duration = info.duration; changed = true; }
+    if (!v.addedAt && info.publishedAt) { v.addedAt = info.publishedAt; changed = true; }
+    if (changed) updated++;
+  });
+  if (updated > 0) {
+    window.debounceSave?.();
+    showToast(`✅ ${updated}本の動画情報を補完しました`);
+    window.AF?.();
+  }
+}
+window.fetchMissingYtDetails = fetchMissingYtDetails;
 
 async function fetchVideoDescriptions(vids, token) {
   const descMap = {};

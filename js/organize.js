@@ -601,7 +601,7 @@ export function addResizeHandle(th, onResize) {
   }
   function doDrag(x) {
     if (!dragging) return;
-    const newW = Math.max(60, startW + (x - startX));
+    const newW = Math.max(40, startW + (x - startX));
     th.style.width = newW + 'px';
     th.style.minWidth = newW + 'px';
     // 同列のtdも更新
