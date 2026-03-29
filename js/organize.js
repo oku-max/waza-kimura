@@ -15,22 +15,27 @@ function _loadOrgColPrefs() {
     const o = localStorage.getItem('wk_orgColOrder');
     const v = localStorage.getItem('wk_orgColVisibility');
     const w = localStorage.getItem('wk_orgColWidths');
-    return {
+    console.log('[DEBUG _loadOrgColPrefs] raw wk_orgColWidths from localStorage:', w);
+    const result = {
       order:  o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
       vis:    v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
       widths: w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS},
     };
-  } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
+    console.log('[DEBUG _loadOrgColPrefs] final widths:', JSON.stringify(result.widths));
+    return result;
+  } catch(e) { console.error('[DEBUG _loadOrgColPrefs] ERROR:', e); return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
 }
 const _orgPrefs = _loadOrgColPrefs();
 export let orgColOrder = _orgPrefs.order;
 export let orgColVisibility = _orgPrefs.vis;
 function _saveOrgColPrefs() {
+  console.log('[DEBUG _saveOrgColPrefs] CALLED. ORG_COL_WIDTHS:', JSON.stringify(ORG_COL_WIDTHS));
   try {
     localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
     localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
     localStorage.setItem('wk_orgColWidths', JSON.stringify(ORG_COL_WIDTHS));
-  } catch(e) {}
+    console.log('[DEBUG _saveOrgColPrefs] localStorage WRITTEN. Verify:', localStorage.getItem('wk_orgColWidths'));
+  } catch(e) { console.error('[DEBUG _saveOrgColPrefs] ERROR:', e); }
   window.saveUserSettings?.();
 }
 export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
@@ -601,6 +606,7 @@ let _resizeOnResize = null;
 let _resizeOnEnd = null;
 
 function _resizeStart(th, col, x, onResize, onEnd) {
+  console.log('[DEBUG _resizeStart] col:', col, 'x:', x, 'hasOnEnd:', !!onEnd);
   _resizeDragging = true;
   _resizeTh = th;
   _resizeCol = col;
@@ -634,7 +640,8 @@ function _resizeMove(x) {
 }
 
 function _resizeEnd() {
-  if (!_resizeDragging) return;
+  if (!_resizeDragging) { return; }
+  console.log('[DEBUG _resizeEnd] CALLED. col:', _resizeCol, 'width:', _resizeTh?.style.width, 'hasOnEnd:', !!_resizeOnEnd);
   _resizeDragging = false;
   document.body.style.userSelect = '';
   if (_resizeTh) {
