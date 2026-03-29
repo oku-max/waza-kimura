@@ -873,7 +873,7 @@ export function openOrgColFilter(col, thEl) {
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');
   dd.id = 'org-col-filter-dd';
-  dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:200px;max-width:260px;max-height:400px;display:flex;flex-direction:column;gap:6px;font-size:12px';
+  dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:200px;max-width:360px;max-height:400px;display:flex;flex-direction:column;gap:6px;font-size:12px';
   document.body.appendChild(dd);  // 先に追加して幅を取得
 
   // 位置決め
@@ -963,8 +963,9 @@ export function openOrgColFilter(col, thEl) {
           _syncFiltIcon(col);
         });
         const txt = document.createElement('span');
-        txt.style.cssText = 'flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+        txt.style.cssText = 'flex:1;font-size:11px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all';
         txt.textContent = val || '(空)';
+        txt.title = val || '';
         const cntEl = document.createElement('span');
         cntEl.style.cssText = 'font-size:10px;color:var(--text3);flex-shrink:0';
         cntEl.textContent = cnt;
@@ -1015,6 +1016,26 @@ function _syncFiltIcon(col) {
   icon.style.opacity = active ? '1' : '0.4';
 }
 
+// ── 一括リネーム（プレイリスト名の部分文字列を置換）──
+export function bulkRenamePl(from, to) {
+  const videos = window.videos || [];
+  let count = 0;
+  videos.forEach(v => {
+    if (v.pl && v.pl.includes(from)) {
+      v.pl = v.pl.split(from).join(to);
+      count++;
+    }
+  });
+  if (count > 0) {
+    window.debounceSave?.();
+    if (window.AF) window.AF();
+    showToast(`✅ ${count}本の動画のプレイリスト名を更新：「${from}」→「${to}」`);
+  } else {
+    showToast('該当する動画がありませんでした');
+  }
+  return count;
+}
+
 // ═══ Register all exported functions on window for inline HTML handler access ═══
 window._saveOrgColPrefs = _saveOrgColPrefs;
 window.initOrgFixedHeaders = initOrgFixedHeaders;
@@ -1063,5 +1084,6 @@ window.bindOrgDrag = bindOrgDrag;
 window.openTagFilterFor = openTagFilterFor;
 window.openOrgColFilter  = openOrgColFilter;
 window.closeOrgColFilter = closeOrgColFilter;
+window.bulkRenamePl      = bulkRenamePl;
 window.ORG_COL_LABELS = ORG_COL_LABELS;
 window.ORG_COL_WIDTHS = ORG_COL_WIDTHS;
