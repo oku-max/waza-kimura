@@ -91,6 +91,7 @@ export function initDriveAuth(forceConsent = false) {
         if (token) {
           _saveToken(token);
           _setAuthUI(true);
+          fetchMissingGdDurations(); // 既存動画のduration補完
           resolve(true);
         } else if (!forceConsent) {
           // トークンなし → consent強制で再試行
@@ -183,25 +184,40 @@ async function getFolderName(folderId) {
   return data.name || folderId;
 }
 
-// ── 既存GDrive動画のduration補完 ──
+// ── 既存GDrive動画のduration補完（50件ずつbatch）──
 export async function fetchMissingGdDurations() {
   const missing = (window.videos || []).filter(v =>
     v.pt === 'gdrive' && !v.duration && v.id
   );
   if (!missing.length) return;
+  // IDマップ: fileId → videoオブジェクト
+  const idMap = {};
+  missing.forEach(v => { idMap[v.id.replace(/^gd-/, '')] = v; });
+  const fileIds = Object.keys(idMap);
+  // 50件ずつバッチ処理
   let updated = 0;
-  for (const v of missing) {
+  for (let i = 0; i < fileIds.length; i += 50) {
+    const batch = fileIds.slice(i, i + 50);
+    // Drive v3 filesリストでIDを直接フィルタ
+    const q = encodeURIComponent(batch.map(id => `'${id}' in parents or id='${id}'`).join(' or '));
+    const ids = batch.join(',');
     try {
-      const fileId = v.id.replace(/^gd-/, '');
-      const data = await driveGet(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=videoMediaMetadata`
+      // Drive v3 doesn't support multi-get; fetch individually but in parallel
+      const results = await Promise.allSettled(
+        batch.map(fileId => driveGet(
+          `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,videoMediaMetadata`
+        ))
       );
-      const dur = data.videoMediaMetadata?.durationMillis;
-      if (dur) {
-        v.duration = Math.round(Number(dur) / 1000);
-        updated++;
-      }
-    } catch(e) { /* skip errors for individual files */ }
+      results.forEach(r => {
+        if (r.status !== 'fulfilled') return;
+        const data = r.value;
+        const dur = data.videoMediaMetadata?.durationMillis;
+        if (dur && idMap[data.id]) {
+          idMap[data.id].duration = Math.round(Number(dur) / 1000);
+          updated++;
+        }
+      });
+    } catch(e) { /* batch error, continue */ }
   }
   if (updated > 0) {
     window.debounceSave?.();
