@@ -1299,12 +1299,13 @@ export function openOrgColFilter(col, thEl) {
         const ql = (q || '').toLowerCase();
         let filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : [...sortedVals];
         if (sortMode === 'count') filtered.sort((a,b) => (valueCounts.get(b)||0) - (valueCounts.get(a)||0));
-        else if (sortMode === 'recent') filtered.sort((a,b) => {
-          // 選択中を先頭、その後は最新addedAt順
-          const selA = filterSet.has(a) ? 1 : 0, selB = filterSet.has(b) ? 1 : 0;
-          if (selA !== selB) return selB - selA;
-          return (recentMap.get(b)||0) - (recentMap.get(a)||0);
-        });
+        else if (sortMode === 'recent') {
+          filtered.sort((a,b) => (recentMap.get(b)||0) - (recentMap.get(a)||0));
+          // 選択中は常に表示、それ以外は上位10件まで
+          const selected = filtered.filter(v => filterSet.has(v));
+          const rest = filtered.filter(v => !filterSet.has(v)).slice(0, 10);
+          filtered = [...selected, ...rest.filter(v => !selected.includes(v))];
+        }
         else filtered.sort((a,b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0);
         listEl.innerHTML = '';
         if (!filtered.length) {
