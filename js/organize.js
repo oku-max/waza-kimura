@@ -155,10 +155,79 @@ function _matchFilt(filterSet, values) {
   return values.length ? values.some(v => filterSet.has(v)) : filterSet.has('(空白)');
 }
 
+// ── 検索演算子パーサー ──
+// 対応: -除外  "完全一致"  title:xxx  ch:xxx  pl:xxx  tech:xxx  memo:xxx
+function _parseQuery(raw) {
+  const result = { includes: [], excludes: [], fields: {} };
+  if (!raw) return result;
+  // フィールド指定: title:xxx ch:xxx pl:xxx tech:xxx memo:xxx
+  const fieldRe = /\b(title|ch|pl|tech|memo):(\S+)/gi;
+  let cleaned = raw.replace(fieldRe, (_, f, val) => {
+    if (!result.fields[f.toLowerCase()]) result.fields[f.toLowerCase()] = [];
+    result.fields[f.toLowerCase()].push(val.toLowerCase());
+    return '';
+  });
+  // "完全一致"
+  const exactRe = /"([^"]+)"/g;
+  cleaned = cleaned.replace(exactRe, (_, phrase) => {
+    result.includes.push({ text: phrase.toLowerCase(), exact: true });
+    return '';
+  });
+  // 残りをスペースで分割、-で始まるものは除外
+  cleaned.trim().split(/\s+/).filter(Boolean).forEach(w => {
+    if (w.startsWith('-') && w.length > 1) {
+      result.excludes.push(w.slice(1).toLowerCase());
+    } else {
+      result.includes.push({ text: w.toLowerCase(), exact: false });
+    }
+  });
+  return result;
+}
+
+function _matchQueryField(v, text, exact, fields) {
+  // fields: アドバンスドサーチで指定された検索対象 (null=全部)
+  const fTitle = !fields || fields.title;
+  const fCh    = !fields || fields.ch;
+  const fPl    = !fields || fields.pl;
+  const fTech  = !fields || fields.tech;
+  const fMemo  = !fields || fields.memo;
+  const title = (v.title||'').toLowerCase();
+  const ch    = (v.channel||v.ch||'').toLowerCase();
+  const pl    = (v.pl||'').toLowerCase();
+  const techs = (v.tech||[]).map(t => t.toLowerCase());
+  const memo  = (v.memo||'').toLowerCase();
+  if (exact) {
+    return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
+        || (fPl && pl.includes(text)) || (fTech && techs.some(t => t.includes(text)))
+        || (fMemo && memo.includes(text));
+  }
+  return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
+      || (fPl && pl.includes(text)) || (fTech && techs.some(t => t.includes(text)))
+      || (fMemo && memo.includes(text));
+}
+
+function _matchFieldSpecific(v, field, values) {
+  const map = {
+    title: (v.title||'').toLowerCase(),
+    ch: (v.channel||v.ch||'').toLowerCase(),
+    pl: (v.pl||'').toLowerCase(),
+    tech: (v.tech||[]).map(t => t.toLowerCase()).join(' '),
+    memo: (v.memo||'').toLowerCase()
+  };
+  const target = map[field] || '';
+  return values.every(val => target.includes(val));
+}
+
+// アドバンスドサーチ状態
+let _advSearch = null; // { include, exclude, fields, durMin, durMax, dateFrom, dateTo, source, status }
+
 export function orgFilt(list) {
   const siEl = document.getElementById('si-org');
   const siPcEl = document.getElementById('si-org-pc');
-  const q = ((siEl?siEl.value:'') || (siPcEl?siPcEl.value:'')).toLowerCase();
+  const raw = ((siEl?siEl.value:'') || (siPcEl?siPcEl.value:'')).trim();
+  const parsed = _parseQuery(raw);
+  const adv = _advSearch;
+  const advFields = adv?.fields || null;
   return list.filter(v => {
     if (v.archived) return false;
     if (orgFavOnly     && !v.fav) return false;
@@ -167,7 +236,32 @@ export function orgFilt(list) {
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (orgMemoOnly    && !v.memo) return false;
     if (orgFilters.platform.size && !orgFilters.platform.has(v.pt)) return false;
-    if (q && !v.title.toLowerCase().includes(q) && !(v.channel||v.ch||'').toLowerCase().includes(q) && !(v.pl||'').toLowerCase().includes(q) && !(v.tech||[]).some(t=>t.toLowerCase().includes(q))) return false;
+    // ── 検索演算子 ──
+    // includes: すべてマッチ必須 (AND)
+    for (const inc of parsed.includes) {
+      if (!_matchQueryField(v, inc.text, inc.exact, advFields)) return false;
+    }
+    // excludes: 1つでもマッチしたら除外
+    for (const exc of parsed.excludes) {
+      if (_matchQueryField(v, exc, false, null)) return false;
+    }
+    // フィールド指定: title:xxx など
+    for (const [field, vals] of Object.entries(parsed.fields)) {
+      if (!_matchFieldSpecific(v, field, vals)) return false;
+    }
+    // ── アドバンスドサーチ追加条件 ──
+    if (adv) {
+      if (adv.durMin != null) { const s = v.duration||0; if (s < adv.durMin * 60) return false; }
+      if (adv.durMax != null) { const s = v.duration||0; if (s > adv.durMax * 60) return false; }
+      if (adv.dateFrom) { if (!v.addedAt || v.addedAt < adv.dateFrom) return false; }
+      if (adv.dateTo)   { if (!v.addedAt || v.addedAt > adv.dateTo + 'T23:59:59') return false; }
+      if (adv.source)   { if (v.pt !== adv.source) return false; }
+      if (adv.status === 'fav'     && !v.fav) return false;
+      if (adv.status === 'unseen'  && v.watched) return false;
+      if (adv.status === 'watched' && !v.watched) return false;
+      if (adv.status === 'bm'      && !(v.bookmarks?.length)) return false;
+      if (adv.status === 'memo'    && !v.memo) return false;
+    }
     if (orgFilters.playlist.size && !_matchFilt(orgFilters.playlist, v.pl ? [v.pl] : [])) return false;
     if (orgFilters.prio.size && !orgFilters.prio.has(v.prio)) return false;
     if (orgFilters.status.size && !orgFilters.status.has(v.status)) return false;
@@ -1520,3 +1614,90 @@ window.closeOrgColFilter = closeOrgColFilter;
 window.bulkRenamePl      = bulkRenamePl;
 window.ORG_COL_LABELS = ORG_COL_LABELS;
 window.ORG_COL_WIDTHS = ORG_COL_WIDTHS;
+
+// ═══ アドバンスドサーチ ═══
+export function toggleAdvSearch() {
+  const ov = document.getElementById('adv-search-overlay');
+  if (!ov) return;
+  const show = ov.style.display === 'none';
+  ov.style.display = show ? '' : 'none';
+  // ボタンのスタイル切替
+  ['adv-search-btn-pc','adv-search-btn-mob'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    if (show) { btn.style.background='var(--accent)'; btn.style.color='#fff'; btn.style.borderColor='var(--accent)'; btn.textContent='▲ 詳細'; }
+    else { btn.style.background='var(--surface)'; btn.style.color='var(--text2)'; btn.style.borderColor='var(--border)'; btn.textContent='▼ 詳細'; }
+  });
+  if (show) document.getElementById('adv-include')?.focus();
+}
+
+export function applyAdvSearch() {
+  const inc = (document.getElementById('adv-include')?.value || '').trim();
+  const exc = (document.getElementById('adv-exclude')?.value || '').trim();
+  const durMin = document.getElementById('adv-dur-min')?.value;
+  const durMax = document.getElementById('adv-dur-max')?.value;
+  const dateFrom = document.getElementById('adv-date-from')?.value || '';
+  const dateTo = document.getElementById('adv-date-to')?.value || '';
+  const source = document.getElementById('adv-source')?.value || '';
+  const status = document.getElementById('adv-status')?.value || '';
+  const fields = {
+    title: document.getElementById('adv-f-title')?.checked ?? true,
+    ch:    document.getElementById('adv-f-ch')?.checked ?? true,
+    pl:    document.getElementById('adv-f-pl')?.checked ?? true,
+    tech:  document.getElementById('adv-f-tech')?.checked ?? true,
+    memo:  document.getElementById('adv-f-memo')?.checked ?? false,
+  };
+
+  // 検索ボックスに演算子形式で反映
+  let q = '';
+  if (inc) q += inc;
+  if (exc) exc.split(/\s+/).forEach(w => { if (w) q += ' -' + w; });
+  // 検索ボックスに設定
+  const siPc = document.getElementById('si-org-pc');
+  const siMob = document.getElementById('si-org');
+  if (siPc) siPc.value = q.trim();
+  if (siMob) siMob.value = q.trim();
+
+  // アドバンスド条件を設定
+  _advSearch = {
+    fields,
+    durMin: durMin ? Number(durMin) : null,
+    durMax: durMax ? Number(durMax) : null,
+    dateFrom: dateFrom || null,
+    dateTo: dateTo || null,
+    source: source || null,
+    status: status || null,
+  };
+
+  toggleAdvSearch();
+  renderOrg();
+}
+
+export function clearAdvSearch() {
+  ['adv-include','adv-exclude','adv-dur-min','adv-dur-max','adv-date-from','adv-date-to'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['adv-source','adv-status'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['adv-f-title','adv-f-ch','adv-f-pl','adv-f-tech'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.checked = true;
+  });
+  const memoEl = document.getElementById('adv-f-memo'); if (memoEl) memoEl.checked = false;
+  _advSearch = null;
+  const siPc = document.getElementById('si-org-pc');
+  const siMob = document.getElementById('si-org');
+  if (siPc) siPc.value = '';
+  if (siMob) siMob.value = '';
+  renderOrg();
+}
+
+export function saveAdvSearch() {
+  applyAdvSearch();
+  if (window.saveCurrentSearch) window.saveCurrentSearch();
+}
+
+window.toggleAdvSearch = toggleAdvSearch;
+window.applyAdvSearch  = applyAdvSearch;
+window.clearAdvSearch  = clearAdvSearch;
+window.saveAdvSearch   = saveAdvSearch;

@@ -716,9 +716,12 @@
 
     <!-- 固定上部：検索・ソート・一括編集 -->
     <div style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--border)">
-      <div class="tab-srch" style="width:100%;box-sizing:border-box">
-        <span style="color:var(--text3)">🔍</span>
-        <input id="si-org-pc" type="text" placeholder="Search..." oninput="renderOrg()" style="width:100%">
+      <div style="display:flex;gap:6px;align-items:center;width:100%;box-sizing:border-box">
+        <div class="tab-srch" style="flex:1;box-sizing:border-box">
+          <span style="color:var(--text3)">🔍</span>
+          <input id="si-org-pc" type="text" placeholder="Search...  -除外  &quot;完全一致&quot;  title:  ch:" oninput="renderOrg()" style="width:100%">
+        </div>
+        <button id="adv-search-btn-pc" onclick="toggleAdvSearch()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit">▼ 詳細</button>
       </div>
       <div style="display:flex;align-items:center;gap:4px">
         <select id="sort-key-org-pc" onchange="window.orgSortCol=this.value||null;window.orgSortAsc=true;window.renderOrg?.()" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
@@ -919,7 +922,10 @@
   <div class="tab-actionbar" id="organize-actionbar">
     <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
     <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>
-    <div class="tab-srch"><span style="color:var(--text3)">🔍</span><input id="si-org" type="text" placeholder="Search title, technique, series..." oninput="renderOrg()"></div>
+    <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
+      <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si-org" type="text" placeholder="Search...  -除外  title:  ch:" oninput="renderOrg()"></div>
+      <button id="adv-search-btn-mob" onclick="toggleAdvSearch()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit">▼ 詳細</button>
+    </div>
   </div>
   <!-- Organizeカウントバー -->
   <div class="org-count-bar">
@@ -2500,6 +2506,71 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 
 
+
+<!-- ═══ アドバンスドサーチ ポップアップ ═══ -->
+<div id="adv-search-overlay" style="display:none;position:fixed;inset:0;z-index:600">
+  <div id="adv-search-bg" onclick="toggleAdvSearch()" style="position:absolute;inset:0;background:rgba(0,0,0,.35)"></div>
+  <div id="adv-search-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px 22px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:90%;max-width:520px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:14px;font-weight:700;margin:0">🔎 詳細検索</h3>
+      <button onclick="toggleAdvSearch()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">含むキーワード</label>
+        <input id="adv-include" type="text" placeholder="例: ガード スイープ" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;background:var(--surface);color:var(--text);outline:none;font-family:inherit">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">除外キーワード</label>
+        <input id="adv-exclude" type="text" placeholder="例: ドリル 基礎" style="padding:7px 10px;border:1.5px solid #e57373;border-radius:7px;font-size:12px;background:var(--surface);color:var(--text);outline:none;font-family:inherit">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;grid-column:1/-1">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">検索対象</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 14px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-title" checked style="accent-color:var(--accent);width:14px;height:14px"> タイトル</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-ch" checked style="accent-color:var(--accent);width:14px;height:14px"> チャンネル</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-pl" checked style="accent-color:var(--accent);width:14px;height:14px"> プレイリスト</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-tech" checked style="accent-color:var(--accent);width:14px;height:14px"> テクニック</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-memo" style="accent-color:var(--accent);width:14px;height:14px"> メモ</label>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">動画の長さ</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="adv-dur-min" type="number" placeholder="0" min="0" style="width:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface);color:var(--text)">
+          <span style="font-size:10px;color:var(--text3)">分〜</span>
+          <input id="adv-dur-max" type="number" placeholder="∞" min="0" style="width:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface);color:var(--text)">
+          <span style="font-size:10px;color:var(--text3)">分</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">追加日</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="adv-date-from" type="date" style="flex:1;padding:6px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:10px;background:var(--surface);color:var(--text);font-family:inherit">
+          <span style="font-size:10px;color:var(--text3)">〜</span>
+          <input id="adv-date-to" type="date" style="flex:1;padding:6px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:10px;background:var(--surface);color:var(--text);font-family:inherit">
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">ソース</label>
+        <select id="adv-source" style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;background:var(--surface);color:var(--text);font-family:inherit">
+          <option value="">すべて</option><option value="youtube">YouTube</option><option value="gdrive">Google Drive</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">状態</label>
+        <select id="adv-status" style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;background:var(--surface);color:var(--text);font-family:inherit">
+          <option value="">すべて</option><option value="fav">★ Favのみ</option><option value="unseen">未視聴のみ</option><option value="watched">視聴済みのみ</option><option value="bm">ブックマークあり</option><option value="memo">メモあり</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:12px">
+      <button onclick="clearAdvSearch()" style="padding:6px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">クリア</button>
+      <button onclick="saveAdvSearch()" style="padding:6px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">💾 条件を保存</button>
+      <button onclick="applyAdvSearch()" style="padding:6px 18px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">検索</button>
+    </div>
+  </div>
+</div>
 
 <!-- ════ フィルターオーバーレイ (v44 style) ════ -->
 <!-- ═══ ORGANIZE専用フィルターオーバーレイ ═══ -->
