@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "waza-kimura",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5500", "."],
-      "port": 5500
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5502", "--directory", "C:\\Users\\okuso\\Documents\\waza-kimura"],
+      "port": 5502
     }
   ]
 }

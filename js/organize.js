@@ -590,6 +590,8 @@ export function renderOrg() {
   syncOrgColHeaders();
   requestAnimationFrame(adjustOrgTableHeight);
   _bindOrgInlineEdit();
+  // フィルターアイコンを全列同期
+  Object.keys(_colFilterConfig).forEach(c => _syncFiltIcon(c));
 }
 
 // ═══ Column headers sync ═══
@@ -1302,16 +1304,30 @@ export function openOrgColFilter(col, thEl) {
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');
   dd.id = 'org-col-filter-dd';
-  dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:200px;max-width:360px;max-height:400px;display:flex;flex-direction:column;gap:6px;font-size:12px';
+  dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:200px;max-width:360px;display:flex;flex-direction:column;gap:6px;font-size:12px';
   document.body.appendChild(dd);  // 先に追加して幅を取得
 
-  // 位置決め
+  // 位置決め: ヘッダー直下から始めてビューポート内に収める
   const rect = thEl.getBoundingClientRect();
   let left = rect.left;
   const ddW = dd.offsetWidth || 210;
   if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
   dd.style.left = Math.max(4, left) + 'px';
-  dd.style.top  = (rect.bottom + 4) + 'px';
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const spaceAbove = rect.top - 8;
+  if (spaceBelow >= 250) {
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.bottom = 'auto';
+    dd.style.maxHeight = spaceBelow + 'px';
+  } else if (spaceAbove > spaceBelow) {
+    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dd.style.top = 'auto';
+    dd.style.maxHeight = spaceAbove + 'px';
+  } else {
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.bottom = 'auto';
+    dd.style.maxHeight = spaceBelow + 'px';
+  }
 
   // ── ソートボタン ──
   if (sortableCols.includes(col)) {
@@ -1347,100 +1363,17 @@ export function openOrgColFilter(col, thEl) {
 
     if (isPanel) {
       // ── パネル形式（Channel / Playlist）──
-      // 件数ヘッダー
-      const cntHeader = document.createElement('div');
-      cntHeader.style.cssText = 'font-size:10px;color:var(--text3);font-weight:600';
-      const colLabel = col === 'channel' ? 'チャンネル' : 'プレイリスト';
-      cntHeader.textContent = `絞り込み結果の${colLabel} (${sortedVals.length}件)`;
-      dd.appendChild(cntHeader);
+      // Library サイドバーと完全に同じ buildSbPickerInline を使用
+      dd.removeChild(searchBox); // buildSbPickerInline が独自の検索ボックスを持つ
+      const panelContainer = document.createElement('div');
+      const panelId = '_org-col-picker-' + col;
+      panelContainer.id = panelId;
+      panelContainer.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0';
+      dd.appendChild(panelContainer);
 
-      // ソートタブ
-      let sortMode = 'recent'; // 'recent' | 'abc' | 'count'
-      const tabRow = document.createElement('div');
-      tabRow.style.cssText = 'display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2px';
-      const mkTab = (label, mode) => {
-        const t = document.createElement('button');
-        t.textContent = label;
-        t.dataset.mode = mode;
-        t.style.cssText = `flex:1;padding:5px 0;font-size:10px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;font-weight:600`;
-        if (mode === sortMode) { t.style.color = 'var(--text)'; t.style.borderBottomColor = 'var(--accent)'; }
-        t.addEventListener('click', () => {
-          sortMode = mode;
-          tabRow.querySelectorAll('button').forEach(b => { b.style.color='var(--text3)'; b.style.borderBottomColor='transparent'; });
-          t.style.color = 'var(--text)'; t.style.borderBottomColor = 'var(--accent)';
-          renderPanelList(searchBox.value);
-        });
-        return t;
-      };
-      tabRow.appendChild(mkTab('🕑 最近', 'recent'));
-      tabRow.appendChild(mkTab('ABC / あいうえお順', 'abc'));
-      tabRow.appendChild(mkTab('件数順', 'count'));
-      dd.appendChild(tabRow);
-
-      // 値リスト
-      const listEl = document.createElement('div');
-      listEl.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:0;min-height:50px';
-      dd.appendChild(listEl);
-
-      // 「最近」用: 各値の最新addedAtを取得
-      const recentMap = new Map();
-      videos.forEach(v => {
-        const vals = cfg.valueGetter(v);
-        const ts = v.addedAt || 0;
-        vals.forEach(val => {
-          if (!recentMap.has(val) || ts > recentMap.get(val)) recentMap.set(val, ts);
-        });
-      });
-
-      const renderPanelList = (q) => {
-        const ql = (q || '').toLowerCase();
-        let filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : [...sortedVals];
-        if (sortMode === 'count') filtered.sort((a,b) => (valueCounts.get(b)||0) - (valueCounts.get(a)||0));
-        else if (sortMode === 'recent') {
-          filtered.sort((a,b) => (recentMap.get(b)||0) - (recentMap.get(a)||0));
-          // 選択中は常に表示、それ以外は上位10件まで
-          const selected = filtered.filter(v => filterSet.has(v));
-          const rest = filtered.filter(v => !filterSet.has(v)).slice(0, 10);
-          filtered = [...selected, ...rest.filter(v => !selected.includes(v))];
-        }
-        else filtered.sort((a,b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0);
-        listEl.innerHTML = '';
-        if (!filtered.length) {
-          listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">該当なし</div>';
-          return;
-        }
-        filtered.forEach(val => {
-          const cnt = valueCounts.get(val) || 0;
-          const isSel = filterSet.has(val);
-          const row = document.createElement('div');
-          row.style.cssText = `display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 8px;border-radius:6px;font-weight:${isSel?'700':'400'}`;
-          row.onmouseover = () => { row.style.background = 'var(--surface2)'; };
-          row.onmouseout  = () => { row.style.background = ''; };
-          row.addEventListener('click', () => {
-            isSel ? filterSet.delete(val) : filterSet.add(val);
-            renderOrg(); _syncFiltIcon(col);
-            renderPanelList(searchBox.value);
-          });
-          const txt = document.createElement('span');
-          txt.style.cssText = 'flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0';
-          txt.textContent = val;
-          txt.title = val;
-          const cntEl = document.createElement('span');
-          cntEl.style.cssText = 'font-size:11px;color:var(--text3);flex-shrink:0';
-          cntEl.textContent = cnt + '本';
-          row.appendChild(txt); row.appendChild(cntEl);
-          if (isSel) {
-            const chk = document.createElement('span');
-            chk.textContent = '✓';
-            chk.style.cssText = 'color:var(--accent);font-weight:800;flex-shrink:0;font-size:14px';
-            row.appendChild(chk);
-          }
-          listEl.appendChild(row);
-        });
-      };
-
-      renderPanelList('');
-      searchBox.addEventListener('input', () => renderPanelList(searchBox.value));
+      // buildSbPickerInline を 'org' コンテキストで呼び出し
+      // （orgFilters を使い、renderOrg を呼ぶ — Library サイドバーと完全に同じ関数）
+      window.buildSbPickerInline(panelId, cfg.filterKey, 'org');
     } else {
       // ── チェックボックス形式（タグ系列） ──
       const filtLabel = document.createElement('div');
@@ -1624,12 +1557,12 @@ export function toggleAdvSearch() {
   if (!ov) return;
   const show = ov.style.display === 'none';
   ov.style.display = show ? '' : 'none';
-  // ボタンのスタイル切替
-  ['adv-search-btn-pc','adv-search-btn-mob'].forEach(id => {
+  // ボタンのスタイル切替（Organize + Library 全ボタン）
+  ['adv-search-btn-pc','adv-search-btn-mob','adv-search-btn-lib-pc','adv-search-btn-lib-mob'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
-    if (show) { btn.style.background='var(--accent)'; btn.style.color='#fff'; btn.style.borderColor='var(--accent)'; btn.textContent='▲ 詳細'; }
-    else { btn.style.background='var(--surface)'; btn.style.color='var(--text2)'; btn.style.borderColor='var(--border)'; btn.textContent='▼ 詳細'; }
+    if (show) { btn.style.background='var(--accent)'; btn.style.color='#fff'; btn.style.borderColor='var(--accent)'; btn.textContent='▲ 詳細検索'; }
+    else { btn.style.background='var(--surface)'; btn.style.color='var(--text2)'; btn.style.borderColor='var(--border)'; btn.textContent='🔎 詳細検索'; }
   });
   if (show) document.getElementById('adv-include')?.focus();
 }
@@ -1674,6 +1607,12 @@ export function applyAdvSearch() {
 
   toggleAdvSearch();
   renderOrg();
+  // Library タブにも検索ワードを反映
+  const siLib = document.getElementById('si-lib-pc');
+  const siLibMob = document.getElementById('si');
+  if (siLib) siLib.value = q.trim();
+  if (siLibMob) siLibMob.value = q.trim();
+  window.AF?.();
 }
 
 export function clearAdvSearch() {
@@ -1692,7 +1631,13 @@ export function clearAdvSearch() {
   const siMob = document.getElementById('si-org');
   if (siPc) siPc.value = '';
   if (siMob) siMob.value = '';
+  // Library側もクリア
+  const siLib = document.getElementById('si-lib-pc');
+  const siLibMob = document.getElementById('si');
+  if (siLib) siLib.value = '';
+  if (siLibMob) siLibMob.value = '';
   renderOrg();
+  window.AF?.();
 }
 
 export function saveAdvSearch() {

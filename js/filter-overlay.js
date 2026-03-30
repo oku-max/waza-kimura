@@ -735,17 +735,23 @@ export function openSbPopup(key, triggerEl, ctx='lib') {
   const sRect = sidebar ? sidebar.getBoundingClientRect() : { right: 224 };
   const tRect = triggerEl.getBoundingClientRect();
 
-  popup.style.display = 'block';
+  // flexレイアウトでビューポート内に完全収容
+  popup.style.display = 'flex';
+  popup.style.flexDirection = 'column';
   popup.style.left   = (sRect.right + 4) + 'px';
   popup.style.right  = 'auto';
   popup.style.width  = '320px';
+  popup.style.top    = '12px';
+  popup.style.bottom = '12px';
+  popup.style.overflow = 'hidden';
 
-  let top = tRect.top;
-  popup.style.top = top + 'px';
-  const pRect = popup.getBoundingClientRect();
-  if (pRect.bottom > window.innerHeight - 16) {
-    top = Math.max(8, window.innerHeight - 16 - pRect.height);
-    popup.style.top = top + 'px';
+  // body をフレックスで残りスペースいっぱいに
+  const popupBody = document.getElementById('sb-popup-body');
+  if (popupBody) {
+    popupBody.style.maxHeight = 'none';
+    popupBody.style.flex = '1';
+    popupBody.style.minHeight = '0';
+    popupBody.style.overflowY = 'auto';
   }
 
   // アロー更新（lib/orgそれぞれのプレフィックスで更新）
@@ -860,6 +866,10 @@ export function trackRecentView(id) {
   recents = recents.slice(0, 10);
   localStorage.setItem(_RECENT_KEY, JSON.stringify(recents));
   renderRecentSidebar();
+  // 動画再生時にチャンネル/プレイリストの「最近」リストにも追加
+  const ch = vid.channel || vid.ch;
+  if (ch) _addRecentFilter('channel', ch);
+  if (vid.pl) _addRecentFilter('playlist', vid.pl);
 }
 
 export function renderRecentSidebar() {
