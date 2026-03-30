@@ -507,6 +507,9 @@ export function renderOrg() {
 
   const displayList = [...list].sort(orgSortFn);
 
+  // Organizeタブのフィルター結果を「次の動画」リストに反映
+  window.filteredVideos = displayList;
+
   // 空状態
   const empty = document.getElementById('org-empty');
   const tableWrap = document.querySelector('.org-table-wrap');
