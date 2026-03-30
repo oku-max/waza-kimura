@@ -271,7 +271,6 @@ function applyAiTags(videoId, panel) {
     if (!example.tags[k]) example.tags[k] = [];
     example.tags[k].push(cb.dataset.val);
   });
-  const ai = window.aiSettings || {};
   if (!ai.feedbackExamples) ai.feedbackExamples = [];
   ai.feedbackExamples.push(example);
   while (ai.feedbackExamples.length > 10) ai.feedbackExamples.shift();
