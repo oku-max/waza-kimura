@@ -1,17 +1,22 @@
 // ═══ WAZA KIMURA — AI タグ提案 API ═══
 // Vercel Serverless Function
 // POST /api/ai-tag
-// Body: { title, channel, playlist, flexibility, presets }
+// Body: { title, channel, playlist, flexibility, presets, model, chapters, bjjRules, feedbackExamples }
 // Returns: { tb, action, position, tech }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+
+const MODEL_MAP = {
+  haiku:  'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-5-20250514',
+};
 
 const TB_TAGS   = ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'];
 const AC_TAGS   = ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'];
 const POS_TAGS  = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
 const TECH_TAGS = ['十字絞め','RNC','ギロチン','アナコンダ','ダースチョーク','ノースサウスチョーク','ボウアンドアロー','アームバー','キムラ','アメリカーナ','オモプラッタ','ヒールフック','インサイドヒールフック','アウトサイドヒールフック','ニーバー','トーホールド','アンクルロック','カーフスライサー','シザースイープ','フラワースイープ','ヒップバンプスイープ','バタフライスイープ','SLXスイープ','バックテイク','ダブルレッグ','シングルレッグ','ベリンボロ','トレアンダー','ニーカット','トレアンダーパス','ブルファイターパス','レッグドラッグ','スタックパス','スマッシュパス','バックステップ','X-パス','ディープハーフエントリー','クレーンロール','ガスペダル','カウンター'];
 
-function buildSystemPrompt(presets, flexibility) {
+function buildSystemPrompt(presets, flexibility, bjjRules) {
   const tbList   = (presets?.tb   || TB_TAGS).join(' / ');
   const acList   = (presets?.ac   || AC_TAGS).join(' / ');
   const posList  = (presets?.pos  || POS_TAGS).join(' / ');
@@ -25,8 +30,13 @@ function buildSystemPrompt(presets, flexibility) {
 - TECHNIQUEはタイトルから技術名を積極的に抽出し新規追加可。BJJ用語として妥当なものを提案すること。`,
   }[flexibility || 'standard'];
 
+  // BJJ推論ルール（ユーザーがカスタマイズ可能）
+  const rulesSection = bjjRules?.length
+    ? `\n【BJJ判定ルール — 必ず従うこと】\n${bjjRules.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`
+    : '';
+
   return `あなたはブラジリアン柔術（BJJ）の専門知識を持つタグ付けアシスタントです。
-動画タイトル・チャンネル名・プレイリスト名を分析し、最適なタグをJSONで返してください。
+動画タイトル・チャンネル名・プレイリスト名・チャプター情報を分析し、最適なタグをJSONで返してください。
 
 【TOP/BOTTOM】ユーザー設定リスト：
 ${tbList}
@@ -39,9 +49,10 @@ ${posList}
 
 【TECHNIQUE】ユーザー設定リスト（参考）：
 ${techList}
-
+${rulesSection}
 ルール：
 ${flexNote}
+- チャプター情報がある場合、個々のチャプター名から技名・ポジションを読み取りタグに反映する
 - 確信が持てないカテゴリは空配列にする
 - JSONのみを返す（説明文・コードブロック不要）
 
@@ -61,16 +72,39 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
-  const { title, channel, playlist, flexibility, presets } = req.body || {};
+  const { title, channel, playlist, flexibility, presets,
+          model, chapters, bjjRules, feedbackExamples } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title is required' });
 
-  const systemPrompt = buildSystemPrompt(presets, flexibility);
+  const systemPrompt = buildSystemPrompt(presets, flexibility, bjjRules);
+  const modelId = MODEL_MAP[model] || MODEL_MAP.haiku;
 
   const userMessage = [
     `タイトル：${title}`,
     channel  ? `チャンネル：${channel}`   : null,
     playlist ? `プレイリスト：${playlist}` : null,
+    chapters?.length ? `チャプター：${chapters.join(' / ')}` : null,
   ].filter(Boolean).join('\n');
+
+  // メッセージ構築（Few-shot例 + 本リクエスト）
+  const messages = [];
+
+  // E: フィードバック例をFew-shotとして挿入（最大5件）
+  if (Array.isArray(feedbackExamples) && feedbackExamples.length) {
+    const examples = feedbackExamples.slice(-5);
+    for (const ex of examples) {
+      if (!ex.title || !ex.tags) continue;
+      const exUser = [
+        `タイトル：${ex.title}`,
+        ex.channel  ? `チャンネル：${ex.channel}`   : null,
+        ex.playlist ? `プレイリスト：${ex.playlist}` : null,
+      ].filter(Boolean).join('\n');
+      messages.push({ role: 'user',      content: exUser });
+      messages.push({ role: 'assistant', content: JSON.stringify(ex.tags) });
+    }
+  }
+
+  messages.push({ role: 'user', content: userMessage });
 
   try {
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -81,10 +115,10 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
+        model:      modelId,
         max_tokens: 300,
         system:     systemPrompt,
-        messages:   [{ role: 'user', content: userMessage }],
+        messages,
       }),
     });
 

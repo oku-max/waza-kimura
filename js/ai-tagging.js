@@ -35,6 +35,10 @@ export async function fetchAiTags(video) {
       playlist:    video.pl      || '',
       flexibility: ai.flexibility || 'standard',
       presets,
+      model:            ai.model || 'haiku',
+      chapters:         (video.ytChapters || []).map(ch => ch.label),
+      bjjRules:         ai.bjjRules || [],
+      feedbackExamples: ai.feedbackExamples || [],
     }),
   });
   if (!res.ok) throw new Error('AI APIエラー: ' + res.status);
@@ -259,6 +263,19 @@ function applyAiTags(videoId, panel) {
       if (isNew && ai.autoAddToPresets) _addToPresets('tech', val);
     }
   });
+
+  // E: フィードバック例として自動蓄積（max 10, FIFO）
+  const example = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '', tags: {} };
+  panel.querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
+    const k = cb.dataset.key;
+    if (!example.tags[k]) example.tags[k] = [];
+    example.tags[k].push(cb.dataset.val);
+  });
+  const ai = window.aiSettings || {};
+  if (!ai.feedbackExamples) ai.feedbackExamples = [];
+  ai.feedbackExamples.push(example);
+  while (ai.feedbackExamples.length > 10) ai.feedbackExamples.shift();
+  window.saveAiSettings?.();
 
   window.debounceSave?.();
   // VPanel即時更新

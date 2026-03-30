@@ -10,6 +10,43 @@ const DEFAULT_TAG_SETTINGS = [
 export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
 
 // ── aiSettings ──
+const DEFAULT_BJJ_RULES = [
+  // ── TOP/BOTTOM 判定 ──
+  'ガード全般（クローズド、ハーフ、オープン、バタフライ等）はTOP/BOTTOM=ボトム。ただし「パスガード」「ガードパス」「pass」はTOP/BOTTOM=トップ',
+  'スイープ（sweep）はTOP/BOTTOM=ボトム（ボトムから仕掛ける技）',
+  'マウントエスケープ・サイドエスケープ等「エスケープ」はTOP/BOTTOM=ボトム（不利ポジションから逃げる側）',
+  'バックコントロール・バックテイクの攻め側はTOP/BOTTOM=バック',
+  'テイクダウン（takedown, single leg, double leg）はTOP/BOTTOM=スタンディング',
+  'ドリル動画（drill, 反復練習）はTOP/BOTTOM=ドリル, ACTION=ドリル',
+  // ── ACTION 判定 ──
+  'サブミッション（絞め・関節技）の仕掛けはACTION=フィニッシュ',
+  'サブミッションのディフェンスや脱出はACTION=エスケープ・ディフェンス',
+  'スイープ（相手をひっくり返す技）はACTION=スイープ',
+  'パスガード（ガードを越える技）はACTION=パスガード',
+  'ガードリテンション（ガードを維持する技術）はACTION=リテンション',
+  'テイクダウン（standing→ground）はACTION=テイクダウン',
+  'ポジションキープ・圧力維持はACTION=コントロール',
+  // ── POSITION 判定 ──
+  'closed guard / クローズドガード → POSITION=クローズドガード',
+  'half guard / ハーフガード / underhook half → POSITION=ハーフガード',
+  'deep half / ディープハーフ → POSITION=ハーフガード',
+  'mount / マウント → POSITION=マウント',
+  'side control / side mount / サイド / 袈裟固め → POSITION=サイドコントロール',
+  'knee on belly / ニーオン → POSITION=ニーオン',
+  'back control / back mount / バック → POSITION=バック',
+  'turtle / 亀 / がめ → POSITION=タートル',
+  'X guard / SLX / single leg X → POSITION=Xガード',
+  'De La Riva / DLR / デラヒーバ → POSITION=デラヒーバ',
+  'butterfly guard / バタフライ → POSITION=バタフライ',
+  'spider guard / lasso / スパイダー / ラッソー → POSITION=スパイダー・ラッソー',
+  '50/50 / fifty-fifty → POSITION=50/50',
+  'standing / スタンディング / 立ち技 → POSITION=スタンディング',
+  // ── 複合判定 ──
+  'タイトルに複数の技が含まれる場合（例: チャプターごとに異なる技）、すべてのタグを配列に含める',
+  'レッグロック系（ヒールフック、ニーバー等）で特にポジション記載がなければPOSITION=オープンガード or 50/50 を検討',
+  'ベリンボロ（berimbolo）はACTION=スイープ or アタック、TECHNIQUE=ベリンボロ',
+];
+
 export let aiSettings = {
   enabled:               true,
   defaultMode:           'add',
@@ -20,6 +57,9 @@ export let aiSettings = {
   newTagProposal:        true,
   flexibility:           'standard',
   autoAddToPresets:      false,
+  model:                 'haiku',
+  bjjRules:              [...DEFAULT_BJJ_RULES],
+  feedbackExamples:      [],
 };
 
 export function saveTagSettings() {
@@ -58,6 +98,10 @@ export function loadTagSettings() {
       }
     }
   } catch(e) {}
+  // マイグレーション: 新フィールドが未保存の場合デフォルト値を補完
+  if (!aiSettings.model) aiSettings.model = 'haiku';
+  if (!Array.isArray(aiSettings.bjjRules)) aiSettings.bjjRules = [...DEFAULT_BJJ_RULES];
+  if (!Array.isArray(aiSettings.feedbackExamples)) aiSettings.feedbackExamples = [];
   window.tagSettings = tagSettings;
   window.aiSettings  = aiSettings;
 }
@@ -328,7 +372,91 @@ export function renderAiSettings() {
       <!-- 一括適用前の確認ダイアログ -->
       ${row('一括適用前の確認ダイアログ', '「○本に適用しますか？」の確認を表示します', toggle('bulkConfirm'))}
 
+      <!-- D: AIモデル選択 -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;margin-bottom:4px">AIモデル</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sonnetは高精度ですが1回あたり約3倍のコストがかかります（約0.3円/回 vs 0.1円/回）</div>
+        <div style="display:flex;gap:6px">
+          ${['haiku','sonnet'].map(v => `
+            <button onclick="aiSettings.model='${v}';saveAiSettings();renderAiSettings()"
+              style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;
+                background:${s.model===v?'var(--accent)':'var(--surface2)'};
+                color:${s.model===v?'#fff':'var(--text2)'}">
+              ${{haiku:'⚡ Haiku（高速・低コスト）',sonnet:'🧠 Sonnet（高精度）'}[v]}
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <!-- C: BJJ判定ルール -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <details id="bjj-rules-details">
+          <summary style="font-size:12px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+            <span style="transition:transform .2s" id="bjj-rules-arrow">▶</span>
+            BJJ判定ルール（${(s.bjjRules||[]).length}件）
+            <span style="font-size:10px;color:var(--text3);font-weight:400">— AIが従う推論ルールを確認・編集</span>
+          </summary>
+          <div style="margin-top:10px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+              AIはこのルールリストに従ってタグを判定します。追加・編集・削除が可能です。
+            </div>
+            <div id="bjj-rules-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+              ${(s.bjjRules||[]).map((r, i) => `
+                <div style="display:flex;align-items:flex-start;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px;font-size:11px;line-height:1.5">
+                  <span style="color:var(--text3);font-weight:700;min-width:20px">${i+1}.</span>
+                  <span id="bjj-rule-text-${i}" contenteditable="true"
+                    onblur="window._bjjRuleEdit(${i},this.textContent)"
+                    style="flex:1;color:var(--text);outline:none">${r}</span>
+                  <button onclick="window._bjjRuleRemove(${i})"
+                    style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0"
+                    title="削除">✕</button>
+                </div>`).join('')}
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="bjj-rule-new" placeholder="新しいルールを追加..."
+                style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
+                       padding:6px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+                onkeydown="if(event.key==='Enter')window._bjjRuleAdd()">
+              <button onclick="window._bjjRuleAdd()"
+                style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent);
+                       color:#fff;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">＋ 追加</button>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:6px">
+              <button onclick="window._bjjRulesReset()"
+                style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
+                       color:var(--text3);font-size:11px;cursor:pointer;font-family:inherit">デフォルトに戻す</button>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- E: フィードバック学習 -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;font-weight:600">学習データ（自動蓄積）</div>
+            <div style="font-size:11px;color:var(--text3)">タグ適用時の結果をAIが次回以降の判定に活用します（最大10件）</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--accent)">${(s.feedbackExamples||[]).length}件</div>
+        </div>
+        ${(s.feedbackExamples||[]).length ? `
+          <div style="margin-top:8px;display:flex;gap:6px">
+            <button onclick="if(confirm('学習データをすべて削除しますか？')){aiSettings.feedbackExamples=[];saveAiSettings();renderAiSettings()}"
+              style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
+                     color:var(--text3);font-size:11px;cursor:pointer;font-family:inherit">クリア</button>
+          </div>` : ''}
+      </div>
+
     </div>`;
+
+  // details toggle でアロー回転
+  requestAnimationFrame(() => {
+    const det = document.getElementById('bjj-rules-details');
+    const arr = document.getElementById('bjj-rules-arrow');
+    if (det && arr) {
+      det.addEventListener('toggle', () => { arr.style.transform = det.open ? 'rotate(90deg)' : ''; });
+      if (det.open) arr.style.transform = 'rotate(90deg)';
+    }
+  });
 }
 
 export function setAiDefaultMode(mode) {
@@ -336,3 +464,54 @@ export function setAiDefaultMode(mode) {
   saveAiSettings();
   renderAiSettings();
 }
+
+// ── BJJルール操作 ──
+window._bjjRuleAdd = function() {
+  const inp = document.getElementById('bjj-rule-new');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!aiSettings.bjjRules) aiSettings.bjjRules = [];
+  aiSettings.bjjRules.push(val);
+  saveAiSettings();
+  renderAiSettings();
+  // 追加後 details を開いた状態に復元
+  requestAnimationFrame(() => {
+    const det = document.getElementById('bjj-rules-details');
+    if (det) det.open = true;
+  });
+};
+
+window._bjjRuleRemove = function(i) {
+  if (!aiSettings.bjjRules) return;
+  aiSettings.bjjRules.splice(i, 1);
+  saveAiSettings();
+  renderAiSettings();
+  requestAnimationFrame(() => {
+    const det = document.getElementById('bjj-rules-details');
+    if (det) det.open = true;
+  });
+};
+
+window._bjjRuleEdit = function(i, text) {
+  if (!aiSettings.bjjRules) return;
+  const trimmed = text.trim();
+  if (!trimmed) {
+    // 空にした場合は削除
+    aiSettings.bjjRules.splice(i, 1);
+  } else {
+    aiSettings.bjjRules[i] = trimmed;
+  }
+  saveAiSettings();
+};
+
+window._bjjRulesReset = function() {
+  if (!confirm('BJJ判定ルールをデフォルトに戻しますか？カスタマイズした内容は失われます。')) return;
+  aiSettings.bjjRules = [...DEFAULT_BJJ_RULES];
+  saveAiSettings();
+  renderAiSettings();
+  requestAnimationFrame(() => {
+    const det = document.getElementById('bjj-rules-details');
+    if (det) det.open = true;
+  });
+};
