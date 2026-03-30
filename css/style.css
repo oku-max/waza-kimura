@@ -443,6 +443,17 @@ body.bulk-mode .card-sel-ov{display:block;}
 .org-thumb { width:56px; height:32px; border-radius:4px; object-fit:cover; background:var(--surface3); cursor:pointer; flex-shrink:0; }
 .org-tag-chip { display:inline-block; font-size:10px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); margin:1px 2px 1px 0; white-space:nowrap; cursor:pointer; }
 .org-tag-cell { display:flex; flex-wrap:wrap; gap:2px; overflow:hidden; max-height:calc(1.6em * 3 + 4px); }
+/* ── Inline cell editing ── */
+.org-td-editing { outline:2px solid var(--accent); outline-offset:-1px; background:var(--surface)!important; }
+.org-inline-picker { position:fixed; z-index:500; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; box-shadow:0 6px 28px rgba(0,0,0,.18); min-width:200px; max-width:320px; max-height:360px; display:flex; flex-direction:column; gap:6px; font-size:12px; }
+.org-inline-search { width:100%; box-sizing:border-box; padding:5px 8px; border:1.5px solid var(--border); border-radius:6px; font-size:11px; background:var(--surface2); color:var(--text); outline:none; }
+.org-inline-search:focus { border-color:var(--accent); }
+.org-inline-chips { display:flex; flex-wrap:wrap; gap:3px; padding-bottom:4px; border-bottom:1px solid var(--border); min-height:22px; }
+.org-inline-chip { display:inline-flex; align-items:center; gap:2px; font-size:10px; padding:2px 7px; border-radius:10px; background:var(--accent); color:#fff; cursor:default; white-space:nowrap; }
+.org-inline-opts { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1px; min-height:40px; max-height:220px; }
+.org-inline-opt { display:flex; align-items:center; gap:6px; padding:3px 5px; font-size:11px; cursor:pointer; border-radius:5px; }
+.org-inline-opt:hover { background:var(--surface2); }
+.org-inline-memo { width:100%; min-height:48px; box-sizing:border-box; padding:6px 8px; border:2px solid var(--accent); border-radius:6px; font-size:11px; background:var(--surface); color:var(--text); resize:vertical; font-family:inherit; outline:none; }
 .org-judge { display:flex; gap:4px; }
 .org-judge-btn { padding:4px 9px; border-radius:12px; border:none; font-size:10px; font-weight:700; cursor:pointer; white-space:nowrap; font-family:'DM Sans',sans-serif; transition:opacity .15s; }
 .org-judge-btn:hover { opacity:.8; }

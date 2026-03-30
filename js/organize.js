@@ -371,6 +371,7 @@ export function adjustOrgTableHeight() {
 // ═══ Main render ═══
 
 export function renderOrg() {
+  _closeOrgInlineEditor(false);
   initOrgFixedHeaders();
   const videos = window.videos || [];
   // Organize専用フィルターでリストを絞り込む
@@ -436,7 +437,7 @@ export function renderOrg() {
       const chips = items.map(t =>
         `<span class="org-tag-chip">${t}</span>`
       ).join('');
-      return `<td class="org-td" style="overflow:hidden">
+      return `<td class="org-td" data-col="${colKey}" style="overflow:hidden">
         <div class="org-tag-cell">${chips || '<span style="font-size:10px;color:var(--text3)">—</span>'}</div>
       </td>`;
     };
@@ -445,8 +446,8 @@ export function renderOrg() {
       if (col === 'action')    return mkTagCell(v.ac||[], 'action', 'action');
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
       if (col === 'technique') return mkTagCell(v.tech||[], 'tech', 'technique');
-      if (col === 'channel')   return `<td class="org-td" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
-      if (col === 'prio')      return `<td class="org-td" style="white-space:nowrap;overflow:hidden">
+      if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
+      if (col === 'prio')      return `<td class="org-td" data-col="prio" style="white-space:nowrap;overflow:hidden">
         <div class="org-judge">
           ${['今すぐ','そのうち','保留'].map(p => {
             const active = prio === p;
@@ -454,18 +455,18 @@ export function renderOrg() {
             return `<button class="org-judge-btn" style="background:${active?bg2:'var(--surface2)'};border:1.5px solid ${active?col2:'var(--border)'};color:${active?col2:'var(--text3)'};font-weight:${active?800:500}" onclick="event.stopPropagation();setPrio('${v.id}','${p}')">${p}</button>`;
           }).join('')}
         </div></td>`;
-      if (col === 'playlist')  return `<td class="org-td" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
-      if (col === 'memo')      return `<td class="org-td" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
-      if (col === 'fav')       return `<td class="org-td" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
+      if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
+      if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
+      if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
       if (col === 'addedAt') {
         const d = v.addedAt ? new Date(v.addedAt) : null;
         const ds = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '—';
-        return `<td class="org-td" style="font-size:10px;color:var(--text3);white-space:nowrap">${ds}</td>`;
+        return `<td class="org-td" data-col="addedAt" style="font-size:10px;color:var(--text3);white-space:nowrap">${ds}</td>`;
       }
       if (col === 'duration') {
         const sec = v.duration || 0;
         const dur = sec ? `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}` : '—';
-        return `<td class="org-td" style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">${dur}</td>`;
+        return `<td class="org-td" data-col="duration" style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">${dur}</td>`;
       }
       return '';
     }).join('');
@@ -485,6 +486,7 @@ export function renderOrg() {
   }).join('');
   syncOrgColHeaders();
   requestAnimationFrame(adjustOrgTableHeight);
+  _bindOrgInlineEdit();
 }
 
 // ═══ Column headers sync ═══
@@ -808,6 +810,315 @@ export function bindOrgDrag() {
 
 // ── 整理タブ タグ列クリックでフィルターを開く（後方互換のため残す）──
 export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return; }
+
+// ═══ Inline cell editing ═══
+
+const _INLINE_COLS = {
+  tb:        { field: 'tb',   type: 'tags', opts: () => window.TB_TAGS || [] },
+  action:    { field: 'ac',   type: 'tags', opts: () => window.AC_TAGS || [] },
+  position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([...(window.POS_TAGS||[]), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
+  technique: { field: 'tech', type: 'tags', opts: () => [...new Set([...(window.TECH||[]), ...(window.videos||[]).flatMap(v=>v.tech||[])])].sort(), allowNew: true },
+  memo:      { field: 'memo', type: 'text' },
+};
+
+let _orgInlineActive = null; // { videoId, col, td, origHTML, picker }
+const _isFinePointer = () => window.matchMedia('(pointer: fine)').matches;
+
+function _bindOrgInlineEdit() {
+  const tbody = document.getElementById('orgList');
+  if (!tbody || tbody._orgInlineBound) return;
+  tbody._orgInlineBound = true;
+
+  // PC: ダブルクリック
+  tbody.addEventListener('dblclick', _handleInlineTrigger);
+
+  // タッチ: ロングプレス 500ms
+  let lpTimer = null, lpXY = null;
+  tbody.addEventListener('touchstart', e => {
+    const td = e.target.closest('td.org-td[data-col]');
+    if (!td || window.bulkMode) return;
+    const t = e.touches[0];
+    lpXY = { x: t.clientX, y: t.clientY };
+    lpTimer = setTimeout(() => {
+      lpTimer = null;
+      if (navigator.vibrate) navigator.vibrate(30);
+      _handleInlineTrigger({ target: td, preventDefault(){}, stopPropagation(){} });
+    }, 500);
+  }, { passive: true });
+  tbody.addEventListener('touchmove', e => {
+    if (!lpTimer || !lpXY) return;
+    const t = e.touches[0];
+    if (Math.hypot(t.clientX - lpXY.x, t.clientY - lpXY.y) > 10) {
+      clearTimeout(lpTimer); lpTimer = null;
+    }
+  }, { passive: true });
+  tbody.addEventListener('touchend', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+}
+
+function _handleInlineTrigger(e) {
+  if (window.bulkMode) return;
+  const td = e.target.closest ? e.target.closest('td.org-td[data-col]') : e.target;
+  if (!td) return;
+  const col = td.dataset.col;
+  if (!_INLINE_COLS[col]) return;
+  // ボタンやリンクの場合はスキップ
+  if (e.target.closest && e.target.closest('button,a,input')) return;
+  const tr = td.closest('tr.org-tr');
+  if (!tr) return;
+  const videoId = tr.id.replace('org-row-', '');
+  e.preventDefault?.();
+  e.stopPropagation?.();
+  _openOrgInlineEditor(videoId, col, td);
+}
+
+function _openOrgInlineEditor(videoId, col, td) {
+  // 既存エディタを閉じる（保存）
+  _closeOrgInlineEditor(true);
+  const v = (window.videos || []).find(x => x.id === videoId);
+  if (!v) return;
+  const cfg = _INLINE_COLS[col];
+  const origHTML = td.innerHTML;
+  td.classList.add('org-td-editing');
+
+  _orgInlineActive = { videoId, col, td, origHTML, picker: null };
+
+  if (cfg.type === 'tags') {
+    _openTagPicker(v, cfg, col, td);
+  } else {
+    _openMemoEditor(v, td);
+  }
+}
+
+function _openTagPicker(v, cfg, col, td) {
+  const field = cfg.field;
+  const current = v[field] || [];
+  const allOpts = cfg.opts();
+  // 既存に無いユーザータグも表示
+  const extra = current.filter(t => !allOpts.includes(t));
+  const fullOpts = [...extra, ...allOpts];
+
+  const picker = document.createElement('div');
+  picker.className = 'org-inline-picker';
+  document.body.appendChild(picker);
+
+  // 位置決め
+  const rect = td.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 4;
+  picker.style.left = Math.max(4, left) + 'px';
+  picker.style.top = top + 'px';
+  // 画面外補正
+  requestAnimationFrame(() => {
+    const pr = picker.getBoundingClientRect();
+    if (pr.right > window.innerWidth - 8) picker.style.left = Math.max(4, window.innerWidth - pr.width - 8) + 'px';
+    if (pr.bottom > window.innerHeight - 8) picker.style.top = (rect.top - pr.height - 4) + 'px';
+  });
+
+  _orgInlineActive.picker = picker;
+
+  // 検索/新規入力（technique のみ）
+  let searchBox = null;
+  if (cfg.allowNew) {
+    searchBox = document.createElement('input');
+    searchBox.className = 'org-inline-search';
+    searchBox.placeholder = '検索 / 新規追加...';
+    picker.appendChild(searchBox);
+  }
+
+  // チップ表示エリア
+  const chipsEl = document.createElement('div');
+  chipsEl.className = 'org-inline-chips';
+  picker.appendChild(chipsEl);
+
+  // オプションリスト
+  const listEl = document.createElement('div');
+  listEl.className = 'org-inline-opts';
+  picker.appendChild(listEl);
+
+  const refreshChips = () => {
+    const tags = v[field] || [];
+    chipsEl.innerHTML = '';
+    tags.forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'org-inline-chip';
+      chip.textContent = t;
+      const x = document.createElement('span');
+      x.textContent = ' ×';
+      x.style.cursor = 'pointer';
+      x.addEventListener('click', (e) => {
+        e.stopPropagation();
+        v[field] = (v[field] || []).filter(tag => tag !== t);
+        refreshChips();
+        renderOpts();
+        _inlineSave(v, td, col);
+      });
+      chip.appendChild(x);
+      chipsEl.appendChild(chip);
+    });
+    if (!tags.length) chipsEl.innerHTML = '<span style="font-size:10px;color:var(--text3)">タグ未設定</span>';
+  };
+
+  const renderOpts = (q) => {
+    const ql = (q || '').toLowerCase();
+    const filtered = ql ? fullOpts.filter(o => o.toLowerCase().includes(ql)) : fullOpts;
+    listEl.innerHTML = '';
+    if (!filtered.length && !ql) {
+      listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">選択肢なし</div>';
+      return;
+    }
+    filtered.forEach(opt => {
+      const lbl = document.createElement('label');
+      lbl.className = 'org-inline-opt';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = (v[field] || []).includes(opt);
+      cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          if (!v[field]) v[field] = [];
+          if (!v[field].includes(opt)) v[field].push(opt);
+        } else {
+          v[field] = (v[field] || []).filter(t => t !== opt);
+        }
+        refreshChips();
+        _inlineSave(v, td, col);
+      });
+      const sp = document.createElement('span');
+      sp.textContent = opt;
+      sp.style.cssText = 'flex:1;font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      lbl.appendChild(cb);
+      lbl.appendChild(sp);
+      listEl.appendChild(lbl);
+    });
+    // 新規追加ボタン（technique + 検索テキストが既存にない場合）
+    if (cfg.allowNew && ql && !fullOpts.some(o => o.toLowerCase() === ql)) {
+      const addBtn = document.createElement('div');
+      addBtn.style.cssText = 'padding:5px 8px;font-size:11px;color:var(--accent);cursor:pointer;border-top:1px solid var(--border);margin-top:4px';
+      addBtn.textContent = `＋「${q}」を追加`;
+      addBtn.addEventListener('click', () => {
+        if (!v[field]) v[field] = [];
+        if (!v[field].includes(q)) v[field].push(q);
+        if (!fullOpts.includes(q)) fullOpts.push(q);
+        searchBox.value = '';
+        refreshChips();
+        renderOpts('');
+        _inlineSave(v, td, col);
+      });
+      listEl.appendChild(addBtn);
+    }
+  };
+
+  refreshChips();
+  renderOpts('');
+  if (searchBox) {
+    searchBox.addEventListener('input', () => renderOpts(searchBox.value));
+    searchBox.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && searchBox.value.trim()) {
+        const newTag = searchBox.value.trim();
+        if (!v[field]) v[field] = [];
+        if (!v[field].includes(newTag)) v[field].push(newTag);
+        if (!fullOpts.includes(newTag)) fullOpts.push(newTag);
+        searchBox.value = '';
+        refreshChips();
+        renderOpts('');
+        _inlineSave(v, td, col);
+        e.preventDefault();
+      }
+      if (e.key === 'Escape') _closeOrgInlineEditor(false);
+    });
+    requestAnimationFrame(() => searchBox.focus());
+  }
+
+  // 外側クリックで閉じる
+  setTimeout(() => {
+    const handler = e => {
+      if (picker.contains(e.target)) return;
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+      _closeOrgInlineEditor(true);
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler, { passive: true });
+    _orgInlineActive._outsideHandler = handler;
+  }, 50);
+}
+
+function _openMemoEditor(v, td) {
+  const origMemo = v.memo || '';
+  td.innerHTML = '';
+  const ta = document.createElement('textarea');
+  ta.className = 'org-inline-memo';
+  ta.value = origMemo;
+  td.appendChild(ta);
+  requestAnimationFrame(() => {
+    ta.focus();
+    ta.style.height = Math.max(48, td.clientHeight - 8) + 'px';
+  });
+
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { _closeOrgInlineEditor(false); e.preventDefault(); }
+  });
+  ta.addEventListener('blur', () => {
+    const newVal = ta.value.trim();
+    if (newVal !== origMemo) {
+      v.memo = newVal;
+      window.debounceSave?.();
+    }
+    _closeOrgInlineEditor(false);
+  });
+}
+
+function _inlineSave(v, td, col) {
+  window.debounceSave?.();
+  // セル内のチップ表示も更新
+  _refreshCellDisplay(v, td, col);
+}
+
+function _refreshCellDisplay(v, td, col) {
+  // renderOrg を呼ばずにセルだけ再描画
+  const cfg = _INLINE_COLS[col];
+  if (!cfg || cfg.type !== 'tags') return;
+  const tags = v[cfg.field] || [];
+  const inner = td.querySelector('.org-tag-cell');
+  if (!inner) return;
+  inner.innerHTML = tags.map(t => `<span class="org-tag-chip">${t}</span>`).join('')
+    || '<span style="font-size:10px;color:var(--text3)">—</span>';
+}
+
+function _closeOrgInlineEditor(save) {
+  if (!_orgInlineActive) return;
+  const { td, origHTML, picker, col, videoId, _outsideHandler } = _orgInlineActive;
+  // 外側ハンドラー解除
+  if (_outsideHandler) {
+    document.removeEventListener('mousedown', _outsideHandler);
+    document.removeEventListener('touchstart', _outsideHandler);
+  }
+  // ピッカー削除
+  if (picker) picker.remove();
+  td.classList.remove('org-td-editing');
+
+  const cfg = _INLINE_COLS[col];
+  if (cfg?.type === 'tags') {
+    // タグセルを最新値で再描画
+    const v = (window.videos || []).find(x => x.id === videoId);
+    if (v) {
+      const tags = v[cfg.field] || [];
+      td.innerHTML = `<div class="org-tag-cell">${tags.map(t => `<span class="org-tag-chip">${t}</span>`).join('') || '<span style="font-size:10px;color:var(--text3)">—</span>'}</div>`;
+    }
+  } else if (cfg?.type === 'text') {
+    const v = (window.videos || []).find(x => x.id === videoId);
+    if (v) {
+      td.innerHTML = `<div class="org-memo-text">${v.memo || '<span style="color:var(--text3);font-size:10px">—</span>'}</div>`;
+    }
+  }
+
+  _orgInlineActive = null;
+}
+
+// Esc でキャンセル
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _orgInlineActive) _closeOrgInlineEditor(false);
+});
 
 // ── 列フィルター設定 ──
 const _colFilterConfig = {
