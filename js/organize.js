@@ -850,7 +850,18 @@ export function openOrgColFilter(col, thEl) {
   _openColFilterCol = col;
 
   const cfg = _colFilterConfig[col];
-  const videos = (window.videos || []).filter(v => !v.archived);
+  const filterKey = cfg ? cfg.filterKey : null;
+
+  // この列以外のフィルターを適用した動画リストから値を集計（コンテキストフィルタ）
+  let savedFilter;
+  if (filterKey && orgFilters[filterKey]) {
+    savedFilter = new Set(orgFilters[filterKey]);
+    orgFilters[filterKey].clear();
+  }
+  const videos = orgFilt((window.videos || []).slice());
+  if (filterKey && savedFilter) {
+    orgFilters[filterKey] = savedFilter;
+  }
 
   // 一意な値とカウントを集計
   const valueCounts = new Map();
