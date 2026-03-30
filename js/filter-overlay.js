@@ -258,15 +258,34 @@ export function fovPickerDdTab(rowId, filterKey, tab) {
 
 function _positionFovDd(dd, rowEl) {
   const rect = rowEl.getBoundingClientRect();
+  const margin = 12; // ビューポート端からの余白
   dd.style.left  = rect.left + 'px';
   dd.style.right = (window.innerWidth - rect.right) + 'px';
   dd.style.width = '';
-  if (window.innerHeight - rect.bottom < 280) {
-    dd.style.top    = 'auto';
-    dd.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
-  } else {
+
+  const spaceBelow = window.innerHeight - rect.bottom - margin;
+  const spaceAbove = rect.top - margin;
+
+  // 検索欄+タブの高さ(約80px)を引いてリスト部分のmaxHeightを算出
+  const headerH = 80;
+  let listMaxH;
+
+  if (spaceBelow >= 280 || spaceBelow >= spaceAbove) {
+    // 下方向に開く
     dd.style.top    = (rect.bottom + 2) + 'px';
     dd.style.bottom = 'auto';
+    listMaxH = spaceBelow - headerH - 10;
+  } else {
+    // 上方向に開く
+    dd.style.top    = 'auto';
+    dd.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+    listMaxH = spaceAbove - headerH - 10;
+  }
+
+  // vp-dd-list の maxHeight を動的に設定
+  const listEl = dd.querySelector('.vp-dd-list');
+  if (listEl) {
+    listEl.style.maxHeight = Math.max(listMaxH, 120) + 'px';
   }
 }
 
