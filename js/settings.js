@@ -60,6 +60,7 @@ export let aiSettings = {
   model:                 'haiku',
   bjjRules:              [...DEFAULT_BJJ_RULES],
   feedbackExamples:      [],
+  techBlocklist:         [],
 };
 
 export function saveTagSettings() {
@@ -102,6 +103,7 @@ export function loadTagSettings() {
   if (!aiSettings.model) aiSettings.model = 'haiku';
   if (!Array.isArray(aiSettings.bjjRules)) aiSettings.bjjRules = [...DEFAULT_BJJ_RULES];
   if (!Array.isArray(aiSettings.feedbackExamples)) aiSettings.feedbackExamples = [];
+  if (!Array.isArray(aiSettings.techBlocklist)) aiSettings.techBlocklist = [];
   window.tagSettings = tagSettings;
   window.aiSettings  = aiSettings;
 }
@@ -182,6 +184,11 @@ export function renderTagSettingsList() {
             style="padding:5px 14px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
                    color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
             🗑️ 一括削除モード
+          </button>
+          <button onclick="window._tagSortMode()"
+            style="padding:5px 14px;border-radius:6px;border:1.5px solid #f59e0b;background:#f59e0b11;
+                   color:#f59e0b;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
+            🏷️ タグ仕分け
           </button>
         </div>` : ''}`;
     el.appendChild(card);
@@ -459,18 +466,93 @@ export function renderAiSettings() {
           </div>` : ''}
       </div>
 
+      <!-- 禁止リスト -->
+      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <details id="blocklist-details">
+          <summary style="font-size:12px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+            <span style="transition:transform .2s" id="blocklist-arrow">▶</span>
+            🚫 禁止リスト（${(s.techBlocklist||[]).length}件）
+            <span style="font-size:10px;color:var(--text3);font-weight:400">— AIが生成しないタグ</span>
+          </summary>
+          <div style="margin-top:10px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+              ここに登録されたタグはAIが提案しなくなります。仕分けモードや整理ツールから追加できます。
+            </div>
+            <div id="blocklist-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
+              ${(s.techBlocklist||[]).length ? (s.techBlocklist||[]).map((t, i) => `
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;
+                  background:#ef444411;border:1.5px solid #ef4444;font-size:11px;color:#ef4444">
+                  ${t}
+                  <span onclick="aiSettings.techBlocklist.splice(${i},1);saveAiSettings();renderAiSettings()"
+                    style="cursor:pointer;font-size:11px;margin-left:2px" title="禁止解除">✕</span>
+                </span>`).join('') : '<span style="font-size:11px;color:var(--text3)">なし</span>'}
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="blocklist-new" placeholder="タグ名を入力..."
+                style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
+                       padding:6px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+                onkeydown="if(event.key==='Enter')window._blocklistAdd()">
+              <button onclick="window._blocklistAdd()"
+                style="padding:6px 14px;border-radius:6px;border:none;background:#ef4444;
+                       color:#fff;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">🚫 追加</button>
+            </div>
+            ${(s.techBlocklist||[]).length ? `
+              <div style="margin-top:8px">
+                <button onclick="if(confirm('禁止リストをすべてクリアしますか？')){aiSettings.techBlocklist=[];saveAiSettings();renderAiSettings()}"
+                  style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
+                         color:var(--text3);font-size:11px;cursor:pointer;font-family:inherit">すべてクリア</button>
+              </div>` : ''}
+          </div>
+        </details>
+      </div>
+
+      <!-- タグ仕分けモード -->
+      <div style="padding:10px 0">
+        <div style="font-size:12px;font-weight:600;margin-bottom:4px">🏷️ タグ仕分けモード</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+          動画内の未分類タグを1つずつ確認し、正しい属性に分類 or 禁止リストに追加できます
+        </div>
+        <button onclick="window._tagSortMode()"
+          style="padding:10px 20px;border-radius:10px;border:2px solid var(--accent);background:var(--accent)11;
+                 color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
+          🏷️ 仕分けを開始
+        </button>
+      </div>
+
     </div>`;
 
   // details toggle でアロー回転
   requestAnimationFrame(() => {
-    const det = document.getElementById('bjj-rules-details');
-    const arr = document.getElementById('bjj-rules-arrow');
-    if (det && arr) {
-      det.addEventListener('toggle', () => { arr.style.transform = det.open ? 'rotate(90deg)' : ''; });
-      if (det.open) arr.style.transform = 'rotate(90deg)';
-    }
+    [['bjj-rules-details','bjj-rules-arrow'],['blocklist-details','blocklist-arrow']].forEach(([detId,arrId]) => {
+      const det = document.getElementById(detId);
+      const arr = document.getElementById(arrId);
+      if (det && arr) {
+        det.addEventListener('toggle', () => { arr.style.transform = det.open ? 'rotate(90deg)' : ''; });
+        if (det.open) arr.style.transform = 'rotate(90deg)';
+      }
+    });
   });
 }
+
+// ── 禁止リスト操作 ──
+window._blocklistAdd = function() {
+  const inp = document.getElementById('blocklist-new');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
+  if (!aiSettings.techBlocklist.includes(val)) {
+    aiSettings.techBlocklist.push(val);
+    saveAiSettings();
+    renderAiSettings();
+    requestAnimationFrame(() => {
+      const det = document.getElementById('blocklist-details');
+      if (det) det.open = true;
+    });
+    window.toast?.(`🚫 "${val}" を禁止リストに追加`);
+  }
+  inp.value = '';
+};
 
 export function setAiDefaultMode(mode) {
   aiSettings.defaultMode = mode;
@@ -785,12 +867,23 @@ function _applyTechCleanup(tagIdx, analysis) {
     v.tech = newTech;
   });
 
+  // 削除されたタグ（リネーム先があるもの以外）を禁止リストに追加
+  const blockedTags = [...toRemove].filter(t => !renameMap[t]);
+  if (blockedTags.length) {
+    if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
+    blockedTags.forEach(t => {
+      if (!aiSettings.techBlocklist.includes(t)) aiSettings.techBlocklist.push(t);
+    });
+    saveAiSettings();
+  }
+
   saveTagSettings();
   window.debounceSave?.();
 
   modal.remove();
   renderTagSettingsList();
-  window.toast?.(`🔧 ${toRemove.size}件削除, ${renameCount}件リネーム（${removeCount}箇所の動画タグを更新）`);
+  const blockNote = blockedTags.length ? `, ${blockedTags.length}件禁止リスト追加` : '';
+  window.toast?.(`🔧 ${toRemove.size}件削除, ${renameCount}件リネーム（${removeCount}箇所の動画タグを更新${blockNote}）`);
 }
 
 // ── 一括削除モード ──
@@ -837,6 +930,10 @@ window._techBulkDelete = function(tagIdx) {
   });
 
   html += `</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--text2);cursor:pointer">
+      <input type="checkbox" id="bulk-del-block" checked style="accent-color:#ef4444;width:14px;height:14px">
+      削除したタグを禁止リストにも追加（AIが再生成しなくなります）
+    </label>
     <div style="display:flex;gap:8px">
       <button id="bulk-del-apply"
         style="flex:1;padding:12px;border-radius:10px;border:none;background:#ef4444;color:#fff;
@@ -868,10 +965,276 @@ window._techBulkDelete = function(tagIdx) {
       if (v.tech.length !== before) vidCount++;
     });
 
+    // 禁止リストへの追加
+    const addToBlock = modal.querySelector('#bulk-del-block')?.checked;
+    if (addToBlock) {
+      if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
+      toDel.forEach(t => {
+        if (!aiSettings.techBlocklist.includes(t)) aiSettings.techBlocklist.push(t);
+      });
+      saveAiSettings();
+    }
+
     saveTagSettings();
     window.debounceSave?.();
     modal.remove();
     renderTagSettingsList();
-    window.toast?.(`🗑️ ${toDel.size}件削除（${vidCount}本の動画から削除）`);
+    const blockNote = addToBlock ? `, 禁止リストに追加` : '';
+    window.toast?.(`🗑️ ${toDel.size}件削除（${vidCount}本の動画から削除${blockNote}）`);
   };
+};
+
+// ════════════════════════════════════════════════════════
+// タグ仕分けモード（Googleフォト風カードレビュー）
+// ════════════════════════════════════════════════════════
+
+function _collectUnclassifiedTags() {
+  // 全属性のプリセットを収集
+  const allPresets = new Map(); // tag → { key, idx }
+  tagSettings.forEach((ts, idx) => {
+    ts.presets.forEach(p => allPresets.set(p, { key: ts.key, idx }));
+  });
+  const blocklist = new Set(aiSettings.techBlocklist || []);
+
+  // 動画データから全ユニークタグを収集（どの属性にも未登録のもの）
+  const videos = window.videos || [];
+  const unclassified = new Map(); // tag → { count, sources: Set<key> }
+
+  ['tb', 'ac', 'pos', 'tech'].forEach(field => {
+    videos.forEach(v => {
+      (v[field] || []).forEach(tag => {
+        if (allPresets.has(tag)) return; // 既にプリセットに登録済み
+        if (blocklist.has(tag)) return;  // 既に禁止リスト
+        if (!unclassified.has(tag)) {
+          unclassified.set(tag, { count: 0, sources: new Set() });
+        }
+        const entry = unclassified.get(tag);
+        entry.count++;
+        entry.sources.add(field);
+      });
+    });
+  });
+
+  // countで降順ソート
+  return [...unclassified.entries()]
+    .map(([tag, info]) => ({ tag, count: info.count, sources: [...info.sources] }))
+    .sort((a, b) => b.count - a.count);
+}
+
+window._tagSortMode = function() {
+  document.getElementById('tech-cleanup-modal')?.remove();
+
+  const items = _collectUnclassifiedTags();
+  if (!items.length) {
+    window.toast?.('✅ 未分類のタグはありません');
+    return;
+  }
+
+  let currentIdx = 0;
+  const results = []; // { tag, action: 'assign'|'block'|'skip', targetKey?, targetIdx? }
+
+  const modal = document.createElement('div');
+  modal.id = 'tech-cleanup-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:480px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+
+  modal.appendChild(sheet);
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) _finishSort(); });
+
+  function _renderCard() {
+    if (currentIdx >= items.length) { _finishSort(); return; }
+    const item = items[currentIdx];
+    const sourceLabels = item.sources.map(s => ({ tb:'TB', ac:'AC', pos:'POS', tech:'TECH' }[s] || s)).join(', ');
+
+    // 属性ボタンを生成
+    const attrBtns = tagSettings.map((ts, i) => {
+      const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+      const c = colors[i % colors.length];
+      return `<button data-action="assign" data-idx="${i}"
+        style="flex:1;padding:12px 4px;border-radius:10px;border:2px solid ${c};background:${c}11;
+               color:${c};font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;min-width:0;
+               transition:all .15s">
+        ${ts.label}
+      </button>`;
+    }).join('');
+
+    sheet.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:13px;font-weight:800;color:var(--text3)">
+          🏷️ タグ仕分け <span style="font-weight:400">${currentIdx + 1} / ${items.length}</span>
+        </div>
+        <button onclick="document.getElementById('tech-cleanup-modal')?._finishSort?.()"
+          style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:4px 8px">✕</button>
+      </div>
+
+      <!-- プログレスバー -->
+      <div style="width:100%;height:4px;background:var(--surface2);border-radius:2px;margin-bottom:20px;overflow:hidden">
+        <div style="width:${(currentIdx / items.length) * 100}%;height:100%;background:var(--accent);border-radius:2px;transition:width .2s"></div>
+      </div>
+
+      <!-- タグカード -->
+      <div style="text-align:center;padding:24px 0">
+        <div style="font-size:28px;font-weight:800;color:var(--text);margin-bottom:8px">${_esc(item.tag)}</div>
+        <div style="font-size:12px;color:var(--text3)">
+          ${item.count}本の動画で使用 ・ 現在: ${sourceLabels}
+        </div>
+      </div>
+
+      <!-- このタグはどの属性？ -->
+      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-align:center">
+        どの属性に分類しますか？
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        ${attrBtns}
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button data-action="block"
+          style="flex:1;padding:10px;border-radius:10px;border:2px solid #ef4444;background:#ef444411;
+                 color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          🚫 禁止リスト
+        </button>
+        <button data-action="skip"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);
+                 color:var(--text3);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          ⏭️ スキップ
+        </button>
+      </div>
+
+      <!-- 結果サマリ（小さく） -->
+      <div style="margin-top:16px;font-size:10px;color:var(--text3);text-align:center">
+        ${results.filter(r => r.action === 'assign').length}件分類 ・
+        ${results.filter(r => r.action === 'block').length}件禁止 ・
+        ${results.filter(r => r.action === 'skip').length}件スキップ
+      </div>`;
+
+    // ボタンイベント
+    sheet.querySelectorAll('button[data-action="assign"]').forEach(btn => {
+      btn.onmouseenter = () => { btn.style.transform = 'scale(1.05)'; };
+      btn.onmouseleave = () => { btn.style.transform = 'scale(1)'; };
+      btn.onclick = () => {
+        const idx = parseInt(btn.dataset.idx);
+        results.push({ tag: item.tag, action: 'assign', targetKey: tagSettings[idx].key, targetIdx: idx });
+        currentIdx++;
+        _renderCard();
+      };
+    });
+    sheet.querySelector('button[data-action="block"]').onclick = () => {
+      results.push({ tag: item.tag, action: 'block' });
+      currentIdx++;
+      _renderCard();
+    };
+    sheet.querySelector('button[data-action="skip"]').onclick = () => {
+      results.push({ tag: item.tag, action: 'skip' });
+      currentIdx++;
+      _renderCard();
+    };
+  }
+
+  function _finishSort() {
+    const assigned = results.filter(r => r.action === 'assign');
+    const blocked  = results.filter(r => r.action === 'block');
+
+    if (!assigned.length && !blocked.length) {
+      modal.remove();
+      return;
+    }
+
+    // 確認画面を表示
+    let summaryHtml = `
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px">📊 仕分け結果</div>`;
+
+    if (assigned.length) {
+      const byTarget = {};
+      assigned.forEach(r => {
+        const label = tagSettings[r.targetIdx].label;
+        if (!byTarget[label]) byTarget[label] = [];
+        byTarget[label].push(r.tag);
+      });
+      summaryHtml += `<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">✅ 分類 (${assigned.length}件)</div>`;
+      Object.entries(byTarget).forEach(([label, tags]) => {
+        summaryHtml += `<div style="margin-bottom:6px">
+          <span style="font-size:11px;font-weight:700;color:var(--text2)">${label}:</span>
+          <span style="font-size:11px;color:var(--text3)">${tags.join(', ')}</span>
+        </div>`;
+      });
+    }
+
+    if (blocked.length) {
+      summaryHtml += `<div style="font-size:12px;font-weight:700;color:#ef4444;margin:8px 0">🚫 禁止リスト (${blocked.length}件)</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${blocked.map(r => r.tag).join(', ')}</div>`;
+    }
+
+    summaryHtml += `
+      <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1.5px solid var(--border)">
+        <button id="sort-apply-btn"
+          style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;
+                 font-size:14px;font-weight:700;cursor:pointer">✓ 適用</button>
+        <button onclick="document.getElementById('tech-cleanup-modal').remove()"
+          style="padding:12px 20px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);
+                 color:var(--text);font-size:14px;cursor:pointer">キャンセル</button>
+      </div>`;
+
+    sheet.innerHTML = summaryHtml;
+
+    document.getElementById('sort-apply-btn').onclick = () => {
+      // 分類を適用: プリセットに追加
+      assigned.forEach(r => {
+        if (!tagSettings[r.targetIdx].presets.includes(r.tag)) {
+          tagSettings[r.targetIdx].presets.push(r.tag);
+        }
+      });
+
+      // 禁止リストに追加
+      blocked.forEach(r => {
+        if (!aiSettings.techBlocklist.includes(r.tag)) {
+          aiSettings.techBlocklist.push(r.tag);
+        }
+      });
+
+      // 禁止リストに入ったタグは全動画から削除
+      if (blocked.length) {
+        const blockSet = new Set(blocked.map(r => r.tag));
+        (window.videos || []).forEach(v => {
+          ['tb', 'ac', 'pos', 'tech'].forEach(field => {
+            if (v[field]?.length) v[field] = v[field].filter(t => !blockSet.has(t));
+          });
+        });
+      }
+
+      // 分類先が異なる属性の場合、旧属性から移動
+      assigned.forEach(r => {
+        const targetField = r.targetKey;
+        const FIELD_MAP = { tb: 'tb', ac: 'ac', pos: 'pos', tech: 'tech' };
+        (window.videos || []).forEach(v => {
+          // 全フィールドをチェック、targetField以外にあれば移動
+          Object.values(FIELD_MAP).forEach(field => {
+            if (field === targetField) return;
+            const arr = v[field];
+            if (!arr) return;
+            const idx = arr.indexOf(r.tag);
+            if (idx !== -1) {
+              arr.splice(idx, 1);
+              if (!v[targetField]) v[targetField] = [];
+              if (!v[targetField].includes(r.tag)) v[targetField].push(r.tag);
+            }
+          });
+        });
+      });
+
+      saveTagSettings();
+      saveAiSettings();
+      window.debounceSave?.();
+      modal.remove();
+      renderTagSettingsList();
+      window.toast?.(`🏷️ ${assigned.length}件分類, ${blocked.length}件禁止リスト追加`);
+    };
+  }
+
+  modal._finishSort = _finishSort;
+  _renderCard();
 };

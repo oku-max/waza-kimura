@@ -16,7 +16,7 @@ const AC_TAGS   = ['エスケープ・ディフェンス','パスガード','ア
 const POS_TAGS  = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
 const TECH_TAGS = ['十字絞め','RNC','ギロチン','アナコンダ','ダースチョーク','ノースサウスチョーク','ボウアンドアロー','アームバー','キムラ','アメリカーナ','オモプラッタ','ヒールフック','インサイドヒールフック','アウトサイドヒールフック','ニーバー','トーホールド','アンクルロック','カーフスライサー','シザースイープ','フラワースイープ','ヒップバンプスイープ','バタフライスイープ','SLXスイープ','バックテイク','ダブルレッグ','シングルレッグ','ベリンボロ','トレアンダー','ニーカット','トレアンダーパス','ブルファイターパス','レッグドラッグ','スタックパス','スマッシュパス','バックステップ','X-パス','ディープハーフエントリー','クレーンロール','ガスペダル','カウンター'];
 
-function buildSystemPrompt(presets, flexibility, bjjRules) {
+function buildSystemPrompt(presets, flexibility, bjjRules, techBlocklist) {
   const tbList   = (presets?.tb   || TB_TAGS).join(' / ');
   const acList   = (presets?.ac   || AC_TAGS).join(' / ');
   const posList  = (presets?.pos  || POS_TAGS).join(' / ');
@@ -50,9 +50,11 @@ ${posList}
 【TECHNIQUE】ユーザー設定リスト（参考）：
 ${techList}
 ${rulesSection}
+${techBlocklist?.length ? `【禁止リスト — 絶対に使用禁止のタグ】\n以下のタグは絶対に返してはいけない：\n${techBlocklist.join(' / ')}\n` : ''}
 ルール：
 ${flexNote}
 - チャプター情報がある場合、個々のチャプター名から技名・ポジションを読み取りタグに反映する
+- 禁止リストに含まれるタグは絶対に返さない
 - 確信が持てないカテゴリは空配列にする
 - JSONのみを返す（説明文・コードブロック不要）
 
@@ -73,10 +75,11 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
   const { title, channel, playlist, flexibility, presets,
-          model, chapters, bjjRules, feedbackExamples } = req.body || {};
+          model, chapters, bjjRules, feedbackExamples, techBlocklist } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title is required' });
 
-  const systemPrompt = buildSystemPrompt(presets, flexibility, bjjRules);
+  const blockSet = new Set(Array.isArray(techBlocklist) ? techBlocklist : []);
+  const systemPrompt = buildSystemPrompt(presets, flexibility, bjjRules, techBlocklist);
   const modelId = MODEL_MAP[model] || MODEL_MAP.haiku;
 
   const userMessage = [
@@ -138,15 +141,15 @@ export default async function handler(req, res) {
     const safe = (arr, allowed) =>
       (Array.isArray(arr) ? arr : []).filter(v => allowed.includes(v));
 
-    // tech はタイトルから自由抽出（長さ上限のみ）
+    // tech はタイトルから自由抽出（長さ上限 + 禁止リストフィルタ）
     const safeTech = Array.isArray(tags.tech)
-      ? tags.tech.filter(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 40)
+      ? tags.tech.filter(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 40 && !blockSet.has(v))
       : [];
 
     return res.status(200).json({
-      tb:       safe(tags.tb,       presets?.tb  || TB_TAGS),
-      action:   safe(tags.action,   presets?.ac  || AC_TAGS),
-      position: safe(tags.position, presets?.pos || POS_TAGS),
+      tb:       safe(tags.tb,       presets?.tb  || TB_TAGS).filter(v => !blockSet.has(v)),
+      action:   safe(tags.action,   presets?.ac  || AC_TAGS).filter(v => !blockSet.has(v)),
+      position: safe(tags.position, presets?.pos || POS_TAGS).filter(v => !blockSet.has(v)),
       tech:     safeTech,
     });
 

@@ -39,6 +39,7 @@ export async function fetchAiTags(video) {
       chapters:         (video.ytChapters || []).map(ch => ch.label),
       bjjRules:         ai.bjjRules || [],
       feedbackExamples: ai.feedbackExamples || [],
+      techBlocklist:    ai.techBlocklist || [],
     }),
   });
   if (!res.ok) throw new Error('AI APIエラー: ' + res.status);
