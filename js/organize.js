@@ -828,37 +828,40 @@ const _INLINE_COLS = {
 };
 
 let _orgInlineActive = null; // { videoId, col, td, origHTML, picker }
-const _isFinePointer = () => window.matchMedia('(pointer: fine)').matches;
+
+// タッチ ロングプレス用（名前付き関数で解除可能に）
+let _lpTimer = null, _lpXY = null;
+function _inlineTouchStart(e) {
+  const td = e.target.closest('td.org-td[data-col]');
+  if (!td || window.bulkMode) return;
+  const t = e.touches[0];
+  _lpXY = { x: t.clientX, y: t.clientY };
+  _lpTimer = setTimeout(() => {
+    _lpTimer = null;
+    if (navigator.vibrate) navigator.vibrate(30);
+    _handleInlineTrigger({ target: td, preventDefault(){}, stopPropagation(){} });
+  }, 500);
+}
+function _inlineTouchMove(e) {
+  if (!_lpTimer || !_lpXY) return;
+  const t = e.touches[0];
+  if (Math.hypot(t.clientX - _lpXY.x, t.clientY - _lpXY.y) > 10) { clearTimeout(_lpTimer); _lpTimer = null; }
+}
+function _inlineTouchEnd() { if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; } }
 
 function _bindOrgInlineEdit() {
   const tbody = document.getElementById('orgList');
-  if (!tbody || tbody._orgInlineBound) return;
-  tbody._orgInlineBound = true;
+  if (!tbody) return;
+  // 重複防止: 古いリスナーを外してから再登録（removeEventListenerは同一関数参照なら安全）
+  tbody.removeEventListener('dblclick', _handleInlineTrigger);
+  tbody.removeEventListener('touchstart', _inlineTouchStart);
+  tbody.removeEventListener('touchmove', _inlineTouchMove);
+  tbody.removeEventListener('touchend', _inlineTouchEnd);
 
-  // PC: ダブルクリック
   tbody.addEventListener('dblclick', _handleInlineTrigger);
-
-  // タッチ: ロングプレス 500ms
-  let lpTimer = null, lpXY = null;
-  tbody.addEventListener('touchstart', e => {
-    const td = e.target.closest('td.org-td[data-col]');
-    if (!td || window.bulkMode) return;
-    const t = e.touches[0];
-    lpXY = { x: t.clientX, y: t.clientY };
-    lpTimer = setTimeout(() => {
-      lpTimer = null;
-      if (navigator.vibrate) navigator.vibrate(30);
-      _handleInlineTrigger({ target: td, preventDefault(){}, stopPropagation(){} });
-    }, 500);
-  }, { passive: true });
-  tbody.addEventListener('touchmove', e => {
-    if (!lpTimer || !lpXY) return;
-    const t = e.touches[0];
-    if (Math.hypot(t.clientX - lpXY.x, t.clientY - lpXY.y) > 10) {
-      clearTimeout(lpTimer); lpTimer = null;
-    }
-  }, { passive: true });
-  tbody.addEventListener('touchend', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+  tbody.addEventListener('touchstart', _inlineTouchStart, { passive: true });
+  tbody.addEventListener('touchmove', _inlineTouchMove, { passive: true });
+  tbody.addEventListener('touchend', _inlineTouchEnd);
 }
 
 function _handleInlineTrigger(e) {
@@ -1255,7 +1258,7 @@ export function openOrgColFilter(col, thEl) {
       dd.appendChild(cntHeader);
 
       // ソートタブ
-      let sortMode = 'abc'; // 'abc' | 'count'
+      let sortMode = 'recent'; // 'recent' | 'abc' | 'count'
       const tabRow = document.createElement('div');
       tabRow.style.cssText = 'display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2px';
       const mkTab = (label, mode) => {
@@ -1272,6 +1275,7 @@ export function openOrgColFilter(col, thEl) {
         });
         return t;
       };
+      tabRow.appendChild(mkTab('🕑 最近', 'recent'));
       tabRow.appendChild(mkTab('ABC / あいうえお順', 'abc'));
       tabRow.appendChild(mkTab('件数順', 'count'));
       dd.appendChild(tabRow);
@@ -1281,10 +1285,26 @@ export function openOrgColFilter(col, thEl) {
       listEl.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:0;min-height:50px';
       dd.appendChild(listEl);
 
+      // 「最近」用: 各値の最新addedAtを取得
+      const recentMap = new Map();
+      videos.forEach(v => {
+        const vals = cfg.valueGetter(v);
+        const ts = v.addedAt || 0;
+        vals.forEach(val => {
+          if (!recentMap.has(val) || ts > recentMap.get(val)) recentMap.set(val, ts);
+        });
+      });
+
       const renderPanelList = (q) => {
         const ql = (q || '').toLowerCase();
         let filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : [...sortedVals];
         if (sortMode === 'count') filtered.sort((a,b) => (valueCounts.get(b)||0) - (valueCounts.get(a)||0));
+        else if (sortMode === 'recent') filtered.sort((a,b) => {
+          // 選択中を先頭、その後は最新addedAt順
+          const selA = filterSet.has(a) ? 1 : 0, selB = filterSet.has(b) ? 1 : 0;
+          if (selA !== selB) return selB - selA;
+          return (recentMap.get(b)||0) - (recentMap.get(a)||0);
+        });
         else filtered.sort((a,b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0);
         listEl.innerHTML = '';
         if (!filtered.length) {
