@@ -170,7 +170,20 @@ export function renderTagSettingsList() {
         <input id="ts-new-${i}" placeholder="候補を追加..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
           onkeydown="if(event.key==='Enter')addTagPreset(${i})">
         <button onclick="addTagPreset(${i})" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;cursor:pointer">＋</button>
-      </div>`;
+      </div>
+      ${tag.key === 'tech' ? `
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+          <button onclick="window._techCleanup(${i})"
+            style="padding:5px 14px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface);
+                   color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
+            🔧 重複整理
+          </button>
+          <button onclick="window._techBulkDelete(${i})"
+            style="padding:5px 14px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
+                   color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
+            🗑️ 一括削除モード
+          </button>
+        </div>` : ''}`;
     el.appendChild(card);
     renderTagPresets(i);
   });
@@ -514,4 +527,351 @@ window._bjjRulesReset = function() {
     const det = document.getElementById('bjj-rules-details');
     if (det) det.open = true;
   });
+};
+
+// ════════════════════════════════════════════════════════
+// テクニック整理ツール
+// ════════════════════════════════════════════════════════
+
+// ── ポジション・アクション関連キーワード（誤分類検出用） ──
+const _POS_KEYWORDS = [
+  'ガード','マウント','サイド','ハーフ','バック','タートル','亀','ニーオン',
+  'デラヒーバ','DLR','ラッソ','スパイダー','バタフライ','Xガード','50/50',
+  'オープン','クローズド','ニーシールド','スタンディング','standing',
+];
+const _AC_KEYWORDS = [
+  'パスガード','パス','スイープ','sweep','エスケープ','escape','テイクダウン',
+  'takedown','リテンション','retention','コントロール','control',
+  'ディフェンス','defense',
+];
+// Technique に本来属するべきもの（削除対象から除外）
+const _LEGIT_TECH_PATTERNS = [
+  'RNC','ギロチン','アナコンダ','ダース','チョーク','絞め','アームバー',
+  'キムラ','アメリカーナ','オモプラッタ','ヒールフック','ニーバー',
+  'トーホールド','アンクルロック','カーフスライサー','ベリンボロ',
+  'レッグドラッグ','スタックパス','スマッシュパス','ニーカット',
+  'ダブルレッグ','シングルレッグ','バックテイク','ボウアンドアロー',
+  'ノースサウス','ブルファイター','トレアンダー','バックステップ',
+  'X-パス','ロック','アームロック','レッグロック','ラペル','ワーム',
+];
+
+function _analyzeTechTags(tagIdx) {
+  const presets = tagSettings[tagIdx].presets;
+  const videos  = window.videos || [];
+
+  // 各タグの使用回数を集計
+  const usageCount = {};
+  presets.forEach(t => { usageCount[t] = 0; });
+  videos.forEach(v => {
+    (v.tech || []).forEach(t => { usageCount[t] = (usageCount[t] || 0) + 1; });
+  });
+
+  // 1. 重複グループ検出（部分文字列関係）
+  const sorted = [...presets].sort((a, b) => a.length - b.length);
+  const duplicateGroups = [];
+  const inGroup = new Set();
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (inGroup.has(sorted[i])) continue;
+    const group = [sorted[i]];
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (inGroup.has(sorted[j])) continue;
+      if (sorted[j].includes(sorted[i]) || sorted[i].includes(sorted[j])) {
+        group.push(sorted[j]);
+        inGroup.add(sorted[j]);
+      }
+    }
+    if (group.length > 1) {
+      inGroup.add(sorted[i]);
+      duplicateGroups.push(group);
+    }
+  }
+
+  // 2. カテゴリ誤分類の検出
+  const miscat = [];
+  presets.forEach(t => {
+    // 正当なテクニック名に該当するなら除外
+    if (_LEGIT_TECH_PATTERNS.some(p => t.includes(p))) return;
+
+    const tLower = t.toLowerCase();
+    const isPos = _POS_KEYWORDS.some(k => tLower.includes(k.toLowerCase()));
+    const isAc  = _AC_KEYWORDS.some(k => tLower.includes(k.toLowerCase()));
+
+    if (isPos && !isAc) {
+      miscat.push({ tag: t, suggestion: 'position', reason: 'ポジション名' });
+    } else if (isAc && !isPos) {
+      miscat.push({ tag: t, suggestion: 'action', reason: 'アクション名' });
+    } else if (isPos && isAc) {
+      miscat.push({ tag: t, suggestion: 'decompose', reason: 'ポジション＋アクションの複合' });
+    }
+  });
+
+  // 3. 未使用タグ（動画で一度も使われていないプリセット）
+  const unused = presets.filter(t => !usageCount[t]);
+
+  return { duplicateGroups, miscat, unused, usageCount };
+}
+
+window._techCleanup = function(tagIdx) {
+  document.getElementById('tech-cleanup-modal')?.remove();
+
+  const analysis = _analyzeTechTags(tagIdx);
+  const { duplicateGroups, miscat, unused, usageCount } = analysis;
+
+  if (!duplicateGroups.length && !miscat.length && !unused.length) {
+    window.toast?.('✅ 問題は検出されませんでした');
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'tech-cleanup-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:640px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:85vh;overflow-y:auto';
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:800">🔧 テクニック整理ツール</div>
+      <button onclick="document.getElementById('tech-cleanup-modal').remove()"
+        style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:16px">
+      チェックを入れた項目が削除されます。「統合先」がある場合、動画のタグは自動でリネームされます。
+    </div>`;
+
+  // ── 重複グループ ──
+  if (duplicateGroups.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;border-bottom:1.5px solid var(--accent);padding-bottom:4px">
+      📋 重複グループ（${duplicateGroups.length}件）</div>`;
+    duplicateGroups.forEach((group, gi) => {
+      // 使用回数が最も多い or 最も長い名前を推奨として選択
+      const best = group.reduce((a, b) => (usageCount[b] || 0) > (usageCount[a] || 0) ? b : (usageCount[b] === usageCount[a] && b.length > a.length ? b : a));
+      html += `<div style="background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:6px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px">グループ ${gi + 1} — 統合先を1つ選んでください</div>
+        <div style="display:flex;flex-direction:column;gap:4px">`;
+      group.forEach(t => {
+        const isBest = t === best;
+        html += `<label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;${isBest ? 'font-weight:700;color:var(--text)' : 'color:var(--text2)'}">
+          <input type="radio" name="dup-g${gi}" value="${_esc(t)}" ${isBest ? 'checked' : ''} style="accent-color:var(--accent)">
+          ${_esc(t)} <span style="font-size:10px;color:var(--text3)">(${usageCount[t] || 0}本)</span>
+        </label>`;
+      });
+      html += `</div></div>`;
+    });
+  }
+
+  // ── カテゴリ誤分類 ──
+  if (miscat.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:#f97316;margin:12px 0 8px;border-bottom:1.5px solid #f97316;padding-bottom:4px">
+      ⚠️ カテゴリ誤分類の可能性（${miscat.length}件）</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px">
+        これらはTechniqueではなく、Position・Actionの組み合わせで表現すべきタグです。<br>
+        チェックを入れるとTechniqueから削除されます（動画からも外れます）。
+      </div>`;
+    miscat.forEach((m, mi) => {
+      const reasonBadge = {
+        position:  '→ Position',
+        action:    '→ Action',
+        decompose: '→ Position + Action に分解',
+      }[m.suggestion] || '';
+      html += `<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px;cursor:pointer;font-size:12px">
+        <input type="checkbox" data-miscat="${mi}" checked style="accent-color:#f97316;width:14px;height:14px">
+        <span style="flex:1">${_esc(m.tag)}</span>
+        <span style="font-size:10px;color:#f97316;font-weight:600">${m.reason} ${reasonBadge}</span>
+        <span style="font-size:10px;color:var(--text3)">(${usageCount[m.tag] || 0}本)</span>
+      </label>`;
+    });
+  }
+
+  // ── 未使用タグ ──
+  if (unused.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text3);margin:12px 0 8px;border-bottom:1.5px solid var(--border);padding-bottom:4px">
+      🗑️ 未使用タグ（${unused.length}件） — どの動画にも使われていません</div>`;
+    html += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;color:var(--text3);cursor:pointer">
+      <input type="checkbox" id="unused-select-all" onchange="document.querySelectorAll('[data-unused]').forEach(c=>c.checked=this.checked)" checked> すべて選択
+    </label>`;
+    html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">`;
+    unused.forEach((t, ui) => {
+      html += `<label style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;border:1.5px dashed var(--border);font-size:11px;color:var(--text3);cursor:pointer">
+        <input type="checkbox" data-unused="${ui}" data-tag="${_esc(t)}" checked style="width:12px;height:12px"> ${_esc(t)}
+      </label>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `
+    <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1.5px solid var(--border)">
+      <button id="tech-cleanup-apply"
+        style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;
+               font-size:14px;font-weight:700;cursor:pointer">
+        ✓ 整理を適用
+      </button>
+      <button onclick="document.getElementById('tech-cleanup-modal').remove()"
+        style="padding:12px 20px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);
+               color:var(--text);font-size:14px;cursor:pointer">キャンセル</button>
+    </div>`;
+
+  sheet.innerHTML = html;
+  modal.appendChild(sheet);
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  // ── 適用ボタン ──
+  document.getElementById('tech-cleanup-apply').onclick = function() {
+    _applyTechCleanup(tagIdx, analysis);
+  };
+};
+
+function _esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function _applyTechCleanup(tagIdx, analysis) {
+  const modal = document.getElementById('tech-cleanup-modal');
+  if (!modal) return;
+
+  const videos = window.videos || [];
+  const presets = tagSettings[tagIdx].presets;
+  const toRemove = new Set();
+  const renameMap = {}; // oldTag → newTag
+  let removeCount = 0, renameCount = 0;
+
+  // 1. 重複グループ: 選択されなかったものを削除し、統合先にリネーム
+  analysis.duplicateGroups.forEach((group, gi) => {
+    const radios = modal.querySelectorAll(`input[name="dup-g${gi}"]`);
+    let keep = '';
+    radios.forEach(r => { if (r.checked) keep = r.value; });
+    if (!keep) return;
+    group.forEach(t => {
+      if (t !== keep) {
+        toRemove.add(t);
+        renameMap[t] = keep;
+      }
+    });
+  });
+
+  // 2. カテゴリ誤分類: チェックされたものを削除
+  analysis.miscat.forEach((m, mi) => {
+    const cb = modal.querySelector(`input[data-miscat="${mi}"]`);
+    if (cb?.checked) toRemove.add(m.tag);
+  });
+
+  // 3. 未使用タグ: チェックされたものを削除
+  modal.querySelectorAll('input[data-unused]').forEach(cb => {
+    if (cb.checked) toRemove.add(cb.dataset.tag);
+  });
+
+  if (!toRemove.size) {
+    window.toast?.('変更対象がありません');
+    return;
+  }
+
+  // プリセットから削除
+  tagSettings[tagIdx].presets = presets.filter(t => !toRemove.has(t));
+
+  // 動画のテクニックタグを更新
+  videos.forEach(v => {
+    if (!v.tech?.length) return;
+    const newTech = [];
+    v.tech.forEach(t => {
+      if (toRemove.has(t)) {
+        if (renameMap[t]) {
+          if (!newTech.includes(renameMap[t])) { newTech.push(renameMap[t]); renameCount++; }
+        }
+        removeCount++;
+      } else {
+        if (!newTech.includes(t)) newTech.push(t);
+      }
+    });
+    v.tech = newTech;
+  });
+
+  saveTagSettings();
+  window.debounceSave?.();
+
+  modal.remove();
+  renderTagSettingsList();
+  window.toast?.(`🔧 ${toRemove.size}件削除, ${renameCount}件リネーム（${removeCount}箇所の動画タグを更新）`);
+}
+
+// ── 一括削除モード ──
+window._techBulkDelete = function(tagIdx) {
+  const presets = tagSettings[tagIdx].presets;
+  if (!presets.length) { window.toast?.('候補が空です'); return; }
+
+  document.getElementById('tech-cleanup-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'tech-cleanup-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:640px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:85vh;overflow-y:auto';
+
+  const videos = window.videos || [];
+  const usageCount = {};
+  presets.forEach(t => { usageCount[t] = 0; });
+  videos.forEach(v => (v.tech || []).forEach(t => { usageCount[t] = (usageCount[t] || 0) + 1; }));
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:800">🗑️ 一括削除モード</div>
+      <button onclick="document.getElementById('tech-cleanup-modal').remove()"
+        style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button onclick="document.querySelectorAll('#bulk-del-list input').forEach(c=>c.checked=true)"
+        style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit">全選択</button>
+      <button onclick="document.querySelectorAll('#bulk-del-list input').forEach(c=>c.checked=false)"
+        style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit">全解除</button>
+      <button onclick="document.querySelectorAll('#bulk-del-list input').forEach(c=>{if(c.dataset.cnt==='0')c.checked=true;else c.checked=false})"
+        style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit">未使用のみ選択</button>
+    </div>
+    <div id="bulk-del-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px">`;
+
+  presets.forEach(t => {
+    const cnt = usageCount[t] || 0;
+    html += `<label style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;
+      border:1.5px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;background:var(--surface2)">
+      <input type="checkbox" data-tag="${_esc(t)}" data-cnt="${cnt}" style="width:12px;height:12px">
+      ${_esc(t)} <span style="font-size:9px;color:var(--text3)">${cnt}</span>
+    </label>`;
+  });
+
+  html += `</div>
+    <div style="display:flex;gap:8px">
+      <button id="bulk-del-apply"
+        style="flex:1;padding:12px;border-radius:10px;border:none;background:#ef4444;color:#fff;
+               font-size:14px;font-weight:700;cursor:pointer">
+        🗑️ 選択したタグを削除
+      </button>
+      <button onclick="document.getElementById('tech-cleanup-modal').remove()"
+        style="padding:12px 20px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);
+               color:var(--text);font-size:14px;cursor:pointer">キャンセル</button>
+    </div>`;
+
+  sheet.innerHTML = html;
+  modal.appendChild(sheet);
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  document.getElementById('bulk-del-apply').onclick = function() {
+    const toDel = new Set();
+    modal.querySelectorAll('#bulk-del-list input:checked').forEach(cb => toDel.add(cb.dataset.tag));
+    if (!toDel.size) { window.toast?.('選択されていません'); return; }
+    if (!confirm(`${toDel.size}件のテクニックタグを削除します。動画からも削除されます。よろしいですか？`)) return;
+
+    tagSettings[tagIdx].presets = tagSettings[tagIdx].presets.filter(t => !toDel.has(t));
+    let vidCount = 0;
+    videos.forEach(v => {
+      if (!v.tech?.length) return;
+      const before = v.tech.length;
+      v.tech = v.tech.filter(t => !toDel.has(t));
+      if (v.tech.length !== before) vidCount++;
+    });
+
+    saveTagSettings();
+    window.debounceSave?.();
+    modal.remove();
+    renderTagSettingsList();
+    window.toast?.(`🗑️ ${toDel.size}件削除（${vidCount}本の動画から削除）`);
+  };
 };
