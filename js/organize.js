@@ -149,6 +149,12 @@ export function clearOrgFilters() {
   renderOrg();
 }
 
+// (空白) 対応フィルターマッチ
+function _matchFilt(filterSet, values) {
+  if (!filterSet.size) return true;
+  return values.length ? values.some(v => filterSet.has(v)) : filterSet.has('(空白)');
+}
+
 export function orgFilt(list) {
   const siEl = document.getElementById('si-org');
   const siPcEl = document.getElementById('si-org-pc');
@@ -162,14 +168,14 @@ export function orgFilt(list) {
     if (orgMemoOnly    && !v.memo) return false;
     if (orgFilters.platform.size && !orgFilters.platform.has(v.pt)) return false;
     if (q && !v.title.toLowerCase().includes(q) && !(v.channel||v.ch||'').toLowerCase().includes(q) && !(v.pl||'').toLowerCase().includes(q) && !(v.tech||[]).some(t=>t.toLowerCase().includes(q))) return false;
-    if (orgFilters.playlist.size && !orgFilters.playlist.has(v.pl)) return false;
+    if (orgFilters.playlist.size && !_matchFilt(orgFilters.playlist, v.pl ? [v.pl] : [])) return false;
     if (orgFilters.prio.size && !orgFilters.prio.has(v.prio)) return false;
     if (orgFilters.status.size && !orgFilters.status.has(v.status)) return false;
-    if (orgFilters.tb.size && !(v.tb||[]).some(t=>orgFilters.tb.has(t))) return false;
-    if (orgFilters.action.size && !(v.ac||[]).some(a=>orgFilters.action.has(a))) return false;
-    if (orgFilters.position.size && !(v.pos||[]).some(p=>orgFilters.position.has(p))) return false;
-    if (orgFilters.tech.size && !(v.tech||[]).some(t=>orgFilters.tech.has(t))) return false;
-    if (orgFilters.channel.size && !orgFilters.channel.has(v.channel || v.ch)) return false;
+    if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
+    if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.ac||[])) return false;
+    if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
+    if (orgFilters.tech.size && !_matchFilt(orgFilters.tech, v.tech||[])) return false;
+    if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
     if (orgFilters.fav.size) {
       const favVal = v.fav ? '★ Fav' : '☆ 未Fav';
       if (!orgFilters.fav.has(favVal)) return false;
@@ -1121,14 +1127,15 @@ document.addEventListener('keydown', e => {
 });
 
 // ── 列フィルター設定 ──
+const _BLANK = '(空白)';
 const _colFilterConfig = {
-  tb:             { filterKey: 'tb',             valueGetter: v => v.tb   || [] },
-  action:         { filterKey: 'action',         valueGetter: v => v.ac   || [] },
-  position:       { filterKey: 'position',       valueGetter: v => v.pos  || [] },
-  technique:      { filterKey: 'tech',           valueGetter: v => v.tech || [] },
-  channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel || v.ch; return c ? [c] : []; } },
+  tb:             { filterKey: 'tb',             valueGetter: v => { const a = v.tb||[]; return a.length ? a : [_BLANK]; } },
+  action:         { filterKey: 'action',         valueGetter: v => { const a = v.ac||[]; return a.length ? a : [_BLANK]; } },
+  position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
+  technique:      { filterKey: 'tech',           valueGetter: v => { const a = v.tech||[]; return a.length ? a : [_BLANK]; } },
+  channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
   prio:           { filterKey: 'prio',           valueGetter: v => [v.prio || '保留'] },
-  playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl   ? [v.pl]    : [] },
+  playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
   fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'] },
   memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし']   },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
@@ -1229,86 +1236,169 @@ export function openOrgColFilter(col, thEl) {
 
   // ── フィルターセクション ──
   if (cfg && sortedVals.length > 0) {
-    const filtLabel = document.createElement('div');
-    filtLabel.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px';
-    filtLabel.textContent = 'フィルター';
-    dd.appendChild(filtLabel);
+    const isPanel = !!cfg.panel; // channel / playlist → パネル形式
 
     // 検索ボックス
     const searchBox = document.createElement('input');
     searchBox.type = 'text';
-    searchBox.placeholder = '値を検索...';
+    searchBox.placeholder = '検索...';
     searchBox.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
     dd.appendChild(searchBox);
 
-    // 全選択 / クリアボタン行
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:5px';
-    const mkBtn = (label) => {
-      const b = document.createElement('button');
-      b.textContent = label;
-      b.style.cssText = 'flex:1;padding:3px 0;font-size:10px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);cursor:pointer;color:var(--text2)';
-      return b;
-    };
-    const btnSelAll = mkBtn('全選択');
-    const btnClear  = mkBtn('クリア');
-    btnRow.appendChild(btnSelAll);
-    btnRow.appendChild(btnClear);
-    dd.appendChild(btnRow);
+    if (isPanel) {
+      // ── パネル形式（Channel / Playlist）──
+      // 件数ヘッダー
+      const cntHeader = document.createElement('div');
+      cntHeader.style.cssText = 'font-size:10px;color:var(--text3);font-weight:600';
+      const colLabel = col === 'channel' ? 'チャンネル' : 'プレイリスト';
+      cntHeader.textContent = `絞り込み結果の${colLabel} (${sortedVals.length}件)`;
+      dd.appendChild(cntHeader);
 
-    // 値リスト
-    const listEl = document.createElement('div');
-    listEl.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1px;min-height:50px';
-    dd.appendChild(listEl);
-
-    const renderList = (q) => {
-      const ql = (q || '').toLowerCase();
-      const filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : sortedVals;
-      listEl.innerHTML = '';
-      if (!filtered.length) {
-        listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">該当なし</div>';
-        return;
-      }
-      filtered.forEach(val => {
-        const cnt = valueCounts.get(val) || 0;
-        const lbl = document.createElement('label');
-        lbl.style.cssText = 'display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 5px;border-radius:5px';
-        lbl.onmouseover = () => { lbl.style.background = 'var(--surface2)'; };
-        lbl.onmouseout  = () => { lbl.style.background = ''; };
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = filterSet.has(val);
-        cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
-        cb.addEventListener('change', () => {
-          cb.checked ? filterSet.add(val) : filterSet.delete(val);
-          renderOrg();
-          _syncFiltIcon(col);
+      // ソートタブ
+      let sortMode = 'abc'; // 'abc' | 'count'
+      const tabRow = document.createElement('div');
+      tabRow.style.cssText = 'display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2px';
+      const mkTab = (label, mode) => {
+        const t = document.createElement('button');
+        t.textContent = label;
+        t.dataset.mode = mode;
+        t.style.cssText = `flex:1;padding:5px 0;font-size:10px;border:none;background:none;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;font-weight:600`;
+        if (mode === sortMode) { t.style.color = 'var(--text)'; t.style.borderBottomColor = 'var(--accent)'; }
+        t.addEventListener('click', () => {
+          sortMode = mode;
+          tabRow.querySelectorAll('button').forEach(b => { b.style.color='var(--text3)'; b.style.borderBottomColor='transparent'; });
+          t.style.color = 'var(--text)'; t.style.borderBottomColor = 'var(--accent)';
+          renderPanelList(searchBox.value);
         });
-        const txt = document.createElement('span');
-        txt.style.cssText = 'flex:1;font-size:11px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all';
-        txt.textContent = val || '(空)';
-        txt.title = val || '';
-        const cntEl = document.createElement('span');
-        cntEl.style.cssText = 'font-size:10px;color:var(--text3);flex-shrink:0';
-        cntEl.textContent = cnt;
-        lbl.appendChild(cb); lbl.appendChild(txt); lbl.appendChild(cntEl);
-        listEl.appendChild(lbl);
+        return t;
+      };
+      tabRow.appendChild(mkTab('ABC / あいうえお順', 'abc'));
+      tabRow.appendChild(mkTab('件数順', 'count'));
+      dd.appendChild(tabRow);
+
+      // 値リスト
+      const listEl = document.createElement('div');
+      listEl.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:0;min-height:50px';
+      dd.appendChild(listEl);
+
+      const renderPanelList = (q) => {
+        const ql = (q || '').toLowerCase();
+        let filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : [...sortedVals];
+        if (sortMode === 'count') filtered.sort((a,b) => (valueCounts.get(b)||0) - (valueCounts.get(a)||0));
+        else filtered.sort((a,b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0);
+        listEl.innerHTML = '';
+        if (!filtered.length) {
+          listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">該当なし</div>';
+          return;
+        }
+        filtered.forEach(val => {
+          const cnt = valueCounts.get(val) || 0;
+          const isSel = filterSet.has(val);
+          const row = document.createElement('div');
+          row.style.cssText = `display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 8px;border-radius:6px;font-weight:${isSel?'700':'400'}`;
+          row.onmouseover = () => { row.style.background = 'var(--surface2)'; };
+          row.onmouseout  = () => { row.style.background = ''; };
+          row.addEventListener('click', () => {
+            isSel ? filterSet.delete(val) : filterSet.add(val);
+            renderOrg(); _syncFiltIcon(col);
+            renderPanelList(searchBox.value);
+          });
+          const txt = document.createElement('span');
+          txt.style.cssText = 'flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0';
+          txt.textContent = val;
+          txt.title = val;
+          const cntEl = document.createElement('span');
+          cntEl.style.cssText = 'font-size:11px;color:var(--text3);flex-shrink:0';
+          cntEl.textContent = cnt + '本';
+          row.appendChild(txt); row.appendChild(cntEl);
+          if (isSel) {
+            const chk = document.createElement('span');
+            chk.textContent = '✓';
+            chk.style.cssText = 'color:var(--accent);font-weight:800;flex-shrink:0;font-size:14px';
+            row.appendChild(chk);
+          }
+          listEl.appendChild(row);
+        });
+      };
+
+      renderPanelList('');
+      searchBox.addEventListener('input', () => renderPanelList(searchBox.value));
+    } else {
+      // ── チェックボックス形式（タグ系列） ──
+      const filtLabel = document.createElement('div');
+      filtLabel.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px';
+      filtLabel.textContent = 'フィルター';
+      dd.appendChild(filtLabel);
+
+      // 全選択 / クリアボタン行
+      const btnRow = document.createElement('div');
+      btnRow.style.cssText = 'display:flex;gap:5px';
+      const mkBtn = (label) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.style.cssText = 'flex:1;padding:3px 0;font-size:10px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);cursor:pointer;color:var(--text2)';
+        return b;
+      };
+      const btnSelAll = mkBtn('全選択');
+      const btnClear  = mkBtn('クリア');
+      btnRow.appendChild(btnSelAll);
+      btnRow.appendChild(btnClear);
+      dd.appendChild(btnRow);
+
+      // 値リスト
+      const listEl = document.createElement('div');
+      listEl.style.cssText = 'overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1px;min-height:50px';
+      dd.appendChild(listEl);
+
+      const renderList = (q) => {
+        const ql = (q || '').toLowerCase();
+        const filtered = ql ? sortedVals.filter(v => v.toLowerCase().includes(ql)) : sortedVals;
+        listEl.innerHTML = '';
+        if (!filtered.length) {
+          listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">該当なし</div>';
+          return;
+        }
+        filtered.forEach(val => {
+          const cnt = valueCounts.get(val) || 0;
+          const lbl = document.createElement('label');
+          lbl.style.cssText = 'display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 5px;border-radius:5px';
+          lbl.onmouseover = () => { lbl.style.background = 'var(--surface2)'; };
+          lbl.onmouseout  = () => { lbl.style.background = ''; };
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = filterSet.has(val);
+          cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
+          cb.addEventListener('change', () => {
+            cb.checked ? filterSet.add(val) : filterSet.delete(val);
+            renderOrg();
+            _syncFiltIcon(col);
+          });
+          const txt = document.createElement('span');
+          txt.style.cssText = 'flex:1;font-size:11px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all';
+          txt.textContent = val;
+          txt.title = val || '';
+          const cntEl = document.createElement('span');
+          cntEl.style.cssText = 'font-size:10px;color:var(--text3);flex-shrink:0';
+          cntEl.textContent = cnt;
+          lbl.appendChild(cb); lbl.appendChild(txt); lbl.appendChild(cntEl);
+          listEl.appendChild(lbl);
+        });
+      };
+
+      renderList('');
+      searchBox.addEventListener('input', () => renderList(searchBox.value));
+
+      btnSelAll.addEventListener('click', () => {
+        sortedVals.forEach(v => filterSet.add(v));
+        renderList(searchBox.value);
+        renderOrg(); _syncFiltIcon(col);
       });
-    };
-
-    renderList('');
-    searchBox.addEventListener('input', () => renderList(searchBox.value));
-
-    btnSelAll.addEventListener('click', () => {
-      sortedVals.forEach(v => filterSet.add(v));
-      renderList(searchBox.value);
-      renderOrg(); _syncFiltIcon(col);
-    });
-    btnClear.addEventListener('click', () => {
-      filterSet.clear();
-      renderList(searchBox.value);
-      renderOrg(); _syncFiltIcon(col);
-    });
+      btnClear.addEventListener('click', () => {
+        filterSet.clear();
+        renderList(searchBox.value);
+        renderOrg(); _syncFiltIcon(col);
+      });
+    }
 
     requestAnimationFrame(() => searchBox.focus());
   }
