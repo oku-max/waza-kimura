@@ -1699,7 +1699,7 @@ export function vpRemovePosEl(el) {
 }
 
 // ── タグドロップダウン ──
-const VP_TAG_OPTS = {
+const VP_TAG_OPTS_FALLBACK = {
   tb:   ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'],
   ac:   ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル'],
   pos:  ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'],
@@ -1708,10 +1708,12 @@ const VP_TAG_OPTS = {
 const VP_FIELD_MAP = { tb:'tb', ac:'ac', pos:'pos', tech:'tech' };
 
 export function vpGetAllOpts(type) {
-  const base = VP_TAG_OPTS[type] || [];
-  if (type === 'tech') return [...new Set([...base, ...(window.videos||[]).flatMap(v => v.tech||[])])].sort();
-  if (type === 'pos')  return [...new Set([...base, ...(window.videos||[]).flatMap(v => v.pos||[])])].sort();
-  return base;
+  const ts = window.tagSettings || [];
+  const fromSettings = ts.find(t => t.key === type)?.presets || [];
+  const fallback = VP_TAG_OPTS_FALLBACK[type] || [];
+  const presets = fromSettings.length ? fromSettings : fallback;
+  const fromVideos = (window.videos || []).flatMap(v => v[type] || []);
+  return [...new Set([...presets, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
 }
 
 export function vpTogDd(id, type) {
