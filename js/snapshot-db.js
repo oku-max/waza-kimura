@@ -1,8 +1,10 @@
 /**
- * snapshot-db.js — IndexedDB + Firebase Storage for snapshot image blobs
+ * snapshot-db.js — IndexedDB (local cache) + Firestore subcollection (cloud sync)
  * WAZA KIMURA BJJ Video Library
  *
- * IndexedDB = local cache, Firebase Storage = cloud (cross-device sync)
+ * Each snapshot image is stored as base64 in Firestore:
+ *   users/{uid}/snapshots/{snapId} → { videoId, data (base64), annotations, updatedAt }
+ * IndexedDB stores the blob locally for fast access.
  */
 
 const DB_NAME = 'waza-kimura-snapshots';
@@ -11,11 +13,11 @@ const STORE_NAME = 'snapshots';
 
 let dbInstance = null;
 
-// ── Firebase Storage helpers ──
+// ── Firestore helpers ──
 
-function _getStorage() {
+function _getDb() {
   try {
-    return firebase.storage();
+    return firebase.firestore();
   } catch (_) {
     return null;
   }
@@ -29,62 +31,86 @@ function _getUid() {
   }
 }
 
-function _storagePath(snapId) {
+/** Get Firestore doc ref: users/{uid}/snapshots/{snapId} */
+function _docRef(snapId) {
+  const db = _getDb();
   const uid = _getUid();
-  if (!uid) return null;
-  return `snapshots/${uid}/${snapId}.jpg`;
+  if (!db || !uid) return null;
+  return db.collection('users').doc(uid).collection('snapshots').doc(snapId);
+}
+
+/** Convert Blob → base64 data URL string */
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Convert base64 data URL → Blob */
+function _base64ToBlob(dataUrl) {
+  const [header, b64] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
 }
 
 /**
- * Upload blob to Firebase Storage.
- * Silently fails if not authenticated or storage unavailable.
+ * Upload snapshot to Firestore subcollection (background, non-blocking).
  */
-async function _uploadToCloud(snapId, blob) {
-  const storage = _getStorage();
-  const path = _storagePath(snapId);
-  if (!storage || !path) return;
+async function _uploadToFirestore(snapId, videoId, blob, annotations = []) {
+  const ref = _docRef(snapId);
+  if (!ref) return;
 
   try {
-    const ref = storage.ref(path);
-    await ref.put(blob, { contentType: 'image/jpeg' });
+    const data = await _blobToBase64(blob);
+    await ref.set({
+      videoId,
+      data,
+      annotations: annotations || [],
+      updatedAt: Date.now()
+    });
   } catch (err) {
-    console.warn('[snapshot-db] Cloud upload failed:', snapId, err.message);
+    console.warn('[snapshot-db] Firestore upload failed:', snapId, err.message);
   }
 }
 
 /**
- * Download blob from Firebase Storage.
- * Returns null if not available.
+ * Download snapshot from Firestore subcollection.
+ * Returns { blob, annotations } or null.
  */
-async function _downloadFromCloud(snapId) {
-  const storage = _getStorage();
-  const path = _storagePath(snapId);
-  if (!storage || !path) return null;
+async function _downloadFromFirestore(snapId) {
+  const ref = _docRef(snapId);
+  if (!ref) return null;
 
   try {
-    const ref = storage.ref(path);
-    const url = await ref.getDownloadURL();
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    return await resp.blob();
+    const doc = await ref.get();
+    if (!doc.exists) return null;
+    const d = doc.data();
+    if (!d.data) return null;
+    const blob = _base64ToBlob(d.data);
+    return { blob, annotations: d.annotations || [], videoId: d.videoId || '' };
   } catch (err) {
-    // File doesn't exist in cloud or network error
+    console.warn('[snapshot-db] Firestore download failed:', snapId, err.message);
     return null;
   }
 }
 
 /**
- * Delete blob from Firebase Storage.
+ * Delete snapshot from Firestore subcollection.
  */
-async function _deleteFromCloud(snapId) {
-  const storage = _getStorage();
-  const path = _storagePath(snapId);
-  if (!storage || !path) return;
+async function _deleteFromFirestore(snapId) {
+  const ref = _docRef(snapId);
+  if (!ref) return;
 
   try {
-    await storage.ref(path).delete();
+    await ref.delete();
   } catch (_) {
-    // Ignore — file may not exist
+    // Ignore — doc may not exist
   }
 }
 
@@ -123,7 +149,7 @@ export async function openSnapDB() {
 
 /**
  * Insert or update a snapshot record.
- * Saves to IndexedDB (local cache) + Firebase Storage (cloud).
+ * Saves to IndexedDB (local cache) + Firestore subcollection (cloud).
  */
 export async function putSnapshot(id, videoId, blob, annotations = []) {
   try {
@@ -137,8 +163,8 @@ export async function putSnapshot(id, videoId, blob, annotations = []) {
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    // Upload to cloud in background (don't block UI)
-    _uploadToCloud(id, blob);
+    // Upload to Firestore in background (don't block UI)
+    _uploadToFirestore(id, videoId, blob, annotations);
 
     return record;
   } catch (err) {
@@ -149,7 +175,7 @@ export async function putSnapshot(id, videoId, blob, annotations = []) {
 
 /**
  * Retrieve a single snapshot by id.
- * Tries IndexedDB first, falls back to Firebase Storage.
+ * Tries IndexedDB first, falls back to Firestore.
  * @returns {Promise<{id, videoId, blob, annotations, updatedAt}|null>}
  */
 export async function getSnapshot(id) {
@@ -165,10 +191,10 @@ export async function getSnapshot(id) {
 
     if (local && local.blob) return local;
 
-    // Fallback: download from cloud
-    const blob = await _downloadFromCloud(id);
-    if (blob) {
-      const record = { id, videoId: local?.videoId || '', blob, annotations: local?.annotations || [], updatedAt: Date.now() };
+    // Fallback: download from Firestore
+    const cloud = await _downloadFromFirestore(id);
+    if (cloud) {
+      const record = { id, videoId: cloud.videoId, blob: cloud.blob, annotations: cloud.annotations, updatedAt: Date.now() };
       // Cache locally
       try {
         const tx2 = db.transaction(STORE_NAME, 'readwrite');
@@ -186,7 +212,7 @@ export async function getSnapshot(id) {
 
 /**
  * Delete a single snapshot by id.
- * Deletes from both IndexedDB and Firebase Storage.
+ * Deletes from both IndexedDB and Firestore.
  */
 export async function deleteSnapshot(id) {
   try {
@@ -199,8 +225,8 @@ export async function deleteSnapshot(id) {
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    // Delete from cloud in background
-    _deleteFromCloud(id);
+    // Delete from Firestore in background
+    _deleteFromFirestore(id);
   } catch (err) {
     console.error('[snapshot-db] deleteSnapshot failed:', err);
     throw err;
@@ -208,8 +234,7 @@ export async function deleteSnapshot(id) {
 }
 
 /**
- * Retrieve all snapshots for a given video.
- * For any snapshot refs missing locally, attempts cloud download.
+ * Retrieve all snapshots for a given video from local IndexedDB.
  * @returns {Promise<Array<{id, videoId, blob, annotations, updatedAt}>>}
  */
 export async function getSnapshotsByVideo(videoId) {
@@ -232,10 +257,11 @@ export async function getSnapshotsByVideo(videoId) {
 }
 
 /**
- * For snapshots that exist in Firestore refs but not in local IndexedDB,
- * download them from Firebase Storage and cache locally.
+ * Sync snapshots: for refs in Firestore metadata but missing locally,
+ * download from Firestore subcollection. For refs that exist locally,
+ * ensure they're also uploaded to Firestore (background).
  * @param {string} videoId
- * @param {Array<{id, memo, order}>} refs - Firestore refs
+ * @param {Array<{id, memo, order}>} refs - Firestore video doc refs
  * @returns {Promise<Array<{id, videoId, blob, annotations, updatedAt}>>}
  */
 export async function syncSnapshotsFromCloud(videoId, refs) {
@@ -248,15 +274,19 @@ export async function syncSnapshotsFromCloud(videoId, refs) {
   const results = [];
 
   for (const ref of refs) {
-    if (localMap.has(ref.id) && localMap.get(ref.id).blob) {
-      results.push(localMap.get(ref.id));
+    const local = localMap.get(ref.id);
+
+    if (local && local.blob) {
+      results.push(local);
+      // Ensure local blob is also in Firestore (background, no await)
+      _uploadToFirestore(ref.id, videoId, local.blob, local.annotations || []);
       continue;
     }
 
-    // Missing locally — download from cloud
-    const blob = await _downloadFromCloud(ref.id);
-    if (blob) {
-      const record = { id: ref.id, videoId, blob, annotations: [], updatedAt: Date.now() };
+    // Missing locally — download from Firestore subcollection
+    const cloud = await _downloadFromFirestore(ref.id);
+    if (cloud) {
+      const record = { id: ref.id, videoId, blob: cloud.blob, annotations: cloud.annotations, updatedAt: Date.now() };
       // Cache in IndexedDB
       try {
         const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -270,8 +300,8 @@ export async function syncSnapshotsFromCloud(videoId, refs) {
 }
 
 /**
- * Delete all snapshots belonging to a video (cleanup on video removal).
- * Deletes from both IndexedDB and Firebase Storage.
+ * Delete all snapshots belonging to a video.
+ * Deletes from both IndexedDB and Firestore.
  */
 export async function deleteSnapshotsByVideo(videoId) {
   try {
@@ -290,9 +320,9 @@ export async function deleteSnapshotsByVideo(videoId) {
       tx.onerror = (e) => reject(e.target.error);
     });
 
-    // Delete from cloud in background
+    // Delete from Firestore in background
     for (const snap of snapshots) {
-      _deleteFromCloud(snap.id);
+      _deleteFromFirestore(snap.id);
     }
   } catch (err) {
     console.error('[snapshot-db] deleteSnapshotsByVideo failed:', err);
