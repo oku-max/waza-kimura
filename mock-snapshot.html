@@ -1,0 +1,2336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Snapshot Mock — B.分離型</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;0,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f6f4;
+  --surface: #fff;
+  --surface2: #f1f1ef;
+  --surface3: #e8e8e5;
+  --accent: #111;
+  --text: #111;
+  --text2: #555;
+  --text3: #999;
+  --border: #e0e0dc;
+  --border2: #eaeae6;
+  --green: #2d6a4f;
+  --green-soft: #edf5f1;
+  --blue: #1a3a5c;
+  --blue-soft: #edf2f8;
+  --radius: 8px;
+  --shadow: 0 1px 4px rgba(0,0,0,.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+/* ── Mock Player ── */
+.mock-player {
+  background: #1a1a1a;
+  border-radius: var(--radius);
+  aspect-ratio: 16/9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.mock-player::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #222 0%, #111 100%);
+}
+.mock-player-icon {
+  position: relative;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  background: rgba(255,255,255,.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 20px;
+}
+
+/* ── Title ── */
+.vpanel-title {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--text);
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+/* ── Section ── */
+.fsec {
+  border-radius: 7px;
+  padding: 10px 10px 8px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  background: #fafaf9;
+}
+.fsec-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fsec-title .count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Memo ── */
+.vp-memo {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 72px;
+  outline: none;
+  transition: border-color .15s;
+}
+.vp-memo:focus {
+  border-color: var(--accent);
+}
+.vp-memo::placeholder {
+  color: var(--text3);
+}
+
+/* ── Snapshot Grid ── */
+.snap-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.snap-thumb {
+  width: 90px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: var(--surface2);
+  transition: border-color .15s, opacity .15s, transform .15s;
+  flex-shrink: 0;
+}
+.snap-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.snap-thumb:hover {
+  border-color: var(--accent);
+}
+.snap-thumb .del-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 2;
+}
+.snap-thumb:hover .del-btn {
+  opacity: 1;
+}
+.snap-thumb.dragging {
+  opacity: .4;
+  transform: scale(.95);
+}
+.snap-thumb.drag-over {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.snap-thumb .snap-index {
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,.5);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+
+.snap-add {
+  width: 90px;
+  height: 64px;
+  border-radius: 6px;
+  border: 2px dashed var(--border);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  gap: 2px;
+  transition: border-color .15s, color .15s;
+  flex-shrink: 0;
+}
+.snap-add:hover {
+  border-color: var(--text2);
+  color: var(--text2);
+}
+.snap-add .icon { font-size: 16px; }
+
+/* ── Compression Settings ── */
+.fsec-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.fsec-toggle .chevron {
+  transition: transform .2s;
+  display: inline-block;
+  font-size: 8px;
+  margin-left: 4px;
+}
+.fsec-toggle .chevron.open { transform: rotate(90deg); }
+
+.settings-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .25s ease;
+}
+.settings-body.open {
+  max-height: 200px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.setting-row label {
+  width: 80px;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 10px;
+}
+.setting-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+.setting-row .val {
+  width: 52px;
+  text-align: right;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.size-info {
+  font-size: 10px;
+  color: var(--text3);
+  padding: 4px 0 2px;
+  font-family: 'DM Mono', monospace;
+}
+.size-info .before { color: #c0392b; }
+.size-info .after { color: var(--green); }
+
+/* ── How Box ── */
+.how-box {
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border2);
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+.how-box .how-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.how-box ul {
+  padding-left: 16px;
+}
+.how-box li {
+  margin-bottom: 2px;
+}
+.how-box kbd {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+}
+
+/* ── Lightbox ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,.85);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox.active { display: flex; }
+
+.lb-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  opacity: .7;
+  transition: opacity .15s;
+}
+.lb-close:hover { opacity: 1; }
+
+.lb-counter {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,.6);
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.lb-img-wrap {
+  position: relative;
+  max-width: 90vw;
+  max-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lb-img-wrap img {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.lb-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,.15);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: .7;
+  transition: opacity .15s;
+  z-index: 10;
+}
+.lb-nav:hover { opacity: 1; }
+.lb-nav.prev { left: 12px; }
+.lb-nav.next { right: 12px; }
+
+.lb-bottom {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.lb-memo {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  padding: 6px 10px;
+  width: 260px;
+  outline: none;
+}
+.lb-memo::placeholder { color: rgba(255,255,255,.4); }
+.lb-memo:focus { border-color: rgba(255,255,255,.5); }
+
+.lb-edit-btn {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.lb-edit-btn:hover { background: rgba(255,255,255,.25); }
+
+/* ── Annotation Editor ── */
+.ann-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #111;
+  display: none;
+  flex-direction: column;
+}
+.ann-editor.active { display: flex; }
+
+.ann-canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.ann-canvas-wrap canvas {
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+}
+
+.ann-toolbar {
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  padding: 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+}
+.ann-toolbar .sep {
+  width: 1px;
+  height: 24px;
+  background: #333;
+  margin: 0 3px;
+}
+.ann-toolbar .row-break {
+  flex-basis: 100%;
+  height: 2px;
+}
+
+.ann-tool {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #aaa;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, color .1s;
+}
+.ann-tool:hover { background: #2a2a2a; color: #fff; }
+.ann-tool.active { background: #333; color: #fff; }
+.ann-tool.save-btn { color: var(--green); }
+.ann-tool.save-btn:hover { background: var(--green); color: #fff; }
+.ann-tool.cancel-btn { color: #c0392b; }
+.ann-tool.cancel-btn:hover { background: #c0392b; color: #fff; }
+.ann-tool.clear-btn { color: #e67e22; }
+.ann-tool[data-tool="eraser"].active { color: #e67e22; }
+canvas.eraser-cursor { cursor: crosshair; }
+.ann-tool.del-sel-btn { color: #c0392b; display: none; }
+.ann-tool.del-sel-btn.visible { display: flex; }
+
+.ann-colors {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  position: relative;
+}
+.ann-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color .1s, transform .1s;
+  position: relative;
+}
+.ann-color:hover { transform: scale(1.15); }
+.ann-color.active { border-color: #fff; }
+
+.ann-widths {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.ann-width {
+  background: #aaa;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background .1s;
+  border: 2px solid transparent;
+}
+.ann-width:hover { background: #fff; }
+.ann-width.active { background: #fff; border-color: var(--green); }
+
+/* text input overlay inside editor */
+.ann-text-input {
+  position: absolute;
+  background: rgba(0,0,0,.7);
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 4px 8px;
+  outline: none;
+  min-width: 100px;
+  z-index: 10;
+  display: none;
+}
+
+/* ── Font Size Selector ── */
+.ann-fontsize-wrap {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+.ann-fontsize-wrap.visible {
+  display: flex;
+}
+.ann-fontsize-btn {
+  height: 26px;
+  min-width: 28px;
+  padding: 0 4px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #aaa;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.ann-fontsize-btn:hover { background: #2a2a2a; color: #fff; }
+.ann-fontsize-btn.active { background: #333; color: #fff; }
+
+/* ── Color Picker Popup ── */
+.ann-color-popup {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  z-index: 20;
+  display: none;
+}
+.ann-color-popup.visible {
+  display: block;
+}
+.ann-color-popup input[type="color"] {
+  width: 40px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── Crop Actions ── */
+.crop-actions {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  z-index: 20;
+  pointer-events: auto;
+}
+.crop-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.crop-btn.confirm { background: #2ecc71; color: #fff; }
+.crop-btn.confirm:hover { background: #27ae60; }
+.crop-btn.cancel { background: #e74c3c; color: #fff; }
+.crop-btn.cancel:hover { background: #c0392b; }
+
+/* ── File input hidden ── */
+#fileInput { display: none; }
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+
+  <!-- Mock Player -->
+  <div class="mock-player">
+    <div class="mock-player-icon">&#9654;</div>
+  </div>
+
+  <!-- Title -->
+  <div class="vpanel-title">クローズドガードからのスイープ解説 — ヒップバンプ &amp; シザー</div>
+
+  <!-- Memo Section -->
+  <div class="fsec">
+    <div class="fsec-title">MEMO</div>
+    <textarea class="vp-memo" placeholder="ヒップバンプは相手の重心が後ろにある時に有効。&#10;シザースイープは袖と襟のグリップが重要。&#10;ここにメモを入力..."></textarea>
+  </div>
+
+  <!-- Snapshot Section -->
+  <div class="fsec">
+    <div class="fsec-title">
+      SNAPSHOT
+      <span class="count" id="snapCount">0枚</span>
+    </div>
+    <div class="snap-grid" id="snapGrid">
+      <button class="snap-add" id="snapAddBtn">
+        <span class="icon">&#128247;</span>
+        追加
+      </button>
+    </div>
+  </div>
+
+  <!-- Compression Settings -->
+  <div class="fsec">
+    <div class="fsec-title fsec-toggle" id="settingsToggle">
+      SETTINGS
+      <span class="chevron" id="settingsChevron">&#9654;</span>
+    </div>
+    <div class="settings-body" id="settingsBody">
+      <div class="setting-row">
+        <label>最大解像度</label>
+        <input type="range" min="640" max="1920" step="64" value="1280" id="resSlider">
+        <span class="val" id="resVal">1280px</span>
+      </div>
+      <div class="setting-row">
+        <label>JPEG品質</label>
+        <input type="range" min="30" max="90" step="5" value="60" id="qualSlider">
+        <span class="val" id="qualVal">60%</span>
+      </div>
+      <div class="size-info" id="sizeInfo"></div>
+    </div>
+  </div>
+
+  <!-- How Box -->
+  <div class="how-box">
+    <div class="how-title">CONTROLS</div>
+    <ul>
+      <li><kbd>Ctrl+V</kbd> で画像を貼り付け（ページ内どこでも）</li>
+      <li>「追加」ボタンでファイル選択（複数可）</li>
+      <li>サムネイルをドラッグして並び替え</li>
+      <li>サムネイルをクリックでライトボックス表示</li>
+      <li>ライトボックス内の「編集」で注釈エディタ起動</li>
+      <li>注釈エディタ: 選択・ペン・円・矢印・四角・テキスト・消しゴム・切り抜きで書き込み</li>
+      <li>消しゴム: ドラッグで触れた注釈を削除</li>
+      <li>選択モード: クリックで注釈を選択→ドラッグ移動・Delete削除・色/太さ変更</li>
+      <li>テキスト: ダブルクリックで再編集、フォントサイズ選択可能</li>
+      <li>切り抜き: ドラッグで範囲選択→角/辺をドラッグでリサイズ→✓で確定</li>
+      <li>回転: ↺/↻ボタンで90°回転（注釈も連動）</li>
+      <li>色ドット長押し(500ms)でカスタムカラーピッカー表示</li>
+      <li>スライドショー: 左右キー or スワイプで移動</li>
+      <li><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Shift+Z</kbd> でアンドゥ/リドゥ（エディタ内）</li>
+      <li><kbd>Esc</kbd> でライトボックス/エディタを閉じる</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose">&times;</button>
+  <span class="lb-counter" id="lbCounter"></span>
+  <button class="lb-nav prev" id="lbPrev">&#8249;</button>
+  <button class="lb-nav next" id="lbNext">&#8250;</button>
+  <div class="lb-img-wrap">
+    <img id="lbImg" src="" alt="">
+  </div>
+  <div class="lb-bottom">
+    <input class="lb-memo" id="lbMemo" placeholder="この画像のメモ...">
+    <button class="lb-edit-btn" id="lbEditBtn">&#9998; 編集</button>
+  </div>
+</div>
+
+<!-- Annotation Editor -->
+<div class="ann-editor" id="annEditor">
+  <div class="ann-canvas-wrap" id="annCanvasWrap">
+    <canvas id="annCanvas"></canvas>
+    <input class="ann-text-input" id="annTextInput" placeholder="テキスト入力...">
+    <div class="crop-actions" id="cropActions" style="display:none;">
+      <button class="crop-btn confirm" id="cropConfirm">&#10003; 確定</button>
+      <button class="crop-btn cancel" id="cropCancel">&#10005; 中止</button>
+    </div>
+  </div>
+  <div class="ann-toolbar">
+    <!-- Row 1: tools, font size, rotate, undo/redo, save/cancel -->
+    <button class="ann-tool active" data-tool="select" title="選択">&#8598;</button>
+    <button class="ann-tool" data-tool="pen" title="ペン">&#9998;</button>
+    <button class="ann-tool" data-tool="circle" title="円">&#9711;</button>
+    <button class="ann-tool" data-tool="arrow" title="矢印">&#10132;</button>
+    <button class="ann-tool" data-tool="rect" title="四角">&#9645;</button>
+    <button class="ann-tool" data-tool="text" title="テキスト">T</button>
+    <button class="ann-tool" data-tool="eraser" title="消しゴム">&#9003;</button>
+    <button class="ann-tool" data-tool="crop" title="切り抜き">&#9986;</button>
+    <button class="ann-tool del-sel-btn" id="annDelSel" title="選択削除">&#128465;</button>
+    <div class="sep"></div>
+    <div class="ann-fontsize-wrap" id="annFontsizeWrap">
+      <button class="ann-fontsize-btn" data-fs="12">12</button>
+      <button class="ann-fontsize-btn" data-fs="16">16</button>
+      <button class="ann-fontsize-btn active" data-fs="20">20</button>
+      <button class="ann-fontsize-btn" data-fs="28">28</button>
+      <button class="ann-fontsize-btn" data-fs="36">36</button>
+      <button class="ann-fontsize-btn" data-fs="48">48</button>
+    </div>
+    <div class="sep"></div>
+    <button class="ann-tool" id="annRotateCCW" title="左に90°回転">&#8634;</button>
+    <button class="ann-tool" id="annRotateCW" title="右に90°回転">&#8635;</button>
+    <div class="sep"></div>
+    <button class="ann-tool" id="annUndo" title="元に戻す">&#8617;</button>
+    <button class="ann-tool" id="annRedo" title="やり直す">&#8618;</button>
+    <button class="ann-tool clear-btn" id="annClear" title="全削除">&#128465;</button>
+    <div class="sep"></div>
+    <button class="ann-tool save-btn" id="annSave" title="保存">&#10003;</button>
+    <button class="ann-tool cancel-btn" id="annCancel" title="キャンセル">&#10005;</button>
+    <!-- Row 2: colors and widths -->
+    <div class="row-break"></div>
+    <div class="ann-colors" id="annColors">
+      <div class="ann-color active" data-color="#e74c3c" style="background:#e74c3c"></div>
+      <div class="ann-color" data-color="#f39c12" style="background:#f39c12"></div>
+      <div class="ann-color" data-color="#ffffff" style="background:#ffffff"></div>
+      <div class="ann-color" data-color="#3498db" style="background:#3498db"></div>
+      <div class="ann-color" data-color="#2ecc71" style="background:#2ecc71"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="ann-widths">
+      <div class="ann-width" data-w="1" style="width:6px;height:6px"></div>
+      <div class="ann-width active" data-w="2" style="width:8px;height:8px"></div>
+      <div class="ann-width" data-w="4" style="width:12px;height:12px"></div>
+      <div class="ann-width" data-w="7" style="width:16px;height:16px"></div>
+      <div class="ann-width" data-w="12" style="width:20px;height:20px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Color Picker Popup (appended dynamically) -->
+<div class="ann-color-popup" id="annColorPopup">
+  <input type="color" id="annColorPicker" value="#e74c3c">
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple>
+
+<script>
+(() => {
+'use strict';
+
+// ── State ──
+const snapshots = []; // { blob, url, memo, annotations }
+let dragSrcIdx = null;
+
+// ── DOM ──
+const grid = document.getElementById('snapGrid');
+const addBtn = document.getElementById('snapAddBtn');
+const countEl = document.getElementById('snapCount');
+const fileInput = document.getElementById('fileInput');
+const resSlider = document.getElementById('resSlider');
+const qualSlider = document.getElementById('qualSlider');
+const resVal = document.getElementById('resVal');
+const qualVal = document.getElementById('qualVal');
+const sizeInfo = document.getElementById('sizeInfo');
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsBody = document.getElementById('settingsBody');
+const settingsChevron = document.getElementById('settingsChevron');
+
+// Lightbox
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const lbCounter = document.getElementById('lbCounter');
+const lbClose = document.getElementById('lbClose');
+const lbPrev = document.getElementById('lbPrev');
+const lbNext = document.getElementById('lbNext');
+const lbMemo = document.getElementById('lbMemo');
+const lbEditBtn = document.getElementById('lbEditBtn');
+let lbIdx = 0;
+
+// Annotation Editor
+const annEditor = document.getElementById('annEditor');
+const annCanvas = document.getElementById('annCanvas');
+const annCanvasWrap = document.getElementById('annCanvasWrap');
+const annTextInput = document.getElementById('annTextInput');
+const annColorPopup = document.getElementById('annColorPopup');
+const annColorPicker = document.getElementById('annColorPicker');
+const annFontsizeWrap = document.getElementById('annFontsizeWrap');
+const annDelSelBtn = document.getElementById('annDelSel');
+const cropActionsEl = document.getElementById('cropActions');
+const cropConfirmBtn = document.getElementById('cropConfirm');
+const cropCancelBtn = document.getElementById('cropCancel');
+let annCtx = annCanvas.getContext('2d');
+let annImg = null;
+let annIdx = -1;
+let annTool = 'select';
+let annColor = '#e74c3c';
+let annWidth = 2;
+let annFontSize = 20;
+let annotations = [];
+let redoStack = [];
+let drawing = false;
+let eraserRemovedStack = [];
+let currentAnnotation = null;
+let annScaleX = 1, annScaleY = 1;
+
+// Selection state
+let selectedIdx = null;
+let selDragging = false;
+let selDragStart = null;  // {x, y} canvas coords at drag start
+let selOrigPos = null;    // original position data of selected annotation
+let editingTextIdx = null; // index of text annotation being re-edited
+
+// Long-press color state
+let colorLongPressTimer = null;
+let colorLongPressTarget = null;
+
+// ── Crop State ──
+let cropActive = false;
+let cropRect = { x: 0, y: 0, w: 0, h: 0 };
+let cropDragging = null; // 'move', 'nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w', 'create', or null
+let cropStart = { x: 0, y: 0 };
+let cropOrigRect = null; // snapshot of cropRect at drag start
+
+// ── Settings Toggle ──
+settingsToggle.addEventListener('click', () => {
+  settingsBody.classList.toggle('open');
+  settingsChevron.classList.toggle('open');
+});
+resSlider.addEventListener('input', () => { resVal.textContent = resSlider.value + 'px'; });
+qualSlider.addEventListener('input', () => { qualVal.textContent = qualSlider.value + '%'; });
+
+// ── Image Compression ──
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxRes = parseInt(resSlider.value);
+        const quality = parseInt(qualSlider.value) / 100;
+        let w = img.width, h = img.height;
+        const origW = w, origH = h;
+        if (w > maxRes || h > maxRes) {
+          if (w > h) { h = Math.round(h * maxRes / w); w = maxRes; }
+          else { w = Math.round(w * maxRes / h); h = maxRes; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        c.toBlob((blob) => {
+          const origSize = file.size;
+          const newSize = blob.size;
+          sizeInfo.innerHTML = `圧縮: <span class="before">${fmtSize(origSize)}</span> → <span class="after">${fmtSize(newSize)}</span> (${Math.round((1 - newSize/origSize)*100)}%削減) [${origW}×${origH} → ${w}×${h}]`;
+          resolve(blob);
+        }, 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + 'KB';
+  return (bytes/1048576).toFixed(1) + 'MB';
+}
+
+// ── Add Snapshots ──
+async function addImages(files) {
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const blob = await compressImage(file);
+    const url = URL.createObjectURL(blob);
+    snapshots.push({ blob, url, memo: '', annotations: [] });
+  }
+  renderGrid();
+}
+
+// Paste handler
+document.addEventListener('paste', (e) => {
+  if (annEditor.classList.contains('active')) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const files = [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      files.push(item.getAsFile());
+    }
+  }
+  if (files.length) addImages(files);
+});
+
+// File picker
+addBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) addImages([...fileInput.files]);
+  fileInput.value = '';
+});
+
+// ── Render Grid ──
+function renderGrid() {
+  grid.querySelectorAll('.snap-thumb').forEach(el => el.remove());
+  snapshots.forEach((snap, i) => {
+    const div = document.createElement('div');
+    div.className = 'snap-thumb';
+    div.draggable = true;
+    div.dataset.idx = i;
+
+    const img = document.createElement('img');
+    img.src = snap.url;
+    div.appendChild(img);
+
+    const idx = document.createElement('span');
+    idx.className = 'snap-index';
+    idx.textContent = i + 1;
+    div.appendChild(idx);
+
+    const del = document.createElement('button');
+    del.className = 'del-btn';
+    del.textContent = '\u00d7';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      URL.revokeObjectURL(snap.url);
+      snapshots.splice(i, 1);
+      renderGrid();
+    });
+    div.appendChild(del);
+
+    // Click → lightbox
+    div.addEventListener('click', () => openLightbox(i));
+
+    // Drag events
+    div.addEventListener('dragstart', onDragStart);
+    div.addEventListener('dragover', onDragOver);
+    div.addEventListener('dragenter', onDragEnter);
+    div.addEventListener('dragleave', onDragLeave);
+    div.addEventListener('drop', onDrop);
+    div.addEventListener('dragend', onDragEnd);
+
+    // Touch drag
+    let touchTimer = null;
+    let touchActive = false;
+    div.addEventListener('touchstart', (e) => {
+      touchTimer = setTimeout(() => {
+        touchActive = true;
+        div.classList.add('dragging');
+      }, 400);
+    }, { passive: true });
+    div.addEventListener('touchmove', (e) => {
+      if (!touchActive) { clearTimeout(touchTimer); return; }
+      e.preventDefault();
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      // highlight potential drop target
+      grid.querySelectorAll('.snap-thumb').forEach(t => t.classList.remove('drag-over'));
+      const thumb = target?.closest('.snap-thumb');
+      if (thumb && thumb !== div) thumb.classList.add('drag-over');
+    }, { passive: false });
+    div.addEventListener('touchend', (e) => {
+      clearTimeout(touchTimer);
+      if (!touchActive) return;
+      touchActive = false;
+      div.classList.remove('dragging');
+      grid.querySelectorAll('.snap-thumb').forEach(t => t.classList.remove('drag-over'));
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      const thumb = target?.closest('.snap-thumb');
+      if (thumb && thumb !== div) {
+        const fromIdx = parseInt(div.dataset.idx);
+        const toIdx = parseInt(thumb.dataset.idx);
+        const [item] = snapshots.splice(fromIdx, 1);
+        snapshots.splice(toIdx, 0, item);
+        renderGrid();
+      }
+    });
+    div.addEventListener('touchcancel', () => {
+      clearTimeout(touchTimer);
+      touchActive = false;
+      div.classList.remove('dragging');
+      grid.querySelectorAll('.snap-thumb').forEach(t => t.classList.remove('drag-over'));
+    });
+
+    grid.insertBefore(div, addBtn);
+  });
+  countEl.textContent = snapshots.length + '枚';
+}
+
+// ── Drag & Drop (desktop) ──
+function onDragStart(e) {
+  dragSrcIdx = parseInt(e.currentTarget.dataset.idx);
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function onDragEnter(e) { e.currentTarget.classList.add('drag-over'); }
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const targetIdx = parseInt(e.currentTarget.dataset.idx);
+  if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+    const [item] = snapshots.splice(dragSrcIdx, 1);
+    snapshots.splice(targetIdx, 0, item);
+    renderGrid();
+  }
+}
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  dragSrcIdx = null;
+}
+
+// ── Lightbox ──
+function openLightbox(idx) {
+  lbIdx = idx;
+  updateLightbox();
+  lightbox.classList.add('active');
+}
+function closeLightbox() { lightbox.classList.remove('active'); }
+function updateLightbox() {
+  if (!snapshots[lbIdx]) return;
+  lbImg.src = snapshots[lbIdx].url;
+  lbCounter.textContent = (lbIdx + 1) + ' / ' + snapshots.length;
+  lbMemo.value = snapshots[lbIdx].memo || '';
+}
+
+lbClose.addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+lbPrev.addEventListener('click', (e) => { e.stopPropagation(); lbIdx = (lbIdx - 1 + snapshots.length) % snapshots.length; updateLightbox(); });
+lbNext.addEventListener('click', (e) => { e.stopPropagation(); lbIdx = (lbIdx + 1) % snapshots.length; updateLightbox(); });
+lbMemo.addEventListener('input', () => { if (snapshots[lbIdx]) snapshots[lbIdx].memo = lbMemo.value; });
+lbEditBtn.addEventListener('click', (e) => { e.stopPropagation(); closeLightbox(); openAnnotationEditor(lbIdx); });
+
+// Keyboard nav
+document.addEventListener('keydown', (e) => {
+  if (annEditor.classList.contains('active')) return;
+  if (lightbox.classList.contains('active')) {
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') { lbIdx = (lbIdx - 1 + snapshots.length) % snapshots.length; updateLightbox(); }
+    if (e.key === 'ArrowRight') { lbIdx = (lbIdx + 1) % snapshots.length; updateLightbox(); }
+  }
+});
+
+// Swipe
+let swipeStartX = 0;
+lightbox.addEventListener('touchstart', (e) => { swipeStartX = e.touches[0].clientX; }, { passive: true });
+lightbox.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  if (Math.abs(dx) > 50) {
+    if (dx < 0) { lbIdx = (lbIdx + 1) % snapshots.length; }
+    else { lbIdx = (lbIdx - 1 + snapshots.length) % snapshots.length; }
+    updateLightbox();
+  }
+});
+
+// ══════════════════════════════════════════════
+// ── Annotation Editor
+// ══════════════════════════════════════════════
+function openAnnotationEditor(idx) {
+  annIdx = idx;
+  const snap = snapshots[idx];
+  annotations = JSON.parse(JSON.stringify(snap.annotations || []));
+  redoStack = [];
+  selectedIdx = null;
+  editingTextIdx = null;
+  selDragging = false;
+  cropActive = false;
+  cropActionsEl.style.display = 'none';
+  updateSelectionUI();
+  annEditor.classList.add('active');
+
+  // Default to select tool
+  annTool = 'select';
+  document.querySelectorAll('.ann-tool[data-tool]').forEach(b => b.classList.remove('active'));
+  document.querySelector('.ann-tool[data-tool="select"]').classList.add('active');
+  updateFontsizeVisibility();
+
+  annImg = new Image();
+  annImg.onload = () => {
+    resizeAnnCanvas();
+    renderAnnotations();
+  };
+  annImg.src = snap.url;
+}
+
+function resizeAnnCanvas() {
+  if (!annImg) return;
+  const wrap = annCanvasWrap;
+  const maxW = wrap.clientWidth - 20;
+  const maxH = wrap.clientHeight - 20;
+  let w = annImg.naturalWidth, h = annImg.naturalHeight;
+  const scale = Math.min(maxW / w, maxH / h, 1);
+  const dispW = Math.round(w * scale);
+  const dispH = Math.round(h * scale);
+  annCanvas.width = w;
+  annCanvas.height = h;
+  annCanvas.style.width = dispW + 'px';
+  annCanvas.style.height = dispH + 'px';
+  annScaleX = w / dispW;
+  annScaleY = h / dispH;
+}
+
+function renderAnnotations() {
+  if (!annImg) return;
+  annCtx.clearRect(0, 0, annCanvas.width, annCanvas.height);
+  annCtx.drawImage(annImg, 0, 0);
+  annotations.forEach((a, i) => {
+    drawAnnotation(annCtx, a);
+    if (i === selectedIdx) drawSelectionBox(annCtx, a);
+  });
+  if (currentAnnotation) drawAnnotation(annCtx, currentAnnotation);
+
+  // Render crop overlay if active
+  if (cropActive && cropRect.w !== 0 && cropRect.h !== 0) {
+    renderCropOverlay(annCtx);
+  }
+}
+
+function drawAnnotation(ctx, a) {
+  ctx.save();
+  ctx.strokeStyle = a.color;
+  ctx.fillStyle = a.color;
+  ctx.lineWidth = a.width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  switch (a.type) {
+    case 'pen':
+      if (!a.points || a.points.length < 2) break;
+      ctx.beginPath();
+      ctx.moveTo(a.points[0].x, a.points[0].y);
+      for (let i = 1; i < a.points.length; i++) ctx.lineTo(a.points[i].x, a.points[i].y);
+      ctx.stroke();
+      break;
+    case 'circle':
+      if (a.rx == null || (a.rx === 0 && a.ry === 0)) break;
+      ctx.beginPath();
+      ctx.ellipse(a.cx, a.cy, Math.abs(a.rx), Math.abs(a.ry), 0, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case 'arrow': {
+      const dx = a.x2 - a.x1, dy = a.y2 - a.y1;
+      const angle = Math.atan2(dy, dx);
+      const len = Math.sqrt(dx*dx + dy*dy);
+      if (len < 2) break;
+      const headLen = Math.min(len * 0.3, 20 + a.width * 2);
+      ctx.beginPath();
+      ctx.moveTo(a.x1, a.y1);
+      ctx.lineTo(a.x2, a.y2);
+      ctx.stroke();
+      // arrowhead
+      ctx.beginPath();
+      ctx.moveTo(a.x2, a.y2);
+      ctx.lineTo(a.x2 - headLen * Math.cos(angle - 0.4), a.y2 - headLen * Math.sin(angle - 0.4));
+      ctx.moveTo(a.x2, a.y2);
+      ctx.lineTo(a.x2 - headLen * Math.cos(angle + 0.4), a.y2 - headLen * Math.sin(angle + 0.4));
+      ctx.stroke();
+      break;
+    }
+    case 'rect':
+      if (a.w === 0 && a.h === 0) break;
+      ctx.strokeRect(a.x, a.y, a.w, a.h);
+      break;
+    case 'text':
+      if (!a.text) break;
+      ctx.font = `bold ${a.fontSize || Math.max(16, a.width * 6)}px 'DM Sans', sans-serif`;
+      ctx.fillText(a.text, a.x, a.y);
+      break;
+  }
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════
+// ── Crop Rendering & Logic
+// ══════════════════════════════════════════════
+function normalizeCropRect() {
+  // Return a normalized rect with positive w/h
+  let { x, y, w, h } = cropRect;
+  if (w < 0) { x += w; w = -w; }
+  if (h < 0) { y += h; h = -h; }
+  return { x, y, w, h };
+}
+
+function renderCropOverlay(ctx) {
+  const nr = normalizeCropRect();
+  // Dark semi-transparent overlay over entire image
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, annCanvas.width, annCanvas.height);
+  // Clear the crop area (show the image through)
+  ctx.clearRect(nr.x, nr.y, nr.w, nr.h);
+  // Re-draw the image just in the crop area
+  ctx.beginPath();
+  ctx.rect(nr.x, nr.y, nr.w, nr.h);
+  ctx.clip();
+  ctx.drawImage(annImg, 0, 0);
+  annotations.forEach(a => drawAnnotation(ctx, a));
+  ctx.restore();
+
+  // Dashed border
+  ctx.save();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(nr.x, nr.y, nr.w, nr.h);
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Corner handles (8x8 white squares)
+  drawCropHandle(ctx, nr.x, nr.y);
+  drawCropHandle(ctx, nr.x + nr.w, nr.y);
+  drawCropHandle(ctx, nr.x, nr.y + nr.h);
+  drawCropHandle(ctx, nr.x + nr.w, nr.y + nr.h);
+
+  // Edge midpoint handles
+  drawCropHandle(ctx, nr.x + nr.w / 2, nr.y);
+  drawCropHandle(ctx, nr.x + nr.w / 2, nr.y + nr.h);
+  drawCropHandle(ctx, nr.x, nr.y + nr.h / 2);
+  drawCropHandle(ctx, nr.x + nr.w, nr.y + nr.h / 2);
+
+  // Position crop action buttons
+  positionCropActions(nr);
+}
+
+function drawCropHandle(ctx, cx, cy) {
+  const s = 4;
+  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 3;
+  ctx.fillRect(cx - s, cy - s, s * 2, s * 2);
+  ctx.restore();
+}
+
+function positionCropActions(nr) {
+  // Position the confirm/cancel buttons below the crop area
+  const canvasRect = annCanvas.getBoundingClientRect();
+  const wrapRect = annCanvasWrap.getBoundingClientRect();
+  // Convert canvas coords to screen coords
+  const screenX = nr.x / annScaleX + (canvasRect.left - wrapRect.left) + nr.w / (2 * annScaleX);
+  const screenY = (nr.y + nr.h) / annScaleY + (canvasRect.top - wrapRect.top) + 8;
+  cropActionsEl.style.display = 'flex';
+  cropActionsEl.style.left = screenX + 'px';
+  cropActionsEl.style.top = screenY + 'px';
+  cropActionsEl.style.transform = 'translateX(-50%)';
+}
+
+function getCropHandleAt(px, py) {
+  const nr = normalizeCropRect();
+  const tol = 12; // hit tolerance in canvas coords
+
+  // Corner handles
+  if (Math.abs(px - nr.x) < tol && Math.abs(py - nr.y) < tol) return 'nw';
+  if (Math.abs(px - (nr.x + nr.w)) < tol && Math.abs(py - nr.y) < tol) return 'ne';
+  if (Math.abs(px - nr.x) < tol && Math.abs(py - (nr.y + nr.h)) < tol) return 'sw';
+  if (Math.abs(px - (nr.x + nr.w)) < tol && Math.abs(py - (nr.y + nr.h)) < tol) return 'se';
+
+  // Edge handles
+  if (Math.abs(py - nr.y) < tol && px > nr.x + tol && px < nr.x + nr.w - tol) return 'n';
+  if (Math.abs(py - (nr.y + nr.h)) < tol && px > nr.x + tol && px < nr.x + nr.w - tol) return 's';
+  if (Math.abs(px - nr.x) < tol && py > nr.y + tol && py < nr.y + nr.h - tol) return 'w';
+  if (Math.abs(px - (nr.x + nr.w)) < tol && py > nr.y + tol && py < nr.y + nr.h - tol) return 'e';
+
+  // Inside crop area = move
+  if (px >= nr.x && px <= nr.x + nr.w && py >= nr.y && py <= nr.y + nr.h) return 'move';
+
+  return null;
+}
+
+function applyCrop() {
+  const nr = normalizeCropRect();
+  if (nr.w < 2 || nr.h < 2) { exitCropMode(); return; }
+
+  // Clamp to canvas bounds
+  const cx = Math.max(0, Math.round(nr.x));
+  const cy = Math.max(0, Math.round(nr.y));
+  const cw = Math.min(Math.round(nr.w), annCanvas.width - cx);
+  const ch = Math.min(Math.round(nr.h), annCanvas.height - cy);
+  if (cw < 2 || ch < 2) { exitCropMode(); return; }
+
+  // Create a new canvas with the cropped region
+  const c = document.createElement('canvas');
+  c.width = cw;
+  c.height = ch;
+  const ctx = c.getContext('2d');
+  // Draw the original image cropped
+  ctx.drawImage(annImg, cx, cy, cw, ch, 0, 0, cw, ch);
+
+  // Transform annotations
+  const newAnnotations = [];
+  for (const a of annotations) {
+    const shifted = JSON.parse(JSON.stringify(a));
+    // Shift coordinates by crop offset
+    switch (shifted.type) {
+      case 'pen':
+        if (shifted.points) {
+          shifted.points = shifted.points.map(p => ({ x: p.x - cx, y: p.y - cy }));
+        }
+        break;
+      case 'circle':
+        shifted.cx -= cx;
+        shifted.cy -= cy;
+        break;
+      case 'arrow':
+        shifted.x1 -= cx; shifted.y1 -= cy;
+        shifted.x2 -= cx; shifted.y2 -= cy;
+        break;
+      case 'rect':
+        shifted.x -= cx;
+        shifted.y -= cy;
+        break;
+      case 'text':
+        shifted.x -= cx;
+        shifted.y -= cy;
+        break;
+    }
+
+    // Check if annotation is at least partially inside the crop area
+    const bb = getAnnotationBBoxFromObj(shifted, cw, ch);
+    if (bb && bb.x + bb.w > 0 && bb.y + bb.h > 0 && bb.x < cw && bb.y < ch) {
+      newAnnotations.push(shifted);
+    }
+  }
+  annotations = newAnnotations;
+  redoStack = [];
+
+  // Convert cropped canvas to a new image
+  const dataUrl = c.toDataURL('image/png');
+  const newImg = new Image();
+  newImg.onload = () => {
+    annImg = newImg;
+    exitCropMode();
+    resizeAnnCanvas();
+    renderAnnotations();
+  };
+  newImg.src = dataUrl;
+}
+
+function getAnnotationBBoxFromObj(a, canvasW, canvasH) {
+  // Simplified bounding box for crop filtering
+  const pad = 6;
+  switch (a.type) {
+    case 'pen': {
+      if (!a.points || !a.points.length) return null;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of a.points) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+    case 'circle': {
+      const rx = Math.abs(a.rx || 0), ry = Math.abs(a.ry || 0);
+      return { x: a.cx - rx, y: a.cy - ry, w: rx * 2, h: ry * 2 };
+    }
+    case 'arrow': {
+      const minX = Math.min(a.x1, a.x2), minY = Math.min(a.y1, a.y2);
+      return { x: minX, y: minY, w: Math.abs(a.x2 - a.x1), h: Math.abs(a.y2 - a.y1) };
+    }
+    case 'rect': {
+      const x = a.w >= 0 ? a.x : a.x + a.w;
+      const y = a.h >= 0 ? a.y : a.y + a.h;
+      return { x, y, w: Math.abs(a.w), h: Math.abs(a.h) };
+    }
+    case 'text': {
+      return { x: a.x, y: a.y - 20, w: 100, h: 24 };
+    }
+  }
+  return null;
+}
+
+function exitCropMode() {
+  cropActive = false;
+  cropDragging = null;
+  cropRect = { x: 0, y: 0, w: 0, h: 0 };
+  cropActionsEl.style.display = 'none';
+  // Switch back to select tool
+  annTool = 'select';
+  document.querySelectorAll('.ann-tool[data-tool]').forEach(b => b.classList.remove('active'));
+  document.querySelector('.ann-tool[data-tool="select"]').classList.add('active');
+  updateFontsizeVisibility();
+}
+
+cropConfirmBtn.addEventListener('click', () => { applyCrop(); });
+cropCancelBtn.addEventListener('click', () => { exitCropMode(); renderAnnotations(); });
+
+// ══════════════════════════════════════════════
+// ── Rotate Logic
+// ══════════════════════════════════════════════
+function rotateImage(clockwise) {
+  if (!annImg) return;
+  const origW = annImg.naturalWidth || annImg.width;
+  const origH = annImg.naturalHeight || annImg.height;
+
+  // Create rotated canvas
+  const c = document.createElement('canvas');
+  c.width = origH;  // swap dimensions
+  c.height = origW;
+  const ctx = c.getContext('2d');
+
+  ctx.save();
+  if (clockwise) {
+    // 90 CW: translate to new width, rotate 90
+    ctx.translate(origH, 0);
+    ctx.rotate(Math.PI / 2);
+  } else {
+    // 90 CCW: translate to new height, rotate -90
+    ctx.translate(0, origW);
+    ctx.rotate(-Math.PI / 2);
+  }
+  ctx.drawImage(annImg, 0, 0);
+  ctx.restore();
+
+  // Transform annotations
+  annotations.forEach(a => {
+    if (clockwise) {
+      rotateAnnotation90CW(a, origW, origH);
+    } else {
+      rotateAnnotation90CCW(a, origW, origH);
+    }
+  });
+  redoStack = [];
+
+  // Replace annImg
+  const dataUrl = c.toDataURL('image/png');
+  const newImg = new Image();
+  newImg.onload = () => {
+    annImg = newImg;
+    resizeAnnCanvas();
+    renderAnnotations();
+  };
+  newImg.src = dataUrl;
+}
+
+function rotateAnnotation90CW(a, origW, origH) {
+  // 90 CW: (x, y) -> (origH - y, x)
+  // New canvas: newW = origH, newH = origW
+  switch (a.type) {
+    case 'pen':
+      if (a.points) {
+        a.points = a.points.map(p => ({ x: origH - p.y, y: p.x }));
+      }
+      break;
+    case 'circle': {
+      const newCx = origH - a.cy;
+      const newCy = a.cx;
+      a.cx = newCx;
+      a.cy = newCy;
+      // Swap rx/ry for ellipse rotation
+      const tmpRx = a.rx;
+      const tmpRy = a.ry;
+      a.rx = -tmpRy;
+      a.ry = tmpRx;
+      break;
+    }
+    case 'arrow': {
+      const nx1 = origH - a.y1, ny1 = a.x1;
+      const nx2 = origH - a.y2, ny2 = a.x2;
+      a.x1 = nx1; a.y1 = ny1;
+      a.x2 = nx2; a.y2 = ny2;
+      break;
+    }
+    case 'rect': {
+      const nx = origH - a.y - a.h;
+      const ny = a.x;
+      const nw = a.h;
+      const nh = a.w;
+      a.x = nx; a.y = ny; a.w = nw; a.h = nh;
+      break;
+    }
+    case 'text': {
+      const ntx = origH - a.y;
+      const nty = a.x;
+      a.x = ntx; a.y = nty;
+      break;
+    }
+  }
+}
+
+function rotateAnnotation90CCW(a, origW, origH) {
+  // 90 CCW: (x, y) -> (y, origW - x)
+  // New canvas: newW = origH, newH = origW
+  switch (a.type) {
+    case 'pen':
+      if (a.points) {
+        a.points = a.points.map(p => ({ x: p.y, y: origW - p.x }));
+      }
+      break;
+    case 'circle': {
+      const newCx = a.cy;
+      const newCy = origW - a.cx;
+      a.cx = newCx;
+      a.cy = newCy;
+      const tmpRx = a.rx;
+      const tmpRy = a.ry;
+      a.rx = tmpRy;
+      a.ry = -tmpRx;
+      break;
+    }
+    case 'arrow': {
+      const nx1 = a.y1, ny1 = origW - a.x1;
+      const nx2 = a.y2, ny2 = origW - a.x2;
+      a.x1 = nx1; a.y1 = ny1;
+      a.x2 = nx2; a.y2 = ny2;
+      break;
+    }
+    case 'rect': {
+      const nx = a.y;
+      const ny = origW - a.x - a.w;
+      const nw = a.h;
+      const nh = a.w;
+      a.x = nx; a.y = ny; a.w = nw; a.h = nh;
+      break;
+    }
+    case 'text': {
+      const ntx = a.y;
+      const nty = origW - a.x;
+      a.x = ntx; a.y = nty;
+      break;
+    }
+  }
+}
+
+document.getElementById('annRotateCW').addEventListener('click', () => {
+  if (cropActive) return;
+  rotateImage(true);
+});
+document.getElementById('annRotateCCW').addEventListener('click', () => {
+  if (cropActive) return;
+  rotateImage(false);
+});
+
+// ── Selection: bounding box computation ──
+function getAnnotationBBox(a) {
+  const pad = 6;
+  switch (a.type) {
+    case 'pen': {
+      if (!a.points || !a.points.length) return null;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of a.points) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+      return { x: minX - pad, y: minY - pad, w: (maxX - minX) + pad*2, h: (maxY - minY) + pad*2 };
+    }
+    case 'circle': {
+      const rx = Math.abs(a.rx || 0), ry = Math.abs(a.ry || 0);
+      return { x: a.cx - rx - pad, y: a.cy - ry - pad, w: rx*2 + pad*2, h: ry*2 + pad*2 };
+    }
+    case 'arrow': {
+      const minX = Math.min(a.x1, a.x2), minY = Math.min(a.y1, a.y2);
+      const maxX = Math.max(a.x1, a.x2), maxY = Math.max(a.y1, a.y2);
+      return { x: minX - pad, y: minY - pad, w: (maxX - minX) + pad*2, h: (maxY - minY) + pad*2 };
+    }
+    case 'rect': {
+      const x = a.w >= 0 ? a.x : a.x + a.w;
+      const y = a.h >= 0 ? a.y : a.y + a.h;
+      const w = Math.abs(a.w);
+      const h = Math.abs(a.h);
+      return { x: x - pad, y: y - pad, w: w + pad*2, h: h + pad*2 };
+    }
+    case 'text': {
+      if (!a.text) return null;
+      const fs = a.fontSize || Math.max(16, a.width * 6);
+      annCtx.save();
+      annCtx.font = `bold ${fs}px 'DM Sans', sans-serif`;
+      const m = annCtx.measureText(a.text);
+      annCtx.restore();
+      const tw = m.width;
+      const th = fs;
+      return { x: a.x - pad, y: a.y - th - pad, w: tw + pad*2, h: th + pad*2 };
+    }
+  }
+  return null;
+}
+
+function drawSelectionBox(ctx, a) {
+  const bb = getAnnotationBBox(a);
+  if (!bb) return;
+  ctx.save();
+  ctx.strokeStyle = '#00bfff';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(bb.x, bb.y, bb.w, bb.h);
+  ctx.restore();
+}
+
+// ── Hit testing ──
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx*dx + dy*dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1)*dx + (py - y1)*dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t*dx), py - (y1 + t*dy));
+}
+
+function hitTestAnnotation(a, px, py) {
+  const tol = 10 + (a.width || 2);
+  switch (a.type) {
+    case 'pen': {
+      if (!a.points || a.points.length < 2) return false;
+      for (let i = 1; i < a.points.length; i++) {
+        if (distToSegment(px, py, a.points[i-1].x, a.points[i-1].y, a.points[i].x, a.points[i].y) < tol) return true;
+      }
+      return false;
+    }
+    case 'circle': {
+      const rx = Math.abs(a.rx || 0), ry = Math.abs(a.ry || 0);
+      if (rx === 0 && ry === 0) return false;
+      // normalized distance to ellipse
+      const nx = (px - a.cx) / (rx || 1);
+      const ny = (py - a.cy) / (ry || 1);
+      const d = Math.sqrt(nx*nx + ny*ny);
+      const avgR = (rx + ry) / 2;
+      return Math.abs(d - 1) * avgR < tol;
+    }
+    case 'arrow': {
+      return distToSegment(px, py, a.x1, a.y1, a.x2, a.y2) < tol;
+    }
+    case 'rect': {
+      const x = a.w >= 0 ? a.x : a.x + a.w;
+      const y = a.h >= 0 ? a.y : a.y + a.h;
+      const w = Math.abs(a.w), h = Math.abs(a.h);
+      // check distance from any of the 4 edges
+      const d1 = distToSegment(px, py, x, y, x+w, y);
+      const d2 = distToSegment(px, py, x+w, y, x+w, y+h);
+      const d3 = distToSegment(px, py, x+w, y+h, x, y+h);
+      const d4 = distToSegment(px, py, x, y+h, x, y);
+      return Math.min(d1, d2, d3, d4) < tol;
+    }
+    case 'text': {
+      const bb = getAnnotationBBox(a);
+      if (!bb) return false;
+      return px >= bb.x && px <= bb.x + bb.w && py >= bb.y && py <= bb.y + bb.h;
+    }
+  }
+  return false;
+}
+
+function hitTestAll(px, py) {
+  // reverse order (top-first)
+  for (let i = annotations.length - 1; i >= 0; i--) {
+    if (hitTestAnnotation(annotations[i], px, py)) return i;
+  }
+  return null;
+}
+
+// ── Selection UI updates ──
+function updateSelectionUI() {
+  if (selectedIdx !== null) {
+    annDelSelBtn.classList.add('visible');
+  } else {
+    annDelSelBtn.classList.remove('visible');
+  }
+  updateFontsizeVisibility();
+}
+
+function updateFontsizeVisibility() {
+  const textToolActive = annTool === 'text';
+  const textSelected = selectedIdx !== null && annotations[selectedIdx] && annotations[selectedIdx].type === 'text';
+  if (textToolActive || textSelected) {
+    annFontsizeWrap.classList.add('visible');
+    // sync active button
+    const fs = textSelected ? (annotations[selectedIdx].fontSize || 20) : annFontSize;
+    document.querySelectorAll('.ann-fontsize-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.fs) === fs);
+    });
+  } else {
+    annFontsizeWrap.classList.remove('visible');
+  }
+}
+
+function deselect() {
+  selectedIdx = null;
+  selDragging = false;
+  editingTextIdx = null;
+  updateSelectionUI();
+  renderAnnotations();
+}
+
+// ── Move annotation by delta ──
+function moveAnnotation(a, dx, dy) {
+  switch (a.type) {
+    case 'pen':
+      if (a.points) a.points.forEach(p => { p.x += dx; p.y += dy; });
+      break;
+    case 'circle':
+      a.cx += dx; a.cy += dy;
+      break;
+    case 'arrow':
+      a.x1 += dx; a.y1 += dy; a.x2 += dx; a.y2 += dy;
+      break;
+    case 'rect':
+      a.x += dx; a.y += dy;
+      break;
+    case 'text':
+      a.x += dx; a.y += dy;
+      break;
+  }
+}
+
+// Canvas pointer helpers
+function canvasPos(e) {
+  const rect = annCanvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * annScaleX,
+    y: (clientY - rect.top) * annScaleY
+  };
+}
+
+function canvasPosFromEnd(e) {
+  const rect = annCanvas.getBoundingClientRect();
+  const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * annScaleX,
+    y: (clientY - rect.top) * annScaleY
+  };
+}
+
+// ── Double click tracking for select mode ──
+let lastClickTime = 0;
+let lastClickIdx = null;
+
+// Pointer down
+function onAnnDown(e) {
+  // ── Crop mode ──
+  if (annTool === 'crop') {
+    const pos = canvasPos(e);
+    e.preventDefault();
+
+    if (cropActive && cropRect.w !== 0 && cropRect.h !== 0) {
+      // Check if user is grabbing a handle or the crop area
+      const handle = getCropHandleAt(pos.x, pos.y);
+      if (handle) {
+        cropDragging = handle;
+        cropStart = pos;
+        cropOrigRect = { ...normalizeCropRect() };
+        return;
+      }
+      // Clicked outside crop area — start a new crop
+    }
+
+    // Start creating a new crop rect
+    cropActive = true;
+    cropRect = { x: pos.x, y: pos.y, w: 0, h: 0 };
+    cropDragging = 'create';
+    cropStart = pos;
+    cropActionsEl.style.display = 'none';
+    renderAnnotations();
+    return;
+  }
+
+  // ── Select mode ──
+  if (annTool === 'select') {
+    const pos = canvasPos(e);
+    const hitIdx = hitTestAll(pos.x, pos.y);
+    const now = Date.now();
+
+    // Double click detection on text
+    if (hitIdx !== null && hitIdx === lastClickIdx && (now - lastClickTime) < 400) {
+      const a = annotations[hitIdx];
+      if (a.type === 'text') {
+        // Open text re-edit
+        selectedIdx = hitIdx;
+        editingTextIdx = hitIdx;
+        openTextReEdit(a);
+        lastClickTime = 0;
+        lastClickIdx = null;
+        e.preventDefault();
+        return;
+      }
+    }
+    lastClickTime = now;
+    lastClickIdx = hitIdx;
+
+    if (hitIdx !== null) {
+      selectedIdx = hitIdx;
+      selDragging = true;
+      selDragStart = pos;
+      // deep copy original position for calculating delta
+      selOrigPos = JSON.parse(JSON.stringify(annotations[hitIdx]));
+      updateSelectionUI();
+      renderAnnotations();
+    } else {
+      deselect();
+    }
+    e.preventDefault();
+    return;
+  }
+
+  // ── Eraser mode ──
+  if (annTool === 'eraser') {
+    e.preventDefault();
+    drawing = true;
+    eraserRemovedStack = [];
+    const pos = canvasPos(e);
+    // Immediately check hit
+    const hitIdx = hitTestAll(pos.x, pos.y);
+    if (hitIdx !== null) {
+      eraserRemovedStack.push(annotations.splice(hitIdx, 1)[0]);
+      renderAnnotations();
+    }
+    return;
+  }
+
+  if (annTool === 'text') {
+    const pos = canvasPos(e);
+    annTextInput.style.display = 'block';
+    const wrapRect = annCanvasWrap.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    annTextInput.style.left = (clientX - wrapRect.left) + 'px';
+    annTextInput.style.top = (clientY - wrapRect.top) + 'px';
+    annTextInput.value = '';
+    annTextInput.dataset.ax = pos.x;
+    annTextInput.dataset.ay = pos.y;
+    annTextInput.dataset.mode = 'new';
+    setTimeout(() => annTextInput.focus(), 50);
+    return;
+  }
+
+  drawing = true;
+  const pos = canvasPos(e);
+  e.preventDefault();
+
+  switch (annTool) {
+    case 'pen':
+      currentAnnotation = { type: 'pen', points: [pos], color: annColor, width: annWidth };
+      break;
+    case 'circle':
+      currentAnnotation = { type: 'circle', cx: pos.x, cy: pos.y, rx: 0, ry: 0, color: annColor, width: annWidth };
+      break;
+    case 'arrow':
+      currentAnnotation = { type: 'arrow', x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, color: annColor, width: annWidth };
+      break;
+    case 'rect':
+      currentAnnotation = { type: 'rect', x: pos.x, y: pos.y, w: 0, h: 0, color: annColor, width: annWidth };
+      break;
+  }
+}
+
+function onAnnMove(e) {
+  // ── Crop mode drag ──
+  if (annTool === 'crop' && cropDragging) {
+    e.preventDefault();
+    const pos = canvasPos(e);
+    const dx = pos.x - cropStart.x;
+    const dy = pos.y - cropStart.y;
+
+    if (cropDragging === 'create') {
+      cropRect.w = pos.x - cropRect.x;
+      cropRect.h = pos.y - cropRect.y;
+    } else if (cropDragging === 'move') {
+      cropRect.x = cropOrigRect.x + dx;
+      cropRect.y = cropOrigRect.y + dy;
+      cropRect.w = cropOrigRect.w;
+      cropRect.h = cropOrigRect.h;
+    } else {
+      // Handle resizing
+      let { x, y, w, h } = cropOrigRect;
+      switch (cropDragging) {
+        case 'nw': x += dx; y += dy; w -= dx; h -= dy; break;
+        case 'ne': y += dy; w += dx; h -= dy; break;
+        case 'sw': x += dx; w -= dx; h += dy; break;
+        case 'se': w += dx; h += dy; break;
+        case 'n': y += dy; h -= dy; break;
+        case 's': h += dy; break;
+        case 'w': x += dx; w -= dx; break;
+        case 'e': w += dx; break;
+      }
+      cropRect.x = x;
+      cropRect.y = y;
+      cropRect.w = w;
+      cropRect.h = h;
+    }
+    renderAnnotations();
+    return;
+  }
+
+  // ── Select mode drag ──
+  if (annTool === 'select' && selDragging && selectedIdx !== null && selDragStart) {
+    e.preventDefault();
+    const pos = canvasPos(e);
+    const dx = pos.x - selDragStart.x;
+    const dy = pos.y - selDragStart.y;
+    // Restore to original then apply delta
+    const a = annotations[selectedIdx];
+    const orig = selOrigPos;
+    switch (a.type) {
+      case 'pen':
+        if (orig.points) a.points = orig.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+        break;
+      case 'circle':
+        a.cx = orig.cx + dx; a.cy = orig.cy + dy;
+        break;
+      case 'arrow':
+        a.x1 = orig.x1 + dx; a.y1 = orig.y1 + dy;
+        a.x2 = orig.x2 + dx; a.y2 = orig.y2 + dy;
+        break;
+      case 'rect':
+        a.x = orig.x + dx; a.y = orig.y + dy;
+        break;
+      case 'text':
+        a.x = orig.x + dx; a.y = orig.y + dy;
+        break;
+    }
+    renderAnnotations();
+    return;
+  }
+
+  // ── Eraser mode drag ──
+  if (annTool === 'eraser' && drawing) {
+    e.preventDefault();
+    const pos = canvasPos(e);
+    const hitIdx = hitTestAll(pos.x, pos.y);
+    if (hitIdx !== null) {
+      eraserRemovedStack.push(annotations.splice(hitIdx, 1)[0]);
+      renderAnnotations();
+    }
+    return;
+  }
+
+  if (!drawing || !currentAnnotation) return;
+  e.preventDefault();
+  const pos = canvasPos(e);
+
+  switch (currentAnnotation.type) {
+    case 'pen':
+      currentAnnotation.points.push(pos);
+      break;
+    case 'circle':
+      currentAnnotation.rx = pos.x - currentAnnotation.cx;
+      currentAnnotation.ry = pos.y - currentAnnotation.cy;
+      break;
+    case 'arrow':
+      currentAnnotation.x2 = pos.x;
+      currentAnnotation.y2 = pos.y;
+      break;
+    case 'rect':
+      currentAnnotation.w = pos.x - currentAnnotation.x;
+      currentAnnotation.h = pos.y - currentAnnotation.y;
+      break;
+  }
+  renderAnnotations();
+}
+
+function onAnnUp(e) {
+  // ── Crop mode drag end ──
+  if (annTool === 'crop' && cropDragging) {
+    cropDragging = null;
+    cropOrigRect = null;
+    // Show crop actions if we have a valid rect
+    const nr = normalizeCropRect();
+    if (nr.w > 5 && nr.h > 5) {
+      positionCropActions(nr);
+    }
+    return;
+  }
+
+  // ── Eraser mode end ──
+  if (annTool === 'eraser' && drawing) {
+    drawing = false;
+    // Push all erased items as a single undo-able action
+    if (eraserRemovedStack && eraserRemovedStack.length > 0) {
+      redoStack = [];
+    }
+    eraserRemovedStack = [];
+    return;
+  }
+
+  // ── Select mode drag end ──
+  if (annTool === 'select' && selDragging) {
+    selDragging = false;
+    selDragStart = null;
+    selOrigPos = null;
+    return;
+  }
+
+  if (!drawing || !currentAnnotation) return;
+  drawing = false;
+  annotations.push(currentAnnotation);
+  redoStack = [];
+  currentAnnotation = null;
+  renderAnnotations();
+}
+
+annCanvas.addEventListener('mousedown', onAnnDown);
+annCanvas.addEventListener('mousemove', onAnnMove);
+annCanvas.addEventListener('mouseup', onAnnUp);
+annCanvas.addEventListener('mouseleave', onAnnUp);
+annCanvas.addEventListener('touchstart', onAnnDown, { passive: false });
+annCanvas.addEventListener('touchmove', onAnnMove, { passive: false });
+annCanvas.addEventListener('touchend', onAnnUp);
+
+// ── Text re-edit ──
+function openTextReEdit(a) {
+  annTextInput.style.display = 'block';
+  const wrapRect = annCanvasWrap.getBoundingClientRect();
+  const canvasRect = annCanvas.getBoundingClientRect();
+  // Position near the text annotation
+  const screenX = a.x / annScaleX + (canvasRect.left - wrapRect.left);
+  const screenY = a.y / annScaleY + (canvasRect.top - wrapRect.top);
+  annTextInput.style.left = screenX + 'px';
+  annTextInput.style.top = screenY + 'px';
+  annTextInput.value = a.text || '';
+  annTextInput.dataset.ax = a.x;
+  annTextInput.dataset.ay = a.y;
+  annTextInput.dataset.mode = 'edit';
+  annTextInput.dataset.editIdx = editingTextIdx;
+  setTimeout(() => { annTextInput.focus(); annTextInput.select(); }, 50);
+}
+
+// Text input confirm
+annTextInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const text = annTextInput.value.trim();
+    const mode = annTextInput.dataset.mode;
+
+    if (mode === 'edit') {
+      // Re-editing existing text
+      const idx = parseInt(annTextInput.dataset.editIdx);
+      if (text && annotations[idx]) {
+        annotations[idx].text = text;
+        renderAnnotations();
+      }
+      editingTextIdx = null;
+    } else {
+      // New text
+      if (text) {
+        annotations.push({
+          type: 'text',
+          text,
+          x: parseFloat(annTextInput.dataset.ax),
+          y: parseFloat(annTextInput.dataset.ay),
+          color: annColor,
+          width: annWidth,
+          fontSize: annFontSize
+        });
+        redoStack = [];
+        renderAnnotations();
+      }
+    }
+    annTextInput.style.display = 'none';
+    annTextInput.value = '';
+  }
+  if (e.key === 'Escape') {
+    annTextInput.style.display = 'none';
+    annTextInput.value = '';
+    editingTextIdx = null;
+  }
+});
+
+// Tool selection
+document.querySelectorAll('.ann-tool[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // If switching away from crop, cancel crop
+    if (cropActive && btn.dataset.tool !== 'crop') {
+      exitCropMode();
+      renderAnnotations();
+    }
+    annTool = btn.dataset.tool;
+    document.querySelectorAll('.ann-tool[data-tool]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Eraser cursor
+    annCanvas.classList.toggle('eraser-cursor', annTool === 'eraser');
+    // Deselect when switching away from select
+    if (annTool !== 'select') {
+      selectedIdx = null;
+      updateSelectionUI();
+      renderAnnotations();
+    }
+    // Initialize crop mode
+    if (annTool === 'crop') {
+      cropActive = true;
+      cropRect = { x: 0, y: 0, w: 0, h: 0 };
+      cropDragging = null;
+    }
+    updateFontsizeVisibility();
+  });
+});
+
+// Color selection
+document.querySelectorAll('.ann-color').forEach(btn => {
+  // Click handler (short click)
+  btn.addEventListener('click', (e) => {
+    // Don't handle if this was triggered after a long press
+    if (colorLongPressTarget === btn) { colorLongPressTarget = null; return; }
+    annColor = btn.dataset.color;
+    document.querySelectorAll('.ann-color').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // If something is selected, update its color
+    if (selectedIdx !== null && annotations[selectedIdx]) {
+      annotations[selectedIdx].color = annColor;
+      renderAnnotations();
+    }
+  });
+
+  // Long press for custom color picker
+  btn.addEventListener('pointerdown', (e) => {
+    colorLongPressTarget = null;
+    colorLongPressTimer = setTimeout(() => {
+      colorLongPressTarget = btn;
+      // Show color picker popup near the button
+      annColorPicker.value = btn.dataset.color;
+      // Position the popup
+      const btnRect = btn.getBoundingClientRect();
+      annColorPopup.style.position = 'fixed';
+      annColorPopup.style.left = (btnRect.left + btnRect.width/2 - 26) + 'px';
+      annColorPopup.style.top = (btnRect.top - 48) + 'px';
+      annColorPopup.style.bottom = 'auto';
+      annColorPopup.classList.add('visible');
+      // Store which dot we're editing
+      annColorPopup.dataset.targetColor = btn.dataset.color;
+      annColorPopup._targetBtn = btn;
+      annColorPicker.click();
+    }, 500);
+  });
+  btn.addEventListener('pointerup', () => { clearTimeout(colorLongPressTimer); });
+  btn.addEventListener('pointerleave', () => { clearTimeout(colorLongPressTimer); });
+  btn.addEventListener('pointercancel', () => { clearTimeout(colorLongPressTimer); });
+});
+
+// Color picker change handler
+annColorPicker.addEventListener('input', (e) => {
+  const newColor = e.target.value;
+  const btn = annColorPopup._targetBtn;
+  if (btn) {
+    btn.dataset.color = newColor;
+    btn.style.background = newColor;
+    // If this was the active color, update annColor
+    if (btn.classList.contains('active')) {
+      annColor = newColor;
+    }
+  }
+});
+annColorPicker.addEventListener('change', () => {
+  annColorPopup.classList.remove('visible');
+});
+// Close popup when clicking elsewhere
+document.addEventListener('pointerdown', (e) => {
+  if (!annColorPopup.contains(e.target) && !e.target.classList.contains('ann-color')) {
+    annColorPopup.classList.remove('visible');
+  }
+});
+
+// Width selection
+document.querySelectorAll('.ann-width').forEach(btn => {
+  btn.addEventListener('click', () => {
+    annWidth = parseInt(btn.dataset.w);
+    document.querySelectorAll('.ann-width').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // If something is selected, update its width
+    if (selectedIdx !== null && annotations[selectedIdx]) {
+      annotations[selectedIdx].width = annWidth;
+      renderAnnotations();
+    }
+  });
+});
+
+// Font size selection
+document.querySelectorAll('.ann-fontsize-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fs = parseInt(btn.dataset.fs);
+    annFontSize = fs;
+    document.querySelectorAll('.ann-fontsize-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // If a text annotation is selected, update its fontSize
+    if (selectedIdx !== null && annotations[selectedIdx] && annotations[selectedIdx].type === 'text') {
+      annotations[selectedIdx].fontSize = fs;
+      renderAnnotations();
+    }
+  });
+});
+
+// Delete selected annotation
+annDelSelBtn.addEventListener('click', () => {
+  if (selectedIdx !== null && annotations[selectedIdx]) {
+    redoStack.push(annotations.splice(selectedIdx, 1)[0]);
+    selectedIdx = null;
+    updateSelectionUI();
+    renderAnnotations();
+  }
+});
+
+// Undo / Redo / Clear
+document.getElementById('annUndo').addEventListener('click', () => {
+  if (cropActive) return;
+  if (annotations.length) {
+    if (selectedIdx !== null) deselect();
+    redoStack.push(annotations.pop());
+    renderAnnotations();
+  }
+});
+document.getElementById('annRedo').addEventListener('click', () => {
+  if (cropActive) return;
+  if (redoStack.length) {
+    if (selectedIdx !== null) deselect();
+    annotations.push(redoStack.pop());
+    renderAnnotations();
+  }
+});
+document.getElementById('annClear').addEventListener('click', () => {
+  if (cropActive) return;
+  if (annotations.length && confirm('全ての注釈を削除しますか？')) {
+    redoStack.push(...annotations.reverse());
+    annotations = [];
+    selectedIdx = null;
+    updateSelectionUI();
+    renderAnnotations();
+  }
+});
+
+// Save — merge annotations onto image, replace snapshot
+document.getElementById('annSave').addEventListener('click', () => {
+  if (cropActive) return;
+  const c = document.createElement('canvas');
+  c.width = annImg.naturalWidth || annImg.width;
+  c.height = annImg.naturalHeight || annImg.height;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(annImg, 0, 0);
+  annotations.forEach(a => drawAnnotation(ctx, a));
+
+  const quality = parseInt(qualSlider.value) / 100;
+  c.toBlob((blob) => {
+    const snap = snapshots[annIdx];
+    URL.revokeObjectURL(snap.url);
+    snap.blob = blob;
+    snap.url = URL.createObjectURL(blob);
+    snap.annotations = JSON.parse(JSON.stringify(annotations));
+    annEditor.classList.remove('active');
+    renderGrid();
+  }, 'image/jpeg', quality);
+});
+
+// Cancel
+document.getElementById('annCancel').addEventListener('click', () => {
+  if (cropActive) { exitCropMode(); renderAnnotations(); return; }
+  annEditor.classList.remove('active');
+});
+
+// Resize handler
+window.addEventListener('resize', () => {
+  if (annEditor.classList.contains('active') && annImg) {
+    resizeAnnCanvas();
+    renderAnnotations();
+  }
+});
+
+// Keyboard shortcuts in annotation editor
+document.addEventListener('keydown', (e) => {
+  if (!annEditor.classList.contains('active')) return;
+  if (e.target === annTextInput) return;
+  if (e.key === 'Escape') {
+    if (cropActive) { exitCropMode(); renderAnnotations(); return; }
+    if (selectedIdx !== null) { deselect(); return; }
+    annEditor.classList.remove('active');
+    return;
+  }
+  // Delete key removes selected annotation
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx !== null) {
+    e.preventDefault();
+    redoStack.push(annotations.splice(selectedIdx, 1)[0]);
+    selectedIdx = null;
+    updateSelectionUI();
+    renderAnnotations();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z') {
+      e.preventDefault();
+      if (cropActive) return;
+      if (e.shiftKey) {
+        if (redoStack.length) { annotations.push(redoStack.pop()); renderAnnotations(); }
+      } else {
+        if (annotations.length) { redoStack.push(annotations.pop()); renderAnnotations(); }
+      }
+    }
+  }
+});
+
+})();
+</script>
+</body>
+</html>
