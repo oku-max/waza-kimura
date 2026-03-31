@@ -10,8 +10,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.0</title>
+<title>WAZA KIMURA v48.1</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/snapshot.css">
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -72,6 +73,7 @@
   import './js/organize.js';
   import './js/bulk.js';
   import './js/ai-tagging.js';
+  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots } from './js/snapshot-editor.js';
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
@@ -311,6 +313,9 @@
   window.vpTogFav              = vpTogFav;
   window.vpSetShare            = vpSetShare;
   window.vpSaveMemo            = vpSaveMemo;
+  window.initSnapshotSection   = initSnapshotSection;
+  window.cleanupSnapshots      = cleanupSnapshots;
+  window.handleSnapshotPaste   = handleSnapshotPaste;
   window.autoSaveVp            = autoSaveVp;
   window.vpSave                = vpSave;
   window.vpTogChannelDd        = vpTogChannelDd;
@@ -2853,5 +2858,81 @@ window.addEventListener('resize', adjustTopbarOffset);
   }
 })();
 </script>
+<!-- ── Snapshot Lightbox ── -->
+<div class="lightbox" id="snap-lightbox">
+  <button class="lb-close" id="snap-lb-close">&times;</button>
+  <span class="lb-counter" id="snap-lb-counter"></span>
+  <button class="lb-nav prev" id="snap-lb-prev">&#8249;</button>
+  <button class="lb-nav next" id="snap-lb-next">&#8250;</button>
+  <div class="lb-img-wrap"><img id="snap-lb-img" src="" alt=""></div>
+  <div class="lb-bottom">
+    <input class="lb-memo" id="snap-lb-memo" placeholder="この画像のメモ...">
+    <button class="lb-edit-btn" id="snap-lb-edit">&#9998; 編集</button>
+  </div>
+</div>
+
+<!-- ── Snapshot Annotation Editor ── -->
+<div class="ann-editor" id="snap-ann-editor">
+  <div class="ann-canvas-wrap" id="snap-ann-canvas-wrap">
+    <canvas id="snap-ann-canvas"></canvas>
+    <input class="ann-text-input" id="snap-ann-text-input" placeholder="テキスト入力...">
+    <div class="crop-actions" id="snap-crop-actions" style="display:none">
+      <button class="crop-btn confirm" id="snap-crop-confirm">&#10003; 確定</button>
+      <button class="crop-btn cancel" id="snap-crop-cancel">&#10005; 中止</button>
+    </div>
+  </div>
+  <div class="ann-toolbar">
+    <button class="ann-tool active" data-tool="select" title="選択">&#8598;</button>
+    <button class="ann-tool" data-tool="pen" title="ペン">&#9998;</button>
+    <button class="ann-tool" data-tool="circle" title="円">&#9711;</button>
+    <button class="ann-tool" data-tool="arrow" title="矢印">&#10132;</button>
+    <button class="ann-tool" data-tool="rect" title="四角">&#9645;</button>
+    <button class="ann-tool" data-tool="text" title="テキスト">T</button>
+    <button class="ann-tool" data-tool="eraser" title="消しゴム">&#9003;</button>
+    <button class="ann-tool" data-tool="crop" title="切り抜き">&#9986;</button>
+    <button class="ann-tool del-sel-btn" id="snap-ann-del-sel" title="選択削除" style="display:none">&#128465;</button>
+    <div class="sep"></div>
+    <div class="ann-fontsize-wrap" id="snap-ann-fontsize-wrap" style="display:none">
+      <button class="ann-fontsize-btn" data-fs="12">12</button>
+      <button class="ann-fontsize-btn" data-fs="16">16</button>
+      <button class="ann-fontsize-btn active" data-fs="20">20</button>
+      <button class="ann-fontsize-btn" data-fs="28">28</button>
+      <button class="ann-fontsize-btn" data-fs="36">36</button>
+      <button class="ann-fontsize-btn" data-fs="48">48</button>
+    </div>
+    <div class="sep"></div>
+    <button class="ann-tool" id="snap-ann-rotate-ccw" title="左に90°回転">&#8634;</button>
+    <button class="ann-tool" id="snap-ann-rotate-cw" title="右に90°回転">&#8635;</button>
+    <div class="sep"></div>
+    <button class="ann-tool" id="snap-ann-undo" title="元に戻す">&#8617;</button>
+    <button class="ann-tool" id="snap-ann-redo" title="やり直す">&#8618;</button>
+    <button class="ann-tool clear-btn" id="snap-ann-clear" title="全削除">&#128465;</button>
+    <div class="sep"></div>
+    <button class="ann-tool save-btn" id="snap-ann-save" title="保存">&#10003;</button>
+    <button class="ann-tool cancel-btn" id="snap-ann-cancel" title="キャンセル">&#10005;</button>
+    <div class="row-break"></div>
+    <div class="ann-colors" id="snap-ann-colors">
+      <div class="ann-color active" data-color="#e74c3c" style="background:#e74c3c"></div>
+      <div class="ann-color" data-color="#f39c12" style="background:#f39c12"></div>
+      <div class="ann-color" data-color="#ffffff" style="background:#ffffff;border-color:#ccc"></div>
+      <div class="ann-color" data-color="#3498db" style="background:#3498db"></div>
+      <div class="ann-color" data-color="#2ecc71" style="background:#2ecc71"></div>
+    </div>
+    <div class="ann-color-popup" id="snap-ann-color-popup" style="display:none">
+      <input type="color" id="snap-ann-color-picker" value="#e74c3c">
+    </div>
+    <div class="sep"></div>
+    <div class="ann-widths">
+      <div class="ann-width" data-w="1" style="width:6px;height:6px"></div>
+      <div class="ann-width active" data-w="2" style="width:8px;height:8px"></div>
+      <div class="ann-width" data-w="4" style="width:12px;height:12px"></div>
+      <div class="ann-width" data-w="7" style="width:16px;height:16px"></div>
+      <div class="ann-width" data-w="12" style="width:20px;height:20px"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="snap-file-input" accept="image/*" multiple style="display:none">
+
 </body>
 </html>

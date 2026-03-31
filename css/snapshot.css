@@ -1,0 +1,620 @@
+/* ============================================
+   snapshot.css — Snapshot feature styles
+   Used by: VPanel snapshot section, lightbox, annotation editor
+   Depends on: css/style.css (CSS variables, .fsec, .fsec-title, .vp-memo)
+   ============================================ */
+
+/* ── Snapshot Thumbnail Grid ── */
+
+.snap-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.snap-thumb {
+  width: 90px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: var(--surface2);
+  transition: border-color .15s, opacity .15s, transform .15s;
+  flex-shrink: 0;
+}
+
+.snap-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.snap-thumb:hover {
+  border-color: var(--accent);
+}
+
+.snap-thumb .del-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 2;
+}
+
+.snap-thumb:hover .del-btn {
+  opacity: 1;
+}
+
+.snap-thumb.dragging {
+  opacity: .4;
+  transform: scale(.95);
+}
+
+.snap-thumb.drag-over {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.snap-thumb .snap-index {
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,.5);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 14px;
+}
+
+.snap-add {
+  width: 90px;
+  height: 64px;
+  border-radius: 6px;
+  border: 2px dashed var(--border);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  gap: 2px;
+  transition: border-color .15s, color .15s;
+  flex-shrink: 0;
+}
+
+.snap-add:hover {
+  border-color: var(--text2);
+  color: var(--text2);
+}
+
+.snap-add .icon {
+  font-size: 16px;
+}
+
+
+/* ── Snapshot Compression Settings ── */
+
+.snap-settings-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.snap-settings-toggle .chevron {
+  transition: transform .2s;
+  display: inline-block;
+  font-size: 8px;
+  margin-left: 4px;
+}
+
+.snap-settings-toggle .chevron.open {
+  transform: rotate(90deg);
+}
+
+.snap-settings-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .25s ease;
+}
+
+.snap-settings-body.open {
+  max-height: 200px;
+}
+
+.snap-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.snap-setting-row label {
+  width: 80px;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.snap-setting-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.snap-setting-row .val {
+  width: 52px;
+  text-align: right;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.snap-size-info {
+  font-size: 10px;
+  color: var(--text3);
+  padding: 4px 0 2px;
+  font-family: 'DM Mono', monospace;
+}
+
+.snap-size-info .before {
+  color: #c0392b;
+}
+
+.snap-size-info .after {
+  color: var(--green);
+}
+
+
+/* ── Lightbox Overlay (z-index: 1000) ── */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,.85);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox.active {
+  display: flex;
+}
+
+.lb-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  opacity: .7;
+  transition: opacity .15s;
+}
+
+.lb-close:hover {
+  opacity: 1;
+}
+
+.lb-counter {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,.6);
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.lb-img-wrap {
+  position: relative;
+  max-width: 90vw;
+  max-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lb-img-wrap img {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.lb-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,.15);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: .7;
+  transition: opacity .15s;
+  z-index: 10;
+}
+
+.lb-nav:hover {
+  opacity: 1;
+}
+
+.lb-nav.prev {
+  left: 12px;
+}
+
+.lb-nav.next {
+  right: 12px;
+}
+
+.lb-bottom {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lb-memo {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  padding: 6px 10px;
+  width: 260px;
+  outline: none;
+}
+
+.lb-memo::placeholder {
+  color: rgba(255,255,255,.4);
+}
+
+.lb-memo:focus {
+  border-color: rgba(255,255,255,.5);
+}
+
+.lb-edit-btn {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.lb-edit-btn:hover {
+  background: rgba(255,255,255,.25);
+}
+
+
+/* ── Annotation Editor (z-index: 2000) ── */
+
+.ann-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #111;
+  display: none;
+  flex-direction: column;
+}
+
+.ann-editor.active {
+  display: flex;
+}
+
+.ann-canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.ann-canvas-wrap canvas {
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+}
+
+.ann-toolbar {
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  padding: 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ann-toolbar .sep {
+  width: 1px;
+  height: 24px;
+  background: #333;
+  margin: 0 3px;
+}
+
+.ann-toolbar .row-break {
+  flex-basis: 100%;
+  height: 2px;
+}
+
+.ann-tool {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #aaa;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, color .1s;
+}
+
+.ann-tool:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.ann-tool.active {
+  background: #333;
+  color: #fff;
+}
+
+.ann-tool.save-btn {
+  color: var(--green);
+}
+
+.ann-tool.save-btn:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.ann-tool.cancel-btn {
+  color: #c0392b;
+}
+
+.ann-tool.cancel-btn:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
+.ann-tool.clear-btn {
+  color: #e67e22;
+}
+
+.ann-tool[data-tool="eraser"].active {
+  color: #e67e22;
+}
+
+canvas.eraser-cursor {
+  cursor: crosshair;
+}
+
+.ann-tool.del-sel-btn {
+  color: #c0392b;
+  display: none;
+}
+
+.ann-tool.del-sel-btn.visible {
+  display: flex;
+}
+
+
+/* ── Annotation Colors ── */
+
+.ann-colors {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  position: relative;
+}
+
+.ann-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color .1s, transform .1s;
+  position: relative;
+}
+
+.ann-color:hover {
+  transform: scale(1.15);
+}
+
+.ann-color.active {
+  border-color: #fff;
+}
+
+
+/* ── Annotation Widths ── */
+
+.ann-widths {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.ann-width {
+  background: #aaa;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background .1s;
+  border: 2px solid transparent;
+}
+
+.ann-width:hover {
+  background: #fff;
+}
+
+.ann-width.active {
+  background: #fff;
+  border-color: var(--green);
+}
+
+
+/* ── Annotation Text Input ── */
+
+.ann-text-input {
+  position: absolute;
+  background: rgba(0,0,0,.7);
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 4px 8px;
+  outline: none;
+  min-width: 100px;
+  z-index: 10;
+  display: none;
+}
+
+
+/* ── Annotation Font Size Selector ── */
+
+.ann-fontsize-wrap {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.ann-fontsize-wrap.visible {
+  display: flex;
+}
+
+.ann-fontsize-btn {
+  height: 26px;
+  min-width: 28px;
+  padding: 0 4px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #aaa;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+
+.ann-fontsize-btn:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.ann-fontsize-btn.active {
+  background: #333;
+  color: #fff;
+}
+
+
+/* ── Annotation Color Picker Popup ── */
+
+.ann-color-popup {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  z-index: 20;
+  display: none;
+}
+
+.ann-color-popup.visible {
+  display: block;
+}
+
+.ann-color-popup input[type="color"] {
+  width: 40px;
+  height: 32px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+
+/* ── Crop Tool ── */
+
+.crop-actions {
+  position: absolute;
+  display: flex;
+  gap: 4px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.crop-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.crop-btn.confirm {
+  background: #2ecc71;
+  color: #fff;
+}
+
+.crop-btn.confirm:hover {
+  background: #27ae60;
+}
+
+.crop-btn.cancel {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.crop-btn.cancel:hover {
+  background: #c0392b;
+}

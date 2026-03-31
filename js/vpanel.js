@@ -1199,7 +1199,12 @@ export function openVPanel(id) {
       + `<div class="vp-row" style="margin-top:8px">
           <span class="vp-lbl">Memo</span>
           <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
-        </div>`;
+        </div>
+        <div id="vp-snap-section-${vid}"></div>`;
+    // Initialize snapshot section
+    if (window.initSnapshotSection) {
+      window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
+    }
   }
 
   editArea.innerHTML = buildDrawerHTML(id);
@@ -1257,6 +1262,7 @@ export function closeVPanel() {
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
+    if (window.cleanupSnapshots) { try { window.cleanupSnapshots(); } catch(e) {} }
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
     }
@@ -2220,9 +2226,19 @@ export function _openPanel(id, emb, ext, plat) {
 
       ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
+      <div class="vp-row" style="margin-top:8px;padding:0 2px">
+        <span class="vp-lbl">Memo</span>
+        <textarea class="vp-memo" id="vp-memo-${id}" placeholder="" onblur="vpSaveMemo('${id}')">${v?.memo||''}</textarea>
+      </div>
+      <div id="vp-snap-section-${id}"></div>
       ${buildDrawerHTML(id)}
     </div>
   `;
+
+  // Initialize snapshot section (PC panel)
+  if (window.initSnapshotSection) {
+    window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
+  }
 
   panel.classList.add('show');
   const ma = document.querySelector('.main-area');
@@ -2303,6 +2319,7 @@ export function closePanel() {
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
     }
+    if (window.cleanupSnapshots) { try { window.cleanupSnapshots(); } catch(e) {} }
     const panel = document.getElementById('vp-panel');
     if (panel) { panel.classList.remove('show'); }
     const ma2 = document.querySelector('.main-area');
