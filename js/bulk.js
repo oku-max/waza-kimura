@@ -227,7 +227,7 @@ export function bvpDdAddNew(key, val) {
   bvpRenderDdList(key, '');
   const inp = document.querySelector('#bvp-dd-' + key + ' .vp-dd-search');
   if (inp) inp.value = '';
-  window.toast?.((window.selIds || new Set()).size + '本に「' + val + '」を追加');
+  window.toastUndo?.((window.selIds || new Set()).size + '本に「' + val + '」を追加', bulkUndo);
   window.AF?.(); if (window.bulkCtx === 'organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -261,7 +261,7 @@ export function bvpChipRm(key, val) {
   document.querySelectorAll(`#bvp-dd-list-${key} .vp-dd-item`).forEach(item => {
     if (item.textContent === val) item.classList.remove('selected');
   });
-  window.toast?.((window.selIds||new Set()).size+'本から「'+val+'」を削除');
+  window.toastUndo?.((window.selIds||new Set()).size+'本から「'+val+'」を削除', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -299,7 +299,7 @@ export function bvpSet(field, val, el) {
   const rowId = field==='prio' ? 'bvp-prio' : 'bvp-prog';
   document.querySelectorAll('#'+rowId+' .chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  window.toast?.((window.selIds||new Set()).size+'本に「'+val+'」を設定');
+  window.toastUndo?.((window.selIds||new Set()).size+'本に「'+val+'」を設定', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -315,13 +315,12 @@ export function bvpToggle(field, val, el, onClass) {
     else if(!arr.includes(val)) v[field]=[...arr,val];
   });
   el.classList.toggle(onClass, !isOn);
-  window.toast?.((isOn?'削除: ':'追加: ')+'「'+val+'」 → '+(window.selIds||new Set()).size+'本');
+  window.toastUndo?.((isOn?'削除: ':'追加: ')+'「'+val+'」 → '+(window.selIds||new Set()).size+'本', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
 export function bvpToggleWatch(el) {
   bulkSnapshot();
-  // 全動画を「視聴済み」にトグル（過半数が視聴済みなら未視聴に、そうでなければ視聴済みに）
   const ids=[...(window.selIds||new Set())];
   const videos = window.videos || [];
   const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
@@ -330,7 +329,7 @@ export function bvpToggleWatch(el) {
   vids.forEach(v=>v.watched=setTo);
   el.textContent = setTo ? '視聴済み' : '未視聴';
   el.classList.toggle('active', setTo);
-  window.toast?.((window.selIds||new Set()).size+'本を'+(setTo?'視聴済み':'未視聴')+'に設定');
+  window.toastUndo?.((window.selIds||new Set()).size+'本を'+(setTo?'視聴済み':'未視聴')+'に設定', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -345,7 +344,7 @@ export function bvpToggleFav(el) {
   el.textContent = setTo ? '★ Fav' : '★ Fav';
   el.classList.toggle('active', setTo);
   el.classList.toggle('c-fav', setTo);
-  window.toast?.((window.selIds||new Set()).size+'本をFav'+(setTo?'追加':'解除'));
+  window.toastUndo?.((window.selIds||new Set()).size+'本をFav'+(setTo?'追加':'解除'), bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -468,7 +467,7 @@ export function bvpSetChannel() {
   ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.channel=val; });
   inp.value = '';
   const sug = document.getElementById('bvp-ch-sug'); if(sug) sug.innerHTML='';
-  window.toast?.((window.selIds||new Set()).size+'本のチャンネルを「'+val+'」に設定');
+  window.toastUndo?.((window.selIds||new Set()).size+'本のチャンネルを「'+val+'」に設定', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -495,7 +494,7 @@ export function bvpSetPlaylist() {
   ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.pl=val; });
   inp.value = '';
   const sug = document.getElementById('bvp-pl-sug'); if(sug) sug.innerHTML='';
-  window.toast?.((window.selIds||new Set()).size+'本のプレイリストを「'+val+'」に変更');
+  window.toastUndo?.((window.selIds||new Set()).size+'本のプレイリストを「'+val+'」に変更', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -766,11 +765,12 @@ export function bulkPlConfirm(targetPl) {
   const ids = [...(window.selIds||new Set())];
   const mode = _bulkPlMode;
   const videos = window.videos || [];
+  bulkSnapshot();
   if(mode==='move'){
     ids.forEach(id=>{ const v=videos.find(v=>v.id===id); if(v) v.pl=targetPl; });
     window.closeOv?.('vpPlOv');
-    window.AF?.();
-    window.toast?.(`↪ ${ids.length}本を「${targetPl}」に移動しました`);
+    window.AF?.(); window.debounceSave?.();
+    window.toastUndo?.(`↪ ${ids.length}本を「${targetPl}」に移動しました`, bulkUndo);
   } else {
     const copies = ids.map(id=>{
       const v=videos.find(v=>v.id===id); if(!v) return null;
@@ -781,8 +781,8 @@ export function bulkPlConfirm(targetPl) {
     }).filter(Boolean);
     copies.forEach(c=>videos.push(c));
     window.closeOv?.('vpPlOv');
-    window.AF?.();
-    window.toast?.(`⧉ ${copies.length}本を「${targetPl}」にコピーしました`);
+    window.AF?.(); window.debounceSave?.();
+    window.toastUndo?.(`⧉ ${copies.length}本を「${targetPl}」にコピーしました`, bulkUndo);
   }
 }
 
@@ -797,9 +797,10 @@ export function bulkPlRemove() {
   const ids = [...(window.selIds||new Set())];
   const videos = window.videos || [];
   window.showConf?.('✕ プレイリストから削除', `${ids.length}本を「未分類」に移動します。`, ()=>{
+    bulkSnapshot();
     ids.forEach(id=>{ const v=videos.find(v=>v.id===id); if(v) v.pl='未分類'; });
-    window.AF?.();
-    window.toast?.(`✕ ${ids.length}本を未分類に移動しました`);
+    window.AF?.(); window.debounceSave?.();
+    window.toastUndo?.(`✕ ${ids.length}本を未分類に移動しました`, bulkUndo);
   });
 }
 
@@ -813,11 +814,12 @@ export function bulkDo(type){
   if(!(window.selIds||new Set()).size){ window.toast?.('動画を選択してください'); return; }
   const ids=[...(window.selIds||new Set())];
   const videos = window.videos || [];
-  if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();window.debounceSave?.();window.toast?.('✅ '+ids.length+'本を視聴済みに');}
-  else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();window.debounceSave?.();window.toast?.('👁 '+ids.length+'本を未視聴に戻した');}
-  else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();window.debounceSave?.();window.toast?.('⭐ '+ids.length+'本をお気に入りに追加');}
-  else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();window.debounceSave?.();window.toast?.('☆ '+ids.length+'本のお気に入りを解除');}
-  else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.debounceSave?.();window.toast?.('📦 '+ids.length+'本をアーカイブ');}
+  bulkSnapshot();
+  if(type==='watched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('✅ '+ids.length+'本を視聴済みに', bulkUndo);}
+  else if(type==='unwatched'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.watched=false;});window.AF?.();window.debounceSave?.();window.toastUndo?.('👁 '+ids.length+'本を未視聴に戻した', bulkUndo);}
+  else if(type==='fav-add'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('⭐ '+ids.length+'本をお気に入りに追加', bulkUndo);}
+  else if(type==='fav-remove'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.fav=false;});window.AF?.();window.debounceSave?.();window.toastUndo?.('☆ '+ids.length+'本のお気に入りを解除', bulkUndo);}
+  else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('📦 '+ids.length+'本をアーカイブ', bulkUndo);}
   else if(type==='delete'){
     window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', async () => {
       window.videos = (window.videos||[]).filter(v => !ids.includes(v.id));
@@ -830,8 +832,8 @@ export function bulkDo(type){
     });
     return;
   }
-  else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});window.AF?.();window.toast?.('🌐 '+ids.length+'本を全体公開にシェア');}
-  else if(type==='remove'){window.showConf?.('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});window.AF?.();window.toast?.('✂ 除外しました');});}
+  else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});window.AF?.();window.debounceSave?.();window.toastUndo?.('🌐 '+ids.length+'本を全体公開にシェア', bulkUndo);}
+  else if(type==='remove'){window.showConf?.('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});window.AF?.();window.debounceSave?.();window.toastUndo?.('✂ 除外しました', bulkUndo);});}
 }
 
 // ── 一括タグリセット ──
