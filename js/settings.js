@@ -224,7 +224,7 @@ export function renderTagPresets(i) {
   const key = tagSettings[i].key;
   const existing = new Set(tagSettings[i].presets);
   const blocked = new Set(aiSettings.techBlocklist || []);
-  const fromLibrary = [...new Set((window.videos||[]).flatMap(v => v[key]||[]))].filter(t => !existing.has(t) && !blocked.has(t)).sort();
+  const fromLibrary = [...new Set((window.videos||[]).flatMap(v => v[key]||[]))].filter(t => !existing.has(t) && !blocked.has(t)).sort((a, b) => a.localeCompare(b, 'ja'));
   if (!fromLibrary.length) return;
   const sep = document.createElement('div');
   sep.style.cssText = 'width:100%;margin:8px 0 5px;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;';
@@ -507,13 +507,17 @@ export function renderAiSettings() {
               ここに登録されたタグはAIが提案しなくなります。仕分けモードや整理ツールから追加できます。
             </div>
             <div id="blocklist-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
-              ${(s.techBlocklist||[]).length ? (s.techBlocklist||[]).map((t, i) => `
-                <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;
+              ${(s.techBlocklist||[]).length ? [...(s.techBlocklist||[])].sort((a, b) => a.localeCompare(b, 'ja')).map(t => {
+                const idx = (s.techBlocklist||[]).indexOf(t);
+                return `<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border-radius:12px;
                   background:#ef444411;border:1.5px solid #ef4444;font-size:11px;color:#ef4444">
                   ${t}
-                  <span onclick="aiSettings.techBlocklist.splice(${i},1);saveAiSettings();renderAiSettings()"
-                    style="cursor:pointer;font-size:11px;margin-left:2px" title="禁止解除">✕</span>
-                </span>`).join('') : '<span style="font-size:11px;color:var(--text3)">なし</span>'}
+                  <span onclick="window._blocklistMoveTo(${idx})"
+                    style="cursor:pointer;font-size:10px;padding:1px 3px;border-radius:6px;opacity:.6" title="属性に移動">↩</span>
+                  <span onclick="aiSettings.techBlocklist.splice(${idx},1);saveAiSettings();renderAiSettings()"
+                    style="cursor:pointer;font-size:11px;padding:1px 3px" title="禁止解除">✕</span>
+                </span>`;
+              }).join('') : '<span style="font-size:11px;color:var(--text3)">なし</span>'}
             </div>
             <div style="display:flex;gap:6px;align-items:center">
               <input id="blocklist-new" placeholder="タグ名を入力..."
@@ -580,6 +584,76 @@ window._blocklistAdd = function() {
     window.toast?.(`🚫 "${val}" を禁止リストに追加`);
   }
   inp.value = '';
+};
+
+// 禁止リスト → 属性に移動（ポップアップで属性選択）
+window._blocklistMoveTo = function(idx) {
+  const tag = aiSettings.techBlocklist?.[idx];
+  if (!tag) return;
+
+  // 既存ポップアップを消す
+  document.getElementById('blocklist-move-popup')?.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'blocklist-move-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:260px;max-width:360px';
+  card.innerHTML = `
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">↩ 「${tag}」を移動</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">禁止リストから外し、選択した属性の候補に追加します</div>
+    <div style="display:flex;flex-direction:column;gap:6px" id="blocklist-move-btns"></div>
+    <button onclick="document.getElementById('blocklist-move-popup').remove()"
+      style="margin-top:12px;width:100%;padding:8px;border-radius:8px;border:1.5px solid var(--border);
+             background:var(--surface2);color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit">キャンセル</button>`;
+  popup.appendChild(card);
+  document.body.appendChild(popup);
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+
+  const btnContainer = card.querySelector('#blocklist-move-btns');
+  const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+  tagSettings.forEach((ts, ti) => {
+    const c = colors[ti % colors.length];
+    const btn = document.createElement('button');
+    btn.textContent = ts.label;
+    btn.style.cssText = `padding:10px;border-radius:8px;border:2px solid ${c};background:${c}11;
+      color:${c};font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left`;
+    btn.onclick = () => {
+      // 禁止リストから削除
+      aiSettings.techBlocklist.splice(idx, 1);
+      // 属性プリセットに追加
+      if (!ts.presets.includes(tag)) ts.presets.push(tag);
+      saveAiSettings();
+      saveTagSettings();
+      popup.remove();
+      renderAiSettings();
+      renderTagSettingsList();
+      requestAnimationFrame(() => {
+        const det = document.getElementById('blocklist-details');
+        if (det) det.open = true;
+      });
+      window.toast?.(`↩ 「${tag}」を ${ts.label} に移動`);
+    };
+    btnContainer.appendChild(btn);
+  });
+
+  // 「禁止解除のみ」ボタン
+  const releaseBtn = document.createElement('button');
+  releaseBtn.textContent = '禁止解除のみ（属性に追加しない）';
+  releaseBtn.style.cssText = 'padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit;text-align:left';
+  releaseBtn.onclick = () => {
+    aiSettings.techBlocklist.splice(idx, 1);
+    saveAiSettings();
+    popup.remove();
+    renderAiSettings();
+    requestAnimationFrame(() => {
+      const det = document.getElementById('blocklist-details');
+      if (det) det.open = true;
+    });
+    window.toast?.(`✅ 「${tag}」の禁止を解除`);
+  };
+  btnContainer.appendChild(releaseBtn);
 };
 
 export function setAiDefaultMode(mode) {
