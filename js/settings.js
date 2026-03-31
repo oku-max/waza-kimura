@@ -58,6 +58,7 @@ export let aiSettings = {
   flexibility:           'standard',
   autoAddToPresets:      false,
   model:                 'haiku',
+  bjjRulesAutoAdd:       false,
   bjjRules:              [...DEFAULT_BJJ_RULES],
   feedbackExamples:      [],
   techBlocklist:         [],
@@ -418,6 +419,9 @@ export function renderAiSettings() {
         </label>`)}
 
       ${s.newTagProposal ? row('承認時に自動でプリセットへ追加', '新規提案タグを承認した際にプリセットへ自動登録します', toggle('autoAddToPresets')) : ''}
+
+      <!-- BJJ判定ルール自動追加 -->
+      ${row('BJJ判定ルールの自動追加', 'AIタグ適用時に新しいパターンをBJJ判定ルールへ自動追加します', toggle('bjjRulesAutoAdd'))}
 
       <!-- 一括適用前の確認ダイアログ -->
       ${row('一括適用前の確認ダイアログ', '「○本に適用しますか？」の確認を表示します', toggle('bulkConfirm'))}

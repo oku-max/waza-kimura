@@ -144,6 +144,20 @@ export function buildBulkDrawerHTML() {
         🤖 AIタグ提案
       </button>
     </div>
+    <div style="padding:4px 12px;display:flex;gap:8px">
+      <button onclick="bulkDo('archive')"
+        style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--purple,#8b5cf6);
+               background:transparent;color:var(--purple,#8b5cf6);font-size:13px;
+               font-weight:700;cursor:pointer">
+        📦 アーカイブ
+      </button>
+      <button onclick="window.bulkTagReset()"
+        style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--text3);
+               background:transparent;color:var(--text3);font-size:13px;
+               font-weight:700;cursor:pointer">
+        🔄 タグリセット
+      </button>
+    </div>
     <div style="padding:4px 12px 20px">
       <button onclick="bulkDo('delete')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--red,#ef4444);
@@ -776,6 +790,80 @@ export function bulkDo(type){
   else if(type==='share'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.shared=2;});window.AF?.();window.toast?.('🌐 '+ids.length+'本を全体公開にシェア');}
   else if(type==='remove'){window.showConf?.('📋 PL除外',ids.length+'本をプレイリストから除外します。',()=>{ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.pl='（除外済）';});window.AF?.();window.toast?.('✂ 除外しました');});}
 }
+
+// ── 一括タグリセット ──
+window.bulkTagReset = function() {
+  if (!(window.selIds||new Set()).size) { window.toast?.('動画を選択してください'); return; }
+  const ids = [...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  const ts = window.tagSettings || [];
+  const fields = ['tb','ac','pos','tech'];
+  const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+
+  document.getElementById('vp-tag-reset-popup')?.remove();
+  const popup = document.createElement('div');
+  popup.id = 'vp-tag-reset-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:260px;max-width:360px';
+
+  let btnsHtml = '';
+  fields.forEach((f, fi) => {
+    const label = ts.find(t => t.key === f)?.label || f.toUpperCase();
+    let total = 0;
+    ids.forEach(id => { const v = videos.find(v => v.id === id); total += (v?.[f]||[]).length; });
+    if (!total) return;
+    const c = colors[fi % colors.length];
+    btnsHtml += `<button data-field="${f}"
+      style="padding:10px;border-radius:8px;border:2px solid ${c};background:${c}11;
+        color:${c};font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;width:100%">
+      ${label}をリセット（${ids.length}本, 計${total}件）
+    </button>`;
+  });
+
+  card.innerHTML = `
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">🔄 一括タグリセット（${ids.length}本）</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">リセットする属性を選んでください</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${btnsHtml}
+      <button id="bulk-tag-reset-all"
+        style="padding:10px;border-radius:8px;border:2px solid var(--red,#ef4444);background:rgba(239,68,68,.08);
+          color:var(--red,#ef4444);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
+        ⚠ すべてのタグをリセット
+      </button>
+      <button onclick="document.getElementById('vp-tag-reset-popup').remove()"
+        style="padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);
+          color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit;width:100%">キャンセル</button>
+    </div>`;
+
+  popup.appendChild(card);
+  document.body.appendChild(popup);
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+
+  card.querySelectorAll('button[data-field]').forEach(btn => {
+    btn.onclick = () => {
+      const field = btn.dataset.field;
+      const label = ts.find(t => t.key === field)?.label || field;
+      let count = 0;
+      ids.forEach(id => { const v = videos.find(v => v.id === id); if (v) { count += (v[field]||[]).length; v[field] = []; } });
+      window.debounceSave?.(); window.AF?.();
+      popup.remove();
+      window.toast?.(`🔄 ${ids.length}本の${label}をリセット（${count}件削除）`);
+    };
+  });
+
+  document.getElementById('bulk-tag-reset-all').onclick = () => {
+    let count = 0;
+    ids.forEach(id => {
+      const v = videos.find(v => v.id === id); if (!v) return;
+      fields.forEach(f => { count += (v[f]||[]).length; v[f] = []; });
+    });
+    window.debounceSave?.(); window.AF?.();
+    popup.remove();
+    window.toast?.(`🔄 ${ids.length}本の全タグをリセット（${count}件削除）`);
+  };
+};
 
 // ── 整理タブ ──
 // 判断ステータス管理（videoオブジェクトのjudge フィールドを使用）
