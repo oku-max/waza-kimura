@@ -200,7 +200,9 @@ export function renderTagPresets(i) {
   const el = document.getElementById('ts-presets-' + i); if (!el) return;
   el.innerHTML = '';
   if (tagSettings[i].presets.length) {
-    tagSettings[i].presets.forEach(function(p, pi) {
+    // ソート済みインデックスで表示（内部配列は変更しない）
+    const sorted = tagSettings[i].presets.map((p, pi) => ({ p, pi })).sort((a, b) => a.p.localeCompare(b.p, 'ja'));
+    sorted.forEach(function({ p, pi }) {
       const chip = document.createElement('span');
       chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:var(--surface2);border:1.5px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;';
       chip.title = 'クリックで名前を変更';
@@ -509,13 +511,14 @@ export function renderAiSettings() {
             <div id="blocklist-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
               ${(s.techBlocklist||[]).length ? [...(s.techBlocklist||[])].sort((a, b) => a.localeCompare(b, 'ja')).map(t => {
                 const idx = (s.techBlocklist||[]).indexOf(t);
-                return `<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border-radius:12px;
-                  background:#ef444411;border:1.5px solid #ef4444;font-size:11px;color:#ef4444">
-                  ${t}
+                return `<span style="display:inline-flex;align-items:center;gap:0;padding:0;border-radius:12px;
+                  background:#ef444411;border:1.5px solid #ef4444;font-size:11px;color:#ef4444;overflow:hidden">
                   <span onclick="window._blocklistMoveTo(${idx})"
-                    style="cursor:pointer;font-size:10px;padding:1px 3px;border-radius:6px;opacity:.6" title="属性に移動">↩</span>
+                    style="cursor:pointer;padding:4px 6px;background:#3b82f6;color:#fff;font-size:10px;font-weight:700;
+                           display:inline-flex;align-items:center" title="属性に移動">↩</span>
+                  <span style="padding:3px 4px 3px 8px">${t}</span>
                   <span onclick="aiSettings.techBlocklist.splice(${idx},1);saveAiSettings();renderAiSettings()"
-                    style="cursor:pointer;font-size:11px;padding:1px 3px" title="禁止解除">✕</span>
+                    style="cursor:pointer;font-size:11px;padding:3px 6px 3px 2px" title="禁止解除">✕</span>
                 </span>`;
               }).join('') : '<span style="font-size:11px;color:var(--text3)">なし</span>'}
             </div>
