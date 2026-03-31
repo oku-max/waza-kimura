@@ -10,7 +10,7 @@
  *  5. Drag & drop reordering
  */
 
-import { putSnapshot, getSnapshot, getSnapshotsByVideo, deleteSnapshot } from './snapshot-db.js';
+import { putSnapshot, getSnapshot, getSnapshotsByVideo, deleteSnapshot, syncSnapshotsFromCloud } from './snapshot-db.js';
 
 // ════════════════════════════════════════════════════════════════
 // ── Module State
@@ -1799,17 +1799,22 @@ export async function initSnapshotSection(videoId, container) {
       </div>
     </div>`;
 
-  // Load blobs from IndexedDB
+  // Load blobs: IndexedDB (local cache) → Firebase Storage (cloud) for missing
   let dbSnaps = [];
   try {
-    dbSnaps = await getSnapshotsByVideo(videoId);
+    dbSnaps = await syncSnapshotsFromCloud(videoId, refs);
   } catch (err) {
-    console.error('[snapshot-editor] getSnapshotsByVideo failed:', err);
+    console.warn('[snapshot-editor] syncSnapshotsFromCloud failed, falling back to local:', err);
+    try {
+      dbSnaps = await getSnapshotsByVideo(videoId);
+    } catch (e2) {
+      console.error('[snapshot-editor] getSnapshotsByVideo failed:', e2);
+    }
   }
 
   snapshots = refs.map((ref, i) => {
     const db = dbSnaps.find(d => d.id === ref.id);
-    if (!db) return null; // orphaned ref
+    if (!db) return null; // orphaned ref — not in local or cloud
     const url = URL.createObjectURL(db.blob);
     return {
       id: ref.id,
