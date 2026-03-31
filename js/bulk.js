@@ -62,7 +62,8 @@ export function buildBulkDrawerHTML() {
       const sel = commonTags.includes(o);
       return `<div class="vp-dd-item${sel?' selected':''}" onclick="bvpDdToggle('${key}','${o.replace(/'/g,"\\'")}',this)">${o}</div>`;
     }).join('');
-    return `<div class="vp-row" style="border-top:1px solid var(--border2)">
+    const rowCls = {tb:'vp-row-tb',ac:'vp-row-ac',pos:'vp-row-pos',tech:'vp-row-tech'}[key] || '';
+    return `<div class="vp-row ${rowCls}" style="border-top:1px solid var(--border2)">
       <span class="vp-lbl">${label}</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="bvp-${key}">${chips}</div>
