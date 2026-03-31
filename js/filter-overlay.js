@@ -372,6 +372,7 @@ export function syncFilterOvRows(isOrg=false) {
   const watEl  = document.getElementById(`${p}-chip-watched`); if(watEl)  watEl.classList.toggle('active',  (isOrg ? window.orgWatchedOnly  : window.watchedOnly)||false);
   const bmEl   = document.getElementById(`${p}-chip-bm`);      if(bmEl)   bmEl.classList.toggle('active',   (isOrg ? window.orgBmOnly       : window.bmOnly)||false);
   const memoEl = document.getElementById(`${p}-chip-memo`);    if(memoEl) memoEl.classList.toggle('active', (isOrg ? window.orgMemoOnly     : window.memoOnly)||false);
+  const imgEl  = document.getElementById(`${p}-chip-img`);     if(imgEl)  imgEl.classList.toggle('active',  (isOrg ? window.orgImgOnly      : window.imgOnly)||false);
 }
 
 // ── カウントヘルパー ──

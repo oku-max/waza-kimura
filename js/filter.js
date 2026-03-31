@@ -58,10 +58,18 @@ export function togMemo() {
   window.AF();
 }
 
+export function togImg() {
+  window.imgOnly = !window.imgOnly;
+  ['fov-chip-img','fs-chip-img'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.imgOnly);
+  });
+  window.AF();
+}
+
 export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
   window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
-  window.bmOnly = false; window.memoOnly = false;
+  window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   const si = document.getElementById('si'); if (si) si.value = '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
   window.syncFilterOvRows?.();
@@ -235,6 +243,7 @@ export function filt(list) {
     if (window.watchedOnly && !v.watched) return false;
     if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly && !v.memo) return false;
+    if (window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) return false;
     if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
     // ▼ 修正: ch / pl / tech が undefined の動画でもクラッシュしないよう || '' / || [] でガード
     if (q && !(v.title||'').toLowerCase().includes(q)
@@ -279,6 +288,7 @@ export function countContextual(key, val) {
     if (window.watchedOnly && !v.watched)                                return false;
     if (window.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly    && !v.memo)                                   return false;
+    if (window.imgOnly     && !(v.snapshots && v.snapshots.length > 0)) return false;
     if (q && !(v.title||'').toLowerCase().includes(q)
           && !(v.channel||v.ch||'').toLowerCase().includes(q)
           && !(v.pl||'').toLowerCase().includes(q)

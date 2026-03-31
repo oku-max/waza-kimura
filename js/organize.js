@@ -7,7 +7,7 @@ export let orgFilters = {
   platform: new Set(), channel: new Set(),
   fav: new Set(), memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
-export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false;
+export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
 const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
@@ -47,6 +47,7 @@ Object.defineProperty(window, 'orgUnwOnly',     {get: () => orgUnwOnly,     set:
 Object.defineProperty(window, 'orgWatchedOnly', {get: () => orgWatchedOnly, set: v => { orgWatchedOnly = v; }});
 Object.defineProperty(window, 'orgBmOnly',      {get: () => orgBmOnly,      set: v => { orgBmOnly = v; }});
 Object.defineProperty(window, 'orgMemoOnly',    {get: () => orgMemoOnly,    set: v => { orgMemoOnly = v; }});
+Object.defineProperty(window, 'orgImgOnly',     {get: () => orgImgOnly,     set: v => { orgImgOnly = v; }});
 Object.defineProperty(window, 'orgColOrder', {get: () => orgColOrder, set: v => { orgColOrder = v; }});
 Object.defineProperty(window, 'orgColVisibility', {get: () => orgColVisibility, set: v => { orgColVisibility = v; }});
 Object.defineProperty(window, 'orgSortCol', {get: () => orgSortCol, set: v => { orgSortCol = v; }});
@@ -138,9 +139,15 @@ export function togOrgMemo() {
   renderOrg();
 }
 
+export function togOrgImg() {
+  orgImgOnly = !orgImgOnly;
+  ['org-fov-chip-img','org-fs-chip-img'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgImgOnly); });
+  renderOrg();
+}
+
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
-  orgFavOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false;
+  orgFavOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
   syncOrgFilterOvRows();
@@ -235,6 +242,7 @@ export function orgFilt(list) {
     if (orgWatchedOnly && !v.watched) return false;
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (orgMemoOnly    && !v.memo) return false;
+    if (orgImgOnly     && !(v.snapshots && v.snapshots.length > 0)) return false;
     if (orgFilters.platform.size && !orgFilters.platform.has(v.pt)) return false;
     // ── 検索演算子 ──
     // includes: すべてマッチ必須 (AND)
@@ -1508,6 +1516,7 @@ window.togOrgUnw = togOrgUnw;
 window.togOrgWatched = togOrgWatched;
 window.togOrgBm = togOrgBm;
 window.togOrgMemo = togOrgMemo;
+window.togOrgImg = togOrgImg;
 window.buildOrgFovRows = buildOrgFovRows;
 window.clearOrgFilters = clearOrgFilters;
 window.orgFilt = orgFilt;

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.1</title>
+<title>WAZA KIMURA v48.2</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -41,7 +41,7 @@
     renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings
   } from './js/settings.js';
   import {
-    togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, clearAll,
+    togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
     filterPresets, orgFilterPresets, saveFilterPresets, saveOrgFilterPresets,
     saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
@@ -177,6 +177,7 @@
   window.togWatched            = togWatched;
   window.togBm                 = togBm;
   window.togMemo               = togMemo;
+  window.togImg                = togImg;
   window.clearAll              = clearAll;
   window.filterPresets              = filterPresets;
   window.orgFilterPresets           = orgFilterPresets;
@@ -612,6 +613,7 @@
           <div class="chip" id="fs-chip-watched" onclick="togWatched()">視聴済み</div>
           <div class="chip" id="fs-chip-bm" onclick="togBm()">🔖 BM</div>
           <div class="chip" id="fs-chip-memo" onclick="togMemo()">💬 メモ</div>
+          <div class="chip" id="fs-chip-img" onclick="togImg()">🖼 画像あり</div>
         </div>
         <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);margin:8px 0 6px">PROGRESS</div>
         <div class="fs-chips">
@@ -765,6 +767,7 @@
           <div class="chip"       id="org-fs-chip-watched"  onclick="togOrgWatched()">視聴済み</div>
           <div class="chip"       id="org-fs-chip-bm"       onclick="togOrgBm()">🔖 BM</div>
           <div class="chip"       id="org-fs-chip-memo"     onclick="togOrgMemo()">💬 メモ</div>
+          <div class="chip"       id="org-fs-chip-img"      onclick="togOrgImg()">🖼 画像あり</div>
         </div>
         <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);margin:8px 0 6px">PROGRESS</div>
         <div class="fs-chips">
@@ -1980,7 +1983,8 @@ function updateFovChipBadges() {
   const watchedN= videos.filter(v => !v.archived && v.watched).length;
   const bmN   = videos.filter(v => !v.archived && v.bookmarks && v.bookmarks.length > 0).length;
   const memoN = videos.filter(v => !v.archived && v.memo).length;
-  [['fov-chip-fav', favN], ['fov-chip-unw', unseenN], ['fov-chip-watched', watchedN], ['fov-chip-bm', bmN], ['fov-chip-memo', memoN]].forEach(function([id, n]) {
+  const imgN  = videos.filter(v => !v.archived && v.snapshots && v.snapshots.length > 0).length;
+  [['fov-chip-fav', favN], ['fov-chip-unw', unseenN], ['fov-chip-watched', watchedN], ['fov-chip-bm', bmN], ['fov-chip-memo', memoN], ['fov-chip-img', imgN]].forEach(function([id, n]) {
     const el = document.getElementById(id);
     if (!el) return;
     const existing = el.querySelector('.fov-cnt');
@@ -2602,6 +2606,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div class="chip" id="org-fov-chip-watched" onclick="togOrgWatched()">視聴済み</div>
           <div class="chip" id="org-fov-chip-bm" onclick="togOrgBm()">🔖 ブックマークあり</div>
           <div class="chip" id="org-fov-chip-memo" onclick="togOrgMemo()">💬 メモあり</div>
+          <div class="chip" id="org-fov-chip-img" onclick="togOrgImg()">🖼 画像あり</div>
         </div>
       </div>
       <div class="fbar-row">
@@ -2725,6 +2730,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div class="chip" id="fov-chip-watched" onclick="togWatched()">視聴済み</div>
           <div class="chip" id="fov-chip-bm" onclick="togBm()">🔖 ブックマークあり</div>
           <div class="chip" id="fov-chip-memo" onclick="togMemo()">💬 メモあり</div>
+          <div class="chip" id="fov-chip-img" onclick="togImg()">🖼 画像あり</div>
         </div>
       </div>
       <div class="fbar-row">
