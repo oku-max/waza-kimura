@@ -223,7 +223,8 @@ export function renderTagPresets(i) {
   }
   const key = tagSettings[i].key;
   const existing = new Set(tagSettings[i].presets);
-  const fromLibrary = [...new Set((window.videos||[]).flatMap(v => v[key]||[]))].filter(t => !existing.has(t)).sort();
+  const blocked = new Set(aiSettings.techBlocklist || []);
+  const fromLibrary = [...new Set((window.videos||[]).flatMap(v => v[key]||[]))].filter(t => !existing.has(t) && !blocked.has(t)).sort();
   if (!fromLibrary.length) return;
   const sep = document.createElement('div');
   sep.style.cssText = 'width:100%;margin:8px 0 5px;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;';
