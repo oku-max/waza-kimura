@@ -232,15 +232,42 @@ export function renderTagPresets(i) {
   el.appendChild(sep);
   fromLibrary.forEach(function(t) {
     const chip = document.createElement('span');
-    chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:var(--surface);border:1.5px dashed var(--border);font-size:11px;color:var(--text3);cursor:pointer;';
-    chip.textContent = '＋ ' + t;
-    chip.onclick = function() {
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border-radius:12px;background:var(--surface);border:1.5px dashed var(--border);font-size:11px;color:var(--text3);';
+    const addBtn = document.createElement('span');
+    addBtn.textContent = '＋ ' + t;
+    addBtn.style.cssText = 'cursor:pointer;';
+    addBtn.onclick = function() {
       if (!tagSettings[i].presets.includes(t)) {
         tagSettings[i].presets.push(t);
         saveTagSettings();
         renderTagPresets(i);
       }
     };
+    const blockBtn = document.createElement('span');
+    blockBtn.textContent = '🚫';
+    blockBtn.title = '禁止リストに追加';
+    blockBtn.style.cssText = 'cursor:pointer;font-size:10px;padding:2px 4px;border-radius:8px;margin-left:2px;opacity:.5;';
+    blockBtn.onmouseenter = function() { blockBtn.style.opacity = '1'; };
+    blockBtn.onmouseleave = function() { blockBtn.style.opacity = '.5'; };
+    blockBtn.onclick = function(e) {
+      e.stopPropagation();
+      if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
+      if (!aiSettings.techBlocklist.includes(t)) {
+        aiSettings.techBlocklist.push(t);
+        saveAiSettings();
+      }
+      // 動画からも削除
+      (window.videos || []).forEach(function(v) {
+        ['tb','ac','pos','tech'].forEach(function(f) {
+          if (v[f]?.length) v[f] = v[f].filter(x => x !== t);
+        });
+      });
+      window.debounceSave?.();
+      renderTagPresets(i);
+      window.toast?.('🚫 「' + t + '」を禁止リストに追加');
+    };
+    chip.appendChild(addBtn);
+    chip.appendChild(blockBtn);
     el.appendChild(chip);
   });
 }
