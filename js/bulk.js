@@ -36,20 +36,16 @@ export function buildBulkDrawerHTML() {
   const commonCh   = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
   const commonPl   = selVids.every(v=>(v.pl||'')===(selVids[0]?.pl||'')) ? (selVids[0]?.pl||'未分類') : '（複数）';
 
-  const prioChips = ['今すぐ','そのうち','保留'].map((p,i) => {
-    const cls = ['on-p1','on-p2','on-p3'][i];
-    const lbl = ['🔴 今すぐ','🟡 そのうち','⚪ 保留'][i];
-    return `<span class="vp-chip" onclick="bvpSet('prio','${p}',this,'${cls}')">${lbl}</span>`;
-  }).join('');
-  const progChips = ['未着手','練習中','マスター'].map((s,i) => {
-    const cls = ['on-s0','on-s1','on-s2'][i];
-    const lbl = ['📋 未着手','🔵 練習中','✅ マスター'][i];
-    return `<span class="vp-chip" onclick="bvpSet('status','${s}',this,'${cls}')">${lbl}</span>`;
-  }).join('');
+  const prioChips = ['今すぐ','そのうち','保留'].map(p =>
+    `<span class="chip" onclick="bvpSet('prio','${p}',this)">${p}</span>`
+  ).join('');
+  const progChips = ['未着手','練習中','マスター'].map(s =>
+    `<span class="chip" onclick="bvpSet('status','${s}',this)">${s}</span>`
+  ).join('');
 
   const sec = (label, content) =>
-    `<div style="border:1px solid var(--border);border-radius:10px;margin:10px 12px 8px;overflow:hidden">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);padding:8px 14px 4px">${label}</div>
+    `<div class="fsec">
+      <div class="fsec-title">${label}</div>
       ${content}
     </div>`;
 
@@ -58,47 +54,45 @@ export function buildBulkDrawerHTML() {
     const chips = commonTags.map(v =>
       `<span class="vp-chip ${onCls}" onclick="bvpChipRm('${key}','${v.replace(/'/g,"\\'")}',this)" style="cursor:pointer">${v} ×</span>`
     ).join('');
-    const ddItems = opts.map(o => {
-      const sel = commonTags.includes(o);
-      return `<div class="vp-dd-item${sel?' selected':''}" onclick="bvpDdToggle('${key}','${o.replace(/'/g,"\\'")}',this)">${o}</div>`;
-    }).join('');
     const rowCls = {tb:'vp-row-tb',ac:'vp-row-ac',pos:'vp-row-pos',tech:'vp-row-tech'}[key] || '';
-    return `<div class="vp-row ${rowCls}" style="border-top:1px solid var(--border2)">
+    return `<div class="vp-row ${rowCls}">
       <span class="vp-lbl">${label}</span>
       <div class="vp-dd-wrap">
         <div class="vp-chips" id="bvp-${key}">${chips}</div>
         <div class="vp-dd-trigger" onclick="bvpTogDd('${key}')">＋ 追加</div>
         <div class="vp-dd" id="bvp-dd-${key}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索..." oninput="bvpDdFilter('${key}',this.value)">
-          <div class="vp-dd-list" id="bvp-dd-list-${key}">${ddItems}</div>
+          <input class="vp-dd-search" placeholder="検索・新規追加..."
+            oninput="bvpRenderDdList('${key}',this.value)"
+            onkeydown="bvpDdKey('${key}',event,this)">
+          <div class="vp-dd-list" id="bvp-dd-list-${key}"></div>
         </div>
       </div>
     </div>`;
   };
 
   return sec('ステータス・進捗・優先度', `
-    <div class="vp-row" style="border-top:1px solid var(--border2)">
-      <span class="vp-lbl">STATUS</span>
-      <div class="vp-chips">
-        <span class="vp-chip" onclick="bvpToggleWatch(this)">👁 視聴済み</span>
-        <span class="vp-chip" onclick="bvpToggleFav(this)">★ Fav</span>
+    <div class="vp-row">
+      <span class="vp-lbl">Status</span>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        <span class="chip" onclick="bvpToggleWatch(this)">未視聴</span>
+        <span class="chip" onclick="bvpToggleFav(this)">★ Fav</span>
       </div>
     </div>
-    <div class="vp-row" style="border-top:1px solid var(--border2)">
-      <span class="vp-lbl">PROGRESS</span>
-      <div class="vp-chips" id="bvp-prog">${progChips}</div>
+    <div class="vp-row">
+      <span class="vp-lbl">Progress</span>
+      <div style="display:flex;flex-wrap:wrap;gap:5px" id="bvp-prog">${progChips}</div>
     </div>
-    <div class="vp-row" style="border-top:1px solid var(--border2)">
-      <span class="vp-lbl">PRIORITY</span>
-      <div class="vp-chips" id="bvp-prio">${prioChips}</div>
+    <div class="vp-row">
+      <span class="vp-lbl">Priority</span>
+      <div style="display:flex;flex-wrap:wrap;gap:5px" id="bvp-prio">${prioChips}</div>
     </div>`)
   + sec('チャンネル・プレイリスト', `
-    <div class="vp-row" style="border-top:1px solid var(--border2)">
-      <span class="vp-lbl">CHANNEL</span>
+    <div class="vp-row">
+      <span class="vp-lbl">Channel</span>
       <div class="vp-dd-wrap">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span class="vp-chip" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${commonCh}</span>
-          <span class="vp-dd-trigger" onclick="bvpTogDd('ch')">✎ 変更</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+          <span class="chip active">${commonCh}</span>
+          <div class="chip" style="border-style:dashed" onclick="bvpTogDd('ch')">✎ 変更</div>
         </div>
         <div class="vp-dd" id="bvp-dd-ch" style="display:none">
           <input class="vp-dd-search" id="bvp-ch-inp" placeholder="検索・新規追加..."
@@ -110,12 +104,12 @@ export function buildBulkDrawerHTML() {
         </div>
       </div>
     </div>
-    <div class="vp-row" style="border-top:1px solid var(--border2)">
-      <span class="vp-lbl">PLAYLIST</span>
+    <div class="vp-row">
+      <span class="vp-lbl">Playlist</span>
       <div class="vp-dd-wrap">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span class="vp-chip" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${commonPl}</span>
-          <span class="vp-dd-trigger" onclick="bvpTogDd('pl')">✎ 変更・検索</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+          <span class="chip active">${commonPl}</span>
+          <div class="chip" style="border-style:dashed" onclick="bvpTogDd('pl')">✎ 変更・検索</div>
         </div>
         <div class="vp-dd" id="bvp-dd-pl" style="display:none">
           <input class="vp-dd-search" id="bvp-pl-inp" placeholder="検索・新規追加..."
@@ -125,10 +119,10 @@ export function buildBulkDrawerHTML() {
           <div class="vp-dd-list" id="bvp-pl-sug"></div>
           <button class="vp-tech-add-btn" style="width:100%;margin-top:6px" onclick="bvpSetPlaylist()">✓ 変更する</button>
         </div>
-        <div class="vp-chips" style="margin-top:6px">
-          <span class="vp-chip" onclick="openBulkPlOp('move')">↪ 移動</span>
-          <span class="vp-chip" onclick="openBulkPlOp('copy')">⧉ コピー</span>
-          <span class="vp-chip" style="color:var(--red)" onclick="bulkPlRemove()">✕ 削除</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="vp-pl-btn" onclick="openBulkPlOp('move')">↪ 移動</button>
+          <button class="vp-pl-btn" onclick="openBulkPlOp('copy')">⧉ コピー</button>
+          <button class="vp-pl-btn vp-pl-btn-del" onclick="bulkPlRemove()">✕ 削除</button>
         </div>
       </div>
     </div>`)
@@ -137,7 +131,7 @@ export function buildBulkDrawerHTML() {
     + mkTagRow('ac',   (ts.find(t=>t.key==='ac')?.label  ||'Action'),     AC_OPTS,  commonAc)
     + mkTagRow('pos',  (ts.find(t=>t.key==='pos')?.label ||'Position'),   POS_ALL,  commonPos)
     + mkTagRow('tech', (ts.find(t=>t.key==='tech')?.label||'Technique'),  TECH_ALL, commonTech))
-  + `<div style="padding:4px 12px 4px">
+  + `<div style="padding:8px 16px 4px">
       <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
                background:var(--surface2);color:var(--accent);font-size:13px;
@@ -145,21 +139,21 @@ export function buildBulkDrawerHTML() {
         🤖 AIタグ提案
       </button>
     </div>
-    <div style="padding:4px 12px;display:flex;gap:8px">
+    <div style="padding:4px 16px;display:flex;gap:8px">
       <button onclick="bulkDo('archive')"
-        style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--purple,#8b5cf6);
-               background:transparent;color:var(--purple,#8b5cf6);font-size:13px;
+        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--purple,#8b5cf6);
+               background:transparent;color:var(--purple,#8b5cf6);font-size:12px;
                font-weight:700;cursor:pointer">
         📦 アーカイブ
       </button>
       <button onclick="window.bulkTagReset()"
-        style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--text3);
-               background:transparent;color:var(--text3);font-size:13px;
+        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--text3);
+               background:transparent;color:var(--text3);font-size:12px;
                font-weight:700;cursor:pointer">
         🔄 タグリセット
       </button>
     </div>
-    <div style="padding:4px 12px 20px">
+    <div style="padding:4px 16px 20px">
       <button onclick="bulkDo('delete')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--red,#ef4444);
                background:transparent;color:var(--red,#ef4444);font-size:13px;
@@ -169,26 +163,75 @@ export function buildBulkDrawerHTML() {
     </div>`;
 }
 
-// ── BVP ドロップダウン制御 ──
+// ── BVP ドロップダウン制御（VPanelと同じ動的レンダリング） ──
+
+function _bvpGetAllOpts(key) {
+  const ts = window.tagSettings || [];
+  const presets = ts.find(t => t.key === key)?.presets || [];
+  const fromVideos = (window.videos || []).flatMap(v => v[key] || []);
+  return [...new Set([...presets, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
+}
+
 export function bvpTogDd(key) {
+  document.querySelectorAll('.vp-dd').forEach(d => {
+    if (d.id !== 'bvp-dd-' + key) d.style.display = 'none';
+  });
   const dd = document.getElementById('bvp-dd-' + key);
   if (!dd) return;
   const isOpen = dd.style.display !== 'none';
-  ['tb','ac','pos','tech','ch','pl'].forEach(k => {
-    const d = document.getElementById('bvp-dd-' + k);
-    if (d) d.style.display = 'none';
-  });
-  if (!isOpen) { dd.style.display = 'block'; dd.querySelector('.vp-dd-search')?.focus(); }
+  if (isOpen) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  const inp = dd.querySelector('.vp-dd-search');
+  if (inp) { inp.value = ''; }
+  bvpRenderDdList(key, '');
+  inp?.focus();
 }
 
-export function bvpDdFilter(key, q) {
-  const listEl = document.getElementById('bvp-dd-list-' + key);
-  if (!listEl) return;
+export function bvpRenderDdList(key, q) {
+  const list = document.getElementById('bvp-dd-list-' + key);
+  if (!list) return;
+  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
+  const common = (arr) => arr.filter(x => selVids.every(v => (v[key] || []).includes(x)));
+  const all = _bvpGetAllOpts(key);
+  const current = common(all);
   const ql = q.toLowerCase();
-  listEl.querySelectorAll('.vp-dd-item').forEach(el => {
-    el.style.display = el.textContent.toLowerCase().includes(ql) ? '' : 'none';
-  });
+  const filtered = all.filter(opt => !ql || opt.toLowerCase().includes(ql));
+  const isNew = q.trim() && !all.some(o => o.toLowerCase() === ql);
+  list.innerHTML = filtered.map(opt => {
+    const sel = current.includes(opt);
+    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="bvpDdToggle('${key}','${opt.replace(/'/g, "\\'")}',this)">${opt}</div>`;
+  }).join('') + (isNew ? `<div class="vp-dd-new" onclick="bvpDdAddNew('${key}','${q.trim().replace(/'/g, "\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
 }
+
+export function bvpDdKey(key, e, inp) {
+  if (e.key === 'Enter') {
+    const q = inp.value.trim();
+    if (!q) return;
+    bvpDdAddNew(key, q);
+  } else if (e.key === 'Escape') {
+    const dd = document.getElementById('bvp-dd-' + key);
+    if (dd) dd.style.display = 'none';
+  }
+}
+
+export function bvpDdAddNew(key, val) {
+  if (!val.trim()) return;
+  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
+  if (!selVids.length) return;
+  bulkSnapshot();
+  selVids.forEach(v => {
+    if (!v[key]) v[key] = [];
+    if (!v[key].includes(val)) v[key].push(val);
+  });
+  _bvpRefreshChips(key, key, selVids);
+  bvpRenderDdList(key, '');
+  const inp = document.querySelector('#bvp-dd-' + key + ' .vp-dd-search');
+  if (inp) inp.value = '';
+  window.toast?.((window.selIds || new Set()).size + '本に「' + val + '」を追加');
+  window.AF?.(); if (window.bulkCtx === 'organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpDdFilter(key, q) { bvpRenderDdList(key, q); }
 
 export function bvpDdToggle(key, val, el) {
   const fieldMap = {tb:'tb', ac:'ac', pos:'pos', tech:'tech'};
@@ -245,19 +288,17 @@ export async function onBulkAiTagBtn(btn) {
 
 // ── BVP操作関数 ──
 
-export function bvpSet(field, val, el, onClass) {
+export function bvpSet(field, val, el) {
   bulkSnapshot();
   const ids = [...(window.selIds||new Set())];
   const videos = window.videos || [];
   const fieldMap = { prio:'prio', status:'status' };
   const f = fieldMap[field] || field;
   ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v[f]=val; });
-  // チップ状態更新
+  // チップ状態更新（chip active トグル — VPanelと同じ）
   const rowId = field==='prio' ? 'bvp-prio' : 'bvp-prog';
-  document.querySelectorAll('#'+rowId+' .vp-chip').forEach(c=>
-    ['on-p1','on-p2','on-p3','on-s0','on-s1','on-s2'].forEach(cl=>c.classList.remove(cl))
-  );
-  el.classList.add(onClass);
+  document.querySelectorAll('#'+rowId+' .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
   window.toast?.((window.selIds||new Set()).size+'本に「'+val+'」を設定');
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
@@ -287,8 +328,8 @@ export function bvpToggleWatch(el) {
   const watchedCount=vids.filter(v=>v.watched).length;
   const setTo = watchedCount < vids.length/2;
   vids.forEach(v=>v.watched=setTo);
-  el.textContent = setTo ? '✅ 視聴済み' : '👁 未視聴';
-  el.classList.toggle('on-s1', setTo);
+  el.textContent = setTo ? '視聴済み' : '未視聴';
+  el.classList.toggle('active', setTo);
   window.toast?.((window.selIds||new Set()).size+'本を'+(setTo?'視聴済み':'未視聴')+'に設定');
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
@@ -301,8 +342,9 @@ export function bvpToggleFav(el) {
   const favCount=vids.filter(v=>v.fav).length;
   const setTo = favCount < vids.length/2;
   vids.forEach(v=>v.fav=setTo);
-  el.textContent = setTo ? '⭐ Fav' : '☆ Fav';
-  el.classList.toggle('on-fav-chip', setTo);
+  el.textContent = setTo ? '★ Fav' : '★ Fav';
+  el.classList.toggle('active', setTo);
+  el.classList.toggle('c-fav', setTo);
   window.toast?.((window.selIds||new Set()).size+'本をFav'+(setTo?'追加':'解除'));
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
@@ -1033,6 +1075,9 @@ window.bvpPlSuggest = bvpPlSuggest;
 window.bvpSetPlaylist = bvpSetPlaylist;
 window.bvpTogDd = bvpTogDd;
 window.bvpDdFilter = bvpDdFilter;
+window.bvpRenderDdList = bvpRenderDdList;
+window.bvpDdKey = bvpDdKey;
+window.bvpDdAddNew = bvpDdAddNew;
 window.bvpDdToggle = bvpDdToggle;
 window.bvpChipRm = bvpChipRm;
 window.onBulkAiTagBtn = onBulkAiTagBtn;
