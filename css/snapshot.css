@@ -36,6 +36,16 @@
 .snap-thumb:hover {
   border-color: var(--accent);
 }
+.snap-thumb.dragging {
+  opacity: .35;
+  transform: scale(.92);
+  border-color: var(--accent);
+}
+.snap-thumb.drag-over {
+  border-color: var(--accent);
+  transform: scale(1.08);
+  box-shadow: 0 0 8px rgba(0,0,0,.2);
+}
 
 .snap-thumb .del-btn {
   position: absolute;

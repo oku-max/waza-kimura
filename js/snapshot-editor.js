@@ -223,26 +223,57 @@ function renderGrid() {
     div.addEventListener('drop', onDrop);
     div.addEventListener('dragend', onDragEnd);
 
-    // Touch drag
+    // Touch drag (long-press 300ms → clone follows finger)
     let touchTimer = null;
     let touchActive = false;
-    div.addEventListener('touchstart', () => {
+    let touchClone = null;
+    let touchStartX = 0, touchStartY = 0;
+
+    div.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
       touchTimer = setTimeout(() => {
         touchActive = true;
         div.classList.add('dragging');
-      }, 400);
+        // Create floating clone
+        touchClone = div.cloneNode(true);
+        touchClone.className = 'snap-touch-ghost';
+        const rect = div.getBoundingClientRect();
+        touchClone.style.cssText = `position:fixed;z-index:9999;width:${rect.width}px;height:${rect.height}px;pointer-events:none;opacity:.85;border-radius:6px;overflow:hidden;border:2px solid var(--accent);box-shadow:0 4px 16px rgba(0,0,0,.3);transform:scale(1.1);left:${t.clientX - rect.width/2}px;top:${t.clientY - rect.height/2}px;transition:none;`;
+        document.body.appendChild(touchClone);
+        // Vibrate if supported
+        if (navigator.vibrate) navigator.vibrate(30);
+      }, 300);
     }, { passive: true });
+
     div.addEventListener('touchmove', (e) => {
-      if (!touchActive) { clearTimeout(touchTimer); return; }
+      if (!touchActive) {
+        // Cancel if finger moved too far before long-press
+        const t = e.touches[0];
+        const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
+        if (Math.sqrt(dx*dx + dy*dy) > 10) clearTimeout(touchTimer);
+        return;
+      }
       e.preventDefault();
       const touch = e.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      // Move clone to follow finger
+      if (touchClone) {
+        const w = parseInt(touchClone.style.width);
+        const h = parseInt(touchClone.style.height);
+        touchClone.style.left = (touch.clientX - w/2) + 'px';
+        touchClone.style.top = (touch.clientY - h/2) + 'px';
+      }
+      // Highlight drop target
       grid.querySelectorAll('.snap-thumb').forEach(t => t.classList.remove('drag-over'));
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
       const thumb = target?.closest('.snap-thumb');
       if (thumb && thumb !== div) thumb.classList.add('drag-over');
     }, { passive: false });
+
     div.addEventListener('touchend', (e) => {
       clearTimeout(touchTimer);
+      if (touchClone) { touchClone.remove(); touchClone = null; }
       if (!touchActive) return;
       touchActive = false;
       div.classList.remove('dragging');
@@ -259,8 +290,10 @@ function renderGrid() {
         syncVideoRefs();
       }
     });
+
     div.addEventListener('touchcancel', () => {
       clearTimeout(touchTimer);
+      if (touchClone) { touchClone.remove(); touchClone = null; }
       touchActive = false;
       div.classList.remove('dragging');
       grid.querySelectorAll('.snap-thumb').forEach(t => t.classList.remove('drag-over'));
