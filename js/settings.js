@@ -1347,3 +1347,67 @@ window._tagSortMode = function() {
   modal._finishSort = _finishSort;
   _renderCard();
 };
+
+// ═══ 外観設定（テーマ・フォントサイズ） ═══
+
+let _appearanceSettings = { theme: 'light', fontScale: 1 };
+
+export function loadAppearanceSettings() {
+  try {
+    const s = localStorage.getItem('wk_appearance');
+    if (s) Object.assign(_appearanceSettings, JSON.parse(s));
+  } catch(e) {}
+  applyAppearance();
+}
+
+export function saveAppearanceSettings() {
+  try { localStorage.setItem('wk_appearance', JSON.stringify(_appearanceSettings)); } catch(e) {}
+  window.saveUserSettings?.();
+}
+
+export function applyAppearance() {
+  // Theme
+  const isDark = _appearanceSettings.theme === 'dark';
+  document.body.classList.toggle('dark', isDark);
+  const cb = document.getElementById('setting-darkmode');
+  if (cb) cb.checked = isDark;
+
+  // Font scale
+  const scale = _appearanceSettings.fontScale || 1;
+  document.documentElement.style.setProperty('--font-scale', scale);
+  const slider = document.getElementById('setting-fontscale');
+  if (slider) slider.value = scale;
+  const label = document.getElementById('font-scale-label');
+  if (label) label.textContent = Math.round(scale * 100) + '%';
+}
+
+export function toggleTheme() {
+  _appearanceSettings.theme = _appearanceSettings.theme === 'dark' ? 'light' : 'dark';
+  applyAppearance();
+  saveAppearanceSettings();
+}
+
+export function setFontScale(val) {
+  const v = Math.max(0.8, Math.min(1.4, parseFloat(val) || 1));
+  _appearanceSettings.fontScale = v;
+  applyAppearance();
+  saveAppearanceSettings();
+}
+
+export function adjustFontScale(delta) {
+  const cur = _appearanceSettings.fontScale || 1;
+  setFontScale(Math.round((cur + delta) * 100) / 100);
+}
+
+export function getAppearanceSettings() { return { ..._appearanceSettings }; }
+
+export function applyRemoteAppearance(data) {
+  if (data && data.appearance && typeof data.appearance === 'object') {
+    Object.assign(_appearanceSettings, data.appearance);
+    try { localStorage.setItem('wk_appearance', JSON.stringify(_appearanceSettings)); } catch(e) {}
+    applyAppearance();
+  }
+}
+
+// 初期読み込み
+loadAppearanceSettings();

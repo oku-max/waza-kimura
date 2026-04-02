@@ -91,6 +91,7 @@ export async function saveUserSettings() {
       filterPresets:     window.filterPresets     || [],
       orgColOrder:       window.orgColOrder       || [],
       orgColVisibility:  window.orgColVisibility  || {},
+      appearance:        window.getAppearanceSettings?.() || {},
       updatedAt: new Date().toISOString()
     });
   } catch (e) { console.error('saveUserSettings:', e); }
@@ -116,6 +117,9 @@ export async function loadUserSettings(uid) {
       if (data.orgColVisibility && typeof data.orgColVisibility === 'object') {
         window.orgColVisibility = { ...window.orgColVisibility, ...data.orgColVisibility };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
+      }
+      if (data.appearance) {
+        window.applyRemoteAppearance?.(data);
       }
     }
   } catch (e) { console.error('loadUserSettings:', e); }

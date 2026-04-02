@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.4</title>
+<title>WAZA KIMURA v48.5</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -38,7 +38,8 @@
     tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
-    renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings
+    renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
+    toggleTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
@@ -167,6 +168,11 @@
   window.renderAiSettings        = renderAiSettings;
   window.applyTagVisibility      = applyTagVisibility;
   window.applyTagLabels          = applyTagLabels;
+  window.toggleTheme             = toggleTheme;
+  window.setFontScale            = setFontScale;
+  window.adjustFontScale         = adjustFontScale;
+  window.getAppearanceSettings   = getAppearanceSettings;
+  window.applyRemoteAppearance   = applyRemoteAppearance;
   applyTagVisibility();
   applyTagLabels();
   // filter
@@ -1013,6 +1019,37 @@
           <input type="checkbox" id="setting-autoplay" onchange="saveSettings()" checked>
           <span class="settings-toggle-slider"></span>
         </label>
+      </div>
+    </div>
+
+    <!-- 外観設定 -->
+    <div id="appearance-settings" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">外観設定</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:16px;">
+      <!-- テーマ -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">ダークモード</div>
+          <div style="font-size:11px;color:var(--text3)">暗い配色に切り替えます</div>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="setting-darkmode" onchange="toggleTheme()">
+          <span class="settings-toggle-slider"></span>
+        </label>
+      </div>
+      <!-- フォントサイズ -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px">文字サイズ</div>
+            <div style="font-size:11px;color:var(--text3)">表示テキストの大きさを調整します</div>
+          </div>
+          <span id="font-scale-label" style="font-size:12px;font-weight:700;color:var(--accent);min-width:36px;text-align:right">100%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button onclick="adjustFontScale(-0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">−</button>
+          <input type="range" id="setting-fontscale" min="0.8" max="1.4" step="0.05" value="1" oninput="setFontScale(this.value)" style="flex:1;accent-color:var(--accent)">
+          <button onclick="adjustFontScale(0.05)" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">+</button>
+        </div>
       </div>
     </div>
 
