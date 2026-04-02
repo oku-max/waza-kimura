@@ -223,6 +223,9 @@ function renderGrid() {
     div.addEventListener('drop', onDrop);
     div.addEventListener('dragend', onDragEnd);
 
+    // Prevent native long-press context menu on thumbnails
+    div.addEventListener('contextmenu', (e) => e.preventDefault());
+
     // Touch drag (long-press 300ms → clone follows finger)
     let touchTimer = null;
     let touchActive = false;

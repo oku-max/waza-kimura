@@ -23,6 +23,10 @@
   background: var(--surface2);
   transition: border-color .15s, opacity .15s, transform .15s;
   flex-shrink: 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .snap-thumb img {
