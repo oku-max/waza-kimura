@@ -1372,9 +1372,9 @@ export function applyAppearance() {
   const cb = document.getElementById('setting-darkmode');
   if (cb) cb.checked = isDark;
 
-  // Font scale
+  // Font scale (zoom approach — works with hardcoded px values)
   const scale = _appearanceSettings.fontScale || 1;
-  document.documentElement.style.setProperty('--font-scale', scale);
+  document.body.style.zoom = scale;
   const slider = document.getElementById('setting-fontscale');
   if (slider) slider.value = scale;
   const label = document.getElementById('font-scale-label');
