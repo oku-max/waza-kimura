@@ -83,6 +83,43 @@
   line-height: 14px;
 }
 
+/* ── Reorder buttons (mobile-friendly) ── */
+.snap-reorder {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  display: flex;
+  gap: 2px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.snap-thumb:hover .snap-reorder,
+.snap-thumb:active .snap-reorder {
+  opacity: 1;
+}
+/* Always show on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .snap-reorder { opacity: 1; }
+  .snap-thumb .del-btn { opacity: 1; }
+}
+.snap-reorder button {
+  width: 20px;
+  height: 18px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  font-size: 8px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+}
+.snap-reorder button:active {
+  background: var(--accent);
+}
+
 .snap-add {
   width: 90px;
   height: 64px;

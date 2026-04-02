@@ -191,6 +191,25 @@ function renderGrid() {
     });
     div.appendChild(del);
 
+    // Reorder buttons (mobile-friendly)
+    if (snapshots.length > 1) {
+      const reorderWrap = document.createElement('div');
+      reorderWrap.className = 'snap-reorder';
+      if (i > 0) {
+        const leftBtn = document.createElement('button');
+        leftBtn.textContent = '\u25C0';
+        leftBtn.addEventListener('click', (e) => { e.stopPropagation(); moveSnap(i, i - 1); });
+        reorderWrap.appendChild(leftBtn);
+      }
+      if (i < snapshots.length - 1) {
+        const rightBtn = document.createElement('button');
+        rightBtn.textContent = '\u25B6';
+        rightBtn.addEventListener('click', (e) => { e.stopPropagation(); moveSnap(i, i + 1); });
+        reorderWrap.appendChild(rightBtn);
+      }
+      div.appendChild(reorderWrap);
+    }
+
     // Click -> lightbox
     div.addEventListener('click', () => openLightbox(i));
 
@@ -255,6 +274,18 @@ function renderGrid() {
   // Update count
   const countEl = containerEl.querySelector('.snap-count');
   if (countEl) countEl.textContent = snapshots.length + '枚';
+}
+
+// ════════════════════════════════════════════════════════════════
+// ── Move Snap (button-based reorder, mobile-friendly)
+// ════════════════════════════════════════════════════════════════
+
+function moveSnap(fromIdx, toIdx) {
+  if (fromIdx < 0 || toIdx < 0 || fromIdx >= snapshots.length || toIdx >= snapshots.length) return;
+  const [item] = snapshots.splice(fromIdx, 1);
+  snapshots.splice(toIdx, 0, item);
+  renderGrid();
+  syncVideoRefs();
 }
 
 // ════════════════════════════════════════════════════════════════

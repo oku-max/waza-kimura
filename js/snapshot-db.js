@@ -64,18 +64,21 @@ function _base64ToBlob(dataUrl) {
  */
 async function _uploadToFirestore(snapId, videoId, blob, annotations = []) {
   const ref = _docRef(snapId);
-  if (!ref) return;
+  if (!ref) { console.warn('[snapshot-db] _uploadToFirestore: no ref (not logged in?)'); return; }
 
   try {
     const data = await _blobToBase64(blob);
+    const sizeKB = Math.round(data.length / 1024);
+    console.log(`[snapshot-db] Uploading ${snapId} to Firestore (${sizeKB}KB)...`);
     await ref.set({
       videoId,
       data,
       annotations: annotations || [],
       updatedAt: Date.now()
     });
+    console.log(`[snapshot-db] Upload OK: ${snapId}`);
   } catch (err) {
-    console.warn('[snapshot-db] Firestore upload failed:', snapId, err.message);
+    console.error('[snapshot-db] Firestore upload FAILED:', snapId, err.code, err.message);
   }
 }
 
@@ -85,17 +88,19 @@ async function _uploadToFirestore(snapId, videoId, blob, annotations = []) {
  */
 async function _downloadFromFirestore(snapId) {
   const ref = _docRef(snapId);
-  if (!ref) return null;
+  if (!ref) { console.warn('[snapshot-db] _downloadFromFirestore: no ref (not logged in?)'); return null; }
 
   try {
+    console.log(`[snapshot-db] Downloading ${snapId} from Firestore...`);
     const doc = await ref.get();
-    if (!doc.exists) return null;
+    if (!doc.exists) { console.log(`[snapshot-db] Not found in Firestore: ${snapId}`); return null; }
     const d = doc.data();
-    if (!d.data) return null;
+    if (!d.data) { console.log(`[snapshot-db] No data field in Firestore doc: ${snapId}`); return null; }
     const blob = _base64ToBlob(d.data);
+    console.log(`[snapshot-db] Download OK: ${snapId}`);
     return { blob, annotations: d.annotations || [], videoId: d.videoId || '' };
   } catch (err) {
-    console.warn('[snapshot-db] Firestore download failed:', snapId, err.message);
+    console.error('[snapshot-db] Firestore download FAILED:', snapId, err.code, err.message);
     return null;
   }
 }
