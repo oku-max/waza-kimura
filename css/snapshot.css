@@ -119,6 +119,23 @@
 .snap-reorder button:active {
   background: var(--accent);
 }
+/* Larger touch targets on mobile */
+@media (hover: none) and (pointer: coarse) {
+  .snap-reorder {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    justify-content: space-between;
+    gap: 0;
+  }
+  .snap-reorder button {
+    width: 40px;
+    height: 28px;
+    font-size: 12px;
+    line-height: 28px;
+    border-radius: 0 0 4px 4px;
+  }
+}
 
 .snap-add {
   width: 90px;

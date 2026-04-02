@@ -199,12 +199,14 @@ function renderGrid() {
         const leftBtn = document.createElement('button');
         leftBtn.textContent = '\u25C0';
         leftBtn.addEventListener('click', (e) => { e.stopPropagation(); moveSnap(i, i - 1); });
+        leftBtn.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
         reorderWrap.appendChild(leftBtn);
       }
       if (i < snapshots.length - 1) {
         const rightBtn = document.createElement('button');
         rightBtn.textContent = '\u25B6';
         rightBtn.addEventListener('click', (e) => { e.stopPropagation(); moveSnap(i, i + 1); });
+        rightBtn.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
         reorderWrap.appendChild(rightBtn);
       }
       div.appendChild(reorderWrap);
