@@ -1036,15 +1036,20 @@ function rotateAnnotation90CCW(a, origW, origH) {
 // ── Canvas Pointer Helpers
 // ════════════════════════════════════════════════════════════════
 
+function _getZoom() {
+  return parseFloat(document.body.style.zoom) || 1;
+}
+
 function canvasPos(e) {
   const canvas = getAnnCanvas();
   if (!canvas) return { x: 0, y: 0 };
   const rect = canvas.getBoundingClientRect();
+  const z = _getZoom();
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
   return {
-    x: (clientX - rect.left) * annScaleX,
-    y: (clientY - rect.top) * annScaleY
+    x: (clientX / z - rect.left) * annScaleX,
+    y: (clientY / z - rect.top) * annScaleY
   };
 }
 
@@ -1052,11 +1057,12 @@ function canvasPosFromEnd(e) {
   const canvas = getAnnCanvas();
   if (!canvas) return { x: 0, y: 0 };
   const rect = canvas.getBoundingClientRect();
+  const z = _getZoom();
   const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
   const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
   return {
-    x: (clientX - rect.left) * annScaleX,
-    y: (clientY - rect.top) * annScaleY
+    x: (clientX / z - rect.left) * annScaleX,
+    y: (clientY / z - rect.top) * annScaleY
   };
 }
 
@@ -1173,10 +1179,11 @@ function onAnnDown(e) {
     if (!textInput || !wrap) return;
     textInput.style.display = 'block';
     const wrapRect = wrap.getBoundingClientRect();
+    const z = _getZoom();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    textInput.style.left = (clientX - wrapRect.left) + 'px';
-    textInput.style.top = (clientY - wrapRect.top) + 'px';
+    textInput.style.left = (clientX / z - wrapRect.left) + 'px';
+    textInput.style.top = (clientY / z - wrapRect.top) + 'px';
     textInput.value = '';
     textInput.dataset.ax = pos.x;
     textInput.dataset.ay = pos.y;

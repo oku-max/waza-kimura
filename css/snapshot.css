@@ -248,7 +248,7 @@
 }
 
 .snap-size-info .before {
-  color: #c0392b;
+  color: var(--red, #c0392b);
 }
 
 .snap-size-info .after {
