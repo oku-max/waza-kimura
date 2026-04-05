@@ -1,5 +1,96 @@
 // ═══ WAZA KIMURA — フィルター（Library） ═══
 
+// ── URL ↔ フィルター状態の同期 ──
+const _URL_SET_KEYS = {
+  pl: 'playlist', ch: 'channel', pt: 'platform', tb: 'tb',
+  ac: 'action', pos: 'position', tech: 'tech', prio: 'prio', st: 'status'
+};
+const _URL_BOOL_KEYS = { fav: 'favOnly', unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
+
+let _urlSyncPaused = false;
+
+export function _syncURL() {
+  if (_urlSyncPaused) return;
+  const p = new URLSearchParams();
+  // Set filters
+  for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
+    const s = window.filters[key];
+    if (s && s.size) p.set(param, [...s].map(v => encodeURIComponent(v)).join(','));
+  }
+  // Boolean flags
+  for (const [param, key] of Object.entries(_URL_BOOL_KEYS)) {
+    if (window[key]) p.set(param, '1');
+  }
+  // Search text
+  const q = (document.getElementById('si')?.value || document.getElementById('si-lib-pc')?.value || '').trim();
+  if (q) p.set('q', q);
+  const qs = p.toString();
+  const url = location.pathname + (qs ? '?' + qs : '');
+  history.replaceState(null, '', url);
+}
+
+export function _restoreFromURL() {
+  const p = new URLSearchParams(location.search);
+  if (!p.toString()) return; // no filter params — nothing to restore
+  _urlSyncPaused = true;
+  // Clear existing state
+  Object.keys(window.filters).forEach(k => window.filters[k].clear());
+  window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
+  // Restore Set filters
+  for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
+    const raw = p.get(param);
+    if (raw) raw.split(',').forEach(v => window.filters[key].add(decodeURIComponent(v)));
+  }
+  // Restore booleans
+  for (const [param, key] of Object.entries(_URL_BOOL_KEYS)) {
+    if (p.get(param) === '1') window[key] = true;
+  }
+  // Restore search text
+  const q = p.get('q') || '';
+  const si = document.getElementById('si'); if (si) si.value = q;
+  const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = q;
+  // Sync UI chips to match restored state
+  _syncChipsToState();
+  window.syncFilterOvRows?.();
+  window.buildSidebarFovRows?.();
+  window.refreshOpenSbAccordions?.();
+  _urlSyncPaused = false;
+  window.AF?.();
+}
+
+function _syncChipsToState() {
+  // Platform chips
+  ['chip-yt','m-chip-yt'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.filters.platform.has('youtube'));
+  });
+  ['chip-vimeo','m-chip-vimeo'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.filters.platform.has('vimeo'));
+  });
+  // Boolean toggle chips
+  const boolChips = {
+    favOnly:     ['chip-fav','m-chip-fav','fs-chip-fav2','fov-chip-fav'],
+    unwOnly:     ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'],
+    watchedOnly: ['chip-watched','fs-chip-watched','fov-chip-watched'],
+    bmOnly:      ['fov-chip-bm','fs-chip-bm'],
+    memoOnly:    ['fov-chip-memo','fs-chip-memo'],
+    imgOnly:     ['fov-chip-img','fs-chip-img']
+  };
+  for (const [key, ids] of Object.entries(boolChips)) {
+    ids.forEach(id => {
+      const el = document.getElementById(id); if (el) el.classList.toggle('active', !!window[key]);
+    });
+  }
+  // Search clear button
+  const siClear = document.getElementById('si-clear');
+  if (siClear) siClear.style.display = (document.getElementById('si')?.value) ? 'flex' : 'none';
+}
+
+// popstate handler — restore state when user navigates back/forward
+window.addEventListener('popstate', () => {
+  _restoreFromURL();
+});
+
 // ── 基本フィルタートグル ──
 export function togF(type, val, el) {
   window.filters[type].has(val)
@@ -359,6 +450,7 @@ export function sortVideos(list) {
 // ── AF（Apply Filters）：全体再描画 ──
 export function AF() {
   const f = sortVideos(filt(window.videos));
+  window._vpFilteredList = f;
   window.renderCards(f, 'cardList');
   const total = (window.videos||[]).filter(v => !v.archived).length;
   const rc = document.getElementById('rc'); if (rc) rc.textContent = f.length + ' 本 表示中';
@@ -386,6 +478,7 @@ export function AF() {
   renderTFC();
   if (window.bulkMode) window.updBulk?.();
   updateResetBtn();
+  _syncURL();
 }
 
 export function updatePLC() { window.buildPlSrow?.(); }

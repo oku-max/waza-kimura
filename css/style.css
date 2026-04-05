@@ -1268,6 +1268,14 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-dd-subpanel { display:none; }
 .vp-dd-subpanel.on { display:block; }
 .vp-dd-alpha-hd { padding:4px 12px 2px; font-size:9px; font-weight:800; color:var(--accent); background:var(--surface2); border-top:1px solid var(--border); position:sticky; top:0; z-index:1; }
+/* テーマ3-wayセレクタ */
+.theme-selector { display:flex; border-radius:8px; overflow:hidden; border:1.5px solid var(--border); }
+.theme-opt { flex:1; padding:7px 4px; font-size:11px; font-weight:600; text-align:center; border:none; background:var(--surface2); color:var(--text2); cursor:pointer; font-family:inherit; transition:all .2s; }
+.theme-opt:not(:last-child) { border-right:1px solid var(--border); }
+.theme-opt.active { background:var(--accent); color:#fff; }
+.theme-opt:hover:not(.active) { background:var(--surface3); }
+/* テーマ切替トランジション */
+body.theme-changing, body.theme-changing * { transition:background .3s, color .3s, border-color .3s, box-shadow .3s !important; }
 /* 設定トグルスイッチ */
 .settings-toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
 .settings-toggle input { opacity:0; width:0; height:0; }
@@ -1379,6 +1387,36 @@ body.hide-pos .fov-row-pos { display: none !important; }
 body.hide-tech .vp-row-tech,
 body.hide-tech .bb-bgrp-tech,
 body.hide-tech .fov-row-tech { display: none !important; }
+
+/* ═══ AB LOOP EDITOR ═══ */
+.ab-skip-bar{display:flex;gap:3px;padding:5px 10px;justify-content:center;align-items:center}
+.ab-skip-btn{flex:1;padding:3px 2px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;text-align:center}
+.ab-skip-sep{width:2px;background:var(--border);height:20px;align-self:center;flex-shrink:0}
+.ab-time{font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;white-space:nowrap;flex-shrink:0;cursor:pointer;transition:all .15s}
+.ab-time--set{border:1.5px solid var(--accent);background:var(--surface);color:var(--accent)}
+.ab-time--unset{border:1px solid var(--border);background:var(--surface2);color:var(--text2)}
+.ab-time--error{border:1.5px solid var(--red,#c84040);background:var(--surface);color:var(--red,#c84040)}
+.ab-loop-toggle{width:28px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .12s}
+.ab-loop-toggle--on{border:1.5px solid var(--accent);background:var(--accent)}
+.ab-loop-toggle--off{border:1.5px solid var(--border);background:var(--surface)}
+.ab-toggle-btn{font-size:10px;padding:2px 8px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ab-toggle-btn--on{border:1px solid var(--accent);background:var(--accent);color:#fff}
+.ab-toggle-btn--off{border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.ab-collapse-row{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2)}
+.ab-expand-btn{font-size:10px;padding:2px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ab-status-on{font-size:10px;padding:1px 8px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;cursor:pointer}
+.ab-status-text{font-size:10px;color:var(--text3)}
+.ab-section{border-top:2px solid var(--border);border-bottom:2px solid var(--border)}
+.ab-editor{border:1.5px solid var(--accent);border-radius:8px;overflow:hidden;background:var(--surface)}
+.ab-tab{flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border)}
+.ab-tab--active{font-weight:600;background:var(--accent);color:#fff}
+.ab-tab--inactive{font-weight:500;color:var(--text2);background:var(--surface2)}
+.ab-adj-btn{font-size:10px;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit}
+.ab-time-disp{font-family:"DM Mono",monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px}
+.ab-current-btn{font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-family:inherit}
+.ab-save-btn{font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
+.ab-clear-btn{font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer}
+.ab-editor-body{padding:8px 12px 10px;background:var(--surface2)}
 
 /* ═══ DARK MODE OVERRIDES (CSS変数で対応できないもののみ) ═══ */
 body.dark .belt-chip.white { background:var(--surface3); color:var(--text2); border-color:var(--border); }

@@ -1350,7 +1350,8 @@ window._tagSortMode = function() {
 
 // ═══ 外観設定（テーマ・フォントサイズ） ═══
 
-let _appearanceSettings = { theme: 'light', fontScale: 1 };
+let _appearanceSettings = { theme: 'auto', fontScale: 1 };
+let _mediaListener = null;
 
 export function loadAppearanceSettings() {
   try {
@@ -1366,11 +1367,33 @@ export function saveAppearanceSettings() {
 }
 
 export function applyAppearance() {
-  // Theme
-  const isDark = _appearanceSettings.theme === 'dark';
+  // Theme (auto / light / dark)
+  const mode = _appearanceSettings.theme || 'auto';
+  let isDark;
+  if (mode === 'auto') {
+    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // OS設定変更時にリアルタイム追従
+    if (!_mediaListener) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      _mediaListener = () => { if (_appearanceSettings.theme === 'auto') applyAppearance(); };
+      mq.addEventListener('change', _mediaListener);
+    }
+  } else {
+    isDark = mode === 'dark';
+  }
+
+  // テーマ切替時のスムーズトランジション
+  document.body.classList.add('theme-changing');
   document.body.classList.toggle('dark', isDark);
-  const cb = document.getElementById('setting-darkmode');
-  if (cb) cb.checked = isDark;
+  requestAnimationFrame(() => {
+    setTimeout(() => document.body.classList.remove('theme-changing'), 400);
+  });
+
+  // 3-way セレクタ同期
+  ['auto','light','dark'].forEach(v => {
+    const el = document.getElementById('theme-opt-' + v);
+    if (el) el.classList.toggle('active', v === mode);
+  });
 
   // Font scale (zoom approach — works with hardcoded px values)
   const scale = _appearanceSettings.fontScale || 1;
@@ -1381,10 +1404,17 @@ export function applyAppearance() {
   if (label) label.textContent = Math.round(scale * 100) + '%';
 }
 
-export function toggleTheme() {
-  _appearanceSettings.theme = _appearanceSettings.theme === 'dark' ? 'light' : 'dark';
+export function setTheme(mode) {
+  _appearanceSettings.theme = mode;
   applyAppearance();
   saveAppearanceSettings();
+}
+
+// 後方互換
+export function toggleTheme() {
+  const modes = ['auto', 'light', 'dark'];
+  const cur = modes.indexOf(_appearanceSettings.theme);
+  setTheme(modes[(cur + 1) % 3]);
 }
 
 export function setFontScale(val) {

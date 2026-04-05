@@ -152,11 +152,10 @@ function _skipBtnsHTML() {
     {sec: 30, label:'+30s'},
     {sec: 60, label:'+1m'},
   ];
-  const btnStyle = 'flex:1;padding:3px 2px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;text-align:center';
-  const sep = '<div style="width:2px;background:var(--border);height:20px;align-self:center;flex-shrink:0"></div>';
-  const left  = btns.slice(0,4).map(b => `<button onclick="vpSkip(${b.sec})" style="${btnStyle}">${b.label}</button>`).join('');
-  const right = btns.slice(4).map(b => `<button onclick="vpSkip(${b.sec})" style="${btnStyle}">${b.label}</button>`).join('');
-  return `<div style="display:flex;gap:3px;padding:5px 10px;justify-content:center;align-items:center">${left}${sep}${right}</div>`;
+  const sep = '<div class="ab-skip-sep"></div>';
+  const left  = btns.slice(0,4).map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn">${b.label}</button>`).join('');
+  const right = btns.slice(4).map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn">${b.label}</button>`).join('');
+  return `<div class="ab-skip-bar">${left}${sep}${right}</div>`;
 }
 
 export function vpSkip(sec) {
@@ -167,21 +166,6 @@ export function vpSkip(sec) {
 
 // ── AB ループ ──
 const _ab = { a: null, b: null, loop: false, timer: null, setMode: null }; // setMode: 'a'|'b'|null
-
-function _abBtnStyle(active) {
-  return `padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid ${active ? 'var(--accent)' : 'var(--border)'};background:${active ? 'var(--accent)' : 'var(--surface2)'};color:${active ? '#fff' : 'var(--text2)'};`;
-}
-
-function _abBtnStyleNew(isSet, isLoop) {
-  if (isLoop) return 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;border:1.5px solid var(--accent);background:rgba(var(--accent-rgb,200,131,26),.12);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
-  if (isSet)  return 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
-  return 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s';
-}
-
-function _loopBtnStyle() {
-  const on = _ab.loop;
-  return `width:28px;height:28px;border-radius:6px;border:1.5px solid var(--border);background:${on ? 'var(--text)' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:all .12s`;
-}
 
 function _loopSVG() {
   const col = _ab.loop ? '#fff' : 'var(--text)';
@@ -199,82 +183,75 @@ function _loopSectionHTML() {
   const hasB = _ab.b != null;
   const hasConflict = hasA && hasB && _ab.a >= _ab.b;
   const loopIconSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
-  const sectionBase = 'border-top:2px solid var(--border);border-bottom:2px solid var(--border);';
 
   // 折りたたみ状態
   const statusText = _ab.loop
-    ? `<span onclick="vpAbToggleLoop()" style="font-size:10px;padding:1px 8px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;cursor:pointer;" title="タップでループOFF">🔁 ON &nbsp;${aLabel} → ${bLabel} ✕</span>`
+    ? `<span onclick="vpAbToggleLoop()" class="ab-status-on" title="タップでループOFF">🔁 ON &nbsp;${aLabel} → ${bLabel} ✕</span>`
     : (hasA || hasB)
-      ? `<span style="font-size:10px;color:var(--text3);">${aLabel} → ${bLabel}</span>`
-      : `<span style="font-size:10px;color:var(--text3);">未設定</span>`;
+      ? `<span class="ab-status-text">${aLabel} → ${bLabel}</span>`
+      : `<span class="ab-status-text">未設定</span>`;
   const expandLabel = isExpanded ? '∧ 閉じる' : (_ab.loop ? '編集 ∨' : '設定する ∨');
 
   // 時間が両方設定済みならON/OFFボタンを表示
   const canToggle = hasA && hasB;
   const toggleBtn = canToggle
-    ? `<button onclick="vpAbToggleLoop()" style="font-size:10px;padding:2px 8px;border:1px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};border-radius:12px;background:${_ab.loop ? 'var(--accent)' : 'var(--surface)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${_ab.loop ? 'OFF' : 'ON'}</button>`
+    ? `<button onclick="vpAbToggleLoop()" class="ab-toggle-btn ${_ab.loop ? 'ab-toggle-btn--on' : 'ab-toggle-btn--off'}">${_ab.loop ? 'OFF' : 'ON'}</button>`
     : '';
 
-  const collapsedRow = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2);">
+  const collapsedRow = `<div class="ab-collapse-row">
     <span class="vp-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:0;">${loopIconSVG}ループ再生</span>
     ${statusText}
     ${toggleBtn}
-    <button onclick="vpAbToggleExpand()" style="font-size:10px;padding:2px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;">${expandLabel}</button>
+    <button onclick="vpAbToggleExpand()" class="ab-expand-btn">${expandLabel}</button>
   </div>`;
 
   if (!isExpanded) {
-    return `<div id="vp-loop-section" style="${sectionBase}">${collapsedRow}</div>`;
+    return `<div id="vp-loop-section" class="ab-section">${collapsedRow}</div>`;
   }
 
   // 展開状態
-  const startStyle = hasA
-    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--accent);white-space:nowrap;flex-shrink:0;cursor:pointer;'
-    : 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;cursor:pointer;';
-  const endStyle = hasConflict
-    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid var(--red,#c84040);border-radius:6px;background:var(--surface);color:var(--red,#c84040);white-space:nowrap;flex-shrink:0;cursor:pointer;'
-    : hasB
-      ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--accent);white-space:nowrap;flex-shrink:0;cursor:pointer;'
-      : 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;cursor:pointer;';
-  const loopToggleStyle = `width:28px;height:26px;border-radius:6px;border:1.5px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--accent)' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;`;
+  const startClass = `ab-time ${hasA ? 'ab-time--set' : 'ab-time--unset'}`;
+  const endClass = `ab-time ${hasConflict ? 'ab-time--error' : hasB ? 'ab-time--set' : 'ab-time--unset'}`;
+  const loopToggleClass = `ab-loop-toggle ${_ab.loop ? 'ab-loop-toggle--on' : 'ab-loop-toggle--off'}`;
   const loopToggleSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${_ab.loop ? '#fff' : 'var(--text)'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 
   // タブエディタ（開始/終了共通）
   const isStart = _abActiveField === 'start';
   const curVal = isStart ? (_ab.a ?? 0) : (_ab.b ?? _ab.a ?? 0);
-  const tabStart = `<div onclick="vpAbSwitchField('start')" style="flex:1;text-align:center;font-size:11px;font-weight:${isStart?'600':'500'};padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);${isStart?'background:var(--accent);color:#fff;':'color:var(--text2);background:var(--surface2);'}">▶ 開始</div>`;
-  const tabEnd   = `<div onclick="vpAbSwitchField('end')" style="flex:1;text-align:center;font-size:11px;font-weight:${!isStart?'600':'500'};padding:6px 4px;cursor:pointer;${!isStart?'background:var(--accent);color:#fff;':'color:var(--text2);background:var(--surface2);'}">⏹ 終了</div>`;
+  const tabStart = `<div onclick="vpAbSwitchField('start')" class="ab-tab ${isStart ? 'ab-tab--active' : 'ab-tab--inactive'}">▶ 開始</div>`;
+  const tabEnd   = `<div onclick="vpAbSwitchField('end')" class="ab-tab ${!isStart ? 'ab-tab--active' : 'ab-tab--inactive'}">⏹ 終了</div>`;
 
   const adjBtns = [-10,-5,-3,-1,1,3,5,10].map(d =>
-    `<button onclick="vpAbAdjField(${d})" style="font-size:10px;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit;">${d>0?'+':''}${d}s</button>`
+    `<button onclick="vpAbAdjField(${d})" class="ab-adj-btn">${d>0?'+':''}${d}s</button>`
   ).join('');
 
-  return `<div id="vp-loop-section" style="${sectionBase}">
+  return `<div id="vp-loop-section" class="ab-section">
     ${collapsedRow}
-    <div style="padding:8px 12px 10px;background:var(--surface2);">
+    <div class="ab-editor-body">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <button onclick="vpAbSwitchField('start')" style="${startStyle}">開始: ${aLabel}</button>
+        <button onclick="vpAbSwitchField('start')" class="${startClass}">開始: ${aLabel}</button>
         <span style="font-size:10px;color:var(--accent);">↔</span>
-        <button onclick="vpAbSwitchField('end')" style="${endStyle}">終了: ${bLabel}</button>
-        <button onclick="vpAbToggleLoop()" style="${loopToggleStyle}" title="ループON/OFF">${loopToggleSVG}</button>
+        <button onclick="vpAbSwitchField('end')" class="${endClass}">終了: ${bLabel}</button>
+        <button onclick="vpAbToggleLoop()" class="${loopToggleClass}" title="ループON/OFF">${loopToggleSVG}</button>
         <span style="flex:1;"></span>
-        <button onclick="vpAbReset()" style="font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;">✕ クリア</button>
+        <button onclick="vpAbReset()" class="ab-clear-btn">✕ クリア</button>
       </div>
-      <div id="vp-ab-editor" style="border:1.5px solid var(--accent);border-radius:8px;overflow:hidden;background:var(--surface);">
+      <div id="vp-ab-editor" class="ab-editor">
         <div style="display:flex;border-bottom:0.5px solid var(--border);">${tabStart}${tabEnd}</div>
         <div style="padding:8px 10px;">
-          <div id="vp-ab-time-disp" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;">${_formatTime(Math.floor(curVal))}</div>
+          <div id="vp-ab-time-disp" class="ab-time-disp">${_formatTime(Math.floor(curVal))}</div>
           <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-ab-sl-dur">—</span></div>
           <input type="range" id="vp-ab-sl" min="0" max="600" value="${Math.floor(curVal)}" step="1"
             style="width:75%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
           <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
             ${adjBtns}
-            <button onclick="vpAbSetCurrentField()" style="font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-family:inherit;">現在地</button>
+            <button onclick="vpAbSetCurrentField()" class="ab-current-btn">現在地</button>
           </div>
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-        <button onclick="vpAbSaveLoop()" style="font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;">✔ 保存</button>
+        <button onclick="vpAbSaveLoop()" class="ab-save-btn">✔ 保存</button>
       </div>
     </div>
   </div>`;
@@ -2415,6 +2392,46 @@ export function vpTagReset(id) {
   };
 }
 window.vpTagReset = vpTagReset;
+
+// ── キーボードショートカット（VPanel表示中のみ） ──
+document.addEventListener('keydown', (e) => {
+  // VPanelが開いていなければ無視
+  if (!window.openVPanelId) return;
+  // input/textarea/select にフォーカス中は無視
+  const tag = (document.activeElement?.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  // contenteditable要素にフォーカス中も無視
+  if (document.activeElement?.isContentEditable) return;
+
+  const key = e.key;
+
+  if (key === 'Escape') {
+    e.preventDefault();
+    closeVPanel();
+    return;
+  }
+
+  if (key === 'f') {
+    e.preventDefault();
+    const id = window.openVPanelId;
+    const el = document.getElementById('vp-fav-' + id);
+    if (el) vpTogFav(id, el);
+    return;
+  }
+
+  if (key === 'j' || key === 'k') {
+    e.preventDefault();
+    const list = window._vpFilteredList;
+    if (!list || !list.length) return;
+    const curId = window.openVPanelId;
+    const idx = list.findIndex(v => v.id === curId);
+    if (idx === -1) return;
+    const nextIdx = key === 'j' ? idx + 1 : idx - 1;
+    if (nextIdx < 0 || nextIdx >= list.length) return;
+    openVPanel(list[nextIdx].id);
+    return;
+  }
+});
 
 export function initVpanelState() {
   Object.defineProperty(window, 'openVPanelId', {

@@ -39,7 +39,7 @@
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
     renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
-    toggleTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance
+    toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
@@ -48,7 +48,8 @@
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
     renderFilterPresets, resetFilters, updateResetBtn, loadFilterPresetsFromRemote,
     filt, countByField, countByPl, countByCh, cntBadge, countContextual,
-    AF, sortVideos, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL
+    AF, sortVideos, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL,
+    _syncURL, _restoreFromURL
   } from './js/filter.js';
   import {
     openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
@@ -169,6 +170,7 @@
   window.applyTagVisibility      = applyTagVisibility;
   window.applyTagLabels          = applyTagLabels;
   window.toggleTheme             = toggleTheme;
+  window.setTheme                = setTheme;
   window.setFontScale            = setFontScale;
   window.adjustFontScale         = adjustFontScale;
   window.getAppearanceSettings   = getAppearanceSettings;
@@ -372,6 +374,10 @@
   window.vpSetBmEndFromStart     = vpSetBmEndFromStart;
   window.vpClearBmEnd            = vpClearBmEnd;
   window.vpSetActiveBmField      = vpSetActiveBmField;
+  window._syncURL                = _syncURL;
+  window._restoreFromURL         = _restoreFromURL;
+  // Restore filter state from URL params on page load
+  _restoreFromURL();
 </script>
 
 <style>
@@ -1026,15 +1032,13 @@
     <div id="appearance-settings" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">外観設定</div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:16px;">
       <!-- テーマ -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <div style="font-size:12px;font-weight:600;margin-bottom:2px">ダークモード</div>
-          <div style="font-size:11px;color:var(--text3)">暗い配色に切り替えます</div>
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">テーマ</div>
+        <div class="theme-selector">
+          <button id="theme-opt-auto" class="theme-opt" onclick="setTheme('auto')">自動</button>
+          <button id="theme-opt-light" class="theme-opt" onclick="setTheme('light')">ライト</button>
+          <button id="theme-opt-dark" class="theme-opt" onclick="setTheme('dark')">ダーク</button>
         </div>
-        <label class="settings-toggle">
-          <input type="checkbox" id="setting-darkmode" onchange="toggleTheme()">
-          <span class="settings-toggle-slider"></span>
-        </label>
       </div>
       <!-- フォントサイズ -->
       <div>
