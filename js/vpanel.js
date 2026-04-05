@@ -203,7 +203,7 @@ function _loopSectionHTML() {
 
   // 折りたたみ状態
   const statusText = _ab.loop
-    ? `<span onclick="vpAbToggleLoop()" style="font-size:10px;padding:1px 8px;border-radius:10px;background:#2e7bd6;color:#fff;font-weight:600;white-space:nowrap;cursor:pointer;" title="タップでループOFF">🔁 ON &nbsp;${aLabel} → ${bLabel} ✕</span>`
+    ? `<span onclick="vpAbToggleLoop()" style="font-size:10px;padding:1px 8px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap;cursor:pointer;" title="タップでループOFF">🔁 ON &nbsp;${aLabel} → ${bLabel} ✕</span>`
     : (hasA || hasB)
       ? `<span style="font-size:10px;color:var(--text3);">${aLabel} → ${bLabel}</span>`
       : `<span style="font-size:10px;color:var(--text3);">未設定</span>`;
@@ -212,7 +212,7 @@ function _loopSectionHTML() {
   // 時間が両方設定済みならON/OFFボタンを表示
   const canToggle = hasA && hasB;
   const toggleBtn = canToggle
-    ? `<button onclick="vpAbToggleLoop()" style="font-size:10px;padding:2px 8px;border:1px solid ${_ab.loop ? '#2e7bd6' : 'var(--border)'};border-radius:12px;background:${_ab.loop ? '#2e7bd6' : 'var(--surface)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${_ab.loop ? 'OFF' : 'ON'}</button>`
+    ? `<button onclick="vpAbToggleLoop()" style="font-size:10px;padding:2px 8px;border:1px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};border-radius:12px;background:${_ab.loop ? 'var(--accent)' : 'var(--surface)'};color:${_ab.loop ? '#fff' : 'var(--text2)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${_ab.loop ? 'OFF' : 'ON'}</button>`
     : '';
 
   const collapsedRow = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2);">
@@ -228,24 +228,24 @@ function _loopSectionHTML() {
 
   // 展開状態
   const startStyle = hasA
-    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid #2e7bd6;border-radius:6px;background:#fff;color:#2e7bd6;white-space:nowrap;flex-shrink:0;cursor:pointer;'
+    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--accent);white-space:nowrap;flex-shrink:0;cursor:pointer;'
     : 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;cursor:pointer;';
   const endStyle = hasConflict
-    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid #c84040;border-radius:6px;background:#fff;color:#c84040;white-space:nowrap;flex-shrink:0;cursor:pointer;'
+    ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid var(--red,#c84040);border-radius:6px;background:var(--surface);color:var(--red,#c84040);white-space:nowrap;flex-shrink:0;cursor:pointer;'
     : hasB
-      ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid #2e7bd6;border-radius:6px;background:#fff;color:#2e7bd6;white-space:nowrap;flex-shrink:0;cursor:pointer;'
+      ? 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--accent);white-space:nowrap;flex-shrink:0;cursor:pointer;'
       : 'font-family:"DM Mono",monospace;font-size:13px;padding:3px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);white-space:nowrap;flex-shrink:0;cursor:pointer;';
-  const loopToggleStyle = `width:28px;height:26px;border-radius:6px;border:1.5px solid ${_ab.loop ? '#2e7bd6' : 'var(--border)'};background:${_ab.loop ? '#2e7bd6' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;`;
+  const loopToggleStyle = `width:28px;height:26px;border-radius:6px;border:1.5px solid ${_ab.loop ? 'var(--accent)' : 'var(--border)'};background:${_ab.loop ? 'var(--accent)' : 'var(--surface)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;`;
   const loopToggleSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${_ab.loop ? '#fff' : 'var(--text)'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 
   // タブエディタ（開始/終了共通）
   const isStart = _abActiveField === 'start';
   const curVal = isStart ? (_ab.a ?? 0) : (_ab.b ?? _ab.a ?? 0);
-  const tabStart = `<div onclick="vpAbSwitchField('start')" style="flex:1;text-align:center;font-size:11px;font-weight:${isStart?'600':'500'};padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);${isStart?'background:#2e7bd6;color:#fff;':'color:var(--text2);background:var(--surface2);'}">▶ 開始</div>`;
-  const tabEnd   = `<div onclick="vpAbSwitchField('end')" style="flex:1;text-align:center;font-size:11px;font-weight:${!isStart?'600':'500'};padding:6px 4px;cursor:pointer;${!isStart?'background:#2e7bd6;color:#fff;':'color:var(--text2);background:var(--surface2);'}">⏹ 終了</div>`;
+  const tabStart = `<div onclick="vpAbSwitchField('start')" style="flex:1;text-align:center;font-size:11px;font-weight:${isStart?'600':'500'};padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);${isStart?'background:var(--accent);color:#fff;':'color:var(--text2);background:var(--surface2);'}">▶ 開始</div>`;
+  const tabEnd   = `<div onclick="vpAbSwitchField('end')" style="flex:1;text-align:center;font-size:11px;font-weight:${!isStart?'600':'500'};padding:6px 4px;cursor:pointer;${!isStart?'background:var(--accent);color:#fff;':'color:var(--text2);background:var(--surface2);'}">⏹ 終了</div>`;
 
   const adjBtns = [-10,-5,-3,-1,1,3,5,10].map(d =>
-    `<button onclick="vpAbAdjField(${d})" style="font-size:10px;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:#2e7bd6;cursor:pointer;font-family:inherit;">${d>0?'+':''}${d}s</button>`
+    `<button onclick="vpAbAdjField(${d})" style="font-size:10px;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit;">${d>0?'+':''}${d}s</button>`
   ).join('');
 
   return `<div id="vp-loop-section" style="${sectionBase}">
@@ -253,28 +253,28 @@ function _loopSectionHTML() {
     <div style="padding:8px 12px 10px;background:var(--surface2);">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <button onclick="vpAbSwitchField('start')" style="${startStyle}">開始: ${aLabel}</button>
-        <span style="font-size:10px;color:#2e7bd6;">↔</span>
+        <span style="font-size:10px;color:var(--accent);">↔</span>
         <button onclick="vpAbSwitchField('end')" style="${endStyle}">終了: ${bLabel}</button>
         <button onclick="vpAbToggleLoop()" style="${loopToggleStyle}" title="ループON/OFF">${loopToggleSVG}</button>
         <span style="flex:1;"></span>
         <button onclick="vpAbReset()" style="font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;">✕ クリア</button>
       </div>
-      <div id="vp-ab-editor" style="border:1.5px solid #2e7bd6;border-radius:8px;overflow:hidden;background:var(--surface);">
+      <div id="vp-ab-editor" style="border:1.5px solid var(--accent);border-radius:8px;overflow:hidden;background:var(--surface);">
         <div style="display:flex;border-bottom:0.5px solid var(--border);">${tabStart}${tabEnd}</div>
         <div style="padding:8px 10px;">
           <div id="vp-ab-time-disp" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;">${_formatTime(Math.floor(curVal))}</div>
           <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-ab-sl-dur">—</span></div>
           <input type="range" id="vp-ab-sl" min="0" max="600" value="${Math.floor(curVal)}" step="1"
-            style="width:75%;height:4px;cursor:pointer;display:block;accent-color:#2e7bd6;outline:none;touch-action:none;margin-bottom:6px;">
+            style="width:75%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
           <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
             ${adjBtns}
-            <button onclick="vpAbSetCurrentField()" style="font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:#2e7bd6;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;">現在地</button>
+            <button onclick="vpAbSetCurrentField()" style="font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-family:inherit;">現在地</button>
           </div>
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-        <button onclick="vpAbSaveLoop()" style="font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:#2e7bd6;color:#fff;font-weight:700;cursor:pointer;">✔ 保存</button>
+        <button onclick="vpAbSaveLoop()" style="font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;">✔ 保存</button>
       </div>
     </div>
   </div>`;
@@ -619,7 +619,7 @@ function _bookmarkListHTML(id) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;">
           <div style="display:flex;gap:5px;">
             <button onclick="vpBmReset('${id}',${i})" style="${_adjBtnStyle()}">↺ リセット</button>
-            <button onclick="vpDeleteBm('${id}',${i})" style="${_adjBtnStyle('var(--surface2)','var(--danger,#c84040)')}">🗑 削除</button>
+            <button onclick="vpDeleteBm('${id}',${i})" style="${_adjBtnStyle('var(--surface2)','var(--danger,var(--red,#c84040))')}">🗑 削除</button>
           </div>
           <div style="display:flex;gap:5px;">
             <button onclick="vpBmClose('${id}',${i})" style="${_adjBtnStyle()}">閉じる</button>
@@ -1337,8 +1337,8 @@ function _createGDriveVideoEl(container, fileId, token) {
 function _showGDriveAuthUI(container, fileId) {
   container.innerHTML = `
     <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
-      <div style="color:#aaa;font-size:13px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
-      <button id="gd-auth-play-btn" style="padding:10px 28px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
+      <div style="color:var(--text3);font-size:13px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
+      <button id="gd-auth-play-btn" style="padding:10px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
         Googleで認証して再生
       </button>
     </div>`;
@@ -1358,11 +1358,11 @@ function _onGDriveVideoError(container, fileId) {
   _stopTimeDisplay();
   container.innerHTML = `
     <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
-      <div style="color:#f66;font-size:13px;text-align:center">再生に失敗しました</div>
-      <div style="color:#888;font-size:11px;text-align:center;line-height:1.6">認証の期限切れか、ファイルへのアクセス権がない可能性があります</div>
-      <button id="gd-retry-btn" style="padding:10px 28px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
+      <div style="color:var(--red,#f66);font-size:13px;text-align:center">再生に失敗しました</div>
+      <div style="color:var(--text3);font-size:11px;text-align:center;line-height:1.6">認証の期限切れか、ファイルへのアクセス権がない可能性があります</div>
+      <button id="gd-retry-btn" style="padding:10px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
       <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
-         style="color:#666;font-size:11px;text-decoration:underline">Driveで開く</a>
+         style="color:var(--text2);font-size:11px;text-decoration:underline">Driveで開く</a>
     </div>`;
   const btn = container.querySelector('#gd-retry-btn');
   if (btn) btn.onclick = async () => {

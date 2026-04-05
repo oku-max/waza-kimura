@@ -1756,7 +1756,7 @@ function buildPrioRow(id){
   const row=document.getElementById(id);if(!row)return;
   row.innerHTML='';
   ['今すぐ','そのうち','保留'].forEach(function(v){
-    const n=videos.filter(x=>!x.archived&&x.prio===v).length;
+    const n=window.countContextual?window.countContextual('prio',v):videos.filter(x=>!x.archived&&x.prio===v).length;
     const el=mkChip(v,filters.prio.has(v),function(){filters.prio.has(v)?filters.prio.delete(v):filters.prio.add(v);buildPrioRow(id);window.AF?.();});
     if(n>0){const b=document.createElement('span');b.style.cssText='font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';b.textContent=n;el.appendChild(b);}
     row.appendChild(el);
@@ -1767,7 +1767,7 @@ function buildStatRow(id){
   const row=document.getElementById(id);if(!row)return;
   row.innerHTML='';
   ['未着手','練習中','マスター'].forEach(function(v){
-    const n=videos.filter(x=>!x.archived&&x.status===v).length;
+    const n=window.countContextual?window.countContextual('status',v):videos.filter(x=>!x.archived&&x.status===v).length;
     const el=mkChip(v,filters.status.has(v),function(){filters.status.has(v)?filters.status.delete(v):filters.status.add(v);buildStatRow(id);window.AF?.();});
     if(n>0){const b=document.createElement('span');b.style.cssText='font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';b.textContent=n;el.appendChild(b);}
     row.appendChild(el);

@@ -952,6 +952,8 @@ function _sbContextVideos(filterKey, f) {
     if (filterKey !== 'action'    && f?.action?.size    && !(v.ac  ||[]).some(a => f.action.has(a)))                      return false;
     if (filterKey !== 'position'  && f?.position?.size  && !(v.pos ||[]).some(p => f.position.has(p)))                    return false;
     if (filterKey !== 'tech'      && f?.tech?.size      && !(v.tech||[]).some(t => f.tech.has(t)))                        return false;
+    if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
+    if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;
     return true;
   });
 }
