@@ -1107,6 +1107,8 @@ export function openVPanel(id) {
   }
 
   window.openVPanelId = id;
+  // Androidバックボタン対応: パネルを開いた時にhistory entryを追加
+  history.pushState({ vpanel: id }, '');
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
   window.debounceSave?.();
@@ -2430,6 +2432,17 @@ document.addEventListener('keydown', (e) => {
     if (nextIdx < 0 || nextIdx >= list.length) return;
     openVPanel(list[nextIdx].id);
     return;
+  }
+});
+
+// Androidバックボタン: VPanelが開いていれば閉じる
+window.addEventListener('popstate', (e) => {
+  if (window.openVPanelId) {
+    // history.back()で戻ってきた場合、パネルを閉じる（pushStateはしない）
+    const panel = document.getElementById('vpanel');
+    if (panel && panel.classList.contains('open')) {
+      closeVPanel();
+    }
   }
 });
 

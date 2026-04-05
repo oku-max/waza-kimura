@@ -170,7 +170,6 @@ function renderGrid() {
   snapshots.forEach((snap, i) => {
     const div = document.createElement('div');
     div.className = 'snap-thumb';
-    div.draggable = true;
     div.dataset.idx = i;
 
     const img = document.createElement('img');
@@ -215,7 +214,23 @@ function renderGrid() {
     // Click -> lightbox
     div.addEventListener('click', () => openLightbox(i));
 
-    // Desktop drag events
+    // Desktop drag: only enable draggable after mouse moves ≥8px (prevent accidental reorder on click)
+    let mdownX = 0, mdownY = 0, dragArmed = false;
+    div.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      mdownX = e.clientX; mdownY = e.clientY;
+      dragArmed = false;
+      div.draggable = false;
+    });
+    div.addEventListener('mousemove', (e) => {
+      if (dragArmed || div.draggable) return;
+      const dx = e.clientX - mdownX, dy = e.clientY - mdownY;
+      if (Math.sqrt(dx*dx + dy*dy) >= 8) {
+        dragArmed = true;
+        div.draggable = true;
+      }
+    });
+    div.addEventListener('mouseup', () => { div.draggable = false; dragArmed = false; });
     div.addEventListener('dragstart', onDragStart);
     div.addEventListener('dragover', onDragOver);
     div.addEventListener('dragenter', onDragEnter);
@@ -351,6 +366,7 @@ function onDrop(e) {
 }
 function onDragEnd(e) {
   e.currentTarget.classList.remove('dragging');
+  e.currentTarget.draggable = false;
   dragSrcIdx = null;
 }
 
@@ -464,8 +480,13 @@ function drawAnnotation(ctx, a) {
       break;
     case 'text':
       if (!a.text) break;
-      ctx.font = `bold ${a.fontSize || Math.max(16, a.width * 6)}px 'DM Sans', sans-serif`;
-      ctx.fillText(a.text, a.x, a.y);
+      const fs = a.fontSize || Math.max(16, a.width * 6);
+      ctx.font = `bold ${fs}px 'DM Sans', sans-serif`;
+      const lines = a.text.split('\n');
+      const lh = fs * 1.3;
+      lines.forEach((line, i) => {
+        ctx.fillText(line, a.x, a.y + i * lh);
+      });
       break;
   }
   ctx.restore();
@@ -1076,6 +1097,15 @@ function openTextReEdit(a) {
   const canvas = getAnnCanvas();
   if (!textInput || !wrap || !canvas) return;
 
+  // 既存のフォントサイズ・色をエディタに反映
+  annColor = a.color || annColor;
+  annFontSize = a.fontSize || annFontSize;
+  // カラーボタンのアクティブ状態を更新
+  const colorBtns = document.querySelectorAll('.ann-color');
+  colorBtns.forEach(b => b.classList.toggle('active', b.dataset.color === annColor));
+  // フォントサイズボタンのアクティブ状態を更新
+  updateFontsizeVisibility();
+
   textInput.style.display = 'block';
   const wrapRect = wrap.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
@@ -1656,7 +1686,8 @@ function bindEditorEvents() {
   const textInput = getAnnTextInput();
   if (textInput) {
     textInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      // Ctrl+Enter or Cmd+Enter で確定（Enterは改行）
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         const text = textInput.value.trim();
         const mode = textInput.dataset.mode;
@@ -1665,6 +1696,8 @@ function bindEditorEvents() {
           const idx = parseInt(textInput.dataset.editIdx);
           if (text && annotations[idx]) {
             annotations[idx].text = text;
+            annotations[idx].color = annColor;
+            annotations[idx].fontSize = annFontSize;
             renderAnnotations();
           }
           editingTextIdx = null;

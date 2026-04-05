@@ -577,8 +577,14 @@ canvas.eraser-cursor {
   padding: 4px 8px;
   outline: none;
   min-width: 100px;
+  min-height: 28px;
+  max-height: 120px;
   z-index: 10;
   display: none;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 
