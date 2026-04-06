@@ -290,16 +290,18 @@ function flattenTree(tree, stripSuffix) {
 
 // ── UI: タブ切り替え ──
 export function switchImportTab(tab) {
-  const isYt = tab === 'yt';
-  document.getElementById('yt-import-body').style.display = isYt ? '' : 'none';
-  document.getElementById('gd-import-body').style.display = isYt ? 'none' : '';
-  const tabYt = document.getElementById('tab-yt');
-  const tabGd = document.getElementById('tab-gd');
-  tabYt.style.background = isYt ? 'var(--text)' : 'var(--surface2)';
-  tabYt.style.color      = isYt ? '#fff' : 'var(--text2)';
-  tabGd.style.background = isYt ? 'var(--surface2)' : 'var(--text)';
-  tabGd.style.color      = isYt ? 'var(--text2)' : '#fff';
-  if (!isYt) gdOpenBrowser();
+  const tabs = ['yt', 'gd', 'url'];
+  const bodies = { yt: 'yt-import-body', gd: 'gd-import-body', url: 'url-import-body' };
+  tabs.forEach(t => {
+    const body = document.getElementById(bodies[t]);
+    if (body) body.style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById('tab-' + t);
+    if (btn) {
+      btn.style.background = t === tab ? 'var(--text)' : 'var(--surface2)';
+      btn.style.color      = t === tab ? '#fff' : 'var(--text2)';
+    }
+  });
+  if (tab === 'gd') gdOpenBrowser();
 }
 
 // ── カスタムフォルダブラウザ ──
