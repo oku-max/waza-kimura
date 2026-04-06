@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.7</title>
+<title>WAZA KIMURA v48.8</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1663,20 +1663,67 @@ async function detectUrls() {
   // Show form if any valid items
   const validCount = items.filter(i => i.status === 'ok').length;
   if (validCount > 0) {
-    const pls = ['＋ 新しいプレイリスト', ...new Set(videos.map(v => v.pl))];
-    document.getElementById('plSelChips').innerHTML = pls.map(pl =>
-      `<div class="chip" onclick="_urlSelectPl(this)" data-pl="${pl}">${pl}</div>`
-    ).join('');
-    const newPlInput = document.getElementById('urlNewPlName');
-    if (newPlInput) { newPlInput.style.display = 'none'; newPlInput.value = ''; }
     // チャンネル名を初期化: 全件同じchならそれを、違えば空欄
     const okItems = items.filter(i => i.status === 'ok');
     const chSet = new Set(okItems.map(i => i.parsed.ch || ''));
-    const chInput = document.getElementById('urlChannel');
-    if (chInput) chInput.value = (chSet.size === 1 ? [...chSet][0] : '');
+    window._urlSelCh = (chSet.size === 1 ? [...chSet][0] : '') || '';
+    window._urlSelPl = '';
+    _urlUpdatePkLabel('ch');
+    _urlUpdatePkLabel('pl');
+    document.getElementById('urlChPop').style.display = 'none';
+    document.getElementById('urlPlPop').style.display = 'none';
     document.getElementById('urlAddBtn').textContent = `＋ ${validCount}件をライブラリに追加`;
     document.getElementById('urlForm').style.display = 'block';
   }
+}
+
+// ── URL取込: チャンネル/プレイリスト ピッカー ──
+function _urlTogPk(type) {
+  const pop = document.getElementById(type === 'ch' ? 'urlChPop' : 'urlPlPop');
+  const otherPop = document.getElementById(type === 'ch' ? 'urlPlPop' : 'urlChPop');
+  if (otherPop) otherPop.style.display = 'none';
+  const isOpen = pop.style.display !== 'none';
+  pop.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    const sIn = document.getElementById(type === 'ch' ? 'urlChSearch' : 'urlPlSearch');
+    if (sIn) { sIn.value = ''; setTimeout(() => sIn.focus(), 50); }
+    _urlRenderPk(type);
+  }
+}
+function _urlRenderPk(type) {
+  const list = document.getElementById(type === 'ch' ? 'urlChList' : 'urlPlList');
+  const q = (document.getElementById(type === 'ch' ? 'urlChSearch' : 'urlPlSearch')?.value || '').trim();
+  const ql = q.toLowerCase();
+  const map = {};
+  (window.videos || []).forEach(v => {
+    const k = (type === 'ch' ? v.ch : v.pl) || '';
+    if (!k) return;
+    map[k] = (map[k] || 0) + 1;
+  });
+  const all = Object.keys(map).sort((a, b) => map[b] - map[a]);
+  const filtered = ql ? all.filter(k => k.toLowerCase().includes(ql)) : all;
+  const exact = all.some(k => k.toLowerCase() === ql);
+  const items = filtered.map(k =>
+    `<div class="url-pk-item" onclick="_urlPickPk('${type}','${k.replace(/'/g, "\\'")}')"><span>${k}</span><span class="url-pk-cnt">${map[k]}本</span></div>`
+  );
+  if (q && !exact) {
+    items.unshift(`<div class="url-pk-item url-pk-new" onclick="_urlPickPk('${type}','${q.replace(/'/g, "\\'")}')">＋ 新規追加: 「${q}」</div>`);
+  }
+  if (!items.length) items.push(`<div style="padding:10px;color:var(--text3);font-size:11px;text-align:center">該当なし。検索欄に新しい名前を入力してください</div>`);
+  list.innerHTML = items.join('');
+}
+function _urlPickPk(type, val) {
+  if (type === 'ch') window._urlSelCh = val;
+  else window._urlSelPl = val;
+  _urlUpdatePkLabel(type);
+  document.getElementById(type === 'ch' ? 'urlChPop' : 'urlPlPop').style.display = 'none';
+}
+function _urlUpdatePkLabel(type) {
+  const el = document.getElementById(type === 'ch' ? 'urlChVal' : 'urlPlVal');
+  if (!el) return;
+  const v = type === 'ch' ? (window._urlSelCh || '') : (window._urlSelPl || '');
+  if (v) { el.textContent = v; el.style.color = 'var(--text)'; }
+  else { el.textContent = '既存から選ぶ / 新規追加'; el.style.color = 'var(--text3)'; }
 }
 
 function _renderUrlResults(items, loading) {
@@ -1764,14 +1811,8 @@ function _urlSelectPl(el) {
 function addUrls() {
   const parsed = window._urlParsed || [];
   if (!parsed.length) return;
-  let selPl = [...document.querySelectorAll('#plSelChips .chip.active')].map(e => e.dataset.pl)[0] || '未分類';
-  // 「＋ 新しいプレイリスト」が選ばれている場合は入力値を使う
-  if (selPl === '＋ 新しいプレイリスト') {
-    const newName = (document.getElementById('urlNewPlName')?.value || '').trim();
-    if (!newName) { toast('新しいプレイリスト名を入力してください'); return; }
-    selPl = newName;
-  }
-  const manualCh = (document.getElementById('urlChannel')?.value || '').trim();
+  let selPl = (window._urlSelPl || '').trim() || '未分類';
+  const manualCh = (window._urlSelCh || '').trim();
   let added = 0;
   parsed.forEach(p => {
     if (videos.some(v => v.id === p.id)) return;
@@ -2817,13 +2858,19 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div id="urlForm" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
         <div class="form-group">
           <div class="form-label">📺 チャンネル名 <span style="font-size:9px;font-weight:600;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px;margin-left:4px">任意</span></div>
-          <input id="urlChannel" type="text" placeholder="例: Triforce（YouTubeは自動取得・空欄可）" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
-          <div style="font-size:10px;color:var(--text3);margin-top:3px">YouTubeはタイトル取得時に自動入力。Vimeo/GDriveは手動入力</div>
-          <input id="urlNewPlName" type="text" placeholder="新しいプレイリスト名を入力..." style="display:none;width:100%;box-sizing:border-box;margin-top:8px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+          <button type="button" class="url-pk-btn" onclick="_urlTogPk('ch')"><span id="urlChVal" style="color:var(--text3)">既存から選ぶ / 新規追加</span><span style="float:right">▾</span></button>
+          <div id="urlChPop" class="url-pk-pop" style="display:none">
+            <input class="url-pk-search" id="urlChSearch" oninput="_urlRenderPk('ch')" placeholder="検索または新しいチャンネル名を入力...">
+            <div id="urlChList" class="url-pk-list"></div>
+          </div>
         </div>
         <div class="form-group">
           <div class="form-label">📋 プレイリストに追加</div>
-          <div id="plSelChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          <button type="button" class="url-pk-btn" onclick="_urlTogPk('pl')"><span id="urlPlVal" style="color:var(--text3)">既存から選ぶ / 新規追加</span><span style="float:right">▾</span></button>
+          <div id="urlPlPop" class="url-pk-pop" style="display:none">
+            <input class="url-pk-search" id="urlPlSearch" oninput="_urlRenderPk('pl')" placeholder="検索または新しいプレイリスト名を入力...">
+            <div id="urlPlList" class="url-pk-list"></div>
+          </div>
         </div>
         <div class="form-group"><div class="form-label">📊 優先度</div><div class="prio-opts"><div class="prio-opt" id="up1" onclick="setUP('今すぐ',this)">🔴 今すぐ</div><div class="prio-opt sl3" id="up3" onclick="setUP('保留',this)">⚪ 保留</div><div class="prio-opt" id="up2" onclick="setUP('そのうち',this)">🟡 そのうち</div></div></div>
         <button class="btn-save" onclick="addUrls()" id="urlAddBtn" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>

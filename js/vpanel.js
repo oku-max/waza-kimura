@@ -9,6 +9,24 @@ let _ytApiLoaded = false;   // YouTube iFrame API読み込み済みか
 // GDrive用（OAuth + <video>タグ方式 → currentTime完全制御）
 let _gdVideoEl = null;  // 再生中の<video>要素
 let _gdFileId  = null;  // 再生中のfileId
+// Vimeo Player API
+let _vmPlayer  = null;
+let _vmCurTime = 0;
+let _vmDuration = 0;
+function _loadVimeoApi() {
+  return new Promise((resolve) => {
+    if (window.Vimeo && window.Vimeo.Player) return resolve();
+    if (document.getElementById('vm-iframe-api-script')) {
+      const t = setInterval(() => { if (window.Vimeo?.Player) { clearInterval(t); resolve(); } }, 50);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = 'vm-iframe-api-script';
+    s.src = 'https://player.vimeo.com/api/player.js';
+    s.onload = () => resolve();
+    document.head.appendChild(s);
+  });
+}
 
 // YouTube iFrame APIを非同期で読み込む（初回のみ）
 function _loadYTApi() {
@@ -83,6 +101,7 @@ function _getCurrentTime() {
     const t = _gdVideoEl.currentTime;
     return isNaN(t) ? null : Math.floor(t);
   }
+  if (_vmPlayer) return Math.floor(_vmCurTime);
   if (!_ytPlayer || !_ytPlayerReady) return null;
   try { return Math.floor(_ytPlayer.getCurrentTime()); } catch(e) { return null; }
 }
@@ -92,6 +111,11 @@ function _seekTo(sec) {
   if (_gdVideoEl) {
     _gdVideoEl.currentTime = sec;
     _gdVideoEl.play().catch(() => {});
+    return;
+  }
+  if (_vmPlayer) {
+    try { _vmPlayer.setCurrentTime(sec).then(() => _vmPlayer.play().catch(()=>{})).catch(()=>{}); } catch(e) {}
+    _vmCurTime = sec;
     return;
   }
   if (!_ytPlayer || !_ytPlayerReady) return;
@@ -128,6 +152,15 @@ function _updateTimeDisplay() {
     el.innerHTML = dur > 0
       ? `${_formatTime(cur)}<span style="font-size:9px;color:var(--text3)"> / ${_formatTime(dur)}</span>`
       : _formatTime(cur);
+    return;
+  }
+  if (_vmPlayer) {
+    const cur = _vmCurTime, dur = _vmDuration;
+    if (dur > 0) {
+      el.innerHTML = `${_formatTime(Math.floor(cur))}<span style="font-size:9px;color:var(--text3)"> / ${_formatTime(Math.floor(dur))}</span>`;
+    } else {
+      el.textContent = _formatTime(Math.floor(cur));
+    }
     return;
   }
   if (!_ytPlayer || !_ytPlayerReady) return;
@@ -1159,10 +1192,23 @@ export function openVPanel(id) {
       _playGDriveVideo(iframeContainer, fileId);
     }
   } else {
-    // Vimeo: 従来通りiframe
+    // Vimeo: Player API付き
     if (iframeContainer) {
       const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
-      iframeContainer.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+      iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+      _vmCurTime = 0; _vmDuration = 0;
+      if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
+      _loadVimeoApi().then(() => {
+        const ifr = document.getElementById('vpanel-vm-iframe');
+        if (!ifr) return;
+        try {
+          _vmPlayer = new Vimeo.Player(ifr);
+          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
+          _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
+          _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
+          _startTimeDisplay();
+        } catch(e) { console.warn('Vimeo player init error', e); }
+      });
     }
   }
 
@@ -1243,6 +1289,8 @@ export function closeVPanel() {
     _stopTimeDisplay();
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
     _gdFileId = null;
+    if (_vmPlayer) { try { _vmPlayer.unload(); _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
+    _vmCurTime = 0; _vmDuration = 0;
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
