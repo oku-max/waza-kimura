@@ -302,6 +302,24 @@ export function switchImportTab(tab) {
     }
   });
   if (tab === 'gd') gdOpenBrowser();
+  // YouTubeタブ選択時のみ認証→プレイリスト取得
+  if (tab === 'yt') {
+    const body = document.getElementById('yt-import-body');
+    if (!body) return;
+    // 未ログインならログイン案内を表示
+    if (!window._firebaseCurrentUser?.()) {
+      const stage1 = document.getElementById('yt-stage1');
+      if (stage1) stage1.innerHTML = `
+        <div style="text-align:center;padding:30px 10px">
+          <div style="font-size:32px;margin-bottom:12px">🔒</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px">Googleアカウントが必要です</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:16px">YouTubeプレイリストの取り込みにはGoogleログインが必要です</div>
+          <button onclick="document.getElementById('auth-btn')?.click()" style="padding:10px 24px;border-radius:8px;border:none;background:#4285f4;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Googleでログイン</button>
+        </div>`;
+    } else if (window.importYouTubePlaylists) {
+      window.importYouTubePlaylists();
+    }
+  }
 }
 
 // ── カスタムフォルダブラウザ ──

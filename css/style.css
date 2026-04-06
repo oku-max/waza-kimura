@@ -950,8 +950,8 @@ body.bulk-mode .card-sel-ov{display:block;}
 @media(max-width:400px) {
   #topbar-btns button { font-size: 10px !important; padding: 3px 6px !important; }
   #topbar-btns { gap: 4px !important; }
-  /* Hide YT import btn (rarely used) */
-  #yt-import-btn { display: none !important; }
+  /* 動画追加ボタンは小画面でもコンパクトに表示 */
+  #yt-import-btn { font-size: 10px !important; padding: 4px 8px !important; }
 }
 
 

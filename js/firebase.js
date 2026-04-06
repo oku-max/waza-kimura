@@ -39,15 +39,11 @@ export function updateAuthUI(user) {
     if (fsBtn)   { fsBtn.textContent  = 'ログアウト';   fsBtn.onclick  = () => auth.signOut(); }
     if (avatar)  { avatar.src  = user.photoURL || ''; avatar.style.display  = user.photoURL ? 'block' : 'none'; }
     if (fsAvatar){ fsAvatar.src = user.photoURL || ''; fsAvatar.style.display = user.photoURL ? 'block' : 'none'; }
-    const imp = document.getElementById('yt-import-btn');
-    if (imp) imp.style.display = 'flex';
   } else {
     if (btn)   { btn.textContent   = 'Googleでログイン'; btn.onclick   = signIn; }
     if (fsBtn) { fsBtn.textContent = 'Googleでログイン'; fsBtn.onclick = signIn; }
     if (avatar)   avatar.style.display   = 'none';
     if (fsAvatar) fsAvatar.style.display = 'none';
-    const imp = document.getElementById('yt-import-btn');
-    if (imp) imp.style.display = 'none';
     window._ytToken = null;
   }
 }

@@ -23,7 +23,8 @@
 <script src="js/config.js"></script>
 <script type="module">
   import { showToast } from './js/ui.js';
-  import { saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings } from './js/firebase.js';
+  import { currentUser, saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings } from './js/firebase.js';
+  window._firebaseCurrentUser = () => currentUser;
   import {
     importYouTubePlaylists, ytFetchSelectedPlVideos, ytShowVideoStage,
     ytRenderVideoList, ytUpdateSelCount, ytSelAllVideos,
@@ -612,7 +613,7 @@
   <div class="tb-row-main">
     <img id="auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;flex-shrink:0">
     <button id="auth-btn" class="topbar-btn">Googleでログイン</button>
-    <button id="yt-import-btn" onclick="importYouTubePlaylists()" style="display:none;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">＋ 動画を追加</button>
+    <button id="yt-import-btn" onclick="openImportHub()" style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">＋ 動画を追加</button>
   </div>
   <span id="totalCount" class="topbar-count" style="display:none"></span>
 </div>
@@ -631,7 +632,7 @@
     <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
       <img id="fs-auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;margin:4px 10px;">
       <div id="fs-auth-btn" class="fs-nav-i" style="font-weight:400">Googleでログイン</div>
-      <div onclick="importYouTubePlaylists()" class="fs-nav-i" style="font-weight:400">＋ 動画を追加</div>
+      <div onclick="openImportHub()" class="fs-nav-i" style="font-weight:400">＋ 動画を追加</div>
     </div>
   </div>
   <nav class="fs-nav">
@@ -1568,14 +1569,18 @@ function archEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.archive
 function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');window.AF?.();toast('除外しました');});}
 function delEdit(){const v=videos.find(v=>v.id===editId);showConf('🗑 削除',`「${v?.title}」を削除しますか？`,()=>{videos=videos.filter(v=>v.id!==editId);closeOv('editOv');window.AF?.();toast('削除しました');});}
 
-function openUrl(){
+// 取込ハブを開く（認証不要、URL入力タブがデフォルト）
+function openImportHub() {
   document.getElementById('yt-import-ov').classList.add('open');
   switchImportTab('url');
-  document.getElementById('urlIn').value='';
-  document.getElementById('urlResults').style.display='none';
-  document.getElementById('urlForm').style.display='none';
+  // URLタブの初期化
+  document.getElementById('urlIn').value = '';
+  document.getElementById('urlResults').style.display = 'none';
+  document.getElementById('urlForm').style.display = 'none';
   window._urlParsed = [];
 }
+// openUrl は openImportHub のエイリアス
+function openUrl() { openImportHub(); }
 
 // URL解析: 1行ずつ parse → タイトル取得
 function _parseVideoUrl(line) {
