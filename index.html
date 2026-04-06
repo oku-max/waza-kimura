@@ -1589,9 +1589,9 @@ function _parseVideoUrl(line) {
   // YouTube: 各種URL形式
   const yt = line.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (yt) return { id: yt[1], pt: 'youtube', url: line };
-  // Vimeo
-  const vm = line.match(/vimeo\.com\/(\d+)/);
-  if (vm) return { id: vm[1], pt: 'vimeo', url: line };
+  // Vimeo（プライベート動画のhash対応: vimeo.com/123456/abcdef）
+  const vm = line.match(/vimeo\.com\/(\d+)(?:\/([a-f0-9]+))?/);
+  if (vm) return { id: vm[1], pt: 'vimeo', url: line, vmHash: vm[2] || null };
   // Google Drive
   const gd = line.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
   if (gd) return { id: 'gd-' + gd[1], pt: 'gdrive', url: line };
@@ -1600,14 +1600,19 @@ function _parseVideoUrl(line) {
 
 async function _fetchTitle(parsed) {
   try {
-    if (parsed.pt === 'gdrive') return parsed.id.replace('gd-','').slice(0,12) + '…';
-    const oembedUrl = parsed.pt === 'youtube'
-      ? `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${parsed.id}`
-      : `https://noembed.com/embed?url=https://vimeo.com/${parsed.id}`;
+    if (parsed.pt === 'gdrive') {
+      parsed.ch = parsed.ch || '';
+      return parsed.id.replace('gd-','').slice(0,12) + '…';
+    }
+    const vimeoFull = parsed.pt === 'vimeo'
+      ? `https://vimeo.com/${parsed.id}${parsed.vmHash ? '/' + parsed.vmHash : ''}`
+      : `https://www.youtube.com/watch?v=${parsed.id}`;
+    const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(vimeoFull)}`;
     const res = await fetch(oembedUrl);
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
+    parsed.ch = data.author_name || '';
     return data.title || null;
   } catch { return null; }
 }
@@ -1661,6 +1666,11 @@ async function detectUrls() {
     document.getElementById('plSelChips').innerHTML = pls.map(pl =>
       `<div class="chip" onclick="this.classList.toggle('active')" data-pl="${pl}">${pl}</div>`
     ).join('');
+    // チャンネル名を初期化: 全件同じchならそれを、違えば空欄
+    const okItems = items.filter(i => i.status === 'ok');
+    const chSet = new Set(okItems.map(i => i.parsed.ch || ''));
+    const chInput = document.getElementById('urlChannel');
+    if (chInput) chInput.value = (chSet.size === 1 ? [...chSet][0] : '');
     document.getElementById('urlAddBtn').textContent = `＋ ${validCount}件をライブラリに追加`;
     document.getElementById('urlForm').style.display = 'block';
   }
@@ -1737,15 +1747,18 @@ function addUrls() {
   const parsed = window._urlParsed || [];
   if (!parsed.length) return;
   const selPl = [...document.querySelectorAll('#plSelChips .chip.active')].map(e => e.dataset.pl)[0] || '未分類';
+  const manualCh = (document.getElementById('urlChannel')?.value || '').trim();
   let added = 0;
   parsed.forEach(p => {
     if (videos.some(v => v.id === p.id)) return;
-    videos.push({
+    const vid = {
       id: p.id, pt: p.pt, title: p.title || (p.pt + '動画'),
-      ch: '', pl: selPl, tb: [], ac: [], pos: [], tech: [],
+      ch: manualCh || p.ch || '', pl: selPl, tb: [], ac: [], pos: [], tech: [],
       prio: urlPrio, fav: false, memo: '', watched: false,
       status: '未着手', archived: false, shared: 0, ai: ''
-    });
+    };
+    if (p.vmHash) vid.vmHash = p.vmHash;
+    videos.push(vid);
     added++;
   });
   document.getElementById('yt-import-ov').classList.remove('open');
@@ -2777,6 +2790,11 @@ window.addEventListener('resize', adjustTopbarOffset);
 
       <!-- 追加オプション -->
       <div id="urlForm" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        <div class="form-group">
+          <div class="form-label">📺 チャンネル名 <span style="font-size:9px;font-weight:600;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px;margin-left:4px">任意</span></div>
+          <input id="urlChannel" type="text" placeholder="例: Triforce（YouTubeは自動取得・空欄可）" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">YouTubeはタイトル取得時に自動入力。Vimeo/GDriveは手動入力</div>
+        </div>
         <div class="form-group"><div class="form-label">📋 プレイリストに追加</div><div id="plSelChips" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
         <div class="form-group"><div class="form-label">📊 優先度</div><div class="prio-opts"><div class="prio-opt" id="up1" onclick="setUP('今すぐ',this)">🔴 今すぐ</div><div class="prio-opt sl3" id="up3" onclick="setUP('保留',this)">⚪ 保留</div><div class="prio-opt" id="up2" onclick="setUP('そのうち',this)">🟡 そのうち</div></div></div>
         <button class="btn-save" onclick="addUrls()" id="urlAddBtn" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>
