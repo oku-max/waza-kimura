@@ -87,7 +87,9 @@ function _syncChipsToState() {
 }
 
 // popstate handler — restore state when user navigates back/forward
-window.addEventListener('popstate', () => {
+// VPanelのpushStateエントリがpopされた時はフィルタ復元をスキップ
+window.addEventListener('popstate', (e) => {
+  if (window.openVPanelId || e.state?.vpanel) return;
   _restoreFromURL();
 });
 

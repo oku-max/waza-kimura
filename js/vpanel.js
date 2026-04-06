@@ -1106,9 +1106,14 @@ export function openVPanel(id) {
          : `https://vimeo.com/${vmId}`;
   }
 
-  window.openVPanelId = id;
   // Androidバックボタン対応: パネルを開いた時にhistory entryを追加
-  history.pushState({ vpanel: id }, '');
+  // 既にVPanelが開いている（J/Kで切替）場合はreplaceStateで上書き
+  if (window.openVPanelId && history.state?.vpanel) {
+    history.replaceState({ vpanel: id }, '');
+  } else {
+    history.pushState({ vpanel: id }, '');
+  }
+  window.openVPanelId = id;
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
   window.debounceSave?.();
@@ -1254,6 +1259,11 @@ export function closeVPanel() {
     document.body.style.overflow = '';
     window.openVPanelId = null;
     document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
+    // pushStateで追加した履歴エントリを除去（Xボタン/Escape経由の場合のみ）
+    // バックボタン経由なら既にpopされているのでhistory.back()は不要
+    if (!_closingFromPopstate && history.state?.vpanel) {
+      history.back();
+    }
   } catch(e) {
     console.error('closeVPanel error:', e);
     const panel = document.getElementById('vpanel');
@@ -2436,12 +2446,16 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Androidバックボタン: VPanelが開いていれば閉じる
+let _closingFromPopstate = false;
 window.addEventListener('popstate', (e) => {
   if (window.openVPanelId) {
-    // history.back()で戻ってきた場合、パネルを閉じる（pushStateはしない）
     const panel = document.getElementById('vpanel');
     if (panel && panel.classList.contains('open')) {
+      _closingFromPopstate = true;
       closeVPanel();
+      _closingFromPopstate = false;
+      // 他のpopstateハンドラ（filter.jsなど）が余計な処理をしないよう停止
+      e.stopImmediatePropagation();
     }
   }
 });
