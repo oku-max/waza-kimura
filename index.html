@@ -574,19 +574,25 @@
 #vpanelInner.is-portrait {
   flex-direction: column !important;
   align-items: stretch !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  border-radius: 0 !important;
 }
 #vpanelInner.is-portrait #vpanel-left-col {
   width: 100% !important;
   height: auto !important;
   flex-shrink: 0 !important;
+  overflow: visible !important;
 }
 #vpanelInner.is-portrait #vpanel-right-col {
   flex: 1 !important;
   height: auto !important;
   min-height: 0 !important;
+  overflow-y: auto !important;
 }
 #vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
 #vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
+#vpanelInner.is-portrait #vpanel-back-btn { z-index: 5 !important; }
 </style>
 </head>
 <body>
