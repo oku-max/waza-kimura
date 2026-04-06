@@ -1662,10 +1662,12 @@ async function detectUrls() {
   // Show form if any valid items
   const validCount = items.filter(i => i.status === 'ok').length;
   if (validCount > 0) {
-    const pls = [...new Set(videos.map(v => v.pl)), '新しいプレイリスト'];
+    const pls = [...new Set(videos.map(v => v.pl)), '＋ 新しいプレイリスト'];
     document.getElementById('plSelChips').innerHTML = pls.map(pl =>
-      `<div class="chip" onclick="this.classList.toggle('active')" data-pl="${pl}">${pl}</div>`
+      `<div class="chip" onclick="_urlSelectPl(this)" data-pl="${pl}">${pl}</div>`
     ).join('');
+    const newPlInput = document.getElementById('urlNewPlName');
+    if (newPlInput) { newPlInput.style.display = 'none'; newPlInput.value = ''; }
     // チャンネル名を初期化: 全件同じchならそれを、違えば空欄
     const okItems = items.filter(i => i.status === 'ok');
     const chSet = new Set(okItems.map(i => i.parsed.ch || ''));
@@ -1743,10 +1745,31 @@ function setUP(p, el) {
   el.classList.add(p === '今すぐ' ? 'sl1' : p === 'そのうち' ? 'sl2' : 'sl3');
 }
 
+// プレイリストchip選択（単一選択）
+function _urlSelectPl(el) {
+  const wasActive = el.classList.contains('active');
+  document.querySelectorAll('#plSelChips .chip').forEach(c => c.classList.remove('active'));
+  if (!wasActive) el.classList.add('active');
+  // 「新しいプレイリスト」選択時は入力欄を表示
+  const newPlInput = document.getElementById('urlNewPlName');
+  if (newPlInput) {
+    const isNew = !wasActive && el.dataset.pl === '＋ 新しいプレイリスト';
+    newPlInput.style.display = isNew ? 'block' : 'none';
+    if (isNew) setTimeout(() => newPlInput.focus(), 50);
+    else newPlInput.value = '';
+  }
+}
+
 function addUrls() {
   const parsed = window._urlParsed || [];
   if (!parsed.length) return;
-  const selPl = [...document.querySelectorAll('#plSelChips .chip.active')].map(e => e.dataset.pl)[0] || '未分類';
+  let selPl = [...document.querySelectorAll('#plSelChips .chip.active')].map(e => e.dataset.pl)[0] || '未分類';
+  // 「＋ 新しいプレイリスト」が選ばれている場合は入力値を使う
+  if (selPl === '＋ 新しいプレイリスト') {
+    const newName = (document.getElementById('urlNewPlName')?.value || '').trim();
+    if (!newName) { toast('新しいプレイリスト名を入力してください'); return; }
+    selPl = newName;
+  }
   const manualCh = (document.getElementById('urlChannel')?.value || '').trim();
   let added = 0;
   parsed.forEach(p => {
@@ -2795,7 +2818,11 @@ window.addEventListener('resize', adjustTopbarOffset);
           <input id="urlChannel" type="text" placeholder="例: Triforce（YouTubeは自動取得・空欄可）" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
           <div style="font-size:10px;color:var(--text3);margin-top:3px">YouTubeはタイトル取得時に自動入力。Vimeo/GDriveは手動入力</div>
         </div>
-        <div class="form-group"><div class="form-label">📋 プレイリストに追加</div><div id="plSelChips" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
+        <div class="form-group">
+          <div class="form-label">📋 プレイリストに追加</div>
+          <div id="plSelChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          <input id="urlNewPlName" type="text" placeholder="新しいプレイリスト名を入力..." style="display:none;width:100%;box-sizing:border-box;margin-top:8px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+        </div>
         <div class="form-group"><div class="form-label">📊 優先度</div><div class="prio-opts"><div class="prio-opt" id="up1" onclick="setUP('今すぐ',this)">🔴 今すぐ</div><div class="prio-opt sl3" id="up3" onclick="setUP('保留',this)">⚪ 保留</div><div class="prio-opt" id="up2" onclick="setUP('そのうち',this)">🟡 そのうち</div></div></div>
         <button class="btn-save" onclick="addUrls()" id="urlAddBtn" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>
       </div>
