@@ -25,7 +25,7 @@ export function cardHTML(v) {
   const vmId  = (!isYT && !isGD) ? (v.id || '').replace('yt-', '') : '';
   const thumb = isYT ? (v.thumb || `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`)
               : isGD ? (v.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w320-h180`)
-              : `https://vumbnail.com/${vmId}.jpg`;
+              : (v.thumb || `https://vumbnail.com/${vmId}.jpg`);
   const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
               : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
               : `https://player.vimeo.com/video/${vmId}?${v.vmHash ? `h=${v.vmHash}&` : ''}autoplay=1`;

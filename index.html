@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.6</title>
+<title>WAZA KIMURA v48.7</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1613,6 +1613,7 @@ async function _fetchTitle(parsed) {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     parsed.ch = data.author_name || '';
+    if (data.thumbnail_url) parsed.thumb = data.thumbnail_url;
     return data.title || null;
   } catch { return null; }
 }
@@ -1781,6 +1782,7 @@ function addUrls() {
       status: '未着手', archived: false, shared: 0, ai: ''
     };
     if (p.vmHash) vid.vmHash = p.vmHash;
+    if (p.thumb) vid.thumb = p.thumb;
     videos.push(vid);
     added++;
   });
