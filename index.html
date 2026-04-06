@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.5</title>
+<title>WAZA KIMURA v48.6</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1662,7 +1662,7 @@ async function detectUrls() {
   // Show form if any valid items
   const validCount = items.filter(i => i.status === 'ok').length;
   if (validCount > 0) {
-    const pls = [...new Set(videos.map(v => v.pl)), '＋ 新しいプレイリスト'];
+    const pls = ['＋ 新しいプレイリスト', ...new Set(videos.map(v => v.pl))];
     document.getElementById('plSelChips').innerHTML = pls.map(pl =>
       `<div class="chip" onclick="_urlSelectPl(this)" data-pl="${pl}">${pl}</div>`
     ).join('');
@@ -2817,11 +2817,11 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div class="form-label">📺 チャンネル名 <span style="font-size:9px;font-weight:600;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px;margin-left:4px">任意</span></div>
           <input id="urlChannel" type="text" placeholder="例: Triforce（YouTubeは自動取得・空欄可）" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
           <div style="font-size:10px;color:var(--text3);margin-top:3px">YouTubeはタイトル取得時に自動入力。Vimeo/GDriveは手動入力</div>
+          <input id="urlNewPlName" type="text" placeholder="新しいプレイリスト名を入力..." style="display:none;width:100%;box-sizing:border-box;margin-top:8px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
         </div>
         <div class="form-group">
           <div class="form-label">📋 プレイリストに追加</div>
           <div id="plSelChips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-          <input id="urlNewPlName" type="text" placeholder="新しいプレイリスト名を入力..." style="display:none;width:100%;box-sizing:border-box;margin-top:8px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
         </div>
         <div class="form-group"><div class="form-label">📊 優先度</div><div class="prio-opts"><div class="prio-opt" id="up1" onclick="setUP('今すぐ',this)">🔴 今すぐ</div><div class="prio-opt sl3" id="up3" onclick="setUP('保留',this)">⚪ 保留</div><div class="prio-opt" id="up2" onclick="setUP('そのうち',this)">🟡 そのうち</div></div></div>
         <button class="btn-save" onclick="addUrls()" id="urlAddBtn" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>

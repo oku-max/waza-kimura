@@ -28,10 +28,10 @@ export function cardHTML(v) {
               : `https://vumbnail.com/${vmId}.jpg`;
   const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
               : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
-              : `https://player.vimeo.com/video/${vmId}?autoplay=1`;
+              : `https://player.vimeo.com/video/${vmId}?${v.vmHash ? `h=${v.vmHash}&` : ''}autoplay=1`;
   const ext   = isYT ? `https://www.youtube.com/watch?v=${ytId}`
               : isGD ? `https://drive.google.com/file/d/${gdId}/view`
-              : `https://vimeo.com/${vmId}`;
+              : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
   const pc    = v.prio === '今すぐ' ? 'p1' : v.prio === 'そのうち' ? 'p2' : 'p3';
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
   const sc    = v.status === '練習中' ? 's1' : v.status === 'マスター' ? 's2' : 's0';

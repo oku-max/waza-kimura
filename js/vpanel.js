@@ -1098,10 +1098,9 @@ export function openVPanel(id) {
     const gdId = isGD ? (v.id || '').replace('gd-', '') : '';
     const vmId = (!isYT && !isGD) ? (v.id || '').replace('yt-', '') : '';
     plat = isYT ? 'yt' : isGD ? 'gd' : 'vm';
-    const vmHash = v.vmHash ? `&h=${v.vmHash}` : '';
     emb  = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
          : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
-         : `https://player.vimeo.com/video/${vmId}?autoplay=1${vmHash}`;
+         : `https://player.vimeo.com/video/${vmId}?${v.vmHash ? `h=${v.vmHash}&` : ''}autoplay=1`;
     ext  = isYT ? `https://www.youtube.com/watch?v=${ytId}`
          : isGD ? `https://drive.google.com/file/d/${gdId}/view`
          : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
