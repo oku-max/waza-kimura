@@ -86,12 +86,7 @@ function _syncChipsToState() {
   if (siClear) siClear.style.display = (document.getElementById('si')?.value) ? 'flex' : 'none';
 }
 
-// popstate handler — restore state when user navigates back/forward
-// VPanelのpushStateエントリがpopされた時はフィルタ復元をスキップ
-window.addEventListener('popstate', (e) => {
-  if (window.openVPanelId || e.state?.vpanel) return;
-  _restoreFromURL();
-});
+// popstate は index.html の一元バックボタンハンドラに統合済み
 
 // ── 基本フィルタートグル ──
 export function togF(type, val, el) {

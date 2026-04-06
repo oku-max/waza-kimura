@@ -378,6 +378,71 @@
   window._restoreFromURL         = _restoreFromURL;
   // Restore filter state from URL params on page load
   _restoreFromURL();
+
+  // ══ Androidバックボタン一元管理 ══
+  // アプリ起動時にダミー履歴エントリを入れ、バックボタンでアプリが閉じないようにする
+  if (!history.state?._wazaBase) {
+    history.replaceState({ _wazaBase: true }, '');
+  }
+
+  window._backButtonClosing = false;
+
+  window.addEventListener('popstate', (e) => {
+    // 1. VPanel が開いていれば閉じる
+    if (window.openVPanelId) {
+      const panel = document.getElementById('vpanel');
+      if (panel && panel.classList.contains('open')) {
+        window._backButtonClosing = true;
+        closeVPanel();
+        window._backButtonClosing = false;
+        // ベースエントリを再プッシュ（次のバックに備える）
+        if (!history.state?._wazaBase) {
+          history.pushState({ _wazaBase: true }, '');
+        }
+        return;
+      }
+    }
+
+    // 2. フィルターオーバーレイが開いていれば閉じる
+    const fov = document.getElementById('filter-overlay');
+    if (fov && fov.classList.contains('show')) {
+      closeFilterOverlay();
+      history.pushState({ _wazaBase: true }, '');
+      return;
+    }
+
+    // 3. 各種オーバーレイ（.overlay.open）が開いていれば閉じる
+    const openOv = document.querySelector('.overlay.open');
+    if (openOv) {
+      openOv.classList.remove('open');
+      document.body.style.overflow = '';
+      history.pushState({ _wazaBase: true }, '');
+      return;
+    }
+
+    // 4. アノテーションエディタが開いていれば閉じる
+    const annEditor = document.getElementById('snap-ann-editor');
+    if (annEditor && annEditor.style.display !== 'none' && annEditor.offsetParent !== null) {
+      const closeAnn = document.getElementById('snap-ann-close');
+      if (closeAnn) closeAnn.click();
+      history.pushState({ _wazaBase: true }, '');
+      return;
+    }
+
+    // 5. ライトボックスが開いていれば閉じる
+    const lb = document.getElementById('snap-lightbox');
+    if (lb && lb.classList.contains('active')) {
+      const lbClose = document.getElementById('snap-lb-close');
+      if (lbClose) lbClose.click();
+      history.pushState({ _wazaBase: true }, '');
+      return;
+    }
+
+    // 6. 何も開いていない → ベースエントリを再プッシュ（アプリ終了を防止）
+    history.pushState({ _wazaBase: true }, '');
+    // フィルタURLの復元はここで行う
+    _restoreFromURL();
+  });
 </script>
 
 <style>

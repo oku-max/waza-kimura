@@ -1260,8 +1260,8 @@ export function closeVPanel() {
     window.openVPanelId = null;
     document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
     // pushStateで追加した履歴エントリを除去（Xボタン/Escape経由の場合のみ）
-    // バックボタン経由なら既にpopされているのでhistory.back()は不要
-    if (!_closingFromPopstate && history.state?.vpanel) {
+    // バックボタン経由（_backButtonClosing）なら既にpopされているのでback()不要
+    if (!window._backButtonClosing && history.state?.vpanel) {
       history.back();
     }
   } catch(e) {
@@ -2445,20 +2445,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Androidバックボタン: VPanelが開いていれば閉じる
-let _closingFromPopstate = false;
-window.addEventListener('popstate', (e) => {
-  if (window.openVPanelId) {
-    const panel = document.getElementById('vpanel');
-    if (panel && panel.classList.contains('open')) {
-      _closingFromPopstate = true;
-      closeVPanel();
-      _closingFromPopstate = false;
-      // 他のpopstateハンドラ（filter.jsなど）が余計な処理をしないよう停止
-      e.stopImmediatePropagation();
-    }
-  }
-});
 
 export function initVpanelState() {
   Object.defineProperty(window, 'openVPanelId', {
