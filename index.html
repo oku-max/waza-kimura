@@ -1272,22 +1272,35 @@
 
 <!-- URL SHEET -->
 <div class="overlay" id="urlOv" onclick="closeOv('urlOv')">
- <div class="sheet" onclick="event.stopPropagation()">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto">
   <div class="sheet-handle"></div>
   <div style="font-size:16px;font-weight:800;margin-bottom:4px">🔗 URLから動画を追加</div>
-  <div style="font-size:11px;color:var(--text3);margin-bottom:14px">YouTube・Vimeoの動画URLを貼り付けてください</div>
-  <div class="url-row"><input class="url-input" id="urlIn" type="text" placeholder="https://www.youtube.com/watch?v=... または https://vimeo.com/..."><button class="detect-btn" onclick="detectUrl()">解析</button></div>
-  <div class="detect-res" id="detRes"><span id="detIcon" style="font-size:20px"></span><div><div style="font-weight:700;font-size:12px" id="detPlat"></div><div style="font-size:11px;color:var(--text2)" id="detTitle"></div></div></div>
-  <div id="urlForm" style="display:none">
+  <div style="font-size:11px;color:var(--text3);margin-bottom:10px">YouTube・Vimeo・Google DriveのURLを貼り付け（複数行OK）</div>
+  <textarea id="urlIn" rows="4" style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5" placeholder="https://www.youtube.com/watch?v=abc123&#10;https://youtu.be/def456&#10;https://vimeo.com/123456&#10;https://drive.google.com/file/d/.../view"></textarea>
+  <button class="detect-btn" onclick="detectUrls()" style="width:100%;margin-top:8px;padding:10px;font-size:13px;font-weight:700;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer">🔍 解析する</button>
+
+  <!-- 解析結果リスト -->
+  <div id="urlResults" style="display:none;margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700" id="urlResultSummary"></div>
+      <button onclick="urlRetryErrors()" id="urlRetryBtn" style="display:none;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">🔄 エラーを再試行</button>
+    </div>
+    <div id="urlResultList" style="display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow-y:auto"></div>
+  </div>
+
+  <!-- 追加オプション（有効URLがある場合に表示） -->
+  <div id="urlForm" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
     <div class="form-group"><div class="form-label">📋 プレイリストに追加</div><div id="plSelChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div></div>
     <div class="form-group"><div class="form-label">📊 優先度</div><div class="prio-opts"><div class="prio-opt" id="up1" onclick="setUP('今すぐ',this)">🔴 今すぐ</div><div class="prio-opt sl3" id="up3" onclick="setUP('保留',this)">⚪ 保留</div><div class="prio-opt" id="up2" onclick="setUP('そのうち',this)">🟡 そのうち</div></div></div>
-    <button class="btn-save" onclick="addUrl()" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>
+    <button class="btn-save" onclick="addUrls()" id="urlAddBtn" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>
   </div>
+
   <div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px">
     <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">対応プラットフォーム</div>
     <div style="display:flex;flex-direction:column;gap:6px">
-      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#c0392b">▶ YouTube</span><span style="font-size:11px;color:var(--text3)">iframe埋め込み再生・API完全対応</span></div>
-      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#1ab7ea">🎥 Vimeo</span><span style="font-size:11px;color:var(--text3)">iframe埋め込み再生・API完全対応（BJJ有料講座に最適）</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#c0392b">▶ YouTube</span><span style="font-size:11px;color:var(--text3)">通常URL・短縮URL・埋め込みURL</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#1ab7ea">🎥 Vimeo</span><span style="font-size:11px;color:var(--text3)">通常URL（BJJ有料講座に最適）</span></div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#4285f4">📁 Google Drive</span><span style="font-size:11px;color:var(--text3)">動画ファイルの共有URL</span></div>
     </div>
   </div>
  </div>
@@ -1590,10 +1603,187 @@ function archEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.archive
 function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');window.AF?.();toast('除外しました');});}
 function delEdit(){const v=videos.find(v=>v.id===editId);showConf('🗑 削除',`「${v?.title}」を削除しますか？`,()=>{videos=videos.filter(v=>v.id!==editId);closeOv('editOv');window.AF?.();toast('削除しました');});}
 
-function openUrl(){document.getElementById('urlOv').classList.add('open');document.getElementById('urlIn').value='';document.getElementById('detRes').classList.remove('show');document.getElementById('urlForm').style.display='none';}
-function detectUrl(){const url=document.getElementById('urlIn').value.trim();if(!url){toast('URLを入力してください');return;}const yt=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);const vm=url.match(/vimeo\.com\/(\d+)/);let pt='',vid='';if(yt){pt='youtube';vid=yt[1];}else if(vm){pt='vimeo';vid=vm[1];}else{toast('対応URL: YouTube・Vimeoのみ');return;}urlDet={id:vid,pt,title:pt==='youtube'?'YouTube動画':'Vimeo動画'};document.getElementById('detIcon').textContent=pt==='youtube'?'▶':'🎥';document.getElementById('detPlat').textContent=pt==='youtube'?'YouTube':'Vimeo';document.getElementById('detTitle').textContent=`動画ID: ${vid}`;document.getElementById('detRes').classList.add('show');const pls=[...new Set(videos.map(v=>v.pl)),'新しいプレイリスト'];document.getElementById('plSelChips').innerHTML=pls.map(pl=>`<div class="chip" onclick="this.classList.toggle('active')" data-pl="${pl}">${pl}</div>`).join('');document.getElementById('urlForm').style.display='block';}
-function setUP(p,el){urlPrio=p;document.querySelectorAll('[id^="up"]').forEach(e=>e.className='prio-opt');el.classList.add(p==='今すぐ'?'sl1':p==='そのうち'?'sl2':'sl3');}
-function addUrl(){if(!urlDet){return;}const selPl=[...document.querySelectorAll('#plSelChips .chip.active')].map(e=>e.dataset.pl)[0]||'未分類';if(videos.some(v=>v.id===urlDet.id)){toast('すでにライブラリにあります');return;}videos.push({...urlDet,ch:'',pl:selPl,tb:[],ac:[],pos:[],tech:[],prio:urlPrio,fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});closeOv('urlOv');window.AF?.();toast('✅ ライブラリに追加しました');}
+function openUrl(){
+  document.getElementById('urlOv').classList.add('open');
+  document.getElementById('urlIn').value='';
+  document.getElementById('urlResults').style.display='none';
+  document.getElementById('urlForm').style.display='none';
+  window._urlParsed = [];
+}
+
+// URL解析: 1行ずつ parse → タイトル取得
+function _parseVideoUrl(line) {
+  line = line.trim();
+  if (!line || line.startsWith('#')) return null;
+  // YouTube: 各種URL形式
+  const yt = line.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (yt) return { id: yt[1], pt: 'youtube', url: line };
+  // Vimeo
+  const vm = line.match(/vimeo\.com\/(\d+)/);
+  if (vm) return { id: vm[1], pt: 'vimeo', url: line };
+  // Google Drive
+  const gd = line.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
+  if (gd) return { id: 'gd-' + gd[1], pt: 'gdrive', url: line };
+  return null;
+}
+
+async function _fetchTitle(parsed) {
+  try {
+    if (parsed.pt === 'gdrive') return parsed.id.replace('gd-','').slice(0,12) + '…';
+    const oembedUrl = parsed.pt === 'youtube'
+      ? `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${parsed.id}`
+      : `https://noembed.com/embed?url=https://vimeo.com/${parsed.id}`;
+    const res = await fetch(oembedUrl);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.title || null;
+  } catch { return null; }
+}
+
+async function detectUrls() {
+  const text = document.getElementById('urlIn').value;
+  const lines = text.split(/[\n\r]+/).filter(l => l.trim());
+  if (!lines.length) { toast('URLを入力してください'); return; }
+
+  const resultList = document.getElementById('urlResultList');
+  const resultArea = document.getElementById('urlResults');
+  resultList.innerHTML = '';
+  resultArea.style.display = 'block';
+  document.getElementById('urlForm').style.display = 'none';
+  window._urlParsed = [];
+
+  // Phase 1: parse all lines
+  const items = lines.map(line => {
+    const parsed = _parseVideoUrl(line);
+    if (!parsed) return { status: 'error', reason: '対応URLではありません', url: line };
+    if (videos.some(v => v.id === parsed.id)) return { status: 'dup', parsed, url: line };
+    // check duplicates within batch
+    if (window._urlParsed.some(p => p.id === parsed.id)) return { status: 'dup', parsed, url: line };
+    window._urlParsed.push(parsed);
+    return { status: 'ok', parsed, url: line };
+  });
+
+  // Render initial state (loading titles)
+  _renderUrlResults(items, true);
+
+  // Phase 2: fetch titles in parallel
+  const titlePromises = items.map(async (item) => {
+    if (item.status !== 'ok' && item.status !== 'dup') return;
+    const p = item.parsed;
+    p.title = await _fetchTitle(p);
+    if (!p.title) {
+      const fallback = { youtube: 'YouTube動画', vimeo: 'Vimeo動画', gdrive: 'Google Drive動画' };
+      p.title = fallback[p.pt] || '不明な動画';
+    }
+  });
+  await Promise.all(titlePromises);
+
+  // Re-render with titles
+  _renderUrlResults(items, false);
+  window._urlItems = items;
+
+  // Show form if any valid items
+  const validCount = items.filter(i => i.status === 'ok').length;
+  if (validCount > 0) {
+    const pls = [...new Set(videos.map(v => v.pl)), '新しいプレイリスト'];
+    document.getElementById('plSelChips').innerHTML = pls.map(pl =>
+      `<div class="chip" onclick="this.classList.toggle('active')" data-pl="${pl}">${pl}</div>`
+    ).join('');
+    document.getElementById('urlAddBtn').textContent = `＋ ${validCount}件をライブラリに追加`;
+    document.getElementById('urlForm').style.display = 'block';
+  }
+}
+
+function _renderUrlResults(items, loading) {
+  const list = document.getElementById('urlResultList');
+  const okCount = items.filter(i => i.status === 'ok').length;
+  const dupCount = items.filter(i => i.status === 'dup').length;
+  const errCount = items.filter(i => i.status === 'error').length;
+
+  const parts = [];
+  if (okCount) parts.push(`✅ ${okCount}件`);
+  if (dupCount) parts.push(`⚠️ 重複${dupCount}件`);
+  if (errCount) parts.push(`❌ エラー${errCount}件`);
+  document.getElementById('urlResultSummary').textContent = parts.join('　');
+  document.getElementById('urlRetryBtn').style.display = errCount > 0 ? '' : 'none';
+
+  list.innerHTML = items.map((item, i) => {
+    const iconMap = { youtube: '▶', vimeo: '🎥', gdrive: '📁' };
+    const colorMap = { youtube: '#c0392b', vimeo: '#1ab7ea', gdrive: '#4285f4' };
+    if (item.status === 'ok') {
+      const p = item.parsed;
+      const icon = iconMap[p.pt] || '?';
+      const color = colorMap[p.pt] || 'var(--text)';
+      const title = loading ? '取得中...' : (p.title || p.id);
+      const thumb = p.pt === 'youtube' ? `https://img.youtube.com/vi/${p.id}/default.jpg` : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--green-soft);border:1px solid var(--green);border-radius:8px">
+        ${thumb ? `<img src="${thumb}" style="width:48px;height:36px;border-radius:4px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
+          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.id}</div>
+        </div>
+        <span style="font-size:14px;flex-shrink:0">✅</span>
+      </div>`;
+    } else if (item.status === 'dup') {
+      const p = item.parsed;
+      const icon = iconMap[p.pt] || '?';
+      const title = loading ? '取得中...' : (p.title || p.id);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;opacity:.7">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
+          <div style="font-size:10px;color:var(--text3)">${icon} すでにライブラリにあります</div>
+        </div>
+        <span style="font-size:14px;flex-shrink:0">⚠️</span>
+      </div>`;
+    } else {
+      const shortUrl = item.url.length > 50 ? item.url.slice(0, 50) + '…' : item.url;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.3);border-radius:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;word-break:break-all;color:var(--text2)">${shortUrl}</div>
+          <div style="font-size:10px;color:#e74c3c;font-weight:600">${item.reason}</div>
+        </div>
+        <span style="font-size:14px;flex-shrink:0">❌</span>
+      </div>`;
+    }
+  }).join('');
+}
+
+function urlRetryErrors() {
+  // エラー行を除いてテキストを再構成し再解析
+  const items = window._urlItems || [];
+  const errorUrls = items.filter(i => i.status === 'error').map(i => i.url);
+  toast(`❌ ${errorUrls.length}件は対応URLではありません`);
+}
+
+function setUP(p, el) {
+  urlPrio = p;
+  document.querySelectorAll('[id^="up"]').forEach(e => e.className = 'prio-opt');
+  el.classList.add(p === '今すぐ' ? 'sl1' : p === 'そのうち' ? 'sl2' : 'sl3');
+}
+
+function addUrls() {
+  const parsed = window._urlParsed || [];
+  if (!parsed.length) return;
+  const selPl = [...document.querySelectorAll('#plSelChips .chip.active')].map(e => e.dataset.pl)[0] || '未分類';
+  let added = 0;
+  parsed.forEach(p => {
+    if (videos.some(v => v.id === p.id)) return;
+    videos.push({
+      id: p.id, pt: p.pt, title: p.title || (p.pt + '動画'),
+      ch: '', pl: selPl, tb: [], ac: [], pos: [], tech: [],
+      prio: urlPrio, fav: false, memo: '', watched: false,
+      status: '未着手', archived: false, shared: 0, ai: ''
+    });
+    added++;
+  });
+  closeOv('urlOv');
+  window.AF?.();
+  toast(`✅ ${added}件をライブラリに追加しました`);
+}
+// 旧API互換
+function addUrl() { addUrls(); }
+function detectUrl() { detectUrls(); }
 
 function openImport(){document.getElementById('impOv').classList.add('open');resetImp();}
 function resetImp(){impPl='';impSel.clear();['is1','is2','is3'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'block':'none');document.querySelectorAll('.pl-item').forEach(e=>e.classList.remove('sel'));const b=document.getElementById('toS2');b.disabled=true;['step1','step2','step3'].forEach((id,i)=>{const el=document.getElementById(id);if(el){el.className='step'+(i===0?' active':'');}});}
