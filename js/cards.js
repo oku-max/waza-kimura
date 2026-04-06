@@ -20,17 +20,22 @@ export function cardHTML(v) {
   v.pt = v.pt || v.src || 'youtube';
   const isYT  = v.pt === 'youtube';
   const isGD  = v.pt === 'gdrive';
+  const isX   = v.pt === 'x';
   const ytId  = v.ytId || (isYT ? v.id : '');
   const gdId  = isGD ? (v.id || '').replace('gd-', '') : '';
-  const vmId  = (!isYT && !isGD) ? (v.id || '').replace('yt-', '') : '';
+  const vmId  = (!isYT && !isGD && !isX) ? (v.id || '').replace('yt-', '') : '';
+  const xId   = isX ? (v.xTweetId || (v.id || '').replace('x-', '')) : '';
   const thumb = isYT ? (v.thumb || `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`)
               : isGD ? (v.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w320-h180`)
+              : isX  ? (v.thumb || '')
               : (v.thumb || `https://vumbnail.com/${vmId}.jpg`);
   const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
               : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
+              : isX  ? `https://platform.twitter.com/embed/Tweet.html?id=${xId}`
               : `https://player.vimeo.com/video/${vmId}?${v.vmHash ? `h=${v.vmHash}&` : ''}autoplay=1`;
   const ext   = isYT ? `https://www.youtube.com/watch?v=${ytId}`
               : isGD ? `https://drive.google.com/file/d/${gdId}/view`
+              : isX  ? `https://x.com/${v.xUser || 'i'}/status/${xId}`
               : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
   const pc    = v.prio === '今すぐ' ? 'p1' : v.prio === 'そのうち' ? 'p2' : 'p3';
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';

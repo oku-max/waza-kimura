@@ -1127,15 +1127,19 @@ export function openVPanel(id) {
   } else {
     const isYT = v.pt === 'youtube';
     const isGD = v.pt === 'gdrive';
+    const isX  = v.pt === 'x';
     const ytId = v.ytId || (isYT ? v.id : '');
     const gdId = isGD ? (v.id || '').replace('gd-', '') : '';
-    const vmId = (!isYT && !isGD) ? (v.id || '').replace('yt-', '') : '';
-    plat = isYT ? 'yt' : isGD ? 'gd' : 'vm';
+    const vmId = (!isYT && !isGD && !isX) ? (v.id || '').replace('yt-', '') : '';
+    const xId  = isX ? (v.xTweetId || (v.id || '').replace('x-', '')) : '';
+    plat = isYT ? 'yt' : isGD ? 'gd' : isX ? 'x' : 'vm';
     emb  = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
          : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
+         : isX  ? `https://platform.twitter.com/embed/Tweet.html?id=${xId}`
          : `https://player.vimeo.com/video/${vmId}?${v.vmHash ? `h=${v.vmHash}&` : ''}autoplay=1`;
     ext  = isYT ? `https://www.youtube.com/watch?v=${ytId}`
          : isGD ? `https://drive.google.com/file/d/${gdId}/view`
+         : isX  ? `https://x.com/${v.xUser || 'i'}/status/${xId}`
          : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
   }
 
@@ -1184,6 +1188,10 @@ export function openVPanel(id) {
     const ytId = _extractYtId(emb);
     if (ytId) {
       _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+    }
+  } else if (plat === 'x') {
+    if (iframeContainer) {
+      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
     }
   } else if (plat === 'gd') {
     const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
@@ -2289,6 +2297,9 @@ export function _openPanel(id, emb, ext, plat) {
     if (ytId) {
       _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
     }
+  } else if (plat === 'x') {
+    const ifc = document.getElementById('vp-panel-iframe-container');
+    if (ifc) ifc.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
   } else if (plat === 'gd') {
     const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
     const fileId = fileIdMatch ? fileIdMatch[1] : '';

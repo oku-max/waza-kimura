@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.9</title>
+<title>WAZA KIMURA v48.10</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1456,7 +1456,7 @@ function renderArch(){
   if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';_updateArchBulkBar();return;}
   c.innerHTML=arc.map(v=>{
     const thumb=v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:v.pt==='gdrive'?`https://drive.google.com/thumbnail?id=${(v.id||'').replace(/^gd-/,'')}&sz=w320-h180`:`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`;
-    const platLabel=v.pt==='vimeo'?'🎥 Vimeo':v.pt==='gdrive'?'📁 GDrive':'▶ YouTube';
+    const platLabel=v.pt==='vimeo'?'🎥 Vimeo':v.pt==='gdrive'?'📁 GDrive':v.pt==='x'?'𝕏 X':'▶ YouTube';
     return `<div class="arch-card"><input type="checkbox" id="arch-cb-${v.id}" ${archSelIds.has(v.id)?'checked':''} onchange="archTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${thumb}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl||'—'} | ${platLabel}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`;
   }).join('');
   _updateArchBulkBar();
@@ -1595,6 +1595,9 @@ function _parseVideoUrl(line) {
   // Google Drive
   const gd = line.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
   if (gd) return { id: 'gd-' + gd[1], pt: 'gdrive', url: line };
+  // X (Twitter)
+  const x = line.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status\/(\d+)/);
+  if (x) return { id: 'x-' + x[2], pt: 'x', url: line, xUser: x[1], xTweetId: x[2] };
   return null;
 }
 
@@ -1604,10 +1607,12 @@ async function _fetchTitle(parsed) {
       parsed.ch = parsed.ch || '';
       return parsed.id.replace('gd-','').slice(0,12) + '…';
     }
-    const vimeoFull = parsed.pt === 'vimeo'
+    const fullUrl = parsed.pt === 'vimeo'
       ? `https://vimeo.com/${parsed.id}${parsed.vmHash ? '/' + parsed.vmHash : ''}`
+      : parsed.pt === 'x'
+      ? `https://twitter.com/${parsed.xUser}/status/${parsed.xTweetId}`
       : `https://www.youtube.com/watch?v=${parsed.id}`;
-    const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(vimeoFull)}`;
+    const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(fullUrl)}`;
     const res = await fetch(oembedUrl);
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
@@ -1740,8 +1745,8 @@ function _renderUrlResults(items, loading) {
   document.getElementById('urlRetryBtn').style.display = errCount > 0 ? '' : 'none';
 
   list.innerHTML = items.map((item, i) => {
-    const iconMap = { youtube: '▶', vimeo: '🎥', gdrive: '📁' };
-    const colorMap = { youtube: '#c0392b', vimeo: '#1ab7ea', gdrive: '#4285f4' };
+    const iconMap = { youtube: '▶', vimeo: '🎥', gdrive: '📁', x: '𝕏' };
+    const colorMap = { youtube: '#c0392b', vimeo: '#1ab7ea', gdrive: '#4285f4', x: '#000' };
     if (item.status === 'ok') {
       const p = item.parsed;
       const icon = iconMap[p.pt] || '?';
@@ -1824,6 +1829,8 @@ function addUrls() {
     };
     if (p.vmHash) vid.vmHash = p.vmHash;
     if (p.thumb) vid.thumb = p.thumb;
+    if (p.xUser) vid.xUser = p.xUser;
+    if (p.xTweetId) vid.xTweetId = p.xTweetId;
     videos.push(vid);
     added++;
   });
@@ -2882,6 +2889,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div><span style="color:#c0392b;font-weight:700">▶</span> youtube.com/watch?v= ・ youtu.be/ ・ shorts/ ・ embed/</div>
           <div><span style="color:#1ab7ea;font-weight:700">🎥</span> vimeo.com/123456</div>
           <div><span style="color:#4285f4;font-weight:700">📁</span> drive.google.com/file/d/.../view</div>
+          <div><span style="color:#000;font-weight:700">𝕏</span> x.com/user/status/... ・ twitter.com/user/status/...（再生のみ・スキップ等不可）</div>
         </div>
       </div>
     </div><!-- /url-import-body -->
@@ -2968,7 +2976,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div style="display:flex;flex-direction:column;gap:3px">
         <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">ソース</label>
         <select id="adv-source" style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;background:var(--surface);color:var(--text);font-family:inherit">
-          <option value="">すべて</option><option value="youtube">YouTube</option><option value="vimeo">Vimeo</option><option value="gdrive">Google Drive</option>
+          <option value="">すべて</option><option value="youtube">YouTube</option><option value="vimeo">Vimeo</option><option value="gdrive">Google Drive</option><option value="x">X (Twitter)</option>
         </select>
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">
