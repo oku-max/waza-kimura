@@ -859,7 +859,7 @@ export function buildSidebarFovRows() {
     srcEl.innerHTML = '';
     // ファセット: platform以外のフィルターを適用した動画でカウント
     const ctxVids = _sbContextVideos('platform', f);
-    [['youtube','YouTube'],['gdrive','GDrive']].forEach(([val, label]) => {
+    [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']].forEach(([val, label]) => {
       const cnt = ctxVids.filter(v => v.pt === val).length;
       const chip = document.createElement('div');
       chip.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
@@ -1153,7 +1153,7 @@ export function buildOrgSbSrcChips() {
   const f = window.orgFilters || {};
   el.innerHTML = '';
   const ctxVids = _sbContextVideos('platform', f);
-  [['youtube','YouTube'],['gdrive','GDrive']].forEach(([val, label]) => {
+  [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']].forEach(([val, label]) => {
     const cnt = ctxVids.filter(v => v.pt === val).length;
     const chip = document.createElement('div');
     chip.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
