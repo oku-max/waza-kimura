@@ -1,4 +1,5 @@
 // ═══ WAZA KIMURA — フィルターオーバーレイ & サイドバー ═══
+import { _syncChipsToState } from './filter.js';
 
 // ── ドロップダウン外クリックで全DD閉じる（フィルター・VPanel・GDrive共通）──
 document.addEventListener('click', function(e) {
@@ -657,6 +658,9 @@ export function applySavedSearch(idx) {
   const si   = document.getElementById('si');        if (si)   si.value   = s.query || '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = s.query || '';
   window.syncFilterOvRows?.();
+  _syncChipsToState();
+  window.buildSidebarFovRows?.();
+  window.refreshOpenSbAccordions?.();
   window.AF?.(); renderSavedSearches();
   window.toast?.('🔍 「' + ss.name + '」を適用しました');
 }
@@ -744,6 +748,19 @@ export function cancelEditSavedSearch() {
 window.commitEditSavedSearch = commitEditSavedSearch;
 window.cancelEditSavedSearch = cancelEditSavedSearch;
 
+// 並び替え
+export function moveSavedSearch(idx, dir, e) {
+  e.stopPropagation();
+  const j = idx + dir;
+  if (j < 0 || j >= savedSearches.length) return;
+  const tmp = savedSearches[idx];
+  savedSearches[idx] = savedSearches[j];
+  savedSearches[j] = tmp;
+  _persistSavedSearches();
+  renderSavedSearches();
+}
+window.moveSavedSearch = moveSavedSearch;
+
 let _ssMenuOpenIdx = null;
 export function toggleSavedSearchMenu(idx, e) {
   e.stopPropagation();
@@ -775,9 +792,15 @@ export function renderSavedSearches() {
         `;
       }
       const menuOpen = _ssMenuOpenIdx === i;
+      const isFirst = i === 0;
+      const isLast  = i === savedSearches.length - 1;
       const menu = menuOpen ? `
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;gap:2px;margin-top:4px;padding:4px;border-radius:6px;background:var(--bg);border:1px solid var(--border)">
-          <div onclick="renameSavedSearch(${i},event);_ssMenuClose&&_ssMenuClose()" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px">🏷️ 名前を変更</div>
+          <div style="display:flex;gap:4px">
+            <div onclick="moveSavedSearch(${i},-1,event)" style="flex:1;text-align:center;padding:6px 8px;border-radius:4px;cursor:${isFirst?'not-allowed':'pointer'};opacity:${isFirst?0.3:1};font-size:12px;background:var(--surface2)">⬆ 上へ</div>
+            <div onclick="moveSavedSearch(${i},1,event)"  style="flex:1;text-align:center;padding:6px 8px;border-radius:4px;cursor:${isLast?'not-allowed':'pointer'};opacity:${isLast?0.3:1};font-size:12px;background:var(--surface2)">⬇ 下へ</div>
+          </div>
+          <div onclick="renameSavedSearch(${i},event)" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px">🏷️ 名前を変更</div>
           <div onclick="editSavedSearch(${i},event)" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px">⚙️ 条件を編集</div>
           <div onclick="deleteSavedSearch(${i},event)" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px;color:#c33">🗑️ 削除</div>
         </div>

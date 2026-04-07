@@ -60,7 +60,7 @@ export function _restoreFromURL() {
   window.AF?.();
 }
 
-function _syncChipsToState() {
+export function _syncChipsToState() {
   // Platform chips
   ['chip-yt','m-chip-yt'].forEach(id => {
     const el = document.getElementById(id); if (el) el.classList.toggle('active', window.filters.platform.has('youtube'));
