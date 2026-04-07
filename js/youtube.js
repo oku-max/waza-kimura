@@ -102,9 +102,21 @@ async function _fetchPlaylistViaRss(plId, plTitle) {
   return items;
 }
 
+function _ytClearDisabledBtns() {
+  ['yt-import-ok','yt-import-bulk-new'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.disabled = false;
+    b.style.opacity = '';
+    b.style.cursor = '';
+    b.title = '';
+  });
+}
+
 function _renderYtRetry(msg) {
   const list = document.getElementById('yt-pl-list');
   if (!list) return;
+  const isQuota = /quota|rateLimit|dailyLimit|403/i.test(msg || '');
   const cache = _loadYtPlCache();
   const favs = _ytLoadFavs();
   const cacheBtn = cache?.playlists?.length
@@ -113,28 +125,51 @@ function _renderYtRetry(msg) {
   const favBtn = favs.length
     ? `<button onclick="ytUseFavFallback()" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--gold);background:var(--gold-soft);color:var(--gold);font-size:13px;font-weight:700;cursor:pointer">★ お気に入り＋RSSで取込 (${favs.length})</button>`
     : '';
-  // 任意のプレイリストID/URL入力
   const manualBtn = `<button onclick="ytAddManualPl()" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer">＋ プレイリストID/URLを手入力</button>`;
+  // quota枯渇中は再認証ボタンを出さない（押しても直らず誤解を招くため）
+  const reauthBlock = isQuota
+    ? `<div style="font-size:11px;color:var(--text3);max-width:340px;margin:0 auto 6px;line-height:1.55">YouTube APIの本日の無料枠を使い切りました。明日のリセットまでは下記の代替手段（RSS・最大15本/PL）をご利用ください。</div>`
+    : `<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+         <button onclick="ytReauth()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">YouTubeを再認証</button>
+       </div>`;
+  const title = isQuota ? 'YouTube API クオータ枯渇' : 'YouTube APIエラー';
+  const icon  = isQuota ? '⏳' : '🔄';
   list.innerHTML = `<div style="text-align:center;padding:18px 12px">
-    <div style="font-size:28px;margin-bottom:10px">🔄</div>
-    <div style="font-size:13px;font-weight:700;margin-bottom:4px">YouTube APIエラー</div>
+    <div style="font-size:28px;margin-bottom:10px">${icon}</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px">${title}</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:14px;word-break:break-word">${msg}</div>
-    <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <button onclick="ytReauth()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">YouTubeを再認証</button>
-    </div>
-    <div style="font-size:10px;color:var(--text3);margin:14px 0 10px">━━━ quota枯渇時の代替手段 (RSSフィード経由・最新15本まで) ━━━</div>
+    ${reauthBlock}
+    <div style="font-size:10px;color:var(--text3);margin:14px 0 10px">━━━ ${isQuota ? '代替手段' : 'quota枯渇時の代替手段'} (RSSフィード経由・最新15本まで) ━━━</div>
     <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:8px">
       ${favBtn}
       ${cacheBtn}
       ${manualBtn}
     </div>
   </div>`;
+  // API経由ボタン（次へ / 一括取込）はquota時に無効化
+  const okBtn = document.getElementById('yt-import-ok');
+  const bulkBtn = document.getElementById('yt-import-bulk-new');
+  [okBtn, bulkBtn].forEach(b => {
+    if (!b) return;
+    if (isQuota) {
+      b.disabled = true;
+      b.style.opacity = '0.4';
+      b.style.cursor = 'not-allowed';
+      b.title = 'YouTube APIクオータ枯渇中。代替手段（★お気に入り＋RSS など）をご利用ください';
+    } else {
+      b.disabled = false;
+      b.style.opacity = '';
+      b.style.cursor = '';
+      b.title = '';
+    }
+  });
 }
 
 export function ytUseCacheFallback() {
   const cache = _loadYtPlCache();
   if (!cache?.playlists?.length) { showToast('キャッシュがありません'); return; }
   window._ytQuotaFallback = true;
+  _ytClearDisabledBtns();
   const special = [{ id: 'LL', snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} }, contentDetails: { itemCount: '?' } }];
   showPlaylistSelector([...special, ...cache.playlists], _ytImportToken);
   showToast('📦 キャッシュ表示: RSSフィード経由で最新15本まで取込可能');
@@ -145,6 +180,7 @@ export function ytUseFavFallback() {
   const favs = _ytLoadFavs();
   if (!favs.length) { showToast('お気に入りプレイリストがありません'); return; }
   window._ytQuotaFallback = true;
+  _ytClearDisabledBtns();
   const playlists = favs.map(f => ({
     id: f.id,
     snippet: { title: f.title || f.id, thumbnails: {} },
