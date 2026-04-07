@@ -36,9 +36,13 @@ async function fetchPlaylists(token) {
     );
     const data = await res.json();
     if (data.error) {
-      window._ytToken = null;
-      showToast('⚠️ トークン期限切れ。再認証してください');
-      _renderYtRetry('トークンが期限切れ、または権限エラーです');
+      const reason = data.error.errors?.[0]?.reason || '';
+      const msg = data.error.message || 'unknown';
+      // 認証系のみトークンをクリア。quota/rate系はトークンを維持
+      const isAuth = res.status === 401 || reason === 'authError' || reason === 'invalidCredentials';
+      if (isAuth) window._ytToken = null;
+      showToast('⚠️ ' + msg);
+      _renderYtRetry(`${reason || 'error'}: ${msg}`);
       return;
     }
     const playlists = data.items || [];
@@ -234,37 +238,27 @@ function showPlaylistSelector(playlists, token) {
   ov.classList.add('open');
   document.getElementById('yt-import-ok').onclick = () => ytFetchSelectedPlVideos(token);
 
-  // 各プレイリストの未取込本数を非同期で取得（バックグラウンド）
-  _fetchUnimportedCounts(playlists, token);
+  // 未取込本数を計算（APIを使わずローカルの videos[] と itemCount の差分）
+  _computeUnimportedCountsLocal(playlists);
 }
 
-async function _fetchUnimportedCounts(playlists, token) {
-  const existing = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
-  for (const pl of playlists) {
-    if (pl.id === 'LL') continue; // 高評価はスキップ（itemCount不明）
-    try {
-      let pageToken = '';
-      let unimported = 0;
-      do {
-        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${pl.id}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
-        const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-        const data = await res.json();
-        if (data.error) break;
-        (data.items || []).forEach(it => {
-          const vid = it.contentDetails?.videoId;
-          if (vid && !existing.has(vid)) unimported++;
-        });
-        pageToken = data.nextPageToken || '';
-      } while (pageToken);
-      _ytPlaylistMeta[pl.id] = { unimported };
-      const el = document.getElementById('yt-pl-newcnt-' + pl.id);
-      if (el) el.textContent = unimported > 0 ? `· 未取込 ${unimported}本` : '· すべて取込済';
-    } catch {}
-  }
-  // 「隠す」がオン中なら全件取得後に再描画して非表示反映
-  if (document.getElementById('yt-hide-allimported')?.checked) {
-    showPlaylistSelector(window._ytLastPlaylists || [], _ytImportToken);
-  }
+function _computeUnimportedCountsLocal(playlists) {
+  // 既存videosをプレイリスト名でグループ化
+  const importedByPl = {};
+  (window.videos || []).forEach(v => {
+    if (v.pt !== 'youtube' || !v.pl) return;
+    importedByPl[v.pl] = (importedByPl[v.pl] || 0) + 1;
+  });
+  playlists.forEach(pl => {
+    if (pl.id === 'LL') return;
+    const total = parseInt(pl.contentDetails?.itemCount, 10);
+    if (isNaN(total)) return;
+    const imported = importedByPl[pl.snippet.title] || 0;
+    const unimported = Math.max(0, total - imported);
+    _ytPlaylistMeta[pl.id] = { unimported };
+    const el = document.getElementById('yt-pl-newcnt-' + pl.id);
+    if (el) el.textContent = unimported > 0 ? `· 未取込 ${unimported}本` : '· すべて取込済';
+  });
 }
 
 export function ytTogHideAllImported() {
