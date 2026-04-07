@@ -297,8 +297,9 @@ export function switchImportTab(tab) {
     if (body) body.style.display = t === tab ? '' : 'none';
     const btn = document.getElementById('tab-' + t);
     if (btn) {
-      btn.style.background = t === tab ? 'var(--text)' : 'var(--surface2)';
-      btn.style.color      = t === tab ? '#fff' : 'var(--text2)';
+      btn.style.background = t === tab ? 'var(--accent)' : 'var(--surface2)';
+      btn.style.color      = t === tab ? 'var(--bg)' : 'var(--text2)';
+      btn.style.borderColor = t === tab ? 'var(--accent)' : 'var(--border)';
     }
   });
   if (tab === 'gd') gdOpenBrowser();
@@ -314,7 +315,7 @@ export function switchImportTab(tab) {
           <div style="font-size:32px;margin-bottom:12px">🔒</div>
           <div style="font-size:14px;font-weight:700;margin-bottom:6px">Googleアカウントが必要です</div>
           <div style="font-size:12px;color:var(--text3);margin-bottom:16px">YouTubeプレイリストの取り込みにはGoogleログインが必要です</div>
-          <button onclick="document.getElementById('auth-btn')?.click()" style="padding:10px 24px;border-radius:8px;border:none;background:#4285f4;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Googleでログイン</button>
+          <button onclick="document.getElementById('auth-btn')?.click()" style="padding:10px 24px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">Googleでログイン</button>
         </div>`;
     } else if (window.importYouTubePlaylists) {
       window.importYouTubePlaylists();
@@ -361,8 +362,8 @@ function _folderItemHtml(f, isFav) {
   const eid  = f.id.replace(/'/g,"\\'");
   const ename = f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
   const star = isFav ? '★' : '☆';
-  const starColor = isFav ? '#c8a000' : 'var(--text3)';
-  const bg   = isFav ? 'background:#fdf8e8;border-color:#e8d870;' : '';
+  const starColor = isFav ? 'var(--gold)' : 'var(--text3)';
+  const bg   = isFav ? 'background:var(--gold-soft);border-color:var(--gold);' : '';
   return `<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:5px;background:var(--surface2);${bg}">
     <span style="font-size:17px" onclick="gdBrowserEnter('${eid}','${ename}')">📁</span>
     <span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="gdBrowserEnter('${eid}','${ename}')">${f.name}</span>
@@ -403,7 +404,7 @@ async function _browserRender() {
 
     // お気に入りセクション（ルート表示時のみ）
     if (_browserStack.length === 0 && favs.length > 0) {
-      html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7a6200;padding:4px 0 6px;display:flex;align-items:center;gap:6px">★ お気に入り<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
+      html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);padding:4px 0 6px;display:flex;align-items:center;gap:6px">★ お気に入り<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
       html += favs.map(f => _folderItemHtml(f, true)).join('');
       html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;gap:6px">全フォルダ<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
     }

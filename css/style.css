@@ -319,6 +319,25 @@ body.bulk-mode .card-sel-ov{display:block;}
 .overlay{display:none;position:fixed;inset:0;background:rgba(60,20,5,.55);z-index:300;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
 .overlay.open{display:flex;}
 .sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:620px;padding:20px;border-top:3px solid var(--accent);max-height:90vh;overflow-y:auto;}
+/* 動画取込ウインドウ（YT/GDrive/URL）はvパネルと同じ縦長サイドパネル形式に統一 */
+#yt-import-ov.overlay{align-items:stretch;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
+#yt-import-ov .sheet{
+  width:100%;
+  max-width:620px;
+  height:auto;
+  max-height:calc(100vh - 24px);
+  margin:12px;
+  border-radius:16px;
+  border-top:3px solid var(--accent);
+  box-shadow:0 8px 40px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  padding:18px 20px;
+}
+#yt-import-ov .sheet-handle{display:none;}
+#yt-import-ov #yt-import-body,
+#yt-import-ov #gd-import-body,
+#yt-import-ov #url-import-body{flex:1;min-height:0;overflow-y:auto;}
 .sheet-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
 .form-group{margin-bottom:12px;}
 .url-pk-btn{width:100%;text-align:left;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit}
