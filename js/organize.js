@@ -536,9 +536,14 @@ export function renderOrg() {
     // v.idは'yt-XXXXX'形式のため、YouTubeはv.ytId、VimeoはvideoId部分を使用
     const _ytId = v.ytId || (v.id||'').replace(/^yt-/,'');
     const _vmId = (v.id||'').replace(/^vm-/,'');
+    const _gdId = (v.id||'').replace(/^gd-/,'');
     const thumb = v.pt === 'youtube'
-      ? `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`
-      : `https://vumbnail.com/${_vmId}.jpg`;
+      ? (v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`)
+      : v.pt === 'gdrive'
+      ? (v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320-h180`)
+      : v.pt === 'x'
+      ? (v.thumb || '')
+      : (v.thumb || `https://vumbnail.com/${_vmId}.jpg`);
 
     const prio = v.prio || '保留';
     const prioCols = {'今すぐ':['#fdecea','#ff5252'],'そのうち':['#e3f2fd','#42a5f5'],'保留':['#fff8e1','#f59e0b']};
