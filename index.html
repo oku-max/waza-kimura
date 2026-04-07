@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.10</title>
+<title>WAZA KIMURA v48.11</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1616,9 +1616,20 @@ async function _fetchTitle(parsed) {
     const res = await fetch(oembedUrl);
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    parsed.ch = data.author_name || '';
+    if (data.error && parsed.pt !== 'x') throw new Error(data.error);
+    parsed.ch = data.author_name || (parsed.pt === 'x' ? '@' + parsed.xUser : '');
     if (data.thumbnail_url) parsed.thumb = data.thumbnail_url;
+    // Xはhtmlからツイート本文を抽出してタイトルにする
+    if (parsed.pt === 'x') {
+      let txt = '';
+      if (data.html) {
+        const m = data.html.match(/<p[^>]*>([\s\S]*?)<\/p>/);
+        if (m) txt = m[1].replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').trim();
+      }
+      if (!txt) txt = `${parsed.ch}のツイート`;
+      if (txt.length > 80) txt = txt.slice(0, 80) + '…';
+      return txt;
+    }
     return data.title || null;
   } catch { return null; }
 }
