@@ -1855,43 +1855,37 @@ export function vpDdAddNew(id, type, val) {
 }
 
 // ── Channel 単一値ドロップダウン ──
+function _vpOpenDd(dd) {
+  // インラインfixedスタイルを全部クリアしてCSSデフォルトに戻す（position:absolute, top:100%）
+  ['position','top','bottom','left','right','width','zIndex','maxHeight','overflowY'].forEach(k => { dd.style[k] = ''; });
+  dd.style.display = 'block';
+  // ビューポートに収まるよう maxHeight 設定＋下スペース不足なら上に反転
+  requestAnimationFrame(() => {
+    try {
+      const rect = dd.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const spaceBelow = vh - rect.top - 12;
+      const spaceAbove = rect.top - 12;
+      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+        dd.style.top = 'auto';
+        dd.style.bottom = '100%';
+        dd.style.maxHeight = Math.min(420, spaceAbove) + 'px';
+      } else {
+        dd.style.maxHeight = Math.min(420, spaceBelow) + 'px';
+      }
+      dd.style.overflowY = 'auto';
+      dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch(e) {}
+  });
+}
+
 export function vpTogChannelDd(id) {
   const dd = document.getElementById('vp-dd-ch-' + id);
   if (!dd) return;
-  const isOpen = dd.style.display !== 'none';
+  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
   document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
-  // position:fixed でVPanelのoverflow:hiddenから脱出
-  const wrap = dd.closest('.vp-dd-wrap');
-  if (wrap) {
-    const rect = wrap.getBoundingClientRect();
-    dd.style.position = 'fixed';
-    dd.style.top = (rect.bottom + 2) + 'px';
-    dd.style.left = rect.left + 'px';
-    dd.style.right = (window.innerWidth - rect.right) + 'px';
-    dd.style.width = '';
-    dd.style.zIndex = '400';
-  }
-  dd.style.display = 'block';
-  // ビューポート下端に収まるように高さ制限（下に十分ない場合は上に反転）
-  try {
-    const rect2 = dd.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const spaceBelow = vh - rect2.top - 12;
-    const spaceAbove = rect2.top - 12;
-    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-      const wrapRect = dd.closest('.vp-dd-wrap')?.getBoundingClientRect();
-      if (wrapRect) {
-        dd.style.top = '';
-        dd.style.bottom = (vh - wrapRect.top + 2) + 'px';
-        dd.style.maxHeight = Math.min(420, spaceAbove) + 'px';
-      }
-    } else {
-      dd.style.maxHeight = Math.min(420, spaceBelow) + 'px';
-    }
-    dd.style.overflowY = 'auto';
-  } catch(e) {}
-  window.adjustDdListHeight?.(dd);
+  _vpOpenDd(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
   vpRenderChannelDdList(id, '');
@@ -2015,40 +2009,10 @@ export function vpSetChannel(id, val) {
 export function vpTogPlNameDd(id) {
   const dd = document.getElementById('vp-dd-plname-' + id);
   if (!dd) return;
-  const isOpen = dd.style.display !== 'none';
+  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
   document.querySelectorAll('.vp-dd').forEach(d => d.style.display = 'none');
   if (isOpen) return;
-  // position:fixed でVPanelのoverflow:hiddenから脱出
-  const wrap = dd.closest('.vp-dd-wrap');
-  if (wrap) {
-    const rect = wrap.getBoundingClientRect();
-    dd.style.position = 'fixed';
-    dd.style.top = (rect.bottom + 2) + 'px';
-    dd.style.left = rect.left + 'px';
-    dd.style.right = (window.innerWidth - rect.right) + 'px';
-    dd.style.width = '';
-    dd.style.zIndex = '400';
-  }
-  dd.style.display = 'block';
-  // ビューポート下端に収まるように高さ制限（下に十分ない場合は上に反転）
-  try {
-    const rect2 = dd.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const spaceBelow = vh - rect2.top - 12;
-    const spaceAbove = rect2.top - 12;
-    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-      const wrapRect = dd.closest('.vp-dd-wrap')?.getBoundingClientRect();
-      if (wrapRect) {
-        dd.style.top = '';
-        dd.style.bottom = (vh - wrapRect.top + 2) + 'px';
-        dd.style.maxHeight = Math.min(420, spaceAbove) + 'px';
-      }
-    } else {
-      dd.style.maxHeight = Math.min(420, spaceBelow) + 'px';
-    }
-    dd.style.overflowY = 'auto';
-  } catch(e) {}
-  window.adjustDdListHeight?.(dd);
+  _vpOpenDd(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
   vpRenderPlNameDdList(id, '');
