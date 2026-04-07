@@ -402,7 +402,7 @@ export function buildFovRows(isOrg=false) {
   const srcRow = document.getElementById(`${p}-srow-src`);
   if (srcRow) {
     srcRow.innerHTML = '';
-    [['youtube','YouTube'], ['gdrive','Google Drive']].forEach(([val, label]) => {
+    [['youtube','YouTube'], ['vimeo','Vimeo'], ['gdrive','Google Drive'], ['x','X']].forEach(([val, label]) => {
       const cnt = vids.filter(v => !v.archived && v.pt === val).length;
       const el = document.createElement('div');
       el.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
