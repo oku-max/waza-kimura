@@ -120,28 +120,178 @@ async function fetchVideoDescriptions(vids, token) {
   return descMap;
 }
 
+// ── お気に入りプレイリスト（GDriveのお気に入りフォルダと同じパターン）──
+const YT_FAV_KEY = 'yt_fav_playlists';
+function _ytLoadFavs() {
+  try { return JSON.parse(localStorage.getItem(YT_FAV_KEY) || '[]'); } catch { return []; }
+}
+function _ytSaveFavs(favs) { localStorage.setItem(YT_FAV_KEY, JSON.stringify(favs)); }
+export function ytFavToggle(plId, plTitle) {
+  const favs = _ytLoadFavs();
+  const idx = favs.findIndex(f => f.id === plId);
+  if (idx >= 0) favs.splice(idx, 1);
+  else favs.unshift({ id: plId, title: plTitle });
+  _ytSaveFavs(favs);
+  if (window._ytLastPlaylists) showPlaylistSelector(window._ytLastPlaylists, _ytImportToken);
+}
+window.ytFavToggle = ytFavToggle;
+
+let _ytPlaylistMeta = {}; // plId -> {total, fetched, unimportedCount}
+
+function _renderPlRow(pl, isFav) {
+  const count = pl.contentDetails?.itemCount || '?';
+  const thumb = pl.snippet.thumbnails?.medium?.url || pl.snippet.thumbnails?.default?.url || '';
+  const safeTitle = pl.snippet.title.replace(/"/g,'&quot;');
+  const star = isFav ? '★' : '☆';
+  const starColor = isFav ? 'var(--gold)' : 'var(--text3)';
+  const bg = isFav ? 'background:var(--gold-soft);border-color:var(--gold);' : '';
+  return `<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s;${bg}" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${isFav ? 'var(--gold)' : 'var(--border)'}'">
+    <input type="checkbox" value="${pl.id}" data-title="${safeTitle}" data-count="${count}" style="width:18px;height:18px;flex-shrink:0">
+    <img src="${thumb}" style="width:52px;height:39px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pl.snippet.title}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${count}本 <span id="yt-pl-newcnt-${pl.id}" style="color:var(--accent);font-weight:700"></span></div>
+    </div>
+    <button type="button" onclick="event.preventDefault();event.stopPropagation();ytFavToggle('${pl.id}','${safeTitle}')" title="${isFav ? 'お気に入りから外す' : 'お気に入りに追加'}" style="background:none;border:none;cursor:pointer;font-size:18px;color:${starColor};padding:2px 4px;line-height:1;flex-shrink:0">${star}</button>
+  </label>`;
+}
+
 function showPlaylistSelector(playlists, token) {
   _ytImportToken = token;
+  window._ytLastPlaylists = playlists;
   const ov   = document.getElementById('yt-import-ov');
   const list = document.getElementById('yt-pl-list');
   if (!ov || !list) return;
   document.getElementById('yt-stage1').style.display = '';
   document.getElementById('yt-stage2').style.display = 'none';
-  list.innerHTML = playlists.map(pl => {
-    const count = pl.contentDetails?.itemCount || '?';
-    const thumb = pl.snippet.thumbnails?.medium?.url || pl.snippet.thumbnails?.default?.url || '';
-    return `<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-      <input type="checkbox" value="${pl.id}" data-title="${pl.snippet.title.replace(/"/g,'&quot;')}" data-count="${count}" style="width:18px;height:18px;flex-shrink:0">
-      <img src="${thumb}" style="width:52px;height:39px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pl.snippet.title}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${count}本</div>
-      </div>
-    </label>`;
-  }).join('');
+
+  const favs = _ytLoadFavs();
+  const favIds = new Set(favs.map(f => f.id));
+  const favPls = favs.map(f => playlists.find(p => p.id === f.id)).filter(Boolean);
+  const restPls = playlists.filter(p => !favIds.has(p.id));
+
+  let html = '';
+  if (favPls.length) {
+    html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);padding:4px 0 6px;display:flex;align-items:center;gap:6px">★ お気に入り<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
+    html += favPls.map(p => _renderPlRow(p, true)).join('');
+    html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;gap:6px">全プレイリスト<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
+  }
+  html += restPls.map(p => _renderPlRow(p, false)).join('');
+  list.innerHTML = html;
+
   ov.classList.add('open');
   document.getElementById('yt-import-ok').onclick = () => ytFetchSelectedPlVideos(token);
+
+  // 各プレイリストの未取込本数を非同期で取得（バックグラウンド）
+  _fetchUnimportedCounts(playlists, token);
 }
+
+async function _fetchUnimportedCounts(playlists, token) {
+  const existing = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
+  for (const pl of playlists) {
+    if (pl.id === 'LL') continue; // 高評価はスキップ（itemCount不明）
+    try {
+      let pageToken = '';
+      let unimported = 0;
+      do {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${pl.id}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
+        const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        if (data.error) break;
+        (data.items || []).forEach(it => {
+          const vid = it.contentDetails?.videoId;
+          if (vid && !existing.has(vid)) unimported++;
+        });
+        pageToken = data.nextPageToken || '';
+      } while (pageToken);
+      _ytPlaylistMeta[pl.id] = { unimported };
+      const el = document.getElementById('yt-pl-newcnt-' + pl.id);
+      if (el) el.textContent = unimported > 0 ? `· 未取込 ${unimported}本` : '· すべて取込済';
+    } catch {}
+  }
+}
+
+// チェック済プレイリストの未取込動画を中身を見ずに一括取込
+export async function ytImportUnimportedFromChecked() {
+  const checks = document.querySelectorAll('#yt-pl-list input:checked');
+  if (!checks.length) { showToast('プレイリストを選択してください'); return; }
+  const token = _ytImportToken;
+  if (!token) { showToast('⚠️ トークンがありません'); return; }
+  const btn = document.getElementById('yt-import-bulk-new');
+  const okBtn = document.getElementById('yt-import-ok');
+  btn.disabled = true; if (okBtn) okBtn.disabled = true;
+  btn.textContent = '取得中...';
+  const existing = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
+  const toAdd = [];
+  for (const cb of checks) {
+    const plId = cb.value; const plTitle = cb.dataset.title;
+    let pageToken = '';
+    do {
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      const data = await res.json();
+      if (data.error) { showToast('⚠️ ' + data.error.message); break; }
+      (data.items || []).forEach(item => {
+        const s = item.snippet; const vid = s.resourceId?.videoId;
+        if (!vid || existing.has(vid)) return;
+        existing.add(vid);
+        toAdd.push({
+          vid, plTitle,
+          title: s.title,
+          thumb: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+          channel: s.videoOwnerChannelTitle || '',
+          addedAt: s.publishedAt || ''
+        });
+      });
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+  }
+  if (!toAdd.length) {
+    btn.disabled = false; if (okBtn) okBtn.disabled = false;
+    btn.textContent = '📥 未取込を一括取込';
+    showToast('✅ 未取込の動画はありません');
+    return;
+  }
+  // チャプター/duration補完
+  btn.textContent = `補完中 (${toAdd.length}本)...`;
+  if (window.aiSettings?.fetchChaptersOnImport !== false) {
+    const descMap = await fetchVideoDescriptions(toAdd.map(t => t.vid), token);
+    toAdd.forEach(t => {
+      const d = descMap[t.vid] || {};
+      t.timestamps = parseYtTimestamps(d.desc || '');
+      t.duration = d.duration || 0;
+      t.publishedAt = d.publishedAt || '';
+    });
+  }
+  window.videos = window.videos || [];
+  const newIds = [];
+  toAdd.forEach(t => {
+    const newId = 'yt-' + t.vid;
+    newIds.push(newId);
+    window.videos.push({
+      id: newId, ytId: t.vid, pt: 'youtube',
+      title: t.title, src: 'youtube',
+      url: 'https://www.youtube.com/watch?v=' + t.vid,
+      thumb: t.thumb, ch: t.channel, channel: t.channel, pl: t.plTitle,
+      addedAt: t.addedAt || t.publishedAt || '',
+      duration: t.duration || 0,
+      ytChapters: t.timestamps || [],
+      watched: false, fav: false, status: '未着手',
+      prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
+      ...(() => { const tt = window.autoTagFromTitle ? window.autoTagFromTitle(t.title) : {tb:[],ac:[],pos:[],tech:[]}; return { tb: tt.tb, ac: tt.ac, pos: tt.pos, tech: tt.tech }; })()
+    });
+  });
+  if (window.AF) window.AF();
+  await saveUserData();
+  document.getElementById('yt-import-ov').classList.remove('open');
+  btn.disabled = false; if (okBtn) okBtn.disabled = false;
+  btn.textContent = '📥 未取込を一括取込';
+  showToast(`✅ ${toAdd.length}本の未取込動画を追加しました`);
+  if (window.aiSettings?.autoTagOnImport && newIds.length > 0) {
+    window.autoTagNewVideos?.(newIds);
+  }
+}
+window.ytImportUnimportedFromChecked = ytImportUnimportedFromChecked;
 
 export async function ytFetchSelectedPlVideos(token) {
   const checks = document.querySelectorAll('#yt-pl-list input:checked');
