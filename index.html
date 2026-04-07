@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.23</title>
+<title>WAZA KIMURA v48.24</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1047,14 +1047,14 @@
 
 <!-- ARCHIVE -->
 <div class="tab-panel" id="archiveTab">
-  <div style="padding:11px 13px;background:var(--surface);border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text2);background:var(--purple-soft);border:1px solid #e1bee7;border-radius:8px;padding:8px 11px">📦 削除せず非表示にした動画。いつでも復元できます。</div></div>
+  <div style="padding:11px 13px;background:var(--surface);border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text2);background:var(--purple-soft);border:1px solid var(--purple);border-radius:8px;padding:8px 11px">📦 削除せず非表示にした動画。いつでも復元できます。</div></div>
   <div class="results-header"><span class="results-count" id="arc"></span></div>
   <!-- 一括操作バー -->
   <div id="arch-bulk-bar" style="display:none;padding:7px 12px;align-items:center;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border)">
     <input type="checkbox" id="arch-sel-all" onchange="archTogSelAll(this)" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0">
     <span id="arch-sel-count" style="font-size:11px;color:var(--text2);flex:1">すべて選択</span>
-    <button id="arch-restore-btn" onclick="bulkRestoreArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 一括復元</button>
-    <button id="arch-delete-btn" onclick="bulkDeleteArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 一括削除</button>
+    <button id="arch-restore-btn" onclick="bulkRestoreArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid var(--green);border-radius:8px;cursor:pointer">↩ 一括復元</button>
+    <button id="arch-delete-btn" onclick="bulkDeleteArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--surface2);color:var(--accent);border:1px solid var(--border);border-radius:8px;cursor:pointer">🗑 一括削除</button>
   </div>
   <div id="archList"></div>
 </div>
@@ -1238,7 +1238,7 @@
       <div class="bgrp-row">
         <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="openBulkPlOp('move')">↪ 移動</button>
         <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="openBulkPlOp('copy')">⧉ コピー</button>
-        <button class="bbt" style="--bc:#fdecea;--tc:#c44" onclick="bulkPlRemove()">✕ 削除</button>
+        <button class="bbt" style="--bc:var(--surface2);--tc:var(--accent)" onclick="bulkPlRemove()">✕ 削除</button>
       </div>
     </div>
     <div class="bsep"></div>
@@ -1583,7 +1583,59 @@ function openImportHub() {
 // openUrl は openImportHub のエイリアス
 function openUrl() { openImportHub(); }
 
-// URL解析: 1行ずつ parse → タイトル取得
+// CSV/Excel 読み込み: ヘッダー行 (channel,playlist,url) を認識して TSV 形式に正規化
+// 出力形式: 各行 "ch\tpl\turl" （_parseVideoUrl 側でタブ分割して解釈）
+function _parseCsvRow(line) {
+  // 簡易CSV: ダブルクォート対応
+  const out = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',' || c === '\t') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+function _urlNormalizeRows(rows) {
+  // rows: string[][]（各セル）。ヘッダー行があれば url/channel/playlist 列を検出
+  const out = [];
+  let chIdx = -1, plIdx = -1, urlIdx = -1;
+  let headerFound = false;
+  for (let r = 0; r < rows.length; r++) {
+    const cells = rows[r].map(c => String(c || ''));
+    if (!cells.some(c => c.trim())) continue;
+    const first = cells[0].trim();
+    if (first.startsWith('#')) { out.push(cells.join(' ')); continue; }
+    if (!headerFound) {
+      const lower = cells.map(c => c.trim().toLowerCase());
+      const ui = lower.findIndex(c => c === 'url' || c === 'link' || c === 'URL'.toLowerCase() || c.includes('url'));
+      const ci = lower.findIndex(c => c === 'channel' || c === 'ch' || c.includes('チャンネル'));
+      const pi = lower.findIndex(c => c === 'playlist' || c === 'pl' || c.includes('プレイリスト'));
+      if (ui >= 0) {
+        urlIdx = ui; chIdx = ci; plIdx = pi;
+        headerFound = true;
+        continue; // skip header row
+      }
+    }
+    if (headerFound && urlIdx >= 0) {
+      const url = (cells[urlIdx] || '').trim();
+      if (!url) continue;
+      const ch = chIdx >= 0 ? (cells[chIdx] || '').trim() : '';
+      const pl = plIdx >= 0 ? (cells[plIdx] || '').trim() : '';
+      out.push(`${ch}\t${pl}\t${url}`);
+    } else {
+      // ヘッダーなし: 生行をそのまま（URL抽出は _parseVideoUrl 任せ）
+      out.push(cells.join(' '));
+    }
+  }
+  return out.join('\n');
+}
 function _urlLoadCsv(inputEl) {
   const f = inputEl.files?.[0];
   if (!f) return;
@@ -1602,15 +1654,12 @@ function _urlLoadCsv(inputEl) {
       reader.onload = (e) => {
         try {
           const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-          const lines = [];
+          const allRows = [];
           wb.SheetNames.forEach(name => {
             const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
-            rows.forEach(row => {
-              const joined = row.map(c => String(c || '')).join(' ');
-              if (joined.trim()) lines.push(joined);
-            });
+            rows.forEach(row => allRows.push(row));
           });
-          appendText(lines.join('\n'));
+          appendText(_urlNormalizeRows(allRows));
         } catch (err) { toast('❌ Excel読み込みエラー: ' + err.message); inputEl.value = ''; }
       };
       reader.onerror = () => { toast('❌ ファイル読み込みエラー'); inputEl.value = ''; };
@@ -1619,7 +1668,11 @@ function _urlLoadCsv(inputEl) {
     return;
   }
   const reader = new FileReader();
-  reader.onload = (e) => appendText(String(e.target.result || ''));
+  reader.onload = (e) => {
+    const text = String(e.target.result || '');
+    const rows = text.split(/\r?\n/).map(_parseCsvRow);
+    appendText(_urlNormalizeRows(rows));
+  };
   reader.onerror = () => { toast('❌ ファイル読み込みエラー'); inputEl.value = ''; };
   reader.readAsText(f, 'UTF-8');
 }
@@ -1639,16 +1692,18 @@ function _loadXlsxLib() {
 
 function _urlDlTemplate() {
   const csv = [
-    '# WAZA KIMURA URL取込テンプレート',
-    '# 各行に1つの動画URLを記載してください（#で始まる行はコメント）',
-    '# 対応: YouTube / Vimeo / Google Drive / X (Twitter)',
-    '',
-    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    'https://youtu.be/dQw4w9WgXcQ',
-    'https://vimeo.com/123456789',
-    'https://vimeo.com/123456789/abcdef1234',
-    'https://drive.google.com/file/d/FILE_ID/view',
-    'https://x.com/username/status/1234567890'
+    '# WAZA KIMURA 一括取込テンプレート',
+    '# 1行目はヘッダー行です（channel,playlist,url の順）。削除しないでください',
+    '# channel=チャンネル名 / playlist=プレイリスト名 / url=動画URL（必須）',
+    '# channel・playlistは空欄可。空欄の場合は取込UIで選択した値が使われます',
+    '# 対応URL: YouTube / Vimeo / Google Drive / X (Twitter)',
+    'channel,playlist,url',
+    'John Danaher,Heel Hook System,https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'Gordon Ryan,Back Attacks,https://youtu.be/dQw4w9WgXcQ',
+    ',,https://vimeo.com/123456789',
+    ',Private Lessons,https://vimeo.com/123456789/abcdef1234',
+    'Drill,,https://drive.google.com/file/d/FILE_ID/view',
+    ',,https://x.com/username/status/1234567890'
   ].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -1662,21 +1717,35 @@ function _urlDlTemplate() {
 function _parseVideoUrl(line) {
   line = (line || '').trim();
   if (!line || line.startsWith('#')) return null;
+  // タブ区切り（ch\tpl\turl 形式）をまず認識
+  let csvCh = '', csvPl = '';
+  if (line.indexOf('\t') >= 0) {
+    const parts = line.split('\t');
+    // URLを含む列を探す
+    const urlColIdx = parts.findIndex(p => /https?:\/\//.test(p));
+    if (urlColIdx >= 0) {
+      // 慣例: [ch, pl, url]
+      if (urlColIdx >= 2) { csvCh = (parts[0] || '').trim(); csvPl = (parts[1] || '').trim(); }
+      else if (urlColIdx === 1) { csvCh = (parts[0] || '').trim(); }
+      line = parts[urlColIdx].trim();
+    }
+  }
   // CSV/TSVなど: 行からURLらしき部分を抽出（引用符・カンマ・タブを剥がす）
   const urlMatch = line.match(/https?:\/\/[^\s,"'、\t]+/);
   if (urlMatch) line = urlMatch[0];
+  const _attach = (obj) => { if (csvCh) obj.ch = csvCh; if (csvPl) obj.pl = csvPl; return obj; };
   // YouTube: 各種URL形式
   const yt = line.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if (yt) return { id: yt[1], pt: 'youtube', url: line };
+  if (yt) return _attach({ id: yt[1], pt: 'youtube', url: line });
   // Vimeo（プライベート動画のhash対応: vimeo.com/123456/abcdef）
   const vm = line.match(/vimeo\.com\/(\d+)(?:\/([a-f0-9]+))?/);
-  if (vm) return { id: vm[1], pt: 'vimeo', url: line, vmHash: vm[2] || null };
+  if (vm) return _attach({ id: vm[1], pt: 'vimeo', url: line, vmHash: vm[2] || null });
   // Google Drive
   const gd = line.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
-  if (gd) return { id: 'gd-' + gd[1], pt: 'gdrive', url: line };
+  if (gd) return _attach({ id: 'gd-' + gd[1], pt: 'gdrive', url: line });
   // X (Twitter)
   const x = line.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status\/(\d+)/);
-  if (x) return { id: 'x-' + x[2], pt: 'x', url: line, xUser: x[1], xTweetId: x[2] };
+  if (x) return _attach({ id: 'x-' + x[2], pt: 'x', url: line, xUser: x[1], xTweetId: x[2] });
   return null;
 }
 
@@ -1879,7 +1948,7 @@ function _renderUrlResults(items, loading) {
 
   list.innerHTML = items.map((item, i) => {
     const iconMap = { youtube: '▶', vimeo: '🎥', gdrive: '📁', x: '𝕏' };
-    const colorMap = { youtube: '#c0392b', vimeo: '#1ab7ea', gdrive: '#4285f4', x: '#000' };
+    const colorMap = { youtube: 'var(--accent)', vimeo: 'var(--blue)', gdrive: 'var(--purple)', x: 'var(--text)' };
     if (item.status === 'ok') {
       const p = item.parsed;
       const icon = iconMap[p.pt] || '?';
@@ -1907,10 +1976,10 @@ function _renderUrlResults(items, loading) {
       </div>`;
     } else {
       const shortUrl = item.url.length > 50 ? item.url.slice(0, 50) + '…' : item.url;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.3);border-radius:8px">
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;word-break:break-all;color:var(--text2)">${shortUrl}</div>
-          <div style="font-size:10px;color:#e74c3c;font-weight:600">${item.reason}</div>
+          <div style="font-size:10px;color:var(--accent);font-weight:600">${item.reason}</div>
         </div>
         <span style="font-size:14px;flex-shrink:0">❌</span>
       </div>`;
@@ -1949,14 +2018,14 @@ function _urlSelectPl(el) {
 function addUrls() {
   const parsed = window._urlParsed || [];
   if (!parsed.length) return;
-  let selPl = (window._urlSelPl || '').trim() || '未分類';
+  const manualPl = (window._urlSelPl || '').trim();
   const manualCh = (window._urlSelCh || '').trim();
   let added = 0;
   parsed.forEach(p => {
     if (videos.some(v => v.id === p.id)) return;
     const vid = {
       id: p.id, pt: p.pt, title: p.title || (p.pt + '動画'),
-      ch: manualCh || p.ch || '', pl: selPl, tb: [], ac: [], pos: [], tech: [],
+      ch: manualCh || p.ch || '', pl: manualPl || p.pl || '未分類', tb: [], ac: [], pos: [], tech: [],
       prio: urlPrio, fav: false, memo: '', watched: false,
       status: '未着手', archived: false, shared: 0, ai: ''
     };
@@ -2951,7 +3020,7 @@ window.addEventListener('resize', adjustTopbarOffset);
         <div style="margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
             <span style="font-size:11px;color:var(--text3)">プレイリスト名</span>
-            <span style="font-size:9px;font-weight:700;color:#2d6a4f;background:#edf5f1;border:1px solid #b8ddd0;border-radius:10px;padding:1px 6px">フォルダ名から自動入力</span>
+            <span style="font-size:9px;font-weight:700;color:var(--green);background:var(--green-soft);border:1px solid var(--green);border-radius:10px;padding:1px 6px">フォルダ名から自動入力</span>
           </div>
           <input id="gd-playlist" type="text" placeholder="空欄でプレイリストなし"
             style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
@@ -2983,7 +3052,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- URL直接入力 UI -->
     <div id="url-import-body" style="display:none">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">🔗 URLから動画を追加</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">YouTube・Vimeo・Google DriveのURLを貼り付け（複数行OK）</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">YouTube・Vimeo・Google Drive・XのURLを貼り付け（複数行OK）／CSV・Excelはヘッダー <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:11px">channel, playlist, url</code> に対応</div>
       <textarea id="urlIn" rows="4" style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5" placeholder="https://www.youtube.com/watch?v=abc123&#10;https://youtu.be/def456&#10;https://vimeo.com/123456&#10;https://drive.google.com/file/d/.../view"></textarea>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn-save" onclick="detectUrls()" style="flex:1;min-width:140px">🔍 解析する</button>
@@ -3023,12 +3092,14 @@ window.addEventListener('resize', adjustTopbarOffset);
       </div>
 
       <div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">CSV / Excel ヘッダー</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">1行目: <code style="background:var(--surface);padding:1px 5px;border-radius:4px">channel</code> , <code style="background:var(--surface);padding:1px 5px;border-radius:4px">playlist</code> , <code style="background:var(--surface);padding:1px 5px;border-radius:4px">url</code> （url列のみ必須・空欄可）</div>
         <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">対応フォーマット</div>
         <div style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text3)">
-          <div><span style="color:#c0392b;font-weight:700">▶</span> youtube.com/watch?v= ・ youtu.be/ ・ shorts/ ・ embed/</div>
-          <div><span style="color:#1ab7ea;font-weight:700">🎥</span> vimeo.com/123456</div>
-          <div><span style="color:#4285f4;font-weight:700">📁</span> drive.google.com/file/d/.../view</div>
-          <div><span style="color:#000;font-weight:700">𝕏</span> x.com/user/status/... ・ twitter.com/user/status/...（再生のみ・スキップ等不可）</div>
+          <div><span style="color:var(--accent);font-weight:700">▶</span> youtube.com/watch?v= ・ youtu.be/ ・ shorts/ ・ embed/</div>
+          <div><span style="color:var(--blue);font-weight:700">🎥</span> vimeo.com/123456</div>
+          <div><span style="color:var(--purple);font-weight:700">📁</span> drive.google.com/file/d/.../view</div>
+          <div><span style="color:var(--text);font-weight:700">𝕏</span> x.com/user/status/... ・ twitter.com/user/status/...（再生のみ・スキップ等不可）</div>
         </div>
       </div>
     </div><!-- /url-import-body -->
@@ -3083,7 +3154,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">
         <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">除外キーワード</label>
-        <input id="adv-exclude" type="text" placeholder="例: ドリル 基礎" style="padding:7px 10px;border:1.5px solid #e57373;border-radius:7px;font-size:12px;background:var(--surface);color:var(--text);outline:none;font-family:inherit">
+        <input id="adv-exclude" type="text" placeholder="例: ドリル 基礎" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;background:var(--surface);color:var(--text);outline:none;font-family:inherit">
       </div>
       <div style="display:flex;flex-direction:column;gap:3px;grid-column:1/-1">
         <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">検索対象</label>
