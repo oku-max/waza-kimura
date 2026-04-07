@@ -702,29 +702,96 @@ export function renameSavedSearch(idx, e) {
   window.toast?.('✏️ 名前を変更しました');
 }
 
-// 条件の編集: 現在のフィルターに読み込み → ユーザーが調整 → 同名で上書き保存
+// ── 編集モード ──
+// editSavedSearch で開始 → バナーから 上書き保存/キャンセル
+let _editingIdx = null;
+function _setEditingIdx(v) { _editingIdx = v; window._editingSavedIdx = v; }
+
 export function editSavedSearch(idx, e) {
   e.stopPropagation();
   const ss = savedSearches[idx]; if (!ss) return;
+  _setEditingIdx(idx);
   applySavedSearch(idx);
-  // 上書き保存用の名前入力欄に名前をプリセット
-  const nameInputs = ['fov-save-name', 'org-fov-save-name'];
-  nameInputs.forEach(id => { const el = document.getElementById(id); if (el) el.value = ss.name; });
-  window.toast?.(`✎ 「${ss.name}」を読込。フィルターを調整して同名で保存すると上書きされます`);
+  renderSavedSearches();
+  window.toast?.(`⚙️ 「${ss.name}」を編集中。フィルターを調整して上書き保存してください`);
 }
+
+export function commitEditSavedSearch() {
+  if (_editingIdx == null) return;
+  const ss = savedSearches[_editingIdx]; if (!ss) { _setEditingIdx(null); renderSavedSearches(); return; }
+  // 現在の状態をキャプチャ（saveCurrentSearchFromInput と同じロジック）
+  const f = window.filters || {};
+  const state = {
+    favOnly:     window.favOnly     || false,
+    unwOnly:     window.unwOnly     || false,
+    watchedOnly: window.watchedOnly || false,
+    filters: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v]])),
+    query: document.getElementById('si')?.value || document.getElementById('si-lib-pc')?.value || ''
+  };
+  savedSearches[_editingIdx] = { name: ss.name, state, createdAt: Date.now() };
+  _persistSavedSearches();
+  const name = ss.name;
+  _setEditingIdx(null);
+  renderSavedSearches();
+  window.toast?.(`💾 「${name}」を上書き保存しました`);
+}
+
+export function cancelEditSavedSearch() {
+  _setEditingIdx(null);
+  renderSavedSearches();
+  window.toast?.('編集をキャンセルしました');
+}
+window.commitEditSavedSearch = commitEditSavedSearch;
+window.cancelEditSavedSearch = cancelEditSavedSearch;
+
+let _ssMenuOpenIdx = null;
+export function toggleSavedSearchMenu(idx, e) {
+  e.stopPropagation();
+  _ssMenuOpenIdx = (_ssMenuOpenIdx === idx) ? null : idx;
+  renderSavedSearches();
+}
+window.toggleSavedSearchMenu = toggleSavedSearchMenu;
+// 外側クリックでメニューを閉じる
+document.addEventListener('click', () => {
+  if (_ssMenuOpenIdx !== null) { _ssMenuOpenIdx = null; renderSavedSearches(); }
+});
 
 export function renderSavedSearches() {
   const makeHTML = (applyFn) => {
     if (!savedSearches.length) return '<div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>';
-    return savedSearches.map((ss, i) => `
-      <div onclick="${applyFn}(${i})" style="display:flex;align-items:center;gap:4px;
-        padding:5px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);font-size:11px;font-weight:500">
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ss.name}</span>
-        <span onclick="renameSavedSearch(${i},event)" title="名前変更" style="color:var(--text3);font-size:11px;padding:2px 5px;border-radius:4px">✏️</span>
-        <span onclick="editSavedSearch(${i},event)" title="条件を編集" style="color:var(--text3);font-size:11px;padding:2px 5px;border-radius:4px">✎</span>
-        <span onclick="deleteSavedSearch(${i},event)" title="削除" style="color:var(--text3);font-size:11px;padding:2px 5px;border-radius:4px">✕</span>
-      </div>
-    `).join('');
+    return savedSearches.map((ss, i) => {
+      const editing = _editingIdx === i;
+      // 編集モード中の行: 上書き保存 / キャンセルバナー
+      if (editing) {
+        return `
+          <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:8px;background:var(--gold-soft);border:1.5px solid var(--gold)">
+            <div style="font-size:10px;color:var(--gold);font-weight:700">⚙️ 編集中: ${ss.name}</div>
+            <div style="font-size:10px;color:var(--text2);line-height:1.4">フィルターを調整してから「上書き保存」を押してください</div>
+            <div style="display:flex;gap:6px">
+              <button onclick="commitEditSavedSearch();event.stopPropagation()" style="flex:1;padding:7px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--bg);font-size:11px;font-weight:700;cursor:pointer">💾 上書き保存</button>
+              <button onclick="cancelEditSavedSearch();event.stopPropagation()" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:600;cursor:pointer">✕ キャンセル</button>
+            </div>
+          </div>
+        `;
+      }
+      const menuOpen = _ssMenuOpenIdx === i;
+      const menu = menuOpen ? `
+        <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;gap:2px;margin-top:4px;padding:4px;border-radius:6px;background:var(--bg);border:1px solid var(--border)">
+          <div onclick="renameSavedSearch(${i},event);_ssMenuClose&&_ssMenuClose()" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px">🏷️ 名前を変更</div>
+          <div onclick="editSavedSearch(${i},event)" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px">⚙️ 条件を編集</div>
+          <div onclick="deleteSavedSearch(${i},event)" style="padding:6px 8px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px;color:#c33">🗑️ 削除</div>
+        </div>
+      ` : '';
+      return `
+        <div style="background:var(--surface2);border-radius:6px">
+          <div onclick="${applyFn}(${i})" style="display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;font-size:11px;font-weight:500">
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ss.name}</span>
+            <span onclick="toggleSavedSearchMenu(${i},event)" title="操作" style="color:var(--text3);font-size:14px;padding:2px 7px;border-radius:4px;line-height:1">⋯</span>
+          </div>
+          ${menu}
+        </div>
+      `;
+    }).join('');
   };
   const libList = document.getElementById('fs-saved-list');
   if (libList) libList.innerHTML = makeHTML('applySavedSearch');
