@@ -1125,6 +1125,16 @@ export function vpBmReset(id, idx) {
 }
 
 // ── VPanel オープン/クローズ（モバイル用） ──
+export function vpNav(dir) {
+  const cur = window.openVPanelId;
+  if (!cur) return;
+  const list = window.filteredVideos || window.videos || [];
+  const idx = list.findIndex(v => v.id === cur);
+  if (idx < 0) return;
+  const next = list[(idx + dir + list.length) % list.length];
+  if (next) openVPanel(next.id);
+}
+
 export function openVPanel(id) {
   const menu = document.getElementById('org-col-menu');
   if (menu) menu.remove();

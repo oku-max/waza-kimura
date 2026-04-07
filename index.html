@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.21</title>
+<title>WAZA KIMURA v48.22</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -53,7 +53,7 @@
     _syncURL, _restoreFromURL
   } from './js/filter.js';
   import {
-    openVPanel, closeVPanel, togPlayerByCard, togPlayer, _closePlayer,
+    openVPanel, closeVPanel, vpNav, togPlayerByCard, togPlayer, _closePlayer,
     vpSkip, vpAbSet, vpAbToggleLoop, vpAbReset, vpAbSaveAsBm, vpAbSetFromBm,
     vpAbToggleExpand, vpAbSwitchField, vpAbAdjField, vpAbSetCurrentField, vpAbSaveLoop,
     vpAbAddBm, vpAbConfirmAddBm, vpAbCancelAddBm,
@@ -294,6 +294,7 @@
     if (id) window.trackRecentView?.(id);
   };
   window.closeVPanel           = closeVPanel;
+  window.vpNav                 = vpNav;
   window.togPlayerByCard       = togPlayerByCard;
   window.togPlayer             = togPlayer;
   window._closePlayer          = _closePlayer;
@@ -1583,9 +1584,30 @@ function openImportHub() {
 function openUrl() { openImportHub(); }
 
 // URL解析: 1行ずつ parse → タイトル取得
+function _urlLoadCsv(inputEl) {
+  const f = inputEl.files?.[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = String(e.target.result || '');
+    // 既存textareaに追記（改行区切り）
+    const ta = document.getElementById('urlIn');
+    if (ta) {
+      ta.value = (ta.value ? ta.value + '\n' : '') + text;
+      toast(`📄 ${f.name} を読み込みました`);
+    }
+    inputEl.value = '';
+  };
+  reader.onerror = () => { toast('❌ ファイル読み込みエラー'); inputEl.value = ''; };
+  reader.readAsText(f, 'UTF-8');
+}
+
 function _parseVideoUrl(line) {
-  line = line.trim();
+  line = (line || '').trim();
   if (!line || line.startsWith('#')) return null;
+  // CSV/TSVなど: 行からURLらしき部分を抽出（引用符・カンマ・タブを剥がす）
+  const urlMatch = line.match(/https?:\/\/[^\s,"'、\t]+/);
+  if (urlMatch) line = urlMatch[0];
   // YouTube: 各種URL形式
   const yt = line.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (yt) return { id: yt[1], pt: 'youtube', url: line };
@@ -1890,6 +1912,8 @@ function addUrls() {
   });
   document.getElementById('yt-import-ov').classList.remove('open');
   window.AF?.();
+  // 即時保存（debounceではなく）
+  if (window.saveUserData) { window.saveUserData().catch(e => console.error('save error', e)); }
   toast(`✅ ${added}件をライブラリに追加しました`);
 }
 // 旧API互換
@@ -2904,7 +2928,10 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">🔗 URLから動画を追加</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">YouTube・Vimeo・Google DriveのURLを貼り付け（複数行OK）</div>
       <textarea id="urlIn" rows="4" style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5" placeholder="https://www.youtube.com/watch?v=abc123&#10;https://youtu.be/def456&#10;https://vimeo.com/123456&#10;https://drive.google.com/file/d/.../view"></textarea>
-      <button class="btn-save" onclick="detectUrls()" style="width:100%;margin-top:8px">🔍 解析する</button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn-save" onclick="detectUrls()" style="flex:1">🔍 解析する</button>
+        <label style="flex-shrink:0;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer">📄 CSV/TXT<input id="urlCsvFile" type="file" accept=".csv,.tsv,.txt,text/*" style="display:none" onchange="_urlLoadCsv(this)"></label>
+      </div>
 
       <!-- 解析結果リスト -->
       <div id="urlResults" style="display:none;margin-top:12px">
@@ -2959,7 +2986,11 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
     <!-- 左カラム: 動画 + タイトル + スキップボタン + ぼかし余白 -->
     <div id="vpanel-left-col">
-      <button id="vpanel-back-btn" onclick="closeVPanel()">← 戻る</button>
+      <div id="vpanel-nav-btns" style="position:absolute;top:8px;left:8px;display:flex;gap:6px;z-index:6">
+        <button id="vpanel-back-btn" onclick="closeVPanel()" style="position:static">← 戻る</button>
+        <button onclick="vpNav(-1)" style="background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">◀ 前</button>
+        <button onclick="vpNav(1)" style="background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">次 ▶</button>
+      </div>
       <div id="vpanel-iframe-container"><div id="vpanel-yt-player"></div></div>
       <div id="vpanel-title-area" style="background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area"></div>
