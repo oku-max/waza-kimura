@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.28</title>
+<title>WAZA KIMURA v48.30</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -2948,7 +2948,17 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- Stage 1: Playlist select -->
     <div id="yt-stage1">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">📥 プレイリストを選択</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">取り込むプレイリストを選んでください</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">取り込むプレイリストを選んでください</div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);cursor:pointer">
+          <input type="checkbox" id="yt-hide-allimported" onchange="ytTogHideAllImported()" style="accent-color:var(--accent);width:13px;height:13px">
+          すべて取込済みのプレイリストを隠す
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);cursor:pointer">
+          <input type="checkbox" id="yt-show-hidden" onchange="ytTogHideAllImported()" style="accent-color:var(--accent);width:13px;height:13px">
+          非表示にしたプレイリストも表示（管理用）
+        </label>
+      </div>
       <div id="yt-pl-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:50vh;margin-bottom:14px"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button id="yt-import-ok" class="btn-save" style="flex:1;min-width:120px">次へ →</button>

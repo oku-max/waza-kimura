@@ -136,15 +136,31 @@ export function ytFavToggle(plId, plTitle) {
 }
 window.ytFavToggle = ytFavToggle;
 
+// ── 非表示プレイリスト ──
+const YT_HIDE_KEY = 'yt_hidden_playlists';
+function _ytLoadHidden() { try { return JSON.parse(localStorage.getItem(YT_HIDE_KEY) || '[]'); } catch { return []; } }
+function _ytSaveHidden(arr) { localStorage.setItem(YT_HIDE_KEY, JSON.stringify(arr)); }
+export function ytHideToggle(plId) {
+  const arr = _ytLoadHidden();
+  const i = arr.indexOf(plId);
+  if (i >= 0) arr.splice(i, 1);
+  else arr.push(plId);
+  _ytSaveHidden(arr);
+  if (window._ytLastPlaylists) showPlaylistSelector(window._ytLastPlaylists, _ytImportToken);
+}
+window.ytHideToggle = ytHideToggle;
+
 let _ytPlaylistMeta = {}; // plId -> {total, fetched, unimportedCount}
 
-function _renderPlRow(pl, isFav) {
+function _renderPlRow(pl, isFav, isHidden) {
   const count = pl.contentDetails?.itemCount || '?';
   const thumb = pl.snippet.thumbnails?.medium?.url || pl.snippet.thumbnails?.default?.url || '';
   const safeTitle = pl.snippet.title.replace(/"/g,'&quot;');
   const star = isFav ? '★' : '☆';
   const starColor = isFav ? 'var(--gold)' : 'var(--text3)';
-  const bg = isFav ? 'background:var(--gold-soft);border-color:var(--gold);' : '';
+  const bg = isFav ? 'background:var(--gold-soft);border-color:var(--gold);' : (isHidden ? 'background:var(--surface2);opacity:.6;' : '');
+  const hideIcon = isHidden ? '👁' : '🚫';
+  const hideTitle = isHidden ? '非表示を解除' : 'このプレイリストを非表示にする';
   return `<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s;${bg}" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${isFav ? 'var(--gold)' : 'var(--border)'}'">
     <input type="checkbox" value="${pl.id}" data-title="${safeTitle}" data-count="${count}" style="width:18px;height:18px;flex-shrink:0">
     <img src="${thumb}" style="width:52px;height:39px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">
@@ -153,6 +169,7 @@ function _renderPlRow(pl, isFav) {
       <div style="font-size:11px;color:var(--text3);margin-top:2px">${count}本 <span id="yt-pl-newcnt-${pl.id}" style="color:var(--accent);font-weight:700"></span></div>
     </div>
     <button type="button" onclick="event.preventDefault();event.stopPropagation();ytFavToggle('${pl.id}','${safeTitle}')" title="${isFav ? 'お気に入りから外す' : 'お気に入りに追加'}" style="background:none;border:none;cursor:pointer;font-size:18px;color:${starColor};padding:2px 4px;line-height:1;flex-shrink:0">${star}</button>
+    <button type="button" onclick="event.preventDefault();event.stopPropagation();ytHideToggle('${pl.id}')" title="${hideTitle}" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text3);padding:2px 4px;line-height:1;flex-shrink:0">${hideIcon}</button>
   </label>`;
 }
 
@@ -165,19 +182,33 @@ function showPlaylistSelector(playlists, token) {
   document.getElementById('yt-stage1').style.display = '';
   document.getElementById('yt-stage2').style.display = 'none';
 
+  const hideDone = document.getElementById('yt-hide-allimported')?.checked;
+  const showHidden = document.getElementById('yt-show-hidden')?.checked;
+  // チェック中のIDを保持して再描画後も復元
+  const checkedIds = new Set(Array.from(document.querySelectorAll('#yt-pl-list input:checked')).map(c => c.value));
+
   const favs = _ytLoadFavs();
   const favIds = new Set(favs.map(f => f.id));
-  const favPls = favs.map(f => playlists.find(p => p.id === f.id)).filter(Boolean);
-  const restPls = playlists.filter(p => !favIds.has(p.id));
+  const hiddenSet = new Set(_ytLoadHidden());
+  let visible = playlists;
+  if (hideDone) visible = visible.filter(p => {
+    const m = _ytPlaylistMeta[p.id];
+    return p.id === 'LL' || !m || m.unimported > 0;
+  });
+  if (!showHidden) visible = visible.filter(p => !hiddenSet.has(p.id));
+  const favPls = favs.map(f => visible.find(p => p.id === f.id)).filter(Boolean);
+  const restPls = visible.filter(p => !favIds.has(p.id));
 
   let html = '';
   if (favPls.length) {
     html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);padding:4px 0 6px;display:flex;align-items:center;gap:6px">★ お気に入り<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
-    html += favPls.map(p => _renderPlRow(p, true)).join('');
+    html += favPls.map(p => _renderPlRow(p, true, hiddenSet.has(p.id))).join('');
     html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;gap:6px">全プレイリスト<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
   }
-  html += restPls.map(p => _renderPlRow(p, false)).join('');
-  list.innerHTML = html;
+  html += restPls.map(p => _renderPlRow(p, false, hiddenSet.has(p.id))).join('');
+  list.innerHTML = html || '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px">該当するプレイリストがありません</div>';
+  // チェック状態を復元
+  list.querySelectorAll('input[type=checkbox]').forEach(cb => { if (checkedIds.has(cb.value)) cb.checked = true; });
 
   ov.classList.add('open');
   document.getElementById('yt-import-ok').onclick = () => ytFetchSelectedPlVideos(token);
@@ -209,7 +240,16 @@ async function _fetchUnimportedCounts(playlists, token) {
       if (el) el.textContent = unimported > 0 ? `· 未取込 ${unimported}本` : '· すべて取込済';
     } catch {}
   }
+  // 「隠す」がオン中なら全件取得後に再描画して非表示反映
+  if (document.getElementById('yt-hide-allimported')?.checked) {
+    showPlaylistSelector(window._ytLastPlaylists || [], _ytImportToken);
+  }
 }
+
+export function ytTogHideAllImported() {
+  if (window._ytLastPlaylists) showPlaylistSelector(window._ytLastPlaylists, _ytImportToken);
+}
+window.ytTogHideAllImported = ytTogHideAllImported;
 
 // チェック済プレイリストの未取込動画を中身を見ずに一括取込
 export async function ytImportUnimportedFromChecked() {
