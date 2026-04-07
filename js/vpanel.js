@@ -1855,28 +1855,27 @@ export function vpDdAddNew(id, type, val) {
 }
 
 // ── Channel 単一値ドロップダウン ──
+// サイドバーのopenSbPopupと同じフルハイト・フィックスドパネル方式で統一
 function _vpOpenDd(dd) {
-  // インラインfixedスタイルを全部クリアしてCSSデフォルトに戻す（position:absolute, top:100%）
-  ['position','top','bottom','left','right','width','zIndex','maxHeight','overflowY'].forEach(k => { dd.style[k] = ''; });
-  dd.style.display = 'block';
-  // ビューポートに収まるよう maxHeight 設定＋下スペース不足なら上に反転
-  requestAnimationFrame(() => {
-    try {
-      const rect = dd.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const spaceBelow = vh - rect.top - 12;
-      const spaceAbove = rect.top - 12;
-      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
-        dd.style.top = 'auto';
-        dd.style.bottom = '100%';
-        dd.style.maxHeight = Math.min(420, spaceAbove) + 'px';
-      } else {
-        dd.style.maxHeight = Math.min(420, spaceBelow) + 'px';
-      }
-      dd.style.overflowY = 'auto';
-      dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    } catch(e) {}
-  });
+  dd.style.position = 'fixed';
+  dd.style.top    = '12px';
+  dd.style.bottom = '12px';
+  dd.style.right  = '12px';
+  dd.style.left   = 'auto';
+  dd.style.width  = 'min(360px, 92vw)';
+  dd.style.maxHeight = 'none';
+  dd.style.zIndex = '500';
+  dd.style.display = 'flex';
+  dd.style.flexDirection = 'column';
+  dd.style.overflow = 'hidden';
+  // リスト部分を残り高さいっぱいに
+  const list = dd.querySelector('.vp-dd-list');
+  if (list) {
+    list.style.flex = '1';
+    list.style.minHeight = '0';
+    list.style.maxHeight = 'none';
+    list.style.overflowY = 'auto';
+  }
 }
 
 export function vpTogChannelDd(id) {

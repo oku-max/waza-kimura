@@ -180,14 +180,31 @@ export function bvpTogDd(key) {
   if (!dd) return;
   const isOpen = dd.style.display !== 'none';
   if (isOpen) { dd.style.display = 'none'; return; }
-  dd.style.display = 'block';
+  // サイドバーpopupと同じフルハイト・フィックスドパネル方式
+  dd.style.position = 'fixed';
+  dd.style.top = '12px';
+  dd.style.bottom = '12px';
+  dd.style.right = '12px';
+  dd.style.left = 'auto';
+  dd.style.width = 'min(360px, 92vw)';
+  dd.style.maxHeight = 'none';
+  dd.style.zIndex = '500';
+  dd.style.display = 'flex';
+  dd.style.flexDirection = 'column';
+  dd.style.overflow = 'hidden';
+  const list = dd.querySelector('.vp-dd-list') || dd.querySelector('#bvp-ch-sug') || dd.querySelector('#bvp-pl-sug') || dd.querySelector('[id^="bvp-dd-list-"]');
+  if (list) {
+    list.style.flex = '1';
+    list.style.minHeight = '0';
+    list.style.maxHeight = 'none';
+    list.style.overflowY = 'auto';
+  }
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) { inp.value = ''; }
   if (key === 'ch') bvpChSuggest(inp);
   else if (key === 'pl') bvpPlSuggest(inp);
   else bvpRenderDdList(key, '');
   inp?.focus();
-  setTimeout(() => dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50);
 }
 
 export function bvpRenderDdList(key, q) {
