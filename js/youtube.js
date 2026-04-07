@@ -27,6 +27,14 @@ export function importYouTubePlaylists() {
   }
 }
 
+const YT_PL_CACHE_KEY = 'yt_playlists_cache';
+function _saveYtPlCache(playlists) {
+  try { localStorage.setItem(YT_PL_CACHE_KEY, JSON.stringify({ at: Date.now(), playlists })); } catch {}
+}
+function _loadYtPlCache() {
+  try { return JSON.parse(localStorage.getItem(YT_PL_CACHE_KEY) || 'null'); } catch { return null; }
+}
+
 async function fetchPlaylists(token) {
   showToast('📥 プレイリストを取得中...');
   try {
@@ -38,16 +46,27 @@ async function fetchPlaylists(token) {
     if (data.error) {
       const reason = data.error.errors?.[0]?.reason || '';
       const msg = data.error.message || 'unknown';
-      // 認証系のみトークンをクリア。quota/rate系はトークンを維持
       const isAuth = res.status === 401 || reason === 'authError' || reason === 'invalidCredentials';
+      const isQuota = reason === 'quotaExceeded' || reason === 'rateLimitExceeded' || reason === 'dailyLimitExceeded' || res.status === 403;
       if (isAuth) window._ytToken = null;
+      // quota枯渇時はキャッシュにフォールバック
+      if (isQuota) {
+        const cache = _loadYtPlCache();
+        if (cache?.playlists?.length) {
+          window._ytQuotaFallback = true;
+          showToast('⚠️ quota枯渇中: キャッシュから表示（RSSフィード経由で取込可能）');
+          const special = [{ id: 'LL', snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} }, contentDetails: { itemCount: '?' } }];
+          showPlaylistSelector([...special, ...cache.playlists], token);
+          return;
+        }
+      }
       showToast('⚠️ ' + msg);
       _renderYtRetry(`${reason || 'error'}: ${msg}`);
       return;
     }
     const playlists = data.items || [];
-    // 特別プレイリスト（高評価）を先頭に追加
-    // ※「あとで見る(WL)」はYouTube APIの制限でサードパーティからアクセス不可
+    _saveYtPlCache(playlists);
+    window._ytQuotaFallback = false;
     const special = [{
       id: 'LL',
       snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} },
@@ -60,16 +79,108 @@ async function fetchPlaylists(token) {
   }
 }
 
+// ── RSSフィード経由でプレイリストの動画一覧を取得（quota不要、最新15本のみ）──
+const _RSS_PROXY = 'https://api.allorigins.win/raw?url=';
+async function _fetchPlaylistViaRss(plId, plTitle) {
+  const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${plId}`;
+  const res = await fetch(_RSS_PROXY + encodeURIComponent(feedUrl));
+  if (!res.ok) throw new Error('RSS proxy ' + res.status);
+  const xml = await res.text();
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const entries = Array.from(doc.getElementsByTagName('entry'));
+  const items = [];
+  entries.forEach(e => {
+    const vid = e.getElementsByTagName('yt:videoId')[0]?.textContent
+             || e.getElementsByTagNameNS('*', 'videoId')[0]?.textContent;
+    if (!vid) return;
+    const title = e.getElementsByTagName('title')[0]?.textContent || '';
+    const author = e.getElementsByTagName('name')[0]?.textContent || '';
+    const published = e.getElementsByTagName('published')[0]?.textContent || '';
+    const thumb = `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`;
+    items.push({ vid, plTitle, title, channel: author, addedAt: published, thumb });
+  });
+  return items;
+}
+
 function _renderYtRetry(msg) {
   const list = document.getElementById('yt-pl-list');
   if (!list) return;
-  list.innerHTML = `<div style="text-align:center;padding:24px 12px">
+  const cache = _loadYtPlCache();
+  const favs = _ytLoadFavs();
+  const cacheBtn = cache?.playlists?.length
+    ? `<button onclick="ytUseCacheFallback()" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer">📦 キャッシュ＋RSSで取込</button>`
+    : '';
+  const favBtn = favs.length
+    ? `<button onclick="ytUseFavFallback()" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--gold);background:var(--gold-soft);color:var(--gold);font-size:13px;font-weight:700;cursor:pointer">★ お気に入り＋RSSで取込 (${favs.length})</button>`
+    : '';
+  // 任意のプレイリストID/URL入力
+  const manualBtn = `<button onclick="ytAddManualPl()" style="padding:9px 18px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;cursor:pointer">＋ プレイリストID/URLを手入力</button>`;
+  list.innerHTML = `<div style="text-align:center;padding:18px 12px">
     <div style="font-size:28px;margin-bottom:10px">🔄</div>
-    <div style="font-size:13px;font-weight:700;margin-bottom:4px">再認証が必要です</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">${msg}</div>
-    <button onclick="ytReauth()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">YouTubeを再認証</button>
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px">YouTube APIエラー</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;word-break:break-word">${msg}</div>
+    <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <button onclick="ytReauth()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">YouTubeを再認証</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin:14px 0 10px">━━━ quota枯渇時の代替手段 (RSSフィード経由・最新15本まで) ━━━</div>
+    <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:8px">
+      ${favBtn}
+      ${cacheBtn}
+      ${manualBtn}
+    </div>
   </div>`;
 }
+
+export function ytUseCacheFallback() {
+  const cache = _loadYtPlCache();
+  if (!cache?.playlists?.length) { showToast('キャッシュがありません'); return; }
+  window._ytQuotaFallback = true;
+  const special = [{ id: 'LL', snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} }, contentDetails: { itemCount: '?' } }];
+  showPlaylistSelector([...special, ...cache.playlists], _ytImportToken);
+  showToast('📦 キャッシュ表示: RSSフィード経由で最新15本まで取込可能');
+}
+window.ytUseCacheFallback = ytUseCacheFallback;
+
+export function ytUseFavFallback() {
+  const favs = _ytLoadFavs();
+  if (!favs.length) { showToast('お気に入りプレイリストがありません'); return; }
+  window._ytQuotaFallback = true;
+  const playlists = favs.map(f => ({
+    id: f.id,
+    snippet: { title: f.title || f.id, thumbnails: {} },
+    contentDetails: { itemCount: '?' }
+  }));
+  showPlaylistSelector(playlists, _ytImportToken);
+  showToast('★ お気に入りからRSS取込モード');
+}
+window.ytUseFavFallback = ytUseFavFallback;
+
+export function ytAddManualPl() {
+  const input = prompt('プレイリストIDまたはURL（例: PLxxxxx または https://www.youtube.com/playlist?list=PLxxxxx）:');
+  if (!input) return;
+  const m = input.match(/list=([A-Za-z0-9_-]+)/) || input.match(/^([A-Za-z0-9_-]{10,})$/);
+  if (!m) { showToast('❌ プレイリストIDを認識できません'); return; }
+  const plId = m[1];
+  const title = prompt('プレイリスト名（任意）:', plId) || plId;
+  // お気に入りに追加して即フォールバックモードに入る
+  const favs = _ytLoadFavs();
+  if (!favs.some(f => f.id === plId)) {
+    favs.unshift({ id: plId, title });
+    _ytSaveFavs(favs);
+  }
+  ytUseFavFallback();
+}
+window.ytAddManualPl = ytAddManualPl;
+
+export function ytUseCacheFallback() {
+  const cache = _loadYtPlCache();
+  if (!cache?.playlists?.length) { showToast('キャッシュがありません'); return; }
+  window._ytQuotaFallback = true;
+  const special = [{ id: 'LL', snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} }, contentDetails: { itemCount: '?' } }];
+  showPlaylistSelector([...special, ...cache.playlists], _ytImportToken);
+  showToast('📦 キャッシュ表示: RSSフィード経由で最新15本まで取込可能');
+}
+window.ytUseCacheFallback = ytUseCacheFallback;
 
 export function ytReauth() {
   window._ytToken = null;
@@ -271,15 +382,27 @@ export async function ytImportUnimportedFromChecked() {
   const checks = document.querySelectorAll('#yt-pl-list input:checked');
   if (!checks.length) { showToast('プレイリストを選択してください'); return; }
   const token = _ytImportToken;
-  if (!token) { showToast('⚠️ トークンがありません'); return; }
+  const useRss = window._ytQuotaFallback === true;
+  if (!useRss && !token) { showToast('⚠️ トークンがありません'); return; }
   const btn = document.getElementById('yt-import-bulk-new');
   const okBtn = document.getElementById('yt-import-ok');
   btn.disabled = true; if (okBtn) okBtn.disabled = true;
-  btn.textContent = '取得中...';
+  btn.textContent = useRss ? 'RSS取得中...' : '取得中...';
   const existing = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
   const toAdd = [];
   for (const cb of checks) {
     const plId = cb.value; const plTitle = cb.dataset.title;
+    if (useRss) {
+      try {
+        const rssItems = await _fetchPlaylistViaRss(plId, plTitle);
+        rssItems.forEach(it => {
+          if (existing.has(it.vid)) return;
+          existing.add(it.vid);
+          toAdd.push(it);
+        });
+      } catch (e) { showToast('⚠️ RSS取得失敗 (' + plTitle + '): ' + e.message); }
+      continue;
+    }
     let pageToken = '';
     do {
       const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
@@ -307,9 +430,9 @@ export async function ytImportUnimportedFromChecked() {
     showToast('✅ 未取込の動画はありません');
     return;
   }
-  // チャプター/duration補完
+  // チャプター/duration補完（quota枯渇中はスキップ）
   btn.textContent = `補完中 (${toAdd.length}本)...`;
-  if (window.aiSettings?.fetchChaptersOnImport !== false) {
+  if (!useRss && window.aiSettings?.fetchChaptersOnImport !== false) {
     const descMap = await fetchVideoDescriptions(toAdd.map(t => t.vid), token);
     toAdd.forEach(t => {
       const d = descMap[t.vid] || {};
@@ -355,36 +478,44 @@ export async function ytFetchSelectedPlVideos(token) {
   document.getElementById('yt-import-ok').disabled = true;
   const existingYtIds = new Set((window.videos || []).filter(v => v.ytId).map(v => v.ytId));
   _ytPendingVideos = {};
+  const useRss = window._ytQuotaFallback === true;
   for (const cb of checks) {
     const plId = cb.value;
     const plTitle = cb.dataset.title;
     const items = [];
-    let pageToken = '';
-    do {
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
-      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-      const data = await res.json();
-      if (data.error) { showToast('⚠️ ' + data.error.message); break; }
-      (data.items || []).forEach(item => {
-        const s = item.snippet;
-        const vid = s.resourceId?.videoId;
-        if (!vid) return;
-        items.push({
-          vid, plId, plTitle,
-          title: s.title,
-          thumb: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
-          channel: s.videoOwnerChannelTitle || '',
-          addedAt: s.publishedAt || '',
-          already: existingYtIds.has(vid)
+    if (useRss) {
+      try {
+        const rssItems = await _fetchPlaylistViaRss(plId, plTitle);
+        rssItems.forEach(it => items.push({ ...it, plId, already: existingYtIds.has(it.vid) }));
+      } catch (e) { showToast('⚠️ RSS取得失敗: ' + e.message); }
+    } else {
+      let pageToken = '';
+      do {
+        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
+        const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        if (data.error) { showToast('⚠️ ' + data.error.message); break; }
+        (data.items || []).forEach(item => {
+          const s = item.snippet;
+          const vid = s.resourceId?.videoId;
+          if (!vid) return;
+          items.push({
+            vid, plId, plTitle,
+            title: s.title,
+            thumb: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+            channel: s.videoOwnerChannelTitle || '',
+            addedAt: s.publishedAt || '',
+            already: existingYtIds.has(vid)
+          });
         });
-      });
-      pageToken = data.nextPageToken || '';
-    } while (pageToken);
+        pageToken = data.nextPageToken || '';
+      } while (pageToken);
+    }
     _ytPendingVideos[plId] = { title: plTitle, items };
   }
-  // チャプター（タイムスタンプ）をフェッチ（設定で有効な場合のみ）
+  // チャプター（タイムスタンプ）をフェッチ（設定で有効な場合のみ・quota枯渇中はスキップ）
   const allVids = Object.values(_ytPendingVideos).flatMap(pl => pl.items).map(i => i.vid);
-  if (allVids.length && window.aiSettings?.fetchChaptersOnImport !== false) {
+  if (allVids.length && !useRss && window.aiSettings?.fetchChaptersOnImport !== false) {
     document.getElementById('yt-import-ok').textContent = 'チャプター取得中...';
     const descMap = await fetchVideoDescriptions(allVids, token);
     Object.values(_ytPendingVideos).forEach(pl => {
