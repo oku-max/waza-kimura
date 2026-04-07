@@ -1786,9 +1786,9 @@ export function vpTogDd(id, type) {
   });
   const dd = document.getElementById('vp-dd-'+type+'-'+id);
   if (!dd) return;
-  const isOpen = dd.style.display !== 'none';
+  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
   if (isOpen) { dd.style.display = 'none'; return; }
-  dd.style.display = 'block';
+  _vpOpenDd(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) { inp.value = ''; }
   vpRenderDdList(id, type, '');
