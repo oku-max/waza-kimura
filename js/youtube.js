@@ -172,16 +172,6 @@ export function ytAddManualPl() {
 }
 window.ytAddManualPl = ytAddManualPl;
 
-export function ytUseCacheFallback() {
-  const cache = _loadYtPlCache();
-  if (!cache?.playlists?.length) { showToast('キャッシュがありません'); return; }
-  window._ytQuotaFallback = true;
-  const special = [{ id: 'LL', snippet: { title: '👍 高評価の動画 (Liked Videos)', thumbnails: {} }, contentDetails: { itemCount: '?' } }];
-  showPlaylistSelector([...special, ...cache.playlists], _ytImportToken);
-  showToast('📦 キャッシュ表示: RSSフィード経由で最新15本まで取込可能');
-}
-window.ytUseCacheFallback = ytUseCacheFallback;
-
 export function ytReauth() {
   window._ytToken = null;
   if (window.importYouTubePlaylists) window.importYouTubePlaylists();
