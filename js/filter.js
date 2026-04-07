@@ -1,4 +1,5 @@
 // ═══ WAZA KIMURA — フィルター（Library） ═══
+import { _parseQuery, _matchQueryField, _matchFieldSpecific } from './organize.js';
 
 // ── URL ↔ フィルター状態の同期 ──
 const _URL_SET_KEYS = {
@@ -323,7 +324,8 @@ export function updateResetBtn() {
 export function filt(list) {
   const siEl   = document.getElementById('si');
   const siPcEl = document.getElementById('si-lib-pc');
-  const q = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).toLowerCase();
+  const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();
+  const parsed = _parseQuery(raw);
   return list.filter(v => {
     if (v.archived) return false;
     if (window.favOnly && !v.fav) return false;
@@ -333,11 +335,16 @@ export function filt(list) {
     if (window.memoOnly && !v.memo) return false;
     if (window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) return false;
     if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
-    // ▼ 修正: ch / pl / tech が undefined の動画でもクラッシュしないよう || '' / || [] でガード
-    if (q && !(v.title||'').toLowerCase().includes(q)
-          && !(v.channel||v.ch||'').toLowerCase().includes(q)
-          && !(v.pl||'').toLowerCase().includes(q)
-          && !(v.tech||[]).some(t => t.toLowerCase().includes(q))) return false;
+    // ── 検索演算子 (-除外 / "完全一致" / field:値) ──
+    for (const inc of parsed.includes) {
+      if (!_matchQueryField(v, inc.text, inc.exact, null)) return false;
+    }
+    for (const exc of parsed.excludes) {
+      if (_matchQueryField(v, exc, false, null)) return false;
+    }
+    for (const [field, vals] of Object.entries(parsed.fields)) {
+      if (!_matchFieldSpecific(v, field, vals)) return false;
+    }
     if (window.filters.playlist.size && !window.filters.playlist.has(v.pl)) return false;
     if (window.filters.prio.size && !window.filters.prio.has(v.prio)) return false;
     if (window.filters.status.size && !window.filters.status.has(v.status)) return false;
@@ -368,7 +375,8 @@ export function countContextual(key, val) {
   const f    = window.filters || {};
   const siEl   = document.getElementById('si');
   const siPcEl = document.getElementById('si-lib-pc');
-  const q = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).toLowerCase();
+  const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();
+  const parsed = _parseQuery(raw);
   return vids.filter(v => {
     if (v.archived) return false;
     if (window.favOnly     && !v.fav)                                    return false;
@@ -377,10 +385,9 @@ export function countContextual(key, val) {
     if (window.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly    && !v.memo)                                   return false;
     if (window.imgOnly     && !(v.snapshots && v.snapshots.length > 0)) return false;
-    if (q && !(v.title||'').toLowerCase().includes(q)
-          && !(v.channel||v.ch||'').toLowerCase().includes(q)
-          && !(v.pl||'').toLowerCase().includes(q)
-          && !(v.tech||[]).some(t => t.toLowerCase().includes(q)))       return false;
+    for (const inc of parsed.includes) { if (!_matchQueryField(v, inc.text, inc.exact, null)) return false; }
+    for (const exc of parsed.excludes) { if (_matchQueryField(v, exc, false, null)) return false; }
+    for (const [field, vals] of Object.entries(parsed.fields)) { if (!_matchFieldSpecific(v, field, vals)) return false; }
     // key以外のフィルターを適用
     if (key !== 'platform' && f.platform?.size && !f.platform.has(v.pt))                      return false;
     if (key !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                      return false;

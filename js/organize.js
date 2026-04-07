@@ -164,7 +164,7 @@ function _matchFilt(filterSet, values) {
 
 // ── 検索演算子パーサー ──
 // 対応: -除外  "完全一致"  title:xxx  ch:xxx  pl:xxx  tech:xxx  memo:xxx
-function _parseQuery(raw) {
+export function _parseQuery(raw) {
   const result = { includes: [], excludes: [], fields: {} };
   if (!raw) return result;
   // フィールド指定: title:xxx ch:xxx pl:xxx tech:xxx memo:xxx
@@ -191,7 +191,7 @@ function _parseQuery(raw) {
   return result;
 }
 
-function _matchQueryField(v, text, exact, fields) {
+export function _matchQueryField(v, text, exact, fields) {
   // fields: アドバンスドサーチで指定された検索対象 (null=全部)
   const fTitle = !fields || fields.title;
   const fCh    = !fields || fields.ch;
@@ -213,7 +213,7 @@ function _matchQueryField(v, text, exact, fields) {
       || (fMemo && memo.includes(text));
 }
 
-function _matchFieldSpecific(v, field, values) {
+export function _matchFieldSpecific(v, field, values) {
   const map = {
     title: (v.title||'').toLowerCase(),
     ch: (v.channel||v.ch||'').toLowerCase(),

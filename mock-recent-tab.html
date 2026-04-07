@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Mock – 最近タブ</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --surface: #fff;
+    --surface2: #f1f1ef;
+    --surface3: #e8e8e5;
+    --border: #e0e0dc;
+    --border2: #eaeae6;
+    --text: #111;
+    --text2: #555;
+    --text3: #999;
+    --accent: #111;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    display: flex;
+    gap: 32px;
+    padding: 40px;
+    align-items: flex-start;
+  }
+
+  /* ── ポップアップ共通 ── */
+  .popup {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.12);
+    overflow: hidden;
+    width: 320px;
+  }
+  .popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .popup-header span { font-size: 12px; font-weight: 700; color: var(--text); }
+  .popup-header .close { cursor: pointer; color: var(--text3); font-size: 16px; line-height: 1; }
+
+  /* ── 検索 ── */
+  .popup-search {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 12px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+  }
+  .popup-search::placeholder { color: var(--text3); }
+
+  /* ── タブ（3つ） ── */
+  .subtabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .subtab {
+    flex: 1;
+    padding: 6px 4px;
+    font-size: 10.5px;
+    text-align: center;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color .15s;
+  }
+  .subtab.on {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+  }
+  .subtab:hover:not(.on) { color: var(--text2); }
+
+  /* ── リスト ── */
+  .popup-body { max-height: 400px; overflow-y: auto; }
+  .subpanel { display: none; }
+  .subpanel.on { display: block; }
+
+  .sec-hd {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 6px 12px 3px;
+  }
+  .alpha-hd {
+    padding: 4px 12px 2px;
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--accent);
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .item {
+    padding: 7px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .item:hover { background: var(--surface2); color: var(--text); }
+  .item.selected { color: var(--accent); font-weight: 700; }
+  .item.selected::after { content: "✓"; font-size: 11px; flex-shrink: 0; }
+  .cnt { font-size: 10px; color: var(--text3); flex-shrink: 0; }
+
+  /* 最近タブ: タイムスタンプ */
+  .item-recent .cnt { color: var(--text3); }
+  .item-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* ラベル */
+  .mock-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Mock A: 最近タブが選択中 ── -->
+<div>
+  <div class="mock-label">① 最近タブ（デフォルト表示）</div>
+  <div class="popup">
+    <div class="popup-header">
+      <span>Channel</span>
+      <span class="close">✕</span>
+    </div>
+    <input class="popup-search" placeholder="検索...">
+
+    <!-- 3タブ -->
+    <div class="subtabs">
+      <div class="subtab on"  onclick="switchTab(this,'recent-a','alpha-a','count-a')">🕐 最近</div>
+      <div class="subtab"     onclick="switchTab(this,'alpha-a','recent-a','count-a')">ABC / あいうえお順</div>
+      <div class="subtab"     onclick="switchTab(this,'count-a','recent-a','alpha-a')">件数順</div>
+    </div>
+
+    <div class="popup-body">
+      <!-- 最近タブ -->
+      <div class="subpanel on" id="recent-a">
+        <div class="sec-hd">最近選んだチャンネル</div>
+        <div class="item item-recent selected">Bernardo Faria BJJ Fanatics<span class="cnt">5本</span></div>
+        <div class="item item-recent">BIG OSS Jiu-Jitsu Channel<span class="cnt">25本</span></div>
+        <div class="item item-recent">Baseball Magazine sha<span class="cnt">19本</span></div>
+        <div class="item item-recent">BJJ Fanatics<span class="cnt">2本</span></div>
+        <div class="item item-recent">B-Flow<span class="cnt">1本</span></div>
+        <div class="item item-recent">Cobrinha BJJ SB<span class="cnt">1本</span></div>
+        <div class="item item-recent">Club barbarian チャンネル<span class="cnt">1本</span></div>
+        <div class="item item-recent">CARPE DIEM HOPE NAGOYA TACHIKAWA TV<span class="cnt">3本</span></div>
+        <div class="item item-recent">amplitude<span class="cnt">1本</span></div>
+        <div class="item item-recent">CarpeDiemBJJ Aoyama<span class="cnt">2本</span></div>
+      </div>
+
+      <!-- ABCタブ -->
+      <div class="subpanel" id="alpha-a">
+        <div class="sec-hd">全チャンネル</div>
+        <div class="alpha-hd">A</div>
+        <div class="item">amplitude<span class="cnt">1本</span></div>
+        <div class="item">ATHLAS TRAINING TEAM<span class="cnt">1本</span></div>
+        <div class="alpha-hd">B</div>
+        <div class="item selected">Bernardo Faria BJJ Fanatics<span class="cnt">5本</span></div>
+        <div class="item">BIG OSS Jiu-Jitsu Channel<span class="cnt">25本</span></div>
+        <div class="item">BJJ Fanatics<span class="cnt">2本</span></div>
+      </div>
+
+      <!-- 件数順タブ -->
+      <div class="subpanel" id="count-a">
+        <div class="sec-hd">全チャンネル</div>
+        <div class="item selected">Bernardo Faria BJJ Fanatics<span class="cnt">5本</span></div>
+        <div class="item">BIG OSS Jiu-Jitsu Channel<span class="cnt">25本</span></div>
+        <div class="item">Baseball Magazine sha<span class="cnt">19本</span></div>
+        <div class="item">BJJ Fanatics<span class="cnt">2本</span></div>
+        <div class="item">B-Flow<span class="cnt">1本</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Mock B: ABC タブ選択中（最近選択がない場合） ── -->
+<div>
+  <div class="mock-label">② ABCタブ（最近選択なし）</div>
+  <div class="popup">
+    <div class="popup-header">
+      <span>Playlist</span>
+      <span class="close">✕</span>
+    </div>
+    <input class="popup-search" placeholder="検索...">
+
+    <div class="subtabs">
+      <div class="subtab"     onclick="switchTab(this,'recent-b','alpha-b','count-b')">🕐 最近</div>
+      <div class="subtab on"  onclick="switchTab(this,'alpha-b','recent-b','count-b')">ABC / あいうえお順</div>
+      <div class="subtab"     onclick="switchTab(this,'count-b','recent-b','alpha-b')">件数順</div>
+    </div>
+
+    <div class="popup-body">
+      <!-- 最近タブ（空） -->
+      <div class="subpanel" id="recent-b">
+        <div style="font-size:10px;color:var(--text3);padding:16px 12px;text-align:center">
+          最近選んだプレイリストはありません
+        </div>
+      </div>
+
+      <!-- ABCタブ -->
+      <div class="subpanel on" id="alpha-b">
+        <div class="sec-hd">全プレイリスト</div>
+        <div class="alpha-hd">B</div>
+        <div class="item">BJJ Fanatics Vol.1<span class="cnt">8本</span></div>
+        <div class="item">BJJ Fanatics Vol.2<span class="cnt">5本</span></div>
+        <div class="alpha-hd">G</div>
+        <div class="item">Guard Passing系<span class="cnt">12本</span></div>
+        <div class="alpha-hd">N</div>
+        <div class="item">Nogi系テクニック<span class="cnt">7本</span></div>
+        <div class="alpha-hd">あ</div>
+        <div class="item">足関節コレクション<span class="cnt">4本</span></div>
+        <div class="alpha-hd">か</div>
+        <div class="item">柔術基礎<span class="cnt">3本</span></div>
+      </div>
+
+      <!-- 件数順タブ -->
+      <div class="subpanel" id="count-b">
+        <div class="sec-hd">全プレイリスト</div>
+        <div class="item">Guard Passing系<span class="cnt">12本</span></div>
+        <div class="item">BJJ Fanatics Vol.1<span class="cnt">8本</span></div>
+        <div class="item">Nogi系テクニック<span class="cnt">7本</span></div>
+        <div class="item">BJJ Fanatics Vol.2<span class="cnt">5本</span></div>
+        <div class="item">足関節コレクション<span class="cnt">4本</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(clickedTab, showId, ...hideIds) {
+  // タブスタイル切替
+  const subtabs = clickedTab.parentElement.querySelectorAll('.subtab');
+  subtabs.forEach(t => t.classList.remove('on'));
+  clickedTab.classList.add('on');
+  // パネル切替
+  document.getElementById(showId).classList.add('on');
+  hideIds.forEach(id => document.getElementById(id)?.classList.remove('on'));
+}
+</script>
+</body>
+</html>

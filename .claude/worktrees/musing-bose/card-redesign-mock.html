@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Redesign Mock</title>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #22222a;
+    --surface3: #2a2a33;
+    --border: #2e2e3a;
+    --border2: #3a3a48;
+    --text1: #f0f0f4;
+    --text2: #b0b0c0;
+    --text3: #6a6a80;
+    --accent: #7c6af7;
+    --accent2: #5b52d4;
+    --radius: 10px;
+    --shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text1); font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+
+  .page { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+  h2 { font-size: 13px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .label { font-size: 11px; color: var(--accent); background: rgba(124,106,247,.15); border-radius: 4px; padding: 2px 8px; display: inline-block; margin-bottom: 16px; }
+
+  /* ─── 現在のカード（比較用） ─── */
+  .grid-old {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .card-old {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .thumb-old {
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%;
+    position: relative;
+    background: var(--surface3);
+  }
+  .thumb-old img { position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+  .pb-old { position: absolute; top: 6px; right: 6px; font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 4px; background: #ff0000; color: #fff; }
+  .body-old { padding: 10px; }
+  .title-old { font-size: 12px; font-weight: 700; line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .channel-old { font-size: 10px; color: var(--text3); margin-bottom: 6px; }
+  .tags-old { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; }
+  .tag { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+  .tag-pos { background: rgba(76,175,80,.2); color: #81c784; }
+  .tag-tech { background: rgba(255,193,7,.15); color: #ffd54f; }
+  .footer-old { display: flex; gap: 5px; }
+  .actions-old { display: flex; border-top: 1px solid var(--border2); }
+  .ca-btn { flex: 1; padding: 7px 4px; font-size: 10px; font-weight: 600; background: none; border: none; color: var(--text2); cursor: pointer; text-align: center; }
+
+  /* ─── 新カード ─── */
+  .grid-new {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+  .card-new {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .thumb-new {
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%;
+    position: relative;
+    background: var(--surface3);
+  }
+  .thumb-new img { position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+  .pb-new { position: absolute; top: 4px; right: 4px; font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px; background: #ff0000; color: #fff; }
+  .dur-new { position: absolute; bottom: 4px; right: 4px; font-size: 9px; background: rgba(0,0,0,.75); color: #fff; padding: 1px 4px; border-radius: 3px; }
+  .body-new { padding: 7px 8px 5px; }
+  .title-new {
+    font-size: 11px; font-weight: 700; line-height: 1.35;
+    margin-bottom: 5px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    color: var(--text1);
+  }
+  .meta-new { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+  .ch-new { font-size: 9.5px; color: var(--accent); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl-new { font-size: 9px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .actions-new { display: flex; border-top: 1px solid var(--border2); }
+  .ca-new { flex: 1; padding: 5px 2px; font-size: 9px; font-weight: 600; background: none; border: none; color: var(--text2); cursor: pointer; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ca-new.p1 { color: #ef5350; }
+  .ca-new.p2 { color: #ffd54f; }
+  .ca-new.s1 { color: #42a5f5; }
+  .ca-new.s2 { color: #66bb6a; }
+
+  /* タブレット: 3列 */
+  @media (max-width: 1024px) {
+    .grid-new { grid-template-columns: repeat(3, 1fr); }
+    .grid-old { grid-template-columns: repeat(2, 1fr); }
+  }
+  /* モバイル: 2列 */
+  @media (max-width: 600px) {
+    .grid-new { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .grid-old { grid-template-columns: repeat(1, 1fr); }
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 32px 0; }
+  .compare-label { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .badge { font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 700; }
+  .badge-old { background: var(--surface3); color: var(--text3); }
+  .badge-new { background: var(--accent); color: #fff; }
+  .note { font-size: 11px; color: var(--text3); margin-top: 8px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="compare-label">
+    <span class="badge badge-old">現在 — 3列</span>
+    <span style="font-size:12px;color:var(--text3)">サムネイル幅広め、タグあり</span>
+  </div>
+  <div class="grid-old">
+    <!-- card 1 -->
+    <div class="card-old">
+      <div class="thumb-old">
+        <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" onerror="this.style.display='none'">
+        <div class="pb-old">YT</div>
+      </div>
+      <div class="body-old">
+        <div class="title-old">Kimura from Closed Guard — Bernardo Faria BJJ Fundamentals</div>
+        <div class="channel-old">Bernardo Faria BJJ Fanatics</div>
+        <div class="tags-old">
+          <span class="tag tag-pos">クローズドガード</span>
+          <span class="tag tag-tech">キムラ</span>
+        </div>
+        <div class="footer-old"><span style="font-size:14px">⭐</span></div>
+      </div>
+      <div class="actions-old">
+        <button class="ca-btn">🔴 今すぐ</button>
+        <button class="ca-btn">📋 未着手</button>
+        <button class="ca-btn">💬 メモ</button>
+        <button class="ca-btn">📦</button>
+      </div>
+    </div>
+    <!-- card 2 -->
+    <div class="card-old">
+      <div class="thumb-old" style="background:var(--surface3);">
+        <div class="pb-old">YT</div>
+      </div>
+      <div class="body-old">
+        <div class="title-old">Hip Escape (Shrimp) Drill — BJJ Fundamentals for Beginners</div>
+        <div class="channel-old">Chewjitsu</div>
+        <div class="tags-old">
+          <span class="tag tag-pos">サイドコントロール</span>
+          <span class="tag tag-tech">マウント</span>
+        </div>
+        <div class="footer-old"><span style="font-size:14px">☆</span></div>
+      </div>
+      <div class="actions-old">
+        <button class="ca-btn">🟡 そのうち</button>
+        <button class="ca-btn">🔵 練習中</button>
+        <button class="ca-btn">💬 メモ</button>
+        <button class="ca-btn">📦</button>
+      </div>
+    </div>
+    <!-- card 3 -->
+    <div class="card-old">
+      <div class="thumb-old" style="background:var(--surface3);">
+        <div class="pb-old" style="background:#1ab7ea">Vimeo</div>
+      </div>
+      <div class="body-old">
+        <div class="title-old">Triangle Choke from Closed Guard — Complete System</div>
+        <div class="channel-old">John Danaher</div>
+        <div class="tags-old">
+          <span class="tag tag-pos">クローズドガード</span>
+          <span class="tag tag-tech">三角絞め</span>
+          <span class="tag tag-tech">アームバー</span>
+        </div>
+        <div class="footer-old"><span style="font-size:14px">⭐</span></div>
+      </div>
+      <div class="actions-old">
+        <button class="ca-btn">⚪ 保留</button>
+        <button class="ca-btn">✅ マスター</button>
+        <button class="ca-btn">💬 メモ</button>
+        <button class="ca-btn">📦</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="compare-label">
+    <span class="badge badge-new">新デザイン — 4列</span>
+    <span style="font-size:12px;color:var(--text3)">コンパクト、チャンネル名＋PL名、タグなし</span>
+  </div>
+  <div class="grid-new">
+    <!-- new card 1 -->
+    <div class="card-new">
+      <div class="thumb-new">
+        <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" onerror="this.style.display='none'">
+        <div class="pb-new">YT</div>
+        <div class="dur-new">12:34</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Kimura from Closed Guard — Bernardo Faria BJJ Fundamentals</div>
+        <div class="meta-new">
+          <div class="ch-new">Bernardo Faria BJJ Fanatics</div>
+          <div class="pl-new">📋 クローズドガード</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new p1">🔴 今すぐ</button>
+        <button class="ca-new">📋 未着手</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 2 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new">YT</div>
+        <div class="dur-new">8:20</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Hip Escape (Shrimp) Drill — BJJ Fundamentals</div>
+        <div class="meta-new">
+          <div class="ch-new">Chewjitsu</div>
+          <div class="pl-new">📋 エスケープ系</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new p2">🟡 そのうち</button>
+        <button class="ca-new s1">🔵 練習中</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 3 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new" style="background:#1ab7ea">Vm</div>
+        <div class="dur-new">45:00</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Triangle Choke from Closed Guard — Complete System</div>
+        <div class="meta-new">
+          <div class="ch-new">John Danaher</div>
+          <div class="pl-new">📋 クローズドガード</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new">⚪ 保留</button>
+        <button class="ca-new s2">✅ マスター</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 4 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new">YT</div>
+        <div class="dur-new">22:10</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">X-Guard Complete System — John Danaher</div>
+        <div class="meta-new">
+          <div class="ch-new">Bernardo Faria BJJ Fanatics</div>
+          <div class="pl-new">📋 Xガード</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new p1">🔴 今すぐ</button>
+        <button class="ca-new">📋 未着手</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 5 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new">YT</div>
+        <div class="dur-new">5:45</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Heel Hook Fundamentals — Leg Lock Entry System</div>
+        <div class="meta-new">
+          <div class="ch-new">Reilly Bodycomb</div>
+          <div class="pl-new">📋 レッグロック</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new p2">🟡 そのうち</button>
+        <button class="ca-new s1">🔵 練習中</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 6 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new" style="background:#1ab7ea">Vm</div>
+        <div class="dur-new">31:00</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Half Guard Sweep — Old School Techniques by Bernardo</div>
+        <div class="meta-new">
+          <div class="ch-new">Bernardo Faria BJJ Fanatics</div>
+          <div class="pl-new">📋 ハーフガード</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new">⚪ 保留</button>
+        <button class="ca-new">📋 未着手</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 7 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new">GD</div>
+        <div class="dur-new">18:30</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Guard Passing Fundamentals — Pressure Pass Series</div>
+        <div class="meta-new">
+          <div class="ch-new">Gordon Ryan</div>
+          <div class="pl-new">📋 ガードパス</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new p1">🔴 今すぐ</button>
+        <button class="ca-new s1">🔵 練習中</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+    <!-- new card 8 -->
+    <div class="card-new">
+      <div class="thumb-new" style="background:#1a1a22;">
+        <div class="pb-new">YT</div>
+        <div class="dur-new">9:15</div>
+      </div>
+      <div class="body-new">
+        <div class="title-new">Back Take from Turtle Position — Competition Footage</div>
+        <div class="meta-new">
+          <div class="ch-new">Chewjitsu</div>
+          <div class="pl-new">📋 バックテイク</div>
+        </div>
+      </div>
+      <div class="actions-new">
+        <button class="ca-new p2">🟡 そのうち</button>
+        <button class="ca-new s2">✅ マスター</button>
+        <button class="ca-new">💬 メモ</button>
+        <button class="ca-new">📦</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    ※ レスポンシブ: PC=4列 / タブレット(≤1024px)=3列 / モバイル(≤600px)=2列<br>
+    ※ アクションバー: Priority・Progress・お気に入りのみ（メモ・アーカイブはVパネル内へ移動でもよい）
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>モック: 正しい状態</title>
+<style>
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#e0e0e0;color:var(--text);padding:20px;display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;}
+h2{font-size:13px;font-weight:800;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;}
+.card{background:var(--surface);border-radius:14px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.12);width:360px;}
+.label{font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px;}
+.bad{border:2px solid #e74c3c;}
+.good{border:2px solid #27ae60;}
+
+/* ── フィルターチャンネルDD ── */
+.dd-wrap{position:relative;}
+.dd-trigger{font-size:11px;color:var(--accent);cursor:pointer;padding:2px 8px;border:1.5px dashed var(--accent);border-radius:14px;width:fit-content;}
+.dd{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);overflow:hidden;margin-top:6px;}
+.dd-search{width:100%;box-sizing:border-box;padding:8px 10px;font-size:12px;border:none;border-bottom:1px solid var(--border);background:var(--surface2);color:var(--text);outline:none;}
+.dd-list{overflow-y:auto;padding:4px 0;}
+.dd-list.short{max-height:120px;} /* ← 現状: 3件しか見えない */
+.dd-list.correct{max-height:340px;} /* ← 正しい: 多数見える */
+.dd-item{padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text2);display:flex;align-items:center;justify-content:space-between;}
+.dd-item:hover{background:var(--surface2);}
+.dd-cnt{font-size:10px;color:var(--text3);}
+.dd-sec-hd{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 12px 3px;}
+.dd-subtabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface2);}
+.dd-subtab{flex:1;padding:5px 4px;font-size:10.5px;text-align:center;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.dd-subtab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;}
+.dd-alpha-hd{padding:4px 12px 2px;font-size:9px;font-weight:800;color:var(--accent);background:var(--surface2);border-top:1px solid var(--border);}
+.dd-sec-div{height:1px;background:var(--border);margin:4px 0;}
+
+/* ── GDriveブラウザ ── */
+.gd-browser{background:var(--surface);border-radius:12px;padding:18px;}
+.gd-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.gd-back{border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2);}
+.gd-title{font-size:14px;font-weight:800;}
+.gd-breadcrumb{font-size:11px;color:var(--text3);margin-bottom:10px;}
+.gd-breadcrumb a{color:var(--accent);text-decoration:underline;cursor:pointer;}
+.gd-list{overflow-y:auto;margin-bottom:14px;}
+.gd-list.short{max-height:80px;} /* 現状: 空 */
+.gd-list.correct{max-height:280px;}
+.gd-folder{display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:6px;background:var(--surface2);}
+.gd-folder-icon{font-size:18px;}
+.gd-folder-name{font-size:13px;color:var(--text);flex:1;}
+.gd-folder-arr{color:var(--text3);font-size:16px;}
+.gd-empty{font-size:12px;color:var(--text3);padding:12px 4px;}
+.gd-video-hint{font-size:11px;color:var(--accent);padding:4px 6px 8px;font-weight:600;}
+.gd-btns{display:flex;gap:8px;}
+.btn-save{flex:1;background:var(--accent);color:#fff;border:none;padding:12px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-sub{flex:1;background:none;color:var(--text);border:1.5px solid var(--border);padding:12px;border-radius:8px;font-size:13px;cursor:pointer;}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;margin-bottom:8px;}
+.badge.bad{background:#fde8e8;color:#e74c3c;border:none;}
+.badge.good{background:#e8f5e9;color:#27ae60;border:none;}
+</style>
+</head>
+<body>
+
+<!-- ========================= 左列: フィルターDD ========================= -->
+<div>
+  <h2>フィルター チャンネルDD</h2>
+  <div style="display:flex;gap:16px;align-items:flex-start">
+
+    <!-- 現状 (悪い) -->
+    <div class="card bad">
+      <div class="badge bad">現状 ✗ 3件しか見えない</div>
+      <div class="dd-trigger">＋ チャンネルを選ぶ</div>
+      <div class="dd" style="margin-top:6px">
+        <input class="dd-search" placeholder="検索..." readonly>
+        <div class="dd-list short">
+          <div class="dd-sec-hd">最近みた</div>
+          <div class="dd-item">竹浦本・ボトム<span class="dd-cnt">19本</span></div>
+          <div class="dd-sec-div"></div>
+          <div class="dd-sec-hd" style="padding-bottom:0">全チャンネル</div>
+          <div class="dd-subtabs">
+            <div class="dd-subtab on">ABC / あいうえお順</div>
+            <div class="dd-subtab">件数順</div>
+          </div>
+          <!-- ↓ ここから下は切れて見えない -->
+          <div class="dd-alpha-hd">A</div>
+          <div class="dd-item">amplitude<span class="dd-cnt">1本</span></div>
+          <div class="dd-item">ATHLAS TRAINING TEAM<span class="dd-cnt">1本</span></div>
+          <div class="dd-item" style="font-size:11px">Atos Jiu-Jitsu HQ | World's Best BJJ Academy<span class="dd-cnt">1本</span></div>
+          <div class="dd-alpha-hd">B</div>
+          <div class="dd-item">B-Team<span class="dd-cnt">3本</span></div>
+          <div class="dd-item">BJJ Fanatics<span class="dd-cnt">8本</span></div>
+          <div class="dd-alpha-hd">G</div>
+          <div class="dd-item">Gordon Ryan<span class="dd-cnt">12本</span></div>
+          <div class="dd-alpha-hd">竹</div>
+          <div class="dd-item">竹浦本・ボトム<span class="dd-cnt">19本</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 正しい状態 -->
+    <div class="card good">
+      <div class="badge good">正しい状態 ✓ 多数見える・スクロール可</div>
+      <div class="dd-trigger">＋ チャンネルを選ぶ</div>
+      <div class="dd" style="margin-top:6px">
+        <input class="dd-search" placeholder="検索..." readonly>
+        <div class="dd-list correct">
+          <div class="dd-sec-hd">最近みた</div>
+          <div class="dd-item">竹浦本・ボトム<span class="dd-cnt">19本</span></div>
+          <div class="dd-sec-div"></div>
+          <div class="dd-sec-hd" style="padding-bottom:0">全チャンネル</div>
+          <div class="dd-subtabs">
+            <div class="dd-subtab on">ABC / あいうえお順</div>
+            <div class="dd-subtab">件数順</div>
+          </div>
+          <div class="dd-alpha-hd">A</div>
+          <div class="dd-item">amplitude<span class="dd-cnt">1本</span></div>
+          <div class="dd-item">ATHLAS TRAINING TEAM<span class="dd-cnt">1本</span></div>
+          <div class="dd-item" style="font-size:11px">Atos Jiu-Jitsu HQ | World's Best BJJ Academy<span class="dd-cnt">1本</span></div>
+          <div class="dd-alpha-hd">B</div>
+          <div class="dd-item">B-Team<span class="dd-cnt">3本</span></div>
+          <div class="dd-item">BJJ Fanatics<span class="dd-cnt">8本</span></div>
+          <div class="dd-item">Bernardo Faria BJJ Fanatics<span class="dd-cnt">5本</span></div>
+          <div class="dd-alpha-hd">G</div>
+          <div class="dd-item">Gordon Ryan<span class="dd-cnt">12本</span></div>
+          <div class="dd-item">Grappling with Danger<span class="dd-cnt">2本</span></div>
+          <div class="dd-alpha-hd">J</div>
+          <div class="dd-item">John Danaher<span class="dd-cnt">7本</span></div>
+          <div class="dd-alpha-hd">竹</div>
+          <div class="dd-item">竹浦本・ボトム<span class="dd-cnt">19本</span></div>
+          <div class="dd-alpha-hd">未</div>
+          <div class="dd-item">未分類<span class="dd-cnt">1本</span></div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#27ae60;margin-top:8px;font-weight:600">
+        修正: max-height を 180px → 360px に変更するだけ
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= 右列: GDrive ブラウザ ========================= -->
+<div>
+  <h2>GDrive フォルダブラウザ</h2>
+  <div style="display:flex;gap:16px;align-items:flex-start">
+
+    <!-- 現状 (悪い) -->
+    <div class="card bad">
+      <div class="badge bad">現状 ✗ フォルダが空</div>
+      <div class="gd-browser">
+        <div class="gd-nav">
+          <button class="gd-back" style="visibility:hidden">← 戻る</button>
+          <div class="gd-title">My Drive</div>
+        </div>
+        <div class="gd-breadcrumb"><a>My Drive</a></div>
+        <div class="gd-list short">
+          <div class="gd-empty">フォルダが空です</div>
+        </div>
+        <div class="gd-btns">
+          <button class="btn-save">✓ このフォルダを選択</button>
+          <button class="btn-sub">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 正しい状態 -->
+    <div class="card good">
+      <div class="badge good">正しい状態 ✓ フォルダ一覧が見える</div>
+      <div class="gd-browser">
+        <div class="gd-nav">
+          <button class="gd-back" style="visibility:hidden">← 戻る</button>
+          <div class="gd-title">My Drive</div>
+        </div>
+        <div class="gd-breadcrumb"><a>My Drive</a></div>
+        <div class="gd-list correct">
+          <div class="gd-video-hint">🎬 このフォルダに動画 0 本</div>
+          <div class="gd-folder">
+            <span class="gd-folder-icon">📁</span>
+            <span class="gd-folder-name">Jiu-Jitsu Videos</span>
+            <span class="gd-folder-arr">›</span>
+          </div>
+          <div class="gd-folder">
+            <span class="gd-folder-icon">📁</span>
+            <span class="gd-folder-name">Seminars 2024</span>
+            <span class="gd-folder-arr">›</span>
+          </div>
+          <div class="gd-folder">
+            <span class="gd-folder-icon">📁</span>
+            <span class="gd-folder-name">竹浦セミナー</span>
+            <span class="gd-folder-arr">›</span>
+          </div>
+          <div class="gd-folder">
+            <span class="gd-folder-icon">📁</span>
+            <span class="gd-folder-name">練習動画</span>
+            <span class="gd-folder-arr">›</span>
+          </div>
+        </div>
+        <div class="gd-btns">
+          <button class="btn-save">✓ このフォルダを選択</button>
+          <button class="btn-sub">キャンセル</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#27ae60;margin-top:8px;font-weight:600">
+        修正案: drive スコープに戻す<br>
+        <span style="color:var(--text3);font-weight:400">
+          drive.readonlyでlistFolder('root')が空を返している。<br>
+          e62a2a3の drive スコープが最後の動作確認済み状態。
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 診断メモ -->
+  <div style="margin-top:16px;padding:12px;background:#fff8e1;border-radius:8px;border:1px solid #ffd54f;font-size:12px;max-width:740px">
+    <strong>GDrive 空問題の診断:</strong><br>
+    • <code>フォルダが空です</code> = APIが200で返っているが <code>files:[]</code><br>
+    • <code>読み込みに失敗しました</code> に<em>なっていない</em> = 403/401 エラーではない<br>
+    • つまりトークンは有効だが、そのスコープでは <code>root</code> フォルダの中身が取得できていない<br>
+    • <strong>drive.readonly は root 一覧に使えるはずだが、Firebase経由のtoken取得ではスコープが正確に付与されない場合がある</strong><br>
+    • → <code>drive</code> スコープに変更し、CACHE_KEYを <code>gd_token_v4</code> に更新して強制再認証させるのが最短修正
+  </div>
+</div>
+
+</body>
+</html>
