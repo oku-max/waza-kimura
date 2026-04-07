@@ -28,6 +28,19 @@ function _loadVimeoApi() {
   });
 }
 
+// ── ドロップダウン外クリックで閉じる（グローバル） ──
+document.addEventListener('click', (e) => {
+  const opened = document.querySelectorAll('.vp-dd');
+  opened.forEach(dd => {
+    if (dd.style.display === 'none' || !dd.style.display) return;
+    if (dd.contains(e.target)) return;
+    // トリガー（同じwrap内の要素 or onclick属性に関連する要素）クリックは無視
+    const wrap = dd.closest('.vp-dd-wrap');
+    if (wrap && wrap.contains(e.target)) return;
+    dd.style.display = 'none';
+  });
+}, true);
+
 // YouTube iFrame APIを非同期で読み込む（初回のみ）
 function _loadYTApi() {
   if (_ytApiLoaded || document.getElementById('yt-iframe-api-script')) return;
