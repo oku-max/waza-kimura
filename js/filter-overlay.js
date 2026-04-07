@@ -678,19 +678,51 @@ export function applySavedSearchToOrg(idx) {
 
 export function deleteSavedSearch(idx, e) {
   e.stopPropagation();
+  if (!confirm(`「${savedSearches[idx]?.name}」を削除しますか？`)) return;
   savedSearches.splice(idx, 1);
   _persistSavedSearches();
   renderSavedSearches();
+}
+
+// 名前の変更
+export function renameSavedSearch(idx, e) {
+  e.stopPropagation();
+  const ss = savedSearches[idx]; if (!ss) return;
+  const newName = prompt('新しい名前を入力してください:', ss.name);
+  if (!newName || newName.trim() === '' || newName === ss.name) return;
+  const trimmed = newName.trim();
+  // 重複チェック
+  if (savedSearches.some((s, i) => i !== idx && s.name === trimmed)) {
+    window.toast?.('❌ 同じ名前の条件が既にあります');
+    return;
+  }
+  ss.name = trimmed;
+  _persistSavedSearches();
+  renderSavedSearches();
+  window.toast?.('✏️ 名前を変更しました');
+}
+
+// 条件の編集: 現在のフィルターに読み込み → ユーザーが調整 → 同名で上書き保存
+export function editSavedSearch(idx, e) {
+  e.stopPropagation();
+  const ss = savedSearches[idx]; if (!ss) return;
+  applySavedSearch(idx);
+  // 上書き保存用の名前入力欄に名前をプリセット
+  const nameInputs = ['fov-save-name', 'org-fov-save-name'];
+  nameInputs.forEach(id => { const el = document.getElementById(id); if (el) el.value = ss.name; });
+  window.toast?.(`✎ 「${ss.name}」を読込。フィルターを調整して同名で保存すると上書きされます`);
 }
 
 export function renderSavedSearches() {
   const makeHTML = (applyFn) => {
     if (!savedSearches.length) return '<div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>';
     return savedSearches.map((ss, i) => `
-      <div onclick="${applyFn}(${i})" style="display:flex;align-items:center;justify-content:space-between;
+      <div onclick="${applyFn}(${i})" style="display:flex;align-items:center;gap:4px;
         padding:5px 8px;border-radius:6px;cursor:pointer;background:var(--surface2);font-size:11px;font-weight:500">
-        <span>${ss.name}</span>
-        <span onclick="deleteSavedSearch(${i},event)" style="color:var(--text3);font-size:10px;padding:2px 4px">✕</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ss.name}</span>
+        <span onclick="renameSavedSearch(${i},event)" title="名前変更" style="color:var(--text3);font-size:11px;padding:2px 5px;border-radius:4px">✏️</span>
+        <span onclick="editSavedSearch(${i},event)" title="条件を編集" style="color:var(--text3);font-size:11px;padding:2px 5px;border-radius:4px">✎</span>
+        <span onclick="deleteSavedSearch(${i},event)" title="削除" style="color:var(--text3);font-size:11px;padding:2px 5px;border-radius:4px">✕</span>
       </div>
     `).join('');
   };

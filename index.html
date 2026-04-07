@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.26</title>
+<title>WAZA KIMURA v48.27</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -93,7 +93,7 @@
     buildFovHscroll, buildFovPickerRow,
     syncFovChips, clearFovField,
     toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
-    saveCurrentSearch, saveCurrentSearchFromInput, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
+    saveCurrentSearch, saveCurrentSearchFromInput, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renameSavedSearch, editSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
     toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn,
     buildSidebarFovRows, trackRecentView, renderRecentSidebar,
     buildSbPickerInline, sbPickerInlineFilter, sbPickerInlineToggle, sbPickerInlineTabSwitch,
@@ -265,6 +265,8 @@
   window.applySavedSearch      = applySavedSearch;
   window.applySavedSearchToOrg = applySavedSearchToOrg;
   window.deleteSavedSearch     = deleteSavedSearch;
+  window.renameSavedSearch     = renameSavedSearch;
+  window.editSavedSearch       = editSavedSearch;
   window.renderSavedSearches        = renderSavedSearches;
   window.loadSavedSearchesFromRemote = loadSavedSearchesFromRemote;
   window.toggleAcc             = toggleAcc;
