@@ -318,7 +318,18 @@ export function switchImportTab(tab) {
           <button onclick="document.getElementById('auth-btn')?.click()" style="padding:10px 24px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">Googleでログイン</button>
         </div>`;
     } else if (window.importYouTubePlaylists) {
-      window.importYouTubePlaylists();
+      // トークンが既にある場合のみ自動取得。無い場合はユーザー操作で再認証させる（ポップアップブロッカー回避）
+      if (window._ytToken) {
+        window.importYouTubePlaylists();
+      } else {
+        const list = document.getElementById('yt-pl-list');
+        if (list) list.innerHTML = `<div style="text-align:center;padding:24px 12px">
+          <div style="font-size:28px;margin-bottom:10px">📺</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">YouTubeに接続</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:14px">プレイリストを取得するには認証が必要です</div>
+          <button onclick="ytReauth()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">YouTubeに接続</button>
+        </div>`;
+      }
     }
   }
 }

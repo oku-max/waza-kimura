@@ -37,7 +37,8 @@ async function fetchPlaylists(token) {
     const data = await res.json();
     if (data.error) {
       window._ytToken = null;
-      showToast('⚠️ トークン期限切れ。再度「動画取込」を押してください');
+      showToast('⚠️ トークン期限切れ。再認証してください');
+      _renderYtRetry('トークンが期限切れ、または権限エラーです');
       return;
     }
     const playlists = data.items || [];
@@ -49,8 +50,28 @@ async function fetchPlaylists(token) {
       contentDetails: { itemCount: '?' }
     }];
     showPlaylistSelector([...special, ...playlists], token);
-  } catch (e) { showToast('⚠️ 取得エラー: ' + e.message); }
+  } catch (e) {
+    showToast('⚠️ 取得エラー: ' + e.message);
+    _renderYtRetry('取得エラー: ' + e.message);
+  }
 }
+
+function _renderYtRetry(msg) {
+  const list = document.getElementById('yt-pl-list');
+  if (!list) return;
+  list.innerHTML = `<div style="text-align:center;padding:24px 12px">
+    <div style="font-size:28px;margin-bottom:10px">🔄</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px">再認証が必要です</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">${msg}</div>
+    <button onclick="ytReauth()" style="padding:9px 22px;border-radius:8px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer">YouTubeを再認証</button>
+  </div>`;
+}
+
+export function ytReauth() {
+  window._ytToken = null;
+  if (window.importYouTubePlaylists) window.importYouTubePlaylists();
+}
+window.ytReauth = ytReauth;
 
 export function parseYtTimestamps(description) {
   if (!description) return [];
