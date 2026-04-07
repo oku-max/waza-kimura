@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.13</title>
+<title>WAZA KIMURA v48.14</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1606,6 +1606,28 @@ async function _fetchTitle(parsed) {
     if (parsed.pt === 'gdrive') {
       parsed.ch = parsed.ch || '';
       return parsed.id.replace('gd-','').slice(0,12) + '…';
+    }
+    // X (Twitter) — Twitter syndication APIで本文・サムネ取得（認証不要）
+    if (parsed.pt === 'x') {
+      const tid = parsed.xTweetId;
+      // tokenはツイートIDから決定的に生成（公式埋め込みも内部でこの方式を使用）
+      const token = ((Number(tid) / 1e15) * Math.PI).toString(36).replace(/(0+|\.)/g, '');
+      const synUrl = `https://cdn.syndication.twimg.com/tweet-result?id=${tid}&token=${token}&lang=ja`;
+      const r = await fetch(synUrl);
+      if (!r.ok) throw new Error('x syn ' + r.status);
+      const d = await r.json();
+      parsed.ch = d.user?.name ? `${d.user.name} (@${d.user.screen_name})` : ('@' + (parsed.xUser || ''));
+      // サムネ: 動画があれば最初のプレビュー、なければphotoのurl
+      const md = d.mediaDetails || [];
+      const vidMedia = md.find(m => m.type === 'video' || m.type === 'animated_gif');
+      const photoMedia = md.find(m => m.type === 'photo');
+      if (vidMedia?.media_url_https) parsed.thumb = vidMedia.media_url_https;
+      else if (photoMedia?.media_url_https) parsed.thumb = photoMedia.media_url_https;
+      else if (d.user?.profile_image_url_https) parsed.thumb = d.user.profile_image_url_https.replace('_normal','_400x400');
+      let txt = (d.text || '').replace(/https?:\/\/\S+$/, '').trim();
+      if (!txt) txt = `${parsed.ch}のツイート`;
+      if (txt.length > 80) txt = txt.slice(0, 80) + '…';
+      return txt;
     }
     const fullUrl = parsed.pt === 'vimeo'
       ? `https://vimeo.com/${parsed.id}${parsed.vmHash ? '/' + parsed.vmHash : ''}`

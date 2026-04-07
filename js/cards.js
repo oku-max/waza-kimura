@@ -31,7 +31,7 @@ export function cardHTML(v) {
               : (v.thumb || `https://vumbnail.com/${vmId}.jpg`);
   const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
               : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
-              : isX  ? `https://platform.twitter.com/embed/Tweet.html?id=${xId}`
+              : isX  ? `https://platform.twitter.com/embed/Tweet.html?id=${xId}&lang=ja&theme=light&dnt=true&frame=false&hideCard=false&hideThread=false`
               : `https://player.vimeo.com/video/${vmId}?${v.vmHash ? `h=${v.vmHash}&` : ''}autoplay=1`;
   const ext   = isYT ? `https://www.youtube.com/watch?v=${ytId}`
               : isGD ? `https://drive.google.com/file/d/${gdId}/view`
