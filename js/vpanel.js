@@ -1860,6 +1860,24 @@ export function vpTogChannelDd(id) {
     dd.style.zIndex = '400';
   }
   dd.style.display = 'block';
+  // ビューポート下端に収まるように高さ制限（下に十分ない場合は上に反転）
+  try {
+    const rect2 = dd.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const spaceBelow = vh - rect2.top - 12;
+    const spaceAbove = rect2.top - 12;
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+      const wrapRect = dd.closest('.vp-dd-wrap')?.getBoundingClientRect();
+      if (wrapRect) {
+        dd.style.top = '';
+        dd.style.bottom = (vh - wrapRect.top + 2) + 'px';
+        dd.style.maxHeight = Math.min(420, spaceAbove) + 'px';
+      }
+    } else {
+      dd.style.maxHeight = Math.min(420, spaceBelow) + 'px';
+    }
+    dd.style.overflowY = 'auto';
+  } catch(e) {}
   window.adjustDdListHeight?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';
@@ -1999,6 +2017,24 @@ export function vpTogPlNameDd(id) {
     dd.style.zIndex = '400';
   }
   dd.style.display = 'block';
+  // ビューポート下端に収まるように高さ制限（下に十分ない場合は上に反転）
+  try {
+    const rect2 = dd.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const spaceBelow = vh - rect2.top - 12;
+    const spaceAbove = rect2.top - 12;
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+      const wrapRect = dd.closest('.vp-dd-wrap')?.getBoundingClientRect();
+      if (wrapRect) {
+        dd.style.top = '';
+        dd.style.bottom = (vh - wrapRect.top + 2) + 'px';
+        dd.style.maxHeight = Math.min(420, spaceAbove) + 'px';
+      }
+    } else {
+      dd.style.maxHeight = Math.min(420, spaceBelow) + 'px';
+    }
+    dd.style.overflowY = 'auto';
+  } catch(e) {}
   window.adjustDdListHeight?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) inp.value = '';

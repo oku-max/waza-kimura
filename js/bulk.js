@@ -183,8 +183,11 @@ export function bvpTogDd(key) {
   dd.style.display = 'block';
   const inp = dd.querySelector('.vp-dd-search');
   if (inp) { inp.value = ''; }
-  bvpRenderDdList(key, '');
+  if (key === 'ch') bvpChSuggest(inp);
+  else if (key === 'pl') bvpPlSuggest(inp);
+  else bvpRenderDdList(key, '');
   inp?.focus();
+  setTimeout(() => dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50);
 }
 
 export function bvpRenderDdList(key, q) {
@@ -444,56 +447,78 @@ export function bvpTechSuggest(inp) {
 }
 
 
-export function bvpChSuggest(inp) {
-  const q = inp.value.trim().toLowerCase();
-  const videos = window.videos || [];
-  const all = [...new Set(videos.map(v=>v.channel).filter(Boolean))].sort();
-  const sug = document.getElementById('bvp-ch-sug');
+function _bvpRenderList(field, inpId, sugId, setFn) {
+  const inp = document.getElementById(inpId);
+  const sug = document.getElementById(sugId);
   if (!sug) return;
-  const matches = q ? all.filter(c=>c.toLowerCase().includes(q)) : all;
-  sug.innerHTML = matches.slice(0,16).map(c =>
-    `<span class="vp-tech-sug-chip" onmousedown="event.preventDefault();document.getElementById('bvp-ch-inp').value='${c.replace(/'/g,"\\'")}';bvpSetChannel()">${c}</span>`
-  ).join('');
+  const q = (inp?.value || '').trim();
+  const ql = q.toLowerCase();
+  const videos = window.videos || [];
+  const map = {};
+  videos.forEach(v => {
+    const k = v[field] || '';
+    if (!k) return;
+    map[k] = (map[k] || 0) + 1;
+  });
+  const all = Object.keys(map).sort((a, b) => map[b] - map[a]);
+  const filtered = ql ? all.filter(k => k.toLowerCase().includes(ql)) : all;
+  const exact = all.some(k => k.toLowerCase() === ql);
+  const items = filtered.map(k =>
+    `<div class="vp-dd-item" onmousedown="event.preventDefault();${setFn}('${k.replace(/'/g, "\\'")}')">${k}<span class="vp-dd-cnt">${map[k]}本</span></div>`
+  );
+  if (q && !exact) {
+    items.unshift(`<div class="vp-dd-new" onmousedown="event.preventDefault();${setFn}('${q.replace(/'/g, "\\'")}')">＋「${q}」を新規追加</div>`);
+  }
+  if (!items.length) items.push(`<div style="padding:10px;color:var(--text3);font-size:11px;text-align:center">該当なし</div>`);
+  sug.innerHTML = items.join('');
 }
 
-export function bvpSetChannel() {
+export function bvpChSuggest(inp) {
+  _bvpRenderList('ch', 'bvp-ch-inp', 'bvp-ch-sug', 'bvpPickChannel');
+}
+
+export function bvpPickChannel(val) {
   const inp = document.getElementById('bvp-ch-inp');
-  if (!inp) return;
-  const val = inp.value.trim();
+  if (inp) inp.value = val;
+  bvpSetChannel();
+}
+
+export function bvpSetChannel(valArg) {
+  const inp = document.getElementById('bvp-ch-inp');
+  const val = (valArg || inp?.value || '').trim();
   if (!val) return;
   bulkSnapshot();
   const ids = [...(window.selIds||new Set())];
   const videos = window.videos || [];
-  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.channel=val; });
-  inp.value = '';
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) { v.ch=val; v.channel=val; } });
+  if (inp) inp.value = '';
   const sug = document.getElementById('bvp-ch-sug'); if(sug) sug.innerHTML='';
+  const dd = document.getElementById('bvp-dd-ch'); if(dd) dd.style.display='none';
   window.toastUndo?.((window.selIds||new Set()).size+'本のチャンネルを「'+val+'」に設定', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
 export function bvpPlSuggest(inp) {
-  const q = inp.value.trim().toLowerCase();
-  const videos = window.videos || [];
-  const all = [...new Set(videos.map(v=>v.pl).filter(Boolean))].sort();
-  const sug = document.getElementById('bvp-pl-sug');
-  if (!sug) return;
-  const matches = q ? all.filter(p=>p.toLowerCase().includes(q)) : all;
-  sug.innerHTML = matches.slice(0,16).map(p =>
-    `<span class="vp-tech-sug-chip" onmousedown="event.preventDefault();document.getElementById('bvp-pl-inp').value='${p.replace(/'/g,"\\'")}';bvpSetPlaylist()">${p}</span>`
-  ).join('');
+  _bvpRenderList('pl', 'bvp-pl-inp', 'bvp-pl-sug', 'bvpPickPlaylist');
 }
 
-export function bvpSetPlaylist() {
+export function bvpPickPlaylist(val) {
   const inp = document.getElementById('bvp-pl-inp');
-  if (!inp) return;
-  const val = inp.value.trim();
+  if (inp) inp.value = val;
+  bvpSetPlaylist();
+}
+
+export function bvpSetPlaylist(valArg) {
+  const inp = document.getElementById('bvp-pl-inp');
+  const val = (valArg || inp?.value || '').trim();
   if (!val) return;
   bulkSnapshot();
   const ids = [...(window.selIds||new Set())];
   const videos = window.videos || [];
   ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.pl=val; });
-  inp.value = '';
+  if (inp) inp.value = '';
   const sug = document.getElementById('bvp-pl-sug'); if(sug) sug.innerHTML='';
+  const dd = document.getElementById('bvp-dd-pl'); if(dd) dd.style.display='none';
   window.toastUndo?.((window.selIds||new Set()).size+'本のプレイリストを「'+val+'」に変更', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
@@ -1075,6 +1100,8 @@ window.bvpChSuggest = bvpChSuggest;
 window.bvpSetChannel = bvpSetChannel;
 window.bvpPlSuggest = bvpPlSuggest;
 window.bvpSetPlaylist = bvpSetPlaylist;
+window.bvpPickChannel = bvpPickChannel;
+window.bvpPickPlaylist = bvpPickPlaylist;
 window.bvpTogDd = bvpTogDd;
 window.bvpDdFilter = bvpDdFilter;
 window.bvpRenderDdList = bvpRenderDdList;
