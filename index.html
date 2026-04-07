@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.22</title>
+<title>WAZA KIMURA v48.23</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1587,10 +1587,8 @@ function openUrl() { openImportHub(); }
 function _urlLoadCsv(inputEl) {
   const f = inputEl.files?.[0];
   if (!f) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const text = String(e.target.result || '');
-    // 既存textareaに追記（改行区切り）
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const appendText = (text) => {
     const ta = document.getElementById('urlIn');
     if (ta) {
       ta.value = (ta.value ? ta.value + '\n' : '') + text;
@@ -1598,8 +1596,67 @@ function _urlLoadCsv(inputEl) {
     }
     inputEl.value = '';
   };
+  if (ext === 'xlsx' || ext === 'xls') {
+    _loadXlsxLib().then(() => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const lines = [];
+          wb.SheetNames.forEach(name => {
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+            rows.forEach(row => {
+              const joined = row.map(c => String(c || '')).join(' ');
+              if (joined.trim()) lines.push(joined);
+            });
+          });
+          appendText(lines.join('\n'));
+        } catch (err) { toast('❌ Excel読み込みエラー: ' + err.message); inputEl.value = ''; }
+      };
+      reader.onerror = () => { toast('❌ ファイル読み込みエラー'); inputEl.value = ''; };
+      reader.readAsArrayBuffer(f);
+    }).catch(() => { toast('❌ Excelライブラリ読込失敗'); inputEl.value = ''; });
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => appendText(String(e.target.result || ''));
   reader.onerror = () => { toast('❌ ファイル読み込みエラー'); inputEl.value = ''; };
   reader.readAsText(f, 'UTF-8');
+}
+
+function _loadXlsxLib() {
+  if (window.XLSX) return Promise.resolve();
+  if (window._xlsxLoading) return window._xlsxLoading;
+  window._xlsxLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => resolve();
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return window._xlsxLoading;
+}
+
+function _urlDlTemplate() {
+  const csv = [
+    '# WAZA KIMURA URL取込テンプレート',
+    '# 各行に1つの動画URLを記載してください（#で始まる行はコメント）',
+    '# 対応: YouTube / Vimeo / Google Drive / X (Twitter)',
+    '',
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'https://youtu.be/dQw4w9WgXcQ',
+    'https://vimeo.com/123456789',
+    'https://vimeo.com/123456789/abcdef1234',
+    'https://drive.google.com/file/d/FILE_ID/view',
+    'https://x.com/username/status/1234567890'
+  ].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'waza-kimura-url-template.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('⬇ テンプレートをダウンロードしました');
 }
 
 function _parseVideoUrl(line) {
@@ -2928,9 +2985,10 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">🔗 URLから動画を追加</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">YouTube・Vimeo・Google DriveのURLを貼り付け（複数行OK）</div>
       <textarea id="urlIn" rows="4" style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5" placeholder="https://www.youtube.com/watch?v=abc123&#10;https://youtu.be/def456&#10;https://vimeo.com/123456&#10;https://drive.google.com/file/d/.../view"></textarea>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button class="btn-save" onclick="detectUrls()" style="flex:1">🔍 解析する</button>
-        <label style="flex-shrink:0;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer">📄 CSV/TXT<input id="urlCsvFile" type="file" accept=".csv,.tsv,.txt,text/*" style="display:none" onchange="_urlLoadCsv(this)"></label>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn-save" onclick="detectUrls()" style="flex:1;min-width:140px">🔍 解析する</button>
+        <label style="flex-shrink:0;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer">📄 CSV/Excel<input id="urlCsvFile" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,text/*" style="display:none" onchange="_urlLoadCsv(this)"></label>
+        <button onclick="_urlDlTemplate()" style="flex-shrink:0;padding:9px 12px;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer">⬇ テンプレ</button>
       </div>
 
       <!-- 解析結果リスト -->
@@ -2986,11 +3044,7 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
     <!-- 左カラム: 動画 + タイトル + スキップボタン + ぼかし余白 -->
     <div id="vpanel-left-col">
-      <div id="vpanel-nav-btns" style="position:absolute;top:8px;left:8px;display:flex;gap:6px;z-index:6">
-        <button id="vpanel-back-btn" onclick="closeVPanel()" style="position:static">← 戻る</button>
-        <button onclick="vpNav(-1)" style="background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">◀ 前</button>
-        <button onclick="vpNav(1)" style="background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">次 ▶</button>
-      </div>
+      <button id="vpanel-back-btn" onclick="closeVPanel()">← 戻る</button>
       <div id="vpanel-iframe-container"><div id="vpanel-yt-player"></div></div>
       <div id="vpanel-title-area" style="background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area"></div>

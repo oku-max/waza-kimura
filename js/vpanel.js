@@ -1197,10 +1197,13 @@ export function openVPanel(id) {
     const editBtn = isGd
       ? `<button id="vp-title-edit-btn" onclick="vpEditTitle('${id}')" title="タイトルを変更" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✎</button>`
       : '';
+    const navBtnStyle = "flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
+      <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">◀</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
       <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
       ${editBtn}
+      <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">▶</button>
       <button onclick="closeVPanel()" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
     </div>`;
   }
