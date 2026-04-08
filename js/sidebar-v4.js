@@ -89,8 +89,6 @@
         <div id="fs-v4-cat" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
         <div style="font-size:10px;font-weight:700;color:var(--text3);margin:6px 0 4px;letter-spacing:.5px">📍 ポジション</div>
         <div id="fs-v4-pos" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;max-height:160px;overflow-y:auto"></div>
-        <div style="font-size:10px;font-weight:700;color:var(--text3);margin:6px 0 4px;letter-spacing:.5px">🏷️ #タグ <span style="color:var(--text3);font-weight:400">(上位20)</span></div>
-        <div id="fs-v4-tags" style="display:flex;flex-wrap:wrap;gap:4px;max-height:120px;overflow-y:auto"></div>
       </div>
     `;
     // 最近みた動画の直後に挿入
@@ -158,28 +156,6 @@
       }
     }
 
-    // #Tag
-    const tagHost = document.getElementById('fs-v4-tags');
-    if (tagHost) {
-      tagHost.innerHTML = '';
-      const m = new Map();
-      (window.videos || []).forEach(v => {
-        if (v.archived) return;
-        (v.tags || []).forEach(t => m.set(t, (m.get(t) || 0) + 1));
-      });
-      const sorted = Array.from(m.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20);
-      if (!sorted.length) {
-        tagHost.innerHTML = '<div style="font-size:10px;color:var(--text3)">#タグなし</div>';
-      } else {
-        sorted.forEach(([t, cnt]) => {
-          const n = _cntContextNew('tags', t);
-          tagHost.appendChild(_mkChip('#' + t, '', f.tags.has(t), n, () => {
-            f.tags.has(t) ? f.tags.delete(t) : f.tags.add(t);
-            _render(); window.AF?.();
-          }));
-        });
-      }
-    }
   }
 
   // ── 初期化 ──
