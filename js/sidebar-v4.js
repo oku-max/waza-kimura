@@ -16,8 +16,6 @@
   }
 
   // ── 件数カウント (全レイヤーAND、自身含む) ──
-  // クローズドガード選択時、スイープ等の件数もクローズドガードと
-  // 両方含む動画数に絞り込まれる。
   function _cnt(key, val) {
     const vs = window.videos || [];
     const f  = window.filters || {};
@@ -26,24 +24,37 @@
       if (f.tbNew?.size  && !(v.tb  || []).some(t => f.tbNew.has(t)))  return false;
       if (f.cat?.size    && !(v.cat || []).some(c => f.cat.has(c)))    return false;
       if (f.posNew?.size && !(v.pos || []).some(p => f.posNew.has(p))) return false;
-      if (key === 'tbNew')  return (v.tb  || []).includes(val);
-      if (key === 'cat')    return (v.cat || []).includes(val);
-      if (key === 'posNew') return (v.pos || []).includes(val);
+      if (f.tags?.size   && !(v.tags || []).some(t => f.tags.has(t)))  return false;
+      if (key === 'tbNew')  return (v.tb   || []).includes(val);
+      if (key === 'cat')    return (v.cat  || []).includes(val);
+      if (key === 'posNew') return (v.pos  || []).includes(val);
+      if (key === 'tags')   return (v.tags || []).includes(val);
       return false;
     }).length;
+  }
+
+  // ── 全動画から #タグ一覧を集約 ──
+  function _collectTags() {
+    const set = new Set();
+    (window.videos || []).forEach(v => {
+      if (v.archived) return;
+      (v.tags || []).forEach(t => { if (t) set.add(t); });
+    });
+    return [...set];
   }
 
   // ── 全レイヤーAND最終ヒット数 ──
   function _totalHit() {
     const vs = window.videos || [];
     const f  = window.filters || {};
-    const hasTb = f.tbNew?.size, hasCat = f.cat?.size, hasPos = f.posNew?.size;
-    if (!hasTb && !hasCat && !hasPos) return vs.filter(v => !v.archived).length;
+    const hasTb = f.tbNew?.size, hasCat = f.cat?.size, hasPos = f.posNew?.size, hasTags = f.tags?.size;
+    if (!hasTb && !hasCat && !hasPos && !hasTags) return vs.filter(v => !v.archived).length;
     return vs.filter(v => {
       if (v.archived) return false;
-      if (hasTb  && !(v.tb  || []).some(t => f.tbNew.has(t)))  return false;
-      if (hasCat && !(v.cat || []).some(c => f.cat.has(c)))    return false;
-      if (hasPos && !(v.pos || []).some(p => f.posNew.has(p))) return false;
+      if (hasTb   && !(v.tb   || []).some(t => f.tbNew.has(t)))  return false;
+      if (hasCat  && !(v.cat  || []).some(c => f.cat.has(c)))    return false;
+      if (hasPos  && !(v.pos  || []).some(p => f.posNew.has(p))) return false;
+      if (hasTags && !(v.tags || []).some(t => f.tags.has(t)))   return false;
       return true;
     }).length;
   }
@@ -55,7 +66,7 @@
 <style id="v4-popup-css">
 #v4-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10000}
 #v4-bd.open{display:block}
-#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(760px,calc(100vw - 60px));height:min(640px,calc(100vh - 60px));background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:10001}
+#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:min(640px,calc(100vh - 60px));background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:10001}
 #v4-popup.open{display:flex}
 #v4-popup .v4-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
 #v4-popup .v4-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
@@ -64,9 +75,11 @@
 #v4-popup .v4-search{padding:8px 14px;border-bottom:1px solid var(--border)}
 #v4-popup .v4-search input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface2);color:var(--text);font-family:inherit}
 #v4-popup .v4-search input:focus{outline:none;border-color:var(--accent)}
-#v4-popup .v4-cols{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden;min-height:0}
+#v4-popup .v4-cols{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:hidden;min-height:0}
 #v4-popup .v4-col{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
 #v4-popup .v4-col:last-child{border-right:none}
+@media (max-width:820px){#v4-popup .v4-cols{grid-template-columns:repeat(2,minmax(0,1fr));overflow-y:auto}#v4-popup .v4-col{border-bottom:1px solid var(--border);max-height:50%}#v4-popup .v4-col:nth-child(2){border-right:none}}
+@media (max-width:480px){#v4-popup .v4-cols{grid-template-columns:1fr}#v4-popup .v4-col{border-right:none;max-height:none}}
 #v4-popup .v4-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-bottom:1px solid var(--border);letter-spacing:.3px}
 #v4-popup .v4-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
 #v4-popup .v4-col-body{flex:1;overflow-y:auto;padding:2px 0}
@@ -115,6 +128,12 @@
       </div>
       <div class="v4-col-body" id="v4-col-pos"></div>
     </div>
+    <div class="v4-col">
+      <div class="v4-col-hdr"><span>#タグ</span>
+        <select onchange="v4SetSort('tags',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
+      </div>
+      <div class="v4-col-body" id="v4-col-tags"></div>
+    </div>
   </div>
   <div class="v4-ftr">
     <span class="v4-lbl">選択中:</span>
@@ -129,7 +148,7 @@
   }
 
   // ── 状態 ──
-  const _sort = { tb:'abc', cat:'abc', pos:'abc' };
+  const _sort = { tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
   let _q = '';
 
   function _esc(s){return String(s==null?'':s).replace(/[&<>"'\\]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'\\\\'}[c]));}
@@ -150,10 +169,14 @@
     const posList = (window.POSITIONS || []).map(p => ({ name:p.ja, cnt:_cnt('posNew', p.ja), icon:'', sel:f.posNew.has(p.ja) }));
     _fillCol('v4-col-pos', posList, 'pos');
 
+    // #Tags
+    const tagList = _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), icon:'', sel:f.tags.has(t) }));
+    _fillCol('v4-col-tags', tagList, 'tags');
+
     // Selected pills
     const pills = document.getElementById('v4-pills');
     if (pills) {
-      const all = [...[...f.tbNew].map(n=>['tb',n]), ...[...f.cat].map(n=>['cat',n]), ...[...f.posNew].map(n=>['pos',n])];
+      const all = [...[...f.tbNew].map(n=>['tb',n]), ...[...f.cat].map(n=>['cat',n]), ...[...f.posNew].map(n=>['pos',n]), ...[...f.tags].map(n=>['tags',n])];
       if (!all.length) pills.innerHTML = '<span style="color:#8a94a3;font-size:11px">なし</span>';
       else pills.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(n)}</span>`).join('');
     }
@@ -164,7 +187,7 @@
 
     // Badge on sidebar button
     const badge = document.getElementById('fs-v4-btn-badge');
-    const selCount = f.tbNew.size + f.cat.size + f.posNew.size;
+    const selCount = f.tbNew.size + f.cat.size + f.posNew.size + f.tags.size;
     if (badge) {
       if (selCount) { badge.style.display = 'inline-block'; badge.textContent = selCount; }
       else badge.style.display = 'none';
@@ -187,7 +210,7 @@
   // ── グローバル公開ハンドラ ──
   window.v4Toggle = function (key, name) {
     _ensureFilters();
-    const map = { tb:'tbNew', cat:'cat', pos:'posNew' };
+    const map = { tb:'tbNew', cat:'cat', pos:'posNew', tags:'tags' };
     const k = map[key]; if (!k) return;
     const s = window.filters[k];
     s.has(name) ? s.delete(name) : s.add(name);
@@ -199,6 +222,7 @@
     window.filters.tbNew.clear();
     window.filters.cat.clear();
     window.filters.posNew.clear();
+    window.filters.tags.clear();
     _renderPopup();
     window.AF?.();
   };
