@@ -192,10 +192,35 @@
       if (window.filt) { _patchFilt(); _render(); clearInterval(timer); }
       if (++tries > 40) clearInterval(timer); // 4秒タイムアウト
     }, 100);
-    // AF 後に再描画 (件数更新のため)
+    // AF をラップ: orig 実行後、新キーで追加絞り込みして再レンダー + 件数更新
     if (window.AF && !window._v4AFPatched) {
       const origAF = window.AF;
-      window.AF = function () { origAF.apply(this, arguments); _render(); };
+      window.AF = function () {
+        origAF.apply(this, arguments);
+        const f = window.filters || {};
+        const hasTb   = f.tbNew  && f.tbNew.size;
+        const hasCat  = f.cat    && f.cat.size;
+        const hasPos  = f.posNew && f.posNew.size;
+        const hasTags = f.tags   && f.tags.size;
+        if (hasTb || hasCat || hasPos || hasTags) {
+          const base = window._vpFilteredList || [];
+          const filtered = base.filter(v => {
+            if (hasTb   && !(Array.isArray(v.tb)  && v.tb.some(t  => f.tbNew.has(t))))   return false;
+            if (hasCat  && !(Array.isArray(v.cat) && v.cat.some(c => f.cat.has(c))))     return false;
+            if (hasPos  && !(Array.isArray(v.pos) && v.pos.some(p => f.posNew.has(p))))  return false;
+            if (hasTags && !(Array.isArray(v.tags)&& v.tags.some(t => f.tags.has(t))))   return false;
+            return true;
+          });
+          window._vpFilteredList = filtered;
+          window.renderCards?.(filtered, 'cardList');
+          // 件数表示も上書き
+          const rc = document.getElementById('rc'); if (rc) rc.textContent = filtered.length + ' 本 表示中';
+          const rct = document.getElementById('rc-topbar'); if (rct) { rct.textContent = filtered.length + ' 件'; rct.style.display = 'inline'; }
+          const fhn = document.getElementById('fov-hit-num'); if (fhn) fhn.textContent = filtered.length;
+          const fhb = document.getElementById('fov-hit-badge'); if (fhb) fhb.textContent = filtered.length + ' 件';
+        }
+        _render();
+      };
       window._v4AFPatched = true;
     }
   }
