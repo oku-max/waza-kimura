@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.50</title>
+<title>WAZA KIMURA v48.51</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1078,18 +1078,10 @@
     <div style="font-size:11px;color:var(--text3);margin-bottom:14px">TB / カテゴリー / ポジション / #タグの4層構造でビデオを整理します。</div>
     <div id="tag-master-ui"></div>
 
-    <!-- ↓ 旧タグ管理 (移行期間中のみ表示) -->
-    <div id="tag-mgmt" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:32px 0 10px;text-transform:uppercase;opacity:.6">旧タグ管理 (移行期間)</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">属性名・候補値・表示のON/OFFを設定できます。内部データは変わらないため既存の動画データに影響しません。</div>
-
-    <div id="tag-settings-list"></div>
-
-    <!-- 表示設定 -->
-    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">表示設定</div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
-      <div style="font-size:12px;font-weight:600;margin-bottom:10px">カードに表示するタグ</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="tag-visibility-btns"></div>
-    </div>
+    <!-- 旧タグ管理 (非表示化、要素のみ残存) -->
+    <div id="tag-mgmt" style="display:none">旧タグ管理 (移行期間)</div>
+    <div id="tag-settings-list" style="display:none"></div>
+    <div id="tag-visibility-btns" style="display:none"></div>
 
     <!-- AI設定 -->
     <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">AI設定</div>
