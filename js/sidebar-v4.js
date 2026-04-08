@@ -15,15 +15,17 @@
     return true;
   }
 
-  // ── 件数カウント (他レイヤーのAND込み) ──
+  // ── 件数カウント (全レイヤーAND、自身含む) ──
+  // クローズドガード選択時、スイープ等の件数もクローズドガードと
+  // 両方含む動画数に絞り込まれる。
   function _cnt(key, val) {
     const vs = window.videos || [];
     const f  = window.filters || {};
     return vs.filter(v => {
       if (v.archived) return false;
-      if (key !== 'tbNew'  && f.tbNew?.size  && !(v.tb  || []).some(t => f.tbNew.has(t)))  return false;
-      if (key !== 'cat'    && f.cat?.size    && !(v.cat || []).some(c => f.cat.has(c)))    return false;
-      if (key !== 'posNew' && f.posNew?.size && !(v.pos || []).some(p => f.posNew.has(p))) return false;
+      if (f.tbNew?.size  && !(v.tb  || []).some(t => f.tbNew.has(t)))  return false;
+      if (f.cat?.size    && !(v.cat || []).some(c => f.cat.has(c)))    return false;
+      if (f.posNew?.size && !(v.pos || []).some(p => f.posNew.has(p))) return false;
       if (key === 'tbNew')  return (v.tb  || []).includes(val);
       if (key === 'cat')    return (v.cat || []).includes(val);
       if (key === 'posNew') return (v.pos || []).includes(val);
