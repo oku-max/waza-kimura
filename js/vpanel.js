@@ -1560,8 +1560,9 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     </div>
-    <div class="fsec">
-      <div class="fsec-title">ポジション・テクニック</div>
+    ${window.vpV4SectionHTML?.(id) || ''}
+    <div class="fsec" style="opacity:.55">
+      <div class="fsec-title">ポジション・テクニック <span style="font-size:10px;color:var(--text3);font-weight:400">(旧・移行期間)</span></div>
     <div class="vp-row vp-row-tb">
       <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
       <div class="vp-dd-wrap">
