@@ -55,12 +55,11 @@ export function cardHTML(v) {
   const tbIco = { 'トップ':'🔼', 'ボトム':'🔽', 'スタンディング':'⏫' };
   const lockIco = v.tbLocked ? '🔒' : '';
   const v4badges = (newTb.length || newCat.length || newPos.length || newTags.length) ? `
-    <div class="v4-badges" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px;font-size:10px;border-top:1px dashed var(--border);background:rgba(120,120,255,.03)">
-      <span style="color:var(--text3);font-size:9px;font-weight:700;align-self:center;letter-spacing:.5px">NEW▸</span>
-      ${newTb.map(t => `<span style="padding:2px 6px;border-radius:8px;background:rgba(140,80,255,.12);color:var(--text);font-weight:600" onclick="event.stopPropagation();toggleTbLock('${vid}');window.AF?.()">${tbIco[t]||''}${_esc(t)}${lockIco}</span>`).join('')}
-      ${newCat.map(c => `<span style="padding:2px 6px;border-radius:8px;background:rgba(80,160,255,.12);color:var(--text)">📂${_esc(c)}</span>`).join('')}
-      ${newPos.map(p => `<span style="padding:2px 6px;border-radius:8px;background:rgba(80,200,140,.12);color:var(--text)">📍${_esc(p)}</span>`).join('')}
-      ${newTags.slice(0,6).map(t => `<span style="padding:2px 6px;border-radius:8px;background:rgba(255,200,80,.1);color:var(--text3)">#${_esc(t)}</span>`).join('')}
+    <div class="v4-badges" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 4px;font-size:10px;border-top:1px solid var(--border)">
+      ${newTb.map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(140,80,255,.14);color:var(--text);font-weight:700;cursor:pointer" onclick="event.stopPropagation();toggleTbLock('${vid}');window.AF?.()" title="クリックでTBロック切替">${tbIco[t]||''}${_esc(t)}${lockIco}</span>`).join('')}
+      ${newCat.map(c => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,160,255,.14);color:var(--text)">📂${_esc(c)}</span>`).join('')}
+      ${newPos.map(p => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,200,140,.14);color:var(--text)">📍${_esc(p)}</span>`).join('')}
+      ${newTags.slice(0,8).map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(255,200,80,.14);color:var(--text2)">#${_esc(t)}</span>`).join('')}
     </div>` : '';
   const chName = v.channel ? `<div class="card-ch">${v.channel}</div>` : '';
   const plName = v.pl ? `<div class="card-pl">📋 ${v.pl}</div>` : '';
