@@ -46,62 +46,43 @@
     }).length;
   }
 
-  // ── サイドバーボタン注入 ──
-  function _injectButton() {
-    const host = document.getElementById('fs-accordion-area');
-    if (!host) return;
-    if (document.getElementById('fs-v4-open-btn-sec')) return;
-
-    const sec = document.createElement('div');
-    sec.className = 'fs-acc-sec';
-    sec.id = 'fs-v4-open-btn-sec';
-    sec.innerHTML = `
-      <div id="fs-v4-open-btn" style="margin:8px 10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13px;user-select:none">
-        <span>🆕 4層タグ</span>
-        <span id="fs-v4-btn-badge" style="background:#6b3fd4;color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;display:none">0</span>
-      </div>
-    `;
-    host.appendChild(sec); // 末尾 → 既存セクションの下
-    sec.querySelector('#fs-v4-open-btn').onclick = openPopup;
-  }
-
-  // ── ポップアップ DOM 注入 ──
+  // ── ポップアップ DOM 注入 (アプリテーマ準拠) ──
   function _injectPopup() {
     if (document.getElementById('v4-popup')) return;
     const css = `
 <style id="v4-popup-css">
-#v4-bd{position:fixed;inset:0;background:rgba(20,25,35,.35);display:none;z-index:9998}
+#v4-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10000}
 #v4-bd.open{display:block}
-#v4-popup{position:fixed;top:0;left:260px;bottom:0;width:min(760px,calc(100vw - 280px));background:#fff;color:#1a1d23;box-shadow:2px 0 24px rgba(0,0,0,.18);border-right:1px solid #e3e5ea;display:none;flex-direction:column;z-index:9999;font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+#v4-popup{position:fixed;top:0;left:260px;bottom:0;width:min(760px,calc(100vw - 280px));background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border-right:1px solid var(--border);display:none;flex-direction:column;z-index:10001}
 #v4-popup.open{display:flex}
-#v4-popup .v4-hdr{padding:14px 18px;border-bottom:1px solid #e3e5ea;display:flex;align-items:center;justify-content:space-between}
-#v4-popup .v4-hdr h2{margin:0;font-size:15px;font-weight:700;color:#1a1d23}
-#v4-popup .v4-x{cursor:pointer;font-size:22px;color:#8a94a3;padding:2px 10px;border-radius:6px;line-height:1}
-#v4-popup .v4-x:hover{background:#f1f2f5;color:#1a1d23}
-#v4-popup .v4-search{padding:10px 18px;border-bottom:1px solid #e3e5ea}
-#v4-popup .v4-search input{width:100%;padding:8px 12px;border:1px solid #e3e5ea;border-radius:8px;font-size:13px;background:#f6f7f9;color:#1a1d23}
-#v4-popup .v4-search input:focus{outline:none;border-color:#6b3fd4;background:#fff}
+#v4-popup .v4-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
+#v4-popup .v4-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
+#v4-popup .v4-x{cursor:pointer;font-size:16px;color:var(--text3);padding:2px 6px;border-radius:4px;line-height:1}
+#v4-popup .v4-x:hover{background:var(--border);color:var(--text)}
+#v4-popup .v4-search{padding:8px 14px;border-bottom:1px solid var(--border)}
+#v4-popup .v4-search input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface2);color:var(--text);font-family:inherit}
+#v4-popup .v4-search input:focus{outline:none;border-color:var(--accent)}
 #v4-popup .v4-cols{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden;min-height:0}
-#v4-popup .v4-col{display:flex;flex-direction:column;border-right:1px solid #e3e5ea;min-height:0}
+#v4-popup .v4-col{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
 #v4-popup .v4-col:last-child{border-right:none}
-#v4-popup .v4-col-hdr{padding:10px 14px 6px;font-size:11px;font-weight:700;color:#55606f;display:flex;justify-content:space-between;align-items:center;background:#f1f2f5;border-bottom:1px solid #e3e5ea}
-#v4-popup .v4-col-hdr select{font-size:10px;border:1px solid #e3e5ea;border-radius:5px;padding:2px 4px;background:#fff;color:#55606f;cursor:pointer}
-#v4-popup .v4-col-body{flex:1;overflow-y:auto;padding:4px 0}
-#v4-popup .v4-row{padding:9px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;border-left:3px solid transparent;color:#1a1d23}
-#v4-popup .v4-row:hover{background:#f5f1ff}
-#v4-popup .v4-row.on{background:#f5f1ff;border-left-color:#6b3fd4;font-weight:700;color:#6b3fd4}
-#v4-popup .v4-row .v4-cnt{font-size:11px;color:#8a94a3;font-weight:500}
-#v4-popup .v4-row.on .v4-cnt{color:#6b3fd4}
+#v4-popup .v4-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-bottom:1px solid var(--border);letter-spacing:.3px}
+#v4-popup .v4-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
+#v4-popup .v4-col-body{flex:1;overflow-y:auto;padding:2px 0}
+#v4-popup .v4-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
+#v4-popup .v4-row:hover{background:var(--surface2)}
+#v4-popup .v4-row.on{background:rgba(140,80,255,.14);border-left-color:var(--accent);font-weight:700;color:var(--accent)}
+#v4-popup .v4-row .v4-cnt{font-size:11px;color:var(--text3);font-weight:500}
+#v4-popup .v4-row.on .v4-cnt{color:var(--accent)}
 #v4-popup .v4-row.zero{opacity:.4}
-#v4-popup .v4-ftr{border-top:1px solid #e3e5ea;padding:10px 18px;display:flex;align-items:center;gap:8px;background:#f1f2f5;flex-wrap:wrap;min-height:50px}
-#v4-popup .v4-ftr .v4-lbl{font-size:11px;color:#8a94a3;font-weight:700;margin-right:4px}
-#v4-popup .v4-pill{background:#6b3fd4;color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;font-weight:700}
+#v4-popup .v4-ftr{border-top:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px;background:var(--surface2);flex-wrap:wrap;min-height:44px}
+#v4-popup .v4-ftr .v4-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
+#v4-popup .v4-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
 #v4-popup .v4-pill:after{content:" ×";opacity:.7}
 #v4-popup .v4-sp{flex:1}
-#v4-popup .v4-hit{font-size:12px;color:#6b3fd4;font-weight:700}
-#v4-popup .v4-clr{font-size:11px;color:#8a94a3;cursor:pointer;text-decoration:underline;margin-right:8px}
-#v4-popup .v4-apply{background:#6b3fd4;color:#fff;border:none;padding:7px 18px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer}
-#v4-popup .v4-apply:hover{background:#5a2fc4}
+#v4-popup .v4-hit{font-size:12px;color:var(--accent);font-weight:700}
+#v4-popup .v4-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
+#v4-popup .v4-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+#v4-popup .v4-apply:hover{filter:brightness(1.1)}
 @media (max-width:900px){#v4-popup{left:0;width:100vw}}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
@@ -109,25 +90,25 @@
 <div id="v4-bd" onclick="v4ClosePopup()"></div>
 <div id="v4-popup" role="dialog" aria-modal="true">
   <div class="v4-hdr">
-    <h2>🆕 4層タグで絞り込む</h2>
-    <div class="v4-x" onclick="v4ClosePopup()">×</div>
+    <h2>タグで絞り込む</h2>
+    <div class="v4-x" onclick="v4ClosePopup()">✕</div>
   </div>
   <div class="v4-search"><input id="v4-q" placeholder="🔍 タグ名で検索..." oninput="v4Search(this.value)"></div>
   <div class="v4-cols">
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>🧭 T/B</span>
-        <select onchange="v4SetSort('tb',this.value)"><option value="abc">ABC順</option><option value="cnt">件数順</option></select>
+      <div class="v4-col-hdr"><span>トップ/ボトム/スタンディング</span>
+        <select onchange="v4SetSort('tb',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-tb"></div>
     </div>
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>📂 カテゴリ</span>
+      <div class="v4-col-hdr"><span>カテゴリ</span>
         <select onchange="v4SetSort('cat',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-cat"></div>
     </div>
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>📍 ポジション</span>
+      <div class="v4-col-hdr"><span>ポジション</span>
         <select onchange="v4SetSort('pos',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-pos"></div>
@@ -156,8 +137,7 @@
     const f = window.filters;
 
     // TB
-    const TB_ICO = { 'トップ':'🔼', 'ボトム':'🔽', 'スタンディング':'⏫' };
-    const tbList = (window.TB_VALUES || ['トップ','ボトム','スタンディング']).map(t => ({ name:t, cnt:_cnt('tbNew', t), icon:TB_ICO[t]||'', sel:f.tbNew.has(t) }));
+    const tbList = (window.TB_VALUES || ['トップ','ボトム','スタンディング']).map(t => ({ name:t, cnt:_cnt('tbNew', t), icon:'', sel:f.tbNew.has(t) }));
     _fillCol('v4-col-tb', tbList, 'tb');
 
     // Category
@@ -267,7 +247,6 @@
 
   // ── 初期化 ──
   function init() {
-    _injectButton();
     _ensureFilters();
     let tries = 0;
     const timer = setInterval(() => {

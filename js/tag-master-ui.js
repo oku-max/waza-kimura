@@ -74,11 +74,11 @@
 
     root.innerHTML = `
       <div class="tm-card">
-        <div class="tm-h">🧭 TB <span class="tm-pill">起点・3値固定</span></div>
+        <div class="tm-h">トップ/ボトム/スタンディング <span class="tm-pill">起点・3値固定</span></div>
         <div class="tm-tb-grid">
-          <div class="tm-tb tm-top"><div class="tm-tb-t">🔼 トップ</div><div class="tm-tb-n">${countTB('トップ')}本</div></div>
-          <div class="tm-tb tm-bot"><div class="tm-tb-t">🔽 ボトム</div><div class="tm-tb-n">${countTB('ボトム')}本</div></div>
-          <div class="tm-tb tm-std"><div class="tm-tb-t">⏫ スタンディング</div><div class="tm-tb-n">${countTB('スタンディング')}本</div></div>
+          <div class="tm-tb tm-top"><div class="tm-tb-t">トップ</div><div class="tm-tb-n">${countTB('トップ')}本</div></div>
+          <div class="tm-tb tm-bot"><div class="tm-tb-t">ボトム</div><div class="tm-tb-n">${countTB('ボトム')}本</div></div>
+          <div class="tm-tb tm-std"><div class="tm-tb-t">スタンディング</div><div class="tm-tb-n">${countTB('スタンディング')}本</div></div>
         </div>
         <div class="tm-warn">🔒 動画カードで TB を手動変更すると AI 再解析時に上書きされません</div>
       </div>

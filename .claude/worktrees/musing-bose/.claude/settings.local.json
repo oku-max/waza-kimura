@@ -47,7 +47,8 @@
       "Bash(node --input-type=module -e \"import\\(''./js/filter-overlay.js''\\).then\\(m=>console.log\\(Object.keys\\(m\\).filter\\(k=>/Saved/.test\\(k\\)\\)\\)\\).catch\\(e=>console.error\\(e.message\\)\\)\")",
       "Bash(node --check js/youtube.js)",
       "Bash(node --check js/filter.js)",
-      "Bash(node --check js/organize.js)"
+      "Bash(node --check js/organize.js)",
+      "Bash(node --check js/filter-overlay.js)"
     ]
   }
 }

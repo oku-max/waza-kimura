@@ -52,11 +52,10 @@ export function cardHTML(v) {
   const newCat  = Array.isArray(v.cat)  ? v.cat  : [];
   const newPos  = Array.isArray(v.pos)  ? v.pos  : [];
   const newTags = Array.isArray(v.tags) ? v.tags : [];
-  const tbIco = { 'トップ':'🔼', 'ボトム':'🔽', 'スタンディング':'⏫' };
   const lockIco = v.tbLocked ? '🔒' : '';
   const v4badges = (newTb.length || newCat.length || newPos.length || newTags.length) ? `
     <div class="v4-badges" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 4px;font-size:10px;border-top:1px solid var(--border)">
-      ${newTb.map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(140,80,255,.14);color:var(--text);font-weight:700;cursor:pointer" onclick="event.stopPropagation();toggleTbLock('${vid}');window.AF?.()" title="クリックでTBロック切替">${tbIco[t]||''}${_esc(t)}${lockIco}</span>`).join('')}
+      ${newTb.map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(140,80,255,.14);color:var(--text);font-weight:700;cursor:pointer" onclick="event.stopPropagation();toggleTbLock('${vid}');window.AF?.()" title="クリックでTBロック切替">${_esc(t)}${lockIco}</span>`).join('')}
       ${newCat.map(c => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,160,255,.14);color:var(--text)">📂${_esc(c)}</span>`).join('')}
       ${newPos.map(p => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,200,140,.14);color:var(--text)">📍${_esc(p)}</span>`).join('')}
       ${newTags.slice(0,8).map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(255,200,80,.14);color:var(--text2)">#${_esc(t)}</span>`).join('')}

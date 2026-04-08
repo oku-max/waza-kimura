@@ -21,12 +21,10 @@
     const TB = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
     const CATS = window.CATEGORIES || [];
     const POSS = window.POSITIONS || [];
-    const TB_ICO = { 'トップ':'🔼', 'ボトム':'🔽', 'スタンディング':'⏫' };
-
     // TB row (3固定 + 🔒)
     const tbRow = TB.map(t => {
       const on = v.tb.includes(t);
-      return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="vpV4ToggleTb('${id}','${t}',this)">${TB_ICO[t]||''}${t}</span>`;
+      return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="vpV4ToggleTb('${id}','${t}',this)">${t}</span>`;
     }).join('');
     const lockBtn = `<span class="vp-chip" style="cursor:pointer;background:${v.tbLocked?'rgba(255,180,0,.2)':'var(--surface2)'};color:${v.tbLocked?'#c80':'var(--text3)'}" onclick="vpV4ToggleLock('${id}',this)" title="ロック中はAI再解析でTBが上書きされません">${v.tbLocked?'🔒 ロック中':'🔓 自動'}</span>`;
 
@@ -57,25 +55,25 @@
 
     return `
     <div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
-      <div class="fsec-title" style="color:var(--accent)">🆕 4層タグ</div>
+      <div class="fsec-title" style="color:var(--accent)">タグ</div>
 
       <div class="vp-row">
-        <span class="vp-lbl">🧭 TB</span>
+        <span class="vp-lbl">トップ/ボトム/スタンディング</span>
         <div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div>
       </div>
 
       <div class="vp-row">
-        <span class="vp-lbl">📂 カテゴリー</span>
+        <span class="vp-lbl">カテゴリー</span>
         <div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div>
       </div>
 
       <div class="vp-row">
-        <span class="vp-lbl">📍 ポジション</span>
+        <span class="vp-lbl">ポジション</span>
         <div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div>
       </div>
 
       <div class="vp-row">
-        <span class="vp-lbl">🏷️ #タグ</span>
+        <span class="vp-lbl">#タグ</span>
         <div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div>
       </div>
     </div>`;
