@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>WAZA KIMURA — タグマスタ管理 (mock v5)</title>
+<style>
+  :root{
+    --bg:#fff; --surface:#fafafa; --surface2:#f1f1f3; --text:#222; --text2:#555; --text3:#888;
+    --border:#e3e3e6; --accent:#111; --gold:#b8932a; --gold-soft:#fff7d6; --blue:#2563eb; --red:#c0392b; --green:#2a8a4a; --purple:#7a3ab8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",sans-serif;background:var(--surface);color:var(--text);font-size:13px;line-height:1.5}
+  .wrap{max-width:820px;margin:0 auto;padding:24px 20px 80px}
+  h1{font-size:18px;margin:0 0 4px}
+  .lead{color:var(--text2);font-size:12px;margin-bottom:20px}
+  .card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .card h2{font-size:14px;margin:0 0 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card .desc{font-size:11px;color:var(--text3);margin:4px 0 14px;line-height:1.55}
+  .btn{padding:7px 14px;border-radius:6px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--accent)}
+  .btn.sm{padding:4px 9px;font-size:10px;border-radius:5px}
+  .meta-pill{font-size:10px;font-weight:400;color:var(--text3)}
+  .red-pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fde6e6;color:var(--red)}
+
+  /* 構造ダイアグラム */
+  .diagram{background:linear-gradient(135deg,#f6f7fb 0%,#eef0f8 100%);border:1px solid #d6dae8;border-radius:14px;padding:18px 22px;margin-bottom:20px}
+  .diagram .title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;letter-spacing:.5px}
+  .diagram .tree{font-family:"SF Mono",Consolas,monospace;font-size:12px;line-height:1.95;color:var(--text);white-space:pre}
+  .diagram .tb{font-weight:700;color:var(--purple)}
+  .diagram .cat{font-weight:700;color:var(--blue)}
+  .diagram .pos{font-weight:700;color:var(--green)}
+  .diagram .tag{color:var(--gold)}
+  .diagram .legend{display:flex;gap:12px;margin-top:12px;font-size:10px;color:var(--text3);flex-wrap:wrap}
+  .diagram .legend b{font-size:11px}
+  .diagram .legend .tb b{color:var(--purple)}
+  .diagram .legend .c b{color:var(--blue)}
+  .diagram .legend .p b{color:var(--green)}
+  .diagram .legend .t b{color:var(--gold)}
+
+  /* 行 */
+  .row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);margin-bottom:6px}
+  .row .num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .row .info{flex:1;min-width:0}
+  .row .info .name{font-weight:700;font-size:13px}
+  .row .info .d{font-size:10px;color:var(--text3);margin-top:2px;line-height:1.4}
+  .row .stat{font-size:10px;color:var(--text3);background:var(--bg);padding:2px 8px;border-radius:10px}
+  .row .icn{color:var(--text3);cursor:pointer;font-size:13px;padding:4px 6px}
+
+  /* TB カード */
+  .tb-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+  .tb-card{padding:14px 12px;border-radius:10px;border:1.5px solid;text-align:center}
+  .tb-card.top{background:#fff0ec;border-color:#ffb8a0;color:#a13c1a}
+  .tb-card.bot{background:#e8f1ff;border-color:#9db9e8;color:#1e3a7a}
+  .tb-card.std{background:#fef6e0;border-color:#e8c870;color:#6a5200}
+  .tb-card .ttl{font-size:15px;font-weight:800;margin-bottom:4px}
+  .tb-card .stat{font-size:10px;opacity:.75}
+
+  /* ルール表 */
+  .rule-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+  .rule-table th{background:var(--surface2);text-align:left;padding:7px 10px;font-weight:700;border-bottom:1px solid var(--border)}
+  .rule-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  .rule-table tr:last-child td{border-bottom:none}
+  .rule-table .tag-top{background:#ffe8e0;color:#a13c1a;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+  .rule-table .tag-bot{background:#e0ebff;color:#1e3a7a;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+  .rule-table .tag-std{background:#fff3c8;color:#6a5200;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+  .rule-table .tag-none{background:var(--surface2);color:var(--text3);padding:2px 7px;border-radius:10px;font-size:10px}
+
+  /* AI 設定 */
+  .toggle-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .toggle-row:last-child{border-bottom:none}
+  .toggle-row .tinfo{flex:1}
+  .toggle-row .tinfo .t{font-size:12px;font-weight:700}
+  .toggle-row .tinfo .d{font-size:10px;color:var(--text3);margin-top:2px;line-height:1.45}
+  .switch{position:relative;width:36px;height:20px;flex-shrink:0}
+  .switch input{display:none}
+  .switch .slider{position:absolute;inset:0;background:var(--border);border-radius:20px;cursor:pointer;transition:.2s}
+  .switch .slider::before{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + .slider{background:var(--accent)}
+  .switch input:checked + .slider::before{transform:translateX(16px)}
+  .slider-row{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+  .slider-row .lab{display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:6px}
+  .slider-row .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .slider-row .seg div{flex:1;text-align:center;padding:6px 8px;font-size:11px;cursor:pointer;background:var(--bg)}
+  .slider-row .seg div.on{background:var(--accent);color:#fff;font-weight:700}
+
+  /* 警告 */
+  .warn{background:#fff8e1;border:1px solid #f0d878;border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+  .warn .i{font-size:18px;flex-shrink:0}
+  .warn .w{font-size:11px;color:#5a4500;line-height:1.55}
+  .warn .w b{color:#3a2d00}
+  .warn code{background:#fff;padding:1px 5px;border-radius:3px;font-size:10px}
+
+  /* チップ */
+  .tags-flow{display:flex;flex-wrap:wrap;gap:6px}
+  .tag-chip{font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px}
+  .tag-chip .c{color:var(--text3);margin-left:4px}
+  .pos-chip{font-size:11px;background:#e8f5ee;border:1px solid #b5dcc5;border-radius:6px;padding:5px 10px;color:#1f5a3a;font-weight:600}
+  .pos-chip .a{color:#6a8a77;margin-left:5px;font-weight:400;font-size:9px}
+
+  /* サイドバーモック */
+  .sb-mock{background:#fafafa;border:1px solid var(--border);border-radius:10px;padding:12px 14px;max-width:260px;font-size:11px}
+  .sb-mock .sec{font-size:9px;font-weight:800;color:var(--text3);letter-spacing:1px;margin:10px 0 6px}
+  .sb-mock .sec:first-child{margin-top:0}
+  .sb-mock .item{padding:4px 8px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;margin-bottom:2px}
+  .sb-mock .item .n{color:var(--text3);font-size:9px}
+  .sb-mock .item.act{background:var(--accent);color:#fff}
+  .sb-mock .item.act .n{color:rgba(255,255,255,.7)}
+
+  /* 動画カード */
+  .vcard{display:flex;gap:12px;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:10px}
+  .vcard .thumb{width:160px;height:90px;background:linear-gradient(135deg,#444,#222);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#888;font-size:24px;position:relative}
+  .vcard .thumb .lock{position:absolute;top:5px;right:5px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px}
+  .vcard .vinfo{flex:1;min-width:0}
+  .vcard .vtitle{font-size:13px;font-weight:700;margin-bottom:4px;line-height:1.4}
+  .vcard .vmeta{font-size:10px;color:var(--text3);margin-bottom:8px}
+  .vcard .badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  .vcard .tb-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
+  .vcard .tb-badge.top{background:#ffe8e0;color:#a13c1a}
+  .vcard .tb-badge.bot{background:#e0ebff;color:#1e3a7a}
+  .vcard .tb-badge.std{background:#fff3c8;color:#6a5200}
+  .vcard .cat-line{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:3px}
+  .vcard .pos-line{font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px}
+  .vcard .tag-line{display:flex;flex-wrap:wrap;gap:4px}
+  .vcard .tag-line .hash{font-size:9px;color:var(--gold);background:var(--gold-soft);border:1px solid #f0d878;padding:2px 7px;border-radius:8px}
+
+  /* マイグレーション */
+  .gen-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;background:linear-gradient(135deg,#fff7d6 0%,#fef3c2 100%);border:1.5px solid var(--gold);border-radius:10px}
+  .gen-banner .gtext{flex:1;font-size:11px;color:#5a4500;line-height:1.5}
+  .gen-banner .gtext b{font-size:12px;color:#3a2d00}
+
+  /* オンボーディング */
+  .ob-bg{position:fixed;inset:0;background:rgba(10,14,28,.72);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+  .ob-card{background:var(--bg);border-radius:16px;max-width:460px;width:100%;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .ob-card .step{font-size:10px;font-weight:700;color:var(--purple);letter-spacing:1px;margin-bottom:6px}
+  .ob-card .ttl{font-size:18px;font-weight:800;margin-bottom:10px}
+  .ob-card .body{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px}
+  .ob-card .visual{background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:18px;font-family:"SF Mono",Consolas,monospace;font-size:12px;line-height:1.9;white-space:pre}
+  .ob-card .visual .tb{color:var(--purple);font-weight:700}
+  .ob-card .visual .cat{color:var(--blue);font-weight:700}
+  .ob-card .visual .pos{color:var(--green);font-weight:700}
+  .ob-card .visual .tag{color:var(--gold)}
+  .ob-card .nav{display:flex;align-items:center;justify-content:space-between}
+  .ob-card .dots{display:flex;gap:6px}
+  .ob-card .dots span{width:7px;height:7px;border-radius:50%;background:var(--border)}
+  .ob-card .dots span.on{background:var(--accent)}
+  .ob-card .nav .right{display:flex;gap:8px}
+</style>
+</head>
+<body>
+
+<!-- オンボーディング -->
+<div class="ob-bg" id="ob" style="overflow:auto;padding:30px 16px">
+  <div style="display:flex;flex-direction:column;gap:14px;max-width:520px;margin:auto">
+  <div class="ob-card">
+    <div class="step">STEP 1 / 3</div>
+    <div class="ttl">🧭 まず「トップ／ボトム／スタンディング」で分類</div>
+    <div class="body">すべての動画は最初に <b>トップ / ボトム / スタンディング</b> で分類されます。これが4層構造の一番上、すべての起点です。AI が動画の学習者視点から自動判定します。</div>
+    <div class="visual"><span class="tb">🧭 TB</span>       トップ / ボトム / スタンディング
+<span class="cat">📂 カテゴリー</span>  フィニッシュ / パスガード / スイープ ...
+<span class="pos">📍 ポジション</span>  デラヒーバ / ラッソー / Xガード ...
+<span class="tag">🏷️ #タグ</span>      自由記入 (技名・メモなんでも)</div>
+    <div class="nav"><div class="dots"><span class="on"></span><span></span><span></span></div></div>
+  </div>
+
+  <div class="ob-card">
+    <div class="step">STEP 2 / 3</div>
+    <div class="ttl">📂 カテゴリー と 📍 ポジション で絞り込み</div>
+    <div class="body">TB の下には <b>カテゴリー（10個固定）</b> と <b>ポジション（21個固定・ボトム系）</b> があります。両方とも AI が動画内容を読んで自動分類。サイドバーのフィルターはここまでの3層で構成されます。</div>
+    <div class="visual"><span class="tb">🧭 ボトム</span>
+  └ <span class="cat">📂 スイープ</span>
+       └ <span class="pos">📍 デラヒーバ</span>
+            └ <span class="tag">🏷️ #バックテイク #要練習</span></div>
+    <div class="nav"><div class="dots"><span></span><span class="on"></span><span></span></div></div>
+  </div>
+
+  <div class="ob-card">
+    <div class="step">STEP 3 / 3</div>
+    <div class="ttl">🏷️ #タグ は自由記入欄</div>
+    <div class="body"><b>#タグ</b> はあなたの自由欄です。技名・覚書・「昔やられた」「要練習」など何でも書けます。サイドバーには出ませんが、キーワード検索でヒットし、動画カードに表示されます。<br><br>AI による #タグ自動抽出は<b style="color:var(--red)">デフォルトOFF</b>。タグが勝手に増えていく心配はありません。</div>
+    <div class="visual"><span class="tag">#RNC</span>  <span class="tag">#昔やられた</span>  <span class="tag">#要練習</span>  <span class="tag">#dadageorge</span></div>
+    <div class="nav">
+      <div class="dots"><span></span><span></span><span class="on"></span></div>
+      <div class="right">
+        <button class="btn" onclick="document.getElementById('ob').style.display='none'">はじめる →</button>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>🏷️ タグマスタ管理</h1>
+  <div class="lead">動画を <b>TB</b>（起点）/ <b>カテゴリー</b>（固定10）/ <b>ポジション</b>（固定21・ボトム系）/ <b>#タグ</b>（自由）の4層で整理します。</div>
+
+  <!-- 構造ダイアグラム -->
+  <div class="diagram">
+    <div class="title">📐 構造（4層）</div>
+    <div class="tree"><span class="tb">🧭 TB (3値)</span>　　　　　AI 自動判定・<b>起点レイヤー</b>・サイドバーに表示
+<span class="cat">📂 カテゴリー (10個)</span>　AI 自動分類・サイドバーに表示
+<span class="pos">📍 ポジション (21個)</span>　AI 自動判定・サイドバーに表示
+<span class="tag">🏷️ #タグ (無制限)</span>　　　ユーザー自由・検索／動画カードに出る</div>
+    <div class="legend">
+      <span class="tb"><b>■ TB</b> = トップ/ボトム/スタンディング</span>
+      <span class="c"><b>■ カテゴリー</b> = フィニッシュ/パスガード...</span>
+      <span class="p"><b>■ ポジション</b> = デラヒーバ/ラッソー...</span>
+      <span class="t"><b>■ #タグ</b> = 何でもOK</span>
+    </div>
+  </div>
+
+  <!-- 1. TB -->
+  <div class="card">
+    <h2>🧭 TB — Top / Bottom / Standing <span class="meta-pill">（起点・3値固定）</span></h2>
+    <div class="desc">すべての分類の出発点です。AI が「学習者視点で動画がどの位置にいる人向けか」を判定します。複数該当する動画（試合・ハイライト等）は複数付けられます。</div>
+
+    <div class="tb-grid">
+      <div class="tb-card top">
+        <div class="ttl">🔼 トップ</div>
+        <div class="stat">動画 94本</div>
+      </div>
+      <div class="tb-card bot">
+        <div class="ttl">🔽 ボトム</div>
+        <div class="stat">動画 198本</div>
+      </div>
+      <div class="tb-card std">
+        <div class="ttl">⏫ スタンディング</div>
+        <div class="stat">動画 24本</div>
+      </div>
+    </div>
+
+    <details>
+      <summary style="font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;padding:6px 0">📖 AI 判定ルール (クリックで展開)</summary>
+      <table class="rule-table">
+        <tr><th>動画内容</th><th>判定</th></tr>
+        <tr><td>パスガードの方法（攻め手解説）</td><td><span class="tag-top">トップ</span></td></tr>
+        <tr><td>パスガードを防ぐ方法（守り手解説）</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>マウント・サイド・ニーオン等の制圧</td><td><span class="tag-top">トップ</span></td></tr>
+        <tr><td>マウント／サイドエスケープ</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>バックテイク・RNC（攻め手）</td><td><span class="tag-top">トップ</span></td></tr>
+        <tr><td>バックエスケープ・バックディフェンス</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>クローズドガード・デラヒーバ・ラッソー等ガード解説</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>ガード構築・リテンション・スイープ</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>レッグロック系 (50/50・サドル・アシガラミ)</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>タートル＝守備解説</td><td><span class="tag-bot">ボトム</span></td></tr>
+        <tr><td>タートル＝攻撃解説</td><td><span class="tag-top">トップ</span></td></tr>
+        <tr><td>テイクダウン・投げ技</td><td><span class="tag-std">スタンディング</span></td></tr>
+        <tr><td>コンセプト・原理（グリップ・フレーム等）</td><td><span class="tag-none">空欄</span></td></tr>
+        <tr><td>ドリル動画</td><td>内容で判定（スタンドドリル→Std / ガードドリル→Bot 等）</td></tr>
+        <tr><td>試合・ハイライト・複数シーン解説</td><td><span class="tag-top">トップ</span>＋<span class="tag-bot">ボトム</span>＋<span class="tag-std">スタンディング</span></td></tr>
+      </table>
+    </details>
+
+    <div class="warn" style="margin-top:12px">
+      <div class="i">🔒</div>
+      <div class="w"><b>あなたが手で直したものは AI に上書きされません。</b>動画カードで TB を手動変更すると 🔒 が付き、以後の AI 再解析では触られなくなります。🔒 をクリックすればロック解除。</div>
+    </div>
+  </div>
+
+  <!-- 2. カテゴリー -->
+  <div class="card">
+    <h2>📂 カテゴリー <span class="meta-pill">（10個・ユーザー編集可）</span></h2>
+    <div class="desc">Library サイドバーの Technique フィルターになります。追加・rename・削除可能ですが、シンプルさを保つため最小限に。</div>
+
+    <div class="warn">
+      <div class="i">⚠️</div>
+      <div class="w"><b>カテゴリーを編集するとき</b>　AI は各カテゴリーの<b>説明文</b>を読んで動画を分類します。名前だけ変えても AI には伝わりません。追加・rename したら必ず説明文を見直してください。</div>
+    </div>
+
+    <div class="row"><div class="num">1</div><div class="info"><div class="name">フィニッシュ</div><div class="d">チョーク・関節技など相手を極めにいく動作</div></div><div class="stat">87本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">2</div><div class="info"><div class="name">パスガード</div><div class="d">相手のガードを越えてトップを取る動作</div></div><div class="stat">64本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">3</div><div class="info"><div class="name">スイープ</div><div class="d">ボトムから相手をひっくり返す動作</div></div><div class="stat">52本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">4</div><div class="info"><div class="name">ガード構築・エントリー</div><div class="d">ガードを取る・特定ガードの入り口</div></div><div class="stat">38本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">5</div><div class="info"><div class="name">ガードリテンション</div><div class="d">足を取られないボトムの守り</div></div><div class="stat">22本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">6</div><div class="info"><div class="name">テイクダウン</div><div class="d">立ちから相手を倒す動作（投げ技含む）</div></div><div class="stat">19本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">7</div><div class="info"><div class="name">バックテイク・バックアタック</div><div class="d">バックを取る／バックからの攻撃</div></div><div class="stat">28本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">8</div><div class="info"><div class="name">エスケープ・ディフェンス</div><div class="d">不利ポジションからの脱出と防御</div></div><div class="stat">31本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">9</div><div class="info"><div class="name">コントロール／プレッシャー</div><div class="d">トップポジションの維持・押さえ</div></div><div class="stat">14本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+    <div class="row"><div class="num">10</div><div class="info"><div class="name">コンセプト・原理</div><div class="d">技ではない原則的な学び</div></div><div class="stat">9本</div><div class="icn">✎</div><div class="icn">🗑️</div></div>
+
+    <div style="margin-top:10px"><button class="btn ghost">＋ カテゴリーを追加</button></div>
+  </div>
+
+  <!-- 3. ポジション -->
+  <div class="card">
+    <h2>📍 ポジション <span class="meta-pill">（21個・ボトム系のみ）</span></h2>
+    <div class="desc">ガードの種類を中心としたポジション。トップ側の人も「デラヒーバを攻略」のようにボトム名で検索するため、ボトムのみに絞っています。日本語表示・英語と略号でも検索ヒットします。</div>
+
+    <div class="tags-flow">
+      <span class="pos-chip">クローズドガード <span class="a">Closed Guard</span></span>
+      <span class="pos-chip">ハーフガード <span class="a">Half Guard</span></span>
+      <span class="pos-chip">ディープハーフ <span class="a">Deep Half</span></span>
+      <span class="pos-chip">ニーシールド <span class="a">Z-Guard</span></span>
+      <span class="pos-chip">バタフライガード <span class="a">Butterfly</span></span>
+      <span class="pos-chip">スパイダーガード <span class="a">Spider</span></span>
+      <span class="pos-chip">ラッソーガード <span class="a">Lasso</span></span>
+      <span class="pos-chip">デラヒーバ <span class="a">De La Riva/DLR</span></span>
+      <span class="pos-chip">リバースデラヒーバ <span class="a">RDLR</span></span>
+      <span class="pos-chip">Xガード <span class="a">X-Guard</span></span>
+      <span class="pos-chip">SLX <span class="a">Single Leg X</span></span>
+      <span class="pos-chip">Kガード <span class="a">K-Guard</span></span>
+      <span class="pos-chip">片襟片袖 <span class="a">Collar Sleeve</span></span>
+      <span class="pos-chip">ワームガード <span class="a">Worm</span></span>
+      <span class="pos-chip">ラペルガード <span class="a">Lapel</span></span>
+      <span class="pos-chip">50/50 <span class="a">50-50</span></span>
+      <span class="pos-chip">サドル <span class="a">Saddle/4-11/Honey Hole</span></span>
+      <span class="pos-chip">タートル <span class="a">Turtle</span></span>
+      <span class="pos-chip">インバーテッド <span class="a">Inverted</span></span>
+      <span class="pos-chip">スタンディング <span class="a">Standing</span></span>
+      <span class="pos-chip">その他 <span class="a">Other</span></span>
+    </div>
+
+    <div class="warn" style="margin-top:14px">
+      <div class="i">🔍</div>
+      <div class="w"><b>表記ゆれ対策バッチリ</b>　検索は正規化ロジックで以下を全部同一視:<br>
+      <code>デラヒーバ</code> = <code>デラヒバ</code> = <code>De La Riva</code> = <code>delariva</code> = <code>DLR</code> = <code>ｄｌｒ</code><br>
+      大小文字・全半角・カタカナひらがな・長音・区切り記号・末尾「ガード」はすべて無視されます。</div>
+    </div>
+  </div>
+
+  <!-- 4. AI 設定 -->
+  <div class="card">
+    <h2>🤖 AI タグ補助</h2>
+    <div class="desc">AI が動画取込時にどこまで自動でタグを付けるかを制御します。</div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin:4px 0 6px;letter-spacing:.5px">▼ 自動判定（取込時に AI が分類）</div>
+
+    <div class="toggle-row">
+      <div class="tinfo"><div class="t">🧭 TB（トップ／ボトム／スタンディング）</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="tinfo"><div class="t">📂 カテゴリー（10個）</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="tinfo"><div class="t">📍 ポジション（21個）</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="tinfo"><div class="t">🏷️ #タグ自動抽出 <span style="color:var(--red);font-weight:600">（デフォルトOFF）</span></div><div class="d">#タグは本来ユーザー自由欄。ONにすると技名・キーワードを候補プールへ。</div></div>
+      <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin:14px 0 6px;letter-spacing:.5px">▼ メンテナンス</div>
+
+    <div class="toggle-row">
+      <div class="tinfo"><div class="t">新ポジションの追加提案</div><div class="d">プリセット21個にない新ガードを発見したら提案。</div></div>
+      <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="tinfo"><div class="t">表記ゆれの統合提案</div><div class="d">重複タグ・ポジションを定期検知して統合提案。</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+
+    <div class="slider-row">
+      <div class="lab"><span>AI の慎重さ</span><span style="color:var(--text3);font-weight:400">どれくらい自信があるときタグ付けするか</span></div>
+      <div class="seg">
+        <div><b>慎重</b><br><span style="font-weight:400;color:var(--text3)">確信があるものだけ<br>(取りこぼし多／誤り少)</span></div>
+        <div class="on"><b>標準</b><br><span style="font-weight:400;color:var(--text3)">バランス重視<br>(おすすめ)</span></div>
+        <div><b>積極的</b><br><span style="font-weight:400;color:var(--text3)">迷ったら付ける<br>(取りこぼし少／誤り多)</span></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6">
+        💡 <b>慎重</b>＝AIが「ほぼ間違いない」と判断したものだけタグ付け。手動で足す手間は増えるが誤タグは少ない。<br>
+        💡 <b>積極的</b>＝AIが「たぶんこれ」と思ったら全部タグ付け。後から間違いを消す手間あり。<br>
+        💡 迷ったら <b>標準</b> でOK。あとから変えられます。
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. #タグ一覧 -->
+  <div class="card">
+    <h2>🏷️ #タグ一覧 <span class="meta-pill">（142件）</span></h2>
+    <div class="desc">ユーザーが自由に付ける欄。サイドバーには出ません（TB / カテゴリー / ポジションのみ）。動画カード表示とキーワード検索でヒット。技名でもメモでも自由です。</div>
+
+    <input type="text" placeholder="🔍 #タグを検索..." style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:11px;margin-bottom:10px">
+
+    <div class="tags-flow">
+      <span class="tag-chip">#RNC <span class="c">12</span></span>
+      <span class="tag-chip">#アームバー <span class="c">28</span></span>
+      <span class="tag-chip">#十字絞め <span class="c">19</span></span>
+      <span class="tag-chip">#キムラ <span class="c">14</span></span>
+      <span class="tag-chip">#ベリンボロ <span class="c">8</span></span>
+      <span class="tag-chip">#ヒールフック <span class="c">7</span></span>
+      <span class="tag-chip">#昔やられた <span class="c">6</span></span>
+      <span class="tag-chip">#リベンジ <span class="c">3</span></span>
+      <span class="tag-chip">#要練習 <span class="c">15</span></span>
+      <span style="font-size:11px;color:var(--text3);padding:5px 10px">…他 133個</span>
+    </div>
+  </div>
+
+  <!-- 6. Library サイドバーモック -->
+  <div class="card">
+    <h2>🗂️ Library サイドバーでの表示</h2>
+    <div class="desc">TB → カテゴリー → ポジション の順で並びます。#タグはサイドバーには出ません。</div>
+
+    <div class="sb-mock">
+      <div class="sec">🧭 TB</div>
+      <div class="item"><span>🔼 トップ</span><span class="n">94</span></div>
+      <div class="item act"><span>🔽 ボトム</span><span class="n">198</span></div>
+      <div class="item"><span>⏫ スタンディング</span><span class="n">24</span></div>
+
+      <div class="sec">📂 カテゴリー</div>
+      <div class="item"><span>フィニッシュ</span><span class="n">87</span></div>
+      <div class="item"><span>パスガード</span><span class="n">64</span></div>
+      <div class="item"><span>スイープ</span><span class="n">52</span></div>
+      <div class="item"><span>ガード構築・エントリー</span><span class="n">38</span></div>
+      <div class="item"><span>ガードリテンション</span><span class="n">22</span></div>
+      <div class="item" style="color:var(--text3);font-size:10px">… 他5個</div>
+
+      <div class="sec">📍 ポジション</div>
+      <div class="item act"><span>デラヒーバ</span><span class="n">28</span></div>
+      <div class="item"><span>ラッソーガード</span><span class="n">19</span></div>
+      <div class="item"><span>SLX</span><span class="n">15</span></div>
+      <div class="item"><span>Xガード</span><span class="n">12</span></div>
+      <div class="item" style="color:var(--text3);font-size:10px">… 他17個</div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:10px">※「ボトム × デラヒーバ」を選択中の状態。</div>
+  </div>
+
+  <!-- 7. 動画カードプレビュー -->
+  <div class="card">
+    <h2>👁️ Library 動画カードでの見え方</h2>
+    <div class="desc">TB バッジ（紫系）→ カテゴリー（青）→ ポジション（緑）→ #タグ（金）の順で視覚階層化。手動編集した項目には 🔒 アイコン。</div>
+
+    <div class="vcard" style="margin-bottom:10px">
+      <div class="thumb">▶</div>
+      <div class="vinfo">
+        <div class="vtitle">Lasso Guard to Back Take — Keenan Cornelius</div>
+        <div class="vmeta">YouTube · Keenan Online · 14:22</div>
+        <div class="badges">
+          <span class="tb-badge bot">🔽 ボトム</span>
+        </div>
+        <div class="cat-line">📂 バックテイク・バックアタック</div>
+        <div class="pos-line">📍 ラッソーガード</div>
+        <div class="tag-line">
+          <span class="hash">#keenan</span>
+          <span class="hash">#back</span>
+          <span class="hash">#要練習</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="vcard">
+      <div class="thumb">▶<div class="lock">🔒 TB</div></div>
+      <div class="vinfo">
+        <div class="vtitle">Passing Spider Guard — Fundamentals by Bernardo Faria</div>
+        <div class="vmeta">YouTube · BJJ Fanatics · 10:45</div>
+        <div class="badges">
+          <span class="tb-badge top">🔼 トップ</span>
+        </div>
+        <div class="cat-line">📂 パスガード</div>
+        <div class="pos-line">📍 スパイダーガード</div>
+        <div class="tag-line">
+          <span class="hash">#faria</span>
+          <span class="hash">#基礎</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:10px;color:var(--text3);margin-top:8px">※ 2本目は TB を手動編集済みなので 🔒 アイコンが付いています。</div>
+  </div>
+
+  <!-- マイグレーション -->
+  <div class="gen-banner">
+    <div style="font-size:28px">🤖</div>
+    <div class="gtext">
+      <b>既存タグを4層構造に一括変換</b><br>
+      現在の <b>tb</b>/<b>ac</b>/<b>pos</b>/<b>tech</b> 配列を AI が読み込み、新 TB・カテゴリー・ポジション・#タグに振り分けます。旧値「バック」「ハーフ」「ドリル」は削除され、該当動画は内容で TB を再判定。実行前に確認画面が出ます。
+    </div>
+    <button class="btn">▶ 実行</button>
+  </div>
+
+  <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:24px">
+    mock-tag-master.html v5 — 4層構造 (TB / カテゴリー / ポジション / #タグ)
+  </div>
+</div>
+</body>
+</html>

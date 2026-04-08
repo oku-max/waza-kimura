@@ -245,12 +245,19 @@ function applyAiTags(videoId, panel) {
   const ai = window.aiSettings || {};
   let added = 0;
 
+  // 選択されたタグを収集 (新スキーマ変換用)
+  const collected = { tb:[], action:[], position:[], tech:[] };
+  panel.querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
+    (collected[cb.dataset.key] ||= []).push(cb.dataset.val);
+  });
+
   panel.querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
     const key  = cb.dataset.key;
     const val  = cb.dataset.val;
     const isNew = cb.dataset.preset === '0';
 
     if (key === 'tb') {
+      // tbLocked でもユーザーが明示的に VPanel で選んだものは適用する (AI 再解析とは別経路)
       if (!v.tb) v.tb = []; if (!v.tb.includes(val)) { v.tb.push(val); added++; }
       if (isNew && ai.autoAddToPresets) _addToPresets('tb', val);
     } else if (key === 'action') {
@@ -264,6 +271,10 @@ function applyAiTags(videoId, panel) {
       if (isNew && ai.autoAddToPresets) _addToPresets('tech', val);
     }
   });
+
+  // 新スキーマ (cat/pos/tags) にも反映
+  const newSug = _convertToNewSchema(collected);
+  added += _applyNewTagsToVideo(v, newSug);
 
   // E: フィードバック例として自動蓄積（max 10, FIFO）
   const example = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '', tags: {} };
@@ -312,6 +323,106 @@ export async function onAiTagBtn(videoId) {
 window.onAiTagBtn = onAiTagBtn;
 window.fetchAiTags = fetchAiTags;
 
+// ─── 4層タグ体系への変換 & 適用 ───────────────────
+// 旧 suggestion 形式 { tb, action, position, tech } →
+// 新 { tb:['トップ'...], cat:['フィニッシュ'...], pos:['デラヒーバ'...], tags:[...] }
+// 変換はクライアント側で行う (バックエンド未対応のため)
+function _convertToNewSchema(sug) {
+  const out = { tb: [], cat: [], pos: [], tags: [] };
+
+  // TB: 旧トップ/ボトム/スタンディングのみ採用 (バック/ハーフ/ドリルは破棄)
+  if (Array.isArray(sug.tb)) {
+    sug.tb.forEach(t => {
+      if (t === 'トップ' || t === 'ボトム' || t === 'スタンディング') {
+        if (!out.tb.includes(t)) out.tb.push(t);
+      } else if (t === 'ハーフ') {
+        if (!out.tb.includes('ボトム')) out.tb.push('ボトム');
+      }
+    });
+  }
+
+  // Category: action → 旧→新カテゴリー対応表 (tag-master.js の _AC_TO_CAT と同等)
+  const AC2CAT = {
+    'エスケープ・ディフェンス': 'エスケープ・ディフェンス',
+    'パスガード':               'パスガード',
+    'アタック':                 'フィニッシュ',
+    'スイープ':                 'スイープ',
+    'リテンション':             'ガードリテンション',
+    'コントロール':             'コントロール／プレッシャー',
+    'テイクダウン':             'テイクダウン',
+    'フィニッシュ':             'フィニッシュ',
+  };
+  if (Array.isArray(sug.action)) {
+    sug.action.forEach(a => {
+      const c = AC2CAT[a];
+      if (c && !out.cat.includes(c)) out.cat.push(c);
+    });
+  }
+
+  // Position: 旧 position を正規化してプリセット21個にマッチ → ja 名で格納。マッチしないものは #タグへ
+  if (Array.isArray(sug.position)) {
+    sug.position.forEach(p => {
+      const hit = window.findPosition && window.findPosition(p);
+      if (hit) {
+        if (!out.pos.includes(hit.ja)) out.pos.push(hit.ja);
+      } else {
+        if (!out.tags.includes(p)) out.tags.push(p);
+      }
+    });
+  }
+
+  // Tech: すべて #タグへ (自由欄)
+  if (Array.isArray(sug.tech)) {
+    sug.tech.forEach(t => { if (!out.tags.includes(t)) out.tags.push(t); });
+  }
+
+  return out;
+}
+
+// 4層タグを動画に適用 (tbLocked / tag-master AI toggle 対応)
+function _applyNewTagsToVideo(v, newSug) {
+  if (!v) return 0;
+  // tag-master UI の AI トグル設定を読む
+  let tm = {};
+  try { tm = JSON.parse(localStorage.getItem('wk_tagMaster') || '{}'); } catch(e) {}
+  const ai = (tm && tm.ai) || { tbAuto:true, catAuto:true, posAuto:true, tagAuto:false };
+
+  let added = 0;
+
+  // TB: tbLocked=true なら AI は上書きしない
+  if (ai.tbAuto && !v.tbLocked && Array.isArray(newSug.tb)) {
+    if (!Array.isArray(v.tb)) v.tb = [];
+    newSug.tb.forEach(t => { if (!v.tb.includes(t)) { v.tb.push(t); added++; } });
+  }
+  // Category
+  if (ai.catAuto && Array.isArray(newSug.cat)) {
+    if (!Array.isArray(v.cat)) v.cat = [];
+    newSug.cat.forEach(c => { if (!v.cat.includes(c)) { v.cat.push(c); added++; } });
+  }
+  // Position
+  if (ai.posAuto && Array.isArray(newSug.pos)) {
+    if (!Array.isArray(v.pos)) v.pos = [];
+    newSug.pos.forEach(p => { if (!v.pos.includes(p)) { v.pos.push(p); added++; } });
+  }
+  // #Tag (default OFF)
+  if (ai.tagAuto && Array.isArray(newSug.tags)) {
+    if (!Array.isArray(v.tags)) v.tags = [];
+    newSug.tags.forEach(t => { if (!v.tags.includes(t)) { v.tags.push(t); added++; } });
+  }
+  if (!('tbLocked' in v)) v.tbLocked = false;
+  return added;
+}
+
+// ─── TB 手動ロック/アンロック ───────────────────
+window.toggleTbLock = function(videoId) {
+  const v = (window.videos || []).find(v => v.id === videoId);
+  if (!v) return;
+  v.tbLocked = !v.tbLocked;
+  window.debounceSave?.();
+  window.toast?.(v.tbLocked ? '🔒 TB を手動ロックしました' : '🔓 TB ロックを解除しました');
+  return v.tbLocked;
+};
+
 // ── 取り込み時の自動AIタグ付け ──
 async function _applyTagsDirect(videoId, suggestions) {
   const v = (window.videos || []).find(v => v.id === videoId);
@@ -319,10 +430,17 @@ async function _applyTagsDirect(videoId, suggestions) {
   const ai = window.aiSettings || {};
   const cats = ai.categories || {};
   let added = 0;
+
+  // 旧スキーマ (tb/ac/pos/tech) への書き込み — 既存UIの後方互換
   if (cats.tb     !== false && Array.isArray(suggestions.tb))       suggestions.tb.forEach(t       => { if (!v.tb)   v.tb   = []; if (!v.tb.includes(t))   { v.tb.push(t);   added++; } });
   if (cats.action !== false && Array.isArray(suggestions.action))   suggestions.action.forEach(t   => { if (!v.ac)   v.ac   = []; if (!v.ac.includes(t))   { v.ac.push(t);   added++; } });
   if (cats.position !== false && Array.isArray(suggestions.position)) suggestions.position.forEach(t => { if (!v.pos)  v.pos  = []; if (!v.pos.includes(t))  { v.pos.push(t);  added++; } });
   if (cats.tech   !== false && Array.isArray(suggestions.tech))     suggestions.tech.forEach(t     => { if (!v.tech) v.tech = []; if (!v.tech.includes(t)) { v.tech.push(t); added++; } });
+
+  // 新スキーマ (cat/tags/tbLocked) への書き込み — 4層体系
+  const newSug = _convertToNewSchema(suggestions);
+  added += _applyNewTagsToVideo(v, newSug);
+
   return added;
 }
 

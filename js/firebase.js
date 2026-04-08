@@ -59,6 +59,12 @@ export async function loadUserData(uid) {
           if (v) Object.assign(v, sv);
           else if (window.videos) window.videos.push(sv);
         });
+        // ─── 4層タグ体系へのマイグレーション (冪等) ───
+        if (window.migrateAllVideos && window.videos) {
+          const before = window.videos.length;
+          window.videos = window.migrateAllVideos(window.videos);
+          console.log(`[tag-master] migrated ${before} videos to 4-layer schema`);
+        }
         if (window.AF) window.AF();
         showToast('✅ データを読み込みました');
       }
