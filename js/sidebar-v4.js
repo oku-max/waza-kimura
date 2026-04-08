@@ -53,7 +53,7 @@
 <style id="v4-popup-css">
 #v4-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10000}
 #v4-bd.open{display:block}
-#v4-popup{position:fixed;top:0;left:260px;bottom:0;width:min(760px,calc(100vw - 280px));background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border-right:1px solid var(--border);display:none;flex-direction:column;z-index:10001}
+#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(760px,calc(100vw - 60px));height:min(640px,calc(100vh - 60px));background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:10001}
 #v4-popup.open{display:flex}
 #v4-popup .v4-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
 #v4-popup .v4-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
@@ -83,7 +83,7 @@
 #v4-popup .v4-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
 #v4-popup .v4-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #v4-popup .v4-apply:hover{filter:brightness(1.1)}
-@media (max-width:900px){#v4-popup{left:0;width:100vw}}
+@media (max-width:900px){#v4-popup{width:calc(100vw - 20px);height:calc(100vh - 20px)}}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     const html = `
