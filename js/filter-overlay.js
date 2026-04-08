@@ -872,19 +872,19 @@ export function openSbPopup(key, triggerEl, ctx='lib') {
   if (titleEl) titleEl.textContent = _SB_POPUP_LABELS[key] || key;
   _sbPopupRender(key, ctx);
 
-  // サイドバーの右端の右隣に配置
+  // サイドバーの右端の右隣に配置 (タグポップアップと同じ高さに揃える)
   const sidebar = document.getElementById('filterSidebar');
   const sRect = sidebar ? sidebar.getBoundingClientRect() : { right: 224 };
-  const tRect = triggerEl.getBoundingClientRect();
 
-  // flexレイアウトでビューポート内に完全収容
+  const POPUP_H = Math.min(640, window.innerHeight - 60);
   popup.style.display = 'flex';
   popup.style.flexDirection = 'column';
   popup.style.left   = (sRect.right + 4) + 'px';
   popup.style.right  = 'auto';
   popup.style.width  = '320px';
-  popup.style.top    = '12px';
-  popup.style.bottom = '12px';
+  popup.style.top    = Math.max(12, (window.innerHeight - POPUP_H) / 2) + 'px';
+  popup.style.bottom = 'auto';
+  popup.style.height = POPUP_H + 'px';
   popup.style.overflow = 'hidden';
 
   // body をフレックスで残りスペースいっぱいに
