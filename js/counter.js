@@ -12,6 +12,22 @@
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   // ── 経過日数フォーマット ──
+  // ── 進捗ランク (練習回数から自動導出) ──
+  const RANKS = [
+    { lv:0, name:'🆕 未着手', short:'未着手', min:0,  max:0,  color:'#8a94a3' },
+    { lv:1, name:'🔰 練習中', short:'練習中', min:1,  max:4,  color:'#1971c2' },
+    { lv:2, name:'🥋 習得中', short:'習得中', min:5,  max:14, color:'#e8590c' },
+    { lv:3, name:'⭐ マスター', short:'マスター', min:15, max:Infinity, color:'#6b3fd4' }
+  ];
+  window.RANK_DEFS = RANKS;
+  window.vpCntRank = function (practice) {
+    const p = practice || 0;
+    for (let i = RANKS.length - 1; i >= 0; i--) {
+      if (p >= RANKS[i].min) return RANKS[i];
+    }
+    return RANKS[0];
+  };
+
   window.vpCntFormatAgo = function (ts) {
     if (!ts) return '—';
     const diff = Date.now() - ts;
@@ -69,9 +85,25 @@
     const month = _countThisMonth(v.practiceLog);
     const st = _streak(v.practiceLog);
     const pColor = '#e8590c', vColor = '#1971c2';
+    const rank = window.vpCntRank(p);
+    const next = RANKS[rank.lv + 1];
+    const rbFill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
+    const rbMsg = next
+      ? `${p} / ${next.min} 回 — 次: <b style="color:${next.color}">${next.name}</b> まで あと <b>${next.min - p}</b> 回`
+      : `${p} 回 — 最高ランク到達！ 🏆`;
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
   <div class="fsec-title">🥋 カウンター</div>
+  <div id="vp-cnt-rank-${id}" style="margin:6px 0 8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:800;color:${rank.color}">${rank.name} (LV.${rank.lv})</div>
+      <div style="font-size:10px;color:var(--text3);font-weight:600">${next ? `次: ${next.name}` : '🏆 MAX'}</div>
+    </div>
+    <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+      <div style="height:100%;width:${rbFill}%;background:linear-gradient(90deg,${rank.color},${next?next.color:rank.color});border-radius:4px;transition:width .3s"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px;text-align:center;font-weight:600">${rbMsg}</div>
+  </div>
   <div style="display:flex;gap:10px;padding:6px 0">
     <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
       <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;margin-bottom:6px">🥋 練習回数</div>
@@ -101,6 +133,26 @@
   function _rerender(id) {
     const v = _findV(id);
     if (!v) return;
+    // ランクバー丸ごと置換
+    const rb = document.getElementById('vp-cnt-rank-' + id);
+    if (rb) {
+      const p = v.practice || 0;
+      const rank = window.vpCntRank(p);
+      const next = RANKS[rank.lv + 1];
+      const rbFill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
+      const rbMsg = next
+        ? `${p} / ${next.min} 回 — 次: <b style="color:${next.color}">${next.name}</b> まで あと <b>${next.min - p}</b> 回`
+        : `${p} 回 — 最高ランク到達！ 🏆`;
+      rb.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:800;color:${rank.color}">${rank.name} (LV.${rank.lv})</div>
+      <div style="font-size:10px;color:var(--text3);font-weight:600">${next ? `次: ${next.name}` : '🏆 MAX'}</div>
+    </div>
+    <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+      <div style="height:100%;width:${rbFill}%;background:linear-gradient(90deg,${rank.color},${next?next.color:rank.color});border-radius:4px;transition:width .3s"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px;text-align:center;font-weight:600">${rbMsg}</div>`;
+    }
     const pEl = document.getElementById('vp-cnt-p-' + id);
     const vEl = document.getElementById('vp-cnt-v-' + id);
     const pSub = document.getElementById('vp-cnt-p-sub-' + id);

@@ -159,7 +159,7 @@ export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
   window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
-  window.prBucket = null; window.prDate = null;
+  window.prRank = null; window.prDate = null;
   const si = document.getElementById('si'); if (si) si.value = '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
   window.syncFilterOvRows?.();
@@ -335,14 +335,9 @@ export function filt(list) {
     if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly && !v.memo) return false;
     if (window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) return false;
-    // 練習回数 / 最終練習日フィルター
-    if (window.prBucket) {
-      const p = v.practice || 0;
-      if (window.prBucket === '0'   && p !== 0)  return false;
-      if (window.prBucket === '1+'  && p < 1)    return false;
-      if (window.prBucket === '3+'  && p < 3)    return false;
-      if (window.prBucket === '5+'  && p < 5)    return false;
-      if (window.prBucket === '10+' && p < 10)   return false;
+    // 進捗ランク (自動導出) フィルター
+    if (window.prRank != null && window.vpCntRank) {
+      if (String(window.vpCntRank(v.practice).lv) !== String(window.prRank)) return false;
     }
     if (window.prDate) {
       const lp = v.lastPracticed || 0;

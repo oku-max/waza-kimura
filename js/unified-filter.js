@@ -4,7 +4,7 @@
   'use strict';
 
   const MAIN = [
-    { k: 'state', label: 'ステータス・優先度' },
+    { k: 'state', label: '進捗 & マーク' },
     { k: 'src',   label: 'ソース・チャンネル・プレイリスト' },
     { k: 'tag',   label: 'タグ' }
   ];
@@ -44,13 +44,8 @@
       if (excludeKey !== 'posNew'   && f.posNew?.size   && !(v.pos ||[]).some(p => f.posNew.has(p)))    return false;
       if (excludeKey !== 'tags'     && f.tags?.size     && !(v.tags||[]).some(t => f.tags.has(t)))      return false;
       // 練習回数 / 最終練習日
-      if (excludeKey !== 'prBucket' && window.prBucket) {
-        const p = v.practice || 0;
-        if (window.prBucket === '0'   && p !== 0) return false;
-        if (window.prBucket === '1+'  && p < 1)   return false;
-        if (window.prBucket === '3+'  && p < 3)   return false;
-        if (window.prBucket === '5+'  && p < 5)   return false;
-        if (window.prBucket === '10+' && p < 10)  return false;
+      if (excludeKey !== 'prRank' && window.prRank != null && window.vpCntRank) {
+        if (String(window.vpCntRank(v.practice).lv) !== String(window.prRank)) return false;
       }
       if (excludeKey !== 'prDate' && window.prDate) {
         const lp = v.lastPracticed || 0;
@@ -162,10 +157,8 @@
   // ── レンダリング ──
   function _badges() {
     const f = window.filters || {};
-    const stateN = (f.status?.size || 0) + (f.prio?.size || 0)
-      + (window.favOnly?1:0) + (window.unwOnly?1:0) + (window.watchedOnly?1:0)
-      + (window.bmOnly?1:0) + (window.memoOnly?1:0) + (window.imgOnly?1:0)
-      + (window.prBucket?1:0) + (window.prDate?1:0);
+    const stateN = (window.favOnly?1:0) + (window.bmOnly?1:0) + (window.memoOnly?1:0) + (window.imgOnly?1:0)
+      + (window.prRank != null ? 1 : 0) + (window.prDate ? 1 : 0);
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
     const tagN = (f.tbNew?.size || 0) + (f.cat?.size || 0) + (f.posNew?.size || 0) + (f.tags?.size || 0);
     return { state: stateN, src: srcN, tag: tagN };
@@ -182,27 +175,15 @@
     const content = document.getElementById('uni-content');
 
     if (_tab === 'state') {
-      // ステータス: 擬似トグル項目
-      const statusItems = [
-        { name:'★ Fav',      cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!window.favOnly,     key:'@fav' },
-        { name:'Unseen',     cnt:_ctxVideos('unw').filter(v=>!v.watched).length,                                      sel:!!window.unwOnly,     key:'@unw' },
-        { name:'視聴済み',    cnt:_ctxVideos('wat').filter(v=>v.watched).length,                                       sel:!!window.watchedOnly, key:'@wat' },
-        { name:'🔖 BM',       cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,      sel:!!window.bmOnly,      key:'@bm'  },
-        { name:'💬 メモ',     cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                sel:!!window.memoOnly,    key:'@memo'},
-        { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.images && v.images.length)).length,          sel:!!window.imgOnly,     key:'@img' }
+      // マーク: Fav / BM / メモ / 画像
+      const markItems = [
+        { name:'★ Fav',       cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!window.favOnly,  key:'@fav' },
+        { name:'🔖 BM',       cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,       sel:!!window.bmOnly,   key:'@bm'  },
+        { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!window.memoOnly, key:'@memo'},
+        { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.images && v.images.length)).length,           sel:!!window.imgOnly,  key:'@img' }
       ];
-      // 進捗 (f.status)
-      const statusVals = ['未着手','練習中','マスター'];
-      const statusCtx = _ctxVideos('status');
-      const progItems = statusVals.map(n => ({ name:n, cnt:statusCtx.filter(v=>v.status===n).length, sel:!!f.status?.has(n) }));
-      // 優先度 (f.prio)
-      const prioVals = ['今すぐ','そのうち','保留'];
-      const prioCtx = _ctxVideos('prio');
-      const prioItems = prioVals.map(n => ({ name:n, cnt:prioCtx.filter(v=>v.prio===n).length, sel:!!f.prio?.has(n) }));
-
-      // 「ステータス」列だけ個別キーを埋め込んだ特殊なrowを生成
-      const mkStatusCol = () => {
-        let arr = statusItems.slice();
+      const mkMarkCol = () => {
+        let arr = markItems.slice();
         if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
         arr = arr.filter(r => r.sel || r.cnt > 0);
         const rows = arr.length ? arr.map(r =>
@@ -210,40 +191,31 @@
             <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
           </div>`
         ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
-        return `<div class="uni-col"><div class="uni-col-hdr"><span>ステータス</span></div><div class="uni-col-body">${rows}</div></div>`;
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>マーク</span></div><div class="uni-col-body">${rows}</div></div>`;
       };
 
-      // 練習回数 (単一選択)
-      const prBuckets = [
-        { name:'未練習 (0)', k:'0'   },
-        { name:'1回以上',    k:'1+'  },
-        { name:'3回以上',    k:'3+'  },
-        { name:'5回以上',    k:'5+'  },
-        { name:'10回以上',   k:'10+' }
-      ];
-      const prCtx = _ctxVideos('prBucket');
-      const prItems = prBuckets.map(b => {
-        let c = 0;
-        for (const v of prCtx) {
-          const p = v.practice || 0;
-          if (b.k === '0'   && p === 0) c++;
-          else if (b.k === '1+'  && p >= 1)  c++;
-          else if (b.k === '3+'  && p >= 3)  c++;
-          else if (b.k === '5+'  && p >= 5)  c++;
-          else if (b.k === '10+' && p >= 10) c++;
-        }
-        return { name:b.name, cnt:c, sel: window.prBucket === b.k, key:b.k };
+      // 進捗ランク (自動導出)
+      const RANKS = window.RANK_DEFS || [];
+      const rankCtx = _ctxVideos('prRank');
+      const rankItems = RANKS.map(r => {
+        const label = r.max === Infinity ? `${r.name} (${r.min}+)` : (r.min === r.max ? `${r.name} (${r.min}回)` : `${r.name} (${r.min}-${r.max})`);
+        return {
+          name: label,
+          cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length,
+          sel: window.prRank === String(r.lv),
+          key: String(r.lv)
+        };
       });
-      const mkPrCol = () => {
-        let arr = prItems.slice();
+      const mkRankCol = () => {
+        let arr = rankItems.slice();
         if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
         arr = arr.filter(r => r.sel || r.cnt > 0);
         const rows = arr.length ? arr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prB','${r.key}')">
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@rank','${r.key}')">
             <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
           </div>`
         ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
-        return `<div class="uni-col"><div class="uni-col-hdr"><span>🥋 練習回数</span></div><div class="uni-col-body">${rows}</div></div>`;
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>🥋 進捗ランク (自動)</span></div><div class="uni-col-body">${rows}</div></div>`;
       };
 
       // 最終練習日 (単一選択)
@@ -279,10 +251,8 @@
       };
 
       content.innerHTML = `<div class="uni-cols">
-        ${mkStatusCol()}
-        ${_colHtml('進捗', 'progress', progItems, { filterKey:'status', sortable:false })}
-        ${_colHtml('優先度', 'priority', prioItems, { filterKey:'prio', sortable:false })}
-        ${mkPrCol()}
+        ${mkMarkCol()}
+        ${mkRankCol()}
         ${mkPdCol()}
       </div>`;
     }
@@ -363,22 +333,18 @@
 
     // ── Pills ──
     const pills = [];
-    if (window.favOnly)     pills.push(['@fav',     '★ Fav']);
-    if (window.unwOnly)     pills.push(['@unw',     'Unseen']);
-    if (window.watchedOnly) pills.push(['@wat',     '視聴済み']);
-    if (window.bmOnly)      pills.push(['@bm',      '🔖 BM']);
-    if (window.memoOnly)    pills.push(['@memo',    '💬 メモ']);
-    if (window.imgOnly)     pills.push(['@img',     '🖼 画像あり']);
-    if (window.prBucket) {
-      const map = { '0':'未練習','1+':'🥋 1+','3+':'🥋 3+','5+':'🥋 5+','10+':'🥋 10+' };
-      pills.push(['@prB', map[window.prBucket] || window.prBucket]);
+    if (window.favOnly)  pills.push(['@fav',  '★ Fav']);
+    if (window.bmOnly)   pills.push(['@bm',   '🔖 BM']);
+    if (window.memoOnly) pills.push(['@memo', '💬 メモ']);
+    if (window.imgOnly)  pills.push(['@img',  '🖼 画像あり']);
+    if (window.prRank != null && window.RANK_DEFS) {
+      const r = window.RANK_DEFS[Number(window.prRank)];
+      if (r) pills.push(['@rank', r.name]);
     }
     if (window.prDate) {
       const map = { week:'今週練習',month:'今月練習',stale:'🗓 30日+',never:'未練習' };
       pills.push(['@prD', map[window.prDate] || window.prDate]);
     }
-    [...(f.status||[])].forEach(v => pills.push(['status', v]));
-    [...(f.prio  ||[])].forEach(v => pills.push(['prio',   v]));
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
@@ -438,7 +404,7 @@
     if (key === '@bm')       { window.togBm?.();      _render(); return; }
     if (key === '@memo')     { window.togMemo?.();    _render(); return; }
     if (key === '@img')      { window.togImg?.();     _render(); return; }
-    if (key === '@prB')      { window.prBucket = (window.prBucket === val) ? null : val; window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
+    if (key === '@rank')     { window.prRank = (String(window.prRank) === String(val)) ? null : String(val); window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
     if (key === '@prD')      { window.prDate   = (window.prDate   === val) ? null : val; window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
     // Set系
     if (!f[key]) f[key] = new Set();

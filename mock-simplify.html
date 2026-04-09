@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>簡略化プラン モック</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff;--practice:#e8590c;--views:#1971c2;
+--r0:#8a94a3;--r1:#1971c2;--r2:#e8590c;--r3:#6b3fd4}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:var(--bg);color:var(--text);font:13px/1.6 -apple-system,"Hiragino Sans",sans-serif}
+h2{font-size:12px;margin:28px 0 10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px}
+h3{font-size:11px;color:var(--text2);margin:14px 0 6px}
+p.d{color:var(--text2);font-size:12px;max-width:900px;line-height:1.7;margin:0 0 14px}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;max-width:1080px;box-shadow:0 2px 12px rgba(0,0,0,.04)}
+
+/* ─── 自動ランクの定義表 ─── */
+.rank-tbl{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0}
+.rank{padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);text-align:center}
+.rank .lb{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.3px}
+.rank .nm{font-size:14px;font-weight:800;margin:4px 0}
+.rank .rg{font-size:10px;color:var(--text3);font-weight:600}
+.rank.r0{border-color:var(--r0);background:rgba(138,148,163,.08)}
+.rank.r0 .nm{color:var(--r0)}
+.rank.r1{border-color:var(--r1);background:rgba(25,113,194,.08)}
+.rank.r1 .nm{color:var(--r1)}
+.rank.r2{border-color:var(--r2);background:rgba(232,89,12,.08)}
+.rank.r2 .nm{color:var(--r2)}
+.rank.r3{border-color:var(--r3);background:rgba(107,63,212,.1)}
+.rank.r3 .nm{color:var(--r3)}
+
+/* ─── 統合フィルター新構成 ─── */
+.unipop{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:1080px;display:flex;flex-direction:column;height:520px}
+.uni-top{display:flex;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);align-items:center}
+.uni-tabs{display:flex;gap:3px}
+.uni-tab{padding:7px 14px;font-size:12px;font-weight:700;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--text2);cursor:pointer}
+.uni-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.uni-tab .bdg{background:rgba(255,255,255,.3);font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px}
+.uni-search{flex:1}
+.uni-search input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit}
+.uni-x{color:var(--text3);font-size:18px;padding:0 8px;cursor:pointer}
+.cols{flex:1;display:flex;overflow:hidden}
+.col{flex:1;border-right:1px solid var(--border);display:flex;flex-direction:column}
+.col:last-child{border-right:none}
+.col-hdr{padding:8px 12px;font-size:10px;color:var(--text3);font-weight:700;background:var(--surface2);border-bottom:1px solid var(--border);letter-spacing:.3px}
+.col-body{flex:1;overflow-y:auto;padding:2px 0}
+.row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent}
+.row:hover{background:var(--surface2)}
+.row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+.row .cnt{min-width:22px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;font-weight:700;height:20px;display:inline-flex;align-items:center;justify-content:center}
+.row.on .cnt{background:var(--accent);color:#fff}
+.uni-ftr{padding:8px 14px;background:var(--surface2);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:11px}
+.uni-ftr .pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700}
+.uni-ftr .sp{flex:1}
+.uni-ftr .hit{color:var(--accent);font-weight:700}
+.uni-ftr button{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+
+/* ─── vpanel カウンター + ランクアップ ─── */
+.vpanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:560px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.vpanel .ttl{font-size:14px;font-weight:700;margin-bottom:4px}
+.vpanel .sub{color:var(--text3);font-size:11px;margin-bottom:12px}
+.cntr-row{display:flex;gap:10px}
+.cntr{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.cntr .lb{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;margin-bottom:6px}
+.cntr .ctrl{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cntr .num{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
+.cntr.pr .num{color:var(--practice)}
+.cntr.vw .num{color:var(--views)}
+.btn-c{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:16px;font-weight:700;color:var(--text2);font-family:inherit}
+.btn-c.plus{background:var(--accent);border-color:var(--accent);color:#fff}
+.cntr .note{font-size:10px;color:var(--text3);margin-top:4px}
+
+/* ランクアップ進捗バー */
+.rank-bar{margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.rank-bar .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.rank-bar .cur{font-size:13px;font-weight:800;color:var(--r2)}
+.rank-bar .next{font-size:10px;color:var(--text3);font-weight:600}
+.rank-bar .bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.rank-bar .fill{height:100%;background:linear-gradient(90deg,var(--r2),var(--r3));border-radius:4px;transition:width .3s}
+.rank-bar .msg{font-size:11px;color:var(--text2);margin-top:6px;text-align:center;font-weight:600}
+
+/* ─── カード (現状維持) ─── */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:900px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card .thumb{aspect-ratio:16/9;background:linear-gradient(135deg,#3a3f4a,#1a1d23);position:relative}
+.card .thumb::after{content:"▶";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,.5);font-size:24px}
+.card .meta{padding:8px 10px}
+.card .nm{font-size:11px;font-weight:700;margin-bottom:4px}
+.card .ch{font-size:10px;color:var(--text3)}
+.bdgB{display:flex;gap:8px;padding:5px 10px 7px;font-size:10px;font-weight:700;align-items:center}
+.bdgB .pr{color:var(--practice)}
+.bdgB .vw{color:var(--views)}
+.bdgB .z{color:var(--text3);opacity:.55}
+.bdgB .dt{margin-left:auto;font-size:9px;color:var(--text3);font-weight:600}
+
+/* ─── Before / After ─── */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px}
+.ba .cl{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.ba .cl h4{margin:0 0 10px;font-size:11px;color:var(--text3);letter-spacing:.4px;text-transform:uppercase}
+.ba .cl ul{margin:0;padding-left:18px;font-size:12px;line-height:1.8}
+.ba .cl.before ul li{color:var(--text2)}
+.ba .cl.after ul li{color:var(--text)}
+.ba .cl .del{text-decoration:line-through;color:var(--text3);opacity:.6}
+</style></head><body>
+
+<p class="d"><b>簡略化プラン モック</b> — status/prio/watched を廃止し、カウンター (練習回数/視聴回数) + Fav の2軸に集約。進捗ランクは練習回数から<b>自動導出</b>。ユーザーが手動で触るのは <b>★ Fav</b> と <b>🥋 +ボタン</b> の2つだけ。</p>
+
+<h2>Before → After</h2>
+<div class="ba">
+  <div class="cl before">
+    <h4>現状 (5軸が重複)</h4>
+    <ul>
+      <li class="del">status: 未着手/練習中/マスター (手動)</li>
+      <li class="del">prio: 今すぐ/そのうち/保留 (手動)</li>
+      <li class="del">watched: bool (手動/自動)</li>
+      <li>fav: ★ (手動)</li>
+      <li>practice / views: 数値</li>
+      <li>BM / メモ / 画像</li>
+    </ul>
+  </div>
+  <div class="cl after">
+    <h4>簡略化後 (2軸)</h4>
+    <ul>
+      <li><b>🥋 practice</b> (手動 +/−) ← 進捗の唯一の情報源</li>
+      <li><b>👁 views</b> (自動 30秒で+1)</li>
+      <li><b>★ fav</b> (手動・気になるマーク)</li>
+      <li>BM / メモ / 画像 (既存マーク、据え置き)</li>
+      <li><b>進捗ランク</b>: practice から自動導出</li>
+    </ul>
+  </div>
+</div>
+
+<h2>進捗ランクの自動導出 (閾値 0 / 1 / 5 / 15)</h2>
+<p class="d">ユーザーは何も選ばない。練習+ボタンを押すだけで勝手にランクアップ。</p>
+<div class="rank-tbl">
+  <div class="rank r0"><div class="lb">LV.0</div><div class="nm">🆕 未着手</div><div class="rg">0 回</div></div>
+  <div class="rank r1"><div class="lb">LV.1</div><div class="nm">🔰 練習中</div><div class="rg">1–4 回</div></div>
+  <div class="rank r2"><div class="lb">LV.2</div><div class="nm">🥋 習得中</div><div class="rg">5–14 回</div></div>
+  <div class="rank r3"><div class="lb">LV.3</div><div class="nm">⭐ マスター</div><div class="rg">15 回以上</div></div>
+</div>
+
+<h2>vpanel カウンター + ランクアップ表示</h2>
+<div class="vpanel">
+  <div class="ttl">🥋 クローズドガードからのアームバー</div>
+  <div class="sub">TryForce Advanced · 12:34</div>
+  <div class="cntr-row">
+    <div class="cntr pr">
+      <div class="lb">🥋 練習回数</div>
+      <div class="ctrl">
+        <button class="btn-c">−</button>
+        <div class="num">7</div>
+        <button class="btn-c plus">+</button>
+      </div>
+      <div class="note">最終: 2日前 · 今月 3回 · 連続 2日 🔥</div>
+    </div>
+    <div class="cntr vw">
+      <div class="lb">👁 視聴回数</div>
+      <div class="ctrl" style="justify-content:center">
+        <div class="num">18</div>
+      </div>
+      <div class="note">最終: 今日</div>
+    </div>
+  </div>
+  <!-- ランクアップ進捗バー -->
+  <div class="rank-bar">
+    <div class="hdr">
+      <div class="cur">🥋 習得中 (LV.2)</div>
+      <div class="next">次: ⭐ マスター まで <b>あと 8 回</b></div>
+    </div>
+    <div class="bar"><div class="fill" style="width:20%"></div></div>
+    <div class="msg">5 / 15 回 — このままコツコツ！</div>
+  </div>
+</div>
+
+<h3 style="margin-top:18px">例: ランクアップ直前 (14→15で ⭐ マスターに!)</h3>
+<div class="vpanel" style="max-width:560px">
+  <div class="ttl">🥋 三角絞めの基本</div>
+  <div class="sub">JonThomasBJJ · 8:42</div>
+  <div class="rank-bar" style="margin-top:0">
+    <div class="hdr">
+      <div class="cur">🥋 習得中 (LV.2)</div>
+      <div class="next">次: ⭐ マスター まで <b>あと 1 回</b></div>
+    </div>
+    <div class="bar"><div class="fill" style="width:93%"></div></div>
+    <div class="msg">14 / 15 回 — もう一息！ 🎯</div>
+  </div>
+</div>
+
+<h2>統合フィルター新構成 (3タブ / 中身スリム化)</h2>
+<p class="d">タブ数は3のまま、「ステータス・優先度」→「<b>進捗 & マーク</b>」に改名。status/prio 列を廃止し、マーク(Fav/BM/メモ/画像) + 練習回数(自動ランク) + 最終練習日 の3カラムに。</p>
+<div class="unipop">
+  <div class="uni-top">
+    <div class="uni-tabs">
+      <div class="uni-tab on">進捗 &amp; マーク<span class="bdg">2</span></div>
+      <div class="uni-tab">ソース・チャンネル・プレイリスト</div>
+      <div class="uni-tab">タグ</div>
+    </div>
+    <div class="uni-search"><input placeholder="🔍 検索..."></div>
+    <div class="uni-x">✕</div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <div class="col-hdr">マーク</div>
+      <div class="col-body">
+        <div class="row on"><span>★ Fav</span><span class="cnt">48</span></div>
+        <div class="row"><span>🔖 BM</span><span class="cnt">64</span></div>
+        <div class="row"><span>💬 メモあり</span><span class="cnt">23</span></div>
+        <div class="row"><span>🖼 画像あり</span><span class="cnt">91</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr">🥋 進捗ランク (自動)</div>
+      <div class="col-body">
+        <div class="row"><span>🆕 未着手 (0回)</span><span class="cnt">420</span></div>
+        <div class="row on"><span>🔰 練習中 (1-4)</span><span class="cnt">185</span></div>
+        <div class="row"><span>🥋 習得中 (5-14)</span><span class="cnt">42</span></div>
+        <div class="row"><span>⭐ マスター (15+)</span><span class="cnt">12</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr">🗓 最終練習日</div>
+      <div class="col-body">
+        <div class="row"><span>今週 (7日以内)</span><span class="cnt">24</span></div>
+        <div class="row"><span>今月 (30日以内)</span><span class="cnt">78</span></div>
+        <div class="row"><span>しばらく練習してない (30日+)</span><span class="cnt">156</span></div>
+        <div class="row"><span>未練習</span><span class="cnt">420</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="uni-ftr">
+    <span style="color:var(--text3);font-weight:700">選択中:</span>
+    <span class="pill">★ Fav ×</span>
+    <span class="pill">🔰 練習中 ×</span>
+    <span class="sp"></span>
+    <span style="color:var(--text3);text-decoration:underline;cursor:pointer">クリア</span>
+    <span class="hit">47 件</span>
+    <button>適用</button>
+  </div>
+</div>
+
+<h2>カード (変更なし — 現状維持)</h2>
+<p class="d">バッジ B案 (🥋 / 👁 / 経過日数) はそのまま。絵文字ランクの追加はしない。</p>
+<div class="cards">
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">アームバー基本</div><div class="ch">TryForce</div></div><div class="bdgB"><span class="pr">🥋 7</span><span class="vw">👁 18</span><span class="dt">2d前</span></div></div>
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">スイープ応用</div><div class="ch">DEEP HALF</div></div><div class="bdgB"><span class="pr">🥋 1</span><span class="vw">👁 3</span><span class="dt">6d前</span></div></div>
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">レッグロック入門</div><div class="ch">木部亮</div></div><div class="bdgB"><span class="z">🥋 未</span><span class="z">👁 未</span><span class="dt">—</span></div></div>
+</div>
+
+<h2>手動で触るものの削減</h2>
+<div class="ba">
+  <div class="cl before">
+    <h4>Before (5種類)</h4>
+    <ul>
+      <li>★ Fav</li>
+      <li class="del">status 3段階</li>
+      <li class="del">prio 3段階</li>
+      <li class="del">watched</li>
+      <li>🥋 練習 +/−</li>
+    </ul>
+  </div>
+  <div class="cl after">
+    <h4>After (2種類だけ)</h4>
+    <ul>
+      <li><b>★ Fav</b> (気になる時にポチッ)</li>
+      <li><b>🥋 練習 +</b> (やった時にポチッ)</li>
+    </ul>
+    <p style="margin:10px 0 0;font-size:11px;color:var(--text3)">以上! ランクも視聴状態も自動。</p>
+  </div>
+</div>
+
+<h2>マイグレーション方針</h2>
+<p class="d" style="max-width:900px">
+既存の <code>status</code> / <code>prio</code> / <code>watched</code> はデータ削除せず、UIから隠すだけ。既存の <code>watched=true</code> は「<code>views ≥ 1</code> として見なす」マッピング (表示のみ)。後から復活させたくなったら設定で戻せる。<br>
+<b>既存データの扱い</b>: status/prio はカード/vpanel/フィルター UI から消える。内部的には保持される。<br>
+<b>既存の "練習中" 値は?</b>: 手動設定された status は無視、練習回数だけで再ランク付け。
+</p>
+
+</body></html>
