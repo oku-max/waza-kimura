@@ -1487,18 +1487,6 @@ export function buildDrawerHTML(id) {
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return '';
 
-  const prioChips = [
-    {v:'今すぐ',  l:'今すぐ'},
-    {v:'そのうち',l:'そのうち'},
-    {v:'保留',    l:'保留'}
-  ].map(o => `<span class="chip${v.prio===o.v?' active':''}" onclick="vpSet('${id}','prio','${o.v}',this)">${o.l}</span>`).join('');
-
-  const progChips = [
-    {v:'未着手',  l:'未着手'},
-    {v:'練習中',  l:'練習中'},
-    {v:'マスター',l:'マスター'}
-  ].map(o => `<span class="chip${v.status===o.v?' active':''}" onclick="vpSet('${id}','status','${o.v}',this)">${o.l}</span>`).join('');
-
   const tbChips   = (v.tb||[]).map(t  => `<span class="vp-chip on-tb"   onclick="vpRemoveTag('${id}','tb','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
   const acChips   = (v.ac||[]).map(a  => `<span class="vp-chip on-ac"   onclick="vpRemoveTag('${id}','ac','${a.replace(/'/g,"\\'")}',this)">${a} ×</span>`).join('');
   const posChips  = (v.pos||[]).map(p => `<span class="vp-chip on-pos"  onclick="vpRemoveTag('${id}','pos','${p.replace(/'/g,"\\'")}',this)">${p} ×</span>`).join('');
@@ -1506,23 +1494,15 @@ export function buildDrawerHTML(id) {
 
   return `
     <div class="fsec">
-      <div class="fsec-title">ステータス・進捗・優先度</div>
+      <div class="fsec-title">マーク</div>
       <div class="vp-row">
-        <span class="vp-lbl">Status</span>
+        <span class="vp-lbl">Fav</span>
         <div style="display:flex;flex-wrap:wrap;gap:5px">
-          <span class="chip${v.watched?' active':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'視聴済み':'未視聴'}</span>
           <span class="chip${v.fav?' active c-fav':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">★ Fav</span>
         </div>
       </div>
-      <div class="vp-row">
-        <span class="vp-lbl">Progress</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px" id="vp-prog-${id}">${progChips}</div>
-      </div>
-      <div class="vp-row">
-        <span class="vp-lbl">Priority</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px" id="vp-prio-${id}">${prioChips}</div>
-      </div>
     </div>
+    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id) : ''}
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
       <div class="vp-row">
@@ -1561,7 +1541,6 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     </div>
-    ${window.vpCounterSectionHTML?.(id) || ''}
     ${window.vpV4SectionHTML?.(id) || ''}
     <div class="fsec" style="opacity:.55">
       <div class="fsec-title">ポジション・テクニック <span style="font-size:10px;color:var(--text3);font-weight:400">(旧・移行期間)</span></div>

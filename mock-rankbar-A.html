@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>案A 文言バリエーション</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--practice:#e8590c}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+h2{font-size:12px;margin:0 0 8px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase}
+p.d{color:var(--text2);font-size:11px;line-height:1.6;margin:0 0 14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;max-width:640px}
+.card h3{margin:0 0 12px;font-size:11px;color:var(--accent);font-weight:700}
+.vp-row{display:flex;align-items:center;gap:10px}
+.vp-lbl{font-size:10px;color:var(--text3);font-weight:700;width:60px;flex-shrink:0}
+.btn-x{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);padding:0;display:inline-flex;align-items:center;justify-content:center}
+.btn-x.plus{background:var(--accent);color:#fff;border:none}
+.num{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;min-width:24px;text-align:center;color:var(--practice)}
+.barwrap{flex:1;display:flex;align-items:center;gap:8px;max-width:240px}
+.bar{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;min-width:40px}
+.fill{height:100%;background:var(--practice);border-radius:2px}
+.lab{font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap}
+.lab.cur{color:var(--practice)}
+.nt{font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5}
+</style></head><body>
+
+<h2 style="margin-bottom:14px">案A 文言バリエーション</h2>
+<p class="d">「LV.2 / 3」を「習得中 / マスター」のような状態名に置き換えた4パターン。練習回数 = 7、現在ランク = 習得中、次 = ⭐ マスター (15回)。</p>
+
+<div class="card">
+  <h3>1. 現状名 → 次ランク名</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">7</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur">習得中</span>
+      <div class="bar"><div class="fill" style="width:20%"></div></div>
+      <span class="lab">マスター</span>
+    </div>
+  </div>
+  <div class="nt">両端に状態名。「今こうで、次これ」が直感的。</div>
+</div>
+
+<div class="card">
+  <h3>2. 現状名のみ + 矢印</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">7</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur">習得中</span>
+      <div class="bar"><div class="fill" style="width:20%"></div></div>
+      <span class="lab">→ ⭐</span>
+    </div>
+  </div>
+  <div class="nt">次ランクは絵文字だけにして横幅節約。</div>
+</div>
+
+<div class="card">
+  <h3>3. 現状名のみ (右側なし)</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">7</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur">習得中</span>
+      <div class="bar"><div class="fill" style="width:20%"></div></div>
+    </div>
+  </div>
+  <div class="nt">最もシンプル。次ランクは表示せず、棒の埋まり具合だけで進捗を示す。</div>
+</div>
+
+<div class="card">
+  <h3>4. 絵文字付き</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">7</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur">🥋 習得中</span>
+      <div class="bar"><div class="fill" style="width:20%"></div></div>
+      <span class="lab">⭐</span>
+    </div>
+  </div>
+  <div class="nt">現在ランクに絵文字、次ランクは絵文字のみ。視覚的に分かりやすい。</div>
+</div>
+
+<h2 style="margin-top:24px">他ランク状態でのプレビュー (1案ベース)</h2>
+
+<div class="card">
+  <h3>未着手 (0回)</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">0</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur" style="color:var(--text3)">未着手</span>
+      <div class="bar"><div class="fill" style="width:0%"></div></div>
+      <span class="lab">練習中</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>練習中 (3回 → 5回でランクアップ)</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">3</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur" style="color:#1971c2">練習中</span>
+      <div class="bar"><div class="fill" style="width:75%;background:#1971c2"></div></div>
+      <span class="lab">習得中</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>マスター到達 (15回+)</h3>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <button class="btn-x">−</button><span class="num">23</span><button class="btn-x plus">＋</button>
+    <div class="barwrap">
+      <span class="lab cur" style="color:#6b3fd4">マスター</span>
+      <div class="bar"><div class="fill" style="width:100%;background:#6b3fd4"></div></div>
+      <span class="lab">🏆</span>
+    </div>
+  </div>
+</div>
+
+</body></html>

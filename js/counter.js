@@ -87,43 +87,30 @@
     const pColor = '#e8590c', vColor = '#1971c2';
     const rank = window.vpCntRank(p);
     const next = RANKS[rank.lv + 1];
-    const rbFill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
-    const rbMsg = next
-      ? `${p} / ${next.min} 回 — 次: <b style="color:${next.color}">${next.name}</b> まで あと <b>${next.min - p}</b> 回`
-      : `${p} 回 — 最高ランク到達！ 🏆`;
+    const fill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
+    const btnS = `width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
+    const btnP = `width:22px;height:22px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:12px;font-weight:700;color:#fff;padding:0;font-family:inherit`;
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
-  <div class="fsec-title">🥋 カウンター</div>
-  <div id="vp-cnt-rank-${id}" style="margin:6px 0 8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:800;color:${rank.color}">${rank.name} (LV.${rank.lv})</div>
-      <div style="font-size:10px;color:var(--text3);font-weight:600">${next ? `次: ${next.name}` : '🏆 MAX'}</div>
+  <div class="fsec-title">カウンター</div>
+  <div class="vp-row">
+    <span class="vp-lbl">🥋 練習</span>
+    <div id="vp-cnt-p-row-${id}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button onclick="vpCntDec('${id}','practice')" style="${btnS}">−</button>
+      <span id="vp-cnt-p-${id}" style="font-size:13px;font-weight:800;color:${pColor};min-width:24px;text-align:center;font-variant-numeric:tabular-nums">${p}</span>
+      <button onclick="vpCntInc('${id}','practice')" style="${btnP}">＋</button>
+      <span id="vp-cnt-rank-${id}" style="display:inline-flex;align-items:center;gap:8px;max-width:240px;flex:1;min-width:120px;margin-left:4px">
+        <span style="font-size:10px;color:${rank.color};font-weight:700;white-space:nowrap">${rank.short}</span>
+        <span style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;min-width:40px"><span style="display:block;height:100%;width:${fill}%;background:${rank.color};border-radius:2px;transition:width .3s"></span></span>
+      </span>
+      <span id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-left:auto">最終: <b style="color:${pColor}">${lastP}</b>${month>0?` · 今月 ${month}回`:''}${st>1?` · 連続 ${st}日 🔥`:''}</span>
     </div>
-    <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-      <div style="height:100%;width:${rbFill}%;background:linear-gradient(90deg,${rank.color},${next?next.color:rank.color});border-radius:4px;transition:width .3s"></div>
-    </div>
-    <div style="font-size:11px;color:var(--text2);margin-top:6px;text-align:center;font-weight:600">${rbMsg}</div>
   </div>
-  <div style="display:flex;gap:10px;padding:6px 0">
-    <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-      <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;margin-bottom:6px">🥋 練習回数</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <button onclick="vpCntDec('${id}','practice')" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:16px;font-weight:700;color:var(--text2);font-family:inherit">−</button>
-        <div id="vp-cnt-p-${id}" style="font-size:22px;font-weight:800;color:${pColor};min-width:32px;text-align:center;font-variant-numeric:tabular-nums">${p}</div>
-        <button onclick="vpCntInc('${id}','practice')" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:16px;font-weight:700;color:#fff;font-family:inherit">+</button>
-      </div>
-      <div id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-top:6px;line-height:1.4">
-        最終: <b style="color:${pColor}">${lastP}</b>${month>0?` · 今月 ${month}回`:''}${st>1?` · 連続 ${st}日 🔥`:''}
-      </div>
-    </div>
-    <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
-      <div style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;margin-bottom:6px">👁 視聴回数</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:32px">
-        <div id="vp-cnt-v-${id}" style="font-size:22px;font-weight:800;color:${vColor};font-variant-numeric:tabular-nums">${vw}</div>
-      </div>
-      <div id="vp-cnt-v-sub-${id}" style="font-size:10px;color:var(--text3);margin-top:6px">
-        最終: <b style="color:${vColor}">${lastV}</b>
-      </div>
+  <div class="vp-row">
+    <span class="vp-lbl">👁 視聴</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="vp-cnt-v-${id}" style="font-size:13px;font-weight:800;color:${vColor};font-variant-numeric:tabular-nums">${vw}</span>
+      <span id="vp-cnt-v-sub-${id}" style="font-size:10px;color:var(--text3)">最終: <b style="color:${vColor}">${lastV}</b></span>
     </div>
   </div>
 </div>`;
@@ -133,25 +120,16 @@
   function _rerender(id) {
     const v = _findV(id);
     if (!v) return;
-    // ランクバー丸ごと置換
+    // ミニランクバー置換
     const rb = document.getElementById('vp-cnt-rank-' + id);
     if (rb) {
       const p = v.practice || 0;
       const rank = window.vpCntRank(p);
       const next = RANKS[rank.lv + 1];
-      const rbFill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
-      const rbMsg = next
-        ? `${p} / ${next.min} 回 — 次: <b style="color:${next.color}">${next.name}</b> まで あと <b>${next.min - p}</b> 回`
-        : `${p} 回 — 最高ランク到達！ 🏆`;
+      const fill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
       rb.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:800;color:${rank.color}">${rank.name} (LV.${rank.lv})</div>
-      <div style="font-size:10px;color:var(--text3);font-weight:600">${next ? `次: ${next.name}` : '🏆 MAX'}</div>
-    </div>
-    <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-      <div style="height:100%;width:${rbFill}%;background:linear-gradient(90deg,${rank.color},${next?next.color:rank.color});border-radius:4px;transition:width .3s"></div>
-    </div>
-    <div style="font-size:11px;color:var(--text2);margin-top:6px;text-align:center;font-weight:600">${rbMsg}</div>`;
+        <span style="font-size:10px;color:${rank.color};font-weight:700;white-space:nowrap">${rank.short}</span>
+        <span style="flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;min-width:40px"><span style="display:block;height:100%;width:${fill}%;background:${rank.color};border-radius:2px;transition:width .3s"></span></span>`;
     }
     const pEl = document.getElementById('vp-cnt-p-' + id);
     const vEl = document.getElementById('vp-cnt-v-' + id);

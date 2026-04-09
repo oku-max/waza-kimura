@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>vpanel 簡略化 A / B 比較</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--practice:#e8590c;--views:#1971c2;--r2:#e8590c;--r3:#6b3fd4}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:var(--bg);color:var(--text);font:13px/1.6 -apple-system,"Hiragino Sans",sans-serif}
+h2{font-size:12px;margin:0 0 10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase}
+p.d{color:var(--text2);font-size:12px;line-height:1.7;margin:0 0 14px}
+.wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1100px}
+.vpanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.vpanel .ttl{font-size:14px;font-weight:700;margin-bottom:2px}
+.vpanel .meta{color:var(--text3);font-size:11px;margin-bottom:12px}
+.fsec{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.fsec:last-child{border-bottom:none}
+.fsec-title{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px}
+.vp-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.vp-lbl{font-size:10px;color:var(--text3);font-weight:700;width:70px;flex-shrink:0}
+.chip{padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;color:var(--text2)}
+.chip.active{background:rgba(107,63,212,.1);border-color:var(--accent);color:var(--accent);font-weight:700}
+.chip.active.c-fav{background:rgba(212,160,23,.15);border-color:#d4a017;color:#b5860a}
+/* rank bar */
+.rb{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.rb .hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.rb .cur{font-size:13px;font-weight:800;color:var(--r2)}
+.rb .nx{font-size:10px;color:var(--text3);font-weight:600}
+.rb .bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.rb .fill{height:100%;background:linear-gradient(90deg,var(--r2),var(--r3));border-radius:4px}
+.rb .msg{font-size:11px;color:var(--text2);margin-top:6px;text-align:center;font-weight:600}
+/* counters */
+.cntrs{display:flex;gap:10px}
+.cntr{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;position:relative}
+.cntr .lb{font-size:10px;color:var(--text3);font-weight:700;margin-bottom:6px}
+.cntr .ctrl{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cntr .num{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
+.cntr.pr .num{color:var(--practice)}
+.cntr.vw .num{color:var(--views)}
+.btn-c{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:15px;font-weight:700;color:var(--text2)}
+.btn-c.plus{background:var(--accent);border:none;color:#fff}
+.cntr .note{font-size:10px;color:var(--text3);margin-top:4px}
+.fav-corner{position:absolute;top:8px;right:10px;font-size:14px;cursor:pointer}
+.fav-corner.on{color:#d4a017}
+.fav-corner.off{color:var(--text3)}
+.tag{background:#eee;color:var(--text3);font-size:9px;padding:2px 6px;border-radius:10px;margin-left:6px;font-weight:700}
+</style></head><body>
+
+<h2 style="margin-bottom:14px">vpanel 簡略化モック — A / B 2案</h2>
+<p class="d">削除: Progress (未着手/練習中/マスター) / Priority (今すぐ/そのうち/保留) / Status の 視聴済み・未視聴 チップ。進捗ランクはカウンター上部のランクバーで自動表示。</p>
+
+<div class="wrap">
+
+<!-- ═══ 案A: Fav をカウンターセクションに取り込む (セクション削除) ═══ -->
+<div>
+<h2>案A — セクション削除 / Fav をカウンターに統合 <span class="tag">最小</span></h2>
+<div class="vpanel">
+  <div class="ttl">クローズドガードからのアームバー</div>
+  <div class="meta">TryForce Advanced · 12:34</div>
+
+  <div class="fsec">
+    <div class="fsec-title">🥋 カウンター <span style="float:right"><span class="fav-corner on" title="Fav">★</span></span></div>
+    <div class="rb">
+      <div class="hdr">
+        <div class="cur">🥋 習得中 (LV.2)</div>
+        <div class="nx">次: ⭐ マスター まで あと 8 回</div>
+      </div>
+      <div class="bar"><div class="fill" style="width:20%"></div></div>
+      <div class="msg">7 / 15 回 — このままコツコツ！</div>
+    </div>
+    <div class="cntrs">
+      <div class="cntr pr">
+        <div class="lb">🥋 練習回数</div>
+        <div class="ctrl"><button class="btn-c">−</button><div class="num">7</div><button class="btn-c plus">+</button></div>
+        <div class="note">最終: 2日前 · 今月 3回</div>
+      </div>
+      <div class="cntr vw">
+        <div class="lb">👁 視聴回数</div>
+        <div class="ctrl" style="justify-content:center"><div class="num">18</div></div>
+        <div class="note">最終: 今日</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fsec">
+    <div class="fsec-title">チャンネル・プレイリスト</div>
+    <div class="vp-row"><span class="vp-lbl">Channel</span><span class="chip active">TryForce Advanced</span></div>
+    <div class="vp-row"><span class="vp-lbl">Playlist</span><span class="chip active">クローズドガード基本</span></div>
+  </div>
+
+  <div class="fsec">
+    <div class="fsec-title">タグ (4層)</div>
+    <div class="vp-row"><span class="vp-lbl">T/B</span><span class="chip active">ボトム</span></div>
+    <div class="vp-row"><span class="vp-lbl">カテゴリ</span><span class="chip active">フィニッシュ</span></div>
+  </div>
+</div>
+<p class="d" style="margin-top:10px;font-size:11px"><b>特徴</b>: セクションを1つ減らしてスッキリ。Fav は🥋カウンターのヘッダー右上に★アイコンとして配置。タップでトグル。</p>
+</div>
+
+<!-- ═══ 案B: 独立した「マーク」セクション ═══ -->
+<div>
+<h2>案B — 「マーク」セクション残存 / Fav だけ独立 <span class="tag">対称性</span></h2>
+<div class="vpanel">
+  <div class="ttl">クローズドガードからのアームバー</div>
+  <div class="meta">TryForce Advanced · 12:34</div>
+
+  <div class="fsec">
+    <div class="fsec-title">マーク</div>
+    <div class="vp-row">
+      <span class="vp-lbl">&nbsp;</span>
+      <div style="display:flex;gap:6px">
+        <span class="chip active c-fav">★ Fav</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fsec">
+    <div class="fsec-title">🥋 カウンター</div>
+    <div class="rb">
+      <div class="hdr">
+        <div class="cur">🥋 習得中 (LV.2)</div>
+        <div class="nx">次: ⭐ マスター まで あと 8 回</div>
+      </div>
+      <div class="bar"><div class="fill" style="width:20%"></div></div>
+      <div class="msg">7 / 15 回 — このままコツコツ！</div>
+    </div>
+    <div class="cntrs">
+      <div class="cntr pr">
+        <div class="lb">🥋 練習回数</div>
+        <div class="ctrl"><button class="btn-c">−</button><div class="num">7</div><button class="btn-c plus">+</button></div>
+        <div class="note">最終: 2日前 · 今月 3回</div>
+      </div>
+      <div class="cntr vw">
+        <div class="lb">👁 視聴回数</div>
+        <div class="ctrl" style="justify-content:center"><div class="num">18</div></div>
+        <div class="note">最終: 今日</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fsec">
+    <div class="fsec-title">チャンネル・プレイリスト</div>
+    <div class="vp-row"><span class="vp-lbl">Channel</span><span class="chip active">TryForce Advanced</span></div>
+    <div class="vp-row"><span class="vp-lbl">Playlist</span><span class="chip active">クローズドガード基本</span></div>
+  </div>
+
+  <div class="fsec">
+    <div class="fsec-title">タグ (4層)</div>
+    <div class="vp-row"><span class="vp-lbl">T/B</span><span class="chip active">ボトム</span></div>
+    <div class="vp-row"><span class="vp-lbl">カテゴリ</span><span class="chip active">フィニッシュ</span></div>
+  </div>
+</div>
+<p class="d" style="margin-top:10px;font-size:11px"><b>特徴</b>: 「マーク」を独立セクションに。将来 BM やメモのマーク追加があっても拡張しやすい。現状は ★ Fav 1つだけ (やや余白が目立つ)。</p>
+</div>
+
+</div>
+
+<div style="max-width:1100px;margin-top:24px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+<h2>おすすめ</h2>
+<p class="d"><b>案A</b>。セクションが1つ減って縦に短くなり、スマホで特にありがたい。★ Fav はセクションヘッダー右上に小さく置くので目立ち過ぎず、タップ領域も十分。BM やメモは既存の別UI (右下メモボタン等) で操作するので vpanel 本体に出す必要なし。</p>
+</div>
+
+</body></html>
