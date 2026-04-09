@@ -178,9 +178,9 @@
       // マーク: Fav / BM / メモ / 画像
       const markItems = [
         { name:'★ Fav',       cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!window.favOnly,  key:'@fav' },
-        { name:'🔖 BM',       cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,       sel:!!window.bmOnly,   key:'@bm'  },
+        { name:'🔖 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!window.bmOnly,   key:'@bm'  },
         { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!window.memoOnly, key:'@memo'},
-        { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.images && v.images.length)).length,           sel:!!window.imgOnly,  key:'@img' }
+        { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!window.imgOnly,  key:'@img' }
       ];
       const mkMarkCol = () => {
         let arr = markItems.slice();
@@ -334,7 +334,7 @@
     // ── Pills ──
     const pills = [];
     if (window.favOnly)  pills.push(['@fav',  '★ Fav']);
-    if (window.bmOnly)   pills.push(['@bm',   '🔖 BM']);
+    if (window.bmOnly)   pills.push(['@bm',   '🔖 ブックマーク']);
     if (window.memoOnly) pills.push(['@memo', '💬 メモ']);
     if (window.imgOnly)  pills.push(['@img',  '🖼 画像あり']);
     if (window.prRank != null && window.RANK_DEFS) {
