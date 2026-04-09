@@ -142,7 +142,8 @@ body.bulk-mode .card-sel-ov{display:block;}
   background:#000;
   flex-shrink:0;
 }
-.vp-panel-video iframe {
+.vp-panel-video iframe,
+.vp-panel-video > div {
   position:absolute;
   inset:0;
   width:100%;

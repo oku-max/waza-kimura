@@ -2204,19 +2204,64 @@ export function _openPanel(id, emb, ext, plat) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay = autoplayEl ? autoplayEl.checked : true;
 
+  // まずは動画領域とヘッダーだけ最小構築 → プレイヤー起動を最優先
   panel.innerHTML = `
     <div class="vp-panel-resizer" id="vpResizer"></div>
     <div class="vp-panel-video">
-      <div id="vp-panel-yt-player" style="width:100%;height:100%"></div>
+      <div id="vp-panel-yt-player"></div>
     </div>
-    ${_skipBtnsHTML().replace('class="vp-skip-row"', 'class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--border)"')}
-    ${_abBarHTML()}
+    <div id="vp-panel-skip-${id}"></div>
+    <div id="vp-panel-ab-${id}"></div>
     <div class="vp-panel-header">
       <div class="vp-panel-title">${v.title}</div>
       <div class="vp-panel-close" onclick="closePanel()">✕</div>
     </div>
-    <div class="vp-panel-body">
+    <div class="vp-panel-body" id="vp-panel-body-${id}"></div>
+  `;
 
+  // パネル表示 → コンテナが正しい 16:9 サイズを得る
+  panel.classList.add('show');
+  const ma = document.querySelector('.main-area');
+  if (ma) { ma.classList.add('panel-open'); ma.style.marginRight = panel.offsetWidth + 'px'; }
+  if (window.openPlayer) _closePlayer(window.openPlayer);
+  window.openPlayer = id;
+
+  // YT.Player 初期化（PC用）: この時点で placeholder div は CSS で 16:9 サイズ確定済
+  if (plat === 'yt') {
+    const ytId = _extractYtId(emb);
+    if (ytId) {
+      _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+    }
+  } else if (plat === 'x') {
+    const host = document.getElementById('vp-panel-yt-player');
+    if (host) host.outerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="background:#fff"></iframe>`;
+  } else if (plat === 'gd') {
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    const playerDiv = document.getElementById('vp-panel-yt-player');
+    if (playerDiv && fileId) _playGDriveVideo(playerDiv, fileId);
+  } else {
+    // Vimeo
+    const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+    const playerDiv = document.getElementById('vp-panel-yt-player');
+    if (playerDiv) playerDiv.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
+  }
+
+  _initPanelResizer(panel);
+  panel.onclick = function(e) { e.stopPropagation(); };
+  setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 0);
+
+  // 周辺 UI (skip/AB/チャプター/ブックマーク/メモ/snapshot/drawer) は遅延構築
+  // → プレイヤー iframe のネットワーク取得とレンダリングを邪魔しない
+  setTimeout(() => {
+    if (panelId !== id) return; // 切り替わっていたらスキップ
+    const skip = document.getElementById('vp-panel-skip-' + id);
+    if (skip) skip.outerHTML = _skipBtnsHTML().replace('class="vp-skip-row"', 'class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--border)"');
+    const ab = document.getElementById('vp-panel-ab-' + id);
+    if (ab) ab.outerHTML = _abBarHTML();
+    const body = document.getElementById('vp-panel-body-' + id);
+    if (!body) return;
+    body.innerHTML = `
       ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
@@ -2225,46 +2270,11 @@ export function _openPanel(id, emb, ext, plat) {
       </div>
       <div id="vp-snap-section-${id}"></div>
       ${buildDrawerHTML(id)}
-    </div>
-  `;
-
-  // Initialize snapshot section (PC panel)
-  if (window.initSnapshotSection) {
-    window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
-  }
-
-  panel.classList.add('show');
-  const ma = document.querySelector('.main-area');
-  if (ma) { ma.classList.add('panel-open'); ma.style.marginRight = panel.offsetWidth + 'px'; }
-  if (window.openPlayer) _closePlayer(window.openPlayer);
-  window.openPlayer = id;
-
-  // YT.Player初期化（PC用）
-  if (plat === 'yt') {
-    const ytId = _extractYtId(emb);
-    if (ytId) {
-      _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+    `;
+    if (window.initSnapshotSection) {
+      window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
     }
-  } else if (plat === 'x') {
-    const ifc = document.getElementById('vp-panel-iframe-container');
-    if (ifc) ifc.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
-  } else if (plat === 'gd') {
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
-    const playerDiv = document.getElementById('vp-panel-yt-player');
-    if (playerDiv && fileId) {
-      _playGDriveVideo(playerDiv, fileId);
-    }
-  } else {
-    // Vimeo
-    const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
-    const playerDiv = document.getElementById('vp-panel-yt-player');
-    if (playerDiv) playerDiv.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
-  }
-
-  _initPanelResizer(panel);
-  panel.onclick = function(e) { e.stopPropagation(); };
-  setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 0);
+  }, 0);
 }
 
 function _initPanelResizer(panel) {
