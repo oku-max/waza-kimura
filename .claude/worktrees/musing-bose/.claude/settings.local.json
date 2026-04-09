@@ -48,7 +48,8 @@
       "Bash(node --check js/youtube.js)",
       "Bash(node --check js/filter.js)",
       "Bash(node --check js/organize.js)",
-      "Bash(node --check js/filter-overlay.js)"
+      "Bash(node --check js/filter-overlay.js)",
+      "Bash(npx --yes vercel@latest deploy --prod --yes)"
     ]
   }
 }
