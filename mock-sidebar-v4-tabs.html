@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>Sidebar v4 Mock — 案2 タブ切替</title>
+<style>
+:root{--bg:#0f1115;--surf:#171a21;--surf2:#1e222b;--border:#2a2f3a;--text:#e7e9ee;--text2:#aab0bd;--text3:#6b7280;--accent:#8c50ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+.wrap{max-width:320px;margin:20px auto;background:var(--surf);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.hdr{padding:10px 14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.body{padding:10px 12px 14px}
+.tabs{display:flex;gap:4px;background:var(--surf2);border-radius:8px;padding:3px;margin-bottom:10px}
+.tab{flex:1;text-align:center;padding:6px 4px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:var(--text2);transition:.15s}
+.tab.on{background:var(--accent);color:#fff;box-shadow:0 1px 4px rgba(140,80,255,.4)}
+.pane{display:flex;flex-wrap:wrap;gap:5px;min-height:60px}
+.chip{padding:4px 9px;border-radius:12px;background:var(--surf2);border:1px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer;user-select:none;transition:.12s}
+.chip:hover{border-color:var(--accent);color:var(--text)}
+.chip.on{background:rgba(140,80,255,.2);border-color:var(--accent);color:var(--text);font-weight:700}
+.chip .cnt{font-size:9px;opacity:.6;margin-left:3px}
+.sel{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);font-size:11px;color:var(--text3);display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:24px}
+.sel .lbl{margin-right:4px}
+.sel .pill{background:rgba(140,80,255,.22);color:#fff;padding:2px 8px;border-radius:10px;font-weight:700;cursor:pointer}
+.sel .pill:after{content:" ×";opacity:.6}
+.sel .clr{margin-left:auto;color:var(--text3);cursor:pointer;font-size:10px;text-decoration:underline}
+.hit{font-size:10px;color:var(--accent);font-weight:700}
+</style></head><body>
+
+<div class="wrap">
+  <div class="hdr"><span>🆕 4層タグ <span style="color:var(--accent);font-size:9px">MOCK 案2</span></span><span class="hit" id="hit">-- 件</span></div>
+  <div class="body">
+    <div class="tabs">
+      <div class="tab on" data-k="tb">🧭 TB</div>
+      <div class="tab"    data-k="cat">📂 カテゴリ</div>
+      <div class="tab"    data-k="pos">📍 ポジション</div>
+    </div>
+    <div class="pane" id="pane"></div>
+    <div class="sel" id="sel"><span class="lbl">選択中:</span><span style="color:var(--text3)">なし</span></div>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  tb:  [['トップ','🔼',12],['ボトム','🔽',34],['スタンディング','⏫',6]],
+  cat: [['エスケープ・ディフェンス','',8],['パスガード','',15],['ガードリテンション','',9],['スイープ','',11],['フィニッシュ','',22],['コントロール／プレッシャー','',7],['テイクダウン','',4],['バックテイク','',6],['ドリル／体操','',3],['理論／解説','',5]],
+  pos: [['クローズドガード',11],['ハーフガード',9],['デラヒーバ',7],['Xガード',5],['ラッソー',4],['バタフライ',6],['スパイダー',5],['ノーギ 50/50',3],['マウント',8],['バック',6],['サイド',7]]
+};
+const sel = {tb:new Set(),cat:new Set(),pos:new Set()};
+let activeTab='tb';
+
+function render(){
+  const pane=document.getElementById('pane');pane.innerHTML='';
+  const list=DATA[activeTab];
+  list.forEach(row=>{
+    const [name,icoOrCnt,maybeCnt]=row;
+    const ico=activeTab==='tb'?icoOrCnt:'';
+    const cnt=activeTab==='tb'?maybeCnt:icoOrCnt;
+    const on=sel[activeTab].has(name);
+    const el=document.createElement('div');
+    el.className='chip'+(on?' on':'');
+    el.innerHTML=`${ico}${name}<span class="cnt">${cnt}</span>`;
+    el.onclick=()=>{on?sel[activeTab].delete(name):sel[activeTab].add(name);render();};
+    pane.appendChild(el);
+  });
+  // selected
+  const s=document.getElementById('sel');
+  const all=[...sel.tb,...sel.cat,...sel.pos];
+  if(!all.length){s.innerHTML='<span class="lbl">選択中:</span><span style="color:var(--text3)">なし</span>';}
+  else{
+    s.innerHTML='<span class="lbl">選択中:</span>'+all.map(n=>`<span class="pill" onclick="rm('${n}')">${n}</span>`).join('')+'<span class="clr" onclick="clr()">クリア</span>';
+  }
+  // fake hit
+  const n=all.length?Math.max(1,40-all.length*8):52;
+  document.getElementById('hit').textContent=n+' 件';
+}
+function rm(n){['tb','cat','pos'].forEach(k=>sel[k].delete(n));render();}
+function clr(){sel.tb.clear();sel.cat.clear();sel.pos.clear();render();}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');activeTab=t.dataset.k;render();});
+render();
+</script>
+</body></html>

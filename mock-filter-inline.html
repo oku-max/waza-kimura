@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>フィルタ内インラインタグ Mock</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+.note{padding:14px 18px;background:#fff;color:var(--text2);font-size:12px;border-bottom:1px solid var(--border)}
+.note b{color:var(--text)}
+
+.frame{max-width:580px;margin:24px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.08);overflow:hidden}
+.fhdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.fhdr h2{margin:0;font-size:14px;font-weight:700}
+.fhdr .x{font-size:18px;color:var(--text3);cursor:pointer}
+.fbody{padding:12px 14px;max-height:80vh;overflow-y:auto}
+
+.fsec{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--surface)}
+.fsec-title{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.4px;margin-bottom:8px;text-transform:uppercase}
+.fbar-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+.fbar-lbl{font-size:10px;font-weight:700;color:var(--text3);min-width:64px;padding-top:4px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;color:var(--text2)}
+.chip.on{background:var(--hover);border-color:var(--accent);color:var(--accent);font-weight:700}
+
+/* タグセクション (アクセント枠) */
+.tag-sec{border:1.5px solid var(--accent);border-radius:10px;padding:10px;margin-bottom:10px;background:rgba(107,63,212,.03)}
+.tag-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.tag-ttl{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.4px;text-transform:uppercase}
+.tag-clr{font-size:10px;color:var(--text3);text-decoration:underline;cursor:pointer}
+.tag-search{margin-bottom:8px}
+.tag-search input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit}
+
+/* タブ */
+.tabs{display:flex;gap:3px;margin-bottom:6px}
+.tab{flex:1;text-align:center;padding:6px 4px;border-radius:6px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;background:var(--surface);border:1px solid var(--border);white-space:nowrap}
+.tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab .bdg{display:inline-block;background:rgba(255,255,255,.3);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:3px}
+.tab:not(.on) .bdg{background:var(--accent);color:#fff}
+
+/* カルーセル */
+.track{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:8px;background:var(--surface);height:280px}
+.track::-webkit-scrollbar{display:none}
+.col{flex:0 0 100%;display:flex;flex-direction:column;border-right:1px solid var(--border);scroll-snap-align:start;min-width:0}
+.col:last-child{border-right:none}
+.col-hdr{padding:6px 10px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 3px;background:var(--surface);font-family:inherit}
+.col-body{flex:1;overflow-y:auto;padding:2px 0}
+.row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent}
+.row:hover{background:var(--hover)}
+.row.on{background:var(--hover);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+.row .cnt{font-size:11px;color:var(--text3)}
+.row.on .cnt{color:var(--accent)}
+.row.zero{opacity:.4}
+@media (min-width:520px){.col{flex:0 0 50%}}
+
+.tag-ftr{display:flex;align-items:center;gap:8px;padding:8px 2px 0;flex-wrap:wrap}
+.pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+.pill:after{content:" ×";opacity:.7}
+.tag-hit{font-size:11px;color:var(--accent);font-weight:700;margin-left:auto}
+</style></head><body>
+
+<div class="note">
+<b>フィルタ内インラインタグ Mock</b> — フィルタ画面の中にそのままタグセレクタを内包。ポップアップを開かずに済む。<br>
+カルーセルは横フリック or タブ切替、選択中ピル/件数はタグセクション内に表示。
+</div>
+
+<div class="frame">
+  <div class="fhdr"><h2>⊟ フィルター</h2><span class="x">✕</span></div>
+  <div class="fbody">
+
+    <!-- 既存セクション -->
+    <div class="fsec">
+      <div class="fsec-title">ステータス・進捗・優先度</div>
+      <div class="fbar-row"><span class="fbar-lbl">STATUS</span><div class="chips">
+        <span class="chip on">★ Fav</span><span class="chip">Unseen</span><span class="chip">視聴済み</span><span class="chip">🔖 BM</span>
+      </div></div>
+      <div class="fbar-row"><span class="fbar-lbl">PROGRESS</span><div class="chips">
+        <span class="chip">未着手</span><span class="chip on">練習中</span><span class="chip">マスター</span>
+      </div></div>
+      <div class="fbar-row"><span class="fbar-lbl">PRIORITY</span><div class="chips">
+        <span class="chip on">今すぐ</span><span class="chip">そのうち</span><span class="chip">保留</span>
+      </div></div>
+    </div>
+
+    <div class="fsec">
+      <div class="fsec-title">ソース・チャンネル・プレイリスト</div>
+      <div class="fbar-row"><span class="fbar-lbl">SOURCE</span><div class="chips">
+        <span class="chip">YouTube 334</span><span class="chip">Vimeo 24</span><span class="chip">GDrive 390</span>
+      </div></div>
+      <div class="fbar-row"><span class="fbar-lbl">CHANNEL</span><div class="chips"><span class="chip on">すべて</span></div></div>
+      <div class="fbar-row"><span class="fbar-lbl">PLAYLIST</span><div class="chips"><span class="chip on">すべて</span></div></div>
+    </div>
+
+    <!-- ★ インラインタグセクション -->
+    <div class="tag-sec">
+      <div class="tag-hdr">
+        <span class="tag-ttl">タグ</span>
+        <span class="tag-clr" id="tag-clr">クリア</span>
+      </div>
+      <div class="tag-search"><input id="q" placeholder="🔍 タグ名で検索..."></div>
+      <div class="tabs" id="tabs"></div>
+      <div class="track" id="track"></div>
+      <div class="tag-ftr">
+        <div id="pills" style="display:flex;gap:5px;flex-wrap:wrap"><span style="color:var(--text3);font-size:11px">選択中: なし</span></div>
+        <span class="tag-hit" id="hit">751 件</span>
+      </div>
+    </div>
+
+    <button style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-weight:700;cursor:pointer">× すべてリセット</button>
+
+  </div>
+</div>
+
+<script>
+const DATA = [
+  { k:'tb',   label:'T/B',        items:[['トップ',224],['ボトム',386],['スタンディング',0]] },
+  { k:'cat',  label:'カテゴリ',   items:[['エスケープ・ディフェンス',109],['ガードリテンション',42],['コントロール／プレッシャー',88],['スイープ',5],['テイクダウン',22],['フィニッシュ',123]] },
+  { k:'pos',  label:'ポジション', items:[['Kガード',2],['Xガード',1],['クローズドガード',228],['タートル',22],['デラヒーバ',26],['ハーフガード',50],['バタフライガード',1]] },
+  { k:'tags', label:'#タグ',      items:[['#チョーク',27],['#アームバー',25],['#レッグドラッグ',18],['#オモプラッタ',14],['#アームドラッグ',13],['#グリップカット',12]] }
+];
+const sel = {tb:new Set(),cat:new Set(),pos:new Set(),tags:new Set()};
+const sort = {tb:'abc',cat:'abc',pos:'abc',tags:'cnt'};
+let q='', activeTab=0;
+const tabsEl=document.getElementById('tabs'), trackEl=document.getElementById('track');
+
+function build(){
+  tabsEl.innerHTML = DATA.map((d,i)=>{
+    const n=sel[d.k].size;
+    return `<div class="tab${i===activeTab?' on':''}" data-i="${i}">${d.label}${n?`<span class="bdg">${n}</span>`:''}</div>`;
+  }).join('');
+  tabsEl.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    activeTab=+t.dataset.i;
+    trackEl.children[activeTab]?.scrollIntoView({behavior:'smooth',inline:'start',block:'nearest'});
+    build();
+  });
+  trackEl.innerHTML = DATA.map(d=>{
+    let list=d.items.slice();
+    if(q)list=list.filter(([n])=>n.toLowerCase().includes(q));
+    if(sort[d.k]==='abc')list.sort((a,b)=>a[0].localeCompare(b[0],'ja'));
+    else list.sort((a,b)=>b[1]-a[1]);
+    const rows=list.map(([n,c])=>{
+      const on=sel[d.k].has(n);
+      return `<div class="row${on?' on':''}${c===0&&!on?' zero':''}" data-k="${d.k}" data-n="${n}"><span>${n}</span><span class="cnt">${c}本</span></div>`;
+    }).join('');
+    return `<div class="col"><div class="col-hdr"><span>${d.label}</span><select data-s="${d.k}"><option value="abc"${sort[d.k]==='abc'?' selected':''}>あいうえ順</option><option value="cnt"${sort[d.k]==='cnt'?' selected':''}>件数順</option></select></div><div class="col-body">${rows}</div></div>`;
+  }).join('');
+  trackEl.querySelectorAll('.row').forEach(r=>r.onclick=()=>{
+    const k=r.dataset.k,n=r.dataset.n;
+    sel[k].has(n)?sel[k].delete(n):sel[k].add(n);build();
+  });
+  trackEl.querySelectorAll('select').forEach(s=>s.onchange=()=>{sort[s.dataset.s]=s.value;build();});
+  const all=Object.keys(sel).flatMap(k=>[...sel[k]].map(n=>[k,n]));
+  const pills=document.getElementById('pills');
+  pills.innerHTML=all.length?'<span style="color:var(--text3);font-size:10px;font-weight:700;margin-right:4px">選択中:</span>'+all.map(([k,n])=>`<span class="pill" data-k="${k}" data-n="${n}">${n}</span>`).join(''):'<span style="color:var(--text3);font-size:11px">選択中: なし</span>';
+  pills.querySelectorAll('.pill').forEach(p=>p.onclick=()=>{sel[p.dataset.k].delete(p.dataset.n);build();});
+  document.getElementById('hit').textContent=(all.length?Math.max(1,751-all.length*40):751)+' 件';
+}
+document.getElementById('q').oninput=e=>{q=e.target.value.trim().toLowerCase();build();};
+document.getElementById('tag-clr').onclick=()=>{Object.values(sel).forEach(s=>s.clear());build();};
+let st;trackEl.addEventListener('scroll',()=>{clearTimeout(st);st=setTimeout(()=>{const cw=trackEl.children[0]?.offsetWidth||1;const i=Math.round(trackEl.scrollLeft/cw);if(i!==activeTab&&i>=0&&i<DATA.length){activeTab=i;tabsEl.querySelectorAll('.tab').forEach((t,idx)=>t.classList.toggle('on',idx===activeTab));}},80);});
+build();
+</script>
+
+</body></html>

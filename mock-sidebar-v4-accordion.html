@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>Sidebar v4 Mock — 案4 入れ子アコーディオン</title>
+<style>
+:root{--bg:#0f1115;--surf:#171a21;--surf2:#1e222b;--border:#2a2f3a;--text:#e7e9ee;--text2:#aab0bd;--text3:#6b7280;--accent:#8c50ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+.wrap{max-width:320px;margin:20px auto;background:var(--surf);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.hdr{padding:10px 14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.body{padding:8px 10px 12px}
+.sub{border:1px solid var(--border);border-radius:8px;margin-bottom:6px;overflow:hidden;background:var(--surf2)}
+.sub-hdr{padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;user-select:none}
+.sub-hdr:hover{background:rgba(255,255,255,.03)}
+.sub-hdr .cnt{font-size:10px;color:var(--text3);font-weight:500}
+.sub-hdr .arr{color:var(--text3);font-size:10px;transition:.15s}
+.sub.open .arr{transform:rotate(90deg)}
+.sub-body{display:none;padding:8px 12px 10px;border-top:1px solid var(--border);flex-wrap:wrap;gap:5px;max-height:180px;overflow-y:auto}
+.sub.open .sub-body{display:flex}
+.chip{padding:3px 9px;border-radius:12px;background:var(--surf);border:1px solid var(--border);color:var(--text2);font-size:11px;cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--accent);color:var(--text)}
+.chip.on{background:rgba(140,80,255,.22);border-color:var(--accent);color:var(--text);font-weight:700}
+.chip .n{font-size:9px;opacity:.6;margin-left:3px}
+.sel-line{font-size:10px;color:var(--accent);padding:0 2px;margin-top:4px}
+.hit{font-size:10px;color:var(--accent);font-weight:700}
+.badge{background:var(--accent);color:#fff;padding:1px 6px;border-radius:8px;font-size:9px;margin-left:4px}
+</style></head><body>
+
+<div class="wrap">
+  <div class="hdr"><span>🆕 4層タグ <span style="color:var(--accent);font-size:9px">MOCK 案4</span></span><span class="hit" id="hit">-- 件</span></div>
+  <div class="body" id="body"></div>
+</div>
+
+<script>
+const LAYERS=[
+  {k:'tb', icon:'🧭', label:'TB', items:[['トップ',12],['ボトム',34],['スタンディング',6]]},
+  {k:'cat',icon:'📂', label:'カテゴリ', items:[['エスケープ・ディフェンス',8],['パスガード',15],['ガードリテンション',9],['スイープ',11],['フィニッシュ',22],['コントロール／プレッシャー',7],['テイクダウン',4],['バックテイク',6],['ドリル／体操',3],['理論／解説',5]]},
+  {k:'pos',icon:'📍', label:'ポジション', items:[['クローズドガード',11],['ハーフガード',9],['デラヒーバ',7],['Xガード',5],['ラッソー',4],['バタフライ',6],['スパイダー',5],['ノーギ 50/50',3],['マウント',8],['バック',6],['サイド',7]]}
+];
+const sel={tb:new Set(),cat:new Set(),pos:new Set()};
+const open={tb:false,cat:false,pos:false};
+
+function render(){
+  const body=document.getElementById('body');body.innerHTML='';
+  LAYERS.forEach(L=>{
+    const s=sel[L.k];
+    const div=document.createElement('div');
+    div.className='sub'+(open[L.k]?' open':'');
+    const badge=s.size?`<span class="badge">${s.size}</span>`:'';
+    div.innerHTML=`
+      <div class="sub-hdr"><span>${L.icon} ${L.label}${badge}<span class="cnt"> (${L.items.length})</span></span><span class="arr">▶</span></div>
+      <div class="sub-body">${L.items.map(([n,c])=>`<span class="chip${s.has(n)?' on':''}" data-n="${n}">${n}<span class="n">${c}</span></span>`).join('')}</div>`;
+    div.querySelector('.sub-hdr').onclick=()=>{open[L.k]=!open[L.k];render();};
+    div.querySelectorAll('.chip').forEach(c=>c.onclick=e=>{e.stopPropagation();const n=c.dataset.n;s.has(n)?s.delete(n):s.add(n);render();});
+    body.appendChild(div);
+  });
+  // selected line
+  const all=[...sel.tb,...sel.cat,...sel.pos];
+  if(all.length){
+    const line=document.createElement('div');
+    line.className='sel-line';
+    line.textContent='選択中: '+all.join(' ・ ');
+    body.appendChild(line);
+  }
+  const n=all.length?Math.max(1,40-all.length*8):52;
+  document.getElementById('hit').textContent=n+' 件';
+}
+render();
+</script>
+</body></html>

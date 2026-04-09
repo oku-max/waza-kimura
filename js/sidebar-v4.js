@@ -66,7 +66,7 @@
 <style id="v4-popup-css">
 #v4-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #v4-bd.open{display:block}
-#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:min(640px,calc(100vh - 60px));background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));height:min(560px,calc(100vh - 80px));max-height:calc(100vh - 24px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
 #v4-popup.open{display:flex}
 #v4-popup .v4-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
 #v4-popup .v4-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
@@ -245,7 +245,6 @@
 
   function _renderAll() {
     _renderInto('v4-');     // popup
-    _renderInto('v4i-');    // inline
     // Badge (sidebar + mobile filter overlay)
     if (!_ensureFilters()) return;
     const f = window.filters;
@@ -283,68 +282,6 @@
   window.v4Search  = function (v) { _q = (v || '').trim().toLowerCase(); _renderAll(); };
   window.v4OpenPopup = openPopup;
   window.v4ClosePopup = closePopup;
-
-  // ── インライン展開 (フィルターオーバーレイ内) ──
-  window.v4MountInline = function (hostId) {
-    const host = document.getElementById(hostId);
-    if (!host) return;
-    if (host._v4Mounted) { _renderAll(); return; }
-    host._v4Mounted = true;
-    host.innerHTML = `
-      <div class="v4-inline">
-        <div class="v4-search"><input id="v4i-q" placeholder="🔍 タグ名で検索..." oninput="v4Search(this.value)"></div>
-        <div class="v4-tabs" id="v4i-tabs"></div>
-        <div class="v4-cols" id="v4i-cols-track" style="height:280px"></div>
-        <div class="v4-ftr" style="border:none;background:transparent;padding:8px 0 0">
-          <span class="v4-lbl">選択中:</span>
-          <div id="v4i-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-          <span class="v4-sp"></span>
-          <span class="v4-clr" onclick="v4Clear()">クリア</span>
-          <span class="v4-hit" id="v4i-hit">0 件</span>
-        </div>
-      </div>`;
-    _renderAll();
-    // スクロール追従
-    const track = document.getElementById('v4i-cols-track');
-    if (track && !track._v4Bound) {
-      track._v4Bound = true;
-      let t;
-      track.addEventListener('scroll', () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-          const cw = track.children[0]?.offsetWidth || 1;
-          const i = Math.round(track.scrollLeft / cw);
-          if (i !== _activeTab && i >= 0 && i < _COLS.length) {
-            _activeTab = i;
-            document.querySelectorAll('#v4i-tabs .v4-tab, #v4-tabs .v4-tab').forEach(el => {
-              el.classList.toggle('on', +el.dataset.i === _activeTab);
-            });
-          }
-        }, 80);
-      });
-    }
-  };
-
-  // 折りたたみトグル
-  window.v4ToggleInline = function (btn) {
-    const wrap = document.getElementById('fov-tag-wrap');
-    if (!wrap) return;
-    const body = document.getElementById('fov-tag-body');
-    const arr  = document.getElementById('fov-tag-arr');
-    const open = body.style.display !== 'none';
-    if (open) {
-      body.style.display = 'none';
-      if (arr) arr.textContent = '▶';
-    } else {
-      body.style.display = 'block';
-      if (arr) arr.textContent = '▼';
-      window.v4MountInline('fov-tag-body');
-      // 画面切れ防止: 展開後にスクロール
-      setTimeout(() => {
-        wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
-      }, 50);
-    }
-  };
 
   // スクロール追従: 横スクロール停止位置に応じてアクティブタブ更新
   function _bindScrollSync() {

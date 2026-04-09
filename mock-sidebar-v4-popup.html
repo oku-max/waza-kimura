@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>Sidebar v4 Mock — 3カラムポップアップ</title>
+<style>
+:root{--bg:#f6f7f9;--surf:#fff;--surf2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif}
+
+/* fake app layout */
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;background:var(--surf);border-right:1px solid var(--border);padding:16px 12px}
+.sb-sec{margin-bottom:14px}
+.sb-ttl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.5px;margin-bottom:6px}
+.sb-btn{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
+.sb-btn:hover{background:var(--hover);border-color:var(--accent)}
+.sb-btn .ic{color:var(--accent)}
+.sb-btn .badge{background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px}
+.main{flex:1;padding:30px;color:var(--text3);font-size:12px}
+
+/* popup */
+.backdrop{position:fixed;inset:0;background:rgba(20,25,35,.35);display:none;z-index:10}
+.backdrop.open{display:block}
+.popup{position:fixed;top:0;left:240px;bottom:0;width:760px;background:var(--surf);box-shadow:2px 0 24px rgba(0,0,0,.12);border-right:1px solid var(--border);display:none;flex-direction:column;z-index:11}
+.popup.open{display:flex}
+.pop-hdr{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.pop-hdr h2{margin:0;font-size:15px;font-weight:700}
+.pop-hdr .x{cursor:pointer;font-size:20px;color:var(--text3);padding:4px 10px;border-radius:6px}
+.pop-hdr .x:hover{background:var(--surf2);color:var(--text)}
+.pop-search{padding:10px 18px;border-bottom:1px solid var(--border)}
+.pop-search input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surf2)}
+.pop-search input:focus{outline:none;border-color:var(--accent);background:#fff}
+
+.cols{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden}
+.col{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
+.col:last-child{border-right:none}
+.col-hdr{padding:10px 14px 6px;font-size:11px;font-weight:700;color:var(--text2);display:flex;justify-content:space-between;align-items:center;background:var(--surf2)}
+.col-hdr .ttl{display:flex;align-items:center;gap:5px}
+.col-hdr .ttl .ic{font-size:13px}
+.col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:5px;padding:2px 4px;background:#fff;color:var(--text2);cursor:pointer}
+.col-body{flex:1;overflow-y:auto;padding:4px 0}
+.row{padding:9px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;border-left:3px solid transparent}
+.row:hover{background:var(--hover)}
+.row.on{background:var(--hover);border-left-color:var(--accent);font-weight:700;color:var(--accent)}
+.row .cnt{font-size:11px;color:var(--text3);font-weight:500}
+.row.on .cnt{color:var(--accent)}
+
+.pop-ftr{border-top:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:8px;background:var(--surf2);flex-wrap:wrap;min-height:50px}
+.pop-ftr .lbl{font-size:11px;color:var(--text3);font-weight:700;margin-right:4px}
+.pill{background:var(--accent);color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;font-weight:700}
+.pill:after{content:" ×";opacity:.7}
+.pop-ftr .sp{flex:1}
+.pop-ftr .hit{font-size:12px;color:var(--accent);font-weight:700}
+.pop-ftr .clr{font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:8px}
+.pop-ftr .apply{background:var(--accent);color:#fff;border:none;padding:7px 18px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer}
+</style></head><body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-sec"><div class="sb-ttl">LIBRARY</div>
+      <div class="sb-btn" onclick="open_()"><span><span class="ic">🆕</span> 4層タグ</span><span class="badge" id="sb-badge" style="display:none">0</span></div>
+    </div>
+    <div class="sb-sec"><div class="sb-ttl">OTHER</div>
+      <div class="sb-btn" style="font-weight:500;color:var(--text2)"><span>📺 Channel</span><span>▸</span></div>
+      <div class="sb-btn" style="font-weight:500;color:var(--text2);margin-top:6px"><span>📋 Playlist</span><span>▸</span></div>
+    </div>
+  </aside>
+  <main class="main">← 「4層タグ」をクリック</main>
+</div>
+
+<div class="backdrop" id="bd" onclick="close_()"></div>
+<div class="popup" id="pop">
+  <div class="pop-hdr">
+    <h2>🆕 4層タグで絞り込む</h2>
+    <div class="x" onclick="close_()">×</div>
+  </div>
+  <div class="pop-search"><input placeholder="🔍 タグ名で検索..." oninput="search(this.value)"></div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="col-hdr"><span class="ttl"><span class="ic">🧭</span>T/B</span>
+        <select onchange="setSort('tb',this.value)"><option value="abc">ABC順</option><option value="cnt">件数順</option></select>
+      </div>
+      <div class="col-body" id="col-tb"></div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="ttl"><span class="ic">📂</span>カテゴリ</span>
+        <select onchange="setSort('cat',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
+      </div>
+      <div class="col-body" id="col-cat"></div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="ttl"><span class="ic">📍</span>ポジション</span>
+        <select onchange="setSort('pos',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
+      </div>
+      <div class="col-body" id="col-pos"></div>
+    </div>
+  </div>
+
+  <div class="pop-ftr">
+    <span class="lbl">選択中:</span>
+    <div id="sel-pills" style="display:flex;gap:5px;flex-wrap:wrap"><span style="color:var(--text3);font-size:11px">なし</span></div>
+    <span class="sp"></span>
+    <span class="clr" onclick="clr()">クリア</span>
+    <span class="hit" id="hit">52 件</span>
+    <button class="apply" onclick="close_()">適用</button>
+  </div>
+</div>
+
+<script>
+const DATA={
+  tb:[['トップ',12],['ボトム',34],['スタンディング',6]],
+  cat:[['エスケープ・ディフェンス',8],['パスガード',15],['ガードリテンション',9],['スイープ',11],['フィニッシュ',22],['コントロール／プレッシャー',7],['テイクダウン',4],['バックテイク',6],['ドリル／体操',3],['理論／解説',5]],
+  pos:[['クローズドガード',11],['ハーフガード',9],['デラヒーバ',7],['Xガード',5],['ラッソー',4],['バタフライ',6],['スパイダー',5],['ノーギ 50/50',3],['マウント',8],['バック',6],['サイド',7],['タートル',4],['ニーオンベリー',2],['ノース・サウス',3],['ヘッドロック',2]]
+};
+const sel={tb:new Set(),cat:new Set(),pos:new Set()};
+const sort={tb:'abc',cat:'abc',pos:'abc'};
+let q='';
+
+function open_(){document.getElementById('bd').classList.add('open');document.getElementById('pop').classList.add('open');render();}
+function close_(){document.getElementById('bd').classList.remove('open');document.getElementById('pop').classList.remove('open');}
+function setSort(k,v){sort[k]=v;render();}
+function search(v){q=v.trim().toLowerCase();render();}
+function clr(){sel.tb.clear();sel.cat.clear();sel.pos.clear();render();}
+function tog(k,n){sel[k].has(n)?sel[k].delete(n):sel[k].add(n);render();}
+function rm(n){['tb','cat','pos'].forEach(k=>sel[k].delete(n));render();}
+
+function render(){
+  ['tb','cat','pos'].forEach(k=>{
+    let list=DATA[k].slice();
+    if(q)list=list.filter(([n])=>n.toLowerCase().includes(q));
+    if(sort[k]==='abc')list.sort((a,b)=>a[0].localeCompare(b[0],'ja'));
+    else list.sort((a,b)=>b[1]-a[1]);
+    const host=document.getElementById('col-'+k);
+    host.innerHTML=list.map(([n,c])=>`<div class="row${sel[k].has(n)?' on':''}" onclick="tog('${k}','${n}')"><span>${n}</span><span class="cnt">${c}本</span></div>`).join('')||'<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+  });
+  const all=[...sel.tb,...sel.cat,...sel.pos];
+  const pills=document.getElementById('sel-pills');
+  pills.innerHTML=all.length?all.map(n=>`<span class="pill" onclick="rm('${n}')">${n}</span>`).join(''):'<span style="color:var(--text3);font-size:11px">なし</span>';
+  const n=all.length?Math.max(1,52-all.length*7):52;
+  document.getElementById('hit').textContent=n+' 件';
+  const b=document.getElementById('sb-badge');
+  if(all.length){b.style.display='inline-block';b.textContent=all.length;}else b.style.display='none';
+}
+render();
+</script>
+</body></html>
