@@ -1319,6 +1319,7 @@ function _renderBlurArea(id) {
 
 export function closeVPanel() {
   try {
+    window.vpCntCancelView?.();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     _stopTimeDisplay();
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
@@ -1560,6 +1561,7 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     </div>
+    ${window.vpCounterSectionHTML?.(id) || ''}
     ${window.vpV4SectionHTML?.(id) || ''}
     <div class="fsec" style="opacity:.55">
       <div class="fsec-title">ポジション・テクニック <span style="font-size:10px;color:var(--text3);font-weight:400">(旧・移行期間)</span></div>

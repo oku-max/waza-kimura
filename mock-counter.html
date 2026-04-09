@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>カウンター機能 モック</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff;--practice:#e8590c;--views:#1971c2;--fresh:#e8590c;--mid:#8a94a3;--stale:#adb5bd}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:var(--bg);color:var(--text);font:13px/1.6 -apple-system,"Hiragino Sans",sans-serif}
+h2{font-size:12px;margin:28px 0 10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px}
+p.d{color:var(--text2);font-size:12px;max-width:900px;line-height:1.7;margin:0 0 14px}
+
+/* ═══ ① vpanel カウンター ═══ */
+.vpanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:520px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.vpanel .ttl{font-size:14px;font-weight:700;margin-bottom:12px}
+.cntr-row{display:flex;gap:12px;margin-top:12px}
+.cntr{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.cntr .lb{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.cntr .ctrl{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cntr .num{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;min-width:32px;text-align:center}
+.cntr.pr .num{color:var(--practice)}
+.cntr.vw .num{color:var(--views)}
+.btn-c{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;font-size:16px;font-weight:700;color:var(--text2);display:inline-flex;align-items:center;justify-content:center;font-family:inherit}
+.btn-c:hover{border-color:var(--accent);color:var(--accent)}
+.btn-c.plus{background:var(--accent);border-color:var(--accent);color:#fff}
+.cntr .sub{font-size:10px;color:var(--text3);margin-top:4px}
+
+/* ═══ ② 検索チップ ═══ */
+.srch{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;max-width:520px}
+.srch .lb{font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{padding:5px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;color:var(--text2);font-weight:600}
+.chip.on{background:rgba(107,63,212,.1);border-color:var(--accent);color:var(--accent)}
+.range{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+.range input{flex:1}
+
+/* ═══ ③ カードビュー バッジ ═══ */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:900px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;position:relative}
+.card .thumb{aspect-ratio:16/9;background:linear-gradient(135deg,#3a3f4a,#1a1d23);position:relative}
+.card .thumb::after{content:"▶";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,.5);font-size:24px}
+.card .meta{padding:8px 10px}
+.card .nm{font-size:11px;font-weight:700;line-height:1.3;margin-bottom:4px}
+.card .ch{font-size:10px;color:var(--text3)}
+
+/* A: 右上重ね */
+.bdgA{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.bdgA .b{background:rgba(0,0,0,.65);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;backdrop-filter:blur(4px);font-variant-numeric:tabular-nums}
+.bdgA .b.pr{background:rgba(232,89,12,.9)}
+.bdgA .b.zero{background:rgba(0,0,0,.4);color:rgba(255,255,255,.6)}
+
+/* B: 下段インライン */
+.bdgB{display:flex;gap:8px;padding:6px 10px 8px;font-size:10px;color:var(--text2);font-weight:700;align-items:center}
+.bdgB .dt{margin-left:auto;font-size:9px;color:var(--text3);font-weight:600}
+.bdgB .b{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.bdgB .b.pr{color:var(--practice)}
+.bdgB .b.vw{color:var(--views)}
+.bdgB .b.z{color:var(--text3);opacity:.5}
+
+/* C: 左下オーバーレイ (練習のみ強調) */
+.bdgC{position:absolute;left:6px;bottom:6px;background:var(--practice);color:#fff;font-size:11px;font-weight:800;padding:4px 9px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.25);font-variant-numeric:tabular-nums;line-height:1.2;text-align:center}
+.bdgC .dt{display:block;font-size:9px;font-weight:600;opacity:.9;margin-top:1px}
+.bdgC.z{background:rgba(0,0,0,.5)}
+.bdgC.mid{background:var(--mid)}
+.bdgC.stale{background:var(--stale);color:#fff}
+
+/* D: 左端リボン */
+.bdgD{position:absolute;top:8px;left:0;background:var(--practice);color:#fff;font-size:10px;font-weight:700;padding:2px 8px 2px 6px;border-radius:0 10px 10px 0;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.bdgD .v{margin-left:4px;font-variant-numeric:tabular-nums}
+
+/* ソート */
+.sort{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;max-width:520px;display:flex;align-items:center;gap:10px;font-size:12px}
+.sort select{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit}
+</style></head><body>
+
+<p class="d"><b>動画カウンター機能</b> — 練習回数 (手動+1) / 視聴回数 (30秒以上再生で自動+1) の2指標を管理。UI接点は vpanel / 検索 / カードビュー の3箇所。</p>
+
+<h2>① vpanel 内カウンター</h2>
+<p class="d">動画詳細パネルに配置。練習は大きい+ボタンで気軽にタップ、−ボタンで取消可。視聴は自動カウントなので数字表示のみ。</p>
+<div class="vpanel">
+  <div class="ttl">🥋 クローズドガードからのアームバー</div>
+  <div style="color:var(--text3);font-size:11px">TryForce Advanced / 12:34</div>
+  <div class="cntr-row">
+    <div class="cntr pr">
+      <div class="lb">🥋 練習回数</div>
+      <div class="ctrl">
+        <button class="btn-c">−</button>
+        <div class="num">5</div>
+        <button class="btn-c plus">+</button>
+      </div>
+      <div class="sub">最終: <b style="color:var(--practice)">2日前</b> (4/7) · 今月 3回 · 連続 2日 🔥</div>
+    </div>
+    <div class="cntr vw">
+      <div class="lb">👁 視聴回数</div>
+      <div class="ctrl" style="justify-content:center">
+        <div class="num">12</div>
+      </div>
+      <div class="sub">最終: <b style="color:var(--views)">今日</b> (4/9)</div>
+    </div>
+  </div>
+</div>
+
+<h2>② 検索 / フィルター条件</h2>
+<p class="d">統合フィルターの「ステータス・優先度」タブに4カラム目として追加、または詳細検索にスライダー。クイックチップが一番使いやすい。</p>
+<div class="srch">
+  <div class="lb">🥋 練習回数</div>
+  <div class="chips">
+    <span class="chip">未練習 (0)</span>
+    <span class="chip on">1回以上</span>
+    <span class="chip">3回以上</span>
+    <span class="chip">5回以上</span>
+    <span class="chip">10回以上</span>
+  </div>
+  <div class="lb">👁 視聴回数</div>
+  <div class="chips">
+    <span class="chip on">未視聴</span>
+    <span class="chip">1-4回</span>
+    <span class="chip">5回以上</span>
+  </div>
+  <div class="lb">🗓 最終練習日</div>
+  <div class="chips">
+    <span class="chip">今週 (7日以内)</span>
+    <span class="chip">今月 (30日以内)</span>
+    <span class="chip on">しばらく練習してない (30日+)</span>
+    <span class="chip">未練習</span>
+  </div>
+  <div class="lb">並び順 (追加項目)</div>
+  <div class="range">
+    <select>
+      <option>練習回数が多い順</option>
+      <option>視聴回数が多い順</option>
+      <option>最終練習日が新しい順</option>
+      <option>最終練習日が古い順 (復習モード)</option>
+    </select>
+  </div>
+</div>
+
+<h2>③ カードビュー バッジ - 4パターン</h2>
+<p class="d">A: 右上オーバーレイ / B: 下段インライン / C: 左下 練習のみ強調 / D: 左端リボン</p>
+
+<h3 style="font-size:11px;color:var(--text2);margin:12px 0 6px">A. 右上オーバーレイ (サムネ上に重ね)</h3>
+<div class="cards">
+  <div class="card"><div class="thumb"><div class="bdgA"><span class="b pr">🥋5</span><span class="b">👁12</span></div></div><div class="meta"><div class="nm">アームバー基本</div><div class="ch">TryForce</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgA"><span class="b pr">🥋1</span><span class="b">👁3</span></div></div><div class="meta"><div class="nm">スイープ応用</div><div class="ch">DEEP HALF</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgA"><span class="b zero">🥋0</span><span class="b zero">👁0</span></div></div><div class="meta"><div class="nm">レッグロック入門</div><div class="ch">木部亮</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgA"><span class="b pr">🥋23</span><span class="b">👁45</span></div></div><div class="meta"><div class="nm">クロスチョーク</div><div class="ch">岩崎正寛</div></div></div>
+</div>
+
+<h3 style="font-size:11px;color:var(--text2);margin:18px 0 6px">B. 下段インライン (メタ情報として)</h3>
+<div class="cards">
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">アームバー基本</div><div class="ch">TryForce</div></div><div class="bdgB"><span class="b pr">🥋 5</span><span class="b vw">👁 12</span><span class="dt">2d前</span></div></div>
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">スイープ応用</div><div class="ch">DEEP HALF</div></div><div class="bdgB"><span class="b pr">🥋 1</span><span class="b vw">👁 3</span><span class="dt">6d前</span></div></div>
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">レッグロック入門</div><div class="ch">木部亮</div></div><div class="bdgB"><span class="b z">🥋 未</span><span class="b z">👁 未</span><span class="dt">—</span></div></div>
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">クロスチョーク</div><div class="ch">岩崎正寛</div></div><div class="bdgB"><span class="b pr">🥋 23</span><span class="b vw">👁 45</span><span class="dt">3w前</span></div></div>
+</div>
+
+<h3 style="font-size:11px;color:var(--text2);margin:18px 0 6px">C. 左下 練習回数 + 経過日数 (色で鮮度)</h3>
+<p class="d" style="margin-bottom:8px;font-size:11px">🟠 3日以内 (鮮度◎) / ⚫ 1週間以内 / ⚪ 2週間以上 (復習時期)</p>
+<div class="cards">
+  <div class="card"><div class="thumb"><div class="bdgC">🥋 5<span class="dt">2d前</span></div></div><div class="meta"><div class="nm">アームバー基本</div><div class="ch">TryForce</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgC mid">🥋 1<span class="dt">6d前</span></div></div><div class="meta"><div class="nm">スイープ応用</div><div class="ch">DEEP HALF</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgC z">🥋 0<span class="dt">未練習</span></div></div><div class="meta"><div class="nm">レッグロック入門</div><div class="ch">木部亮</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgC stale">🥋 23<span class="dt">3w前</span></div></div><div class="meta"><div class="nm">クロスチョーク</div><div class="ch">岩崎正寛</div></div></div>
+</div>
+
+<h3 style="font-size:11px;color:var(--text2);margin:18px 0 6px">D. 左端リボン (ゲーム的)</h3>
+<div class="cards">
+  <div class="card"><div class="thumb"><div class="bdgD">🥋<span class="v">5</span></div></div><div class="meta"><div class="nm">アームバー基本</div><div class="ch">TryForce</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgD">🥋<span class="v">1</span></div></div><div class="meta"><div class="nm">スイープ応用</div><div class="ch">DEEP HALF</div></div></div>
+  <div class="card"><div class="thumb"></div><div class="meta"><div class="nm">レッグロック入門 (0回は非表示)</div><div class="ch">木部亮</div></div></div>
+  <div class="card"><div class="thumb"><div class="bdgD">🥋<span class="v">23</span></div></div><div class="meta"><div class="nm">クロスチョーク</div><div class="ch">岩崎正寛</div></div></div>
+</div>
+
+<h2>推奨構成</h2>
+<p class="d" style="max-width:900px">
+<b>データ</b>: `practice`, `practiceLog[]`, `lastPracticed`, `views`, `lastViewed` を Firebase に保存。配列を持てば月別/ストリーク/ヒートマップまで後で拡張可。<br>
+<b>vpanel</b>: 練習=±ボタン / 視聴=自動。下に「2日前・今月3回・連続2日 🔥」を表示<br>
+<b>検索</b>: 「練習回数」+「最終練習日」チップ。特に「しばらく練習してない」は復習リマインダーとして目玉機能<br>
+<b>カード</b>: <b>C案 (左下リボン + 経過日数 + 色で鮮度)</b> 推奨。鮮やかオレンジ=最近/グレー=復習時期、の色分けで一目で状態把握<br>
+<b>視聴の自動カウント</b>: 30秒以上 or 50%再生で+1 (シーク連打で増えない)
+</p>
+
+</body></html>
