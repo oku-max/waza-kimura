@@ -67,7 +67,6 @@ body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragin
     <div class="search"><input id="q" placeholder="🔍 検索..." oninput="render()"></div>
     <div class="x" onclick="alert('閉じる (モック)')">✕</div>
   </div>
-  <div class="subTabs" id="subTabs"></div>
   <div id="content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
   <div class="ftr">
     <span class="lbl">選択中:</span>
@@ -147,36 +146,25 @@ function render(){
     return `<div class="tab${mainTab===m.k?' on':''}" onclick="setMain('${m.k}')">${m.label}${n?`<span class="bdg">${n}</span>`:''}</div>`;
   }).join('');
 
-  // サブタブ
-  const m = MAIN.find(x=>x.k===mainTab);
-  document.getElementById('subTabs').innerHTML = m.subs.map(s=>
-    `<div class="st${subTab[mainTab]===s?' on':''}" onclick="setSub('${s}')">${m.subLbl[s]}</div>`
-  ).join('');
-
-  // コンテンツ
+  // コンテンツ (サブタブ廃止・常に全カラム表示)
   const c = document.getElementById('content');
-  const st = subTab[mainTab];
   if (mainTab==='state'){
-    const items = st==='status'?STATUS:st==='progress'?PROGRESS:PRIORITY;
-    c.innerHTML = `<div class="chipsArea">${chipList(st, items, m.subLbl[st])}</div>`;
+    c.innerHTML = `<div class="chipsArea">
+      ${chipList('status', STATUS, 'ステータス')}
+      ${chipList('progress', PROGRESS, '進捗')}
+      ${chipList('priority', PRIORITY, '優先度')}
+    </div>`;
   } else if (mainTab==='src'){
     const srcC = colHtml('Source','src',SRC.map(([v,l,c])=>[l,c]),{narrow:true,sortable:false});
     const chC  = colHtml('Channel','ch',CH);
     const plC  = colHtml('Playlist','pl',PL);
-    if (st==='all')      c.innerHTML = `<div class="cols">${srcC}${chC}${plC}</div>`;
-    else if (st==='src') c.innerHTML = `<div class="cols">${colHtml('Source','src',SRC.map(([v,l,c])=>[l,c]),{sortable:false})}</div>`;
-    else if (st==='ch')  c.innerHTML = `<div class="cols">${colHtml('Channel','ch',CH)}</div>`;
-    else                 c.innerHTML = `<div class="cols">${colHtml('Playlist','pl',PL)}</div>`;
+    c.innerHTML = `<div class="cols">${srcC}${chC}${plC}</div>`;
   } else {
     const tbC  = colHtml('T/B','tb',TB);
     const catC = colHtml('カテゴリ','cat',CAT);
     const posC = colHtml('ポジション','pos',POS);
     const tagC = colHtml('#タグ','tags',TAGS);
-    if (st==='all')      c.innerHTML = `<div class="cols">${tbC}${catC}${posC}${tagC}</div>`;
-    else if (st==='tb')  c.innerHTML = `<div class="cols">${tbC}</div>`;
-    else if (st==='cat') c.innerHTML = `<div class="cols">${catC}</div>`;
-    else if (st==='pos') c.innerHTML = `<div class="cols">${posC}</div>`;
-    else                 c.innerHTML = `<div class="cols">${tagC}</div>`;
+    c.innerHTML = `<div class="cols">${tbC}${catC}${posC}${tagC}</div>`;
   }
 
   // Pills
