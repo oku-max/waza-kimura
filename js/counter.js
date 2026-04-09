@@ -84,27 +84,25 @@
     const month = _countThisMonth(v.practiceLog);
     const st = _streak(v.practiceLog);
     const pColor = '#e8590c';
-    const rank = window.vpCntRank(p);
-    const next = RANKS[rank.lv + 1];
-    const fill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
-    const btnS = `width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
-    const btnP = `width:22px;height:22px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:12px;font-weight:700;color:#fff;padding:0;font-family:inherit`;
+    const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
+    const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:#fff;padding:0;font-family:inherit`;
+    const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
-  <div class="fsec-title" style="display:flex;align-items:center;justify-content:space-between">
-    <span>カウンター</span>
-    <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:14px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700" title="Fav">★</span>
-  </div>
-  <div id="vp-cnt-p-row-${id}" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px">
-    <span style="color:var(--text3);font-weight:700;width:46px;flex-shrink:0">🥋 練習</span>
-    <button onclick="vpCntDec('${id}','practice')" style="${btnS}">−</button>
-    <span id="vp-cnt-p-${id}" style="font-size:13px;font-weight:800;color:${pColor};min-width:18px;text-align:center;font-variant-numeric:tabular-nums">${p}</span>
-    <button onclick="vpCntInc('${id}','practice')" style="${btnP}">＋</button>
-    <span id="vp-cnt-rank-${id}" style="display:inline-flex;align-items:center;gap:6px;margin-left:6px">
-      <span style="font-size:10px;color:${rank.color};font-weight:700;white-space:nowrap">${rank.short}</span>
-      <span style="width:50px;height:3px;background:var(--border);border-radius:2px;overflow:hidden"><span style="display:block;height:100%;width:${fill}%;background:${rank.color};border-radius:2px;transition:width .3s"></span></span>
-    </span>
-    <span id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-left:auto;white-space:nowrap">${lastP}${month>0?` · ${month}回/月`:''}${st>1?` · ${st}日🔥`:''}</span>
+  <div style="display:flex;gap:14px;align-items:flex-start">
+    <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+      <div style="${subTitle}">お気に入り</div>
+      <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="${subTitle}">カウンター</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="vpCntDec('${id}','practice')" style="${btnS}">−</button>
+        <span id="vp-cnt-p-${id}" style="font-size:18px;font-weight:800;color:${pColor};min-width:28px;text-align:center;font-variant-numeric:tabular-nums">${p}</span>
+        <button onclick="vpCntInc('${id}','practice')" style="${btnP}">＋</button>
+      </div>
+      <div id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b style="color:${pColor}">${lastP}</b>${month>0?` · 今月 ${month}回`:''}${st>1?` · 連続 ${st}日 🔥`:''}</div>
+    </div>
   </div>
 </div>`;
   };
@@ -113,17 +111,6 @@
   function _rerender(id) {
     const v = _findV(id);
     if (!v) return;
-    // ミニランクバー置換
-    const rb = document.getElementById('vp-cnt-rank-' + id);
-    if (rb) {
-      const p = v.practice || 0;
-      const rank = window.vpCntRank(p);
-      const next = RANKS[rank.lv + 1];
-      const fill = next ? Math.min(100, Math.round((p - rank.min) / (next.min - rank.min) * 100)) : 100;
-      rb.innerHTML = `
-        <span style="font-size:10px;color:${rank.color};font-weight:700;white-space:nowrap">${rank.short}</span>
-        <span style="width:60px;height:3px;background:var(--border);border-radius:2px;overflow:hidden"><span style="display:block;height:100%;width:${fill}%;background:${rank.color};border-radius:2px;transition:width .3s"></span></span>`;
-    }
     const pEl = document.getElementById('vp-cnt-p-' + id);
     const pSub = document.getElementById('vp-cnt-p-sub-' + id);
     if (pEl) pEl.textContent = v.practice || 0;
