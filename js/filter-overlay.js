@@ -982,7 +982,7 @@ export function buildSidebarFovRows() {
     // ファセット: platform以外のフィルターを適用した動画でカウント
     const ctxVids = _sbContextVideos('platform', f);
     [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']].forEach(([val, label]) => {
-      const cnt = ctxVids.filter(v => v.pt === val).length;
+      const cnt = ctxVids.filter(v => (v.pt || v.src || 'youtube') === val).length;
       const chip = document.createElement('div');
       chip.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
       chip.textContent = label + (cnt ? ' ' + cnt : '');
@@ -1067,7 +1067,7 @@ function _getSbCtx(containerId) {
 function _sbContextVideos(filterKey, f) {
   return (window.videos || []).filter(v => {
     if (v.archived) return false;
-    if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt))                                         return false;
+    if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt || v.src || 'youtube'))                   return false;
     if (filterKey !== 'channel'   && f?.channel?.size   && !f.channel.has(v.channel || v.ch))                             return false;
     if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
     if (filterKey !== 'tb'        && f?.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))                          return false;
