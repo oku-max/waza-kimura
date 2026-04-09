@@ -66,6 +66,7 @@ export async function loadUserData(uid) {
           console.log(`[tag-master] migrated ${before} videos to 4-layer schema`);
         }
         if (window.AF) window.AF();
+        if (window.buildSidebarFovRows) window.buildSidebarFovRows();
         showToast('✅ データを読み込みました');
       }
     }
