@@ -201,15 +201,17 @@ export function _matchQueryField(v, text, exact, fields) {
   const title = (v.title||'').toLowerCase();
   const ch    = (v.channel||v.ch||'').toLowerCase();
   const pl    = (v.pl||'').toLowerCase();
-  const techs = (v.tech||[]).map(t => t.toLowerCase());
+  // 「タグ」フィールドは 4層タグ(tb/cat/pos/tags) + 旧tech を包含
+  const tagWords = [
+    ...(v.tech || []),
+    ...(v.tb   || []),
+    ...(v.cat  || []),
+    ...(v.pos  || []),
+    ...(v.tags || [])
+  ].map(t => String(t).toLowerCase());
   const memo  = (v.memo||'').toLowerCase();
-  if (exact) {
-    return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
-        || (fPl && pl.includes(text)) || (fTech && techs.some(t => t.includes(text)))
-        || (fMemo && memo.includes(text));
-  }
   return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
-      || (fPl && pl.includes(text)) || (fTech && techs.some(t => t.includes(text)))
+      || (fPl && pl.includes(text)) || (fTech && tagWords.some(t => t.includes(text)))
       || (fMemo && memo.includes(text));
 }
 

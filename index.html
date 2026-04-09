@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.69</title>
+<title>WAZA KIMURA v48.70</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -675,7 +675,7 @@
           <option value="playCount">再生回数</option>
         </select>
         <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
-        <button onclick="clearAll()" style="font-size:11px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text3);cursor:pointer" title="フィルターリセット">✕</button>
+        <button onclick="clearAll()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
       </div>
       <!-- 一括編集 -->
       <div id="fs-bulk-area2">
@@ -685,16 +685,6 @@
 
     <!-- スクロールエリア（全フィルター） -->
     <div class="fs-scroll" id="fs-accordion-area">
-
-      <!-- 🕐 最近みた動画 -->
-      <div class="fs-acc-sec" id="fs-acc-recent">
-        <div class="fs-acc-hdr" onclick="toggleAcc('recent')">
-          <span>🕐 最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-recent" style="display:none;padding:4px 0 6px">
-          <div id="fs-recent-list"></div>
-        </div>
-      </div>
 
       <!-- ═ 統合フィルターパネル 3ボタン ═ -->
       <div class="fs-acc-sec">
@@ -759,9 +749,19 @@
         </div>
       </div>
 
+      <!-- 🕐 最近みた動画 (保存検索の下へ移動) -->
+      <div class="fs-acc-sec" id="fs-acc-recent">
+        <div class="fs-acc-hdr" onclick="toggleAcc('recent')">
+          <span>🕐 最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
+        </div>
+        <div class="fs-acc-body" id="fs-acc-body-recent" style="display:none;padding:4px 0 6px">
+          <div id="fs-recent-list"></div>
+        </div>
+      </div>
+
       <!-- リセット -->
-      <div style="padding:10px 12px 16px">
-        <button onclick="clearAll()" class="btn-sub" style="width:100%;font-size:11px">× すべてリセット</button>
+      <div style="padding:12px">
+        <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
       </div>
 
     </div><!-- /fs-accordion-area -->
@@ -3147,7 +3147,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-title" checked style="accent-color:var(--accent);width:14px;height:14px"> タイトル</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-ch" checked style="accent-color:var(--accent);width:14px;height:14px"> チャンネル</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-pl" checked style="accent-color:var(--accent);width:14px;height:14px"> プレイリスト</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-tech" checked style="accent-color:var(--accent);width:14px;height:14px"> テクニック</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-tech" checked style="accent-color:var(--accent);width:14px;height:14px"> タグ</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-memo" style="accent-color:var(--accent);width:14px;height:14px"> メモ</label>
         </div>
       </div>
