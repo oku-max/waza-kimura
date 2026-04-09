@@ -41,30 +41,33 @@ document.addEventListener('click', (e) => {
   });
 }, true);
 
-// YouTube iFrame APIを非同期で読み込む（初回のみ）
+// YouTube iFrame APIを非同期で読み込む
+// アプリ起動時にプリロードして、初回 vpanel 開閉での待機を排除
 function _loadYTApi() {
   if (_ytApiLoaded || document.getElementById('yt-iframe-api-script')) return;
   _ytApiLoaded = true;
   const tag = document.createElement('script');
   tag.id = 'yt-iframe-api-script';
   tag.src = 'https://www.youtube.com/iframe_api';
+  tag.async = true;
   document.head.appendChild(tag);
 }
+// 起動時プリロード
+_loadYTApi();
 
 // YouTube iFrame APIの準備完了コールバック（グローバル必須）
 window.onYouTubeIframeAPIReady = function() {
-  // APIが準備できた後にプレイヤーが待機中なら初期化
-  if (window._pendingYTInit) {
-    window._pendingYTInit();
-    window._pendingYTInit = null;
+  // 待機中の Player 初期化を一気に実行
+  while (_ytPendingAttach.length) {
+    const fn = _ytPendingAttach.shift();
+    try { fn(); } catch(e) { console.warn('YT pending attach error', e); }
   }
 };
+const _ytPendingAttach = [];
 
-// YT.Playerを初期化する
-// containerId: iframeを入れるdivのid
-// ytId: YouTubeのvideo ID
-// autoplay: 自動再生するか
-// onReady: 準備完了後のコールバック
+// YT.Player を初期化する (高速版)
+// 1. 即座に <iframe> を DOM に挿入し動画ロードを開始
+// 2. YT API が準備でき次第 Player を iframe にアタッチ
 function _initYTPlayer(containerId, ytId, autoplay, onReady) {
   // 既存プレイヤーを破棄
   if (_ytPlayer) {
@@ -73,38 +76,51 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
     _ytPlayerReady = false;
   }
 
-  const doInit = () => {
-    _ytPlayer = new YT.Player(containerId, {
-      videoId: ytId,
-      playerVars: {
-        autoplay: autoplay ? 1 : 0,
-        rel: 0,
-        modestbranding: 1,
-        playsinline: 1
-      },
-      events: {
-        onReady: (e) => {
-          _ytPlayerReady = true;
-          _startTimeDisplay();
-          if (onReady) onReady(e);
+  const host = document.getElementById(containerId);
+  if (!host) return;
+
+  // iframe を即座に挿入 (autoplay 含む URL でロード開始)
+  const params = [
+    'enablejsapi=1',
+    autoplay ? 'autoplay=1' : 'autoplay=0',
+    'rel=0',
+    'modestbranding=1',
+    'playsinline=1',
+    `origin=${encodeURIComponent(location.origin)}`,
+  ].join('&');
+  const iframe = document.createElement('iframe');
+  iframe.id = containerId + '-iframe';
+  iframe.src = `https://www.youtube.com/embed/${ytId}?${params}`;
+  iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'width:100%;height:100%;border:none;background:#000';
+  host.replaceWith(iframe);
+
+  // Player API が利用可能になり次第アタッチ (非ブロッキング)
+  const attach = () => {
+    if (!document.body.contains(iframe)) return; // 既にパネルが切り替わっていた
+    try {
+      _ytPlayer = new YT.Player(iframe, {
+        events: {
+          onReady: (e) => {
+            _ytPlayerReady = true;
+            _startTimeDisplay();
+            if (onReady) onReady(e);
+          },
+          onStateChange: (e) => {
+            if (e.data === 1) { _startTimeDisplay(); }
+            else { _stopTimeDisplay(); _updateTimeDisplay(); }
+          },
+          onError: (e) => { console.warn('YT player error:', e.data); },
         },
-        onStateChange: (e) => {
-          if (e.data === 1) { _startTimeDisplay(); }
-          else { _stopTimeDisplay(); _updateTimeDisplay(); }
-        },
-        onError: (e) => {
-          console.warn('YT player error:', e.data);
-        }
-      }
-    });
+      });
+    } catch (e) { console.warn('YT.Player attach failed', e); }
   };
 
   if (window.YT && window.YT.Player) {
-    doInit();
+    attach();
   } else {
-    // APIが未ロードなら読み込んでから初期化
-    _loadYTApi();
-    window._pendingYTInit = doInit;
+    _ytPendingAttach.push(attach);
   }
 }
 
@@ -1246,43 +1262,52 @@ export function openVPanel(id) {
     }
   }
 
-  // スキップボタンは動画の真下（左カラム）
-  const skipArea = document.getElementById('vpanel-skip-area');
-  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
-
-  // ABバーは右カラムの一番上
-  const abArea = document.getElementById('vpanel-ab-area');
-  if (abArea) abArea.innerHTML = _abBarHTML();
-
-  // ブックマークセクション
-  const bmContainer = document.getElementById('vpanel-bm-area');
-  if (bmContainer) {
-    const vid = window.openVPanelId || id;
-    const vd = (window.videos||[]).find(vx => vx.id === vid);
-    bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
-      + `<div class="vp-row" style="margin-top:8px">
-          <span class="vp-lbl">Memo</span>
-          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
-        </div>
-        <div id="vp-snap-section-${vid}"></div>`;
-    // Initialize snapshot section
-    if (window.initSnapshotSection) {
-      window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
-    }
-  }
-
-  editArea.innerHTML = buildDrawerHTML(id);
-  _bindDrawerEvents(editArea, id);
-
-  // blur-area: 次の動画リスト（現在の動画の前1件＋以降）
-  _renderBlurArea(id);
-
+  // パネルを先に開く（プレイヤー iframe をすぐ表示・ロード開始させる）
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
-
   window.scrollTo(0, 1);
-  setTimeout(() => _vpUpdateOrientation(), 80);
+
+  // 周辺UI（ドロワー・ブックマーク・blur-area 等）はマイクロ遅延
+  // → プレイヤー iframe のネットワーク取得をブロックしない
+  setTimeout(() => {
+    if (window.openVPanelId !== id) return; // 切り替わっていたらスキップ
+
+    // スキップボタンは動画の真下（左カラム）
+    const skipArea = document.getElementById('vpanel-skip-area');
+    if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+
+    // ABバーは右カラムの一番上
+    const abArea = document.getElementById('vpanel-ab-area');
+    if (abArea) abArea.innerHTML = _abBarHTML();
+
+    // ブックマークセクション
+    const bmContainer = document.getElementById('vpanel-bm-area');
+    if (bmContainer) {
+      const vid = window.openVPanelId || id;
+      const vd = (window.videos||[]).find(vx => vx.id === vid);
+      bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
+        + `<div class="vp-row" style="margin-top:8px">
+            <span class="vp-lbl">Memo</span>
+            <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
+          </div>
+          <div id="vp-snap-section-${vid}"></div>`;
+      if (window.initSnapshotSection) {
+        window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
+      }
+    }
+
+    editArea.innerHTML = buildDrawerHTML(id);
+    _bindDrawerEvents(editArea, id);
+
+    // blur-area（全動画リスト・最重量）はさらにもう一段遅延
+    setTimeout(() => {
+      if (window.openVPanelId !== id) return;
+      _renderBlurArea(id);
+    }, 0);
+
+    setTimeout(() => _vpUpdateOrientation(), 80);
+  }, 0);
 }
 
 // ── blur-area: 次の動画リスト ──
