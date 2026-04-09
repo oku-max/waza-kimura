@@ -66,8 +66,8 @@
 <style id="v4-popup-css">
 #v4-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #v4-bd.open{display:block}
-#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));height:min(560px,calc(100svh - 120px));max-height:calc(100svh - 120px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
-@supports not (height:100svh){#v4-popup{height:min(560px,calc(100vh - 140px));max-height:calc(100vh - 140px)}}
+#v4-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 16px));height:min(560px,calc(100svh - 16px));max-height:calc(100svh - 16px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+@supports not (height:100svh){#v4-popup{height:min(560px,calc(100vh - 16px));max-height:calc(100vh - 16px)}}
 #v4-popup.open{display:flex}
 #v4-popup .v4-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
 #v4-popup .v4-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
