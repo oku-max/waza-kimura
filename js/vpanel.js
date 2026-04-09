@@ -1204,6 +1204,13 @@ export function openVPanel(id) {
 
 
 
+  // ★ プレイヤー初期化前にパネルを開く
+  // （YT.Player/iframe がコンテナサイズを読む時点で 16:9 の実寸を確保するため）
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
+  window.scrollTo(0, 1);
+
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
     if (ytId) {
@@ -1239,12 +1246,6 @@ export function openVPanel(id) {
       });
     }
   }
-
-  // パネルを先に開く（プレイヤー iframe をすぐ表示・ロード開始させる）
-  panel.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
-  window.scrollTo(0, 1);
 
   // 周辺UI（ドロワー・ブックマーク・blur-area 等）はマイクロ遅延
   // → プレイヤー iframe のネットワーク取得をブロックしない
