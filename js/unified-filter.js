@@ -43,6 +43,23 @@
       if (excludeKey !== 'cat'      && f.cat?.size      && !(v.cat ||[]).some(c => f.cat.has(c)))       return false;
       if (excludeKey !== 'posNew'   && f.posNew?.size   && !(v.pos ||[]).some(p => f.posNew.has(p)))    return false;
       if (excludeKey !== 'tags'     && f.tags?.size     && !(v.tags||[]).some(t => f.tags.has(t)))      return false;
+      // 練習回数 / 最終練習日
+      if (excludeKey !== 'prBucket' && window.prBucket) {
+        const p = v.practice || 0;
+        if (window.prBucket === '0'   && p !== 0) return false;
+        if (window.prBucket === '1+'  && p < 1)   return false;
+        if (window.prBucket === '3+'  && p < 3)   return false;
+        if (window.prBucket === '5+'  && p < 5)   return false;
+        if (window.prBucket === '10+' && p < 10)  return false;
+      }
+      if (excludeKey !== 'prDate' && window.prDate) {
+        const lp = v.lastPracticed || 0;
+        const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
+        if (window.prDate === 'week'  && !(lp && days <= 7))  return false;
+        if (window.prDate === 'month' && !(lp && days <= 30)) return false;
+        if (window.prDate === 'stale' && !(lp && days > 30))  return false;
+        if (window.prDate === 'never' && lp)                  return false;
+      }
       return true;
     });
   }
@@ -147,7 +164,8 @@
     const f = window.filters || {};
     const stateN = (f.status?.size || 0) + (f.prio?.size || 0)
       + (window.favOnly?1:0) + (window.unwOnly?1:0) + (window.watchedOnly?1:0)
-      + (window.bmOnly?1:0) + (window.memoOnly?1:0) + (window.imgOnly?1:0);
+      + (window.bmOnly?1:0) + (window.memoOnly?1:0) + (window.imgOnly?1:0)
+      + (window.prBucket?1:0) + (window.prDate?1:0);
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
     const tagN = (f.tbNew?.size || 0) + (f.cat?.size || 0) + (f.posNew?.size || 0) + (f.tags?.size || 0);
     return { state: stateN, src: srcN, tag: tagN };
@@ -195,10 +213,77 @@
         return `<div class="uni-col"><div class="uni-col-hdr"><span>ステータス</span></div><div class="uni-col-body">${rows}</div></div>`;
       };
 
+      // 練習回数 (単一選択)
+      const prBuckets = [
+        { name:'未練習 (0)', k:'0'   },
+        { name:'1回以上',    k:'1+'  },
+        { name:'3回以上',    k:'3+'  },
+        { name:'5回以上',    k:'5+'  },
+        { name:'10回以上',   k:'10+' }
+      ];
+      const prCtx = _ctxVideos('prBucket');
+      const prItems = prBuckets.map(b => {
+        let c = 0;
+        for (const v of prCtx) {
+          const p = v.practice || 0;
+          if (b.k === '0'   && p === 0) c++;
+          else if (b.k === '1+'  && p >= 1)  c++;
+          else if (b.k === '3+'  && p >= 3)  c++;
+          else if (b.k === '5+'  && p >= 5)  c++;
+          else if (b.k === '10+' && p >= 10) c++;
+        }
+        return { name:b.name, cnt:c, sel: window.prBucket === b.k, key:b.k };
+      });
+      const mkPrCol = () => {
+        let arr = prItems.slice();
+        if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+        arr = arr.filter(r => r.sel || r.cnt > 0);
+        const rows = arr.length ? arr.map(r =>
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prB','${r.key}')">
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
+          </div>`
+        ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>🥋 練習回数</span></div><div class="uni-col-body">${rows}</div></div>`;
+      };
+
+      // 最終練習日 (単一選択)
+      const pdBuckets = [
+        { name:'今週 (7日以内)',  k:'week'  },
+        { name:'今月 (30日以内)', k:'month' },
+        { name:'しばらく練習してない (30日+)', k:'stale' },
+        { name:'未練習',          k:'never' }
+      ];
+      const pdCtx = _ctxVideos('prDate');
+      const pdItems = pdBuckets.map(b => {
+        let c = 0;
+        for (const v of pdCtx) {
+          const lp = v.lastPracticed || 0;
+          const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
+          if (b.k === 'week'  && lp && days <= 7)  c++;
+          else if (b.k === 'month' && lp && days <= 30) c++;
+          else if (b.k === 'stale' && lp && days > 30)  c++;
+          else if (b.k === 'never' && !lp)              c++;
+        }
+        return { name:b.name, cnt:c, sel: window.prDate === b.k, key:b.k };
+      });
+      const mkPdCol = () => {
+        let arr = pdItems.slice();
+        if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+        arr = arr.filter(r => r.sel || r.cnt > 0);
+        const rows = arr.length ? arr.map(r =>
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prD','${r.key}')">
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
+          </div>`
+        ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>🗓 最終練習日</span></div><div class="uni-col-body">${rows}</div></div>`;
+      };
+
       content.innerHTML = `<div class="uni-cols">
         ${mkStatusCol()}
         ${_colHtml('進捗', 'progress', progItems, { filterKey:'status', sortable:false })}
         ${_colHtml('優先度', 'priority', prioItems, { filterKey:'prio', sortable:false })}
+        ${mkPrCol()}
+        ${mkPdCol()}
       </div>`;
     }
 
@@ -284,6 +369,14 @@
     if (window.bmOnly)      pills.push(['@bm',      '🔖 BM']);
     if (window.memoOnly)    pills.push(['@memo',    '💬 メモ']);
     if (window.imgOnly)     pills.push(['@img',     '🖼 画像あり']);
+    if (window.prBucket) {
+      const map = { '0':'未練習','1+':'🥋 1+','3+':'🥋 3+','5+':'🥋 5+','10+':'🥋 10+' };
+      pills.push(['@prB', map[window.prBucket] || window.prBucket]);
+    }
+    if (window.prDate) {
+      const map = { week:'今週練習',month:'今月練習',stale:'🗓 30日+',never:'未練習' };
+      pills.push(['@prD', map[window.prDate] || window.prDate]);
+    }
     [...(f.status||[])].forEach(v => pills.push(['status', v]));
     [...(f.prio  ||[])].forEach(v => pills.push(['prio',   v]));
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
@@ -345,6 +438,8 @@
     if (key === '@bm')       { window.togBm?.();      _render(); return; }
     if (key === '@memo')     { window.togMemo?.();    _render(); return; }
     if (key === '@img')      { window.togImg?.();     _render(); return; }
+    if (key === '@prB')      { window.prBucket = (window.prBucket === val) ? null : val; window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
+    if (key === '@prD')      { window.prDate   = (window.prDate   === val) ? null : val; window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
     // Set系
     if (!f[key]) f[key] = new Set();
     f[key].has(val) ? f[key].delete(val) : f[key].add(val);
