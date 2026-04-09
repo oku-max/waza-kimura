@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>サイドバー トリガーボタン 代替案</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:var(--bg);color:var(--text);font:13px/1.6 -apple-system,"Hiragino Sans",sans-serif}
+h2{font-size:12px;margin:20px 0 6px;color:var(--text3);letter-spacing:.4px;text-transform:uppercase}
+.wrap{display:grid;grid-template-columns:repeat(2,300px);gap:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.card .nm{font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.card .nt{font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5}
+
+/* base button (common) */
+.btn{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;transition:all .15s}
+.btn:hover{background:var(--hover);border-color:var(--accent)}
+.btn .lb{display:flex;align-items:center;gap:8px}
+
+/* F-style pill badge (薄パープル) */
+.pf{min-width:22px;height:20px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.pf.z{background:#eef0f4;color:var(--text3)}
+
+/* ── 案1: バッジのみ (未選択時は非表示) ── */
+.a1 .btn{}
+.a1 .btn.sel{border-color:var(--accent);background:var(--hover)}
+
+/* ── 案2: ⋯ ヒント ── */
+.a2 .hint{color:var(--text3);font-size:16px;line-height:1;margin-left:6px}
+
+/* ── 案3: + (開く) アイコン ── */
+.a3 .plus{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--text3);color:var(--text3);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;line-height:1;margin-left:6px}
+.a3 .btn:hover .plus{border-color:var(--accent);color:var(--accent)}
+
+/* ── 案4: 立体カード (影) ── */
+.a4 .btn{box-shadow:0 1px 2px rgba(0,0,0,.04);border-color:#d8dae0}
+.a4 .btn:hover{box-shadow:0 3px 10px rgba(107,63,212,.15);transform:translateY(-1px)}
+
+/* ── 案5: 左にアイコン ── */
+.a5 .ic{width:20px;height:20px;border-radius:6px;background:rgba(107,63,212,.1);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+
+/* ── 案6: フィルターアイコン (漏斗) ── */
+.a6 .fn{color:var(--text3);font-size:13px;margin-left:6px}
+.a6 .btn:hover .fn{color:var(--accent)}
+</style></head><body>
+
+<p style="color:#55606f;max-width:820px;margin-bottom:20px"><b>サイドバー フィルタートリガー 代替案</b> — 現状の ▶ (アコーディオン風) を置換する候補6案。バッジは<b>F (薄パープル ピル)</b>で統一。未選択時/選択時を両方表示。</p>
+
+<div class="wrap">
+
+<div class="card a1"><div class="nm">案1: バッジのみ (超シンプル)</div>
+  <div class="btn"><span class="lb">ステータス・優先度</span></div>
+  <div class="btn sel"><span class="lb">ソース・チャンネル</span><span class="pf">3</span></div>
+  <div class="btn sel"><span class="lb">タグ</span><span class="pf">7</span></div>
+  <div class="nt">未選択: 何も表示なし。選択時のみバッジ。ボタン全体hoverで紫枠。</div>
+</div>
+
+<div class="card a2"><div class="nm">案2: ⋯ ヒント</div>
+  <div class="btn"><span class="lb">ステータス・優先度</span><span class="hint">⋯</span></div>
+  <div class="btn"><span class="lb">ソース・チャンネル</span><span class="pf">3</span></div>
+  <div class="btn"><span class="lb">タグ</span><span class="pf">7</span></div>
+  <div class="nt">未選択は ⋯ を淡色で。選択時はバッジに置き換え。</div>
+</div>
+
+<div class="card a3"><div class="nm">案3: ⊕ 開くアイコン</div>
+  <div class="btn"><span class="lb">ステータス・優先度</span><span class="plus">+</span></div>
+  <div class="btn"><span class="lb">ソース・チャンネル</span><span class="pf">3</span></div>
+  <div class="btn"><span class="lb">タグ</span><span class="pf">7</span></div>
+  <div class="nt">「開く/追加」のメタファー。クリック可能感は一番強い。</div>
+</div>
+
+<div class="card a4"><div class="nm">案4: 立体カード (影)</div>
+  <div class="btn"><span class="lb">ステータス・優先度</span></div>
+  <div class="btn"><span class="lb">ソース・チャンネル</span><span class="pf">3</span></div>
+  <div class="btn"><span class="lb">タグ</span><span class="pf">7</span></div>
+  <div class="nt">影+hover浮きでボタン感を出す。右側は完全に空 or バッジのみ。</div>
+</div>
+
+<div class="card a5"><div class="nm">案5: 左アイコン</div>
+  <div class="btn"><span class="lb"><span class="ic">◉</span>ステータス・優先度</span></div>
+  <div class="btn"><span class="lb"><span class="ic">▤</span>ソース・チャンネル</span><span class="pf">3</span></div>
+  <div class="btn"><span class="lb"><span class="ic">#</span>タグ</span><span class="pf">7</span></div>
+  <div class="nt">左にカテゴリアイコン、右にバッジ。視認性↑だがアイコン選定が課題。</div>
+</div>
+
+<div class="card a6"><div class="nm">案6: フィルター絵文字 🔽</div>
+  <div class="btn"><span class="lb">ステータス・優先度</span><span class="fn">▾</span></div>
+  <div class="btn"><span class="lb">ソース・チャンネル</span><span class="pf">3</span></div>
+  <div class="btn"><span class="lb">タグ</span><span class="pf">7</span></div>
+  <div class="nt">▾ (下向き) はポップアップ/セレクトの一般的な記号。▶ より誤解が少ない。</div>
+</div>
+
+</div>
+
+<p style="color:#55606f;max-width:820px;margin-top:24px">
+<b>おすすめ: 案1</b> — 情報量最小で見た目スッキリ。選択状態が一目で分かる。サイドバー幅も節約。<br>
+次点 <b>案6 (▾)</b> — 記号を残したい場合。▶ より「開く」意図が伝わる。
+</p>
+
+</body></html>

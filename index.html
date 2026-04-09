@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.70</title>
+<title>WAZA KIMURA v48.71</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -689,20 +689,20 @@
       <!-- ═ 統合フィルターパネル 3ボタン ═ -->
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('state')">
-          <span>ステータス・優先度 <span id="uni-state-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="fs-acc-arrow">▶</span>
+          <span>ステータス・優先度 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+          <span class="uni-open-ic" aria-hidden="true">+</span>
         </div>
       </div>
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('src')">
-          <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="fs-acc-arrow">▶</span>
+          <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+          <span class="uni-open-ic" aria-hidden="true">+</span>
         </div>
       </div>
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('tag')">
-          <span>タグ <span id="uni-tag-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="fs-acc-arrow">▶</span>
+          <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+          <span class="uni-open-ic" aria-hidden="true">+</span>
         </div>
       </div>
       <!-- 旧バッジID (互換) -->
@@ -3127,7 +3127,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- ═══ アドバンスドサーチ ポップアップ ═══ -->
 <div id="adv-search-overlay" style="display:none;position:fixed;inset:0;z-index:600">
   <div id="adv-search-bg" onclick="toggleAdvSearch()" style="position:absolute;inset:0;background:rgba(0,0,0,.35)"></div>
-  <div id="adv-search-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px 22px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:90%;max-width:520px;max-height:85vh;overflow-y:auto">
+  <div id="adv-search-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px 22px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:90%;max-width:624px;max-height:100svh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:14px;font-weight:700;margin:0">🔎 詳細検索</h3>
       <button onclick="toggleAdvSearch()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>

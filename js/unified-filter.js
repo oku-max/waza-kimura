@@ -81,8 +81,8 @@
 #uni-popup .uni-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
 #uni-popup .uni-row:hover{background:var(--surface2)}
 #uni-popup .uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
-#uni-popup .uni-row .uni-cnt{font-size:11px;color:var(--text3)}
-#uni-popup .uni-row.on .uni-cnt{color:var(--accent)}
+#uni-popup .uni-row .uni-cnt{min-width:22px;height:20px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+#uni-popup .uni-row.on .uni-cnt{background:var(--accent);color:#fff}
 #uni-popup .uni-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap;flex-shrink:0}
 #uni-popup .uni-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
 #uni-popup .uni-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
@@ -128,7 +128,7 @@
     }
     const rows = arr.length ? arr.map(r =>
       `<div class="uni-row${r.sel ? ' on' : ''}" onclick="uniToggle('${opts.filterKey}','${_esc(r.name).replace(/'/g,'&#39;')}')">
-        <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}${opts.unit || '本'}</span>
+        <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
       </div>`
     ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
     const sortSel = opts.sortable === false ? '' :
@@ -189,7 +189,7 @@
         arr = arr.filter(r => r.sel || r.cnt > 0);
         const rows = arr.length ? arr.map(r =>
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('${r.key}','')">
-            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}本</span>
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
           </div>`
         ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
         return `<div class="uni-col"><div class="uni-col-hdr"><span>ステータス</span></div><div class="uni-col-body">${rows}</div></div>`;
@@ -218,7 +218,7 @@
         arr = arr.filter(r => r.sel || r.cnt > 0);
         const rows = arr.length ? arr.map(r =>
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('platform','${r.val}')">
-            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}本</span>
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
           </div>`
         ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
         return `<div class="uni-col narrow"><div class="uni-col-hdr"><span>Source</span></div><div class="uni-col-body">${rows}</div></div>`;
