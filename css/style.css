@@ -988,7 +988,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vpanel.open{display:flex;pointer-events:auto;}
 .vpanel-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
 .vpanel-inner{
-  position:relative;display:flex;width:100%;max-width:100%;height:90vh;
+  position:relative;display:flex;width:100%;max-width:100%;height:90svh;
   background:var(--surface);
   flex-direction:column;
   overflow:hidden;
