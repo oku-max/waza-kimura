@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.59</title>
+<title>WAZA KIMURA v48.60</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -3401,13 +3401,13 @@ window.addEventListener('resize', adjustTopbarOffset);
         <div class="hrow" id="fov-srow-pl"></div>
       </div>
     </div>
-    <!-- ▌グループ3：タグ (4層) -->
-    <div class="fsec fsec-3">
-      <div class="fsec-title">タグ</div>
-      <button type="button" onclick="v4OpenPopup()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-weight:700;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit">
-        <span>タグで絞り込む <span id="fov-v4-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:6px">0</span></span>
-        <span style="color:var(--text3);font-size:11px">開く ▸</span>
-      </button>
+    <!-- ▌グループ3：タグ (4層・インライン折りたたみ) -->
+    <div class="fsec fsec-3" id="fov-tag-wrap">
+      <div class="fsec-title" onclick="v4ToggleInline(this)" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none">
+        <span>タグ <span id="fov-v4-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:4px">0</span></span>
+        <span id="fov-tag-arr" style="color:var(--text3);font-size:10px">▶</span>
+      </div>
+      <div id="fov-tag-body" style="display:none;margin-top:8px"></div>
     </div>
     <!-- ▌旧 ポジション・テクニック (非表示・移行期間) -->
     <div class="fsec fsec-3" style="display:none">

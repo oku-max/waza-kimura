@@ -169,12 +169,17 @@
 
   function _esc(s){return String(s==null?'':s).replace(/[&<>"'\\]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'\\\\'}[c]));}
 
-  function _renderPopup() {
+  // ── 共通レンダラ (popup と inline 両方で使用) ──
+  function _renderInto(prefix) {
     if (!_ensureFilters()) return;
     const f = window.filters;
+    const tabsEl  = document.getElementById(prefix + 'tabs');
+    const trackEl = document.getElementById(prefix + 'cols-track');
+    const pillsEl = document.getElementById(prefix + 'pills');
+    const hitEl   = document.getElementById(prefix + 'hit');
+    if (!tabsEl && !trackEl) return;
 
-    // ── タブ ──
-    const tabsEl = document.getElementById('v4-tabs');
+    // Tabs
     if (tabsEl) {
       const selSizes = { tb:f.tbNew.size, cat:f.cat.size, pos:f.posNew.size, tags:f.tags.size };
       tabsEl.innerHTML = _COLS.map((c,i) => {
@@ -183,23 +188,21 @@
       }).join('');
       tabsEl.querySelectorAll('.v4-tab').forEach(t => t.onclick = () => {
         _activeTab = +t.dataset.i;
-        const track = document.getElementById('v4-cols-track');
-        const col = track?.children[_activeTab];
+        const col = trackEl?.children[_activeTab];
         if (col) col.scrollIntoView({ behavior:'smooth', inline:'start', block:'nearest' });
-        _renderPopup();
+        _renderAll();
       });
     }
 
-    // ── カラム (カルーセル) ──
-    const track = document.getElementById('v4-cols-track');
-    if (track) {
+    // Carousel cols
+    if (trackEl) {
       const lists = {
         tb:   (window.TB_VALUES || ['トップ','ボトム','スタンディング']).map(t => ({ name:t,   cnt:_cnt('tbNew', t),   sel:f.tbNew.has(t) })),
         cat:  (window.CATEGORIES || []).map(c => ({ name:c.name, cnt:_cnt('cat', c.name), sel:f.cat.has(c.name) })),
         pos:  (window.POSITIONS  || []).map(p => ({ name:p.ja,   cnt:_cnt('posNew', p.ja), sel:f.posNew.has(p.ja) })),
         tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:f.tags.has(t) }))
       };
-      track.innerHTML = _COLS.map(c => {
+      trackEl.innerHTML = _COLS.map(c => {
         let arr = lists[c.key].slice();
         if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
         if (_sort[c.key] === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
@@ -217,27 +220,30 @@
           <div class="v4-col-body">${rows}</div>
         </div>`;
       }).join('');
-      track.querySelectorAll('.v4-row').forEach(r => r.onclick = () => {
+      trackEl.querySelectorAll('.v4-row').forEach(r => r.onclick = () => {
         window.v4Toggle(r.dataset.k, r.dataset.n);
       });
-      track.querySelectorAll('select[data-sort]').forEach(s => s.onchange = () => {
-        _sort[s.dataset.sort] = s.value; _renderPopup();
+      trackEl.querySelectorAll('select[data-sort]').forEach(s => s.onchange = () => {
+        _sort[s.dataset.sort] = s.value; _renderAll();
       });
     }
 
-    // Selected pills
-    const pills = document.getElementById('v4-pills');
-    if (pills) {
+    // Pills
+    if (pillsEl) {
       const all = [...[...f.tbNew].map(n=>['tb',n]), ...[...f.cat].map(n=>['cat',n]), ...[...f.posNew].map(n=>['pos',n]), ...[...f.tags].map(n=>['tags',n])];
-      if (!all.length) pills.innerHTML = '<span style="color:#8a94a3;font-size:11px">なし</span>';
-      else pills.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(n)}</span>`).join('');
+      if (!all.length) pillsEl.innerHTML = '<span style="color:var(--text3);font-size:11px">なし</span>';
+      else pillsEl.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(n)}</span>`).join('');
     }
 
-    // Hit count
-    const hit = document.getElementById('v4-hit');
-    if (hit) hit.textContent = _totalHit() + ' 件';
+    if (hitEl) hitEl.textContent = _totalHit() + ' 件';
+  }
 
+  function _renderAll() {
+    _renderInto('v4-');     // popup
+    _renderInto('v4i-');    // inline
     // Badge (sidebar + mobile filter overlay)
+    if (!_ensureFilters()) return;
+    const f = window.filters;
     const selCount = f.tbNew.size + f.cat.size + f.posNew.size + f.tags.size;
     ['fs-v4-btn-badge','fov-v4-badge'].forEach(id => {
       const b = document.getElementById(id);
@@ -246,6 +252,7 @@
       else b.style.display = 'none';
     });
   }
+  const _renderPopup = _renderAll; // 後方互換
 
 
   // ── グローバル公開ハンドラ ──
@@ -267,10 +274,72 @@
     _renderPopup();
     window.AF?.();
   };
-  window.v4SetSort = function (k, v) { _sort[k] = v; _renderPopup(); };
-  window.v4Search  = function (v) { _q = (v || '').trim().toLowerCase(); _renderPopup(); };
+  window.v4SetSort = function (k, v) { _sort[k] = v; _renderAll(); };
+  window.v4Search  = function (v) { _q = (v || '').trim().toLowerCase(); _renderAll(); };
   window.v4OpenPopup = openPopup;
   window.v4ClosePopup = closePopup;
+
+  // ── インライン展開 (フィルターオーバーレイ内) ──
+  window.v4MountInline = function (hostId) {
+    const host = document.getElementById(hostId);
+    if (!host) return;
+    if (host._v4Mounted) { _renderAll(); return; }
+    host._v4Mounted = true;
+    host.innerHTML = `
+      <div class="v4-inline">
+        <div class="v4-search"><input id="v4i-q" placeholder="🔍 タグ名で検索..." oninput="v4Search(this.value)"></div>
+        <div class="v4-tabs" id="v4i-tabs"></div>
+        <div class="v4-cols" id="v4i-cols-track" style="height:280px"></div>
+        <div class="v4-ftr" style="border:none;background:transparent;padding:8px 0 0">
+          <span class="v4-lbl">選択中:</span>
+          <div id="v4i-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+          <span class="v4-sp"></span>
+          <span class="v4-clr" onclick="v4Clear()">クリア</span>
+          <span class="v4-hit" id="v4i-hit">0 件</span>
+        </div>
+      </div>`;
+    _renderAll();
+    // スクロール追従
+    const track = document.getElementById('v4i-cols-track');
+    if (track && !track._v4Bound) {
+      track._v4Bound = true;
+      let t;
+      track.addEventListener('scroll', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const cw = track.children[0]?.offsetWidth || 1;
+          const i = Math.round(track.scrollLeft / cw);
+          if (i !== _activeTab && i >= 0 && i < _COLS.length) {
+            _activeTab = i;
+            document.querySelectorAll('#v4i-tabs .v4-tab, #v4-tabs .v4-tab').forEach(el => {
+              el.classList.toggle('on', +el.dataset.i === _activeTab);
+            });
+          }
+        }, 80);
+      });
+    }
+  };
+
+  // 折りたたみトグル
+  window.v4ToggleInline = function (btn) {
+    const wrap = document.getElementById('fov-tag-wrap');
+    if (!wrap) return;
+    const body = document.getElementById('fov-tag-body');
+    const arr  = document.getElementById('fov-tag-arr');
+    const open = body.style.display !== 'none';
+    if (open) {
+      body.style.display = 'none';
+      if (arr) arr.textContent = '▶';
+    } else {
+      body.style.display = 'block';
+      if (arr) arr.textContent = '▼';
+      window.v4MountInline('fov-tag-body');
+      // 画面切れ防止: 展開後にスクロール
+      setTimeout(() => {
+        wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      }, 50);
+    }
+  };
 
   // スクロール追従: 横スクロール停止位置に応じてアクティブタブ更新
   function _bindScrollSync() {
