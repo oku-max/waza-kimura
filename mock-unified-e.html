@@ -80,9 +80,9 @@ body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragin
 
 <script>
 // ── データ ──
-const STATUS = ['★ Fav','Unseen','視聴済み','🔖 BM','💬 メモ','🖼 画像あり'];
-const PROGRESS = ['未着手','練習中','マスター'];
-const PRIORITY = ['今すぐ','そのうち','保留'];
+const STATUS   = [['★ Fav',48],['Unseen',312],['視聴済み',287],['🔖 BM',64],['💬 メモ',23],['🖼 画像あり',91]];
+const PROGRESS = [['未着手',420],['練習中',185],['マスター',42]];
+const PRIORITY = [['今すぐ',56],['そのうち',198],['保留',39]];
 const SRC = [['youtube','YouTube',334],['vimeo','Vimeo',24],['gdrive','GDrive',390],['x','X',3]];
 const CH = [['TryForce Advanced',300],['DEEP HALF CLUB',44],['新・柔術日記Channel',41],['上野御徒町・小石川白山',38],['木部亮',25],['岩崎正寛',13],['JonThomasBJJ',13],['浅草BOYS',9]];
 const PL = [['クローズドガード基本',58],['スイープコレクション',42],['レッグロック入門',31],['パスガード研究',28],['ノーギ特集',22]];
@@ -93,7 +93,7 @@ const TAGS = [['#チョーク',27],['#アームバー',25],['#レッグドラッ
 
 // ── 状態 ──
 const MAIN = [
-  { k:'state', label:'状態', subs:['status','progress','priority'], subLbl:{status:'ステータス',progress:'進捗',priority:'優先度'} },
+  { k:'state', label:'ステータス・優先度', subs:['status','progress','priority'], subLbl:{status:'ステータス',progress:'進捗',priority:'優先度'} },
   { k:'src',   label:'ソース・チャンネル・プレイリスト', subs:['all','src','ch','pl'], subLbl:{all:'すべて',src:'Source',ch:'Channel',pl:'Playlist'} },
   { k:'tag',   label:'タグ', subs:['all','tb','cat','pos','tags'], subLbl:{all:'すべて',tb:'T/B',cat:'カテゴリ',pos:'ポジション',tags:'#タグ'} }
 ];
@@ -149,11 +149,10 @@ function render(){
   // コンテンツ (サブタブ廃止・常に全カラム表示)
   const c = document.getElementById('content');
   if (mainTab==='state'){
-    c.innerHTML = `<div class="chipsArea">
-      ${chipList('status', STATUS, 'ステータス')}
-      ${chipList('progress', PROGRESS, '進捗')}
-      ${chipList('priority', PRIORITY, '優先度')}
-    </div>`;
+    const stC  = colHtml('ステータス','status',STATUS,{sortable:false});
+    const prC  = colHtml('進捗','progress',PROGRESS,{sortable:false});
+    const pyC  = colHtml('優先度','priority',PRIORITY,{sortable:false});
+    c.innerHTML = `<div class="cols">${stC}${prC}${pyC}</div>`;
   } else if (mainTab==='src'){
     const srcC = colHtml('Source','src',SRC.map(([v,l,c])=>[l,c]),{narrow:true,sortable:false});
     const chC  = colHtml('Channel','ch',CH);
