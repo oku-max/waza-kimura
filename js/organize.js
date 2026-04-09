@@ -210,9 +210,33 @@ export function _matchQueryField(v, text, exact, fields) {
     ...(v.tags || [])
   ].map(t => String(t).toLowerCase());
   const memo  = (v.memo||'').toLowerCase();
-  return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
+  if ((fTitle && title.includes(text)) || (fCh && ch.includes(text))
       || (fPl && pl.includes(text)) || (fTech && tagWords.some(t => t.includes(text)))
-      || (fMemo && memo.includes(text));
+      || (fMemo && memo.includes(text))) return true;
+
+  // ── 日英バイリンガル検索 (デラヒーバ ↔ De La Riva ↔ DLR 等) ──
+  // tag-master の _norm + alias インデックスを用いて pos/cat を全別名に展開してマッチ
+  const norm = window._normTag;
+  if (!fTech || !norm) return false;
+  const nText = norm(text);
+  if (!nText) return false;
+  const aliasKeys = [];
+  if (window.findPosition) {
+    for (const p of (v.pos || [])) {
+      const def = window.findPosition(p);
+      if (def) aliasKeys.push(...[def.id, def.ja, def.en, ...(def.aliases || [])]);
+    }
+  }
+  if (window.findCategory) {
+    for (const c of (v.cat || [])) {
+      const def = window.findCategory(c);
+      if (def) aliasKeys.push(...[def.id, def.name, ...(def.aliases || [])]);
+    }
+  }
+  return aliasKeys.some(k => {
+    const nk = norm(k);
+    return nk && nk.includes(nText);
+  });
 }
 
 export function _matchFieldSpecific(v, field, values) {

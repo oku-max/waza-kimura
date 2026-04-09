@@ -1486,11 +1486,6 @@ export function buildDrawerHTML(id) {
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return '';
 
-  const tbChips   = (v.tb||[]).map(t  => `<span class="vp-chip on-tb"   onclick="vpRemoveTag('${id}','tb','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
-  const acChips   = (v.ac||[]).map(a  => `<span class="vp-chip on-ac"   onclick="vpRemoveTag('${id}','ac','${a.replace(/'/g,"\\'")}',this)">${a} ×</span>`).join('');
-  const posChips  = (v.pos||[]).map(p => `<span class="vp-chip on-pos"  onclick="vpRemoveTag('${id}','pos','${p.replace(/'/g,"\\'")}',this)">${p} ×</span>`).join('');
-  const techChips = (v.tech||[]).map(t=> `<span class="vp-chip on-tech" onclick="vpRemoveTag('${id}','tech','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
-
   return `
     ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav }) : ''}
     <div class="fsec">
@@ -1532,53 +1527,6 @@ export function buildDrawerHTML(id) {
     </div>
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
-    <div class="fsec" style="opacity:.55">
-      <div class="fsec-title">ポジション・テクニック <span style="font-size:10px;color:var(--text3);font-weight:400">(旧・移行期間)</span></div>
-    <div class="vp-row vp-row-tb">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-tb-${id}">${tbChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tb')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-tb-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','tb',this.value)" onkeydown="vpDdKey('${id}','tb',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-tb-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-ac">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='ac')?.label||'Action'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-ac-${id}">${acChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','ac')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-ac-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','ac',this.value)" onkeydown="vpDdKey('${id}','ac',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-ac-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-pos">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='pos')?.label||'Position'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','pos')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-pos-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','pos',this.value)" onkeydown="vpDdKey('${id}','pos',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-pos-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-tech">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tech')?.label||'Technique'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-tech-${id}">${techChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tech')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-tech-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','tech',this.value)" onkeydown="vpDdKey('${id}','tech',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-tech-${id}"></div>
-        </div>
-      </div>
-    </div>
-    </div>
 
     <div class="vp-row">
       <span class="vp-lbl">Share</span>

@@ -160,6 +160,17 @@
     if (sec) sec.outerHTML = window.vpV4SectionHTML(id);
   }
 
+  // 外部から 4層タグセクションを再描画する公開API
+  window.vpRefreshV4 = function (id) {
+    const host = document.getElementById(`vp-v4-tb-${id}`)
+              || document.getElementById(`vp-v4-cat-${id}`)
+              || document.getElementById(`vp-v4-pos-${id}`)
+              || document.getElementById(`vp-v4-tags-${id}`);
+    if (!host) return;
+    const sec = host.closest('.fsec');
+    if (sec) sec.outerHTML = window.vpV4SectionHTML(id);
+  };
+
   function _save(id) {
     if (typeof window.autoSaveVp === 'function') window.autoSaveVp(id);
     else window.debounceSave?.();

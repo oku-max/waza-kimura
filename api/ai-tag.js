@@ -1,8 +1,18 @@
-// ═══ WAZA KIMURA — AI タグ提案 API ═══
+// ═══ WAZA KIMURA — AI タグ提案 API (4層タグ体系) ═══
 // Vercel Serverless Function
 // POST /api/ai-tag
-// Body: { title, channel, playlist, flexibility, presets, model, chapters, bjjRules, feedbackExamples }
-// Returns: { tb, action, position, tech }
+// Body: {
+//   title, channel, playlist, chapters,
+//   tbValues:   ['トップ','ボトム','スタンディング'],
+//   categories: [{ id, name, desc, aliases }],
+//   positions:  [{ id, ja, en, aliases }],
+//   tagBlocklist: string[],
+//   bjjRules:   string[],
+//   flexibility: 'strict'|'standard'|'flexible',
+//   model: 'haiku'|'sonnet',
+//   feedbackExamples: [{ title, channel?, playlist?, tags:{tb,cat,pos,tags} }]
+// }
+// Returns: { tb:[], cat:[], pos:[], tags:[] }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -11,56 +21,76 @@ const MODEL_MAP = {
   sonnet: 'claude-sonnet-4-5-20250514',
 };
 
-const TB_TAGS   = ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'];
-const AC_TAGS   = ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'];
-const POS_TAGS  = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
-const TECH_TAGS = ['十字絞め','RNC','ギロチン','アナコンダ','ダースチョーク','ノースサウスチョーク','ボウアンドアロー','アームバー','キムラ','アメリカーナ','オモプラッタ','ヒールフック','インサイドヒールフック','アウトサイドヒールフック','ニーバー','トーホールド','アンクルロック','カーフスライサー','シザースイープ','フラワースイープ','ヒップバンプスイープ','バタフライスイープ','SLXスイープ','バックテイク','ダブルレッグ','シングルレッグ','ベリンボロ','トレアンダー','ニーカット','トレアンダーパス','ブルファイターパス','レッグドラッグ','スタックパス','スマッシュパス','バックステップ','X-パス','ディープハーフエントリー','クレーンロール','ガスペダル','カウンター'];
+// フォールバック (リクエストに含まれない場合)
+const DEFAULT_TB = ['トップ','ボトム','スタンディング'];
 
-function buildSystemPrompt(presets, flexibility, bjjRules, techBlocklist) {
-  const tbList   = (presets?.tb   || TB_TAGS).join(' / ');
-  const acList   = (presets?.ac   || AC_TAGS).join(' / ');
-  const posList  = (presets?.pos  || POS_TAGS).join(' / ');
-  const techList = (presets?.tech || TECH_TAGS).join(' / ');
+function buildSystemPrompt({ tbValues, categories, positions, bjjRules, tagBlocklist, flexibility }) {
+  const tbList = (tbValues || DEFAULT_TB).join(' / ');
+
+  const catSection = (categories || []).map(c => {
+    const aliases = (c.aliases && c.aliases.length) ? `  別名: ${c.aliases.join(', ')}` : '';
+    return `- ${c.name}: ${c.desc || ''}${aliases ? '\n' + aliases : ''}`;
+  }).join('\n');
+
+  const posSection = (positions || []).map(p => {
+    const aliases = (p.aliases && p.aliases.length) ? p.aliases.join(', ') : '';
+    return `- ${p.ja} (${p.en || ''}${aliases ? ' / ' + aliases : ''})`;
+  }).join('\n');
 
   const flexNote = {
-    strict:   `- 各カテゴリは必ず上記リストの言葉のみ使う。リスト外の単語は絶対に使わない。`,
-    standard: `- TOP/BOTTOM・ACTION・POSITIONは上記リストから選ぶ。
-- TECHNIQUEはリストを優先しつつ、タイトルに明確に含まれるBJJ技術名は新規追加可（カタカナ・日本語）。`,
-    flexible: `- TOP/BOTTOM・ACTION・POSITIONは上記リストを優先しつつ、関連用語があれば新規追加可。
-- TECHNIQUEはタイトルから技術名を積極的に抽出し新規追加可。BJJ用語として妥当なものを提案すること。`,
+    strict:   '- カテゴリー・ポジションは必ず上記リストの「正式名」のみを使う。リスト外の語は絶対に出力しない。',
+    standard: '- カテゴリー・ポジションは上記リストの「正式名」のみを使う。曖昧な語は無理に当てはめず空配列にする。',
+    flexible: '- カテゴリー・ポジションは上記リストの「正式名」を優先。新しいポジションが明確に判別できる場合のみ #タグへ追加する。',
   }[flexibility || 'standard'];
 
-  // BJJ推論ルール（ユーザーがカスタマイズ可能）
-  const rulesSection = bjjRules?.length
+  const rulesSection = (bjjRules && bjjRules.length)
     ? `\n【BJJ判定ルール — 必ず従うこと】\n${bjjRules.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`
     : '';
 
-  return `あなたはブラジリアン柔術（BJJ）の専門知識を持つタグ付けアシスタントです。
-動画タイトル・チャンネル名・プレイリスト名・チャプター情報を分析し、最適なタグをJSONで返してください。
+  const blockSection = (tagBlocklist && tagBlocklist.length)
+    ? `\n【禁止リスト — 絶対に出力禁止】\n${tagBlocklist.join(' / ')}\n`
+    : '';
 
-【TOP/BOTTOM】ユーザー設定リスト：
+  return `あなたはブラジリアン柔術 (BJJ) の専門知識を持つタグ付けアシスタントです。
+動画タイトル・チャンネル名・プレイリスト名・チャプター情報を分析し、4層タグ体系で最適なタグをJSONで返してください。
+
+【Layer 1: TB (TOP/BOTTOM)】複数可
 ${tbList}
 
-【ACTION】ユーザー設定リスト：
-${acList}
+TB 判定ルール:
+- ガードを取る側 (相手の上に乗る前 / 立位 / バックを取る攻撃側) → トップ
+- ガードを取られている側 / ボトムからのスイープ / サブミッション → ボトム
+- 立ち技・テイクダウン入り口 → スタンディング
+- ハーフガード・ニーシールドなど明確にボトム視点 → ボトム
+- 1動画に複数 TB が混在しても可 (例: スイープ → ボトム + トップ)
 
-【POSITION】ユーザー設定リスト：
-${posList}
+【Layer 2: Category】固定リスト・名前は完全一致で返すこと
+${catSection}
 
-【TECHNIQUE】ユーザー設定リスト（参考）：
-${techList}
-${rulesSection}
-${techBlocklist?.length ? `【禁止リスト — 絶対に使用禁止のタグ】\n以下のタグは絶対に返してはいけない：\n${techBlocklist.join(' / ')}\n` : ''}
-ルール：
+カテゴリー判定ルール:
+- desc (説明文) を読み、動画内容に最も近いカテゴリーを 1〜3 個選ぶ
+- 確信が持てない場合は空配列 (推測で埋めない)
+- 「name」フィールドの正式名のみ返す。aliases や英語名は返さない
+
+【Layer 3: Position】固定リスト・必ず「ja」(日本語名) で返すこと
+${posSection}
+
+ポジション正規化ルール:
+- 入力テキストが英語名・別名・カタカナ表記ゆれでも、対応する「ja」名に正規化して返す
+  例: "De La Riva" / "DLR" / "デラヒバ" → "デラヒーバ"
+  例: "Z Guard" → "ニーシールド"
+  例: "Honey Hole" / "411" → "サドル"
+- リストにないポジションは pos に入れず、tags (#タグ) に元の語を入れる
+- 明確に判定できないなら空配列
+${rulesSection}${blockSection}
+ルール:
 ${flexNote}
-- 【最優先】タイトル・チャンネル名・プレイリスト名・チャプターに、上記リストの単語が直接含まれている場合、そのタグを必ず提案すること（例：タイトルに「スイープ」→ ACTION に「スイープ」を必ず含める）
-- チャプター情報がある場合、個々のチャプター名から技名・ポジションを読み取りタグに反映する
-- 禁止リストに含まれるタグは絶対に返さない
-- 確信が持てないカテゴリは空配列にする（ただし、上記の直接一致ルールが優先）
-- JSONのみを返す（説明文・コードブロック不要）
+- タイトル・チャンネル・プレイリスト・チャプターに直接含まれる語は積極的に拾う
+- tags (#タグ) は技名・固有名など自由欄。長さは 30 文字以内
+- JSON のみ返す (説明文・コードブロック不要)
 
-返却形式（例）：
-{"tb":["ボトム"],"action":["スイープ"],"position":["ハーフガード"],"tech":["キスオブザドラゴン"]}`;
+返却形式 (例):
+{"tb":["ボトム"],"cat":["スイープ"],"pos":["デラヒーバ"],"tags":["ベリンボロ"]}`;
 }
 
 export default async function handler(req, res) {
@@ -75,33 +105,34 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
-  const { title, channel, playlist, flexibility, presets,
-          model, chapters, bjjRules, feedbackExamples, techBlocklist } = req.body || {};
+  const {
+    title, channel, playlist, chapters,
+    tbValues, categories, positions, tagBlocklist,
+    bjjRules, flexibility, model, feedbackExamples,
+  } = req.body || {};
   if (!title) return res.status(400).json({ error: 'title is required' });
 
-  const blockSet = new Set(Array.isArray(techBlocklist) ? techBlocklist : []);
-  const systemPrompt = buildSystemPrompt(presets, flexibility, bjjRules, techBlocklist);
+  const blockSet = new Set(Array.isArray(tagBlocklist) ? tagBlocklist : []);
+  const systemPrompt = buildSystemPrompt({ tbValues, categories, positions, bjjRules, tagBlocklist, flexibility });
   const modelId = MODEL_MAP[model] || MODEL_MAP.haiku;
 
   const userMessage = [
-    `タイトル：${title}`,
-    channel  ? `チャンネル：${channel}`   : null,
-    playlist ? `プレイリスト：${playlist}` : null,
-    chapters?.length ? `チャプター：${chapters.join(' / ')}` : null,
+    `タイトル:${title}`,
+    channel  ? `チャンネル:${channel}`   : null,
+    playlist ? `プレイリスト:${playlist}` : null,
+    chapters?.length ? `チャプター:${chapters.join(' / ')}` : null,
   ].filter(Boolean).join('\n');
 
-  // メッセージ構築（Few-shot例 + 本リクエスト）
   const messages = [];
 
-  // E: フィードバック例をFew-shotとして挿入（最大5件）
+  // Few-shot 例 (新スキーマ {tb, cat, pos, tags} を期待)
   if (Array.isArray(feedbackExamples) && feedbackExamples.length) {
-    const examples = feedbackExamples.slice(-5);
-    for (const ex of examples) {
+    for (const ex of feedbackExamples.slice(-5)) {
       if (!ex.title || !ex.tags) continue;
       const exUser = [
-        `タイトル：${ex.title}`,
-        ex.channel  ? `チャンネル：${ex.channel}`   : null,
-        ex.playlist ? `プレイリスト：${ex.playlist}` : null,
+        `タイトル:${ex.title}`,
+        ex.channel  ? `チャンネル:${ex.channel}`   : null,
+        ex.playlist ? `プレイリスト:${ex.playlist}` : null,
       ].filter(Boolean).join('\n');
       messages.push({ role: 'user',      content: exUser });
       messages.push({ role: 'assistant', content: JSON.stringify(ex.tags) });
@@ -120,7 +151,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model:      modelId,
-        max_tokens: 300,
+        max_tokens: 400,
         system:     systemPrompt,
         messages,
       }),
@@ -134,24 +165,24 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     const text = data.content?.[0]?.text || '{}';
-
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const tags = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
-    // tb / action / position はプリセットリストでフィルター
-    const safe = (arr, allowed) =>
-      (Array.isArray(arr) ? arr : []).filter(v => allowed.includes(v));
+    // 妥当性フィルタ
+    const tbAllowed  = new Set(tbValues || DEFAULT_TB);
+    const catAllowed = new Set((categories || []).map(c => c.name));
+    const posAllowed = new Set((positions || []).map(p => p.ja));
 
-    // tech はタイトルから自由抽出（長さ上限 + 禁止リストフィルタ）
-    const safeTech = Array.isArray(tags.tech)
-      ? tags.tech.filter(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 40 && !blockSet.has(v))
-      : [];
+    const safeArr  = (arr, allowed) => (Array.isArray(arr) ? arr : [])
+      .filter(v => typeof v === 'string' && allowed.has(v) && !blockSet.has(v));
+    const safeFree = (arr) => (Array.isArray(arr) ? arr : [])
+      .filter(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 40 && !blockSet.has(v));
 
     return res.status(200).json({
-      tb:       safe(tags.tb,       presets?.tb  || TB_TAGS).filter(v => !blockSet.has(v)),
-      action:   safe(tags.action,   presets?.ac  || AC_TAGS).filter(v => !blockSet.has(v)),
-      position: safe(tags.position, presets?.pos || POS_TAGS).filter(v => !blockSet.has(v)),
-      tech:     safeTech,
+      tb:   safeArr(parsed.tb,  tbAllowed),
+      cat:  safeArr(parsed.cat, catAllowed),
+      pos:  safeArr(parsed.pos, posAllowed),
+      tags: safeFree(parsed.tags),
     });
 
   } catch (e) {
