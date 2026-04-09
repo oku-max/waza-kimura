@@ -210,6 +210,8 @@
       };
       trackEl.innerHTML = _COLS.map(c => {
         let arr = lists[c.key].slice();
+        // ゼロ件（非該当）項目を非表示。ただし選択済みは常に残す（解除可能にするため）
+        arr = arr.filter(r => r.sel || r.cnt > 0);
         if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
         if (_sort[c.key] === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
         else arr.sort((a,b) => b.cnt - a.cnt);
