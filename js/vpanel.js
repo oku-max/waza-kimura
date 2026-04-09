@@ -41,8 +41,7 @@ document.addEventListener('click', (e) => {
   });
 }, true);
 
-// YouTube iFrame APIを非同期で読み込む
-// アプリ起動時にプリロードして、初回 vpanel 開閉での待機を排除
+// YouTube iFrame API: アプリ起動時にプリロード (初回 vpanel 開閉のネットワーク待機を排除)
 function _loadYTApi() {
   if (_ytApiLoaded || document.getElementById('yt-iframe-api-script')) return;
   _ytApiLoaded = true;
@@ -52,22 +51,18 @@ function _loadYTApi() {
   tag.async = true;
   document.head.appendChild(tag);
 }
-// 起動時プリロード
-_loadYTApi();
+_loadYTApi(); // ← 起動時プリロード (唯一の最適化)
 
 // YouTube iFrame APIの準備完了コールバック（グローバル必須）
 window.onYouTubeIframeAPIReady = function() {
-  // 待機中の Player 初期化を一気に実行
-  while (_ytPendingAttach.length) {
-    const fn = _ytPendingAttach.shift();
-    try { fn(); } catch(e) { console.warn('YT pending attach error', e); }
+  if (window._pendingYTInit) {
+    window._pendingYTInit();
+    window._pendingYTInit = null;
   }
 };
-const _ytPendingAttach = [];
 
-// YT.Player を初期化する (高速版)
-// 1. 即座に <iframe> を DOM に挿入し動画ロードを開始
-// 2. YT API が準備でき次第 Player を iframe にアタッチ
+// YT.Player を初期化する (YT.Player にサイズ決定を任せる従来方式)
+// containerId: iframe を入れる div の id
 function _initYTPlayer(containerId, ytId, autoplay, onReady) {
   // 既存プレイヤーを破棄
   if (_ytPlayer) {
@@ -76,51 +71,34 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
     _ytPlayerReady = false;
   }
 
-  const host = document.getElementById(containerId);
-  if (!host) return;
-
-  // iframe を即座に挿入 (autoplay 含む URL でロード開始)
-  const params = [
-    'enablejsapi=1',
-    autoplay ? 'autoplay=1' : 'autoplay=0',
-    'rel=0',
-    'modestbranding=1',
-    'playsinline=1',
-    `origin=${encodeURIComponent(location.origin)}`,
-  ].join('&');
-  const iframe = document.createElement('iframe');
-  iframe.id = containerId + '-iframe';
-  iframe.src = `https://www.youtube.com/embed/${ytId}?${params}`;
-  iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
-  iframe.allowFullscreen = true;
-  iframe.style.cssText = 'width:100%;height:100%;border:none;background:#000';
-  host.replaceWith(iframe);
-
-  // Player API が利用可能になり次第アタッチ (非ブロッキング)
-  const attach = () => {
-    if (!document.body.contains(iframe)) return; // 既にパネルが切り替わっていた
-    try {
-      _ytPlayer = new YT.Player(iframe, {
-        events: {
-          onReady: (e) => {
-            _ytPlayerReady = true;
-            _startTimeDisplay();
-            if (onReady) onReady(e);
-          },
-          onStateChange: (e) => {
-            if (e.data === 1) { _startTimeDisplay(); }
-            else { _stopTimeDisplay(); _updateTimeDisplay(); }
-          },
-          onError: (e) => { console.warn('YT player error:', e.data); },
+  const doInit = () => {
+    _ytPlayer = new YT.Player(containerId, {
+      videoId: ytId,
+      playerVars: {
+        autoplay: autoplay ? 1 : 0,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1,
+      },
+      events: {
+        onReady: (e) => {
+          _ytPlayerReady = true;
+          _startTimeDisplay();
+          if (onReady) onReady(e);
         },
-      });
-    } catch (e) { console.warn('YT.Player attach failed', e); }
+        onStateChange: (e) => {
+          if (e.data === 1) { _startTimeDisplay(); }
+          else { _stopTimeDisplay(); _updateTimeDisplay(); }
+        },
+        onError: (e) => { console.warn('YT player error:', e.data); },
+      },
+    });
   };
 
   if (window.YT && window.YT.Player) {
-    attach();
+    doInit();
   } else {
-    _ytPendingAttach.push(attach);
+    window._pendingYTInit = doInit;
   }
 }
 
