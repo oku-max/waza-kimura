@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.57</title>
+<title>WAZA KIMURA v48.58</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -3401,25 +3401,20 @@ window.addEventListener('resize', adjustTopbarOffset);
         <div class="hrow" id="fov-srow-pl"></div>
       </div>
     </div>
-    <!-- ▌グループ3：ポジション・テクニック -->
+    <!-- ▌グループ3：タグ (4層) -->
     <div class="fsec fsec-3">
-      <div class="fsec-title">ポジション・テクニック</div>
-      <div class="fbar-row fov-row-tb">
-        <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
-        <div class="fov-dd-row" id="fov-srow-tb"></div>
-      </div>
-      <div class="fbar-row fov-row-ac">
-        <span class="fbar-lbl" data-tag-key="ac">Action</span>
-        <div class="fov-dd-row" id="fov-srow-ac"></div>
-      </div>
-      <div class="fbar-row fov-row-pos">
-        <span class="fbar-lbl" data-tag-key="pos">Position</span>
-        <div class="fov-dd-row" id="fov-srow-pos"></div>
-      </div>
-      <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
-        <span class="fbar-lbl" data-tag-key="tech">Technique</span>
-        <div class="fov-dd-row" id="fov-srow-tech"></div>
-      </div>
+      <div class="fsec-title">タグ</div>
+      <button type="button" onclick="v4OpenPopup()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-weight:700;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit">
+        <span>タグで絞り込む <span id="fov-v4-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:6px">0</span></span>
+        <span style="color:var(--text3);font-size:11px">開く ▸</span>
+      </button>
+    </div>
+    <!-- ▌旧 ポジション・テクニック (非表示・移行期間) -->
+    <div class="fsec fsec-3" style="display:none">
+      <div class="fbar-row fov-row-tb"><span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span><div class="fov-dd-row" id="fov-srow-tb"></div></div>
+      <div class="fbar-row fov-row-ac"><span class="fbar-lbl" data-tag-key="ac">Action</span><div class="fov-dd-row" id="fov-srow-ac"></div></div>
+      <div class="fbar-row fov-row-pos"><span class="fbar-lbl" data-tag-key="pos">Position</span><div class="fov-dd-row" id="fov-srow-pos"></div></div>
+      <div class="fbar-row fov-row-tech"><span class="fbar-lbl" data-tag-key="tech">Technique</span><div class="fov-dd-row" id="fov-srow-tech"></div></div>
     </div>
     <!-- 保存した検索条件 -->
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">

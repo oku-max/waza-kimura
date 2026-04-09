@@ -75,11 +75,19 @@
 #v4-popup .v4-search{padding:8px 14px;border-bottom:1px solid var(--border)}
 #v4-popup .v4-search input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface2);color:var(--text);font-family:inherit}
 #v4-popup .v4-search input:focus{outline:none;border-color:var(--accent)}
-#v4-popup .v4-cols{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:hidden;min-height:0}
-#v4-popup .v4-col{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
+#v4-popup .v4-tabs{display:flex;gap:3px;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--surface2);overflow-x:auto}
+#v4-popup .v4-tabs::-webkit-scrollbar{display:none}
+#v4-popup .v4-tab{flex:1;min-width:72px;text-align:center;padding:6px 6px;border-radius:6px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
+#v4-popup .v4-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+#v4-popup .v4-tab .v4-bdg{display:inline-block;background:rgba(255,255,255,.28);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
+#v4-popup .v4-tab:not(.on) .v4-bdg{background:var(--accent);color:#fff}
+#v4-popup .v4-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;min-height:0}
+#v4-popup .v4-cols::-webkit-scrollbar{display:none}
+#v4-popup .v4-col{flex:0 0 100%;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border);scroll-snap-align:start}
 #v4-popup .v4-col:last-child{border-right:none}
-@media (max-width:820px){#v4-popup .v4-cols{grid-template-columns:repeat(2,minmax(0,1fr));overflow-y:auto}#v4-popup .v4-col{border-bottom:1px solid var(--border);max-height:50%}#v4-popup .v4-col:nth-child(2){border-right:none}}
-@media (max-width:480px){#v4-popup .v4-cols{grid-template-columns:1fr}#v4-popup .v4-col{border-right:none;max-height:none}}
+@media (min-width:560px){#v4-popup .v4-col{flex:0 0 50%}}
+@media (min-width:820px){#v4-popup .v4-col{flex:0 0 33.333%}}
+@media (min-width:1080px){#v4-popup .v4-col{flex:0 0 25%}}
 #v4-popup .v4-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-bottom:1px solid var(--border);letter-spacing:.3px}
 #v4-popup .v4-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
 #v4-popup .v4-col-body{flex:1;overflow-y:auto;padding:2px 0}
@@ -98,7 +106,7 @@
 #v4-popup .v4-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
 #v4-popup .v4-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #v4-popup .v4-apply:hover{filter:brightness(1.1)}
-@media (max-width:900px){#v4-popup{width:calc(100vw - 20px);height:calc(100vh - 20px)}}
+@media (max-width:560px){#v4-popup{width:calc(100vw - 16px);height:calc(100vh - 16px)}}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     const html = `
@@ -109,7 +117,8 @@
     <div class="v4-x" onclick="v4ClosePopup()">✕</div>
   </div>
   <div class="v4-search"><input id="v4-q" placeholder="🔍 タグ名で検索..." oninput="v4Search(this.value)"></div>
-  <div class="v4-cols">
+  <div class="v4-tabs" id="v4-tabs"></div>
+  <div class="v4-cols" id="v4-cols-track">
     <div class="v4-col">
       <div class="v4-col-hdr"><span>トップ/ボトム/スタンディング</span>
         <select onchange="v4SetSort('tb',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
@@ -150,6 +159,13 @@
   // ── 状態 ──
   const _sort = { tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
   let _q = '';
+  let _activeTab = 0;
+  const _COLS = [
+    { key:'tb',   label:'トップ/ボトム/スタンディング', short:'T/B' },
+    { key:'cat',  label:'カテゴリ',        short:'カテゴリ' },
+    { key:'pos',  label:'ポジション',      short:'ポジション' },
+    { key:'tags', label:'#タグ',          short:'#タグ' }
+  ];
 
   function _esc(s){return String(s==null?'':s).replace(/[&<>"'\\]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'\\\\'}[c]));}
 
@@ -157,21 +173,57 @@
     if (!_ensureFilters()) return;
     const f = window.filters;
 
-    // TB
-    const tbList = (window.TB_VALUES || ['トップ','ボトム','スタンディング']).map(t => ({ name:t, cnt:_cnt('tbNew', t), icon:'', sel:f.tbNew.has(t) }));
-    _fillCol('v4-col-tb', tbList, 'tb');
+    // ── タブ ──
+    const tabsEl = document.getElementById('v4-tabs');
+    if (tabsEl) {
+      const selSizes = { tb:f.tbNew.size, cat:f.cat.size, pos:f.posNew.size, tags:f.tags.size };
+      tabsEl.innerHTML = _COLS.map((c,i) => {
+        const n = selSizes[c.key];
+        return `<div class="v4-tab${i===_activeTab?' on':''}" data-i="${i}">${c.short}${n?`<span class="v4-bdg">${n}</span>`:''}</div>`;
+      }).join('');
+      tabsEl.querySelectorAll('.v4-tab').forEach(t => t.onclick = () => {
+        _activeTab = +t.dataset.i;
+        const track = document.getElementById('v4-cols-track');
+        const col = track?.children[_activeTab];
+        if (col) col.scrollIntoView({ behavior:'smooth', inline:'start', block:'nearest' });
+        _renderPopup();
+      });
+    }
 
-    // Category
-    const catList = (window.CATEGORIES || []).map(c => ({ name:c.name, cnt:_cnt('cat', c.name), icon:'', sel:f.cat.has(c.name) }));
-    _fillCol('v4-col-cat', catList, 'cat');
-
-    // Position
-    const posList = (window.POSITIONS || []).map(p => ({ name:p.ja, cnt:_cnt('posNew', p.ja), icon:'', sel:f.posNew.has(p.ja) }));
-    _fillCol('v4-col-pos', posList, 'pos');
-
-    // #Tags
-    const tagList = _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), icon:'', sel:f.tags.has(t) }));
-    _fillCol('v4-col-tags', tagList, 'tags');
+    // ── カラム (カルーセル) ──
+    const track = document.getElementById('v4-cols-track');
+    if (track) {
+      const lists = {
+        tb:   (window.TB_VALUES || ['トップ','ボトム','スタンディング']).map(t => ({ name:t,   cnt:_cnt('tbNew', t),   sel:f.tbNew.has(t) })),
+        cat:  (window.CATEGORIES || []).map(c => ({ name:c.name, cnt:_cnt('cat', c.name), sel:f.cat.has(c.name) })),
+        pos:  (window.POSITIONS  || []).map(p => ({ name:p.ja,   cnt:_cnt('posNew', p.ja), sel:f.posNew.has(p.ja) })),
+        tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:f.tags.has(t) }))
+      };
+      track.innerHTML = _COLS.map(c => {
+        let arr = lists[c.key].slice();
+        if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+        if (_sort[c.key] === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
+        else arr.sort((a,b) => b.cnt - a.cnt);
+        const rows = arr.length ? arr.map(r =>
+          `<div class="v4-row${r.sel?' on':''}${r.cnt===0&&!r.sel?' zero':''}" data-k="${c.key}" data-n="${_esc(r.name)}"><span>${_esc(r.name)}</span><span class="v4-cnt">${r.cnt}本</span></div>`
+        ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+        return `<div class="v4-col" data-k="${c.key}">
+          <div class="v4-col-hdr"><span>${c.label}</span>
+            <select data-sort="${c.key}">
+              <option value="abc"${_sort[c.key]==='abc'?' selected':''}>あいうえ順</option>
+              <option value="cnt"${_sort[c.key]==='cnt'?' selected':''}>件数順</option>
+            </select>
+          </div>
+          <div class="v4-col-body">${rows}</div>
+        </div>`;
+      }).join('');
+      track.querySelectorAll('.v4-row').forEach(r => r.onclick = () => {
+        window.v4Toggle(r.dataset.k, r.dataset.n);
+      });
+      track.querySelectorAll('select[data-sort]').forEach(s => s.onchange = () => {
+        _sort[s.dataset.sort] = s.value; _renderPopup();
+      });
+    }
 
     // Selected pills
     const pills = document.getElementById('v4-pills');
@@ -185,27 +237,16 @@
     const hit = document.getElementById('v4-hit');
     if (hit) hit.textContent = _totalHit() + ' 件';
 
-    // Badge on sidebar button
-    const badge = document.getElementById('fs-v4-btn-badge');
+    // Badge (sidebar + mobile filter overlay)
     const selCount = f.tbNew.size + f.cat.size + f.posNew.size + f.tags.size;
-    if (badge) {
-      if (selCount) { badge.style.display = 'inline-block'; badge.textContent = selCount; }
-      else badge.style.display = 'none';
-    }
+    ['fs-v4-btn-badge','fov-v4-badge'].forEach(id => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      if (selCount) { b.style.display = 'inline-block'; b.textContent = selCount; }
+      else b.style.display = 'none';
+    });
   }
 
-  function _fillCol(hostId, list, key) {
-    const host = document.getElementById(hostId);
-    if (!host) return;
-    let arr = list.slice();
-    if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
-    if (_sort[key] === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name, 'ja'));
-    else arr.sort((a,b) => b.cnt - a.cnt);
-    if (!arr.length) { host.innerHTML = '<div style="padding:14px;color:#8a94a3;font-size:11px">該当なし</div>'; return; }
-    host.innerHTML = arr.map(r =>
-      `<div class="v4-row${r.sel?' on':''}${r.cnt===0&&!r.sel?' zero':''}" onclick="v4Toggle('${key}','${_esc(r.name)}')"><span>${r.icon}${_esc(r.name)}</span><span class="v4-cnt">${r.cnt}本</span></div>`
-    ).join('');
-  }
 
   // ── グローバル公開ハンドラ ──
   window.v4Toggle = function (key, name) {
@@ -231,11 +272,31 @@
   window.v4OpenPopup = openPopup;
   window.v4ClosePopup = closePopup;
 
+  // スクロール追従: 横スクロール停止位置に応じてアクティブタブ更新
+  function _bindScrollSync() {
+    const track = document.getElementById('v4-cols-track');
+    if (!track || track._v4Bound) return;
+    track._v4Bound = true;
+    let t;
+    track.addEventListener('scroll', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const cw = track.children[0]?.offsetWidth || 1;
+        const i = Math.round(track.scrollLeft / cw);
+        if (i !== _activeTab && i >= 0 && i < _COLS.length) {
+          _activeTab = i;
+          document.querySelectorAll('#v4-tabs .v4-tab').forEach((t,idx) => t.classList.toggle('on', idx === _activeTab));
+        }
+      }, 80);
+    });
+  }
+
   function openPopup() {
     _injectPopup();
     document.getElementById('v4-bd').classList.add('open');
     document.getElementById('v4-popup').classList.add('open');
     _renderPopup();
+    _bindScrollSync();
   }
   function closePopup() {
     const bd = document.getElementById('v4-bd'); if (bd) bd.classList.remove('open');
