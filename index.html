@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v48.78</title>
+<title>WAZA KIMURA v48.84</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -300,7 +300,7 @@
   const _origOpenVPanel = openVPanel;
   window.openVPanel = function(id, ...args) {
     _origOpenVPanel.call(this, id, ...args);
-    if (id) { window.trackRecentView?.(id); window.vpCntTrackView?.(id); }
+    if (id) { window.trackRecentView?.(id); }
   };
   window.closeVPanel           = closeVPanel;
   window.vpNav                 = vpNav;

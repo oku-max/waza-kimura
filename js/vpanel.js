@@ -1319,7 +1319,6 @@ function _renderBlurArea(id) {
 
 export function closeVPanel() {
   try {
-    window.vpCntCancelView?.();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     _stopTimeDisplay();
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }

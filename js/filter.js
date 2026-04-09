@@ -460,9 +460,6 @@ export function sortVideos(list) {
     } else if (key === 'practice') {
       va = a.practice || 0;
       vb = b.practice || 0;
-    } else if (key === 'views') {
-      va = a.views || 0;
-      vb = b.views || 0;
     } else if (key === 'lastPracticed') {
       va = a.lastPracticed || 0;
       vb = b.lastPracticed || 0;
