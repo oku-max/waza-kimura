@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>統合フィルターパネル 5案 Mock</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif;padding:20px}
+h1{font-size:15px;margin:0 0 4px}
+.note{color:var(--text2);font-size:11px;max-width:1100px;line-height:1.6;margin:0 0 14px}
+.lab{color:var(--text3);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin:28px 0 8px}
+.desc{color:var(--text2);font-size:11px;margin:0 0 10px;max-width:1100px;line-height:1.6}
+
+/* ── 共通パネル枠 ── */
+.pop{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column}
+.hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
+.hdr h2{margin:0;font-size:13px;font-weight:700}
+.hdr .x{color:var(--text3);cursor:pointer;font-size:16px}
+.search{padding:8px 14px;border-bottom:1px solid var(--border)}
+.search input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface2);color:var(--text);font-family:inherit}
+
+/* ── カラム ── */
+.cols{flex:1;display:flex;overflow:hidden;min-height:0}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.col:last-child{border-right:none}
+.col.narrow{flex:0 0 130px}
+.col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px;flex-shrink:0}
+.col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
+.col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
+.row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent}
+.row:hover{background:var(--hover)}
+.row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+.row .cnt{font-size:11px;color:var(--text3)}
+.row.on .cnt{color:var(--accent)}
+
+/* ── チップ (ステータス/進捗/優先度) ── */
+.chips{display:flex;flex-wrap:wrap;gap:5px;padding:10px 14px}
+.chip{padding:5px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;color:var(--text2)}
+.chip.on{background:var(--hover);border-color:var(--accent);color:var(--accent);font-weight:700}
+
+/* ── タブ/ナビ ── */
+.ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;font-size:11px;min-height:44px;flex-wrap:wrap}
+.ftr .sp{flex:1}
+.ftr .hit{color:var(--accent);font-weight:700}
+.ftr .apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer}
+.pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+.pill:after{content:" ×";opacity:.7}
+
+/* ═══ 案A: 左縦ナビ ═══ */
+.sideNav{flex:0 0 150px;background:var(--surface2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:6px 0}
+.sideNav .item{padding:10px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-left:3px solid transparent;display:flex;align-items:center;gap:8px}
+.sideNav .item.on{background:var(--surface);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+.sideNav .item:hover:not(.on){background:rgba(107,63,212,.06)}
+.sideNav .item .bdg{background:var(--accent);color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:auto;font-weight:700}
+.sideNav .divider{height:1px;background:var(--border);margin:6px 10px}
+.sideNav .caption{padding:8px 14px 4px;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase}
+
+/* ═══ 案B: 上横タブ ═══ */
+.topNav{display:flex;gap:2px;padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);overflow-x:auto}
+.topNav .tab{flex:0 0 auto;padding:7px 14px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap}
+.topNav .tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.topNav .tab .bdg{display:inline-block;background:rgba(255,255,255,.3);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px}
+.topNav .tab:not(.on) .bdg{background:var(--accent);color:#fff}
+
+/* ═══ 案C: セクションスクロール ═══ */
+.secScroll{flex:1;overflow-y:auto;min-height:0}
+.sec{border-bottom:1px solid var(--border)}
+.sec-ttl{padding:10px 14px 6px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.4px;text-transform:uppercase;background:var(--surface2);position:sticky;top:0;z-index:2}
+.sec-body{padding:6px 0}
+.sec .cols{height:220px;display:flex}
+.sec .cols .col{border-top:1px solid var(--border);border-bottom:none}
+
+/* ═══ 案D: アコーディオン ═══ */
+.accSec{border-bottom:1px solid var(--border)}
+.accHdr{padding:12px 14px;font-size:12px;font-weight:700;color:var(--text);display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--surface)}
+.accHdr:hover{background:var(--surface2)}
+.accHdr .arr{color:var(--text3);font-size:10px}
+.accSec.open .accHdr{background:var(--surface2)}
+.accSec.open .accHdr .arr{transform:rotate(90deg)}
+.accBody{display:none;background:var(--surface2);border-top:1px solid var(--border)}
+.accSec.open .accBody{display:block}
+.accSec .cols{height:240px}
+
+/* ═══ 案E: 2階層ナビ ═══ */
+.topTabs{display:flex;padding:0;background:var(--surface2);border-bottom:1px solid var(--border)}
+.topTabs .t{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-bottom:3px solid transparent}
+.topTabs .t.on{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface)}
+.subTabs{display:flex;gap:4px;padding:8px 14px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--surface)}
+.subTabs .st{flex:0 0 auto;padding:5px 12px;font-size:11px;font-weight:600;color:var(--text2);border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer;white-space:nowrap}
+.subTabs .st.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style></head><body>
+
+<h1>統合フィルターパネル 5案</h1>
+<p class="note">すべての絞り込み要素（Status/Progress/Priority/Source/Channel/Playlist/T/B/カテゴリ/ポジション/#タグ）を1つのパネルに統合するUI案。どれもパネルサイズは 1080×620 前後を想定。</p>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 案A: 左縦ナビ + 右側コンテンツ              -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="lab">案A — 左縦ナビ + 右側マルチカラム ★バランス重視</div>
+<p class="desc">左端に絞り込みカテゴリの縦ナビ。選択すると右側のコンテンツが切り替わる。「ソース・チャンネル」は3カラム、「タグ」は4カラムなど、グループごとに最適なレイアウトを適用できる。選択数はナビバッジに表示。macOS の設定画面に近い発想。</p>
+<div class="pop" style="width:1080px;height:580px">
+  <div class="hdr"><h2>絞り込み</h2><span class="x">✕</span></div>
+  <div style="flex:1;display:flex;overflow:hidden;min-height:0">
+    <div class="sideNav">
+      <div class="caption">状態</div>
+      <div class="item on">ステータス<span class="bdg">2</span></div>
+      <div class="item">進捗</div>
+      <div class="item">優先度<span class="bdg">1</span></div>
+      <div class="divider"></div>
+      <div class="caption">ソース</div>
+      <div class="item">チャンネル<span class="bdg">3</span></div>
+      <div class="item">プレイリスト</div>
+      <div class="divider"></div>
+      <div class="caption">タグ</div>
+      <div class="item">T/B</div>
+      <div class="item">カテゴリ</div>
+      <div class="item">ポジション<span class="bdg">1</span></div>
+      <div class="item">#タグ</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div class="search"><input placeholder="🔍 検索..."></div>
+      <div style="flex:1;padding:16px;overflow-y:auto">
+        <div class="chips" style="padding:0 0 14px">
+          <span class="chip on">★ Fav</span>
+          <span class="chip">Unseen</span>
+          <span class="chip on">視聴済み</span>
+          <span class="chip">🔖 BM</span>
+          <span class="chip">💬 メモ</span>
+          <span class="chip">🖼 画像あり</span>
+        </div>
+        <div style="color:var(--text3);font-size:11px">左のナビから項目を選ぶと、ここに対応するチップやカラムリストが表示される。「チャンネル」を選ぶと3カラム（Source/Channel/Playlist）が、「カテゴリ」を選ぶと4カラム（T/B/カテゴリ/ポジション/#タグ）が開く。</div>
+      </div>
+    </div>
+  </div>
+  <div class="ftr">
+    <span style="font-size:10px;color:var(--text3);font-weight:700">選択中:</span>
+    <span class="pill">★ Fav</span><span class="pill">視聴済み</span><span class="pill">今すぐ</span><span class="pill">TryForce</span><span class="pill">クローズドガード</span>
+    <span class="sp"></span><span style="color:var(--text3);cursor:pointer;text-decoration:underline;font-size:10px">クリア</span><span class="hit">187 件</span><button class="apply">適用</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 案B: 上横タブ                                -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="lab">案B — 上部タブ + 下カラム ★シンプル</div>
+<p class="desc">上にグループタブを1段（状態 / ソース / タグ）。タブを切り替えると、下部のコンテンツ領域だけが入れ替わる。案Aよりコンパクト、モバイルにもそのまま移植しやすい。高さを確保しやすい。</p>
+<div class="pop" style="width:1080px;height:560px">
+  <div class="hdr"><h2>絞り込み</h2><span class="x">✕</span></div>
+  <div class="topNav">
+    <div class="tab">状態 <span class="bdg">3</span></div>
+    <div class="tab on">ソース・チャンネル・プレイリスト <span class="bdg">3</span></div>
+    <div class="tab">タグ (T/B・カテゴリ・ポジション・#) <span class="bdg">1</span></div>
+  </div>
+  <div class="search"><input placeholder="🔍 検索..."></div>
+  <div class="cols">
+    <div class="col narrow">
+      <div class="col-hdr"><span>Source</span></div>
+      <div class="col-body">
+        <div class="row on"><span>YouTube</span><span class="cnt">334</span></div>
+        <div class="row"><span>Vimeo</span><span class="cnt">24</span></div>
+        <div class="row on"><span>GDrive</span><span class="cnt">390</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span>Channel</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="row on"><span>TryForce Advanced</span><span class="cnt">300本</span></div>
+        <div class="row"><span>DEEP HALF CLUB</span><span class="cnt">44本</span></div>
+        <div class="row"><span>新・柔術日記</span><span class="cnt">41本</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span>Playlist</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="row"><span>クローズドガード基本</span><span class="cnt">58本</span></div>
+        <div class="row on"><span>スイープコレクション</span><span class="cnt">42本</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="ftr">
+    <span style="font-size:10px;color:var(--text3);font-weight:700">選択中:</span>
+    <span class="pill">YouTube</span><span class="pill">GDrive</span><span class="pill">TryForce Advanced</span>
+    <span class="sp"></span><span style="color:var(--text3);cursor:pointer;text-decoration:underline;font-size:10px">クリア</span><span class="hit">187 件</span><button class="apply">適用</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 案C: セクションスクロール (全部見せ)         -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="lab">案C — 縦スクロール (全セクション常時表示)</div>
+<p class="desc">タブもナビもなし。すべてのグループが縦に並び、スクロールして到達する。セクションヘッダーが sticky で粘るので「いまどのグループか」は常にわかる。操作が単純で迷わないが、縦長になりがちで情報密度は最大。</p>
+<div class="pop" style="width:1080px;height:600px">
+  <div class="hdr"><h2>絞り込み</h2><span class="x">✕</span></div>
+  <div class="search"><input placeholder="🔍 全項目を検索..."></div>
+  <div class="secScroll">
+    <div class="sec">
+      <div class="sec-ttl">ステータス / 進捗 / 優先度</div>
+      <div class="sec-body">
+        <div class="chips"><span class="chip on">★ Fav</span><span class="chip">Unseen</span><span class="chip on">視聴済み</span><span class="chip">🔖 BM</span></div>
+        <div class="chips" style="padding-top:0"><span class="chip">未着手</span><span class="chip on">練習中</span><span class="chip">マスター</span><span class="chip on">今すぐ</span><span class="chip">そのうち</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-ttl">ソース・チャンネル・プレイリスト</div>
+      <div class="sec-body">
+        <div class="cols">
+          <div class="col narrow"><div class="col-hdr"><span>Source</span></div><div class="col-body"><div class="row on"><span>YouTube</span><span class="cnt">334</span></div><div class="row on"><span>GDrive</span><span class="cnt">390</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>Channel</span></div><div class="col-body"><div class="row on"><span>TryForce Advanced</span><span class="cnt">300本</span></div><div class="row"><span>DEEP HALF</span><span class="cnt">44本</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>Playlist</span></div><div class="col-body"><div class="row"><span>クローズドガード基本</span><span class="cnt">58本</span></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-ttl">タグ</div>
+      <div class="sec-body">
+        <div class="cols">
+          <div class="col"><div class="col-hdr"><span>T/B</span></div><div class="col-body"><div class="row"><span>トップ</span><span class="cnt">234本</span></div><div class="row"><span>ボトム</span><span class="cnt">387本</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>カテゴリ</span></div><div class="col-body"><div class="row"><span>エスケープ</span><span class="cnt">109本</span></div><div class="row"><span>スイープ</span><span class="cnt">5本</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>ポジション</span></div><div class="col-body"><div class="row on"><span>クローズドガード</span><span class="cnt">228本</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>#タグ</span></div><div class="col-body"><div class="row"><span>チョーク</span><span class="cnt">27本</span></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ftr">
+    <span style="font-size:10px;color:var(--text3);font-weight:700">選択中:</span>
+    <span class="pill">★ Fav</span><span class="pill">クローズドガード</span>
+    <span class="sp"></span><span style="color:var(--text3);cursor:pointer;text-decoration:underline;font-size:10px">クリア</span><span class="hit">187 件</span><button class="apply">適用</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 案D: アコーディオン                           -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="lab">案D — アコーディオン (1セクションずつ開く)</div>
+<p class="desc">グループヘッダーをタップで展開/折り畳み。常に1〜2セクションだけが開いている状態を想定。各セクション内はマルチカラムレイアウト。スマホでも自然に使える。現行のフィルタオーバーレイの延長線上。</p>
+<div class="pop" style="width:1080px;height:600px">
+  <div class="hdr"><h2>絞り込み</h2><span class="x">✕</span></div>
+  <div class="search"><input placeholder="🔍 検索..."></div>
+  <div style="flex:1;overflow-y:auto;min-height:0">
+    <div class="accSec">
+      <div class="accHdr"><span>状態 (Status / Progress / Priority) <span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:8px;font-size:9px;margin-left:6px">3</span></span><span class="arr">▶</span></div>
+    </div>
+    <div class="accSec open">
+      <div class="accHdr"><span>ソース・チャンネル・プレイリスト <span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:8px;font-size:9px;margin-left:6px">3</span></span><span class="arr">▶</span></div>
+      <div class="accBody">
+        <div class="cols">
+          <div class="col narrow"><div class="col-hdr"><span>Source</span></div><div class="col-body"><div class="row on"><span>YouTube</span><span class="cnt">334</span></div><div class="row on"><span>GDrive</span><span class="cnt">390</span></div><div class="row"><span>Vimeo</span><span class="cnt">24</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>Channel</span><select><option>件数順</option></select></div><div class="col-body"><div class="row on"><span>TryForce Advanced</span><span class="cnt">300本</span></div><div class="row"><span>DEEP HALF CLUB</span><span class="cnt">44本</span></div><div class="row"><span>新・柔術日記</span><span class="cnt">41本</span></div></div></div>
+          <div class="col"><div class="col-hdr"><span>Playlist</span><select><option>件数順</option></select></div><div class="col-body"><div class="row"><span>クローズドガード基本</span><span class="cnt">58本</span></div><div class="row on"><span>スイープコレクション</span><span class="cnt">42本</span></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="accSec">
+      <div class="accHdr"><span>タグ (T/B・カテゴリ・ポジション・#タグ) <span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:8px;font-size:9px;margin-left:6px">1</span></span><span class="arr">▶</span></div>
+    </div>
+  </div>
+  <div class="ftr">
+    <span style="font-size:10px;color:var(--text3);font-weight:700">選択中:</span>
+    <span class="pill">YouTube</span><span class="pill">TryForce Advanced</span>
+    <span class="sp"></span><span style="color:var(--text3);cursor:pointer;text-decoration:underline;font-size:10px">クリア</span><span class="hit">187 件</span><button class="apply">適用</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 案E: 2階層ナビ (大タブ + サブタブ)           -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="lab">案E — 2階層タブ (大タブ + サブピル)</div>
+<p class="desc">上段に3つの大タブ (状態 / ソース / タグ)。その下にサブタブ（例：状態なら Status/Progress/Priority のピル）。更にその下にチップ or カラム表示。段階的に絞り込む感覚で、迷いが少ない。ただし2段あるぶん縦のスペース消費は多め。</p>
+<div class="pop" style="width:1080px;height:560px">
+  <div class="hdr"><h2>絞り込み</h2><span class="x">✕</span></div>
+  <div class="topTabs">
+    <div class="t">状態<span style="background:var(--accent);color:#fff;padding:0 5px;border-radius:6px;font-size:9px;margin-left:4px;font-weight:700">3</span></div>
+    <div class="t on">ソース・チャンネル・プレイリスト<span style="background:var(--accent);color:#fff;padding:0 5px;border-radius:6px;font-size:9px;margin-left:4px;font-weight:700">3</span></div>
+    <div class="t">タグ<span style="background:var(--accent);color:#fff;padding:0 5px;border-radius:6px;font-size:9px;margin-left:4px;font-weight:700">1</span></div>
+  </div>
+  <div class="subTabs">
+    <div class="st on">すべて</div>
+    <div class="st">Source</div>
+    <div class="st">Channel</div>
+    <div class="st">Playlist</div>
+  </div>
+  <div class="search"><input placeholder="🔍 検索..."></div>
+  <div class="cols">
+    <div class="col narrow"><div class="col-hdr"><span>Source</span></div><div class="col-body"><div class="row on"><span>YouTube</span><span class="cnt">334</span></div><div class="row on"><span>GDrive</span><span class="cnt">390</span></div></div></div>
+    <div class="col"><div class="col-hdr"><span>Channel</span></div><div class="col-body"><div class="row on"><span>TryForce Advanced</span><span class="cnt">300本</span></div><div class="row"><span>DEEP HALF</span><span class="cnt">44本</span></div></div></div>
+    <div class="col"><div class="col-hdr"><span>Playlist</span></div><div class="col-body"><div class="row"><span>クローズドガード基本</span><span class="cnt">58本</span></div></div></div>
+  </div>
+  <div class="ftr">
+    <span style="font-size:10px;color:var(--text3);font-weight:700">選択中:</span>
+    <span class="pill">YouTube</span><span class="pill">TryForce</span>
+    <span class="sp"></span><span style="color:var(--text3);cursor:pointer;text-decoration:underline;font-size:10px">クリア</span><span class="hit">187 件</span><button class="apply">適用</button>
+  </div>
+</div>
+
+<div style="color:var(--text3);font-size:12px;max-width:1080px;line-height:1.8;margin-top:30px;border-top:1px solid var(--border);padding-top:16px">
+<b>比較</b><br>
+・<b>案A 左縦ナビ</b>: 項目数が多くても拡張しやすい。macOS設定風。デスクトップで特に有効。<br>
+・<b>案B 上横タブ</b>: 最もシンプル。3グループだけなので迷わない。モバイルにも移植しやすい。<br>
+・<b>案C スクロール</b>: タブ無し。迷わないが縦長になりやすい。<br>
+・<b>案D アコーディオン</b>: 現行フィルタの発展形。スマホ親和性高い。<br>
+・<b>案E 2階層タブ</b>: 細かく絞り込めるが段数が多い。<br>
+<br>
+<b>私の推し:</b> <b>案B</b>（シンプル・高速・実装しやすく、既存ポップアップの発展で済む）。次点 <b>案A</b>（将来的に絞り込み項目が増えても破綻しない）。
+</div>
+
+</body></html>
