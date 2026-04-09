@@ -1493,16 +1493,7 @@ export function buildDrawerHTML(id) {
   const techChips = (v.tech||[]).map(t=> `<span class="vp-chip on-tech" onclick="vpRemoveTag('${id}','tech','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
 
   return `
-    <div class="fsec">
-      <div class="fsec-title">マーク</div>
-      <div class="vp-row">
-        <span class="vp-lbl">Fav</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          <span class="chip${v.fav?' active c-fav':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">★ Fav</span>
-        </div>
-      </div>
-    </div>
-    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id) : ''}
+    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav }) : ''}
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
       <div class="vp-row">
@@ -2202,7 +2193,7 @@ export function vpTogWatch(id, el) {
 export function vpTogFav(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.fav = !v.fav;
-  el.className = 'chip' + (v.fav ? ' active c-fav' : '');
+  if (el) el.style.color = v.fav ? '#d4a017' : 'var(--text3)';
   autoSaveVp(id);
 }
 
