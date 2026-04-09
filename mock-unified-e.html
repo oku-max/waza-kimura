@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>案E 改 — 統合フィルター (動くモック)</title>
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--surface2:#f1f2f5;--border:#e3e5ea;--text:#1a1d23;--text2:#55606f;--text3:#8a94a3;--accent:#6b3fd4;--hover:#f5f1ff}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,"Hiragino Sans",sans-serif;padding:20px}
+.desc{color:var(--text2);font-size:12px;max-width:1080px;line-height:1.7;margin:0 0 14px}
+
+.pop{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;width:1080px;height:560px}
+
+/* ── トップ1行: 大タブ + 検索 + ✕ ── */
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.topbar .tabs{display:flex;gap:3px;flex:0 0 auto}
+.topbar .tab{padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
+.topbar .tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.topbar .tab .bdg{display:inline-block;background:var(--accent);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
+.topbar .tab.on .bdg{background:rgba(255,255,255,.3);color:#fff}
+.topbar .search{flex:1;min-width:0}
+.topbar .search input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit}
+.topbar .x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px}
+
+/* ── サブタブ ── */
+.subTabs{display:flex;gap:4px;padding:7px 14px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--surface)}
+.subTabs .st{flex:0 0 auto;padding:5px 12px;font-size:11px;font-weight:600;color:var(--text2);border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer;white-space:nowrap;font-family:inherit}
+.subTabs .st.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── カラム ── */
+.cols{flex:1;display:flex;overflow:hidden;min-height:0}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.col:last-child{border-right:none}
+.col.narrow{flex:0 0 130px}
+.col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;letter-spacing:.3px}
+.col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
+.col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
+.row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
+.row:hover{background:var(--hover)}
+.row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+.row .cnt{font-size:11px;color:var(--text3)}
+.row.on .cnt{color:var(--accent)}
+
+/* ── チップ (状態) ── */
+.chipsArea{flex:1;padding:14px;overflow-y:auto}
+.chipsSec{margin-bottom:14px}
+.chipsSec .lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:5px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;color:var(--text2);font-family:inherit}
+.chip.on{background:var(--hover);border-color:var(--accent);color:var(--accent);font-weight:700}
+
+/* ── フッター ── */
+.ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap}
+.ftr .lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
+.pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+.pill:after{content:" ×";opacity:.7}
+.ftr .sp{flex:1}
+.ftr .hit{color:var(--accent);font-weight:700;font-size:12px}
+.ftr .clr{color:var(--text3);cursor:pointer;text-decoration:underline;font-size:10px}
+.ftr .apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+</style></head><body>
+
+<p class="desc"><b>案E 改</b> — ヘッダー廃止、大タブ + 検索 + ✕ を1行に統合。サブタブを下段に残し、グループごとに切替可能。ライトモード固定。動作: タブ切替・項目選択・検索・ソート・クリア/適用。</p>
+
+<div class="pop" id="pop">
+  <div class="topbar">
+    <div class="tabs" id="mainTabs"></div>
+    <div class="search"><input id="q" placeholder="🔍 検索..." oninput="render()"></div>
+    <div class="x" onclick="alert('閉じる (モック)')">✕</div>
+  </div>
+  <div class="subTabs" id="subTabs"></div>
+  <div id="content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
+  <div class="ftr">
+    <span class="lbl">選択中:</span>
+    <div id="pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+    <span class="sp"></span>
+    <span class="clr" onclick="clearAll()">クリア</span>
+    <span class="hit" id="hit">751 件</span>
+    <button class="apply" onclick="alert('適用 (モック)')">適用</button>
+  </div>
+</div>
+
+<script>
+// ── データ ──
+const STATUS = ['★ Fav','Unseen','視聴済み','🔖 BM','💬 メモ','🖼 画像あり'];
+const PROGRESS = ['未着手','練習中','マスター'];
+const PRIORITY = ['今すぐ','そのうち','保留'];
+const SRC = [['youtube','YouTube',334],['vimeo','Vimeo',24],['gdrive','GDrive',390],['x','X',3]];
+const CH = [['TryForce Advanced',300],['DEEP HALF CLUB',44],['新・柔術日記Channel',41],['上野御徒町・小石川白山',38],['木部亮',25],['岩崎正寛',13],['JonThomasBJJ',13],['浅草BOYS',9]];
+const PL = [['クローズドガード基本',58],['スイープコレクション',42],['レッグロック入門',31],['パスガード研究',28],['ノーギ特集',22]];
+const TB = [['トップ',234],['ボトム',387],['スタンディング',0]];
+const CAT = [['エスケープ・ディフェンス',109],['ガードリテンション',42],['コントロール／プレッシャー',88],['スイープ',5],['テイクダウン',22],['フィニッシュ',123]];
+const POS = [['クローズドガード',228],['ハーフガード',50],['デラヒーバ',26],['タートル',22],['Kガード',2],['Xガード',1]];
+const TAGS = [['#チョーク',27],['#アームバー',25],['#レッグドラッグ',18],['#オモプラッタ',14],['#アームドラッグ',13]];
+
+// ── 状態 ──
+const MAIN = [
+  { k:'state', label:'状態', subs:['status','progress','priority'], subLbl:{status:'ステータス',progress:'進捗',priority:'優先度'} },
+  { k:'src',   label:'ソース・チャンネル・プレイリスト', subs:['all','src','ch','pl'], subLbl:{all:'すべて',src:'Source',ch:'Channel',pl:'Playlist'} },
+  { k:'tag',   label:'タグ', subs:['all','tb','cat','pos','tags'], subLbl:{all:'すべて',tb:'T/B',cat:'カテゴリ',pos:'ポジション',tags:'#タグ'} }
+];
+let mainTab = 'src';
+const subTab = { state:'status', src:'all', tag:'all' };
+const sel = {
+  status:new Set(), progress:new Set(), priority:new Set(),
+  src:new Set(), ch:new Set(), pl:new Set(),
+  tb:new Set(), cat:new Set(), pos:new Set(), tags:new Set()
+};
+let q = '';
+
+function selCount(keys){ return keys.reduce((a,k)=>a+sel[k].size,0); }
+function mainBadge(m){
+  if (m.k==='state') return selCount(['status','progress','priority']);
+  if (m.k==='src')   return selCount(['src','ch','pl']);
+  if (m.k==='tag')   return selCount(['tb','cat','pos','tags']);
+  return 0;
+}
+
+function toggle(k,v){ sel[k].has(v)?sel[k].delete(v):sel[k].add(v); render(); }
+function clearAll(){ Object.values(sel).forEach(s=>s.clear()); render(); }
+
+function chipList(key, items, labelMap){
+  return `<div class="chipsSec"><div class="lbl">${labelMap}</div><div class="chips">${
+    items.map(v=>`<span class="chip${sel[key].has(v)?' on':''}" onclick="toggle('${key}','${v}')">${v}</span>`).join('')
+  }</div></div>`;
+}
+
+function colHtml(title, key, items, {narrow=false,sortable=true}={}){
+  let arr = items.slice();
+  if (q) arr = arr.filter(([n])=>n.toLowerCase().includes(q.toLowerCase()));
+  // ゼロ件は除外（選択中は残す）
+  arr = arr.filter(([n,c])=>sel[key].has(n) || c>0);
+  const rows = arr.length ? arr.map(([n,c])=>
+    `<div class="row${sel[key].has(n)?' on':''}" onclick="toggle('${key}','${n.replace(/'/g,'&#39;')}')"><span>${n}</span><span class="cnt">${c}本</span></div>`
+  ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+  return `<div class="col${narrow?' narrow':''}">
+    <div class="col-hdr"><span>${title}</span>${sortable?'<select><option>あいうえ順</option><option selected>件数順</option></select>':''}</div>
+    <div class="col-body">${rows}</div>
+  </div>`;
+}
+
+function render(){
+  q = document.getElementById('q').value.trim();
+
+  // 大タブ
+  document.getElementById('mainTabs').innerHTML = MAIN.map(m=>{
+    const n = mainBadge(m);
+    return `<div class="tab${mainTab===m.k?' on':''}" onclick="setMain('${m.k}')">${m.label}${n?`<span class="bdg">${n}</span>`:''}</div>`;
+  }).join('');
+
+  // サブタブ
+  const m = MAIN.find(x=>x.k===mainTab);
+  document.getElementById('subTabs').innerHTML = m.subs.map(s=>
+    `<div class="st${subTab[mainTab]===s?' on':''}" onclick="setSub('${s}')">${m.subLbl[s]}</div>`
+  ).join('');
+
+  // コンテンツ
+  const c = document.getElementById('content');
+  const st = subTab[mainTab];
+  if (mainTab==='state'){
+    const items = st==='status'?STATUS:st==='progress'?PROGRESS:PRIORITY;
+    c.innerHTML = `<div class="chipsArea">${chipList(st, items, m.subLbl[st])}</div>`;
+  } else if (mainTab==='src'){
+    const srcC = colHtml('Source','src',SRC.map(([v,l,c])=>[l,c]),{narrow:true,sortable:false});
+    const chC  = colHtml('Channel','ch',CH);
+    const plC  = colHtml('Playlist','pl',PL);
+    if (st==='all')      c.innerHTML = `<div class="cols">${srcC}${chC}${plC}</div>`;
+    else if (st==='src') c.innerHTML = `<div class="cols">${colHtml('Source','src',SRC.map(([v,l,c])=>[l,c]),{sortable:false})}</div>`;
+    else if (st==='ch')  c.innerHTML = `<div class="cols">${colHtml('Channel','ch',CH)}</div>`;
+    else                 c.innerHTML = `<div class="cols">${colHtml('Playlist','pl',PL)}</div>`;
+  } else {
+    const tbC  = colHtml('T/B','tb',TB);
+    const catC = colHtml('カテゴリ','cat',CAT);
+    const posC = colHtml('ポジション','pos',POS);
+    const tagC = colHtml('#タグ','tags',TAGS);
+    if (st==='all')      c.innerHTML = `<div class="cols">${tbC}${catC}${posC}${tagC}</div>`;
+    else if (st==='tb')  c.innerHTML = `<div class="cols">${tbC}</div>`;
+    else if (st==='cat') c.innerHTML = `<div class="cols">${catC}</div>`;
+    else if (st==='pos') c.innerHTML = `<div class="cols">${posC}</div>`;
+    else                 c.innerHTML = `<div class="cols">${tagC}</div>`;
+  }
+
+  // Pills
+  const allSel = [];
+  Object.entries(sel).forEach(([k,s])=>s.forEach(v=>allSel.push([k,v])));
+  document.getElementById('pills').innerHTML = allSel.length
+    ? allSel.map(([k,v])=>`<span class="pill" onclick="toggle('${k}','${v.replace(/'/g,'&#39;')}')">${v}</span>`).join('')
+    : '<span style="color:var(--text3);font-size:11px">なし</span>';
+
+  document.getElementById('hit').textContent = (allSel.length?Math.max(1,751-allSel.length*30):751)+' 件';
+}
+
+function setMain(k){ mainTab=k; render(); }
+function setSub(k){ subTab[mainTab]=k; render(); }
+
+render();
+</script>
+
+</body></html>
