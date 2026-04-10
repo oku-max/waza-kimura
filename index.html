@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.13</title>
+<title>WAZA KIMURA v49.14</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -468,7 +468,7 @@
   width: 100% !important;
   max-width: 100% !important;
   height: 100vh !important;
-  height: 100svh !important;
+  height: 100dvh !important;
   overflow: hidden !important;
 }
 
@@ -517,8 +517,11 @@
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
 }
-/* vpanel-main-blur / backdrop-filter 全削除:
-   blur系エフェクトは main-area(1万DOM) のビットマップ生成で PC をフリーズさせる */
+.vpanel-main-blur {
+  filter: blur(4px) !important;
+  transition: filter .2s;
+  pointer-events: none;
+}
 
 /* 戻るボタン: #vpanel-left-col左上に固定 */
 #vpanel-back-btn {
@@ -538,7 +541,8 @@
   font-size: 12px;
   font-weight: 600;
   font-family: inherit;
-  /* backdrop-filter 削除: GPU合成コスト回避 */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   transition: background .15s;
   pointer-events: auto;
 }
@@ -581,8 +585,8 @@
 #vpanelInner.is-portrait {
   flex-direction: column !important;
   align-items: stretch !important;
-  height: 100svh !important;
-  max-height: 100svh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
   border-radius: 0 !important;
 }
 #vpanelInner.is-portrait #vpanel-left-col {
