@@ -986,7 +986,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 /* ═══ VPANEL OVERLAY ═══ */
 .vpanel{position:fixed;inset:0;z-index:300;display:none;pointer-events:none;align-items:flex-end;justify-content:center;}
 .vpanel.open{display:flex;pointer-events:auto;}
-.vpanel-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
+.vpanel-bg{position:absolute;inset:0;background:rgba(0,0,0,.65);}
 .vpanel-inner{
   position:relative;display:flex;width:100%;max-width:100%;height:90vh;
   background:var(--surface);
