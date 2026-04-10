@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.14</title>
+<title>WAZA KIMURA v49.15</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -517,9 +517,9 @@
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
 }
+/* vpanel-main-blur: filter:blur削除 — 770カード×v4badges=2万DOMのビットマップ生成がPC凍結の原因
+   .vpanel-bg の backdrop-filter:blur(4px) が背景ぼかしを代替 */
 .vpanel-main-blur {
-  filter: blur(4px) !important;
-  transition: filter .2s;
   pointer-events: none;
 }
 
