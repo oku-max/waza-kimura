@@ -1213,37 +1213,6 @@ export function openVPanel(id) {
   // API プリロード済みでも rAF 遅延で open 後に実際の new YT.Player を実行
   // → コンテナサイズが確定してから iframe 作成（低解像度防止）
 
-  const skipArea = document.getElementById('vpanel-skip-area');
-  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
-
-  const abArea = document.getElementById('vpanel-ab-area');
-  if (abArea) abArea.innerHTML = _abBarHTML();
-
-  const bmContainer = document.getElementById('vpanel-bm-area');
-  if (bmContainer) {
-    const vid = id;
-    const vd = (window.videos||[]).find(vx => vx.id === vid);
-    bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
-      + `<div class="vp-row" style="margin-top:8px">
-          <span class="vp-lbl">Memo</span>
-          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
-        </div>
-        <div id="vp-snap-section-${vid}"></div>`;
-    if (window.initSnapshotSection) {
-      window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
-    }
-  }
-
-  editArea.innerHTML = buildDrawerHTML(id);
-  _bindDrawerEvents(editArea, id);
-  _renderBlurArea(id);
-
-  // パネル表示（コンテナサイズ確定）
-  panel.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  window.scrollTo(0, 1);
-
-  // プレイヤー初期化（パネル open 後 → コンテナサイズ正確 → 高解像度）
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
     if (ytId) {
@@ -1278,6 +1247,37 @@ export function openVPanel(id) {
       });
     }
   }
+
+  const skipArea = document.getElementById('vpanel-skip-area');
+  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+
+  const abArea = document.getElementById('vpanel-ab-area');
+  if (abArea) abArea.innerHTML = _abBarHTML();
+
+  const bmContainer = document.getElementById('vpanel-bm-area');
+  if (bmContainer) {
+    const vid = id;
+    const vd = (window.videos||[]).find(vx => vx.id === vid);
+    bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
+      + `<div class="vp-row" style="margin-top:8px">
+          <span class="vp-lbl">Memo</span>
+          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
+        </div>
+        <div id="vp-snap-section-${vid}"></div>`;
+    if (window.initSnapshotSection) {
+      window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
+    }
+  }
+
+  editArea.innerHTML = buildDrawerHTML(id);
+  _bindDrawerEvents(editArea, id);
+  _renderBlurArea(id);
+
+  // ★ パネル表示は最後（全DOM構築済み → 1回のreflow）
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 1);
+  // vpanel-main-blur 廃止: .vpanel-bg の backdrop-filter が代替
 
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
