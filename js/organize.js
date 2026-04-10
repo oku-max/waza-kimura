@@ -36,7 +36,7 @@ function _saveOrgColPrefs() {
   } catch(e) {}
   window.saveUserSettings?.();
 }
-export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'Action', position:'Position', technique:'Technique', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
+export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
@@ -205,9 +205,8 @@ export function _matchQueryField(v, text, exact, fields) {
   const title = (v.title||'').toLowerCase();
   const ch    = (v.channel||v.ch||'').toLowerCase();
   const pl    = (v.pl||'').toLowerCase();
-  // 「タグ」フィールドは 4層タグ(tb/cat/pos/tags) + 旧tech を包含
+  // 「タグ」フィールドは 4層タグ(tb/cat/pos/tags)
   const tagWords = [
-    ...(v.tech || []),
     ...(v.tb   || []),
     ...(v.cat  || []),
     ...(v.pos  || []),
@@ -248,7 +247,7 @@ export function _matchFieldSpecific(v, field, values) {
     title: (v.title||'').toLowerCase(),
     ch: (v.channel||v.ch||'').toLowerCase(),
     pl: (v.pl||'').toLowerCase(),
-    tech: (v.tech||[]).map(t => t.toLowerCase()).join(' '),
+    tech: (v.tags||[]).map(t => t.toLowerCase()).join(' '),
     memo: (v.memo||'').toLowerCase()
   };
   const target = map[field] || '';
@@ -304,9 +303,9 @@ export function orgFilt(list) {
     if (orgFilters.prio.size && !orgFilters.prio.has(v.prio)) return false;
     if (orgFilters.status.size && !orgFilters.status.has(v.status)) return false;
     if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
-    if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.ac||[])) return false;
+    if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
     if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
-    if (orgFilters.tech.size && !_matchFilt(orgFilters.tech, v.tech||[])) return false;
+    if (orgFilters.tech.size && !_matchFilt(orgFilters.tech, v.tags||[])) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
     // 練習ランク / 最終練習日
     if (orgPrRank != null && window.vpCntRank) {
@@ -470,7 +469,7 @@ export function openOrgTF(){document.getElementById('org-tf-s').value='';renderO
 export function renderOrgTF(){
   const q=document.getElementById('org-tf-s').value.toLowerCase();
   const videos = window.videos || [];
-  const all=[...new Set([...(window.TECH || []),...videos.flatMap(v=>v.tech||[])])].sort();
+  const all=[...new Set([...(window.TECH || []),...videos.flatMap(v=>v.tags||[])])].sort();
   const matched=all.filter(t=>!q||t.toLowerCase().includes(q));
   document.getElementById('orgTFR').innerHTML=matched.map(t=>{
     const n=window.countByField?.('tech',t);
@@ -607,9 +606,9 @@ export function renderOrg() {
     };
     const scrollCells = orgColOrder.filter(col => orgColVisibility[col] !== false).map(col => {
       if (col === 'tb')        return mkTagCell(v.tb||[], 'tb', 'tb');
-      if (col === 'action')    return mkTagCell(v.ac||[], 'action', 'action');
+      if (col === 'action')    return mkTagCell(v.cat||[], 'action', 'action');
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
-      if (col === 'technique') return mkTagCell(v.tech||[], 'tech', 'technique');
+      if (col === 'technique') return mkTagCell(v.tags||[], 'tech', 'technique');
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
       if (col === 'prio')      return `<td class="org-td" data-col="prio" style="white-space:nowrap;overflow:hidden">
         <div class="org-judge">
@@ -981,9 +980,9 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return
 
 const _INLINE_COLS = {
   tb:        { field: 'tb',   type: 'tags', opts: () => window.TB_TAGS || [] },
-  action:    { field: 'ac',   type: 'tags', opts: () => window.AC_TAGS || [] },
+  action:    { field: 'cat',  type: 'tags', opts: () => window.AC_TAGS || [] },
   position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([...(window.POS_TAGS||[]), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
-  technique: { field: 'tech', type: 'tags', opts: () => [...new Set([...(window.TECH||[]), ...(window.videos||[]).flatMap(v=>v.tech||[])])].sort(), allowNew: true },
+  technique: { field: 'tags', type: 'tags', opts: () => [...new Set([...(window.TECH||[]), ...(window.videos||[]).flatMap(v=>v.tags||[])])].sort(), allowNew: true },
   memo:      { field: 'memo', type: 'text' },
 };
 
@@ -1293,9 +1292,9 @@ document.addEventListener('keydown', e => {
 const _BLANK = '(空白)';
 const _colFilterConfig = {
   tb:             { filterKey: 'tb',             valueGetter: v => { const a = v.tb||[]; return a.length ? a : [_BLANK]; } },
-  action:         { filterKey: 'action',         valueGetter: v => { const a = v.ac||[]; return a.length ? a : [_BLANK]; } },
+  action:         { filterKey: 'action',         valueGetter: v => { const a = v.cat||[]; return a.length ? a : [_BLANK]; } },
   position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
-  technique:      { filterKey: 'tech',           valueGetter: v => { const a = v.tech||[]; return a.length ? a : [_BLANK]; } },
+  technique:      { filterKey: 'tech',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
   prio:           { filterKey: 'prio',           valueGetter: v => [v.prio || '保留'] },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
