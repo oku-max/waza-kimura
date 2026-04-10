@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.07</title>
+<title>WAZA KIMURA v49.08</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -520,11 +520,9 @@
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
 }
-.vpanel-main-blur {
-  filter: blur(4px) !important;
-  transition: filter .2s;
-  pointer-events: none;
-}
+/* vpanel-main-blur 削除: .vpanel-bg の backdrop-filter:blur(4px) が
+   同等のぼかしを GPU合成で提供。filter:blur() は main-area 全体
+   (771カード+タグバッジ=1万DOM) のビットマップ生成で PC をフリーズさせていた */
 
 /* 戻るボタン: #vpanel-left-col左上に固定 */
 #vpanel-back-btn {

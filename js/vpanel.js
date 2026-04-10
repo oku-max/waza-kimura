@@ -1282,7 +1282,7 @@ export function openVPanel(id) {
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
   window.scrollTo(0, 1);
-  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
+  // vpanel-main-blur 廃止: .vpanel-bg の backdrop-filter が代替
 
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
@@ -1342,7 +1342,7 @@ export function closeVPanel() {
     if (inner) inner.classList.remove('is-portrait');
     document.body.style.overflow = '';
     window.openVPanelId = null;
-    document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
+    // vpanel-main-blur 廃止済み
     // pushStateで追加した履歴エントリを除去（Xボタン/Escape経由の場合のみ）
     // バックボタン経由（_backButtonClosing）なら既にpopされているのでback()不要
     if (!window._backButtonClosing && history.state?.vpanel) {
