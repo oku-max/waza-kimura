@@ -1316,7 +1316,7 @@ function _renderBlurArea(id) {
     <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
     ${candidates.map((rv) => {
       const ytId = _extractYtId(rv.emb || '');
-      const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
+      const thumb = (rv.thumb && !rv.thumb.includes('drive.google.com/thumbnail') ? rv.thumb : '') || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
       return `<div onclick="openVPanel('${rv.id}')" style="display:flex;gap:8px;align-items:center;padding:6px 10px;cursor:pointer;transition:background .12s;border-top:1px solid var(--border2)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
         <div style="width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)">
           ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">` : ''}

@@ -566,7 +566,7 @@ export function renderOrg() {
     const thumb = v.pt === 'youtube'
       ? (v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`)
       : v.pt === 'gdrive'
-      ? (v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320-h180`)
+      ? (v.thumb && !v.thumb.includes('drive.google.com/thumbnail') ? v.thumb : '')
       : v.pt === 'x'
       ? (v.thumb || '')
       : (v.thumb || `https://vumbnail.com/${_vmId}.jpg`);

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.01</title>
+<title>WAZA KIMURA v49.02</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1440,7 +1440,7 @@ function renderArch(){
   const c=document.getElementById('archList');
   if(!arc.length){c.innerHTML='<div class="empty"><div class="e">📦</div><p>アーカイブは空です</p></div>';_updateArchBulkBar();return;}
   c.innerHTML=arc.map(v=>{
-    const thumb=v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:v.pt==='gdrive'?`https://drive.google.com/thumbnail?id=${(v.id||'').replace(/^gd-/,'')}&sz=w320-h180`:`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`;
+    const thumb=v.pt==='youtube'?`https://img.youtube.com/vi/${v.ytId||(v.id||'').replace(/^yt-/,'')}/mqdefault.jpg`:v.pt==='gdrive'?'':`https://vumbnail.com/${(v.id||'').replace(/^vm-/,'')}.jpg`;
     const platLabel=v.pt==='vimeo'?'🎥 Vimeo':v.pt==='gdrive'?'📁 GDrive':v.pt==='x'?'𝕏 X':'▶ YouTube';
     return `<div class="arch-card"><input type="checkbox" id="arch-cb-${v.id}" ${archSelIds.has(v.id)?'checked':''} onchange="archTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0"><div style="width:80px;min-width:80px;height:45px;border-radius:6px;overflow:hidden;background:var(--surface3)"><img src="${thumb}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div><div style="font-size:10px;color:var(--text3)">${v.pl||'—'} | ${platLabel}</div></div><div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0"><button onclick="restore('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid #c8e6c9;border-radius:8px;cursor:pointer">↩ 復元</button><button onclick="delV('${v.id}')" style="padding:5px 9px;font-size:10px;font-weight:700;background:#fdecea;color:var(--accent);border:1px solid #f5c6c0;border-radius:8px;cursor:pointer">🗑 削除</button></div></div>`;
   }).join('');
