@@ -1207,8 +1207,9 @@ export function openVPanel(id) {
   // ★ パネルを先に開く（コンテナに 16:9 実寸を確保）
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
-  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
   window.scrollTo(0, 1);
+  // main-area blur は 771 カードに filter:blur() で ~140ms かかるため
+  // プレイヤー初期化後に遅延（.vpanel-bg の backdrop-filter が即時ぼかしを提供）
 
   // ★ プレイヤー初期化は次タスクに回す
   //   パネル表示の reflow 完了後に実行 → サイズ正確 & メインスレッド非ブロック
@@ -1255,6 +1256,9 @@ export function openVPanel(id) {
   // → プレイヤー iframe のネットワーク取得をブロックしない
   setTimeout(() => {
     if (window.openVPanelId !== id) return; // 切り替わっていたらスキップ
+
+    // main-area blur（プレイヤー初期化後に適用）
+    document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
 
     // スキップボタンは動画の真下（左カラム）
     const skipArea = document.getElementById('vpanel-skip-area');
