@@ -1134,6 +1134,8 @@ export function vpNav(dir) {
 }
 
 export function openVPanel(id) {
+  const _t = [performance.now()]; const _l = ['start'];
+  const _mark = (label) => { _t.push(performance.now()); _l.push(label); };
   const menu = document.getElementById('org-col-menu');
   if (menu) menu.remove();
   const v = (window.videos||[]).find(v => v.id === id);
@@ -1171,6 +1173,7 @@ export function openVPanel(id) {
   } else {
     history.pushState({ vpanel: id }, '');
   }
+  _mark('data-lookup');
   window.openVPanelId = id;
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
@@ -1208,10 +1211,7 @@ export function openVPanel(id) {
 
 
 
-  // ★ v48.39 構造を復元: 全同期 → パネル表示が最後（1回のreflow）
-  // YT.Player はパネル hidden 中に _initYTPlayer を呼ぶが、
-  // API プリロード済みでも rAF 遅延で open 後に実際の new YT.Player を実行
-  // → コンテナサイズが確定してから iframe 作成（低解像度防止）
+  _mark('title-built');
 
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
@@ -1248,6 +1248,7 @@ export function openVPanel(id) {
     }
   }
 
+  _mark('player-init');
   const skipArea = document.getElementById('vpanel-skip-area');
   if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
 
@@ -1269,15 +1270,30 @@ export function openVPanel(id) {
     }
   }
 
+  _mark('bm-snap-built');
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
+  _mark('drawer-built');
   _renderBlurArea(id);
+  _mark('blur-area-built');
 
-  // ★ パネル表示は最後（全DOM構築済み → 1回のreflow）
   panel.classList.add('open');
+  _mark('panel-open');
   document.body.style.overflow = 'hidden';
   window.scrollTo(0, 1);
-  // vpanel-main-blur 廃止: .vpanel-bg の backdrop-filter が代替
+
+  // 計測ログ出力
+  const _tEnd = performance.now();
+  console.log('%c[openVPanel timing]', 'color:#e8590c;font-weight:bold');
+  for (let i = 1; i < _t.length; i++) {
+    console.log(`  ${_l[i]}: +${(_t[i] - _t[i-1]).toFixed(1)}ms`);
+  }
+  console.log(`  TOTAL: ${(_tEnd - _t[0]).toFixed(1)}ms`);
+  // panel-open後のレイアウト・ペイント時間を計測
+  requestAnimationFrame(() => {
+    const _tPaint = performance.now();
+    console.log(`  → first-paint: +${(_tPaint - _tEnd).toFixed(1)}ms (layout+paint after open)`);
+  });
 
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
