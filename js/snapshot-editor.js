@@ -1908,41 +1908,61 @@ export async function initSnapshotSection(videoId, container) {
       </div>
     </div>`;
 
-  // Load blobs: IndexedDB (local cache) → Firebase Storage (cloud) for missing
-  let dbSnaps = [];
-  try {
-    dbSnaps = await syncSnapshotsFromCloud(videoId, refs);
-  } catch (err) {
-    console.warn('[snapshot-editor] syncSnapshotsFromCloud failed, falling back to local:', err);
-    try {
-      dbSnaps = await getSnapshotsByVideo(videoId);
-    } catch (e2) {
-      console.error('[snapshot-editor] getSnapshotsByVideo failed:', e2);
-    }
-  }
-
-  snapshots = refs.map((ref, i) => {
-    const db = dbSnaps.find(d => d.id === ref.id);
-    if (!db) return null; // orphaned ref — not in local or cloud
-    const url = URL.createObjectURL(db.blob);
-    return {
-      id: ref.id,
-      videoId,
-      blob: db.blob,
-      url,
-      memo: ref.memo || '',
-      annotations: db.annotations || [],
-      order: i
-    };
-  }).filter(Boolean);
-
-  renderGrid();
   bindAddButton();
-
-  // Bind UI events on first call (idempotent for global listeners)
   bindGlobalListeners();
   bindLightboxEvents();
   bindEditorEvents();
+
+  if (!refs.length) { snapshots = []; return; }
+
+  // ── Phase 1: ローカル IndexedDB から即座に描画 ──
+  // (クラウド同期を待たずにキャッシュ済みのスナップショットを表示)
+  let localSnaps = [];
+  try {
+    localSnaps = await getSnapshotsByVideo(videoId);
+  } catch (e) {
+    console.warn('[snapshot-editor] local getSnapshotsByVideo failed:', e);
+  }
+  if (currentVideoId !== videoId) return; // 切り替わった
+
+  const buildEntry = (ref, i, db) => {
+    if (!db || !db.blob) return null;
+    return {
+      id:          ref.id,
+      videoId,
+      blob:        db.blob,
+      url:         URL.createObjectURL(db.blob),
+      memo:        ref.memo || '',
+      annotations: db.annotations || [],
+      order:       i,
+    };
+  };
+
+  const localMap = new Map(localSnaps.map(s => [s.id, s]));
+  snapshots = refs.map((ref, i) => buildEntry(ref, i, localMap.get(ref.id))).filter(Boolean);
+  renderGrid();
+
+  // ── Phase 2: クラウドから不足分をバックグラウンド取得 ──
+  const missing = refs.filter(r => !localMap.has(r.id));
+  if (!missing.length) return;
+
+  try {
+    const fetched = await syncSnapshotsFromCloud(videoId, missing);
+    if (currentVideoId !== videoId) return;
+    const fetchedMap = new Map(fetched.map(s => [s.id, s]));
+    let updated = false;
+    snapshots = refs.map((ref, i) => {
+      const existing = snapshots.find(s => s.id === ref.id);
+      if (existing) return { ...existing, order: i };
+      const db = fetchedMap.get(ref.id);
+      const e = buildEntry(ref, i, db);
+      if (e) updated = true;
+      return e;
+    }).filter(Boolean);
+    if (updated) renderGrid();
+  } catch (err) {
+    console.warn('[snapshot-editor] background cloud sync failed:', err);
+  }
 }
 
 /**
