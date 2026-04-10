@@ -1274,15 +1274,14 @@ export function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
 
-  // blur-area: 次の動画リスト（現在の動画の前1件＋以降）
-  _renderBlurArea(id);
-
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
 
   window.scrollTo(0, 1);
   setTimeout(() => _vpUpdateOrientation(), 80);
+  // blur-area: パネル表示後に遅延描画（770件のDOM生成を初期表示からずらす）
+  setTimeout(() => _renderBlurArea(id), 200);
 }
 
 // ── blur-area: 次の動画リスト ──
@@ -1295,8 +1294,8 @@ function _renderBlurArea(id) {
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 現在の動画を除く全件（表示順のまま）
-  const candidates = all.filter((_, i) => i !== idx);
+  // 現在の動画を除く（最大20件 — 770件全件はDOM負荷が大きすぎる）
+  const candidates = all.filter((_, i) => i !== idx).slice(0, 20);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
 
