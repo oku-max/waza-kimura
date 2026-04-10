@@ -11,6 +11,7 @@
 
   let _tab = 'state';
   let _q = '';
+  let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
 
   function _esc(s) {
@@ -20,40 +21,50 @@
   }
 
   // ── ファセット用: excludeKey 以外の全フィルターを適用した動画 ──
+  // _ctx='org' 時は orgFilters / orgXxxOnly を参照する
   function _ctxVideos(excludeKey) {
-    const f = window.filters || {};
-    const fav = window.favOnly, unw = window.unwOnly, wat = window.watchedOnly;
-    const bm = window.bmOnly, memo = window.memoOnly, img = window.imgOnly;
+    const isOrg = _ctx === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    const fav  = isOrg ? window.orgFavOnly     : window.favOnly;
+    const unw  = isOrg ? window.orgUnwOnly     : window.unwOnly;
+    const wat  = isOrg ? window.orgWatchedOnly : window.watchedOnly;
+    const bm   = isOrg ? window.orgBmOnly      : window.bmOnly;
+    const memo = isOrg ? window.orgMemoOnly    : window.memoOnly;
+    const img  = isOrg ? window.orgImgOnly     : window.imgOnly;
+    // tag filter keys: lib uses tbNew/cat/posNew/tags, org uses tb/action/position/tech
+    const tkTb   = isOrg ? 'tb'       : 'tbNew';
+    const tkCat  = isOrg ? 'action'   : 'cat';
+    const tkPos  = isOrg ? 'position' : 'posNew';
+    const tkTags = isOrg ? 'tech'     : 'tags';
     return (window.videos || []).filter(v => {
       if (v.archived) return false;
-      // state系 booleans
       if (excludeKey !== 'fav' && fav && !v.fav) return false;
       if (excludeKey !== 'unw' && unw && v.watched) return false;
       if (excludeKey !== 'wat' && wat && !v.watched) return false;
       if (excludeKey !== 'bm'  && bm  && !(v.bm || (v.bookmarks && v.bookmarks.length))) return false;
       if (excludeKey !== 'memo'&& memo&& !(v.memo && String(v.memo).trim())) return false;
-      if (excludeKey !== 'img' && img && !(v.img || (v.images && v.images.length))) return false;
-      // sets
+      if (excludeKey !== 'img' && img && !(v.img || (v.images && v.images.length) || (v.snapshots && v.snapshots.length))) return false;
       if (excludeKey !== 'platform' && f.platform?.size && !f.platform.has(v.pt || v.src || 'youtube')) return false;
       if (excludeKey !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
       if (excludeKey !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                       return false;
       if (excludeKey !== 'status'   && f.status?.size   && !f.status.has(v.status))                     return false;
       if (excludeKey !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                         return false;
-      if (excludeKey !== 'tbNew'    && f.tbNew?.size    && !(v.tb  ||[]).some(t => f.tbNew.has(t)))     return false;
-      if (excludeKey !== 'cat'      && f.cat?.size      && !(v.cat ||[]).some(c => f.cat.has(c)))       return false;
-      if (excludeKey !== 'posNew'   && f.posNew?.size   && !(v.pos ||[]).some(p => f.posNew.has(p)))    return false;
-      if (excludeKey !== 'tags'     && f.tags?.size     && !(v.tags||[]).some(t => f.tags.has(t)))      return false;
-      // 練習回数 / 最終練習日
-      if (excludeKey !== 'prRank' && window.prRank != null && window.vpCntRank) {
-        if (String(window.vpCntRank(v.practice).lv) !== String(window.prRank)) return false;
+      if (excludeKey !== 'tb'   && f[tkTb]?.size   && !(v.tb  ||[]).some(t => f[tkTb].has(t)))         return false;
+      if (excludeKey !== 'cat'  && f[tkCat]?.size  && !(isOrg ? (v.ac||[]) : (v.cat||[])).some(c => f[tkCat].has(c))) return false;
+      if (excludeKey !== 'pos'  && f[tkPos]?.size  && !(v.pos ||[]).some(p => f[tkPos].has(p)))        return false;
+      if (excludeKey !== 'tags' && f[tkTags]?.size && !(isOrg ? (v.tech||[]) : (v.tags||[])).some(t => f[tkTags].has(t))) return false;
+      const prRank = isOrg ? window.orgPrRank : window.prRank;
+      const prDate = isOrg ? window.orgPrDate : window.prDate;
+      if (excludeKey !== 'prRank' && prRank != null && window.vpCntRank) {
+        if (String(window.vpCntRank(v.practice).lv) !== String(prRank)) return false;
       }
-      if (excludeKey !== 'prDate' && window.prDate) {
+      if (excludeKey !== 'prDate' && prDate) {
         const lp = v.lastPracticed || 0;
         const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-        if (window.prDate === 'week'  && !(lp && days <= 7))  return false;
-        if (window.prDate === 'month' && !(lp && days <= 30)) return false;
-        if (window.prDate === 'stale' && !(lp && days > 30))  return false;
-        if (window.prDate === 'never' && lp)                  return false;
+        if (prDate === 'week'  && !(lp && days <= 7))  return false;
+        if (prDate === 'month' && !(lp && days <= 30)) return false;
+        if (prDate === 'stale' && !(lp && days > 30))  return false;
+        if (prDate === 'never' && lp)                  return false;
       }
       return true;
     });
@@ -155,17 +166,25 @@
   }
 
   // ── レンダリング ──
-  function _badges() {
-    const f = window.filters || {};
-    const stateN = (window.favOnly?1:0) + (window.bmOnly?1:0) + (window.memoOnly?1:0) + (window.imgOnly?1:0)
-      + (window.prRank != null ? 1 : 0) + (window.prDate ? 1 : 0);
+  function _badges(ctx) {
+    const c = ctx || _ctx;
+    const isOrg = c === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    const stateN = ((isOrg ? window.orgFavOnly : window.favOnly) ? 1 : 0)
+      + ((isOrg ? window.orgBmOnly : window.bmOnly) ? 1 : 0)
+      + ((isOrg ? window.orgMemoOnly : window.memoOnly) ? 1 : 0)
+      + ((isOrg ? window.orgImgOnly : window.imgOnly) ? 1 : 0)
+      + ((isOrg ? window.orgPrRank : window.prRank) != null ? 1 : 0)
+      + ((isOrg ? window.orgPrDate : window.prDate) ? 1 : 0);
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
-    const tagN = (f.tbNew?.size || 0) + (f.cat?.size || 0) + (f.posNew?.size || 0) + (f.tags?.size || 0);
+    const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tech' : 'tags';
+    const tagN = (f[tkTb]?.size || 0) + (f[tkCat]?.size || 0) + (f[tkPos]?.size || 0) + (f[tkTags]?.size || 0);
     return { state: stateN, src: srcN, tag: tagN };
   }
 
   function _render() {
-    const f = window.filters || {};
+    const isOrg = _ctx === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const tabsEl = document.getElementById('uni-tabs');
     const bd = _badges();
     tabsEl.innerHTML = MAIN.map(m =>
@@ -177,10 +196,10 @@
     if (_tab === 'state') {
       // マーク: Fav / BM / メモ / 画像
       const markItems = [
-        { name:'★ Fav',       cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!window.favOnly,  key:'@fav' },
-        { name:'🔖 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!window.bmOnly,   key:'@bm'  },
-        { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!window.memoOnly, key:'@memo'},
-        { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!window.imgOnly,  key:'@img' }
+        { name:'★ Fav',       cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!(isOrg ? window.orgFavOnly : window.favOnly),  key:'@fav' },
+        { name:'🔖 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),   key:'@bm'  },
+        { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!(isOrg ? window.orgMemoOnly : window.memoOnly), key:'@memo'},
+        { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
       const mkMarkCol = () => {
         let arr = markItems.slice();
@@ -202,7 +221,7 @@
         return {
           name: label,
           cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length,
-          sel: window.prRank === String(r.lv),
+          sel: (isOrg ? window.orgPrRank : window.prRank) === String(r.lv),
           key: String(r.lv)
         };
       });
@@ -236,7 +255,7 @@
           else if (b.k === 'stale' && lp && days > 30)  c++;
           else if (b.k === 'never' && !lp)              c++;
         }
-        return { name:b.name, cnt:c, sel: window.prDate === b.k, key:b.k };
+        return { name:b.name, cnt:c, sel: (isOrg ? window.orgPrDate : window.prDate) === b.k, key:b.k };
       });
       const mkPdCol = () => {
         let arr = pdItems.slice();
@@ -300,58 +319,72 @@
     }
 
     else {
-      // tag
+      // tag — lib: tbNew/cat/posNew/tags, org: tb/action/position/tech
       const TB  = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
-      const CAT = (window.CATEGORIES || []).map(c => c.name);
-      const POS = (window.POSITIONS  || []).map(p => p.ja);
-      const TAGS = _collectTags();
+      const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tech' : 'tags';
 
-      const tbCtx = _ctxVideos('tbNew');
+      const tbCtx = _ctxVideos('tb');
       const tbItems = TB.map(n => ({
-        name:n, cnt: tbCtx.filter(v => (v.tb||[]).includes(n)).length, sel: !!f.tbNew?.has(n)
+        name:n, cnt: tbCtx.filter(v => (v.tb||[]).includes(n)).length, sel: !!f[tkTb]?.has(n)
       }));
+
+      const catLabel = isOrg ? 'Action' : 'カテゴリ';
+      const catSrc   = isOrg ? (window.AC_TAGS || []) : (window.CATEGORIES || []).map(c => c.name);
       const catCtx = _ctxVideos('cat');
-      const catItems = CAT.map(n => ({
-        name:n, cnt: catCtx.filter(v => (v.cat||[]).includes(n)).length, sel: !!f.cat?.has(n)
+      const catItems = catSrc.map(n => ({
+        name:n, cnt: catCtx.filter(v => (isOrg ? (v.ac||[]) : (v.cat||[])).includes(n)).length, sel: !!f[tkCat]?.has(n)
       }));
-      const posCtx = _ctxVideos('posNew');
-      const posItems = POS.map(n => ({
-        name:n, cnt: posCtx.filter(v => (v.pos||[]).includes(n)).length, sel: !!f.posNew?.has(n)
+
+      const posLabel = isOrg ? 'Position' : 'ポジション';
+      const posSrc   = isOrg ? [...new Set((window.videos||[]).flatMap(v => v.pos||[]))].sort() : (window.POSITIONS || []).map(p => p.ja);
+      const posCtx = _ctxVideos('pos');
+      const posItems = posSrc.map(n => ({
+        name:n, cnt: posCtx.filter(v => (v.pos||[]).includes(n)).length, sel: !!f[tkPos]?.has(n)
       }));
+
+      const tagsLabel = isOrg ? 'Technique' : '#タグ';
+      const tagsSrc   = isOrg ? [...new Set((window.videos||[]).flatMap(v => v.tech||[]))].sort() : _collectTags();
       const tagsCtx = _ctxVideos('tags');
-      const tagItems = TAGS.map(n => ({
-        name:n, cnt: tagsCtx.filter(v => (v.tags||[]).includes(n)).length, sel: !!f.tags?.has(n)
+      const tagItems = tagsSrc.map(n => ({
+        name:n, cnt: tagsCtx.filter(v => (isOrg ? (v.tech||[]) : (v.tags||[])).includes(n)).length, sel: !!f[tkTags]?.has(n)
       }));
 
       content.innerHTML = `<div class="uni-cols">
-        ${_colHtml('T/B', 'tb', tbItems, { filterKey:'tbNew' })}
-        ${_colHtml('カテゴリ', 'cat', catItems, { filterKey:'cat' })}
-        ${_colHtml('ポジション', 'pos', posItems, { filterKey:'posNew' })}
-        ${_colHtml('#タグ', 'tags', tagItems, { filterKey:'tags' })}
+        ${_colHtml('T/B', 'tb', tbItems, { filterKey: tkTb })}
+        ${_colHtml(catLabel, 'cat', catItems, { filterKey: tkCat })}
+        ${_colHtml(posLabel, 'pos', posItems, { filterKey: tkPos })}
+        ${_colHtml(tagsLabel, 'tags', tagItems, { filterKey: tkTags })}
       </div>`;
     }
 
     // ── Pills ──
     const pills = [];
-    if (window.favOnly)  pills.push(['@fav',  '★ Fav']);
-    if (window.bmOnly)   pills.push(['@bm',   '🔖 ブックマーク']);
-    if (window.memoOnly) pills.push(['@memo', '💬 メモ']);
-    if (window.imgOnly)  pills.push(['@img',  '🖼 画像あり']);
-    if (window.prRank != null && window.RANK_DEFS) {
-      const r = window.RANK_DEFS[Number(window.prRank)];
+    const _fav  = isOrg ? window.orgFavOnly  : window.favOnly;
+    const _bm   = isOrg ? window.orgBmOnly   : window.bmOnly;
+    const _memo = isOrg ? window.orgMemoOnly : window.memoOnly;
+    const _img  = isOrg ? window.orgImgOnly  : window.imgOnly;
+    const _prR  = isOrg ? window.orgPrRank   : window.prRank;
+    const _prD  = isOrg ? window.orgPrDate   : window.prDate;
+    if (_fav)  pills.push(['@fav',  '★ Fav']);
+    if (_bm)   pills.push(['@bm',   '🔖 ブックマーク']);
+    if (_memo) pills.push(['@memo', '💬 メモ']);
+    if (_img)  pills.push(['@img',  '🖼 画像あり']);
+    if (_prR != null && window.RANK_DEFS) {
+      const r = window.RANK_DEFS[Number(_prR)];
       if (r) pills.push(['@rank', r.name]);
     }
-    if (window.prDate) {
+    if (_prD) {
       const map = { week:'今週練習',month:'今月練習',stale:'🗓 30日+',never:'未練習' };
-      pills.push(['@prD', map[window.prDate] || window.prDate]);
+      pills.push(['@prD', map[_prD] || _prD]);
     }
+    const tkTbP = isOrg ? 'tb' : 'tbNew', tkCatP = isOrg ? 'action' : 'cat', tkPosP = isOrg ? 'position' : 'posNew', tkTagsP = isOrg ? 'tech' : 'tags';
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
-    [...(f.tbNew||[])].forEach(v => pills.push(['tbNew', v]));
-    [...(f.cat  ||[])].forEach(v => pills.push(['cat',   v]));
-    [...(f.posNew||[])].forEach(v => pills.push(['posNew', v]));
-    [...(f.tags ||[])].forEach(v => pills.push(['tags',  v]));
+    [...(f[tkTbP]||[])].forEach(v => pills.push([tkTbP, v]));
+    [...(f[tkCatP]||[])].forEach(v => pills.push([tkCatP, v]));
+    [...(f[tkPosP]||[])].forEach(v => pills.push([tkPosP, v]));
+    [...(f[tkTagsP]||[])].forEach(v => pills.push([tkTagsP, v]));
 
     const pillsEl = document.getElementById('uni-pills');
     pillsEl.innerHTML = pills.length
@@ -373,15 +406,22 @@
       if (n) { el.style.display = 'inline-block'; el.textContent = n; }
       else   { el.style.display = 'none'; }
     };
-    upd('uni-state-badge', bd.state);
-    upd('uni-src-badge',   bd.src);
-    upd('uni-tag-badge',   bd.tag);
-    // 既存の v4 バッジにもタグ数を反映
-    upd('fs-v4-btn-badge', bd.tag);
+    // Library badges
+    const libBd = _ctx === 'lib' ? bd : _badges('lib');
+    upd('uni-state-badge', libBd.state);
+    upd('uni-src-badge',   libBd.src);
+    upd('uni-tag-badge',   libBd.tag);
+    upd('fs-v4-btn-badge', libBd.tag);
+    // Organize badges
+    const orgBd = _ctx === 'org' ? bd : _badges('org');
+    upd('org-uni-state-badge', orgBd.state);
+    upd('org-uni-src-badge',   orgBd.src);
+    upd('org-uni-tag-badge',   orgBd.tag);
   }
 
   // ── グローバル公開 ──
-  window.uniOpen = function (tab) {
+  window.uniOpen = function (tab, ctx) {
+    _ctx = ctx || 'lib';
     _inject();
     if (tab && MAIN.some(m => m.k === tab)) _tab = tab;
     document.getElementById('uni-bd').classList.add('open');
@@ -396,25 +436,34 @@
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
   window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _render(); };
   window.uniToggle = function (key, val) {
-    const f = window.filters || {};
+    const isOrg = _ctx === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    const refresh = isOrg ? () => window.renderOrg?.() : () => { window.AF?.(); window.buildSidebarFovRows?.(); };
     // 擬似ブール系
-    if (key === '@fav')      { window.togFav?.();     _render(); return; }
-    if (key === '@unw')      { window.togUnw?.();     _render(); return; }
-    if (key === '@wat')      { window.togWatched?.(); _render(); return; }
-    if (key === '@bm')       { window.togBm?.();      _render(); return; }
-    if (key === '@memo')     { window.togMemo?.();    _render(); return; }
-    if (key === '@img')      { window.togImg?.();     _render(); return; }
-    if (key === '@rank')     { window.prRank = (String(window.prRank) === String(val)) ? null : String(val); window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
-    if (key === '@prD')      { window.prDate   = (window.prDate   === val) ? null : val; window.AF?.(); window.buildSidebarFovRows?.(); _render(); return; }
+    if (key === '@fav')  { isOrg ? window.togOrgFav?.()     : window.togFav?.();     _render(); return; }
+    if (key === '@unw')  { isOrg ? window.togOrgUnw?.()     : window.togUnw?.();     _render(); return; }
+    if (key === '@wat')  { isOrg ? window.togOrgWatched?.() : window.togWatched?.(); _render(); return; }
+    if (key === '@bm')   { isOrg ? window.togOrgBm?.()      : window.togBm?.();      _render(); return; }
+    if (key === '@memo') { isOrg ? window.togOrgMemo?.()    : window.togMemo?.();    _render(); return; }
+    if (key === '@img')  { isOrg ? window.togOrgImg?.()     : window.togImg?.();     _render(); return; }
+    if (key === '@rank') {
+      if (isOrg) { window.orgPrRank = (String(window.orgPrRank) === String(val)) ? null : String(val); }
+      else       { window.prRank    = (String(window.prRank)    === String(val)) ? null : String(val); }
+      refresh(); _render(); return;
+    }
+    if (key === '@prD') {
+      if (isOrg) { window.orgPrDate = (window.orgPrDate === val) ? null : val; }
+      else       { window.prDate    = (window.prDate    === val) ? null : val; }
+      refresh(); _render(); return;
+    }
     // Set系
     if (!f[key]) f[key] = new Set();
     f[key].has(val) ? f[key].delete(val) : f[key].add(val);
-    window.AF?.();
-    window.buildSidebarFovRows?.();
+    refresh();
     _render();
   };
   window.uniClearAll = function () {
-    window.clearAll?.();
+    _ctx === 'org' ? window.clearOrgFilters?.() : window.clearAll?.();
     _render();
   };
   window.uniSyncBadges = function () { _syncSidebarBadges(_badges()); };

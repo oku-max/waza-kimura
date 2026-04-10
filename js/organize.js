@@ -8,6 +8,7 @@ export let orgFilters = {
   fav: new Set(), memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
 export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
+export let orgPrRank = null, orgPrDate = null;
 const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
 const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
@@ -48,6 +49,8 @@ Object.defineProperty(window, 'orgWatchedOnly', {get: () => orgWatchedOnly, set:
 Object.defineProperty(window, 'orgBmOnly',      {get: () => orgBmOnly,      set: v => { orgBmOnly = v; }});
 Object.defineProperty(window, 'orgMemoOnly',    {get: () => orgMemoOnly,    set: v => { orgMemoOnly = v; }});
 Object.defineProperty(window, 'orgImgOnly',     {get: () => orgImgOnly,     set: v => { orgImgOnly = v; }});
+Object.defineProperty(window, 'orgPrRank',     {get: () => orgPrRank,     set: v => { orgPrRank = v; }});
+Object.defineProperty(window, 'orgPrDate',     {get: () => orgPrDate,     set: v => { orgPrDate = v; }});
 Object.defineProperty(window, 'orgColOrder', {get: () => orgColOrder, set: v => { orgColOrder = v; }});
 Object.defineProperty(window, 'orgColVisibility', {get: () => orgColVisibility, set: v => { orgColVisibility = v; }});
 Object.defineProperty(window, 'orgSortCol', {get: () => orgSortCol, set: v => { orgSortCol = v; }});
@@ -148,6 +151,7 @@ export function togOrgImg() {
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
   orgFavOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
+  orgPrRank = null; orgPrDate = null;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
   syncOrgFilterOvRows();
@@ -304,6 +308,18 @@ export function orgFilt(list) {
     if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
     if (orgFilters.tech.size && !_matchFilt(orgFilters.tech, v.tech||[])) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
+    // 練習ランク / 最終練習日
+    if (orgPrRank != null && window.vpCntRank) {
+      if (String(window.vpCntRank(v.practice).lv) !== String(orgPrRank)) return false;
+    }
+    if (orgPrDate) {
+      const lp = v.lastPracticed || 0;
+      const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
+      if (orgPrDate === 'week'  && !(lp && days <= 7))  return false;
+      if (orgPrDate === 'month' && !(lp && days <= 30)) return false;
+      if (orgPrDate === 'stale' && !(lp && days > 30))  return false;
+      if (orgPrDate === 'never' && lp)                  return false;
+    }
     if (orgFilters.fav.size) {
       const favVal = v.fav ? '★ Fav' : '☆ 未Fav';
       if (!orgFilters.fav.has(favVal)) return false;
@@ -533,6 +549,8 @@ export function renderOrg() {
     else if (orgSortCol === 'action')    { av=(a.ac||[]).join(); bv=(b.ac||[]).join(); }
     else if (orgSortCol === 'position')  { av=(a.pos||[]).join(); bv=(b.pos||[]).join(); }
     else if (orgSortCol === 'technique') { av=(a.tech||[]).join(); bv=(b.tech||[]).join(); }
+    else if (orgSortCol === 'practice')      { av=a.practice||0; bv=b.practice||0; }
+    else if (orgSortCol === 'lastPracticed') { av=a.lastPracticed||0; bv=b.lastPracticed||0; }
     else return 0;
     if (av < bv) return orgSortAsc ? -1 : 1;
     if (av > bv) return orgSortAsc ? 1 : -1;

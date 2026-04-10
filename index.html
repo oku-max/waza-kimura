@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.25</title>
+<title>WAZA KIMURA v49.26</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -804,9 +804,11 @@
           <option value="title">タイトル</option>
           <option value="prio">Priority</option>
           <option value="channel">チャンネル</option>
+          <option value="practice">🥋 練習回数</option>
+          <option value="lastPracticed">🗓 最終練習日</option>
         </select>
         <button onclick="window.orgSortAsc=!(window.orgSortAsc!==false);this.textContent=window.orgSortAsc!==false?'↑':'↓';window.renderOrg?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
-        <button onclick="clearOrgFilters()" style="font-size:11px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text3);cursor:pointer" title="フィルターリセット">✕</button>
+        <button onclick="clearOrgFilters()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
       </div>
       <div id="org-fs-bulk-area">
         <button id="org-fs-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
@@ -816,84 +818,49 @@
     <!-- スクロールエリア（全フィルター） -->
     <div class="fs-scroll" id="org-fs-accordion-area">
 
-      <!-- 🕐 最近みた動画 -->
-      <div class="fs-acc-sec" id="org-fs-acc-recent">
-        <div class="fs-acc-hdr" onclick="toggleOrgAcc('recent')">
-          <span>🕐 最近みた動画</span><span class="fs-acc-arrow" id="org-fs-acc-arr-recent">▶</span>
-        </div>
-        <div class="fs-acc-body" id="org-fs-acc-body-recent" style="display:none;padding:4px 0 6px">
-          <div id="org-fs-recent-list"></div>
+      <!-- ═ 統合フィルターパネル 3ボタン ═ -->
+      <div class="fs-acc-sec">
+        <div class="fs-acc-hdr" onclick="uniOpen('state','org')">
+          <span>進捗 &amp; マーク <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+          <span class="uni-open-ic" aria-hidden="true">+</span>
         </div>
       </div>
-
-      <!-- QUICK FILTER -->
-      <div style="padding:8px 12px 10px;border-bottom:1px solid var(--border2)">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);margin-bottom:6px">STATUS</div>
-        <div class="fs-chips">
-          <div class="chip c-fav" id="org-fs-chip-fav2"     onclick="togOrgFav()">★ Fav</div>
-          <div class="chip c-unw" id="org-fs-chip-unw2"     onclick="togOrgUnw()">Unseen</div>
-          <div class="chip"       id="org-fs-chip-watched"  onclick="togOrgWatched()">視聴済み</div>
-          <div class="chip"       id="org-fs-chip-bm"       onclick="togOrgBm()">🔖 BM</div>
-          <div class="chip"       id="org-fs-chip-memo"     onclick="togOrgMemo()">💬 メモ</div>
-          <div class="chip"       id="org-fs-chip-img"      onclick="togOrgImg()">🖼 画像あり</div>
-        </div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);margin:8px 0 6px">PROGRESS</div>
-        <div class="fs-chips">
-          <div class="chip" id="org-fs-stat-未着手" onclick="togOrgF('status','未着手',this)">未着手</div>
-          <div class="chip" id="org-fs-stat-練習中" onclick="togOrgF('status','練習中',this)">練習中</div>
-          <div class="chip" id="org-fs-stat-マスター" onclick="togOrgF('status','マスター',this)">マスター</div>
-        </div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);margin:8px 0 6px">PRIORITY</div>
-        <div class="fs-chips">
-          <div class="chip" id="org-fs-prio-今すぐ"   onclick="togOrgF('prio','今すぐ',this)">今すぐ</div>
-          <div class="chip" id="org-fs-prio-そのうち" onclick="togOrgF('prio','そのうち',this)">そのうち</div>
-          <div class="chip" id="org-fs-prio-保留"     onclick="togOrgF('prio','保留',this)">保留</div>
+      <div class="fs-acc-sec">
+        <div class="fs-acc-hdr" onclick="uniOpen('src','org')">
+          <span>ソース・チャンネル・プレイリスト <span id="org-uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+          <span class="uni-open-ic" aria-hidden="true">+</span>
         </div>
       </div>
-
-      <!-- Source (inline chips) -->
-      <div style="padding:8px 12px 10px;border-bottom:1px solid var(--border2)">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.7px;color:var(--text3);margin-bottom:6px">SOURCE</div>
-        <div class="fs-chips" id="org-fs-acc-src-chips"></div>
-      </div>
-
-      <!-- Channel -->
-      <div class="fs-acc-sec" id="org-fs-acc-ch">
-        <div class="fs-acc-hdr" onclick="openSbPopup('ch', this, 'org')">
-          <span>Channel</span><span class="fs-acc-arrow" id="org-fs-acc-arr-ch">▶</span>
-        </div>
-      </div>
-
-      <!-- Playlist -->
-      <div class="fs-acc-sec" id="org-fs-acc-pl">
-        <div class="fs-acc-hdr" onclick="openSbPopup('pl', this, 'org')">
-          <span>Playlist</span><span class="fs-acc-arrow" id="org-fs-acc-arr-pl">▶</span>
+      <div class="fs-acc-sec">
+        <div class="fs-acc-hdr" onclick="uniOpen('tag','org')">
+          <span>タグ <span id="org-uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+          <span class="uni-open-ic" aria-hidden="true">+</span>
         </div>
       </div>
 
       <!-- Top / Bottom -->
-      <div class="fs-acc-sec" id="org-fs-acc-tb">
+      <div class="fs-acc-sec" id="org-fs-acc-tb" style="display:none">
         <div class="fs-acc-hdr" onclick="openSbPopup('tb', this, 'org')">
           <span>Top / Bottom</span><span class="fs-acc-arrow" id="org-fs-acc-arr-tb">▶</span>
         </div>
       </div>
 
       <!-- Action -->
-      <div class="fs-acc-sec" id="org-fs-acc-ac">
+      <div class="fs-acc-sec" id="org-fs-acc-ac" style="display:none">
         <div class="fs-acc-hdr" onclick="openSbPopup('ac', this, 'org')">
           <span>Action</span><span class="fs-acc-arrow" id="org-fs-acc-arr-ac">▶</span>
         </div>
       </div>
 
       <!-- Position -->
-      <div class="fs-acc-sec" id="org-fs-acc-pos">
+      <div class="fs-acc-sec" id="org-fs-acc-pos" style="display:none">
         <div class="fs-acc-hdr" onclick="openSbPopup('pos', this, 'org')">
           <span>Position</span><span class="fs-acc-arrow" id="org-fs-acc-arr-pos">▶</span>
         </div>
       </div>
 
       <!-- Technique -->
-      <div class="fs-acc-sec" id="org-fs-acc-tech">
+      <div class="fs-acc-sec" id="org-fs-acc-tech" style="display:none">
         <div class="fs-acc-hdr" onclick="openSbPopup('tech', this, 'org')">
           <span>Technique</span><span class="fs-acc-arrow" id="org-fs-acc-arr-tech">▶</span>
         </div>
@@ -912,9 +879,19 @@
         </div>
       </div>
 
+      <!-- 🕐 最近みた動画 -->
+      <div class="fs-acc-sec" id="org-fs-acc-recent">
+        <div class="fs-acc-hdr" onclick="toggleOrgAcc('recent')">
+          <span>🕐 最近みた動画</span><span class="fs-acc-arrow" id="org-fs-acc-arr-recent">▶</span>
+        </div>
+        <div class="fs-acc-body" id="org-fs-acc-body-recent" style="display:none;padding:4px 0 6px">
+          <div id="org-fs-recent-list"></div>
+        </div>
+      </div>
+
       <!-- リセット -->
-      <div style="padding:10px 12px 16px">
-        <button onclick="clearOrgFilters()" class="btn-sub" style="width:100%;font-size:11px">× すべてリセット</button>
+      <div style="padding:12px">
+        <button onclick="clearOrgFilters()" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
       </div>
 
     </div><!-- /org-fs-accordion-area -->
