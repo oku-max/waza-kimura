@@ -1,13 +1,61 @@
 // ═══ WAZA KIMURA — 動画カード描画 v2 ═══
 
+const BATCH_SIZE = 60;
+let _pendingList = [];
+let _pendingCid = '';
+let _renderedCount = 0;
+let _scrollObserver = null;
+
 export function renderCards(list, cid) {
   const c = document.getElementById(cid);
   if (!list.length) {
     c.innerHTML = '<div class="empty"><div class="e">🔍</div><p>動画が見つかりませんでした</p></div>';
+    _cleanupObserver();
     return;
   }
   const ord = { "今すぐ": 0, "そのうち": 1, "保留": 2 };
-  c.innerHTML = [...list].sort((a, b) => ord[a.prio] - ord[b.prio]).map(v => cardHTML(v)).join('');
+  const sorted = [...list].sort((a, b) => ord[a.prio] - ord[b.prio]);
+
+  // 最初のバッチだけ描画
+  const first = sorted.slice(0, BATCH_SIZE);
+  c.innerHTML = first.map(v => cardHTML(v)).join('');
+  _renderedCount = first.length;
+  _pendingList = sorted;
+  _pendingCid = cid;
+
+  // 残りがあればスクロール監視で追加読み込み
+  _cleanupObserver();
+  if (sorted.length > BATCH_SIZE) {
+    const sentinel = document.createElement('div');
+    sentinel.id = 'cards-sentinel';
+    sentinel.style.height = '1px';
+    c.appendChild(sentinel);
+    _scrollObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) _loadMore();
+    }, { rootMargin: '400px' });
+    _scrollObserver.observe(sentinel);
+  }
+}
+
+function _loadMore() {
+  const c = document.getElementById(_pendingCid);
+  if (!c || _renderedCount >= _pendingList.length) { _cleanupObserver(); return; }
+  const next = _pendingList.slice(_renderedCount, _renderedCount + BATCH_SIZE);
+  const sentinel = document.getElementById('cards-sentinel');
+  const frag = document.createDocumentFragment();
+  const tmp = document.createElement('div');
+  tmp.innerHTML = next.map(v => cardHTML(v)).join('');
+  while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+  if (sentinel) c.insertBefore(frag, sentinel);
+  else c.appendChild(frag);
+  _renderedCount += next.length;
+  if (_renderedCount >= _pendingList.length) _cleanupObserver();
+}
+
+function _cleanupObserver() {
+  if (_scrollObserver) { _scrollObserver.disconnect(); _scrollObserver = null; }
+  const s = document.getElementById('cards-sentinel');
+  if (s) s.remove();
 }
 
 function _tsVisible(key) {
