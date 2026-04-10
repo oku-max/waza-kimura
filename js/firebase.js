@@ -113,11 +113,21 @@ export async function loadUserSettings(uid) {
         window.loadFilterPresetsFromRemote?.(data.filterPresets);
       }
       if (Array.isArray(data.orgColOrder) && data.orgColOrder.length) {
-        window.orgColOrder = data.orgColOrder;
-        try { localStorage.setItem('wk_orgColOrder', JSON.stringify(data.orgColOrder)); } catch(e) {}
+        // 廃止カラム除去 + 新規カラム補完
+        const _DEAD = ['prio'];
+        const _REQUIRED = ['fav','next','tb','action','position','technique','counter','channel','playlist','addedAt','duration','memo'];
+        let cleaned = data.orgColOrder.filter(c => !_DEAD.includes(c));
+        for (const r of _REQUIRED) { if (!cleaned.includes(r)) cleaned.push(r); }
+        window.orgColOrder = cleaned;
+        try { localStorage.setItem('wk_orgColOrder', JSON.stringify(cleaned)); } catch(e) {}
       }
       if (data.orgColVisibility && typeof data.orgColVisibility === 'object') {
-        window.orgColVisibility = { ...window.orgColVisibility, ...data.orgColVisibility };
+        const vis = { ...data.orgColVisibility };
+        delete vis.prio;
+        // 新規カラムがなければデフォルトで表示
+        if (vis.next === undefined) vis.next = true;
+        if (vis.counter === undefined) vis.counter = true;
+        window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
       if (data.appearance) {
