@@ -1292,8 +1292,8 @@ function _renderBlurArea(id) {
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 現在の動画を除く全件（表示順のまま）
-  const candidates = all.filter((_, i) => i !== idx);
+  // 現在の動画を除く（最大20件に制限 — 770件全件はレイアウト負荷が大きすぎる）
+  const candidates = all.filter((_, i) => i !== idx).slice(0, 20);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
 
