@@ -1204,10 +1204,50 @@ export function openVPanel(id) {
 
 
 
-  // ★ 全UIを同期構築してからパネルを開く（1回のreflow、v48.39構造に準拠）
-  // ただしYT.Playerはパネル表示後に初期化（v48.94: 0x0読み取り防止）
+  // ★ Step 1: パネルを開く（コンテナサイズ確保）
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 1);
 
-  // 周辺UI（ドロワー・ブックマーク・スキップ・AB）を先に構築
+  // ★ Step 2: プレイヤー即初期化（iframe ネットワーク開始を最優先）
+  if (plat === 'yt') {
+    const ytId = _extractYtId(emb);
+    if (ytId) {
+      _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+    }
+  } else if (plat === 'x') {
+    if (iframeContainer) {
+      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
+    }
+  } else if (plat === 'gd') {
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    if (iframeContainer && fileId) {
+      _playGDriveVideo(iframeContainer, fileId);
+    }
+  } else {
+    if (iframeContainer) {
+      const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+      iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+      _vmCurTime = 0; _vmDuration = 0;
+      if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
+      _loadVimeoApi().then(() => {
+        const ifr = document.getElementById('vpanel-vm-iframe');
+        if (!ifr) return;
+        try {
+          _vmPlayer = new Vimeo.Player(ifr);
+          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
+          _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
+          _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
+          _startTimeDisplay();
+        } catch(e) { console.warn('Vimeo player init error', e); }
+      });
+    }
+  }
+
+  // ★ Step 3: 残りUI同期構築（iframe ネットワーク取得と並行）
+  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
+
   const skipArea = document.getElementById('vpanel-skip-area');
   if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
 
@@ -1232,50 +1272,6 @@ export function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
   _renderBlurArea(id);
-
-  // ★ パネルを開く（コンテナに 16:9 実寸を確保） — UI構築済みなので1回のreflow
-  panel.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  window.scrollTo(0, 1);
-  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
-
-  // ★ YT.Player初期化はパネル表示直後に同期実行
-  //   panel.classList.add('open') 後なのでコンテナサイズが正確（低解像度防止）
-  if (plat === 'yt') {
-    const ytId = _extractYtId(emb);
-    if (ytId) {
-      _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
-    }
-  } else if (plat === 'x') {
-    if (iframeContainer) {
-      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
-    }
-  } else if (plat === 'gd') {
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
-    if (iframeContainer && fileId) {
-      _playGDriveVideo(iframeContainer, fileId);
-    }
-  } else {
-    // Vimeo: Player API付き
-    if (iframeContainer) {
-      const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
-      iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
-      _vmCurTime = 0; _vmDuration = 0;
-      if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
-      _loadVimeoApi().then(() => {
-        const ifr = document.getElementById('vpanel-vm-iframe');
-        if (!ifr) return;
-        try {
-          _vmPlayer = new Vimeo.Player(ifr);
-          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
-          _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
-          _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
-          _startTimeDisplay();
-        } catch(e) { console.warn('Vimeo player init error', e); }
-      });
-    }
-  }
 
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
