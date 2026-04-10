@@ -549,7 +549,11 @@ export function renderOrg() {
     else if (orgSortCol === 'action')    { av=(a.ac||[]).join(); bv=(b.ac||[]).join(); }
     else if (orgSortCol === 'position')  { av=(a.pos||[]).join(); bv=(b.pos||[]).join(); }
     else if (orgSortCol === 'technique') { av=(a.tech||[]).join(); bv=(b.tech||[]).join(); }
+    else if (orgSortCol === 'status')         { const o={'未着手':0,'練習中':1,'マスター':2}; av=o[a.status]??0; bv=o[b.status]??0; }
+    else if (orgSortCol === 'lastPlayed')    { av=a.lastPlayed||0; bv=b.lastPlayed||0; }
+    else if (orgSortCol === 'playCount')     { av=a.playCount||0; bv=b.playCount||0; }
     else if (orgSortCol === 'practice')      { av=a.practice||0; bv=b.practice||0; }
+    else if (orgSortCol === 'views')         { av=a.views||0; bv=b.views||0; }
     else if (orgSortCol === 'lastPracticed') { av=a.lastPracticed||0; bv=b.lastPracticed||0; }
     else return 0;
     if (av < bv) return orgSortAsc ? -1 : 1;

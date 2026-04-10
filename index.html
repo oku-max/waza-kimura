@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.26</title>
+<title>WAZA KIMURA v49.27</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -799,12 +799,15 @@
       <button id="adv-search-btn-pc" onclick="toggleAdvSearch()" style="width:100%;padding:5px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔎 詳細検索</button>
       <div style="display:flex;align-items:center;gap:4px">
         <select id="sort-key-org-pc" onchange="window.orgSortCol=this.value||null;window.orgSortAsc=true;window.renderOrg?.()" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="">並び順: 表示順</option>
+          <option value="">並び順: 標準</option>
           <option value="addedAt">追加日</option>
           <option value="title">タイトル</option>
           <option value="prio">Priority</option>
-          <option value="channel">チャンネル</option>
+          <option value="status">Progress</option>
+          <option value="lastPlayed">最近再生した</option>
+          <option value="playCount">再生回数</option>
           <option value="practice">🥋 練習回数</option>
+          <option value="views">👁 視聴回数</option>
           <option value="lastPracticed">🗓 最終練習日</option>
         </select>
         <button onclick="window.orgSortAsc=!(window.orgSortAsc!==false);this.textContent=window.orgSortAsc!==false?'↑':'↓';window.renderOrg?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
