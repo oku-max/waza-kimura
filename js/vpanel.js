@@ -64,7 +64,25 @@ window.onYouTubeIframeAPIReady = function() {
 // YT.Player を初期化する (YT.Player にサイズ決定を任せる従来方式)
 // containerId: iframe を入れる div の id
 function _initYTPlayer(containerId, ytId, autoplay, onReady) {
-  // 既存プレイヤーを破棄
+  // 既存プレイヤーが生きていれば loadVideoById で即座に差し替え（iframe再作成をスキップ）
+  if (_ytPlayer && _ytPlayerReady) {
+    try {
+      // プレイヤーの iframe がまだ DOM 上にあるか確認
+      const existing = _ytPlayer.getIframe?.();
+      if (existing && existing.parentNode) {
+        if (autoplay) {
+          _ytPlayer.loadVideoById(ytId);
+        } else {
+          _ytPlayer.cueVideoById(ytId);
+        }
+        _startTimeDisplay();
+        if (onReady) onReady();
+        return;
+      }
+    } catch(e) { /* fallthrough to full init */ }
+  }
+
+  // 既存プレイヤーを破棄（iframe が消失した場合 or 初回）
   if (_ytPlayer) {
     try { _ytPlayer.destroy(); } catch(e) {}
     _ytPlayer = null;
@@ -1180,7 +1198,10 @@ export function openVPanel(id) {
   // GDriveリセット
   _gdVideoEl = null; _gdFileId = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
-  if (iframeContainer) {
+  // YT→YT切替時は既存プレイヤーiframeを温存（loadVideoByIdで再利用）
+  const _canReuseYT = plat === 'yt' && _ytPlayer && _ytPlayerReady
+    && _ytPlayer.getIframe?.()?.parentNode;
+  if (iframeContainer && !_canReuseYT) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
 
