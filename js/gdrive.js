@@ -658,27 +658,42 @@ export async function fetchMissingGdThumbnails() {
     v.pt === 'gdrive' && !_hasPermanentThumb(v.thumb) && v.id
   );
   if (!missing.length) { window.toast?.('サムネイル未設定のGDrive動画はありません'); return; }
+
+  // Drive認証チェック — 未認証なら先にトークン取得を試みる
+  let token = _token || await ensureDriveToken().catch(() => null);
+  if (!token) {
+    window.toast?.('⚠ Google Driveにログインしてください（＋動画を追加 → Google Drive）');
+    return;
+  }
+
   window.toast?.(`🖼 ${missing.length}本のサムネイルを取得中...`);
-  let done = 0;
+  let done = 0, fail = 0;
   for (let i = 0; i < missing.length; i += 5) {
     const batch = missing.slice(i, i + 5);
     await Promise.allSettled(batch.map(async (v) => {
       const fileId = v.id.replace(/^gd-/, '');
-      // Drive APIからthumbnailLink取得
       try {
         const data = await driveGet(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`);
         if (data.thumbnailLink) {
           const url = await _uploadThumbToStorage(fileId, data.thumbnailLink);
           if (url) { v.thumb = url; done++; }
-        }
-      } catch (e) { /* skip */ }
+          else fail++;
+        } else { fail++; }
+      } catch (e) {
+        fail++;
+        if (fail <= 3) console.warn('Thumb fetch failed:', fileId, e.message);
+      }
     }));
+    // 途中経過（50件ごと）
+    if ((i + 5) % 50 === 0 && i + 5 < missing.length) {
+      window.toast?.(`🖼 処理中... ${done}件完了 / ${missing.length}件`);
+    }
   }
   if (done > 0) {
     await window.saveUserData?.();
     window.AF?.();
   }
-  window.toast?.(`🖼 ${done}/${missing.length}本のサムネイルを保存しました`);
+  window.toast?.(`🖼 ${done}/${missing.length}本のサムネイルを保存しました${fail ? ` (${fail}件失敗)` : ''}`);
 }
 window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
 
