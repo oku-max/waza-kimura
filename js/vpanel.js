@@ -51,7 +51,9 @@ function _loadYTApi() {
   tag.async = true;
   document.head.appendChild(tag);
 }
-_loadYTApi(); // ← 起動時プリロード (唯一の最適化)
+// YT API はオンデマンド読み込み（_initYTPlayer 内で呼ぶ）
+// プリロードすると API 即 ready → panel hidden 中に YT.Player が 0x0 を読んで低解像度になる
+// オンデマンドなら API ロード中に UI 構築+パネル表示が完了 → API ready 時にサイズ正確
 
 // YouTube iFrame APIの準備完了コールバック（グローバル必須）
 window.onYouTubeIframeAPIReady = function() {
@@ -96,17 +98,10 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
   };
 
   if (window.YT && window.YT.Player) {
-    // API プリロード済み: パネルが open になるまで待ってから初期化
-    // (hidden 中の new YT.Player は 0x0 を読んで低解像度になる)
-    const panel = document.getElementById('vpanel');
-    if (panel && !panel.classList.contains('open')) {
-      // パネル未表示 → rAF で open 後の reflow 完了を待つ
-      requestAnimationFrame(() => { requestAnimationFrame(doInit); });
-    } else {
-      doInit();
-    }
+    doInit();
   } else {
-    // API 未ロード → ロード完了コールバックで実行（その頃にはパネル open 済み）
+    // APIが未ロードなら読み込んでから初期化
+    _loadYTApi();
     window._pendingYTInit = doInit;
   }
 }
