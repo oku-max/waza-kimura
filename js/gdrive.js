@@ -560,8 +560,9 @@ export function gdBackToBrowser() {
 async function _uploadThumbToStorage(fileId, thumbnailLink) {
   if (!thumbnailLink || !firebase?.storage) return '';
   try {
-    const token = await ensureDriveToken();
-    const res = await fetch(thumbnailLink, { headers: { 'Authorization': `Bearer ${token}` } });
+    // lh3.googleusercontent.com はURLにトークン埋め込み済み — Authヘッダー不要
+    // Authヘッダーを付けるとCORSプリフライトでブロックされる
+    const res = await fetch(thumbnailLink, { mode: 'cors' });
     if (!res.ok) return '';
     const blob = await res.blob();
     const uid = firebase.auth().currentUser?.uid;
