@@ -41,30 +41,30 @@ document.addEventListener('click', (e) => {
   });
 }, true);
 
-// YouTube iFrame APIを非同期で読み込む（初回のみ）
+// YouTube iFrame API: アプリ起動時にプリロード (初回 vpanel 開閉のネットワーク待機を排除)
 function _loadYTApi() {
   if (_ytApiLoaded || document.getElementById('yt-iframe-api-script')) return;
   _ytApiLoaded = true;
   const tag = document.createElement('script');
   tag.id = 'yt-iframe-api-script';
   tag.src = 'https://www.youtube.com/iframe_api';
+  tag.async = true;
   document.head.appendChild(tag);
 }
+// プリロード削除: オンデマンドで _initYTPlayer 内から呼ぶ
+// （プリロードすると API が即座に使え、panel hidden 時に YT.Player が同期実行され低解像度になる。
+//   オンデマンドなら API ロード中に panel が開き、正しいサイズで初期化される）
 
 // YouTube iFrame APIの準備完了コールバック（グローバル必須）
 window.onYouTubeIframeAPIReady = function() {
-  // APIが準備できた後にプレイヤーが待機中なら初期化
   if (window._pendingYTInit) {
     window._pendingYTInit();
     window._pendingYTInit = null;
   }
 };
 
-// YT.Playerを初期化する
-// containerId: iframeを入れるdivのid
-// ytId: YouTubeのvideo ID
-// autoplay: 自動再生するか
-// onReady: 準備完了後のコールバック
+// YT.Player を初期化する (YT.Player にサイズ決定を任せる従来方式)
+// containerId: iframe を入れる div の id
 function _initYTPlayer(containerId, ytId, autoplay, onReady) {
   // 既存プレイヤーを破棄
   if (_ytPlayer) {
@@ -80,7 +80,7 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
         autoplay: autoplay ? 1 : 0,
         rel: 0,
         modestbranding: 1,
-        playsinline: 1
+        playsinline: 1,
       },
       events: {
         onReady: (e) => {
@@ -92,17 +92,14 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
           if (e.data === 1) { _startTimeDisplay(); }
           else { _stopTimeDisplay(); _updateTimeDisplay(); }
         },
-        onError: (e) => {
-          console.warn('YT player error:', e.data);
-        }
-      }
+        onError: (e) => { console.warn('YT player error:', e.data); },
+      },
     });
   };
 
   if (window.YT && window.YT.Player) {
     doInit();
   } else {
-    // APIが未ロードなら読み込んでから初期化
     _loadYTApi();
     window._pendingYTInit = doInit;
   }
@@ -1210,6 +1207,7 @@ export function openVPanel(id) {
 
 
 
+  // プレイヤー初期化（panel hidden — API 未ロード時は非同期で後から初期化される）
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
     if (ytId) {
@@ -1226,7 +1224,6 @@ export function openVPanel(id) {
       _playGDriveVideo(iframeContainer, fileId);
     }
   } else {
-    // Vimeo: Player API付き
     if (iframeContainer) {
       const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
       iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
@@ -1246,15 +1243,13 @@ export function openVPanel(id) {
     }
   }
 
-  // スキップボタンは動画の真下（左カラム）
+  // UI 全て同期レンダリング（panel hidden のまま — 1回の reflow に集約）
   const skipArea = document.getElementById('vpanel-skip-area');
   if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
 
-  // ABバーは右カラムの一番上
   const abArea = document.getElementById('vpanel-ab-area');
   if (abArea) abArea.innerHTML = _abBarHTML();
 
-  // ブックマークセクション
   const bmContainer = document.getElementById('vpanel-bm-area');
   if (bmContainer) {
     const vid = window.openVPanelId || id;
@@ -1265,7 +1260,6 @@ export function openVPanel(id) {
           <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
-    // Initialize snapshot section
     if (window.initSnapshotSection) {
       window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
     }
@@ -1485,42 +1479,8 @@ export function buildDrawerHTML(id) {
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return '';
 
-  const prioChips = [
-    {v:'今すぐ',  l:'今すぐ'},
-    {v:'そのうち',l:'そのうち'},
-    {v:'保留',    l:'保留'}
-  ].map(o => `<span class="chip${v.prio===o.v?' active':''}" onclick="vpSet('${id}','prio','${o.v}',this)">${o.l}</span>`).join('');
-
-  const progChips = [
-    {v:'未着手',  l:'未着手'},
-    {v:'練習中',  l:'練習中'},
-    {v:'マスター',l:'マスター'}
-  ].map(o => `<span class="chip${v.status===o.v?' active':''}" onclick="vpSet('${id}','status','${o.v}',this)">${o.l}</span>`).join('');
-
-  const tbChips   = (v.tb||[]).map(t  => `<span class="vp-chip on-tb"   onclick="vpRemoveTag('${id}','tb','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
-  const acChips   = (v.ac||[]).map(a  => `<span class="vp-chip on-ac"   onclick="vpRemoveTag('${id}','ac','${a.replace(/'/g,"\\'")}',this)">${a} ×</span>`).join('');
-  const posChips  = (v.pos||[]).map(p => `<span class="vp-chip on-pos"  onclick="vpRemoveTag('${id}','pos','${p.replace(/'/g,"\\'")}',this)">${p} ×</span>`).join('');
-  const techChips = (v.tech||[]).map(t=> `<span class="vp-chip on-tech" onclick="vpRemoveTag('${id}','tech','${t.replace(/'/g,"\\'")}',this)">${t} ×</span>`).join('');
-
   return `
-    <div class="fsec">
-      <div class="fsec-title">ステータス・進捗・優先度</div>
-      <div class="vp-row">
-        <span class="vp-lbl">Status</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          <span class="chip${v.watched?' active':''}" id="vp-watch-${id}" onclick="vpTogWatch('${id}',this)">${v.watched?'視聴済み':'未視聴'}</span>
-          <span class="chip${v.fav?' active c-fav':''}" id="vp-fav-${id}" onclick="vpTogFav('${id}',this)">★ Fav</span>
-        </div>
-      </div>
-      <div class="vp-row">
-        <span class="vp-lbl">Progress</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px" id="vp-prog-${id}">${progChips}</div>
-      </div>
-      <div class="vp-row">
-        <span class="vp-lbl">Priority</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px" id="vp-prio-${id}">${prioChips}</div>
-      </div>
-    </div>
+    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav }) : ''}
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
       <div class="vp-row">
@@ -1560,53 +1520,6 @@ export function buildDrawerHTML(id) {
     </div>
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
-    <div class="fsec" style="opacity:.55">
-      <div class="fsec-title">ポジション・テクニック <span style="font-size:10px;color:var(--text3);font-weight:400">(旧・移行期間)</span></div>
-    <div class="vp-row vp-row-tb">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tb')?.label||'TOP/BOTTOM'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-tb-${id}">${tbChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tb')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-tb-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','tb',this.value)" onkeydown="vpDdKey('${id}','tb',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-tb-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-ac">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='ac')?.label||'Action'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-ac-${id}">${acChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','ac')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-ac-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','ac',this.value)" onkeydown="vpDdKey('${id}','ac',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-ac-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-pos">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='pos')?.label||'Position'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-pos-${id}">${posChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','pos')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-pos-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','pos',this.value)" onkeydown="vpDdKey('${id}','pos',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-pos-${id}"></div>
-        </div>
-      </div>
-    </div>
-    <div class="vp-row vp-row-tech">
-      <span class="vp-lbl">${(window.tagSettings||[]).find(t=>t.key==='tech')?.label||'Technique'}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="vp-tech-${id}">${techChips}</div>
-        <div class="vp-dd-trigger" onclick="vpTogDd('${id}','tech')">＋ 追加</div>
-        <div class="vp-dd" id="vp-dd-tech-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..." oninput="vpDdFilter('${id}','tech',this.value)" onkeydown="vpDdKey('${id}','tech',event,this)">
-          <div class="vp-dd-list" id="vp-dd-list-tech-${id}"></div>
-        </div>
-      </div>
-    </div>
-    </div>
 
     <div class="vp-row">
       <span class="vp-lbl">Share</span>
@@ -2220,7 +2133,7 @@ export function vpTogWatch(id, el) {
 export function vpTogFav(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.fav = !v.fav;
-  el.className = 'chip' + (v.fav ? ' active c-fav' : '');
+  if (el) el.style.color = v.fav ? '#d4a017' : 'var(--text3)';
   autoSaveVp(id);
 }
 
@@ -2281,19 +2194,64 @@ export function _openPanel(id, emb, ext, plat) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay = autoplayEl ? autoplayEl.checked : true;
 
+  // まずは動画領域とヘッダーだけ最小構築 → プレイヤー起動を最優先
   panel.innerHTML = `
     <div class="vp-panel-resizer" id="vpResizer"></div>
     <div class="vp-panel-video">
-      <div id="vp-panel-yt-player" style="width:100%;height:100%"></div>
+      <div id="vp-panel-yt-player"></div>
     </div>
-    ${_skipBtnsHTML().replace('class="vp-skip-row"', 'class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--border)"')}
-    ${_abBarHTML()}
+    <div id="vp-panel-skip-${id}"></div>
+    <div id="vp-panel-ab-${id}"></div>
     <div class="vp-panel-header">
       <div class="vp-panel-title">${v.title}</div>
       <div class="vp-panel-close" onclick="closePanel()">✕</div>
     </div>
-    <div class="vp-panel-body">
+    <div class="vp-panel-body" id="vp-panel-body-${id}"></div>
+  `;
 
+  // パネル表示 → コンテナが正しい 16:9 サイズを得る
+  panel.classList.add('show');
+  const ma = document.querySelector('.main-area');
+  if (ma) { ma.classList.add('panel-open'); ma.style.marginRight = panel.offsetWidth + 'px'; }
+  if (window.openPlayer) _closePlayer(window.openPlayer);
+  window.openPlayer = id;
+
+  // YT.Player 初期化（PC用）: この時点で placeholder div は CSS で 16:9 サイズ確定済
+  if (plat === 'yt') {
+    const ytId = _extractYtId(emb);
+    if (ytId) {
+      _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+    }
+  } else if (plat === 'x') {
+    const host = document.getElementById('vp-panel-yt-player');
+    if (host) host.outerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="background:#fff"></iframe>`;
+  } else if (plat === 'gd') {
+    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+    const fileId = fileIdMatch ? fileIdMatch[1] : '';
+    const playerDiv = document.getElementById('vp-panel-yt-player');
+    if (playerDiv && fileId) _playGDriveVideo(playerDiv, fileId);
+  } else {
+    // Vimeo
+    const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+    const playerDiv = document.getElementById('vp-panel-yt-player');
+    if (playerDiv) playerDiv.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
+  }
+
+  _initPanelResizer(panel);
+  panel.onclick = function(e) { e.stopPropagation(); };
+  setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 0);
+
+  // 周辺 UI (skip/AB/チャプター/ブックマーク/メモ/snapshot/drawer) は遅延構築
+  // → プレイヤー iframe のネットワーク取得とレンダリングを邪魔しない
+  setTimeout(() => {
+    if (panelId !== id) return; // 切り替わっていたらスキップ
+    const skip = document.getElementById('vp-panel-skip-' + id);
+    if (skip) skip.outerHTML = _skipBtnsHTML().replace('class="vp-skip-row"', 'class="vp-skip-row" style="display:flex;gap:5px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--border)"');
+    const ab = document.getElementById('vp-panel-ab-' + id);
+    if (ab) ab.outerHTML = _abBarHTML();
+    const body = document.getElementById('vp-panel-body-' + id);
+    if (!body) return;
+    body.innerHTML = `
       ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
@@ -2302,46 +2260,11 @@ export function _openPanel(id, emb, ext, plat) {
       </div>
       <div id="vp-snap-section-${id}"></div>
       ${buildDrawerHTML(id)}
-    </div>
-  `;
-
-  // Initialize snapshot section (PC panel)
-  if (window.initSnapshotSection) {
-    window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
-  }
-
-  panel.classList.add('show');
-  const ma = document.querySelector('.main-area');
-  if (ma) { ma.classList.add('panel-open'); ma.style.marginRight = panel.offsetWidth + 'px'; }
-  if (window.openPlayer) _closePlayer(window.openPlayer);
-  window.openPlayer = id;
-
-  // YT.Player初期化（PC用）
-  if (plat === 'yt') {
-    const ytId = _extractYtId(emb);
-    if (ytId) {
-      _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+    `;
+    if (window.initSnapshotSection) {
+      window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
     }
-  } else if (plat === 'x') {
-    const ifc = document.getElementById('vp-panel-iframe-container');
-    if (ifc) ifc.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
-  } else if (plat === 'gd') {
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
-    const playerDiv = document.getElementById('vp-panel-yt-player');
-    if (playerDiv && fileId) {
-      _playGDriveVideo(playerDiv, fileId);
-    }
-  } else {
-    // Vimeo
-    const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
-    const playerDiv = document.getElementById('vp-panel-yt-player');
-    if (playerDiv) playerDiv.innerHTML = `<iframe src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
-  }
-
-  _initPanelResizer(panel);
-  panel.onclick = function(e) { e.stopPropagation(); };
-  setTimeout(function() { document.addEventListener('click', _closePanelOutside); }, 0);
+  }, 0);
 }
 
 function _initPanelResizer(panel) {
