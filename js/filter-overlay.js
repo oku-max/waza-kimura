@@ -982,7 +982,7 @@ export function buildSidebarFovRows() {
     // ファセット: platform以外のフィルターを適用した動画でカウント
     const ctxVids = _sbContextVideos('platform', f);
     [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']].forEach(([val, label]) => {
-      const cnt = ctxVids.filter(v => v.pt === val).length;
+      const cnt = ctxVids.filter(v => (v.pt || v.src || 'youtube') === val).length;
       const chip = document.createElement('div');
       chip.className = 'chip' + (f.platform?.has(val) ? ' active' : '');
       chip.textContent = label + (cnt ? ' ' + cnt : '');
@@ -1067,7 +1067,7 @@ function _getSbCtx(containerId) {
 function _sbContextVideos(filterKey, f) {
   return (window.videos || []).filter(v => {
     if (v.archived) return false;
-    if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt))                                         return false;
+    if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt || v.src || 'youtube'))                   return false;
     if (filterKey !== 'channel'   && f?.channel?.size   && !f.channel.has(v.channel || v.ch))                             return false;
     if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
     if (filterKey !== 'tb'        && f?.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))                          return false;
@@ -1288,3 +1288,147 @@ export function buildOrgSbSrcChips() {
     el.appendChild(chip);
   });
 }
+
+// ═══ 統合ポップアップ: Source | Channel | Playlist (3カラム) ═══
+function _sbmInject() {
+  if (document.getElementById('sbm-popup')) return;
+  const css = `<style id="sbm-css">
+#sbm-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
+#sbm-bd.open{display:block}
+#sbm-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 16px));height:min(600px,calc(100svh - 16px));max-height:calc(100svh - 16px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+#sbm-popup.open{display:flex}
+#sbm-popup .sbm-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
+#sbm-popup .sbm-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
+#sbm-popup .sbm-x{cursor:pointer;font-size:16px;color:var(--text3);padding:2px 6px;border-radius:4px;line-height:1}
+#sbm-popup .sbm-x:hover{background:var(--border);color:var(--text)}
+#sbm-popup .sbm-search{padding:8px 14px;border-bottom:1px solid var(--border)}
+#sbm-popup .sbm-search input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface2);color:var(--text);font-family:inherit;box-sizing:border-box}
+#sbm-popup .sbm-search input:focus{outline:none;border-color:var(--accent)}
+#sbm-popup .sbm-cols{flex:1;display:flex;overflow:hidden;min-height:0}
+#sbm-popup .sbm-col{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+#sbm-popup .sbm-col.narrow{flex:0 0 140px}
+#sbm-popup .sbm-col:last-child{border-right:none}
+#sbm-popup .sbm-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px;flex-shrink:0}
+#sbm-popup .sbm-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
+#sbm-popup .sbm-col-body{flex:1;overflow-y:auto;min-height:0;padding:2px 0}
+#sbm-popup .sbm-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
+#sbm-popup .sbm-row:hover{background:var(--surface2)}
+#sbm-popup .sbm-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+#sbm-popup .sbm-row .sbm-cnt{font-size:11px;color:var(--text3)}
+#sbm-popup .sbm-row.on .sbm-cnt{color:var(--accent)}
+#sbm-popup .sbm-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap}
+#sbm-popup .sbm-ftr .sbm-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
+#sbm-popup .sbm-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+#sbm-popup .sbm-pill:after{content:" ×";opacity:.7}
+#sbm-popup .sbm-sp{flex:1}
+#sbm-popup .sbm-hit{font-size:12px;color:var(--accent);font-weight:700}
+#sbm-popup .sbm-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
+#sbm-popup .sbm-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+#sbm-popup .sbm-apply:hover{filter:brightness(1.1)}
+</style>`;
+  document.head.insertAdjacentHTML('beforeend', css);
+  document.body.insertAdjacentHTML('beforeend', `
+<div id="sbm-bd" onclick="sbmClose()"></div>
+<div id="sbm-popup" role="dialog" aria-modal="true">
+  <div class="sbm-hdr"><h2>ソース・チャンネル・プレイリスト</h2><div class="sbm-x" onclick="sbmClose()">✕</div></div>
+  <div class="sbm-search"><input id="sbm-q" placeholder="🔍 検索..." oninput="sbmRender()"></div>
+  <div class="sbm-cols">
+    <div class="sbm-col narrow"><div class="sbm-col-hdr"><span>Source</span></div><div class="sbm-col-body" id="sbm-col-src"></div></div>
+    <div class="sbm-col"><div class="sbm-col-hdr"><span>Channel</span><select id="sbm-sort-ch" onchange="sbmRender()"><option value="abc">あいうえ順</option><option value="cnt" selected>件数順</option></select></div><div class="sbm-col-body" id="sbm-col-ch"></div></div>
+    <div class="sbm-col"><div class="sbm-col-hdr"><span>Playlist</span><select id="sbm-sort-pl" onchange="sbmRender()"><option value="abc">あいうえ順</option><option value="cnt" selected>件数順</option></select></div><div class="sbm-col-body" id="sbm-col-pl"></div></div>
+  </div>
+  <div class="sbm-ftr">
+    <span class="sbm-lbl">選択中:</span>
+    <div id="sbm-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+    <span class="sbm-sp"></span>
+    <span class="sbm-clr" onclick="sbmClear()">クリア</span>
+    <span class="sbm-hit" id="sbm-hit">0 件</span>
+    <button class="sbm-apply" onclick="sbmClose()">適用</button>
+  </div>
+</div>`);
+}
+
+function _sbmEsc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+window.sbmOpen = function () {
+  _sbmInject();
+  document.getElementById('sbm-bd').classList.add('open');
+  document.getElementById('sbm-popup').classList.add('open');
+  window.sbmRender();
+};
+window.sbmClose = function () {
+  document.getElementById('sbm-bd')?.classList.remove('open');
+  document.getElementById('sbm-popup')?.classList.remove('open');
+};
+window.sbmClear = function () {
+  const f = window.filters; if (!f) return;
+  f.platform?.clear(); f.channel?.clear(); f.playlist?.clear();
+  window.sbmRender(); window.AF?.(); window.buildSidebarFovRows?.();
+};
+window.sbmToggle = function (key, val) {
+  const f = window.filters; if (!f) return;
+  if (!f[key]) f[key] = new Set();
+  f[key].has(val) ? f[key].delete(val) : f[key].add(val);
+  window.sbmRender(); window.AF?.(); window.buildSidebarFovRows?.();
+};
+window.sbmRender = function () {
+  const f = window.filters; if (!f) return;
+  const qInp = document.getElementById('sbm-q');
+  const q = (qInp?.value || '').trim().toLowerCase();
+
+  // ── Source 列 ──
+  const srcCtx = _sbContextVideos('platform', f);
+  let srcArr = [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']]
+    .map(([v,l]) => ({ val:v, label:l, cnt:srcCtx.filter(x => (x.pt||x.src||'youtube')===v).length, sel:f.platform?.has(v) }))
+    .filter(r => r.sel || r.cnt > 0);
+  if (q) srcArr = srcArr.filter(r => r.label.toLowerCase().includes(q));
+  const srcEl = document.getElementById('sbm-col-src');
+  if (srcEl) srcEl.innerHTML = srcArr.length ? srcArr.map(r =>
+    `<div class="sbm-row${r.sel?' on':''}" onclick="sbmToggle('platform','${_sbmEsc(r.val)}')"><span>${_sbmEsc(r.label)}</span><span class="sbm-cnt">${r.cnt}</span></div>`
+  ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+
+  // ── Channel 列 ──
+  const chCtx = _sbContextVideos('channel', f);
+  const chMap = {};
+  chCtx.forEach(v => { const k = v.channel || v.ch; if (k) chMap[k] = (chMap[k]||0)+1; });
+  [...(f.channel||[])].forEach(v => { if (!(v in chMap)) chMap[v] = 0; });
+  const chSort = document.getElementById('sbm-sort-ch')?.value || 'cnt';
+  let chArr = Object.entries(chMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.channel?.has(n) }))
+    .filter(r => r.sel || r.cnt > 0);
+  if (q) chArr = chArr.filter(r => r.name.toLowerCase().includes(q));
+  chArr.sort((a,b) => chSort==='abc' ? a.name.localeCompare(b.name,'ja') : b.cnt-a.cnt);
+  const chEl = document.getElementById('sbm-col-ch');
+  if (chEl) chEl.innerHTML = chArr.length ? chArr.map(r =>
+    `<div class="sbm-row${r.sel?' on':''}" onclick="sbmToggle('channel','${_sbmEsc(r.name).replace(/'/g,'&#39;')}')"><span>${_sbmEsc(r.name)}</span><span class="sbm-cnt">${r.cnt}本</span></div>`
+  ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+
+  // ── Playlist 列 ──
+  const plCtx = _sbContextVideos('playlist', f);
+  const plMap = {};
+  plCtx.forEach(v => { if (v.pl) plMap[v.pl] = (plMap[v.pl]||0)+1; });
+  [...(f.playlist||[])].forEach(v => { if (!(v in plMap)) plMap[v] = 0; });
+  const plSort = document.getElementById('sbm-sort-pl')?.value || 'cnt';
+  let plArr = Object.entries(plMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.playlist?.has(n) }))
+    .filter(r => r.sel || r.cnt > 0);
+  if (q) plArr = plArr.filter(r => r.name.toLowerCase().includes(q));
+  plArr.sort((a,b) => plSort==='abc' ? a.name.localeCompare(b.name,'ja') : b.cnt-a.cnt);
+  const plEl = document.getElementById('sbm-col-pl');
+  if (plEl) plEl.innerHTML = plArr.length ? plArr.map(r =>
+    `<div class="sbm-row${r.sel?' on':''}" onclick="sbmToggle('playlist','${_sbmEsc(r.name).replace(/'/g,'&#39;')}')"><span>${_sbmEsc(r.name)}</span><span class="sbm-cnt">${r.cnt}本</span></div>`
+  ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+
+  // ── Pills ──
+  const all = [
+    ...[...(f.platform||[])].map(v => ['platform', v]),
+    ...[...(f.channel||[])].map(v => ['channel', v]),
+    ...[...(f.playlist||[])].map(v => ['playlist', v])
+  ];
+  const pillsEl = document.getElementById('sbm-pills');
+  if (pillsEl) pillsEl.innerHTML = all.length
+    ? all.map(([k,v]) => `<span class="sbm-pill" onclick="sbmToggle('${k}','${_sbmEsc(v).replace(/'/g,'&#39;')}')">${_sbmEsc(v)}</span>`).join('')
+    : '<span style="color:var(--text3);font-size:11px">なし</span>';
+
+  // ── Hit ──
+  const hitEl = document.getElementById('sbm-hit');
+  if (hitEl) hitEl.textContent = (window.filtered?.length || 0) + ' 件';
+};

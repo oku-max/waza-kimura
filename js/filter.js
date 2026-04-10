@@ -159,6 +159,7 @@ export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
   window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
+  window.prRank = null; window.prDate = null;
   const si = document.getElementById('si'); if (si) si.value = '';
   const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
   window.syncFilterOvRows?.();
@@ -334,6 +335,19 @@ export function filt(list) {
     if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly && !v.memo) return false;
     if (window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) return false;
+    // 進捗ランク (自動導出) フィルター
+    if (window.prRank != null && window.vpCntRank) {
+      if (String(window.vpCntRank(v.practice).lv) !== String(window.prRank)) return false;
+    }
+    if (window.prDate) {
+      const lp = v.lastPracticed || 0;
+      const now = Date.now();
+      const days = lp ? (now - lp) / 86400000 : Infinity;
+      if (window.prDate === 'week'  && !(lp && days <= 7))  return false;
+      if (window.prDate === 'month' && !(lp && days <= 30)) return false;
+      if (window.prDate === 'stale' && !(lp && days > 30))  return false;
+      if (window.prDate === 'never' && lp)                  return false;
+    }
     if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
     // ── 検索演算子 (-除外 / "完全一致" / field:値) ──
     for (const inc of parsed.includes) {
@@ -443,6 +457,12 @@ export function sortVideos(list) {
     } else if (key === 'playCount') {
       va = a.playCount || 0;
       vb = b.playCount || 0;
+    } else if (key === 'practice') {
+      va = a.practice || 0;
+      vb = b.practice || 0;
+    } else if (key === 'lastPracticed') {
+      va = a.lastPracticed || 0;
+      vb = b.lastPracticed || 0;
     }
     if (va < vb) return asc ? -1 : 1;
     if (va > vb) return asc ? 1 : -1;
