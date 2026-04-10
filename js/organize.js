@@ -20,30 +20,17 @@ function _loadOrgColPrefs() {
     let order  = o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER];
     let vis    = v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS};
     let widths = w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS};
-    // マイグレーション: prio列を削除、counter列を追加
-    let migrated = false;
-    if (order.includes('prio')) {
-      order = order.filter(c => c !== 'prio');
-      delete vis.prio;
-      migrated = true;
-    }
-    if (!order.includes('counter')) {
-      const techIdx = order.indexOf('technique');
-      order.splice(techIdx >= 0 ? techIdx + 1 : order.length, 0, 'counter');
-      vis.counter = true;
-      migrated = true;
-    }
-    if (!order.includes('next')) {
-      const favIdx = order.indexOf('fav');
-      order.splice(favIdx >= 0 ? favIdx + 1 : 0, 0, 'next');
-      vis.next = true;
-      migrated = true;
-    }
-    // マイグレーション結果をlocalStorageに即時保存
-    if (migrated) {
+    // マイグレーション v2: prio削除, counter/next追加
+    const MIGRATE_VER = 'orgcol_v2';
+    const migDone = localStorage.getItem(MIGRATE_VER);
+    if (!migDone) {
+      // 強制リセット: デフォルトから再構築
+      order = [..._ORG_DEFAULT_ORDER];
+      vis   = {..._ORG_DEFAULT_VIS};
       try {
         localStorage.setItem('wk_orgColOrder', JSON.stringify(order));
         localStorage.setItem('wk_orgColVisibility', JSON.stringify(vis));
+        localStorage.setItem(MIGRATE_VER, '1');
       } catch(e) {}
     }
     return { order, vis, widths };
@@ -664,7 +651,8 @@ export function renderOrg() {
         const dur = sec ? `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}` : '—';
         return `<td class="org-td" data-col="duration" style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">${dur}</td>`;
       }
-      return '';
+      // 未知のカラム → 空セルを返してヘッダーとのずれを防ぐ
+      return `<td class="org-td" data-col="${col}" style="font-size:10px;color:var(--text3)">—</td>`;
     }).join('');
 
     return `<tr class="org-tr" id="org-row-${v.id}">
