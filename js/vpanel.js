@@ -51,9 +51,7 @@ function _loadYTApi() {
   tag.async = true;
   document.head.appendChild(tag);
 }
-// プリロード削除: オンデマンドで _initYTPlayer 内から呼ぶ
-// （プリロードすると API が即座に使え、panel hidden 時に YT.Player が同期実行され低解像度になる。
-//   オンデマンドなら API ロード中に panel が開き、正しいサイズで初期化される）
+_loadYTApi(); // ← 起動時プリロード (唯一の最適化)
 
 // YouTube iFrame APIの準備完了コールバック（グローバル必須）
 window.onYouTubeIframeAPIReady = function() {
@@ -100,7 +98,6 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
   if (window.YT && window.YT.Player) {
     doInit();
   } else {
-    _loadYTApi();
     window._pendingYTInit = doInit;
   }
 }
@@ -1207,76 +1204,97 @@ export function openVPanel(id) {
 
 
 
-  // プレイヤー初期化（panel hidden — API 未ロード時は非同期で後から初期化される）
-  if (plat === 'yt') {
-    const ytId = _extractYtId(emb);
-    if (ytId) {
-      _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
-    }
-  } else if (plat === 'x') {
-    if (iframeContainer) {
-      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
-    }
-  } else if (plat === 'gd') {
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
-    if (iframeContainer && fileId) {
-      _playGDriveVideo(iframeContainer, fileId);
-    }
-  } else {
-    if (iframeContainer) {
-      const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
-      iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
-      _vmCurTime = 0; _vmDuration = 0;
-      if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
-      _loadVimeoApi().then(() => {
-        const ifr = document.getElementById('vpanel-vm-iframe');
-        if (!ifr) return;
-        try {
-          _vmPlayer = new Vimeo.Player(ifr);
-          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
-          _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
-          _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
-          _startTimeDisplay();
-        } catch(e) { console.warn('Vimeo player init error', e); }
-      });
-    }
-  }
-
-  // UI 全て同期レンダリング（panel hidden のまま — 1回の reflow に集約）
-  const skipArea = document.getElementById('vpanel-skip-area');
-  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
-
-  const abArea = document.getElementById('vpanel-ab-area');
-  if (abArea) abArea.innerHTML = _abBarHTML();
-
-  const bmContainer = document.getElementById('vpanel-bm-area');
-  if (bmContainer) {
-    const vid = window.openVPanelId || id;
-    const vd = (window.videos||[]).find(vx => vx.id === vid);
-    bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
-      + `<div class="vp-row" style="margin-top:8px">
-          <span class="vp-lbl">Memo</span>
-          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
-        </div>
-        <div id="vp-snap-section-${vid}"></div>`;
-    if (window.initSnapshotSection) {
-      window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
-    }
-  }
-
-  editArea.innerHTML = buildDrawerHTML(id);
-  _bindDrawerEvents(editArea, id);
-
-  _renderBlurArea(id);
-
-  // 最後にパネル表示（1回の reflow で全て描画）
+  // ★ パネルを先に開く（コンテナに 16:9 実寸を確保）
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
-  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
   window.scrollTo(0, 1);
+  // main-area blur は 771 カードに filter:blur() で ~140ms かかるため
+  // プレイヤー初期化後に遅延（.vpanel-bg の backdrop-filter が即時ぼかしを提供）
 
-  setTimeout(() => _vpUpdateOrientation(), 80);
+  // ★ プレイヤー初期化は次タスクに回す
+  //   パネル表示の reflow 完了後に実行 → サイズ正確 & メインスレッド非ブロック
+  setTimeout(() => {
+    if (window.openVPanelId !== id) return;
+    if (plat === 'yt') {
+      const ytId = _extractYtId(emb);
+      if (ytId) {
+        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+      }
+    } else if (plat === 'x') {
+      if (iframeContainer) {
+        iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
+      }
+    } else if (plat === 'gd') {
+      const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+      const fileId = fileIdMatch ? fileIdMatch[1] : '';
+      if (iframeContainer && fileId) {
+        _playGDriveVideo(iframeContainer, fileId);
+      }
+    } else {
+      // Vimeo: Player API付き
+      if (iframeContainer) {
+        const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+        iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+        _vmCurTime = 0; _vmDuration = 0;
+        if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
+        _loadVimeoApi().then(() => {
+          const ifr = document.getElementById('vpanel-vm-iframe');
+          if (!ifr) return;
+          try {
+            _vmPlayer = new Vimeo.Player(ifr);
+            _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
+            _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
+            _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
+            _startTimeDisplay();
+          } catch(e) { console.warn('Vimeo player init error', e); }
+        });
+      }
+    }
+  }, 0);
+
+  // 周辺UI（ドロワー・ブックマーク・blur-area 等）はマイクロ遅延
+  // → プレイヤー iframe のネットワーク取得をブロックしない
+  setTimeout(() => {
+    if (window.openVPanelId !== id) return; // 切り替わっていたらスキップ
+
+    // main-area blur（プレイヤー初期化後に適用）
+    document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
+
+    // スキップボタンは動画の真下（左カラム）
+    const skipArea = document.getElementById('vpanel-skip-area');
+    if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+
+    // ABバーは右カラムの一番上
+    const abArea = document.getElementById('vpanel-ab-area');
+    if (abArea) abArea.innerHTML = _abBarHTML();
+
+    // ブックマークセクション
+    const bmContainer = document.getElementById('vpanel-bm-area');
+    if (bmContainer) {
+      const vid = window.openVPanelId || id;
+      const vd = (window.videos||[]).find(vx => vx.id === vid);
+      bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
+        + `<div class="vp-row" style="margin-top:8px">
+            <span class="vp-lbl">Memo</span>
+            <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
+          </div>
+          <div id="vp-snap-section-${vid}"></div>`;
+      if (window.initSnapshotSection) {
+        window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
+      }
+    }
+
+    editArea.innerHTML = buildDrawerHTML(id);
+    _bindDrawerEvents(editArea, id);
+
+    // blur-area（全動画リスト・最重量）はさらにもう一段遅延
+    setTimeout(() => {
+      if (window.openVPanelId !== id) return;
+      _renderBlurArea(id);
+    }, 0);
+
+    setTimeout(() => _vpUpdateOrientation(), 80);
+  }, 0);
 }
 
 // ── blur-area: 次の動画リスト ──
