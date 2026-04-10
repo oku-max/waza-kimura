@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.28</title>
+<title>WAZA KIMURA v49.29</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -89,7 +89,8 @@
     switchImportTab,
     gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
     gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToBrowser, gdImport,
-    renameGdFile, gdChDdOpen, gdChDdFilter, gdChSelect, gdFavToggle
+    renameGdFile, gdChDdOpen, gdChDdFilter, gdChSelect, gdFavToggle,
+    fetchMissingGdThumbnails
   } from './js/gdrive.js';
   import {
     mkChip, toggleSidebar, syncSidebarChipStates,
@@ -146,6 +147,7 @@
   window.gdChDdOpen              = gdChDdOpen;
   window.gdChDdFilter            = gdChDdFilter;
   window.gdChSelect              = gdChSelect;
+  window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
   // data
   window.debounceSave            = debounceSave;
   window.qFav                    = qFav;
