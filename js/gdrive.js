@@ -578,7 +578,7 @@ export async function gdImport() {
       channel:  channel,
       ch:       channel,
       pl:       cb.dataset.folder || playlist,
-      thumb:    `https://drive.google.com/thumbnail?id=${fileId}&sz=w320-h180`,
+      thumb:    '',
       addedAt:  new Date().toISOString().slice(0, 10),
       watched:  false, fav: false, status: '未着手',
       prio:     'そのうち', shared: 0, archived: false, memo: '', ai: '',
