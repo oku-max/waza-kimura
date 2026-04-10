@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.35</title>
+<title>WAZA KIMURA v49.36</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1816,7 +1816,7 @@ async function _expandPlaylistUrl(line) {
   // フォールバック: RSS（最大15本、認証不要）
   try {
     const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${plId}`;
-    const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl));
+    const res = await fetch('/api/rss-proxy?url=' + encodeURIComponent(feedUrl));
     if (!res.ok) return null;
     const xml = await res.text();
     const doc = new DOMParser().parseFromString(xml, 'text/xml');

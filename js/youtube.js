@@ -80,7 +80,7 @@ async function fetchPlaylists(token) {
 }
 
 // ── RSSフィード経由でプレイリストの動画一覧を取得（quota不要、最新15本のみ）──
-const _RSS_PROXY = 'https://api.allorigins.win/raw?url=';
+const _RSS_PROXY = '/api/rss-proxy?url=';
 async function _fetchPlaylistViaRss(plId, plTitle) {
   const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${plId}`;
   const res = await fetch(_RSS_PROXY + encodeURIComponent(feedUrl));
