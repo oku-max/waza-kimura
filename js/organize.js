@@ -201,42 +201,16 @@ export function _matchQueryField(v, text, exact, fields) {
   const title = (v.title||'').toLowerCase();
   const ch    = (v.channel||v.ch||'').toLowerCase();
   const pl    = (v.pl||'').toLowerCase();
-  // 「タグ」フィールドは 4層タグ(tb/cat/pos/tags) + 旧tech を包含
-  const tagWords = [
-    ...(v.tech || []),
-    ...(v.tb   || []),
-    ...(v.cat  || []),
-    ...(v.pos  || []),
-    ...(v.tags || [])
-  ].map(t => String(t).toLowerCase());
+  const techs = (v.tech||[]).map(t => t.toLowerCase());
   const memo  = (v.memo||'').toLowerCase();
-  if ((fTitle && title.includes(text)) || (fCh && ch.includes(text))
-      || (fPl && pl.includes(text)) || (fTech && tagWords.some(t => t.includes(text)))
-      || (fMemo && memo.includes(text))) return true;
-
-  // ── 日英バイリンガル検索 (デラヒーバ ↔ De La Riva ↔ DLR 等) ──
-  // tag-master の _norm + alias インデックスを用いて pos/cat を全別名に展開してマッチ
-  const norm = window._normTag;
-  if (!fTech || !norm) return false;
-  const nText = norm(text);
-  if (!nText) return false;
-  const aliasKeys = [];
-  if (window.findPosition) {
-    for (const p of (v.pos || [])) {
-      const def = window.findPosition(p);
-      if (def) aliasKeys.push(...[def.id, def.ja, def.en, ...(def.aliases || [])]);
-    }
+  if (exact) {
+    return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
+        || (fPl && pl.includes(text)) || (fTech && techs.some(t => t.includes(text)))
+        || (fMemo && memo.includes(text));
   }
-  if (window.findCategory) {
-    for (const c of (v.cat || [])) {
-      const def = window.findCategory(c);
-      if (def) aliasKeys.push(...[def.id, def.name, ...(def.aliases || [])]);
-    }
-  }
-  return aliasKeys.some(k => {
-    const nk = norm(k);
-    return nk && nk.includes(nText);
-  });
+  return (fTitle && title.includes(text)) || (fCh && ch.includes(text))
+      || (fPl && pl.includes(text)) || (fTech && techs.some(t => t.includes(text)))
+      || (fMemo && memo.includes(text));
 }
 
 export function _matchFieldSpecific(v, field, values) {
