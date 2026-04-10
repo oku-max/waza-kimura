@@ -9,20 +9,26 @@ export let orgFilters = {
 };
 export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 export let orgPrRank = null, orgPrDate = null;
-const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'channel', 'prio', 'playlist', 'addedAt', 'duration', 'memo'];
-const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, channel: true, prio: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
-const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', channel:'110px', prio:'120px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
+const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
+const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
     const v = localStorage.getItem('wk_orgColVisibility');
     const w = localStorage.getItem('wk_orgColWidths');
-    const result = {
-      order:  o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER],
-      vis:    v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS},
-      widths: w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS},
-    };
-    return result;
+    let order  = o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER];
+    let vis    = v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS};
+    let widths = w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS};
+    // マイグレーション: prio列を削除、counter列を追加
+    order = order.filter(c => c !== 'prio');
+    delete vis.prio;
+    if (!order.includes('counter')) {
+      const techIdx = order.indexOf('technique');
+      order.splice(techIdx >= 0 ? techIdx + 1 : order.length, 0, 'counter');
+      vis.counter = true;
+    }
+    return { order, vis, widths };
   } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
 }
 const _orgPrefs = _loadOrgColPrefs();
@@ -36,7 +42,7 @@ function _saveOrgColPrefs() {
   } catch(e) {}
   window.saveUserSettings?.();
 }
-export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', channel:'Channel', prio:'Priority', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
+export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', counter:'カウンター', channel:'Channel', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
@@ -610,14 +616,15 @@ export function renderOrg() {
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
       if (col === 'technique') return mkTagCell(v.tags||[], 'tech', 'technique');
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
-      if (col === 'prio')      return `<td class="org-td" data-col="prio" style="white-space:nowrap;overflow:hidden">
-        <div class="org-judge">
-          ${['今すぐ','そのうち','保留'].map(p => {
-            const active = prio === p;
-            const [bg2,col2] = prioCols[p];
-            return `<button class="org-judge-btn" style="background:${active?bg2:'var(--surface2)'};border:1.5px solid ${active?col2:'var(--border)'};color:${active?col2:'var(--text3)'};font-weight:${active?800:500}" onclick="event.stopPropagation();setPrio('${v.id}','${p}')">${p}</button>`;
-          }).join('')}
-        </div></td>`;
+      if (col === 'counter') {
+        const pc = v.practice || 0;
+        const ago = v.lastPracticed ? (window.vpCntFormatAgo?.(v.lastPracticed) || '') : '';
+        return `<td class="org-td" data-col="counter" style="white-space:nowrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700">
+            <span style="color:${pc > 0 ? '#e8590c' : 'var(--text3)'};${pc === 0 ? 'opacity:.55' : ''}">🥋 ${pc || '未'}</span>
+            <span style="font-size:9px;color:var(--text3);font-weight:600">${ago || '—'}</span>
+          </div></td>`;
+      }
       if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
       if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
