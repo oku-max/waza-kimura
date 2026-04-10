@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.12</title>
+<title>WAZA KIMURA v49.13</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -459,10 +459,7 @@
 <style>
 /* ══ Vパネル レイアウト ══ */
 
-/* vpanel本体: align-items:stretchでzoom由来の高さ超過を防止 */
-#vpanel {
-  align-items: stretch !important;
-}
+/* vpanel本体 */
 #vpanel .vpanel-inner,
 #vpanelInner {
   display: flex !important;
@@ -470,8 +467,8 @@
   align-items: stretch !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
+  height: 100vh !important;
+  height: 100svh !important;
   overflow: hidden !important;
 }
 
@@ -520,9 +517,8 @@
   background: var(--surface);
   -webkit-overflow-scrolling: touch;
 }
-/* vpanel-main-blur 削除: .vpanel-bg の backdrop-filter:blur(4px) が
-   同等のぼかしを GPU合成で提供。filter:blur() は main-area 全体
-   (771カード+タグバッジ=1万DOM) のビットマップ生成で PC をフリーズさせていた */
+/* vpanel-main-blur / backdrop-filter 全削除:
+   blur系エフェクトは main-area(1万DOM) のビットマップ生成で PC をフリーズさせる */
 
 /* 戻るボタン: #vpanel-left-col左上に固定 */
 #vpanel-back-btn {
@@ -542,8 +538,7 @@
   font-size: 12px;
   font-weight: 600;
   font-family: inherit;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* backdrop-filter 削除: GPU合成コスト回避 */
   transition: background .15s;
   pointer-events: auto;
 }
