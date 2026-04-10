@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.34</title>
+<title>WAZA KIMURA v49.35</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -1788,9 +1788,57 @@ async function _fetchTitle(parsed) {
   } catch { return null; }
 }
 
+// ── プレイリスト展開: RSS経由（認証不要）+ YouTube API（トークンあれば全件）──
+async function _expandPlaylistUrl(line) {
+  const m = line.match(/youtube\.com\/playlist\?.*list=([A-Za-z0-9_-]+)/);
+  if (!m) return null;
+  const plId = m[1];
+
+  // YouTube APIトークンがあれば全件取得
+  if (window._ytToken) {
+    const vids = [];
+    let pageToken = '';
+    do {
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${plId}&maxResults=50${pageToken ? '&pageToken=' + pageToken : ''}`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + window._ytToken } });
+      const data = await res.json();
+      if (data.error) break;
+      (data.items || []).forEach(item => {
+        const s = item.snippet;
+        const vid = s.resourceId?.videoId;
+        if (vid) vids.push({ vid, title: s.title, channel: s.videoOwnerChannelTitle || '', thumb: s.thumbnails?.medium?.url || '' });
+      });
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+    if (vids.length) return { plId, vids };
+  }
+
+  // フォールバック: RSS（最大15本、認証不要）
+  try {
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${plId}`;
+    const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl));
+    if (!res.ok) return null;
+    const xml = await res.text();
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const entries = Array.from(doc.getElementsByTagName('entry'));
+    const vids = entries.map(e => {
+      const vid = e.getElementsByTagName('yt:videoId')[0]?.textContent
+               || e.getElementsByTagNameNS('*', 'videoId')[0]?.textContent;
+      if (!vid) return null;
+      return {
+        vid,
+        title: e.getElementsByTagName('title')[0]?.textContent || '',
+        channel: e.getElementsByTagName('name')[0]?.textContent || '',
+        thumb: `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`
+      };
+    }).filter(Boolean);
+    return vids.length ? { plId, vids, rss: true } : null;
+  } catch { return null; }
+}
+
 async function detectUrls() {
   const text = document.getElementById('urlIn').value;
-  const lines = text.split(/[\n\r]+/).filter(l => l.trim());
+  let lines = text.split(/[\n\r]+/).filter(l => l.trim());
   if (!lines.length) { toast('URLを入力してください'); return; }
 
   const resultList = document.getElementById('urlResultList');
@@ -1799,6 +1847,33 @@ async function detectUrls() {
   resultArea.style.display = 'block';
   document.getElementById('urlForm').style.display = 'none';
   window._urlParsed = [];
+
+  // Phase 0: プレイリストURLを検出 → 個別動画URLに展開
+  const expanded = [];
+  const nonPl = [];
+  for (const line of lines) {
+    if (/youtube\.com\/playlist\?.*list=/.test(line)) {
+      expanded.push(line); // mark for expansion
+    } else {
+      nonPl.push(line);
+    }
+  }
+  if (expanded.length) {
+    toast(`📋 ${expanded.length}件のプレイリストを展開中...`);
+    for (const plUrl of expanded) {
+      const result = await _expandPlaylistUrl(plUrl);
+      if (result) {
+        const label = result.rss ? `(RSS: 最新${result.vids.length}本)` : `(${result.vids.length}本)`;
+        toast(`📋 PL ${result.plId.slice(0,12)}… ${label} 展開完了`);
+        result.vids.forEach(v => {
+          nonPl.push(`https://www.youtube.com/watch?v=${v.vid}`);
+        });
+      } else {
+        nonPl.push(plUrl); // 展開失敗 → そのまま残す（エラー表示される）
+      }
+    }
+  }
+  lines = nonPl;
 
   // Phase 1: parse all lines
   const items = lines.map(line => {
