@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.40</title>
+<title>WAZA KIMURA v49.41</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -39,7 +39,7 @@
     parseYtTimestamps
   } from './js/youtube.js';
   window.parseYtTimestamps = parseYtTimestamps;
-  import { debounceSave, qFav, qWatch, archOne, setPrio } from './js/data.js';
+  import { debounceSave, qFav, qNext, qWatch, archOne, setPrio } from './js/data.js';
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderCards, cardHTML } from './js/cards.js';
   import {
@@ -50,7 +50,7 @@
     toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance
   } from './js/settings.js';
   import {
-    togF, togPlat, togFav, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
+    togF, togPlat, togFav, togNext, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
     filterPresets, orgFilterPresets, saveFilterPresets, saveOrgFilterPresets,
     saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
@@ -151,6 +151,7 @@
   // data
   window.debounceSave            = debounceSave;
   window.qFav                    = qFav;
+  window.qNext                   = qNext;
   window.qWatch                  = qWatch;
   window.archOne                 = archOne;
   window.setPrio                 = setPrio;
@@ -191,6 +192,7 @@
   window.togF                  = togF;
   window.togPlat               = togPlat;
   window.togFav                = togFav;
+  window.togNext               = togNext;
   window.togUnw                = togUnw;
   window.togWatched            = togWatched;
   window.togBm                 = togBm;
@@ -3272,6 +3274,7 @@ window.addEventListener('resize', adjustTopbarOffset);
         <span class="fbar-lbl">Status</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip c-fav" id="org-fov-chip-fav" onclick="togOrgFav()">★ Fav</div>
+          <div class="chip" id="org-fov-chip-next" onclick="togOrgNext()" style="--chip-active-bg:#fff3e0;--chip-active-border:#e8590c;--chip-active-color:#e8590c">🎯 Next</div>
           <div class="chip c-unw" id="org-fov-chip-unw" onclick="togOrgUnw()">Unseen</div>
           <div class="chip" id="org-fov-chip-watched" onclick="togOrgWatched()">視聴済み</div>
           <div class="chip" id="org-fov-chip-bm" onclick="togOrgBm()">🔖 ブックマークあり</div>
@@ -3396,6 +3399,7 @@ window.addEventListener('resize', adjustTopbarOffset);
         <span class="fbar-lbl">Status</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip c-fav" id="fov-chip-fav" onclick="togFav()">★ Fav</div>
+          <div class="chip" id="fov-chip-next" onclick="togNext()" style="--chip-active-bg:#fff3e0;--chip-active-border:#e8590c;--chip-active-color:#e8590c">🎯 Next</div>
           <div class="chip c-unw" id="fov-chip-unw" onclick="togUnw()">Unseen</div>
           <div class="chip" id="fov-chip-watched" onclick="togWatched()">視聴済み</div>
           <div class="chip" id="fov-chip-bm" onclick="togBm()">🔖 ブックマークあり</div>

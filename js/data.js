@@ -16,7 +16,20 @@ export function debounceSave() {
 
 export function qFav(id) {
   const v = window.videos?.find(v => v.id === id);
-  if (v) { v.fav = !v.fav; window.AF(); window.toast(v.fav ? '⭐ お気に入り追加' : 'お気に入り解除'); }
+  if (!v) return;
+  v.fav = !v.fav;
+  // Fav OFF → Next も自動OFF
+  if (!v.fav && v.next) v.next = false;
+  window.AF(); window.toast(v.fav ? '⭐ お気に入り追加' : 'お気に入り解除');
+}
+
+export function qNext(id) {
+  const v = window.videos?.find(v => v.id === id);
+  if (!v) return;
+  v.next = !v.next;
+  // Next ON → Fav も自動ON
+  if (v.next && !v.fav) v.fav = true;
+  window.AF(); window.toast(v.next ? '🎯 Next に追加' : 'Next 解除');
 }
 
 export function qWatch(id) {

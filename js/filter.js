@@ -115,6 +115,14 @@ export function togFav() {
   window.AF();
 }
 
+export function togNext() {
+  window.nextOnly = !window.nextOnly;
+  ['fov-chip-next'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.nextOnly);
+  });
+  window.AF();
+}
+
 export function togUnw() {
   window.unwOnly = !window.unwOnly;
   ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'].forEach(id => {
@@ -394,6 +402,7 @@ export function countContextual(key, val) {
   return vids.filter(v => {
     if (v.archived) return false;
     if (window.favOnly     && !v.fav)                                    return false;
+    if (window.nextOnly    && !v.next)                                   return false;
     if (window.unwOnly     && v.watched)                                 return false;
     if (window.watchedOnly && !v.watched)                                return false;
     if (window.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;

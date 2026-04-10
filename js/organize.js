@@ -7,11 +7,11 @@ export let orgFilters = {
   platform: new Set(), channel: new Set(),
   fav: new Set(), memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
-export let orgFavOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
+export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 export let orgPrRank = null, orgPrDate = null;
-const _ORG_DEFAULT_ORDER = ['fav', 'tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
-const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, duration: true};
-const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', duration:'64px'};
+const _ORG_DEFAULT_ORDER = ['fav', 'next', 'tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, duration: true};
+const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', next:'52px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
@@ -31,6 +31,12 @@ function _loadOrgColPrefs() {
       const techIdx = order.indexOf('technique');
       order.splice(techIdx >= 0 ? techIdx + 1 : order.length, 0, 'counter');
       vis.counter = true;
+      migrated = true;
+    }
+    if (!order.includes('next')) {
+      const favIdx = order.indexOf('fav');
+      order.splice(favIdx >= 0 ? favIdx + 1 : 0, 0, 'next');
+      vis.next = true;
       migrated = true;
     }
     // マイグレーション結果をlocalStorageに即時保存
@@ -54,7 +60,7 @@ function _saveOrgColPrefs() {
   } catch(e) {}
   window.saveUserSettings?.();
 }
-export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', counter:'カウンター', channel:'Channel', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', duration:'長さ'};
+export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', counter:'カウンター', channel:'Channel', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', next:'🎯 Next', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
@@ -136,6 +142,12 @@ export function togOrgFav() {
   renderOrg();
 }
 
+export function togOrgNext() {
+  orgNextOnly = !orgNextOnly;
+  ['org-fs-chip-next','org-fov-chip-next'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgNextOnly); });
+  renderOrg();
+}
+
 export function togOrgUnw() {
   orgUnwOnly = !orgUnwOnly;
   ['org-fs-chip-unw2','org-fov-chip-unw'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgUnwOnly); });
@@ -168,7 +180,7 @@ export function togOrgImg() {
 
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
-  orgFavOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
+  orgFavOnly = false; orgNextOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
   orgPrRank = null; orgPrDate = null;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
@@ -285,6 +297,7 @@ export function orgFilt(list) {
   return list.filter(v => {
     if (v.archived) return false;
     if (orgFavOnly     && !v.fav) return false;
+    if (orgNextOnly    && !v.next) return false;
     if (orgUnwOnly     && v.watched) return false;
     if (orgWatchedOnly && !v.watched) return false;
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
@@ -640,6 +653,7 @@ export function renderOrg() {
       if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
       if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
+      if (col === 'next')      return `<td class="org-td" data-col="next" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogNext('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.next?'Next解除':'Nextに追加'}">${v.next?'🎯':'○'}</button></td>`;
       if (col === 'addedAt') {
         const d = v.addedAt ? new Date(v.addedAt) : null;
         const ds = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '—';
@@ -766,6 +780,31 @@ export function orgTogFav(id) {
     }
     window.debounceSave?.();
   } catch(e) { console.error('orgTogFav error:', e); }
+}
+
+export function orgTogNext(id) {
+  try {
+    const v = (window.videos || []).find(v => v.id === id);
+    if (!v) return;
+    v.next = !v.next;
+    // Next ON → Fav自動ON
+    if (v.next && !v.fav) v.fav = true;
+    // 🎯ボタン即時更新
+    const tr = document.getElementById('org-row-' + id);
+    if (tr) {
+      const btn = tr.querySelector('[onclick*="orgTogNext"]');
+      if (btn) {
+        btn.textContent = v.next ? '🎯' : '○';
+        btn.title = v.next ? 'Next解除' : 'Nextに追加';
+      }
+      // Fav自動ONの場合、Favボタンも更新
+      if (v.next) {
+        const favBtn = tr.querySelector('[onclick*="orgTogFav"]');
+        if (favBtn) { favBtn.textContent = '★'; favBtn.title = 'Favを外す'; }
+      }
+    }
+    window.debounceSave?.();
+  } catch(e) { console.error('orgTogNext error:', e); }
 }
 
 // ─── Organizeテーブル: 列幅リサイズ（mouse + touch対応）───
@@ -1583,6 +1622,7 @@ window._saveOrgColPrefs = _saveOrgColPrefs;
 window.initOrgFixedHeaders = initOrgFixedHeaders;
 window.togOrgF = togOrgF;
 window.togOrgFav = togOrgFav;
+window.togOrgNext = togOrgNext;
 window.togOrgUnw = togOrgUnw;
 window.togOrgWatched = togOrgWatched;
 window.togOrgBm = togOrgBm;
@@ -1618,6 +1658,7 @@ window.renderOrg = renderOrg;
 window.syncOrgColHeaders = syncOrgColHeaders;
 window.orgSetSort = orgSetSort;
 window.orgTogFav = orgTogFav;
+window.orgTogNext = orgTogNext;
 window.initOrgResize = initOrgResize;
 window.addResizeHandle = addResizeHandle;
 window.orgTogSel = orgTogSel;
