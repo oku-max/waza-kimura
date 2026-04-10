@@ -20,18 +20,24 @@ function _loadOrgColPrefs() {
     let order  = o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER];
     let vis    = v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS};
     let widths = w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS};
-    // マイグレーション v2: prio削除, counter/next追加
-    const MIGRATE_VER = 'orgcol_v2';
-    const migDone = localStorage.getItem(MIGRATE_VER);
-    if (!migDone) {
-      // 強制リセット: デフォルトから再構築
+    // マイグレーション v3: prio完全削除, counter/next追加
+    const MIGRATE_VER = 'orgcol_v3';
+    if (!localStorage.getItem(MIGRATE_VER)) {
       order = [..._ORG_DEFAULT_ORDER];
       vis   = {..._ORG_DEFAULT_VIS};
+      // 古いバージョンフラグも削除
+      try { localStorage.removeItem('orgcol_v2'); } catch(e) {}
       try {
         localStorage.setItem('wk_orgColOrder', JSON.stringify(order));
         localStorage.setItem('wk_orgColVisibility', JSON.stringify(vis));
         localStorage.setItem(MIGRATE_VER, '1');
       } catch(e) {}
+    }
+    // 万一prioが残っていたら強制除去
+    if (order.includes('prio')) {
+      order = order.filter(c => c !== 'prio');
+      delete vis.prio;
+      try { localStorage.setItem('wk_orgColOrder', JSON.stringify(order)); } catch(e) {}
     }
     return { order, vis, widths };
   } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
