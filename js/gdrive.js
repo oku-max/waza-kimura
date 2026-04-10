@@ -174,7 +174,7 @@ async function driveGet(url) {
 async function listFolder(folderId) {
   const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
   const data = await driveGet(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,videoMediaMetadata)&orderBy=name&pageSize=1000`
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,videoMediaMetadata,thumbnailLink)&orderBy=name&pageSize=1000`
   );
   return data.files || [];
 }
@@ -236,7 +236,7 @@ async function scanFolder(folderId, folderName, depth) {
       if (depth < 3) folders.push(await scanFolder(f.id, f.name, depth + 1));
     } else if (VIDEO_MIMES.has(f.mimeType)) {
       const dur = f.videoMediaMetadata?.durationMillis;
-      videos.push({ id: f.id, name: f.name, duration: dur ? Math.round(Number(dur) / 1000) : 0 });
+      videos.push({ id: f.id, name: f.name, duration: dur ? Math.round(Number(dur) / 1000) : 0, thumbnailLink: f.thumbnailLink || '' });
     }
   }
   return { id: folderId, name: folderName, videos, folders };
@@ -280,6 +280,7 @@ function flattenTree(tree, stripSuffix) {
         folderName: node.name,
         isQR:       isQRFile(v.name),
         duration:   v.duration || 0,
+        thumbnailLink: v.thumbnailLink || '',
       });
     }
     for (const sub of node.folders) walk(sub);
@@ -524,6 +525,7 @@ export function gdRenderFileList() {
           data-folder="${item.folderName.replace(/"/g, '&quot;')}"
           data-isqr="${item.isQR}"
           data-duration="${item.duration || 0}"
+          data-thumb="${(item.thumbnailLink || '').replace(/"/g, '&quot;')}"
           ${done ? 'disabled checked' : 'checked'}
           style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0"
           onchange="gdUpdateCount()">
@@ -554,6 +556,26 @@ export function gdBackToBrowser() {
   document.getElementById('gd-stage-browser').style.display   = '';
 }
 
+// ── サムネイルを Firebase Storage にアップロード ──
+async function _uploadThumbToStorage(fileId, thumbnailLink) {
+  if (!thumbnailLink || !firebase?.storage) return '';
+  try {
+    const token = await ensureDriveToken();
+    const res = await fetch(thumbnailLink, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) return '';
+    const blob = await res.blob();
+    const uid = firebase.auth().currentUser?.uid;
+    if (!uid) return '';
+    const path = `thumbnails/${uid}/gd-${fileId}.jpg`;
+    const ref = firebase.storage().ref(path);
+    await ref.put(blob, { contentType: blob.type || 'image/jpeg' });
+    return await ref.getDownloadURL();
+  } catch (e) {
+    console.warn('Thumb upload failed:', fileId, e);
+    return '';
+  }
+}
+
 // ── 取り込み実行 ──
 export async function gdImport() {
   const checks = document.querySelectorAll('#gd-file-list .gd-vid-cb:not([disabled]):checked');
@@ -566,12 +588,13 @@ export async function gdImport() {
 
   let added = 0;
   const newIds = [];
+  const thumbJobs = []; // { video, fileId, thumbnailLink }
   checks.forEach(cb => {
     const fileId = cb.dataset.id;
     const newId  = 'gd-' + fileId;
     if ((window.videos || []).find(v => v.id === newId)) return;
     window.videos = window.videos || [];
-    window.videos.push({
+    const v = {
       id:       newId,
       pt:       'gdrive',
       title:    cb.dataset.title,
@@ -585,9 +608,12 @@ export async function gdImport() {
       isQR:     cb.dataset.isqr === 'true',
       duration: parseInt(cb.dataset.duration) || 0,
       tb: [], ac: [], pos: [], tech: [],
-    });
+    };
+    window.videos.push(v);
     newIds.push(newId);
     added++;
+    const tl = cb.dataset.thumb;
+    if (tl) thumbJobs.push({ video: v, fileId, thumbnailLink: tl });
   });
 
   if (window.AF) window.AF();
@@ -597,7 +623,62 @@ export async function gdImport() {
   if (window.aiSettings?.autoTagOnImport && newIds.length) {
     window.autoTagNewVideos?.(newIds);
   }
+
+  // サムネイルをバックグラウンドでFirebase Storageにアップロード
+  if (thumbJobs.length) {
+    _uploadThumbsBatch(thumbJobs);
+  }
 }
+
+async function _uploadThumbsBatch(jobs) {
+  let done = 0;
+  // 5件ずつ並列処理
+  for (let i = 0; i < jobs.length; i += 5) {
+    const batch = jobs.slice(i, i + 5);
+    await Promise.allSettled(batch.map(async ({ video, fileId, thumbnailLink }) => {
+      const url = await _uploadThumbToStorage(fileId, thumbnailLink);
+      if (url) {
+        video.thumb = url;
+        done++;
+      }
+    }));
+  }
+  if (done > 0) {
+    await window.saveUserData?.();
+    window.AF?.();
+    window.toast?.(`🖼 ${done}本のサムネイルを保存しました`);
+  }
+}
+
+// ── 既存GDrive動画のサムネイル補完 ──
+export async function fetchMissingGdThumbnails() {
+  const missing = (window.videos || []).filter(v =>
+    v.pt === 'gdrive' && !v.thumb && v.id
+  );
+  if (!missing.length) { window.toast?.('サムネイル未設定のGDrive動画はありません'); return; }
+  window.toast?.(`🖼 ${missing.length}本のサムネイルを取得中...`);
+  let done = 0;
+  for (let i = 0; i < missing.length; i += 5) {
+    const batch = missing.slice(i, i + 5);
+    await Promise.allSettled(batch.map(async (v) => {
+      const fileId = v.id.replace(/^gd-/, '');
+      // Drive APIからthumbnailLink取得
+      try {
+        const data = await driveGet(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`);
+        if (data.thumbnailLink) {
+          const url = await _uploadThumbToStorage(fileId, data.thumbnailLink);
+          if (url) { v.thumb = url; done++; }
+        }
+      } catch (e) { /* skip */ }
+    }));
+  }
+  if (done > 0) {
+    await window.saveUserData?.();
+    window.AF?.();
+  }
+  window.toast?.(`🖼 ${done}/${missing.length}本のサムネイルを保存しました`);
+}
+window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
 
 // ── Google Drive ファイルのタイトルを変更 ──
 export async function renameGdFile(fileId, newName) {
