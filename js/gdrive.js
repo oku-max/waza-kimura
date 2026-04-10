@@ -560,9 +560,10 @@ export function gdBackToBrowser() {
 async function _uploadThumbToStorage(fileId, thumbnailLink) {
   if (!thumbnailLink || !firebase?.storage) return '';
   try {
-    // lh3.googleusercontent.com はURLにトークン埋め込み済み — Authヘッダー不要
-    // Authヘッダーを付けるとCORSプリフライトでブロックされる
-    const res = await fetch(thumbnailLink, { mode: 'cors' });
+    // lh3はCORSブロックするのでVercel APIプロキシ経由で取得
+    const token = _token || '';
+    const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbnailLink)}&token=${encodeURIComponent(token)}`;
+    const res = await fetch(proxyUrl);
     if (!res.ok) return '';
     const blob = await res.blob();
     const uid = firebase.auth().currentUser?.uid;
