@@ -142,8 +142,7 @@ body.bulk-mode .card-sel-ov{display:block;}
   background:#000;
   flex-shrink:0;
 }
-.vp-panel-video iframe,
-.vp-panel-video > div {
+.vp-panel-video iframe {
   position:absolute;
   inset:0;
   width:100%;
@@ -658,8 +657,6 @@ body.bulk-mode .card-sel-ov{display:block;}
 .fs-acc-hdr:hover{background:var(--surface2);}
 .fs-acc-arrow{font-size:9px;color:var(--text3);transition:transform .15s;}
 .fs-acc-arrow.open{transform:rotate(90deg);}
-.uni-open-ic{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--text3);color:var(--text3);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;transition:all .15s}
-.fs-acc-hdr:hover .uni-open-ic{border-color:var(--accent);color:var(--accent)}
 .fs-acc-body{}
 /* サイドバートグルボタン */
 #sidebar-toggle-btn{
@@ -991,7 +988,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vpanel.open{display:flex;pointer-events:auto;}
 .vpanel-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);}
 .vpanel-inner{
-  position:relative;display:flex;width:100%;max-width:100%;height:90svh;
+  position:relative;display:flex;width:100%;max-width:100%;height:90vh;
   background:var(--surface);
   flex-direction:column;
   overflow:hidden;
