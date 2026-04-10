@@ -652,8 +652,10 @@ async function _uploadThumbsBatch(jobs) {
 
 // ── 既存GDrive動画のサムネイル補完 ──
 export async function fetchMissingGdThumbnails() {
+  // Firebase Storage URL以外は「未設定」扱い（期限切れのDrive URLも含む）
+  const _hasPermanentThumb = t => t && t.includes('firebasestorage.googleapis.com');
   const missing = (window.videos || []).filter(v =>
-    v.pt === 'gdrive' && !v.thumb && v.id
+    v.pt === 'gdrive' && !_hasPermanentThumb(v.thumb) && v.id
   );
   if (!missing.length) { window.toast?.('サムネイル未設定のGDrive動画はありません'); return; }
   window.toast?.(`🖼 ${missing.length}本のサムネイルを取得中...`);
