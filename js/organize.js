@@ -21,12 +21,24 @@ function _loadOrgColPrefs() {
     let vis    = v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS};
     let widths = w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS};
     // マイグレーション: prio列を削除、counter列を追加
-    order = order.filter(c => c !== 'prio');
-    delete vis.prio;
+    let migrated = false;
+    if (order.includes('prio')) {
+      order = order.filter(c => c !== 'prio');
+      delete vis.prio;
+      migrated = true;
+    }
     if (!order.includes('counter')) {
       const techIdx = order.indexOf('technique');
       order.splice(techIdx >= 0 ? techIdx + 1 : order.length, 0, 'counter');
       vis.counter = true;
+      migrated = true;
+    }
+    // マイグレーション結果をlocalStorageに即時保存
+    if (migrated) {
+      try {
+        localStorage.setItem('wk_orgColOrder', JSON.stringify(order));
+        localStorage.setItem('wk_orgColVisibility', JSON.stringify(vis));
+      } catch(e) {}
     }
     return { order, vis, widths };
   } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
