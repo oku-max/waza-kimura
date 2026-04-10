@@ -1204,48 +1204,52 @@ export function openVPanel(id) {
 
 
 
-  // ★ プレイヤー初期化前にパネルを開く
-  // （YT.Player/iframe がコンテナサイズを読む時点で 16:9 の実寸を確保するため）
+  // ★ パネルを先に開く（コンテナに 16:9 実寸を確保）
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
   document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
   window.scrollTo(0, 1);
 
-  if (plat === 'yt') {
-    const ytId = _extractYtId(emb);
-    if (ytId) {
-      _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+  // ★ プレイヤー初期化は次タスクに回す
+  //   パネル表示の reflow 完了後に実行 → サイズ正確 & メインスレッド非ブロック
+  setTimeout(() => {
+    if (window.openVPanelId !== id) return;
+    if (plat === 'yt') {
+      const ytId = _extractYtId(emb);
+      if (ytId) {
+        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+      }
+    } else if (plat === 'x') {
+      if (iframeContainer) {
+        iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
+      }
+    } else if (plat === 'gd') {
+      const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
+      const fileId = fileIdMatch ? fileIdMatch[1] : '';
+      if (iframeContainer && fileId) {
+        _playGDriveVideo(iframeContainer, fileId);
+      }
+    } else {
+      // Vimeo: Player API付き
+      if (iframeContainer) {
+        const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
+        iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
+        _vmCurTime = 0; _vmDuration = 0;
+        if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
+        _loadVimeoApi().then(() => {
+          const ifr = document.getElementById('vpanel-vm-iframe');
+          if (!ifr) return;
+          try {
+            _vmPlayer = new Vimeo.Player(ifr);
+            _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
+            _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
+            _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
+            _startTimeDisplay();
+          } catch(e) { console.warn('Vimeo player init error', e); }
+        });
+      }
     }
-  } else if (plat === 'x') {
-    if (iframeContainer) {
-      iframeContainer.innerHTML = `<iframe src="${emb}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none;background:#fff"></iframe>`;
-    }
-  } else if (plat === 'gd') {
-    const fileIdMatch = emb.match(/\/d\/([^/]+)\//);
-    const fileId = fileIdMatch ? fileIdMatch[1] : '';
-    if (iframeContainer && fileId) {
-      _playGDriveVideo(iframeContainer, fileId);
-    }
-  } else {
-    // Vimeo: Player API付き
-    if (iframeContainer) {
-      const src = autoplay ? (emb.includes('?') ? emb + '&autoplay=1' : emb + '?autoplay=1') : emb;
-      iframeContainer.innerHTML = `<iframe id="vpanel-vm-iframe" src="${src}" allowfullscreen allow="autoplay;encrypted-media" style="width:100%;height:100%;border:none"></iframe>`;
-      _vmCurTime = 0; _vmDuration = 0;
-      if (_vmPlayer) { try { _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
-      _loadVimeoApi().then(() => {
-        const ifr = document.getElementById('vpanel-vm-iframe');
-        if (!ifr) return;
-        try {
-          _vmPlayer = new Vimeo.Player(ifr);
-          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
-          _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
-          _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
-          _startTimeDisplay();
-        } catch(e) { console.warn('Vimeo player init error', e); }
-      });
-    }
-  }
+  }, 0);
 
   // 周辺UI（ドロワー・ブックマーク・blur-area 等）はマイクロ遅延
   // → プレイヤー iframe のネットワーク取得をブロックしない
