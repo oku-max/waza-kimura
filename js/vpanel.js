@@ -96,8 +96,17 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
   };
 
   if (window.YT && window.YT.Player) {
-    doInit();
+    // API プリロード済み: パネルが open になるまで待ってから初期化
+    // (hidden 中の new YT.Player は 0x0 を読んで低解像度になる)
+    const panel = document.getElementById('vpanel');
+    if (panel && !panel.classList.contains('open')) {
+      // パネル未表示 → rAF で open 後の reflow 完了を待つ
+      requestAnimationFrame(() => { requestAnimationFrame(doInit); });
+    } else {
+      doInit();
+    }
   } else {
+    // API 未ロード → ロード完了コールバックで実行（その頃にはパネル open 済み）
     window._pendingYTInit = doInit;
   }
 }
@@ -1204,12 +1213,11 @@ export function openVPanel(id) {
 
 
 
-  // ★ Step 1: パネルを開く（コンテナサイズ確保）
-  panel.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  window.scrollTo(0, 1);
+  // ★ v48.39 構造を復元: 全同期 → パネル表示が最後（1回のreflow）
+  // YT.Player はパネル hidden 中に _initYTPlayer を呼ぶが、
+  // API プリロード済みでも rAF 遅延で open 後に実際の new YT.Player を実行
+  // → コンテナサイズが確定してから iframe 作成（低解像度防止）
 
-  // ★ Step 2: プレイヤー即初期化（iframe ネットワーク開始を最優先）
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
     if (ytId) {
@@ -1245,9 +1253,6 @@ export function openVPanel(id) {
     }
   }
 
-  // ★ Step 3: 残りUI同期構築（iframe ネットワーク取得と並行）
-  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
-
   const skipArea = document.getElementById('vpanel-skip-area');
   if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
 
@@ -1272,6 +1277,12 @@ export function openVPanel(id) {
   editArea.innerHTML = buildDrawerHTML(id);
   _bindDrawerEvents(editArea, id);
   _renderBlurArea(id);
+
+  // ★ パネル表示は最後（全DOM構築済み → 1回のreflow）
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 1);
+  document.querySelector('.main-area')?.classList.add('vpanel-main-blur');
 
   setTimeout(() => _vpUpdateOrientation(), 80);
 }
