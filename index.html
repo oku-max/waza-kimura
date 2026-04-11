@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.47</title>
+<title>WAZA KIMURA v49.48</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -991,12 +991,12 @@
   </div>
   <!-- Organizeカウントバー -->
   <div class="org-count-bar">
-    <span id="oc"></span>
     <div style="display:flex;gap:6px;align-items:center">
-      <button class="bulk-btn org-col-vis-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
+      <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
       </button>
       <button class="bulk-btn" onclick="enterBulk('organize')" id="org-bulk-btn">☑ 一括編集</button>
+      <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
     </div>
   </div>
   <!-- 表形式リスト -->
