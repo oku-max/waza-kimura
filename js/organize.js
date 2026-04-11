@@ -9,6 +9,7 @@ export let orgFilters = {
   memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
 export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
+export let orgMemoSearch = '';
 export let orgPrRank = null, orgPrDate = null;
 const _ORG_DEFAULT_ORDER = ['fav', 'next', 'tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, duration: true};
@@ -175,6 +176,7 @@ export function togOrgImg() {
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
   orgFavOnly = false; orgNextOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
+  orgMemoSearch = '';
   orgPrRank = null; orgPrDate = null;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
@@ -359,6 +361,10 @@ export function orgFilt(list) {
     if (orgFilters.memo.size) {
       const memoVal = v.memo ? 'あり' : 'なし';
       if (!orgFilters.memo.has(memoVal)) return false;
+    }
+    if (orgMemoSearch) {
+      const q = orgMemoSearch.toLowerCase();
+      if (!(v.memo || '').toLowerCase().includes(q)) return false;
     }
     if (orgFilters.addedAtFilter.size) {
       const ym = v.addedAt ? (() => { const d = new Date(v.addedAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : '不明';
@@ -649,7 +655,7 @@ export function renderOrg() {
         const ago = v.lastPracticed ? (window.vpCntFormatAgo?.(v.lastPracticed) || '') : '';
         return `<td class="org-td" data-col="counter" style="white-space:nowrap">
           <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700">
-            <span style="color:${pc > 0 ? '#e8590c' : 'var(--text3)'};${pc === 0 ? 'opacity:.55' : ''}">🥋 ${pc || '未'}</span>
+            <span style="color:${pc > 0 ? '#e8590c' : 'var(--text3)'};${pc === 0 ? 'opacity:.55' : ''}">${pc || '未'}</span>
             <span style="font-size:9px;color:var(--text3);font-weight:600">${ago || '—'}</span>
           </div></td>`;
       }
@@ -993,8 +999,8 @@ export function toggleOrgColMenu() {
   menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
     orgColOrder.map((col, i) => `
       <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
-        <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:none;font-size:11px;cursor:pointer;padding:1px 3px;opacity:${i===0?'.2':'1'}" ${i===0?'disabled':''}>▲</button>
-        <button onclick="orgMoveCol('${col}',1)" style="background:none;border:none;font-size:11px;cursor:pointer;padding:1px 3px;opacity:${i===orgColOrder.length-1?'.2':'1'}" ${i===orgColOrder.length-1?'disabled':''}>▼</button>
+        <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
+        <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===orgColOrder.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===orgColOrder.length-1?'disabled':''}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
           <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
           ${ORG_COL_LABELS[col]||col}
@@ -1449,7 +1455,7 @@ function _orgBumpPractice(videoId, td) {
   // セルを即時更新
   const ago = window.vpCntFormatAgo?.(v.lastPracticed) || '';
   td.innerHTML = `<div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700">
-    <span style="color:#e8590c">🥋 ${v.practice}</span>
+    <span style="color:#e8590c">${v.practice}</span>
     <span style="font-size:9px;color:var(--text3);font-weight:600">${ago || '—'}</span>
   </div>`;
   // 短いフラッシュで視覚フィードバック
@@ -1475,7 +1481,7 @@ const _colFilterConfig = {
   }, noSearch: true },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
   fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'], noSearch: true },
-  memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true },
+  memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true, memoTextSearch: true },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
     if (!v.addedAt) return ['不明'];
     const d = new Date(v.addedAt);
@@ -1690,7 +1696,34 @@ export function openOrgColFilter(col, thEl) {
       });
     }
 
-    if (searchBox) requestAnimationFrame(() => searchBox.focus());
+    // メモ列: テキスト検索窓を追加（メモの中身で絞り込み）
+    if (cfg.memoTextSearch) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'border-top:1px solid var(--border);margin-top:4px;padding-top:6px';
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px;margin-bottom:4px';
+      lbl.textContent = 'メモ内容で検索';
+      sep.appendChild(lbl);
+      const memoInput = document.createElement('input');
+      memoInput.type = 'text';
+      memoInput.placeholder = 'キーワード...';
+      memoInput.value = orgMemoSearch || '';
+      memoInput.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
+      let _memoDebounce = null;
+      memoInput.addEventListener('input', () => {
+        clearTimeout(_memoDebounce);
+        _memoDebounce = setTimeout(() => {
+          orgMemoSearch = memoInput.value.trim();
+          renderOrg(); _syncFiltIcon(col);
+        }, 300);
+      });
+      sep.appendChild(memoInput);
+      dd.appendChild(sep);
+    }
+
+    // スマホではキーボードが自動で立ち上がらないようにautofocusを抑制
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (searchBox && !isTouchDevice) requestAnimationFrame(() => searchBox.focus());
   }
 
   _openColFilterEl = dd;
@@ -1713,7 +1746,8 @@ function _syncFiltIcon(col) {
   const icon = th.querySelector('.org-filt-icon');
   if (!icon) return;
   const cfg = _colFilterConfig[col];
-  const active = cfg && orgFilters[cfg.filterKey] && orgFilters[cfg.filterKey].size > 0;
+  let active = cfg && orgFilters[cfg.filterKey] && orgFilters[cfg.filterKey].size > 0;
+  if (col === 'memo' && orgMemoSearch) active = true;
   icon.style.color   = active ? 'var(--accent)' : 'var(--text3)';
   icon.style.opacity = active ? '1' : '0.4';
 }
