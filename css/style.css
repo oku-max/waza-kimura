@@ -41,7 +41,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .af-text{font-size:11px;color:var(--blue);font-weight:600;}
 .clear-btn{font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:3px 10px;font-family:'DM Sans',sans-serif;}
 /* Results */
-.results-header{padding:8px 16px;display:flex;align-items:center;justify-content:space-between;}
+.results-header{padding:8px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);}
 .results-count{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
 .bulk-btn{font-size:11px;font-weight:500;color:var(--text2);background:none;border:1px solid var(--border);padding:4px 10px;border-radius:5px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 /* Cards */
