@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>次の動画リスト — モバイルUI提案モック</title>
+<style>
+:root{--accent:#6b3fd4;--surface:#fff;--surface2:#f5f3f0;--surface3:#ede9e4;--border:#e5e0da;--border2:#eee;--text:#1a1a1a;--text2:#666;--text3:#999;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans','Hiragino Sans',sans-serif;background:#222;color:var(--text);overflow-x:hidden}
+
+/* ── 提案セレクター ── */
+.proposal-bar{position:fixed;top:0;left:0;right:0;z-index:9999;background:#111;display:flex;gap:0;border-bottom:2px solid var(--accent)}
+.proposal-bar button{flex:1;padding:10px 4px;font-size:11px;font-weight:700;border:none;background:#222;color:#aaa;cursor:pointer;font-family:inherit;transition:all .15s}
+.proposal-bar button.on{background:var(--accent);color:#fff}
+.proposal-bar button:hover:not(.on){background:#333}
+
+/* ── モック VPanel (スマホ縦) ── */
+.mock-phone{position:fixed;top:44px;left:50%;transform:translateX(-50%);width:min(390px,100vw);height:calc(100svh - 44px);background:var(--surface);display:flex;flex-direction:column;overflow:hidden}
+
+/* 動画エリア */
+.vp-video{width:100%;aspect-ratio:16/9;background:#000;flex-shrink:0;position:relative;overflow:hidden}
+.vp-video img{width:100%;height:100%;object-fit:cover}
+.vp-video .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;color:rgba(255,255,255,.8);text-shadow:0 2px 8px rgba(0,0,0,.5);pointer-events:none}
+.vp-video .back-btn{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.vp-video .time-badge{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 8px;border-radius:4px;font-family:'DM Mono',monospace}
+.vp-video .progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.2)}
+.vp-video .progress-fill{height:100%;width:8%;background:#e44;border-radius:0 2px 2px 0}
+
+/* タイトルバー */
+.vp-titlebar{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+.vp-titlebar .nav-btn{width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vp-titlebar .vp-title{flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.vp-titlebar .vp-time{flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap}
+.vp-titlebar .close-btn{width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vp-titlebar .list-btn{width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;display:none}
+
+/* スキップボタン */
+.vp-skip{display:flex;gap:0;flex-shrink:0;background:var(--surface);border-top:1px solid var(--border)}
+.vp-skip button{flex:1;padding:8px 0;font-size:10px;font-weight:600;border:none;background:var(--surface);color:var(--text2);cursor:pointer;border-right:1px solid var(--border);font-family:inherit}
+.vp-skip button:last-child{border-right:none}
+.vp-skip button:active{background:var(--surface2)}
+
+/* 編集エリア (スクロール可) */
+.vp-edit{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface)}
+.vp-section{padding:10px 12px;border-top:1px solid var(--border)}
+.vp-section-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.vp-bm-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px}
+.vp-bm-time{padding:2px 6px;border:1px solid var(--border);border-radius:4px;font-size:10px;font-family:'DM Mono',monospace;color:var(--text)}
+.vp-memo{width:100%;min-height:60px;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;font-family:inherit;resize:vertical;background:var(--surface)}
+.vp-snap-row{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
+.vp-snap{width:60px;height:45px;border-radius:4px;background:var(--surface3);flex-shrink:0;overflow:hidden}
+.vp-fav-row{display:flex;gap:12px;align-items:center;padding:8px 0}
+.vp-fav-item{text-align:center}
+.vp-fav-item .icon{font-size:20px;cursor:pointer}
+.vp-fav-item .label{font-size:9px;color:var(--text3);margin-top:2px}
+.vp-counter{display:flex;align-items:center;gap:8px}
+.vp-counter button{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);font-size:14px;cursor:pointer;font-weight:700}
+.vp-counter .count{font-size:18px;font-weight:800;color:var(--accent);min-width:24px;text-align:center}
+.vp-tag-chip{display:inline-block;padding:3px 10px;border-radius:14px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;margin:2px}
+
+/* ── 次の動画リスト共通 ── */
+.next-item{display:flex;gap:8px;align-items:center;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border2)}
+.next-item:active{background:var(--surface2)}
+.next-thumb{width:64px;height:36px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3);position:relative}
+.next-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.next-thumb .mini-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.next-info{flex:1;min-width:0}
+.next-title{font-size:10px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.next-ch{font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* ═══ 提案A: ボトムシート ═══ */
+.bottomsheet-overlay{position:fixed;top:44px;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;display:none;opacity:0;transition:opacity .2s}
+.bottomsheet-overlay.open{display:block;opacity:1}
+.bottomsheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(390px,100vw);max-height:60vh;background:var(--surface);border-radius:14px 14px 0 0;z-index:201;display:flex;flex-direction:column;transform:translateX(-50%) translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+.bottomsheet.open{transform:translateX(-50%) translateY(0)}
+.bottomsheet-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:8px auto 4px}
+.bottomsheet-hdr{display:flex;align-items:center;justify-content:space-between;padding:4px 14px 8px;border-bottom:1px solid var(--border)}
+.bottomsheet-hdr span{font-size:12px;font-weight:700;color:var(--text)}
+.bottomsheet-hdr .cnt{font-size:10px;color:var(--text3);font-weight:400}
+.bottomsheet-hdr button{width:28px;height:28px;border-radius:8px;border:none;background:var(--surface2);font-size:14px;cursor:pointer;color:var(--text2)}
+.bottomsheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* ═══ 提案B: スワイプ切替 ═══ */
+.swipe-container{flex-shrink:0;overflow:hidden;position:relative;background:var(--surface);border-top:1px solid var(--border)}
+.swipe-track{display:flex;transition:transform .3s ease}
+.swipe-page{min-width:100%;flex-shrink:0}
+.swipe-dots{display:flex;justify-content:center;gap:6px;padding:6px 0;background:var(--surface)}
+.swipe-dots span{width:6px;height:6px;border-radius:50%;background:var(--border);cursor:pointer}
+.swipe-dots span.on{background:var(--accent)}
+.swipe-list{max-height:200px;overflow-y:auto}
+
+/* ═══ 提案C: 右カラム末尾 ═══ */
+.inline-next-section{border-top:2px solid var(--border);margin-top:4px}
+.inline-next-hdr{padding:8px 12px 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+
+/* ═══ 提案D: フローティングバー ═══ */
+.floating-bar{flex-shrink:0;background:var(--surface);border-top:2px solid var(--accent);z-index:100;display:none;cursor:pointer;box-shadow:0 -4px 16px rgba(0,0,0,.15)}
+.floating-bar.show{display:block}
+.floating-inner{display:flex;align-items:center;gap:8px;padding:8px 12px;width:100%}
+.floating-thumb{width:48px;height:28px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3);position:relative}
+.floating-thumb img{width:100%;height:100%;object-fit:cover}
+.floating-info{flex:1;min-width:0}
+.floating-label{font-size:9px;color:var(--accent);font-weight:700}
+.floating-title{font-size:11px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.floating-arrow{font-size:14px;color:var(--text3);flex-shrink:0;padding:0 4px}
+.floating-play{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+
+/* hidden */
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<!-- 提案セレクター -->
+<div class="proposal-bar">
+  <button class="on" onclick="showProposal('a')">A: ☰ ボトムシート</button>
+  <button onclick="showProposal('b')">B: スワイプ切替</button>
+  <button onclick="showProposal('c')">C: 末尾追加</button>
+  <button onclick="showProposal('d')">D: フローティング</button>
+</div>
+
+<!-- モック VPanel -->
+<div class="mock-phone" id="phone">
+  <!-- 動画 -->
+  <div class="vp-video">
+    <img src="https://i.ytimg.com/vi/9bZkp7q19f0/maxresdefault.jpg" alt="">
+    <span class="play-btn">▶</span>
+    <button class="back-btn">← 戻る</button>
+    <div class="time-badge">0:02 / 3:47</div>
+    <div class="progress"><div class="progress-fill"></div></div>
+  </div>
+
+  <!-- タイトルバー -->
+  <div class="vp-titlebar">
+    <button class="nav-btn">◀</button>
+    <div class="vp-title">対腰切りハーフガード　ガードに戻す方法と逆転のスイープ</div>
+    <span class="vp-time">0:02 / 3:47</span>
+    <button class="list-btn" id="listBtn" onclick="toggleBottomSheet()">☰</button>
+    <button class="nav-btn">▶</button>
+    <button class="close-btn">✕</button>
+  </div>
+
+  <!-- スキップボタン -->
+  <div class="vp-skip" id="skipArea">
+    <button>-1m</button><button>-30s</button><button>-10s</button><button>-3s</button>
+    <button>+3s</button><button>+10s</button><button>+30s</button><button>+1m</button>
+  </div>
+
+  <!-- 提案B: スワイプ切替エリア (hiddenデフォルト) -->
+  <div class="swipe-container hidden" id="swipeArea">
+    <div class="swipe-track" id="swipeTrack">
+      <div class="swipe-page">
+        <div class="vp-skip" style="border-top:none">
+          <button>-1m</button><button>-30s</button><button>-10s</button><button>-3s</button>
+          <button>+3s</button><button>+10s</button><button>+30s</button><button>+1m</button>
+        </div>
+      </div>
+      <div class="swipe-page">
+        <div class="swipe-list" id="swipeList"></div>
+      </div>
+    </div>
+    <div class="swipe-dots">
+      <span class="on" onclick="swipeTo(0)"></span>
+      <span onclick="swipeTo(1)"></span>
+    </div>
+  </div>
+
+  <!-- 編集エリア -->
+  <div class="vp-edit" id="editArea">
+    <!-- ブックマーク -->
+    <div class="vp-section">
+      <div class="vp-section-title">📌 ブックマーク <span style="float:right;color:var(--accent);font-size:10px;cursor:pointer">＋ 現在位置でブックマーク</span></div>
+      <div class="vp-bm-row"><span class="vp-bm-time">0:02</span> (ラベルなし)</div>
+      <div class="vp-bm-row"><span class="vp-bm-time">0:12 → 1:50</span> (ラベルなし)</div>
+      <div class="vp-bm-row"><span class="vp-bm-time">1:46</span> (ラベルなし)</div>
+    </div>
+
+    <!-- メモ -->
+    <div class="vp-section">
+      <div class="vp-section-title">MEMO</div>
+      <textarea class="vp-memo" placeholder="メモを入力..."></textarea>
+    </div>
+
+    <!-- スナップショット -->
+    <div class="vp-section">
+      <div class="vp-section-title">SNAPSHOT 6枚</div>
+      <div class="vp-snap-row">
+        <div class="vp-snap" style="background:#5a6a7a"></div>
+        <div class="vp-snap" style="background:#6a5a4a"></div>
+        <div class="vp-snap" style="background:#4a6a5a"></div>
+        <div class="vp-snap" style="background:#7a5a5a"></div>
+        <div class="vp-snap" style="background:#5a5a6a"></div>
+        <div class="vp-snap" style="background:#6a6a5a"></div>
+      </div>
+    </div>
+
+    <!-- お気に入り / Next / カウンター -->
+    <div class="vp-section">
+      <div class="vp-fav-row">
+        <div class="vp-fav-item"><div class="icon" style="color:gold">★</div><div class="label">お気に入り</div></div>
+        <div class="vp-fav-item"><div class="icon" style="color:var(--accent)">▶</div><div class="label">NEXT</div></div>
+        <div style="flex:1"></div>
+        <div style="text-align:center">
+          <div class="label" style="font-size:9px;color:var(--text3);margin-bottom:4px">カウンター</div>
+          <div class="vp-counter">
+            <button>−</button>
+            <span class="count">0</span>
+            <button>＋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- チャンネル -->
+    <div class="vp-section">
+      <div class="vp-section-title">チャンネル・プレイリスト</div>
+      <div><span class="vp-tag-chip">スプラッシュ3分柔術テクニック　木部亮</span></div>
+      <div style="margin-top:6px"><span class="vp-tag-chip" style="background:var(--text2)">柔術</span><span class="vp-tag-chip" style="background:var(--text2)">ガードリテンション</span></div>
+    </div>
+
+    <!-- タグ -->
+    <div class="vp-section">
+      <div class="vp-section-title">タグ</div>
+      <div><span class="vp-tag-chip">ボトム</span></div>
+      <div style="margin-top:4px"><span class="vp-tag-chip" style="background:#e67e22">ハーフガード</span><span class="vp-tag-chip" style="background:#e67e22">スイープ</span></div>
+    </div>
+
+    <!-- 提案C: インライン次の動画セクション (hiddenデフォルト) -->
+    <div class="inline-next-section hidden" id="inlineNext">
+      <div class="inline-next-hdr">次の動画</div>
+      <div id="inlineNextList"></div>
+    </div>
+  </div>
+
+  <!-- 提案D: フローティングバー (flex child) -->
+  <div class="floating-bar" id="floatingBar" onclick="toggleBottomSheetD()">
+    <div class="floating-inner">
+      <div class="floating-thumb"><img src="https://i.ytimg.com/vi/jNQXAC9IVRw/mqdefault.jpg"></div>
+      <div class="floating-info">
+        <div class="floating-label">次の動画 ▲</div>
+        <div class="floating-title">柔術の構えと引き込み｜勝敗を分ける"基本の極意"とは？</div>
+      </div>
+      <button class="floating-play" onclick="event.stopPropagation()">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- 提案A: ボトムシート -->
+<div class="bottomsheet-overlay" id="bsOverlay" onclick="toggleBottomSheet()"></div>
+<div class="bottomsheet" id="bsSheet">
+  <div class="bottomsheet-handle"></div>
+  <div class="bottomsheet-hdr">
+    <span>次の動画 <span class="cnt">(20件)</span></span>
+    <button onclick="toggleBottomSheet()">✕</button>
+  </div>
+  <div class="bottomsheet-body" id="bsBody"></div>
+</div>
+
+<!-- 提案D用ボトムシート -->
+<div class="bottomsheet-overlay" id="bsDOverlay" onclick="toggleBottomSheetD()"></div>
+<div class="bottomsheet" id="bsDSheet">
+  <div class="bottomsheet-handle"></div>
+  <div class="bottomsheet-hdr">
+    <span>次の動画 <span class="cnt">(20件)</span></span>
+    <button onclick="toggleBottomSheetD()">✕</button>
+  </div>
+  <div class="bottomsheet-body" id="bsDBody"></div>
+</div>
+
+<script>
+// ── 動画データ ──
+const VIDEOS = [
+  { title:'柔術の構えと引き込み｜勝敗を分ける"基本の極意"とは？', ch:'上野御徒町・小石川白山ブラジリアン柔術部', ytId:'jNQXAC9IVRw' },
+  { title:'63 K-Guard Techniques In Just 18 Minutes', ch:'Jiu Jitsu In Minutes by Jason Scully', ytId:'9bZkp7q19f0' },
+  { title:'Top 6 Powerful Knee-On-Belly Submissions For BJJ', ch:'BIG OSS Jiu-Jitsu Channel', ytId:'kJQP7kiw5Fk' },
+  { title:'Summer Camp 2025: Whip it real good. Lasso guard', ch:'BJJ Globetrotters in Action', ytId:'RgKAFK5djSk' },
+  { title:'アウトサイドキャンプ！相手の体力を削るポジション解説', ch:'浅草BOYS', ytId:'OPf0YbXqDm0' },
+  { title:'GUARD RETENTION DRILL TO HAVE AN UNPASSABLE GUARD', ch:'Cobrinha BJJ', ytId:'fJ9rUzIMcZQ' },
+  { title:'Guard Retention: The Complete Guide', ch:'JonThomasBJJ', ytId:'hT_nvWreIhg' },
+  { title:'ハーフガードからのスイープ完全ガイド', ch:'柔術プロジェクト', ytId:'YQHsXMglC9A' },
+  { title:'Closed Guard Sweeps That Actually Work', ch:'Lachlan Giles', ytId:'e-ORhEE9VVg' },
+  { title:'三角絞めのセットアップ10選', ch:'CARPE DIEM BJJ', ytId:'lp-EO5I60KA' },
+  { title:'De La Riva Guard: Full System Breakdown', ch:'Keenan Online', ytId:'pRpeEdMmmQ0' },
+  { title:'マウントエスケープの基本3つ', ch:'トライフォース柔術', ytId:'JGwWNGJdvx8' },
+  { title:'Arm Drag to Back Take — Essential Details', ch:'B-Team Jiu-Jitsu', ytId:'2Vv-BfVoq4g' },
+  { title:'ギロチンチョークの入り方と防御', ch:'柔術道場チャンネル', ytId:'CevxZvSJLk8' },
+  { title:'サイドコントロールからのエスケープ', ch:'柔術プロジェクト', ytId:'dQw4w9WgXcQ' },
+  { title:'バタフライガード基礎と応用スイープ', ch:'CARPE DIEM BJJ', ytId:'9bZkp7q19f0' },
+  { title:'片足X (Single Leg X) で相手を崩す技術', ch:'BJJ Lab', ytId:'kJQP7kiw5Fk' },
+  { title:'背負い投げから寝技への連携', ch:'柔道×柔術チャンネル', ytId:'RgKAFK5djSk' },
+  { title:'ラペルガード入門：基本の巻き方と攻め', ch:'BJJ Globetrotters', ytId:'OPf0YbXqDm0' },
+  { title:'50/50ガードの攻防 — ヒールフック＆エスケープ', ch:'Lachlan Giles', ytId:'fJ9rUzIMcZQ' },
+];
+
+function buildNextItems(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = VIDEOS.map(v => `
+    <div class="next-item">
+      <div class="next-thumb">
+        <img src="https://i.ytimg.com/vi/${v.ytId}/mqdefault.jpg" loading="lazy">
+        <span class="mini-play">▶</span>
+      </div>
+      <div class="next-info">
+        <div class="next-title">${v.title}</div>
+        <div class="next-ch">${v.ch}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 全リスト描画
+buildNextItems('bsBody');
+buildNextItems('bsDBody');
+buildNextItems('swipeList');
+buildNextItems('inlineNextList');
+
+// ── 提案A: ボトムシート ──
+let bsOpen = false;
+function toggleBottomSheet() {
+  bsOpen = !bsOpen;
+  document.getElementById('bsOverlay').classList.toggle('open', bsOpen);
+  document.getElementById('bsSheet').classList.toggle('open', bsOpen);
+}
+
+// ── 提案B: スワイプ ──
+let swipePage = 0;
+function swipeTo(p) {
+  swipePage = p;
+  document.getElementById('swipeTrack').style.transform = `translateX(-${p * 100}%)`;
+  document.querySelectorAll('.swipe-dots span').forEach((d, i) => d.classList.toggle('on', i === p));
+}
+// タッチスワイプ
+let _sx = 0;
+document.getElementById('swipeArea')?.addEventListener('touchstart', e => { _sx = e.touches[0].clientX; });
+document.getElementById('swipeArea')?.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - _sx;
+  if (Math.abs(dx) > 40) swipeTo(dx < 0 ? 1 : 0);
+});
+
+// ── 提案D: フローティングバー → ボトムシート ──
+let bsDOpen = false;
+function toggleBottomSheetD() {
+  bsDOpen = !bsDOpen;
+  document.getElementById('bsDOverlay').classList.toggle('open', bsDOpen);
+  document.getElementById('bsDSheet').classList.toggle('open', bsDOpen);
+}
+
+// ── 提案切替 ──
+let current = 'a';
+function showProposal(p) {
+  current = p;
+  document.querySelectorAll('.proposal-bar button').forEach((b, i) => b.classList.toggle('on', 'abcd'[i] === p));
+
+  // リセット
+  document.getElementById('listBtn').style.display = 'none';
+  document.getElementById('skipArea').classList.remove('hidden');
+  document.getElementById('swipeArea').classList.add('hidden');
+  document.getElementById('inlineNext').classList.add('hidden');
+  document.getElementById('floatingBar').classList.remove('show');
+  if (bsOpen) toggleBottomSheet();
+  if (bsDOpen) toggleBottomSheetD();
+
+  if (p === 'a') {
+    document.getElementById('listBtn').style.display = 'flex';
+  } else if (p === 'b') {
+    document.getElementById('skipArea').classList.add('hidden');
+    document.getElementById('swipeArea').classList.remove('hidden');
+    swipeTo(0);
+  } else if (p === 'c') {
+    document.getElementById('inlineNext').classList.remove('hidden');
+  } else if (p === 'd') {
+    document.getElementById('floatingBar').classList.add('show');
+    document.getElementById('editArea').style.flex = '1 1 0';
+    document.getElementById('editArea').style.minHeight = '0';
+  }
+}
+showProposal('a');
+</script>
+</body>
+</html>
