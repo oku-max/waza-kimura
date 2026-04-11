@@ -619,11 +619,12 @@ export function renderOrg() {
   const selIds = window.selIds || new Set();
   const tbody = document.getElementById('orgList');
   if (!tbody) return;
-  tbody.innerHTML = displayList.map(v => {
-    // v.idは'yt-XXXXX'形式のため、YouTubeはv.ytId、VimeoはvideoId部分を使用
+
+  // ── 行HTML生成関数 ──
+  const visCols = orgColOrder.filter(col => orgColVisibility[col] !== false);
+  function _buildRowHTML(v) {
     const _ytId = v.ytId || (v.id||'').replace(/^yt-/,'');
     const _vmId = (v.id||'').replace(/^vm-/,'');
-    const _gdId = (v.id||'').replace(/^gd-/,'');
     const thumb = v.pt === 'youtube'
       ? (v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`)
       : v.pt === 'gdrive'
@@ -632,19 +633,12 @@ export function renderOrg() {
       ? (v.thumb || '')
       : (v.thumb || `https://vumbnail.com/${_vmId}.jpg`);
 
-    const prio = v.prio || '保留';
-    const prioCols = {'今すぐ':['#fdecea','#ff5252'],'そのうち':['#e3f2fd','#42a5f5'],'保留':['#fff8e1','#f59e0b']};
-    const [prioBg, prioColor] = prioCols[prio];
-
     const mkTagCell = (items, filterKey, colKey) => {
-      const chips = items.map(t =>
-        `<span class="org-tag-chip">${t}</span>`
-      ).join('');
+      const chips = items.map(t => `<span class="org-tag-chip">${t}</span>`).join('');
       return `<td class="org-td" data-col="${colKey}" style="overflow:hidden">
-        <div class="org-tag-cell">${chips || '<span style="font-size:10px;color:var(--text3)">—</span>'}</div>
-      </td>`;
+        <div class="org-tag-cell">${chips || '<span style="font-size:10px;color:var(--text3)">—</span>'}</div></td>`;
     };
-    const scrollCells = orgColOrder.filter(col => orgColVisibility[col] !== false).map(col => {
+    const scrollCells = visCols.map(col => {
       if (col === 'tb')        return mkTagCell(v.tb||[], 'tb', 'tb');
       if (col === 'action')    return mkTagCell(v.cat||[], 'action', 'action');
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
@@ -673,7 +667,6 @@ export function renderOrg() {
         const dur = sec ? `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}` : '—';
         return `<td class="org-td" data-col="duration" style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">${dur}</td>`;
       }
-      // 未知のカラム → 空セルを返してヘッダーとのずれを防ぐ
       return `<td class="org-td" data-col="${col}" style="font-size:10px;color:var(--text3)">—</td>`;
     }).join('');
 
@@ -689,7 +682,43 @@ export function renderOrg() {
       </td>
       ${scrollCells}
     </tr>`;
-  }).join('');
+  }
+
+  // ── バッチレンダリング: 最初の60行を即時描画、残りはスクロールで追加 ──
+  const BATCH = 60;
+  const firstBatch = displayList.slice(0, BATCH);
+  tbody.innerHTML = firstBatch.map(v => _buildRowHTML(v)).join('');
+
+  let _orgRendered = BATCH;
+  if (displayList.length > BATCH) {
+    // 前回のオブザーバーを破棄
+    if (window._orgScrollObs) { window._orgScrollObs.disconnect(); window._orgScrollObs = null; }
+    // センチネル行を挿入
+    const sentinel = document.createElement('tr');
+    sentinel.id = 'org-sentinel';
+    sentinel.innerHTML = '<td colspan="99" style="height:1px;padding:0;border:none"></td>';
+    tbody.appendChild(sentinel);
+
+    window._orgScrollObs = new IntersectionObserver((entries) => {
+      if (!entries[0].isIntersecting) return;
+      const next = displayList.slice(_orgRendered, _orgRendered + BATCH);
+      if (!next.length) { window._orgScrollObs.disconnect(); sentinel.remove(); return; }
+      sentinel.remove();
+      const frag = document.createDocumentFragment();
+      const temp = document.createElement('tbody');
+      temp.innerHTML = next.map(v => _buildRowHTML(v)).join('');
+      while (temp.firstChild) frag.appendChild(temp.firstChild);
+      tbody.appendChild(frag);
+      _orgRendered += next.length;
+      if (_orgRendered < displayList.length) {
+        tbody.appendChild(sentinel);
+      } else {
+        window._orgScrollObs.disconnect();
+      }
+    }, { root: document.querySelector('.org-table-wrap'), rootMargin: '200px' });
+    window._orgScrollObs.observe(sentinel);
+  }
+
   syncOrgColHeaders();
   requestAnimationFrame(adjustOrgTableHeight);
   _bindOrgInlineEdit();
@@ -1592,6 +1621,31 @@ export function openOrgColFilter(col, thEl) {
     dd.appendChild(sortRow);
   }
 
+  // ── メモ列: テキスト検索（ソート直後、フィルターの上）──
+  if (cfg && cfg.memoTextSearch) {
+    const memoWrap = document.createElement('div');
+    memoWrap.style.cssText = 'padding-bottom:6px;border-bottom:1px solid var(--border)';
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px;margin-bottom:4px';
+    lbl.textContent = 'メモ内容で検索';
+    memoWrap.appendChild(lbl);
+    const memoInput = document.createElement('input');
+    memoInput.type = 'text';
+    memoInput.placeholder = 'キーワード...';
+    memoInput.value = orgMemoSearch || '';
+    memoInput.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
+    let _memoDebounce = null;
+    memoInput.addEventListener('input', () => {
+      clearTimeout(_memoDebounce);
+      _memoDebounce = setTimeout(() => {
+        orgMemoSearch = memoInput.value.trim();
+        renderOrg(); _syncFiltIcon(col);
+      }, 300);
+    });
+    memoWrap.appendChild(memoInput);
+    dd.appendChild(memoWrap);
+  }
+
   // ── フィルターセクション ──
   if (cfg && sortedVals.length > 0) {
     const isPanel = !!cfg.panel; // channel / playlist → パネル形式
@@ -1694,31 +1748,6 @@ export function openOrgColFilter(col, thEl) {
         renderList(searchBox ? searchBox.value : '');
         renderOrg(); _syncFiltIcon(col);
       });
-    }
-
-    // メモ列: テキスト検索窓を追加（メモの中身で絞り込み）
-    if (cfg.memoTextSearch) {
-      const sep = document.createElement('div');
-      sep.style.cssText = 'border-top:1px solid var(--border);margin-top:4px;padding-top:6px';
-      const lbl = document.createElement('div');
-      lbl.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px;margin-bottom:4px';
-      lbl.textContent = 'メモ内容で検索';
-      sep.appendChild(lbl);
-      const memoInput = document.createElement('input');
-      memoInput.type = 'text';
-      memoInput.placeholder = 'キーワード...';
-      memoInput.value = orgMemoSearch || '';
-      memoInput.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
-      let _memoDebounce = null;
-      memoInput.addEventListener('input', () => {
-        clearTimeout(_memoDebounce);
-        _memoDebounce = setTimeout(() => {
-          orgMemoSearch = memoInput.value.trim();
-          renderOrg(); _syncFiltIcon(col);
-        }, 300);
-      });
-      sep.appendChild(memoInput);
-      dd.appendChild(sep);
     }
 
     // スマホではキーボードが自動で立ち上がらないようにautofocusを抑制
