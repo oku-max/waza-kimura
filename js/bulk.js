@@ -36,9 +36,6 @@ export function buildBulkDrawerHTML() {
   const commonCh   = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
   const commonPl   = selVids.every(v=>(v.pl||'')===(selVids[0]?.pl||'')) ? (selVids[0]?.pl||'未分類') : '（複数）';
 
-  const prioChips = ['今すぐ','そのうち','保留'].map(p =>
-    `<span class="chip" onclick="bvpSet('prio','${p}',this)">${p}</span>`
-  ).join('');
   const progChips = ['未着手','練習中','マスター'].map(s =>
     `<span class="chip" onclick="bvpSet('status','${s}',this)">${s}</span>`
   ).join('');
@@ -70,25 +67,34 @@ export function buildBulkDrawerHTML() {
     </div>`;
   };
 
-  return sec('ステータス・進捗・優先度', `
+  return sec('ステータス・進捗', `
     <div class="vp-row">
-      <span class="vp-lbl">Status</span>
+      <span class="vp-lbl">お気に入り / Next</span>
       <div style="display:flex;flex-wrap:wrap;gap:5px">
-        <span class="chip" onclick="bvpToggleWatch(this)">未視聴</span>
-        <span class="chip" onclick="bvpToggleFav(this)">★ Fav</span>
+        <span class="chip" onclick="bvpToggleFav(this)">☆ Fav</span>
+        <span class="chip" onclick="bvpToggleNext(this)">▶ Next</span>
       </div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">Progress</span>
+      <span class="vp-lbl">進捗</span>
       <div style="display:flex;flex-wrap:wrap;gap:5px" id="bvp-prog">${progChips}</div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">Priority</span>
-      <div style="display:flex;flex-wrap:wrap;gap:5px" id="bvp-prio">${prioChips}</div>
+      <span class="vp-lbl">練習回数</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="chip" onclick="bvpBumpCounter(-1)" style="cursor:pointer">− 1</button>
+        <span id="bvp-counter-label" style="font-size:12px;font-weight:600;color:var(--text2);min-width:30px;text-align:center">${(() => {
+          const vals = selVids.map(v => v.practice || 0);
+          const allSame = vals.every(v => v === vals[0]);
+          return allSame ? vals[0] + '回' : '（複数）';
+        })()}</span>
+        <button class="chip" onclick="bvpBumpCounter(1)" style="cursor:pointer">＋ 1</button>
+        <button class="chip" onclick="bvpResetCounter()" style="cursor:pointer;color:var(--text3)">0にリセット</button>
+      </div>
     </div>`)
   + sec('チャンネル・プレイリスト', `
     <div class="vp-row">
-      <span class="vp-lbl">Channel</span>
+      <span class="vp-lbl">チャンネル</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           <span class="chip active">${commonCh}</span>
@@ -105,7 +111,7 @@ export function buildBulkDrawerHTML() {
       </div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">Playlist</span>
+      <span class="vp-lbl">プレイリスト</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           <span class="chip active">${commonPl}</span>
@@ -361,10 +367,56 @@ export function bvpToggleFav(el) {
   const favCount=vids.filter(v=>v.fav).length;
   const setTo = favCount < vids.length/2;
   vids.forEach(v=>v.fav=setTo);
-  el.textContent = setTo ? '★ Fav' : '★ Fav';
+  el.textContent = setTo ? '★ Fav' : '☆ Fav';
   el.classList.toggle('active', setTo);
   el.classList.toggle('c-fav', setTo);
   window.toastUndo?.((window.selIds||new Set()).size+'本をFav'+(setTo?'追加':'解除'), bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpToggleNext(el) {
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
+  const nextCount=vids.filter(v=>v.next).length;
+  const setTo = nextCount < vids.length/2;
+  vids.forEach(v=>v.next=setTo);
+  el.textContent = setTo ? '▶ Next ON' : '▶ Next';
+  el.classList.toggle('active', setTo);
+  window.toastUndo?.((window.selIds||new Set()).size+'本のNextを'+(setTo?'ON':'OFF'), bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpBumpCounter(delta) {
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
+  vids.forEach(v => {
+    v.practice = Math.max(0, (v.practice||0) + delta);
+    if(delta > 0) v.lastPracticed = new Date().toISOString().slice(0,10);
+  });
+  // ラベル更新
+  const lbl = document.getElementById('bvp-counter-label');
+  if(lbl){
+    const vals = vids.map(v=>v.practice||0);
+    const allSame = vals.every(v=>v===vals[0]);
+    lbl.textContent = allSame ? vals[0]+'回' : '（複数）';
+  }
+  window.toastUndo?.((window.selIds||new Set()).size+'本の練習回数を'+(delta>0?'+':'')+ delta, bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpResetCounter() {
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
+  vids.forEach(v => { v.practice = 0; });
+  const lbl = document.getElementById('bvp-counter-label');
+  if(lbl) lbl.textContent = '0回';
+  window.toastUndo?.((window.selIds||new Set()).size+'本の練習回数をリセット', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -1128,6 +1180,9 @@ window.bvpSet = bvpSet;
 window.bvpToggle = bvpToggle;
 window.bvpToggleWatch = bvpToggleWatch;
 window.bvpToggleFav = bvpToggleFav;
+window.bvpToggleNext = bvpToggleNext;
+window.bvpBumpCounter = bvpBumpCounter;
+window.bvpResetCounter = bvpResetCounter;
 window.bvpRemoveTag = bvpRemoveTag;
 window.bvpAddPos = bvpAddPos;
 window.bvpAddTech = bvpAddTech;
