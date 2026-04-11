@@ -1468,20 +1468,20 @@ const _colFilterConfig = {
   position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
   technique:      { filterKey: 'tech',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
-  next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'] },
+  next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'], noSearch: true },
   counter:         { filterKey: 'counter',         valueGetter: v => {
     const pc = v.practice || 0;
     return [pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上'];
-  }},
+  }, noSearch: true },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
-  fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'] },
-  memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし']   },
+  fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'], noSearch: true },
+  memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
     if (!v.addedAt) return ['不明'];
     const d = new Date(v.addedAt);
     return [`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`];
   }},
-  duration:       { filterKey: 'durationFilter', valueGetter: v => {
+  duration:       { filterKey: 'durationFilter', noSearch: true, valueGetter: v => {
     const s = v.duration || 0;
     return [!s ? '不明' : s < 300 ? '〜5分' : s < 900 ? '5〜15分' : s < 1800 ? '15〜30分' : '30分以上'];
   }},
@@ -1535,7 +1535,7 @@ export function openOrgColFilter(col, thEl) {
   });
 
   const filterSet = cfg ? (orgFilters[cfg.filterKey] || (orgFilters[cfg.filterKey] = new Set())) : new Set();
-  const sortableCols = ['channel','playlist','prio','addedAt','duration','fav','tb','action','position','technique','memo'];
+  const sortableCols = ['channel','playlist','addedAt','duration','fav','next','counter','tb','action','position','technique','memo'];
 
   // ─ ドロップダウン構築 ─
   const dd = document.createElement('div');
@@ -1590,17 +1590,20 @@ export function openOrgColFilter(col, thEl) {
   if (cfg && sortedVals.length > 0) {
     const isPanel = !!cfg.panel; // channel / playlist → パネル形式
 
-    // 検索ボックス
-    const searchBox = document.createElement('input');
-    searchBox.type = 'text';
-    searchBox.placeholder = '検索...';
-    searchBox.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
-    dd.appendChild(searchBox);
+    // 検索ボックス（選択肢が少ない列は非表示）
+    let searchBox = null;
+    if (!cfg.noSearch) {
+      searchBox = document.createElement('input');
+      searchBox.type = 'text';
+      searchBox.placeholder = '検索...';
+      searchBox.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
+      dd.appendChild(searchBox);
+    }
 
     if (isPanel) {
       // ── パネル形式（Channel / Playlist）──
       // Library サイドバーと完全に同じ buildSbPickerInline を使用
-      dd.removeChild(searchBox); // buildSbPickerInline が独自の検索ボックスを持つ
+      if (searchBox) dd.removeChild(searchBox); // buildSbPickerInline が独自の検索ボックスを持つ
       const panelContainer = document.createElement('div');
       const panelId = '_org-col-picker-' + col;
       panelContainer.id = panelId;
@@ -1673,21 +1676,21 @@ export function openOrgColFilter(col, thEl) {
       };
 
       renderList('');
-      searchBox.addEventListener('input', () => renderList(searchBox.value));
+      if (searchBox) searchBox.addEventListener('input', () => renderList(searchBox.value));
 
       btnSelAll.addEventListener('click', () => {
         sortedVals.forEach(v => filterSet.add(v));
-        renderList(searchBox.value);
+        renderList(searchBox ? searchBox.value : '');
         renderOrg(); _syncFiltIcon(col);
       });
       btnClear.addEventListener('click', () => {
         filterSet.clear();
-        renderList(searchBox.value);
+        renderList(searchBox ? searchBox.value : '');
         renderOrg(); _syncFiltIcon(col);
       });
     }
 
-    requestAnimationFrame(() => searchBox.focus());
+    if (searchBox) requestAnimationFrame(() => searchBox.focus());
   }
 
   _openColFilterEl = dd;
