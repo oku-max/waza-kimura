@@ -20,84 +20,52 @@ export function closeBulkVPanel() {
 
 // 一括編集VPanel用のDrawerHTML（vパネルスタイル）
 export function buildBulkDrawerHTML() {
-  const ts = window.tagSettings || [];
-  const TB_OPTS  = [...new Set([...(ts.find(t=>t.key==='tb')?.presets  || ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル']), ...(window.videos||[]).flatMap(v=>v.tb||[])])];
-  const AC_OPTS  = [...new Set([...(ts.find(t=>t.key==='ac')?.presets  || ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル']), ...(window.videos||[]).flatMap(v=>v.ac||[])])];
-  const POS_BASE = ts.find(t=>t.key==='pos')?.presets || ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
-  const POS_ALL  = [...new Set([...POS_BASE,  ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort();
-  const TECH_ALL = [...new Set((window.videos||[]).flatMap(v=>v.tech||[]))].sort();
-
   const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
-  const common = (arr, field) => arr.filter(x => selVids.every(v => (v[field]||[]).includes(x)));
-  const commonTb   = common(TB_OPTS,  'tb');
-  const commonAc   = common(AC_OPTS,  'ac');
-  const commonPos  = common(POS_ALL,  'pos');
-  const commonTech = common(TECH_ALL, 'tech');
-  const commonCh   = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
-  const commonPl   = selVids.every(v=>(v.pl||'')===(selVids[0]?.pl||'')) ? (selVids[0]?.pl||'未分類') : '（複数）';
+  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  const progChips = ['未着手','練習中','マスター'].map(s =>
-    `<span class="chip" onclick="bvpSet('status','${s}',this)">${s}</span>`
-  ).join('');
+  // ── マーク section (VPanel counter と同じ構造) ──
+  const favCount = selVids.filter(v=>v.fav).length;
+  const nextCount = selVids.filter(v=>v.next).length;
+  const favOn = favCount > 0;
+  const nextOn = nextCount > 0;
+  const p = (() => { const vals = selVids.map(v=>v.practice||0); return vals.every(v=>v===vals[0]) ? vals[0]+'回' : '（複数）'; })();
+  const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
+  const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
+  const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:#fff;padding:0;font-family:inherit`;
 
-  const sec = (label, content) =>
-    `<div class="fsec">
-      <div class="fsec-title">${label}</div>
-      ${content}
-    </div>`;
-
-  const mkTagRow = (key, label, opts, commonTags) => {
-    const onCls = {tb:'on-tb',ac:'on-ac',pos:'on-pos',tech:'on-tech'}[key];
-    const chips = commonTags.map(v =>
-      `<span class="vp-chip ${onCls}" onclick="bvpChipRm('${key}','${v.replace(/'/g,"\\'")}',this)" style="cursor:pointer">${v} ×</span>`
-    ).join('');
-    const rowCls = {tb:'vp-row-tb',ac:'vp-row-ac',pos:'vp-row-pos',tech:'vp-row-tech'}[key] || '';
-    return `<div class="vp-row ${rowCls}">
-      <span class="vp-lbl">${label}</span>
-      <div class="vp-dd-wrap">
-        <div class="vp-chips" id="bvp-${key}">${chips}</div>
-        <div class="vp-dd-trigger" onclick="bvpTogDd('${key}')">＋ 追加</div>
-        <div class="vp-dd" id="bvp-dd-${key}" style="display:none">
-          <input class="vp-dd-search" placeholder="検索・新規追加..."
-            oninput="bvpRenderDdList('${key}',this.value)"
-            onkeydown="bvpDdKey('${key}',event,this)">
-          <div class="vp-dd-list" id="bvp-dd-list-${key}"></div>
+  const markSec = `<div class="fsec">
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+        <div style="${subTitle}">お気に入り</div>
+        <span onclick="bvpToggleFav(this)" style="cursor:pointer;font-size:20px;color:${favOn?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
+      </div>
+      <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+        <div style="${subTitle}">Next</div>
+        <span onclick="bvpToggleNext(this)" style="cursor:pointer;font-size:16px;color:${nextOn?'var(--accent)':'var(--text3)'};font-weight:700" title="Next">▶</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="${subTitle}">カウンター</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button onclick="bvpBumpCounter(-1)" style="${btnS}">−</button>
+          <span id="bvp-counter-label" style="font-size:18px;font-weight:800;color:#e8590c;min-width:28px;text-align:center;font-variant-numeric:tabular-nums">${p}</span>
+          <button onclick="bvpBumpCounter(1)" style="${btnP}">＋</button>
+          <button onclick="bvpResetCounter()" class="chip" style="cursor:pointer;font-size:10px;color:var(--text3)">0にリセット</button>
         </div>
       </div>
-    </div>`;
-  };
+    </div>
+  </div>`;
 
-  return sec('ステータス・進捗', `
-    <div class="vp-row">
-      <span class="vp-lbl">お気に入り / Next</span>
-      <div style="display:flex;flex-wrap:wrap;gap:5px">
-        <span class="chip" onclick="bvpToggleFav(this)">☆ Fav</span>
-        <span class="chip" onclick="bvpToggleNext(this)">▶ Next</span>
-      </div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">進捗</span>
-      <div style="display:flex;flex-wrap:wrap;gap:5px" id="bvp-prog">${progChips}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">練習回数</span>
-      <div style="display:flex;align-items:center;gap:6px">
-        <button class="chip" onclick="bvpBumpCounter(-1)" style="cursor:pointer">− 1</button>
-        <span id="bvp-counter-label" style="font-size:12px;font-weight:600;color:var(--text2);min-width:30px;text-align:center">${(() => {
-          const vals = selVids.map(v => v.practice || 0);
-          const allSame = vals.every(v => v === vals[0]);
-          return allSame ? vals[0] + '回' : '（複数）';
-        })()}</span>
-        <button class="chip" onclick="bvpBumpCounter(1)" style="cursor:pointer">＋ 1</button>
-        <button class="chip" onclick="bvpResetCounter()" style="cursor:pointer;color:var(--text3)">0にリセット</button>
-      </div>
-    </div>`)
-  + sec('チャンネル・プレイリスト', `
+  // ── チャンネル・プレイリスト section ──
+  const commonCh = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
+  const commonPl = selVids.every(v=>(v.pl||'')===(selVids[0]?.pl||'')) ? (selVids[0]?.pl||'未分類') : '（複数）';
+
+  const srcSec = `<div class="fsec">
+    <div class="fsec-title">チャンネル・プレイリスト</div>
     <div class="vp-row">
       <span class="vp-lbl">チャンネル</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-          <span class="chip active">${commonCh}</span>
+          <span class="chip active">${_esc(commonCh)}</span>
           <div class="chip" style="border-style:dashed" onclick="bvpTogDd('ch')">✎ 変更</div>
         </div>
         <div class="vp-dd" id="bvp-dd-ch" style="display:none">
@@ -114,7 +82,7 @@ export function buildBulkDrawerHTML() {
       <span class="vp-lbl">プレイリスト</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-          <span class="chip active">${commonPl}</span>
+          <span class="chip active">${_esc(commonPl)}</span>
           <div class="chip" style="border-style:dashed" onclick="bvpTogDd('pl')">✎ 変更・検索</div>
         </div>
         <div class="vp-dd" id="bvp-dd-pl" style="display:none">
@@ -131,12 +99,76 @@ export function buildBulkDrawerHTML() {
           <button class="vp-pl-btn vp-pl-btn-del" onclick="bulkPlRemove()">✕ 削除</button>
         </div>
       </div>
-    </div>`)
-  + sec('ポジション・テクニック',
-      mkTagRow('tb',   (ts.find(t=>t.key==='tb')?.label  ||'TOP/BOTTOM'), TB_OPTS,  commonTb)
-    + mkTagRow('ac',   (ts.find(t=>t.key==='ac')?.label  ||'Action'),     AC_OPTS,  commonAc)
-    + mkTagRow('pos',  (ts.find(t=>t.key==='pos')?.label ||'Position'),   POS_ALL,  commonPos)
-    + mkTagRow('tech', (ts.find(t=>t.key==='tech')?.label||'Technique'),  TECH_ALL, commonTech))
+    </div>
+  </div>`;
+
+  // ── タグ section (VPanel v4 と同じ構造) ──
+  const TB = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  const CATS = window.CATEGORIES || [];
+  const POSS = window.POSITIONS || [];
+  const allTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
+
+  // 共通タグ = 全選択動画が持つタグ
+  const commonTb = TB.filter(t => selVids.every(v=>(v.tb||[]).includes(t)));
+  const commonCat = (CATS.map(c=>c.name)||[]).filter(c => selVids.every(v=>(v.cat||[]).includes(c)));
+  const commonPos = [...new Set(selVids.flatMap(v=>v.pos||[]))].filter(p => selVids.every(v=>(v.pos||[]).includes(p)));
+  const commonTags = allTags.filter(t => selVids.every(v=>(v.tags||[]).includes(t)));
+
+  // TB row (トグルチップ)
+  const tbRow = TB.map(t => {
+    const on = commonTb.includes(t);
+    return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="bvpToggleV4('tb','${t}',this)">${t}</span>`;
+  }).join('');
+
+  // Category row (トグルチップ)
+  const catRow = CATS.map(c => {
+    const on = commonCat.includes(c.name);
+    return `<span class="vp-chip${on?' on-ac':''}" style="cursor:pointer" title="${_esc(c.desc||'')}" onclick="bvpToggleV4('cat','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
+  }).join('');
+
+  // Position row (選択中チップ + ピッカー)
+  const posChips = commonPos.map(p =>
+    `<span class="vp-chip on-pos" style="cursor:pointer" onclick="bvpRemoveV4('pos','${_esc(p)}',this)">${_esc(p)} ×</span>`
+  ).join('');
+  const posOpts = POSS.filter(p => !commonPos.includes(p.ja)).map(p =>
+    `<option value="${_esc(p.ja)}">${_esc(p.ja)}</option>`
+  ).join('');
+  const posPicker = `<select class="vp-chip" style="border-style:dashed;cursor:pointer" onchange="bvpAddV4('pos',this)">
+    <option value="">＋ ポジション</option>${posOpts}
+  </select>`;
+
+  // #タグ row (選択中チップ + 検索入力)
+  const tagChips = commonTags.map(t =>
+    `<span class="vp-chip on-tech" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">#${_esc(t)} ×</span>`
+  ).join('');
+  const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
+    <input class="vp-dd-search" id="bvp-tag-inp" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px"
+      oninput="bvpTagSuggest(this)" onfocus="bvpTagSuggest(this)"
+      onkeydown="bvpTagKey(event,this)">
+    <div class="vp-dd" id="bvp-tag-sug" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50"></div>
+  </div>`;
+
+  const tagSec = `<div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
+    <div class="fsec-title" style="color:var(--accent)">タグ</div>
+    <div class="vp-row">
+      <span class="vp-lbl">トップ/ボトム/スタンディング</span>
+      <div class="vp-chips">${tbRow}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">カテゴリー</span>
+      <div class="vp-chips">${catRow}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">ポジション</span>
+      <div class="vp-chips">${posChips}${posPicker}</div>
+    </div>
+    <div class="vp-row">
+      <span class="vp-lbl">#タグ</span>
+      <div class="vp-chips">${tagChips}${tagInput}</div>
+    </div>
+  </div>`;
+
+  return markSec + srcSec + tagSec
   + `<div style="padding:8px 16px 4px">
       <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
@@ -417,6 +449,94 @@ export function bvpResetCounter() {
   const lbl = document.getElementById('bvp-counter-label');
   if(lbl) lbl.textContent = '0回';
   window.toastUndo?.((window.selIds||new Set()).size+'本の練習回数をリセット', bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+// ── 一括 V4タグ操作 (VPanel v4と同じ構造) ──
+export function bvpToggleV4(field, val, el) {
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
+  const allHave = vids.every(v=>(v[field]||[]).includes(val));
+  vids.forEach(v => {
+    if(!Array.isArray(v[field])) v[field]=[];
+    if(allHave) { v[field] = v[field].filter(t=>t!==val); }
+    else { if(!v[field].includes(val)) v[field].push(val); }
+  });
+  const onCls = {tb:'on-tb',cat:'on-ac',pos:'on-pos',tags:'on-tech'}[field]||'';
+  if(el) el.classList.toggle(onCls, !allHave);
+  window.toastUndo?.((window.selIds||new Set()).size+'本の'+val+'を'+(allHave?'解除':'追加'), bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpAddV4(field, sel) {
+  const val = sel.value; if(!val) return;
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v){ if(!Array.isArray(v[field]))v[field]=[]; if(!v[field].includes(val))v[field].push(val); }});
+  sel.value = '';
+  // VPanel再構築
+  const body = document.getElementById('bulk-vpanel-body');
+  if(body) body.innerHTML = buildBulkDrawerHTML();
+  window.toastUndo?.((window.selIds||new Set()).size+'本に'+val+'を追加', bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpRemoveV4(field, val, el) {
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v[field]=(v[field]||[]).filter(t=>t!==val); });
+  // VPanel再構築
+  const body = document.getElementById('bulk-vpanel-body');
+  if(body) body.innerHTML = buildBulkDrawerHTML();
+  window.toastUndo?.((window.selIds||new Set()).size+'本から'+val+'を削除', bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpTagSuggest(inp) {
+  const sug = document.getElementById('bvp-tag-sug');
+  if(!sug) return;
+  const q = (inp.value||'').trim().toLowerCase();
+  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
+  const commonTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
+  const existing = commonTags.filter(t => selVids.every(v=>(v.tags||[]).includes(t)));
+  const available = commonTags.filter(t => !existing.includes(t));
+  const filtered = q ? available.filter(t=>t.toLowerCase().includes(q)) : available;
+  if(!filtered.length){ sug.style.display='none'; return; }
+  sug.style.display='block';
+  const _esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  sug.innerHTML = filtered.slice(0,30).map(t =>
+    `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="bvpTagPick('${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
+  ).join('');
+}
+
+export function bvpTagPick(val) {
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v){ if(!Array.isArray(v.tags))v.tags=[]; if(!v.tags.includes(val))v.tags.push(val); }});
+  const body = document.getElementById('bulk-vpanel-body');
+  if(body) body.innerHTML = buildBulkDrawerHTML();
+  window.toastUndo?.((window.selIds||new Set()).size+'本に#'+val+'を追加', bulkUndo);
+  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+export function bvpTagKey(ev, inp) {
+  if(ev.key==='Escape'){ const sug=document.getElementById('bvp-tag-sug'); if(sug)sug.style.display='none'; return; }
+  if(ev.key!=='Enter') return;
+  ev.preventDefault();
+  const val = inp.value.trim(); if(!val) return;
+  bulkSnapshot();
+  const ids=[...(window.selIds||new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v){ if(!Array.isArray(v.tags))v.tags=[]; if(!v.tags.includes(val))v.tags.push(val); }});
+  inp.value = '';
+  const body = document.getElementById('bulk-vpanel-body');
+  if(body) body.innerHTML = buildBulkDrawerHTML();
+  window.toastUndo?.((window.selIds||new Set()).size+'本に#'+val+'を追加', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -1183,6 +1303,12 @@ window.bvpToggleFav = bvpToggleFav;
 window.bvpToggleNext = bvpToggleNext;
 window.bvpBumpCounter = bvpBumpCounter;
 window.bvpResetCounter = bvpResetCounter;
+window.bvpToggleV4 = bvpToggleV4;
+window.bvpAddV4 = bvpAddV4;
+window.bvpRemoveV4 = bvpRemoveV4;
+window.bvpTagSuggest = bvpTagSuggest;
+window.bvpTagPick = bvpTagPick;
+window.bvpTagKey = bvpTagKey;
 window.bvpRemoveTag = bvpRemoveTag;
 window.bvpAddPos = bvpAddPos;
 window.bvpAddTech = bvpAddTech;

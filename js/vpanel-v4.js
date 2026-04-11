@@ -47,11 +47,16 @@
         ${posOpts}
       </select>`;
 
-    // Tags row (自由入力)
+    // Tags row (検索・選択 + 自由入力)
     const tagChips = v.tags.map(t =>
       `<span class="vp-chip on-tech" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">#${_esc(t)} ×</span>`
     ).join('');
-    const tagInput = `<input class="vp-dd-search" placeholder="＋ #タグ追加 (Enter)" style="width:140px;font-size:11px" onkeydown="vpV4TagKey('${id}',event,this)">`;
+    const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
+      <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px"
+        oninput="vpV4TagSuggest('${id}',this)" onfocus="vpV4TagSuggest('${id}',this)"
+        onkeydown="vpV4TagKey('${id}',event,this)">
+      <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50"></div>
+    </div>`;
 
     return `
     <div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
@@ -130,8 +135,40 @@
     window.AF?.();
   };
 
+  // ── #Tag 検索サジェスト ──
+  function _getAllTags() {
+    return [...new Set((window.videos || []).flatMap(v => v.tags || []))].sort((a,b) => a.localeCompare(b,'ja'));
+  }
+  window.vpV4TagSuggest = function (id, inp) {
+    const sug = document.getElementById('vp-v4-tag-sug-' + id);
+    if (!sug) return;
+    const q = (inp.value || '').trim().toLowerCase();
+    const v = _findV(id);
+    const existing = v?.tags || [];
+    const all = _getAllTags().filter(t => !existing.includes(t));
+    const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
+    if (!filtered.length) { sug.style.display = 'none'; return; }
+    sug.style.display = 'block';
+    sug.innerHTML = filtered.slice(0, 30).map(t =>
+      `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
+    ).join('');
+  };
+  window.vpV4TagPick = function (id, val) {
+    const v = _findV(id); if (!v) return;
+    if (!Array.isArray(v.tags)) v.tags = [];
+    if (!v.tags.includes(val)) v.tags.push(val);
+    _rerenderRow(id, 'tags');
+    _save(id);
+    window.AF?.();
+  };
+
   // ── #Tag 追加/削除 ──
   window.vpV4TagKey = function (id, ev, inp) {
+    if (ev.key === 'Escape') {
+      const sug = document.getElementById('vp-v4-tag-sug-' + id);
+      if (sug) sug.style.display = 'none';
+      return;
+    }
     if (ev.key !== 'Enter') return;
     ev.preventDefault();
     const val = inp.value.trim();

@@ -1456,7 +1456,7 @@ body.hide-tech .fov-row-tech { display: none !important; }
 .bulk-inline .bbt:hover{background:rgba(255,255,255,.3);}
 .bulk-inline-edit{background:rgba(255,255,255,.25) !important;font-weight:700 !important;opacity:.4;pointer-events:none;}
 .bulk-inline-edit.has-sel{opacity:1;pointer-events:auto;}
-.bulk-inline-close{margin-left:auto;}
+.bulk-inline-close{}
 .bulk-transform{background:var(--accent) !important;border-bottom-color:var(--accent) !important;}
 .bulk-transform .toolbar-normal{display:none !important;}
 

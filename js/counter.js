@@ -87,12 +87,17 @@
     const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
     const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:#fff;padding:0;font-family:inherit`;
     const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
+    const next = v.next || false;
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
   <div style="display:flex;gap:14px;align-items:flex-start">
     <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
       <div style="${subTitle}">お気に入り</div>
       <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
+    </div>
+    <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+      <div style="${subTitle}">Next</div>
+      <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;color:${next?'var(--accent)':'var(--text3)'};font-weight:700" title="Next">▶</span>
     </div>
     <div style="flex:1;min-width:0">
       <div style="${subTitle}">カウンター</div>

@@ -2137,6 +2137,13 @@ export function vpTogFav(id, el) {
   autoSaveVp(id);
 }
 
+export function vpTogNext(id, el) {
+  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
+  v.next = !v.next;
+  if (el) el.style.color = v.next ? 'var(--accent)' : 'var(--text3)';
+  autoSaveVp(id);
+}
+
 export function vpSetShare(id, val, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.shared = val;
