@@ -3,25 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>進捗&マーク 統合モック — 4案</title>
+<title>進捗&マーク 統合モック — 3列構成</title>
 <style>
 :root{--accent:#6b3fd4;--surface:#fff;--surface2:#f5f3f0;--surface3:#ede9e4;--border:#e5e0da;--text:#1a1a1a;--text2:#666;--text3:#999;--radius:10px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'DM Sans','Hiragino Sans',sans-serif;background:#f0ece7;color:var(--text);padding:20px}
 h1{font-size:18px;font-weight:800;margin-bottom:4px;text-align:center}
 .subtitle{text-align:center;font-size:12px;color:var(--text3);margin-bottom:20px}
-.mock-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1400px;margin:0 auto}
-@media(max-width:900px){.mock-grid{grid-template-columns:1fr}}
 
-.mock-card{background:var(--surface);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;border:2px solid transparent;cursor:pointer;transition:border-color .2s}
-.mock-card:hover{border-color:var(--accent)}
-.mock-card.selected{border-color:var(--accent);box-shadow:0 4px 20px rgba(107,63,212,.2)}
-.mock-label{padding:12px 16px;background:var(--surface2);font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
-.mock-label .letter{background:var(--accent);color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
-.mock-label .desc{font-size:11px;color:var(--text2);font-weight:500;margin-left:auto}
-.mock-body{padding:0}
+.mock-wrap{max-width:1100px;margin:0 auto;background:var(--surface);border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.1);overflow:hidden}
 
-/* Unified filter styles (simplified) */
+/* Unified filter styles */
 .uni-topbar{display:flex;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);align-items:center;gap:6px}
 .uni-tabs{display:flex;gap:3px;flex:0 0 auto}
 .uni-tab{padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--text2)}
@@ -29,369 +21,368 @@ h1{font-size:18px;font-weight:800;margin-bottom:4px;text-align:center}
 .uni-search{flex:1;display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px;gap:4px}
 .uni-search input{border:none;outline:none;font-size:11px;background:none;width:100%;font-family:inherit}
 .uni-x{cursor:pointer;font-size:14px;color:var(--text3);padding:0 6px}
-.uni-cols{display:flex;min-height:280px;border-bottom:1px solid var(--border)}
+
+.uni-cols{display:flex;min-height:420px;border-bottom:1px solid var(--border)}
 .uni-col{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
 .uni-col:last-child{border-right:none}
-.uni-col.narrow{flex:0 0 160px}
 .uni-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);display:flex;justify-content:space-between;align-items:center}
 .uni-col-body{flex:1;overflow-y:auto;padding:2px 0}
+
 .uni-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
 .uni-row:hover{background:var(--surface2)}
 .uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
 .uni-cnt{min-width:22px;height:20px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;display:inline-flex;align-items:center;justify-content:center}
+
+.uni-divider{height:1px;background:var(--border);margin:6px 0}
+.uni-group-label{padding:6px 12px 2px;font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+
 .uni-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:36px;font-size:11px}
 .uni-lbl{font-size:10px;color:var(--text3);font-weight:700}
 .uni-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
-.uni-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;margin-left:auto}
 .uni-sp{flex:1}
+.uni-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline}
+.uni-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer}
 
-/* Extra styles for mocks */
-.uni-section-label{padding:6px 12px;font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;background:rgba(107,63,212,.06);border-bottom:1px solid var(--border)}
-.saved-card{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:6px}
-.saved-card:hover{background:var(--surface2)}
-.saved-card .icon{font-size:14px;flex-shrink:0}
-.saved-card .name{flex:1;font-weight:600;color:var(--text)}
-.saved-card .meta{font-size:10px;color:var(--text3)}
+/* Saved search styles */
+.saved-item{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:12px;display:flex;align-items:center;gap:8px;position:relative}
+.saved-item:hover{background:var(--surface2)}
+.saved-item .s-icon{font-size:13px;color:var(--accent);flex-shrink:0}
+.saved-item .s-name{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-item .s-count{font-size:10px;color:var(--text3);flex-shrink:0}
+.saved-item .s-dots{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;letter-spacing:1px;font-weight:700}
+.saved-item .s-dots:hover{background:var(--surface3);color:var(--text)}
+
+/* Saved search popover menu */
+.s-popover{display:none;position:absolute;right:8px;top:100%;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;padding:6px 0;font-size:12px}
+.s-popover.open{display:block}
+.s-popover .sp-row{padding:7px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);white-space:nowrap}
+.s-popover .sp-row:hover{background:var(--surface2)}
+.s-popover .sp-row .sp-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0;color:var(--text2)}
+.s-popover .sp-divider{height:1px;background:var(--border);margin:4px 0}
+.s-popover .sp-reorder{display:flex;gap:4px;padding:6px 14px}
+.s-popover .sp-reorder button{flex:1;padding:5px 0;border-radius:6px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;font-weight:600;color:var(--text2);display:flex;align-items:center;justify-content:center;gap:4px}
+.s-popover .sp-reorder button:hover{background:var(--surface2);border-color:var(--accent);color:var(--accent)}
+.s-popover .sp-row.sp-del{color:#c44}
+.s-popover .sp-row.sp-del .sp-icon{color:#c44}
+
+/* Recent video styles */
 .recent-item{padding:6px 12px;cursor:pointer;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:8px}
 .recent-item:hover{background:var(--surface2)}
-.recent-item .thumb{width:40px;height:28px;border-radius:4px;background:var(--surface3);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text3)}
-.recent-item .info{flex:1;min-width:0}
-.recent-item .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.recent-item .ago{font-size:10px;color:var(--text3)}
+.recent-item .r-rank{font-size:10px;color:var(--text3);font-weight:700;width:18px;text-align:right;flex-shrink:0}
+.recent-item .r-thumb{width:48px;min-width:48px;height:32px;border-radius:4px;background:var(--surface3);flex-shrink:0;overflow:hidden;position:relative}
+.recent-item .r-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.recent-item .r-thumb .r-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.5);pointer-events:none}
+.recent-item .r-info{flex:1;min-width:0}
+.recent-item .r-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.recent-item .r-meta{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-item .r-ago{font-size:10px;color:var(--text3);white-space:nowrap;flex-shrink:0}
 
-/* Subtab styles */
-.uni-subtabs{display:flex;gap:0;border-bottom:1px solid var(--border)}
-.uni-subtab{flex:1;padding:8px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent}
-.uni-subtab.on{color:var(--accent);border-bottom-color:var(--accent)}
-
-/* Bottom section styles */
-.bottom-section{border-top:1px solid var(--border);background:var(--surface2)}
-.bottom-section-hdr{padding:8px 12px;font-size:10px;font-weight:700;color:var(--text3);display:flex;justify-content:space-between;align-items:center}
-.bottom-scroll{display:flex;gap:8px;padding:6px 12px 10px;overflow-x:auto}
-.bottom-chip{padding:6px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.bottom-chip:hover{border-color:var(--accent);color:var(--accent)}
-
-/* Sidebar column */
-.sidebar-col{flex:0 0 200px;border-left:1px solid var(--border);display:flex;flex-direction:column}
-.sidebar-group{border-bottom:1px solid var(--border)}
-.sidebar-group-hdr{padding:8px 12px 4px;font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
-.sidebar-item{padding:5px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px}
-.sidebar-item:hover{background:var(--surface2)}
-.sidebar-item .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-
-.vote-btn{display:block;margin:12px auto;padding:10px 28px;border:2px solid var(--accent);border-radius:10px;background:none;color:var(--accent);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s}
-.vote-btn:hover,.vote-btn.voted{background:var(--accent);color:#fff}
+/* Interactive toggle */
+.uni-row.toggled{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
 </style>
 </head>
 <body>
 
-<h1>「進捗 & マーク」に最近みた動画・保存検索を統合</h1>
-<p class="subtitle">4つの案 — クリックで選択</p>
+<h1>「進捗 & マーク」新レイアウト</h1>
+<p class="subtitle">1列目: マーク+進捗+最終カウント日 ／ 2列目: 保存した検索 ／ 3列目: 最近みた動画 TOP15</p>
 
-<div class="mock-grid">
+<div class="mock-wrap">
+  <div class="uni-topbar">
+    <div class="uni-tabs">
+      <div class="uni-tab on">進捗 & マーク</div>
+      <div class="uni-tab">ソース・チャンネル・プレイリスト</div>
+      <div class="uni-tab">タグ</div>
+    </div>
+    <div class="uni-search">
+      <span style="color:var(--text3)">🔍</span>
+      <input placeholder="検索...">
+    </div>
+    <div class="uni-x">✕</div>
+  </div>
 
-<!-- ═══ CASE A: 4th column ═══ -->
-<div class="mock-card" onclick="vote('A')">
-  <div class="mock-label">
-    <span class="letter">A</span>
-    4列目を追加
-    <span class="desc">マーク列の右に独立カラム</span>
-  </div>
-  <div class="mock-body">
-    <div class="uni-topbar">
-      <div class="uni-tabs"><div class="uni-tab on">進捗 & マーク</div><div class="uni-tab">ソース・チャンネル…</div><div class="uni-tab">タグ</div></div>
-    </div>
-    <div class="uni-cols">
-      <div class="uni-col narrow">
-        <div class="uni-col-hdr">マーク</div>
-        <div class="uni-col-body">
-          <div class="uni-row">★ Fav <span class="uni-cnt">34</span></div>
-          <div class="uni-row">📌 ブックマーク <span class="uni-cnt">24</span></div>
-          <div class="uni-row">💬 メモあり <span class="uni-cnt">7</span></div>
-          <div class="uni-row">🖼 画像あり <span class="uni-cnt">5</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">🎯 進捗ランク (自動)</div>
-        <div class="uni-col-body">
-          <div class="uni-row">🆕 未着手 (0回) <span class="uni-cnt">783</span></div>
-          <div class="uni-row">🧠 習得中 (5-14) <span class="uni-cnt">1</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">📅 最終練習日</div>
-        <div class="uni-col-body">
-          <div class="uni-row">今週 (7日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">今月 (30日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">未練習 <span class="uni-cnt">782</span></div>
-        </div>
-      </div>
-      <div class="uni-col" style="flex:0 0 180px">
-        <div class="uni-col-hdr">🔖 ショートカット</div>
-        <div class="uni-col-body">
-          <div class="uni-section-label">💾 保存した検索条件</div>
-          <div class="saved-card"><span class="icon">🔍</span><span class="name">ボトム攻撃系</span></div>
-          <div class="saved-card"><span class="icon">🔍</span><span class="name">未着手Fav</span></div>
-          <div class="saved-card"><span class="icon">🔍</span><span class="name">チョーク全般</span></div>
-          <div class="uni-section-label">🕐 最近みた動画</div>
-          <div class="recent-item"><div class="thumb">▶</div><div class="info"><div class="title">腰切りハーフガード</div><div class="ago">2分前</div></div></div>
-          <div class="recent-item"><div class="thumb">▶</div><div class="info"><div class="title">K-Guard Techniques</div><div class="ago">1時間前</div></div></div>
-        </div>
-      </div>
-    </div>
-    <div class="uni-ftr">
-      <span class="uni-lbl">選択中:</span> <span style="color:var(--text3);font-size:11px">なし</span>
-      <span class="uni-sp"></span>
-      <span style="font-size:12px;color:var(--accent);font-weight:700">784 件</span>
-      <button class="uni-apply">適用</button>
-    </div>
-  </div>
-</div>
+  <div class="uni-cols">
 
-<!-- ═══ CASE B: マーク column に統合 ═══ -->
-<div class="mock-card" onclick="vote('B')">
-  <div class="mock-label">
-    <span class="letter">B</span>
-    マーク列に統合
-    <span class="desc">マーク列の下部にセクション追加</span>
-  </div>
-  <div class="mock-body">
-    <div class="uni-topbar">
-      <div class="uni-tabs"><div class="uni-tab on">進捗 & マーク</div><div class="uni-tab">ソース・チャンネル…</div><div class="uni-tab">タグ</div></div>
-    </div>
-    <div class="uni-cols">
-      <div class="uni-col" style="flex:0 0 220px">
-        <div class="uni-col-hdr">マーク</div>
-        <div class="uni-col-body">
-          <div class="uni-row">★ Fav <span class="uni-cnt">34</span></div>
-          <div class="uni-row">📌 ブックマーク <span class="uni-cnt">24</span></div>
-          <div class="uni-row">💬 メモあり <span class="uni-cnt">7</span></div>
-          <div class="uni-row">🖼 画像あり <span class="uni-cnt">5</span></div>
-          <div class="uni-section-label">💾 保存した検索条件</div>
-          <div class="saved-card"><span class="icon">🔍</span><span class="name">ボトム攻撃系</span><span class="meta">3件</span></div>
-          <div class="saved-card"><span class="icon">🔍</span><span class="name">未着手Fav</span><span class="meta">12件</span></div>
-          <div class="saved-card"><span class="icon">🔍</span><span class="name">チョーク全般</span><span class="meta">29件</span></div>
-          <div class="uni-section-label">🕐 最近みた動画</div>
-          <div class="recent-item"><div class="thumb">▶</div><div class="info"><div class="title">腰切りハーフガード</div><div class="ago">2分前</div></div></div>
-          <div class="recent-item"><div class="thumb">▶</div><div class="info"><div class="title">K-Guard 63 Techniques</div><div class="ago">1時間前</div></div></div>
-          <div class="recent-item"><div class="thumb">▶</div><div class="info"><div class="title">Knee on Belly Attacks</div><div class="ago">昨日</div></div></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">🎯 進捗ランク (自動)</div>
-        <div class="uni-col-body">
-          <div class="uni-row">🆕 未着手 (0回) <span class="uni-cnt">783</span></div>
-          <div class="uni-row">🧠 習得中 (5-14) <span class="uni-cnt">1</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">📅 最終練習日</div>
-        <div class="uni-col-body">
-          <div class="uni-row">今週 (7日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">今月 (30日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">未練習 <span class="uni-cnt">782</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="uni-ftr">
-      <span class="uni-lbl">選択中:</span> <span style="color:var(--text3);font-size:11px">なし</span>
-      <span class="uni-sp"></span>
-      <span style="font-size:12px;color:var(--accent);font-weight:700">784 件</span>
-      <button class="uni-apply">適用</button>
-    </div>
-  </div>
-</div>
+    <!-- ═══ 1列目: マーク + 進捗ランク + 最終カウント日 ═══ -->
+    <div class="uni-col" style="flex:0 0 240px">
+      <div class="uni-col-hdr">マーク・進捗・カウント</div>
+      <div class="uni-col-body">
+        <div class="uni-group-label">マーク</div>
+        <div class="uni-row" onclick="tog(this)">★ Fav <span class="uni-cnt">34</span></div>
+        <div class="uni-row" onclick="tog(this)">▶ Next <span class="uni-cnt">8</span></div>
+        <div class="uni-row" onclick="tog(this)">📌 ブックマーク <span class="uni-cnt">24</span></div>
+        <div class="uni-row" onclick="tog(this)">💬 メモあり <span class="uni-cnt">7</span></div>
+        <div class="uni-row" onclick="tog(this)">🖼 画像あり <span class="uni-cnt">5</span></div>
 
-<!-- ═══ CASE C: Bottom section (columns の下にチップ行) ═══ -->
-<div class="mock-card" onclick="vote('C')">
-  <div class="mock-label">
-    <span class="letter">C</span>
-    下部チップバー
-    <span class="desc">3列の下に横スクロールチップ</span>
-  </div>
-  <div class="mock-body">
-    <div class="uni-topbar">
-      <div class="uni-tabs"><div class="uni-tab on">進捗 & マーク</div><div class="uni-tab">ソース・チャンネル…</div><div class="uni-tab">タグ</div></div>
-    </div>
-    <div class="uni-cols" style="min-height:220px">
-      <div class="uni-col">
-        <div class="uni-col-hdr">マーク</div>
-        <div class="uni-col-body">
-          <div class="uni-row">★ Fav <span class="uni-cnt">34</span></div>
-          <div class="uni-row">📌 ブックマーク <span class="uni-cnt">24</span></div>
-          <div class="uni-row">💬 メモあり <span class="uni-cnt">7</span></div>
-          <div class="uni-row">🖼 画像あり <span class="uni-cnt">5</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">🎯 進捗ランク (自動)</div>
-        <div class="uni-col-body">
-          <div class="uni-row">🆕 未着手 (0回) <span class="uni-cnt">783</span></div>
-          <div class="uni-row">🧠 習得中 (5-14) <span class="uni-cnt">1</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">📅 最終練習日</div>
-        <div class="uni-col-body">
-          <div class="uni-row">今週 (7日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">今月 (30日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">未練習 <span class="uni-cnt">782</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="bottom-section">
-      <div class="bottom-section-hdr">💾 保存した検索条件 <span style="font-size:10px;color:var(--accent);cursor:pointer">管理 →</span></div>
-      <div class="bottom-scroll">
-        <div class="bottom-chip">🔍 ボトム攻撃系</div>
-        <div class="bottom-chip">🔍 未着手Fav</div>
-        <div class="bottom-chip">🔍 チョーク全般</div>
-        <div class="bottom-chip">🔍 ハーフガード研究</div>
-      </div>
-      <div class="bottom-section-hdr">🕐 最近みた動画</div>
-      <div class="bottom-scroll">
-        <div class="bottom-chip">▶ 腰切りハーフガード (2分前)</div>
-        <div class="bottom-chip">▶ K-Guard 63 Tech… (1h前)</div>
-        <div class="bottom-chip">▶ Knee on Belly (昨日)</div>
-      </div>
-    </div>
-    <div class="uni-ftr">
-      <span class="uni-lbl">選択中:</span> <span style="color:var(--text3);font-size:11px">なし</span>
-      <span class="uni-sp"></span>
-      <span style="font-size:12px;color:var(--accent);font-weight:700">784 件</span>
-      <button class="uni-apply">適用</button>
-    </div>
-  </div>
-</div>
+        <div class="uni-divider"></div>
+        <div class="uni-group-label">進捗ランク (自動)</div>
+        <div class="uni-row" onclick="tog(this)">🆕 未着手 (0回) <span class="uni-cnt">783</span></div>
+        <div class="uni-row" onclick="tog(this)">🔰 入門 (1-4回) <span class="uni-cnt">0</span></div>
+        <div class="uni-row" onclick="tog(this)">🧠 習得中 (5-14) <span class="uni-cnt">1</span></div>
+        <div class="uni-row" onclick="tog(this)">💪 定着 (15-29) <span class="uni-cnt">0</span></div>
+        <div class="uni-row" onclick="tog(this)">🏆 マスター (30+) <span class="uni-cnt">0</span></div>
 
-<!-- ═══ CASE D: Sub-tab ═══ -->
-<div class="mock-card" onclick="vote('D')">
-  <div class="mock-label">
-    <span class="letter">D</span>
-    サブタブ切替
-    <span class="desc">進捗&マーク内にサブタブ</span>
-  </div>
-  <div class="mock-body">
-    <div class="uni-topbar">
-      <div class="uni-tabs"><div class="uni-tab on">進捗 & マーク</div><div class="uni-tab">ソース・チャンネル…</div><div class="uni-tab">タグ</div></div>
-    </div>
-    <div class="uni-subtabs" id="d-subtabs">
-      <div class="uni-subtab on" onclick="dSub(0)">フィルター</div>
-      <div class="uni-subtab" onclick="dSub(1)">💾 保存した検索 (3)</div>
-      <div class="uni-subtab" onclick="dSub(2)">🕐 最近みた動画</div>
-    </div>
-    <!-- Sub 0: Normal filter -->
-    <div id="d-sub-0" class="uni-cols" style="min-height:260px">
-      <div class="uni-col">
-        <div class="uni-col-hdr">マーク</div>
-        <div class="uni-col-body">
-          <div class="uni-row">★ Fav <span class="uni-cnt">34</span></div>
-          <div class="uni-row">📌 ブックマーク <span class="uni-cnt">24</span></div>
-          <div class="uni-row">💬 メモあり <span class="uni-cnt">7</span></div>
-          <div class="uni-row">🖼 画像あり <span class="uni-cnt">5</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">🎯 進捗ランク (自動)</div>
-        <div class="uni-col-body">
-          <div class="uni-row">🆕 未着手 (0回) <span class="uni-cnt">783</span></div>
-          <div class="uni-row">🧠 習得中 (5-14) <span class="uni-cnt">1</span></div>
-        </div>
-      </div>
-      <div class="uni-col">
-        <div class="uni-col-hdr">📅 最終練習日</div>
-        <div class="uni-col-body">
-          <div class="uni-row">今週 (7日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">今月 (30日以内) <span class="uni-cnt">1</span></div>
-          <div class="uni-row">未練習 <span class="uni-cnt">782</span></div>
-        </div>
+        <div class="uni-divider"></div>
+        <div class="uni-group-label">最終カウント日</div>
+        <div class="uni-row" onclick="tog(this)">今週 (7日以内) <span class="uni-cnt">1</span></div>
+        <div class="uni-row" onclick="tog(this)">今月 (30日以内) <span class="uni-cnt">1</span></div>
+        <div class="uni-row" onclick="tog(this)">3ヶ月以内 <span class="uni-cnt">0</span></div>
+        <div class="uni-row" onclick="tog(this)">それ以前 <span class="uni-cnt">0</span></div>
+        <div class="uni-row" onclick="tog(this)">未カウント <span class="uni-cnt">782</span></div>
       </div>
     </div>
-    <!-- Sub 1: Saved searches -->
-    <div id="d-sub-1" style="display:none;min-height:260px;padding:12px">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div class="saved-card" style="background:var(--surface2);border-radius:8px;padding:12px">
-          <span class="icon">🔍</span>
-          <div style="flex:1">
-            <div class="name" style="font-size:13px">ボトム攻撃系</div>
-            <div class="meta" style="margin-top:2px">TB:ボトム + カテゴリ:アタック — 48件ヒット</div>
-          </div>
-          <button style="padding:4px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer">適用</button>
-        </div>
-        <div class="saved-card" style="background:var(--surface2);border-radius:8px;padding:12px">
-          <span class="icon">🔍</span>
-          <div style="flex:1">
-            <div class="name" style="font-size:13px">未着手Fav</div>
-            <div class="meta" style="margin-top:2px">Fav:ON + 進捗:未着手 — 12件ヒット</div>
-          </div>
-          <button style="padding:4px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer">適用</button>
-        </div>
-        <div class="saved-card" style="background:var(--surface2);border-radius:8px;padding:12px">
-          <span class="icon">🔍</span>
-          <div style="flex:1">
-            <div class="name" style="font-size:13px">チョーク全般</div>
-            <div class="meta" style="margin-top:2px">#タグ:チョーク — 29件ヒット</div>
-          </div>
-          <button style="padding:4px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer">適用</button>
-        </div>
-      </div>
-    </div>
-    <!-- Sub 2: Recent videos -->
-    <div id="d-sub-2" style="display:none;min-height:260px;padding:12px">
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <div class="recent-item" style="background:var(--surface2);border-radius:8px;padding:10px 12px">
-          <div class="thumb" style="width:60px;height:40px;border-radius:6px;font-size:16px">▶</div>
-          <div class="info">
-            <div class="title" style="font-size:13px">腰切りハーフガード ガードに戻す方法と逆転のスイープ</div>
-            <div class="ago">スプラッシュ3分柔術テクニック · 2分前</div>
+
+    <!-- ═══ 2列目: 保存した検索条件 ═══ -->
+    <div class="uni-col" style="flex:0 0 280px">
+      <div class="uni-col-hdr">💾 保存した検索条件 <span style="font-size:10px;color:var(--accent);cursor:pointer">＋ 新規保存</span></div>
+      <div class="uni-col-body">
+        <div class="saved-item">
+          
+          <span class="s-name">ボトム攻撃系</span>
+          <span class="s-count">48件</span>
+          <button class="s-dots" onclick="togglePop(this,event)">···</button>
+          <div class="s-popover">
+            <div class="sp-reorder"><button onclick="spAct('上へ移動',event)">↑ 上へ</button><button onclick="spAct('下へ移動',event)">↓ 下へ</button></div>
+            <div class="sp-divider"></div>
+            <div class="sp-row" onclick="spAct('名前を変更',event)"><span class="sp-icon">✏</span>名前を変更</div>
+            <div class="sp-row" onclick="spAct('条件を編集',event)"><span class="sp-icon">⚙</span>条件を編集</div>
+            <div class="sp-divider"></div>
+            <div class="sp-row sp-del" onclick="spAct('削除',event)"><span class="sp-icon">🗑</span>削除</div>
           </div>
         </div>
-        <div class="recent-item" style="background:var(--surface2);border-radius:8px;padding:10px 12px">
-          <div class="thumb" style="width:60px;height:40px;border-radius:6px;font-size:16px">▶</div>
-          <div class="info">
-            <div class="title" style="font-size:13px">63 K-Guard Techniques In Just 18 Minutes</div>
-            <div class="ago">Jiu Jitsu In Minutes by Jason Scully · 1時間前</div>
+        <div class="saved-item">
+          
+          <span class="s-name">未着手 × Fav</span>
+          <span class="s-count">12件</span>
+          <button class="s-dots" onclick="togglePop(this,event)">···</button>
+          <div class="s-popover">
+            <div class="sp-reorder"><button onclick="spAct('上へ移動',event)">↑ 上へ</button><button onclick="spAct('下へ移動',event)">↓ 下へ</button></div>
+            <div class="sp-divider"></div>
+            <div class="sp-row" onclick="spAct('名前を変更',event)"><span class="sp-icon">✏</span>名前を変更</div>
+            <div class="sp-row" onclick="spAct('条件を編集',event)"><span class="sp-icon">⚙</span>条件を編集</div>
+            <div class="sp-divider"></div>
+            <div class="sp-row sp-del" onclick="spAct('削除',event)"><span class="sp-icon">🗑</span>削除</div>
           </div>
         </div>
-        <div class="recent-item" style="background:var(--surface2);border-radius:8px;padding:10px 12px">
-          <div class="thumb" style="width:60px;height:40px;border-radius:6px;font-size:16px">▶</div>
-          <div class="info">
-            <div class="title" style="font-size:13px">Top 6 Powerful Knee-On-Belly Submissions</div>
-            <div class="ago">BIG OSS · 昨日</div>
+        <div class="saved-item">
+          
+          <span class="s-name">チョーク全般</span>
+          <span class="s-count">29件</span>
+          <button class="s-dots" onclick="togglePop(this,event)">···</button>
+          <div class="s-popover">
+            <div class="sp-reorder"><button onclick="spAct('上へ移動',event)">↑ 上へ</button><button onclick="spAct('下へ移動',event)">↓ 下へ</button></div>
+            <div class="sp-divider"></div>
+            <div class="sp-row" onclick="spAct('名前を変更',event)"><span class="sp-icon">✏</span>名前を変更</div>
+            <div class="sp-row" onclick="spAct('条件を編集',event)"><span class="sp-icon">⚙</span>条件を編集</div>
+            <div class="sp-divider"></div>
+            <div class="sp-row sp-del" onclick="spAct('削除',event)"><span class="sp-icon">🗑</span>削除</div>
           </div>
+        </div>
+        <div class="saved-item">
+          
+          <span class="s-name">ハーフガード研究</span>
+          <span class="s-count">50件</span>
+          <button class="s-dots" onclick="togglePop(this,event)">···</button>
+          <div class="s-popover">
+            <div class="sp-reorder"><button onclick="spAct('上へ移動',event)">↑ 上へ</button><button onclick="spAct('下へ移動',event)">↓ 下へ</button></div>
+            <div class="sp-divider"></div>
+            <div class="sp-row" onclick="spAct('名前を変更',event)"><span class="sp-icon">✏</span>名前を変更</div>
+            <div class="sp-row" onclick="spAct('条件を編集',event)"><span class="sp-icon">⚙</span>条件を編集</div>
+            <div class="sp-divider"></div>
+            <div class="sp-row sp-del" onclick="spAct('削除',event)"><span class="sp-icon">🗑</span>削除</div>
+          </div>
+        </div>
+        <div class="saved-item">
+          
+          <span class="s-name">スイープ練習リスト</span>
+          <span class="s-count">6件</span>
+          <button class="s-dots" onclick="togglePop(this,event)">···</button>
+          <div class="s-popover">
+            <div class="sp-reorder"><button onclick="spAct('上へ移動',event)">↑ 上へ</button><button onclick="spAct('下へ移動',event)">↓ 下へ</button></div>
+            <div class="sp-divider"></div>
+            <div class="sp-row" onclick="spAct('名前を変更',event)"><span class="sp-icon">✏</span>名前を変更</div>
+            <div class="sp-row" onclick="spAct('条件を編集',event)"><span class="sp-icon">⚙</span>条件を編集</div>
+            <div class="sp-divider"></div>
+            <div class="sp-row sp-del" onclick="spAct('削除',event)"><span class="sp-icon">🗑</span>削除</div>
+          </div>
+        </div>
+        <div class="saved-item">
+          
+          <span class="s-name">今月の練習動画</span>
+          <span class="s-count">2件</span>
+          <button class="s-dots" onclick="togglePop(this,event)">···</button>
+          <div class="s-popover">
+            <div class="sp-reorder"><button onclick="spAct('上へ移動',event)">↑ 上へ</button><button onclick="spAct('下へ移動',event)">↓ 下へ</button></div>
+            <div class="sp-divider"></div>
+            <div class="sp-row" onclick="spAct('名前を変更',event)"><span class="sp-icon">✏</span>名前を変更</div>
+            <div class="sp-row" onclick="spAct('条件を編集',event)"><span class="sp-icon">⚙</span>条件を編集</div>
+            <div class="sp-divider"></div>
+            <div class="sp-row sp-del" onclick="spAct('削除',event)"><span class="sp-icon">🗑</span>削除</div>
+          </div>
+        </div>
+        <div style="padding:20px 12px;text-align:center;color:var(--text3);font-size:11px">
+          検索条件を設定後「💾 保存」で追加
         </div>
       </div>
     </div>
-    <div class="uni-ftr">
-      <span class="uni-lbl">選択中:</span> <span style="color:var(--text3);font-size:11px">なし</span>
-      <span class="uni-sp"></span>
-      <span style="font-size:12px;color:var(--accent);font-weight:700">784 件</span>
-      <button class="uni-apply">適用</button>
+
+    <!-- ═══ 3列目: 最近みた動画 TOP 15 ═══ -->
+    <div class="uni-col">
+      <div class="uni-col-hdr">🕐 最近みた動画 TOP 15</div>
+      <div class="uni-col-body">
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">1</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">腰切りハーフガード ガードに戻す方法と逆転のスイープ</div><div class="r-meta">スプラッシュ3分柔術テクニック 木部亮</div></div>
+          <span class="r-ago">2分前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">2</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/jNQXAC9IVRw/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">柔術の構えと引き込み｜勝敗を分ける"基本の極意"とは？</div><div class="r-meta">上野御徒町・小石川白山ブラジリアン柔術部</div></div>
+          <span class="r-ago">38分前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">3</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/9bZkp7q19f0/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">63 K-Guard Techniques In Just 18 Minutes</div><div class="r-meta">Jiu Jitsu In Minutes by Jason Scully</div></div>
+          <span class="r-ago">1時間前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">4</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/kJQP7kiw5Fk/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">Top 6 Powerful Knee-On-Belly Submissions For BJJ</div><div class="r-meta">BIG OSS Jiu-Jitsu Channel</div></div>
+          <span class="r-ago">昨日</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">5</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/RgKAFK5djSk/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">Summer Camp 2025: Whip it real good. Lasso guard</div><div class="r-meta">BJJ Globetrotters in Action</div></div>
+          <span class="r-ago">昨日</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">6</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/OPf0YbXqDm0/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">アウトサイドキャンプ！相手の体力を削るポジション解説</div><div class="r-meta">浅草BOYS</div></div>
+          <span class="r-ago">2日前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">7</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/fJ9rUzIMcZQ/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">GUARD RETENTION DRILL TO HAVE AN UNPASSABLE GUARD</div><div class="r-meta">Cobrinha BJJ</div></div>
+          <span class="r-ago">2日前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">8</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/hT_nvWreIhg/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">Guard Retention: The Complete Guide</div><div class="r-meta">JonThomasBJJ</div></div>
+          <span class="r-ago">3日前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">9</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/YQHsXMglC9A/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">ハーフガードからのスイープ完全ガイド</div><div class="r-meta">柔術プロジェクト</div></div>
+          <span class="r-ago">3日前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">10</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/e-ORhEE9VVg/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">Closed Guard Sweeps That Actually Work</div><div class="r-meta">Lachlan Giles</div></div>
+          <span class="r-ago">4日前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">11</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/lp-EO5I60KA/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">三角絞めのセットアップ10選</div><div class="r-meta">CARPE DIEM BJJ</div></div>
+          <span class="r-ago">5日前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">12</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/pRpeEdMmmQ0/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">De La Riva Guard: Full System Breakdown</div><div class="r-meta">Keenan Online</div></div>
+          <span class="r-ago">1週間前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">13</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/JGwWNGJdvx8/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">マウントエスケープの基本3つ</div><div class="r-meta">トライフォース柔術</div></div>
+          <span class="r-ago">1週間前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">14</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/2Vv-BfVoq4g/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">Arm Drag to Back Take — Essential Details</div><div class="r-meta">B-Team Jiu-Jitsu</div></div>
+          <span class="r-ago">1週間前</span>
+        </div>
+        <div class="recent-item" onclick="tog(this)">
+          <span class="r-rank">15</span>
+          <div class="r-thumb"><img src="https://i.ytimg.com/vi/CevxZvSJLk8/mqdefault.jpg" loading="lazy"><span class="r-play">▶</span></div>
+          <div class="r-info"><div class="r-title">ギロチンチョークの入り方と防御</div><div class="r-meta">柔術道場チャンネル</div></div>
+          <span class="r-ago">2週間前</span>
+        </div>
+      </div>
     </div>
+
   </div>
-</div>
 
-</div>
-
-<div style="text-align:center;margin-top:24px;padding:16px">
-  <div id="vote-result" style="font-size:14px;font-weight:700;color:var(--accent);min-height:24px"></div>
+  <div class="uni-ftr">
+    <span class="uni-lbl">選択中:</span>
+    <div id="pills" style="display:flex;gap:5px;flex-wrap:wrap"><span style="color:var(--text3);font-size:11px">なし</span></div>
+    <span class="uni-sp"></span>
+    <span class="uni-clr" onclick="clearAll()">クリア</span>
+    <span style="font-size:12px;color:var(--accent);font-weight:700" id="hit-count">784 件</span>
+    <button class="uni-apply">適用</button>
+  </div>
 </div>
 
 <script>
-function vote(letter) {
-  document.querySelectorAll('.mock-card').forEach(c => c.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  document.getElementById('vote-result').textContent = 'Case ' + letter + ' を選択中';
+function tog(el) {
+  el.classList.toggle('toggled');
+  updatePills();
+}
+function clearAll() {
+  document.querySelectorAll('.toggled').forEach(el => el.classList.remove('toggled'));
+  updatePills();
+}
+function updatePills() {
+  const pills = document.getElementById('pills');
+  const selected = [...document.querySelectorAll('.uni-row.toggled, .recent-item.toggled')];
+  if (!selected.length) {
+    pills.innerHTML = '<span style="color:var(--text3);font-size:11px">なし</span>';
+    return;
+  }
+  pills.innerHTML = selected.map(el => {
+    const text = el.querySelector('.r-title')?.textContent || el.childNodes[0].textContent.trim();
+    const short = text.length > 12 ? text.slice(0, 12) + '…' : text;
+    return `<span class="uni-pill">${short}</span>`;
+  }).join('');
 }
 
-function dSub(idx) {
-  [0,1,2].forEach(i => {
-    const el = document.getElementById('d-sub-' + i);
-    if (el) el.style.display = i === idx ? '' : 'none';
-  });
-  document.querySelectorAll('#d-subtabs .uni-subtab').forEach((t,i) => {
-    t.classList.toggle('on', i === idx);
-  });
+// ── Popover menu ──
+function togglePop(btn, e) {
+  e.stopPropagation();
+  const pop = btn.nextElementSibling;
+  const wasOpen = pop.classList.contains('open');
+  closeAllPop();
+  if (!wasOpen) pop.classList.add('open');
 }
+function closeAllPop() {
+  document.querySelectorAll('.s-popover.open').forEach(p => p.classList.remove('open'));
+}
+function spAct(action, e) {
+  e.stopPropagation();
+  const item = e.target.closest('.saved-item');
+  const name = item.querySelector('.s-name').textContent;
+  closeAllPop();
+  if (action === '名前を変更') {
+    const newName = prompt('新しい名前:', name);
+    if (newName && newName.trim()) item.querySelector('.s-name').textContent = newName.trim();
+  } else if (action === '削除') {
+    if (confirm(`「${name}」を削除しますか？`)) item.remove();
+  } else {
+    alert(action + ': ' + name);
+  }
+}
+document.addEventListener('click', closeAllPop);
 </script>
 </body>
 </html>
