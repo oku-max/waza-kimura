@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v49.48</title>
+<title>WAZA KIMURA v49.49</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -933,21 +933,31 @@
     <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
   <div class="results-header">
-    <span class="results-count" id="rc"></span>
-    <div style="display:flex;align-items:center;gap:4px">
-      <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-        <option value="default">並び順: 標準</option>
-        <option value="addedAt">追加日</option>
-        <option value="title">タイトル</option>
-        <option value="prio">Priority</option>
-        <option value="status">Progress</option>
-        <option value="lastPlayed">最近再生した</option>
-        <option value="playCount">再生回数</option>
-        <option value="practice">🥋 練習回数</option>
-        <option value="views">👁 視聴回数</option>
-        <option value="lastPracticed">🗓 最終練習日</option>
-      </select>
-      <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇順切替">↑</button>
+    <div class="toolbar-normal">
+      <span class="results-count" id="rc"></span>
+      <div style="display:flex;align-items:center;gap:4px">
+        <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="default">並び順: 標準</option>
+          <option value="addedAt">追加日</option>
+          <option value="title">タイトル</option>
+          <option value="prio">Priority</option>
+          <option value="status">Progress</option>
+          <option value="lastPlayed">最近再生した</option>
+          <option value="playCount">再生回数</option>
+          <option value="practice">🥋 練習回数</option>
+          <option value="views">👁 視聴回数</option>
+          <option value="lastPracticed">🗓 最終練習日</option>
+        </select>
+        <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇順切替">↑</button>
+      </div>
+    </div>
+    <div class="bulk-inline" style="display:none">
+      <span class="bulk-inline-count">0本選択</span>
+      <button class="bbt" onclick="selAll()">全選択</button>
+      <button class="bbt" onclick="selNone()">解除</button>
+      <button class="bbt bulk-inline-edit" onclick="openBulkVPanel()">✎ 一括編集する</button>
+      <button class="bbt" onclick="bulkUndo()">↩</button>
+      <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
     </div>
   </div>
   <div class="card-list" id="cardList"></div>
@@ -991,12 +1001,20 @@
   </div>
   <!-- Organizeカウントバー -->
   <div class="org-count-bar">
-    <div style="display:flex;gap:6px;align-items:center">
+    <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center">
       <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
       </button>
       <button class="bulk-btn" onclick="enterBulk('organize')" id="org-bulk-btn">☑ 一括編集</button>
       <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
+    </div>
+    <div class="bulk-inline" style="display:none">
+      <span class="bulk-inline-count">0本選択</span>
+      <button class="bbt" onclick="selAll()">全選択</button>
+      <button class="bbt" onclick="selNone()">解除</button>
+      <button class="bbt bulk-inline-edit" onclick="openBulkVPanel()">✎ 一括編集する</button>
+      <button class="bbt" onclick="bulkUndo()">↩</button>
+      <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
     </div>
   </div>
   <!-- 表形式リスト -->

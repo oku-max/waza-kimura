@@ -545,7 +545,15 @@ export function enterBulk(ctx='home', preserveSel=false){
   document.body.classList.add('bulk-mode');
   if(!preserveSel) (window.selIds||new Set()).clear();
   window.bulkUndoStack=[];
-  document.getElementById('bulkBar').classList.add('show');
+  // ── Inline Transform: ツールバーを変形 ──
+  const toolbar = ctx==='organize'
+    ? document.querySelector('.org-count-bar')
+    : document.querySelector('.results-header');
+  if(toolbar){
+    toolbar.classList.add('bulk-transform');
+    const bi = toolbar.querySelector('.bulk-inline');
+    if(bi) bi.classList.add('active');
+  }
   const sh=document.getElementById('sh');if(sh)sh.style.display='none';
   // PCサイドバーの一括ボタンを「終了」に切り替え
   const fsBtn=document.getElementById('fs-bulk-sel-btn');
@@ -621,7 +629,12 @@ export function resetBulkPickers(){
 export function exitBulk(){
   window.bulkMode=false; (window.selIds||new Set()).clear(); resetBulkPickers();
   document.body.classList.remove('bulk-mode');
-  document.getElementById('bulkBar').classList.remove('show');
+  // ── Inline Transform: ツールバーを復元 ──
+  document.querySelectorAll('.bulk-transform').forEach(el => {
+    el.classList.remove('bulk-transform');
+    const bi = el.querySelector('.bulk-inline');
+    if(bi) bi.classList.remove('active');
+  });
   const _sh=document.getElementById('sh');if(_sh)_sh.style.display='';
   closeBulkVPanel();
   // card-sel-ov の vis クラスと sel-circle を直接除去（AF再描画を待たずに即座に非表示）
@@ -696,15 +709,22 @@ export function orgTogSelAll(cb) {
 }
 
 export function updBulk(){
-  document.getElementById('bulkTit').textContent=(window.selIds||new Set()).size+'本を選択中';
+  const cnt = (window.selIds||new Set()).size;
+  const label = cnt + '本を選択中';
+  // ── Inline Transform: カウント更新 ──
+  document.querySelectorAll('.bulk-inline-count').forEach(el => el.textContent = label);
+  document.querySelectorAll('.bulk-inline-edit').forEach(el => {
+    if(cnt > 0) el.classList.add('has-sel'); else el.classList.remove('has-sel');
+  });
+  // レガシー bulkTit も更新（互換性）
+  const bt = document.getElementById('bulkTit'); if(bt) bt.textContent = label;
   const btn=document.getElementById('bulk-sel-btn');
   if(btn){if(window.bulkMode){btn.textContent='✕ 一括キャンセル';btn.classList.add('bulk-active');}else{btn.textContent='☑ 一括編集';btn.classList.remove('bulk-active');}}
-  // 一括編集ボタンの有効/無効
+  // レガシー bulk-edit-vpanel-btn も更新（互換性）
   const editBtn=document.getElementById('bulk-edit-vpanel-btn');
   if(editBtn){
-    const hasSelections=(window.selIds||new Set()).size>0;
-    editBtn.style.opacity=hasSelections?'1':'0.4';
-    editBtn.style.pointerEvents=hasSelections?'auto':'none';
+    editBtn.style.opacity=cnt>0?'1':'0.4';
+    editBtn.style.pointerEvents=cnt>0?'auto':'none';
   }
   // 整理タブ行のハイライト更新
   if(window.bulkCtx==='organize'){document.querySelectorAll('[id^="org-row-"]').forEach(tr=>{const id=tr.id.replace('org-row-','');tr.style.background=(window.selIds||new Set()).has(id)?'var(--surface2)':'';}); }
