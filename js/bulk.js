@@ -142,10 +142,10 @@ export function buildBulkDrawerHTML() {
     `<span class="vp-chip on-tech" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">#${_esc(t)} ×</span>`
   ).join('');
   const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
-    <input class="vp-dd-search" id="bvp-tag-inp" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px"
+    <input class="vp-dd-search" id="bvp-tag-inp" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
       oninput="bvpTagSuggest(this)" onfocus="bvpTagSuggest(this)"
       onkeydown="bvpTagKey(event,this)">
-    <div class="vp-dd" id="bvp-tag-sug" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50"></div>
+    <div class="vp-dd" id="bvp-tag-sug" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50;border-radius:8px"></div>
   </div>`;
 
   const tagSec = `<div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
@@ -501,15 +501,16 @@ export function bvpTagSuggest(inp) {
   if(!sug) return;
   const q = (inp.value||'').trim().toLowerCase();
   const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
-  const commonTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
-  const existing = commonTags.filter(t => selVids.every(v=>(v.tags||[]).includes(t)));
-  const available = commonTags.filter(t => !existing.includes(t));
+  // ライブラリ全体のタグを表示（全選択動画が既に持つタグのみ除外）
+  const allTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
+  const alreadyCommon = allTags.filter(t => selVids.every(v=>(v.tags||[]).includes(t)));
+  const available = allTags.filter(t => !alreadyCommon.includes(t));
   const filtered = q ? available.filter(t=>t.toLowerCase().includes(q)) : available;
   if(!filtered.length){ sug.style.display='none'; return; }
   sug.style.display='block';
   const _esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  sug.innerHTML = filtered.slice(0,30).map(t =>
-    `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="bvpTagPick('${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
+  sug.innerHTML = filtered.map(t =>
+    `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px;border-radius:4px" onmousedown="bvpTagPick('${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
   ).join('');
 }
 

@@ -52,10 +52,10 @@
       `<span class="vp-chip on-tech" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">#${_esc(t)} ×</span>`
     ).join('');
     const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
-      <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px"
+      <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
         oninput="vpV4TagSuggest('${id}',this)" onfocus="vpV4TagSuggest('${id}',this)"
         onkeydown="vpV4TagKey('${id}',event,this)">
-      <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50"></div>
+      <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50;border-radius:8px"></div>
     </div>`;
 
     return `
@@ -149,8 +149,8 @@
     const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
     if (!filtered.length) { sug.style.display = 'none'; return; }
     sug.style.display = 'block';
-    sug.innerHTML = filtered.slice(0, 30).map(t =>
-      `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
+    sug.innerHTML = filtered.map(t =>
+      `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px;border-radius:4px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
     ).join('');
   };
   window.vpV4TagPick = function (id, val) {
