@@ -2,10 +2,11 @@
 
 // ═══ Module-level state (exported + registered on window) ═══
 export let orgFilters = {
-  prio: new Set(), tb: new Set(), action: new Set(), position: new Set(),
+  tb: new Set(), action: new Set(), position: new Set(),
   playlist: new Set(), status: new Set(), tech: new Set(),
   platform: new Set(), channel: new Set(),
-  fav: new Set(), memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
+  fav: new Set(), next: new Set(), counter: new Set(),
+  memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
 export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 export let orgPrRank = null, orgPrDate = null;
@@ -324,7 +325,15 @@ export function orgFilt(list) {
       if (adv.status === 'memo'    && !v.memo) return false;
     }
     if (orgFilters.playlist.size && !_matchFilt(orgFilters.playlist, v.pl ? [v.pl] : [])) return false;
-    if (orgFilters.prio.size && !orgFilters.prio.has(v.prio)) return false;
+    if (orgFilters.next.size) {
+      const nVal = v.next ? '🎯 Next' : '○ 未設定';
+      if (!orgFilters.next.has(nVal)) return false;
+    }
+    if (orgFilters.counter.size) {
+      const pc = v.practice || 0;
+      const cVal = pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上';
+      if (!orgFilters.counter.has(cVal)) return false;
+    }
     if (orgFilters.status.size && !orgFilters.status.has(v.status)) return false;
     if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
     if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
@@ -564,7 +573,8 @@ export function renderOrg() {
     if (orgSortCol === 'title')    { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
     else if (orgSortCol === 'channel')   { av = (a.ch||'').toLowerCase(); bv = (b.ch||'').toLowerCase(); }
     else if (orgSortCol === 'playlist')  { av = (a.pl||'').toLowerCase(); bv = (b.pl||'').toLowerCase(); }
-    else if (orgSortCol === 'prio')      { const o={'今すぐ':0,'そのうち':1,'保留':2}; av=o[a.prio]??2; bv=o[b.prio]??2; }
+    else if (orgSortCol === 'next')      { av=a.next?0:1; bv=b.next?0:1; }
+    else if (orgSortCol === 'counter')   { av=a.practice||0; bv=b.practice||0; }
     else if (orgSortCol === 'addedAt')   { av = a.addedAt||''; bv = b.addedAt||''; }
     else if (orgSortCol === 'duration')  { av = a.duration||0; bv = b.duration||0; }
     else if (orgSortCol === 'fav')       { av = a.fav?0:1; bv = b.fav?0:1; }
@@ -994,6 +1004,72 @@ export function toggleOrgColMenu() {
 
 export function bindOrgDrag() {
   let dragSrc = null;
+  // ── タッチ用 ──
+  let _touchSrc = null, _touchClone = null, _touchStartX = 0;
+  function _touchStart(e) {
+    const th = e.target.closest('.org-th-draggable');
+    if (!th || e.target.closest('.rh')) return; // リサイズハンドルは除外
+    _touchSrc = th.dataset.col;
+    _touchStartX = e.touches[0].clientX;
+    // 長押し判定: 300ms後にドラッグ開始
+    th._dragTimer = setTimeout(() => {
+      th.classList.add('org-th-dragging');
+      // ゴーストを作成
+      _touchClone = th.cloneNode(true);
+      _touchClone.style.cssText = 'position:fixed;top:0;left:0;opacity:.7;pointer-events:none;z-index:9999;background:var(--surface2);padding:4px 8px;border-radius:4px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+      document.body.appendChild(_touchClone);
+    }, 300);
+  }
+  function _touchMove(e) {
+    if (!_touchSrc) return;
+    const t = e.touches[0];
+    // 移動が少なければ何もしない（スクロールと区別）
+    if (!_touchClone && Math.abs(t.clientX - _touchStartX) < 15) return;
+    if (!_touchClone) return;
+    e.preventDefault();
+    _touchClone.style.left = (t.clientX - 30) + 'px';
+    _touchClone.style.top = (t.clientY - 15) + 'px';
+    // ドロップ先をハイライト
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    const target = el?.closest?.('.org-th-draggable');
+    document.querySelectorAll('.org-th-draggable').forEach(h => h.classList.remove('org-th-drag-over'));
+    if (target && target.dataset.col !== _touchSrc) target.classList.add('org-th-drag-over');
+  }
+  function _touchEnd(e) {
+    if (!_touchSrc) return;
+    const th = document.querySelector(`.org-th-draggable[data-col="${_touchSrc}"]`);
+    if (th?._dragTimer) clearTimeout(th._dragTimer);
+    if (_touchClone) {
+      // ドロップ先を特定
+      const t = e.changedTouches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const target = el?.closest?.('.org-th-draggable');
+      if (target && target.dataset.col !== _touchSrc) {
+        const from = orgColOrder.indexOf(_touchSrc);
+        const to   = orgColOrder.indexOf(target.dataset.col);
+        if (from >= 0 && to >= 0) {
+          orgColOrder.splice(from, 1);
+          orgColOrder.splice(to, 0, _touchSrc);
+          _saveOrgColPrefs();
+          renderOrg();
+        }
+      }
+      _touchClone.remove();
+      _touchClone = null;
+    }
+    document.querySelectorAll('.org-th-draggable').forEach(h => h.classList.remove('org-th-dragging', 'org-th-drag-over'));
+    _touchSrc = null;
+  }
+  const thead = document.querySelector('.org-table thead');
+  if (thead) {
+    thead.removeEventListener('touchstart', _touchStart);
+    thead.removeEventListener('touchmove', _touchMove);
+    thead.removeEventListener('touchend', _touchEnd);
+    thead.addEventListener('touchstart', _touchStart, { passive: true });
+    thead.addEventListener('touchmove', _touchMove, { passive: false });
+    thead.addEventListener('touchend', _touchEnd);
+  }
+  // ── デスクトップ: HTML5 Drag & Drop ──
   document.querySelectorAll('.org-th-draggable').forEach(th => {
     th.ondragstart = e => {
       dragSrc = th.dataset.col;
@@ -1080,7 +1156,6 @@ function _handleInlineTrigger(e) {
   const td = e.target.closest ? e.target.closest('td.org-td[data-col]') : e.target;
   if (!td) return;
   const col = td.dataset.col;
-  if (!_INLINE_COLS[col]) return;
   // ボタンやリンクの場合はスキップ
   if (e.target.closest && e.target.closest('button,a,input')) return;
   const tr = td.closest('tr.org-tr');
@@ -1088,6 +1163,12 @@ function _handleInlineTrigger(e) {
   const videoId = tr.id.replace('org-row-', '');
   e.preventDefault?.();
   e.stopPropagation?.();
+  // counter列: ダブルクリック/ロングプレスで練習+1
+  if (col === 'counter') {
+    _orgBumpPractice(videoId, td);
+    return;
+  }
+  if (!_INLINE_COLS[col]) return;
   _openOrgInlineEditor(videoId, col, td);
 }
 
@@ -1340,6 +1421,26 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && _orgInlineActive) _closeOrgInlineEditor(false);
 });
 
+// ── Counter: 練習カウント+1 ──
+function _orgBumpPractice(videoId, td) {
+  const v = (window.videos || []).find(x => x.id === videoId);
+  if (!v) return;
+  v.practice = (v.practice || 0) + 1;
+  v.lastPracticed = Date.now();
+  // セルを即時更新
+  const ago = window.vpCntFormatAgo?.(v.lastPracticed) || '';
+  td.innerHTML = `<div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700">
+    <span style="color:#e8590c">🥋 ${v.practice}</span>
+    <span style="font-size:9px;color:var(--text3);font-weight:600">${ago || '—'}</span>
+  </div>`;
+  // 短いフラッシュで視覚フィードバック
+  td.style.transition = 'background .15s';
+  td.style.background = 'rgba(232,89,12,.12)';
+  setTimeout(() => { td.style.background = ''; }, 400);
+  window.AF?.();
+  window.toast?.(`🥋 練習 ${v.practice}回目を記録`);
+}
+
 // ── 列フィルター設定 ──
 const _BLANK = '(空白)';
 const _colFilterConfig = {
@@ -1348,7 +1449,11 @@ const _colFilterConfig = {
   position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
   technique:      { filterKey: 'tech',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
-  prio:           { filterKey: 'prio',           valueGetter: v => [v.prio || '保留'] },
+  next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'] },
+  counter:         { filterKey: 'counter',         valueGetter: v => {
+    const pc = v.practice || 0;
+    return [pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上'];
+  }},
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
   fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'] },
   memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし']   },
