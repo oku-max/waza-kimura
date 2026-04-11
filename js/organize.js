@@ -990,16 +990,35 @@ export function toggleOrgColMenu() {
   const r = gear ? gear.getBoundingClientRect() : {left:10, bottom:40};
   menu.style.left = r.left + 'px';
   menu.style.top = (r.bottom + 4) + 'px';
-  menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列</div>' +
-    orgColOrder.map(col => `
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:4px 0">
-        <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
-        ${ORG_COL_LABELS[col]||col}
-      </label>`).join('');
+  menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
+    orgColOrder.map((col, i) => `
+      <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+        <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:none;font-size:11px;cursor:pointer;padding:1px 3px;opacity:${i===0?'.2':'1'}" ${i===0?'disabled':''}>▲</button>
+        <button onclick="orgMoveCol('${col}',1)" style="background:none;border:none;font-size:11px;cursor:pointer;padding:1px 3px;opacity:${i===orgColOrder.length-1?'.2':'1'}" ${i===orgColOrder.length-1?'disabled':''}>▼</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
+          <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
+          ${ORG_COL_LABELS[col]||col}
+        </label>
+      </div>`).join('');
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function h(e){
     if(!menu.contains(e.target)&&!e.target.closest('.org-settings-btn')){menu.remove();document.removeEventListener('click',h);}
   }, 100));
+}
+
+export function orgMoveCol(col, dir) {
+  const i = orgColOrder.indexOf(col);
+  if (i < 0) return;
+  const j = i + dir;
+  if (j < 0 || j >= orgColOrder.length) return;
+  orgColOrder.splice(i, 1);
+  orgColOrder.splice(j, 0, col);
+  _saveOrgColPrefs();
+  // メニューを閉じて再描画→再表示
+  const menu = document.getElementById('org-col-menu');
+  if (menu) menu.remove();
+  renderOrg();
+  toggleOrgColMenu();
 }
 
 export function bindOrgDrag() {
@@ -1763,6 +1782,7 @@ window.addResizeHandle = addResizeHandle;
 window.orgTogSel = orgTogSel;
 window.orgTogSelAll = orgTogSelAll;
 window.toggleOrgColMenu = toggleOrgColMenu;
+window.orgMoveCol = orgMoveCol;
 window.bindOrgDrag = bindOrgDrag;
 window.openTagFilterFor = openTagFilterFor;
 window.openOrgColFilter  = openOrgColFilter;
