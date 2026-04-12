@@ -382,6 +382,9 @@ export function orgFilt(list) {
 // ═══ Filter overlay ═══
 
 export function openOrgFilterOverlay() {
+  // Organize タブでも統合フィルターパネルを使用
+  if (window.uniOpen) { window.uniOpen('state', 'org'); return; }
+  // fallback: 旧オーバーレイ
   const ov = document.getElementById('org-filter-overlay');
   if (!ov) return;
   ov.classList.add('show');
