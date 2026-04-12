@@ -465,7 +465,10 @@
 <style>
 /* ══ Vパネル レイアウト ══ */
 
-/* vpanel本体 */
+/* vpanel本体: align-items:stretchでzoom由来の高さ超過を防止 */
+#vpanel {
+  align-items: stretch !important;
+}
 #vpanel .vpanel-inner,
 #vpanelInner {
   display: flex !important;
