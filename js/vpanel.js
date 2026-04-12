@@ -1448,7 +1448,7 @@ function _createGDriveVideoEl(container, fileId, token) {
   video.playsinline = true;
   video.autoplay    = true;
   video.style.cssText = 'width:100%;height:100%;background:#000';
-  // 1タップで停止/再生 + 停止後1秒でコントロール非表示（スクショ用）
+  // 停止後1秒でコントロール非表示（スクショ用）、タップで再生復帰
   let _gdPauseTimer = null;
   video.addEventListener('pause', () => {
     clearTimeout(_gdPauseTimer);
@@ -1458,14 +1458,12 @@ function _createGDriveVideoEl(container, fileId, token) {
     clearTimeout(_gdPauseTimer);
     video.controls = true;
   });
-  // 透明タップ領域（下部コントロールバーは除く）
-  const tap = document.createElement('div');
-  tap.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:36px;z-index:3;cursor:pointer';
-  tap.addEventListener('click', () => {
-    if (video.paused) { video.controls = true; video.play().catch(() => {}); }
-    else { video.pause(); }
+  container.addEventListener('click', () => {
+    if (video.paused && !video.controls) {
+      video.controls = true;
+      video.play().catch(() => {});
+    }
   });
-  container.appendChild(tap);
   video.addEventListener('play',  () => _startTimeDisplay());
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
   video.addEventListener('ended', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
