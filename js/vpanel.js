@@ -1187,7 +1187,7 @@ export function openVPanel(id) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
 
-  // タイトル+時間表示+✕ボタン（右端）を左カラム（動画の下）に表示
+  // タイトル+時間表示+☰リストボタンを左カラム（動画の下）に表示
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
     const isGd = v.pt === 'gdrive';
@@ -1196,12 +1196,12 @@ export function openVPanel(id) {
       : '';
     const navBtnStyle = "flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
-      <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">◀</button>
+      <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
       <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
       ${editBtn}
-      <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">▶</button>
-      <button onclick="closeVPanel()" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+      <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
+      <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
     </div>`;
   }
 
@@ -1310,8 +1310,70 @@ function _renderBlurArea(id) {
     }).join('')}`;
 }
 
+// ── ☰ ボトムシート: 次の動画リスト（ポートレート用） ──
+function _ensureBottomSheet() {
+  if (document.getElementById('vp-bs-overlay')) return;
+  const css = document.createElement('style');
+  css.textContent = `
+#vp-bs-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);opacity:0;transition:opacity .2s;pointer-events:none}
+#vp-bs-overlay.open{opacity:1;pointer-events:auto}
+#vp-bs-sheet{position:fixed;left:0;right:0;bottom:0;z-index:401;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.2);max-height:60vh;transform:translateY(100%);transition:transform .25s ease;display:flex;flex-direction:column}
+#vp-bs-sheet.open{transform:translateY(0)}
+#vp-bs-handle{padding:10px 0 6px;text-align:center;cursor:grab;flex-shrink:0}
+#vp-bs-handle::after{content:'';display:inline-block;width:36px;height:4px;border-radius:2px;background:var(--border)}
+#vp-bs-hdr{padding:0 14px 8px;font-size:11px;font-weight:700;color:var(--text3);flex-shrink:0}
+#vp-bs-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0)}
+#vp-bs-list .bs-item{display:flex;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-top:1px solid var(--border2);transition:background .12s}
+#vp-bs-list .bs-item:hover{background:var(--surface2)}
+#vp-bs-list .bs-item.now{background:var(--accent-bg,rgba(59,130,246,.08));border-left:3px solid var(--accent)}
+#vp-bs-list .bs-thumb{width:56px;height:32px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)}
+#vp-bs-list .bs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+#vp-bs-list .bs-info{flex:1;min-width:0}
+#vp-bs-list .bs-title{font-size:11px;font-weight:600;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#vp-bs-list .bs-ch{font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}`;
+  document.head.appendChild(css);
+  document.body.insertAdjacentHTML('beforeend',
+    `<div id="vp-bs-overlay" onclick="vpCloseNextList()"></div>
+     <div id="vp-bs-sheet">
+       <div id="vp-bs-handle"></div>
+       <div id="vp-bs-hdr">次の動画</div>
+       <div id="vp-bs-list"></div>
+     </div>`);
+}
+
+window.vpOpenNextList = function () {
+  _ensureBottomSheet();
+  const id = window.openVPanelId;
+  const all = window.filteredVideos || window.videos || [];
+  const list = document.getElementById('vp-bs-list');
+  if (!list) return;
+  list.innerHTML = all.slice(0, 30).map(rv => {
+    const isCur = rv.id === id;
+    const ytId = _extractYtId(rv.emb || '');
+    const thumb = rv.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
+    return `<div class="bs-item${isCur ? ' now' : ''}" onclick="${isCur ? '' : `openVPanel('${rv.id}');vpCloseNextList()`}">
+      <div class="bs-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
+      <div class="bs-info"><div class="bs-title">${rv.title || '(タイトルなし)'}</div><div class="bs-ch">${rv.channel || ''}</div></div>
+    </div>`;
+  }).join('');
+  // 現在の動画までスクロール
+  requestAnimationFrame(() => {
+    const cur = list.querySelector('.now');
+    if (cur) cur.scrollIntoView({ block: 'center' });
+  });
+  document.getElementById('vp-bs-overlay')?.classList.add('open');
+  document.getElementById('vp-bs-sheet')?.classList.add('open');
+};
+
+window.vpCloseNextList = function () {
+  document.getElementById('vp-bs-overlay')?.classList.remove('open');
+  document.getElementById('vp-bs-sheet')?.classList.remove('open');
+};
+
 export function closeVPanel() {
   try {
+    // ボトムシートを閉じる
+    window.vpCloseNextList?.();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     _stopTimeDisplay();
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
