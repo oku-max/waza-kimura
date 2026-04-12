@@ -1448,6 +1448,12 @@ function _createGDriveVideoEl(container, fileId, token) {
   video.playsinline = true;
   video.autoplay    = true;
   video.style.cssText = 'width:100%;height:100%;background:#000';
+  // 一時停止中の中央再生マークを非表示（スクショ用）
+  if (!document.getElementById('gd-hide-overlay-css')) {
+    const s = document.createElement('style'); s.id = 'gd-hide-overlay-css';
+    s.textContent = `#vpanel-iframe-container video::-webkit-media-controls-overlay-play-button{display:none!important}`;
+    document.head.appendChild(s);
+  }
   video.addEventListener('play',  () => _startTimeDisplay());
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
   video.addEventListener('ended', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
