@@ -1451,7 +1451,7 @@ function _createGDriveVideoEl(container, fileId, token) {
   // 一時停止中の中央再生マークを非表示（スクショ用）
   if (!document.getElementById('gd-hide-overlay-css')) {
     const s = document.createElement('style'); s.id = 'gd-hide-overlay-css';
-    s.textContent = `#vpanel-iframe-container video::-webkit-media-controls-overlay-play-button{display:none!important}`;
+    s.textContent = `#vpanel-iframe-container video::-webkit-media-controls-overlay-play-button{opacity:0!important}`;
     document.head.appendChild(s);
   }
   video.addEventListener('play',  () => _startTimeDisplay());
