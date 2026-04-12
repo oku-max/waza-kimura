@@ -1448,12 +1448,30 @@ function _createGDriveVideoEl(container, fileId, token) {
   video.playsinline = true;
   video.autoplay    = true;
   video.style.cssText = 'width:100%;height:100%;background:#000';
-  // 一時停止中の中央再生マークを非表示（スクショ用）
+  // 一時停止中の中央再生マーク: 表示後1秒でフェードアウト（スクショ用）
   if (!document.getElementById('gd-hide-overlay-css')) {
     const s = document.createElement('style'); s.id = 'gd-hide-overlay-css';
-    s.textContent = `#vpanel-iframe-container video::-webkit-media-controls-overlay-play-button{opacity:0!important}`;
+    s.textContent = `
+#vpanel-iframe-container video::-webkit-media-controls-overlay-play-button{opacity:0!important}
+#vpanel-iframe-container .gd-play-indicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;opacity:1;transition:opacity .5s ease .8s}
+#vpanel-iframe-container .gd-play-indicator.fade{opacity:0}
+#vpanel-iframe-container .gd-play-indicator svg{width:28px;height:28px;fill:#fff}`;
     document.head.appendChild(s);
   }
+  const playSvg = '<svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>';
+  const pauseSvg = '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
+  video.addEventListener('pause', () => {
+    let ind = container.querySelector('.gd-play-indicator');
+    if (!ind) { ind = document.createElement('div'); ind.className = 'gd-play-indicator'; container.appendChild(ind); }
+    ind.innerHTML = playSvg; ind.classList.remove('fade');
+    requestAnimationFrame(() => requestAnimationFrame(() => ind.classList.add('fade')));
+  });
+  video.addEventListener('play', () => {
+    let ind = container.querySelector('.gd-play-indicator');
+    if (!ind) { ind = document.createElement('div'); ind.className = 'gd-play-indicator'; container.appendChild(ind); }
+    ind.innerHTML = pauseSvg; ind.classList.remove('fade');
+    requestAnimationFrame(() => requestAnimationFrame(() => ind.classList.add('fade')));
+  });
   video.addEventListener('play',  () => _startTimeDisplay());
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
   video.addEventListener('ended', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
