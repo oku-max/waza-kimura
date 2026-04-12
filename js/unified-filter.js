@@ -97,10 +97,9 @@
 #uni-popup .uni-search input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box}
 #uni-popup .uni-x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px;line-height:1}
 #uni-popup .uni-x:hover{color:var(--text)}
-#uni-popup .uni-cols{flex:1;display:flex;flex-wrap:wrap;overflow-y:auto;min-height:0}
-#uni-popup .uni-col{flex:1 1 240px;min-width:220px;display:flex;flex-direction:column;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+#uni-popup .uni-cols{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));overflow-y:auto;min-height:0}
+#uni-popup .uni-col{display:flex;flex-direction:column;border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-height:0;overflow:hidden}
 #uni-popup .uni-col:last-child{border-right:none}
-#uni-popup .uni-col.narrow{flex:1 1 180px;min-width:160px}
 #uni-popup .uni-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px;flex-shrink:0}
 #uni-popup .uni-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
 #uni-popup .uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
