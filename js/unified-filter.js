@@ -4,8 +4,8 @@
   'use strict';
 
   const MAIN = [
-    { k: 'state', label: '進捗 & マーク' },
-    { k: 'src',   label: 'ソース・チャンネル・プレイリスト' },
+    { k: 'state', label: '進捗' },
+    { k: 'src',   label: 'プレイリスト' },
     { k: 'tag',   label: 'タグ' }
   ];
 
@@ -85,18 +85,18 @@
     const css = `<style id="uni-css">
 #uni-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #uni-bd.open{display:block}
-#uni-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(1080px,calc(100vw - 32px));height:min(600px,calc(100svh - 32px));max-height:calc(100svh - 32px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+#uni-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(1080px,calc(100vw - 64px));height:min(600px,calc(100svh - 64px));max-height:calc(100svh - 64px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
 #uni-popup.open{display:flex}
-#uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
-#uni-popup .uni-tabs{display:flex;gap:3px;flex:1;min-width:0}
+#uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+#uni-popup .uni-tabs{display:flex;gap:3px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 #uni-popup .uni-tab{padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
 #uni-popup .uni-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 #uni-popup .uni-tab .uni-bdg{display:inline-block;background:var(--accent);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
 #uni-popup .uni-tab.on .uni-bdg{background:rgba(255,255,255,.3);color:#fff}
-#uni-popup .uni-x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px;line-height:1}
+#uni-popup .uni-x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px;line-height:1;flex-shrink:0}
 #uni-popup .uni-x:hover{color:var(--text)}
-#uni-popup .uni-searchbar{padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
-#uni-popup .uni-searchbar input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box}
+#uni-popup .uni-searchbar{padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px}
+#uni-popup .uni-searchbar input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box}
 #uni-popup .uni-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;min-height:0;-webkit-overflow-scrolling:touch}
 #uni-popup .uni-cols::-webkit-scrollbar{height:4px}
 #uni-popup .uni-cols::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
@@ -157,9 +157,8 @@
 <div id="uni-popup" role="dialog" aria-modal="true">
   <div class="uni-topbar">
     <div class="uni-tabs" id="uni-tabs"></div>
-    <div class="uni-x" onclick="uniClose()">✕</div>
   </div>
-  <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"></div>
+  <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"><div class="uni-x" onclick="uniClose()">✕</div></div>
   <div id="uni-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
   <div class="uni-ftr">
     <span class="uni-lbl">選択中:</span>
