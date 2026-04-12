@@ -85,7 +85,7 @@
     const css = `<style id="uni-css">
 #uni-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #uni-bd.open{display:block}
-#uni-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(1080px,calc(100vw - 64px));height:min(600px,calc(100svh - 64px));max-height:calc(100svh - 64px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+#uni-popup{position:fixed;inset:32px;max-width:1080px;max-height:600px;margin:auto;background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
 #uni-popup.open{display:flex}
 #uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
 #uni-popup .uni-tabs{display:flex;gap:3px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
