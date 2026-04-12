@@ -1005,7 +1005,7 @@ export function trackRecentView(id) {
   let recents = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]');
   recents = recents.filter(r => r.id !== id);
   recents.unshift({ id, title: vid.title||'', channel: vid.channel||'', ytId: vid.ytId||'' });
-  recents = recents.slice(0, 15);
+  recents = recents.slice(0, 10);
   localStorage.setItem(_RECENT_KEY, JSON.stringify(recents));
   renderRecentSidebar();
   // 動画再生時にチャンネル/プレイリストの「最近」リストにも追加

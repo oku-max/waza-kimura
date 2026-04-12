@@ -31,7 +31,6 @@
     const bm   = isOrg ? window.orgBmOnly      : window.bmOnly;
     const memo = isOrg ? window.orgMemoOnly    : window.memoOnly;
     const img  = isOrg ? window.orgImgOnly     : window.imgOnly;
-    const next = isOrg ? window.orgNextOnly   : window.nextOnly;
     // tag filter keys: lib uses tbNew/cat/posNew/tags, org uses tb/action/position/tech
     const tkTb   = isOrg ? 'tb'       : 'tbNew';
     const tkCat  = isOrg ? 'action'   : 'cat';
@@ -39,8 +38,7 @@
     const tkTags = isOrg ? 'tech'     : 'tags';
     return (window.videos || []).filter(v => {
       if (v.archived) return false;
-      if (excludeKey !== 'fav'  && fav  && !v.fav) return false;
-      if (excludeKey !== 'next'&& next && !v.next) return false;
+      if (excludeKey !== 'fav' && fav && !v.fav) return false;
       if (excludeKey !== 'unw' && unw && v.watched) return false;
       if (excludeKey !== 'wat' && wat && !v.watched) return false;
       if (excludeKey !== 'bm'  && bm  && !(v.bm || (v.bookmarks && v.bookmarks.length))) return false;
@@ -63,11 +61,10 @@
       if (excludeKey !== 'prDate' && prDate) {
         const lp = v.lastPracticed || 0;
         const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-        if (prDate === 'week'    && !(lp && days <= 7))   return false;
-        if (prDate === 'month'   && !(lp && days <= 30))  return false;
-        if (prDate === 'quarter' && !(lp && days <= 90))  return false;
-        if (prDate === 'stale'   && !(lp && days > 90))   return false;
-        if (prDate === 'never'   && lp)                   return false;
+        if (prDate === 'week'  && !(lp && days <= 7))  return false;
+        if (prDate === 'month' && !(lp && days <= 30)) return false;
+        if (prDate === 'stale' && !(lp && days > 30))  return false;
+        if (prDate === 'never' && lp)                  return false;
       }
       return true;
     });
@@ -118,35 +115,6 @@
 #uni-popup .uni-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
 #uni-popup .uni-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #uni-popup .uni-apply:hover{filter:brightness(1.1)}
-/* 保存した検索条件 */
-#uni-popup .uni-ss-item{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:12px;display:flex;align-items:center;gap:8px;position:relative}
-#uni-popup .uni-ss-item:hover{background:var(--surface2)}
-#uni-popup .uni-ss-name{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#uni-popup .uni-ss-cnt{font-size:10px;color:var(--text3);flex-shrink:0}
-#uni-popup .uni-ss-dots{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;font-weight:700}
-#uni-popup .uni-ss-dots:hover{background:var(--surface3);color:var(--text)}
-#uni-popup .uni-ss-pop{display:none;position:absolute;right:8px;top:100%;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;padding:6px 0;font-size:12px}
-#uni-popup .uni-ss-pop.open{display:block}
-#uni-popup .uni-ss-reorder{display:flex;gap:4px;padding:6px 14px}
-#uni-popup .uni-ss-reorder button{flex:1;padding:5px 0;border-radius:6px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;font-weight:600;color:var(--text2);font-family:inherit}
-#uni-popup .uni-ss-reorder button:hover{background:var(--surface2);border-color:var(--accent);color:var(--accent)}
-#uni-popup .uni-ss-div{height:1px;background:var(--border);margin:4px 0}
-#uni-popup .uni-ss-act{padding:7px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);white-space:nowrap}
-#uni-popup .uni-ss-act:hover{background:var(--surface2)}
-#uni-popup .uni-ss-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0;color:var(--text2)}
-#uni-popup .uni-ss-del{color:#c44}
-#uni-popup .uni-ss-del .uni-ss-icon{color:#c44}
-#uni-popup .uni-ss-add{font-size:10px;color:var(--accent);cursor:pointer;font-weight:700}
-/* 最近みた動画 */
-#uni-popup .uni-rc-item{padding:6px 12px;cursor:pointer;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:8px}
-#uni-popup .uni-rc-item:hover{background:var(--surface2)}
-#uni-popup .uni-rc-rank{font-size:10px;color:var(--text3);font-weight:700;width:18px;text-align:right;flex-shrink:0}
-#uni-popup .uni-rc-thumb{width:48px;min-width:48px;height:32px;border-radius:4px;background:var(--surface3);flex-shrink:0;overflow:hidden;position:relative}
-#uni-popup .uni-rc-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-#uni-popup .uni-rc-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.5);pointer-events:none}
-#uni-popup .uni-rc-info{flex:1;min-width:0}
-#uni-popup .uni-rc-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
-#uni-popup .uni-rc-meta{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     document.body.insertAdjacentHTML('beforeend', `
@@ -203,7 +171,6 @@
     const isOrg = c === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const stateN = ((isOrg ? window.orgFavOnly : window.favOnly) ? 1 : 0)
-      + ((isOrg ? window.orgNextOnly : window.nextOnly) ? 1 : 0)
       + ((isOrg ? window.orgBmOnly : window.bmOnly) ? 1 : 0)
       + ((isOrg ? window.orgMemoOnly : window.memoOnly) ? 1 : 0)
       + ((isOrg ? window.orgImgOnly : window.imgOnly) ? 1 : 0)
@@ -227,28 +194,55 @@
     const content = document.getElementById('uni-content');
 
     if (_tab === 'state') {
-      // ══ 1列目: マーク + 進捗ランク + 最終カウント日 (統合) ══
+      // マーク: Fav / BM / メモ / 画像
       const markItems = [
         { name:'★ Fav',       cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!(isOrg ? window.orgFavOnly : window.favOnly),  key:'@fav' },
-        { name:'▶ Next',      cnt:_ctxVideos('next').filter(v=>v.next).length,                                         sel:!!(isOrg ? window.orgNextOnly : window.nextOnly), key:'@next'},
-        { name:'📌 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),   key:'@bm'  },
+        { name:'🔖 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),   key:'@bm'  },
         { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!(isOrg ? window.orgMemoOnly : window.memoOnly), key:'@memo'},
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
+      const mkMarkCol = () => {
+        let arr = markItems.slice();
+        if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+        arr = arr.filter(r => r.sel || r.cnt > 0);
+        const rows = arr.length ? arr.map(r =>
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('${r.key}','')">
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
+          </div>`
+        ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>マーク</span></div><div class="uni-col-body">${rows}</div></div>`;
+      };
 
+      // 進捗ランク (自動導出)
       const RANKS = window.RANK_DEFS || [];
       const rankCtx = _ctxVideos('prRank');
       const rankItems = RANKS.map(r => {
         const label = r.max === Infinity ? `${r.name} (${r.min}+)` : (r.min === r.max ? `${r.name} (${r.min}回)` : `${r.name} (${r.min}-${r.max})`);
-        return { name: label, cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length, sel: (isOrg ? window.orgPrRank : window.prRank) === String(r.lv), key: String(r.lv) };
+        return {
+          name: label,
+          cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length,
+          sel: (isOrg ? window.orgPrRank : window.prRank) === String(r.lv),
+          key: String(r.lv)
+        };
       });
+      const mkRankCol = () => {
+        let arr = rankItems.slice();
+        if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+        arr = arr.filter(r => r.sel || r.cnt > 0);
+        const rows = arr.length ? arr.map(r =>
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@rank','${r.key}')">
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
+          </div>`
+        ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>🥋 進捗ランク (自動)</span></div><div class="uni-col-body">${rows}</div></div>`;
+      };
 
+      // 最終練習日 (単一選択)
       const pdBuckets = [
         { name:'今週 (7日以内)',  k:'week'  },
         { name:'今月 (30日以内)', k:'month' },
-        { name:'3ヶ月以内',      k:'quarter' },
-        { name:'それ以前',       k:'stale' },
-        { name:'未カウント',     k:'never' }
+        { name:'しばらく練習してない (30日+)', k:'stale' },
+        { name:'未練習',          k:'never' }
       ];
       const pdCtx = _ctxVideos('prDate');
       const pdItems = pdBuckets.map(b => {
@@ -256,95 +250,30 @@
         for (const v of pdCtx) {
           const lp = v.lastPracticed || 0;
           const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
-          if (b.k === 'week'    && lp && days <= 7)   c++;
-          else if (b.k === 'month'   && lp && days <= 30)  c++;
-          else if (b.k === 'quarter' && lp && days <= 90)  c++;
-          else if (b.k === 'stale'   && lp && days > 90)   c++;
-          else if (b.k === 'never'   && !lp)               c++;
+          if (b.k === 'week'  && lp && days <= 7)  c++;
+          else if (b.k === 'month' && lp && days <= 30) c++;
+          else if (b.k === 'stale' && lp && days > 30)  c++;
+          else if (b.k === 'never' && !lp)              c++;
         }
         return { name:b.name, cnt:c, sel: (isOrg ? window.orgPrDate : window.prDate) === b.k, key:b.k };
       });
-
-      const mkCol1 = () => {
-        const grpLabel = s => `<div style="padding:6px 12px 2px;font-size:9px;font-weight:800;color:var(--accent);letter-spacing:.5px">${s}</div>`;
-        const divider = '<div style="height:1px;background:var(--border);margin:6px 0"></div>';
-        let markArr = markItems.slice();
-        if (_q) markArr = markArr.filter(r => r.name.toLowerCase().includes(_q));
-        markArr = markArr.filter(r => r.sel || r.cnt > 0);
-        const markRows = markArr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('${r.key}','')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
-        ).join('');
-
-        let rankArr = rankItems.slice();
-        if (_q) rankArr = rankArr.filter(r => r.name.toLowerCase().includes(_q));
-        rankArr = rankArr.filter(r => r.sel || r.cnt > 0);
-        const rankRows = rankArr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@rank','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
-        ).join('');
-
-        let pdArr = pdItems.slice();
-        if (_q) pdArr = pdArr.filter(r => r.name.toLowerCase().includes(_q));
-        pdArr = pdArr.filter(r => r.sel || r.cnt > 0);
-        const pdRows = pdArr.map(r =>
-          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prD','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
-        ).join('');
-
-        return `<div class="uni-col" style="flex:0 0 230px">
-          <div class="uni-col-hdr"><span>マーク・進捗・カウント</span></div>
-          <div class="uni-col-body">
-            ${grpLabel('マーク')}${markRows}
-            ${divider}${grpLabel('進捗ランク (自動)')}${rankRows}
-            ${divider}${grpLabel('最終カウント日')}${pdRows}
-          </div>
-        </div>`;
+      const mkPdCol = () => {
+        let arr = pdItems.slice();
+        if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
+        arr = arr.filter(r => r.sel || r.cnt > 0);
+        const rows = arr.length ? arr.map(r =>
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prD','${r.key}')">
+            <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
+          </div>`
+        ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+        return `<div class="uni-col"><div class="uni-col-hdr"><span>🗓 最終練習日</span></div><div class="uni-col-body">${rows}</div></div>`;
       };
 
-      // ══ 2列目: 保存した検索条件 ══
-      const mkCol2 = () => {
-        const ss = window.savedSearches || [];
-        const rows = ss.length ? ss.map((s, i) => {
-          const cnt = _countSavedSearch(s);
-          return `<div class="uni-ss-item" onclick="uniApplySaved(${i})">
-            <span class="uni-ss-name">${_esc(s.name)}</span>
-            <span class="uni-ss-cnt">${cnt}件</span>
-            <button class="uni-ss-dots" onclick="uniSSMenu(${i},this,event)">···</button>
-            <div class="uni-ss-pop" id="uni-ss-pop-${i}">
-              <div class="uni-ss-reorder"><button onclick="uniSSMove(${i},-1,event)">↑ 上へ</button><button onclick="uniSSMove(${i},1,event)">↓ 下へ</button></div>
-              <div class="uni-ss-div"></div>
-              <div class="uni-ss-act" onclick="uniSSRename(${i},event)"><span class="uni-ss-icon">✏</span>名前を変更</div>
-              <div class="uni-ss-act" onclick="uniSSEdit(${i},event)"><span class="uni-ss-icon">⚙</span>条件を編集</div>
-              <div class="uni-ss-div"></div>
-              <div class="uni-ss-act uni-ss-del" onclick="uniSSDel(${i},event)"><span class="uni-ss-icon">🗑</span>削除</div>
-            </div>
-          </div>`;
-        }).join('') : '';
-        const empty = !ss.length ? '<div style="padding:20px 12px;text-align:center;color:var(--text3);font-size:11px">検索条件を設定後「💾 保存」で追加</div>' : '';
-        return `<div class="uni-col" style="flex:0 0 260px">
-          <div class="uni-col-hdr"><span>保存した検索条件</span><span class="uni-ss-add" onclick="uniSSSave()">＋ 新規保存</span></div>
-          <div class="uni-col-body">${rows}${empty}</div>
-        </div>`;
-      };
-
-      // ══ 3列目: 最近みた動画 TOP 15 ══
-      const mkCol3 = () => {
-        const recents = JSON.parse(localStorage.getItem('wk_recent_views') || '[]').slice(0, 15);
-        const rows = recents.length ? recents.map((v, i) => {
-          const thumb = v.ytId
-            ? `<img src="https://i.ytimg.com/vi/${v.ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
-            : '';
-          return `<div class="uni-rc-item" onclick="window.openVPanel?.('${v.id}');uniClose()">
-            <span class="uni-rc-rank">${i+1}</span>
-            <div class="uni-rc-thumb">${thumb}<span class="uni-rc-play">▶</span></div>
-            <div class="uni-rc-info"><div class="uni-rc-title">${_esc(v.title)}</div><div class="uni-rc-meta">${_esc(v.channel||'')}</div></div>
-          </div>`;
-        }).join('') : '<div style="padding:20px 12px;text-align:center;color:var(--text3);font-size:11px">まだ視聴した動画はありません</div>';
-        return `<div class="uni-col">
-          <div class="uni-col-hdr"><span>最近みた動画 TOP 15</span></div>
-          <div class="uni-col-body">${rows}</div>
-        </div>`;
-      };
-
-      content.innerHTML = `<div class="uni-cols">${mkCol1()}${mkCol2()}${mkCol3()}</div>`;
+      content.innerHTML = `<div class="uni-cols">
+        ${mkMarkCol()}
+        ${mkRankCol()}
+        ${mkPdCol()}
+      </div>`;
     }
 
     else if (_tab === 'src') {
@@ -436,10 +365,8 @@
     const _img  = isOrg ? window.orgImgOnly  : window.imgOnly;
     const _prR  = isOrg ? window.orgPrRank   : window.prRank;
     const _prD  = isOrg ? window.orgPrDate   : window.prDate;
-    const _next = isOrg ? window.orgNextOnly : window.nextOnly;
     if (_fav)  pills.push(['@fav',  '★ Fav']);
-    if (_next) pills.push(['@next', '▶ Next']);
-    if (_bm)   pills.push(['@bm',   '📌 ブックマーク']);
+    if (_bm)   pills.push(['@bm',   '🔖 ブックマーク']);
     if (_memo) pills.push(['@memo', '💬 メモ']);
     if (_img)  pills.push(['@img',  '🖼 画像あり']);
     if (_prR != null && window.RANK_DEFS) {
@@ -447,7 +374,7 @@
       if (r) pills.push(['@rank', r.name]);
     }
     if (_prD) {
-      const map = { week:'今週',month:'今月',quarter:'3ヶ月以内',stale:'それ以前',never:'未カウント' };
+      const map = { week:'今週練習',month:'今月練習',stale:'🗓 30日+',never:'未練習' };
       pills.push(['@prD', map[_prD] || _prD]);
     }
     const tkTbP = isOrg ? 'tb' : 'tbNew', tkCatP = isOrg ? 'action' : 'cat', tkPosP = isOrg ? 'position' : 'posNew', tkTagsP = isOrg ? 'tech' : 'tags';
@@ -514,7 +441,6 @@
     const refresh = isOrg ? () => window.renderOrg?.() : () => { window.AF?.(); window.buildSidebarFovRows?.(); };
     // 擬似ブール系
     if (key === '@fav')  { isOrg ? window.togOrgFav?.()     : window.togFav?.();     _render(); return; }
-    if (key === '@next') { isOrg ? window.togOrgNext?.()    : window.togNext?.();    _render(); return; }
     if (key === '@unw')  { isOrg ? window.togOrgUnw?.()     : window.togUnw?.();     _render(); return; }
     if (key === '@wat')  { isOrg ? window.togOrgWatched?.() : window.togWatched?.(); _render(); return; }
     if (key === '@bm')   { isOrg ? window.togOrgBm?.()      : window.togBm?.();      _render(); return; }
@@ -541,72 +467,4 @@
     _render();
   };
   window.uniSyncBadges = function () { _syncSidebarBadges(_badges()); };
-
-  // ── 保存した検索条件: 件数概算 ──
-  function _countSavedSearch(ss) {
-    if (!ss || !ss.state) return 0;
-    const s = ss.state;
-    return (window.videos || []).filter(v => {
-      if (v.archived) return false;
-      if (s.favOnly && !v.fav) return false;
-      if (s.unwOnly && v.watched) return false;
-      if (s.watchedOnly && !v.watched) return false;
-      const sf = s.filters || {};
-      if (sf.channel?.length  && !sf.channel.includes(v.channel || v.ch)) return false;
-      if (sf.playlist?.length && !sf.playlist.includes(v.pl)) return false;
-      if (sf.platform?.length && !sf.platform.includes(v.pt || v.src || 'youtube')) return false;
-      return true;
-    }).length;
-  }
-
-  // ── 保存した検索条件: UI操作 ──
-  function _closeSSMenus() {
-    document.querySelectorAll('.uni-ss-pop.open').forEach(p => p.classList.remove('open'));
-  }
-  window.uniSSMenu = function (idx, btn, e) {
-    e.stopPropagation();
-    const pop = document.getElementById('uni-ss-pop-' + idx);
-    const wasOpen = pop?.classList.contains('open');
-    _closeSSMenus();
-    if (!wasOpen && pop) pop.classList.add('open');
-  };
-  window.uniApplySaved = function (idx) {
-    const isOrg = _ctx === 'org';
-    if (isOrg) window.applySavedSearchToOrg?.(idx);
-    else       window.applySavedSearch?.(idx);
-    _render();
-  };
-  window.uniSSRename = function (idx, e) {
-    e.stopPropagation(); _closeSSMenus();
-    window.renameSavedSearch?.(idx, e);
-    _render();
-  };
-  window.uniSSEdit = function (idx, e) {
-    e.stopPropagation(); _closeSSMenus();
-    window.editSavedSearch?.(idx, e);
-    uniClose();
-  };
-  window.uniSSDel = function (idx, e) {
-    e.stopPropagation(); _closeSSMenus();
-    window.deleteSavedSearch?.(idx, e);
-    _render();
-  };
-  window.uniSSMove = function (idx, dir, e) {
-    e.stopPropagation(); _closeSSMenus();
-    const ss = window.savedSearches;
-    if (!ss) return;
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= ss.length) return;
-    [ss[idx], ss[newIdx]] = [ss[newIdx], ss[idx]];
-    localStorage.setItem('wk-saved-searches', JSON.stringify(ss));
-    window.saveUserSettings?.();
-    _render();
-  };
-  window.uniSSSave = function () {
-    window.saveCurrentSearch?.();
-    _render();
-  };
-
-  // popoverを外クリックで閉じる
-  document.addEventListener('click', () => _closeSSMenus());
 })();
