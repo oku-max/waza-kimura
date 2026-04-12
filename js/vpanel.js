@@ -1198,7 +1198,7 @@ export function openVPanel(id) {
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
       <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
-      <span id="vp-title-time" style="flex-shrink:0;font-size:11px;font-family:'DM Mono',monospace;color:var(--text);font-weight:600;white-space:nowrap"></span>
+      <span id="vp-title-time" style="flex-shrink:0;font-size:13px;font-family:'DM Mono',monospace;color:#000;font-weight:700;white-space:nowrap"></span>
       ${editBtn}
       <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
