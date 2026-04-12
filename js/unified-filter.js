@@ -86,8 +86,10 @@
 #uni-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #uni-bd.open{display:block}
 #uni-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(1080px,calc(100vw - 16px));height:min(600px,calc(100svh - 16px));max-height:calc(100svh - 16px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+@media(max-width:600px){#uni-popup{top:0;left:0;transform:none;width:100vw;height:100svh;max-height:100svh;border-radius:0;border:none}}
 #uni-popup.open{display:flex}
 #uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+@media(max-width:600px){#uni-popup .uni-topbar{flex-wrap:wrap}}
 #uni-popup .uni-tabs{display:flex;gap:3px;flex:0 0 auto}
 #uni-popup .uni-tab{padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
 #uni-popup .uni-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -97,10 +99,11 @@
 #uni-popup .uni-search input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box}
 #uni-popup .uni-x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px;line-height:1}
 #uni-popup .uni-x:hover{color:var(--text)}
-#uni-popup .uni-cols{flex:1;display:flex;overflow:hidden;min-height:0}
-#uni-popup .uni-col{flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+#uni-popup .uni-cols{flex:1;display:flex;flex-wrap:wrap;overflow:hidden;min-height:0}
+#uni-popup .uni-col{flex:1 1 200px;min-width:140px;display:flex;flex-direction:column;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
 #uni-popup .uni-col:last-child{border-right:none}
 #uni-popup .uni-col.narrow{flex:0 0 140px}
+@media(max-width:600px){#uni-popup .uni-col{flex:1 1 45%;min-width:0;border-right:none}#uni-popup .uni-col.narrow{flex:1 1 45%}}
 #uni-popup .uni-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px;flex-shrink:0}
 #uni-popup .uni-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
 #uni-popup .uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
