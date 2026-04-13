@@ -157,6 +157,9 @@ function migrateVideo(v) {
     if (!Array.isArray(v.cat))  v.cat  = [];
     if (!Array.isArray(v.tags)) v.tags = [];
     if (!('tbLocked' in v))     v.tbLocked = false;
+    // 旧フィールドが残っていれば必ず削除
+    delete v.ac;
+    delete v.tech;
     return v;
   }
 
@@ -220,18 +223,17 @@ function migrateAll(videos) {
 function _remapOldCatNames(videos) {
   if (!Array.isArray(videos)) return;
   for (const v of videos) {
+    // 旧フィールドは無条件で削除
+    delete v.ac;
+    delete v.tech;
     if (!Array.isArray(v.cat) || !v.cat.length) continue;
     const newCat = new Set();
     for (const c of v.cat) {
       const mapped = _AC_TO_CAT[c];
       if (mapped) newCat.add(mapped);
-      else if (CATEGORIES.some(cat => cat.name === c)) newCat.add(c); // 既に新名ならそのまま
-      // マッピングにもCATEGORIESにもない値は捨てる
+      else if (CATEGORIES.some(cat => cat.name === c)) newCat.add(c);
     }
     v.cat = Array.from(newCat);
-    // 旧フィールドクリーンアップ
-    delete v.ac;
-    delete v.tech;
   }
 }
 
