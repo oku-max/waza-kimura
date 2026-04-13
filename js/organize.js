@@ -628,10 +628,11 @@ export function renderOrg() {
   function _buildRowHTML(v) {
     const _ytId = v.ytId || (v.id||'').replace(/^yt-/,'');
     const _vmId = (v.id||'').replace(/^vm-/,'');
+    const _gdId = (v.id||'').replace(/^gd-/,'');
     const thumb = v.pt === 'youtube'
       ? (v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`)
       : v.pt === 'gdrive'
-      ? (v.thumb && !v.thumb.includes('drive.google.com/thumbnail') ? v.thumb : '')
+      ? (v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`)
       : v.pt === 'x'
       ? (v.thumb || '')
       : (v.thumb || `https://vumbnail.com/${_vmId}.jpg`);
