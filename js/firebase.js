@@ -69,6 +69,8 @@ export async function loadUserData(uid) {
         if (window.retagAllFromTitle && window.videos) {
           window.retagAllFromTitle();
         }
+        // マイグレーション結果をFirebaseに永続化（旧フィールド削除を保存）
+        saveUserData();
         if (window.AF) window.AF();
         // Settings画面のタグ集計を再描画
         if (window.renderTagMasterUI) window.renderTagMasterUI();
