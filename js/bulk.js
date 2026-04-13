@@ -597,7 +597,7 @@ export function bvpAddTech() {
   let added=0;
   ids.forEach(id => {
     const v=videos.find(v=>v.id===id); if(!v) return;
-    if(!(v.tech||[]).includes(val)){v.tech=[...(v.tech||[]),val];added++;}
+    if(!(v.tags||[]).includes(val)){v.tags=[...(v.tags||[]),val];added++;}
   });
   const row = document.getElementById('bvp-tech');
   if(row) {
@@ -630,7 +630,7 @@ export function bvpPosSuggest(inp) {
 export function bvpTechSuggest(inp) {
   const q = inp.value.trim().toLowerCase();
   const videos = window.videos || [];
-  const all = [...new Set(videos.flatMap(v=>v.tech||[]))].sort();
+  const all = [...new Set(videos.flatMap(v=>v.tags||[]))].sort();
   const sug = document.getElementById('bvp-tech-sug');
   if (!sug) return;
   const matches = q ? all.filter(t=>t.toLowerCase().includes(q)) : all;
@@ -751,7 +751,7 @@ export function enterBulk(ctx='home', preserveSel=false){
 
 export function bulkSnapshot(){
   const videos = window.videos || [];
-  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],tbLocked:!!v.tbLocked,ac:[...(v.ac||[])],tech:[...(v.tech||[])],pl:v.pl,channel:v.channel,archived:v.archived})));
+  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],tbLocked:!!v.tbLocked,pl:v.pl,channel:v.channel,archived:v.archived})));
 }
 
 // ─── Bulk Picker ───
@@ -1238,7 +1238,7 @@ export function buildBbPosRow() {
 
 export function buildBbTechRow() {
   const videos = window.videos || [];
-  const all = [...new Set(videos.flatMap(v=>v.tech||[]))].sort();
+  const all = [...new Set(videos.flatMap(v=>v.tags||[]))].sort();
   const panel = document.getElementById('bb-panel-tech');
   if (!panel) return;
   if (!all.length) {

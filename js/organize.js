@@ -511,7 +511,7 @@ export function openOrgTF(){document.getElementById('org-tf-s').value='';renderO
 export function renderOrgTF(){
   const q=document.getElementById('org-tf-s').value.toLowerCase();
   const videos = window.videos || [];
-  const all=[...new Set([...(window.TECH || []),...videos.flatMap(v=>v.tags||[])])].sort();
+  const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();
   const matched=all.filter(t=>!q||t.toLowerCase().includes(q));
   document.getElementById('orgTFR').innerHTML=matched.map(t=>{
     const n=window.countByField?.('tech',t);
@@ -588,9 +588,9 @@ export function renderOrg() {
     else if (orgSortCol === 'duration')  { av = a.duration||0; bv = b.duration||0; }
     else if (orgSortCol === 'fav')       { av = a.fav?0:1; bv = b.fav?0:1; }
     else if (orgSortCol === 'tb')        { av=(a.tb||[]).join(); bv=(b.tb||[]).join(); }
-    else if (orgSortCol === 'action')    { av=(a.cat||a.ac||[]).join(); bv=(b.cat||b.ac||[]).join(); }
+    else if (orgSortCol === 'action')    { av=(a.cat||[]).join(); bv=(b.cat||[]).join(); }
     else if (orgSortCol === 'position')  { av=(a.pos||[]).join(); bv=(b.pos||[]).join(); }
-    else if (orgSortCol === 'technique') { av=(a.tags||a.tech||[]).join(); bv=(b.tags||b.tech||[]).join(); }
+    else if (orgSortCol === 'technique') { av=(a.tags||[]).join(); bv=(b.tags||[]).join(); }
     else if (orgSortCol === 'status')         { const o={'未着手':0,'練習中':1,'マスター':2}; av=o[a.status]??0; bv=o[b.status]??0; }
     else if (orgSortCol === 'lastPlayed')    { av=a.lastPlayed||0; bv=b.lastPlayed||0; }
     else if (orgSortCol === 'playCount')     { av=a.playCount||0; bv=b.playCount||0; }

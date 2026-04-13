@@ -754,7 +754,7 @@ function _analyzeTechTags(tagIdx) {
   const usageCount = {};
   presets.forEach(t => { usageCount[t] = 0; });
   videos.forEach(v => {
-    (v.tech || []).forEach(t => { usageCount[t] = (usageCount[t] || 0) + 1; });
+    (v.tags || []).forEach(t => { usageCount[t] = (usageCount[t] || 0) + 1; });
   });
 
   // 1. 重複グループ検出（部分文字列関係）
@@ -961,19 +961,19 @@ function _applyTechCleanup(tagIdx, analysis) {
 
   // 動画のテクニックタグを更新
   videos.forEach(v => {
-    if (!v.tech?.length) return;
-    const newTech = [];
-    v.tech.forEach(t => {
+    if (!v.tags?.length) return;
+    const newTags = [];
+    v.tags.forEach(t => {
       if (toRemove.has(t)) {
         if (renameMap[t]) {
-          if (!newTech.includes(renameMap[t])) { newTech.push(renameMap[t]); renameCount++; }
+          if (!newTags.includes(renameMap[t])) { newTags.push(renameMap[t]); renameCount++; }
         }
         removeCount++;
       } else {
-        if (!newTech.includes(t)) newTech.push(t);
+        if (!newTags.includes(t)) newTags.push(t);
       }
     });
-    v.tech = newTech;
+    v.tags = newTags;
   });
 
   // 削除されたタグ（リネーム先があるもの以外）を禁止リストに追加
@@ -1011,7 +1011,7 @@ window._techBulkDelete = function(tagIdx) {
   const videos = window.videos || [];
   const usageCount = {};
   presets.forEach(t => { usageCount[t] = 0; });
-  videos.forEach(v => (v.tech || []).forEach(t => { usageCount[t] = (usageCount[t] || 0) + 1; }));
+  videos.forEach(v => (v.tags || []).forEach(t => { usageCount[t] = (usageCount[t] || 0) + 1; }));
 
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1068,10 +1068,10 @@ window._techBulkDelete = function(tagIdx) {
     tagSettings[tagIdx].presets = tagSettings[tagIdx].presets.filter(t => !toDel.has(t));
     let vidCount = 0;
     videos.forEach(v => {
-      if (!v.tech?.length) return;
-      const before = v.tech.length;
-      v.tech = v.tech.filter(t => !toDel.has(t));
-      if (v.tech.length !== before) vidCount++;
+      if (!v.tags?.length) return;
+      const before = v.tags.length;
+      v.tags = v.tags.filter(t => !toDel.has(t));
+      if (v.tags.length !== before) vidCount++;
     });
 
     // 禁止リストへの追加

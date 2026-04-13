@@ -65,7 +65,6 @@ function _tsVisible(key) {
 
 export function cardHTML(v) {
   v.tb = v.tb || []; v.cat = v.cat || []; v.pos = v.pos || []; v.tags = v.tags || [];
-  v.ac = v.cat; v.tech = v.tags; // 旧スキーマ互換: 参照を共有
   v.pt = v.pt || v.src || 'youtube';
   const isYT  = v.pt === 'youtube';
   const isGD  = v.pt === 'gdrive';

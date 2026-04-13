@@ -69,10 +69,6 @@ export async function loadUserData(uid) {
         if (window.retagAllFromTitle && window.videos) {
           window.retagAllFromTitle();
         }
-        // 旧スキーマ ↔ 新スキーマ フィールド同期
-        if (window.syncVideoFields && window.videos) {
-          window.syncVideoFields(window.videos);
-        }
         if (window.AF) window.AF();
         showToast('✅ データを読み込みました');
       }

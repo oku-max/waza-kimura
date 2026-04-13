@@ -302,9 +302,9 @@ export function renderFilterPresets() {
         if (fs.prio && fs.prio.length && !fs.prio.includes(v.prio)) return false;
         if (fs.status && fs.status.length && !fs.status.includes(v.status)) return false;
         if (fs.tb && fs.tb.length && !(v.tb||[]).some(t => fs.tb.includes(t))) return false;
-        if (fs.action && fs.action.length && !(v.ac||[]).some(a => fs.action.includes(a))) return false;
+        if (fs.action && fs.action.length && !(v.cat||[]).some(a => fs.action.includes(a))) return false;
         if (fs.position && fs.position.length && !(v.pos||[]).some(x => fs.position.includes(x))) return false;
-        if (fs.tech && fs.tech.length && !(v.tech||[]).some(t => fs.tech.includes(t))) return false;
+        if (fs.tech && fs.tech.length && !(v.tags||[]).some(t => fs.tech.includes(t))) return false;
         if (fs.channel && fs.channel.length && !fs.channel.includes(v.channel || v.ch)) return false;
         return true;
       }).length;
@@ -371,9 +371,9 @@ export function filt(list) {
     if (window.filters.prio.size && !window.filters.prio.has(v.prio)) return false;
     if (window.filters.status.size && !window.filters.status.has(v.status)) return false;
     if (window.filters.tb.size && !(v.tb||[]).some(t => window.filters.tb.has(t))) return false;
-    if (window.filters.action.size && !(v.ac||[]).some(a => window.filters.action.has(a))) return false;
+    if (window.filters.action.size && !(v.cat||[]).some(a => window.filters.action.has(a))) return false;
     if (window.filters.position.size && !(v.pos||[]).some(p => window.filters.position.has(p))) return false;
-    if (window.filters.tech.size && !(v.tech||[]).some(t => window.filters.tech.has(t))) return false;
+    if (window.filters.tech.size && !(v.tags||[]).some(t => window.filters.tech.has(t))) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
     return true;
   });
@@ -417,15 +417,15 @@ export function countContextual(key, val) {
     if (key !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                        return false;
     if (key !== 'status'   && f.status?.size   && !f.status.has(v.status))                    return false;
     if (key !== 'tb'       && f.tb?.size       && !(v.tb||[]).some(t => f.tb.has(t)))         return false;
-    if (key !== 'action'   && f.action?.size   && !(v.ac||[]).some(a => f.action.has(a)))     return false;
+    if (key !== 'action'   && f.action?.size   && !(v.cat||[]).some(a => f.action.has(a)))     return false;
     if (key !== 'position' && f.position?.size && !(v.pos||[]).some(p => f.position.has(p))) return false;
-    if (key !== 'tech'     && f.tech?.size     && !(v.tech||[]).some(t => f.tech.has(t)))    return false;
+    if (key !== 'tech'     && f.tech?.size     && !(v.tags||[]).some(t => f.tech.has(t)))    return false;
     if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
     // このvalが該当するか
     if (key === 'tb')       return (v.tb||[]).includes(val);
-    if (key === 'action')   return (v.ac||[]).includes(val);
+    if (key === 'action')   return (v.cat||[]).includes(val);
     if (key === 'position') return (v.pos||[]).includes(val);
-    if (key === 'tech')     return (v.tech||[]).includes(val);
+    if (key === 'tech')     return (v.tags||[]).includes(val);
     if (key === 'playlist') return v.pl === val;
     if (key === 'channel')  return (v.channel || v.ch) === val;
     if (key === 'status')   return v.status === val;
@@ -531,7 +531,7 @@ export function openTF() {
 export function renderTF() {
   const q = document.getElementById('tfs').value.trim();
   const ql = q.toLowerCase();
-  const allTech = [...new Set([...(window.TECH||[]), ...(window.videos||[]).flatMap(v => v.tech||[])])].sort();
+  const allTech = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
   const matched = allTech.filter(t => !ql || t.toLowerCase().includes(ql));
   const container = document.getElementById('tfR');
   container.innerHTML = '';

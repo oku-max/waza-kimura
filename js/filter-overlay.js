@@ -313,10 +313,10 @@ export function fovDdFilter(rowId, filterKey, q) {
   const vids = window.videos || [];
   const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
   let items = [];
-  if (filterKey === 'tb') items = window.TB_TAGS || [];
-  else if (filterKey === 'action') items = window.AC_TAGS || [];
+  if (filterKey === 'tb') items = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  else if (filterKey === 'action') items = (window.CATEGORIES || []).map(c => c.name);
   else if (filterKey === 'position') items = [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort();
-  else if (filterKey === 'tech') items = [...new Set(vids.flatMap(v => v.tech||[]))].sort();
+  else if (filterKey === 'tech') items = [...new Set(vids.flatMap(v => v.tags||[]))].sort();
   _fovDdRenderList(rowId, filterKey, items, q);
 }
 
@@ -384,9 +384,9 @@ export function countForFilter(key, val) {
   try {
     const vids = window.videos || [];
     if (key === 'tb')       return vids.filter(v => !v.archived && (v.tb||[]).includes(val)).length;
-    if (key === 'action')   return vids.filter(v => !v.archived && (v.ac||[]).includes(val)).length;
+    if (key === 'action')   return vids.filter(v => !v.archived && (v.cat||[]).includes(val)).length;
     if (key === 'position') return vids.filter(v => !v.archived && (v.pos||[]).includes(val)).length;
-    if (key === 'tech')     return vids.filter(v => !v.archived && (v.tech||[]).includes(val)).length;
+    if (key === 'tech')     return vids.filter(v => !v.archived && (v.tags||[]).includes(val)).length;
     if (key === 'playlist') return vids.filter(v => !v.archived && v.pl === val).length;
     if (key === 'channel')  return vids.filter(v => !v.archived && v.ch === val).length;
     if (key === 'status')   return vids.filter(v => !v.archived && v.status === val).length;
@@ -422,10 +422,10 @@ export function buildFovRows(isOrg=false) {
     });
   }
 
-  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_TAGS||[], 'TOP/BOTTOM検索...', isOrg);
-  buildFovDdRow(`${p}-srow-ac`,   'action',   window.AC_TAGS||[], 'Action検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES||['トップ','ボトム','スタンディング'], 'TOP/BOTTOM検索...', isOrg);
+  buildFovDdRow(`${p}-srow-ac`,   'action',   (window.CATEGORIES||[]).map(c=>c.name), 'Action検索...', isOrg);
   buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), 'Position検索...', isOrg);
-  buildFovDdRow(`${p}-srow-tech`, 'tech',     [...new Set(vids.flatMap(v => v.tech||[]))].sort(), 'Technique検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tech`, 'tech',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'Technique検索...', isOrg);
   buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
@@ -438,7 +438,7 @@ export function buildFovHscroll(rowId, tags, filterKey, allChipId) {
   tags.forEach(tag => {
     const cnt = window.countContextual
       ? window.countContextual(filterKey, tag)
-      : ((window.videos||[]).filter(v => !v.archived && (filterKey==='tb' ? (v.tb||[]).includes(tag) : (v.ac||[]).includes(tag))).length);
+      : ((window.videos||[]).filter(v => !v.archived && (filterKey==='tb' ? (v.tb||[]).includes(tag) : (v.cat||[]).includes(tag))).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(tag) ? ' active' : '');
     el.style.flexShrink = '0';
@@ -466,7 +466,7 @@ export function buildFovPickerRow(rowId, filterKey, allChipId, getAll) {
       : ((window.videos||[]).filter(v => !v.archived && (
           filterKey==='playlist' ? v.pl===val :
           filterKey==='channel'  ? v.ch===val :
-          filterKey==='tech'     ? (v.tech||[]).includes(val) :
+          filterKey==='tech'     ? (v.tags||[]).includes(val) :
           (v.pos||[]).includes(val))).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(val) ? ' active' : '');
@@ -516,7 +516,7 @@ const FS_PICKER_FIELDS = {
     return [...new Set([...POS_BASE, ...(window.videos||[]).flatMap(v => v.pos||[])])].sort();
   }},
   pl:   { label:'Playlist',  filterKey:'playlist', getAll: () => [...new Set((window.videos||[]).map(v => v.pl).filter(Boolean))].sort() },
-  tech: { label:'Technique', filterKey:'tech',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tech||[]))].sort() },
+  tech: { label:'Technique', filterKey:'tech',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
   ch:   { label:'Channel',   filterKey:'channel',  getAll: () => [...new Set((window.videos||[]).map(v => v.ch).filter(Boolean))].sort() },
 };
 
@@ -854,10 +854,10 @@ function _sbPopupRender(key, ctx='lib') {
   const vids = window.videos || [];
   if (key === 'ch')        buildSbPickerInline(cId, 'channel', ctx);
   else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
-  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_TAGS||[], ctx);
-  else if (key === 'ac')   buildSbTagInline(cId, 'action', window.AC_TAGS||[], ctx);
+  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES||['トップ','ボトム','スタンディング'], ctx);
+  else if (key === 'ac')   buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
   else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
-  else if (key === 'tech') buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tech||[]))].sort(), ctx);
+  else if (key === 'tech') buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 
 const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', ac:'Action', pos:'Position', tech:'Technique' };
@@ -1074,9 +1074,9 @@ function _sbContextVideos(filterKey, f) {
     if (filterKey !== 'channel'   && f?.channel?.size   && !f.channel.has(v.channel || v.ch))                             return false;
     if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
     if (filterKey !== 'tb'        && f?.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))                          return false;
-    if (filterKey !== 'action'    && f?.action?.size    && !(v.ac  ||[]).some(a => f.action.has(a)))                      return false;
+    if (filterKey !== 'action'    && f?.action?.size    && !(v.cat ||[]).some(a => f.action.has(a)))                      return false;
     if (filterKey !== 'position'  && f?.position?.size  && !(v.pos ||[]).some(p => f.position.has(p)))                    return false;
-    if (filterKey !== 'tech'      && f?.tech?.size      && !(v.tech||[]).some(t => f.tech.has(t)))                        return false;
+    if (filterKey !== 'tech'      && f?.tech?.size      && !(v.tags||[]).some(t => f.tech.has(t)))                        return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;
     return true;

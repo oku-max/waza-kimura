@@ -7,8 +7,6 @@ export function debounceSave() {
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(async () => {
     try {
-      // 保存前に旧↔新スキーマ同期
-      if (window.syncVideoFields && window.videos) window.syncVideoFields(window.videos);
       if (window.saveUserData) {
         await window.saveUserData();
       }

@@ -52,9 +52,9 @@
       if (excludeKey !== 'status'   && f.status?.size   && !f.status.has(v.status))                     return false;
       if (excludeKey !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                         return false;
       if (excludeKey !== 'tb'   && f[tkTb]?.size   && !(v.tb  ||[]).some(t => f[tkTb].has(t)))         return false;
-      if (excludeKey !== 'cat'  && f[tkCat]?.size  && !(v.cat||v.ac||[]).some(c => f[tkCat].has(c))) return false;
+      if (excludeKey !== 'cat'  && f[tkCat]?.size  && !(v.cat||[]).some(c => f[tkCat].has(c))) return false;
       if (excludeKey !== 'pos'  && f[tkPos]?.size  && !(v.pos ||[]).some(p => f[tkPos].has(p)))        return false;
-      if (excludeKey !== 'tags' && f[tkTags]?.size && !(v.tags||v.tech||[]).some(t => f[tkTags].has(t))) return false;
+      if (excludeKey !== 'tags' && f[tkTags]?.size && !(v.tags||[]).some(t => f[tkTags].has(t))) return false;
       const prRank = isOrg ? window.orgPrRank : window.prRank;
       const prDate = isOrg ? window.orgPrDate : window.prDate;
       if (excludeKey !== 'prRank' && prRank != null && window.vpCntRank) {
@@ -405,7 +405,7 @@
       const catSrc   = (window.CATEGORIES || []).map(c => c.name);
       const catCtx = _ctxVideos('cat');
       const catItems = catSrc.map(n => ({
-        name:n, cnt: catCtx.filter(v => (v.cat||v.ac||[]).includes(n)).length, sel: !!f[tkCat]?.has(n)
+        name:n, cnt: catCtx.filter(v => (v.cat||[]).includes(n)).length, sel: !!f[tkCat]?.has(n)
       }));
 
       const posLabel = isOrg ? 'Position' : 'ポジション';
@@ -416,10 +416,10 @@
       }));
 
       const tagsLabel = isOrg ? 'Technique' : '#タグ';
-      const tagsSrc   = [...new Set((window.videos||[]).flatMap(v => v.tags||v.tech||[]))].sort();
+      const tagsSrc   = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
       const tagsCtx = _ctxVideos('tags');
       const tagItems = tagsSrc.map(n => ({
-        name:n, cnt: tagsCtx.filter(v => (v.tags||v.tech||[]).includes(n)).length, sel: !!f[tkTags]?.has(n)
+        name:n, cnt: tagsCtx.filter(v => (v.tags||[]).includes(n)).length, sel: !!f[tkTags]?.has(n)
       }));
 
       content.innerHTML = `<div class="uni-cols">

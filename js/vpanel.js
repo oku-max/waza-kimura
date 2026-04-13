@@ -1656,8 +1656,8 @@ export function vpTog(id, field, val, el, cls) {
 export function vpAddTechVal(id, val) {
   if (!val) return;
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  if ((v.tech||[]).includes(val)) return;
-  v.tech = [...(v.tech||[]), val];
+  if ((v.tags||[]).includes(val)) return;
+  v.tags = [...(v.tags||[]), val];
   const container = document.getElementById('vp-tech-' + id);
   if (!container) return;
   const chip = document.createElement('span');
@@ -2197,7 +2197,7 @@ export function vpRemoveTechEl(el) {
   const id  = el.dataset.id;
   const val = el.dataset.val;
   const v   = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.tech = (v.tech||[]).filter(t => t!==val);
+  v.tags = (v.tags||[]).filter(t => t!==val);
   el.remove();
   autoSaveVp(id);
 }

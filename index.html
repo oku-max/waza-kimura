@@ -1457,16 +1457,16 @@ function togCSt(s,el){cStF.has(s)?cStF.delete(s):cStF.add(s);el.classList.toggle
 function renderComm(){
   document.getElementById('discTags').innerHTML=TRENDING.slice(0,10).map(t=>`<div class="disc-tag" onclick="document.getElementById('csi').value='${t}';renderComm()">${t} <span class="cnt">${Math.floor(Math.random()*80+5)}本</span></div>`).join('');
   const q=document.getElementById('csi').value.toLowerCase();
-  let feed=CVIDS.filter(cv=>{if(beltF.size){const u=CUSERS.find(u=>u.id===cv.uid);if(!u||!beltF.has(u.belt))return false;}if(cStF.size&&!cStF.has(cv.status))return false;if(q&&!cv.title.toLowerCase().includes(q)&&!cv.tech.some(t=>t.toLowerCase().includes(q))&&!cv.pos.some(p=>p.toLowerCase().includes(q)))return false;return true;});
+  let feed=CVIDS.filter(cv=>{if(beltF.size){const u=CUSERS.find(u=>u.id===cv.uid);if(!u||!beltF.has(u.belt))return false;}if(cStF.size&&!cStF.has(cv.status))return false;if(q&&!cv.title.toLowerCase().includes(q)&&!cv.tags.some(t=>t.toLowerCase().includes(q))&&!cv.pos.some(p=>p.toLowerCase().includes(q)))return false;return true;});
   feed.sort((a,b)=>(a.status==='マスター'?0:1)-(b.status==='マスター'?0:1));
   const tit=document.getElementById('feedTitle');if(q)tit.textContent=`🔍「${q}」の検索結果`;else if(beltF.size)tit.textContent=`🥋 ${[...beltF].map(b=>BELT_L[b]).join('・')} の動画`;else tit.textContent='📺 コミュニティの動画';
-  document.getElementById('commFeed').innerHTML=feed.map(cv=>{const u=CUSERS.find(u=>u.id===cv.uid);const isYT=cv.pt==='youtube';const thumb=isYT?`https://img.youtube.com/vi/${cv.vid}/mqdefault.jpg`:`https://vumbnail.com/${cv.vid}.jpg`;const ext=isYT?`https://www.youtube.com/watch?v=${cv.vid}`:`https://vimeo.com/${cv.vid}`;const sc=cv.status==="練習中"?"s1":"s2";const se=cv.status==="練習中"?"🔵":"✅";return`<div class="comm-card"><div class="comm-card-hdr"><div class="belt-strip ${u?.belt||'white'}"></div><div class="user-name">${u?.name||'?'} <span style="font-size:10px;color:var(--text3)">${BELT_L[u?.belt||'white']}</span></div><span class="st-badge ${sc}">${se} ${cv.status}</span></div><div class="comm-card-body"><div class="comm-thumb" onclick="window.open('${ext}','_blank')"><img src="${thumb}" onerror="this.style.display='none'"><div class="comm-play-ov"><div class="play-btn" style="width:26px;height:26px;font-size:10px">▶</div></div><div class="pb ${isYT?'pb-yt':'pb-vm'}" style="position:absolute;top:3px;right:3px">${isYT?'YT':'Vmeo'}</div></div><div class="comm-video-info"><div class="comm-title">${cv.title}</div><div class="card-tags" style="margin-bottom:3px">${cv.tech.map(t=>`<span class="tag tag-tech">${t}</span>`).join('')}${cv.pos.map(p=>`<span class="tag tag-pos">${p}</span>`).join('')}</div>${cv.memo?`<div class="comm-note">💬 "${cv.memo}"</div>`:''}</div></div><div class="comm-card-footer"><button class="comm-btn primary" onclick="saveComm('${cv.vid}','${cv.pt}','${cv.title.replace(/'/g,"\\'")}')">＋ 保存</button><button class="comm-btn" onclick="window.open('${ext}','_blank')">▶ 再生</button><span class="saves">💾 ${cv.saves}件保存</span></div></div>`;}).join('')||'<div class="empty"><div class="e">🔍</div><p>条件に一致する動画が見つかりません</p></div>';
+  document.getElementById('commFeed').innerHTML=feed.map(cv=>{const u=CUSERS.find(u=>u.id===cv.uid);const isYT=cv.pt==='youtube';const thumb=isYT?`https://img.youtube.com/vi/${cv.vid}/mqdefault.jpg`:`https://vumbnail.com/${cv.vid}.jpg`;const ext=isYT?`https://www.youtube.com/watch?v=${cv.vid}`:`https://vimeo.com/${cv.vid}`;const sc=cv.status==="練習中"?"s1":"s2";const se=cv.status==="練習中"?"🔵":"✅";return`<div class="comm-card"><div class="comm-card-hdr"><div class="belt-strip ${u?.belt||'white'}"></div><div class="user-name">${u?.name||'?'} <span style="font-size:10px;color:var(--text3)">${BELT_L[u?.belt||'white']}</span></div><span class="st-badge ${sc}">${se} ${cv.status}</span></div><div class="comm-card-body"><div class="comm-thumb" onclick="window.open('${ext}','_blank')"><img src="${thumb}" onerror="this.style.display='none'"><div class="comm-play-ov"><div class="play-btn" style="width:26px;height:26px;font-size:10px">▶</div></div><div class="pb ${isYT?'pb-yt':'pb-vm'}" style="position:absolute;top:3px;right:3px">${isYT?'YT':'Vmeo'}</div></div><div class="comm-video-info"><div class="comm-title">${cv.title}</div><div class="card-tags" style="margin-bottom:3px">${cv.tags.map(t=>`<span class="tag tag-tech">${t}</span>`).join('')}${cv.pos.map(p=>`<span class="tag tag-pos">${p}</span>`).join('')}</div>${cv.memo?`<div class="comm-note">💬 "${cv.memo}"</div>`:''}</div></div><div class="comm-card-footer"><button class="comm-btn primary" onclick="saveComm('${cv.vid}','${cv.pt}','${cv.title.replace(/'/g,"\\'")}')">＋ 保存</button><button class="comm-btn" onclick="window.open('${ext}','_blank')">▶ 再生</button><span class="saves">💾 ${cv.saves}件保存</span></div></div>`;}).join('')||'<div class="empty"><div class="e">🔍</div><p>条件に一致する動画が見つかりません</p></div>';
   document.getElementById('userList').innerHTML=CUSERS.map(u=>`<div class="profile-card"><div class="avatar">🥋</div><div style="flex-shrink:0;margin-right:4px"><div class="belt-strip ${u.belt}" style="width:26px"></div></div><div style="flex:1"><div style="font-size:13px;font-weight:800;margin-bottom:2px">${u.name}</div><div style="font-size:10px;color:var(--text3)">${BELT_L[u.belt]} | ${u.gym} | ${u.vids}本公開 | フォロワー${u.fols}</div></div><button class="follow-btn ${u.following?'on':''}" onclick="togFollow('${u.id}',this)">${u.following?'フォロー中':'フォロー'}</button></div>`).join('');
 }
 function togFollow(uid,el){const u=CUSERS.find(u=>u.id===uid);if(!u)return;u.following=!u.following;el.className='follow-btn'+(u.following?' on':'');el.textContent=u.following?'フォロー中':'フォロー';toast(u.following?`${u.name} をフォローしました`:`${u.name} のフォローを解除`);}
-function saveComm(vid,pt,title){if(videos.some(v=>v.id===vid)){toast('すでにライブラリにあります');return;}videos.push({id:vid,pt,title,ch:'',pl:'コミュニティから保存',tb:[],ac:[],pos:[],tech:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});window.AF?.();toast('✅ ライブラリに保存しました');}
+function saveComm(vid,pt,title){if(videos.some(v=>v.id===vid)){toast('すでにライブラリにあります');return;}videos.push({id:vid,pt,title,ch:'',pl:'コミュニティから保存',tb:[],cat:[],pos:[],tags:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});window.AF?.();toast('✅ ライブラリに保存しました');}
 
-function openEdit(id){const v=videos.find(v=>v.id===id);if(!v)return;editId=id;document.getElementById('editSub').textContent=v.title;dFav=v.fav;dWatch=v.watched;dPrio=v.prio;dStat=v.status;dShare=v.shared||0;dTags={tb:new Set(v.tb),action:new Set(v.ac),pos:new Set(v.pos),tech:new Set(v.tech)};syncUI(v);document.getElementById('editOv').classList.add('open');}
+function openEdit(id){const v=videos.find(v=>v.id===id);if(!v)return;editId=id;document.getElementById('editSub').textContent=v.title;dFav=v.fav;dWatch=v.watched;dPrio=v.prio;dStat=v.status;dShare=v.shared||0;dTags={tb:new Set(v.tb),action:new Set(v.cat),pos:new Set(v.pos),tech:new Set(v.tags)};syncUI(v);document.getElementById('editOv').classList.add('open');}
 function syncUI(v){
   const ft=document.getElementById('favTog'),ftx=document.getElementById('favTxt');ft.className='fav-toggle'+(dFav?' on':'');ftx.textContent=dFav?'お気に入り登録中 ⭐':'お気に入りに追加';
   setShare(dShare);
@@ -1485,7 +1485,7 @@ function dPrioF(p,el){dPrio=p;document.querySelectorAll('.prio-opt:not(#watchOpt
 function dStatF(s,el){dStat=s;document.querySelectorAll('.status-opt').forEach(e=>e.className='status-opt');el.classList.add(s==='未着手'?'ss0':s==='練習中'?'ss1':'ss2');}
 function dTag(type,val,el){const set=dTags[type],cls=type==='tb'?'sel-tb':type==='action'?'sel-act':'sel-pos';set.has(val)?(set.delete(val),el.className='tag-opt'):(set.add(val),el.className='tag-opt '+cls);}
 function setShare(n){dShare=n;[0,1,2].forEach(i=>{const el=document.getElementById(`sh${i}`);if(el)el.classList.toggle('sel',i===n);});}
-function filterTechs(){const q=document.getElementById('techSrch').value.toLowerCase().trim();const all=[...new Set([...TECH,...videos.flatMap(v=>v.tech)])].sort();const fil=q?all.filter(t=>t.toLowerCase().includes(q)):all;const add=q&&!all.some(t=>t===q);document.getElementById('techRes').innerHTML=(add?`<div class="tech-pill" onclick="addCT('${q}')">＋「${q}」を追加</div>`:'')+fil.slice(0,32).map(t=>`<div class="tech-pill ${dTags.tech.has(t)?'active':''}" onclick="togTech('${t}',this)">${t}</div>`).join('');}
+function filterTechs(){const q=document.getElementById('techSrch').value.toLowerCase().trim();const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();const fil=q?all.filter(t=>t.toLowerCase().includes(q)):all;const add=q&&!all.some(t=>t===q);document.getElementById('techRes').innerHTML=(add?`<div class="tech-pill" onclick="addCT('${q}')">＋「${q}」を追加</div>`:'')+fil.slice(0,32).map(t=>`<div class="tech-pill ${dTags.tech.has(t)?'active':''}" onclick="togTech('${t}',this)">${t}</div>`).join('');}
 function togTech(t,el){dTags.tech.has(t)?(dTags.tech.delete(t),el.classList.remove('active')):(dTags.tech.add(t),el.classList.add('active'));renderST();}
 function addCT(t){if(t&&!dTags.tech.has(t)){dTags.tech.add(t);document.getElementById('techSrch').value='';filterTechs();renderST();}}
 function techKD(e){if(e.key==='Enter'){const q=document.getElementById('techSrch').value.trim();if(q)addCT(q);}}
@@ -1552,7 +1552,7 @@ function runAI(){const v=videos.find(v=>v.id===editId);if(!v)return;const btn=do
   const total=tags.tech.length+tags.tb.length+tags.ac.length+tags.pos.length;
   toast(`✨ ${total}件のタグを自動設定`);
 },600);}
-function saveEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.fav=dFav;v.watched=dWatch;v.prio=dPrio||v.prio;v.status=dStat||v.status;v.shared=dShare;v.tb=[...dTags.tb];v.ac=[...dTags.action];const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};v.pos=[...dTags.pos].map(p=>pm[p]||p);v.tech=[...dTags.tech];v.memo=document.getElementById('dMemo').value.trim();closeOv('editOv');window.AF?.();toast('💾 保存しました');}
+function saveEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.fav=dFav;v.watched=dWatch;v.prio=dPrio||v.prio;v.status=dStat||v.status;v.shared=dShare;v.tb=[...dTags.tb];v.cat=[...dTags.action];const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};v.pos=[...dTags.pos].map(p=>pm[p]||p);v.tags=[...dTags.tech];v.memo=document.getElementById('dMemo').value.trim();closeOv('editOv');window.AF?.();toast('💾 保存しました');}
 function archEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.archived=true;closeOv('editOv');window.AF?.();toastUndo('📦 アーカイブ',()=>{v.archived=false;window.AF?.();});}
 function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');window.AF?.();toast('除外しました');});}
 function delEdit(){const v=videos.find(v=>v.id===editId);showConf('🗑 削除',`「${v?.title}」を削除しますか？`,()=>{videos=videos.filter(v=>v.id!==editId);closeOv('editOv');window.AF?.();toast('削除しました');});}
@@ -2237,8 +2237,8 @@ function openPos(){document.getElementById('pos-s').value='';renderPos();documen
 function renderPos(){
   const q=document.getElementById('pos-s').value.trim();
   const ql=q.toLowerCase();
-  // 既存タグ = POS_TAGS + 動画に付いているposタグを合わせて重複排除・ソート
-  const allPos=[...new Set([...POS_TAGS,...videos.flatMap(v=>v.pos||[])])].sort();
+  // 既存タグ = POSITIONS + 動画に付いているposタグを合わせて重複排除・ソート
+  const allPos=[...new Set([...(window.POSITIONS||[]).map(p=>p.ja),...videos.flatMap(v=>v.pos||[])])].sort();
   const matched=allPos.filter(p=>!ql||p.toLowerCase().includes(ql));
   let html=matched.map(p=>{const n=countContextual('position',p);return`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}${cntBadge(n)}</div>`;}).join('');
   // ヒットなし or 完全一致なし → 新規追加ボタン
@@ -2363,8 +2363,8 @@ function buildStatRow(id){
 }
 // ─── Build all sliders ───
 function buildAllSliders() {
-  buildSrow('srow-tb',  TB_TAGS,  'tb',       false);
-  buildSrow('srow-ac',  AC_TAGS,  'action',   true);
+  buildSrow('srow-tb',  window.TB_VALUES||['トップ','ボトム','スタンディング'],  'tb',       false);
+  buildSrow('srow-ac',  (window.CATEGORIES||[]).map(c=>c.name),  'action',   true);
   buildPosSrow();
   buildPlSrow();
   buildTechSrow();
@@ -2386,8 +2386,8 @@ function buildAllSliders() {
 const _openEdit = openEdit;
 openEdit = function(id) {
   _openEdit(id);
-  rebuildEditGrid('dAct', AC_TAGS,  'action', 'sel-act');
-  rebuildEditGrid('dPos', POS_TAGS, 'pos',    'sel-pos');
+  rebuildEditGrid('dAct', (window.CATEGORIES||[]).map(c=>c.name),  'action', 'sel-act');
+  rebuildEditGrid('dPos', (window.POSITIONS||[]).map(p=>p.ja), 'pos',    'sel-pos');
 };
 
 function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
@@ -2418,7 +2418,7 @@ function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
     inp.value = '';
     rebuildEditGrid(gridId, tagList, dTagKey, selCls);
     // also refresh the filter slider
-    if (dTagKey === 'action') buildSrow('srow-ac',  AC_TAGS,  'action',   true);
+    if (dTagKey === 'action') buildSrow('srow-ac',  (window.CATEGORIES||[]).map(c=>c.name),  'action',   true);
     if (dTagKey === 'pos')    buildPosSrow();
     toast('タグを追加: ' + v);
   });
@@ -2427,8 +2427,8 @@ function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
 
 
 function buildMirrorRows(){
-  buildSrow('msrow-tb',TB_TAGS,'tb',false);
-  buildSrow('msrow-ac',AC_TAGS,'action',false);
+  buildSrow('msrow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);
+  buildSrow('msrow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',false);
   buildMirrorPosSrow();
   // Series mirror — picker style
   const mpl=document.getElementById('msrow-pl');
@@ -2468,11 +2468,11 @@ function buildMirrorRows(){
 function buildFsTbSrow(){
   const row=document.getElementById('fs-srow-tb');if(!row)return;
   row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.tb.size===0,function(){filters.tb.clear();buildFsTbSrow();buildSrow('srow-tb',TB_TAGS,'tb',false);window.AF?.();}));
+  row.appendChild(mkChip('すべて',filters.tb.size===0,function(){filters.tb.clear();buildFsTbSrow();buildSrow('srow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);window.AF?.();}));
   [...filters.tb].forEach(function(t){
     const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
     el.textContent=t+' ×';
-    el.onclick=function(){filters.tb.delete(t);buildFsTbSrow();buildSrow('srow-tb',TB_TAGS,'tb',false);window.AF?.();};
+    el.onclick=function(){filters.tb.delete(t);buildFsTbSrow();buildSrow('srow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);window.AF?.();};
     row.appendChild(el);
   });
   const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
@@ -2481,22 +2481,22 @@ function buildFsTbSrow(){
 function buildFsAcSrow(){
   const row=document.getElementById('fs-srow-ac');if(!row)return;
   row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.action.size===0,function(){filters.action.clear();buildFsAcSrow();buildSrow('srow-ac',AC_TAGS,'action',true);window.AF?.();}));
+  row.appendChild(mkChip('すべて',filters.action.size===0,function(){filters.action.clear();buildFsAcSrow();buildSrow('srow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',true);window.AF?.();}));
   [...filters.action].forEach(function(a){
     const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
     el.textContent=a+' ×';
-    el.onclick=function(){filters.action.delete(a);buildFsAcSrow();buildSrow('srow-ac',AC_TAGS,'action',true);window.AF?.();};
+    el.onclick=function(){filters.action.delete(a);buildFsAcSrow();buildSrow('srow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',true);window.AF?.();};
     row.appendChild(el);
   });
   const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
   btn.textContent='＋ 選ぶ';btn.onclick=openAcPicker;row.appendChild(btn);
 }
 function openTbPicker(){document.getElementById('tb-picker-s').value='';renderTbPicker();document.getElementById('tbPickerOv').classList.add('open');}
-function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();document.getElementById('tbPickerR').innerHTML=TB_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
-function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',TB_TAGS,'tb',false);window.AF?.();}
+function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();const _TB=window.TB_VALUES||['トップ','ボトム','スタンディング'];document.getElementById('tbPickerR').innerHTML=_TB.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
+function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);window.AF?.();}
 function openAcPicker(){document.getElementById('ac-picker-s').value='';renderAcPicker();document.getElementById('acPickerOv').classList.add('open');}
-function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();document.getElementById('acPickerR').innerHTML=AC_TAGS.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('action',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
-function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',AC_TAGS,'action',true);window.AF?.();}
+function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();const _AC=(window.CATEGORIES||[]).map(c=>c.name);document.getElementById('acPickerR').innerHTML=_AC.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('action',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
+function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',true);window.AF?.();}
 
 // ─── Filter sidebar builders ───
 function buildFsPosSrow(){
