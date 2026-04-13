@@ -211,7 +211,28 @@ function migrateVideo(v) {
 
 function migrateAll(videos) {
   if (!Array.isArray(videos)) return videos;
-  return videos.map(migrateVideo);
+  const result = videos.map(migrateVideo);
+  // 全動画の旧カテゴリ名を新名に変換（migrateVideoでスキップされた既存データ向け）
+  _remapOldCatNames(result);
+  return result;
+}
+
+function _remapOldCatNames(videos) {
+  if (!Array.isArray(videos)) return;
+  for (const v of videos) {
+    if (!Array.isArray(v.cat) || !v.cat.length) continue;
+    const newCat = new Set();
+    for (const c of v.cat) {
+      const mapped = _AC_TO_CAT[c];
+      if (mapped) newCat.add(mapped);
+      else if (CATEGORIES.some(cat => cat.name === c)) newCat.add(c); // 既に新名ならそのまま
+      // マッピングにもCATEGORIESにもない値は捨てる
+    }
+    v.cat = Array.from(newCat);
+    // 旧フィールドクリーンアップ
+    delete v.ac;
+    delete v.tech;
+  }
 }
 
 // ─── タイトルから自動タグ付け (ルールベース) ───────
