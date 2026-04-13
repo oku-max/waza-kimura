@@ -267,6 +267,30 @@ window.toggleTbLock = function(videoId) {
 };
 
 // ── 取り込み時の自動AIタグ付け (バルク) ──
+const AI_BATCH_DELAY = 1200;   // リクエスト間隔 (ms)
+const AI_RETRY_MAX   = 2;      // 502時のリトライ回数
+const AI_RETRY_WAIT  = 5000;   // リトライ待機 (ms)
+
+function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function _fetchWithRetry(video) {
+  for (let attempt = 0; attempt <= AI_RETRY_MAX; attempt++) {
+    try {
+      return await fetchAiTags(video);
+    } catch (e) {
+      const is502 = e.message && e.message.includes('502');
+      const isRate = e.message && (e.message.includes('429') || e.message.includes('rate'));
+      if ((is502 || isRate) && attempt < AI_RETRY_MAX) {
+        const wait = AI_RETRY_WAIT * (attempt + 1);
+        console.log(`[AI-Tag] ${is502?'502':'429'} — ${wait}ms待機後リトライ (${attempt+1}/${AI_RETRY_MAX})`);
+        await _sleep(wait);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 export async function autoTagNewVideos(ids) {
   if (!ids?.length) return;
   const videos = window.videos || [];
@@ -276,7 +300,7 @@ export async function autoTagNewVideos(ids) {
     const video = videos.find(v => v.id === id);
     if (!video) continue;
     try {
-      const suggestions = await fetchAiTags(video);
+      const suggestions = await _fetchWithRetry(video);
       totalAdded += _applyNewTagsToVideo(video, suggestions);
     } catch (e) {
       console.warn('autoTag failed for', id, e);
@@ -284,6 +308,8 @@ export async function autoTagNewVideos(ids) {
     }
     done++;
     if (ids.length > 1) window.toast?.(`🤖 AIタグ付け中... ${done}/${ids.length}`);
+    // レート制限回避: 次のリクエストまで待機
+    if (done < ids.length) await _sleep(AI_BATCH_DELAY);
   }
   if (totalAdded > 0) window.debounceSave?.();
   const errNote = errors ? ` (${errors}件失敗)` : '';
