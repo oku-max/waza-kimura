@@ -65,6 +65,10 @@ export async function loadUserData(uid) {
           window.videos = window.migrateAllVideos(window.videos);
           console.log(`[tag-master] migrated ${before} videos to 4-layer schema`);
         }
+        // 未タグの動画にタイトルからルールベースタグを補完
+        if (window.retagAllFromTitle && window.videos) {
+          window.retagAllFromTitle();
+        }
         if (window.AF) window.AF();
         showToast('✅ データを読み込みました');
       }

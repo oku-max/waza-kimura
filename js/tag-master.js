@@ -11,16 +11,16 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 // ─── Layer 2: Category (10 fixed, user editable) ─────
 // name : 表示名 / desc : AI が分類に使う説明文 / aliases : 検索ヒット用
 const CATEGORIES = [
-  { id: 'finish',     name: 'フィニッシュ',           desc: 'チョーク・関節技など相手を極めにいく動作', aliases: ['Submission','Finish','サブミッション'] },
-  { id: 'pass',       name: 'パスガード',             desc: '相手のガードを越えてトップを取る動作',     aliases: ['Guard Pass','Passing'] },
+  { id: 'finish',     name: 'フィニッシュ',           desc: 'チョーク・関節技など相手を極めにいく動作', aliases: ['Submission','Finish','サブミッション','チョーク','アームロック','アームバー','キムラ','三角','三角絞め','オモプラッタ','ギロチン','腕十字','絞め'] },
+  { id: 'pass',       name: 'パスガード',             desc: '相手のガードを越えてトップを取る動作',     aliases: ['Guard Pass','Passing','パス'] },
   { id: 'sweep',      name: 'スイープ',               desc: 'ボトムから相手をひっくり返す動作',         aliases: ['Sweep'] },
-  { id: 'entry',      name: 'ガード構築・エントリー', desc: 'ガードを取る・特定ガードの入り口',         aliases: ['Guard Entry','Setup'] },
-  { id: 'retention',  name: 'ガードリテンション',     desc: '足を取られないボトムの守り',               aliases: ['Guard Retention','Retention'] },
+  { id: 'entry',      name: 'ガード構築・エントリー', desc: 'ガードを取る・特定ガードの入り口',         aliases: ['Guard Entry','Setup','エントリー','ガード構築'] },
+  { id: 'retention',  name: 'ガードリテンション',     desc: '足を取られないボトムの守り',               aliases: ['Guard Retention','Retention','リテンション'] },
   { id: 'takedown',   name: 'テイクダウン',           desc: '立ちから相手を倒す動作（投げ技含む）',     aliases: ['Takedown','Throw','投げ'] },
-  { id: 'back',       name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',     aliases: ['Back Take','Back Attack'] },
-  { id: 'escape',     name: 'エスケープ・ディフェンス', desc: '不利ポジションからの脱出と防御',         aliases: ['Escape','Defense','ディフェンス'] },
-  { id: 'control',    name: 'コントロール／プレッシャー', desc: 'トップポジションの維持・押さえ',       aliases: ['Control','Pressure','Top Control'] },
-  { id: 'concept',    name: 'コンセプト・原理',       desc: '技ではない原則的な学び',                   aliases: ['Concept','Principle','理論'] },
+  { id: 'back',       name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',     aliases: ['Back Take','Back Attack','バックテイク','バックアタック','バック'] },
+  { id: 'escape',     name: 'エスケープ・ディフェンス', desc: '不利ポジションからの脱出と防御',         aliases: ['Escape','Defense','ディフェンス','エスケープ'] },
+  { id: 'control',    name: 'コントロール／プレッシャー', desc: 'トップポジションの維持・押さえ',       aliases: ['Control','Pressure','Top Control','コントロール','プレッシャー'] },
+  { id: 'concept',    name: 'コンセプト・原理',       desc: '技ではない原則的な学び',                   aliases: ['Concept','Principle','理論','コンセプト'] },
 ];
 
 // ─── Layer 3: Position (21 fixed, bottom-side) ───────
@@ -152,8 +152,13 @@ const _AC_TO_CAT = {
 
 function migrateVideo(v) {
   if (!v || typeof v !== 'object') return v;
-  // 既に新形式の場合はスキップ
-  if (Array.isArray(v.cat) && Array.isArray(v.tags) && 'tbLocked' in v) return v;
+  // 既に新形式のフィールドが1つでもあれば、残りを補完してスキップ（上書き防止）
+  if (Array.isArray(v.cat) || Array.isArray(v.tags) || 'tbLocked' in v) {
+    if (!Array.isArray(v.cat))  v.cat  = [];
+    if (!Array.isArray(v.tags)) v.tags = [];
+    if (!('tbLocked' in v))     v.tbLocked = false;
+    return v;
+  }
 
   const oldTB   = Array.isArray(v.tb)   ? v.tb.slice()   : [];
   const oldAC   = Array.isArray(v.ac)   ? v.ac.slice()   : [];
@@ -261,6 +266,40 @@ function autoTagFromTitle(title) {
   return result;
 }
 
+// ─── 既存動画の一括タイトルタグ付け ──────────────
+// 未タグの動画にタイトルからルールベースタグを付与する (上書きはしない)
+function retagAllFromTitle() {
+  const videos = window.videos || [];
+  let updated = 0;
+  for (const v of videos) {
+    if (!v.title) continue;
+    const tags = autoTagFromTitle(v.title);
+    let changed = false;
+    // TB: 空の場合のみ追加
+    if ((!v.tb || !v.tb.length) && tags.tb.length) {
+      v.tb = tags.tb; changed = true;
+    }
+    // Cat: 空の場合のみ追加
+    if ((!v.cat || !v.cat.length) && tags.cat.length) {
+      v.cat = tags.cat; changed = true;
+    }
+    // Pos: 空の場合のみ追加
+    if ((!v.pos || !v.pos.length) && tags.pos.length) {
+      v.pos = tags.pos; changed = true;
+    }
+    // tbLocked 確保
+    if (!('tbLocked' in v)) { v.tbLocked = false; changed = true; }
+    if (changed) updated++;
+  }
+  if (updated > 0) {
+    window.debounceSave?.();
+    window.AF?.();
+  }
+  console.log(`[retagAll] ${updated}/${videos.length} videos updated from title`);
+  window.toast?.(`🏷 ${updated}本のタグをタイトルから補完しました`);
+  return updated;
+}
+
 // ─── exports ──────────────────────────────────────
 window.TB_VALUES      = TB_VALUES;
 window.CATEGORIES     = CATEGORIES;
@@ -273,3 +312,4 @@ window.matchCategory  = matchCategory;
 window.migrateVideo   = migrateVideo;
 window.migrateAllVideos = migrateAll;
 window.autoTagFromTitle = autoTagFromTitle;
+window.retagAllFromTitle = retagAllFromTitle;
