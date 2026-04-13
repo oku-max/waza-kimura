@@ -126,7 +126,7 @@ export function buildBulkDrawerHTML() {
   // Category row (トグルチップ)
   const catRow = CATS.map(c => {
     const on = commonCat.includes(c.name);
-    return `<span class="vp-chip${on?' on-ac':''}" style="cursor:pointer" title="${_esc(c.desc||'')}" onclick="bvpToggleV4('cat','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
+    return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc||'')}" onclick="bvpToggleV4('cat','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
   }).join('');
 
   // Position row (選択中チップ + ピッカー)
@@ -142,7 +142,7 @@ export function buildBulkDrawerHTML() {
 
   // #タグ row (選択中チップ + 検索入力)
   const tagChips = commonTags.map(t =>
-    `<span class="vp-chip on-tech" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">#${_esc(t)} ×</span>`
+    `<span class="vp-chip on-tags" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">#${_esc(t)} ×</span>`
   ).join('');
   const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
     <input class="vp-dd-search" id="bvp-tag-inp" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
@@ -295,7 +295,7 @@ export function bvpDdAddNew(key, val) {
 export function bvpDdFilter(key, q) { bvpRenderDdList(key, q); }
 
 export function bvpDdToggle(key, val, el) {
-  const fieldMap = {tb:'tb', ac:'ac', pos:'pos', tech:'tech'};
+  const fieldMap = {tb:'tb', cat:'cat', pos:'pos', tags:'tags'};
   const field = fieldMap[key]; if (!field) return;
   const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
   if (!selVids.length) return;
@@ -312,7 +312,7 @@ export function bvpDdToggle(key, val, el) {
 }
 
 export function bvpChipRm(key, val) {
-  const fieldMap = {tb:'tb', ac:'ac', pos:'pos', tech:'tech'};
+  const fieldMap = {tb:'tb', cat:'cat', pos:'pos', tags:'tags'};
   const field = fieldMap[key]; if (!field) return;
   const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
   bulkSnapshot();
@@ -327,7 +327,7 @@ export function bvpChipRm(key, val) {
 }
 
 function _bvpRefreshChips(key, field, selVids) {
-  const onCls = {tb:'on-tb',ac:'on-ac',pos:'on-pos',tech:'on-tech'}[key];
+  const onCls = {tb:'on-tb',cat:'on-cat',pos:'on-pos',tags:'on-tags'}[key];
   const common = selVids.length ? (selVids[0][field]||[]).filter(v => selVids.every(sv=>(sv[field]||[]).includes(v))) : [];
   const chipsEl = document.getElementById('bvp-' + key);
   if (!chipsEl) return;
@@ -467,7 +467,7 @@ export function bvpToggleV4(field, val, el) {
     if(allHave) { v[field] = v[field].filter(t=>t!==val); }
     else { if(!v[field].includes(val)) v[field].push(val); }
   });
-  const onCls = {tb:'on-tb',cat:'on-ac',pos:'on-pos',tags:'on-tech'}[field]||'';
+  const onCls = {tb:'on-tb',cat:'on-cat',pos:'on-pos',tags:'on-tags'}[field]||'';
   if(el) el.classList.toggle(onCls, !allHave);
   window.toastUndo?.((window.selIds||new Set()).size+'本の'+val+'を'+(allHave?'解除':'追加'), bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
@@ -602,7 +602,7 @@ export function bvpAddTech() {
   const row = document.getElementById('bvp-tech');
   if(row) {
     const chip = document.createElement('span');
-    chip.className='vp-chip on-tech vp-tech-rm'; chip.dataset.val=val;
+    chip.className='vp-chip on-tags vp-tech-rm'; chip.dataset.val=val;
     chip.textContent=val+' ×';
     chip.onclick=function(){bvpRemoveTag('tech',this);};
     row.appendChild(chip);
@@ -759,14 +759,14 @@ const BULK_PICKER_OPTS_BASE = {
   status: [{val:'watched',label:'視聴済み'},{val:'unwatched',label:'未視聴'},{val:'fav-add',label:'Fav 追加'},{val:'fav-remove',label:'Fav 解除'}],
   prio: [{val:'今すぐ',label:'今すぐ'},{val:'そのうち',label:'そのうち'},{val:'保留',label:'保留'}],
   prog: [{val:'未着手',label:'未着手'},{val:'練習中',label:'練習中'},{val:'マスター',label:'マスター'}],
-  tb:   [{val:'トップ',label:'トップ'},{val:'ボトム',label:'ボトム'},{val:'スタンディング',label:'スタンディング'},{val:'バック',label:'バック'},{val:'ハーフ',label:'ハーフ'},{val:'ドリル',label:'ドリル'}],
-  ac:   [{val:'エスケープ・ディフェンス',label:'エスケープ・ディフェンス'},{val:'パスガード',label:'パスガード'},{val:'アタック',label:'アタック'},{val:'スイープ',label:'スイープ'},{val:'リテンション',label:'リテンション'},{val:'コントロール',label:'コントロール'},{val:'テイクダウン',label:'テイクダウン'},{val:'フィニッシュ',label:'フィニッシュ'},{val:'ドリル',label:'ドリル'}]
+  tb:   [{val:'トップ',label:'トップ'},{val:'ボトム',label:'ボトム'},{val:'スタンディング',label:'スタンディング'}],
+  cat:  [{val:'エスケープ・ディフェンス',label:'エスケープ・ディフェンス'},{val:'ガード構築・エントリー',label:'ガード構築・エントリー'},{val:'ガードリテンション',label:'ガードリテンション'},{val:'コントロール／プレッシャー',label:'コントロール／プレッシャー'},{val:'コンセプト・原理',label:'コンセプト・原理'},{val:'スイープ',label:'スイープ'},{val:'テイクダウン',label:'テイクダウン'},{val:'バックテイク・バックアタック',label:'バックテイク・バックアタック'},{val:'パスガード',label:'パスガード'},{val:'フィニッシュ',label:'フィニッシュ'}]
 };
 
 export function getBulkPickerOpts(type) {
   if(type !== 'pos') return BULK_PICKER_OPTS_BASE[type] || [];
   // Positionはライブラリ既存データ＋固定リストを統合
-  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
   const videos = window.videos || [];
   const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
   return all.map(p => ({val:p, label:p}));
@@ -788,13 +788,13 @@ export function bulkUndo(){
 
 export function resetBulkPickers(){
   document.querySelectorAll('#bulkBar .bb-chip').forEach(b => {
-    b.classList.remove('bb-on','bb-on-tb','bb-on-ac','bb-on-pos','bb-on-tech');
+    b.classList.remove('bb-on','bb-on-tb','bb-on-cat','bb-on-pos','bb-on-tags');
   });
   // ポップアップパネル内チップもリセット
   document.querySelectorAll('.bb-panel-chip').forEach(b => b.classList.remove('bb-on'));
   document.querySelectorAll('.bb-panel.open').forEach(p => p.classList.remove('open'));
   // プレビュー/カウントをリセット
-  ['pos','tech'].forEach(type => {
+  ['pos','tags'].forEach(type => {
     const prev = document.getElementById('bb-' + type + '-preview');
     const cnt  = document.getElementById('bb-' + type + '-count');
     if (prev) prev.innerHTML = '';
@@ -1080,7 +1080,7 @@ window.bulkTagReset = function() {
   const ids = [...(window.selIds||new Set())];
   const videos = window.videos || [];
   const ts = window.tagSettings || [];
-  const fields = ['tb','ac','pos','tech'];
+  const fields = ['tb','cat','pos','tags'];
   const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
 
   document.getElementById('vp-tag-reset-popup')?.remove();
@@ -1196,9 +1196,9 @@ export function bulkChipToggle(type, val, el) {
   try {
     if(!(window.selIds||new Set()).size) { window.toast?.('動画を選択してください'); return; }
     bulkSnapshot();
-    const field = type === 'tb' ? 'tb' : type === 'ac' ? 'ac' : type === 'pos' ? 'pos' : 'tech';
+    const field = type === 'tb' ? 'tb' : type === 'cat' ? 'cat' : type === 'pos' ? 'pos' : 'tags';
     const isOn = el.classList.contains('bb-on');
-    const onClass = 'bb-on-' + (field === 'tb' ? 'tb' : field === 'ac' ? 'ac' : field === 'pos' ? 'pos' : 'tech');
+    const onClass = 'bb-on-' + (field === 'tb' ? 'tb' : field === 'cat' ? 'cat' : field === 'pos' ? 'pos' : 'tags');
     const ids = [...(window.selIds||new Set())];
     const videos = window.videos || [];
     let added = 0, removed = 0;

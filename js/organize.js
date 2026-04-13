@@ -479,7 +479,7 @@ export function openOrgPos(){document.getElementById('org-pos-s').value='';rende
 
 export function renderOrgPos(){
   const q=document.getElementById('org-pos-s').value.toLowerCase();
-  const POS_BASE=['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_BASE=['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
   const videos = window.videos || [];
   const all=[...new Set([...POS_BASE,...videos.flatMap(v=>v.pos||[])])].sort();
   const matched=all.filter(p=>!q||p.toLowerCase().includes(q));
@@ -514,7 +514,7 @@ export function renderOrgTF(){
   const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();
   const matched=all.filter(t=>!q||t.toLowerCase().includes(q));
   document.getElementById('orgTFR').innerHTML=matched.map(t=>{
-    const n=window.countByField?.('tech',t);
+    const n=window.countByField?.('tags',t);
     return`<div class="tech-pill ${orgFilters.tech.has(t)?'active':''}" onclick="togOrgTech('${t.replace(/'/g,"\'")}',this)">${t}${window.cntBadge?.(n)}</div>`;
   }).join('');
 }

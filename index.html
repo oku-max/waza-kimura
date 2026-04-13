@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.7</title>
+<title>WAZA KIMURA v50.8</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -728,9 +728,9 @@
       </div>
 
       <!-- Action -->
-      <div class="fs-acc-sec" id="fs-acc-ac" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('ac', this)">
-          <span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-ac">▶</span>
+      <div class="fs-acc-sec" id="fs-acc-cat" style="display:none">
+        <div class="fs-acc-hdr" onclick="openSbPopup('cat', this)">
+          <span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-cat">▶</span>
         </div>
       </div>
 
@@ -742,9 +742,9 @@
       </div>
 
       <!-- Technique -->
-      <div class="fs-acc-sec" id="fs-acc-tech" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('tech', this)">
-          <span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tech">▶</span>
+      <div class="fs-acc-sec" id="fs-acc-tags" style="display:none">
+        <div class="fs-acc-hdr" onclick="openSbPopup('tags', this)">
+          <span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tags">▶</span>
         </div>
       </div>
 
@@ -858,9 +858,9 @@
       </div>
 
       <!-- Action -->
-      <div class="fs-acc-sec" id="org-fs-acc-ac" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('ac', this, 'org')">
-          <span>Action</span><span class="fs-acc-arrow" id="org-fs-acc-arr-ac">▶</span>
+      <div class="fs-acc-sec" id="org-fs-acc-cat" style="display:none">
+        <div class="fs-acc-hdr" onclick="openSbPopup('cat', this, 'org')">
+          <span>Action</span><span class="fs-acc-arrow" id="org-fs-acc-arr-cat">▶</span>
         </div>
       </div>
 
@@ -872,9 +872,9 @@
       </div>
 
       <!-- Technique -->
-      <div class="fs-acc-sec" id="org-fs-acc-tech" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('tech', this, 'org')">
-          <span>Technique</span><span class="fs-acc-arrow" id="org-fs-acc-arr-tech">▶</span>
+      <div class="fs-acc-sec" id="org-fs-acc-tags" style="display:none">
+        <div class="fs-acc-hdr" onclick="openSbPopup('tags', this, 'org')">
+          <span>Technique</span><span class="fs-acc-arrow" id="org-fs-acc-arr-tags">▶</span>
         </div>
       </div>
 
@@ -1181,18 +1181,18 @@
     <div class="bsep"></div>
 
     <!-- Action (コンパクト2列) -->
-    <div class="bgrp bb-bgrp-ac">
-      <span class="bgrp-lbl" data-tag-key="ac">Action</span>
-      <div class="bgrp-2col" id="bb-ac-row">
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="アタック"    onclick="bulkChipToggle('ac','アタック'   ,this)">アタック</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="スイープ"    onclick="bulkChipToggle('ac','スイープ'   ,this)">スイープ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="パスガード"  onclick="bulkChipToggle('ac','パスガード' ,this)">パスG</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="エスケープ・ディフェンス" onclick="bulkChipToggle('ac','エスケープ・ディフェンス',this)">エスケ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="リテンション" onclick="bulkChipToggle('ac','リテンション',this)">リテ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="コントロール" onclick="bulkChipToggle('ac','コントロール',this)">コント</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="テイクダウン" onclick="bulkChipToggle('ac','テイクダウン',this)">TD</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="フィニッシュ" onclick="bulkChipToggle('ac','フィニッシュ',this)">フィニ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="ac" data-val="ドリル"       onclick="bulkChipToggle('ac','ドリル'      ,this)">ドリル</button>
+    <div class="bgrp bb-bgrp-cat">
+      <span class="bgrp-lbl" data-tag-key="cat">Action</span>
+      <div class="bgrp-2col" id="bb-cat-row">
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="アタック"    onclick="bulkChipToggle('cat','アタック'   ,this)">アタック</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="スイープ"    onclick="bulkChipToggle('cat','スイープ'   ,this)">スイープ</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="パスガード"  onclick="bulkChipToggle('cat','パスガード' ,this)">パスG</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="エスケープ・ディフェンス" onclick="bulkChipToggle('cat','エスケープ・ディフェンス',this)">エスケ</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="リテンション" onclick="bulkChipToggle('cat','リテンション',this)">リテ</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="コントロール" onclick="bulkChipToggle('cat','コントロール',this)">コント</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="テイクダウン" onclick="bulkChipToggle('cat','テイクダウン',this)">TD</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="フィニッシュ" onclick="bulkChipToggle('cat','フィニッシュ',this)">フィニ</button>
+        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="ドリル"       onclick="bulkChipToggle('cat','ドリル'      ,this)">ドリル</button>
       </div>
     </div>
     <div class="bsep"></div>
@@ -1209,13 +1209,13 @@
     <div class="bsep"></div>
 
     <!-- Technique (ポップアップグリッド) -->
-    <div class="bgrp bb-bgrp-tech" style="position:relative">
-      <span class="bgrp-lbl" data-tag-key="tech">Technique</span>
+    <div class="bgrp bb-bgrp-tags" style="position:relative">
+      <span class="bgrp-lbl" data-tag-key="tags">Technique</span>
       <div class="bgrp-row">
-        <button class="bbt" id="bb-tech-trigger" onclick="toggleBbPanel('tech')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-tech-count" style="font-weight:700;color:var(--accent)"></span></button>
-        <div id="bb-tech-preview" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+        <button class="bbt" id="bb-tags-trigger" onclick="toggleBbPanel('tags')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-tags-count" style="font-weight:700;color:var(--accent)"></span></button>
+        <div id="bb-tags-preview" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
       </div>
-      <div class="bb-panel" id="bb-panel-tech"></div>
+      <div class="bb-panel" id="bb-panel-tags"></div>
     </div>
     <div class="bsep"></div>
 
@@ -2153,7 +2153,7 @@ function buildSrow(rowId, tagList, filterKey, addable, filterObj, renderFn) {
   row.appendChild(allEl);
 
   // filterKey → videoフィールドのマッピング（本数バッジ用）
-  const fieldMap = {'tb':'tb','action':'ac','position':'pos','tech':'tech'};
+  const fieldMap = {'tb':'tb','action':'cat','position':'pos','tech':'tags'};
   const countField = fieldMap[filterKey];
 
   tagList.forEach(function(tag) {
@@ -3344,17 +3344,17 @@ window.addEventListener('resize', adjustTopbarOffset);
         <span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span>
         <div class="fov-dd-row" id="org-fov-srow-tb"></div>
       </div>
-      <div class="fbar-row fov-row-ac">
-        <span class="fbar-lbl" data-tag-key="ac">Action</span>
-        <div class="fov-dd-row" id="org-fov-srow-ac"></div>
+      <div class="fbar-row fov-row-cat">
+        <span class="fbar-lbl" data-tag-key="cat">Action</span>
+        <div class="fov-dd-row" id="org-fov-srow-cat"></div>
       </div>
       <div class="fbar-row fov-row-pos">
         <span class="fbar-lbl" data-tag-key="pos">Position</span>
         <div class="fov-dd-row" id="org-fov-srow-pos"></div>
       </div>
-      <div class="fbar-row fov-row-tech" style="margin-bottom:2px">
-        <span class="fbar-lbl" data-tag-key="tech">Technique</span>
-        <div class="fov-dd-row" id="org-fov-srow-tech"></div>
+      <div class="fbar-row fov-row-tags" style="margin-bottom:2px">
+        <span class="fbar-lbl" data-tag-key="tags">Technique</span>
+        <div class="fov-dd-row" id="org-fov-srow-tags"></div>
       </div>
     </div>
     <!-- 保存した検索条件 -->
@@ -3473,9 +3473,9 @@ window.addEventListener('resize', adjustTopbarOffset);
     <!-- ▌旧 ポジション・テクニック (非表示・移行期間) -->
     <div class="fsec fsec-3" style="display:none">
       <div class="fbar-row fov-row-tb"><span class="fbar-lbl" data-tag-key="tb">TOP/BOTTOM</span><div class="fov-dd-row" id="fov-srow-tb"></div></div>
-      <div class="fbar-row fov-row-ac"><span class="fbar-lbl" data-tag-key="ac">Action</span><div class="fov-dd-row" id="fov-srow-ac"></div></div>
+      <div class="fbar-row fov-row-cat"><span class="fbar-lbl" data-tag-key="cat">Action</span><div class="fov-dd-row" id="fov-srow-cat"></div></div>
       <div class="fbar-row fov-row-pos"><span class="fbar-lbl" data-tag-key="pos">Position</span><div class="fov-dd-row" id="fov-srow-pos"></div></div>
-      <div class="fbar-row fov-row-tech"><span class="fbar-lbl" data-tag-key="tech">Technique</span><div class="fov-dd-row" id="fov-srow-tech"></div></div>
+      <div class="fbar-row fov-row-tags"><span class="fbar-lbl" data-tag-key="tags">Technique</span><div class="fov-dd-row" id="fov-srow-tags"></div></div>
     </div>
     <!-- 保存した検索条件 -->
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">

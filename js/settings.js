@@ -1,50 +1,67 @@
 // ═══ WAZA KIMURA — タグ設定 ═══
 
 const DEFAULT_TAG_SETTINGS = [
-  { key:'tb',   label:'TOP/BOTTOM', visible:true,  presets:['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'] },
-  { key:'ac',   label:'Action',     visible:true,  presets:['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル','その他'] },
-  { key:'pos',  label:'Position',   visible:true,  presets:['サイドコントロール','マウント','クローズドガード','ニーオン','ハーフガード','バタフライ','Xガード','デラヒーバ','バック','タートル','オープンガード','50/50','スタンディング','その他'] },
-  { key:'tech', label:'Technique',  visible:true,  presets:[] },
+  { key:'tb',   label:'TOP/BOTTOM', visible:true,  presets:['トップ','ボトム','スタンディング'] },
+  { key:'cat',  label:'Category',   visible:true,  presets:[] },  // CATEGORIES から自動取得
+  { key:'pos',  label:'Position',   visible:true,  presets:[] },  // POSITIONS から自動取得
+  { key:'tags', label:'#Tag',       visible:true,  presets:[] },
 ];
 
 export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
 
 // ── aiSettings ──
 const DEFAULT_BJJ_RULES = [
-  // ── TOP/BOTTOM 判定 ──
-  'ガード全般（クローズド、ハーフ、オープン、バタフライ等）はTOP/BOTTOM=ボトム。ただし「パスガード」「ガードパス」「pass」はTOP/BOTTOM=トップ',
-  'スイープ（sweep）はTOP/BOTTOM=ボトム（ボトムから仕掛ける技）',
-  'マウントエスケープ・サイドエスケープ等「エスケープ」はTOP/BOTTOM=ボトム（不利ポジションから逃げる側）',
-  'バックコントロール・バックテイクの攻め側はTOP/BOTTOM=バック',
-  'テイクダウン（takedown, single leg, double leg）はTOP/BOTTOM=スタンディング',
-  'ドリル動画（drill, 反復練習）はTOP/BOTTOM=ドリル, ACTION=ドリル',
-  // ── ACTION 判定 ──
-  'サブミッション（絞め・関節技）の仕掛けはACTION=フィニッシュ',
-  'サブミッションのディフェンスや脱出はACTION=エスケープ・ディフェンス',
-  'スイープ（相手をひっくり返す技）はACTION=スイープ',
-  'パスガード（ガードを越える技）はACTION=パスガード',
-  'ガードリテンション（ガードを維持する技術）はACTION=リテンション',
-  'テイクダウン（standing→ground）はACTION=テイクダウン',
-  'ポジションキープ・圧力維持はACTION=コントロール',
-  // ── POSITION 判定 ──
-  'closed guard / クローズドガード → POSITION=クローズドガード',
-  'half guard / ハーフガード / underhook half → POSITION=ハーフガード',
-  'deep half / ディープハーフ → POSITION=ハーフガード',
-  'mount / マウント → POSITION=マウント',
-  'side control / side mount / サイド / 袈裟固め → POSITION=サイドコントロール',
-  'knee on belly / ニーオン → POSITION=ニーオン',
-  'back control / back mount / バック → POSITION=バック',
-  'turtle / 亀 / がめ → POSITION=タートル',
-  'X guard / SLX / single leg X → POSITION=Xガード',
-  'De La Riva / DLR / デラヒーバ → POSITION=デラヒーバ',
-  'butterfly guard / バタフライ → POSITION=バタフライ',
-  'spider guard / lasso / スパイダー / ラッソー → POSITION=スパイダー・ラッソー',
-  '50/50 / fifty-fifty → POSITION=50/50',
-  'standing / スタンディング / 立ち技 → POSITION=スタンディング',
+  // ══ 最重要：推論指示 ══
+  'タイトルに直接書かれていなくても、BJJの専門知識から因果関係を推論してタグを判定せよ',
+  '例: "Berimbolo" → スイープ系の技でバックテイクに繋がる → cat:スイープ + cat:バックテイク・バックアタック',
+  '例: "Knee Cut Pass" → トップからのパスガード → TB:トップ, cat:パスガード',
+  '例: "Collar Sleeve to Omoplata" → ボトムのオープンガードからサブミッション → TB:ボトム, cat:フィニッシュ, pos:片襟片袖',
+  // ── TB (トップ/ボトム/スタンディング) 判定 ──
+  'ガード全般（クローズド、ハーフ、オープン、バタフライ、デラヒーバ等）を使う側 → TB=ボトム',
+  'パスガード（ガードパス / pass / knee cut / torreando 等）はガードを越える側 → TB=トップ',
+  'スイープ（sweep）はボトムから仕掛ける技 → TB=ボトム',
+  'エスケープ（マウントエスケープ、サイドエスケープ等）は不利側 → TB=ボトム',
+  'バックテイク・バックアタックの攻め側 → TB=トップ',
+  'バックからのエスケープ（背中を取られた側の脱出） → TB=ボトム',
+  'テイクダウン（takedown, single leg, double leg, 投げ技） → TB=スタンディング',
+  'コントロール（マウント、サイドコントロール、ニーオンベリー等でのキープ・圧力） → TB=トップ',
+  // ── カテゴリ判定（正式名のみ使用） ──
+  'サブミッション（絞め・関節技）の仕掛け → cat=フィニッシュ',
+  'サブミッションのディフェンス・脱出・不利ポジションからの逃げ → cat=エスケープ・ディフェンス',
+  'スイープ（相手をひっくり返す技） → cat=スイープ',
+  'パスガード（ガードを越える技） → cat=パスガード',
+  'ガードリテンション（ガードを維持する技術・フレーム・ポジション回復） → cat=ガードリテンション',
+  'テイクダウン（standing→ground） → cat=テイクダウン',
+  'トップポジションの維持・圧力・キープ → cat=コントロール／プレッシャー',
+  'バックを取る技・バックからの攻撃（チョーク含む） → cat=バックテイク・バックアタック',
+  'ガードを取る動作・特定ガードへのエントリー → cat=ガード構築・エントリー',
+  '原理・コンセプト・ドリル・理論解説 → cat=コンセプト・原理',
+  // ── ポジション判定（正式名のみ使用） ──
+  'closed guard / クローズドガード → pos=クローズドガード',
+  'half guard / ハーフガード / underhook half → pos=ハーフガード',
+  'deep half / ディープハーフ → pos=ディープハーフ',
+  'butterfly guard / バタフライ → pos=バタフライガード',
+  'X guard / エックスガード → pos=Xガード',
+  'single leg X / SLX → pos=SLX',
+  'De La Riva / DLR / デラヒーバ → pos=デラヒーバ',
+  'Reverse De La Riva / RDLR → pos=リバースデラヒーバ',
+  'spider guard / スパイダー → pos=スパイダーガード',
+  'lasso guard / ラッソー → pos=ラッソーガード',
+  'collar sleeve / 片襟片袖 → pos=片襟片袖',
+  'K guard / Kガード → pos=Kガード',
+  'worm guard / ワームガード → pos=ワームガード',
+  'lapel guard / ラペルガード → pos=ラペルガード',
+  'Z guard / knee shield / ニーシールド → pos=ニーシールド',
+  '50/50 / fifty-fifty → pos=50/50',
+  'saddle / 411 / honey hole / inside sankaku → pos=サドル',
+  'turtle / 亀 → pos=タートル',
+  'inverted guard / インバーテッド → pos=インバーテッド',
+  'standing / スタンディング / 立ち技 → pos=スタンディング',
   // ── 複合判定 ──
-  'タイトルに複数の技が含まれる場合（例: チャプターごとに異なる技）、すべてのタグを配列に含める',
-  'レッグロック系（ヒールフック、ニーバー等）で特にポジション記載がなければPOSITION=オープンガード or 50/50 を検討',
-  'ベリンボロ（berimbolo）はACTION=スイープ or アタック、TECHNIQUE=ベリンボロ',
+  'タイトルに複数の技が含まれる場合、すべてのタグを配列に含める',
+  'レッグロック系（ヒールフック、ニーバー、トーホールド等）→ cat=フィニッシュ、posは50/50 or サドル を検討',
+  'ベリンボロ（berimbolo）→ cat=スイープ + cat=バックテイク・バックアタック, tags=ベリンボロ',
+  'マウント・サイドコントロール・ニーオンベリー等のトップポジション名が出たら → それ自体はポジション名だがPOSITIONSリストにないので tags に入れる',
 ];
 
 export let aiSettings = {
@@ -139,7 +156,7 @@ export function applyTagLabels() {
 
 // ── 非表示カテゴリを body クラスで制御 ──
 export function applyTagVisibility() {
-  ['tb','ac','pos','tech'].forEach(key => {
+  ['tb','cat','pos','tags'].forEach(key => {
     const ts = tagSettings.find(t => t.key === key);
     document.body.classList.toggle('hide-' + key, ts ? !ts.visible : false);
   });
@@ -174,7 +191,7 @@ export function renderTagSettingsList() {
           onkeydown="if(event.key==='Enter')addTagPreset(${i})">
         <button onclick="addTagPreset(${i})" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;cursor:pointer">＋</button>
       </div>
-      ${tag.key === 'tech' ? `
+      ${tag.key === 'tags' ? `
         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
           <button onclick="window._techCleanup(${i})"
             style="padding:5px 14px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface);
@@ -261,7 +278,7 @@ export function renderTagPresets(i) {
       }
       // 動画からも削除
       (window.videos || []).forEach(function(v) {
-        ['tb','ac','pos','tech'].forEach(function(f) {
+        ['tb','cat','pos','tags'].forEach(function(f) {
           if (v[f]?.length) v[f] = v[f].filter(x => x !== t);
         });
       });
@@ -1109,7 +1126,7 @@ function _collectUnclassifiedTags() {
   const videos = window.videos || [];
   const unclassified = new Map(); // tag → { count, sources: Set<key> }
 
-  ['tb', 'ac', 'pos', 'tech'].forEach(field => {
+  ['tb', 'cat', 'pos', 'tags'].forEach(field => {
     videos.forEach(v => {
       (v[field] || []).forEach(tag => {
         if (allPresets.has(tag)) return; // 既にプリセットに登録済み
@@ -1156,7 +1173,7 @@ window._tagSortMode = function() {
   function _renderCard() {
     if (currentIdx >= items.length) { _finishSort(); return; }
     const item = items[currentIdx];
-    const sourceLabels = item.sources.map(s => ({ tb:'TB', ac:'AC', pos:'POS', tech:'TECH' }[s] || s)).join(', ');
+    const sourceLabels = item.sources.map(s => ({ tb:'TB', cat:'CAT', pos:'POS', tags:'TAGS' }[s] || s)).join(', ');
 
     // 属性ボタンを生成
     const attrBtns = tagSettings.map((ts, i) => {
@@ -1309,7 +1326,7 @@ window._tagSortMode = function() {
       if (blocked.length) {
         const blockSet = new Set(blocked.map(r => r.tag));
         (window.videos || []).forEach(v => {
-          ['tb', 'ac', 'pos', 'tech'].forEach(field => {
+          ['tb', 'cat', 'pos', 'tags'].forEach(field => {
             if (v[field]?.length) v[field] = v[field].filter(t => !blockSet.has(t));
           });
         });
@@ -1318,7 +1335,7 @@ window._tagSortMode = function() {
       // 分類先が異なる属性の場合、旧属性から移動
       assigned.forEach(r => {
         const targetField = r.targetKey;
-        const FIELD_MAP = { tb: 'tb', ac: 'ac', pos: 'pos', tech: 'tech' };
+        const FIELD_MAP = { tb: 'tb', cat: 'cat', pos: 'pos', tags: 'tags' };
         (window.videos || []).forEach(v => {
           // 全フィールドをチェック、targetField以外にあれば移動
           Object.values(FIELD_MAP).forEach(field => {

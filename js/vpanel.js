@@ -1661,7 +1661,7 @@ export function vpAddTechVal(id, val) {
   const container = document.getElementById('vp-tech-' + id);
   if (!container) return;
   const chip = document.createElement('span');
-  chip.className = 'vp-chip on-tech vp-tech-rm';
+  chip.className = 'vp-chip on-tags vp-tech-rm';
   chip.textContent = val + ' ×';
   chip.dataset.id = id; chip.dataset.val = val;
   chip.onclick = function(){ vpRemoveTechEl(this); };
@@ -1770,12 +1770,12 @@ export function vpRemovePosEl(el) {
 
 // ── タグドロップダウン ──
 const VP_TAG_OPTS_FALLBACK = {
-  tb:   ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル'],
-  ac:   ['エスケープ・ディフェンス','パスガード','アタック','スイープ','リテンション','コントロール','テイクダウン','フィニッシュ','ドリル'],
-  pos:  ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'],
-  tech: []
+  tb:   ['トップ','ボトム','スタンディング'],
+  cat:  ['エスケープ・ディフェンス','ガード構築・エントリー','ガードリテンション','コントロール／プレッシャー','コンセプト・原理','スイープ','テイクダウン','バックテイク・バックアタック','パスガード','フィニッシュ'],
+  pos:  ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'],
+  tags: []
 };
-const VP_FIELD_MAP = { tb:'tb', ac:'ac', pos:'pos', tech:'tech' };
+const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
 
 export function vpGetAllOpts(type) {
   const ts = window.tagSettings || [];
@@ -2159,7 +2159,7 @@ export async function vpSaveTitle(id) {
 export function vpRefreshChips(id, type) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   const field  = VP_FIELD_MAP[type];
-  const clsMap = { tb:'on-tb', ac:'on-ac', pos:'on-pos', tech:'on-tech' };
+  const clsMap = { tb:'on-tb', cat:'on-cat', pos:'on-pos', tags:'on-tags' };
   const container = document.getElementById('vp-'+type+'-'+id);
   if (!container) return;
   container.innerHTML = (v[field]||[]).map(val =>
@@ -2433,7 +2433,7 @@ export function vpTagReset(id) {
   popup.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)';
 
   const ts = window.tagSettings || [];
-  const fields = ['tb','ac','pos','tech'];
+  const fields = ['tb','cat','pos','tags'];
   const card = document.createElement('div');
   card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:260px;max-width:360px';
 

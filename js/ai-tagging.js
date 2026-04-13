@@ -183,17 +183,21 @@ function applyAiTags(videoId, panel) {
   const added = _applyNewTagsToVideo(v, collected);
   console.log('[AI-Tag] Applied to', v.title, '→', { tb: v.tb, cat: v.cat, pos: v.pos, tags: v.tags }, `(${added} added)`);
 
-  // フィードバック例として自動蓄積 (max 10, FIFO)
+  // フィードバック例として自動蓄積 (max 50, FIFO)
+  // ユーザーが選択した結果を正解例として保存（修正があれば修正後の値）
   const ai = window.aiSettings || {};
   const example = {
     title:    v.title || '',
     channel:  v.ch || v.channel || '',
     playlist: v.pl || '',
-    tags:     collected,
+    tags:     { tb: v.tb || [], cat: v.cat || [], pos: v.pos || [], tags: v.tags || [] },
   };
   if (!ai.feedbackExamples) ai.feedbackExamples = [];
+  // 同じタイトルの古い例は上書き
+  const existIdx = ai.feedbackExamples.findIndex(e => e.title === example.title);
+  if (existIdx >= 0) ai.feedbackExamples.splice(existIdx, 1);
   ai.feedbackExamples.push(example);
-  while (ai.feedbackExamples.length > 10) ai.feedbackExamples.shift();
+  while (ai.feedbackExamples.length > 50) ai.feedbackExamples.shift();
   window.saveAiSettings?.();
 
   window.debounceSave?.();

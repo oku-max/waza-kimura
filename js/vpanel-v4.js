@@ -31,7 +31,7 @@
     // Category row (10固定 multi-select)
     const catRow = CATS.map(c => {
       const on = v.cat.includes(c.name);
-      return `<span class="vp-chip${on?' on-ac':''}" style="cursor:pointer" title="${_esc(c.desc)}" onclick="vpV4ToggleCat('${id}','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
+      return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc)}" onclick="vpV4ToggleCat('${id}','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
     }).join('');
 
     // Position row (現在選択中チップ + 追加ピッカー)
@@ -49,7 +49,7 @@
 
     // Tags row (検索・選択 + 自由入力)
     const tagChips = v.tags.map(t =>
-      `<span class="vp-chip on-tech" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">#${_esc(t)} ×</span>`
+      `<span class="vp-chip on-tags" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">#${_esc(t)} ×</span>`
     ).join('');
     const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
       <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
@@ -109,8 +109,8 @@
     const v = _findV(id); if (!v) return;
     if (!Array.isArray(v.cat)) v.cat = [];
     const i = v.cat.indexOf(name);
-    if (i >= 0) { v.cat.splice(i, 1); el.classList.remove('on-ac'); }
-    else        { v.cat.push(name);   el.classList.add('on-ac'); }
+    if (i >= 0) { v.cat.splice(i, 1); el.classList.remove('on-cat'); }
+    else        { v.cat.push(name);   el.classList.add('on-cat'); }
     _save(id);
     window.AF?.();
   };

@@ -311,7 +311,7 @@ export function fovDdOpen(rowId) {
 
 export function fovDdFilter(rowId, filterKey, q) {
   const vids = window.videos || [];
-  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
   let items = [];
   if (filterKey === 'tb') items = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
   else if (filterKey === 'action') items = (window.CATEGORIES || []).map(c => c.name);
@@ -359,8 +359,8 @@ export function syncFilterOvRows(isOrg=false) {
   const p = isOrg ? 'org-fov' : 'fov';
   const f = isOrg ? (window.orgFilters||{}) : (window.filters||{});
   // TB/AC/POS/TECH/PL/CH: DDチップ更新（data-ctxはbuildFovRowsで設定済み）
-  ['tb','ac','pos','tech','pl','ch'].forEach(k => {
-    const fk = {tb:'tb',ac:'action',pos:'position',tech:'tech',pl:'playlist',ch:'channel'}[k];
+  ['tb','cat','pos','tags','pl','ch'].forEach(k => {
+    const fk = {tb:'tb',cat:'action',pos:'position',tags:'tech',pl:'playlist',ch:'channel'}[k];
     _fovDdUpdateChips(`${p}-srow-${k}`, fk);
   });
   // Status/Prio
@@ -400,7 +400,7 @@ export function buildFovRows(isOrg=false) {
   const p    = isOrg ? 'org-fov' : 'fov';
   const f    = isOrg ? (window.orgFilters||{}) : (window.filters||{});
   const vids = window.videos || [];
-  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
 
   // Source（固定2択）
   const srcRow = document.getElementById(`${p}-srow-src`);
@@ -423,9 +423,9 @@ export function buildFovRows(isOrg=false) {
   }
 
   buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES||['トップ','ボトム','スタンディング'], 'TOP/BOTTOM検索...', isOrg);
-  buildFovDdRow(`${p}-srow-ac`,   'action',   (window.CATEGORIES||[]).map(c=>c.name), 'Action検索...', isOrg);
+  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), 'Action検索...', isOrg);
   buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), 'Position検索...', isOrg);
-  buildFovDdRow(`${p}-srow-tech`, 'tech',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'Technique検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tags`, 'tech',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'Technique検索...', isOrg);
   buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
@@ -500,8 +500,8 @@ export function syncFovChips() {
 export function clearFovField(fieldKey) {
   const f = window.filters || {};
   const keyMap = {tb:'tb', action:'action', pos:'position', playlist:'playlist', tech:'tech', ch:'channel'};
-  const allMap = {tb:'fov-all-tb', action:'fov-all-ac', pos:'fov-all-pos', playlist:'fov-all-pl', tech:'fov-all-tech', ch:'fov-all-ch'};
-  const rowMap = {tb:'fov-srow-tb', action:'fov-srow-ac', pos:'fov-srow-pos', playlist:'fov-srow-pl', tech:'fov-srow-tech', ch:'fov-srow-ch'};
+  const allMap = {tb:'fov-all-tb', action:'fov-all-cat', pos:'fov-all-pos', playlist:'fov-all-pl', tech:'fov-all-tags', ch:'fov-all-ch'};
+  const rowMap = {tb:'fov-srow-tb', action:'fov-srow-cat', pos:'fov-srow-pos', playlist:'fov-srow-pl', tech:'fov-srow-tags', ch:'fov-srow-ch'};
   const fk = keyMap[fieldKey];
   if (fk && f[fk]) f[fk].clear();
   const allChip = document.getElementById(allMap[fieldKey]); if (allChip) allChip.classList.remove('inactive');
@@ -512,11 +512,11 @@ export function clearFovField(fieldKey) {
 // ── フィルターピッカー（サイドバー：Position/Playlist/Technique/Channel）──
 const FS_PICKER_FIELDS = {
   pos:  { label:'Position',  filterKey:'position', getAll: () => {
-    const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+    const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
     return [...new Set([...POS_BASE, ...(window.videos||[]).flatMap(v => v.pos||[])])].sort();
   }},
   pl:   { label:'Playlist',  filterKey:'playlist', getAll: () => [...new Set((window.videos||[]).map(v => v.pl).filter(Boolean))].sort() },
-  tech: { label:'Technique', filterKey:'tech',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
+  tags: { label:'Technique', filterKey:'tech',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
   ch:   { label:'Channel',   filterKey:'channel',  getAll: () => [...new Set((window.videos||[]).map(v => v.ch).filter(Boolean))].sort() },
 };
 
@@ -569,7 +569,7 @@ export function renderFsSelTags(type) {
 export function clearFsField(fieldKey) {
   const filters    = window.filters || {};
   const filterKeys = { tb:'tb', action:'action', pos:'position', playlist:'playlist', tech:'tech', ch:'channel' };
-  const pickerTypes = { tb:null, action:null, pos:'pos', playlist:'pl', tech:'tech', ch:'ch' };
+  const pickerTypes = { tb:null, action:null, pos:'pos', playlist:'pl', tech:'tags', ch:'ch' };
   if (filters[filterKeys[fieldKey]]) filters[filterKeys[fieldKey]].clear();
   document.querySelectorAll(`[onclick*="togF('${fieldKey}"]`).forEach(el => el.classList.remove('active'));
   const allChip = document.getElementById('fs-all-' + fieldKey); if (allChip) allChip.classList.add('active');
@@ -855,12 +855,12 @@ function _sbPopupRender(key, ctx='lib') {
   if (key === 'ch')        buildSbPickerInline(cId, 'channel', ctx);
   else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
   else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES||['トップ','ボトム','スタンディング'], ctx);
-  else if (key === 'ac')   buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
+  else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
   else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
-  else if (key === 'tech') buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
+  else if (key === 'tags') buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 
-const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', ac:'Action', pos:'Position', tech:'Technique' };
+const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', cat:'Action', pos:'Position', tags:'Technique' };
 
 export function openSbPopup(key, triggerEl, ctx='lib') {
   const popup = document.getElementById('sb-filter-popup');
@@ -1039,7 +1039,7 @@ export function renderRecentSidebar() {
 }
 
 // ── サイドバー インライン ピッカー (Channel / Playlist / タグ) ──
-const _SB_POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+const _SB_POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
 const _sbTagItems  = {};
 
 // ── 最近選んだフィルター項目（localStorage 永続化、最大15件）──
@@ -1202,7 +1202,7 @@ export function fovPickerTab3(rowId, tab) {
 
 // ── サイドバー インライン タグリスト (TB / Action / Position / Technique) ──
 // タグフィールド名（v のキー）とfilterKeyの対応
-const _TAG_FIELD = { tb:'tb', action:'ac', position:'pos', tech:'tech' };
+const _TAG_FIELD = { tb:'tb', action:'cat', position:'pos', tech:'tags' };
 
 function _sbTagRenderList(containerId, filterKey, items, q) {
   const listEl = document.getElementById(containerId + '-list');

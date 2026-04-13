@@ -83,9 +83,17 @@ ${posSection}
 - リストにないポジションは pos に入れず、tags (#タグ) に元の語を入れる
 - 明確に判定できないなら空配列
 ${rulesSection}${blockSection}
+【重要：BJJ知識による推論】
+- タイトルに直接書かれていない情報でも、BJJの専門知識から推論して判定せよ
+- 技名からカテゴリ・ポジション・TB を因果関係で導き出すこと
+- 例: "Berimbolo" → スイープ系でバックテイクに繋がる → cat に両方入れる
+- 例: "Knee Cut" → トップからのパスガード → TB=トップ, cat=パスガード
+- 例: "Collar Sleeve to Omoplata" → ボトムからサブミッション → TB=ボトム, cat=フィニッシュ, pos=片襟片袖
+- マウント・サイドコントロール・ニーオンベリー等はPOSITIONSリストにないので tags に入れる
+
 ルール:
 ${flexNote}
-- タイトル・チャンネル・プレイリスト・チャプターに直接含まれる語は積極的に拾う
+- タイトル・チャンネル・プレイリスト・チャプターの語を拾い、さらにBJJ知識で推論を加える
 - tags (#タグ) は技名・固有名など自由欄。長さは 30 文字以内
 - JSON のみ返す (説明文・コードブロック不要)
 
@@ -127,7 +135,7 @@ export default async function handler(req, res) {
 
   // Few-shot 例 (新スキーマ {tb, cat, pos, tags} を期待)
   if (Array.isArray(feedbackExamples) && feedbackExamples.length) {
-    for (const ex of feedbackExamples.slice(-5)) {
+    for (const ex of feedbackExamples.slice(-15)) {
       if (!ex.title || !ex.tags) continue;
       const exUser = [
         `タイトル:${ex.title}`,
