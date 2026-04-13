@@ -10,3 +10,4 @@ window.TB_TAGS  = TB_TAGS;
 window.AC_TAGS  = AC_TAGS;
 window.POS_TAGS = POS_TAGS;
 window.TECH     = TECH;
+window.TECH_STATIC = TECH; // tag-master.js のブリッジ用に元データを保持

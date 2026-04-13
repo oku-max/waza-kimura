@@ -313,3 +313,57 @@ window.migrateVideo   = migrateVideo;
 window.migrateAllVideos = migrateAll;
 window.autoTagFromTitle = autoTagFromTitle;
 window.retagAllFromTitle = retagAllFromTitle;
+
+// ═══ 旧スキーマ互換ブリッジ ═══════════════════════
+// 旧コードが参照する TB_TAGS / AC_TAGS / POS_TAGS / TECH を
+// 新4層スキーマから自動生成し、113箇所の旧参照を一括で正しくする。
+// v.ac ↔ v.cat / v.tech ↔ v.tags の双方向同期も行う。
+
+// 旧定数 → 新スキーマからの自動生成で上書き
+// TB_TAGS: 旧は ['トップ','ボトム','スタンディング','バック','ハーフ','ドリル']
+// 新 TB_VALUES は ['トップ','ボトム','スタンディング'] だが、
+// 旧コードのフィルターUI等でバック/ハーフ/ドリルも使われるため統合
+window.TB_TAGS  = [...TB_VALUES, 'バック', 'ハーフ', 'ドリル'];
+window.AC_TAGS  = CATEGORIES.map(c => c.name);
+window.POS_TAGS = POSITIONS.map(p => p.ja);
+// TECH: 旧固定リスト + 全動画の tags を統合（遅延評価）
+Object.defineProperty(window, 'TECH', {
+  get() {
+    const base = window._TECH_BASE || [];
+    const fromVideos = (window.videos || []).flatMap(v => v.tags || []);
+    return [...new Set([...base, ...fromVideos])].sort();
+  },
+  configurable: true,
+});
+window._TECH_BASE = window.TECH_STATIC || []; // config.js の元データを保持
+
+// ── 動画フィールド同期: v.ac ↔ v.cat, v.tech ↔ v.tags ──
+// データロード後・保存前に呼び出して双方向同期する
+function syncVideoFields(videos) {
+  if (!Array.isArray(videos)) return;
+  for (const v of videos) {
+    // cat → ac (旧コードがv.acを読む箇所のため)
+    if (Array.isArray(v.cat) && v.cat.length) {
+      v.ac = v.cat;
+    } else if (Array.isArray(v.ac) && v.ac.length && !Array.isArray(v.cat)) {
+      v.cat = v.ac;
+    }
+    // tags → tech (旧コードがv.techを読む箇所のため)
+    if (Array.isArray(v.tags) && v.tags.length) {
+      v.tech = v.tags;
+    } else if (Array.isArray(v.tech) && v.tech.length && !Array.isArray(v.tags)) {
+      v.tags = v.tech;
+    }
+    // 空配列の保証
+    if (!Array.isArray(v.ac))   v.ac   = v.cat  || [];
+    if (!Array.isArray(v.cat))  v.cat  = v.ac   || [];
+    if (!Array.isArray(v.tech)) v.tech = v.tags  || [];
+    if (!Array.isArray(v.tags)) v.tags = v.tech  || [];
+    if (!Array.isArray(v.tb))   v.tb   = [];
+    if (!Array.isArray(v.pos))  v.pos  = [];
+    // 参照を共有（片方を変更すればもう片方も変わる）
+    v.ac   = v.cat;
+    v.tech = v.tags;
+  }
+}
+window.syncVideoFields = syncVideoFields;
