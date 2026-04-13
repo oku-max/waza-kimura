@@ -205,6 +205,62 @@ function migrateAll(videos) {
   return videos.map(migrateVideo);
 }
 
+// ─── タイトルから自動タグ付け (ルールベース) ───────
+// AI API を使わず、タイトル文字列だけでタグを推定する
+// 取り込み直後に即座にタグが付くため、AI非同期タグ付けの補完として機能する
+function autoTagFromTitle(title) {
+  const result = { tb: [], cat: [], pos: [], tags: [] };
+  if (!title) return result;
+
+  const t = title;
+  const tNorm = _norm(t);
+
+  // ── TB 判定 ──
+  const tbKeywords = {
+    'トップ':       ['トップ','top','パス','pass','smash','スマッシュ','プレッシャー','pressure','コントロール','control','ニーオン','knee on'],
+    'ボトム':       ['ボトム','bottom','ガード','guard','スイープ','sweep','リテンション','retention','ハーフ','half','デラヒーバ','dlr','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x-guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k-guard','slx','ベリンボロ','berimbolo'],
+    'スタンディング':['スタンディング','standing','テイクダウン','takedown','立ち技','投げ','throw','レスリング','wrestling','引き込み'],
+  };
+  for (const [tb, keywords] of Object.entries(tbKeywords)) {
+    for (const kw of keywords) {
+      if (_norm(kw) && tNorm.includes(_norm(kw))) {
+        if (!result.tb.includes(tb)) result.tb.push(tb);
+        break;
+      }
+    }
+  }
+  // スイープはボトム起点だが成功するとトップ
+  if (tNorm.includes(_norm('スイープ')) || tNorm.includes('sweep')) {
+    if (!result.tb.includes('ボトム')) result.tb.push('ボトム');
+  }
+
+  // ── Category 判定 ──
+  for (const c of CATEGORIES) {
+    const keys = [c.name, ...(c.aliases || [])];
+    for (const k of keys) {
+      const kn = _norm(k);
+      if (kn && tNorm.includes(kn)) {
+        if (!result.cat.includes(c.name)) result.cat.push(c.name);
+        break;
+      }
+    }
+  }
+
+  // ── Position 判定 ──
+  for (const p of POSITIONS) {
+    const keys = [p.ja, p.en, ...(p.aliases || [])];
+    for (const k of keys) {
+      const kn = _norm(k);
+      if (kn && kn.length >= 2 && tNorm.includes(kn)) {
+        if (!result.pos.includes(p.ja)) result.pos.push(p.ja);
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
 // ─── exports ──────────────────────────────────────
 window.TB_VALUES      = TB_VALUES;
 window.CATEGORIES     = CATEGORIES;
@@ -216,3 +272,4 @@ window.matchPosition  = matchPosition;
 window.matchCategory  = matchCategory;
 window.migrateVideo   = migrateVideo;
 window.migrateAllVideos = migrateAll;
+window.autoTagFromTitle = autoTagFromTitle;

@@ -47,7 +47,9 @@ export async function fetchAiTags(video) {
     }),
   });
   if (!res.ok) throw new Error('AI APIエラー: ' + res.status);
-  return res.json(); // { tb, cat, pos, tags }
+  const result = await res.json();
+  console.log('[AI-Tag] API response for:', video.title, result);
+  return result; // { tb, cat, pos, tags }
 }
 
 // ── VPanel 内に AI タグ提案パネルを表示 ──
@@ -179,6 +181,7 @@ function applyAiTags(videoId, panel) {
   });
 
   const added = _applyNewTagsToVideo(v, collected);
+  console.log('[AI-Tag] Applied to', v.title, '→', { tb: v.tb, cat: v.cat, pos: v.pos, tags: v.tags }, `(${added} added)`);
 
   // フィードバック例として自動蓄積 (max 10, FIFO)
   const ai = window.aiSettings || {};

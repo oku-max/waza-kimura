@@ -609,7 +609,8 @@ export async function gdImport() {
       prio:     'そのうち', shared: 0, archived: false, memo: '', ai: '',
       isQR:     cb.dataset.isqr === 'true',
       duration: parseInt(cb.dataset.duration) || 0,
-      tb: [], ac: [], pos: [], tech: [],
+      tbLocked: false,
+      ...(window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : { tb: [], cat: [], pos: [], tags: [] }),
     };
     window.videos.push(v);
     newIds.push(newId);

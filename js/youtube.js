@@ -482,7 +482,8 @@ export async function ytImportUnimportedFromChecked() {
       ytChapters: t.timestamps || [],
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
-      ...(() => { const tt = window.autoTagFromTitle ? window.autoTagFromTitle(t.title) : {tb:[],ac:[],pos:[],tech:[]}; return { tb: tt.tb, ac: tt.ac, pos: tt.pos, tech: tt.tech }; })()
+      tbLocked: false,
+      ...(() => { const tt = window.autoTagFromTitle ? window.autoTagFromTitle(t.title) : {tb:[],cat:[],pos:[],tags:[]}; return { tb: tt.tb, cat: tt.cat, pos: tt.pos, tags: tt.tags }; })()
     });
   });
   if (window.AF) window.AF();
@@ -644,7 +645,8 @@ export async function ytImportCheckedVideos() {
       ytChapters: vidTimestampMap[vid] || [],
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
-      ...(() => { const t = window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : {tb:[],ac:[],pos:[],tech:[]}; return { tb: t.tb, ac: t.ac, pos: t.pos, tech: t.tech }; })()
+      tbLocked: false,
+      ...(() => { const t = window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : {tb:[],cat:[],pos:[],tags:[]}; return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags }; })()
     });
     added++;
   });
