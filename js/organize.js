@@ -1165,10 +1165,10 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return
 // ═══ Inline cell editing ═══
 
 const _INLINE_COLS = {
-  tb:        { field: 'tb',   type: 'tags', opts: () => window.TB_TAGS || [] },
-  action:    { field: 'cat',  type: 'tags', opts: () => window.AC_TAGS || [] },
-  position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([...(window.POS_TAGS||[]), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
-  technique: { field: 'tags', type: 'tags', opts: () => [...new Set([...(window.TECH||[]), ...(window.videos||[]).flatMap(v=>v.tags||[])])].sort(), allowNew: true },
+  tb:        { field: 'tb',   type: 'tags', opts: () => window.TB_VALUES || ['トップ','ボトム','スタンディング'] },
+  action:    { field: 'cat',  type: 'tags', opts: () => (window.CATEGORIES || []).map(c => c.name) },
+  position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([...(window.POSITIONS || []).map(p => p.ja), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
+  technique: { field: 'tags', type: 'tags', opts: () => [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort(), allowNew: true },
   memo:      { field: 'memo', type: 'text' },
 };
 
