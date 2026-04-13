@@ -299,17 +299,18 @@ function retagAllFromTitle() {
   for (const v of videos) {
     if (!v.title) continue;
     const tags = autoTagFromTitle(v.title);
+    if (!tags) continue;
     let changed = false;
     // TB: 空の場合のみ追加
-    if ((!v.tb || !v.tb.length) && tags.tb.length) {
+    if ((!v.tb || !v.tb.length) && tags.tb && tags.tb.length) {
       v.tb = tags.tb; changed = true;
     }
     // Cat: 空の場合のみ追加
-    if ((!v.cat || !v.cat.length) && tags.cat.length) {
+    if ((!v.cat || !v.cat.length) && tags.cat && tags.cat.length) {
       v.cat = tags.cat; changed = true;
     }
     // Pos: 空の場合のみ追加
-    if ((!v.pos || !v.pos.length) && tags.pos.length) {
+    if ((!v.pos || !v.pos.length) && tags.pos && tags.pos.length) {
       v.pos = tags.pos; changed = true;
     }
     // tbLocked 確保

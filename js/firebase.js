@@ -70,6 +70,8 @@ export async function loadUserData(uid) {
           window.retagAllFromTitle();
         }
         if (window.AF) window.AF();
+        // Settings画面のタグ集計を再描画
+        if (window.renderTagMasterUI) window.renderTagMasterUI();
         showToast('✅ データを読み込みました');
       }
     }
