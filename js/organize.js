@@ -3,7 +3,7 @@
 // ═══ Module-level state (exported + registered on window) ═══
 export let orgFilters = {
   tb: new Set(), action: new Set(), position: new Set(),
-  playlist: new Set(), status: new Set(), tech: new Set(),
+  playlist: new Set(), status: new Set(), tags: new Set(),
   platform: new Set(), channel: new Set(),
   fav: new Set(), next: new Set(), counter: new Set(),
   memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
@@ -226,7 +226,7 @@ export function _matchQueryField(v, text, exact, fields) {
   const fTitle = !fields || fields.title;
   const fCh    = !fields || fields.ch;
   const fPl    = !fields || fields.pl;
-  const fTech  = !fields || fields.tech;
+  const fTech  = !fields || fields.tags;
   const fMemo  = !fields || fields.memo;
   const title = (v.title||'').toLowerCase();
   const ch    = (v.channel||v.ch||'').toLowerCase();
@@ -340,7 +340,7 @@ export function orgFilt(list) {
     if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
     if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
     if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
-    if (orgFilters.tech.size && !_matchFilt(orgFilters.tech, v.tags||[])) return false;
+    if (orgFilters.tags.size && !_matchFilt(orgFilters.tags, v.tags||[])) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
     // 練習ランク / 最終練習日
     if (orgPrRank != null && window.vpCntRank) {
@@ -515,11 +515,11 @@ export function renderOrgTF(){
   const matched=all.filter(t=>!q||t.toLowerCase().includes(q));
   document.getElementById('orgTFR').innerHTML=matched.map(t=>{
     const n=window.countByField?.('tags',t);
-    return`<div class="tech-pill ${orgFilters.tech.has(t)?'active':''}" onclick="togOrgTech('${t.replace(/'/g,"\'")}',this)">${t}${window.cntBadge?.(n)}</div>`;
+    return`<div class="tech-pill ${orgFilters.tags.has(t)?'active':''}" onclick="togOrgTech('${t.replace(/'/g,"\'")}',this)">${t}${window.cntBadge?.(n)}</div>`;
   }).join('');
 }
 
-export function togOrgTech(t,el){orgFilters.tech.has(t)?orgFilters.tech.delete(t):orgFilters.tech.add(t);el.classList.toggle('active');renderOrg();}
+export function togOrgTech(t,el){orgFilters.tags.has(t)?orgFilters.tags.delete(t):orgFilters.tags.add(t);el.classList.toggle('active');renderOrg();}
 
 export function openOrgChPicker(){
   document.getElementById('org-ch-s').value='';renderOrgChPicker('');document.getElementById('orgChOv').classList.add('open');
@@ -646,7 +646,7 @@ export function renderOrg() {
       if (col === 'tb')        return mkTagCell(v.tb||[], 'tb', 'tb');
       if (col === 'action')    return mkTagCell(v.cat||[], 'action', 'action');
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
-      if (col === 'technique') return mkTagCell(v.tags||[], 'tech', 'technique');
+      if (col === 'technique') return mkTagCell(v.tags||[], 'tags', 'technique');
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
       if (col === 'counter') {
         const pc = v.practice || 0;
@@ -1505,7 +1505,7 @@ const _colFilterConfig = {
   tb:             { filterKey: 'tb',             valueGetter: v => { const a = v.tb||[]; return a.length ? a : [_BLANK]; } },
   action:         { filterKey: 'action',         valueGetter: v => { const a = v.cat||[]; return a.length ? a : [_BLANK]; } },
   position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
-  technique:      { filterKey: 'tech',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
+  technique:      { filterKey: 'tags',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
   next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'], noSearch: true },
   counter:         { filterKey: 'counter',         valueGetter: v => {

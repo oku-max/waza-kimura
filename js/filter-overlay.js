@@ -316,7 +316,7 @@ export function fovDdFilter(rowId, filterKey, q) {
   if (filterKey === 'tb') items = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
   else if (filterKey === 'action') items = (window.CATEGORIES || []).map(c => c.name);
   else if (filterKey === 'position') items = [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort();
-  else if (filterKey === 'tech') items = [...new Set(vids.flatMap(v => v.tags||[]))].sort();
+  else if (filterKey === 'tags') items = [...new Set(vids.flatMap(v => v.tags||[]))].sort();
   _fovDdRenderList(rowId, filterKey, items, q);
 }
 
@@ -360,7 +360,7 @@ export function syncFilterOvRows(isOrg=false) {
   const f = isOrg ? (window.orgFilters||{}) : (window.filters||{});
   // TB/AC/POS/TECH/PL/CH: DDチップ更新（data-ctxはbuildFovRowsで設定済み）
   ['tb','cat','pos','tags','pl','ch'].forEach(k => {
-    const fk = {tb:'tb',cat:'action',pos:'position',tags:'tech',pl:'playlist',ch:'channel'}[k];
+    const fk = {tb:'tb',cat:'action',pos:'position',tags:'tags',pl:'playlist',ch:'channel'}[k];
     _fovDdUpdateChips(`${p}-srow-${k}`, fk);
   });
   // Status/Prio
@@ -386,7 +386,7 @@ export function countForFilter(key, val) {
     if (key === 'tb')       return vids.filter(v => !v.archived && (v.tb||[]).includes(val)).length;
     if (key === 'action')   return vids.filter(v => !v.archived && (v.cat||[]).includes(val)).length;
     if (key === 'position') return vids.filter(v => !v.archived && (v.pos||[]).includes(val)).length;
-    if (key === 'tech')     return vids.filter(v => !v.archived && (v.tags||[]).includes(val)).length;
+    if (key === 'tags')     return vids.filter(v => !v.archived && (v.tags||[]).includes(val)).length;
     if (key === 'playlist') return vids.filter(v => !v.archived && v.pl === val).length;
     if (key === 'channel')  return vids.filter(v => !v.archived && v.ch === val).length;
     if (key === 'status')   return vids.filter(v => !v.archived && v.status === val).length;
@@ -425,7 +425,7 @@ export function buildFovRows(isOrg=false) {
   buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES||['トップ','ボトム','スタンディング'], 'TOP/BOTTOM検索...', isOrg);
   buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), 'Action検索...', isOrg);
   buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), 'Position検索...', isOrg);
-  buildFovDdRow(`${p}-srow-tags`, 'tech',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'Technique検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'Technique検索...', isOrg);
   buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
@@ -466,7 +466,7 @@ export function buildFovPickerRow(rowId, filterKey, allChipId, getAll) {
       : ((window.videos||[]).filter(v => !v.archived && (
           filterKey==='playlist' ? v.pl===val :
           filterKey==='channel'  ? v.ch===val :
-          filterKey==='tech'     ? (v.tags||[]).includes(val) :
+          filterKey==='tags'     ? (v.tags||[]).includes(val) :
           (v.pos||[]).includes(val))).length);
     const el = document.createElement('div');
     el.className = 'chip' + (filters[filterKey]?.has(val) ? ' active' : '');
@@ -499,9 +499,9 @@ export function syncFovChips() {
 
 export function clearFovField(fieldKey) {
   const f = window.filters || {};
-  const keyMap = {tb:'tb', action:'action', pos:'position', playlist:'playlist', tech:'tech', ch:'channel'};
-  const allMap = {tb:'fov-all-tb', action:'fov-all-cat', pos:'fov-all-pos', playlist:'fov-all-pl', tech:'fov-all-tags', ch:'fov-all-ch'};
-  const rowMap = {tb:'fov-srow-tb', action:'fov-srow-cat', pos:'fov-srow-pos', playlist:'fov-srow-pl', tech:'fov-srow-tags', ch:'fov-srow-ch'};
+  const keyMap = {tb:'tb', action:'action', pos:'position', playlist:'playlist', tags:'tags', ch:'channel'};
+  const allMap = {tb:'fov-all-tb', action:'fov-all-cat', pos:'fov-all-pos', playlist:'fov-all-pl', tags:'fov-all-tags', ch:'fov-all-ch'};
+  const rowMap = {tb:'fov-srow-tb', action:'fov-srow-cat', pos:'fov-srow-pos', playlist:'fov-srow-pl', tags:'fov-srow-tags', ch:'fov-srow-ch'};
   const fk = keyMap[fieldKey];
   if (fk && f[fk]) f[fk].clear();
   const allChip = document.getElementById(allMap[fieldKey]); if (allChip) allChip.classList.remove('inactive');
@@ -516,7 +516,7 @@ const FS_PICKER_FIELDS = {
     return [...new Set([...POS_BASE, ...(window.videos||[]).flatMap(v => v.pos||[])])].sort();
   }},
   pl:   { label:'Playlist',  filterKey:'playlist', getAll: () => [...new Set((window.videos||[]).map(v => v.pl).filter(Boolean))].sort() },
-  tags: { label:'Technique', filterKey:'tech',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
+  tags: { label:'Technique', filterKey:'tags',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
   ch:   { label:'Channel',   filterKey:'channel',  getAll: () => [...new Set((window.videos||[]).map(v => v.ch).filter(Boolean))].sort() },
 };
 
@@ -568,8 +568,8 @@ export function renderFsSelTags(type) {
 
 export function clearFsField(fieldKey) {
   const filters    = window.filters || {};
-  const filterKeys = { tb:'tb', action:'action', pos:'position', playlist:'playlist', tech:'tech', ch:'channel' };
-  const pickerTypes = { tb:null, action:null, pos:'pos', playlist:'pl', tech:'tags', ch:'ch' };
+  const filterKeys = { tb:'tb', action:'action', pos:'position', playlist:'playlist', tags:'tags', ch:'channel' };
+  const pickerTypes = { tb:null, action:null, pos:'pos', playlist:'pl', tags:'tags', ch:'ch' };
   if (filters[filterKeys[fieldKey]]) filters[filterKeys[fieldKey]].clear();
   document.querySelectorAll(`[onclick*="togF('${fieldKey}"]`).forEach(el => el.classList.remove('active'));
   const allChip = document.getElementById('fs-all-' + fieldKey); if (allChip) allChip.classList.add('active');
@@ -857,7 +857,7 @@ function _sbPopupRender(key, ctx='lib') {
   else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES||['トップ','ボトム','スタンディング'], ctx);
   else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
   else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
-  else if (key === 'tags') buildSbTagInline(cId, 'tech', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
+  else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 
 const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', cat:'Action', pos:'Position', tags:'Technique' };
@@ -1076,7 +1076,7 @@ function _sbContextVideos(filterKey, f) {
     if (filterKey !== 'tb'        && f?.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))                          return false;
     if (filterKey !== 'action'    && f?.action?.size    && !(v.cat ||[]).some(a => f.action.has(a)))                      return false;
     if (filterKey !== 'position'  && f?.position?.size  && !(v.pos ||[]).some(p => f.position.has(p)))                    return false;
-    if (filterKey !== 'tech'      && f?.tech?.size      && !(v.tags||[]).some(t => f.tech.has(t)))                        return false;
+    if (filterKey !== 'tags'      && f?.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))                        return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;
     return true;
@@ -1102,7 +1102,7 @@ function _sbPickerRenderList(containerId, filterKey, q) {
   selected.forEach(v => { if (!(v in countMap)) countMap[v] = 0; });
   const allItems = Object.keys(countMap).sort((a, b) => a.localeCompare(b, 'ja'));
 
-  const hasOtherFilter = ['platform','channel','playlist','tb','action','position','tech']
+  const hasOtherFilter = ['platform','channel','playlist','tb','action','position','tags']
     .some(k => k !== filterKey && f?.[k]?.size > 0);
   const secLabel = filterKey === 'channel'
     ? (hasOtherFilter ? `絞り込み結果のチャンネル (${allItems.length}件)` : '全チャンネル')
@@ -1202,7 +1202,7 @@ export function fovPickerTab3(rowId, tab) {
 
 // ── サイドバー インライン タグリスト (TB / Action / Position / Technique) ──
 // タグフィールド名（v のキー）とfilterKeyの対応
-const _TAG_FIELD = { tb:'tb', action:'cat', position:'pos', tech:'tags' };
+const _TAG_FIELD = { tb:'tb', action:'cat', position:'pos', tags:'tags' };
 
 function _sbTagRenderList(containerId, filterKey, items, q) {
   const listEl = document.getElementById(containerId + '-list');

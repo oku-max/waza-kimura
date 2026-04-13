@@ -67,7 +67,7 @@ const DEFAULT_BJJ_RULES = [
 export let aiSettings = {
   enabled:               true,
   defaultMode:           'add',
-  categories:            { tb: true, action: true, position: true, tech: true },
+  categories:            { tb: true, action: true, position: true, tags: true },
   autoTagOnImport:       false,
   fetchChaptersOnImport: true,
   bulkConfirm:           true,
@@ -364,7 +364,7 @@ export function renderTagVisibilityBtns() {
 export function renderAiSettings() {
   const el = document.getElementById('ai-settings-section'); if (!el) return;
   const s = aiSettings;
-  const catLabels = { tb: 'TOP/BOTTOM', action: 'ACTION', position: 'POSITION', tech: 'TECHNIQUE' };
+  const catLabels = { tb: 'TOP/BOTTOM', action: 'ACTION', position: 'POSITION', tags: 'TECHNIQUE' };
   const row = (label, desc, checkbox) =>
     `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
       <div>

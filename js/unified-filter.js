@@ -32,11 +32,11 @@
     const memo = isOrg ? window.orgMemoOnly    : window.memoOnly;
     const img  = isOrg ? window.orgImgOnly     : window.imgOnly;
     const next = isOrg ? window.orgNextOnly   : window.nextOnly;
-    // tag filter keys: lib uses tbNew/cat/posNew/tags, org uses tb/action/position/tech
+    // tag filter keys: lib uses tbNew/cat/posNew/tags, org uses tb/action/position/tags
     const tkTb   = isOrg ? 'tb'       : 'tbNew';
     const tkCat  = isOrg ? 'action'   : 'cat';
     const tkPos  = isOrg ? 'position' : 'posNew';
-    const tkTags = isOrg ? 'tech'     : 'tags';
+    const tkTags = isOrg ? 'tags'     : 'tags';
     return (window.videos || []).filter(v => {
       if (v.archived) return false;
       if (excludeKey !== 'fav'  && fav  && !v.fav) return false;
@@ -212,7 +212,7 @@
       + ((isOrg ? window.orgPrRank : window.prRank) != null ? 1 : 0)
       + ((isOrg ? window.orgPrDate : window.prDate) ? 1 : 0);
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
-    const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tech' : 'tags';
+    const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
     const tagN = (f[tkTb]?.size || 0) + (f[tkCat]?.size || 0) + (f[tkPos]?.size || 0) + (f[tkTags]?.size || 0);
     return { state: stateN, src: srcN, tag: tagN };
   }
@@ -392,9 +392,9 @@
     }
 
     else {
-      // tag — lib: tbNew/cat/posNew/tags, org: tb/action/position/tech
+      // tag — lib: tbNew/cat/posNew/tags, org: tb/action/position/tags
       const TB  = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
-      const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tech' : 'tags';
+      const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
 
       const tbCtx = _ctxVideos('tb');
       const tbItems = TB.map(n => ({
@@ -452,7 +452,7 @@
       const map = { week:'今週',month:'今月',quarter:'3ヶ月以内',stale:'それ以前',never:'未カウント' };
       pills.push(['@prD', map[_prD] || _prD]);
     }
-    const tkTbP = isOrg ? 'tb' : 'tbNew', tkCatP = isOrg ? 'action' : 'cat', tkPosP = isOrg ? 'position' : 'posNew', tkTagsP = isOrg ? 'tech' : 'tags';
+    const tkTbP = isOrg ? 'tb' : 'tbNew', tkCatP = isOrg ? 'action' : 'cat', tkPosP = isOrg ? 'position' : 'posNew', tkTagsP = isOrg ? 'tags' : 'tags';
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));

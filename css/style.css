@@ -1261,12 +1261,12 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-chip.on-cat  { background:#7a5a80; color:#fff; border-color:#7a5a80; }
 .vp-chip.on-pos  { background:#4a6888; color:#fff; border-color:#4a6888; }
 .vp-chip.on-tags { background:#5a7a60; color:#fff; border-color:#5a7a60; }
-.vp-tech-wrap { display:flex; flex-direction:column; gap:6px; width:100%; }
-.vp-tech-inp-row { display:flex; gap:4px; align-items:center; }
-.vp-tech-inp { flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:6px; padding:5px 8px; font-size:12px; color:var(--text); outline:none; font-family:inherit; }
-.vp-tech-inp:focus { border-color:var(--accent); }
-.vp-tech-add-btn { width:28px; height:28px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.vp-tech-suggest { display:flex; flex-wrap:wrap; gap:4px; }
+.vp-tags-wrap { display:flex; flex-direction:column; gap:6px; width:100%; }
+.vp-tags-inp-row { display:flex; gap:4px; align-items:center; }
+.vp-tags-inp { flex:1; background:var(--surface2); border:1.5px solid var(--border); border-radius:6px; padding:5px 8px; font-size:12px; color:var(--text); outline:none; font-family:inherit; }
+.vp-tags-inp:focus { border-color:var(--accent); }
+.vp-tags-add-btn { width:28px; height:28px; border-radius:6px; border:none; background:var(--accent); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.vp-tags-suggest { display:flex; flex-wrap:wrap; gap:4px; }
 /* VP ドロップダウン */
 .vp-dd-wrap { display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:5px; width:100%; position:relative; }
 .vp-dd-trigger { font-size:11px; color:var(--accent); cursor:pointer; padding:2px 8px; border:1.5px dashed var(--accent); border-radius:14px; width:fit-content; user-select:none; }
@@ -1312,8 +1312,8 @@ body.theme-changing, body.theme-changing * { transition:background .3s, color .3
 .settings-toggle-slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
 .settings-toggle input:checked + .settings-toggle-slider { background:var(--accent); }
 .settings-toggle input:checked + .settings-toggle-slider:before { transform:translateX(20px); }
-.vp-tech-sug-chip { font-size:11px; padding:2px 8px; border-radius:12px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; }
-.vp-tech-sug-chip:hover { border-color:var(--accent); color:var(--accent); }
+.vp-tags-sug-chip { font-size:11px; padding:2px 8px; border-radius:12px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; }
+.vp-tags-sug-chip:hover { border-color:var(--accent); color:var(--accent); }
 /* Priority */
 .vp-chip.on-p1 { background:#9a5548; color:#fff; border-color:#9a5548; }
 .vp-chip.on-p2 { background:#8a7040; color:#fff; border-color:#8a7040; }

@@ -4,7 +4,7 @@ import { _parseQuery, _matchQueryField, _matchFieldSpecific } from './organize.j
 // ── URL ↔ フィルター状態の同期 ──
 const _URL_SET_KEYS = {
   pl: 'playlist', ch: 'channel', pt: 'platform', tb: 'tb',
-  ac: 'action', pos: 'position', tech: 'tech', prio: 'prio', st: 'status'
+  ac: 'action', pos: 'position', tech: 'tags', prio: 'prio', st: 'status'
 };
 const _URL_BOOL_KEYS = { fav: 'favOnly', unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
 
@@ -304,7 +304,7 @@ export function renderFilterPresets() {
         if (fs.tb && fs.tb.length && !(v.tb||[]).some(t => fs.tb.includes(t))) return false;
         if (fs.action && fs.action.length && !(v.cat||[]).some(a => fs.action.includes(a))) return false;
         if (fs.position && fs.position.length && !(v.pos||[]).some(x => fs.position.includes(x))) return false;
-        if (fs.tech && fs.tech.length && !(v.tags||[]).some(t => fs.tech.includes(t))) return false;
+        if (fs.tags && fs.tags.length && !(v.tags||[]).some(t => fs.tags.includes(t))) return false;
         if (fs.channel && fs.channel.length && !fs.channel.includes(v.channel || v.ch)) return false;
         return true;
       }).length;
@@ -373,7 +373,7 @@ export function filt(list) {
     if (window.filters.tb.size && !(v.tb||[]).some(t => window.filters.tb.has(t))) return false;
     if (window.filters.action.size && !(v.cat||[]).some(a => window.filters.action.has(a))) return false;
     if (window.filters.position.size && !(v.pos||[]).some(p => window.filters.position.has(p))) return false;
-    if (window.filters.tech.size && !(v.tags||[]).some(t => window.filters.tech.has(t))) return false;
+    if (window.filters.tags.size && !(v.tags||[]).some(t => window.filters.tags.has(t))) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
     return true;
   });
@@ -419,13 +419,13 @@ export function countContextual(key, val) {
     if (key !== 'tb'       && f.tb?.size       && !(v.tb||[]).some(t => f.tb.has(t)))         return false;
     if (key !== 'action'   && f.action?.size   && !(v.cat||[]).some(a => f.action.has(a)))     return false;
     if (key !== 'position' && f.position?.size && !(v.pos||[]).some(p => f.position.has(p))) return false;
-    if (key !== 'tech'     && f.tech?.size     && !(v.tags||[]).some(t => f.tech.has(t)))    return false;
+    if (key !== 'tags'     && f.tags?.size     && !(v.tags||[]).some(t => f.tags.has(t)))    return false;
     if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
     // このvalが該当するか
     if (key === 'tb')       return (v.tb||[]).includes(val);
     if (key === 'action')   return (v.cat||[]).includes(val);
     if (key === 'position') return (v.pos||[]).includes(val);
-    if (key === 'tech')     return (v.tags||[]).includes(val);
+    if (key === 'tags')     return (v.tags||[]).includes(val);
     if (key === 'playlist') return v.pl === val;
     if (key === 'channel')  return (v.channel || v.ch) === val;
     if (key === 'status')   return v.status === val;
@@ -518,9 +518,9 @@ export function updatePLC() { window.buildPlSrow?.(); }
 
 export function renderTFC() {
   const el = document.getElementById('techFC');
-  if (el) el.innerHTML = [...window.filters.tech].map(t => `<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');
+  if (el) el.innerHTML = [...window.filters.tags].map(t => `<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');
 }
-export function rmTF(t) { window.filters.tech.delete(t); renderTFC(); window.AF?.(); }
+export function rmTF(t) { window.filters.tags.delete(t); renderTFC(); window.AF?.(); }
 
 export function openTF() {
   document.getElementById('tfs').value = '';
@@ -537,11 +537,11 @@ export function renderTF() {
   container.innerHTML = '';
   matched.forEach(t => {
     const el = document.createElement('div');
-    el.className = 'tech-pill' + (window.filters.tech.has(t) ? ' active' : '');
-    const n = countContextual('tech', t);
+    el.className = 'tech-pill' + (window.filters.tags.has(t) ? ' active' : '');
+    const n = countContextual('tags', t);
     el.innerHTML = t + cntBadge(n);
     el.addEventListener('click', function() {
-      window.filters.tech.has(t) ? window.filters.tech.delete(t) : window.filters.tech.add(t);
+      window.filters.tags.has(t) ? window.filters.tags.delete(t) : window.filters.tags.add(t);
       el.classList.toggle('active');
       window.buildTechSrow?.(); window.buildFsTechSrow?.();
       try { window.buildFovRows?.(); } catch(e) {}
@@ -555,7 +555,7 @@ export function renderTF() {
     el.style.cssText = 'border-style:dashed;color:var(--accent)';
     el.textContent = '＋ 「' + q + '」を追加';
     el.onclick = function() {
-      window.filters.tech.add(q);
+      window.filters.tags.add(q);
       window.buildTechSrow?.(); window.buildFsTechSrow?.();
       try { window.buildFovRows?.(); } catch(e) {}
       renderTFC(); window.AF?.();

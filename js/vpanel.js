@@ -1551,7 +1551,7 @@ export function togVpDrawer(id) {
 }
 
 function _bindDrawerEvents(container, id) {
-  container.querySelectorAll('.vp-tech-rm').forEach(el => { el.onclick = function() { vpRemoveTechEl(this); }; });
+  container.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { vpRemoveTechEl(this); }; });
   container.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { vpRemovePosEl(this);  }; });
 }
 
@@ -1658,10 +1658,10 @@ export function vpAddTechVal(id, val) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   if ((v.tags||[]).includes(val)) return;
   v.tags = [...(v.tags||[]), val];
-  const container = document.getElementById('vp-tech-' + id);
+  const container = document.getElementById('vp-tags-' + id);
   if (!container) return;
   const chip = document.createElement('span');
-  chip.className = 'vp-chip on-tags vp-tech-rm';
+  chip.className = 'vp-chip on-tags vp-tags-rm';
   chip.textContent = val + ' ×';
   chip.dataset.id = id; chip.dataset.val = val;
   chip.onclick = function(){ vpRemoveTechEl(this); };
