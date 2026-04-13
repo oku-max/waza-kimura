@@ -30,6 +30,8 @@
         const p = JSON.parse(s);
         if (p && typeof p === 'object') state = Object.assign(state, p);
       }
+      // 旧カスタムカテゴリを破棄 — CATEGORIESに一本化
+      delete state.categories;
     } catch (e) {}
   }
   function save() {
@@ -37,7 +39,7 @@
   }
 
   function getCategories() {
-    return state.categories || window.CATEGORIES || [];
+    return window.CATEGORIES || [];
   }
 
   // ─── 集計 ─────────────────────────────────────
