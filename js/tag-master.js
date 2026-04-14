@@ -298,33 +298,39 @@ function autoTagFromTitle(title) {
 function retagAllFromTitle() {
   const videos = window.videos || [];
   let updated = 0;
+  const _diag = []; // 診断ログ
   for (const v of videos) {
     if (!v.title) continue;
     const tags = autoTagFromTitle(v.title);
     if (!tags) continue;
     let changed = false;
+    const reasons = [];
     // TB: 空の場合のみ追加
     if ((!v.tb || !v.tb.length) && tags.tb && tags.tb.length) {
+      reasons.push(`tb: ${JSON.stringify(v.tb)} → ${JSON.stringify(tags.tb)}`);
       v.tb = tags.tb; changed = true;
     }
     // Cat: 空の場合のみ追加
     if ((!v.cat || !v.cat.length) && tags.cat && tags.cat.length) {
+      reasons.push(`cat: ${JSON.stringify(v.cat)} → ${JSON.stringify(tags.cat)}`);
       v.cat = tags.cat; changed = true;
     }
     // Pos: 空の場合のみ追加
     if ((!v.pos || !v.pos.length) && tags.pos && tags.pos.length) {
+      reasons.push(`pos: ${JSON.stringify(v.pos)} → ${JSON.stringify(tags.pos)}`);
       v.pos = tags.pos; changed = true;
     }
     // tbLocked 確保
-    if (!('tbLocked' in v)) { v.tbLocked = false; changed = true; }
-    if (changed) updated++;
+    if (!('tbLocked' in v)) { reasons.push('tbLocked missing'); v.tbLocked = false; changed = true; }
+    if (changed) { updated++; _diag.push({ title: v.title?.substring(0,50), reasons }); }
   }
   if (updated > 0) {
     window.debounceSave?.();
     window.AF?.();
   }
   console.log(`[retagAll] ${updated}/${videos.length} videos updated from title`);
-  window.toast?.(`🏷 ${updated}本のタグをタイトルから補完しました`);
+  if (_diag.length) console.warn('[retagAll] 診断:', JSON.stringify(_diag, null, 2));
+  if (updated > 0) window.toast?.(`🏷 ${updated}本のタグをタイトルから補完しました`);
   return updated;
 }
 
