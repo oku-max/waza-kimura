@@ -6,7 +6,7 @@ const RULES_KEY     = 'waza_ai_rules';
 const TAGDICT_KEY   = 'waza_tag_dict';
 const POSITIONS_KEY = 'waza_positions';
 
-const ALL_SUBS = ['accuracy','corrections','rules','tagdict','positions'];
+const ALL_SUBS = ['accuracy','corrections','rules','categories','positions'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -23,7 +23,7 @@ export function switchAdminSub(sub) {
   if (sub === 'accuracy')    _renderAccuracy();
   if (sub === 'corrections') _renderCorrections();
   if (sub === 'rules')       _renderRules();
-  if (sub === 'tagdict')     _renderTagDict();
+  if (sub === 'categories')     _renderCategories();
   if (sub === 'positions')   _renderPositions();
 }
 window.switchAdminSub = switchAdminSub;
@@ -368,33 +368,33 @@ window.proposeRuleFromPattern = proposeRuleFromPattern;
 
 // Default tag dictionary (i18n: ja/en)
 const DEFAULT_TAG_DICT = [
-  { id:'t1',  names:{ja:'パスガード',en:'Guard Pass'}, aliases:{ja:['パスガ'],en:['passing']} },
-  { id:'t2',  names:{ja:'フィニッシュ',en:'Submission'}, aliases:{ja:['極め','サブミッション'],en:['finish','sub']} },
-  { id:'t3',  names:{ja:'スイープ',en:'Sweep'}, aliases:{ja:[],en:['reversal']} },
-  { id:'t4',  names:{ja:'テイクダウン',en:'Takedown'}, aliases:{ja:['タックル'],en:['TD']} },
-  { id:'t5',  names:{ja:'エスケープ・ディフェンス',en:'Escape / Defense'}, aliases:{ja:['エスケープ','ディフェンス'],en:['escape','defense']} },
-  { id:'t6',  names:{ja:'バックテイク・バックアタック',en:'Back Take / Back Attack'}, aliases:{ja:['バックテイク'],en:['back take','back attack']} },
-  { id:'t7',  names:{ja:'ガード構築・エントリー',en:'Guard Entry / Retention'}, aliases:{ja:['ガード構築'],en:['guard pull','guard entry']} },
-  { id:'t8',  names:{ja:'ガードリテンション',en:'Guard Retention'}, aliases:{ja:['リテンション'],en:['retention']} },
-  { id:'t9',  names:{ja:'コントロール／プレッシャー',en:'Control / Pressure'}, aliases:{ja:['コントロール','プレッシャー'],en:['control','pressure']} },
-  { id:'t10', names:{ja:'コンセプト・原理',en:'Concept / Principle'}, aliases:{ja:['コンセプト','原理'],en:['concept','principle','theory']} },
+  { id:'t1',  names:{ja:'パスガード',en:'Guard Pass'}, desc:'相手のガードを越えてトップを取る動作', aliases:{ja:['パスガ'],en:['passing']} },
+  { id:'t2',  names:{ja:'フィニッシュ',en:'Submission'}, desc:'チョーク・関節技など相手を極めにいく動作', aliases:{ja:['極め','サブミッション'],en:['finish','sub']} },
+  { id:'t3',  names:{ja:'スイープ',en:'Sweep'}, desc:'ボトムから相手をひっくり返す動作', aliases:{ja:[],en:['reversal']} },
+  { id:'t4',  names:{ja:'テイクダウン',en:'Takedown'}, desc:'立ちから相手を倒す動作（投げ技含む）', aliases:{ja:['タックル'],en:['TD']} },
+  { id:'t5',  names:{ja:'エスケープ・ディフェンス',en:'Escape / Defense'}, desc:'不利ポジションからの脱出と防御', aliases:{ja:['エスケープ','ディフェンス'],en:['escape','defense']} },
+  { id:'t6',  names:{ja:'バックテイク・バックアタック',en:'Back Take / Back Attack'}, desc:'バックを取る／バックからの攻撃', aliases:{ja:['バックテイク'],en:['back take','back attack']} },
+  { id:'t7',  names:{ja:'ガード構築・エントリー',en:'Guard Entry / Retention'}, desc:'ガードを取る・特定ガードの入り口', aliases:{ja:['ガード構築'],en:['guard pull','guard entry']} },
+  { id:'t8',  names:{ja:'ガードリテンション',en:'Guard Retention'}, desc:'足を取られないボトムの守り', aliases:{ja:['リテンション'],en:['retention']} },
+  { id:'t9',  names:{ja:'コントロール／プレッシャー',en:'Control / Pressure'}, desc:'トップポジションの維持・押さえ', aliases:{ja:['コントロール','プレッシャー'],en:['control','pressure']} },
+  { id:'t10', names:{ja:'コンセプト・原理',en:'Concept / Principle'}, desc:'技ではない原則的な学び', aliases:{ja:['コンセプト','原理'],en:['concept','principle','theory']} },
 ];
 
-function _getTagDict() {
+function _getCategory() {
   try {
     const stored = localStorage.getItem(TAGDICT_KEY);
     return stored ? JSON.parse(stored) : [...DEFAULT_TAG_DICT];
   } catch(e) { return [...DEFAULT_TAG_DICT]; }
 }
-function _saveTagDict(dict) {
+function _saveCategory(dict) {
   try { localStorage.setItem(TAGDICT_KEY, JSON.stringify(dict)); } catch(e) {}
 }
 
-function _renderTagDict() {
-  const el = document.getElementById('admin-tagdict-content');
+function _renderCategories() {
+  const el = document.getElementById('admin-categories-content');
   if (!el) return;
 
-  const dict = _getTagDict();
+  const dict = _getCategory();
   const videos = (window.videos || []).filter(v => !v.archived);
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -408,38 +408,38 @@ function _renderTagDict() {
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)">${dict.length}</span>
-        <span style="font-size:11px;color:var(--text3)">タグ数</span>
+        <span style="font-size:11px;color:var(--text3)">カテゴリ数</span>
       </div>
     </div>
 
     <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
       <div style="display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 12px;gap:6px;flex:1;min-width:180px">
         <span>🔍</span>
-        <input id="tagdict-search" type="text" placeholder="検索..." oninput="filterTagDict()" style="background:none;border:none;outline:none;color:var(--text);font-size:12px;flex:1;font-family:inherit">
+        <input id="categories-search" type="text" placeholder="検索..." oninput="filterCategory()" style="background:none;border:none;outline:none;color:var(--text);font-size:12px;flex:1;font-family:inherit">
       </div>
-      <button onclick="showAddTagForm()" style="background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ タグ追加</button>
+      <button onclick="showAddCatForm()" style="background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ カテゴリ追加</button>
     </div>
 
     <!-- Add tag form -->
-    <div id="tagdict-add-form" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+    <div id="categories-add-form" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:120px">
           <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">日本語名</div>
-          <input id="tagdict-new-ja" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+          <input id="categories-new-ja" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
         </div>
         <div style="flex:1;min-width:120px">
           <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">English name</div>
-          <input id="tagdict-new-en" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+          <input id="categories-new-en" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-        <button onclick="hideAddTagForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
-        <button onclick="addTagDictEntry()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
+        <button onclick="hideAddCatForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
+        <button onclick="addCategoryEntry()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
       </div>
     </div>
 
     <!-- Tag list -->
-    <div id="tagdict-list" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow-x:auto">
+    <div id="categories-list" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:500px">
         <tr>
           <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">名前</th>
@@ -450,7 +450,7 @@ function _renderTagDict() {
         ${dict.map((t, i) => {
           const cnt = catCounts[t.names.ja] || 0;
           return `
-          <tr class="tagdict-row" data-search="${_esc((t.names.ja + ' ' + t.names.en + ' ' + (t.aliases?.ja||[]).join(' ') + ' ' + (t.aliases?.en||[]).join(' ')).toLowerCase())}">
+          <tr class="categories-row" data-search="${_esc((t.names.ja + ' ' + t.names.en + ' ' + (t.aliases?.ja||[]).join(' ') + ' ' + (t.aliases?.en||[]).join(' ')).toLowerCase())}">
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);vertical-align:top">
               <div style="font-weight:700;font-size:13px">${_esc(t.names.ja)}</div>
               <div style="font-size:12px;color:var(--text2);margin-top:2px">${_esc(t.names.en)}</div>
@@ -461,7 +461,7 @@ function _renderTagDict() {
             </td>
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--text2)">${cnt}</td>
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right">
-              <button onclick="deleteTagDictEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
+              <button onclick="deleteCategoryEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
             </td>
           </tr>`;
         }).join('')}
@@ -470,47 +470,47 @@ function _renderTagDict() {
   `;
 }
 
-export function showAddTagForm() {
-  const f = document.getElementById('tagdict-add-form');
+export function showAddCatForm() {
+  const f = document.getElementById('categories-add-form');
   if (f) f.style.display = 'block';
 }
-window.showAddTagForm = showAddTagForm;
+window.showAddCatForm = showAddCatForm;
 
-export function hideAddTagForm() {
-  const f = document.getElementById('tagdict-add-form');
+export function hideAddCatForm() {
+  const f = document.getElementById('categories-add-form');
   if (f) f.style.display = 'none';
 }
-window.hideAddTagForm = hideAddTagForm;
+window.hideAddCatForm = hideAddCatForm;
 
-export function addTagDictEntry() {
-  const ja = document.getElementById('tagdict-new-ja')?.value.trim();
-  const en = document.getElementById('tagdict-new-en')?.value.trim();
+export function addCategoryEntry() {
+  const ja = document.getElementById('categories-new-ja')?.value.trim();
+  const en = document.getElementById('categories-new-en')?.value.trim();
   if (!ja) { window.toast?.('日本語名を入力してください'); return; }
-  const dict = _getTagDict();
+  const dict = _getCategory();
   dict.push({ id: 't' + Date.now(), names: { ja, en: en || ja }, aliases: { ja: [], en: [] } });
-  _saveTagDict(dict);
-  hideAddTagForm();
-  _renderTagDict();
-  window.toast?.('タグを追加しました');
+  _saveCategory(dict);
+  hideAddCatForm();
+  _renderCategories();
+  window.toast?.('カテゴリを追加しました');
 }
-window.addTagDictEntry = addTagDictEntry;
+window.addCategoryEntry = addCategoryEntry;
 
-export function deleteTagDictEntry(idx) {
-  const dict = _getTagDict();
+export function deleteCategoryEntry(idx) {
+  const dict = _getCategory();
   dict.splice(idx, 1);
-  _saveTagDict(dict);
-  _renderTagDict();
-  window.toast?.('タグを削除しました');
+  _saveCategory(dict);
+  _renderCategories();
+  window.toast?.('カテゴリを削除しました');
 }
-window.deleteTagDictEntry = deleteTagDictEntry;
+window.deleteCategoryEntry = deleteCategoryEntry;
 
-export function filterTagDict() {
-  const q = (document.getElementById('tagdict-search')?.value || '').toLowerCase();
-  document.querySelectorAll('.tagdict-row').forEach(row => {
+export function filterCategory() {
+  const q = (document.getElementById('categories-search')?.value || '').toLowerCase();
+  document.querySelectorAll('.categories-row').forEach(row => {
     row.style.display = !q || row.dataset.search.includes(q) ? '' : 'none';
   });
 }
-window.filterTagDict = filterTagDict;
+window.filterCategory = filterCategory;
 
 
 // ═══════════════════════════════════════════
@@ -518,27 +518,36 @@ window.filterTagDict = filterTagDict;
 // ═══════════════════════════════════════════
 
 const DEFAULT_POSITIONS = [
-  { id:'p1',  names:{ja:'クローズドガード',en:'Closed Guard'}, group:'guard', aliases:{ja:[],en:['full guard']} },
-  { id:'p2',  names:{ja:'ハーフガード',en:'Half Guard'}, group:'guard', aliases:{ja:[],en:[]} },
+  // ── ガード系 ──
+  { id:'p1',  names:{ja:'クローズドガード',en:'Closed Guard'}, group:'guard', aliases:{ja:['フルガード'],en:['full guard','closed']} },
+  { id:'p2',  names:{ja:'ハーフガード',en:'Half Guard'}, group:'guard', aliases:{ja:['脇差し','アンダーフックハーフ','ロックダウン','シングルレッグハーフ'],en:['half','underhook half','lockdown','single leg half']} },
   { id:'p3',  names:{ja:'ディープハーフ',en:'Deep Half Guard'}, group:'guard', aliases:{ja:[],en:['deep half']} },
-  { id:'p4',  names:{ja:'バタフライガード',en:'Butterfly Guard'}, group:'guard', aliases:{ja:[],en:['butterfly']} },
-  { id:'p5',  names:{ja:'デラヒーバ',en:'De La Riva'}, group:'guard', aliases:{ja:['DLR'],en:['DLR']} },
-  { id:'p6',  names:{ja:'リバースデラヒーバ',en:'Reverse De La Riva'}, group:'guard', aliases:{ja:['RDLR'],en:['RDLR','reverse DLR']} },
-  { id:'p7',  names:{ja:'スパイダーガード',en:'Spider Guard'}, group:'guard', aliases:{ja:[],en:['spider']} },
-  { id:'p8',  names:{ja:'ラッソーガード',en:'Lasso Guard'}, group:'guard', aliases:{ja:[],en:['lasso']} },
-  { id:'p9',  names:{ja:'Xガード',en:'X Guard'}, group:'guard', aliases:{ja:[],en:[]} },
-  { id:'p10', names:{ja:'SLX',en:'Single Leg X'}, group:'guard', aliases:{ja:['シングルレッグX'],en:['SLX','single leg X']} },
-  { id:'p11', names:{ja:'Kガード',en:'K Guard'}, group:'guard', aliases:{ja:[],en:[]} },
-  { id:'p12', names:{ja:'ワームガード',en:'Worm Guard'}, group:'guard', aliases:{ja:[],en:['worm']} },
-  { id:'p13', names:{ja:'ラペルガード',en:'Lapel Guard'}, group:'guard', aliases:{ja:[],en:['lapel']} },
-  { id:'p14', names:{ja:'ニーシールド',en:'Knee Shield'}, group:'guard', aliases:{ja:[],en:['Z guard','knee shield']} },
-  { id:'p15', names:{ja:'片襟片袖',en:'Collar Sleeve'}, group:'guard', aliases:{ja:[],en:['collar sleeve']} },
-  { id:'p16', names:{ja:'インバーテッド',en:'Inverted'}, group:'guard', aliases:{ja:[],en:['inverted guard']} },
-  { id:'p17', names:{ja:'50/50',en:'50/50'}, group:'leg', aliases:{ja:['フィフティフィフティ'],en:['fifty fifty']} },
-  { id:'p18', names:{ja:'サドル',en:'Saddle / Inside Sankaku'}, group:'leg', aliases:{ja:['内三角','411'],en:['411','inside sankaku','honeyhole']} },
-  { id:'p19', names:{ja:'タートル',en:'Turtle'}, group:'top', aliases:{ja:['亀'],en:[]} },
-  { id:'p20', names:{ja:'スタンディング',en:'Standing'}, group:'stand', aliases:{ja:['立ち技'],en:['stand up']} },
-  { id:'p21', names:{ja:'その他',en:'Other'}, group:'other', aliases:{ja:[],en:[]} },
+  { id:'p4',  names:{ja:'バタフライガード',en:'Butterfly Guard'}, group:'guard', aliases:{ja:['ハーフバタフライ'],en:['butterfly','half butterfly']} },
+  { id:'p5',  names:{ja:'デラヒーバ',en:'De La Riva'}, group:'guard', aliases:{ja:['DLR'],en:['DLR','de la riva']} },
+  { id:'p6',  names:{ja:'リバースデラヒーバ',en:'Reverse De La Riva'}, group:'guard', aliases:{ja:['RDLR','リバデラ'],en:['RDLR','reverse DLR']} },
+  { id:'p7',  names:{ja:'スパイダーガード',en:'Spider Guard'}, group:'guard', aliases:{ja:['インバーテッドスパイダー'],en:['spider','inverted spider']} },
+  { id:'p8',  names:{ja:'ラッソーガード',en:'Lasso Guard'}, group:'guard', aliases:{ja:['シャローラッソー'],en:['lasso','shallow lasso']} },
+  { id:'p9',  names:{ja:'Xガード',en:'X Guard'}, group:'guard', aliases:{ja:[],en:['x guard','x-guard']} },
+  { id:'p10', names:{ja:'SLX',en:'Single Leg X'}, group:'guard', aliases:{ja:['シングルレッグX','シングルレッグXガード'],en:['SLX','single leg X','single leg x guard']} },
+  { id:'p11', names:{ja:'Kガード',en:'K Guard'}, group:'guard', aliases:{ja:[],en:['k guard','k-guard']} },
+  { id:'p12', names:{ja:'ラペルガード',en:'Lapel Guard'}, group:'guard', aliases:{ja:['ワームガード','スクイッドガード','グッバーガード','ラペル系'],en:['lapel','worm guard','worm','squid guard','squid','gubber guard','gubber']} },
+  { id:'p13', names:{ja:'ニーシールド',en:'Knee Shield'}, group:'guard', aliases:{ja:['Zガード'],en:['Z guard','knee shield','z-guard']} },
+  { id:'p14', names:{ja:'片襟片袖',en:'Collar Sleeve'}, group:'guard', aliases:{ja:['片襟片袖ガード'],en:['collar sleeve','collar and sleeve']} },
+  { id:'p15', names:{ja:'インバーテッド',en:'Inverted'}, group:'guard', aliases:{ja:['トルネードガード'],en:['inverted guard','tornado guard','tornado']} },
+  { id:'p16', names:{ja:'70/30ガード',en:'70/30 Guard'}, group:'guard', aliases:{ja:[],en:['70/30','seventy thirty']} },
+  { id:'p17', names:{ja:'シッティングガード',en:'Sit-Up Guard'}, group:'guard', aliases:{ja:['シットアップガード'],en:['sit up guard','sitting guard','seated guard']} },
+  { id:'p18', names:{ja:'シングルレッグガード',en:'Single Leg Guard'}, group:'guard', aliases:{ja:[],en:['single leg guard']} },
+  { id:'p19', names:{ja:'クロスガード',en:'Cross Guard'}, group:'guard', aliases:{ja:[],en:['cross guard']} },
+  { id:'p20', names:{ja:'リバースハーフガード',en:'Reverse Half Guard'}, group:'guard', aliases:{ja:['リバースハーフ'],en:['reverse half','reverse half guard']} },
+  { id:'p21', names:{ja:'オープンガード',en:'Open Guard'}, group:'guard', aliases:{ja:['手ぶらガード'],en:['open guard','no grip guard']} },
+  { id:'p22', names:{ja:'オクトパスガード',en:'Octopus Guard'}, group:'guard', aliases:{ja:[],en:['octopus','octopus guard']} },
+  // ── レッグ系 ──
+  { id:'p23', names:{ja:'50/50',en:'50/50'}, group:'leg', aliases:{ja:['フィフティフィフティ'],en:['fifty fifty']} },
+  { id:'p24', names:{ja:'サドル',en:'Saddle / Inside Sankaku'}, group:'leg', aliases:{ja:['内三角','411'],en:['411','inside sankaku','honeyhole','ashi garami']} },
+  // ── トップ・スタンド・その他 ──
+  { id:'p25', names:{ja:'タートル',en:'Turtle'}, group:'top', aliases:{ja:['亀'],en:[]} },
+  { id:'p26', names:{ja:'スタンディング',en:'Standing'}, group:'stand', aliases:{ja:['立ち技'],en:['stand up','standing']} },
+  { id:'p27', names:{ja:'その他',en:'Other'}, group:'other', aliases:{ja:[],en:[]} },
 ];
 
 const POS_GROUPS = {

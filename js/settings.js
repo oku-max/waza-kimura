@@ -163,10 +163,290 @@ export function applyTagVisibility() {
 }
 
 export function renderSettings() {
-  renderTagSettingsList();
-  renderTagVisibilityBtns();
-  renderAiSettings();
+  _renderTagDisplaySettings();
+  _renderAiImportSettings();
 }
+
+// ═══ タグ表示設定（v5: 3行 + モーダル） ═══
+function _renderTagDisplaySettings() {
+  const el = document.getElementById('tag-display-settings'); if (!el) return;
+  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const tbTs  = tagSettings.find(t => t.key === 'tb');
+  const catTs = tagSettings.find(t => t.key === 'cat');
+  const posTs = tagSettings.find(t => t.key === 'pos');
+
+  // TB: presets from tagSettings
+  const tbCount = tbTs ? tbTs.presets.length : 3;
+  // Cat/Pos: from admin-dashboard storage or defaults
+  const cats = _getSettingsCategory();
+  const positions = _getSettingsPositions();
+  // Tags: from tagSettings
+  const tagsTs = tagSettings.find(t => t.key === 'tags');
+  const tagsCount = tagsTs ? tagsTs.presets.length : 0;
+
+  const makeRow = (key, label, count) => `
+    <div style="display:flex;align-items:center;gap:12px">
+      <label class="settings-toggle">
+        <input type="checkbox" ${tagSettings.find(t=>t.key===key)?.visible?'checked':''}
+          onchange="tagSettings.find(t=>t.key==='${key}').visible=this.checked;saveTagSettings();applyTagVisibility()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600">${_esc(label)}</div>
+        <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${count} 項目</div>
+      </div>
+      <button onclick="openTagEditModal('${key}')"
+        style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
+    </div>`;
+
+  el.innerHTML = makeRow('tb', 'TBS', tbCount) + makeRow('cat', 'カテゴリ', cats.length) + makeRow('pos', 'ポジション', positions.length) + makeRow('tags', '#Tag', tagsCount);
+}
+
+// ── タグデータ取得ヘルパー ──
+function _getSettingsCategory() {
+  try {
+    const stored = localStorage.getItem('waza_tag_dict');
+    return stored ? JSON.parse(stored) : [];
+  } catch(e) { return []; }
+}
+function _getSettingsPositions() {
+  try {
+    const stored = localStorage.getItem('waza_positions');
+    return stored ? JSON.parse(stored) : [];
+  } catch(e) { return []; }
+}
+
+// ═══ タグ編集モーダル ═══
+window.openTagEditModal = function(type) {
+  const overlay = document.getElementById('tag-edit-overlay');
+  const modal = document.getElementById('tag-edit-modal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex';
+
+  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let title = '', items = [], placeholder = '', hasSearch = false, hasDesc = false;
+
+  if (type === 'tb') {
+    title = 'TBS';
+    const ts = tagSettings.find(t => t.key === 'tb');
+    items = (ts?.presets || ['トップ','ボトム','スタンディング']).map((p,i) => ({ name: p, en: '', source: 'system', idx: i }));
+    placeholder = '新しい項目を追加...';
+  } else if (type === 'cat') {
+    title = 'カテゴリ';
+    hasSearch = true; hasDesc = true;
+    const cats = _getSettingsCategory();
+    // desc from tag-master.js CATEGORIES (stored in code) — fallback to empty
+    const descMap = {
+      'エスケープ・ディフェンス':'不利ポジションからの脱出と防御',
+      'ガード構築・エントリー':'ガードを取る・特定ガードの入り口',
+      'ガードリテンション':'足を取られないボトムの守り',
+      'コントロール／プレッシャー':'トップポジションの維持・押さえ',
+      'コンセプト・原理':'技ではない原則的な学び',
+      'スイープ':'ボトムから相手をひっくり返す動作',
+      'テイクダウン':'立ちから相手を倒す動作（投げ技含む）',
+      'バックテイク・バックアタック':'バックを取る／バックからの攻撃',
+      'パスガード':'相手のガードを越えてトップを取る動作',
+      'フィニッシュ':'チョーク・関節技など相手を極めにいく動作',
+    };
+    items = cats.map(c => ({
+      name: c.names?.ja || c.name || '',
+      en: c.names?.en || '',
+      desc: c.desc || descMap[c.names?.ja || c.name] || '',
+      source: c.source || 'system',
+      id: c.id
+    }));
+    // sort あいうえお
+    items.sort((a,b) => {
+      if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
+      return a.name.localeCompare(b.name, 'ja');
+    });
+    placeholder = '新しいカテゴリを追加...';
+  } else if (type === 'pos') {
+    title = 'ポジション';
+    hasSearch = true;
+    const positions = _getSettingsPositions();
+    items = positions.map(p => ({
+      name: p.names?.ja || '',
+      en: p.names?.en || '',
+      source: p.source || 'system',
+      id: p.id
+    }));
+    // sort: 数字→英字→あいうえお、カスタム末尾
+    items.sort((a,b) => {
+      if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
+      return a.name.localeCompare(b.name, 'ja');
+    });
+    placeholder = '新しいポジションを追加...';
+  } else if (type === 'tags') {
+    title = '#Tag';
+    hasSearch = true;
+    const ts = tagSettings.find(t => t.key === 'tags');
+    items = (ts?.presets || []).map(p => ({ name: p, en: '', source: 'system', id: p }));
+    items.sort((a,b) => a.name.localeCompare(b.name, 'ja'));
+    placeholder = '新しいタグを追加...';
+  }
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border2);flex-shrink:0">
+      <div style="font-size:14px;font-weight:800">${_esc(title)}</div>
+      <button onclick="closeTagEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
+    </div>`;
+
+  if (hasSearch) {
+    html += `<div style="padding:0 18px;border-bottom:1px solid var(--border2)">
+      <input id="tag-modal-search" placeholder="検索..." oninput="_filterTagModal()"
+        style="width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit">
+    </div>`;
+  }
+
+  html += `<div id="tag-modal-list" style="overflow-y:auto;flex:1;padding:0">`;
+  items.forEach((item, i) => {
+    const isCustom = item.source === 'user';
+    html += `<div class="tag-modal-item" data-name="${_esc(item.name)}" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);${isCustom?'background:var(--surface2)':''}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600">${_esc(item.name)}${isCustom?'<span style="font-size:9px;font-weight:600;color:var(--blue);background:#e8eef4;padding:1px 6px;border-radius:8px;margin-left:6px">カスタム</span>':''}</div>
+        ${item.en ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">${_esc(item.en)}</div>` : ''}
+        ${hasDesc && item.desc ? `<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic">${_esc(item.desc)}</div>` : ''}
+      </div>
+      <button onclick="_deleteTagFromModal('${type}','${_esc(item.id||item.name)}')" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0">
+    <div style="font-size:10px;color:var(--text3);line-height:1.5;margin-bottom:8px">※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。</div>
+    <div style="display:flex;gap:8px">
+      <input id="tag-modal-add-input" placeholder="${_esc(placeholder)}"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;outline:none">
+      <button onclick="_addTagFromModal('${type}')"
+        style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+    </div>
+  </div>`;
+
+  modal.innerHTML = html;
+};
+
+window.closeTagEditModal = function() {
+  const overlay = document.getElementById('tag-edit-overlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window._filterTagModal = function() {
+  const q = (document.getElementById('tag-modal-search')?.value || '').toLowerCase();
+  document.querySelectorAll('.tag-modal-item').forEach(el => {
+    const name = (el.dataset.name || '').toLowerCase();
+    el.style.display = name.includes(q) ? '' : 'none';
+  });
+};
+
+window._addTagFromModal = function(type) {
+  const input = document.getElementById('tag-modal-add-input');
+  const val = (input?.value || '').trim();
+  if (!val) return;
+
+  if (type === 'tb') {
+    const ts = tagSettings.find(t => t.key === 'tb');
+    if (ts && !ts.presets.includes(val)) {
+      ts.presets.push(val);
+      saveTagSettings();
+    }
+  } else if (type === 'cat') {
+    const cats = _getSettingsCategory();
+    if (!cats.find(c => (c.names?.ja || c.name) === val)) {
+      const newId = 'u_cat_' + Date.now();
+      cats.push({ id: newId, names: { ja: val, en: '' }, desc: '', aliases: { ja: [], en: [] }, source: 'user' });
+      try { localStorage.setItem('waza_tag_dict', JSON.stringify(cats)); } catch(e) {}
+    }
+  } else if (type === 'pos') {
+    const positions = _getSettingsPositions();
+    if (!positions.find(p => (p.names?.ja) === val)) {
+      const newId = 'u_pos_' + Date.now();
+      positions.push({ id: newId, names: { ja: val, en: '' }, group: 'other', aliases: { ja: [], en: [] }, source: 'user' });
+      try { localStorage.setItem('waza_positions', JSON.stringify(positions)); } catch(e) {}
+    }
+  } else if (type === 'tags') {
+    const ts = tagSettings.find(t => t.key === 'tags');
+    if (ts && !ts.presets.includes(val)) {
+      ts.presets.push(val);
+      saveTagSettings();
+    }
+  }
+
+  // Re-render modal and settings row
+  openTagEditModal(type);
+  _renderTagDisplaySettings();
+  const newInput = document.getElementById('tag-modal-add-input');
+  if (newInput) newInput.value = '';
+};
+
+window._deleteTagFromModal = function(type, idOrName) {
+  if (type === 'tb') {
+    const ts = tagSettings.find(t => t.key === 'tb');
+    if (ts) {
+      ts.presets = ts.presets.filter(p => p !== idOrName);
+      saveTagSettings();
+    }
+  } else if (type === 'cat') {
+    const cats = _getSettingsCategory();
+    const filtered = cats.filter(c => (c.id || c.names?.ja || c.name) !== idOrName);
+    try { localStorage.setItem('waza_tag_dict', JSON.stringify(filtered)); } catch(e) {}
+  } else if (type === 'pos') {
+    const positions = _getSettingsPositions();
+    const filtered = positions.filter(p => (p.id || p.names?.ja) !== idOrName);
+    try { localStorage.setItem('waza_positions', JSON.stringify(filtered)); } catch(e) {}
+  } else if (type === 'tags') {
+    const ts = tagSettings.find(t => t.key === 'tags');
+    if (ts) {
+      ts.presets = ts.presets.filter(p => p !== idOrName);
+      saveTagSettings();
+    }
+  }
+  openTagEditModal(type);
+  _renderTagDisplaySettings();
+};
+
+// ═══ AI取込設定（簡素化） ═══
+function _renderAiImportSettings() {
+  const el = document.getElementById('ai-settings-section'); if (!el) return;
+  const s = aiSettings;
+  const _esc = v => String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const toggleHtml = (prop, label, desc, extra='') => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">${label}</div>
+        ${desc?`<div style="font-size:11px;color:var(--text3)">${desc}</div>`:''}
+      </div>
+      <label class="settings-toggle">
+        <input type="checkbox" ${s[prop]?'checked':''} onchange="aiSettings.${prop}=this.checked;saveAiSettings();_renderAiImportSettings()" ${extra}>
+        <span class="settings-toggle-slider"></span>
+      </label>
+    </div>`;
+
+  const chipHtml = (key, label) => {
+    const on = s.categories?.[key];
+    return `<span onclick="aiSettings.categories.${key}=!aiSettings.categories.${key};saveAiSettings();_renderAiImportSettings()"
+      style="padding:5px 12px;border-radius:20px;border:1.5px solid ${on?'var(--accent)':'var(--border)'};font-size:11px;font-weight:600;cursor:pointer;
+      background:${on?'var(--accent)':'var(--surface2)'};color:${on?'#fff':'var(--text2)'}">${label}</span>`;
+  };
+
+  el.innerHTML = `
+    ${toggleHtml('enabled', 'AIタグ機能', 'タイトルからカテゴリ・ポジションを自動判定')}
+    <div style="opacity:${s.enabled?1:.4};pointer-events:${s.enabled?'auto':'none'};margin-top:14px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">自動判定するタグ</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${chipHtml('tb','TBS')}${chipHtml('action','カテゴリ')}${chipHtml('position','ポジション')}${chipHtml('tags','#Tag')}
+        </div>
+      </div>
+      ${toggleHtml('autoTagOnImport', '取込時に自動AI分析', 'YouTube取り込み後に自動でタグ付け')}
+      ${toggleHtml('fetchChaptersOnImport', 'チャプター取得', 'YouTubeの説明文からタイムスタンプを解析')}
+    </div>`;
+}
+// expose for inline onchange
+window._renderAiImportSettings = _renderAiImportSettings;
 
 export function renderTagSettingsList() {
   const el = document.getElementById('tag-settings-list'); if (!el) return;
