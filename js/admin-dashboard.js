@@ -200,7 +200,7 @@ function _renderRules() {
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">ルール一覧</div>
-        <button onclick="toggleAddRuleForm()" style="background:var(--accent);color:#1c1c1e;border:none;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ルール追加</button>
+        <button onclick="toggleAddRuleForm()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ルール追加</button>
       </div>
 
       <!-- Add rule form (hidden by default) -->
@@ -232,7 +232,7 @@ function _renderRules() {
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
           <button onclick="toggleAddRuleForm()" style="background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
-          <button onclick="saveNewRule()" style="background:var(--accent);color:#1c1c1e;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">保存</button>
+          <button onclick="saveNewRule()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">保存</button>
         </div>
       </div>
 
@@ -417,7 +417,7 @@ function _renderTagDict() {
         <span>🔍</span>
         <input id="tagdict-search" type="text" placeholder="検索..." oninput="filterTagDict()" style="background:none;border:none;outline:none;color:var(--text);font-size:12px;flex:1;font-family:inherit">
       </div>
-      <button onclick="showAddTagForm()" style="background:var(--accent);color:#1c1c1e;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ タグ追加</button>
+      <button onclick="showAddTagForm()" style="background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ タグ追加</button>
     </div>
 
     <!-- Add tag form -->
@@ -434,7 +434,7 @@ function _renderTagDict() {
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
         <button onclick="hideAddTagForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
-        <button onclick="addTagDictEntry()" style="background:var(--accent);color:#1c1c1e;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
+        <button onclick="addTagDictEntry()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
       </div>
     </div>
 
@@ -604,7 +604,7 @@ function _renderPositions() {
         <button onclick="filterPosGroup('${g}')" style="background:${_posFilterGroup===g?info.color+'22':'var(--surface)'};border:1px solid ${_posFilterGroup===g?info.color:'var(--border)'};color:${_posFilterGroup===g?info.color:'var(--text2)'};font-size:11px;padding:6px 12px;border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap">${info.ja}</button>
       `).join('')}
       ${_posFilterGroup ? `<button onclick="filterPosGroup(null)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:11px;padding:6px 10px;border-radius:20px;cursor:pointer;font-family:inherit">× クリア</button>` : ''}
-      <button onclick="showAddPosForm()" style="background:var(--accent);color:#1c1c1e;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ 追加</button>
+      <button onclick="showAddPosForm()" style="background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ 追加</button>
     </div>
 
     <!-- Add position form -->
@@ -627,7 +627,7 @@ function _renderPositions() {
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
         <button onclick="hideAddPosForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
-        <button onclick="addPosition()" style="background:var(--accent);color:#1c1c1e;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
+        <button onclick="addPosition()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
       </div>
     </div>
 
