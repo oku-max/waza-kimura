@@ -52,7 +52,7 @@ export function switchTab(t) {
     const orgTab = document.getElementById('organizeTab');
     if (ma && orgTab) orgTab.style.left = ma.getBoundingClientRect().left + 'px';
   }
-  ['home','community','organize','archive','settings'].forEach(n => {
+  ['home','community','organize','archive','settings','admin'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
     const m  = document.getElementById('mnav-' + n); if (m)  m.className  = 'mn-i'      + (t === n ? ' active' : '');
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
@@ -66,10 +66,10 @@ export function switchTab(t) {
       if (orgC) orgC.style.display = '';
       if (libC) libC.style.display = 'none';
       setTimeout(() => window.adjustOrgTableHeight?.(), 100);
-    } else if (t === 'settings') {
+    } else if (t === 'settings' || t === 'admin') {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = 'none';
-      if (settingsC) settingsC.style.display = '';
+      if (settingsC) settingsC.style.display = t === 'settings' ? '' : 'none';
     } else {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = '';
@@ -82,6 +82,7 @@ export function switchTab(t) {
   if (t === 'organize')  window.renderOrg?.();
   if (t === 'archive')   window.renderArch?.();
   if (t === 'settings')  window.renderSettings?.();
+  if (t === 'admin')     window.renderAdminDashboard?.();
   if (window.bulkMode) {
     const allowedTab = window.bulkCtx === 'organize' ? 'organize' : 'home';
     if (t !== allowedTab) window.exitBulk?.();

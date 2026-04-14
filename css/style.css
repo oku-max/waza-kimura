@@ -1463,3 +1463,11 @@ body.hide-tags .fov-row-tags { display: none !important; }
 /* ═══ DARK MODE OVERRIDES (CSS変数で対応できないもののみ) ═══ */
 body.dark .belt-chip.white { background:var(--surface3); color:var(--text2); border-color:var(--border); }
 body.dark .settings-toggle-slider:before { background:var(--surface); }
+
+/* ═══ 管理モード — 検証ドット ═══ */
+.verify-dot{display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;z-index:2;pointer-events:none;}
+.verify-dot.verified{background:var(--green);}
+.verify-dot.ai-unverified{background:var(--gold);}
+body.admin-mode .verify-dot{display:block;}
+.verify-dot-ctrl{display:none !important;}
+body.admin-mode .verify-dot-ctrl{display:flex !important;}

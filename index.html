@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.8</title>
+<title>WAZA KIMURA v50.9</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 
@@ -83,6 +83,7 @@
   import './js/organize.js';
   import './js/bulk.js';
   import './js/ai-tagging.js';
+  import './js/admin-dashboard.js';
   import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots } from './js/snapshot-editor.js';
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
@@ -625,6 +626,7 @@
       <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')">≡ Organize</div>
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
+      <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
     </nav>
   </div>
   <!-- 検索＋ボタン行 -->
@@ -659,6 +661,7 @@
     <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')"><span>≡</span> Organize</div>
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')"><span>◫</span> Archive</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
+    <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
   </nav>
 
   <!-- 新サイドバー：Library / Organize 共通 -->
@@ -1116,6 +1119,61 @@
       </div>
     </div>
 
+    <!-- 管理モード（最下部・目立たない配置） -->
+    <div style="margin:32px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:4px">🔒 管理モード</div>
+          <div id="admin-mode-desc" style="font-size:10px;color:var(--text3);margin-top:2px;display:none">検証ドット・精度バッジを表示（この端末のみ）</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="admin-mode-toggle" onchange="toggleAdminMode(this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
+        </label>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ADMIN TAB -->
+<div class="tab-panel" id="adminTab">
+  <div style="max-width:720px;margin:0 auto;padding:16px 14px 80px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">🔒 AI管理 <span style="font-size:11px;background:var(--accent);color:#1c1c1e;padding:2px 8px;border-radius:10px;font-weight:700">ADMIN</span></div>
+    </div>
+    <!-- Admin sub-tabs -->
+    <div id="admin-sub-tabs" style="display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
+      <div class="admin-stab active" onclick="switchAdminSub('accuracy')" data-sub="accuracy" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">精度</div>
+      <div class="admin-stab" onclick="switchAdminSub('corrections')" data-sub="corrections" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">修正履歴</div>
+      <div class="admin-stab" onclick="switchAdminSub('rules')" data-sub="rules" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ルール</div>
+      <div class="admin-stab" onclick="switchAdminSub('tagdict')" data-sub="tagdict" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">タグ辞書</div>
+      <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
+    </div>
+
+    <!-- A: 精度パネル -->
+    <div id="admin-p-accuracy">
+      <div id="admin-accuracy-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- B: 修正履歴パネル -->
+    <div id="admin-p-corrections" style="display:none">
+      <div id="admin-corrections-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- D: ルールパネル -->
+    <div id="admin-p-rules" style="display:none">
+      <div id="admin-rules-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- タグ辞書パネル -->
+    <div id="admin-p-tagdict" style="display:none">
+      <div id="admin-tagdict-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- ポジション管理パネル -->
+    <div id="admin-p-positions" style="display:none">
+      <div id="admin-positions-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
   </div>
 </div>
 
@@ -1356,6 +1414,7 @@
   <div class="mn-i" id="mnav-organize" onclick="switchTab('organize')"><span>≡</span>Organize</div>
   <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')"><span>◫</span>Archive</div>
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
+  <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
 </nav>
 </div><!-- /main-area -->
 </div><!-- /app-shell -->
@@ -2694,6 +2753,38 @@ function loadSettings() {
   } catch(e) {}
 }
 loadSettings();
+
+// ── 管理モード ──
+function toggleAdminMode(on) {
+  document.body.classList.toggle('admin-mode', on);
+  localStorage.setItem('waza_admin_mode', on ? '1' : '');
+  const desc = document.getElementById('admin-mode-desc');
+  if (desc) desc.style.display = on ? 'block' : 'none';
+  // Admin タブボタンの表示切替
+  ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? '' : 'none';
+  });
+  // Adminモード OFF で Admin タブを見ている場合は home に戻す
+  if (!on && document.getElementById('adminTab')?.classList.contains('active')) {
+    window.switchTab?.('home');
+  }
+}
+function initAdminMode() {
+  const on = localStorage.getItem('waza_admin_mode') === '1';
+  const cb = document.getElementById('admin-mode-toggle');
+  if (cb) cb.checked = on;
+  if (on) {
+    document.body.classList.add('admin-mode');
+    const desc = document.getElementById('admin-mode-desc');
+    if (desc) desc.style.display = 'block';
+    ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+  }
+}
+initAdminMode();
 
 buildAllSliders();
 buildMirrorRows();

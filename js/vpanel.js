@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v48.5 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.9 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -26,6 +26,74 @@ function _loadVimeoApi() {
     s.onload = () => resolve();
     document.head.appendChild(s);
   });
+}
+
+// ── フィードバックキャプチャ（AI修正検出） ──
+let _vpTagSnapshot = null;  // { id, tb, cat, pos, tags } — openVPanel時にAI動画のタグをスナップショット
+
+function _snapshotTags(v) {
+  if (!v || !v.ai) return;  // AI未タグ動画はスキップ
+  _vpTagSnapshot = {
+    id:   v.id,
+    ts:   Date.now(),
+    tb:   [...(v.tb   || [])],
+    cat:  [...(v.cat  || [])],
+    pos:  [...(v.pos  || [])],
+    tags: [...(v.tags || [])]
+  };
+}
+
+function _captureTagFeedback(id) {
+  if (!_vpTagSnapshot || _vpTagSnapshot.id !== id) return;
+  const v = (window.videos || []).find(v => v.id === id);
+  if (!v || !v.ai) return;
+
+  const snap = _vpTagSnapshot;
+  const cur = {
+    tb:   [...(v.tb   || [])],
+    cat:  [...(v.cat  || [])],
+    pos:  [...(v.pos  || [])],
+    tags: [...(v.tags || [])]
+  };
+
+  // 差分を検出
+  const diff = {};
+  let hasDiff = false;
+  for (const key of ['tb', 'cat', 'pos', 'tags']) {
+    const added   = cur[key].filter(x => !snap[key].includes(x));
+    const removed = snap[key].filter(x => !cur[key].includes(x));
+    if (added.length || removed.length) {
+      diff[key] = {};
+      if (added.length)   diff[key].added   = added;
+      if (removed.length) diff[key].removed = removed;
+      hasDiff = true;
+    }
+  }
+  if (!hasDiff) return;
+
+  // localStorage に FIFO 保存 (最大50件)
+  const FEEDBACK_KEY = 'waza_tag_feedback';
+  const MAX_ENTRIES  = 50;
+  let entries = [];
+  try { entries = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]'); } catch(e) { entries = []; }
+  entries.push({
+    id:    v.id,
+    title: v.title || '',
+    ts:    Date.now(),
+    ai:    v.ai || '',
+    snap,
+    cur,
+    diff
+  });
+  if (entries.length > MAX_ENTRIES) entries = entries.slice(-MAX_ENTRIES);
+  try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(entries)); } catch(e) {}
+
+  // スナップショットを更新（同セッション内で再度変更した場合は新しいベースラインから検出）
+  _vpTagSnapshot = { id: v.id, ts: Date.now(), tb: cur.tb, cat: cur.cat, pos: cur.pos, tags: cur.tags };
+}
+
+function _clearTagSnapshot() {
+  _vpTagSnapshot = null;
 }
 
 // ── ドロップダウン外クリックで閉じる（グローバル） ──
@@ -1171,6 +1239,7 @@ export function openVPanel(id) {
     history.pushState({ vpanel: id }, '');
   }
   window.openVPanelId = id;
+  _snapshotTags(v);  // AI動画のタグ状態をスナップショット（フィードバック検出用）
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
   window.debounceSave?.();
@@ -1385,6 +1454,7 @@ export function closeVPanel() {
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
+    _clearTagSnapshot();  // フィードバックスナップショットをクリア
     if (window.cleanupSnapshots) { try { window.cleanupSnapshots(); } catch(e) {} }
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
@@ -1617,6 +1687,16 @@ export function buildDrawerHTML(id) {
                font-weight:700;cursor:pointer;letter-spacing:.3px">
         🤖 AIタグ提案
       </button>
+    </div>
+    <div style="padding:4px 16px" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
+      ${v.verified
+        ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
+        : `<button onclick="vpVerify('${id}')"
+            style="width:100%;padding:9px;border-radius:8px;border:1.5px solid var(--green,#6bc490);
+                   background:transparent;color:var(--green,#6bc490);font-size:12px;
+                   font-weight:700;cursor:pointer">
+            ✓ 検証済みにする
+          </button>`}
     </div>
     <div style="padding:4px 16px;display:flex;gap:8px">
       <button onclick="vpArchive('${id}')"
@@ -2242,6 +2322,7 @@ export function vpSaveMemo(id) {
 }
 
 export function autoSaveVp(id) {
+  _captureTagFeedback(id);  // AI修正差分を検出・記録
   window.debounceSave?.();
   const ind = document.getElementById('vp-autosave-' + id);
   if (ind) {
@@ -2270,6 +2351,7 @@ export function _openPanel(id, emb, ext, plat) {
 
   panelId = id;
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
+  _snapshotTags(v);  // AI動画のタグ状態をスナップショット（フィードバック検出用）
   let panel = document.getElementById('vp-panel');
   if (!panel) {
     panel = document.createElement('div');
@@ -2402,6 +2484,7 @@ export function closePanel() {
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
     }
+    _clearTagSnapshot();  // フィードバックスナップショットをクリア
     if (window.cleanupSnapshots) { try { window.cleanupSnapshots(); } catch(e) {} }
     const panel = document.getElementById('vp-panel');
     if (panel) { panel.classList.remove('show'); }
@@ -2411,6 +2494,26 @@ export function closePanel() {
     panelId = null;
   } catch(e) { console.warn('closePanel error:', e); }
 }
+
+// ── 検証済み ──
+export function vpVerify(id) {
+  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
+  v.verified = Date.now();
+  window.debounceSave?.();
+  window.AF?.();
+  // UIを即時更新
+  const wrap = document.getElementById('vp-verify-wrap-' + id);
+  if (wrap) wrap.innerHTML = '<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>';
+  // カードのドットを更新
+  const card = document.getElementById('card-' + id);
+  if (card) {
+    const dot = card.querySelector('.verify-dot');
+    if (dot) { dot.className = 'verify-dot verified'; }
+    else { card.insertAdjacentHTML('afterbegin', '<div class="verify-dot verified"></div>'); }
+  }
+  window.toast?.('✓ 検証済みに設定しました');
+}
+window.vpVerify = vpVerify;
 
 // ── アーカイブ ──
 export function vpArchive(id) {
