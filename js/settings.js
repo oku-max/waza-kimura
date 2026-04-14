@@ -163,8 +163,25 @@ export function applyTagVisibility() {
 }
 
 export function renderSettings() {
+  // #Tag の presets が空なら動画データから自動収集
+  _syncTagPresetsFromVideos();
   _renderTagDisplaySettings();
   _renderAiImportSettings();
+}
+
+function _syncTagPresetsFromVideos() {
+  const ts = tagSettings.find(t => t.key === 'tags');
+  if (!ts || ts.presets.length > 0) return; // 既に登録済みならスキップ
+  const videos = window.videos || [];
+  const all = new Set();
+  for (const v of videos) {
+    if (Array.isArray(v.tags)) v.tags.forEach(t => { if (t) all.add(t); });
+  }
+  if (all.size > 0) {
+    ts.presets = [...all].sort((a, b) => a.localeCompare(b, 'ja'));
+    saveTagSettings();
+    console.log(`[settings] #Tag presets に ${ts.presets.length} 件を動画データから収集`);
+  }
 }
 
 // ═══ タグ表示設定（v5: 3行 + モーダル） ═══
@@ -204,17 +221,26 @@ function _renderTagDisplaySettings() {
 }
 
 // ── タグデータ取得ヘルパー ──
+// admin-dashboard.js の DEFAULT_TAG_DICT / DEFAULT_POSITIONS をフォールバックに使う
 function _getSettingsCategory() {
   try {
     const stored = localStorage.getItem('waza_tag_dict');
-    return stored ? JSON.parse(stored) : [];
-  } catch(e) { return []; }
+    if (stored) { const p = JSON.parse(stored); if (p && p.length) return p; }
+  } catch(e) {}
+  // フォールバック: tag-master.js の CATEGORIES（常に存在）
+  return (window.CATEGORIES || []).map(c => ({
+    id: c.id, names: { ja: c.name, en: '' }, desc: c.desc || '', aliases: { ja: c.aliases || [], en: [] }, source: 'system'
+  }));
 }
 function _getSettingsPositions() {
   try {
     const stored = localStorage.getItem('waza_positions');
-    return stored ? JSON.parse(stored) : [];
-  } catch(e) { return []; }
+    if (stored) { const p = JSON.parse(stored); if (p && p.length) return p; }
+  } catch(e) {}
+  // フォールバック: tag-master.js の POSITIONS（常に存在）
+  return (window.POSITIONS || []).map(p => ({
+    id: p.id, names: { ja: p.ja, en: p.en }, group: 'guard', aliases: { ja: p.aliases || [], en: [] }, source: 'system'
+  }));
 }
 
 // ═══ タグ編集モーダル ═══

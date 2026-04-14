@@ -1552,55 +1552,7 @@ function addCT(t){if(t&&!dTags.tags.has(t)){dTags.tags.add(t);document.getElemen
 function techKD(e){if(e.key==='Enter'){const q=document.getElementById('techSrch').value.trim();if(q)addCT(q);}}
 function renderST(){document.getElementById('selTechs').innerHTML=[...dTags.tags].map(t=>`<div class="tech-chip" onclick="rmT('${t}')">${t} <span>×</span></div>`).join('');}
 function rmT(t){dTags.tags.delete(t);filterTechs();renderST();}
-function autoTagFromTitle(title) {
-  const tl = title.toLowerCase();
-  const tags = [];
-  const tb = [];
-  const cat = [];
-  const pos = [];
-  // Technique detection
-  if(tl.includes('kimura')||tl.includes('キムラ')) tags.push('キムラ');
-  if(tl.includes('triangle')||tl.includes('トライアングル')) tags.push('十字絞め');
-  if(tl.includes('armbar')||tl.includes('arm bar')) tags.push('アームバー');
-  if(tl.includes('rear naked')||tl.includes('rnc')) tags.push('RNC');
-  if(tl.includes('guillotine')||tl.includes('ギロチン')) tags.push('ギロチン');
-  if(tl.includes('heel hook')||tl.includes('heelhook')) tags.push('ヒールフック');
-  if(tl.includes('inside heel')) tags.push('インサイドヒールフック');
-  if(tl.includes('outside heel')) tags.push('アウトサイドヒールフック');
-  if(tl.includes('toe hold')) tags.push('トーホールド');
-  if(tl.includes('kneebar')||tl.includes('knee bar')) tags.push('ニーバー');
-  if(tl.includes('americana')) tags.push('アメリカーナ');
-  if(tl.includes('omoplata')||tl.includes('オモプラッタ')) tags.push('オモプラッタ');
-  if(tl.includes('berimbolo')||tl.includes('ベリンボロ')) tags.push('ベリンボロ');
-  if(tl.includes('bow and arrow')) tags.push('ボウアンドアロー');
-  if(tl.includes('double leg')) tags.push('ダブルレッグ');
-  if(tl.includes('single leg')) tags.push('シングルレッグ');
-  if(tl.includes('x guard')||tl.includes('x-guard')) { tags.push('SLXスイープ'); pos.push('Xガード'); }
-  if(tl.includes('slx')) { tags.push('SLXスイープ'); }
-  if(tl.includes('butterfly')||tl.includes('バタフライ')) { tags.push('バタフライスイープ'); pos.push('バタフライガード'); }
-  // Position detection
-  if(tl.includes('closed guard')||tl.includes('クローズド')) pos.push('クローズドガード');
-  if(tl.includes('half guard')||tl.includes('ハーフ')) pos.push('ハーフガード');
-  if(tl.includes('back')||tl.includes('バック')) { pos.push('バック'); tb.push('バック'); }
-  if(tl.includes('mount')||tl.includes('マウント')) pos.push('マウント');
-  if(tl.includes('side control')||tl.includes('サイド')) pos.push('サイドコントロール');
-  if(tl.includes('turtle')||tl.includes('タートル')) pos.push('タートル');
-  if(tl.includes('deep half')) pos.push('ハーフガード');
-  if(tl.includes('dela riva')||tl.includes('delariva')) pos.push('デラヒーバ');
-  // Action detection
-  if(tl.includes('sweep')||tl.includes('スイープ')) cat.push('スイープ');
-  if(tl.includes('escape')||tl.includes('エスケープ')) cat.push('エスケープ・ディフェンス');
-  if(tl.includes('pass')||tl.includes('パス')) cat.push('パスガード');
-  if(tl.includes('finish')||tl.includes('フィニッシュ')) cat.push('フィニッシュ');
-  if(tl.includes('drill')||tl.includes('ドリル')) cat.push('ドリル');
-  if(tl.includes('attack')||tl.includes('アタック')) cat.push('アタック');
-  if(tl.includes('takedown')) cat.push('テイクダウン');
-  // Top/Bottom
-  if(tl.includes('top')||tl.includes('トップ')) tb.push('トップ');
-  if(tl.includes('bottom')||tl.includes('ボトム')||tl.includes('guard')) tb.push('ボトム');
-  if(tl.includes('standing')||tl.includes('スタンディング')||tl.includes('takedown')) tb.push('スタンディング');
-  return { tags: [...new Set(tags)], tb: [...new Set(tb)], cat: [...new Set(cat)], pos: [...new Set(pos)] };
-}
+// autoTagFromTitle は tag-master.js で定義（window.autoTagFromTitle）
 
 function runAI(){const v=videos.find(v=>v.id===editId);if(!v)return;const btn=document.getElementById('aiBtn');btn.textContent='⏳...';btn.disabled=true;setTimeout(()=>{
   const aiResult = autoTagFromTitle(v.title);
