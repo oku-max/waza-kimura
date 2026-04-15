@@ -444,6 +444,17 @@ let _tagAliasData = {};
 let _tagsModalTab = 'list';
 const _tagsOpenGroups = new Set(['unc']);
 let _tagsDragItem = null;
+let _tagsEditingTag = null;   // インライン編集中のタグ名
+let _tagsEditingGrp = null;   // インライン編集中のグループID
+
+// AI グルーピング提案（localStorage 永続化）
+let _aiGroupProposals = [];
+function _loadAiGroupProposals() {
+  try { const s = localStorage.getItem('wk_aiGroupProposals'); if (s) _aiGroupProposals = JSON.parse(s); } catch(e) {}
+}
+function _saveAiGroupProposals() {
+  try { localStorage.setItem('wk_aiGroupProposals', JSON.stringify(_aiGroupProposals)); } catch(e) {}
+}
 
 // ── データ永続化 ──
 function _loadTagGroups() {
@@ -479,6 +490,9 @@ function _getUncategorizedTags() {
 // ── エントリーポイント ──
 function _openTagsNewModal() {
   _loadTagGroups();
+  _loadAiGroupProposals();
+  _tagsEditingTag = null;
+  _tagsEditingGrp = null;
   _tagsModalTab = 'list';
   _renderTagsNewModal();
 }
@@ -490,11 +504,13 @@ function _renderTagsNewModal() {
   const _e = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const _js = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const t = _tagsModalTab;
-  const aiCount = Object.values(_tagAliasData).reduce((s, d) => s + (d.aiSuggested?.length||0), 0);
+  const aliasCount = Object.values(_tagAliasData).reduce((s, d) => s + (d.aiSuggested?.length||0), 0);
+  const grpProposalCount = _aiGroupProposals.length;
+  const aiCount = t === 'list' ? grpProposalCount : aliasCount;
 
   modal.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 0;flex-shrink:0">
-      <div style="font-size:14px;font-weight:800">#Tag</div>
+      <div style="font-size:14px;font-weight:800">テクニック</div>
       <button onclick="closeTagEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
     </div>
     <div style="display:flex;align-items:center;padding:0 18px;border-bottom:1px solid var(--border2);flex-shrink:0;margin-top:2px">
@@ -544,10 +560,19 @@ function _renderTagsListBody(body, _e, _js) {
   _tagGroups.forEach(g => {
     const open = _tagsOpenGroups.has(g.id);
     const visible = g.techNames.filter(n => !blocked.has(n));
+    const grpEd = _tagsEditingGrp === g.id;
     h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
-      onclick="_tagsToggleGrp('${_js(g.id)}')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'${_js(g.id)}')">
+      onclick="${grpEd?'':'_tagsToggleGrp(\''+_js(g.id)+'\')'}" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'${_js(g.id)}')">
       <span style="font-size:10px;color:var(--text3);display:inline-block;transform:rotate(${open?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
-      <span style="flex:1;font-size:12px;font-weight:700">${_e(g.name)}</span>
+      ${grpEd
+        ? `<input id="grp-ed-${_e(g.id)}" value="${_e(g.name)}"
+             onclick="event.stopPropagation()"
+             onkeydown="if(event.key==='Enter'){event.stopPropagation();_saveGrpName('${_js(g.id)}');}if(event.key==='Escape'){_tagsEditingGrp=null;_renderTagsNewModal();}"
+             onblur="_saveGrpName('${_js(g.id)}')"
+             style="flex:1;font-size:12px;font-weight:700;border:1.5px solid #1c1c1e;border-radius:5px;padding:2px 7px;outline:none;font-family:inherit;color:var(--text)">`
+        : `<span style="flex:1;font-size:12px;font-weight:700">${_e(g.name)}</span>
+           <button onclick="event.stopPropagation();_startEditGrp('${_js(g.id)}')"
+             style="background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;padding:0 3px;opacity:.5">✏️</button>`}
       <span style="font-size:11px;color:var(--text3);margin-right:4px">${visible.length}件</span>
       <button onclick="event.stopPropagation();_deleteTagGroup('${_js(g.id)}')"
         style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:2px 4px;opacity:.6">🗑</button>
@@ -584,25 +609,34 @@ function _renderTagsListBody(body, _e, _js) {
 
 function _buildTagRow(name, gid, grpOptions, _e, _js) {
   const ind = gid !== 'unc';
-  return `<div data-tg-row="1" data-name="${_e(name)}" draggable="true"
-    ondragstart="_tagsDragStart(event,'${_js(name)}')"
+  const isEd = _tagsEditingTag === name;
+  return `<div data-tg-row="1" data-name="${_e(name)}" draggable="${isEd?'false':'true'}"
+    ondragstart="${isEd?'':'_tagsDragStart(event,\''+_js(name)+'\')'}"
     ondragover="event.preventDefault()"
     ondrop="event.stopPropagation();_tagsDropOnGroup(event,'${_js(gid)}')"
     style="display:flex;align-items:center;gap:6px;padding:9px 16px;${ind?'padding-left:36px;background:var(--surface2);':''}border-bottom:1px solid var(--border2)">
     <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
-    <span style="flex:1;font-size:12px;font-weight:600">${_e(name)}</span>
-    <select onchange="_moveTagToGroup('${_js(name)}',this.value)"
-      style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;
-             font-size:10px;color:var(--text2);padding:3px 4px;cursor:pointer;
-             font-family:inherit;outline:none;max-width:90px;flex-shrink:0">
-      ${grpOptions(gid)}
-    </select>
-    <button onclick="_toggleTagNG('${_js(name)}')"
-      style="background:none;border:1.5px solid var(--border);color:var(--text3);font-size:10px;
-             font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
-    <button onclick="_deleteTag('${_js(name)}')"
-      style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
-             padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
+    ${isEd
+      ? `<input id="tag-ed-input" value="${_e(name)}"
+           onclick="event.stopPropagation()"
+           onkeydown="if(event.key==='Enter')_saveTagName('${_js(name)}');if(event.key==='Escape'){_tagsEditingTag=null;_renderTagsNewModal();}"
+           onblur="_saveTagName('${_js(name)}')"
+           style="flex:1;font-size:12px;font-weight:600;border:1.5px solid #1c1c1e;border-radius:5px;padding:2px 7px;outline:none;font-family:inherit;color:var(--text)">`
+      : `<span style="flex:1;font-size:12px;font-weight:600">${_e(name)}</span>
+         <button onclick="event.stopPropagation();_startEditTag('${_js(name)}')"
+           style="background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;padding:0 3px;opacity:.5">✏️</button>
+         <select onchange="_moveTagToGroup('${_js(name)}',this.value)"
+           style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                  font-size:10px;color:var(--text2);padding:3px 4px;cursor:pointer;
+                  font-family:inherit;outline:none;max-width:90px;flex-shrink:0">
+           ${grpOptions(gid)}
+         </select>
+         <button onclick="_toggleTagNG('${_js(name)}')"
+           style="background:none;border:1.5px solid var(--border);color:var(--text3);font-size:10px;
+                  font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
+         <button onclick="_deleteTag('${_js(name)}')"
+           style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
+                  padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>`}
   </div>`;
 }
 
@@ -656,6 +690,46 @@ function _renderTagsDictBody(body, _e, _js) {
 }
 
 function _renderTagsAiBody(body, _e, _js) {
+  // タグ一覧タブ → グルーピング提案、辞書タブ → 別名候補
+  if (_tagsModalTab === 'list') {
+    _renderTagsAiGroupBody(body, _e, _js);
+  } else {
+    _renderTagsAiAliasBody(body, _e, _js);
+  }
+}
+
+function _renderTagsAiGroupBody(body, _e, _js) {
+  const proposals = _aiGroupProposals;
+  if (!proposals.length) {
+    body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">グルーピング提案はありません</div>`;
+    return;
+  }
+  let h = `<div style="padding:10px 18px;border-bottom:1px solid var(--border2);display:flex;justify-content:flex-end">
+    <button onclick="_adoptAllGroupProposals()"
+      style="background:#1c1c1e;color:#fff;border:none;font-size:11px;font-weight:700;
+             padding:6px 16px;border-radius:8px;cursor:pointer;font-family:inherit">すべて採用</button>
+  </div>`;
+  proposals.forEach(p => {
+    h += `<div style="padding:12px 18px;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:700">${_e(p.name)}</span>
+        <span style="font-size:10px;color:var(--text3)">${_e(p.desc||'')}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+        ${(p.tags||[]).map(t => `<span style="padding:3px 8px;border-radius:6px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)">${_e(t)}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="_adoptGroupProposal('${_js(p.id)}')"
+          style="flex:1;background:#1c1c1e;color:#fff;border:none;border-radius:6px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">採用してグループ作成</button>
+        <button onclick="_dismissGroupProposal('${_js(p.id)}')"
+          style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit">却下</button>
+      </div>
+    </div>`;
+  });
+  body.innerHTML = h;
+}
+
+function _renderTagsAiAliasBody(body, _e, _js) {
   const pending = [];
   Object.entries(_tagAliasData).forEach(([tn,entry]) => {
     (entry.aiSuggested||[]).forEach(s => pending.push({tn, s}));
@@ -687,6 +761,78 @@ function _renderTagsAiBody(body, _e, _js) {
 window._tagsSetTab      = s => { _tagsModalTab = s; _renderTagsNewModal(); };
 window._tagsToggleGrp   = id => { _tagsOpenGroups.has(id) ? _tagsOpenGroups.delete(id) : _tagsOpenGroups.add(id); _renderTagsNewModal(); };
 window._renderTagsNewModal = () => _renderTagsNewModal();
+
+// タグ名インライン編集
+window._startEditTag = name => {
+  _tagsEditingTag = name; _tagsEditingGrp = null;
+  _renderTagsNewModal();
+  setTimeout(() => { const el = document.getElementById('tag-ed-input'); if (el) { el.focus(); el.select(); } }, 30);
+};
+window._saveTagName = oldName => {
+  const el = document.getElementById('tag-ed-input');
+  const newName = (el?.value || '').trim();
+  _tagsEditingTag = null;
+  if (!newName || newName === oldName) { _renderTagsNewModal(); return; }
+  // presets で名前変更
+  const ts = tagSettings.find(t => t.key === 'tags');
+  if (ts) { const i = ts.presets.indexOf(oldName); if (i >= 0) ts.presets[i] = newName; saveTagSettings(); }
+  // グループ内も変更
+  _tagGroups.forEach(g => { const i = g.techNames.indexOf(oldName); if (i >= 0) g.techNames[i] = newName; });
+  _saveTagGroups();
+  // 動画データも変更
+  let changed = false;
+  (window.videos || []).forEach(v => {
+    if (Array.isArray(v.tags)) { const i = v.tags.indexOf(oldName); if (i >= 0) { v.tags[i] = newName; changed = true; } }
+  });
+  if (changed) window.debounceSave?.();
+  _renderTagsNewModal();
+  window.toast?.(`「${oldName}」→「${newName}」に変更しました`);
+};
+
+// グループ名インライン編集
+window._startEditGrp = gid => {
+  _tagsEditingGrp = gid; _tagsEditingTag = null;
+  _renderTagsNewModal();
+  setTimeout(() => { const el = document.getElementById('grp-ed-' + gid); if (el) { el.focus(); el.select(); } }, 30);
+};
+window._saveGrpName = gid => {
+  const el = document.getElementById('grp-ed-' + gid);
+  const newName = (el?.value || '').trim();
+  _tagsEditingGrp = null;
+  if (!newName) { _renderTagsNewModal(); return; }
+  const g = _tagGroups.find(x => x.id === gid);
+  if (g && newName !== g.name) { const old = g.name; g.name = newName; _saveTagGroups(); window.toast?.(`「${old}」→「${newName}」に変更しました`); }
+  _renderTagsNewModal();
+};
+
+// AI グルーピング提案
+window._adoptGroupProposal = id => {
+  const p = _aiGroupProposals.find(x => x.id === id); if (!p) return;
+  const ts = tagSettings.find(t => t.key === 'tags');
+  const newGrp = { id: 'g' + Date.now(), name: p.name, techNames: [] };
+  (p.tags || []).forEach(tname => {
+    if (ts && !ts.presets.includes(tname)) { ts.presets.push(tname); }
+    _tagGroups.forEach(g => { g.techNames = g.techNames.filter(t => t !== tname); });
+    if (!newGrp.techNames.includes(tname)) newGrp.techNames.push(tname);
+  });
+  _tagGroups.push(newGrp);
+  _tagsOpenGroups.add(newGrp.id);
+  _aiGroupProposals = _aiGroupProposals.filter(x => x.id !== id);
+  if (ts) saveTagSettings();
+  _saveTagGroups(); _saveAiGroupProposals();
+  _renderTagsNewModal();
+  window.toast?.(`グループ「${p.name}」を作成しました`);
+};
+window._dismissGroupProposal = id => {
+  _aiGroupProposals = _aiGroupProposals.filter(x => x.id !== id);
+  _saveAiGroupProposals(); _renderTagsNewModal();
+  window.toast?.('提案を却下しました');
+};
+window._adoptAllGroupProposals = () => {
+  const n = _aiGroupProposals.length;
+  [..._aiGroupProposals].forEach(p => window._adoptGroupProposal(p.id));
+  window.toast?.(`${n}件のグループを一括作成しました`);
+};
 
 window._filterTagsList = () => {
   const q = (document.getElementById('tags-list-search')?.value||'').toLowerCase();
