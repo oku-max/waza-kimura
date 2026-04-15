@@ -442,6 +442,7 @@ window._deleteTagFromModal = function(type, idOrName) {
 let _tagGroups = [];
 let _tagAliasData = {};
 let _tagsModalTab = 'list';
+let _tagsPrevTab  = 'list'; // AIタブを開く前のタブ（list or dict）
 const _tagsOpenGroups = new Set(['unc']);
 let _tagsDragItem = null;
 let _tagsEditingTag = null;   // インライン編集中のタグ名
@@ -507,7 +508,7 @@ function _renderTagsNewModal() {
   const t = _tagsModalTab;
   const aliasCount = Object.values(_tagAliasData).reduce((s, d) => s + (d.aiSuggested?.length||0), 0);
   const grpProposalCount = _aiGroupProposals.length;
-  const aiCount = t === 'list' ? grpProposalCount : aliasCount;
+  const aiCount = _tagsPrevTab === 'list' ? grpProposalCount : aliasCount;
 
   modal.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 0;flex-shrink:0">
@@ -700,8 +701,8 @@ function _renderTagsDictBody(body, _e, _js) {
 }
 
 function _renderTagsAiBody(body, _e, _js) {
-  // タグ一覧タブ → グルーピング提案、辞書タブ → 別名候補
-  if (_tagsModalTab === 'list') {
+  // AIタブを開く前のタブで分岐（list → グルーピング提案、dict → 別名候補）
+  if (_tagsPrevTab === 'list') {
     _renderTagsAiGroupBody(body, _e, _js);
   } else {
     _renderTagsAiAliasBody(body, _e, _js);
@@ -798,7 +799,11 @@ function _renderTagsAiAliasBody(body, _e, _js) {
 }
 
 // ── Window-exposed handlers ──
-window._tagsSetTab      = s => { _tagsModalTab = s; _renderTagsNewModal(); };
+window._tagsSetTab      = s => {
+  if (s !== 'ai') _tagsPrevTab = s;  // list/dict 切替時に記憶
+  _tagsModalTab = s;
+  _renderTagsNewModal();
+};
 window._tagsToggleGrp   = id => { _tagsOpenGroups.has(id) ? _tagsOpenGroups.delete(id) : _tagsOpenGroups.add(id); _renderTagsNewModal(); };
 window._renderTagsNewModal = () => _renderTagsNewModal();
 
