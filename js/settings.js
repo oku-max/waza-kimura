@@ -567,13 +567,16 @@ function _buildTagRow(name, blocked, gid, _e, _js) {
     ondragstart="_tagsDragStart(event,'${_js(name)}')"
     ondragover="event.preventDefault()"
     ondrop="event.stopPropagation();_tagsDropOnGroup(event,'${_js(gid)}')"
-    style="display:flex;align-items:center;gap:8px;padding:9px 16px;${ind?'padding-left:36px;background:var(--surface2);':''}border-bottom:1px solid var(--border2)">
+    style="display:flex;align-items:center;gap:6px;padding:9px 16px;${ind?'padding-left:36px;background:var(--surface2);':''}border-bottom:1px solid var(--border2)">
     <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
     <span style="flex:1;font-size:12px;font-weight:600;color:${ng?'var(--text3)':'var(--text)'};text-decoration:${ng?'line-through':'none'}">${_e(name)}</span>
     <button onclick="_toggleTagNG('${_js(name)}')"
       style="background:${ng?'#ef4444':'none'};border:1.5px solid ${ng?'#ef4444':'var(--border)'};
              color:${ng?'#fff':'var(--text3)'};font-size:10px;font-weight:700;
              padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
+    <button onclick="_deleteTag('${_js(name)}')"
+      style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
+             padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
   </div>`;
 }
 
@@ -683,6 +686,16 @@ window._tagsDropOnGroup = (event, gid) => {
     if (tg && !tg.techNames.includes(name)) tg.techNames.push(name);
   }
   _tagsDragItem = null; _saveTagGroups(); _renderTagsNewModal();
+};
+window._deleteTag = name => {
+  // presets から削除
+  const ts = tagSettings.find(t => t.key === 'tags');
+  if (ts) { ts.presets = ts.presets.filter(p => p !== name); saveTagSettings(); }
+  // グループからも削除
+  _tagGroups.forEach(g => { g.techNames = g.techNames.filter(t => t !== name); });
+  _saveTagGroups();
+  _renderTagsNewModal();
+  _renderTagDisplaySettings();
 };
 window._addTagAlias = (tagName, inputId) => {
   const val = (document.getElementById(inputId)?.value||'').trim();
