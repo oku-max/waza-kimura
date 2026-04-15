@@ -709,14 +709,18 @@ function _renderTagsAiBody(body, _e, _js) {
   }
 }
 
+function _getUncTagsForAi() {
+  const { allTags, blocked } = _getAllKnownTagsForModal();
+  return [...allTags].filter(t => {
+    const inGroup = _tagGroups.some(g => g.techNames.includes(t));
+    return !inGroup && !blocked.has(t);
+  });
+}
+
 function _renderTagsAiGroupBody(body, _e, _js) {
   const proposals = _aiGroupProposals;
   if (_aiGroupGenerating) {
-    const blocked = new Set(aiSettings.techBlocklist||[]);
-    const uncN = _getAllKnownTagsForModal().filter(t => {
-      const inGroup = _tagGroups.some(g => g.techNames.includes(t));
-      return !inGroup && !blocked.has(t);
-    }).length;
+    const uncN = _getUncTagsForAi().length;
     body.innerHTML = `<div style="padding:28px 18px;text-align:center">
       <div style="font-size:20px;margin-bottom:8px">⚙️</div>
       <div style="font-size:12px;font-weight:700;margin-bottom:4px">AIが分析中…</div>
@@ -725,11 +729,7 @@ function _renderTagsAiGroupBody(body, _e, _js) {
     return;
   }
   if (!proposals.length) {
-    const blocked = new Set(aiSettings.techBlocklist||[]);
-    const uncTags = _getAllKnownTagsForModal().filter(t => {
-      const inGroup = _tagGroups.some(g => g.techNames.includes(t));
-      return !inGroup && !blocked.has(t);
-    });
+    const uncTags = _getUncTagsForAi();
     if (uncTags.length) {
       body.innerHTML = `<div style="padding:28px 18px;text-align:center">
         <div style="font-size:12px;color:var(--text3);margin-bottom:4px">未分類タグが <strong style="color:var(--text)">${uncTags.length}件</strong> あります</div>
@@ -869,11 +869,7 @@ window._addTagItem = () => {
 
 // AI グルーピング提案を生成
 window._requestAiGroupProposals = async () => {
-  const blocked = new Set(aiSettings.techBlocklist||[]);
-  const uncTags = _getAllKnownTagsForModal().filter(t => {
-    const inGroup = _tagGroups.some(g => g.techNames.includes(t));
-    return !inGroup && !blocked.has(t);
-  });
+  const uncTags = _getUncTagsForAi();
   if (!uncTags.length) { window.toast?.('未分類タグがありません'); return; }
   _aiGroupGenerating = true;
   _renderTagsNewModal();
