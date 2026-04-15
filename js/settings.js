@@ -529,25 +529,34 @@ function _renderTagsNewModal() {
 
 function _renderTagsListBody(body, _e, _js) {
   const blocked = new Set(aiSettings.techBlocklist||[]);
+
+  // グループ選択肢 HTML（全関数で共通利用）
+  const grpOptions = gid =>
+    `<option value="unc"${gid==='unc'?' selected':''}>未分類</option>` +
+    _tagGroups.map(g => `<option value="${_e(g.id)}"${gid===g.id?' selected':''}>${_e(g.name)}</option>`).join('');
+
   let h = `<div style="padding:0 18px;border-bottom:1px solid var(--border2)">
     <input id="tags-list-search" placeholder="検索..." oninput="_filterTagsList()"
       style="width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit">
   </div>`;
 
+  // ── 名前付きグループ（NGは除外） ──
   _tagGroups.forEach(g => {
     const open = _tagsOpenGroups.has(g.id);
+    const visible = g.techNames.filter(n => !blocked.has(n));
     h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
       onclick="_tagsToggleGrp('${_js(g.id)}')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'${_js(g.id)}')">
       <span style="font-size:10px;color:var(--text3);display:inline-block;transform:rotate(${open?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
       <span style="flex:1;font-size:12px;font-weight:700">${_e(g.name)}</span>
-      <span style="font-size:11px;color:var(--text3);margin-right:4px">${g.techNames.length}件</span>
+      <span style="font-size:11px;color:var(--text3);margin-right:4px">${visible.length}件</span>
       <button onclick="event.stopPropagation();_deleteTagGroup('${_js(g.id)}')"
         style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:2px 4px;opacity:.6">🗑</button>
     </div>`;
-    if (open) g.techNames.forEach(n => { h += _buildTagRow(n, blocked, g.id, _e, _js); });
+    if (open) visible.forEach(n => { h += _buildTagRow(n, g.id, grpOptions, _e, _js); });
   });
 
-  const unc = _getUncategorizedTags();
+  // ── 未分類（NGは除外） ──
+  const unc = _getUncategorizedTags().filter(n => !blocked.has(n));
   const uncOpen = _tagsOpenGroups.has('unc');
   h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
     onclick="_tagsToggleGrp('unc')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'unc')">
@@ -555,13 +564,25 @@ function _renderTagsListBody(body, _e, _js) {
     <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">未分類</span>
     <span style="font-size:11px;color:var(--text3)">${unc.length}件</span>
   </div>`;
-  if (uncOpen) unc.forEach(n => { h += _buildTagRow(n, blocked, 'unc', _e, _js); });
+  if (uncOpen) unc.forEach(n => { h += _buildTagRow(n, 'unc', grpOptions, _e, _js); });
+
+  // ── NGリスト（別セクション） ──
+  const ngTags = [...blocked].sort((a,b) => a.localeCompare(b,'ja'));
+  if (ngTags.length > 0) {
+    const ngOpen = _tagsOpenGroups.has('ng');
+    h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none;border-top:2px solid #ef444433"
+      onclick="_tagsToggleGrp('ng')">
+      <span style="font-size:10px;color:#ef4444;display:inline-block;transform:rotate(${ngOpen?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
+      <span style="flex:1;font-size:12px;font-weight:700;color:#ef4444">NGリスト</span>
+      <span style="font-size:11px;color:#ef4444">${ngTags.length}件</span>
+    </div>`;
+    if (ngOpen) ngTags.forEach(n => { h += _buildNGRow(n, _e, _js); });
+  }
 
   body.innerHTML = h;
 }
 
-function _buildTagRow(name, blocked, gid, _e, _js) {
-  const ng = blocked.has(name);
+function _buildTagRow(name, gid, grpOptions, _e, _js) {
   const ind = gid !== 'unc';
   return `<div data-tg-row="1" data-name="${_e(name)}" draggable="true"
     ondragstart="_tagsDragStart(event,'${_js(name)}')"
@@ -569,11 +590,30 @@ function _buildTagRow(name, blocked, gid, _e, _js) {
     ondrop="event.stopPropagation();_tagsDropOnGroup(event,'${_js(gid)}')"
     style="display:flex;align-items:center;gap:6px;padding:9px 16px;${ind?'padding-left:36px;background:var(--surface2);':''}border-bottom:1px solid var(--border2)">
     <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
-    <span style="flex:1;font-size:12px;font-weight:600;color:${ng?'var(--text3)':'var(--text)'};text-decoration:${ng?'line-through':'none'}">${_e(name)}</span>
+    <span style="flex:1;font-size:12px;font-weight:600">${_e(name)}</span>
+    <select onchange="_moveTagToGroup('${_js(name)}',this.value)"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+             font-size:10px;color:var(--text2);padding:3px 4px;cursor:pointer;
+             font-family:inherit;outline:none;max-width:90px;flex-shrink:0">
+      ${grpOptions(gid)}
+    </select>
     <button onclick="_toggleTagNG('${_js(name)}')"
-      style="background:${ng?'#ef4444':'none'};border:1.5px solid ${ng?'#ef4444':'var(--border)'};
-             color:${ng?'#fff':'var(--text3)'};font-size:10px;font-weight:700;
-             padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
+      style="background:none;border:1.5px solid var(--border);color:var(--text3);font-size:10px;
+             font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
+    <button onclick="_deleteTag('${_js(name)}')"
+      style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
+             padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
+  </div>`;
+}
+
+function _buildNGRow(name, _e, _js) {
+  return `<div data-tg-row="1" data-name="${_e(name)}"
+    style="display:flex;align-items:center;gap:6px;padding:9px 16px;padding-left:28px;
+           border-bottom:1px solid var(--border2);background:#ef444408">
+    <span style="flex:1;font-size:12px;font-weight:600;color:var(--text3);text-decoration:line-through">${_e(name)}</span>
+    <button onclick="_toggleTagNG('${_js(name)}')"
+      style="background:none;border:1.5px solid #ef4444;color:#ef4444;font-size:10px;
+             font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">解除</button>
     <button onclick="_deleteTag('${_js(name)}')"
       style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
              padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
@@ -686,6 +726,14 @@ window._tagsDropOnGroup = (event, gid) => {
     if (tg && !tg.techNames.includes(name)) tg.techNames.push(name);
   }
   _tagsDragItem = null; _saveTagGroups(); _renderTagsNewModal();
+};
+window._moveTagToGroup = (name, gid) => {
+  _tagGroups.forEach(g => { g.techNames = g.techNames.filter(t => t !== name); });
+  if (gid !== 'unc') {
+    const tg = _tagGroups.find(g => g.id === gid);
+    if (tg && !tg.techNames.includes(name)) tg.techNames.push(name);
+  }
+  _saveTagGroups(); _renderTagsNewModal();
 };
 window._deleteTag = name => {
   // presets から削除
