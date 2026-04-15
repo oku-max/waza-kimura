@@ -4,7 +4,7 @@ const DEFAULT_TAG_SETTINGS = [
   { key:'tb',   label:'TOP/BOTTOM', visible:true,  presets:['トップ','ボトム','スタンディング'] },
   { key:'cat',  label:'Category',   visible:true,  presets:[] },  // CATEGORIES から自動取得
   { key:'pos',  label:'Position',   visible:true,  presets:[] },  // POSITIONS から自動取得
-  { key:'tags', label:'#Tag',       visible:true,  presets:[] },
+  { key:'tags', label:'テクニック',  visible:true,  presets:[] },
 ];
 
 export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
@@ -49,14 +49,21 @@ const DEFAULT_BJJ_RULES = [
   'lasso guard / ラッソー → pos=ラッソーガード',
   'collar sleeve / 片襟片袖 → pos=片襟片袖',
   'K guard / Kガード → pos=Kガード',
-  'worm guard / ワームガード → pos=ワームガード',
+  'worm guard / ワームガード / squid guard / gubber guard → pos=ラペルガード（ラペル系は全てラペルガードに統合）',
   'lapel guard / ラペルガード → pos=ラペルガード',
   'Z guard / knee shield / ニーシールド → pos=ニーシールド',
   '50/50 / fifty-fifty → pos=50/50',
-  'saddle / 411 / honey hole / inside sankaku → pos=サドル',
+  'saddle / 411 / honey hole / inside sankaku / ashi garami → pos=サドル',
   'turtle / 亀 → pos=タートル',
-  'inverted guard / インバーテッド → pos=インバーテッド',
+  'inverted guard / インバーテッド / tornado guard → pos=インバーテッド',
   'standing / スタンディング / 立ち技 → pos=スタンディング',
+  '70/30 guard / 70/30ガード → pos=70/30ガード',
+  'sit-up guard / sitting guard / シッティングガード → pos=シッティングガード',
+  'single leg guard / シングルレッグガード → pos=シングルレッグガード（SLXとは別）',
+  'cross guard / クロスガード → pos=クロスガード',
+  'reverse half guard / リバースハーフ → pos=リバースハーフガード',
+  'open guard / オープンガード → pos=オープンガード',
+  'octopus guard / オクトパスガード → pos=オクトパスガード',
   // ── 複合判定 ──
   'タイトルに複数の技が含まれる場合、すべてのタグを配列に含める',
   'レッグロック系（ヒールフック、ニーバー、トーホールド等）→ cat=フィニッシュ、posは50/50 or サドル を検討',
@@ -217,7 +224,7 @@ function _renderTagDisplaySettings() {
         style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
     </div>`;
 
-  el.innerHTML = makeRow('tb', 'TBS', tbCount) + makeRow('cat', 'カテゴリ', cats.length) + makeRow('pos', 'ポジション', positions.length) + makeRow('tags', '#Tag', tagsCount);
+  el.innerHTML = makeRow('tb', 'TBS', tbCount) + makeRow('cat', 'カテゴリ', cats.length) + makeRow('pos', 'ポジション', positions.length) + makeRow('tags', 'テクニック', tagsCount);
 }
 
 // ── タグデータ取得ヘルパー ──
@@ -306,12 +313,8 @@ window.openTagEditModal = function(type) {
     });
     placeholder = '新しいポジションを追加...';
   } else if (type === 'tags') {
-    title = '#Tag';
-    hasSearch = true;
-    const ts = tagSettings.find(t => t.key === 'tags');
-    items = (ts?.presets || []).map(p => ({ name: p, en: '', source: 'system', id: p }));
-    items.sort((a,b) => a.name.localeCompare(b.name, 'ja'));
-    placeholder = '新しいタグを追加...';
+    _openTagsNewModal();
+    return;
   }
 
   let html = `
@@ -433,6 +436,287 @@ window._deleteTagFromModal = function(type, idOrName) {
   _renderTagDisplaySettings();
 };
 
+// ═══ #Tag モーダル（新版: 2タブ / グループ管理） ═══
+
+// ── 状態 ──
+let _tagGroups = [];
+let _tagAliasData = {};
+let _tagsModalTab = 'list';
+const _tagsOpenGroups = new Set(['unc']);
+let _tagsDragItem = null;
+
+// ── データ永続化 ──
+function _loadTagGroups() {
+  try { const g = localStorage.getItem('wk_tagGroups'); if (g) _tagGroups = JSON.parse(g); } catch(e) { _tagGroups = []; }
+  try { const a = localStorage.getItem('wk_tagAliases'); if (a) _tagAliasData = JSON.parse(a); } catch(e) { _tagAliasData = {}; }
+}
+function _saveTagGroups() {
+  try { localStorage.setItem('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
+}
+function _saveTagAliases() {
+  try { localStorage.setItem('wk_tagAliases', JSON.stringify(_tagAliasData)); } catch(e) {}
+}
+function _getTagAliasEntry(tagName) {
+  if (!_tagAliasData[tagName]) _tagAliasData[tagName] = { aliases: [], aiSuggested: [] };
+  return _tagAliasData[tagName];
+}
+
+// ── タグ収集（モーダル表示時にライブラリをスキャン） ──
+function _getAllKnownTagsForModal() {
+  const ts = tagSettings.find(t => t.key === 'tags');
+  const presets = new Set(ts?.presets || []);
+  const blocked = new Set(aiSettings.techBlocklist || []);
+  const fromLib = new Set();
+  (window.videos || []).forEach(v => { (v.tags||[]).forEach(t => { if (t && !blocked.has(t)) fromLib.add(t); }); });
+  return { allTags: new Set([...presets, ...fromLib]), blocked };
+}
+function _getUncategorizedTags() {
+  const { allTags } = _getAllKnownTagsForModal();
+  const inGroup = new Set(_tagGroups.flatMap(g => g.techNames));
+  return [...allTags].filter(t => !inGroup.has(t)).sort((a, b) => a.localeCompare(b, 'ja'));
+}
+
+// ── エントリーポイント ──
+function _openTagsNewModal() {
+  _loadTagGroups();
+  _tagsModalTab = 'list';
+  _renderTagsNewModal();
+}
+
+// ── メインレンダラー ──
+function _renderTagsNewModal() {
+  const modal = document.getElementById('tag-edit-modal');
+  if (!modal) return;
+  const _e = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const _js = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const t = _tagsModalTab;
+  const aiCount = Object.values(_tagAliasData).reduce((s, d) => s + (d.aiSuggested?.length||0), 0);
+
+  modal.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 0;flex-shrink:0">
+      <div style="font-size:14px;font-weight:800">#Tag</div>
+      <button onclick="closeTagEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;padding:0 18px;border-bottom:1px solid var(--border2);flex-shrink:0;margin-top:2px">
+      <button onclick="_tagsSetTab('list')"
+        style="flex:1;background:none;border:none;border-bottom:2px solid ${t==='list'?'var(--accent)':'transparent'};
+               color:${t==='list'?'var(--text)':'var(--text3)'};font-size:12px;font-weight:${t==='list'?700:400};
+               padding:10px 0;cursor:pointer;font-family:inherit">タグ一覧</button>
+      <button onclick="_tagsSetTab('dict')"
+        style="flex:1;background:none;border:none;border-bottom:2px solid ${t==='dict'?'var(--accent)':'transparent'};
+               color:${t==='dict'?'var(--text)':'var(--text3)'};font-size:12px;font-weight:${t==='dict'?700:400};
+               padding:10px 0;cursor:pointer;font-family:inherit">辞書</button>
+      <button onclick="_tagsSetTab('ai')"
+        style="position:relative;background:#1c1c1e;color:#fff;border:none;padding:5px 12px;border-radius:16px;
+               font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;margin-bottom:6px;
+               ${t==='ai'?'outline:2px solid var(--accent);':''}">
+        AI${aiCount>0?`<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:10px;line-height:1.4">${aiCount}</span>`:''}
+      </button>
+    </div>
+    <div id="tags-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
+    ${t==='list'?`<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0">
+      <button onclick="_addTagGroup()"
+        style="width:100%;background:none;border:1.5px dashed var(--border);color:var(--text3);
+               font-size:11px;font-weight:600;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit">＋ グループ追加</button>
+    </div>`:''}`;
+
+  const body = document.getElementById('tags-modal-body');
+  if (!body) return;
+  if (t==='list') _renderTagsListBody(body, _e, _js);
+  else if (t==='dict') _renderTagsDictBody(body, _e, _js);
+  else _renderTagsAiBody(body, _e, _js);
+}
+
+function _renderTagsListBody(body, _e, _js) {
+  const blocked = new Set(aiSettings.techBlocklist||[]);
+  let h = `<div style="padding:0 18px;border-bottom:1px solid var(--border2)">
+    <input id="tags-list-search" placeholder="検索..." oninput="_filterTagsList()"
+      style="width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit">
+  </div>`;
+
+  _tagGroups.forEach(g => {
+    const open = _tagsOpenGroups.has(g.id);
+    h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
+      onclick="_tagsToggleGrp('${_js(g.id)}')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'${_js(g.id)}')">
+      <span style="font-size:10px;color:var(--text3);display:inline-block;transform:rotate(${open?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
+      <span style="flex:1;font-size:12px;font-weight:700">${_e(g.name)}</span>
+      <span style="font-size:11px;color:var(--text3);margin-right:4px">${g.techNames.length}件</span>
+      <button onclick="event.stopPropagation();_deleteTagGroup('${_js(g.id)}')"
+        style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:2px 4px;opacity:.6">🗑</button>
+    </div>`;
+    if (open) g.techNames.forEach(n => { h += _buildTagRow(n, blocked, g.id, _e, _js); });
+  });
+
+  const unc = _getUncategorizedTags();
+  const uncOpen = _tagsOpenGroups.has('unc');
+  h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
+    onclick="_tagsToggleGrp('unc')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'unc')">
+    <span style="font-size:10px;color:var(--text3);display:inline-block;transform:rotate(${uncOpen?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
+    <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">未分類</span>
+    <span style="font-size:11px;color:var(--text3)">${unc.length}件</span>
+  </div>`;
+  if (uncOpen) unc.forEach(n => { h += _buildTagRow(n, blocked, 'unc', _e, _js); });
+
+  body.innerHTML = h;
+}
+
+function _buildTagRow(name, blocked, gid, _e, _js) {
+  const ng = blocked.has(name);
+  const ind = gid !== 'unc';
+  return `<div data-tg-row="1" data-name="${_e(name)}" draggable="true"
+    ondragstart="_tagsDragStart(event,'${_js(name)}')"
+    ondragover="event.preventDefault()"
+    ondrop="event.stopPropagation();_tagsDropOnGroup(event,'${_js(gid)}')"
+    style="display:flex;align-items:center;gap:8px;padding:9px 16px;${ind?'padding-left:36px;background:var(--surface2);':''}border-bottom:1px solid var(--border2)">
+    <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+    <span style="flex:1;font-size:12px;font-weight:600;color:${ng?'var(--text3)':'var(--text)'};text-decoration:${ng?'line-through':'none'}">${_e(name)}</span>
+    <button onclick="_toggleTagNG('${_js(name)}')"
+      style="background:${ng?'#ef4444':'none'};border:1.5px solid ${ng?'#ef4444':'var(--border)'};
+             color:${ng?'#fff':'var(--text3)'};font-size:10px;font-weight:700;
+             padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
+  </div>`;
+}
+
+function _renderTagsDictBody(body, _e, _js) {
+  const { allTags } = _getAllKnownTagsForModal();
+  const sorted = [...allTags].sort((a,b) => a.localeCompare(b,'ja'));
+  if (!sorted.length) {
+    body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">タグがありません</div>`;
+    return;
+  }
+  let h = '';
+  sorted.forEach(name => {
+    const entry = _getTagAliasEntry(name);
+    const sid = 'ai_' + encodeURIComponent(name).replace(/%/g,'x');
+    h += `<div style="padding:12px 18px;border-bottom:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px">${_e(name)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+        ${(entry.aliases||[]).length
+          ? (entry.aliases||[]).map((a,i) => `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);font-size:11px">
+              <span style="font-size:8px;font-weight:700;background:#1c1c1e;color:#fff;padding:1px 4px;border-radius:3px;line-height:1.4">AI</span>
+              ${_e(a)}<span onclick="_removeTagAlias('${_js(name)}',${i})" style="cursor:pointer;color:var(--text3);margin-left:2px;padding:0 2px">✕</span>
+            </span>`).join('')
+          : `<span style="font-size:11px;color:var(--text3)">なし</span>`}
+      </div>
+      <div style="display:flex;gap:6px">
+        <input id="${sid}" placeholder="別の呼び方を追加..."
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:6px 10px;font-size:11px;color:var(--text);font-family:inherit;outline:none"
+          onkeydown="if(event.key==='Enter')_addTagAlias('${_js(name)}','${sid}')">
+        <button onclick="_addTagAlias('${_js(name)}','${sid}')"
+          style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;
+                 padding:6px 14px;border-radius:8px;cursor:pointer;font-family:inherit">追加</button>
+      </div>
+    </div>`;
+  });
+  body.innerHTML = h;
+}
+
+function _renderTagsAiBody(body, _e, _js) {
+  const pending = [];
+  Object.entries(_tagAliasData).forEach(([tn,entry]) => {
+    (entry.aiSuggested||[]).forEach(s => pending.push({tn, s}));
+  });
+  if (!pending.length) {
+    body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">AI候補はありません</div>`;
+    return;
+  }
+  let h = `<div style="padding:10px 18px;border-bottom:1px solid var(--border2);display:flex;justify-content:flex-end">
+    <button onclick="_adoptAllAiSuggestions()"
+      style="background:var(--accent);color:#fff;border:none;font-size:11px;font-weight:700;
+             padding:6px 16px;border-radius:8px;cursor:pointer;font-family:inherit">すべて採用</button>
+  </div>`;
+  pending.forEach(({tn, s}) => {
+    h += `<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border2)">
+      <span style="flex:1;font-size:12px"><b>${_e(tn)}</b> ← <span style="color:var(--text2)">${_e(s)}</span></span>
+      <button onclick="_adoptAiSuggestion('${_js(tn)}','${_js(s)}')"
+        style="background:none;border:1.5px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;
+               padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit">採用</button>
+      <button onclick="_dismissAiSuggestion('${_js(tn)}','${_js(s)}')"
+        style="background:none;border:1.5px solid var(--border);color:var(--text3);font-size:10px;font-weight:700;
+               padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit">却下</button>
+    </div>`;
+  });
+  body.innerHTML = h;
+}
+
+// ── Window-exposed handlers ──
+window._tagsSetTab      = s => { _tagsModalTab = s; _renderTagsNewModal(); };
+window._tagsToggleGrp   = id => { _tagsOpenGroups.has(id) ? _tagsOpenGroups.delete(id) : _tagsOpenGroups.add(id); _renderTagsNewModal(); };
+window._renderTagsNewModal = () => _renderTagsNewModal();
+
+window._filterTagsList = () => {
+  const q = (document.getElementById('tags-list-search')?.value||'').toLowerCase();
+  document.querySelectorAll('[data-tg-row="1"]').forEach(el => {
+    el.style.display = (el.dataset.name||'').toLowerCase().includes(q) ? '' : 'none';
+  });
+};
+window._addTagGroup = () => {
+  const name = prompt('グループ名を入力');
+  if (!name?.trim()) return;
+  _tagGroups.push({ id:'g'+Date.now(), name:name.trim(), techNames:[] });
+  _saveTagGroups(); _renderTagsNewModal();
+};
+window._deleteTagGroup = gid => {
+  if (!confirm('このグループを削除しますか？（タグはすべて未分類に戻ります）')) return;
+  _tagGroups = _tagGroups.filter(g => g.id !== gid);
+  _saveTagGroups(); _renderTagsNewModal();
+};
+window._toggleTagNG = name => {
+  if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
+  const i = aiSettings.techBlocklist.indexOf(name);
+  i >= 0 ? aiSettings.techBlocklist.splice(i,1) : aiSettings.techBlocklist.push(name);
+  saveAiSettings(); _renderTagsNewModal();
+};
+window._tagsDragStart = (event, name) => {
+  _tagsDragItem = name;
+  event.dataTransfer.setData('text/plain', name);
+  event.dataTransfer.effectAllowed = 'move';
+};
+window._tagsDropOnGroup = (event, gid) => {
+  event.preventDefault();
+  const name = _tagsDragItem || event.dataTransfer.getData('text/plain');
+  if (!name) return;
+  _tagGroups.forEach(g => { g.techNames = g.techNames.filter(t => t !== name); });
+  if (gid !== 'unc') {
+    const tg = _tagGroups.find(g => g.id === gid);
+    if (tg && !tg.techNames.includes(name)) tg.techNames.push(name);
+  }
+  _tagsDragItem = null; _saveTagGroups(); _renderTagsNewModal();
+};
+window._addTagAlias = (tagName, inputId) => {
+  const val = (document.getElementById(inputId)?.value||'').trim();
+  if (!val) return;
+  const e = _getTagAliasEntry(tagName);
+  if (!e.aliases.includes(val)) { e.aliases.push(val); _saveTagAliases(); }
+  _renderTagsNewModal();
+};
+window._removeTagAlias = (tagName, idx) => {
+  const e = _getTagAliasEntry(tagName);
+  e.aliases.splice(idx, 1); _saveTagAliases(); _renderTagsNewModal();
+};
+window._adoptAiSuggestion = (tagName, sug) => {
+  const e = _getTagAliasEntry(tagName);
+  if (!e.aliases.includes(sug)) e.aliases.push(sug);
+  e.aiSuggested = (e.aiSuggested||[]).filter(s => s !== sug);
+  _saveTagAliases(); _renderTagsNewModal();
+  window.toast?.(`「${sug}」を${tagName}の別の呼び方として採用しました`);
+};
+window._dismissAiSuggestion = (tagName, sug) => {
+  const e = _getTagAliasEntry(tagName);
+  e.aiSuggested = (e.aiSuggested||[]).filter(s => s !== sug);
+  _saveTagAliases(); _renderTagsNewModal();
+  window.toast?.(`「${sug}」を却下しました`);
+};
+window._adoptAllAiSuggestions = () => {
+  Object.entries(_tagAliasData).forEach(([tn, e]) => {
+    (e.aiSuggested||[]).forEach(s => { if (!e.aliases.includes(s)) e.aliases.push(s); });
+    e.aiSuggested = [];
+  });
+  _saveTagAliases(); _renderTagsNewModal();
+  window.toast?.('すべての候補を採用しました');
+};
+
 // ═══ AI取込設定（簡素化） ═══
 function _renderAiImportSettings() {
   const el = document.getElementById('ai-settings-section'); if (!el) return;
@@ -464,7 +748,7 @@ function _renderAiImportSettings() {
       <div>
         <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">自動判定するタグ</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${chipHtml('tb','TBS')}${chipHtml('action','カテゴリ')}${chipHtml('position','ポジション')}${chipHtml('tags','#Tag')}
+          ${chipHtml('tb','TBS')}${chipHtml('action','カテゴリ')}${chipHtml('position','ポジション')}${chipHtml('tags','テクニック')}
         </div>
       </div>
       ${toggleHtml('autoTagOnImport', '取込時に自動AI分析', 'YouTube取り込み後に自動でタグ付け')}
