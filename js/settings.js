@@ -449,6 +449,7 @@ let _tagsEditingGrp = null;   // インライン編集中のグループID
 
 // AI グルーピング提案（localStorage 永続化）
 let _aiGroupProposals = [];
+let _aiGroupGenerating = false;
 function _loadAiGroupProposals() {
   try { const s = localStorage.getItem('wk_aiGroupProposals'); if (s) _aiGroupProposals = JSON.parse(s); } catch(e) {}
 }
@@ -530,10 +531,19 @@ function _renderTagsNewModal() {
       </button>
     </div>
     <div id="tags-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
-    ${t==='list'?`<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0">
+    ${t==='list'?`<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px">
+        <input id="tags-add-tag-input" placeholder="タグを追加…"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:7px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)"
+          onkeydown="if(event.key==='Enter')_addTagItem()">
+        <button onclick="_addTagItem()"
+          style="background:#1c1c1e;color:#fff;border:none;padding:7px 14px;border-radius:8px;
+                 font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+      </div>
       <button onclick="_addTagGroup()"
         style="width:100%;background:none;border:1.5px dashed var(--border);color:var(--text3);
-               font-size:11px;font-weight:600;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit">＋ グループ追加</button>
+               font-size:11px;font-weight:600;padding:7px;border-radius:8px;cursor:pointer;font-family:inherit">＋ グループ追加</button>
     </div>`:''}`;
 
   const body = document.getElementById('tags-modal-body');
@@ -700,8 +710,38 @@ function _renderTagsAiBody(body, _e, _js) {
 
 function _renderTagsAiGroupBody(body, _e, _js) {
   const proposals = _aiGroupProposals;
+  if (_aiGroupGenerating) {
+    const blocked = new Set(aiSettings.techBlocklist||[]);
+    const uncN = _getAllKnownTagsForModal().filter(t => {
+      const inGroup = _tagGroups.some(g => g.techNames.includes(t));
+      return !inGroup && !blocked.has(t);
+    }).length;
+    body.innerHTML = `<div style="padding:28px 18px;text-align:center">
+      <div style="font-size:20px;margin-bottom:8px">⚙️</div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:4px">AIが分析中…</div>
+      <div style="font-size:11px;color:var(--text3)">未分類 ${uncN}件を解析しています</div>
+    </div>`;
+    return;
+  }
   if (!proposals.length) {
-    body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">グルーピング提案はありません</div>`;
+    const blocked = new Set(aiSettings.techBlocklist||[]);
+    const uncTags = _getAllKnownTagsForModal().filter(t => {
+      const inGroup = _tagGroups.some(g => g.techNames.includes(t));
+      return !inGroup && !blocked.has(t);
+    });
+    if (uncTags.length) {
+      body.innerHTML = `<div style="padding:28px 18px;text-align:center">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">未分類タグが <strong style="color:var(--text)">${uncTags.length}件</strong> あります</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:16px">AIがグルーピングを提案します</div>
+        <button onclick="_requestAiGroupProposals()"
+          style="background:#1c1c1e;color:#fff;border:none;border-radius:10px;
+                 padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          🤖 グルーピングを提案してもらう
+        </button>
+      </div>`;
+    } else {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">未分類タグがありません ✓</div>`;
+    }
     return;
   }
   let h = `<div style="padding:10px 18px;border-bottom:1px solid var(--border2);display:flex;justify-content:flex-end">
@@ -806,6 +846,57 @@ window._saveGrpName = gid => {
 };
 
 // AI グルーピング提案
+// タグ追加（フッター入力欄から）
+window._addTagItem = () => {
+  const el = document.getElementById('tags-add-tag-input');
+  const name = (el?.value||'').trim();
+  if (!name) return;
+  const ts = tagSettings.find(t => t.key === 'tags');
+  if (!ts) return;
+  if (!ts.presets.includes(name)) {
+    ts.presets.push(name);
+    saveTagSettings();
+  }
+  if (el) el.value = '';
+  _renderTagsNewModal();
+  window.toast?.(`「${name}」を追加しました`);
+};
+
+// AI グルーピング提案を生成
+window._requestAiGroupProposals = async () => {
+  const blocked = new Set(aiSettings.techBlocklist||[]);
+  const uncTags = _getAllKnownTagsForModal().filter(t => {
+    const inGroup = _tagGroups.some(g => g.techNames.includes(t));
+    return !inGroup && !blocked.has(t);
+  });
+  if (!uncTags.length) { window.toast?.('未分類タグがありません'); return; }
+  _aiGroupGenerating = true;
+  _renderTagsNewModal();
+  try {
+    const res = await fetch('/api/ai-group', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ tags: uncTags }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    _aiGroupProposals = (data.groups||[]).map((g,i) => ({
+      id: 'gp' + Date.now() + '_' + i,
+      name: g.name,
+      desc: g.desc||'',
+      tags: g.tags||[],
+    }));
+    _saveAiGroupProposals();
+    window.toast?.(`🤖 ${_aiGroupProposals.length}件のグルーピング提案が届きました`);
+  } catch(e) {
+    console.error('ai-group error:', e);
+    window.toast?.('AI提案の取得に失敗しました');
+  } finally {
+    _aiGroupGenerating = false;
+    _renderTagsNewModal();
+  }
+};
+
 window._adoptGroupProposal = id => {
   const p = _aiGroupProposals.find(x => x.id === id); if (!p) return;
   const ts = tagSettings.find(t => t.key === 'tags');
