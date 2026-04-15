@@ -694,6 +694,15 @@ window._deleteTag = name => {
   // グループからも削除
   _tagGroups.forEach(g => { g.techNames = g.techNames.filter(t => t !== name); });
   _saveTagGroups();
+  // 動画データから削除（ライブラリスキャンで再登場しないよう）
+  let changed = false;
+  (window.videos || []).forEach(v => {
+    if (Array.isArray(v.tags) && v.tags.includes(name)) {
+      v.tags = v.tags.filter(t => t !== name);
+      changed = true;
+    }
+  });
+  if (changed) window.debounceSave?.();
   _renderTagsNewModal();
   _renderTagDisplaySettings();
 };
