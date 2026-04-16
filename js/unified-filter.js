@@ -99,9 +99,7 @@
 #uni-popup .uni-x:hover{color:var(--text)}
 #uni-popup .uni-searchbar{padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px}
 #uni-popup .uni-searchbar input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box}
-#uni-popup .uni-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;min-height:0;-webkit-overflow-scrolling:touch}
-#uni-popup .uni-cols::-webkit-scrollbar{height:4px}
-#uni-popup .uni-cols::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#uni-popup .uni-cols{flex:1;display:flex;overflow-x:scroll;overflow-y:hidden;min-height:0;-webkit-overflow-scrolling:touch}
 #uni-popup .uni-col{flex:1 0 160px;display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0;overflow:hidden}
 #uni-popup .uni-col:last-child{border-right:none}
 #uni-popup .uni-col.narrow{flex:0 0 auto;width:clamp(100px,12vw,140px)}
@@ -175,13 +173,13 @@
 #uni-popup.uni-q-focus .uni-save-bar{display:none}
 /* スクロールバー常時表示（案A） */
 #uni-popup .uni-col-body::-webkit-scrollbar{width:7px}
-#uni-popup .uni-col-body::-webkit-scrollbar-track{background:#e4e4e8}
-#uni-popup .uni-col-body::-webkit-scrollbar-thumb{background:#a0a0b0;border-radius:4px}
-#uni-popup .uni-col-body::-webkit-scrollbar-thumb:hover{background:#7878a0}
+#uni-popup .uni-col-body::-webkit-scrollbar-track{background:#c8c8d2}
+#uni-popup .uni-col-body::-webkit-scrollbar-thumb{background:#8888a0;border-radius:4px}
+#uni-popup .uni-col-body::-webkit-scrollbar-thumb:hover{background:#5858a0}
 #uni-popup .uni-cols::-webkit-scrollbar{height:7px}
-#uni-popup .uni-cols::-webkit-scrollbar-track{background:#e4e4e8}
-#uni-popup .uni-cols::-webkit-scrollbar-thumb{background:#a0a0b0;border-radius:4px}
-#uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#7878a0}
+#uni-popup .uni-cols::-webkit-scrollbar-track{background:#c8c8d2}
+#uni-popup .uni-cols::-webkit-scrollbar-thumb{background:#8888a0;border-radius:4px}
+#uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#5858a0}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
