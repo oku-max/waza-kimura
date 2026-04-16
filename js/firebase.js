@@ -124,9 +124,13 @@ export async function loadUserSettings(uid) {
       if (Array.isArray(data.orgColOrder) && data.orgColOrder.length) {
         // 廃止カラム除去 + 新規カラム補完
         const _DEAD = ['prio'];
-        const _REQUIRED = ['fav','next','tb','action','position','technique','counter','channel','playlist','addedAt','duration','memo'];
+        const _REQUIRED = ['fav','next','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
         let cleaned = data.orgColOrder.filter(c => !_DEAD.includes(c));
-        for (const r of _REQUIRED) { if (!cleaned.includes(r)) cleaned.push(r); }
+        for (const r of _REQUIRED) { if (!cleaned.includes(r)) {
+          // 'status'はcounterの直後に挿入
+          if (r === 'status') { const ci = cleaned.indexOf('counter'); ci >= 0 ? cleaned.splice(ci+1,0,r) : cleaned.push(r); }
+          else cleaned.push(r);
+        }}
         window.orgColOrder = cleaned;
         try { localStorage.setItem('wk_orgColOrder', JSON.stringify(cleaned)); } catch(e) {}
       }
@@ -136,6 +140,7 @@ export async function loadUserSettings(uid) {
         // 新規カラムがなければデフォルトで表示
         if (vis.next === undefined) vis.next = true;
         if (vis.counter === undefined) vis.counter = true;
+        if (vis.status === undefined) vis.status = true;
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
