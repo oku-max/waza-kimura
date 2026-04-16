@@ -635,8 +635,9 @@ export function saveCurrentSearchFromInput(inputId, isOrg = false) {
     watchedOnly: isOrg ? (window.orgWatchedOnly || false) : (window.watchedOnly || false),
     filters: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v]])),
     query: isOrg
-      ? (document.getElementById('si-org')?.value || document.getElementById('si-org-pc')?.value || '')
-      : (document.getElementById('si')?.value     || document.getElementById('si-lib-pc')?.value || '')
+      ? (document.getElementById('si-org')?.value    || document.getElementById('si-org-pc')?.value || '')
+      : (document.getElementById('si')?.value        || document.getElementById('si-lib-pc')?.value
+         || document.getElementById('uni-q')?.value  || '')
   };
   const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
     Object.values(state.filters).some(a => a.length > 0) || state.query;
