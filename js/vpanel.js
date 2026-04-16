@@ -253,19 +253,21 @@ function _updateTimeDisplay() {
 
 // ── スキップボタンHTML ──
 function _skipBtnsHTML() {
-  const btns = [
-    {sec:-60, label:'-1m'},
-    {sec:-30, label:'-30s'},
-    {sec:-10, label:'-10s'},
-    {sec: -3, label:'-3s'},
-    {sec:  3, label:'+3s'},
-    {sec: 10, label:'+10s'},
-    {sec: 30, label:'+30s'},
-    {sec: 60, label:'+1m'},
+  const minus = [
+    {sec:-60, label:'1m',  icon:'◀◀'},
+    {sec:-30, label:'30s', icon:'◀'},
+    {sec:-10, label:'10s', icon:'◀'},
+    {sec: -3, label:'3s',  icon:'◀'},
+  ];
+  const plus = [
+    {sec:  3, label:'3s',  icon:'▶'},
+    {sec: 10, label:'10s', icon:'▶'},
+    {sec: 30, label:'30s', icon:'▶'},
+    {sec: 60, label:'1m',  icon:'▶▶'},
   ];
   const sep = '<div class="ab-skip-sep"></div>';
-  const left  = btns.slice(0,4).map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn">${b.label}</button>`).join('');
-  const right = btns.slice(4).map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn">${b.label}</button>`).join('');
+  const left  = minus.map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">${b.icon}</span>${b.label}</button>`).join('');
+  const right = plus.map(b  => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-plus">${b.label}<span class="ab-skip-arrow">${b.icon}</span></button>`).join('');
   return `<div class="ab-skip-bar">${left}${sep}${right}</div>`;
 }
 
