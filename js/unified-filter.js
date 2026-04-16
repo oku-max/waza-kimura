@@ -159,8 +159,13 @@
 #uni-popup .uni-save-btn{flex-shrink:0;background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
 #uni-popup .uni-save-btn:hover{filter:brightness(1.1)}
 @media(max-width:480px){#uni-popup .uni-save-lbl{width:100%}}
+/* uni-q フォーカス中（キーボード表示時）は保存バーを非表示 */
+#uni-popup.uni-q-focus .uni-save-bar{display:none}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
+    // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
+    document.addEventListener('focusin',  e => { if (e.target?.id === 'uni-q') document.getElementById('uni-popup')?.classList.add('uni-q-focus'); });
+    document.addEventListener('focusout', e => { if (e.target?.id === 'uni-q') document.getElementById('uni-popup')?.classList.remove('uni-q-focus'); });
     document.body.insertAdjacentHTML('beforeend', `
 <div id="uni-bd" onclick="uniClose()"></div>
 <div id="uni-popup" role="dialog" aria-modal="true">
