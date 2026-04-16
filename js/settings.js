@@ -528,7 +528,7 @@ function _renderTagsNewModal() {
       <button onclick="_tagsSetTab('dict')"
         style="flex:1;background:none;border:none;border-bottom:2px solid ${t==='dict'?'var(--accent)':'transparent'};
                color:${t==='dict'?'var(--text)':'var(--text3)'};font-size:12px;font-weight:${t==='dict'?700:400};
-               padding:10px 0;cursor:pointer;font-family:inherit">辞書</button>
+               padding:10px 0;cursor:pointer;font-family:inherit;display:none">辞書</button>
     </div>
     <div id="tags-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
     ${t==='list'?`<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px">
@@ -602,10 +602,16 @@ function _renderTagsListBody(body, _e, _js) {
   const uncOpen = _tagsOpenGroups.has('unc');
   const hasAssigns = _aiAssignProposals.length > 0;
   const showAiBtn  = unc.length > 0 && !hasAssigns && !_aiGroupGenerating && _tagGroups.length > 0;
-  h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
+  h += `<div style="padding:7px 16px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;
+    display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)">
+    <span style="flex:1;height:1px;background:var(--border2)"></span>
+    未整理のタグ
+    <span style="flex:1;height:1px;background:var(--border2)"></span>
+  </div>`;
+  h += `<div style="display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
     onclick="_tagsToggleGrp('unc')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'unc')">
     <span style="font-size:10px;color:var(--text3);display:inline-block;transform:rotate(${uncOpen?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
-    <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">未分類</span>
+    <span style="flex:1;font-size:12px;font-weight:700;color:var(--text2)">未分類</span>
     <span style="font-size:11px;color:var(--text3);margin-right:4px">${unc.length}件</span>
     ${showAiBtn ? `<button onclick="event.stopPropagation();_requestAiGroupProposals()"
       style="background:#1c1c1e;color:#fff;border:none;border-radius:12px;
@@ -651,13 +657,24 @@ function _renderTagsListBody(body, _e, _js) {
   const ngTags = [...blocked].sort((a,b) => a.localeCompare(b,'ja'));
   if (ngTags.length > 0) {
     const ngOpen = _tagsOpenGroups.has('ng');
+    const ngTotalVc = ngTags.reduce((s, n) => s + _getVideoCount(n), 0);
     h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none;border-top:2px solid #ef444433"
       onclick="_tagsToggleGrp('ng')">
       <span style="font-size:10px;color:#ef4444;display:inline-block;transform:rotate(${ngOpen?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
       <span style="flex:1;font-size:12px;font-weight:700;color:#ef4444">NGリスト</span>
-      <span style="font-size:11px;color:#ef4444">${ngTags.length}件</span>
+      <span style="font-size:11px;color:#ef4444;margin-right:4px">${ngTags.length}件</span>
+      ${ngTotalVc > 0 ? `<button onclick="event.stopPropagation();_stripAllNGFromVideos()"
+        style="background:none;border:1.5px solid #ef4444;color:#ef4444;font-size:10px;
+               font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">
+        全て取り除く</button>` : ''}
     </div>`;
-    if (ngOpen) ngTags.forEach(n => { h += _buildNGRow(n, _e, _js); });
+    if (ngOpen) {
+      h += `<div style="padding:8px 16px 9px;border-bottom:1px solid var(--border2);background:#ef44440a;
+        font-size:11px;color:var(--text3);line-height:1.6">
+        AIがこのタグを動画に自動追加することはありません。手動での追加はいつでもできます。
+      </div>`;
+      ngTags.forEach(n => { h += _buildNGRow(n, _e, _js); });
+    }
   }
 
   body.innerHTML = h;
@@ -687,6 +704,7 @@ function _buildTagRow(name, gid, grpOptions, _e, _js) {
                   font-family:inherit;outline:none;max-width:90px;flex-shrink:0">
            ${grpOptions(gid)}
          </select>
+         ${(()=>{ const vc=_getVideoCount(name); return `<span style="min-width:28px;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:${vc?700:400};text-align:center;background:${vc?'#e8e8ed':'var(--surface2)'};color:${vc?'var(--text2)':'var(--text3)'};flex-shrink:0">${vc}</span>`; })()}
          <button onclick="_toggleTagNG('${_js(name)}')"
            style="background:none;border:1.5px solid var(--border);color:var(--text3);font-size:10px;
                   font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>`}
@@ -694,15 +712,48 @@ function _buildTagRow(name, gid, grpOptions, _e, _js) {
 }
 
 function _buildNGRow(name, _e, _js) {
+  const vc = _getVideoCount(name);
   return `<div data-tg-row="1" data-name="${_e(name)}"
     style="display:flex;align-items:center;gap:6px;padding:9px 16px;padding-left:28px;
            border-bottom:1px solid var(--border2);background:#ef444408">
-    <span style="flex:1;font-size:12px;font-weight:600;color:var(--text3);text-decoration:line-through">${_e(name)}</span>
+    <span style="flex:1;font-size:12px;font-weight:600;color:var(--text3)">${_e(name)}</span>
+    <span style="min-width:28px;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:${vc?700:400};text-align:center;
+      background:${vc?'#ef444420':'var(--surface2)'};color:${vc?'#ef4444':'var(--text3)'};flex-shrink:0">${vc}</span>
+    ${vc > 0 ? `<button onclick="_stripTagFromVideos('${_js(name)}')"
+      style="background:none;border:1.5px solid #ef444466;color:#ef4444;font-size:10px;
+             font-weight:700;padding:2px 9px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">取り除く</button>` : ''}
     <button onclick="_toggleTagNG('${_js(name)}')"
       style="background:none;border:1.5px solid #ef4444;color:#ef4444;font-size:10px;
              font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">解除</button>
   </div>`;
 }
+
+function _getVideoCount(tag) {
+  return (window.videos || []).filter(v => Array.isArray(v.tags) && v.tags.includes(tag)).length;
+}
+
+window._stripTagFromVideos = name => {
+  const affected = (window.videos || []).filter(v => Array.isArray(v.tags) && v.tags.includes(name));
+  if (!affected.length) { window.toast?.('このタグを含む動画はありません'); return; }
+  if (!confirm(`「${name}」を含む ${affected.length} 件の動画からタグを取り除きます。\nNGリストは変更されません。`)) return;
+  affected.forEach(v => { v.tags = v.tags.filter(t => t !== name); });
+  window.debounceSave?.();
+  _renderTagsNewModal();
+  window.toast?.(`「${name}」を ${affected.length} 件の動画から取り除きました`);
+};
+
+window._stripAllNGFromVideos = () => {
+  const blocked = new Set(aiSettings.techBlocklist || []);
+  const total = (window.videos || []).reduce((s, v) => s + ((v.tags||[]).some(t => blocked.has(t)) ? 1 : 0), 0);
+  if (!total) { window.toast?.('取り除く動画がありません'); return; }
+  if (!confirm(`NGリスト内のタグを含む全動画（${total}件）からタグを取り除きます。\nNGリストは変更されません。`)) return;
+  (window.videos || []).forEach(v => {
+    if (Array.isArray(v.tags)) v.tags = v.tags.filter(t => !blocked.has(t));
+  });
+  window.debounceSave?.();
+  _renderTagsNewModal();
+  window.toast?.(`${total}件の動画からNGタグを取り除きました`);
+};
 
 function _renderTagsDictBody(body, _e, _js) {
   const { allTags } = _getAllKnownTagsForModal();
