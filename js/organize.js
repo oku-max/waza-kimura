@@ -11,9 +11,9 @@ export let orgFilters = {
 export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
 export let orgMemoSearch = '';
 export let orgPrRank = null, orgPrDate = null;
-const _ORG_DEFAULT_ORDER = ['fav', 'next', 'tb', 'action', 'position', 'technique', 'counter', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
-const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, duration: true};
-const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', next:'52px', duration:'64px'};
+const _ORG_DEFAULT_ORDER = ['fav', 'next', 'tb', 'action', 'position', 'technique', 'counter', 'status', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, status: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, duration: true};
+const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', status:'90px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', next:'52px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
@@ -22,13 +22,13 @@ function _loadOrgColPrefs() {
     let order  = o ? JSON.parse(o) : [..._ORG_DEFAULT_ORDER];
     let vis    = v ? JSON.parse(v) : {..._ORG_DEFAULT_VIS};
     let widths = w ? {..._ORG_DEFAULT_WIDTHS, ...JSON.parse(w)} : {..._ORG_DEFAULT_WIDTHS};
-    // マイグレーション v3: prio完全削除, counter/next追加
-    const MIGRATE_VER = 'orgcol_v3';
+    // マイグレーション v4: status列追加
+    const MIGRATE_VER = 'orgcol_v4';
     if (!localStorage.getItem(MIGRATE_VER)) {
       order = [..._ORG_DEFAULT_ORDER];
       vis   = {..._ORG_DEFAULT_VIS};
       // 古いバージョンフラグも削除
-      try { localStorage.removeItem('orgcol_v2'); } catch(e) {}
+      try { localStorage.removeItem('orgcol_v2'); localStorage.removeItem('orgcol_v3'); } catch(e) {}
       try {
         localStorage.setItem('wk_orgColOrder', JSON.stringify(order));
         localStorage.setItem('wk_orgColVisibility', JSON.stringify(vis));
@@ -55,7 +55,7 @@ function _saveOrgColPrefs() {
   } catch(e) {}
   window.saveUserSettings?.();
 }
-export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', counter:'カウンター', channel:'Channel', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', next:'🎯 Next', duration:'長さ'};
+export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', counter:'カウンター', status:'習得度', channel:'Channel', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', next:'🎯 Next', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
@@ -647,6 +647,12 @@ export function renderOrg() {
       if (col === 'action')    return mkTagCell(v.cat||[], 'action', 'action');
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
       if (col === 'technique') return mkTagCell(v.tags||[], 'tags', 'technique');
+      if (col === 'status') {
+        const sIco = v.status==='把握'?'📖':v.status==='習得中'?'🔄':v.status==='マスター'?'⭐':'📋';
+        const sCls = v.status==='把握'?'s1':v.status==='習得中'?'s2':v.status==='マスター'?'s3':'s0';
+        const sLbl = v.status || '未着手';
+        return `<td class="org-td" data-col="status" style="white-space:nowrap"><span class="chip ${sCls}" style="font-size:10px;padding:2px 7px">${sIco} ${sLbl}</span></td>`;
+      }
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
       if (col === 'counter') {
         const pc = v.practice || 0;

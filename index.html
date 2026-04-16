@@ -2761,10 +2761,10 @@ function cardShowPicker(id, el, field, opts) {
   if (!card) return;
   var picker = document.createElement('div');
   picker.className = 'card-picker';
-  picker.style.cssText = 'position:absolute;bottom:44px;left:0;right:0;z-index:50;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:6px;display:flex;gap:5px;box-shadow:0 4px 16px rgba(0,0,0,.15);';
+  picker.style.cssText = 'position:absolute;bottom:44px;left:0;right:0;z-index:50;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:6px;display:flex;flex-wrap:wrap;gap:5px;box-shadow:0 4px 16px rgba(0,0,0,.15);';
   opts.forEach(function(opt) {
     var b = document.createElement('button');
-    b.style.cssText = 'flex:1;padding:6px 4px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;';
+    b.style.cssText = 'flex:1;min-width:calc(50% - 3px);padding:5px 4px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;';
     b.textContent = opt.label;
     b.onclick = function(e) {
       e.stopPropagation();

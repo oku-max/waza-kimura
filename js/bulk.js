@@ -58,6 +58,22 @@ export function buildBulkDrawerHTML() {
     </div>
   </div>`;
 
+  // ── 習得度 section ──
+  const STATUS_LABELS = ['未着手','把握','習得中','マスター'];
+  const STATUS_ICONS  = {'未着手':'📋','把握':'📖','習得中':'🔄','マスター':'⭐'};
+  const STATUS_MAP    = {'未着手':'s0','把握':'s1','習得中':'s2','マスター':'s3'};
+  const commonStatus  = selVids.length && selVids.every(v=>(v.status||'未着手')===(selVids[0]?.status||'未着手')) ? (selVids[0]?.status||'未着手') : null;
+  const progChips = STATUS_LABELS.map(s => {
+    const on = s === commonStatus;
+    const sc = STATUS_MAP[s];
+    return `<span class="vp-chip${on?' on-'+sc:''}" style="cursor:pointer" onclick="bvpSet('status','${s}',this)">${STATUS_ICONS[s]} ${s}</span>`;
+  }).join('');
+  const progSec = `<div class="fsec">
+    <div class="fsec-title">習得度</div>
+    <div class="vp-chips" id="bvp-prog">${progChips}</div>
+    ${commonStatus===null ? '<div style="font-size:9px;color:var(--text3);margin-top:4px">（複数の値）</div>' : ''}
+  </div>`;
+
   // ── チャンネル・プレイリスト section ──
   const commonCh = selVids.every(v=>(v.ch||v.channel||'')===(selVids[0]?.ch||selVids[0]?.channel||'')) ? (selVids[0]?.ch||selVids[0]?.channel||'未設定') : '（複数）';
   const commonPl = selVids.every(v=>(v.pl||'')===(selVids[0]?.pl||'')) ? (selVids[0]?.pl||'未分類') : '（複数）';
@@ -171,7 +187,7 @@ export function buildBulkDrawerHTML() {
     </div>
   </div>`;
 
-  return markSec + srcSec + tagSec
+  return markSec + progSec + srcSec + tagSec
   + `<div style="padding:8px 16px 4px">
       <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
