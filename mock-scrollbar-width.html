@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — スクロールバー幅 比較</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;
+  --surface:#fff;--surface2:#f5f5f7;--surface3:#eeeeef;
+  --border:#e0e0e5;--border2:#ebebf0;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#6b3fd4;--accent-light:#f0ebff;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:#0f0f1a;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:24px 16px 60px;gap:18px
+}
+h1{color:rgba(255,255,255,.7);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.panels{display:flex;gap:20px;width:100%;max-width:1200px}
+.panel{flex:1;display:flex;flex-direction:column;gap:8px}
+.panel-label{text-align:center;font-size:12px;font-weight:800;letter-spacing:.08em;color:rgba(255,255,255,.55);padding:6px 0;border-radius:6px;background:rgba(255,255,255,.07)}
+
+.browser{background:#1c1c1e;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.browser-chrome{background:#2c2c2e;border-bottom:1px solid #3a3a3c;padding:8px 14px;display:flex;align-items:center;gap:8px}
+.browser-dots{display:flex;gap:5px}
+.browser-dot{width:10px;height:10px;border-radius:50%}
+.browser-dot.r{background:#ff5f57}.browser-dot.y{background:#febc2e}.browser-dot.g{background:#28c840}
+
+.app{background:var(--bg);position:relative;overflow:hidden;height:500px}
+.app-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:8px}
+.app-logo{font-size:13px;font-weight:800;letter-spacing:.04em;color:var(--text)}
+.app-nav{margin-left:auto;display:flex;gap:4px}
+.app-nav-btn{background:none;border:none;font-family:inherit;font-size:11px;font-weight:600;color:var(--text3);padding:5px 10px;border-radius:6px;cursor:default}
+.app-nav-btn.on{background:var(--accent-light);color:var(--accent)}
+
+.backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:10}
+
+.uni-popup{width:calc(100% - 28px);height:430px;background:var(--surface);color:var(--text);box-shadow:0 8px 40px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.uni-topbar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+.uni-tabs{display:flex;gap:2px;flex:1}
+.uni-tab{padding:5px 11px;font-size:11px;font-weight:700;color:var(--text2);cursor:default;border-radius:5px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
+.uni-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.uni-x{color:var(--text3);font-size:16px;padding:0 6px;line-height:1}
+
+.uni-searchbar{padding:5px 8px;border-bottom:1px solid var(--border2);background:var(--surface);flex-shrink:0}
+.uni-q{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text2);background:var(--surface2);font-family:inherit;outline:none}
+
+.uni-content{flex:1;display:flex;overflow:hidden;min-height:0}
+.uni-cols{flex:1;display:flex;overflow-x:scroll;overflow-y:hidden;min-height:0}
+
+.uni-col{flex:0 0 140px;display:flex;flex-direction:column;border-right:1px solid var(--border2)}
+.uni-col:last-child{border-right:none}
+.uni-col-head{padding:7px 10px;font-size:10px;font-weight:800;letter-spacing:.07em;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0;text-transform:uppercase;white-space:nowrap}
+.uni-col-body{flex:1;overflow-y:scroll;padding:4px 0}
+.uni-row{padding:6px 10px;font-size:11px;color:var(--text2);cursor:default;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.uni-row.on{color:var(--accent);font-weight:700;background:var(--accent-light)}
+.uni-badge{font-size:9px;color:var(--text3);background:var(--surface3);border-radius:3px;padding:1px 4px;flex-shrink:0}
+
+.uni-footer{padding:7px 10px;border-top:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.uni-count{font-size:10px;color:var(--text3);font-weight:600}
+.uni-clr{font-size:10px;font-weight:700;color:#dc2626;cursor:default;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:5px;padding:3px 10px;font-family:inherit}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   スクロールバー: 直接クラスで指定
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* 3px — クラスを.uni-col-bodyに直接当てる */
+.sb3::-webkit-scrollbar { display:block !important; width:3px !important }
+.sb3::-webkit-scrollbar-track { background:#dddde5 }
+.sb3::-webkit-scrollbar-thumb { background:#9090a8; border-radius:2px }
+.sb3 { scrollbar-width:thin; scrollbar-color:#9090a8 #dddde5 }
+
+/* 5px */
+.sb5::-webkit-scrollbar { display:block !important; width:5px !important }
+.sb5::-webkit-scrollbar-track { background:#dddde5 }
+.sb5::-webkit-scrollbar-thumb { background:#9090a8; border-radius:3px }
+.sb5 { scrollbar-width:thin; scrollbar-color:#9090a8 #dddde5 }
+
+/* 7px */
+.sb7::-webkit-scrollbar { display:block !important; width:7px !important }
+.sb7::-webkit-scrollbar-track { background:#dddde5 }
+.sb7::-webkit-scrollbar-thumb { background:#9090a8; border-radius:4px }
+.sb7 { scrollbar-width:thin; scrollbar-color:#9090a8 #dddde5 }
+
+/* 横スクロールバーも同様 */
+.hb3::-webkit-scrollbar { display:block !important; height:3px !important }
+.hb3::-webkit-scrollbar-track { background:#dddde5 }
+.hb3::-webkit-scrollbar-thumb { background:#9090a8; border-radius:2px }
+
+.hb5::-webkit-scrollbar { display:block !important; height:5px !important }
+.hb5::-webkit-scrollbar-track { background:#dddde5 }
+.hb5::-webkit-scrollbar-thumb { background:#9090a8; border-radius:3px }
+
+.hb7::-webkit-scrollbar { display:block !important; height:7px !important }
+.hb7::-webkit-scrollbar-track { background:#dddde5 }
+.hb7::-webkit-scrollbar-thumb { background:#9090a8; border-radius:4px }
+</style>
+</head>
+<body>
+
+<h1>スクロールバー幅 比較</h1>
+
+<div class="panels">
+
+  <!-- ── A: 3px ── -->
+  <div class="panel">
+    <div class="panel-label">A — 3 px</div>
+    <div class="browser"><div class="browser-chrome"><div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div></div>
+      <div class="app"><div class="app-topbar"><div class="app-logo">WAZA KIMURA</div><div class="app-nav"><div class="app-nav-btn on">すべて</div><div class="app-nav-btn">お気に入り</div></div></div>
+        <div class="backdrop"><div class="uni-popup">
+          <div class="uni-topbar"><div class="uni-tabs"><div class="uni-tab on">タグ</div><div class="uni-tab">進捗</div><div class="uni-tab">ソース</div><div class="uni-tab">動画</div></div><span class="uni-x">✕</span></div>
+          <div class="uni-searchbar"><input class="uni-q" placeholder="🔍 タグの検索" readonly></div>
+          <div class="uni-content"><div class="uni-cols hb3">
+            <div class="uni-col"><div class="uni-col-head">グループ A</div><div class="uni-col-body sb3">
+              <div class="uni-row on">腕十字<span class="uni-badge">12</span></div><div class="uni-row">三角絞め<span class="uni-badge">8</span></div><div class="uni-row">オモプラータ<span class="uni-badge">6</span></div><div class="uni-row">アンクルロック<span class="uni-badge">5</span></div><div class="uni-row">ヒールフック<span class="uni-badge">9</span></div><div class="uni-row">ダースチョーク<span class="uni-badge">4</span></div><div class="uni-row">ギロチン<span class="uni-badge">7</span></div><div class="uni-row">バックチョーク<span class="uni-badge">11</span></div><div class="uni-row">スパイダー<span class="uni-badge">3</span></div><div class="uni-row">デラヒーバ<span class="uni-badge">5</span></div><div class="uni-row">ラッソー<span class="uni-badge">2</span></div><div class="uni-row">クロスガード<span class="uni-badge">4</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">グループ B</div><div class="uni-col-body sb3">
+              <div class="uni-row">パスガード<span class="uni-badge">10</span></div><div class="uni-row">スイープ<span class="uni-badge">7</span></div><div class="uni-row">テイクダウン<span class="uni-badge">6</span></div><div class="uni-row">ニーシールド<span class="uni-badge">4</span></div><div class="uni-row">Xガード<span class="uni-badge">3</span></div><div class="uni-row">クローズド<span class="uni-badge">8</span></div><div class="uni-row">ハーフガード<span class="uni-badge">9</span></div><div class="uni-row">バタフライ<span class="uni-badge">5</span></div><div class="uni-row">50/50<span class="uni-badge">6</span></div><div class="uni-row">サドル<span class="uni-badge">3</span></div><div class="uni-row">ニースライス<span class="uni-badge">7</span></div><div class="uni-row">トレアナ<span class="uni-badge">4</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">グループ C</div><div class="uni-col-body sb3">
+              <div class="uni-row">マウント<span class="uni-badge">8</span></div><div class="uni-row">サイドコント<span class="uni-badge">7</span></div><div class="uni-row">バック<span class="uni-badge">6</span></div><div class="uni-row">ニーオンベリー<span class="uni-badge">4</span></div><div class="uni-row">タートル<span class="uni-badge">3</span></div><div class="uni-row">スクランブル<span class="uni-badge">5</span></div><div class="uni-row">ローリング<span class="uni-badge">2</span></div><div class="uni-row">エスケープ<span class="uni-badge">9</span></div><div class="uni-row">ブリッジ<span class="uni-badge">4</span></div><div class="uni-row">シュリンプ<span class="uni-badge">6</span></div><div class="uni-row">インバート<span class="uni-badge">3</span></div><div class="uni-row">リバース<span class="uni-badge">5</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">未分類</div><div class="uni-col-body sb3">
+              <div class="uni-row">タグA<span class="uni-badge">1</span></div><div class="uni-row">タグB<span class="uni-badge">2</span></div><div class="uni-row">タグC<span class="uni-badge">3</span></div><div class="uni-row">タグD<span class="uni-badge">4</span></div><div class="uni-row">タグE<span class="uni-badge">5</span></div><div class="uni-row">タグF<span class="uni-badge">1</span></div><div class="uni-row">タグG<span class="uni-badge">2</span></div><div class="uni-row">タグH<span class="uni-badge">3</span></div><div class="uni-row">タグI<span class="uni-badge">4</span></div><div class="uni-row">タグJ<span class="uni-badge">5</span></div><div class="uni-row">タグK<span class="uni-badge">1</span></div><div class="uni-row">タグL<span class="uni-badge">2</span></div>
+            </div></div>
+          </div></div>
+          <div class="uni-footer"><span class="uni-count">770件中 42件表示</span><button class="uni-clr">リセット</button></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── B: 5px ── -->
+  <div class="panel">
+    <div class="panel-label">B — 5 px</div>
+    <div class="browser"><div class="browser-chrome"><div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div></div>
+      <div class="app"><div class="app-topbar"><div class="app-logo">WAZA KIMURA</div><div class="app-nav"><div class="app-nav-btn on">すべて</div><div class="app-nav-btn">お気に入り</div></div></div>
+        <div class="backdrop"><div class="uni-popup">
+          <div class="uni-topbar"><div class="uni-tabs"><div class="uni-tab on">タグ</div><div class="uni-tab">進捗</div><div class="uni-tab">ソース</div><div class="uni-tab">動画</div></div><span class="uni-x">✕</span></div>
+          <div class="uni-searchbar"><input class="uni-q" placeholder="🔍 タグの検索" readonly></div>
+          <div class="uni-content"><div class="uni-cols hb5">
+            <div class="uni-col"><div class="uni-col-head">グループ A</div><div class="uni-col-body sb5">
+              <div class="uni-row on">腕十字<span class="uni-badge">12</span></div><div class="uni-row">三角絞め<span class="uni-badge">8</span></div><div class="uni-row">オモプラータ<span class="uni-badge">6</span></div><div class="uni-row">アンクルロック<span class="uni-badge">5</span></div><div class="uni-row">ヒールフック<span class="uni-badge">9</span></div><div class="uni-row">ダースチョーク<span class="uni-badge">4</span></div><div class="uni-row">ギロチン<span class="uni-badge">7</span></div><div class="uni-row">バックチョーク<span class="uni-badge">11</span></div><div class="uni-row">スパイダー<span class="uni-badge">3</span></div><div class="uni-row">デラヒーバ<span class="uni-badge">5</span></div><div class="uni-row">ラッソー<span class="uni-badge">2</span></div><div class="uni-row">クロスガード<span class="uni-badge">4</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">グループ B</div><div class="uni-col-body sb5">
+              <div class="uni-row">パスガード<span class="uni-badge">10</span></div><div class="uni-row">スイープ<span class="uni-badge">7</span></div><div class="uni-row">テイクダウン<span class="uni-badge">6</span></div><div class="uni-row">ニーシールド<span class="uni-badge">4</span></div><div class="uni-row">Xガード<span class="uni-badge">3</span></div><div class="uni-row">クローズド<span class="uni-badge">8</span></div><div class="uni-row">ハーフガード<span class="uni-badge">9</span></div><div class="uni-row">バタフライ<span class="uni-badge">5</span></div><div class="uni-row">50/50<span class="uni-badge">6</span></div><div class="uni-row">サドル<span class="uni-badge">3</span></div><div class="uni-row">ニースライス<span class="uni-badge">7</span></div><div class="uni-row">トレアナ<span class="uni-badge">4</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">グループ C</div><div class="uni-col-body sb5">
+              <div class="uni-row">マウント<span class="uni-badge">8</span></div><div class="uni-row">サイドコント<span class="uni-badge">7</span></div><div class="uni-row">バック<span class="uni-badge">6</span></div><div class="uni-row">ニーオンベリー<span class="uni-badge">4</span></div><div class="uni-row">タートル<span class="uni-badge">3</span></div><div class="uni-row">スクランブル<span class="uni-badge">5</span></div><div class="uni-row">ローリング<span class="uni-badge">2</span></div><div class="uni-row">エスケープ<span class="uni-badge">9</span></div><div class="uni-row">ブリッジ<span class="uni-badge">4</span></div><div class="uni-row">シュリンプ<span class="uni-badge">6</span></div><div class="uni-row">インバート<span class="uni-badge">3</span></div><div class="uni-row">リバース<span class="uni-badge">5</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">未分類</div><div class="uni-col-body sb5">
+              <div class="uni-row">タグA<span class="uni-badge">1</span></div><div class="uni-row">タグB<span class="uni-badge">2</span></div><div class="uni-row">タグC<span class="uni-badge">3</span></div><div class="uni-row">タグD<span class="uni-badge">4</span></div><div class="uni-row">タグE<span class="uni-badge">5</span></div><div class="uni-row">タグF<span class="uni-badge">1</span></div><div class="uni-row">タグG<span class="uni-badge">2</span></div><div class="uni-row">タグH<span class="uni-badge">3</span></div><div class="uni-row">タグI<span class="uni-badge">4</span></div><div class="uni-row">タグJ<span class="uni-badge">5</span></div><div class="uni-row">タグK<span class="uni-badge">1</span></div><div class="uni-row">タグL<span class="uni-badge">2</span></div>
+            </div></div>
+          </div></div>
+          <div class="uni-footer"><span class="uni-count">770件中 42件表示</span><button class="uni-clr">リセット</button></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── C: 7px ── -->
+  <div class="panel">
+    <div class="panel-label">C — 7 px（現在）</div>
+    <div class="browser"><div class="browser-chrome"><div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div></div>
+      <div class="app"><div class="app-topbar"><div class="app-logo">WAZA KIMURA</div><div class="app-nav"><div class="app-nav-btn on">すべて</div><div class="app-nav-btn">お気に入り</div></div></div>
+        <div class="backdrop"><div class="uni-popup">
+          <div class="uni-topbar"><div class="uni-tabs"><div class="uni-tab on">タグ</div><div class="uni-tab">進捗</div><div class="uni-tab">ソース</div><div class="uni-tab">動画</div></div><span class="uni-x">✕</span></div>
+          <div class="uni-searchbar"><input class="uni-q" placeholder="🔍 タグの検索" readonly></div>
+          <div class="uni-content"><div class="uni-cols hb7">
+            <div class="uni-col"><div class="uni-col-head">グループ A</div><div class="uni-col-body sb7">
+              <div class="uni-row on">腕十字<span class="uni-badge">12</span></div><div class="uni-row">三角絞め<span class="uni-badge">8</span></div><div class="uni-row">オモプラータ<span class="uni-badge">6</span></div><div class="uni-row">アンクルロック<span class="uni-badge">5</span></div><div class="uni-row">ヒールフック<span class="uni-badge">9</span></div><div class="uni-row">ダースチョーク<span class="uni-badge">4</span></div><div class="uni-row">ギロチン<span class="uni-badge">7</span></div><div class="uni-row">バックチョーク<span class="uni-badge">11</span></div><div class="uni-row">スパイダー<span class="uni-badge">3</span></div><div class="uni-row">デラヒーバ<span class="uni-badge">5</span></div><div class="uni-row">ラッソー<span class="uni-badge">2</span></div><div class="uni-row">クロスガード<span class="uni-badge">4</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">グループ B</div><div class="uni-col-body sb7">
+              <div class="uni-row">パスガード<span class="uni-badge">10</span></div><div class="uni-row">スイープ<span class="uni-badge">7</span></div><div class="uni-row">テイクダウン<span class="uni-badge">6</span></div><div class="uni-row">ニーシールド<span class="uni-badge">4</span></div><div class="uni-row">Xガード<span class="uni-badge">3</span></div><div class="uni-row">クローズド<span class="uni-badge">8</span></div><div class="uni-row">ハーフガード<span class="uni-badge">9</span></div><div class="uni-row">バタフライ<span class="uni-badge">5</span></div><div class="uni-row">50/50<span class="uni-badge">6</span></div><div class="uni-row">サドル<span class="uni-badge">3</span></div><div class="uni-row">ニースライス<span class="uni-badge">7</span></div><div class="uni-row">トレアナ<span class="uni-badge">4</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">グループ C</div><div class="uni-col-body sb7">
+              <div class="uni-row">マウント<span class="uni-badge">8</span></div><div class="uni-row">サイドコント<span class="uni-badge">7</span></div><div class="uni-row">バック<span class="uni-badge">6</span></div><div class="uni-row">ニーオンベリー<span class="uni-badge">4</span></div><div class="uni-row">タートル<span class="uni-badge">3</span></div><div class="uni-row">スクランブル<span class="uni-badge">5</span></div><div class="uni-row">ローリング<span class="uni-badge">2</span></div><div class="uni-row">エスケープ<span class="uni-badge">9</span></div><div class="uni-row">ブリッジ<span class="uni-badge">4</span></div><div class="uni-row">シュリンプ<span class="uni-badge">6</span></div><div class="uni-row">インバート<span class="uni-badge">3</span></div><div class="uni-row">リバース<span class="uni-badge">5</span></div>
+            </div></div>
+            <div class="uni-col"><div class="uni-col-head">未分類</div><div class="uni-col-body sb7">
+              <div class="uni-row">タグA<span class="uni-badge">1</span></div><div class="uni-row">タグB<span class="uni-badge">2</span></div><div class="uni-row">タグC<span class="uni-badge">3</span></div><div class="uni-row">タグD<span class="uni-badge">4</span></div><div class="uni-row">タグE<span class="uni-badge">5</span></div><div class="uni-row">タグF<span class="uni-badge">1</span></div><div class="uni-row">タグG<span class="uni-badge">2</span></div><div class="uni-row">タグH<span class="uni-badge">3</span></div><div class="uni-row">タグI<span class="uni-badge">4</span></div><div class="uni-row">タグJ<span class="uni-badge">5</span></div><div class="uni-row">タグK<span class="uni-badge">1</span></div><div class="uni-row">タグL<span class="uni-badge">2</span></div>
+            </div></div>
+          </div></div>
+          <div class="uni-footer"><span class="uni-count">770件中 42件表示</span><button class="uni-clr">リセット</button></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

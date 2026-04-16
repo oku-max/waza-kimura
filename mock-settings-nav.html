@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — Settings Nav</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;--surface:#fff;--surface2:#f5f5f5;
+  --border:#e0e0e0;--border2:#ebebeb;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#ff9500;--blue:#007aff;--red:#ff3b30;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:var(--bg);color:var(--text);max-width:430px;margin:0 auto;height:100vh;overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+/* ── settings ── */
+.s-wrap{width:100%;height:100%;overflow-y:auto;padding:16px 16px 80px}
+.sec-h{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin:24px 0 8px}
+.sec-h:first-child{margin-top:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.c-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border2)}
+.c-row:last-child{border-bottom:none}
+.tog{width:44px;height:26px;border-radius:13px;background:#1c1c1e;border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s}
+.tog::after{content:'';position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.tog.on::after{transform:translateX(18px)}
+.tog.off{background:#c7c7cc}
+.td-label{flex:1}
+.td-label .name{font-size:13px;font-weight:600}
+.td-label .cnt{font-size:11px;color:var(--accent);margin-top:1px}
+.edit-btn{background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 13px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.edit-btn:active{background:var(--surface2)}
+.edit-btn.hi{border-color:var(--blue);color:var(--blue)}
+.ai-block{padding:12px 14px;border-bottom:1px solid var(--border2)}
+.ai-block:last-child{border-bottom:none}
+.ai-row{display:flex;align-items:flex-start;gap:10px}
+.ai-text{flex:1}.ai-text .name{font-size:13px;font-weight:600}.ai-text .sub{font-size:11px;color:var(--text3);margin-top:2px}
+.theme-seg{display:flex;background:var(--surface2);border-radius:8px;padding:2px;gap:1px;margin-top:8px}
+.t-opt{flex:1;padding:6px;border-radius:6px;border:none;font-size:12px;font-weight:600;font-family:inherit;background:transparent;color:var(--text3);cursor:pointer;transition:background .15s,color .15s}
+.t-opt.on{background:#1c1c1e;color:#fff}
+.font-wrap{display:flex;align-items:center;gap:8px;margin-top:10px}
+.font-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text)}
+input[type=range]{flex:1;accent-color:#1c1c1e}
+.admin-sep{margin:24px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+
+/* ── modal ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:200;justify-content:center;align-items:center;padding:16px}
+.ov.open{display:flex}
+.modal{background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
+.m-title{font-size:14px;font-weight:700}
+.m-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:0;flex-shrink:0;line-height:1}
+
+/* tab bar */
+.m-tabs{display:flex;align-items:center;border-bottom:1px solid var(--border2);flex-shrink:0;background:var(--surface)}
+.m-tab{flex:1;padding:10px 6px;font-size:12px;font-weight:700;color:var(--text3);background:none;border:none;cursor:pointer;font-family:inherit;border-bottom:2px solid transparent}
+.m-tab.on{color:var(--text);border-bottom-color:var(--text)}
+.m-ai-btn{margin:0 10px 0 0;padding:5px 12px;font-size:11px;font-weight:700;background:#1c1c1e;color:#fff;border:none;border-radius:12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;position:relative}
+.m-ai-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center;display:none}
+.m-ai-badge.show{display:block}
+
+/* search */
+.m-search{padding:0 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
+.m-search input{width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit}
+
+/* list */
+.m-list{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+
+/* generic item row */
+.m-item{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border2)}
+.m-item:last-child{border-bottom:none}
+.mi-body{flex:1;min-width:0}
+.mi-name{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.mi-en{font-size:10px;color:var(--text3);margin-top:1px}
+.mi-desc{font-size:10px;color:var(--text3);margin-top:2px;font-style:italic}
+.del-btn{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 10px;border-radius:10px;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap}
+.del-btn:active{background:var(--surface2)}
+
+/* group section header — 案4 折りたたみ */
+.grp-head{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none}
+.grp-head.drag-over{background:#dbeafe}
+.grp-chev{font-size:10px;color:var(--text3);transition:transform .18s;flex-shrink:0;width:12px;text-align:center}
+.grp-dot{display:none}
+.grp-name{flex:1;font-size:13px;font-weight:700}
+.grp-cnt{font-size:11px;color:var(--text3);margin-right:4px}
+.grp-del{background:none;border:none;font-size:13px;color:var(--text3);cursor:pointer;padding:2px;border-radius:4px;line-height:1}
+.grp-del:active{color:var(--red)}
+
+/* tag row under open group */
+.m-item.in-group{padding-left:36px;background:var(--surface2)}
+.m-item.in-group:last-child{border-bottom:none}
+
+/* unclassified section header */
+.unc-head{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none}
+.unc-lbl{flex:1;font-size:13px;font-weight:700;color:var(--text2)}
+
+/* assign popup */
+.assign-row{padding:10px 16px;background:#f0f7ff;border-bottom:1px solid var(--border2)}
+.assign-label{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px}
+.assign-btns{display:flex;flex-wrap:wrap;gap:6px}
+.assign-btn{padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid;font-family:inherit;background:var(--surface)}
+
+/* dictionary */
+.dict-item{padding:10px 16px;border-bottom:1px solid var(--border2)}
+.dict-name{font-size:13px;font-weight:700;margin-bottom:6px}
+.dict-aliases{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.dict-alias{display:inline-flex;align-items:center;border-radius:6px;background:var(--surface2);border:1px solid var(--border2);font-size:11px;color:var(--text2);overflow:hidden}
+.dict-alias span:first-child{padding:3px 8px}
+.dict-alias .ax{padding:3px 7px 3px 2px;cursor:pointer;color:var(--text3);font-size:13px;line-height:1}
+.dict-alias .ax:hover{color:var(--red)}
+.dict-add{display:flex;gap:4px;margin-top:4px}
+.dict-add input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;font-family:inherit;outline:none;color:var(--text)}
+.dict-add input:focus{border-color:#1c1c1e}
+.dict-add button{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2);white-space:nowrap}
+
+/* AI panel */
+.ai-panel{border-top:1px solid var(--border2);background:#fafaf8;flex-shrink:0;overflow:hidden;max-height:0;transition:max-height .25s ease}
+.ai-panel.open{max-height:300px}
+.aip-head{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border2);gap:8px}
+.aip-title{flex:1;font-size:12px;font-weight:700}
+.aip-close{background:none;border:none;font-size:15px;color:var(--text3);cursor:pointer}
+.aip-body{padding:10px 16px}
+.aip-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)}
+.aip-row:last-child{border-bottom:none}
+
+/* spin animation */
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* toast */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:#1c1c1e;color:#fff;font-size:12px;font-weight:600;padding:9px 18px;border-radius:20px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* drag */
+.m-item[draggable=true]{cursor:grab}
+.drag-ghost{position:fixed;padding:5px 12px;border-radius:8px;background:#1c1c1e;color:#fff;font-size:12px;font-weight:700;pointer-events:none;z-index:9999;opacity:.85;transform:translate(-50%,-50%)}
+
+/* inline edit */
+.inline-edit{font-size:12px;font-weight:600;border:1.5px solid #1c1c1e;border-radius:5px;padding:2px 7px;outline:none;font-family:inherit;width:130px;color:var(--text)}
+.grp-inline-edit{font-size:13px;font-weight:700;border:1.5px solid #1c1c1e;border-radius:5px;padding:2px 7px;outline:none;font-family:inherit;width:130px;color:var(--text)}
+.edit-pencil{background:none;border:none;font-size:11px;color:var(--text3);cursor:pointer;padding:0 3px;opacity:.5;line-height:1}
+.edit-pencil:hover{opacity:1}
+
+/* AI grouping panel */
+.ai-grp-row{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--border2)}
+.ai-grp-row:last-child{border-bottom:none}
+.ai-grp-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.ai-grp-chip{padding:3px 8px;border-radius:6px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+
+/* footer */
+.m-foot{padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.m-note{font-size:10px;color:var(--text3);line-height:1.5;margin-bottom:8px}
+.m-add{display:flex;gap:8px}
+.m-add input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;outline:none}
+.m-add input:focus{border-color:#1c1c1e}
+.m-add button{background:#1c1c1e;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.foot-sep{margin:8px 0;border:none;border-top:1px solid var(--border2)}
+</style>
+</head>
+<body>
+
+<div class="s-wrap">
+  <div style="font-size:16px;font-weight:800;margin-bottom:4px">Settings</div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:20px">表示・AI・再生・外観の設定</div>
+
+  <div class="sec-h">タグ表示設定</div>
+  <div class="card">
+    <div class="c-row">
+      <button class="tog on" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      <div class="td-label"><div class="name">TBS</div><div class="cnt">3 項目</div></div>
+      <button class="edit-btn" onclick="openModal('tb')">編集</button>
+    </div>
+    <div class="c-row">
+      <button class="tog on" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      <div class="td-label"><div class="name">カテゴリ</div><div class="cnt">10 項目</div></div>
+      <button class="edit-btn" onclick="openModal('cat')">編集</button>
+    </div>
+    <div class="c-row">
+      <button class="tog on" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      <div class="td-label"><div class="name">ポジション</div><div class="cnt">27 項目</div></div>
+      <button class="edit-btn" onclick="openModal('pos')">編集</button>
+    </div>
+    <div class="c-row">
+      <button class="tog on" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      <div class="td-label"><div class="name">#Tag</div><div class="cnt" id="tagCnt">10 項目</div></div>
+      <button class="edit-btn hi" onclick="openModal('tags')">編集</button>
+    </div>
+  </div>
+
+  <div class="sec-h">AI取込設定</div>
+  <div class="card">
+    <div class="ai-block">
+      <div class="ai-row">
+        <div class="ai-text"><div class="name">AIタグ機能</div><div class="sub">タイトルからカテゴリ・ポジションを自動判定</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);font-weight:600;margin-top:10px;margin-bottom:6px">自動判定するタグ</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="aiCatChips"></div>
+    </div>
+    <div class="ai-block">
+      <div class="ai-row">
+        <div class="ai-text"><div class="name">取込時に自動AI分析</div><div class="sub">YouTube取り込み後に自動でタグ付け</div></div>
+        <button class="tog on" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      </div>
+    </div>
+    <div class="ai-block">
+      <div class="ai-row">
+        <div class="ai-text"><div class="name">チャプター取得</div><div class="sub">YouTubeの説明文からタイムスタンプを解析</div></div>
+        <button class="tog on" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-h">再生設定</div>
+  <div class="card">
+    <div class="ai-block">
+      <div class="ai-row">
+        <div class="ai-text"><div class="name">動画を自動再生</div><div class="sub">動画パネルを開いた際に自動的に再生を開始します</div></div>
+        <button class="tog off" onclick="this.classList.toggle('on');this.classList.toggle('off')"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-h">外観設定</div>
+  <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div style="font-size:12px;font-weight:600">テーマ</div>
+      <div class="theme-seg">
+        <button class="t-opt on" onclick="setTheme(this)">自動</button>
+        <button class="t-opt" onclick="setTheme(this)">ライト</button>
+        <button class="t-opt" onclick="setTheme(this)">ダーク</button>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div><div style="font-size:12px;font-weight:600;margin-bottom:2px">文字サイズ</div><div style="font-size:11px;color:var(--text3)">表示テキストの大きさを調整します</div></div>
+        <span id="fontLbl" style="font-size:12px;font-weight:700;color:var(--accent)">100%</span>
+      </div>
+      <div class="font-wrap">
+        <button class="font-btn" onclick="adjFont(-5)">−</button>
+        <input type="range" id="fontR" min="80" max="140" step="5" value="100" oninput="setFont(this.value)">
+        <button class="font-btn" onclick="adjFont(5)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-sep">
+    <div style="font-size:11px;font-weight:600;color:var(--text3)">🔒 管理モード</div>
+    <input type="checkbox" style="accent-color:#1c1c1e;width:14px;height:14px">
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="ov" id="editOv" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="editModal"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ Data ══
+const CATEGORIES = [
+  {id:'escape',  name:'エスケープ・ディフェンス',    en:'Escape / Defense',       desc:'不利ポジションからの脱出と防御'},
+  {id:'entry',   name:'ガード構築・エントリー',       en:'Guard Entry / Setup',    desc:'ガードを取る・特定ガードの入り口'},
+  {id:'retain',  name:'ガードリテンション',           en:'Guard Retention',        desc:'足を取られないボトムの守り'},
+  {id:'control', name:'コントロール／プレッシャー',   en:'Control / Pressure',     desc:'トップポジションの維持・押さえ'},
+  {id:'concept', name:'コンセプト・原理',             en:'Concept / Principle',    desc:'技ではない原則的な学び'},
+  {id:'sweep',   name:'スイープ',                     en:'Sweep',                  desc:'ボトムから相手をひっくり返す動作'},
+  {id:'takedown',name:'テイクダウン',                 en:'Takedown',               desc:'立ちから相手を倒す動作（投げ技含む）'},
+  {id:'back',    name:'バックテイク・バックアタック', en:'Back Take / Back Attack',desc:'バックを取る／バックからの攻撃'},
+  {id:'pass',    name:'パスガード',                   en:'Guard Pass',             desc:'相手のガードを越えてトップを取る動作'},
+  {id:'finish',  name:'フィニッシュ',                 en:'Finish / Submission',    desc:'チョーク・関節技など相手を極めにいく動作'},
+].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+
+const POSITIONS_RAW = [
+  {id:'xguard',  ja:'Xガード',             en:'X Guard'},
+  {id:'closed',  ja:'クローズドガード',    en:'Closed Guard'},
+  {id:'cross',   ja:'クロスガード',        en:'Cross Guard'},
+  {id:'collar',  ja:'片襟片袖',            en:'Collar Sleeve'},
+  {id:'kguard',  ja:'Kガード',             en:'K Guard'},
+  {id:'kneesh',  ja:'ニーシールド',        en:'Knee Shield'},
+  {id:'saddle',  ja:'サドル',              en:'Saddle / Inside Sankaku'},
+  {id:'situp',   ja:'シッティングガード',  en:'Sit-Up Guard'},
+  {id:'slx',     ja:'SLX',                 en:'Single Leg X'},
+  {id:'slguard', ja:'シングルレッグガード',en:'Single Leg Guard'},
+  {id:'spider',  ja:'スパイダーガード',    en:'Spider Guard'},
+  {id:'standing',ja:'スタンディング',      en:'Standing'},
+  {id:'deep',    ja:'ディープハーフ',      en:'Deep Half Guard'},
+  {id:'dlr',     ja:'デラヒーバ',          en:'De La Riva'},
+  {id:'turtle',  ja:'タートル',            en:'Turtle'},
+  {id:'butter',  ja:'バタフライガード',    en:'Butterfly Guard'},
+  {id:'half',    ja:'ハーフガード',        en:'Half Guard'},
+  {id:'lasso',   ja:'ラッソーガード',      en:'Lasso Guard'},
+  {id:'lapel',   ja:'ラペルガード',        en:'Lapel Guard'},
+  {id:'rdlr',    ja:'リバースデラヒーバ',  en:'Reverse De La Riva'},
+  {id:'revhalf', ja:'リバースハーフガード',en:'Reverse Half Guard'},
+  {id:'invert',  ja:'インバーテッド',      en:'Inverted Guard'},
+  {id:'seven',   ja:'70/30ガード',         en:'70/30 Guard'},
+  {id:'fifty',   ja:'50/50',               en:'50/50'},
+  {id:'open',    ja:'オープンガード',      en:'Open Guard'},
+  {id:'octo',    ja:'オクトパスガード',    en:'Octopus Guard'},
+  {id:'other',   ja:'その他',              en:'Other'},
+].sort((a,b)=>a.ja.localeCompare(b.ja,'ja'));
+
+let tbItems  = ['トップ','ボトム','スタンディング'].map(v=>({name:v,en:'',desc:'',source:'system',id:v}));
+let catItems = CATEGORIES.map(c=>({...c,source:'system'}));
+let posItems = POSITIONS_RAW.map(p=>({name:p.ja,en:p.en,desc:'',source:'system',id:p.id}));
+
+// #Tag data
+let groups = [
+  {id:'g1',name:'スイープ系',    color:'#22c55e',techs:['バタフライスイープ','ベリンボロ']},
+  {id:'g2',name:'チョーク系',    color:'#3b82f6',techs:['RNC','ギロチン']},
+  {id:'g3',name:'フットロック系',color:'#ef4444',techs:['ヒールフック']},
+  {id:'g4',name:'関節技（腕）',  color:'#f97316',techs:['アームバー','キムラ']},
+];
+let tags = [
+  {name:'アームバー',        aliases:['arm bar'],          aiSuggested:['アーム・バー','ARM BAR'],          gid:'g4', cnt:10},
+  {name:'エビ',              aliases:[],                   aiSuggested:['海老','シュリンプ'],               gid:null, cnt:6 },
+  {name:'オモプラッタ',      aliases:['omoplata'],         aiSuggested:['オモ'],                           gid:null, cnt:3 },
+  {name:'キムラ',            aliases:['kimura'],           aiSuggested:['キムラロック','Kimura Lock'],      gid:'g4', cnt:7 },
+  {name:'ギロチン',          aliases:['guillotine'],       aiSuggested:['ギロチンチョーク'],                gid:'g2', cnt:15},
+  {name:'スパイダーガード',  aliases:[],                   aiSuggested:['スパイダー'],                     gid:null, cnt:0 },
+  {name:'バタフライスイープ',aliases:[],                   aiSuggested:['バタフライ','Butterfly Sweep'],    gid:'g1', cnt:4 },
+  {name:'ベリンボロ',        aliases:['berimbolo'],        aiSuggested:['ベリンボール'],                   gid:'g1', cnt:5 },
+  {name:'ヒールフック',      aliases:['heel hook','HH'],   aiSuggested:['ヒールフッグ','HHL','heel-hook'],  gid:'g3', cnt:12},
+  {name:'RNC',               aliases:['rear naked choke'], aiSuggested:['リアネイキッドチョーク','RNC系'],  gid:'g2', cnt:8 },
+  {name:'トーホールド',      aliases:['toe hold'],         aiSuggested:[],                                gid:null, cnt:4 },
+  {name:'ニーバー',          aliases:['kneebar'],          aiSuggested:[],                                gid:null, cnt:2 },
+  {name:'カーフキック',      aliases:['calf kick'],        aiSuggested:[],                                gid:null, cnt:3 },
+  {name:'バックテイク',      aliases:['back take'],        aiSuggested:[],                                gid:null, cnt:9 },
+  {name:'テイクダウン',      aliases:['takedown'],         aiSuggested:[],                                gid:null, cnt:5 },
+  {name:'D\'アルセ',         aliases:['darce'],            aiSuggested:[],                                gid:null, cnt:6 },
+];
+let merges = [
+  {id:'m1',from:'ヒールフック系',to:'ヒールフック'},
+  {id:'m2',from:'ギロチンチョーク',to:'ギロチン'},
+];
+let techBlocklist = [];
+
+// ── AI chip state ──
+const aiCategories = {tb:true, cat:true, pos:true, tags:true};
+const AI_CAT_LABELS = [{key:'tb',label:'TBS'},{key:'cat',label:'カテゴリ'},{key:'pos',label:'ポジション'},{key:'tags',label:'テクニック'}];
+function renderAiCatChips(){
+  const el=document.getElementById('aiCatChips'); if(!el)return;
+  el.innerHTML=AI_CAT_LABELS.map(({key,label})=>{
+    const on=aiCategories[key];
+    return `<span onclick="toggleAiCat('${key}')" style="padding:5px 12px;border-radius:20px;border:1.5px solid ${on?'var(--accent)':'var(--border)'};font-size:11px;font-weight:600;cursor:pointer;background:${on?'var(--accent)':'var(--surface2)'};color:${on?'#fff':'var(--text2)'};transition:all .15s">${label}</span>`;
+  }).join('');
+}
+function toggleAiCat(key){
+  aiCategories[key]=!aiCategories[key];
+  renderAiCatChips();
+  showToast(`${AI_CAT_LABELS.find(l=>l.key===key)?.label} AI判定を${aiCategories[key]?'ON':'OFF'}にしました`);
+}
+renderAiCatChips();
+
+// ── modal state ──
+let modalType=null, tagsTab='list';
+let selTag=null, aiOpen=false;
+const openG=new Set();
+let editingTag=null, editingGrp=null;
+
+const MODAL_CFG = {
+  tb:  {title:'TBS',        hasSearch:false, hasDesc:false},
+  cat: {title:'カテゴリ',   hasSearch:true,  hasDesc:true },
+  pos: {title:'ポジション', hasSearch:true,  hasDesc:false},
+  tags:{title:'テクニック', hasTabs:true},
+};
+
+// AI グルーピング提案
+let aiGroupProposals = [];
+let _aiGenerating = false;
+function getItems(t){return t==='tb'?tbItems:t==='cat'?catItems:posItems;}
+
+// ── open / close ──
+function openModal(type){
+  modalType=type; tagsTab='list'; selTag=null; aiOpen=false;
+  document.getElementById('editOv').classList.add('open');
+  renderModal();
+}
+function closeModal(){
+  document.getElementById('editOv').classList.remove('open');
+  modalType=null;
+}
+function renderModal(){
+  MODAL_CFG[modalType].hasTabs ? renderTagsModal() : renderListModal();
+}
+
+// ══ LIST modal (TBS / カテゴリ / ポジション) ══
+function renderListModal(){
+  const cfg=MODAL_CFG[modalType], items=getItems(modalType);
+  const q=(document.getElementById('m-srch')?.value||'').toLowerCase();
+  const vis=items.filter(it=>!q||it.name.toLowerCase().includes(q)||(it.en||'').toLowerCase().includes(q));
+  let h=`<div class="m-head"><div class="m-title">${cfg.title}</div>
+    <button class="m-close" onclick="closeModal()">✕</button></div>`;
+  if(cfg.hasSearch) h+=`<div class="m-search"><input id="m-srch" placeholder="検索…" oninput="renderListModal()" value="${q}"></div>`;
+  h+=`<div class="m-list">`;
+  vis.forEach(it=>{
+    const isC=it.source==='user';
+    h+=`<div class="m-item"><div class="mi-body">
+      <div class="mi-name">${it.name}${isC?`<span style="font-size:9px;color:var(--blue);background:#e8eef4;padding:1px 6px;border-radius:6px">カスタム</span>`:''}</div>
+      ${it.en?`<div class="mi-en">${it.en}</div>`:''}
+      ${cfg.hasDesc&&it.desc?`<div class="mi-desc">${it.desc}</div>`:''}
+    </div><button class="del-btn" onclick="delItem('${modalType}','${it.id}')">削除</button></div>`;
+  });
+  if(!vis.length) h+=`<div style="padding:20px 16px;font-size:12px;color:var(--text3)">該当なし</div>`;
+  h+=`</div><div class="m-foot"><div class="m-note">※ ユーザーが追加した項目はAI自動判定の対象外です。</div>
+    <div class="m-add"><input id="m-add" placeholder="新しい項目を追加…"><button onclick="addItem('${modalType}')">追加</button></div>
+  </div>`;
+  document.getElementById('editModal').innerHTML=h;
+}
+function addItem(type){
+  const v=(document.getElementById('m-add')?.value||'').trim();if(!v)return;
+  const arr=getItems(type);
+  if(!arr.find(i=>i.name===v)){arr.push({name:v,en:'',desc:'',source:'user',id:'u_'+Date.now()});}
+  arr.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  renderListModal(); showToast('追加しました');
+}
+function delItem(type,id){
+  const arr=getItems(type),i=arr.findIndex(a=>a.id===id);if(i<0)return;
+  if(arr[i].source==='system'&&!confirm(`「${arr[i].name}」を削除しますか？`))return;
+  arr.splice(i,1); renderListModal(); showToast('削除しました');
+}
+
+// ══ #TAG modal ══
+function renderTagsModal(){
+  const aiSugCount=tags.reduce((s,t)=>s+(t.aiSuggested?.length||0),0);
+  const aiGrpCount=aiGroupProposals.length;
+  const badgeN=(tagsTab==='dict'?aiSugCount:0)+(tagsTab==='list'?aiGrpCount:0);
+  const badgeShow=badgeN>0;
+  let h=`<div class="m-head">
+    <div class="m-title">テクニック</div>
+    <button class="m-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="m-tabs">
+    <button class="m-tab${tagsTab==='list'?' on':''}" onclick="switchTT('list')">タグ一覧</button>
+    <button class="m-tab${tagsTab==='dict'?' on':''}" onclick="switchTT('dict')">辞書</button>
+    <button class="m-ai-btn" onclick="toggleAi()">AI
+      <span class="m-ai-badge${badgeShow?' show':''}">${badgeN}</span>
+    </button>
+  </div>`;
+  document.getElementById('editModal').innerHTML=h;
+  const body=document.createElement('div');body.className='m-list';body.id='tt-body';
+  document.getElementById('editModal').appendChild(body);
+  const aip=document.createElement('div');aip.className=`ai-panel${aiOpen?' open':''}`;aip.id='tt-aip';
+  document.getElementById('editModal').appendChild(aip);
+  const foot=document.createElement('div');foot.className='m-foot';foot.id='tt-foot';
+  document.getElementById('editModal').appendChild(foot);
+  renderTTBody();
+}
+function switchTT(tab){tagsTab=tab;selTag=null;aiOpen=false;renderTagsModal();}
+function toggleAi(){
+  aiOpen=!aiOpen;
+  renderTagsModal();
+  if(aiOpen) setTimeout(()=>document.getElementById('tt-aip')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+
+// ── #Tag body ──
+function renderTTBody(){
+  const body=document.getElementById('tt-body');
+  const foot=document.getElementById('tt-foot');
+  const aip =document.getElementById('tt-aip');
+  if(!body) return;
+
+  if(tagsTab==='list'){
+    const q=(document.getElementById('m-srch-t')?.value||'').toLowerCase();
+    let h=`<div class="m-search"><input id="m-srch-t" placeholder="検索…" oninput="renderTTBody()" value="${q}"></div>`;
+
+    // グループ別セクション（折りたたみ）
+    const sortedG=[...groups].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+    sortedG.forEach(g=>{
+      const open=openG.has(g.id);
+      const sortedT=[...g.techs].filter(n=>!q||n.toLowerCase().includes(q)).sort((a,b)=>a.localeCompare(b,'ja'));
+      if(q&&!sortedT.length) return;
+      const grpEditing = editingGrp===g.id;
+      h+=`<div class="grp-head"
+        onclick="${grpEditing?'':'toggleGrp(\''+g.id+'\')'}"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="onDropToGroup(event,'${g.id}')">
+        <span class="grp-chev" style="transform:rotate(${open?90:0}deg)">▶</span>
+        ${grpEditing
+          ? `<input id="grp-edit-${g.id}" class="grp-inline-edit" value="${g.name}"
+               onclick="event.stopPropagation()"
+               onkeydown="if(event.key==='Enter'){event.stopPropagation();saveGrpName('${g.id}');}if(event.key==='Escape'){editingGrp=null;renderTTBody();}"
+               onblur="saveGrpName('${g.id}')">`
+          : `<div class="grp-name">${g.name}
+               <button class="edit-pencil" onclick="event.stopPropagation();startEditGrp('${g.id}')">✏️</button>
+             </div>`}
+        <div class="grp-cnt">${g.techs.length}件</div>
+        <button class="grp-del" onclick="event.stopPropagation();delGroup('${g.id}')" title="グループを削除">🗑</button>
+      </div>`;
+      if(open){
+        sortedT.forEach(tname=>{
+          const t=tags.find(x=>x.name===tname);
+          const isNG=techBlocklist.includes(tname);
+          const isEd=editingTag===tname;
+          h+=`<div class="m-item in-group" draggable="${isEd?'false':'true'}"
+            ondragstart="${isEd?'':'onDragStart(event,\''+tname+'\',\''+g.id+'\')'}"
+            ontouchstart="${isEd?'':'onTouchStart(event,\''+tname+'\',\''+g.id+'\')'}"
+            style="${isNG?'background:#fee8e8':''}">
+            <div class="mi-body">
+              <div class="mi-name" style="${isNG?'color:var(--text3)':''}">
+                ${isEd
+                  ? `<input id="tag-edit-input" class="inline-edit" value="${tname}"
+                       onkeydown="if(event.key==='Enter')saveTagName('${tname}');if(event.key==='Escape'){editingTag=null;renderTTBody();}"
+                       onblur="saveTagName('${tname}')">`
+                  : `${tname}
+                     <button class="edit-pencil" onclick="event.stopPropagation();startEditTag('${tname}')">✏️</button>
+                     ${isNG?`<span style="font-size:9px;background:#fee2e2;border:1px solid var(--red);color:var(--red);padding:1px 5px;border-radius:4px">NG</span>`:''}`
+                }
+              </div>
+            </div>
+            ${(!isEd&&t)?`<div style="font-size:11px;color:var(--text3);white-space:nowrap;margin-right:4px">${t.cnt}本</div>`:''}
+            ${!isEd?`<button class="del-btn" onclick="event.stopPropagation();toggleNG('${tname}')"
+              style="border-color:${isNG?'var(--red)':'var(--border)'};color:${isNG?'var(--red)':'var(--text3)'};margin-right:4px">NG</button>
+            <button class="del-btn" onclick="event.stopPropagation();removeFromGroup('${g.id}','${tname}')">外す</button>`:''}
+          </div>`;
+        });
+        if(!sortedT.length&&!q) h+=`<div style="padding:10px 36px;font-size:12px;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border2)">タグがありません</div>`;
+      }
+    });
+
+    // 未分類セクション（折りたたみ）
+    const uncAll=tags.filter(t=>!t.gid);
+    const unc=uncAll.filter(t=>!q||t.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+    const uncOpen=openG.has('unc');
+    h+=`<div class="unc-head" onclick="toggleGrp('unc')">
+      <span class="grp-chev" style="transform:rotate(${uncOpen?90:0}deg)">▶</span>
+      <div class="unc-lbl">未分類</div>
+      <div class="grp-cnt">${uncAll.length}件</div>
+    </div>`;
+    if(uncOpen){
+      unc.forEach(t=>{
+        const isNG=techBlocklist.includes(t.name);
+        const isSel=selTag===t.name;
+        const isEd=editingTag===t.name;
+        h+=`<div class="m-item in-group" draggable="${isEd?'false':'true'}"
+          onclick="${isEd?'':'selectUncTag(\''+t.name+'\')'}"
+          ondragstart="${isEd?'':'onDragStart(event,\''+t.name+'\',null)'}"
+          ontouchstart="${isEd?'':'onTouchStart(event,\''+t.name+'\',null)'}"
+          style="${isNG?'background:#fee8e8':''}${isSel?';background:#eff6ff':''}">
+          <div class="mi-body">
+            <div class="mi-name" style="${isNG?'color:var(--text3)':''}">
+              ${isEd
+                ? `<input id="tag-edit-input" class="inline-edit" value="${t.name}"
+                     onclick="event.stopPropagation()"
+                     onkeydown="if(event.key==='Enter')saveTagName('${t.name}');if(event.key==='Escape'){editingTag=null;renderTTBody();}"
+                     onblur="saveTagName('${t.name}')">`
+                : `${t.name}
+                   <button class="edit-pencil" onclick="event.stopPropagation();startEditTag('${t.name}')">✏️</button>
+                   ${isNG?`<span style="font-size:9px;background:#fee2e2;border:1px solid var(--red);color:var(--red);padding:1px 5px;border-radius:4px">NG</span>`:''}`
+              }
+            </div>
+          </div>
+          ${!isEd?`<div style="font-size:11px;color:var(--text3);white-space:nowrap;margin-right:4px">${t.cnt}本</div>
+          <button class="del-btn" onclick="event.stopPropagation();toggleNG('${t.name}')"
+            style="border-color:${isNG?'var(--red)':'var(--border)'};color:${isNG?'var(--red)':'var(--text3)'};margin-right:4px">NG</button>
+          <button class="del-btn" onclick="event.stopPropagation();delTag('${t.name}')">削除</button>`:''}
+        </div>`;
+      });
+      if(!uncAll.length) h+=`<div style="padding:10px 36px;font-size:12px;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border2)">すべて分類済み ✓</div>`;
+    }
+
+    // assign row (未分類タップ → グループ選択)
+    if(selTag){
+      h+=`<div class="assign-row"><div class="assign-label">「${selTag}」を追加するグループ</div><div class="assign-btns">`;
+      [...groups].sort((a,b)=>a.name.localeCompare(b.name,'ja')).forEach(g=>{
+        h+=`<button class="assign-btn" style="border-color:${g.color};color:${g.color}" onclick="assignTag('${selTag}','${g.id}')">${g.name}</button>`;
+      });
+      h+=`<button class="assign-btn" style="border-color:var(--text3);color:var(--text3)" onclick="selTag=null;renderTTBody()">キャンセル</button>`;
+      h+=`</div></div>`;
+    }
+
+    body.innerHTML=h;
+    foot.innerHTML=`
+      <div class="m-add"><input id="m-add-g" placeholder="グループ名を追加…"><button onclick="addGroup()">追加</button></div>
+      <hr class="foot-sep">
+      <div class="m-add"><input id="m-add-t" placeholder="タグを追加…"><button onclick="addTagItem()">追加</button></div>`;
+
+    // AI グルーピング提案パネル
+    if(aip){
+      const n=aiGroupProposals.length;
+      const uncTags=tags.filter(t=>!t.gid&&!techBlocklist.includes(t.name));
+      const uncN=uncTags.length;
+      aip.innerHTML=`<div class="aip-head">
+        <div class="aip-title">AIのグルーピング提案
+          ${n?`<span style="font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px">${n}件</span>`:''}
+        </div>
+        <button class="aip-close" onclick="toggleAi()">✕</button>
+      </div>
+      <div class="aip-body" style="max-height:240px;overflow-y:auto">
+        ${_aiGenerating
+          ?`<div style="padding:24px 0;text-align:center">
+              <div style="font-size:22px;margin-bottom:8px;animation:spin 1s linear infinite;display:inline-block">⚙️</div>
+              <div style="font-size:12px;font-weight:700;margin-bottom:4px">AIが分析中…</div>
+              <div style="font-size:11px;color:var(--text3)">未分類 ${uncN}件を解析しています</div>
+            </div>`
+          : n
+            ?`<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+                <button onclick="adoptAllGroupProposals()" style="background:#1c1c1e;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer">すべて採用</button>
+              </div>
+              <div>${aiGroupProposals.map(p=>`
+                <div class="ai-grp-row" id="gp_${p.id}">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:12px;font-weight:700">${p.name}</span>
+                    <span style="font-size:10px;color:var(--text3)">${p.desc}</span>
+                  </div>
+                  <div class="ai-grp-tags">
+                    ${p.tags.map(t=>`<span class="ai-grp-chip">${t}</span>`).join('')}
+                  </div>
+                  <div style="display:flex;gap:6px;margin-top:4px">
+                    <button onclick="adoptGroupProposal('${p.id}')" style="flex:1;background:#1c1c1e;color:#fff;border:none;border-radius:6px;padding:5px;font-size:11px;font-weight:700;cursor:pointer">採用してグループ作成</button>
+                    <button onclick="dismissGroupProposal('${p.id}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">却下</button>
+                  </div>
+                </div>`).join('')}
+              </div>`
+            : uncN
+              ?`<div style="padding:20px 0;text-align:center">
+                  <div style="font-size:12px;color:var(--text3);margin-bottom:4px">未分類タグが <strong style="color:var(--text)">${uncN}件</strong> あります</div>
+                  <div style="font-size:10px;color:var(--text3);margin-bottom:14px">AIがグルーピングを提案します</div>
+                  <button onclick="requestAiGroupProposals()" style="background:#1c1c1e;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.02em">🤖 グルーピングを提案してもらう</button>
+                </div>`
+              :`<div style="padding:20px 0;text-align:center;font-size:12px;color:var(--text3)">未分類タグがありません ✓</div>`
+        }
+      </div>`;
+    }
+
+  } else {
+    // ── 辞書タブ ──
+    const q=(document.getElementById('m-srch-d')?.value||'').toLowerCase();
+    const sorted=[...tags].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+    const vis=sorted.filter(t=>!q||t.name.toLowerCase().includes(q)||(t.aliases||[]).some(a=>a.toLowerCase().includes(q)));
+    let h=`<div class="m-search"><input id="m-srch-d" placeholder="検索…" oninput="renderTTBody()" value="${q}"></div>`;
+    vis.forEach(t=>{
+      const ali=(t.aliases||[]).map((a,i)=>`
+        <span class="dict-alias">
+          <span style="display:inline-flex;align-items:center;gap:3px">
+            <span style="font-size:8px;font-weight:700;background:#1c1c1e;color:#fff;padding:1px 4px;border-radius:3px;line-height:1.4">AI</span>
+            ${a}
+          </span>
+          <span class="ax" onclick="removeAlias('${t.name}',${i})">✕</span>
+        </span>`).join('');
+      const hasAli=(t.aliases||[]).length>0;
+      h+=`<div class="dict-item">
+        <div class="dict-name">${t.name}</div>
+        ${hasAli?`<div class="dict-aliases">${ali}</div>`:`<div style="font-size:11px;color:var(--text3);margin-bottom:4px">別の呼び方はまだ検出されていません</div>`}
+      </div>`;
+    });
+    if(!vis.length) h+=`<div style="padding:20px 16px;font-size:12px;color:var(--text3)">該当なし</div>`;
+    body.innerHTML=h;
+    foot.innerHTML=`<div style="font-size:11px;color:var(--text3);line-height:1.6">AIが動画の取り込み時に別の呼び方を自動検出・蓄積します。<br>不要な候補はAIパネルで却下できます。</div>`;
+
+    // AI別名候補パネル
+    if(aip){
+      const allSug=[];
+      tags.forEach(t=>(t.aiSuggested||[]).forEach(s=>allSug.push({tag:t.name,sug:s})));
+      const sLen=allSug.length;
+      aip.innerHTML=`<div class="aip-head">
+        <div class="aip-title">AIが検出した新しい別名候補 ${sLen?`<span style="font-size:10px;background:var(--red);color:#fff;padding:1px 6px;border-radius:8px">${sLen}件</span>`:''}</div>
+        <button class="aip-close" onclick="toggleAi()">✕</button>
+      </div>
+      <div class="aip-body" style="max-height:220px;overflow-y:auto">
+        ${sLen?`<div style="display:flex;gap:8px;margin-bottom:10px">
+          <button onclick="adoptAllSuggestions()" style="flex:1;background:#1c1c1e;color:#fff;border:none;border-radius:8px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">すべて採用（${sLen}件）</button>
+          <button onclick="toggleAi()" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer">あとで</button>
+        </div>`:''}
+        ${sLen?allSug.map((s,i)=>`
+        <div class="aip-row" id="sug_${i}">
+          <div style="flex:1;font-size:12px">
+            <span style="font-weight:600">${s.tag}</span>
+            <span style="color:var(--text3);margin:0 4px">←</span>
+            <span style="color:var(--text2)">${s.sug}</span>
+          </div>
+          <button onclick="adoptSuggestion('${s.tag}','${s.sug}',${i})" style="background:#1c1c1e;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px">採用</button>
+          <button onclick="dismissSuggestion('${s.tag}','${s.sug}',${i})" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">却下</button>
+        </div>`).join('')
+        :'<div style="font-size:12px;color:var(--text3)">新しい候補はありません ✓</div>'}
+      </div>`;
+    }
+  }
+}
+
+// ── inline edit: tag name ──
+function startEditTag(name){editingTag=name;editingGrp=null;selTag=null;renderTTBody();setTimeout(()=>{const el=document.getElementById('tag-edit-input');if(el){el.focus();el.select();}},30);}
+function saveTagName(oldName){
+  const el=document.getElementById('tag-edit-input');
+  const newName=(el?.value||'').trim();
+  editingTag=null;
+  if(!newName||newName===oldName){renderTTBody();return;}
+  const t=tags.find(x=>x.name===oldName);if(t)t.name=newName;
+  groups.forEach(g=>{const i=g.techs.indexOf(oldName);if(i>-1)g.techs[i]=newName;});
+  renderTTBody(); showToast(`「${oldName}」→「${newName}」に変更しました`);
+}
+
+// ── inline edit: group name ──
+function startEditGrp(gid){editingGrp=gid;editingTag=null;renderTTBody();setTimeout(()=>{const el=document.getElementById('grp-edit-'+gid);if(el){el.focus();el.select();}},30);}
+function saveGrpName(gid){
+  const el=document.getElementById('grp-edit-'+gid);
+  const newName=(el?.value||'').trim();
+  editingGrp=null;
+  if(!newName){renderTTBody();return;}
+  const g=groups.find(x=>x.id===gid);
+  if(g&&newName!==g.name){const old=g.name;g.name=newName;showToast(`「${old}」→「${newName}」に変更しました`);}
+  renderTTBody();
+}
+
+// ── AI grouping: generate proposals ──
+function requestAiGroupProposals(){
+  const uncTags=tags.filter(t=>!t.gid&&!techBlocklist.includes(t.name)).map(t=>t.name);
+  if(!uncTags.length){showToast('未分類タグがありません');return;}
+  _aiGenerating=true;
+  renderTTBody();
+  // モック: 1.6秒後にAI応答をシミュレート
+  setTimeout(()=>{
+    _aiGenerating=false;
+    const now=Date.now();
+    // キーワードベースの簡易グルーピング（実際はAI APIが行う）
+    const legLock=['トーホールド','ニーバー','ヒールフック','カーフキック'];
+    const choke=['ギロチン','RNC','D\'アルセ','チョーク'];
+    const back=['バックテイク'];
+    const takedown=['テイクダウン'];
+    const guard=['スパイダーガード','エビ','オモプラッタ'];
+    const proposed=[];
+    const used=new Set();
+    const tryGroup=(name,desc,keywords)=>{
+      const matched=uncTags.filter(t=>keywords.some(k=>t===k||t.includes(k))&&!used.has(t));
+      if(matched.length<1)return;
+      matched.forEach(t=>used.add(t));
+      proposed.push({id:'gp'+now+'_'+proposed.length,name,desc,tags:matched});
+    };
+    tryGroup('レッグロック系','足・膝・足首への関節技',legLock);
+    tryGroup('絞め技系','首・頸部へのチョーク',choke);
+    tryGroup('バック系','バックポジション関連',back);
+    tryGroup('スタンド系','立ち技・テイクダウン',takedown);
+    tryGroup('ガードワーク系','ガードポジションと基礎ムーブ',guard);
+    // 残ったタグ
+    const rest=uncTags.filter(t=>!used.has(t));
+    if(rest.length) proposed.push({id:'gp'+now+'_z',name:'その他のテクニック',desc:'グループ未確定のタグ',tags:rest});
+    aiGroupProposals=proposed;
+    renderTTBody();
+    showToast(`🤖 ${proposed.length}件のグルーピング提案が届きました`);
+  },1600);
+}
+
+// ── AI grouping proposals ──
+function adoptGroupProposal(id){
+  const p=aiGroupProposals.find(x=>x.id===id);if(!p)return;
+  const cols=['#6366f1','#ec4899','#14b8a6','#f59e0b','#8b5cf6','#0ea5e9'];
+  const newGrp={id:'g'+Date.now(),name:p.name,color:cols[groups.length%cols.length],techs:[]};
+  p.tags.forEach(tname=>{
+    // タグが存在しない場合は追加
+    if(!tags.find(t=>t.name===tname)) tags.push({name:tname,aliases:[],aiSuggested:[],gid:null,cnt:0});
+    // 他のグループから外す
+    groups.forEach(g=>{g.techs=g.techs.filter(t=>t!==tname);});
+    const t=tags.find(t=>t.name===tname);if(t)t.gid=newGrp.id;
+    newGrp.techs.push(tname);
+  });
+  groups.push(newGrp);
+  openG.add(newGrp.id);
+  aiGroupProposals=aiGroupProposals.filter(x=>x.id!==id);
+  renderTagsModal(); showToast(`グループ「${p.name}」を作成しました（${p.tags.length}件）`);
+}
+function dismissGroupProposal(id){
+  aiGroupProposals=aiGroupProposals.filter(x=>x.id!==id);
+  renderTagsModal(); showToast('提案を却下しました');
+}
+function adoptAllGroupProposals(){
+  const n=aiGroupProposals.length;
+  [...aiGroupProposals].forEach(p=>adoptGroupProposal(p.id));
+  showToast(`${n}件のグループを一括作成しました`);
+}
+
+// ── group actions ──
+function toggleGrp(id){openG.has(id)?openG.delete(id):openG.add(id);renderTTBody();}
+function delGroup(gid){
+  const g=groups.find(g=>g.id===gid);if(!g)return;
+  if(!confirm(`「${g.name}」を削除しますか？\n中のタグは未分類に戻ります。`))return;
+  g.techs.forEach(t=>{const tg=tags.find(x=>x.name===t);if(tg)tg.gid=null;});
+  groups=groups.filter(g=>g.id!==gid);
+  renderTagsModal(); showToast(`「${g.name}」を削除しました`);
+}
+function removeFromGroup(gid,tname){
+  const g=groups.find(g=>g.id===gid);if(!g)return;
+  g.techs=g.techs.filter(t=>t!==tname);
+  const t=tags.find(x=>x.name===tname);if(t)t.gid=null;
+  renderTTBody(); showToast(`「${tname}」を未分類に戻しました`);
+}
+function selectUncTag(name){selTag=(selTag===name)?null:name;renderTTBody();}
+function assignTag(tname,gid){
+  const g=groups.find(g=>g.id===gid);if(!g)return;
+  if(!g.techs.includes(tname))g.techs.push(tname);
+  const t=tags.find(x=>x.name===tname);if(t)t.gid=gid;
+  selTag=null; renderTTBody(); showToast(`「${tname}」を「${g.name}」に追加しました`);
+}
+function addGroup(){
+  const v=(document.getElementById('m-add-g')?.value||'').trim();if(!v)return;
+  const cols=['#6366f1','#ec4899','#14b8a6','#f59e0b','#8b5cf6','#0ea5e9'];
+  groups.push({id:'g'+Date.now(),name:v,color:cols[groups.length%cols.length],techs:[]});
+  renderTagsModal(); showToast(`グループ「${v}」を追加しました`);
+}
+
+// ── tag actions ──
+function addTagItem(){
+  const v=(document.getElementById('m-add-t')?.value||'').trim();if(!v)return;
+  if(!tags.find(t=>t.name===v)){tags.push({name:v,aliases:[],gid:null,cnt:0});}
+  document.getElementById('tagCnt').textContent=tags.length+' 項目';
+  renderTTBody(); showToast(`「${v}」を追加しました`);
+}
+function delTag(name){
+  if(!confirm(`「${name}」を削除しますか？`))return;
+  const g=groups.find(g=>g.techs.includes(name));
+  if(g)g.techs=g.techs.filter(t=>t!==name);
+  const i=tags.findIndex(t=>t.name===name);if(i>-1)tags.splice(i,1);
+  document.getElementById('tagCnt').textContent=tags.length+' 項目';
+  renderTTBody(); showToast(`「${name}」を削除しました`);
+}
+function toggleNG(name){
+  const i=techBlocklist.indexOf(name);
+  if(i>-1){ techBlocklist.splice(i,1); showToast(`「${name}」のNG解除`); }
+  else     { techBlocklist.push(name); showToast(`「${name}」をAI禁止リストに追加`); }
+  renderTTBody();
+}
+
+// ── AI suggestion actions ──
+function adoptSuggestion(tagName, sug){
+  const t=tags.find(x=>x.name===tagName);if(!t)return;
+  if(!t.aliases.includes(sug)) t.aliases.push(sug);
+  t.aiSuggested=(t.aiSuggested||[]).filter(s=>s!==sug);
+  renderTagsModal(); showToast(`「${sug}」を${tagName}の別の呼び方として採用しました`);
+}
+function dismissSuggestion(tagName, sug){
+  const t=tags.find(x=>x.name===tagName);if(!t)return;
+  t.aiSuggested=(t.aiSuggested||[]).filter(s=>s!==sug);
+  renderTagsModal(); showToast(`「${sug}」を却下しました`);
+}
+function adoptAllSuggestions(){
+  tags.forEach(t=>{
+    (t.aiSuggested||[]).forEach(s=>{if(!t.aliases.includes(s))t.aliases.push(s);});
+    t.aiSuggested=[];
+  });
+  renderTagsModal(); showToast('すべての候補を採用しました');
+}
+
+// ── alias actions ──
+function addAlias(tagName){
+  const key=tagName.replace(/[^a-zA-Z0-9]/g,'_');
+  const v=(document.getElementById('ali_'+key)?.value||'').trim();if(!v)return;
+  const t=tags.find(x=>x.name===tagName);if(!t)return;
+  if(!t.aliases.includes(v)){t.aliases.push(v);}
+  renderTTBody(); showToast(`「${v}」を別の呼び方として追加しました`);
+}
+function removeAlias(tagName,idx){
+  const t=tags.find(x=>x.name===tagName);if(!t)return;
+  t.aliases.splice(idx,1);
+  renderTTBody(); showToast('別の呼び方を削除しました');
+}
+
+// ── merge actions ──
+function mergeOne(id){
+  const i=merges.findIndex(m=>m.id===id);if(i<0)return;
+  const m=merges[i]; merges.splice(i,1);
+  const el=document.getElementById('mr_'+id);if(el)el.remove();
+  showToast(`「${m.from}」→「${m.to}」に統合しました`);
+  if(merges.length===0) renderTagsModal();
+}
+function dismissMerge(id){
+  const i=merges.findIndex(m=>m.id===id);if(i<0)return;
+  merges.splice(i,1);
+  const el=document.getElementById('mr_'+id);if(el)el.remove();
+  showToast('スキップしました');
+  if(merges.length===0) renderTagsModal();
+}
+function mergeAll(){
+  const n=merges.length; merges.length=0;
+  renderTagsModal(); showToast(`${n}件を統合しました`);
+}
+
+// ══ Drag & Drop ══
+let dragTag=null, dragFromGid=null;
+function onDragStart(e,tname,fromGid){
+  dragTag=tname; dragFromGid=fromGid;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',tname);
+}
+function onDropToGroup(e,toGid){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(!dragTag||dragFromGid===toGid){dragTag=null;return;}
+  if(dragFromGid){const og=groups.find(g=>g.id===dragFromGid);if(og)og.techs=og.techs.filter(t=>t!==dragTag);}
+  const ng=groups.find(g=>g.id===toGid);
+  if(ng&&!ng.techs.includes(dragTag))ng.techs.push(dragTag);
+  const tg=tags.find(t=>t.name===dragTag);if(tg)tg.gid=toGid;
+  const msg=dragFromGid?`「${dragTag}」を「${ng?.name}」に移動`:`「${dragTag}」を「${ng?.name}」に追加`;
+  dragTag=null;dragFromGid=null;
+  renderTTBody();showToast(msg);
+}
+
+// Touch D&D
+const TOUCH_TH=8;
+let touchDrag=null,touchGhost=null,touchFrom=null;
+function onTouchStart(e,tname,fromGid){
+  const t0=e.touches[0];
+  const startX=t0.clientX,startY=t0.clientY;
+  let moved=false;
+  function onMove(ev){
+    const t=ev.touches[0];
+    if(!moved&&(Math.abs(t.clientX-startX)>TOUCH_TH||Math.abs(t.clientY-startY)>TOUCH_TH)){
+      moved=true;touchDrag=tname;touchFrom=fromGid;
+      touchGhost=document.createElement('div');
+      touchGhost.className='drag-ghost';touchGhost.textContent=tname;
+      document.body.appendChild(touchGhost);
+    }
+    if(!moved)return;
+    ev.preventDefault();
+    touchGhost.style.left=t.clientX+'px';touchGhost.style.top=t.clientY+'px';
+    touchGhost.style.visibility='hidden';
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    touchGhost.style.visibility='';
+    document.querySelectorAll('.grp-head').forEach(r=>r.classList.remove('drag-over'));
+    const row=el?.closest('.grp-head');if(row)row.classList.add('drag-over');
+  }
+  function onEnd(ev){
+    document.removeEventListener('touchmove',onMove);
+    document.removeEventListener('touchend',onEnd);
+    if(!moved||!touchDrag){touchDrag=null;return;}
+    if(touchGhost){touchGhost.remove();touchGhost=null;}
+    const t=ev.changedTouches[0];
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    document.querySelectorAll('.grp-head').forEach(r=>r.classList.remove('drag-over'));
+    const row=el?.closest('.grp-head[ondrop]');
+    if(row){
+      const toGid=row.getAttribute('ondrop').match(/'([^']+)'\)$/)?.[1];
+      if(toGid&&toGid!==touchFrom){
+        if(touchFrom){const og=groups.find(g=>g.id===touchFrom);if(og)og.techs=og.techs.filter(x=>x!==touchDrag);}
+        const ng=groups.find(g=>g.id===toGid);
+        if(ng&&!ng.techs.includes(touchDrag))ng.techs.push(touchDrag);
+        const tg=tags.find(t=>t.name===touchDrag);if(tg)tg.gid=toGid;
+        const msg=touchFrom?`「${touchDrag}」を「${ng?.name}」に移動`:`「${touchDrag}」を「${ng?.name}」に追加`;
+        touchDrag=null;touchFrom=null;
+        renderTTBody();showToast(msg);return;
+      }
+    }
+    touchDrag=null;touchFrom=null;
+  }
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('touchend',onEnd);
+}
+
+// ── settings helpers ──
+function setTheme(el){document.querySelectorAll('.t-opt').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function setFont(v){document.getElementById('fontLbl').textContent=Math.round(v)+'%';}
+function adjFont(d){const r=document.getElementById('fontR');r.value=Math.min(140,Math.max(80,+r.value+d));setFont(r.value);}
+
+// ── toast ──
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2000);
+}
+</script>
+</body>
+</html>

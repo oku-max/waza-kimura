@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一括編集UI モック比較</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f5f5f5; color:#333; }
+
+/* ── 案セレクター ── */
+.mock-nav { position:sticky; top:0; z-index:100; background:#1a1a2e; padding:10px 16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.mock-nav h1 { color:#fff; font-size:13px; margin-right:12px; white-space:nowrap; }
+.mock-btn { padding:7px 14px; border:none; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; background:#333; color:#aaa; }
+.mock-btn.active { background:#6c5ce7; color:#fff; }
+.mock-desc { padding:10px 16px; background:#fff3cd; font-size:12px; line-height:1.6; border-bottom:1px solid #ddd; }
+
+/* ── 共通フレーム ── */
+.mock-frame { display:none; }
+.mock-frame.active { display:block; }
+.view-tabs { display:flex; gap:0; border-bottom:2px solid #ddd; background:#fff; }
+.view-tab { padding:10px 20px; font-size:12px; font-weight:700; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:#888; transition:all .15s; }
+.view-tab.active { color:#6c5ce7; border-bottom-color:#6c5ce7; }
+.view-panel { display:none; position:relative; min-height:500px; background:#fafafa; }
+.view-panel.active { display:block; }
+
+/* ── テーブル共通 ── */
+.m-table { width:100%; border-collapse:collapse; font-size:12px; }
+.m-table th { background:#f0f0f0; padding:8px 10px; text-align:left; font-size:10px; font-weight:800; color:#888; border-bottom:1px solid #ddd; position:sticky; top:0; }
+.m-table td { padding:8px 10px; border-bottom:1px solid #eee; }
+.m-table tr:hover { background:#f8f5ff; }
+.m-table input[type=checkbox] { width:16px; height:16px; accent-color:#6c5ce7; cursor:pointer; }
+.m-thumb { width:48px; height:32px; border-radius:4px; background:#ddd; object-fit:cover; }
+
+/* ── カード共通 ── */
+.m-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; padding:12px; }
+.m-card { background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); position:relative; transition:box-shadow .15s; cursor:pointer; }
+.m-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.12); }
+.m-card-img { width:100%; aspect-ratio:16/9; background:#ddd; }
+.m-card-body { padding:8px 10px; }
+.m-card-title { font-size:11px; font-weight:600; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.m-card-ch { font-size:10px; color:#888; margin-top:3px; }
+.m-card-cb { position:absolute; top:6px; left:6px; width:20px; height:20px; accent-color:#6c5ce7; cursor:pointer; opacity:0; transition:opacity .15s; }
+.m-card:hover .m-card-cb, .m-card-cb:checked { opacity:1; }
+.m-card.selected { box-shadow:0 0 0 2px #6c5ce7; }
+
+/* ── 案A: トップスティッキーバー ── */
+.bar-a { position:sticky; top:0; z-index:10; background:#6c5ce7; color:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px; font-size:12px; transform:translateY(-100%); transition:transform .25s ease; }
+.bar-a.visible { transform:translateY(0); }
+.bar-a .count { font-weight:800; }
+.bar-a button { padding:5px 12px; border:1.5px solid rgba(255,255,255,.4); border-radius:6px; background:transparent; color:#fff; font-size:11px; font-weight:600; cursor:pointer; transition:background .15s; }
+.bar-a button:hover { background:rgba(255,255,255,.15); }
+.bar-a .edit-btn { background:rgba(255,255,255,.2); border-color:rgba(255,255,255,.6); }
+.bar-a .close-btn { margin-left:auto; border:none; font-size:16px; padding:2px 6px; }
+
+/* ── 案B: フローティングピル ── */
+.pill-b { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); z-index:20; background:#1a1a2e; color:#fff; padding:8px 18px; border-radius:40px; display:flex; align-items:center; gap:10px; font-size:12px; box-shadow:0 4px 20px rgba(0,0,0,.25); transition:transform .3s cubic-bezier(.34,1.56,.64,1); white-space:nowrap; }
+.pill-b.visible { transform:translateX(-50%) translateY(0); }
+.pill-b .count { font-weight:800; }
+.pill-b button { padding:5px 12px; border:1.5px solid rgba(255,255,255,.3); border-radius:20px; background:transparent; color:#fff; font-size:11px; font-weight:600; cursor:pointer; }
+.pill-b button:hover { background:rgba(255,255,255,.12); }
+.pill-b .edit-btn { background:#6c5ce7; border-color:#6c5ce7; }
+.pill-b .close-btn { border:none; font-size:14px; padding:2px 6px; opacity:.6; }
+
+/* ── 案C: インライン変形バー ── */
+.toolbar-c { background:#fff; border-bottom:1px solid #ddd; padding:8px 14px; display:flex; align-items:center; gap:8px; font-size:12px; }
+.toolbar-c .normal { display:flex; gap:8px; align-items:center; }
+.toolbar-c .bulk { display:none; align-items:center; gap:8px; width:100%; }
+.toolbar-c.bulk-active .normal { display:none; }
+.toolbar-c.bulk-active .bulk { display:flex; }
+.toolbar-c.bulk-active { background:#6c5ce7; }
+.toolbar-c .bulk .count { color:#fff; font-weight:800; }
+.toolbar-c .bulk button { padding:5px 12px; border:1.5px solid rgba(255,255,255,.4); border-radius:6px; background:transparent; color:#fff; font-size:11px; font-weight:600; cursor:pointer; }
+.toolbar-c .bulk button:hover { background:rgba(255,255,255,.15); }
+.toolbar-c .bulk .edit-btn { background:rgba(255,255,255,.2); border-color:rgba(255,255,255,.6); }
+.toolbar-c .bulk .close-btn { margin-left:auto; border:none; font-size:16px; padding:2px 6px; color:#fff; }
+.tb-btn { padding:5px 12px; border:1.5px solid #ddd; border-radius:6px; background:#fff; font-size:11px; font-weight:600; cursor:pointer; color:#555; }
+
+/* ── 案D: シート(ドロワー) ── */
+.sheet-d { position:fixed; bottom:0; left:0; right:0; z-index:30; background:#fff; border-top:1px solid #ddd; border-radius:16px 16px 0 0; box-shadow:0 -4px 24px rgba(0,0,0,.12); padding:16px 20px; transform:translateY(100%); transition:transform .3s ease; }
+.sheet-d.visible { transform:translateY(0); }
+.sheet-d .handle { width:36px; height:4px; background:#ccc; border-radius:2px; margin:0 auto 12px; }
+.sheet-d .top-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.sheet-d .count { font-weight:800; font-size:14px; }
+.sheet-d .actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.sheet-d .actions button { padding:10px; border:1.5px solid #ddd; border-radius:8px; background:#fff; font-size:12px; font-weight:600; cursor:pointer; }
+.sheet-d .actions button:hover { background:#f8f5ff; }
+.sheet-d .actions .edit-btn { background:#6c5ce7; color:#fff; border-color:#6c5ce7; grid-column:1/-1; }
+.sheet-d .close-btn { border:none; background:none; font-size:18px; cursor:pointer; color:#888; }
+.sheet-d-overlay { position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:29; display:none; }
+.sheet-d-overlay.visible { display:block; }
+
+/* ── 情報ラベル ── */
+.info-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; margin-right:4px; }
+.info-pro { background:#e8f5e9; color:#2e7d32; }
+.info-con { background:#fce4ec; color:#c62828; }
+</style>
+</head>
+<body>
+
+<nav class="mock-nav">
+  <h1>一括編集UI 比較モック</h1>
+  <button class="mock-btn active" onclick="showMock('a')">案A: トップバー</button>
+  <button class="mock-btn" onclick="showMock('b')">案B: フローティングピル</button>
+  <button class="mock-btn" onclick="showMock('c')">案C: インライン変形</button>
+  <button class="mock-btn" onclick="showMock('d')">案D: ボトムシート</button>
+</nav>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 案A: トップスティッキーバー -->
+<!-- ═══════════════════════════════════════ -->
+<div class="mock-frame active" id="mock-a">
+  <div class="mock-desc">
+    <strong>案A: トップスティッキーバー</strong> — チェックを入れるとテーブル/カード上部に紫のバーが滑り出る。選択解除で自動消滅。<br>
+    <span class="info-tag info-pro">✓ 視線移動が最小</span>
+    <span class="info-tag info-pro">✓ PC/スマホ共通</span>
+    <span class="info-tag info-pro">✓ 選択数が常に見える</span>
+    <span class="info-tag info-con">✗ テーブルヘッダーと重なる</span>
+  </div>
+  <div class="view-tabs">
+    <div class="view-tab active" onclick="showView('a','lib')">Library</div>
+    <div class="view-tab" onclick="showView('a','org')">Organize</div>
+  </div>
+  <div class="view-panel active" id="a-lib">
+    <div class="bar-a" id="bar-a-lib"><span class="count" id="cnt-a-lib">0</span>本 選択中 <button onclick="selAll('a','lib')">全選択</button><button onclick="selNone('a','lib')">解除</button><button class="edit-btn">✎ 一括編集する</button><button class="close-btn" onclick="selNone('a','lib')">✕</button></div>
+    <div class="m-cards" id="cards-a"></div>
+  </div>
+  <div class="view-panel" id="a-org">
+    <div class="bar-a" id="bar-a-org"><span class="count" id="cnt-a-org">0</span>本 選択中 <button onclick="selAll('a','org')">全選択</button><button onclick="selNone('a','org')">解除</button><button class="edit-btn">✎ 一括編集する</button><button class="close-btn" onclick="selNone('a','org')">✕</button></div>
+    <table class="m-table" id="table-a"><thead><tr><th style="width:30px"></th><th style="width:56px"></th><th>Title</th><th>カテゴリ</th><th>Channel</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 案B: フローティングピル -->
+<!-- ═══════════════════════════════════════ -->
+<div class="mock-frame" id="mock-b">
+  <div class="mock-desc">
+    <strong>案B: フローティングピル</strong> — 画面下中央にカプセル型バーがポップアップ。スクロールしても追従。<br>
+    <span class="info-tag info-pro">✓ コンテンツを遮らない</span>
+    <span class="info-tag info-pro">✓ スマホで親指が届く</span>
+    <span class="info-tag info-pro">✓ PC/スマホ共通</span>
+    <span class="info-tag info-con">✗ 画面最下部の要素と被る可能性</span>
+  </div>
+  <div class="view-tabs">
+    <div class="view-tab active" onclick="showView('b','lib')">Library</div>
+    <div class="view-tab" onclick="showView('b','org')">Organize</div>
+  </div>
+  <div class="view-panel active" id="b-lib">
+    <div class="m-cards" id="cards-b"></div>
+  </div>
+  <div class="view-panel" id="b-org">
+    <table class="m-table" id="table-b"><thead><tr><th style="width:30px"></th><th style="width:56px"></th><th>Title</th><th>カテゴリ</th><th>Channel</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="pill-b" id="pill-b"><span class="count" id="cnt-b">0</span>本 選択中 <button onclick="selAll('b',curView('b'))">全選択</button><button onclick="selNone('b',curView('b'))">解除</button><button class="edit-btn">✎ 編集</button><button class="close-btn" onclick="selNone('b',curView('b'))">✕</button></div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 案C: インライン変形 -->
+<!-- ═══════════════════════════════════════ -->
+<div class="mock-frame" id="mock-c">
+  <div class="mock-desc">
+    <strong>案C: インライン変形</strong> — 既存のツールバー（列・本数）がそのまま一括操作バーに変化。チェック解除で元に戻る。<br>
+    <span class="info-tag info-pro">✓ 追加UIなし、既存要素が変身</span>
+    <span class="info-tag info-pro">✓ 視線移動ゼロ</span>
+    <span class="info-tag info-pro">✓ PC/スマホ共通</span>
+    <span class="info-tag info-con">✗ 変形中は列/本数が見えない</span>
+  </div>
+  <div class="view-tabs">
+    <div class="view-tab active" onclick="showView('c','lib')">Library</div>
+    <div class="view-tab" onclick="showView('c','org')">Organize</div>
+  </div>
+  <div class="view-panel active" id="c-lib">
+    <div class="toolbar-c" id="toolbar-c-lib">
+      <div class="normal"><button class="tb-btn">並び順: 標準</button><span style="color:#888;font-size:11px">784 本 表示中</span></div>
+      <div class="bulk"><span class="count" id="cnt-c-lib">0</span><span style="color:#fff">本 選択中</span> <button onclick="selAll('c','lib')">全選択</button><button onclick="selNone('c','lib')">解除</button><button class="edit-btn">✎ 一括編集する</button><button class="close-btn" onclick="selNone('c','lib')">✕</button></div>
+    </div>
+    <div class="m-cards" id="cards-c"></div>
+  </div>
+  <div class="view-panel" id="c-org">
+    <div class="toolbar-c" id="toolbar-c-org">
+      <div class="normal"><button class="tb-btn">III 列</button><button class="tb-btn">☑ 一括編集</button><span style="color:#888;font-size:11px">784 本</span></div>
+      <div class="bulk"><span class="count" id="cnt-c-org">0</span><span style="color:#fff">本 選択中</span> <button onclick="selAll('c','org')">全選択</button><button onclick="selNone('c','org')">解除</button><button class="edit-btn">✎ 一括編集する</button><button class="close-btn" onclick="selNone('c','org')">✕</button></div>
+    </div>
+    <table class="m-table" id="table-c"><thead><tr><th style="width:30px"></th><th style="width:56px"></th><th>Title</th><th>カテゴリ</th><th>Channel</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 案D: ボトムシート -->
+<!-- ═══════════════════════════════════════ -->
+<div class="mock-frame" id="mock-d">
+  <div class="mock-desc">
+    <strong>案D: ボトムシート</strong> — チェック時にモバイルアプリ風のシートが下からスライドアップ。ボタンが大きく押しやすい。<br>
+    <span class="info-tag info-pro">✓ スマホで自然なUX</span>
+    <span class="info-tag info-pro">✓ ボタンが大きくて押しやすい</span>
+    <span class="info-tag info-pro">✓ PC/スマホ共通</span>
+    <span class="info-tag info-con">✗ コンテンツの一部が隠れる</span>
+  </div>
+  <div class="view-tabs">
+    <div class="view-tab active" onclick="showView('d','lib')">Library</div>
+    <div class="view-tab" onclick="showView('d','org')">Organize</div>
+  </div>
+  <div class="view-panel active" id="d-lib">
+    <div class="m-cards" id="cards-d"></div>
+  </div>
+  <div class="view-panel" id="d-org">
+    <table class="m-table" id="table-d"><thead><tr><th style="width:30px"></th><th style="width:56px"></th><th>Title</th><th>カテゴリ</th><th>Channel</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="sheet-d-overlay" id="sheet-d-ov" onclick="selNone('d',curView('d'))"></div>
+  <div class="sheet-d" id="sheet-d">
+    <div class="handle"></div>
+    <div class="top-row"><span class="count" id="cnt-d">0</span><span>本 選択中</span><button class="close-btn" onclick="selNone('d',curView('d'))">✕</button></div>
+    <div class="actions">
+      <button onclick="selAll('d',curView('d'))">☐ 全選択</button>
+      <button onclick="selNone('d',curView('d'))">☐ 選択解除</button>
+      <button class="edit-btn">✎ 一括編集する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── サンプルデータ ──
+const DATA = [
+  { title:'BJJ: 7 Basic Guard Recovery Drills', cat:'エスケープ', ch:'Evolve Mixed Martial Arts' },
+  { title:'Three Simple Tricks To Massively Improve', cat:'ガードリテンション', ch:'JonThomasBJJ' },
+  { title:'JIU JITSU DRILLS – GUARD RETENTION', cat:'ガードリテンション', ch:'East Midlands BJJ' },
+  { title:'GUARD RETENTION DRILL TO HAVE A...', cat:'ガードリテンション', ch:'Cobrinha Brazilian Jiu-Jitsu' },
+  { title:'Guard Retention: The Complete Guide', cat:'ガードリテンション', ch:'JonThomasBJJ' },
+  { title:'ガードリテンション基本　手を離して...', cat:'ガードリテンション', ch:'スプラッシュ3分柔術テク' },
+  { title:'対腰切りハーフガード　ガードに戻す...', cat:'エスケープ', ch:'スプラッシュ3分柔術テク' },
+  { title:'初心者必見、オープンガードを使う時...', cat:'ガードリテンション', ch:'ブラジリアン柔術 D...' },
+  { title:'ニーオンベリーから逃げる方法', cat:'エスケープ', ch:'スプラッシュ3分柔術テク' },
+  { title:'Top 6 Powerful Knee-On-Belly Submissions', cat:'フィニッシュ', ch:'BIG OSS Jiu-Jitsu' },
+  { title:'63 K-Guard Techniques In Just 18 Minutes', cat:'Kガード', ch:'Jiu Jitsu In Minutes' },
+  { title:'Why Mica\'s Guard Is So Dangerous', cat:'フィニッシュ', ch:'Grappling Theory' },
+];
+
+// ── 状態管理 ──
+const state = {};
+['a','b','c','d'].forEach(m => {
+  state[m] = { lib: new Set(), org: new Set() };
+});
+
+// ── カード生成 ──
+function buildCards(containerId, mockId) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = DATA.map((d,i) => `
+    <div class="m-card" id="card-${mockId}-${i}" onclick="togCard('${mockId}','lib',${i})">
+      <div class="m-card-img" style="background:hsl(${i*30},20%,75%)"></div>
+      <input type="checkbox" class="m-card-cb" id="cb-${mockId}-lib-${i}" onclick="event.stopPropagation();togCard('${mockId}','lib',${i})" />
+      <div class="m-card-body">
+        <div class="m-card-title">${d.title}</div>
+        <div class="m-card-ch">${d.ch}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── テーブル生成 ──
+function buildTable(tableId, mockId) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  tbody.innerHTML = DATA.map((d,i) => `
+    <tr id="row-${mockId}-${i}">
+      <td><input type="checkbox" id="cb-${mockId}-org-${i}" onchange="togRow('${mockId}','org',${i})" /></td>
+      <td><div class="m-thumb" style="background:hsl(${i*30},20%,75%)"></div></td>
+      <td style="font-weight:600">${d.title}</td>
+      <td><span style="background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:10px">${d.cat}</span></td>
+      <td style="font-size:11px;color:#888">${d.ch}</td>
+    </tr>`).join('');
+}
+
+// ── 初期化 ──
+['a','b','c','d'].forEach(m => {
+  buildCards('cards-' + m, m);
+  buildTable('table-' + m, m);
+});
+
+// ── 選択トグル ──
+function togCard(mock, view, idx) {
+  const s = state[mock][view];
+  s.has(idx) ? s.delete(idx) : s.add(idx);
+  syncUI(mock, view);
+}
+function togRow(mock, view, idx) {
+  const s = state[mock][view];
+  s.has(idx) ? s.delete(idx) : s.add(idx);
+  syncUI(mock, view);
+}
+
+function selAll(mock, view) {
+  const s = state[mock][view];
+  DATA.forEach((_,i) => s.add(i));
+  syncUI(mock, view);
+}
+function selNone(mock, view) {
+  state[mock][view].clear();
+  syncUI(mock, view);
+}
+
+function curView(mock) {
+  const panels = document.querySelectorAll(`#mock-${mock} .view-panel`);
+  for (const p of panels) {
+    if (p.classList.contains('active')) return p.id.endsWith('lib') ? 'lib' : 'org';
+  }
+  return 'lib';
+}
+
+// ── UI同期 ──
+function syncUI(mock, view) {
+  const s = state[mock][view];
+  const cnt = s.size;
+
+  // チェック状態を反映
+  DATA.forEach((_, i) => {
+    const cb = document.getElementById(`cb-${mock}-${view}-${i}`);
+    if (cb) cb.checked = s.has(i);
+    if (view === 'lib') {
+      const card = document.getElementById(`card-${mock}-${i}`);
+      if (card) card.classList.toggle('selected', s.has(i));
+    }
+  });
+
+  // カウント更新
+  const cntEl = document.getElementById(`cnt-${mock}${view === 'lib' ? '-lib' : (view === 'org' ? '-org' : '')}`);
+  if (cntEl) cntEl.textContent = cnt;
+  // 案B,D: 共通カウント
+  const cntShared = document.getElementById(`cnt-${mock}`);
+  if (cntShared) cntShared.textContent = cnt;
+
+  // 案ごとのUI更新
+  if (mock === 'a') {
+    const bar = document.getElementById(`bar-a-${view}`);
+    if (bar) bar.classList.toggle('visible', cnt > 0);
+  }
+  if (mock === 'b') {
+    document.getElementById('pill-b').classList.toggle('visible', cnt > 0);
+  }
+  if (mock === 'c') {
+    const tb = document.getElementById(`toolbar-c-${view}`);
+    if (tb) tb.classList.toggle('bulk-active', cnt > 0);
+  }
+  if (mock === 'd') {
+    document.getElementById('sheet-d').classList.toggle('visible', cnt > 0);
+    document.getElementById('sheet-d-ov').classList.toggle('visible', cnt > 0);
+  }
+}
+
+// ── ナビ ──
+function showMock(id) {
+  document.querySelectorAll('.mock-frame').forEach(f => f.classList.remove('active'));
+  document.getElementById('mock-' + id).classList.add('active');
+  document.querySelectorAll('.mock-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  // pill/sheetを非表示にリセット
+  document.getElementById('pill-b').classList.remove('visible');
+  document.getElementById('sheet-d').classList.remove('visible');
+  document.getElementById('sheet-d-ov').classList.remove('visible');
+}
+
+function showView(mock, view) {
+  const frame = document.getElementById('mock-' + mock);
+  frame.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  frame.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById(`${mock}-${view}`);
+  panel.classList.add('active');
+  // タブボタン
+  frame.querySelectorAll('.view-tab').forEach(t => {
+    if ((view==='lib' && t.textContent==='Library') || (view==='org' && t.textContent==='Organize'))
+      t.classList.add('active');
+  });
+  // UI同期
+  syncUI(mock, view);
+}
+</script>
+</body>
+</html>

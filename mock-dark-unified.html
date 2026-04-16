@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — ダークモード 金色統一（黒文字）</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#e5c47a;
+  --gold-soft:#2e2a1e;
+  --bg:#1c1c1e;
+  --surface:#2c2c2e;
+  --surface2:#38383a;
+  --surface3:#48484a;
+  --border:#48484a;
+  --border2:#3a3a3c;
+  --text:#e5e5e7;
+  --text2:#ababab;
+  --text3:#8e8e93;
+  --green:#6bc490;
+  --green-soft:#1e2e24;
+  --purple:#a090d0;
+  --purple-soft:#28253a;
+  /* 統一ルール: 金背景 → 黒文字 */
+  --on-gold:#1a1a1a;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:#0a0a0a;
+  padding:24px 20px 60px;
+  display:flex;flex-direction:column;align-items:center;gap:20px
+}
+h1{font-size:11px;font-weight:700;letter-spacing:.1em;color:#555;text-transform:uppercase}
+
+/* ─── 4ページ 2×2 ─── */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;max-width:1200px}
+.page-wrap{display:flex;flex-direction:column;gap:6px}
+.page-label{font-size:11px;font-weight:800;letter-spacing:.07em;color:rgba(255,255,255,.4);padding:4px 0}
+
+/* ブラウザフレーム */
+.browser{background:#1c1c1e;border-radius:10px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.7)}
+.browser-chrome{background:#2c2c2e;border-bottom:1px solid #3a3a3c;padding:7px 12px;display:flex;align-items:center;gap:8px}
+.browser-dots{display:flex;gap:5px}
+.browser-dot{width:10px;height:10px;border-radius:50%}
+.browser-dot.r{background:#ff5f57}.browser-dot.y{background:#febc2e}.browser-dot.g{background:#28c840}
+.browser-url{flex:1;background:#3a3a3c;border-radius:5px;padding:3px 10px;font-size:10px;color:rgba(255,255,255,.3)}
+
+/* アプリシェル */
+.app{background:var(--bg);display:flex;flex-direction:column}
+
+/* トップバー */
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:9px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0
+}
+.app-logo{font-size:13px;font-weight:900;letter-spacing:.05em;color:var(--text)}
+.app-logo span{color:var(--text2);font-weight:400}
+.nav{display:flex;gap:2px;margin-left:8px}
+.nav-i{
+  padding:5px 10px;font-size:11px;font-weight:600;color:var(--text2);
+  border-radius:6px;cursor:default;border:1px solid transparent
+}
+.nav-i.on{background:var(--gold);color:var(--on-gold);font-weight:700}
+
+/* サイドバー */
+.layout{display:flex;min-height:340px}
+.sidebar{
+  width:160px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  padding:10px 8px;display:flex;flex-direction:column;gap:4px
+}
+.sb-section{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.08em;margin:8px 4px 2px;text-transform:uppercase}
+.sb-btn{
+  width:100%;padding:7px 10px;border-radius:7px;border:none;
+  font-family:inherit;font-size:11px;font-weight:600;cursor:default;
+  text-align:left;display:flex;align-items:center;gap:6px;
+  background:none;color:var(--text2)
+}
+.sb-btn.active{background:var(--gold-soft);color:var(--gold)}
+.sb-reset{
+  width:100%;padding:8px;border-radius:7px;border:none;margin-top:auto;
+  font-family:inherit;font-size:11px;font-weight:700;cursor:default;
+  /* ここが変更箇所: gold背景 + 黒文字 */
+  background:var(--gold);color:var(--on-gold)
+}
+
+/* メインコンテンツ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── COMMUNITY ── */
+.comm-search{padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+.comm-bar{
+  display:flex;align-items:center;gap:6px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:8px
+}
+.comm-bar input{background:none;border:none;outline:none;font-size:11px;color:var(--text);font-family:inherit;flex:1}
+.comm-chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{
+  padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;cursor:default;
+  border:1.5px solid var(--border);color:var(--text2);background:var(--surface2)
+}
+.chip.on{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.sec-title{padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--text2)}
+.disc-tags{padding:0 12px 10px;display:flex;gap:6px;flex-wrap:wrap}
+.disc-tag{
+  padding:5px 10px;border-radius:20px;font-size:10px;font-weight:600;cursor:default;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border)
+}
+.disc-tag.hot{background:var(--gold-soft);color:var(--gold);border-color:var(--gold)}
+.comm-card{padding:10px 12px;border-bottom:1px solid var(--border2);display:flex;gap:8px}
+.comm-thumb{width:60px;height:38px;border-radius:5px;background:var(--surface3);flex-shrink:0}
+.comm-info{flex:1;min-width:0}
+.comm-title{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comm-meta{font-size:9px;color:var(--text3)}
+.save-btn{
+  padding:3px 8px;border-radius:5px;border:none;font-size:9px;font-weight:700;cursor:default;
+  font-family:inherit;background:var(--gold);color:var(--on-gold);flex-shrink:0;align-self:center
+}
+
+/* ── ORGANIZE ── */
+.org-bar{
+  padding:7px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;
+  /* 選択モード時: gold背景+黒文字 */
+  background:var(--gold)
+}
+.org-bar .cnt{font-size:11px;font-weight:800;color:var(--on-gold);font-variant-numeric:tabular-nums}
+.org-bar-btn{
+  padding:4px 9px;border-radius:5px;border:1px solid rgba(0,0,0,.18);font-size:10px;font-weight:700;
+  cursor:default;font-family:inherit;background:rgba(0,0,0,.1);color:var(--on-gold)
+}
+.org-bar-btn.edit{background:rgba(0,0,0,.15);font-weight:800}
+.org-toolbar{
+  padding:7px 10px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;gap:6px;align-items:center
+}
+.org-btn{
+  padding:4px 9px;border-radius:6px;border:1px solid var(--border);font-size:10px;font-weight:600;
+  cursor:default;font-family:inherit;background:var(--surface2);color:var(--text2)
+}
+.org-tbl{width:100%;border-collapse:collapse}
+.org-th{padding:6px 8px;font-size:9px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border);text-align:left;background:var(--surface);white-space:nowrap}
+.org-td{padding:6px 8px;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border2);vertical-align:middle;white-space:nowrap}
+.org-fav-on{color:var(--gold);font-size:14px}
+.org-fav-off{color:transparent;-webkit-text-stroke:1.2px #777;font-size:14px}
+.tag-chip{display:inline-block;background:var(--surface3);color:var(--text2);font-size:8px;padding:1px 5px;border-radius:3px;margin:1px}
+.cb{width:12px;height:12px;border:1.5px solid var(--border);border-radius:3px;display:inline-block}
+.cb.on{background:var(--gold);border-color:var(--gold)}
+
+/* ── ARCHIVE ── */
+.arc-info{
+  padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)
+}
+.arc-info-inner{
+  font-size:10px;color:var(--text2);background:var(--purple-soft);
+  border:1px solid var(--purple);border-radius:7px;padding:7px 10px
+}
+.arc-bulk{
+  padding:7px 12px;display:flex;align-items:center;gap:7px;
+  background:var(--surface2);border-bottom:1px solid var(--border)
+}
+.arc-bulk-cnt{font-size:11px;color:var(--text2);flex:1}
+.arc-restore{
+  padding:4px 9px;font-size:10px;font-weight:700;border-radius:6px;cursor:default;
+  background:var(--green-soft);color:var(--green);border:1px solid var(--green)
+}
+.arc-card{padding:9px 12px;border-bottom:1px solid var(--border2);display:flex;gap:8px;align-items:center}
+.arc-thumb{width:52px;height:33px;border-radius:4px;background:var(--surface3);flex-shrink:0;opacity:.6}
+.arc-info2{flex:1;min-width:0}
+.arc-title{font-size:11px;font-weight:600;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arc-meta{font-size:9px;color:var(--text3)}
+.arc-restore-btn{
+  padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;cursor:default;
+  background:var(--surface3);color:var(--text2);border:1px solid var(--border);flex-shrink:0
+}
+.arc-results{padding:6px 12px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)}
+
+/* ── SETTINGS ── */
+.settings-main{padding:14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.sec-hdr{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.setting-label{font-size:11px;font-weight:600;color:var(--text)}
+.setting-sub{font-size:9px;color:var(--text3);margin-top:1px}
+/* テーマ切り替え */
+.theme-selector{display:flex;gap:4px}
+.theme-opt{
+  padding:5px 12px;border-radius:6px;border:1px solid var(--border);
+  font-size:10px;font-weight:600;cursor:default;font-family:inherit;
+  background:var(--surface2);color:var(--text2)
+}
+.theme-opt.on{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+/* トグルスイッチ */
+.toggle{width:36px;height:20px;border-radius:10px;background:var(--gold);position:relative;flex-shrink:0}
+.toggle::after{content:'';position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:#1a1a1a}
+.toggle.off{background:var(--surface3)}
+.toggle.off::after{left:2px;right:auto}
+/* 保存ボタン */
+.save-settings-btn{
+  padding:8px;border-radius:8px;border:none;font-family:inherit;
+  font-size:11px;font-weight:700;cursor:default;
+  background:var(--gold);color:var(--on-gold);text-align:center
+}
+/* フォントスケール */
+.scale-btn{
+  width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+  background:var(--surface2);font-size:16px;font-weight:700;cursor:default;
+  color:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+.scale-val{font-size:11px;font-weight:700;color:var(--gold)}
+input[type=range]{accent-color:var(--gold);flex:1}
+/* 管理モード */
+.admin-row{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border2);margin-top:2px}
+.admin-label{font-size:10px;font-weight:600;color:var(--text3)}
+.admin-btn{
+  padding:4px 10px;border-radius:6px;border:1.5px solid var(--gold);
+  font-size:9px;font-weight:700;cursor:default;font-family:inherit;
+  background:var(--gold);color:var(--on-gold)
+}
+</style>
+</head>
+<body>
+
+<h1>ダークモード — 金色 #e5c47a 統一・黒文字</h1>
+
+<div class="grid">
+
+  <!-- ══════════ 1. COMMUNITY ══════════ -->
+  <div class="page-wrap">
+    <div class="page-label">1. Community</div>
+    <div class="browser">
+      <div class="browser-chrome">
+        <div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div>
+        <div class="browser-url">waza-kimura.vercel.app</div>
+      </div>
+      <div class="app">
+        <div class="topbar">
+          <span class="app-logo">WAZA <span>KIMURA</span></span>
+          <div class="nav">
+            <div class="nav-i">Library</div>
+            <div class="nav-i on">Community</div>
+            <div class="nav-i">Organize</div>
+            <div class="nav-i">Archive</div>
+          </div>
+        </div>
+        <div class="layout">
+          <div class="sidebar">
+            <div class="sb-section">絞り込み</div>
+            <div class="sb-btn active">⭐ Fav のみ</div>
+            <div class="sb-btn">📌 ブックマーク</div>
+            <div class="sb-btn">🎓 マスター済</div>
+            <div style="margin-top:auto;padding-top:8px">
+              <button class="sb-reset">✕ すべてリセット</button>
+            </div>
+          </div>
+          <div class="main">
+            <div class="comm-search">
+              <div class="comm-bar"><span style="color:var(--text3);font-size:12px">🔍</span><input placeholder="テクニック・ポジション名で探す..." readonly></div>
+              <div class="comm-chips">
+                <span style="font-size:9px;font-weight:700;color:var(--text2);align-self:center">🥋 帯</span>
+                <div class="chip">⬜ 白帯</div>
+                <div class="chip on">🔵 青帯</div>
+                <div class="chip">🟣 紫帯</div>
+                <div class="chip">🟤 茶帯</div>
+              </div>
+            </div>
+            <div class="sec-title">🔥 よく検索されるテクニック</div>
+            <div class="disc-tags">
+              <div class="disc-tag hot">三角絞め</div>
+              <div class="disc-tag hot">腕十字</div>
+              <div class="disc-tag">ヒールフック</div>
+              <div class="disc-tag">ガードリテンション</div>
+              <div class="disc-tag">スイープ</div>
+            </div>
+            <div class="sec-title">📺 コミュニティの動画</div>
+            <div class="comm-card">
+              <div class="comm-thumb"></div>
+              <div class="comm-info">
+                <div class="comm-title">三角絞めの基本と応用テクニック完全解説</div>
+                <div class="comm-meta">JonThomasBJJ · 青帯 · ✅ マスター済</div>
+              </div>
+              <button class="save-btn">＋ 保存</button>
+            </div>
+            <div class="comm-card">
+              <div class="comm-thumb"></div>
+              <div class="comm-info">
+                <div class="comm-title">腕十字のセットアップ5パターン</div>
+                <div class="comm-meta">スプラッシュ3分 · 青帯 · 🔵 練習中</div>
+              </div>
+              <button class="save-btn">＋ 保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2. ORGANIZE ══════════ -->
+  <div class="page-wrap">
+    <div class="page-label">2. Organize（選択中）</div>
+    <div class="browser">
+      <div class="browser-chrome">
+        <div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div>
+        <div class="browser-url">waza-kimura.vercel.app</div>
+      </div>
+      <div class="app">
+        <div class="topbar">
+          <span class="app-logo">WAZA <span>KIMURA</span></span>
+          <div class="nav">
+            <div class="nav-i">Library</div>
+            <div class="nav-i">Community</div>
+            <div class="nav-i on">Organize</div>
+            <div class="nav-i">Archive</div>
+          </div>
+        </div>
+        <div class="layout">
+          <div class="sidebar">
+            <div class="sb-section">フィルター</div>
+            <div class="sb-btn active">📋 タグ未設定</div>
+            <div class="sb-btn">✅ 設定済み</div>
+            <div class="sb-btn">⭐ Fav のみ</div>
+            <div style="margin-top:auto;padding-top:8px">
+              <button class="sb-reset">✕ すべてリセット</button>
+            </div>
+          </div>
+          <div class="main">
+            <!-- 選択バー: gold背景 + 黒文字 -->
+            <div class="org-bar">
+              <span class="cnt">3本を選択中</span>
+              <button class="org-bar-btn">全選択</button>
+              <button class="org-bar-btn">解除</button>
+              <button class="org-bar-btn edit">✎ 一括編集する</button>
+              <button class="org-bar-btn" style="margin-left:auto">↩</button>
+              <button class="org-bar-btn">✕</button>
+            </div>
+            <table class="org-tbl">
+              <thead><tr>
+                <th class="org-th"></th>
+                <th class="org-th">Title</th>
+                <th class="org-th">★ Fav</th>
+                <th class="org-th">Top/Bot</th>
+                <th class="org-th">カテゴリ</th>
+                <th class="org-th">タグ</th>
+              </tr></thead>
+              <tbody>
+                <tr><td class="org-td"><div class="cb on"></div></td><td class="org-td" style="font-size:10px;font-weight:600;color:var(--text)">BJJ: 7 Basic Guard Reco...</td><td class="org-td"><span class="org-fav-on">★</span></td><td class="org-td"><span class="tag-chip">ボトム</span></td><td class="org-td"><span class="tag-chip">ガードリテンション</span></td><td class="org-td">—</td></tr>
+                <tr><td class="org-td"><div class="cb on"></div></td><td class="org-td" style="font-size:10px;font-weight:600;color:var(--text)">Three Simple Tricks To...</td><td class="org-td"><span class="org-fav-on">★</span></td><td class="org-td"><span class="tag-chip">ボトム</span></td><td class="org-td"><span class="tag-chip">ガードリテンション</span></td><td class="org-td">—</td></tr>
+                <tr><td class="org-td"><div class="cb"></div></td><td class="org-td" style="font-size:10px;color:var(--text2)">JIU JITSU DRILLS - GU...</td><td class="org-td"><span class="org-fav-off">☆</span></td><td class="org-td"><span class="tag-chip">ボトム</span></td><td class="org-td"><span class="tag-chip">ガードリテンション</span></td><td class="org-td">—</td></tr>
+                <tr><td class="org-td"><div class="cb on"></div></td><td class="org-td" style="font-size:10px;font-weight:600;color:var(--text)">GUARD RETENTION DR...</td><td class="org-td"><span class="org-fav-on">★</span></td><td class="org-td"><span class="tag-chip">ボトム</span></td><td class="org-td"><span class="tag-chip">ガードリテンション</span></td><td class="org-td">—</td></tr>
+                <tr><td class="org-td"><div class="cb"></div></td><td class="org-td" style="font-size:10px;color:var(--text2)">Guard Retention: The Co...</td><td class="org-td"><span class="org-fav-off">☆</span></td><td class="org-td"><span class="tag-chip">ボトム</span></td><td class="org-td"><span class="tag-chip">ガードリテンション</span></td><td class="org-td">—</td></tr>
+                <tr><td class="org-td"><div class="cb"></div></td><td class="org-td" style="font-size:10px;color:var(--text2)">ガードリテンション基本</td><td class="org-td"><span class="org-fav-off">☆</span></td><td class="org-td"><span class="tag-chip">ボトム</span></td><td class="org-td"><span class="tag-chip">ガードリテンション</span></td><td class="org-td">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3. ARCHIVE ══════════ -->
+  <div class="page-wrap">
+    <div class="page-label">3. Archive</div>
+    <div class="browser">
+      <div class="browser-chrome">
+        <div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div>
+        <div class="browser-url">waza-kimura.vercel.app</div>
+      </div>
+      <div class="app">
+        <div class="topbar">
+          <span class="app-logo">WAZA <span>KIMURA</span></span>
+          <div class="nav">
+            <div class="nav-i">Library</div>
+            <div class="nav-i">Community</div>
+            <div class="nav-i">Organize</div>
+            <div class="nav-i on">Archive</div>
+          </div>
+        </div>
+        <div class="layout">
+          <div class="sidebar">
+            <div class="sb-section">絞り込み</div>
+            <div class="sb-btn active">📦 すべて</div>
+            <div class="sb-btn">YT のみ</div>
+            <div class="sb-btn">GDrive のみ</div>
+            <div style="margin-top:auto;padding-top:8px">
+              <button class="sb-reset">✕ すべてリセット</button>
+            </div>
+          </div>
+          <div class="main">
+            <div class="arc-info">
+              <div class="arc-info-inner">📦 削除せず非表示にした動画。いつでも復元できます。</div>
+            </div>
+            <div class="arc-results">47件のアーカイブ動画</div>
+            <div class="arc-bulk">
+              <input type="checkbox" style="accent-color:var(--gold);width:13px;height:13px;cursor:default">
+              <span class="arc-bulk-cnt" style="font-size:10px;color:var(--text2)">すべて選択</span>
+              <button class="arc-restore">↩ 一括復元</button>
+            </div>
+            <div class="arc-card">
+              <div class="arc-thumb"></div>
+              <div class="arc-info2">
+                <div class="arc-title">ガードリテンション完全マニュアル</div>
+                <div class="arc-meta">JonThomasBJJ · 2024-03-15 · 12分</div>
+              </div>
+              <button class="arc-restore-btn">↩ 復元</button>
+            </div>
+            <div class="arc-card">
+              <div class="arc-thumb"></div>
+              <div class="arc-info2">
+                <div class="arc-title">三角絞めのディテール解説</div>
+                <div class="arc-meta">スプラッシュ3分 · 2023-11-20 · 8分</div>
+              </div>
+              <button class="arc-restore-btn">↩ 復元</button>
+            </div>
+            <div class="arc-card">
+              <div class="arc-thumb"></div>
+              <div class="arc-info2">
+                <div class="arc-title">ハーフガードからのスイープ集</div>
+                <div class="arc-meta">トライフォース · 2023-08-10 · 15分</div>
+              </div>
+              <button class="arc-restore-btn">↩ 復元</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 4. SETTINGS ══════════ -->
+  <div class="page-wrap">
+    <div class="page-label">4. Settings</div>
+    <div class="browser">
+      <div class="browser-chrome">
+        <div class="browser-dots"><div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div></div>
+        <div class="browser-url">waza-kimura.vercel.app</div>
+      </div>
+      <div class="app">
+        <div class="topbar">
+          <span class="app-logo">WAZA <span>KIMURA</span></span>
+          <div class="nav">
+            <div class="nav-i">Library</div>
+            <div class="nav-i">Community</div>
+            <div class="nav-i">Organize</div>
+            <div class="nav-i on">Settings</div>
+          </div>
+        </div>
+        <div class="layout">
+          <div class="sidebar">
+            <div class="sb-section">セクション</div>
+            <div class="sb-btn active">🏷 タグ表示</div>
+            <div class="sb-btn">🤖 AI設定</div>
+            <div class="sb-btn">▶ 再生設定</div>
+            <div class="sb-btn">🎨 外観</div>
+          </div>
+          <div class="main">
+            <div class="settings-main">
+              <!-- テーマ -->
+              <div>
+                <div class="sec-hdr">外観設定</div>
+                <div class="settings-card">
+                  <div class="setting-row">
+                    <div>
+                      <div class="setting-label">テーマ</div>
+                      <div class="setting-sub">アプリの表示テーマを選択</div>
+                    </div>
+                  </div>
+                  <div class="theme-selector">
+                    <button class="theme-opt">自動</button>
+                    <button class="theme-opt">ライト</button>
+                    <button class="theme-opt on">ダーク</button>
+                  </div>
+                  <div class="setting-row" style="margin-top:4px">
+                    <div>
+                      <div class="setting-label">文字サイズ</div>
+                      <div class="setting-sub">表示テキストの大きさを調整</div>
+                    </div>
+                    <span class="scale-val">100%</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div class="scale-btn">−</div>
+                    <input type="range" min="80" max="140" value="100" style="flex:1;accent-color:#e5c47a">
+                    <div class="scale-btn">+</div>
+                  </div>
+                </div>
+              </div>
+              <!-- 再生設定 -->
+              <div>
+                <div class="sec-hdr">再生設定</div>
+                <div class="settings-card">
+                  <div class="setting-row">
+                    <div>
+                      <div class="setting-label">VPanelで動画を自動再生</div>
+                      <div class="setting-sub">動画パネルを開いた際に自動的に再生を開始</div>
+                    </div>
+                    <div class="toggle"></div>
+                  </div>
+                  <div class="setting-row">
+                    <div>
+                      <div class="setting-label">ループ再生</div>
+                      <div class="setting-sub">動画を繰り返し再生する</div>
+                    </div>
+                    <div class="toggle off"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- 保存 -->
+              <button class="save-settings-btn">💾 設定を保存</button>
+              <!-- 管理モード -->
+              <div class="admin-row">
+                <div>
+                  <div class="admin-label">🔒 管理モード</div>
+                </div>
+                <button class="admin-btn">有効にする</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

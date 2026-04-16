@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — Tag Design Patterns</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;--surface:#fff;--surface2:#f5f5f5;
+  --border:#e0e0e0;--border2:#ebebeb;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --red:#ff3b30;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:#e8e8ed;color:var(--text);padding:24px 16px 60px;}
+h1{font-size:13px;font-weight:700;color:#666;letter-spacing:.06em;text-transform:uppercase;margin-bottom:24px;text-align:center}
+
+.patterns{display:flex;flex-wrap:wrap;gap:24px;justify-content:center}
+.pat-wrap{width:360px}
+.pat-label{font-size:11px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;padding-left:2px}
+
+/* modal shell */
+.modal{background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border2)}
+.m-title{font-size:14px;font-weight:700}
+.m-close{background:none;border:none;font-size:18px;color:var(--text3);cursor:pointer;line-height:1}
+.m-tabs{display:flex;align-items:center;border-bottom:1px solid var(--border2)}
+.m-tab{flex:1;padding:10px 6px;font-size:12px;font-weight:700;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;font-family:inherit;cursor:pointer}
+.m-tab.on{color:var(--text);border-bottom-color:var(--text)}
+.m-ai{margin:0 10px 0 0;padding:5px 12px;font-size:11px;font-weight:700;background:#1c1c1e;color:#fff;border:none;border-radius:12px;font-family:inherit}
+.m-search{padding:0 16px;border-bottom:1px solid var(--border2)}
+.m-search input{width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit}
+.m-list{max-height:380px;overflow-y:auto}
+.m-foot{padding:10px 16px;border-top:1px solid var(--border)}
+.m-add{display:flex;gap:8px}
+.m-add input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-family:inherit;outline:none}
+.m-add button{background:#1c1c1e;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;font-family:inherit}
+.foot-sep{height:1px;background:var(--border2);margin:8px 0}
+
+/* shared row parts */
+.row-cnt{font-size:11px;color:var(--text3);white-space:nowrap;margin-right:4px}
+.btn-ng{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 9px;border-radius:10px;font-family:inherit;white-space:nowrap}
+.btn-rm{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 9px;border-radius:10px;font-family:inherit;white-space:nowrap}
+.btn-del{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 9px;border-radius:10px;font-family:inherit;white-space:nowrap}
+
+/* ══════════════════════════════════
+   案1: インデント
+══════════════════════════════════ */
+.p1-grp-head{padding:8px 16px 4px;display:flex;align-items:center;gap:8px}
+.p1-grp-name{flex:1;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.p1-grp-cnt{font-size:11px;color:var(--text3)}
+.p1-grp-del{background:none;border:none;font-size:13px;color:var(--text3);cursor:pointer;line-height:1}
+.p1-tag{display:flex;align-items:center;gap:8px;padding:9px 16px 9px 32px;border-bottom:1px solid var(--border2)}
+.p1-tag:last-child{border-bottom:none}
+.p1-tag-name{flex:1;font-size:13px;font-weight:500}
+.p1-unc-head{padding:8px 16px 4px;display:flex;align-items:center;gap:8px}
+.p1-unc-name{flex:1;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+.p1-unc-tag{display:flex;align-items:center;gap:8px;padding:9px 16px 9px 32px;border-bottom:1px solid var(--border2)}
+.p1-unc-tag-name{flex:1;font-size:13px;font-weight:500;color:var(--text2)}
+
+/* ══════════════════════════════════
+   案2: 左ボーダーライン
+══════════════════════════════════ */
+.p2-grp-head{padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border2)}
+.p2-grp-name{flex:1;font-size:12px;font-weight:700}
+.p2-grp-del{background:none;border:none;font-size:13px;color:var(--text3);cursor:pointer}
+.p2-tag{display:flex;align-items:center;gap:8px;padding:9px 16px 9px 20px;border-bottom:1px solid var(--border2);border-left:2px solid var(--border2);margin-left:0}
+.p2-tag-name{flex:1;font-size:13px;font-weight:500}
+.p2-unc-head{padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border2)}
+.p2-unc-name{flex:1;font-size:12px;font-weight:700;color:var(--text3)}
+.p2-unc-tag{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border2)}
+.p2-unc-tag-name{flex:1;font-size:13px;font-weight:500;color:var(--text2)}
+
+/* ══════════════════════════════════
+   案3: 区切りラインラベル
+══════════════════════════════════ */
+.p3-sep{display:flex;align-items:center;gap:10px;padding:10px 16px 6px;margin-top:2px}
+.p3-sep-name{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;white-space:nowrap}
+.p3-sep-line{flex:1;height:1px;background:var(--border2)}
+.p3-sep-del{background:none;border:none;font-size:13px;color:var(--text3);cursor:pointer;line-height:1}
+.p3-tag{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border2)}
+.p3-tag-name{flex:1;font-size:13px;font-weight:500}
+.p3-unc-sep{display:flex;align-items:center;gap:10px;padding:10px 16px 6px;margin-top:2px}
+.p3-unc-name{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em}
+.p3-unc-line{flex:1;height:1px;background:var(--border2)}
+.p3-unc-tag{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border2)}
+.p3-unc-tag-name{flex:1;font-size:13px;font-weight:500;color:var(--text2)}
+
+/* ══════════════════════════════════
+   案4: 折りたたみ ▼ ▶
+══════════════════════════════════ */
+.p4-grp-head{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none}
+.p4-grp-chev{font-size:10px;color:var(--text3)}
+.p4-grp-name{flex:1;font-size:13px;font-weight:700}
+.p4-grp-cnt{font-size:11px;color:var(--text3);margin-right:4px}
+.p4-grp-del{background:none;border:none;font-size:13px;color:var(--text3);cursor:pointer;line-height:1}
+.p4-tag{display:flex;align-items:center;gap:8px;padding:9px 16px 9px 36px;border-bottom:1px solid var(--border2);background:var(--bg)}
+.p4-tag-name{flex:1;font-size:13px;font-weight:500}
+.p4-unc-head{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer}
+.p4-unc-name{flex:1;font-size:13px;font-weight:700;color:var(--text2)}
+.p4-unc-tag{display:flex;align-items:center;gap:8px;padding:9px 16px 9px 36px;border-bottom:1px solid var(--border2);background:var(--bg)}
+.p4-unc-tag-name{flex:1;font-size:13px;font-weight:500;color:var(--text2)}
+
+/* ══════════════════════════════════
+   案5: グループ名バッジ（フラットリスト）
+══════════════════════════════════ */
+.p5-tag{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border2)}
+.p5-tag-name{font-size:13px;font-weight:500}
+.p5-badge{font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);border:1px solid var(--border2);padding:2px 6px;border-radius:4px;margin-left:2px;flex-shrink:0}
+.p5-spacer{flex:1}
+</style>
+</head>
+<body>
+<h1>Tag List — Design Patterns</h1>
+
+<div class="patterns">
+
+<!-- ══ 案1: インデント ══ -->
+<div class="pat-wrap">
+  <div class="pat-label">案1 — インデント</div>
+  <div class="modal">
+    <div class="m-head"><div class="m-title">#Tag</div><button class="m-close">✕</button></div>
+    <div class="m-tabs">
+      <button class="m-tab on">タグ一覧</button>
+      <button class="m-tab">辞書</button>
+      <button class="m-ai">AI</button>
+    </div>
+    <div class="m-search"><input placeholder="検索…" readonly></div>
+    <div class="m-list">
+      <!-- スイープ系 -->
+      <div class="p1-grp-head">
+        <div class="p1-grp-name">スイープ系</div>
+        <div class="p1-grp-cnt">2件</div>
+        <button class="p1-grp-del">🗑</button>
+      </div>
+      <div class="p1-tag"><div class="p1-tag-name">バタフライスイープ</div><span class="row-cnt">4本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p1-tag"><div class="p1-tag-name">ベリンボロ</div><span class="row-cnt">5本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <!-- チョーク系 -->
+      <div class="p1-grp-head" style="margin-top:6px">
+        <div class="p1-grp-name">チョーク系</div>
+        <div class="p1-grp-cnt">2件</div>
+        <button class="p1-grp-del">🗑</button>
+      </div>
+      <div class="p1-tag"><div class="p1-tag-name">RNC</div><span class="row-cnt">8本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p1-tag"><div class="p1-tag-name">ギロチン</div><span class="row-cnt">15本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <!-- 未分類 -->
+      <div class="p1-unc-head" style="margin-top:6px">
+        <div class="p1-unc-name">未分類</div>
+        <div class="p1-grp-cnt">3件</div>
+      </div>
+      <div class="p1-unc-tag"><div class="p1-unc-tag-name">エビ</div><span class="row-cnt">6本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p1-unc-tag"><div class="p1-unc-tag-name">オモプラッタ</div><span class="row-cnt">3本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p1-unc-tag" style="border-bottom:none"><div class="p1-unc-tag-name">スパイダーガード</div><span class="row-cnt">0本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+    </div>
+    <div class="m-foot">
+      <div class="m-add"><input placeholder="グループ名を追加…" readonly><button>追加</button></div>
+      <div class="foot-sep"></div>
+      <div class="m-add"><input placeholder="タグを追加…" readonly><button>追加</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 案2: 左ボーダーライン ══ -->
+<div class="pat-wrap">
+  <div class="pat-label">案2 — 左ボーダーライン</div>
+  <div class="modal">
+    <div class="m-head"><div class="m-title">#Tag</div><button class="m-close">✕</button></div>
+    <div class="m-tabs">
+      <button class="m-tab on">タグ一覧</button>
+      <button class="m-tab">辞書</button>
+      <button class="m-ai">AI</button>
+    </div>
+    <div class="m-search"><input placeholder="検索…" readonly></div>
+    <div class="m-list">
+      <div class="p2-grp-head"><div class="p2-grp-name">スイープ系</div><div class="p1-grp-cnt">2件</div><button class="p2-grp-del">🗑</button></div>
+      <div class="p2-tag"><div class="p2-tag-name">バタフライスイープ</div><span class="row-cnt">4本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p2-tag"><div class="p2-tag-name">ベリンボロ</div><span class="row-cnt">5本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p2-grp-head"><div class="p2-grp-name">チョーク系</div><div class="p1-grp-cnt">2件</div><button class="p2-grp-del">🗑</button></div>
+      <div class="p2-tag"><div class="p2-tag-name">RNC</div><span class="row-cnt">8本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p2-tag"><div class="p2-tag-name">ギロチン</div><span class="row-cnt">15本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p2-unc-head"><div class="p2-unc-name">未分類</div><div class="p1-grp-cnt">3件</div></div>
+      <div class="p2-unc-tag"><div class="p2-unc-tag-name">エビ</div><span class="row-cnt">6本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p2-unc-tag"><div class="p2-unc-tag-name">オモプラッタ</div><span class="row-cnt">3本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p2-unc-tag" style="border-bottom:none"><div class="p2-unc-tag-name">スパイダーガード</div><span class="row-cnt">0本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+    </div>
+    <div class="m-foot">
+      <div class="m-add"><input placeholder="グループ名を追加…" readonly><button>追加</button></div>
+      <div class="foot-sep"></div>
+      <div class="m-add"><input placeholder="タグを追加…" readonly><button>追加</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 案3: 区切りラインラベル ══ -->
+<div class="pat-wrap">
+  <div class="pat-label">案3 — 区切りラインラベル</div>
+  <div class="modal">
+    <div class="m-head"><div class="m-title">#Tag</div><button class="m-close">✕</button></div>
+    <div class="m-tabs">
+      <button class="m-tab on">タグ一覧</button>
+      <button class="m-tab">辞書</button>
+      <button class="m-ai">AI</button>
+    </div>
+    <div class="m-search"><input placeholder="検索…" readonly></div>
+    <div class="m-list">
+      <div class="p3-sep"><span class="p3-sep-name">スイープ系</span><div class="p3-sep-line"></div><span class="p1-grp-cnt">2件</span><button class="p3-sep-del">🗑</button></div>
+      <div class="p3-tag"><div class="p3-tag-name">バタフライスイープ</div><span class="row-cnt">4本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p3-tag"><div class="p3-tag-name">ベリンボロ</div><span class="row-cnt">5本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p3-sep"><span class="p3-sep-name">チョーク系</span><div class="p3-sep-line"></div><span class="p1-grp-cnt">2件</span><button class="p3-sep-del">🗑</button></div>
+      <div class="p3-tag"><div class="p3-tag-name">RNC</div><span class="row-cnt">8本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p3-tag"><div class="p3-tag-name">ギロチン</div><span class="row-cnt">15本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p3-unc-sep"><span class="p3-unc-name">未分類</span><div class="p3-unc-line"></div><span class="p1-grp-cnt">3件</span></div>
+      <div class="p3-unc-tag"><div class="p3-unc-tag-name">エビ</div><span class="row-cnt">6本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p3-unc-tag"><div class="p3-unc-tag-name">オモプラッタ</div><span class="row-cnt">3本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p3-unc-tag" style="border-bottom:none"><div class="p3-unc-tag-name">スパイダーガード</div><span class="row-cnt">0本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+    </div>
+    <div class="m-foot">
+      <div class="m-add"><input placeholder="グループ名を追加…" readonly><button>追加</button></div>
+      <div class="foot-sep"></div>
+      <div class="m-add"><input placeholder="タグを追加…" readonly><button>追加</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 案4: 折りたたみ ══ -->
+<div class="pat-wrap">
+  <div class="pat-label">案4 — 折りたたみ ▼▶</div>
+  <div class="modal">
+    <div class="m-head"><div class="m-title">#Tag</div><button class="m-close">✕</button></div>
+    <div class="m-tabs">
+      <button class="m-tab on">タグ一覧</button>
+      <button class="m-tab">辞書</button>
+      <button class="m-ai">AI</button>
+    </div>
+    <div class="m-search"><input placeholder="検索…" readonly></div>
+    <div class="m-list">
+      <!-- 展開済み -->
+      <div class="p4-grp-head"><span class="p4-grp-chev">▼</span><div class="p4-grp-name">スイープ系</div><span class="p4-grp-cnt">2件</span><button class="p4-grp-del">🗑</button></div>
+      <div class="p4-tag"><div class="p4-tag-name">バタフライスイープ</div><span class="row-cnt">4本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p4-tag"><div class="p4-tag-name">ベリンボロ</div><span class="row-cnt">5本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <!-- 折りたたみ済み -->
+      <div class="p4-grp-head"><span class="p4-grp-chev">▶</span><div class="p4-grp-name">チョーク系</div><span class="p4-grp-cnt">2件</span><button class="p4-grp-del">🗑</button></div>
+      <div class="p4-grp-head"><span class="p4-grp-chev">▶</span><div class="p4-grp-name">フットロック系</div><span class="p4-grp-cnt">1件</span><button class="p4-grp-del">🗑</button></div>
+      <div class="p4-grp-head"><span class="p4-grp-chev">▶</span><div class="p4-grp-name">関節技（腕）</div><span class="p4-grp-cnt">2件</span><button class="p4-grp-del">🗑</button></div>
+      <!-- 未分類 展開済み -->
+      <div class="p4-unc-head"><span class="p4-grp-chev">▼</span><div class="p4-unc-name">未分類</div><span class="p4-grp-cnt">3件</span></div>
+      <div class="p4-unc-tag"><div class="p4-unc-tag-name">エビ</div><span class="row-cnt">6本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p4-unc-tag"><div class="p4-unc-tag-name">オモプラッタ</div><span class="row-cnt">3本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p4-unc-tag" style="border-bottom:none"><div class="p4-unc-tag-name">スパイダーガード</div><span class="row-cnt">0本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+    </div>
+    <div class="m-foot">
+      <div class="m-add"><input placeholder="グループ名を追加…" readonly><button>追加</button></div>
+      <div class="foot-sep"></div>
+      <div class="m-add"><input placeholder="タグを追加…" readonly><button>追加</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 案5: グループ名バッジ ══ -->
+<div class="pat-wrap">
+  <div class="pat-label">案5 — グループ名バッジ（フラット）</div>
+  <div class="modal">
+    <div class="m-head"><div class="m-title">#Tag</div><button class="m-close">✕</button></div>
+    <div class="m-tabs">
+      <button class="m-tab on">タグ一覧</button>
+      <button class="m-tab">辞書</button>
+      <button class="m-ai">AI</button>
+    </div>
+    <div class="m-search"><input placeholder="検索…" readonly></div>
+    <div class="m-list">
+      <div class="p5-tag"><div class="p5-tag-name">アームバー</div><span class="p5-badge">関節技（腕）</span><div class="p5-spacer"></div><span class="row-cnt">10本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">エビ</div><div class="p5-spacer"></div><span class="row-cnt">6本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">オモプラッタ</div><div class="p5-spacer"></div><span class="row-cnt">3本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">キムラ</div><span class="p5-badge">関節技（腕）</span><div class="p5-spacer"></div><span class="row-cnt">7本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">ギロチン</div><span class="p5-badge">チョーク系</span><div class="p5-spacer"></div><span class="row-cnt">15本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">スパイダーガード</div><div class="p5-spacer"></div><span class="row-cnt">0本</span><button class="btn-ng">NG</button><button class="btn-del">削除</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">バタフライスイープ</div><span class="p5-badge">スイープ系</span><div class="p5-spacer"></div><span class="row-cnt">4本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">ベリンボロ</div><span class="p5-badge">スイープ系</span><div class="p5-spacer"></div><span class="row-cnt">5本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p5-tag"><div class="p5-tag-name">ヒールフック</div><span class="p5-badge">フットロック系</span><div class="p5-spacer"></div><span class="row-cnt">12本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+      <div class="p5-tag" style="border-bottom:none"><div class="p5-tag-name">RNC</div><span class="p5-badge">チョーク系</span><div class="p5-spacer"></div><span class="row-cnt">8本</span><button class="btn-ng">NG</button><button class="btn-rm">外す</button></div>
+    </div>
+    <div class="m-foot">
+      <div class="m-add"><input placeholder="グループ名を追加…" readonly><button>追加</button></div>
+      <div class="foot-sep"></div>
+      <div class="m-add"><input placeholder="タグを追加…" readonly><button>追加</button></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .patterns -->
+</body>
+</html>

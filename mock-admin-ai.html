@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCK — AI管理ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--gold:#e5c47a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;--border:#48484a;--border2:#3a3a3c;--green:#6bc490;--green-soft:#1e2e24;--blue:#7ab8e0;--blue-soft:#1e2530;--purple:#a090d0;--purple-soft:#28253a;--red:#e06060;--red-soft:#2e1e1e;--shadow:0 1px 4px rgba(0,0,0,.3);--shadow-lg:0 8px 24px rgba(0,0,0,.5);--radius:8px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+
+/* ── Header ── */
+.admin-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+.admin-hdr h1{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.admin-hdr h1 span{font-size:12px;background:var(--accent);color:#1c1c1e;padding:2px 8px;border-radius:10px;font-weight:700;}
+.back-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;}
+
+/* ── Tabs ── */
+.admin-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 20px;}
+.admin-tab{padding:12px 18px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;transition:all .2s;}
+.admin-tab.active{color:var(--accent);border-color:var(--accent);}
+.admin-tab:hover:not(.active){color:var(--text2);}
+
+/* ── Panel ── */
+.panel{display:none;padding:20px;max-width:800px;}
+.panel.active{display:block;}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+.card-title{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;}
+
+/* ── Score ── */
+.score-row{display:flex;gap:12px;margin-bottom:16px;}
+.score-box{flex:1;background:var(--surface2);border-radius:var(--radius);padding:16px;text-align:center;}
+.score-num{font-size:32px;font-weight:700;font-family:'DM Mono',monospace;}
+.score-num.good{color:var(--green);}
+.score-num.mid{color:var(--accent);}
+.score-num.bad{color:var(--red);}
+.score-label{font-size:11px;color:var(--text3);margin-top:4px;}
+
+/* ── Progress bars ── */
+.acc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2);}
+.acc-row:last-child{border-bottom:none;}
+.acc-label{font-size:12px;font-weight:600;width:200px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.acc-bar-wrap{flex:1;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;}
+.acc-bar{height:100%;border-radius:4px;transition:width .3s;}
+.acc-bar.high{background:var(--green);}
+.acc-bar.mid{background:var(--accent);}
+.acc-bar.low{background:var(--red);}
+.acc-pct{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;width:45px;text-align:right;flex-shrink:0;}
+.acc-cnt{font-size:11px;color:var(--text3);width:50px;text-align:right;flex-shrink:0;}
+
+/* ── Gold dataset ── */
+.gold-summary{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.gold-stat{background:var(--surface2);border-radius:var(--radius);padding:12px 16px;min-width:120px;}
+.gold-stat-num{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent);}
+.gold-stat-label{font-size:11px;color:var(--text3);margin-top:2px;}
+.gold-actions{display:flex;gap:8px;margin-top:12px;}
+.gold-btn{background:var(--accent);color:#1c1c1e;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+.gold-btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+.gold-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:12px;}
+.gold-table th{text-align:left;padding:8px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;}
+.gold-table td{padding:8px;border-bottom:1px solid var(--border2);vertical-align:top;}
+.gold-table tr:hover td{background:var(--surface2);}
+.tag-chip{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;margin:1px 2px;}
+.tag-chip.match{background:var(--green-soft);color:var(--green);}
+.tag-chip.miss{background:var(--red-soft);color:var(--red);}
+.tag-chip.extra{background:var(--purple-soft);color:var(--purple);}
+
+/* ── Corrections (B) ── */
+.corr-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border2);}
+.corr-item:last-child{border-bottom:none;}
+.corr-time{font-size:11px;color:var(--text3);width:70px;flex-shrink:0;font-family:'DM Mono',monospace;}
+.corr-body{flex:1;}
+.corr-title{font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text);}
+.corr-diff{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.corr-arrow{font-size:11px;color:var(--text3);margin:0 4px;}
+.corr-old{background:var(--red-soft);color:var(--red);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;text-decoration:line-through;}
+.corr-new{background:var(--green-soft);color:var(--green);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;}
+.corr-field{font-size:10px;font-weight:700;color:var(--text3);margin-right:4px;}
+
+/* ── Pattern summary ── */
+.pattern-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2);}
+.pattern-row:last-child{border-bottom:none;}
+.pattern-cnt{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:var(--red);width:30px;text-align:center;}
+.pattern-desc{font-size:12px;flex:1;}
+.pattern-action{font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;white-space:nowrap;}
+
+/* ── Rules (D) ── */
+.rule-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);}
+.rule-item:last-child{border-bottom:none;}
+.rule-toggle{width:36px;height:20px;border-radius:10px;background:var(--surface3);cursor:pointer;position:relative;flex-shrink:0;margin-top:2px;transition:background .2s;}
+.rule-toggle.on{background:var(--green);}
+.rule-toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform .2s;}
+.rule-toggle.on::after{transform:translateX(16px);}
+.rule-body{flex:1;}
+.rule-text{font-size:12px;line-height:1.5;}
+.rule-meta{display:flex;gap:8px;margin-top:4px;}
+.rule-tag{font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;}
+.rule-tag.cat{background:var(--blue-soft);color:var(--blue);}
+.rule-tag.pos{background:var(--purple-soft);color:var(--purple);}
+.rule-tag.tb{background:var(--gold-soft);color:var(--gold);}
+.rule-tag.tags{background:var(--green-soft);color:var(--green);}
+.rule-actions{display:flex;gap:6px;flex-shrink:0;}
+.rule-btn{background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;}
+.rule-btn:hover{background:var(--surface2);}
+
+/* ── Add rule form ── */
+.add-rule-form{background:var(--surface2);border-radius:var(--radius);padding:14px;margin-top:12px;display:none;}
+.add-rule-form.open{display:block;}
+.form-row{margin-bottom:10px;}
+.form-label{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;}
+.form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;}
+.form-input:focus{border-color:var(--accent);}
+.form-select{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer;}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  .score-row{flex-direction:column;}
+  .acc-label{width:120px;font-size:11px;}
+  .gold-summary{flex-direction:column;}
+  .admin-tabs{overflow-x:auto;scrollbar-width:none;}
+  .admin-tab{white-space:nowrap;font-size:11px;padding:10px 14px;}
+}
+</style>
+</head>
+<body>
+<!-- ── Header ── -->
+<div class="admin-hdr">
+  <h1>🔒 AI管理 <span>ADMIN</span></h1>
+  <button class="back-btn" onclick="history.back()">← アプリに戻る</button>
+</div>
+
+<!-- ── Tabs ── -->
+<div class="admin-tabs">
+  <div class="admin-tab active" onclick="switchTab('accuracy')">精度</div>
+  <div class="admin-tab" onclick="switchTab('corrections')">修正履歴</div>
+  <div class="admin-tab" onclick="switchTab('rules')">ルール</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- A — 精度ダッシュボード                       -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="panel active" id="panel-accuracy">
+
+  <!-- 全体スコア -->
+  <div class="card">
+    <div class="card-title">全体精度</div>
+    <div class="score-row">
+      <div class="score-box">
+        <div class="score-num good">73%</div>
+        <div class="score-label">総合精度</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num mid">68%</div>
+        <div class="score-label">カテゴリ精度</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num good">82%</div>
+        <div class="score-label">ポジション精度</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num good">79%</div>
+        <div class="score-label">タグ精度</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- カテゴリ別精度 -->
+  <div class="card">
+    <div class="card-title">カテゴリ別精度</div>
+    <div class="acc-row">
+      <div class="acc-label">パスガード</div>
+      <div class="acc-bar-wrap"><div class="acc-bar high" style="width:92%"></div></div>
+      <div class="acc-pct">92%</div>
+      <div class="acc-cnt">24/26</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">フィニッシュ</div>
+      <div class="acc-bar-wrap"><div class="acc-bar high" style="width:88%"></div></div>
+      <div class="acc-pct">88%</div>
+      <div class="acc-cnt">15/17</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">スイープ</div>
+      <div class="acc-bar-wrap"><div class="acc-bar high" style="width:85%"></div></div>
+      <div class="acc-pct">85%</div>
+      <div class="acc-cnt">17/20</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">テイクダウン</div>
+      <div class="acc-bar-wrap"><div class="acc-bar mid" style="width:75%"></div></div>
+      <div class="acc-pct">75%</div>
+      <div class="acc-cnt">9/12</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">エスケープ・ディフェンス</div>
+      <div class="acc-bar-wrap"><div class="acc-bar mid" style="width:67%"></div></div>
+      <div class="acc-pct">67%</div>
+      <div class="acc-cnt">8/12</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">バックテイク・バックアタック</div>
+      <div class="acc-bar-wrap"><div class="acc-bar mid" style="width:60%"></div></div>
+      <div class="acc-pct">60%</div>
+      <div class="acc-cnt">6/10</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">ガード構築・エントリー</div>
+      <div class="acc-bar-wrap"><div class="acc-bar low" style="width:45%"></div></div>
+      <div class="acc-pct">45%</div>
+      <div class="acc-cnt">5/11</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">コンセプト・原理</div>
+      <div class="acc-bar-wrap"><div class="acc-bar low" style="width:33%"></div></div>
+      <div class="acc-pct">33%</div>
+      <div class="acc-cnt">2/6</div>
+    </div>
+  </div>
+
+  <!-- ポジション別精度 -->
+  <div class="card">
+    <div class="card-title">ポジション別精度</div>
+    <div class="acc-row">
+      <div class="acc-label">クローズドガード</div>
+      <div class="acc-bar-wrap"><div class="acc-bar high" style="width:95%"></div></div>
+      <div class="acc-pct">95%</div>
+      <div class="acc-cnt">19/20</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">ハーフガード</div>
+      <div class="acc-bar-wrap"><div class="acc-bar high" style="width:90%"></div></div>
+      <div class="acc-pct">90%</div>
+      <div class="acc-cnt">18/20</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">デラヒーバ</div>
+      <div class="acc-bar-wrap"><div class="acc-bar mid" style="width:72%"></div></div>
+      <div class="acc-pct">72%</div>
+      <div class="acc-cnt">13/18</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">サドル</div>
+      <div class="acc-bar-wrap"><div class="acc-bar mid" style="width:64%"></div></div>
+      <div class="acc-pct">64%</div>
+      <div class="acc-cnt">7/11</div>
+    </div>
+    <div class="acc-row">
+      <div class="acc-label">Kガード</div>
+      <div class="acc-bar-wrap"><div class="acc-bar low" style="width:40%"></div></div>
+      <div class="acc-pct">40%</div>
+      <div class="acc-cnt">2/5</div>
+    </div>
+  </div>
+
+  <!-- ゴールドデータセット -->
+  <div class="card">
+    <div class="card-title">ゴールドデータセット</div>
+    <div class="gold-summary">
+      <div class="gold-stat">
+        <div class="gold-stat-num">48</div>
+        <div class="gold-stat-label">登録済み動画</div>
+      </div>
+      <div class="gold-stat">
+        <div class="gold-stat-num">35</div>
+        <div class="gold-stat-label">AI判定済み</div>
+      </div>
+      <div class="gold-stat">
+        <div class="gold-stat-num">73%</div>
+        <div class="gold-stat-label">総合一致率</div>
+      </div>
+    </div>
+    <div class="gold-actions">
+      <button class="gold-btn">+ ゴールドに追加</button>
+      <button class="gold-btn secondary">全件再判定</button>
+      <button class="gold-btn secondary">CSVエクスポート</button>
+    </div>
+
+    <!-- ゴールドデータ一覧（直近5件） -->
+    <table class="gold-table">
+      <tr><th>タイトル</th><th>正解</th><th>AI判定</th><th>一致</th></tr>
+      <tr>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Kimura from Closed Guard Setup</td>
+        <td><span class="tag-chip match">フィニッシュ</span><span class="tag-chip match">クローズドガード</span></td>
+        <td><span class="tag-chip match">フィニッシュ</span><span class="tag-chip match">クローズドガード</span></td>
+        <td style="color:var(--green);font-weight:700">100%</td>
+      </tr>
+      <tr>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Heel Hook Defense from 50/50</td>
+        <td><span class="tag-chip match">エスケープ</span><span class="tag-chip match">50/50</span></td>
+        <td><span class="tag-chip match">エスケープ</span><span class="tag-chip miss">サドル</span></td>
+        <td style="color:var(--accent);font-weight:700">50%</td>
+      </tr>
+      <tr>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">K Guard Entry to Leg Entanglement</td>
+        <td><span class="tag-chip miss">ガード構築</span><span class="tag-chip match">Kガード</span></td>
+        <td><span class="tag-chip extra">スイープ</span><span class="tag-chip match">Kガード</span></td>
+        <td style="color:var(--red);font-weight:700">33%</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- B — 修正履歴                                 -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="panel" id="panel-corrections">
+
+  <!-- よくある誤判定パターン -->
+  <div class="card">
+    <div class="card-title">よくある誤判定パターン（上位）</div>
+    <div class="pattern-row">
+      <div class="pattern-cnt">7</div>
+      <div class="pattern-desc"><strong>ガード構築・エントリー</strong> を <strong>スイープ</strong> に誤判定</div>
+      <div class="pattern-action">→ ルール追加</div>
+    </div>
+    <div class="pattern-row">
+      <div class="pattern-cnt">5</div>
+      <div class="pattern-desc"><strong>50/50</strong> を <strong>サドル</strong> に誤判定</div>
+      <div class="pattern-action">→ ルール追加</div>
+    </div>
+    <div class="pattern-row">
+      <div class="pattern-cnt">4</div>
+      <div class="pattern-desc"><strong>コンセプト・原理</strong> を判定できず（空欄）</div>
+      <div class="pattern-action">→ ルール追加</div>
+    </div>
+    <div class="pattern-row">
+      <div class="pattern-cnt">3</div>
+      <div class="pattern-desc"><strong>バックテイク</strong> を <strong>コントロール</strong> に誤判定</div>
+      <div class="pattern-action">→ ルール追加</div>
+    </div>
+  </div>
+
+  <!-- 修正タイムライン -->
+  <div class="card">
+    <div class="card-title">最近の修正（50件保持）</div>
+
+    <div class="corr-item">
+      <div class="corr-time">2分前</div>
+      <div class="corr-body">
+        <div class="corr-title">Lachlan Giles - K Guard to Saddle Entry</div>
+        <div class="corr-diff">
+          <span class="corr-field">CAT</span>
+          <span class="corr-old">スイープ</span>
+          <span class="corr-arrow">→</span>
+          <span class="corr-new">ガード構築・エントリー</span>
+        </div>
+        <div class="corr-diff" style="margin-top:4px">
+          <span class="corr-field">POS</span>
+          <span class="corr-old">ハーフガード</span>
+          <span class="corr-arrow">→</span>
+          <span class="corr-new">Kガード</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="corr-item">
+      <div class="corr-time">15分前</div>
+      <div class="corr-body">
+        <div class="corr-title">Gordon Ryan - Body Lock Passing System</div>
+        <div class="corr-diff">
+          <span class="corr-field">CAT</span>
+          <span class="corr-old">コントロール</span>
+          <span class="corr-arrow">→</span>
+          <span class="corr-new">パスガード</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="corr-item">
+      <div class="corr-time">1時間前</div>
+      <div class="corr-body">
+        <div class="corr-title">Craig Jones - Outside Heel Hook from 50/50</div>
+        <div class="corr-diff">
+          <span class="corr-field">POS</span>
+          <span class="corr-old">サドル</span>
+          <span class="corr-arrow">→</span>
+          <span class="corr-new">50/50</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="corr-item">
+      <div class="corr-time">2時間前</div>
+      <div class="corr-body">
+        <div class="corr-title">BJJ Concepts - Framing and Structure Principles</div>
+        <div class="corr-diff">
+          <span class="corr-field">CAT</span>
+          <span class="corr-old">（空欄）</span>
+          <span class="corr-arrow">→</span>
+          <span class="corr-new">コンセプト・原理</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="corr-item">
+      <div class="corr-time">3時間前</div>
+      <div class="corr-body">
+        <div class="corr-title">Mikey Musumeci - Butterfly Guard Elevation Sweep</div>
+        <div class="corr-diff">
+          <span class="corr-field">TB</span>
+          <span class="corr-old">（空欄）</span>
+          <span class="corr-arrow">→</span>
+          <span class="corr-new">ボトム</span>
+        </div>
+        <div class="corr-diff" style="margin-top:4px">
+          <span class="corr-field">TAGS</span>
+          <span class="corr-new" style="text-decoration:none">+ バタフライスイープ</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計 -->
+  <div class="card">
+    <div class="card-title">修正統計</div>
+    <div class="score-row">
+      <div class="score-box">
+        <div class="score-num" style="color:var(--text)">38</div>
+        <div class="score-label">総修正回数</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num bad">18</div>
+        <div class="score-label">CAT 修正</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num mid">12</div>
+        <div class="score-label">POS 修正</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num" style="color:var(--text2)">8</div>
+        <div class="score-label">TAGS/TB 修正</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- D — ルール管理                               -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="panel" id="panel-rules">
+
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>BJJルール（45件）</span>
+      <button class="gold-btn" onclick="document.getElementById('add-rule').classList.toggle('open')" style="font-size:11px;padding:5px 12px">+ ルール追加</button>
+    </div>
+
+    <!-- 追加フォーム -->
+    <div class="add-rule-form" id="add-rule">
+      <div class="form-row">
+        <div class="form-label">ルール内容</div>
+        <input class="form-input" placeholder="例：「entry」「侵入」を含むタイトル → カテゴリ＝ガード構築・エントリー">
+      </div>
+      <div class="form-row" style="display:flex;gap:10px">
+        <div style="flex:1">
+          <div class="form-label">対象フィールド</div>
+          <select class="form-select" style="width:100%">
+            <option>CAT（カテゴリ）</option>
+            <option>POS（ポジション）</option>
+            <option>TB（トップ/ボトム）</option>
+            <option>TAGS（タグ）</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <div class="form-label">優先度</div>
+          <select class="form-select" style="width:100%">
+            <option>高</option>
+            <option selected>中</option>
+            <option>低</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="gold-btn secondary" onclick="document.getElementById('add-rule').classList.remove('open')">キャンセル</button>
+        <button class="gold-btn">保存</button>
+      </div>
+    </div>
+
+    <!-- ルール一覧 -->
+    <div style="margin-top:12px">
+      <div class="rule-item">
+        <div class="rule-toggle on" onclick="this.classList.toggle('on')"></div>
+        <div class="rule-body">
+          <div class="rule-text">タイトルに「pass」「パス」を含む場合 → カテゴリ＝パスガード</div>
+          <div class="rule-meta">
+            <span class="rule-tag cat">CAT</span>
+            <span style="font-size:10px;color:var(--text3)">精度への影響: +12%</span>
+          </div>
+        </div>
+        <div class="rule-actions">
+          <button class="rule-btn">編集</button>
+          <button class="rule-btn">削除</button>
+        </div>
+      </div>
+
+      <div class="rule-item">
+        <div class="rule-toggle on" onclick="this.classList.toggle('on')"></div>
+        <div class="rule-body">
+          <div class="rule-text">「heel hook」「ヒールフック」→ ポジション推論: saddle/50-50/SLXのいずれかを候補に</div>
+          <div class="rule-meta">
+            <span class="rule-tag pos">POS</span>
+            <span style="font-size:10px;color:var(--text3)">精度への影響: +8%</span>
+          </div>
+        </div>
+        <div class="rule-actions">
+          <button class="rule-btn">編集</button>
+          <button class="rule-btn">削除</button>
+        </div>
+      </div>
+
+      <div class="rule-item">
+        <div class="rule-toggle on" onclick="this.classList.toggle('on')"></div>
+        <div class="rule-body">
+          <div class="rule-text">「escape」「エスケープ」「defense」を含む → TB＝ボトム（相手のポジションから逃げる視点）</div>
+          <div class="rule-meta">
+            <span class="rule-tag tb">TB</span>
+            <span style="font-size:10px;color:var(--text3)">精度への影響: +5%</span>
+          </div>
+        </div>
+        <div class="rule-actions">
+          <button class="rule-btn">編集</button>
+          <button class="rule-btn">削除</button>
+        </div>
+      </div>
+
+      <div class="rule-item">
+        <div class="rule-toggle" onclick="this.classList.toggle('on')"></div>
+        <div class="rule-body">
+          <div class="rule-text" style="color:var(--text3)">「entry」「侵入」「進入」を含む → カテゴリ＝ガード構築・エントリー</div>
+          <div class="rule-meta">
+            <span class="rule-tag cat">CAT</span>
+            <span style="font-size:10px;color:var(--text3)">無効</span>
+          </div>
+        </div>
+        <div class="rule-actions">
+          <button class="rule-btn">編集</button>
+          <button class="rule-btn">削除</button>
+        </div>
+      </div>
+
+      <div class="rule-item">
+        <div class="rule-toggle on" onclick="this.classList.toggle('on')"></div>
+        <div class="rule-body">
+          <div class="rule-text">BJJ推論: タイトルに直接書かれていない情報でも、柔術の専門知識から推論して判定せよ</div>
+          <div class="rule-meta">
+            <span class="rule-tag tags">全般</span>
+            <span style="font-size:10px;color:var(--green)">コアルール</span>
+          </div>
+        </div>
+        <div class="rule-actions">
+          <button class="rule-btn">編集</button>
+          <button class="rule-btn">削除</button>
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:12px;color:var(--text3);font-size:12px">
+        ... 他 40件のルール
+      </div>
+    </div>
+  </div>
+
+  <!-- ルール効果サマリー -->
+  <div class="card">
+    <div class="card-title">ルール効果サマリー</div>
+    <div class="score-row">
+      <div class="score-box">
+        <div class="score-num" style="color:var(--text)">45</div>
+        <div class="score-label">総ルール数</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num good">42</div>
+        <div class="score-label">有効</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num" style="color:var(--text3)">3</div>
+        <div class="score-label">無効</div>
+      </div>
+      <div class="score-box">
+        <div class="score-num mid">+18%</div>
+        <div class="score-label">精度寄与</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.admin-tab').forEach((t, i) => {
+    const panels = ['accuracy','corrections','rules'];
+    const isActive = panels[i] === name;
+    t.classList.toggle('active', isActive);
+    document.getElementById('panel-' + panels[i]).classList.toggle('active', isActive);
+  });
+}
+</script>
+</body>
+</html>

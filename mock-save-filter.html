@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 検索条件保存 UX 5案</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#1a1a2e;--surface:#fff;--surface2:#f5f5f5;
+  --border:#e0e0e0;--border2:#ebebeb;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#6b3fd4;--accent2:#8b5cf6;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;padding:32px 20px;gap:24px}
+
+h1{color:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;opacity:.6}
+
+/* 案セレクタ */
+.case-bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.case-btn{background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);
+  border-radius:20px;padding:6px 16px;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:inherit;color:rgba(255,255,255,.6);transition:all .15s}
+.case-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* モーダル外枠 */
+.modal{background:var(--surface);border-radius:12px;width:720px;max-width:96vw;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;
+  overflow:hidden;min-height:460px}
+
+/* ── タブ行 ── */
+.tab-row{display:flex;align-items:center;padding:0 20px;
+  border-bottom:1px solid var(--border2);flex-shrink:0;gap:0}
+.tab{background:none;border:none;padding:14px 16px;font-size:13px;
+  cursor:pointer;font-family:inherit;color:var(--text3);
+  border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
+.tab.on{font-weight:700;color:var(--text);border-bottom-color:var(--accent)}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;border-radius:9px;background:#1c1c1e;color:#fff;
+  font-size:10px;font-weight:700;margin-left:5px;padding:0 4px}
+
+/* 検索バー */
+.search-row{display:flex;align-items:center;gap:10px;padding:10px 20px;
+  border-bottom:1px solid var(--border2);flex-shrink:0}
+.search-row input{flex:1;background:none;border:none;outline:none;font-size:13px;
+  color:var(--text);font-family:inherit}
+.search-icon{font-size:14px;opacity:.4;flex-shrink:0}
+.search-clear{background:none;border:none;cursor:pointer;color:var(--text3);
+  font-size:14px;padding:2px 6px;flex-shrink:0}
+
+/* コンテンツ（3カラム） */
+.content{display:flex;flex:1;min-height:280px;overflow:hidden}
+.col{flex:1;border-right:1px solid var(--border2);display:flex;flex-direction:column}
+.col:last-child{border-right:none}
+.col-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:9px 16px;border-bottom:1px solid var(--border2);flex-shrink:0}
+.col-hdr .lbl{font-size:11px;color:var(--text3);font-weight:500}
+.col-hdr select{background:none;border:1px solid var(--border);border-radius:6px;
+  font-size:11px;color:var(--text3);padding:2px 5px;cursor:pointer;font-family:inherit}
+.col-body{overflow-y:auto;flex:1}
+.col-item{display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;
+  font-size:12px;transition:background .1s}
+.col-item:hover{background:#f9f9fb}
+.col-item.sel{background:#f0ebff}
+.col-item .item-name{flex:1;font-weight:500}
+.col-item .item-cnt{min-width:22px;padding:2px 6px;border-radius:9px;
+  background:#e8e8ed;color:var(--text2);font-size:11px;font-weight:700;text-align:center}
+.col-item.sel .item-cnt{background:#1c1c1e;color:#fff}
+
+/* フッター（選択中バー） */
+.footer{display:flex;align-items:center;gap:8px;padding:12px 18px;
+  border-top:1px solid var(--border2);flex-shrink:0;flex-wrap:wrap}
+.sel-label{font-size:11px;color:var(--text3);flex-shrink:0}
+.sel-chips{display:flex;flex-wrap:wrap;gap:5px;flex:1}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+  background:#1c1c1e;color:#fff;border-radius:20px;font-size:11px;font-weight:600}
+.chip .x{cursor:pointer;opacity:.6;font-size:10px}
+.footer-right{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto}
+.clear-link{font-size:12px;color:var(--text3);cursor:pointer;text-decoration:none}
+.clear-link:hover{text-decoration:underline}
+.cnt-badge{font-size:12px;color:var(--text2);font-weight:600}
+.apply-btn{background:#1c1c1e;color:#fff;border:none;padding:8px 18px;
+  border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* ── 保存UIパーツ ── */
+
+/* 案1: タブ行右側インライン */
+.save-inline{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0}
+.save-inline input{background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:5px 10px;font-size:11px;color:var(--text);
+  font-family:inherit;outline:none;width:130px}
+.save-inline input::placeholder{color:var(--text3)}
+.save-inline .save-btn{background:var(--accent);color:#fff;border:none;
+  padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:inherit;white-space:nowrap}
+
+/* 案2: フッターに保存行を追加 */
+.save-footer-bar{display:flex;align-items:center;gap:8px;padding:10px 18px;
+  border-top:1px solid var(--border2);background:var(--surface2);flex-shrink:0}
+.save-footer-bar .label{font-size:11px;color:var(--text3);flex-shrink:0;white-space:nowrap}
+.save-footer-bar input{flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text);
+  font-family:inherit;outline:none}
+.save-footer-bar input::placeholder{color:var(--text3)}
+.save-footer-bar .save-btn{background:var(--accent);color:#fff;border:none;
+  padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:inherit;white-space:nowrap}
+
+/* 案3: フッター左端に保存アイコン → クリックで名前入力ポップアップ */
+.save-icon-btn{background:none;border:1.5px solid var(--border);
+  border-radius:8px;padding:5px 8px;font-size:14px;cursor:pointer;
+  flex-shrink:0;line-height:1;position:relative;display:flex;align-items:center;gap:4px}
+.save-icon-btn .lbl{font-size:10px;font-weight:700;color:var(--text3)}
+.save-icon-btn:hover{border-color:var(--accent)}
+.save-icon-btn:hover .lbl{color:var(--accent)}
+/* ポップアップ */
+.save-popup{position:absolute;bottom:calc(100% + 8px);left:0;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 4px 16px rgba(0,0,0,.15);padding:12px;display:flex;flex-direction:column;
+  gap:8px;width:220px;z-index:10;
+  opacity:0;pointer-events:none;transform:translateY(4px);transition:all .15s}
+.save-popup.show{opacity:1;pointer-events:all;transform:translateY(0)}
+.save-popup .ttl{font-size:11px;font-weight:700;color:var(--text2)}
+.save-popup input{background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;
+  outline:none;color:var(--text)}
+.save-popup input::placeholder{color:var(--text3)}
+.save-popup .row{display:flex;gap:6px}
+.save-popup .ok{flex:1;background:var(--accent);color:#fff;border:none;
+  padding:7px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.save-popup .cancel{background:none;border:1px solid var(--border);color:var(--text3);
+  padding:7px 10px;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit}
+
+/* 案4: 検索バー右端にアイコン */
+.save-search-btn{background:none;border:none;cursor:pointer;padding:4px 6px;
+  font-size:16px;border-radius:6px;flex-shrink:0;line-height:1;
+  display:flex;align-items:center;gap:3px}
+.save-search-btn .lbl{font-size:10px;font-weight:700;color:var(--text3)}
+.save-search-btn:hover{background:var(--surface2)}
+.save-search-btn:hover .lbl{color:var(--accent)}
+/* インライン展開エリア */
+.save-search-expand{display:flex;align-items:center;gap:6px;padding:8px 20px;
+  border-bottom:1px solid var(--border2);background:#f8f5ff;
+  opacity:0;max-height:0;overflow:hidden;transition:all .2s}
+.save-search-expand.show{opacity:1;max-height:60px}
+.save-search-expand .lbl{font-size:11px;color:var(--accent);font-weight:700;
+  white-space:nowrap;flex-shrink:0}
+.save-search-expand input{flex:1;background:var(--surface);border:1px solid #d4bbff;
+  border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;
+  outline:none;color:var(--text)}
+.save-search-expand input::placeholder{color:var(--text3)}
+.save-search-expand .ok{background:var(--accent);color:#fff;border:none;
+  padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:inherit;white-space:nowrap}
+.save-search-expand .no{background:none;border:1px solid var(--border);color:var(--text3);
+  padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit}
+
+/* 案5: フローティングボタン（右下） */
+.save-fab{position:absolute;bottom:14px;right:14px;
+  display:flex;align-items:center;gap:6px;
+  background:var(--accent);color:#fff;border:none;border-radius:20px;
+  padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;box-shadow:0 4px 12px rgba(107,63,212,.4);
+  transition:all .15s;z-index:5}
+.save-fab:hover{background:var(--accent2);box-shadow:0 6px 16px rgba(107,63,212,.5)}
+/* FABクリック後の名前入力 */
+.save-fab-expand{position:absolute;bottom:54px;right:14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 4px 20px rgba(0,0,0,.15);padding:14px;display:flex;flex-direction:column;
+  gap:8px;width:230px;z-index:10;
+  opacity:0;pointer-events:none;transform:translateY(6px);transition:all .15s}
+.save-fab-expand.show{opacity:1;pointer-events:all;transform:translateY(0)}
+.save-fab-expand .ttl{font-size:12px;font-weight:700}
+.save-fab-expand input{background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:8px 10px;font-size:12px;font-family:inherit;
+  outline:none;color:var(--text)}
+.save-fab-expand input::placeholder{color:var(--text3)}
+.save-fab-expand .row{display:flex;gap:6px}
+.save-fab-expand .ok{flex:1;background:var(--accent);color:#fff;border:none;
+  padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.save-fab-expand .cancel{background:none;border:1px solid var(--border);color:var(--text3);
+  padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit}
+
+/* トースト */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1c1c1e;color:#fff;padding:10px 18px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;
+  opacity:0;transition:opacity .2s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+
+/* 説明ラベル */
+.desc{color:rgba(255,255,255,.5);font-size:11px;text-align:center;max-width:600px;
+  line-height:1.6}
+</style>
+</head>
+<body>
+
+<h1>検索条件の保存 — UX 5案</h1>
+
+<div class="case-bar">
+  <button class="case-btn on"  onclick="show(1)">案1 タブ右隣インライン</button>
+  <button class="case-btn"     onclick="show(2)">案2 フッター下に保存行</button>
+  <button class="case-btn"     onclick="show(3)">案3 フッター左端ポップアップ</button>
+  <button class="case-btn"     onclick="show(4)">案4 検索バー右端展開</button>
+  <button class="case-btn"     onclick="show(5)">案5 フローティングボタン</button>
+</div>
+
+<div class="desc" id="desc-text">タブ行の右端に「リスト名」入力欄と「保存」ボタンを配置</div>
+
+<!-- ═══════════════════════════════════════
+     案1: タブ行右隣にインライン
+     ═══════════════════════════════════════ -->
+<div class="modal" id="p1">
+  <!-- タブ行 + 保存UI -->
+  <div class="tab-row">
+    <button class="tab">進捗</button>
+    <button class="tab on">プレイリスト<span class="tab-badge">3</span></button>
+    <button class="tab">タグ</button>
+    <!-- 保存UI -->
+    <div class="save-inline">
+      <input placeholder="リスト名を入力…" id="p1-input">
+      <button class="save-btn" onclick="p1Save()">💾 保存</button>
+    </div>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔍</span>
+    <input placeholder="検索...">
+    <button class="search-clear">✕</button>
+  </div>
+  <div class="content">
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Source</span></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">Vimeo</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">YouTube</span><span class="item-cnt">24</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Channel</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">Gordon Ryan</span><span class="item-cnt">14</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Playlist</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也　ギロチンチョーク</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">基本技術集</span><span class="item-cnt">8</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <span class="sel-label">選択中:</span>
+    <div class="sel-chips">
+      <span class="chip">vimeo <span class="x">✕</span></span>
+      <span class="chip">青木真也 <span class="x">✕</span></span>
+      <span class="chip">青木真也　ギロチンチョーク <span class="x">✕</span></span>
+    </div>
+    <div class="footer-right">
+      <a class="clear-link">クリア</a>
+      <span class="cnt-badge">6件</span>
+      <button class="apply-btn">適用</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     案2: フッター下に保存行を追加
+     ═══════════════════════════════════════ -->
+<div class="modal" id="p2" style="display:none">
+  <div class="tab-row">
+    <button class="tab">進捗</button>
+    <button class="tab on">プレイリスト<span class="tab-badge">3</span></button>
+    <button class="tab">タグ</button>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔍</span>
+    <input placeholder="検索...">
+    <button class="search-clear">✕</button>
+  </div>
+  <div class="content">
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Source</span></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">Vimeo</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">YouTube</span><span class="item-cnt">24</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Channel</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">Gordon Ryan</span><span class="item-cnt">14</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Playlist</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也　ギロチンチョーク</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">基本技術集</span><span class="item-cnt">8</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <span class="sel-label">選択中:</span>
+    <div class="sel-chips">
+      <span class="chip">vimeo <span class="x">✕</span></span>
+      <span class="chip">青木真也 <span class="x">✕</span></span>
+      <span class="chip">青木真也　ギロチンチョーク <span class="x">✕</span></span>
+    </div>
+    <div class="footer-right">
+      <a class="clear-link">クリア</a>
+      <span class="cnt-badge">6件</span>
+      <button class="apply-btn">適用</button>
+    </div>
+  </div>
+  <!-- 保存行 -->
+  <div class="save-footer-bar">
+    <span class="label">この条件を保存：</span>
+    <input placeholder="リスト名を入力…" id="p2-input">
+    <button class="save-btn" onclick="p2Save()">💾 保存</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     案3: フッター左端ポップアップ
+     ═══════════════════════════════════════ -->
+<div class="modal" id="p3" style="display:none">
+  <div class="tab-row">
+    <button class="tab">進捗</button>
+    <button class="tab on">プレイリスト<span class="tab-badge">3</span></button>
+    <button class="tab">タグ</button>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔍</span>
+    <input placeholder="検索...">
+    <button class="search-clear">✕</button>
+  </div>
+  <div class="content">
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Source</span></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">Vimeo</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">YouTube</span><span class="item-cnt">24</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Channel</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">Gordon Ryan</span><span class="item-cnt">14</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Playlist</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也　ギロチンチョーク</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">基本技術集</span><span class="item-cnt">8</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer" style="position:relative">
+    <!-- 保存アイコンボタン（左端） -->
+    <div style="position:relative;flex-shrink:0">
+      <button class="save-icon-btn" onclick="p3Toggle()">
+        💾 <span class="lbl">保存</span>
+      </button>
+      <div class="save-popup" id="p3-popup">
+        <span class="ttl">この条件を保存</span>
+        <input placeholder="リスト名を入力…" id="p3-input">
+        <div class="row">
+          <button class="ok" onclick="p3Save()">保存する</button>
+          <button class="cancel" onclick="p3Close()">戻る</button>
+        </div>
+      </div>
+    </div>
+    <span class="sel-label">選択中:</span>
+    <div class="sel-chips">
+      <span class="chip">vimeo <span class="x">✕</span></span>
+      <span class="chip">青木真也 <span class="x">✕</span></span>
+      <span class="chip">青木真也　ギロチンチョーク <span class="x">✕</span></span>
+    </div>
+    <div class="footer-right">
+      <a class="clear-link">クリア</a>
+      <span class="cnt-badge">6件</span>
+      <button class="apply-btn">適用</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     案4: 検索バー右端 → インライン展開
+     ═══════════════════════════════════════ -->
+<div class="modal" id="p4" style="display:none">
+  <div class="tab-row">
+    <button class="tab">進捗</button>
+    <button class="tab on">プレイリスト<span class="tab-badge">3</span></button>
+    <button class="tab">タグ</button>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔍</span>
+    <input placeholder="検索...">
+    <!-- 保存ボタン -->
+    <button class="save-search-btn" onclick="p4Toggle()">
+      💾 <span class="lbl">保存</span>
+    </button>
+    <button class="search-clear">✕</button>
+  </div>
+  <!-- 展開エリア -->
+  <div class="save-search-expand" id="p4-expand">
+    <span class="lbl">保存名：</span>
+    <input placeholder="リスト名を入力…" id="p4-input">
+    <button class="ok" onclick="p4Save()">保存</button>
+    <button class="no" onclick="p4Close()">キャンセル</button>
+  </div>
+  <div class="content">
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Source</span></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">Vimeo</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">YouTube</span><span class="item-cnt">24</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Channel</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">Gordon Ryan</span><span class="item-cnt">14</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Playlist</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也　ギロチンチョーク</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">基本技術集</span><span class="item-cnt">8</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <span class="sel-label">選択中:</span>
+    <div class="sel-chips">
+      <span class="chip">vimeo <span class="x">✕</span></span>
+      <span class="chip">青木真也 <span class="x">✕</span></span>
+      <span class="chip">青木真也　ギロチンチョーク <span class="x">✕</span></span>
+    </div>
+    <div class="footer-right">
+      <a class="clear-link">クリア</a>
+      <span class="cnt-badge">6件</span>
+      <button class="apply-btn">適用</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     案5: フローティングボタン（右下角）
+     ═══════════════════════════════════════ -->
+<div class="modal" id="p5" style="display:none;position:relative">
+  <div class="tab-row">
+    <button class="tab">進捗</button>
+    <button class="tab on">プレイリスト<span class="tab-badge">3</span></button>
+    <button class="tab">タグ</button>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔍</span>
+    <input placeholder="検索...">
+    <button class="search-clear">✕</button>
+  </div>
+  <div class="content">
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Source</span></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">Vimeo</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">YouTube</span><span class="item-cnt">24</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Channel</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">Gordon Ryan</span><span class="item-cnt">14</span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><span class="lbl">Playlist</span><select><option>件数順</option></select></div>
+      <div class="col-body">
+        <div class="col-item sel"><span class="item-name">青木真也　ギロチンチョーク</span><span class="item-cnt">6</span></div>
+        <div class="col-item"><span class="item-name">基本技術集</span><span class="item-cnt">8</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <span class="sel-label">選択中:</span>
+    <div class="sel-chips">
+      <span class="chip">vimeo <span class="x">✕</span></span>
+      <span class="chip">青木真也 <span class="x">✕</span></span>
+      <span class="chip">青木真也　ギロチンチョーク <span class="x">✕</span></span>
+    </div>
+    <div class="footer-right">
+      <a class="clear-link">クリア</a>
+      <span class="cnt-badge">6件</span>
+      <button class="apply-btn">適用</button>
+    </div>
+  </div>
+  <!-- FAB -->
+  <div class="save-fab-expand" id="p5-expand">
+    <span class="ttl">この条件を保存</span>
+    <input placeholder="リスト名を入力…" id="p5-input">
+    <div class="row">
+      <button class="ok" onclick="p5Save()">保存する</button>
+      <button class="cancel" onclick="p5Close()">戻る</button>
+    </div>
+  </div>
+  <button class="save-fab" onclick="p5Toggle()">💾 この条件を保存</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const descs = {
+  1:'タブ行の右端に「リスト名」入力欄と「保存」ボタンを常時配置。すぐ操作できるが、タブが多い場合は窮屈になる可能性あり。',
+  2:'フッターの「適用」ボタン行のさらに下に保存行を追加。操作の流れが「選ぶ → 適用 → 保存」と自然に下に流れる。',
+  3:'フッター左端の「💾 保存」ボタンをクリックすると、上方向にポップアップが出現。通常時はシンプル、必要なときだけ展開。',
+  4:'検索バーの右に「💾 保存」ボタンを配置。クリックすると検索バー直下にインラインで名前入力欄が展開。検索と保存が近い位置で完結。',
+  5:'コンテンツを邪魔しない右下のフローティングボタン（FAB）。クリックで名前入力パネルが上方に展開。モーダル内でも視認性が高い。'
+};
+
+function show(n) {
+  [1,2,3,4,5].forEach(i => document.getElementById('p'+i).style.display = i===n?'':'none');
+  document.querySelectorAll('.case-btn').forEach((b,i) => b.classList.toggle('on', i===n-1));
+  document.getElementById('desc-text').textContent = descs[n];
+}
+
+// 案1
+function p1Save() {
+  const v = document.getElementById('p1-input').value.trim();
+  if (!v) { document.getElementById('p1-input').focus(); return; }
+  toast(`「${v}」として保存しました`);
+  document.getElementById('p1-input').value = '';
+}
+
+// 案2
+function p2Save() {
+  const v = document.getElementById('p2-input').value.trim();
+  if (!v) { document.getElementById('p2-input').focus(); return; }
+  toast(`「${v}」として保存しました`);
+  document.getElementById('p2-input').value = '';
+}
+
+// 案3
+let p3open = false;
+function p3Toggle() {
+  p3open = !p3open;
+  document.getElementById('p3-popup').classList.toggle('show', p3open);
+  if (p3open) setTimeout(() => document.getElementById('p3-input').focus(), 100);
+}
+function p3Close() { p3open = false; document.getElementById('p3-popup').classList.remove('show'); }
+function p3Save() {
+  const v = document.getElementById('p3-input').value.trim();
+  if (!v) { document.getElementById('p3-input').focus(); return; }
+  toast(`「${v}」として保存しました`);
+  document.getElementById('p3-input').value = '';
+  p3Close();
+}
+
+// 案4
+let p4open = false;
+function p4Toggle() {
+  p4open = !p4open;
+  document.getElementById('p4-expand').classList.toggle('show', p4open);
+  if (p4open) setTimeout(() => document.getElementById('p4-input').focus(), 150);
+}
+function p4Close() { p4open = false; document.getElementById('p4-expand').classList.remove('show'); }
+function p4Save() {
+  const v = document.getElementById('p4-input').value.trim();
+  if (!v) { document.getElementById('p4-input').focus(); return; }
+  toast(`「${v}」として保存しました`);
+  document.getElementById('p4-input').value = '';
+  p4Close();
+}
+
+// 案5
+let p5open = false;
+function p5Toggle() {
+  p5open = !p5open;
+  document.getElementById('p5-expand').classList.toggle('show', p5open);
+  if (p5open) setTimeout(() => document.getElementById('p5-input').focus(), 100);
+}
+function p5Close() { p5open = false; document.getElementById('p5-expand').classList.remove('show'); }
+function p5Save() {
+  const v = document.getElementById('p5-input').value.trim();
+  if (!v) { document.getElementById('p5-input').focus(); return; }
+  toast(`「${v}」として保存しました`);
+  document.getElementById('p5-input').value = '';
+  p5Close();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCK — 修正フィードバック検出</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;
+--accent:#e5c47a;--gold:#e5c47a;--gold-soft:#2e2a1e;
+--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;
+--border:#48484a;--border2:#3a3a3c;
+--green:#6bc490;--green-soft:#1e2e24;
+--blue:#7ab8e0;--blue-soft:#1e2530;
+--purple:#a090d0;--purple-soft:#28253a;
+--red:#e06060;--red-soft:#2e1e1e;
+--radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding:20px;max-width:900px;margin:0 auto}
+h1{font-size:18px;font-weight:600;color:var(--accent);margin-bottom:6px}
+.subtitle{font-size:13px;color:var(--text3);margin-bottom:20px}
+
+.stats-bar{display:flex;gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 16px;font-family:'DM Mono',monospace;font-size:13px}
+.stat-label{font-size:11px;color:var(--text3);margin-bottom:2px;font-family:'DM Sans',sans-serif}
+.stat-fb{color:var(--accent)}
+.stat-ok{color:var(--green)}
+
+/* Video queue */
+.queue{display:flex;gap:8px;margin-bottom:24px}
+.queue-item{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .2s;text-align:center}
+.queue-item:hover{border-color:var(--accent)}
+.queue-item.active{border-color:var(--accent);background:var(--gold-soft)}
+.queue-item.done{border-color:var(--green);background:var(--green-soft)}
+.queue-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-bottom:4px}
+.queue-title{font-size:11px;font-weight:600;line-height:1.3}
+.queue-status{font-size:10px;margin-top:6px;font-weight:600}
+.queue-status.pending{color:var(--accent)}
+.queue-status.completed{color:var(--green)}
+
+/* Edit panel */
+.edit-panel{background:var(--surface);border:1px solid var(--border2);border-radius:12px;margin-bottom:24px;overflow:hidden}
+.edit-header{padding:18px 20px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.edit-title{font-size:15px;font-weight:700}
+.edit-badge{font-size:10px;background:var(--gold-soft);color:var(--accent);padding:3px 8px;border-radius:4px;font-weight:600}
+.edit-body{padding:20px}
+.field-group{margin-bottom:18px}
+.field-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.field-label .ai-badge{font-size:9px;background:var(--blue-soft);color:var(--blue);padding:2px 6px;border-radius:3px;font-weight:600;text-transform:none;letter-spacing:0}
+.chip-options{display:flex;flex-wrap:wrap;gap:6px}
+.chip-opt{font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .2s;border:1.5px solid transparent;user-select:none}
+.chip-opt.selected{border-color:currentColor}
+.chip-opt:not(.selected){opacity:.4}
+.chip-opt:hover{opacity:.8}
+.chip-tb{background:var(--blue-soft);color:var(--blue)}
+.chip-cat{background:var(--purple-soft);color:var(--purple)}
+.chip-pos{background:var(--green-soft);color:var(--green)}
+.edit-actions{padding:16px 20px;border-top:1px solid var(--border2);display:flex;justify-content:flex-end;gap:10px}
+.btn{padding:10px 20px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-save{background:var(--accent);color:#111}
+.btn-verify{background:var(--green);color:#111}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+
+/* Diff popup */
+.diff-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
+.diff-overlay.show{display:flex}
+.diff-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:90%;max-width:480px;animation:slideUp .25s ease-out}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.diff-header{padding:16px 20px;border-bottom:1px solid var(--border2);font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.diff-header .icon{font-size:16px}
+.diff-body{padding:20px}
+.diff-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px}
+.diff-row:last-child{margin-bottom:0}
+.diff-field{font-size:11px;font-weight:700;color:var(--text3);width:40px;text-transform:uppercase;flex-shrink:0}
+.diff-old{background:var(--red-soft);color:var(--red);padding:4px 10px;border-radius:4px;text-decoration:line-through;font-size:12px}
+.diff-arrow{color:var(--text3);font-size:16px}
+.diff-new{background:var(--green-soft);color:var(--green);padding:4px 10px;border-radius:4px;font-size:12px}
+.diff-same{color:var(--text3);font-size:12px;font-style:italic}
+.diff-footer{padding:14px 20px;border-top:1px solid var(--border2);text-align:right}
+.btn-close{background:var(--surface2);color:var(--text2);padding:8px 16px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+.btn-close:hover{background:var(--surface3)}
+
+/* Feedback log */
+.log-section{background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
+.log-header{padding:16px 20px;border-bottom:1px solid var(--border2);font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.log-header .icon{font-size:14px}
+.log-body{max-height:300px;overflow-y:auto}
+.log-empty{padding:40px 20px;text-align:center;color:var(--text3);font-size:13px}
+.log-entry{padding:14px 20px;border-bottom:1px solid var(--border2);animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.log-entry:last-child{border-bottom:none}
+.log-entry-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.log-entry-title{font-size:12px;font-weight:600}
+.log-entry-type{font-size:10px;padding:2px 8px;border-radius:3px;font-weight:600}
+.log-type-feedback{background:var(--gold-soft);color:var(--accent)}
+.log-type-approved{background:var(--green-soft);color:var(--green)}
+.log-entry-detail{font-size:11px;color:var(--text3);line-height:1.5}
+.log-change{display:inline-flex;align-items:center;gap:4px;margin-top:2px}
+
+/* Toast */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);padding:12px 24px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:200;opacity:0;transition:all .4s ease}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.green{background:var(--green);color:#111}
+.toast.gold{background:var(--accent);color:#111}
+</style>
+</head>
+<body>
+
+<h1>修正フィードバック検出</h1>
+<p class="subtitle">AI判定を検証し、修正があればフィードバックとして記録します</p>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-label">フィードバック</div>
+    <div class="stat-fb" id="fbCount">0件</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">承認</div>
+    <div class="stat-ok" id="okCount">0件</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">残り</div>
+    <div id="remainCount">3件</div>
+  </div>
+</div>
+
+<div class="queue" id="queue"></div>
+<div class="edit-panel" id="editPanel"></div>
+
+<div class="diff-overlay" id="diffOverlay" onclick="closeDiff(event)">
+  <div class="diff-box" onclick="event.stopPropagation()">
+    <div class="diff-header"><span class="icon">&#x1F4DD;</span> AI判定との差分を記録しました</div>
+    <div class="diff-body" id="diffBody"></div>
+    <div class="diff-footer"><button class="btn-close" onclick="closeDiff()">閉じる</button></div>
+  </div>
+</div>
+
+<div class="log-section">
+  <div class="log-header"><span class="icon">&#x1F4CB;</span> フィードバックログ</div>
+  <div class="log-body" id="logBody">
+    <div class="log-empty" id="logEmpty">まだフィードバックはありません。上の動画を検証してください。</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const videos = [
+  {
+    id: 0,
+    title: "Gordon Ryan - Body Lock Passing System",
+    ai: { tb: "トップ", cat: "コントロール／プレッシャー", pos: "サイドコントロール" },
+    correct: { tb: "トップ", cat: "パスガード", pos: "サイドコントロール" },
+    tbOpts: ["トップ","ボトム"],
+    catOpts: ["パスガード","コントロール／プレッシャー","テイクダウン・投げ","サブミッション"],
+    posOpts: ["サイドコントロール","マウント","ハーフガード","クローズドガード"],
+  },
+  {
+    id: 1,
+    title: "Lachlan Giles - K Guard Entry to Saddle",
+    ai: { tb: "ボトム", cat: "スイープ", pos: "ハーフガード" },
+    correct: { tb: "ボトム", cat: "ガード構築・エントリー", pos: "Kガード" },
+    tbOpts: ["トップ","ボトム"],
+    catOpts: ["スイープ","ガード構築・エントリー","サブミッション","ガードリテンション"],
+    posOpts: ["ハーフガード","Kガード","サドル","デラヒーバ"],
+  },
+  {
+    id: 2,
+    title: "Mikey Musumeci - Butterfly Guard Concepts",
+    ai: { tb: "ボトム", cat: "ガードリテンション", pos: "バタフライガード" },
+    correct: null, // no changes needed
+    tbOpts: ["トップ","ボトム"],
+    catOpts: ["ガードリテンション","スイープ","ガード構築・エントリー"],
+    posOpts: ["バタフライガード","ハーフガード","クローズドガード"],
+  }
+];
+
+let currentIdx = 0;
+let selections = {};
+let feedbackCount = 0;
+let approvedCount = 0;
+let completed = [false, false, false];
+
+function renderQueue() {
+  document.getElementById('queue').innerHTML = videos.map((v, i) => `
+    <div class="queue-item ${i === currentIdx ? 'active' : ''} ${completed[i] ? 'done' : ''}"
+         onclick="${completed[i] ? '' : `selectVideo(${i})`}" style="cursor:${completed[i]?'default':'pointer'}">
+      <div class="queue-num">#${i + 1}</div>
+      <div class="queue-title">${v.title.split(' - ')[0]}</div>
+      <div class="queue-status ${completed[i] ? 'completed' : 'pending'}">${completed[i] ? '完了' : '未検証'}</div>
+    </div>
+  `).join('');
+}
+
+function selectVideo(idx) {
+  if (completed[idx]) return;
+  currentIdx = idx;
+  const v = videos[idx];
+  selections = { tb: v.ai.tb, cat: v.ai.cat, pos: v.ai.pos };
+  renderQueue();
+  renderEditPanel();
+}
+
+function renderEditPanel() {
+  const v = videos[currentIdx];
+  if (!v || completed[currentIdx]) {
+    document.getElementById('editPanel').innerHTML = `<div style="padding:40px;text-align:center;color:var(--text3)">全ての動画を検証しました</div>`;
+    return;
+  }
+
+  const makeChips = (field, opts, cls) => opts.map(o =>
+    `<div class="chip-opt ${cls} ${selections[field] === o ? 'selected' : ''}" onclick="selectOpt('${field}','${o}')">${o}</div>`
+  ).join('');
+
+  document.getElementById('editPanel').innerHTML = `
+    <div class="edit-header">
+      <div class="edit-title">${v.title}</div>
+      <div class="edit-badge">AI判定・未検証</div>
+    </div>
+    <div class="edit-body">
+      <div class="field-group">
+        <div class="field-label">TB <span class="ai-badge">AI: ${v.ai.tb}</span></div>
+        <div class="chip-options">${makeChips('tb', v.tbOpts, 'chip-tb')}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">CAT <span class="ai-badge">AI: ${v.ai.cat}</span></div>
+        <div class="chip-options">${makeChips('cat', v.catOpts, 'chip-cat')}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">POS <span class="ai-badge">AI: ${v.ai.pos}</span></div>
+        <div class="chip-options">${makeChips('pos', v.posOpts, 'chip-pos')}</div>
+      </div>
+    </div>
+    <div class="edit-actions">
+      <button class="btn btn-save" onclick="saveWithChanges()">保存</button>
+      <button class="btn btn-verify" onclick="verifyAsIs()">&#10003; 検証済み</button>
+    </div>
+  `;
+}
+
+function selectOpt(field, value) {
+  selections[field] = value;
+  renderEditPanel();
+}
+
+function hasChanges() {
+  const v = videos[currentIdx];
+  return selections.tb !== v.ai.tb || selections.cat !== v.ai.cat || selections.pos !== v.ai.pos;
+}
+
+function saveWithChanges() {
+  const v = videos[currentIdx];
+  if (!hasChanges()) {
+    verifyAsIs();
+    return;
+  }
+
+  // Show diff
+  const diffs = [];
+  ['tb','cat','pos'].forEach(f => {
+    const label = f.toUpperCase();
+    if (selections[f] !== v.ai[f]) {
+      diffs.push(`<div class="diff-row">
+        <div class="diff-field">${label}</div>
+        <span class="diff-old">${v.ai[f]}</span>
+        <span class="diff-arrow">&rarr;</span>
+        <span class="diff-new">${selections[f]}</span>
+      </div>`);
+    } else {
+      diffs.push(`<div class="diff-row">
+        <div class="diff-field">${label}</div>
+        <span class="diff-same">変更なし (${v.ai[f]})</span>
+      </div>`);
+    }
+  });
+
+  document.getElementById('diffBody').innerHTML = diffs.join('');
+  document.getElementById('diffOverlay').classList.add('show');
+
+  // Add to log
+  feedbackCount++;
+  addLogEntry(v.title, 'feedback', selections, v.ai);
+  markComplete();
+}
+
+function verifyAsIs() {
+  const v = videos[currentIdx];
+  approvedCount++;
+  addLogEntry(v.title, 'approved', null, null);
+  markComplete();
+  showToast('AI判定を承認しました', 'green');
+}
+
+function markComplete() {
+  completed[currentIdx] = true;
+  updateStats();
+  renderQueue();
+
+  // Move to next uncompleted
+  const next = completed.indexOf(false);
+  if (next >= 0) {
+    setTimeout(() => selectVideo(next), 400);
+  } else {
+    setTimeout(() => renderEditPanel(), 400);
+  }
+}
+
+function addLogEntry(title, type, newVals, aiVals) {
+  document.getElementById('logEmpty')?.remove();
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+
+  let detail = '';
+  if (type === 'feedback' && newVals && aiVals) {
+    const changes = [];
+    ['tb','cat','pos'].forEach(f => {
+      if (newVals[f] !== aiVals[f]) {
+        changes.push(`<div class="log-change"><span style="color:var(--red);text-decoration:line-through">${aiVals[f]}</span> <span style="color:var(--text3)">&rarr;</span> <span style="color:var(--green)">${newVals[f]}</span></div>`);
+      }
+    });
+    detail = changes.join('');
+  } else {
+    detail = '<span style="color:var(--green)">AI判定をそのまま承認</span>';
+  }
+
+  el.innerHTML = `
+    <div class="log-entry-header">
+      <div class="log-entry-title">${title}</div>
+      <div class="log-entry-type ${type === 'feedback' ? 'log-type-feedback' : 'log-type-approved'}">${type === 'feedback' ? '修正' : '承認'}</div>
+    </div>
+    <div class="log-entry-detail">${detail}</div>
+  `;
+
+  const logBody = document.getElementById('logBody');
+  logBody.insertBefore(el, logBody.firstChild);
+}
+
+function updateStats() {
+  document.getElementById('fbCount').textContent = feedbackCount + '件';
+  document.getElementById('okCount').textContent = approvedCount + '件';
+  const remain = completed.filter(c => !c).length;
+  document.getElementById('remainCount').textContent = remain + '件';
+}
+
+function closeDiff(e) {
+  if (e && e.target !== document.getElementById('diffOverlay')) return;
+  document.getElementById('diffOverlay').classList.remove('show');
+}
+
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Init
+selectVideo(0);
+</script>
+</body>
+</html>

@@ -350,7 +350,7 @@ window.openTagEditModal = function(type) {
       <input id="tag-modal-add-input" placeholder="${_esc(placeholder)}"
         style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;outline:none">
       <button onclick="_addTagFromModal('${type}')"
-        style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+        style="background:var(--accent);color:var(--on-accent);border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
     </div>
   </div>`;
 
@@ -871,7 +871,7 @@ function _renderTagsAiAliasBody(body, _e, _js) {
   }
   let h = `<div style="padding:10px 18px;border-bottom:1px solid var(--border2);display:flex;justify-content:flex-end">
     <button onclick="_adoptAllAiSuggestions()"
-      style="background:var(--accent);color:#fff;border:none;font-size:11px;font-weight:700;
+      style="background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;
              padding:6px 16px;border-radius:8px;cursor:pointer;font-family:inherit">すべて採用</button>
   </div>`;
   pending.forEach(({tn, s}) => {
@@ -1227,7 +1227,7 @@ export function renderTagSettingsList() {
       <div style="display:flex;gap:6px">
         <input id="ts-new-${i}" placeholder="候補を追加..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
           onkeydown="if(event.key==='Enter')addTagPreset(${i})">
-        <button onclick="addTagPreset(${i})" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;cursor:pointer">＋</button>
+        <button onclick="addTagPreset(${i})" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;cursor:pointer">＋</button>
       </div>
       ${tag.key === 'tags' ? `
         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
@@ -1427,7 +1427,7 @@ export function renderAiSettings() {
           ${['add','overwrite'].map(v => `
             <button onclick="aiSettings.defaultMode='${v}';saveAiSettings();renderAiSettings()"
               style="padding:6px 18px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;
-                ${s.defaultMode===v?'background:var(--accent);color:#fff;border:none':'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
+                ${s.defaultMode===v?'background:var(--accent);color:var(--on-accent);border:none':'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
               ${{add:'＋ 追加',overwrite:'上書き'}[v]}
             </button>`).join('')}
         </div>
@@ -1949,7 +1949,7 @@ window._techCleanup = function(tagIdx) {
   html += `
     <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1.5px solid var(--border)">
       <button id="tech-cleanup-apply"
-        style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;
+        style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent);
                font-size:14px;font-weight:700;cursor:pointer">
         ✓ 整理を適用
       </button>
@@ -2336,7 +2336,7 @@ window._tagSortMode = function() {
     summaryHtml += `
       <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1.5px solid var(--border)">
         <button id="sort-apply-btn"
-          style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;
+          style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent);
                  font-size:14px;font-weight:700;cursor:pointer">✓ 適用</button>
         <button onclick="document.getElementById('tech-cleanup-modal').remove()"
           style="padding:12px 20px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);

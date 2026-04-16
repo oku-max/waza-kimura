@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — テクニックタグ管理</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f5f0;--surface:#fff;--surface2:#f0efe8;
+  --border:#e0dfd8;--border2:#eae9e3;
+  --text:#1a1a1a;--text2:#666;--text3:#999;
+  --accent:#1a1a1a;--red:#ef4444;--green:#16a34a;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:420px;margin:0 auto;height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+/* ── Top bar ── */
+.topbar{display:flex;align-items:center;padding:14px 16px 10px;background:var(--bg);flex-shrink:0;gap:10px}
+.topbar h2{flex:1;font-size:15px;font-weight:800}
+.ai-btn{position:relative;display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:20px;font-size:12px;font-weight:700;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:inherit}
+.ai-btn .dot{width:7px;height:7px;border-radius:50%;background:#4ade80}
+.ai-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 5px;border-radius:10px;min-width:18px;text-align:center;display:none}
+.ai-badge.show{display:block}
+
+/* ── Content area ── */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;padding:8px 16px 16px;transition:opacity .2s,transform .2s;will-change:transform}
+.view.hidden{opacity:0;pointer-events:none;transform:translateX(30px)}
+.view.hidden.left{transform:translateX(-30px)}
+
+/* ── Bottom nav ── */
+.bottom-nav{display:flex;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px 12px;border:none;background:none;cursor:pointer;font-family:inherit;color:var(--text3);transition:.15s}
+.nav-btn.active{color:var(--accent)}
+.nav-icon{font-size:18px;line-height:1}
+.nav-label{font-size:10px;font-weight:700}
+.nav-btn.active .nav-label{color:var(--accent)}
+
+/* ══════════════════════════════
+   GROUPS VIEW
+══════════════════════════════ */
+.groups-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.group-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.group-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,26,26,.07)}
+.group-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none}
+.g-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.g-name{flex:1;font-size:13px;font-weight:700}
+.g-count{font-size:10px;color:var(--text3);font-family:monospace}
+.g-chevron{font-size:10px;color:var(--text3);transition:transform .2s}
+.group-card.open .g-chevron{transform:rotate(90deg)}
+.group-body{display:none;padding:0 12px 12px;border-top:1px solid var(--border2)}
+.group-card.open .group-body{display:block}
+.tech-chips{display:flex;flex-wrap:wrap;gap:5px;padding-top:8px}
+.t-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);cursor:grab;touch-action:none;user-select:none;transition:opacity .15s}
+.t-chip.dragging{opacity:.25}
+.t-chip .rm{color:var(--text3);cursor:pointer;margin-left:2px}
+.t-chip .rm:hover{color:var(--red)}
+.t-add{border-style:dashed;color:var(--text3);cursor:pointer}
+.ungrouped-section{margin-bottom:16px}
+.ung-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
+.ung-chips{display:flex;flex-wrap:wrap;gap:5px;min-height:32px;padding:6px;border-radius:8px;border:1.5px dashed transparent;transition:.15s}
+.ung-chips.drag-over{border-color:var(--border);background:var(--surface)}
+.u-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface);border:1.5px dashed var(--border);color:var(--text3);cursor:grab;touch-action:none;user-select:none;transition:.15s}
+.u-chip:hover{border-color:var(--accent);color:var(--text)}
+.u-chip.dragging{opacity:.25}
+.add-group-btn{width:100%;padding:11px;border:1.5px dashed var(--border);background:none;border-radius:10px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;transition:.15s}
+.add-group-btn:hover{border-color:var(--accent);color:var(--text)}
+
+/* Touch ghost */
+.t-ghost{position:fixed;z-index:600;pointer-events:none;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:700;background:var(--accent);color:#fff;white-space:nowrap;transform:translate(-50%,-50%);box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:.9}
+
+/* ── AI Proposal panel (shared) ── */
+.ai-panel{border-radius:14px;border:1.5px solid var(--border);background:var(--surface);margin-top:16px;display:none}
+.ai-panel.visible{display:block}
+.ai-panel-head{display:flex;align-items:center;padding:12px 15px;border-bottom:1px solid var(--border2);gap:8px}
+.ai-panel-title{flex:1;font-size:13px;font-weight:800}
+.ai-panel-close{background:none;border:none;font-size:15px;color:var(--text3);cursor:pointer}
+.proposal-row{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--border2);transition:opacity .15s,max-height .25s}
+.proposal-row.dismissed{opacity:0;max-height:0;padding:0;overflow:hidden;border:none;transition:opacity .15s,max-height .25s .1s,padding .25s .1s}
+.pr-from{font-size:12px;font-weight:700;min-width:96px}
+.pr-arrow{color:var(--text3)}
+.pr-to{flex:1;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text2)}
+.pr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pr-btns{display:flex;gap:5px}
+.pr-ok{padding:5px 11px;border-radius:7px;background:var(--accent);color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.pr-no{padding:5px 11px;border-radius:7px;border:1.5px solid var(--border);background:none;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.pr-no:hover{border-color:var(--red);color:var(--red)}
+.bulk-bar{display:flex;gap:8px;padding:10px 15px;border-bottom:1px solid var(--border2)}
+.bulk-ok{flex:1;padding:8px;border-radius:9px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.bulk-skip{padding:8px 12px;border-radius:9px;background:none;border:1.5px solid var(--border);color:var(--text3);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.panel-empty{text-align:center;padding:24px;font-size:12px;color:var(--text3)}
+.panel-note{padding:9px 15px;font-size:11px;color:var(--text3);border-top:1px solid var(--border2)}
+
+/* ══════════════════════════════
+   TAG DICT VIEW
+══════════════════════════════ */
+.add-row{display:flex;gap:8px;margin-bottom:14px;position:relative}
+.add-input{flex:1;padding:10px 13px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);font-size:13px;font-family:inherit;outline:none;color:var(--text)}
+.add-input:focus{border-color:var(--accent)}
+.add-submit{padding:10px 15px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.suggest-strip{position:absolute;top:44px;left:0;right:72px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;z-index:50;overflow:hidden;display:none;box-shadow:0 6px 20px rgba(0,0,0,.09)}
+.suggest-strip.open{display:block}
+.sug-item{display:flex;align-items:center;gap:8px;padding:9px 13px;cursor:pointer;border-bottom:1px solid var(--border2);font-size:12px}
+.sug-item:last-child{border-bottom:none}
+.sug-item:hover{background:var(--surface2)}
+.sug-name{flex:1;font-weight:600}
+.sug-hint{font-size:10px;color:var(--text3)}
+.sug-tag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:7px}
+.st-alias{background:#eff6ff;color:#3b82f6}
+.st-match{background:var(--surface2);color:var(--text3)}
+.tag-list{display:flex;flex-direction:column;gap:3px}
+.tag-row{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:10px;padding:11px 13px}
+.tag-row.dormant-row{opacity:.45}
+.t-name{flex:1;font-size:13px;font-weight:700}
+.t-group-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.t-aliases{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
+.a-pill{font-size:10px;padding:2px 6px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);color:var(--text3)}
+.t-count{font-size:11px;color:var(--text3);font-family:monospace;flex-shrink:0}
+.dormant-pill{font-size:10px;padding:2px 6px;border-radius:7px;background:#f1f5f9;border:1px solid var(--border);color:var(--text3);font-weight:600}
+
+/* Merge candidates in tag dict */
+.merge-row{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--border2);transition:opacity .15s,max-height .25s}
+.merge-row.dismissed{opacity:0;max-height:0;padding:0;overflow:hidden;border:none;transition:opacity .15s,max-height .25s .1s,padding .25s .1s}
+.mr-from{font-size:12px;font-weight:700;min-width:96px}
+.mr-arrow{color:var(--text3)}
+.mr-to{flex:1;font-size:12px;font-weight:600;color:var(--text2)}
+.mr-ok{padding:5px 11px;border-radius:7px;background:var(--accent);color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.mr-no{padding:5px 11px;border-radius:7px;border:1.5px solid var(--border);background:none;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.mr-no:hover{border-color:var(--red);color:var(--red)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:9px 15px;border-radius:10px;font-size:12px;z-index:800;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast.show{opacity:1;pointer-events:all}
+.t-undo{background:none;border:none;color:#4ade80;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <h2 id="pageTitle">グループ</h2>
+  <button class="ai-btn" id="aiBtn" onclick="toggleAiPanel()">
+    <span class="dot"></span><span id="aiBtnLabel">AI提案</span>
+    <span class="ai-badge" id="aiBadge"></span>
+  </button>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- ① GROUP VIEW -->
+  <div class="view" id="viewGroups">
+    <div class="groups-list" id="groupsList"></div>
+    <div class="ungrouped-section" id="ungroupedSection">
+      <div class="ung-label">未分類 <span id="ungCount"></span></div>
+      <div class="ung-chips" id="ungChips"></div>
+    </div>
+    <button class="add-group-btn" onclick="openAddGroup()">＋ グループを追加</button>
+    <!-- AI grouping proposal panel -->
+    <div class="ai-panel" id="aiGroupPanel">
+      <div class="ai-panel-head">
+        <div class="ai-panel-title">AI グループ提案</div>
+        <button class="ai-panel-close" onclick="closeAiGroupPanel()">✕</button>
+      </div>
+      <div id="aiGroupBody"></div>
+    </div>
+  </div>
+
+  <!-- ② TAG DICT VIEW -->
+  <div class="view hidden left" id="viewTags">
+    <div class="add-row">
+      <input class="add-input" id="addInput" placeholder="タグを追加…" autocomplete="off"
+        oninput="onAddInput()" onkeydown="if(event.key==='Enter')commitAdd()"
+        onblur="setTimeout(closeSuggest,160)">
+      <button class="add-submit" onclick="commitAdd()">追加</button>
+      <div class="suggest-strip" id="suggestStrip"></div>
+    </div>
+    <div class="tag-list" id="tagList"></div>
+    <!-- AI normalize panel -->
+    <div class="ai-panel" id="aiNormPanel">
+      <div class="ai-panel-head">
+        <div class="ai-panel-title">重複・類似タグの候補</div>
+        <button class="ai-panel-close" onclick="closeAiNormPanel()">✕</button>
+      </div>
+      <div id="aiNormBody"></div>
+      <div class="panel-note">統合するとエイリアスに記憶され、次回から自動変換されます</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="navGroups" onclick="switchView('groups')">
+    <span class="nav-icon">📁</span>
+    <span class="nav-label">グループ</span>
+  </button>
+  <button class="nav-btn" id="navTags" onclick="switchView('tags')">
+    <span class="nav-icon">🏷</span>
+    <span class="nav-label">タグ辞書</span>
+  </button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <button class="t-undo" id="toastUndo" style="display:none" onclick="doUndo()">元に戻す</button>
+</div>
+
+<script>
+const COLORS=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6','#64748b'];
+
+// ── Shared data ──────────────────────────────────────────
+let tags=[
+  {id:1, name:'ヒールフック',     count:12, aliases:['heel hook','HH'],   dormant:false},
+  {id:2, name:'RNC',              count:8,  aliases:['rear naked choke'], dormant:false},
+  {id:3, name:'ギロチン',         count:15, aliases:['guillotine'],       dormant:false},
+  {id:4, name:'アームバー',       count:10, aliases:['arm bar'],          dormant:false},
+  {id:5, name:'キムラ',           count:7,  aliases:['kimura'],           dormant:false},
+  {id:6, name:'バタフライスイープ',count:4,  aliases:[],                  dormant:false},
+  {id:7, name:'ベリンボロ',       count:5,  aliases:['berimbolo'],        dormant:false},
+  {id:8, name:'オモプラッタ',     count:3,  aliases:['omoplata'],         dormant:false},
+  {id:9, name:'エビ',             count:6,  aliases:[],                  dormant:false},
+  {id:10,name:'スパイダーガード', count:0,  aliases:[],                  dormant:true},
+];
+
+let groups=[
+  {id:1, name:'チョーク系',    color:'#3b82f6', techs:['RNC','ギロチン']},
+  {id:2, name:'関節技（腕）',  color:'#f59e0b', techs:['アームバー','キムラ']},
+  {id:3, name:'フットロック系',color:'#ef4444', techs:['ヒールフック']},
+  {id:4, name:'スイープ系',    color:'#22c55e', techs:['ベリンボロ','バタフライスイープ']},
+];
+
+// AI merge candidates (normalization)
+let mergeCandidates=[
+  {id:'c1', from:'ヒールフック系',   to:'ヒールフック'},
+  {id:'c2', from:'ギロチンチョーク', to:'ギロチン'},
+];
+
+// AI group proposals
+let groupProposalCache={};
+let groupProposals=[
+  {id:'g1', name:'エスケープ系', color:'#64748b', techs:['エビ','オモプラッタ']},
+];
+
+let dismissedMerge=new Set(), dismissedGroup=new Set(), excludedPairs=new Set();
+let undoStack=null;
+let currentView='groups';
+let aiGroupOpen=false, aiNormOpen=false;
+
+// Drag state
+let dragTech=null, dragSourceGid=null;
+let touchActive=false, touchGhost=null, touchSrcEl=null;
+let touchStartX=0, touchStartY=0, touchTargetGid=null;
+const THRESH=8;
+
+// ── Navigation ───────────────────────────────────────────
+function switchView(v){
+  const prev=currentView; currentView=v;
+  const gv=document.getElementById('viewGroups');
+  const tv=document.getElementById('viewTags');
+  if(v==='groups'){
+    gv.classList.remove('hidden','left');
+    tv.classList.add('hidden'); tv.classList.remove('left');
+    document.getElementById('navGroups').classList.add('active');
+    document.getElementById('navTags').classList.remove('active');
+    document.getElementById('pageTitle').textContent='グループ';
+    document.getElementById('aiBtnLabel').textContent='AI提案';
+  } else {
+    tv.classList.remove('hidden','left');
+    gv.classList.add('hidden'); gv.classList.add('left');
+    document.getElementById('navGroups').classList.remove('active');
+    document.getElementById('navTags').classList.add('active');
+    document.getElementById('pageTitle').textContent='タグ辞書';
+    document.getElementById('aiBtnLabel').textContent='AI整理';
+  }
+  updateBadge();
+}
+
+function toggleAiPanel(){
+  if(currentView==='groups'){
+    aiGroupOpen=!aiGroupOpen;
+    document.getElementById('aiGroupPanel').classList.toggle('visible',aiGroupOpen);
+    if(aiGroupOpen){ renderAiGroupPanel(); setTimeout(()=>document.getElementById('aiGroupPanel').scrollIntoView({behavior:'smooth',block:'start'}),50); }
+  } else {
+    aiNormOpen=!aiNormOpen;
+    document.getElementById('aiNormPanel').classList.toggle('visible',aiNormOpen);
+    if(aiNormOpen){ renderAiNormPanel(); setTimeout(()=>document.getElementById('aiNormPanel').scrollIntoView({behavior:'smooth',block:'start'}),50); }
+  }
+}
+function closeAiGroupPanel(){ aiGroupOpen=false; document.getElementById('aiGroupPanel').classList.remove('visible'); }
+function closeAiNormPanel(){ aiNormOpen=false; document.getElementById('aiNormPanel').classList.remove('visible'); }
+
+function updateBadge(){
+  const b=document.getElementById('aiBadge');
+  if(currentView==='groups'){
+    const n=groupProposals.filter(p=>!dismissedGroup.has(p.id)).length;
+    b.textContent=n; b.classList.toggle('show',n>0);
+  } else {
+    const n=mergeCandidates.filter(c=>!dismissedMerge.has(c.id)&&!excludedPairs.has(c.id)).length;
+    b.textContent=n; b.classList.toggle('show',n>0);
+  }
+}
+
+// ── Shared render ─────────────────────────────────────────
+function getGrouped(){ const s=new Set(); groups.forEach(g=>g.techs.forEach(t=>s.add(t))); return s; }
+
+function renderAll(){
+  renderGroups(); renderTagList(); updateBadge();
+  if(aiGroupOpen) renderAiGroupPanel();
+  if(aiNormOpen)  renderAiNormPanel();
+}
+
+// ── GROUPS VIEW ──────────────────────────────────────────
+function renderGroups(){
+  const openIds=new Set([...document.querySelectorAll('.group-card.open')].map(el=>+el.id.replace('gc-','')));
+  document.getElementById('groupsList').innerHTML=groups.map(g=>`
+    <div class="group-card${openIds.has(g.id)?' open':''}" id="gc-${g.id}">
+      <div class="group-header" onclick="toggleGroup(${g.id})">
+        <div class="g-dot" style="background:${g.color}"></div>
+        <div class="g-name">${g.name}</div>
+        <div class="g-count">${g.techs.length}件</div>
+        <div class="g-chevron">▶</div>
+      </div>
+      <div class="group-body">
+        <div class="tech-chips">
+          ${g.techs.sort((a,b)=>a.localeCompare(b,'ja')).map(t=>`
+            <span class="t-chip" draggable="true"
+              ondragstart="onDragStart(event,'${esc(t)}',${g.id})"
+              ondragend="onDragEnd(event)"
+              ontouchstart="onTouchStart(event,'${esc(t)}',${g.id})"
+            >${t}<span class="rm" onclick="event.stopPropagation();removeTechFromGroup(${g.id},'${esc(t)}')">×</span></span>`).join('')}
+          <span class="t-chip t-add" onclick="openAssignModal(${g.id})">＋</span>
+        </div>
+      </div>
+    </div>`).join('');
+
+  document.querySelectorAll('.group-card').forEach(card=>{
+    const gid=+card.id.replace('gc-','');
+    card.addEventListener('dragover', e=>onGroupDragOver(e,gid));
+    card.addEventListener('dragleave',e=>onGroupDragLeave(e,gid));
+    card.addEventListener('drop',     e=>onGroupDrop(e,gid));
+  });
+
+  const grouped=getGrouped();
+  const ung=tags.filter(t=>!t.dormant&&!grouped.has(t.name)).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  document.getElementById('ungCount').textContent=`(${ung.length})`;
+  const uc=document.getElementById('ungChips');
+  uc.innerHTML=ung.map(t=>`
+    <span class="u-chip" draggable="true"
+      ondragstart="onDragStart(event,'${esc(t.name)}',null)"
+      ondragend="onDragEnd(event)"
+      ontouchstart="onTouchStart(event,'${esc(t.name)}',null)"
+      onclick="quickAssign('${esc(t.name)}')"
+    >${t.name}</span>`).join('');
+  document.getElementById('ungroupedSection').style.display=ung.length?'':'none';
+  uc.ondragover=e=>{if(dragSourceGid===null)return;e.preventDefault();uc.classList.add('drag-over');};
+  uc.ondragleave=e=>{if(!uc.contains(e.relatedTarget))uc.classList.remove('drag-over');};
+  uc.ondrop=e=>{
+    e.preventDefault();uc.classList.remove('drag-over');
+    const tech=dragTech||e.dataTransfer.getData('text/plain');
+    if(!tech||dragSourceGid===null)return;
+    const g=groups.find(g=>g.id===dragSourceGid);
+    if(g)g.techs=g.techs.filter(t=>t!==tech);
+    renderAll();showToast(`「${tech}」を未分類に`);
+  };
+}
+
+function toggleGroup(id){ document.getElementById('gc-'+id)?.classList.toggle('open'); }
+function removeTechFromGroup(gid,tech){ const g=groups.find(g=>g.id===gid);if(g){g.techs=g.techs.filter(t=>t!==tech);renderAll();showToast(`「${tech}」除外`);} }
+
+// Quick assign picker
+function quickAssign(tech){
+  if(!groups.length)return;
+  const existing=document.getElementById('qpicker'); if(existing)existing.remove();
+  const pk=document.createElement('div'); pk.id='qpicker';
+  pk.style.cssText='position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.3)';
+  pk.innerHTML=`<div style="background:#fff;border-radius:14px;width:100%;max-width:320px;box-shadow:0 12px 40px rgba(0,0,0,.2)">
+    <div style="padding:13px 18px 10px;border-bottom:1px solid #eae9e3;font-size:13px;font-weight:800">「${tech}」をどのグループに？</div>
+    ${groups.map(g=>`<div onclick="assignTo('${esc(tech)}',${g.id})" style="display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid #eae9e3;cursor:pointer">
+      <div style="width:9px;height:9px;border-radius:50%;background:${g.color}"></div>
+      <div style="flex:1;font-size:13px;font-weight:600">${g.name}</div>
+      <div style="font-size:11px;color:#999">${g.techs.length}件</div></div>`).join('')}
+    <div style="padding:11px 18px"><button onclick="document.getElementById('qpicker').remove()" style="width:100%;padding:9px;border-radius:8px;border:1px solid #e0dfd8;background:#f0efe8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#666">キャンセル</button></div>
+  </div>`;
+  pk.addEventListener('click',e=>{if(e.target===pk)pk.remove();});
+  document.body.appendChild(pk);
+}
+function assignTo(tech,gid){
+  const g=groups.find(g=>g.id===gid);
+  if(g&&!g.techs.includes(tech))g.techs.push(tech);
+  document.getElementById('qpicker')?.remove();
+  renderAll();showToast(`「${tech}」→「${g?.name}」`);
+}
+function openAssignModal(gid){ quickAssign('＋ タグを追加'); /* simplified */ }
+
+function openAddGroup(){
+  const name=prompt('グループ名を入力してください');
+  if(!name?.trim())return;
+  groups.push({id:Date.now(),name:name.trim(),color:COLORS[groups.length%COLORS.length],techs:[]});
+  renderAll();showToast(`「${name}」を追加しました`);
+}
+
+// AI Group proposals
+function renderAiGroupPanel(){
+  const pending=groupProposals.filter(p=>!dismissedGroup.has(p.id));
+  const body=document.getElementById('aiGroupBody');
+  if(!pending.length){body.innerHTML=`<div class="panel-empty">グループ提案はありません</div>`;return;}
+  groupProposals.forEach(p=>{groupProposalCache[p.id]=p;});
+  body.innerHTML=pending.map(p=>`
+    <div class="proposal-row" id="gp-${p.id}">
+      <div class="pr-from" style="display:flex;align-items:center;gap:5px"><div class="pr-dot" style="background:${p.color}"></div>${p.name}</div>
+      <div class="pr-arrow">:</div>
+      <div class="pr-to">${p.techs.join('、')}</div>
+      <div class="pr-btns">
+        <button class="pr-ok" onclick="adoptGroupProposal('${p.id}')">作成</button>
+        <button class="pr-no" onclick="skipGroupProposal('${p.id}')">スキップ</button>
+      </div>
+    </div>`).join('');
+}
+function adoptGroupProposal(pid){
+  const p=groupProposalCache[pid]; if(!p)return;
+  const grouped=getGrouped();
+  groups.push({id:Date.now(),name:p.name,color:p.color,techs:p.techs.filter(t=>!grouped.has(t))});
+  dismissedGroup.add(pid);
+  document.getElementById('gp-'+pid)?.classList.add('dismissed');
+  setTimeout(()=>renderAiGroupPanel(),300);
+  renderAll();showToast(`「${p.name}」を作成しました`);
+}
+function skipGroupProposal(pid){
+  dismissedGroup.add(pid);
+  document.getElementById('gp-'+pid)?.classList.add('dismissed');
+  setTimeout(()=>renderAiGroupPanel(),300);
+  updateBadge();showToast('スキップしました');
+}
+
+// ── TAG DICT VIEW ─────────────────────────────────────────
+function renderTagList(){
+  const grouped=getGrouped();
+  const active =tags.filter(t=>!t.dormant);
+  const dormant=tags.filter(t=> t.dormant);
+  document.getElementById('tagList').innerHTML=[
+    ...active.map(t=>{
+      const g=groups.find(g=>g.techs.includes(t.name));
+      return `<div class="tag-row">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px">
+            ${g?`<div class="t-group-dot" style="background:${g.color}" title="${g.name}"></div>`:''}
+            <div class="t-name">${t.name}</div>
+          </div>
+          ${t.aliases.length?`<div class="t-aliases">${t.aliases.map(a=>`<span class="a-pill">${a}</span>`).join('')}</div>`:''}
+        </div>
+        <span class="t-count">${t.count}本</span>
+      </div>`;
+    }),
+    ...dormant.map(t=>`
+      <div class="tag-row dormant-row">
+        <div class="t-name" style="flex:1">${t.name}</div>
+        <span class="dormant-pill">休眠</span>
+        <span class="t-count">${t.count}本</span>
+      </div>`),
+  ].join('');
+}
+
+// AI Normalization panel
+function renderAiNormPanel(){
+  const pending=mergeCandidates.filter(c=>!dismissedMerge.has(c.id)&&!excludedPairs.has(c.id));
+  const body=document.getElementById('aiNormBody');
+  if(!pending.length){body.innerHTML=`<div class="panel-empty">重複・類似タグの候補はありません</div>`;return;}
+  body.innerHTML=`
+    <div class="bulk-bar">
+      <button class="bulk-ok" onclick="mergeAll()">すべて統合（${pending.length}件）</button>
+      <button class="bulk-skip" onclick="skipAllMerge()">あとで</button>
+    </div>
+    ${pending.map(c=>`
+      <div class="merge-row" id="mr-${c.id}">
+        <div class="mr-from">${c.from}</div>
+        <div class="mr-arrow">→</div>
+        <div class="mr-to">${c.to}</div>
+        <div class="pr-btns">
+          <button class="mr-ok" onclick="doMerge('${c.id}')">統合</button>
+          <button class="mr-no" onclick="doExclude('${c.id}')">別物</button>
+        </div>
+      </div>`).join('')}`;
+}
+
+function doMerge(id){
+  const c=mergeCandidates.find(c=>c.id===id); if(!c)return;
+  const tgt=tags.find(t=>t.name===c.to);
+  if(tgt&&!tgt.aliases.includes(c.from)) tgt.aliases.push(c.from);
+  tags=tags.filter(t=>t.name!==c.from);
+  // Also update any groups that referenced the old name
+  groups.forEach(g=>{ g.techs=g.techs.map(t=>t===c.from?c.to:t); });
+  undoStack={type:'merge',c,removedAlias:c.from};
+  dismissedMerge.add(id);
+  document.getElementById('mr-'+id)?.classList.add('dismissed');
+  setTimeout(()=>renderAiNormPanel(),300);
+  renderAll();
+  showToast(`「${c.from}」→「${c.to}」に統合しました`, true);
+}
+function doExclude(id){
+  const c=mergeCandidates.find(c=>c.id===id); if(!c)return;
+  excludedPairs.add(id);
+  dismissedMerge.add(id);
+  document.getElementById('mr-'+id)?.classList.add('dismissed');
+  setTimeout(()=>renderAiNormPanel(),300);
+  updateBadge();showToast(`「${c.from}」と「${c.to}」は別物として登録`);
+}
+function mergeAll(){
+  mergeCandidates.filter(c=>!dismissedMerge.has(c.id)&&!excludedPairs.has(c.id)).forEach(c=>{
+    const tgt=tags.find(t=>t.name===c.to);
+    if(tgt&&!tgt.aliases.includes(c.from))tgt.aliases.push(c.from);
+    tags=tags.filter(t=>t.name!==c.from);
+    groups.forEach(g=>{g.techs=g.techs.map(t=>t===c.from?c.to:t);});
+    dismissedMerge.add(c.id);
+  });
+  renderAll();showToast('まとめて統合しました');
+}
+function skipAllMerge(){
+  mergeCandidates.forEach(c=>dismissedMerge.add(c.id));
+  renderAll();showToast('あとで確認します');
+}
+
+// Undo
+function doUndo(){
+  if(!undoStack)return;
+  const u=undoStack;
+  if(u.type==='merge'){
+    const tgt=tags.find(t=>t.name===u.c.to);
+    if(tgt)tgt.aliases=tgt.aliases.filter(a=>a!==u.c.from);
+    if(!tags.find(t=>t.name===u.c.from))
+      tags.push({id:Date.now(),name:u.c.from,count:0,aliases:[],dormant:false});
+    groups.forEach(g=>{g.techs=g.techs.map(t=>t===u.c.to&&!tags.find(tt=>tt.name===u.c.to)?u.c.from:t);});
+    dismissedMerge.delete(u.c.id);
+  } else if(u.type==='add'){
+    tags=tags.filter(t=>t.id!==u.tagId);
+  }
+  undoStack=null; hideToast(); renderAll();
+  showToast('元に戻しました');
+}
+
+// Add input (A + B)
+function onAddInput(){
+  const q=document.getElementById('addInput').value.trim().toLowerCase();
+  const strip=document.getElementById('suggestStrip');
+  if(!q){strip.classList.remove('open');return;}
+  const items=[];
+  for(const t of tags){
+    if(t.aliases.some(a=>a.toLowerCase()===q)){
+      items.push({name:t.name,hint:`"${q}" → 自動変換`,cls:'st-alias'}); break;
+    }
+  }
+  if(!items.length){
+    tags.filter(t=>t.name.toLowerCase().includes(q)||t.aliases.some(a=>a.toLowerCase().includes(q)))
+      .slice(0,3).forEach(t=>items.push({name:t.name,hint:'候補',cls:'st-match',sv:t.name}));
+  }
+  if(!items.length){strip.classList.remove('open');return;}
+  strip.innerHTML=items.map(it=>`
+    <div class="sug-item" onclick="selectSug('${esc(it.sv||it.name)}')">
+      <span class="sug-name">${it.name}</span>
+      <span class="sug-hint">${it.hint}</span>
+      <span class="sug-tag ${it.cls}">${it.cls==='st-alias'?'自動変換':'既存'}</span>
+    </div>`).join('');
+  strip.classList.add('open');
+}
+function selectSug(v){document.getElementById('addInput').value=v;closeSuggest();}
+function closeSuggest(){document.getElementById('suggestStrip').classList.remove('open');}
+function commitAdd(){
+  const inp=document.getElementById('addInput');
+  const raw=inp.value.trim();if(!raw)return;
+  inp.value='';closeSuggest();
+  for(const t of tags){
+    if(t.aliases.some(a=>a.toLowerCase()===raw.toLowerCase())){
+      showToast(`「${raw}」→「${t.name}」に自動変換しました`,true);
+      undoStack={type:'alias_noop'}; return;
+    }
+  }
+  if(tags.find(t=>t.name.toLowerCase()===raw.toLowerCase())){showToast(`「${raw}」は既に存在します`);return;}
+  const nt={id:Date.now(),name:raw,count:0,aliases:[],dormant:false};
+  tags.push(nt); undoStack={type:'add',tagId:nt.id};
+  renderAll();showToast(`「${raw}」を追加しました`,true);
+}
+
+// ── D&D ──────────────────────────────────────────────────
+function onDragStart(e,tech,fromGid){
+  dragTech=tech;dragSourceGid=fromGid;
+  e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',tech);
+  requestAnimationFrame(()=>e.target.classList.add('dragging'));
+}
+function onDragEnd(e){e.target.classList.remove('dragging');clearDrag();}
+function onGroupDragOver(e,gid){if(!dragTech||dragSourceGid===gid)return;e.preventDefault();document.getElementById('gc-'+gid)?.classList.add('drag-over');}
+function onGroupDragLeave(e,gid){const c=document.getElementById('gc-'+gid);if(c&&!c.contains(e.relatedTarget))c.classList.remove('drag-over');}
+function onGroupDrop(e,gid){
+  e.preventDefault();document.getElementById('gc-'+gid)?.classList.remove('drag-over');
+  const tech=dragTech||e.dataTransfer.getData('text/plain');
+  if(!tech||dragSourceGid===gid)return;
+  if(dragSourceGid!==null){const s=groups.find(g=>g.id===dragSourceGid);if(s)s.techs=s.techs.filter(t=>t!==tech);}
+  const tgt=groups.find(g=>g.id===gid);
+  if(tgt&&!tgt.techs.includes(tech))tgt.techs.push(tech);
+  document.getElementById('gc-'+gid)?.classList.add('open');
+  renderAll();showToast(`「${tech}」→「${tgt?.name}」`);clearDrag();
+}
+function clearDrag(){dragTech=null;dragSourceGid=null;document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));}
+
+// Touch D&D
+function onTouchStart(e,tech,fromGid){
+  if(e.target.classList.contains('rm'))return;
+  const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY;
+  touchActive=false;dragTech=tech;dragSourceGid=fromGid;
+  touchSrcEl=e.currentTarget;touchTargetGid=null;
+}
+document.addEventListener('touchmove',e=>{
+  if(dragTech===null)return;
+  const t=e.touches[0];
+  if(!touchActive){if(Math.hypot(t.clientX-touchStartX,t.clientY-touchStartY)<THRESH)return;
+    touchActive=true;touchSrcEl?.classList.add('dragging');
+    touchGhost=document.createElement('div');touchGhost.className='t-ghost';touchGhost.textContent=dragTech;document.body.appendChild(touchGhost);}
+  e.preventDefault();
+  touchGhost.style.left=t.clientX+'px';touchGhost.style.top=t.clientY+'px';
+  touchGhost.style.visibility='hidden';const el=document.elementFromPoint(t.clientX,t.clientY);touchGhost.style.visibility='';
+  const card=el?.closest?.('.group-card');const uc=document.getElementById('ungChips');
+  document.querySelectorAll('.group-card.drag-over').forEach(c=>c.classList.remove('drag-over'));uc.classList.remove('drag-over');touchTargetGid=null;
+  if(card){const gid=+card.id.replace('gc-','');if(gid!==dragSourceGid){card.classList.add('drag-over');touchTargetGid=gid;}}
+  else if(uc.contains(el)||el===uc){if(dragSourceGid!==null){uc.classList.add('drag-over');touchTargetGid='ungrouped';}}
+},{passive:false});
+document.addEventListener('touchend',e=>{
+  if(dragTech===null)return;
+  const tech=dragTech,fromGid=dragSourceGid;
+  touchGhost?.remove();touchGhost=null;touchSrcEl?.classList.remove('dragging');touchSrcEl=null;
+  document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  if(!touchActive){if(fromGid===null){clearDrag();quickAssign(tech);return;}}
+  else if(touchTargetGid==='ungrouped'){if(fromGid!==null){const s=groups.find(g=>g.id===fromGid);if(s)s.techs=s.techs.filter(t=>t!==tech);renderAll();showToast(`「${tech}」を未分類に`);}}
+  else if(touchTargetGid!==null){
+    if(fromGid!==null){const s=groups.find(g=>g.id===fromGid);if(s)s.techs=s.techs.filter(t=>t!==tech);}
+    const tgt=groups.find(g=>g.id===touchTargetGid);if(tgt&&!tgt.techs.includes(tech))tgt.techs.push(tech);
+    document.getElementById('gc-'+touchTargetGid)?.classList.add('open');
+    renderAll();showToast(`「${tech}」→「${tgt?.name}」`);
+  }
+  touchActive=false;touchTargetGid=null;clearDrag();
+});
+document.addEventListener('touchcancel',()=>{touchGhost?.remove();touchGhost=null;touchSrcEl?.classList.remove('dragging');touchSrcEl=null;touchActive=false;touchTargetGid=null;clearDrag();});
+
+// ── Toast ─────────────────────────────────────────────────
+let toastTid=null;
+function showToast(msg,withUndo=false){
+  document.getElementById('toastMsg').textContent=msg;
+  document.getElementById('toastUndo').style.display=withUndo?'':'none';
+  const t=document.getElementById('toast');t.classList.add('show');
+  clearTimeout(toastTid);toastTid=setTimeout(()=>t.classList.remove('show'),withUndo?5000:2200);
+}
+function hideToast(){clearTimeout(toastTid);document.getElementById('toast').classList.remove('show');}
+
+function esc(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\\'");}
+
+// ── Init ─────────────────────────────────────────────────
+renderAll();
+setTimeout(()=>toggleGroup(groups[0].id),100);
+</script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pattern C — 横スクロール</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#e8e8e8;font-family:system-ui,sans-serif;min-height:100svh}
+.bd{position:fixed;inset:0;background:rgba(0,0,0,.25)}
+.popup{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:calc(100vw - 32px);max-width:1080px;
+  height:calc(100svh - 32px);max-height:600px;
+  background:#fff;color:#333;border-radius:12px;border:1px solid #ddd;
+  box-shadow:0 8px 32px rgba(0,0,0,.15);display:flex;flex-direction:column;overflow:hidden;
+}
+/* topbar: タブ行 */
+.uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f5f5;border-bottom:1px solid #ddd;flex-shrink:0;flex-wrap:wrap}
+.uni-tabs{display:flex;gap:3px;flex:1;min-width:0}
+.uni-tab{padding:7px 14px;font-size:12px;font-weight:700;color:#888;cursor:pointer;border-radius:6px;background:#fff;border:1px solid #ddd;white-space:nowrap}
+.uni-tab.on{background:#6b3fd4;color:#fff;border-color:#6b3fd4}
+.uni-tab .uni-bdg{display:inline-block;background:#6b3fd4;color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
+.uni-tab.on .uni-bdg{background:rgba(255,255,255,.3)}
+.uni-x{color:#aaa;cursor:pointer;font-size:18px;padding:0 8px;line-height:1}
+/* searchbar: 独立行 */
+.uni-searchbar{padding:6px 10px;background:#f5f5f5;border-bottom:1px solid #ddd;flex-shrink:0}
+.uni-searchbar input{width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;background:#fff;color:#333;box-sizing:border-box}
+
+/* ══ Pattern C: 横スクロール ══ */
+.uni-cols{
+  flex:1;
+  display:flex;
+  overflow-x:auto;
+  overflow-y:hidden;
+  min-height:0;
+  -webkit-overflow-scrolling:touch;
+}
+/* スクロールバー薄く */
+.uni-cols::-webkit-scrollbar{height:4px}
+.uni-cols::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
+
+.uni-col{
+  flex:0 0 auto;
+  min-width:160px;
+  width:clamp(160px,25vw,280px);
+  display:flex;flex-direction:column;
+  border-right:1px solid #ddd;min-height:0;overflow:hidden;
+}
+.uni-col:last-child{border-right:none}
+/* 最近みた動画など情報量が多いカラム用 */
+.uni-col.wide{
+  min-width:240px;
+  width:clamp(240px,30vw,340px);
+}
+.uni-col.narrow{
+  min-width:100px;
+  width:clamp(100px,12vw,140px);
+}
+
+.uni-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:#888;background:#f5f5f5;border-bottom:1px solid #ddd;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px}
+.uni-col-hdr select{font-size:10px;border:1px solid #ddd;border-radius:4px;padding:2px 4px;background:#fff;color:#666}
+.uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
+
+.grp-label{padding:6px 12px 2px;font-size:9px;font-weight:800;color:#6b3fd4;letter-spacing:.5px}
+.grp-divider{height:1px;background:#ddd;margin:6px 0}
+
+.uni-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:#333}
+.uni-row:hover{background:#f5f5f5}
+.uni-row.on{background:rgba(107,63,212,.14);border-left-color:#6b3fd4;color:#6b3fd4;font-weight:700}
+.uni-cnt{min-width:22px;height:20px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:#6b3fd4;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.uni-row.on .uni-cnt{background:#6b3fd4;color:#fff}
+
+.uni-ss-item{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:12px;display:flex;align-items:center;gap:8px}
+.uni-ss-item:hover{background:#f5f5f5}
+.uni-ss-name{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uni-ss-cnt{font-size:10px;color:#888;flex-shrink:0}
+.uni-ss-dots{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:#888;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;font-weight:700}
+.uni-ss-add{font-size:10px;color:#6b3fd4;cursor:pointer;font-weight:700}
+
+.uni-rc-item{padding:6px 12px;cursor:pointer;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:8px}
+.uni-rc-item:hover{background:#f5f5f5}
+.uni-rc-rank{font-size:10px;color:#888;font-weight:700;width:18px;text-align:right;flex-shrink:0}
+.uni-rc-thumb{width:48px;min-width:48px;height:32px;border-radius:4px;background:#ddd;flex-shrink:0;overflow:hidden;position:relative}
+.uni-rc-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;color:rgba(0,0,0,.4);pointer-events:none}
+.uni-rc-info{flex:1;min-width:0}
+.uni-rc-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.uni-rc-meta{font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.uni-ftr{border-top:1px solid #ddd;padding:8px 14px;background:#f5f5f5;display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap;flex-shrink:0}
+.uni-lbl{font-size:10px;color:#888;font-weight:700;margin-right:4px}
+.uni-pill{background:#6b3fd4;color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+.uni-pill:after{content:" \00d7";opacity:.7}
+.uni-sp{flex:1}
+.uni-hit{font-size:12px;color:#6b3fd4;font-weight:700}
+.uni-clr{font-size:10px;color:#888;cursor:pointer;text-decoration:underline;margin-right:6px}
+.uni-apply{background:#6b3fd4;color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer}
+
+.tab-content{display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0}
+.tab-content.active{display:flex}
+.debug{position:fixed;top:4px;right:4px;color:#333;font-size:11px;font-family:monospace;z-index:99999;background:rgba(255,255,255,.85);padding:4px 8px;border-radius:4px;border:1px solid #ccc}
+.pattern-label{position:fixed;top:4px;left:4px;color:#fff;font-size:12px;font-weight:700;z-index:99999;background:#6b3fd4;padding:4px 10px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="pattern-label">Pattern C: 横スクロール</div>
+<div class="bd"></div>
+<div class="popup">
+  <div class="uni-topbar">
+    <div class="uni-tabs">
+      <div class="uni-tab on" data-tab="state" onclick="switchTab('state')">進捗 & マーク<span class="uni-bdg">2</span></div>
+      <div class="uni-tab" data-tab="src" onclick="switchTab('src')">ソース・チャンネル・プレイリスト</div>
+      <div class="uni-tab" data-tab="tag" onclick="switchTab('tag')">タグ<span class="uni-bdg">1</span></div>
+    </div>
+    <div class="uni-x">&#x2715;</div>
+  </div>
+  <div class="uni-searchbar"><input placeholder="&#x1F50D; 検索..." /></div>
+
+  <div class="tab-content active" data-tab="state">
+    <div class="uni-cols">
+      <div class="uni-col">
+        <div class="uni-col-hdr"><span>マーク・進捗・カウント</span></div>
+        <div class="uni-col-body">
+          <div class="grp-label">マーク</div>
+          <div class="uni-row on"><span>★ Fav</span><span class="uni-cnt">42</span></div>
+          <div class="uni-row"><span>▶ Next</span><span class="uni-cnt">18</span></div>
+          <div class="uni-row on"><span>📌 ブックマーク</span><span class="uni-cnt">67</span></div>
+          <div class="uni-row"><span>💬 メモあり</span><span class="uni-cnt">31</span></div>
+          <div class="uni-row"><span>🖼 画像あり</span><span class="uni-cnt">24</span></div>
+          <div class="grp-divider"></div>
+          <div class="grp-label">進捗ランク (自動)</div>
+          <div class="uni-row"><span>入門 (0回)</span><span class="uni-cnt">198</span></div>
+          <div class="uni-row"><span>初級 (1-4)</span><span class="uni-cnt">156</span></div>
+          <div class="uni-row"><span>中級 (5-14)</span><span class="uni-cnt">89</span></div>
+          <div class="uni-row"><span>上級 (15-29)</span><span class="uni-cnt">34</span></div>
+          <div class="uni-row"><span>達人 (30+)</span><span class="uni-cnt">12</span></div>
+          <div class="grp-divider"></div>
+          <div class="grp-label">最終カウント日</div>
+          <div class="uni-row"><span>今週 (7日以内)</span><span class="uni-cnt">23</span></div>
+          <div class="uni-row"><span>今月 (30日以内)</span><span class="uni-cnt">56</span></div>
+          <div class="uni-row"><span>3ヶ月以内</span><span class="uni-cnt">87</span></div>
+          <div class="uni-row"><span>それ以前</span><span class="uni-cnt">112</span></div>
+          <div class="uni-row"><span>未カウント</span><span class="uni-cnt">211</span></div>
+        </div>
+      </div>
+      <div class="uni-col">
+        <div class="uni-col-hdr"><span>保存した検索条件</span><span class="uni-ss-add">＋ 新規保存</span></div>
+        <div class="uni-col-body">
+          <div class="uni-ss-item"><span class="uni-ss-name">ガード練習メニュー</span><span class="uni-ss-cnt">34件</span><button class="uni-ss-dots">···</button></div>
+          <div class="uni-ss-item"><span class="uni-ss-name">未着手パスガード</span><span class="uni-ss-cnt">28件</span><button class="uni-ss-dots">···</button></div>
+          <div class="uni-ss-item"><span class="uni-ss-name">お気に入りスイープ</span><span class="uni-ss-cnt">15件</span><button class="uni-ss-dots">···</button></div>
+          <div class="uni-ss-item"><span class="uni-ss-name">最近追加 - サブミッション</span><span class="uni-ss-cnt">22件</span><button class="uni-ss-dots">···</button></div>
+          <div class="uni-ss-item"><span class="uni-ss-name">要復習リスト</span><span class="uni-ss-cnt">19件</span><button class="uni-ss-dots">···</button></div>
+        </div>
+      </div>
+      <div class="uni-col wide">
+        <div class="uni-col-hdr"><span>最近みた動画 TOP 15</span></div>
+        <div class="uni-col-body">
+          <div class="uni-rc-item"><span class="uni-rc-rank">1</span><div class="uni-rc-thumb"><span class="uni-rc-play">▶</span></div><div class="uni-rc-info"><div class="uni-rc-title">キムラロック from クローズドガード</div><div class="uni-rc-meta">Lachlan Giles</div></div></div>
+          <div class="uni-rc-item"><span class="uni-rc-rank">2</span><div class="uni-rc-thumb"><span class="uni-rc-play">▶</span></div><div class="uni-rc-info"><div class="uni-rc-title">ハーフガードスイープ 基本3種</div><div class="uni-rc-meta">BJJ Fanatics</div></div></div>
+          <div class="uni-rc-item"><span class="uni-rc-rank">3</span><div class="uni-rc-thumb"><span class="uni-rc-play">▶</span></div><div class="uni-rc-info"><div class="uni-rc-title">ニーシールド リテンション</div><div class="uni-rc-meta">Bernardo Faria</div></div></div>
+          <div class="uni-rc-item"><span class="uni-rc-rank">4</span><div class="uni-rc-thumb"><span class="uni-rc-play">▶</span></div><div class="uni-rc-info"><div class="uni-rc-title">Xガードエントリー 5パターン</div><div class="uni-rc-meta">Marcelo Garcia</div></div></div>
+          <div class="uni-rc-item"><span class="uni-rc-rank">5</span><div class="uni-rc-thumb"><span class="uni-rc-play">▶</span></div><div class="uni-rc-info"><div class="uni-rc-title">ダブルレッグ テイクダウン</div><div class="uni-rc-meta">Gordon Ryan</div></div></div>
+          <div class="uni-rc-item"><span class="uni-rc-rank">6</span><div class="uni-rc-thumb"><span class="uni-rc-play">▶</span></div><div class="uni-rc-info"><div class="uni-rc-title">三角絞め セットアップ集</div><div class="uni-rc-meta">Danaher</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Tab: ソース (src) — Source(narrow) + Channel + Playlist ═══ -->
+  <div class="tab-content" data-tab="src">
+    <div class="uni-cols">
+      <div class="uni-col narrow"><div class="uni-col-hdr"><span>Source</span></div><div class="uni-col-body">
+        <div class="uni-row on"><span>YouTube</span><span class="uni-cnt">623</span></div>
+        <div class="uni-row"><span>Vimeo</span><span class="uni-cnt">45</span></div>
+        <div class="uni-row"><span>GDrive</span><span class="uni-cnt">78</span></div>
+        <div class="uni-row"><span>X</span><span class="uni-cnt">23</span></div>
+      </div></div>
+      <div class="uni-col"><div class="uni-col-hdr"><span>Channel</span><select><option selected>件数順</option><option>あいうえ順</option></select></div><div class="uni-col-body">
+        <div class="uni-row"><span>（チャンネルはユーザーデータから動的取得）</span></div>
+        <div class="uni-row" style="color:#888;font-size:11px;padding:10px 12px">チャンネル名は動画の channel/ch フィールドから集計されます</div>
+      </div></div>
+      <div class="uni-col"><div class="uni-col-hdr"><span>Playlist</span><select><option selected>件数順</option><option>あいうえ順</option></select></div><div class="uni-col-body">
+        <div class="uni-row"><span>（プレイリストはユーザーデータから動的取得）</span></div>
+        <div class="uni-row" style="color:#888;font-size:11px;padding:10px 12px">プレイリスト名は動画の pl フィールドから集計されます</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ═══ Tab: タグ (tag) — T/B(narrow) + カテゴリ + ポジション + #タグ ═══ -->
+  <div class="tab-content" data-tab="tag">
+    <div class="uni-cols">
+      <!-- T/B (TB_VALUES) -->
+      <div class="uni-col narrow"><div class="uni-col-hdr"><span>T/B</span></div><div class="uni-col-body">
+        <div class="uni-row on"><span>トップ</span><span class="uni-cnt">312</span></div>
+        <div class="uni-row"><span>ボトム</span><span class="uni-cnt">298</span></div>
+        <div class="uni-row"><span>スタンディング</span><span class="uni-cnt">45</span></div>
+      </div></div>
+      <!-- カテゴリ (CATEGORIES from tag-master.js) -->
+      <div class="uni-col"><div class="uni-col-hdr"><span>カテゴリ</span><select><option selected>あいうえ順</option><option>件数順</option></select></div><div class="uni-col-body">
+        <div class="uni-row"><span>エスケープ・ディフェンス</span><span class="uni-cnt">45</span></div>
+        <div class="uni-row"><span>ガード構築・エントリー</span><span class="uni-cnt">62</span></div>
+        <div class="uni-row"><span>ガードリテンション</span><span class="uni-cnt">38</span></div>
+        <div class="uni-row"><span>コンセプト・原理</span><span class="uni-cnt">29</span></div>
+        <div class="uni-row"><span>コントロール／プレッシャー</span><span class="uni-cnt">41</span></div>
+        <div class="uni-row"><span>スイープ</span><span class="uni-cnt">98</span></div>
+        <div class="uni-row"><span>テイクダウン</span><span class="uni-cnt">54</span></div>
+        <div class="uni-row"><span>バックテイク・バックアタック</span><span class="uni-cnt">33</span></div>
+        <div class="uni-row on"><span>パスガード</span><span class="uni-cnt">132</span></div>
+        <div class="uni-row"><span>フィニッシュ</span><span class="uni-cnt">76</span></div>
+      </div></div>
+      <!-- ポジション (POSITIONS from tag-master.js) -->
+      <div class="uni-col"><div class="uni-col-hdr"><span>ポジション</span><select><option selected>あいうえ順</option><option>件数順</option></select></div><div class="uni-col-body">
+        <div class="uni-row"><span>50/50</span><span class="uni-cnt">12</span></div>
+        <div class="uni-row"><span>Kガード</span><span class="uni-cnt">8</span></div>
+        <div class="uni-row"><span>SLX</span><span class="uni-cnt">15</span></div>
+        <div class="uni-row"><span>Xガード</span><span class="uni-cnt">22</span></div>
+        <div class="uni-row"><span>インバーテッド</span><span class="uni-cnt">6</span></div>
+        <div class="uni-row"><span>クローズドガード</span><span class="uni-cnt">89</span></div>
+        <div class="uni-row"><span>サドル</span><span class="uni-cnt">11</span></div>
+        <div class="uni-row"><span>スタンディング</span><span class="uni-cnt">18</span></div>
+        <div class="uni-row"><span>スパイダーガード</span><span class="uni-cnt">19</span></div>
+        <div class="uni-row"><span>タートル</span><span class="uni-cnt">22</span></div>
+        <div class="uni-row"><span>デラヒーバ</span><span class="uni-cnt">28</span></div>
+        <div class="uni-row"><span>ニーシールド</span><span class="uni-cnt">31</span></div>
+        <div class="uni-row"><span>ディープハーフ</span><span class="uni-cnt">14</span></div>
+        <div class="uni-row"><span>バタフライガード</span><span class="uni-cnt">25</span></div>
+        <div class="uni-row on"><span>ハーフガード</span><span class="uni-cnt">76</span></div>
+        <div class="uni-row"><span>ラッソーガード</span><span class="uni-cnt">13</span></div>
+        <div class="uni-row"><span>ラペルガード</span><span class="uni-cnt">9</span></div>
+        <div class="uni-row"><span>リバースデラヒーバ</span><span class="uni-cnt">17</span></div>
+        <div class="uni-row"><span>ワームガード</span><span class="uni-cnt">5</span></div>
+        <div class="uni-row"><span>片襟片袖</span><span class="uni-cnt">16</span></div>
+        <div class="uni-row"><span>その他</span><span class="uni-cnt">34</span></div>
+      </div></div>
+      <!-- #タグ (TECH tags from config.js) -->
+      <div class="uni-col"><div class="uni-col-hdr"><span>#タグ</span><select><option>あいうえ順</option><option selected>件数順</option></select></div><div class="uni-col-body">
+        <div class="uni-row"><span>十字絞め</span><span class="uni-cnt">18</span></div>
+        <div class="uni-row"><span>RNC</span><span class="uni-cnt">24</span></div>
+        <div class="uni-row"><span>ギロチン</span><span class="uni-cnt">21</span></div>
+        <div class="uni-row"><span>アナコンダ</span><span class="uni-cnt">7</span></div>
+        <div class="uni-row"><span>ダースチョーク</span><span class="uni-cnt">9</span></div>
+        <div class="uni-row"><span>ノースサウスチョーク</span><span class="uni-cnt">5</span></div>
+        <div class="uni-row"><span>ボウアンドアロー</span><span class="uni-cnt">6</span></div>
+        <div class="uni-row"><span>アームバー</span><span class="uni-cnt">32</span></div>
+        <div class="uni-row"><span>キムラ</span><span class="uni-cnt">28</span></div>
+        <div class="uni-row"><span>アメリカーナ</span><span class="uni-cnt">11</span></div>
+        <div class="uni-row"><span>オモプラッタ</span><span class="uni-cnt">14</span></div>
+        <div class="uni-row"><span>ヒールフック</span><span class="uni-cnt">19</span></div>
+        <div class="uni-row"><span>ニーバー</span><span class="uni-cnt">8</span></div>
+        <div class="uni-row"><span>トーホールド</span><span class="uni-cnt">10</span></div>
+        <div class="uni-row"><span>カーフスライサー</span><span class="uni-cnt">4</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="uni-ftr">
+    <span class="uni-lbl">選択中:</span>
+    <span class="uni-pill">★ Fav</span>
+    <span class="uni-pill">📌 ブックマーク</span>
+    <span class="uni-pill">トップ</span>
+    <span class="uni-sp"></span>
+    <span class="uni-clr">クリア</span>
+    <span class="uni-hit">124 件</span>
+    <button class="uni-apply">適用</button>
+  </div>
+</div>
+<div class="debug" id="debug"></div>
+<script>
+function switchTab(name){
+  document.querySelectorAll('.uni-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===name));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.dataset.tab===name));
+}
+function updateDebug(){
+  const p=document.querySelector('.popup');
+  const r=p.getBoundingClientRect();
+  document.getElementById('debug').textContent=`popup: ${Math.round(r.width)}x${Math.round(r.height)} | window: ${window.innerWidth}x${window.innerHeight}`;
+}
+updateDebug();
+window.addEventListener('resize',updateDebug);
+</script>
+</body>
+</html>

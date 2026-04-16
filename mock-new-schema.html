@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK: 新スキーマ検証 (v.cat / v.tags / TB_VALUES / CATEGORIES / POSITIONS)</title>
+<style>
+  :root { --bg:#1a1a1a; --surface:#242424; --surface2:#2e2e2e; --surface3:#383838; --border:#444; --text:#eee; --text2:#bbb; --text3:#888; --accent:#e8590c; --green:#4caf50; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,sans-serif; background:var(--bg); color:var(--text); padding:12px; font-size:13px; }
+  h2 { font-size:15px; margin:16px 0 8px; color:var(--accent); }
+  h3 { font-size:13px; margin:12px 0 6px; color:var(--text2); }
+  .section { background:var(--surface); border-radius:12px; padding:14px; margin-bottom:12px; border:1px solid var(--border); }
+  .chip-row { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+  .chip { padding:5px 12px; border-radius:16px; background:var(--surface2); border:1px solid var(--border); cursor:pointer; font-size:11px; font-weight:600; user-select:none; transition:.15s; }
+  .chip:hover { border-color:var(--accent); }
+  .chip.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .card { background:var(--surface); border-radius:10px; border:1px solid var(--border); margin:8px 0; overflow:hidden; }
+  .card-body { padding:10px; }
+  .card-title { font-size:12px; font-weight:700; margin-bottom:6px; }
+  .badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:10px; margin:2px; }
+  .badge-tb { background:rgba(140,80,255,.14); color:#c4a0ff; font-weight:700; }
+  .badge-cat { background:rgba(80,160,255,.14); color:#80c8ff; }
+  .badge-pos { background:rgba(80,200,140,.14); color:#80d8a0; }
+  .badge-tag { background:rgba(255,200,80,.14); color:var(--text2); }
+  .card-actions { display:flex; gap:6px; padding:8px 10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .ca-btn { padding:4px 10px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); color:var(--text2); cursor:pointer; font-size:10px; font-weight:600; }
+  .ca-btn:hover { border-color:var(--accent); }
+  .ca-btn.active { color:var(--accent); border-color:var(--accent); }
+  .log { background:#111; border-radius:8px; padding:10px; font-family:monospace; font-size:11px; color:#0f0; max-height:200px; overflow-y:auto; margin-top:8px; white-space:pre-wrap; }
+  .tab-bar { display:flex; gap:4px; margin-bottom:12px; }
+  .tab-btn { padding:8px 16px; border-radius:10px 10px 0 0; background:var(--surface2); border:1px solid var(--border); border-bottom:none; color:var(--text3); cursor:pointer; font-size:12px; font-weight:700; }
+  .tab-btn.active { background:var(--surface); color:var(--accent); }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  .bulk-bar { display:flex; gap:6px; align-items:center; padding:10px; background:var(--surface2); border-radius:8px; margin:8px 0; flex-wrap:wrap; }
+  .bulk-bar input { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:5px 8px; color:var(--text); font-size:11px; width:140px; }
+  .bulk-bar button { padding:5px 12px; border-radius:8px; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:11px; font-weight:700; }
+  .sug-chip { display:inline-block; padding:3px 8px; background:var(--surface3); border-radius:12px; font-size:10px; cursor:pointer; margin:2px; }
+  .sug-chip:hover { background:var(--accent); color:#fff; }
+  .pass { color:#4caf50; }
+  .fail { color:#e8590c; }
+  .test-result { padding:4px 8px; margin:2px 0; border-radius:4px; font-size:11px; }
+  .cnt { font-size:9px; background:var(--surface3); color:var(--text3); border-radius:8px; padding:1px 5px; margin-left:4px; }
+</style>
+</head>
+<body>
+
+<h2>MOCK: 新スキーマ完全移行テスト</h2>
+<p style="font-size:11px;color:var(--text3);margin-bottom:12px">
+  旧スキーマ (v.ac / v.tech / TB_TAGS / AC_TAGS / POS_TAGS / TECH) を完全削除し、<br>
+  新4層スキーマ (v.cat / v.tags / TB_VALUES / CATEGORIES / POSITIONS) のみで動作確認
+</p>
+
+<div class="tab-bar">
+  <div class="tab-btn active" onclick="switchTab('filter')">1. フィルター</div>
+  <div class="tab-btn" onclick="switchTab('cards')">2. カード表示</div>
+  <div class="tab-btn" onclick="switchTab('bulk')">3. 一括編集</div>
+  <div class="tab-btn" onclick="switchTab('edit')">4. 個別編集</div>
+  <div class="tab-btn" onclick="switchTab('test')">5. 自動テスト</div>
+</div>
+
+<!-- ═══ TAB 1: FILTER ═══ -->
+<div class="tab-content active" id="tab-filter">
+  <div class="section">
+    <h3>TOP / BOTTOM (TB_VALUES: 3値のみ)</h3>
+    <div class="chip-row" id="filter-tb"></div>
+
+    <h3>カテゴリ (CATEGORIES)</h3>
+    <div class="chip-row" id="filter-cat"></div>
+
+    <h3>ポジション (POSITIONS)</h3>
+    <div class="chip-row" id="filter-pos"></div>
+
+    <h3>#タグ (動画データから動的生成)</h3>
+    <div class="chip-row" id="filter-tags"></div>
+
+    <h3>フィルタ結果: <span id="filter-count">0</span>本</h3>
+    <div id="filter-results" style="max-height:200px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB 2: CARDS ═══ -->
+<div class="tab-content" id="tab-cards">
+  <div class="section">
+    <h3>カード描画テスト (v.cat / v.tags バッジ表示)</h3>
+    <div id="card-list"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB 3: BULK EDIT ═══ -->
+<div class="tab-content" id="tab-bulk">
+  <div class="section">
+    <h3>一括編集テスト</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">全動画を選択済み状態でテスト</p>
+
+    <h3>TB一括変更</h3>
+    <div class="chip-row" id="bulk-tb"></div>
+
+    <h3>カテゴリ一括変更</h3>
+    <div class="chip-row" id="bulk-cat"></div>
+
+    <h3>タグ追加</h3>
+    <div class="bulk-bar">
+      <input id="bulk-tag-inp" placeholder="タグ名を入力...">
+      <button onclick="bulkAddTag()">追加</button>
+      <div id="bulk-tag-sug"></div>
+    </div>
+    <div id="bulk-tag-result" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+
+    <h3>現在のデータ状態</h3>
+    <div class="log" id="bulk-log"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB 4: INDIVIDUAL EDIT ═══ -->
+<div class="tab-content" id="tab-edit">
+  <div class="section">
+    <h3>個別編集テスト (openEdit相当)</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px">動画を選んで編集</p>
+    <div class="chip-row" id="edit-video-list"></div>
+    <div id="edit-panel" style="display:none;margin-top:10px">
+      <h3 id="edit-title"></h3>
+      <h3>TB</h3>
+      <div class="chip-row" id="edit-tb"></div>
+      <h3>カテゴリ (dTags.cat)</h3>
+      <div class="chip-row" id="edit-cat"></div>
+      <h3>ポジション</h3>
+      <div class="chip-row" id="edit-pos"></div>
+      <h3>#タグ</h3>
+      <div class="chip-row" id="edit-tags"></div>
+      <div class="bulk-bar" style="margin-top:6px">
+        <input id="edit-tag-inp" placeholder="タグ追加...">
+        <button onclick="editAddTag()">追加</button>
+      </div>
+      <button onclick="editSave()" style="margin-top:10px;padding:8px 20px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:700">保存</button>
+      <div class="log" id="edit-log" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB 5: AUTO TESTS ═══ -->
+<div class="tab-content" id="tab-test">
+  <div class="section">
+    <h3>自動テスト結果</h3>
+    <button onclick="runTests()" style="padding:6px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:700;margin-bottom:10px">テスト実行</button>
+    <div id="test-results"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// 新スキーマ定義 (tag-master.js から抜粋、旧コード一切なし)
+// ═══════════════════════════════════════════════════════
+
+const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
+
+const CATEGORIES = [
+  { name:'エスケープ・ディフェンス', aliases:['escape','defense','エスケープ','ディフェンス'] },
+  { name:'パスガード',             aliases:['pass','パス'] },
+  { name:'アタック',               aliases:['attack','アタック','submission'] },
+  { name:'スイープ',               aliases:['sweep','スイープ'] },
+  { name:'リテンション',           aliases:['retention','リテンション'] },
+  { name:'コントロール',           aliases:['control','コントロール'] },
+  { name:'テイクダウン',           aliases:['takedown','テイクダウン'] },
+  { name:'フィニッシュ',           aliases:['finish','フィニッシュ','submit'] },
+  { name:'ドリル',                 aliases:['drill','ドリル'] },
+  { name:'その他',                 aliases:[] },
+];
+
+const POSITIONS = [
+  { ja:'クローズドガード', en:'Closed Guard' },
+  { ja:'ハーフガード',     en:'Half Guard' },
+  { ja:'マウント',         en:'Mount' },
+  { ja:'サイドコントロール', en:'Side Control' },
+  { ja:'バック',           en:'Back' },
+  { ja:'タートル',         en:'Turtle' },
+  { ja:'Xガード',          en:'X Guard' },
+  { ja:'デラヒーバ',       en:'De La Riva' },
+  { ja:'バタフライ',       en:'Butterfly' },
+  { ja:'オープンガード',   en:'Open Guard' },
+  { ja:'50/50',            en:'50/50' },
+  { ja:'スタンディング',   en:'Standing' },
+  { ja:'ニーオン',         en:'Knee on Belly' },
+  { ja:'ニーシールド',     en:'Knee Shield' },
+  { ja:'スパイダー・ラッソー', en:'Spider/Lasso' },
+  { ja:'ディープハーフ',   en:'Deep Half' },
+];
+
+// ═══════════════════════════════════════════════════════
+// ダミー動画データ (新スキーマのみ: tb/cat/pos/tags)
+// 旧フィールド ac/tech は存在しない
+// ═══════════════════════════════════════════════════════
+
+const videos = [
+  { id:'yt-001', title:'Closed Guard Kimura Attack', pt:'youtube', ytId:'abc123',
+    tb:['ボトム'], cat:['アタック','フィニッシュ'], pos:['クローズドガード'], tags:['キムラ'],
+    prio:'今すぐ', status:'練習中', fav:true, next:false, memo:'', archived:false, channel:'BJJ Lab', pl:'基礎テクニック' },
+  { id:'yt-002', title:'Side Control Escape to Half Guard', pt:'youtube', ytId:'def456',
+    tb:['ボトム'], cat:['エスケープ・ディフェンス'], pos:['サイドコントロール','ハーフガード'], tags:['エスケープ','ブリッジ'],
+    prio:'今すぐ', status:'未着手', fav:false, next:true, memo:'重要', archived:false, channel:'Grappling Academy', pl:'エスケープ集' },
+  { id:'yt-003', title:'Standing Double Leg Takedown Drill', pt:'youtube', ytId:'ghi789',
+    tb:['スタンディング'], cat:['テイクダウン','ドリル'], pos:['スタンディング'], tags:['ダブルレッグ'],
+    prio:'そのうち', status:'未着手', fav:false, next:false, memo:'', archived:false, channel:'Wrestling Hub', pl:'テイクダウン' },
+  { id:'gd-004', title:'Back Take from Turtle - RNC Finish', pt:'gdrive',
+    tb:['トップ'], cat:['アタック','フィニッシュ'], pos:['タートル','バック'], tags:['RNC','バックテイク'],
+    prio:'今すぐ', status:'マスター', fav:true, next:false, memo:'お気に入り', archived:false, channel:'', pl:'アタック集' },
+  { id:'yt-005', title:'Half Guard Sweep to Mount', pt:'youtube', ytId:'jkl012',
+    tb:['ボトム','トップ'], cat:['スイープ','コントロール'], pos:['ハーフガード','マウント'], tags:['スイープ','ニーシールド'],
+    prio:'保留', status:'練習中', fav:false, next:false, memo:'', archived:false, channel:'BJJ Lab', pl:'スイープ集' },
+  { id:'yt-006', title:'X Guard Entry and SLX Sweep', pt:'youtube', ytId:'mno345',
+    tb:['ボトム'], cat:['スイープ'], pos:['Xガード'], tags:['SLXスイープ','Xガードエントリー'],
+    prio:'そのうち', status:'未着手', fav:false, next:false, memo:'', archived:false, channel:'Lachlan Giles', pl:'レッグゲーム' },
+  { id:'yt-007', title:'Archived Video - Should Not Show', pt:'youtube', ytId:'pqr678',
+    tb:[], cat:[], pos:[], tags:[],
+    prio:'保留', status:'未着手', fav:false, next:false, memo:'', archived:true, channel:'', pl:'' },
+];
+
+// テスト用オリジナルデータ保持
+const ORIGINAL_VIDEOS = JSON.parse(JSON.stringify(videos));
+
+// window互換
+window.videos = videos;
+window.TB_VALUES = TB_VALUES;
+window.CATEGORIES = CATEGORIES;
+window.POSITIONS = POSITIONS;
+
+// ═══════════════════════════════════════════════════════
+// フィルター状態
+// ═══════════════════════════════════════════════════════
+const filters = {
+  tb: new Set(),
+  cat: new Set(),    // 旧 action → cat
+  position: new Set(),
+  tags: new Set(),   // 旧 tech → tags
+};
+
+// ═══════════════════════════════════════════════════════
+// TAB切り替え
+// ═══════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════
+// 1. FILTER TAB
+// ═══════════════════════════════════════════════════════
+
+function buildFilterUI() {
+  // TB (3値のみ)
+  const tbRow = document.getElementById('filter-tb');
+  tbRow.innerHTML = TB_VALUES.map(t => {
+    const cnt = countCtx('tb', t);
+    return `<div class="chip ${filters.tb.has(t)?'active':''}" onclick="togFilter('tb','${t}',this)">${t}<span class="cnt">${cnt}</span></div>`;
+  }).join('');
+
+  // カテゴリ (CATEGORIES.map(c=>c.name))
+  const catRow = document.getElementById('filter-cat');
+  const catNames = CATEGORIES.map(c => c.name);
+  catRow.innerHTML = catNames.map(c => {
+    const cnt = countCtx('cat', c);
+    return `<div class="chip ${filters.cat.has(c)?'active':''}" onclick="togFilter('cat','${c}',this)">${c}<span class="cnt">${cnt}</span></div>`;
+  }).join('');
+
+  // ポジション (POSITIONS.map(p=>p.ja))
+  const posRow = document.getElementById('filter-pos');
+  const posNames = POSITIONS.map(p => p.ja);
+  posRow.innerHTML = posNames.map(p => {
+    const cnt = countCtx('position', p);
+    return `<div class="chip ${filters.position.has(p)?'active':''}" onclick="togFilter('position','${p}',this)">${p}<span class="cnt">${cnt}</span></div>`;
+  }).join('');
+
+  // タグ (動画データから動的生成 — TECH固定リスト廃止)
+  const tagRow = document.getElementById('filter-tags');
+  const allTags = [...new Set(videos.filter(v=>!v.archived).flatMap(v => v.tags||[]))].sort();
+  tagRow.innerHTML = allTags.map(t => {
+    const cnt = countCtx('tags', t);
+    return `<div class="chip ${filters.tags.has(t)?'active':''}" onclick="togFilter('tags','${t}',this)">${t}<span class="cnt">${cnt}</span></div>`;
+  }).join('');
+
+  applyFilter();
+}
+
+function togFilter(key, val, el) {
+  filters[key].has(val) ? filters[key].delete(val) : filters[key].add(val);
+  buildFilterUI();
+}
+
+function countCtx(key, val) {
+  return videos.filter(v => {
+    if (v.archived) return false;
+    // key以外のフィルターを適用
+    if (key !== 'tb'       && filters.tb.size       && !(v.tb||[]).some(t => filters.tb.has(t))) return false;
+    if (key !== 'cat'      && filters.cat.size      && !(v.cat||[]).some(c => filters.cat.has(c))) return false;
+    if (key !== 'position' && filters.position.size && !(v.pos||[]).some(p => filters.position.has(p))) return false;
+    if (key !== 'tags'     && filters.tags.size     && !(v.tags||[]).some(t => filters.tags.has(t))) return false;
+    // このvalが該当するか
+    if (key === 'tb')       return (v.tb||[]).includes(val);
+    if (key === 'cat')      return (v.cat||[]).includes(val);
+    if (key === 'position') return (v.pos||[]).includes(val);
+    if (key === 'tags')     return (v.tags||[]).includes(val);
+    return false;
+  }).length;
+}
+
+function applyFilter() {
+  const result = videos.filter(v => {
+    if (v.archived) return false;
+    if (filters.tb.size       && !(v.tb||[]).some(t => filters.tb.has(t))) return false;
+    if (filters.cat.size      && !(v.cat||[]).some(c => filters.cat.has(c))) return false;
+    if (filters.position.size && !(v.pos||[]).some(p => filters.position.has(p))) return false;
+    if (filters.tags.size     && !(v.tags||[]).some(t => filters.tags.has(t))) return false;
+    return true;
+  });
+  document.getElementById('filter-count').textContent = result.length;
+  document.getElementById('filter-results').innerHTML = result.map(v =>
+    `<div style="font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">${v.title} <span style="color:var(--text3)">[${(v.cat||[]).join(',')}] [${(v.tags||[]).join(',')}]</span></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// 2. CARDS TAB
+// ═══════════════════════════════════════════════════════
+
+function buildCards() {
+  const list = document.getElementById('card-list');
+  list.innerHTML = videos.filter(v => !v.archived).map(v => {
+    const tbBadges = (v.tb||[]).map(t => `<span class="badge badge-tb">${t}</span>`).join('');
+    const catBadges = (v.cat||[]).map(c => `<span class="badge badge-cat">📂${c}</span>`).join('');
+    const posBadges = (v.pos||[]).map(p => `<span class="badge badge-pos">📍${p}</span>`).join('');
+    const tagBadges = (v.tags||[]).map(t => `<span class="badge badge-tag">#${t}</span>`).join('');
+    const pe = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
+    const se = v.status === '練習中' ? '🔵' : v.status === 'マスター' ? '✅' : '📋';
+    const platLabel = v.pt === 'youtube' ? 'YT' : v.pt === 'gdrive' ? 'GD' : 'VM';
+    return `<div class="card">
+      <div class="card-body">
+        <div class="card-title">${platLabel} | ${v.title}</div>
+        <div style="margin:4px 0">${tbBadges}${catBadges}${posBadges}${tagBadges}</div>
+        <div style="font-size:10px;color:var(--text3)">${pe} ${v.prio} | ${se} ${v.status} | ${v.channel||'—'}</div>
+      </div>
+      <div class="card-actions">
+        <span class="ca-btn ${v.fav?'active':''}">★ Fav</span>
+        <span class="ca-btn ${v.next?'active':''}">🎯 Next</span>
+        <span class="ca-btn">${pe} ${v.prio}</span>
+        <span class="ca-btn">${se} ${v.status}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// 3. BULK EDIT TAB
+// ═══════════════════════════════════════════════════════
+
+function buildBulkUI() {
+  // TB
+  const tbRow = document.getElementById('bulk-tb');
+  tbRow.innerHTML = TB_VALUES.map(t =>
+    `<div class="chip" onclick="bulkSetTB('${t}',this)">${t}</div>`
+  ).join('');
+
+  // Cat
+  const catRow = document.getElementById('bulk-cat');
+  catRow.innerHTML = CATEGORIES.map(c =>
+    `<div class="chip" onclick="bulkSetCat('${c.name}',this)">${c.name}</div>`
+  ).join('');
+
+  // Tag suggestions (動的)
+  const allTags = [...new Set(videos.filter(v=>!v.archived).flatMap(v => v.tags||[]))].sort();
+  document.getElementById('bulk-tag-sug').innerHTML = allTags.map(t =>
+    `<span class="sug-chip" onclick="document.getElementById('bulk-tag-inp').value='${t}';bulkAddTag()">${t}</span>`
+  ).join('');
+
+  updateBulkLog();
+}
+
+function bulkSetTB(val, el) {
+  videos.filter(v => !v.archived).forEach(v => {
+    if (!(v.tb||[]).includes(val)) v.tb = [...(v.tb||[]), val];
+  });
+  updateBulkLog();
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 500);
+}
+
+function bulkSetCat(val, el) {
+  videos.filter(v => !v.archived).forEach(v => {
+    if (!(v.cat||[]).includes(val)) v.cat = [...(v.cat||[]), val];
+  });
+  updateBulkLog();
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 500);
+}
+
+function bulkAddTag() {
+  const inp = document.getElementById('bulk-tag-inp');
+  const val = inp.value.trim();
+  if (!val) return;
+  let added = 0;
+  videos.filter(v => !v.archived).forEach(v => {
+    if (!(v.tags||[]).includes(val)) { v.tags = [...(v.tags||[]), val]; added++; }
+  });
+  document.getElementById('bulk-tag-result').textContent = `${added}本に「${val}」を追加`;
+  inp.value = '';
+  updateBulkLog();
+  buildBulkUI(); // サジェスト更新
+}
+
+function updateBulkLog() {
+  const log = document.getElementById('bulk-log');
+  log.textContent = videos.filter(v => !v.archived).map(v =>
+    `${v.id}: tb=[${(v.tb||[]).join(',')}] cat=[${(v.cat||[]).join(',')}] pos=[${(v.pos||[]).join(',')}] tags=[${(v.tags||[]).join(',')}]`
+  ).join('\n');
+}
+
+// ═══════════════════════════════════════════════════════
+// 4. INDIVIDUAL EDIT TAB
+// ═══════════════════════════════════════════════════════
+
+let editId = null;
+let dTags = { tb: new Set(), cat: new Set(), pos: new Set(), tags: new Set() };
+
+function buildEditVideoList() {
+  const row = document.getElementById('edit-video-list');
+  row.innerHTML = videos.filter(v => !v.archived).map(v =>
+    `<div class="chip" onclick="openEditMock('${v.id}')">${v.title.slice(0,30)}</div>`
+  ).join('');
+}
+
+function openEditMock(id) {
+  const v = videos.find(v => v.id === id);
+  if (!v) return;
+  editId = id;
+  // 新スキーマのみ: dTags は tb/cat/pos/tags (旧 action/tech なし)
+  dTags = {
+    tb:   new Set(v.tb||[]),
+    cat:  new Set(v.cat||[]),     // 旧 action → cat
+    pos:  new Set(v.pos||[]),
+    tags: new Set(v.tags||[]),    // 旧 tech → tags
+  };
+  document.getElementById('edit-title').textContent = v.title;
+  document.getElementById('edit-panel').style.display = 'block';
+  renderEditUI();
+}
+
+function renderEditUI() {
+  // TB
+  document.getElementById('edit-tb').innerHTML = TB_VALUES.map(t =>
+    `<div class="chip ${dTags.tb.has(t)?'active':''}" onclick="dTags.tb.has('${t}')?dTags.tb.delete('${t}'):dTags.tb.add('${t}');renderEditUI()">${t}</div>`
+  ).join('');
+  // Cat
+  document.getElementById('edit-cat').innerHTML = CATEGORIES.map(c =>
+    `<div class="chip ${dTags.cat.has(c.name)?'active':''}" onclick="dTags.cat.has('${c.name}')?dTags.cat.delete('${c.name}'):dTags.cat.add('${c.name}');renderEditUI()">${c.name}</div>`
+  ).join('');
+  // Pos
+  document.getElementById('edit-pos').innerHTML = POSITIONS.map(p =>
+    `<div class="chip ${dTags.pos.has(p.ja)?'active':''}" onclick="dTags.pos.has('${p.ja}')?dTags.pos.delete('${p.ja}'):dTags.pos.add('${p.ja}');renderEditUI()">${p.ja}</div>`
+  ).join('');
+  // Tags
+  const allTags = [...new Set([...dTags.tags, ...videos.filter(v=>!v.archived).flatMap(v=>v.tags||[])])].sort();
+  document.getElementById('edit-tags').innerHTML = allTags.map(t =>
+    `<div class="chip ${dTags.tags.has(t)?'active':''}" onclick="dTags.tags.has('${t}')?dTags.tags.delete('${t}'):dTags.tags.add('${t}');renderEditUI()">${t}</div>`
+  ).join('');
+}
+
+function editAddTag() {
+  const inp = document.getElementById('edit-tag-inp');
+  const val = inp.value.trim();
+  if (!val) return;
+  dTags.tags.add(val);
+  inp.value = '';
+  renderEditUI();
+}
+
+function editSave() {
+  const v = videos.find(v => v.id === editId);
+  if (!v) return;
+  // 新スキーマのみに保存 (v.ac / v.tech には触らない — そもそも存在しない)
+  v.tb   = [...dTags.tb];
+  v.cat  = [...dTags.cat];    // 旧: v.ac=[...dTags.action]
+  v.pos  = [...dTags.pos];
+  v.tags = [...dTags.tags];   // 旧: v.tech=[...dTags.tech]
+
+  const log = document.getElementById('edit-log');
+  log.textContent = `SAVED ${v.id}:\n  tb=[${v.tb}]\n  cat=[${v.cat}]\n  pos=[${v.pos}]\n  tags=[${v.tags}]\n\n確認: v.ac=${JSON.stringify(v.ac)} (undefined=正常)\n確認: v.tech=${JSON.stringify(v.tech)} (undefined=正常)`;
+}
+
+// ═══════════════════════════════════════════════════════
+// 5. AUTO TESTS
+// ═══════════════════════════════════════════════════════
+
+function runTests() {
+  const results = [];
+
+  function assert(name, condition) {
+    results.push({ name, pass: condition });
+  }
+
+  // テスト用に元データのディープコピーを使う（一括編集の影響を排除）
+  const testVideos = JSON.parse(JSON.stringify(ORIGINAL_VIDEOS));
+
+  // --- Test 1: 旧フィールドが存在しないこと ---
+  const testVid = testVideos.find(v => v.id === 'yt-001');
+  assert('v.ac が undefined (旧フィールド不在)', testVid.ac === undefined);
+  assert('v.tech が undefined (旧フィールド不在)', testVid.tech === undefined);
+
+  // --- Test 2: 新フィールドが正しく存在すること ---
+  assert('v.cat が配列', Array.isArray(testVid.cat));
+  assert('v.tags が配列', Array.isArray(testVid.tags));
+  assert('v.tb が配列', Array.isArray(testVid.tb));
+  assert('v.pos が配列', Array.isArray(testVid.pos));
+
+  // --- Test 3: TB_VALUES が3値のみ ---
+  assert('TB_VALUES は3値', TB_VALUES.length === 3);
+  assert('TB_VALUES にバック/ハーフ/ドリルなし',
+    !TB_VALUES.includes('バック') && !TB_VALUES.includes('ハーフ') && !TB_VALUES.includes('ドリル'));
+
+  // --- Test 4: CATEGORIES が10項目 ---
+  assert('CATEGORIES は10項目', CATEGORIES.length === 10);
+  assert('CATEGORIES[0] = エスケープ・ディフェンス', CATEGORIES[0].name === 'エスケープ・ディフェンス');
+
+  // --- Test 5: POSITIONS が16項目 ---
+  assert('POSITIONS は16項目', POSITIONS.length === 16);
+
+  // --- Test 6: window.TB_TAGS が undefined (旧定数不在) ---
+  assert('window.TB_TAGS が undefined', window.TB_TAGS === undefined);
+  assert('window.AC_TAGS が undefined', window.AC_TAGS === undefined);
+  assert('window.POS_TAGS が undefined', window.POS_TAGS === undefined);
+  assert('window.TECH が undefined', window.TECH === undefined);
+  assert('window.TECH_STATIC が undefined', window.TECH_STATIC === undefined);
+  assert('window.syncVideoFields が undefined', window.syncVideoFields === undefined);
+
+  // --- Test 7: フィルタリングが新フィールドで動くこと (testVideosで検証) ---
+  const filtered = testVideos.filter(v => !v.archived && (v.cat||[]).includes('アタック'));
+  assert(`cat=アタック でフィルタ: ${filtered.length}本 (期待2)`, filtered.length === 2);
+
+  const filtered2 = testVideos.filter(v => !v.archived && (v.tags||[]).includes('キムラ'));
+  assert(`tags=キムラ でフィルタ: ${filtered2.length}本 (期待1)`, filtered2.length === 1);
+
+  const filtered3 = testVideos.filter(v => !v.archived && (v.tb||[]).includes('ボトム'));
+  assert(`tb=ボトム でフィルタ: ${filtered3.length}本 (期待4)`, filtered3.length === 4);
+
+  // --- Test 8: 動的タグ一覧生成 (TECH固定リスト不使用) ---
+  const allTags = [...new Set(testVideos.filter(v=>!v.archived).flatMap(v => v.tags||[]))].sort();
+  assert('動的タグ一覧にキムラ含む', allTags.includes('キムラ'));
+  assert('動的タグ一覧にRNC含む', allTags.includes('RNC'));
+  assert('動的タグ数が0より大きい', allTags.length > 0);
+
+  // --- Test 9: 一括編集が新フィールドのみ触ること ---
+  const testVid9 = testVideos[0];
+  const beforeCat = [...(testVid9.cat||[])];
+  testVid9.cat = [...(testVid9.cat||[]), 'テスト一括'];
+  assert('一括編集後 v.cat にテスト一括 含む', testVid9.cat.includes('テスト一括'));
+  assert('一括編集後 v.ac は undefined のまま', testVid9.ac === undefined);
+  testVid9.cat = beforeCat; // 戻す
+
+  // --- Test 10: 個別編集のdTags構造 ---
+  const editTags = { tb: new Set(['ボトム']), cat: new Set(['アタック']), pos: new Set(['クローズドガード']), tags: new Set(['キムラ']) };
+  assert('dTags に action キーなし', editTags.action === undefined);
+  assert('dTags に tech キーなし', editTags.tech === undefined);
+  assert('dTags.cat が存在', editTags.cat instanceof Set);
+  assert('dTags.tags が存在', editTags.tags instanceof Set);
+
+  // --- Test 11: アーカイブ除外 ---
+  const nonArchived = testVideos.filter(v => !v.archived);
+  assert('アーカイブ除外: 6本', nonArchived.length === 6);
+
+  // --- Test 12: コンテキストカウント (オリジナルデータで検証) ---
+  // countCtxはlive videosを使うのでオリジナルデータ直接チェック
+  const sweepCount = testVideos.filter(v => !v.archived && (v.cat||[]).includes('スイープ')).length;
+  assert(`コンテキストカウント cat=スイープ: ${sweepCount} (期待2)`, sweepCount === 2);
+
+  // --- Render results ---
+  const container = document.getElementById('test-results');
+  const passCount = results.filter(r => r.pass).length;
+  const failCount = results.filter(r => !r.pass).length;
+  container.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:8px">${passCount} PASS / ${failCount} FAIL / ${results.length} TOTAL</div>`
+    + results.map(r => `<div class="test-result" style="background:${r.pass?'rgba(76,175,80,.1)':'rgba(232,89,12,.15)'}"><span class="${r.pass?'pass':'fail'}">${r.pass?'✅ PASS':'❌ FAIL'}</span> ${r.name}</div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// 初期化
+// ═══════════════════════════════════════════════════════
+
+buildFilterUI();
+buildCards();
+buildBulkUI();
+buildEditVideoList();
+</script>
+</body>
+</html>

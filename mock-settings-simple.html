@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCK — Settings（シンプル版 v5）</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--blue:#1a3a5c;--purple:#3a3a7a;--red:#c0392b;--radius:8px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;padding:16px 14px 80px;max-width:640px;margin:0 auto;}
+
+.hdr{font-size:16px;font-weight:800;margin-bottom:4px;}
+.hdr-sub{font-size:11px;color:var(--text3);margin-bottom:24px;}
+.sec-label{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase;}
+.sec-label:first-of-type{margin-top:0;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.row-info{flex:1;min-width:0;}
+.row-title{font-size:12px;font-weight:600;margin-bottom:2px;}
+.row-desc{font-size:11px;color:var(--text3);}
+.toggle{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+.toggle input{display:none;}
+.toggle-slider{position:absolute;inset:0;background:var(--surface3);border-radius:11px;cursor:pointer;transition:.2s;}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.15);}
+.toggle input:checked+.toggle-slider{background:var(--accent);}
+.toggle input:checked+.toggle-slider::before{transform:translateX(18px);}
+.theme-row{display:flex;gap:8px;}
+.theme-btn{padding:8px 20px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;background:var(--surface2);color:var(--text2);}
+.theme-btn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.slider-row{display:flex;align-items:center;gap:10px;}
+.slider-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);font-size:18px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;}
+.slider-input{flex:1;accent-color:var(--accent);}
+.admin-row{margin:32px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);}
+.admin-label{font-size:11px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:4px;}
+.admin-desc{font-size:10px;color:var(--text3);margin-top:2px;}
+
+/* ── Tag setting row ── */
+.tag-row{display:flex;align-items:center;gap:12px;}
+.tag-row-info{flex:1;min-width:0;}
+.tag-row-name{font-size:12px;font-weight:600;}
+.tag-row-count{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:1px;}
+.tag-edit-btn{background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.tag-edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── Popup modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;justify-content:center;align-items:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.15);}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border2);flex-shrink:0;}
+.modal-title{font-size:14px;font-weight:800;}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px;}
+.modal-search{padding:0 18px;border-bottom:1px solid var(--border2);}
+.modal-search input{width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit;}
+.modal-search input::placeholder{color:var(--text3);}
+.modal-body{overflow-y:auto;flex:1;padding:0;}
+.modal-item{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);}
+.modal-item:last-child{border-bottom:none;}
+.modal-item-info{flex:1;min-width:0;}
+.modal-item-name{font-size:12px;font-weight:600;}
+.modal-item-en{font-size:10px;color:var(--text3);margin-top:1px;}
+.modal-item-desc{font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;}
+.modal-item-del{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.modal-item-del:hover{border-color:var(--red);color:var(--red);}
+.modal-item.user-added{background:var(--surface2);}
+.modal-badge{font-size:9px;font-weight:600;color:var(--blue);background:#e8eef4;padding:1px 6px;border-radius:8px;margin-left:6px;white-space:nowrap;}
+.modal-footer{padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;}
+.modal-notice{font-size:10px;color:var(--text3);line-height:1.5;margin-bottom:8px;}
+.modal-add-row{display:flex;gap:8px;}
+.modal-add-row input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;outline:none;}
+.modal-add-row button{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+
+/* AI category chips */
+.ai-cat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+.ai-cat-chip{padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text2);}
+.ai-cat-chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div class="hdr">Settings</div>
+<div class="hdr-sub">表示・AI・再生・外観の設定</div>
+
+<!-- ═══ タグ表示設定 ═══ -->
+<div class="sec-label">タグ表示設定</div>
+<div class="card">
+  <!-- TBS -->
+  <div class="tag-row">
+    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+    <div class="tag-row-info">
+      <div class="tag-row-name">TBS</div>
+      <div class="tag-row-count">3 項目</div>
+    </div>
+    <button class="tag-edit-btn" onclick="openModal('tb')">編集</button>
+  </div>
+  <!-- カテゴリ -->
+  <div class="tag-row">
+    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+    <div class="tag-row-info">
+      <div class="tag-row-name">カテゴリ</div>
+      <div class="tag-row-count">10 項目</div>
+    </div>
+    <button class="tag-edit-btn" onclick="openModal('cat')">編集</button>
+  </div>
+  <!-- ポジション -->
+  <div class="tag-row">
+    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+    <div class="tag-row-info">
+      <div class="tag-row-name">ポジション</div>
+      <div class="tag-row-count">27 項目</div>
+    </div>
+    <button class="tag-edit-btn" onclick="openModal('pos')">編集</button>
+  </div>
+</div>
+
+<!-- ═══ AI取込設定 ═══ -->
+<div class="sec-label">AI取込設定</div>
+<div class="card">
+  <div class="row">
+    <div class="row-info">
+      <div class="row-title">AIタグ機能</div>
+      <div class="row-desc">タイトルからカテゴリ・ポジションを自動判定</div>
+    </div>
+    <label class="toggle"><input type="checkbox" checked id="ai-toggle" onchange="document.getElementById('ai-detail').style.display=this.checked?'':'none'"><span class="toggle-slider"></span></label>
+  </div>
+  <div id="ai-detail">
+    <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">自動判定するタグ</div>
+    <div class="ai-cat-chips">
+      <span class="ai-cat-chip on" onclick="this.classList.toggle('on')">TBS</span>
+      <span class="ai-cat-chip on" onclick="this.classList.toggle('on')">カテゴリ</span>
+      <span class="ai-cat-chip on" onclick="this.classList.toggle('on')">ポジション</span>
+    </div>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-title">取込時に自動AI分析</div>
+      <div class="row-desc">YouTube取り込み後に自動でタグ付け</div>
+    </div>
+    <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+  </div>
+  <div class="row">
+    <div class="row-info">
+      <div class="row-title">チャプター取得</div>
+      <div class="row-desc">YouTubeの説明文からタイムスタンプを解析</div>
+    </div>
+    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+  </div>
+</div>
+
+<!-- ═══ 再生設定 ═══ -->
+<div class="sec-label">再生設定</div>
+<div class="card">
+  <div class="row">
+    <div class="row-info">
+      <div class="row-title">VPanelで動画を自動再生</div>
+      <div class="row-desc">動画パネルを開いた際に自動的に再生を開始します</div>
+    </div>
+    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+  </div>
+</div>
+
+<!-- ═══ 外観設定 ═══ -->
+<div class="sec-label">外観設定</div>
+<div class="card" style="gap:16px">
+  <div>
+    <div class="row-title" style="margin-bottom:6px">テーマ</div>
+    <div class="theme-row">
+      <button class="theme-btn on">自動</button>
+      <button class="theme-btn">ライト</button>
+      <button class="theme-btn">ダーク</button>
+    </div>
+  </div>
+  <div>
+    <div class="row" style="margin-bottom:8px">
+      <div class="row-info"><div class="row-title">文字サイズ</div></div>
+      <span style="font-size:12px;font-weight:700;color:var(--accent)">100%</span>
+    </div>
+    <div class="slider-row">
+      <button class="slider-btn">−</button>
+      <input type="range" class="slider-input" min="80" max="140" value="100">
+      <button class="slider-btn">+</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 管理モード ═══ -->
+<div class="admin-row">
+  <div class="row">
+    <div>
+      <div class="admin-label">🔒 管理モード</div>
+      <div class="admin-desc">検証ドット・Adminタブを表示（この端末のみ）</div>
+    </div>
+    <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+  </div>
+</div>
+
+<!-- ═══ Modals ═══ -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+
+  <!-- TBS Modal -->
+  <div class="modal" id="modal-tb" style="display:none">
+    <div class="modal-hdr">
+      <div class="modal-title">TBS</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">トップ</div><div class="modal-item-en">Top</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ボトム</div><div class="modal-item-en">Bottom</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">スタンディング</div><div class="modal-item-en">Standing</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item user-added"><div class="modal-item-info"><div class="modal-item-name">ニュートラル<span class="modal-badge">カスタム</span></div><div class="modal-item-en">Neutral</div></div><button class="modal-item-del">削除</button></div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-notice">※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。</div>
+      <div class="modal-add-row">
+        <input placeholder="新しい項目を追加...">
+        <button>追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- カテゴリ Modal -->
+  <div class="modal" id="modal-cat" style="display:none">
+    <div class="modal-hdr">
+      <div class="modal-title">カテゴリ</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-search"><input placeholder="検索..."></div>
+    <div class="modal-body">
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">エスケープ・ディフェンス</div><div class="modal-item-en">Escape / Defense</div><div class="modal-item-desc">不利ポジションからの脱出と防御</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ガード構築・エントリー</div><div class="modal-item-en">Guard Entry</div><div class="modal-item-desc">ガードを取る・特定ガードの入り口</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ガードリテンション</div><div class="modal-item-en">Guard Retention</div><div class="modal-item-desc">足を取られないボトムの守り</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">コントロール／プレッシャー</div><div class="modal-item-en">Control / Pressure</div><div class="modal-item-desc">トップポジションの維持・押さえ</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">コンセプト・原理</div><div class="modal-item-en">Concept / Principle</div><div class="modal-item-desc">技ではない原則的な学び</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">スイープ</div><div class="modal-item-en">Sweep</div><div class="modal-item-desc">ボトムから相手をひっくり返す動作</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">テイクダウン</div><div class="modal-item-en">Takedown</div><div class="modal-item-desc">立ちから相手を倒す動作（投げ技含む）</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">バックテイク・バックアタック</div><div class="modal-item-en">Back Take / Back Attack</div><div class="modal-item-desc">バックを取る／バックからの攻撃</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">パスガード</div><div class="modal-item-en">Guard Pass</div><div class="modal-item-desc">相手のガードを越えてトップを取る動作</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">フィニッシュ</div><div class="modal-item-en">Submission</div><div class="modal-item-desc">チョーク・関節技など相手を極めにいく動作</div></div><button class="modal-item-del">削除</button></div>
+
+    </div>
+    <div class="modal-footer">
+      <div class="modal-notice">※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。</div>
+      <div class="modal-add-row">
+        <input placeholder="新しいカテゴリを追加...">
+        <button>追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ポジション Modal -->
+  <div class="modal" id="modal-pos" style="display:none">
+    <div class="modal-hdr">
+      <div class="modal-title">ポジション</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-search"><input placeholder="検索..."></div>
+    <div class="modal-body">
+      <!-- 数字・英字 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">50/50</div><div class="modal-item-en">50/50</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">70/30ガード</div><div class="modal-item-en">70/30 Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">Kガード</div><div class="modal-item-en">K Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">SLX</div><div class="modal-item-en">Single Leg X</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">Xガード</div><div class="modal-item-en">X Guard</div></div><button class="modal-item-del">削除</button></div>
+      <!-- あ行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">インバーテッド</div><div class="modal-item-en">Inverted</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">オープンガード</div><div class="modal-item-en">Open Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">オクトパスガード</div><div class="modal-item-en">Octopus Guard</div></div><button class="modal-item-del">削除</button></div>
+      <!-- か行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">片襟片袖</div><div class="modal-item-en">Collar Sleeve</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">クローズドガード</div><div class="modal-item-en">Closed Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">クロスガード</div><div class="modal-item-en">Cross Guard</div></div><button class="modal-item-del">削除</button></div>
+      <!-- さ行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">サドル</div><div class="modal-item-en">Saddle / Inside Sankaku</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">シッティングガード</div><div class="modal-item-en">Sit-Up Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">シングルレッグガード</div><div class="modal-item-en">Single Leg Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">スタンディング</div><div class="modal-item-en">Standing</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">スパイダーガード</div><div class="modal-item-en">Spider Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">その他</div><div class="modal-item-en">Other</div></div><button class="modal-item-del">削除</button></div>
+      <!-- た行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">タートル</div><div class="modal-item-en">Turtle</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ディープハーフ</div><div class="modal-item-en">Deep Half Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">デラヒーバ</div><div class="modal-item-en">De La Riva</div></div><button class="modal-item-del">削除</button></div>
+      <!-- な行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ニーシールド</div><div class="modal-item-en">Knee Shield</div></div><button class="modal-item-del">削除</button></div>
+      <!-- は行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ハーフガード</div><div class="modal-item-en">Half Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">バタフライガード</div><div class="modal-item-en">Butterfly Guard</div></div><button class="modal-item-del">削除</button></div>
+      <!-- ら行 -->
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ラッソーガード</div><div class="modal-item-en">Lasso Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">ラペルガード</div><div class="modal-item-en">Lapel Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">リバースデラヒーバ</div><div class="modal-item-en">Reverse De La Riva</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item"><div class="modal-item-info"><div class="modal-item-name">リバースハーフガード</div><div class="modal-item-en">Reverse Half Guard</div></div><button class="modal-item-del">削除</button></div>
+      <!-- カスタム -->
+      <div class="modal-item user-added"><div class="modal-item-info"><div class="modal-item-name">ウィリアムズガード<span class="modal-badge">カスタム</span></div><div class="modal-item-en">Williams Guard</div></div><button class="modal-item-del">削除</button></div>
+      <div class="modal-item user-added"><div class="modal-item-info"><div class="modal-item-name">ラバーガード<span class="modal-badge">カスタム</span></div><div class="modal-item-en">Rubber Guard</div></div><button class="modal-item-del">削除</button></div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-notice">※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。</div>
+      <div class="modal-add-row">
+        <input placeholder="新しいポジションを追加...">
+        <button>追加</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentModal = null;
+function openModal(type) {
+  closeModal();
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal-' + type);
+  if (!overlay || !modal) return;
+  overlay.classList.add('open');
+  modal.style.display = 'flex';
+  currentModal = modal;
+}
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  overlay?.classList.remove('open');
+  document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+  currentModal = null;
+}
+</script>
+
+</body>
+</html>

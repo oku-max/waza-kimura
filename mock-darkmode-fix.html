@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — ダークモード ☆ + バー 5案</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:#111;color:#eee;
+  padding:24px 20px 60px;
+  display:flex;flex-direction:column;align-items:center;gap:24px
+}
+h1{font-size:12px;font-weight:700;letter-spacing:.1em;color:#666;text-transform:uppercase}
+
+.cases{display:flex;gap:16px;width:100%;max-width:1300px;align-items:flex-start}
+.case{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.case-label{
+  font-size:11px;font-weight:800;letter-spacing:.07em;text-align:center;
+  padding:5px 0;border-radius:5px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.45)
+}
+
+/* ── アプリシェル ── */
+.shell{
+  background:#1c1c1e;border-radius:10px;overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,.7);
+}
+
+/* 選択バー */
+.sel-bar{
+  padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;
+  flex-wrap:wrap;
+}
+.sel-bar .cnt{font-weight:800;font-size:12px}
+.bar-btn{
+  padding:4px 10px;border-radius:5px;font-size:10px;font-weight:700;cursor:default;
+  border:1px solid rgba(0,0,0,.2);font-family:inherit
+}
+
+/* テーブル */
+.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl th{
+  padding:6px 8px;font-size:9px;font-weight:700;letter-spacing:.05em;color:#666;
+  border-bottom:1px solid #333;text-align:left;background:#1c1c1e;white-space:nowrap
+}
+.tbl td{
+  padding:7px 8px;border-bottom:1px solid #2a2a2a;vertical-align:middle;
+  color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px
+}
+.tbl tr:hover td{background:#252525}
+.thumb{width:36px;height:24px;border-radius:3px;background:#333;object-fit:cover;display:block}
+.title-cell{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#e5e5e5;font-size:10px}
+.tag-chip{display:inline-block;background:#2c2c3a;color:#a0a0c0;font-size:9px;padding:2px 6px;border-radius:4px;margin:1px}
+.cnt-chip{background:#2a2a2a;color:#888;font-size:9px;padding:2px 6px;border-radius:4px;display:inline-block}
+
+/* チェックボックス */
+.cb{width:13px;height:13px;border:1.5px solid #555;border-radius:3px;display:inline-block;vertical-align:middle;flex-shrink:0}
+.cb.on{background:#6b3fd4;border-color:#6b3fd4}
+
+/* ── 案1: 最小変更 ── */
+.c1 .sel-bar{background:#f59e0b}
+.c1 .sel-bar .cnt{color:#1a1a1a}
+.c1 .sel-bar{color:#1a1a1a}
+.c1 .bar-btn{background:rgba(0,0,0,.15);color:#1a1a1a;border-color:rgba(0,0,0,.2)}
+.c1 .star-empty{color:#bbb}
+.c1 .star-full{color:#f59e0b}
+
+/* ── 案2: ☆アンバー化 + バー濃い飴色 ── */
+.c2 .sel-bar{background:#b45309}
+.c2 .sel-bar .cnt{color:#fff}
+.c2 .sel-bar{color:#fff}
+.c2 .bar-btn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.2)}
+.c2 .star-empty{color:rgba(245,158,11,.45)}
+.c2 .star-full{color:#f59e0b}
+
+/* ── 案3: バーをアクセント紫 ── */
+.c3 .sel-bar{background:#6b3fd4}
+.c3 .sel-bar .cnt{color:#fff}
+.c3 .sel-bar{color:#fff}
+.c3 .bar-btn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.2)}
+.c3 .star-empty{color:#aaa}
+.c3 .star-full{color:#f59e0b}
+
+/* ── 案4: ☆アウトライン + バー黒テキスト明黄 ── */
+.c4 .sel-bar{background:#fcd34d}
+.c4 .sel-bar .cnt{color:#1a1a1a}
+.c4 .sel-bar{color:#1a1a1a}
+.c4 .bar-btn{background:rgba(0,0,0,.12);color:#1a1a1a;border-color:rgba(0,0,0,.18)}
+.c4 .star-empty{color:transparent;-webkit-text-stroke:1.2px #888}
+.c4 .star-full{color:#f59e0b}
+
+/* ── 案5: ハイコントラスト ── */
+.c5 .sel-bar{background:#1a1a1a;border-left:3px solid #f59e0b}
+.c5 .sel-bar .cnt{color:#f59e0b}
+.c5 .sel-bar{color:#e5e5e5}
+.c5 .bar-btn{background:#2a2a2a;color:#e5e5e5;border-color:#444}
+.c5 .star-empty{color:#e5e5e5}
+.c5 .star-full{color:#f59e0b}
+</style>
+</head>
+<body>
+
+<h1>ダークモード — ☆ + 選択バー 5案比較</h1>
+
+<div class="cases">
+
+  <!-- 案1 -->
+  <div class="case c1">
+    <div class="case-label">案1 — ☆明るく / バー黒テキスト</div>
+    <div class="shell">
+      <div class="sel-bar">
+        <span class="cnt">2本を選択中</span>
+        <div class="bar-btn">全選択</div>
+        <div class="bar-btn">削除</div>
+        <div class="bar-btn">✂ 一括編集</div>
+        <div class="bar-btn">×</div>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th></th><th>Title</th><th>★ Fav</th><th>Top/Bot</th><th>カテゴリ</th><th>タグ</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">BJJ: 7 Basic Guard Reco...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">Three Simple Tricks To...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">JIU JITSU DRILLS - GU...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">GUARD RETENTION DR...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">Guard Retention: The Co...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">ガードリテンション基本</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">対腰切りハーフガード</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">エスケープ</span></td><td><span class="tag-chip">ハーフ</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 案2 -->
+  <div class="case c2">
+    <div class="case-label">案2 — ☆薄アンバー / バー飴色</div>
+    <div class="shell">
+      <div class="sel-bar">
+        <span class="cnt">2本を選択中</span>
+        <div class="bar-btn">全選択</div>
+        <div class="bar-btn">削除</div>
+        <div class="bar-btn">✂ 一括編集</div>
+        <div class="bar-btn">×</div>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th></th><th>Title</th><th>★ Fav</th><th>Top/Bot</th><th>カテゴリ</th><th>タグ</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">BJJ: 7 Basic Guard Reco...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">Three Simple Tricks To...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">JIU JITSU DRILLS - GU...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">GUARD RETENTION DR...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">Guard Retention: The Co...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">ガードリテンション基本</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">対腰切りハーフガード</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">エスケープ</span></td><td><span class="tag-chip">ハーフ</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 案3 -->
+  <div class="case c3">
+    <div class="case-label">案3 — ☆グレー / バー紫</div>
+    <div class="shell">
+      <div class="sel-bar">
+        <span class="cnt">2本を選択中</span>
+        <div class="bar-btn">全選択</div>
+        <div class="bar-btn">削除</div>
+        <div class="bar-btn">✂ 一括編集</div>
+        <div class="bar-btn">×</div>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th></th><th>Title</th><th>★ Fav</th><th>Top/Bot</th><th>カテゴリ</th><th>タグ</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">BJJ: 7 Basic Guard Reco...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">Three Simple Tricks To...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">JIU JITSU DRILLS - GU...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">GUARD RETENTION DR...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">Guard Retention: The Co...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">ガードリテンション基本</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">対腰切りハーフガード</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">エスケープ</span></td><td><span class="tag-chip">ハーフ</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 案4 -->
+  <div class="case c4">
+    <div class="case-label">案4 — ☆アウトライン / バー明黄+黒文字</div>
+    <div class="shell">
+      <div class="sel-bar">
+        <span class="cnt">2本を選択中</span>
+        <div class="bar-btn">全選択</div>
+        <div class="bar-btn">削除</div>
+        <div class="bar-btn">✂ 一括編集</div>
+        <div class="bar-btn">×</div>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th></th><th>Title</th><th>★ Fav</th><th>Top/Bot</th><th>カテゴリ</th><th>タグ</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">BJJ: 7 Basic Guard Reco...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">Three Simple Tricks To...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">JIU JITSU DRILLS - GU...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">GUARD RETENTION DR...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">Guard Retention: The Co...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">ガードリテンション基本</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">対腰切りハーフガード</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">エスケープ</span></td><td><span class="tag-chip">ハーフ</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 案5 -->
+  <div class="case c5">
+    <div class="case-label">案5 — ☆白 / バーダーク+金アクセント</div>
+    <div class="shell">
+      <div class="sel-bar">
+        <span class="cnt">2本を選択中</span>
+        <div class="bar-btn">全選択</div>
+        <div class="bar-btn">削除</div>
+        <div class="bar-btn">✂ 一括編集</div>
+        <div class="bar-btn">×</div>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th></th><th>Title</th><th>★ Fav</th><th>Top/Bot</th><th>カテゴリ</th><th>タグ</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">BJJ: 7 Basic Guard Reco...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb on"></div></td><td class="title-cell">Three Simple Tricks To...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">JIU JITSU DRILLS - GU...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">GUARD RETENTION DR...</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">Guard Retention: The Co...</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">ガードリテンション基本</td><td><span class="star-empty">☆</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">ガードリテンション</span></td><td>—</td></tr>
+          <tr><td><div class="cb"></div></td><td class="title-cell">対腰切りハーフガード</td><td><span class="star-full">★</span></td><td><span class="tag-chip">ボトム</span></td><td><span class="tag-chip">エスケープ</span></td><td><span class="tag-chip">ハーフ</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

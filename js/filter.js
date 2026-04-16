@@ -308,7 +308,7 @@ export function renderFilterPresets() {
         if (fs.channel && fs.channel.length && !fs.channel.includes(v.channel || v.ch)) return false;
         return true;
       }).length;
-      const badge = '<span style="font-size:9px;background:var(--accent);color:#fff;border-radius:8px;padding:1px 6px;margin-left:5px;font-weight:700">'+count+'</span>';
+      const badge = '<span style="font-size:9px;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:1px 6px;margin-left:5px;font-weight:700">'+count+'</span>';
       return '<div class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-bottom:3px;max-width:100%">'
         + '<span onclick="'+loadFn+'('+i+')" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">'+p.name+badge+'</span>'
         + '<span style="color:var(--text3);font-size:12px;flex-shrink:0;padding-left:4px" onclick="deleteFilterPreset('+i+')">×</span>'

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCK — 管理モード切替</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;
+--accent:#e5c47a;--gold:#e5c47a;--gold-soft:#2e2a1e;
+--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;
+--border:#48484a;--border2:#3a3a3c;
+--green:#6bc490;--green-soft:#1e2e24;
+--blue:#7ab8e0;--blue-soft:#1e2530;
+--purple:#a090d0;--purple-soft:#28253a;
+--red:#e06060;--red-soft:#2e1e1e;
+--radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding:20px;max-width:1100px;margin:0 auto}
+h1{font-size:18px;font-weight:600;color:var(--accent);margin-bottom:24px}
+
+.settings-panel{background:var(--surface);border-radius:12px;border:1px solid var(--border2);overflow:hidden;margin-bottom:28px}
+.section{padding:20px;border-bottom:1px solid var(--border2)}
+.section:last-child{border-bottom:none}
+.section-title{font-size:14px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title svg{width:16px;height:16px;opacity:.6}
+
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)}
+.setting-row:last-child{border-bottom:none}
+.setting-info{flex:1}
+.setting-label{font-size:14px;font-weight:500;margin-bottom:2px}
+.setting-desc{font-size:12px;color:var(--text3);line-height:1.4}
+
+.toggle{width:44px;height:24px;background:var(--surface3);border-radius:12px;cursor:pointer;position:relative;transition:background .3s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .3s}
+.toggle.on::after{transform:translateX(20px)}
+.toggle.green.on{background:var(--green)}
+
+.select-wrap{position:relative}
+.select-fake{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 32px 8px 12px;font-size:13px;color:var(--text);cursor:pointer;min-width:160px;appearance:none}
+.select-fake::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+
+/* Admin section - subtle */
+.admin-section{border-top:2px solid var(--border2);margin-top:4px}
+.admin-section .section-title{color:var(--text3);font-size:12px}
+.admin-lock{color:var(--text3);font-size:14px}
+.admin-reveal{max-height:0;overflow:hidden;transition:max-height .4s ease,opacity .3s;opacity:0}
+.admin-reveal.show{max-height:200px;opacity:1}
+.admin-note{font-size:11px;color:var(--text3);margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius);line-height:1.5;border-left:3px solid var(--accent)}
+
+/* Preview section */
+.preview-section{margin-top:32px}
+.preview-section h2{font-size:15px;font-weight:600;margin-bottom:16px;color:var(--text2)}
+.preview-grid{display:grid;grid-template-columns:1fr;gap:20px;transition:grid-template-columns .4s}
+.preview-grid.split{grid-template-columns:1fr 1fr}
+.preview-col{background:var(--surface);border-radius:12px;border:1px solid var(--border2);padding:16px;transition:all .4s}
+.preview-col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px}
+.preview-col-title .icon{width:8px;height:8px;border-radius:50%;display:inline-block}
+.preview-col.user .preview-col-title{color:var(--text3)}
+.preview-col.admin .preview-col-title{color:var(--accent)}
+.preview-col.admin{border-color:var(--accent);opacity:0;transform:translateX(20px);transition:opacity .4s,transform .4s}
+.preview-col.admin.show{opacity:1;transform:translateX(0)}
+
+.mini-card{background:var(--surface2);border-radius:var(--radius);padding:12px;margin-bottom:8px;position:relative;display:flex;gap:12px;align-items:center}
+.mini-card:last-child{margin-bottom:0}
+.mini-thumb{width:64px;height:44px;background:var(--surface3);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.mini-thumb svg{width:20px;height:20px;opacity:.3}
+.mini-info{flex:1}
+.mini-title{font-size:12px;font-weight:600;margin-bottom:4px}
+.mini-chips{display:flex;flex-wrap:wrap;gap:4px}
+.mini-chip{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:500}
+.mc-tb{background:var(--blue-soft);color:var(--blue)}
+.mc-cat{background:var(--purple-soft);color:var(--purple)}
+.mini-dot{position:absolute;top:8px;right:8px;width:10px;height:10px;border-radius:50%;border:2px solid var(--surface2)}
+.mini-dot.green{background:var(--green)}
+.mini-dot.yellow{background:var(--accent)}
+</style>
+</head>
+<body>
+
+<h1>管理モード切替 — Admin Mode Toggle</h1>
+
+<div class="settings-panel">
+  <!-- General -->
+  <div class="section">
+    <div class="section-title">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg>
+      一般設定
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">ダークモード</div>
+        <div class="setting-desc">常にダークテーマを使用</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">カード表示</div>
+        <div class="setting-desc">動画カードのレイアウト</div>
+      </div>
+      <div class="select-wrap">
+        <select class="select-fake"><option>グリッド</option><option>リスト</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Settings -->
+  <div class="section">
+    <div class="section-title">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.875 6.875 0 000 9.79 7.02 7.02 0 009.88 0A6.97 6.97 0 0019 12.28h2a9 9 0 01-2.64 6.37c-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58a8.987 8.987 0 0112.65 0L21 3v7.12z"/></svg>
+      AI設定
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">AIモデル</div>
+        <div class="setting-desc">タグ判定に使用するモデル</div>
+      </div>
+      <div class="select-wrap">
+        <select class="select-fake"><option>Claude 3.5 Sonnet</option><option>GPT-4o</option><option>Gemini Pro</option></select>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">自動タグ付け</div>
+        <div class="setting-desc">新規動画登録時にAIで自動タグ付け</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <!-- Admin Mode (subtle, at bottom) -->
+  <div class="section admin-section">
+    <div class="section-title">
+      <span class="admin-lock">🔒</span>
+      管理モード
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">管理モード</div>
+        <div class="admin-reveal" id="adminDesc">
+          <div class="setting-desc" style="color:var(--accent);margin-bottom:6px">検証ドット・精度バッジを表示</div>
+          <div class="admin-note">このモードはこの端末のみに保存されます。他のユーザーには影響しません。</div>
+        </div>
+      </div>
+      <div class="toggle green" id="adminToggle" onclick="toggleAdmin()"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Section -->
+<div class="preview-section">
+  <h2>表示プレビュー</h2>
+  <div class="preview-grid" id="previewGrid">
+    <!-- User view - always visible -->
+    <div class="preview-col user">
+      <div class="preview-col-title">
+        <span class="icon" style="background:var(--text3)"></span>
+        一般ユーザーの表示
+      </div>
+      <div class="mini-card">
+        <div class="mini-thumb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="mini-info">
+          <div class="mini-title">Marcelo Garcia - Arm Drag</div>
+          <div class="mini-chips"><span class="mini-chip mc-tb">トップ</span><span class="mini-chip mc-cat">テイクダウン</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-thumb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="mini-info">
+          <div class="mini-title">John Danaher - Closed Guard</div>
+          <div class="mini-chips"><span class="mini-chip mc-tb">ボトム</span><span class="mini-chip mc-cat">ガードリテンション</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-thumb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="mini-info">
+          <div class="mini-title">Craig Jones - Heel Hook</div>
+          <div class="mini-chips"><span class="mini-chip mc-tb">ボトム</span><span class="mini-chip mc-cat">サブミッション</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin view - only visible when toggled -->
+    <div class="preview-col admin" id="adminPreview">
+      <div class="preview-col-title">
+        <span class="icon" style="background:var(--accent)"></span>
+        管理モードの表示
+      </div>
+      <div class="mini-card">
+        <div class="mini-thumb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="mini-info">
+          <div class="mini-title">Marcelo Garcia - Arm Drag</div>
+          <div class="mini-chips"><span class="mini-chip mc-tb">トップ</span><span class="mini-chip mc-cat">テイクダウン</span></div>
+        </div>
+        <div class="mini-dot yellow"></div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-thumb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="mini-info">
+          <div class="mini-title">John Danaher - Closed Guard</div>
+          <div class="mini-chips"><span class="mini-chip mc-tb">ボトム</span><span class="mini-chip mc-cat">ガードリテンション</span></div>
+        </div>
+        <div class="mini-dot green"></div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-thumb"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="mini-info">
+          <div class="mini-title">Craig Jones - Heel Hook</div>
+          <div class="mini-chips"><span class="mini-chip mc-tb">ボトム</span><span class="mini-chip mc-cat">サブミッション</span></div>
+        </div>
+        <div class="mini-dot yellow"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let adminOn = false;
+
+function toggleAdmin() {
+  adminOn = !adminOn;
+  const toggle = document.getElementById('adminToggle');
+  const desc = document.getElementById('adminDesc');
+  const grid = document.getElementById('previewGrid');
+  const adminPreview = document.getElementById('adminPreview');
+
+  toggle.classList.toggle('on', adminOn);
+  desc.classList.toggle('show', adminOn);
+  grid.classList.toggle('split', adminOn);
+
+  if (adminOn) {
+    setTimeout(() => adminPreview.classList.add('show'), 100);
+  } else {
+    adminPreview.classList.remove('show');
+  }
+}
+</script>
+</body>
+</html>

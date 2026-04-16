@@ -3,16 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MOCK — #Tag 管理</title>
+<title>MOCK — テクニック管理</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f5f5f0;--surface:#fff;--surface2:#f0efe8;--border:#e0dfd8;--border2:#eae9e3;--text:#1a1a1a;--text2:#666;--text3:#999;--accent:#1a1a1a;--red:#ef4444;--blue:#3b82f6;--green:#22c55e}
+:root{--bg:#f5f5f0;--surface:#fff;--surface2:#f0efe8;--border:#e0dfd8;--border2:#eae9e3;--text:#1a1a1a;--text2:#666;--text3:#999;--accent:#1a1a1a;--red:#ef4444;--blue:#3b82f6;--orange:#f59e0b}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:420px;margin:0 auto;min-height:100vh;padding:16px}
 
 h2{font-size:16px;font-weight:800;margin-bottom:4px}
 .subtitle{font-size:11px;color:var(--text3);margin-bottom:20px}
 
-/* Tag Display Settings - 4 rows */
 .tag-section{margin-bottom:24px}
 .tag-section-title{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
 .tag-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px}
@@ -22,7 +21,6 @@ h2{font-size:16px;font-weight:800;margin-bottom:4px}
 .tag-row .info .count{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
 .edit-btn{background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;white-space:nowrap}
 
-/* Toggle */
 .toggle{position:relative;width:44px;height:24px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0}
 .toggle .slider{position:absolute;inset:0;background:#ccc;border-radius:24px;transition:.2s;cursor:pointer}
@@ -30,77 +28,63 @@ h2{font-size:16px;font-weight:800;margin-bottom:4px}
 .toggle input:checked+.slider{background:var(--accent)}
 .toggle input:checked+.slider::before{transform:translateX(20px)}
 
-/* ═══ #Tag popup modal ═══ */
+/* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;display:flex;justify-content:center;align-items:center;padding:20px}
-.modal{background:var(--surface);border-radius:14px;width:100%;max-width:380px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.15)}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:380px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.15)}
 .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border2);flex-shrink:0}
 .modal-header h3{font-size:14px;font-weight:800}
 .modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px}
 
-/* Tabs */
 .modal-tabs{display:flex;border-bottom:1px solid var(--border2);flex-shrink:0}
 .modal-tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
 .modal-tab.active{color:var(--text);border-bottom-color:var(--accent)}
-.modal-tab .badge{display:inline-block;background:var(--surface2);color:var(--text3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px}
+.modal-tab .badge{display:inline-block;background:var(--surface2);color:var(--text3);font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:4px;min-width:18px;text-align:center}
 .modal-tab.active .badge{background:var(--accent);color:#fff}
 
-/* Search */
-.modal-search{padding:0 18px;border-bottom:1px solid var(--border2)}
-.modal-search input{width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit}
+.modal-search{padding:0 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px}
+.modal-search input{flex:1;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit}
 
-/* Tag list */
 .tag-list{overflow-y:auto;flex:1;padding:0}
+
+/* Tag items */
 .tag-item{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2)}
-.tag-item .tag-name{flex:1;min-width:0}
-.tag-item .tag-name .primary{font-size:12px;font-weight:600}
-.tag-item .tag-name .secondary{font-size:10px;color:var(--text3);margin-top:1px}
+.tag-item .tag-name{flex:1;min-width:0;font-size:12px;font-weight:600}
 .tag-item .tag-count{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
 .tag-item .tag-actions{display:flex;gap:4px;flex-shrink:0}
-.tag-item .tag-actions button{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer}
-.tag-item .tag-actions button:hover{border-color:var(--text2);color:var(--text2)}
-.tag-item .tag-actions .ng-btn:hover{border-color:var(--red);color:var(--red)}
+.tag-item .tag-actions button{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;font-family:inherit;transition:.15s}
+.tag-item .tag-actions .ng-btn:hover{border-color:var(--red);color:var(--red);background:#fef2f2}
+.tag-item .tag-actions .del-btn:hover{border-color:var(--text2);color:var(--text2)}
+.custom-badge{font-size:9px;font-weight:600;color:var(--blue);background:#e8eef4;padding:1px 5px;border-radius:6px;margin-left:5px}
 
-/* NG item */
+/* NG items */
 .ng-item{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);background:#fef2f211}
-.ng-item .ng-name{flex:1;font-size:12px;font-weight:600;color:var(--red)}
+.ng-item .ng-name{flex:1;font-size:12px;font-weight:600;color:var(--red);display:flex;align-items:center;gap:6px}
 .ng-item .ng-count{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
-.ng-item .ng-actions{display:flex;gap:4px;flex-shrink:0}
-.ng-item .ng-actions button{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer}
-.ng-item .restore-btn:hover{border-color:var(--blue);color:var(--blue)}
+.restore-btn{background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;font-family:inherit}
+.restore-btn:hover{border-color:var(--blue);color:var(--blue)}
 
-/* Custom badge */
-.custom-badge{font-size:9px;font-weight:600;color:var(--blue);background:#e8eef4;padding:1px 6px;border-radius:8px;margin-left:6px}
+/* Rules section */
+.rules-section{padding:12px 18px;border-bottom:1px solid var(--border2);background:var(--surface2);flex-shrink:0}
+.rules-title{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.rule-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.rule-label{font-size:11px;color:var(--text2)}
 
-/* Notice */
-.modal-notice{font-size:10px;color:var(--text3);line-height:1.5;padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0}
-
-/* Add input */
+.modal-notice{font-size:10px;color:var(--text3);line-height:1.5;padding:8px 18px;border-top:1px solid var(--border);flex-shrink:0}
 .modal-add{padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px}
 .modal-add input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;outline:none}
-.modal-add button{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
-
-/* Status bar */
-.status-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 18px;background:var(--surface2);border-bottom:1px solid var(--border2);font-size:11px;color:var(--text2);flex-shrink:0}
-
-/* Confirm modal */
-.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;justify-content:center;align-items:center;padding:20px}
-.confirm-card{background:var(--surface);border-radius:14px;padding:24px;max-width:320px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2);text-align:center}
-.confirm-title{font-size:14px;font-weight:800;margin-bottom:8px}
-.confirm-desc{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px}
-.confirm-desc strong{color:var(--red);font-weight:700}
-.confirm-btns{display:flex;gap:8px}
-.confirm-btns button{flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-.confirm-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
-.confirm-danger{background:var(--red);border:none;color:#fff}
+.modal-add button{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 
 /* Toast */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
+
+/* Undo in toast */
+.toast-undo{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:300;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.toast-undo button{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:inherit}
 </style>
 </head>
 <body>
 
-<!-- ═══ Settings Background (context) ═══ -->
 <h2>Settings</h2>
 <div class="subtitle">表示・AI・再生・外観の設定</div>
 
@@ -119,263 +103,269 @@ h2{font-size:16px;font-weight:800;margin-bottom:4px}
     </div>
     <div class="tag-row">
       <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
-      <div class="info"><div class="name">ポジション</div><div class="count">21 項目</div></div>
+      <div class="info"><div class="name">ポジション</div><div class="count">27 項目</div></div>
       <button class="edit-btn">編集</button>
     </div>
     <div class="tag-row">
       <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
-      <div class="info"><div class="name">#Tag</div><div class="count">24 項目</div></div>
-      <button class="edit-btn" onclick="openModal()">編集</button>
+      <div class="info"><div class="name">テクニック</div><div class="count" id="settingsTechCount">24 項目</div></div>
+      <button class="edit-btn" onclick="openModal('list')">編集</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ #Tag Modal ═══ -->
+<!-- Modal -->
 <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="if(event.target===this)closeModal()">
-  <div class="modal" id="tagModal">
+  <div class="modal">
     <div class="modal-header">
-      <h3>#Tag</h3>
+      <h3>テクニック</h3>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
 
-    <!-- Tabs -->
     <div class="modal-tabs">
-      <div class="modal-tab active" id="tab-tags" onclick="switchModalTab('tags')">
-        タグ一覧 <span class="badge" id="tags-count">24</span>
+      <div class="modal-tab active" id="tab-list" onclick="switchTab('list')">
+        一覧 <span class="badge" id="badge-list">24</span>
       </div>
-      <div class="modal-tab" id="tab-ng" onclick="switchModalTab('ng')">
-        NGリスト <span class="badge" id="ng-count">3</span>
+      <div class="modal-tab" id="tab-ng" onclick="switchTab('ng')">
+        NGリスト <span class="badge" id="badge-ng">3</span>
+      </div>
+      <div class="modal-tab" id="tab-rules" onclick="switchTab('rules')">
+        ルール
       </div>
     </div>
 
-    <!-- Search -->
-    <div class="modal-search">
+    <div class="modal-search" id="searchBar">
       <input id="searchInput" placeholder="検索..." oninput="filterList()">
     </div>
 
-    <!-- Status bar -->
-    <div class="status-bar" id="statusBar">
-      <span>AI自動生成 + 手動追加</span>
-      <span id="totalUsage">合計 156 回使用</span>
+    <!-- 一覧 -->
+    <div class="tag-list" id="panel-list"></div>
+
+    <!-- NGリスト -->
+    <div class="tag-list" id="panel-ng" style="display:none"></div>
+
+    <!-- ルール -->
+    <div class="tag-list" id="panel-rules" style="display:none">
+      <div class="rules-section" style="border-bottom:none">
+        <div class="rules-title">表記ルール</div>
+        <div class="rule-row">
+          <span class="rule-label">英語は小文字統一</span>
+          <label class="toggle" style="width:36px;height:20px"><input type="checkbox" checked><span class="slider" style="border-radius:20px"></span></label>
+        </div>
+        <div class="rule-row">
+          <span class="rule-label">重複タグを自動マージ</span>
+          <label class="toggle" style="width:36px;height:20px"><input type="checkbox" checked><span class="slider" style="border-radius:20px"></span></label>
+        </div>
+        <div class="rule-row">
+          <span class="rule-label">AIが提案したテクニックを自動追加</span>
+          <label class="toggle" style="width:36px;height:20px"><input type="checkbox"><span class="slider" style="border-radius:20px"></span></label>
+        </div>
+      </div>
+      <div style="padding:14px 18px;border-top:1px solid var(--border2)">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px">表記ゆれ統一マップ</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">複数の表記を1つに統一します</div>
+        <div style="display:flex;flex-direction:column;gap:6px" id="aliasMap">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:11px">
+            <span style="color:var(--text3)">アームロック</span>
+            <span style="color:var(--text3)">→</span>
+            <span style="font-weight:700">アームバー</span>
+            <span style="flex:1"></span>
+            <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:11px">
+            <span style="color:var(--text3)">三角絞め</span>
+            <span style="color:var(--text3)">→</span>
+            <span style="font-weight:700">十字絞め</span>
+            <span style="flex:1"></span>
+            <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
+          </div>
+        </div>
+        <button style="margin-top:10px;width:100%;padding:8px;border:1.5px dashed var(--border);background:none;border-radius:8px;font-size:11px;color:var(--text3);cursor:pointer">＋ 統一ルールを追加</button>
+      </div>
     </div>
 
-    <!-- Tag list panel -->
-    <div class="tag-list" id="tagListPanel">
-    </div>
-
-    <!-- NG list panel (hidden by default) -->
-    <div class="tag-list" id="ngListPanel" style="display:none">
-    </div>
-
-    <!-- Notice -->
     <div class="modal-notice" id="noticeArea">
       ※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。
     </div>
-
-    <!-- Add input -->
     <div class="modal-add" id="addArea">
-      <input placeholder="新しいタグを追加..." id="addInput">
+      <input placeholder="新しいテクニックを追加..." id="addInput" onkeydown="if(event.key==='Enter')addTag()">
       <button onclick="addTag()">追加</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ Confirm Dialog ═══ -->
-<div class="confirm-overlay" id="confirmOverlay" style="display:none">
-  <div class="confirm-card">
-    <div class="confirm-title" id="confirmTitle">NGリストに追加</div>
-    <div class="confirm-desc" id="confirmDesc"></div>
-    <div class="confirm-btns">
-      <button class="confirm-cancel" onclick="closeConfirm()">キャンセル</button>
-      <button class="confirm-danger" id="confirmBtn" onclick="confirmAction()">NGに追加</button>
-    </div>
-  </div>
+<!-- Toast with undo -->
+<div id="toastUndo" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:300;display:none;align-items:center;gap:10px;white-space:nowrap">
+  <span id="toastMsg"></span>
+  <button onclick="undoNG()" style="background:none;border:1px solid rgba(255,255,255,.5);color:#fff;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:inherit">↩ 元に戻す</button>
 </div>
 
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
 <script>
-// ═══ Mock Data ═══
 const mockTags = [
-  { name: 'アームバー', count: 18, source: 'system' },
-  { name: 'キムラ', count: 15, source: 'system' },
-  { name: 'RNC', count: 12, source: 'system' },
-  { name: 'ギロチン', count: 11, source: 'system' },
-  { name: 'ヒールフック', count: 9, source: 'system' },
-  { name: 'オモプラッタ', count: 8, source: 'system' },
-  { name: '十字絞め', count: 7, source: 'system' },
-  { name: 'ベリンボロ', count: 7, source: 'system' },
-  { name: 'トーホールド', count: 6, source: 'system' },
-  { name: 'ニーバー', count: 5, source: 'system' },
-  { name: 'ダブルレッグ', count: 5, source: 'system' },
-  { name: 'シングルレッグ', count: 4, source: 'system' },
-  { name: 'アメリカーナ', count: 4, source: 'system' },
-  { name: 'ボウアンドアロー', count: 3, source: 'system' },
-  { name: 'バタフライスイープ', count: 3, source: 'system' },
-  { name: 'SLXスイープ', count: 3, source: 'system' },
-  { name: 'ドリル', count: 4, source: 'system' },
-  { name: 'インサイドヒールフック', count: 2, source: 'system' },
-  { name: 'アウトサイドヒールフック', count: 1, source: 'system' },
-  { name: 'ワキガタメ', count: 2, source: 'user' },
-  { name: 'エビ', count: 1, source: 'user' },
-  { name: 'ブリッジ', count: 1, source: 'user' },
-  { name: 'ダースチョーク', count: 2, source: 'user' },
-  { name: 'アナコンダチョーク', count: 1, source: 'user' },
+  {name:'アームバー',count:18,source:'system'},
+  {name:'アメリカーナ',count:4,source:'system'},
+  {name:'アウトサイドヒールフック',count:1,source:'system'},
+  {name:'インサイドヒールフック',count:2,source:'system'},
+  {name:'オモプラッタ',count:8,source:'system'},
+  {name:'キムラ',count:15,source:'system'},
+  {name:'ギロチン',count:11,source:'system'},
+  {name:'シングルレッグ',count:5,source:'system'},
+  {name:'ダースチョーク',count:2,source:'user'},
+  {name:'ダブルレッグ',count:5,source:'system'},
+  {name:'トーホールド',count:6,source:'system'},
+  {name:'ニーバー',count:5,source:'system'},
+  {name:'ベリンボロ',count:7,source:'system'},
+  {name:'ボウアンドアロー',count:3,source:'system'},
+  {name:'バタフライスイープ',count:3,source:'system'},
+  {name:'ヒールフック',count:9,source:'system'},
+  {name:'RNC',count:12,source:'system'},
+  {name:'SLXスイープ',count:3,source:'system'},
+  {name:'アナコンダチョーク',count:1,source:'user'},
+  {name:'エビ',count:1,source:'user'},
+  {name:'ブリッジ',count:1,source:'user'},
+  {name:'ワキガタメ',count:2,source:'user'},
+  {name:'十字絞め',count:7,source:'system'},
 ];
 
 const mockNG = [
-  { name: 'その他', removedFrom: 12 },
-  { name: 'BJJ', removedFrom: 8 },
-  { name: 'Tutorial', removedFrom: 5 },
+  {name:'BJJ',removedFrom:8},
+  {name:'Tutorial',removedFrom:5},
+  {name:'その他',removedFrom:12},
 ];
 
-let currentTab = 'tags';
-let pendingNG = null;
+let currentTab = 'list';
+let lastNGAction = null;
+let undoTimer = null;
 
-function openModal() {
+function sortTags(arr) {
+  return [...arr].sort((a,b) => a.name.localeCompare(b.name, 'ja-JP', {sensitivity:'base'}));
+}
+
+function openModal(tab='list') {
   document.getElementById('modalOverlay').style.display = 'flex';
-  renderTagList();
-  renderNGList();
+  switchTab(tab);
 }
 function closeModal() {
   document.getElementById('modalOverlay').style.display = 'none';
 }
 
-function switchModalTab(tab) {
+function switchTab(tab) {
   currentTab = tab;
-  document.getElementById('tab-tags').className = 'modal-tab' + (tab === 'tags' ? ' active' : '');
-  document.getElementById('tab-ng').className = 'modal-tab' + (tab === 'ng' ? ' active' : '');
-  document.getElementById('tagListPanel').style.display = tab === 'tags' ? '' : 'none';
-  document.getElementById('ngListPanel').style.display = tab === 'ng' ? '' : 'none';
-  document.getElementById('addArea').style.display = tab === 'tags' ? '' : 'none';
-  document.getElementById('statusBar').style.display = tab === 'tags' ? '' : 'none';
-  document.getElementById('noticeArea').textContent = tab === 'tags'
-    ? '※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。'
-    : '※ NGリストのタグはAIが今後提案しません。追加時に既存動画からも一括削除されます。';
+  ['list','ng','rules'].forEach(t => {
+    document.getElementById('tab-'+t).className = 'modal-tab'+(t===tab?' active':'');
+    document.getElementById('panel-'+t).style.display = t===tab?'':'none';
+  });
+  document.getElementById('searchBar').style.display = tab==='rules'?'none':'';
+  document.getElementById('addArea').style.display = tab==='list'?'':'none';
+  document.getElementById('noticeArea').style.display = tab==='rules'?'none':'';
+  if(tab==='ng') document.getElementById('noticeArea').textContent = '※ NGリストのテクニックはAIが今後提案しません。動画からも即座に削除されます。';
+  else document.getElementById('noticeArea').textContent = '※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。';
+  if(tab==='list') renderTagList();
+  if(tab==='ng') renderNGList();
 }
 
 function renderTagList() {
-  const list = document.getElementById('tagListPanel');
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  const filtered = mockTags.filter(t => t.name.toLowerCase().includes(q));
-  const sorted = filtered.sort((a, b) => b.count - a.count);
-
+  const q = (document.getElementById('searchInput').value||'').toLowerCase();
+  const sorted = sortTags(mockTags).filter(t => t.name.toLowerCase().includes(q));
+  const list = document.getElementById('panel-list');
   list.innerHTML = sorted.map(t => `
     <div class="tag-item" data-name="${t.name.toLowerCase()}">
-      <div class="tag-name">
-        <div class="primary">${t.name}${t.source === 'user' ? '<span class="custom-badge">カスタム</span>' : ''}</div>
-      </div>
+      <div class="tag-name">${t.name}${t.source==='user'?'<span class="custom-badge">カスタム</span>':''}</div>
       <div class="tag-count">${t.count}本</div>
       <div class="tag-actions">
-        <button class="ng-btn" onclick="requestNG('${t.name}', ${t.count})">NG</button>
-        <button onclick="removeTag('${t.name}')">削除</button>
+        <button class="ng-btn" onclick="moveToNG('${t.name}',${t.count})">NG</button>
+        <button class="del-btn" onclick="deleteTag('${t.name}')">削除</button>
       </div>
-    </div>
-  `).join('');
-
-  document.getElementById('tags-count').textContent = mockTags.length;
-  const totalUsage = mockTags.reduce((s, t) => s + t.count, 0);
-  document.getElementById('totalUsage').textContent = `合計 ${totalUsage} 回使用`;
+    </div>`).join('');
+  updateBadges();
 }
 
 function renderNGList() {
-  const list = document.getElementById('ngListPanel');
-  list.innerHTML = mockNG.length ? mockNG.map(t => `
-    <div class="ng-item">
+  const q = (document.getElementById('searchInput').value||'').toLowerCase();
+  const sorted = sortTags(mockNG).filter(t => t.name.toLowerCase().includes(q));
+  const list = document.getElementById('panel-ng');
+  list.innerHTML = sorted.length ? sorted.map(t => `
+    <div class="ng-item" data-name="${t.name.toLowerCase()}">
       <div class="ng-name">🚫 ${t.name}</div>
       <div class="ng-count">削除済 ${t.removedFrom}本</div>
-      <div class="ng-actions">
-        <button class="restore-btn" onclick="restoreFromNG('${t.name}')">↩ 復元</button>
-      </div>
-    </div>
-  `).join('') : '<div style="padding:24px;text-align:center;font-size:12px;color:var(--text3)">NGリストは空です</div>';
+      <button class="restore-btn" onclick="restoreFromNG('${t.name}')">↩ 復元</button>
+    </div>`).join('')
+    : '<div style="padding:24px;text-align:center;font-size:12px;color:var(--text3)">NGリストは空です</div>';
+  updateBadges();
+}
 
-  document.getElementById('ng-count').textContent = mockNG.length;
+function updateBadges() {
+  document.getElementById('badge-list').textContent = mockTags.length;
+  document.getElementById('badge-ng').textContent = mockNG.length;
+  document.getElementById('settingsTechCount').textContent = mockTags.length + ' 項目';
 }
 
 function filterList() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  if (currentTab === 'tags') {
-    document.querySelectorAll('#tagListPanel .tag-item').forEach(el => {
-      el.style.display = el.dataset.name.includes(q) ? '' : 'none';
-    });
-  }
+  if(currentTab==='list') renderTagList();
+  else if(currentTab==='ng') renderNGList();
 }
 
-function requestNG(name, count) {
-  pendingNG = { name, count };
-  document.getElementById('confirmTitle').textContent = 'NGリストに追加';
-  document.getElementById('confirmDesc').innerHTML =
-    `「<strong>${name}</strong>」をNGリストに追加しますか？<br><br>` +
-    `このタグは今後AIが提案しなくなります。<br>` +
-    `また、現在このタグが付いている <strong>${count}本</strong> の動画からも一括削除されます。`;
-  document.getElementById('confirmBtn').textContent = 'NGに追加';
-  document.getElementById('confirmOverlay').style.display = 'flex';
+function moveToNG(name, count) {
+  const idx = mockTags.findIndex(t => t.name===name);
+  if(idx<0) return;
+  mockTags.splice(idx,1);
+  mockNG.push({name, removedFrom:count});
+  lastNGAction = {name, count};
+  renderTagList();
+  renderNGList();
+  showUndoToast(`🚫 「${name}」をNGリストに移動（${count}本から削除）`);
 }
 
-function confirmAction() {
-  if (pendingNG) {
-    const { name, count } = pendingNG;
-    // Move to NG list
-    mockNG.push({ name, removedFrom: count });
-    // Remove from tags
-    const idx = mockTags.findIndex(t => t.name === name);
-    if (idx >= 0) mockTags.splice(idx, 1);
-    renderTagList();
-    renderNGList();
-    showToast(`🚫 「${name}」をNGリストに追加（${count}本から削除）`);
-    pendingNG = null;
-  }
-  closeConfirm();
+function undoNG() {
+  if(!lastNGAction) return;
+  const {name, count} = lastNGAction;
+  const ngIdx = mockNG.findIndex(t => t.name===name);
+  if(ngIdx>=0) mockNG.splice(ngIdx,1);
+  mockTags.push({name, count, source:'system'});
+  lastNGAction = null;
+  hideUndoToast();
+  renderTagList();
+  renderNGList();
 }
 
-function closeConfirm() {
-  document.getElementById('confirmOverlay').style.display = 'none';
-  pendingNG = null;
+function deleteTag(name) {
+  const idx = mockTags.findIndex(t => t.name===name);
+  if(idx>=0) { mockTags.splice(idx,1); renderTagList(); }
 }
 
 function restoreFromNG(name) {
-  const idx = mockNG.findIndex(t => t.name === name);
-  if (idx >= 0) {
-    mockNG.splice(idx, 1);
-    mockTags.push({ name, count: 0, source: 'system' });
-    renderTagList();
-    renderNGList();
-    showToast(`↩ 「${name}」をNGリストから復元`);
-  }
-}
-
-function removeTag(name) {
-  const idx = mockTags.findIndex(t => t.name === name);
-  if (idx >= 0) {
-    mockTags.splice(idx, 1);
-    renderTagList();
-    showToast(`🗑 「${name}」を削除`);
-  }
+  const idx = mockNG.findIndex(t => t.name===name);
+  if(idx<0) return;
+  const {removedFrom} = mockNG[idx];
+  mockNG.splice(idx,1);
+  mockTags.push({name, count:0, source:'system'});
+  renderTagList();
+  renderNGList();
 }
 
 function addTag() {
   const input = document.getElementById('addInput');
   const val = input.value.trim();
-  if (!val) return;
-  if (mockTags.find(t => t.name === val)) { showToast('⚠️ すでに登録されています'); return; }
-  mockTags.push({ name: val, count: 0, source: 'user' });
-  input.value = '';
+  if(!val) return;
+  if(mockTags.find(t=>t.name===val)) return;
+  mockTags.push({name:val,count:0,source:'user'});
+  input.value='';
   renderTagList();
-  showToast(`✅ 「${val}」を追加`);
 }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._tid);
-  t._tid = setTimeout(() => t.classList.remove('show'), 2500);
+function showUndoToast(msg) {
+  const el = document.getElementById('toastUndo');
+  document.getElementById('toastMsg').textContent = msg;
+  el.style.display = 'flex';
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideUndoToast, 5000);
+}
+function hideUndoToast() {
+  document.getElementById('toastUndo').style.display = 'none';
+  lastNGAction = null;
 }
 
-// Auto-open modal for demo
-setTimeout(openModal, 300);
+setTimeout(() => openModal('list'), 300);
 </script>
 </body>
 </html>

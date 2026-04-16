@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — NGタグ UX</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;--surface:#fff;--surface2:#f5f5f5;
+  --border:#e0e0e0;--border2:#ebebeb;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#6b3fd4;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--text);display:flex;align-items:center;
+  justify-content:center;min-height:100vh;padding:24px}
+
+/* モーダル */
+.modal{background:var(--surface);border-radius:14px;width:360px;
+  box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;flex-direction:column;
+  max-height:560px;overflow:hidden}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 0;flex-shrink:0}
+.modal-hdr .title{font-size:14px;font-weight:800}
+.modal-hdr .close{background:none;border:none;font-size:18px;cursor:pointer;
+  color:var(--text3);padding:2px 6px}
+.tabs{display:flex;padding:0 18px;border-bottom:1px solid var(--border2);
+  flex-shrink:0;margin-top:2px}
+.tab{flex:1;background:none;border:none;padding:10px 0;font-size:12px;
+  cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;color:var(--text3)}
+.tab.on{font-weight:700;color:var(--text);border-bottom-color:var(--accent)}
+.body{overflow-y:auto;flex:1}
+
+/* グループ・タグ行 */
+.grp-hdr{display:flex;align-items:center;gap:8px;padding:11px 16px;
+  border-bottom:1px solid var(--border2);cursor:pointer;user-select:none}
+.grp-hdr .arrow{font-size:10px;color:var(--text3);width:10px;text-align:center;
+  display:inline-block;transition:transform .15s}
+.grp-hdr .arrow.open{transform:rotate(90deg)}
+.grp-hdr .name{flex:1;font-size:12px;font-weight:700}
+.grp-hdr .cnt{font-size:11px;color:var(--text3)}
+.tag-row{display:flex;align-items:center;gap:6px;padding:9px 16px 9px 36px;
+  border-bottom:1px solid var(--border2);background:var(--surface2)}
+.tag-row .name{flex:1;font-size:12px;font-weight:600}
+.tag-row select{background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;font-size:10px;color:var(--text2);padding:3px 4px;
+  cursor:pointer;font-family:inherit;outline:none;max-width:90px;flex-shrink:0}
+
+/* NG行 */
+.ng-section{border-top:2px solid #ef444433}
+.ng-hdr{display:flex;align-items:center;gap:8px;padding:11px 16px;
+  border-bottom:1px solid var(--border2);cursor:pointer;user-select:none;
+  background:var(--surface)}
+.ng-hdr .arrow{font-size:10px;color:#ef4444;width:10px;text-align:center;
+  display:inline-block;transition:transform .15s}
+.ng-hdr .arrow.open{transform:rotate(90deg)}
+.ng-hdr .name{flex:1;font-size:12px;font-weight:700;color:#ef4444}
+.ng-hdr .cnt{font-size:11px;color:#ef4444}
+.ng-row{display:flex;align-items:center;gap:6px;padding:9px 16px 9px 28px;
+  border-bottom:1px solid var(--border2);background:#ef444408}
+.ng-row .name{flex:1;font-size:12px;font-weight:600;color:var(--text3);
+  text-decoration:line-through}
+
+/* ボタン共通 */
+.btn{background:none;border:1.5px solid var(--border);color:var(--text3);
+  font-size:10px;font-weight:700;padding:2px 10px;border-radius:12px;
+  cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap}
+.btn.ng{border-color:var(--border);color:var(--text3)}
+.btn.ng:hover{border-color:#ef4444;color:#ef4444}
+.btn.release{border-color:#ef4444;color:#ef4444}
+.btn.edit{border:none;font-size:11px;color:var(--text3);padding:0 3px;opacity:.5}
+
+/* フッター */
+.footer{padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;
+  display:flex;flex-direction:column;gap:6px}
+.footer-row{display:flex;gap:6px}
+.footer input{flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;
+  outline:none;color:var(--text)}
+.footer .add-btn{background:#1c1c1e;color:#fff;border:none;padding:7px 14px;
+  border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;white-space:nowrap}
+
+/* ダイアログオーバーレイ */
+.dlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .15s}
+.dlg-overlay.show{opacity:1;pointer-events:all}
+.dlg{background:var(--surface);border-radius:14px;width:300px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);overflow:hidden;
+  transform:scale(.95);transition:transform .15s}
+.dlg-overlay.show .dlg{transform:scale(1)}
+.dlg-body{padding:20px 18px 14px}
+.dlg-icon{font-size:28px;text-align:center;margin-bottom:10px}
+.dlg-title{font-size:14px;font-weight:800;text-align:center;margin-bottom:6px}
+.dlg-msg{font-size:12px;color:var(--text2);text-align:center;line-height:1.6}
+.dlg-msg strong{color:#ef4444}
+.dlg-actions{border-top:1px solid var(--border2);display:flex;flex-direction:column}
+.dlg-btn{background:none;border:none;font-size:13px;font-family:inherit;
+  padding:13px;cursor:pointer;border-bottom:1px solid var(--border2);
+  font-weight:600;transition:background .1s}
+.dlg-btn:last-child{border-bottom:none}
+.dlg-btn:hover{background:var(--surface2)}
+.dlg-btn.danger{color:#ef4444}
+.dlg-btn.primary{color:var(--accent)}
+.dlg-btn.cancel{color:var(--text3);font-weight:400}
+
+/* トースト */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1c1c1e;color:#fff;padding:10px 18px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;
+  opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- モーダル -->
+<div class="modal">
+  <div class="modal-hdr">
+    <div class="title">テクニック</div>
+    <button class="close">✕</button>
+  </div>
+  <div class="tabs">
+    <button class="tab on">タグ一覧</button>
+    <button class="tab">辞書</button>
+  </div>
+  <div class="body" id="modal-body"></div>
+  <div class="footer">
+    <div class="footer-row">
+      <input placeholder="グループ名を追加…">
+      <button class="add-btn">追加</button>
+    </div>
+    <div class="footer-row">
+      <input placeholder="タグを追加…">
+      <button class="add-btn">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 確認ダイアログ -->
+<div class="dlg-overlay" id="dlg-overlay">
+  <div class="dlg">
+    <div class="dlg-body">
+      <div class="dlg-icon">🚫</div>
+      <div class="dlg-title" id="dlg-title"></div>
+      <div class="dlg-msg" id="dlg-msg"></div>
+    </div>
+    <div class="dlg-actions">
+      <button class="dlg-btn danger" id="dlg-del">動画からも削除する</button>
+      <button class="dlg-btn primary" id="dlg-keep">削除しない（NGには追加）</button>
+      <button class="dlg-btn cancel" id="dlg-cancel">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- トースト -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── データ ──
+const groups = [
+  { id:'g1', name:'パスガード', tags:['ニーカット','トレアナ','ロングステップ'] },
+  { id:'g2', name:'スイープ',   tags:['シザースイープ','フラワースイープ'] },
+];
+const uncTags = ['グリップカット','クロスグリップパス','スタッキングパス','ベリンボロ'];
+// 動画件数マップ（タグ → 動画数）
+const videoCounts = {
+  'ニーカット':12, 'トレアナ':8, 'ロングステップ':3,
+  'シザースイープ':7, 'フラワースイープ':4,
+  'グリップカット':15, 'クロスグリップパス':6, 'スタッキングパス':2, 'ベリンボロ':11,
+};
+let ngTags = ['regweave','ヒップエスケープ'];
+const openGroups = new Set(['g1','unc','ng']);
+
+// ── レンダリング ──
+function render() {
+  const body = document.getElementById('modal-body');
+  let h = '';
+
+  // グループ
+  groups.forEach(g => {
+    const open = openGroups.has(g.id);
+    h += `<div class="grp-hdr" onclick="toggleGrp('${g.id}')">
+      <span class="arrow${open?' open':''}">▶</span>
+      <span class="name">${g.name}</span>
+      <button class="btn edit" onclick="event.stopPropagation()">✏️</button>
+      <span class="cnt">${g.tags.length}件</span>
+      <button class="btn" onclick="event.stopPropagation()" style="opacity:.5;font-size:11px">🗑</button>
+    </div>`;
+    if (open) g.tags.forEach(t => h += tagRow(t, g.id));
+  });
+
+  // 未分類
+  const uncOpen = openGroups.has('unc');
+  h += `<div class="grp-hdr" onclick="toggleGrp('unc')">
+    <span class="arrow${uncOpen?' open':''}">▶</span>
+    <span class="name" style="color:var(--text2)">未分類</span>
+    <span class="cnt">${uncTags.length}件</span>
+  </div>`;
+  if (uncOpen) uncTags.forEach(t => h += tagRow(t, 'unc'));
+
+  // NGリスト
+  if (ngTags.length > 0) {
+    const ngOpen = openGroups.has('ng');
+    h += `<div class="ng-section">
+      <div class="ng-hdr" onclick="toggleGrp('ng')">
+        <span class="arrow${ngOpen?' open':''}">▶</span>
+        <span class="name">NGリスト</span>
+        <span class="cnt">${ngTags.length}件</span>
+      </div>`;
+    if (ngOpen) ngTags.forEach(t => h += ngRow(t));
+    h += `</div>`;
+  }
+
+  body.innerHTML = h;
+}
+
+function tagRow(tag, gid) {
+  const grpOpts = `<option value="unc"${gid==='unc'?' selected':''}>未分類</option>`
+    + groups.map(g => `<option value="${g.id}"${gid===g.id?' selected':''}>${g.name}</option>`).join('');
+  // ← 削除ボタンなし
+  return `<div class="tag-row">
+    <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+    <span class="name">${tag}</span>
+    <button class="btn edit">✏️</button>
+    <select>${grpOpts}</select>
+    <button class="btn ng" onclick="clickNG('${tag}')">NG</button>
+  </div>`;
+}
+
+function ngRow(tag) {
+  // ← 削除ボタンなし・解除のみ
+  return `<div class="ng-row">
+    <span class="name">${tag}</span>
+    <button class="btn release" onclick="releaseNG('${tag}')">解除</button>
+  </div>`;
+}
+
+// ── インタラクション ──
+function toggleGrp(id) {
+  openGroups.has(id) ? openGroups.delete(id) : openGroups.add(id);
+  render();
+}
+
+function clickNG(tag) {
+  const cnt = videoCounts[tag] || 0;
+  if (cnt > 0) {
+    // ダイアログ表示
+    document.getElementById('dlg-title').textContent = `「${tag}」をNGに追加`;
+    document.getElementById('dlg-msg').innerHTML =
+      `このタグを含む動画が<strong>${cnt}件</strong>あります。<br>動画からもこのタグを削除しますか？`;
+    document.getElementById('dlg-del').onclick = () => {
+      addToNG(tag, true);
+      closeDlg();
+    };
+    document.getElementById('dlg-keep').onclick = () => {
+      addToNG(tag, false);
+      closeDlg();
+    };
+    document.getElementById('dlg-cancel').onclick = closeDlg;
+    document.getElementById('dlg-overlay').classList.add('show');
+  } else {
+    addToNG(tag, false);
+  }
+}
+
+function addToNG(tag, removeFromVideos) {
+  // グループから除去
+  groups.forEach(g => { g.tags = g.tags.filter(t => t !== tag); });
+  // 未分類から除去
+  const ui = uncTags.indexOf(tag);
+  if (ui >= 0) uncTags.splice(ui, 1);
+  // NGリストへ
+  if (!ngTags.includes(tag)) ngTags.push(tag);
+  openGroups.add('ng');
+  render();
+  if (removeFromVideos) {
+    toast(`「${tag}」をNGに追加し、${videoCounts[tag]}件の動画から削除しました`);
+  } else {
+    toast(`「${tag}」をNGに追加しました`);
+  }
+}
+
+function releaseNG(tag) {
+  ngTags = ngTags.filter(t => t !== tag);
+  uncTags.push(tag);
+  openGroups.add('unc');
+  render();
+  toast(`「${tag}」をNGから解除しました`);
+}
+
+function closeDlg() {
+  document.getElementById('dlg-overlay').classList.remove('show');
+}
+
+// オーバーレイ外クリックで閉じる
+document.getElementById('dlg-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeDlg();
+});
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+render();
+</script>
+</body>
+</html>

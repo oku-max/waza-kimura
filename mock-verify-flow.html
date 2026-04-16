@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCK — 検証フロー</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;
+--accent:#e5c47a;--gold:#e5c47a;--gold-soft:#2e2a1e;
+--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;
+--border:#48484a;--border2:#3a3a3c;
+--green:#6bc490;--green-soft:#1e2e24;
+--blue:#7ab8e0;--blue-soft:#1e2530;
+--purple:#a090d0;--purple-soft:#28253a;
+--red:#e06060;--red-soft:#2e1e1e;
+--radius:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;padding:16px 20px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border2)}
+.header h1{font-size:18px;font-weight:600;color:var(--accent)}
+.header-right{display:flex;align-items:center;gap:16px}
+.counter{font-family:'DM Mono',monospace;font-size:14px;color:var(--text2);background:var(--surface2);padding:6px 12px;border-radius:var(--radius)}
+.toggle-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+.toggle{width:44px;height:24px;background:var(--surface3);border-radius:12px;cursor:pointer;position:relative;transition:background .3s}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .3s}
+.toggle.on::after{transform:translateX(20px)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border2);overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s;position:relative}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.thumb{height:160px;background:var(--surface2);display:flex;align-items:center;justify-content:center;position:relative}
+.thumb svg{width:48px;height:48px;opacity:.3}
+.dot{position:absolute;top:10px;right:10px;width:12px;height:12px;border-radius:50%;display:none;border:2px solid var(--surface)}
+.dot.green{background:var(--green)}
+.dot.yellow{background:var(--accent)}
+.admin-on .dot{display:block}
+.dot[data-status="none"]{display:none!important}
+.card-body{padding:14px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.4}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11px;padding:3px 8px;border-radius:4px;font-weight:500}
+.chip-tb{background:var(--blue-soft);color:var(--blue)}
+.chip-cat{background:var(--purple-soft);color:var(--purple)}
+.chip-pos{background:var(--green-soft);color:var(--green)}
+.chip-tag{background:var(--gold-soft);color:var(--gold)}
+
+/* Overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:100;animation:fadeIn .2s}
+.overlay.show{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.panel{background:var(--surface);border-radius:12px;width:90%;max-width:520px;max-height:85vh;overflow-y:auto;border:1px solid var(--border);animation:slideUp .25s ease-out}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.panel-header{padding:20px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.panel-header h2{font-size:16px;font-weight:600}
+.close-btn{width:32px;height:32px;border-radius:50%;background:var(--surface2);border:none;color:var(--text3);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.close-btn:hover{background:var(--surface3);color:var(--text)}
+.panel-body{padding:20px}
+.field-group{margin-bottom:18px}
+.field-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.editable-chips{display:flex;flex-wrap:wrap;gap:6px}
+.editable-chip{font-size:12px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:opacity .2s,transform .15s;position:relative;border:1px solid transparent}
+.editable-chip:hover{opacity:.8}
+.editable-chip.removed{opacity:.35;text-decoration:line-through;transform:scale(.95)}
+.editable-chip.removed::after{content:'✕';position:absolute;top:-4px;right:-4px;font-size:8px;background:var(--red);color:#fff;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.panel-actions{padding:16px 20px;border-top:1px solid var(--border2);display:flex;gap:10px;justify-content:flex-end}
+.btn{padding:10px 20px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-verify{background:var(--green);color:#111}
+.btn-verify:hover{filter:brightness(1.1)}
+.btn-save{background:var(--accent);color:#111}
+.btn-save:hover{filter:brightness(1.1)}
+.btn-cancel{background:var(--surface2);color:var(--text2)}
+.btn-cancel:hover{background:var(--surface3)}
+
+/* Toast */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--green);color:#111;padding:12px 24px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:200;opacity:0;transition:all .4s ease}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>検証フロー — Video Verification</h1>
+  <div class="header-right">
+    <div class="counter" id="counter">検証済み: 0/6本</div>
+    <div class="toggle-wrap">
+      <span>管理モード</span>
+      <div class="toggle" id="adminToggle" onclick="toggleAdmin()"></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="overlay" onclick="closePanel(event)">
+  <div class="panel" onclick="event.stopPropagation()">
+    <div class="panel-header">
+      <h2 id="panelTitle"></h2>
+      <button class="close-btn" onclick="closePanel()">&times;</button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+    <div class="panel-actions">
+      <button class="btn btn-cancel" onclick="closePanel()">キャンセル</button>
+      <button class="btn btn-save" onclick="saveChanges()">保存</button>
+      <button class="btn btn-verify" onclick="verifyVideo()">✓ 検証済み</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const videos = [
+  { id:0, title:"Marcelo Garcia - Arm Drag to Back Take", tb:"トップ", cat:"テイクダウン・投げ", pos:"スタンド", tags:["アームドラッグ","バックテイク"], status:"yellow" },
+  { id:1, title:"John Danaher - Closed Guard Breaking Posture", tb:"ボトム", cat:"ガードリテンション", pos:"クローズドガード", tags:["ポスチャーブレイク"], status:"green" },
+  { id:2, title:"Andre Galvao - Knee Cut Pass to Side Control", tb:"トップ", cat:"パスガード", pos:"ハーフガード", tags:["ニーカット","サイドコントロール"], status:"yellow" },
+  { id:3, title:"Bernardo Faria - Deep Half Guard Sweep", tb:"ボトム", cat:"スイープ", pos:"ディープハーフ", tags:["スイープ"], status:"none" },
+  { id:4, title:"Gui Mendes - Berimbolo from De La Riva", tb:"ボトム", cat:"スイープ", pos:"デラヒーバ", tags:["ベリンボロ"], status:"green" },
+  { id:5, title:"Craig Jones - Inside Heel Hook from Saddle", tb:"ボトム", cat:"サブミッション", pos:"サドル", tags:["ヒールフック","足関節"], status:"yellow" },
+];
+
+let adminMode = false;
+let currentVideo = null;
+let removedChips = new Set();
+
+function toggleAdmin(){
+  adminMode = !adminMode;
+  const t = document.getElementById('adminToggle');
+  t.classList.toggle('on', adminMode);
+  document.getElementById('grid').classList.toggle('admin-on', adminMode);
+}
+
+function renderCards(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = videos.map(v => `
+    <div class="card" onclick="openPanel(${v.id})">
+      <div class="thumb">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <div class="dot ${v.status === 'green' ? 'green' : v.status === 'yellow' ? 'yellow' : ''}" data-status="${v.status}" data-id="${v.id}"></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${v.title}</div>
+        <div class="chip-row">
+          <span class="chip chip-tb">${v.tb}</span>
+          <span class="chip chip-cat">${v.cat}</span>
+          <span class="chip chip-pos">${v.pos}</span>
+          ${v.tags.map(t => `<span class="chip chip-tag">#${t}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openPanel(id){
+  currentVideo = id;
+  removedChips = new Set();
+  const v = videos[id];
+  document.getElementById('panelTitle').textContent = v.title;
+
+  const fields = [
+    { label:'TB（トップ/ボトム）', values:[v.tb], cls:'chip-tb' },
+    { label:'CAT（カテゴリ）', values:[v.cat], cls:'chip-cat' },
+    { label:'POS（ポジション）', values:[v.pos], cls:'chip-pos' },
+    { label:'TAGS', values:v.tags.map(t=>'#'+t), cls:'chip-tag' },
+  ];
+
+  document.getElementById('panelBody').innerHTML = fields.map((f,fi) => `
+    <div class="field-group">
+      <div class="field-label">${f.label}</div>
+      <div class="editable-chips">
+        ${f.values.map((val,vi) => `<span class="editable-chip ${f.cls}" data-key="${fi}-${vi}" onclick="toggleChip(this)">${val}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('overlay').classList.add('show');
+}
+
+function toggleChip(el){
+  const key = el.dataset.key;
+  if(removedChips.has(key)){
+    removedChips.delete(key);
+    el.classList.remove('removed');
+  } else {
+    removedChips.add(key);
+    el.classList.add('removed');
+  }
+}
+
+function closePanel(e){
+  if(e && e.target !== document.getElementById('overlay')) return;
+  document.getElementById('overlay').classList.remove('show');
+  currentVideo = null;
+}
+
+function verifyVideo(){
+  if(currentVideo === null) return;
+  videos[currentVideo].status = 'green';
+  renderCards();
+  if(adminMode) document.getElementById('grid').classList.add('admin-on');
+  updateCounter();
+  closePanel();
+  showToast('✓ 検証済みとしてマークしました');
+}
+
+function saveChanges(){
+  if(currentVideo === null) return;
+  if(removedChips.size > 0){
+    videos[currentVideo].status = 'green';
+    showToast('変更を保存し、検証済みとしてマークしました');
+  } else {
+    showToast('変更を保存しました');
+  }
+  renderCards();
+  if(adminMode) document.getElementById('grid').classList.add('admin-on');
+  updateCounter();
+  closePanel();
+}
+
+function updateCounter(){
+  const verified = videos.filter(v => v.status === 'green').length;
+  document.getElementById('counter').textContent = `検証済み: ${verified}/6本`;
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+renderCards();
+updateCounter();
+</script>
+</body>
+</html>

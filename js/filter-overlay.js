@@ -1322,12 +1322,12 @@ function _sbmInject() {
 #sbm-popup .sbm-row.on .sbm-cnt{color:var(--accent)}
 #sbm-popup .sbm-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap}
 #sbm-popup .sbm-ftr .sbm-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
-#sbm-popup .sbm-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+#sbm-popup .sbm-pill{background:var(--accent);color:var(--on-accent);padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
 #sbm-popup .sbm-pill:after{content:" ×";opacity:.7}
 #sbm-popup .sbm-sp{flex:1}
 #sbm-popup .sbm-hit{font-size:12px;color:var(--accent);font-weight:700}
 #sbm-popup .sbm-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
-#sbm-popup .sbm-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+#sbm-popup .sbm-apply{background:var(--accent);color:var(--on-accent);border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #sbm-popup .sbm-apply:hover{filter:brightness(1.1)}
 </style>`;
   document.head.insertAdjacentHTML('beforeend', css);

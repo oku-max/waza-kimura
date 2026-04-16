@@ -92,8 +92,8 @@
 #uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
 #uni-popup .uni-tabs{display:flex;gap:3px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 #uni-popup .uni-tab{padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
-#uni-popup .uni-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-#uni-popup .uni-tab .uni-bdg{display:inline-block;background:var(--accent);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
+#uni-popup .uni-tab.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+#uni-popup .uni-tab .uni-bdg{display:inline-block;background:var(--accent);color:var(--on-accent);font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
 #uni-popup .uni-tab.on .uni-bdg{background:rgba(255,255,255,.3);color:#fff}
 #uni-popup .uni-x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px;line-height:1;flex-shrink:0}
 #uni-popup .uni-x:hover{color:var(--text)}
@@ -111,16 +111,16 @@
 #uni-popup .uni-row:hover{background:var(--surface2)}
 #uni-popup .uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
 #uni-popup .uni-row .uni-cnt{min-width:22px;height:20px;padding:0 8px;border-radius:10px;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
-#uni-popup .uni-row.on .uni-cnt{background:var(--accent);color:#fff}
+#uni-popup .uni-row.on .uni-cnt{background:var(--accent);color:var(--on-accent)}
 #uni-popup .uni-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);display:flex;gap:8px;align-items:center;min-height:44px;flex-wrap:wrap;flex-shrink:0}
 #uni-popup .uni-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
-#uni-popup .uni-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+#uni-popup .uni-pill{background:var(--accent);color:var(--on-accent);padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
 #uni-popup .uni-pill:after{content:" ×";opacity:.7}
 #uni-popup .uni-sp{flex:1}
 #uni-popup .uni-hit{font-size:12px;color:var(--accent);font-weight:700}
 #uni-popup .uni-clr{font-size:11px;font-weight:700;color:#dc2626;cursor:pointer;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:6px;padding:4px 12px;margin-right:4px;font-family:inherit}
 #uni-popup .uni-clr:hover{background:#fee2e2;border-color:#f87171}
-#uni-popup .uni-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+#uni-popup .uni-apply{background:var(--accent);color:var(--on-accent);border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #uni-popup .uni-apply:hover{filter:brightness(1.1)}
 /* 保存した検索条件 */
 #uni-popup .uni-ss-item{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:12px;display:flex;align-items:center;gap:8px;position:relative}
@@ -166,7 +166,7 @@
 #uni-popup .uni-save-input{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)}
 #uni-popup .uni-save-input::placeholder{color:var(--text3)}
 #uni-popup .uni-save-input:focus{border-color:var(--accent)}
-#uni-popup .uni-save-btn{flex-shrink:0;background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+#uni-popup .uni-save-btn{flex-shrink:0;background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
 #uni-popup .uni-save-btn:hover{filter:brightness(1.1)}
 @media(max-width:480px){#uni-popup .uni-save-lbl{width:100%}}
 /* uni-q フォーカス中（キーボード表示時）は保存バーを非表示 */

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOCK — ポジション管理（日英対応）</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--gold:#e5c47a;--gold-soft:#2e2a1e;--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;--border:#48484a;--border2:#3a3a3c;--green:#6bc490;--green-soft:#1e2e24;--blue:#7ab8e0;--blue-soft:#1e2530;--purple:#a090d0;--purple-soft:#28253a;--red:#e06060;--red-soft:#2e1e1e;--radius:8px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+.hdr h1{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.hdr h1 span{font-size:11px;background:var(--accent);color:#1c1c1e;padding:2px 8px;border-radius:10px;font-weight:700;}
+.back-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;}
+
+.lang-bar{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 20px;}
+.lang-tab{padding:10px 20px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;transition:all .2s;}
+.lang-tab.active{color:var(--accent);border-color:var(--accent);}
+.lang-tab:hover:not(.active){color:var(--text2);}
+
+.stats{display:flex;gap:10px;padding:16px 20px;flex-wrap:wrap;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;display:flex;align-items:center;gap:8px;}
+.stat-num{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;}
+.stat-label{font-size:11px;color:var(--text3);}
+
+.toolbar{display:flex;gap:8px;padding:0 20px 12px;align-items:center;flex-wrap:wrap;}
+.search-box{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 12px;gap:6px;flex:1;min-width:200px;}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-size:12px;flex:1;font-family:inherit;}
+.sort-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 12px;border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;}
+.sort-btn.active{background:var(--accent);color:#1c1c1e;border-color:var(--accent);}
+.filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 12px;border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;}
+.filter-btn.active{background:var(--purple-soft);color:var(--purple);border-color:var(--purple);}
+.add-btn{background:var(--accent);color:#1c1c1e;border:none;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+
+.dict-wrap{padding:0 20px 20px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:700px;}
+th{text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);position:sticky;top:0;background:var(--bg);}
+td{padding:10px 8px;border-bottom:1px solid var(--border2);vertical-align:top;font-size:12px;}
+tr:hover td{background:var(--surface);}
+
+.name-ja{font-weight:700;font-size:13px;}
+.name-en{font-size:12px;color:var(--text2);margin-top:2px;}
+.cnt{font-family:'DM Mono',monospace;font-weight:600;color:var(--text2);}
+.alias-chip{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;background:var(--surface2);color:var(--text2);margin:1px 2px;border:1px solid var(--border2);}
+.alias-chip .x{cursor:pointer;margin-left:3px;color:var(--text3);font-weight:700;}
+.alias-chip .x:hover{color:var(--red);}
+.lang-label{font-size:9px;font-weight:700;color:var(--text3);margin-right:2px;text-transform:uppercase;}
+.group-chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+.group-chip.guard{background:var(--blue-soft);color:var(--blue);}
+.group-chip.top{background:var(--red-soft);color:var(--red);}
+.group-chip.leg{background:var(--purple-soft);color:var(--purple);}
+.group-chip.stand{background:var(--gold-soft);color:var(--gold);}
+.group-chip.other{background:var(--surface2);color:var(--text3);}
+
+.act-btn{background:none;border:1px solid var(--border);color:var(--text2);font-size:10px;padding:3px 8px;border-radius:12px;cursor:pointer;font-family:inherit;font-weight:600;margin:1px;white-space:nowrap;}
+.act-btn:hover{background:var(--surface2);}
+.act-btn.danger{border-color:var(--red);color:var(--red);}
+.act-btn.danger:hover{background:var(--red-soft);}
+
+.add-alias-wrap{display:inline-flex;align-items:center;gap:4px;margin-top:3px;}
+.add-alias-input{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:10px;color:var(--text);font-family:inherit;outline:none;width:100px;}
+.add-alias-input:focus{border-color:var(--accent);}
+.add-alias-ok{background:var(--accent);color:#1c1c1e;border:none;border-radius:8px;padding:2px 6px;font-size:10px;font-weight:700;cursor:pointer;}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:440px;width:90%;}
+.modal h3{font-size:14px;margin-bottom:12px;}
+.modal p{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+.modal-btn{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid var(--border);}
+.modal-btn.cancel{background:var(--surface2);color:var(--text);}
+.modal-btn.confirm{background:var(--accent);color:#1c1c1e;border-color:var(--accent);}
+.modal-btn.danger{background:var(--red);color:#fff;border-color:var(--red);}
+
+.add-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:0 20px 16px;display:none;}
+.add-form.open{display:block;}
+.form-row{margin-bottom:10px;}
+.form-label{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px;}
+.form-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;}
+.form-input:focus{border-color:var(--accent);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer;}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:10px 20px;font-size:12px;font-weight:600;transition:transform .3s ease;z-index:200;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:var(--green);color:var(--green);}
+.toast.info{border-color:var(--accent);color:var(--accent);}
+
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}.stats{gap:6px;}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>📍 ポジション管理 <span>ADMIN</span></h1>
+  <button class="back-btn" onclick="history.back()">← 戻る</button>
+</div>
+
+<div class="lang-bar">
+  <div class="lang-tab active" onclick="switchLang('all',this)">すべて</div>
+  <div class="lang-tab" onclick="switchLang('ja',this)">🇯🇵 日本語</div>
+  <div class="lang-tab" onclick="switchLang('en',this)">🇺🇸 English</div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="toolbar">
+  <div class="search-box">
+    <span style="color:var(--text3)">🔍</span>
+    <input id="searchInput" placeholder="ポジションを検索..." oninput="renderTable()">
+  </div>
+  <button class="sort-btn active" id="sortName" onclick="setSort('name')">名前順</button>
+  <button class="sort-btn" id="sortCount" onclick="setSort('count')">使用回数順</button>
+  <button class="filter-btn" id="fAll" onclick="setGroup('all')">すべて</button>
+  <button class="filter-btn" id="fGuard" onclick="setGroup('guard')">ガード系</button>
+  <button class="filter-btn" id="fTop" onclick="setGroup('top')">トップ系</button>
+  <button class="filter-btn" id="fLeg" onclick="setGroup('leg')">足関節系</button>
+  <button class="add-btn" onclick="toggleAddForm()">+ ポジション追加</button>
+</div>
+
+<div class="add-form" id="addForm">
+  <div class="form-row">
+    <div class="form-label">表示名</div>
+    <div class="form-grid">
+      <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">🇯🇵 日本語</div><input class="form-input" id="newJa" placeholder="ワームガード"></div>
+      <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">🇺🇸 English</div><input class="form-input" id="newEn" placeholder="Worm Guard"></div>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-label">グループ</div>
+    <select class="form-select" id="newGroup">
+      <option value="guard">ガード系</option>
+      <option value="top">トップ系</option>
+      <option value="leg">足関節系</option>
+      <option value="stand">スタンディング</option>
+      <option value="other">その他</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <div class="form-label">別名・表記ゆれ（カンマ区切り）</div>
+    <div class="form-grid">
+      <input class="form-input" id="newAliasJa" placeholder="ワーム">
+      <input class="form-input" id="newAliasEn" placeholder="worm, lapel guard">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="modal-btn cancel" onclick="toggleAddForm()">キャンセル</button>
+    <button class="modal-btn confirm" onclick="addPos()">追加</button>
+  </div>
+</div>
+
+<div class="dict-wrap">
+  <table>
+    <thead><tr>
+      <th style="width:24%">ポジション名</th>
+      <th style="width:10%">グループ</th>
+      <th style="width:32%">別名・表記ゆれ</th>
+      <th style="width:8%">使用数</th>
+      <th style="width:8%">AI精度</th>
+      <th style="width:18%">操作</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div class="modal-bg" id="deleteModal">
+  <div class="modal">
+    <h3>🗑 ポジション削除</h3>
+    <p id="deleteMsg"></p>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeDelete()">キャンセル</button>
+      <button class="modal-btn danger" onclick="confirmDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GROUPS = {guard:'ガード系',top:'トップ系',leg:'足関節系',stand:'スタンディング',other:'その他'};
+
+let POSITIONS = [
+  {id:'closed_guard',     names:{ja:'クローズドガード',en:'Closed Guard'},         group:'guard', aliases:{ja:['クローズド'],en:['closed']},                            count:45, accuracy:95},
+  {id:'half_guard',       names:{ja:'ハーフガード',en:'Half Guard'},               group:'guard', aliases:{ja:['ハーフ'],en:['half']},                                  count:38, accuracy:90},
+  {id:'butterfly',        names:{ja:'バタフライガード',en:'Butterfly Guard'},       group:'guard', aliases:{ja:['バタフライ'],en:['butterfly','hook guard']},             count:28, accuracy:88},
+  {id:'dlr',              names:{ja:'デラヒーバ',en:'De La Riva'},                 group:'guard', aliases:{ja:['DLR'],en:['DLR','de la riva']},                          count:32, accuracy:85},
+  {id:'rdlr',             names:{ja:'リバースデラヒーバ',en:'Reverse De La Riva'},  group:'guard', aliases:{ja:['RDLR','リバデラ'],en:['RDLR','reverse DLR']},           count:18, accuracy:78},
+  {id:'spider',           names:{ja:'スパイダーガード',en:'Spider Guard'},          group:'guard', aliases:{ja:['スパイダー'],en:['spider']},                             count:15, accuracy:82},
+  {id:'lasso',            names:{ja:'ラッソーガード',en:'Lasso Guard'},             group:'guard', aliases:{ja:['ラッソー'],en:['lasso']},                                count:12, accuracy:80},
+  {id:'deep_half',        names:{ja:'ディープハーフ',en:'Deep Half Guard'},         group:'guard', aliases:{ja:[],en:['deep half']},                                     count:14, accuracy:76},
+  {id:'knee_shield',      names:{ja:'ニーシールド',en:'Knee Shield'},              group:'guard', aliases:{ja:['Zガード'],en:['knee shield','z-guard']},                 count:10, accuracy:72},
+  {id:'x_guard',          names:{ja:'Xガード',en:'X-Guard'},                      group:'guard', aliases:{ja:[],en:['x guard']},                                       count:16, accuracy:84},
+  {id:'slx',              names:{ja:'SLX',en:'Single Leg X'},                     group:'guard', aliases:{ja:['シングルレッグX'],en:['SLX','single leg x-guard','ashi garami']}, count:20, accuracy:80},
+  {id:'k_guard',          names:{ja:'Kガード',en:'K Guard'},                      group:'guard', aliases:{ja:[],en:['k guard','k-guard']},                              count:8,  accuracy:40},
+  {id:'worm',             names:{ja:'ワームガード',en:'Worm Guard'},               group:'guard', aliases:{ja:['ワーム'],en:['worm','lapel guard']},                     count:5,  accuracy:55},
+  {id:'lapel',            names:{ja:'ラペルガード',en:'Lapel Guard'},              group:'guard', aliases:{ja:['ラペル'],en:['lapel']},                                  count:6,  accuracy:50},
+  {id:'inverted',         names:{ja:'インバーテッド',en:'Inverted Guard'},          group:'guard', aliases:{ja:['逆さ'],en:['inverted','upside down']},                   count:7,  accuracy:60},
+  {id:'turtle',           names:{ja:'タートル',en:'Turtle'},                       group:'other', aliases:{ja:['亀'],en:['turtle position']},                            count:20, accuracy:88},
+  {id:'standing',         names:{ja:'スタンディング',en:'Standing'},               group:'stand', aliases:{ja:['立ち'],en:['stand up','standing position']},             count:35, accuracy:92},
+  {id:'saddle',           names:{ja:'サドル',en:'Saddle'},                         group:'leg',   aliases:{ja:['内ヒール','411'],en:['inside sankaku','411','honeyhole']},count:18, accuracy:64},
+  {id:'fifty_fifty',      names:{ja:'50/50',en:'50/50'},                          group:'leg',   aliases:{ja:['フィフティフィフティ'],en:['fifty fifty','5050']},         count:14, accuracy:70},
+  {id:'kata_eri_kata_sode',names:{ja:'片襟片袖',en:'Single Collar Single Sleeve'}, group:'guard', aliases:{ja:[],en:['collar sleeve']},                                 count:4,  accuracy:35},
+  {id:'other',            names:{ja:'その他',en:'Other'},                          group:'other', aliases:{ja:[],en:[]},                                                count:12, accuracy:null},
+];
+
+let currentLang='all', sortMode='name', groupFilter='all', deleteTargetId=null;
+
+function renderStats(){
+  const byGroup={};POSITIONS.forEach(p=>{byGroup[p.group]=(byGroup[p.group]||0)+1;});
+  const total=POSITIONS.length;
+  const avgAcc=Math.round(POSITIONS.filter(p=>p.accuracy!==null).reduce((s,p)=>s+p.accuracy,0)/POSITIONS.filter(p=>p.accuracy!==null).length);
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-num" style="color:var(--text)">${total}</div><div class="stat-label">総ポジション数</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--blue)">${byGroup.guard||0}</div><div class="stat-label">ガード系</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--red)">${(byGroup.top||0)+(byGroup.stand||0)}</div><div class="stat-label">トップ/スタンド</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--purple)">${byGroup.leg||0}</div><div class="stat-label">足関節系</div></div>
+    <div class="stat"><div class="stat-num ${avgAcc>=75?'':''}" style="color:${avgAcc>=80?'var(--green)':avgAcc>=60?'var(--accent)':'var(--red)'}">${avgAcc}%</div><div class="stat-label">平均AI精度</div></div>`;
+}
+function renderTable(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  let f=POSITIONS.filter(p=>{
+    if(groupFilter!=='all'&&p.group!==groupFilter)return false;
+    if(!q)return true;
+    return[...Object.values(p.names),...Object.values(p.aliases).flat(),p.id].some(s=>s.toLowerCase().includes(q));
+  });
+  f.sort(sortMode==='name'?(a,b)=>(a.names.ja).localeCompare(b.names.ja,'ja'):(a,b)=>b.count-a.count);
+  document.getElementById('tbody').innerHTML=f.map(p=>`<tr>
+    <td>${renderNames(p)}</td>
+    <td><span class="group-chip ${p.group}">${GROUPS[p.group]}</span></td>
+    <td>${renderAliases(p)}
+      <div class="add-alias-wrap" id="alias-add-${p.id}" style="display:none">
+        <input class="add-alias-input" id="alias-input-${p.id}" placeholder="別名..." onkeydown="if(event.key==='Enter')addAlias('${p.id}')">
+        <span style="font-size:9px;color:var(--text3);margin-right:2px">${currentLang==='all'?'ja':currentLang}</span>
+        <button class="add-alias-ok" onclick="addAlias('${p.id}')">+</button></div>
+    </td>
+    <td><span class="cnt">${p.count}</span></td>
+    <td>${p.accuracy!==null?`<span style="font-family:'DM Mono';font-weight:700;font-size:12px;color:${p.accuracy>=80?'var(--green)':p.accuracy>=60?'var(--accent)':'var(--red)'}">${p.accuracy}%</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+    <td>
+      <button class="act-btn" onclick="toggleAliasAdd('${p.id}')">+ 別名</button>
+      <button class="act-btn" onclick="editPos('${p.id}')">編集</button>
+      ${p.id!=='other'?`<button class="act-btn danger" onclick="openDelete('${p.id}')">削除</button>`:''}
+    </td>
+  </tr>`).join('');
+}
+function renderNames(p){
+  if(currentLang==='all')return`<div class="name-ja">${p.names.ja}</div><div class="name-en">${p.names.en}</div>`;
+  return`<div class="name-ja">${p.names[currentLang]||p.names.en}</div>`;
+}
+function renderAliases(p){
+  const langs=currentLang==='all'?['ja','en']:[currentLang];let h='';
+  langs.forEach(l=>{const a=p.aliases[l]||[];if(!a.length)return;
+    h+=`<div style="margin-bottom:3px">${currentLang==='all'?`<span class="lang-label">${l}</span>`:''}${a.map(v=>`<span class="alias-chip">${v}<span class="x" onclick="removeAlias('${p.id}','${l}',\`${v}\`)">&times;</span></span>`).join('')}</div>`;});
+  return h||'<span style="font-size:11px;color:var(--text3)">—</span>';
+}
+function switchLang(l,el){currentLang=l;document.querySelectorAll('.lang-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTable();}
+function setSort(m){sortMode=m;document.getElementById('sortName').classList.toggle('active',m==='name');document.getElementById('sortCount').classList.toggle('active',m==='count');renderTable();}
+function setGroup(g){groupFilter=g;['fAll','fGuard','fTop','fLeg'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  ({all:'fAll',guard:'fGuard',top:'fTop',leg:'fLeg'})[g]&&document.getElementById({all:'fAll',guard:'fGuard',top:'fTop',leg:'fLeg'}[g]).classList.add('active');renderTable();}
+function toggleAliasAdd(id){const el=document.getElementById('alias-add-'+id);el.style.display=el.style.display==='none'?'inline-flex':'none';if(el.style.display!=='none')document.getElementById('alias-input-'+id).focus();}
+function addAlias(id){const input=document.getElementById('alias-input-'+id),val=input.value.trim();if(!val)return;
+  const p=POSITIONS.find(x=>x.id===id),l=currentLang==='all'?'ja':currentLang;
+  if(p){if(!p.aliases[l])p.aliases[l]=[];if(!p.aliases[l].includes(val))p.aliases[l].push(val);}
+  input.value='';renderTable();showToast(`「${val}」を${l.toUpperCase()}別名に追加`,'info');}
+function removeAlias(id,l,a){const p=POSITIONS.find(x=>x.id===id);if(p&&p.aliases[l]){p.aliases[l]=p.aliases[l].filter(v=>v!==a);renderTable();showToast(`別名「${a}」を削除`,'info');}}
+function editPos(id){showToast('編集モーダル（実装予定）','info');}
+function openDelete(id){deleteTargetId=id;const p=POSITIONS.find(x=>x.id===id);
+  document.getElementById('deleteMsg').innerHTML=`「<strong>${p.names.ja} / ${p.names.en}</strong>」（${p.count}本で使用中）を削除しますか？<br>使用中の動画はポジション「その他」に移行されます。`;
+  document.getElementById('deleteModal').classList.add('open');}
+function closeDelete(){document.getElementById('deleteModal').classList.remove('open');}
+function confirmDelete(){const p=POSITIONS.find(x=>x.id===deleteTargetId);if(p){
+  const other=POSITIONS.find(x=>x.id==='other');if(other)other.count+=p.count;
+  POSITIONS=POSITIONS.filter(x=>x.id!==deleteTargetId);showToast(`🗑「${p.names.ja}」を削除 → ${p.count}本を「その他」に移行`,'info');}
+  closeDelete();renderStats();renderTable();}
+function toggleAddForm(){document.getElementById('addForm').classList.toggle('open');}
+function addPos(){const ja=document.getElementById('newJa').value.trim(),en=document.getElementById('newEn').value.trim(),group=document.getElementById('newGroup').value;
+  if(!ja){showToast('日本語名は必須','info');return;}
+  const id=ja.replace(/[^a-zA-Zぁ-ん]/g,'_').toLowerCase()||'pos_'+Date.now();
+  if(POSITIONS.find(p=>p.names.ja===ja)){showToast('同名のポジションが既に存在します','info');return;}
+  const pa=v=>v?v.split(',').map(s=>s.trim()).filter(Boolean):[];
+  POSITIONS.push({id,names:{ja,en:en||ja},group,aliases:{ja:pa(document.getElementById('newAliasJa').value),en:pa(document.getElementById('newAliasEn').value)},count:0,accuracy:null});
+  ['newJa','newEn','newAliasJa','newAliasEn'].forEach(x=>document.getElementById(x).value='');
+  toggleAddForm();renderStats();renderTable();showToast(`✅「${ja}」を追加`,'success');}
+function showToast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='toast '+type;requestAnimationFrame(()=>el.classList.add('show'));setTimeout(()=>el.classList.remove('show'),2500);}
+
+setGroup('all');renderStats();renderTable();
+</script>
+</body>
+</html>

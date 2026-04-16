@@ -83,9 +83,9 @@
 .v4-tabs::-webkit-scrollbar{display:none}
 #v4-popup .v4-tabs{padding:6px 10px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .v4-tab{flex:1;min-width:64px;text-align:center;padding:6px 6px;border-radius:6px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit;box-sizing:border-box}
-.v4-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.v4-tab.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .v4-tab .v4-bdg{display:inline-block;background:rgba(255,255,255,.28);color:#fff;font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
-.v4-tab:not(.on) .v4-bdg{background:var(--accent);color:#fff}
+.v4-tab:not(.on) .v4-bdg{background:var(--accent);color:var(--on-accent)}
 .v4-cols{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;min-height:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin-top:6px}
 .v4-cols::-webkit-scrollbar{display:none}
 #v4-popup .v4-cols{flex:1;border:none;border-radius:0;margin-top:0}
@@ -106,12 +106,12 @@
 .v4-ftr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:34px;padding:8px 0 0}
 #v4-popup .v4-ftr{border-top:1px solid var(--border);padding:8px 14px;background:var(--surface2);min-height:44px}
 .v4-ftr .v4-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
-.v4-pill{background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
+.v4-pill{background:var(--accent);color:var(--on-accent);padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700}
 .v4-pill:after{content:" ×";opacity:.7}
 .v4-sp{flex:1}
 .v4-hit{font-size:12px;color:var(--accent);font-weight:700}
 .v4-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
-.v4-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+.v4-apply{background:var(--accent);color:var(--on-accent);border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 .v4-apply:hover{filter:brightness(1.1)}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);

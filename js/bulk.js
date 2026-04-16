@@ -34,7 +34,7 @@ export function buildBulkDrawerHTML() {
   const p = (() => { const vals = selVids.map(v=>v.practice||0); return vals.every(v=>v===vals[0]) ? vals[0]+'回' : '（複数）'; })();
   const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
   const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
-  const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:#fff;padding:0;font-family:inherit`;
+  const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
 
   const markSec = `<div class="fsec">
     <div style="display:flex;gap:14px;align-items:flex-start">
@@ -1291,7 +1291,7 @@ export function updateBbPanelPreview(type) {
   const onChips = panel.querySelectorAll('.bb-panel-chip.bb-on');
   const vals = [...onChips].map(c => c.dataset.val);
   if (preview) preview.innerHTML = vals.map(v =>
-    `<span style="font-size:10px;padding:2px 6px;background:var(--accent);color:#fff;border-radius:4px;">${v}</span>`
+    `<span style="font-size:10px;padding:2px 6px;background:var(--accent);color:var(--on-accent);border-radius:4px;">${v}</span>`
   ).join('');
   if (countEl) countEl.textContent = vals.length ? vals.length + '個選択' : '';
 }

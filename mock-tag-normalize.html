@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — タグ正規化</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f5f0;--surface:#fff;--surface2:#f0efe8;
+  --border:#e0dfd8;--border2:#eae9e3;
+  --text:#1a1a1a;--text2:#666;--text3:#999;
+  --accent:#1a1a1a;--red:#ef4444;--green:#16a34a;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:420px;margin:0 auto;min-height:100vh;padding:16px 16px 100px;-webkit-tap-highlight-color:transparent}
+
+/* ── Header ── */
+.header-row{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+h2{font-size:16px;font-weight:800;margin-bottom:3px}
+.subtitle{font-size:11px;color:var(--text3)}
+
+.ai-btn{position:relative;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:700;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ai-btn .dot{width:7px;height:7px;border-radius:50%;background:#4ade80}
+.badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 5px;border-radius:10px;min-width:18px;text-align:center;display:none}
+.badge.show{display:block}
+
+/* ── Add input ── */
+.add-row{display:flex;gap:8px;margin-bottom:20px;position:relative}
+.add-input{flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);font-size:13px;font-family:inherit;outline:none;color:var(--text)}
+.add-input:focus{border-color:var(--accent)}
+.add-btn{padding:10px 16px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Suggest strip (A) */
+.suggest-strip{position:absolute;top:44px;left:0;right:68px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;z-index:50;overflow:hidden;display:none;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+.suggest-strip.open{display:block}
+.sug-item{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border2);font-size:12px}
+.sug-item:last-child{border-bottom:none}
+.sug-item:hover{background:var(--surface2)}
+.sug-name{flex:1;font-weight:600}
+.sug-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}
+.tag-alias{background:#eff6ff;color:#3b82f6}
+.tag-match{background:var(--surface2);color:var(--text3)}
+
+/* ── Tag list ── */
+.tag-list{display:flex;flex-direction:column;gap:4px;margin-bottom:20px}
+.tag-row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:10px;padding:12px 14px}
+.tag-name{flex:1;font-size:13px;font-weight:700}
+.tag-count{font-size:11px;color:var(--text3);font-family:monospace}
+.tag-aliases{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.alias-pill{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text3)}
+
+/* Dormant row */
+.dormant-row{opacity:.45}
+.dormant-pill{font-size:10px;padding:2px 7px;border-radius:8px;background:#f1f5f9;border:1px solid var(--border);color:var(--text3);font-weight:600}
+
+/* ── AI panel (inline bottom) ── */
+.ai-panel{border-radius:14px;border:1.5px solid var(--border);background:var(--surface);margin-top:20px;display:none}
+.ai-panel.visible{display:block}
+.ai-panel-head{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border2);gap:8px}
+.ai-panel-title{flex:1;font-size:13px;font-weight:800}
+.ai-panel-close{background:none;border:none;font-size:16px;color:var(--text3);cursor:pointer;padding:2px 4px}
+
+/* Sub-mode buttons */
+.ai-sub{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border2)}
+.ai-sub-btn{flex:1;padding:8px;border-radius:9px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;transition:.15s}
+.ai-sub-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Merge rows */
+.merge-row{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border2);transition:opacity .15s,max-height .3s}
+.merge-row.dismissed{opacity:0;max-height:0;padding:0;overflow:hidden;border:none;transition:opacity .15s,max-height .25s .1s,padding .25s .1s}
+.mr-from{font-size:12px;font-weight:700;min-width:96px}
+.mr-arrow{color:var(--text3);flex-shrink:0}
+.mr-to{flex:1;font-size:12px;font-weight:600;color:var(--text2)}
+.mr-btns{display:flex;gap:5px;flex-shrink:0}
+.mr-ok{padding:5px 12px;border-radius:7px;background:var(--accent);color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.mr-no{padding:5px 12px;border-radius:7px;border:1.5px solid var(--border);background:none;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.mr-no:hover{border-color:var(--red);color:var(--red)}
+
+.bulk-bar{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border2)}
+.bulk-ok{flex:1;padding:9px;border-radius:9px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.bulk-skip{padding:9px 12px;border-radius:9px;background:none;border:1.5px solid var(--border);color:var(--text3);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Dormant section in panel */
+.dormant-panel-row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border2)}
+.dormant-panel-row:last-child{border-bottom:none}
+.dp-name{flex:1;font-size:12px;font-weight:700;color:var(--text3)}
+.dp-count{font-size:11px;color:var(--text3);font-family:monospace}
+.dp-revive{padding:5px 12px;border-radius:7px;border:1.5px solid var(--border);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.dp-revive:hover{border-color:var(--green);color:var(--green)}
+
+.panel-empty{text-align:center;padding:28px 16px;font-size:12px;color:var(--text3)}
+.panel-note{padding:10px 16px;font-size:11px;color:var(--text3);border-top:1px solid var(--border2)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:12px;z-index:800;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:12px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast.show{opacity:1;pointer-events:all}
+.toast-undo{background:none;border:none;color:#4ade80;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header-row">
+  <div>
+    <h2>テクニックタグ</h2>
+    <div class="subtitle">8件のタグ</div>
+  </div>
+  <button class="ai-btn" onclick="togglePanel()">
+    <span class="dot"></span>AI整理
+    <span class="badge show" id="badge">3</span>
+  </button>
+</div>
+
+<!-- Add input -->
+<div class="add-row">
+  <input class="add-input" id="addInput" placeholder="タグを追加…" autocomplete="off"
+    oninput="onInput()" onkeydown="if(event.key==='Enter')commitAdd()" onblur="setTimeout(closeSuggest,160)">
+  <button class="add-btn" onclick="commitAdd()">追加</button>
+  <div class="suggest-strip" id="suggestStrip"></div>
+</div>
+
+<!-- Tag list -->
+<div class="tag-list" id="tagList"></div>
+
+<!-- AI Panel -->
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-panel-head">
+    <div class="ai-panel-title" id="panelTitle">AI整理</div>
+    <button class="ai-panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="ai-sub">
+    <button class="ai-sub-btn active" id="tabMerge" onclick="switchTab('merge')">重複・類似の統合</button>
+    <button class="ai-sub-btn"        id="tabDormant" onclick="switchTab('dormant')">休眠タグ</button>
+  </div>
+  <div id="panelBody"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toastMsg"></span>
+  <button class="toast-undo" id="toastUndo" style="display:none" onclick="doUndo()">元に戻す</button>
+</div>
+
+<script>
+// ── Data ────────────────────────────────────────────────
+let tags = [
+  {id:1, name:'ヒールフック',     count:12, aliases:['heel hook','HH'],   dormant:false},
+  {id:2, name:'RNC',              count:8,  aliases:['rear naked choke'], dormant:false},
+  {id:3, name:'ギロチン',         count:15, aliases:['guillotine'],       dormant:false},
+  {id:4, name:'アームバー',       count:10, aliases:['arm bar'],          dormant:false},
+  {id:5, name:'キムラ',           count:7,  aliases:['kimura'],           dormant:false},
+  {id:6, name:'バタフライスイープ',count:4,  aliases:[],                  dormant:false},
+  {id:7, name:'ベリンボロ',       count:5,  aliases:['berimbolo'],        dormant:false},
+  {id:8, name:'オモプラッタ',     count:3,  aliases:['omoplata'],         dormant:false},
+  {id:9, name:'スパイダーガード', count:0,  aliases:[],                  dormant:true},
+  {id:10,name:'X-ガード',         count:1,  aliases:[],                  dormant:true},
+];
+
+// AI-detected merge candidates
+let candidates = [
+  {id:'c1', from:'ヒールフック系',   to:'ヒールフック'},
+  {id:'c2', from:'ギロチンチョーク', to:'ギロチン'},
+  {id:'c3', from:'腕十字',           to:'アームバー'},
+];
+let dismissed  = new Set();
+let excluded   = new Set(); // pair keys like "腕十字|アームバー"
+let undoStack  = null;
+let currentTab = 'merge';
+let panelOpen  = false;
+
+function pairKey(a,b){ return [a,b].sort().join('|'); }
+
+// ── Render ───────────────────────────────────────────────
+function render(){
+  const active  = tags.filter(t=>!t.dormant);
+  const dormant = tags.filter(t=> t.dormant);
+  document.querySelector('.subtitle').textContent = `${active.length}件のタグ`;
+
+  document.getElementById('tagList').innerHTML = [
+    ...active.map(t=>`
+      <div class="tag-row">
+        <div style="flex:1">
+          <div class="tag-name">${t.name}</div>
+          ${t.aliases.length?`<div class="tag-aliases">${t.aliases.map(a=>`<span class="alias-pill">${a}</span>`).join('')}</div>`:''}
+        </div>
+        <span class="tag-count">${t.count}本</span>
+      </div>`),
+    ...dormant.map(t=>`
+      <div class="tag-row dormant-row">
+        <div style="flex:1"><div class="tag-name">${t.name}</div></div>
+        <span class="dormant-pill">休眠</span>
+        <span class="tag-count">${t.count}本</span>
+      </div>`),
+  ].join('');
+
+  // Badge
+  const pending = candidates.filter(c=>!dismissed.has(c.id)&&!excluded.has(pairKey(c.from,c.to))).length;
+  const b = document.getElementById('badge');
+  b.textContent = pending;
+  b.classList.toggle('show', pending > 0);
+
+  if(panelOpen) renderPanelBody();
+}
+
+// ── Panel ────────────────────────────────────────────────
+function togglePanel(){
+  panelOpen = !panelOpen;
+  document.getElementById('aiPanel').classList.toggle('visible', panelOpen);
+  if(panelOpen){ renderPanelBody(); setTimeout(()=>document.getElementById('aiPanel').scrollIntoView({behavior:'smooth',block:'start'}),50); }
+}
+function closePanel(){ panelOpen=false; document.getElementById('aiPanel').classList.remove('visible'); }
+
+function switchTab(tab){
+  currentTab=tab;
+  document.getElementById('tabMerge').classList.toggle('active',tab==='merge');
+  document.getElementById('tabDormant').classList.toggle('active',tab==='dormant');
+  renderPanelBody();
+}
+
+function renderPanelBody(){
+  const body = document.getElementById('panelBody');
+  if(currentTab==='merge'){
+    const pending = candidates.filter(c=>!dismissed.has(c.id)&&!excluded.has(pairKey(c.from,c.to)));
+    if(!pending.length){ body.innerHTML=`<div class="panel-empty">重複・類似タグの候補はありません</div>`; return; }
+    body.innerHTML=`
+      <div class="bulk-bar">
+        <button class="bulk-ok" onclick="mergeAll()">すべて統合（${pending.length}件）</button>
+        <button class="bulk-skip" onclick="skipAll()">あとで</button>
+      </div>
+      ${pending.map(c=>`
+        <div class="merge-row" id="mr-${c.id}">
+          <div class="mr-from">${c.from}</div>
+          <div class="mr-arrow">→</div>
+          <div class="mr-to">${c.to}</div>
+          <div class="mr-btns">
+            <button class="mr-ok" onclick="doMerge('${c.id}')">統合</button>
+            <button class="mr-no" onclick="doExclude('${c.id}')">別物</button>
+          </div>
+        </div>`).join('')}
+      <div class="panel-note">統合するとエイリアスとして記憶され、次回から自動変換されます</div>`;
+  } else {
+    const dormant = tags.filter(t=>t.dormant);
+    if(!dormant.length){ body.innerHTML=`<div class="panel-empty">休眠タグはありません</div>`; return; }
+    body.innerHTML = dormant.map(t=>`
+      <div class="dormant-panel-row" id="dp-${t.id}">
+        <div class="dp-name">${t.name}</div>
+        <div class="dp-count">${t.count}本</div>
+        <button class="dp-revive" onclick="revive(${t.id})">復活</button>
+      </div>`).join('');
+  }
+}
+
+// ── Merge actions ────────────────────────────────────────
+function doMerge(id){
+  const c=candidates.find(c=>c.id===id); if(!c) return;
+  const tgt=tags.find(t=>t.name===c.to);
+  if(tgt&&!tgt.aliases.includes(c.from)) tgt.aliases.push(c.from);
+  tags=tags.filter(t=>t.name!==c.from);
+  undoStack={type:'merge', c, removedAlias:c.from};
+  dismissed.add(id);
+  const row=document.getElementById('mr-'+id);
+  row?.classList.add('dismissed');
+  setTimeout(()=>renderPanelBody(),300);
+  render();
+  showToast(`「${c.from}」→「${c.to}」に統合しました`, true);
+}
+
+function doExclude(id){
+  const c=candidates.find(c=>c.id===id); if(!c) return;
+  excluded.add(pairKey(c.from,c.to));
+  dismissed.add(id);
+  const row=document.getElementById('mr-'+id);
+  row?.classList.add('dismissed');
+  setTimeout(()=>renderPanelBody(),300);
+  render();
+  showToast(`「${c.from}」と「${c.to}」は別物として登録`);
+}
+
+function mergeAll(){
+  const pending=candidates.filter(c=>!dismissed.has(c.id)&&!excluded.has(pairKey(c.from,c.to)));
+  pending.forEach(c=>{
+    const tgt=tags.find(t=>t.name===c.to);
+    if(tgt&&!tgt.aliases.includes(c.from)) tgt.aliases.push(c.from);
+    tags=tags.filter(t=>t.name!==c.from);
+    dismissed.add(c.id);
+  });
+  render();
+  showToast(`${pending.length}件まとめて統合しました`);
+}
+function skipAll(){
+  candidates.filter(c=>!dismissed.has(c.id)).forEach(c=>dismissed.add(c.id));
+  render();
+  showToast('あとで確認します');
+}
+
+function revive(id){
+  const t=tags.find(t=>t.id===id); if(!t) return;
+  t.dormant=false;
+  const row=document.getElementById('dp-'+id);
+  row?.classList.add('dismissed');
+  setTimeout(()=>renderPanelBody(),300);
+  render();
+  showToast(`「${t.name}」を復活しました`);
+}
+
+// ── Undo ─────────────────────────────────────────────────
+function doUndo(){
+  if(!undoStack) return;
+  const u=undoStack;
+  if(u.type==='merge'){
+    const tgt=tags.find(t=>t.name===u.c.to);
+    if(tgt) tgt.aliases=tgt.aliases.filter(a=>a!==u.c.from);
+    if(!tags.find(t=>t.name===u.c.from))
+      tags.push({id:Date.now(),name:u.c.from,count:0,aliases:[],dormant:false});
+    dismissed.delete(u.c.id);
+  } else if(u.type==='add'){
+    tags=tags.filter(t=>t.id!==u.tagId);
+  }
+  undoStack=null; hideToast(); render();
+  showToast('元に戻しました');
+}
+
+// ── Input (A + B) ─────────────────────────────────────────
+function onInput(){
+  const q=document.getElementById('addInput').value.trim().toLowerCase();
+  const strip=document.getElementById('suggestStrip');
+  if(!q){ strip.classList.remove('open'); return; }
+
+  const items=[];
+  // B: alias exact match
+  for(const t of tags){
+    if(t.aliases.some(a=>a.toLowerCase()===q)){
+      items.push({name:t.name, hint:`"${q}" → 自動変換`, cls:'tag-alias'});
+      break;
+    }
+  }
+  // A: partial name match
+  if(!items.length){
+    tags.filter(t=>t.name.toLowerCase().includes(q)||t.aliases.some(a=>a.toLowerCase().includes(q)))
+      .slice(0,3).forEach(t=>items.push({name:t.name, hint:'候補', cls:'tag-match', selectVal:t.name}));
+  }
+
+  if(!items.length){ strip.classList.remove('open'); return; }
+  strip.innerHTML=items.map(it=>`
+    <div class="sug-item" onclick="selectSuggest('${esc(it.selectVal||it.name)}')">
+      <span class="sug-name">${it.name}</span>
+      <span class="sug-hint" style="font-size:10px;color:var(--text3)">${it.hint}</span>
+      <span class="sug-tag ${it.cls}">${it.hint.includes('自動')? '自動変換':'既存'}</span>
+    </div>`).join('');
+  strip.classList.add('open');
+}
+
+function selectSuggest(val){
+  document.getElementById('addInput').value=val;
+  closeSuggest();
+}
+function closeSuggest(){ document.getElementById('suggestStrip').classList.remove('open'); }
+
+function commitAdd(){
+  const inp=document.getElementById('addInput');
+  const raw=inp.value.trim(); if(!raw) return;
+  inp.value=''; closeSuggest();
+  // B: alias → auto-convert
+  for(const t of tags){
+    if(t.aliases.some(a=>a.toLowerCase()===raw.toLowerCase())){
+      showToast(`「${raw}」→「${t.name}」に自動変換しました`, true);
+      undoStack={type:'alias_noop'};
+      return;
+    }
+  }
+  if(tags.find(t=>t.name.toLowerCase()===raw.toLowerCase())){
+    showToast(`「${raw}」は既に存在します`); return;
+  }
+  const newTag={id:Date.now(),name:raw,count:0,aliases:[],dormant:false};
+  tags.push(newTag);
+  undoStack={type:'add', tagId:newTag.id};
+  render();
+  showToast(`「${raw}」を追加しました`, true);
+}
+
+function esc(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ── Toast ─────────────────────────────────────────────────
+let toastTid=null;
+function showToast(msg, withUndo=false){
+  document.getElementById('toastMsg').textContent=msg;
+  document.getElementById('toastUndo').style.display=withUndo?'':'none';
+  const t=document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTid);
+  toastTid=setTimeout(()=>t.classList.remove('show'), withUndo?5000:2200);
+}
+function hideToast(){ clearTimeout(toastTid); document.getElementById('toast').classList.remove('show'); }
+
+render();
+</script>
+</body>
+</html>

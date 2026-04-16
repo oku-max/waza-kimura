@@ -150,7 +150,7 @@ export function showAiTagPanel(videoId, suggestions) {
     <div style="display:flex;gap:8px;margin-top:16px">
       <button id="ai-tag-apply-btn"
         style="flex:1;padding:12px;border-radius:10px;border:none;
-               background:var(--accent);color:#fff;font-size:14px;
+               background:var(--accent);color:var(--on-accent);font-size:14px;
                font-weight:700;cursor:pointer">
         ✓ 選択したタグを適用
       </button>

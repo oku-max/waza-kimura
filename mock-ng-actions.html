@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — タグ一覧 最終確認版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;--surface:#fff;--surface2:#f5f5f5;
+  --border:#e0e0e0;--border2:#ebebeb;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#6b3fd4;
+  --red:#ef4444;--red-bg:#ef444408;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:var(--bg);color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:32px 24px}
+
+/* モーダル */
+.modal{background:var(--surface);border-radius:14px;width:380px;
+  box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;flex-direction:column;
+  max-height:620px;overflow:hidden}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 0;flex-shrink:0}
+.modal-hdr .title{font-size:14px;font-weight:800}
+.modal-hdr .close{background:none;border:none;font-size:18px;cursor:pointer;
+  color:var(--text3);padding:2px 6px}
+.tabs{display:flex;padding:0 18px;border-bottom:1px solid var(--border2);
+  flex-shrink:0;margin-top:2px}
+.tab{flex:1;background:none;border:none;padding:10px 0;font-size:12px;
+  cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;color:var(--text3)}
+.tab.on{font-weight:700;color:var(--text);border-bottom-color:var(--accent)}
+.body{overflow-y:auto;flex:1}
+
+/* グループヘッダー */
+.grp-hdr{display:flex;align-items:center;gap:8px;padding:11px 16px;
+  border-bottom:1px solid var(--border2);cursor:pointer;user-select:none;
+  background:var(--surface)}
+.grp-hdr .arrow{font-size:10px;color:var(--text3);width:10px;text-align:center;
+  display:inline-block;transition:transform .15s}
+.grp-hdr .arrow.open{transform:rotate(90deg)}
+.grp-hdr .grp-name{flex:1;font-size:12px;font-weight:700}
+.grp-hdr .grp-cnt{font-size:11px;color:var(--text3)}
+
+/* タグ行 */
+.tag-row{display:flex;align-items:center;gap:6px;padding:9px 16px 9px 36px;
+  border-bottom:1px solid var(--border2);background:var(--surface2)}
+.tag-row .tag-name{flex:1;font-size:12px;font-weight:600;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 件数バッジ（全タグ共通） */
+.vcnt{display:inline-flex;align-items:center;justify-content:center;
+  min-width:28px;padding:2px 7px;border-radius:10px;
+  font-size:11px;font-weight:700;flex-shrink:0;
+  background:#e8e8ed;color:var(--text2)}
+.vcnt.zero{background:var(--surface2);color:var(--text3);font-weight:400}
+
+/* 案B 未分類セパレーター */
+.unc-sep{padding:7px 16px 4px;font-size:10px;font-weight:700;color:var(--text3);
+  letter-spacing:.06em;display:flex;align-items:center;gap:8px;
+  border-top:1px solid var(--border)}
+.unc-sep::before,.unc-sep::after{content:'';flex:1;height:1px;background:var(--border2)}
+.unc-hdr{display:flex;align-items:center;gap:8px;padding:9px 16px;
+  border-bottom:1px solid var(--border2);background:var(--surface)}
+.unc-hdr .grp-name{flex:1;font-size:12px;font-weight:700;color:var(--text2)}
+.unc-hdr .grp-cnt{font-size:11px;color:var(--text3)}
+.unc-row{display:flex;align-items:center;gap:6px;padding:9px 16px 9px 36px;
+  border-bottom:1px solid var(--border2);background:var(--surface2)}
+.unc-row .tag-name{flex:1;font-size:12px;font-weight:600;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ボタン */
+.btn{background:none;border:1.5px solid var(--border);color:var(--text3);
+  font-size:10px;font-weight:700;padding:2px 10px;border-radius:12px;
+  cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap}
+.btn:hover{border-color:var(--text2);color:var(--text2)}
+.btn.ng:hover{border-color:var(--red);color:var(--red)}
+.btn.release{border-color:var(--red);color:var(--red)}
+.btn.edit{border:none;font-size:11px;color:var(--text3);padding:0 3px;opacity:.5}
+.ai-btn{background:none;border:1.5px solid var(--accent);color:var(--accent);
+  font-size:10px;font-weight:700;padding:3px 9px;border-radius:12px;
+  cursor:pointer;font-family:inherit;flex-shrink:0}
+
+/* NGセクション */
+.ng-section{border-top:2px solid #ef444433}
+.ng-hdr{display:flex;align-items:center;gap:8px;padding:11px 16px;
+  border-bottom:1px solid var(--border2);cursor:pointer;user-select:none;
+  background:var(--surface)}
+.ng-hdr .arrow{font-size:10px;color:var(--red);width:10px;text-align:center;
+  display:inline-block;transition:transform .15s}
+.ng-hdr .arrow.open{transform:rotate(90deg)}
+.ng-hdr .ng-lbl{flex:1;font-size:12px;font-weight:700;color:var(--red)}
+.ng-hdr .ng-cnt{font-size:11px;color:var(--red)}
+.ng-bulk{background:none;border:1.5px solid var(--red);color:var(--red);
+  font-size:10px;font-weight:700;padding:2px 10px;border-radius:12px;
+  cursor:pointer;font-family:inherit;flex-shrink:0}
+
+/* NG行 */
+.ng-row{display:flex;align-items:center;gap:6px;padding:9px 16px 9px 28px;
+  border-bottom:1px solid var(--border2);background:var(--red-bg)}
+.ng-row .tag-name{flex:1;font-size:12px;font-weight:600;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* NG件数バッジ: 赤系 */
+.vcnt.ng-has{background:#ef444420;color:var(--red)}
+/* 取り除くボタン */
+.strip-btn{background:none;border:1.5px solid #e0e0e0;color:var(--text3);
+  font-size:10px;font-weight:700;padding:2px 9px;border-radius:12px;
+  cursor:pointer;font-family:inherit;flex-shrink:0}
+.strip-btn.has{border-color:#ef444466;color:var(--red)}
+.strip-btn.has:hover{border-color:var(--red);background:#ef44440d}
+
+/* select */
+.grp-select{background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;font-size:10px;color:var(--text2);padding:3px 4px;
+  cursor:pointer;font-family:inherit;outline:none;max-width:84px;flex-shrink:0}
+
+/* フッター */
+.footer{padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;
+  display:flex;flex-direction:column;gap:6px}
+.footer-row{display:flex;gap:6px}
+.footer input{flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;
+  outline:none;color:var(--text)}
+.footer .add-btn{background:#1c1c1e;color:#fff;border:none;padding:7px 14px;
+  border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* ダイアログ */
+.dlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .15s}
+.dlg-overlay.show{opacity:1;pointer-events:all}
+.dlg{background:var(--surface);border-radius:14px;width:300px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);overflow:hidden;
+  transform:scale(.95);transition:transform .15s}
+.dlg-overlay.show .dlg{transform:scale(1)}
+.dlg-body{padding:20px 18px 14px}
+.dlg-icon{font-size:28px;text-align:center;margin-bottom:10px}
+.dlg-title{font-size:14px;font-weight:800;text-align:center;margin-bottom:6px}
+.dlg-msg{font-size:12px;color:var(--text2);text-align:center;line-height:1.6}
+.dlg-msg strong{color:var(--red)}
+.dlg-actions{border-top:1px solid var(--border2);display:flex;flex-direction:column}
+.dlg-btn{background:none;border:none;font-size:13px;font-family:inherit;
+  padding:13px;cursor:pointer;border-bottom:1px solid var(--border2);
+  font-weight:600;transition:background .1s}
+.dlg-btn:last-child{border-bottom:none}
+.dlg-btn:hover{background:var(--surface2)}
+.dlg-btn.danger{color:var(--red)}
+.dlg-btn.cancel{color:var(--text3);font-weight:400}
+
+/* NG追加確認ダイアログ */
+.dlg-btn.keep{color:var(--accent)}
+
+/* トースト */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1c1c1e;color:#fff;padding:10px 18px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;
+  opacity:0;transition:opacity .2s;pointer-events:none;z-index:200}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="modal">
+  <div class="modal-hdr">
+    <div class="title">テクニック</div>
+    <button class="close">✕</button>
+  </div>
+  <div class="tabs">
+    <button class="tab on">タグ一覧</button>
+    <!-- 辞書タブ: 非表示（コード残存） -->
+    <button class="tab" style="display:none">辞書</button>
+  </div>
+
+  <div class="body" id="modal-body">
+
+    <!-- ── グループ: パスガード ── -->
+    <div class="grp-hdr" onclick="toggleGrp('g1')">
+      <span class="arrow open" id="arr-g1">▶</span>
+      <span class="grp-name">パスガード</span>
+      <button class="btn edit" onclick="event.stopPropagation()">✏️</button>
+      <span class="grp-cnt">3件</span>
+      <button class="btn" onclick="event.stopPropagation()" style="opacity:.4;font-size:11px;padding:1px 7px">🗑</button>
+    </div>
+    <div id="g1-body">
+      <div class="tag-row">
+        <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+        <span class="tag-name">ニーカット</span>
+        <button class="btn edit">✏️</button>
+        <select class="grp-select"><option>パスガード</option><option>スイープ</option></select>
+        <span class="vcnt">12</span>
+        <button class="btn ng" onclick="clickNG('ニーカット',12)">NG</button>
+      </div>
+      <div class="tag-row">
+        <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+        <span class="tag-name">トレアナ</span>
+        <button class="btn edit">✏️</button>
+        <select class="grp-select"><option>パスガード</option><option>スイープ</option></select>
+        <span class="vcnt">8</span>
+        <button class="btn ng" onclick="clickNG('トレアナ',8)">NG</button>
+      </div>
+      <div class="tag-row">
+        <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+        <span class="tag-name">ロングステップ</span>
+        <button class="btn edit">✏️</button>
+        <select class="grp-select"><option>パスガード</option><option>スイープ</option></select>
+        <span class="vcnt">3</span>
+        <button class="btn ng" onclick="clickNG('ロングステップ',3)">NG</button>
+      </div>
+    </div>
+
+    <!-- ── グループ: スイープ ── -->
+    <div class="grp-hdr" onclick="toggleGrp('g2')">
+      <span class="arrow open" id="arr-g2">▶</span>
+      <span class="grp-name">スイープ</span>
+      <button class="btn edit" onclick="event.stopPropagation()">✏️</button>
+      <span class="grp-cnt">2件</span>
+      <button class="btn" onclick="event.stopPropagation()" style="opacity:.4;font-size:11px;padding:1px 7px">🗑</button>
+    </div>
+    <div id="g2-body">
+      <div class="tag-row">
+        <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+        <span class="tag-name">シザースイープ</span>
+        <button class="btn edit">✏️</button>
+        <select class="grp-select"><option>スイープ</option><option>パスガード</option></select>
+        <span class="vcnt">7</span>
+        <button class="btn ng" onclick="clickNG('シザースイープ',7)">NG</button>
+      </div>
+      <div class="tag-row">
+        <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+        <span class="tag-name">フラワースイープ</span>
+        <button class="btn edit">✏️</button>
+        <select class="grp-select"><option>スイープ</option><option>パスガード</option></select>
+        <span class="vcnt">4</span>
+        <button class="btn ng" onclick="clickNG('フラワースイープ',4)">NG</button>
+      </div>
+    </div>
+
+    <!-- ── 未分類（案B: セパレーター） ── -->
+    <div class="unc-sep">未整理のタグ</div>
+    <div class="unc-hdr">
+      <span class="grp-name">未分類</span>
+      <span class="grp-cnt">4件</span>
+      <button class="ai-btn" style="margin-left:8px">🤖 AIで整理</button>
+    </div>
+    <div class="unc-row">
+      <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+      <span class="tag-name">グリップカット</span>
+      <button class="btn edit">✏️</button>
+      <select class="grp-select"><option>未分類</option><option>パスガード</option><option>スイープ</option></select>
+      <span class="vcnt">15</span>
+      <button class="btn ng" onclick="clickNG('グリップカット',15)">NG</button>
+    </div>
+    <div class="unc-row">
+      <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+      <span class="tag-name">クロスグリップパス</span>
+      <button class="btn edit">✏️</button>
+      <select class="grp-select"><option>未分類</option><option>パスガード</option><option>スイープ</option></select>
+      <span class="vcnt">6</span>
+      <button class="btn ng" onclick="clickNG('クロスグリップパス',6)">NG</button>
+    </div>
+    <div class="unc-row">
+      <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+      <span class="tag-name">スタッキングパス</span>
+      <button class="btn edit">✏️</button>
+      <select class="grp-select"><option>未分類</option><option>パスガード</option><option>スイープ</option></select>
+      <span class="vcnt">2</span>
+      <button class="btn ng" onclick="clickNG('スタッキングパス',2)">NG</button>
+    </div>
+    <div class="unc-row">
+      <span style="cursor:grab;color:var(--text3);font-size:11px;flex-shrink:0">⠿</span>
+      <span class="tag-name">ベリンボロ</span>
+      <button class="btn edit">✏️</button>
+      <select class="grp-select"><option>未分類</option><option>パスガード</option><option>スイープ</option></select>
+      <span class="vcnt zero">0</span>
+      <button class="btn ng" onclick="clickNG('ベリンボロ',0)">NG</button>
+    </div>
+
+    <!-- ── NGリスト ── -->
+    <div class="ng-section">
+      <div class="ng-hdr" onclick="toggleGrp('ng')">
+        <span class="arrow open" id="arr-ng">▶</span>
+        <span class="ng-lbl">NGリスト</span>
+        <span class="ng-cnt" id="ng-cnt">2件</span>
+        <button class="ng-bulk" onclick="event.stopPropagation();bulkStrip()">全て取り除く</button>
+      </div>
+      <div style="padding:8px 16px 9px;border-bottom:1px solid var(--border2);
+        background:#ef44440a;font-size:11px;color:var(--text3);line-height:1.6">
+        AIがこのタグを動画に自動追加することはありません。手動での追加はいつでもできます。
+      </div>
+      <div id="ng-body">
+        <div class="ng-row" data-tag="ヒップエスケープ" data-vc="12">
+          <span class="tag-name">ヒップエスケープ</span>
+          <span class="vcnt ng-has">12</span>
+          <button class="strip-btn has" onclick="stripOne(this,'ヒップエスケープ',12)">取り除く</button>
+          <button class="btn release" onclick="releaseNG(this,'ヒップエスケープ')">解除</button>
+        </div>
+        <div class="ng-row" data-tag="regweave" data-vc="5">
+          <span class="tag-name">regweave</span>
+          <span class="vcnt ng-has">5</span>
+          <button class="strip-btn has" onclick="stripOne(this,'regweave',5)">取り除く</button>
+          <button class="btn release" onclick="releaseNG(this,'regweave')">解除</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <div class="footer">
+    <div class="footer-row">
+      <input placeholder="グループ名を追加…">
+      <button class="add-btn">追加</button>
+    </div>
+    <div class="footer-row">
+      <input placeholder="タグを追加…">
+      <button class="add-btn">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 確認ダイアログ（NGに追加 or 取り除く） -->
+<div class="dlg-overlay" id="dlg">
+  <div class="dlg">
+    <div class="dlg-body">
+      <div class="dlg-icon" id="dlg-icon">🧹</div>
+      <div class="dlg-title" id="dlg-title"></div>
+      <div class="dlg-msg" id="dlg-msg"></div>
+    </div>
+    <div class="dlg-actions" id="dlg-actions"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── グループ開閉 ──
+function toggleGrp(id) {
+  const body = document.getElementById(id === 'ng' ? 'ng-body' : id+'-body');
+  const arrow = document.getElementById('arr-'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arrow) arrow.classList.toggle('open', !open);
+}
+
+// ── NG追加 ──
+function clickNG(tag, vc) {
+  if (vc > 0) {
+    openDlg('🚫',
+      `「${tag}」をNGに追加`,
+      `このタグを含む動画が<strong>${vc}件</strong>あります。<br>動画からもこのタグを削除しますか？`,
+      [
+        { label:'動画からも削除する', cls:'danger', action: () => addNG(tag, vc, true) },
+        { label:'削除しない（NGには追加）', cls:'keep', action: () => addNG(tag, vc, false) },
+        { label:'キャンセル', cls:'cancel', action: null },
+      ]
+    );
+  } else {
+    addNG(tag, 0, false);
+  }
+}
+
+function addNG(tag, vc, removeFromVideos) {
+  // NGリストに行を追加
+  const body = document.getElementById('ng-body');
+  const row = document.createElement('div');
+  row.className = 'ng-row';
+  row.dataset.tag = tag;
+  row.dataset.vc = removeFromVideos ? 0 : vc;
+  const actualVc = removeFromVideos ? 0 : vc;
+  row.innerHTML = `
+    <span class="tag-name">${tag}</span>
+    <span class="vcnt ${actualVc > 0 ? 'ng-has' : 'zero'}">${actualVc}</span>
+    <button class="strip-btn ${actualVc > 0 ? 'has' : ''}" ${actualVc === 0 ? 'disabled style="opacity:.3;cursor:default"' : ''}
+      onclick="stripOne(this,'${tag}',${actualVc})">取り除く</button>
+    <button class="btn release" onclick="releaseNG(this,'${tag}')">解除</button>
+  `;
+  body.appendChild(row);
+  updateNGCnt();
+  // 元の行を削除（どのグループ・未分類からでも）
+  document.querySelectorAll('.tag-row, .unc-row').forEach(r => {
+    if (r.querySelector('.tag-name')?.textContent === tag) r.remove();
+  });
+  if (removeFromVideos) {
+    toast(`「${tag}」をNGに追加し、${vc}件の動画から削除しました`);
+  } else {
+    toast(`「${tag}」をNGに追加しました`);
+  }
+}
+
+// ── NG行: 取り除く ──
+function stripOne(btn, tag, vc) {
+  openDlg('🧹',
+    `「${tag}」を取り除く`,
+    `このタグを含む<strong>${vc}件</strong>の動画からタグを取り除きます。<br>NGリストからは削除されません。`,
+    [
+      { label:'取り除く', cls:'danger', action: () => {
+        const row = btn.closest('.ng-row');
+        const badge = row.querySelector('.vcnt');
+        badge.textContent = '0'; badge.className = 'vcnt zero';
+        btn.classList.remove('has'); btn.disabled = true;
+        btn.style.opacity = '.3'; btn.style.cursor = 'default';
+        toast(`「${tag}」を${vc}件の動画から取り除きました`);
+      }},
+      { label:'キャンセル', cls:'cancel', action: null },
+    ]
+  );
+}
+
+// ── NG行: 一括取り除く ──
+function bulkStrip() {
+  const rows = document.querySelectorAll('#ng-body .ng-row');
+  const total = [...rows].reduce((s, r) => s + (parseInt(r.dataset.vc) || 0), 0);
+  if (total === 0) { toast('取り除く動画がありません'); return; }
+  openDlg('🧹',
+    '全タグを取り除く',
+    `NGリスト内のタグを含む<strong>全動画（${total}件）</strong>から<br>タグを取り除きます。NGリストは変更されません。`,
+    [
+      { label:'取り除く', cls:'danger', action: () => {
+        document.querySelectorAll('#ng-body .vcnt').forEach(b => { b.textContent='0'; b.className='vcnt zero'; });
+        document.querySelectorAll('#ng-body .strip-btn').forEach(b => { b.classList.remove('has'); b.disabled=true; b.style.opacity='.3'; b.style.cursor='default'; });
+        document.querySelectorAll('#ng-body .ng-row').forEach(r => r.dataset.vc = 0);
+        toast(`全タグを${total}件の動画から取り除きました`);
+      }},
+      { label:'キャンセル', cls:'cancel', action: null },
+    ]
+  );
+}
+
+// ── NG解除 ──
+function releaseNG(btn, tag) {
+  btn.closest('.ng-row').remove();
+  updateNGCnt();
+  toast(`「${tag}」をNGから解除しました`);
+}
+
+function updateNGCnt() {
+  const cnt = document.querySelectorAll('#ng-body .ng-row').length;
+  document.getElementById('ng-cnt').textContent = cnt + '件';
+}
+
+// ── ダイアログ ──
+function openDlg(icon, title, msg, actions) {
+  document.getElementById('dlg-icon').textContent = icon;
+  document.getElementById('dlg-title').textContent = title;
+  document.getElementById('dlg-msg').innerHTML = msg;
+  const acts = document.getElementById('dlg-actions');
+  acts.innerHTML = '';
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'dlg-btn ' + a.cls;
+    btn.textContent = a.label;
+    btn.onclick = () => { if (a.action) a.action(); closeDlg(); };
+    acts.appendChild(btn);
+  });
+  document.getElementById('dlg').classList.add('show');
+}
+function closeDlg() { document.getElementById('dlg').classList.remove('show'); }
+document.getElementById('dlg').addEventListener('click', e => { if(e.target===e.currentTarget) closeDlg(); });
+
+// ── トースト ──
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

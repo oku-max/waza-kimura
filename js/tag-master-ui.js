@@ -250,7 +250,7 @@
       #tag-master-ui .tm-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
       #tag-master-ui .tm-seg button{padding:8px 4px;border:1px solid var(--border);background:var(--surface2);border-radius:6px;color:var(--text2);cursor:pointer;font-size:11px;line-height:1.4}
       #tag-master-ui .tm-seg button span{font-size:9px;color:var(--text3);font-weight:400}
-      #tag-master-ui .tm-seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+      #tag-master-ui .tm-seg button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
       #tag-master-ui .tm-seg button.on span{color:rgba(255,255,255,.85)}
       #tag-master-ui .tm-hint{font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5}
       #tag-master-ui .tm-desc-top{font-size:11px;color:var(--text3);margin-bottom:8px}

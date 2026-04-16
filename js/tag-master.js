@@ -23,30 +23,40 @@ const CATEGORIES = [
   { id: 'finish',     name: 'フィニッシュ',           desc: 'チョーク・関節技など相手を極めにいく動作', aliases: ['Submission','Finish','サブミッション','チョーク','アームロック','アームバー','キムラ','三角','三角絞め','オモプラッタ','ギロチン','腕十字','絞め'] },
 ];
 
-// ─── Layer 3: Position (21 fixed, bottom-side) ───────
+// ─── Layer 3: Position (27 fixed) ────────────────────
 // ja : 日本語表示 / en : 英語名 / aliases : 検索ヒット用
+// ※ admin-dashboard.js の DEFAULT_POSITIONS と同期すること
 const POSITIONS = [
-  { id: 'inverted',  ja: 'インバーテッド',       en: 'Inverted',       aliases: ['Inverted Guard'] },
-  { id: 'collar',    ja: '片襟片袖',             en: 'Collar Sleeve',  aliases: ['Collar Sleeve Guard','カラースリーブ'] },
-  { id: 'kguard',    ja: 'Kガード',              en: 'K-Guard',        aliases: ['K Guard','ケーガード'] },
-  { id: 'closed',    ja: 'クローズドガード',     en: 'Closed Guard',   aliases: ['Closed','クロガ'] },
-  { id: 'saddle',    ja: 'サドル',               en: 'Saddle',         aliases: ['4-11','411','Honey Hole','インサイドサンカク','Inside Sankaku'] },
-  { id: 'spider',    ja: 'スパイダーガード',     en: 'Spider',         aliases: ['Spider Guard','スパイダ'] },
-  { id: 'standing',  ja: 'スタンディング',       en: 'Standing',       aliases: ['Stand Up','立ち'] },
-  { id: 'slx',       ja: 'SLX',                  en: 'Single Leg X',   aliases: ['SLX','シングルレッグX','Single X'] },
-  { id: 'turtle',    ja: 'タートル',             en: 'Turtle',         aliases: ['Turtle Position','亀'] },
-  { id: 'deephalf',  ja: 'ディープハーフ',       en: 'Deep Half',      aliases: ['Deep Half Guard','ディープ'] },
-  { id: 'dlr',       ja: 'デラヒーバ',           en: 'De La Riva',     aliases: ['DLR','De La Riva Guard','デラヒバ'] },
-  { id: 'kneeshield',ja: 'ニーシールド',         en: 'Z-Guard',        aliases: ['Z Guard','Knee Shield'] },
-  { id: 'butterfly', ja: 'バタフライガード',     en: 'Butterfly',      aliases: ['Butterfly Guard','バタフラ'] },
-  { id: 'half',      ja: 'ハーフガード',         en: 'Half Guard',     aliases: ['Half','ハーフ'] },
-  { id: 'fifty',     ja: '50/50',                en: '50-50',          aliases: ['50/50','5050','フィフティ'] },
-  { id: 'xguard',    ja: 'Xガード',              en: 'X-Guard',        aliases: ['X Guard','エックスガード'] },
-  { id: 'lasso',     ja: 'ラッソーガード',       en: 'Lasso',          aliases: ['Lasso Guard','ラッソ'] },
-  { id: 'lapel',     ja: 'ラペルガード',         en: 'Lapel',          aliases: ['Lapel Guard'] },
-  { id: 'rdlr',      ja: 'リバースデラヒーバ',   en: 'Reverse De La Riva', aliases: ['RDLR','Reverse DLR'] },
-  { id: 'worm',      ja: 'ワームガード',         en: 'Worm',           aliases: ['Worm Guard'] },
-  { id: 'other',     ja: 'その他',               en: 'Other',          aliases: ['Other'] },
+  // ── ガード系 ──
+  { id: 'closed',    ja: 'クローズドガード',     en: 'Closed Guard',        aliases: ['Closed','クロガ','フルガード','full guard'] },
+  { id: 'half',      ja: 'ハーフガード',         en: 'Half Guard',          aliases: ['Half','ハーフ','脇差し','アンダーフックハーフ','ロックダウン','シングルレッグハーフ','underhook half','lockdown','single leg half'] },
+  { id: 'deephalf',  ja: 'ディープハーフ',       en: 'Deep Half Guard',     aliases: ['Deep Half Guard','Deep Half','ディープ'] },
+  { id: 'butterfly', ja: 'バタフライガード',     en: 'Butterfly Guard',     aliases: ['Butterfly','バタフラ','ハーフバタフライ','half butterfly'] },
+  { id: 'dlr',       ja: 'デラヒーバ',           en: 'De La Riva',          aliases: ['DLR','De La Riva Guard','デラヒバ'] },
+  { id: 'rdlr',      ja: 'リバースデラヒーバ',   en: 'Reverse De La Riva',  aliases: ['RDLR','Reverse DLR','リバデラ'] },
+  { id: 'spider',    ja: 'スパイダーガード',     en: 'Spider Guard',        aliases: ['Spider','スパイダ','インバーテッドスパイダー','inverted spider'] },
+  { id: 'lasso',     ja: 'ラッソーガード',       en: 'Lasso Guard',         aliases: ['Lasso','ラッソ','シャローラッソー','shallow lasso'] },
+  { id: 'xguard',    ja: 'Xガード',              en: 'X Guard',             aliases: ['X-Guard','エックスガード'] },
+  { id: 'slx',       ja: 'SLX',                  en: 'Single Leg X',        aliases: ['シングルレッグX','シングルレッグXガード','Single X','single leg x guard'] },
+  { id: 'kguard',    ja: 'Kガード',              en: 'K Guard',             aliases: ['K-Guard','ケーガード'] },
+  { id: 'lapel',     ja: 'ラペルガード',         en: 'Lapel Guard',         aliases: ['Lapel','ワームガード','Worm Guard','Worm','スクイッドガード','Squid Guard','Squid','グッバーガード','Gubber Guard','Gubber','ラペル系'] },
+  { id: 'kneeshield',ja: 'ニーシールド',         en: 'Knee Shield',         aliases: ['Z Guard','Z-Guard','Zガード'] },
+  { id: 'collar',    ja: '片襟片袖',             en: 'Collar Sleeve',       aliases: ['Collar Sleeve Guard','カラースリーブ','collar and sleeve'] },
+  { id: 'inverted',  ja: 'インバーテッド',       en: 'Inverted Guard',      aliases: ['Inverted','トルネードガード','Tornado Guard','Tornado'] },
+  { id: 'seventy',   ja: '70/30ガード',          en: '70/30 Guard',         aliases: ['70/30','seventy thirty'] },
+  { id: 'situp',     ja: 'シッティングガード',   en: 'Sit-Up Guard',        aliases: ['シットアップガード','sit up guard','sitting guard','seated guard'] },
+  { id: 'slguard',   ja: 'シングルレッグガード', en: 'Single Leg Guard',    aliases: ['single leg guard'] },
+  { id: 'cross',     ja: 'クロスガード',         en: 'Cross Guard',         aliases: ['cross guard'] },
+  { id: 'revhalf',   ja: 'リバースハーフガード', en: 'Reverse Half Guard',  aliases: ['リバースハーフ','reverse half','reverse half guard'] },
+  { id: 'open',      ja: 'オープンガード',       en: 'Open Guard',          aliases: ['open guard','手ぶらガード','no grip guard'] },
+  { id: 'octopus',   ja: 'オクトパスガード',     en: 'Octopus Guard',       aliases: ['Octopus','octopus guard'] },
+  // ── レッグ系 ──
+  { id: 'fifty',     ja: '50/50',                en: '50/50',               aliases: ['5050','フィフティフィフティ','fifty fifty'] },
+  { id: 'saddle',    ja: 'サドル',               en: 'Saddle',              aliases: ['411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole','ashi garami'] },
+  // ── トップ・スタンド・その他 ──
+  { id: 'turtle',    ja: 'タートル',             en: 'Turtle',              aliases: ['Turtle Position','亀'] },
+  { id: 'standing',  ja: 'スタンディング',       en: 'Standing',            aliases: ['Stand Up','立ち','立ち技'] },
+  { id: 'other',     ja: 'その他',               en: 'Other',               aliases: [] },
 ];
 
 // ─── 表記ゆれ正規化 ────────────────────────────────

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 案5 スコープトグル（フィルターオーバービュー）</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;
+  --surface:#ffffff;--surface2:#f5f5f7;--surface3:#eeeeef;
+  --border:#e0e0e5;--border2:#ebebf0;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#6b3fd4;--accent-light:#f0ebff;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#86efac;
+}
+
+/* ── ページ全体 ── */
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:#0f0f1a;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:28px 16px 60px;gap:16px
+}
+.page-title{color:rgba(255,255,255,.45);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+
+/* ── ラベル選択バー ── */
+.ctrl-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center
+}
+.ctrl-label{color:rgba(255,255,255,.35);font-size:10px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+.label-btns{display:flex;gap:6px;flex-wrap:wrap}
+.label-btn{
+  background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:inherit;color:rgba(255,255,255,.45);transition:all .15s
+}
+.label-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ── ブラウザフレーム ── */
+.browser{
+  width:100%;max-width:1080px;
+  background:#1c1c1e;border-radius:12px;overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.75)
+}
+.browser-chrome{
+  background:#2c2c2e;border-bottom:1px solid #3a3a3c;
+  padding:10px 16px;display:flex;align-items:center;gap:10px
+}
+.browser-dots{display:flex;gap:6px}
+.browser-dot{width:12px;height:12px;border-radius:50%}
+.browser-dot.r{background:#ff5f57}.browser-dot.y{background:#febc2e}.browser-dot.g{background:#28c840}
+.browser-url{flex:1;background:#3a3a3c;border-radius:6px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,.4)}
+
+/* ── アプリ本体（ライブラリ） ── */
+.app{
+  background:var(--bg);
+  min-height:560px;position:relative;overflow:hidden
+}
+
+/* アプリトップバー */
+.app-topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 20px;display:flex;align-items:center;gap:12px
+}
+.app-logo{font-size:15px;font-weight:800;letter-spacing:.04em;color:var(--text)}
+.app-search{
+  flex:1;max-width:400px;
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px 13px
+}
+.app-search input{
+  flex:1;background:none;border:none;outline:none;font-size:13px;font-family:inherit;color:var(--text)
+}
+.app-scope-badge{
+  font-size:9px;font-weight:800;padding:2px 7px;border-radius:6px;
+  background:var(--green-bg);color:var(--green);border:1.5px solid var(--green-border);
+  white-space:nowrap;flex-shrink:0
+}
+.app-nav{margin-left:auto;display:flex;gap:6px}
+.app-nav-btn{
+  background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--text3);padding:6px 12px;border-radius:8px;cursor:pointer
+}
+.app-nav-btn.on{background:var(--accent-light);color:var(--accent)}
+.app-filter-btn{
+  background:var(--accent);color:#fff;border:none;
+  padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px
+}
+.app-filter-badge{
+  background:rgba(255,255,255,.3);border-radius:8px;
+  font-size:9px;padding:1px 5px;font-weight:800
+}
+
+/* カードグリッド（背景として見える） */
+.app-content{padding:16px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.dummy-card{
+  background:var(--surface);border-radius:10px;overflow:hidden;
+  border:1px solid var(--border);opacity:.5
+}
+.dummy-thumb{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#e0e0e0,#c8c8c8)}
+.dummy-body{padding:8px 10px}
+.dummy-title{height:10px;background:#e0e0e0;border-radius:4px;margin-bottom:6px}
+.dummy-meta{height:8px;background:#ebebeb;border-radius:4px;width:60%}
+
+/* ── バックドロップ ── */
+.backdrop{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;
+  z-index:10
+}
+
+/* ── フィルターオーバービュー本体 ── */
+/* 実際のCSSに合わせた: position:fixed;inset:32px;max-width:1080px;max-height:600px;margin:auto */
+.uni-popup{
+  width:calc(100% - 64px);max-width:960px;
+  height:520px;
+  background:var(--surface);color:var(--text);
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;display:flex;flex-direction:column;
+  position:relative
+}
+
+/* トップバー（タブ） */
+.uni-topbar{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0
+}
+.uni-tabs{display:flex;gap:3px;flex:1;overflow-x:auto}
+.uni-tab{
+  padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);
+  cursor:pointer;border-radius:6px;
+  background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit
+}
+.uni-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.uni-tab-bdg{
+  display:inline-block;background:var(--accent);color:#fff;
+  font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700
+}
+.uni-tab.on .uni-tab-bdg{background:rgba(255,255,255,.3)}
+.uni-x{color:var(--text3);cursor:pointer;font-size:18px;padding:0 8px;line-height:1;flex-shrink:0}
+.uni-x:hover{color:var(--text)}
+
+/* 検索バー */
+.uni-searchbar{
+  padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;gap:6px
+}
+.uni-searchbar input{
+  flex:1;min-width:0;padding:7px 10px;
+  border:1.5px solid var(--border);border-radius:6px;
+  font-size:12px;background:var(--surface);color:var(--text);
+  font-family:inherit;outline:none;
+  transition:border-color .15s,box-shadow .15s
+}
+.uni-searchbar input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #6b3fd422}
+
+/* ━━ スコープトグル ━━ */
+.scope-toggle{
+  display:flex;background:var(--surface3);
+  border-radius:8px;padding:2px;gap:2px;flex-shrink:0
+}
+.scope-opt{
+  padding:5px 11px;border-radius:6px;
+  font-size:11px;font-weight:700;
+  cursor:pointer;border:none;background:none;
+  font-family:inherit;color:var(--text3);white-space:nowrap;
+  transition:all .15s
+}
+.scope-opt.on{
+  background:var(--surface);
+  box-shadow:0 1px 4px rgba(0,0,0,.14)
+}
+.scope-opt.on.f{color:var(--accent)}
+.scope-opt.on.v{color:var(--green)}
+
+/* モードインジケーター */
+.mode-bar{
+  padding:4px 12px;font-size:10px;font-weight:600;
+  display:flex;align-items:center;gap:5px;flex-shrink:0;
+  border-bottom:1px solid var(--border);transition:background .2s,color .2s
+}
+.mode-bar.fm{background:var(--accent-light);color:var(--accent)}
+.mode-bar.vm{background:var(--green-bg);color:var(--green)}
+.mode-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.fm .mode-dot{background:var(--accent)}
+.vm .mode-dot{background:var(--green)}
+
+/* コンテンツエリア */
+#uni-content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+
+/* フィルタービュー: カラム */
+.uni-cols{
+  flex:1;display:flex;overflow-x:auto;overflow-y:hidden;min-height:0
+}
+.uni-col{
+  flex:1 0 160px;display:flex;flex-direction:column;
+  border-right:1px solid var(--border);min-height:0;overflow:hidden
+}
+.uni-col:last-child{border-right:none}
+.uni-col.wide{flex:1.5 0 240px}
+.uni-col-hdr{
+  padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);
+  background:var(--surface2);border-bottom:1px solid var(--border);
+  flex-shrink:0;letter-spacing:.3px
+}
+.uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
+.uni-row{
+  padding:7px 12px;display:flex;justify-content:space-between;align-items:center;
+  cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)
+}
+.uni-row:hover{background:var(--surface2)}
+.uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
+.uni-row-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uni-row-name mark{background:none;color:var(--accent);font-weight:800}
+.uni-row.hidden{display:none}
+.uni-cnt{
+  min-width:22px;height:20px;padding:0 8px;border-radius:10px;
+  background:rgba(107,63,212,.1);color:var(--accent);
+  font-size:10px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center
+}
+.uni-row.on .uni-cnt{background:var(--accent);color:#fff}
+
+/* 動画検索ビュー */
+#video-view{
+  flex:1;overflow-y:auto;background:var(--surface);display:none
+}
+.vid-section-hdr{
+  padding:6px 12px;font-size:10px;font-weight:700;color:var(--text3);
+  background:var(--surface2);border-bottom:1px solid var(--border);
+  border-top:1px solid var(--border);letter-spacing:.04em;
+  display:flex;align-items:center;gap:6px;position:sticky;top:0;z-index:1
+}
+.vid-section-badge{
+  font-size:9px;font-weight:800;padding:1px 6px;border-radius:5px
+}
+.vid-section-badge.v{background:var(--green-bg);color:var(--green)}
+.vid-row{
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  cursor:pointer;display:flex;gap:10px;align-items:center;transition:background .1s
+}
+.vid-row:hover{background:var(--surface2)}
+.vid-row.hidden{display:none}
+.vid-thumb-sm{
+  width:52px;height:34px;
+  background:linear-gradient(135deg,#e0e0e0,#c8c8c8);
+  border-radius:5px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(0,0,0,.25)
+}
+.vid-row-info{flex:1;min-width:0}
+.vid-row-title{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vid-row-title mark{background:none;color:var(--green);font-weight:800}
+.vid-row-ch{font-size:10px;color:var(--text3);margin-top:2px}
+.vid-empty{padding:32px;text-align:center;font-size:13px;color:var(--text3);display:none}
+
+/* フッター */
+.uni-ftr{
+  border-top:1px solid var(--border);padding:8px 14px;
+  background:var(--surface2);display:flex;gap:8px;align-items:center;
+  min-height:44px;flex-wrap:wrap;flex-shrink:0
+}
+.uni-lbl{font-size:10px;color:var(--text3);font-weight:700;margin-right:4px}
+#uni-pills{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+.uni-pill{
+  background:var(--accent);color:#fff;
+  padding:2px 9px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:700
+}
+.uni-pill::after{content:" ×";opacity:.7}
+.uni-hit{font-size:12px;color:var(--accent);font-weight:700}
+.uni-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
+.uni-apply{
+  background:var(--accent);color:#fff;border:none;
+  padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit
+}
+.uni-apply:hover{filter:brightness(1.1)}
+
+/* 保存バー */
+.uni-save-bar{
+  display:flex;align-items:center;gap:8px;padding:8px 14px;
+  border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;flex-wrap:wrap
+}
+.uni-save-lbl{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+.uni-save-input{
+  flex:1;min-width:120px;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;
+  padding:6px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)
+}
+.uni-save-input:focus{border-color:var(--accent)}
+.uni-save-btn{
+  flex-shrink:0;background:var(--accent);color:#fff;border:none;
+  padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:inherit;white-space:nowrap
+}
+.uni-save-btn:hover{filter:brightness(1.1)}
+
+/* トースト */
+.toast{
+  position:fixed;bottom:24px;left:50%;
+  transform:translateX(-50%) translateY(8px);
+  background:#1c1c1e;color:#fff;
+  padding:10px 20px;border-radius:20px;
+  font-size:12px;font-weight:600;
+  opacity:0;transition:opacity .25s,transform .25s;
+  pointer-events:none;z-index:999;white-space:nowrap
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="page-title">案5 — スコープトグル（フィルターオーバービュー）デスクトップ版</div>
+
+<!-- ラベル選択 -->
+<div class="ctrl-bar">
+  <span class="ctrl-label">フィルター側ラベル：</span>
+  <div class="label-btns">
+    <button class="label-btn on"  onclick="setLabel('リスト',this)">A：リスト</button>
+    <button class="label-btn"     onclick="setLabel('絞込',this)">B：絞込</button>
+    <button class="label-btn"     onclick="setLabel('条件',this)">C：条件</button>
+    <button class="label-btn"     onclick="setLabel('チャンネル',this)">D：チャンネル</button>
+    <button class="label-btn"     onclick="setLabel('項目',this)">E：項目</button>
+  </div>
+</div>
+
+<!-- ブラウザフレーム -->
+<div class="browser">
+  <div class="browser-chrome">
+    <div class="browser-dots">
+      <div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div>
+    </div>
+    <div class="browser-url">waza-kimura.vercel.app</div>
+  </div>
+
+  <div class="app">
+    <!-- アプリトップバー -->
+    <div class="app-topbar">
+      <div class="app-logo">WAZA KIMURA</div>
+      <div class="app-search">
+        <span style="font-size:14px;opacity:.35">🔍</span>
+        <input type="text" placeholder="動画タイトル・チャンネルを検索…"
+          id="main-q" oninput="mainSearch(this.value)">
+        <span class="app-scope-badge">全動画</span>
+      </div>
+      <div class="app-nav">
+        <button class="app-nav-btn on">Library</button>
+        <button class="app-nav-btn">Archive</button>
+      </div>
+      <button class="app-filter-btn" onclick="openFilter()">
+        ⚙️ フィルター<span class="app-filter-badge" id="filter-badge" style="display:none">2</span>
+      </button>
+    </div>
+
+    <!-- ライブラリ（ダミーカード） -->
+    <div class="app-content">
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+      <div class="dummy-card"><div class="dummy-thumb"></div><div class="dummy-body"><div class="dummy-title"></div><div class="dummy-meta"></div></div></div>
+    </div>
+
+    <!-- バックドロップ + フィルターオーバービュー -->
+    <div class="backdrop" id="backdrop" onclick="closeFilter(event)" style="display:none">
+      <div class="uni-popup" onclick="event.stopPropagation()">
+
+        <!-- タブ -->
+        <div class="uni-topbar">
+          <div class="uni-tabs">
+            <button class="uni-tab" onclick="switchTab(0,this)">進捗</button>
+            <button class="uni-tab on" onclick="switchTab(1,this)">プレイリスト<span class="uni-tab-bdg">3</span></button>
+            <button class="uni-tab" onclick="switchTab(2,this)">タグ<span class="uni-tab-bdg">5</span></button>
+            <button class="uni-tab" onclick="switchTab(3,this)">保存済み</button>
+          </div>
+          <div class="uni-x" onclick="closeFilter()">✕</div>
+        </div>
+
+        <!-- 検索バー + スコープトグル -->
+        <div class="uni-searchbar">
+          <input type="text" id="uni-q"
+            placeholder="🔍 チャンネル・タグ名を絞り込む…"
+            oninput="ovSearch(this.value)">
+          <div class="scope-toggle">
+            <button class="scope-opt on f" id="btn-f" onclick="setScope('filter')">リスト</button>
+            <button class="scope-opt v"    id="btn-v"  onclick="setScope('video')">動画</button>
+          </div>
+        </div>
+
+        <!-- モードインジケーター -->
+        <div class="mode-bar fm" id="mode-bar">
+          <span class="mode-dot"></span>
+          <span id="mode-label">チャンネル・プレイリスト・タグ名を絞り込み中</span>
+        </div>
+
+        <!-- コンテンツ -->
+        <div id="uni-content">
+
+          <!-- フィルタービュー -->
+          <div id="filter-view" class="uni-cols">
+            <div class="uni-col">
+              <div class="uni-col-hdr">SOURCE</div>
+              <div class="uni-col-body" id="col-source"></div>
+            </div>
+            <div class="uni-col">
+              <div class="uni-col-hdr">CHANNEL</div>
+              <div class="uni-col-body" id="col-channel"></div>
+            </div>
+            <div class="uni-col wide">
+              <div class="uni-col-hdr">PLAYLIST</div>
+              <div class="uni-col-body" id="col-playlist"></div>
+            </div>
+            <div class="uni-col">
+              <div class="uni-col-hdr">TAG</div>
+              <div class="uni-col-body" id="col-tag"></div>
+            </div>
+          </div>
+
+          <!-- 動画ビュー -->
+          <div id="video-view">
+            <div class="vid-section-hdr">
+              🎬 動画タイトル・チャンネルを対象に検索
+              <span class="vid-section-badge v">ライブラリ全体</span>
+            </div>
+            <div id="vid-list"></div>
+            <div class="vid-empty" id="vid-empty">一致する動画がありません</div>
+          </div>
+
+        </div><!-- /uni-content -->
+
+        <!-- フッター -->
+        <div class="uni-ftr">
+          <span class="uni-lbl">選択中:</span>
+          <div id="uni-pills"></div>
+          <span class="uni-clr" onclick="clearFilters()">クリア</span>
+          <span class="uni-hit" id="uni-hit">8 件</span>
+          <button class="uni-apply" onclick="closeFilter()">適用</button>
+        </div>
+
+        <!-- 保存バー -->
+        <div class="uni-save-bar">
+          <span class="uni-save-lbl">この条件を保存：</span>
+          <input class="uni-save-input" placeholder="リスト名を入力…" id="save-name">
+          <button class="uni-save-btn" onclick="saveSearch()">💾 保存</button>
+        </div>
+
+      </div><!-- /uni-popup -->
+    </div><!-- /backdrop -->
+  </div><!-- /app -->
+</div><!-- /browser -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ──────────── データ ────────────
+const VIDEOS = [
+  { title:'クローズドガードからのギロチン', ch:'青木真也', src:'Vimeo', pl:'青木真也ギロチン講座', tags:['ギロチン','クローズドガード'] },
+  { title:'ギロチンの入り方と角度', ch:'青木真也', src:'Vimeo', pl:'青木真也ギロチン講座', tags:['ギロチン','スタンド'] },
+  { title:'ハーフガードスイープ入門', ch:'Gordon Ryan', src:'YouTube', pl:'Gordon基礎シリーズ', tags:['ハーフガード','スイープ'] },
+  { title:'Dアーチ・ニールダウン完全解説', ch:'Gordon Ryan', src:'YouTube', pl:'Gordon基礎シリーズ', tags:['バックテイク','Dアーチ'] },
+  { title:'Xガードエントリー', ch:'Marcelo Garcia', src:'YouTube', pl:'Marcelo選手権', tags:['Xガード','スイープ'] },
+  { title:'ベリンボロ基礎', ch:'Mendes Bros', src:'Vimeo', pl:'ベリンボロ講座', tags:['ベリンボロ','ディラゴ'] },
+  { title:'三角絞めのタイミング', ch:'青木真也', src:'Vimeo', pl:'青木真也ギロチン講座', tags:['三角絞め','ガード'] },
+  { title:'スタンドからのテイクダウン', ch:'Gordon Ryan', src:'YouTube', pl:'Gordon基礎シリーズ', tags:['テイクダウン','スタンド'] },
+];
+const SOURCES   = [...new Set(VIDEOS.map(v=>v.src))].map(s=>({name:s, cnt:VIDEOS.filter(v=>v.src===s).length}));
+const CHANNELS  = [...new Set(VIDEOS.map(v=>v.ch))].map(c=>({name:c, cnt:VIDEOS.filter(v=>v.ch===c).length}));
+const PLAYLISTS = [...new Set(VIDEOS.map(v=>v.pl))].map(p=>({name:p, cnt:VIDEOS.filter(v=>v.pl===p).length}));
+const TAGS      = [...new Set(VIDEOS.flatMap(v=>v.tags))].map(t=>({name:t, cnt:VIDEOS.filter(v=>v.tags.includes(t)).length}));
+
+let selected = { source:null, channel:null, playlist:null, tag:null };
+let scope = 'filter';
+
+// ──────────── フィルター列 ────────────
+function renderCols(q) {
+  renderCol('col-source',   SOURCES,   q, 'source');
+  renderCol('col-channel',  CHANNELS,  q, 'channel');
+  renderCol('col-playlist', PLAYLISTS, q, 'playlist');
+  renderCol('col-tag',      TAGS,      q, 'tag');
+}
+function renderCol(id, items, q, key) {
+  document.getElementById(id).innerHTML = items.map(item => {
+    const match = !q || item.name.toLowerCase().includes(q.toLowerCase());
+    const on = selected[key] === item.name;
+    return `<div class="uni-row${on?' on':''}${match?'':' hidden'}"
+      onclick="toggleSelect('${key}','${item.name.replace(/'/g,"\\'")}')">
+      <span class="uni-row-name">${hl(item.name, q)}</span>
+      <span class="uni-cnt">${item.cnt}</span>
+    </div>`;
+  }).join('');
+}
+
+// ──────────── 動画リスト ────────────
+function renderVids(q) {
+  const list  = document.getElementById('vid-list');
+  const empty = document.getElementById('vid-empty');
+  const vids  = q
+    ? VIDEOS.filter(v => v.title.toLowerCase().includes(q) || v.ch.toLowerCase().includes(q))
+    : VIDEOS;
+  list.innerHTML = vids.map(v => `
+    <div class="vid-row">
+      <div class="vid-thumb-sm">▶</div>
+      <div class="vid-row-info">
+        <div class="vid-row-title">${hl(v.title, q)}</div>
+        <div class="vid-row-ch">${hl(v.ch, q)} · ${v.src}</div>
+      </div>
+    </div>`).join('');
+  empty.style.display = vids.length ? 'none' : 'block';
+}
+
+// ──────────── ハイライト ────────────
+function hl(str, q) {
+  if (!q) return str;
+  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return str.replace(re, '<mark>$1</mark>');
+}
+
+// ──────────── スコープ切り替え ────────────
+function setScope(mode) {
+  scope = mode;
+  const fv  = document.getElementById('filter-view');
+  const vv  = document.getElementById('video-view');
+  const bf  = document.getElementById('btn-f');
+  const bv  = document.getElementById('btn-v');
+  const mb  = document.getElementById('mode-bar');
+  const ml  = document.getElementById('mode-label');
+  const inp = document.getElementById('uni-q');
+  inp.value = '';
+  if (mode === 'filter') {
+    fv.style.display = ''; vv.style.display = 'none';
+    bf.classList.add('on'); bv.classList.remove('on');
+    mb.className = 'mode-bar fm';
+    ml.textContent = 'チャンネル・プレイリスト・タグ名を絞り込み中';
+    inp.placeholder = '🔍 チャンネル・タグ名を絞り込む…';
+    renderCols('');
+  } else {
+    fv.style.display = 'none'; vv.style.display = '';
+    bf.classList.remove('on'); bv.classList.add('on');
+    mb.className = 'mode-bar vm';
+    ml.textContent = '動画タイトル・チャンネルを対象に検索中（ライブラリ全体）';
+    inp.placeholder = '🔍 動画タイトル・チャンネルを検索…';
+    renderVids('');
+  }
+  inp.focus();
+}
+
+// ──────────── 検索ハンドラ ────────────
+function ovSearch(val) {
+  const q = val.toLowerCase().trim();
+  if (scope === 'filter') renderCols(q);
+  else renderVids(q);
+}
+
+function mainSearch(val) {
+  // トップバーの検索（デモなので表示のみ）
+}
+
+// ──────────── 選択 ────────────
+function toggleSelect(key, name) {
+  selected[key] = selected[key] === name ? null : name;
+  const q = document.getElementById('uni-q').value.toLowerCase();
+  renderCols(q);
+  updateFooter();
+}
+function updateFooter() {
+  const pills = document.getElementById('uni-pills');
+  const hit   = document.getElementById('uni-hit');
+  const badge = document.getElementById('filter-badge');
+  const items = Object.entries(selected).filter(([,v])=>v);
+  pills.innerHTML = items.map(([k,v])=>
+    `<span class="uni-pill" onclick="toggleSelect('${k}','${v.replace(/'/g,"\\'")}')">
+      ${v}
+    </span>`).join('');
+  let cnt = VIDEOS;
+  if (selected.source)   cnt = cnt.filter(v=>v.src===selected.source);
+  if (selected.channel)  cnt = cnt.filter(v=>v.ch===selected.channel);
+  if (selected.playlist) cnt = cnt.filter(v=>v.pl===selected.playlist);
+  if (selected.tag)      cnt = cnt.filter(v=>v.tags.includes(selected.tag));
+  hit.textContent = cnt.length + ' 件';
+  if (items.length) {
+    badge.textContent = items.length;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+function clearFilters() {
+  selected = { source:null, channel:null, playlist:null, tag:null };
+  document.getElementById('uni-q').value = '';
+  renderCols('');
+  updateFooter();
+}
+
+// ──────────── オーバーレイ開閉 ────────────
+function openFilter() {
+  document.getElementById('backdrop').style.display = 'flex';
+  renderCols('');
+  updateFooter();
+  // スコープをfilterにリセット
+  if (scope !== 'filter') setScope('filter');
+}
+function closeFilter(e) {
+  if (!e || e.target === document.getElementById('backdrop')) {
+    document.getElementById('backdrop').style.display = 'none';
+  }
+}
+
+// ──────────── 保存 ────────────
+function saveSearch() {
+  const name = document.getElementById('save-name').value.trim();
+  if (!name) { toast('リスト名を入力してください'); return; }
+  const items = Object.values(selected).filter(Boolean);
+  const q = document.getElementById('uni-q').value.trim();
+  if (!items.length && !q) { toast('条件が設定されていません'); return; }
+  toast(`「${name}」として保存しました ✓`);
+  document.getElementById('save-name').value = '';
+}
+
+// ──────────── タブ切り替え ────────────
+function switchTab(idx, el) {
+  document.querySelectorAll('.uni-tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
+}
+
+// ──────────── トースト ────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ──────────── ラベル切り替え ────────────
+function setLabel(label, el) {
+  document.querySelectorAll('.label-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('btn-f').textContent = label;
+  if (scope === 'filter') {
+    document.getElementById('uni-q').placeholder =
+      label === 'チャンネル' ? '🔍 チャンネル・タグ名を絞り込む…' : `🔍 ${label}を絞り込む…`;
+  }
+}
+
+// 初期化（オーバーレイは最初から開いた状態で表示）
+openFilter();
+</script>
+</body>
+</html>

@@ -663,10 +663,10 @@ function _bookmarkListHTML(id) {
     ).join('');
 
     const tabStyleStart = startActive
-      ? 'flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);background:var(--accent);color:#fff;'
+      ? 'flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);background:var(--accent);color:var(--on-accent);'
       : 'flex:1;text-align:center;font-size:11px;font-weight:500;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);color:var(--text2);background:var(--surface2);';
     const tabStyleEnd = endActive
-      ? 'flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;background:var(--accent);color:#fff;'
+      ? 'flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;background:var(--accent);color:var(--on-accent);'
       : 'flex:1;text-align:center;font-size:11px;font-weight:500;padding:6px 4px;cursor:pointer;color:var(--text2);background:var(--surface2);';
 
     const editorHTML = isExpanded ? `
@@ -1552,7 +1552,7 @@ function _showGDriveAuthUI(container, fileId) {
   container.innerHTML = `
     <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
       <div style="color:var(--text3);font-size:13px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
-      <button id="gd-auth-play-btn" style="padding:10px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
+      <button id="gd-auth-play-btn" style="padding:10px 28px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
         Googleで認証して再生
       </button>
     </div>`;
@@ -1574,7 +1574,7 @@ function _onGDriveVideoError(container, fileId) {
     <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
       <div style="color:var(--red,#f66);font-size:13px;text-align:center">再生に失敗しました</div>
       <div style="color:var(--text3);font-size:11px;text-align:center;line-height:1.6">認証の期限切れか、ファイルへのアクセス権がない可能性があります</div>
-      <button id="gd-retry-btn" style="padding:10px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
+      <button id="gd-retry-btn" style="padding:10px 28px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
       <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
          style="color:var(--text2);font-size:11px;text-decoration:underline">Driveで開く</a>
     </div>`;
@@ -2189,7 +2189,7 @@ export function vpEditTitle(id) {
   inp.style.cssText = 'flex:1;font-size:12px;font-weight:700;border:1.5px solid var(--accent);border-radius:6px;padding:3px 6px;outline:none;font-family:inherit;color:var(--text);background:var(--surface);min-width:0';
   const saveBtn = document.createElement('button');
   saveBtn.textContent = '保存';
-  saveBtn.style.cssText = 'flex-shrink:0;padding:3px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
+  saveBtn.style.cssText = 'flex-shrink:0;padding:3px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
   saveBtn.onclick = () => vpSaveTitle(id);
   const cancelBtn = document.createElement('button');
   cancelBtn.textContent = 'キャンセル';

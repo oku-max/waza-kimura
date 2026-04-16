@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 案5 スコープ切り替え デスクトップ版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f0f1a;
+  --surface:#ffffff;--surface2:#f5f5f7;--surface3:#eeeeef;
+  --border:#e0e0e5;--border2:#ebebf0;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#6b3fd4;--accent-light:#f0ebff;--accent-mid:#c4b5fd;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#86efac;
+}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  background:var(--bg);min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:32px 24px 60px;gap:20px
+}
+
+/* ── コントロールバー ── */
+.ctrl-bar{
+  width:100%;max-width:1100px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap
+}
+.ctrl-label{
+  color:rgba(255,255,255,.4);font-size:10px;font-weight:700;
+  letter-spacing:.08em;white-space:nowrap
+}
+.label-btns{display:flex;gap:6px;flex-wrap:wrap}
+.label-btn{
+  background:rgba(255,255,255,.08);
+  border:1.5px solid rgba(255,255,255,.15);
+  border-radius:20px;padding:5px 14px;
+  font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;color:rgba(255,255,255,.5);
+  transition:all .15s
+}
+.label-btn.on{
+  background:var(--accent);border-color:var(--accent);color:#fff
+}
+.ctrl-sep{width:1px;height:20px;background:rgba(255,255,255,.12);flex-shrink:0}
+
+/* ── ブラウザフレーム ── */
+.browser{
+  width:100%;max-width:1100px;
+  background:#1c1c1e;border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.7)
+}
+.browser-chrome{
+  background:#2c2c2e;border-bottom:1px solid #3a3a3c;
+  padding:10px 14px;display:flex;align-items:center;gap:10px
+}
+.browser-dots{display:flex;gap:6px}
+.browser-dot{width:12px;height:12px;border-radius:50%}
+.browser-dot.r{background:#ff5f57}
+.browser-dot.y{background:#febc2e}
+.browser-dot.g{background:#28c840}
+.browser-url{
+  flex:1;background:#3a3a3c;border-radius:6px;
+  padding:5px 12px;font-size:12px;color:rgba(255,255,255,.5);
+  letter-spacing:.01em
+}
+
+/* ── アプリ本体 ── */
+.app{
+  background:#f2f2f7;display:flex;flex-direction:column;height:680px
+}
+
+/* トップバー */
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0
+}
+.logo{font-size:16px;font-weight:800;letter-spacing:.04em;color:var(--text)}
+.top-search{
+  flex:1;max-width:440px;
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;
+  padding:8px 13px;transition:border-color .2s,box-shadow .2s
+}
+.top-search:focus-within{border-color:var(--green);box-shadow:0 0 0 3px #86efac33}
+.top-search input{
+  flex:1;background:none;border:none;outline:none;
+  font-size:13px;font-family:inherit;color:var(--text)
+}
+.top-scope-badge{
+  font-size:9px;font-weight:800;padding:2px 7px;border-radius:6px;
+  background:var(--green-bg);color:var(--green);
+  border:1.5px solid var(--green-border);
+  white-space:nowrap;flex-shrink:0
+}
+.top-nav{margin-left:auto;display:flex;gap:8px}
+.top-nav-btn{
+  background:none;border:none;font-family:inherit;
+  font-size:12px;font-weight:600;color:var(--text3);
+  padding:6px 12px;border-radius:8px;cursor:pointer
+}
+.top-nav-btn.on{background:var(--accent-light);color:var(--accent)}
+
+/* ── メインレイアウト ── */
+.main-layout{
+  display:flex;flex:1;overflow:hidden
+}
+
+/* ── サイドバー（フィルターオーバーレイ） ── */
+.sidebar{
+  width:280px;flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden
+}
+.sidebar-hdr{
+  padding:12px 16px 10px;border-bottom:1px solid var(--border2);flex-shrink:0
+}
+.sidebar-hdr-title{
+  font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.05em;
+  text-transform:uppercase;margin-bottom:8px
+}
+
+/* タブ */
+.ov-tabs{display:flex;gap:0;border-bottom:1px solid var(--border2);flex-shrink:0}
+.ov-tab{
+  background:none;border:none;padding:10px 14px;font-size:11px;
+  cursor:pointer;font-family:inherit;color:var(--text3);
+  border-bottom:2.5px solid transparent;white-space:nowrap;transition:color .15s
+}
+.ov-tab.on{font-weight:700;color:var(--text);border-bottom-color:var(--accent)}
+.tab-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:15px;height:15px;border-radius:8px;
+  background:#1c1c1e;color:#fff;
+  font-size:8px;font-weight:700;margin-left:3px;padding:0 3px
+}
+
+/* 検索バー＋スコープトグル */
+.ov-search{
+  padding:8px 12px;border-bottom:1px solid var(--border2);
+  background:var(--surface);display:flex;align-items:center;gap:7px;flex-shrink:0
+}
+.ov-search-input{
+  flex:1;background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:8px;padding:6px 10px;
+  font-size:12px;font-family:inherit;
+  outline:none;color:var(--text);min-width:0;
+  transition:border-color .15s,box-shadow .15s
+}
+.ov-search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #6b3fd422}
+
+/* スコープトグル */
+.scope-toggle{
+  display:flex;background:var(--surface3);
+  border-radius:8px;padding:2px;gap:2px;flex-shrink:0
+}
+.scope-opt{
+  padding:4px 9px;border-radius:6px;
+  font-size:10px;font-weight:700;
+  cursor:pointer;border:none;
+  background:none;font-family:inherit;
+  color:var(--text3);white-space:nowrap;
+  transition:all .15s
+}
+.scope-opt.on{
+  background:var(--surface);
+  box-shadow:0 1px 4px rgba(0,0,0,.14)
+}
+.scope-opt.on.f{color:var(--accent)}
+.scope-opt.on.v{color:var(--green)}
+
+/* モードインジケーター */
+.mode-indicator{
+  padding:4px 12px;font-size:10px;font-weight:600;
+  display:flex;align-items:center;gap:5px;flex-shrink:0;
+  transition:all .2s;border-bottom:1px solid var(--border2)
+}
+.mode-indicator.filter-mode{color:var(--accent);background:var(--accent-light)}
+.mode-indicator.video-mode{color:var(--green);background:var(--green-bg)}
+.mode-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.filter-mode .mode-dot{background:var(--accent)}
+.video-mode  .mode-dot{background:var(--green)}
+
+/* フィルター列 */
+#filter-view{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.ov-cols{display:flex;flex:1;overflow:hidden}
+.ov-col{flex:1;border-right:1px solid var(--border2);display:flex;flex-direction:column}
+.ov-col:last-child{border-right:none}
+.ov-col-hdr{
+  padding:5px 10px;font-size:9px;font-weight:700;color:var(--text3);
+  background:var(--surface2);border-bottom:1px solid var(--border2);
+  flex-shrink:0;letter-spacing:.04em
+}
+.ov-col-body{overflow-y:auto;flex:1}
+.ov-row{
+  padding:7px 10px;font-size:11px;
+  border-bottom:1px solid var(--border2);
+  cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:4px;
+  transition:background .1s;color:var(--text)
+}
+.ov-row:hover{background:var(--surface2)}
+.ov-row.on{background:var(--accent-light);color:var(--accent);font-weight:700}
+.ov-row.hidden{display:none}
+.ov-row-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-row-name mark{background:none;color:var(--accent);font-weight:800}
+.ov-cnt{
+  font-size:9px;color:var(--text3);background:#e8e8ed;
+  padding:1px 5px;border-radius:5px;font-weight:700;flex-shrink:0
+}
+.ov-row.on .ov-cnt{background:var(--accent);color:#fff}
+
+/* 動画検索結果リスト */
+#video-view{
+  flex:1;overflow-y:auto;background:var(--surface);display:none
+}
+.vid-row{
+  padding:8px 12px;border-bottom:1px solid var(--border2);
+  cursor:pointer;display:flex;gap:10px;align-items:center;
+  transition:background .1s
+}
+.vid-row:hover{background:var(--surface2)}
+.vid-row.hidden{display:none}
+.vid-thumb-sm{
+  width:44px;height:29px;
+  background:linear-gradient(135deg,#e0e0e0,#c8c8c8);
+  border-radius:5px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(0,0,0,.25)
+}
+.vid-row-info{flex:1;min-width:0}
+.vid-row-title{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vid-row-title mark{background:none;color:var(--green);font-weight:800}
+.vid-row-ch{font-size:10px;color:var(--text3);margin-top:2px}
+.vid-empty{padding:20px;text-align:center;font-size:11px;color:var(--text3);display:none}
+
+/* サイドバーフッター */
+.sidebar-footer{
+  border-top:1px solid var(--border2);flex-shrink:0;background:var(--surface)
+}
+.ov-footer{
+  padding:8px 12px;display:flex;align-items:center;gap:6px;
+  background:var(--surface2)
+}
+.ov-clr{font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;flex-shrink:0}
+.ov-pills{display:flex;gap:4px;flex-wrap:wrap;flex:1;min-width:0}
+.ov-pill{
+  background:#1c1c1e;color:#fff;
+  padding:2px 6px;border-radius:9px;
+  font-size:9px;font-weight:600;cursor:pointer;
+  white-space:nowrap;display:flex;align-items:center;gap:2px
+}
+.ov-pill-x{opacity:.6;font-size:8px}
+.ov-hit{font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0}
+.ov-apply{
+  background:var(--accent);color:#fff;border:none;
+  padding:5px 12px;border-radius:8px;
+  font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;flex-shrink:0
+}
+.ov-save{
+  padding:7px 12px;border-top:1px solid var(--border2);
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface2)
+}
+.ov-save-lbl{font-size:10px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+.ov-save-input{
+  flex:1;min-width:0;background:var(--surface);
+  border:1px solid var(--border);border-radius:7px;
+  padding:4px 8px;font-size:11px;font-family:inherit;outline:none;color:var(--text)
+}
+.ov-save-btn{
+  background:var(--accent);color:#fff;border:none;
+  padding:4px 10px;border-radius:7px;font-size:10px;font-weight:700;
+  cursor:pointer;font-family:inherit;white-space:nowrap
+}
+
+/* ── メインコンテンツ ── */
+.content{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.content-hdr{
+  display:flex;align-items:center;gap:10px;flex-shrink:0
+}
+.content-hdr-title{font-size:13px;font-weight:700;color:var(--text)}
+.content-count{
+  font-size:11px;color:var(--text3);font-weight:600;
+  background:var(--surface);padding:3px 9px;border-radius:8px;
+  border:1px solid var(--border);transition:all .2s
+}
+.content-count.filtered{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+
+/* カードグリッド */
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:10px
+}
+.card{
+  background:var(--surface);border-radius:12px;overflow:hidden;
+  cursor:pointer;transition:box-shadow .15s,transform .15s;
+  border:1px solid var(--border)
+}
+.card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-1px)}
+.card.hidden{display:none}
+.card-thumb{
+  width:100%;aspect-ratio:16/9;
+  background:linear-gradient(135deg,#e0e0e0,#c8c8c8);
+  position:relative;display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:rgba(0,0,0,.2)
+}
+.card-body{padding:10px 12px}
+.card-title{
+  font-size:12px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px
+}
+.card-title mark{background:none;color:var(--green);font-weight:800}
+.card-meta{font-size:10px;color:var(--text3);display:flex;gap:6px;align-items:center}
+.card-ch{
+  background:var(--surface2);padding:1px 6px;border-radius:5px;
+  font-weight:600;font-size:9px
+}
+.card-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.card-tag{
+  font-size:9px;background:var(--accent-light);color:var(--accent);
+  padding:1px 5px;border-radius:4px;font-weight:600
+}
+.content-empty{
+  text-align:center;padding:40px;font-size:13px;color:var(--text3);display:none
+}
+
+/* トースト */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:#1c1c1e;color:#fff;
+  padding:10px 20px;border-radius:20px;
+  font-size:12px;font-weight:600;
+  opacity:0;transition:opacity .25s,transform .25s;
+  pointer-events:none;z-index:999;white-space:nowrap
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ラベルバリエーション比較プレビュー */
+.label-preview{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.05);border-radius:8px;padding:6px 10px;
+  margin-left:auto
+}
+.label-preview-txt{font-size:10px;color:rgba(255,255,255,.3);margin-right:4px;white-space:nowrap}
+.preview-toggle{
+  display:flex;background:rgba(255,255,255,.1);
+  border-radius:7px;padding:2px;gap:2px
+}
+.preview-opt{
+  padding:3px 8px;border-radius:5px;
+  font-size:10px;font-weight:700;
+  background:none;border:none;font-family:inherit;
+  color:rgba(255,255,255,.3);white-space:nowrap;cursor:default
+}
+.preview-opt.f{background:rgba(255,255,255,.15);color:var(--accent-mid)}
+.preview-opt.v{color:rgba(255,255,255,.3)}
+</style>
+</head>
+<body>
+
+<!-- コントロールバー -->
+<div class="ctrl-bar">
+  <span class="ctrl-label">フィルター側ラベル：</span>
+  <div class="label-btns">
+    <button class="label-btn on" onclick="setLabel('リスト','A',this)">A：リスト</button>
+    <button class="label-btn"   onclick="setLabel('絞込','B',this)">B：絞込</button>
+    <button class="label-btn"   onclick="setLabel('条件','C',this)">C：条件</button>
+    <button class="label-btn"   onclick="setLabel('チャンネル','D',this)">D：チャンネル</button>
+    <button class="label-btn"   onclick="setLabel('項目','E',this)">E：項目</button>
+  </div>
+  <div class="ctrl-sep"></div>
+  <div class="label-preview">
+    <span class="label-preview-txt">トグルのプレビュー：</span>
+    <div class="preview-toggle">
+      <button class="preview-opt f" id="preview-f">リスト</button>
+      <button class="preview-opt v">動画</button>
+    </div>
+  </div>
+</div>
+
+<!-- ブラウザフレーム -->
+<div class="browser">
+  <div class="browser-chrome">
+    <div class="browser-dots">
+      <div class="browser-dot r"></div>
+      <div class="browser-dot y"></div>
+      <div class="browser-dot g"></div>
+    </div>
+    <div class="browser-url">waza-kimura.vercel.app</div>
+  </div>
+
+  <div class="app">
+    <!-- トップバー -->
+    <div class="topbar">
+      <div class="logo">WAZA KIMURA</div>
+      <div class="top-search">
+        <span style="font-size:14px;opacity:.35">🔍</span>
+        <input type="text" placeholder="動画タイトル・チャンネルを検索…"
+          id="main-q" oninput="mainSearch(this.value)">
+        <span class="top-scope-badge">全動画</span>
+      </div>
+      <div class="top-nav">
+        <button class="top-nav-btn on">Library</button>
+        <button class="top-nav-btn">Archive</button>
+        <button class="top-nav-btn">Settings</button>
+      </div>
+    </div>
+
+    <!-- メインレイアウト -->
+    <div class="main-layout">
+
+      <!-- サイドバー -->
+      <div class="sidebar">
+        <!-- タブ -->
+        <div class="ov-tabs">
+          <button class="ov-tab" onclick="switchTab(0,this)">進捗</button>
+          <button class="ov-tab on" onclick="switchTab(1,this)">プレイリスト<span class="tab-badge">3</span></button>
+          <button class="ov-tab" onclick="switchTab(2,this)">タグ<span class="tab-badge">5</span></button>
+        </div>
+
+        <!-- 検索＋トグル -->
+        <div class="ov-search">
+          <input type="text" class="ov-search-input" id="ov-q"
+            placeholder="🔍 チャンネル・タグ名を絞り込む…"
+            oninput="ovSearch(this.value)">
+          <div class="scope-toggle">
+            <button class="scope-opt on f" id="btn-f" onclick="setScope('filter')">リスト</button>
+            <button class="scope-opt v"   id="btn-v"  onclick="setScope('video')">動画</button>
+          </div>
+        </div>
+
+        <!-- モードインジケーター -->
+        <div class="mode-indicator filter-mode" id="mode-indicator">
+          <span class="mode-dot"></span>
+          <span id="mode-label">チャンネル・プレイリスト・タグを絞り込み中</span>
+        </div>
+
+        <!-- フィルタービュー -->
+        <div id="filter-view">
+          <div class="ov-cols">
+            <div class="ov-col">
+              <div class="ov-col-hdr">SOURCE</div>
+              <div class="ov-col-body" id="col-source"></div>
+            </div>
+            <div class="ov-col">
+              <div class="ov-col-hdr">CHANNEL</div>
+              <div class="ov-col-body" id="col-channel"></div>
+            </div>
+            <div class="ov-col">
+              <div class="ov-col-hdr">PLAYLIST</div>
+              <div class="ov-col-body" id="col-playlist"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 動画ビュー -->
+        <div id="video-view">
+          <div id="vid-list"></div>
+          <div class="vid-empty" id="vid-empty">一致する動画がありません</div>
+        </div>
+
+        <!-- フッター -->
+        <div class="sidebar-footer">
+          <div class="ov-footer">
+            <span class="ov-clr" onclick="clearFilters()">クリア</span>
+            <div class="ov-pills" id="ov-pills"></div>
+            <span class="ov-hit" id="ov-hit">8件</span>
+            <button class="ov-apply" onclick="applyFilter()">適用</button>
+          </div>
+          <div class="ov-save">
+            <span class="ov-save-lbl">この条件を保存：</span>
+            <input class="ov-save-input" placeholder="リスト名を入力…" id="save-name">
+            <button class="ov-save-btn" onclick="saveSearch()">💾 保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- メインコンテンツ -->
+      <div class="content">
+        <div class="content-hdr">
+          <span class="content-hdr-title">すべての動画</span>
+          <span class="content-count" id="content-count">8 件</span>
+        </div>
+        <div class="card-grid" id="card-grid"></div>
+        <div class="content-empty" id="content-empty">一致する動画がありません</div>
+      </div>
+
+    </div><!-- /main-layout -->
+  </div><!-- /app -->
+</div><!-- /browser -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ──────────── データ ────────────
+const VIDEOS = [
+  { title:'クローズドガードからのギロチン', ch:'青木真也', src:'Vimeo', pl:'青木真也ギロチン講座', tags:['ギロチン','クローズドガード'] },
+  { title:'ギロチンの入り方と角度', ch:'青木真也', src:'Vimeo', pl:'青木真也ギロチン講座', tags:['ギロチン','スタンド'] },
+  { title:'ハーフガードスイープ入門', ch:'Gordon Ryan', src:'YouTube', pl:'Gordon基礎シリーズ', tags:['ハーフガード','スイープ'] },
+  { title:'Dアーチ・ニールダウン完全解説', ch:'Gordon Ryan', src:'YouTube', pl:'Gordon基礎シリーズ', tags:['バックテイク','Dアーチ'] },
+  { title:'Xガードエントリー', ch:'Marcelo Garcia', src:'YouTube', pl:'Marcelo選手権', tags:['Xガード','スイープ'] },
+  { title:'ベリンボロ基礎', ch:'Mendes Bros', src:'Vimeo', pl:'ベリンボロ講座', tags:['ベリンボロ','ディラゴ'] },
+  { title:'三角絞めのタイミング', ch:'青木真也', src:'Vimeo', pl:'青木真也ギロチン講座', tags:['三角絞め','ガード'] },
+  { title:'スタンドからのテイクダウン', ch:'Gordon Ryan', src:'YouTube', pl:'Gordon基礎シリーズ', tags:['テイクダウン','スタンド'] },
+];
+const SOURCES   = [...new Set(VIDEOS.map(v=>v.src))].map(s=>({name:s,cnt:VIDEOS.filter(v=>v.src===s).length}));
+const CHANNELS  = [...new Set(VIDEOS.map(v=>v.ch))].map(c=>({name:c,cnt:VIDEOS.filter(v=>v.ch===c).length}));
+const PLAYLISTS = [...new Set(VIDEOS.map(v=>v.pl))].map(p=>({name:p,cnt:VIDEOS.filter(v=>v.pl===p).length}));
+
+let selected = { source:null, channel:null, playlist:null };
+let scope = 'filter';
+
+// ──────────── 初期化 ────────────
+function init() {
+  renderCols('');
+  renderCards('', selected);
+  renderVids('');
+  updateFooter();
+}
+
+// ──────────── カードグリッド ────────────
+function renderCards(q, sel) {
+  const grid  = document.getElementById('card-grid');
+  const empty = document.getElementById('content-empty');
+  const cnt   = document.getElementById('content-count');
+  let vids = VIDEOS;
+  if (sel.source)   vids = vids.filter(v=>v.src===sel.source);
+  if (sel.channel)  vids = vids.filter(v=>v.ch===sel.channel);
+  if (sel.playlist) vids = vids.filter(v=>v.pl===sel.playlist);
+  if (q) vids = vids.filter(v=>v.title.toLowerCase().includes(q)||v.ch.toLowerCase().includes(q));
+  grid.innerHTML = vids.map(v=>`
+    <div class="card">
+      <div class="card-thumb">▶</div>
+      <div class="card-body">
+        <div class="card-title">${hl(v.title,q)}</div>
+        <div class="card-meta"><span class="card-ch">${v.ch}</span>${v.src}</div>
+        <div class="card-tags">${v.tags.map(t=>`<span class="card-tag">${t}</span>`).join('')}</div>
+      </div>
+    </div>`).join('');
+  empty.style.display = vids.length ? 'none' : 'block';
+  const isFiltered = sel.source||sel.channel||sel.playlist||q;
+  cnt.textContent = vids.length + ' 件';
+  cnt.className = 'content-count' + (isFiltered ? ' filtered' : '');
+}
+
+// ──────────── フィルター列 ────────────
+function renderCols(q) {
+  renderCol('col-source',   SOURCES,   q, 'source');
+  renderCol('col-channel',  CHANNELS,  q, 'channel');
+  renderCol('col-playlist', PLAYLISTS, q, 'playlist');
+}
+function renderCol(id, items, q, key) {
+  document.getElementById(id).innerHTML = items.map(item=>{
+    const match = !q || item.name.toLowerCase().includes(q.toLowerCase());
+    const on = selected[key] === item.name;
+    return `<div class="ov-row${on?' on':''}${match?'':' hidden'}"
+      onclick="toggleSelect('${key}','${item.name}')">
+      <span class="ov-row-name">${hl(item.name,q)}</span>
+      <span class="ov-cnt">${item.cnt}</span>
+    </div>`;
+  }).join('');
+}
+
+// ──────────── 動画リスト（動画モード） ────────────
+function renderVids(q) {
+  const list  = document.getElementById('vid-list');
+  const empty = document.getElementById('vid-empty');
+  const vids  = q ? VIDEOS.filter(v=>v.title.toLowerCase().includes(q)||v.ch.toLowerCase().includes(q)) : VIDEOS;
+  list.innerHTML = vids.map(v=>`
+    <div class="vid-row">
+      <div class="vid-thumb-sm">▶</div>
+      <div class="vid-row-info">
+        <div class="vid-row-title">${hl(v.title,q)}</div>
+        <div class="vid-row-ch">${hl(v.ch,q)} · ${v.src}</div>
+      </div>
+    </div>`).join('');
+  empty.style.display = vids.length ? 'none' : 'block';
+}
+
+// ──────────── ハイライト ────────────
+function hl(str,q){
+  if(!q)return str;
+  const re=new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return str.replace(re,'<mark>$1</mark>');
+}
+
+// ──────────── スコープ切り替え ────────────
+function setScope(mode) {
+  scope = mode;
+  const fv  = document.getElementById('filter-view');
+  const vv  = document.getElementById('video-view');
+  const bf  = document.getElementById('btn-f');
+  const bv  = document.getElementById('btn-v');
+  const ind = document.getElementById('mode-indicator');
+  const lbl = document.getElementById('mode-label');
+  const inp = document.getElementById('ov-q');
+  inp.value = '';
+  if (mode === 'filter') {
+    fv.style.display = ''; vv.style.display = 'none';
+    bf.classList.add('on'); bv.classList.remove('on');
+    ind.className = 'mode-indicator filter-mode';
+    lbl.textContent = 'チャンネル・プレイリスト・タグを絞り込み中';
+    inp.placeholder = '🔍 チャンネル・タグ名を絞り込む…';
+    renderCols('');
+  } else {
+    fv.style.display = 'none'; vv.style.display = '';
+    bf.classList.remove('on'); bv.classList.add('on');
+    ind.className = 'mode-indicator video-mode';
+    lbl.textContent = '動画タイトル・チャンネルを対象に検索中';
+    inp.placeholder = '🔍 動画タイトル・チャンネルを検索…';
+    renderVids('');
+  }
+  inp.focus();
+}
+
+// ──────────── 検索 ────────────
+function ovSearch(val) {
+  const q = val.toLowerCase().trim();
+  scope === 'filter' ? renderCols(q) : renderVids(q);
+}
+function mainSearch(val) {
+  renderCards(val.toLowerCase().trim(), {source:null,channel:null,playlist:null});
+}
+
+// ──────────── フィルター選択 ────────────
+function toggleSelect(key, name) {
+  selected[key] = selected[key] === name ? null : name;
+  renderCols(document.getElementById('ov-q').value.toLowerCase());
+  updateFooter();
+  renderCards('', selected);
+}
+function updateFooter() {
+  const pills = document.getElementById('ov-pills');
+  const hit   = document.getElementById('ov-hit');
+  const items = Object.entries(selected).filter(([,v])=>v);
+  pills.innerHTML = items.map(([k,v])=>
+    `<span class="ov-pill" onclick="toggleSelect('${k}','${v}')">${v}<span class="ov-pill-x"> ✕</span></span>`
+  ).join('');
+  let cnt = VIDEOS;
+  if (selected.source)   cnt = cnt.filter(v=>v.src===selected.source);
+  if (selected.channel)  cnt = cnt.filter(v=>v.ch===selected.channel);
+  if (selected.playlist) cnt = cnt.filter(v=>v.pl===selected.playlist);
+  hit.textContent = cnt.length + '件';
+}
+function clearFilters() {
+  selected = {source:null,channel:null,playlist:null};
+  document.getElementById('ov-q').value = '';
+  renderCols(''); updateFooter();
+  renderCards('', selected);
+}
+
+// ──────────── 適用・保存 ────────────
+function applyFilter() {
+  const items = Object.values(selected).filter(Boolean);
+  if (!items.length) { toast('フィルターが選択されていません'); return; }
+  toast(`${items.join('・')} で絞り込みました ✓`);
+}
+function saveSearch() {
+  const name = document.getElementById('save-name').value.trim();
+  if (!name) { toast('リスト名を入力してください'); return; }
+  const items = Object.values(selected).filter(Boolean);
+  const q = document.getElementById('ov-q').value.trim();
+  if (!items.length && !q) { toast('条件が設定されていません'); return; }
+  toast(`「${name}」として保存しました ✓`);
+  document.getElementById('save-name').value = '';
+}
+
+// ──────────── タブ ────────────
+function switchTab(idx,el){
+  document.querySelectorAll('.ov-tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
+}
+
+// ──────────── トースト ────────────
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ──────────── ラベル切り替え（上部コントロール） ────────────
+function setLabel(label, code, el) {
+  document.querySelectorAll('.label-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  // トグルボタンのラベルを更新
+  document.getElementById('btn-f').textContent = label;
+  document.getElementById('preview-f').textContent = label;
+  // スコープがfilterのときはプレースホルダーも更新
+  if (scope === 'filter') {
+    document.getElementById('ov-q').placeholder =
+      label === 'チャンネル' ? '🔍 チャンネル・タグ名を絞り込む…' :
+      `🔍 ${label}を絞り込む…`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — テクニック グルーピング</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f5f0;--surface:#fff;--surface2:#f0efe8;
+  --border:#e0dfd8;--border2:#eae9e3;
+  --text:#1a1a1a;--text2:#666;--text3:#999;
+  --accent:#1a1a1a;--red:#ef4444;--green:#22c55e;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);max-width:420px;margin:0 auto;min-height:100vh;padding:16px 16px 120px;-webkit-tap-highlight-color:transparent}
+
+/* ── Header ─────────────────────────────── */
+.header-row{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+h2{font-size:16px;font-weight:800;margin-bottom:3px}
+.subtitle{font-size:11px;color:var(--text3)}
+
+/* AI trigger button */
+.ai-trigger{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:700;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s}
+.ai-trigger:active{opacity:.8}
+.ai-trigger .dot{width:7px;height:7px;border-radius:50%;background:#4ade80}
+
+/* AI sub-buttons (inline expand) */
+.ai-sub{display:flex;gap:6px;margin-bottom:14px;overflow:hidden;max-height:0;opacity:0;transition:max-height .25s ease,opacity .2s ease}
+.ai-sub.open{max-height:60px;opacity:1}
+.ai-sub-btn{flex:1;padding:9px 10px;border-radius:10px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit;transition:.15s;text-align:center}
+.ai-sub-btn:hover,.ai-sub-btn.active{border-color:var(--accent);color:var(--text);background:var(--surface2)}
+
+/* ── Group cards ─────────────────────────── */
+.groups{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.group-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.group-card.drag-over{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,26,26,.07)}
+.group-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none}
+.group-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.group-title{flex:1;font-size:13px;font-weight:700}
+.group-count{font-size:10px;color:var(--text3);font-family:monospace}
+.group-chevron{font-size:10px;color:var(--text3);transition:transform .2s}
+.group-card.open .group-chevron{transform:rotate(90deg)}
+.group-body{display:none;padding:0 14px 12px;border-top:1px solid var(--border2)}
+.group-card.open .group-body{display:block}
+
+/* Tech chips */
+.tech-chips{display:flex;flex-wrap:wrap;gap:6px;padding-top:10px}
+.tech-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface2);border:1.5px solid var(--border);color:var(--text2);cursor:grab;user-select:none;touch-action:none;transition:opacity .15s,transform .15s}
+.tech-chip .remove{font-size:11px;color:var(--text3);cursor:pointer;margin-left:2px;touch-action:auto}
+.tech-chip .remove:hover{color:var(--red)}
+.tech-chip.dragging{opacity:.25;transform:scale(.92)}
+.add-chip{border-style:dashed;color:var(--text3);cursor:pointer}
+
+/* Touch ghost */
+.touch-ghost{position:fixed;z-index:600;pointer-events:none;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;background:var(--accent);color:#fff;white-space:nowrap;transform:translate(-50%,-50%);box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:.9}
+
+/* Group actions */
+.group-actions{display:flex;gap:6px;padding-top:10px}
+.group-actions button{flex:1;padding:7px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.group-edit-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.group-del-btn{background:none;border:1px solid var(--border);color:var(--text3)}
+.group-del-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* Ungrouped */
+.ungrouped{margin-bottom:20px}
+.ungrouped-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.ungrouped-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:6px;border-radius:8px;border:1.5px dashed transparent;transition:border-color .15s,background .15s}
+.ungrouped-chips.drag-over{border-color:var(--border);background:var(--surface)}
+.ungrouped-chip{display:inline-flex;align-items:center;padding:5px 11px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface);border:1.5px dashed var(--border);color:var(--text3);cursor:grab;user-select:none;touch-action:none;transition:.15s}
+.ungrouped-chip:hover{border-color:var(--accent);color:var(--text)}
+.ungrouped-chip.dragging{opacity:.25;transform:scale(.92)}
+
+/* Add group */
+.add-group-btn{width:100%;padding:12px;border:1.5px dashed var(--border);background:none;border-radius:10px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;transition:.15s}
+.add-group-btn:hover{border-color:var(--accent);color:var(--text)}
+
+/* ── AI Proposal panel (inline, bottom of content) ── */
+.ai-panel{border-radius:14px;overflow:hidden;border:1.5px solid var(--border);background:var(--surface);margin-top:20px;display:none}
+.ai-panel.visible{display:block}
+.ai-panel-head{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border2);gap:8px}
+.ai-panel-title{flex:1;font-size:13px;font-weight:800}
+.ai-panel-close{background:none;border:none;font-size:16px;color:var(--text3);cursor:pointer;padding:2px 4px}
+
+/* Assignment proposal rows */
+.ap-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border2);transition:opacity .2s,max-height .3s}
+.ap-row.dismissed{opacity:0;max-height:0;padding:0;overflow:hidden;border:none;transition:opacity .15s,max-height .25s .1s,padding .25s .1s}
+.ap-tech{font-size:12px;font-weight:700;min-width:80px}
+.ap-arrow{color:var(--text3);font-size:12px}
+.ap-target{display:flex;align-items:center;gap:5px;flex:1}
+.ap-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ap-gname{font-size:12px;font-weight:600;color:var(--text2)}
+.ap-btns{display:flex;gap:5px;flex-shrink:0}
+.ap-ok{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ap-no{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:none;color:var(--text3);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ap-no:hover{border-color:var(--red);color:var(--red)}
+
+/* Adopt-all bar */
+.adopt-all-bar{padding:10px 16px;display:flex;gap:8px}
+.adopt-all-btn{flex:1;padding:9px;border-radius:9px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.skip-all-btn{padding:9px 14px;border-radius:9px;background:none;border:1.5px solid var(--border);color:var(--text3);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* New group proposal cards */
+.ng-card{padding:14px 16px;border-bottom:1px solid var(--border2);transition:opacity .2s}
+.ng-card.dismissed{opacity:0;max-height:0;padding:0;overflow:hidden;border:none;transition:opacity .15s,max-height .25s .1s,padding .25s .1s}
+.ng-name{font-size:13px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.ng-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px}
+.ng-chip{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.ng-btns{display:flex;gap:7px}
+.ng-create{flex:2;padding:8px;border-radius:9px;background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.ng-skip{flex:1;padding:8px;border-radius:9px;background:none;border:1.5px solid var(--border);color:var(--text3);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Empty */
+.panel-empty{text-align:center;padding:30px;color:var(--text3);font-size:12px}
+
+/* ── Modals ──────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;display:flex;justify-content:center;align-items:center;padding:20px}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:360px;box-shadow:0 12px 40px rgba(0,0,0,.15)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border2)}
+.modal-head h3{font-size:14px;font-weight:800}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:4px}
+.modal-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.field label{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;display:block}
+.field input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none}
+.field input:focus{border-color:var(--accent)}
+.color-picker{display:flex;gap:8px;flex-wrap:wrap}
+.color-dot{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.15s}
+.color-dot.selected{border-color:var(--text);transform:scale(1.15)}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--border2);display:flex;gap:8px}
+.modal-foot button{flex:1;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.btn-save{background:var(--accent);border:none;color:#fff}
+.assign-list{max-height:240px;overflow-y:auto}
+.assign-item{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);cursor:pointer}
+.assign-item:hover{background:var(--surface2)}
+.assign-check{width:17px;height:17px;border:1.5px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px}
+.assign-check.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.assign-name{flex:1;font-size:12px;font-weight:600}
+.assign-search{padding:0 18px;border-bottom:1px solid var(--border2)}
+.assign-search input{width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;font-family:inherit;color:var(--text)}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:9px 16px;border-radius:9px;font-size:12px;z-index:700;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header-row">
+  <div>
+    <h2>テクニック グループ</h2>
+    <div class="subtitle">ドラッグまたはタップで整理</div>
+  </div>
+  <button class="ai-trigger" id="aiTrigger" onclick="toggleAiSub()">
+    <span class="dot"></span>AI提案
+  </button>
+</div>
+
+<!-- AI sub-buttons (inline expand) -->
+<div class="ai-sub" id="aiSub">
+  <button class="ai-sub-btn" id="btnAssign" onclick="showAiPanel('assign')">既存グループへ当て込み</button>
+  <button class="ai-sub-btn" id="btnNew"    onclick="showAiPanel('new')">新しいグループ提案</button>
+</div>
+
+<!-- Group list -->
+<div class="groups" id="groupList"></div>
+
+<!-- Ungrouped -->
+<div class="ungrouped" id="ungroupedSection">
+  <div class="ungrouped-label">未分類 <span id="ungroupedCount"></span></div>
+  <div class="ungrouped-chips" id="ungroupedChips"></div>
+</div>
+
+<button class="add-group-btn" onclick="openAddGroup()">＋ グループを追加</button>
+
+<!-- AI Proposal Panel (inline) -->
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-panel-head">
+    <div class="ai-panel-title" id="aiPanelTitle"></div>
+    <button class="ai-panel-close" onclick="closeAiPanel()">✕</button>
+  </div>
+  <div id="aiPanelBody"></div>
+</div>
+
+<!-- Group edit modal -->
+<div class="overlay" id="groupEditOverlay" style="display:none" onclick="if(event.target===this)closeGroupEdit()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="groupEditTitle">グループを追加</h3>
+      <button class="modal-close" onclick="closeGroupEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>グループ名</label><input id="groupNameInput" placeholder="例: チョーク系..."></div>
+      <div class="field"><label>カラー</label><div class="color-picker" id="colorPicker"></div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeGroupEdit()">キャンセル</button>
+      <button class="btn-save" onclick="saveGroup()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign modal -->
+<div class="overlay" id="assignOverlay" style="display:none" onclick="if(event.target===this)closeAssign()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="assignTitle">テクニックを追加</h3>
+      <button class="modal-close" onclick="closeAssign()">✕</button>
+    </div>
+    <div class="assign-search"><input id="assignSearch" placeholder="検索..." oninput="renderAssignList()"></div>
+    <div class="assign-list" id="assignList"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeAssign()">キャンセル</button>
+      <button class="btn-save" onclick="closeAssign()">完了</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6','#64748b'];
+
+let groups=[
+  {id:1,name:'チョーク系',   color:'#3b82f6',techs:['RNC','ギロチン','ダースチョーク','ボウアンドアロー','アナコンダチョーク','十字絞め']},
+  {id:2,name:'関節技（腕）', color:'#f59e0b',techs:['アームバー','キムラ','アメリカーナ','ワキガタメ']},
+  {id:3,name:'フットロック系',color:'#ef4444',techs:['ヒールフック','インサイドヒールフック','アウトサイドヒールフック','トーホールド','ニーバー']},
+  {id:4,name:'スイープ系',   color:'#22c55e',techs:['ベリンボロ','バタフライスイープ','SLXスイープ']},
+];
+const allTechs=['RNC','ギロチン','ダースチョーク','ボウアンドアロー','アナコンダチョーク','十字絞め','アームバー','キムラ','アメリカーナ','ワキガタメ','ヒールフック','インサイドヒールフック','アウトサイドヒールフック','トーホールド','ニーバー','ベリンボロ','バタフライスイープ','SLXスイープ','オモプラッタ','シングルレッグ','ダブルレッグ','エビ','ブリッジ'];
+
+let editingGroupId=null, assigningGroupId=null, selectedColor=COLORS[3];
+
+// AI learning (localStorage)
+let aiLearn=JSON.parse(localStorage.getItem('wk_ai_learn2')||'[]');
+function saveLearn(){localStorage.setItem('wk_ai_learn2',JSON.stringify(aiLearn));}
+function learnAdopt(tech,gid){aiLearn.push({a:'adopt',tech,gid,ts:Date.now()});saveLearn();}
+function learnSkip(tech,gid){aiLearn.push({a:'skip',tech,gid,ts:Date.now()});saveLearn();}
+
+// Proposal cache (avoid JSON-in-onclick)
+let ngCache={};
+
+// ── Drag state ──────────────────────────────────────────
+let dragTech=null,dragSourceGroup=null;
+let touchActive=false,touchGhost=null,touchSrcEl=null;
+let touchStartX=0,touchStartY=0,touchTargetGid=null;
+const THRESH=8;
+
+// ── AI Sub toggle ───────────────────────────────────────
+let aiSubOpen=false, aiPanelMode=null;
+function toggleAiSub(){
+  aiSubOpen=!aiSubOpen;
+  document.getElementById('aiSub').classList.toggle('open',aiSubOpen);
+  if(!aiSubOpen) closeAiPanel();
+}
+
+function showAiPanel(mode){
+  aiPanelMode=mode;
+  // active state on sub-button
+  document.getElementById('btnAssign').classList.toggle('active',mode==='assign');
+  document.getElementById('btnNew').classList.toggle('active',mode==='new');
+
+  const panel=document.getElementById('aiPanel');
+  panel.classList.add('visible');
+  document.getElementById('aiPanelTitle').textContent=
+    mode==='assign'?'既存グループへ当て込み':'新しいグループ提案';
+  renderAiPanelBody(mode);
+  // Smooth scroll to panel
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}),50);
+}
+
+function closeAiPanel(){
+  document.getElementById('aiPanel').classList.remove('visible');
+  document.getElementById('btnAssign').classList.remove('active');
+  document.getElementById('btnNew').classList.remove('active');
+  aiPanelMode=null;
+}
+
+// ── AI proposals (mock) ─────────────────────────────────
+// In production: generated by LLM. Learning data influences ranking.
+function getAssignProposals(){
+  const grouped=getGrouped();
+  const skippedTechs=new Set(aiLearn.filter(e=>e.a==='skip').map(e=>e.tech));
+  return [
+    {tech:'エビ',      gid:4},
+    {tech:'ブリッジ',  gid:4},
+    {tech:'オモプラッタ',gid:2},
+    {tech:'シングルレッグ',gid:4},
+    {tech:'ダブルレッグ',  gid:4},
+  ].filter(p=>!grouped.has(p.tech) && !skippedTechs.has(p.tech));
+}
+function getNewGroupProposals(){
+  const grouped=getGrouped();
+  return [
+    {id:'p1',name:'テイクダウン系',color:'#a855f7',techs:['シングルレッグ','ダブルレッグ']},
+    {id:'p2',name:'エスケープ系',  color:'#64748b',techs:['エビ','ブリッジ']},
+  ].map(p=>({...p,techs:p.techs.filter(t=>!grouped.has(t))})).filter(p=>p.techs.length>0);
+}
+
+let dismissedAssign=new Set(), dismissedNew=new Set();
+
+function renderAiPanelBody(mode){
+  const body=document.getElementById('aiPanelBody');
+  if(mode==='assign'){
+    const props=getAssignProposals().filter(p=>!dismissedAssign.has(p.tech));
+    if(!props.length){body.innerHTML=`<div class="panel-empty">提案はありません</div>`;return;}
+    body.innerHTML=`
+      <div class="adopt-all-bar">
+        <button class="adopt-all-btn" onclick="adoptAllAssign()">すべて採用（${props.length}件）</button>
+        <button class="skip-all-btn"  onclick="skipAllAssign()">スキップ</button>
+      </div>
+      ${props.map(p=>{
+        const g=groups.find(g=>g.id===p.gid)||{name:'?',color:'#999'};
+        return `<div class="ap-row" id="apr-${esc(p.tech)}">
+          <div class="ap-tech">${p.tech}</div>
+          <div class="ap-arrow">→</div>
+          <div class="ap-target">
+            <div class="ap-dot" style="background:${g.color}"></div>
+            <div class="ap-gname">${g.name}</div>
+          </div>
+          <div class="ap-btns">
+            <button class="ap-ok" onclick="adoptAssign('${esc(p.tech)}',${p.gid})">✓</button>
+            <button class="ap-no" onclick="skipAssign('${esc(p.tech)}',${p.gid})">✕</button>
+          </div>
+        </div>`;
+      }).join('')}`;
+  } else {
+    const props=getNewGroupProposals().filter(p=>!dismissedNew.has(p.id));
+    if(!props.length){body.innerHTML=`<div class="panel-empty">提案はありません</div>`;return;}
+    props.forEach(p=>{ngCache[p.id]=p;});
+    body.innerHTML=props.map(p=>`
+      <div class="ng-card" id="ngc-${p.id}">
+        <div class="ng-name"><div style="width:9px;height:9px;border-radius:50%;background:${p.color}"></div>${p.name}</div>
+        <div class="ng-chips">${p.techs.map(t=>`<span class="ng-chip">${t}</span>`).join('')}</div>
+        <div class="ng-btns">
+          <button class="ng-create" onclick="adoptNewGroup('${p.id}')">このグループを作成</button>
+          <button class="ng-skip"   onclick="skipNewGroup('${p.id}')">スキップ</button>
+        </div>
+      </div>`).join('');
+  }
+}
+
+// ── Adopt / Skip ────────────────────────────────────────
+function adoptAssign(tech,gid){
+  const g=groups.find(g=>g.id===gid);
+  if(g&&!g.techs.includes(tech))g.techs.push(tech);
+  dismissedAssign.add(tech);
+  dismiss('apr-'+tech,()=>renderAiPanelBody('assign'));
+  render(); learnAdopt(tech,gid);
+  showToast(`「${tech}」→「${g?.name}」採用`);
+}
+function skipAssign(tech,gid){
+  dismissedAssign.add(tech);
+  dismiss('apr-'+tech,()=>renderAiPanelBody('assign'));
+  learnSkip(tech,gid);
+  showToast(`「${tech}」スキップ`);
+}
+function adoptAllAssign(){
+  const props=getAssignProposals().filter(p=>!dismissedAssign.has(p.tech));
+  props.forEach(p=>{
+    const g=groups.find(g=>g.id===p.gid);
+    if(g&&!g.techs.includes(p.tech))g.techs.push(p.tech);
+    dismissedAssign.add(p.tech); learnAdopt(p.tech,p.gid);
+  });
+  render(); renderAiPanelBody('assign');
+  showToast(`${props.length}件すべて採用`);
+}
+function skipAllAssign(){
+  getAssignProposals().filter(p=>!dismissedAssign.has(p.tech))
+    .forEach(p=>{dismissedAssign.add(p.tech);learnSkip(p.tech,p.gid);});
+  renderAiPanelBody('assign');
+  showToast('スキップしました');
+}
+function adoptNewGroup(pid){
+  const p=ngCache[pid]; if(!p)return;
+  const grouped=getGrouped();
+  groups.push({id:Date.now(),name:p.name,color:p.color,techs:p.techs.filter(t=>!grouped.has(t))});
+  dismissedNew.add(pid);
+  dismiss('ngc-'+pid,()=>renderAiPanelBody('new'));
+  render(); showToast(`グループ「${p.name}」を作成`);
+}
+function skipNewGroup(pid){
+  dismissedNew.add(pid);
+  dismiss('ngc-'+pid,()=>renderAiPanelBody('new'));
+  showToast('スキップしました');
+}
+function dismiss(id,cb){
+  const el=document.getElementById(id);
+  if(el){el.classList.add('dismissed');setTimeout(cb,320);}
+  else cb();
+}
+
+// ── Render ──────────────────────────────────────────────
+function getGrouped(){const s=new Set();groups.forEach(g=>g.techs.forEach(t=>s.add(t)));return s;}
+
+function render(){
+  const openIds=new Set([...document.querySelectorAll('.group-card.open')].map(el=>+el.id.replace('gc-','')));
+  document.getElementById('groupList').innerHTML=groups.map(g=>`
+    <div class="group-card${openIds.has(g.id)?' open':''}" id="gc-${g.id}">
+      <div class="group-header" onclick="toggleGroup(${g.id})">
+        <div class="group-dot" style="background:${g.color}"></div>
+        <div class="group-title">${g.name}</div>
+        <div class="group-count">${g.techs.length}件</div>
+        <div class="group-chevron">▶</div>
+      </div>
+      <div class="group-body">
+        <div class="tech-chips">
+          ${g.techs.sort((a,b)=>a.localeCompare(b,'ja')).map(t=>`
+            <span class="tech-chip" draggable="true"
+              ondragstart="onDragStart(event,'${esc(t)}',${g.id})"
+              ondragend="onDragEnd(event)"
+              ontouchstart="onTouchStart(event,'${esc(t)}',${g.id})"
+            >${t}<span class="remove" onclick="event.stopPropagation();removeTech(${g.id},'${esc(t)}')">×</span></span>`).join('')}
+          <span class="tech-chip add-chip" onclick="openAssign(${g.id})">＋ 追加</span>
+        </div>
+        <div class="group-actions">
+          <button class="group-edit-btn" onclick="openEditGroup(${g.id})">✏️ 編集</button>
+          <button class="group-del-btn"  onclick="deleteGroup(${g.id})">🗑 削除</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Attach D&D to each group card (group→group supported)
+  document.querySelectorAll('.group-card').forEach(card=>{
+    const gid=+card.id.replace('gc-','');
+    card.addEventListener('dragover', e=>onGroupDragOver(e,gid));
+    card.addEventListener('dragleave',e=>onGroupDragLeave(e,gid));
+    card.addEventListener('drop',     e=>onGroupDrop(e,gid));
+  });
+
+  const grouped=getGrouped();
+  const ung=allTechs.filter(t=>!grouped.has(t)).sort((a,b)=>a.localeCompare(b,'ja'));
+  document.getElementById('ungroupedCount').textContent=`(${ung.length})`;
+  const uc=document.getElementById('ungroupedChips');
+  uc.innerHTML=ung.map(t=>`
+    <span class="ungrouped-chip" draggable="true"
+      ondragstart="onDragStart(event,'${esc(t)}',null)"
+      ondragend="onDragEnd(event)"
+      ontouchstart="onTouchStart(event,'${esc(t)}',null)"
+      onclick="quickAssign('${esc(t)}')"
+    >${t}</span>`).join('');
+  document.getElementById('ungroupedSection').style.display=ung.length?'':'none';
+
+  uc.ondragover=e=>{if(dragSourceGroup===null)return;e.preventDefault();uc.classList.add('drag-over');};
+  uc.ondragleave=e=>{if(!uc.contains(e.relatedTarget))uc.classList.remove('drag-over');};
+  uc.ondrop=e=>{
+    e.preventDefault();uc.classList.remove('drag-over');
+    const tech=dragTech||e.dataTransfer.getData('text/plain');
+    if(!tech||dragSourceGroup===null)return;
+    const src=groups.find(g=>g.id===dragSourceGroup);
+    if(src)src.techs=src.techs.filter(t=>t!==tech);
+    render();showToast(`「${tech}」を未分類に戻しました`);
+  };
+
+  // Refresh AI panel if open
+  if(aiPanelMode) renderAiPanelBody(aiPanelMode);
+}
+
+function esc(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\\'");}
+function toggleGroup(id){document.getElementById('gc-'+id)?.classList.toggle('open');}
+function removeTech(gid,tech){const g=groups.find(g=>g.id===gid);if(g){g.techs=g.techs.filter(t=>t!==tech);render();showToast(`「${tech}」除外`);}}
+function deleteGroup(id){groups=groups.filter(g=>g.id!==id);render();showToast('グループを削除');}
+
+// ── Mouse D&D ────────────────────────────────────────────
+function onDragStart(e,tech,fromGid){
+  dragTech=tech;dragSourceGroup=fromGid;
+  e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',tech);
+  requestAnimationFrame(()=>e.target.classList.add('dragging'));
+}
+function onDragEnd(e){e.target.classList.remove('dragging');clearDrag();}
+function onGroupDragOver(e,gid){
+  if(!dragTech||dragSourceGroup===gid)return;
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  document.getElementById('gc-'+gid)?.classList.add('drag-over');
+}
+function onGroupDragLeave(e,gid){
+  const c=document.getElementById('gc-'+gid);
+  if(c&&!c.contains(e.relatedTarget))c.classList.remove('drag-over');
+}
+function onGroupDrop(e,gid){
+  e.preventDefault();
+  document.getElementById('gc-'+gid)?.classList.remove('drag-over');
+  const tech=dragTech||e.dataTransfer.getData('text/plain');
+  if(!tech||dragSourceGroup===gid)return;
+  dropToGroup(tech,dragSourceGroup,gid);
+}
+function clearDrag(){
+  dragTech=null;dragSourceGroup=null;
+  document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+}
+
+// ── Touch D&D ─────────────────────────────────────────────
+function onTouchStart(e,tech,fromGid){
+  if(e.target.classList.contains('remove'))return;
+  const t=e.touches[0];
+  touchStartX=t.clientX;touchStartY=t.clientY;
+  touchActive=false;dragTech=tech;dragSourceGroup=fromGid;
+  touchSrcEl=e.currentTarget;touchTargetGid=null;
+}
+document.addEventListener('touchmove',e=>{
+  if(dragTech===null)return;
+  const t=e.touches[0];
+  if(!touchActive){
+    if(Math.hypot(t.clientX-touchStartX,t.clientY-touchStartY)<THRESH)return;
+    touchActive=true;touchSrcEl?.classList.add('dragging');
+    touchGhost=document.createElement('div');
+    touchGhost.className='touch-ghost';touchGhost.textContent=dragTech;
+    document.body.appendChild(touchGhost);
+  }
+  e.preventDefault();
+  touchGhost.style.left=t.clientX+'px';touchGhost.style.top=t.clientY+'px';
+  touchGhost.style.visibility='hidden';
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  touchGhost.style.visibility='';
+  const card=el?.closest?.('.group-card');
+  const uc=document.getElementById('ungroupedChips');
+  document.querySelectorAll('.group-card.drag-over').forEach(c=>c.classList.remove('drag-over'));
+  uc.classList.remove('drag-over');touchTargetGid=null;
+  if(card){const gid=+card.id.replace('gc-','');if(gid!==dragSourceGroup){card.classList.add('drag-over');touchTargetGid=gid;}}
+  else if(uc.contains(el)||el===uc){if(dragSourceGroup!==null){uc.classList.add('drag-over');touchTargetGid='ungrouped';}}
+},{passive:false});
+
+document.addEventListener('touchend',e=>{
+  if(dragTech===null)return;
+  const tech=dragTech,fromGid=dragSourceGroup;
+  touchGhost?.remove();touchGhost=null;
+  touchSrcEl?.classList.remove('dragging');touchSrcEl=null;
+  document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
+  if(!touchActive){if(fromGid===null){clearDrag();quickAssign(tech);return;}}
+  else if(touchTargetGid==='ungrouped'){
+    if(fromGid!==null){const s=groups.find(g=>g.id===fromGid);if(s)s.techs=s.techs.filter(t=>t!==tech);render();showToast(`「${tech}」を未分類に`);}
+  }else if(touchTargetGid!==null){dropToGroup(tech,fromGid,touchTargetGid);}
+  touchActive=false;touchTargetGid=null;clearDrag();
+});
+document.addEventListener('touchcancel',()=>{
+  touchGhost?.remove();touchGhost=null;
+  touchSrcEl?.classList.remove('dragging');touchSrcEl=null;
+  touchActive=false;touchTargetGid=null;clearDrag();
+});
+
+// ── Shared drop ──────────────────────────────────────────
+function dropToGroup(tech,fromGid,toGid){
+  if(fromGid!==null){const s=groups.find(g=>g.id===fromGid);if(s)s.techs=s.techs.filter(t=>t!==tech);}
+  const tgt=groups.find(g=>g.id===toGid);
+  if(tgt&&!tgt.techs.includes(tech))tgt.techs.push(tech);
+  const card=document.getElementById('gc-'+toGid);
+  if(card&&!card.classList.contains('open'))card.classList.add('open');
+  render();
+  const fromName=fromGid?groups.find(g=>g.id===fromGid)?.name||'未分類':'未分類';
+  showToast(`「${tech}」→「${tgt?.name}」`);
+  clearDrag();
+}
+
+// ── Modals ────────────────────────────────────────────────
+function openAddGroup(){
+  editingGroupId=null;
+  document.getElementById('groupEditTitle').textContent='グループを追加';
+  document.getElementById('groupNameInput').value='';
+  selectedColor=COLORS[3];renderColorPicker();
+  document.getElementById('groupEditOverlay').style.display='flex';
+  setTimeout(()=>document.getElementById('groupNameInput').focus(),100);
+}
+function openEditGroup(id){
+  const g=groups.find(g=>g.id===id);if(!g)return;
+  editingGroupId=id;
+  document.getElementById('groupEditTitle').textContent='グループを編集';
+  document.getElementById('groupNameInput').value=g.name;
+  selectedColor=g.color;renderColorPicker();
+  document.getElementById('groupEditOverlay').style.display='flex';
+}
+function renderColorPicker(){
+  document.getElementById('colorPicker').innerHTML=COLORS.map(c=>
+    `<div class="color-dot${c===selectedColor?' selected':''}" style="background:${c}" onclick="selectedColor='${c}';renderColorPicker()"></div>`).join('');
+}
+function saveGroup(){
+  const name=document.getElementById('groupNameInput').value.trim();if(!name)return;
+  if(editingGroupId){const g=groups.find(g=>g.id===editingGroupId);if(g){g.name=name;g.color=selectedColor;}}
+  else groups.push({id:Date.now(),name,color:selectedColor,techs:[]});
+  closeGroupEdit();render();showToast(editingGroupId?'グループを更新':'グループを追加');
+}
+function closeGroupEdit(){document.getElementById('groupEditOverlay').style.display='none';editingGroupId=null;}
+
+function openAssign(gid){
+  assigningGroupId=gid;
+  const g=groups.find(g=>g.id===gid);
+  document.getElementById('assignTitle').textContent=`「${g.name}」にテクニックを追加`;
+  document.getElementById('assignSearch').value='';renderAssignList();
+  document.getElementById('assignOverlay').style.display='flex';
+}
+function renderAssignList(){
+  const q=(document.getElementById('assignSearch').value||'').toLowerCase();
+  const g=groups.find(g=>g.id===assigningGroupId);
+  document.getElementById('assignList').innerHTML=allTechs
+    .filter(t=>t.toLowerCase().includes(q)).sort((a,b)=>a.localeCompare(b,'ja'))
+    .map(t=>{const on=g?.techs.includes(t);
+      return `<div class="assign-item" onclick="toggleAssign('${esc(t)}')">
+        <div class="assign-check${on?' on':''}">${on?'✓':''}</div>
+        <div class="assign-name">${t}</div></div>`;
+    }).join('');
+}
+function toggleAssign(tech){
+  const g=groups.find(g=>g.id===assigningGroupId);if(!g)return;
+  const i=g.techs.indexOf(tech);if(i>=0)g.techs.splice(i,1);else g.techs.push(tech);
+  renderAssignList();render();
+}
+function closeAssign(){document.getElementById('assignOverlay').style.display='none';assigningGroupId=null;}
+
+function quickAssign(tech){
+  if(!groups.length){openAddGroup();return;}
+  document.getElementById('quick-picker')?.remove();
+  const pk=document.createElement('div');pk.id='quick-picker';
+  pk.style.cssText='position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.3)';
+  pk.innerHTML=`<div style="background:#fff;border-radius:14px;width:100%;max-width:320px;box-shadow:0 12px 40px rgba(0,0,0,.2)">
+    <div style="padding:13px 18px 10px;border-bottom:1px solid #eae9e3;font-size:13px;font-weight:800">「${tech}」をどのグループに？</div>
+    ${groups.map(g=>`<div onclick="assignToGroup('${esc(tech)}',${g.id})" style="display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid #eae9e3;cursor:pointer">
+      <div style="width:9px;height:9px;border-radius:50%;background:${g.color}"></div>
+      <div style="flex:1;font-size:13px;font-weight:600">${g.name}</div>
+      <div style="font-size:11px;color:#999">${g.techs.length}件</div></div>`).join('')}
+    <div style="padding:11px 18px"><button onclick="document.getElementById('quick-picker').remove()" style="width:100%;padding:9px;border-radius:8px;border:1px solid #e0dfd8;background:#f0efe8;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#666">キャンセル</button></div>
+  </div>`;
+  pk.addEventListener('click',e=>{if(e.target===pk)pk.remove();});
+  document.body.appendChild(pk);
+}
+function assignToGroup(tech,gid){
+  const g=groups.find(g=>g.id===gid);
+  if(g&&!g.techs.includes(tech))g.techs.push(tech);
+  document.getElementById('quick-picker')?.remove();
+  render();showToast(`「${tech}」→「${g?.name}」`);
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+render();
+setTimeout(()=>toggleGroup(groups[0].id),200);
+</script>
+</body>
+</html>
