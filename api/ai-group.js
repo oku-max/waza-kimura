@@ -1,8 +1,8 @@
-// ═══ WAZA KIMURA — AI グルーピング提案 API ═══
+// ═══ WAZA KIMURA — AI タグ割り当て提案 API ═══
 // Vercel Serverless Function
 // POST /api/ai-group
-// Body: { tags: string[] }
-// Returns: { groups: [{ name, desc, tags[] }] }
+// Body: { tags: string[], existingGroups: [{name}] }
+// Returns: { assignments: [{tag, group}] }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -16,26 +16,29 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
-  const { tags } = req.body || {};
+  const { tags, existingGroups } = req.body || {};
   if (!Array.isArray(tags) || !tags.length) {
     return res.status(400).json({ error: 'tags array is required' });
   }
+  if (!Array.isArray(existingGroups) || !existingGroups.length) {
+    return res.status(400).json({ error: 'existingGroups array is required' });
+  }
+
+  const groupList = existingGroups.map(g => `- ${g.name}`).join('\n');
 
   const systemPrompt = `あなたはブラジリアン柔術 (BJJ) の専門知識を持つアシスタントです。
-与えられたタグ一覧（技名・ムーブ名など）を、BJJの観点から意味のあるグループに分類してください。
+与えられた未分類タグを、既存グループのいずれかに割り当ててください。
 
 ルール:
-- グループ数は 2〜8 個が目安（タグ数によって調整）
-- 1グループに最低2つのタグを入れること（1つしか該当しない場合はその他グループへ）
-- グループ名は日本語で、簡潔に（〜系、〜技、〜ムーブ など）
-- desc（説明）は20文字以内
-- すべてのタグをいずれかのグループに必ず含める
+- 各タグは既存グループの中から最も適切な1つに割り当てる
+- 既存グループに明確に合わないタグは結果から除外する（無理に当てはめない）
+- グループ名は提供されたリストの名前を一字一句正確に使う
 - JSONのみ返す（説明文・コードブロック不要）
 
 返却形式:
-{"groups":[{"name":"グループ名","desc":"説明","tags":["タグ1","タグ2"]}]}`;
+{"assignments":[{"tag":"タグ名","group":"グループ名"}]}`;
 
-  const userMessage = `以下のタグをグルーピングしてください:\n${tags.join(', ')}`;
+  const userMessage = `既存グループ:\n${groupList}\n\n未分類タグ:\n${tags.join(', ')}`;
 
   try {
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -64,16 +67,13 @@ export default async function handler(req, res) {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
-    // 全タグが含まれているか検証・補完
-    const tagSet = new Set(tags);
-    const covered = new Set((parsed.groups||[]).flatMap(g => g.tags||[]));
-    const missed = tags.filter(t => !covered.has(t));
-    if (missed.length) {
-      parsed.groups = parsed.groups || [];
-      parsed.groups.push({ name: 'その他のテクニック', desc: '未分類', tags: missed });
-    }
+    // 既存グループ名のみ通す
+    const validGroupNames = new Set(existingGroups.map(g => g.name));
+    const assignments = (parsed.assignments || []).filter(
+      a => a.tag && a.group && validGroupNames.has(a.group)
+    );
 
-    return res.status(200).json({ groups: parsed.groups || [] });
+    return res.status(200).json({ assignments });
 
   } catch (e) {
     console.error('ai-group error:', e);

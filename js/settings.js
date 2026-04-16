@@ -442,20 +442,26 @@ window._deleteTagFromModal = function(type, idOrName) {
 let _tagGroups = [];
 let _tagAliasData = {};
 let _tagsModalTab = 'list';
-let _tagsPrevTab  = 'list'; // AIタブを開く前のタブ（list or dict）
 const _tagsOpenGroups = new Set(['unc']);
 let _tagsDragItem = null;
 let _tagsEditingTag = null;   // インライン編集中のタグ名
 let _tagsEditingGrp = null;   // インライン編集中のグループID
 
-// AI グルーピング提案（localStorage 永続化）
-let _aiGroupProposals = [];
+// AI 割り当て提案（localStorage 永続化）— 形式: [{id, tag, group}]
+let _aiAssignProposals = [];
 let _aiGroupGenerating = false;
 function _loadAiGroupProposals() {
-  try { const s = localStorage.getItem('wk_aiGroupProposals'); if (s) _aiGroupProposals = JSON.parse(s); } catch(e) {}
+  try {
+    const s = localStorage.getItem('wk_aiAssignProposals');
+    if (s) {
+      const parsed = JSON.parse(s);
+      // 新形式 {id, tag, group} のみ受け入れる
+      _aiAssignProposals = Array.isArray(parsed) && (!parsed[0] || parsed[0].tag) ? parsed : [];
+    }
+  } catch(e) {}
 }
 function _saveAiGroupProposals() {
-  try { localStorage.setItem('wk_aiGroupProposals', JSON.stringify(_aiGroupProposals)); } catch(e) {}
+  try { localStorage.setItem('wk_aiAssignProposals', JSON.stringify(_aiAssignProposals)); } catch(e) {}
 }
 
 // ── データ永続化 ──
@@ -506,9 +512,6 @@ function _renderTagsNewModal() {
   const _e = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const _js = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const t = _tagsModalTab;
-  const aliasCount = Object.values(_tagAliasData).reduce((s, d) => s + (d.aiSuggested?.length||0), 0);
-  const grpProposalCount = _aiGroupProposals.length;
-  const aiCount = _tagsPrevTab === 'list' ? grpProposalCount : aliasCount;
 
   modal.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 0;flex-shrink:0">
@@ -524,15 +527,18 @@ function _renderTagsNewModal() {
         style="flex:1;background:none;border:none;border-bottom:2px solid ${t==='dict'?'var(--accent)':'transparent'};
                color:${t==='dict'?'var(--text)':'var(--text3)'};font-size:12px;font-weight:${t==='dict'?700:400};
                padding:10px 0;cursor:pointer;font-family:inherit">辞書</button>
-      <button onclick="_tagsSetTab('ai')"
-        style="position:relative;background:#1c1c1e;color:#fff;border:none;padding:5px 12px;border-radius:16px;
-               font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;margin-bottom:6px;
-               ${t==='ai'?'outline:2px solid var(--accent);':''}">
-        AI${aiCount>0?`<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:10px;line-height:1.4">${aiCount}</span>`:''}
-      </button>
     </div>
     <div id="tags-modal-body" style="overflow-y:auto;flex:1;padding:0"></div>
     ${t==='list'?`<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px">
+        <input id="tags-add-grp-input" placeholder="グループ名を追加…"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+                 padding:7px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)"
+          onkeydown="if(event.key==='Enter')_addTagGroup()">
+        <button onclick="_addTagGroup()"
+          style="background:#1c1c1e;color:#fff;border:none;padding:7px 14px;border-radius:8px;
+                 font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
+      </div>
       <div style="display:flex;gap:6px">
         <input id="tags-add-tag-input" placeholder="タグを追加…"
           style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
@@ -542,16 +548,12 @@ function _renderTagsNewModal() {
           style="background:#1c1c1e;color:#fff;border:none;padding:7px 14px;border-radius:8px;
                  font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
       </div>
-      <button onclick="_addTagGroup()"
-        style="width:100%;background:none;border:1.5px dashed var(--border);color:var(--text3);
-               font-size:11px;font-weight:600;padding:7px;border-radius:8px;cursor:pointer;font-family:inherit">＋ グループ追加</button>
     </div>`:''}`;
 
   const body = document.getElementById('tags-modal-body');
   if (!body) return;
   if (t==='list') _renderTagsListBody(body, _e, _js);
-  else if (t==='dict') _renderTagsDictBody(body, _e, _js);
-  else _renderTagsAiBody(body, _e, _js);
+  else _renderTagsDictBody(body, _e, _js);
 }
 
 function _renderTagsListBody(body, _e, _js) {
@@ -594,13 +596,52 @@ function _renderTagsListBody(body, _e, _js) {
   // ── 未分類（NGは除外） ──
   const unc = _getUncategorizedTags().filter(n => !blocked.has(n));
   const uncOpen = _tagsOpenGroups.has('unc');
+  const hasAssigns = _aiAssignProposals.length > 0;
+  const showAiBtn  = unc.length > 0 && !hasAssigns && !_aiGroupGenerating && _tagGroups.length > 0;
   h += `<div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border2);cursor:pointer;user-select:none"
     onclick="_tagsToggleGrp('unc')" ondragover="event.preventDefault()" ondrop="_tagsDropOnGroup(event,'unc')">
     <span style="font-size:10px;color:var(--text3);display:inline-block;transform:rotate(${uncOpen?90:0}deg);width:10px;text-align:center;flex-shrink:0">▶</span>
     <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">未分類</span>
-    <span style="font-size:11px;color:var(--text3)">${unc.length}件</span>
+    <span style="font-size:11px;color:var(--text3);margin-right:4px">${unc.length}件</span>
+    ${showAiBtn ? `<button onclick="event.stopPropagation();_requestAiGroupProposals()"
+      style="background:#1c1c1e;color:#fff;border:none;border-radius:12px;
+             padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">
+      🤖 AIで整理する</button>` : ''}
   </div>`;
-  if (uncOpen) unc.forEach(n => { h += _buildTagRow(n, 'unc', grpOptions, _e, _js); });
+  if (uncOpen) {
+    if (_aiGroupGenerating) {
+      h += `<div style="padding:20px 18px;text-align:center;background:var(--surface2)">
+        <div style="font-size:11px;color:var(--text3)">⚙️ AIが分析中… 未分類 ${unc.length}件を解析しています</div>
+      </div>`;
+    } else if (hasAssigns) {
+      h += `<div style="padding:8px 16px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;background:var(--surface2)">
+        <span style="font-size:11px;color:var(--text3)">🤖 ${_aiAssignProposals.length}件の割り当て提案</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="_adoptAllGroupProposals()"
+            style="background:#1c1c1e;color:#fff;border:none;font-size:10px;font-weight:700;
+                   padding:4px 12px;border-radius:8px;cursor:pointer;font-family:inherit">すべて採用</button>
+          <button onclick="_dismissAllGroupProposals()"
+            style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
+                   padding:4px 10px;border-radius:8px;cursor:pointer;font-family:inherit">クリア</button>
+        </div>
+      </div>`;
+      _aiAssignProposals.forEach(p => {
+        h += `<div style="display:flex;align-items:center;gap:8px;padding:9px 16px 9px 28px;border-bottom:1px solid var(--border2);background:var(--surface2)">
+          <span style="flex:1;font-size:12px;font-weight:600">${_e(p.tag)}</span>
+          <span style="font-size:10px;color:var(--text3)">→</span>
+          <span style="font-size:11px;font-weight:700;color:var(--accent)">${_e(p.group)}</span>
+          <button onclick="_adoptGroupProposal('${_js(p.id)}')"
+            style="background:none;border:1.5px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;
+                   padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">採用</button>
+          <button onclick="_dismissGroupProposal('${_js(p.id)}')"
+            style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
+                   padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">スキップ</button>
+        </div>`;
+      });
+    } else {
+      unc.forEach(n => { h += _buildTagRow(n, 'unc', grpOptions, _e, _js); });
+    }
+  }
 
   // ── NGリスト（別セクション） ──
   const ngTags = [...blocked].sort((a,b) => a.localeCompare(b,'ja'));
@@ -799,8 +840,7 @@ function _renderTagsAiAliasBody(body, _e, _js) {
 }
 
 // ── Window-exposed handlers ──
-window._tagsSetTab      = s => {
-  if (s !== 'ai') _tagsPrevTab = s;  // list/dict 切替時に記憶
+window._tagsSetTab = s => {
   _tagsModalTab = s;
   _renderTagsNewModal();
 };
@@ -850,7 +890,6 @@ window._saveGrpName = gid => {
   _renderTagsNewModal();
 };
 
-// AI グルーピング提案
 // タグ追加（フッター入力欄から）
 window._addTagItem = () => {
   const el = document.getElementById('tags-add-tag-input');
@@ -867,28 +906,33 @@ window._addTagItem = () => {
   window.toast?.(`「${name}」を追加しました`);
 };
 
-// AI グルーピング提案を生成
+// AI 割り当て提案を生成（未分類タグ → 既存グループへのアサイン）
 window._requestAiGroupProposals = async () => {
   const uncTags = _getUncTagsForAi();
   if (!uncTags.length) { window.toast?.('未分類タグがありません'); return; }
+  if (!_tagGroups.length) { window.toast?.('先にグループを作成してください'); return; }
   _aiGroupGenerating = true;
+  _tagsOpenGroups.add('unc');
   _renderTagsNewModal();
   try {
+    const existingGroups = _tagGroups.map(g => ({ name: g.name }));
     const res = await fetch('/api/ai-group', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ tags: uncTags }),
+      body: JSON.stringify({ tags: uncTags, existingGroups }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    _aiGroupProposals = (data.groups||[]).map((g,i) => ({
-      id: 'gp' + Date.now() + '_' + i,
-      name: g.name,
-      desc: g.desc||'',
-      tags: g.tags||[],
-    }));
+    const validGroups = new Set(_tagGroups.map(g => g.name));
+    _aiAssignProposals = (data.assignments||[])
+      .filter(a => a.tag && a.group && validGroups.has(a.group))
+      .map((a, i) => ({ id: 'ap' + Date.now() + '_' + i, tag: a.tag, group: a.group }));
     _saveAiGroupProposals();
-    window.toast?.(`🤖 ${_aiGroupProposals.length}件のグルーピング提案が届きました`);
+    if (_aiAssignProposals.length) {
+      window.toast?.(`🤖 ${_aiAssignProposals.length}件の割り当て提案が届きました`);
+    } else {
+      window.toast?.('適切な割り当て先が見つかりませんでした');
+    }
   } catch(e) {
     console.error('ai-group error:', e);
     window.toast?.('AI提案の取得に失敗しました');
@@ -899,31 +943,40 @@ window._requestAiGroupProposals = async () => {
 };
 
 window._adoptGroupProposal = id => {
-  const p = _aiGroupProposals.find(x => x.id === id); if (!p) return;
-  const ts = tagSettings.find(t => t.key === 'tags');
-  const newGrp = { id: 'g' + Date.now(), name: p.name, techNames: [] };
-  (p.tags || []).forEach(tname => {
-    if (ts && !ts.presets.includes(tname)) { ts.presets.push(tname); }
-    _tagGroups.forEach(g => { g.techNames = g.techNames.filter(t => t !== tname); });
-    if (!newGrp.techNames.includes(tname)) newGrp.techNames.push(tname);
-  });
-  _tagGroups.push(newGrp);
-  _tagsOpenGroups.add(newGrp.id);
-  _aiGroupProposals = _aiGroupProposals.filter(x => x.id !== id);
-  if (ts) saveTagSettings();
+  const p = _aiAssignProposals.find(x => x.id === id); if (!p) return;
+  const tg = _tagGroups.find(g => g.name === p.group);
+  if (tg && !tg.techNames.includes(p.tag)) {
+    tg.techNames.push(p.tag);
+    _tagsOpenGroups.add(tg.id);
+  }
+  _aiAssignProposals = _aiAssignProposals.filter(x => x.id !== id);
   _saveTagGroups(); _saveAiGroupProposals();
   _renderTagsNewModal();
-  window.toast?.(`グループ「${p.name}」を作成しました`);
+  window.toast?.(`「${p.tag}」→「${p.group}」に追加しました`);
 };
 window._dismissGroupProposal = id => {
-  _aiGroupProposals = _aiGroupProposals.filter(x => x.id !== id);
+  _aiAssignProposals = _aiAssignProposals.filter(x => x.id !== id);
   _saveAiGroupProposals(); _renderTagsNewModal();
-  window.toast?.('提案を却下しました');
+  window.toast?.('スキップしました');
 };
 window._adoptAllGroupProposals = () => {
-  const n = _aiGroupProposals.length;
-  [..._aiGroupProposals].forEach(p => window._adoptGroupProposal(p.id));
-  window.toast?.(`${n}件のグループを一括作成しました`);
+  const n = _aiAssignProposals.length;
+  [..._aiAssignProposals].forEach(p => {
+    const tg = _tagGroups.find(g => g.name === p.group);
+    if (tg && !tg.techNames.includes(p.tag)) {
+      tg.techNames.push(p.tag);
+      _tagsOpenGroups.add(tg.id);
+    }
+  });
+  _aiAssignProposals = [];
+  _saveTagGroups(); _saveAiGroupProposals();
+  _renderTagsNewModal();
+  window.toast?.(`${n}件のタグを割り当てました`);
+};
+window._dismissAllGroupProposals = () => {
+  _aiAssignProposals = [];
+  _saveAiGroupProposals(); _renderTagsNewModal();
+  window.toast?.('提案をクリアしました');
 };
 
 window._filterTagsList = () => {
@@ -933,10 +986,13 @@ window._filterTagsList = () => {
   });
 };
 window._addTagGroup = () => {
-  const name = prompt('グループ名を入力');
-  if (!name?.trim()) return;
-  _tagGroups.push({ id:'g'+Date.now(), name:name.trim(), techNames:[] });
+  const el = document.getElementById('tags-add-grp-input');
+  const name = (el?.value || '').trim();
+  if (!name) return;
+  _tagGroups.push({ id: 'g' + Date.now(), name, techNames: [] });
+  if (el) el.value = '';
   _saveTagGroups(); _renderTagsNewModal();
+  window.toast?.(`グループ「${name}」を作成しました`);
 };
 window._deleteTagGroup = gid => {
   if (!confirm('このグループを削除しますか？（タグはすべて未分類に戻ります）')) return;
