@@ -556,8 +556,8 @@ function _renderTagsNewModal() {
   if (!body) return;
   if (t==='list') _renderTagsListBody(body, _e, _js);
   else _renderTagsDictBody(body, _e, _js);
-  // スクロール位置を復元
-  body.scrollTop = _savedScroll;
+  // スクロール位置を復元（レイアウト確定後に設定）
+  if (_savedScroll > 0) requestAnimationFrame(() => { body.scrollTop = _savedScroll; });
 }
 
 function _renderTagsListBody(body, _e, _js) {
