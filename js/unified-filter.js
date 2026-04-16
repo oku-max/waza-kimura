@@ -7,7 +7,7 @@
     { k: 'state', label: '進捗' },
     { k: 'src',   label: 'プレイリスト' },
     { k: 'tag',   label: 'タグ' },
-    { k: 'video', label: '🎬 動画' }
+    { k: 'video', label: 'タイトル' }
   ];
 
   let _tab = 'state';
@@ -253,7 +253,7 @@
     const tabsEl = document.getElementById('uni-tabs');
     const bd = _badges();
     tabsEl.innerHTML = MAIN.map(m =>
-      `<div class="uni-tab${_tab===m.k?' on':''}${m.k==='video'?' uni-tab-video':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`
+      `<div class="uni-tab${_tab===m.k?' on':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`
     ).join('');
 
     const content = document.getElementById('uni-content');
