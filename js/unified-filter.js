@@ -173,6 +173,15 @@
 @media(max-width:480px){#uni-popup .uni-save-lbl{width:100%}}
 /* uni-q フォーカス中（キーボード表示時）は保存バーを非表示 */
 #uni-popup.uni-q-focus .uni-save-bar{display:none}
+/* スクロールバー常時表示（案A） */
+#uni-popup .uni-col-body::-webkit-scrollbar{width:7px}
+#uni-popup .uni-col-body::-webkit-scrollbar-track{background:var(--surface2)}
+#uni-popup .uni-col-body::-webkit-scrollbar-thumb{background:#c8c8d0;border-radius:4px}
+#uni-popup .uni-col-body::-webkit-scrollbar-thumb:hover{background:#a0a0b0}
+#uni-popup .uni-cols::-webkit-scrollbar{height:7px}
+#uni-popup .uni-cols::-webkit-scrollbar-track{background:var(--surface2)}
+#uni-popup .uni-cols::-webkit-scrollbar-thumb{background:#c8c8d0;border-radius:4px}
+#uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#a0a0b0}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
