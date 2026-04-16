@@ -65,6 +65,11 @@ export async function loadUserData(uid) {
           window.videos = window.migrateAllVideos(window.videos);
           console.log(`[tag-master] migrated ${before} videos to 4-layer schema`);
         }
+        // ─── 習得度名称マイグレーション (把握→理解, 習得中→練習中) ───
+        (window.videos || []).forEach(v => {
+          if (v.status === '把握') v.status = '理解';
+          if (v.status === '習得中') v.status = '練習中';
+        });
         // 未タグの動画にタイトルからルールベースタグを補完
         if (window.retagAllFromTitle && window.videos) {
           window.retagAllFromTitle();

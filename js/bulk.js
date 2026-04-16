@@ -59,14 +59,14 @@ export function buildBulkDrawerHTML() {
   </div>`;
 
   // ── 習得度 section ──
-  const STATUS_LABELS = ['未着手','把握','習得中','マスター'];
-  const STATUS_ICONS  = {'未着手':'📋','把握':'📖','習得中':'🔄','マスター':'⭐'};
-  const STATUS_MAP    = {'未着手':'s0','把握':'s1','習得中':'s2','マスター':'s3'};
-  const commonStatus  = selVids.length && selVids.every(v=>(v.status||'未着手')===(selVids[0]?.status||'未着手')) ? (selVids[0]?.status||'未着手') : null;
+  const STATUS_LABELS = ['未着手','理解','練習中','マスター'];
+  const STATUS_MAP    = {'未着手':'s0','理解':'s1','練習中':'s2','マスター':'s3'};
+  const _normSt = s => s==='把握'?'理解':s==='習得中'?'練習中':s||'未着手';
+  const commonStatus  = selVids.length && selVids.every(v=>_normSt(v.status)===_normSt(selVids[0]?.status)) ? _normSt(selVids[0]?.status) : null;
   const progChips = STATUS_LABELS.map(s => {
     const on = s === commonStatus;
     const sc = STATUS_MAP[s];
-    return `<span class="vp-chip${on?' on-'+sc:''}" style="cursor:pointer" onclick="bvpSet('status','${s}',this)">${STATUS_ICONS[s]} ${s}</span>`;
+    return `<span class="vp-chip${on?' on-'+sc:''}" style="cursor:pointer" onclick="bvpSet('status','${s}',this)">${s}</span>`;
   }).join('');
   const progSec = `<div class="fsec">
     <div class="fsec-title">習得度</div>
@@ -774,7 +774,7 @@ export function bulkSnapshot(){
 const BULK_PICKER_OPTS_BASE = {
   status: [{val:'watched',label:'視聴済み'},{val:'unwatched',label:'未視聴'},{val:'fav-add',label:'Fav 追加'},{val:'fav-remove',label:'Fav 解除'}],
   prio: [{val:'今すぐ',label:'今すぐ'},{val:'そのうち',label:'そのうち'},{val:'保留',label:'保留'}],
-  prog: [{val:'未着手',label:'📋 未着手'},{val:'把握',label:'📖 把握'},{val:'習得中',label:'🔄 習得中'},{val:'マスター',label:'⭐ マスター'}],
+  prog: [{val:'未着手',label:'未着手'},{val:'理解',label:'理解'},{val:'練習中',label:'練習中'},{val:'マスター',label:'マスター'}],
   tb:   [{val:'トップ',label:'トップ'},{val:'ボトム',label:'ボトム'},{val:'スタンディング',label:'スタンディング'}],
   cat:  [{val:'エスケープ・ディフェンス',label:'エスケープ・ディフェンス'},{val:'ガード構築・エントリー',label:'ガード構築・エントリー'},{val:'ガードリテンション',label:'ガードリテンション'},{val:'コントロール／プレッシャー',label:'コントロール／プレッシャー'},{val:'コンセプト・原理',label:'コンセプト・原理'},{val:'スイープ',label:'スイープ'},{val:'テイクダウン',label:'テイクダウン'},{val:'バックテイク・バックアタック',label:'バックテイク・バックアタック'},{val:'パスガード',label:'パスガード'},{val:'フィニッシュ',label:'フィニッシュ'}]
 };

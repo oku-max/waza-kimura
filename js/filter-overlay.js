@@ -29,7 +29,7 @@ export function toggleSidebar() {
 
 export function syncSidebarChipStates() {
   const f = window.filters || {};
-  ['未着手','把握','習得中','マスター'].forEach(v => {
+  ['未着手','理解','練習中','マスター'].forEach(v => {
     const el  = document.getElementById('fs-stat-' + v);  if (el)  el.classList.toggle('active', f.status?.has(v));
     const el2 = document.getElementById('fov-stat-' + v); if (el2) el2.classList.toggle('active', f.status?.has(v));
   });
@@ -364,7 +364,7 @@ export function syncFilterOvRows(isOrg=false) {
     _fovDdUpdateChips(`${p}-srow-${k}`, fk);
   });
   // Status/Prio
-  ['未着手','把握','習得中','マスター'].forEach(v => {
+  ['未着手','理解','練習中','マスター'].forEach(v => {
     const el = document.getElementById(`${p}-stat-${v}`); if(el) el.classList.toggle('active', f.status?.has(v));
   });
   ['今すぐ','そのうち','保留'].forEach(v => {
@@ -489,7 +489,7 @@ export function syncFovChips() {
   const favChip = document.getElementById('fov-chip-fav');     if (favChip) favChip.classList.toggle('active', window.favOnly||false);
   const unwChip = document.getElementById('fov-chip-unw');     if (unwChip) unwChip.classList.toggle('active', window.unwOnly||false);
   const watChip = document.getElementById('fov-chip-watched'); if (watChip) watChip.classList.toggle('active', window.watchedOnly||false);
-  ['未着手','把握','習得中','マスター'].forEach(v => {
+  ['未着手','理解','練習中','マスター'].forEach(v => {
     const el = document.getElementById('fov-stat-' + v); if (el) el.classList.toggle('active', f.status?.has(v));
   });
   ['今すぐ','そのうち','保留'].forEach(v => {

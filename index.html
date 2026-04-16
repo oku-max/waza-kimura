@@ -1214,10 +1214,10 @@
     <div class="bgrp">
       <span class="bgrp-lbl">Progress</span>
       <div class="bgrp-row" id="bb-prog-row">
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="未着手"   onclick="bulkChipSingle('prog','未着手'  ,this)">📋 未着手</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="把握"     onclick="bulkChipSingle('prog','把握'    ,this)">📖 把握</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="習得中"   onclick="bulkChipSingle('prog','習得中'  ,this)">🔄 習得中</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="マスター" onclick="bulkChipSingle('prog','マスター',this)">⭐ マスター</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="未着手"   onclick="bulkChipSingle('prog','未着手'  ,this)">未着手</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="理解"     onclick="bulkChipSingle('prog','理解'    ,this)">理解</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="練習中"   onclick="bulkChipSingle('prog','練習中'  ,this)">練習中</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="マスター" onclick="bulkChipSingle('prog','マスター',this)">マスター</button>
       </div>
     </div>
     <div class="bsep"></div>
@@ -1529,7 +1529,7 @@ function syncUI(v){
   setShare(dShare);
   const wo=document.getElementById('watchOpt');wo.textContent=dWatch?'✅ 視聴済み（タップで戻す）':'👁 未視聴（タップで視聴済みに）';wo.className='prio-opt'+(dWatch?' sl2':' sl3');
   document.querySelectorAll('.prio-opt:not(#watchOpt)').forEach(el=>{el.className='prio-opt';const t=el.textContent.includes('今すぐ')?'今すぐ':el.textContent.includes('そのうち')?'そのうち':'保留';if(t===dPrio)el.classList.add(t==='今すぐ'?'sl1':t==='そのうち'?'sl2':'sl3');});
-  document.querySelectorAll('.status-opt').forEach(el=>{el.className='status-opt';const t=el.textContent.includes('未着手')?'未着手':el.textContent.includes('把握')?'把握':el.textContent.includes('習得中')?'習得中':'マスター';if(t===dStat)el.classList.add(t==='未着手'?'ss0':t==='把握'?'ss1':t==='習得中'?'ss2':'ss3');});
+  document.querySelectorAll('.status-opt').forEach(el=>{el.className='status-opt';const t=el.textContent.includes('未着手')?'未着手':el.textContent.includes('理解')?'理解':el.textContent.includes('練習中')?'練習中':'マスター';if(t===dStat)el.classList.add(t==='未着手'?'ss0':t==='理解'?'ss1':t==='練習中'?'ss2':'ss3');});
   document.querySelectorAll('#dTb .tag-opt').forEach(el=>{const val=el.textContent.trim();el.className='tag-opt'+(dTags.tb.has(val)?' sel-tb':'');});
   document.querySelectorAll('#dAct .tag-opt').forEach(el=>{const val=el.textContent.trim();el.className='tag-opt'+(dTags.cat.has(val)?' sel-act':'');});
   const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};
@@ -1539,7 +1539,7 @@ function syncUI(v){
 function dFavF(){dFav=!dFav;const ft=document.getElementById('favTog'),ftx=document.getElementById('favTxt');ft.className='fav-toggle'+(dFav?' on':'');ftx.textContent=dFav?'お気に入り登録中 ⭐':'お気に入りに追加';}
 function dWatchF(){dWatch=!dWatch;const wo=document.getElementById('watchOpt');wo.textContent=dWatch?'✅ 視聴済み（タップで戻す）':'👁 未視聴（タップで視聴済みに）';wo.className='prio-opt'+(dWatch?' sl2':' sl3');}
 function dPrioF(p,el){dPrio=p;document.querySelectorAll('.prio-opt:not(#watchOpt)').forEach(e=>e.className='prio-opt');el.classList.add(p==='今すぐ'?'sl1':p==='そのうち'?'sl2':'sl3');}
-function dStatF(s,el){dStat=s;document.querySelectorAll('.status-opt').forEach(e=>e.className='status-opt');el.classList.add(s==='未着手'?'ss0':s==='把握'?'ss1':s==='習得中'?'ss2':'ss3');}
+function dStatF(s,el){dStat=s;document.querySelectorAll('.status-opt').forEach(e=>e.className='status-opt');el.classList.add(s==='未着手'?'ss0':s==='理解'?'ss1':s==='練習中'?'ss2':'ss3');}
 function dTag(type,val,el){const set=dTags[type],cls=type==='tb'?'sel-tb':type==='cat'?'sel-act':'sel-pos';set.has(val)?(set.delete(val),el.className='tag-opt'):(set.add(val),el.className='tag-opt '+cls);}
 function setShare(n){dShare=n;[0,1,2].forEach(i=>{const el=document.getElementById(`sh${i}`);if(el)el.classList.toggle('sel',i===n);});}
 function filterTechs(){const q=document.getElementById('techSrch').value.toLowerCase().trim();const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();const fil=q?all.filter(t=>t.toLowerCase().includes(q)):all;const add=q&&!all.some(t=>t===q);document.getElementById('techRes').innerHTML=(add?`<div class="tech-pill" onclick="addCT('${q}')">＋「${q}」を追加</div>`:'')+fil.slice(0,32).map(t=>`<div class="tech-pill ${dTags.tags.has(t)?'active':''}" onclick="togTech('${t}',this)">${t}</div>`).join('');}
@@ -2363,7 +2363,7 @@ function buildPrioRow(id){
 function buildStatRow(id){
   const row=document.getElementById(id);if(!row)return;
   row.innerHTML='';
-  ['未着手','把握','習得中','マスター'].forEach(function(v){
+  ['未着手','理解','練習中','マスター'].forEach(function(v){
     const n=window.countContextual?window.countContextual('status',v):videos.filter(x=>!x.archived&&x.status===v).length;
     const el=mkChip(v,filters.status.has(v),function(){filters.status.has(v)?filters.status.delete(v):filters.status.add(v);buildStatRow(id);window.AF?.();});
     if(n>0){const b=document.createElement('span');b.style.cssText='font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';b.textContent=n;el.appendChild(b);}
@@ -2632,7 +2632,7 @@ function updateFovChipBadges() {
     }
   });
   // Progress (未着手/把握/習得中/マスター)
-  [['未着手','未着手'],['把握','把握'],['習得中','習得中'],['マスター','マスター']].forEach(function([val, id]) {
+  [['未着手','未着手'],['理解','理解'],['練習中','練習中'],['マスター','マスター']].forEach(function([val, id]) {
     const el = document.getElementById('fov-chip-status-' + id);
     if (!el) return;
     const n = videos.filter(v => !v.archived && v.status === val).length;
@@ -2749,10 +2749,10 @@ function cardCyclePrio(id, el) {
 }
 function cardCycleProg(id, el) {
   cardShowPicker(id, el, 'status', [
-    {val:'未着手', label:'📋 未着手'},
-    {val:'把握',   label:'📖 把握'},
-    {val:'習得中', label:'🔄 習得中'},
-    {val:'マスター', label:'⭐ マスター'}
+    {val:'未着手',  label:'未着手'},
+    {val:'理解',    label:'理解'},
+    {val:'練習中',  label:'練習中'},
+    {val:'マスター', label:'マスター'}
   ]);
 }
 function cardShowPicker(id, el, field, opts) {
@@ -3350,8 +3350,8 @@ window.addEventListener('resize', adjustTopbarOffset);
         <span class="fbar-lbl">Progress</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip" id="org-fov-stat-未着手" onclick="togOrgF('status','未着手',this)">未着手</div>
-          <div class="chip" id="org-fov-stat-把握"   onclick="togOrgF('status','把握',this)">把握</div>
-          <div class="chip" id="org-fov-stat-習得中"  onclick="togOrgF('status','習得中',this)">習得中</div>
+          <div class="chip" id="org-fov-stat-理解"   onclick="togOrgF('status','理解',this)">理解</div>
+          <div class="chip" id="org-fov-stat-練習中"  onclick="togOrgF('status','練習中',this)">練習中</div>
           <div class="chip" id="org-fov-stat-マスター" onclick="togOrgF('status','マスター',this)">マスター</div>
         </div>
       </div>
@@ -3476,8 +3476,8 @@ window.addEventListener('resize', adjustTopbarOffset);
         <span class="fbar-lbl">Progress</span>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <div class="chip" id="fov-stat-未着手" onclick="togF('status','未着手',this)">未着手</div>
-          <div class="chip" id="fov-stat-把握"   onclick="togF('status','把握',this)">把握</div>
-          <div class="chip" id="fov-stat-習得中"  onclick="togF('status','習得中',this)">習得中</div>
+          <div class="chip" id="fov-stat-理解"   onclick="togF('status','理解',this)">理解</div>
+          <div class="chip" id="fov-stat-練習中"  onclick="togF('status','練習中',this)">練習中</div>
           <div class="chip" id="fov-stat-マスター" onclick="togF('status','マスター',this)">マスター</div>
         </div>
       </div>

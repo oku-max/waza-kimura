@@ -286,10 +286,10 @@
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
 
-      const STATUS_MANUAL = ['未着手','把握','習得中','マスター'];
+      const STATUS_MANUAL = ['未着手','理解','練習中','マスター'];
       const sCtx = _ctxVideos('status');
       const statusItems = STATUS_MANUAL.map(s => ({
-        name: s, cnt: sCtx.filter(v => v.status === s).length,
+        name: s, cnt: sCtx.filter(v => { const ns = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手'; return ns === s; }).length,
         sel: (isOrg ? window.orgFilters : window.filters)?.status?.has(s) || false,
         key: s
       }));
