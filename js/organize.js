@@ -336,7 +336,7 @@ export function orgFilt(list) {
       const cVal = pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上';
       if (!orgFilters.counter.has(cVal)) return false;
     }
-    if (orgFilters.status.size && !orgFilters.status.has(v.status)) return false;
+    if (orgFilters.status.size && !orgFilters.status.has(v.status || '未着手')) return false;
     if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
     if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
     if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
@@ -1176,6 +1176,7 @@ const _INLINE_COLS = {
   position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([...(window.POSITIONS || []).map(p => p.ja), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
   technique: { field: 'tags', type: 'tags', opts: () => [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort(), allowNew: true },
   memo:      { field: 'memo', type: 'text' },
+  status:    { field: 'status', type: 'radio', opts: () => ['未着手','把握','習得中','マスター'] },
 };
 
 let _orgInlineActive = null; // { videoId, col, td, origHTML, picker }
@@ -1249,9 +1250,63 @@ function _openOrgInlineEditor(videoId, col, td) {
 
   if (cfg.type === 'tags') {
     _openTagPicker(v, cfg, col, td);
+  } else if (cfg.type === 'radio') {
+    _openRadioPicker(v, cfg, col, td);
   } else {
     _openMemoEditor(v, td);
   }
+}
+
+function _openRadioPicker(v, cfg, col, td) {
+  const field = cfg.field;
+  const opts = cfg.opts();
+  const sIcons = {'未着手':'📋','把握':'📖','習得中':'🔄','マスター':'⭐'};
+  const sCls   = {'未着手':'s0','把握':'s1','習得中':'s2','マスター':'s3'};
+
+  const picker = document.createElement('div');
+  picker.className = 'org-inline-picker';
+  picker.style.cssText += 'min-width:120px;padding:4px;';
+  document.body.appendChild(picker);
+
+  const rect = td.getBoundingClientRect();
+  picker.style.left = Math.max(4, rect.left) + 'px';
+  picker.style.top  = (rect.bottom + 4) + 'px';
+  requestAnimationFrame(() => {
+    const pr = picker.getBoundingClientRect();
+    if (pr.right > window.innerWidth - 8)  picker.style.left = Math.max(4, window.innerWidth - pr.width - 8) + 'px';
+    if (pr.bottom > window.innerHeight - 8) picker.style.top = (rect.top - pr.height - 4) + 'px';
+  });
+
+  _orgInlineActive.picker = picker;
+
+  opts.forEach(opt => {
+    const btn = document.createElement('button');
+    const isCurrent = (v[field] || '未着手') === opt;
+    btn.className = 'chip ' + sCls[opt] + (isCurrent ? ' active' : '');
+    btn.style.cssText = 'display:block;width:100%;margin:2px 0;text-align:left;cursor:pointer;font-size:11px;padding:5px 8px;font-weight:700;font-family:inherit';
+    btn.textContent = (sIcons[opt] || '') + ' ' + opt;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      v[field] = opt;
+      // セル再描画
+      const sI = {'未着手':'📋','把握':'📖','習得中':'🔄','マスター':'⭐'};
+      const sC = {'未着手':'s0','把握':'s1','習得中':'s2','マスター':'s3'};
+      td.innerHTML = `<span class="chip ${sC[opt]}" style="font-size:10px;padding:2px 7px">${sI[opt]} ${opt}</span>`;
+      _inlineSave(v, td, col);
+      _closeOrgInlineEditor(false);
+    });
+    picker.appendChild(btn);
+  });
+
+  // 外側クリックで閉じる
+  const outsideHandler = e => {
+    if (!picker.contains(e.target) && e.target !== td) _closeOrgInlineEditor(false);
+  };
+  _orgInlineActive._outsideHandler = outsideHandler;
+  setTimeout(() => {
+    document.addEventListener('mousedown', outsideHandler);
+    document.addEventListener('touchstart', outsideHandler, { passive: true });
+  }, 0);
 }
 
 function _openTagPicker(v, cfg, col, td) {
@@ -1475,6 +1530,14 @@ function _closeOrgInlineEditor(save) {
     if (v) {
       td.innerHTML = `<div class="org-memo-text">${v.memo || '<span style="color:var(--text3);font-size:10px">—</span>'}</div>`;
     }
+  } else if (cfg?.type === 'radio') {
+    const v = (window.videos || []).find(x => x.id === videoId);
+    if (v) {
+      const sI = {'未着手':'📋','把握':'📖','習得中':'🔄','マスター':'⭐'};
+      const sC = {'未着手':'s0','把握':'s1','習得中':'s2','マスター':'s3'};
+      const s = v.status || '未着手';
+      td.innerHTML = `<span class="chip ${sC[s]}" style="font-size:10px;padding:2px 7px">${sI[s]} ${s}</span>`;
+    }
   }
 
   _orgInlineActive = null;
@@ -1530,6 +1593,7 @@ const _colFilterConfig = {
     const s = v.duration || 0;
     return [!s ? '不明' : s < 300 ? '〜5分' : s < 900 ? '5〜15分' : s < 1800 ? '15〜30分' : '30分以上'];
   }},
+  status:         { filterKey: 'status', noSearch: true, valueGetter: v => [v.status || '未着手'] },
 };
 
 // duration バケットの並び順
