@@ -227,6 +227,13 @@
     ).join('');
 
     const content = document.getElementById('uni-content');
+    // スクロール位置を保存（content.innerHTML置換でリセットされるのを防ぐ）
+    const _savedColScrolls = [...content.querySelectorAll('.uni-col-body')].map(el => el.scrollTop);
+    const _restoreColScrolls = () => {
+      content.querySelectorAll('.uni-col-body').forEach((el, i) => {
+        if (_savedColScrolls[i]) el.scrollTop = _savedColScrolls[i];
+      });
+    };
 
     if (_tab === 'state') {
       // ══ 1列目: マーク + 進捗ランク + 最終カウント日 (統合) ══
@@ -347,6 +354,7 @@
       };
 
       content.innerHTML = `<div class="uni-cols">${mkCol1()}${mkCol2()}${mkCol3()}</div>`;
+      _restoreColScrolls();
     }
 
     else if (_tab === 'src') {
@@ -389,6 +397,7 @@
         ${_colHtml('Channel', 'ch', chItems, { filterKey:'channel' })}
         ${_colHtml('Playlist', 'pl', plItems, { filterKey:'playlist' })}
       </div>`;
+      _restoreColScrolls();
     }
 
     else {
@@ -428,6 +437,7 @@
         ${_colHtml(posLabel, 'pos', posItems, { filterKey: tkPos })}
         ${_colHtml(tagsLabel, 'tags', tagItems, { filterKey: tkTags })}
       </div>`;
+      _restoreColScrolls();
     }
 
     // ── Pills ──
