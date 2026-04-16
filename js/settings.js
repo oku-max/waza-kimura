@@ -689,10 +689,7 @@ function _buildTagRow(name, gid, grpOptions, _e, _js) {
          </select>
          <button onclick="_toggleTagNG('${_js(name)}')"
            style="background:none;border:1.5px solid var(--border);color:var(--text3);font-size:10px;
-                  font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>
-         <button onclick="_deleteTag('${_js(name)}')"
-           style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
-                  padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>`}
+                  font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">NG</button>`}
   </div>`;
 }
 
@@ -704,9 +701,6 @@ function _buildNGRow(name, _e, _js) {
     <button onclick="_toggleTagNG('${_js(name)}')"
       style="background:none;border:1.5px solid #ef4444;color:#ef4444;font-size:10px;
              font-weight:700;padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">解除</button>
-    <button onclick="_deleteTag('${_js(name)}')"
-      style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;
-             padding:2px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
   </div>`;
 }
 
@@ -1015,8 +1009,34 @@ window._deleteTagGroup = gid => {
 window._toggleTagNG = name => {
   if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
   const i = aiSettings.techBlocklist.indexOf(name);
-  i >= 0 ? aiSettings.techBlocklist.splice(i,1) : aiSettings.techBlocklist.push(name);
-  saveAiSettings(); _renderTagsNewModal();
+  if (i >= 0) {
+    // 解除
+    aiSettings.techBlocklist.splice(i, 1);
+    saveAiSettings(); _renderTagsNewModal();
+    window.toast?.(`「${name}」をNGから解除しました`);
+  } else {
+    // NG追加 — 動画に含まれていれば確認ダイアログ
+    const affected = (window.videos || []).filter(v => Array.isArray(v.tags) && v.tags.includes(name));
+    const doAdd = (removeFromVideos) => {
+      if (removeFromVideos && affected.length) {
+        affected.forEach(v => { v.tags = v.tags.filter(t => t !== name); });
+        window.debounceSave?.();
+        window.toast?.(`「${name}」をNGに追加し、${affected.length}件の動画から削除しました`);
+      } else {
+        window.toast?.(`「${name}」をNGに追加しました`);
+      }
+      aiSettings.techBlocklist.push(name);
+      saveAiSettings(); _renderTagsNewModal();
+    };
+    if (affected.length > 0) {
+      // インラインダイアログで確認
+      const msg = `「${name}」をNGに追加します。\nこのタグを含む動画が ${affected.length} 件あります。\n動画からも削除しますか？`;
+      const choice = confirm(msg);
+      doAdd(choice);
+    } else {
+      doAdd(false);
+    }
+  }
 };
 window._tagsDragStart = (event, name) => {
   _tagsDragItem = name;
