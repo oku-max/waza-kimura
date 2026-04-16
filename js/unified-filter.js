@@ -449,15 +449,19 @@
           || (v.channel || v.ch || '').toLowerCase().includes(_q);
       });
       const rows = vids.length
-        ? vids.map(v =>
-            `<div class="uni-vid-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
-              <div class="uni-vid-thumb">▶</div>
+        ? vids.map(v => {
+            const ytId = v.ytId || ((v.pt || v.src || 'youtube') === 'youtube' ? v.id : null);
+            const thumb = ytId
+              ? `<img src="https://i.ytimg.com/vi/${ytId}/default.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
+              : '▶';
+            return `<div class="uni-vid-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
+              <div class="uni-vid-thumb">${thumb}</div>
               <div class="uni-vid-info">
                 <div class="uni-vid-title">${_esc(v.title || '')}</div>
                 <div class="uni-vid-meta">${_esc(v.channel || v.ch || '')} · ${_esc(v.pl || '')}</div>
               </div>
-            </div>`
-          ).join('')
+            </div>`;
+          }).join('')
         : '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">一致する動画がありません</div>';
       content.innerHTML = `<div style="flex:1;overflow-y:auto">${rows}</div>`;
     }
