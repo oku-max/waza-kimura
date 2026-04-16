@@ -618,8 +618,8 @@ function _renderTagsListBody(body, _e, _js) {
         <div style="font-size:11px;color:var(--text3)">⚙️ AIが分析中… 未分類 ${unc.length}件を解析しています</div>
       </div>`;
     } else if (hasAssigns) {
-      h += `<div style="padding:8px 16px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;background:var(--surface2)">
-        <span style="font-size:11px;color:var(--text3)">🤖 ${_aiAssignProposals.length}件の割り当て提案</span>
+      h += `<div id="ai-assign-header" style="padding:8px 16px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;background:var(--surface2)">
+        <span id="ai-assign-count" style="font-size:11px;color:var(--text3)">🤖 ${_aiAssignProposals.length}件の割り当て提案</span>
         <div style="display:flex;gap:6px">
           <button onclick="_adoptAllGroupProposals()"
             style="background:#1c1c1e;color:#fff;border:none;font-size:10px;font-weight:700;
@@ -630,7 +630,7 @@ function _renderTagsListBody(body, _e, _js) {
         </div>
       </div>`;
       _aiAssignProposals.forEach(p => {
-        h += `<div style="display:flex;align-items:center;gap:8px;padding:9px 16px 9px 28px;border-bottom:1px solid var(--border2);background:var(--surface2)">
+        h += `<div data-assign-id="${_e(p.id)}" style="display:flex;align-items:center;gap:8px;padding:9px 16px 9px 28px;border-bottom:1px solid var(--border2);background:var(--surface2)">
           <span style="flex:1;font-size:12px;font-weight:600">${_e(p.tag)}</span>
           <span style="font-size:10px;color:var(--text3)">→</span>
           <span style="font-size:11px;font-weight:700;color:var(--accent)">${_e(p.group)}</span>
@@ -955,12 +955,21 @@ window._adoptGroupProposal = id => {
   }
   _aiAssignProposals = _aiAssignProposals.filter(x => x.id !== id);
   _saveTagGroups(); _saveAiGroupProposals();
-  _renderTagsNewModal();
+  // スクロールを維持するためDOM直接更新（フルレンダリングしない）
+  document.querySelector(`[data-assign-id="${id}"]`)?.remove();
+  const countEl = document.getElementById('ai-assign-count');
+  if (countEl) countEl.textContent = `🤖 ${_aiAssignProposals.length}件の割り当て提案`;
+  if (!_aiAssignProposals.length) _renderTagsNewModal(); // 全部終わったら再描画
   window.toast?.(`「${p.tag}」→「${p.group}」に追加しました`);
 };
 window._dismissGroupProposal = id => {
   _aiAssignProposals = _aiAssignProposals.filter(x => x.id !== id);
-  _saveAiGroupProposals(); _renderTagsNewModal();
+  _saveAiGroupProposals();
+  // スクロールを維持するためDOM直接更新
+  document.querySelector(`[data-assign-id="${id}"]`)?.remove();
+  const countEl = document.getElementById('ai-assign-count');
+  if (countEl) countEl.textContent = `🤖 ${_aiAssignProposals.length}件の割り当て提案`;
+  if (!_aiAssignProposals.length) _renderTagsNewModal();
   window.toast?.('スキップしました');
 };
 window._adoptAllGroupProposals = () => {
