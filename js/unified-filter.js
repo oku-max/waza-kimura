@@ -12,6 +12,7 @@
 
   let _tab = 'state';
   let _q = '';
+  const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
 
@@ -119,7 +120,8 @@
 #uni-popup .uni-pill:after{content:" ×";opacity:.7}
 #uni-popup .uni-sp{flex:1}
 #uni-popup .uni-hit{font-size:12px;color:var(--accent);font-weight:700}
-#uni-popup .uni-clr{font-size:10px;color:var(--text3);cursor:pointer;text-decoration:underline;margin-right:6px}
+#uni-popup .uni-clr{font-size:11px;font-weight:700;color:#dc2626;cursor:pointer;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:6px;padding:4px 12px;margin-right:4px;font-family:inherit}
+#uni-popup .uni-clr:hover{background:#fee2e2;border-color:#f87171}
 #uni-popup .uni-apply{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #uni-popup .uni-apply:hover{filter:brightness(1.1)}
 /* 保存した検索条件 */
@@ -188,7 +190,7 @@
     <span class="uni-lbl">選択中:</span>
     <div id="uni-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
     <span class="uni-sp"></span>
-    <span class="uni-clr" onclick="uniClearAll()">クリア</span>
+    <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
     <button class="uni-apply" onclick="uniClose()">適用</button>
   </div>
@@ -437,10 +439,6 @@
         return (v.title || '').toLowerCase().includes(_q)
           || (v.channel || v.ch || '').toLowerCase().includes(_q);
       });
-      const hint = `<div style="padding:6px 14px;font-size:11px;font-weight:600;color:#16a34a;background:#f0fdf4;border-bottom:1px solid #a7f3d0;display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block;flex-shrink:0"></span>
-        動画タイトル・チャンネル名を対象に検索しています（ライブラリ全体）
-      </div>`;
       const rows = vids.length
         ? vids.map(v =>
             `<div class="uni-vid-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
@@ -452,7 +450,7 @@
             </div>`
           ).join('')
         : '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">一致する動画がありません</div>';
-      content.innerHTML = `${hint}<div style="flex:1;overflow-y:auto">${rows}</div>`;
+      content.innerHTML = `<div style="flex:1;overflow-y:auto">${rows}</div>`;
     }
 
     else {
@@ -560,32 +558,42 @@
   }
 
   // ── グローバル公開 ──
+  const _phMap = { video:'🔍 動画タイトル・チャンネルを検索…', src:'🔍 チャンネル・プレイリストを検索', tag:'🔍 タグの検索' };
+  function _syncSearchbar(t) {
+    const sb  = document.querySelector('#uni-popup .uni-searchbar');
+    const inp = document.getElementById('uni-q');
+    if (sb)  sb.style.display = t === 'state' ? 'none' : '';
+    if (inp) {
+      inp.placeholder = _phMap[t] || '🔍 検索...';
+      inp.value = _queries[t] || '';
+    }
+    _q = _queries[t] || '';
+  }
   window.uniOpen = function (tab, ctx) {
     _ctx = ctx || 'lib';
     _inject();
     if (tab && MAIN.some(m => m.k === tab)) _tab = tab;
     document.getElementById('uni-bd').classList.add('open');
     document.getElementById('uni-popup').classList.add('open');
-    const inp = document.getElementById('uni-q');
-    if (inp) inp.placeholder = _tab === 'video' ? '🔍 動画タイトル・チャンネルを検索…' : '🔍 検索...';
+    _syncSearchbar(_tab);
     _render();
   };
   window.uniClose = function () {
     document.getElementById('uni-bd')?.classList.remove('open');
     document.getElementById('uni-popup')?.classList.remove('open');
-  };
-  window.uniSetTab = function (t) {
-    _tab = t;
+    Object.keys(_queries).forEach(k => _queries[k] = '');
     _q = '';
     const inp = document.getElementById('uni-q');
-    if (inp) {
-      inp.value = '';
-      inp.placeholder = t === 'video' ? '🔍 動画タイトル・チャンネルを検索…' : '🔍 検索...';
-    }
+    if (inp) inp.value = '';
+  };
+  window.uniSetTab = function (t) {
+    _queries[_tab] = _q; // 現タブのクエリを保存
+    _tab = t;
+    _syncSearchbar(t);
     _render();
   };
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
-  window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _render(); };
+  window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _queries[_tab] = _q; _render(); };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
@@ -616,6 +624,10 @@
   };
   window.uniClearAll = function () {
     _ctx === 'org' ? window.clearOrgFilters?.() : window.clearAll?.();
+    Object.keys(_queries).forEach(k => _queries[k] = '');
+    _q = '';
+    const inp = document.getElementById('uni-q');
+    if (inp) inp.value = '';
     _render();
   };
   window.uniSyncBadges = function () { _syncSidebarBadges(_badges()); };
