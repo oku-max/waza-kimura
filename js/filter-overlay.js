@@ -1379,6 +1379,12 @@ window.sbmRender = function () {
   const qInp = document.getElementById('sbm-q');
   const q = (qInp?.value || '').trim().toLowerCase();
 
+  // スクロール位置を保存（innerHTML置換でリセットされるのを防ぐ）
+  const _chEl = document.getElementById('sbm-col-ch');
+  const _plEl = document.getElementById('sbm-col-pl');
+  const _chScroll = _chEl?.scrollTop ?? 0;
+  const _plScroll = _plEl?.scrollTop ?? 0;
+
   // ── Source 列 ──
   const srcCtx = _sbContextVideos('platform', f);
   let srcArr = [['youtube','YouTube'],['vimeo','Vimeo'],['gdrive','GDrive'],['x','X']]
@@ -1419,6 +1425,10 @@ window.sbmRender = function () {
   if (plEl) plEl.innerHTML = plArr.length ? plArr.map(r =>
     `<div class="sbm-row${r.sel?' on':''}" onclick="sbmToggle('playlist','${_sbmEsc(r.name).replace(/'/g,'&#39;')}')"><span>${_sbmEsc(r.name)}</span><span class="sbm-cnt">${r.cnt}本</span></div>`
   ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+
+  // スクロール位置を復元
+  if (_chEl && _chScroll) _chEl.scrollTop = _chScroll;
+  if (_plEl && _plScroll) _plEl.scrollTop = _plScroll;
 
   // ── Pills ──
   const all = [
