@@ -147,6 +147,10 @@ export function applyRemoteSettings(data) {
     try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
     window.aiSettings = aiSettings;
   }
+  if (Array.isArray(data.tagGroups) && data.tagGroups.length) {
+    _tagGroups = data.tagGroups;
+    try { localStorage.setItem('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
+  }
   applyTagVisibility();
   applyTagLabels();
   if (document.getElementById('tag-settings-list')) renderSettings();
@@ -471,6 +475,7 @@ function _loadTagGroups() {
 }
 function _saveTagGroups() {
   try { localStorage.setItem('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
+  window.saveUserSettings?.();
 }
 function _saveTagAliases() {
   try { localStorage.setItem('wk_tagAliases', JSON.stringify(_tagAliasData)); } catch(e) {}
@@ -494,6 +499,9 @@ function _getUncategorizedTags() {
   const inGroup = new Set(_tagGroups.flatMap(g => g.techNames));
   return [...allTags].filter(t => !inGroup.has(t)).sort((a, b) => a.localeCompare(b, 'ja'));
 }
+
+// ── tagGroups を外部（Firebase）から読み書きできるよう公開 ──
+window.getTagGroups = () => _tagGroups;
 
 // ── エントリーポイント ──
 function _openTagsNewModal() {

@@ -102,6 +102,7 @@ export async function saveUserSettings() {
       orgColOrder:       window.orgColOrder       || [],
       orgColVisibility:  window.orgColVisibility  || {},
       appearance:        window.getAppearanceSettings?.() || {},
+      tagGroups:         window.getTagGroups?.()  || [],
       updatedAt: new Date().toISOString()
     });
   } catch (e) { console.error('saveUserSettings:', e); }
