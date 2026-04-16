@@ -6,8 +6,7 @@
   const MAIN = [
     { k: 'state', label: '進捗' },
     { k: 'src',   label: 'プレイリスト' },
-    { k: 'tag',   label: 'タグ' },
-    { k: 'video', label: '🎬 動画' }
+    { k: 'tag',   label: 'タグ' }
   ];
 
   let _tab = 'state';
@@ -141,15 +140,6 @@
 #uni-popup .uni-ss-del{color:#c44}
 #uni-popup .uni-ss-del .uni-ss-icon{color:#c44}
 #uni-popup .uni-ss-add{font-size:10px;color:var(--accent);cursor:pointer;font-weight:700}
-/* 動画タブ */
-#uni-popup .uni-tab-video{color:#16a34a;border-color:#a7f3d0;background:#f0fdf4}
-#uni-popup .uni-tab-video.on{background:#16a34a;color:#fff;border-color:#16a34a}
-#uni-popup .uni-vid-row{padding:8px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:10px;align-items:center}
-#uni-popup .uni-vid-row:hover{background:var(--surface2)}
-#uni-popup .uni-vid-thumb{width:56px;height:36px;background:var(--surface3);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(0,0,0,.25)}
-#uni-popup .uni-vid-info{flex:1;min-width:0}
-#uni-popup .uni-vid-title{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#uni-popup .uni-vid-meta{font-size:10px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 最近みた動画 */
 #uni-popup .uni-rc-item{padding:6px 12px;cursor:pointer;border-left:3px solid transparent;font-size:11px;display:flex;align-items:center;gap:8px}
 #uni-popup .uni-rc-item:hover{background:var(--surface2)}
@@ -253,7 +243,7 @@
     const tabsEl = document.getElementById('uni-tabs');
     const bd = _badges();
     tabsEl.innerHTML = MAIN.map(m =>
-      `<div class="uni-tab${_tab===m.k?' on':''}${m.k==='video'?' uni-tab-video':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`
+      `<div class="uni-tab${_tab===m.k?' on':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`
     ).join('');
 
     const content = document.getElementById('uni-content');
@@ -470,31 +460,6 @@
       _restoreColScrolls();
     }
 
-    else if (_tab === 'video') {
-      const vids = (window.videos || []).filter(v => {
-        if (v.archived) return false;
-        if (!_q) return true;
-        return (v.title || '').toLowerCase().includes(_q)
-          || (v.channel || v.ch || '').toLowerCase().includes(_q);
-      });
-      const hint = `<div style="padding:6px 14px;font-size:11px;font-weight:600;color:#16a34a;background:#f0fdf4;border-bottom:1px solid #a7f3d0;display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block;flex-shrink:0"></span>
-        動画タイトル・チャンネル名を対象に検索しています（ライブラリ全体）
-      </div>`;
-      const rows = vids.length
-        ? vids.map(v =>
-            `<div class="uni-vid-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
-              <div class="uni-vid-thumb">▶</div>
-              <div class="uni-vid-info">
-                <div class="uni-vid-title">${_esc(v.title || '')}</div>
-                <div class="uni-vid-meta">${_esc(v.channel || v.ch || '')} · ${_esc(v.pl || '')}</div>
-              </div>
-            </div>`
-          ).join('')
-        : '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">一致する動画がありません</div>';
-      content.innerHTML = `${hint}<div style="flex:1;overflow-y:auto">${rows}</div>`;
-    }
-
     // ── Pills ──
     const pills = [];
     const _fav  = isOrg ? window.orgFavOnly  : window.favOnly;
@@ -566,24 +531,13 @@
     if (tab && MAIN.some(m => m.k === tab)) _tab = tab;
     document.getElementById('uni-bd').classList.add('open');
     document.getElementById('uni-popup').classList.add('open');
-    const inp = document.getElementById('uni-q');
-    if (inp) inp.placeholder = _tab === 'video' ? '🔍 動画タイトル・チャンネルを検索…' : '🔍 検索...';
     _render();
   };
   window.uniClose = function () {
     document.getElementById('uni-bd')?.classList.remove('open');
     document.getElementById('uni-popup')?.classList.remove('open');
   };
-  window.uniSetTab = function (t) {
-    _tab = t;
-    _q = '';
-    const inp = document.getElementById('uni-q');
-    if (inp) {
-      inp.value = '';
-      inp.placeholder = t === 'video' ? '🔍 動画タイトル・チャンネルを検索…' : '🔍 検索...';
-    }
-    _render();
-  };
+  window.uniSetTab = function (t) { _tab = t; _render(); };
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
   window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _render(); };
   window.uniToggle = function (key, val) {
