@@ -758,7 +758,7 @@ export function bulkSnapshot(){
 const BULK_PICKER_OPTS_BASE = {
   status: [{val:'watched',label:'視聴済み'},{val:'unwatched',label:'未視聴'},{val:'fav-add',label:'Fav 追加'},{val:'fav-remove',label:'Fav 解除'}],
   prio: [{val:'今すぐ',label:'今すぐ'},{val:'そのうち',label:'そのうち'},{val:'保留',label:'保留'}],
-  prog: [{val:'未着手',label:'未着手'},{val:'練習中',label:'練習中'},{val:'マスター',label:'マスター'}],
+  prog: [{val:'未着手',label:'📋 未着手'},{val:'把握',label:'📖 把握'},{val:'習得中',label:'🔄 習得中'},{val:'マスター',label:'⭐ マスター'}],
   tb:   [{val:'トップ',label:'トップ'},{val:'ボトム',label:'ボトム'},{val:'スタンディング',label:'スタンディング'}],
   cat:  [{val:'エスケープ・ディフェンス',label:'エスケープ・ディフェンス'},{val:'ガード構築・エントリー',label:'ガード構築・エントリー'},{val:'ガードリテンション',label:'ガードリテンション'},{val:'コントロール／プレッシャー',label:'コントロール／プレッシャー'},{val:'コンセプト・原理',label:'コンセプト・原理'},{val:'スイープ',label:'スイープ'},{val:'テイクダウン',label:'テイクダウン'},{val:'バックテイク・バックアタック',label:'バックテイク・バックアタック'},{val:'パスガード',label:'パスガード'},{val:'フィニッシュ',label:'フィニッシュ'}]
 };

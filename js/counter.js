@@ -88,6 +88,13 @@
     const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
     const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
     const next = v.next || false;
+    const status = v.status || '未着手';
+    const sMap = { '未着手':'s0', '把握':'s1', '習得中':'s2', 'マスター':'s3' };
+    const sLabels = ['未着手','把握','習得中','マスター'];
+    const sIcons  = { '未着手':'📋', '把握':'📖', '習得中':'🔄', 'マスター':'⭐' };
+    const statusChips = sLabels.map(s =>
+      `<span class="vp-chip${status===s?' on-'+sMap[s]:''}" onclick="vpSetStatus('${id}','${s}',this)">${sIcons[s]} ${s}</span>`
+    ).join('');
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
   <div style="display:flex;gap:14px;align-items:flex-start">
@@ -108,6 +115,10 @@
       </div>
       <div id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b style="color:${pColor}">${lastP}</b>${month>0?` · 今月 ${month}回`:''}${st>1?` · 連続 ${st}日 🔥`:''}</div>
     </div>
+  </div>
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+    <div style="${subTitle}">習得度</div>
+    <div class="vp-chips" id="vp-status-chips-${id}">${statusChips}</div>
   </div>
 </div>`;
   };
@@ -160,6 +171,24 @@
     }
     _rerender(id);
     _debouncedSave();
+  };
+
+  // ── 習得度 設定 ──
+  window.vpSetStatus = function (id, val, el) {
+    const v = _findV(id);
+    if (!v) return;
+    v.status = val;
+    const container = document.getElementById('vp-status-chips-' + id);
+    if (container) {
+      const sMap = { '未着手':'s0', '把握':'s1', '習得中':'s2', 'マスター':'s3' };
+      container.querySelectorAll('.vp-chip').forEach(c => {
+        c.className = 'vp-chip';
+        const label = c.textContent.trim().replace(/^[📋📖🔄⭐]\s*/, '');
+        if (label === val) c.classList.add('on-' + sMap[val]);
+      });
+    }
+    _debouncedSave();
+    window.toast?.(`習得度を「${val}」に設定しました`);
   };
 
   // 視聴カウント機能は廃止 (練習回数のみで管理)

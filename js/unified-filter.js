@@ -286,6 +286,14 @@
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
 
+      const STATUS_MANUAL = ['未着手','把握','習得中','マスター'];
+      const sCtx = _ctxVideos('status');
+      const statusItems = STATUS_MANUAL.map(s => ({
+        name: s, cnt: sCtx.filter(v => v.status === s).length,
+        sel: (isOrg ? window.orgFilters : window.filters)?.status?.has(s) || false,
+        key: s
+      }));
+
       const RANKS = window.RANK_DEFS || [];
       const rankCtx = _ctxVideos('prRank');
       const rankItems = RANKS.map(r => {
@@ -325,6 +333,13 @@
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('${r.key}','')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
         ).join('');
 
+        let statusArr = statusItems.slice();
+        if (_q) statusArr = statusArr.filter(r => r.name.toLowerCase().includes(_q));
+        statusArr = statusArr.filter(r => r.sel || r.cnt > 0);
+        const statusRows = statusArr.map(r =>
+          `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('status','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
+        ).join('');
+
         let rankArr = rankItems.slice();
         if (_q) rankArr = rankArr.filter(r => r.name.toLowerCase().includes(_q));
         rankArr = rankArr.filter(r => r.sel || r.cnt > 0);
@@ -343,6 +358,7 @@
           <div class="uni-col-hdr"><span>マーク・進捗・カウント</span></div>
           <div class="uni-col-body">
             ${grpLabel('マーク')}${markRows}
+            ${divider}${grpLabel('習得度（手動）')}${statusRows}
             ${divider}${grpLabel('進捗ランク (自動)')}${rankRows}
             ${divider}${grpLabel('最終カウント日')}${pdRows}
           </div>

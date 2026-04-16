@@ -457,7 +457,7 @@ export function sortVideos(list) {
       va = ord[a.prio] ?? 9;
       vb = ord[b.prio] ?? 9;
     } else if (key === 'status') {
-      const ord = { '未着手': 0, '練習中': 1, 'マスター': 2 };
+      const ord = { '未着手': 0, '把握': 1, '習得中': 2, 'マスター': 3 };
       va = ord[a.status] ?? 9;
       vb = ord[b.status] ?? 9;
     } else if (key === 'lastPlayed') {

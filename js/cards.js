@@ -87,8 +87,8 @@ export function cardHTML(v) {
               : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
   const pc    = v.prio === '今すぐ' ? 'p1' : v.prio === 'そのうち' ? 'p2' : 'p3';
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
-  const sc    = v.status === '練習中' ? 's1' : v.status === 'マスター' ? 's2' : 's0';
-  const se    = v.status === '練習中' ? '🔵' : v.status === 'マスター' ? '✅' : '📋';
+  const sc    = v.status === '把握' ? 's1' : v.status === '習得中' ? 's2' : v.status === 'マスター' ? 's3' : 's0';
+  const se    = v.status === '把握' ? '📖' : v.status === '習得中' ? '🔄' : v.status === 'マスター' ? '⭐' : '📋';
   const vid   = v.id;
   const bulkMode = window.bulkMode || false;
   const selIds   = window.selIds   || new Set();
