@@ -171,15 +171,17 @@
 @media(max-width:480px){#uni-popup .uni-save-lbl{width:100%}}
 /* uni-q フォーカス中（キーボード表示時）は保存バーを非表示 */
 #uni-popup.uni-q-focus .uni-save-bar{display:none}
-/* スクロールバー常時表示（案A） */
-#uni-popup .uni-col-body::-webkit-scrollbar{width:7px}
-#uni-popup .uni-col-body::-webkit-scrollbar-track{background:#c8c8d2}
-#uni-popup .uni-col-body::-webkit-scrollbar-thumb{background:#8888a0;border-radius:4px}
-#uni-popup .uni-col-body::-webkit-scrollbar-thumb:hover{background:#5858a0}
-#uni-popup .uni-cols::-webkit-scrollbar{height:7px}
-#uni-popup .uni-cols::-webkit-scrollbar-track{background:#c8c8d2}
-#uni-popup .uni-cols::-webkit-scrollbar-thumb{background:#8888a0;border-radius:4px}
-#uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#5858a0}
+/* スクロールバー常時表示 — style.css の ::-webkit-scrollbar{display:none} を上書き */
+#uni-popup .uni-col-body::-webkit-scrollbar{display:block;width:7px}
+#uni-popup .uni-col-body::-webkit-scrollbar-track{background:#dddde5}
+#uni-popup .uni-col-body::-webkit-scrollbar-thumb{background:#9090a8;border-radius:4px}
+#uni-popup .uni-col-body::-webkit-scrollbar-thumb:hover{background:#6060a0}
+#uni-popup .uni-cols::-webkit-scrollbar{display:block;height:7px}
+#uni-popup .uni-cols::-webkit-scrollbar-track{background:#dddde5}
+#uni-popup .uni-cols::-webkit-scrollbar-thumb{background:#9090a8;border-radius:4px}
+#uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#6060a0}
+#uni-popup .uni-col-body{scrollbar-width:thin;scrollbar-color:#9090a8 #dddde5}
+#uni-popup .uni-cols{scrollbar-width:thin;scrollbar-color:#9090a8 #dddde5}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
