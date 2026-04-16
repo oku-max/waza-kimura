@@ -509,6 +509,8 @@ function _openTagsNewModal() {
 function _renderTagsNewModal() {
   const modal = document.getElementById('tag-edit-modal');
   if (!modal) return;
+  // スクロール位置を保持
+  const _savedScroll = document.getElementById('tags-modal-body')?.scrollTop ?? 0;
   const _e = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const _js = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const t = _tagsModalTab;
@@ -554,6 +556,8 @@ function _renderTagsNewModal() {
   if (!body) return;
   if (t==='list') _renderTagsListBody(body, _e, _js);
   else _renderTagsDictBody(body, _e, _js);
+  // スクロール位置を復元
+  body.scrollTop = _savedScroll;
 }
 
 function _renderTagsListBody(body, _e, _js) {
