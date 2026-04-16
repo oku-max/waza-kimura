@@ -1462,6 +1462,12 @@ body.hide-tags .fov-row-tags { display: none !important; }
 
 /* ═══ DARK MODE OVERRIDES (CSS変数で対応できないもののみ) ═══ */
 body.dark .belt-chip.white { background:var(--surface3); color:var(--text2); border-color:var(--border); }
+/* 案4: ☆アウトライン + 選択バー黒文字 */
+body.dark .org-fav-off { color:transparent !important; -webkit-text-stroke:1.2px #777; }
+body.dark .org-fav-on  { color:#e5c47a !important; }
+body.dark .bulk-inline-count { color:#1a1a1a !important; }
+body.dark .bulk-inline .bbt  { background:rgba(0,0,0,.12) !important; color:#1a1a1a !important; border:1px solid rgba(0,0,0,.18); }
+body.dark .bulk-inline-edit  { background:rgba(0,0,0,.08) !important; color:#1a1a1a !important; }
 body.dark .settings-toggle-slider:before { background:var(--surface); }
 
 /* ═══ 管理モード — 検証ドット ═══ */

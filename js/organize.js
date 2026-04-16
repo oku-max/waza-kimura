@@ -659,7 +659,7 @@ export function renderOrg() {
       }
       if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
-      if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
+      if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" class="${v.fav?'org-fav-on':'org-fav-off'}" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
       if (col === 'next')      return `<td class="org-td" data-col="next" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogNext('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.next?'Next解除':'Nextに追加'}">${v.next?'🎯':'○'}</button></td>`;
       if (col === 'addedAt') {
         const d = v.addedAt ? new Date(v.addedAt) : null;
