@@ -150,6 +150,15 @@
 #uni-popup .uni-rc-info{flex:1;min-width:0}
 #uni-popup .uni-rc-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
 #uni-popup .uni-rc-meta{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 検索条件保存バー */
+#uni-popup .uni-save-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;flex-wrap:wrap}
+#uni-popup .uni-save-lbl{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+#uni-popup .uni-save-input{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)}
+#uni-popup .uni-save-input::placeholder{color:var(--text3)}
+#uni-popup .uni-save-input:focus{border-color:var(--accent)}
+#uni-popup .uni-save-btn{flex-shrink:0;background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+#uni-popup .uni-save-btn:hover{filter:brightness(1.1)}
+@media(max-width:480px){#uni-popup .uni-save-lbl{width:100%}}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     document.body.insertAdjacentHTML('beforeend', `
@@ -167,6 +176,12 @@
     <span class="uni-clr" onclick="uniClearAll()">クリア</span>
     <span class="uni-hit" id="uni-hit">0 件</span>
     <button class="uni-apply" onclick="uniClose()">適用</button>
+  </div>
+  <div class="uni-save-bar">
+    <span class="uni-save-lbl">この条件を保存：</span>
+    <input id="uni-save-name" class="uni-save-input" placeholder="リスト名を入力…"
+      onkeydown="if(event.key==='Enter')uniSaveFromBar()">
+    <button class="uni-save-btn" onclick="uniSaveFromBar()">💾 保存</button>
   </div>
 </div>`);
   }
@@ -616,6 +631,10 @@
   };
   window.uniSSSave = function () {
     window.saveCurrentSearch?.();
+    _render();
+  };
+  window.uniSaveFromBar = function () {
+    window.saveCurrentSearchFromInput?.('uni-save-name', _ctx === 'org');
     _render();
   };
 
