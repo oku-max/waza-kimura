@@ -633,7 +633,7 @@
   <div class="tb-row-main">
     <img id="auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;flex-shrink:0">
     <button id="auth-btn" class="topbar-btn">Googleでログイン</button>
-    <button id="yt-import-btn" onclick="openImportHub()" style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">＋ 動画を追加</button>
+    <button id="yt-import-btn" onclick="openImportHub()" style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">＋ 動画を追加</button>
   </div>
   <span id="totalCount" class="topbar-count" style="display:none"></span>
 </div>
@@ -690,7 +690,7 @@
           <option value="lastPracticed">🗓 最終練習日</option>
         </select>
         <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
-        <button onclick="clearAll()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
+        <button onclick="clearAll()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
       </div>
       <!-- 一括編集 -->
       <div id="fs-bulk-area2">
@@ -776,7 +776,7 @@
 
       <!-- リセット -->
       <div style="padding:12px">
-        <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
+        <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
       </div>
 
     </div><!-- /fs-accordion-area -->
@@ -829,7 +829,7 @@
           <option value="lastPracticed">🗓 最終練習日</option>
         </select>
         <button onclick="window.orgSortAsc=!(window.orgSortAsc!==false);this.textContent=window.orgSortAsc!==false?'↑':'↓';window.renderOrg?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
-        <button onclick="clearOrgFilters()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
+        <button onclick="clearOrgFilters()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
       </div>
       <div id="org-fs-bulk-area">
         <button id="org-fs-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
@@ -912,7 +912,7 @@
 
       <!-- リセット -->
       <div style="padding:12px">
-        <button onclick="clearOrgFilters()" style="width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
+        <button onclick="clearOrgFilters()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
       </div>
 
     </div><!-- /org-fs-accordion-area -->
@@ -942,8 +942,8 @@
       <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'flex':'none'"></div>
       <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔎 詳細</button>
     </div>
-    <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
-    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
+    <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
+    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
   <div class="results-header">
     <div class="toolbar-normal">
@@ -1141,7 +1141,7 @@
 <div class="tab-panel" id="adminTab">
   <div style="max-width:720px;margin:0 auto;padding:16px 14px 80px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">🔒 AI管理 <span style="font-size:11px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;font-weight:700">ADMIN</span></div>
+      <div style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">🔒 AI管理 <span style="font-size:11px;background:var(--accent);color:var(--on-accent);padding:2px 8px;border-radius:10px;font-weight:700">ADMIN</span></div>
     </div>
     <!-- Admin sub-tabs -->
     <div id="admin-sub-tabs" style="display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
@@ -3003,7 +3003,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div id="card-memo-title" style="font-size:13px;font-weight:700;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
     <textarea id="card-memo-ta" class="vp-memo" placeholder="ポイント、気づき、試合前に見る理由など..." style="min-height:120px;width:100%;margin-bottom:10px"></textarea>
     <div style="display:flex;gap:8px">
-      <button onclick="cardSaveMemo()" style="flex:1;padding:9px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
+      <button onclick="cardSaveMemo()" style="flex:1;padding:9px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
       <button onclick="closeOv('card-memo-ov')" style="padding:9px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;cursor:pointer">キャンセル</button>
     </div>
   </div>
@@ -3023,7 +3023,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div style="display:flex;gap:6px">
       <input id="vpPlOvNew" placeholder="プレイリスト名を入力..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
         onkeydown="if(event.key==='Enter')vpPlOvConfirmNew()">
-      <button onclick="vpPlOvConfirmNew()" style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">決定</button>
+      <button onclick="vpPlOvConfirmNew()" style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:600;cursor:pointer">決定</button>
     </div>
     <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('vpPlOv')">キャンセル</button>
   </div>
@@ -3317,7 +3317,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:12px">
       <button onclick="clearAdvSearch()" style="padding:6px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">クリア</button>
       <button onclick="saveAdvSearch()" style="padding:6px 16px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">💾 条件を保存</button>
-      <button onclick="applyAdvSearch()" style="padding:6px 18px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">検索</button>
+      <button onclick="applyAdvSearch()" style="padding:6px 18px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">検索</button>
     </div>
   </div>
 </div>
@@ -3511,7 +3511,7 @@ window.addEventListener('resize', adjustTopbarOffset);
     <div class="fsec fsec-3">
       <div class="fsec-title">タグ</div>
       <button type="button" onclick="v4OpenPopup()" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
-        <span>🏷️ タグで絞り込む <span id="fov-v4-badge" style="display:none;background:var(--accent);color:#fff;font-size:10px;padding:1px 7px;border-radius:10px;margin-left:4px">0</span></span>
+        <span>🏷️ タグで絞り込む <span id="fov-v4-badge" style="display:none;background:var(--accent);color:var(--on-accent);font-size:10px;padding:1px 7px;border-radius:10px;margin-left:4px">0</span></span>
         <span style="color:var(--text3);font-size:11px">▸</span>
       </button>
     </div>
