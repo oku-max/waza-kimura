@@ -35,17 +35,22 @@ export function buildBulkDrawerHTML() {
   const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
   const btnS = `width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit`;
   const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
+  // filterColVis
+  const _fcv      = window.filterColVis || {};
+  const _showMark   = _fcv.mark   !== false;
+  const _showStatus = _fcv.status !== false;
+  const _showRank   = _fcv.rank   !== false;
 
-  const markSec = `<div class="fsec">
-    <div style="display:flex;gap:14px;align-items:flex-start">
+  const _favNextSec = _showMark ? `
       <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
         <div style="${subTitle}">お気に入り</div>
         <span onclick="bvpToggleFav(this)" style="cursor:pointer;font-size:20px;color:${favOn?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
       </div>
-      <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+      <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border)':''}">
         <div style="${subTitle}">Next</div>
         <span onclick="bvpToggleNext(this)" style="cursor:pointer;font-size:16px;color:${nextOn?'var(--accent)':'var(--text3)'};font-weight:700" title="Next">▶</span>
-      </div>
+      </div>` : '';
+  const _cntSec = _showRank ? `
       <div style="flex:1;min-width:0">
         <div style="${subTitle}">カウンター</div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -54,9 +59,12 @@ export function buildBulkDrawerHTML() {
           <button onclick="bvpBumpCounter(1)" style="${btnP}">＋</button>
           <button onclick="bvpResetCounter()" class="chip" style="cursor:pointer;font-size:10px;color:var(--text3)">0にリセット</button>
         </div>
-      </div>
+      </div>` : '';
+  const markSec = (_favNextSec || _cntSec) ? `<div class="fsec">
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      ${_favNextSec}${_cntSec}
     </div>
-  </div>`;
+  </div>` : '';
 
   // ── 習得度 section ──
   const STATUS_LABELS = ['未着手','理解','練習中','マスター'];
@@ -189,7 +197,7 @@ export function buildBulkDrawerHTML() {
     </div>
   </div>`;
 
-  return markSec + progSec + srcSec + tagSec
+  return markSec + (_showStatus ? progSec : '') + srcSec + tagSec
   + `<div style="padding:8px 16px 4px">
       <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
