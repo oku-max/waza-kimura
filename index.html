@@ -2871,12 +2871,6 @@ window.addEventListener('resize', adjustTopbarOffset);
 
   var dragging=false, startX=0, startW=0;
 
-  // 初期化: 実際のサイドバー幅に --sbw を合わせる
-  requestAnimationFrame(function(){
-    var w = sidebar.offsetWidth;
-    if(w > 0) document.documentElement.style.setProperty('--sbw', w+'px');
-  });
-
   function startDrag(x){
     dragging=true;
     startX=x;
@@ -2889,7 +2883,6 @@ window.addEventListener('resize', adjustTopbarOffset);
     w=Math.max(SB_MIN,Math.min(SB_MAX,w));
     sidebar.style.width=w+'px';
     sidebar.style.minWidth=w+'px';
-    document.documentElement.style.setProperty('--sbw', w+'px');
     var btn=document.getElementById('sidebar-toggle-btn');
     if(btn) btn.style.left=w+'px';
   }

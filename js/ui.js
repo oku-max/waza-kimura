@@ -50,7 +50,10 @@ export function switchTab(t) {
   if (t === 'organize') {
     const ma = document.querySelector('.main-area');
     const orgTab = document.getElementById('organizeTab');
-    if (ma && orgTab) orgTab.style.left = ma.getBoundingClientRect().left + 'px';
+    if (ma && orgTab) {
+      const zoom = parseFloat(document.body.style.zoom) || 1;
+      orgTab.style.left = (ma.getBoundingClientRect().left / zoom) + 'px';
+    }
   }
   ['home','community','organize','archive','settings','admin'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
