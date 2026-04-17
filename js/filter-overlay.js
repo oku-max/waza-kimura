@@ -25,6 +25,13 @@ export function toggleSidebar() {
   const collapsed = shell.classList.toggle('sidebar-collapsed');
   btn.textContent = collapsed ? '▶' : '◀';
   btn.style.left  = collapsed ? '0' : '220px';
+  // --sbw を更新 → CSS left:var(--sbw) が organizeTab を自動追随
+  requestAnimationFrame(() => {
+    const sb  = document.getElementById('filterSidebar');
+    const res = document.getElementById('sbResizer');
+    const w   = collapsed ? 0 : ((sb?.offsetWidth || 0) + (res?.offsetWidth || 0));
+    document.documentElement.style.setProperty('--sbw', w + 'px');
+  });
 }
 
 export function syncSidebarChipStates() {

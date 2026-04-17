@@ -2871,6 +2871,11 @@ window.addEventListener('resize', adjustTopbarOffset);
 
   var dragging=false, startX=0, startW=0;
 
+  // 初期化: --sbw をサイドバー+リサイザーの実幅（offsetWidth = CSS px, zoom非依存）で設定
+  requestAnimationFrame(function(){
+    document.documentElement.style.setProperty('--sbw',(sidebar.offsetWidth+resizer.offsetWidth)+'px');
+  });
+
   function startDrag(x){
     dragging=true;
     startX=x;
@@ -2885,6 +2890,8 @@ window.addEventListener('resize', adjustTopbarOffset);
     sidebar.style.minWidth=w+'px';
     var btn=document.getElementById('sidebar-toggle-btn');
     if(btn) btn.style.left=w+'px';
+    // --sbw を更新 → CSS left:var(--sbw) が organizeTab を自動追随
+    document.documentElement.style.setProperty('--sbw',(w+resizer.offsetWidth)+'px');
   }
   function endDrag(){
     if(!dragging) return;

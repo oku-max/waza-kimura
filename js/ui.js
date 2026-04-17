@@ -48,12 +48,9 @@ export function switchTab(t) {
   if (window.openVPanelId) window.closeVPanel?.();
   if (document.getElementById('vp-panel')?.classList.contains('show')) window.closePanel?.();
   if (t === 'organize') {
-    const ma = document.querySelector('.main-area');
+    // style.left は設定しない — CSS の left:var(--sbw) で完結させる
     const orgTab = document.getElementById('organizeTab');
-    if (ma && orgTab) {
-      const zoom = parseFloat(document.body.style.zoom) || 1;
-      orgTab.style.left = (ma.getBoundingClientRect().left / zoom) + 'px';
-    }
+    if (orgTab) orgTab.style.left = '';  // 古い inline style があれば除去
   }
   ['home','community','organize','archive','settings','admin'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
