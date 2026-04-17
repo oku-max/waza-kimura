@@ -103,10 +103,11 @@ export function cardHTML(v) {
   const aiBar = v.ai ? `<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>` : '';
   // 🆕 4層タグバッジ (新スキーマ: tb/cat/pos/tags)
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const newTb   = Array.isArray(v.tb)   ? v.tb.filter(t => t==='トップ'||t==='ボトム'||t==='スタンディング') : [];
-  const newCat  = Array.isArray(v.cat)  ? v.cat  : [];
-  const newPos  = Array.isArray(v.pos)  ? v.pos  : [];
-  const newTags = Array.isArray(v.tags) ? v.tags : [];
+  const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
+  const newTb   = _tsV('tb')   && Array.isArray(v.tb)   ? v.tb.filter(t => t==='トップ'||t==='ボトム'||t==='スタンディング') : [];
+  const newCat  = _tsV('cat')  && Array.isArray(v.cat)  ? v.cat  : [];
+  const newPos  = _tsV('pos')  && Array.isArray(v.pos)  ? v.pos  : [];
+  const newTags = _tsV('tags') && Array.isArray(v.tags) ? v.tags : [];
   const lockIco = v.tbLocked ? '🔒' : '';
   const v4badges = (newTb.length || newCat.length || newPos.length || newTags.length) ? `
     <div class="v4-badges" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 4px;font-size:10px;border-top:1px solid var(--border)">
