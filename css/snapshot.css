@@ -340,11 +340,11 @@
 }
 
 .lb-nav.prev {
-  left: 8px;
+  left: -48px;
 }
 
 .lb-nav.next {
-  right: 8px;
+  right: -48px;
 }
 
 .lb-bottom {
