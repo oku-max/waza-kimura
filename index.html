@@ -3619,9 +3619,11 @@ window.addEventListener('resize', adjustTopbarOffset);
 <div class="lightbox" id="snap-lightbox">
   <button class="lb-close" id="snap-lb-close">&times;</button>
   <span class="lb-counter" id="snap-lb-counter"></span>
-  <button class="lb-nav prev" id="snap-lb-prev">&#8249;</button>
-  <button class="lb-nav next" id="snap-lb-next">&#8250;</button>
-  <div class="lb-img-wrap"><img id="snap-lb-img" src="" alt=""></div>
+  <div class="lb-img-wrap">
+    <button class="lb-nav prev" id="snap-lb-prev">&#8249;</button>
+    <img id="snap-lb-img" src="" alt="">
+    <button class="lb-nav next" id="snap-lb-next">&#8250;</button>
+  </div>
   <div class="lb-bottom">
     <input class="lb-memo" id="snap-lb-memo" placeholder="この画像のメモ...">
     <button class="lb-edit-btn" id="snap-lb-edit">&#9998; 編集</button>
