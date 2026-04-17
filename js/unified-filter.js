@@ -263,7 +263,10 @@
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const tabsEl = document.getElementById('uni-tabs');
     const bd = _badges();
-    tabsEl.innerHTML = MAIN.map(m =>
+    const _tsTabVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
+    const _tagTabVisible = _tsTabVis('tb') || _tsTabVis('cat') || _tsTabVis('pos') || _tsTabVis('tags');
+    const _visibleMain = MAIN.filter(m => m.k !== 'tag' || _tagTabVisible);
+    tabsEl.innerHTML = _visibleMain.map(m =>
       `<div class="uni-tab${_tab===m.k?' on':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`
     ).join('');
 
@@ -527,12 +530,14 @@
         name:n, cnt: tagsCtx.filter(v => (v.tags||[]).includes(n)).length, sel: !!f[tkTags]?.has(n)
       }));
 
-      content.innerHTML = `<div class="uni-cols">
-        ${_colHtml('T/B', 'tb', tbItems, { filterKey: tkTb })}
-        ${_colHtml(catLabel, 'cat', catItems, { filterKey: tkCat })}
-        ${_colHtml(posLabel, 'pos', posItems, { filterKey: tkPos })}
-        ${_colHtml(tagsLabel, 'tags', tagItems, { filterKey: tkTags })}
-      </div>`;
+      const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
+      const tagCols = [
+        _tsV('tb')   && _colHtml('T/B',      'tb',   tbItems,  { filterKey: tkTb }),
+        _tsV('cat')  && _colHtml(catLabel,   'cat',  catItems, { filterKey: tkCat }),
+        _tsV('pos')  && _colHtml(posLabel,   'pos',  posItems, { filterKey: tkPos }),
+        _tsV('tags') && _colHtml(tagsLabel,  'tags', tagItems, { filterKey: tkTags }),
+      ].filter(Boolean).join('');
+      content.innerHTML = `<div class="uni-cols">${tagCols}</div>`;
       _restoreColScrolls();
     }
 

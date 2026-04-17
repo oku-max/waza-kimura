@@ -177,25 +177,19 @@ export function buildBulkDrawerHTML() {
     <div class="vp-dd" id="bvp-tag-sug" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50;border-radius:8px"></div>
   </div>`;
 
-  const tagSec = `<div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
+  const _tsVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
+  const _showTb   = _tsVis('tb');
+  const _showCat  = _tsVis('cat');
+  const _showPos  = _tsVis('pos');
+  const _showTagsF = _tsVis('tags');
+  const _tbRowEl   = _showTb   ? `<div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips">${tbRow}</div></div>` : '';
+  const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリー</span><div class="vp-chips">${catRow}</div></div>` : '';
+  const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
+  const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl">#タグ</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
+  const tagSec = (_showTb || _showCat || _showPos || _showTagsF) ? `<div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
     <div class="fsec-title" style="color:var(--accent)">タグ</div>
-    <div class="vp-row">
-      <span class="vp-lbl">トップ/ボトム/スタンディング</span>
-      <div class="vp-chips">${tbRow}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">カテゴリー</span>
-      <div class="vp-chips">${catRow}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">ポジション</span>
-      <div class="vp-chips">${posChips}${posPicker}</div>
-    </div>
-    <div class="vp-row">
-      <span class="vp-lbl">#タグ</span>
-      <div class="vp-chips">${tagChips}${tagInput}</div>
-    </div>
-  </div>`;
+    ${_tbRowEl}${_catRowEl}${_posRowEl}${_tagsRowEl}
+  </div>` : '';
 
   return markSec + (_showStatus ? progSec : '') + srcSec + tagSec
   + `<div style="padding:8px 16px 4px">

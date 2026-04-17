@@ -8,6 +8,7 @@
 
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function _findV(id) { return (window.videos || []).find(v => v.id === id); }
+  function _tagVis(key) { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; }
 
   // ── HTML ビルダー (vpanel.js から呼ばれる) ──
   window.vpV4SectionHTML = function (id) {
@@ -58,29 +59,19 @@
       <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50;border-radius:8px"></div>
     </div>`;
 
+    const showTb   = _tagVis('tb');
+    const showCat  = _tagVis('cat');
+    const showPos  = _tagVis('pos');
+    const showTags = _tagVis('tags');
+    if (!showTb && !showCat && !showPos && !showTags) return '';
+    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
+    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリー</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
+    const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
+    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">#タグ</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
     return `
     <div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
       <div class="fsec-title" style="color:var(--accent)">タグ</div>
-
-      <div class="vp-row">
-        <span class="vp-lbl">トップ/ボトム/スタンディング</span>
-        <div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div>
-      </div>
-
-      <div class="vp-row">
-        <span class="vp-lbl">カテゴリー</span>
-        <div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div>
-      </div>
-
-      <div class="vp-row">
-        <span class="vp-lbl">ポジション</span>
-        <div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div>
-      </div>
-
-      <div class="vp-row">
-        <span class="vp-lbl">#タグ</span>
-        <div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div>
-      </div>
+      ${tbRowHtml}${catRowHtml}${posRowHtml}${tagsRowHtml}
     </div>`;
   };
 

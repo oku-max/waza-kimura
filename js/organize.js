@@ -621,10 +621,15 @@ export function renderOrg() {
 
   // ── 行HTML生成関数 ──
   const _fcv = window.filterColVis || {};
+  const _tsVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvFilter = col => {
     if (_fcv.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv.status === false && col === 'status') return false;
     if (_fcv.rank   === false && col === 'counter') return false;
+    if (col === 'tb'        && !_tsVis('tb'))   return false;
+    if (col === 'action'    && !_tsVis('cat'))  return false;
+    if (col === 'position'  && !_tsVis('pos'))  return false;
+    if (col === 'technique' && !_tsVis('tags')) return false;
     return true;
   };
   const visCols = orgColOrder.filter(col => orgColVisibility[col] !== false && _fcvFilter(col));
@@ -744,10 +749,15 @@ export function syncOrgColHeaders() {
   if (!thead) return;
   [...thead.querySelectorAll('th[data-col]')].forEach(el => el.remove());
   const _fcv2 = window.filterColVis || {};
+  const _tsVis2 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvFilter2 = col => {
     if (_fcv2.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv2.status === false && col === 'status') return false;
     if (_fcv2.rank   === false && col === 'counter') return false;
+    if (col === 'tb'        && !_tsVis2('tb'))   return false;
+    if (col === 'action'    && !_tsVis2('cat'))  return false;
+    if (col === 'position'  && !_tsVis2('pos'))  return false;
+    if (col === 'technique' && !_tsVis2('tags')) return false;
     return true;
   };
   orgColOrder.filter(col => orgColVisibility[col] !== false && _fcvFilter2(col)).forEach(col => {
@@ -1044,10 +1054,15 @@ export function toggleOrgColMenu() {
   menu.style.left = r.left + 'px';
   menu.style.top = (r.bottom + 4) + 'px';
   const _fcv3 = window.filterColVis || {};
+  const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvVisible = col => {
     if (_fcv3.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv3.status === false && col === 'status') return false;
     if (_fcv3.rank   === false && col === 'counter') return false;
+    if (col === 'tb'        && !_tsVis3('tb'))   return false;
+    if (col === 'action'    && !_tsVis3('cat'))  return false;
+    if (col === 'position'  && !_tsVis3('pos'))  return false;
+    if (col === 'technique' && !_tsVis3('tags')) return false;
     return true;
   };
   const _visibleOrgCols = orgColOrder.filter(_fcvVisible);
