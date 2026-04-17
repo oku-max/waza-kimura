@@ -1429,7 +1429,7 @@ function _openTagPicker(v, cfg, col, td) {
       listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">選択肢なし</div>';
       return;
     }
-    filtered.forEach(opt => {
+    const _appendOpt = (opt) => {
       const lbl = document.createElement('label');
       lbl.className = 'org-inline-opt';
       const cb = document.createElement('input');
@@ -1452,7 +1452,32 @@ function _openTagPicker(v, cfg, col, td) {
       lbl.appendChild(cb);
       lbl.appendChild(sp);
       listEl.appendChild(lbl);
-    });
+    };
+    if (!ql && cfg.field === 'tags') {
+      // グループ別表示 (案B)
+      const _groups = window.getTagGroups ? window.getTagGroups() : [];
+      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
+      _groups.forEach(g => {
+        const members = filtered.filter(o => (g.techNames || []).includes(o));
+        if (!members.length) return;
+        const hdr = document.createElement('div');
+        hdr.className = 'tag-grp-hdr';
+        hdr.textContent = g.name;
+        listEl.appendChild(hdr);
+        members.forEach(_appendOpt);
+      });
+      const unc = filtered.filter(o => !_inGrp.has(o));
+      if (unc.length) {
+        const hdr = document.createElement('div');
+        hdr.className = 'tag-grp-hdr';
+        hdr.style.fontStyle = 'italic';
+        hdr.textContent = '未グループ';
+        listEl.appendChild(hdr);
+        unc.forEach(_appendOpt);
+      }
+    } else {
+      filtered.forEach(_appendOpt);
+    }
     // 新規追加ボタン（technique + 検索テキストが既存にない場合）
     if (cfg.allowNew && ql && !fullOpts.some(o => o.toLowerCase() === ql)) {
       const addBtn = document.createElement('div');

@@ -1487,3 +1487,7 @@ body.dark .settings-toggle-slider:before { background:var(--surface); }
 body.admin-mode .verify-dot{display:block;}
 .verify-dot-ctrl{display:none !important;}
 body.admin-mode .verify-dot-ctrl{display:flex !important;}
+
+/* ── タググループ区切り行 (案B: VPanel / 一括編集 / オーガナイズ / フィルターオーバービュー) ── */
+.tag-grp-hdr{padding:5px 12px 3px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);background:var(--surface2);border-top:1px solid var(--border2);pointer-events:none;user-select:none;}
+.tag-grp-hdr:first-child{border-top:none}

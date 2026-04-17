@@ -14,7 +14,7 @@
   let _q = '';
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
-  const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
+  const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -219,21 +219,42 @@
     if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
     // ゼロ件は非表示。選択中は残す
     arr = arr.filter(r => r.sel || r.cnt > 0);
-    if (opts.sortable !== false) {
-      const sortMode = _sort[listKey] || 'abc';
+    const sortMode = (opts.sortable !== false) ? (_sort[listKey] || 'abc') : null;
+
+    const _mkRow = r =>
+      `<div class="uni-row${r.sel ? ' on' : ''}" onclick="uniToggle('${opts.filterKey}','${_esc(r.name).replace(/'/g,'&#39;')}')">` +
+      `<span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`;
+
+    let rows;
+    if (sortMode === 'grp') {
+      // グループ別表示 (案B)
+      const _groups = window.getTagGroups ? window.getTagGroups() : [];
+      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
+      const parts   = [];
+      _groups.forEach(g => {
+        const members = arr.filter(r => (g.techNames || []).includes(r.name));
+        if (!members.length) return;
+        parts.push(`<div class="tag-grp-hdr" style="border-left:3px solid transparent">${_esc(g.name)}</div>`);
+        members.forEach(r => parts.push(_mkRow(r)));
+      });
+      const unc = arr.filter(r => !_inGrp.has(r.name));
+      if (unc.length) {
+        parts.push(`<div class="tag-grp-hdr" style="border-left:3px solid transparent;font-style:italic">${_esc('未グループ')}</div>`);
+        unc.forEach(r => parts.push(_mkRow(r)));
+      }
+      rows = parts.length ? parts.join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+    } else {
       if (sortMode === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
-      else                     arr.sort((a,b) => b.cnt - a.cnt);
+      else if (sortMode === 'cnt') arr.sort((a,b) => b.cnt - a.cnt);
+      rows = arr.length ? arr.map(_mkRow).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
     }
-    const rows = arr.length ? arr.map(r =>
-      `<div class="uni-row${r.sel ? ' on' : ''}" onclick="uniToggle('${opts.filterKey}','${_esc(r.name).replace(/'/g,'&#39;')}')">
-        <span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span>
-      </div>`
-    ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
+
     const sortSel = opts.sortable === false ? '' :
-      `<select onchange="uniSetSort('${listKey}',this.value)">
-        <option value="abc"${(_sort[listKey]||'abc')==='abc'?' selected':''}>あいうえ順</option>
-        <option value="cnt"${(_sort[listKey]||'abc')==='cnt'?' selected':''}>件数順</option>
-      </select>`;
+      `<select onchange="uniSetSort('${listKey}',this.value)">` +
+      (listKey === 'tags' ? `<option value="grp"${sortMode==='grp'?' selected':''}>グループ別</option>` : '') +
+      `<option value="abc"${sortMode==='abc'?' selected':''}>あいうえ順</option>` +
+      `<option value="cnt"${sortMode==='cnt'?' selected':''}>件数順</option>` +
+      `</select>`;
     return `<div class="uni-col${opts.narrow ? ' narrow' : ''}">
       <div class="uni-col-hdr"><span>${title}</span>${sortSel}</div>
       <div class="uni-col-body">${rows}</div>

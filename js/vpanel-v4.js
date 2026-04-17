@@ -140,9 +140,29 @@
     const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
     if (!filtered.length) { sug.style.display = 'none'; return; }
     sug.style.display = 'block';
-    sug.innerHTML = filtered.map(t =>
-      `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px;border-radius:4px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`
-    ).join('');
+    const _mkItem = t =>
+      `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;
+    if (q) {
+      // 検索中: フラット表示（既存動作）
+      sug.innerHTML = filtered.map(_mkItem).join('');
+    } else {
+      // 未検索: グループ別表示 (案B)
+      const _groups = window.getTagGroups ? window.getTagGroups() : [];
+      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
+      const parts   = [];
+      _groups.forEach(g => {
+        const members = filtered.filter(t => (g.techNames || []).includes(t));
+        if (!members.length) return;
+        parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
+        members.forEach(t => parts.push(_mkItem(t)));
+      });
+      const unc = filtered.filter(t => !_inGrp.has(t));
+      if (unc.length) {
+        parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
+        unc.forEach(t => parts.push(_mkItem(t)));
+      }
+      sug.innerHTML = parts.length ? parts.join('') : '';
+    }
   };
   window.vpV4TagPick = function (id, val) {
     const v = _findV(id); if (!v) return;
