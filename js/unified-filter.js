@@ -353,13 +353,28 @@
           `<div class="uni-row${r.sel?' on':''}" onclick="uniToggle('@prD','${r.key}')"><span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`
         ).join('');
 
+        const colVis    = window.filterColVis || {};
+        const showMark   = colVis.mark   !== false;
+        const showStatus = colVis.status !== false;
+        const showRank   = colVis.rank   !== false;
+
+        const sections = [];
+        if (showMark)   sections.push(`${grpLabel('マーク')}${markRows}`);
+        if (showStatus) sections.push(`${grpLabel('習得度（手動）')}${statusRows}`);
+        if (showRank) {
+          sections.push(`${grpLabel('カウント（自動）')}${rankRows}`);
+          sections.push(`${grpLabel('最終カウント日')}${pdRows}`);
+        } else {
+          sections.push(`${grpLabel('最終カウント日')}${pdRows}`);
+        }
+
+        const hdrParts = [showMark&&'マーク', showStatus&&'習得', showRank&&'カウント'].filter(Boolean);
+        const colHdr   = hdrParts.length ? hdrParts.join('・') : '最終カウント日';
+
         return `<div class="uni-col">
-          <div class="uni-col-hdr"><span>マーク・習得・カウント</span></div>
+          <div class="uni-col-hdr"><span>${colHdr}</span></div>
           <div class="uni-col-body">
-            ${grpLabel('マーク')}${markRows}
-            ${divider}${grpLabel('習得度（手動）')}${statusRows}
-            ${divider}${grpLabel('カウント（自動）')}${rankRows}
-            ${divider}${grpLabel('最終カウント日')}${pdRows}
+            ${sections.join(divider)}
           </div>
         </div>`;
       };

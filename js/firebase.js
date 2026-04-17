@@ -106,6 +106,7 @@ export async function saveUserSettings() {
       filterPresets:     window.filterPresets     || [],
       orgColOrder:       window.orgColOrder       || [],
       orgColVisibility:  window.orgColVisibility  || {},
+      filterColVis:      window.filterColVis      || {},
       // appearance はデバイスごと（localStorage管理）のため Firebase に保存しない
       tagGroups:         window.getTagGroups?.()  || [],
       updatedAt: new Date().toISOString()

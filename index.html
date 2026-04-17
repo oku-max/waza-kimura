@@ -47,7 +47,8 @@
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
     renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
-    toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance
+    toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance,
+    filterColVis, saveFilterColVis
   } from './js/settings.js';
   import {
     togF, togPlat, togFav, togNext, togUnw, togWatched, togBm, togMemo, togImg, clearAll,
@@ -187,6 +188,8 @@
   window.adjustFontScale         = adjustFontScale;
   window.getAppearanceSettings   = getAppearanceSettings;
   window.applyRemoteAppearance   = applyRemoteAppearance;
+  window.filterColVis            = filterColVis;
+  window.saveFilterColVis        = saveFilterColVis;
   applyTagVisibility();
   applyTagLabels();
   // filter
@@ -1069,6 +1072,10 @@
     <div id="tag-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)closeTagEditModal()">
       <div id="tag-edit-modal" style="background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.15)"></div>
     </div>
+
+    <!-- ═══ フィルター設定 ═══ -->
+    <div id="sec-filter" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">フィルター設定</div>
+    <div id="filter-col-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
 
     <!-- ═══ AI取込設定 ═══ -->
     <div id="sec-ai" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">AI取込設定</div>

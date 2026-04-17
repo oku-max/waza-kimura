@@ -151,6 +151,12 @@ export function applyRemoteSettings(data) {
     _tagGroups = data.tagGroups;
     try { localStorage.setItem('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
   }
+  if (data.filterColVis && typeof data.filterColVis === 'object') {
+    Object.assign(filterColVis, data.filterColVis);
+    try { localStorage.setItem('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
+    window.filterColVis = filterColVis;
+    _renderFilterColSettings();
+  }
   applyTagVisibility();
   applyTagLabels();
   if (document.getElementById('tag-settings-list')) renderSettings();
@@ -177,6 +183,7 @@ export function renderSettings() {
   // #Tag の presets が空なら動画データから自動収集
   _syncTagPresetsFromVideos();
   _renderTagDisplaySettings();
+  _renderFilterColSettings();
   _renderAiImportSettings();
 }
 
@@ -2504,3 +2511,40 @@ export function applyRemoteAppearance(data) {
 
 // 初期読み込み
 loadAppearanceSettings();
+
+// ══ フィルターカラム表示設定 ══
+export let filterColVis = { mark: true, status: true, rank: true };
+(function _loadFilterColVis() {
+  try {
+    const s = localStorage.getItem('wk_filterColVis');
+    if (s) Object.assign(filterColVis, JSON.parse(s));
+  } catch(e) {}
+  window.filterColVis = filterColVis;
+})();
+
+export function saveFilterColVis() {
+  try { localStorage.setItem('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
+  window.filterColVis = filterColVis;
+  window.saveUserSettings?.();
+}
+
+function _renderFilterColSettings() {
+  const el = document.getElementById('filter-col-settings'); if (!el) return;
+  const items = [
+    { key: 'mark',   label: 'マーク',   desc: 'お気に入り・ブックマーク・Next など' },
+    { key: 'status', label: '習得',     desc: '習得度（手動設定: 未着手 / 理解 / 練習中 / マスター）' },
+    { key: 'rank',   label: 'カウント', desc: '練習回数・最終カウント日' },
+  ];
+  el.innerHTML = items.map(item => `
+    <div style="display:flex;align-items:center;gap:12px">
+      <label class="settings-toggle">
+        <input type="checkbox" ${filterColVis[item.key]!==false?'checked':''}
+          onchange="filterColVis['${item.key}']=this.checked;saveFilterColVis()">
+        <span class="settings-toggle-slider"></span>
+      </label>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600">${item.label}</div>
+        <div style="font-size:10px;color:var(--text3)">${item.desc}</div>
+      </div>
+    </div>`).join('');
+}
