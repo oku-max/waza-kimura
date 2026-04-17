@@ -2872,9 +2872,11 @@ window.addEventListener('resize', adjustTopbarOffset);
   var dragging=false, startX=0, startW=0;
 
   // 初期化: --sbw をサイドバー+リサイザーの実幅（offsetWidth = CSS px, zoom非依存）で設定
-  requestAnimationFrame(function(){
-    document.documentElement.style.setProperty('--sbw',(sidebar.offsetWidth+resizer.offsetWidth)+'px');
-  });
+  // rAF はバックグラウンドタブで止まるため同期で実行
+  (function initSbw(){
+    var w=sidebar.offsetWidth+resizer.offsetWidth;
+    if(w>0) document.documentElement.style.setProperty('--sbw',w+'px');
+  })();
 
   function startDrag(x){
     dragging=true;
