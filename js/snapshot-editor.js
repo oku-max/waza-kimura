@@ -67,6 +67,8 @@ let swipeStartX = 0;
 
 // Track whether event listeners have been bound
 let globalListenersBound = false;
+let lbListenersBound = false;
+let editorListenersBound = false;
 
 // ════════════════════════════════════════════════════════════════
 // ── DOM Element Helpers (lazy-cached)
@@ -1473,6 +1475,8 @@ async function saveAnnotationEditor() {
 // ════════════════════════════════════════════════════════════════
 
 function bindEditorEvents() {
+  if (editorListenersBound) return;
+  editorListenersBound = true;
   // Canvas pointer events
   const canvas = getAnnCanvas();
   if (canvas) {
@@ -1730,6 +1734,8 @@ function bindEditorEvents() {
 // ════════════════════════════════════════════════════════════════
 
 function bindLightboxEvents() {
+  if (lbListenersBound) return;
+  lbListenersBound = true;
   const lb = getLightbox();
   if (!lb) return;
 
