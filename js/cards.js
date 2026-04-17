@@ -89,7 +89,9 @@ export function cardHTML(v) {
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
   const _st   = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手';
   const sc    = _st === '理解' ? 's1' : _st === '練習中' ? 's2' : _st === 'マスター' ? 's3' : 's0';
-  const se    = _st;
+  const _sNum = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
+  const _sIco = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
+  const se    = (_sNum[_st]||'') + (_sIco[_st]||'') + ' ' + _st;
   const vid   = v.id;
   const bulkMode = window.bulkMode || false;
   const selIds   = window.selIds   || new Set();

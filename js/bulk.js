@@ -63,10 +63,12 @@ export function buildBulkDrawerHTML() {
   const STATUS_MAP    = {'未着手':'s0','理解':'s1','練習中':'s2','マスター':'s3'};
   const _normSt = s => s==='把握'?'理解':s==='習得中'?'練習中':s||'未着手';
   const commonStatus  = selVids.length && selVids.every(v=>_normSt(v.status)===_normSt(selVids[0]?.status)) ? _normSt(selVids[0]?.status) : null;
+  const STATUS_NUM  = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
+  const STATUS_ICONS2 = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
   const progChips = STATUS_LABELS.map(s => {
     const on = s === commonStatus;
     const sc = STATUS_MAP[s];
-    return `<span class="vp-chip${on?' on-'+sc:''}" style="cursor:pointer" onclick="bvpSet('status','${s}',this)">${s}</span>`;
+    return `<span class="vp-chip${on?' on-'+sc:''}" style="cursor:pointer" onclick="bvpSet('status','${s}',this)">${STATUS_NUM[s]}${STATUS_ICONS2[s]} ${s}</span>`;
   }).join('');
   const progSec = `<div class="fsec">
     <div class="fsec-title">習得度</div>

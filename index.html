@@ -1214,10 +1214,10 @@
     <div class="bgrp">
       <span class="bgrp-lbl">Progress</span>
       <div class="bgrp-row" id="bb-prog-row">
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="未着手"   onclick="bulkChipSingle('prog','未着手'  ,this)">未着手</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="理解"     onclick="bulkChipSingle('prog','理解'    ,this)">理解</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="練習中"   onclick="bulkChipSingle('prog','練習中'  ,this)">練習中</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="マスター" onclick="bulkChipSingle('prog','マスター',this)">マスター</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="未着手"   onclick="bulkChipSingle('prog','未着手'  ,this)">1.📋 未着手</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="理解"     onclick="bulkChipSingle('prog','理解'    ,this)">2.📖 理解</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="練習中"   onclick="bulkChipSingle('prog','練習中'  ,this)">3.🔄 練習中</button>
+        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="マスター" onclick="bulkChipSingle('prog','マスター',this)">4.⭐ マスター</button>
       </div>
     </div>
     <div class="bsep"></div>
@@ -2749,10 +2749,10 @@ function cardCyclePrio(id, el) {
 }
 function cardCycleProg(id, el) {
   cardShowPicker(id, el, 'status', [
-    {val:'未着手',  label:'未着手'},
-    {val:'理解',    label:'理解'},
-    {val:'練習中',  label:'練習中'},
-    {val:'マスター', label:'マスター'}
+    {val:'未着手',  label:'1.📋 未着手'},
+    {val:'理解',    label:'2.📖 理解'},
+    {val:'練習中',  label:'3.🔄 練習中'},
+    {val:'マスター', label:'4.⭐ マスター'}
   ]);
 }
 function cardShowPicker(id, el, field, opts) {

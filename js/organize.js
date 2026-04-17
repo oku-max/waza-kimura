@@ -649,11 +649,7 @@ export function renderOrg() {
       if (col === 'technique') return mkTagCell(v.tags||[], 'tags', 'technique');
       if (col === 'status') {
         const sN = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手';
-        const sStyle = sN==='理解' ? 'background:rgba(47,158,68,.12);color:#2f9e44;border:1px solid rgba(47,158,68,.3)'
-                     : sN==='練習中' ? 'background:rgba(25,113,194,.12);color:#1971c2;border:1px solid rgba(25,113,194,.3)'
-                     : sN==='マスター' ? 'background:rgba(107,63,212,.12);color:#6b3fd4;border:1px solid rgba(107,63,212,.3)'
-                     : 'background:var(--surface2);color:var(--text2);border:1px solid var(--border)';
-        return `<td class="org-td" data-col="status" style="white-space:nowrap"><span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;${sStyle}">${sN}</span></td>`;
+        return `<td class="org-td" data-col="status" style="white-space:nowrap">${_statusSpan(sN)}</td>`;
       }
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
       if (col === 'counter') {
@@ -1259,14 +1255,27 @@ function _openOrgInlineEditor(videoId, col, td) {
   }
 }
 
+function _statusLabel(s) {
+  const num = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
+  const ico = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
+  return (num[s]||'') + (ico[s]||'') + ' ' + (s||'未着手');
+}
+function _statusStyle(s) {
+  if (s==='理解')   return 'background:rgba(47,158,68,.12);color:#2f9e44;border:1px solid rgba(47,158,68,.3)';
+  if (s==='練習中')  return 'background:rgba(25,113,194,.12);color:#1971c2;border:1px solid rgba(25,113,194,.3)';
+  if (s==='マスター') return 'background:rgba(107,63,212,.12);color:#6b3fd4;border:1px solid rgba(107,63,212,.3)';
+  return 'background:var(--surface2);color:var(--text2);border:1px solid var(--border)';
+}
+function _statusSpan(s) {
+  return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;white-space:nowrap;${_statusStyle(s)}">${_statusLabel(s)}</span>`;
+}
+
 function _openRadioPicker(v, cfg, col, td) {
   const field = cfg.field;
   const opts = cfg.opts();
-  const sCls   = {'未着手':'s0','理解':'s1','練習中':'s2','マスター':'s3'};
 
   const picker = document.createElement('div');
   picker.className = 'org-inline-picker';
-  picker.style.cssText += 'min-width:120px;padding:4px;';
   document.body.appendChild(picker);
 
   const rect = td.getBoundingClientRect();
@@ -1280,36 +1289,34 @@ function _openRadioPicker(v, cfg, col, td) {
 
   _orgInlineActive.picker = picker;
 
+  const normV = v[field]==='把握'?'理解':v[field]==='習得中'?'練習中':v[field]||'未着手';
   opts.forEach(opt => {
     const btn = document.createElement('button');
-    const isCurrent = (v[field] || '未着手') === opt;
-    btn.className = 'chip ' + sCls[opt] + (isCurrent ? ' active' : '');
-    btn.style.cssText = 'display:block;width:100%;margin:2px 0;text-align:left;cursor:pointer;font-size:11px;padding:5px 8px;font-weight:700;font-family:inherit';
-    btn.textContent = opt;
+    btn.style.cssText = 'display:block;width:100%;margin:2px 0;text-align:left;cursor:pointer;font-size:11px;padding:6px 10px;font-weight:700;font-family:inherit;border:none;border-radius:6px;background:' + (normV===opt ? 'var(--surface3)' : 'transparent');
+    btn.textContent = _statusLabel(opt);
+    btn.addEventListener('mousedown', e => e.stopPropagation());
     btn.addEventListener('click', e => {
       e.stopPropagation();
       v[field] = opt;
-      // セル再描画
-      const _sStyle = opt==='理解' ? 'background:rgba(47,158,68,.12);color:#2f9e44;border:1px solid rgba(47,158,68,.3)'
-                    : opt==='練習中' ? 'background:rgba(25,113,194,.12);color:#1971c2;border:1px solid rgba(25,113,194,.3)'
-                    : opt==='マスター' ? 'background:rgba(107,63,212,.12);color:#6b3fd4;border:1px solid rgba(107,63,212,.3)'
-                    : 'background:var(--surface2);color:var(--text2);border:1px solid var(--border)';
-      td.innerHTML = `<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;${_sStyle}">${opt}</span>`;
+      td.innerHTML = _statusSpan(opt);
       _inlineSave(v, td, col);
       _closeOrgInlineEditor(false);
     });
     picker.appendChild(btn);
   });
 
-  // 外側クリックで閉じる
-  const outsideHandler = e => {
-    if (!picker.contains(e.target) && e.target !== td) _closeOrgInlineEditor(false);
-  };
-  _orgInlineActive._outsideHandler = outsideHandler;
+  // 外側クリックで閉じる（tag pickerと同じ50ms遅延パターン）
   setTimeout(() => {
-    document.addEventListener('mousedown', outsideHandler);
-    document.addEventListener('touchstart', outsideHandler, { passive: true });
-  }, 0);
+    const handler = e => {
+      if (picker.contains(e.target)) return;
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+      _closeOrgInlineEditor(false);
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler, { passive: true });
+    _orgInlineActive._outsideHandler = handler;
+  }, 50);
 }
 
 function _openTagPicker(v, cfg, col, td) {
@@ -1537,11 +1544,7 @@ function _closeOrgInlineEditor(save) {
     const v = (window.videos || []).find(x => x.id === videoId);
     if (v) {
       const sN = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手';
-      const _sStyle = sN==='理解' ? 'background:rgba(47,158,68,.12);color:#2f9e44;border:1px solid rgba(47,158,68,.3)'
-                    : sN==='練習中' ? 'background:rgba(25,113,194,.12);color:#1971c2;border:1px solid rgba(25,113,194,.3)'
-                    : sN==='マスター' ? 'background:rgba(107,63,212,.12);color:#6b3fd4;border:1px solid rgba(107,63,212,.3)'
-                    : 'background:var(--surface2);color:var(--text2);border:1px solid var(--border)';
-      td.innerHTML = `<span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;${_sStyle}">${sN}</span>`;
+      td.innerHTML = _statusSpan(sN);
     }
   }
 
