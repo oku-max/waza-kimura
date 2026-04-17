@@ -620,7 +620,14 @@ export function renderOrg() {
   if (!tbody) return;
 
   // ── 行HTML生成関数 ──
-  const visCols = orgColOrder.filter(col => orgColVisibility[col] !== false);
+  const _fcv = window.filterColVis || {};
+  const _fcvFilter = col => {
+    if (_fcv.mark   === false && (col === 'fav' || col === 'next')) return false;
+    if (_fcv.status === false && col === 'status') return false;
+    if (_fcv.rank   === false && col === 'counter') return false;
+    return true;
+  };
+  const visCols = orgColOrder.filter(col => orgColVisibility[col] !== false && _fcvFilter(col));
   function _buildRowHTML(v) {
     const _ytId = v.ytId || (v.id||'').replace(/^yt-/,'');
     const _vmId = (v.id||'').replace(/^vm-/,'');
@@ -736,7 +743,14 @@ export function syncOrgColHeaders() {
   const thead = document.querySelector('.org-table thead tr');
   if (!thead) return;
   [...thead.querySelectorAll('th[data-col]')].forEach(el => el.remove());
-  orgColOrder.filter(col => orgColVisibility[col] !== false).forEach(col => {
+  const _fcv2 = window.filterColVis || {};
+  const _fcvFilter2 = col => {
+    if (_fcv2.mark   === false && (col === 'fav' || col === 'next')) return false;
+    if (_fcv2.status === false && col === 'status') return false;
+    if (_fcv2.rank   === false && col === 'counter') return false;
+    return true;
+  };
+  orgColOrder.filter(col => orgColVisibility[col] !== false && _fcvFilter2(col)).forEach(col => {
     const th = document.createElement('th');
     th.className = 'org-th org-th-draggable';
     th.dataset.col = col;
@@ -1029,11 +1043,19 @@ export function toggleOrgColMenu() {
   const r = gear ? gear.getBoundingClientRect() : {left:10, bottom:40};
   menu.style.left = r.left + 'px';
   menu.style.top = (r.bottom + 4) + 'px';
+  const _fcv3 = window.filterColVis || {};
+  const _fcvVisible = col => {
+    if (_fcv3.mark   === false && (col === 'fav' || col === 'next')) return false;
+    if (_fcv3.status === false && col === 'status') return false;
+    if (_fcv3.rank   === false && col === 'counter') return false;
+    return true;
+  };
+  const _visibleOrgCols = orgColOrder.filter(_fcvVisible);
   menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
-    orgColOrder.map((col, i) => `
+    _visibleOrgCols.map((col, i) => `
       <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
         <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
-        <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===orgColOrder.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===orgColOrder.length-1?'disabled':''}>▼</button>
+        <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===_visibleOrgCols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===_visibleOrgCols.length-1?'disabled':''}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
           <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
           ${ORG_COL_LABELS[col]||col}

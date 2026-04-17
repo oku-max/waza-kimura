@@ -96,17 +96,21 @@
     const statusChips = sLabels.map(s =>
       `<span class="vp-chip${status===s?' on-'+sMap[s]:''}" onclick="vpSetStatus('${id}','${s}',this)">${sNum[s]}${sIcons[s]} ${s}</span>`
     ).join('');
-    return `
-<div class="fsec" id="vp-cnt-sec-${id}">
-  <div style="display:flex;gap:14px;align-items:flex-start">
+    // filterColVis による条件表示
+    const _fcv      = window.filterColVis || {};
+    const _showMark   = _fcv.mark   !== false;
+    const _showStatus = _fcv.status !== false;
+    const _showRank   = _fcv.rank   !== false;
+    const favSec  = _showMark ? `
     <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
       <div style="${subTitle}">お気に入り</div>
       <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
     </div>
-    <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+    <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border)':''}">
       <div style="${subTitle}">Next</div>
       <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;color:${next?'var(--accent)':'var(--text3)'};font-weight:700" title="Next">▶</span>
-    </div>
+    </div>` : '';
+    const cntSec  = _showRank ? `
     <div style="flex:1;min-width:0">
       <div style="${subTitle}">カウンター</div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -115,12 +119,17 @@
         <button onclick="vpCntInc('${id}','practice')" style="${btnP}">＋</button>
       </div>
       <div id="vp-cnt-p-sub-${id}" style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b style="color:${pColor}">${lastP}</b>${month>0?` · 今月 ${month}回`:''}${st>1?` · 連続 ${st}日 🔥`:''}</div>
-    </div>
-  </div>
+    </div>` : '';
+    const statusSec = _showStatus ? `
   <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
     <div style="${subTitle}">習得度</div>
     <div class="vp-chips" id="vp-status-chips-${id}">${statusChips}</div>
-  </div>
+  </div>` : '';
+    const topRow = (favSec || cntSec) ? `<div style="display:flex;gap:14px;align-items:flex-start">${favSec}${cntSec}</div>` : '';
+    if (!topRow && !statusSec) return `<div id="vp-cnt-sec-${id}"></div>`;
+    return `
+<div class="fsec" id="vp-cnt-sec-${id}">
+  ${topRow}${statusSec}
 </div>`;
   };
 

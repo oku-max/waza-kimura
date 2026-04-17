@@ -2526,6 +2526,13 @@ export function saveFilterColVis() {
   try { localStorage.setItem('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
   window.filterColVis = filterColVis;
   window.saveUserSettings?.();
+  // カードビューを即時再描画
+  window.AF?.();
+  // Organizeビューが開いていれば再描画
+  if (document.getElementById('organizeTab')?.classList.contains('active')) {
+    window.renderOrg?.();
+    window.syncOrgColHeaders?.();
+  }
 }
 
 function _renderFilterColSettings() {
