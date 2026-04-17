@@ -14,10 +14,10 @@
   // ── 経過日数フォーマット ──
   // ── 進捗ランク (練習回数から自動導出) ──
   const RANKS = [
-    { lv:0, name:'🆕 未着手', short:'未着手', min:0,  max:0,  color:'#8a94a3' },
-    { lv:1, name:'🔰 練習中', short:'練習中', min:1,  max:4,  color:'#1971c2' },
-    { lv:2, name:'🥋 習得中', short:'習得中', min:5,  max:14, color:'#e8590c' },
-    { lv:3, name:'⭐ マスター', short:'マスター', min:15, max:Infinity, color:'#6b3fd4' }
+    { lv:0, name:'0回',    short:'0回',    min:0,  max:0,        color:'#8a94a3' },
+    { lv:1, name:'1-4回',  short:'1-4回',  min:1,  max:4,        color:'#1971c2' },
+    { lv:2, name:'5-14回', short:'5-14回', min:5,  max:14,       color:'#e8590c' },
+    { lv:3, name:'15回以上',short:'15回以上',min:15, max:Infinity, color:'#6b3fd4' }
   ];
   window.RANK_DEFS = RANKS;
   window.vpCntRank = function (practice) {

@@ -297,8 +297,7 @@
       const RANKS = window.RANK_DEFS || [];
       const rankCtx = _ctxVideos('prRank');
       const rankItems = RANKS.map(r => {
-        const label = r.max === Infinity ? `${r.name} (${r.min}+)` : (r.min === r.max ? `${r.name} (${r.min}回)` : `${r.name} (${r.min}-${r.max})`);
-        return { name: label, cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length, sel: (isOrg ? window.orgPrRank : window.prRank) === String(r.lv), key: String(r.lv) };
+        return { name: r.name, cnt: rankCtx.filter(v => window.vpCntRank(v.practice).lv === r.lv).length, sel: (isOrg ? window.orgPrRank : window.prRank) === String(r.lv), key: String(r.lv) };
       });
 
       const pdBuckets = [
@@ -355,11 +354,11 @@
         ).join('');
 
         return `<div class="uni-col">
-          <div class="uni-col-hdr"><span>マーク・進捗・カウント</span></div>
+          <div class="uni-col-hdr"><span>マーク・習得・カウント</span></div>
           <div class="uni-col-body">
             ${grpLabel('マーク')}${markRows}
             ${divider}${grpLabel('習得度（手動）')}${statusRows}
-            ${divider}${grpLabel('進捗ランク (自動)')}${rankRows}
+            ${divider}${grpLabel('カウント（自動）')}${rankRows}
             ${divider}${grpLabel('最終カウント日')}${pdRows}
           </div>
         </div>`;
