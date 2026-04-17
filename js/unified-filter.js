@@ -4,7 +4,7 @@
   'use strict';
 
   const MAIN = [
-    { k: 'state', label: '進捗' },
+    { k: 'state', label: '習得' },
     { k: 'src',   label: 'プレイリスト' },
     { k: 'tag',   label: 'タグ' },
     { k: 'video', label: 'タイトル' }
@@ -91,7 +91,7 @@
 #uni-popup.open{display:flex}
 #uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
 #uni-popup .uni-tabs{display:flex;gap:3px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
-#uni-popup .uni-tab{padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
+#uni-popup .uni-tab{padding:5px 10px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;border-radius:6px;background:var(--surface);border:1px solid var(--border);white-space:nowrap;font-family:inherit}
 #uni-popup .uni-tab.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 #uni-popup .uni-tab .uni-bdg{display:inline-block;background:var(--accent);color:var(--on-accent);font-size:9px;padding:0 5px;border-radius:6px;margin-left:4px;font-weight:700}
 #uni-popup .uni-tab.on .uni-bdg{background:rgba(255,255,255,.3);color:#fff}
