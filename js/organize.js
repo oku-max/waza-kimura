@@ -551,12 +551,8 @@ export function adjustOrgTableHeight() {
   // position:fixed + flex:1 で高さは自動制御。wrap.style.heightをリセット
   const wrap = document.querySelector('.org-table-wrap');
   if (wrap) wrap.style.height = '';
-  // leftもここで更新
-  const ma = document.querySelector('.main-area');
-  if (ma && orgTab) {
-    const left = ma.getBoundingClientRect().left;
-    orgTab.style.left = left + 'px';
-  }
+  // left は CSS left:var(--sbw) で管理するため、ここでは設定しない
+  orgTab.style.left = '';  // 古い inline style があれば除去
 }
 
 // ═══ Main render ═══
