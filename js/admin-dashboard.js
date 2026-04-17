@@ -489,6 +489,7 @@ export function addCategoryEntry() {
   const dict = _getCategory();
   dict.push({ id: 't' + Date.now(), names: { ja, en: en || ja }, aliases: { ja: [], en: [] } });
   _saveCategory(dict);
+  window.syncCatsFromStorage?.();
   hideAddCatForm();
   _renderCategories();
   window.toast?.('カテゴリを追加しました');
@@ -499,6 +500,7 @@ export function deleteCategoryEntry(idx) {
   const dict = _getCategory();
   dict.splice(idx, 1);
   _saveCategory(dict);
+  window.syncCatsFromStorage?.();
   _renderCategories();
   window.toast?.('カテゴリを削除しました');
 }
@@ -698,6 +700,7 @@ export function addPosition() {
   const positions = _getPositions();
   positions.push({ id: 'p' + Date.now(), names: { ja, en: en || ja }, group, aliases: { ja: [], en: [] } });
   _savePositions(positions);
+  window.syncPositionsFromStorage?.();
   hideAddPosForm();
   _renderPositions();
   window.toast?.('ポジションを追加しました');
@@ -708,6 +711,7 @@ export function deletePosition(idx) {
   const positions = _getPositions();
   positions.splice(idx, 1);
   _savePositions(positions);
+  window.syncPositionsFromStorage?.();
   _renderPositions();
   window.toast?.('ポジションを削除しました');
 }

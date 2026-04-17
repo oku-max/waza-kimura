@@ -399,6 +399,7 @@ window._addTagFromModal = function(type) {
       cats.push({ id: newId, names: { ja: val, en: '' }, desc: '', aliases: { ja: [], en: [] }, source: 'user' });
       try { localStorage.setItem('waza_tag_dict', JSON.stringify(cats)); } catch(e) {}
     }
+    _syncWindowCats();
   } else if (type === 'pos') {
     const positions = _getSettingsPositions();
     if (!positions.find(p => (p.names?.ja) === val)) {
@@ -406,6 +407,7 @@ window._addTagFromModal = function(type) {
       positions.push({ id: newId, names: { ja: val, en: '' }, group: 'other', aliases: { ja: [], en: [] }, source: 'user' });
       try { localStorage.setItem('waza_positions', JSON.stringify(positions)); } catch(e) {}
     }
+    _syncWindowPositions();
   } else if (type === 'tags') {
     const ts = tagSettings.find(t => t.key === 'tags');
     if (ts && !ts.presets.includes(val)) {
@@ -432,10 +434,12 @@ window._deleteTagFromModal = function(type, idOrName) {
     const cats = _getSettingsCategory();
     const filtered = cats.filter(c => (c.id || c.names?.ja || c.name) !== idOrName);
     try { localStorage.setItem('waza_tag_dict', JSON.stringify(filtered)); } catch(e) {}
+    _syncWindowCats();
   } else if (type === 'pos') {
     const positions = _getSettingsPositions();
     const filtered = positions.filter(p => (p.id || p.names?.ja) !== idOrName);
     try { localStorage.setItem('waza_positions', JSON.stringify(filtered)); } catch(e) {}
+    _syncWindowPositions();
   } else if (type === 'tags') {
     const ts = tagSettings.find(t => t.key === 'tags');
     if (ts) {
@@ -2555,3 +2559,58 @@ function _renderFilterColSettings() {
       </div>
     </div>`).join('');
 }
+
+// ══ window.CATEGORIES / window.POSITIONS 同期ヘルパー ══
+// admin-dashboard や settings でカテゴリ/ポジションを追加・削除した後に呼ぶ。
+// localStorage の保存形式（{names:{ja,en}}）を tag-master.js 互換形式に変換して
+// window.CATEGORIES / window.POSITIONS を上書きする。
+
+function _syncWindowCats() {
+  try {
+    const stored = localStorage.getItem('waza_tag_dict');
+    if (stored) {
+      const cats = JSON.parse(stored);
+      if (Array.isArray(cats) && cats.length) {
+        window.CATEGORIES = cats.map(c => ({
+          id:      c.id || '',
+          name:    c.names?.ja || c.name || '',
+          desc:    c.desc || '',
+          aliases: [
+            ...(Array.isArray(c.aliases?.ja) ? c.aliases.ja : []),
+            ...(Array.isArray(c.aliases?.en) ? c.aliases.en : []),
+            ...(Array.isArray(c.aliases)     ? c.aliases    : []),
+          ],
+        }));
+      }
+    }
+  } catch(e) {}
+}
+
+function _syncWindowPositions() {
+  try {
+    const stored = localStorage.getItem('waza_positions');
+    if (stored) {
+      const positions = JSON.parse(stored);
+      if (Array.isArray(positions) && positions.length) {
+        window.POSITIONS = positions.map(p => ({
+          id:      p.id || '',
+          ja:      p.names?.ja || p.ja || '',
+          en:      p.names?.en || p.en || '',
+          aliases: [
+            ...(Array.isArray(p.aliases?.ja) ? p.aliases.ja : []),
+            ...(Array.isArray(p.aliases?.en) ? p.aliases.en : []),
+            ...(Array.isArray(p.aliases)     ? p.aliases    : []),
+          ],
+        }));
+      }
+    }
+  } catch(e) {}
+}
+
+// 他モジュール（admin-dashboard.js 等）から呼べるよう公開
+window.syncCatsFromStorage      = _syncWindowCats;
+window.syncPositionsFromStorage = _syncWindowPositions;
+
+// ページ読み込み時に localStorage からの差分を反映
+_syncWindowCats();
+_syncWindowPositions();
