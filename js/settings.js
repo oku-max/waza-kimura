@@ -2425,8 +2425,8 @@ export function loadAppearanceSettings() {
 }
 
 export function saveAppearanceSettings() {
+  // テーマ・フォントサイズはデバイスごとに記憶（Firebase同期しない）
   try { localStorage.setItem('wk_appearance', JSON.stringify(_appearanceSettings)); } catch(e) {}
-  window.saveUserSettings?.();
 }
 
 export function applyAppearance() {

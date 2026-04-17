@@ -106,7 +106,7 @@ export async function saveUserSettings() {
       filterPresets:     window.filterPresets     || [],
       orgColOrder:       window.orgColOrder       || [],
       orgColVisibility:  window.orgColVisibility  || {},
-      appearance:        window.getAppearanceSettings?.() || {},
+      // appearance はデバイスごと（localStorage管理）のため Firebase に保存しない
       tagGroups:         window.getTagGroups?.()  || [],
       updatedAt: new Date().toISOString()
     });
@@ -149,9 +149,7 @@ export async function loadUserSettings(uid) {
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
-      if (data.appearance) {
-        window.applyRemoteAppearance?.(data);
-      }
+      // appearance はデバイスごと（localStorage管理）のため Firebase から復元しない
     }
   } catch (e) { console.error('loadUserSettings:', e); }
 }
