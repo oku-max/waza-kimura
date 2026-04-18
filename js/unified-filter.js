@@ -252,7 +252,7 @@
     const sortSel = opts.sortable === false ? '' :
       `<select onchange="uniSetSort('${listKey}',this.value)">` +
       (listKey === 'tags' ? `<option value="grp"${sortMode==='grp'?' selected':''}>グループ別</option>` : '') +
-      `<option value="abc"${sortMode==='abc'?' selected':''}>あいうえ順</option>` +
+      `<option value="abc"${sortMode==='abc'?' selected':''}>名前順</option>` +
       `<option value="cnt"${sortMode==='cnt'?' selected':''}>件数順</option>` +
       `</select>`;
     return `<div class="uni-col${opts.narrow ? ' narrow' : ''}">
