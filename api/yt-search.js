@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'YOUTUBE_API_KEY が設定されていません。Vercel環境変数を確認してください。' });
   }
 
-  const { q, type = 'video', pageToken = '', maxResults = '12' } = req.query;
+  const { q, type = 'video', pageToken = '', maxResults = '25', videoDuration = 'any' } = req.query;
   if (!q) {
     return res.status(400).json({ error: 'q (検索クエリ) が必要です' });
   }
@@ -31,6 +31,10 @@ export default async function handler(req, res) {
       safeSearch: 'moderate',
     });
     if (pageToken) params.set('pageToken', pageToken);
+    // ショート除外・長さフィルタ（video のみ）
+    if (type === 'video' && videoDuration !== 'any') {
+      params.set('videoDuration', videoDuration);
+    }
 
     const ytRes = await fetch(`${YT_SEARCH_URL}?${params}`);
     const data  = await ytRes.json();

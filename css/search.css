@@ -68,6 +68,18 @@
 }
 .yt-sr-btn:hover { background: #aa0000; }
 
+/* フィルター行（モードタブ + 長さタブを横並び） */
+.yt-sr-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.yt-sr-filter-row .yt-sr-mode-tabs:not(:first-child) {
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+}
+
 /* モードタブ */
 .yt-sr-mode-tabs { display: flex; gap: 4px; }
 .yt-sr-tab {
@@ -135,6 +147,26 @@
   color: var(--text3);
   font-size: 13px;
 }
+
+/* もっと見る */
+.yt-sr-load-more-wrap {
+  text-align: center;
+  padding: 16px 0 8px;
+}
+.yt-sr-load-more-btn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 28px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .15s;
+}
+.yt-sr-load-more-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.yt-sr-load-more-btn:disabled { opacity: .5; cursor: default; }
 
 /* ── 検索結果カード ── */
 .yt-sr-card {

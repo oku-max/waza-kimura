@@ -8,6 +8,7 @@ import { currentUser, saveUserData } from './firebase.js';
 // STATE
 // ────────────────────────────────────────
 let _srMode      = 'video';   // 'video' | 'playlist'
+let _srDuration  = 'any';     // 'any' | 'medium' | 'long'
 let _srNextToken = '';        // YouTube nextPageToken
 let _srLoading   = false;
 let _srItems     = [];        // 現在表示中の結果
@@ -62,7 +63,22 @@ export function ytSrSetMode(mode) {
   _srMode = mode;
   document.getElementById('yt-sr-tab-video')?.classList.toggle('active', mode === 'video');
   document.getElementById('yt-sr-tab-playlist')?.classList.toggle('active', mode === 'playlist');
+  // プレイリストモードのときはdurationフィルタを非表示
+  const durRow = document.getElementById('yt-sr-dur-row');
+  if (durRow) durRow.style.display = mode === 'playlist' ? 'none' : '';
   // クエリがあれば再検索
+  const q = document.getElementById('yt-sr-input')?.value?.trim();
+  if (q) ytSrSearch();
+}
+
+// ────────────────────────────────────────
+// DURATION FILTER (動画長さ)
+// ────────────────────────────────────────
+export function ytSrSetDuration(d) {
+  _srDuration = d;
+  ['any', 'medium', 'long'].forEach(dur => {
+    document.getElementById('yt-sr-dur-' + dur)?.classList.toggle('active', dur === d);
+  });
   const q = document.getElementById('yt-sr-input')?.value?.trim();
   if (q) ytSrSearch();
 }
@@ -71,8 +87,9 @@ export function ytSrSetMode(mode) {
 // API呼び出し
 // ────────────────────────────────────────
 async function _callApi(q, type, pageToken) {
-  const params = new URLSearchParams({ q, type, maxResults: '12' });
+  const params = new URLSearchParams({ q, type, maxResults: '25' });
   if (pageToken) params.set('pageToken', pageToken);
+  if (type === 'video' && _srDuration !== 'any') params.set('videoDuration', _srDuration);
 
   const res  = await fetch('/api/yt-search?' + params);
   const data = await res.json();
@@ -99,7 +116,8 @@ function _renderCards(items) {
     return;
   }
 
-  wrap.innerHTML = items.map((item, i) => {
+  // カード描画
+  const cardsHtml = items.map((item, i) => {
     const isPlaylist = !!item.id?.playlistId;
     const ytId   = item.id?.videoId || item.id?.playlistId || '';
     const s      = item.snippet || {};
@@ -128,6 +146,12 @@ function _renderCards(items) {
   </div>
 </div>`;
   }).join('');
+
+  const loadMoreHtml = _srNextToken
+    ? `<div class="yt-sr-load-more-wrap"><button class="yt-sr-load-more-btn" onclick="window.ytSrLoadMore()">もっと見る ↓</button></div>`
+    : '';
+
+  wrap.innerHTML = cardsHtml + loadMoreHtml;
 }
 
 function _showLoading() {
@@ -217,7 +241,8 @@ export function ytSrOpenVPanel(idx) {
     `;
   }
 
-  // オーバーレイを表示
+  // カードをトップにスクロールしてからオーバーレイを表示
+  document.getElementById('yt-sr-cards-wrap')?.scrollTo({ top: 0, behavior: 'instant' });
   document.getElementById('yt-sr-vp-overlay')?.classList.add('open');
 }
 
@@ -318,6 +343,31 @@ export async function ytSrAddToLibrary() {
 
   // UI更新
   _updateAddedUI(id);
+}
+
+// もっと見る（次ページ読み込み）
+export async function ytSrLoadMore() {
+  if (_srLoading || !_srNextToken) return;
+  const q = document.getElementById('yt-sr-input')?.value?.trim();
+  if (!q) return;
+
+  _srLoading = true;
+  const btn = document.querySelector('.yt-sr-load-more-btn');
+  if (btn) { btn.textContent = '読み込み中...'; btn.disabled = true; }
+
+  try {
+    const data = await _callApi(q, _srMode, _srNextToken);
+    const newItems = data.items || [];
+    _srItems = [..._srItems, ...newItems];
+    _srNextToken = data.nextPageToken || '';
+    _renderCards(_srItems);
+    _updateHdr(_srItems.length);
+  } catch (e) {
+    const btn = document.querySelector('.yt-sr-load-more-btn');
+    if (btn) { btn.textContent = 'もっと見る ↓'; btn.disabled = false; }
+  } finally {
+    _srLoading = false;
+  }
 }
 
 // クイック追加（サムネイルの＋ボタン）
