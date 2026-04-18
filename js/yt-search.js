@@ -241,8 +241,7 @@ export function ytSrOpenVPanel(idx) {
     `;
   }
 
-  // カードをトップにスクロールしてからオーバーレイを表示
-  document.getElementById('yt-sr-cards-wrap')?.scrollTo({ top: 0, behavior: 'instant' });
+  // オーバーレイを表示（position:fixed のためスクロール位置に依存しない）
   document.getElementById('yt-sr-vp-overlay')?.classList.add('open');
 }
 

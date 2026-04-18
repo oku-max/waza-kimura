@@ -2,10 +2,10 @@
 
 /* ── Search タブ本体 ── */
 #searchTab {
-  display: flex;
+  /* display は .tab-panel に委ねる（display:flex を書くと display:none を上書きしてしまう） */
   flex-direction: column;
   overflow: hidden;
-  position: relative;  /* VPanelオーバーレイの基準 */
+  position: relative;
   height: 100%;
 }
 #searchTab.active { display: flex; }
@@ -279,13 +279,13 @@
   .yt-sr-thumb { width: 120px; height: 68px; }
 }
 
-/* ── Search VPanel (実アプリVPanelと完全同仕様) ── */
-/* position:absolute inset:0 → searchTab全体を覆う */
-/* display:none ↔ display:flex の切り替えのみ（アニメなし） */
+/* ── Search VPanel ── */
+/* position:fixed inset:0 → スクロール位置に関係なく常にビューポートを覆う */
+/* ライブラリ/オーガナイズの実VPanelと同じ設計 */
 .yt-sr-vp-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 9000;
   display: none;
   flex-direction: row;
   align-items: stretch;
