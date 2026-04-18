@@ -1013,11 +1013,10 @@
   <!-- Organizeカウントバー -->
   <div class="org-count-bar">
     <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center">
+      <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
       <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
       </button>
-      <button class="bulk-btn" onclick="enterBulk('organize')" id="org-bulk-btn">☑ 一括編集</button>
-      <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
     </div>
     <div class="bulk-inline" style="display:none">
       <span class="bulk-inline-count">0本選択</span>
