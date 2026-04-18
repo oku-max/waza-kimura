@@ -1488,6 +1488,42 @@ body.admin-mode .verify-dot{display:block;}
 .verify-dot-ctrl{display:none !important;}
 body.admin-mode .verify-dot-ctrl{display:flex !important;}
 
+/* ═══ BULK MODE — P1: 一括操作バーをスクロール時も固定表示 ═══ */
+
+/* Library desktop (1200px+): results-header を topbar直下に fixed */
+body.bulk-mode .results-header.bulk-transform {
+  position: fixed;
+  top: var(--topbar-h, 72px);
+  left: var(--sbw, 0px);
+  right: 0;
+  z-index: 75;
+}
+/* cardList: fixed になった results-header 分の余白を追加 */
+body.bulk-mode #cardList { padding-top: 46px; }
+
+/* Library mobile/tablet (< 1200px): tab-actionbar も固定 */
+@media(max-width:1199px) {
+  body.bulk-mode #library-actionbar {
+    position: fixed;
+    top: var(--topbar-h, 56px);
+    left: 0; right: 0;
+    z-index: 76;
+    background: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  /* results-header は actionbar の下に配置 */
+  body.bulk-mode .results-header.bulk-transform {
+    top: calc(var(--topbar-h, 56px) + 44px);
+    left: 0;
+  }
+  /* cardList: actionbar + results-header 両方分の余白 */
+  body.bulk-mode #cardList { padding-top: 88px; }
+}
+
+/* Organize: org-count-bar は fixed コンテナ内の flex child なので元から非スクロール。
+   flex-shrink:0 を追加してサイズ崩れを防ぐ */
+.org-count-bar { flex-shrink: 0; }
+
 /* ── タググループ区切り行 (案B: VPanel / 一括編集 / オーガナイズ / フィルターオーバービュー) ── */
 .tag-grp-hdr{padding:7px 14px 5px;font-size:12px;font-weight:400;letter-spacing:.1px;text-align:center;color:var(--purple);background:var(--purple-soft);border-top:1px solid rgba(58,58,122,.15);border-left:3px solid rgba(58,58,122,.40);pointer-events:none;user-select:none;}
 .tag-grp-hdr:first-child{border-top:none}
