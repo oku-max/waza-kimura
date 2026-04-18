@@ -1848,7 +1848,7 @@ export function openOrgColFilter(col, thEl) {
           listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:6px;text-align:center">該当なし</div>';
           return;
         }
-        filtered.forEach(val => {
+        const _appendItem = (val) => {
           const cnt = valueCounts.get(val) || 0;
           const lbl = document.createElement('label');
           lbl.style.cssText = 'display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 5px;border-radius:5px';
@@ -1872,7 +1872,32 @@ export function openOrgColFilter(col, thEl) {
           cntEl.textContent = cnt;
           lbl.appendChild(cb); lbl.appendChild(txt); lbl.appendChild(cntEl);
           listEl.appendChild(lbl);
-        });
+        };
+        // タグ列（technique）かつ未検索時: グループ別表示
+        if (!ql && col === 'technique') {
+          const _groups = window.getTagGroups ? window.getTagGroups() : [];
+          const _inGrp = new Set(_groups.flatMap(g => g.techNames || []));
+          _groups.forEach(g => {
+            const members = filtered.filter(v => (g.techNames || []).includes(v));
+            if (!members.length) return;
+            const hdr = document.createElement('div');
+            hdr.className = 'tag-grp-hdr';
+            hdr.textContent = g.name;
+            listEl.appendChild(hdr);
+            members.forEach(_appendItem);
+          });
+          const unc = filtered.filter(v => !_inGrp.has(v));
+          if (unc.length) {
+            const hdr = document.createElement('div');
+            hdr.className = 'tag-grp-hdr';
+            hdr.style.fontStyle = 'italic';
+            hdr.textContent = '未グループ';
+            listEl.appendChild(hdr);
+            unc.forEach(_appendItem);
+          }
+          return;
+        }
+        filtered.forEach(_appendItem);
       };
 
       renderList('');

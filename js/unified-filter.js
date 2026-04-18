@@ -234,12 +234,12 @@
       _groups.forEach(g => {
         const members = arr.filter(r => (g.techNames || []).includes(r.name));
         if (!members.length) return;
-        parts.push(`<div class="tag-grp-hdr" style="border-left:3px solid transparent">${_esc(g.name)}</div>`);
+        parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
         members.forEach(r => parts.push(_mkRow(r)));
       });
       const unc = arr.filter(r => !_inGrp.has(r.name));
       if (unc.length) {
-        parts.push(`<div class="tag-grp-hdr" style="border-left:3px solid transparent;font-style:italic">${_esc('未グループ')}</div>`);
+        parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
         unc.forEach(r => parts.push(_mkRow(r)));
       }
       rows = parts.length ? parts.join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
