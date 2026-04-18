@@ -1,0 +1,451 @@
+/* ═══ WAZA KIMURA — Search タブ CSS ═══ */
+
+/* ── Search タブ本体 ── */
+#searchTab {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;  /* VPanelオーバーレイの基準 */
+  height: 100%;
+}
+#searchTab.active { display: flex; }
+
+/* ── 検索バー ── */
+.yt-sr-topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+.yt-sr-search-row {
+  display: flex;
+  align-items: stretch;
+  border: 2px solid #cc0000;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg3);
+  margin-bottom: 8px;
+}
+.yt-sr-logo {
+  background: #cc0000;
+  color: #fff;
+  padding: 0 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 1px;
+  cursor: default;
+}
+.yt-sr-logo-play { font-size: 15px; line-height: 1; }
+.yt-sr-logo-text { font-size: 7px; font-weight: 800; letter-spacing: .5px; opacity: .85; }
+.yt-sr-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 11px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+.yt-sr-input::placeholder { color: var(--text3); }
+.yt-sr-btn {
+  background: #cc0000;
+  color: #fff;
+  border: none;
+  padding: 0 18px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background .15s;
+  font-family: inherit;
+}
+.yt-sr-btn:hover { background: #aa0000; }
+
+/* モードタブ */
+.yt-sr-mode-tabs { display: flex; gap: 4px; }
+.yt-sr-tab {
+  padding: 4px 14px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .12s;
+}
+.yt-sr-tab.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.yt-sr-tab:hover:not(.active) { border-color: var(--text2); color: var(--text); }
+
+/* ── 結果ヘッダー ── */
+.yt-sr-hdr {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--bg2);
+}
+.yt-sr-badge {
+  background: #cc0000;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: .3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.yt-sr-count { font-size: 12px; color: var(--text3); }
+
+/* ── カードラッパー ── */
+.yt-sr-cards-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+}
+.yt-sr-cards-wrap::-webkit-scrollbar { width: 3px; }
+.yt-sr-cards-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* 初期状態 */
+.yt-sr-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text3);
+}
+.yt-sr-empty-icon { font-size: 40px; margin-bottom: 14px; }
+.yt-sr-empty-ttl  { font-size: 14px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
+.yt-sr-empty-sub  { font-size: 12px; }
+
+/* ローディング */
+.yt-sr-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+}
+
+/* ── 検索結果カード ── */
+.yt-sr-card {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: background .12s, border-color .15s;
+  position: relative;
+}
+.yt-sr-card:hover { background: var(--surface2); border-color: var(--bdr2, #3a3a3a); }
+.yt-sr-card.added { opacity: .55; }
+
+/* サムネイル */
+.yt-sr-thumb {
+  width: 180px;
+  height: 101px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--bg3);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.yt-sr-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; }
+.yt-sr-dur {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0,0,0,.88);
+  color: #fff;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+  pointer-events: none;
+}
+/* ＋ボタン (サムネイル右上) */
+.yt-sr-plus {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.72);
+  border: 1.5px solid rgba(255,255,255,.4);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, transform .1s;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.yt-sr-plus:hover { background: #cc0000; transform: scale(1.1); }
+.yt-sr-added-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: var(--accent);
+  color: var(--on-accent, #111);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* カード情報 */
+.yt-sr-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
+.yt-sr-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.yt-sr-ch   { font-size: 11px; color: var(--text3); }
+.yt-sr-meta { font-size: 11px; color: var(--text3); }
+.yt-sr-open-btn {
+  margin-top: auto;
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .12s;
+  font-family: inherit;
+}
+.yt-sr-open-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* スマホ時のサムネイル縮小 */
+@media (max-width: 480px) {
+  .yt-sr-thumb { width: 120px; height: 68px; }
+}
+
+/* ── Search VPanel (実アプリVPanelと完全同仕様) ── */
+/* position:absolute inset:0 → searchTab全体を覆う */
+/* display:none ↔ display:flex の切り替えのみ（アニメなし） */
+.yt-sr-vp-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  flex-direction: row;
+  align-items: stretch;
+}
+.yt-sr-vp-overlay.open { display: flex; }
+
+/* 暗幕 */
+.yt-sr-vp-back {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  pointer-events: none;
+}
+
+/* 二列パネル本体 */
+.yt-sr-vp-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* 左列: ビデオ + コントロール */
+.yt-sr-vp-left {
+  width: 70%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 右列: CTA + 情報 */
+.yt-sr-vp-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
+
+/* モバイル: 縦積み */
+@media (max-width: 600px) {
+  .yt-sr-vp-inner { flex-direction: column; }
+  .yt-sr-vp-left  { width: 100%; height: auto; flex-shrink: 0; }
+}
+
+/* ← 戻るボタン (左列にabsolute、top:8px left:8px) */
+.yt-sr-vp-back-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0,0,0,.6);
+  border: 1.5px solid rgba(255,255,255,.25);
+  border-radius: 20px;
+  padding: 5px 12px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background .15s;
+}
+.yt-sr-vp-back-btn:hover { background: rgba(0,0,0,.85); }
+
+/* プレイヤー領域 */
+.yt-sr-vp-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+.yt-sr-vp-player iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* タイトルバー (左列下部) */
+.yt-sr-vp-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.yt-sr-vp-title-text {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.yt-sr-vp-ch-text { font-size: 11px; color: var(--text3); padding: 0 10px 6px; flex-shrink: 0; }
+
+/* CTA (右列上部 固定) */
+.yt-sr-vp-cta {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.yt-sr-vp-add-btn {
+  width: 100%;
+  background: #cc0000;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  letter-spacing: .3px;
+}
+.yt-sr-vp-add-btn:hover:not(:disabled) { background: #aa0000; }
+.yt-sr-vp-add-btn:disabled {
+  background: var(--acc-s, rgba(229,196,122,.12));
+  color: var(--accent, #e5c47a);
+  border: 1.5px solid var(--acc-b, rgba(229,196,122,.3));
+  cursor: default;
+}
+
+/* 右列スクロール */
+.yt-sr-vp-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+.yt-sr-vp-scroll::-webkit-scrollbar { width: 3px; }
+.yt-sr-vp-scroll::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* 動画情報セクション */
+.yt-sr-vp-info-ttl {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.yt-sr-vp-info-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+.yt-sr-vp-desc {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.6;
+  margin-top: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.yt-sr-vp-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  color: #cc0000;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.yt-sr-vp-yt-link:hover { text-decoration: underline; }

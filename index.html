@@ -10,9 +10,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.10</title>
+<title>WAZA KIMURA v50.11</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
+<link rel="stylesheet" href="css/search.css">
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -83,6 +84,10 @@
   } from './js/vpanel.js';
   import './js/organize.js';
   import './js/bulk.js';
+  import {
+    ytSrInit, ytSrSearch, ytSrKeydown, ytSrSetMode,
+    ytSrOpenVPanel, ytSrCloseVPanel, ytSrAddToLibrary, ytSrQuickAdd
+  } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
   import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots } from './js/snapshot-editor.js';
@@ -112,6 +117,15 @@
     openSbPopup, closeSbPopup
   } from './js/filter-overlay.js';
 
+  // yt-search
+  window.ytSrInit          = ytSrInit;
+  window.ytSrSearch        = ytSrSearch;
+  window.ytSrKeydown       = ytSrKeydown;
+  window.ytSrSetMode       = ytSrSetMode;
+  window.ytSrOpenVPanel    = ytSrOpenVPanel;
+  window.ytSrCloseVPanel   = ytSrCloseVPanel;
+  window.ytSrAddToLibrary  = ytSrAddToLibrary;
+  window.ytSrQuickAdd      = ytSrQuickAdd;
   // firebase
   window.saveUserData            = saveUserData;
   window.saveUserSettings        = saveUserSettings;
@@ -628,6 +642,7 @@
       <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
       <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')">≡ Organize</div>
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
+      <div class="tn-i" id="tnav-search" onclick="switchTab('search')">🔍 Search</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
       <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
     </nav>
@@ -663,6 +678,7 @@
     <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')"><span>◎</span> Community</div>
     <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')"><span>≡</span> Organize</div>
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')"><span>◫</span> Archive</div>
+    <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>🔍</span> Search</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
     <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
   </nav>
@@ -1176,6 +1192,56 @@
     <!-- ポジション管理パネル -->
     <div id="admin-p-positions" style="display:none">
       <div id="admin-positions-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH TAブ -->
+<div class="tab-panel" id="searchTab">
+  <!-- ① YouTube 検索バー（赤枠 + YouTubeロゴ） -->
+  <div class="yt-sr-topbar">
+    <div class="yt-sr-search-row">
+      <div class="yt-sr-logo">
+        <span class="yt-sr-logo-play">▶</span>
+        <span class="yt-sr-logo-text">YouTube</span>
+      </div>
+      <input id="yt-sr-input" class="yt-sr-input" type="text"
+             placeholder="技・チャンネル名で検索（例: ギロチンチョーク）"
+             onkeydown="window.ytSrKeydown?.(event)">
+      <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍 検索</button>
+    </div>
+    <div class="yt-sr-mode-tabs">
+      <button class="yt-sr-tab active" id="yt-sr-tab-video"    onclick="window.ytSrSetMode?.('video')">🎬 動画</button>
+      <button class="yt-sr-tab"        id="yt-sr-tab-playlist" onclick="window.ytSrSetMode?.('playlist')">📋 プレイリスト</button>
+    </div>
+  </div>
+
+  <!-- ② 結果ヘッダー -->
+  <div class="yt-sr-hdr" id="yt-sr-hdr" style="display:none">
+    <span class="yt-sr-badge">▶ YouTube</span>
+    <span class="yt-sr-count" id="yt-sr-count"></span>
+  </div>
+
+  <!-- ③ 結果 / 初期状態 -->
+  <div class="yt-sr-cards-wrap" id="yt-sr-cards-wrap">
+    <div class="yt-sr-empty">
+      <div class="yt-sr-empty-icon">🔍</div>
+      <div class="yt-sr-empty-ttl">YouTubeで柔術動画を検索</div>
+      <div class="yt-sr-empty-sub">検索結果をVパネルで視聴し、ライブラリに追加しよう</div>
+    </div>
+  </div>
+
+  <!-- ④ VPanel オーバーレイ（実アプリ完全同仕様: position:absolute inset:0, アニメなし）-->
+  <div class="yt-sr-vp-overlay" id="yt-sr-vp-overlay">
+    <div class="yt-sr-vp-back" onclick="window.ytSrCloseVPanel?.()"></div>
+    <div class="yt-sr-vp-inner">
+      <!-- 左列: ビデオ + タイトル (← 戻るはabsolute overlay) -->
+      <div class="yt-sr-vp-left" id="yt-sr-vp-left"></div>
+      <!-- 右列: CTA固定 + 情報スクロール -->
+      <div class="yt-sr-vp-right">
+        <div class="yt-sr-vp-cta"    id="yt-sr-vp-cta"></div>
+        <div class="yt-sr-vp-scroll" id="yt-sr-vp-scroll"></div>
+      </div>
     </div>
   </div>
 </div>

@@ -52,7 +52,7 @@ export function switchTab(t) {
     const orgTab = document.getElementById('organizeTab');
     if (orgTab) orgTab.style.left = '';  // 古い inline style があれば除去
   }
-  ['home','community','organize','archive','settings','admin'].forEach(n => {
+  ['home','community','organize','archive','settings','admin','search'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
     const m  = document.getElementById('mnav-' + n); if (m)  m.className  = 'mn-i'      + (t === n ? ' active' : '');
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
@@ -70,6 +70,10 @@ export function switchTab(t) {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = 'none';
       if (settingsC) settingsC.style.display = t === 'settings' ? '' : 'none';
+    } else if (t === 'search') {
+      if (orgC) orgC.style.display = 'none';
+      if (libC) libC.style.display = 'none';
+      if (settingsC) settingsC.style.display = 'none';
     } else {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = '';
@@ -83,6 +87,7 @@ export function switchTab(t) {
   if (t === 'archive')   window.renderArch?.();
   if (t === 'settings')  window.renderSettings?.();
   if (t === 'admin')     window.renderAdminDashboard?.();
+  if (t === 'search')   window.ytSrInit?.();
   if (window.bulkMode) {
     const allowedTab = window.bulkCtx === 'organize' ? 'organize' : 'home';
     if (t !== allowedTab) window.exitBulk?.();
