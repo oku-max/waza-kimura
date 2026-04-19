@@ -139,6 +139,19 @@
     const all = _getAllTags().filter(t => !existing.includes(t));
     const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
     if (!filtered.length) { sug.style.display = 'none'; return; }
+    // SR VP: escape scroll-container overflow clipping with fixed positioning
+    if (window._srVpOpen) {
+      const rect = inp.getBoundingClientRect();
+      Object.assign(sug.style, {
+        position: 'fixed',
+        top:    (rect.bottom + 2) + 'px',
+        left:   rect.left + 'px',
+        right:  'auto',
+        bottom: 'auto',
+        width:  '220px',
+        zIndex: '9500',
+      });
+    }
     sug.style.display = 'block';
     const _mkItem = t =>
       `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;

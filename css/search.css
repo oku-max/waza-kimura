@@ -378,9 +378,12 @@
 }
 
 /* 二列パネル本体 */
+/* z-index を設定しない（auto）ことで stacking context を作らず、
+   position:fixed な子要素（タグ・PL dropdown 等）が
+   overflow:hidden にクリップされないようにする。
+   .yt-sr-vp-back より DOM順が後なので視覚的重なりは変わらない。 */
 .yt-sr-vp-inner {
   position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: row;
   width: 100%;
