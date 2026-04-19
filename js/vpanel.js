@@ -1972,13 +1972,31 @@ export function vpDdAddNew(id, type, val) {
 // ── Channel 単一値ドロップダウン ──
 // サイドバーのopenSbPopupと同じフルハイト・フィックスドパネル方式で統一
 function _vpOpenDd(dd) {
+  // ── トリガー位置を起点に DD を配置 ──
+  const wrap   = dd.closest('.vp-dd-wrap');
+  const maxH   = Math.min(window.innerHeight * 0.85, 900); // 最大高さ
+  let ddTop    = 12;
+  let ddRight  = 12;
+  if (wrap) {
+    const r          = wrap.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom - 8;
+    const spaceAbove = r.top - 8;
+    // 下に十分スペースがあれば wrap 直下、なければ上方向
+    if (spaceBelow >= 160 || spaceBelow >= spaceAbove) {
+      ddTop = r.bottom + 4;
+    } else {
+      ddTop = Math.max(8, r.top - Math.min(maxH, spaceAbove) - 4);
+    }
+    ddRight = Math.max(8, window.innerWidth - r.right);
+  }
+
   dd.style.position    = 'fixed';
-  dd.style.top         = '12px';
-  dd.style.bottom      = 'auto';              // フルハイト強制を解除
-  dd.style.right       = '12px';
+  dd.style.top         = ddTop + 'px';
+  dd.style.bottom      = 'auto';
+  dd.style.right       = ddRight + 'px';
   dd.style.left        = 'auto';
   dd.style.width       = 'min(360px, 92vw)';
-  dd.style.maxHeight   = 'min(75vh, 600px)'; // コンテンツが少ない時は縮み、多い時はスクロール
+  dd.style.maxHeight   = maxH + 'px';
   dd.style.zIndex      = '500';
   dd.style.display     = 'flex';
   dd.style.flexDirection = 'column';
