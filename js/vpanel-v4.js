@@ -21,7 +21,6 @@
 
     const TB = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
     const CATS = window.CATEGORIES || [];
-    const POSS = window.POSITIONS || [];
     // TB row (3固定 + 🔒)
     const tbRow = TB.map(t => {
       const on = v.tb.includes(t);
@@ -35,18 +34,20 @@
       return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc)}" onclick="vpV4ToggleCat('${id}','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
     }).join('');
 
-    // Position row (現在選択中チップ + 追加ピッカー)
+    // Position row — カスタム DD（<select>を廃止してネイティブピッカーを回避）
     const posChips = v.pos.map(p =>
       `<span class="vp-chip on-pos" style="cursor:pointer" onclick="vpV4RemovePos('${id}','${_esc(p)}',this)">${_esc(p)} ×</span>`
     ).join('');
-    const posOpts = POSS.filter(p => !v.pos.includes(p.ja)).map(p =>
-      `<option value="${_esc(p.ja)}">${_esc(p.ja)} (${_esc(p.en)})</option>`
-    ).join('');
     const posPicker = `
-      <select class="vp-chip" style="border-style:dashed;cursor:pointer" onchange="vpV4AddPos('${id}',this)">
-        <option value="">＋ ポジション</option>
-        ${posOpts}
-      </select>`;
+      <div class="vp-dd-wrap" style="display:inline-block;position:relative">
+        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenPosDd('${id}',this)">＋ ポジション</span>
+        <div class="vp-dd" id="vp-v4-pos-dd-${id}" style="display:none">
+          <input class="vp-dd-search" placeholder="絞り込み..."
+            oninput="vpV4FilterPosDd('${id}',this.value)"
+            onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}">
+          <div class="vp-dd-list" id="vp-v4-pos-list-${id}"></div>
+        </div>
+      </div>`;
 
     // Tags row (検索・選択 + 自由入力)
     const tagChips = v.tags.map(t =>
@@ -56,7 +57,7 @@
       <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
         oninput="vpV4TagSuggest('${id}',this)" onfocus="vpV4TagSuggest('${id}',this)"
         onkeydown="vpV4TagKey('${id}',event,this)">
-      <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50;border-radius:8px"></div>
+      <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;border-radius:8px"></div>
     </div>`;
 
     const showTb   = _tagVis('tb');
@@ -106,18 +107,50 @@
     window.AF?.();
   };
 
-  // ── Position 追加/削除 ──
-  window.vpV4AddPos = function (id, sel) {
-    const val = sel.value;
-    if (!val) return;
+  // ── Position カスタム DD ──
+  window.vpV4OpenPosDd = function (id) {
+    const dd = document.getElementById('vp-v4-pos-dd-' + id);
+    if (!dd) return;
+    if (dd.style.display !== 'none' && dd.style.display !== '') {
+      dd.style.display = 'none'; return;
+    }
+    // vpanel.js の _vpOpenDd を共用（window._vpOpenDd として公開済み）
+    window._vpOpenDd?.(dd);
+    _vpV4RenderPosDd(id, '');
+    const inp = dd.querySelector('.vp-dd-search');
+    if (inp) { inp.value = ''; inp.focus(); }
+  };
+
+  function _vpV4RenderPosDd(id, q) {
+    const list = document.getElementById('vp-v4-pos-list-' + id);
+    if (!list) return;
+    const v = _findV(id);
+    const selected = v?.pos || [];
+    const POSS = window.POSITIONS || [];
+    const ql = q.trim().toLowerCase();
+    const filtered = ql
+      ? POSS.filter(p => !selected.includes(p.ja) && (p.ja.includes(ql) || p.en.toLowerCase().includes(ql)))
+      : POSS.filter(p => !selected.includes(p.ja));
+    list.innerHTML = filtered.length
+      ? filtered.map(p =>
+          `<div class="vp-dd-item" onmousedown="vpV4PosPick('${id}','${_esc(p.ja)}')">${_esc(p.ja)}<span class="vp-dd-cnt">${_esc(p.en)}</span></div>`
+        ).join('')
+      : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
+  }
+
+  window.vpV4FilterPosDd = function (id, q) { _vpV4RenderPosDd(id, q); };
+
+  window.vpV4PosPick = function (id, val) {
     const v = _findV(id); if (!v) return;
     if (!Array.isArray(v.pos)) v.pos = [];
     if (!v.pos.includes(val)) v.pos.push(val);
-    sel.value = '';
+    const dd = document.getElementById('vp-v4-pos-dd-' + id);
+    if (dd) dd.style.display = 'none';
     _rerenderRow(id, 'pos');
     _save(id);
     window.AF?.();
   };
+
   window.vpV4RemovePos = function (id, val) {
     const v = _findV(id); if (!v) return;
     v.pos = (v.pos || []).filter(p => p !== val);
@@ -126,10 +159,11 @@
     window.AF?.();
   };
 
-  // ── #Tag 検索サジェスト ──
+  // ── #Tag 検索サジェスト（常に position:fixed、VPanel / SR VP 共通） ──
   function _getAllTags() {
     return [...new Set((window.videos || []).flatMap(v => v.tags || []))].sort((a,b) => a.localeCompare(b,'ja'));
   }
+
   window.vpV4TagSuggest = function (id, inp) {
     const sug = document.getElementById('vp-v4-tag-sug-' + id);
     if (!sug) return;
@@ -139,35 +173,50 @@
     const all = _getAllTags().filter(t => !existing.includes(t));
     const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
     if (!filtered.length) { sug.style.display = 'none'; return; }
-    // SR VP: position:fixed でスクロールコンテナのクリップを回避 + スクロール追従
-    if (window._srVpOpen) {
-      const _updatePos = () => {
-        const r = inp.getBoundingClientRect();
-        sug.style.top  = (r.bottom + 2) + 'px';
-        sug.style.left = r.left + 'px';
-      };
-      Object.assign(sug.style, {
-        position: 'fixed',
-        right: 'auto', bottom: 'auto',
-        width: '220px', zIndex: '9500',
-      });
-      _updatePos();
-      // スクロール追従 (重複登録防止)
-      const _sc = document.querySelector('.yt-sr-vp-scroll');
-      if (_sc && sug._srOnScroll) _sc.removeEventListener('scroll', sug._srOnScroll);
-      if (_sc) {
-        sug._srOnScroll = () => sug.style.display !== 'none' ? _updatePos() : (_sc.removeEventListener('scroll', sug._srOnScroll), sug._srOnScroll = null);
-        _sc.addEventListener('scroll', sug._srOnScroll, { passive: true });
+
+    // 常に position:fixed でスクロールコンテナのクリップを回避（VPanel / SR VP 共通）
+    const _updatePos = () => {
+      const r = inp.getBoundingClientRect();
+      const maxH = Math.min(window.innerHeight * 0.585, 600);
+      const spaceBelow = window.innerHeight - r.bottom - 8;
+      const spaceAbove = r.top - 8;
+      let top, h;
+      if (spaceBelow >= spaceAbove) {
+        top = r.bottom + 2;
+        h   = Math.min(maxH, spaceBelow - 4);
+      } else {
+        h   = Math.min(maxH, spaceAbove - 4);
+        top = r.top - h - 4;
       }
+      sug.style.top       = top + 'px';
+      sug.style.left      = r.left + 'px';
+      sug.style.maxHeight = h + 'px';
+    };
+    Object.assign(sug.style, {
+      position: 'fixed',
+      right: 'auto', bottom: 'auto',
+      width: 'min(300px, 90vw)',
+      zIndex: '9500',
+      overflowY: 'auto',
+    });
+    _updatePos();
+
+    // スクロール追従（SR VP / 通常 VPanel）
+    const _sc = document.querySelector('.yt-sr-vp-scroll') || document.getElementById('vpanelInner');
+    if (_sc && sug._onScroll) _sc.removeEventListener('scroll', sug._onScroll);
+    if (_sc) {
+      sug._onScroll = () => sug.style.display !== 'none'
+        ? _updatePos()
+        : (_sc.removeEventListener('scroll', sug._onScroll), sug._onScroll = null);
+      _sc.addEventListener('scroll', sug._onScroll, { passive: true });
     }
+
     sug.style.display = 'block';
     const _mkItem = t =>
       `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;
     if (q) {
-      // 検索中: フラット表示（既存動作）
       sug.innerHTML = filtered.map(_mkItem).join('');
     } else {
-      // 未検索: グループ別表示 (案B)
       const _groups = window.getTagGroups ? window.getTagGroups() : [];
       const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
       const parts   = [];
@@ -185,6 +234,7 @@
       sug.innerHTML = parts.length ? parts.join('') : '';
     }
   };
+
   window.vpV4TagPick = function (id, val) {
     const v = _findV(id); if (!v) return;
     if (!Array.isArray(v.tags)) v.tags = [];
@@ -224,7 +274,6 @@
   function _rerenderRow(id, kind) {
     const host = document.getElementById(`vp-v4-${kind}-${id}`);
     if (!host) return;
-    // 全体再構築の方が単純
     const sec = host.closest('.fsec');
     if (sec) sec.outerHTML = window.vpV4SectionHTML(id);
   }

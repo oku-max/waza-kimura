@@ -2023,6 +2023,8 @@ function _vpOpenDd(dd) {
     list.style.overflowY = 'auto';
   }
 }
+// vpanel-v4.js 等の非モジュールスクリプトから参照できるよう公開
+window._vpOpenDd = _vpOpenDd;
 
 export function vpTogChannelDd(id) {
   const dd = document.getElementById('vp-dd-ch-' + id);
