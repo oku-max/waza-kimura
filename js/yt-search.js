@@ -306,6 +306,7 @@ function _srResultsListHTML(currentIdx) {
 export function ytSrOpenVPanel(idx) {
   const item = _srItems[idx];
   if (!item) return;
+  ytSrCloseResultsList();  // ☰ ボトムシートを閉じる
   _srOpenItem   = item;
   _srCurrentIdx = idx;
 
@@ -353,6 +354,7 @@ export function ytSrOpenVPanel(idx) {
         <div class="yt-sr-vp-title-text">${_esc(title)}</div>
         <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:4px"></span>
         <button style="${navBtnStyle}" onclick="window.ytSrOpenVPanel(${idx + 1})" ${idx >= _srItems.length - 1 ? 'disabled' : ''} title="次の結果">⏭</button>
+        <button style="${navBtnStyle}" onclick="window.ytSrOpenResultsList()" title="検索結果一覧">☰</button>
       </div>
       <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
       ${ytId ? `<div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>` : ''}
@@ -391,24 +393,25 @@ export function ytSrOpenVPanel(idx) {
     // AB ループセクション（実 VPanel と同一）
     const abHTML = window._vpLoopSectionHTML?.() || '';
 
-    // BM エリア（ライブラリ動画のみ）
-    let bmAreaHTML = '';
-    if (libEntry) {
-      const chapterHTML  = window._vpChapterSectionHTML?.(libEntry.id)  || '';
-      const bookmarkHTML = window._vpBookmarkSectionHTML?.(libEntry.id) || '';
-      const memoHTML     = `<div class="vp-row" style="margin-top:8px">
-        <span class="vp-lbl">Memo</span>
-        <textarea class="vp-memo" id="vp-memo-${libEntry.id}" placeholder=""
-          onblur="vpSaveMemo('${libEntry.id}')">${_esc(libEntry.memo || '')}</textarea>
-      </div>
-      <div id="vp-snap-section-${libEntry.id}"></div>`;
-      bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
-    }
-
-    // ドロワー（ライブラリ動画のみ）
-    const drawerHTML = libEntry
-      ? `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(libEntry.id) || ''}</div>`
+    // BM エリア（常にレンダリング。ライブラリ外は空状態＋案内メッセージ）
+    const bmId = libEntry?.id || null;
+    const chapterHTML  = bmId ? (window._vpChapterSectionHTML?.(bmId)  || '') : '';
+    const bookmarkHTML = bmId ? (window._vpBookmarkSectionHTML?.(bmId) || '') : '';
+    const memoHTML = bmId
+      ? `<div class="vp-row" style="margin-top:8px">
+          <span class="vp-lbl">Memo</span>
+          <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
+            onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
+        </div>
+        <div id="vp-snap-section-${bmId}"></div>`
       : '';
+    const notAddedNote = bmId ? '' : `<div style="padding:10px 14px 4px;font-size:11px;color:var(--text3)">ライブラリに追加するとブックマーク・メモが使用できます</div>`;
+    const bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}${notAddedNote}</div>`;
+
+    // ドロワー（ライブラリ動画: フル表示 / 未追加: プレースホルダー）
+    const drawerHTML = bmId
+      ? `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`
+      : `<div id="yt-sr-vp-edit-area" style="padding:10px 16px;font-size:11px;color:var(--text3)">タグ・プレイリスト・習得度などはライブラリに追加後に使用できます</div>`;
 
     // YouTube 動画情報（全動画共通）
     const ytUrl = ytId
@@ -429,23 +432,71 @@ export function ytSrOpenVPanel(idx) {
       ${infoHTML}
     `;
 
-    // ドロワーのタグ削除ハンドラをバインド（_bindDrawerEvents相当）
-    const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
-    if (editArea) {
-      editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
-      editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
+    // ドロワーのタグ削除ハンドラをバインド（_bindDrawerEvents相当、ライブラリ動画のみ）
+    if (bmId) {
+      const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
+      if (editArea) {
+        editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
+        editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
+      }
     }
 
     // スナップショットセクション初期化
-    if (libEntry && window.initSnapshotSection) {
-      window.initSnapshotSection(libEntry.id, document.getElementById('vp-snap-section-' + libEntry.id));
+    if (bmId && window.initSnapshotSection) {
+      window.initSnapshotSection(bmId, document.getElementById('vp-snap-section-' + bmId));
     }
   }
 
   document.getElementById('yt-sr-vp-overlay')?.classList.add('open');
 }
 
+// ────────────────────────────────────────
+// 検索結果ボトムシート（☰ ボタン）
+// ────────────────────────────────────────
+function _ensureSrBottomSheet() {
+  let sheet = document.getElementById('yt-sr-results-sheet');
+  if (!sheet) {
+    sheet = document.createElement('div');
+    sheet.id = 'yt-sr-results-sheet';
+    sheet.className = 'yt-sr-results-sheet';
+    sheet.innerHTML = `
+      <div class="yt-sr-results-sheet-bd" onclick="window.ytSrCloseResultsList()"></div>
+      <div class="yt-sr-results-sheet-panel">
+        <div class="yt-sr-results-sheet-hdr">
+          <span class="yt-sr-results-sheet-ttl">検索結果 (${_srItems.length}件)</span>
+          <button class="yt-sr-results-sheet-close" onclick="window.ytSrCloseResultsList()">✕</button>
+        </div>
+        <div class="yt-sr-results-sheet-body" id="yt-sr-results-sheet-body"></div>
+      </div>
+    `;
+    const inner = document.querySelector('.yt-sr-vp-inner') || document.getElementById('yt-sr-vp-overlay');
+    if (inner) inner.appendChild(sheet);
+  }
+  return sheet;
+}
+
+export function ytSrOpenResultsList() {
+  const sheet = _ensureSrBottomSheet();
+  // ヘッダーの件数を更新
+  const ttl = sheet.querySelector('.yt-sr-results-sheet-ttl');
+  if (ttl) ttl.textContent = `検索結果 (${_srItems.length}件)`;
+  // リストを描画
+  const body = document.getElementById('yt-sr-results-sheet-body');
+  if (body) body.innerHTML = _srResultsListHTML(_srCurrentIdx);
+  sheet.classList.add('open');
+  // 現在の動画にスクロール
+  requestAnimationFrame(() => {
+    const active = body?.querySelector('.yt-sr-vp-ritem.active');
+    active?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+}
+
+export function ytSrCloseResultsList() {
+  document.getElementById('yt-sr-results-sheet')?.classList.remove('open');
+}
+
 export function ytSrCloseVPanel() {
+  ytSrCloseResultsList();
   document.getElementById('yt-sr-vp-overlay')?.classList.remove('open');
 
   // vpanel.js 統合フラグをクリア

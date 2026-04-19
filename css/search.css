@@ -568,3 +568,62 @@
   text-decoration: none;
 }
 .yt-sr-vp-yt-link:hover { text-decoration: underline; }
+
+/* ── 検索結果ボトムシート（☰ボタン）── */
+.yt-sr-results-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.yt-sr-results-sheet.open { display: flex; }
+.yt-sr-results-sheet-bd {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  cursor: default;
+}
+.yt-sr-results-sheet-panel {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 14px 14px 0 0;
+  max-height: 65%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.4);
+}
+.yt-sr-results-sheet-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.yt-sr-results-sheet-ttl {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+}
+.yt-sr-results-sheet-close {
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  font-family: inherit;
+}
+.yt-sr-results-sheet-close:hover { color: var(--text); }
+.yt-sr-results-sheet-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
