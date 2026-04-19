@@ -3,7 +3,7 @@ import { _syncChipsToState } from './filter.js';
 
 // ── ドロップダウン外クリックで全DD閉じる（フィルター・VPanel・GDrive共通）──
 document.addEventListener('click', function(e) {
-  if (e.target.closest('.vp-dd') || e.target.closest('.vp-dd-trigger')) return;
+  if (e.target.closest('.vp-dd') || e.target.closest('.vp-dd-trigger') || e.target.closest('.vp-dd-wrap')) return;
   document.querySelectorAll('.vp-dd').forEach(dd => { dd.style.display = 'none'; });
 });
 
