@@ -1973,21 +1973,27 @@ export function vpDdAddNew(id, type, val) {
 // サイドバーのopenSbPopupと同じフルハイト・フィックスドパネル方式で統一
 function _vpOpenDd(dd) {
   // ── トリガー位置を起点に DD を配置 ──
-  const wrap   = dd.closest('.vp-dd-wrap');
-  const maxH   = Math.min(window.innerHeight * 0.85, 900); // 最大高さ
-  let ddTop    = 12;
-  let ddRight  = 12;
+  // 上下どちらの余白が大きいかで方向を決定し、
+  // その方向の余白で maxHeight をクランプ → 切れず・高さも最大化
+  const wrap      = dd.closest('.vp-dd-wrap');
+  const absMaxH   = Math.min(window.innerHeight * 0.85, 900);
+  let ddTop   = 12;
+  let ddRight = 12;
+  let maxH    = absMaxH;
   if (wrap) {
     const r          = wrap.getBoundingClientRect();
     const spaceBelow = window.innerHeight - r.bottom - 8;
     const spaceAbove = r.top - 8;
-    // 下に十分スペースがあれば wrap 直下、なければ上方向
-    if (spaceBelow >= 160 || spaceBelow >= spaceAbove) {
-      ddTop = r.bottom + 4;
-    } else {
-      ddTop = Math.max(8, r.top - Math.min(maxH, spaceAbove) - 4);
-    }
     ddRight = Math.max(8, window.innerWidth - r.right);
+    if (spaceBelow >= spaceAbove) {
+      // 下の方が広い → 下に表示、余白で高さをクランプ
+      ddTop = r.bottom + 4;
+      maxH  = Math.min(absMaxH, spaceBelow - 4);
+    } else {
+      // 上の方が広い → 上に表示、余白で高さをクランプ
+      maxH  = Math.min(absMaxH, spaceAbove - 4);
+      ddTop = r.top - maxH - 4;
+    }
   }
 
   dd.style.position    = 'fixed';
