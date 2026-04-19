@@ -89,7 +89,7 @@ export async function saveUserData() {
   if (!currentUser) return;
   try {
     await db.collection('users').doc(currentUser.uid).collection('data').doc('videos').set({
-      videos: window.videos || [],
+      videos: (window.videos || []).filter(v => !v._srTemp),
       updatedAt: new Date().toISOString()
     });
     showToast('💾 保存', 1500);

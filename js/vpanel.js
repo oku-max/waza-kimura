@@ -468,7 +468,9 @@ function _abUpdateChips() {
   // ループセクションを再描画（軽量）
   const sec = document.getElementById('vp-loop-section');
   if (sec) {
-    const abArea = document.getElementById('vpanel-ab-area');
+    const abArea = window._srVpOpen
+      ? document.getElementById('yt-sr-vp-ab-area')
+      : document.getElementById('vpanel-ab-area');
     if (abArea) abArea.innerHTML = _loopSectionHTML();
     _abBindLoopSlider();
     // BM追加ボタンも更新
@@ -488,7 +490,9 @@ function _abUpdateChips() {
 // タブ切替（開始/終了）
 export function vpAbSwitchField(field) {
   _abActiveField = field;
-  const abArea = document.getElementById('vpanel-ab-area');
+  const abArea = window._srVpOpen
+    ? document.getElementById('yt-sr-vp-ab-area')
+    : document.getElementById('vpanel-ab-area');
   if (abArea) abArea.innerHTML = _loopSectionHTML();
   _abBindLoopSlider();
 }

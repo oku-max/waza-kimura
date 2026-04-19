@@ -379,6 +379,15 @@ function _srLockedSectionsHTML(isYt) {
 }
 
 // ────────────────────────────────────────
+// tempEntry ヘルパー
+// ────────────────────────────────────────
+function _srRemoveTempEntry() {
+  if (!window.videos) return;
+  const idx = window.videos.findIndex(v => v._srTemp);
+  if (idx !== -1) window.videos.splice(idx, 1);
+}
+
+// ────────────────────────────────────────
 // VPANEL OPEN / CLOSE
 // ────────────────────────────────────────
 export function ytSrOpenVPanel(idx) {
@@ -398,18 +407,56 @@ export function ytSrOpenVPanel(idx) {
   const date  = s.publishedAt
     ? new Date(s.publishedAt).toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric' })
     : '';
-  const isAdded = _addedSet.has(id);
-
-  // ライブラリエントリを特定
+  // ライブラリエントリを特定（_srTemp は除外）
   const libId    = 'yt-' + id;
-  const libEntry = isAdded ? (window.videos || []).find(v => v.ytId === id || v.id === libId) : null;
-  _srOpenLibId   = libEntry?.id || null;
+  let libEntry   = (window.videos || []).find(v => !v._srTemp && (v.ytId === id || v.id === libId)) || null;
+  const isAdded  = !!libEntry;
+
+  // 既存 tempEntry をクリア（前の動画の残骸 or 同一動画の再オープン）
+  _srRemoveTempEntry();
+
+  // 非ライブラリ動画: tempEntry を作成して全 VP 機能を有効化
+  if (!libEntry) {
+    const tempEntry = {
+      _srTemp:    true,
+      id:         libId,
+      ytId:       ytId || null,
+      pt:         'youtube',
+      title,
+      src:        'youtube',
+      url:        ytId
+                    ? `https://www.youtube.com/watch?v=${ytId}`
+                    : `https://www.youtube.com/playlist?list=${plId}`,
+      thumb:      s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+      ch,
+      channel:    ch,
+      pl:         ytId ? '' : title,
+      addedAt:    s.publishedAt || '',
+      duration:   0,
+      ytChapters: [],
+      watched:    false,
+      fav:        false,
+      status:     '未着手',
+      prio:       'そのうち',
+      shared:     0,
+      archived:   false,
+      memo:       '',
+      ai:         '',
+      tbLocked:   false,
+      tb: [], cat: [], pos: [], tags: [],
+    };
+    window.videos = window.videos || [];
+    window.videos.push(tempEntry);
+    libEntry = tempEntry;
+  }
+
+  _srOpenLibId = libEntry.id;
 
   // ── vpanel.js 統合フラグをセット ──
   window._srVpOpen            = true;
   window._srYtGetCurrentTime  = _srGetCurrentTime;
   window._srYtSeekTo          = _srSeekTo;
-  if (_srOpenLibId) window.openVPanelId = _srOpenLibId;
+  window.openVPanelId         = _srOpenLibId;
 
   // 実 VPanel の AB エリアをクリア（#vp-ab-sl 等の ID 衝突を防ぐ）
   const realAbArea = document.getElementById('vpanel-ab-area');
@@ -471,27 +518,18 @@ export function ytSrOpenVPanel(idx) {
     // AB ループセクション（実 VPanel と同一）
     const abHTML = window._vpLoopSectionHTML?.() || '';
 
-    // BM エリア + ドロワー
-    const bmId = libEntry?.id || null;
-    let bmAreaHTML, drawerHTML;
-    if (bmId) {
-      // ─ ライブラリ動画: 実VPanel関数を呼ぶ ─
-      const chapterHTML  = window._vpChapterSectionHTML?.(bmId)  || '';
-      const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
-      const memoHTML = `<div class="vp-row" style="margin-top:8px">
-        <span class="vp-lbl">Memo</span>
-        <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
-          onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
-      </div>
-      <div id="vp-snap-section-${bmId}"></div>`;
-      bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
-      drawerHTML = `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`;
-    } else {
-      // ─ 非ライブラリ動画: ロック状態セクション ─
-      const { bm, drawer } = _srLockedSectionsHTML(!!ytId);
-      bmAreaHTML = bm;
-      drawerHTML = drawer;
-    }
+    // BM エリア + ドロワー（libEntry は常にセット済み: 実エントリ or tempEntry）
+    const bmId         = libEntry.id;
+    const chapterHTML  = window._vpChapterSectionHTML?.(bmId)  || '';
+    const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
+    const memoHTML = `<div class="vp-row" style="margin-top:8px">
+      <span class="vp-lbl">Memo</span>
+      <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
+        onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
+    </div>
+    <div id="vp-snap-section-${bmId}"></div>`;
+    const bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
+    const drawerHTML = `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`;
 
     // YouTube 動画情報（全動画共通）
     const ytUrl = ytId
@@ -512,17 +550,15 @@ export function ytSrOpenVPanel(idx) {
       ${infoHTML}
     `;
 
-    // ドロワーのタグ削除ハンドラをバインド（_bindDrawerEvents相当、ライブラリ動画のみ）
-    if (bmId) {
-      const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
-      if (editArea) {
-        editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
-        editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
-      }
+    // ドロワーのタグ削除ハンドラをバインド
+    const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
+    if (editArea) {
+      editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
+      editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
     }
 
-    // スナップショットセクション初期化
-    if (bmId && window.initSnapshotSection) {
+    // スナップショットセクション初期化（tempEntryは除外: Firebase Storage 孤立を防ぐ）
+    if (!libEntry._srTemp && window.initSnapshotSection) {
       window.initSnapshotSection(bmId, document.getElementById('vp-snap-section-' + bmId));
     }
   }
@@ -577,6 +613,7 @@ export function ytSrCloseResultsList() {
 
 export function ytSrCloseVPanel() {
   ytSrCloseResultsList();
+  _srRemoveTempEntry();  // 未登録動画の一時エントリを除去
   document.getElementById('yt-sr-vp-overlay')?.classList.remove('open');
 
   // vpanel.js 統合フラグをクリア
@@ -624,54 +661,75 @@ export async function ytSrAddToLibrary() {
   if (!id) return;
   if (_addedSet.has(id)) { showToast('既にライブラリに追加済みです'); return; }
 
+  const libId   = 'yt-' + id;
   const title   = s.title || '';
   const channel = s.channelTitle || '';
   const thumb   = s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '';
   const added   = s.publishedAt || '';
   const isVideo = !!ytId;
 
-  const newEntry = {
-    id:       'yt-' + id,
-    ytId:     ytId || null,
-    pt:       'youtube',
-    title,
-    src:      'youtube',
-    url:      isVideo
-                ? `https://www.youtube.com/watch?v=${ytId}`
-                : `https://www.youtube.com/playlist?list=${plId}`,
-    thumb,
-    ch:       channel,
-    channel,
-    pl:       isVideo ? '' : title,
-    addedAt:  added,
-    duration: 0,
-    ytChapters: [],
-    watched:  false,
-    fav:      false,
-    status:   '未着手',
-    prio:     'そのうち',
-    shared:   0,
-    archived: false,
-    memo:     '',
-    ai:       '',
-    tbLocked: false,
-    tb: [], cat: [], pos: [], tags: [],
-    ...(window.autoTagFromTitle ? (() => {
-      const t = window.autoTagFromTitle(title);
-      return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags };
-    })() : {})
-  };
-
   window.videos = window.videos || [];
 
-  if (window.videos.find(v => v.ytId === id || v.id === newEntry.id)) {
+  // 重複チェック（_srTemp は除外）
+  if (window.videos.find(v => !v._srTemp && (v.ytId === id || v.id === libId))) {
     showToast('既にライブラリに追加済みです');
     _addedSet.add(id);
     _updateAddedUI(id);
     return;
   }
 
-  window.videos.push(newEntry);
+  // tempEntry を in-place アップグレード（BM・memo・タグを保持）
+  const tempEntry = window.videos.find(v => v._srTemp && v.id === libId);
+  if (tempEntry) {
+    delete tempEntry._srTemp;
+    tempEntry.addedAt = added || new Date().toISOString();
+    tempEntry.thumb   = thumb;
+    tempEntry.ch      = channel;
+    tempEntry.channel = channel;
+    // autoTag が未適用ならタイトルから補完
+    if (window.autoTagFromTitle && !tempEntry.tb?.length && !tempEntry.cat?.length) {
+      const t = window.autoTagFromTitle(title);
+      tempEntry.tb   = t.tb   || [];
+      tempEntry.cat  = t.cat  || [];
+      tempEntry.pos  = t.pos  || [];
+      tempEntry.tags = t.tags || [];
+    }
+  } else {
+    // フォールバック: tempEntry が見つからない場合は新規作成
+    const newEntry = {
+      id:       libId,
+      ytId:     ytId || null,
+      pt:       'youtube',
+      title,
+      src:      'youtube',
+      url:      isVideo
+                  ? `https://www.youtube.com/watch?v=${ytId}`
+                  : `https://www.youtube.com/playlist?list=${plId}`,
+      thumb,
+      ch:       channel,
+      channel,
+      pl:       isVideo ? '' : title,
+      addedAt:  added,
+      duration: 0,
+      ytChapters: [],
+      watched:  false,
+      fav:      false,
+      status:   '未着手',
+      prio:     'そのうち',
+      shared:   0,
+      archived: false,
+      memo:     '',
+      ai:       '',
+      tbLocked: false,
+      tb: [], cat: [], pos: [], tags: [],
+      ...(window.autoTagFromTitle ? (() => {
+        const t = window.autoTagFromTitle(title);
+        return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags };
+      })() : {})
+    };
+    window.videos.push(newEntry);
+  }
+
   _addedSet.add(id);
   window.AF?.();
 
@@ -683,20 +741,28 @@ export async function ytSrAddToLibrary() {
   }
 
   if (window.aiSettings?.autoTagOnImport) {
-    window.autoTagNewVideos?.([newEntry.id]);
+    window.autoTagNewVideos?.([libId]);
   }
 
   _updateAddedUI(id);
 
-  // 追加後: VPanelが開いている場合のみ → 実VPanelへ移行
-  // カードの＋ボタン（Quick Add）では VPanel は開いていないのでスキップ
+  // 追加後: VP が開いている場合 → CTA を登録済み表示に更新（VP は閉じない）
   const isVPanelOpen = document.getElementById('yt-sr-vp-overlay')?.classList.contains('open');
   if (isVPanelOpen) {
-    const entryId = newEntry.id;
-    setTimeout(() => {
-      ytSrCloseVPanel();
-      requestAnimationFrame(() => window.openVPanel?.(entryId));
-    }, 600);
+    const cta = document.getElementById('yt-sr-vp-cta');
+    if (cta) {
+      cta.innerHTML = `
+        <button class="yt-sr-vp-add-btn" disabled>✓ ライブラリ登録済み</button>
+        <button class="yt-sr-vp-lib-btn" onclick="window.ytSrOpenInLibrary('${libId}')">▶ ライブラリで開く →</button>
+      `;
+    }
+    _srOpenLibId        = libId;
+    window.openVPanelId = libId;
+    // スナップショットセクション初期化（登録完了後に有効化）
+    if (window.initSnapshotSection) {
+      const snapSec = document.getElementById('vp-snap-section-' + libId);
+      if (snapSec) window.initSnapshotSection(libId, snapSec);
+    }
   }
 }
 
