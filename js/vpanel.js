@@ -2100,7 +2100,7 @@ export function vpRenderChannelDdList(id, q) {
     return;
   }
 
-  list.style.maxHeight = '300px';
+  // maxHeight は _vpOpenDd で設定済みのため上書きしない
   const recents = (window._recentChannels||[]).filter(c => chMap[c]).slice(0, 5);
   const recentHTML = recents.length ? `
     <div class="vp-dd-sec-hd">🕐 最近みた</div>
@@ -2181,7 +2181,7 @@ export function vpRenderPlNameDdList(id, q) {
     return;
   }
 
-  list.style.maxHeight = '300px';
+  // maxHeight は _vpOpenDd で設定済みのため上書きしない
   const recents = (window._recentPlaylists||[]).filter(p => plMap[p]).slice(0, 5);
   const recentHTML = recents.length ? `
     <div class="vp-dd-sec-hd">🕐 最近みた</div>
