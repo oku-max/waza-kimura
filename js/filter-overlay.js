@@ -3,8 +3,14 @@ import { _syncChipsToState } from './filter.js';
 
 // ── ドロップダウン外クリックで全DD閉じる（フィルター・VPanel・GDrive共通）──
 document.addEventListener('click', function(e) {
-  if (e.target.closest('.vp-dd') || e.target.closest('.vp-dd-trigger') || e.target.closest('.vp-dd-wrap')) return;
-  document.querySelectorAll('.vp-dd').forEach(dd => { dd.style.display = 'none'; });
+  // 各DDごとに個別判定（グローバル .vp-dd-wrap チェックは他のwrap内クリックでも閉じなくなるため誤り）
+  document.querySelectorAll('.vp-dd').forEach(dd => {
+    if (dd.style.display === 'none') return;
+    if (dd.contains(e.target)) return;
+    const wrap = dd.closest('.vp-dd-wrap');
+    if (wrap && wrap.contains(e.target)) return;
+    dd.style.display = 'none';
+  });
 });
 
 // ── ユーティリティ ──

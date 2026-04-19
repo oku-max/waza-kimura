@@ -2279,17 +2279,16 @@ export function vpRemoveTag(id, type, val, el) {
 }
 
 document.addEventListener('click', function(e) {
-  if (!e.target.closest('.vp-dd-wrap')) {
-    // 開いているddを探してチップ更新してから閉じる
-    document.querySelectorAll('.vp-dd').forEach(d => {
-      if (d.style.display !== 'none') {
-        // id="vp-dd-{type}-{videoId}" からtype/idを取得
-        const m = d.id.match(/^vp-dd-(\w+)-(.+)$/);
-        if (m) vpRefreshChips(m[2], m[1]);
-        d.style.display = 'none';
-      }
-    });
-  }
+  // 各DDごとに「そのDDのwrap内クリックか」を個別判定（グローバル .vp-dd-wrap チェックは誤り）
+  document.querySelectorAll('.vp-dd').forEach(d => {
+    if (d.style.display === 'none') return;
+    if (d.contains(e.target)) return;                    // DD内クリック → 閉じない
+    const wrap = d.closest('.vp-dd-wrap');
+    if (wrap && wrap.contains(e.target)) return;         // 同じwrap内クリック → 閉じない
+    const m = d.id.match(/^vp-dd-(\w+)-(.+)$/);
+    if (m) vpRefreshChips(m[2], m[1]);
+    d.style.display = 'none';
+  });
 });
 
 export function vpRemoveTechEl(el) {
