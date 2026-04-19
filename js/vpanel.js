@@ -1974,11 +1974,11 @@ export function vpDdAddNew(id, type, val) {
 function _vpOpenDd(dd) {
   dd.style.position    = 'fixed';
   dd.style.top         = '12px';
-  dd.style.bottom      = '12px';
+  dd.style.bottom      = 'auto';              // フルハイト強制を解除
   dd.style.right       = '12px';
   dd.style.left        = 'auto';
   dd.style.width       = 'min(360px, 92vw)';
-  dd.style.maxHeight   = 'none';
+  dd.style.maxHeight   = 'min(75vh, 600px)'; // コンテンツが少ない時は縮み、多い時はスクロール
   dd.style.zIndex      = '500';
   dd.style.display     = 'flex';
   dd.style.flexDirection = 'column';
