@@ -49,16 +49,20 @@
         </div>
       </div>`;
 
-    // Tags row (検索・選択 + 自由入力)
+    // Tags row — カスタム DD（インライン input を廃止してモバイルキーボード誤起動を防止）
     const tagChips = v.tags.map(t =>
       `<span class="vp-chip on-tags" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">#${_esc(t)} ×</span>`
     ).join('');
-    const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
-      <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
-        oninput="vpV4TagSuggest('${id}',this)" onfocus="vpV4TagSuggest('${id}',this)"
-        onkeydown="vpV4TagKey('${id}',event,this)">
-      <div class="vp-dd" id="vp-v4-tag-sug-${id}" style="display:none;border-radius:8px"></div>
-    </div>`;
+    const tagInput = `
+      <div class="vp-dd-wrap" style="display:inline-block;position:relative">
+        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenTagDd('${id}',this)">＋ #タグ</span>
+        <div class="vp-dd" id="vp-v4-tag-dd-${id}" style="display:none">
+          <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="#タグ検索・新規追加（Enterで追加）"
+            oninput="vpV4TagFilter('${id}',this.value)"
+            onkeydown="vpV4TagKey('${id}',event,this)">
+          <div class="vp-dd-list" id="vp-v4-tag-sug-${id}"></div>
+        </div>
+      </div>`;
 
     const showTb   = _tagVis('tb');
     const showCat  = _tagVis('cat');
@@ -159,63 +163,37 @@
     window.AF?.();
   };
 
-  // ── #Tag 検索サジェスト（常に position:fixed、VPanel / SR VP 共通） ──
+  // ── #Tag カスタム DD ──
   function _getAllTags() {
     return [...new Set((window.videos || []).flatMap(v => v.tags || []))].sort((a,b) => a.localeCompare(b,'ja'));
   }
 
-  window.vpV4TagSuggest = function (id, inp) {
-    const sug = document.getElementById('vp-v4-tag-sug-' + id);
-    if (!sug) return;
-    const q = (inp.value || '').trim().toLowerCase();
+  // DD を開く（チップタップ時。キーボードは開かない）
+  window.vpV4OpenTagDd = function (id) {
+    const dd = document.getElementById('vp-v4-tag-dd-' + id);
+    if (!dd) return;
+    if (dd.style.display !== 'none' && dd.style.display !== '') {
+      dd.style.display = 'none'; return;
+    }
+    window._vpOpenDd?.(dd);
+    _vpV4RenderTagList(id, '');
+    // search input には自動 focus しない（モバイルキーボード誤起動防止）
+  };
+
+  // リスト描画（q: 検索文字列）
+  function _vpV4RenderTagList(id, q) {
+    const list = document.getElementById('vp-v4-tag-sug-' + id);
+    if (!list) return;
     const v = _findV(id);
     const existing = v?.tags || [];
     const all = _getAllTags().filter(t => !existing.includes(t));
-    const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
-    if (!filtered.length) { sug.style.display = 'none'; return; }
-
-    // 常に position:fixed でスクロールコンテナのクリップを回避（VPanel / SR VP 共通）
-    const _updatePos = () => {
-      const r = inp.getBoundingClientRect();
-      const maxH = Math.min(window.innerHeight * 0.585, 600);
-      const spaceBelow = window.innerHeight - r.bottom - 8;
-      const spaceAbove = r.top - 8;
-      let top, h;
-      if (spaceBelow >= spaceAbove) {
-        top = r.bottom + 2;
-        h   = Math.min(maxH, spaceBelow - 4);
-      } else {
-        h   = Math.min(maxH, spaceAbove - 4);
-        top = r.top - h - 4;
-      }
-      sug.style.top       = top + 'px';
-      sug.style.left      = r.left + 'px';
-      sug.style.maxHeight = h + 'px';
-    };
-    Object.assign(sug.style, {
-      position: 'fixed',
-      right: 'auto', bottom: 'auto',
-      width: 'min(300px, 90vw)',
-      zIndex: '9500',
-      overflowY: 'auto',
-    });
-    _updatePos();
-
-    // スクロール追従（SR VP / 通常 VPanel）
-    const _sc = document.querySelector('.yt-sr-vp-scroll') || document.getElementById('vpanelInner');
-    if (_sc && sug._onScroll) _sc.removeEventListener('scroll', sug._onScroll);
-    if (_sc) {
-      sug._onScroll = () => sug.style.display !== 'none'
-        ? _updatePos()
-        : (_sc.removeEventListener('scroll', sug._onScroll), sug._onScroll = null);
-      _sc.addEventListener('scroll', sug._onScroll, { passive: true });
-    }
-
-    sug.style.display = 'block';
+    const ql = q.trim().toLowerCase();
+    const filtered = ql ? all.filter(t => t.toLowerCase().includes(ql)) : all;
     const _mkItem = t =>
-      `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;
-    if (q) {
-      sug.innerHTML = filtered.map(_mkItem).join('');
+      `<div class="vp-dd-item" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;
+    if (ql) {
+      list.innerHTML = filtered.map(_mkItem).join('') ||
+        `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
     } else {
       const _groups = window.getTagGroups ? window.getTagGroups() : [];
       const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
@@ -231,14 +209,24 @@
         parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
         unc.forEach(t => parts.push(_mkItem(t)));
       }
-      sug.innerHTML = parts.length ? parts.join('') : '';
+      list.innerHTML = parts.length ? parts.join('') : '';
     }
+  }
+
+  // search input の oninput ハンドラ
+  window.vpV4TagFilter = function (id, q) { _vpV4RenderTagList(id, q); };
+
+  // 後方互換: SR VP など旧参照が残っている場合のフォールバック
+  window.vpV4TagSuggest = function (id, inp) {
+    _vpV4RenderTagList(id, inp?.value || '');
   };
 
   window.vpV4TagPick = function (id, val) {
     const v = _findV(id); if (!v) return;
     if (!Array.isArray(v.tags)) v.tags = [];
     if (!v.tags.includes(val)) v.tags.push(val);
+    const dd = document.getElementById('vp-v4-tag-dd-' + id);
+    if (dd) dd.style.display = 'none';
     _rerenderRow(id, 'tags');
     _save(id);
     window.AF?.();
@@ -247,8 +235,8 @@
   // ── #Tag 追加/削除 ──
   window.vpV4TagKey = function (id, ev, inp) {
     if (ev.key === 'Escape') {
-      const sug = document.getElementById('vp-v4-tag-sug-' + id);
-      if (sug) sug.style.display = 'none';
+      const dd = document.getElementById('vp-v4-tag-dd-' + id);
+      if (dd) dd.style.display = 'none';
       return;
     }
     if (ev.key !== 'Enter') return;
