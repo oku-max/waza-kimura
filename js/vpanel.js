@@ -1974,7 +1974,7 @@ export function vpDdAddNew(id, type, val) {
 function _vpOpenDd(dd) {
   // ── DD を画面中央縦・右寄せで表示 ──
   const wrap  = dd.closest('.vp-dd-wrap');
-  const maxH  = Math.min(window.innerHeight * 0.78, 800);
+  const maxH  = Math.min(window.innerHeight * 0.585, 600);
   const ddRight = wrap
     ? Math.max(8, window.innerWidth - wrap.getBoundingClientRect().right)
     : 12;
