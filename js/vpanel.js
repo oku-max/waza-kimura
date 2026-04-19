@@ -96,6 +96,16 @@ function _clearTagSnapshot() {
   _vpTagSnapshot = null;
 }
 
+// ── Escape キーで全 DD を閉じる（VPanel / SR VP 共通） ──
+// SR VP では iframe が focus を奪うため Escape が届かない場合があるが、
+// 通常の VPanel や DD 内 input フォーカス中は有効。
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.vp-dd').forEach(dd => {
+    if (dd.style.display !== 'none') dd.style.display = 'none';
+  });
+}, true);
+
 // ── ドロップダウン外クリックで閉じる（グローバル） ──
 document.addEventListener('click', (e) => {
   const opened = document.querySelectorAll('.vp-dd');
@@ -1962,21 +1972,44 @@ export function vpDdAddNew(id, type, val) {
 // ── Channel 単一値ドロップダウン ──
 // サイドバーのopenSbPopupと同じフルハイト・フィックスドパネル方式で統一
 function _vpOpenDd(dd) {
-  dd.style.position = 'fixed';
-  dd.style.top    = '12px';
-  dd.style.bottom = '12px';
-  dd.style.right  = '12px';
-  dd.style.left   = 'auto';
-  dd.style.width  = 'min(360px, 92vw)';
-  dd.style.maxHeight = 'none';
-  dd.style.zIndex = '500';
-  dd.style.display = 'flex';
+  dd.style.position    = 'fixed';
+  dd.style.top         = '12px';
+  dd.style.bottom      = '12px';
+  dd.style.right       = '12px';
+  dd.style.left        = 'auto';
+  dd.style.width       = 'min(360px, 92vw)';
+  dd.style.maxHeight   = 'none';
+  dd.style.zIndex      = '500';
+  dd.style.display     = 'flex';
   dd.style.flexDirection = 'column';
-  dd.style.overflow = 'hidden';
+  dd.style.overflow    = 'hidden';
+
+  // ── 閉じる (×) ボタン ──
+  // DD は position:fixed なので iframe 内クリックが届かず、外クリックで閉じられない。
+  // VPanel・SR VP 共通で × ボタンを付け、常に離脱できるようにする。
+  dd.querySelector('.vp-dd-x')?.remove();
+  const xBtn = document.createElement('button');
+  xBtn.className = 'vp-dd-x';
+  xBtn.textContent = '✕';
+  xBtn.style.cssText = [
+    'position:absolute', 'top:7px', 'right:8px',
+    'background:none', 'border:none',
+    'color:var(--text3)', 'font-size:14px', 'line-height:1',
+    'cursor:pointer', 'padding:3px 5px',
+    'border-radius:4px', 'z-index:1', 'font-family:inherit',
+  ].join(';');
+  xBtn.onmouseenter = () => { xBtn.style.color = 'var(--text)'; xBtn.style.background = 'var(--surface2)'; };
+  xBtn.onmouseleave = () => { xBtn.style.color = 'var(--text3)'; xBtn.style.background = 'none'; };
+  xBtn.onclick = ev => { ev.stopPropagation(); dd.style.display = 'none'; };
+  dd.appendChild(xBtn);
+  // × ボタンと重ならないよう search input の右 padding を確保
+  const searchInp = dd.querySelector('.vp-dd-search');
+  if (searchInp) searchInp.style.paddingRight = '34px';
+
   // リスト部分を残り高さいっぱいに
   const list = dd.querySelector('.vp-dd-list');
   if (list) {
-    list.style.flex = '1';
+    list.style.flex      = '1';
     list.style.minHeight = '0';
     list.style.maxHeight = 'none';
     list.style.overflowY = 'auto';
