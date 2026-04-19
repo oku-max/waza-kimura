@@ -20,6 +20,7 @@ const _addedSet   = new Set(); // 追加済みYouTube ID
 let _srYtPlayer  = null;
 let _srYtReady   = false;
 let _srTimeTimer = null;
+let _srOpenLibId = null; // 現在 VP に表示中のライブラリ動画 ID（null=未追加）
 
 // ────────────────────────────────────────
 // INIT
@@ -320,7 +321,26 @@ export function ytSrOpenVPanel(idx) {
     : '';
   const isAdded = _addedSet.has(id);
 
-  // ── 左列: プレイヤー + スキップ + 検索結果リスト ──
+  // ライブラリエントリを特定
+  const libId    = 'yt-' + id;
+  const libEntry = isAdded ? (window.videos || []).find(v => v.ytId === id || v.id === libId) : null;
+  _srOpenLibId   = libEntry?.id || null;
+
+  // ── vpanel.js 統合フラグをセット ──
+  window._srVpOpen            = true;
+  window._srYtGetCurrentTime  = _srGetCurrentTime;
+  window._srYtSeekTo          = _srSeekTo;
+  if (_srOpenLibId) window.openVPanelId = _srOpenLibId;
+
+  // 実 VPanel の AB エリアをクリア（#vp-ab-sl 等の ID 衝突を防ぐ）
+  const realAbArea = document.getElementById('vpanel-ab-area');
+  if (realAbArea) realAbArea.innerHTML = '';
+
+  // AB ループ状態を初期化（前回の残骸をクリア）
+  window.vpAbReset?.();
+
+  // ── 左列: プレイヤー + タイトル(⏮/⏭) + スキップ + 検索結果リスト ──
+  const navBtnStyle = 'flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.85);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit';
   const left = document.getElementById('yt-sr-vp-left');
   if (left) {
     left.innerHTML = `
@@ -329,11 +349,13 @@ export function ytSrOpenVPanel(idx) {
         <div id="yt-sr-vp-player-div" style="width:100%;height:100%"></div>
       </div>
       <div class="yt-sr-vp-titlebar">
+        <button style="${navBtnStyle}" onclick="window.ytSrOpenVPanel(${idx - 1})" ${idx === 0 ? 'disabled' : ''} title="前の結果">⏮</button>
         <div class="yt-sr-vp-title-text">${_esc(title)}</div>
-        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:6px"></span>
+        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:4px"></span>
+        <button style="${navBtnStyle}" onclick="window.ytSrOpenVPanel(${idx + 1})" ${idx >= _srItems.length - 1 ? 'disabled' : ''} title="次の結果">⏭</button>
       </div>
       <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
-      <div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>
+      ${ytId ? `<div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>` : ''}
       ${_srResultsListHTML(idx)}
     `;
 
@@ -353,8 +375,6 @@ export function ytSrOpenVPanel(idx) {
   // ── 右列 CTA ──
   const cta = document.getElementById('yt-sr-vp-cta');
   if (cta) {
-    const libId    = 'yt-' + id;
-    const libEntry = isAdded ? (window.videos || []).find(v => v.ytId === id || v.id === libId) : null;
     if (isAdded && libEntry) {
       cta.innerHTML = `
         <button class="yt-sr-vp-add-btn" disabled>✓ ライブラリ登録済み</button>
@@ -365,19 +385,61 @@ export function ytSrOpenVPanel(idx) {
     }
   }
 
-  // ── 右列スクロール: 動画情報 ──
+  // ── 右列スクロール: ABループ + BM + タグ + 動画情報 ──
   const scroll = document.getElementById('yt-sr-vp-scroll');
   if (scroll) {
+    // AB ループセクション（実 VPanel と同一）
+    const abHTML = window._vpLoopSectionHTML?.() || '';
+
+    // BM エリア（ライブラリ動画のみ）
+    let bmAreaHTML = '';
+    if (libEntry) {
+      const chapterHTML  = window._vpChapterSectionHTML?.(libEntry.id)  || '';
+      const bookmarkHTML = window._vpBookmarkSectionHTML?.(libEntry.id) || '';
+      const memoHTML     = `<div class="vp-row" style="margin-top:8px">
+        <span class="vp-lbl">Memo</span>
+        <textarea class="vp-memo" id="vp-memo-${libEntry.id}" placeholder=""
+          onblur="vpSaveMemo('${libEntry.id}')">${_esc(libEntry.memo || '')}</textarea>
+      </div>
+      <div id="vp-snap-section-${libEntry.id}"></div>`;
+      bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
+    }
+
+    // ドロワー（ライブラリ動画のみ）
+    const drawerHTML = libEntry
+      ? `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(libEntry.id) || ''}</div>`
+      : '';
+
+    // YouTube 動画情報（全動画共通）
     const ytUrl = ytId
       ? `https://www.youtube.com/watch?v=${ytId}`
       : `https://www.youtube.com/playlist?list=${plId}`;
-    scroll.innerHTML = `
+    const infoHTML = `<div class="yt-sr-vp-info-section">
       <div class="yt-sr-vp-info-ttl">${_esc(title)}</div>
       <div class="yt-sr-vp-info-row"><span>📺</span><span>${_esc(ch)}</span></div>
       ${date ? `<div class="yt-sr-vp-info-row"><span>📅</span><span>${date}</span></div>` : ''}
       ${desc ? `<div class="yt-sr-vp-desc">${_esc(desc)}</div>` : ''}
       <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="yt-sr-vp-yt-link">▶ YouTubeで開く</a>
+    </div>`;
+
+    scroll.innerHTML = `
+      <div id="yt-sr-vp-ab-area">${abHTML}</div>
+      ${bmAreaHTML}
+      ${drawerHTML}
+      ${infoHTML}
     `;
+
+    // ドロワーのタグ削除ハンドラをバインド（_bindDrawerEvents相当）
+    const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
+    if (editArea) {
+      editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
+      editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
+    }
+
+    // スナップショットセクション初期化
+    if (libEntry && window.initSnapshotSection) {
+      window.initSnapshotSection(libEntry.id, document.getElementById('vp-snap-section-' + libEntry.id));
+    }
   }
 
   document.getElementById('yt-sr-vp-overlay')?.classList.add('open');
@@ -385,6 +447,17 @@ export function ytSrOpenVPanel(idx) {
 
 export function ytSrCloseVPanel() {
   document.getElementById('yt-sr-vp-overlay')?.classList.remove('open');
+
+  // vpanel.js 統合フラグをクリア
+  window._srVpOpen           = false;
+  window._srYtGetCurrentTime = null;
+  window._srYtSeekTo         = null;
+  if (window.openVPanelId === _srOpenLibId) window.openVPanelId = null;
+  _srOpenLibId = null;
+
+  // AB ループタイマーを停止
+  window.vpAbReset?.();
+
   // YT.Player を破棄
   if (_srYtPlayer) { try { _srYtPlayer.destroy(); } catch(e) {} _srYtPlayer = null; }
   _srYtReady = false;
@@ -484,12 +557,16 @@ export async function ytSrAddToLibrary() {
 
   _updateAddedUI(id);
 
-  // 追加後: Search VPanelを閉じて実VPanelで開く
-  const entryId = newEntry.id;
-  setTimeout(() => {
-    ytSrCloseVPanel();
-    requestAnimationFrame(() => window.openVPanel?.(entryId));
-  }, 600);
+  // 追加後: VPanelが開いている場合のみ → 実VPanelへ移行
+  // カードの＋ボタン（Quick Add）では VPanel は開いていないのでスキップ
+  const isVPanelOpen = document.getElementById('yt-sr-vp-overlay')?.classList.contains('open');
+  if (isVPanelOpen) {
+    const entryId = newEntry.id;
+    setTimeout(() => {
+      ytSrCloseVPanel();
+      requestAnimationFrame(() => window.openVPanel?.(entryId));
+    }, 600);
+  }
 }
 
 // もっと見る

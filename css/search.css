@@ -515,12 +515,22 @@
 .yt-sr-vp-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 14px;
+  padding: 0;
 }
 .yt-sr-vp-scroll::-webkit-scrollbar { width: 3px; }
 .yt-sr-vp-scroll::-webkit-scrollbar-thumb { background: var(--border); }
 
-/* 動画情報セクション */
+/* AB ループ / ブックマーク / ドロワーは vpanel の CSS (.ab-section, .vp-row 等) を流用 */
+#yt-sr-vp-ab-area,
+#yt-sr-vp-bm-area,
+#yt-sr-vp-edit-area {
+  border-bottom: 1px solid var(--border);
+}
+
+/* YouTube 動画情報セクション */
+.yt-sr-vp-info-section {
+  padding: 14px;
+}
 .yt-sr-vp-info-ttl {
   font-size: 13px;
   font-weight: 700;

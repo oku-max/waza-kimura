@@ -175,6 +175,8 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
 
 // 現在の再生位置（秒）を取得
 function _getCurrentTime() {
+  // Search VP が開いている場合は SR プレイヤーを優先
+  if (window._srYtGetCurrentTime) return window._srYtGetCurrentTime();
   if (_gdVideoEl) {
     const t = _gdVideoEl.currentTime;
     return isNaN(t) ? null : Math.floor(t);
@@ -186,6 +188,8 @@ function _getCurrentTime() {
 
 // 指定秒数にシーク
 function _seekTo(sec) {
+  // Search VP が開いている場合は SR プレイヤーを優先
+  if (window._srYtSeekTo) { window._srYtSeekTo(sec); return; }
   if (_gdVideoEl) {
     _gdVideoEl.currentTime = sec;
     _gdVideoEl.play().catch(() => {});
@@ -378,7 +382,10 @@ function _abBarHTML() {
 function _abRefresh(id) {
   // ABバーを再描画
   const html = _abBarHTML();
-  const abArea = document.getElementById('vpanel-ab-area');
+  // Search VP が開いている場合はそちらを優先
+  const abArea = window._srVpOpen
+    ? document.getElementById('yt-sr-vp-ab-area')
+    : document.getElementById('vpanel-ab-area');
   if (abArea) abArea.innerHTML = html;
   // 展開中ならスライダーをバインド
   if (_ab.setMode === 'loop') _abBindLoopSlider();
@@ -1030,7 +1037,13 @@ export function vpAbSetFromBm(time, point) {
 }
 
 function _refreshBmList(id, flashIdx) {
-  const el = document.getElementById('vp-bm-list-' + id);
+  // Search VP が開いている場合はそのコンテナ内を優先検索
+  let el = null;
+  if (window._srVpOpen) {
+    const srScroll = document.getElementById('yt-sr-vp-scroll');
+    if (srScroll) el = srScroll.querySelector('#vp-bm-list-' + id);
+  }
+  if (!el) el = document.getElementById('vp-bm-list-' + id);
   if (el) {
     el.innerHTML = _bookmarkListHTML(id);
     // スライダーのmax値をプレイヤーから取得
@@ -2653,3 +2666,8 @@ export function initVpanelState() {
   });
 }
 let _openVPanelId = null;
+
+// ── Search VP 統合: プライベート関数を window に公開 ──
+window._vpLoopSectionHTML      = () => _loopSectionHTML();
+window._vpBookmarkSectionHTML  = (id) => _bookmarkSectionHTML(id);
+window._vpChapterSectionHTML   = (id) => _chapterSectionHTML(id);
