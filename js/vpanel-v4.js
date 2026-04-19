@@ -139,18 +139,26 @@
     const all = _getAllTags().filter(t => !existing.includes(t));
     const filtered = q ? all.filter(t => t.toLowerCase().includes(q)) : all;
     if (!filtered.length) { sug.style.display = 'none'; return; }
-    // SR VP: escape scroll-container overflow clipping with fixed positioning
+    // SR VP: position:fixed でスクロールコンテナのクリップを回避 + スクロール追従
     if (window._srVpOpen) {
-      const rect = inp.getBoundingClientRect();
+      const _updatePos = () => {
+        const r = inp.getBoundingClientRect();
+        sug.style.top  = (r.bottom + 2) + 'px';
+        sug.style.left = r.left + 'px';
+      };
       Object.assign(sug.style, {
         position: 'fixed',
-        top:    (rect.bottom + 2) + 'px',
-        left:   rect.left + 'px',
-        right:  'auto',
-        bottom: 'auto',
-        width:  '220px',
-        zIndex: '9500',
+        right: 'auto', bottom: 'auto',
+        width: '220px', zIndex: '9500',
       });
+      _updatePos();
+      // スクロール追従 (重複登録防止)
+      const _sc = document.querySelector('.yt-sr-vp-scroll');
+      if (_sc && sug._srOnScroll) _sc.removeEventListener('scroll', sug._srOnScroll);
+      if (_sc) {
+        sug._srOnScroll = () => sug.style.display !== 'none' ? _updatePos() : (_sc.removeEventListener('scroll', sug._srOnScroll), sug._srOnScroll = null);
+        _sc.addEventListener('scroll', sug._srOnScroll, { passive: true });
+      }
     }
     sug.style.display = 'block';
     const _mkItem = t =>

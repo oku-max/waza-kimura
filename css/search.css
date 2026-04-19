@@ -389,7 +389,9 @@
   width: 100%;
   height: 100%;
   align-items: stretch;
-  overflow: hidden;
+  /* overflow:hidden を除去 — position:relative + overflow:hidden の組み合わせが
+     Chromium では position:fixed 子要素を誤ってクリップする。
+     左右列それぞれに overflow:hidden があるので内容はそこで制御する。 */
 }
 
 /* 左列: ビデオ + コントロール */
