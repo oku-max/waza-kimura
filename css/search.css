@@ -279,6 +279,83 @@
   .yt-sr-thumb { width: 120px; height: 68px; }
 }
 
+/* ── Search VPanel 検索結果リスト（左列下部）── */
+.yt-sr-vp-rlist {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  min-height: 0;
+}
+.yt-sr-vp-rlist::-webkit-scrollbar { width: 3px; }
+.yt-sr-vp-rlist::-webkit-scrollbar-thumb { background: var(--border); }
+.yt-sr-vp-rlist-hdr {
+  padding: 5px 10px 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  background: var(--bg2);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.yt-sr-vp-ritem {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-top: 1px solid var(--border2, var(--border));
+  transition: background .12s;
+}
+.yt-sr-vp-ritem:hover,
+.yt-sr-vp-ritem.active { background: var(--surface2); }
+.yt-sr-vp-ritem.active { border-left: 3px solid var(--accent); }
+.yt-sr-vp-ritem.added  { opacity: .55; }
+.yt-sr-vp-rthumb {
+  width: 60px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.yt-sr-vp-rthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.yt-sr-vp-rinfo { flex: 1; min-width: 0; }
+.yt-sr-vp-rtitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.yt-sr-vp-rch { font-size: 9px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yt-sr-vp-rbadge { background: var(--accent); color: var(--on-accent); font-size: 8px; font-weight: 700; padding: 1px 4px; border-radius: 3px; }
+
+/* ライブラリで開くボタン */
+.yt-sr-vp-lib-btn {
+  width: 100%;
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  margin-top: 8px;
+  font-family: inherit;
+  transition: background .15s;
+}
+.yt-sr-vp-lib-btn:hover { background: var(--acc-s, rgba(229,196,122,.1)); }
+
 /* ── Search VPanel ── */
 /* position:fixed inset:0 → スクロール位置に関係なく常にビューポートを覆う */
 /* ライブラリ/オーガナイズの実VPanelと同じ設計 */

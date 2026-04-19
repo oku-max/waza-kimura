@@ -86,7 +86,8 @@
   import './js/bulk.js';
   import {
     ytSrInit, ytSrSearch, ytSrKeydown, ytSrSetMode, ytSrSetDuration, ytSrLoadMore,
-    ytSrOpenVPanel, ytSrCloseVPanel, ytSrAddToLibrary, ytSrQuickAdd
+    ytSrOpenVPanel, ytSrCloseVPanel, ytSrAddToLibrary, ytSrQuickAdd,
+    ytSrSkip, ytSrOpenInLibrary
   } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
@@ -128,6 +129,8 @@
   window.ytSrCloseVPanel   = ytSrCloseVPanel;
   window.ytSrAddToLibrary  = ytSrAddToLibrary;
   window.ytSrQuickAdd      = ytSrQuickAdd;
+  window.ytSrSkip          = ytSrSkip;
+  window.ytSrOpenInLibrary = ytSrOpenInLibrary;
   // firebase
   window.saveUserData            = saveUserData;
   window.saveUserSettings        = saveUserSettings;
