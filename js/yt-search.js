@@ -301,6 +301,84 @@ function _srResultsListHTML(currentIdx) {
 }
 
 // ────────────────────────────────────────
+// 非ライブラリ動画用ロックセクション
+// ────────────────────────────────────────
+function _srLockedSectionsHTML(isYt) {
+  const sub  = 'font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px';
+  const btnS = 'width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit';
+  const btnP = 'width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit';
+
+  // チャプター（YouTube動画のみ）
+  const chapterHTML = isYt ? `
+    <div class="vp-row">
+      <span class="vp-lbl">📑 チャプター</span>
+      <button disabled style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:default;font-family:inherit;opacity:.6">再取得</button>
+    </div>` : '';
+
+  // ブックマーク
+  const bookmarkHTML = `
+    <div class="vp-row">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px">
+        <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
+        <button disabled style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:default;font-family:inherit;opacity:.6">＋ 現在位置でブックマーク</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>
+    </div>`;
+
+  // MEMO + SNAPSHOT
+  const memoHTML = `
+    <div class="vp-row" style="margin-top:8px">
+      <span class="vp-lbl">Memo</span>
+      <textarea class="vp-memo" disabled placeholder="ライブラリに追加後に記録できます" style="opacity:.5;cursor:not-allowed;resize:none"></textarea>
+    </div>
+    <div style="padding:10px 14px">
+      <div style="${sub}">SNAPSHOT 0枚</div>
+      <div style="width:64px;height:48px;border-radius:6px;border:1.5px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:.45">
+        <span style="font-size:18px">📷</span>
+        <span style="font-size:9px;color:var(--text3)">追加</span>
+      </div>
+    </div>`;
+
+  // カウンター + 習得度（ロック: opacity + pointer-events:none）
+  const counterHTML = `
+    <div class="fsec" style="opacity:.45;pointer-events:none;user-select:none">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+          <div style="${sub}">お気に入り</div>
+          <span style="font-size:20px;color:var(--text3);font-weight:700">★</span>
+        </div>
+        <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+          <div style="${sub}">Next</div>
+          <span style="font-size:16px;color:var(--text3);font-weight:700">▶</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="${sub}">カウンター</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button style="${btnS}" disabled>−</button>
+            <span style="font-size:18px;font-weight:800;color:#e8590c;min-width:28px;text-align:center;font-variant-numeric:tabular-nums">0</span>
+            <button style="${btnP}" disabled>＋</button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px">最終: <b>—</b></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="${sub}">習得度</div>
+        <div class="vp-chips">
+          <span class="vp-chip on-s0">1.📋 未着手</span>
+          <span class="vp-chip">2.📖 理解</span>
+          <span class="vp-chip">3.🔄 練習中</span>
+          <span class="vp-chip">4.⭐ マスター</span>
+        </div>
+      </div>
+    </div>`;
+
+  return {
+    bm:     `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`,
+    drawer: `<div id="yt-sr-vp-edit-area">${counterHTML}</div>`
+  };
+}
+
+// ────────────────────────────────────────
 // VPANEL OPEN / CLOSE
 // ────────────────────────────────────────
 export function ytSrOpenVPanel(idx) {
@@ -393,25 +471,27 @@ export function ytSrOpenVPanel(idx) {
     // AB ループセクション（実 VPanel と同一）
     const abHTML = window._vpLoopSectionHTML?.() || '';
 
-    // BM エリア（常にレンダリング。ライブラリ外は空状態＋案内メッセージ）
+    // BM エリア + ドロワー
     const bmId = libEntry?.id || null;
-    const chapterHTML  = bmId ? (window._vpChapterSectionHTML?.(bmId)  || '') : '';
-    const bookmarkHTML = bmId ? (window._vpBookmarkSectionHTML?.(bmId) || '') : '';
-    const memoHTML = bmId
-      ? `<div class="vp-row" style="margin-top:8px">
-          <span class="vp-lbl">Memo</span>
-          <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
-            onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
-        </div>
-        <div id="vp-snap-section-${bmId}"></div>`
-      : '';
-    const notAddedNote = bmId ? '' : `<div style="padding:10px 14px 4px;font-size:11px;color:var(--text3)">ライブラリに追加するとブックマーク・メモが使用できます</div>`;
-    const bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}${notAddedNote}</div>`;
-
-    // ドロワー（ライブラリ動画: フル表示 / 未追加: プレースホルダー）
-    const drawerHTML = bmId
-      ? `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`
-      : `<div id="yt-sr-vp-edit-area" style="padding:10px 16px;font-size:11px;color:var(--text3)">タグ・プレイリスト・習得度などはライブラリに追加後に使用できます</div>`;
+    let bmAreaHTML, drawerHTML;
+    if (bmId) {
+      // ─ ライブラリ動画: 実VPanel関数を呼ぶ ─
+      const chapterHTML  = window._vpChapterSectionHTML?.(bmId)  || '';
+      const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
+      const memoHTML = `<div class="vp-row" style="margin-top:8px">
+        <span class="vp-lbl">Memo</span>
+        <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
+          onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
+      </div>
+      <div id="vp-snap-section-${bmId}"></div>`;
+      bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
+      drawerHTML = `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`;
+    } else {
+      // ─ 非ライブラリ動画: ロック状態セクション ─
+      const { bm, drawer } = _srLockedSectionsHTML(!!ytId);
+      bmAreaHTML = bm;
+      drawerHTML = drawer;
+    }
 
     // YouTube 動画情報（全動画共通）
     const ytUrl = ytId
