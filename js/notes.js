@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.30 ═══
+// ═══ WAZA KIMURA — Notes tab v50.31 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -457,11 +457,18 @@ function _blockHTML(block, idx, noteId) {
           </div>
         </div>
       </div>${del}</div>`;
-    case 'image': return `<div class="n-block-wrap n-block-wrap-card">
-      <div class="n-b-image">
-        <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
-        ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
-      </div>${del}</div>`;
+    case 'image': {
+      if (block.snapId) {
+        return `<div class="n-block-wrap n-block-wrap-snap" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}">
+          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${del}</div>`;
+      }
+      // legacy: data URL stored directly
+      return `<div class="n-block-wrap n-block-wrap-card">
+        <div class="n-b-image">
+          <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
+          ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
+        </div>${del}</div>`;
+    }
     default: return '';
   }
 }
@@ -547,6 +554,13 @@ function _renderNote(id) {
       <button class="n-add-inline" onclick="window.uniOpenForNote?.('${id}')">📚 ライブラリ</button>
     </div>
   `;
+
+  // スナップショットブロックを初期化（DOM描画後）
+  note.blocks.forEach((b, idx) => {
+    if (b.type === 'image' && b.snapId) {
+      _initNoteSnap(id, b.snapId, b, idx);
+    }
+  });
 }
 
 // ── public actions ──
@@ -578,7 +592,37 @@ function _closeSb() {
 window._notesCloseSb = _closeSb;
 
 window._notesAddVideoBlock = function(noteId) { _showVideoAddSheet(noteId); };
-window._notesAddImageBlock = function(noteId) { _showImageAddSheet(noteId); };
+window._notesAddImageBlock = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const snapId = 'note_' + noteId + '_' + Date.now().toString(36);
+  r.note.blocks.push({ type: 'image', snapId, refs: [] });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+function _initNoteSnap(noteId, snapId, block, blockIdx) {
+  window._noteSnapVideos = window._noteSnapVideos || {};
+  window._noteSnapVideos[snapId] = { id: snapId, snapshots: block.refs || [] };
+
+  window._onSnapSync = (sid, refs) => {
+    if (sid !== snapId) return;
+    const r2 = _findNote(noteId);
+    if (!r2) return;
+    const b = r2.note.blocks[blockIdx];
+    if (b && b.snapId === snapId) {
+      b.refs = refs;
+      r2.note.updatedAt = Date.now();
+      _save();
+    }
+  };
+
+  const container = document.getElementById('n-snap-' + snapId);
+  if (container && window.initSnapshotSection) {
+    window.initSnapshotSection(snapId, container);
+  }
+}
 
 function _showVideoAddSheet(noteId) {
   _removeSheet();

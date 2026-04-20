@@ -149,11 +149,15 @@ function compressImage(file) {
 // ════════════════════════════════════════════════════════════════
 
 function syncVideoRefs() {
+  const refs = snapshots.map((s, i) => ({ id: s.id, memo: s.memo || '', order: i }));
   const v = (window.videos || []).find(x => x.id === currentVideoId);
   if (v) {
-    v.snapshots = snapshots.map((s, i) => ({ id: s.id, memo: s.memo || '', order: i }));
+    v.snapshots = refs;
     window.debounceSave?.();
   }
+  const nv = (window._noteSnapVideos || {})[currentVideoId];
+  if (nv) nv.snapshots = refs;
+  window._onSnapSync?.(currentVideoId, refs);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1894,7 +1898,8 @@ export async function initSnapshotSection(videoId, container) {
   currentVideoId = videoId;
   containerEl = container;
 
-  const v = (window.videos || []).find(x => x.id === videoId);
+  const v = (window.videos || []).find(x => x.id === videoId)
+         || (window._noteSnapVideos || {})[videoId];
   const refs = v?.snapshots || [];
 
   container.innerHTML = `

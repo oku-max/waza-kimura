@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.28 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.31 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -227,6 +227,9 @@
 }
 .n-block-wrap:hover { border-color: var(--border) }
 .n-block-wrap-card { margin-bottom: 10px }
+.n-block-wrap-snap { margin-bottom: 10px; padding: 0 }
+.n-snap-section .fsec { margin: 0; border-radius: 6px; background: none }
+.n-snap-section .fsec-title { font-size: 11px; padding: 6px 10px 4px }
 
 .n-editable {
   outline: none; cursor: text; white-space: pre-wrap; word-break: break-word;
