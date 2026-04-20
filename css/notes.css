@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.24 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.25 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -45,6 +45,91 @@
 .notes-sb-new:hover { background: var(--accent2) }
 
 .notes-sb-tree { flex: 1; overflow-y: auto; padding: 6px 0 }
+
+/* ── category add button ── */
+.n-cat-add {
+  display: none; /* show on hover */
+  padding: 1px 6px; border-radius: 4px; font-size: 13px; line-height: 1;
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  flex-shrink: 0;
+}
+.n-cat-hdr:hover .n-cat-add { display: block }
+.n-cat-add:hover { color: var(--accent); background: var(--surface3) }
+
+/* ── note item more button ── */
+.n-note-name { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
+.n-note-more {
+  display: none;
+  padding: 1px 5px; border-radius: 4px; font-size: 13px; line-height: 1;
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  flex-shrink: 0;
+}
+.n-note-item:hover .n-note-more,
+.n-note-item.active .n-note-more { display: block }
+.n-note-more:hover { color: var(--text); background: var(--surface3) }
+/* タッチデバイスでは常時表示 */
+@media (hover: none) { .n-note-more { display: block } }
+
+/* ── context menu ── */
+.n-ctx-menu {
+  position: absolute; z-index: 200;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  padding: 4px; min-width: 130px;
+}
+.n-ctx-item {
+  padding: 7px 12px; border-radius: 5px; font-size: 12px; font-weight: 600;
+  color: var(--text2); cursor: pointer;
+}
+.n-ctx-item:hover { background: var(--surface3); color: var(--text) }
+.n-ctx-danger:hover { background: rgba(248,113,113,.12); color: var(--red) }
+
+/* ── sheet overlay (create / rename / delete) ── */
+.n-sheet-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .2s;
+}
+.n-sheet-overlay.vis { opacity: 1 }
+.n-sheet {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 14px; width: min(420px, calc(100vw - 32px));
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  transform: translateY(12px); transition: transform .2s;
+}
+.n-sheet-overlay.vis .n-sheet { transform: translateY(0) }
+.n-sheet-sm { width: min(340px, calc(100vw - 32px)) }
+.n-sheet-hdr {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.n-sheet-title { font-size: 14px; font-weight: 800; color: var(--text) }
+.n-sheet-body { padding: 16px 18px }
+.n-sheet-lbl { display: block; font-size: 11px; font-weight: 700; color: var(--text3); margin-bottom: 6px }
+.n-sheet-input, .n-sheet-select {
+  width: 100%; padding: 9px 12px; border-radius: 8px;
+  border: 1.5px solid var(--border2); background: var(--surface2);
+  color: var(--text); font-size: 13px; font-family: inherit; outline: none;
+}
+.n-sheet-input:focus, .n-sheet-select:focus { border-color: var(--accent) }
+.n-sheet-select { cursor: pointer }
+.n-sheet-msg { font-size: 13px; color: var(--text2); line-height: 1.6 }
+.n-sheet-msg b { color: var(--text) }
+.n-sheet-btns {
+  padding: 12px 18px 16px;
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+.n-btn {
+  padding: 7px 16px; border-radius: 7px; font-size: 12px; font-weight: 700;
+  border: none; cursor: pointer; font-family: inherit;
+}
+.n-btn-ghost { background: var(--surface2); border: 1px solid var(--border2); color: var(--text2) }
+.n-btn-ghost:hover { border-color: var(--text3) }
+.n-btn-primary { background: var(--accent); color: var(--on-accent, #111) }
+.n-btn-primary:hover { background: var(--accent2) }
+.n-btn-danger { background: var(--red); color: #fff }
+.n-btn-danger:hover { opacity: .85 }
 
 /* category */
 .n-cat { cursor: pointer; user-select: none }

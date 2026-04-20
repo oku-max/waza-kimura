@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.24 ═══
+// ═══ WAZA KIMURA — Notes tab v50.25 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -105,7 +105,7 @@ function _findNote(id) {
   }
   return null;
 }
-
+function _uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function _esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -115,26 +115,223 @@ const STATUS_LABEL = { wip:'学習中', done:'習得', new:'新規', review:'要
 const STATUS_CLS   = { wip:'n-s-wip', done:'n-s-done', new:'n-s-new', review:'n-s-review' };
 const STATUS_DOT   = { wip:'n-dot-wip', done:'n-dot-done', new:'n-dot-new', review:'n-dot-review' };
 
+// ── context menu ──
+let _ctxNoteId = null;
+
+function _closeCtx() {
+  document.getElementById('n-ctx-menu')?.remove();
+  _ctxNoteId = null;
+}
+
+window._notesCtxMenu = function(noteId, e) {
+  e.stopPropagation();
+  _closeCtx();
+  _ctxNoteId = noteId;
+
+  const menu = document.createElement('div');
+  menu.id = 'n-ctx-menu';
+  menu.className = 'n-ctx-menu';
+  menu.innerHTML = `
+    <div class="n-ctx-item" onclick="window._notesRename('${noteId}')">✎ 名前変更</div>
+    <div class="n-ctx-item n-ctx-danger" onclick="window._notesDelete('${noteId}')">🗑 削除</div>
+  `;
+
+  // position near click point, relative to sidebar
+  const sb = document.getElementById('notesSidebar');
+  const sbRect = sb.getBoundingClientRect();
+  const cx = (e.clientX || e.touches?.[0]?.clientX || sbRect.right - 20);
+  const cy = (e.clientY || e.touches?.[0]?.clientY || 100);
+  menu.style.top  = Math.max(0, cy - sbRect.top + 4) + 'px';
+  menu.style.left = Math.min(cx - sbRect.left - 100, sbRect.width - 140) + 'px';
+
+  sb.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', _closeCtx, { once: true }), 0);
+};
+
+// ── rename ──
+window._notesRename = function(noteId) {
+  _closeCtx();
+  const r = _findNote(noteId);
+  if (!r) return;
+  _showCreateSheet({ mode: 'rename', noteId, currentName: r.note.name });
+};
+
+// ── delete ──
+window._notesDelete = function(noteId) {
+  _closeCtx();
+  const r = _findNote(noteId);
+  if (!r) return;
+  _showDeleteConfirm(noteId, r.note.name);
+};
+
+function _showDeleteConfirm(noteId, name) {
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.innerHTML = `
+    <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr">
+        <span class="n-sheet-title">🗑 ノートを削除</span>
+      </div>
+      <div class="n-sheet-body">
+        <p class="n-sheet-msg">「<b>${_esc(name)}</b>」を削除しますか？<br>この操作は元に戻せません。</p>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-danger" onclick="window._notesDeleteConfirm('${noteId}')">削除する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+}
+
+window._notesDeleteConfirm = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const name = r.note.name;
+  r.cat.notes = r.cat.notes.filter(n => n.id !== noteId);
+  _save();
+
+  // update active selection
+  if (_activeId === noteId) {
+    _activeId = null;
+    for (const cat of _data) {
+      if (cat.notes.length) { _activeId = cat.notes[0].id; break; }
+    }
+  }
+  _recentIds = _recentIds.filter(id => id !== noteId);
+
+  window._notesSheetClose();
+  _renderSb();
+  if (_activeId) _renderNote(_activeId); else document.getElementById('notesContent').innerHTML = '';
+  _renderRecent();
+  window.toast?.(`🗑「${name}」を削除しました`);
+};
+
+// ── create / rename sheet ──
+function _showCreateSheet({ mode = 'create', catId = null, noteId = null, currentName = '' } = {}) {
+  _removeSheet();
+  const isRename = mode === 'rename';
+  const title = isRename ? '✎ ノートを名前変更' : '📓 新しいノートを作成';
+
+  const catOptions = _data.map(c =>
+    `<option value="${c.id}"${c.id === catId ? ' selected' : ''}>${_esc(c.icon + ' ' + c.name)}</option>`
+  ).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr">
+        <span class="n-sheet-title">${title}</span>
+      </div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">ノート名</label>
+        <input id="n-sheet-name" class="n-sheet-input" type="text"
+               placeholder="例：バックチョーク" value="${_esc(currentName)}"
+               onkeydown="if(event.key==='Enter') window._notesSheetConfirm()">
+        ${!isRename ? `
+        <label class="n-sheet-lbl" style="margin-top:12px">カテゴリ</label>
+        <select id="n-sheet-cat" class="n-sheet-select">${catOptions}</select>
+        ` : `<input type="hidden" id="n-sheet-note-id" value="${noteId || ''}">`}
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesSheetConfirm()">
+          ${isRename ? '変更する' : '作成する'}
+        </button>
+      </div>
+    </div>
+  `;
+  overlay.dataset.mode = mode;
+  overlay.dataset.noteId = noteId || '';
+  overlay.dataset.catId = catId || '';
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  setTimeout(() => document.getElementById('n-sheet-name')?.focus(), 80);
+}
+
+function _removeSheet() {
+  document.getElementById('n-sheet-overlay')?.remove();
+}
+
+window._notesSheetClose = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('vis');
+  setTimeout(_removeSheet, 200);
+};
+
+window._notesSheetConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  const mode = overlay.dataset.mode;
+  const name = document.getElementById('n-sheet-name')?.value.trim();
+  if (!name) { document.getElementById('n-sheet-name')?.focus(); return; }
+
+  if (mode === 'rename') {
+    const noteId = overlay.dataset.noteId;
+    const r = _findNote(noteId);
+    if (r) {
+      r.note.name = name;
+      r.note.updatedAt = Date.now();
+      _save();
+      window._notesSheetClose();
+      _renderSb();
+      if (_activeId === noteId) _renderNote(noteId);
+      _renderRecent();
+      window.toast?.(`✎ 「${name}」に名前を変更しました`);
+    }
+  } else {
+    const catId = document.getElementById('n-sheet-cat')?.value;
+    const cat = _data.find(c => c.id === catId) || _data[0];
+    const newNote = {
+      id: _uid(), name, status: 'new', tags: [],
+      updatedAt: Date.now(),
+      blocks: [{ type: 'h2', content: '🎯 核心ポイント' }]
+    };
+    cat.notes.push(newNote);
+    _save();
+    window._notesSheetClose();
+    _activeId = newNote.id;
+    _recentIds = [newNote.id, ..._recentIds].slice(0, 3);
+    _renderSb();
+    _renderNote(newNote.id);
+    _renderRecent();
+    _closeSb();
+    window.toast?.(`📓「${name}」を作成しました`);
+  }
+};
+
 // ── sidebar ──
 function _renderSb() {
   const tree = document.getElementById('notesSbTree');
   if (!tree) return;
   let h = '';
   for (const cat of _data) {
-    const isOpen = cat.notes.some(n => n.id === _activeId);
+    const isOpen = cat.notes.some(n => n.id === _activeId) || cat.notes.length === 0;
     h += `<div class="n-cat${isOpen ? ' open' : ''}" id="n-cat-${cat.id}">
       <div class="n-cat-hdr" onclick="window._notesTogCat('${cat.id}',event)">
         <span class="n-cat-arrow">▶</span>
         <span class="n-cat-icon">${cat.icon}</span>
         <span class="n-cat-name">${_esc(cat.name)}</span>
         <span class="n-cat-cnt">${cat.notes.length}</span>
+        <button class="n-cat-add" title="このカテゴリにノートを追加"
+                onclick="event.stopPropagation();window.notesNew('${cat.id}')">＋</button>
       </div>
       <div class="n-cat-notes">
         ${cat.notes.map(n => `
           <div class="n-note-item${n.id === _activeId ? ' active' : ''}"
                onclick="window._notesOpenNote('${n.id}',event)">
             <span class="n-note-dot ${STATUS_DOT[n.status] || ''}"></span>
-            ${_esc(n.name)}
+            <span class="n-note-name">${_esc(n.name)}</span>
+            <button class="n-note-more" title="オプション"
+                    onclick="window._notesCtxMenu('${n.id}',event)">⋯</button>
           </div>`).join('')}
       </div>
     </div>`;
@@ -182,10 +379,6 @@ function _blockHTML(block) {
   }
 }
 
-function _tagChipHTML(tag) {
-  return `<span class="n-chip">${_esc(tag)}</span>`;
-}
-
 // ── note content ──
 function _renderNote(id) {
   const r = _findNote(id);
@@ -198,26 +391,25 @@ function _renderNote(id) {
   const content = document.getElementById('notesContent');
   if (!content) return;
 
-  const tagsHTML = (note.tags || []).map(_tagChipHTML).join('');
+  const tagsHTML = (note.tags || []).map(t => `<span class="n-chip">${_esc(t)}</span>`).join('');
   const statusHTML = `<span class="n-s-badge ${STATUS_CLS[note.status] || ''}">${STATUS_LABEL[note.status] || ''}</span>`;
 
   content.innerHTML = `
     <div class="n-page-title">${_esc(note.name)}</div>
     <div class="n-tag-row">${tagsHTML}${statusHTML}</div>
-    <div id="n-blocks-${id}">
-      ${note.blocks.map(_blockHTML).join('')}
-    </div>
+    <div id="n-blocks-${id}">${note.blocks.map(_blockHTML).join('')}</div>
     <div class="n-add-block" onclick="window.toast?.('ブロック追加は今後対応予定です')">＋ ブロックを追加</div>
   `;
 }
 
 // ── public actions ──
 window._notesTogCat = function(id, e) {
-  if (e.target.closest('.n-note-item')) return;
+  if (e.target.closest('.n-note-item') || e.target.closest('.n-cat-add')) return;
   document.getElementById('n-cat-' + id)?.classList.toggle('open');
 };
 
 window._notesOpenNote = function(id, e) {
+  if (e && e.target.closest('.n-note-more')) return;
   if (e) e.stopPropagation();
   _activeId = id;
   _recentIds = [id, ..._recentIds.filter(x => x !== id)].slice(0, 3);
@@ -238,15 +430,17 @@ function _closeSb() {
 }
 window._notesCloseSb = _closeSb;
 
-// ── VPanel integration: called from vpanel ──
+// called from "+ New" button and category "+" buttons
+window.notesNew = function(catId = null) {
+  _showCreateSheet({ mode: 'create', catId: catId || (_data[0]?.id || null) });
+};
+
+// ── VPanel integration ──
 window.notesAddVideo = function({ id: videoId, title, channel, duration }) {
-  // Open note selector sheet
   const sheet = document.getElementById('notesVpSheet');
   if (!sheet) return;
-
   const list = document.getElementById('notesVpSheetList');
   if (!list) return;
-
   let h = '';
   for (const cat of _data) {
     h += `<div class="nvps-cat-lbl">${cat.icon} ${_esc(cat.name)}</div>`;
@@ -273,31 +467,24 @@ window._notesVpAddConfirm = function(noteId, videoId, title, channel, duration) 
   const r = _findNote(noteId);
   if (!r) return;
   const note = r.note;
-
-  // avoid duplicate
-  const alreadyExists = note.blocks.some(b => b.type === 'video' && b.videoId === videoId);
-  if (!alreadyExists) {
+  if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
     note.blocks.push({ type: 'video', videoId, title, channel, duration, memo: '' });
     note.updatedAt = Date.now();
     _save();
   }
-
   window._notesVpSheetClose();
   window.toast?.(`📓「${note.name}」に追加しました`);
-
-  // If notes tab is active, re-render
   if (_activeId === noteId) _renderNote(noteId);
 };
 
 // ── init ──
 export function renderNotes() {
   if (!_activeId) {
-    // pick first note
     for (const cat of _data) {
       if (cat.notes.length) { _activeId = cat.notes[0].id; break; }
     }
   }
   _renderSb();
-  _renderNote(_activeId);
+  if (_activeId) _renderNote(_activeId);
   _renderRecent();
 }
