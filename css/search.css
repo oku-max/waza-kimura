@@ -483,12 +483,10 @@
 #yt-sr-vp-resizer:hover,
 #yt-sr-vp-resizer.dragging { background: var(--accent); }
 
-/* モバイル: 縦積み・リサイザー非表示（Libraryタブと同じ768px基準） */
-@media (max-width: 767px) {
-  .yt-sr-vp-inner   { flex-direction: column; }
-  .yt-sr-vp-left    { width: 100%; height: auto; flex-shrink: 0; }
-  #yt-sr-vp-resizer { display: none; }
-}
+/* 縦長モード（JSがis-portraitクラスを付与 — Libraryタブと同じ基準: innerHeight > innerWidth） */
+.yt-sr-vp-inner.is-portrait                     { flex-direction: column; }
+.yt-sr-vp-inner.is-portrait .yt-sr-vp-left      { width: 100%; height: auto; flex-shrink: 0; }
+.yt-sr-vp-inner.is-portrait #yt-sr-vp-resizer   { display: none; }
 
 /* ← 戻るボタン (左列にabsolute、top:8px left:8px) */
 .yt-sr-vp-back-btn {

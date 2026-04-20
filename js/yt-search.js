@@ -602,6 +602,7 @@ export function ytSrOpenVPanel(idx) {
   }
 
   document.getElementById('yt-sr-vp-overlay')?.classList.add('open');
+  setTimeout(() => _srUpdateOrientation(), 80);
 }
 
 // ────────────────────────────────────────
@@ -671,6 +672,7 @@ export function ytSrCloseVPanel() {
   // 左列をクリア（動画停止）
   const left = document.getElementById('yt-sr-vp-left');
   if (left) left.innerHTML = '';
+  document.querySelector('.yt-sr-vp-inner')?.classList.remove('is-portrait');
   _srOpenItem   = null;
   _srCurrentIdx = -1;
 }
@@ -866,6 +868,25 @@ function _esc(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ────────────────────────────────────────
+// VPanel 縦横判定 — Libraryタブと同じ基準
+// ────────────────────────────────────────
+function _srUpdateOrientation() {
+  const inner = document.querySelector('.yt-sr-vp-inner');
+  if (!inner) return;
+  inner.classList.toggle('is-portrait', window.innerHeight > window.innerWidth);
+}
+window.addEventListener('resize', () => {
+  const overlay = document.getElementById('yt-sr-vp-overlay');
+  if (overlay?.classList.contains('open')) _srUpdateOrientation();
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    const overlay = document.getElementById('yt-sr-vp-overlay');
+    if (overlay?.classList.contains('open')) _srUpdateOrientation();
+  }, 100);
+});
 
 // ────────────────────────────────────────
 // 取り込み済み非表示トグル
