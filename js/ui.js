@@ -74,7 +74,15 @@ export function switchTab(t) {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = 'none';
       if (settingsC) settingsC.style.display = 'none';
+      const fsEl = document.getElementById('filterSidebar');
+      const rz   = document.getElementById('sbResizer');
+      if (fsEl) fsEl.style.display = 'none';
+      if (rz)   rz.style.display   = 'none';
     } else {
+      const fsEl = document.getElementById('filterSidebar');
+      const rz   = document.getElementById('sbResizer');
+      if (fsEl) fsEl.style.display = '';
+      if (rz)   rz.style.display   = '';
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = '';
       if (settingsC) settingsC.style.display = 'none';

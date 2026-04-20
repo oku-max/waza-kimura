@@ -38,11 +38,16 @@ function _renderHistory() {
     el.innerHTML = '<div class="yt-sr-hist-empty">まだ検索していません</div>';
     return;
   }
-  el.innerHTML = _srHistory.map(q =>
-    `<div class="yt-sr-hist-item" data-q="${_esc(q)}">${_esc(q)}</div>`
-  ).join('');
-  el.querySelectorAll('.yt-sr-hist-item').forEach(item => {
-    item.addEventListener('click', () => window.ytSrSetQuery(item.dataset.q));
+  const chips = document.getElementById('yt-sr-history-chips');
+  if (!chips) return;
+  if (!_srHistory.length) { chips.style.display = 'none'; return; }
+  chips.style.display = '';
+  chips.innerHTML = '<span class="yt-sr-hist-label">🕐</span>' +
+    _srHistory.map(q =>
+      `<span class="yt-sr-hist-chip" data-q="${_esc(q)}">${_esc(q)}</span>`
+    ).join('');
+  chips.querySelectorAll('.yt-sr-hist-chip').forEach(chip => {
+    chip.addEventListener('click', () => window.ytSrSetQuery(chip.dataset.q));
   });
 }
 window.ytSrSetQuery = function(q) {
@@ -527,7 +532,6 @@ export function ytSrOpenVPanel(idx) {
       </div>
       <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
       ${ytId ? `<div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>` : ''}
-      ${_srResultsListHTML(idx)}
     `;
 
     // YT.Player 初期化（動画のみ。プレイリストはiframeフォールバック）

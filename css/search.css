@@ -124,6 +124,30 @@
 }
 .yt-sr-count { font-size: 12px; color: var(--text3); }
 
+/* ── 検索履歴チップ ── */
+.yt-sr-history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.yt-sr-hist-label { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+.yt-sr-hist-chip {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s;
+}
+.yt-sr-hist-chip:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
 /* 取り込み済み非表示 */
 .yt-sr-cards-wrap.hide-added .yt-sr-card.added { display: none; }
 
