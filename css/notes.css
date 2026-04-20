@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.26 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.27 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -288,9 +288,9 @@
 .n-add-cat:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,201,106,.06) }
 
 /* ── block type picker ── */
-.n-block-type-row { display: flex; gap: 8px; margin-bottom: 14px }
+.n-block-type-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px }
 .n-block-type-btn {
-  flex: 1; padding: 8px 4px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  flex: 1; min-width: 80px; padding: 8px 4px; border-radius: 8px; font-size: 11px; font-weight: 700;
   border: 1.5px solid var(--border2); background: var(--surface2);
   color: var(--text2); cursor: pointer; font-family: inherit;
 }
@@ -308,6 +308,23 @@
   resize: vertical; min-height: 80px; box-sizing: border-box;
 }
 .n-sheet-textarea:focus { border-color: var(--accent) }
+
+/* ── image upload area ── */
+.n-img-drop {
+  border: 2px dashed var(--border2); border-radius: 8px;
+  padding: 18px 12px; text-align: center;
+  cursor: pointer; font-size: 13px; color: var(--text3);
+  transition: border-color .15s;
+}
+.n-img-drop:hover { border-color: var(--accent); color: var(--text2) }
+
+/* ── image block ── */
+.n-b-image { border-radius: 8px; overflow: hidden }
+.n-b-img { max-width: 100%; border-radius: 8px; display: block }
+.n-b-img-caption {
+  font-size: 11px; color: var(--text3); padding: 5px 2px;
+  text-align: center; font-style: italic;
+}
 
 /* ── VPanel note-selector sheet ── */
 .notes-vp-sheet-overlay {

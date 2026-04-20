@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.26 ═══
+// ═══ WAZA KIMURA — Notes tab v50.27 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -157,8 +157,43 @@ window._notesRename = function(noteId) {
 };
 
 // ── block add ──
+function _extractYtId(url) {
+  const m = url.match(/(?:youtu\.be\/|[?&]v=|embed\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function _blockInputHTML(type) {
+  switch (type) {
+    case 'h2':
+    case 'quote':
+      return `<label class="n-sheet-lbl">内容</label>
+        <textarea id="n-block-content" class="n-sheet-textarea" placeholder="ここに内容を入力..." rows="3"></textarea>`;
+    case 'video':
+      return `<label class="n-sheet-lbl">YouTube URL</label>
+        <input id="n-block-video-url" class="n-sheet-input" type="text"
+               placeholder="https://www.youtube.com/watch?v=..."
+               style="margin-bottom:10px">
+        <label class="n-sheet-lbl">タイトル（省略可）</label>
+        <input id="n-block-video-title" class="n-sheet-input" type="text" placeholder="動画タイトル">`;
+    case 'image':
+      return `<label class="n-sheet-lbl">画像</label>
+        <div class="n-img-drop" id="n-img-drop" onclick="document.getElementById('n-block-img-file').click()">
+          <input type="file" id="n-block-img-file" accept="image/*" style="display:none"
+                 onchange="window._notesImgFileChange(this)">
+          <div id="n-img-drop-label">📸 クリックして画像を選択</div>
+          <img id="n-block-img-preview" style="display:none;max-width:100%;border-radius:6px;margin-top:8px">
+        </div>
+        <label class="n-sheet-lbl" style="margin-top:10px">キャプション（省略可）</label>
+        <input id="n-block-img-caption" class="n-sheet-input" type="text" placeholder="画像の説明">`;
+    default: // text
+      return `<label class="n-sheet-lbl">内容</label>
+        <textarea id="n-block-content" class="n-sheet-textarea" placeholder="ここに内容を入力..." rows="4"></textarea>`;
+  }
+}
+
 function _showBlockAddSheet(noteId) {
   _removeSheet();
+  window._notesImgDataUrl = null;
   const overlay = document.createElement('div');
   overlay.id = 'n-sheet-overlay';
   overlay.className = 'n-sheet-overlay';
@@ -175,10 +210,10 @@ function _showBlockAddSheet(noteId) {
           <button class="n-block-type-btn sel" data-type="text"  onclick="window._notesBlockTypeSelect(this)">📝 テキスト</button>
           <button class="n-block-type-btn"     data-type="h2"    onclick="window._notesBlockTypeSelect(this)">📌 見出し</button>
           <button class="n-block-type-btn"     data-type="quote" onclick="window._notesBlockTypeSelect(this)">💬 引用</button>
+          <button class="n-block-type-btn"     data-type="video" onclick="window._notesBlockTypeSelect(this)">📹 動画</button>
+          <button class="n-block-type-btn"     data-type="image" onclick="window._notesBlockTypeSelect(this)">📸 スナップショット</button>
         </div>
-        <label class="n-sheet-lbl">内容</label>
-        <textarea id="n-block-content" class="n-sheet-textarea"
-                  placeholder="ここに内容を入力..." rows="4"></textarea>
+        <div id="n-block-input-area">${_blockInputHTML('text')}</div>
       </div>
       <div class="n-sheet-btns">
         <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
@@ -195,6 +230,26 @@ function _showBlockAddSheet(noteId) {
 window._notesBlockTypeSelect = function(btn) {
   document.querySelectorAll('.n-block-type-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
+  const area = document.getElementById('n-block-input-area');
+  if (area) area.innerHTML = _blockInputHTML(btn.dataset.type);
+  setTimeout(() => {
+    document.getElementById('n-block-content')?.focus();
+    document.getElementById('n-block-video-url')?.focus();
+  }, 60);
+};
+
+window._notesImgFileChange = function(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    window._notesImgDataUrl = e.target.result;
+    const preview = document.getElementById('n-block-img-preview');
+    if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
+    const lbl = document.getElementById('n-img-drop-label');
+    if (lbl) lbl.textContent = '✓ ' + file.name;
+  };
+  reader.readAsDataURL(file);
 };
 
 window._notesBlockConfirm = function() {
@@ -202,11 +257,29 @@ window._notesBlockConfirm = function() {
   if (!overlay) return;
   const noteId = overlay.dataset.noteId;
   const type = document.querySelector('.n-block-type-btn.sel')?.dataset.type || 'text';
-  const content = document.getElementById('n-block-content')?.value.trim();
-  if (!content) { document.getElementById('n-block-content')?.focus(); return; }
   const r = _findNote(noteId);
   if (!r) return;
-  r.note.blocks.push({ type, content });
+
+  let block;
+  if (type === 'video') {
+    const url = document.getElementById('n-block-video-url')?.value.trim();
+    if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
+    const videoId = _extractYtId(url) || url;
+    const title = document.getElementById('n-block-video-title')?.value.trim() || '';
+    block = { type: 'video', videoId, title, channel: '', duration: '' };
+  } else if (type === 'image') {
+    const src = window._notesImgDataUrl || '';
+    if (!src) { document.getElementById('n-block-img-file')?.click(); return; }
+    const caption = document.getElementById('n-block-img-caption')?.value.trim() || '';
+    block = { type: 'image', src, caption };
+    window._notesImgDataUrl = null;
+  } else {
+    const content = document.getElementById('n-block-content')?.value.trim();
+    if (!content) { document.getElementById('n-block-content')?.focus(); return; }
+    block = { type, content };
+  }
+
+  r.note.blocks.push(block);
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
@@ -484,6 +557,12 @@ function _blockHTML(block) {
             ${block.memo ? `<div class="n-bv-memo">${_esc(block.memo)}</div>` : ''}
           </div>
         </div>
+      </div>
+    </div>`;
+    case 'image': return `<div class="n-block">
+      <div class="n-b-image">
+        <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
+        ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
       </div>
     </div>`;
     default: return '';
