@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.25 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.26 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -276,6 +276,38 @@
   border-radius: 5px; width: fit-content; border: 1px dashed transparent; margin-top: 6px;
 }
 .n-add-block:hover { background: var(--surface); border-color: var(--border); color: var(--text2) }
+
+/* ── add category button (bottom of sidebar) ── */
+.n-add-cat {
+  margin: 8px 10px 6px;
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  cursor: pointer; border: 1px dashed var(--border2);
+  text-align: center;
+}
+.n-add-cat:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,201,106,.06) }
+
+/* ── block type picker ── */
+.n-block-type-row { display: flex; gap: 8px; margin-bottom: 14px }
+.n-block-type-btn {
+  flex: 1; padding: 8px 4px; border-radius: 8px; font-size: 11px; font-weight: 700;
+  border: 1.5px solid var(--border2); background: var(--surface2);
+  color: var(--text2); cursor: pointer; font-family: inherit;
+}
+.n-block-type-btn.sel {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(232,201,106,.08);
+}
+.n-block-type-btn:hover:not(.sel) { border-color: var(--text3) }
+
+/* ── block add textarea ── */
+.n-sheet-textarea {
+  width: 100%; padding: 9px 12px; border-radius: 8px;
+  border: 1.5px solid var(--border2); background: var(--surface2);
+  color: var(--text); font-size: 13px; font-family: inherit; outline: none;
+  resize: vertical; min-height: 80px; box-sizing: border-box;
+}
+.n-sheet-textarea:focus { border-color: var(--accent) }
 
 /* ── VPanel note-selector sheet ── */
 .notes-vp-sheet-overlay {

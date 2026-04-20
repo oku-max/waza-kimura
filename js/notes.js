@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.25 ═══
+// ═══ WAZA KIMURA — Notes tab v50.26 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -154,6 +154,116 @@ window._notesRename = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
   _showCreateSheet({ mode: 'rename', noteId, currentName: r.note.name });
+};
+
+// ── block add ──
+function _showBlockAddSheet(noteId) {
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'block-add';
+  overlay.dataset.noteId = noteId;
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr">
+        <span class="n-sheet-title">＋ ブロックを追加</span>
+      </div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">ブロックの種類</label>
+        <div class="n-block-type-row">
+          <button class="n-block-type-btn sel" data-type="text"  onclick="window._notesBlockTypeSelect(this)">📝 テキスト</button>
+          <button class="n-block-type-btn"     data-type="h2"    onclick="window._notesBlockTypeSelect(this)">📌 見出し</button>
+          <button class="n-block-type-btn"     data-type="quote" onclick="window._notesBlockTypeSelect(this)">💬 引用</button>
+        </div>
+        <label class="n-sheet-lbl">内容</label>
+        <textarea id="n-block-content" class="n-sheet-textarea"
+                  placeholder="ここに内容を入力..." rows="4"></textarea>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesBlockConfirm()">追加する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  setTimeout(() => document.getElementById('n-block-content')?.focus(), 80);
+}
+
+window._notesBlockTypeSelect = function(btn) {
+  document.querySelectorAll('.n-block-type-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+};
+
+window._notesBlockConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  const noteId = overlay.dataset.noteId;
+  const type = document.querySelector('.n-block-type-btn.sel')?.dataset.type || 'text';
+  const content = document.getElementById('n-block-content')?.value.trim();
+  if (!content) { document.getElementById('n-block-content')?.focus(); return; }
+  const r = _findNote(noteId);
+  if (!r) return;
+  r.note.blocks.push({ type, content });
+  r.note.updatedAt = Date.now();
+  _save();
+  window._notesSheetClose();
+  _renderNote(noteId);
+};
+
+// ── category create ──
+function _showCatCreateSheet() {
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'cat-create';
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr">
+        <span class="n-sheet-title">📂 新しいカテゴリを作成</span>
+      </div>
+      <div class="n-sheet-body">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div style="flex-shrink:0">
+            <label class="n-sheet-lbl">アイコン</label>
+            <input id="n-cat-icon" class="n-sheet-input"
+                   type="text" value="📂" maxlength="2"
+                   style="width:56px;text-align:center;font-size:20px;padding:6px 4px">
+          </div>
+          <div style="flex:1">
+            <label class="n-sheet-lbl">カテゴリ名</label>
+            <input id="n-cat-name" class="n-sheet-input" type="text"
+                   placeholder="例：スタンディング"
+                   onkeydown="if(event.key==='Enter') window._notesCatConfirm()">
+          </div>
+        </div>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesCatConfirm()">作成する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  setTimeout(() => document.getElementById('n-cat-name')?.focus(), 80);
+}
+
+window.notesCatNew = function() { _showCatCreateSheet(); };
+
+window._notesCatConfirm = function() {
+  const name = document.getElementById('n-cat-name')?.value.trim();
+  if (!name) { document.getElementById('n-cat-name')?.focus(); return; }
+  const icon = document.getElementById('n-cat-icon')?.value.trim() || '📂';
+  _data.push({ id: _uid(), icon, name, notes: [] });
+  _save();
+  window._notesSheetClose();
+  _renderSb();
+  window.toast?.(`📂「${name}」を作成しました`);
 };
 
 // ── delete ──
@@ -336,6 +446,7 @@ function _renderSb() {
       </div>
     </div>`;
   }
+  h += `<div class="n-add-cat" onclick="window.notesCatNew()">＋ カテゴリを追加</div>`;
   tree.innerHTML = h;
 }
 
@@ -398,7 +509,7 @@ function _renderNote(id) {
     <div class="n-page-title">${_esc(note.name)}</div>
     <div class="n-tag-row">${tagsHTML}${statusHTML}</div>
     <div id="n-blocks-${id}">${note.blocks.map(_blockHTML).join('')}</div>
-    <div class="n-add-block" onclick="window.toast?.('ブロック追加は今後対応予定です')">＋ ブロックを追加</div>
+    <div class="n-add-block" onclick="window._notesShowBlockAdd?.('${id}')">＋ ブロックを追加</div>
   `;
 }
 
@@ -429,6 +540,8 @@ function _closeSb() {
   document.getElementById('notesSbOverlay')?.classList.remove('vis');
 }
 window._notesCloseSb = _closeSb;
+
+window._notesShowBlockAdd = function(noteId) { _showBlockAddSheet(noteId); };
 
 // called from "+ New" button and category "+" buttons
 window.notesNew = function(catId = null) {
