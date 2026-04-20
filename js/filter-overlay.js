@@ -435,10 +435,10 @@ export function buildFovRows(isOrg=false) {
     });
   }
 
-  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES||['トップ','ボトム','スタンディング'], 'TOP/BOTTOM検索...', isOrg);
-  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), 'Action検索...', isOrg);
-  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), 'Position検索...', isOrg);
-  buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'Technique検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES||['トップ','ボトム','スタンディング'], 'トップ/ボトム/スタンディング検索...', isOrg);
+  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), 'カテゴリ検索...', isOrg);
+  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), 'ポジション検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'テクニック検索...', isOrg);
   buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
@@ -874,7 +874,7 @@ function _sbPopupRender(key, ctx='lib') {
   else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 
-const _SB_POPUP_LABELS = { ch:'Channel', pl:'Playlist', tb:'Top / Bottom', cat:'Action', pos:'Position', tags:'Technique' };
+const _SB_POPUP_LABELS = { ch:'チャンネル', pl:'プレイリスト', tb:'トップ/ボトム/スタンディング', cat:'カテゴリ', pos:'ポジション', tags:'テクニック' };
 
 export function openSbPopup(key, triggerEl, ctx='lib') {
   const popup = document.getElementById('sb-filter-popup');

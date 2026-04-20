@@ -70,9 +70,9 @@
     const showTags = _tagVis('tags');
     if (!showTb && !showCat && !showPos && !showTags) return '';
     const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
-    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリー</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
+    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
     const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
-    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">#タグ</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
+    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
     return `
     <div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
       <div class="fsec-title" style="color:var(--accent)">タグ</div>

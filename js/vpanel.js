@@ -1663,7 +1663,7 @@ export function buildDrawerHTML(id) {
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
       <div class="vp-row">
-        <span class="vp-lbl">Channel</span>
+        <span class="vp-lbl">チャンネル</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           ${v.channel ? `<span class="chip active" id="vp-ch-badge-${id}">${v.channel}</span>` : ''}
@@ -1678,7 +1678,7 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     <div class="vp-row">
-      <span class="vp-lbl">Playlist</span>
+      <span class="vp-lbl">プレイリスト</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           <span class="chip active" id="vp-pl-badge-${id}">${v.pl||'未分類'}</span>

@@ -1,9 +1,9 @@
 // ═══ WAZA KIMURA — タグ設定 ═══
 
 const DEFAULT_TAG_SETTINGS = [
-  { key:'tb',   label:'TOP/BOTTOM', visible:true,  presets:['トップ','ボトム','スタンディング'] },
-  { key:'cat',  label:'Category',   visible:true,  presets:[] },  // CATEGORIES から自動取得
-  { key:'pos',  label:'Position',   visible:true,  presets:[] },  // POSITIONS から自動取得
+  { key:'tb',   label:'トップ/ボトム/スタンディング', visible:true,  presets:['トップ','ボトム','スタンディング'] },
+  { key:'cat',  label:'カテゴリ',   visible:true,  presets:[] },  // CATEGORIES から自動取得
+  { key:'pos',  label:'ポジション',   visible:true,  presets:[] },  // POSITIONS から自動取得
   { key:'tags', label:'テクニック',  visible:true,  presets:[] },
 ];
 
@@ -1421,7 +1421,7 @@ export function renderTagVisibilityBtns() {
 export function renderAiSettings() {
   const el = document.getElementById('ai-settings-section'); if (!el) return;
   const s = aiSettings;
-  const catLabels = { tb: 'TOP/BOTTOM', action: 'ACTION', position: 'POSITION', tags: 'TECHNIQUE' };
+  const catLabels = { tb: 'トップ/ボトム/スタンディング', action: 'カテゴリ', position: 'ポジション', tags: 'テクニック' };
   const row = (label, desc, checkbox) =>
     `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
       <div>

@@ -52,7 +52,7 @@ export function buildBulkDrawerHTML() {
       </div>` : '';
   const _cntSec = _showRank ? `
       <div style="flex:1;min-width:0">
-        <div style="${subTitle}">カウンター</div>
+        <div style="${subTitle}">カウント</div>
         <div style="display:flex;align-items:center;gap:10px">
           <button onclick="bvpBumpCounter(-1)" style="${btnS}">−</button>
           <span id="bvp-counter-label" style="font-size:18px;font-weight:800;color:#e8590c;min-width:28px;text-align:center;font-variant-numeric:tabular-nums">${p}</span>
@@ -191,9 +191,9 @@ export function buildBulkDrawerHTML() {
   const _showPos  = _tsVis('pos');
   const _showTagsF = _tsVis('tags');
   const _tbRowEl   = _showTb   ? `<div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips">${tbRow}</div></div>` : '';
-  const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリー</span><div class="vp-chips">${catRow}</div></div>` : '';
+  const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips">${catRow}</div></div>` : '';
   const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
-  const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl">#タグ</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
+  const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
   const tagSec = (_showTb || _showCat || _showPos || _showTagsF) ? `<div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
     <div class="fsec-title" style="color:var(--accent)">タグ</div>
     ${_tbRowEl}${_catRowEl}${_posRowEl}${_tagsRowEl}

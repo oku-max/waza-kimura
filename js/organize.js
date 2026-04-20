@@ -55,7 +55,7 @@ function _saveOrgColPrefs() {
   } catch(e) {}
   window.saveUserSettings?.();
 }
-export const ORG_COL_LABELS = {tb:'トップ/ボトム', action:'カテゴリ', position:'ポジション', technique:'タグ', counter:'カウンター', status:'習得度', channel:'Channel', playlist:'Playlist', memo:'要約/メモ', addedAt:'追加日', fav:'★ Fav', next:'🎯 Next', duration:'長さ'};
+export const ORG_COL_LABELS = {tb:'トップ/ボトム/スタンディング', action:'カテゴリ', position:'ポジション', technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
@@ -355,7 +355,7 @@ export function orgFilt(list) {
       if (orgPrDate === 'never' && lp)                  return false;
     }
     if (orgFilters.fav.size) {
-      const favVal = v.fav ? '★ Fav' : '☆ 未Fav';
+      const favVal = v.fav ? '★ お気に入り' : '☆ 未お気に入り';
       if (!orgFilters.fav.has(favVal)) return false;
     }
     if (orgFilters.memo.size) {
@@ -671,7 +671,7 @@ export function renderOrg() {
       }
       if (col === 'playlist')  return `<td class="org-td" data-col="playlist" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.pl||'—'}</div></td>`;
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
-      if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" class="${v.fav?'org-fav-on':'org-fav-off'}" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'Favを外す':'Favに追加'}">${v.fav?'★':'☆'}</button></td>`;
+      if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" class="${v.fav?'org-fav-on':'org-fav-off'}" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'お気に入りを外す':'お気に入りに追加'}">${v.fav?'★':'☆'}</button></td>`;
       if (col === 'next')      return `<td class="org-td" data-col="next" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogNext('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.next?'Next解除':'Nextに追加'}">${v.next?'🎯':'○'}</button></td>`;
       if (col === 'addedAt') {
         const d = v.addedAt ? new Date(v.addedAt) : null;
@@ -842,7 +842,7 @@ export function orgTogFav(id) {
       const btn = tr.querySelector('[onclick*="orgTogFav"]');
       if (btn) {
         btn.textContent = v.fav ? '★' : '☆';
-        btn.title = v.fav ? 'Favを外す' : 'Favに追加';
+        btn.title = v.fav ? 'お気に入りを外す' : 'お気に入りに追加';
       }
     }
     window.debounceSave?.();
@@ -867,7 +867,7 @@ export function orgTogNext(id) {
       // Fav自動ONの場合、Favボタンも更新
       if (v.next) {
         const favBtn = tr.querySelector('[onclick*="orgTogFav"]');
-        if (favBtn) { favBtn.textContent = '★'; favBtn.title = 'Favを外す'; }
+        if (favBtn) { favBtn.textContent = '★'; favBtn.title = 'お気に入りを外す'; }
       }
     }
     window.debounceSave?.();
@@ -1648,7 +1648,7 @@ const _colFilterConfig = {
     return [pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上'];
   }, noSearch: true },
   playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
-  fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ Fav' : '☆ 未Fav'], noSearch: true },
+  fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ お気に入り' : '☆ 未お気に入り'], noSearch: true },
   memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true, memoTextSearch: true },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
     if (!v.addedAt) return ['不明'];
