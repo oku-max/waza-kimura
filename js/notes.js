@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.28 ═══
+// ═══ WAZA KIMURA — Notes tab v50.30 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -544,6 +544,7 @@ function _renderNote(id) {
       <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">＋ テキスト</button>
       <button class="n-add-inline" onclick="window._notesAddVideoBlock?.('${id}')">📹 動画</button>
       <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
+      <button class="n-add-inline" onclick="window.uniOpenForNote?.('${id}')">📚 ライブラリ</button>
     </div>
   `;
 }
@@ -722,6 +723,27 @@ window._notesVpAddConfirm = function(noteId, videoId, title, channel, duration) 
   }
   window._notesVpSheetClose();
   window.toast?.(`📓「${note.name}」に追加しました`);
+  if (_activeId === noteId) _renderNote(noteId);
+};
+
+// ── フィルターオーバーレイからノートに動画を追加 ──
+window._notesGetName = function(noteId) {
+  const r = _findNote(noteId);
+  return r?.note?.name || noteId;
+};
+
+window._notesAddFromLib = function(videoId, noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const note = r.note;
+  const v = (window.videos || []).find(x => x.id === videoId);
+  if (!v) return;
+  if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
+    note.blocks.push({ type: 'video', videoId, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '' });
+    note.updatedAt = Date.now();
+    _save();
+  }
+  window.toast?.(`📓「${note.name}」に「${v.title || videoId}」を追加しました`);
   if (_activeId === noteId) _renderNote(noteId);
 };
 

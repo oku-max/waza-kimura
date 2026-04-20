@@ -17,6 +17,7 @@
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
   let _vidSort = 'auto';
   let _autoScrolled = false;
+  let _noteMode = null; // null = 通常, noteId = ノートに追加モード
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -195,6 +196,16 @@
 #uni-popup .uni-vc-notice{padding:7px 10px;font-size:10px;color:var(--text3);background:rgba(107,63,212,.06);border-bottom:1px solid rgba(107,63,212,.12);text-align:center;line-height:1.5}
 #uni-popup .uni-vc-notice-sm{background:none;border-bottom:1px solid var(--border);color:var(--accent);font-weight:700}
 @media(max-width:480px){#uni-popup .uni-col-vc{flex:0 0 240px}}
+/* ── ノートに追加モード ── */
+#uni-popup .uni-nm-banner{padding:8px 14px;background:#05966912;border-bottom:1px solid #05966930;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text1);flex-shrink:0}
+#uni-popup .uni-nm-banner strong{color:#059669}
+#uni-popup .uni-nm-banner button{margin-left:auto;padding:3px 10px;border:1px solid #05966970;border-radius:6px;background:#05966920;color:#059669;font-size:11px;cursor:pointer;font-family:inherit}
+#uni-popup .uni-nm-banner button:hover{background:#05966938}
+#uni-popup .uni-vc-row-nm{border-left:3px solid #059669}
+#uni-popup .uni-vc-row-nm:hover{background:#05966910}
+#uni-popup .uni-vc-add-btn{font-size:16px;font-weight:700;color:#059669;flex-shrink:0;padding:0 2px}
+#uni-popup .uni-vid-row-nm{border-left:3px solid #059669}
+#uni-popup .uni-vid-row-nm:hover{background:#05966910}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
@@ -207,6 +218,7 @@
     <div class="uni-tabs" id="uni-tabs"></div>
   </div>
   <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"><div class="uni-x" onclick="uniClose()">✕</div></div>
+  <div id="uni-nm-banner" style="display:none"></div>
   <div id="uni-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
   <div class="uni-ftr">
     <span class="uni-lbl">選択中:</span>
@@ -316,6 +328,7 @@
       <option value="practice"${_vidSort==='practice'?' selected':''}>視聴回数順</option>
     </select>`;
 
+    const isNoteMode = !!_noteMode;
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
       const thumb = ytId
@@ -323,12 +336,17 @@
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
-      return `<div class="uni-vc-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
+      const onclick = isNoteMode
+        ? `window._notesAddFromLib?.('${_esc(v.id)}','${_esc(_noteMode)}')`
+        : `window.openVPanel?.('${_esc(v.id)}');uniClose()`;
+      const rowClass = isNoteMode ? 'uni-vc-row uni-vc-row-nm' : 'uni-vc-row';
+      const addBtn = isNoteMode ? `<span class="uni-vc-add-btn">＋</span>` : '';
+      return `<div class="${rowClass}" onclick="${onclick}">
         <div class="uni-vc-thumb">${thumb}</div>
         <div class="uni-vc-info">
           <div class="uni-vc-title">${_esc(v.title||'')}</div>
           <div class="uni-vc-meta">${_esc(v.channel||v.ch||'')}${sMark}</div>
-        </div>
+        </div>${addBtn}
       </div>`;
     }).join('');
 
@@ -338,8 +356,9 @@
       ? `<div class="uni-vc-notice">条件に一致する動画がありません</div>`
       : `<div class="uni-vc-notice uni-vc-notice-sm">${total}件がヒット</div>`;
 
+    const colHeader = isNoteMode ? 'ノートに追加' : '該当動画';
     return `<div class="uni-col uni-col-vc">
-      <div class="uni-col-hdr"><span>該当動画</span>${sortSel}</div>
+      <div class="uni-col-hdr"><span>${colHeader}</span>${sortSel}</div>
       <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
     </div>`;
   }
@@ -373,6 +392,18 @@
   }
 
   function _render() {
+    // ノートに追加モードのバナー更新
+    const banner = document.getElementById('uni-nm-banner');
+    if (banner) {
+      if (_noteMode) {
+        const noteName = window._notesGetName?.(_noteMode) || _noteMode;
+        banner.innerHTML = `📓 ノートに追加中: <strong>${_esc(noteName)}</strong><button onclick="uniClose()">完了</button>`;
+        banner.className = 'uni-nm-banner';
+        banner.style.display = '';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const tabsEl = document.getElementById('uni-tabs');
@@ -603,12 +634,17 @@
             const thumb = ytId
               ? `<img src="https://i.ytimg.com/vi/${ytId}/default.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
               : '▶';
-            return `<div class="uni-vid-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
+            const vidOnclick = _noteMode
+              ? `window._notesAddFromLib?.('${_esc(v.id)}','${_esc(_noteMode)}')`
+              : `window.openVPanel?.('${_esc(v.id)}');uniClose()`;
+            const vidRowClass = _noteMode ? 'uni-vid-row uni-vid-row-nm' : 'uni-vid-row';
+            const vidAddBtn = _noteMode ? `<span class="uni-vc-add-btn">＋</span>` : '';
+            return `<div class="${vidRowClass}" onclick="${vidOnclick}">
               <div class="uni-vid-thumb">${thumb}</div>
               <div class="uni-vid-info">
                 <div class="uni-vid-title">${_esc(v.title || '')}</div>
                 <div class="uni-vid-meta">${_esc(v.channel || v.ch || '')} · ${_esc(v.pl || '')}</div>
-              </div>
+              </div>${vidAddBtn}
             </div>`;
           }).join('')
         : '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">一致する動画がありません</div>';
@@ -734,7 +770,18 @@
     }
     _q = _queries[t] || '';
   }
+  window.uniOpenForNote = function (noteId) {
+    _noteMode = noteId;
+    _ctx = 'lib';
+    _inject();
+    _tab = 'state';
+    document.getElementById('uni-bd').classList.add('open');
+    document.getElementById('uni-popup').classList.add('open');
+    _syncSearchbar(_tab);
+    _render();
+  };
   window.uniOpen = function (tab, ctx) {
+    _noteMode = null;
     _ctx = ctx || 'lib';
     _inject();
     if (tab && MAIN.some(m => m.k === tab)) _tab = tab;
@@ -744,6 +791,7 @@
     _render();
   };
   window.uniClose = function () {
+    _noteMode = null;
     document.getElementById('uni-bd')?.classList.remove('open');
     document.getElementById('uni-popup')?.classList.remove('open');
     Object.keys(_queries).forEach(k => _queries[k] = '');
