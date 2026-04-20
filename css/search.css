@@ -124,6 +124,56 @@
 }
 .yt-sr-count { font-size: 12px; color: var(--text3); }
 
+/* ── ボディレイアウト（サイドバー + メイン） ── */
+.yt-sr-body {
+  display: flex;
+  align-items: flex-start;
+}
+.yt-sr-sidebar {
+  width: 190px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: calc(var(--topbar-h, 56px) + 90px);
+  max-height: calc(100vh - var(--topbar-h, 56px) - 90px);
+  overflow-y: auto;
+}
+.yt-sr-main { flex: 1; min-width: 0; }
+
+/* 検索履歴 */
+.yt-sr-hist-hdr {
+  padding: 7px 10px 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+.yt-sr-hist-item {
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border2, var(--border));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background .12s;
+}
+.yt-sr-hist-item:hover { background: var(--surface2); color: var(--text); }
+.yt-sr-hist-empty { padding: 10px; font-size: 11px; color: var(--text3); }
+
+/* 取り込み済み非表示 */
+.yt-sr-cards-wrap.hide-added .yt-sr-card.added { display: none; }
+
+/* モバイル: サイドバー非表示 */
+@media (max-width: 600px) { .yt-sr-sidebar { display: none; } }
+
 /* ── カードラッパー ── */
 .yt-sr-cards-wrap {
   flex: 1;
@@ -260,8 +310,10 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.yt-sr-ch   { font-size: 11px; color: var(--text3); }
-.yt-sr-meta { font-size: 11px; color: var(--text3); }
+.yt-sr-ch      { font-size: 11px; color: var(--text3); }
+.yt-sr-meta    { font-size: 11px; color: var(--text3); margin-top: auto; }
+.yt-sr-pl-desc { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
+.yt-sr-card.playlist { border-color: var(--accent); }
 .yt-sr-open-btn {
   margin-top: auto;
   align-self: flex-start;

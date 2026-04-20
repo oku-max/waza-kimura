@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.18</title>
+<title>WAZA KIMURA v50.19</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1228,21 +1228,30 @@
         <button class="yt-sr-tab"        id="yt-sr-dur-medium" onclick="window.ytSrSetDuration?.('medium')">4〜20分</button>
         <button class="yt-sr-tab"        id="yt-sr-dur-long"   onclick="window.ytSrSetDuration?.('long')">20分以上</button>
       </div>
+      <div class="yt-sr-mode-tabs">
+        <button class="yt-sr-tab" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">取り込み済みを非表示</button>
+      </div>
     </div>
   </div>
 
-  <!-- ② 結果ヘッダー -->
-  <div class="yt-sr-hdr" id="yt-sr-hdr" style="display:none">
-    <span class="yt-sr-badge">▶ YouTube</span>
-    <span class="yt-sr-count" id="yt-sr-count"></span>
-  </div>
-
-  <!-- ③ 結果 / 初期状態 -->
-  <div class="yt-sr-cards-wrap" id="yt-sr-cards-wrap">
-    <div class="yt-sr-empty">
-      <div class="yt-sr-empty-icon">🔍</div>
-      <div class="yt-sr-empty-ttl">YouTubeで柔術動画を検索</div>
-      <div class="yt-sr-empty-sub">検索結果をVパネルで視聴し、ライブラリに追加しよう</div>
+  <!-- ② ボディ（サイドバー + メイン） -->
+  <div class="yt-sr-body">
+    <aside class="yt-sr-sidebar">
+      <div class="yt-sr-hist-hdr">🕐 検索履歴</div>
+      <div id="yt-sr-history-list"><div class="yt-sr-hist-empty">まだ検索していません</div></div>
+    </aside>
+    <div class="yt-sr-main">
+      <div class="yt-sr-hdr" id="yt-sr-hdr" style="display:none">
+        <span class="yt-sr-badge">▶ YouTube</span>
+        <span class="yt-sr-count" id="yt-sr-count"></span>
+      </div>
+      <div class="yt-sr-cards-wrap" id="yt-sr-cards-wrap">
+        <div class="yt-sr-empty">
+          <div class="yt-sr-empty-icon">🔍</div>
+          <div class="yt-sr-empty-ttl">YouTubeで柔術動画を検索</div>
+          <div class="yt-sr-empty-sub">検索結果をVパネルで視聴し、ライブラリに追加しよう</div>
+        </div>
+      </div>
     </div>
   </div>
 

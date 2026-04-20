@@ -8,13 +8,45 @@ import { currentUser, saveUserData } from './firebase.js';
 // STATE
 // ────────────────────────────────────────
 let _srMode       = 'video';   // 'video' | 'playlist'
-let _srDuration   = 'any';     // 'any' | 'medium' | 'long'
+let _srDuration   = 'any';     // 'any' | 'short' | 'medium' | 'long'
 let _srNextToken  = '';        // YouTube nextPageToken
 let _srLoading    = false;
 let _srItems      = [];        // 現在表示中の結果
 let _srOpenItem   = null;      // VPanelで開いている検索結果
 let _srCurrentIdx = -1;        // VPanelで開いているインデックス
 const _addedSet   = new Set(); // 追加済みYouTube ID
+let _srHideAdded  = false;     // 取り込み済み非表示フラグ
+
+// ── 検索履歴 ──
+const _HIST_KEY = 'yt_sr_history_v1';
+const _HIST_MAX = 15;
+let _srHistory = [];
+function _loadHistory() {
+  try { _srHistory = JSON.parse(localStorage.getItem(_HIST_KEY) || '[]'); } catch { _srHistory = []; }
+}
+function _saveHistory() { localStorage.setItem(_HIST_KEY, JSON.stringify(_srHistory)); }
+function _addToHistory(q) {
+  if (!q) return;
+  _srHistory = [q, ..._srHistory.filter(h => h !== q)].slice(0, _HIST_MAX);
+  _saveHistory();
+  _renderHistory();
+}
+function _renderHistory() {
+  const el = document.getElementById('yt-sr-history-list');
+  if (!el) return;
+  if (!_srHistory.length) {
+    el.innerHTML = '<div class="yt-sr-hist-empty">まだ検索していません</div>';
+    return;
+  }
+  el.innerHTML = _srHistory.map(q =>
+    `<div class="yt-sr-hist-item" onclick="window.ytSrSetQuery(${JSON.stringify(q)})">${_esc(q)}</div>`
+  ).join('');
+}
+window.ytSrSetQuery = function(q) {
+  const inp = document.getElementById('yt-sr-input');
+  if (inp) inp.value = q;
+  window.ytSrSearch?.();
+};
 
 // ── YT.Player（スキップ対応）──
 let _srYtPlayer  = null;
@@ -29,6 +61,8 @@ export function ytSrInit() {
   _addedSet.clear();
   (window.videos || []).forEach(v => { if (v.ytId) _addedSet.add(v.ytId); });
   if (_srItems.length > 0) _renderCards(_srItems);
+  _loadHistory();
+  _renderHistory();
 }
 
 // ────────────────────────────────────────
@@ -42,6 +76,7 @@ export async function ytSrSearch() {
   _srNextToken = '';
   _srLoading   = true;
   _showLoading();
+  _addToHistory(q);
 
   try {
     const data = await _callApi(q, _srMode, '');
@@ -129,16 +164,19 @@ function _renderCards(items) {
       ? `<div class="yt-sr-added-badge">✓ 追加済</div>`
       : `<button class="yt-sr-plus" onclick="event.stopPropagation();window.ytSrQuickAdd('${ytId}',${i})" title="ライブラリに追加">＋</button>`;
 
-    return `<div class="yt-sr-card${isAdded?' added':''}" id="yt-sr-card-${ytId}" onclick="window.ytSrOpenVPanel(${i})">
+    const desc = isPlaylist && s.description
+      ? `<div class="yt-sr-pl-desc">${_esc(s.description.slice(0, 80))}${s.description.length > 80 ? '…' : ''}</div>` : '';
+    const metaLabel = isPlaylist ? '📋 プレイリスト' : `▶ ${date}`;
+    return `<div class="yt-sr-card${isAdded?' added':''}${isPlaylist?' playlist':''}" id="yt-sr-card-${ytId}" onclick="window.ytSrOpenVPanel(${i})">
   <div class="yt-sr-thumb">
-    ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">🎥</span>`}
+    ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">${isPlaylist?'📋':'🎥'}</span>`}
     ${badgeHtml}
   </div>
   <div class="yt-sr-info">
     <div class="yt-sr-title">${title}</div>
     <div class="yt-sr-ch">${ch}</div>
-    <div class="yt-sr-meta">${isPlaylist ? '📋' : '▶'} ${date}</div>
-    <button class="yt-sr-open-btn" onclick="event.stopPropagation();window.ytSrOpenVPanel(${i})">▶ Vパネルで見る</button>
+    ${desc}
+    <div class="yt-sr-meta">${metaLabel}</div>
   </div>
 </div>`;
   }).join('');
@@ -828,3 +866,13 @@ function _esc(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ────────────────────────────────────────
+// 取り込み済み非表示トグル
+// ────────────────────────────────────────
+export function ytSrToggleHideAdded() {
+  _srHideAdded = !_srHideAdded;
+  document.getElementById('yt-sr-cards-wrap')?.classList.toggle('hide-added', _srHideAdded);
+  document.getElementById('yt-sr-hide-added-btn')?.classList.toggle('active', _srHideAdded);
+}
+window.ytSrToggleHideAdded = ytSrToggleHideAdded;
