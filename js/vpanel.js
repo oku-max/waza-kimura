@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.13 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.14 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -9,6 +9,8 @@ let _ytApiLoaded = false;   // YouTube iFrame API読み込み済みか
 // GDrive用（OAuth + <video>タグ方式 → currentTime完全制御）
 let _gdVideoEl = null;  // 再生中の<video>要素
 let _gdFileId  = null;  // 再生中のfileId
+let _gdPauseTimer = null;           // コントロール非表示タイマー
+let _gdContainerClick = null;       // container click handler（蓄積防止用）
 // Vimeo Player API
 let _vmPlayer  = null;
 let _vmCurTime = 0;
@@ -1278,8 +1280,12 @@ export function openVPanel(id) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
 
-  // GDriveリセット — pauseしてから参照を切る（音声二重鳴り防止）
+  // GDriveリセット — pause・タイマー・clickハンドラをすべて解除してから参照を切る
   if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} }
+  clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
+  const _gdResetContainer = document.getElementById('vpanel-iframe-container');
+  if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
+  _gdContainerClick = null;
   _gdVideoEl = null; _gdFileId = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
   if (iframeContainer) {
@@ -1478,6 +1484,10 @@ export function closeVPanel() {
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     _stopTimeDisplay();
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
+    clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
+    const _gdCloseContainer = document.getElementById('vpanel-iframe-container');
+    if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
+    _gdContainerClick = null;
     _gdFileId = null;
     if (_vmPlayer) { try { _vmPlayer.unload(); _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
     _vmCurTime = 0; _vmDuration = 0;
@@ -1551,21 +1561,22 @@ function _createGDriveVideoEl(container, fileId, token) {
   video.autoplay    = true;
   video.style.cssText = 'width:100%;height:100%;background:#000';
   // 停止後1秒でコントロール非表示（スクショ用）、タップで再生復帰
-  let _gdPauseTimer = null;
   video.addEventListener('pause', () => {
     clearTimeout(_gdPauseTimer);
     _gdPauseTimer = setTimeout(() => { video.controls = false; }, 1000);
   });
   video.addEventListener('play', () => {
     clearTimeout(_gdPauseTimer);
+    _gdPauseTimer = null;
     video.controls = true;
   });
-  container.addEventListener('click', () => {
+  _gdContainerClick = () => {
     if (video.paused && !video.controls) {
       video.controls = true;
       video.play().catch(() => {});
     }
-  });
+  };
+  container.addEventListener('click', _gdContainerClick);
   video.addEventListener('play',  () => _startTimeDisplay());
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
   video.addEventListener('ended', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
