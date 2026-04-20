@@ -78,7 +78,7 @@ export function ytSrSetMode(mode) {
 // ────────────────────────────────────────
 export function ytSrSetDuration(d) {
   _srDuration = d;
-  ['any', 'medium', 'long'].forEach(dur => {
+  ['any', 'short', 'medium', 'long'].forEach(dur => {
     document.getElementById('yt-sr-dur-' + dur)?.classList.toggle('active', dur === d);
   });
   const q = document.getElementById('yt-sr-input')?.value?.trim();

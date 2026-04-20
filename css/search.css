@@ -17,7 +17,7 @@
   padding: 10px 14px;
   flex-shrink: 0;
   position: sticky;
-  top: 52px;
+  top: var(--topbar-h, 56px);
   z-index: 79;
 }
 .yt-sr-search-row {
