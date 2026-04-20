@@ -76,13 +76,13 @@ export function switchTab(t) {
       if (settingsC) settingsC.style.display = 'none';
       const fsEl = document.getElementById('filterSidebar');
       const rz   = document.getElementById('sbResizer');
-      if (fsEl) fsEl.style.display = 'none';
-      if (rz)   rz.style.display   = 'none';
+      if (fsEl) fsEl.style.setProperty('display', 'none', 'important');
+      if (rz)   rz.style.setProperty('display',   'none', 'important');
     } else {
       const fsEl = document.getElementById('filterSidebar');
       const rz   = document.getElementById('sbResizer');
-      if (fsEl) fsEl.style.display = '';
-      if (rz)   rz.style.display   = '';
+      if (fsEl) fsEl.style.removeProperty('display');
+      if (rz)   rz.style.removeProperty('display');
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = '';
       if (settingsC) settingsC.style.display = 'none';
