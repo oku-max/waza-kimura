@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.31 ═══
+// ═══ WAZA KIMURA — Notes tab v50.32 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -442,21 +442,28 @@ function _blockHTML(block, idx, noteId) {
     case 'h2':    return `<div class="n-block-wrap">${editable('n-b-h2')}${del}</div>`;
     case 'text':  return `<div class="n-block-wrap">${editable('n-b-text')}${del}</div>`;
     case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${del}</div>`;
-    case 'video': return `<div class="n-block-wrap n-block-wrap-card">
-      <div class="n-b-video">
-        <div class="n-bv-hdr">
-          <div class="n-bv-icon">▶</div>
-          <div class="n-bv-ttl">${_esc(block.title || '')}</div>
-          <div class="n-bv-dur">${_esc(block.duration || '')}</div>
-        </div>
-        <div class="n-bv-body">
-          <div class="n-bv-thumb">🎥</div>
-          <div class="n-bv-note">
-            <div class="n-bv-ch">${_esc(block.channel || '')}</div>
-            ${block.memo ? `<div class="n-bv-memo">${_esc(block.memo)}</div>` : ''}
+    case 'video': {
+      const ytId = block.videoId && block.videoId.length === 11 ? block.videoId : null;
+      const thumbUrl = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : null;
+      const thumbEl = thumbUrl
+        ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:4px" loading="lazy">`
+        : `<span style="font-size:18px">🎥</span>`;
+      return `<div class="n-block-wrap n-block-wrap-card">
+        <div class="n-b-video" onclick="window.openVPanel?.('${_esc(block.videoId)}');event.stopPropagation()" style="cursor:pointer">
+          <div class="n-bv-hdr">
+            <div class="n-bv-icon">▶</div>
+            <div class="n-bv-ttl">${_esc(block.title || block.videoId || '')}</div>
+            <div class="n-bv-dur">${_esc(block.duration || '')}</div>
           </div>
-        </div>
-      </div>${del}</div>`;
+          <div class="n-bv-body">
+            <div class="n-bv-thumb">${thumbEl}</div>
+            <div class="n-bv-note">
+              <div class="n-bv-ch">${_esc(block.channel || '')}</div>
+              ${block.memo ? `<div class="n-bv-memo">${_esc(block.memo)}</div>` : ''}
+            </div>
+          </div>
+        </div>${del}</div>`;
+    }
     case 'image': {
       if (block.snapId) {
         return `<div class="n-block-wrap n-block-wrap-snap" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}">
@@ -791,6 +798,90 @@ window._notesAddFromLib = function(videoId, noteId) {
   if (_activeId === noteId) _renderNote(noteId);
 };
 
+// ── テキスト書式ツールバー ──
+function _setupFormatBar() {
+  if (document.getElementById('n-fmt-bar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'n-fmt-bar';
+  bar.className = 'n-fmt-bar';
+  bar.innerHTML = `
+    <button class="n-fmt-btn" data-cmd="bold"          title="太字 (Ctrl+B)"><b>B</b></button>
+    <button class="n-fmt-btn" data-cmd="italic"        title="斜体 (Ctrl+I)"><i>I</i></button>
+    <button class="n-fmt-btn" data-cmd="underline"     title="下線 (Ctrl+U)"><u>U</u></button>
+    <button class="n-fmt-btn" data-cmd="strikeThrough" title="取り消し線"><s>S</s></button>
+    <div class="n-fmt-sep"></div>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="2" title="小さく">A<sub>↓</sub></button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="3" title="標準">A</button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="5" title="大きく">A<sup>↑</sup></button>
+    <div class="n-fmt-sep"></div>
+    <button class="n-fmt-btn" data-cmd="hiliteColor" data-val="#fff176" title="ハイライト">🌟</button>
+    <button class="n-fmt-btn" data-cmd="removeFormat"                    title="書式クリア">✕</button>
+  `;
+  bar.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    const cmd = btn.dataset.cmd;
+    const val = btn.dataset.val || null;
+    document.execCommand(cmd, false, val);
+    _updateFmtBar();
+  });
+  document.body.appendChild(bar);
+
+  document.addEventListener('selectionchange', _onSelectionChange);
+  document.addEventListener('keydown', e => {
+    const bar = document.getElementById('n-fmt-bar');
+    if (bar && e.key === 'Escape') bar.classList.remove('vis');
+  });
+}
+
+let _fmtDebounce = null;
+function _onSelectionChange() {
+  clearTimeout(_fmtDebounce);
+  _fmtDebounce = setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      document.getElementById('n-fmt-bar')?.classList.remove('vis');
+      return;
+    }
+    const node = sel.anchorNode;
+    if (!node) return;
+    const editable = node.nodeType === 3 ? node.parentElement?.closest('.n-editable') : node.closest?.('.n-editable');
+    if (!editable) {
+      document.getElementById('n-fmt-bar')?.classList.remove('vis');
+      return;
+    }
+    _positionFmtBar(sel);
+    _updateFmtBar();
+  }, 60);
+}
+
+function _positionFmtBar(sel) {
+  const bar = document.getElementById('n-fmt-bar');
+  if (!bar) return;
+  const range = sel.getRangeAt(0);
+  const rect  = range.getBoundingClientRect();
+  if (!rect.width && !rect.height) return;
+  bar.classList.add('vis');
+  const bw = bar.offsetWidth || 280;
+  const margin = 6;
+  let left = rect.left + rect.width / 2 - bw / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
+  let top  = rect.top - bar.offsetHeight - 8 + window.scrollY;
+  if (top < 0) top = rect.bottom + 8 + window.scrollY;
+  bar.style.left = left + 'px';
+  bar.style.top  = top  + 'px';
+}
+
+function _updateFmtBar() {
+  const bar = document.getElementById('n-fmt-bar');
+  if (!bar) return;
+  ['bold','italic','underline','strikeThrough'].forEach(cmd => {
+    const btn = bar.querySelector(`[data-cmd="${cmd}"]`);
+    if (btn) btn.classList.toggle('active', document.queryCommandState(cmd));
+  });
+}
+
 // ── init ──
 export function renderNotes() {
   if (!_activeId) {
@@ -798,6 +889,7 @@ export function renderNotes() {
       if (cat.notes.length) { _activeId = cat.notes[0].id; break; }
     }
   }
+  _setupFormatBar();
   _renderSb();
   if (_activeId) _renderNote(_activeId);
   _renderRecent();

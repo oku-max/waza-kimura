@@ -338,6 +338,29 @@
 }
 .n-block-type-btn:hover:not(.sel) { border-color: var(--text3) }
 
+/* ── テキスト書式ツールバー ── */
+.n-fmt-bar {
+  position: fixed; z-index: 9999;
+  display: none; align-items: center; gap: 2px;
+  padding: 4px 6px; border-radius: 8px;
+  background: #1e1e2e; border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 4px 20px rgba(0,0,0,.45);
+  pointer-events: auto;
+}
+.n-fmt-bar.vis { display: flex }
+.n-fmt-btn {
+  min-width: 28px; height: 26px; padding: 0 5px;
+  border: none; border-radius: 5px; background: transparent;
+  color: #ccc; font-size: 12px; font-family: inherit;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+}
+.n-fmt-btn:hover  { background: rgba(255,255,255,.12); color: #fff }
+.n-fmt-btn.active { background: rgba(232,201,106,.25); color: #e8c96a }
+.n-fmt-sep {
+  width: 1px; height: 16px; background: rgba(255,255,255,.15); margin: 0 2px;
+}
+
 /* ── block add textarea ── */
 .n-sheet-textarea {
   width: 100%; padding: 9px 12px; border-radius: 8px;
