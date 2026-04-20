@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.23 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.24 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1721,6 +1721,14 @@ export function buildDrawerHTML(id) {
       </div>
     </div>
     <div style="padding:8px 16px 4px">
+      <button onclick="window.notesAddVideo?.({id:'${id}',title:${JSON.stringify(v.title||'')},channel:${JSON.stringify(v.channel||'')},duration:''})"
+        style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--accent);
+               background:rgba(232,201,106,.08);color:var(--accent);font-size:13px;
+               font-weight:700;cursor:pointer;letter-spacing:.3px;margin-bottom:6px">
+        📓 Notes に追加
+      </button>
+    </div>
+    <div style="padding:0 16px 4px">
       <button id="vp-ai-tag-btn"
         onclick="window.onAiTagBtn?.('${id}')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);

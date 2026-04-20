@@ -10,10 +10,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.23</title>
+<title>WAZA KIMURA v50.24</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
+<link rel="stylesheet" href="css/notes.css">
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -42,6 +43,8 @@
   window.parseYtTimestamps = parseYtTimestamps;
   import { debounceSave, qFav, qNext, qWatch, archOne, setPrio } from './js/data.js';
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
+  import { renderNotes } from './js/notes.js';
+  window.renderNotes = renderNotes;
   import { renderCards, cardHTML } from './js/cards.js';
   import {
     tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
@@ -651,6 +654,7 @@
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
       <div class="tn-i" id="tnav-search" onclick="switchTab('search')">🔍 Search</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
+      <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">📓 Notes</div>
       <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
     </nav>
   </div>
@@ -687,6 +691,7 @@
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')"><span>◫</span> Archive</div>
     <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>🔍</span> Search</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
+    <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>📓</span> Notes</div>
     <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
   </nav>
 
@@ -1267,6 +1272,39 @@
   </div>
 </div>
 
+<!-- Notes tab -->
+<div class="tab-panel" id="notesTab">
+  <div class="notes-app">
+    <div class="notes-sb-overlay" id="notesSbOverlay" onclick="window._notesCloseSb?.()"></div>
+    <div class="notes-sidebar" id="notesSidebar">
+      <div class="notes-sb-hdr">
+        <span class="notes-sb-logo">📓 Notes</span>
+        <button class="notes-sb-new" onclick="window.toast?.('新規ノート作成は今後対応予定です')">＋ New</button>
+      </div>
+      <div class="notes-sb-tree" id="notesSbTree"></div>
+    </div>
+    <div class="notes-main">
+      <div class="notes-topbar">
+        <button class="notes-hamburger" onclick="window.notesOpenSb?.()">☰</button>
+        <div class="notes-breadcrumb" id="notesBreadcrumb">Notes</div>
+      </div>
+      <div class="notes-recent" id="notesRecent" style="display:none"></div>
+      <div class="notes-content" id="notesContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- VPanel → Notes selector sheet -->
+<div class="notes-vp-sheet-overlay" id="notesVpSheet" onclick="window._notesVpSheetClose?.()">
+  <div class="notes-vp-sheet" onclick="event.stopPropagation()">
+    <div class="nvps-hdr">
+      <span class="nvps-title">📓 どのノートに追加しますか？</span>
+      <span class="nvps-close" onclick="window._notesVpSheetClose?.()">✕</span>
+    </div>
+    <div class="nvps-list" id="notesVpSheetList"></div>
+  </div>
+</div>
+
 <!-- BULK BAR（選択のみ・編集はVPanelへ） -->
 <div class="bulk-bar" id="bulkBar">
   <div style="display:flex;align-items:center;gap:6px;">
@@ -1506,6 +1544,7 @@
   <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')"><span>◫</span>Archive</div>
   <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>🔍</span>Search</div>
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
+  <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>📓</span>Notes</div>
   <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
 </nav>
 </div><!-- /main-area -->
