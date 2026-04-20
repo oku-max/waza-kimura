@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.12 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.13 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1278,8 +1278,8 @@ export function openVPanel(id) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
 
-  // GDriveリセット — pause+src解放してから参照を切る（音声二重鳴り防止）
-  if (_gdVideoEl) { try { _gdVideoEl.pause(); _gdVideoEl.src = ''; } catch(e) {} }
+  // GDriveリセット — pauseしてから参照を切る（音声二重鳴り防止）
+  if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} }
   _gdVideoEl = null; _gdFileId = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
   if (iframeContainer) {
