@@ -39,8 +39,11 @@ function _renderHistory() {
     return;
   }
   el.innerHTML = _srHistory.map(q =>
-    `<div class="yt-sr-hist-item" onclick="window.ytSrSetQuery(${JSON.stringify(q)})">${_esc(q)}</div>`
+    `<div class="yt-sr-hist-item" data-q="${_esc(q)}">${_esc(q)}</div>`
   ).join('');
+  el.querySelectorAll('.yt-sr-hist-item').forEach(item => {
+    item.addEventListener('click', () => window.ytSrSetQuery(item.dataset.q));
+  });
 }
 window.ytSrSetQuery = function(q) {
   const inp = document.getElementById('yt-sr-input');
@@ -140,6 +143,9 @@ async function _callApi(q, type, pageToken) {
 function _renderCards(items) {
   const wrap = document.getElementById('yt-sr-cards-wrap');
   if (!wrap) return;
+  // 毎回最新ライブラリ状態で追加済みセットを再構築
+  _addedSet.clear();
+  (window.videos || []).forEach(v => { if (v.ytId) _addedSet.add(v.ytId); });
 
   if (!items.length) {
     wrap.innerHTML = `<div class="yt-sr-empty">
