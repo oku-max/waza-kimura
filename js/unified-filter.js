@@ -15,6 +15,8 @@
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
+  let _vidSort = 'auto';
+  let _autoScrolled = false;
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -182,6 +184,17 @@
 #uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#6060a0}
 #uni-popup .uni-col-body{scrollbar-width:thin;scrollbar-color:#9090a8 #dddde5}
 #uni-popup .uni-cols{scrollbar-width:thin;scrollbar-color:#9090a8 #dddde5}
+/* ── 該当動画カラム ── */
+#uni-popup .uni-col-vc{flex:0 0 280px;border-left:2px solid rgba(107,63,212,.2);background:rgba(107,63,212,.02)}
+#uni-popup .uni-vc-row{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:8px;align-items:center}
+#uni-popup .uni-vc-row:hover{background:var(--surface2)}
+#uni-popup .uni-vc-thumb{width:64px;min-width:64px;height:36px;border-radius:4px;background:var(--surface3);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#uni-popup .uni-vc-info{flex:1;min-width:0}
+#uni-popup .uni-vc-title{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+#uni-popup .uni-vc-meta{font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#uni-popup .uni-vc-notice{padding:7px 10px;font-size:10px;color:var(--text3);background:rgba(107,63,212,.06);border-bottom:1px solid rgba(107,63,212,.12);text-align:center;line-height:1.5}
+#uni-popup .uni-vc-notice-sm{background:none;border-bottom:1px solid var(--border);color:var(--accent);font-weight:700}
+@media(max-width:480px){#uni-popup .uni-col-vc{flex:0 0 240px}}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
@@ -259,6 +272,86 @@
       <div class="uni-col-hdr"><span>${title}</span>${sortSel}</div>
       <div class="uni-col-body">${rows}</div>
     </div>`;
+  }
+
+  // ── アクティブフィルター判定 ──
+  function _hasActiveFilters() {
+    const isOrg = _ctx === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    return (isOrg ? window.orgFavOnly  : window.favOnly)  ||
+           (isOrg ? window.orgNextOnly : window.nextOnly) ||
+           (isOrg ? window.orgBmOnly   : window.bmOnly)   ||
+           (isOrg ? window.orgMemoOnly : window.memoOnly) ||
+           (isOrg ? window.orgImgOnly  : window.imgOnly)  ||
+           (isOrg ? window.orgPrRank   : window.prRank) != null ||
+           !!(isOrg ? window.orgPrDate : window.prDate)  ||
+           ['platform','channel','playlist','status','tbNew','cat','posNew','tags','tb','action','position'].some(k => f[k]?.size > 0);
+  }
+
+  // ── 該当動画カラム ──
+  function _mkVideoCol() {
+    const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
+    let vids = _ctxVideos(null);
+
+    switch (_vidSort) {
+      case 'title':
+        vids = vids.slice().sort((a,b) => (a.title||'').localeCompare(b.title,'ja'));
+        break;
+      case 'status':
+        vids = vids.slice().sort((a,b) =>
+          (STATUS_ORDER[a.status||'未着手'] ?? 3) - (STATUS_ORDER[b.status||'未着手'] ?? 3));
+        break;
+      case 'practice':
+        vids = vids.slice().sort((a,b) => (b.practice||0) - (a.practice||0));
+        break;
+    }
+
+    const total = vids.length;
+    const shown = vids.slice(0, 30);
+
+    const sortSel = `<select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
+      <option value="auto"${_vidSort==='auto'?' selected':''}>自動順</option>
+      <option value="title"${_vidSort==='title'?' selected':''}>タイトル順</option>
+      <option value="status"${_vidSort==='status'?' selected':''}>習得度順</option>
+      <option value="practice"${_vidSort==='practice'?' selected':''}>視聴回数順</option>
+    </select>`;
+
+    const rows = shown.map(v => {
+      const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
+      const thumb = ytId
+        ? `<img src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px">`
+        : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
+      const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
+      const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
+      return `<div class="uni-vc-row" onclick="window.openVPanel?.('${_esc(v.id)}');uniClose()">
+        <div class="uni-vc-thumb">${thumb}</div>
+        <div class="uni-vc-info">
+          <div class="uni-vc-title">${_esc(v.title||'')}</div>
+          <div class="uni-vc-meta">${_esc(v.channel||v.ch||'')}${sMark}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const notice = total > 30
+      ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件) — 続きはライブラリ・オーガナイズで</div>`
+      : total === 0
+      ? `<div class="uni-vc-notice">条件に一致する動画がありません</div>`
+      : `<div class="uni-vc-notice uni-vc-notice-sm">${total}件がヒット</div>`;
+
+    return `<div class="uni-col uni-col-vc">
+      <div class="uni-col-hdr"><span>該当動画</span>${sortSel}</div>
+      <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
+    </div>`;
+  }
+
+  function _scrollToVidCol() {
+    if (_autoScrolled) return;
+    if (!_hasActiveFilters()) return;
+    _autoScrolled = true;
+    setTimeout(() => {
+      const cols = document.querySelector('#uni-popup .uni-cols');
+      if (cols) cols.scrollTo({ left: cols.scrollWidth, behavior: 'smooth' });
+    }, 60);
   }
 
   // ── レンダリング ──
@@ -491,8 +584,10 @@
         ${mkSrcCol()}
         ${_colHtml('Channel', 'ch', chItems, { filterKey:'channel' })}
         ${_colHtml('Playlist', 'pl', plItems, { filterKey:'playlist' })}
+        ${_mkVideoCol()}
       </div>`;
       _restoreColScrolls();
+      _scrollToVidCol();
     }
 
     else if (_tab === 'video') {
@@ -558,8 +653,9 @@
         _tsV('pos')  && _colHtml(posLabel,   'pos',  posItems, { filterKey: tkPos }),
         _tsV('tags') && _colHtml(tagsLabel,  'tags', tagItems, { filterKey: tkTags }),
       ].filter(Boolean).join('');
-      content.innerHTML = `<div class="uni-cols">${tagCols}</div>`;
+      content.innerHTML = `<div class="uni-cols">${tagCols}${_mkVideoCol()}</div>`;
       _restoreColScrolls();
+      _scrollToVidCol();
     }
 
     // ── Pills ──
@@ -656,12 +752,14 @@
     if (inp) inp.value = '';
   };
   window.uniSetTab = function (t) {
-    _queries[_tab] = _q; // 現タブのクエリを保存
+    _queries[_tab] = _q;
     _tab = t;
+    _autoScrolled = false;
     _syncSearchbar(t);
     _render();
   };
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
+  window.uniSetVidSort = function (v) { _vidSort = v; _render(); };
   window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _queries[_tab] = _q; _render(); };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
