@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.27 ═══
+// ═══ WAZA KIMURA — Notes tab v50.28 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -162,82 +162,6 @@ function _extractYtId(url) {
   return m ? m[1] : null;
 }
 
-function _blockInputHTML(type) {
-  switch (type) {
-    case 'h2':
-    case 'quote':
-      return `<label class="n-sheet-lbl">内容</label>
-        <textarea id="n-block-content" class="n-sheet-textarea" placeholder="ここに内容を入力..." rows="3"></textarea>`;
-    case 'video':
-      return `<label class="n-sheet-lbl">YouTube URL</label>
-        <input id="n-block-video-url" class="n-sheet-input" type="text"
-               placeholder="https://www.youtube.com/watch?v=..."
-               style="margin-bottom:10px">
-        <label class="n-sheet-lbl">タイトル（省略可）</label>
-        <input id="n-block-video-title" class="n-sheet-input" type="text" placeholder="動画タイトル">`;
-    case 'image':
-      return `<label class="n-sheet-lbl">画像</label>
-        <div class="n-img-drop" id="n-img-drop" onclick="document.getElementById('n-block-img-file').click()">
-          <input type="file" id="n-block-img-file" accept="image/*" style="display:none"
-                 onchange="window._notesImgFileChange(this)">
-          <div id="n-img-drop-label">📸 クリックして画像を選択</div>
-          <img id="n-block-img-preview" style="display:none;max-width:100%;border-radius:6px;margin-top:8px">
-        </div>
-        <label class="n-sheet-lbl" style="margin-top:10px">キャプション（省略可）</label>
-        <input id="n-block-img-caption" class="n-sheet-input" type="text" placeholder="画像の説明">`;
-    default: // text
-      return `<label class="n-sheet-lbl">内容</label>
-        <textarea id="n-block-content" class="n-sheet-textarea" placeholder="ここに内容を入力..." rows="4"></textarea>`;
-  }
-}
-
-function _showBlockAddSheet(noteId) {
-  _removeSheet();
-  window._notesImgDataUrl = null;
-  const overlay = document.createElement('div');
-  overlay.id = 'n-sheet-overlay';
-  overlay.className = 'n-sheet-overlay';
-  overlay.dataset.mode = 'block-add';
-  overlay.dataset.noteId = noteId;
-  overlay.innerHTML = `
-    <div class="n-sheet" onclick="event.stopPropagation()">
-      <div class="n-sheet-hdr">
-        <span class="n-sheet-title">＋ ブロックを追加</span>
-      </div>
-      <div class="n-sheet-body">
-        <label class="n-sheet-lbl">ブロックの種類</label>
-        <div class="n-block-type-row">
-          <button class="n-block-type-btn sel" data-type="text"  onclick="window._notesBlockTypeSelect(this)">📝 テキスト</button>
-          <button class="n-block-type-btn"     data-type="h2"    onclick="window._notesBlockTypeSelect(this)">📌 見出し</button>
-          <button class="n-block-type-btn"     data-type="quote" onclick="window._notesBlockTypeSelect(this)">💬 引用</button>
-          <button class="n-block-type-btn"     data-type="video" onclick="window._notesBlockTypeSelect(this)">📹 動画</button>
-          <button class="n-block-type-btn"     data-type="image" onclick="window._notesBlockTypeSelect(this)">📸 スナップショット</button>
-        </div>
-        <div id="n-block-input-area">${_blockInputHTML('text')}</div>
-      </div>
-      <div class="n-sheet-btns">
-        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
-        <button class="n-btn n-btn-primary" onclick="window._notesBlockConfirm()">追加する</button>
-      </div>
-    </div>
-  `;
-  overlay.addEventListener('click', window._notesSheetClose);
-  document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add('vis'));
-  setTimeout(() => document.getElementById('n-block-content')?.focus(), 80);
-}
-
-window._notesBlockTypeSelect = function(btn) {
-  document.querySelectorAll('.n-block-type-btn').forEach(b => b.classList.remove('sel'));
-  btn.classList.add('sel');
-  const area = document.getElementById('n-block-input-area');
-  if (area) area.innerHTML = _blockInputHTML(btn.dataset.type);
-  setTimeout(() => {
-    document.getElementById('n-block-content')?.focus();
-    document.getElementById('n-block-video-url')?.focus();
-  }, 60);
-};
-
 window._notesImgFileChange = function(input) {
   const file = input.files?.[0];
   if (!file) return;
@@ -250,40 +174,6 @@ window._notesImgFileChange = function(input) {
     if (lbl) lbl.textContent = '✓ ' + file.name;
   };
   reader.readAsDataURL(file);
-};
-
-window._notesBlockConfirm = function() {
-  const overlay = document.getElementById('n-sheet-overlay');
-  if (!overlay) return;
-  const noteId = overlay.dataset.noteId;
-  const type = document.querySelector('.n-block-type-btn.sel')?.dataset.type || 'text';
-  const r = _findNote(noteId);
-  if (!r) return;
-
-  let block;
-  if (type === 'video') {
-    const url = document.getElementById('n-block-video-url')?.value.trim();
-    if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
-    const videoId = _extractYtId(url) || url;
-    const title = document.getElementById('n-block-video-title')?.value.trim() || '';
-    block = { type: 'video', videoId, title, channel: '', duration: '' };
-  } else if (type === 'image') {
-    const src = window._notesImgDataUrl || '';
-    if (!src) { document.getElementById('n-block-img-file')?.click(); return; }
-    const caption = document.getElementById('n-block-img-caption')?.value.trim() || '';
-    block = { type: 'image', src, caption };
-    window._notesImgDataUrl = null;
-  } else {
-    const content = document.getElementById('n-block-content')?.value.trim();
-    if (!content) { document.getElementById('n-block-content')?.focus(); return; }
-    block = { type, content };
-  }
-
-  r.note.blocks.push(block);
-  r.note.updatedAt = Date.now();
-  _save();
-  window._notesSheetClose();
-  _renderNote(noteId);
 };
 
 // ── category create ──
@@ -538,12 +428,21 @@ function _renderRecent() {
 }
 
 // ── block rendering ──
-function _blockHTML(block) {
+function _blockHTML(block, idx, noteId) {
+  const del = `<button class="n-block-del" title="削除"
+    onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>`;
+  const editable = (cls) =>
+    `<div class="${cls} n-editable" contenteditable="true"
+          data-idx="${idx}" data-note-id="${noteId}"
+          onblur="window._notesBlockSave(this)"
+          onkeydown="window._notesBlockKeydown(this,event)"
+     >${_esc(block.content)}</div>`;
+
   switch (block.type) {
-    case 'h2':    return `<div class="n-block"><div class="n-b-h2">${_esc(block.content)}</div></div>`;
-    case 'text':  return `<div class="n-block"><div class="n-b-text">${_esc(block.content)}</div></div>`;
-    case 'quote': return `<div class="n-block"><div class="n-b-quote">${_esc(block.content)}</div></div>`;
-    case 'video': return `<div class="n-block" style="padding:0">
+    case 'h2':    return `<div class="n-block-wrap">${editable('n-b-h2')}${del}</div>`;
+    case 'text':  return `<div class="n-block-wrap">${editable('n-b-text')}${del}</div>`;
+    case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${del}</div>`;
+    case 'video': return `<div class="n-block-wrap n-block-wrap-card">
       <div class="n-b-video">
         <div class="n-bv-hdr">
           <div class="n-bv-icon">▶</div>
@@ -557,17 +456,70 @@ function _blockHTML(block) {
             ${block.memo ? `<div class="n-bv-memo">${_esc(block.memo)}</div>` : ''}
           </div>
         </div>
-      </div>
-    </div>`;
-    case 'image': return `<div class="n-block">
+      </div>${del}</div>`;
+    case 'image': return `<div class="n-block-wrap n-block-wrap-card">
       <div class="n-b-image">
         <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
         ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
-      </div>
-    </div>`;
+      </div>${del}</div>`;
     default: return '';
   }
 }
+
+// ── inline block editing ──
+window._notesBlockSave = function(el) {
+  const noteId = el.dataset.noteId;
+  const idx = parseInt(el.dataset.idx);
+  const r = _findNote(noteId);
+  if (!r) return;
+  const content = el.innerText.replace(/\n{2,}/g, '\n').trim();
+  if (content === r.note.blocks[idx]?.content) return;
+  r.note.blocks[idx].content = content;
+  r.note.updatedAt = Date.now();
+  _save();
+};
+
+window._notesBlockKeydown = function(el, e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const noteId = el.dataset.noteId;
+    const idx = parseInt(el.dataset.idx);
+    // save current first
+    window._notesBlockSave(el);
+    const r = _findNote(noteId);
+    if (!r) return;
+    r.note.blocks.splice(idx + 1, 0, { type: 'text', content: '' });
+    _save();
+    _renderNote(noteId);
+    setTimeout(() => {
+      const next = document.querySelector(`[data-note-id="${noteId}"][data-idx="${idx + 1}"]`);
+      next?.focus();
+    }, 40);
+  }
+};
+
+window._notesBlockDel = function(noteId, idx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  if (r.note.blocks.length <= 1) return; // keep at least one block
+  r.note.blocks.splice(idx, 1);
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesAddTextBlock = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  r.note.blocks.push({ type: 'text', content: '' });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+  setTimeout(() => {
+    const all = document.querySelectorAll(`[data-note-id="${noteId}"][contenteditable]`);
+    all[all.length - 1]?.focus();
+  }, 40);
+};
 
 // ── note content ──
 function _renderNote(id) {
@@ -587,8 +539,12 @@ function _renderNote(id) {
   content.innerHTML = `
     <div class="n-page-title">${_esc(note.name)}</div>
     <div class="n-tag-row">${tagsHTML}${statusHTML}</div>
-    <div id="n-blocks-${id}">${note.blocks.map(_blockHTML).join('')}</div>
-    <div class="n-add-block" onclick="window._notesShowBlockAdd?.('${id}')">＋ ブロックを追加</div>
+    <div id="n-blocks-${id}">${note.blocks.map((b, i) => _blockHTML(b, i, id)).join('')}</div>
+    <div class="n-note-actions">
+      <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">＋ テキスト</button>
+      <button class="n-add-inline" onclick="window._notesAddVideoBlock?.('${id}')">📹 動画</button>
+      <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
+    </div>
   `;
 }
 
@@ -620,7 +576,107 @@ function _closeSb() {
 }
 window._notesCloseSb = _closeSb;
 
-window._notesShowBlockAdd = function(noteId) { _showBlockAddSheet(noteId); };
+window._notesAddVideoBlock = function(noteId) { _showVideoAddSheet(noteId); };
+window._notesAddImageBlock = function(noteId) { _showImageAddSheet(noteId); };
+
+function _showVideoAddSheet(noteId) {
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'video-add';
+  overlay.dataset.noteId = noteId;
+  overlay.innerHTML = `
+    <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">📹 動画を追加</span></div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">YouTube URL</label>
+        <input id="n-block-video-url" class="n-sheet-input" type="text"
+               placeholder="https://www.youtube.com/watch?v=..."
+               style="margin-bottom:10px"
+               onkeydown="if(event.key==='Enter') window._notesVideoConfirm()">
+        <label class="n-sheet-lbl">タイトル（省略可）</label>
+        <input id="n-block-video-title" class="n-sheet-input" type="text" placeholder="動画タイトル"
+               onkeydown="if(event.key==='Enter') window._notesVideoConfirm()">
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesVideoConfirm()">追加する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  setTimeout(() => document.getElementById('n-block-video-url')?.focus(), 80);
+}
+
+window._notesVideoConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  const noteId = overlay.dataset.noteId;
+  const url = document.getElementById('n-block-video-url')?.value.trim();
+  if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
+  const videoId = _extractYtId(url) || url;
+  const title = document.getElementById('n-block-video-title')?.value.trim() || '';
+  const r = _findNote(noteId);
+  if (!r) return;
+  r.note.blocks.push({ type: 'video', videoId, title, channel: '', duration: '' });
+  r.note.updatedAt = Date.now();
+  _save();
+  window._notesSheetClose();
+  _renderNote(noteId);
+};
+
+function _showImageAddSheet(noteId) {
+  _removeSheet();
+  window._notesImgDataUrl = null;
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'image-add';
+  overlay.dataset.noteId = noteId;
+  overlay.innerHTML = `
+    <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">📸 画像を追加</span></div>
+      <div class="n-sheet-body">
+        <div class="n-img-drop" id="n-img-drop" onclick="document.getElementById('n-block-img-file').click()">
+          <input type="file" id="n-block-img-file" accept="image/*" style="display:none"
+                 onchange="window._notesImgFileChange(this)">
+          <div id="n-img-drop-label">📸 クリックして画像を選択</div>
+          <img id="n-block-img-preview" style="display:none;max-width:100%;border-radius:6px;margin-top:8px">
+        </div>
+        <label class="n-sheet-lbl" style="margin-top:10px">キャプション（省略可）</label>
+        <input id="n-block-img-caption" class="n-sheet-input" type="text" placeholder="画像の説明"
+               onkeydown="if(event.key==='Enter') window._notesImageConfirm()">
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesImageConfirm()">追加する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+}
+
+window._notesImageConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  const noteId = overlay.dataset.noteId;
+  const src = window._notesImgDataUrl || '';
+  if (!src) { document.getElementById('n-block-img-file')?.click(); return; }
+  const caption = document.getElementById('n-block-img-caption')?.value.trim() || '';
+  const r = _findNote(noteId);
+  if (!r) return;
+  r.note.blocks.push({ type: 'image', src, caption });
+  r.note.updatedAt = Date.now();
+  _save();
+  window._notesImgDataUrl = null;
+  window._notesSheetClose();
+  _renderNote(noteId);
+};
 
 // called from "+ New" button and category "+" buttons
 window.notesNew = function(catId = null) {

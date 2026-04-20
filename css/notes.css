@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.27 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.28 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -221,11 +221,27 @@
 .n-s-review { background: rgba(248,113,113,.1);  color: var(--red) }
 
 /* blocks */
-.n-block {
-  margin-bottom: 10px; border-radius: 6px;
-  border: 1px solid transparent; transition: border-color .1s;
+.n-block-wrap {
+  position: relative; margin-bottom: 4px;
+  border-radius: 6px; border: 1px solid transparent;
 }
-.n-block:hover { border-color: var(--border) }
+.n-block-wrap:hover { border-color: var(--border) }
+.n-block-wrap-card { margin-bottom: 10px }
+
+.n-editable {
+  outline: none; cursor: text; white-space: pre-wrap; word-break: break-word;
+  min-height: 1.4em;
+}
+.n-editable:focus {
+  border-color: var(--accent) !important;
+  background: rgba(232,201,106,.04);
+  border-radius: 5px;
+}
+.n-editable:empty::before {
+  content: attr(placeholder);
+  color: var(--text3); pointer-events: none;
+}
+
 .n-b-h2   { font-size: 15px; font-weight: 800; color: var(--text); padding: 6px 8px }
 .n-b-text { font-size: 13px; line-height: 1.8; color: var(--text2); padding: 6px 8px }
 .n-b-quote {
@@ -233,6 +249,25 @@
   padding: 6px 8px 6px 14px;
   font-size: 12px; color: var(--text2); font-style: italic;
 }
+
+.n-block-del {
+  display: none; position: absolute; top: 4px; right: 4px;
+  padding: 2px 5px; border-radius: 4px; font-size: 11px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text3); cursor: pointer; line-height: 1;
+}
+.n-block-wrap:hover .n-block-del { display: block }
+.n-block-del:hover { background: rgba(248,113,113,.15); color: var(--red); border-color: var(--red) }
+
+.n-note-actions {
+  display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap;
+}
+.n-add-inline {
+  padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  background: none; border: 1px dashed var(--border2); color: var(--text3);
+  cursor: pointer; font-family: inherit;
+}
+.n-add-inline:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,201,106,.06) }
 
 /* video block */
 .n-b-video {
