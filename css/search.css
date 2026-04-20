@@ -16,6 +16,9 @@
   border-bottom: 1px solid var(--border);
   padding: 10px 14px;
   flex-shrink: 0;
+  position: sticky;
+  top: 52px;
+  z-index: 79;
 }
 .yt-sr-search-row {
   display: flex;
