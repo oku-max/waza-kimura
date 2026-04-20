@@ -470,10 +470,24 @@
   border-left: 1px solid var(--border);
 }
 
-/* モバイル: 縦積み */
-@media (max-width: 600px) {
-  .yt-sr-vp-inner { flex-direction: column; }
-  .yt-sr-vp-left  { width: 100%; height: auto; flex-shrink: 0; }
+/* リサイザー */
+#yt-sr-vp-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  align-self: stretch;
+  transition: background .15s;
+  z-index: 10;
+}
+#yt-sr-vp-resizer:hover,
+#yt-sr-vp-resizer.dragging { background: var(--accent); }
+
+/* モバイル: 縦積み・リサイザー非表示（Libraryタブと同じ768px基準） */
+@media (max-width: 767px) {
+  .yt-sr-vp-inner   { flex-direction: column; }
+  .yt-sr-vp-left    { width: 100%; height: auto; flex-shrink: 0; }
+  #yt-sr-vp-resizer { display: none; }
 }
 
 /* ← 戻るボタン (左列にabsolute、top:8px left:8px) */

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.19</title>
+<title>WAZA KIMURA v50.20</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1261,6 +1261,8 @@
     <div class="yt-sr-vp-inner">
       <!-- 左列: ビデオ + タイトル (← 戻るはabsolute overlay) -->
       <div class="yt-sr-vp-left" id="yt-sr-vp-left"></div>
+      <!-- ドラッグリサイザー -->
+      <div id="yt-sr-vp-resizer" title="ドラッグで幅を調整"></div>
       <!-- 右列: CTA固定 + 情報スクロール -->
       <div class="yt-sr-vp-right">
         <div class="yt-sr-vp-cta"    id="yt-sr-vp-cta"></div>
@@ -3697,6 +3699,67 @@ window.addEventListener('resize', adjustTopbarOffset);
     if (!dragging) return;
     dragging = false;
     document.getElementById('vpanel-col-resizer')?.classList.remove('dragging');
+    if (overlay) { overlay.remove(); overlay = null; }
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchend', onUp);
+  }
+})();
+</script>
+<script>
+// ── Search VPanel 左右リサイザー ──
+(function() {
+  let dragging = false, startX = 0, startW = 0;
+  let overlay = null;
+
+  function bindResizer() {
+    const resizer = document.getElementById('yt-sr-vp-resizer');
+    if (!resizer) return;
+    resizer.addEventListener('mousedown', onDown);
+    resizer.addEventListener('touchstart', onDown, {passive:false});
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindResizer);
+  } else {
+    bindResizer();
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragging = true;
+    startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const left = document.getElementById('yt-sr-vp-left');
+    startW = left ? left.getBoundingClientRect().width : 0;
+    e.currentTarget.classList.add('dragging');
+    overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;cursor:col-resize;';
+    document.body.appendChild(overlay);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, {passive:false});
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const dx = x - startX;
+    const left = document.getElementById('yt-sr-vp-left');
+    const inner = document.querySelector('.yt-sr-vp-inner');
+    if (!left || !inner) return;
+    const minW = 200, maxW = inner.offsetWidth - 200;
+    const newW = Math.max(minW, Math.min(maxW, startW + dx));
+    left.style.width = newW + 'px';
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    document.getElementById('yt-sr-vp-resizer')?.classList.remove('dragging');
     if (overlay) { overlay.remove(); overlay = null; }
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('touchmove', onMove);
