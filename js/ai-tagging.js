@@ -215,6 +215,18 @@ export async function onAiTagBtn(videoId) {
     const video = (window.videos || []).find(v => v.id === videoId);
     if (!video) throw new Error('動画が見つかりません');
     const suggestions = await fetchAiTags(video);
+    // ルールベースで補完 — AIが見落としたキーワードをタイトル・チャプターから拾う
+    if (window.autoTagFromTitle) {
+      const chapterText = (video.ytChapters || []).map(c => c.label).join(' ');
+      for (const text of [video.title, chapterText].filter(Boolean)) {
+        const rule = window.autoTagFromTitle(text);
+        for (const field of ['tb', 'cat', 'pos']) {
+          for (const val of (rule[field] || [])) {
+            if (!suggestions[field].includes(val)) suggestions[field].push(val);
+          }
+        }
+      }
+    }
     showAiTagPanel(videoId, suggestions);
   } catch (e) {
     window.toast?.('❌ AI タグ取得に失敗しました: ' + e.message);
