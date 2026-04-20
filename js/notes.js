@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.32 ═══
+// ═══ WAZA KIMURA — Notes tab v50.33 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -443,25 +443,28 @@ function _blockHTML(block, idx, noteId) {
     case 'text':  return `<div class="n-block-wrap">${editable('n-b-text')}${del}</div>`;
     case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${del}</div>`;
     case 'video': {
-      const ytId = block.videoId && block.videoId.length === 11 ? block.videoId : null;
+      // carousel blocks are grouped by _renderBlocks — only inline reaches here
+      const ytId = block.videoId && block.videoId.length <= 12 ? block.videoId : null;
       const thumbUrl = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : null;
       const thumbEl = thumbUrl
-        ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:4px" loading="lazy">`
+        ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
         : `<span style="font-size:18px">🎥</span>`;
-      return `<div class="n-block-wrap n-block-wrap-card">
-        <div class="n-b-video" onclick="window.openVPanel?.('${_esc(block.videoId)}');event.stopPropagation()" style="cursor:pointer">
-          <div class="n-bv-hdr">
-            <div class="n-bv-icon">▶</div>
-            <div class="n-bv-ttl">${_esc(block.title || block.videoId || '')}</div>
-            <div class="n-bv-dur">${_esc(block.duration || '')}</div>
-          </div>
-          <div class="n-bv-body">
-            <div class="n-bv-thumb">${thumbEl}</div>
-            <div class="n-bv-note">
-              <div class="n-bv-ch">${_esc(block.channel || '')}</div>
-              ${block.memo ? `<div class="n-bv-memo">${_esc(block.memo)}</div>` : ''}
+      const modeBtn = `<button class="n-bvi-mode-btn" title="カードに切替"
+        onclick="event.stopPropagation();window._notesVidToggleMode('${noteId}',${idx})">🎠</button>`;
+      return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}">
+        <div class="n-b-video-inline">
+          <div class="n-bvi-header" onclick="window._notesVidTogglePlayer('${noteId}',${idx})">
+            <div class="n-bvi-thumb">${thumbEl}
+              <div class="n-bvi-play-badge"><div class="n-bvi-play-icon">▶</div></div>
             </div>
+            <div class="n-bvi-info">
+              <div class="n-bvi-ttl">${_esc(block.title || block.videoId || '')}</div>
+              <div class="n-bvi-ch">${_esc(block.channel || '')}</div>
+              <div class="n-bvi-hint">▶ タップして展開再生</div>
+            </div>
+            ${modeBtn}
           </div>
+          <div class="n-bvi-player" id="n-bvi-player-${noteId}-${idx}"></div>
         </div>${del}</div>`;
     }
     case 'image': {
@@ -535,6 +538,99 @@ window._notesAddTextBlock = function(noteId) {
   }, 40);
 };
 
+// ── carousel & inline helpers ──
+const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解':'#3b82f6' };
+
+function _renderCarouselGroup(group, noteId) {
+  const cards = group.map(({ block: b, idx }) => {
+    const ytId = b.videoId && b.videoId.length <= 12 ? b.videoId : null;
+    const thumbEl = ytId
+      ? `<img src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+      : `<span style="font-size:22px">🎥</span>`;
+    const v = (window.videos || []).find(x => x.id === b.videoId);
+    const status = v?.status || b.status || '';
+    const sColor = STATUS_COLOR[status] || '';
+    const badge = sColor ? `<span class="n-vc-badge" style="color:${sColor};background:${sColor}22">${_esc(status)}</span>` : '';
+    return `<div class="n-vc-card" onclick="window.openVPanel?.('${_esc(b.videoId)}')">
+      <div class="n-vc-thumb">${thumbEl}</div>
+      <div class="n-vc-info">
+        <div class="n-vc-ttl">${_esc(b.title || b.videoId || '')}</div>
+        <div class="n-vc-ch">${_esc(b.channel || v?.channel || v?.ch || '')}</div>
+        ${badge}
+      </div>
+      <button class="n-vc-del" title="削除"
+        onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>
+      <button class="n-vc-mode" title="インラインに切替"
+        onclick="event.stopPropagation();window._notesVidToggleMode('${noteId}',${idx})">📺</button>
+    </div>`;
+  }).join('');
+  return `<div class="n-block-wrap n-block-wrap-carousel">
+    <div class="n-vc-scroll">${cards}</div>
+  </div>`;
+}
+
+function _renderBlocks(blocks, noteId) {
+  const parts = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const b = blocks[i];
+    if (b.type === 'video' && b.viewMode !== 'inline') {
+      const group = [];
+      while (i < blocks.length && blocks[i].type === 'video' && blocks[i].viewMode !== 'inline') {
+        group.push({ block: blocks[i], idx: i });
+        i++;
+      }
+      parts.push(_renderCarouselGroup(group, noteId));
+    } else {
+      parts.push(_blockHTML(b, i, noteId));
+      i++;
+    }
+  }
+  return parts.join('');
+}
+
+window._notesVidToggleMode = function(noteId, idx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b || b.type !== 'video') return;
+  b.viewMode = (b.viewMode === 'inline') ? 'carousel' : 'inline';
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesVidTogglePlayer = function(noteId, idx) {
+  const playerId = `n-bvi-player-${noteId}-${idx}`;
+  const player = document.getElementById(playerId);
+  if (!player) return;
+  const isOpen = player.classList.contains('open');
+  // 他のプレイヤーを閉じる
+  document.querySelectorAll('.n-bvi-player.open').forEach(p => {
+    p.classList.remove('open');
+    p.innerHTML = '';
+  });
+  if (isOpen) return;
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  const ytId = b?.videoId;
+  if (!ytId) return;
+  const iframe = document.createElement('iframe');
+  iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
+  iframe.allow = 'autoplay; encrypted-media; fullscreen';
+  iframe.allowFullscreen = true;
+  player.innerHTML = '';
+  player.appendChild(iframe);
+  const ctrl = document.createElement('div');
+  ctrl.className = 'n-bvi-ctrl';
+  ctrl.innerHTML = `<span>📺 インライン再生中</span>
+    <button onclick="window._notesVidTogglePlayer('${noteId}',${idx})">▲ 閉じる</button>
+    <button onclick="window.openVPanel?.('${ytId}')" style="margin-left:4px">VPanel →</button>`;
+  player.appendChild(ctrl);
+  player.classList.add('open');
+};
+
 // ── note content ──
 function _renderNote(id) {
   const r = _findNote(id);
@@ -553,7 +649,7 @@ function _renderNote(id) {
   content.innerHTML = `
     <div class="n-page-title">${_esc(note.name)}</div>
     <div class="n-tag-row">${tagsHTML}${statusHTML}</div>
-    <div id="n-blocks-${id}">${note.blocks.map((b, i) => _blockHTML(b, i, id)).join('')}</div>
+    <div id="n-blocks-${id}">${_renderBlocks(note.blocks, id)}</div>
     <div class="n-note-actions">
       <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">＋ テキスト</button>
       <button class="n-add-inline" onclick="window._notesAddVideoBlock?.('${id}')">📹 動画</button>
@@ -638,11 +734,17 @@ function _showVideoAddSheet(noteId) {
   overlay.className = 'n-sheet-overlay';
   overlay.dataset.mode = 'video-add';
   overlay.dataset.noteId = noteId;
+  overlay.dataset.viewMode = 'carousel';
   overlay.innerHTML = `
     <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
       <div class="n-sheet-hdr"><span class="n-sheet-title">📹 動画を追加</span></div>
       <div class="n-sheet-body">
-        <label class="n-sheet-lbl">YouTube URL</label>
+        <label class="n-sheet-lbl" style="margin-bottom:6px">表示スタイル</label>
+        <div class="n-vm-pick" id="n-vm-pick">
+          <button class="n-vm-btn sel" data-vm="carousel" onclick="window._notesVmPick('carousel')">🎠 カード</button>
+          <button class="n-vm-btn"     data-vm="inline"   onclick="window._notesVmPick('inline')">📺 インライン</button>
+        </div>
+        <label class="n-sheet-lbl" style="margin-top:12px">YouTube URL</label>
         <input id="n-block-video-url" class="n-sheet-input" type="text"
                placeholder="https://www.youtube.com/watch?v=..."
                style="margin-bottom:10px"
@@ -663,17 +765,24 @@ function _showVideoAddSheet(noteId) {
   setTimeout(() => document.getElementById('n-block-video-url')?.focus(), 80);
 }
 
+window._notesVmPick = function(vm) {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (overlay) overlay.dataset.viewMode = vm;
+  document.querySelectorAll('#n-vm-pick .n-vm-btn').forEach(b => b.classList.toggle('sel', b.dataset.vm === vm));
+};
+
 window._notesVideoConfirm = function() {
   const overlay = document.getElementById('n-sheet-overlay');
   if (!overlay) return;
-  const noteId = overlay.dataset.noteId;
+  const noteId   = overlay.dataset.noteId;
+  const viewMode = overlay.dataset.viewMode || 'carousel';
   const url = document.getElementById('n-block-video-url')?.value.trim();
   if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
   const videoId = _extractYtId(url) || url;
   const title = document.getElementById('n-block-video-title')?.value.trim() || '';
   const r = _findNote(noteId);
   if (!r) return;
-  r.note.blocks.push({ type: 'video', videoId, title, channel: '', duration: '' });
+  r.note.blocks.push({ type: 'video', videoId, title, channel: '', duration: '', viewMode });
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
@@ -768,7 +877,7 @@ window._notesVpAddConfirm = function(noteId, videoId, title, channel, duration) 
   if (!r) return;
   const note = r.note;
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
-    note.blocks.push({ type: 'video', videoId, title, channel, duration, memo: '' });
+    note.blocks.push({ type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'carousel' });
     note.updatedAt = Date.now();
     _save();
   }
@@ -790,7 +899,7 @@ window._notesAddFromLib = function(videoId, noteId) {
   const v = (window.videos || []).find(x => x.id === videoId);
   if (!v) return;
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
-    note.blocks.push({ type: 'video', videoId, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '' });
+    note.blocks.push({ type: 'video', videoId, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '', viewMode: 'carousel' });
     note.updatedAt = Date.now();
     _save();
   }
