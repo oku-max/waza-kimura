@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.14 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.15 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -804,7 +804,7 @@ async function _doFetchChapters(id, token) {
     const desc = data.items?.[0]?.snippet?.description || '';
     const chapters = window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
     v.ytChapters = chapters;
-    window.debounceSave?.();
+    await window.saveUserData?.();
     const sec = document.getElementById(`vp-chapters-${id}`);
     if (sec) sec.outerHTML = _chapterSectionHTML(id);
     window.toast?.(chapters.length ? `📑 ${chapters.length}件のチャプターを取得しました` : 'チャプターが見つかりませんでした');
