@@ -155,27 +155,35 @@ export function buildBulkDrawerHTML() {
     return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc||'')}" onclick="bvpToggleV4('cat','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
   }).join('');
 
-  // Position row (選択中チップ + ピッカー)
+  // Position row (選択中チップ + カスタムDD)
   const posChips = commonPos.map(p =>
     `<span class="vp-chip on-pos" style="cursor:pointer" onclick="bvpRemoveV4('pos','${_esc(p)}',this)">${_esc(p)} ×</span>`
   ).join('');
-  const posOpts = POSS.filter(p => !commonPos.includes(p.ja)).map(p =>
-    `<option value="${_esc(p.ja)}">${_esc(p.ja)}</option>`
-  ).join('');
-  const posPicker = `<select class="vp-chip" style="border-style:dashed;cursor:pointer" onchange="bvpAddV4('pos',this)">
-    <option value="">＋ ポジション</option>${posOpts}
-  </select>`;
+  const posPicker = `
+    <div class="vp-dd-wrap" style="display:inline-block;position:relative">
+      <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="bvpOpenPosDd()">＋ ポジション</span>
+      <div class="vp-dd" id="bvp-pos-dd" style="display:none">
+        <input class="vp-dd-search" placeholder="絞り込み..."
+          oninput="bvpFilterPosDd(this.value)"
+          onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}">
+        <div class="vp-dd-list" id="bvp-pos-list"></div>
+      </div>
+    </div>`;
 
-  // #タグ row (選択中チップ + 検索入力)
+  // #タグ row (選択中チップ + カスタムDD)
   const tagChips = commonTags.map(t =>
     `<span class="vp-chip on-tags" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">#${_esc(t)} ×</span>`
   ).join('');
-  const tagInput = `<div class="vp-dd-wrap" style="display:inline-block;position:relative">
-    <input class="vp-dd-search" id="bvp-tag-inp" placeholder="＋ #タグ検索・追加" style="width:160px;font-size:11px;border-radius:8px"
-      oninput="bvpTagSuggest(this)" onfocus="bvpTagSuggest(this)"
-      onkeydown="bvpTagKey(event,this)">
-    <div class="vp-dd" id="bvp-tag-sug" style="display:none;position:absolute;top:100%;left:0;width:220px;max-height:200px;overflow-y:auto;z-index:50;border-radius:8px"></div>
-  </div>`;
+  const tagInput = `
+    <div class="vp-dd-wrap" style="display:inline-block;position:relative">
+      <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="bvpOpenTagDd()">＋ #タグ</span>
+      <div class="vp-dd" id="bvp-tag-dd" style="display:none">
+        <input class="vp-dd-search" id="bvp-tag-inp" placeholder="#タグ検索・新規追加（Enterで追加）"
+          oninput="bvpTagFilter(this.value)"
+          onkeydown="bvpTagKey(event,this)">
+        <div class="vp-dd-list" id="bvp-tag-sug"></div>
+      </div>
+    </div>`;
 
   const _tsVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _showTb   = _tsVis('tb');
@@ -234,38 +242,110 @@ function _bvpGetAllOpts(key) {
 }
 
 export function bvpTogDd(key) {
-  document.querySelectorAll('.vp-dd').forEach(d => {
-    if (d.id !== 'bvp-dd-' + key) d.style.display = 'none';
-  });
   const dd = document.getElementById('bvp-dd-' + key);
   if (!dd) return;
-  const isOpen = dd.style.display !== 'none';
-  if (isOpen) { dd.style.display = 'none'; return; }
-  // サイドバーpopupと同じフルハイト・フィックスドパネル方式
-  dd.style.position = 'fixed';
-  dd.style.top = '12px';
-  dd.style.bottom = '12px';
-  dd.style.right = '12px';
-  dd.style.left = 'auto';
-  dd.style.width = 'min(360px, 92vw)';
-  dd.style.maxHeight = 'none';
-  dd.style.zIndex = '500';
-  dd.style.display = 'flex';
-  dd.style.flexDirection = 'column';
-  dd.style.overflow = 'hidden';
-  const list = dd.querySelector('.vp-dd-list') || dd.querySelector('#bvp-ch-sug') || dd.querySelector('#bvp-pl-sug') || dd.querySelector('[id^="bvp-dd-list-"]');
-  if (list) {
-    list.style.flex = '1';
-    list.style.minHeight = '0';
-    list.style.maxHeight = 'none';
-    list.style.overflowY = 'auto';
-  }
+  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
+  // 他のDDを閉じる
+  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
+  window._vpOpenDd?.(dd);
   const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; }
+  if (inp) { inp.value = ''; inp.focus(); }
   if (key === 'ch') bvpChSuggest(inp);
   else if (key === 'pl') bvpPlSuggest(inp);
   else bvpRenderDdList(key, '');
-  inp?.focus();
+}
+
+// ── ポジション カスタムDD ──
+export function bvpOpenPosDd() {
+  const dd = document.getElementById('bvp-pos-dd');
+  if (!dd) return;
+  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
+  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
+  window._vpOpenDd?.(dd);
+  _bvpRenderPosDd('');
+  const inp = dd.querySelector('.vp-dd-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+}
+
+function _bvpRenderPosDd(q) {
+  const list = document.getElementById('bvp-pos-list');
+  if (!list) return;
+  const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
+  const commonPos = [...new Set(selVids.flatMap(v => v.pos || []))].filter(p => selVids.every(v => (v.pos || []).includes(p)));
+  const POSS = window.POSITIONS || [];
+  const ql = q.trim().toLowerCase();
+  const filtered = ql
+    ? POSS.filter(p => !commonPos.includes(p.ja) && (p.ja.includes(ql) || p.en.toLowerCase().includes(ql)))
+    : POSS.filter(p => !commonPos.includes(p.ja));
+  list.innerHTML = filtered.length
+    ? filtered.map(p =>
+        `<div class="vp-dd-item" onmousedown="bvpPickPos('${_esc(p.ja)}')">${_esc(p.ja)}<span class="vp-dd-cnt">${_esc(p.en)}</span></div>`
+      ).join('')
+    : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
+}
+
+export function bvpFilterPosDd(q) { _bvpRenderPosDd(q); }
+
+export function bvpPickPos(val) {
+  bulkSnapshot();
+  const ids = [...(window.selIds || new Set())];
+  const videos = window.videos || [];
+  ids.forEach(id => {
+    const v = videos.find(v => v.id === id);
+    if (v) { if (!Array.isArray(v.pos)) v.pos = []; if (!v.pos.includes(val)) v.pos.push(val); }
+  });
+  const body = document.getElementById('bulk-vpanel-body');
+  if (body) body.innerHTML = buildBulkDrawerHTML();
+  window.toastUndo?.((window.selIds || new Set()).size + '本に「' + val + '」を追加', bulkUndo);
+  window.AF?.(); if (window.bulkCtx === 'organize') window.renderOrg?.(); window.debounceSave?.();
+}
+
+// ── #タグ カスタムDD ──
+export function bvpOpenTagDd() {
+  const dd = document.getElementById('bvp-tag-dd');
+  if (!dd) return;
+  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
+  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
+  window._vpOpenDd?.(dd);
+  _bvpRenderTagList('');
+  // auto-focusなし（モバイルキーボード誤起動防止）
+}
+
+export function bvpTagFilter(q) { _bvpRenderTagList(q); }
+
+function _bvpRenderTagList(q) {
+  const sug = document.getElementById('bvp-tag-sug');
+  if (!sug) return;
+  const _esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
+  const allTags = [...new Set((window.videos || []).flatMap(v => v.tags || []))].sort((a, b) => a.localeCompare(b, 'ja'));
+  const alreadyCommon = allTags.filter(t => selVids.every(v => (v.tags || []).includes(t)));
+  const available = allTags.filter(t => !alreadyCommon.includes(t));
+  const ql = q.trim().toLowerCase();
+  const filtered = ql ? available.filter(t => t.toLowerCase().includes(ql)) : available;
+  const _mkItem = t =>
+    `<div class="vp-dd-item" onmousedown="bvpTagPick('${_esc(t).replace(/'/g, "&#39;")}')">#${_esc(t)}</div>`;
+  if (ql) {
+    sug.innerHTML = filtered.map(_mkItem).join('') ||
+      `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
+  } else {
+    const _groups = window.getTagGroups ? window.getTagGroups() : [];
+    const _inGrp = new Set(_groups.flatMap(g => g.techNames || []));
+    const parts = [];
+    _groups.forEach(g => {
+      const members = filtered.filter(t => (g.techNames || []).includes(t));
+      if (!members.length) return;
+      parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
+      members.forEach(t => parts.push(_mkItem(t)));
+    });
+    const unc = filtered.filter(t => !_inGrp.has(t));
+    if (unc.length) {
+      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
+      unc.forEach(t => parts.push(_mkItem(t)));
+    }
+    sug.innerHTML = parts.length ? parts.join('') : '';
+  }
 }
 
 export function bvpRenderDdList(key, q) {
@@ -569,7 +649,7 @@ export function bvpTagPick(val) {
 }
 
 export function bvpTagKey(ev, inp) {
-  if(ev.key==='Escape'){ const sug=document.getElementById('bvp-tag-sug'); if(sug)sug.style.display='none'; return; }
+  if(ev.key==='Escape'){ const dd=document.getElementById('bvp-tag-dd'); if(dd)dd.style.display='none'; return; }
   if(ev.key!=='Enter') return;
   ev.preventDefault();
   const val = inp.value.trim(); if(!val) return;
