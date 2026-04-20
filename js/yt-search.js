@@ -349,7 +349,7 @@ function _srLockedSectionsHTML(isYt) {
         </div>
         <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
           <div style="${sub}">Next</div>
-          <span style="font-size:16px;color:var(--text3);font-weight:700">▶</span>
+          <span style="font-size:16px;color:var(--text3);font-weight:700">○</span>
         </div>
         <div style="flex:1;min-width:0">
           <div style="${sub}">カウンター</div>

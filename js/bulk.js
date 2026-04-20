@@ -48,7 +48,7 @@ export function buildBulkDrawerHTML() {
       </div>
       <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border)':''}">
         <div style="${subTitle}">Next</div>
-        <span onclick="bvpToggleNext(this)" style="cursor:pointer;font-size:16px;color:${nextOn?'var(--accent)':'var(--text3)'};font-weight:700" title="Next">▶</span>
+        <span onclick="bvpToggleNext(this)" style="cursor:pointer;font-size:16px;font-weight:700" title="Next">${nextOn?'🎯':'○'}</span>
       </div>` : '';
   const _cntSec = _showRank ? `
       <div style="flex:1;min-width:0">
@@ -517,7 +517,7 @@ export function bvpToggleNext(el) {
   const nextCount=vids.filter(v=>v.next).length;
   const setTo = nextCount < vids.length/2;
   vids.forEach(v=>v.next=setTo);
-  el.textContent = setTo ? '▶ Next ON' : '▶ Next';
+  el.textContent = setTo ? '🎯' : '○';
   el.classList.toggle('active', setTo);
   window.toastUndo?.((window.selIds||new Set()).size+'本のNextを'+(setTo?'ON':'OFF'), bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();

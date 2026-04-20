@@ -2361,7 +2361,7 @@ export function vpTogFav(id, el) {
 export function vpTogNext(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.next = !v.next;
-  if (el) el.style.color = v.next ? 'var(--accent)' : 'var(--text3)';
+  if (el) el.textContent = v.next ? '🎯' : '○';
   autoSaveVp(id);
 }
 

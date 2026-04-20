@@ -108,7 +108,7 @@
     </div>
     <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border)':''}">
       <div style="${subTitle}">Next</div>
-      <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;color:${next?'var(--accent)':'var(--text3)'};font-weight:700" title="Next">▶</span>
+      <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;font-weight:700" title="Next">${next?'🎯':'○'}</span>
     </div>` : '';
     const cntSec  = _showRank ? `
     <div style="flex:1;min-width:0">

@@ -304,7 +304,7 @@
       // ══ 1列目: マーク + 進捗ランク + 最終カウント日 (統合) ══
       const markItems = [
         { name:'★ Fav',       cnt:_ctxVideos('fav').filter(v=>v.fav).length,                                           sel:!!(isOrg ? window.orgFavOnly : window.favOnly),  key:'@fav' },
-        { name:'▶ Next',      cnt:_ctxVideos('next').filter(v=>v.next).length,                                         sel:!!(isOrg ? window.orgNextOnly : window.nextOnly), key:'@next'},
+        { name:'🎯 Next',      cnt:_ctxVideos('next').filter(v=>v.next).length,                                         sel:!!(isOrg ? window.orgNextOnly : window.nextOnly), key:'@next'},
         { name:'📌 ブックマーク', cnt:_ctxVideos('bm').filter(v=>v.bm || (v.bookmarks && v.bookmarks.length)).length,    sel:!!(isOrg ? window.orgBmOnly : window.bmOnly),   key:'@bm'  },
         { name:'💬 メモあり', cnt:_ctxVideos('memo').filter(v=>v.memo && String(v.memo).trim()).length,                 sel:!!(isOrg ? window.orgMemoOnly : window.memoOnly), key:'@memo'},
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
@@ -572,7 +572,7 @@
     const _prD  = isOrg ? window.orgPrDate   : window.prDate;
     const _next = isOrg ? window.orgNextOnly : window.nextOnly;
     if (_fav)  pills.push(['@fav',  '★ Fav']);
-    if (_next) pills.push(['@next', '▶ Next']);
+    if (_next) pills.push(['@next', '🎯 Next']);
     if (_bm)   pills.push(['@bm',   '📌 ブックマーク']);
     if (_memo) pills.push(['@memo', '💬 メモ']);
     if (_img)  pills.push(['@img',  '🖼 画像あり']);
