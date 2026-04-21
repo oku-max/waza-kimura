@@ -1257,6 +1257,7 @@ window.notesNew = function(catId = null) {
 window.notesAddVideo = function(arg) {
   const videoId = typeof arg === 'string' ? arg : arg?.id;
   if (!videoId) return;
+  window.closeVPanel?.();
   const sheet = document.getElementById('notesVpSheet');
   if (!sheet) return;
   const list = document.getElementById('notesVpSheetList');

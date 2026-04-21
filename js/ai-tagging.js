@@ -68,7 +68,7 @@ export function showAiTagPanel(videoId, suggestions) {
   const panel = document.createElement('div');
   panel.id = 'ai-tag-panel';
   panel.style.cssText = `
-    position:fixed; inset:0; z-index:1100;
+    position:fixed; inset:0; z-index:99999;
     display:flex; align-items:flex-end; justify-content:center;
     background:rgba(0,0,0,.45);
   `;
@@ -227,12 +227,14 @@ export async function onAiTagBtn(videoId) {
         }
       }
     }
+    window.closeVPanel?.();
     showAiTagPanel(videoId, suggestions);
   } catch (e) {
     window.toast?.('❌ AI タグ取得に失敗しました: ' + e.message);
     console.error('onAiTagBtn error:', e);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🤖 AIタグ提案'; }
+    const btnRef = document.getElementById('vp-ai-tag-btn');
+    if (btnRef) { btnRef.disabled = false; btnRef.textContent = '🤖 AIタグ提案'; }
   }
 }
 
