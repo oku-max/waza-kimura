@@ -1880,7 +1880,7 @@ function bindAddButton() {
       addBtn.addEventListener('click', () => fileInput.click());
     }
   }
-  if (fileInput && !_snapOpts.onAddClick) {
+  if (fileInput) {
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length) {
         addSnapshotImages(currentVideoId, [...fileInput.files]);
