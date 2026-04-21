@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.46</title>
+<title>WAZA KIMURA v50.47</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -187,54 +187,10 @@
   window.scr                     = scr;
   window.switchTab               = switchTab;
 
-  // ── テストタブ: DOM relocation ──
-  let _testOrigCardHost  = null;
-  let _testOrigOrgHost   = null;
-  window._testTabMode = 'card';
+  // ── Library統合ビュー ──
+  window._libViewMode = 'card';
 
-  window._testTabEnter = function() {
-    const cardHost   = document.getElementById('test-card-host');
-    const orgHost    = document.getElementById('test-org-host');
-    const libHdr     = document.getElementById('lib-results-header');
-    const cardList   = document.getElementById('cardList');
-    const orgCountBar = document.getElementById('org-count-bar');
-    const orgTableWrap = document.getElementById('org-table-wrap');
-    const orgEmpty   = document.getElementById('org-empty');
-
-    if (cardHost && libHdr && !cardHost.contains(libHdr)) {
-      _testOrigCardHost = libHdr.parentNode;
-      cardHost.appendChild(libHdr);
-      cardHost.appendChild(cardList);
-    }
-    if (orgHost && orgCountBar && !orgHost.contains(orgCountBar)) {
-      _testOrigOrgHost = orgCountBar.parentNode;
-      orgHost.appendChild(orgCountBar);
-      orgHost.appendChild(orgTableWrap);
-      orgHost.appendChild(orgEmpty);
-    }
-    window._testView(window._testTabMode || 'card');
-  };
-
-  window._testTabLeave = function() {
-    const libHdr      = document.getElementById('lib-results-header');
-    const cardList    = document.getElementById('cardList');
-    const orgCountBar = document.getElementById('org-count-bar');
-    const orgTableWrap = document.getElementById('org-table-wrap');
-    const orgEmpty    = document.getElementById('org-empty');
-
-    if (_testOrigCardHost && libHdr && _testOrigCardHost !== libHdr.parentNode) {
-      _testOrigCardHost.appendChild(libHdr);
-      _testOrigCardHost.appendChild(cardList);
-    }
-    if (_testOrigOrgHost && orgCountBar && _testOrigOrgHost !== orgCountBar.parentNode) {
-      _testOrigOrgHost.appendChild(orgCountBar);
-      _testOrigOrgHost.appendChild(orgTableWrap);
-      _testOrigOrgHost.appendChild(orgEmpty);
-    }
-  };
-
-  // フィルター変数を一方向にコピー
-  function _syncTestFilters(from) {
+  function _syncLibFilters(from) {
     const SETS  = ['channel','playlist','position','tags','status','tb','action','platform'];
     const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['unwOnly','orgUnwOnly'],
                    ['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],['memoOnly','orgMemoOnly'],
@@ -250,59 +206,57 @@
     }
   }
 
-  // 一括編集のbulkCtxとtoolbar装飾を切替
-  function _transferBulk(toMode) {
+  function _transferLibBulk(toMode) {
     if (!window.bulkMode) return;
-    const fromOrg = toMode === 'card'; // 切替前はorg → cardへ移行
-    const fromEl  = fromOrg
-      ? document.querySelector('#test-org-host .org-count-bar')
-      : document.querySelector('#test-card-host .results-header');
-    const toEl    = fromOrg
-      ? document.querySelector('#test-card-host .results-header')
-      : document.querySelector('#test-org-host .org-count-bar');
+    const fromEl = toMode === 'card'
+      ? document.querySelector('#lib-org-host .org-count-bar')
+      : document.querySelector('#lib-card-host .results-header');
+    const toEl   = toMode === 'card'
+      ? document.querySelector('#lib-card-host .results-header')
+      : document.querySelector('#lib-org-host .org-count-bar');
     if (fromEl) { fromEl.classList.remove('bulk-transform'); fromEl.querySelector('.bulk-inline')?.classList.remove('active'); }
     if (toEl)   { toEl.classList.add('bulk-transform');     toEl.querySelector('.bulk-inline')?.classList.add('active'); }
     window.bulkCtx = toMode === 'card' ? 'home' : 'organize';
   }
 
-  window._testView = function(mode) {
-    window._testTabMode = mode;
-    const cardHost = document.getElementById('test-card-host');
-    const orgHost  = document.getElementById('test-org-host');
-    const cardBtn  = document.getElementById('tvt-card');
-    const orgBtn   = document.getElementById('tvt-org');
+  window._libView = function(mode) {
+    window._libViewMode = mode;
+    const cardHost = document.getElementById('lib-card-host');
+    const orgHost  = document.getElementById('lib-org-host');
+    const cardBtn  = document.getElementById('lvt-card');
+    const orgBtn   = document.getElementById('lvt-org');
+    const libActbar = document.getElementById('library-actionbar');
+    const orgActbar = document.getElementById('organize-actionbar');
     const libC     = document.getElementById('fs-library-content');
     const orgC     = document.getElementById('fs-organize-content');
-    const fsEl     = document.getElementById('filterSidebar');
-    const rz       = document.getElementById('sbResizer');
     const libSi    = document.getElementById('si');
     const orgSi    = document.getElementById('si-org');
 
     if (mode === 'card') {
-      _syncTestFilters('org');
+      _syncLibFilters('org');
       if (orgSi && libSi) libSi.value = orgSi.value;
-      _transferBulk('card');
-      if (cardHost) cardHost.style.display = '';
-      if (orgHost)  orgHost.style.display  = 'none';
-      if (cardBtn)  cardBtn.classList.add('tvt-active');
-      if (orgBtn)   orgBtn.classList.remove('tvt-active');
+      _transferLibBulk('card');
+      if (cardHost)   cardHost.style.display   = '';
+      if (orgHost)    orgHost.style.display    = 'none';
+      if (cardBtn)    cardBtn.classList.add('lvt-active');
+      if (orgBtn)     orgBtn.classList.remove('lvt-active');
+      if (libActbar)  libActbar.style.display  = '';
+      if (orgActbar)  orgActbar.style.display  = 'none';
       if (libC) libC.style.display = '';
       if (orgC) orgC.style.display = 'none';
-      if (fsEl) fsEl.style.removeProperty('display');
-      if (rz)   rz.style.removeProperty('display');
       window.AF?.();
     } else {
-      _syncTestFilters('lib');
+      _syncLibFilters('lib');
       if (libSi && orgSi) orgSi.value = libSi.value;
-      _transferBulk('org');
-      if (cardHost) cardHost.style.display = 'none';
-      if (orgHost)  orgHost.style.display  = '';
-      if (cardBtn)  cardBtn.classList.remove('tvt-active');
-      if (orgBtn)   orgBtn.classList.add('tvt-active');
+      _transferLibBulk('org');
+      if (cardHost)   cardHost.style.display   = 'none';
+      if (orgHost)    orgHost.style.display    = '';
+      if (cardBtn)    cardBtn.classList.remove('lvt-active');
+      if (orgBtn)     orgBtn.classList.add('lvt-active');
+      if (libActbar)  libActbar.style.display  = 'none';
+      if (orgActbar)  orgActbar.style.display  = '';
       if (libC) libC.style.display = 'none';
       if (orgC) orgC.style.display = '';
-      if (fsEl) fsEl.style.removeProperty('display');
-      if (rz)   rz.style.removeProperty('display');
       window.renderOrg?.();
     }
   };
@@ -762,9 +716,9 @@
 #vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
 #vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
 #vpanelInner.is-portrait #vpanel-back-btn { z-index: 5 !important; }
-/* ── テストタブ ── */
+/* ── Library統合ビュー ── */
 /* organizeTab と同じ fixed flex-column 構造 */
-#testTab.active {
+#homeTab.active {
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -777,9 +731,9 @@
   z-index: 15;
 }
 @media(max-width:767px) {
-  #testTab.active { left: 0; top: var(--topbar-h, 56px); }
+  #homeTab.active { left: 0; top: var(--topbar-h, 56px); }
 }
-.test-view-bar {
+.lib-view-bar {
   flex-shrink: 0;
   display: flex;
   gap: 6px;
@@ -787,7 +741,7 @@
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.tvt-btn {
+.lvt-btn {
   padding: 5px 14px;
   border-radius: 20px;
   border: 1.5px solid var(--border);
@@ -799,34 +753,34 @@
   font-family: inherit;
   transition: background .15s, color .15s, border-color .15s;
 }
-.tvt-btn.tvt-active {
+.lvt-btn.lvt-active {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
 }
 /* カードホスト: 内部スクロール */
-#test-card-host {
+#lib-card-host {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
-#test-card-host .results-header {
+#lib-card-host .results-header {
   flex-shrink: 0;
   position: sticky;
   top: 0;
 }
 /* テーブルホスト: organizeTab と同構造 */
-#test-org-host {
+#lib-org-host {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-#test-org-host .org-count-bar { flex-shrink: 0; }
-#test-org-host .org-table-wrap { flex: 1; min-height: 0; }
+#lib-org-host .org-count-bar { flex-shrink: 0; }
+#lib-org-host .org-table-wrap { flex: 1; min-height: 0; }
 </style>
 </head>
 <body>
@@ -837,13 +791,12 @@
     <nav class="topbar-nav" style="margin-left:8px">
       <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
       <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
-      <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')">≡ Organize</div>
+      <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')" style="display:none">≡ Organize</div>
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
       <div class="tn-i" id="tnav-search" onclick="switchTab('search')">🔍 Search</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
       <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">📓 Notes</div>
       <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
-      <div class="tn-i" id="tnav-test" onclick="switchTab('test')" style="color:var(--accent)">🧪 テスト</div>
     </nav>
   </div>
   <!-- 検索＋ボタン行 -->
@@ -875,13 +828,12 @@
   <nav class="fs-nav">
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
     <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')"><span>◎</span> Community</div>
-    <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')"><span>≡</span> Organize</div>
+    <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')" style="display:none"><span>≡</span> Organize</div>
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')"><span>◫</span> Archive</div>
     <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>🔍</span> Search</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
     <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>📓</span> Notes</div>
     <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
-    <div class="fs-nav-i" id="fnav-test" onclick="switchTab('test')" style="color:var(--accent)"><span>🧪</span> テスト</div>
   </nav>
 
   <!-- 新サイドバー：Library / Organize 共通 -->
@@ -1154,6 +1106,11 @@
 <!-- HOME -->
 
 <div class="tab-panel active" id="homeTab">
+  <!-- ビュー切替バー -->
+  <div class="lib-view-bar">
+    <button id="lvt-card" class="lvt-btn lvt-active" onclick="window._libView('card')">📋 カードビュー</button>
+    <button id="lvt-org"  class="lvt-btn"            onclick="window._libView('org')">📊 テーブルビュー</button>
+  </div>
   <!-- Library操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="library-actionbar">
     <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
@@ -1165,35 +1122,77 @@
     <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
     <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
-  <div class="results-header" id="lib-results-header">
-    <div class="toolbar-normal">
-      <span class="results-count" id="rc"></span>
-      <div style="display:flex;align-items:center;gap:4px">
-        <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="default">並び順: 標準</option>
-          <option value="addedAt">追加日</option>
-          <option value="title">タイトル</option>
-          <option value="prio">Priority</option>
-          <option value="status">Progress</option>
-          <option value="lastPlayed">最近再生した</option>
-          <option value="playCount">再生回数</option>
-          <option value="practice">🥋 練習回数</option>
-          <option value="views">👁 視聴回数</option>
-          <option value="lastPracticed">🗓 最終練習日</option>
-        </select>
-        <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇順切替">↑</button>
-      </div>
-    </div>
-    <div class="bulk-inline" style="display:none">
-      <span class="bulk-inline-count">0本選択</span>
-      <button class="bbt" onclick="selAll()">全選択</button>
-      <button class="bbt" onclick="selNone()">解除</button>
-      <button class="bbt bulk-inline-edit" onclick="openBulkVPanel()">✎ 一括編集する</button>
-      <button class="bbt" onclick="bulkUndo()">↩</button>
-      <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
+  <!-- Organize操作バー（モバイル・タブレット表示） -->
+  <div class="tab-actionbar" id="organize-actionbar" style="display:none">
+    <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
+    <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>
+    <div style="display:flex;gap:4px;align-items:center;width:100%">
+      <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si-org" type="text" placeholder="Search..." oninput="renderOrg()"></div>
+      <button id="adv-search-btn-mob" onclick="toggleAdvSearch()" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔎 詳細</button>
     </div>
   </div>
-  <div class="card-list" id="cardList"></div>
+  <!-- カードビューホスト -->
+  <div id="lib-card-host">
+    <div class="results-header" id="lib-results-header">
+      <div class="toolbar-normal">
+        <span class="results-count" id="rc"></span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+            <option value="default">並び順: 標準</option>
+            <option value="addedAt">追加日</option>
+            <option value="title">タイトル</option>
+            <option value="prio">Priority</option>
+            <option value="status">Progress</option>
+            <option value="lastPlayed">最近再生した</option>
+            <option value="playCount">再生回数</option>
+            <option value="practice">🥋 練習回数</option>
+            <option value="views">👁 視聴回数</option>
+            <option value="lastPracticed">🗓 最終練習日</option>
+          </select>
+          <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇順切替">↑</button>
+        </div>
+      </div>
+      <div class="bulk-inline" style="display:none">
+        <span class="bulk-inline-count">0本選択</span>
+        <button class="bbt" onclick="selAll()">全選択</button>
+        <button class="bbt" onclick="selNone()">解除</button>
+        <button class="bbt bulk-inline-edit" onclick="openBulkVPanel()">✎ 一括編集する</button>
+        <button class="bbt" onclick="bulkUndo()">↩</button>
+        <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
+      </div>
+    </div>
+    <div class="card-list" id="cardList"></div>
+  </div>
+  <!-- テーブルビューホスト -->
+  <div id="lib-org-host" style="display:none">
+    <div class="org-count-bar" id="org-count-bar">
+      <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
+        <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
+        <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
+        </button>
+      </div>
+      <div class="bulk-inline" style="display:none">
+        <span class="bulk-inline-count">0本選択</span>
+        <button class="bbt" onclick="selAll()">全選択</button>
+        <button class="bbt" onclick="selNone()">解除</button>
+        <button class="bbt bulk-inline-edit" onclick="openBulkVPanel()">✎ 一括編集する</button>
+        <button class="bbt" onclick="bulkUndo()">↩</button>
+        <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
+      </div>
+    </div>
+    <div class="org-table-wrap" id="org-table-wrap">
+      <table class="org-table" id="orgTable">
+        <thead id="orgThead"><tr id="orgTheadRow"></tr></thead>
+        <tbody id="orgList"></tbody>
+      </table>
+    </div>
+    <div id="org-empty" class="org-empty" style="display:none">
+      <div style="font-size:28px;margin-bottom:8px">✅</div>
+      <div>未整理の動画はありません</div>
+      <div style="font-size:11px;margin-top:4px">「判断済みも表示」で全件確認できます</div>
+    </div>
+  </div>
 </div>
 <!-- COMMUNITY -->
 <div class="tab-panel" id="communityTab">
@@ -1216,47 +1215,8 @@
   <div id="userList"></div>
 </div>
 
-<!-- ORGANIZE -->
-<div class="tab-panel" id="organizeTab">
-  <!-- Organize操作バー（モバイル・タブレット表示） -->
-  <div class="tab-actionbar" id="organize-actionbar">
-    <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
-    <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>
-    <div style="display:flex;gap:4px;align-items:center;width:100%">
-      <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si-org" type="text" placeholder="Search..." oninput="renderOrg()"></div>
-      <button id="adv-search-btn-mob" onclick="toggleAdvSearch()" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔎 詳細</button>
-    </div>
-  </div>
-  <!-- Organizeカウントバー -->
-  <div class="org-count-bar" id="org-count-bar">
-    <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
-      <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
-      <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
-      </button>
-    </div>
-    <div class="bulk-inline" style="display:none">
-      <span class="bulk-inline-count">0本選択</span>
-      <button class="bbt" onclick="selAll()">全選択</button>
-      <button class="bbt" onclick="selNone()">解除</button>
-      <button class="bbt bulk-inline-edit" onclick="openBulkVPanel()">✎ 一括編集する</button>
-      <button class="bbt" onclick="bulkUndo()">↩</button>
-      <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
-    </div>
-  </div>
-  <!-- 表形式リスト -->
-  <div class="org-table-wrap" id="org-table-wrap">
-    <table class="org-table" id="orgTable">
-      <thead id="orgThead"><tr id="orgTheadRow"></tr></thead>
-      <tbody id="orgList"></tbody>
-    </table>
-  </div>
-  <div id="org-empty" class="org-empty" style="display:none">
-    <div style="font-size:28px;margin-bottom:8px">✅</div>
-    <div>未整理の動画はありません</div>
-    <div style="font-size:11px;margin-top:4px">「判断済みも表示」で全件確認できます</div>
-  </div>
-</div>
+<!-- ORGANIZE (Libraryタブに統合済み。後方互換のため空シェルとして残す) -->
+<div class="tab-panel" id="organizeTab"></div>
 
 <!-- ARCHIVE -->
 <div class="tab-panel" id="archiveTab">
@@ -1483,15 +1443,6 @@
   </div>
 </div>
 
-<!-- TEST TAB (統合ビュー実験) -->
-<div class="tab-panel" id="testTab">
-  <div class="test-view-bar">
-    <button id="tvt-card" class="tvt-btn tvt-active" onclick="window._testView('card')">📋 カードビュー</button>
-    <button id="tvt-org"  class="tvt-btn"            onclick="window._testView('org')">📊 テーブルビュー</button>
-  </div>
-  <div id="test-card-host"></div>
-  <div id="test-org-host" style="display:none"></div>
-</div>
 
 <!-- VPanel → Notes selector sheet -->
 <div class="notes-vp-sheet-overlay" id="notesVpSheet" onclick="window._notesVpSheetClose?.()">
@@ -1739,13 +1690,12 @@
 <nav class="mobile-nav">
   <div class="mn-i active" id="mnav-home" onclick="switchTab('home')"><span>□</span>Library</div>
   <div class="mn-i" id="mnav-community" onclick="switchTab('community')"><span>◎</span>Community</div>
-  <div class="mn-i" id="mnav-organize" onclick="switchTab('organize')"><span>≡</span>Organize</div>
+  <div class="mn-i" id="mnav-organize" onclick="switchTab('organize')" style="display:none"><span>≡</span>Organize</div>
   <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')"><span>◫</span>Archive</div>
   <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>🔍</span>Search</div>
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
   <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>📓</span>Notes</div>
   <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
-  <div class="mn-i" id="mnav-test" onclick="switchTab('test')" style="color:var(--accent)"><span>🧪</span>テスト</div>
 </nav>
 </div><!-- /main-area -->
 </div><!-- /app-shell -->

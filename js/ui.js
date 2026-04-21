@@ -47,12 +47,9 @@ export function scr(id, dir) {
 export function switchTab(t) {
   if (window.openVPanelId) window.closeVPanel?.();
   if (document.getElementById('vp-panel')?.classList.contains('show')) window.closePanel?.();
-  if (t === 'organize') {
-    // style.left は設定しない — CSS の left:var(--sbw) で完結させる
-    const orgTab = document.getElementById('organizeTab');
-    if (orgTab) orgTab.style.left = '';  // 古い inline style があれば除去
-  }
-  ['home','community','organize','archive','settings','admin','search','notes','test'].forEach(n => {
+  // organizeタブはhomeタブのテーブルビューとして統合
+  if (t === 'organize') { window._libViewMode = 'org'; t = 'home'; }
+  ['home','community','archive','settings','admin','search','notes'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
     const m  = document.getElementById('mnav-' + n); if (m)  m.className  = 'mn-i'      + (t === n ? ' active' : '');
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
@@ -62,16 +59,13 @@ export function switchTab(t) {
     const libC = document.getElementById('fs-library-content');
     const orgC = document.getElementById('fs-organize-content');
     const settingsC = document.getElementById('fs-settings-content');
-    if (t === 'test') {
+    if (t === 'home') {
       if (settingsC) settingsC.style.display = 'none';
-      window._testTabEnter?.();
-      return; // sidebar handled by _testView
-    }
-    window._testTabLeave?.();
-    if (t === 'organize') {
-      if (orgC) orgC.style.display = '';
-      if (libC) libC.style.display = 'none';
-      setTimeout(() => window.adjustOrgTableHeight?.(), 100);
+      const fsEl = document.getElementById('filterSidebar');
+      const rz   = document.getElementById('sbResizer');
+      if (fsEl) fsEl.style.removeProperty('display');
+      if (rz)   rz.style.removeProperty('display');
+      window._libView?.(window._libViewMode || 'card');
     } else if (t === 'settings' || t === 'admin') {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = 'none';
@@ -94,17 +88,15 @@ export function switchTab(t) {
       if (settingsC) settingsC.style.display = 'none';
     }
     window.showFsBulkBtn?.(t === 'home');
-    window.showOrgFsBulkBtn?.(t === 'organize');
+    window.showOrgFsBulkBtn?.(false);
   } catch(e) { console.error('switchTab sidebar error:', e); }
   if (t === 'community') window.renderComm?.();
-  if (t === 'organize')  window.renderOrg?.();
   if (t === 'archive')   window.renderArch?.();
   if (t === 'settings')  window.renderSettings?.();
   if (t === 'admin')     window.renderAdminDashboard?.();
   if (t === 'search')   window.ytSrInit?.();
   if (t === 'notes')    window.renderNotes?.();
   if (window.bulkMode) {
-    const allowedTab = window.bulkCtx === 'organize' ? 'organize' : 'home';
-    if (t !== allowedTab) window.exitBulk?.();
+    if (t !== 'home') window.exitBulk?.();
   }
 }
