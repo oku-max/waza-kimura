@@ -583,3 +583,49 @@
 .notes-content::-webkit-scrollbar { width: 4px }
 .notes-sb-tree::-webkit-scrollbar-thumb,
 .notes-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px }
+
+/* ── VPanelスナップ参照ブロック ── */
+.n-ref-snap-load {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface3);
+  border-radius: 6px;
+  padding: 8px;
+}
+.n-ref-snap-load img.n-b-img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+
+/* ── スナップピッカー ── */
+.n-snap-picker-hdr {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  padding: 10px 12px 4px;
+  border-top: 1px solid var(--border);
+}
+.n-snap-picker-hdr:first-child { border-top: none }
+.n-snap-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 4px 12px 12px;
+}
+.n-snap-picker-card {
+  aspect-ratio: 16/9;
+  background: var(--surface3);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  transition: border-color .15s;
+}
+.n-snap-picker-card:hover { border-color: var(--accent) }
+.n-snap-picker-ph { font-size: 20px; opacity: .4 }
