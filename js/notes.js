@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.40 ═══
+// ═══ WAZA KIMURA — Notes tab v50.41 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -182,6 +182,27 @@ window._notesRename = function(noteId) {
 function _extractYtId(url) {
   const m = url.match(/(?:youtu\.be\/|[?&]v=|embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+// platformフィールドがない旧ブロック: 数字のみ→vimeo、それ以外→youtube
+function _blockPlatform(block) {
+  if (block.platform) return block.platform;
+  return /^\d+$/.test(block.videoId || '') ? 'vimeo' : 'youtube';
+}
+
+function _blockThumbUrl(block) {
+  const platform = _blockPlatform(block);
+  if (platform === 'vimeo') {
+    return block.thumb || `https://vumbnail.com/${block.videoId}.jpg`;
+  }
+  if (platform === 'gdrive') {
+    const gdId = (block.videoId || '').startsWith('gd-') ? block.videoId.slice(3) : block.videoId;
+    return block.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w320`;
+  }
+  if (platform === 'x') return block.thumb || null;
+  // youtube (default)
+  const ytId = block.ytId || block.videoId || '';
+  return block.thumb || (ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : null);
 }
 
 window._notesImgFileChange = function(input) {
@@ -466,8 +487,7 @@ function _blockHTML(block, idx, noteId) {
     case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${del}</div>`;
     case 'video': {
       // carousel blocks are grouped by _renderBlocks — only inline reaches here
-      const ytId = block.ytId || (block.videoId?.length <= 12 ? block.videoId : null);
-      const thumbUrl = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : (block.thumb || null);
+      const thumbUrl = _blockThumbUrl(block);
       const thumbEl = thumbUrl
         ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
         : `<span style="font-size:18px">🎥</span>`;
@@ -565,8 +585,7 @@ const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解'
 
 function _renderCarouselGroup(group, noteId) {
   const cards = group.map(({ block: b, idx }) => {
-    const ytId = b.ytId || (b.videoId?.length <= 12 ? b.videoId : null);
-    const thumbSrc = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : (b.thumb || null);
+    const thumbSrc = _blockThumbUrl(b);
     const thumbEl = thumbSrc
       ? `<img src="${thumbSrc}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
       : `<span style="font-size:22px">🎥</span>`;
@@ -1087,7 +1106,16 @@ window._notesVpAddConfirm = function(noteId, videoId, title, channel, duration) 
   if (!r) return;
   const note = r.note;
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
-    note.blocks.push({ type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'carousel' });
+    const v = (window.videos || []).find(x => x.id === videoId);
+    const platform = v ? (v.pt || v.src || 'youtube') : 'youtube';
+    const isYT = platform === 'youtube';
+    note.blocks.push({
+      type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'carousel',
+      platform,
+      ytId: (isYT && v?.ytId) ? v.ytId : undefined,
+      vmHash: v?.vmHash || undefined,
+      thumb: isYT ? undefined : (v?.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${videoId}.jpg` : undefined)),
+    });
     note.updatedAt = Date.now();
     _save();
   }

@@ -28,41 +28,40 @@ auth.onAuthStateChanged(async (user) => {
 
 // ── ノート Firestore リアルタイム同期 ──
 let _notesUnsubscribe = null;
+// セッションID: このタブ/ページロードを一意に識別（メモリのみ、再起動で再生成）
+const _sessionId = Math.random().toString(36).slice(2);
 
-// wk_notes_savedAt: 自分がFirestoreに最後に書いた時刻（ISO）
-// onSnapshotで「自分の書き込みが返ってきた」を識別するために使う
 window._firebaseSaveNotes = async function(data) {
   if (!currentUser) return;
   try {
     const updatedAt = new Date().toISOString();
-    localStorage.setItem('wk_notes_savedAt', updatedAt); // 保存前にセット
+    localStorage.setItem('wk_notes_savedAt', updatedAt);
     await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').set({
-      data, updatedAt
+      data, updatedAt, savedBy: _sessionId
     });
   } catch(e) { console.error('saveNotes:', e); }
 };
 
 async function loadNotes(uid) {
-  // 既存リスナーを解除
   if (_notesUnsubscribe) { _notesUnsubscribe(); _notesUnsubscribe = null; }
-
   const docRef = db.collection('users').doc(uid).collection('data').doc('notes');
 
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
     if (!snap.exists || !snap.data()?.data?.length) {
-      // Firestoreにデータなし → ローカルデータを初回アップロード
       const localData = window._notesGetData?.();
       if (localData?.length) {
         const updatedAt = new Date().toISOString();
         localStorage.setItem('wk_notes_savedAt', updatedAt);
-        await docRef.set({ data: localData, updatedAt });
+        await docRef.set({ data: localData, updatedAt, savedBy: _sessionId });
       }
       return;
     }
-    const remoteAt = snap.data().updatedAt || '';
+    // 判定1: 自分のセッションの書き込み → クロックスキュー不問でスキップ
+    if (snap.data().savedBy === _sessionId) return;
+    // 判定2: 別セッション → タイムスタンプで自分のほうが新しければスキップ
+    const remoteAt     = snap.data().updatedAt || '';
     const localSavedAt = localStorage.getItem('wk_notes_savedAt') || '';
-    // 自分の書き込みが返ってきた or ローカルのほうが新しい → スキップ
-    if (remoteAt && remoteAt <= localSavedAt) return;
+    if (remoteAt && localSavedAt && remoteAt <= localSavedAt) return;
     window._notesLoadFromRemote?.(snap.data().data, remoteAt);
   }, e => console.error('notes onSnapshot:', e));
 }
