@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.38 ═══
+// ═══ WAZA KIMURA — Notes tab v50.39 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -102,11 +102,14 @@ function _save() {
 
 // ログイン後にFirestoreから呼ばれる
 window._notesGetData = () => _data;
-window._notesLoadFromRemote = function(remoteData) {
+window._notesLoadFromRemote = function(remoteData, remoteAt) {
   if (!Array.isArray(remoteData) || !remoteData.length) return;
   _data = remoteData;
-  try { localStorage.setItem(NOTES_KEY, JSON.stringify(_data)); } catch {}
-  // ノートタブが開いていれば再描画
+  try {
+    localStorage.setItem(NOTES_KEY, JSON.stringify(_data));
+    // remoteAtを記録しておくことで次のonSnapshot呼び出しを正しく判定できる
+    if (remoteAt) localStorage.setItem('wk_notes_savedAt', remoteAt);
+  } catch {}
   if (_activeId) _renderNote(_activeId);
   window.renderNotes?.();
   window.toast?.('📓 ノートを同期しました');
