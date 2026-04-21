@@ -857,7 +857,7 @@ export function enterBulk(ctx='home', preserveSel=false){
   const orgFsBtn=document.getElementById('org-fs-bulk-sel-btn');
   if(orgFsBtn){orgFsBtn.textContent='✕ 一括キャンセル';orgFsBtn.onclick=exitBulk;orgFsBtn.classList.add('bulk-active');}
   const selBtn2=document.getElementById('bulk-sel-btn');
-  if(selBtn2){selBtn2.textContent='✕ 一括キャンセル';selBtn2.classList.add('bulk-active');}
+  if(selBtn2){selBtn2.classList.add('bulk-active');}
   if(ctx==='organize'){
     const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='none';
     if(!preserveSel) window.renderOrg?.();
@@ -1015,7 +1015,7 @@ export function updBulk(){
   // レガシー bulkTit も更新（互換性）
   const bt = document.getElementById('bulkTit'); if(bt) bt.textContent = label;
   const btn=document.getElementById('bulk-sel-btn');
-  if(btn){if(window.bulkMode){btn.textContent='✕ 一括キャンセル';btn.classList.add('bulk-active');}else{btn.textContent='☑ 一括編集';btn.classList.remove('bulk-active');}}
+  if(btn){if(window.bulkMode){btn.classList.add('bulk-active');}else{btn.classList.remove('bulk-active');}}
   // レガシー bulk-edit-vpanel-btn も更新（互換性）
   const editBtn=document.getElementById('bulk-edit-vpanel-btn');
   if(editBtn){
