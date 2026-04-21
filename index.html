@@ -233,42 +233,76 @@
     }
   };
 
+  // フィルター変数を一方向にコピー
+  function _syncTestFilters(from) {
+    const SETS  = ['channel','playlist','position','tags','status','tb','action','platform'];
+    const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['unwOnly','orgUnwOnly'],
+                   ['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],['memoOnly','orgMemoOnly'],
+                   ['imgOnly','orgImgOnly'],['prRank','orgPrRank'],['prDate','orgPrDate']];
+    const f  = window.filters    || {};
+    const of = window.orgFilters || {};
+    if (from === 'lib') {
+      SETS.forEach(k  => { of[k] = f[k]  ? new Set(f[k])  : new Set(); });
+      PAIRS.forEach(([lk,ok]) => { window[ok] = window[lk]; });
+    } else {
+      SETS.forEach(k  => { f[k]  = of[k] ? new Set(of[k]) : new Set(); });
+      PAIRS.forEach(([lk,ok]) => { window[lk] = window[ok]; });
+    }
+  }
+
+  // 一括編集のbulkCtxとtoolbar装飾を切替
+  function _transferBulk(toMode) {
+    if (!window.bulkMode) return;
+    const fromOrg = toMode === 'card'; // 切替前はorg → cardへ移行
+    const fromEl  = fromOrg
+      ? document.querySelector('#test-org-host .org-count-bar')
+      : document.querySelector('#test-card-host .results-header');
+    const toEl    = fromOrg
+      ? document.querySelector('#test-card-host .results-header')
+      : document.querySelector('#test-org-host .org-count-bar');
+    if (fromEl) { fromEl.classList.remove('bulk-transform'); fromEl.querySelector('.bulk-inline')?.classList.remove('active'); }
+    if (toEl)   { toEl.classList.add('bulk-transform');     toEl.querySelector('.bulk-inline')?.classList.add('active'); }
+    window.bulkCtx = toMode === 'card' ? 'home' : 'organize';
+  }
+
   window._testView = function(mode) {
     window._testTabMode = mode;
-    const cardHost   = document.getElementById('test-card-host');
-    const orgHost    = document.getElementById('test-org-host');
-    const cardBtn    = document.getElementById('tvt-card');
-    const orgBtn     = document.getElementById('tvt-org');
-    const libC       = document.getElementById('fs-library-content');
-    const orgC       = document.getElementById('fs-organize-content');
-    const fsEl       = document.getElementById('filterSidebar');
-    const rz         = document.getElementById('sbResizer');
-
-    // 検索入力をビュー間で同期（フィルター状態共有）
-    const libSi = document.getElementById('si');
-    const orgSi = document.getElementById('si-org');
+    const cardHost = document.getElementById('test-card-host');
+    const orgHost  = document.getElementById('test-org-host');
+    const cardBtn  = document.getElementById('tvt-card');
+    const orgBtn   = document.getElementById('tvt-org');
+    const libC     = document.getElementById('fs-library-content');
+    const orgC     = document.getElementById('fs-organize-content');
+    const fsEl     = document.getElementById('filterSidebar');
+    const rz       = document.getElementById('sbResizer');
+    const libSi    = document.getElementById('si');
+    const orgSi    = document.getElementById('si-org');
 
     if (mode === 'card') {
-      if (orgSi && libSi && libSi.value !== orgSi.value) libSi.value = orgSi.value;
-      if (cardHost)  cardHost.style.display  = '';
-      if (orgHost)   orgHost.style.display   = 'none';
-      if (cardBtn)  { cardBtn.classList.add('tvt-active'); }
-      if (orgBtn)   { orgBtn.classList.remove('tvt-active'); }
-      if (libC)  libC.style.display  = '';
-      if (orgC)  orgC.style.display  = 'none';
-      if (fsEl)  fsEl.style.removeProperty('display');
-      if (rz)    rz.style.removeProperty('display');
+      _syncTestFilters('org');
+      if (orgSi && libSi) libSi.value = orgSi.value;
+      _transferBulk('card');
+      if (cardHost) cardHost.style.display = '';
+      if (orgHost)  orgHost.style.display  = 'none';
+      if (cardBtn)  cardBtn.classList.add('tvt-active');
+      if (orgBtn)   orgBtn.classList.remove('tvt-active');
+      if (libC) libC.style.display = '';
+      if (orgC) orgC.style.display = 'none';
+      if (fsEl) fsEl.style.removeProperty('display');
+      if (rz)   rz.style.removeProperty('display');
       window.AF?.();
     } else {
-      if (libSi && orgSi && orgSi.value !== libSi.value) orgSi.value = libSi.value;
-      if (cardHost)  cardHost.style.display  = 'none';
-      if (orgHost)   orgHost.style.display   = '';
-      if (cardBtn)  { cardBtn.classList.remove('tvt-active'); }
-      if (orgBtn)   { orgBtn.classList.add('tvt-active'); }
-      if (libC)  libC.style.display  = 'none';
-      if (orgC)  orgC.style.display  = '';
-      if (fsEl)  fsEl.style.removeProperty('display');
-      if (rz)    rz.style.removeProperty('display');
+      _syncTestFilters('lib');
+      if (libSi && orgSi) orgSi.value = libSi.value;
+      _transferBulk('org');
+      if (cardHost) cardHost.style.display = 'none';
+      if (orgHost)  orgHost.style.display  = '';
+      if (cardBtn)  cardBtn.classList.remove('tvt-active');
+      if (orgBtn)   orgBtn.classList.add('tvt-active');
+      if (libC) libC.style.display = 'none';
+      if (orgC) orgC.style.display = '';
+      if (fsEl) fsEl.style.removeProperty('display');
+      if (rz)   rz.style.removeProperty('display');
       window.renderOrg?.();
     }
   };
