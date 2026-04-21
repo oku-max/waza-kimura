@@ -851,12 +851,11 @@ export function enterBulk(ctx='home', preserveSel=false){
     if(bi) bi.classList.add('active');
   }
   const sh=document.getElementById('sh');if(sh)sh.style.display='none';
-  // PCサイドバーの一括ボタンを「終了」に切り替え
+  // PCサイドバー・モバイル全ボタン：一括モード時に外見を変更しない（org-bulk-sel-btnと同様）
   const fsBtn=document.getElementById('fs-bulk-sel-btn');
-  if(fsBtn){fsBtn.onclick=exitBulk;fsBtn.classList.add('bulk-active');}
+  if(fsBtn){fsBtn.onclick=exitBulk;}
   const orgFsBtn=document.getElementById('org-fs-bulk-sel-btn');
-  if(orgFsBtn){orgFsBtn.onclick=exitBulk;orgFsBtn.classList.add('bulk-active');}
-  // bulk-sel-btn（カードビュー）はorg-bulk-sel-btn（テーブルビュー）と同様、一括モード時に変更しない
+  if(orgFsBtn){orgFsBtn.onclick=exitBulk;}
   if(ctx==='organize'){
     const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='none';
     if(!preserveSel) window.renderOrg?.();
