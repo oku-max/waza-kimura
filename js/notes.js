@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.42 ═══
+// ═══ WAZA KIMURA — Notes tab v50.43 ═══
 import { getSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1027,8 +1027,7 @@ window._notesImgFromLib = async function(noteId) {
     window.toast?.('VPanelにスナップショットが登録されている動画がありません');
     return;
   }
-  window._notesSheetClose();
-  _removeSheet();
+  _removeSheet(); // タイマーを介さず同期削除
   const overlay = document.createElement('div');
   overlay.id = 'n-sheet-overlay';
   overlay.className = 'n-sheet-overlay';
