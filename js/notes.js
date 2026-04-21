@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.39 ═══
+// ═══ WAZA KIMURA — Notes tab v50.40 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -1116,7 +1116,8 @@ window._notesAddFromLib = function(videoId, noteId) {
       type: 'video', videoId, platform, viewMode,
       ytId: ytId || undefined,
       vmHash: v.vmHash || undefined,
-      thumb: (!ytId && v.thumb) ? v.thumb : undefined,
+      thumb: ytId ? undefined
+           : v.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${v.id}.jpg` : undefined),
       title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
     });
     note.updatedAt = Date.now();
