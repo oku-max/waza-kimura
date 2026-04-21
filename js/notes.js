@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.44 ═══
+// ═══ WAZA KIMURA — Notes tab v50.45 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -966,9 +966,17 @@ window._notesVideoConfirm = function() {
 };
 
 window._notesAddVideoBlock = function(noteId) { window._notesShowVidPicker(noteId); };
-window._notesAddImageBlock = function(noteId) { _notesShowImgSourcePicker(noteId); };
+window._notesAddImageBlock = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const snapId = 'note_' + noteId + '_' + Date.now().toString(36);
+  r.note.blocks.push({ type: 'image', snapId, refs: [] });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
 
-function _notesShowImgSourcePicker(noteId) {
+function _notesSnapAddPicker(noteId, targetSnapId) {
   _removeSheet();
   const overlay = document.createElement('div');
   overlay.id = 'n-sheet-overlay';
@@ -977,7 +985,7 @@ function _notesShowImgSourcePicker(noteId) {
     <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
       <div class="n-sheet-hdr"><span class="n-sheet-title">📸 画像を追加</span></div>
       <div class="n-src-list">
-        <button class="n-src-btn" onclick="window._notesImgNew('${noteId}')">
+        <button class="n-src-btn" id="n-src-new-btn">
           <span class="n-src-icon">📷</span>
           <div class="n-src-info">
             <div class="n-src-ttl">新しく撮影・貼り付け</div>
@@ -985,7 +993,7 @@ function _notesShowImgSourcePicker(noteId) {
           </div>
           <span class="n-src-arr">›</span>
         </button>
-        <button class="n-src-btn" onclick="window._notesImgFromLib('${noteId}')">
+        <button class="n-src-btn" id="n-src-lib-btn">
           <span class="n-src-icon">🎬</span>
           <div class="n-src-info">
             <div class="n-src-ttl">動画のスナップから選ぶ</div>
@@ -1002,20 +1010,16 @@ function _notesShowImgSourcePicker(noteId) {
   overlay.addEventListener('click', window._notesSheetClose);
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add('vis'));
+  overlay.querySelector('#n-src-new-btn').addEventListener('click', () => {
+    _removeSheet();
+    window.triggerSnapFileInput?.();
+  });
+  overlay.querySelector('#n-src-lib-btn').addEventListener('click', () => {
+    window._notesImgFromLib(noteId, targetSnapId);
+  });
 }
 
-window._notesImgNew = function(noteId) {
-  window._notesSheetClose();
-  const r = _findNote(noteId);
-  if (!r) return;
-  const snapId = 'note_' + noteId + '_' + Date.now().toString(36);
-  r.note.blocks.push({ type: 'image', snapId, refs: [] });
-  r.note.updatedAt = Date.now();
-  _save();
-  _renderNote(noteId);
-};
-
-window._notesImgFromLib = async function(noteId) {
+window._notesImgFromLib = async function(noteId, targetSnapId) {
   const r = _findNote(noteId);
   if (!r) return;
   const videoBs = r.note.blocks.filter(b => b.type === 'video' && b.videoId);
@@ -1027,7 +1031,7 @@ window._notesImgFromLib = async function(noteId) {
     window.toast?.('VPanelにスナップショットが登録されている動画がありません');
     return;
   }
-  _removeSheet(); // タイマーを介さず同期削除
+  _removeSheet();
   const overlay = document.createElement('div');
   overlay.id = 'n-sheet-overlay';
   overlay.className = 'n-sheet-overlay';
@@ -1069,7 +1073,7 @@ window._notesImgFromLib = async function(noteId) {
       const card = document.createElement('div');
       card.className = 'n-snap-picker-card';
       card.title = ref.memo || '';
-      card.onclick = () => window._notesInsertRefSnap(noteId, ref.id, b.videoId);
+      card.onclick = () => window._notesAddSnapToBlock(noteId, targetSnapId, ref.id);
       card.innerHTML = `<span class="n-snap-picker-ph">📷</span>`;
       grid.appendChild(card);
 
@@ -1087,22 +1091,25 @@ window._notesImgFromLib = async function(noteId) {
   }
 };
 
-window._notesInsertRefSnap = async function(noteId, snapId, videoId) {
+window._notesAddSnapToBlock = async function(noteId, targetSnapId, refSnapId) {
   const r = _findNote(noteId);
   if (!r) return;
   _removeSheet();
   window.toast?.('📷 読み込み中…');
   try {
-    const snap = await getSnapshot(snapId);
+    const snap = await getSnapshot(refSnapId);
     if (!snap?.blob) { window.toast?.('スナップの取得に失敗しました'); return; }
     const newSnapId = 'note_' + noteId + '_' + Date.now().toString(36);
-    await putSnapshot(newSnapId, newSnapId, snap.blob, snap.annotations || []);
-    r.note.blocks.push({ type: 'image', snapId: newSnapId, refs: [{ id: newSnapId, memo: '', order: 0 }] });
+    await putSnapshot(newSnapId, targetSnapId, snap.blob, snap.annotations || []);
+    const block = r.note.blocks.find(b => b.snapId === targetSnapId);
+    if (!block) { window.toast?.('スナップブロックが見つかりません'); return; }
+    block.refs = block.refs || [];
+    block.refs.push({ id: newSnapId, memo: '', order: block.refs.length });
     r.note.updatedAt = Date.now();
     _save();
     _renderNote(noteId);
-    window.toast?.('📷 スナップを挿入しました');
-  } catch(e) { console.error('_notesInsertRefSnap:', e); window.toast?.('エラーが発生しました'); }
+    window.toast?.('📷 スナップを追加しました');
+  } catch(e) { console.error('_notesAddSnapToBlock:', e); window.toast?.('エラーが発生しました'); }
 };
 
 function _initNoteSnap(noteId, snapId, block, blockIdx) {
@@ -1123,7 +1130,9 @@ function _initNoteSnap(noteId, snapId, block, blockIdx) {
 
   const container = document.getElementById('n-snap-' + snapId);
   if (container && window.initSnapshotSection) {
-    window.initSnapshotSection(snapId, container);
+    window.initSnapshotSection(snapId, container, {
+      onAddClick: () => _notesSnapAddPicker(noteId, snapId)
+    });
   }
 }
 

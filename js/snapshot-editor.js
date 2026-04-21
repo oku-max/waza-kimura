@@ -19,6 +19,7 @@ import { putSnapshot, getSnapshot, getSnapshotsByVideo, deleteSnapshot, syncSnap
 let currentVideoId = null;
 let snapshots = [];        // [{id, videoId, blob, url, memo, annotations, order}]
 let containerEl = null;    // Reference to the VPanel container element
+let _snapOpts = {};        // Options passed to initSnapshotSection
 let lbIdx = 0;             // Lightbox current index
 let annIdx = -1;           // Annotation editor current snapshot index
 
@@ -1872,8 +1873,14 @@ function bindAddButton() {
   const addBtn = containerEl.querySelector('#snap-add-btn');
   const fileInput = getFileInput();
 
-  if (addBtn && fileInput) {
-    addBtn.addEventListener('click', () => fileInput.click());
+  if (addBtn) {
+    if (_snapOpts.onAddClick) {
+      addBtn.addEventListener('click', _snapOpts.onAddClick);
+    } else if (fileInput) {
+      addBtn.addEventListener('click', () => fileInput.click());
+    }
+  }
+  if (fileInput && !_snapOpts.onAddClick) {
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length) {
         addSnapshotImages(currentVideoId, [...fileInput.files]);
@@ -1887,14 +1894,20 @@ function bindAddButton() {
 // ── Exported Functions
 // ════════════════════════════════════════════════════════════════
 
+export function triggerSnapFileInput() {
+  const fi = getFileInput();
+  if (fi) fi.click();
+}
+
 /**
  * Initialize the snapshot section inside VPanel.
  * Called when VPanel opens for a specific video.
  * @param {string} videoId - The video ID
  * @param {HTMLElement} container - The container element to render into
  */
-export async function initSnapshotSection(videoId, container) {
+export async function initSnapshotSection(videoId, container, opts = {}) {
   cleanupSnapshots(); // cleanup previous session
+  _snapOpts = opts;
   currentVideoId = videoId;
   containerEl = container;
 

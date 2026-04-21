@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.43</title>
+<title>WAZA KIMURA v50.45</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -94,7 +94,7 @@
   } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
-  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots } from './js/snapshot-editor.js';
+  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput } from './js/snapshot-editor.js';
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
@@ -370,6 +370,7 @@
   window.initSnapshotSection   = initSnapshotSection;
   window.cleanupSnapshots      = cleanupSnapshots;
   window.handleSnapshotPaste   = handleSnapshotPaste;
+  window.triggerSnapFileInput  = triggerSnapFileInput;
   window.autoSaveVp            = autoSaveVp;
   window.vpSave                = vpSave;
   window.vpTogChannelDd        = vpTogChannelDd;
