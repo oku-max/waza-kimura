@@ -853,6 +853,7 @@ export function orgTogFav(id) {
       const btn = tr.querySelector('[onclick*="orgTogFav"]');
       if (btn) {
         btn.textContent = v.fav ? '★' : '☆';
+        btn.className = v.fav ? 'org-fav-on' : 'org-fav-off';
         btn.title = v.fav ? 'お気に入りを外す' : 'お気に入りに追加';
       }
     }
