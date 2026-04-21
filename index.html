@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.51</title>
+<title>WAZA KIMURA v50.52</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1125,6 +1125,7 @@
   <!-- Organize操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="organize-actionbar" style="display:none">
     <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
+    <button id="org-filter-reset-btn" onclick="clearOrgFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
     <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>
     <div style="display:flex;gap:4px;align-items:center;width:100%">
       <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si-org" type="text" placeholder="Search..." oninput="renderOrg()"></div>

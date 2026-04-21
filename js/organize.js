@@ -184,6 +184,7 @@ export function clearOrgFilters() {
   document.querySelectorAll('[id^="org-fs-"]').forEach(el => el.classList.remove('active'));
   window.refreshOpenSbAccordions?.('org');
   renderOrg();
+  _updateOrgResetBtn();
 }
 
 // (空白) 対応フィルターマッチ
@@ -555,11 +556,21 @@ export function adjustOrgTableHeight() {
   orgTab.style.left = '';  // 古い inline style があれば除去
 }
 
+function _updateOrgResetBtn() {
+  const btn = document.getElementById('org-filter-reset-btn');
+  if (!btn) return;
+  const active = Object.values(orgFilters).some(s => s.size > 0)
+    || orgFavOnly || orgNextOnly || orgUnwOnly || orgWatchedOnly
+    || orgBmOnly || orgMemoOnly || orgImgOnly || orgPrRank || orgPrDate;
+  btn.style.display = active ? 'inline-block' : 'none';
+}
+
 // ═══ Main render ═══
 
 export function renderOrg() {
   _closeOrgInlineEditor(false);
   initOrgFixedHeaders();
+  _updateOrgResetBtn();
   const videos = window.videos || [];
   // Organize専用フィルターでリストを絞り込む
   let list = orgFilt(videos);
