@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.36 ═══
+// ═══ WAZA KIMURA — Notes tab v50.37 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -636,7 +636,9 @@ window._notesVidTogglePlayer = function(noteId, idx) {
   const platform = b.platform || 'youtube';
   const iframe = document.createElement('iframe');
   if (platform === 'gdrive') {
-    iframe.src = `https://drive.google.com/file/d/${b.videoId}/preview`;
+    // v.id は 'gd-{fileId}' 形式なのでプレフィックスを除去
+    const fileId = b.videoId.startsWith('gd-') ? b.videoId.slice(3) : b.videoId;
+    iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
     iframe.allow = 'autoplay; encrypted-media; fullscreen';
   } else {
     const ytId = b.ytId || b.videoId;
