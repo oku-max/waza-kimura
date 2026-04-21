@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.35 ═══
+// ═══ WAZA KIMURA — Notes tab v50.36 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -91,7 +91,26 @@ function _load() {
   try { const r = localStorage.getItem(NOTES_KEY); return r ? JSON.parse(r) : DEFAULT_DATA; }
   catch { return DEFAULT_DATA; }
 }
-function _save() { try { localStorage.setItem(NOTES_KEY, JSON.stringify(_data)); } catch {} }
+
+let _saveFsTimer = null;
+function _save() {
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(_data)); } catch {}
+  // Firestoreへは2秒デバウンスで非同期保存（連続編集時にhammer防止）
+  clearTimeout(_saveFsTimer);
+  _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 2000);
+}
+
+// ログイン後にFirestoreから呼ばれる
+window._notesGetData = () => _data;
+window._notesLoadFromRemote = function(remoteData) {
+  if (!Array.isArray(remoteData) || !remoteData.length) return;
+  _data = remoteData;
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(_data)); } catch {}
+  // ノートタブが開いていれば再描画
+  if (_activeId) _renderNote(_activeId);
+  window.renderNotes?.();
+  window.toast?.('📓 ノートを同期しました');
+};
 
 let _data = _load();
 let _activeId = null;

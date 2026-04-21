@@ -22,8 +22,36 @@ auth.onAuthStateChanged(async (user) => {
   if (user) {
     await loadUserData(user.uid);
     await loadUserSettings(user.uid);
+    await loadNotes(user.uid);
   }
 });
+
+// ── ノート Firestore 同期 ──
+window._firebaseSaveNotes = async function(data) {
+  if (!currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').set({
+      data, updatedAt: new Date().toISOString()
+    });
+  } catch(e) { console.error('saveNotes:', e); }
+};
+
+async function loadNotes(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('data').doc('notes').get();
+    if (snap.exists && snap.data()?.data?.length) {
+      window._notesLoadFromRemote?.(snap.data().data);
+    } else {
+      // Firestoreにデータなし → ローカルデータを初回アップロード
+      const localData = window._notesGetData?.();
+      if (localData?.length) {
+        await db.collection('users').doc(uid).collection('data').doc('notes').set({
+          data: localData, updatedAt: new Date().toISOString()
+        });
+      }
+    }
+  } catch(e) { console.error('loadNotes:', e); }
+}
 
 export function updateAuthUI(user) {
   const btn     = document.getElementById('auth-btn');
