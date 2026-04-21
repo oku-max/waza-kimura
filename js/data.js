@@ -1,6 +1,6 @@
 // ═══ WAZA KIMURA — データ操作 ═══
 
-// ─── 自動保存（debounce: 3秒後にFirebase書き込み）───
+// ─── 自動保存（即時Firebase書き込み）───
 let _autoSaveTimer = null;
 
 export function debounceSave() {
@@ -11,7 +11,7 @@ export function debounceSave() {
         await window.saveUserData();
       }
     } catch(e) { console.error('debounceSave error:', e); }
-  }, 3000);
+  }, 0);
 }
 
 export function qFav(id) {
@@ -21,6 +21,7 @@ export function qFav(id) {
   // Fav OFF → Next も自動OFF
   if (!v.fav && v.next) v.next = false;
   window.AF(); window.toast(v.fav ? '⭐ お気に入り追加' : 'お気に入り解除');
+  debounceSave();
 }
 
 export function qNext(id) {
@@ -30,11 +31,12 @@ export function qNext(id) {
   // Next ON → Fav も自動ON
   if (v.next && !v.fav) v.fav = true;
   window.AF(); window.toast(v.next ? '🎯 Next に追加' : 'Next 解除');
+  debounceSave();
 }
 
 export function qWatch(id) {
   const v = window.videos?.find(v => v.id === id);
-  if (v) { v.watched = !v.watched; window.AF(); window.toast(v.watched ? '✅ 視聴済み' : '👁 未視聴に戻しました'); }
+  if (v) { v.watched = !v.watched; window.AF(); window.toast(v.watched ? '✅ 視聴済み' : '👁 未視聴に戻しました'); debounceSave(); }
 }
 
 export function archOne(id) {
