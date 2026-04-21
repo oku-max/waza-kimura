@@ -1526,6 +1526,20 @@ body.bulk-mode #cardList { padding-top: 46px; }
   }
   /* cardList: view-bar(47) + actionbar(46) + results-header(40) 分の余白 */
   body.bulk-mode #cardList { padding-top: 133px; }
+  /* テーブルビュー: organize-actionbar を library-actionbar と同位置に固定 */
+  body.bulk-mode #organize-actionbar {
+    position: fixed;
+    top: calc(var(--topbar-h, 56px) + 47px);
+    left: 0; right: 0;
+    z-index: 76;
+  }
+  /* org-count-bar を results-header と同位置に固定 */
+  body.bulk-mode .org-count-bar.bulk-transform {
+    position: fixed !important;
+    top: calc(var(--topbar-h, 56px) + 47px + 46px) !important;
+    left: 0; right: 0;
+    z-index: 75;
+  }
 }
 
 /* Organize: org-count-bar は fixed コンテナ内の flex child なので元から非スクロール。
