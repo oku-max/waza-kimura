@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル (案E改) ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v50.35 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -341,9 +341,7 @@
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
       const isAdded = isNoteMode && addedIds.has(v.id);
-      const onclick = isNoteMode && !isAdded
-        ? `window._notesAddFromLib?.('${_esc(v.id)}','${_esc(_noteMode)}')`
-        : !isNoteMode ? `window.openVPanel?.('${_esc(v.id)}');uniClose()` : '';
+      const onclick = !isAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '';
       const rowClass = isNoteMode
         ? 'uni-vc-row uni-vc-row-nm' + (isAdded ? ' uni-vc-row-added' : '')
         : 'uni-vc-row';
@@ -645,9 +643,7 @@
               ? `<img src="https://i.ytimg.com/vi/${ytId}/default.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
               : '▶';
             const isVidAdded = !!_noteMode && vidAddedIds.has(v.id);
-            const vidOnclick = _noteMode && !isVidAdded
-              ? `window._notesAddFromLib?.('${_esc(v.id)}','${_esc(_noteMode)}')`
-              : !_noteMode ? `window.openVPanel?.('${_esc(v.id)}');uniClose()` : '';
+            const vidOnclick = !isVidAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '';
             const vidRowClass = _noteMode
               ? 'uni-vid-row uni-vid-row-nm' + (isVidAdded ? ' uni-vid-row-added' : '')
               : 'uni-vid-row';
@@ -933,4 +929,15 @@
 
   // popoverを外クリックで閉じる
   document.addEventListener('click', () => _closeSSMenus());
+
+  // ノートモード動画クリック — _noteMode をクリック時に読む（render時に焼き込まない）
+  window._uniVideoClick = function(videoId) {
+    if (_noteMode) {
+      window._notesAddFromLib?.(videoId, _noteMode);
+      _render(); // 追加済みバッジを即時更新
+    } else {
+      window.openVPanel?.(videoId);
+      window.uniClose();
+    }
+  };
 })();

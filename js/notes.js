@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.34 ═══
+// ═══ WAZA KIMURA — Notes tab v50.35 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -444,7 +444,7 @@ function _blockHTML(block, idx, noteId) {
     case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${del}</div>`;
     case 'video': {
       // carousel blocks are grouped by _renderBlocks — only inline reaches here
-      const ytId = block.videoId && block.videoId.length <= 12 ? block.videoId : null;
+      const ytId = block.ytId || (block.videoId?.length <= 12 ? block.videoId : null);
       const thumbUrl = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : null;
       const thumbEl = thumbUrl
         ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
@@ -543,7 +543,7 @@ const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解'
 
 function _renderCarouselGroup(group, noteId) {
   const cards = group.map(({ block: b, idx }) => {
-    const ytId = b.videoId && b.videoId.length <= 12 ? b.videoId : null;
+    const ytId = b.ytId || (b.videoId?.length <= 12 ? b.videoId : null);
     const thumbEl = ytId
       ? `<img src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
       : `<span style="font-size:22px">🎥</span>`;
@@ -605,7 +605,6 @@ window._notesVidTogglePlayer = function(noteId, idx) {
   const player = document.getElementById(playerId);
   if (!player) return;
   const isOpen = player.classList.contains('open');
-  // 他のプレイヤーを閉じる
   document.querySelectorAll('.n-bvi-player.open').forEach(p => {
     p.classList.remove('open');
     p.innerHTML = '';
@@ -614,21 +613,46 @@ window._notesVidTogglePlayer = function(noteId, idx) {
   const r = _findNote(noteId);
   if (!r) return;
   const b = r.note.blocks[idx];
-  const ytId = b?.videoId;
-  if (!ytId) return;
+  if (!b?.videoId) return;
+  const platform = b.platform || 'youtube';
   const iframe = document.createElement('iframe');
-  iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
-  iframe.allow = 'autoplay; encrypted-media; fullscreen';
+  if (platform === 'gdrive') {
+    iframe.src = `https://drive.google.com/file/d/${b.videoId}/preview`;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+  } else {
+    const ytId = b.ytId || b.videoId;
+    iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+  }
   iframe.allowFullscreen = true;
   player.innerHTML = '';
   player.appendChild(iframe);
+  const widthPct = b.vidWidth || 100;
   const ctrl = document.createElement('div');
   ctrl.className = 'n-bvi-ctrl';
   ctrl.innerHTML = `<span>📺 インライン再生中</span>
-    <button onclick="window._notesVidTogglePlayer('${noteId}',${idx})">▲ 閉じる</button>
-    <button onclick="window.openVPanel?.('${ytId}')" style="margin-left:4px">VPanel →</button>`;
+    <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)">
+      幅 <input type="range" min="30" max="100" step="5" value="${widthPct}"
+        style="width:80px" oninput="window._notesVidResize('${noteId}',${idx},+this.value)">
+      <span id="n-bvi-w-${noteId}-${idx}">${widthPct}%</span>
+    </label>
+    <button onclick="window._notesVidTogglePlayer('${noteId}',${idx})">▲ 閉じる</button>`;
   player.appendChild(ctrl);
+  // apply current width
+  const wrap = document.getElementById(`n-vid-wrap-${noteId}-${idx}`);
+  if (wrap) wrap.style.maxWidth = widthPct + '%';
   player.classList.add('open');
+};
+
+window._notesVidResize = function(noteId, idx, pct) {
+  const wrap = document.getElementById(`n-vid-wrap-${noteId}-${idx}`);
+  if (wrap) wrap.style.maxWidth = pct + '%';
+  const label = document.getElementById(`n-bvi-w-${noteId}-${idx}`);
+  if (label) label.textContent = pct + '%';
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (b) { b.vidWidth = pct; r.note.updatedAt = Date.now(); _save(); }
 };
 
 // ── note content ──
@@ -1058,7 +1082,9 @@ window._notesAddFromLib = function(videoId, noteId) {
   if (!v) return;
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
     const viewMode = window._noteModeViewMode || 'carousel';
-    note.blocks.push({ type: 'video', videoId, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '', viewMode });
+    const platform = v.pt || v.src || 'youtube';
+    const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
+    note.blocks.push({ type: 'video', videoId, ytId: ytId || undefined, platform, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '', viewMode });
     note.updatedAt = Date.now();
     _save();
   }
