@@ -856,8 +856,7 @@ export function enterBulk(ctx='home', preserveSel=false){
   if(fsBtn){fsBtn.onclick=exitBulk;fsBtn.classList.add('bulk-active');}
   const orgFsBtn=document.getElementById('org-fs-bulk-sel-btn');
   if(orgFsBtn){orgFsBtn.onclick=exitBulk;orgFsBtn.classList.add('bulk-active');}
-  const selBtn2=document.getElementById('bulk-sel-btn');
-  if(selBtn2){selBtn2.classList.add('bulk-active');}
+  // bulk-sel-btn（カードビュー）はorg-bulk-sel-btn（テーブルビュー）と同様、一括モード時に変更しない
   if(ctx==='organize'){
     const orgBtn=document.getElementById('org-bulk-btn');if(orgBtn)orgBtn.style.display='none';
     if(!preserveSel) window.renderOrg?.();
@@ -1014,8 +1013,7 @@ export function updBulk(){
   });
   // レガシー bulkTit も更新（互換性）
   const bt = document.getElementById('bulkTit'); if(bt) bt.textContent = label;
-  const btn=document.getElementById('bulk-sel-btn');
-  if(btn){if(window.bulkMode){btn.classList.add('bulk-active');}else{btn.classList.remove('bulk-active');}}
+  // bulk-sel-btnはテーブルビューのorg-bulk-sel-btnと同様、一括モード時に変更しない
   // レガシー bulk-edit-vpanel-btn も更新（互換性）
   const editBtn=document.getElementById('bulk-edit-vpanel-btn');
   if(editBtn){
