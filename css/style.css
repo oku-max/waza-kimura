@@ -1490,10 +1490,10 @@ body.admin-mode .verify-dot-ctrl{display:flex !important;}
 
 /* ═══ BULK MODE — P1: 一括操作バーをスクロール時も固定表示 ═══ */
 
-/* Library desktop (1200px+): results-header を topbar直下に fixed */
+/* Library desktop (1200px+): results-header を lib-view-bar(47px)の下に fixed */
 body.bulk-mode .results-header.bulk-transform {
   position: fixed !important;
-  top: var(--topbar-h, 72px) !important;
+  top: calc(var(--topbar-h, 72px) + 47px) !important;
   left: var(--sbw, 0px);
   right: 0;
   z-index: 75;
