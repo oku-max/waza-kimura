@@ -341,8 +341,18 @@
 }
 .n-vc-del  { right:3px }
 .n-vc-mode { right:26px }
+.n-vc-prev, .n-vc-next {
+  position:absolute; bottom:3px; width:20px; height:20px;
+  border:none; border-radius:4px; font-size:11px; cursor:pointer; padding:0;
+  display:none; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.6); color:#fff;
+}
+.n-vc-prev { left:3px }
+.n-vc-next { left:26px }
 .n-vc-card:hover .n-vc-del,
 .n-vc-card:hover .n-vc-mode { display:flex }
+.n-vc-card:hover .n-vc-prev,
+.n-vc-card:hover .n-vc-next { display:flex }
 .n-vc-del:hover { background:rgba(248,113,113,.8) }
 .n-vc-mode:hover { background:rgba(232,201,106,.5); color:#111 }
 

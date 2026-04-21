@@ -524,10 +524,8 @@ function _blockHTML(block, idx, noteId, total) {
     ? `<button class="n-block-move n-block-dn" title="下へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">↓</button>`
     : `<button class="n-block-move n-block-dn" style="visibility:hidden" tabindex="-1">↓</button>`;
   const drag = `<div class="n-drag-handle" draggable="true" title="ドラッグして並び替え"
-    ondragstart="event.stopPropagation();window._notesDragStart(event,'${noteId}',${idx})">⠿</div>`;
-  const wrapAttrs = `ondragover="window._notesDragOver(event,'${noteId}',${idx})"
-    ondragleave="window._notesDragLeave(event)"
-    ondrop="window._notesDrop(event,'${noteId}',${idx})"`;
+    ondragstart="window._notesDragStart(event,'${noteId}',${idx})">⠿</div>`;
+  const wrapAttrs = `data-note-id="${noteId}" data-idx="${idx}"`;
   const editable = (cls) =>
     `<div class="${cls} n-editable" contenteditable="true"
           data-idx="${idx}" data-note-id="${noteId}"
@@ -670,38 +668,49 @@ window._notesDragStart = function(e, noteId, idx) {
   _dragSrcNoteId = noteId;
   _dragSrcIdx = idx;
   e.dataTransfer.effectAllowed = 'move';
-  e.currentTarget.closest('.n-block-wrap')?.classList.add('n-dragging');
+  e.target.closest?.('.n-block-wrap')?.classList.add('n-dragging');
 };
 
-window._notesDragOver = function(e, noteId, idx) {
-  if (_dragSrcNoteId !== noteId) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over'));
-  e.currentTarget.classList.add('n-drag-over');
-};
-
-window._notesDragLeave = function(e) {
-  e.currentTarget.classList.remove('n-drag-over');
-};
-
-window._notesDrop = function(e, noteId, idx) {
-  e.preventDefault();
-  document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
-  if (_dragSrcNoteId !== noteId || _dragSrcIdx === idx) { _dragSrcNoteId = null; return; }
-  const r = _findNote(noteId);
-  if (!r) return;
-  const blocks = r.note.blocks;
-  const src = _dragSrcIdx;
-  const dst = idx;
-  const [moved] = blocks.splice(src, 1);
-  blocks.splice(dst > src ? dst - 1 : dst, 0, moved);
-  r.note.updatedAt = Date.now();
-  _save();
-  _renderNote(noteId);
-  _dragSrcNoteId = null;
-  _dragSrcIdx = null;
-};
+// contenteditable がdragover/dropを横取りするためドキュメントレベルで処理
+(function _initNotesDnd() {
+  let _dndOverWrap = null;
+  document.addEventListener('dragover', function(e) {
+    if (_dragSrcNoteId == null) return;
+    e.preventDefault();
+    const wrap = e.target.closest?.('.n-block-wrap[data-note-id]');
+    if (wrap === _dndOverWrap) return;
+    _dndOverWrap?.classList.remove('n-drag-over');
+    _dndOverWrap = wrap || null;
+    wrap?.classList.add('n-drag-over');
+  });
+  document.addEventListener('drop', function(e) {
+    if (_dragSrcNoteId == null) return;
+    e.preventDefault();
+    document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
+    _dndOverWrap = null;
+    const wrap = e.target.closest?.('.n-block-wrap[data-note-id]');
+    if (!wrap) { _dragSrcNoteId = null; return; }
+    const targetNoteId = wrap.dataset.noteId;
+    const dst = parseInt(wrap.dataset.idx);
+    const src = _dragSrcIdx;
+    const srcNoteId = _dragSrcNoteId;
+    _dragSrcNoteId = null; _dragSrcIdx = null;
+    if (targetNoteId !== srcNoteId || isNaN(dst) || src === dst) return;
+    const r = _findNote(targetNoteId);
+    if (!r) return;
+    const blocks = r.note.blocks;
+    const [moved] = blocks.splice(src, 1);
+    blocks.splice(dst > src ? dst - 1 : dst, 0, moved);
+    r.note.updatedAt = Date.now();
+    _save();
+    _renderNote(targetNoteId);
+  });
+  document.addEventListener('dragend', function() {
+    document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
+    _dndOverWrap = null;
+    _dragSrcNoteId = null; _dragSrcIdx = null;
+  });
+})();
 
 window._notesAddTextBlock = function(noteId) {
   const r = _findNote(noteId);
@@ -720,7 +729,7 @@ window._notesAddTextBlock = function(noteId) {
 const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解':'#3b82f6' };
 
 function _renderCarouselGroup(group, noteId) {
-  const cards = group.map(({ block: b, idx }) => {
+  const cards = group.map(({ block: b, idx }, gi) => {
     const thumbSrc = _blockThumbUrl(b);
     const thumbEl = thumbSrc
       ? `<img src="${thumbSrc}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
@@ -729,6 +738,12 @@ function _renderCarouselGroup(group, noteId) {
     const status = v?.status || b.status || '';
     const sColor = STATUS_COLOR[status] || '';
     const badge = sColor ? `<span class="n-vc-badge" style="color:${sColor};background:${sColor}22">${_esc(status)}</span>` : '';
+    const prevBtn = gi > 0
+      ? `<button class="n-vc-prev" title="左へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},-1)">←</button>`
+      : '';
+    const nextBtn = gi < group.length - 1
+      ? `<button class="n-vc-next" title="右へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">→</button>`
+      : '';
     return `<div class="n-vc-card" onclick="window.openVPanel?.('${_esc(b.videoId)}')">
       <div class="n-vc-thumb">${thumbEl}</div>
       <div class="n-vc-info">
@@ -736,6 +751,7 @@ function _renderCarouselGroup(group, noteId) {
         <div class="n-vc-ch">${_esc(b.channel || v?.channel || v?.ch || '')}</div>
         ${badge}
       </div>
+      ${prevBtn}${nextBtn}
       <button class="n-vc-del" title="削除"
         onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>
       <button class="n-vc-mode" title="インラインに切替"
