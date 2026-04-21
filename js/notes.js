@@ -1257,7 +1257,6 @@ window.notesNew = function(catId = null) {
 window.notesAddVideo = function(arg) {
   const videoId = typeof arg === 'string' ? arg : arg?.id;
   if (!videoId) return;
-  window.closeVPanel?.();
   const sheet = document.getElementById('notesVpSheet');
   if (!sheet) return;
   const list = document.getElementById('notesVpSheetList');
@@ -1277,6 +1276,7 @@ window.notesAddVideo = function(arg) {
     }
   }
   list.innerHTML = h;
+  document.body.appendChild(sheet); // DOM末尾に移動して確実にVPanel上に表示
   sheet.classList.add('vis');
 };
 

@@ -227,14 +227,12 @@ export async function onAiTagBtn(videoId) {
         }
       }
     }
-    window.closeVPanel?.();
     showAiTagPanel(videoId, suggestions);
   } catch (e) {
     window.toast?.('❌ AI タグ取得に失敗しました: ' + e.message);
     console.error('onAiTagBtn error:', e);
   } finally {
-    const btnRef = document.getElementById('vp-ai-tag-btn');
-    if (btnRef) { btnRef.disabled = false; btnRef.textContent = '🤖 AIタグ提案'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 AIタグ提案'; }
   }
 }
 
