@@ -691,13 +691,15 @@ body.bulk-mode .card-sel-ov{display:block;}
 @media(max-width:767px){
   .sidebar{display:none;}
   .main-area{margin-left:0;}
-  
+
   .mobile-nav{display:flex;}
   .fbar{padding:8px 12px 2px;}
   .fbar-lbl{width:52px;font-size:9px;}
   body{padding-bottom:56px;}
   .card-list{padding:8px 12px;gap:7px;}
   .results-header{padding:8px 12px;}
+  /* テーブルビュー: 独自スクロール内の最終行がmobile-nav(56px)に隠れないよう余白 */
+  .org-table-wrap{padding-bottom:56px;}
 }
 
 
