@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.37 ═══
+// ═══ WAZA KIMURA — Notes tab v50.38 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -464,7 +464,7 @@ function _blockHTML(block, idx, noteId) {
     case 'video': {
       // carousel blocks are grouped by _renderBlocks — only inline reaches here
       const ytId = block.ytId || (block.videoId?.length <= 12 ? block.videoId : null);
-      const thumbUrl = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : null;
+      const thumbUrl = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : (block.thumb || null);
       const thumbEl = thumbUrl
         ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
         : `<span style="font-size:18px">🎥</span>`;
@@ -563,8 +563,9 @@ const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解'
 function _renderCarouselGroup(group, noteId) {
   const cards = group.map(({ block: b, idx }) => {
     const ytId = b.ytId || (b.videoId?.length <= 12 ? b.videoId : null);
-    const thumbEl = ytId
-      ? `<img src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+    const thumbSrc = ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : (b.thumb || null);
+    const thumbEl = thumbSrc
+      ? `<img src="${thumbSrc}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
       : `<span style="font-size:22px">🎥</span>`;
     const v = (window.videos || []).find(x => x.id === b.videoId);
     const status = v?.status || b.status || '';
@@ -636,9 +637,12 @@ window._notesVidTogglePlayer = function(noteId, idx) {
   const platform = b.platform || 'youtube';
   const iframe = document.createElement('iframe');
   if (platform === 'gdrive') {
-    // v.id は 'gd-{fileId}' 形式なのでプレフィックスを除去
     const fileId = b.videoId.startsWith('gd-') ? b.videoId.slice(3) : b.videoId;
     iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+  } else if (platform === 'vimeo') {
+    const hash = b.vmHash ? `h=${b.vmHash}&` : '';
+    iframe.src = `https://player.vimeo.com/video/${b.videoId}?${hash}autoplay=1`;
     iframe.allow = 'autoplay; encrypted-media; fullscreen';
   } else {
     const ytId = b.ytId || b.videoId;
@@ -1105,7 +1109,13 @@ window._notesAddFromLib = function(videoId, noteId) {
     const viewMode = window._noteModeViewMode || 'carousel';
     const platform = v.pt || v.src || 'youtube';
     const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
-    note.blocks.push({ type: 'video', videoId, ytId: ytId || undefined, platform, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '', viewMode });
+    note.blocks.push({
+      type: 'video', videoId, platform, viewMode,
+      ytId: ytId || undefined,
+      vmHash: v.vmHash || undefined,
+      thumb: (!ytId && v.thumb) ? v.thumb : undefined,
+      title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
+    });
     note.updatedAt = Date.now();
     _save();
   }
