@@ -212,11 +212,6 @@
       orgHost.appendChild(orgTableWrap);
       orgHost.appendChild(orgEmpty);
     }
-    // test-view-bar の実際の高さをCSS変数にセット
-    requestAnimationFrame(() => {
-      const tvb = document.querySelector('.test-view-bar');
-      if (tvb) document.documentElement.style.setProperty('--tvb-h', tvb.offsetHeight + 'px');
-    });
     window._testView(window._testTabMode || 'card');
   };
 
@@ -249,7 +244,12 @@
     const fsEl       = document.getElementById('filterSidebar');
     const rz         = document.getElementById('sbResizer');
 
+    // 検索入力をビュー間で同期（フィルター状態共有）
+    const libSi = document.getElementById('si');
+    const orgSi = document.getElementById('si-org');
+
     if (mode === 'card') {
+      if (orgSi && libSi && libSi.value !== orgSi.value) libSi.value = orgSi.value;
       if (cardHost)  cardHost.style.display  = '';
       if (orgHost)   orgHost.style.display   = 'none';
       if (cardBtn)  { cardBtn.classList.add('tvt-active'); }
@@ -260,6 +260,7 @@
       if (rz)    rz.style.removeProperty('display');
       window.AF?.();
     } else {
+      if (libSi && orgSi && orgSi.value !== libSi.value) orgSi.value = libSi.value;
       if (cardHost)  cardHost.style.display  = 'none';
       if (orgHost)   orgHost.style.display   = '';
       if (cardBtn)  { cardBtn.classList.remove('tvt-active'); }
@@ -269,7 +270,6 @@
       if (fsEl)  fsEl.style.removeProperty('display');
       if (rz)    rz.style.removeProperty('display');
       window.renderOrg?.();
-      setTimeout(() => window.adjustOrgTableHeight?.(), 100);
     }
   };
 
@@ -729,15 +729,29 @@
 #vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
 #vpanelInner.is-portrait #vpanel-back-btn { z-index: 5 !important; }
 /* ── テストタブ ── */
+/* organizeTab と同じ fixed flex-column 構造 */
+#testTab.active {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: var(--topbar-h, 72px);
+  left: var(--sbw, 0px);
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: var(--surface);
+  z-index: 15;
+}
+@media(max-width:767px) {
+  #testTab.active { left: 0; top: var(--topbar-h, 56px); }
+}
 .test-view-bar {
+  flex-shrink: 0;
   display: flex;
   gap: 6px;
   padding: 8px 12px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 .tvt-btn {
   padding: 5px 14px;
@@ -756,17 +770,29 @@
   color: var(--on-accent);
   border-color: var(--accent);
 }
-/* test-view-bar の高さ分だけヘッダーを下にずらす */
+/* カードホスト: 内部スクロール */
+#test-card-host {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 #test-card-host .results-header {
-  top: var(--tvb-h, 43px);
-}
-#test-org-host .org-count-bar {
+  flex-shrink: 0;
   position: sticky;
-  top: var(--tvb-h, 43px);
-  z-index: 10;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  top: 0;
 }
+/* テーブルホスト: organizeTab と同構造 */
+#test-org-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#test-org-host .org-count-bar { flex-shrink: 0; }
+#test-org-host .org-table-wrap { flex: 1; min-height: 0; }
 </style>
 </head>
 <body>
