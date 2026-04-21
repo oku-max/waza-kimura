@@ -629,3 +629,33 @@
 }
 .n-snap-picker-card:hover { border-color: var(--accent) }
 .n-snap-picker-ph { font-size: 20px; opacity: .4 }
+
+/* ── block move buttons ── */
+.n-block-move {
+  display: none; position: absolute; top: 4px;
+  padding: 2px 4px; border-radius: 4px; font-size: 10px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text3); cursor: pointer; line-height: 1;
+}
+.n-block-up { right: 48px }
+.n-block-dn { right: 28px }
+.n-block-wrap:hover .n-block-move { display: block }
+.n-block-move:hover { background: var(--surface3); color: var(--text) }
+
+/* ── insert strip between blocks ── */
+.n-ins-strip {
+  display: flex; align-items: center; gap: 6px;
+  margin: 1px 0; padding: 0 2px;
+  opacity: 0; transition: opacity .15s;
+}
+.n-ins-strip:hover { opacity: 1 }
+.n-ins-line { flex: 1; height: 1px; background: var(--border2) }
+.n-ins-btn {
+  font-size: 10px; padding: 1px 8px; border-radius: 10px;
+  border: 1px dashed var(--border2); background: transparent;
+  color: var(--text3); cursor: pointer; white-space: nowrap; line-height: 1.6;
+}
+.n-ins-btn:hover { background: var(--surface2); color: var(--accent); border-color: var(--accent); border-style: solid }
+@media (max-width: 767px) {
+  .n-ins-strip { opacity: 1 }
+}

@@ -500,9 +500,15 @@ function _renderRecent() {
 }
 
 // ── block rendering ──
-function _blockHTML(block, idx, noteId) {
+function _blockHTML(block, idx, noteId, total) {
   const del = `<button class="n-block-del" title="削除"
     onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>`;
+  const upBtn = idx > 0
+    ? `<button class="n-block-move n-block-up" title="上へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},-1)">↑</button>`
+    : `<button class="n-block-move n-block-up" style="visibility:hidden" tabindex="-1">↑</button>`;
+  const dnBtn = idx < total - 1
+    ? `<button class="n-block-move n-block-dn" title="下へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">↓</button>`
+    : `<button class="n-block-move n-block-dn" style="visibility:hidden" tabindex="-1">↓</button>`;
   const editable = (cls) =>
     `<div class="${cls} n-editable" contenteditable="true"
           data-idx="${idx}" data-note-id="${noteId}"
@@ -511,9 +517,9 @@ function _blockHTML(block, idx, noteId) {
      >${_esc(block.content)}</div>`;
 
   switch (block.type) {
-    case 'h2':    return `<div class="n-block-wrap">${editable('n-b-h2')}${del}</div>`;
-    case 'text':  return `<div class="n-block-wrap">${editable('n-b-text')}${del}</div>`;
-    case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${del}</div>`;
+    case 'h2':    return `<div class="n-block-wrap">${editable('n-b-h2')}${upBtn}${dnBtn}${del}</div>`;
+    case 'text':  return `<div class="n-block-wrap">${editable('n-b-text')}${upBtn}${dnBtn}${del}</div>`;
+    case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${upBtn}${dnBtn}${del}</div>`;
     case 'video': {
       // carousel blocks are grouped by _renderBlocks — only inline reaches here
       const thumbUrl = _blockThumbUrl(block);
@@ -536,7 +542,7 @@ function _blockHTML(block, idx, noteId) {
             ${modeBtn}
           </div>
           <div class="n-bvi-player" id="n-bvi-player-${noteId}-${idx}"></div>
-        </div>${del}</div>`;
+        </div>${upBtn}${dnBtn}${del}</div>`;
     }
     case 'image': {
       if (block.refSnapId) {
@@ -548,18 +554,18 @@ function _blockHTML(block, idx, noteId) {
               <span style="color:var(--text3);font-size:11px">📷 読み込み中…</span>
             </div>
             <div class="n-b-img-caption">${caption}</div>
-          </div>${del}</div>`;
+          </div>${upBtn}${dnBtn}${del}</div>`;
       }
       if (block.snapId) {
         return `<div class="n-block-wrap n-block-wrap-snap" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}">
-          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${del}</div>`;
+          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${upBtn}${dnBtn}${del}</div>`;
       }
       // legacy: data URL stored directly
       return `<div class="n-block-wrap n-block-wrap-card">
         <div class="n-b-image">
           <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
           ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
-        </div>${del}</div>`;
+        </div>${upBtn}${dnBtn}${del}</div>`;
     }
     default: return '';
   }
@@ -607,6 +613,30 @@ window._notesBlockDel = function(noteId, idx) {
   _renderNote(noteId);
 };
 
+window._notesBlockMove = function(noteId, idx, dir) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const blocks = r.note.blocks;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= blocks.length) return;
+  [blocks[idx], blocks[newIdx]] = [blocks[newIdx], blocks[idx]];
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesInsertTextAt = function(noteId, afterIdx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  r.note.blocks.splice(afterIdx + 1, 0, { type: 'text', content: '' });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+  setTimeout(() => {
+    document.querySelector(`[data-note-id="${noteId}"][data-idx="${afterIdx + 1}"]`)?.focus();
+  }, 40);
+};
+
 window._notesAddTextBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
@@ -651,8 +681,17 @@ function _renderCarouselGroup(group, noteId) {
   </div>`;
 }
 
+function _insertStrip(noteId, afterIdx) {
+  return `<div class="n-ins-strip">
+    <div class="n-ins-line"></div>
+    <button class="n-ins-btn" onclick="window._notesInsertTextAt('${noteId}',${afterIdx})">＋</button>
+    <div class="n-ins-line"></div>
+  </div>`;
+}
+
 function _renderBlocks(blocks, noteId) {
   const parts = [];
+  const total = blocks.length;
   let i = 0;
   while (i < blocks.length) {
     const b = blocks[i];
@@ -663,8 +702,10 @@ function _renderBlocks(blocks, noteId) {
         i++;
       }
       parts.push(_renderCarouselGroup(group, noteId));
+      if (i < blocks.length) parts.push(_insertStrip(noteId, i - 1));
     } else {
-      parts.push(_blockHTML(b, i, noteId));
+      parts.push(_blockHTML(b, i, noteId, total));
+      if (i < blocks.length - 1) parts.push(_insertStrip(noteId, i));
       i++;
     }
   }

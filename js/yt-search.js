@@ -782,6 +782,7 @@ export async function ytSrAddToLibrary() {
 
   _addedSet.add(id);
   window.AF?.();
+  _updateAddedUI(id); // 即時UI反映（保存完了を待たない）
 
   try {
     await saveUserData();
@@ -793,8 +794,6 @@ export async function ytSrAddToLibrary() {
   if (window.aiSettings?.autoTagOnImport) {
     window.autoTagNewVideos?.([libId]);
   }
-
-  _updateAddedUI(id);
 
   // 追加後: VP が開いている場合 → CTA を登録済み表示に更新（VP は閉じない）
   const isVPanelOpen = document.getElementById('yt-sr-vp-overlay')?.classList.contains('open');
