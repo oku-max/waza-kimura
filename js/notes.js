@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.33 ═══
+// ═══ WAZA KIMURA — Notes tab v50.34 ═══
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -652,9 +652,8 @@ function _renderNote(id) {
     <div id="n-blocks-${id}">${_renderBlocks(note.blocks, id)}</div>
     <div class="n-note-actions">
       <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">＋ テキスト</button>
-      <button class="n-add-inline" onclick="window._notesAddVideoBlock?.('${id}')">📹 動画</button>
+      <button class="n-add-inline n-add-video-btn" onclick="window._notesShowVidPicker?.('${id}')">＋ 動画を追加</button>
       <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
-      <button class="n-add-inline" onclick="window.uniOpenForNote?.('${id}')">📚 ライブラリ</button>
     </div>
   `;
 
@@ -694,7 +693,166 @@ function _closeSb() {
 }
 window._notesCloseSb = _closeSb;
 
-window._notesAddVideoBlock = function(noteId) { _showVideoAddSheet(noteId); };
+// ── 動画追加ピッカー ──
+function _modePick(vm) {
+  return `<label class="n-sheet-lbl">表示スタイル</label>
+    <div class="n-vm-pick" id="n-vm-pick" style="margin-bottom:16px">
+      <button class="n-vm-btn${vm==='carousel'?' sel':''}" data-vm="carousel" onclick="window._notesVmPick('carousel')">🎠 カード</button>
+      <button class="n-vm-btn${vm==='inline'?' sel':''}" data-vm="inline" onclick="window._notesVmPick('inline')">📺 インライン</button>
+    </div>`;
+}
+
+function _notesVidPickerRenderPick(overlay) {
+  const vm = overlay.dataset.viewMode || 'carousel';
+  overlay.innerHTML = `<div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+    <div class="n-sheet-hdr"><span class="n-sheet-title">＋ 動画を追加</span></div>
+    <div class="n-sheet-body">
+      ${_modePick(vm)}
+      <label class="n-sheet-lbl">追加方法を選択</label>
+      <div class="n-src-list">
+        <button class="n-src-btn" onclick="window._notesPickLib()">
+          <span class="n-src-icon">🔍</span>
+          <div class="n-src-info">
+            <div class="n-src-ttl">ライブラリから選ぶ</div>
+            <div class="n-src-sub">フィルターで絞り込んで選択</div>
+          </div>
+          <span class="n-src-arr">›</span>
+        </button>
+        <button class="n-src-btn" onclick="window._notesPickUrl()">
+          <span class="n-src-icon">🔗</span>
+          <div class="n-src-info">
+            <div class="n-src-ttl">URLで追加</div>
+            <div class="n-src-sub">YouTube・URL直接入力</div>
+          </div>
+          <span class="n-src-arr">›</span>
+        </button>
+      </div>
+    </div>
+    <div class="n-sheet-btns">
+      <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+    </div>
+  </div>`;
+}
+
+function _notesVidPickerRenderUrl(overlay) {
+  const vm = overlay.dataset.viewMode || 'carousel';
+  overlay.innerHTML = `<div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+    <div class="n-sheet-hdr">
+      <button class="n-sheet-back" onclick="window._notesPickerBack()">‹</button>
+      <span class="n-sheet-title">🔗 URLで追加</span>
+    </div>
+    <div class="n-sheet-body">
+      ${_modePick(vm)}
+      <label class="n-sheet-lbl">YouTube URL</label>
+      <input id="n-block-video-url" class="n-sheet-input" type="text"
+             placeholder="https://www.youtube.com/watch?v=..."
+             style="margin-bottom:10px"
+             oninput="window._notesUrlAutoFetch(this.value)"
+             onkeydown="if(event.key==='Enter') window._notesVideoConfirm()">
+      <label class="n-sheet-lbl">
+        タイトル
+        <span id="n-url-fetch-status" style="font-size:10px;color:var(--accent);margin-left:6px"></span>
+      </label>
+      <input id="n-block-video-title" class="n-sheet-input" type="text"
+             placeholder="URLを入力すると自動取得"
+             onkeydown="if(event.key==='Enter') window._notesVideoConfirm()">
+    </div>
+    <div class="n-sheet-btns">
+      <button class="n-btn n-btn-ghost" onclick="window._notesPickerBack()">戻る</button>
+      <button class="n-btn n-btn-primary" onclick="window._notesVideoConfirm()">追加する</button>
+    </div>
+  </div>`;
+  setTimeout(() => document.getElementById('n-block-video-url')?.focus(), 80);
+}
+
+window._notesShowVidPicker = function(noteId) {
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.noteId = noteId;
+  overlay.dataset.viewMode = 'carousel';
+  _notesVidPickerRenderPick(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) window._notesSheetClose(); });
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+};
+
+window._notesVmPick = function(vm) {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (overlay) overlay.dataset.viewMode = vm;
+  document.querySelectorAll('#n-vm-pick .n-vm-btn').forEach(b => b.classList.toggle('sel', b.dataset.vm === vm));
+};
+
+window._notesPickLib = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  const noteId   = overlay.dataset.noteId;
+  const viewMode = overlay.dataset.viewMode || 'carousel';
+  window._noteModeViewMode = viewMode;
+  window._notesSheetClose();
+  window.uniOpenForNote?.(noteId);
+};
+
+window._notesPickUrl = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  _notesVidPickerRenderUrl(overlay);
+};
+
+window._notesPickerBack = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  _notesVidPickerRenderPick(overlay);
+};
+
+let _ytFetchTimer = null;
+window._notesUrlAutoFetch = function(url) {
+  clearTimeout(_ytFetchTimer);
+  const status = document.getElementById('n-url-fetch-status');
+  const ytId = _extractYtId(url);
+  if (!ytId) { if (status) status.textContent = ''; return; }
+  if (status) status.textContent = '取得中…';
+  _ytFetchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
+      if (!res.ok) { if (status) status.textContent = ''; return; }
+      const data = await res.json();
+      const titleEl = document.getElementById('n-block-video-title');
+      if (titleEl) { titleEl.value = data.title || ''; titleEl.dataset.channel = data.author_name || ''; }
+      if (status) status.textContent = '✓ 自動取得';
+    } catch { if (status) status.textContent = ''; }
+  }, 700);
+};
+
+window._notesGetAddedVideoIds = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return new Set();
+  return new Set(r.note.blocks.filter(b => b.type === 'video').map(b => b.videoId));
+};
+
+window._notesVideoConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay) return;
+  const noteId   = overlay.dataset.noteId;
+  const viewMode = overlay.dataset.viewMode || 'carousel';
+  const url = document.getElementById('n-block-video-url')?.value.trim();
+  if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
+  const videoId = _extractYtId(url) || url;
+  const title   = document.getElementById('n-block-video-title')?.value.trim() || '';
+  const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
+  const r = _findNote(noteId);
+  if (!r) return;
+  const added = r.note.blocks.some(b => b.type === 'video' && b.videoId === videoId);
+  if (added) { window.toast?.('この動画はすでに追加されています'); return; }
+  r.note.blocks.push({ type: 'video', videoId, title, channel, duration: '', viewMode });
+  r.note.updatedAt = Date.now();
+  _save();
+  window._notesSheetClose();
+  _renderNote(noteId);
+};
+
+window._notesAddVideoBlock = function(noteId) { window._notesShowVidPicker(noteId); };
 window._notesAddImageBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
@@ -899,7 +1057,8 @@ window._notesAddFromLib = function(videoId, noteId) {
   const v = (window.videos || []).find(x => x.id === videoId);
   if (!v) return;
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
-    note.blocks.push({ type: 'video', videoId, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '', viewMode: 'carousel' });
+    const viewMode = window._noteModeViewMode || 'carousel';
+    note.blocks.push({ type: 'video', videoId, title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: '', viewMode });
     note.updatedAt = Date.now();
     _save();
   }

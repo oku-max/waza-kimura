@@ -272,6 +272,28 @@
 }
 .n-add-inline:hover { border-color: var(--accent); color: var(--accent); background: rgba(232,201,106,.06) }
 
+/* ── 動画追加ピッカー: ソース選択ボタン ── */
+.n-src-list { display:flex; flex-direction:column; gap:8px; margin-top:6px }
+.n-src-btn {
+  display:flex; align-items:center; gap:12px; width:100%;
+  padding:12px 14px; border-radius:10px; text-align:left;
+  border:1.5px solid var(--border2); background:var(--surface2);
+  cursor:pointer; transition:border-color .15s, background .15s;
+  font-family:inherit;
+}
+.n-src-btn:hover { border-color:var(--accent); background:rgba(232,201,106,.06) }
+.n-src-icon { font-size:20px; flex-shrink:0 }
+.n-src-info { flex:1 }
+.n-src-ttl  { font-size:13px; font-weight:700; color:var(--text); margin-bottom:2px }
+.n-src-sub  { font-size:11px; color:var(--text3) }
+.n-src-arr  { font-size:20px; color:var(--text3); flex-shrink:0 }
+.n-sheet-back {
+  background:none; border:none; color:var(--text2); font-size:16px; font-weight:600;
+  cursor:pointer; padding:0 8px 0 0; line-height:1; font-family:inherit;
+}
+.n-sheet-back:hover { color:var(--text) }
+.n-add-video-btn { font-weight:700; border-style:solid; color:var(--accent); border-color:var(--accent); background:rgba(232,201,106,.06) }
+
 /* ── モード選択ピッカー ── */
 .n-vm-pick { display:flex; gap:6px; margin-bottom:2px }
 .n-vm-btn {

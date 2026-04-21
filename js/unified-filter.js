@@ -206,6 +206,9 @@
 #uni-popup .uni-vc-add-btn{font-size:16px;font-weight:700;color:#059669;flex-shrink:0;padding:0 2px}
 #uni-popup .uni-vid-row-nm{border-left:3px solid #059669}
 #uni-popup .uni-vid-row-nm:hover{background:#05966910}
+#uni-popup .uni-vc-row-added,#uni-popup .uni-vid-row-added{opacity:.6;cursor:default;border-left-color:#059669}
+#uni-popup .uni-vc-row-added:hover,#uni-popup .uni-vid-row-added:hover{background:inherit}
+#uni-popup .uni-vc-added-badge{font-size:9px;font-weight:700;color:#059669;background:#05966918;border:1px solid #05966940;border-radius:10px;padding:2px 6px;flex-shrink:0;white-space:nowrap}
 </style>`;
     document.head.insertAdjacentHTML('beforeend', css);
     // uni-q フォーカス時にクラスを付与→保存バーを非表示（キーボード出現時のレイアウト圧迫を防ぐ）
@@ -329,6 +332,7 @@
     </select>`;
 
     const isNoteMode = !!_noteMode;
+    const addedIds = isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set();
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
       const thumb = ytId
@@ -336,17 +340,22 @@
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
-      const onclick = isNoteMode
+      const isAdded = isNoteMode && addedIds.has(v.id);
+      const onclick = isNoteMode && !isAdded
         ? `window._notesAddFromLib?.('${_esc(v.id)}','${_esc(_noteMode)}')`
-        : `window.openVPanel?.('${_esc(v.id)}');uniClose()`;
-      const rowClass = isNoteMode ? 'uni-vc-row uni-vc-row-nm' : 'uni-vc-row';
-      const addBtn = isNoteMode ? `<span class="uni-vc-add-btn">＋</span>` : '';
+        : !isNoteMode ? `window.openVPanel?.('${_esc(v.id)}');uniClose()` : '';
+      const rowClass = isNoteMode
+        ? 'uni-vc-row uni-vc-row-nm' + (isAdded ? ' uni-vc-row-added' : '')
+        : 'uni-vc-row';
+      const indicator = isNoteMode
+        ? (isAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
+        : '';
       return `<div class="${rowClass}" onclick="${onclick}">
         <div class="uni-vc-thumb">${thumb}</div>
         <div class="uni-vc-info">
           <div class="uni-vc-title">${_esc(v.title||'')}</div>
           <div class="uni-vc-meta">${_esc(v.channel||v.ch||'')}${sMark}</div>
-        </div>${addBtn}
+        </div>${indicator}
       </div>`;
     }).join('');
 
@@ -628,23 +637,29 @@
         return (v.title || '').toLowerCase().includes(_q)
           || (v.channel || v.ch || '').toLowerCase().includes(_q);
       });
+      const vidAddedIds = _noteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set();
       const rows = vids.length
         ? vids.map(v => {
             const ytId = v.ytId || ((v.pt || v.src || 'youtube') === 'youtube' ? v.id : null);
             const thumb = ytId
               ? `<img src="https://i.ytimg.com/vi/${ytId}/default.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
               : '▶';
-            const vidOnclick = _noteMode
+            const isVidAdded = !!_noteMode && vidAddedIds.has(v.id);
+            const vidOnclick = _noteMode && !isVidAdded
               ? `window._notesAddFromLib?.('${_esc(v.id)}','${_esc(_noteMode)}')`
-              : `window.openVPanel?.('${_esc(v.id)}');uniClose()`;
-            const vidRowClass = _noteMode ? 'uni-vid-row uni-vid-row-nm' : 'uni-vid-row';
-            const vidAddBtn = _noteMode ? `<span class="uni-vc-add-btn">＋</span>` : '';
+              : !_noteMode ? `window.openVPanel?.('${_esc(v.id)}');uniClose()` : '';
+            const vidRowClass = _noteMode
+              ? 'uni-vid-row uni-vid-row-nm' + (isVidAdded ? ' uni-vid-row-added' : '')
+              : 'uni-vid-row';
+            const vidIndicator = _noteMode
+              ? (isVidAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
+              : '';
             return `<div class="${vidRowClass}" onclick="${vidOnclick}">
               <div class="uni-vid-thumb">${thumb}</div>
               <div class="uni-vid-info">
                 <div class="uni-vid-title">${_esc(v.title || '')}</div>
                 <div class="uni-vid-meta">${_esc(v.channel || v.ch || '')} · ${_esc(v.pl || '')}</div>
-              </div>${vidAddBtn}
+              </div>${vidIndicator}
             </div>`;
           }).join('')
         : '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">一致する動画がありません</div>';
