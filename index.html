@@ -212,6 +212,11 @@
       orgHost.appendChild(orgTableWrap);
       orgHost.appendChild(orgEmpty);
     }
+    // test-view-bar の実際の高さをCSS変数にセット
+    requestAnimationFrame(() => {
+      const tvb = document.querySelector('.test-view-bar');
+      if (tvb) document.documentElement.style.setProperty('--tvb-h', tvb.offsetHeight + 'px');
+    });
     window._testView(window._testTabMode || 'card');
   };
 
@@ -750,6 +755,17 @@
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
+}
+/* test-view-bar の高さ分だけヘッダーを下にずらす */
+#test-card-host .results-header {
+  top: var(--tvb-h, 43px);
+}
+#test-org-host .org-count-bar {
+  position: sticky;
+  top: var(--tvb-h, 43px);
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 </style>
 </head>
