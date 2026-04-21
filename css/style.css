@@ -1540,6 +1540,8 @@ body.bulk-mode #cardList { padding-top: 46px; }
     left: 0; right: 0;
     z-index: 75;
   }
+  /* テーブルコンテンツ: 3層固定バー(47+46+38=131px)分の余白 */
+  body.bulk-mode #org-table-wrap { margin-top: 131px; }
 }
 
 /* Organize: org-count-bar は fixed コンテナ内の flex child なので元から非スクロール。
