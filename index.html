@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.50</title>
+<title>WAZA KIMURA v50.51</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1113,10 +1113,8 @@
   </div>
   <!-- Library操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="library-actionbar">
-    <div style="display:flex;gap:4px;align-items:center;width:100%">
-      <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn" style="flex:1">☰ フィルター</button>
-      <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
-    </div>
+    <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
+    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
     <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn">☑ 一括編集</button>
     <div style="display:flex;gap:4px;align-items:center;width:100%">
       <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'flex':'none'"></div>
