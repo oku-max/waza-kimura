@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.45</title>
+<title>WAZA KIMURA v50.46</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -186,6 +186,88 @@
   window.toastUndo               = toastUndo;
   window.scr                     = scr;
   window.switchTab               = switchTab;
+
+  // ── テストタブ: DOM relocation ──
+  let _testOrigCardHost  = null;
+  let _testOrigOrgHost   = null;
+  window._testTabMode = 'card';
+
+  window._testTabEnter = function() {
+    const cardHost   = document.getElementById('test-card-host');
+    const orgHost    = document.getElementById('test-org-host');
+    const libHdr     = document.getElementById('lib-results-header');
+    const cardList   = document.getElementById('cardList');
+    const orgCountBar = document.getElementById('org-count-bar');
+    const orgTableWrap = document.getElementById('org-table-wrap');
+    const orgEmpty   = document.getElementById('org-empty');
+
+    if (cardHost && libHdr && !cardHost.contains(libHdr)) {
+      _testOrigCardHost = libHdr.parentNode;
+      cardHost.appendChild(libHdr);
+      cardHost.appendChild(cardList);
+    }
+    if (orgHost && orgCountBar && !orgHost.contains(orgCountBar)) {
+      _testOrigOrgHost = orgCountBar.parentNode;
+      orgHost.appendChild(orgCountBar);
+      orgHost.appendChild(orgTableWrap);
+      orgHost.appendChild(orgEmpty);
+    }
+    window._testView(window._testTabMode || 'card');
+  };
+
+  window._testTabLeave = function() {
+    const libHdr      = document.getElementById('lib-results-header');
+    const cardList    = document.getElementById('cardList');
+    const orgCountBar = document.getElementById('org-count-bar');
+    const orgTableWrap = document.getElementById('org-table-wrap');
+    const orgEmpty    = document.getElementById('org-empty');
+
+    if (_testOrigCardHost && libHdr && _testOrigCardHost !== libHdr.parentNode) {
+      _testOrigCardHost.appendChild(libHdr);
+      _testOrigCardHost.appendChild(cardList);
+    }
+    if (_testOrigOrgHost && orgCountBar && _testOrigOrgHost !== orgCountBar.parentNode) {
+      _testOrigOrgHost.appendChild(orgCountBar);
+      _testOrigOrgHost.appendChild(orgTableWrap);
+      _testOrigOrgHost.appendChild(orgEmpty);
+    }
+  };
+
+  window._testView = function(mode) {
+    window._testTabMode = mode;
+    const cardHost   = document.getElementById('test-card-host');
+    const orgHost    = document.getElementById('test-org-host');
+    const cardBtn    = document.getElementById('tvt-card');
+    const orgBtn     = document.getElementById('tvt-org');
+    const libC       = document.getElementById('fs-library-content');
+    const orgC       = document.getElementById('fs-organize-content');
+    const fsEl       = document.getElementById('filterSidebar');
+    const rz         = document.getElementById('sbResizer');
+
+    if (mode === 'card') {
+      if (cardHost)  cardHost.style.display  = '';
+      if (orgHost)   orgHost.style.display   = 'none';
+      if (cardBtn)  { cardBtn.classList.add('tvt-active'); }
+      if (orgBtn)   { orgBtn.classList.remove('tvt-active'); }
+      if (libC)  libC.style.display  = '';
+      if (orgC)  orgC.style.display  = 'none';
+      if (fsEl)  fsEl.style.removeProperty('display');
+      if (rz)    rz.style.removeProperty('display');
+      window.AF?.();
+    } else {
+      if (cardHost)  cardHost.style.display  = 'none';
+      if (orgHost)   orgHost.style.display   = '';
+      if (cardBtn)  { cardBtn.classList.remove('tvt-active'); }
+      if (orgBtn)   { orgBtn.classList.add('tvt-active'); }
+      if (libC)  libC.style.display  = 'none';
+      if (orgC)  orgC.style.display  = '';
+      if (fsEl)  fsEl.style.removeProperty('display');
+      if (rz)    rz.style.removeProperty('display');
+      window.renderOrg?.();
+      setTimeout(() => window.adjustOrgTableHeight?.(), 100);
+    }
+  };
+
   // cards
   window.renderCards             = renderCards;
   window.cardHTML                = cardHTML;
@@ -641,6 +723,34 @@
 #vpanelInner.is-portrait #vpanel-blur-area { display: none !important; }
 #vpanelInner.is-portrait #vpanel-col-resizer { display: none !important; }
 #vpanelInner.is-portrait #vpanel-back-btn { z-index: 5 !important; }
+/* ── テストタブ ── */
+.test-view-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.tvt-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.tvt-btn.tvt-active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
 </style>
 </head>
 <body>
@@ -657,6 +767,7 @@
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
       <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">📓 Notes</div>
       <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
+      <div class="tn-i" id="tnav-test" onclick="switchTab('test')" style="color:var(--accent)">🧪 テスト</div>
     </nav>
   </div>
   <!-- 検索＋ボタン行 -->
@@ -694,6 +805,7 @@
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
     <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>📓</span> Notes</div>
     <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
+    <div class="fs-nav-i" id="fnav-test" onclick="switchTab('test')" style="color:var(--accent)"><span>🧪</span> テスト</div>
   </nav>
 
   <!-- 新サイドバー：Library / Organize 共通 -->
@@ -977,7 +1089,7 @@
     <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
     <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
-  <div class="results-header">
+  <div class="results-header" id="lib-results-header">
     <div class="toolbar-normal">
       <span class="results-count" id="rc"></span>
       <div style="display:flex;align-items:center;gap:4px">
@@ -1040,7 +1152,7 @@
     </div>
   </div>
   <!-- Organizeカウントバー -->
-  <div class="org-count-bar">
+  <div class="org-count-bar" id="org-count-bar">
     <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
       <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
       <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
@@ -1057,7 +1169,7 @@
     </div>
   </div>
   <!-- 表形式リスト -->
-  <div class="org-table-wrap">
+  <div class="org-table-wrap" id="org-table-wrap">
     <table class="org-table" id="orgTable">
       <thead id="orgThead"><tr id="orgTheadRow"></tr></thead>
       <tbody id="orgList"></tbody>
@@ -1293,6 +1405,16 @@
       <div class="notes-content" id="notesContent"></div>
     </div>
   </div>
+</div>
+
+<!-- TEST TAB (統合ビュー実験) -->
+<div class="tab-panel" id="testTab">
+  <div class="test-view-bar">
+    <button id="tvt-card" class="tvt-btn tvt-active" onclick="window._testView('card')">📋 カードビュー</button>
+    <button id="tvt-org"  class="tvt-btn"            onclick="window._testView('org')">📊 テーブルビュー</button>
+  </div>
+  <div id="test-card-host"></div>
+  <div id="test-org-host" style="display:none"></div>
 </div>
 
 <!-- VPanel → Notes selector sheet -->
@@ -1547,6 +1669,7 @@
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
   <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>📓</span>Notes</div>
   <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
+  <div class="mn-i" id="mnav-test" onclick="switchTab('test')" style="color:var(--accent)"><span>🧪</span>テスト</div>
 </nav>
 </div><!-- /main-area -->
 </div><!-- /app-shell -->

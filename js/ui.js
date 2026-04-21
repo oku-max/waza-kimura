@@ -52,7 +52,7 @@ export function switchTab(t) {
     const orgTab = document.getElementById('organizeTab');
     if (orgTab) orgTab.style.left = '';  // 古い inline style があれば除去
   }
-  ['home','community','organize','archive','settings','admin','search','notes'].forEach(n => {
+  ['home','community','organize','archive','settings','admin','search','notes','test'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
     const m  = document.getElementById('mnav-' + n); if (m)  m.className  = 'mn-i'      + (t === n ? ' active' : '');
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
@@ -62,6 +62,12 @@ export function switchTab(t) {
     const libC = document.getElementById('fs-library-content');
     const orgC = document.getElementById('fs-organize-content');
     const settingsC = document.getElementById('fs-settings-content');
+    if (t === 'test') {
+      if (settingsC) settingsC.style.display = 'none';
+      window._testTabEnter?.();
+      return; // sidebar handled by _testView
+    }
+    window._testTabLeave?.();
     if (t === 'organize') {
       if (orgC) orgC.style.display = '';
       if (libC) libC.style.display = 'none';
