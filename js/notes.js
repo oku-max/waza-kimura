@@ -1,5 +1,5 @@
-// ═══ WAZA KIMURA — Notes tab v50.43 ═══
-import { getSnapshot } from './snapshot-db.js';
+// ═══ WAZA KIMURA — Notes tab v50.44 ═══
+import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
 
@@ -1087,15 +1087,22 @@ window._notesImgFromLib = async function(noteId) {
   }
 };
 
-window._notesInsertRefSnap = function(noteId, snapId, videoId) {
+window._notesInsertRefSnap = async function(noteId, snapId, videoId) {
   const r = _findNote(noteId);
   if (!r) return;
-  r.note.blocks.push({ type: 'image', refSnapId: snapId, refVideoId: videoId });
-  r.note.updatedAt = Date.now();
-  _save();
-  window._notesSheetClose();
-  _renderNote(noteId);
-  window.toast?.('📷 スナップを挿入しました');
+  _removeSheet();
+  window.toast?.('📷 読み込み中…');
+  try {
+    const snap = await getSnapshot(snapId);
+    if (!snap?.blob) { window.toast?.('スナップの取得に失敗しました'); return; }
+    const newSnapId = 'note_' + noteId + '_' + Date.now().toString(36);
+    await putSnapshot(newSnapId, newSnapId, snap.blob, snap.annotations || []);
+    r.note.blocks.push({ type: 'image', snapId: newSnapId, refs: [{ id: newSnapId, memo: '', order: 0 }] });
+    r.note.updatedAt = Date.now();
+    _save();
+    _renderNote(noteId);
+    window.toast?.('📷 スナップを挿入しました');
+  } catch(e) { console.error('_notesInsertRefSnap:', e); window.toast?.('エラーが発生しました'); }
 };
 
 function _initNoteSnap(noteId, snapId, block, blockIdx) {
