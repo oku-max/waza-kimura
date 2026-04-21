@@ -119,6 +119,8 @@ window._notesLoadFromRemote = function(remoteData, remoteAt) {
 let _data = _load();
 let _activeId = null;
 let _recentIds = [];
+let _dragSrcNoteId = null;
+let _dragSrcIdx = null;
 
 // ── lookup ──
 function _findNote(id) {
@@ -128,6 +130,17 @@ function _findNote(id) {
   }
   return null;
 }
+
+// ── 挿入ヘルパー: _notesInsertAfterIdx が設定されていれば指定位置に挿入、なければ末尾に追加 ──
+function _blocksInsertOrPush(blocks, block) {
+  if (window._notesInsertAfterIdx != null) {
+    blocks.splice(window._notesInsertAfterIdx + 1, 0, block);
+    window._notesInsertAfterIdx = null;
+  } else {
+    blocks.push(block);
+  }
+}
+
 function _uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function _esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -409,6 +422,7 @@ window._notesSheetClose = function() {
   const overlay = document.getElementById('n-sheet-overlay');
   if (!overlay) return;
   overlay.classList.remove('vis');
+  window._notesInsertAfterIdx = null; // キャンセル時にリセット
   setTimeout(_removeSheet, 200);
 };
 
@@ -509,6 +523,11 @@ function _blockHTML(block, idx, noteId, total) {
   const dnBtn = idx < total - 1
     ? `<button class="n-block-move n-block-dn" title="下へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">↓</button>`
     : `<button class="n-block-move n-block-dn" style="visibility:hidden" tabindex="-1">↓</button>`;
+  const drag = `<div class="n-drag-handle" draggable="true" title="ドラッグして並び替え"
+    ondragstart="event.stopPropagation();window._notesDragStart(event,'${noteId}',${idx})">⠿</div>`;
+  const wrapAttrs = `ondragover="window._notesDragOver(event,'${noteId}',${idx})"
+    ondragleave="window._notesDragLeave(event)"
+    ondrop="window._notesDrop(event,'${noteId}',${idx})"`;
   const editable = (cls) =>
     `<div class="${cls} n-editable" contenteditable="true"
           data-idx="${idx}" data-note-id="${noteId}"
@@ -517,9 +536,9 @@ function _blockHTML(block, idx, noteId, total) {
      >${_esc(block.content)}</div>`;
 
   switch (block.type) {
-    case 'h2':    return `<div class="n-block-wrap">${editable('n-b-h2')}${upBtn}${dnBtn}${del}</div>`;
-    case 'text':  return `<div class="n-block-wrap">${editable('n-b-text')}${upBtn}${dnBtn}${del}</div>`;
-    case 'quote': return `<div class="n-block-wrap">${editable('n-b-quote')}${upBtn}${dnBtn}${del}</div>`;
+    case 'h2':    return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-h2')}${drag}${upBtn}${dnBtn}${del}</div>`;
+    case 'text':  return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-text')}${drag}${upBtn}${dnBtn}${del}</div>`;
+    case 'quote': return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-quote')}${drag}${upBtn}${dnBtn}${del}</div>`;
     case 'video': {
       // carousel blocks are grouped by _renderBlocks — only inline reaches here
       const thumbUrl = _blockThumbUrl(block);
@@ -542,30 +561,30 @@ function _blockHTML(block, idx, noteId, total) {
             ${modeBtn}
           </div>
           <div class="n-bvi-player" id="n-bvi-player-${noteId}-${idx}"></div>
-        </div>${upBtn}${dnBtn}${del}</div>`;
+        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
     }
     case 'image': {
       if (block.refSnapId) {
         const srcVid = (window.videos || []).find(v => v.id === block.refVideoId);
         const caption = `📎 ${_esc(srcVid?.title || block.refVideoId || 'VPanelより')}`;
-        return `<div class="n-block-wrap n-block-wrap-card">
+        return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
           <div class="n-b-image">
             <div class="n-ref-snap-load" data-ref-snap-id="${_esc(block.refSnapId)}">
               <span style="color:var(--text3);font-size:11px">📷 読み込み中…</span>
             </div>
             <div class="n-b-img-caption">${caption}</div>
-          </div>${upBtn}${dnBtn}${del}</div>`;
+          </div>${drag}${upBtn}${dnBtn}${del}</div>`;
       }
       if (block.snapId) {
-        return `<div class="n-block-wrap n-block-wrap-snap" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}">
-          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${upBtn}${dnBtn}${del}</div>`;
+        return `<div class="n-block-wrap n-block-wrap-snap" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}" ${wrapAttrs}>
+          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${drag}${upBtn}${dnBtn}${del}</div>`;
       }
       // legacy: data URL stored directly
-      return `<div class="n-block-wrap n-block-wrap-card">
+      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
         <div class="n-b-image">
           <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
           ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
-        </div>${upBtn}${dnBtn}${del}</div>`;
+        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
     }
     default: return '';
   }
@@ -637,10 +656,57 @@ window._notesInsertTextAt = function(noteId, afterIdx) {
   }, 40);
 };
 
+window._notesInsertVideoAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesShowVidPicker?.(noteId);
+};
+
+window._notesInsertImageAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesAddImageBlock?.(noteId);
+};
+
+window._notesDragStart = function(e, noteId, idx) {
+  _dragSrcNoteId = noteId;
+  _dragSrcIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.closest('.n-block-wrap')?.classList.add('n-dragging');
+};
+
+window._notesDragOver = function(e, noteId, idx) {
+  if (_dragSrcNoteId !== noteId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over'));
+  e.currentTarget.classList.add('n-drag-over');
+};
+
+window._notesDragLeave = function(e) {
+  e.currentTarget.classList.remove('n-drag-over');
+};
+
+window._notesDrop = function(e, noteId, idx) {
+  e.preventDefault();
+  document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
+  if (_dragSrcNoteId !== noteId || _dragSrcIdx === idx) { _dragSrcNoteId = null; return; }
+  const r = _findNote(noteId);
+  if (!r) return;
+  const blocks = r.note.blocks;
+  const src = _dragSrcIdx;
+  const dst = idx;
+  const [moved] = blocks.splice(src, 1);
+  blocks.splice(dst > src ? dst - 1 : dst, 0, moved);
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+  _dragSrcNoteId = null;
+  _dragSrcIdx = null;
+};
+
 window._notesAddTextBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
-  r.note.blocks.push({ type: 'text', content: '' });
+  _blocksInsertOrPush(r.note.blocks, { type: 'text', content: '' });
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
@@ -684,7 +750,9 @@ function _renderCarouselGroup(group, noteId) {
 function _insertStrip(noteId, afterIdx) {
   return `<div class="n-ins-strip">
     <div class="n-ins-line"></div>
-    <button class="n-ins-btn" onclick="window._notesInsertTextAt('${noteId}',${afterIdx})">＋</button>
+    <button class="n-ins-btn" onclick="window._notesInsertTextAt('${noteId}',${afterIdx})">テキスト</button>
+    <button class="n-ins-btn" onclick="window._notesInsertVideoAt('${noteId}',${afterIdx})">動画</button>
+    <button class="n-ins-btn" onclick="window._notesInsertImageAt('${noteId}',${afterIdx})">画像</button>
     <div class="n-ins-line"></div>
   </div>`;
 }
@@ -999,7 +1067,7 @@ window._notesVideoConfirm = function() {
   if (!r) return;
   const added = r.note.blocks.some(b => b.type === 'video' && b.videoId === videoId);
   if (added) { window.toast?.('この動画はすでに追加されています'); return; }
-  r.note.blocks.push({ type: 'video', videoId, title, channel, duration: '', viewMode });
+  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode });
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
@@ -1011,7 +1079,7 @@ window._notesAddImageBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
   const snapId = 'note_' + noteId + '_' + Date.now().toString(36);
-  r.note.blocks.push({ type: 'image', snapId, refs: [] });
+  _blocksInsertOrPush(r.note.blocks, { type: 'image', snapId, refs: [] });
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
@@ -1232,7 +1300,7 @@ window._notesVideoConfirm = function() {
   const title = document.getElementById('n-block-video-title')?.value.trim() || '';
   const r = _findNote(noteId);
   if (!r) return;
-  r.note.blocks.push({ type: 'video', videoId, title, channel: '', duration: '', viewMode });
+  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel: '', duration: '', viewMode });
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
@@ -1281,7 +1349,7 @@ window._notesImageConfirm = function() {
   const caption = document.getElementById('n-block-img-caption')?.value.trim() || '';
   const r = _findNote(noteId);
   if (!r) return;
-  r.note.blocks.push({ type: 'image', src, caption });
+  _blocksInsertOrPush(r.note.blocks, { type: 'image', src, caption });
   r.note.updatedAt = Date.now();
   _save();
   window._notesImgDataUrl = null;

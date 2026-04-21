@@ -630,6 +630,18 @@
 .n-snap-picker-card:hover { border-color: var(--accent) }
 .n-snap-picker-ph { font-size: 20px; opacity: .4 }
 
+/* ── drag handle ── */
+.n-drag-handle {
+  display: none; position: absolute; top: 4px; right: 70px;
+  padding: 2px 4px; border-radius: 4px; font-size: 11px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text3); cursor: grab; line-height: 1; user-select: none;
+}
+.n-block-wrap:hover .n-drag-handle { display: block }
+.n-drag-handle:active { cursor: grabbing }
+.n-block-wrap.n-drag-over { border-color: var(--accent) !important; background: rgba(232,201,106,.06) }
+.n-block-wrap.n-dragging { opacity: .4 }
+
 /* ── block move buttons ── */
 .n-block-move {
   display: none; position: absolute; top: 4px;
@@ -644,14 +656,14 @@
 
 /* ── insert strip between blocks ── */
 .n-ins-strip {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 4px;
   margin: 1px 0; padding: 0 2px;
   opacity: 0; transition: opacity .15s;
 }
 .n-ins-strip:hover { opacity: 1 }
 .n-ins-line { flex: 1; height: 1px; background: var(--border2) }
 .n-ins-btn {
-  font-size: 10px; padding: 1px 8px; border-radius: 10px;
+  font-size: 10px; padding: 1px 7px; border-radius: 10px;
   border: 1px dashed var(--border2); background: transparent;
   color: var(--text3); cursor: pointer; white-space: nowrap; line-height: 1.6;
 }
