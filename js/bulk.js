@@ -853,9 +853,9 @@ export function enterBulk(ctx='home', preserveSel=false){
   const sh=document.getElementById('sh');if(sh)sh.style.display='none';
   // PCサイドバーの一括ボタンを「終了」に切り替え
   const fsBtn=document.getElementById('fs-bulk-sel-btn');
-  if(fsBtn){fsBtn.textContent='✕ 一括キャンセル';fsBtn.onclick=exitBulk;fsBtn.style.color='';fsBtn.classList.add('bulk-active');}
+  if(fsBtn){fsBtn.onclick=exitBulk;fsBtn.classList.add('bulk-active');}
   const orgFsBtn=document.getElementById('org-fs-bulk-sel-btn');
-  if(orgFsBtn){orgFsBtn.textContent='✕ 一括キャンセル';orgFsBtn.onclick=exitBulk;orgFsBtn.classList.add('bulk-active');}
+  if(orgFsBtn){orgFsBtn.onclick=exitBulk;orgFsBtn.classList.add('bulk-active');}
   const selBtn2=document.getElementById('bulk-sel-btn');
   if(selBtn2){selBtn2.classList.add('bulk-active');}
   if(ctx==='organize'){
