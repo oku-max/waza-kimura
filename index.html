@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.47</title>
+<title>WAZA KIMURA v50.48</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -790,9 +790,9 @@
     <div class="tb-logo">WAZA <span>KIMURA</span></div>
     <nav class="topbar-nav" style="margin-left:8px">
       <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
-      <div class="tn-i" id="tnav-community" onclick="switchTab('community')">◎ Community</div>
+      <div class="tn-i" id="tnav-community" onclick="switchTab('community')" style="display:none">◎ Community</div>
       <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')" style="display:none">≡ Organize</div>
-      <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')">◫ Archive</div>
+      <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')" style="display:none">◫ Archive</div>
       <div class="tn-i" id="tnav-search" onclick="switchTab('search')">🔍 Search</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
       <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">📓 Notes</div>
@@ -827,9 +827,9 @@
   </div>
   <nav class="fs-nav">
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
-    <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')"><span>◎</span> Community</div>
+    <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')" style="display:none"><span>◎</span> Community</div>
     <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')" style="display:none"><span>≡</span> Organize</div>
-    <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')"><span>◫</span> Archive</div>
+    <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')" style="display:none"><span>◫</span> Archive</div>
     <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>🔍</span> Search</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
     <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>📓</span> Notes</div>
@@ -948,7 +948,7 @@
 
       <!-- リセット -->
       <div style="padding:12px">
-        <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
+        <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ リセット</button>
       </div>
 
     </div><!-- /fs-accordion-area -->
@@ -1084,7 +1084,7 @@
 
       <!-- リセット -->
       <div style="padding:12px">
-        <button onclick="clearOrgFilters()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ すべてリセット</button>
+        <button onclick="clearOrgFilters()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">✕ リセット</button>
       </div>
 
     </div><!-- /org-fs-accordion-area -->
@@ -1219,21 +1219,18 @@
 <div class="tab-panel" id="organizeTab"></div>
 
 <!-- ARCHIVE -->
-<div class="tab-panel" id="archiveTab">
-  <div style="padding:11px 13px;background:var(--surface);border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text2);background:var(--purple-soft);border:1px solid var(--purple);border-radius:8px;padding:8px 11px">📦 削除せず非表示にした動画。いつでも復元できます。</div></div>
-  <div class="results-header"><span class="results-count" id="arc"></span></div>
-  <!-- 一括操作バー -->
-  <div id="arch-bulk-bar" style="display:none;padding:7px 12px;align-items:center;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border)">
-    <input type="checkbox" id="arch-sel-all" onchange="archTogSelAll(this)" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0">
-    <span id="arch-sel-count" style="font-size:11px;color:var(--text2);flex:1">すべて選択</span>
-    <button id="arch-restore-btn" onclick="bulkRestoreArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid var(--green);border-radius:8px;cursor:pointer">↩ 一括復元</button>
-    <button id="arch-delete-btn" onclick="bulkDeleteArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--surface2);color:var(--accent);border:1px solid var(--border);border-radius:8px;cursor:pointer">🗑 一括削除</button>
-  </div>
-  <div id="archList"></div>
-</div>
+<div class="tab-panel" id="archiveTab"></div>
 
 <!-- SETTINGS TAB -->
 <div class="tab-panel" id="settingsTab">
+  <!-- サブタブバー -->
+  <div style="display:flex;border-bottom:1px solid var(--border);padding:0 4px;background:var(--surface)">
+    <div id="sstab-settings" onclick="switchSettingsSub('settings')" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">⚙ 設定</div>
+    <div id="sstab-archive" onclick="switchSettingsSub('archive')" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">📦 アーカイブ</div>
+  </div>
+
+  <!-- 設定コンテンツ -->
+  <div id="settings-main-content">
   <div style="max-width:640px;margin:0 auto;padding:16px 14px 80px;">
 
     <!-- ヘッダー -->
@@ -1299,8 +1296,18 @@
       </div>
     </div>
 
-    <!-- ═══ 管理モード ═══ -->
+    <!-- ═══ タブ表示設定 ═══ -->
     <div style="margin:32px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">タブ表示</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">コミュニティ動画タブを表示（この端末のみ）</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="community-mode-toggle" onchange="toggleCommunityMode(this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
+        </label>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:4px">🔒 管理モード</div>
@@ -1313,6 +1320,21 @@
     </div>
 
   </div>
+  </div><!-- /settings-main-content -->
+
+  <!-- アーカイブコンテンツ（設定内） -->
+  <div id="settings-archive-content" style="display:none">
+    <div style="padding:11px 13px;background:var(--surface);border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text2);background:var(--purple-soft);border:1px solid var(--purple);border-radius:8px;padding:8px 11px">📦 削除せず非表示にした動画。いつでも復元できます。</div></div>
+    <div class="results-header"><span class="results-count" id="arc"></span></div>
+    <div id="arch-bulk-bar" style="display:none;padding:7px 12px;align-items:center;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border)">
+      <input type="checkbox" id="arch-sel-all" onchange="archTogSelAll(this)" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0">
+      <span id="arch-sel-count" style="font-size:11px;color:var(--text2);flex:1">すべて選択</span>
+      <button id="arch-restore-btn" onclick="bulkRestoreArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--green-soft);color:var(--green);border:1px solid var(--green);border-radius:8px;cursor:pointer">↩ 一括復元</button>
+      <button id="arch-delete-btn" onclick="bulkDeleteArch()" style="display:none;padding:5px 10px;font-size:11px;font-weight:700;background:var(--surface2);color:var(--accent);border:1px solid var(--border);border-radius:8px;cursor:pointer">🗑 一括削除</button>
+    </div>
+    <div id="archList"></div>
+  </div><!-- /settings-archive-content -->
+
 </div>
 
 <!-- ADMIN TAB -->
@@ -1689,9 +1711,9 @@
 <div class="toast" id="toast"></div>
 <nav class="mobile-nav">
   <div class="mn-i active" id="mnav-home" onclick="switchTab('home')"><span>□</span>Library</div>
-  <div class="mn-i" id="mnav-community" onclick="switchTab('community')"><span>◎</span>Community</div>
+  <div class="mn-i" id="mnav-community" onclick="switchTab('community')" style="display:none"><span>◎</span>Community</div>
   <div class="mn-i" id="mnav-organize" onclick="switchTab('organize')" style="display:none"><span>≡</span>Organize</div>
-  <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')"><span>◫</span>Archive</div>
+  <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')" style="display:none"><span>◫</span>Archive</div>
   <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>🔍</span>Search</div>
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
   <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>📓</span>Notes</div>
@@ -3018,6 +3040,44 @@ function initAdminMode() {
   }
 }
 initAdminMode();
+
+// ── Community タブ表示切替 ──
+function toggleCommunityMode(on) {
+  localStorage.setItem('waza_community_mode', on ? '1' : '');
+  ['tnav-community','fnav-community','mnav-community'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? '' : 'none';
+  });
+  if (!on && document.getElementById('communityTab')?.classList.contains('active')) {
+    window.switchTab?.('home');
+  }
+}
+function initCommunityMode() {
+  const on = localStorage.getItem('waza_community_mode') === '1';
+  const cb = document.getElementById('community-mode-toggle');
+  if (cb) cb.checked = on;
+  if (on) {
+    ['tnav-community','fnav-community','mnav-community'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+  }
+}
+initCommunityMode();
+
+// ── 設定タブ サブ切替 ──
+window.switchSettingsSub = function(sub) {
+  const isArch = sub === 'archive';
+  const mainEl = document.getElementById('settings-main-content');
+  const archEl = document.getElementById('settings-archive-content');
+  const sstabS = document.getElementById('sstab-settings');
+  const sstabA = document.getElementById('sstab-archive');
+  if (mainEl) mainEl.style.display = isArch ? 'none' : '';
+  if (archEl) archEl.style.display = isArch ? '' : 'none';
+  if (sstabS) { sstabS.style.color = isArch ? 'var(--text3)' : 'var(--accent)'; sstabS.style.borderBottomColor = isArch ? 'transparent' : 'var(--accent)'; }
+  if (sstabA) { sstabA.style.color = isArch ? 'var(--accent)' : 'var(--text3)'; sstabA.style.borderBottomColor = isArch ? 'var(--accent)' : 'transparent'; }
+  if (isArch) window.renderArch?.();
+};
 
 buildAllSliders();
 buildMirrorRows();

@@ -49,6 +49,8 @@ export function switchTab(t) {
   if (document.getElementById('vp-panel')?.classList.contains('show')) window.closePanel?.();
   // organizeタブはhomeタブのテーブルビューとして統合
   if (t === 'organize') { window._libViewMode = 'org'; t = 'home'; }
+  // archiveタブはsettingsタブのサブタブとして統合
+  if (t === 'archive') { window._pendingSettingsSub = 'archive'; t = 'settings'; }
   ['home','community','archive','settings','admin','search','notes'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
     const m  = document.getElementById('mnav-' + n); if (m)  m.className  = 'mn-i'      + (t === n ? ' active' : '');
@@ -91,8 +93,7 @@ export function switchTab(t) {
     window.showOrgFsBulkBtn?.(false);
   } catch(e) { console.error('switchTab sidebar error:', e); }
   if (t === 'community') window.renderComm?.();
-  if (t === 'archive')   window.renderArch?.();
-  if (t === 'settings')  window.renderSettings?.();
+  if (t === 'settings') { window.renderSettings?.(); window.switchSettingsSub?.(window._pendingSettingsSub || 'settings'); window._pendingSettingsSub = null; }
   if (t === 'admin')     window.renderAdminDashboard?.();
   if (t === 'search')   window.ytSrInit?.();
   if (t === 'notes')    window.renderNotes?.();
