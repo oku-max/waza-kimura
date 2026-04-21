@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.49</title>
+<title>WAZA KIMURA v50.50</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -790,13 +790,13 @@
     <div class="tb-logo">WAZA <span>KIMURA</span></div>
     <nav class="topbar-nav" style="margin-left:8px">
       <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
+      <div class="tn-i" id="tnav-search" onclick="switchTab('search')">○ Search</div>
+      <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">≡ Notes</div>
+      <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
+      <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
       <div class="tn-i" id="tnav-community" onclick="switchTab('community')" style="display:none">◎ Community</div>
       <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')" style="display:none">≡ Organize</div>
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')" style="display:none">◫ Archive</div>
-      <div class="tn-i" id="tnav-search" onclick="switchTab('search')">🔍 Search</div>
-      <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
-      <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">📓 Notes</div>
-      <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
     </nav>
   </div>
   <!-- 検索＋ボタン行 -->
@@ -827,13 +827,13 @@
   </div>
   <nav class="fs-nav">
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
+    <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>○</span> Search</div>
+    <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>≡</span> Notes</div>
+    <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
+    <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
     <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')" style="display:none"><span>◎</span> Community</div>
     <div class="fs-nav-i" id="fnav-organize" onclick="switchTab('organize')" style="display:none"><span>≡</span> Organize</div>
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')" style="display:none"><span>◫</span> Archive</div>
-    <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>🔍</span> Search</div>
-    <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
-    <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>📓</span> Notes</div>
-    <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
   </nav>
 
   <!-- 新サイドバー：Library / Organize 共通 -->
@@ -1113,14 +1113,16 @@
   </div>
   <!-- Library操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="library-actionbar">
-    <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
+    <div style="display:flex;gap:4px;align-items:center;width:100%">
+      <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn" style="flex:1">☰ フィルター</button>
+      <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
+    </div>
     <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn">☑ 一括編集</button>
     <div style="display:flex;gap:4px;align-items:center;width:100%">
       <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'flex':'none'"></div>
       <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔎 詳細</button>
     </div>
     <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
-    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
   <!-- Organize操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="organize-actionbar" style="display:none">
@@ -1711,13 +1713,13 @@
 <div class="toast" id="toast"></div>
 <nav class="mobile-nav">
   <div class="mn-i active" id="mnav-home" onclick="switchTab('home')"><span>□</span>Library</div>
+  <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>○</span>Search</div>
+  <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>≡</span>Notes</div>
+  <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
+  <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
   <div class="mn-i" id="mnav-community" onclick="switchTab('community')" style="display:none"><span>◎</span>Community</div>
   <div class="mn-i" id="mnav-organize" onclick="switchTab('organize')" style="display:none"><span>≡</span>Organize</div>
   <div class="mn-i" id="mnav-archive" onclick="switchTab('archive')" style="display:none"><span>◫</span>Archive</div>
-  <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>🔍</span>Search</div>
-  <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
-  <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>📓</span>Notes</div>
-  <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
 </nav>
 </div><!-- /main-area -->
 </div><!-- /app-shell -->

@@ -1254,7 +1254,9 @@ window.notesNew = function(catId = null) {
 };
 
 // ── VPanel integration ──
-window.notesAddVideo = function({ id: videoId, title, channel, duration }) {
+window.notesAddVideo = function(arg) {
+  const videoId = typeof arg === 'string' ? arg : arg?.id;
+  if (!videoId) return;
   const sheet = document.getElementById('notesVpSheet');
   if (!sheet) return;
   const list = document.getElementById('notesVpSheetList');
@@ -1266,7 +1268,7 @@ window.notesAddVideo = function({ id: videoId, title, channel, duration }) {
       const dotCls = STATUS_DOT[n.status] || '';
       const statusLbl = STATUS_LABEL[n.status] || '';
       const statusCls = STATUS_CLS[n.status] || '';
-      h += `<div class="nvps-note-item" onclick="window._notesVpAddConfirm('${n.id}','${_esc(videoId)}','${_esc(title)}','${_esc(channel)}','${_esc(duration)}')">
+      h += `<div class="nvps-note-item" onclick="window._notesVpAddConfirm('${n.id}','${_esc(videoId)}')">
         <span class="n-note-dot ${dotCls}" style="width:8px;height:8px"></span>
         <span class="nvps-note-name">${_esc(n.name)}</span>
         <span class="n-s-badge ${statusCls}" style="font-size:10px">${statusLbl}</span>
@@ -1281,12 +1283,15 @@ window._notesVpSheetClose = function() {
   document.getElementById('notesVpSheet')?.classList.remove('vis');
 };
 
-window._notesVpAddConfirm = function(noteId, videoId, title, channel, duration) {
+window._notesVpAddConfirm = function(noteId, videoId) {
   const r = _findNote(noteId);
   if (!r) return;
   const note = r.note;
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
     const v = (window.videos || []).find(x => x.id === videoId);
+    const title = v?.title || '';
+    const channel = v?.ch || '';
+    const duration = v?.duration || '';
     const platform = v ? (v.pt || v.src || 'youtube') : 'youtube';
     const isYT = platform === 'youtube';
     note.blocks.push({
