@@ -91,7 +91,7 @@
   color: var(--text2); cursor: pointer;
 }
 .n-ctx-item:hover { background: var(--surface3); color: var(--text) }
-.n-ctx-danger:hover { background: rgba(248,113,113,.12); color: var(--red) }
+.n-ctx-danger:hover { background: rgba(248,113,113,.12); color: var(--red, #f87171) }
 .n-ctx-disabled { opacity: .35; pointer-events: none }
 
 /* ── sheet overlay (create / rename / delete) ── */
@@ -140,7 +140,7 @@
 .n-btn-ghost:hover { border-color: var(--text3) }
 .n-btn-primary { background: var(--accent); color: var(--on-accent, #111) }
 .n-btn-primary:hover { background: var(--accent2) }
-.n-btn-danger { background: var(--red); color: #fff }
+.n-btn-danger { background: var(--red, #f87171); color: #fff }
 .n-btn-danger:hover { opacity: .85 }
 
 /* category */
@@ -176,7 +176,7 @@
 .n-note-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text3); flex-shrink: 0 }
 .n-dot-wip    { background: var(--accent) }
 .n-dot-done   { background: var(--green) }
-.n-dot-review { background: var(--red) }
+.n-dot-review { background: var(--red, #f87171) }
 .n-dot-new    { background: var(--blue) }
 .n-note-item.active .n-note-dot { background: var(--accent) }
 
@@ -246,7 +246,7 @@
 .n-s-wip    { background: rgba(232,201,106,.15); color: var(--accent) }
 .n-s-done   { background: rgba(76,175,125,.12);  color: var(--green) }
 .n-s-new    { background: rgba(91,156,246,.15);  color: var(--blue) }
-.n-s-review { background: rgba(248,113,113,.1);  color: var(--red) }
+.n-s-review { background: rgba(248,113,113,.1);  color: var(--red, #f87171) }
 
 /* status filter tabs */
 .n-status-tabs {
@@ -303,7 +303,7 @@
   color: var(--text3); cursor: pointer; line-height: 1;
 }
 .n-block-wrap:hover .n-block-del { display: block }
-.n-block-del:hover { background: rgba(248,113,113,.15); color: var(--red); border-color: var(--red) }
+.n-block-del:hover { background: rgba(248,113,113,.15); color: var(--red, #f87171); border-color: var(--red, #f87171) }
 
 .n-note-actions {
   display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap;
