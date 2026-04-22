@@ -105,8 +105,10 @@
 .n-sheet {
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: 14px; width: min(420px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   box-shadow: 0 8px 32px rgba(0,0,0,.5);
   transform: translateY(12px); transition: transform .2s;
+  overflow: hidden;
 }
 .n-sheet-overlay.vis .n-sheet { transform: translateY(0) }
 .n-sheet-sm { width: min(340px, calc(100vw - 32px)) }
@@ -128,7 +130,7 @@
 .n-sheet-msg b { color: var(--text) }
 .n-sheet-btns {
   padding: 12px 18px 16px;
-  display: flex; gap: 8px; justify-content: flex-end;
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
 }
 .n-btn {
   padding: 7px 16px; border-radius: 7px; font-size: 12px; font-weight: 700;
@@ -196,9 +198,9 @@
 }
 .notes-breadcrumb b { color: var(--text2) }
 
-/* モバイル書式ボタン (topbar内、デスクトップでは非表示) */
+/* 書式ボタン (topbar内、常時表示) */
 .n-topbar-fmt {
-  display: none; align-items: center; gap: 2px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
 }
 .n-topbar-fmt-btn {
   min-width: 30px; height: 28px; padding: 0 6px;
@@ -207,12 +209,10 @@
   display: flex; align-items: center; justify-content: center;
   -webkit-tap-highlight-color: transparent;
 }
+.n-topbar-fmt-btn:hover,
 .n-topbar-fmt-btn:active,
 .n-topbar-fmt-btn.active { background: var(--surface3); color: var(--accent) }
 .n-topbar-fmt-clear { font-size: 11px; color: var(--text3) }
-@media (hover: none) {
-  .n-topbar-fmt { display: flex }
-}
 
 /* recent chips (mobile only) */
 .notes-recent {
