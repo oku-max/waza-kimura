@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.73 ═══
+// ═══ WAZA KIMURA — Notes tab v50.74 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -574,7 +574,7 @@ function _blockHTML(block, idx, noteId, total) {
           data-idx="${idx}" data-note-id="${noteId}"
           onblur="window._notesBlockSave(this)"
           onkeydown="window._notesBlockKeydown(this,event)"
-     >${_esc(block.content)}</div>`;
+     >${block.richText ? block.content : _esc(block.content)}</div>`;
 
   switch (block.type) {
     case 'h2':    return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-h2')}${drag}${upBtn}${dnBtn}${del}</div>`;
@@ -632,14 +632,36 @@ function _blockHTML(block, idx, noteId, total) {
 }
 
 // ── inline block editing ──
+const _RICH_TAGS = /^(b|strong|i|em|u|s|strike|span|br|font)$/i;
+function _sanitizeRichHtml(html) {
+  // Strip any tags that aren't safe inline formatting
+  return html.replace(/<\/?([a-z][a-z0-9]*)[^>]*>/gi, (match, tag) =>
+    _RICH_TAGS.test(tag) ? match : ''
+  ).replace(/<br\s*\/?>/gi, '\n');
+}
+
 window._notesBlockSave = function(el) {
   const noteId = el.dataset.noteId;
   const idx = parseInt(el.dataset.idx);
   const r = _findNote(noteId);
   if (!r) return;
-  const content = el.innerText.replace(/\n{2,}/g, '\n').trim();
-  if (content === r.note.blocks[idx]?.content) return;
-  r.note.blocks[idx].content = content;
+  const block = r.note.blocks[idx];
+  if (!block) return;
+
+  const html = el.innerHTML;
+  const hasRich = /<(b|strong|i|em|u|s|strike|span|font)[^>]*>/i.test(html);
+
+  if (hasRich) {
+    const clean = _sanitizeRichHtml(html);
+    if (clean === block.content && block.richText) return;
+    block.content = clean;
+    block.richText = true;
+  } else {
+    const text = el.innerText.replace(/\n{2,}/g, '\n').trim();
+    if (text === block.content && !block.richText) return;
+    block.content = text;
+    delete block.richText;
+  }
   r.note.updatedAt = Date.now();
   _save();
 };
