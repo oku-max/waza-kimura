@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.78 ═══
+// ═══ WAZA KIMURA — Notes tab v50.79 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -173,15 +173,14 @@ window._notesCtxMenu = function(noteId, e) {
     <div class="n-ctx-item n-ctx-danger" onclick="window._notesDelete('${noteId}')">🗑 削除</div>
   `;
 
-  // position near click point, relative to sidebar
-  const sb = document.getElementById('notesSidebar');
-  const sbRect = sb.getBoundingClientRect();
-  const cx = (e.clientX || e.touches?.[0]?.clientX || sbRect.right - 20);
-  const cy = (e.clientY || e.touches?.[0]?.clientY || 100);
-  menu.style.top  = Math.max(0, cy - sbRect.top + 4) + 'px';
-  menu.style.left = Math.min(cx - sbRect.left - 100, sbRect.width - 140) + 'px';
+  // position: fixed relative to viewport so sidebar overflow:hidden doesn't clip
+  const cx = e.clientX || e.touches?.[0]?.clientX || window.innerWidth / 2;
+  const cy = e.clientY || e.touches?.[0]?.clientY || 100;
+  menu.style.position = 'fixed';
+  menu.style.top  = Math.min(cy + 4, window.innerHeight - 120) + 'px';
+  menu.style.left = Math.min(Math.max(4, cx - 100), window.innerWidth - 144) + 'px';
 
-  sb.appendChild(menu);
+  document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', _closeCtx, { once: true }), 0);
 };
 
@@ -334,13 +333,12 @@ window._notesCatCtx = function(catId, e) {
     <div class="n-ctx-item n-ctx-danger" onclick="window._notesCatDelete('${catId}')">🗑 削除</div>
   `;
 
-  const sb = document.getElementById('notesSidebar');
-  const sbRect = sb ? sb.getBoundingClientRect() : { left: 0, top: 0 };
-  menu.style.left = (e.clientX - sbRect.left) + 'px';
-  menu.style.top  = (e.clientY - sbRect.top + 4) + 'px';
-  menu.style.position = 'absolute';
-  sb.style.position = 'relative';
-  sb.appendChild(menu);
+  const cx = e.clientX || e.touches?.[0]?.clientX || window.innerWidth / 2;
+  const cy = e.clientY || e.touches?.[0]?.clientY || 100;
+  menu.style.position = 'fixed';
+  menu.style.top  = Math.min(cy + 4, window.innerHeight - 160) + 'px';
+  menu.style.left = Math.min(Math.max(4, cx - 100), window.innerWidth - 144) + 'px';
+  document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
 };
 
@@ -1772,19 +1770,29 @@ function _onSelectionChange() {
 function _positionFmtBar(sel) {
   const bar = document.getElementById('n-fmt-bar');
   if (!bar) return;
-  const range = sel.getRangeAt(0);
-  const rect  = range.getBoundingClientRect();
-  // position: fixed → viewport 座標をそのまま使う (scrollY 不要)
   bar.classList.add('vis');
-  const bw = bar.offsetWidth || 260;
-  const bh = bar.offsetHeight || 36;
-  const margin = 6;
-  let left = rect.left + rect.width / 2 - bw / 2;
-  left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
-  let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
-  top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
-  bar.style.left = left + 'px';
-  bar.style.top  = top  + 'px';
+  if (_isTouchDevice()) {
+    // モバイル: 画面下部固定（Androidネイティブ選択バーと衝突しない）
+    bar.style.left   = '50%';
+    bar.style.transform = 'translateX(-50%)';
+    bar.style.bottom = '80px';
+    bar.style.top    = 'auto';
+  } else {
+    // デスクトップ: 選択文字の上に floating
+    bar.style.transform = '';
+    bar.style.bottom = 'auto';
+    const range = sel.getRangeAt(0);
+    const rect  = range.getBoundingClientRect();
+    const bw = bar.offsetWidth || 260;
+    const bh = bar.offsetHeight || 36;
+    const margin = 6;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
+    let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
+    top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
+    bar.style.left = left + 'px';
+    bar.style.top  = top  + 'px';
+  }
 }
 
 function _updateFmtBar() {
