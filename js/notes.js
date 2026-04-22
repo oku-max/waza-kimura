@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.45 ═══
+// ═══ WAZA KIMURA — Notes tab v50.73 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -121,6 +121,7 @@ let _activeId = null;
 let _recentIds = [];
 let _dragSrcNoteId = null;
 let _dragSrcIdx = null;
+let _statusFilter = null; // null=全て, 'new'/'wip'/'done'/'review'
 
 // ── lookup ──
 function _findNote(id) {
@@ -395,6 +396,13 @@ function _showCreateSheet({ mode = 'create', catId = null, noteId = null, curren
         ${!isRename ? `
         <label class="n-sheet-lbl" style="margin-top:12px">カテゴリ</label>
         <select id="n-sheet-cat" class="n-sheet-select">${catOptions}</select>
+        <label class="n-sheet-lbl" style="margin-top:12px">習得度</label>
+        <select id="n-sheet-status" class="n-sheet-select">
+          <option value="new">新規</option>
+          <option value="wip">学習中</option>
+          <option value="done">習得</option>
+          <option value="review">要復習</option>
+        </select>
         ` : `<input type="hidden" id="n-sheet-note-id" value="${noteId || ''}">`}
       </div>
       <div class="n-sheet-btns">
@@ -449,10 +457,11 @@ window._notesSheetConfirm = function() {
   } else {
     const catId = document.getElementById('n-sheet-cat')?.value;
     const cat = _data.find(c => c.id === catId) || _data[0];
+    const initStatus = document.getElementById('n-sheet-status')?.value || 'new';
     const newNote = {
-      id: _uid(), name, status: 'new', tags: [],
+      id: _uid(), name, status: initStatus, tags: [],
       updatedAt: Date.now(),
-      blocks: [{ type: 'h2', content: '🎯 核心ポイント' }]
+      blocks: []
     };
     cat.notes.push(newNote);
     _save();
@@ -471,20 +480,35 @@ window._notesSheetConfirm = function() {
 function _renderSb() {
   const tree = document.getElementById('notesSbTree');
   if (!tree) return;
-  let h = '';
+
+  // status filter tabs
+  const tabs = [
+    { k: null,     label: '全て' },
+    { k: 'new',    label: '新規' },
+    { k: 'wip',    label: '学習中' },
+    { k: 'done',   label: '習得' },
+    { k: 'review', label: '要復習' }
+  ];
+  let h = `<div class="n-status-tabs">` +
+    tabs.map(t => `<button class="n-status-tab${_statusFilter === t.k ? ' active' : ''}"
+      onclick="window._notesSetFilter(${t.k === null ? 'null' : `'${t.k}'`})">${t.label}</button>`).join('') +
+    `</div>`;
+
   for (const cat of _data) {
-    const isOpen = cat.notes.some(n => n.id === _activeId) || cat.notes.length === 0;
+    const visNotes = _statusFilter ? cat.notes.filter(n => n.status === _statusFilter) : cat.notes;
+    if (_statusFilter && visNotes.length === 0) continue;
+    const isOpen = visNotes.some(n => n.id === _activeId) || cat.notes.length === 0 || !_statusFilter;
     h += `<div class="n-cat${isOpen ? ' open' : ''}" id="n-cat-${cat.id}">
       <div class="n-cat-hdr" onclick="window._notesTogCat('${cat.id}',event)">
         <span class="n-cat-arrow">▶</span>
         <span class="n-cat-icon">${cat.icon}</span>
         <span class="n-cat-name">${_esc(cat.name)}</span>
-        <span class="n-cat-cnt">${cat.notes.length}</span>
+        <span class="n-cat-cnt">${visNotes.length}</span>
         <button class="n-cat-add" title="このカテゴリにノートを追加"
                 onclick="event.stopPropagation();window.notesNew('${cat.id}')">＋</button>
       </div>
       <div class="n-cat-notes">
-        ${cat.notes.map(n => `
+        ${visNotes.map(n => `
           <div class="n-note-item${n.id === _activeId ? ' active' : ''}"
                onclick="window._notesOpenNote('${n.id}',event)">
             <span class="n-note-dot ${STATUS_DOT[n.status] || ''}"></span>
@@ -498,6 +522,25 @@ function _renderSb() {
   h += `<div class="n-add-cat" onclick="window.notesCatNew()">＋ カテゴリを追加</div>`;
   tree.innerHTML = h;
 }
+
+window._notesSetFilter = function(s) {
+  _statusFilter = s;
+  _renderSb();
+};
+
+const STATUS_CYCLE = ['new', 'wip', 'done', 'review'];
+window._notesTogStatus = function(id) {
+  const r = _findNote(id);
+  if (!r) return;
+  const cur = r.note.status || 'new';
+  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+  r.note.status = next;
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderSb();
+  _renderNote(id);
+  window.toast?.(`習得度: ${STATUS_LABEL[next]}`);
+};
 
 // ── recent chips (mobile) ──
 function _renderRecent() {
@@ -880,7 +923,7 @@ function _renderNote(id) {
   if (!content) return;
 
   const tagsHTML = (note.tags || []).map(t => `<span class="n-chip">${_esc(t)}</span>`).join('');
-  const statusHTML = `<span class="n-s-badge ${STATUS_CLS[note.status] || ''}">${STATUS_LABEL[note.status] || ''}</span>`;
+  const statusHTML = `<span class="n-s-badge ${STATUS_CLS[note.status] || ''}" style="cursor:pointer" title="クリックで習得度を変更" onclick="window._notesTogStatus('${note.id}')">${STATUS_LABEL[note.status] || ''}</span>`;
 
   content.innerHTML = `
     <div class="n-page-title">${_esc(note.name)}</div>
