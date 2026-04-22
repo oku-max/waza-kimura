@@ -55,6 +55,15 @@
 }
 .n-cat-hdr:hover .n-cat-add { display: block }
 .n-cat-add:hover { color: var(--accent); background: var(--surface3) }
+.n-cat-more {
+  display: none;
+  padding: 1px 6px; border-radius: 4px; font-size: 13px; line-height: 1;
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  flex-shrink: 0;
+}
+.n-cat-hdr:hover .n-cat-more { display: block }
+.n-cat-more:hover { color: var(--text); background: var(--surface3) }
+@media (hover: none) { .n-cat-more { display: block } }
 
 /* ── note item more button ── */
 .n-note-name { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
@@ -83,6 +92,7 @@
 }
 .n-ctx-item:hover { background: var(--surface3); color: var(--text) }
 .n-ctx-danger:hover { background: rgba(248,113,113,.12); color: var(--red) }
+.n-ctx-disabled { opacity: .35; pointer-events: none }
 
 /* ── sheet overlay (create / rename / delete) ── */
 .n-sheet-overlay {

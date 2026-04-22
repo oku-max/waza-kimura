@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.74 ═══
+// ═══ WAZA KIMURA — Notes tab v50.75 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -315,6 +315,161 @@ window._notesCatConfirm = function() {
   window.toast?.(`📂「${name}」を作成しました`);
 };
 
+// ── category context menu ──
+window._notesCatCtx = function(catId, e) {
+  document.getElementById('n-ctx-menu')?.remove();
+  const cat = _data.find(c => c.id === catId);
+  if (!cat) return;
+  const idx = _data.indexOf(cat);
+  const isFirst = idx === 0;
+  const isLast  = idx === _data.length - 1;
+
+  const menu = document.createElement('div');
+  menu.id = 'n-ctx-menu';
+  menu.className = 'n-ctx-menu';
+  menu.innerHTML = `
+    <div class="n-ctx-item" onclick="window._notesCatRename('${catId}')">✎ 名前変更</div>
+    <div class="n-ctx-item${isFirst ? ' n-ctx-disabled' : ''}" onclick="${isFirst ? '' : `window._notesCatMove('${catId}',-1)`}">↑ 上に移動</div>
+    <div class="n-ctx-item${isLast  ? ' n-ctx-disabled' : ''}" onclick="${isLast  ? '' : `window._notesCatMove('${catId}',1)`}">↓ 下に移動</div>
+    <div class="n-ctx-item n-ctx-danger" onclick="window._notesCatDelete('${catId}')">🗑 削除</div>
+  `;
+
+  const sb = document.getElementById('notesSidebar');
+  const sbRect = sb ? sb.getBoundingClientRect() : { left: 0, top: 0 };
+  menu.style.left = (e.clientX - sbRect.left) + 'px';
+  menu.style.top  = (e.clientY - sbRect.top + 4) + 'px';
+  menu.style.position = 'absolute';
+  sb.style.position = 'relative';
+  sb.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
+};
+
+window._notesCatRename = function(catId) {
+  document.getElementById('n-ctx-menu')?.remove();
+  const cat = _data.find(c => c.id === catId);
+  if (!cat) return;
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'cat-rename';
+  overlay.dataset.catId = catId;
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">✎ フォルダを編集</span></div>
+      <div class="n-sheet-body">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div style="flex-shrink:0">
+            <label class="n-sheet-lbl">アイコン</label>
+            <input id="n-cat-icon" class="n-sheet-input"
+                   type="text" value="${_esc(cat.icon)}" maxlength="2"
+                   style="width:56px;text-align:center;font-size:20px;padding:6px 4px">
+          </div>
+          <div style="flex:1">
+            <label class="n-sheet-lbl">フォルダ名</label>
+            <input id="n-cat-name" class="n-sheet-input" type="text"
+                   value="${_esc(cat.name)}"
+                   onkeydown="if(event.key==='Enter') window._notesCatRenameConfirm()">
+          </div>
+        </div>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesCatRenameConfirm()">変更する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  setTimeout(() => document.getElementById('n-cat-name')?.focus(), 80);
+};
+
+window._notesCatRenameConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay || overlay.dataset.mode !== 'cat-rename') return;
+  const catId = overlay.dataset.catId;
+  const cat = _data.find(c => c.id === catId);
+  if (!cat) return;
+  const name = document.getElementById('n-cat-name')?.value.trim();
+  if (!name) { document.getElementById('n-cat-name')?.focus(); return; }
+  cat.name = name;
+  cat.icon = document.getElementById('n-cat-icon')?.value.trim() || cat.icon;
+  _save();
+  window._notesSheetClose();
+  _renderSb();
+  window.toast?.(`📂「${name}」に変更しました`);
+};
+
+window._notesCatMove = function(catId, dir) {
+  document.getElementById('n-ctx-menu')?.remove();
+  const idx = _data.findIndex(c => c.id === catId);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= _data.length) return;
+  [_data[idx], _data[newIdx]] = [_data[newIdx], _data[idx]];
+  _save();
+  _renderSb();
+};
+
+window._notesCatDelete = function(catId) {
+  document.getElementById('n-ctx-menu')?.remove();
+  const cat = _data.find(c => c.id === catId);
+  if (!cat) return;
+  const noteCount = cat.notes.length;
+  const msg = noteCount > 0
+    ? `「${cat.name}」とその中のノート ${noteCount} 件を削除しますか？`
+    : `「${cat.name}」を削除しますか？`;
+  _showDeleteConfirmCat(catId, msg);
+};
+
+function _showDeleteConfirmCat(catId, msg) {
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'cat-delete';
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">🗑 フォルダを削除</span></div>
+      <div class="n-sheet-body">
+        <p style="font-size:13px;color:var(--text2);margin:0">${_esc(msg)}</p>
+        <p style="font-size:11px;color:var(--red);margin:8px 0 0">この操作は取り消せません</p>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-danger" onclick="window._notesCatDeleteConfirm('${catId}')">削除する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+}
+
+window._notesCatDeleteConfirm = function(catId) {
+  const cat = _data.find(c => c.id === catId);
+  if (!cat) return;
+  const name = cat.name;
+  // clean up active / recent refs
+  if (cat.notes.some(n => n.id === _activeId)) {
+    _activeId = null;
+    for (const c of _data) {
+      if (c.id === catId) continue;
+      if (c.notes.length) { _activeId = c.notes[0].id; break; }
+    }
+  }
+  _recentIds = _recentIds.filter(id => !cat.notes.some(n => n.id === id));
+  _data = _data.filter(c => c.id !== catId);
+  _save();
+  window._notesSheetClose();
+  _renderSb();
+  if (_activeId) _renderNote(_activeId);
+  else document.getElementById('notesContent').innerHTML = '';
+  _renderRecent();
+  window.toast?.(`🗑「${name}」を削除しました`);
+};
+
 // ── delete ──
 window._notesDelete = function(noteId) {
   _closeCtx();
@@ -506,6 +661,8 @@ function _renderSb() {
         <span class="n-cat-cnt">${visNotes.length}</span>
         <button class="n-cat-add" title="このカテゴリにノートを追加"
                 onclick="event.stopPropagation();window.notesNew('${cat.id}')">＋</button>
+        <button class="n-cat-more" title="フォルダオプション"
+                onclick="event.stopPropagation();window._notesCatCtx('${cat.id}',event)">⋯</button>
       </div>
       <div class="n-cat-notes">
         ${visNotes.map(n => `
@@ -970,7 +1127,7 @@ function _renderNote(id) {
 
 // ── public actions ──
 window._notesTogCat = function(id, e) {
-  if (e.target.closest('.n-note-item') || e.target.closest('.n-cat-add')) return;
+  if (e.target.closest('.n-note-item') || e.target.closest('.n-cat-add') || e.target.closest('.n-cat-more')) return;
   document.getElementById('n-cat-' + id)?.classList.toggle('open');
 };
 
