@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.83 ═══
+// ═══ WAZA KIMURA — Notes tab v50.84 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1707,29 +1707,20 @@ function _setupFormatBar() {
     <button class="n-fmt-btn" data-cmd="hiliteColor" data-val="#fff176" title="ハイライト">🌟</button>
     <button class="n-fmt-btn" data-cmd="removeFormat"                    title="書式クリア">✕</button>
   `;
-  // desktop: mousedown + preventDefault keeps focus in contenteditable
   bar.addEventListener('mousedown', e => {
     e.preventDefault();
     const btn = e.target.closest('[data-cmd]');
     if (!btn) return;
-    document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
-    _updateFmtBar();
+    _applyFmtCmd(btn.dataset.cmd);
   });
-  // iOS: touchstart preventDefault prevents focus loss; touchend applies command
   bar.addEventListener('touchstart', e => {
-    e.preventDefault(); // prevent blur of contenteditable
+    e.preventDefault();
   }, { passive: false });
   bar.addEventListener('touchend', e => {
     e.preventDefault();
     const btn = e.target.closest('[data-cmd]');
     if (!btn) return;
-    document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
-    // re-trigger save after a tick (selection may have updated)
-    setTimeout(() => {
-      const el = document.querySelector('.n-editable:focus');
-      if (el) window._notesBlockSave(el);
-      _updateFmtBar();
-    }, 0);
+    _applyFmtCmd(btn.dataset.cmd);
   });
   document.body.appendChild(bar);
 
@@ -1795,7 +1786,6 @@ function _applyFmtCmd(cmd) {
 
 let _fmtDebounce = null;
 function _checkFmtBar() {
-  if (_isTouchDevice()) { _updateTopbarFmt(); return; }
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) {
     document.getElementById('n-fmt-bar')?.classList.remove('vis');
@@ -1817,21 +1807,29 @@ function _onSelectionChange() {
 }
 
 function _positionFmtBar(sel) {
-  if (_isTouchDevice()) return; // モバイルは topbar ボタンを使用
   const bar = document.getElementById('n-fmt-bar');
   if (!bar) return;
   bar.classList.add('vis');
-  const range = sel.getRangeAt(0);
-  const rect  = range.getBoundingClientRect();
   const bw = bar.offsetWidth || 260;
   const bh = bar.offsetHeight || 36;
   const margin = 6;
-  let left = rect.left + rect.width / 2 - bw / 2;
-  left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
-  let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
-  top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
-  bar.style.left = left + 'px';
-  bar.style.top  = top  + 'px';
+  if (_isTouchDevice()) {
+    // モバイル: テキスト上部・ネイティブメニューと被らないよう画面上部固定
+    let left = window.innerWidth / 2 - bw / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
+    bar.style.left = left + 'px';
+    bar.style.top  = '64px';
+    bar.style.transform = '';
+  } else {
+    const range = sel.getRangeAt(0);
+    const rect  = range.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - bw / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
+    let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
+    top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
+    bar.style.left = left + 'px';
+    bar.style.top  = top  + 'px';
+  }
 }
 
 function _updateTopbarFmt() {
