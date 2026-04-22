@@ -196,6 +196,24 @@
 }
 .notes-breadcrumb b { color: var(--text2) }
 
+/* モバイル書式ボタン (topbar内、デスクトップでは非表示) */
+.n-topbar-fmt {
+  display: none; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.n-topbar-fmt-btn {
+  min-width: 30px; height: 28px; padding: 0 6px;
+  border: none; border-radius: 5px; background: transparent;
+  color: var(--text2); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.n-topbar-fmt-btn:active,
+.n-topbar-fmt-btn.active { background: var(--surface3); color: var(--accent) }
+.n-topbar-fmt-clear { font-size: 11px; color: var(--text3) }
+@media (hover: none) {
+  .n-topbar-fmt { display: flex }
+}
+
 /* recent chips (mobile only) */
 .notes-recent {
   display: none;
