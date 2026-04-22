@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.71</title>
+<title>WAZA KIMURA v50.72</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -86,7 +86,7 @@
     _openPanel, _closePanelOutside, closePanel
   } from './js/vpanel.js';
   import './js/organize.js';
-  import './js/bulk.js?v=50.71';
+  import './js/bulk.js?v=50.72';
   import {
     ytSrInit, ytSrSearch, ytSrKeydown, ytSrSetMode, ytSrSetDuration, ytSrLoadMore,
     ytSrOpenVPanel, ytSrCloseVPanel, ytSrAddToLibrary, ytSrQuickAdd,
@@ -325,6 +325,7 @@
   window.AF                    = AF;
   // AF実行後にDOMのカード順からfilteredVideosを更新
   const _origAF = window.AF;
+  let _startupTabApplied = false;
   window.AF = function() {
     _origAF.apply(this, arguments);
     // .cardクラスを持つ要素のみ対象（子要素の誤ヒットを防ぐ）
@@ -334,6 +335,14 @@
       window.filteredVideos = ids.map(id => (window.videos||[]).find(v => v.id === id)).filter(Boolean);
     }
     window.uniSyncBadges?.();
+    // 初回AF時のみ起動タブに切り替え
+    if (!_startupTabApplied) {
+      _startupTabApplied = true;
+      try {
+        const s = JSON.parse(localStorage.getItem('waza_settings') || '{}');
+        if (s.startupTab && s.startupTab !== 'home') window.switchTab?.(s.startupTab);
+      } catch(e) {}
+    }
   };
   window.sortVideos             = sortVideos;
   window.updatePLC             = updatePLC;
@@ -1300,6 +1309,18 @@
     <!-- ═══ タブ表示設定 ═══ -->
     <div style="margin:32px 0 0;padding:12px 0 0;border-top:1px solid var(--border2);">
       <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">タブ表示</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text3)">起動タブ</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">起動・リロード時に最初に表示するタブ</div>
+        </div>
+        <select id="setting-startup-tab" onchange="saveSettings()" style="font-size:11px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="home">Library</option>
+          <option value="notes">Notes</option>
+          <option value="search">Search</option>
+          <option value="settings">Settings</option>
+        </select>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
@@ -2995,7 +3016,11 @@ function scrollToSetting(id) {
 function saveSettings() {
   try {
     const autoplay = document.getElementById('setting-autoplay');
-    const settings = { autoplay: autoplay ? autoplay.checked : true };
+    const startupTabEl = document.getElementById('setting-startup-tab');
+    const settings = {
+      autoplay: autoplay ? autoplay.checked : true,
+      startupTab: startupTabEl ? startupTabEl.value : 'home'
+    };
     localStorage.setItem('waza_settings', JSON.stringify(settings));
   } catch(e) {}
 }
@@ -3006,6 +3031,8 @@ function loadSettings() {
     const settings = JSON.parse(raw);
     const autoplay = document.getElementById('setting-autoplay');
     if (autoplay && settings.autoplay !== undefined) autoplay.checked = settings.autoplay;
+    const startupTabEl = document.getElementById('setting-startup-tab');
+    if (startupTabEl && settings.startupTab) startupTabEl.value = settings.startupTab;
   } catch(e) {}
 }
 loadSettings();
