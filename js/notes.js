@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.79 ═══
+// ═══ WAZA KIMURA — Notes tab v50.80 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1733,12 +1733,26 @@ function _setupFormatBar() {
   });
   document.body.appendChild(bar);
 
+  // モバイル: topbar 内の書式ボタンをワイヤーアップ
+  const topbarFmt = document.getElementById('nTopbarFmt');
+  if (topbarFmt) {
+    topbarFmt.addEventListener('touchstart', e => {
+      e.preventDefault(); // blur 防止
+    }, { passive: false });
+    topbarFmt.addEventListener('touchend', e => {
+      e.preventDefault();
+      const btn = e.target.closest('[data-cmd]');
+      if (!btn) return;
+      document.execCommand(btn.dataset.cmd, false, null);
+      setTimeout(() => {
+        const el = document.querySelector('.n-editable:focus');
+        if (el) window._notesBlockSave(el);
+        _updateTopbarFmt();
+      }, 0);
+    });
+  }
+
   document.addEventListener('selectionchange', _onSelectionChange);
-  // iOS: touchend 後に selection が確定するため追加チェック
-  document.addEventListener('touchend', () => {
-    clearTimeout(_fmtDebounce);
-    _fmtDebounce = setTimeout(_checkFmtBar, 200);
-  });
   document.addEventListener('keydown', e => {
     const bar = document.getElementById('n-fmt-bar');
     if (bar && e.key === 'Escape') bar.classList.remove('vis');
@@ -1747,6 +1761,7 @@ function _setupFormatBar() {
 
 let _fmtDebounce = null;
 function _checkFmtBar() {
+  if (_isTouchDevice()) { _updateTopbarFmt(); return; }
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) {
     document.getElementById('n-fmt-bar')?.classList.remove('vis');
@@ -1768,31 +1783,30 @@ function _onSelectionChange() {
 }
 
 function _positionFmtBar(sel) {
+  if (_isTouchDevice()) return; // モバイルは topbar ボタンを使用
   const bar = document.getElementById('n-fmt-bar');
   if (!bar) return;
   bar.classList.add('vis');
-  if (_isTouchDevice()) {
-    // モバイル: 画面下部固定（Androidネイティブ選択バーと衝突しない）
-    bar.style.left   = '50%';
-    bar.style.transform = 'translateX(-50%)';
-    bar.style.bottom = '80px';
-    bar.style.top    = 'auto';
-  } else {
-    // デスクトップ: 選択文字の上に floating
-    bar.style.transform = '';
-    bar.style.bottom = 'auto';
-    const range = sel.getRangeAt(0);
-    const rect  = range.getBoundingClientRect();
-    const bw = bar.offsetWidth || 260;
-    const bh = bar.offsetHeight || 36;
-    const margin = 6;
-    let left = rect.left + rect.width / 2 - bw / 2;
-    left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
-    let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
-    top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
-    bar.style.left = left + 'px';
-    bar.style.top  = top  + 'px';
-  }
+  const range = sel.getRangeAt(0);
+  const rect  = range.getBoundingClientRect();
+  const bw = bar.offsetWidth || 260;
+  const bh = bar.offsetHeight || 36;
+  const margin = 6;
+  let left = rect.left + rect.width / 2 - bw / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
+  let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
+  top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
+  bar.style.left = left + 'px';
+  bar.style.top  = top  + 'px';
+}
+
+function _updateTopbarFmt() {
+  const toolbar = document.getElementById('nTopbarFmt');
+  if (!toolbar) return;
+  ['bold','italic','underline','strikeThrough'].forEach(cmd => {
+    const btn = toolbar.querySelector(`[data-cmd="${cmd}"]`);
+    if (btn) btn.classList.toggle('active', document.queryCommandState(cmd));
+  });
 }
 
 function _updateFmtBar() {

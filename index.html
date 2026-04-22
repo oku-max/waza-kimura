@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.79</title>
+<title>WAZA KIMURA v50.80</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1480,6 +1480,13 @@
       <div class="notes-topbar">
         <button class="notes-hamburger" onclick="window.notesOpenSb?.()">☰</button>
         <div class="notes-breadcrumb" id="notesBreadcrumb">Notes</div>
+        <div class="n-topbar-fmt" id="nTopbarFmt">
+          <button class="n-topbar-fmt-btn" data-cmd="bold"          title="太字"><b>B</b></button>
+          <button class="n-topbar-fmt-btn" data-cmd="italic"        title="斜体"><i>I</i></button>
+          <button class="n-topbar-fmt-btn" data-cmd="underline"     title="下線"><u>U</u></button>
+          <button class="n-topbar-fmt-btn" data-cmd="strikeThrough" title="取消"><s>S</s></button>
+          <button class="n-topbar-fmt-btn n-topbar-fmt-clear" data-cmd="removeFormat" title="クリア">✕</button>
+        </div>
       </div>
       <div class="notes-recent" id="notesRecent" style="display:none"></div>
       <div class="notes-content" id="notesContent"></div>
