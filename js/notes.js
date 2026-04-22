@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.82 ═══
+// ═══ WAZA KIMURA — Notes tab v50.83 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1737,26 +1737,60 @@ function _setupFormatBar() {
   const topbarFmt = document.getElementById('nTopbarFmt');
   if (topbarFmt) {
     topbarFmt.addEventListener('touchstart', e => {
-      e.preventDefault(); // blur 防止
+      e.preventDefault(); // blur・selection クリア防止
     }, { passive: false });
     topbarFmt.addEventListener('touchend', e => {
       e.preventDefault();
       const btn = e.target.closest('[data-cmd]');
       if (!btn) return;
-      document.execCommand(btn.dataset.cmd, false, null);
-      setTimeout(() => {
-        const el = document.querySelector('.n-editable:focus');
-        if (el) window._notesBlockSave(el);
-        _updateTopbarFmt();
-      }, 0);
+      // Android では tap で selection が消えるため保存済み range を復元
+      _applyFmtCmd(btn.dataset.cmd);
+    });
+    // マウス操作（デスクトップ兼用）
+    topbarFmt.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const btn = e.target.closest('[data-cmd]');
+      if (!btn) return;
+      _applyFmtCmd(btn.dataset.cmd);
     });
   }
 
-  document.addEventListener('selectionchange', _onSelectionChange);
+  // selectionchange で常に range を保存（Android用）
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      const node = sel.anchorNode;
+      const editable = (node?.nodeType === 3 ? node.parentElement : node)?.closest?.('.n-editable');
+      if (editable) {
+        _savedFmtRange = sel.getRangeAt(0).cloneRange();
+        _savedFmtEl = editable;
+      }
+    }
+    _onSelectionChange();
+  });
   document.addEventListener('keydown', e => {
     const bar = document.getElementById('n-fmt-bar');
     if (bar && e.key === 'Escape') bar.classList.remove('vis');
   });
+}
+
+let _savedFmtRange = null;
+let _savedFmtEl = null;
+function _applyFmtCmd(cmd) {
+  // 保存済み range を復元してから execCommand
+  if (_savedFmtRange && _savedFmtEl) {
+    _savedFmtEl.focus();
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(_savedFmtRange);
+  }
+  document.execCommand(cmd, false, null);
+  setTimeout(() => {
+    const el = _savedFmtEl || document.querySelector('.n-editable:focus');
+    if (el) window._notesBlockSave(el);
+    _updateTopbarFmt();
+    _updateFmtBar();
+  }, 0);
 }
 
 let _fmtDebounce = null;
