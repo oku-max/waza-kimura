@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.84 ═══
+// ═══ WAZA KIMURA — Notes tab v50.85 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1759,6 +1759,11 @@ function _setupFormatBar() {
     }
     _onSelectionChange();
   });
+  // Android: selectionchange alone is unreliable after finger lift — touchend is the reliable trigger
+  document.addEventListener('touchend', () => {
+    clearTimeout(_fmtDebounce);
+    _fmtDebounce = setTimeout(_checkFmtBar, 200);
+  });
   document.addEventListener('keydown', e => {
     const bar = document.getElementById('n-fmt-bar');
     if (bar && e.key === 'Escape') bar.classList.remove('vis');
@@ -1812,23 +1817,54 @@ function _positionFmtBar(sel) {
   bar.classList.add('vis');
   const bw = bar.offsetWidth || 260;
   const bh = bar.offsetHeight || 36;
-  const margin = 6;
-  if (_isTouchDevice()) {
-    // モバイル: テキスト上部・ネイティブメニューと被らないよう画面上部固定
-    let left = window.innerWidth / 2 - bw / 2;
-    left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
-    bar.style.left = left + 'px';
-    bar.style.top  = '64px';
-    bar.style.transform = '';
-  } else {
-    const range = sel.getRangeAt(0);
-    const rect  = range.getBoundingClientRect();
+  const margin = 8;
+
+  // Get selection bounding rect (fall back to saved range for Android)
+  let rect = null;
+  try {
+    const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : _savedFmtRange;
+    if (range) rect = range.getBoundingClientRect();
+  } catch (e) {}
+  if (!rect || (rect.width === 0 && rect.height === 0)) rect = null;
+
+  bar.style.transform = '';
+
+  // Horizontal: centered on selection, clamped to screen
+  if (rect) {
     let left = rect.left + rect.width / 2 - bw / 2;
     left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
-    let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
-    top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
     bar.style.left = left + 'px';
-    bar.style.top  = top  + 'px';
+  } else {
+    bar.style.left = Math.max(margin, window.innerWidth / 2 - bw / 2) + 'px';
+  }
+
+  if (_isTouchDevice()) {
+    // Mobile: place BELOW the selection so we don't overlap the text.
+    // The OS native bar (cut/copy/paste) appears ABOVE the selection handles,
+    // so placing our bar below avoids collision with both text and OS bar.
+    if (rect) {
+      // 48px clearance for selection handles below the text
+      const below = rect.bottom + 48;
+      const above = rect.top - bh - 8;
+      if (below + bh + margin <= window.innerHeight) {
+        bar.style.top = below + 'px';
+      } else if (above >= margin) {
+        // Not enough room below — go above, accepting possible OS toolbar overlap
+        bar.style.top = above + 'px';
+      } else {
+        bar.style.top = margin + 'px';
+      }
+    } else {
+      bar.style.top = '72px';
+    }
+  } else {
+    if (rect) {
+      let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
+      top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
+      bar.style.top = top + 'px';
+    } else {
+      bar.style.top = margin + 'px';
+    }
   }
 }
 
