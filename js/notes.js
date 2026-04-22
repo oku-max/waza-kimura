@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.76 ═══
+// ═══ WAZA KIMURA — Notes tab v50.77 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -731,7 +731,7 @@ function _blockHTML(block, idx, noteId, total) {
           data-idx="${idx}" data-note-id="${noteId}"
           onblur="window._notesBlockSave(this)"
           onkeydown="window._notesBlockKeydown(this,event)"
-     >${block.richText ? block.content : _esc(block.content)}</div>`;
+     >${block.richText ? block.content : _esc(block.content).replace(/\n/g, '<br>')}</div>`;
 
   switch (block.type) {
     case 'h2':    return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-h2')}${drag}${upBtn}${dnBtn}${del}</div>`;
@@ -814,7 +814,7 @@ window._notesBlockSave = function(el) {
     block.content = clean;
     block.richText = true;
   } else {
-    const text = el.innerText.replace(/\n{2,}/g, '\n').trim();
+    const text = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
     if (text === block.content && !block.richText) return;
     block.content = text;
     delete block.richText;
@@ -823,8 +823,10 @@ window._notesBlockSave = function(el) {
   _save();
 };
 
+const _isTouchDevice = () => 'ontouchstart' in window;
+
 window._notesBlockKeydown = function(el, e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey && !_isTouchDevice()) {
     e.preventDefault();
     const noteId = el.dataset.noteId;
     const idx = parseInt(el.dataset.idx);
