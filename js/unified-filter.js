@@ -4,13 +4,13 @@
   'use strict';
 
   const MAIN = [
-    { k: 'state', label: '習得' },
     { k: 'src',   label: 'プレイリスト' },
     { k: 'tag',   label: 'タグ' },
-    { k: 'video', label: 'タイトル' }
+    { k: 'video', label: 'タイトル' },
+    { k: 'state', label: '習得' }
   ];
 
-  let _tab = 'state';
+  let _tab = 'src';
   let _q = '';
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
