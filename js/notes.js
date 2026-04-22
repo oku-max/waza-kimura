@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.75 ═══
+// ═══ WAZA KIMURA — Notes tab v50.76 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1707,14 +1707,29 @@ function _setupFormatBar() {
     <button class="n-fmt-btn" data-cmd="hiliteColor" data-val="#fff176" title="ハイライト">🌟</button>
     <button class="n-fmt-btn" data-cmd="removeFormat"                    title="書式クリア">✕</button>
   `;
+  // desktop: mousedown + preventDefault keeps focus in contenteditable
   bar.addEventListener('mousedown', e => {
     e.preventDefault();
     const btn = e.target.closest('[data-cmd]');
     if (!btn) return;
-    const cmd = btn.dataset.cmd;
-    const val = btn.dataset.val || null;
-    document.execCommand(cmd, false, val);
+    document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
     _updateFmtBar();
+  });
+  // iOS: touchstart preventDefault prevents focus loss; touchend applies command
+  bar.addEventListener('touchstart', e => {
+    e.preventDefault(); // prevent blur of contenteditable
+  }, { passive: false });
+  bar.addEventListener('touchend', e => {
+    e.preventDefault();
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
+    // re-trigger save after a tick (selection may have updated)
+    setTimeout(() => {
+      const el = document.querySelector('.n-editable:focus');
+      if (el) window._notesBlockSave(el);
+      _updateFmtBar();
+    }, 0);
   });
   document.body.appendChild(bar);
 
