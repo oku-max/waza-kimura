@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.77 ═══
+// ═══ WAZA KIMURA — Notes tab v50.78 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1736,6 +1736,11 @@ function _setupFormatBar() {
   document.body.appendChild(bar);
 
   document.addEventListener('selectionchange', _onSelectionChange);
+  // iOS: touchend 後に selection が確定するため追加チェック
+  document.addEventListener('touchend', () => {
+    clearTimeout(_fmtDebounce);
+    _fmtDebounce = setTimeout(_checkFmtBar, 200);
+  });
   document.addEventListener('keydown', e => {
     const bar = document.getElementById('n-fmt-bar');
     if (bar && e.key === 'Escape') bar.classList.remove('vis');
@@ -1743,24 +1748,25 @@ function _setupFormatBar() {
 }
 
 let _fmtDebounce = null;
+function _checkFmtBar() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) {
+    document.getElementById('n-fmt-bar')?.classList.remove('vis');
+    return;
+  }
+  const node = sel.anchorNode;
+  if (!node) return;
+  const editable = node.nodeType === 3 ? node.parentElement?.closest('.n-editable') : node.closest?.('.n-editable');
+  if (!editable) {
+    document.getElementById('n-fmt-bar')?.classList.remove('vis');
+    return;
+  }
+  _positionFmtBar(sel);
+  _updateFmtBar();
+}
 function _onSelectionChange() {
   clearTimeout(_fmtDebounce);
-  _fmtDebounce = setTimeout(() => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.rangeCount) {
-      document.getElementById('n-fmt-bar')?.classList.remove('vis');
-      return;
-    }
-    const node = sel.anchorNode;
-    if (!node) return;
-    const editable = node.nodeType === 3 ? node.parentElement?.closest('.n-editable') : node.closest?.('.n-editable');
-    if (!editable) {
-      document.getElementById('n-fmt-bar')?.classList.remove('vis');
-      return;
-    }
-    _positionFmtBar(sel);
-    _updateFmtBar();
-  }, 60);
+  _fmtDebounce = setTimeout(_checkFmtBar, 150);
 }
 
 function _positionFmtBar(sel) {
@@ -1768,14 +1774,15 @@ function _positionFmtBar(sel) {
   if (!bar) return;
   const range = sel.getRangeAt(0);
   const rect  = range.getBoundingClientRect();
-  if (!rect.width && !rect.height) return;
+  // position: fixed → viewport 座標をそのまま使う (scrollY 不要)
   bar.classList.add('vis');
-  const bw = bar.offsetWidth || 280;
+  const bw = bar.offsetWidth || 260;
+  const bh = bar.offsetHeight || 36;
   const margin = 6;
   let left = rect.left + rect.width / 2 - bw / 2;
   left = Math.max(margin, Math.min(left, window.innerWidth - bw - margin));
-  let top  = rect.top - bar.offsetHeight - 8 + window.scrollY;
-  if (top < 0) top = rect.bottom + 8 + window.scrollY;
+  let top = rect.top > bh + 12 ? rect.top - bh - 8 : rect.bottom + 8;
+  top = Math.max(margin, Math.min(top, window.innerHeight - bh - margin));
   bar.style.left = left + 'px';
   bar.style.top  = top  + 'px';
 }
