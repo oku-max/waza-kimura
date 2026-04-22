@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.87 ═══
+// ═══ WAZA KIMURA — Notes tab v50.88 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -966,7 +966,7 @@ function _renderCarouselGroup(group, noteId) {
     const nextBtn = gi < group.length - 1
       ? `<button class="n-vc-next" title="右へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">→</button>`
       : '';
-    return `<div class="n-vc-card" onclick="window.openVPanel?.('${_esc(b.videoId)}')">
+    return `<div class="n-vc-card" onclick="window._notesOpenVPanel?.('${_esc(noteId)}','${_esc(b.videoId)}')">
       <div class="n-vc-thumb">${thumbEl}</div>
       <div class="n-vc-info">
         <div class="n-vc-ttl">${_esc(b.title || b.videoId || '')}</div>
@@ -1017,6 +1017,18 @@ function _renderBlocks(blocks, noteId) {
   }
   return parts.join('');
 }
+
+window._notesOpenVPanel = function(noteId, videoId) {
+  const r = _findNote(noteId);
+  if (!r) { window.openVPanel?.(videoId); return; }
+  const vids = (window.videos || []);
+  const noteVids = r.note.blocks
+    .filter(b => b.type === 'video' && b.videoId)
+    .map(b => vids.find(v => v.id === b.videoId))
+    .filter(Boolean);
+  window._noteVidList = noteVids.length > 1 ? noteVids : null;
+  window.openVPanel?.(videoId);
+};
 
 window._notesVidToggleMode = function(noteId, idx) {
   const r = _findNote(noteId);

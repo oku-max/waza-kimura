@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.62 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.88 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1224,7 +1224,7 @@ export function vpBmReset(id, idx) {
 export function vpNav(dir) {
   const cur = window.openVPanelId;
   if (!cur) return;
-  const list = window.filteredVideos || window.videos || [];
+  const list = window._noteVidList || window.filteredVideos || window.videos || [];
   const idx = list.findIndex(v => v.id === cur);
   if (idx < 0) return;
   const next = list[(idx + dir + list.length) % list.length];
@@ -1389,7 +1389,7 @@ function _renderBlurArea(id) {
   if (!area) return;
 
   // フィルター済み配列を優先、なければ全件
-  const all = window.filteredVideos || window.videos || [];
+  const all = window._noteVidList || window.filteredVideos || window.videos || [];
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
@@ -1450,7 +1450,7 @@ function _ensureBottomSheet() {
 window.vpOpenNextList = function () {
   _ensureBottomSheet();
   const id = window.openVPanelId;
-  const all = window.filteredVideos || window.videos || [];
+  const all = window._noteVidList || window.filteredVideos || window.videos || [];
   const list = document.getElementById('vp-bs-list');
   if (!list) return;
   list.innerHTML = all.slice(0, 30).map(rv => {
@@ -1507,6 +1507,7 @@ export function closeVPanel() {
     if (inner) inner.classList.remove('is-portrait');
     document.body.style.overflow = '';
     window.openVPanelId = null;
+    window._noteVidList = null;
     document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
     // pushStateで追加した履歴エントリを除去（Xボタン/Escape経由の場合のみ）
     // バックボタン経由（_backButtonClosing）なら既にpopされているのでback()不要
