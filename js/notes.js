@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.86 ═══
+// ═══ WAZA KIMURA — Notes tab v50.87 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1706,9 +1706,51 @@ function _setupFormatBar() {
     <button class="n-fmt-btn" data-cmd="fontSize" data-val="5" title="大" style="font-size:16px">A</button>
     <button class="n-fmt-btn" data-cmd="fontSize" data-val="7" title="最大" style="font-size:20px">A</button>
     <div class="n-fmt-sep"></div>
-    <button class="n-fmt-btn" data-cmd="hiliteColor" data-val="#fff176" title="ハイライト">🌟</button>
+    <button class="n-fmt-btn n-fmt-marker-trigger" title="マーカー">🌟</button>
     <button class="n-fmt-btn" data-cmd="removeFormat"                    title="書式クリア">✕</button>
   `;
+  // マーカー色パレット（フローティングバー用）
+  const palette = document.createElement('div');
+  palette.className = 'n-fmt-palette';
+  palette.id = 'nFmtPalette';
+  const colors = [
+    { val: '#fff176', label: '黄' },
+    { val: '#f48fb1', label: 'ピンク' },
+    { val: '#a5d6a7', label: '緑' },
+    { val: '#90caf9', label: '青' },
+    { val: '#ffcc80', label: 'オレンジ' },
+    { val: '#ce93d8', label: '紫' },
+  ];
+  palette.innerHTML = colors.map(c =>
+    `<button class="n-fmt-palette-dot" data-cmd="hiliteColor" data-val="${c.val}" title="${c.label}" style="background:${c.val}"></button>`
+  ).join('') + `<button class="n-fmt-palette-dot n-fmt-palette-clear" data-cmd="removeFormat" title="クリア">✕</button>`;
+  bar.appendChild(palette);
+
+  // パレット開閉
+  bar.querySelector('.n-fmt-marker-trigger').addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    palette.classList.toggle('vis');
+  });
+  bar.querySelector('.n-fmt-marker-trigger').addEventListener('touchend', e => {
+    e.preventDefault(); e.stopPropagation();
+    palette.classList.toggle('vis');
+  });
+  // パレット内ボタンクリック
+  palette.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const dot = e.target.closest('[data-cmd]');
+    if (!dot) return;
+    _applyFmtCmd(dot.dataset.cmd, dot.dataset.val);
+    palette.classList.remove('vis');
+  });
+  palette.addEventListener('touchend', e => {
+    e.preventDefault(); e.stopPropagation();
+    const dot = e.target.closest('[data-cmd]');
+    if (!dot) return;
+    _applyFmtCmd(dot.dataset.cmd, dot.dataset.val);
+    palette.classList.remove('vis');
+  });
+
   bar.addEventListener('mousedown', e => {
     e.preventDefault();
     const btn = e.target.closest('[data-cmd]');
@@ -1746,6 +1788,35 @@ function _setupFormatBar() {
       if (!btn) return;
       _applyFmtCmd(btn.dataset.cmd, btn.dataset.val);
     });
+
+    // topbar マーカー色パレット
+    const tbPalette = document.getElementById('nTopbarPalette');
+    const tbMarkerBtn = topbarFmt.querySelector('.n-topbar-marker-trigger');
+    if (tbPalette && tbMarkerBtn) {
+      const tColors = [
+        { val: '#fff176', label: '黄' },
+        { val: '#f48fb1', label: 'ピンク' },
+        { val: '#a5d6a7', label: '緑' },
+        { val: '#90caf9', label: '青' },
+        { val: '#ffcc80', label: 'オレンジ' },
+        { val: '#ce93d8', label: '紫' },
+      ];
+      tbPalette.innerHTML = tColors.map(c =>
+        `<button class="n-fmt-palette-dot" data-cmd="hiliteColor" data-val="${c.val}" title="${c.label}" style="background:${c.val}"></button>`
+      ).join('') + `<button class="n-fmt-palette-dot n-fmt-palette-clear" data-cmd="removeFormat" title="クリア">✕</button>`;
+      const toggleTbPalette = e => { e.preventDefault(); e.stopPropagation(); tbPalette.classList.toggle('vis'); };
+      tbMarkerBtn.addEventListener('mousedown', toggleTbPalette);
+      tbMarkerBtn.addEventListener('touchend', toggleTbPalette);
+      const handleTbPalettePick = e => {
+        e.preventDefault(); e.stopPropagation();
+        const dot = e.target.closest('[data-cmd]');
+        if (!dot) return;
+        _applyFmtCmd(dot.dataset.cmd, dot.dataset.val);
+        tbPalette.classList.remove('vis');
+      };
+      tbPalette.addEventListener('mousedown', handleTbPalettePick);
+      tbPalette.addEventListener('touchend', handleTbPalettePick);
+    }
   }
 
   // selectionchange で常に range を保存（Android用）
@@ -1767,8 +1838,18 @@ function _setupFormatBar() {
     _fmtDebounce = setTimeout(_checkFmtBar, 200);
   });
   document.addEventListener('keydown', e => {
-    const bar = document.getElementById('n-fmt-bar');
-    if (bar && e.key === 'Escape') bar.classList.remove('vis');
+    if (e.key === 'Escape') {
+      document.getElementById('n-fmt-bar')?.classList.remove('vis');
+      document.getElementById('nFmtPalette')?.classList.remove('vis');
+      document.getElementById('nTopbarPalette')?.classList.remove('vis');
+    }
+  });
+  // パレットを外クリックで閉じる
+  document.addEventListener('mousedown', e => {
+    if (!e.target.closest('.n-fmt-palette, .n-fmt-marker-trigger, .n-topbar-palette, .n-topbar-marker-trigger')) {
+      document.getElementById('nFmtPalette')?.classList.remove('vis');
+      document.getElementById('nTopbarPalette')?.classList.remove('vis');
+    }
   });
 }
 
