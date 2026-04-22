@@ -200,7 +200,7 @@
 
 /* 書式ボタン (topbar内、常時表示) */
 .n-topbar-fmt {
-  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0; position: relative;
 }
 .n-topbar-fmt-btn {
   min-width: 30px; height: 28px; padding: 0 6px;
@@ -535,6 +535,40 @@
 .n-fmt-sep {
   width: 1px; height: 16px; background: rgba(255,255,255,.15); margin: 0 2px;
 }
+
+/* ── マーカー色パレット (floating bar) ── */
+.n-fmt-palette {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  background: #1e1e2e; border: 1px solid rgba(255,255,255,.15);
+  border-radius: 8px; padding: 5px 6px; gap: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.45);
+  flex-wrap: wrap; justify-content: center;
+}
+.n-fmt-palette.vis { display: flex }
+.n-fmt-palette-dot {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; transition: border-color .12s, transform .12s;
+}
+.n-fmt-palette-dot:hover { border-color: #fff; transform: scale(1.15) }
+.n-fmt-palette-clear {
+  background: transparent; color: #aaa; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid rgba(255,255,255,.2);
+}
+
+/* ── topbar separator & palette ── */
+.n-topbar-fmt-sep {
+  width: 1px; height: 16px; background: var(--border); margin: 0 2px; flex-shrink: 0;
+}
+.n-topbar-palette {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 8px; padding: 6px 8px; gap: 5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  flex-wrap: wrap; justify-content: center; z-index: 100;
+}
+.n-topbar-palette.vis { display: flex }
 
 /* ── block add textarea ── */
 .n-sheet-textarea {
