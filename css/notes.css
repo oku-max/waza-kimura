@@ -704,5 +704,5 @@
 }
 .n-ins-btn:hover { background: var(--surface2); color: var(--accent); border-color: var(--accent); border-style: solid }
 @media (max-width: 767px) {
-  .n-ins-strip { opacity: 1 }
+  .n-ins-strip { opacity: 0 }
 }
