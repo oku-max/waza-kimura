@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.00 ═══
+// ═══ WAZA KIMURA — Notes tab v51.01 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -855,21 +855,10 @@ window._notesBlockSave = function(el) {
 const _isTouchDevice = () => 'ontouchstart' in window;
 
 window._notesBlockKeydown = function(el, e) {
-  if (e.key === 'Enter' && !e.shiftKey && !_isTouchDevice()) {
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    const noteId = el.dataset.noteId;
-    const idx = parseInt(el.dataset.idx);
-    // save current first
-    window._notesBlockSave(el);
-    const r = _findNote(noteId);
-    if (!r) return;
-    r.note.blocks.splice(idx + 1, 0, { type: 'text', content: '' });
-    _save();
-    _renderNote(noteId);
-    setTimeout(() => {
-      const next = document.querySelector(`[data-note-id="${noteId}"][data-idx="${idx + 1}"]`);
-      next?.focus();
-    }, 40);
+    document.execCommand('insertLineBreak');
+    setTimeout(() => window._notesBlockSave(el), 0);
   }
 };
 
@@ -2167,6 +2156,9 @@ function _applyFmtCmd(cmd, val) {
     const on = main.classList.toggle('n-fullscreen');
     const btn = document.querySelector('[data-cmd="fullscreen"]');
     if (btn) btn.textContent = on ? '⤡' : '⤢';
+    // フルスクリーン時はtopbarを常時表示
+    const tb = document.querySelector('.notes-topbar');
+    if (tb && on) tb.classList.remove('n-tb-hidden', 'n-tb-floating');
     return;
   }
   // 保存済み range を復元してから execCommand
@@ -2307,6 +2299,13 @@ function _setupTopbarScroll() {
       const tb = document.querySelector('.notes-topbar');
       if (tb) {
         const y = window.scrollY;
+        // フルスクリーン中は常時表示
+        if (document.querySelector('.notes-main.n-fullscreen')) {
+          tb.classList.remove('n-tb-hidden', 'n-tb-floating');
+          _lastY = y;
+          _ticking = false;
+          return;
+        }
         const delta = y - _lastY;
         if (y < 10) {
           tb.classList.remove('n-tb-hidden', 'n-tb-floating');
