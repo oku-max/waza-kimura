@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.31 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.90 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -758,3 +758,47 @@
 @media (max-width: 767px) {
   .n-ins-strip { opacity: 0 }
 }
+
+/* ── カラムレイアウト ── */
+.n-block-col { border: 1px solid var(--border) !important; border-radius: 8px; padding: 8px; }
+.n-col-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px; gap: 8px;
+}
+.n-col-ratios { display: flex; gap: 4px; flex-wrap: wrap; }
+.n-col-ratio-btn {
+  padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;
+  border: 1px solid var(--border2); background: var(--surface2); color: var(--text3);
+  cursor: pointer; font-family: inherit;
+}
+.n-col-ratio-btn:hover, .n-col-ratio-btn.active {
+  border-color: var(--accent); color: var(--accent); background: rgba(232,201,106,.08);
+}
+.n-col-del {
+  padding: 2px 6px; border-radius: 4px; font-size: 11px; flex-shrink: 0;
+  border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer;
+}
+.n-col-del:hover { background: rgba(248,113,113,.15); color: var(--red, #f87171); border-color: var(--red, #f87171); }
+.n-col-grid { display: grid; gap: 8px; }
+.n-col-slot {
+  border: 1px dashed var(--border2); border-radius: 6px; padding: 6px;
+  min-height: 60px; display: flex; flex-direction: column;
+}
+.n-col-block-wrap {
+  position: relative; border-radius: 4px; border: 1px solid transparent; margin-bottom: 2px;
+}
+.n-col-block-wrap:hover { border-color: var(--border); }
+.n-col-block-wrap:hover .n-cb-del { display: block; }
+.n-cb-del {
+  display: none; position: absolute; top: 2px; right: 2px;
+  padding: 1px 4px; border-radius: 3px; font-size: 10px;
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--text3); cursor: pointer;
+}
+.n-cb-del:hover { background: rgba(248,113,113,.15); color: var(--red, #f87171); }
+.n-col-slot-add { display: flex; gap: 4px; margin-top: auto; padding-top: 6px; }
+.n-col-slot-add button {
+  padding: 3px 8px; border-radius: 5px; font-size: 10px;
+  background: none; border: 1px dashed var(--border2); color: var(--text3);
+  cursor: pointer; font-family: inherit;
+}
+.n-col-slot-add button:hover { border-color: var(--accent); color: var(--accent); }

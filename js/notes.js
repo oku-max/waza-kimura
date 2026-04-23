@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.88 ═══
+// ═══ WAZA KIMURA — Notes tab v50.90 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -796,6 +796,26 @@ function _sanitizeRichHtml(html) {
 }
 
 window._notesBlockSave = function(el) {
+  // カラム内ブロックの保存
+  if (el.dataset.colIdx !== undefined && el.dataset.colIdx !== '') {
+    const noteId = el.dataset.noteId;
+    const colIdx = parseInt(el.dataset.colIdx);
+    const slot = parseInt(el.dataset.colSlot);
+    const bIdx = parseInt(el.dataset.colBidx);
+    const r = _findNote(noteId);
+    if (!r) return;
+    const colBlock = r.note.blocks[colIdx];
+    if (!colBlock || colBlock.type !== 'col') return;
+    const block = colBlock.cols[slot]?.[bIdx];
+    if (!block) return;
+    const html = el.innerHTML;
+    const hasRich = /<(b|strong|i|em|u|s|strike|span|font)[^>]*>/i.test(html);
+    if (hasRich) { block.content = _sanitizeRichHtml(html); block.richText = true; }
+    else { block.content = el.innerText.replace(/\n{3,}/g, '\n\n').trim(); delete block.richText; }
+    r.note.updatedAt = Date.now();
+    _save();
+    return;
+  }
   const noteId = el.dataset.noteId;
   const idx = parseInt(el.dataset.idx);
   const r = _findNote(noteId);
@@ -1001,7 +1021,11 @@ function _renderBlocks(blocks, noteId) {
   let i = 0;
   while (i < blocks.length) {
     const b = blocks[i];
-    if (b.type === 'video' && b.viewMode !== 'inline') {
+    if (b.type === 'col') {
+      parts.push(_renderColBlock(b, i, noteId));
+      if (i < blocks.length - 1) parts.push(_insertStrip(noteId, i));
+      i++;
+    } else if (b.type === 'video' && b.viewMode !== 'inline') {
       const group = [];
       while (i < blocks.length && blocks[i].type === 'video' && blocks[i].viewMode !== 'inline') {
         group.push({ block: blocks[i], idx: i });
@@ -1018,6 +1042,50 @@ function _renderBlocks(blocks, noteId) {
   return parts.join('');
 }
 
+function _renderColBlock(b, idx, noteId) {
+  const ratio = b.ratio || [50, 50];
+  const cols = b.cols || [[], []];
+  const gridCols = ratio.map(r => `${r}fr`).join(' ');
+  const ratioKey = ratio.join('-');
+  const presets = [[[50,50],'1:1'],[[33,67],'1:2'],[[67,33],'2:1'],[[25,75],'1:3'],[[75,25],'3:1']];
+  const ratioHTML = presets.map(([r, label]) =>
+    `<button class="n-col-ratio-btn${r.join('-') === ratioKey ? ' active' : ''}"
+      onclick="window._notesColRatio('${noteId}',${idx},'${r.join('-')}')">${label}</button>`
+  ).join('');
+  const slotsHTML = [0, 1].map(slot => {
+    const slotBlocks = cols[slot] || [];
+    const blocksHTML = slotBlocks.map((sb, bIdx) => _colBlockHTML(sb, bIdx, noteId, idx, slot)).join('');
+    return `<div class="n-col-slot">
+      ${blocksHTML}
+      <div class="n-col-slot-add">
+        <button onclick="window._notesColAddText('${noteId}',${idx},${slot})">＋ テキスト</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="n-block-wrap n-block-col" data-note-id="${noteId}" data-idx="${idx}">
+    <div class="n-col-toolbar">
+      <div class="n-col-ratios">${ratioHTML}</div>
+      <button class="n-col-del" onclick="window._notesBlockDel('${noteId}',${idx})" title="カラムを削除">✕</button>
+    </div>
+    <div class="n-col-grid" style="grid-template-columns:${gridCols}">${slotsHTML}</div>
+  </div>`;
+}
+
+function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
+  const type = b.type || 'text';
+  const tag = type === 'h2' ? 'h2' : type === 'quote' ? 'blockquote' : 'div';
+  const cls = `n-b-${type} n-editable`;
+  const placeholder = type === 'h2' ? '見出し' : type === 'quote' ? '引用' : 'テキストを入力…';
+  const content = b.richText ? (b.content || '') : _esc(b.content || '').replace(/\n/g, '<br>');
+  const del = `<button class="n-cb-del" onclick="event.stopPropagation();window._notesColDelBlock('${noteId}',${colIdx},${slot},${bIdx})" title="削除">✕</button>`;
+  return `<div class="n-col-block-wrap">
+    <${tag} class="${cls}" contenteditable="true" placeholder="${placeholder}"
+      data-note-id="${noteId}" data-col-idx="${colIdx}" data-col-slot="${slot}" data-col-bidx="${bIdx}"
+      onblur="window._notesBlockSave(this)">${content}</${tag}>
+    ${del}
+  </div>`;
+}
+
 window._notesOpenVPanel = function(noteId, videoId) {
   const r = _findNote(noteId);
   if (!r) { window.openVPanel?.(videoId); return; }
@@ -1028,6 +1096,56 @@ window._notesOpenVPanel = function(noteId, videoId) {
     .filter(Boolean);
   window._noteVidList = noteVids.length > 1 ? noteVids : null;
   window.openVPanel?.(videoId);
+};
+
+window._notesAddColBlock = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  _blocksInsertOrPush(r.note.blocks, {
+    type: 'col', ratio: [50, 50],
+    cols: [[{ type: 'text', content: '' }], [{ type: 'text', content: '' }]],
+  });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesColRatio = function(noteId, idx, ratioStr) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b || b.type !== 'col') return;
+  b.ratio = ratioStr.split('-').map(Number);
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesColAddText = function(noteId, idx, slot) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b || b.type !== 'col') return;
+  if (!b.cols[slot]) b.cols[slot] = [];
+  b.cols[slot].push({ type: 'text', content: '' });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+  setTimeout(() => {
+    const all = document.querySelectorAll(`[data-col-idx="${idx}"][data-col-slot="${slot}"][contenteditable]`);
+    all[all.length - 1]?.focus();
+  }, 40);
+};
+
+window._notesColDelBlock = function(noteId, idx, slot, bIdx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b || b.type !== 'col') return;
+  b.cols[slot].splice(bIdx, 1);
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
 };
 
 window._notesVidToggleMode = function(noteId, idx) {
@@ -1124,6 +1242,7 @@ function _renderNote(id) {
       <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">＋ テキスト</button>
       <button class="n-add-inline n-add-video-btn" onclick="window._notesShowVidPicker?.('${id}')">＋ 動画を追加</button>
       <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
+      <button class="n-add-inline" onclick="window._notesAddColBlock('${id}')">⊞ カラム</button>
     </div>
   `;
 
