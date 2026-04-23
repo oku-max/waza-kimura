@@ -1961,10 +1961,8 @@ window._notesAddFromLib = function(videoId, noteId) {
   };
   const ctx = window._notesColContext;
   window._notesColContext = null;
-  console.log('[notes] _notesAddFromLib ctx=', JSON.stringify(ctx), 'noteId=', noteId, 'blocks.length=', note.blocks.length);
   if (ctx && ctx.noteId === noteId) {
     const colBlock = note.blocks[ctx.colIdx];
-    console.log('[notes] colBlock=', colBlock?.type, 'at idx', ctx.colIdx);
     if (colBlock && colBlock.type === 'col') {
       if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
       colBlock.cols[ctx.slot].push(vidBlock);
