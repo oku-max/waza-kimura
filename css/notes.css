@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.90 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v50.97 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -7,7 +7,7 @@
   height: 100%;
   overflow: hidden;
 }
-#notesTab.active { display: flex; }
+#notesTab.active { display: flex; overflow: hidden !important; }
 
 .notes-app {
   display: flex;
