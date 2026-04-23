@@ -55,7 +55,7 @@ export function syncSidebarChipStates() {
 // ── フィルターオーバーレイ開閉 ──
 // スマホ/タブレットでも統合フィルターパネル（uniOpen）を使用
 export function openFilterOverlay() {
-  if (window.uniOpen) { window.uniOpen('state'); return; }
+  if (window.uniOpen) { window.uniOpen('src'); return; }
   // fallback: 旧オーバーレイ
   const ov = document.getElementById('filter-overlay');
   if (!ov) return;

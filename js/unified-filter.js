@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v50.35 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v50.94 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -785,7 +785,7 @@
     _noteMode = noteId;
     _ctx = 'lib';
     _inject();
-    _tab = 'state';
+    _tab = 'src';
     document.getElementById('uni-bd').classList.add('open');
     document.getElementById('uni-popup').classList.add('open');
     _syncSearchbar(_tab);

@@ -384,7 +384,7 @@ export function orgFilt(list) {
 
 export function openOrgFilterOverlay() {
   // Organize タブでも統合フィルターパネルを使用
-  if (window.uniOpen) { window.uniOpen('state', 'org'); return; }
+  if (window.uniOpen) { window.uniOpen('src', 'org'); return; }
   // fallback: 旧オーバーレイ
   const ov = document.getElementById('org-filter-overlay');
   if (!ov) return;
