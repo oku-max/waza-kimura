@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.95</title>
+<title>WAZA KIMURA v50.96</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1481,10 +1481,14 @@
         <button class="notes-hamburger" onclick="window.notesOpenSb?.()">☰</button>
         <div class="notes-breadcrumb" id="notesBreadcrumb">Notes</div>
         <div class="n-topbar-fmt" id="nTopbarFmt">
-          <button class="n-topbar-fmt-btn" data-cmd="undo" title="元に戻す (Ctrl+Z)">↩</button>
-          <button class="n-topbar-fmt-btn" data-cmd="redo" title="やり直す (Ctrl+Y)">↪</button>
+          <button class="n-topbar-fmt-btn" data-cmd="undo"        title="元に戻す (Ctrl+Z)">↩</button>
+          <button class="n-topbar-fmt-btn" data-cmd="redo"        title="やり直す (Ctrl+Y)">↪</button>
+          <span class="n-topbar-fmt-sep"></span>
+          <button class="n-topbar-fmt-btn" data-cmd="createLink"  title="リンク挿入">🔗</button>
+          <button class="n-topbar-fmt-btn" data-cmd="code"        title="インラインコード">`</button>
           <span class="n-topbar-fmt-sep"></span>
           <button class="n-topbar-fmt-btn n-topbar-fmt-clear" data-cmd="removeFormat" title="書式クリア">✕</button>
+          <button class="n-topbar-fmt-btn" data-cmd="fullscreen"  title="全画面">⤢</button>
         </div>
       </div>
       <div class="notes-recent" id="notesRecent" style="display:none"></div>

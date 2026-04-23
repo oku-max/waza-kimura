@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.95 ═══
+// ═══ WAZA KIMURA — Notes tab v50.96 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -2160,6 +2160,15 @@ function _setupFormatBar() {
 let _savedFmtRange = null;
 let _savedFmtEl = null;
 function _applyFmtCmd(cmd, val) {
+  // 全画面トグル (選択不要)
+  if (cmd === 'fullscreen') {
+    const main = document.querySelector('.notes-main');
+    if (!main) return;
+    const on = main.classList.toggle('n-fullscreen');
+    const btn = document.querySelector('[data-cmd="fullscreen"]');
+    if (btn) btn.textContent = on ? '⤡' : '⤢';
+    return;
+  }
   // 保存済み range を復元してから execCommand
   if (_savedFmtRange && _savedFmtEl) {
     _savedFmtEl.focus();
@@ -2167,7 +2176,16 @@ function _applyFmtCmd(cmd, val) {
     sel.removeAllRanges();
     sel.addRange(_savedFmtRange);
   }
-  document.execCommand(cmd, false, val || null);
+  if (cmd === 'createLink') {
+    const url = window.prompt('リンクURL', 'https://');
+    if (!url) return;
+    document.execCommand('createLink', false, url);
+  } else if (cmd === 'code') {
+    const text = window.getSelection()?.toString() || '';
+    document.execCommand('insertHTML', false, `<code>${text || '\u200B'}</code>`);
+  } else {
+    document.execCommand(cmd, false, val || null);
+  }
   setTimeout(() => {
     if (cmd !== 'undo' && cmd !== 'redo') {
       const el = _savedFmtEl || document.querySelector('.n-editable:focus');
