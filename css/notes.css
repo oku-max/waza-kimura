@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v51.00 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v51.02 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -817,6 +817,14 @@
 .notes-main.n-fullscreen {
   position: fixed; inset: 0; z-index: 500;
   background: var(--surface);
+}
+.notes-main.n-fullscreen > .notes-topbar {
+  top: 0;
+  left: 0;
+  z-index: 600;
+}
+.notes-main.n-fullscreen > .notes-content {
+  padding-top: 52px;
 }
 
 /* ── インラインコード ── */

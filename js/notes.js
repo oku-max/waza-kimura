@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.01 ═══
+// ═══ WAZA KIMURA — Notes tab v51.02 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -98,7 +98,7 @@ function _save() {
   try { localStorage.setItem(NOTES_KEY, JSON.stringify(_data)); } catch {}
   // Firestoreへは2秒デバウンスで非同期保存（連続編集時にhammer防止）
   clearTimeout(_saveFsTimer);
-  _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 2000);
+  _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 500);
 }
 
 // ページ離脱・バックグラウンド移行時に未送信の変更を即時Firestore保存
@@ -111,6 +111,7 @@ const _flushNotes = () => {
 };
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushNotes(); });
 window.addEventListener('pagehide', _flushNotes);
+window.addEventListener('beforeunload', _flushNotes);
 
 // ログイン後にFirestoreから呼ばれる
 window._notesGetData = () => _data;
@@ -1972,7 +1973,10 @@ window._notesAddFromLib = function(videoId, noteId) {
       return;
     }
   }
-  if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
+  const alreadyInCol = note.blocks.some(b =>
+    b.type === 'col' && b.cols?.some(sl => sl?.some(sb => sb.videoId === videoId))
+  );
+  if (!alreadyInCol && !note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
     note.blocks.push(vidBlock);
     note.updatedAt = Date.now();
     _save();
