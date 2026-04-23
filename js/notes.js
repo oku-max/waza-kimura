@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.03 ═══
+// ═══ WAZA KIMURA — Notes tab v51.04 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -133,6 +133,7 @@ let _activeId = null;
 let _recentIds = [];
 let _dragSrcNoteId = null;
 let _dragSrcIdx = null;
+let _dragSrcEndIdx = null;
 let _statusFilter = null; // null=全て, 'new'/'wip'/'done'/'review'
 
 // ── lookup ──
@@ -755,7 +756,7 @@ function _blockHTML(block, idx, noteId, total) {
         : `<span style="font-size:18px">🎥</span>`;
       const modeBtn = `<button class="n-bvi-mode-btn" title="カードに切替"
         onclick="event.stopPropagation();window._notesVidToggleMode('${noteId}',${idx})">🎠</button>`;
-      return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}">
+      return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-b-video-inline">
           <div class="n-bvi-header" onclick="window._notesVidTogglePlayer('${noteId}',${idx})">
             <div class="n-bvi-thumb">${thumbEl}
@@ -907,9 +908,10 @@ window._notesInsertImageAt = function(noteId, afterIdx) {
   window._notesAddImageBlock?.(noteId);
 };
 
-window._notesDragStart = function(e, noteId, idx) {
+window._notesDragStart = function(e, noteId, idx, endIdx) {
   _dragSrcNoteId = noteId;
   _dragSrcIdx = idx;
+  _dragSrcEndIdx = endIdx ?? idx;
   e.dataTransfer.effectAllowed = 'move';
   e.target.closest?.('.n-block-wrap')?.classList.add('n-dragging');
 };
@@ -936,14 +938,17 @@ window._notesDragStart = function(e, noteId, idx) {
     const targetNoteId = wrap.dataset.noteId;
     const dst = parseInt(wrap.dataset.idx);
     const src = _dragSrcIdx;
+    const srcEnd = _dragSrcEndIdx ?? src;
     const srcNoteId = _dragSrcNoteId;
-    _dragSrcNoteId = null; _dragSrcIdx = null;
+    _dragSrcNoteId = null; _dragSrcIdx = null; _dragSrcEndIdx = null;
     if (targetNoteId !== srcNoteId || isNaN(dst) || src === dst) return;
     const r = _findNote(targetNoteId);
     if (!r) return;
     const blocks = r.note.blocks;
-    const [moved] = blocks.splice(src, 1);
-    blocks.splice(dst > src ? dst - 1 : dst, 0, moved);
+    const count = srcEnd - src + 1;
+    const moved = blocks.splice(src, count);
+    const insertAt = dst > src ? dst - count : dst;
+    blocks.splice(insertAt, 0, ...moved);
     r.note.updatedAt = Date.now();
     _save();
     _renderNote(targetNoteId);
@@ -951,7 +956,7 @@ window._notesDragStart = function(e, noteId, idx) {
   document.addEventListener('dragend', function() {
     document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
     _dndOverWrap = null;
-    _dragSrcNoteId = null; _dragSrcIdx = null;
+    _dragSrcNoteId = null; _dragSrcIdx = null; _dragSrcEndIdx = null;
   });
 })();
 
@@ -972,6 +977,8 @@ window._notesAddTextBlock = function(noteId) {
 const STATUS_COLOR = { 'マスター':'#22c55e', '練習中':'#f59e0b', '理解':'#3b82f6' };
 
 function _renderCarouselGroup(group, noteId) {
+  const firstIdx = group[0].idx;
+  const lastIdx  = group[group.length - 1].idx;
   const cards = group.map(({ block: b, idx }, gi) => {
     const thumbSrc = _blockThumbUrl(b);
     const thumbEl = thumbSrc
@@ -1001,8 +1008,10 @@ function _renderCarouselGroup(group, noteId) {
         onclick="event.stopPropagation();window._notesVidToggleMode('${noteId}',${idx})">📺</button>
     </div>`;
   }).join('');
-  return `<div class="n-block-wrap n-block-wrap-carousel">
-    <div class="n-vc-scroll">${cards}</div>
+  const groupDrag = `<div class="n-drag-handle" draggable="true" title="ドラッグして並び替え"
+    ondragstart="window._notesDragStart(event,'${noteId}',${firstIdx},${lastIdx})">⠿</div>`;
+  return `<div class="n-block-wrap n-block-wrap-carousel" data-note-id="${noteId}" data-idx="${firstIdx}" data-idx-end="${lastIdx}">
+    <div class="n-vc-scroll">${cards}</div>${groupDrag}
   </div>`;
 }
 
