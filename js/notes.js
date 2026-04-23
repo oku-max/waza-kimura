@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.85 ═══
+// ═══ WAZA KIMURA — Notes tab v50.87 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1669,18 +1669,33 @@ window._notesAddFromLib = function(videoId, noteId) {
   const note = r.note;
   const v = (window.videos || []).find(x => x.id === videoId);
   if (!v) return;
+  const platform = v.pt || v.src || 'youtube';
+  const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
+  const viewMode = window._noteModeViewMode || 'carousel';
+  const vidBlock = {
+    type: 'video', videoId, platform, viewMode,
+    ytId: ytId || undefined,
+    vmHash: v.vmHash || undefined,
+    thumb: ytId ? undefined
+         : v.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${v.id}.jpg` : undefined),
+    title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
+  };
+  const ctx = window._notesColContext;
+  window._notesColContext = null;
+  if (ctx && ctx.noteId === noteId) {
+    const colBlock = note.blocks[ctx.colIdx];
+    if (colBlock && colBlock.type === 'col') {
+      if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
+      colBlock.cols[ctx.slot].push(vidBlock);
+      note.updatedAt = Date.now();
+      _save();
+      window.toast?.(`📓「${note.name}」に「${v.title || videoId}」を追加しました`);
+      if (_activeId === noteId) _renderNote(noteId);
+      return;
+    }
+  }
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
-    const viewMode = window._noteModeViewMode || 'carousel';
-    const platform = v.pt || v.src || 'youtube';
-    const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
-    note.blocks.push({
-      type: 'video', videoId, platform, viewMode,
-      ytId: ytId || undefined,
-      vmHash: v.vmHash || undefined,
-      thumb: ytId ? undefined
-           : v.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${v.id}.jpg` : undefined),
-      title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
-    });
+    note.blocks.push(vidBlock);
     note.updatedAt = Date.now();
     _save();
   }
@@ -1700,9 +1715,11 @@ function _setupFormatBar() {
     <button class="n-fmt-btn" data-cmd="underline"     title="下線 (Ctrl+U)"><u>U</u></button>
     <button class="n-fmt-btn" data-cmd="strikeThrough" title="取り消し線"><s>S</s></button>
     <div class="n-fmt-sep"></div>
-    <button class="n-fmt-btn" data-cmd="fontSize" data-val="2" title="小さく">A<sub>↓</sub></button>
-    <button class="n-fmt-btn" data-cmd="fontSize" data-val="3" title="標準">A</button>
-    <button class="n-fmt-btn" data-cmd="fontSize" data-val="5" title="大きく">A<sup>↑</sup></button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="1" title="最小" style="font-size:9px">A</button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="2" title="小" style="font-size:11px">A</button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="3" title="標準" style="font-size:13px">A</button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="5" title="大" style="font-size:16px">A</button>
+    <button class="n-fmt-btn" data-cmd="fontSize" data-val="7" title="最大" style="font-size:20px">A</button>
     <div class="n-fmt-sep"></div>
     <button class="n-fmt-btn" data-cmd="hiliteColor" data-val="#fff176" title="ハイライト">🌟</button>
     <button class="n-fmt-btn" data-cmd="removeFormat"                    title="書式クリア">✕</button>
@@ -1711,7 +1728,7 @@ function _setupFormatBar() {
     e.preventDefault();
     const btn = e.target.closest('[data-cmd]');
     if (!btn) return;
-    _applyFmtCmd(btn.dataset.cmd);
+    _applyFmtCmd(btn.dataset.cmd, btn.dataset.val);
   });
   bar.addEventListener('touchstart', e => {
     e.preventDefault();
@@ -1720,7 +1737,7 @@ function _setupFormatBar() {
     e.preventDefault();
     const btn = e.target.closest('[data-cmd]');
     if (!btn) return;
-    _applyFmtCmd(btn.dataset.cmd);
+    _applyFmtCmd(btn.dataset.cmd, btn.dataset.val);
   });
   document.body.appendChild(bar);
 
@@ -1735,14 +1752,14 @@ function _setupFormatBar() {
       const btn = e.target.closest('[data-cmd]');
       if (!btn) return;
       // Android では tap で selection が消えるため保存済み range を復元
-      _applyFmtCmd(btn.dataset.cmd);
+      _applyFmtCmd(btn.dataset.cmd, btn.dataset.val);
     });
     // マウス操作（デスクトップ兼用）
     topbarFmt.addEventListener('mousedown', e => {
       e.preventDefault();
       const btn = e.target.closest('[data-cmd]');
       if (!btn) return;
-      _applyFmtCmd(btn.dataset.cmd);
+      _applyFmtCmd(btn.dataset.cmd, btn.dataset.val);
     });
   }
 
@@ -1772,7 +1789,7 @@ function _setupFormatBar() {
 
 let _savedFmtRange = null;
 let _savedFmtEl = null;
-function _applyFmtCmd(cmd) {
+function _applyFmtCmd(cmd, val) {
   // 保存済み range を復元してから execCommand
   if (_savedFmtRange && _savedFmtEl) {
     _savedFmtEl.focus();
@@ -1780,7 +1797,7 @@ function _applyFmtCmd(cmd) {
     sel.removeAllRanges();
     sel.addRange(_savedFmtRange);
   }
-  document.execCommand(cmd, false, null);
+  document.execCommand(cmd, false, val || null);
   setTimeout(() => {
     const el = _savedFmtEl || document.querySelector('.n-editable:focus');
     if (el) window._notesBlockSave(el);
