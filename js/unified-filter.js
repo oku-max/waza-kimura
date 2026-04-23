@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v50.94 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v51.03 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -18,6 +18,7 @@
   let _vidSort = 'auto';
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
+  let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -194,7 +195,9 @@
 #uni-popup .uni-vc-title{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 #uni-popup .uni-vc-meta{font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #uni-popup .uni-vc-notice{padding:7px 10px;font-size:10px;color:var(--text3);background:rgba(107,63,212,.06);border-bottom:1px solid rgba(107,63,212,.12);text-align:center;line-height:1.5}
-#uni-popup .uni-vc-notice-sm{background:none;border-bottom:1px solid var(--border);color:var(--accent);font-weight:700}
+#uni-popup .uni-vc-notice-sm{background:none;border-bottom:1px solid var(--border);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:space-between}
+#uni-popup .uni-vc-addall-btn{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid rgba(59,130,246,.4);background:rgba(59,130,246,.1);color:#93c5fd;cursor:pointer;white-space:nowrap;font-family:inherit}
+#uni-popup .uni-vc-addall-btn:hover{background:rgba(59,130,246,.2)}
 @media(max-width:480px){#uni-popup .uni-col-vc{flex:0 0 240px}}
 /* ── ノートに追加モード ── */
 #uni-popup .uni-nm-banner{padding:8px 14px;background:#05966912;border-bottom:1px solid #05966930;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text1);flex-shrink:0}
@@ -333,6 +336,8 @@
 
     const isNoteMode = !!_noteMode;
     const addedIds = isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set();
+    if (isNoteMode) _shownNoteVideos = shown.filter(v => !addedIds.has(v.id)).map(v => v.id);
+    else _shownNoteVideos = [];
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
       const thumb = ytId
@@ -357,11 +362,15 @@
       </div>`;
     }).join('');
 
+    const addableCount = _shownNoteVideos.length;
+    const addAllBtn = isNoteMode && addableCount > 0
+      ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">＋ ${addableCount}件すべて追加</button>`
+      : '';
     const notice = total > 30
       ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件) — 続きはライブラリ・オーガナイズで</div>`
       : total === 0
       ? `<div class="uni-vc-notice">条件に一致する動画がありません</div>`
-      : `<div class="uni-vc-notice uni-vc-notice-sm">${total}件がヒット</div>`;
+      : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}</div>`;
 
     const colHeader = isNoteMode ? 'ノートに追加' : '該当動画';
     return `<div class="uni-col uni-col-vc">
@@ -929,6 +938,14 @@
 
   // popoverを外クリックで閉じる
   document.addEventListener('click', () => _closeSSMenus());
+
+  // ノートモード — 表示中の動画をすべてノートに追加
+  window._uniAddAllToNote = function() {
+    if (!_noteMode || !_shownNoteVideos.length) return;
+    _shownNoteVideos.forEach(id => window._notesAddFromLib?.(id, _noteMode));
+    _shownNoteVideos = [];
+    _render();
+  };
 
   // ノートモード動画クリック — _noteMode をクリック時に読む（render時に焼き込まない）
   window._uniVideoClick = function(videoId) {

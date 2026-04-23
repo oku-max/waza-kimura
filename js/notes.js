@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.02 ═══
+// ═══ WAZA KIMURA — Notes tab v51.03 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1050,10 +1050,12 @@ function _renderColBlock(b, idx, noteId) {
   const gridCols = ratio.map(r => `${r}fr`).join(' ');
   const ratioKey = ratio.join('-');
   const presets = [[[50,50],'1:1'],[[33,67],'1:2'],[[67,33],'2:1'],[[25,75],'1:3'],[[75,25],'3:1']];
-  const ratioHTML = presets.map(([r, label]) =>
-    `<button class="n-col-ratio-btn${r.join('-') === ratioKey ? ' active' : ''}"
-      onclick="window._notesColRatio('${noteId}',${idx},'${r.join('-')}')">${label}</button>`
-  ).join('');
+  const ratioHTML = presets.map(([r, label]) => {
+    const [l, rv] = r;
+    return `<button class="n-col-ratio-btn${r.join('-') === ratioKey ? ' active' : ''}"
+      onclick="window._notesColRatio('${noteId}',${idx},'${r.join('-')}')">
+      <span class="n-col-ratio-bar"><span style="flex:${l}"></span><span style="flex:${rv}"></span></span>${label}</button>`;
+  }).join('');
   const slotsHTML = [0, 1].map(slot => {
     const slotBlocks = cols[slot] || [];
     const blocksHTML = slotBlocks.map((sb, bIdx) => _colBlockHTML(sb, bIdx, noteId, idx, slot)).join('');
