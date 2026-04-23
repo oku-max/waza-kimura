@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.89 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.91 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -11,6 +11,8 @@ let _gdVideoEl = null;  // 再生中の<video>要素
 let _gdFileId  = null;  // 再生中のfileId
 let _gdPauseTimer = null;           // コントロール非表示タイマー
 let _gdContainerClick = null;       // container click handler（蓄積防止用）
+let _gdIntendedTime = null;         // 連続seek時の目標時刻（debounce用）
+let _gdSeekTimer = null;            // seekデバウンスタイマー
 // Vimeo Player API
 let _vmPlayer  = null;
 let _vmCurTime = 0;
@@ -190,6 +192,7 @@ function _getCurrentTime() {
   // Search VP が開いている場合は SR プレイヤーを優先
   if (window._srYtGetCurrentTime) return window._srYtGetCurrentTime();
   if (_gdVideoEl) {
+    if (_gdIntendedTime !== null) return _gdIntendedTime;
     const t = _gdVideoEl.currentTime;
     return isNaN(t) ? null : Math.floor(t);
   }
@@ -203,8 +206,14 @@ function _seekTo(sec) {
   // Search VP が開いている場合は SR プレイヤーを優先
   if (window._srYtSeekTo) { window._srYtSeekTo(sec); return; }
   if (_gdVideoEl) {
-    _gdVideoEl.currentTime = sec;
-    _gdVideoEl.play().catch(() => {});
+    clearTimeout(_gdSeekTimer);
+    _gdIntendedTime = sec;
+    _gdSeekTimer = setTimeout(() => {
+      if (!_gdVideoEl || _gdIntendedTime === null) return;
+      _gdVideoEl.currentTime = _gdIntendedTime;
+      _gdIntendedTime = null;
+      if (_gdVideoEl.paused) _gdVideoEl.play().catch(() => {});
+    }, 120);
     return;
   }
   if (_vmPlayer) {
@@ -1283,6 +1292,7 @@ export function openVPanel(id) {
   // GDriveリセット — pause・タイマー・clickハンドラをすべて解除してから参照を切る
   if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} }
   clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
+  clearTimeout(_gdSeekTimer); _gdSeekTimer = null; _gdIntendedTime = null;
   const _gdResetContainer = document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
@@ -1362,7 +1372,7 @@ export function openVPanel(id) {
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" style="margin-top:8px">
           <span class="vp-lbl">Memo</span>
-          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')">${vd?.memo||''}</textarea>
+          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')" oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)">${vd?.memo||''}</textarea>
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
     if (window.initSnapshotSection) {

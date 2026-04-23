@@ -35,10 +35,11 @@ window._firebaseSaveNotes = async function(data) {
   if (!currentUser) return;
   try {
     const updatedAt = new Date().toISOString();
-    localStorage.setItem('wk_notes_savedAt', updatedAt);
     await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').set({
       data, updatedAt, savedBy: _sessionId
     });
+    // 書き込み成功後にのみ更新（失敗時にタイムスタンプが狂うのを防ぐ）
+    localStorage.setItem('wk_notes_savedAt', updatedAt);
   } catch(e) { console.error('saveNotes:', e); }
 };
 

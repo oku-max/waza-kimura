@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.90 ═══
+// ═══ WAZA KIMURA — Notes tab v50.91 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -100,6 +100,17 @@ function _save() {
   clearTimeout(_saveFsTimer);
   _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 2000);
 }
+
+// ページ離脱・バックグラウンド移行時に未送信の変更を即時Firestore保存
+const _flushNotes = () => {
+  if (_saveFsTimer) {
+    clearTimeout(_saveFsTimer);
+    _saveFsTimer = null;
+    window._firebaseSaveNotes?.(_data);
+  }
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushNotes(); });
+window.addEventListener('pagehide', _flushNotes);
 
 // ログイン後にFirestoreから呼ばれる
 window._notesGetData = () => _data;
