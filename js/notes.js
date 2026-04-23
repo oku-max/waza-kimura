@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.92 ═══
+// ═══ WAZA KIMURA — Notes tab v50.93 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1958,18 +1958,33 @@ window._notesAddFromLib = function(videoId, noteId) {
   const note = r.note;
   const v = (window.videos || []).find(x => x.id === videoId);
   if (!v) return;
+  const platform = v.pt || v.src || 'youtube';
+  const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
+  const viewMode = window._noteModeViewMode || 'carousel';
+  const vidBlock = {
+    type: 'video', videoId, platform, viewMode,
+    ytId: ytId || undefined,
+    vmHash: v.vmHash || undefined,
+    thumb: ytId ? undefined
+         : v.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${v.id}.jpg` : undefined),
+    title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
+  };
+  const ctx = window._notesColContext;
+  window._notesColContext = null;
+  if (ctx && ctx.noteId === noteId) {
+    const colBlock = note.blocks[ctx.colIdx];
+    if (colBlock && colBlock.type === 'col') {
+      if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
+      colBlock.cols[ctx.slot].push(vidBlock);
+      note.updatedAt = Date.now();
+      _save();
+      window.toast?.(`📓「${note.name}」に「${v.title || videoId}」を追加しました`);
+      if (_activeId === noteId) _renderNote(noteId);
+      return;
+    }
+  }
   if (!note.blocks.some(b => b.type === 'video' && b.videoId === videoId)) {
-    const viewMode = window._noteModeViewMode || 'carousel';
-    const platform = v.pt || v.src || 'youtube';
-    const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
-    note.blocks.push({
-      type: 'video', videoId, platform, viewMode,
-      ytId: ytId || undefined,
-      vmHash: v.vmHash || undefined,
-      thumb: ytId ? undefined
-           : v.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${v.id}.jpg` : undefined),
-      title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
-    });
+    note.blocks.push(vidBlock);
     note.updatedAt = Date.now();
     _save();
   }
