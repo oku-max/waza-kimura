@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.96 ═══
+// ═══ WAZA KIMURA — Notes tab v51.00 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -2293,6 +2293,37 @@ function _updateFmtBar() {
   });
 }
 
+// ── topbar scroll-aware ──
+function _setupTopbarScroll() {
+  if (window._notesScrollSetup) return;
+  window._notesScrollSetup = true;
+  let _lastY = 0;
+  let _ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!document.getElementById('notesTab')?.classList.contains('active')) return;
+    if (_ticking) return;
+    _ticking = true;
+    requestAnimationFrame(() => {
+      const tb = document.querySelector('.notes-topbar');
+      if (tb) {
+        const y = window.scrollY;
+        const delta = y - _lastY;
+        if (y < 10) {
+          tb.classList.remove('n-tb-hidden', 'n-tb-floating');
+        } else if (delta < 0) {
+          tb.classList.remove('n-tb-hidden');
+          tb.classList.add('n-tb-floating');
+        } else if (delta > 2) {
+          tb.classList.add('n-tb-hidden');
+          tb.classList.remove('n-tb-floating');
+        }
+        _lastY = y;
+      }
+      _ticking = false;
+    });
+  }, { passive: true });
+}
+
 // ── init ──
 export function renderNotes() {
   if (!_activeId) {
@@ -2301,6 +2332,7 @@ export function renderNotes() {
     }
   }
   _setupFormatBar();
+  _setupTopbarScroll();
   _renderSb();
   if (_activeId) _renderNote(_activeId);
   _renderRecent();

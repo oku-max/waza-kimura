@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v50.99 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v51.00 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -7,7 +7,7 @@
   height: 100%;
   overflow: hidden;
 }
-#notesTab.active { display: flex; overflow: hidden !important; }
+#notesTab.active { display: flex; }
 
 .notes-app {
   display: flex;
@@ -186,8 +186,16 @@
 .notes-topbar {
   padding: 8px 16px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px;
-  background: var(--surface); flex-shrink: 0;
+  background: var(--surface);
+  position: fixed;
+  top: var(--topbar-h, 72px);
+  left: calc(var(--sbw, 0px) + 220px);
+  right: 0;
+  z-index: 50;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
+.notes-topbar.n-tb-hidden  { transform: translateY(-110%); }
+.notes-topbar.n-tb-floating { box-shadow: 0 4px 16px rgba(0,0,0,0.4); background: var(--surface2, var(--surface)); }
 .notes-hamburger {
   display: none; padding: 4px 6px; border-radius: 5px;
   background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer;
@@ -229,7 +237,7 @@
 }
 .n-recent-chip:hover, .n-recent-chip.active { border-color: var(--accent); color: var(--accent) }
 
-.notes-content { flex: 1; overflow-y: auto; padding: 28px 32px }
+.notes-content { flex: 1; overflow-y: auto; padding: 52px 32px 32px }
 
 /* ── content ── */
 .n-page-title {
@@ -657,12 +665,14 @@
   .notes-sidebar.open { transform: translateX(0) }
   .notes-hamburger { display: flex; align-items: center }
   .notes-recent { display: flex }
-  .notes-content { padding: 16px }
+  .notes-topbar { left: 0; top: var(--topbar-h, 56px); }
+  .notes-content { padding: 52px 16px 16px }
   .n-page-title { font-size: 20px }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .notes-sidebar { width: 180px }
-  .notes-content { padding: 20px 24px }
+  .notes-topbar { left: calc(var(--sbw, 0px) + 180px); }
+  .notes-content { padding: 52px 24px 20px }
 }
 
 /* scrollbar */
