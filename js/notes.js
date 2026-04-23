@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.93 ═══
+// ═══ WAZA KIMURA — Notes tab v50.95 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -750,7 +750,7 @@ function _blockHTML(block, idx, noteId, total) {
       // carousel blocks are grouped by _renderBlocks — only inline reaches here
       const thumbUrl = _blockThumbUrl(block);
       const thumbEl = thumbUrl
-        ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+        ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:18px',textContent:'🎥'}))">`
         : `<span style="font-size:18px">🎥</span>`;
       const modeBtn = `<button class="n-bvi-mode-btn" title="カードに切替"
         onclick="event.stopPropagation();window._notesVidToggleMode('${noteId}',${idx})">🎠</button>`;
@@ -985,7 +985,7 @@ function _renderCarouselGroup(group, noteId) {
   const cards = group.map(({ block: b, idx }, gi) => {
     const thumbSrc = _blockThumbUrl(b);
     const thumbEl = thumbSrc
-      ? `<img src="${thumbSrc}" loading="lazy" style="width:100%;height:100%;object-fit:cover">`
+      ? `<img src="${thumbSrc}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:22px',textContent:'🎥'}))">`
       : `<span style="font-size:22px">🎥</span>`;
     const v = (window.videos || []).find(x => x.id === b.videoId);
     const status = v?.status || b.status || '';
@@ -1092,7 +1092,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
   if (type === 'video') {
     const thumbUrl = _blockThumbUrl(b);
     const thumbEl = thumbUrl
-      ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+      ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:18px',textContent:'🎥'}))">`
       : `<span style="font-size:18px">🎥</span>`;
     return `<div class="n-col-block-wrap">
       <div class="n-b-video-inline">
@@ -2169,8 +2169,10 @@ function _applyFmtCmd(cmd, val) {
   }
   document.execCommand(cmd, false, val || null);
   setTimeout(() => {
-    const el = _savedFmtEl || document.querySelector('.n-editable:focus');
-    if (el) window._notesBlockSave(el);
+    if (cmd !== 'undo' && cmd !== 'redo') {
+      const el = _savedFmtEl || document.querySelector('.n-editable:focus');
+      if (el) window._notesBlockSave(el);
+    }
     _updateTopbarFmt();
     _updateFmtBar();
   }, 0);

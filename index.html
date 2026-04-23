@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v50.94</title>
+<title>WAZA KIMURA v50.95</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1481,20 +1481,10 @@
         <button class="notes-hamburger" onclick="window.notesOpenSb?.()">☰</button>
         <div class="notes-breadcrumb" id="notesBreadcrumb">Notes</div>
         <div class="n-topbar-fmt" id="nTopbarFmt">
-          <button class="n-topbar-fmt-btn" data-cmd="bold"          title="太字"><b>B</b></button>
-          <button class="n-topbar-fmt-btn" data-cmd="italic"        title="斜体"><i>I</i></button>
-          <button class="n-topbar-fmt-btn" data-cmd="underline"     title="下線"><u>U</u></button>
-          <button class="n-topbar-fmt-btn" data-cmd="strikeThrough" title="取消"><s>S</s></button>
+          <button class="n-topbar-fmt-btn" data-cmd="undo" title="元に戻す (Ctrl+Z)">↩</button>
+          <button class="n-topbar-fmt-btn" data-cmd="redo" title="やり直す (Ctrl+Y)">↪</button>
           <span class="n-topbar-fmt-sep"></span>
-          <button class="n-topbar-fmt-btn" data-cmd="fontSize" data-val="1" title="最小" style="font-size:9px">A</button>
-          <button class="n-topbar-fmt-btn" data-cmd="fontSize" data-val="2" title="小"   style="font-size:11px">A</button>
-          <button class="n-topbar-fmt-btn" data-cmd="fontSize" data-val="3" title="標準" style="font-size:13px">A</button>
-          <button class="n-topbar-fmt-btn" data-cmd="fontSize" data-val="5" title="大"   style="font-size:16px">A</button>
-          <button class="n-topbar-fmt-btn" data-cmd="fontSize" data-val="7" title="最大" style="font-size:20px">A</button>
-          <span class="n-topbar-fmt-sep"></span>
-          <button class="n-topbar-fmt-btn n-topbar-marker-trigger" title="マーカー">🌟</button>
-          <button class="n-topbar-fmt-btn n-topbar-fmt-clear" data-cmd="removeFormat" title="クリア">✕</button>
-          <div class="n-topbar-palette" id="nTopbarPalette"></div>
+          <button class="n-topbar-fmt-btn n-topbar-fmt-clear" data-cmd="removeFormat" title="書式クリア">✕</button>
         </div>
       </div>
       <div class="notes-recent" id="notesRecent" style="display:none"></div>
