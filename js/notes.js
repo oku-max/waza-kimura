@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v50.91 ═══
+// ═══ WAZA KIMURA — Notes tab v50.92 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -1022,6 +1022,7 @@ function _insertStrip(noteId, afterIdx) {
     <button class="n-ins-btn" onclick="window._notesInsertTextAt('${noteId}',${afterIdx})">テキスト</button>
     <button class="n-ins-btn" onclick="window._notesInsertVideoAt('${noteId}',${afterIdx})">動画</button>
     <button class="n-ins-btn" onclick="window._notesInsertImageAt('${noteId}',${afterIdx})">画像</button>
+    <button class="n-ins-btn" onclick="window._notesInsertColAt('${noteId}',${afterIdx})">カラム</button>
     <div class="n-ins-line"></div>
   </div>`;
 }
@@ -1070,6 +1071,8 @@ function _renderColBlock(b, idx, noteId) {
       ${blocksHTML}
       <div class="n-col-slot-add">
         <button onclick="window._notesColAddText('${noteId}',${idx},${slot})">＋ テキスト</button>
+        <button onclick="window._notesColAddVid('${noteId}',${idx},${slot})">＋ 動画</button>
+        <button onclick="window._notesColAddImg('${noteId}',${idx},${slot})">＋ 画像</button>
       </div>
     </div>`;
   }).join('');
@@ -1083,12 +1086,38 @@ function _renderColBlock(b, idx, noteId) {
 }
 
 function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
+  const del = `<button class="n-cb-del" onclick="event.stopPropagation();window._notesColDelBlock('${noteId}',${colIdx},${slot},${bIdx})" title="削除">✕</button>`;
   const type = b.type || 'text';
+
+  if (type === 'video') {
+    const thumbUrl = _blockThumbUrl(b);
+    const thumbEl = thumbUrl
+      ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+      : `<span style="font-size:18px">🎥</span>`;
+    return `<div class="n-col-block-wrap">
+      <div class="n-b-video-inline">
+        <div class="n-bvi-header" onclick="window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})">
+          <div class="n-bvi-thumb">${thumbEl}<div class="n-bvi-play-badge"><div class="n-bvi-play-icon">▶</div></div></div>
+          <div class="n-bvi-info">
+            <div class="n-bvi-ttl">${_esc(b.title || b.videoId || '')}</div>
+            <div class="n-bvi-ch">${_esc(b.channel || '')}</div>
+          </div>
+        </div>
+        <div class="n-bvi-player" id="n-col-player-${noteId}-${colIdx}-${slot}-${bIdx}"></div>
+      </div>${del}
+    </div>`;
+  }
+
+  if (type === 'image' && b.snapId) {
+    return `<div class="n-col-block-wrap">
+      <div id="n-snap-${_esc(b.snapId)}" class="n-snap-section"></div>${del}
+    </div>`;
+  }
+
   const tag = type === 'h2' ? 'h2' : type === 'quote' ? 'blockquote' : 'div';
   const cls = `n-b-${type} n-editable`;
   const placeholder = type === 'h2' ? '見出し' : type === 'quote' ? '引用' : 'テキストを入力…';
   const content = b.richText ? (b.content || '') : _esc(b.content || '').replace(/\n/g, '<br>');
-  const del = `<button class="n-cb-del" onclick="event.stopPropagation();window._notesColDelBlock('${noteId}',${colIdx},${slot},${bIdx})" title="削除">✕</button>`;
   return `<div class="n-col-block-wrap">
     <${tag} class="${cls}" contenteditable="true" placeholder="${placeholder}"
       data-note-id="${noteId}" data-col-idx="${colIdx}" data-col-slot="${slot}" data-col-bidx="${bIdx}"
@@ -1157,6 +1186,61 @@ window._notesColDelBlock = function(noteId, idx, slot, bIdx) {
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
+};
+
+window._notesInsertColAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesAddColBlock(noteId);
+};
+
+window._notesColAddVid = function(noteId, idx, slot) {
+  window._notesColContext = { noteId, colIdx: idx, slot };
+  window._notesShowVidPicker?.(noteId);
+};
+
+window._notesColAddImg = function(noteId, idx, slot) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const colBlock = r.note.blocks[idx];
+  if (!colBlock || colBlock.type !== 'col') return;
+  const snapId = 'note_' + noteId + '_' + Date.now().toString(36);
+  if (!colBlock.cols[slot]) colBlock.cols[slot] = [];
+  colBlock.cols[slot].push({ type: 'image', snapId, refs: [] });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+  setTimeout(() => _initNoteSnapForCol(noteId, snapId, idx, slot), 50);
+};
+
+window._notesColVidToggle = function(noteId, colIdx, slot, bIdx) {
+  const playerId = `n-col-player-${noteId}-${colIdx}-${slot}-${bIdx}`;
+  const player = document.getElementById(playerId);
+  if (!player) return;
+  const isOpen = player.classList.contains('open');
+  document.querySelectorAll('.n-bvi-player.open').forEach(p => { p.classList.remove('open'); p.innerHTML = ''; });
+  if (isOpen) return;
+  const r = _findNote(noteId);
+  if (!r) return;
+  const colBlock = r.note.blocks[colIdx];
+  if (!colBlock || colBlock.type !== 'col') return;
+  const b = (colBlock.cols[slot] || [])[bIdx];
+  if (!b?.videoId) return;
+  const platform = b.platform || 'youtube';
+  const iframe = document.createElement('iframe');
+  if (platform === 'gdrive') {
+    const fileId = b.videoId.startsWith('gd-') ? b.videoId.slice(3) : b.videoId;
+    iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+  } else if (platform === 'vimeo') {
+    const hash = b.vmHash ? `h=${b.vmHash}&` : '';
+    iframe.src = `https://player.vimeo.com/video/${b.videoId}?${hash}autoplay=1`;
+  } else {
+    iframe.src = `https://www.youtube.com/embed/${b.ytId || b.videoId}?autoplay=1&rel=0`;
+  }
+  iframe.allow = 'autoplay; encrypted-media; fullscreen';
+  iframe.allowFullscreen = true;
+  player.innerHTML = '';
+  player.appendChild(iframe);
+  player.classList.add('open');
 };
 
 window._notesVidToggleMode = function(noteId, idx) {
@@ -1261,6 +1345,15 @@ function _renderNote(id) {
   note.blocks.forEach((b, idx) => {
     if (b.type === 'image' && b.snapId) {
       _initNoteSnap(id, b.snapId, b, idx);
+    }
+    if (b.type === 'col' && b.cols) {
+      b.cols.forEach((slotBlocks, slot) => {
+        slotBlocks?.forEach(ib => {
+          if (ib.type === 'image' && ib.snapId) {
+            _initNoteSnapForCol(id, ib.snapId, idx, slot);
+          }
+        });
+      });
     }
   });
   // VPanel参照スナップを非同期ロード
@@ -1443,6 +1536,24 @@ window._notesVideoConfirm = function() {
   const videoId = _extractYtId(url) || url;
   const title   = document.getElementById('n-block-video-title')?.value.trim() || '';
   const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
+
+  // カラムスロットへの挿入
+  const ctx = window._notesColContext;
+  window._notesColContext = null;
+  if (ctx) {
+    const r2 = _findNote(ctx.noteId);
+    if (!r2) return;
+    const colBlock = r2.note.blocks[ctx.colIdx];
+    if (!colBlock || colBlock.type !== 'col') return;
+    if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
+    colBlock.cols[ctx.slot].push({ type: 'video', videoId, title, channel, duration: '', viewMode: 'inline' });
+    r2.note.updatedAt = Date.now();
+    _save();
+    window._notesSheetClose();
+    _renderNote(ctx.noteId);
+    return;
+  }
+
   const r = _findNote(noteId);
   if (!r) return;
   const added = r.note.blocks.some(b => b.type === 'video' && b.videoId === videoId);
@@ -1625,6 +1736,24 @@ function _initNoteSnap(noteId, snapId, block, blockIdx) {
   }
 }
 
+function _initNoteSnapForCol(noteId, snapId, colIdx, slot) {
+  window._noteSnapVideos = window._noteSnapVideos || {};
+  window._noteSnapVideos[snapId] = { id: snapId, snapshots: [] };
+  window._onSnapSync = (sid, refs) => {
+    if (sid !== snapId) return;
+    const r2 = _findNote(noteId);
+    if (!r2) return;
+    const colBlock = r2.note.blocks[colIdx];
+    if (!colBlock || colBlock.type !== 'col') return;
+    const ib = (colBlock.cols[slot] || []).find(b => b.snapId === snapId);
+    if (ib) { ib.refs = refs; r2.note.updatedAt = Date.now(); _save(); }
+  };
+  const container = document.getElementById('n-snap-' + snapId);
+  if (container && window.initSnapshotSection) {
+    window.initSnapshotSection(snapId, container, { onAddClick: () => _notesSnapAddPicker(noteId, snapId) });
+  }
+}
+
 function _showVideoAddSheet(noteId) {
   _removeSheet();
   const overlay = document.createElement('div');
@@ -1678,9 +1807,27 @@ window._notesVideoConfirm = function() {
   if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
   const videoId = _extractYtId(url) || url;
   const title = document.getElementById('n-block-video-title')?.value.trim() || '';
+  const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
+
+  const ctx = window._notesColContext;
+  window._notesColContext = null;
+  if (ctx) {
+    const r2 = _findNote(ctx.noteId);
+    if (!r2) return;
+    const colBlock = r2.note.blocks[ctx.colIdx];
+    if (!colBlock || colBlock.type !== 'col') return;
+    if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
+    colBlock.cols[ctx.slot].push({ type: 'video', videoId, title, channel, duration: '', viewMode: 'inline' });
+    r2.note.updatedAt = Date.now();
+    _save();
+    window._notesSheetClose();
+    _renderNote(ctx.noteId);
+    return;
+  }
+
   const r = _findNote(noteId);
   if (!r) return;
-  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel: '', duration: '', viewMode });
+  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode });
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
