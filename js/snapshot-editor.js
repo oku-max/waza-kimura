@@ -30,6 +30,7 @@ let annTool = 'select';
 let annColor = '#e74c3c';
 let annWidth = 2;
 let annFontSize = 20;
+let annTextBg = false;
 let annotations = [];
 let redoStack = [];
 let drawing = false;
@@ -485,16 +486,24 @@ function drawAnnotation(ctx, a) {
       if (a.w === 0 && a.h === 0) break;
       ctx.strokeRect(a.x, a.y, a.w, a.h);
       break;
-    case 'text':
+    case 'text': {
       if (!a.text) break;
       const fs = a.fontSize || Math.max(16, a.width * 6);
       ctx.font = `bold ${fs}px 'DM Sans', sans-serif`;
       const lines = a.text.split('\n');
       const lh = fs * 1.3;
+      if (a.bg) {
+        const pad = Math.max(4, Math.round(fs * 0.3));
+        const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.fillRect(a.x - pad, a.y - fs - pad, maxW + pad * 2, (lines.length - 1) * lh + fs + pad * 2);
+        ctx.fillStyle = a.color;
+      }
       lines.forEach((line, i) => {
         ctx.fillText(line, a.x, a.y + i * lh);
       });
       break;
+    }
   }
   ctx.restore();
 }
@@ -677,10 +686,14 @@ function updateFontsizeVisibility() {
   if (textToolActive || textSelected) {
     wrap.classList.add('visible');
     if (sep) sep.style.display = '';
-    const fs = textSelected ? (annotations[selectedIdx].fontSize || 20) : annFontSize;
-    wrap.querySelectorAll('.ann-fontsize-btn').forEach(b => {
+    const ann = textSelected ? annotations[selectedIdx] : null;
+    const fs = ann ? (ann.fontSize || 20) : annFontSize;
+    const bg = ann ? (ann.bg || false) : annTextBg;
+    wrap.querySelectorAll('.ann-fontsize-btn[data-fs]').forEach(b => {
       b.classList.toggle('active', parseInt(b.dataset.fs) === fs);
     });
+    const bgBtn = document.getElementById('snap-ann-text-bg');
+    if (bgBtn) bgBtn.classList.toggle('active', bg);
   } else {
     wrap.classList.remove('visible');
     if (sep) sep.style.display = 'none';
@@ -1107,6 +1120,7 @@ function openTextReEdit(a) {
   // 既存のフォントサイズ・色をエディタに反映
   annColor = a.color || annColor;
   annFontSize = a.fontSize || annFontSize;
+  annTextBg = a.bg || false;
   // カラーボタンのアクティブ状態を更新
   const colorBtns = document.querySelectorAll('.ann-color');
   colorBtns.forEach(b => b.classList.toggle('active', b.dataset.color === annColor));
@@ -1403,6 +1417,7 @@ function openAnnotationEditor(idx) {
   editingTextIdx = null;
   selDragging = false;
   cropActive = false;
+  annTextBg = false;
 
   const cropEl = getCropActionsEl();
   if (cropEl) cropEl.style.display = 'none';
@@ -1453,13 +1468,14 @@ function commitPendingText() {
         annotations[idx].text = text;
         annotations[idx].color = annColor;
         annotations[idx].fontSize = annFontSize;
+        annotations[idx].bg = annTextBg;
       }
     } else {
       annotations.push({
         type: 'text', text,
         x: parseFloat(textInput.dataset.ax),
         y: parseFloat(textInput.dataset.ay),
-        color: annColor, width: annWidth, fontSize: annFontSize
+        color: annColor, width: annWidth, fontSize: annFontSize, bg: annTextBg
       });
       redoStack = [];
     }
@@ -1651,11 +1667,11 @@ function bindEditorEvents() {
   // Font size selection
   const fontsizeWrap = getAnnFontsizeWrap();
   if (fontsizeWrap) {
-    fontsizeWrap.querySelectorAll('.ann-fontsize-btn').forEach(btn => {
+    fontsizeWrap.querySelectorAll('.ann-fontsize-btn[data-fs]').forEach(btn => {
       btn.addEventListener('click', () => {
         const fs = parseInt(btn.dataset.fs);
         annFontSize = fs;
-        fontsizeWrap.querySelectorAll('.ann-fontsize-btn').forEach(b => b.classList.remove('active'));
+        fontsizeWrap.querySelectorAll('.ann-fontsize-btn[data-fs]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         if (selectedIdx !== null && annotations[selectedIdx] && annotations[selectedIdx].type === 'text') {
           annotations[selectedIdx].fontSize = fs;
@@ -1663,6 +1679,19 @@ function bindEditorEvents() {
         }
       });
     });
+
+    // Background toggle
+    const bgBtn = document.getElementById('snap-ann-text-bg');
+    if (bgBtn) {
+      bgBtn.addEventListener('click', () => {
+        annTextBg = !annTextBg;
+        bgBtn.classList.toggle('active', annTextBg);
+        if (selectedIdx !== null && annotations[selectedIdx] && annotations[selectedIdx].type === 'text') {
+          annotations[selectedIdx].bg = annTextBg;
+          renderAnnotations();
+        }
+      });
+    }
   }
 
   // Delete selected
