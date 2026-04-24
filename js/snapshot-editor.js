@@ -1214,13 +1214,12 @@ function onAnnDown(e) {
     const textInput = getAnnTextInput();
     const wrap = getAnnCanvasWrap();
     if (!textInput || !wrap) return;
-    textInput.style.display = 'block';
     const wrapRect = wrap.getBoundingClientRect();
-    const z = _getZoom();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    textInput.style.left = (clientX / z - wrapRect.left) + 'px';
-    textInput.style.top = (clientY / z - wrapRect.top) + 'px';
+    textInput.style.display = 'block';
+    textInput.style.left = (clientX - wrapRect.left) + 'px';
+    textInput.style.top = (clientY - wrapRect.top) + 'px';
     textInput.value = '';
     textInput.dataset.ax = pos.x;
     textInput.dataset.ay = pos.y;
