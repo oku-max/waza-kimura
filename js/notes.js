@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.04 ═══
+// ═══ WAZA KIMURA — Notes tab v51.05 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
@@ -988,12 +988,12 @@ function _renderCarouselGroup(group, noteId) {
     const status = v?.status || b.status || '';
     const sColor = STATUS_COLOR[status] || '';
     const badge = sColor ? `<span class="n-vc-badge" style="color:${sColor};background:${sColor}22">${_esc(status)}</span>` : '';
-    const prevBtn = gi > 0
-      ? `<button class="n-vc-prev" title="左へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},-1)">←</button>`
-      : '';
-    const nextBtn = gi < group.length - 1
-      ? `<button class="n-vc-next" title="右へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">→</button>`
-      : '';
+    const prevTitle = gi === 0 ? 'カルーセルから外して上へ' : '左へ';
+    const nextTitle = gi === group.length - 1 ? 'カルーセルから外して下へ' : '右へ';
+    const prevBtn = `<button class="n-vc-prev" title="${prevTitle}" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},-1)">←</button>`;
+    const nextBtn = `<button class="n-vc-next" title="${nextTitle}" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">→</button>`;
+    const cardDrag = `<div class="n-vc-drag" draggable="true" title="ドラッグして移動"
+      ondragstart="event.stopPropagation();window._notesDragStart(event,'${noteId}',${idx},${idx})">⠿</div>`;
     return `<div class="n-vc-card" onclick="window._notesOpenVPanel?.('${_esc(noteId)}','${_esc(b.videoId)}')">
       <div class="n-vc-thumb">${thumbEl}</div>
       <div class="n-vc-info">
@@ -1001,7 +1001,7 @@ function _renderCarouselGroup(group, noteId) {
         <div class="n-vc-ch">${_esc(b.channel || v?.channel || v?.ch || '')}</div>
         ${badge}
       </div>
-      ${prevBtn}${nextBtn}
+      ${prevBtn}${nextBtn}${cardDrag}
       <button class="n-vc-del" title="削除"
         onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>
       <button class="n-vc-mode" title="インラインに切替"
