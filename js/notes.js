@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.05 ═══
+// ═══ WAZA KIMURA — Notes tab v51.06 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';

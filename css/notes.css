@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v51.05 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v51.06 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -211,16 +211,19 @@
   display: flex; align-items: center; gap: 2px; flex-shrink: 0; position: relative;
 }
 .n-topbar-fmt-btn {
-  min-width: 30px; height: 28px; padding: 0 6px;
-  border: none; border-radius: 5px; background: transparent;
-  color: var(--text2); font-size: 13px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; gap: 3px;
+  padding: 0 8px; height: 28px; border-radius: 5px;
+  border: none; background: transparent;
+  color: var(--text2); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.n-tfb-icon { font-size: 14px; line-height: 1 }
+.n-tfb-lbl  { font-size: 10px; font-weight: 600; color: var(--text3) }
 .n-topbar-fmt-btn:hover,
 .n-topbar-fmt-btn:active,
 .n-topbar-fmt-btn.active { background: var(--surface3); color: var(--accent) }
-.n-topbar-fmt-clear { font-size: 11px; color: var(--text3) }
+.n-topbar-fmt-btn:hover .n-tfb-lbl,
+.n-topbar-fmt-btn.active .n-tfb-lbl { color: var(--accent) }
 
 /* recent chips (mobile only) */
 .notes-recent {
