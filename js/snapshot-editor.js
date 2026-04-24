@@ -1214,6 +1214,7 @@ function onAnnDown(e) {
     const textInput = getAnnTextInput();
     const wrap = getAnnCanvasWrap();
     if (!textInput || !wrap) return;
+    e.preventDefault();
     textInput.style.display = 'block';
     const wrapRect = wrap.getBoundingClientRect();
     const z = _getZoom();
@@ -1439,12 +1440,46 @@ function closeAnnotationEditor() {
 }
 
 // ════════════════════════════════════════════════════════════════
+// ── Commit Pending Text Annotation
+// ════════════════════════════════════════════════════════════════
+
+function commitPendingText() {
+  const textInput = getAnnTextInput();
+  if (!textInput || textInput.style.display === 'none') return;
+  const text = textInput.value.trim();
+  const mode = textInput.dataset.mode;
+  if (text) {
+    if (mode === 'edit') {
+      const idx = parseInt(textInput.dataset.editIdx);
+      if (!isNaN(idx) && annotations[idx]) {
+        annotations[idx].text = text;
+        annotations[idx].color = annColor;
+        annotations[idx].fontSize = annFontSize;
+      }
+    } else {
+      annotations.push({
+        type: 'text', text,
+        x: parseFloat(textInput.dataset.ax),
+        y: parseFloat(textInput.dataset.ay),
+        color: annColor, width: annWidth, fontSize: annFontSize
+      });
+      redoStack = [];
+    }
+    renderAnnotations();
+  }
+  textInput.style.display = 'none';
+  textInput.value = '';
+  editingTextIdx = null;
+}
+
+// ════════════════════════════════════════════════════════════════
 // ── Save Annotation Editor
 // ════════════════════════════════════════════════════════════════
 
 async function saveAnnotationEditor() {
   if (cropActive) return;
   if (!annImg || annIdx < 0 || !snapshots[annIdx]) return;
+  commitPendingText();
 
   const c = document.createElement('canvas');
   c.width = annImg.naturalWidth || annImg.width;
@@ -1519,6 +1554,8 @@ function bindEditorEvents() {
           renderAnnotations();
         }
         annTool = btn.dataset.tool;
+        drawing = false;
+        currentAnnotation = null;
         editor.querySelectorAll('.ann-tool[data-tool]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const annCanvas = getAnnCanvas();
@@ -1694,48 +1731,11 @@ function bindEditorEvents() {
   // Text input confirm
   const textInput = getAnnTextInput();
   if (textInput) {
-    // テキスト確定処理（Enter / blur から共通呼び出し）
-    function _commitText() {
-      if (textInput.style.display === 'none') return;
-      const text = textInput.value.trim();
-      const mode = textInput.dataset.mode;
-      if (mode === 'edit') {
-        const idx = parseInt(textInput.dataset.editIdx);
-        if (text && annotations[idx]) {
-          annotations[idx].text = text;
-          annotations[idx].color = annColor;
-          annotations[idx].fontSize = annFontSize;
-          renderAnnotations();
-        } else if (!text && annotations[idx]) {
-          // 空にしたら削除
-          redoStack.push(annotations.splice(idx, 1)[0]);
-          renderAnnotations();
-        }
-        editingTextIdx = null;
-      } else {
-        if (text) {
-          annotations.push({
-            type: 'text',
-            text,
-            x: parseFloat(textInput.dataset.ax),
-            y: parseFloat(textInput.dataset.ay),
-            color: annColor,
-            width: annWidth,
-            fontSize: annFontSize
-          });
-          redoStack = [];
-          renderAnnotations();
-        }
-      }
-      textInput.style.display = 'none';
-      textInput.value = '';
-    }
-
     textInput.addEventListener('keydown', (e) => {
       // Enter で確定、Shift+Enter は改行
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        _commitText();
+        commitPendingText();
       }
       if (e.key === 'Escape') {
         textInput.style.display = 'none';
@@ -1744,10 +1744,9 @@ function bindEditorEvents() {
       }
     });
 
-    // フォーカスを外したときも確定
+    // フォーカスを外したときも確定（保存ボタンより先に呼ばれるが commitPendingText は冪等）
     textInput.addEventListener('blur', () => {
-      // setTimeout でツールバーボタンクリック時の処理を優先させる
-      setTimeout(_commitText, 120);
+      setTimeout(commitPendingText, 80);
     });
   }
 }
