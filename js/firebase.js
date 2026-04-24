@@ -117,7 +117,7 @@ export async function loadUserData(uid) {
           window.retagAllFromTitle();
         }
         // マイグレーション結果をFirebaseに永続化（旧フィールド削除を保存）
-        saveUserData();
+        await saveUserData();
         if (window.AF) window.AF();
         // Settings画面のタグ集計を再描画
         if (window.renderTagMasterUI) window.renderTagMasterUI();
@@ -128,14 +128,21 @@ export async function loadUserData(uid) {
 }
 
 export async function saveUserData() {
-  if (!currentUser) return;
+  if (!currentUser) {
+    console.warn('[saveUserData] currentUser is null — save skipped. Videos in memory:', (window.videos||[]).length);
+    showToast('⚠️ 未ログイン: データを保存できませんでした', 4000);
+    return;
+  }
   try {
     await db.collection('users').doc(currentUser.uid).collection('data').doc('videos').set({
       videos: (window.videos || []).filter(v => !v._srTemp),
       updatedAt: new Date().toISOString()
     });
     showToast('💾 保存', 1500);
-  } catch (e) { showToast('⚠️ 保存に失敗しました: ' + e.message); }
+  } catch (e) {
+    console.error('[saveUserData] save failed:', e);
+    showToast('⚠️ 保存に失敗しました: ' + e.message, 5000);
+  }
 }
 
 export async function saveUserSettings() {
