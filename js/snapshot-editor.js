@@ -488,12 +488,12 @@ function drawAnnotation(ctx, a) {
       break;
     case 'text': {
       if (!a.text) break;
-      const fs = a.fontSize || Math.max(16, a.width * 6);
+      const fs = (a.fontSize || 20) * annScaleX;
       ctx.font = `bold ${fs}px 'DM Sans', sans-serif`;
       const lines = a.text.split('\n');
       const lh = fs * 1.3;
       if (a.bg) {
-        const pad = Math.max(4, Math.round(fs * 0.3));
+        const pad = Math.max(4 * annScaleX, Math.round(fs * 0.3));
         const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
         ctx.fillRect(a.x - pad, a.y - fs - pad, maxW + pad * 2, (lines.length - 1) * lh + fs + pad * 2);
@@ -545,7 +545,7 @@ function getAnnotationBBox(a) {
     }
     case 'text': {
       if (!a.text) return null;
-      const fs = a.fontSize || Math.max(16, a.width * 6);
+      const fs = (a.fontSize || 20) * annScaleX;
       if (annCtx) {
         annCtx.save();
         annCtx.font = `bold ${fs}px 'DM Sans', sans-serif`;
@@ -1128,6 +1128,7 @@ function openTextReEdit(a) {
   updateFontsizeVisibility();
 
   textInput.style.display = 'block';
+  textInput.style.fontSize = annFontSize + 'px';
   const wrapRect = wrap.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
   const screenX = a.x / annScaleX + (canvasRect.left - wrapRect.left);
@@ -1234,6 +1235,7 @@ function onAnnDown(e) {
     textInput.style.display = 'block';
     textInput.style.left = (clientX - wrapRect.left) + 'px';
     textInput.style.top = (clientY - wrapRect.top) + 'px';
+    textInput.style.fontSize = annFontSize + 'px';
     textInput.value = '';
     textInput.dataset.ax = pos.x;
     textInput.dataset.ay = pos.y;
