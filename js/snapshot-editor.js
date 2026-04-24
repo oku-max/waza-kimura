@@ -684,7 +684,7 @@ function updateFontsizeVisibility() {
   const textToolActive = annTool === 'text';
   const textSelected = selectedIdx !== null && annotations[selectedIdx] && annotations[selectedIdx].type === 'text';
   if (textToolActive || textSelected) {
-    wrap.classList.add('visible');
+    wrap.style.display = 'flex';
     if (sep) sep.style.display = '';
     const ann = textSelected ? annotations[selectedIdx] : null;
     const fs = ann ? (ann.fontSize || 20) : annFontSize;
@@ -695,7 +695,7 @@ function updateFontsizeVisibility() {
     const bgBtn = document.getElementById('snap-ann-text-bg');
     if (bgBtn) bgBtn.classList.toggle('active', bg);
   } else {
-    wrap.classList.remove('visible');
+    wrap.style.display = 'none';
     if (sep) sep.style.display = 'none';
   }
 }
