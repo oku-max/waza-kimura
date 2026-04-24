@@ -12,6 +12,7 @@ let _srDuration   = 'any';     // 'any' | 'short' | 'medium' | 'long'
 let _srNextToken  = '';        // YouTube nextPageToken
 let _srLoading    = false;
 let _srItems      = [];        // 現在表示中の結果
+let _srSort       = 'default'; // 'default' | 'oldest' | 'title' | 'unadded'
 let _srOpenItem   = null;      // VPanelで開いている検索結果
 let _srCurrentIdx = -1;        // VPanelで開いているインデックス
 const _addedSet   = new Set(); // 追加済みYouTube ID
@@ -90,7 +91,9 @@ export async function ytSrSearch() {
     const data = await _callApi(q, _srMode, '');
     _srItems = data.items || [];
     _srNextToken = data.nextPageToken || '';
-    _renderCards(_srItems);
+    _srSort = 'default';
+    document.querySelectorAll('.yt-sr-sort-chip').forEach(c => c.classList.toggle('active', c.dataset.sort === 'default'));
+    _renderCards(_sortedItems());
     _updateHdr(_srItems.length);
   } catch (e) {
     _showError(e.message);
@@ -219,8 +222,38 @@ function _updateHdr(count, loading = false) {
   const hdr = document.getElementById('yt-sr-hdr');
   const cnt = document.getElementById('yt-sr-count');
   if (hdr) hdr.style.display = '';
-  if (cnt) cnt.textContent = loading ? '検索中...' : `${count}件の検索結果`;
+  if (cnt) cnt.textContent = loading ? '検索中...' : `${count}件`;
 }
+
+function _sortedItems() {
+  const items = [..._srItems];
+  if (_srSort === 'oldest') {
+    items.sort((a, b) => {
+      const da = a.snippet?.publishedAt || '';
+      const db = b.snippet?.publishedAt || '';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+  } else if (_srSort === 'title') {
+    items.sort((a, b) => (a.snippet?.title || '').localeCompare(b.snippet?.title || '', 'ja'));
+  } else if (_srSort === 'unadded') {
+    items.sort((a, b) => {
+      const ia = _addedSet.has(a.id?.videoId || a.id?.playlistId || '') ? 1 : 0;
+      const ib = _addedSet.has(b.id?.videoId || b.id?.playlistId || '') ? 1 : 0;
+      return ia - ib;
+    });
+  }
+  // 'default' = API順（新しい順）
+  return items;
+}
+
+export function ytSrSort(key) {
+  _srSort = key;
+  document.querySelectorAll('.yt-sr-sort-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.sort === key);
+  });
+  if (_srItems.length) _renderCards(_sortedItems());
+}
+window.ytSrSort = ytSrSort;
 
 // ────────────────────────────────────────
 // YT.PLAYER API（スキップ対応）
@@ -829,7 +862,7 @@ export async function ytSrLoadMore() {
     const data = await _callApi(q, _srMode, _srNextToken);
     _srItems = [..._srItems, ...(data.items || [])];
     _srNextToken = data.nextPageToken || '';
-    _renderCards(_srItems);
+    _renderCards(_sortedItems());
     _updateHdr(_srItems.length);
   } catch (e) {
     const b = document.querySelector('.yt-sr-load-more-btn');
