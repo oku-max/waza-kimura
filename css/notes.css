@@ -747,6 +747,7 @@
   padding: 2px 4px; border-radius: 4px; font-size: 11px;
   border: 1px solid var(--border); background: var(--surface2);
   color: var(--text3); cursor: grab; line-height: 1; user-select: none;
+  touch-action: none;
 }
 .n-block-wrap:hover .n-drag-handle { display: block }
 .n-drag-handle:active { cursor: grabbing }
@@ -764,6 +765,26 @@
 .n-block-dn { right: 28px }
 .n-block-wrap:hover .n-block-move { display: block }
 .n-block-move:hover { background: var(--surface3); color: var(--text) }
+
+/* ── mobile: larger touch targets, always visible ── */
+@media (hover: none) and (pointer: coarse) {
+  .n-drag-handle,
+  .n-block-move,
+  .n-block-del {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    font-size: 14px;
+    padding: 0;
+    top: 2px;
+  }
+  .n-block-del   { right: 2px }
+  .n-block-dn    { right: 42px }
+  .n-block-up    { right: 82px }
+  .n-drag-handle { right: 122px }
+}
 
 /* ── insert strip between blocks ── */
 .n-ins-strip {

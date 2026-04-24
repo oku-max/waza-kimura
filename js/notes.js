@@ -960,6 +960,64 @@ window._notesDragStart = function(e, noteId, idx, endIdx) {
   });
 })();
 
+// Touch drag-and-drop for mobile
+(function _initNotesTouchDnd() {
+  let _src = null;
+  let _overWrap = null;
+
+  document.addEventListener('touchstart', function(e) {
+    const handle = e.target.closest('.n-drag-handle');
+    if (!handle) return;
+    const wrap = handle.closest('.n-block-wrap[data-note-id]');
+    if (!wrap) return;
+    _src = {
+      noteId: wrap.dataset.noteId,
+      idx: parseInt(wrap.dataset.idx),
+      endIdx: parseInt(wrap.dataset.idxEnd ?? wrap.dataset.idx)
+    };
+    wrap.classList.add('n-dragging');
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', function(e) {
+    if (!_src) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const dragging = document.querySelector('.n-block-wrap.n-dragging');
+    if (dragging) dragging.style.visibility = 'hidden';
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    if (dragging) dragging.style.visibility = '';
+    const wrap = el?.closest('.n-block-wrap[data-note-id]');
+    if (wrap === _overWrap) return;
+    _overWrap?.classList.remove('n-drag-over');
+    _overWrap = wrap || null;
+    wrap?.classList.add('n-drag-over');
+  }, { passive: false });
+
+  document.addEventListener('touchend', function() {
+    if (!_src) return;
+    document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
+    const wrap = _overWrap;
+    _overWrap = null;
+    const { noteId: srcNoteId, idx: src, endIdx: srcEnd } = _src;
+    _src = null;
+    if (!wrap) return;
+    const targetNoteId = wrap.dataset.noteId;
+    const dst = parseInt(wrap.dataset.idx);
+    if (targetNoteId !== srcNoteId || isNaN(dst) || src === dst) return;
+    const r = _findNote(targetNoteId);
+    if (!r) return;
+    const blocks = r.note.blocks;
+    const count = srcEnd - src + 1;
+    const moved = blocks.splice(src, count);
+    const insertAt = dst > src ? dst - count : dst;
+    blocks.splice(insertAt, 0, ...moved);
+    r.note.updatedAt = Date.now();
+    _save();
+    _renderNote(targetNoteId);
+  });
+})();
+
 window._notesAddTextBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
