@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.07</title>
+<title>WAZA KIMURA v51.08</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -4078,17 +4078,35 @@ window.addEventListener('resize', adjustTopbarOffset);
     </div>
   </div>
   <div class="ann-toolbar">
-    <button class="ann-tool active" data-tool="select" title="選択">&#8598;</button>
-    <button class="ann-tool" data-tool="pen" title="ペン">&#9998;</button>
-    <button class="ann-tool" data-tool="circle" title="円">&#9711;</button>
-    <button class="ann-tool" data-tool="arrow" title="矢印">&#10132;</button>
-    <button class="ann-tool" data-tool="rect" title="四角">&#9645;</button>
-    <button class="ann-tool" data-tool="text" title="テキスト">T</button>
-    <button class="ann-tool" data-tool="eraser" title="消しゴム">&#9003;</button>
-    <button class="ann-tool" data-tool="crop" title="切り抜き">&#9986;</button>
-    <button class="ann-tool del-sel-btn" id="snap-ann-del-sel" title="選択削除" style="display:none">&#128465;</button>
+    <!-- 描画ツール -->
+    <button class="ann-tool active" data-tool="select" title="選択・移動"><span class="ann-tool-ic">&#8598;</span><span class="ann-tool-lbl">選択</span></button>
+    <button class="ann-tool" data-tool="pen"    title="ペン">   <span class="ann-tool-ic">&#9998;</span><span class="ann-tool-lbl">ペン</span></button>
+    <button class="ann-tool" data-tool="circle" title="円">     <span class="ann-tool-ic">&#9711;</span><span class="ann-tool-lbl">円</span></button>
+    <button class="ann-tool" data-tool="arrow"  title="矢印">   <span class="ann-tool-ic">&#10132;</span><span class="ann-tool-lbl">矢印</span></button>
+    <button class="ann-tool" data-tool="rect"   title="四角">   <span class="ann-tool-ic">&#9645;</span><span class="ann-tool-lbl">四角</span></button>
+    <button class="ann-tool" data-tool="text"   title="文字入力"><span class="ann-tool-ic">T</span><span class="ann-tool-lbl">文字</span></button>
     <div class="sep"></div>
+    <!-- 消去・切取 -->
+    <button class="ann-tool" data-tool="eraser" title="アノテーション消去"><span class="ann-tool-ic">🧹</span><span class="ann-tool-lbl">消す</span></button>
+    <button class="ann-tool" data-tool="crop"   title="切り抜き"><span class="ann-tool-ic">&#9986;</span><span class="ann-tool-lbl">切取</span></button>
+    <button class="ann-tool del-sel-btn" id="snap-ann-del-sel" title="選択中を削除" style="display:none"><span class="ann-tool-ic">&#128465;</span><span class="ann-tool-lbl">削除</span></button>
+    <div class="sep"></div>
+    <!-- 回転（ラベルで Undo/Redo と明確に区別） -->
+    <button class="ann-tool" id="snap-ann-rotate-ccw" title="左に90°回転"><span class="ann-tool-ic">&#8634;</span><span class="ann-tool-lbl">左回転</span></button>
+    <button class="ann-tool" id="snap-ann-rotate-cw"  title="右に90°回転"><span class="ann-tool-ic">&#8635;</span><span class="ann-tool-lbl">右回転</span></button>
+    <div class="sep"></div>
+    <!-- 履歴 -->
+    <button class="ann-tool" id="snap-ann-undo"  title="元に戻す (Ctrl+Z)"><span class="ann-tool-ic">&#8617;</span><span class="ann-tool-lbl">戻す</span></button>
+    <button class="ann-tool" id="snap-ann-redo"  title="やり直す (Ctrl+Y)"><span class="ann-tool-ic">&#8618;</span><span class="ann-tool-lbl">進む</span></button>
+    <button class="ann-tool clear-btn" id="snap-ann-clear" title="全アノテーション削除"><span class="ann-tool-ic">&#128465;</span><span class="ann-tool-lbl">全消去</span></button>
+    <div class="sep"></div>
+    <!-- 保存 / キャンセル -->
+    <button class="ann-tool save-btn"   id="snap-ann-save"   title="保存">      <span class="ann-tool-ic">&#10003;</span><span class="ann-tool-lbl">保存</span></button>
+    <button class="ann-tool cancel-btn" id="snap-ann-cancel" title="キャンセル"><span class="ann-tool-ic">&#10005;</span><span class="ann-tool-lbl">閉じる</span></button>
+    <div class="row-break"></div>
+    <!-- フォントサイズ（文字ツール or テキスト選択時に表示） -->
     <div class="ann-fontsize-wrap" id="snap-ann-fontsize-wrap" style="display:none">
+      <span class="ann-fontsize-label">サイズ</span>
       <button class="ann-fontsize-btn" data-fs="12">12</button>
       <button class="ann-fontsize-btn" data-fs="16">16</button>
       <button class="ann-fontsize-btn active" data-fs="20">20</button>
@@ -4096,17 +4114,8 @@ window.addEventListener('resize', adjustTopbarOffset);
       <button class="ann-fontsize-btn" data-fs="36">36</button>
       <button class="ann-fontsize-btn" data-fs="48">48</button>
     </div>
-    <div class="sep"></div>
-    <button class="ann-tool" id="snap-ann-rotate-ccw" title="左に90°回転">&#8634;</button>
-    <button class="ann-tool" id="snap-ann-rotate-cw" title="右に90°回転">&#8635;</button>
-    <div class="sep"></div>
-    <button class="ann-tool" id="snap-ann-undo" title="元に戻す">&#8617;</button>
-    <button class="ann-tool" id="snap-ann-redo" title="やり直す">&#8618;</button>
-    <button class="ann-tool clear-btn" id="snap-ann-clear" title="全削除">&#128465;</button>
-    <div class="sep"></div>
-    <button class="ann-tool save-btn" id="snap-ann-save" title="保存">&#10003;</button>
-    <button class="ann-tool cancel-btn" id="snap-ann-cancel" title="キャンセル">&#10005;</button>
-    <div class="row-break"></div>
+    <div class="ann-fontsize-sep sep" id="snap-ann-fontsize-sep" style="display:none"></div>
+    <!-- カラーパレット -->
     <div class="ann-colors" id="snap-ann-colors">
       <div class="ann-color active" data-color="#e74c3c" style="background:#e74c3c"></div>
       <div class="ann-color" data-color="#f39c12" style="background:#f39c12"></div>
@@ -4118,12 +4127,13 @@ window.addEventListener('resize', adjustTopbarOffset);
       <input type="color" id="snap-ann-color-picker" value="#e74c3c">
     </div>
     <div class="sep"></div>
+    <!-- 太さ -->
     <div class="ann-widths">
-      <div class="ann-width" data-w="1" style="width:6px;height:6px"></div>
-      <div class="ann-width active" data-w="2" style="width:8px;height:8px"></div>
-      <div class="ann-width" data-w="4" style="width:12px;height:12px"></div>
-      <div class="ann-width" data-w="7" style="width:16px;height:16px"></div>
-      <div class="ann-width" data-w="12" style="width:20px;height:20px"></div>
+      <div class="ann-width" data-w="1" style="width:7px;height:7px"></div>
+      <div class="ann-width active" data-w="2" style="width:10px;height:10px"></div>
+      <div class="ann-width" data-w="4" style="width:13px;height:13px"></div>
+      <div class="ann-width" data-w="7" style="width:17px;height:17px"></div>
+      <div class="ann-width" data-w="12" style="width:22px;height:22px"></div>
     </div>
   </div>
 </div>

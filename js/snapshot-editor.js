@@ -671,16 +671,19 @@ function updateSelectionUI() {
 function updateFontsizeVisibility() {
   const wrap = getAnnFontsizeWrap();
   if (!wrap) return;
+  const sep = document.getElementById('snap-ann-fontsize-sep');
   const textToolActive = annTool === 'text';
   const textSelected = selectedIdx !== null && annotations[selectedIdx] && annotations[selectedIdx].type === 'text';
   if (textToolActive || textSelected) {
     wrap.classList.add('visible');
+    if (sep) sep.style.display = '';
     const fs = textSelected ? (annotations[selectedIdx].fontSize || 20) : annFontSize;
     wrap.querySelectorAll('.ann-fontsize-btn').forEach(b => {
       b.classList.toggle('active', parseInt(b.dataset.fs) === fs);
     });
   } else {
     wrap.classList.remove('visible');
+    if (sep) sep.style.display = 'none';
   }
 }
 
@@ -1691,45 +1694,60 @@ function bindEditorEvents() {
   // Text input confirm
   const textInput = getAnnTextInput();
   if (textInput) {
-    textInput.addEventListener('keydown', (e) => {
-      // Ctrl+Enter or Cmd+Enter で確定（Enterは改行）
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        const text = textInput.value.trim();
-        const mode = textInput.dataset.mode;
-
-        if (mode === 'edit') {
-          const idx = parseInt(textInput.dataset.editIdx);
-          if (text && annotations[idx]) {
-            annotations[idx].text = text;
-            annotations[idx].color = annColor;
-            annotations[idx].fontSize = annFontSize;
-            renderAnnotations();
-          }
-          editingTextIdx = null;
-        } else {
-          if (text) {
-            annotations.push({
-              type: 'text',
-              text,
-              x: parseFloat(textInput.dataset.ax),
-              y: parseFloat(textInput.dataset.ay),
-              color: annColor,
-              width: annWidth,
-              fontSize: annFontSize
-            });
-            redoStack = [];
-            renderAnnotations();
-          }
+    // テキスト確定処理（Enter / blur から共通呼び出し）
+    function _commitText() {
+      if (textInput.style.display === 'none') return;
+      const text = textInput.value.trim();
+      const mode = textInput.dataset.mode;
+      if (mode === 'edit') {
+        const idx = parseInt(textInput.dataset.editIdx);
+        if (text && annotations[idx]) {
+          annotations[idx].text = text;
+          annotations[idx].color = annColor;
+          annotations[idx].fontSize = annFontSize;
+          renderAnnotations();
+        } else if (!text && annotations[idx]) {
+          // 空にしたら削除
+          redoStack.push(annotations.splice(idx, 1)[0]);
+          renderAnnotations();
         }
-        textInput.style.display = 'none';
-        textInput.value = '';
+        editingTextIdx = null;
+      } else {
+        if (text) {
+          annotations.push({
+            type: 'text',
+            text,
+            x: parseFloat(textInput.dataset.ax),
+            y: parseFloat(textInput.dataset.ay),
+            color: annColor,
+            width: annWidth,
+            fontSize: annFontSize
+          });
+          redoStack = [];
+          renderAnnotations();
+        }
+      }
+      textInput.style.display = 'none';
+      textInput.value = '';
+    }
+
+    textInput.addEventListener('keydown', (e) => {
+      // Enter で確定、Shift+Enter は改行
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        _commitText();
       }
       if (e.key === 'Escape') {
         textInput.style.display = 'none';
         textInput.value = '';
         editingTextIdx = null;
       }
+    });
+
+    // フォーカスを外したときも確定
+    textInput.addEventListener('blur', () => {
+      // setTimeout でツールバーボタンクリック時の処理を優先させる
+      setTimeout(_commitText, 120);
     });
   }
 }

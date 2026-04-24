@@ -424,77 +424,87 @@
 
 .ann-toolbar {
   background: #1a1a1a;
-  border-top: 1px solid #333;
-  padding: 6px 10px;
+  border-top: 1px solid #2a2a2a;
+  padding: 7px 10px;
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 2px;
   align-items: center;
   justify-content: center;
 }
 
 .ann-toolbar .sep {
   width: 1px;
-  height: 24px;
-  background: #333;
-  margin: 0 3px;
+  height: 34px;
+  background: #2e2e2e;
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .ann-toolbar .row-break {
   flex-basis: 100%;
-  height: 2px;
+  height: 5px;
 }
 
 .ann-tool {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+  min-width: 44px;
+  height: 46px;
+  padding: 0 6px;
+  border-radius: 8px;
   border: none;
   background: transparent;
-  color: #aaa;
-  font-size: 15px;
+  color: #888;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   transition: background .1s, color .1s;
+  flex-shrink: 0;
+}
+
+.ann-tool-ic {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ann-tool-lbl {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  line-height: 1;
+  color: #555;
+  transition: color .1s;
 }
 
 .ann-tool:hover {
   background: #2a2a2a;
-  color: #fff;
+  color: #ddd;
 }
+.ann-tool:hover .ann-tool-lbl { color: #aaa; }
 
 .ann-tool.active {
-  background: #333;
+  background: #2e2e2e;
   color: #fff;
 }
+.ann-tool.active .ann-tool-lbl { color: #e5c47a; }
 
-.ann-tool.save-btn {
-  color: var(--green);
-}
+.ann-tool.save-btn { color: #2ecc71; }
+.ann-tool.save-btn:hover { background: rgba(46,204,113,.15); color: #2ecc71; }
+.ann-tool.save-btn .ann-tool-lbl { color: #2ecc71; }
 
-.ann-tool.save-btn:hover {
-  background: var(--green);
-  color: #fff;
-}
+.ann-tool.cancel-btn { color: #e74c3c; }
+.ann-tool.cancel-btn:hover { background: rgba(231,76,60,.12); color: #e74c3c; }
+.ann-tool.cancel-btn .ann-tool-lbl { color: #e74c3c; }
 
-.ann-tool.cancel-btn {
-  color: #c0392b;
-}
-
-.ann-tool.cancel-btn:hover {
-  background: #c0392b;
-  color: #fff;
-}
-
-.ann-tool.clear-btn {
-  color: #e67e22;
-}
+.ann-tool.clear-btn { color: #e67e22; }
+.ann-tool.clear-btn .ann-tool-lbl { color: #e67e22; }
 
 .ann-tool[data-tool="eraser"].active {
   color: #e67e22;
 }
+.ann-tool[data-tool="eraser"].active .ann-tool-lbl { color: #e67e22; }
 
 canvas.eraser-cursor {
   cursor: crosshair;
@@ -520,8 +530,8 @@ canvas.eraser-cursor {
 }
 
 .ann-color {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
@@ -593,36 +603,46 @@ canvas.eraser-cursor {
 .ann-fontsize-wrap {
   display: none;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 
 .ann-fontsize-wrap.visible {
   display: flex;
 }
 
+.ann-fontsize-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #555;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
 .ann-fontsize-btn {
-  height: 26px;
-  min-width: 28px;
-  padding: 0 4px;
-  border-radius: 4px;
-  border: none;
+  height: 28px;
+  min-width: 32px;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid #333;
   background: transparent;
-  color: #aaa;
+  color: #888;
   font-family: 'DM Mono', monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: background .1s, color .1s;
+  transition: background .1s, color .1s, border-color .1s;
 }
 
 .ann-fontsize-btn:hover {
   background: #2a2a2a;
-  color: #fff;
+  color: #ddd;
+  border-color: #444;
 }
 
 .ann-fontsize-btn.active {
   background: #333;
   color: #fff;
+  border-color: #555;
 }
 
 
