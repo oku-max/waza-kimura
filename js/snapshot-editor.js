@@ -1214,7 +1214,6 @@ function onAnnDown(e) {
     const textInput = getAnnTextInput();
     const wrap = getAnnCanvasWrap();
     if (!textInput || !wrap) return;
-    e.preventDefault();
     textInput.style.display = 'block';
     const wrapRect = wrap.getBoundingClientRect();
     const z = _getZoom();
