@@ -304,7 +304,7 @@ body.bulk-mode .card-sel-ov{display:block;}
   #bulk-vpanel.show{ display:flex; }
   #bulk-vpanel .bulk-vpanel-inner{
     border-radius:0; max-height:100vh; height:100%;
-    width:360px; max-width:360px; box-shadow:-4px 0 24px rgba(0,0,0,.12);
+    width:540px; max-width:540px; box-shadow:-4px 0 24px rgba(0,0,0,.12);
     pointer-events:auto;
   }
 }

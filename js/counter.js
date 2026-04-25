@@ -102,11 +102,11 @@
     const _showStatus = _fcv.status !== false;
     const _showRank   = _fcv.rank   !== false;
     const favSec  = _showMark ? `
-    <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+    <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
       <div style="${subTitle}">お気に入り</div>
       <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
     </div>
-    <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border)':''}">
+    <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
       <div style="${subTitle}">Next</div>
       <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;font-weight:700" title="Next">${next?'🎯':'○'}</span>
     </div>` : '';

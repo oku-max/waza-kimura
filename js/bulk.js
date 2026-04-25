@@ -42,11 +42,11 @@ export function buildBulkDrawerHTML() {
   const _showRank   = _fcv.rank   !== false;
 
   const _favNextSec = _showMark ? `
-      <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border)">
+      <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
         <div style="${subTitle}">お気に入り</div>
         <span onclick="bvpToggleFav(this)" style="cursor:pointer;font-size:20px;color:${favOn?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
       </div>
-      <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border)':''}">
+      <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
         <div style="${subTitle}">Next</div>
         <span onclick="bvpToggleNext(this)" style="cursor:pointer;font-size:16px;font-weight:700" title="Next">${nextOn?'🎯':'○'}</span>
       </div>` : '';
