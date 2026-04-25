@@ -222,8 +222,9 @@
 <div id="uni-popup" role="dialog" aria-modal="true">
   <div class="uni-topbar">
     <div class="uni-tabs" id="uni-tabs"></div>
+    <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2);flex-shrink:0" onclick="uniClose()">✕ 閉じる</button>
   </div>
-  <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"><div class="uni-x" onclick="uniClose()">✕</div></div>
+  <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"></div>
   <div id="uni-nm-banner" style="display:none"></div>
   <div id="uni-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
   <div class="uni-ftr">
