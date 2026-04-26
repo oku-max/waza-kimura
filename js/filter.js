@@ -440,10 +440,9 @@ export function cntBadge(n) {
 
 // ── ソート ──
 export function sortVideos(list) {
-  const key = window.sortKey || 'default';
+  const key = window.sortKey || 'addedAt';
   const asc = window.sortAsc !== false;
   const sorted = [...list];
-  if (key === 'default') return sorted;
   sorted.sort((a, b) => {
     let va, vb;
     if (key === 'addedAt') {

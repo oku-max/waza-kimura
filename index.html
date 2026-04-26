@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.21</title>
+<title>WAZA KIMURA v51.22</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -573,6 +573,35 @@
     // フィルタURLの復元はここで行う
     _restoreFromURL();
   });
+
+  // ── ソート設定 永続化 (localStorage) ──
+  window._setSortKey = function(key) {
+    window.sortKey = key;
+    localStorage.setItem('wk_sortKey', key);
+    const sk   = document.getElementById('sort-key');
+    const skpc = document.getElementById('sort-key-pc');
+    if (sk)   sk.value   = key;
+    if (skpc) skpc.value = key;
+    window.AF?.();
+  };
+  window._toggleSortDir = function() {
+    window.sortAsc = !(window.sortAsc !== false);
+    localStorage.setItem('wk_sortAsc', window.sortAsc);
+    document.querySelectorAll('.sort-dir-btn').forEach(b => b.textContent = window.sortAsc ? '↑' : '↓');
+    window.AF?.();
+  };
+  // 初期復元（モジュールスクリプトはDOM解析後に実行）
+  (function _restoreSortPrefs() {
+    const k = localStorage.getItem('wk_sortKey') || 'addedAt';
+    const a = localStorage.getItem('wk_sortAsc');
+    window.sortKey = k;
+    window.sortAsc = a === null ? false : a === 'true';
+    const sk   = document.getElementById('sort-key');
+    const skpc = document.getElementById('sort-key-pc');
+    if (sk)   sk.value   = k;
+    if (skpc) skpc.value = k;
+    document.querySelectorAll('.sort-dir-btn').forEach(b => b.textContent = window.sortAsc ? '↑' : '↓');
+  })();
 </script>
 
 <style>
@@ -858,14 +887,13 @@
       <button id="adv-search-btn-lib-pc" onclick="toggleAdvSearch()" style="width:100%;padding:5px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔎 詳細検索</button>
       <!-- ソート + リセット -->
       <div style="display:flex;align-items:center;gap:4px">
-        <select id="sort-key-pc" onchange="document.getElementById('sort-key').value=this.value;window.sortKey=this.value;window.AF?.()" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="default">並び順: 標準</option>
+        <select id="sort-key-pc" onchange="_setSortKey(this.value)" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
           <option value="addedAt">追加日</option>
           <option value="title">タイトル</option>
-          <option value="status">Progress</option>
+          <option value="status">習得度</option>
           <option value="lastPlayed">最近再生した</option>
         </select>
-        <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
+        <button class="sort-dir-btn" onclick="_toggleSortDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
         <button onclick="clearAll()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
       </div>
       <!-- 一括編集 -->
@@ -993,10 +1021,9 @@
       <button id="adv-search-btn-pc" onclick="toggleAdvSearch()" style="width:100%;padding:5px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔎 詳細検索</button>
       <div style="display:flex;align-items:center;gap:4px">
         <select id="sort-key-org-pc" onchange="window.orgSortCol=this.value||null;window.orgSortAsc=true;window.renderOrg?.()" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="">並び順: 標準</option>
           <option value="addedAt">追加日</option>
           <option value="title">タイトル</option>
-          <option value="status">Progress</option>
+          <option value="status">習得度</option>
           <option value="lastPlayed">最近再生した</option>
         </select>
         <button onclick="window.orgSortAsc=!(window.orgSortAsc!==false);this.textContent=window.orgSortAsc!==false?'↑':'↓';window.renderOrg?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↑</button>
@@ -1137,14 +1164,13 @@
       <div class="toolbar-normal">
         <span class="results-count" id="rc"></span>
         <div style="display:flex;align-items:center;gap:4px">
-          <select id="sort-key" onchange="window.sortKey=this.value;window.AF?.()" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-            <option value="default">並び順: 標準</option>
+          <select id="sort-key" onchange="_setSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
             <option value="addedAt">追加日</option>
             <option value="title">タイトル</option>
-            <option value="status">Progress</option>
+            <option value="status">習得度</option>
             <option value="lastPlayed">最近再生した</option>
           </select>
-          <button onclick="window.sortAsc=!(window.sortAsc!==false);this.textContent=window.sortAsc!==false?'↑':'↓';window.AF?.()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇順切替">↑</button>
+          <button class="sort-dir-btn" onclick="_toggleSortDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
         </div>
       </div>
       <div class="bulk-inline" style="display:none">
