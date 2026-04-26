@@ -13,19 +13,16 @@ export function renderCards(list, cid) {
     _cleanupObserver();
     return;
   }
-  const ord = { "今すぐ": 0, "そのうち": 1, "保留": 2 };
-  const sorted = [...list].sort((a, b) => ord[a.prio] - ord[b.prio]);
-
   // 最初のバッチだけ描画
-  const first = sorted.slice(0, BATCH_SIZE);
+  const first = list.slice(0, BATCH_SIZE);
   c.innerHTML = first.map(v => cardHTML(v)).join('');
   _renderedCount = first.length;
-  _pendingList = sorted;
+  _pendingList = list;
   _pendingCid = cid;
 
   // 残りがあればスクロール監視で追加読み込み
   _cleanupObserver();
-  if (sorted.length > BATCH_SIZE) {
+  if (list.length > BATCH_SIZE) {
     const sentinel = document.createElement('div');
     sentinel.id = 'cards-sentinel';
     sentinel.style.height = '1px';
