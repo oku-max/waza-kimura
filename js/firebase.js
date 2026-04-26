@@ -26,8 +26,10 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
-// ── ノート Firestore リアルタイム同期 ──
+// ── Firestore リアルタイム同期 共通 ──
 let _notesUnsubscribe = null;
+let _videosUnsubscribe = null;
+let _videosLoadedAt = '';
 // セッションID: このタブ/ページロードを一意に識別（メモリのみ、再起動で再生成）
 const _sessionId = Math.random().toString(36).slice(2);
 
@@ -90,41 +92,59 @@ export function updateAuthUI(user) {
   }
 }
 
-export async function loadUserData(uid) {
-  try {
-    const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
-    if (snap.exists) {
-      const saved = snap.data()?.videos;
-      if (saved && saved.length) {
-        saved.forEach(sv => {
-          const v = window.videos?.find(v => v.id === sv.id);
-          if (v) Object.assign(v, sv);
-          else if (window.videos) window.videos.push(sv);
-        });
-        // ─── 4層タグ体系へのマイグレーション (冪等) ───
-        if (window.migrateAllVideos && window.videos) {
-          const before = window.videos.length;
-          window.videos = window.migrateAllVideos(window.videos);
-          console.log(`[tag-master] migrated ${before} videos to 4-layer schema`);
-        }
-        // ─── 習得度名称マイグレーション (把握→理解, 習得中→練習中) ───
-        (window.videos || []).forEach(v => {
-          if (v.status === '把握') v.status = '理解';
-          if (v.status === '習得中') v.status = '練習中';
-        });
-        // 未タグの動画にタイトルからルールベースタグを補完
-        if (window.retagAllFromTitle && window.videos) {
-          window.retagAllFromTitle();
-        }
-        // マイグレーション結果をFirebaseに永続化（旧フィールド削除を保存）
-        await saveUserData();
-        if (window.AF) window.AF();
-        // Settings画面のタグ集計を再描画
-        if (window.renderTagMasterUI) window.renderTagMasterUI();
-        showToast('✅ データを読み込みました');
-      }
+export function loadUserData(uid) {
+  if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
+  const docRef = db.collection('users').doc(uid).collection('data').doc('videos');
+  let _firstLoad = true;
+
+  _videosUnsubscribe = docRef.onSnapshot(async snap => {
+    if (!snap.exists) return;
+    const data = snap.data();
+    const saved = data?.videos;
+    if (!saved || !saved.length) return;
+
+    // 判定1: 自分のセッションの書き込み → スキップ
+    if (data.savedBy === _sessionId) return;
+
+    // 判定2: 別セッション → 自分のほうが新しければスキップ
+    const remoteAt = data.updatedAt || '';
+    if (!_firstLoad && remoteAt && _videosLoadedAt && remoteAt <= _videosLoadedAt) return;
+
+    _videosLoadedAt = remoteAt;
+    _firstLoad = false;
+
+    // マージ
+    saved.forEach(sv => {
+      const v = window.videos?.find(v => v.id === sv.id);
+      if (v) Object.assign(v, sv);
+      else if (window.videos) window.videos.push(sv);
+    });
+
+    // ─── 4層タグ体系へのマイグレーション (冪等) ───
+    if (window.migrateAllVideos && window.videos) {
+      window.videos = window.migrateAllVideos(window.videos);
     }
-  } catch (e) { console.error('loadUserData:', e); }
+    // ─── 習得度名称マイグレーション ───
+    (window.videos || []).forEach(v => {
+      if (v.status === '把握') v.status = '理解';
+      if (v.status === '習得中') v.status = '練習中';
+    });
+    // 未タグ補完
+    if (window.retagAllFromTitle && window.videos) window.retagAllFromTitle();
+    // ─── addedAt 空動画を1ヶ月前で補完 ───
+    const _oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    let _migratedAddedAt = 0;
+    (window.videos || []).forEach(v => { if (!v.addedAt) { v.addedAt = _oneMonthAgo; _migratedAddedAt++; } });
+    if (_migratedAddedAt > 0) {
+      console.log(`[migration] addedAt補完: ${_migratedAddedAt}本`);
+      await saveUserData();
+      return;
+    }
+
+    if (window.AF) window.AF();
+    if (window.renderTagMasterUI) window.renderTagMasterUI();
+    showToast('✅ データを読み込みました');
+  }, e => console.error('loadUserData onSnapshot:', e));
 }
 
 export async function saveUserData() {
@@ -134,9 +154,12 @@ export async function saveUserData() {
     return;
   }
   try {
+    const updatedAt = new Date().toISOString();
+    _videosLoadedAt = updatedAt;
     await db.collection('users').doc(currentUser.uid).collection('data').doc('videos').set({
       videos: (window.videos || []).filter(v => !v._srTemp),
-      updatedAt: new Date().toISOString()
+      updatedAt,
+      savedBy: _sessionId
     });
     showToast('💾 保存', 1500);
   } catch (e) {
