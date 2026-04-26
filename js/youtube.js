@@ -251,7 +251,6 @@ export async function fetchMissingYtDetails(token) {
     if (!info) return;
     let changed = false;
     if (!v.duration && info.duration) { v.duration = info.duration; changed = true; }
-    if (!v.addedAt && info.publishedAt) { v.addedAt = info.publishedAt; changed = true; }
     if (changed) updated++;
   });
   if (updated > 0) {
@@ -477,7 +476,7 @@ export async function ytImportUnimportedFromChecked() {
       title: t.title, src: 'youtube',
       url: 'https://www.youtube.com/watch?v=' + t.vid,
       thumb: t.thumb, ch: t.channel, channel: t.channel, pl: t.plTitle,
-      addedAt: t.addedAt || t.publishedAt || '',
+      addedAt: new Date().toISOString().slice(0, 10),
       duration: t.duration || 0,
       ytChapters: t.timestamps || [],
       watched: false, fav: false, status: '未着手',
@@ -640,7 +639,7 @@ export async function ytImportCheckedVideos() {
       ch: cb.dataset.channel,
       channel: cb.dataset.channel,
       pl: cb.dataset.pl,
-      addedAt:    cb.dataset.addedat || vidPublishedAtMap[vid] || '',
+      addedAt:    new Date().toISOString().slice(0, 10),
       duration:   vidDurationMap[vid] || 0,
       ytChapters: vidTimestampMap[vid] || [],
       watched: false, fav: false, status: '未着手',

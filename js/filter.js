@@ -447,8 +447,12 @@ export function sortVideos(list) {
   sorted.sort((a, b) => {
     let va, vb;
     if (key === 'addedAt') {
-      va = a.addedAt || a.id || '';
-      vb = b.addedAt || b.id || '';
+      const ea = !a.addedAt, eb = !b.addedAt;
+      if (ea && eb) return 0;
+      if (ea) return 1;
+      if (eb) return -1;
+      va = a.addedAt;
+      vb = b.addedAt;
     } else if (key === 'title') {
       va = (a.title || '').toLowerCase();
       vb = (b.title || '').toLowerCase();
