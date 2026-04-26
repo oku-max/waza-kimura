@@ -456,10 +456,6 @@ export function sortVideos(list) {
     } else if (key === 'title') {
       va = (a.title || '').toLowerCase();
       vb = (b.title || '').toLowerCase();
-    } else if (key === 'prio') {
-      const ord = { '今すぐ': 0, 'そのうち': 1, '保留': 2 };
-      va = ord[a.prio] ?? 9;
-      vb = ord[b.prio] ?? 9;
     } else if (key === 'status') {
       const ord = { '未着手': 0, '理解': 1, '把握': 1, '練習中': 2, '習得中': 2, 'マスター': 3 };
       va = ord[a.status] ?? 9;
@@ -467,15 +463,6 @@ export function sortVideos(list) {
     } else if (key === 'lastPlayed') {
       va = a.lastPlayed || 0;
       vb = b.lastPlayed || 0;
-    } else if (key === 'playCount') {
-      va = a.playCount || 0;
-      vb = b.playCount || 0;
-    } else if (key === 'practice') {
-      va = a.practice || 0;
-      vb = b.practice || 0;
-    } else if (key === 'lastPracticed') {
-      va = a.lastPracticed || 0;
-      vb = b.lastPracticed || 0;
     }
     if (va < vb) return asc ? -1 : 1;
     if (va > vb) return asc ? 1 : -1;
