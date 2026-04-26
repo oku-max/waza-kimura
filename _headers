@@ -1,0 +1,8 @@
+# Cloudflare Pages — キャッシュ設定
+# vercel.json の headers 相当（Cloudflare では _headers ファイルで設定）
+
+/js/*.js
+  Cache-Control: no-cache, must-revalidate
+
+/css/*.css
+  Cache-Control: no-cache, must-revalidate
