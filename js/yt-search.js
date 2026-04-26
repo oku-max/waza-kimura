@@ -513,7 +513,7 @@ export function ytSrOpenVPanel(idx) {
       ch,
       channel:    ch,
       pl:         ytId ? '' : title,
-      addedAt:    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      addedAt:    new Date().toISOString().slice(0, 10),
       duration:   0,
       ytChapters: [],
       watched:    false,
@@ -765,7 +765,7 @@ export async function ytSrAddToLibrary() {
   const tempEntry = window.videos.find(v => v._srTemp && v.id === libId);
   if (tempEntry) {
     delete tempEntry._srTemp;
-    tempEntry.addedAt = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    tempEntry.addedAt = new Date().toISOString().slice(0, 10);
     tempEntry.thumb   = thumb;
     tempEntry.ch      = channel;
     tempEntry.channel = channel;
@@ -792,7 +792,7 @@ export async function ytSrAddToLibrary() {
       ch:       channel,
       channel,
       pl:       isVideo ? '' : title,
-      addedAt:  new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      addedAt:  new Date().toISOString().slice(0, 10),
       duration: 0,
       ytChapters: [],
       watched:  false,
