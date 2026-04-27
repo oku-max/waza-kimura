@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.26</title>
+<title>WAZA KIMURA v51.27</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1484,36 +1484,33 @@
                onkeydown="window.ytSrKeydown?.(event)">
         <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍</button>
       </div>
+      <!-- フィルター行：セグメント / 未取込のみ / 並べ替え（1行に統合） -->
       <div class="yt-sr-filter-row">
-        <!-- セグメントコントロール：動画 / プレイリスト -->
         <div class="yt-sr-seg-ctrl">
           <button class="yt-sr-seg-btn on" id="yt-sr-tab-video"    onclick="window.ytSrSetMode?.('video')">動画</button>
           <button class="yt-sr-seg-btn"    id="yt-sr-tab-playlist" onclick="window.ytSrSetMode?.('playlist')">プレイリスト</button>
         </div>
         <div class="yt-sr-vdiv"></div>
         <button class="yt-sr-htab" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">未取込のみ</button>
+        <div class="yt-sr-vdiv"></div>
+        <span class="yt-sr-sort-label">並べ替え：</span>
+        <div class="yt-sr-sort-wrap">
+          <button class="yt-sr-sort-drop" id="yt-sr-sort-drop" onclick="window.ytSrToggleSortDrop?.()">
+            <span id="yt-sr-sort-drop-label">追加日</span><span class="yt-sr-sort-drop-arrow">▾</span>
+          </button>
+          <div class="yt-sr-sort-popover" id="yt-sr-sort-popover">
+            <button class="yt-sr-sort-opt on" data-key="publishedAt" onclick="window.ytSrSetSortKey?.('publishedAt')">追加日</button>
+            <button class="yt-sr-sort-opt"    data-key="duration"    onclick="window.ytSrSetSortKey?.('duration')">動画の長さ</button>
+          </div>
+        </div>
+        <button class="yt-sr-sort-dir" id="yt-sr-sort-dir" onclick="window.ytSrToggleSortDir?.()">↓</button>
       </div>
     </div>
 
-    <!-- ① 検索履歴チップ -->
+    <!-- 検索履歴チップ -->
     <div id="yt-sr-history-chips" class="yt-sr-history-chips" style="display:none"></div>
 
-    <!-- ② メインエリア：YouTubeバッジ + 並べ替え（件数削除） -->
-    <div class="yt-sr-hdr" id="yt-sr-hdr" style="display:none">
-      <span class="yt-sr-badge">▶ YouTube</span>
-      <div style="flex:1"></div>
-      <span class="yt-sr-sort-label">並べ替え：</span>
-      <div class="yt-sr-sort-wrap">
-        <button class="yt-sr-sort-drop" id="yt-sr-sort-drop" onclick="window.ytSrToggleSortDrop?.()">
-          <span id="yt-sr-sort-drop-label">追加日</span><span class="yt-sr-sort-drop-arrow">▾</span>
-        </button>
-        <div class="yt-sr-sort-popover" id="yt-sr-sort-popover">
-          <button class="yt-sr-sort-opt on" data-key="publishedAt" onclick="window.ytSrSetSortKey?.('publishedAt')">追加日</button>
-          <button class="yt-sr-sort-opt"    data-key="duration"    onclick="window.ytSrSetSortKey?.('duration')">動画の長さ</button>
-        </div>
-      </div>
-      <button class="yt-sr-sort-dir" id="yt-sr-sort-dir" onclick="window.ytSrToggleSortDir?.()">↓</button>
-    </div>
+    <!-- yt-sr-hdr は廃止（ソートをフィルター行に統合） -->
   </div><!-- /.yt-sr-sticky-wrap -->
   <div class="yt-sr-cards-wrap" id="yt-sr-cards-wrap">
     <div class="yt-sr-empty">

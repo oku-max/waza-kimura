@@ -236,9 +236,7 @@ function _showError(msg) {
 }
 
 function _updateHdr(_count, _loading = false) {
-  // 件数表示を廃止。ヘッダーは検索後に表示するだけ。
-  const hdr = document.getElementById('yt-sr-hdr');
-  if (hdr) hdr.style.display = '';
+  // yt-sr-hdr は廃止（ソートをフィルター行に統合）。何もしない。
 }
 
 // ISO 8601 duration → 秒数（例: "PT5M30S" → 330）
