@@ -196,7 +196,8 @@ function _renderCards(items) {
 
     const desc = isPlaylist && s.description
       ? `<div class="yt-sr-pl-desc">${_esc(s.description.slice(0, 80))}${s.description.length > 80 ? '…' : ''}</div>` : '';
-    const metaLabel = isPlaylist ? '📋 プレイリスト' : `▶ ${date}`;
+    const dur = isPlaylist ? '' : _formatDuration(item.contentDetails?.duration);
+    const metaLabel = isPlaylist ? '📋 プレイリスト' : (dur ? `▶ ${dur}　${date}` : `▶ ${date}`);
     return `<div class="yt-sr-card${isAdded?' added':''}${isPlaylist?' playlist':''}" id="yt-sr-card-${ytId}" onclick="window.ytSrOpenVPanel(${i})">
   <div class="yt-sr-thumb">
     ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">${isPlaylist?'📋':'🎥'}</span>`}
@@ -244,6 +245,17 @@ function _parseDuration(iso) {
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!m) return 0;
   return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
+}
+
+// ISO 8601 duration → 表示文字列（例: "PT5M30S" → "5:30", "PT1H5M30S" → "1:05:30"）
+function _formatDuration(iso) {
+  const secs = _parseDuration(iso);
+  if (!secs) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
 }
 
 function _sortedItems() {

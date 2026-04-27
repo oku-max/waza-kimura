@@ -3,7 +3,8 @@
 // GET /api/yt-search?q={query}&type={video|playlist}&pageToken={token}&maxResults={n}
 // Env: YOUTUBE_API_KEY
 
-const YT_SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
+const YT_SEARCH_URL  = 'https://www.googleapis.com/youtube/v3/search';
+const YT_VIDEOS_URL  = 'https://www.googleapis.com/youtube/v3/videos';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -42,6 +43,29 @@ export default async function handler(req, res) {
     // YouTube API エラーをそのまま転送
     if (data.error) {
       return res.status(ytRes.status).json({ error: data.error.message, ytError: data.error });
+    }
+
+    // 動画の場合: contentDetails（duration）を取得してマージ
+    if (type === 'video' && Array.isArray(data.items) && data.items.length > 0) {
+      const videoIds = data.items
+        .map(item => item.id?.videoId)
+        .filter(Boolean)
+        .join(',');
+      if (videoIds) {
+        const detailParams = new URLSearchParams({ part: 'contentDetails', id: videoIds, key: apiKey });
+        const detailRes  = await fetch(`${YT_VIDEOS_URL}?${detailParams}`);
+        const detailData = await detailRes.json();
+        if (!detailData.error && Array.isArray(detailData.items)) {
+          const durMap = {};
+          for (const v of detailData.items) {
+            durMap[v.id] = v.contentDetails;
+          }
+          for (const item of data.items) {
+            const vid = item.id?.videoId;
+            if (vid && durMap[vid]) item.contentDetails = durMap[vid];
+          }
+        }
+      }
     }
 
     // 1分キャッシュ
