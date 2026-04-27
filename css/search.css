@@ -402,7 +402,7 @@
   white-space: nowrap; cursor: pointer;
 }
 .yt-sr-pl-arr.open {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
   background: rgba(204,119,0,.15);
   border-color: var(--accent);
   color: var(--accent);

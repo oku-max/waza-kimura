@@ -204,7 +204,7 @@ function _renderCards(items) {
       <div class="yt-sr-ch">${ch}</div>
       <div class="yt-sr-meta">${meta}</div>
     </div>
-    <span class="yt-sr-pl-arr" id="yt-sr-pl-arr-${plId}">▼</span>
+    <span class="yt-sr-pl-arr" id="yt-sr-pl-arr-${plId}">▶</span>
   </div>
   <div class="yt-sr-pl-body" id="yt-sr-pl-body-${plId}"></div>
 </div>`;
