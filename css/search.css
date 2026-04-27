@@ -190,16 +190,14 @@
 
 .yt-sr-sort-popover {
   display: none;
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed; /* overflow-x:auto 親のクリップを回避 */
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,.4);
   padding: 4px 0;
-  min-width: 110px;
-  z-index: 100;
+  min-width: 120px;
+  z-index: 9999;
 }
 .yt-sr-sort-popover.show { display: block; }
 .yt-sr-sort-opt {

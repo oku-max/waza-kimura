@@ -289,13 +289,22 @@ export function ytSrToggleSortDir() {
 window.ytSrToggleSortDir = ytSrToggleSortDir;
 
 // ── ドロップダウン開閉 ──
+// overflow-x:auto の親にクリップされないよう position:fixed で配置する
 export function ytSrToggleSortDrop() {
   const pop = document.getElementById('yt-sr-sort-popover');
   const btn = document.getElementById('yt-sr-sort-drop');
-  const isOpen = pop?.classList.contains('show');
-  document.querySelectorAll('.yt-sr-sort-popover').forEach(p => p.classList.remove('show'));
-  document.querySelectorAll('.yt-sr-sort-drop').forEach(b => b.classList.remove('open'));
-  if (!isOpen && pop && btn) { pop.classList.add('show'); btn.classList.add('open'); }
+  if (!pop || !btn) return;
+  const isOpen = pop.classList.contains('show');
+  if (isOpen) {
+    pop.classList.remove('show');
+    btn.classList.remove('open');
+  } else {
+    const rect = btn.getBoundingClientRect();
+    pop.style.top  = (rect.bottom + 4) + 'px';
+    pop.style.left = rect.left + 'px';
+    pop.classList.add('show');
+    btn.classList.add('open');
+  }
 }
 window.ytSrToggleSortDrop = ytSrToggleSortDrop;
 
