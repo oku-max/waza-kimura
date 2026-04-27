@@ -60,6 +60,16 @@ function _tsVisible(key) {
   return !s || s.visible;
 }
 
+function _fmtDur(secs) {
+  if (!secs || secs <= 0) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return h > 0
+    ? `▶ ${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `▶ ${m}:${String(s).padStart(2,'0')}`;
+}
+
 export function cardHTML(v) {
   v.tb = v.tb || []; v.cat = v.cat || []; v.pos = v.pos || []; v.tags = v.tags || [];
   v.pt = v.pt || v.src || 'youtube';
@@ -129,6 +139,6 @@ export function cardHTML(v) {
   const btnNext = showMark   ? `<button class="ca-btn" onclick="event.stopPropagation();qNext('${vid}');window.AF?.()" title="Next" style="${v.next?'color:#e8590c;border-color:#e8590c':''}">${v.next?'🎯':'○'} Next</button>` : '';
   const btnStat = showStatus ? `<button class="ca-btn" onclick="event.stopPropagation();cardCycleProg('${vid}',this)" data-prog="${_st}">${se}</button>` : '';
   const btnMemo = showMark   ? `<button class="ca-btn ${v.memo?'ca-memo-on':''}" onclick="event.stopPropagation();cardShowMemo('${vid}')" title="メモ">💬 メモ</button>` : '';
-  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${v.dur||''}</div></div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnFav}${btnNext}${btnStat}${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
+  return `<div class="card-wrap" id="wrap-${vid}"><div class="card" id="card-${vid}" data-id="${vid}" data-emb="${emb.replace(/"/g,'&quot;')}" data-ext="${ext.replace(/"/g,'&quot;')}" data-plat="${isYT?'yt':isGD?'gd':isX?'x':'vm'}">${vDot}<div class="card-sel-ov ${bulkMode?'vis':''}" id="sel-${vid}"><div class="sel-circle ${selIds.has(vid)?'chk':''}" onclick="event.stopPropagation();togSel('${vid}')">${selIds.has(vid)?'✓':''}</div></div><div class="card-main" id="cm-${vid}"><div class="card-thumb" id="thumb-${vid}" onclick="(window.bulkMode||false)?togSel('${vid}'):openVPanel('${vid}')"><img src="${thumb}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="width:100%;height:100%;display:none;align-items:center;justify-content:center;font-size:26px">▶️</div><div class="play-ov"><div class="play-btn">▶</div></div><div class="pb ${isYT?'pb-yt':isGD?'pb-gd':isX?'pb-x':'pb-vm'}">${isYT?'YT':isGD?'GD':isX?'𝕏':'Vimeo'}</div><div class="dur-badge">${_fmtDur(v.duration)}</div></div><div class="card-body"><div class="card-title" style="">${v.title}</div>${cardMeta}</div></div>${aiBar}${cntBadges}${v4badges}${memoPreview}<div class="card-actions">${btnFav}${btnNext}${btnStat}${btnMemo}<button class="ca-btn danger" onclick="event.stopPropagation();archOne('${vid}')" title="アーカイブ">📦 アーカイブ</button></div></div></div>`;
 }
 
