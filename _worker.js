@@ -6,10 +6,22 @@ export default {
     const url  = new URL(request.url);
     const path = url.pathname;
 
+    // 内部ディレクトリへのアクセスをブロック
+    if (path.startsWith('/.git') || path.startsWith('/.claude') || path.startsWith('/.wrangler')) {
+      return new Response('Not found', { status: 404 });
+    }
     if (path.startsWith('/api/')) {
       return handleApi(request, env, path);
     }
-    return env.ASSETS.fetch(request);
+
+    // 静的ファイルを返す（JS/CSS は no-cache）
+    const res = await env.ASSETS.fetch(request);
+    if (/\.(js|css)(\?|$)/.test(path)) {
+      const headers = new Headers(res.headers);
+      headers.set('Cache-Control', 'no-cache, must-revalidate');
+      return new Response(res.body, { status: res.status, headers });
+    }
+    return res;
   },
 };
 
@@ -159,6 +171,24 @@ async function handleYtSearch(request, env) {
     const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
     const data  = await ytRes.json();
     if (data.error) return jsonRes({ error: data.error.message, ytError: data.error }, ytRes.status);
+
+    // 動画の場合: contentDetails（duration）を取得してマージ
+    if (type === 'video' && Array.isArray(data.items) && data.items.length > 0) {
+      const videoIds = data.items.map(item => item.id?.videoId).filter(Boolean).join(',');
+      if (videoIds) {
+        const dp = new URLSearchParams({ part: 'contentDetails', id: videoIds, key: apiKey });
+        const dr = await fetch(`https://www.googleapis.com/youtube/v3/videos?${dp}`);
+        const dd = await dr.json();
+        if (!dd.error && Array.isArray(dd.items)) {
+          const durMap = Object.fromEntries(dd.items.map(v => [v.id, v.contentDetails]));
+          for (const item of data.items) {
+            const vid = item.id?.videoId;
+            if (vid && durMap[vid]) item.contentDetails = durMap[vid];
+          }
+        }
+      }
+    }
+
     return jsonRes(data, 200, { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' });
   } catch (e) {
     return jsonRes({ error: '検索失敗: ' + e.message }, 500);
