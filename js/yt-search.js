@@ -190,7 +190,10 @@ function _renderCards(items) {
 
     // ── プレイリストカード（アコーディオン）──
     if (isPlaylist) {
-      const plId = item.id.playlistId;
+      const plId    = item.id.playlistId;
+      const itemCnt = item.contentDetails?.itemCount;
+      const cntTxt  = itemCnt != null ? `${itemCnt}本` : '';
+      const meta    = cntTxt ? `📋 プレイリスト　・　${cntTxt}` : '📋 プレイリスト';
       return `<div class="yt-sr-card playlist" id="yt-sr-card-${plId}">
   <div class="yt-sr-pl-head" onclick="window.ytSrTogglePl('${plId}')">
     <div class="yt-sr-thumb">
@@ -199,7 +202,7 @@ function _renderCards(items) {
     <div class="yt-sr-info">
       <div class="yt-sr-title">${title}</div>
       <div class="yt-sr-ch">${ch}</div>
-      <div class="yt-sr-meta">📋 プレイリスト</div>
+      <div class="yt-sr-meta">${meta}</div>
     </div>
     <span class="yt-sr-pl-arr" id="yt-sr-pl-arr-${plId}">▼</span>
   </div>

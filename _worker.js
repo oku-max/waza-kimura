@@ -190,6 +190,23 @@ async function handleYtSearch(request, env) {
       }
     }
 
+    // プレイリストの場合: contentDetails（itemCount）を取得してマージ
+    if (type === 'playlist' && Array.isArray(data.items) && data.items.length > 0) {
+      const plIds = data.items.map(item => item.id?.playlistId).filter(Boolean).join(',');
+      if (plIds) {
+        const pp = new URLSearchParams({ part: 'contentDetails', id: plIds, key: apiKey });
+        const pr = await fetch(`https://www.googleapis.com/youtube/v3/playlists?${pp}`);
+        const pd = await pr.json();
+        if (!pd.error && Array.isArray(pd.items)) {
+          const cntMap = Object.fromEntries(pd.items.map(p => [p.id, p.contentDetails]));
+          for (const item of data.items) {
+            const pid = item.id?.playlistId;
+            if (pid && cntMap[pid]) item.contentDetails = cntMap[pid];
+          }
+        }
+      }
+    }
+
     return jsonRes(data, 200, { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' });
   } catch (e) {
     return jsonRes({ error: '検索失敗: ' + e.message }, 500);
