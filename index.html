@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.24</title>
+<title>WAZA KIMURA v51.25</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1471,49 +1471,52 @@
 
 <!-- SEARCH TAブ -->
 <div class="tab-panel" id="searchTab">
-  <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
-  <div class="yt-sr-topbar">
-    <div class="yt-sr-search-row">
-      <div class="yt-sr-yt-area">
-        <div class="yt-sr-yt-pill"></div>
+  <!-- sticky ラッパー: 検索バー・履歴・件数/並び替え行をまとめて固定 -->
+  <div class="yt-sr-sticky-wrap">
+    <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
+    <div class="yt-sr-topbar">
+      <div class="yt-sr-search-row">
+        <div class="yt-sr-yt-area">
+          <div class="yt-sr-yt-pill"></div>
+        </div>
+        <input id="yt-sr-input" class="yt-sr-input" type="text"
+               placeholder="技・チャンネル名で検索（例: ギロチンチョーク）"
+               onkeydown="window.ytSrKeydown?.(event)">
+        <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍</button>
       </div>
-      <input id="yt-sr-input" class="yt-sr-input" type="text"
-             placeholder="技・チャンネル名で検索（例: ギロチンチョーク）"
-             onkeydown="window.ytSrKeydown?.(event)">
-      <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍</button>
+      <div class="yt-sr-filter-row">
+        <div class="yt-sr-mode-tabs">
+          <button class="yt-sr-tab active" id="yt-sr-tab-video"    onclick="window.ytSrSetMode?.('video')">動画</button>
+          <button class="yt-sr-tab"        id="yt-sr-tab-playlist" onclick="window.ytSrSetMode?.('playlist')">プレイリスト</button>
+        </div>
+        <div class="yt-sr-mode-tabs" id="yt-sr-dur-row">
+          <button class="yt-sr-tab active" id="yt-sr-dur-any"    onclick="window.ytSrSetDuration?.('any')">すべて</button>
+          <button class="yt-sr-tab"        id="yt-sr-dur-short"  onclick="window.ytSrSetDuration?.('short')">〜4分</button>
+          <button class="yt-sr-tab"        id="yt-sr-dur-medium" onclick="window.ytSrSetDuration?.('medium')">4〜20分</button>
+          <button class="yt-sr-tab"        id="yt-sr-dur-long"   onclick="window.ytSrSetDuration?.('long')">20分以上</button>
+        </div>
+        <div class="yt-sr-mode-tabs">
+          <button class="yt-sr-tab" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">取り込み済みを非表示</button>
+        </div>
+      </div>
     </div>
-    <div class="yt-sr-filter-row">
-      <div class="yt-sr-mode-tabs">
-        <button class="yt-sr-tab active" id="yt-sr-tab-video"    onclick="window.ytSrSetMode?.('video')">動画</button>
-        <button class="yt-sr-tab"        id="yt-sr-tab-playlist" onclick="window.ytSrSetMode?.('playlist')">プレイリスト</button>
-      </div>
-      <div class="yt-sr-mode-tabs" id="yt-sr-dur-row">
-        <button class="yt-sr-tab active" id="yt-sr-dur-any"    onclick="window.ytSrSetDuration?.('any')">すべて</button>
-        <button class="yt-sr-tab"        id="yt-sr-dur-short"  onclick="window.ytSrSetDuration?.('short')">〜4分</button>
-        <button class="yt-sr-tab"        id="yt-sr-dur-medium" onclick="window.ytSrSetDuration?.('medium')">4〜20分</button>
-        <button class="yt-sr-tab"        id="yt-sr-dur-long"   onclick="window.ytSrSetDuration?.('long')">20分以上</button>
-      </div>
-      <div class="yt-sr-mode-tabs">
-        <button class="yt-sr-tab" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">取り込み済みを非表示</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- ① 検索履歴チップ -->
-  <div id="yt-sr-history-chips" class="yt-sr-history-chips" style="display:none"></div>
+    <!-- ① 検索履歴チップ -->
+    <div id="yt-sr-history-chips" class="yt-sr-history-chips" style="display:none"></div>
 
-  <!-- ② メインエリア：YouTubeバッジ + 件数 + ソートチップ -->
-  <div class="yt-sr-hdr" id="yt-sr-hdr" style="display:none">
-    <span class="yt-sr-badge">▶ YouTube</span>
-    <span class="yt-sr-count" id="yt-sr-count"></span>
-    <div class="yt-sr-sort-chips" id="yt-sr-sort-chips">
-      <span class="yt-sr-sort-label">並び替え：</span>
-      <button class="yt-sr-sort-chip active" data-sort="default" onclick="window.ytSrSort?.('default')">新しい順</button>
-      <button class="yt-sr-sort-chip" data-sort="oldest"  onclick="window.ytSrSort?.('oldest')">古い順</button>
-      <button class="yt-sr-sort-chip" data-sort="title"   onclick="window.ytSrSort?.('title')">タイトル順</button>
-      <button class="yt-sr-sort-chip" data-sort="unadded" onclick="window.ytSrSort?.('unadded')">未追加先頭</button>
+    <!-- ② メインエリア：YouTubeバッジ + 件数 + ソートチップ -->
+    <div class="yt-sr-hdr" id="yt-sr-hdr" style="display:none">
+      <span class="yt-sr-badge">▶ YouTube</span>
+      <span class="yt-sr-count" id="yt-sr-count"></span>
+      <div class="yt-sr-sort-chips" id="yt-sr-sort-chips">
+        <span class="yt-sr-sort-label">並び替え：</span>
+        <button class="yt-sr-sort-chip active" data-sort="default" onclick="window.ytSrSort?.('default')">新しい順</button>
+        <button class="yt-sr-sort-chip" data-sort="oldest"  onclick="window.ytSrSort?.('oldest')">古い順</button>
+        <button class="yt-sr-sort-chip" data-sort="title"   onclick="window.ytSrSort?.('title')">タイトル順</button>
+        <button class="yt-sr-sort-chip" data-sort="unadded" onclick="window.ytSrSort?.('unadded')">未追加先頭</button>
+      </div>
     </div>
-  </div>
+  </div><!-- /.yt-sr-sticky-wrap -->
   <div class="yt-sr-cards-wrap" id="yt-sr-cards-wrap">
     <div class="yt-sr-empty">
       <div class="yt-sr-empty-icon">🔍</div>

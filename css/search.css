@@ -10,15 +10,19 @@
 }
 #searchTab.active { display: flex; }
 
+/* ── sticky ラッパー（検索バー・履歴・件数/並び替えをまとめて固定） ── */
+.yt-sr-sticky-wrap {
+  position: sticky;
+  top: var(--topbar-h, 56px);
+  z-index: 79;
+  flex-shrink: 0;
+}
+
 /* ── 検索バー ── */
 .yt-sr-topbar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 10px 14px;
-  flex-shrink: 0;
-  position: sticky;
-  top: var(--topbar-h, 56px);
-  z-index: 79;
 }
 .yt-sr-search-row {
   display: flex;
