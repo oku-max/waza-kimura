@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.31</title>
+<title>WAZA KIMURA v51.32</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1475,7 +1475,7 @@
   <div class="yt-sr-sticky-wrap">
     <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
     <div class="yt-sr-topbar">
-      <!-- Row1: 検索バー + 未取込のみボタン -->
+      <!-- Row1: 検索バー -->
       <div class="yt-sr-search-row">
         <div class="yt-sr-yt-area">
           <div class="yt-sr-yt-pill"></div>
@@ -1483,9 +1483,9 @@
         <input id="yt-sr-input" class="yt-sr-input" type="text"
                placeholder="YouTubeで検索"
                onkeydown="window.ytSrKeydown?.(event)">
-        <button class="yt-sr-htab yt-sr-htab-inline" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">未取込のみ</button>
+        <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍</button>
       </div>
-      <!-- Row2: セグメント / 並べ替え -->
+      <!-- Row2: セグメント / 並べ替え / 未取込のみ -->
       <div class="yt-sr-filter-row">
         <div class="yt-sr-seg-ctrl">
           <button class="yt-sr-seg-btn on" id="yt-sr-tab-video"    onclick="window.ytSrSetMode?.('video')">動画</button>
@@ -1497,6 +1497,7 @@
           <option value="duration">動画の長さ</option>
         </select>
         <button class="yt-sr-sort-dir" id="yt-sr-sort-dir" onclick="window.ytSrToggleSortDir?.()">↓</button>
+        <button class="yt-sr-htab" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">未取込のみ</button>
       </div>
     </div>
 
