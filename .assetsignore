@@ -1,0 +1,8 @@
+_worker.js
+wrangler.jsonc
+.wrangler
+.vercel
+.git
+.claude
+api/
+node_modules/
