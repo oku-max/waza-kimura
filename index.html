@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.28</title>
+<title>WAZA KIMURA v51.29</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1494,15 +1494,10 @@
         <button class="yt-sr-htab" id="yt-sr-hide-added-btn" onclick="window.ytSrToggleHideAdded?.()">未取込のみ</button>
         <div class="yt-sr-vdiv"></div>
         <span class="yt-sr-sort-label">並べ替え：</span>
-        <div class="yt-sr-sort-wrap">
-          <button class="yt-sr-sort-drop" id="yt-sr-sort-drop" onclick="window.ytSrToggleSortDrop?.()">
-            <span id="yt-sr-sort-drop-label">追加日</span><span class="yt-sr-sort-drop-arrow">▾</span>
-          </button>
-          <div class="yt-sr-sort-popover" id="yt-sr-sort-popover">
-            <button class="yt-sr-sort-opt on" data-key="publishedAt" onclick="window.ytSrSetSortKey?.('publishedAt')">追加日</button>
-            <button class="yt-sr-sort-opt"    data-key="duration"    onclick="window.ytSrSetSortKey?.('duration')">動画の長さ</button>
-          </div>
-        </div>
+        <select class="yt-sr-sort-sel" id="yt-sr-sort-sel" onchange="window.ytSrSetSortKey?.(this.value)">
+          <option value="publishedAt">追加日</option>
+          <option value="duration">動画の長さ</option>
+        </select>
         <button class="yt-sr-sort-dir" id="yt-sr-sort-dir" onclick="window.ytSrToggleSortDir?.()">↓</button>
       </div>
     </div>

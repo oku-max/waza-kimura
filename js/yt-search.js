@@ -106,9 +106,8 @@ export async function ytSrSearch() {
     // ソートを初期値にリセット
     _srSortKey = 'publishedAt';
     _srSortDir = 'desc';
-    const dropLabel = document.getElementById('yt-sr-sort-drop-label');
-    if (dropLabel) dropLabel.textContent = '追加日';
-    document.querySelectorAll('.yt-sr-sort-opt').forEach(o => o.classList.toggle('on', o.dataset.key === 'publishedAt'));
+    const sel = document.getElementById('yt-sr-sort-sel');
+    if (sel) sel.value = 'publishedAt';
     const dirBtn = document.getElementById('yt-sr-sort-dir');
     if (dirBtn) dirBtn.textContent = '↓';
     _renderCards(_sortedItems());
@@ -266,15 +265,12 @@ function _sortedItems() {
   return items;
 }
 
-// ── ソートキー切替 ──
+// ── ソートキー切替（selectのonchangeから呼ばれる）──
 export function ytSrSetSortKey(key) {
   _srSortKey = key;
-  const labels = { publishedAt: '追加日', duration: '動画の長さ' };
-  const label = document.getElementById('yt-sr-sort-drop-label');
-  if (label) label.textContent = labels[key] || key;
-  document.querySelectorAll('.yt-sr-sort-opt').forEach(o => o.classList.toggle('on', o.dataset.key === key));
-  document.getElementById('yt-sr-sort-popover')?.classList.remove('show');
-  document.getElementById('yt-sr-sort-drop')?.classList.remove('open');
+  // selectの表示を同期（JS経由で呼んだ場合）
+  const sel = document.getElementById('yt-sr-sort-sel');
+  if (sel && sel.value !== key) sel.value = key;
   if (_srItems.length) _renderCards(_sortedItems());
 }
 window.ytSrSetSortKey = ytSrSetSortKey;
