@@ -462,6 +462,9 @@ export function sortVideos(list) {
     } else if (key === 'lastPlayed') {
       va = a.lastPlayed || 0;
       vb = b.lastPlayed || 0;
+    } else if (key === 'duration') {
+      va = a.duration || 0;
+      vb = b.duration || 0;
     }
     if (va < vb) return asc ? -1 : 1;
     if (va > vb) return asc ? 1 : -1;
