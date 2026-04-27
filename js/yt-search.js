@@ -7,16 +7,17 @@ import { currentUser, saveUserData } from './firebase.js';
 // ────────────────────────────────────────
 // STATE
 // ────────────────────────────────────────
-let _srMode       = 'video';   // 'video' | 'playlist'
-let _srDuration   = 'any';     // 'any' | 'short' | 'medium' | 'long'
-let _srNextToken  = '';        // YouTube nextPageToken
+let _srMode       = 'video';       // 'video' | 'playlist'
+let _srDuration   = 'any';         // 'any' | 'short' | 'medium' | 'long'（後方互換、UIからは廃止）
+let _srNextToken  = '';            // YouTube nextPageToken
 let _srLoading    = false;
-let _srItems      = [];        // 現在表示中の結果
-let _srSort       = 'default'; // 'default' | 'oldest' | 'title' | 'unadded'
-let _srOpenItem   = null;      // VPanelで開いている検索結果
-let _srCurrentIdx = -1;        // VPanelで開いているインデックス
-const _addedSet   = new Set(); // 追加済みYouTube ID
-let _srHideAdded  = false;     // 取り込み済み非表示フラグ
+let _srItems      = [];            // 現在表示中の結果
+let _srSortKey    = 'publishedAt'; // 'publishedAt' | 'duration'
+let _srSortDir    = 'desc';        // 'desc' | 'asc'
+let _srOpenItem   = null;          // VPanelで開いている検索結果
+let _srCurrentIdx = -1;            // VPanelで開いているインデックス
+const _addedSet   = new Set();     // 追加済みYouTube ID
+let _srHideAdded  = false;         // 未取込のみフラグ
 
 // ── 検索履歴 ──
 const _HIST_KEY = 'yt_sr_history_v1';
@@ -66,12 +67,23 @@ let _srOpenLibId = null; // 現在 VP に表示中のライブラリ動画 ID（
 // ────────────────────────────────────────
 // INIT
 // ────────────────────────────────────────
+let _srInitDone = false;
 export function ytSrInit() {
   _addedSet.clear();
   (window.videos || []).forEach(v => { if (v.ytId) _addedSet.add(v.ytId); });
   if (_srItems.length > 0) _renderCards(_srItems);
   _loadHistory();
   _renderHistory();
+  // ソートドロップダウンをページ外クリックで閉じる（1回だけ登録）
+  if (!_srInitDone) {
+    _srInitDone = true;
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.yt-sr-sort-wrap')) {
+        document.querySelectorAll('.yt-sr-sort-popover').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.yt-sr-sort-drop').forEach(b => b.classList.remove('open'));
+      }
+    }, true);
+  }
 }
 
 // ────────────────────────────────────────
@@ -91,8 +103,14 @@ export async function ytSrSearch() {
     const data = await _callApi(q, _srMode, '');
     _srItems = data.items || [];
     _srNextToken = data.nextPageToken || '';
-    _srSort = 'default';
-    document.querySelectorAll('.yt-sr-sort-chip').forEach(c => c.classList.toggle('active', c.dataset.sort === 'default'));
+    // ソートを初期値にリセット
+    _srSortKey = 'publishedAt';
+    _srSortDir = 'desc';
+    const dropLabel = document.getElementById('yt-sr-sort-drop-label');
+    if (dropLabel) dropLabel.textContent = '追加日';
+    document.querySelectorAll('.yt-sr-sort-opt').forEach(o => o.classList.toggle('on', o.dataset.key === 'publishedAt'));
+    const dirBtn = document.getElementById('yt-sr-sort-dir');
+    if (dirBtn) dirBtn.textContent = '↓';
     _renderCards(_sortedItems());
     _updateHdr(_srItems.length);
   } catch (e) {
@@ -111,10 +129,9 @@ export function ytSrKeydown(e) {
 // ────────────────────────────────────────
 export function ytSrSetMode(mode) {
   _srMode = mode;
-  document.getElementById('yt-sr-tab-video')?.classList.toggle('active', mode === 'video');
-  document.getElementById('yt-sr-tab-playlist')?.classList.toggle('active', mode === 'playlist');
-  const durRow = document.getElementById('yt-sr-dur-row');
-  if (durRow) durRow.style.display = mode === 'playlist' ? 'none' : '';
+  // セグメントコントロール用 .on クラスを切替
+  document.getElementById('yt-sr-tab-video')?.classList.toggle('on', mode === 'video');
+  document.getElementById('yt-sr-tab-playlist')?.classList.toggle('on', mode === 'playlist');
   const q = document.getElementById('yt-sr-input')?.value?.trim();
   if (q) ytSrSearch();
 }
@@ -218,41 +235,74 @@ function _showError(msg) {
   _updateHdr(0);
 }
 
-function _updateHdr(count, loading = false) {
+function _updateHdr(_count, _loading = false) {
+  // 件数表示を廃止。ヘッダーは検索後に表示するだけ。
   const hdr = document.getElementById('yt-sr-hdr');
-  const cnt = document.getElementById('yt-sr-count');
   if (hdr) hdr.style.display = '';
-  if (cnt) cnt.textContent = loading ? '検索中...' : `${count}件`;
+}
+
+// ISO 8601 duration → 秒数（例: "PT5M30S" → 330）
+function _parseDuration(iso) {
+  if (!iso) return 0;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
 }
 
 function _sortedItems() {
   const items = [..._srItems];
-  if (_srSort === 'oldest') {
+  const dir = _srSortDir === 'desc' ? -1 : 1;
+  if (_srSortKey === 'publishedAt') {
     items.sort((a, b) => {
       const da = a.snippet?.publishedAt || '';
       const db = b.snippet?.publishedAt || '';
-      return da < db ? -1 : da > db ? 1 : 0;
+      return da < db ? dir : da > db ? -dir : 0;
     });
-  } else if (_srSort === 'title') {
-    items.sort((a, b) => (a.snippet?.title || '').localeCompare(b.snippet?.title || '', 'ja'));
-  } else if (_srSort === 'unadded') {
+  } else if (_srSortKey === 'duration') {
     items.sort((a, b) => {
-      const ia = _addedSet.has(a.id?.videoId || a.id?.playlistId || '') ? 1 : 0;
-      const ib = _addedSet.has(b.id?.videoId || b.id?.playlistId || '') ? 1 : 0;
-      return ia - ib;
+      const da = _parseDuration(a.contentDetails?.duration);
+      const db = _parseDuration(b.contentDetails?.duration);
+      return (da - db) * dir;
     });
   }
-  // 'default' = API順（新しい順）
   return items;
 }
 
-export function ytSrSort(key) {
-  _srSort = key;
-  document.querySelectorAll('.yt-sr-sort-chip').forEach(c => {
-    c.classList.toggle('active', c.dataset.sort === key);
-  });
+// ── ソートキー切替 ──
+export function ytSrSetSortKey(key) {
+  _srSortKey = key;
+  const labels = { publishedAt: '追加日', duration: '動画の長さ' };
+  const label = document.getElementById('yt-sr-sort-drop-label');
+  if (label) label.textContent = labels[key] || key;
+  document.querySelectorAll('.yt-sr-sort-opt').forEach(o => o.classList.toggle('on', o.dataset.key === key));
+  document.getElementById('yt-sr-sort-popover')?.classList.remove('show');
+  document.getElementById('yt-sr-sort-drop')?.classList.remove('open');
   if (_srItems.length) _renderCards(_sortedItems());
 }
+window.ytSrSetSortKey = ytSrSetSortKey;
+
+// ── ソート方向切替（↓/↑）──
+export function ytSrToggleSortDir() {
+  _srSortDir = _srSortDir === 'desc' ? 'asc' : 'desc';
+  const btn = document.getElementById('yt-sr-sort-dir');
+  if (btn) btn.textContent = _srSortDir === 'desc' ? '↓' : '↑';
+  if (_srItems.length) _renderCards(_sortedItems());
+}
+window.ytSrToggleSortDir = ytSrToggleSortDir;
+
+// ── ドロップダウン開閉 ──
+export function ytSrToggleSortDrop() {
+  const pop = document.getElementById('yt-sr-sort-popover');
+  const btn = document.getElementById('yt-sr-sort-drop');
+  const isOpen = pop?.classList.contains('show');
+  document.querySelectorAll('.yt-sr-sort-popover').forEach(p => p.classList.remove('show'));
+  document.querySelectorAll('.yt-sr-sort-drop').forEach(b => b.classList.remove('open'));
+  if (!isOpen && pop && btn) { pop.classList.add('show'); btn.classList.add('open'); }
+}
+window.ytSrToggleSortDrop = ytSrToggleSortDrop;
+
+// 後方互換
+export function ytSrSort(_key) { /* 廃止 — ytSrSetSortKey を使用 */ }
 window.ytSrSort = ytSrSort;
 
 // ────────────────────────────────────────

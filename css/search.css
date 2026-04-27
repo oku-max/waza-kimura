@@ -82,19 +82,58 @@
 }
 .yt-sr-btn:hover { color: var(--text); }
 
-/* フィルター行（モードタブ + 長さタブを横並び） */
+/* フィルター行（横スクロール対応） */
 .yt-sr-filter-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
 }
-.yt-sr-filter-row .yt-sr-mode-tabs:not(:first-child) {
-  border-left: 1px solid var(--border);
-  padding-left: 10px;
-}
+.yt-sr-filter-row::-webkit-scrollbar { display: none; }
 
-/* モードタブ */
+/* ── セグメントコントロール（動画 / プレイリスト） ── */
+.yt-sr-seg-ctrl {
+  display: inline-flex;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 1px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.yt-sr-seg-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  transition: all .15s;
+}
+.yt-sr-seg-btn.on { background: var(--accent); color: var(--on-accent); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.yt-sr-seg-btn:not(.on):hover { color: var(--text2); }
+
+/* 縦区切り */
+.yt-sr-vdiv { width: 1px; min-height: 16px; background: var(--border); flex-shrink: 0; align-self: center; }
+
+/* 未取込のみボタン */
+.yt-sr-htab {
+  padding: 4px 11px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text3);
+  font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0;
+  transition: all .12s;
+}
+.yt-sr-htab:hover { color: var(--text); border-color: var(--text2); }
+.yt-sr-htab.active { border-color: var(--accent); color: var(--accent); }
+
+/* 後方互換（旧モードタブ、既存JSが参照する場合） */
 .yt-sr-mode-tabs { display: flex; gap: 4px; }
 .yt-sr-tab {
   padding: 4px 14px;
@@ -102,47 +141,96 @@
   border: 1.5px solid var(--border);
   background: transparent;
   color: var(--text2);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all .12s;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all .12s;
 }
 .yt-sr-tab.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .yt-sr-tab:hover:not(.active) { border-color: var(--text2); color: var(--text); }
 
-/* ── 結果ヘッダー ── */
+/* ── 結果ヘッダー（ソート行） ── */
 .yt-sr-hdr {
   padding: 5px 14px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
   background: var(--surface2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.yt-sr-hdr::-webkit-scrollbar { display: none; }
 .yt-sr-badge {
   background: rgba(204,40,0,.12);
   color: #cc2800;
   border: 1px solid rgba(204,40,0,.25);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 5px;
-  letter-spacing: .3px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 5px; letter-spacing: .3px;
+  display: flex; align-items: center; gap: 3px; flex-shrink: 0;
 }
-.yt-sr-count { font-size: 11px; color: var(--text3); flex: 1; }
+.yt-sr-sort-label { font-size: 10px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
 
-/* ── ソートチップ ── */
-.yt-sr-sort-chips {
-  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+/* ── ソートドロップダウン ── */
+.yt-sr-sort-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.yt-sr-sort-drop {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 10px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0;
+  transition: all .12s;
 }
-.yt-sr-sort-label { font-size: 10px; color: var(--text3); white-space: nowrap; }
+.yt-sr-sort-drop:hover { border-color: var(--accent); color: var(--text); }
+.yt-sr-sort-drop-arrow { font-size: 9px; color: var(--text3); transition: transform .15s; }
+.yt-sr-sort-drop.open .yt-sr-sort-drop-arrow { transform: rotate(180deg); }
+
+.yt-sr-sort-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  padding: 4px 0;
+  min-width: 110px;
+  z-index: 100;
+}
+.yt-sr-sort-popover.show { display: block; }
+.yt-sr-sort-opt {
+  display: block; width: 100%; text-align: left;
+  padding: 8px 14px;
+  background: transparent; border: none;
+  color: var(--text2); font-size: 12px; font-weight: 600; font-family: inherit;
+  cursor: pointer; white-space: nowrap;
+  transition: background .1s;
+}
+.yt-sr-sort-opt:hover { background: var(--surface2); color: var(--text); }
+.yt-sr-sort-opt.on { color: var(--accent); font-weight: 700; }
+.yt-sr-sort-opt.on::after { content: ' ✓'; }
+
+/* ソート矢印ボタン */
+.yt-sr-sort-dir {
+  width: 28px; height: 26px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all .12s;
+}
+.yt-sr-sort-dir:hover { border-color: var(--accent); color: var(--accent); }
+
+/* 後方互換（旧ソートチップ） */
+.yt-sr-sort-chips { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .yt-sr-sort-chip {
   padding: 2px 8px; border-radius: 4px;
   border: 1px solid var(--border);
