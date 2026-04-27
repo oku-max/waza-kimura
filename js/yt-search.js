@@ -197,7 +197,8 @@ function _renderCards(items) {
     const desc = isPlaylist && s.description
       ? `<div class="yt-sr-pl-desc">${_esc(s.description.slice(0, 80))}${s.description.length > 80 ? '…' : ''}</div>` : '';
     const dur = isPlaylist ? '' : _formatDuration(item.contentDetails?.duration);
-    const metaLabel = isPlaylist ? '📋 プレイリスト' : (dur ? `▶ ${dur}　${date}` : `▶ ${date}`);
+    const durHtml  = dur ? `<div class="yt-sr-dur">▶ ${dur}</div>` : '';
+    const metaLabel = isPlaylist ? '📋 プレイリスト' : date;
     return `<div class="yt-sr-card${isAdded?' added':''}${isPlaylist?' playlist':''}" id="yt-sr-card-${ytId}" onclick="window.ytSrOpenVPanel(${i})">
   <div class="yt-sr-thumb">
     ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">${isPlaylist?'📋':'🎥'}</span>`}
@@ -207,6 +208,7 @@ function _renderCards(items) {
     <div class="yt-sr-title">${title}</div>
     <div class="yt-sr-ch">${ch}</div>
     ${desc}
+    ${durHtml}
     <div class="yt-sr-meta">${metaLabel}</div>
   </div>
 </div>`;

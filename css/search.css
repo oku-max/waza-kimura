@@ -376,7 +376,8 @@
   overflow: hidden;
 }
 .yt-sr-ch      { font-size: 11px; color: var(--text3); }
-.yt-sr-meta    { font-size: 11px; color: var(--text3); margin-top: auto; }
+.yt-sr-dur     { font-size: 13px; font-weight: 600; color: var(--text); margin-top: auto; }
+.yt-sr-meta    { font-size: 11px; color: var(--text3); }
 .yt-sr-pl-desc { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
 .yt-sr-card.playlist { border-color: var(--accent); }
 .yt-sr-open-btn {
