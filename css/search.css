@@ -387,11 +387,26 @@
   padding: 10px; cursor: pointer;
 }
 .yt-sr-pl-head:hover { background: var(--surface2); }
-.yt-sr-pl-arr {
-  font-size: 12px; color: var(--text3); flex-shrink: 0;
-  transition: transform .2s; padding: 4px;
+.yt-sr-pl-head .yt-sr-ch {
+  font-size: 12px; color: var(--text2);
 }
-.yt-sr-pl-arr.open { transform: rotate(180deg); }
+.yt-sr-pl-arr {
+  flex-shrink: 0;
+  font-size: 13px; font-weight: 600;
+  color: var(--text2);
+  background: var(--surface3);
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  transition: transform .2s, background .15s, color .15s, border-color .15s;
+  white-space: nowrap; cursor: pointer;
+}
+.yt-sr-pl-arr.open {
+  transform: rotate(180deg);
+  background: rgba(204,119,0,.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .yt-sr-pl-body { display: none; border-top: 1px solid var(--border); }
 .yt-sr-pl-body.open { display: block; }
 .yt-sr-pl-loading { padding: 14px; text-align: center; font-size: 12px; color: var(--text3); }
