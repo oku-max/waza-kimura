@@ -1310,6 +1310,7 @@ export function openVPanel(id) {
       ? `<button id="vp-title-edit-btn" onclick="vpEditTitle('${id}')" title="タイトルを変更" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✎</button>`
       : '';
     const navBtnStyle = "flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
+    const srchSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
       <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
@@ -1317,6 +1318,7 @@ export function openVPanel(id) {
       ${editBtn}
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
       <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
+      <button id="vp-search-btn" onclick="vpTogSearchMenu(event,'${id}')" title="このチャンネル・関連技を検索" style="${navBtnStyle}">${srchSvg}</button>
     </div>`;
   }
 
@@ -2749,3 +2751,133 @@ let _openVPanelId = null;
 window._vpLoopSectionHTML      = () => _loopSectionHTML();
 window._vpBookmarkSectionHTML  = (id) => _bookmarkSectionHTML(id);
 window._vpChapterSectionHTML   = (id) => _chapterSectionHTML(id);
+
+// ══════════════════════════════════════════════════════
+// Vパネル → サーチ 遷移メニュー
+// ══════════════════════════════════════════════════════
+window.vpTogSearchMenu = function(e, id) {
+  e.stopPropagation();
+  const existing = document.getElementById('vp-search-menu');
+  if (existing) { existing.remove(); return; }
+
+  const v = (window.videos || []).find(x => x.id === id);
+  if (!v) return;
+
+  const btn = document.getElementById('vp-search-btn');
+  if (!btn) return;
+
+  const tags = (v.tags || []).filter(Boolean);
+  const channel = v.channel || '';
+
+  // ── メニュー要素を構築 ──
+  const menu = document.createElement('div');
+  menu.id = 'vp-search-menu';
+  menu.className = 'vp-search-menu';
+
+  // ── 内容を描画（layer: 'main' | 'tags'）──
+  function renderMain() {
+    menu.innerHTML = '';
+    if (channel) {
+      const ci = _menuItem(`<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 6.5c0-1.38-1.12-2.5-2.5-2.5h-13C4.12 4 3 5.12 3 6.5v11C3 18.88 4.12 20 5.5 20h13c1.38 0 2.5-1.12 2.5-2.5v-11zm-2.5 11h-13c-.28 0-.5-.22-.5-.5V9h14v8c0 .28-.22.5-.5.5zm-5.5-5l-4 3V9l4 3z"/></svg>`, 'このチャンネルを検索', channel);
+      ci.onclick = () => { menu.remove(); _vpGoSearch(channel); };
+      menu.appendChild(ci);
+    }
+    if (tags.length) {
+      const ti = _menuItem(`<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.37.86.58 1.41.58s1.05-.21 1.41-.58l7-7c.37-.36.59-.86.59-1.42 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>`, '関連技を検索', 'タグから選ぶ', true);
+      ti.onclick = () => renderTags();
+      menu.appendChild(ti);
+    }
+    _positionMenu(menu, btn);
+  }
+
+  function renderTags() {
+    menu.innerHTML = '';
+    // 戻るボタン
+    const back = document.createElement('div');
+    back.className = 'vp-smenu-back';
+    back.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> 戻る`;
+    back.onclick = renderMain;
+    menu.appendChild(back);
+
+    const div = document.createElement('div');
+    div.className = 'vp-smenu-divider';
+    menu.appendChild(div);
+
+    tags.forEach(tag => {
+      const row = document.createElement('div');
+      row.className = 'vp-smenu-tag-row';
+      row.innerHTML = `<span class="vp-smenu-tag-pill">${tag}</span>`;
+      row.onclick = () => { menu.remove(); _vpGoSearch(tag); };
+      menu.appendChild(row);
+    });
+
+    const div2 = document.createElement('div');
+    div2.className = 'vp-smenu-divider';
+    menu.appendChild(div2);
+
+    const other = document.createElement('div');
+    other.className = 'vp-smenu-other';
+    other.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="flex-shrink:0;opacity:0.5"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg><span>その他のキーワードで検索…</span>`;
+    other.onclick = () => { menu.remove(); _vpGoSearchFree(); };
+    menu.appendChild(other);
+
+    _positionMenu(menu, btn);
+  }
+
+  renderMain();
+  document.body.appendChild(menu);
+
+  // 外クリックで閉じる
+  const onOutside = (ev) => {
+    if (!menu.contains(ev.target) && ev.target !== btn) {
+      menu.remove();
+      document.removeEventListener('click', onOutside, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+};
+
+function _menuItem(iconHtml, label, sub, hasArrow = false) {
+  const el = document.createElement('div');
+  el.className = 'vp-smenu-item';
+  el.innerHTML = `
+    <div class="vp-smenu-icon">${iconHtml}</div>
+    <div class="vp-smenu-texts">
+      <div class="vp-smenu-label">${label}</div>
+      ${sub ? `<div class="vp-smenu-sub">${sub}</div>` : ''}
+    </div>
+    ${hasArrow ? `<svg class="vp-smenu-arrow" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>` : ''}
+  `;
+  return el;
+}
+
+function _positionMenu(menu, anchor) {
+  menu.style.position = 'fixed';
+  menu.style.visibility = 'hidden';
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  const mw = menu.offsetWidth || 220;
+  const mh = menu.offsetHeight || 100;
+  let top = r.top - mh - 6;
+  let left = r.right - mw;
+  if (top < 8) top = r.bottom + 6;
+  if (left < 8) left = 8;
+  menu.style.top  = top + 'px';
+  menu.style.left = left + 'px';
+  menu.style.visibility = '';
+}
+
+function _vpGoSearch(query) {
+  if (typeof window.switchTab === 'function') window.switchTab('search');
+  setTimeout(() => {
+    if (typeof window.ytSrSetQuery === 'function') window.ytSrSetQuery(query);
+  }, 80);
+}
+
+function _vpGoSearchFree() {
+  if (typeof window.switchTab === 'function') window.switchTab('search');
+  setTimeout(() => {
+    const inp = document.getElementById('yt-sr-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }, 80);
+}

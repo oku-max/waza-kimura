@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.22</title>
+<title>WAZA KIMURA v51.23</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -658,6 +658,63 @@
 
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
+
+/* ── Vパネル 検索メニュー ── */
+.vp-search-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--surface2, #2a2a2a);
+  border: 1px solid var(--border, #3a3a3a);
+  border-radius: 12px;
+  padding: 5px;
+  min-width: 210px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+  animation: vpSmenuIn 0.15s ease-out;
+}
+@keyframes vpSmenuIn {
+  from { opacity: 0; transform: scale(0.94) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+.vp-smenu-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+  transition: background 0.1s;
+}
+.vp-smenu-item:hover { background: var(--hover, rgba(255,255,255,0.07)); }
+.vp-smenu-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--surface3, #333); color: var(--text2, #aaa);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.vp-smenu-texts { flex: 1; min-width: 0; }
+.vp-smenu-label { font-size: 12.5px; font-weight: 600; color: var(--text, #fff); }
+.vp-smenu-sub   { font-size: 10.5px; color: var(--text3, #888); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vp-smenu-arrow { color: var(--text3, #666); flex-shrink: 0; }
+.vp-smenu-divider { height: 1px; background: var(--border, #333); margin: 3px 0; }
+.vp-smenu-back {
+  display: flex; align-items: center; gap: 5px; padding: 6px 10px;
+  font-size: 11px; color: var(--text3, #888); cursor: pointer;
+  border-radius: 7px; transition: background 0.1s;
+}
+.vp-smenu-back:hover { background: var(--hover, rgba(255,255,255,0.07)); }
+.vp-smenu-tag-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  transition: background 0.1s;
+}
+.vp-smenu-tag-row:hover { background: var(--hover, rgba(255,255,255,0.07)); }
+.vp-smenu-tag-pill {
+  background: var(--surface3, #333); color: var(--text, #ddd);
+  font-size: 12px; padding: 3px 10px; border-radius: 20px;
+}
+.vp-smenu-other {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  color: var(--text3, #888); font-size: 12px;
+  transition: background 0.1s;
+}
+.vp-smenu-other:hover { background: var(--hover, rgba(255,255,255,0.07)); }
 
 /* blur-area: 次の動画リスト */
 #vpanel-blur-area {
