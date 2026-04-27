@@ -320,11 +320,12 @@
 .yt-sr-dur {
   position: absolute;
   bottom: 4px;
-  right: 4px;
-  background: rgba(0,0,0,.88);
+  left: 4px;
+  background: rgba(0,0,0,.82);
   color: #fff;
-  font-size: 9px;
-  padding: 1px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
   border-radius: 3px;
   font-family: monospace;
   pointer-events: none;
@@ -376,8 +377,7 @@
   overflow: hidden;
 }
 .yt-sr-ch      { font-size: 11px; color: var(--text3); }
-.yt-sr-dur     { font-size: 13px; font-weight: 600; color: var(--text); margin-top: auto; }
-.yt-sr-meta    { font-size: 11px; color: var(--text3); }
+.yt-sr-meta    { font-size: 11px; color: var(--text3); margin-top: auto; }
 .yt-sr-pl-desc { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
 .yt-sr-card.playlist { border-color: var(--accent); }
 .yt-sr-open-btn {
