@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.42</title>
+<title>WAZA KIMURA v51.43</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -38,9 +38,10 @@
     importYouTubePlaylists, ytFetchSelectedPlVideos, ytShowVideoStage,
     ytRenderVideoList, ytUpdateSelCount, ytSelAllVideos,
     ytSelNoneVideos, ytBackToPlaylists, ytImportCheckedVideos,
-    parseYtTimestamps
+    parseYtTimestamps, fetchMissingVimeoDurations
   } from './js/youtube.js';
   window.parseYtTimestamps = parseYtTimestamps;
+  window.fetchMissingVimeoDurations = fetchMissingVimeoDurations;
   import { debounceSave, qFav, qNext, qWatch, archOne, setPrio } from './js/data.js';
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderNotes } from './js/notes.js';

@@ -15,6 +15,7 @@ export const auth = firebase.auth();
 export const db   = firebase.firestore();
 
 export let currentUser = null;
+let _durFetchDone = false; // duration補完は初回ロード1回だけ
 
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
@@ -144,6 +145,13 @@ export function loadUserData(uid) {
     if (window.AF) window.AF();
     if (window.renderTagMasterUI) window.renderTagMasterUI();
     showToast('✅ データを読み込みました');
+    // duration補完（初回ロードのみ）
+    // GDrive: tokenがあれば即実行、なければfail-safe。Vimeo: 認証不要
+    if (!_durFetchDone) {
+      _durFetchDone = true;
+      window.fetchMissingGdDurations?.();
+      window.fetchMissingVimeoDurations?.();
+    }
   }, e => console.error('loadUserData onSnapshot:', e));
 }
 

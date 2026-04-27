@@ -261,6 +261,46 @@ export async function fetchMissingYtDetails(token) {
 }
 window.fetchMissingYtDetails = fetchMissingYtDetails;
 
+// ── Vimeo 動画の duration 補完（oEmbed API, 認証不要）──
+export async function fetchMissingVimeoDurations() {
+  const missing = (window.videos || []).filter(v => {
+    const pt = v.pt || v.src || 'youtube';
+    return !['youtube', 'gdrive', 'x'].includes(pt) && !v.duration && v.id;
+  });
+  if (!missing.length) return;
+
+  const CONCURRENCY = 5;
+  let updated = 0;
+
+  for (let i = 0; i < missing.length; i += CONCURRENCY) {
+    const batch = missing.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      batch.map(async v => {
+        try {
+          const vmId = (v.id || '').replace(/^(vm-|vimeo-|yt-)/i, '');
+          if (!vmId || !/^\d/.test(vmId)) return; // 数値IDでなければスキップ
+          const vUrl = v.vmHash
+            ? `https://vimeo.com/${vmId}/${v.vmHash}`
+            : `https://vimeo.com/${vmId}`;
+          const res = await fetch(
+            `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vUrl)}`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.duration > 0) { v.duration = data.duration; updated++; }
+        } catch { /* skip on error */ }
+      })
+    );
+  }
+
+  if (updated > 0) {
+    window.debounceSave?.();
+    showToast(`✅ ${updated}本のVimeo動画の長さを取得しました`);
+    window.AF?.();
+  }
+}
+window.fetchMissingVimeoDurations = fetchMissingVimeoDurations;
+
 async function fetchVideoDescriptions(vids, token) {
   const descMap = {};
   for (let i = 0; i < vids.length; i += 50) {
