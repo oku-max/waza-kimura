@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.35</title>
+<title>WAZA KIMURA v51.36</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -90,7 +90,8 @@
   import {
     ytSrInit, ytSrSearch, ytSrKeydown, ytSrSetMode, ytSrSetDuration, ytSrLoadMore,
     ytSrOpenVPanel, ytSrCloseVPanel, ytSrAddToLibrary, ytSrQuickAdd,
-    ytSrSkip, ytSrOpenInLibrary, ytSrOpenResultsList, ytSrCloseResultsList
+    ytSrSkip, ytSrOpenInLibrary, ytSrOpenResultsList, ytSrCloseResultsList,
+    ytSrTogglePl, ytSrAddPlVideo, ytSrAddAllPl
   } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
@@ -136,6 +137,9 @@
   window.ytSrOpenInLibrary    = ytSrOpenInLibrary;
   window.ytSrOpenResultsList  = ytSrOpenResultsList;
   window.ytSrCloseResultsList = ytSrCloseResultsList;
+  window.ytSrTogglePl         = ytSrTogglePl;
+  window.ytSrAddPlVideo       = ytSrAddPlVideo;
+  window.ytSrAddAllPl         = ytSrAddAllPl;
   // firebase
   window.saveUserData            = saveUserData;
   window.saveUserSettings        = saveUserSettings;

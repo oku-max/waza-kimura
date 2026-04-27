@@ -17,6 +17,7 @@ let _srSortDir    = 'desc';        // 'desc' | 'asc'
 let _srOpenItem   = null;          // VPanelで開いている検索結果
 let _srCurrentIdx = -1;            // VPanelで開いているインデックス
 const _addedSet   = new Set();     // 追加済みYouTube ID
+const _srPlItems  = {};            // plId -> [{videoId,title,ch,thumb}] キャッシュ
 let _srHideAdded  = false;         // 未取込のみフラグ
 
 // ── 検索履歴 ──
@@ -182,34 +183,49 @@ function _renderCards(items) {
 
   const cardsHtml = items.map((item, i) => {
     const isPlaylist = !!item.id?.playlistId;
-    const ytId   = item.id?.videoId || item.id?.playlistId || '';
-    const s      = item.snippet || {};
-    const thumb  = s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '';
-    const title  = _esc(s.title || '');
-    const ch     = _esc(s.channelTitle || '');
-    const date   = s.publishedAt ? new Date(s.publishedAt).toLocaleDateString('ja-JP', { year:'numeric', month:'short', day:'numeric' }) : '';
-    const isAdded = _addedSet.has(ytId);
+    const s     = item.snippet || {};
+    const thumb = s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '';
+    const title = _esc(s.title || '');
+    const ch    = _esc(s.channelTitle || '');
 
+    // ── プレイリストカード（アコーディオン）──
+    if (isPlaylist) {
+      const plId = item.id.playlistId;
+      return `<div class="yt-sr-card playlist" id="yt-sr-card-${plId}">
+  <div class="yt-sr-pl-head" onclick="window.ytSrTogglePl('${plId}')">
+    <div class="yt-sr-thumb">
+      ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">📋</span>`}
+    </div>
+    <div class="yt-sr-info">
+      <div class="yt-sr-title">${title}</div>
+      <div class="yt-sr-ch">${ch}</div>
+      <div class="yt-sr-meta">📋 プレイリスト</div>
+    </div>
+    <span class="yt-sr-pl-arr" id="yt-sr-pl-arr-${plId}">▼</span>
+  </div>
+  <div class="yt-sr-pl-body" id="yt-sr-pl-body-${plId}"></div>
+</div>`;
+    }
+
+    // ── 動画カード（既存） ──
+    const ytId    = item.id?.videoId || '';
+    const date    = s.publishedAt ? new Date(s.publishedAt).toLocaleDateString('ja-JP', { year:'numeric', month:'short', day:'numeric' }) : '';
+    const isAdded = _addedSet.has(ytId);
     const badgeHtml = isAdded
       ? `<div class="yt-sr-added-badge">✓ 追加済</div>`
       : `<button class="yt-sr-plus" onclick="event.stopPropagation();window.ytSrQuickAdd('${ytId}',${i})" title="ライブラリに追加">＋</button>`;
-
-    const desc = isPlaylist && s.description
-      ? `<div class="yt-sr-pl-desc">${_esc(s.description.slice(0, 80))}${s.description.length > 80 ? '…' : ''}</div>` : '';
-    const dur = isPlaylist ? '' : _formatDuration(item.contentDetails?.duration);
-    const durHtml  = dur ? `<div class="yt-sr-dur">▶ ${dur}</div>` : '';
-    const metaLabel = isPlaylist ? '📋 プレイリスト' : date;
-    return `<div class="yt-sr-card${isAdded?' added':''}${isPlaylist?' playlist':''}" id="yt-sr-card-${ytId}" onclick="window.ytSrOpenVPanel(${i})">
+    const dur     = _formatDuration(item.contentDetails?.duration);
+    const durHtml = dur ? `<div class="yt-sr-dur">▶ ${dur}</div>` : '';
+    return `<div class="yt-sr-card${isAdded?' added':''}" id="yt-sr-card-${ytId}" onclick="window.ytSrOpenVPanel(${i})">
   <div class="yt-sr-thumb">
-    ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">${isPlaylist?'📋':'🎥'}</span>`}
+    ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">🎥</span>`}
     ${badgeHtml}
     ${durHtml}
   </div>
   <div class="yt-sr-info">
     <div class="yt-sr-title">${title}</div>
     <div class="yt-sr-ch">${ch}</div>
-    ${desc}
-    <div class="yt-sr-meta">${metaLabel}</div>
+    <div class="yt-sr-meta">${date}</div>
   </div>
 </div>`;
   }).join('');
@@ -1005,5 +1021,145 @@ export function ytSrToggleHideAdded() {
   _srHideAdded = !_srHideAdded;
   document.getElementById('yt-sr-cards-wrap')?.classList.toggle('hide-added', _srHideAdded);
   document.getElementById('yt-sr-hide-added-btn')?.classList.toggle('active', _srHideAdded);
+}
+
+// ────────────────────────────────────────
+// プレイリスト アコーディオン展開
+// ────────────────────────────────────────
+export async function ytSrTogglePl(plId) {
+  const body = document.getElementById('yt-sr-pl-body-' + plId);
+  const arr  = document.getElementById('yt-sr-pl-arr-' + plId);
+  if (!body) return;
+
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    if (arr) arr.classList.remove('open');
+    return;
+  }
+  body.classList.add('open');
+  if (arr) arr.classList.add('open');
+
+  if (_srPlItems[plId]) return; // 読込済みはキャッシュを使う
+
+  body.innerHTML = '<div class="yt-sr-pl-loading">読み込み中…</div>';
+  try {
+    const res  = await fetch(`/api/yt-playlist-items?playlistId=${encodeURIComponent(plId)}&maxResults=50`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'API error');
+
+    _srPlItems[plId] = (data.items || []).map(item => ({
+      videoId: item.snippet?.resourceId?.videoId || item.contentDetails?.videoId || '',
+      title:   item.snippet?.title || '',
+      ch:      item.snippet?.videoOwnerChannelTitle || item.snippet?.channelTitle || '',
+      thumb:   item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || '',
+    })).filter(v => v.videoId);
+
+    if (!_srPlItems[plId].length) {
+      body.innerHTML = '<div class="yt-sr-pl-empty">動画が見つかりませんでした</div>';
+      return;
+    }
+
+    const total = data.pageInfo?.totalResults || _srPlItems[plId].length;
+    let html = `<button class="yt-sr-all-btn" onclick="window.ytSrAddAllPl('${plId}')">▼ すべて取込（${total}本）</button>`;
+    html += _srPlItems[plId].map(v => {
+      const isAdded = _addedSet.has(v.videoId);
+      const t = _esc(v.title), c = _esc(v.ch), vid = v.videoId, th = v.thumb;
+      return `<div class="yt-sr-pl-vi">
+  <div class="yt-sr-pl-vi-thumb">${th ? `<img src="${th}" alt="" loading="lazy">` : ''}</div>
+  <div class="yt-sr-info" style="gap:2px">
+    <div class="yt-sr-title" style="font-size:12px">${t}</div>
+    <div class="yt-sr-ch">${c}</div>
+  </div>
+  ${isAdded
+    ? `<div class="yt-sr-vi-done">✓</div>`
+    : `<button class="yt-sr-vi-add" id="yt-sr-vi-add-${vid}" onclick="window.ytSrAddPlVideo('${vid}','${t}','${c}','${th}')">＋</button>`}
+</div>`;
+    }).join('');
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = `<div class="yt-sr-pl-empty">読み込みエラー: ${_esc(e.message)}</div>`;
+  }
+}
+
+// ────────────────────────────────────────
+// プレイリスト内 個別動画追加
+// ────────────────────────────────────────
+export async function ytSrAddPlVideo(videoId, title, ch, thumb) {
+  if (_addedSet.has(videoId)) { showToast('既にライブラリに追加済みです'); return; }
+  const btn = document.getElementById('yt-sr-vi-add-' + videoId);
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  try {
+    const libId = 'yt-' + videoId;
+    window.videos = window.videos || [];
+    if (!window.videos.find(v => v.ytId === videoId)) {
+      const entry = {
+        id: libId, ytId: videoId, pt: 'youtube', title, src: 'youtube',
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        thumb, ch, channel: ch, pl: '',
+        addedAt: new Date().toISOString().slice(0, 10),
+        duration: 0, ytChapters: [], watched: false,
+        fav: false, status: '未着手', prio: 'そのうち',
+        shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
+        tb: [], cat: [], pos: [], tags: [],
+        ...(window.autoTagFromTitle ? (() => { const t = window.autoTagFromTitle(title); return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags }; })() : {}),
+      };
+      window.videos.push(entry);
+    }
+    _addedSet.add(videoId);
+    window.AF?.();
+    await saveUserData();
+    if (btn) { btn.textContent = '✓'; btn.disabled = true; btn.className = 'yt-sr-vi-done'; }
+    showToast('✅ ライブラリに追加しました！');
+  } catch (e) {
+    if (btn) { btn.textContent = '＋'; btn.disabled = false; }
+    showToast('⚠️ 保存に失敗しました: ' + e.message);
+  }
+}
+
+// ────────────────────────────────────────
+// プレイリスト全動画まとめて追加
+// ────────────────────────────────────────
+export async function ytSrAddAllPl(plId) {
+  const items = _srPlItems[plId];
+  if (!items?.length) return;
+  const toAdd = items.filter(v => !_addedSet.has(v.videoId));
+  if (!toAdd.length) { showToast('全て追加済みです'); return; }
+
+  const allBtn = document.querySelector(`#yt-sr-pl-body-${plId} .yt-sr-all-btn`);
+  if (allBtn) { allBtn.textContent = '追加中…'; allBtn.disabled = true; }
+
+  window.videos = window.videos || [];
+  let added = 0;
+  for (const v of toAdd) {
+    if (_addedSet.has(v.videoId)) continue;
+    const libId = 'yt-' + v.videoId;
+    if (!window.videos.find(x => x.ytId === v.videoId)) {
+      window.videos.push({
+        id: libId, ytId: v.videoId, pt: 'youtube', title: v.title, src: 'youtube',
+        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+        thumb: v.thumb, ch: v.ch, channel: v.ch, pl: '',
+        addedAt: new Date().toISOString().slice(0, 10),
+        duration: 0, ytChapters: [], watched: false,
+        fav: false, status: '未着手', prio: 'そのうち',
+        shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
+        tb: [], cat: [], pos: [], tags: [],
+        ...(window.autoTagFromTitle ? (() => { const t = window.autoTagFromTitle(v.title); return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags }; })() : {}),
+      });
+    }
+    _addedSet.add(v.videoId);
+    const btn = document.getElementById('yt-sr-vi-add-' + v.videoId);
+    if (btn) { btn.textContent = '✓'; btn.disabled = true; btn.className = 'yt-sr-vi-done'; }
+    added++;
+  }
+  window.AF?.();
+  try {
+    await saveUserData();
+    if (allBtn) allBtn.textContent = `✅ ${added}本を追加しました`;
+    showToast(`✅ ${added}本をライブラリに追加しました！`);
+  } catch (e) {
+    if (allBtn) { allBtn.textContent = `▼ すべて取込`; allBtn.disabled = false; }
+    showToast('⚠️ 保存に失敗しました: ' + e.message);
+  }
 }
 window.ytSrToggleHideAdded = ytSrToggleHideAdded;

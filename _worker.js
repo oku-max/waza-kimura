@@ -31,8 +31,9 @@ async function handleApi(request, env, path) {
     case '/api/drive':       return handleDrive(request);
     case '/api/rss-proxy':   return handleRssProxy(request);
     case '/api/thumb-proxy': return handleThumbProxy(request);
-    case '/api/yt-search':   return handleYtSearch(request, env);
-    case '/api/ai-group':    return handleAiGroup(request, env);
+    case '/api/yt-search':        return handleYtSearch(request, env);
+    case '/api/yt-playlist-items': return handleYtPlaylistItems(request, env);
+    case '/api/ai-group':         return handleAiGroup(request, env);
     case '/api/ai-tag':      return handleAiTag(request, env);
     default:                 return new Response('Not found', { status: 404 });
   }
@@ -192,6 +193,36 @@ async function handleYtSearch(request, env) {
     return jsonRes(data, 200, { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' });
   } catch (e) {
     return jsonRes({ error: '検索失敗: ' + e.message }, 500);
+  }
+}
+
+// ── /api/yt-playlist-items — プレイリスト内動画一覧 ────────
+async function handleYtPlaylistItems(request, env) {
+  if (request.method !== 'GET') return jsonRes({ error: 'Method not allowed' }, 405);
+  const apiKey = env.YOUTUBE_API_KEY;
+  if (!apiKey) return jsonRes({ error: 'YOUTUBE_API_KEY 未設定' }, 500);
+
+  const sp         = new URL(request.url).searchParams;
+  const playlistId = sp.get('playlistId');
+  const pageToken  = sp.get('pageToken') || '';
+  const maxResults = sp.get('maxResults') || '50';
+  if (!playlistId) return jsonRes({ error: 'playlistId required' }, 400);
+
+  try {
+    const params = new URLSearchParams({
+      part: 'snippet,contentDetails',
+      playlistId,
+      maxResults: String(Math.min(Number(maxResults), 50)),
+      key: apiKey,
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const res  = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`);
+    const data = await res.json();
+    if (data.error) return jsonRes({ error: data.error.message }, res.status);
+    return jsonRes(data, 200, { 'Cache-Control': 's-maxage=300, stale-while-revalidate=600' });
+  } catch (e) {
+    return jsonRes({ error: e.message }, 500);
   }
 }
 
