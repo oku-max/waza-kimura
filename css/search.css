@@ -379,7 +379,46 @@
 .yt-sr-ch      { font-size: 11px; color: var(--text3); }
 .yt-sr-meta    { font-size: 11px; color: var(--text3); margin-top: auto; }
 .yt-sr-pl-desc { font-size: 11px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
-.yt-sr-card.playlist { border-color: var(--accent); cursor: default; }
+/* ── プレイリストカード（案B: サムネイル横長・カウントバッジ） ── */
+.yt-sr-card.playlist {
+  border-color: var(--accent);
+  cursor: default;
+  flex-direction: column; /* bodyをheadの下に配置（旧rowバグ修正） */
+  padding: 0;
+  overflow: hidden;       /* カード角丸でサムネをクリップ */
+}
+.yt-sr-card.playlist .yt-sr-pl-head {
+  padding: 0;
+  gap: 0;
+}
+.yt-sr-card.playlist .yt-sr-thumb {
+  width: 100px;
+  height: 68px;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+.yt-sr-card.playlist .yt-sr-info {
+  padding: 8px 0 8px 10px;
+  gap: 2px;
+}
+.yt-sr-card.playlist .yt-sr-pl-arr {
+  align-self: center;
+  margin: 0 10px;
+}
+/* サムネイル上の本数バッジ */
+.yt-sr-pl-cnt-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0,0,0,.85);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  white-space: nowrap;
+}
 
 /* プレイリスト アコーディオン */
 .yt-sr-pl-head {

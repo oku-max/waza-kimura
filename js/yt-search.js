@@ -188,21 +188,22 @@ function _renderCards(items) {
     const title = _esc(s.title || '');
     const ch    = _esc(s.channelTitle || '');
 
-    // ── プレイリストカード（アコーディオン）──
+    // ── プレイリストカード（案B: サムネイル横長・カウントバッジ）──
     if (isPlaylist) {
-      const plId    = item.id.playlistId;
-      const itemCnt = item.contentDetails?.itemCount;
-      const cntTxt  = itemCnt != null ? `${itemCnt}本` : '';
-      const meta    = cntTxt ? `📋 プレイリスト　・　${cntTxt}` : '📋 プレイリスト';
+      const plId     = item.id.playlistId;
+      const itemCnt  = item.contentDetails?.itemCount;
+      const cntTxt   = itemCnt != null ? `${itemCnt}本` : '';
+      const cntBadge = cntTxt ? `<div class="yt-sr-pl-cnt-badge">📋 ${cntTxt}</div>` : '';
       return `<div class="yt-sr-card playlist" id="yt-sr-card-${plId}">
   <div class="yt-sr-pl-head" onclick="window.ytSrTogglePl('${plId}')">
     <div class="yt-sr-thumb">
-      ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:32px;opacity:.4">📋</span>`}
+      ${thumb ? `<img src="${thumb}" alt="" loading="lazy">` : `<span style="font-size:28px;opacity:.4">📋</span>`}
+      ${cntBadge}
     </div>
     <div class="yt-sr-info">
       <div class="yt-sr-title">${title}</div>
       <div class="yt-sr-ch">${ch}</div>
-      <div class="yt-sr-meta">${meta}</div>
+      <div class="yt-sr-meta">📋 プレイリスト</div>
     </div>
     <span class="yt-sr-pl-arr" id="yt-sr-pl-arr-${plId}">▶</span>
   </div>
