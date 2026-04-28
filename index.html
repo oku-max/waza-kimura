@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.50</title>
+<title>WAZA KIMURA v51.51</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1265,6 +1265,11 @@
         <button class="bbt" onclick="bulkUndo()">↩</button>
         <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
       </div>
+    </div>
+    <div id="org-tbl-sort-bar" style="display:flex;align-items:center;gap:4px;padding:4px 8px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
+      <span style="font-size:10px;color:var(--text3);white-space:nowrap">並び替え</span>
+      <select id="org-tbl-sort-key" onchange="orgTblSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer;max-width:160px"></select>
+      <button id="org-tbl-sort-dir" onclick="orgTblTogDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
     </div>
     <div class="org-table-wrap" id="org-table-wrap">
       <table class="org-table" id="orgTable">

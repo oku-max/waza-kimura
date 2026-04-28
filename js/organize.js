@@ -54,7 +54,32 @@ function _saveOrgColPrefs() {
     localStorage.setItem('wk_orgColWidths', JSON.stringify(ORG_COL_WIDTHS));
   } catch(e) {}
   window.saveUserSettings?.();
+  buildOrgTblSortOptions();
 }
+
+const _ORG_SORTABLE = new Set(['title','tb','action','position','technique','counter','status','channel','playlist','addedAt','fav','next','duration','lastPlayed']);
+function _syncOrgTblSortUI() {
+  const sel = document.getElementById('org-tbl-sort-key');
+  const btn = document.getElementById('org-tbl-sort-dir');
+  if (sel && orgSortCol && sel.querySelector(`option[value="${orgSortCol}"]`)) sel.value = orgSortCol;
+  if (btn) btn.textContent = orgSortAsc ? '↑' : '↓';
+}
+export function buildOrgTblSortOptions() {
+  const sel = document.getElementById('org-tbl-sort-key');
+  if (!sel) return;
+  const prev = orgSortCol || sel.value;
+  const opts = [
+    {key:'title', label:'タイトル'},
+    ...orgColOrder.filter(col => orgColVisibility[col] !== false && _ORG_SORTABLE.has(col))
+                  .map(col => ({key:col, label:ORG_COL_LABELS[col]}))
+  ];
+  sel.innerHTML = opts.map(o => `<option value="${o.key}">${o.label}</option>`).join('');
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+  _syncOrgTblSortUI();
+}
+window.buildOrgTblSortOptions = buildOrgTblSortOptions;
+window.orgTblSortKey = function(val) { orgSortCol = val || null; orgSortAsc = true; _syncOrgTblSortUI(); renderOrg(); };
+window.orgTblTogDir  = function() { orgSortAsc = !orgSortAsc; _syncOrgTblSortUI(); renderOrg(); };
 export const ORG_COL_LABELS = {tb:'トップ/ボトム/スタンディング', action:'カテゴリ', position:'ポジション', technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
@@ -825,6 +850,7 @@ export function syncOrgColHeaders() {
   }
   bindOrgDrag();
   initOrgResize();
+  buildOrgTblSortOptions();
 }
 
 // ─── Organizeテーブル: ソート ───
@@ -836,6 +862,7 @@ export function orgSetSort(col) {
       orgSortCol = col;
       orgSortAsc = true;
     }
+    _syncOrgTblSortUI();
     renderOrg();
   } catch(e) { console.error('orgSetSort error:', e); }
 }
