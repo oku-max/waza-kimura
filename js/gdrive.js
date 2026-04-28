@@ -211,7 +211,7 @@ function _parseMp4Duration(buffer) {
 // moov ボックスが末尾にある場合（多くのレコーディング系アプリ）は末尾 128KB で取得できる
 // web-optimized（fast-start）なら先頭 128KB に含まれる
 async function _fetchDurationFromMp4(fileId) {
-  const CHUNK = 131072; // 128KB
+  const CHUNK = 524288; // 512KB（moovボックスが大きいファイルに対応）
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
   const hdrs = { Authorization: `Bearer ${_token}` };
   // ① 末尾 128KB
