@@ -186,6 +186,12 @@ async function getFolderName(folderId) {
 
 // ── 既存GDrive動画のduration補完（50件ずつbatch）──
 export async function fetchMissingGdDurations() {
+  // キャッシュからトークンを復元。なければ再接続を促して終了
+  if (!_token) {
+    const cached = _loadCachedToken();
+    if (cached) { _token = cached; _setAuthUI(true); _scheduleRefresh(); }
+    else { window.toast?.('⚠️ Google Driveに再接続してください（＋動画を追加 → Google Drive）'); return; }
+  }
   const missing = (window.videos || []).filter(v =>
     v.pt === 'gdrive' && !v.duration && v.id
   );
