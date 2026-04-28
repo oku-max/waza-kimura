@@ -58,7 +58,7 @@ function _silentRefresh() {
         } else {
           _saveToken(resp.access_token);
           _setAuthUI(true);
-          fetchMissingGdDurations(); // 既存動画のduration補完
+          fetchMissingGdDurations().then(() => triggerGdDurationProcessing()); // duration補完 → 未処理ファイルをトリガー
           resolve(resp.access_token);
         }
       },
@@ -91,7 +91,7 @@ export function initDriveAuth(forceConsent = false) {
         if (token) {
           _saveToken(token);
           _setAuthUI(true);
-          fetchMissingGdDurations(); // 既存動画のduration補完
+          fetchMissingGdDurations().then(() => triggerGdDurationProcessing()); // duration補完 → 未処理ファイルをトリガー
           resolve(true);
         } else if (!forceConsent) {
           // トークンなし → consent強制で再試行
