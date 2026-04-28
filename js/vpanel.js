@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.95 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.96 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1585,37 +1585,6 @@ window.vpToggleMirror = function () {
     }
   }
 
-  // GDrive: ネイティブ controls を表示/非表示
-  if (_gdVideoEl) {
-    _gdVideoEl.controls = !on;
-  }
-
-  // Vimeo: controls=0/1 でiframe再ロード
-  if (_vmPlayer) {
-    const savedTime = _vmCurTime;
-    const ifr = document.getElementById('vpanel-vm-iframe');
-    if (ifr) {
-      let src = ifr.src;
-      src = src.replace(/[?&]controls=\d/, '');
-      if (on) src += (src.includes('?') ? '&' : '?') + 'controls=0';
-      try { _vmPlayer.destroy(); } catch(e) {}
-      _vmPlayer = null; _vmCurTime = 0; _vmDuration = 0;
-      ifr.src = src;
-      _loadVimeoApi().then(() => {
-        const el = document.getElementById('vpanel-vm-iframe');
-        if (!el) return;
-        try {
-          _vmPlayer = new Vimeo.Player(el);
-          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(() => {});
-          _vmPlayer.on('timeupdate', data => { _vmCurTime = data.seconds || 0; });
-          _vmPlayer.on('loaded', () => {
-            _vmPlayer.setCurrentTime(savedTime).catch(() => {});
-            _startTimeDisplay();
-          });
-        } catch(e) {}
-      });
-    }
-  }
 };
 
 export function closeVPanel() {
