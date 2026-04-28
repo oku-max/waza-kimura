@@ -218,7 +218,7 @@ export async function fetchMissingGdDurations() {
         if (r.status !== 'fulfilled') return;
         const data = r.value;
         const dur = data.videoMediaMetadata?.durationMillis;
-        if (dur && idMap[data.id]) {
+        if (Number(dur) > 0 && idMap[data.id]) {
           idMap[data.id].duration = Math.round(Number(dur) / 1000);
           updated++;
         }
@@ -232,6 +232,36 @@ export async function fetchMissingGdDurations() {
   }
 }
 window.fetchMissingGdDurations = fetchMissingGdDurations;
+
+// ── GDrive 遅延処理トリガー（1バイト Range リクエストで Drive の処理をキック → 2分後に再取得）──
+export async function triggerGdDurationProcessing() {
+  if (!_token) {
+    const cached = _loadCachedToken();
+    if (cached) { _token = cached; _setAuthUI(true); _scheduleRefresh(); }
+    else return; // トークンなし → 静かに終了
+  }
+  const missing = (window.videos || []).filter(v => v.pt === 'gdrive' && !v.duration && v.id);
+  if (!missing.length) return;
+
+  // 10件ずつ並列で 1バイト Range リクエストを送り Drive の遅延処理をキック
+  const BATCH = 10;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await Promise.allSettled(batch.map(v => {
+      const fileId = v.id.replace(/^gd-/, '');
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 8000);
+      return fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-0' }, signal: ctrl.signal }
+      ).catch(() => {});
+    }));
+  }
+
+  // Drive の処理完了を待って再取得（2分後）
+  setTimeout(() => fetchMissingGdDurations(), 2 * 60 * 1000);
+}
+window.triggerGdDurationProcessing = triggerGdDurationProcessing;
 
 async function scanFolder(folderId, folderName, depth) {
   const files   = await listFolder(folderId);
