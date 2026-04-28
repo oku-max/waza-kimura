@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.92 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.93 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -147,7 +147,7 @@ window.onYouTubeIframeAPIReady = function() {
 
 // YT.Player を初期化する (YT.Player にサイズ決定を任せる従来方式)
 // containerId: iframe を入れる div の id
-function _initYTPlayer(containerId, ytId, autoplay, onReady) {
+function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
   // 既存プレイヤーを破棄
   if (_ytPlayer) {
     try { _ytPlayer.destroy(); } catch(e) {}
@@ -163,6 +163,7 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady) {
         rel: 0,
         modestbranding: 1,
         playsinline: 1,
+        ...extraVars,
       },
       events: {
         onReady: (e) => {
@@ -1322,7 +1323,6 @@ export function openVPanel(id) {
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
       <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
       <button id="vp-search-btn" onclick="vpTogSearchMenu(event,'${id}')" title="このチャンネル・関連技を検索" style="${navBtnStyle}">${srchSvg}</button>
-      ${mirrorActive ? '<span id="vp-mirror-badge" style="flex-shrink:0;font-size:9px;background:var(--accent);color:#111;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.04em">MIRROR</span>' : '<span id="vp-mirror-badge" style="display:none;flex-shrink:0;font-size:9px;background:var(--accent);color:#111;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.04em">MIRROR</span>'}
       <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
     </div>`;
   }
@@ -1497,17 +1497,27 @@ window.vpCloseNextList = function () {
 
 window.vpToggleMirror = function () {
   window._vpMirrored = !window._vpMirrored;
+  const on = window._vpMirrored;
   const container = document.getElementById('vpanel-iframe-container');
   const btn = document.getElementById('vp-mirror-btn');
-  const badge = document.getElementById('vp-mirror-badge');
-  if (window._vpMirrored) {
-    if (container) container.style.transform = 'scaleX(-1)';
-    if (btn) { btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent)'; btn.style.background = 'rgba(229,196,122,.15)'; }
-    if (badge) badge.style.display = '';
-  } else {
-    if (container) container.style.transform = '';
-    if (btn) { btn.style.borderColor = ''; btn.style.color = ''; btn.style.background = ''; }
-    if (badge) badge.style.display = 'none';
+
+  if (btn) {
+    btn.style.borderColor = on ? 'var(--accent)' : '';
+    btn.style.color      = on ? 'var(--accent)' : '';
+    btn.style.background = on ? 'rgba(229,196,122,.15)' : '';
+  }
+  if (container) container.style.transform = on ? 'scaleX(-1)' : '';
+
+  // YTプレイヤーを controls:0/1 で再初期化して動画だけ反転させる
+  if (_ytPlayer && _ytPlayerReady) {
+    const videoId = _ytPlayer.getVideoData?.()?.video_id;
+    const savedTime = _ytPlayer.getCurrentTime?.() || 0;
+    if (videoId) {
+      _initYTPlayer('vpanel-yt-player', videoId, true,
+        () => { try { _ytPlayer.seekTo(savedTime, true); } catch(e) {} },
+        on ? { controls: 0 } : {}
+      );
+    }
   }
 };
 
