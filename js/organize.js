@@ -1680,13 +1680,13 @@ const _colFilterConfig = {
   action:         { filterKey: 'action',         valueGetter: v => { const a = v.cat||[]; return a.length ? a : [_BLANK]; } },
   position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
   technique:      { filterKey: 'tags',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
-  channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
+  channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; } },
   next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'], noSearch: true },
   counter:         { filterKey: 'counter',         valueGetter: v => {
     const pc = v.practice || 0;
     return [pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上'];
   }, noSearch: true },
-  playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK], panel: true },
+  playlist:       { filterKey: 'playlist',       valueGetter: v => v.pl ? [v.pl] : [_BLANK] },
   fav:            { filterKey: 'fav',            valueGetter: v => [v.fav ? '★ お気に入り' : '☆ 未お気に入り'], noSearch: true },
   memo:           { filterKey: 'memo',           valueGetter: v => [v.memo ? 'あり'  : 'なし'], noSearch: true, memoTextSearch: true },
   addedAt:        { filterKey: 'addedAtFilter',  valueGetter: v => {
@@ -1827,8 +1827,6 @@ export function openOrgColFilter(col, thEl) {
 
   // ── フィルターセクション ──
   if (cfg && sortedVals.length > 0) {
-    const isPanel = !!cfg.panel; // channel / playlist → パネル形式
-
     // 検索ボックス（選択肢が少ない列は非表示）
     let searchBox = null;
     if (!cfg.noSearch) {
@@ -1839,21 +1837,8 @@ export function openOrgColFilter(col, thEl) {
       dd.appendChild(searchBox);
     }
 
-    if (isPanel) {
-      // ── パネル形式（Channel / Playlist）──
-      // Library サイドバーと完全に同じ buildSbPickerInline を使用
-      if (searchBox) dd.removeChild(searchBox); // buildSbPickerInline が独自の検索ボックスを持つ
-      const panelContainer = document.createElement('div');
-      const panelId = '_org-col-picker-' + col;
-      panelContainer.id = panelId;
-      panelContainer.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0';
-      dd.appendChild(panelContainer);
-
-      // buildSbPickerInline を 'org' コンテキストで呼び出し
-      // （orgFilters を使い、renderOrg を呼ぶ — Library サイドバーと完全に同じ関数）
-      window.buildSbPickerInline(panelId, cfg.filterKey, 'org');
-    } else {
-      // ── チェックボックス形式（タグ系列） ──
+    {
+      // ── チェックボックス形式（全列統一）──
       const filtLabel = document.createElement('div');
       filtLabel.style.cssText = 'font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px';
       filtLabel.textContent = 'フィルター';
