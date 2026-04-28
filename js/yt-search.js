@@ -737,6 +737,109 @@ export function ytSrOpenVPanel(idx) {
 }
 
 // ────────────────────────────────────────
+// プレイリスト内動画の VPanel 表示
+// ────────────────────────────────────────
+export function ytSrOpenPlVPanel(plId, vidIdx) {
+  const items = _srPlItems[plId];
+  if (!items || !items[vidIdx]) return;
+  const v = items[vidIdx];
+  const { videoId, title, ch, thumb } = v;
+
+  const libId  = 'yt-' + videoId;
+  let libEntry = (window.videos || []).find(e => !e._srTemp && (e.ytId === videoId || e.id === libId)) || null;
+  const isAdded = !!libEntry;
+
+  _srRemoveTempEntry();
+
+  if (!libEntry) {
+    const tempEntry = {
+      _srTemp: true, id: libId, ytId: videoId, pt: 'youtube',
+      title, src: 'youtube', url: `https://www.youtube.com/watch?v=${videoId}`,
+      thumb, ch, channel: ch, pl: '', addedAt: new Date().toISOString().slice(0, 10),
+      duration: 0, ytChapters: [], watched: false, fav: false, status: '未着手',
+      prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
+      tb: [], cat: [], pos: [], tags: [],
+    };
+    window.videos = window.videos || [];
+    window.videos.push(tempEntry);
+    libEntry = tempEntry;
+  }
+
+  _srOpenLibId = libEntry.id;
+  window._srVpOpen           = true;
+  window._srYtGetCurrentTime = _srGetCurrentTime;
+  window._srYtSeekTo         = _srSeekTo;
+  window.openVPanelId        = _srOpenLibId;
+
+  const realAbArea = document.getElementById('vpanel-ab-area');
+  if (realAbArea) realAbArea.innerHTML = '';
+  window.vpAbReset?.();
+
+  const navBtnStyle = 'flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.85);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit';
+  const left = document.getElementById('yt-sr-vp-left');
+  if (left) {
+    left.innerHTML = `
+      <button class="yt-sr-vp-back-btn" onclick="window.ytSrCloseVPanel()">← 戻る</button>
+      <div class="yt-sr-vp-player">
+        <div id="yt-sr-vp-player-div" style="width:100%;height:100%"></div>
+      </div>
+      <div class="yt-sr-vp-titlebar">
+        <button style="${navBtnStyle}" onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx - 1})" ${vidIdx === 0 ? 'disabled' : ''} title="前の動画">⏮</button>
+        <div class="yt-sr-vp-title-text">${_esc(title)}</div>
+        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:4px"></span>
+        <button style="${navBtnStyle}" onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx + 1})" ${vidIdx >= items.length - 1 ? 'disabled' : ''} title="次の動画">⏭</button>
+      </div>
+      <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
+      <div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>
+    `;
+    _srInitPlayer(videoId);
+  }
+
+  const cta = document.getElementById('yt-sr-vp-cta');
+  if (cta) {
+    if (isAdded) {
+      cta.innerHTML = `
+        <button class="yt-sr-vp-add-btn" disabled>✓ ライブラリ登録済み</button>
+        <button class="yt-sr-vp-lib-btn" onclick="window.ytSrOpenInLibrary('${libId}')">▶ ライブラリで開く →</button>
+      `;
+    } else {
+      cta.innerHTML = `<button class="yt-sr-vp-add-btn" id="yt-sr-vp-add-btn" onclick="window.ytSrAddToLibrary()">＋ ライブラリに追加</button>`;
+    }
+  }
+
+  const scroll = document.getElementById('yt-sr-vp-scroll');
+  if (scroll) {
+    const abHTML      = window._vpLoopSectionHTML?.() || '';
+    const bmId        = libEntry.id;
+    const chapterHTML = window._vpChapterSectionHTML?.(bmId) || '';
+    const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
+    const memoHTML = `<div class="vp-row" style="margin-top:8px">
+      <span class="vp-lbl">Memo</span>
+      <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
+        onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
+    </div>
+    <div id="vp-snap-section-${bmId}"></div>`;
+    const bmAreaHTML  = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
+    const drawerHTML  = `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`;
+    const infoHTML    = `<div class="yt-sr-vp-info-section">
+      <div class="yt-sr-vp-info-ttl">${_esc(title)}</div>
+      <div class="yt-sr-vp-info-row"><span>📺</span><span>${_esc(ch)}</span></div>
+      <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer" class="yt-sr-vp-yt-link">▶ YouTubeで開く</a>
+    </div>`;
+    scroll.innerHTML = `<div id="yt-sr-vp-ab-area">${abHTML}</div>${bmAreaHTML}${drawerHTML}${infoHTML}`;
+    const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
+    if (editArea) {
+      editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
+      editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
+    }
+  }
+
+  document.getElementById('yt-sr-vp-overlay')?.classList.add('open');
+  setTimeout(() => _srUpdateOrientation(), 80);
+}
+window.ytSrOpenPlVPanel = ytSrOpenPlVPanel;
+
+// ────────────────────────────────────────
 // 検索結果ボトムシート（☰ ボタン）
 // ────────────────────────────────────────
 function _ensureSrBottomSheet() {
@@ -1066,10 +1169,10 @@ export async function ytSrTogglePl(plId) {
 
     const total = data.pageInfo?.totalResults || _srPlItems[plId].length;
     let html = `<button class="yt-sr-all-btn" onclick="window.ytSrAddAllPl('${plId}')">▼ すべて取込（${total}本）</button>`;
-    html += _srPlItems[plId].map(v => {
+    html += _srPlItems[plId].map((v, i) => {
       const isAdded = _addedSet.has(v.videoId);
       const t = _esc(v.title), c = _esc(v.ch), vid = v.videoId, th = v.thumb;
-      return `<div class="yt-sr-pl-vi">
+      return `<div class="yt-sr-pl-vi" onclick="window.ytSrOpenPlVPanel('${plId}',${i})" style="cursor:pointer">
   <div class="yt-sr-pl-vi-thumb">${th ? `<img src="${th}" alt="" loading="lazy">` : ''}</div>
   <div class="yt-sr-info" style="gap:2px">
     <div class="yt-sr-title" style="font-size:12px">${t}</div>
@@ -1077,7 +1180,7 @@ export async function ytSrTogglePl(plId) {
   </div>
   ${isAdded
     ? `<div class="yt-sr-vi-done">✓</div>`
-    : `<button class="yt-sr-vi-add" id="yt-sr-vi-add-${vid}" onclick="window.ytSrAddPlVideo('${vid}','${t}','${c}','${th}')">＋</button>`}
+    : `<button class="yt-sr-vi-add" id="yt-sr-vi-add-${vid}" onclick="event.stopPropagation();window.ytSrAddPlVideo('${vid}','${t}','${c}','${th}')">＋</button>`}
 </div>`;
     }).join('');
     body.innerHTML = html;
