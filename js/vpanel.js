@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.94 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.95 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1496,6 +1496,31 @@ window.vpCloseNextList = function () {
   document.getElementById('vp-bs-sheet')?.classList.remove('open');
 };
 
+function _vpMirrorGetPos() {
+  if (_ytPlayer && _ytPlayerReady) {
+    try { return { cur: Math.floor(_ytPlayer.getCurrentTime() || 0), dur: Math.floor(_ytPlayer.getDuration() || 0) }; } catch(e) {}
+  }
+  if (_gdVideoEl) {
+    return { cur: Math.floor(_gdVideoEl.currentTime || 0), dur: Math.floor(_gdVideoEl.duration || 0) };
+  }
+  if (_vmPlayer) {
+    return { cur: Math.floor(_vmCurTime || 0), dur: Math.floor(_vmDuration || 0) };
+  }
+  return { cur: 0, dur: 0 };
+}
+
+function _vpMirrorSeek(ratio) {
+  if (_ytPlayer && _ytPlayerReady) {
+    const dur = _ytPlayer.getDuration?.() || 0;
+    if (dur > 0) _ytPlayer.seekTo(ratio * dur, true);
+  } else if (_gdVideoEl) {
+    const dur = _gdVideoEl.duration || 0;
+    if (dur > 0) _gdVideoEl.currentTime = ratio * dur;
+  } else if (_vmPlayer) {
+    if (_vmDuration > 0) _vmPlayer.setCurrentTime(ratio * _vmDuration).catch(() => {});
+  }
+}
+
 function _vpMirrorProgressToggle(on) {
   let bar = document.getElementById('vp-mirror-progress');
 
@@ -1517,10 +1542,8 @@ function _vpMirrorProgressToggle(on) {
       <span id="vp-mirror-pb-time" style="flex-shrink:0;font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap">0:00 / 0:00</span>
     `;
     bar.querySelector('#vp-mirror-pb-track').addEventListener('click', e => {
-      if (!_ytPlayer || !_ytPlayerReady) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      const dur = _ytPlayer.getDuration?.() || 0;
-      if (dur > 0) _ytPlayer.seekTo(((e.clientX - rect.left) / rect.width) * dur, true);
+      _vpMirrorSeek((e.clientX - rect.left) / rect.width);
     });
     document.getElementById('vpanel-iframe-container')?.insertAdjacentElement('afterend', bar);
   }
@@ -1528,15 +1551,11 @@ function _vpMirrorProgressToggle(on) {
   bar.style.display = 'flex';
   clearInterval(_mirrorProgressTimer);
   _mirrorProgressTimer = setInterval(() => {
-    if (!_ytPlayer || !_ytPlayerReady) return;
-    try {
-      const cur = Math.floor(_ytPlayer.getCurrentTime?.() || 0);
-      const dur = Math.floor(_ytPlayer.getDuration?.() || 0);
-      const fill = document.getElementById('vp-mirror-pb-fill');
-      const time = document.getElementById('vp-mirror-pb-time');
-      if (fill && dur > 0) fill.style.width = `${(cur / dur) * 100}%`;
-      if (time) time.textContent = `${_formatTime(cur)} / ${_formatTime(dur)}`;
-    } catch(e) {}
+    const { cur, dur } = _vpMirrorGetPos();
+    const fill = document.getElementById('vp-mirror-pb-fill');
+    const time = document.getElementById('vp-mirror-pb-time');
+    if (fill && dur > 0) fill.style.width = `${(cur / dur) * 100}%`;
+    if (time) time.textContent = `${_formatTime(cur)} / ${_formatTime(dur)}`;
   }, 500);
 }
 
@@ -1554,6 +1573,7 @@ window.vpToggleMirror = function () {
   if (container) container.style.transform = on ? 'scaleX(-1)' : '';
   _vpMirrorProgressToggle(on);
 
+  // YouTube: controls:0/1 で再初期化
   if (_ytPlayer && _ytPlayerReady) {
     const videoId = _ytPlayer.getVideoData?.()?.video_id;
     const savedTime = _ytPlayer.getCurrentTime?.() || 0;
@@ -1562,6 +1582,38 @@ window.vpToggleMirror = function () {
         () => { try { _ytPlayer.seekTo(savedTime, true); } catch(e) {} },
         on ? { controls: 0 } : {}
       );
+    }
+  }
+
+  // GDrive: ネイティブ controls を表示/非表示
+  if (_gdVideoEl) {
+    _gdVideoEl.controls = !on;
+  }
+
+  // Vimeo: controls=0/1 でiframe再ロード
+  if (_vmPlayer) {
+    const savedTime = _vmCurTime;
+    const ifr = document.getElementById('vpanel-vm-iframe');
+    if (ifr) {
+      let src = ifr.src;
+      src = src.replace(/[?&]controls=\d/, '');
+      if (on) src += (src.includes('?') ? '&' : '?') + 'controls=0';
+      try { _vmPlayer.destroy(); } catch(e) {}
+      _vmPlayer = null; _vmCurTime = 0; _vmDuration = 0;
+      ifr.src = src;
+      _loadVimeoApi().then(() => {
+        const el = document.getElementById('vpanel-vm-iframe');
+        if (!el) return;
+        try {
+          _vmPlayer = new Vimeo.Player(el);
+          _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(() => {});
+          _vmPlayer.on('timeupdate', data => { _vmCurTime = data.seconds || 0; });
+          _vmPlayer.on('loaded', () => {
+            _vmPlayer.setCurrentTime(savedTime).catch(() => {});
+            _startTimeDisplay();
+          });
+        } catch(e) {}
+      });
     }
   }
 };
