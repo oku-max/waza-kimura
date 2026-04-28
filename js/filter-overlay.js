@@ -1370,8 +1370,8 @@ function _sbmInject() {
   <div class="sbm-search"><input id="sbm-q" placeholder="🔍 検索..." oninput="sbmRender()"></div>
   <div class="sbm-cols">
     <div class="sbm-col narrow"><div class="sbm-col-hdr"><span>Source</span></div><div class="sbm-col-body" id="sbm-col-src"></div></div>
-    <div class="sbm-col"><div class="sbm-col-hdr"><span>Channel</span><select id="sbm-sort-ch" onchange="sbmRender()"><option value="abc">あいうえ順</option><option value="cnt" selected>件数順</option></select></div><div class="sbm-col-body" id="sbm-col-ch"></div></div>
-    <div class="sbm-col"><div class="sbm-col-hdr"><span>Playlist</span><select id="sbm-sort-pl" onchange="sbmRender()"><option value="abc">あいうえ順</option><option value="cnt" selected>件数順</option></select></div><div class="sbm-col-body" id="sbm-col-pl"></div></div>
+    <div class="sbm-col"><div class="sbm-col-hdr"><span>Channel</span><select id="sbm-sort-ch" onchange="sbmRender()"><option value="recent">最近</option><option value="abc">あいうえ順</option><option value="cnt" selected>件数順</option></select></div><div class="sbm-col-body" id="sbm-col-ch"></div></div>
+    <div class="sbm-col"><div class="sbm-col-hdr"><span>Playlist</span><select id="sbm-sort-pl" onchange="sbmRender()"><option value="recent">最近</option><option value="abc">あいうえ順</option><option value="cnt" selected>件数順</option></select></div><div class="sbm-col-body" id="sbm-col-pl"></div></div>
   </div>
   <div class="sbm-ftr">
     <span class="sbm-lbl">選択中:</span>
@@ -1438,7 +1438,12 @@ window.sbmRender = function () {
   let chArr = Object.entries(chMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.channel?.has(n) }))
     .filter(r => r.sel || r.cnt > 0);
   if (q) chArr = chArr.filter(r => r.name.toLowerCase().includes(q));
-  chArr.sort((a,b) => chSort==='abc' ? a.name.localeCompare(b.name,'ja') : b.cnt-a.cnt);
+  if (chSort === 'recent') {
+    const _chRec = _getRecentFilters('channel');
+    chArr.sort((a,b) => { const ai=_chRec.indexOf(a.name), bi=_chRec.indexOf(b.name); return (ai<0?9999:ai)-(bi<0?9999:bi); });
+  } else {
+    chArr.sort((a,b) => chSort==='abc' ? a.name.localeCompare(b.name,'ja') : b.cnt-a.cnt);
+  }
   const chEl = document.getElementById('sbm-col-ch');
   if (chEl) chEl.innerHTML = chArr.length ? chArr.map(r =>
     `<div class="sbm-row${r.sel?' on':''}" onclick="sbmToggle('channel','${_sbmEsc(r.name).replace(/'/g,'&#39;')}')"><span>${_sbmEsc(r.name)}</span><span class="sbm-cnt">${r.cnt}本</span></div>`
@@ -1453,7 +1458,12 @@ window.sbmRender = function () {
   let plArr = Object.entries(plMap).map(([n,c]) => ({ name:n, cnt:c, sel:f.playlist?.has(n) }))
     .filter(r => r.sel || r.cnt > 0);
   if (q) plArr = plArr.filter(r => r.name.toLowerCase().includes(q));
-  plArr.sort((a,b) => plSort==='abc' ? a.name.localeCompare(b.name,'ja') : b.cnt-a.cnt);
+  if (plSort === 'recent') {
+    const _plRec = _getRecentFilters('playlist');
+    plArr.sort((a,b) => { const ai=_plRec.indexOf(a.name), bi=_plRec.indexOf(b.name); return (ai<0?9999:ai)-(bi<0?9999:bi); });
+  } else {
+    plArr.sort((a,b) => plSort==='abc' ? a.name.localeCompare(b.name,'ja') : b.cnt-a.cnt);
+  }
   const plEl = document.getElementById('sbm-col-pl');
   if (plEl) plEl.innerHTML = plArr.length ? plArr.map(r =>
     `<div class="sbm-row${r.sel?' on':''}" onclick="sbmToggle('playlist','${_sbmEsc(r.name).replace(/'/g,'&#39;')}')"><span>${_sbmEsc(r.name)}</span><span class="sbm-cnt">${r.cnt}本</span></div>`
