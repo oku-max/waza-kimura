@@ -870,3 +870,10 @@
   flex-direction: column;
   min-height: 0;
 }
+
+/* プレイリスト一覧シート: 再生中アイテムのハイライト */
+.yt-sr-pl-vi-cur {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  padding-left: 7px;
+}

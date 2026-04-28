@@ -788,6 +788,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
         <div class="yt-sr-vp-title-text">${_esc(title)}</div>
         <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:4px"></span>
         <button style="${navBtnStyle}" onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx + 1})" ${vidIdx >= items.length - 1 ? 'disabled' : ''} title="次の動画">⏭</button>
+        <button style="${navBtnStyle}" onclick="window.ytSrOpenPlListSheet('${plId}',${vidIdx})" title="プレイリスト一覧">☰</button>
       </div>
       <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
       <div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>
@@ -838,6 +839,64 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
   setTimeout(() => _srUpdateOrientation(), 80);
 }
 window.ytSrOpenPlVPanel = ytSrOpenPlVPanel;
+
+// ────────────────────────────────────────
+// プレイリスト動画一覧シート（☰ ボタン）
+// ────────────────────────────────────────
+function _ensurePlSheet() {
+  let sheet = document.getElementById('yt-sr-pl-sheet');
+  if (!sheet) {
+    sheet = document.createElement('div');
+    sheet.id = 'yt-sr-pl-sheet';
+    sheet.className = 'yt-sr-results-sheet';
+    sheet.innerHTML = `
+      <div class="yt-sr-results-sheet-bd" onclick="window.ytSrClosePlListSheet()"></div>
+      <div class="yt-sr-results-sheet-panel">
+        <div class="yt-sr-results-sheet-hdr">
+          <span class="yt-sr-results-sheet-ttl" id="yt-sr-pl-sheet-ttl">プレイリスト</span>
+          <button class="yt-sr-results-sheet-close" onclick="window.ytSrClosePlListSheet()">✕</button>
+        </div>
+        <div class="yt-sr-results-sheet-body" id="yt-sr-pl-sheet-body" style="overflow-y:auto"></div>
+      </div>
+    `;
+    const inner = document.querySelector('.yt-sr-vp-inner') || document.getElementById('yt-sr-vp-overlay');
+    if (inner) inner.appendChild(sheet);
+  }
+  return sheet;
+}
+
+export function ytSrOpenPlListSheet(plId, currentIdx) {
+  const items = _srPlItems[plId];
+  if (!items) return;
+  const sheet = _ensurePlSheet();
+  const ttl = document.getElementById('yt-sr-pl-sheet-ttl');
+  if (ttl) ttl.textContent = `プレイリスト (${items.length}件)`;
+  const body = document.getElementById('yt-sr-pl-sheet-body');
+  if (!body) return;
+  body.innerHTML = items.map((v, i) => {
+    const isCur = i === currentIdx;
+    const th = v.thumb || '';
+    return `<div class="yt-sr-pl-vi${isCur ? ' yt-sr-pl-vi-cur' : ''}"${isCur ? '' : ` onclick="window.ytSrOpenPlVPanel('${plId}',${i});window.ytSrClosePlListSheet()"`} style="cursor:${isCur ? 'default' : 'pointer'}">
+  <div class="yt-sr-pl-vi-thumb">${th ? `<img src="${th}" loading="lazy">` : ''}</div>
+  <div class="yt-sr-info" style="gap:2px;flex:1;min-width:0">
+    <div class="yt-sr-title" style="font-size:12px">${_esc(v.title)}</div>
+    <div class="yt-sr-ch">${_esc(v.ch)}</div>
+  </div>
+  ${isCur ? '<span style="flex-shrink:0;font-size:9px;color:var(--accent);font-weight:700">▶ 再生中</span>' : ''}
+</div>`;
+  }).join('');
+  sheet.classList.add('open');
+  requestAnimationFrame(() => {
+    const cur = body.querySelector('.yt-sr-pl-vi-cur');
+    if (cur) cur.scrollIntoView({ block: 'center' });
+  });
+}
+window.ytSrOpenPlListSheet = ytSrOpenPlListSheet;
+
+export function ytSrClosePlListSheet() {
+  document.getElementById('yt-sr-pl-sheet')?.classList.remove('open');
+}
+window.ytSrClosePlListSheet = ytSrClosePlListSheet;
 
 // ────────────────────────────────────────
 // 検索結果ボトムシート（☰ ボタン）
