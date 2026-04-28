@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.93 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.94 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -236,6 +236,7 @@ function _formatTime(sec) {
 
 // ── タイトルバー時間表示 ──
 let _timeDisplayTimer = null;
+let _mirrorProgressTimer = null;
 
 function _startTimeDisplay() {
   _stopTimeDisplay();
@@ -1495,6 +1496,50 @@ window.vpCloseNextList = function () {
   document.getElementById('vp-bs-sheet')?.classList.remove('open');
 };
 
+function _vpMirrorProgressToggle(on) {
+  let bar = document.getElementById('vp-mirror-progress');
+
+  if (!on) {
+    if (bar) bar.style.display = 'none';
+    clearInterval(_mirrorProgressTimer);
+    _mirrorProgressTimer = null;
+    return;
+  }
+
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'vp-mirror-progress';
+    bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:0 10px;height:22px;background:var(--surface2);flex-shrink:0;border-top:1px solid var(--border)';
+    bar.innerHTML = `
+      <div id="vp-mirror-pb-track" style="flex:1;height:4px;background:rgba(255,255,255,.12);border-radius:2px;position:relative;cursor:pointer">
+        <div id="vp-mirror-pb-fill" style="height:100%;width:0%;background:var(--accent);border-radius:2px"></div>
+      </div>
+      <span id="vp-mirror-pb-time" style="flex-shrink:0;font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap">0:00 / 0:00</span>
+    `;
+    bar.querySelector('#vp-mirror-pb-track').addEventListener('click', e => {
+      if (!_ytPlayer || !_ytPlayerReady) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const dur = _ytPlayer.getDuration?.() || 0;
+      if (dur > 0) _ytPlayer.seekTo(((e.clientX - rect.left) / rect.width) * dur, true);
+    });
+    document.getElementById('vpanel-iframe-container')?.insertAdjacentElement('afterend', bar);
+  }
+
+  bar.style.display = 'flex';
+  clearInterval(_mirrorProgressTimer);
+  _mirrorProgressTimer = setInterval(() => {
+    if (!_ytPlayer || !_ytPlayerReady) return;
+    try {
+      const cur = Math.floor(_ytPlayer.getCurrentTime?.() || 0);
+      const dur = Math.floor(_ytPlayer.getDuration?.() || 0);
+      const fill = document.getElementById('vp-mirror-pb-fill');
+      const time = document.getElementById('vp-mirror-pb-time');
+      if (fill && dur > 0) fill.style.width = `${(cur / dur) * 100}%`;
+      if (time) time.textContent = `${_formatTime(cur)} / ${_formatTime(dur)}`;
+    } catch(e) {}
+  }, 500);
+}
+
 window.vpToggleMirror = function () {
   window._vpMirrored = !window._vpMirrored;
   const on = window._vpMirrored;
@@ -1507,8 +1552,8 @@ window.vpToggleMirror = function () {
     btn.style.background = on ? 'rgba(229,196,122,.15)' : '';
   }
   if (container) container.style.transform = on ? 'scaleX(-1)' : '';
+  _vpMirrorProgressToggle(on);
 
-  // YTプレイヤーを controls:0/1 で再初期化して動画だけ反転させる
   if (_ytPlayer && _ytPlayerReady) {
     const videoId = _ytPlayer.getVideoData?.()?.video_id;
     const savedTime = _ytPlayer.getCurrentTime?.() || 0;
@@ -1527,6 +1572,10 @@ export function closeVPanel() {
     window.vpCloseNextList?.();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
     _stopTimeDisplay();
+    clearInterval(_mirrorProgressTimer); _mirrorProgressTimer = null;
+    _vpMirrorProgressToggle(false);
+    window._vpMirrored = false;
+    const _mc = document.getElementById('vpanel-iframe-container'); if (_mc) _mc.style.transform = '';
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
     clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
     const _gdCloseContainer = document.getElementById('vpanel-iframe-container');
