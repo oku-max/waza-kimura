@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.51</title>
+<title>WAZA KIMURA v51.52</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1256,6 +1256,10 @@
         <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
         </button>
+        <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
+          <select id="org-tbl-sort-key" onchange="orgTblSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer;max-width:160px"></select>
+          <button id="org-tbl-sort-dir" onclick="orgTblTogDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
+        </div>
       </div>
       <div class="bulk-inline" style="display:none">
         <span class="bulk-inline-count">0本選択</span>
@@ -1265,11 +1269,6 @@
         <button class="bbt" onclick="bulkUndo()">↩</button>
         <button class="bbt bulk-inline-close" onclick="exitBulk()">✕</button>
       </div>
-    </div>
-    <div id="org-tbl-sort-bar" style="display:flex;align-items:center;gap:4px;padding:4px 8px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
-      <span style="font-size:10px;color:var(--text3);white-space:nowrap">並び替え</span>
-      <select id="org-tbl-sort-key" onchange="orgTblSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer;max-width:160px"></select>
-      <button id="org-tbl-sort-dir" onclick="orgTblTogDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
     </div>
     <div class="org-table-wrap" id="org-table-wrap">
       <table class="org-table" id="orgTable">
