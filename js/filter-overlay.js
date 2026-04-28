@@ -1093,6 +1093,25 @@ function _sbContextVideos(filterKey, f) {
     if (filterKey !== 'tags'      && f?.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))                        return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;
+    // org固有フィルター（Library側では該当Setが空なので無影響）
+    if (filterKey !== 'fav'          && f?.fav?.size          && !f.fav.has(v.fav ? '★ お気に入り' : '☆ 未お気に入り'))  return false;
+    if (filterKey !== 'next'         && f?.next?.size         && !f.next.has(v.next ? '🎯 Next' : '○ 未設定'))           return false;
+    if (filterKey !== 'counter'      && f?.counter?.size) {
+      const _pc = v.practice || 0;
+      const _cv = _pc === 0 ? '未練習' : _pc <= 3 ? '1〜3回' : _pc <= 10 ? '4〜10回' : '11回以上';
+      if (!f.counter.has(_cv)) return false;
+    }
+    if (filterKey !== 'memo'         && f?.memo?.size         && !f.memo.has(v.memo ? 'あり' : 'なし'))                  return false;
+    if (filterKey !== 'addedAtFilter'&& f?.addedAtFilter?.size) {
+      const _d = v.addedAt ? new Date(v.addedAt) : null;
+      const _ym = _d ? `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}` : '不明';
+      if (!f.addedAtFilter.has(_ym)) return false;
+    }
+    if (filterKey !== 'durationFilter' && f?.durationFilter?.size) {
+      const _s = v.duration || 0;
+      const _bk = !_s ? '不明' : _s < 300 ? '〜5分' : _s < 900 ? '5〜15分' : _s < 1800 ? '15〜30分' : '30分以上';
+      if (!f.durationFilter.has(_bk)) return false;
+    }
     return true;
   });
 }
