@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.91 ═══
+// ═══ WAZA KIMURA — 動画パネル（VPanel） v50.92 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1311,6 +1311,9 @@ export function openVPanel(id) {
       : '';
     const navBtnStyle = "flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
     const srchSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+    const mirrorSvg = `<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="flex-shrink:0"><path d="M4.5 3L1 7l3.5 4V8.5H7v-1H4.5V3zm7 0v4.5H9v1h2.5V11L15 7l-3.5-4z"/></svg>`;
+    const mirrorActive = window._vpMirrored;
+    const mirrorBtnStyle = `flex-shrink:0;height:24px;padding:0 8px;border-radius:20px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px;line-height:1;font-family:inherit`;
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
       <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
@@ -1319,6 +1322,8 @@ export function openVPanel(id) {
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
       <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
       <button id="vp-search-btn" onclick="vpTogSearchMenu(event,'${id}')" title="このチャンネル・関連技を検索" style="${navBtnStyle}">${srchSvg}</button>
+      ${mirrorActive ? '<span id="vp-mirror-badge" style="flex-shrink:0;font-size:9px;background:var(--accent);color:#111;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.04em">MIRROR</span>' : '<span id="vp-mirror-badge" style="display:none;flex-shrink:0;font-size:9px;background:var(--accent);color:#111;font-weight:700;padding:1px 5px;border-radius:4px;letter-spacing:.04em">MIRROR</span>'}
+      <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
     </div>`;
   }
 
@@ -1488,6 +1493,22 @@ window.vpOpenNextList = function () {
 window.vpCloseNextList = function () {
   document.getElementById('vp-bs-overlay')?.classList.remove('open');
   document.getElementById('vp-bs-sheet')?.classList.remove('open');
+};
+
+window.vpToggleMirror = function () {
+  window._vpMirrored = !window._vpMirrored;
+  const container = document.getElementById('vpanel-iframe-container');
+  const btn = document.getElementById('vp-mirror-btn');
+  const badge = document.getElementById('vp-mirror-badge');
+  if (window._vpMirrored) {
+    if (container) container.style.transform = 'scaleX(-1)';
+    if (btn) { btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent)'; btn.style.background = 'rgba(229,196,122,.15)'; }
+    if (badge) badge.style.display = '';
+  } else {
+    if (container) container.style.transform = '';
+    if (btn) { btn.style.borderColor = ''; btn.style.color = ''; btn.style.background = ''; }
+    if (badge) badge.style.display = 'none';
+  }
 };
 
 export function closeVPanel() {
