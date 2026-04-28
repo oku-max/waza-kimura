@@ -151,8 +151,6 @@ export function loadUserData(uid) {
       _durFetchDone = true;
       window.fetchMissingGdDurations?.();
       window.fetchMissingVimeoDurations?.();
-      // fetchMissingGdDurations 完了後（10秒バッファ）に Drive 遅延処理トリガーを起動
-      setTimeout(() => window.triggerGdDurationProcessing?.(), 10000);
     }
   }, e => console.error('loadUserData onSnapshot:', e));
 }

@@ -58,7 +58,7 @@ function _silentRefresh() {
         } else {
           _saveToken(resp.access_token);
           _setAuthUI(true);
-          fetchMissingGdDurations().then(() => triggerGdDurationProcessing()); // duration補完 → 未処理ファイルをトリガー
+          fetchMissingGdDurations();
           resolve(resp.access_token);
         }
       },
@@ -91,7 +91,7 @@ export function initDriveAuth(forceConsent = false) {
         if (token) {
           _saveToken(token);
           _setAuthUI(true);
-          fetchMissingGdDurations().then(() => triggerGdDurationProcessing()); // duration補完 → 未処理ファイルをトリガー
+          fetchMissingGdDurations();
           resolve(true);
         } else if (!forceConsent) {
           // トークンなし → consent強制で再試行
@@ -184,6 +184,54 @@ async function getFolderName(folderId) {
   return data.name || folderId;
 }
 
+// ── MP4 mvhd ボックスから再生時間を抽出 ──
+// MP4構造: [size:4][type:4][version:1][flags:3][payload...]
+// version 0: creation_time(4), modification_time(4), timescale(4), duration(4)
+// version 1: creation_time(8), modification_time(8), timescale(4), duration(8)
+function _parseMp4Duration(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const view  = new DataView(buffer);
+  for (let i = 0; i < bytes.length - 28; i++) {
+    if (bytes[i]!==0x6d || bytes[i+1]!==0x76 || bytes[i+2]!==0x68 || bytes[i+3]!==0x64) continue;
+    const version = bytes[i + 4];
+    if (version === 0) {
+      const timescale = view.getUint32(i + 16, false);
+      const duration  = view.getUint32(i + 20, false);
+      if (timescale > 0 && duration > 0) return Math.round(duration / timescale);
+    } else if (version === 1) {
+      const timescale = view.getUint32(i + 24, false);
+      const duration  = view.getUint32(i + 32, false); // 下位32bitのみ（〜1193時間で十分）
+      if (timescale > 0 && duration > 0) return Math.round(duration / timescale);
+    }
+  }
+  return 0;
+}
+
+// ── ファイル末尾→先頭の順で 128KB を取得し MP4 duration をパース ──
+// moov ボックスが末尾にある場合（多くのレコーディング系アプリ）は末尾 128KB で取得できる
+// web-optimized（fast-start）なら先頭 128KB に含まれる
+async function _fetchDurationFromMp4(fileId) {
+  const CHUNK = 131072; // 128KB
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const hdrs = { Authorization: `Bearer ${_token}` };
+  // ① 末尾 128KB
+  try {
+    const res = await fetch(url, { headers: { ...hdrs, Range: `bytes=-${CHUNK}` } });
+    if (res.ok || res.status === 206) {
+      const dur = _parseMp4Duration(await res.arrayBuffer());
+      if (dur > 0) return dur;
+    }
+  } catch(e) { /* fall through */ }
+  // ② 先頭 128KB
+  try {
+    const res = await fetch(url, { headers: { ...hdrs, Range: `bytes=0-${CHUNK - 1}` } });
+    if (res.ok || res.status === 206) {
+      return _parseMp4Duration(await res.arrayBuffer());
+    }
+  } catch(e) { /* fall through */ }
+  return 0;
+}
+
 // ── 既存GDrive動画のduration補完（50件ずつbatch）──
 export async function fetchMissingGdDurations() {
   // キャッシュからトークンを復元。なければ再接続を促して終了
@@ -204,9 +252,6 @@ export async function fetchMissingGdDurations() {
   let updated = 0;
   for (let i = 0; i < fileIds.length; i += 50) {
     const batch = fileIds.slice(i, i + 50);
-    // Drive v3 filesリストでIDを直接フィルタ
-    const q = encodeURIComponent(batch.map(id => `'${id}' in parents or id='${id}'`).join(' or '));
-    const ids = batch.join(',');
     try {
       // Drive v3 doesn't support multi-get; fetch individually but in parallel
       const results = await Promise.allSettled(
@@ -225,43 +270,31 @@ export async function fetchMissingGdDurations() {
       });
     } catch(e) { /* batch error, continue */ }
   }
+  // Drive API で取得できなかったものを MP4 バイナリ解析で補完
+  const stillMissing = Object.entries(idMap).filter(([, v]) => !v.duration);
+  let mp4Updated = 0;
+  // 4件ずつ並列（128KB × 4 ≒ 512KB/バッチ）
+  for (let i = 0; i < stillMissing.length; i += 4) {
+    const batch = stillMissing.slice(i, i + 4);
+    const results = await Promise.allSettled(
+      batch.map(([fileId, v]) => _fetchDurationFromMp4(fileId).then(dur => ({ dur, v })))
+    );
+    results.forEach(r => {
+      if (r.status !== 'fulfilled' || !r.value?.dur) return;
+      r.value.v.duration = r.value.dur;
+      mp4Updated++;
+      updated++;
+    });
+  }
+
   if (updated > 0) {
     window.debounceSave?.();
-    window.toast?.(`✅ ${updated}本のGDrive動画の長さを取得しました`);
+    const mp4Msg = mp4Updated > 0 ? `（うちMP4解析: ${mp4Updated}本）` : '';
+    window.toast?.(`✅ ${updated}本のGDrive動画の長さを取得しました${mp4Msg}`);
     window.AF?.();
   }
 }
 window.fetchMissingGdDurations = fetchMissingGdDurations;
-
-// ── GDrive 遅延処理トリガー（1バイト Range リクエストで Drive の処理をキック → 2分後に再取得）──
-export async function triggerGdDurationProcessing() {
-  if (!_token) {
-    const cached = _loadCachedToken();
-    if (cached) { _token = cached; _setAuthUI(true); _scheduleRefresh(); }
-    else return; // トークンなし → 静かに終了
-  }
-  const missing = (window.videos || []).filter(v => v.pt === 'gdrive' && !v.duration && v.id);
-  if (!missing.length) return;
-
-  // 10件ずつ並列で 1バイト Range リクエストを送り Drive の遅延処理をキック
-  const BATCH = 10;
-  for (let i = 0; i < missing.length; i += BATCH) {
-    const batch = missing.slice(i, i + BATCH);
-    await Promise.allSettled(batch.map(v => {
-      const fileId = v.id.replace(/^gd-/, '');
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 8000);
-      return fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-        { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-0' }, signal: ctrl.signal }
-      ).catch(() => {});
-    }));
-  }
-
-  // Drive の処理完了を待って再取得（2分後）
-  setTimeout(() => fetchMissingGdDurations(), 2 * 60 * 1000);
-}
-window.triggerGdDurationProcessing = triggerGdDurationProcessing;
 
 async function scanFolder(folderId, folderName, depth) {
   const files   = await listFolder(folderId);
