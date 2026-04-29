@@ -41,46 +41,53 @@ const STEPS = [
   },
 ];
 
-// ── DOM refs (populated after inject) ──
-let _overlay, _svg, _rect, _card, _arrow;
+let _overlay, _svgRect, _card, _arrow;
 let _current = -1;
+let _injected = false;
+
+// ── Public API ──
 
 export function initOnboarding() {
   _inject();
   if (!localStorage.getItem(OB_KEY)) {
-    setTimeout(showStartScreen, 900);
+    setTimeout(_showStart, 900);
   }
 }
 
 export function startOnboarding() {
-  hideStartScreen();
-  _show();
+  _hideStart();
+  _showOverlay();
   _goto(0);
 }
 
 // ── Start screen ──
-function showStartScreen() {
-  const el = document.getElementById('ob-start');
-  if (el) el.style.display = 'flex';
+
+function _showStart() {
+  document.getElementById('ob-start').style.display = 'flex';
 }
-function hideStartScreen() {
-  const el = document.getElementById('ob-start');
-  if (el) el.style.display = 'none';
+function _hideStart() {
+  document.getElementById('ob-start').style.display = 'none';
 }
 
-// ── Tour ──
-function _show() {
-  _overlay.classList.add('ob-active');
+// ── Overlay ──
+
+function _showOverlay() {
+  // JS直接変更: インラインスタイルはCSS classより優先されるため
+  _overlay.style.pointerEvents = 'all';
+  _overlay.style.display = 'block';
   document.body.style.overflow = 'hidden';
 }
 
-function _hide() {
-  _overlay.classList.remove('ob-active');
+function _hideOverlay() {
+  _overlay.style.pointerEvents = 'none';
+  _overlay.style.display = 'none';
   document.body.style.overflow = '';
-  _rect.setAttribute('x', 0); _rect.setAttribute('y', 0);
-  _rect.setAttribute('width', 0); _rect.setAttribute('height', 0);
+  _svgRect.setAttribute('width', 0);
+  _svgRect.setAttribute('height', 0);
   _current = -1;
 }
+
+// ── Step navigation ──
 
 function _goto(idx) {
   _current = idx;
@@ -93,159 +100,208 @@ function _goto(idx) {
   document.getElementById('ob-next-btn').textContent    = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
   document.getElementById('ob-prev-btn').style.display  = idx === 0 ? 'none' : '';
 
-  // Dots
+  // ドット更新
   document.getElementById('ob-dots').innerHTML = STEPS.map((_, i) =>
-    `<div class="ob-dot${i === idx ? ' ob-dot-active' : ''}"></div>`
+    `<span class="ob-dot${i === idx ? ' ob-dot-on' : ''}"></span>`
   ).join('');
 
   if (!el) return;
   const r = el.getBoundingClientRect();
 
-  // Spotlight
-  _rect.setAttribute('rx', 8); _rect.setAttribute('ry', 8);
-  _rect.setAttribute('x',      r.left   - PAD);
-  _rect.setAttribute('y',      r.top    - PAD);
-  _rect.setAttribute('width',  r.width  + PAD * 2);
-  _rect.setAttribute('height', r.height + PAD * 2);
+  // スポットライト
+  _svgRect.setAttribute('rx', 8); _svgRect.setAttribute('ry', 8);
+  _svgRect.setAttribute('x',      r.left   - PAD);
+  _svgRect.setAttribute('y',      r.top    - PAD);
+  _svgRect.setAttribute('width',  r.width  + PAD * 2);
+  _svgRect.setAttribute('height', r.height + PAD * 2);
 
   _positionCard(r, step.pos);
 }
 
 function _positionCard(r, pos) {
-  const cw = 310, gap = 16, aw = 9;
+  const CARD_W = 310, GAP = 16, AW = 9;
   const vw = window.innerWidth, vh = window.innerHeight;
-  _card.style.cssText = _card.style.cssText.replace(/top:[^;]+;|left:[^;]+;|bottom:[^;]+;|right:[^;]+;/g, '');
 
-  // Reset arrow
-  _arrow.className = 'ob-arrow';
-  _arrow.style.cssText = '';
+  // リセット
+  _card.style.top = _card.style.left = _card.style.bottom = _card.style.right = '';
+  _arrow.style.cssText = 'position:absolute;width:0;height:0;border:9px solid transparent;';
 
   const cx = r.left + r.width / 2;
-  const cy = r.top  + r.height / 2;
 
   if (pos === 'below' || pos === 'below-left' || pos === 'below-right') {
-    const top = r.bottom + gap;
-    _card.style.top  = top + 'px';
+    const top = Math.min(r.bottom + GAP, vh - 260);
+    _card.style.top = top + 'px';
+
+    let left;
     if (pos === 'below-left') {
-      _card.style.left = Math.max(8, Math.min(r.right - cw, vw - cw - 8)) + 'px';
+      left = Math.max(8, Math.min(r.right - CARD_W, vw - CARD_W - 8));
     } else {
-      _card.style.left = Math.max(8, Math.min(r.left, vw - cw - 8)) + 'px';
+      left = Math.max(8, Math.min(r.left, vw - CARD_W - 8));
     }
-    _arrow.classList.add('ob-arrow-up');
-    _arrow.style.top  = (top - aw * 2) + 'px';
-    _arrow.style.left = (cx - aw) + 'px';
+    _card.style.left = left + 'px';
+
+    _arrow.style.borderBottomColor = 'var(--accent, #e05a00)';
+    _arrow.style.top  = (top - AW * 2 + 1) + 'px';
+    _arrow.style.left = (cx - AW) + 'px';
 
   } else if (pos === 'right') {
-    const left = r.right + gap;
-    if (left + cw < vw) {
-      _card.style.top  = Math.max(8, Math.min(cy - 80, vh - 300)) + 'px';
-      _card.style.left = left + 'px';
-      _arrow.classList.add('ob-arrow-left');
-      _arrow.style.top  = (cy - aw) + 'px';
-      _arrow.style.left = (r.right + gap - aw * 2) + 'px';
+    const spaceRight = vw - r.right - GAP;
+    if (spaceRight >= CARD_W) {
+      const top = Math.max(8, Math.min(r.top, vh - 300));
+      _card.style.top  = top + 'px';
+      _card.style.left = (r.right + GAP) + 'px';
+      _arrow.style.borderRightColor = 'var(--accent, #e05a00)';
+      _arrow.style.top  = (r.top + r.height / 2 - AW) + 'px';
+      _arrow.style.left = (r.right + GAP - AW * 2 + 1) + 'px';
     } else {
-      // fallback: below
-      _card.style.top  = (r.bottom + gap) + 'px';
-      _card.style.left = Math.max(8, Math.min(r.left, vw - cw - 8)) + 'px';
-      _arrow.classList.add('ob-arrow-up');
-      _arrow.style.top  = (r.bottom + gap - aw * 2) + 'px';
-      _arrow.style.left = (cx - aw) + 'px';
+      // 右に収まらない → 下に fallback
+      _positionCard(r, 'below');
     }
   }
 }
 
-// ── Build DOM ──
+// ── DOM 注入 ──
+
 function _inject() {
-  // Start screen
+  if (_injected) return;
+  _injected = true;
+
+  // スタート画面
   const startEl = document.createElement('div');
   startEl.id = 'ob-start';
-  startEl.style.cssText = 'display:none;position:fixed;inset:0;z-index:9601;background:rgba(0,0,0,.88);align-items:center;justify-content:center;';
+  startEl.style.cssText = [
+    'display:none', 'position:fixed', 'inset:0', 'z-index:9601',
+    'background:rgba(0,0,0,.85)', 'align-items:center', 'justify-content:center',
+  ].join(';');
   startEl.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--accent);border-radius:16px;
-                padding:32px 28px;width:min(380px,92vw);text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.7)">
-      <div style="font-size:22px;font-weight:900;margin-bottom:8px">🥋 はじめに</div>
-      <p style="font-size:14px;color:var(--text2,#aaa);line-height:1.6;margin-bottom:22px">
+    <div style="background:var(--surface,#1e1e1e);border:1.5px solid var(--accent,#e05a00);
+                border-radius:16px;padding:32px 28px;width:min(380px,92vw);text-align:center;
+                box-shadow:0 8px 40px rgba(0,0,0,.7);">
+      <div style="font-size:22px;font-weight:900;margin-bottom:8px;">🥋 はじめに</div>
+      <p style="font-size:14px;color:var(--text2,#aaa);line-height:1.6;margin-bottom:22px;">
         WAZA KIMURAの基本的な使い方を<br>6ステップで紹介します（約2分）
       </p>
-      <div style="text-align:left;margin-bottom:22px">
-        ${STEPS.map((s,i) => `
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;color:var(--text,#ddd)">
-            <div style="min-width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;
-                        font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">${i}</div>
+      <div style="text-align:left;margin-bottom:22px;">
+        ${STEPS.map((s, i) => `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--text,#ddd);">
+            <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent,#e05a00);
+                         color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;
+                         justify-content:center;">${i}</span>
             <span>${s.title}</span>
           </div>`).join('')}
       </div>
-      <button onclick="window._obStart()" style="width:100%;padding:12px;border-radius:8px;background:var(--accent);
-              color:var(--on-accent,#fff);font-size:15px;font-weight:800;border:none;cursor:pointer;margin-bottom:10px">
-        ツアーをはじめる
-      </button>
-      <button onclick="window._obDismiss()" style="background:none;border:none;color:var(--text3,#666);
-              font-size:13px;cursor:pointer;text-decoration:underline">
-        スキップして使い始める
-      </button>
+      <button id="ob-start-btn" style="width:100%;padding:12px;border-radius:8px;
+              background:var(--accent,#e05a00);color:#fff;font-size:15px;font-weight:800;
+              border:none;cursor:pointer;margin-bottom:10px;">ツアーをはじめる</button>
+      <button id="ob-dismiss-btn" style="background:none;border:none;color:var(--text3,#666);
+              font-size:13px;cursor:pointer;text-decoration:underline;">スキップして使い始める</button>
     </div>`;
   document.body.appendChild(startEl);
 
-  // Tour overlay
+  // ツアーオーバーレイ
   const ov = document.createElement('div');
   ov.id = 'ob-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;pointer-events:none;';
-  ov.innerHTML = `
-    <svg id="ob-svg" style="position:absolute;inset:0;width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <mask id="ob-mask">
-          <rect width="100%" height="100%" fill="white"/>
-          <rect id="ob-rect" fill="black" x="0" y="0" width="0" height="0"/>
-        </mask>
-      </defs>
-      <rect width="100%" height="100%" fill="rgba(0,0,0,0.72)" mask="url(#ob-mask)"/>
-    </svg>
-    <div class="ob-arrow" id="ob-arrow" style="position:absolute;width:0;height:0;border:9px solid transparent;"></div>
-    <div id="ob-card" style="position:absolute;background:var(--surface);border:1.5px solid var(--accent);
-         border-radius:12px;padding:20px;width:310px;box-shadow:0 8px 32px rgba(0,0,0,.7);max-width:calc(100vw - 16px)">
-      <div id="ob-step-label" style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:1px;margin-bottom:8px"></div>
-      <div id="ob-title"      style="font-size:15px;font-weight:800;margin-bottom:8px;color:var(--text,#fff)"></div>
-      <div id="ob-body"       style="font-size:13px;color:var(--text2,#bbb);line-height:1.65;margin-bottom:16px"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div id="ob-dots" style="display:flex;gap:5px"></div>
-        <div style="display:flex;gap:8px">
-          <button id="ob-prev-btn" onclick="window._obPrev()"
-            style="padding:6px 12px;border-radius:6px;background:#333;border:none;color:var(--text2,#ccc);font-size:13px;cursor:pointer">← 戻る</button>
-          <button onclick="window._obSkip()"
-            style="padding:6px 12px;border-radius:6px;background:none;border:1px solid var(--border,#444);color:var(--text3,#888);font-size:13px;cursor:pointer">スキップ</button>
-          <button id="ob-next-btn" onclick="window._obNext()"
-            style="padding:6px 16px;border-radius:6px;background:var(--accent);border:none;color:var(--on-accent,#fff);font-size:13px;font-weight:700;cursor:pointer">次へ →</button>
-        </div>
+  ov.style.cssText = [
+    'display:none', 'position:fixed', 'inset:0', 'z-index:9600', 'pointer-events:none',
+  ].join(';');
+
+  // SVG（表示専用・クリック透過）
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+  const defs = document.createElementNS(svgNS, 'defs');
+  const mask = document.createElementNS(svgNS, 'mask');
+  mask.id = 'ob-mask';
+  const maskBg = document.createElementNS(svgNS, 'rect');
+  maskBg.setAttribute('width', '100%'); maskBg.setAttribute('height', '100%');
+  maskBg.setAttribute('fill', 'white');
+  const spotRect = document.createElementNS(svgNS, 'rect');
+  spotRect.id = 'ob-spot'; spotRect.setAttribute('fill', 'black');
+  spotRect.setAttribute('x', 0); spotRect.setAttribute('y', 0);
+  spotRect.setAttribute('width', 0); spotRect.setAttribute('height', 0);
+  mask.appendChild(maskBg); mask.appendChild(spotRect);
+  defs.appendChild(mask);
+  const bgRect = document.createElementNS(svgNS, 'rect');
+  bgRect.setAttribute('width', '100%'); bgRect.setAttribute('height', '100%');
+  bgRect.setAttribute('fill', 'rgba(0,0,0,0.72)');
+  bgRect.setAttribute('mask', 'url(#ob-mask)');
+  svg.appendChild(defs); svg.appendChild(bgRect);
+  ov.appendChild(svg);
+
+  // 矢印
+  const arrow = document.createElement('div');
+  arrow.id = 'ob-arrow';
+  arrow.style.cssText = 'position:absolute;width:0;height:0;border:9px solid transparent;pointer-events:none;z-index:2;';
+  ov.appendChild(arrow);
+
+  // ツールチップカード（明示的に pointer-events:auto）
+  const card = document.createElement('div');
+  card.id = 'ob-card';
+  card.style.cssText = [
+    'position:absolute', 'z-index:3', 'pointer-events:auto',
+    'background:var(--surface,#1e1e1e)',
+    'border:1.5px solid var(--accent,#e05a00)',
+    'border-radius:12px', 'padding:20px',
+    'width:310px', 'max-width:calc(100vw - 20px)',
+    'box-shadow:0 8px 32px rgba(0,0,0,.7)',
+  ].join(';');
+  card.innerHTML = `
+    <div id="ob-step-label" style="font-size:11px;color:var(--accent,#e05a00);font-weight:700;
+         letter-spacing:1px;margin-bottom:8px;"></div>
+    <div id="ob-title" style="font-size:15px;font-weight:800;margin-bottom:8px;
+         color:var(--text,#fff);"></div>
+    <div id="ob-body" style="font-size:13px;color:var(--text2,#bbb);line-height:1.65;
+         margin-bottom:16px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div id="ob-dots" style="display:flex;gap:5px;"></div>
+      <div style="display:flex;gap:6px;">
+        <button id="ob-prev-btn" style="padding:6px 12px;border-radius:6px;background:#333;
+                border:none;color:var(--text2,#ccc);font-size:13px;cursor:pointer;">← 戻る</button>
+        <button id="ob-skip-btn" style="padding:6px 12px;border-radius:6px;background:none;
+                border:1px solid var(--border,#444);color:var(--text3,#888);font-size:13px;
+                cursor:pointer;">スキップ</button>
+        <button id="ob-next-btn" style="padding:6px 16px;border-radius:6px;
+                background:var(--accent,#e05a00);border:none;color:#fff;font-size:13px;
+                font-weight:700;cursor:pointer;">次へ →</button>
       </div>
     </div>`;
+  ov.appendChild(card);
   document.body.appendChild(ov);
 
-  // CSS for overlay active state + dots + arrow shapes
+  // スタイル（ドット用のみ）
   const style = document.createElement('style');
   style.textContent = `
-    #ob-overlay.ob-active { pointer-events: all; }
-    .ob-dot { width:7px;height:7px;border-radius:50%;background:var(--border,#444); }
-    .ob-dot-active { background:var(--accent) !important; }
-    .ob-arrow-up    { border-bottom-color: var(--accent) !important; }
-    .ob-arrow-down  { border-top-color:    var(--accent) !important; }
-    .ob-arrow-left  { border-right-color:  var(--accent) !important; }
-    .ob-arrow-right { border-left-color:   var(--accent) !important; }
+    .ob-dot { display:inline-block;width:7px;height:7px;border-radius:50%;
+              background:var(--border,#444); }
+    .ob-dot-on { background:var(--accent,#e05a00) !important; }
   `;
   document.head.appendChild(style);
 
+  // 参照キャッシュ
   _overlay = ov;
-  _svg     = document.getElementById('ob-svg');
-  _rect    = document.getElementById('ob-rect');
-  _card    = document.getElementById('ob-card');
-  _arrow   = document.getElementById('ob-arrow');
+  _svgRect = spotRect;
+  _card    = card;
+  _arrow   = arrow;
 
-  // Global handlers called from inline onclick
-  window._obStart   = startOnboarding;
-  window._obDismiss = () => { hideStartScreen(); localStorage.setItem(OB_KEY, '1'); };
-  window._obSkip    = () => { _hide(); localStorage.setItem(OB_KEY, '1'); };
-  window._obPrev    = () => { if (_current > 0) _goto(_current - 1); };
-  window._obNext    = () => {
-    if (_current < STEPS.length - 1) _goto(_current + 1);
-    else { _hide(); localStorage.setItem(OB_KEY, '1'); }
-  };
+  // イベント（addEventListener で確実に）
+  document.getElementById('ob-start-btn').addEventListener('click', startOnboarding);
+  document.getElementById('ob-dismiss-btn').addEventListener('click', () => {
+    _hideStart();
+    localStorage.setItem(OB_KEY, '1');
+  });
+  document.getElementById('ob-prev-btn').addEventListener('click', () => {
+    if (_current > 0) _goto(_current - 1);
+  });
+  document.getElementById('ob-skip-btn').addEventListener('click', () => {
+    _hideOverlay();
+    localStorage.setItem(OB_KEY, '1');
+  });
+  document.getElementById('ob-next-btn').addEventListener('click', () => {
+    if (_current < STEPS.length - 1) {
+      _goto(_current + 1);
+    } else {
+      _hideOverlay();
+      localStorage.setItem(OB_KEY, '1');
+    }
+  });
 }
