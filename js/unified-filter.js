@@ -276,7 +276,11 @@
       }
       rows = parts.length ? parts.join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
     } else {
-      if (sortMode === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
+      if (sortMode === 'recent') {
+        const _rfKey = listKey === 'ch' ? 'wk_recent_filter_ch' : listKey === 'pl' ? 'wk_recent_filter_pl' : null;
+        const _rec = _rfKey ? (() => { try { return JSON.parse(localStorage.getItem(_rfKey) || '[]'); } catch(e) { return []; } })() : [];
+        arr.sort((a,b) => { const ai=_rec.indexOf(a.name), bi=_rec.indexOf(b.name); return (ai<0?9999:ai)-(bi<0?9999:bi); });
+      } else if (sortMode === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
       else if (sortMode === 'cnt') arr.sort((a,b) => b.cnt - a.cnt);
       rows = arr.length ? arr.map(_mkRow).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
     }
@@ -284,6 +288,7 @@
     const sortSel = opts.sortable === false ? '' :
       `<select onchange="uniSetSort('${listKey}',this.value)">` +
       (listKey === 'tags' ? `<option value="grp"${sortMode==='grp'?' selected':''}>グループ別</option>` : '') +
+      ((listKey === 'ch' || listKey === 'pl') ? `<option value="recent"${sortMode==='recent'?' selected':''}>最近</option>` : '') +
       `<option value="abc"${sortMode==='abc'?' selected':''}>名前順</option>` +
       `<option value="cnt"${sortMode==='cnt'?' selected':''}>件数順</option>` +
       `</select>`;
