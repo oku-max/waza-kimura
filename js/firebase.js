@@ -91,6 +91,7 @@ export function updateAuthUI(user) {
     if (fsAvatar) fsAvatar.style.display = 'none';
     window._ytToken = null;
   }
+  window.initOwnerSettings?.();
 }
 
 export function loadUserData(uid) {

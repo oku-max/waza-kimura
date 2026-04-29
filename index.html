@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.52</title>
+<title>WAZA KIMURA v51.53</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1400,23 +1400,25 @@
           <option value="settings">Settings</option>
         </select>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
-        <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">コミュニティ動画タブを表示（この端末のみ）</div>
+      <div id="owner-only-settings" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">コミュニティ動画タブを表示（この端末のみ）</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="community-mode-toggle" onchange="toggleCommunityMode(this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
+          </label>
         </div>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="community-mode-toggle" onchange="toggleCommunityMode(this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
-        </label>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:4px">🔒 管理モード</div>
-          <div id="admin-mode-desc" style="font-size:10px;color:var(--text3);margin-top:2px;display:none">検証ドット・精度バッジを表示（この端末のみ）</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:4px">🔒 管理モード</div>
+            <div id="admin-mode-desc" style="font-size:10px;color:var(--text3);margin-top:2px;display:none">検証ドット・精度バッジを表示（この端末のみ）</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="admin-mode-toggle" onchange="toggleAdminMode(this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
+          </label>
         </div>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="admin-mode-toggle" onchange="toggleAdminMode(this.checked)" style="accent-color:var(--accent);width:14px;height:14px">
-        </label>
       </div>
     </div>
 
@@ -3152,6 +3154,17 @@ function initAdminMode() {
   }
 }
 initAdminMode();
+
+// ── オーナー専用設定の表示制御 ──
+const _OWNER_EMAIL = 'okujournal@gmail.com';
+function initOwnerSettings() {
+  const email = window._firebaseCurrentUser?.()?.email;
+  const isOwner = email === _OWNER_EMAIL;
+  const el = document.getElementById('owner-only-settings');
+  if (el) el.style.display = isOwner ? '' : 'none';
+}
+window.initOwnerSettings = initOwnerSettings;
+initOwnerSettings();
 
 // ── Community タブ表示切替 ──
 function toggleCommunityMode(on) {
