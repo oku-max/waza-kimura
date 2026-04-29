@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ設定 ═══
+﻿// ═══ WAZA KIMURA — タグ設定 ═══
 
 const DEFAULT_TAG_SETTINGS = [
   { key:'tb',   label:'トップ/ボトム/スタンディング', visible:true,  presets:['トップ','ボトム','スタンディング'] },
@@ -1893,7 +1893,7 @@ window._techCleanup = function(tagIdx) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';
 
   const sheet = document.createElement('div');
-  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:640px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:85vh;overflow-y:auto';
+  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:640px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:var(--zvh-85,85vh);overflow-y:auto';
 
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -2080,7 +2080,7 @@ window._techBulkDelete = function(tagIdx) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';
 
   const sheet = document.createElement('div');
-  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:640px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:85vh;overflow-y:auto';
+  sheet.style.cssText = 'background:var(--surface);border-radius:16px;width:95%;max-width:640px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:var(--zvh-85,85vh);overflow-y:auto';
 
   const videos = window.videos || [];
   const usageCount = {};
@@ -2472,6 +2472,9 @@ export function applyAppearance() {
   // Font scale (zoom approach — works with hardcoded px values)
   const scale = _appearanceSettings.fontScale || 1;
   document.body.style.zoom = scale;
+  [35,38,40,46,50,55,60,65,70,80,85,90,100].forEach(function(n){
+    document.documentElement.style.setProperty('--zvh-'+n, (n/scale).toFixed(4)+'vh');
+  });
   const slider = document.getElementById('setting-fontscale');
   if (slider) slider.value = scale;
   const label = document.getElementById('font-scale-label');
