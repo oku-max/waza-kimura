@@ -193,18 +193,39 @@ function _goto(idx) {
     visEl.innerHTML = '';
   }
 
-  if (r && r.width > 0 && r.height > 0) {
+  const zr = _zoomRect(r);
+  if (zr && zr.width > 0 && zr.height > 0) {
     _svgRect.setAttribute('rx', 8); _svgRect.setAttribute('ry', 8);
-    _svgRect.setAttribute('x',      r.left   - PAD);
-    _svgRect.setAttribute('y',      r.top    - PAD);
-    _svgRect.setAttribute('width',  r.width  + PAD * 2);
-    _svgRect.setAttribute('height', r.height + PAD * 2);
-    _placeCard(r);
+    _svgRect.setAttribute('x',      zr.left   - PAD);
+    _svgRect.setAttribute('y',      zr.top    - PAD);
+    _svgRect.setAttribute('width',  zr.width  + PAD * 2);
+    _svgRect.setAttribute('height', zr.height + PAD * 2);
+    _placeCard(zr);
   } else {
     _svgRect.setAttribute('width', 0);
     _svgRect.setAttribute('height', 0);
     _centerCard(step.visual ? 400 : 310);
   }
+}
+
+// ── body zoom 補正（zoom != 1 のとき getBoundingClientRect は視覚座標を返すが
+//    SVG/card の座標はローカル座標系なので zoom で割る必要がある） ──
+function _getZoom() {
+  return parseFloat(document.body.style.zoom) || 1;
+}
+
+function _zoomRect(r) {
+  if (!r) return null;
+  const z = _getZoom();
+  if (z === 1) return r;
+  return {
+    left:   r.left   / z,
+    top:    r.top    / z,
+    right:  r.right  / z,
+    bottom: r.bottom / z,
+    width:  r.width  / z,
+    height: r.height / z,
+  };
 }
 
 // ── 要素の可視チェック ──
@@ -231,8 +252,9 @@ function _unionRect(selectors) {
 
 // ── カード配置（純粋に画面スペースで判断） ──
 function _placeCard(r) {
-  const vw  = window.innerWidth;
-  const vh  = window.innerHeight;
+  const z   = _getZoom();
+  const vw  = window.innerWidth  / z;
+  const vh  = window.innerHeight / z;
   const GAP = 14;
   const CW  = Math.min(310, vw - 24);
   const CH  = 260;
@@ -267,8 +289,9 @@ function _placeCard(r) {
 }
 
 function _centerCard(cw = 310) {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const z  = _getZoom();
+  const vw = window.innerWidth  / z;
+  const vh = window.innerHeight / z;
   const CW = Math.min(cw, vw - 24);
   _card.style.width = CW + 'px';
   requestAnimationFrame(() => {
