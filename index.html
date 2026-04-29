@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.70</title>
+<title>WAZA KIMURA v51.71</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -4237,10 +4237,10 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- ── Feedback Button ── -->
 <button id="fb-tab-btn" onclick="openFeedback()" title="フィードバックを送る"
-  style="position:fixed;right:0;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;text-orientation:mixed;
-         background:var(--accent,#e05a00);color:#fff;border:none;padding:12px 7px;cursor:pointer;
-         z-index:500;border-radius:6px 0 0 6px;font-size:12px;font-weight:700;letter-spacing:1.5px;
-         box-shadow:-2px 0 8px rgba(0,0,0,.3);opacity:.85;transition:opacity .15s">フィードバック</button>
+  style="position:fixed;right:0;top:var(--topbar-h,56px);
+         background:var(--accent,#e05a00);color:#fff;border:none;padding:5px 12px;cursor:pointer;
+         z-index:500;border-radius:0 0 0 6px;font-size:11px;font-weight:700;letter-spacing:.5px;
+         box-shadow:-2px 2px 8px rgba(0,0,0,.3);opacity:.85;transition:opacity .15s">フィードバック</button>
 
 <div id="fb-overlay" onclick="if(event.target===this)closeFeedback()"
   style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.55);
