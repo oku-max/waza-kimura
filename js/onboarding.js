@@ -42,7 +42,7 @@ const STEPS = [
     target:  '#tnav-search',
     target2: '#mnav-search',
     title:   'Searchで動画を探す',
-    body:    '<b>「○ Search」タブ</b>では技名・チャンネル名などキーワードで動画を横断検索できます。<br><br>よく使う検索条件は保存しておくと次回すぐに呼び出せます。',
+    body:    '<b>「○ Search」タブ</b>では YouTube の動画をキーワードで検索し、気になった動画をそのままライブラリに追加できます。',
   },
 ];
 
