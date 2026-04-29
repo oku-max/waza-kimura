@@ -41,7 +41,7 @@ const STEPS = [
   {
     target:  '#tnav-search',
     target2: '#mnav-search',
-    title:   'Searchで動画を探す',
+    title:   'SearchでさらにYouTube動画を探す',
     body:    '<b>「○ Search」タブ</b>では YouTube の動画をキーワードで検索し、気になった動画をそのままライブラリに追加できます。',
   },
 ];
