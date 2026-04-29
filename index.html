@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.72</title>
+<title>WAZA KIMURA v51.73</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -635,8 +635,8 @@
   align-items: stretch !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100vh / var(--asz,1)) !important;
-  height: calc(100dvh / var(--asz,1)) !important;
+  height: calc(100vh * var(--asz-inv,1)) !important;
+  height: calc(100dvh * var(--asz-inv,1)) !important;
   overflow: hidden !important;
 }
 
@@ -809,8 +809,8 @@
 #vpanelInner.is-portrait {
   flex-direction: column !important;
   align-items: stretch !important;
-  height: calc(100dvh / var(--asz,1)) !important;
-  max-height: calc(100dvh / var(--asz,1)) !important;
+  height: calc(100dvh * var(--asz-inv,1)) !important;
+  max-height: calc(100dvh * var(--asz-inv,1)) !important;
   border-radius: 0 !important;
 }
 #vpanelInner.is-portrait #vpanel-left-col {
@@ -1200,7 +1200,7 @@
     <span id="sb-popup-title" style="font-size:12px;font-weight:700;color:var(--text)"></span>
     <span onclick="closeSbPopup()" style="cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:2px 4px" title="閉じる">✕</span>
   </div>
-  <div id="sb-popup-body" style="max-height:min(554px,calc(100vh / var(--asz,1) - 120px));overflow-y:auto"></div>
+  <div id="sb-popup-body" style="max-height:min(554px,calc(100vh * var(--asz-inv,1) - 120px));overflow-y:auto"></div>
 </div>
 
 <div id="sbResizer"></div><div class="main-area">
@@ -1345,7 +1345,7 @@
 
     <!-- タグ編集モーダル -->
     <div id="tag-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)closeTagEditModal()">
-      <div id="tag-edit-modal" style="background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:calc(80vh / var(--asz,1));display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.15)"></div>
+      <div id="tag-edit-modal" style="background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:calc(80vh * var(--asz-inv,1));display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.15)"></div>
     </div>
 
     <!-- ═══ フィルター設定 ═══ -->
@@ -1742,7 +1742,7 @@
 
 <!-- TECH FILTER -->
 <div class="overlay" id="tfOv" onclick="closeOv('tfOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">🥋 テクニックフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="tfs" placeholder="テクニック名で絞り込み..." oninput="renderTF()"></div>
@@ -1752,7 +1752,7 @@
 </div>
 
 <div class="overlay" id="plOv" onclick="closeOv('plOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 プレイリストフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="pls" placeholder="プレイリスト名で絞り込み..." oninput="renderPL()"></div>
@@ -1762,7 +1762,7 @@
 </div>
 
 <div class="overlay" id="tbPickerOv" onclick="closeOv('tbPickerOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">🔝 トップ/ボトム フィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="tb-picker-s" placeholder="絞り込み..." oninput="renderTbPicker()"></div>
@@ -1772,7 +1772,7 @@
 </div>
 
 <div class="overlay" id="acPickerOv" onclick="closeOv('acPickerOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">⚡ Action フィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="ac-picker-s" placeholder="絞り込み..." oninput="renderAcPicker()"></div>
@@ -1782,7 +1782,7 @@
 </div>
 
 <div class="overlay" id="posOv" onclick="closeOv('posOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">📍 ポジションフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="pos-s" placeholder="ポジション名で絞り込み..." oninput="renderPos()"></div>
@@ -3328,7 +3328,7 @@ function adjustTopbarOffset() {
     document.documentElement.style.setProperty('--topbar-h', h + 'px');
     if (sidebar) {
       sidebar.style.top = h + 'px';
-      sidebar.style.height = 'calc(100vh / var(--asz,1) - ' + h + 'px)';
+      sidebar.style.height = 'calc(100vh * var(--asz-inv,1) - ' + h + 'px)';
     }
   } catch(e) { console.error('adjustTopbarOffset error:', e); }
 }
@@ -3445,7 +3445,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       // 高さ: 上へドラッグ→高く
       var deltaVh = ((startPos - pos) / window.innerHeight) * 100;
       var newH = Math.max(MIN_H, Math.min(MAX_H, startSize + deltaVh));
-      inner.style.height = 'calc(' + newH + 'vh / var(--asz,1))';
+      inner.style.height = 'calc(' + newH + 'vh * var(--asz-inv,1))';
     }
   }
 
@@ -3484,7 +3484,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- Card Memo Popup -->
 <div class="overlay" id="card-memo-ov" onclick="closeOv('card-memo-ov')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(70vh / var(--asz,1));width:100%;max-width:500px">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(70vh * var(--asz-inv,1));width:100%;max-width:500px">
     <div class="sheet-handle"></div>
     <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:4px">💬 メモ</div>
     <div id="card-memo-title" style="font-size:13px;font-weight:700;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
@@ -3498,7 +3498,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- Playlist Operation Modal -->
 <div class="overlay" id="vpPlOv" onclick="closeOv('vpPlOv')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(65vh / var(--asz,1));width:100%;max-width:480px">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(65vh * var(--asz-inv,1));width:100%;max-width:480px">
     <div class="sheet-handle"></div>
     <div style="font-size:14px;font-weight:800;margin-bottom:4px" id="vpPlOvTitle">プレイリストに移動</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px" id="vpPlOvDesc"></div>
@@ -3518,7 +3518,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- YouTube / Google Drive Import Overlay -->
 <div class="overlay" id="yt-import-ov" onclick="this.classList.remove('open')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(85vh / var(--asz,1));width:100%;max-width:560px">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(85vh * var(--asz-inv,1));width:100%;max-width:560px">
     <div class="sheet-handle"></div>
     <!-- タブ切り替え -->
     <div style="display:flex;gap:6px;margin-bottom:14px">
@@ -3551,7 +3551,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           非表示にしたプレイリストも表示（管理用）
         </label>
       </div>
-      <div id="yt-pl-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:calc(50vh / var(--asz,1));margin-bottom:14px"></div>
+      <div id="yt-pl-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:calc(50vh * var(--asz-inv,1));margin-bottom:14px"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button id="yt-import-ok" class="btn-save" style="flex:1;min-width:120px">次へ →</button>
         <button id="yt-import-bulk-new" class="btn-save" style="flex:1;min-width:160px" onclick="ytImportUnimportedFromChecked()">📥 未取込を一括取込</button>
@@ -3573,7 +3573,7 @@ window.addEventListener('resize', adjustTopbarOffset);
         </label>
         <span id="yt-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto;align-self:center"></span>
       </div>
-      <div id="yt-video-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:calc(50vh / var(--asz,1));margin-bottom:14px"></div>
+      <div id="yt-video-list" style="display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:calc(50vh * var(--asz-inv,1));margin-bottom:14px"></div>
       <div style="display:flex;gap:8px;">
         <button id="yt-video-ok" class="btn-save" style="flex:1">取り込む ✓</button>
         <button class="btn-sub" style="width:auto;flex:1;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
@@ -3589,7 +3589,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div style="font-size:14px;font-weight:800" id="gd-browser-title">My Drive</div>
         </div>
         <div id="gd-browser-breadcrumb" style="font-size:11px;color:var(--text3);margin-bottom:10px;min-height:16px"></div>
-        <div id="gd-browser-list" style="overflow-y:auto;max-height:calc(46vh / var(--asz,1));margin-bottom:14px"></div>
+        <div id="gd-browser-list" style="overflow-y:auto;max-height:calc(46vh * var(--asz-inv,1));margin-bottom:14px"></div>
         <div style="display:flex;gap:8px">
           <button class="btn-save" style="flex:1" onclick="gdBrowserSelect()">✓ このフォルダを選択</button>
           <button class="btn-sub" style="flex:1;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
@@ -3643,7 +3643,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="gdSelNone()">全解除</button>
           <span id="gd-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto"></span>
         </div>
-        <div id="gd-file-list" style="overflow-y:auto;max-height:calc(38vh / var(--asz,1));margin-bottom:14px"></div>
+        <div id="gd-file-list" style="overflow-y:auto;max-height:calc(38vh * var(--asz-inv,1));margin-bottom:14px"></div>
         <div style="display:flex;gap:8px">
           <button class="btn-save" style="flex:1" onclick="gdImport()">取り込む ✓</button>
           <button class="btn-sub" style="flex:1;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
@@ -3667,7 +3667,7 @@ window.addEventListener('resize', adjustTopbarOffset);
           <div style="font-size:13px;font-weight:700" id="urlResultSummary"></div>
           <button onclick="urlRetryErrors()" id="urlRetryBtn" style="display:none;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">🔄 再試行</button>
         </div>
-        <div id="urlResultList" style="display:flex;flex-direction:column;gap:6px;max-height:calc(35vh / var(--asz,1));overflow-y:auto</div>
+        <div id="urlResultList" style="display:flex;flex-direction:column;gap:6px;max-height:calc(35vh * var(--asz-inv,1));overflow-y:auto</div>
       </div>
 
       <!-- 追加オプション -->
@@ -3742,7 +3742,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- ═══ アドバンスドサーチ ポップアップ ═══ -->
 <div id="adv-search-overlay" style="display:none;position:fixed;inset:0;z-index:600">
   <div id="adv-search-bg" onclick="toggleAdvSearch()" style="position:absolute;inset:0;background:rgba(0,0,0,.35)"></div>
-  <div id="adv-search-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px 22px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:90%;max-width:624px;max-height:calc(100svh / var(--asz,1));overflow-y:auto">
+  <div id="adv-search-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px 22px;box-shadow:0 8px 40px rgba(0,0,0,.2);width:90%;max-width:624px;max-height:calc(100svh * var(--asz-inv,1));overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:14px;font-weight:700;margin:0">🔎 詳細検索</h3>
       <button onclick="toggleAdvSearch()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
@@ -3808,7 +3808,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 <!-- ═══ ORGANIZE専用フィルターオーバーレイ ═══ -->
 <div id="org-filter-overlay" style="position:fixed;inset:0;z-index:199">
   <div id="org-filter-overlay-bg" onclick="closeOrgFilterOverlay()" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
-  <div id="org-filter-overlay-panel" style="position:absolute;top:0;left:0;right:0;background:var(--surface);padding:14px 16px;overflow-y:auto;max-height:calc(85vh / var(--asz,1));border-bottom:2px solid var(--accent)">
+  <div id="org-filter-overlay-panel" style="position:absolute;top:0;left:0;right:0;background:var(--surface);padding:14px 16px;overflow-y:auto;max-height:calc(85vh * var(--asz-inv,1));border-bottom:2px solid var(--accent)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <span style="font-weight:700;font-size:13px">⊟ フィルター</span>
       <div style="display:flex;gap:8px;align-items:center">
@@ -3903,7 +3903,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- ═══ ORGANIZE専用ピッカーオーバーレイ ═══ -->
 <div class="overlay" id="orgPosOv" onclick="closeOrgOv('orgPosOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">📍 ポジションフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="org-pos-s" placeholder="ポジション名で絞り込み..." oninput="renderOrgPos()"></div>
@@ -3911,7 +3911,7 @@ window.addEventListener('resize', adjustTopbarOffset);
  </div>
 </div>
 <div class="overlay" id="orgPLOv" onclick="closeOrgOv('orgPLOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 プレイリストフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="org-pl-s" placeholder="プレイリスト名で絞り込み..." oninput="renderOrgPL()"></div>
@@ -3919,7 +3919,7 @@ window.addEventListener('resize', adjustTopbarOffset);
  </div>
 </div>
 <div class="overlay" id="orgTFOv" onclick="closeOrgOv('orgTFOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">🥋 テクニックフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="org-tf-s" placeholder="テクニック名で絞り込み..." oninput="renderOrgTF()"></div>
@@ -3927,7 +3927,7 @@ window.addEventListener('resize', adjustTopbarOffset);
  </div>
 </div>
 <div class="overlay" id="orgChOv" onclick="closeOrgOv('orgChOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh / var(--asz,1))">
+ <div class="sheet" onclick="event.stopPropagation()" style="max-height:calc(55vh * var(--asz-inv,1))">
   <div class="sheet-handle"></div>
   <div style="font-size:14px;font-weight:800;margin-bottom:10px">📺 チャンネルフィルター</div>
   <div class="tech-search"><span>🔍</span><input type="text" id="org-ch-s" placeholder="チャンネル名で絞り込み..." oninput="renderOrgChPicker(this.value)"></div>
