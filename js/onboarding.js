@@ -26,15 +26,17 @@ const STEPS = [
     body:       'この左サイドバーからチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
   },
   {
-    target:     '.card',
-    body_empty: '動画を追加すると、カードをクリックするだけで <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
-    title:      '動画を再生する（Vパネル）',
-    body:       '動画カードをクリックすると <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
+    target:        '.card',
+    target_empty:  '#yt-import-btn',
+    body_empty:    'まず <b>「＋ 動画を追加」</b> から動画を取り込んでください。<br><br>取り込んだ後、カードをクリックすると <b>Vパネル</b> が開いて再生できます。タイムスタンプのコピーや連続再生にも対応しています。',
+    title:         '動画を再生する（Vパネル）',
+    body:          '動画カードをクリックすると <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
   },
   {
-    target: '#tnav-notes',
-    title:  'Notesで練習メモをとる',
-    body:   '<b>「≡ Notes」タブ</b>では自由にテキストメモを書けます。<br><br>道場でのメモや練習の気づきをざっくり書き留める場所として使ってください。',
+    target:  '#tnav-notes',
+    target2: '#mnav-notes',
+    title:   'Notesで練習メモをとる',
+    body:    '<b>「≡ Notes」タブ</b>では自由にテキストメモを書けます。<br><br>道場でのメモや練習の気づきをざっくり書き留める場所として使ってください。',
   },
 ];
 
@@ -93,18 +95,23 @@ function _goto(idx) {
 
   // targets 配列 → union rect、単一 target/target2 → 既存ロジック
   let r = null;
+  let useEmpty = false;
   if (step.targets) {
     r = _unionRect(step.targets);
   } else {
     let el = _visibleEl(step.target);
     if (!el && step.target2) el = _visibleEl(step.target2);
+    if (!el && step.target_empty) {
+      el = _visibleEl(step.target_empty);
+      useEmpty = true;
+    }
     r = el ? el.getBoundingClientRect() : null;
   }
 
   document.getElementById('ob-step-label').textContent = `STEP ${idx} / ${STEPS.length - 1}`;
   document.getElementById('ob-title').textContent       = step.title;
   document.getElementById('ob-body').innerHTML =
-    (!r && step.body_empty) ? step.body_empty : step.body;
+    (useEmpty && step.body_empty) ? step.body_empty : (!r && step.body_empty) ? step.body_empty : step.body;
   document.getElementById('ob-next-btn').textContent   = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
   document.getElementById('ob-prev-btn').style.display = idx === 0 ? 'none' : '';
 
