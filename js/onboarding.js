@@ -16,22 +16,24 @@ const STEPS = [
     body:   '右上の <b>「＋ 動画を追加」</b> から動画をインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
   },
   {
-    target: '#lvt-card',
+    target: '.lib-view-bar',
     pos:    'below',
     title:  '表示を切り替える',
     body:   '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
   },
   {
-    target: '#filter-toggle-btn',
-    pos:    'below',
-    title:  'フィルターとタグで絞り込む',
-    body:   '<b>「☰ フィルター」</b>からチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
+    target:     '#filter-toggle-btn',
+    pos:        'below',
+    title:      'フィルターとタグで絞り込む',
+    body:       '<b>「☰ フィルター」</b>からチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
+    beforeStep: () => window.closeFilterOverlay?.(),
   },
   {
-    target: '.card',
-    pos:    'right',
-    title:  '動画を再生する（Vパネル）',
-    body:   '動画カードをクリックすると <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
+    target:     '.card',
+    pos:        'right',
+    title:      '動画を再生する（Vパネル）',
+    body:       '動画カードをクリックすると <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
+    body_empty: '動画を追加すると、カードをクリックするだけで <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
   },
   {
     target: '#tnav-notes',
@@ -92,30 +94,41 @@ function _hideOverlay() {
 function _goto(idx) {
   _current = idx;
   const step = STEPS[idx];
-  const el   = document.querySelector(step.target);
+
+  // beforeStep コールバック（フィルターを閉じるなど）
+  step.beforeStep?.();
+
+  const el = document.querySelector(step.target);
+  const r  = el ? el.getBoundingClientRect() : null;
+  const visible = r && r.width > 0 && r.height > 0;
 
   document.getElementById('ob-step-label').textContent = `STEP ${idx} / ${STEPS.length - 1}`;
   document.getElementById('ob-title').textContent       = step.title;
-  document.getElementById('ob-body').innerHTML          = step.body;
-  document.getElementById('ob-next-btn').textContent    = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
-  document.getElementById('ob-prev-btn').style.display  = idx === 0 ? 'none' : '';
+  // 動画未追加など要素がない場合は body_empty を使う
+  document.getElementById('ob-body').innerHTML =
+    (!el && step.body_empty) ? step.body_empty : step.body;
+  document.getElementById('ob-next-btn').textContent   = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
+  document.getElementById('ob-prev-btn').style.display = idx === 0 ? 'none' : '';
 
   // ドット更新
   document.getElementById('ob-dots').innerHTML = STEPS.map((_, i) =>
     `<span class="ob-dot${i === idx ? ' ob-dot-on' : ''}"></span>`
   ).join('');
 
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-
-  // スポットライト
-  _svgRect.setAttribute('rx', 8); _svgRect.setAttribute('ry', 8);
-  _svgRect.setAttribute('x',      r.left   - PAD);
-  _svgRect.setAttribute('y',      r.top    - PAD);
-  _svgRect.setAttribute('width',  r.width  + PAD * 2);
-  _svgRect.setAttribute('height', r.height + PAD * 2);
-
-  _positionCard(r, step.pos);
+  if (visible) {
+    // スポットライト
+    _svgRect.setAttribute('rx', 8); _svgRect.setAttribute('ry', 8);
+    _svgRect.setAttribute('x',      r.left   - PAD);
+    _svgRect.setAttribute('y',      r.top    - PAD);
+    _svgRect.setAttribute('width',  r.width  + PAD * 2);
+    _svgRect.setAttribute('height', r.height + PAD * 2);
+    _positionCard(r, step.pos);
+  } else {
+    // 要素が不可視 or 未存在 → スポットライトなし、カードを画面中央に
+    _svgRect.setAttribute('width', 0);
+    _svgRect.setAttribute('height', 0);
+    _centerCard();
+  }
 }
 
 function _positionCard(r, pos) {
@@ -158,6 +171,14 @@ function _positionCard(r, pos) {
       _positionCard(r, 'below');
     }
   }
+}
+
+function _centerCard() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const CARD_W = 310;
+  _card.style.top  = Math.max(8, (vh - 280) / 2) + 'px';
+  _card.style.left = Math.max(8, (vw - CARD_W) / 2) + 'px';
+  _arrow.style.cssText = 'position:absolute;width:0;height:0;border:9px solid transparent;';
 }
 
 // ── DOM 注入 ──
