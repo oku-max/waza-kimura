@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.75</title>
+<title>WAZA KIMURA v51.76</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -915,7 +915,8 @@
     <img id="auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;flex-shrink:0">
     <button id="auth-btn" class="topbar-btn">Googleでログイン</button>
     <button id="yt-import-btn" onclick="openImportHub()" style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">＋ 動画を追加</button>
-    <button id="ob-help-btn" onclick="window.startTabOnboarding?.()" title="使い方ガイド" style="width:28px;height:28px;border-radius:50%;background:var(--surface2,#2a2a2a);border:1px solid var(--border,#444);color:var(--text2,#aaa);font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:auto">?</button>
+    <button id="fb-tab-btn" onclick="openFeedback()" title="フィードバックを送る" style="margin-left:auto;padding:4px 10px;border-radius:14px;border:1px solid var(--border,#444);background:var(--surface2,#2a2a2a);color:var(--text2,#aaa);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;opacity:.85;transition:opacity .15s">フィードバック</button>
+    <button id="ob-help-btn" onclick="window.startTabOnboarding?.()" title="使い方ガイド" style="width:28px;height:28px;border-radius:50%;background:var(--surface2,#2a2a2a);border:1px solid var(--border,#444);color:var(--text2,#aaa);font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">?</button>
   </div>
   <span id="totalCount" class="topbar-count" style="display:none"></span>
 </div>
@@ -4235,12 +4236,7 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <input type="file" id="snap-file-input" accept="image/*" multiple style="display:none">
 
-<!-- ── Feedback Button ── -->
-<button id="fb-tab-btn" onclick="openFeedback()" title="フィードバックを送る"
-  style="position:fixed;right:0;top:var(--topbar-h,56px);
-         background:var(--accent,#e05a00);color:#fff;border:none;padding:5px 12px;cursor:pointer;
-         z-index:500;border-radius:0 0 0 6px;font-size:11px;font-weight:700;letter-spacing:.5px;
-         box-shadow:-2px 2px 8px rgba(0,0,0,.3);opacity:.85;transition:opacity .15s">フィードバック</button>
+<!-- ── Feedback Button (topbar内に移動済み) ── -->
 
 <div id="fb-overlay" onclick="if(event.target===this)closeFeedback()"
   style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.55);
