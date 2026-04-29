@@ -155,15 +155,19 @@ function _positionCard(r, pos) {
 
     let left;
     if (pos === 'below-left') {
+      // 右端から CARD_W 分左に寄せる（右揃え）
       left = Math.max(8, Math.min(r.right - CARD_W, vw - CARD_W - 8));
     } else {
-      left = Math.max(8, Math.min(r.left, vw - CARD_W - 8));
+      // cx（要素中央）の真下にカードを中央揃え
+      left = Math.max(8, Math.min(cx - CARD_W / 2, vw - CARD_W - 8));
     }
     _card.style.left = left + 'px';
 
+    // 矢印はカード中央に合わせる（cx ではなくカード中央）
+    const cardCx = left + CARD_W / 2;
     _arrow.style.borderBottomColor = 'var(--accent, #e05a00)';
     _arrow.style.top  = (top - AW * 2 + 1) + 'px';
-    _arrow.style.left = (cx - AW) + 'px';
+    _arrow.style.left = (cardCx - AW) + 'px';
 
   } else if (pos === 'right') {
     const spaceRight = vw - r.right - GAP;
