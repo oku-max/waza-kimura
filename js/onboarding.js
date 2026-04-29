@@ -2,7 +2,8 @@
 const OB_KEY = 'wk_ob_done';
 const PAD    = 10;
 
-const STEPS = [
+// ── Library ツアー ──
+const LIBRARY_STEPS = [
   {
     target: '#auth-btn',
     title:  'まずGoogleでログインする',
@@ -46,9 +47,24 @@ const STEPS = [
   },
 ];
 
+// ── Search ツアー ──
+const SEARCH_STEPS = [
+  {
+    target: '#yt-sr-input',
+    title:  'YouTubeで柔術動画を検索',
+    body:   'キーワードを入力して <b>YouTube の動画を直接検索</b>できます。<br><br>気に入った動画は「＋ ライブラリに追加」ボタンでそのまま保存できます。',
+  },
+  {
+    targets: ['#yt-sr-tab-video', '#yt-sr-tab-playlist'],
+    title:   '動画 or プレイリストで取り込む',
+    body:    '<b>動画</b>：1本ずつ選んで追加。<br><br><b>プレイリスト</b>：チャンネルのシリーズをまとめて一括取り込み。体系的に学びたいときに便利です。',
+  },
+];
+
 let _overlay, _svgRect, _card;
-let _current = -1;
-let _injected = false;
+let _current     = -1;
+let _activeSteps = LIBRARY_STEPS;
+let _injected    = false;
 
 // ── Public API ──
 
@@ -61,6 +77,13 @@ export function initOnboarding() {
 
 export function startOnboarding() {
   _hideStart();
+  _activeSteps = LIBRARY_STEPS;
+  _showOverlay();
+  _goto(0);
+}
+
+export function startSearchOnboarding() {
+  _activeSteps = SEARCH_STEPS;
   _showOverlay();
   _goto(0);
 }
@@ -95,11 +118,11 @@ function _hideOverlay() {
 
 function _goto(idx) {
   _current = idx;
-  const step = STEPS[idx];
+  const steps = _activeSteps;
+  const step  = steps[idx];
 
   step.beforeStep?.();
 
-  // targets 配列 → union rect、単一 target/target2 → 既存ロジック
   let r = null;
   let useEmpty = false;
   if (step.targets) {
@@ -114,19 +137,18 @@ function _goto(idx) {
     r = el ? el.getBoundingClientRect() : null;
   }
 
-  document.getElementById('ob-step-label').textContent = `STEP ${idx + 1} / ${STEPS.length}`;
+  document.getElementById('ob-step-label').textContent = `STEP ${idx + 1} / ${steps.length}`;
   document.getElementById('ob-title').textContent       = step.title;
   document.getElementById('ob-body').innerHTML =
-    (useEmpty && step.body_empty) ? step.body_empty : (!r && step.body_empty) ? step.body_empty : step.body;
-  document.getElementById('ob-next-btn').textContent   = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
+    (useEmpty || !r) && step.body_empty ? step.body_empty : step.body;
+  document.getElementById('ob-next-btn').textContent   = idx === steps.length - 1 ? '完了 ✓' : '次へ →';
   document.getElementById('ob-prev-btn').style.display = idx === 0 ? 'none' : '';
 
-  document.getElementById('ob-dots').innerHTML = STEPS.map((_, i) =>
+  document.getElementById('ob-dots').innerHTML = steps.map((_, i) =>
     `<span class="ob-dot${i === idx ? ' ob-dot-on' : ''}"></span>`
   ).join('');
 
   if (r && r.width > 0 && r.height > 0) {
-    // スポットライト
     _svgRect.setAttribute('rx', 8); _svgRect.setAttribute('ry', 8);
     _svgRect.setAttribute('x',      r.left   - PAD);
     _svgRect.setAttribute('y',      r.top    - PAD);
@@ -134,7 +156,6 @@ function _goto(idx) {
     _svgRect.setAttribute('height', r.height + PAD * 2);
     _placeCard(r);
   } else {
-    // 要素不可視 → スポットライトなし・カードを画面中央に
     _svgRect.setAttribute('width', 0);
     _svgRect.setAttribute('height', 0);
     _centerCard();
@@ -165,42 +186,34 @@ function _unionRect(selectors) {
 
 // ── カード配置（純粋に画面スペースで判断） ──
 function _placeCard(r) {
-  const vw   = window.innerWidth;
-  const vh   = window.innerHeight;
-  const GAP  = 14;
-  const CW   = Math.min(310, vw - 24);  // モバイル対応: 画面幅 - マージン
-  const CH   = 260;                      // カードのおよその高さ
+  const vw  = window.innerWidth;
+  const vh  = window.innerHeight;
+  const GAP = 14;
+  const CW  = Math.min(310, vw - 24);
+  const CH  = 260;
 
   _card.style.width = CW + 'px';
 
   const spaceBelow = vh - r.bottom - GAP;
   const spaceAbove = r.top - GAP;
   const spaceRight = vw - r.right - GAP;
-  const spaceLeft  = r.left - GAP;
 
   let top, left;
 
   if (spaceRight >= CW && r.height >= CH * 0.5) {
-    // ── 右配置（サイドバーなど縦長要素） ──
     left = r.right + GAP;
     top  = r.top + (r.height / 2) - (CH / 2);
   } else if (spaceBelow >= CH) {
-    // ── 下配置（一番よく使う） ──
     top  = r.bottom + GAP;
-    // 要素の中心 or 画面中央、どちらか画面内に収まるほうを選ぶ
-    const idealLeft = r.left + r.width / 2 - CW / 2;
-    left = idealLeft;
+    left = r.left + r.width / 2 - CW / 2;
   } else if (spaceAbove >= CH) {
-    // ── 上配置 ──
     top  = r.top - CH - GAP;
     left = r.left + r.width / 2 - CW / 2;
   } else {
-    // ── どこにも入らない → 画面中央 ──
     _centerCard();
     return;
   }
 
-  // ビューポート内にクランプ
   top  = Math.max(8, Math.min(top,  vh - CH - 8));
   left = Math.max(8, Math.min(left, vw - CW - 8));
 
@@ -223,7 +236,7 @@ function _inject() {
   if (_injected) return;
   _injected = true;
 
-  // スタート画面
+  // スタート画面（Library ツアー専用）
   const startEl = document.createElement('div');
   startEl.id = 'ob-start';
   startEl.style.cssText = [
@@ -239,7 +252,7 @@ function _inject() {
         WAZA KIMURAの基本的な使い方を<br>7ステップで紹介します（約2分）
       </p>
       <div style="text-align:left;margin-bottom:22px;">
-        ${STEPS.map((s, i) => `
+        ${LIBRARY_STEPS.map((s, i) => `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--text,#ddd);">
             <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent,#e05a00);
                          color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;
@@ -260,7 +273,6 @@ function _inject() {
   ov.id = 'ob-overlay';
   ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:9600;pointer-events:none;';
 
-  // SVG（表示専用・クリック透過）
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
@@ -283,7 +295,6 @@ function _inject() {
   svg.appendChild(defs); svg.appendChild(bgRect);
   ov.appendChild(svg);
 
-  // ツールチップカード
   const card = document.createElement('div');
   card.id = 'ob-card';
   card.style.cssText = [
@@ -318,7 +329,6 @@ function _inject() {
   ov.appendChild(card);
   document.body.appendChild(ov);
 
-  // ドット用スタイル
   const style = document.createElement('style');
   style.textContent = `
     .ob-dot { display:inline-block;width:7px;height:7px;border-radius:50%;
@@ -344,7 +354,7 @@ function _inject() {
     localStorage.setItem(OB_KEY, '1');
   });
   document.getElementById('ob-next-btn').addEventListener('click', () => {
-    if (_current < STEPS.length - 1) {
+    if (_current < _activeSteps.length - 1) {
       _goto(_current + 1);
     } else {
       _hideOverlay();
