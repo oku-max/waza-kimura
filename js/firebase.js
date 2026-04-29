@@ -235,3 +235,18 @@ export async function loadUserSettings(uid) {
     }
   } catch (e) { console.error('loadUserSettings:', e); }
 }
+
+export async function saveFeedback({ page, type, text }) {
+  try {
+    await db.collection('feedback').add({
+      uid:       currentUser?.uid   || null,
+      email:     currentUser?.email || null,
+      page, type, text,
+      createdAt: new Date().toISOString(),
+      version:   '51.54'
+    });
+  } catch (e) {
+    console.error('saveFeedback:', e);
+    throw e;
+  }
+}
