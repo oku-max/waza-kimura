@@ -22,10 +22,13 @@ const STEPS = [
     body:   '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
   },
   {
-    target:     '#filter-toggle-btn',
-    pos:        'below',
+    // デスクトップ: #filterSidebar（常時表示の左サイドバー）
+    // モバイル: #filter-toggle-btn（actionbar のフィルターボタン）
+    target:     '#filterSidebar',
+    target2:    '#filter-toggle-btn',
+    pos:        'right',
     title:      'フィルターとタグで絞り込む',
-    body:       '<b>「☰ フィルター」</b>からチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
+    body:       'この左サイドバーからチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
     beforeStep: () => window.closeFilterOverlay?.(),
   },
   {
@@ -98,8 +101,13 @@ function _goto(idx) {
   // beforeStep コールバック（フィルターを閉じるなど）
   step.beforeStep?.();
 
-  const el = document.querySelector(step.target);
-  const r  = el ? el.getBoundingClientRect() : null;
+  // target が不可視なら target2 を試す
+  let el = document.querySelector(step.target);
+  let r  = el ? el.getBoundingClientRect() : null;
+  if ((!r || r.width === 0) && step.target2) {
+    el = document.querySelector(step.target2);
+    r  = el ? el.getBoundingClientRect() : null;
+  }
   const visible = r && r.width > 0 && r.height > 0;
 
   document.getElementById('ob-step-label').textContent = `STEP ${idx} / ${STEPS.length - 1}`;
