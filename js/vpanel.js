@@ -1441,7 +1441,7 @@ function _ensureBottomSheet() {
   css.textContent = `
 #vp-bs-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);opacity:0;transition:opacity .2s;pointer-events:none}
 #vp-bs-overlay.open{opacity:1;pointer-events:auto}
-#vp-bs-sheet{position:fixed;left:0;right:0;bottom:0;z-index:401;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.2);max-height:60vh;transform:translateY(100%);transition:transform .25s ease;display:flex;flex-direction:column}
+#vp-bs-sheet{position:fixed;left:0;right:0;bottom:0;z-index:401;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.2);max-height:calc(60vh / var(--asz,1));transform:translateY(100%);transition:transform .25s ease;display:flex;flex-direction:column}
 #vp-bs-sheet.open{transform:translateY(0)}
 #vp-bs-handle{padding:10px 0 6px;text-align:center;cursor:grab;flex-shrink:0}
 #vp-bs-handle::after{content:'';display:inline-block;width:36px;height:4px;border-radius:2px;background:var(--border)}
