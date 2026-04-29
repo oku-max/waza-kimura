@@ -57,6 +57,8 @@ export function switchTab(t) {
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
     const fn = document.getElementById('fnav-' + n); if (fn) fn.className = 'fs-nav-i'  + (t === n ? ' active' : '');
   });
+  const helpBtn = document.getElementById('ob-help-btn');
+  if (helpBtn) helpBtn.style.display = t === 'settings' ? 'none' : '';
   try {
     const libC = document.getElementById('fs-library-content');
     const orgC = document.getElementById('fs-organize-content');
