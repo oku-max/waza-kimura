@@ -5,48 +5,40 @@ const PAD    = 10;
 const STEPS = [
   {
     target: '#auth-btn',
-    pos:    'below-left',
     title:  'まずGoogleでログインする',
     body:   '<b>ログインは最初に必ずやること。</b><br>ログインしないとデータがブラウザ内にしか保存されず、タブを閉じると消えてしまいます。右上の「Googleでログイン」をタップしてください。',
   },
   {
     target: '#yt-import-btn',
-    pos:    'below-left',
     title:  '動画を追加する',
     body:   '右上の <b>「＋ 動画を追加」</b> から動画をインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
   },
   {
     target: '.lib-view-bar',
-    pos:    'below',
     title:  '表示を切り替える',
     body:   '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
   },
   {
-    // デスクトップ: #filterSidebar（常時表示の左サイドバー）
-    // モバイル: #filter-toggle-btn（actionbar のフィルターボタン）
     target:     '#filterSidebar',
     target2:    '#filter-toggle-btn',
-    pos:        'right',
+    beforeStep: () => window.closeFilterOverlay?.(),
     title:      'フィルターとタグで絞り込む',
     body:       'この左サイドバーからチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
-    beforeStep: () => window.closeFilterOverlay?.(),
   },
   {
     target:     '.card',
-    pos:        'right',
+    body_empty: '動画を追加すると、カードをクリックするだけで <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
     title:      '動画を再生する（Vパネル）',
     body:       '動画カードをクリックすると <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
-    body_empty: '動画を追加すると、カードをクリックするだけで <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
   },
   {
     target: '#tnav-notes',
-    pos:    'below',
     title:  'Notesで練習メモをとる',
     body:   '<b>「≡ Notes」タブ</b>では自由にテキストメモを書けます。<br><br>道場でのメモや練習の気づきをざっくり書き留める場所として使ってください。',
   },
 ];
 
-let _overlay, _svgRect, _card, _arrow;
+let _overlay, _svgRect, _card;
 let _current = -1;
 let _injected = false;
 
@@ -77,7 +69,6 @@ function _hideStart() {
 // ── Overlay ──
 
 function _showOverlay() {
-  // JS直接変更: インラインスタイルはCSS classより優先されるため
   _overlay.style.pointerEvents = 'all';
   _overlay.style.display = 'block';
   document.body.style.overflow = 'hidden';
@@ -98,99 +89,101 @@ function _goto(idx) {
   _current = idx;
   const step = STEPS[idx];
 
-  // beforeStep コールバック（フィルターを閉じるなど）
   step.beforeStep?.();
 
-  // target が不可視なら target2 を試す
-  let el = document.querySelector(step.target);
-  let r  = el ? el.getBoundingClientRect() : null;
-  if ((!r || r.width === 0) && step.target2) {
-    el = document.querySelector(step.target2);
-    r  = el ? el.getBoundingClientRect() : null;
-  }
-  const visible = r && r.width > 0 && r.height > 0;
+  // target / target2 のうち実際に画面に表示されているほうを使う
+  let el = _visibleEl(step.target);
+  if (!el && step.target2) el = _visibleEl(step.target2);
+  const r = el ? el.getBoundingClientRect() : null;
 
   document.getElementById('ob-step-label').textContent = `STEP ${idx} / ${STEPS.length - 1}`;
   document.getElementById('ob-title').textContent       = step.title;
-  // 動画未追加など要素がない場合は body_empty を使う
   document.getElementById('ob-body').innerHTML =
     (!el && step.body_empty) ? step.body_empty : step.body;
   document.getElementById('ob-next-btn').textContent   = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
   document.getElementById('ob-prev-btn').style.display = idx === 0 ? 'none' : '';
 
-  // ドット更新
   document.getElementById('ob-dots').innerHTML = STEPS.map((_, i) =>
     `<span class="ob-dot${i === idx ? ' ob-dot-on' : ''}"></span>`
   ).join('');
 
-  if (visible) {
+  if (r && r.width > 0 && r.height > 0) {
     // スポットライト
     _svgRect.setAttribute('rx', 8); _svgRect.setAttribute('ry', 8);
     _svgRect.setAttribute('x',      r.left   - PAD);
     _svgRect.setAttribute('y',      r.top    - PAD);
     _svgRect.setAttribute('width',  r.width  + PAD * 2);
     _svgRect.setAttribute('height', r.height + PAD * 2);
-    _positionCard(r, step.pos);
+    _placeCard(r);
   } else {
-    // 要素が不可視 or 未存在 → スポットライトなし、カードを画面中央に
+    // 要素不可視 → スポットライトなし・カードを画面中央に
     _svgRect.setAttribute('width', 0);
     _svgRect.setAttribute('height', 0);
     _centerCard();
   }
 }
 
-function _positionCard(r, pos) {
-  const CARD_W = 310, GAP = 16, AW = 9;
-  const vw = window.innerWidth, vh = window.innerHeight;
+// ── 要素の可視チェック ──
+function _visibleEl(selector) {
+  if (!selector) return null;
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return (r.width > 0 && r.height > 0) ? el : null;
+}
 
-  // リセット
-  _card.style.top = _card.style.left = _card.style.bottom = _card.style.right = '';
-  _arrow.style.cssText = 'position:absolute;width:0;height:0;border:9px solid transparent;';
+// ── カード配置（純粋に画面スペースで判断） ──
+function _placeCard(r) {
+  const vw   = window.innerWidth;
+  const vh   = window.innerHeight;
+  const GAP  = 14;
+  const CW   = Math.min(310, vw - 24);  // モバイル対応: 画面幅 - マージン
+  const CH   = 260;                      // カードのおよその高さ
 
-  const cx = r.left + r.width / 2;
+  _card.style.width = CW + 'px';
 
-  if (pos === 'below' || pos === 'below-left' || pos === 'below-right') {
-    const top = Math.min(r.bottom + GAP, vh - 260);
-    _card.style.top = top + 'px';
+  const spaceBelow = vh - r.bottom - GAP;
+  const spaceAbove = r.top - GAP;
+  const spaceRight = vw - r.right - GAP;
+  const spaceLeft  = r.left - GAP;
 
-    let left;
-    if (pos === 'below-left') {
-      // 右端から CARD_W 分左に寄せる（右揃え）
-      left = Math.max(8, Math.min(r.right - CARD_W, vw - CARD_W - 8));
-    } else {
-      // cx（要素中央）の真下にカードを中央揃え
-      left = Math.max(8, Math.min(cx - CARD_W / 2, vw - CARD_W - 8));
-    }
-    _card.style.left = left + 'px';
+  let top, left;
 
-    // 矢印はカード中央に合わせる（cx ではなくカード中央）
-    const cardCx = left + CARD_W / 2;
-    _arrow.style.borderBottomColor = 'var(--accent, #e05a00)';
-    _arrow.style.top  = (top - AW * 2 + 1) + 'px';
-    _arrow.style.left = (cardCx - AW) + 'px';
-
-  } else if (pos === 'right') {
-    const spaceRight = vw - r.right - GAP;
-    if (spaceRight >= CARD_W) {
-      const top = Math.max(8, Math.min(r.top, vh - 300));
-      _card.style.top  = top + 'px';
-      _card.style.left = (r.right + GAP) + 'px';
-      _arrow.style.borderRightColor = 'var(--accent, #e05a00)';
-      _arrow.style.top  = (r.top + r.height / 2 - AW) + 'px';
-      _arrow.style.left = (r.right + GAP - AW * 2 + 1) + 'px';
-    } else {
-      // 右に収まらない → 下に fallback
-      _positionCard(r, 'below');
-    }
+  if (spaceRight >= CW && r.height >= CH * 0.5) {
+    // ── 右配置（サイドバーなど縦長要素） ──
+    left = r.right + GAP;
+    top  = r.top + (r.height / 2) - (CH / 2);
+  } else if (spaceBelow >= CH) {
+    // ── 下配置（一番よく使う） ──
+    top  = r.bottom + GAP;
+    // 要素の中心 or 画面中央、どちらか画面内に収まるほうを選ぶ
+    const idealLeft = r.left + r.width / 2 - CW / 2;
+    left = idealLeft;
+  } else if (spaceAbove >= CH) {
+    // ── 上配置 ──
+    top  = r.top - CH - GAP;
+    left = r.left + r.width / 2 - CW / 2;
+  } else {
+    // ── どこにも入らない → 画面中央 ──
+    _centerCard();
+    return;
   }
+
+  // ビューポート内にクランプ
+  top  = Math.max(8, Math.min(top,  vh - CH - 8));
+  left = Math.max(8, Math.min(left, vw - CW - 8));
+
+  _card.style.top  = top  + 'px';
+  _card.style.left = left + 'px';
 }
 
 function _centerCard() {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const CARD_W = 310;
-  _card.style.top  = Math.max(8, (vh - 280) / 2) + 'px';
-  _card.style.left = Math.max(8, (vw - CARD_W) / 2) + 'px';
-  _arrow.style.cssText = 'position:absolute;width:0;height:0;border:9px solid transparent;';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const CW = Math.min(310, vw - 24);
+  _card.style.width = CW + 'px';
+  _card.style.top  = Math.max(8, (vh - 260) / 2) + 'px';
+  _card.style.left = Math.max(8, (vw - CW)  / 2) + 'px';
 }
 
 // ── DOM 注入 ──
@@ -234,9 +227,7 @@ function _inject() {
   // ツアーオーバーレイ
   const ov = document.createElement('div');
   ov.id = 'ob-overlay';
-  ov.style.cssText = [
-    'display:none', 'position:fixed', 'inset:0', 'z-index:9600', 'pointer-events:none',
-  ].join(';');
+  ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:9600;pointer-events:none;';
 
   // SVG（表示専用・クリック透過）
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -261,13 +252,7 @@ function _inject() {
   svg.appendChild(defs); svg.appendChild(bgRect);
   ov.appendChild(svg);
 
-  // 矢印
-  const arrow = document.createElement('div');
-  arrow.id = 'ob-arrow';
-  arrow.style.cssText = 'position:absolute;width:0;height:0;border:9px solid transparent;pointer-events:none;z-index:2;';
-  ov.appendChild(arrow);
-
-  // ツールチップカード（明示的に pointer-events:auto）
+  // ツールチップカード
   const card = document.createElement('div');
   card.id = 'ob-card';
   card.style.cssText = [
@@ -277,6 +262,7 @@ function _inject() {
     'border-radius:12px', 'padding:20px',
     'width:310px', 'max-width:calc(100vw - 20px)',
     'box-shadow:0 8px 32px rgba(0,0,0,.7)',
+    'box-sizing:border-box',
   ].join(';');
   card.innerHTML = `
     <div id="ob-step-label" style="font-size:11px;color:var(--accent,#e05a00);font-weight:700;
@@ -301,7 +287,7 @@ function _inject() {
   ov.appendChild(card);
   document.body.appendChild(ov);
 
-  // スタイル（ドット用のみ）
+  // ドット用スタイル
   const style = document.createElement('style');
   style.textContent = `
     .ob-dot { display:inline-block;width:7px;height:7px;border-radius:50%;
@@ -310,13 +296,10 @@ function _inject() {
   `;
   document.head.appendChild(style);
 
-  // 参照キャッシュ
   _overlay = ov;
   _svgRect = spotRect;
   _card    = card;
-  _arrow   = arrow;
 
-  // イベント（addEventListener で確実に）
   document.getElementById('ob-start-btn').addEventListener('click', startOnboarding);
   document.getElementById('ob-dismiss-btn').addEventListener('click', () => {
     _hideStart();
