@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.66</title>
+<title>WAZA KIMURA v51.67</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -34,12 +34,14 @@
   import { showToast } from './js/ui.js';
   import { currentUser, saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings, saveFeedback } from './js/firebase.js';
   window.saveFeedback = saveFeedback;
-  import { initOnboarding, startOnboarding, startSearchOnboarding } from './js/onboarding.js';
+  import { initOnboarding, startOnboarding, startSearchOnboarding, startNotesOnboarding } from './js/onboarding.js';
   window.startOnboarding = startOnboarding;
   window.startSearchOnboarding = startSearchOnboarding;
+  window.startNotesOnboarding = startNotesOnboarding;
   window.startTabOnboarding = () => {
     const tab = document.querySelector('.tab-panel.active')?.id;
     if (tab === 'searchTab') startSearchOnboarding();
+    else if (tab === 'notesTab') startNotesOnboarding();
     else startOnboarding();
   };
   document.addEventListener('DOMContentLoaded', () => initOnboarding());
