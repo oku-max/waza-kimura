@@ -38,6 +38,12 @@ const STEPS = [
     title:   'Notesで練習メモをとる',
     body:    '<b>「≡ Notes」タブ</b>では自由にテキストメモを書けます。<br><br>道場でのメモや練習の気づきをざっくり書き留める場所として使ってください。',
   },
+  {
+    target:  '#tnav-search',
+    target2: '#mnav-search',
+    title:   'Searchで動画を探す',
+    body:    '<b>「○ Search」タブ</b>では技名・チャンネル名などキーワードで動画を横断検索できます。<br><br>よく使う検索条件は保存しておくと次回すぐに呼び出せます。',
+  },
 ];
 
 let _overlay, _svgRect, _card;
@@ -108,7 +114,7 @@ function _goto(idx) {
     r = el ? el.getBoundingClientRect() : null;
   }
 
-  document.getElementById('ob-step-label').textContent = `STEP ${idx} / ${STEPS.length - 1}`;
+  document.getElementById('ob-step-label').textContent = `STEP ${idx + 1} / ${STEPS.length}`;
   document.getElementById('ob-title').textContent       = step.title;
   document.getElementById('ob-body').innerHTML =
     (useEmpty && step.body_empty) ? step.body_empty : (!r && step.body_empty) ? step.body_empty : step.body;
@@ -230,14 +236,14 @@ function _inject() {
                 box-shadow:0 8px 40px rgba(0,0,0,.7);">
       <div style="font-size:22px;font-weight:900;margin-bottom:8px;">🥋 はじめに</div>
       <p style="font-size:14px;color:var(--text2,#aaa);line-height:1.6;margin-bottom:22px;">
-        WAZA KIMURAの基本的な使い方を<br>6ステップで紹介します（約2分）
+        WAZA KIMURAの基本的な使い方を<br>7ステップで紹介します（約2分）
       </p>
       <div style="text-align:left;margin-bottom:22px;">
         ${STEPS.map((s, i) => `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--text,#ddd);">
             <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent,#e05a00);
                          color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;
-                         justify-content:center;">${i}</span>
+                         justify-content:center;">${i + 1}</span>
             <span>${s.title}</span>
           </div>`).join('')}
       </div>
