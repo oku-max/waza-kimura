@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — フィルターオーバーレイ & サイドバー ═══
+// ═══ WAZA KIMURA — フィルターオーバーレイ & サイドバー ═══
 import { _syncChipsToState } from './filter.js';
 
 // ── ドロップダウン外クリックで全DD閉じる（フィルター・VPanel・GDrive共通）──
@@ -1331,7 +1331,7 @@ function _sbmInject() {
   const css = `<style id="sbm-css">
 #sbm-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #sbm-bd.open{display:block}
-#sbm-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 16px));height:min(600px,calc(100svh * var(--asz-inv,1) - 16px));max-height:calc(100svh * var(--asz-inv,1) - 16px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+#sbm-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 16px));height:min(600px,calc(100svh - 16px));max-height:calc(100svh - 16px);background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
 #sbm-popup.open{display:flex}
 #sbm-popup .sbm-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
 #sbm-popup .sbm-hdr h2{margin:0;font-size:13px;font-weight:700;color:var(--text)}
