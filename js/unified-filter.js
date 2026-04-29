@@ -334,10 +334,8 @@
     const shown = vids.slice(0, 30);
 
     const sortSel = `<select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
-      <option value="auto"${_vidSort==='auto'?' selected':''}>自動順</option>
-      <option value="title"${_vidSort==='title'?' selected':''}>タイトル順</option>
-      <option value="status"${_vidSort==='status'?' selected':''}>習得度順</option>
-      <option value="practice"${_vidSort==='practice'?' selected':''}>視聴回数順</option>
+      <option value="auto"${_vidSort==='auto'?' selected':''}>自動</option>
+      <option value="title"${_vidSort==='title'?' selected':''}>名前順</option>
     </select>`;
 
     const isNoteMode = !!_noteMode;
