@@ -14,9 +14,9 @@ const STEPS = [
     body:   '右上の <b>「＋ 動画を追加」</b> から動画をインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
   },
   {
-    target: '.lib-view-bar',
-    title:  '表示を切り替える',
-    body:   '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
+    targets: ['#lvt-card', '#lvt-org'],
+    title:   '表示を切り替える',
+    body:    '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
   },
   {
     target:     '#filterSidebar',
@@ -91,15 +91,20 @@ function _goto(idx) {
 
   step.beforeStep?.();
 
-  // target / target2 のうち実際に画面に表示されているほうを使う
-  let el = _visibleEl(step.target);
-  if (!el && step.target2) el = _visibleEl(step.target2);
-  const r = el ? el.getBoundingClientRect() : null;
+  // targets 配列 → union rect、単一 target/target2 → 既存ロジック
+  let r = null;
+  if (step.targets) {
+    r = _unionRect(step.targets);
+  } else {
+    let el = _visibleEl(step.target);
+    if (!el && step.target2) el = _visibleEl(step.target2);
+    r = el ? el.getBoundingClientRect() : null;
+  }
 
   document.getElementById('ob-step-label').textContent = `STEP ${idx} / ${STEPS.length - 1}`;
   document.getElementById('ob-title').textContent       = step.title;
   document.getElementById('ob-body').innerHTML =
-    (!el && step.body_empty) ? step.body_empty : step.body;
+    (!r && step.body_empty) ? step.body_empty : step.body;
   document.getElementById('ob-next-btn').textContent   = idx === STEPS.length - 1 ? '完了 ✓' : '次へ →';
   document.getElementById('ob-prev-btn').style.display = idx === 0 ? 'none' : '';
 
@@ -130,6 +135,19 @@ function _visibleEl(selector) {
   if (!el) return null;
   const r = el.getBoundingClientRect();
   return (r.width > 0 && r.height > 0) ? el : null;
+}
+
+// ── 複数要素の union bounding rect ──
+function _unionRect(selectors) {
+  const rects = selectors
+    .map(s => document.querySelector(s)?.getBoundingClientRect())
+    .filter(r => r && r.width > 0 && r.height > 0);
+  if (!rects.length) return null;
+  const left   = Math.min(...rects.map(r => r.left));
+  const top    = Math.min(...rects.map(r => r.top));
+  const right  = Math.max(...rects.map(r => r.right));
+  const bottom = Math.max(...rects.map(r => r.bottom));
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
 }
 
 // ── カード配置（純粋に画面スペースで判断） ──
