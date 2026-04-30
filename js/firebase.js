@@ -17,19 +17,18 @@ export const db   = firebase.firestore();
 export let currentUser = null;
 let _durFetchDone = false; // duration補完は初回ロード1回だけ
 
+// notes.jsがユーザー別localStorageキーを生成するために参照
+window._currentUserUid = () => currentUser?.uid;
+
 auth.onAuthStateChanged(async (user) => {
-  const prevUid = localStorage.getItem('wk_auth_uid');
   currentUser = user;
   updateAuthUI(user);
   if (user) {
-    // 前回と異なるユーザーがログインした場合はノートを先にクリア（データ漏洩防止）
-    if (prevUid !== user.uid) window._notesClear?.();
-    localStorage.setItem('wk_auth_uid', user.uid);
+    window._notesInitForUser?.(user.uid); // ユーザー別キーで安全に初期化
     await loadUserData(user.uid);
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
   } else {
-    localStorage.removeItem('wk_auth_uid');
     window._notesClear?.();
   }
 });
@@ -44,12 +43,12 @@ const _sessionId = Math.random().toString(36).slice(2);
 window._firebaseSaveNotes = async function(data) {
   if (!currentUser) return;
   try {
+    const uid = currentUser.uid;
     const updatedAt = new Date().toISOString();
-    await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').set({
+    await db.collection('users').doc(uid).collection('data').doc('notes').set({
       data, updatedAt, savedBy: _sessionId
     });
-    // 書き込み成功後にのみ更新（失敗時にタイムスタンプが狂うのを防ぐ）
-    localStorage.setItem('wk_notes_savedAt', updatedAt);
+    localStorage.setItem(`wk_notes_savedAt_${uid}`, updatedAt);
   } catch(e) { console.error('saveNotes:', e); }
 };
 
@@ -59,11 +58,9 @@ async function loadNotes(uid) {
 
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
     if (!snap.exists || !snap.data()?.data?.length) return;
-    // 判定1: 自分のセッションの書き込み → クロックスキュー不問でスキップ
     if (snap.data().savedBy === _sessionId) return;
-    // 判定2: 別セッション → タイムスタンプで自分のほうが新しければスキップ
     const remoteAt     = snap.data().updatedAt || '';
-    const localSavedAt = localStorage.getItem('wk_notes_savedAt') || '';
+    const localSavedAt = localStorage.getItem(`wk_notes_savedAt_${uid}`) || '';
     if (remoteAt && localSavedAt && remoteAt <= localSavedAt) return;
     window._notesLoadFromRemote?.(snap.data().data, remoteAt);
   }, e => console.error('notes onSnapshot:', e));

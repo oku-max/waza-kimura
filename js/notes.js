@@ -1,20 +1,22 @@
 // ═══ WAZA KIMURA — Notes tab v51.06 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
-const NOTES_KEY = 'wk_notes_v1';
-
-const DEFAULT_DATA = [];
+// ユーザー別キー（構造的隔離 — 異なるユーザーのキーには絶対に触れない）
+const _notesKey   = uid => `wk_notes_v1_${uid}`;
+const _savedAtKey = uid => `wk_notes_savedAt_${uid}`;
 
 // ── storage ──
-function _load() {
-  try { const r = localStorage.getItem(NOTES_KEY); return r ? JSON.parse(r) : DEFAULT_DATA; }
-  catch { return DEFAULT_DATA; }
+function _loadForUser(uid) {
+  try { const r = localStorage.getItem(_notesKey(uid)); return r ? JSON.parse(r) : []; }
+  catch { return []; }
 }
 
 let _saveFsTimer = null;
 function _save() {
-  try { localStorage.setItem(NOTES_KEY, JSON.stringify(_data)); } catch {}
-  // Firestoreへは2秒デバウンスで非同期保存（連続編集時にhammer防止）
+  const uid = window._currentUserUid?.();
+  if (uid) {
+    try { localStorage.setItem(_notesKey(uid), JSON.stringify(_data)); } catch {}
+  }
   clearTimeout(_saveFsTimer);
   _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 500);
 }
@@ -31,33 +33,42 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('pagehide', _flushNotes);
 window.addEventListener('beforeunload', _flushNotes);
 
-// ログイン後にFirestoreから呼ばれる
-window._notesGetData = () => _data;
-
-// ログアウト時に呼ばれる（他ユーザーへのデータ漏洩防止）
-window._notesClear = function() {
-  _data = [];
+// ログイン後にauth側から呼ばれる（ユーザー別localStorageから初期化）
+window._notesInitForUser = function(uid) {
+  clearTimeout(_saveFsTimer);
+  _saveFsTimer = null;
+  _data = _loadForUser(uid);
   _activeId = null;
-  try {
-    localStorage.removeItem(NOTES_KEY);
-    localStorage.removeItem('wk_notes_savedAt');
-  } catch {}
   window.renderNotes?.();
 };
+
+// ログアウト時に呼ばれる
+window._notesClear = function() {
+  clearTimeout(_saveFsTimer); // 残留タイマーを必ずキャンセル
+  _saveFsTimer = null;
+  _data = [];
+  _activeId = null;
+  window.renderNotes?.();
+};
+
+window._notesGetData = () => _data;
+
 window._notesLoadFromRemote = function(remoteData, remoteAt) {
   if (!Array.isArray(remoteData) || !remoteData.length) return;
+  const uid = window._currentUserUid?.();
   _data = remoteData;
-  try {
-    localStorage.setItem(NOTES_KEY, JSON.stringify(_data));
-    // remoteAtを記録しておくことで次のonSnapshot呼び出しを正しく判定できる
-    if (remoteAt) localStorage.setItem('wk_notes_savedAt', remoteAt);
-  } catch {}
+  if (uid) {
+    try {
+      localStorage.setItem(_notesKey(uid), JSON.stringify(_data));
+      if (remoteAt) localStorage.setItem(_savedAtKey(uid), remoteAt);
+    } catch {}
+  }
   if (_activeId) _renderNote(_activeId);
   window.renderNotes?.();
   window.toast?.('📓 ノートを同期しました');
 };
 
-let _data = _load();
+let _data = []; // auth解決前は空。_notesInitForUser(uid)で正しく初期化される
 let _activeId = null;
 let _recentIds = [];
 let _dragSrcNoteId = null;
