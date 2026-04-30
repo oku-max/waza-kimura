@@ -767,7 +767,11 @@ async function _renderFeedbackAdmin() {
     const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     const rows = items.map((d, idx) => {
-      const date = d.createdAt ? d.createdAt.slice(5, 16).replace('T', ' ') : '—';
+      const date = (() => {
+        if (!d.createdAt) return '—';
+        const jst = new Date(new Date(d.createdAt).getTime() + 9 * 60 * 60 * 1000);
+        return String(jst.getUTCMonth()+1).padStart(2,'0') + '-' + String(jst.getUTCDate()).padStart(2,'0') + ' ' + String(jst.getUTCHours()).padStart(2,'0') + ':' + String(jst.getUTCMinutes()).padStart(2,'0');
+      })();
       const typeLabel = TYPE_LABEL[d.type] || d.type || '—';
       const typeColor = TYPE_COLOR[d.type] || 'var(--text3)';
       const pageLabel = PAGE_LABEL[d.page] || d.page || '—';
