@@ -1325,6 +1325,7 @@ export function openVPanel(id) {
       <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
       <button id="vp-search-btn" onclick="vpTogSearchMenu(event,'${id}')" title="このチャンネル・関連技を検索" style="${navBtnStyle}">${srchSvg}</button>
       <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
+      <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtnStyle}">?</button>
     </div>`;
   }
 
@@ -1378,7 +1379,7 @@ export function openVPanel(id) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
-      + `<div class="vp-row" style="margin-top:8px">
+      + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <span class="vp-lbl">Memo</span>
           <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')" oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)">${vd?.memo||''}</textarea>
         </div>
@@ -1827,7 +1828,7 @@ export function buildDrawerHTML(id) {
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
 
-    <div style="padding:8px 16px 4px">
+    <div id="vp-notes-row-${id}" style="padding:8px 16px 4px">
       <button onclick="window.notesAddVideo?.('${id}')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--accent);
                background:rgba(232,201,106,.08);color:var(--accent);font-size:13px;
@@ -1835,7 +1836,7 @@ export function buildDrawerHTML(id) {
         📓 Notes に追加
       </button>
     </div>
-    <div style="padding:0 16px 4px">
+    <div id="vp-ai-row-${id}" style="padding:0 16px 4px">
       <button id="vp-ai-tag-btn"
         onclick="window.onAiTagBtn?.('${id}')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
