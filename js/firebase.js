@@ -18,13 +18,18 @@ export let currentUser = null;
 let _durFetchDone = false; // duration補完は初回ロード1回だけ
 
 auth.onAuthStateChanged(async (user) => {
+  const prevUid = localStorage.getItem('wk_auth_uid');
   currentUser = user;
   updateAuthUI(user);
   if (user) {
+    // 前回と異なるユーザーがログインした場合はノートを先にクリア（データ漏洩防止）
+    if (prevUid !== user.uid) window._notesClear?.();
+    localStorage.setItem('wk_auth_uid', user.uid);
     await loadUserData(user.uid);
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
   } else {
+    localStorage.removeItem('wk_auth_uid');
     window._notesClear?.();
   }
 });
