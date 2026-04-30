@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.87</title>
+<title>WAZA KIMURA v51.88</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -4588,44 +4588,43 @@ async function submitFeedback() {
 }
 </script>
 
-<!-- ── チュートリアルオーバーレイ ── -->
+<!-- ── チュートリアルオーバーレイ（SVG マスク方式 — onboarding.js と同方式） ── -->
 <style>
 #vp-tut-overlay {
-  display: none; position: fixed;
-  left: 0; top: 0; width: 100%; height: 100%;
+  display: none; position: fixed; inset: 0;
   z-index: 9000; pointer-events: none;
 }
-#vp-tut-overlay.active { pointer-events: all; }
-#vp-tut-ring {
-  position: absolute; border: 2px solid rgba(224,90,0,.85);
-  border-radius: 8px; pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,.72);
-  transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
-  z-index: 1;
-}
 #vp-tut-tip {
-  position: absolute; pointer-events: all;
-  background: #fff; border: 1px solid #ddd; border-radius: 12px;
-  padding: 14px 16px; width: 280px; max-width: calc(100vw - 16px);
-  max-height: 45vh; overflow-y: auto;
-  color: #111; box-shadow: 0 8px 32px rgba(0,0,0,.2);
-  z-index: 2;
-  transition: left .25s ease, top .25s ease;
+  position: absolute; pointer-events: all; z-index: 3;
+  background: #fff; border: 1.5px solid var(--accent,#e05a00); border-radius: 12px;
+  padding: 18px 16px; width: 310px; max-width: calc(100vw - 20px);
+  max-height: 50vh; overflow-y: auto;
+  color: #111; box-shadow: 0 8px 32px rgba(0,0,0,.25);
+  box-sizing: border-box;
 }
-.vp-tut-step  { font-size: 10px; font-weight: 700; color: #e05a00; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 4px; }
-.vp-tut-title { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }
-.vp-tut-desc  { font-size: 12px; color: #555; line-height: 1.65; }
-.vp-tut-footer { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.vp-tut-step  { font-size: 10px; font-weight: 700; color: #e05a00; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
+.vp-tut-title { font-size: 14px; font-weight: 800; color: #111; margin-bottom: 8px; }
+.vp-tut-desc  { font-size: 12px; color: #555; line-height: 1.65; margin-bottom: 14px; }
+.vp-tut-footer { display: flex; align-items: center; gap: 6px; }
 .vp-tut-dots   { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
 .vp-tut-dot    { width: 6px; height: 6px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
 .vp-tut-dot.on { background: #e05a00; }
-#vp-tut-prev { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 7px; cursor: pointer; border: 1.5px solid #ddd; background: #f5f5f5; color: #555; font-family: inherit; white-space: nowrap; }
-#vp-tut-next { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 7px; cursor: pointer; border: none; background: #e05a00; color: #fff; font-family: inherit; white-space: nowrap; }
-.vp-tut-skip  { font-size: 10px; color: #aaa; cursor: pointer; text-decoration: underline; }
+#vp-tut-prev { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1.5px solid #ddd; background: #f5f5f5; color: #555; font-family: inherit; white-space: nowrap; }
+#vp-tut-next { font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; border: none; background: #e05a00; color: #fff; font-family: inherit; white-space: nowrap; }
+.vp-tut-skip  { font-size: 10px; color: #aaa; cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
 .vp-tut-skip:hover { color: #555; }
 </style>
 <div id="vp-tut-overlay">
-  <div id="vp-tut-ring"></div>
+  <!-- SVG マスク: onboarding.js と同じパターン -->
+  <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+    <defs>
+      <mask id="vp-tut-mask">
+        <rect width="100%" height="100%" fill="white"/>
+        <rect id="vp-tut-spot" x="0" y="0" width="0" height="0" fill="black" rx="8" ry="8"/>
+      </mask>
+    </defs>
+    <rect width="100%" height="100%" fill="rgba(0,0,0,0.72)" mask="url(#vp-tut-mask)"/>
+  </svg>
   <div id="vp-tut-tip">
     <div class="vp-tut-step"  id="vp-tut-step"></div>
     <div class="vp-tut-title" id="vp-tut-title"></div>
@@ -4635,7 +4634,7 @@ async function submitFeedback() {
       <button id="vp-tut-prev" onclick="vpTutGo(-1)">← 前へ</button>
       <button id="vp-tut-next" onclick="vpTutGo(1)">次へ →</button>
     </div>
-    <div style="margin-top:8px"><span class="vp-tut-skip" onclick="vpEndTutorial()">スキップ</span></div>
+    <div><span class="vp-tut-skip" onclick="vpEndTutorial()">スキップ</span></div>
   </div>
 </div>
 
