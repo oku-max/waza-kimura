@@ -769,6 +769,10 @@ async function _renderFeedbackAdmin() {
       const page = PAGE_LABEL[d.page] || d.page || '—';
       const userEmail = d.email || '未ログイン';
       const text = (d.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      const imgHtml = d.imageData
+        ? `<img src="${d.imageData}" style="max-width:100%;max-height:220px;border-radius:6px;margin-top:8px;display:block;cursor:pointer"
+             onclick="window.open(this.src)">`
+        : '';
       return `
         <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:var(--surface2);">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
@@ -777,7 +781,8 @@ async function _renderFeedbackAdmin() {
             <span style="font-size:11px;color:var(--text3);margin-left:auto;">${date}</span>
           </div>
           <div style="font-size:12px;color:var(--text);line-height:1.65;margin-bottom:6px;">${text}</div>
-          <div style="font-size:11px;color:var(--text3);">from: ${userEmail}</div>
+          ${imgHtml}
+          <div style="font-size:11px;color:var(--text3);margin-top:6px;">from: ${userEmail}</div>
         </div>`;
     }).join('');
 

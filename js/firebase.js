@@ -238,15 +238,17 @@ export async function loadUserSettings(uid) {
   } catch (e) { console.error('loadUserSettings:', e); }
 }
 
-export async function saveFeedback({ page, type, text }) {
+export async function saveFeedback({ page, type, text, imageData }) {
   try {
-    await db.collection('feedback').add({
+    const doc = {
       uid:       currentUser?.uid   || null,
       email:     currentUser?.email || null,
       page, type, text,
       createdAt: new Date().toISOString(),
-      version:   '51.54'
-    });
+      version:   '51.81'
+    };
+    if (imageData) doc.imageData = imageData;
+    await db.collection('feedback').add(doc);
   } catch (e) {
     console.error('saveFeedback:', e);
     throw e;
