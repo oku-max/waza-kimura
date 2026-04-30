@@ -1827,14 +1827,6 @@ export function buildDrawerHTML(id) {
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
 
-    <div class="vp-row">
-      <span class="vp-lbl">Share</span>
-      <div class="vp-chips" id="vp-share-${id}">
-        <span class="vp-chip${(v.shared||0)===0?' on-s0':''}" onclick="vpSetShare('${id}',0,this)">🔒 非公開</span>
-        <span class="vp-chip${(v.shared||0)===1?' on-s1':''}" onclick="vpSetShare('${id}',1,this)">👥 フォロワー</span>
-        <span class="vp-chip${(v.shared||0)===2?' on-s0':''}" onclick="vpSetShare('${id}',2,this)">🌐 全公開</span>
-      </div>
-    </div>
     <div style="padding:8px 16px 4px">
       <button onclick="window.notesAddVideo?.('${id}')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--accent);
@@ -1852,16 +1844,18 @@ export function buildDrawerHTML(id) {
         🤖 AIタグ提案
       </button>
     </div>
-    <div style="padding:4px 16px" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
-      ${v.verified
-        ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
-        : `<button onclick="vpVerify('${id}')"
-            style="width:100%;padding:9px;border-radius:8px;border:1.5px solid var(--green,#6bc490);
-                   background:transparent;color:var(--green,#6bc490);font-size:12px;
-                   font-weight:700;cursor:pointer">
-            ✓ 検証済みにする
-          </button>`}
-    </div>
+    ${window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
+      ? `<div style="padding:4px 16px" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
+          ${v.verified
+            ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
+            : `<button onclick="vpVerify('${id}')"
+                style="width:100%;padding:9px;border-radius:8px;border:1.5px solid var(--green,#6bc490);
+                       background:transparent;color:var(--green,#6bc490);font-size:12px;
+                       font-weight:700;cursor:pointer">
+                ✓ 検証済みにする
+              </button>`}
+        </div>`
+      : ''}
     <div style="padding:4px 16px;display:flex;gap:8px">
       <button onclick="vpArchive('${id}')"
         style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--purple,#8b5cf6);
