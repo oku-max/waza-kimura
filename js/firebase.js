@@ -249,8 +249,7 @@ export async function saveFeedback({ page, type, text, imageData }) {
       version:   '51.84'
     };
     if (imageData) doc.imageData = imageData;
-    await db.collection('users').doc(currentUser.uid)
-            .collection('feedbacks').add(doc);
+    await db.collection('feedback').add(doc);
   } catch (e) {
     console.error('saveFeedback:', e);
     throw e;
