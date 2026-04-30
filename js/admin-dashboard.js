@@ -734,6 +734,11 @@ window.filterPositions = filterPositions;
 
 // ── フィードバック閲覧（オーナー専用） ──
 const _OWNER_FB = 'okujournal@gmail.com';
+const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const TYPE_LABEL = { howto:'使い方', bug:'バグ', request:'要望', other:'その他' };
+const TYPE_COLOR = { howto:'var(--blue)', bug:'var(--red)', request:'var(--green)', other:'var(--text3)' };
+const PAGE_LABEL = { card:'カード', table:'テーブル', filter:'フィルター', vpanel:'Vパネル', settings:'設定', library:'Library', search:'Search', notes:'Notes', other:'その他' };
 
 async function _renderFeedbackAdmin() {
   const el = document.getElementById('admin-p-feedback');
@@ -759,44 +764,120 @@ async function _renderFeedbackAdmin() {
       return;
     }
 
-    const TYPE_LABEL = { bug: '🐛 バグ', idea: '💡 改善案', question: '❓ 質問', other: '💬 その他' };
-    const PAGE_LABEL = { library: 'Library', search: 'Search', notes: 'Notes', settings: '設定', other: 'その他' };
+    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const rows = snap.docs.map(doc => {
-      const d = doc.data();
-      const date = d.createdAt ? d.createdAt.slice(0, 16).replace('T', ' ') : '—';
-      const type = TYPE_LABEL[d.type] || d.type || '—';
-      const page = PAGE_LABEL[d.page] || d.page || '—';
-      const userEmail = d.email || '未ログイン';
-      const text = (d.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    const rows = items.map((d, idx) => {
+      const date = d.createdAt ? d.createdAt.slice(5, 16).replace('T', ' ') : '—';
+      const typeLabel = TYPE_LABEL[d.type] || d.type || '—';
+      const typeColor = TYPE_COLOR[d.type] || 'var(--text3)';
+      const pageLabel = PAGE_LABEL[d.page] || d.page || '—';
+      const preview = (d.text || '').slice(0, 50) + ((d.text || '').length > 50 ? '…' : '');
       const imgs = d.images || (d.imageData ? [d.imageData] : []);
-      const imgHtml = imgs.length
-        ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${imgs.map(src =>
-            `<img src="${src}" style="max-height:160px;max-width:calc(33% - 4px);border-radius:6px;cursor:pointer;object-fit:cover" onclick="window.open(this.src)">`
-          ).join('')}</div>`
-        : '';
+      const imgCount = imgs.length;
+      const hasMemo = !!d.adminMemo;
+
       return `
-        <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:var(--surface2);">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-            <span style="font-size:12px;font-weight:700;color:var(--accent);">${type}</span>
-            <span style="font-size:11px;color:var(--text3);background:var(--surface3);padding:2px 7px;border-radius:10px;">${page}</span>
-            <span style="font-size:11px;color:var(--text3);margin-left:auto;">${date}</span>
-          </div>
-          <div style="font-size:12px;color:var(--text);line-height:1.65;margin-bottom:6px;">${text}</div>
-          ${imgHtml}
-          <div style="font-size:11px;color:var(--text3);margin-top:6px;">from: ${userEmail}</div>
-        </div>`;
+        <tr class="fb-adm-row" onclick="fbAdmToggle(${idx},this)">
+          <td style="padding:7px 6px;white-space:nowrap">
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${typeColor}22;color:${typeColor}">${_esc(typeLabel)}</span>
+          </td>
+          <td style="padding:7px 6px;white-space:nowrap">
+            <span style="font-size:10px;color:var(--text3);background:var(--surface3);padding:2px 7px;border-radius:10px">${_esc(pageLabel)}</span>
+          </td>
+          <td style="padding:7px 6px;font-size:11px;color:var(--text3);white-space:nowrap;font-family:'DM Mono',monospace">${date}</td>
+          <td style="padding:7px 6px;font-size:12px;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${preview ? _esc(preview) : '<span style="color:var(--text3)">—</span>'}
+          </td>
+          <td style="padding:7px 4px;text-align:center;font-size:11px;color:var(--text3);white-space:nowrap">
+            ${imgCount ? `🖼 ${imgCount}` : ''}
+          </td>
+          <td style="padding:7px 4px;text-align:center;font-size:11px">
+            ${hasMemo ? '<span style="color:var(--accent)" title="メモあり">💬</span>' : ''}
+          </td>
+          <td style="padding:7px 6px;text-align:right" onclick="event.stopPropagation()">
+            <button onclick="fbAdmDelete('${d.id}',${idx})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;font-family:inherit">削除</button>
+          </td>
+        </tr>
+        <tr id="fb-adm-detail-${idx}" style="display:none">
+          <td colspan="7" style="padding:0 0 6px 0">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:0 0 2px 0">
+              ${d.text ? `<div style="font-size:12px;line-height:1.65;margin-bottom:10px;white-space:pre-wrap">${_esc(d.text)}</div>` : ''}
+              ${imgCount ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                ${imgs.map(src => `<img src="${src}" style="max-height:130px;max-width:180px;border-radius:6px;cursor:pointer;object-fit:cover" onclick="window.open(this.src)">`).join('')}
+              </div>` : ''}
+              <div style="font-size:11px;color:var(--text3);margin-bottom:10px">from: ${_esc(d.email || '—')}</div>
+              <div style="display:flex;gap:6px;align-items:flex-end">
+                <textarea id="fb-memo-${idx}" placeholder="管理メモ（自分用）" rows="2"
+                  style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);resize:vertical;font-family:inherit">${_esc(d.adminMemo || '')}</textarea>
+                <button onclick="fbAdmSaveMemo('${d.id}',${idx})"
+                  style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">保存</button>
+              </div>
+            </div>
+          </td>
+        </tr>`;
     }).join('');
 
     el.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text3);">${snap.size} 件</div>
-        <button onclick="window.reloadFeedbackAdmin?.()" style="font-size:11px;padding:4px 12px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);cursor:pointer;">↻ 更新</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text3)">${items.length} 件</div>
+        <button onclick="window.reloadFeedbackAdmin?.()" style="font-size:11px;padding:4px 12px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);cursor:pointer">↻ 更新</button>
       </div>
-      ${rows}`;
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:460px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">種類</th>
+              <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">ページ</th>
+              <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">日時</th>
+              <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px">内容</th>
+              <th style="padding:5px 4px;width:36px"></th>
+              <th style="padding:5px 4px;width:24px"></th>
+              <th style="padding:5px 6px;width:52px"></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <style>
+        .fb-adm-row { border-bottom:1px solid var(--border2); cursor:pointer; transition:background .1s; }
+        .fb-adm-row:hover { background:var(--surface2); }
+      </style>`;
   } catch (e) {
     el.innerHTML = `<div style="padding:20px;color:#f66;font-size:12px;">読み込みエラー: ${e.message}</div>`;
   }
 }
 
 window.reloadFeedbackAdmin = () => _renderFeedbackAdmin();
+
+window.fbAdmToggle = function(idx, row) {
+  const detail = document.getElementById('fb-adm-detail-' + idx);
+  if (!detail) return;
+  const open = detail.style.display !== 'none';
+  detail.style.display = open ? 'none' : '';
+};
+
+window.fbAdmDelete = async function(docId, idx) {
+  if (!confirm('このフィードバックを削除しますか？')) return;
+  try {
+    await firebase.firestore().collection('feedback').doc(docId).delete();
+    document.getElementById('fb-adm-detail-' + idx)?.remove();
+    // find and remove the data row by looking for the row that triggered this
+    const tbody = document.querySelector('#admin-p-feedback tbody');
+    if (tbody) {
+      // rebuild by reloading
+      window.reloadFeedbackAdmin?.();
+    }
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+};
+
+window.fbAdmSaveMemo = async function(docId, idx) {
+  const memo = document.getElementById('fb-memo-' + idx)?.value || '';
+  try {
+    await firebase.firestore().collection('feedback').doc(docId).update({ adminMemo: memo });
+    window.toast?.('💾 メモ保存');
+  } catch(e) {
+    alert('保存に失敗しました。Firestoreルールにdelete/updateを追加してください。');
+  }
+};
