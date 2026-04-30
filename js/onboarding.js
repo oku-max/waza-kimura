@@ -1,6 +1,8 @@
 // ═══ WAZA KIMURA — オンボーディングツアー ═══
-const OB_KEY = 'wk_ob_done';
-const PAD    = 10;
+const OB_KEY        = 'wk_ob_done';
+const HINT_KEY      = 'wk_hint_ts';
+const HINT_INTERVAL = 3 * 60 * 60 * 1000; // 3時間
+const PAD           = 10;
 
 // ── Library ツアー ──
 const LIBRARY_STEPS = [
@@ -44,6 +46,11 @@ const LIBRARY_STEPS = [
     target2: '#mnav-search',
     title:   'SearchでさらにYouTube動画を探す',
     body:    '<b>「○ Search」タブ</b>では YouTube の動画をキーワードで検索し、気になった動画をそのままライブラリに追加できます。',
+  },
+  {
+    targets: ['#fb-tab-btn', '#ob-help-btn'],
+    title:   'お困りのときは右上へ',
+    body:    '<b>「?」ボタン</b>：操作でお困りのときはこのボタンからいつでもツアーを再表示できます。<br><br><b>「フィードバック」ボタン</b>：ご意見・ご質問・改善のアイデアがあればお気軽にどうぞ。テスト期間中、皆さんのフィードバックがとても参考になります。',
   },
 ];
 
@@ -101,6 +108,11 @@ export function initOnboarding() {
   _inject();
   if (!localStorage.getItem(OB_KEY)) {
     setTimeout(_showStart, 900);
+  } else {
+    const lastTs = parseInt(localStorage.getItem(HINT_KEY) || '0', 10);
+    if (Date.now() - lastTs >= HINT_INTERVAL) {
+      setTimeout(_showHint, 1200);
+    }
   }
 }
 
@@ -122,6 +134,23 @@ export function startNotesOnboarding() {
   _activeSteps = NOTES_STEPS;
   _showOverlay();
   _goto(0);
+}
+
+// ── Hint banner (2回目以降・3時間ごと) ──
+
+function _showHint() {
+  document.getElementById('ob-hint').style.display = 'flex';
+  ['#fb-tab-btn', '#ob-help-btn'].forEach(sel => {
+    document.querySelector(sel)?.classList.add('ob-hint-glow');
+  });
+  localStorage.setItem(HINT_KEY, String(Date.now()));
+}
+
+function _hideHint() {
+  document.getElementById('ob-hint').style.display = 'none';
+  ['#fb-tab-btn', '#ob-help-btn'].forEach(sel => {
+    document.querySelector(sel)?.classList.remove('ob-hint-glow');
+  });
 }
 
 // ── Start screen ──
@@ -320,7 +349,7 @@ function _inject() {
                 box-shadow:0 8px 40px rgba(0,0,0,.7);">
       <div style="font-size:22px;font-weight:900;margin-bottom:8px;">🥋 はじめに</div>
       <p style="font-size:14px;color:var(--text2,#aaa);line-height:1.6;margin-bottom:22px;">
-        WAZA KIMURAの基本的な使い方を<br>7ステップで紹介します（約2分）
+        WAZA KIMURAの基本的な使い方を<br>${LIBRARY_STEPS.length}ステップで紹介します（約2分）
       </p>
       <div style="text-align:left;margin-bottom:22px;">
         ${LIBRARY_STEPS.map((s, i) => `
@@ -338,6 +367,26 @@ function _inject() {
               font-size:13px;cursor:pointer;text-decoration:underline;">スキップして使い始める</button>
     </div>`;
   document.body.appendChild(startEl);
+
+  // ヒントバナー（2回目以降・3時間ごと）
+  const hintEl = document.createElement('div');
+  hintEl.id = 'ob-hint';
+  hintEl.style.cssText = [
+    'display:none', 'position:fixed', 'bottom:80px', 'right:12px', 'z-index:9500',
+    'background:var(--surface,#1e1e1e)', 'border:1.5px solid var(--accent,#e05a00)',
+    'border-radius:12px', 'padding:14px 16px', 'max-width:min(280px,calc(100vw - 24px))',
+    'box-shadow:0 4px 24px rgba(0,0,0,.6)', 'flex-direction:column', 'gap:8px',
+  ].join(';');
+  hintEl.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+      <div style="font-size:13px;font-weight:800;color:var(--text,#fff);">💬 テスト期間中のお願い</div>
+      <button id="ob-hint-close" style="background:none;border:none;color:var(--text3,#666);font-size:18px;cursor:pointer;line-height:1;padding:0;flex-shrink:0;">×</button>
+    </div>
+    <p style="font-size:12px;color:var(--text2,#bbb);line-height:1.65;margin:0;">
+      操作でお困りのときは <b style="color:var(--text,#fff);">「?」</b> ボタンからツアーを再表示できます。<br>
+      ご意見・改善点は <b style="color:var(--text,#fff);">「フィードバック」</b> ボタンへお気軽にどうぞ。
+    </p>`;
+  document.body.appendChild(hintEl);
 
   // ツアーオーバーレイ
   const ov = document.createElement('div');
@@ -409,6 +458,8 @@ function _inject() {
   style.textContent = `
     .ob-dot { display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--border,#444); }
     .ob-dot-on { background:var(--accent,#e05a00) !important; }
+    .ob-hint-glow { animation:ob-glow 1.4s ease-in-out infinite alternate !important; }
+    @keyframes ob-glow { from { box-shadow:0 0 0 2px var(--accent,#e05a00); } to { box-shadow:0 0 0 6px rgba(224,90,0,.35); } }
     .vis-overview { display:flex;width:100%;height:100%; }
     .vis-ov-sb { width:90px;background:var(--surface,#1e1e1e);border-right:1px solid var(--border,#3a3a3a);padding:8px 6px;flex-shrink:0; }
     .vis-ov-sb-hdr { height:8px;background:var(--accent,#e05a00);border-radius:3px;margin-bottom:8px;width:60%; }
@@ -459,6 +510,7 @@ function _inject() {
   _svgRect = spotRect;
   _card    = card;
 
+  document.getElementById('ob-hint-close').addEventListener('click', _hideHint);
   document.getElementById('ob-start-btn').addEventListener('click', startOnboarding);
   document.getElementById('ob-dismiss-btn').addEventListener('click', () => {
     _hideStart();
