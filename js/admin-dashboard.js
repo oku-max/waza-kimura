@@ -748,11 +748,20 @@ async function _renderFeedbackAdmin() {
   el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;">読み込み中...</div>';
 
   try {
-    const snap = await firebase.firestore()
-      .collection('feedback')
-      .orderBy('createdAt', 'desc')
-      .limit(100)
-      .get();
+    // 全ユーザーのfeedbacksを集約
+    const usersSnap = await firebase.firestore().collection('users').get();
+    const allDocs = [];
+    await Promise.all(usersSnap.docs.map(async userDoc => {
+      try {
+        const fbSnap = await firebase.firestore()
+          .collection('users').doc(userDoc.id)
+          .collection('feedbacks')
+          .orderBy('createdAt', 'desc').limit(50).get();
+        fbSnap.docs.forEach(d => allDocs.push(d.data()));
+      } catch {}
+    }));
+    allDocs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const snap = { empty: allDocs.length === 0, size: allDocs.length, docs: allDocs.map(d => ({ data: () => d })) };
 
     if (snap.empty) {
       el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-size:13px;">フィードバックはまだありません</div>';

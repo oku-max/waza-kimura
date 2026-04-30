@@ -239,16 +239,18 @@ window.resetMyNotes = async function() {
 };
 
 export async function saveFeedback({ page, type, text, imageData }) {
+  if (!currentUser) throw new Error('ログインが必要です');
   try {
     const doc = {
-      uid:       currentUser?.uid   || null,
-      email:     currentUser?.email || null,
+      uid:       currentUser.uid,
+      email:     currentUser.email || null,
       page, type, text,
       createdAt: new Date().toISOString(),
-      version:   '51.81'
+      version:   '51.84'
     };
     if (imageData) doc.imageData = imageData;
-    await db.collection('feedback').add(doc);
+    await db.collection('users').doc(currentUser.uid)
+            .collection('feedbacks').add(doc);
   } catch (e) {
     console.error('saveFeedback:', e);
     throw e;
