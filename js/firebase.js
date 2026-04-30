@@ -238,7 +238,7 @@ window.resetMyNotes = async function() {
   console.log('Notesをリセットしました');
 };
 
-export async function saveFeedback({ page, type, text, imageData }) {
+export async function saveFeedback({ page, type, text, images }) {
   if (!currentUser) throw new Error('ログインが必要です');
   try {
     const doc = {
@@ -246,9 +246,9 @@ export async function saveFeedback({ page, type, text, imageData }) {
       email:     currentUser.email || null,
       page, type, text,
       createdAt: new Date().toISOString(),
-      version:   '51.84'
+      version:   '51.85'
     };
-    if (imageData) doc.imageData = imageData;
+    if (images && images.length) doc.images = images;
     await db.collection('feedback').add(doc);
   } catch (e) {
     console.error('saveFeedback:', e);

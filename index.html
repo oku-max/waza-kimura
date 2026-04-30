@@ -4277,18 +4277,9 @@ window.addEventListener('resize', adjustTopbarOffset);
              background:var(--bg,#111);color:var(--text,#eee);font-size:14px;resize:vertical;
              box-sizing:border-box;margin-bottom:12px"></textarea>
 
-    <label style="display:block;font-size:12px;color:var(--text-sub,#888);margin-bottom:4px">画像 <span style="opacity:.6">（任意）</span></label>
-    <div id="fb-img-drop" onclick="document.getElementById('fb-img-input').click()"
-      style="border:1.5px dashed var(--border,#444);border-radius:8px;padding:12px;text-align:center;
-             cursor:pointer;font-size:12px;color:var(--text3,#666);margin-bottom:4px;transition:border-color .15s">
-      📎 タップして画像を選択
-    </div>
-    <input type="file" id="fb-img-input" accept="image/*" style="display:none" onchange="fbImgSelected(this)">
-    <div id="fb-img-preview" style="display:none;position:relative;margin-bottom:12px">
-      <img id="fb-img-thumb" style="max-width:100%;max-height:180px;border-radius:6px;display:block">
-      <button onclick="fbRemoveImg()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);
-        border:none;color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;line-height:1">✕</button>
-    </div>
+    <label style="display:block;font-size:12px;color:var(--text-sub,#888);margin-bottom:6px">画像 <span style="opacity:.6">（最大3枚）</span></label>
+    <div id="fb-img-slots" style="display:flex;gap:8px;margin-bottom:12px"></div>
+    <input type="file" id="fb-img-input" accept="image/*" style="display:none" onchange="fbFileSelected(this)">
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
       <button onclick="closeFeedback()"
@@ -4301,70 +4292,291 @@ window.addEventListener('resize', adjustTopbarOffset);
   </div>
 </div>
 
+<!-- アノテーションエディター -->
+<div id="fb-ann-modal" style="display:none;position:fixed;inset:0;z-index:9600;background:#000;flex-direction:column">
+  <div id="fb-ann-toolbar" style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#111;border-bottom:1px solid #333;flex-shrink:0;flex-wrap:wrap">
+    <button class="fb-ann-tool-btn active" id="fb-ann-pen"   onclick="fbAnnTool('pen')">✏️ ペン</button>
+    <button class="fb-ann-tool-btn"        id="fb-ann-arrow" onclick="fbAnnTool('arrow')">→ 矢印</button>
+    <button class="fb-ann-tool-btn"        id="fb-ann-rect"  onclick="fbAnnTool('rect')">□ 四角</button>
+    <div style="width:1px;height:22px;background:#333;margin:0 2px;flex-shrink:0"></div>
+    <div class="fb-ann-w-btn active" data-w="2" onclick="fbAnnWidth(2,this)" title="細"><div style="width:4px;height:4px;border-radius:50%;background:#e74c3c;pointer-events:none"></div></div>
+    <div class="fb-ann-w-btn"       data-w="4" onclick="fbAnnWidth(4,this)" title="中"><div style="width:7px;height:7px;border-radius:50%;background:#e74c3c;pointer-events:none"></div></div>
+    <div class="fb-ann-w-btn"       data-w="7" onclick="fbAnnWidth(7,this)" title="太"><div style="width:11px;height:11px;border-radius:50%;background:#e74c3c;pointer-events:none"></div></div>
+    <div style="width:1px;height:22px;background:#333;margin:0 2px;flex-shrink:0"></div>
+    <div class="fb-ann-color" style="background:#e74c3c" data-c="#e74c3c" onclick="fbAnnColor('#e74c3c',this)"></div>
+    <div class="fb-ann-color" style="background:#f1c40f" data-c="#f1c40f" onclick="fbAnnColor('#f1c40f',this)"></div>
+    <div class="fb-ann-color" style="background:#2ecc71" data-c="#2ecc71" onclick="fbAnnColor('#2ecc71',this)"></div>
+    <div class="fb-ann-color" style="background:#fff"    data-c="#fff"    onclick="fbAnnColor('#fff',this)"></div>
+    <div style="width:1px;height:22px;background:#333;margin:0 2px;flex-shrink:0"></div>
+    <button class="fb-ann-tool-btn" onclick="fbAnnUndo()">↩ 戻す</button>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button onclick="fbAnnClose(false)" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:transparent;color:#ccc;cursor:pointer;font-size:13px;font-family:inherit">キャンセル</button>
+      <button onclick="fbAnnClose(true)"  style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent,#e05a00);color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit">完了</button>
+    </div>
+  </div>
+  <div id="fb-ann-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none">
+    <canvas id="fb-ann-canvas" style="cursor:crosshair;display:block;max-width:100%;max-height:100%"></canvas>
+  </div>
+</div>
+
 <style>
 #fb-tab-btn:hover { opacity: 1 !important; }
 .fb-type-btn {
   padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border, #555);
   background: transparent; color: var(--text, #ccc); cursor: pointer; font-size: 13px;
 }
-.fb-type-btn.active {
-  background: var(--accent, #e05a00); color: #fff; border-color: var(--accent, #e05a00);
+.fb-type-btn.active { background: var(--accent, #e05a00); color: #fff; border-color: var(--accent, #e05a00); }
+.fb-img-slot {
+  flex: 1; aspect-ratio: 1; border: 1.5px dashed var(--border,#555); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; position: relative;
+  overflow: hidden; cursor: pointer; background: var(--surface2,#161616); transition: border-color .15s;
 }
+.fb-img-slot:hover { border-color: var(--accent,#e05a00); }
+.fb-img-slot img { width:100%; height:100%; object-fit:cover; display:block; }
+.fb-slot-actions {
+  position:absolute; inset:0; background:rgba(0,0,0,.55);
+  display:none; align-items:center; justify-content:center; gap:5px;
+}
+.fb-img-slot:hover .fb-slot-actions { display:flex; }
+.fb-slot-btn { padding:4px 8px; border-radius:5px; border:none; cursor:pointer; font-size:11px; font-weight:700; font-family:inherit; }
+.fb-ann-tool-btn {
+  padding:5px 10px; border-radius:6px; border:1px solid #444; background:#222; color:#bbb;
+  cursor:pointer; font-size:12px; font-weight:700; font-family:inherit; transition:all .1s;
+}
+.fb-ann-tool-btn.active { background:var(--accent,#e05a00); color:#fff; border-color:var(--accent,#e05a00); }
+.fb-ann-w-btn {
+  width:22px; height:22px; border-radius:50%; border:2px solid #444; background:#222;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.fb-ann-w-btn.active { border-color: var(--accent,#e05a00); }
+.fb-ann-color {
+  width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent; flex-shrink:0;
+}
+.fb-ann-color.active { border-color:#fff; }
 </style>
 
 <script>
 let _fbType = 'howto';
-let _fbImgData = null;
+const _fbImgs = [null, null, null];
+let _fbAnnSlot = -1;
+let _fbAnnTool = 'pen';
+let _fbAnnColor = '#e74c3c';
+let _fbAnnWidth = 2;
+let _fbAnnStrokes = [];
+let _fbAnnDrawing = false;
+let _fbAnnCurrent = null;
+let _fbAnnBase = null;
+
+const _fbAnnCanvas = () => document.getElementById('fb-ann-canvas');
+const _fbAnnCtx = () => _fbAnnCanvas()?.getContext('2d');
 
 function openFeedback() {
   document.getElementById('fb-overlay').style.display = 'flex';
+  fbRenderSlots();
 }
 function closeFeedback() {
   document.getElementById('fb-overlay').style.display = 'none';
   document.getElementById('fb-text').value = '';
   _fbType = 'howto';
   document.querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b.dataset.v === 'howto'));
-  fbRemoveImg();
+  _fbImgs.fill(null);
+  fbRenderSlots();
 }
 function fbSetType(btn) {
   _fbType = btn.dataset.v;
   document.querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b === btn));
 }
-function fbRemoveImg() {
-  _fbImgData = null;
-  document.getElementById('fb-img-preview').style.display = 'none';
-  document.getElementById('fb-img-thumb').src = '';
-  document.getElementById('fb-img-input').value = '';
+
+function fbRenderSlots() {
+  const container = document.getElementById('fb-img-slots');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'fb-img-slot';
+    if (_fbImgs[i]) {
+      const img = document.createElement('img');
+      img.src = _fbImgs[i];
+      slot.appendChild(img);
+      const actions = document.createElement('div');
+      actions.className = 'fb-slot-actions';
+      actions.innerHTML = `
+        <button class="fb-slot-btn" style="background:var(--accent,#e05a00);color:#fff" onclick="fbAnnOpen(${i});event.stopPropagation()">✏️ 編集</button>
+        <button class="fb-slot-btn" style="background:rgba(255,255,255,.15);color:#fff" onclick="fbSlotRemove(${i});event.stopPropagation()">✕</button>`;
+      slot.appendChild(actions);
+      slot.onclick = () => fbAnnOpen(i);
+    } else {
+      slot.innerHTML = `<div style="font-size:11px;color:var(--text3,#666);text-align:center;line-height:1.5;user-select:none">📎<br>追加</div>`;
+      slot.onclick = () => { _fbAnnSlot = i; document.getElementById('fb-img-input').click(); };
+    }
+    container.appendChild(slot);
+  }
 }
-function fbImgSelected(input) {
+
+function fbSlotRemove(idx) {
+  _fbImgs[idx] = null;
+  fbRenderSlots();
+}
+
+function fbFileSelected(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      const MAX = 600;
+      const MAX = 800;
       let w = img.width, h = img.height;
       if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
       if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      _fbImgData = canvas.toDataURL('image/jpeg', 0.72);
-      document.getElementById('fb-img-thumb').src = _fbImgData;
-      document.getElementById('fb-img-preview').style.display = '';
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      _fbImgs[_fbAnnSlot] = c.toDataURL('image/jpeg', 0.8);
+      fbRenderSlots();
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+  input.value = '';
 }
+
+// ── annotation ──
+function fbAnnOpen(idx) {
+  _fbAnnSlot = idx;
+  _fbAnnStrokes = [];
+  _fbAnnCurrent = null;
+  _fbAnnDrawing = false;
+  document.getElementById('fb-ann-modal').style.display = 'flex';
+  _fbAnnBase = new Image();
+  _fbAnnBase.onload = () => {
+    const wrap = document.getElementById('fb-ann-wrap');
+    const maxW = wrap.clientWidth - 8;
+    const maxH = wrap.clientHeight - 8;
+    const ratio = Math.min(maxW / _fbAnnBase.width, maxH / _fbAnnBase.height, 1);
+    const cv = _fbAnnCanvas();
+    cv.width  = Math.round(_fbAnnBase.width  * ratio);
+    cv.height = Math.round(_fbAnnBase.height * ratio);
+    fbAnnRedraw();
+  };
+  _fbAnnBase.src = _fbImgs[idx];
+}
+
+function fbAnnClose(save) {
+  if (save) {
+    const cv = _fbAnnCanvas();
+    const flat = document.createElement('canvas');
+    flat.width = cv.width; flat.height = cv.height;
+    flat.getContext('2d').drawImage(cv, 0, 0);
+    _fbImgs[_fbAnnSlot] = flat.toDataURL('image/jpeg', 0.9);
+    fbRenderSlots();
+  }
+  document.getElementById('fb-ann-modal').style.display = 'none';
+}
+
+function fbAnnRedraw() {
+  const cv = _fbAnnCanvas();
+  const ctx = _fbAnnCtx();
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(_fbAnnBase, 0, 0, cv.width, cv.height);
+  _fbAnnStrokes.forEach(s => _fbAnnDrawStroke(ctx, s));
+  if (_fbAnnCurrent) _fbAnnDrawStroke(ctx, _fbAnnCurrent);
+}
+
+function _fbAnnDrawStroke(ctx, s) {
+  ctx.save();
+  ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
+  ctx.lineWidth = s.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (s.tool === 'pen') {
+    ctx.beginPath();
+    s.pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+  } else if (s.tool === 'arrow') {
+    const p0 = s.pts[0], p1 = s.pts[s.pts.length - 1];
+    if (!p0 || !p1) { ctx.restore(); return; }
+    const dx = p1.x - p0.x, dy = p1.y - p0.y;
+    if (Math.hypot(dx, dy) < 2) { ctx.restore(); return; }
+    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    const ang = Math.atan2(dy, dx);
+    const hw = Math.max(s.width * 4, 12);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p1.x - hw * Math.cos(ang - Math.PI/7), p1.y - hw * Math.sin(ang - Math.PI/7));
+    ctx.lineTo(p1.x - hw * Math.cos(ang + Math.PI/7), p1.y - hw * Math.sin(ang + Math.PI/7));
+    ctx.closePath(); ctx.fill();
+  } else if (s.tool === 'rect') {
+    const p0 = s.pts[0], p1 = s.pts[s.pts.length - 1];
+    if (!p0 || !p1) { ctx.restore(); return; }
+    ctx.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+  }
+  ctx.restore();
+}
+
+function fbAnnTool(t) {
+  _fbAnnTool = t;
+  document.querySelectorAll('.fb-ann-tool-btn').forEach(b => b.classList.toggle('active', b.id === 'fb-ann-' + t));
+}
+function fbAnnColor(c, el) {
+  _fbAnnColor = c;
+  document.querySelectorAll('.fb-ann-color').forEach(s => s.classList.toggle('active', s.dataset.c === c));
+}
+function fbAnnWidth(w, el) {
+  _fbAnnWidth = w;
+  document.querySelectorAll('.fb-ann-w-btn').forEach(b => b.classList.toggle('active', b.dataset.w == w));
+}
+function fbAnnUndo() {
+  _fbAnnStrokes.pop();
+  fbAnnRedraw();
+}
+
+// ── canvas events ──
+(function() {
+  function getPos(cv, e) {
+    const r = cv.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  }
+  function onStart(e) {
+    if (!_fbAnnBase) return;
+    _fbAnnDrawing = true;
+    const p = getPos(_fbAnnCanvas(), e);
+    _fbAnnCurrent = { tool: _fbAnnTool, color: _fbAnnColor, width: _fbAnnWidth, pts: [p] };
+  }
+  function onMove(e) {
+    if (!_fbAnnDrawing) return;
+    const p = getPos(_fbAnnCanvas(), e);
+    if (_fbAnnTool === 'pen') _fbAnnCurrent.pts.push(p);
+    else _fbAnnCurrent.pts = [_fbAnnCurrent.pts[0], p];
+    fbAnnRedraw();
+  }
+  function onEnd() {
+    if (!_fbAnnDrawing) return;
+    _fbAnnDrawing = false;
+    if (_fbAnnCurrent && _fbAnnCurrent.pts.length > 0) _fbAnnStrokes.push(_fbAnnCurrent);
+    _fbAnnCurrent = null;
+    fbAnnRedraw();
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const cv = _fbAnnCanvas();
+    if (!cv) return;
+    cv.addEventListener('mousedown',  onStart);
+    cv.addEventListener('mousemove',  onMove);
+    cv.addEventListener('mouseup',    onEnd);
+    cv.addEventListener('mouseleave', onEnd);
+    cv.addEventListener('touchstart', e => { e.preventDefault(); onStart(e); }, { passive: false });
+    cv.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e);  }, { passive: false });
+    cv.addEventListener('touchend',   e => { e.preventDefault(); onEnd(e);   }, { passive: false });
+  });
+})();
+
 async function submitFeedback() {
   const page = document.getElementById('fb-page').value;
   const text = document.getElementById('fb-text').value.trim();
   const btn  = document.getElementById('fb-submit-btn');
   btn.disabled = true; btn.textContent = '送信中…';
   try {
-    await window.saveFeedback?.({ page, type: _fbType, text, imageData: _fbImgData });
+    const images = _fbImgs.filter(Boolean);
+    await window.saveFeedback?.({ page, type: _fbType, text, images });
     closeFeedback();
     window.toast?.('✅ フィードバックありがとうございます！');
   } catch(e) {
