@@ -1,22 +1,8 @@
 // ═══ WAZA KIMURA — Notes tab v51.06 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
-// ユーザー別キー（構造的隔離 — 異なるユーザーのキーには絶対に触れない）
-const _notesKey   = uid => `wk_notes_v1_${uid}`;
-const _savedAtKey = uid => `wk_notes_savedAt_${uid}`;
-
-// ── storage ──
-function _loadForUser(uid) {
-  try { const r = localStorage.getItem(_notesKey(uid)); return r ? JSON.parse(r) : []; }
-  catch { return []; }
-}
-
 let _saveFsTimer = null;
 function _save() {
-  const uid = window._currentUserUid?.();
-  if (uid) {
-    try { localStorage.setItem(_notesKey(uid), JSON.stringify(_data)); } catch {}
-  }
   clearTimeout(_saveFsTimer);
   _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 500);
 }
@@ -33,11 +19,11 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('pagehide', _flushNotes);
 window.addEventListener('beforeunload', _flushNotes);
 
-// ログイン後にauth側から呼ばれる（ユーザー別localStorageから初期化）
-window._notesInitForUser = function(uid) {
+// ログイン後にauth側から呼ばれる
+window._notesInitForUser = function() {
   clearTimeout(_saveFsTimer);
   _saveFsTimer = null;
-  _data = _loadForUser(uid);
+  _data = [];
   _activeId = null;
   window.renderNotes?.();
 };
@@ -53,22 +39,15 @@ window._notesClear = function() {
 
 window._notesGetData = () => _data;
 
-window._notesLoadFromRemote = function(remoteData, remoteAt) {
+window._notesLoadFromRemote = function(remoteData) {
   if (!Array.isArray(remoteData) || !remoteData.length) return;
-  const uid = window._currentUserUid?.();
   _data = remoteData;
-  if (uid) {
-    try {
-      localStorage.setItem(_notesKey(uid), JSON.stringify(_data));
-      if (remoteAt) localStorage.setItem(_savedAtKey(uid), remoteAt);
-    } catch {}
-  }
   if (_activeId) _renderNote(_activeId);
   window.renderNotes?.();
   window.toast?.('📓 ノートを同期しました');
 };
 
-let _data = []; // auth解決前は空。_notesInitForUser(uid)で正しく初期化される
+let _data = [];
 let _activeId = null;
 let _recentIds = [];
 let _dragSrcNoteId = null;

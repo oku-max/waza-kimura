@@ -1325,6 +1325,7 @@ export function openVPanel(id) {
       <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
       <button id="vp-search-btn" onclick="vpTogSearchMenu(event,'${id}')" title="このチャンネル・関連技を検索" style="${navBtnStyle}">${srchSvg}</button>
       <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
+      <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtnStyle}">?</button>
     </div>`;
   }
 
@@ -1378,7 +1379,7 @@ export function openVPanel(id) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
-      + `<div class="vp-row" style="margin-top:8px">
+      + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <span class="vp-lbl">Memo</span>
           <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')" oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)">${vd?.memo||''}</textarea>
         </div>
@@ -1827,15 +1828,7 @@ export function buildDrawerHTML(id) {
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
 
-    <div class="vp-row">
-      <span class="vp-lbl">Share</span>
-      <div class="vp-chips" id="vp-share-${id}">
-        <span class="vp-chip${(v.shared||0)===0?' on-s0':''}" onclick="vpSetShare('${id}',0,this)">🔒 非公開</span>
-        <span class="vp-chip${(v.shared||0)===1?' on-s1':''}" onclick="vpSetShare('${id}',1,this)">👥 フォロワー</span>
-        <span class="vp-chip${(v.shared||0)===2?' on-s0':''}" onclick="vpSetShare('${id}',2,this)">🌐 全公開</span>
-      </div>
-    </div>
-    <div style="padding:8px 16px 4px">
+    <div id="vp-notes-row-${id}" style="padding:8px 16px 4px">
       <button onclick="window.notesAddVideo?.('${id}')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--accent);
                background:rgba(232,201,106,.08);color:var(--accent);font-size:13px;
@@ -1843,7 +1836,7 @@ export function buildDrawerHTML(id) {
         📓 Notes に追加
       </button>
     </div>
-    <div style="padding:0 16px 4px">
+    <div id="vp-ai-row-${id}" style="padding:0 16px 4px">
       <button id="vp-ai-tag-btn"
         onclick="window.onAiTagBtn?.('${id}')"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
@@ -1852,16 +1845,18 @@ export function buildDrawerHTML(id) {
         🤖 AIタグ提案
       </button>
     </div>
-    <div style="padding:4px 16px" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
-      ${v.verified
-        ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
-        : `<button onclick="vpVerify('${id}')"
-            style="width:100%;padding:9px;border-radius:8px;border:1.5px solid var(--green,#6bc490);
-                   background:transparent;color:var(--green,#6bc490);font-size:12px;
-                   font-weight:700;cursor:pointer">
-            ✓ 検証済みにする
-          </button>`}
-    </div>
+    ${window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
+      ? `<div style="padding:4px 16px" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
+          ${v.verified
+            ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
+            : `<button onclick="vpVerify('${id}')"
+                style="width:100%;padding:9px;border-radius:8px;border:1.5px solid var(--green,#6bc490);
+                       background:transparent;color:var(--green,#6bc490);font-size:12px;
+                       font-weight:700;cursor:pointer">
+                ✓ 検証済みにする
+              </button>`}
+        </div>`
+      : ''}
     <div style="padding:4px 16px;display:flex;gap:8px">
       <button onclick="vpArchive('${id}')"
         style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--purple,#8b5cf6);
