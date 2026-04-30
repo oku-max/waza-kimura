@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.82</title>
+<title>WAZA KIMURA v51.83</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -4368,7 +4368,7 @@ async function submitFeedback() {
     closeFeedback();
     window.toast?.('✅ フィードバックありがとうございます！');
   } catch(e) {
-    window.toast?.('⚠️ 送信に失敗しました');
+    window.toast?.('⚠️ 送信に失敗しました: ' + (e?.message || e), 6000);
   } finally {
     btn.disabled = false; btn.textContent = '送信';
   }
