@@ -1759,24 +1759,25 @@ export function openOrgColFilter(col, thEl) {
 
   // 位置決め: ヘッダー直下から始めてビューポート内に収める
   const rect = thEl.getBoundingClientRect();
+  const z = parseFloat(document.body.style.zoom) || 1;
   let left = rect.left;
   const ddW = dd.offsetWidth || 210;
-  if (left + ddW > window.innerWidth - 8) left = window.innerWidth - ddW - 8;
-  dd.style.left = Math.max(4, left) + 'px';
+  if (left + ddW * z > window.innerWidth - 8) left = window.innerWidth - ddW * z - 8;
+  dd.style.left = (Math.max(4, left) / z) + 'px';
   const spaceBelow = window.innerHeight - rect.bottom - 8;
   const spaceAbove = rect.top - 8;
   if (spaceBelow >= 250) {
-    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.top = ((rect.bottom + 4) / z) + 'px';
     dd.style.bottom = 'auto';
-    dd.style.maxHeight = spaceBelow + 'px';
+    dd.style.maxHeight = (spaceBelow / z) + 'px';
   } else if (spaceAbove > spaceBelow) {
-    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dd.style.bottom = ((window.innerHeight - rect.top + 4) / z) + 'px';
     dd.style.top = 'auto';
-    dd.style.maxHeight = spaceAbove + 'px';
+    dd.style.maxHeight = (spaceAbove / z) + 'px';
   } else {
-    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.top = ((rect.bottom + 4) / z) + 'px';
     dd.style.bottom = 'auto';
-    dd.style.maxHeight = spaceBelow + 'px';
+    dd.style.maxHeight = (spaceBelow / z) + 'px';
   }
 
   // ── ソートボタン ──
