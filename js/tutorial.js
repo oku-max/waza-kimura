@@ -43,14 +43,32 @@
   let _cur   = 0;
   let _steps = [];
 
+  // ── ピンチズーム判定 ─────────────────────────────────
+  // デスクトップのブラウザズーム(Ctrl+/-)はピンチズームではない。
+  // getBoundingClientRect() は常に CSS px 基準で zoom 補正済みのため
+  // デスクトップでは CSS `position:fixed; inset:0` だけで完全一致する。
+  // JS で overlay の left/top/width/height を上書きするとむしろズレる。
+  // ピンチズーム(モバイル)だけ visualViewport.offset で補正する。
+  function _isPinchZoomed() {
+    const v = vv();
+    if (!v) return false;
+    return Math.abs(v.offsetLeft) > 1 || Math.abs(v.offsetTop) > 1;
+  }
+
   // ── オーバーレイをビジュアルビューポートに同期 ──────
   function _syncOverlay() {
     const o = document.getElementById('vp-tut-overlay');
     if (!o) return;
-    o.style.left   = vvOX() + 'px';
-    o.style.top    = vvOY() + 'px';
-    o.style.width  = vvW()  + 'px';
-    o.style.height = vvH()  + 'px';
+    if (_isPinchZoomed()) {
+      // モバイルのピンチズーム: overlay を visual viewport に追従
+      o.style.left   = vvOX() + 'px';
+      o.style.top    = vvOY() + 'px';
+      o.style.width  = vvW()  + 'px';
+      o.style.height = vvH()  + 'px';
+    } else {
+      // デスクトップ / 通常: CSS `position:fixed; inset:0` に完全に任せる
+      o.style.left = o.style.top = o.style.width = o.style.height = '';
+    }
   }
 
   // ── 公開 API ─────────────────────────────────────────
@@ -90,12 +108,17 @@
     // スクロールアウト要素を即座に表示域に戻す（同期スクロール）
     el.scrollIntoView({ behavior: 'instant', block: 'nearest' });
 
-    // スクロール後の座標を取得（ビジュアルビューポート基準 CSS px）
-    const r  = el.getBoundingClientRect();
-    const ox = vvOX(), oy = vvOY();
-    const W  = vvW(),  H  = vvH();
+    // 座標取得。getBoundingClientRect() は常に viewport 基準 CSS px。
+    // ブラウザズーム(Ctrl+/-)でも自動補正済みなので追加処理不要。
+    const r     = el.getBoundingClientRect();
+    const pinch = _isPinchZoomed();
+    // ピンチズーム時のみ overlay が vvOffset 分ずれるので補正、それ以外は 0
+    const ox = pinch ? vvOX() : 0;
+    const oy = pinch ? vvOY() : 0;
+    const W  = pinch ? vvW()  : window.innerWidth;
+    const H  = pinch ? vvH()  : window.innerHeight;
 
-    // リング位置: overlay 内座標 = viewport座標 - overlay原点(=vvOffset)
+    // リング位置: overlay 内座標 = viewport座標 - overlay原点
     const ring = document.getElementById('vp-tut-ring');
     ring.style.left   = (r.left - ox - P)  + 'px';
     ring.style.top    = (r.top  - oy - P)  + 'px';
