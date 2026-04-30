@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v51.79</title>
+<title>WAZA KIMURA v51.80</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1466,6 +1466,7 @@
       <div class="admin-stab" onclick="switchAdminSub('rules')" data-sub="rules" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ルール</div>
       <div class="admin-stab" onclick="switchAdminSub('categories')" data-sub="categories" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">カテゴリ</div>
       <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
+      <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
     </div>
 
     <!-- A: 精度パネル -->
@@ -1492,6 +1493,9 @@
     <div id="admin-p-positions" style="display:none">
       <div id="admin-positions-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
     </div>
+
+    <!-- フィードバック閲覧パネル -->
+    <div id="admin-p-feedback" style="display:none"></div>
   </div>
 </div>
 

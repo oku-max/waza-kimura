@@ -6,7 +6,7 @@ const RULES_KEY     = 'waza_ai_rules';
 const TAGDICT_KEY   = 'waza_tag_dict';
 const POSITIONS_KEY = 'waza_positions';
 
-const ALL_SUBS = ['accuracy','corrections','rules','categories','positions'];
+const ALL_SUBS = ['accuracy','corrections','rules','categories','positions','feedback'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -23,8 +23,9 @@ export function switchAdminSub(sub) {
   if (sub === 'accuracy')    _renderAccuracy();
   if (sub === 'corrections') _renderCorrections();
   if (sub === 'rules')       _renderRules();
-  if (sub === 'categories')     _renderCategories();
+  if (sub === 'categories')  _renderCategories();
   if (sub === 'positions')   _renderPositions();
+  if (sub === 'feedback')    _renderFeedbackAdmin();
 }
 window.switchAdminSub = switchAdminSub;
 
@@ -730,3 +731,65 @@ export function filterPositions() {
   });
 }
 window.filterPositions = filterPositions;
+
+// ── フィードバック閲覧（オーナー専用） ──
+const _OWNER_FB = 'okujournal@gmail.com';
+
+async function _renderFeedbackAdmin() {
+  const el = document.getElementById('admin-p-feedback');
+  if (!el) return;
+
+  const email = window._firebaseCurrentUser?.()?.email;
+  if (email !== _OWNER_FB) {
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-size:13px;">🔒 オーナーのみ閲覧できます</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;">読み込み中...</div>';
+
+  try {
+    const snap = await firebase.firestore()
+      .collection('feedback')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+
+    if (snap.empty) {
+      el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-size:13px;">フィードバックはまだありません</div>';
+      return;
+    }
+
+    const TYPE_LABEL = { bug: '🐛 バグ', idea: '💡 改善案', question: '❓ 質問', other: '💬 その他' };
+    const PAGE_LABEL = { library: 'Library', search: 'Search', notes: 'Notes', settings: '設定', other: 'その他' };
+
+    const rows = snap.docs.map(doc => {
+      const d = doc.data();
+      const date = d.createdAt ? d.createdAt.slice(0, 16).replace('T', ' ') : '—';
+      const type = TYPE_LABEL[d.type] || d.type || '—';
+      const page = PAGE_LABEL[d.page] || d.page || '—';
+      const userEmail = d.email || '未ログイン';
+      const text = (d.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      return `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:var(--surface2);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;color:var(--accent);">${type}</span>
+            <span style="font-size:11px;color:var(--text3);background:var(--surface3);padding:2px 7px;border-radius:10px;">${page}</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto;">${date}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);line-height:1.65;margin-bottom:6px;">${text}</div>
+          <div style="font-size:11px;color:var(--text3);">from: ${userEmail}</div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text3);">${snap.size} 件</div>
+        <button onclick="window.reloadFeedbackAdmin?.()" style="font-size:11px;padding:4px 12px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);cursor:pointer;">↻ 更新</button>
+      </div>
+      ${rows}`;
+  } catch (e) {
+    el.innerHTML = `<div style="padding:20px;color:#f66;font-size:12px;">読み込みエラー: ${e.message}</div>`;
+  }
+}
+
+window.reloadFeedbackAdmin = () => _renderFeedbackAdmin();
