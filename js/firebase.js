@@ -53,15 +53,7 @@ async function loadNotes(uid) {
   const docRef = db.collection('users').doc(uid).collection('data').doc('notes');
 
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
-    if (!snap.exists || !snap.data()?.data?.length) {
-      const localData = window._notesGetData?.();
-      if (localData?.length) {
-        const updatedAt = new Date().toISOString();
-        localStorage.setItem('wk_notes_savedAt', updatedAt);
-        await docRef.set({ data: localData, updatedAt, savedBy: _sessionId });
-      }
-      return;
-    }
+    if (!snap.exists || !snap.data()?.data?.length) return;
     // 判定1: 自分のセッションの書き込み → クロックスキュー不問でスキップ
     if (snap.data().savedBy === _sessionId) return;
     // 判定2: 別セッション → タイムスタンプで自分のほうが新しければスキップ
@@ -237,6 +229,14 @@ export async function loadUserSettings(uid) {
     }
   } catch (e) { console.error('loadUserSettings:', e); }
 }
+
+// テスト期間中の汚染データ消去用（ブラウザコンソールから実行）
+window.resetMyNotes = async function() {
+  if (!currentUser) { console.warn('ログインしてください'); return; }
+  await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').delete();
+  window._notesClear?.();
+  console.log('Notesをリセットしました');
+};
 
 export async function saveFeedback({ page, type, text, imageData }) {
   try {
