@@ -17,14 +17,17 @@ export const db   = firebase.firestore();
 export let currentUser = null;
 let _durFetchDone = false; // duration補完は初回ロード1回だけ
 
-// notes.jsがユーザー別localStorageキーを生成するために参照
 window._currentUserUid = () => currentUser?.uid;
 
 auth.onAuthStateChanged(async (user) => {
+  // ユーザーが変わったら必ず全リスナーを先に解除する（Firebase標準パターン）
+  if (_notesUnsubscribe)  { _notesUnsubscribe();  _notesUnsubscribe  = null; }
+  if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
+
   currentUser = user;
   updateAuthUI(user);
   if (user) {
-    window._notesInitForUser?.(user.uid); // ユーザー別キーで安全に初期化
+    window._notesInitForUser?.();
     await loadUserData(user.uid);
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
@@ -48,7 +51,6 @@ window._firebaseSaveNotes = async function(data) {
     await db.collection('users').doc(uid).collection('data').doc('notes').set({
       data, updatedAt, savedBy: _sessionId
     });
-    localStorage.setItem(`wk_notes_savedAt_${uid}`, updatedAt);
   } catch(e) { console.error('saveNotes:', e); }
 };
 
@@ -60,10 +62,7 @@ async function loadNotes(uid) {
     if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
     if (!snap.exists || !snap.data()?.data?.length) return;
     if (snap.data().savedBy === _sessionId) return;
-    const remoteAt     = snap.data().updatedAt || '';
-    const localSavedAt = localStorage.getItem(`wk_notes_savedAt_${uid}`) || '';
-    if (remoteAt && localSavedAt && remoteAt <= localSavedAt) return;
-    window._notesLoadFromRemote?.(snap.data().data, remoteAt);
+    window._notesLoadFromRemote?.(snap.data().data);
   }, e => console.error('notes onSnapshot:', e));
 }
 
