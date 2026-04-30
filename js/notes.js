@@ -3,89 +3,7 @@ import { getSnapshot, putSnapshot } from './snapshot-db.js';
 
 const NOTES_KEY = 'wk_notes_v1';
 
-const DEFAULT_DATA = [
-  {
-    id: 'back', icon: '🔙', name: 'バックポジション',
-    notes: [
-      { id: 'back-choke', name: 'バックチョーク', status: 'wip', tags: ['バック','チョーク'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',    content: '🎯 核心ポイント' },
-          { type: 'text',  content: 'シートベルトグリップを確立してから、ハーネスを作る。肘の角度と首の位置が重要。相手の顎が上がると首が取れる。反対の手でグリップを補助し、身体全体で絞める。' },
-          { type: 'quote', content: '「顎を引かせない。脇の下からグリップを深くする」— 練習メモ 2025/04/15' },
-          { type: 'h2',    content: '⚠️ 課題・弱点' },
-          { type: 'text',  content: 'グリップが浅くなると外されやすい。特に相手が顎を引いてくるときの対処が弱点。' }
-        ]
-      },
-      { id: 'seatbelt', name: 'シートベルト維持', status: 'done', tags: ['バック','グリップ'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',    content: '🎯 核心ポイント' },
-          { type: 'text',  content: '上の腕を深く差して肘を相手の顎の下に入れる。下の腕は脇下から回して肩甲骨辺りで組む。' },
-          { type: 'quote', content: '「ベルトは腰、上の腕は顎の下。2点で押さえる」' }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'guard', icon: '🛡', name: 'ガードワーク',
-    notes: [
-      { id: 'knee-shield', name: 'ニーシールド基礎', status: 'done', tags: ['ガード','フレーム'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',   content: '🎯 核心ポイント' },
-          { type: 'text', content: '膝を盾として使いスペースを確保する。前の足でヒップをコントロールし、後ろ足でガードを維持する。' }
-        ]
-      },
-      { id: 'x-guard', name: 'Xガード展開', status: 'wip', tags: ['ガード','スイープ'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',   content: '🎯 核心ポイント' },
-          { type: 'text', content: 'アンダーフックから入るXガード。両足で相手の体重を支えながらスイープに繋げる。' }
-        ]
-      },
-      { id: 'butterfly', name: 'バタフライガード', status: 'new', tags: ['ガード','スイープ'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',   content: '🎯 核心ポイント' },
-          { type: 'text', content: 'フックの位置と体重移動。両足フックで浮かせてからスイープ。' }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'sub', icon: '✊', name: 'サブミッション',
-    notes: [
-      { id: 'triangle', name: '三角絞め', status: 'review', tags: ['クローズド','サブ'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',    content: '🎯 核心ポイント' },
-          { type: 'text',  content: 'クローズドガードからのセットアップ。角度調整とヒップの使い方が課題。' },
-          { type: 'quote', content: '「ヒップを45度に向ける。それだけで絞まりが変わる」' }
-        ]
-      },
-      { id: 'armbar', name: '腕十字（ガードから）', status: 'wip', tags: ['クローズド','サブ'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',   content: '🎯 核心ポイント' },
-          { type: 'text', content: 'クローズドガードから片腕を捕らえて回転。親指を上に向けてから絞める。' }
-        ]
-      }
-    ]
-  },
-  {
-    id: 'td', icon: '🤸', name: 'テイクダウン',
-    notes: [
-      { id: 'double-leg', name: 'ダブルレッグ', status: 'wip', tags: ['TD','レスリング'],
-        updatedAt: Date.now(),
-        blocks: [
-          { type: 'h2',   content: '🎯 核心ポイント' },
-          { type: 'text', content: 'シングルから繋げるパターン。レベルチェンジのタイミングが肝心。' }
-        ]
-      }
-    ]
-  }
-];
+const DEFAULT_DATA = [];
 
 // ── storage ──
 function _load() {
@@ -115,6 +33,17 @@ window.addEventListener('beforeunload', _flushNotes);
 
 // ログイン後にFirestoreから呼ばれる
 window._notesGetData = () => _data;
+
+// ログアウト時に呼ばれる（他ユーザーへのデータ漏洩防止）
+window._notesClear = function() {
+  _data = [];
+  _activeId = null;
+  try {
+    localStorage.removeItem(NOTES_KEY);
+    localStorage.removeItem('wk_notes_savedAt');
+  } catch {}
+  window.renderNotes?.();
+};
 window._notesLoadFromRemote = function(remoteData, remoteAt) {
   if (!Array.isArray(remoteData) || !remoteData.length) return;
   _data = remoteData;

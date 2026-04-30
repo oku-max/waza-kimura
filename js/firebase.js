@@ -24,6 +24,8 @@ auth.onAuthStateChanged(async (user) => {
     await loadUserData(user.uid);
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
+  } else {
+    window._notesClear?.();
   }
 });
 
