@@ -803,7 +803,7 @@ async function _renderFeedbackAdmin() {
             <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:0 0 2px 0">
               ${d.text ? `<div style="font-size:12px;line-height:1.65;margin-bottom:10px;white-space:pre-wrap">${_esc(d.text)}</div>` : ''}
               ${imgCount ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-                ${imgs.map(src => `<img src="${src}" style="max-height:130px;max-width:180px;border-radius:6px;cursor:pointer;object-fit:cover" onclick="window.open(this.src)">`).join('')}
+                ${imgs.map(src => `<img src="${src}" style="max-height:130px;max-width:180px;border-radius:6px;cursor:zoom-in;object-fit:cover" onclick="fbAdmLightbox(this.src)">`).join('')}
               </div>` : ''}
               <div style="font-size:11px;color:var(--text3);margin-bottom:10px">from: ${_esc(d.email || '—')}</div>
               <div style="display:flex;gap:6px;align-items:flex-end">
@@ -841,7 +841,10 @@ async function _renderFeedbackAdmin() {
       <style>
         .fb-adm-row { border-bottom:1px solid var(--border2); cursor:pointer; transition:background .1s; }
         .fb-adm-row:hover { background:var(--surface2); }
-      </style>`;
+      </style>
+      <div id="fb-img-lb" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);align-items:center;justify-content:center;cursor:zoom-out">
+        <img id="fb-img-lb-img" style="max-width:92vw;max-height:92vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none">
+      </div>`;
   } catch (e) {
     el.innerHTML = `<div style="padding:20px;color:#f66;font-size:12px;">読み込みエラー: ${e.message}</div>`;
   }
@@ -870,6 +873,14 @@ window.fbAdmDelete = async function(docId, idx) {
   } catch(e) {
     alert('削除に失敗しました: ' + e.message);
   }
+};
+
+window.fbAdmLightbox = function(src) {
+  const lb = document.getElementById('fb-img-lb');
+  const img = document.getElementById('fb-img-lb-img');
+  if (!lb || !img) return;
+  img.src = src;
+  lb.style.display = 'flex';
 };
 
 window.fbAdmSaveMemo = async function(docId, idx) {
