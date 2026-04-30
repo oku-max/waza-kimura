@@ -57,6 +57,7 @@ async function loadNotes(uid) {
   const docRef = db.collection('users').doc(uid).collection('data').doc('notes');
 
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
+    if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
     if (!snap.exists || !snap.data()?.data?.length) return;
     if (snap.data().savedBy === _sessionId) return;
     const remoteAt     = snap.data().updatedAt || '';
