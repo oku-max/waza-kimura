@@ -714,6 +714,19 @@ function _blockHTML(block, idx, noteId, total) {
           ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
         </div>${drag}${upBtn}${dnBtn}${del}</div>`;
     }
+    case 'map': {
+      const nodeCount = (block.nodes||[]).length;
+      const edgeCount = (block.edges||[]).length;
+      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
+        <div class="n-b-map" onclick="window._notesOpenMap('${noteId}',${idx})">
+          <div class="n-b-map-icon">🗺</div>
+          <div class="n-b-map-info">
+            <div class="n-b-map-name">${_esc(block.name||'マップ')}</div>
+            <div class="n-b-map-meta">${nodeCount}ノード · ${edgeCount}接続</div>
+          </div>
+          <div class="n-b-map-open">編集 →</div>
+        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
+    }
     default: return '';
   }
 }
@@ -1316,6 +1329,7 @@ function _renderNote(id) {
       <button class="n-add-inline n-add-video-btn" onclick="window._notesShowVidPicker?.('${id}')">＋ 動画を追加</button>
       <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
       <button class="n-add-inline" onclick="window._notesAddColBlock('${id}')">⊞ カラム</button>
+      <button class="n-add-inline" onclick="window._notesAddMapBlock('${id}')">🗺 Map</button>
     </div>
   `;
 
@@ -1544,6 +1558,32 @@ window._notesVideoConfirm = function() {
 };
 
 window._notesAddVideoBlock = function(noteId) { window._notesShowVidPicker(noteId); };
+
+window._notesAddMapBlock = function(noteId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  _blocksInsertOrPush(r.note.blocks, { type: 'map', name: 'マップ', nodes: [], edges: [], abState: {} });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesOpenMap = function(noteId, idx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const block = r.note.blocks[idx];
+  if (!block || block.type !== 'map') return;
+  if (!window.fcOpenEditor) return;
+  window.fcOpenEditor(block, function(updated) {
+    block.name    = updated.name;
+    block.nodes   = updated.nodes;
+    block.edges   = updated.edges;
+    block.abState = updated.abState;
+    r.note.updatedAt = Date.now();
+    _save();
+    _renderNote(noteId);
+  });
+};
 window._notesAddImageBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
