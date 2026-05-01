@@ -1,5 +1,6 @@
 // ═══ WAZA KIMURA — Notes tab v51.06 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
+window._getSnapshot = getSnapshot;
 
 let _saveFsTimer = null;
 function _save() {

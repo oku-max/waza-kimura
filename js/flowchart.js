@@ -251,7 +251,7 @@
       el.innerHTML=_nodeHTML(nd);
       cv.appendChild(el);
       _wireNode(el,nd);
-      if(nd.content?.type==='video') setTimeout(()=>_initPlayer(nd.id, nd.content.videoId),100);
+      if(nd.content?.type==='video' && nd.content.videoId) setTimeout(()=>_initPlayer(nd.id, nd.content.videoId),100);
     });
   }
 
@@ -281,6 +281,15 @@
 
   function _videoHTML(nd){
     const vid=nd.content.videoId||'';
+    if(!vid) return `<div class="node-content node-vid-setup">
+      <div class="fc-url-row">
+        <input class="fc-url-input" id="fc-url-in-${nd.id}" type="text" placeholder="YouTube URL を入力…"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();window._fcUrlOk('${nd.id}')}"
+          onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
+        <button class="fc-url-ok-btn" onclick="event.stopPropagation();window._fcUrlOk('${nd.id}')">▶</button>
+      </div>
+      <button class="fc-lib-btn" onclick="event.stopPropagation();window._fcLibPick('${nd.id}')">📚 ライブラリから選ぶ</button>
+    </div>`;
     const st=_getAb(nd.id);
     const bmList=st.bookmarks.length
       ?st.bookmarks.map((bm,i)=>`<div class="bm-item">
@@ -616,7 +625,7 @@
   function _startPlace(type){
     _hidePicker(); _pendingContent=null;
     if(type==='text'){ _enterPlacingMode(); }
-    else if(type==='video'){ _onVidInsert=()=>_enterPlacingMode(); _openFcVidPicker(); }
+    else if(type==='video'){ _pendingContent={type:'video',videoId:'',platform:'youtube',title:'',channel:''}; _enterPlacingMode(); }
     else if(type==='image'){ _onImgInsert=()=>_enterPlacingMode(); _openFcImgPicker(); }
   }
   function _enterPlacingMode(){
@@ -661,23 +670,42 @@
     _hideCtx();
     const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return;
     if(action==='del'){ _nodes=_nodes.filter(n=>n.id!==nd.id); _edges=_edges.filter(e=>e.from!==nd.id&&e.to!==nd.id); _renderAll(); return; }
-    if(action==='vid'||action==='chg'){ _onVidInsert=null; _openFcVidPicker(); }
+    if(action==='vid'||action==='chg'){ _onVidInsert=null; if(window._fcLibPick) window._fcLibPick(nd.id); else _openFcVidPicker(); }
     else if(action==='img'){ _onImgInsert=null; _openFcImgPicker(); }
     else if(action==='txt'){ nd.content={type:'text',text:''}; _renderAll(); setTimeout(()=>{ const ta=document.getElementById('fc-ta-'+nd.id); if(ta){ ta.contentEditable='true'; ta.classList.add('editing'); ta.focus(); }},50); }
   }
 
-  // ── Video picker — reuse notes sheet UI ───────────────────────
+  // ── Video picker ───────────────────────────────────────────────
   function _openFcVidPicker(){
-    // Intercept notes video confirmation to route to flowchart
     window._notesFcVideoCallback = function(vidData) {
-      _applyVideo(vidData.videoId || vidData.ytId || vidData.id, vidData);
+      window.uniClose?.();
+      const ytId = vidData.ytId || (vidData.platform==='youtube' ? vidData.videoId : null) || vidData.videoId || vidData.id;
+      _applyVideo(ytId, vidData);
     };
-    // Show notes' existing sheet (z-index 9999 > fc-overlay 9000)
-    window._notesShowVidPicker?.('__fc__');
+    window.uniOpenForNote?.('__fc__');
   }
+  window._fcUrlOk = function(nid){
+    const inp = document.getElementById('fc-url-in-'+nid); if(!inp) return;
+    const ytId = _extractVid(inp.value.trim());
+    if(!ytId){ inp.style.outline='2px solid red'; setTimeout(()=>inp.style.outline='',1500); return; }
+    const nd = _nodes.find(n=>n.id===nid); if(!nd) return;
+    nd.content = {type:'video', videoId:ytId, platform:'youtube', title:'', channel:''};
+    if(!_abState[nd.id]) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false};
+    _reRenderVideoNode(nid);
+  };
+  window._fcLibPick = function(nid){
+    _ctxNodeId = nid;
+    window._notesFcVideoCallback = function(vidData) {
+      window.uniClose?.();
+      const ytId = vidData.ytId || (vidData.platform==='youtube' ? vidData.videoId : null) || vidData.videoId || vidData.id;
+      _applyVideo(ytId, vidData);
+    };
+    window.uniOpenForNote?.('__fc__');
+  };
   function _applyVideo(vid, vidData){
     const bookmarks = vidData?.bookmarks || [];
-    const content = {type:'video', videoId:vid, platform: vidData?.platform||'youtube',
+    const ytId = vidData?.ytId || vid;
+    const content = {type:'video', videoId:ytId, platform: vidData?.platform||'youtube',
       ytId: vidData?.ytId||undefined, title: vidData?.title||'', channel: vidData?.channel||''};
     if(_onVidInsert){
       _pendingContent = content;
@@ -692,50 +720,70 @@
     }
   }
 
-  // ── Image picker — notes-style sheet ─────────────────────────
+  // ── Image picker — notes-style 2-option sheet ────────────────
   function _openFcImgPicker(){
     _removeFcImgSheet();
     const overlay=document.createElement('div');
     overlay.id='fc-img-sheet';
     overlay.className='n-sheet-overlay';
-    overlay.innerHTML=`<div class="n-sheet n-sheet-sm">
-      <div class="n-sheet-hdr">
-        <span class="n-sheet-title">画像を追加</span>
-        <button class="n-sheet-close" onclick="document.getElementById('fc-img-sheet')?.remove();window._fcOnImgInsert=null">✕</button>
-      </div>
-      <div class="n-sheet-body" style="display:flex;flex-direction:column;gap:14px">
-        <div>
-          <label class="n-sheet-lbl">画像URLを入力</label>
-          <div style="display:flex;gap:8px">
-            <input id="fc-img-url" class="n-sheet-input" type="text" placeholder="https://..." style="flex:1">
-            <button class="n-btn n-btn-primary" id="fc-img-url-ok">挿入</button>
-          </div>
+    overlay.innerHTML=`
+      <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+        <div class="n-sheet-hdr"><span class="n-sheet-title">📸 画像を追加</span></div>
+        <div class="n-src-list">
+          <button class="n-src-btn" id="fc-img-upload-btn">
+            <span class="n-src-icon">📷</span>
+            <div class="n-src-info"><div class="n-src-ttl">ファイルを選択・貼り付け</div><div class="n-src-sub">ローカルの画像ファイルを選択</div></div>
+            <span class="n-src-arr">›</span>
+          </button>
+          <button class="n-src-btn" id="fc-img-snap-btn">
+            <span class="n-src-icon">🎬</span>
+            <div class="n-src-info"><div class="n-src-ttl">動画のスナップから選ぶ</div><div class="n-src-sub">VPanelに登録済みの画像をインポート</div></div>
+            <span class="n-src-arr">›</span>
+          </button>
         </div>
-        <div style="text-align:center;font-size:11px;color:var(--text3)">— または —</div>
-        <div>
-          <label class="n-sheet-lbl">ファイルを選択</label>
-          <div class="fc-img-drop" onclick="document.getElementById('fc-img-file').click()" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;font-size:12px;color:var(--text3)">クリックして画像を選択（PNG / JPG）</div>
-          <input type="file" id="fc-img-file" accept="image/*" style="display:none">
-        </div>
-      </div>
-    </div>`;
+        <div class="n-sheet-btns"><button class="n-btn n-btn-ghost" id="fc-img-cancel-btn">キャンセル</button></div>
+        <input type="file" id="fc-img-file" accept="image/*" style="display:none">
+      </div>`;
     overlay.addEventListener('click',e=>{ if(e.target===overlay) _removeFcImgSheet(); });
-    document.getElementById('fc-img-url-ok', overlay)?.addEventListener('click', _fcImgFromUrl);
     document.body.appendChild(overlay);
     requestAnimationFrame(()=>overlay.classList.add('vis'));
-    overlay.querySelector('#fc-img-url-ok').addEventListener('click', _fcImgFromUrl);
-    overlay.querySelector('#fc-img-file').addEventListener('change', _fcImgFromFile);
+    overlay.querySelector('#fc-img-upload-btn').addEventListener('click',()=>overlay.querySelector('#fc-img-file').click());
+    overlay.querySelector('#fc-img-file').addEventListener('change',e=>{
+      const file=e.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=ev=>{ _applyImage(ev.target.result); _removeFcImgSheet(); };
+      reader.readAsDataURL(file);
+    });
+    overlay.querySelector('#fc-img-snap-btn').addEventListener('click',()=>_openFcSnapPicker(overlay));
+    overlay.querySelector('#fc-img-cancel-btn').addEventListener('click',_removeFcImgSheet);
   }
   function _removeFcImgSheet(){ document.getElementById('fc-img-sheet')?.remove(); }
-  function _fcImgFromUrl(){
-    const src=document.getElementById('fc-img-url')?.value.trim(); if(!src) return;
-    _applyImage(src); _removeFcImgSheet();
-  }
-  function _fcImgFromFile(){
-    const file=document.getElementById('fc-img-file')?.files[0]; if(!file) return;
-    const reader=new FileReader();
-    reader.onload=e=>{ _applyImage(e.target.result); _removeFcImgSheet(); };
-    reader.readAsDataURL(file);
+  async function _openFcSnapPicker(overlay){
+    const getSnap = window._getSnapshot;
+    if(!getSnap){ window.toast?.('スナップ機能が利用できません'); return; }
+    const videosWithSnaps=(window.videos||[]).filter(v=>v.snapshots?.length);
+    if(!videosWithSnaps.length){ window.toast?.('VPanelにスナップショットが登録されている動画がありません'); return; }
+    const sheet=overlay.querySelector('.n-sheet'); if(!sheet) return;
+    sheet.innerHTML=`
+      <div class="n-sheet-hdr">
+        <button class="n-sheet-back" id="fc-snap-back">‹</button>
+        <span class="n-sheet-title">🎬 スナップを選ぶ</span>
+      </div>
+      <div class="n-sheet-body" id="fc-snap-body" style="overflow-y:auto;flex:1"></div>
+      <div class="n-sheet-btns"><button class="n-btn n-btn-ghost" id="fc-snap-cancel">キャンセル</button></div>`;
+    sheet.querySelector('#fc-snap-back').addEventListener('click',()=>{ _removeFcImgSheet(); _openFcImgPicker(); });
+    sheet.querySelector('#fc-snap-cancel').addEventListener('click',_removeFcImgSheet);
+    const body=sheet.querySelector('#fc-snap-body');
+    for(const v of videosWithSnaps){
+      const hdr=document.createElement('div'); hdr.className='n-snap-picker-hdr'; hdr.textContent=v.title||v.id; body.appendChild(hdr);
+      const grid=document.createElement('div'); grid.className='n-snap-picker-grid'; body.appendChild(grid);
+      for(const ref of v.snapshots){
+        const card=document.createElement('div'); card.className='n-snap-picker-card'; card.title=ref.memo||'';
+        card.onclick=async()=>{ try{ const snap=await getSnap(ref.id); if(snap?.blob){ _applyImage(URL.createObjectURL(snap.blob)); _removeFcImgSheet(); } }catch(e){ window.toast?.('スナップの取得に失敗しました'); } };
+        card.innerHTML=`<span style="font-size:18px">📷</span>`; grid.appendChild(card);
+        (async()=>{ try{ const snap=await getSnap(ref.id); if(snap?.blob){ const url=URL.createObjectURL(snap.blob); card.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`; } }catch(e){} })();
+      }
+    }
   }
   function _applyImage(src){
     const content={type:'image',src};
@@ -770,10 +818,10 @@
   window._fcClearAb   = function(nid){ const st=_getAb(nid); st.a=null; st.b=null; st.looping=false; _reRenderVideoNode(nid); };
   window._fcSaveAbBm  = function(nid){
     const st=_getAb(nid);
-    if(st.a==null||st.b==null){ alert('開始と終了を両方設定してください'); return; }
-    const label=prompt('ブックマークのラベル（任意）','')??'（ラベルなし）';
-    st.bookmarks.push({label:label||'（ラベルなし）',a:st.a,b:st.b});
+    if(st.a==null||st.b==null){ window.toast?.('開始と終了を両方設定してください'); return; }
+    st.bookmarks.push({label:'',a:st.a,b:st.b});
     _reRenderVideoNode(nid);
+    _focusLastBmLabel(nid);
   };
   window._fcSeekBm    = function(nid,idx){
     const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
@@ -783,15 +831,25 @@
   };
   window._fcAddBmNow  = function(nid){
     const t=_curTime(nid);
-    const label=prompt('ブックマークのラベル（任意）','')??'';
-    _getAb(nid).bookmarks.push({label:label||'（ラベルなし）',a:t,b:t+30});
+    _getAb(nid).bookmarks.push({label:'',a:t,b:t+30});
     _reRenderVideoNode(nid);
+    _focusLastBmLabel(nid);
   };
   window._fcEditBm    = function(nid,idx){
-    const bm=_getAb(nid).bookmarks[idx]; if(!bm) return;
-    const label=prompt('ラベルを編集',bm.label); if(label===null) return;
-    bm.label=label||'（ラベルなし）'; _reRenderVideoNode(nid);
+    const el=document.querySelector(`#fc-bm-list-${nid} .bm-item:nth-child(${idx+1}) .bm-item-label`); if(!el) return;
+    el.contentEditable='true'; el.classList.add('editing'); el.focus(); _selAll(el);
+    el.addEventListener('blur',()=>{ el.contentEditable='false'; el.classList.remove('editing'); const bm=_getAb(nid).bookmarks[idx]; if(bm) bm.label=el.textContent.trim(); },{once:true});
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();el.blur();} },{once:true});
   };
+  function _focusLastBmLabel(nid){
+    setTimeout(()=>{
+      const items=document.querySelectorAll(`#fc-bm-list-${nid} .bm-item`);
+      const last=items[items.length-1]?.querySelector('.bm-item-label'); if(!last) return;
+      last.contentEditable='true'; last.classList.add('editing'); last.focus(); _selAll(last);
+      last.addEventListener('blur',()=>{ last.contentEditable='false'; last.classList.remove('editing'); const bms=_getAb(nid).bookmarks; const bm=bms[bms.length-1]; if(bm) bm.label=last.textContent.trim(); },{once:true});
+      last.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();last.blur();} },{once:true});
+    },60);
+  }
   window._fcOpenVPanel = function(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
     _closeEditor();
@@ -808,7 +866,7 @@
     el.innerHTML=_nodeHTML(nd); _wireNode(el,nd);
     const newDiv=el.querySelector('.node-yt-div');
     if(savedPlayer&&newDiv){ newDiv.appendChild(savedPlayer.getIframe()); _ytPlayers[nid]=savedPlayer; _startNodeTimer(nid); }
-    else setTimeout(()=>_initPlayer(nid,nd.content.videoId),100);
+    else if(nd.content.videoId) setTimeout(()=>_initPlayer(nid,nd.content.videoId),100);
     _renderEdges();
   }
 
