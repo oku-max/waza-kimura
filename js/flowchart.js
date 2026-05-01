@@ -394,6 +394,7 @@
     hdr.addEventListener('mousedown',e=>{
       if(e.target.classList.contains('node-menu-btn'))return;
       if(e.target.classList.contains('node-cmt-btn'))return;
+      if(e.target.classList.contains('node-vp-btn'))return;
       if(e.target.classList.contains('node-name')&&e.target.isContentEditable)return;
       e.stopPropagation();
       _dragNode=nd; _dragOff={x:e.clientX-nd.x-_panX,y:e.clientY-nd.y-_panY};
@@ -402,6 +403,7 @@
     hdr.addEventListener('touchstart',e=>{
       if(e.target.classList.contains('node-menu-btn'))return;
       if(e.target.classList.contains('node-cmt-btn'))return;
+      if(e.target.classList.contains('node-vp-btn'))return;
       e.stopPropagation(); e.preventDefault();
       const t=e.touches[0];
       _dragNode=nd; _dragOff={x:t.clientX-nd.x-_panX,y:t.clientY-nd.y-_panY};
