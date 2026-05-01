@@ -1989,7 +1989,7 @@ window._notesAddFromLib = function(videoId, noteId) {
     if (v2) {
       const platform2 = v2.pt || v2.src || 'youtube';
       const ytId2 = v2.ytId || (platform2 === 'youtube' ? v2.id : null);
-      _fcCb({ videoId, platform: platform2, ytId: ytId2||undefined, title: v2.title||'', channel: v2.channel||v2.ch||'', duration: v2.duration||'' });
+      _fcCb({ videoId, platform: platform2, ytId: ytId2||undefined, vmHash: v2.vmHash||undefined, title: v2.title||'', channel: v2.channel||v2.ch||'', duration: v2.duration||'' });
     }
     return;
   }

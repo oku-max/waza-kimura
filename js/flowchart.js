@@ -33,25 +33,35 @@
   window.onYouTubeIframeAPIReady = function(){
     _fcYtApiReady=true;
     if(_prevYTReady) _prevYTReady();
-    // Init any pending flowchart video nodes
-    _nodes.filter(n=>n.content?.type==='video').forEach(n=>_initPlayer(n.id, n.content.videoId));
+    _nodes.filter(n=>n.content?.type==='video'&&n.content?.videoId&&(n.content?.platform||'youtube')==='youtube').forEach(n=>_initVidNode(n.id));
   };
 
-  function _initPlayer(nodeId, videoId){
-    if(!_checkYtReady()) return;
-    if(_ytPlayers[nodeId]){ try{ _ytPlayers[nodeId].loadVideoById(videoId) }catch(e){} return; }
-    const div = document.getElementById('fc-yt-'+nodeId);
-    if(!div) return;
-    _ytPlayers[nodeId] = new YT.Player('fc-yt-'+nodeId, {
-      videoId, width:'100%', height:'100%',
-      playerVars:{rel:0,modestbranding:1,autoplay:0},
-      events:{onReady:(e)=>{
-        const dur = e.target.getDuration()||300;
-        const sl = document.getElementById('fc-ab-sl-'+nodeId);
-        if(sl){ sl.max=dur; sl.step=0.1; _updateDurLabel(nodeId,dur); }
-        _startNodeTimer(nodeId);
-      }}
-    });
+  function _initVidNode(nodeId){
+    const nd=_nodes.find(n=>n.id===nodeId); if(!nd?.content?.videoId) return;
+    const platform=nd.content.platform||'youtube';
+    const rawId=nd.content.videoId;
+    const div=document.getElementById('fc-vid-'+nodeId); if(!div) return;
+    if(platform==='youtube'){
+      if(!_checkYtReady()) return;
+      if(_ytPlayers[nodeId]){ try{ _ytPlayers[nodeId].loadVideoById(rawId); }catch(e){} return; }
+      _ytPlayers[nodeId]=new YT.Player('fc-vid-'+nodeId,{
+        videoId:rawId,width:'100%',height:'100%',
+        playerVars:{rel:0,modestbranding:1,autoplay:0},
+        events:{onReady:(e)=>{
+          const dur=e.target.getDuration()||300;
+          const sl=document.getElementById('fc-ab-sl-'+nodeId);
+          if(sl){sl.max=dur;sl.step=0.1;_updateDurLabel(nodeId,dur);}
+          _startNodeTimer(nodeId);
+        }}
+      });
+    } else if(platform==='gdrive'){
+      const gdId=rawId.replace(/^gd-/,'');
+      div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" width="100%" height="100%" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+    } else {
+      const vmId=rawId.replace(/^yt-/,'');
+      const hash=nd.content.vmHash?`?h=${nd.content.vmHash}`:'';
+      div.innerHTML=`<iframe src="https://player.vimeo.com/video/${vmId}${hash}" width="100%" height="100%" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+    }
   }
   function _startNodeTimer(nodeId){
     if(_ytTimers[nodeId]) return;
@@ -251,7 +261,7 @@
       el.innerHTML=_nodeHTML(nd);
       cv.appendChild(el);
       _wireNode(el,nd);
-      if(nd.content?.type==='video' && nd.content.videoId) setTimeout(()=>_initPlayer(nd.id, nd.content.videoId),100);
+      if(nd.content?.type==='video' && nd.content.videoId) setTimeout(()=>_initVidNode(nd.id),100);
     });
   }
 
@@ -290,6 +300,13 @@
       </div>
       <button class="fc-lib-btn" onclick="event.stopPropagation();window._fcLibPick('${nd.id}')">📚 ライブラリから選ぶ</button>
     </div>`;
+    const platform=nd.content.platform||'youtube';
+    const displayUrl=platform==='gdrive'
+      ?`drive.google.com/file/d/${vid.replace(/^gd-/,'')}/view`
+      :platform==='vimeo'||platform==='vm'
+      ?`vimeo.com/${vid.replace(/^yt-/,'')}`
+      :`youtube.com/watch?v=${vid}`;
+    const isYT=platform==='youtube';
     const st=_getAb(nd.id);
     const bmList=st.bookmarks.length
       ?st.bookmarks.map((bm,i)=>`<div class="bm-item">
@@ -302,9 +319,9 @@
       ?`<span class="ab-status-badge active">${_fmt(st.a)}〜${_fmt(st.b)}</span>`
       :`<span class="ab-status-badge">未設定</span>`;
     return `<div class="node-content">
-      <div class="node-url-bar">youtube.com/watch?v=${vid}</div>
-      <div class="node-yt-div" id="fc-yt-${nd.id}"></div>
-      <div class="ab-section">
+      <div class="node-url-bar">${_esc(displayUrl)}</div>
+      <div class="node-yt-div" id="fc-vid-${nd.id}"></div>
+      ${isYT?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
           <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
           <span class="ab-toggle">${st.abOpen?'∧':'∨'}</span>
@@ -317,7 +334,7 @@
           <button class="bm-add-btn" onclick="window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>
         </div>
         <div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>
-      </div>
+      </div>`:''}
       <div class="vpanel-link" onclick="window._fcOpenVPanel('${nd.id}')">Vパネルで開く →</div>
     </div>`;
   }
@@ -704,9 +721,12 @@
   };
   function _applyVideo(vid, vidData){
     const bookmarks = vidData?.bookmarks || [];
-    const ytId = vidData?.ytId || vid;
-    const content = {type:'video', videoId:ytId, platform: vidData?.platform||'youtube',
-      ytId: vidData?.ytId||undefined, title: vidData?.title||'', channel: vidData?.channel||''};
+    const platform = vidData?.platform || 'youtube';
+    // YouTube: prefer ytId (11-char); GDrive/Vimeo: keep the prefixed library ID
+    const storeId = platform==='youtube' ? (vidData?.ytId || vid) : (vidData?.videoId || vid);
+    const content = {type:'video', videoId:storeId, platform,
+      ytId: vidData?.ytId||undefined, vmHash: vidData?.vmHash||undefined,
+      title: vidData?.title||'', channel: vidData?.channel||''};
     if(_onVidInsert){
       _pendingContent = content;
       if(bookmarks.length) _pendingContent._libBookmarks = bookmarks.map(b=>({...b}));
@@ -866,7 +886,7 @@
     el.innerHTML=_nodeHTML(nd); _wireNode(el,nd);
     const newDiv=el.querySelector('.node-yt-div');
     if(savedPlayer&&newDiv){ newDiv.appendChild(savedPlayer.getIframe()); _ytPlayers[nid]=savedPlayer; _startNodeTimer(nid); }
-    else if(nd.content.videoId) setTimeout(()=>_initPlayer(nid,nd.content.videoId),100);
+    else if(nd.content.videoId) setTimeout(()=>_initVidNode(nid),100);
     _renderEdges();
   }
 
