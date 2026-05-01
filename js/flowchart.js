@@ -42,25 +42,14 @@
     const rawId=nd.content.videoId;
     const div=document.getElementById('fc-vid-'+nodeId); if(!div) return;
     if(platform==='youtube'){
-      if(!_checkYtReady()) return;
-      if(_ytPlayers[nodeId]){ try{ _ytPlayers[nodeId].loadVideoById(rawId); }catch(e){} return; }
-      _ytPlayers[nodeId]=new YT.Player('fc-vid-'+nodeId,{
-        videoId:rawId,width:'100%',height:'100%',
-        playerVars:{rel:0,modestbranding:1,autoplay:0},
-        events:{onReady:(e)=>{
-          const dur=e.target.getDuration()||300;
-          const sl=document.getElementById('fc-ab-sl-'+nodeId);
-          if(sl){sl.max=dur;sl.step=0.1;_updateDurLabel(nodeId,dur);}
-          _startNodeTimer(nodeId);
-        }}
-      });
+      div.innerHTML=`<iframe src="https://www.youtube.com/embed/${rawId}?rel=0&modestbranding=1&playsinline=1" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
     } else if(platform==='gdrive'){
       const gdId=rawId.replace(/^gd-/,'');
-      div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" width="100%" height="100%" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+      div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
     } else {
       const vmId=rawId.replace(/^yt-/,'');
       const hash=nd.content.vmHash?`?h=${nd.content.vmHash}`:'';
-      div.innerHTML=`<iframe src="https://player.vimeo.com/video/${vmId}${hash}" width="100%" height="100%" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+      div.innerHTML=`<iframe src="https://player.vimeo.com/video/${vmId}${hash}" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
     }
   }
   function _startNodeTimer(nodeId){
@@ -221,6 +210,7 @@
 
     document.addEventListener('mousemove', e=>{
       if(!_el('overlay').classList.contains('open')) return;
+      if(_dragNode && !(e.buttons & 1)){ const el=document.getElementById('fc-node-'+_dragNode.id); if(el) el.style.zIndex=''; _dragNode=null; }
       _applyMove(e.clientX, e.clientY);
     });
     document.addEventListener('touchmove', e=>{
@@ -320,7 +310,7 @@
       :`<span class="ab-status-badge">未設定</span>`;
     return `<div class="node-content">
       <div class="node-url-bar">${_esc(displayUrl)}</div>
-      <div class="node-yt-div" id="fc-vid-${nd.id}"></div>
+      <div class="node-yt-div" id="fc-vid-${nd.id}" data-platform="${platform}"></div>
       ${isYT?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
           <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
