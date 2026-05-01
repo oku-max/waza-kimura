@@ -60,10 +60,6 @@ async function loadNotes(uid) {
   const docRef = db.collection('users').doc(uid).collection('data').doc('notes');
 
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
-    const sb = snap.data()?.savedBy || '(none)';
-    const same = sb===_sessionId;
-    console.log(`[notes sync] snapshot: savedBy=${sb} mySession=${_sessionId} same=${same} exists=${snap.exists} len=${snap.data()?.data?.length||0}`);
-    showToast(`📡sync: same=${same} len=${snap.data()?.data?.length||0}`, 4000);
     if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
     if (!snap.exists || !snap.data()?.data?.length) return;
     if (snap.data().savedBy === _sessionId) return;
