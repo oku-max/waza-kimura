@@ -21,8 +21,20 @@
   let _onVidInsert=null, _onImgInsert=null;
   let _nc=20, _ec=10;
   let _ytPlayers={}, _ytTimers={};
+  let _vmPlayers={}, _vmCurTimes={};
+  let _gdVideoEls={};
   let _resizeNode=null;
   let _wired=false;
+
+  function _loadVimeoApi(cb){
+    if(window.Vimeo?.Player) return cb();
+    if(document.getElementById('vm-iframe-api-script')){
+      const t=setInterval(()=>{ if(window.Vimeo?.Player){ clearInterval(t); cb(); }},50); return;
+    }
+    const s=document.createElement('script'); s.id='vm-iframe-api-script';
+    s.src='https://player.vimeo.com/api/player.js';
+    s.onload=()=>cb(); document.head.appendChild(s);
+  }
 
   function _initVidNode(nodeId){
     const nd=_nodes.find(n=>n.id===nodeId); if(!nd?.content?.videoId) return;
@@ -53,27 +65,59 @@
       }
     } else if(platform==='gdrive'){
       const gdId=rawId.replace(/^gd-/,'');
-      div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+      const token=window.getDriveTokenIfAvailable?.();
+      if(token){
+        const src=`/api/drive?fileId=${encodeURIComponent(gdId)}&token=${encodeURIComponent(token)}`;
+        const video=document.createElement('video');
+        video.src=src; video.controls=true; video.playsinline=true;
+        video.style.cssText='width:100%;height:100%;background:#000';
+        video.addEventListener('loadedmetadata',()=>_updateDurLabel(nodeId,video.duration));
+        _gdVideoEls[nodeId]=video;
+        div.innerHTML=''; div.appendChild(video);
+        _startNodeTimer(nodeId);
+      } else {
+        div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+      }
     } else {
       const vmId=rawId.replace(/^yt-/,'');
       const hash=nd.content.vmHash?`?h=${nd.content.vmHash}`:'';
       div.innerHTML=`<iframe src="https://player.vimeo.com/video/${vmId}${hash}" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+      _loadVimeoApi(()=>{
+        const ifr=div.querySelector('iframe'); if(!ifr) return;
+        try{
+          const player=new Vimeo.Player(ifr);
+          _vmPlayers[nodeId]=player;
+          _vmCurTimes[nodeId]=0;
+          player.on('timeupdate',data=>{ _vmCurTimes[nodeId]=data.seconds||0; });
+          player.getDuration().then(d=>_updateDurLabel(nodeId,d||0)).catch(()=>{});
+          _startNodeTimer(nodeId);
+        }catch(e){ console.warn('Vimeo player init:',e); }
+      });
     }
   }
   function _startNodeTimer(nodeId){
     if(_ytTimers[nodeId]) return;
     _ytTimers[nodeId]=setInterval(()=>{
-      const p=_ytPlayers[nodeId]; if(!p?.getCurrentTime) return;
-      const t=p.getCurrentTime();
+      if(!_ytPlayers[nodeId]?.getCurrentTime && !_vmPlayers[nodeId] && !_gdVideoEls[nodeId]) return;
+      const t=_curTime(nodeId);
       const sl=document.getElementById('fc-ab-sl-'+nodeId); if(sl) sl.value=t;
       const disp=document.getElementById('fc-ab-disp-'+nodeId);
       const st=_getAb(nodeId);
       if(disp) disp.textContent=_fmt(st.activeTab==='a'?(st.a??t):(st.b??t));
-      if(st.looping&&st.a!=null&&st.b!=null&&t>=st.b) p.seekTo(st.a,true);
+      if(st.looping&&st.a!=null&&st.b!=null&&t>=st.b) _seekTo(nodeId,st.a);
     },200);
   }
   function _updateDurLabel(nodeId,dur){ const lbl=document.getElementById('fc-ab-dur-'+nodeId); if(lbl) lbl.textContent=_fmt(dur); }
-  function _curTime(nodeId){ return _ytPlayers[nodeId]?.getCurrentTime?.()||0; }
+  function _curTime(nid){
+    if(_vmPlayers[nid]) return _vmCurTimes[nid]||0;
+    if(_gdVideoEls[nid]) return _gdVideoEls[nid].currentTime||0;
+    return _ytPlayers[nid]?.getCurrentTime?.()||0;
+  }
+  function _seekTo(nid, sec){
+    const p=_ytPlayers[nid]; if(p?.seekTo){ p.seekTo(sec,true); p.playVideo?.(); return; }
+    const vm=_vmPlayers[nid]; if(vm){ vm.setCurrentTime(sec).then(()=>vm.play().catch(()=>{})).catch(()=>{}); return; }
+    const gd=_gdVideoEls[nid]; if(gd){ gd.currentTime=sec; gd.play().catch(()=>{}); }
+  }
 
   // ── AB state ──────────────────────────────────────────────────
   function _getAb(nid){
@@ -121,15 +165,11 @@
 
   function _closeEditor(){
     _el('overlay').classList.remove('open');
-    // Stop all timers
-    Object.values(_ytTimers).forEach(clearInterval);
-    _ytTimers={};
-    // Destroy YT players
-    Object.values(_ytPlayers).forEach(p=>{ try{ p.destroy(); }catch(e){} });
-    _ytPlayers={};
-    if(_onSave){
-      _onSave({ name:_mapName, nodes:_nodes, edges:_edges, abState:_abState });
-    }
+    Object.values(_ytTimers).forEach(clearInterval); _ytTimers={};
+    Object.values(_ytPlayers).forEach(p=>{ try{ p.destroy(); }catch(e){} }); _ytPlayers={};
+    Object.values(_vmPlayers).forEach(p=>{ try{ p.destroy(); }catch(e){} }); _vmPlayers={}; _vmCurTimes={};
+    Object.values(_gdVideoEls).forEach(v=>{ try{ v.pause(); }catch(e){} }); _gdVideoEls={};
+    if(_onSave){ _onSave({ name:_mapName, nodes:_nodes, edges:_edges, abState:_abState }); }
   }
 
   // ── Overlay HTML ──────────────────────────────────────────────
@@ -326,6 +366,7 @@
       ?`vimeo.com/${vid.replace(/^yt-/,'')}`
       :`youtube.com/watch?v=${vid}`;
     const isYT=platform==='youtube';
+    const isVM=(platform==='vimeo'||platform==='vm');
     const st=_getAb(nd.id);
     const bmOpen=st.bmOpen!==false;
     const bmList=st.bookmarks.length
@@ -334,13 +375,11 @@
     const statusBadge=st.a!=null&&st.b!=null
       ?`<span class="ab-status-badge active">${_fmt(st.a)}〜${_fmt(st.b)}</span>`
       :`<span class="ab-status-badge">未設定</span>`;
-    const addBmBtn=isYT
-      ?`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`
-      :`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmManual('${nd.id}')">＋ 追加</button>`;
+    const addBmBtn=`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`;
     return `<div class="node-content">
       <div class="node-url-bar">${_esc(displayUrl)}</div>
       <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
-      ${isYT?`<div class="ab-section">
+      ${(isYT||isVM)?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
           <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
           <span class="ab-toggle">${st.abOpen?'∧':'∨'}</span>
@@ -880,7 +919,7 @@
     const t=parseFloat(val), st=_getAb(nid);
     if(st.activeTab==='a') st.a=t; else st.b=t;
     _updateAbDisplay(nid); _updateAbTimeLabels(nid,st);
-    const p=_ytPlayers[nid]; if(p?.seekTo) p.seekTo(t,true);
+    _seekTo(nid, t);
   };
   window._fcMicroAdj  = function(nid,secs){
     const st=_getAb(nid); let base;
@@ -888,7 +927,7 @@
     else{ const cur=st.activeTab==='a'?(st.a??_curTime(nid)):(st.b??_curTime(nid)); base=Math.max(0,cur+secs); }
     if(st.activeTab==='a') st.a=base; else st.b=base;
     const sl=document.getElementById('fc-ab-sl-'+nid); if(sl) sl.value=base;
-    const p=_ytPlayers[nid]; if(p?.seekTo) p.seekTo(base,true);
+    _seekTo(nid, base);
     _updateAbDisplay(nid); _updateAbTimeLabels(nid,st);
   };
   // ── ブックマークUI部分更新（iframeに触れない） ─────────────────
@@ -948,7 +987,7 @@
   };
   window._fcSeekBm    = function(nid,idx){
     const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
-    const p=_ytPlayers[nid]; if(p?.seekTo){ p.seekTo(bm.a,true); p.playVideo?.(); }
+    _seekTo(nid, bm.a);
     if(bm.b!=null){ st.a=bm.a; st.b=bm.b; st.looping=true; }
   };
   window._fcAddBmNow  = function(nid){
@@ -1014,6 +1053,8 @@
     const nd=_nodes.find(n=>n.id===nid); if(!nd||nd.content?.type!=='video') return;
     const el=document.getElementById('fc-node-'+nd.id); if(!el) return;
     if(nd.w) el.style.width=nd.w+'px';
+    if(_vmPlayers[nid]){ try{ _vmPlayers[nid].destroy(); }catch(e){} delete _vmPlayers[nid]; delete _vmCurTimes[nid]; }
+    if(_gdVideoEls[nid]){ try{ _gdVideoEls[nid].pause(); }catch(e){} delete _gdVideoEls[nid]; }
     const savedPlayer=_ytPlayers[nid];
     el.innerHTML=_nodeHTML(nd); _wireNode(el,nd);
     const wrap=el.querySelector('.node-yt-div');
