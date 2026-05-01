@@ -36,6 +36,36 @@
     s.onload=()=>cb(); document.head.appendChild(s);
   }
 
+  function _initGDriveNode(nodeId, gdId, div){
+    const token=window.getDriveTokenIfAvailable?.();
+    if(token){
+      _createGDriveVideo(nodeId, gdId, div, token);
+    } else {
+      div.innerHTML=`<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#111;padding:12px;box-sizing:border-box">
+        <div style="color:#aaa;font-size:11px;text-align:center">再生にはGoogle認証が必要です</div>
+        <button style="padding:7px 16px;background:var(--accent,#2563eb);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit" id="fc-gd-auth-${nodeId}">Googleで認証して再生</button>
+      </div>`;
+      const btn=div.querySelector('#fc-gd-auth-'+nodeId);
+      if(btn) btn.onclick=async(e)=>{
+        e.stopPropagation();
+        btn.textContent='認証中…'; btn.disabled=true;
+        const t=await window.ensureDriveToken?.().catch(()=>null);
+        if(t){ _createGDriveVideo(nodeId, gdId, div, t); }
+        else{ btn.textContent='認証に失敗しました。再試行'; btn.disabled=false; }
+      };
+    }
+  }
+  function _createGDriveVideo(nodeId, gdId, div, token){
+    const src=`/api/drive?fileId=${encodeURIComponent(gdId)}&token=${encodeURIComponent(token)}`;
+    const video=document.createElement('video');
+    video.src=src; video.controls=true; video.playsinline=true;
+    video.style.cssText='width:100%;height:100%;background:#000';
+    video.addEventListener('loadedmetadata',()=>_updateDurLabel(nodeId,video.duration));
+    _gdVideoEls[nodeId]=video;
+    div.innerHTML=''; div.appendChild(video);
+    _startNodeTimer(nodeId);
+  }
+
   function _initVidNode(nodeId){
     const nd=_nodes.find(n=>n.id===nodeId); if(!nd?.content?.videoId) return;
     const platform=nd.content.platform||'youtube';
@@ -65,19 +95,7 @@
       }
     } else if(platform==='gdrive'){
       const gdId=rawId.replace(/^gd-/,'');
-      const token=window.getDriveTokenIfAvailable?.();
-      if(token){
-        const src=`/api/drive?fileId=${encodeURIComponent(gdId)}&token=${encodeURIComponent(token)}`;
-        const video=document.createElement('video');
-        video.src=src; video.controls=true; video.playsinline=true;
-        video.style.cssText='width:100%;height:100%;background:#000';
-        video.addEventListener('loadedmetadata',()=>_updateDurLabel(nodeId,video.duration));
-        _gdVideoEls[nodeId]=video;
-        div.innerHTML=''; div.appendChild(video);
-        _startNodeTimer(nodeId);
-      } else {
-        div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
-      }
+      _initGDriveNode(nodeId, gdId, div);
     } else {
       const vmId=rawId.replace(/^yt-/,'');
       const hash=nd.content.vmHash?`?h=${nd.content.vmHash}`:'';
