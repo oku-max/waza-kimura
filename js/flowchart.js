@@ -26,6 +26,7 @@
   let _resizeNode=null;
   let _wired=false;
   let _editingBm=null; // {nid, idx, field:'start'|'end', origA, origB}
+  let _autoSaveTimer=null;
 
   function _loadVimeoApi(cb){
     if(window.Vimeo?.Player) return cb();
@@ -162,6 +163,20 @@
     });
   }
 
+  // ── Auto-save ─────────────────────────────────────────────────
+  function _triggerAutoSave(){
+    if(!_onSave) return;
+    clearTimeout(_autoSaveTimer);
+    _autoSaveTimer=setTimeout(_doSave, 2000);
+  }
+  function _doSave(){
+    if(!_onSave) return;
+    clearTimeout(_autoSaveTimer); _autoSaveTimer=null;
+    _onSave({ name:_mapName, nodes:_nodes, edges:_edges, abState:_abState });
+    const btn=document.getElementById('fc-save-btn');
+    if(btn){ btn.textContent='✅ 保存済み'; setTimeout(()=>{ if(btn) btn.textContent='💾 保存'; },2000); }
+  }
+
   // ── Public API ────────────────────────────────────────────────
   window.fcOpenEditor = function(mapData, onSave){
     _onSave = onSave;
@@ -183,6 +198,7 @@
   };
 
   function _closeEditor(){
+    clearTimeout(_autoSaveTimer); _autoSaveTimer=null;
     _el('overlay').classList.remove('open');
     Object.values(_ytTimers).forEach(clearInterval); _ytTimers={};
     Object.values(_ytPlayers).forEach(p=>{ try{ p.destroy(); }catch(e){} }); _ytPlayers={};
@@ -200,6 +216,7 @@
 <div id="fc-topbar">
   <button class="fc-tb-btn" id="fc-back-btn">← 戻る</button>
   <span class="fc-tb-title" id="fc-tb-title" contenteditable="true" spellcheck="false"></span>
+  <button class="fc-tb-btn" id="fc-save-btn">💾 保存</button>
   <button class="fc-tb-btn accent" id="fc-add-btn">＋ ノード追加 ▾</button>
 </div>
 <div id="fc-type-picker">
@@ -246,9 +263,10 @@
   // ── Static event wiring (once) ────────────────────────────────
   function _wireStatic(){
     _el('back-btn').addEventListener('click', _closeEditor);
+    _el('save-btn').addEventListener('click', _doSave);
 
     const tb = _el('tb-title');
-    tb.addEventListener('blur', ()=>{ _mapName=tb.textContent.trim()||'マップ'; tb.textContent=_mapName; });
+    tb.addEventListener('blur', ()=>{ _mapName=tb.textContent.trim()||'マップ'; tb.textContent=_mapName; _triggerAutoSave(); });
     tb.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tb.blur(); }});
 
     _el('add-btn').addEventListener('click', e=>{
@@ -471,12 +489,12 @@
     const nm=el.querySelector('.node-name');
     nm.addEventListener('dblclick',e=>{ e.stopPropagation(); nm.contentEditable='true'; nm.classList.add('editing'); nm.focus(); _selAll(nm); });
     nm.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();nm.blur()} if(e.key==='Escape'){nm.textContent=_esc(nd.name);nm.blur()} });
-    nm.addEventListener('blur',()=>{ nm.contentEditable='false'; nm.classList.remove('editing'); const v=nm.textContent.trim(); if(v) nd.name=v; nm.textContent=nd.name; });
+    nm.addEventListener('blur',()=>{ nm.contentEditable='false'; nm.classList.remove('editing'); const v=nm.textContent.trim(); if(v) nd.name=v; nm.textContent=nd.name; _triggerAutoSave(); });
 
     const ta=el.querySelector('.node-text-area');
     if(ta){
       ta.addEventListener('focus',()=>{ ta.contentEditable='true'; ta.classList.add('editing'); });
-      ta.addEventListener('blur',()=>{ ta.contentEditable='false'; ta.classList.remove('editing'); if(nd.content) nd.content.text=ta.textContent.trim(); });
+      ta.addEventListener('blur',()=>{ ta.contentEditable='false'; ta.classList.remove('editing'); if(nd.content) nd.content.text=ta.textContent.trim(); _triggerAutoSave(); });
       ta.addEventListener('click',e=>e.stopPropagation());
     }
 
@@ -609,7 +627,7 @@
 
   function _deleteEdge(edgeId){
     _edges=_edges.filter(e=>e.id!==edgeId);
-    _renderEdges();
+    _renderEdges(); _triggerAutoSave();
   }
 
   function _openEdgePopup(edgeId,clientX,clientY){
@@ -647,7 +665,7 @@
   function _finishLabel(){
     if(!_editingEdgeId) return;
     const edge=_edges.find(e=>e.id===_editingEdgeId);
-    if(edge){ edge.label=_el('label-input').value.trim()||'条件を入力…'; _renderEdges(); }
+    if(edge){ edge.label=_el('label-input').value.trim()||'条件を入力…'; _renderEdges(); _triggerAutoSave(); }
     _el('label-editor').style.display='none';
     _editingEdgeId=null;
   }
@@ -711,14 +729,14 @@
       if(_dragNode) _dragNode=null;
       return;
     }
-    if(_dragNode){ const el=document.getElementById('fc-node-'+_dragNode.id); if(el) el.style.zIndex=''; _dragNode=null; }
+    if(_dragNode){ const el=document.getElementById('fc-node-'+_dragNode.id); if(el) el.style.zIndex=''; _dragNode=null; _triggerAutoSave(); }
     _panning=false;
     _el('wrap').style.cursor=_placing?'crosshair':'default';
   }
 
   function _createEdge(fromId,toId){
     const ne={id:'e'+(++_ec),from:fromId,to:toId,label:'条件を入力…'};
-    _edges.push(ne); _renderEdges();
+    _edges.push(ne); _renderEdges(); _triggerAutoSave();
     const fEl=document.getElementById('fc-node-'+fromId);
     const tEl=document.getElementById('fc-node-'+toId);
     if(fEl&&tEl){
@@ -784,7 +802,7 @@
       nd.content=rest;
       if(_libBookmarks?.length) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:_libBookmarks,abOpen:false};
     }
-    _nodes.push(nd); _cancelPlace(); _renderAll();
+    _nodes.push(nd); _cancelPlace(); _renderAll(); _triggerAutoSave();
     setTimeout(()=>{ const nm=document.getElementById('fc-nm-'+nd.id); if(nm){ nm.contentEditable='true'; nm.classList.add('editing'); nm.focus(); _selAll(nm); }},60);
   }
 
@@ -800,7 +818,7 @@
   function _ctxAct(action){
     _hideCtx();
     const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return;
-    if(action==='del'){ _nodes=_nodes.filter(n=>n.id!==nd.id); _edges=_edges.filter(e=>e.from!==nd.id&&e.to!==nd.id); _renderAll(); return; }
+    if(action==='del'){ _nodes=_nodes.filter(n=>n.id!==nd.id); _edges=_edges.filter(e=>e.from!==nd.id&&e.to!==nd.id); _renderAll(); _triggerAutoSave(); return; }
     if(action==='vid'||action==='chg'){ _onVidInsert=null; if(window._fcLibPick) window._fcLibPick(nd.id); else _openFcVidPicker(); }
     else if(action==='img'){ _onImgInsert=null; _openFcImgPicker(); }
     else if(action==='txt'){ nd.content={type:'text',text:''}; _renderAll(); setTimeout(()=>{ const ta=document.getElementById('fc-ta-'+nd.id); if(ta){ ta.contentEditable='true'; ta.classList.add('editing'); ta.focus(); }},50); }
@@ -850,6 +868,7 @@
       nd.content=content;
       if(!_abState[nd.id]) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false};
       if(mappedBms.length) _abState[nd.id].bookmarks=mappedBms;
+      _triggerAutoSave();
       _renderAll();
     }
   }
@@ -1045,12 +1064,12 @@
     }
   }
 
-  window._fcClearAb   = function(nid){ const st=_getAb(nid); st.a=null; st.b=null; st.looping=false; _reRenderVideoNode(nid); };
+  window._fcClearAb   = function(nid){ const st=_getAb(nid); st.a=null; st.b=null; st.looping=false; _reRenderVideoNode(nid); _triggerAutoSave(); };
   window._fcSaveAbBm  = function(nid){
     const st=_getAb(nid);
     if(st.a==null||st.b==null){ window.toast?.('開始と終了を両方設定してください'); return; }
     st.bookmarks.push({label:'',a:st.a,b:st.b});
-    _syncBmsToLib(nid);
+    _syncBmsToLib(nid); _triggerAutoSave();
     _refreshBmUI(nid);
     _focusLastBmLabel(nid);
   };
@@ -1062,7 +1081,7 @@
   window._fcAddBmNow  = function(nid){
     const t=_curTime(nid);
     _getAb(nid).bookmarks.push({label:'',a:t});
-    _syncBmsToLib(nid);
+    _syncBmsToLib(nid); _triggerAutoSave();
     _refreshBmUI(nid);
     _focusLastBmLabel(nid);
   };
@@ -1088,6 +1107,7 @@
     if(lbl) bm.label=lbl.value.trim();
     if(note) bm.note=note.value.trim();
     _editingBm=null; _syncBmsToLib(nid); _refreshBmUI(nid);
+    _triggerAutoSave();
   };
   window._fcBmEditTab = function(nid,idx,field){
     if(!_editingBm) return;
@@ -1159,6 +1179,7 @@
     _editingBm=null;
     _syncBmsToLib(nid);
     _refreshBmUI(nid);
+    _triggerAutoSave();
   };
   function _syncBmsToLib(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;

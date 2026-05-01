@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v51.06 ═══
+// ═══ WAZA KIMURA — Notes tab v52.07 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -957,6 +957,12 @@ window._notesDragStart = function(e, noteId, idx, endIdx) {
   });
 })();
 
+window._notesSave = function(noteId) {
+  const btn = document.getElementById('n-save-btn-' + noteId);
+  if (btn) { btn.textContent = '✅ 保存済み'; btn.disabled = true; setTimeout(() => { if (btn) { btn.textContent = '💾 保存'; btn.disabled = false; } }, 2000); }
+  window._firebaseSaveNotes?.(_data);
+};
+
 window._notesAddTextBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
@@ -1337,6 +1343,7 @@ function _renderNote(id) {
       <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
       <button class="n-add-inline" onclick="window._notesAddColBlock('${id}')">⊞ カラム</button>
       <button class="n-add-inline" onclick="window._notesAddMapBlock('${id}')">🗺 Map</button>
+      <button class="n-add-inline" id="n-save-btn-${id}" onclick="window._notesSave('${id}')">💾 保存</button>
     </div>
   `;
 
