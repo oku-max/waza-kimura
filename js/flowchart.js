@@ -397,7 +397,7 @@
     return `<div class="node-content">
       <div class="node-url-bar">${_esc(displayUrl)}</div>
       <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
-      ${(isYT||isVM)?`<div class="ab-section">
+      ${(isYT||isVM||platform==='gdrive')?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
           <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
           <span class="ab-toggle">${st.abOpen?'∧':'∨'}</span>
