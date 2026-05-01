@@ -272,17 +272,26 @@
     });
   }
 
+  function _memoTxtContent(nd){
+    if(nd.content?.type==='video' && nd.content?.videoId){
+      const v=(window.videos||[]).find(v=>v.id===nd.content.videoId);
+      return v?.memo||'';
+    }
+    return nd.comment||'';
+  }
   function _nodeHTML(nd){
+    const isVid=nd.content?.type==='video' && nd.content?.videoId;
     return `<div class="node-hdr">
       <span class="node-name" id="fc-nm-${nd.id}">${_esc(nd.name)}</span>
-      <span class="node-hdr-btn node-cmt-btn${nd._commentOpen?' open':''}" id="fc-cmt-btn-${nd.id}" title="コメント">💬</span>
+      ${isVid?`<span class="node-hdr-btn node-vp-btn" title="Vパネルで開く">▶</span>`:''}
+      <span class="node-hdr-btn node-cmt-btn${nd._commentOpen?' open':''}" id="fc-cmt-btn-${nd.id}" title="メモ">📝</span>
       <span class="node-hdr-btn node-menu-btn" data-id="${nd.id}">⋮</span>
     </div>
     ${nd.content?_contentHTML(nd):''}
     <div class="node-comment-area" id="fc-cmt-area-${nd.id}">
       <div class="node-cmt-inner">
-        <span class="node-cmt-ico">💬</span>
-        <div class="node-cmt-txt" id="fc-cmt-txt-${nd.id}" data-ph="コメントを追加…">${_escNl(nd.comment||'')}</div>
+        <span class="node-cmt-ico">📝</span>
+        <div class="node-cmt-txt" id="fc-cmt-txt-${nd.id}" data-ph="メモを追加…">${_escNl(_memoTxtContent(nd))}</div>
       </div>
     </div>
     <div class="fc-resize-handle" title="ドラッグでサイズ変更"></div>
@@ -345,7 +354,6 @@
         ${bmOpen?`<div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>`:''}
       </div>
       <div class="vpanel-btns">
-        <button class="vpanel-btn" onclick="event.stopPropagation();window._fcVpShow('${nd.id}')">▶ Vパネルで開く</button>
         <button class="vpanel-btn" onclick="event.stopPropagation();window._fcVpJump('${nd.id}')">↗ ライブラリへ</button>
       </div>
     </div>`;
@@ -410,17 +418,35 @@
       ta.addEventListener('click',e=>e.stopPropagation());
     }
 
+    const vpBtn=el.querySelector('.node-vp-btn');
+    if(vpBtn) vpBtn.addEventListener('click',e=>{ e.stopPropagation(); window.openVPanel?.(nd.content.videoId); });
+
     el.querySelector('.node-cmt-btn').addEventListener('click',e=>{
       e.stopPropagation();
       nd._commentOpen=!nd._commentOpen;
       el.classList.toggle('cm-open',nd._commentOpen);
       e.currentTarget.classList.toggle('open',nd._commentOpen);
+      // 動画ノードは開くたびに最新のv.memoを反映
+      if(nd._commentOpen && nd.content?.type==='video' && nd.content?.videoId){
+        const v=(window.videos||[]).find(v=>v.id===nd.content.videoId);
+        const cmtTxt=el.querySelector('.node-cmt-txt');
+        if(cmtTxt && v) cmtTxt.textContent=v.memo||'';
+      }
     });
 
     const cmtTxt=el.querySelector('.node-cmt-txt');
     if(cmtTxt){
       cmtTxt.addEventListener('click',e=>{ e.stopPropagation(); cmtTxt.contentEditable='true'; cmtTxt.classList.add('editing'); cmtTxt.focus(); });
-      cmtTxt.addEventListener('blur',()=>{ cmtTxt.contentEditable='false'; cmtTxt.classList.remove('editing'); nd.comment=cmtTxt.textContent.trim(); });
+      cmtTxt.addEventListener('blur',()=>{
+        cmtTxt.contentEditable='false'; cmtTxt.classList.remove('editing');
+        const txt=cmtTxt.textContent.trim();
+        if(nd.content?.type==='video' && nd.content?.videoId){
+          const v=(window.videos||[]).find(v=>v.id===nd.content.videoId);
+          if(v){ v.memo=txt; window.debounceSave?.(); }
+        } else {
+          nd.comment=txt;
+        }
+      });
     }
 
     el.querySelector('.node-menu-btn').addEventListener('click',e=>{ e.stopPropagation(); _showCtx(nd.id,e.clientX,e.clientY); });
