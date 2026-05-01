@@ -93,7 +93,6 @@
     _dragNode=null; _edgePopupId=null;
 
     _ensureOverlay();
-    _checkYtReady();
     _el('overlay').classList.add('open');
     _el('tb-title').textContent = _mapName;
     _renderAll();
