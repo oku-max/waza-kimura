@@ -25,6 +25,7 @@
   let _gdVideoEls={};
   let _resizeNode=null;
   let _wired=false;
+  let _editingBm=null; // {nid, idx, field:'start'|'end', origA, origB}
 
   function _loadVimeoApi(cb){
     if(window.Vimeo?.Player) return cb();
@@ -950,11 +951,61 @@
   };
   // ── ブックマークUI部分更新（iframeに触れない） ─────────────────
   function _bmItemHTML(nid,bm,i){
+    if(_editingBm?.nid===nid && _editingBm?.idx===i) return _bmItemEditHTML(nid,bm,i);
     return `<div class="bm-item">
       <span class="bm-chip" onclick="window._fcSeekBm('${nid}',${i})">${_fmt(bm.a)}${bm.b!=null?' → '+_fmt(bm.b):''}</span>
-      <span class="bm-item-label" data-nid="${nid}" data-idx="${i}">${_esc(bm.label||'（ラベルなし）')}</span>
+      <span class="bm-item-label">${_esc(bm.label||'（ラベルなし）')}</span>
       <button class="bm-del-btn" onclick="window._fcDelBm('${nid}',${i})">×</button>
-      <button class="bm-edit-btn" onclick="window._fcEditBm('${nid}',${i})">編集</button>
+      <button class="bm-edit-btn" onclick="window._fcBmEditOpen('${nid}',${i})">編集</button>
+    </div>`;
+  }
+  function _bmItemEditHTML(nid,bm,i){
+    const field=_editingBm?.field||'start';
+    const curVal=field==='start'?(bm.a||0):(bm.b??bm.a??0);
+    const hasEnd=bm.b!=null;
+    const S='flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);background:var(--accent,#2563eb);color:#fff';
+    const U='flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);color:var(--text2);background:var(--surface2)';
+    const E='flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;background:var(--accent,#2563eb);color:#fff';
+    const F='flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;color:var(--text2);background:var(--surface2)';
+    const tabS=field==='start'?S:U; const tabE=field==='end'?E:F;
+    const timeDisp=field==='start'?_fmt(bm.a):(hasEnd?_fmt(bm.b):'——');
+    const sp=e=>`event.stopPropagation();${e}`;
+    const adjBtn=(s)=>`<button onclick="${sp(`window._fcBmEditMicro('${nid}',${i},${s})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">${s>0?'+':''}${s}s</button>`;
+    return `<div class="bm-item" style="display:block;padding:8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent,#2563eb);border-radius:4px;margin:2px 0">
+      <input id="fc-bm-lbl-${nid}-${i}" type="text" value="${_esc(bm.label||'')}" placeholder="ブックマーク名（空欄でも可）"
+        style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent,#2563eb);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:5px"
+        onclick="${sp('')}" onmousedown="${sp('')}">
+      <input id="fc-bm-note-${nid}-${i}" type="text" value="${_esc(bm.note||'')}" placeholder="コメント（空欄でも可）"
+        style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:8px"
+        onclick="${sp('')}" onmousedown="${sp('')}">
+      <div style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;background:var(--surface)">
+        <div style="display:flex;border-bottom:0.5px solid var(--border)">
+          <div onclick="${sp(`window._fcBmEditTab('${nid}',${i},'start')`)}" style="${tabS}">▶ 開始</div>
+          <div onclick="${sp(`window._fcBmEditTab('${nid}',${i},'end')`)}" style="${tabE}">■ 終了</div>
+        </div>
+        <div style="padding:8px 10px">
+          <div id="fc-bm-tdisp-${nid}-${i}" style="font-size:20px;font-weight:500;text-align:center;margin:2px 0 6px;font-family:monospace">${timeDisp}</div>
+          <input type="range" id="fc-bm-sl-${nid}-${i}" min="0" max="600" value="${curVal}" step="1"
+            style="width:100%;margin-bottom:6px;accent-color:var(--accent,#2563eb)"
+            oninput="${sp(`window._fcBmEditSlider('${nid}',${i},this.value)`)}"
+            onclick="${sp('')}" onmousedown="${sp('')}">
+          <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px">微調整</span>
+            ${[-10,-5,-3,-1,1,3,5,10].map(s=>adjBtn(s)).join('')}
+            <button onclick="${sp(`window._fcBmEditCurrent('${nid}',${i})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--accent,#2563eb);color:#fff;cursor:pointer;font-family:inherit">現在地</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px">
+        <div style="display:flex;gap:5px">
+          <button onclick="${sp(`window._fcBmEditReset('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">↺ リセット</button>
+          <button onclick="${sp(`window._fcDelBm('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--danger,#dc2626);cursor:pointer;font-family:inherit">🗑 削除</button>
+        </div>
+        <div style="display:flex;gap:5px">
+          <button onclick="${sp(`window._fcBmEditClose('${nid}')`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">閉じる</button>
+          <button onclick="${sp(`window._fcBmEditSave('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--text);background:var(--text);color:#fff;cursor:pointer;font-family:inherit;font-weight:600">✔ 保存</button>
+        </div>
+      </div>
     </div>`;
   }
   function _refreshBmUI(nid){
@@ -1015,11 +1066,64 @@
     _refreshBmUI(nid);
     _focusLastBmLabel(nid);
   };
-  window._fcEditBm    = function(nid,idx){
-    const el=document.querySelector(`#fc-bm-list-${nid} .bm-item:nth-child(${idx+1}) .bm-item-label`); if(!el) return;
-    el.contentEditable='true'; el.classList.add('editing'); el.focus(); _selAll(el);
-    el.addEventListener('blur',()=>{ el.contentEditable='false'; el.classList.remove('editing'); const bm=_getAb(nid).bookmarks[idx]; if(bm){ bm.label=el.textContent.trim(); _syncBmsToLib(nid); } },{once:true});
-    el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();el.blur();} },{once:true});
+  window._fcBmEditOpen = function(nid,idx){
+    const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    _editingBm={nid, idx, field:'start', origA:bm.a, origB:bm.b};
+    _refreshBmUI(nid);
+    setTimeout(()=>{
+      const sl=document.getElementById('fc-bm-sl-'+nid+'-'+idx); if(!sl) return;
+      if(_ytPlayers[nid]?.getDuration){ const d=_ytPlayers[nid].getDuration(); if(d>0) sl.max=Math.ceil(d); }
+      else if(_gdVideoEls[nid]){ const d=_gdVideoEls[nid].duration; if(d>0) sl.max=Math.ceil(d); }
+      else if(_vmPlayers[nid]) _vmPlayers[nid].getDuration().then(d=>{ if(sl&&d>0) sl.max=Math.ceil(d); }).catch(()=>{});
+      const lbl=document.getElementById('fc-bm-lbl-'+nid+'-'+idx); if(lbl){ lbl.focus(); lbl.select(); }
+    },50);
+  };
+  window._fcBmEditClose = function(nid){
+    _editingBm=null; _refreshBmUI(nid);
+  };
+  window._fcBmEditSave = function(nid,idx){
+    const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    const lbl=document.getElementById('fc-bm-lbl-'+nid+'-'+idx);
+    const note=document.getElementById('fc-bm-note-'+nid+'-'+idx);
+    if(lbl) bm.label=lbl.value.trim();
+    if(note) bm.note=note.value.trim();
+    _editingBm=null; _syncBmsToLib(nid); _refreshBmUI(nid);
+  };
+  window._fcBmEditTab = function(nid,idx,field){
+    if(!_editingBm) return;
+    const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    if(field==='end' && bm.b==null) bm.b=bm.a;
+    _editingBm.field=field; _refreshBmUI(nid);
+    setTimeout(()=>{
+      const sl=document.getElementById('fc-bm-sl-'+nid+'-'+idx); if(!sl) return;
+      sl.value=field==='start'?(bm.a||0):(bm.b??0);
+    },30);
+  };
+  window._fcBmEditSlider = function(nid,idx,val){
+    const t=parseFloat(val); const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    const field=_editingBm?.field||'start';
+    if(field==='start') bm.a=t; else bm.b=t;
+    const disp=document.getElementById('fc-bm-tdisp-'+nid+'-'+idx); if(disp) disp.textContent=_fmt(t);
+    _seekTo(nid, t);
+  };
+  window._fcBmEditMicro = function(nid,idx,secs){
+    const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    const field=_editingBm?.field||'start';
+    const cur=field==='start'?(bm.a||0):(bm.b??bm.a??0);
+    const t=Math.max(0,cur+secs);
+    if(field==='start') bm.a=t; else bm.b=t;
+    _seekTo(nid,t); _refreshBmUI(nid);
+  };
+  window._fcBmEditCurrent = function(nid,idx){
+    const t=_curTime(nid); const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    const field=_editingBm?.field||'start';
+    if(field==='start') bm.a=t; else bm.b=t;
+    _seekTo(nid,t); _refreshBmUI(nid);
+  };
+  window._fcBmEditReset = function(nid,idx){
+    if(!_editingBm) return;
+    const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
+    bm.a=_editingBm.origA; bm.b=_editingBm.origB; _refreshBmUI(nid);
   };
   function _focusLastBmLabel(nid){
     setTimeout(()=>{
@@ -1052,6 +1156,7 @@
   };
   window._fcDelBm = function(nid,idx){
     _getAb(nid).bookmarks.splice(idx,1);
+    _editingBm=null;
     _syncBmsToLib(nid);
     _refreshBmUI(nid);
   };
