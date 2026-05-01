@@ -243,11 +243,6 @@
   <button class="fc-tb-btn" id="fc-save-btn">💾 保存</button>
   <button class="fc-tb-btn accent" id="fc-add-btn">＋ ノード追加 ▾</button>
 </div>
-<div id="fc-type-picker">
-  <div class="fc-tp-item" data-fc-type="text">💬 テキスト</div>
-  <div class="fc-tp-item" data-fc-type="video">▶ 動画</div>
-  <div class="fc-tp-item" data-fc-type="image">🖼 画像</div>
-</div>
 <div id="fc-wrap">
   <div id="fc-canvas" style="transform-origin:0 0">
     <svg id="fc-svg-layer" xmlns="http://www.w3.org/2000/svg">
@@ -286,6 +281,10 @@
 </div>
 <div id="fc-hint">ノードをドラッグして移動 / 下の ＋ をクリックまたはドラッグで接続</div>`;
     document.body.appendChild(o);
+    const p=document.createElement('div');
+    p.id='fc-type-picker';
+    p.innerHTML=`<div class="fc-tp-item" data-fc-type="text">💬 テキスト</div><div class="fc-tp-item" data-fc-type="video">▶ 動画</div><div class="fc-tp-item" data-fc-type="image">🖼 画像</div>`;
+    document.body.appendChild(p);
     _wireStatic();
   }
 
@@ -311,7 +310,7 @@
       if(_addBtnCancelling){ _cancelPlace(); } else { _showTypePicker(e); }
     });
 
-    _el('overlay').querySelectorAll('.fc-tp-item').forEach(item=>{
+    _el('type-picker').querySelectorAll('.fc-tp-item').forEach(item=>{
       item.addEventListener('click', ()=>_startPlace(item.dataset.fcType));
     });
 
