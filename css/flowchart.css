@@ -8,6 +8,7 @@
   overflow:hidden;user-select:none;
 }
 #fc-overlay.open{display:block}
+body:has(#fc-overlay.open) #vpanel{z-index:10000}
 
 /* ── Topbar ── */
 #fc-topbar{
