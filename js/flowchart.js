@@ -17,7 +17,7 @@
   let _edgePopupId=null;
   let _longPressTimer=null;
   let _placing=false, _pendingContent=null;
-  let _selectedLib=null;
+  let _addBtnCancelling=false;
   let _onVidInsert=null, _onImgInsert=null;
   let _nc=20, _ec=10;
   let _ytPlayers={}, _ytTimers={}, _fcYtApiReady=false;
@@ -103,7 +103,6 @@
     _renderAll();
     _el('canvas').style.transform = `translate(${_panX}px,${_panY}px)`;
     if(!_wired){ _wireGlobal(); _wired=true; }
-    _buildLibGrid(_getLib());
   };
 
   function _closeEditor(){
@@ -166,59 +165,6 @@
   <span>青いノードをクリック</span>
   <button class="connect-cancel-btn" id="fc-cancel-connect-btn">✕ キャンセル</button>
 </div>
-<div class="fc-modal-bg" id="fc-video-modal">
-  <div class="fc-modal">
-    <div class="fc-modal-hdr">
-      <span class="fc-modal-hdr-title">動画を追加</span>
-      <button class="fc-modal-close" id="fc-close-vid-modal">✕</button>
-    </div>
-    <div class="fc-modal-tabs">
-      <button class="fc-modal-tab active" id="fc-vtab-url-btn">URLを入力</button>
-      <button class="fc-modal-tab" id="fc-vtab-lib-btn">ライブラリから選択</button>
-    </div>
-    <div class="fc-modal-body">
-      <div id="fc-vtab-url">
-        <p style="font-size:11px;color:var(--text3,#aaa);margin-bottom:10px">YouTube URLまたは動画IDを貼り付けてください</p>
-        <div class="fc-url-row">
-          <input type="text" id="fc-vid-url-inp" placeholder="https://www.youtube.com/watch?v=...">
-          <button class="fc-insert-btn" id="fc-vid-url-btn" disabled>挿入する</button>
-        </div>
-        <div id="fc-vid-preview"><img id="fc-vid-thumb" src="" alt=""></div>
-      </div>
-      <div id="fc-vtab-lib" style="display:none">
-        <input type="text" id="fc-lib-search" placeholder="🔍 タイトルで検索…">
-        <div id="fc-lib-grid"></div>
-        <button id="fc-lib-insert-btn" disabled>選択して挿入</button>
-      </div>
-    </div>
-  </div>
-</div>
-<div class="fc-modal-bg" id="fc-image-modal">
-  <div class="fc-modal">
-    <div class="fc-modal-hdr">
-      <span class="fc-modal-hdr-title">画像を追加</span>
-      <button class="fc-modal-close" id="fc-close-img-modal">✕</button>
-    </div>
-    <div class="fc-modal-body">
-      <div class="fc-img-options">
-        <div>
-          <p style="font-size:11px;color:var(--text3,#aaa);margin-bottom:8px">画像URLを入力</p>
-          <div class="fc-img-option-row">
-            <input type="text" id="fc-img-url-inp" placeholder="https://...">
-            <button class="fc-insert-btn" id="fc-img-url-btn" disabled>挿入</button>
-          </div>
-        </div>
-        <div class="fc-img-divider">— または —</div>
-        <div>
-          <p style="font-size:11px;color:var(--text3,#aaa);margin-bottom:8px">ファイルを選択</p>
-          <div class="fc-file-drop" id="fc-file-drop-area">クリックして画像を選択（PNG / JPG）</div>
-          <input type="file" id="fc-img-file" accept="image/*" style="display:none">
-        </div>
-        <img id="fc-img-preview" src="" alt="">
-      </div>
-    </div>
-  </div>
-</div>
 <div id="fc-hint">ノードをドラッグして移動 / 下の ＋ をクリックまたはドラッグで接続</div>`;
     document.body.appendChild(o);
     _wireStatic();
@@ -232,7 +178,10 @@
     tb.addEventListener('blur', ()=>{ _mapName=tb.textContent.trim()||'マップ'; tb.textContent=_mapName; });
     tb.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tb.blur(); }});
 
-    _el('add-btn').addEventListener('click', e=>{ e.stopPropagation(); _showTypePicker(e); });
+    _el('add-btn').addEventListener('click', e=>{
+      e.stopPropagation();
+      if(_addBtnCancelling){ _cancelPlace(); } else { _showTypePicker(e); }
+    });
 
     _el('overlay').querySelectorAll('.fc-tp-item').forEach(item=>{
       item.addEventListener('click', ()=>_startPlace(item.dataset.fcType));
@@ -253,21 +202,6 @@
 
     _el('cancel-connect-btn').addEventListener('click', _cancelConnect);
 
-    // Video modal
-    _el('close-vid-modal').addEventListener('click', _closeVideoModal);
-    _el('vtab-url-btn').addEventListener('click', ()=>_switchVTab('url'));
-    _el('vtab-lib-btn').addEventListener('click', ()=>_switchVTab('lib'));
-    _el('vid-url-inp').addEventListener('input', _onVidUrl);
-    _el('vid-url-btn').addEventListener('click', _insertVidUrl);
-    _el('lib-insert-btn').addEventListener('click', _insertVidLib);
-    _el('lib-search').addEventListener('input', _filterLib);
-
-    // Image modal
-    _el('close-img-modal').addEventListener('click', _closeImageModal);
-    _el('img-url-inp').addEventListener('input', ()=>{ _el('img-url-btn').disabled=!_el('img-url-inp').value.trim(); });
-    _el('img-url-btn').addEventListener('click', _insertImgUrl);
-    _el('file-drop-area').addEventListener('click', ()=>_el('img-file').click());
-    _el('img-file').addEventListener('change', _onImgFile);
   }
 
   // ── Global event wiring (once) ────────────────────────────────
@@ -682,21 +616,20 @@
   function _startPlace(type){
     _hidePicker(); _pendingContent=null;
     if(type==='text'){ _enterPlacingMode(); }
-    else if(type==='video'){ _onVidInsert=()=>_enterPlacingMode(); _openVideoModal(); }
-    else if(type==='image'){ _onImgInsert=()=>_enterPlacingMode(); _openImageModal(); }
+    else if(type==='video'){ _onVidInsert=()=>_enterPlacingMode(); _openFcVidPicker(); }
+    else if(type==='image'){ _onImgInsert=()=>_enterPlacingMode(); _openFcImgPicker(); }
   }
   function _enterPlacingMode(){
-    _placing=true; _el('wrap').classList.add('placing');
+    _placing=true; _addBtnCancelling=true; _el('wrap').classList.add('placing');
     const btn=_el('add-btn');
     btn.classList.add('placing'); btn.textContent='✕ キャンセル';
-    btn.onclick=_cancelPlace;
     _el('hint').textContent='キャンバスをクリックしてノードを配置  /  Esc でキャンセル';
     _el('hint').classList.remove('hidden');
   }
   function _cancelPlace(){
-    _placing=false; _pendingContent=null; _el('wrap').classList.remove('placing');
+    _placing=false; _addBtnCancelling=false; _pendingContent=null; _el('wrap').classList.remove('placing');
     const btn=_el('add-btn');
-    btn.classList.remove('placing'); btn.textContent='＋ ノード追加 ▾'; btn.onclick=e=>_showTypePicker(e);
+    btn.classList.remove('placing'); btn.textContent='＋ ノード追加 ▾';
     _el('hint').textContent='ノードをドラッグして移動 / 下の ＋ をクリックまたはドラッグで接続';
     _el('hint').classList.remove('hidden');
   }
@@ -728,85 +661,85 @@
     _hideCtx();
     const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return;
     if(action==='del'){ _nodes=_nodes.filter(n=>n.id!==nd.id); _edges=_edges.filter(e=>e.from!==nd.id&&e.to!==nd.id); _renderAll(); return; }
-    if(action==='vid'||action==='chg'){ _onVidInsert=null; _openVideoModal(); }
-    else if(action==='img'){ _onImgInsert=null; _openImageModal(); }
+    if(action==='vid'||action==='chg'){ _onVidInsert=null; _openFcVidPicker(); }
+    else if(action==='img'){ _onImgInsert=null; _openFcImgPicker(); }
     else if(action==='txt'){ nd.content={type:'text',text:''}; _renderAll(); setTimeout(()=>{ const ta=document.getElementById('fc-ta-'+nd.id); if(ta){ ta.contentEditable='true'; ta.classList.add('editing'); ta.focus(); }},50); }
   }
 
-  // ── Video modal ───────────────────────────────────────────────
-  function _openVideoModal(){
-    _el('vid-url-inp').value=''; _el('vid-preview').style.display='none'; _el('vid-url-btn').disabled=true;
-    _selectedLib=null; _el('lib-insert-btn').disabled=true;
-    _el('overlay').querySelectorAll('.fc-lib-card').forEach(c=>c.classList.remove('selected'));
-    _switchVTab('url'); _el('video-modal').classList.add('open');
+  // ── Video picker — reuse notes sheet UI ───────────────────────
+  function _openFcVidPicker(){
+    // Intercept notes video confirmation to route to flowchart
+    window._notesFcVideoCallback = function(vidData) {
+      _applyVideo(vidData.videoId || vidData.ytId || vidData.id, vidData);
+    };
+    // Show notes' existing sheet (z-index 9999 > fc-overlay 9000)
+    window._notesShowVidPicker?.('__fc__');
   }
-  function _closeVideoModal(){ _el('video-modal').classList.remove('open'); _onVidInsert=null; }
-  function _switchVTab(tab){
-    _el('vtab-url').style.display=tab==='url'?'':'none';
-    _el('vtab-lib').style.display=tab==='lib'?'':'none';
-    _el('vtab-url-btn').classList.toggle('active',tab==='url');
-    _el('vtab-lib-btn').classList.toggle('active',tab==='lib');
-  }
-  function _onVidUrl(){
-    const vid=_extractVid(_el('vid-url-inp').value.trim());
-    _el('vid-url-btn').disabled=!vid;
-    const pv=_el('vid-preview');
-    if(vid){ pv.style.display=''; document.getElementById('fc-vid-thumb').src=`https://img.youtube.com/vi/${vid}/mqdefault.jpg`; }
-    else pv.style.display='none';
-  }
-  function _insertVidUrl(){ const vid=_extractVid(_el('vid-url-inp').value.trim()); if(!vid) return; _applyVideo(vid,null); _closeVideoModal(); }
-  function _buildLibGrid(items){
-    const grid=_el('lib-grid'); grid.innerHTML='';
-    if(!items.length){ grid.innerHTML='<div class="fc-lib-empty">動画がありません</div>'; return; }
-    items.forEach(item=>{
-      const hasBm=item.bookmarks?.length>0;
-      const card=document.createElement('div');
-      card.className='fc-lib-card'; card.dataset.id=item.id;
-      card.innerHTML=`<div class="fc-lib-thumb">
-        <img src="https://img.youtube.com/vi/${item.vid}/mqdefault.jpg" onerror="this.style.display='none'">
-        <div class="fc-lib-play">▶</div>
-        ${hasBm?`<div class="fc-lib-bm-badge">📌 ${item.bookmarks.length}</div>`:''}
-      </div>
-      <div class="fc-lib-info"><div class="fc-lib-title">${_esc(item.title)}</div><div class="fc-lib-cat">${_esc(item.cat)}</div></div>`;
-      card.addEventListener('click',()=>{
-        _el('overlay').querySelectorAll('.fc-lib-card').forEach(c=>c.classList.remove('selected'));
-        card.classList.add('selected'); _selectedLib=item.id;
-        _el('lib-insert-btn').disabled=false;
-      });
-      grid.appendChild(card);
-    });
-  }
-  function _filterLib(){
-    const q=_el('lib-search').value.trim().toLowerCase();
-    _buildLibGrid(_getLib().filter(i=>i.title.toLowerCase().includes(q)||i.cat.toLowerCase().includes(q)));
-    _selectedLib=null; _el('lib-insert-btn').disabled=true;
-  }
-  function _insertVidLib(){
-    const lib=_getLib(); const libItem=lib.find(l=>l.id===_selectedLib); if(!libItem) return;
-    _applyVideo(libItem.vid,libItem); _closeVideoModal();
-  }
-  function _applyVideo(vid,libItem){
-    const content={type:'video',videoId:vid,libId:libItem?.id||null};
-    if(_onVidInsert){ _pendingContent=content; if(libItem?.bookmarks?.length) _pendingContent._libBookmarks=libItem.bookmarks.map(b=>({...b})); _onVidInsert(); }
-    else{ const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return; nd.content=content; if(!_abState[nd.id]) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false}; if(libItem?.bookmarks?.length) _abState[nd.id].bookmarks=libItem.bookmarks.map(b=>({...b})); _renderAll(); }
+  function _applyVideo(vid, vidData){
+    const bookmarks = vidData?.bookmarks || [];
+    const content = {type:'video', videoId:vid, platform: vidData?.platform||'youtube',
+      ytId: vidData?.ytId||undefined, title: vidData?.title||'', channel: vidData?.channel||''};
+    if(_onVidInsert){
+      _pendingContent = content;
+      if(bookmarks.length) _pendingContent._libBookmarks = bookmarks.map(b=>({...b}));
+      _onVidInsert(); _onVidInsert=null;
+    } else {
+      const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return;
+      nd.content=content;
+      if(!_abState[nd.id]) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false};
+      if(bookmarks.length) _abState[nd.id].bookmarks=bookmarks.map(b=>({...b}));
+      _renderAll();
+    }
   }
 
-  // ── Image modal ───────────────────────────────────────────────
-  function _openImageModal(){
-    _el('img-url-inp').value=''; _el('img-url-btn').disabled=true;
-    _el('img-preview').style.display='none'; _el('image-modal').classList.add('open');
+  // ── Image picker — notes-style sheet ─────────────────────────
+  function _openFcImgPicker(){
+    _removeFcImgSheet();
+    const overlay=document.createElement('div');
+    overlay.id='fc-img-sheet';
+    overlay.className='n-sheet-overlay';
+    overlay.innerHTML=`<div class="n-sheet n-sheet-sm">
+      <div class="n-sheet-hdr">
+        <span class="n-sheet-title">画像を追加</span>
+        <button class="n-sheet-close" onclick="document.getElementById('fc-img-sheet')?.remove();window._fcOnImgInsert=null">✕</button>
+      </div>
+      <div class="n-sheet-body" style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label class="n-sheet-lbl">画像URLを入力</label>
+          <div style="display:flex;gap:8px">
+            <input id="fc-img-url" class="n-sheet-input" type="text" placeholder="https://..." style="flex:1">
+            <button class="n-btn n-btn-primary" id="fc-img-url-ok">挿入</button>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:var(--text3)">— または —</div>
+        <div>
+          <label class="n-sheet-lbl">ファイルを選択</label>
+          <div class="fc-img-drop" onclick="document.getElementById('fc-img-file').click()" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;font-size:12px;color:var(--text3)">クリックして画像を選択（PNG / JPG）</div>
+          <input type="file" id="fc-img-file" accept="image/*" style="display:none">
+        </div>
+      </div>
+    </div>`;
+    overlay.addEventListener('click',e=>{ if(e.target===overlay) _removeFcImgSheet(); });
+    document.getElementById('fc-img-url-ok', overlay)?.addEventListener('click', _fcImgFromUrl);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=>overlay.classList.add('vis'));
+    overlay.querySelector('#fc-img-url-ok').addEventListener('click', _fcImgFromUrl);
+    overlay.querySelector('#fc-img-file').addEventListener('change', _fcImgFromFile);
   }
-  function _closeImageModal(){ _el('image-modal').classList.remove('open'); _onImgInsert=null; }
-  function _insertImgUrl(){ const src=_el('img-url-inp').value.trim(); if(!src) return; _applyImage(src); _closeImageModal(); }
-  function _onImgFile(){
-    const file=_el('img-file').files[0]; if(!file) return;
+  function _removeFcImgSheet(){ document.getElementById('fc-img-sheet')?.remove(); }
+  function _fcImgFromUrl(){
+    const src=document.getElementById('fc-img-url')?.value.trim(); if(!src) return;
+    _applyImage(src); _removeFcImgSheet();
+  }
+  function _fcImgFromFile(){
+    const file=document.getElementById('fc-img-file')?.files[0]; if(!file) return;
     const reader=new FileReader();
-    reader.onload=e=>{ _applyImage(e.target.result); _closeImageModal(); };
+    reader.onload=e=>{ _applyImage(e.target.result); _removeFcImgSheet(); };
     reader.readAsDataURL(file);
   }
   function _applyImage(src){
     const content={type:'image',src};
-    if(_onImgInsert){ _pendingContent=content; _onImgInsert(); }
+    if(_onImgInsert){ _pendingContent=content; _onImgInsert(); _onImgInsert=null; }
     else{ const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return; nd.content=content; _renderAll(); }
   }
 

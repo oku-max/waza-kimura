@@ -1529,6 +1529,15 @@ window._notesVideoConfirm = function() {
   const title   = document.getElementById('n-block-video-title')?.value.trim() || '';
   const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
 
+  // フローチャートMap用インターセプト
+  const _fcCb = window._notesFcVideoCallback;
+  if (_fcCb) {
+    window._notesFcVideoCallback = null;
+    _fcCb({ videoId, title, channel, platform: 'youtube' });
+    window._notesSheetClose();
+    return;
+  }
+
   // カラムスロットへの挿入
   const ctx = window._notesColContext;
   window._notesColContext = null;
@@ -1971,6 +1980,19 @@ window._notesGetName = function(noteId) {
 };
 
 window._notesAddFromLib = function(videoId, noteId) {
+  // フローチャートMap用インターセプト
+  const _fcCb = window._notesFcVideoCallback;
+  if (_fcCb) {
+    window._notesFcVideoCallback = null;
+    const v2 = (window.videos || []).find(x => x.id === videoId);
+    if (v2) {
+      const platform2 = v2.pt || v2.src || 'youtube';
+      const ytId2 = v2.ytId || (platform2 === 'youtube' ? v2.id : null);
+      _fcCb({ videoId, platform: platform2, ytId: ytId2||undefined, title: v2.title||'', channel: v2.channel||v2.ch||'', duration: v2.duration||'' });
+    }
+    return;
+  }
+
   const r = _findNote(noteId);
   if (!r) return;
   const note = r.note;
