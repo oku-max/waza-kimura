@@ -219,7 +219,31 @@
     _renderAll();
     _applyTransform();
     if(!_wired){ _wireGlobal(); _wired=true; }
+    if(_nodes.length) requestAnimationFrame(_fitToContent);
   };
+
+  function _fitToContent(){
+    const cv=_el('canvas');
+    const wr=_el('wrap').getBoundingClientRect();
+    if(!wr.width) return;
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    _nodes.forEach(nd=>{
+      const el=cv.querySelector('#fc-node-'+nd.id);
+      const w=el?el.offsetWidth:(nd.w||200);
+      const h=el?el.offsetHeight:120;
+      if(nd.x<minX) minX=nd.x;
+      if(nd.y<minY) minY=nd.y;
+      if(nd.x+w>maxX) maxX=nd.x+w;
+      if(nd.y+h>maxY) maxY=nd.y+h;
+    });
+    const pad=80;
+    const cw=maxX-minX, ch=maxY-minY;
+    const newZoom=Math.min(1, Math.min(wr.width/(cw+pad*2), wr.height/(ch+pad*2)));
+    _zoom=Math.max(0.3, newZoom);
+    _panX=wr.width/2 - (minX+cw/2)*_zoom;
+    _panY=wr.height/2 - (minY+ch/2)*_zoom;
+    _applyTransform();
+  }
 
   function _closeEditor(){
     clearTimeout(_autoSaveTimer); _autoSaveTimer=null;
@@ -994,7 +1018,7 @@
       }
     }
   }
-  function _compressImg(src, maxPx=1200, quality=0.80){
+  function _compressImg(src, maxPx=640, quality=0.60){
     return new Promise(resolve=>{
       const img=new Image();
       img.onload=()=>{
