@@ -27,6 +27,7 @@
   let _wired=false;
   let _editingBm=null; // {nid, idx, field:'start'|'end', origA, origB}
   let _autoSaveTimer=null;
+  let _zoom=1, _pinchDist=0;
 
   function _loadVimeoApi(cb){
     if(window.Vimeo?.Player) return cb();
@@ -163,6 +164,24 @@
     });
   }
 
+  // ── Canvas transform ──────────────────────────────────────────
+  function _applyTransform(){
+    _el('canvas').style.transform=`translate(${_panX}px,${_panY}px) scale(${_zoom})`;
+    const lbl=document.getElementById('fc-zoom-label');
+    if(lbl) lbl.textContent=Math.round(_zoom*100)+'%';
+  }
+  function _setZoom(newZoom, vpX, vpY){
+    newZoom=Math.max(0.3, Math.min(3, newZoom));
+    if(Math.abs(newZoom-_zoom)<0.001) return;
+    const wr=_el('wrap').getBoundingClientRect();
+    const cx=vpX!==undefined?vpX:wr.width/2;
+    const cy=vpY!==undefined?vpY:wr.height/2;
+    _panX=cx - newZoom*(cx-_panX)/_zoom;
+    _panY=cy - newZoom*(cy-_panY)/_zoom;
+    _zoom=newZoom;
+    _applyTransform();
+  }
+
   // ── Auto-save ─────────────────────────────────────────────────
   function _triggerAutoSave(){
     if(!_onSave) return;
@@ -172,7 +191,12 @@
   function _doSave(){
     if(!_onSave) return;
     clearTimeout(_autoSaveTimer); _autoSaveTimer=null;
-    _onSave({ name:_mapName, nodes:_nodes, edges:_edges, abState:_abState });
+    _onSave({
+      name: _mapName,
+      nodes: JSON.parse(JSON.stringify(_nodes)),
+      edges: JSON.parse(JSON.stringify(_edges)),
+      abState: JSON.parse(JSON.stringify(_abState))
+    });
     const btn=document.getElementById('fc-save-btn');
     if(btn){ btn.textContent='✅ 保存済み'; setTimeout(()=>{ if(btn) btn.textContent='💾 保存'; },2000); }
   }
@@ -186,14 +210,14 @@
     _abState  = JSON.parse(JSON.stringify(mapData.abState||{}));
     _nc = Math.max(20, ..._nodes.map(n=>parseInt(n.id.replace('n',''))||0));
     _ec = Math.max(10, ..._edges.map(e=>parseInt(e.id.replace('e',''))||0));
-    _panX=60; _panY=40; _placing=false; _connecting=null;
+    _panX=60; _panY=40; _zoom=1; _placing=false; _connecting=null;
     _dragNode=null; _edgePopupId=null;
 
     _ensureOverlay();
     _el('overlay').classList.add('open');
     _el('tb-title').textContent = _mapName;
     _renderAll();
-    _el('canvas').style.transform = `translate(${_panX}px,${_panY}px)`;
+    _applyTransform();
     if(!_wired){ _wireGlobal(); _wired=true; }
   };
 
@@ -225,7 +249,7 @@
   <div class="fc-tp-item" data-fc-type="image">🖼 画像</div>
 </div>
 <div id="fc-wrap">
-  <div id="fc-canvas">
+  <div id="fc-canvas" style="transform-origin:0 0">
     <svg id="fc-svg-layer" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <marker id="fc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -255,6 +279,11 @@
   <span>青いノードをクリック</span>
   <button class="connect-cancel-btn" id="fc-cancel-connect-btn">✕ キャンセル</button>
 </div>
+<div id="fc-zoom-bar" style="position:absolute;bottom:16px;right:16px;display:flex;align-items:center;gap:2px;background:var(--surface,#fff);border:1px solid var(--border,#ddd);border-radius:8px;padding:2px 6px;z-index:20;box-shadow:0 1px 4px rgba(0,0,0,.12)">
+  <button id="fc-zoom-out" style="width:28px;height:28px;border:none;background:none;cursor:pointer;font-size:18px;line-height:1;border-radius:4px;color:var(--text,#222)">−</button>
+  <span id="fc-zoom-label" style="min-width:36px;text-align:center;font-size:12px;color:var(--text2,#666);user-select:none">100%</span>
+  <button id="fc-zoom-in" style="width:28px;height:28px;border:none;background:none;cursor:pointer;font-size:18px;line-height:1;border-radius:4px;color:var(--text,#222)">＋</button>
+</div>
 <div id="fc-hint">ノードをドラッグして移動 / 下の ＋ をクリックまたはドラッグで接続</div>`;
     document.body.appendChild(o);
     _wireStatic();
@@ -264,6 +293,14 @@
   function _wireStatic(){
     _el('back-btn').addEventListener('click', _closeEditor);
     _el('save-btn').addEventListener('click', _doSave);
+    _el('zoom-in').addEventListener('click',()=>_setZoom(_zoom*1.25));
+    _el('zoom-out').addEventListener('click',()=>_setZoom(_zoom/1.25));
+    _el('wrap').addEventListener('wheel',e=>{
+      if(!_el('overlay').classList.contains('open')) return;
+      e.preventDefault();
+      const wr=_el('wrap').getBoundingClientRect();
+      _setZoom(_zoom*(e.deltaY<0?1.1:1/1.1), e.clientX-wr.left, e.clientY-wr.top);
+    },{passive:false});
 
     const tb = _el('tb-title');
     tb.addEventListener('blur', ()=>{ _mapName=tb.textContent.trim()||'マップ'; tb.textContent=_mapName; _triggerAutoSave(); });
@@ -308,7 +345,18 @@
     });
     document.addEventListener('touchmove', e=>{
       if(!_el('overlay').classList.contains('open')) return;
-      e.preventDefault(); _applyMove(e.touches[0].clientX, e.touches[0].clientY);
+      e.preventDefault();
+      if(e.touches.length===2 && _pinchDist>0){
+        const t0=e.touches[0], t1=e.touches[1];
+        const dist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
+        const wr=_el('wrap').getBoundingClientRect();
+        const mx=(t0.clientX+t1.clientX)/2-wr.left;
+        const my=(t0.clientY+t1.clientY)/2-wr.top;
+        _setZoom(_zoom*(dist/_pinchDist), mx, my);
+        _pinchDist=dist;
+      } else {
+        _applyMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
     },{passive:false});
     document.addEventListener('mouseup', e=>{
       if(!_el('overlay').classList.contains('open')) return;
@@ -316,6 +364,7 @@
     });
     document.addEventListener('touchend', e=>{
       if(!_el('overlay').classList.contains('open')) return;
+      if(e.touches.length<2) _pinchDist=0;
       const t=e.changedTouches[0]; _applyRelease(t.clientX, t.clientY, true);
     },{passive:false});
     document.addEventListener('keydown', e=>{
@@ -473,7 +522,7 @@
       if(e.target.classList.contains('node-vp-btn'))return;
       if(e.target.classList.contains('node-name')&&e.target.isContentEditable)return;
       e.stopPropagation();
-      _dragNode=nd; _dragOff={x:e.clientX-nd.x-_panX,y:e.clientY-nd.y-_panY};
+      _dragNode=nd; _dragOff={x:(e.clientX-_panX)/_zoom-nd.x,y:(e.clientY-_panY)/_zoom-nd.y};
       el.style.zIndex=10;
     });
     hdr.addEventListener('touchstart',e=>{
@@ -482,7 +531,7 @@
       if(e.target.classList.contains('node-vp-btn'))return;
       e.stopPropagation(); e.preventDefault();
       const t=e.touches[0];
-      _dragNode=nd; _dragOff={x:t.clientX-nd.x-_panX,y:t.clientY-nd.y-_panY};
+      _dragNode=nd; _dragOff={x:(t.clientX-_panX)/_zoom-nd.x,y:(t.clientY-_panY)/_zoom-nd.y};
       el.style.zIndex=10;
     },{passive:false});
 
@@ -684,13 +733,18 @@
     e.preventDefault();
     if(_placing){ _doPlaceTouch(e); return; }
     if(_connecting){ _cancelConnect(); return; }
+    if(e.touches.length===2 && !_dragNode){
+      const t0=e.touches[0], t1=e.touches[1];
+      _pinchDist=Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
+      _panning=false; return;
+    }
     const t=e.touches[0];
-    _panning=true; _panSt={x:t.clientX-_panX,y:t.clientY-_panY};
+    _pinchDist=0; _panning=true; _panSt={x:t.clientX-_panX,y:t.clientY-_panY};
   }
 
   function _applyMove(clientX,clientY){
     if(_resizeNode){
-      const dw=clientX-_resizeNode.startX;
+      const dw=(clientX-_resizeNode.startX)/_zoom;
       const newW=Math.max(200,_resizeNode.startW+dw);
       _resizeNode.el.style.width=newW+'px';
       _resizeNode.nd.w=newW;
@@ -698,7 +752,7 @@
     }
     if(_connecting){
       const wr=_el('wrap').getBoundingClientRect();
-      const mx=clientX-wr.left-_panX, my=clientY-wr.top-_panY;
+      const mx=(clientX-wr.left-_panX)/_zoom, my=(clientY-wr.top-_panY)/_zoom;
       const cy2=(_connecting.fromY+my)/2;
       _el('connect-line').setAttribute('d',
         `M${_connecting.fromX},${_connecting.fromY} C${_connecting.fromX},${cy2} ${mx},${cy2} ${mx},${my}`);
@@ -706,14 +760,14 @@
     }
     if(_dragNode){
       const wr=_el('wrap').getBoundingClientRect();
-      const x=clientX-wr.left-_panX-_dragOff.x, y=clientY-wr.top-_panY-_dragOff.y;
+      const x=(clientX-wr.left-_panX)/_zoom-_dragOff.x, y=(clientY-wr.top-_panY)/_zoom-_dragOff.y;
       const el=document.getElementById('fc-node-'+_dragNode.id);
       if(el){ el.style.left=x+'px'; el.style.top=y+'px'; }
       _dragNode.x=x; _dragNode.y=y; _renderEdges(); return;
     }
     if(_panning){
       _panX=clientX-_panSt.x; _panY=clientY-_panSt.y;
-      _el('canvas').style.transform=`translate(${_panX}px,${_panY}px)`;
+      _applyTransform();
     }
   }
 
@@ -768,7 +822,10 @@
     const p=_el('type-picker');
     if(p.style.display==='block'){ _hidePicker(); return; }
     const r=_el('add-btn').getBoundingClientRect();
-    p.style.display='block'; p.style.left=r.left+'px'; p.style.top=(r.bottom+4)+'px';
+    p.style.display='block';
+    const pw=p.offsetWidth||130, ph=p.offsetHeight||110;
+    p.style.left=Math.max(8,Math.min(r.left,window.innerWidth-pw-8))+'px';
+    p.style.top=Math.max(8,Math.min(r.bottom+4,window.innerHeight-ph-8))+'px';
   }
   function _hidePicker(){ _el('type-picker').style.display='none'; }
   function _startPlace(type){
@@ -795,7 +852,7 @@
   function _doPlaceTouch(e){ const t=e.touches[0]; _placeAt(t.clientX,t.clientY); }
   function _placeAt(clientX,clientY){
     const wr=_el('wrap').getBoundingClientRect();
-    const x=(clientX-wr.left-_panX-75)|0, y=(clientY-wr.top-_panY-20)|0;
+    const x=((clientX-wr.left-_panX)/_zoom-75)|0, y=((clientY-wr.top-_panY)/_zoom-20)|0;
     const nd={id:'n'+(++_nc),x,y,name:'新しい技'};
     if(_pendingContent){
       const{_libBookmarks,...rest}=_pendingContent;

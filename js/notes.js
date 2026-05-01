@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.07 ═══
+// ═══ WAZA KIMURA — Notes tab v52.08 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -711,7 +711,7 @@ function _blockHTML(block, idx, noteId, total) {
           </div>${drag}${upBtn}${dnBtn}${del}</div>`;
       }
       if (block.snapId) {
-        return `<div class="n-block-wrap n-block-wrap-snap" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}" ${wrapAttrs}>
+        return `<div class="n-block-wrap n-block-wrap-snap n-block-wrap-card" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}" ${wrapAttrs}>
           <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${drag}${upBtn}${dnBtn}${del}</div>`;
       }
       // legacy: data URL stored directly
@@ -1604,7 +1604,10 @@ window._notesOpenMap = function(noteId, idx) {
     block.abState = updated.abState;
     r.note.updatedAt = Date.now();
     _save();
-    _renderNote(noteId);
+    // Re-render only when map editor is closed (not during auto-save)
+    if (!document.getElementById('fc-overlay')?.classList.contains('open')) {
+      _renderNote(noteId);
+    }
   });
 };
 window._notesAddImageBlock = function(noteId) {
