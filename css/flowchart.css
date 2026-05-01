@@ -52,11 +52,11 @@
 /* ── Nodes ── */
 #fc-overlay .fc-node{
   position:absolute;background:var(--surface,#fff);border:1px solid var(--border,#d0d0d0);
-  border-radius:6px;min-width:150px;max-width:300px;
+  border-radius:6px;min-width:150px;
   box-shadow:0 2px 8px rgba(0,0,0,.10);z-index:1;
   transition:box-shadow .12s,border-color .12s;
 }
-#fc-overlay .fc-node.vid-node{width:290px}
+#fc-overlay .fc-node.vid-node{width:290px;max-width:none}
 
 @keyframes fc-src-pulse{0%,100%{box-shadow:0 0 0 3px rgba(224,90,0,.4)}50%{box-shadow:0 0 0 6px rgba(224,90,0,.1)}}
 #fc-overlay .fc-node.connect-src{border-color:var(--accent,#e05a00)!important;animation:fc-src-pulse 1.4s ease-in-out infinite}
@@ -144,8 +144,23 @@
 #fc-overlay .bm-edit-btn{padding:2px 7px;border-radius:4px;border:1px solid #383838;background:none;color:#888;font-size:10px;cursor:pointer;flex-shrink:0}
 #fc-overlay .bm-edit-btn:hover{border-color:#d4a843;color:#d4a843}
 #fc-overlay .bm-empty{font-size:10px;color:#888;padding:0 0 4px;font-style:italic}
-#fc-overlay .vpanel-link{display:flex;align-items:center;justify-content:center;padding:6px 8px;font-size:11px;color:var(--accent,#e05a00);cursor:pointer;border-top:1px solid #383838;background:#1a1a1a;border-radius:0 0 6px 6px}
-#fc-overlay .vpanel-link:hover{background:#242424}
+#fc-overlay .bm-toggle{font-size:10px;color:#888;flex-shrink:0;margin-left:2px}
+#fc-overlay .bm-hdr{cursor:pointer}
+#fc-overlay .bm-hdr:hover{background:#242424;border-radius:0}
+#fc-overlay .bm-del-btn{padding:2px 5px;border-radius:4px;border:1px solid #383838;background:none;color:#888;font-size:10px;cursor:pointer;flex-shrink:0}
+#fc-overlay .bm-del-btn:hover{border-color:#f87171;color:#f87171}
+#fc-overlay .vpanel-btns{display:flex;gap:0;border-top:1px solid #383838;border-radius:0 0 6px 6px;overflow:hidden}
+#fc-overlay .vpanel-btn{flex:1;padding:6px 4px;font-size:10px;font-weight:600;color:var(--accent,#e05a00);background:#1a1a1a;border:none;cursor:pointer;text-align:center}
+#fc-overlay .vpanel-btn:hover{background:#242424}
+#fc-overlay .vpanel-btn+.vpanel-btn{border-left:1px solid #383838}
+
+/* Resize handle */
+#fc-overlay .fc-resize-handle{
+  position:absolute;right:0;bottom:0;width:14px;height:14px;
+  cursor:se-resize;z-index:6;
+  background:linear-gradient(135deg,transparent 50%,rgba(0,0,0,.15) 50%);
+  border-radius:0 0 6px 0;
+}
 
 /* Connection port */
 @keyframes fc-port-pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,90,0,.7)}60%{box-shadow:0 0 0 8px rgba(224,90,0,0)}}

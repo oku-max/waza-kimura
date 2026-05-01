@@ -20,21 +20,9 @@
   let _addBtnCancelling=false;
   let _onVidInsert=null, _onImgInsert=null;
   let _nc=20, _ec=10;
-  let _ytPlayers={}, _ytTimers={}, _fcYtApiReady=false;
+  let _ytPlayers={}, _ytTimers={};
+  let _resizeNode=null;
   let _wired=false;
-
-  // ── YouTube API ───────────────────────────────────────────────
-  function _checkYtReady(){
-    if(window.YT && window.YT.Player){ _fcYtApiReady=true; return true; }
-    return false;
-  }
-  // Hook into the main app's YT ready callback
-  const _prevYTReady = window.onYouTubeIframeAPIReady;
-  window.onYouTubeIframeAPIReady = function(){
-    _fcYtApiReady=true;
-    if(_prevYTReady) _prevYTReady();
-    _nodes.filter(n=>n.content?.type==='video'&&n.content?.videoId&&(n.content?.platform||'youtube')==='youtube').forEach(n=>_initVidNode(n.id));
-  };
 
   function _initVidNode(nodeId){
     const nd=_nodes.find(n=>n.id===nodeId); if(!nd?.content?.videoId) return;
@@ -42,7 +30,13 @@
     const rawId=nd.content.videoId;
     const div=document.getElementById('fc-vid-'+nodeId); if(!div) return;
     if(platform==='youtube'){
-      div.innerHTML=`<iframe src="https://www.youtube.com/embed/${rawId}?rel=0&modestbranding=1&playsinline=1" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
+      if(!window.YT?.Player){ setTimeout(()=>_initVidNode(nodeId),500); return; }
+      div.innerHTML='';
+      _ytPlayers[nodeId]=new YT.Player(div,{
+        videoId:rawId,width:'100%',height:'100%',
+        playerVars:{rel:0,modestbranding:1,autoplay:0},
+        events:{onReady:(e)=>{ _updateDurLabel(nodeId,e.target.getDuration()); _startNodeTimer(nodeId); }}
+      });
     } else if(platform==='gdrive'){
       const gdId=rawId.replace(/^gd-/,'');
       div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;
@@ -75,12 +69,15 @@
 
   // ── Library ───────────────────────────────────────────────────
   function _getLib(){
-    // Use production library; map fields to flowchart format
     return (window.videos||[]).map(v=>({
       id: v.id, vid: v.id, title: v.title||v.id,
       cat: v.position||v.cat||'',
-      bookmarks: (v.bookmarks||[]).map(b=>({label:b.label||'',a:b.a||0,b:b.b||30}))
+      bookmarks: _mapLibBms(v.bookmarks||[])
     }));
+  }
+  function _mapLibBms(bms){
+    // VPanel format: {time, endTime, label, note} → flowchart format: {a, b, label}
+    return bms.map(b=>({ label:b.label||'', a:b.time??b.a??0, b:b.endTime??b.b??((b.time??0)+30) }));
   }
 
   // ── Public API ────────────────────────────────────────────────
@@ -211,6 +208,7 @@
     document.addEventListener('mousemove', e=>{
       if(!_el('overlay').classList.contains('open')) return;
       if(_dragNode && !(e.buttons & 1)){ const el=document.getElementById('fc-node-'+_dragNode.id); if(el) el.style.zIndex=''; _dragNode=null; }
+      if(_resizeNode && !(e.buttons & 1)){ _resizeNode=null; }
       _applyMove(e.clientX, e.clientY);
     });
     document.addEventListener('touchmove', e=>{
@@ -248,6 +246,7 @@
       el.id='fc-node-'+nd.id;
       el.className='fc-node'+(nd.content?.type==='video'?' vid-node':'')+(nd._commentOpen?' cm-open':'');
       el.style.left=nd.x+'px'; el.style.top=nd.y+'px';
+      if(nd.w) el.style.width=nd.w+'px';
       el.innerHTML=_nodeHTML(nd);
       cv.appendChild(el);
       _wireNode(el,nd);
@@ -268,6 +267,7 @@
         <div class="node-cmt-txt" id="fc-cmt-txt-${nd.id}" data-ph="コメントを追加…">${_escNl(nd.comment||'')}</div>
       </div>
     </div>
+    <div class="fc-resize-handle" title="ドラッグでサイズ変更"></div>
     <div class="node-port" id="fc-port-${nd.id}" title="クリックまたはドラッグで接続">+</div>`;
   }
 
@@ -298,16 +298,21 @@
       :`youtube.com/watch?v=${vid}`;
     const isYT=platform==='youtube';
     const st=_getAb(nd.id);
+    const bmOpen=st.bmOpen!==false;
     const bmList=st.bookmarks.length
       ?st.bookmarks.map((bm,i)=>`<div class="bm-item">
         <span class="bm-chip" onclick="window._fcSeekBm('${nd.id}',${i})">${_fmt(bm.a)} → ${_fmt(bm.b)}</span>
-        <span class="bm-item-label">${_esc(bm.label||'（ラベルなし）')}</span>
+        <span class="bm-item-label" data-nid="${nd.id}" data-idx="${i}">${_esc(bm.label||'（ラベルなし）')}</span>
+        <button class="bm-del-btn" onclick="window._fcDelBm('${nd.id}',${i})">×</button>
         <button class="bm-edit-btn" onclick="window._fcEditBm('${nd.id}',${i})">編集</button>
       </div>`).join('')
       :`<div class="bm-empty">ブックマークなし</div>`;
     const statusBadge=st.a!=null&&st.b!=null
       ?`<span class="ab-status-badge active">${_fmt(st.a)}〜${_fmt(st.b)}</span>`
       :`<span class="ab-status-badge">未設定</span>`;
+    const addBmBtn=isYT
+      ?`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`
+      :`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmManual('${nd.id}')">＋ 追加</button>`;
     return `<div class="node-content">
       <div class="node-url-bar">${_esc(displayUrl)}</div>
       <div class="node-yt-div" id="fc-vid-${nd.id}" data-platform="${platform}"></div>
@@ -317,15 +322,19 @@
           <span class="ab-toggle">${st.abOpen?'∧':'∨'}</span>
         </div>
         ${st.abOpen?_abBodyHTML(nd,st):''}
-      </div>
-      <div class="bm-section">
-        <div class="bm-hdr">
-          <span class="bm-hdr-label">📌 ブックマーク</span>
-          <button class="bm-add-btn" onclick="window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>
-        </div>
-        <div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>
       </div>`:''}
-      <div class="vpanel-link" onclick="window._fcOpenVPanel('${nd.id}')">Vパネルで開く →</div>
+      <div class="bm-section">
+        <div class="bm-hdr" onclick="window._fcToggleBm('${nd.id}')">
+          <span class="bm-hdr-label">📌 ブックマーク${st.bookmarks.length?` (${st.bookmarks.length})`:''}</span>
+          ${addBmBtn}
+          <span class="bm-toggle">${bmOpen?'∧':'∨'}</span>
+        </div>
+        ${bmOpen?`<div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>`:''}
+      </div>
+      <div class="vpanel-btns">
+        <button class="vpanel-btn" onclick="event.stopPropagation();window._fcVpShow('${nd.id}')">▶ Vパネルで開く</button>
+        <button class="vpanel-btn" onclick="event.stopPropagation();window._fcVpJump('${nd.id}')">↗ ライブラリへ</button>
+      </div>
     </div>`;
   }
 
@@ -402,6 +411,12 @@
     }
 
     el.querySelector('.node-menu-btn').addEventListener('click',e=>{ e.stopPropagation(); _showCtx(nd.id,e.clientX,e.clientY); });
+
+    const rh=el.querySelector('.fc-resize-handle');
+    if(rh){
+      rh.addEventListener('mousedown',e=>{ e.stopPropagation(); _resizeNode={nd,el,startX:e.clientX,startW:el.offsetWidth}; });
+      rh.addEventListener('touchstart',e=>{ e.stopPropagation(); e.preventDefault(); const t=e.touches[0]; _resizeNode={nd,el,startX:t.clientX,startW:el.offsetWidth}; },{passive:false});
+    }
 
     el.addEventListener('mouseenter',()=>{ if(_connecting&&el.classList.contains('connect-target')) el.classList.add('connect-hover'); });
     el.addEventListener('mouseleave',()=>el.classList.remove('connect-hover'));
@@ -555,6 +570,13 @@
   }
 
   function _applyMove(clientX,clientY){
+    if(_resizeNode){
+      const dw=clientX-_resizeNode.startX;
+      const newW=Math.max(200,_resizeNode.startW+dw);
+      _resizeNode.el.style.width=newW+'px';
+      _resizeNode.nd.w=newW;
+      _renderEdges(); return;
+    }
     if(_connecting){
       const wr=_el('wrap').getBoundingClientRect();
       const mx=clientX-wr.left-_panX, my=clientY-wr.top-_panY;
@@ -577,6 +599,7 @@
   }
 
   function _applyRelease(clientX,clientY,isTouch){
+    if(_resizeNode){ _resizeNode=null; return; }
     if(_connecting){
       const target=document.elementFromPoint(clientX,clientY)?.closest('.fc-node.connect-target');
       if(target){
@@ -710,22 +733,22 @@
     window.uniOpenForNote?.('__fc__');
   };
   function _applyVideo(vid, vidData){
-    const bookmarks = vidData?.bookmarks || [];
+    const rawBms = vidData?.bookmarks || [];
+    const mappedBms = _mapLibBms(rawBms);
     const platform = vidData?.platform || 'youtube';
-    // YouTube: prefer ytId (11-char); GDrive/Vimeo: keep the prefixed library ID
     const storeId = platform==='youtube' ? (vidData?.ytId || vid) : (vidData?.videoId || vid);
     const content = {type:'video', videoId:storeId, platform,
       ytId: vidData?.ytId||undefined, vmHash: vidData?.vmHash||undefined,
       title: vidData?.title||'', channel: vidData?.channel||''};
     if(_onVidInsert){
       _pendingContent = content;
-      if(bookmarks.length) _pendingContent._libBookmarks = bookmarks.map(b=>({...b}));
+      if(mappedBms.length) _pendingContent._libBookmarks = mappedBms;
       _onVidInsert(); _onVidInsert=null;
     } else {
       const nd=_nodes.find(n=>n.id===_ctxNodeId); if(!nd) return;
       nd.content=content;
       if(!_abState[nd.id]) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false};
-      if(bookmarks.length) _abState[nd.id].bookmarks=bookmarks.map(b=>({...b}));
+      if(mappedBms.length) _abState[nd.id].bookmarks=mappedBms;
       _renderAll();
     }
   }
@@ -830,6 +853,7 @@
     const st=_getAb(nid);
     if(st.a==null||st.b==null){ window.toast?.('開始と終了を両方設定してください'); return; }
     st.bookmarks.push({label:'',a:st.a,b:st.b});
+    _syncBmsToLib(nid);
     _reRenderVideoNode(nid);
     _focusLastBmLabel(nid);
   };
@@ -842,13 +866,14 @@
   window._fcAddBmNow  = function(nid){
     const t=_curTime(nid);
     _getAb(nid).bookmarks.push({label:'',a:t,b:t+30});
+    _syncBmsToLib(nid);
     _reRenderVideoNode(nid);
     _focusLastBmLabel(nid);
   };
   window._fcEditBm    = function(nid,idx){
     const el=document.querySelector(`#fc-bm-list-${nid} .bm-item:nth-child(${idx+1}) .bm-item-label`); if(!el) return;
     el.contentEditable='true'; el.classList.add('editing'); el.focus(); _selAll(el);
-    el.addEventListener('blur',()=>{ el.contentEditable='false'; el.classList.remove('editing'); const bm=_getAb(nid).bookmarks[idx]; if(bm) bm.label=el.textContent.trim(); },{once:true});
+    el.addEventListener('blur',()=>{ el.contentEditable='false'; el.classList.remove('editing'); const bm=_getAb(nid).bookmarks[idx]; if(bm){ bm.label=el.textContent.trim(); _syncBmsToLib(nid); } },{once:true});
     el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();el.blur();} },{once:true});
   };
   function _focusLastBmLabel(nid){
@@ -856,22 +881,49 @@
       const items=document.querySelectorAll(`#fc-bm-list-${nid} .bm-item`);
       const last=items[items.length-1]?.querySelector('.bm-item-label'); if(!last) return;
       last.contentEditable='true'; last.classList.add('editing'); last.focus(); _selAll(last);
-      last.addEventListener('blur',()=>{ last.contentEditable='false'; last.classList.remove('editing'); const bms=_getAb(nid).bookmarks; const bm=bms[bms.length-1]; if(bm) bm.label=last.textContent.trim(); },{once:true});
+      last.addEventListener('blur',()=>{ last.contentEditable='false'; last.classList.remove('editing'); const bms=_getAb(nid).bookmarks; const bm=bms[bms.length-1]; if(bm){ bm.label=last.textContent.trim(); _syncBmsToLib(nid); } },{once:true});
       last.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();last.blur();} },{once:true});
     },60);
   }
-  window._fcOpenVPanel = function(nid){
+  window._fcVpShow = function(nid){
+    const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
+    window.openVPanel?.(nd.content.videoId);
+  };
+  window._fcVpJump = function(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
     _closeEditor();
-    if(window.openVideoById) window.openVideoById(nd.content.videoId);
-    else if(window._openVPanel) window._openVPanel(nd.content.videoId);
+    window.openVPanel?.(nd.content.videoId);
   };
+  window._fcToggleBm = function(nid){
+    const st=_getAb(nid); st.bmOpen=!(st.bmOpen!==false); _reRenderVideoNode(nid);
+  };
+  window._fcAddBmManual = function(nid){
+    _getAb(nid).bookmarks.push({label:'',a:0,b:30});
+    _syncBmsToLib(nid);
+    _reRenderVideoNode(nid);
+    _focusLastBmLabel(nid);
+  };
+  window._fcDelBm = function(nid,idx){
+    _getAb(nid).bookmarks.splice(idx,1);
+    _syncBmsToLib(nid);
+    _reRenderVideoNode(nid);
+  };
+  function _syncBmsToLib(nid){
+    const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
+    const v=(window.videos||[]).find(v=>v.id===nd.content.videoId||v.ytId===nd.content.videoId);
+    if(!v) return;
+    const bms=_getAb(nid).bookmarks;
+    // Save in VPanel format: {time, endTime, label, note}
+    v.bookmarks=bms.map(b=>({time:b.a??0, endTime:b.b??30, label:b.label||'', note:b.note||''}));
+    window.debounceSave?.();
+  }
 
   function _updateAbDisplay(nid){ const st=_getAb(nid); const d=document.getElementById('fc-ab-disp-'+nid); if(d) d.textContent=_fmt(st.activeTab==='a'?st.a:st.b); }
   function _updateAbTimeLabels(nid,st){ const ea=document.getElementById('fc-ab-a-'+nid),eb=document.getElementById('fc-ab-b-'+nid); if(ea) ea.textContent=_fmt(st.a); if(eb) eb.textContent=_fmt(st.b); }
   function _reRenderVideoNode(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd||nd.content?.type!=='video') return;
     const el=document.getElementById('fc-node-'+nd.id); if(!el) return;
+    if(nd.w) el.style.width=nd.w+'px';
     const savedPlayer=_ytPlayers[nid];
     el.innerHTML=_nodeHTML(nd); _wireNode(el,nd);
     const newDiv=el.querySelector('.node-yt-div');
