@@ -272,10 +272,12 @@
     });
   }
 
+  function _findLibVid(videoId){
+    return (window.videos||[]).find(v=>v.id===videoId||v.ytId===videoId);
+  }
   function _memoTxtContent(nd){
     if(nd.content?.type==='video' && nd.content?.videoId){
-      const v=(window.videos||[]).find(v=>v.id===nd.content.videoId);
-      return v?.memo||'';
+      return _findLibVid(nd.content.videoId)?.memo||'';
     }
     return nd.comment||'';
   }
@@ -419,7 +421,7 @@
     }
 
     const vpBtn=el.querySelector('.node-vp-btn');
-    if(vpBtn) vpBtn.addEventListener('click',e=>{ e.stopPropagation(); window.openVPanel?.(nd.content.videoId); });
+    if(vpBtn) vpBtn.addEventListener('click',e=>{ e.stopPropagation(); const v=_findLibVid(nd.content.videoId); window.openVPanel?.(v?.id||nd.content.videoId); });
 
     el.querySelector('.node-cmt-btn').addEventListener('click',e=>{
       e.stopPropagation();
@@ -428,7 +430,7 @@
       e.currentTarget.classList.toggle('open',nd._commentOpen);
       // 動画ノードは開くたびに最新のv.memoを反映
       if(nd._commentOpen && nd.content?.type==='video' && nd.content?.videoId){
-        const v=(window.videos||[]).find(v=>v.id===nd.content.videoId);
+        const v=_findLibVid(nd.content.videoId);
         const cmtTxt=el.querySelector('.node-cmt-txt');
         if(cmtTxt && v) cmtTxt.textContent=v.memo||'';
       }
@@ -441,7 +443,7 @@
         cmtTxt.contentEditable='false'; cmtTxt.classList.remove('editing');
         const txt=cmtTxt.textContent.trim();
         if(nd.content?.type==='video' && nd.content?.videoId){
-          const v=(window.videos||[]).find(v=>v.id===nd.content.videoId);
+          const v=_findLibVid(nd.content.videoId);
           if(v){ v.memo=txt; window.debounceSave?.(); }
         } else {
           nd.comment=txt;
@@ -971,12 +973,14 @@
   }
   window._fcVpShow = function(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
-    window.openVPanel?.(nd.content.videoId);
+    const v=_findLibVid(nd.content.videoId);
+    window.openVPanel?.(v?.id||nd.content.videoId);
   };
   window._fcVpJump = function(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
     _closeEditor();
-    window.openVPanel?.(nd.content.videoId);
+    const v=_findLibVid(nd.content.videoId);
+    window.openVPanel?.(v?.id||nd.content.videoId);
   };
   window._fcToggleBm = function(nid){
     const st=_getAb(nid); st.bmOpen=!(st.bmOpen!==false); _toggleBmListDOM(nid);
