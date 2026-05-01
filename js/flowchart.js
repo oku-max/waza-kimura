@@ -30,18 +30,7 @@
     const rawId=nd.content.videoId;
     const div=document.getElementById('fc-vid-'+nodeId); if(!div) return;
     if(platform==='youtube'){
-      if(!window.YT?.Player){ setTimeout(()=>_initVidNode(nodeId),500); return; }
-      // fc-vid-X is the inner target; YT.Player replaces it with <iframe>
-      // Outer fc-vid-wrap-X (.node-yt-div) stays intact for _reRenderVideoNode
-      _ytPlayers[nodeId]=new YT.Player('fc-vid-'+nodeId,{
-        videoId:rawId, width:'100%', height:'100%',
-        playerVars:{rel:0,modestbranding:1,autoplay:0,playsinline:1},
-        events:{onReady:(e)=>{
-          const ifr=e.target.getIframe();
-          if(ifr){ ifr.style.cssText='width:100%;height:100%;border:none;display:block'; }
-          _updateDurLabel(nodeId,e.target.getDuration()); _startNodeTimer(nodeId);
-        }}
-      });
+      div.innerHTML=`<iframe src="https://www.youtube.com/embed/${rawId}?rel=0&modestbranding=1&playsinline=1" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe>`;
     } else if(platform==='gdrive'){
       const gdId=rawId.replace(/^gd-/,'');
       div.innerHTML=`<iframe src="https://drive.google.com/file/d/${gdId}/preview" frameborder="0" allow="autoplay;fullscreen" allowfullscreen style="border:none;display:block;width:100%;height:100%"></iframe>`;

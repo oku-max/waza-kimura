@@ -44,14 +44,14 @@ let _videosLoadedAt = '';
 const _sessionId = Math.random().toString(36).slice(2);
 
 window._firebaseSaveNotes = async function(data) {
-  if (!currentUser) return;
+  if (!currentUser) { console.warn('[notes] save skipped: not logged in'); return; }
   try {
     const uid = currentUser.uid;
     const updatedAt = new Date().toISOString();
     await db.collection('users').doc(uid).collection('data').doc('notes').set({
       data, updatedAt, savedBy: _sessionId
     });
-  } catch(e) { console.error('saveNotes:', e); }
+  } catch(e) { console.error('[notes] save error:', e); }
 };
 
 async function loadNotes(uid) {
