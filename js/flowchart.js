@@ -90,8 +90,13 @@
     }));
   }
   function _mapLibBms(bms){
-    // VPanel format: {time, endTime, label, note} → flowchart format: {a, b, label}
-    return bms.map(b=>({ label:b.label||'', a:b.time??b.a??0, b:b.endTime??b.b??((b.time??0)+30) }));
+    // VPanel format: {time, endTime?, label, note} → flowchart format: {a, b?, label}
+    return bms.map(b=>{
+      const o={ label:b.label||'', a:b.time??b.a??0 };
+      const end=b.endTime??b.b;
+      if(end!=null) o.b=end;
+      return o;
+    });
   }
 
   // ── Public API ────────────────────────────────────────────────
@@ -313,12 +318,7 @@
     const st=_getAb(nd.id);
     const bmOpen=st.bmOpen!==false;
     const bmList=st.bookmarks.length
-      ?st.bookmarks.map((bm,i)=>`<div class="bm-item">
-        <span class="bm-chip" onclick="window._fcSeekBm('${nd.id}',${i})">${_fmt(bm.a)} → ${_fmt(bm.b)}</span>
-        <span class="bm-item-label" data-nid="${nd.id}" data-idx="${i}">${_esc(bm.label||'（ラベルなし）')}</span>
-        <button class="bm-del-btn" onclick="window._fcDelBm('${nd.id}',${i})">×</button>
-        <button class="bm-edit-btn" onclick="window._fcEditBm('${nd.id}',${i})">編集</button>
-      </div>`).join('')
+      ?st.bookmarks.map((bm,i)=>_bmItemHTML(nd.id,bm,i)).join('')
       :`<div class="bm-empty">ブックマークなし</div>`;
     const statusBadge=st.a!=null&&st.b!=null
       ?`<span class="ab-status-badge active">${_fmt(st.a)}〜${_fmt(st.b)}</span>`
@@ -838,7 +838,7 @@
   }
 
   // ── AB controls (global callbacks) ───────────────────────────
-  window._fcToggleAb  = function(nid){ const st=_getAb(nid); st.abOpen=!st.abOpen; _reRenderVideoNode(nid); };
+  window._fcToggleAb  = function(nid){ const st=_getAb(nid); st.abOpen=!st.abOpen; _toggleAbBodyDOM(nid); };
   window._fcSetAbTab  = function(nid,tab){
     const st=_getAb(nid); st.activeTab=tab;
     [document.getElementById('fc-ab-tab-a-'+nid),document.getElementById('fc-ab-tab-b-'+nid)].forEach(b=>b?.classList.remove('on'));
@@ -861,26 +861,71 @@
     const p=_ytPlayers[nid]; if(p?.seekTo) p.seekTo(base,true);
     _updateAbDisplay(nid); _updateAbTimeLabels(nid,st);
   };
+  // ── ブックマークUI部分更新（iframeに触れない） ─────────────────
+  function _bmItemHTML(nid,bm,i){
+    return `<div class="bm-item">
+      <span class="bm-chip" onclick="window._fcSeekBm('${nid}',${i})">${_fmt(bm.a)}${bm.b!=null?' → '+_fmt(bm.b):''}</span>
+      <span class="bm-item-label" data-nid="${nid}" data-idx="${i}">${_esc(bm.label||'（ラベルなし）')}</span>
+      <button class="bm-del-btn" onclick="window._fcDelBm('${nid}',${i})">×</button>
+      <button class="bm-edit-btn" onclick="window._fcEditBm('${nid}',${i})">編集</button>
+    </div>`;
+  }
+  function _refreshBmUI(nid){
+    const st=_getAb(nid);
+    // リスト再描画
+    const list=document.getElementById('fc-bm-list-'+nid);
+    if(list){
+      list.innerHTML=st.bookmarks.length
+        ?st.bookmarks.map((bm,i)=>_bmItemHTML(nid,bm,i)).join('')
+        :`<div class="bm-empty">ブックマークなし</div>`;
+    }
+    // カウンタ更新
+    const lbl=document.querySelector(`#fc-node-${nid} .bm-hdr-label`);
+    if(lbl) lbl.textContent=`📌 ブックマーク${st.bookmarks.length?' ('+st.bookmarks.length+')':''}`;
+  }
+  function _toggleBmListDOM(nid){
+    const st=_getAb(nid);
+    const section=document.querySelector(`#fc-node-${nid} .bm-section`); if(!section) return;
+    const toggle=section.querySelector('.bm-toggle'); if(toggle) toggle.textContent=st.bmOpen!==false?'∧':'∨';
+    let list=document.getElementById('fc-bm-list-'+nid);
+    if(st.bmOpen!==false){
+      if(!list){ list=document.createElement('div'); list.className='bm-list'; list.id='fc-bm-list-'+nid; section.appendChild(list); }
+      _refreshBmUI(nid);
+    } else {
+      if(list) list.remove();
+    }
+  }
+  function _toggleAbBodyDOM(nid){
+    const st=_getAb(nid);
+    const abSection=document.querySelector(`#fc-node-${nid} .ab-section`); if(!abSection) return;
+    const toggle=abSection.querySelector('.ab-toggle'); if(toggle) toggle.textContent=st.abOpen?'∧':'∨';
+    const body=abSection.querySelector('.ab-body');
+    if(st.abOpen){
+      if(!body){ const nd=_nodes.find(n=>n.id===nid); abSection.insertAdjacentHTML('beforeend', _abBodyHTML(nd,st)); }
+    } else {
+      if(body) body.remove();
+    }
+  }
+
   window._fcClearAb   = function(nid){ const st=_getAb(nid); st.a=null; st.b=null; st.looping=false; _reRenderVideoNode(nid); };
   window._fcSaveAbBm  = function(nid){
     const st=_getAb(nid);
     if(st.a==null||st.b==null){ window.toast?.('開始と終了を両方設定してください'); return; }
     st.bookmarks.push({label:'',a:st.a,b:st.b});
     _syncBmsToLib(nid);
-    _reRenderVideoNode(nid);
+    _refreshBmUI(nid);
     _focusLastBmLabel(nid);
   };
   window._fcSeekBm    = function(nid,idx){
     const st=_getAb(nid); const bm=st.bookmarks[idx]; if(!bm) return;
     const p=_ytPlayers[nid]; if(p?.seekTo){ p.seekTo(bm.a,true); p.playVideo?.(); }
-    st.a=bm.a; st.b=bm.b; st.looping=true;
-    if(st.abOpen) _reRenderVideoNode(nid);
+    if(bm.b!=null){ st.a=bm.a; st.b=bm.b; st.looping=true; }
   };
   window._fcAddBmNow  = function(nid){
     const t=_curTime(nid);
-    _getAb(nid).bookmarks.push({label:'',a:t,b:t+30});
+    _getAb(nid).bookmarks.push({label:'',a:t});
     _syncBmsToLib(nid);
-    _reRenderVideoNode(nid);
+    _refreshBmUI(nid);
     _focusLastBmLabel(nid);
   };
   window._fcEditBm    = function(nid,idx){
@@ -908,18 +953,18 @@
     window.openVPanel?.(nd.content.videoId);
   };
   window._fcToggleBm = function(nid){
-    const st=_getAb(nid); st.bmOpen=!(st.bmOpen!==false); _reRenderVideoNode(nid);
+    const st=_getAb(nid); st.bmOpen=!(st.bmOpen!==false); _toggleBmListDOM(nid);
   };
   window._fcAddBmManual = function(nid){
-    _getAb(nid).bookmarks.push({label:'',a:0,b:30});
+    _getAb(nid).bookmarks.push({label:'',a:0});
     _syncBmsToLib(nid);
-    _reRenderVideoNode(nid);
+    _refreshBmUI(nid);
     _focusLastBmLabel(nid);
   };
   window._fcDelBm = function(nid,idx){
     _getAb(nid).bookmarks.splice(idx,1);
     _syncBmsToLib(nid);
-    _reRenderVideoNode(nid);
+    _refreshBmUI(nid);
   };
   function _syncBmsToLib(nid){
     const nd=_nodes.find(n=>n.id===nid); if(!nd?.content?.videoId) return;
@@ -927,7 +972,7 @@
     if(!v) return;
     const bms=_getAb(nid).bookmarks;
     // Save in VPanel format: {time, endTime, label, note}
-    v.bookmarks=bms.map(b=>({time:b.a??0, endTime:b.b??30, label:b.label||'', note:b.note||''}));
+    v.bookmarks=bms.map(b=>{ const o={time:b.a??0, label:b.label||'', note:b.note||''}; if(b.b!=null) o.endTime=b.b; return o; });
     window.debounceSave?.();
   }
 
