@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.08 ═══
+// ═══ WAZA KIMURA — Notes tab v52.09 ═══
 import { getSnapshot, putSnapshot } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -1603,8 +1603,8 @@ window._notesOpenMap = function(noteId, idx) {
     block.edges   = updated.edges;
     block.abState = updated.abState;
     r.note.updatedAt = Date.now();
-    _save();
-    // Re-render only when map editor is closed (not during auto-save)
+    // デバウンス経由だと失われることがあるため直接保存
+    window._firebaseSaveNotes?.(_data);
     if (!document.getElementById('fc-overlay')?.classList.contains('open')) {
       _renderNote(noteId);
     }
