@@ -63,6 +63,7 @@ async function loadNotes(uid) {
     if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
     if (!snap.exists || !snap.data()?.data?.length) return;
     if (snap.data().savedBy === _sessionId) return;
+    showToast('📡 同期受信', 2000);
     window._notesLoadFromRemote?.(snap.data().data);
   }, e => console.error('notes onSnapshot:', e));
 }

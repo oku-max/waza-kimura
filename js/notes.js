@@ -48,10 +48,15 @@ window._notesGetData = () => _data;
 
 window._notesLoadFromRemote = function(remoteData) {
   if (!Array.isArray(remoteData) || !remoteData.length) return;
-  _data = remoteData;
-  if (_activeId) _renderNote(_activeId);
-  window.renderNotes?.();
-  window.toast?.('📓 ノートを同期しました');
+  try {
+    _data = remoteData;
+    if (_activeId) _renderNote(_activeId);
+    window.renderNotes?.();
+    window.toast?.('📓 ノートを同期しました');
+  } catch(e) {
+    window.toast?.('⚠️ 同期エラー: ' + e.message);
+    console.error('[notes] sync error:', e);
+  }
 };
 
 let _data = [];
