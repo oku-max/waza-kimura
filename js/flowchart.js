@@ -846,9 +846,15 @@
     if(p.style.display==='block'){ _hidePicker(); return; }
     const r=_el('add-btn').getBoundingClientRect();
     p.style.display='block';
-    const pw=p.offsetWidth||130, ph=p.offsetHeight||110;
-    p.style.left=Math.max(8,Math.min(r.left,window.innerWidth-pw-8))+'px';
-    p.style.top=Math.max(8,Math.min(r.bottom+4,window.innerHeight-ph-8))+'px';
+    requestAnimationFrame(()=>{
+      const pr=p.getBoundingClientRect();
+      const z=parseFloat(document.body.style.zoom)||1;
+      let left=r.left, top=r.bottom+4;
+      if(left+pr.width  > window.innerWidth -8) left=window.innerWidth -pr.width -8;
+      if(top +pr.height > window.innerHeight-8) top =r.top-pr.height-4;
+      p.style.left=Math.max(8,left)/z+'px';
+      p.style.top =Math.max(8,top )/z+'px';
+    });
   }
   function _hidePicker(){ _el('type-picker').style.display='none'; }
   function _startPlace(type){
