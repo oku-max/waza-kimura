@@ -226,22 +226,24 @@
     const cv=_el('canvas');
     const wr=_el('wrap').getBoundingClientRect();
     if(!wr.width) return;
+    const z=parseFloat(document.body.style.zoom)||1;
+    const wrW=wr.width/z, wrH=wr.height/z;
     let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
     _nodes.forEach(nd=>{
       const el=cv.querySelector('#fc-node-'+nd.id);
-      const w=el?el.offsetWidth:(nd.w||200);
-      const h=el?el.offsetHeight:120;
-      if(nd.x<minX) minX=nd.x;
-      if(nd.y<minY) minY=nd.y;
+      const w=(el?el.offsetWidth:(nd.w||200))/z;
+      const h=(el?el.offsetHeight:120)/z;
+      if(nd.x        <minX) minX=nd.x;
+      if(nd.y        <minY) minY=nd.y;
       if(nd.x+w>maxX) maxX=nd.x+w;
       if(nd.y+h>maxY) maxY=nd.y+h;
     });
     const pad=80;
     const cw=maxX-minX, ch=maxY-minY;
-    const newZoom=Math.min(1, Math.min(wr.width/(cw+pad*2), wr.height/(ch+pad*2)));
+    const newZoom=Math.min(1, Math.min(wrW/(cw+pad*2), wrH/(ch+pad*2)));
     _zoom=Math.max(0.3, newZoom);
-    _panX=wr.width/2 - (minX+cw/2)*_zoom;
-    _panY=wr.height/2 - (minY+ch/2)*_zoom;
+    _panX=wrW/2-(minX+cw/2)*_zoom;
+    _panY=wrH/2-(minY+ch/2)*_zoom;
     _applyTransform();
   }
 

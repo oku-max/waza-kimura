@@ -52,7 +52,7 @@ window._firebaseSaveNotes = async function(data) {
       data, updatedAt, savedBy: _sessionId
     });
     console.log('[notes] saved', data.length, 'notes');
-  } catch(e) { console.error('[notes] save error:', e); }
+  } catch(e) { console.error('[notes] save error:', e); showToast('⚠️ ノート保存失敗: ' + e.message, 5000); }
 };
 
 async function loadNotes(uid) {
