@@ -31,11 +31,16 @@
     const div=document.getElementById('fc-vid-'+nodeId); if(!div) return;
     if(platform==='youtube'){
       if(!window.YT?.Player){ setTimeout(()=>_initVidNode(nodeId),500); return; }
-      div.innerHTML='';
-      _ytPlayers[nodeId]=new YT.Player(div,{
-        videoId:rawId,width:'100%',height:'100%',
-        playerVars:{rel:0,modestbranding:1,autoplay:0},
-        events:{onReady:(e)=>{ _updateDurLabel(nodeId,e.target.getDuration()); _startNodeTimer(nodeId); }}
+      // fc-vid-X is the inner target; YT.Player replaces it with <iframe>
+      // Outer fc-vid-wrap-X (.node-yt-div) stays intact for _reRenderVideoNode
+      _ytPlayers[nodeId]=new YT.Player('fc-vid-'+nodeId,{
+        videoId:rawId, width:'100%', height:'100%',
+        playerVars:{rel:0,modestbranding:1,autoplay:0,playsinline:1},
+        events:{onReady:(e)=>{
+          const ifr=e.target.getIframe();
+          if(ifr){ ifr.style.cssText='width:100%;height:100%;border:none;display:block'; }
+          _updateDurLabel(nodeId,e.target.getDuration()); _startNodeTimer(nodeId);
+        }}
       });
     } else if(platform==='gdrive'){
       const gdId=rawId.replace(/^gd-/,'');
@@ -314,7 +319,7 @@
       :`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmManual('${nd.id}')">＋ 追加</button>`;
     return `<div class="node-content">
       <div class="node-url-bar">${_esc(displayUrl)}</div>
-      <div class="node-yt-div" id="fc-vid-${nd.id}" data-platform="${platform}"></div>
+      <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
       ${isYT?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
           <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
@@ -924,10 +929,15 @@
     const el=document.getElementById('fc-node-'+nd.id); if(!el) return;
     if(nd.w) el.style.width=nd.w+'px';
     const savedPlayer=_ytPlayers[nid];
+    if(nd.w) el.style.width=nd.w+'px';
     el.innerHTML=_nodeHTML(nd); _wireNode(el,nd);
-    const newDiv=el.querySelector('.node-yt-div');
-    if(savedPlayer&&newDiv){ newDiv.appendChild(savedPlayer.getIframe()); _ytPlayers[nid]=savedPlayer; _startNodeTimer(nid); }
-    else if(nd.content.videoId) setTimeout(()=>_initVidNode(nid),100);
+    const wrap=el.querySelector('.node-yt-div');
+    if(savedPlayer&&wrap){
+      wrap.innerHTML=''; // remove placeholder inner div
+      const ifr=savedPlayer.getIframe();
+      if(ifr){ ifr.style.cssText='width:100%;height:100%;border:none;display:block'; wrap.appendChild(ifr); }
+      _ytPlayers[nid]=savedPlayer; _startNodeTimer(nid);
+    } else if(nd.content.videoId) setTimeout(()=>_initVidNode(nid),100);
     _renderEdges();
   }
 
