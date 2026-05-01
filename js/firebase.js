@@ -51,6 +51,7 @@ window._firebaseSaveNotes = async function(data) {
     await db.collection('users').doc(uid).collection('data').doc('notes').set({
       data, updatedAt, savedBy: _sessionId
     });
+    console.log('[notes] saved', data.length, 'notes');
   } catch(e) { console.error('[notes] save error:', e); }
 };
 

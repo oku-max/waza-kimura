@@ -5,7 +5,13 @@ window._getSnapshot = getSnapshot;
 let _saveFsTimer = null;
 function _save() {
   clearTimeout(_saveFsTimer);
-  _saveFsTimer = setTimeout(() => window._firebaseSaveNotes?.(_data), 500);
+  _saveFsTimer = setTimeout(() => {
+    if (typeof window._firebaseSaveNotes !== 'function') {
+      console.error('[notes] _firebaseSaveNotes undefined — save skipped');
+      return;
+    }
+    window._firebaseSaveNotes(_data);
+  }, 500);
 }
 
 // ページ離脱・バックグラウンド移行時に未送信の変更を即時Firestore保存
