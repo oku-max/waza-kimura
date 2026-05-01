@@ -428,7 +428,7 @@
   function _contentHTML(nd){
     const c=nd.content;
     if(c.type==='text') return `<div class="node-content"><div class="node-text-area" id="fc-ta-${nd.id}" data-ph="テキストを入力…">${_esc(c.text||'')}</div></div>`;
-    if(c.type==='image') return `<div class="node-content"><img class="node-img" src="${_esc(c.src)}" alt=""></div>`;
+    if(c.type==='image') return `<div class="node-content"><img class="node-img" src="${_esc(c.src)}" alt="" draggable="false" ondragstart="return false"></div>`;
     if(c.type==='video') return _videoHTML(nd);
     return '';
   }
@@ -960,7 +960,7 @@
     overlay.querySelector('#fc-img-file').addEventListener('change',e=>{
       const file=e.target.files[0]; if(!file) return;
       const reader=new FileReader();
-      reader.onload=ev=>{ _applyImage(ev.target.result); _removeFcImgSheet(); };
+      reader.onload=async ev=>{ const c=await _compressImg(ev.target.result); _applyImage(c); _removeFcImgSheet(); };
       reader.readAsDataURL(file);
     });
     overlay.querySelector('#fc-img-snap-btn').addEventListener('click',()=>_openFcSnapPicker(overlay));
@@ -988,12 +988,28 @@
       const grid=document.createElement('div'); grid.className='n-snap-picker-grid'; body.appendChild(grid);
       for(const ref of v.snapshots){
         const card=document.createElement('div'); card.className='n-snap-picker-card'; card.title=ref.memo||'';
-        card.onclick=async()=>{ try{ const snap=await getSnap(ref.id); if(snap?.blob){ _applyImage(URL.createObjectURL(snap.blob)); _removeFcImgSheet(); } }catch(e){ window.toast?.('スナップの取得に失敗しました'); } };
+        card.onclick=async()=>{ try{ const snap=await getSnap(ref.id); if(snap?.blob){ const r2=new FileReader(); r2.onload=async ev=>{ const c=await _compressImg(ev.target.result); _applyImage(c); _removeFcImgSheet(); }; r2.readAsDataURL(snap.blob); } }catch(e){ window.toast?.('スナップの取得に失敗しました'); } };
         card.innerHTML=`<span style="font-size:18px">📷</span>`; grid.appendChild(card);
         (async()=>{ try{ const snap=await getSnap(ref.id); if(snap?.blob){ const url=URL.createObjectURL(snap.blob); card.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`; } }catch(e){} })();
       }
     }
   }
+  function _compressImg(src, maxPx=1200, quality=0.80){
+    return new Promise(resolve=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1, maxPx/Math.max(img.width||1, img.height||1));
+        const cv=document.createElement('canvas');
+        cv.width=Math.round((img.width||maxPx)*scale);
+        cv.height=Math.round((img.height||maxPx)*scale);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        resolve(cv.toDataURL('image/jpeg',quality));
+      };
+      img.onerror=()=>resolve(src);
+      img.src=src;
+    });
+  }
+
   function _applyImage(src){
     const content={type:'image',src};
     if(_onImgInsert){ _pendingContent=content; _onImgInsert(); _onImgInsert=null; }
