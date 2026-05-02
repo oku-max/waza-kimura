@@ -104,11 +104,15 @@
     const favSec  = _showMark ? `
     <div style="flex:0 0 auto;padding-right:14px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
       <div style="${subTitle}">お気に入り</div>
-      <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700" title="お気に入り">★</span>
+      <div style="display:flex;align-items:center;justify-content:center;height:28px">
+        <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700;line-height:1" title="お気に入り">★</span>
+      </div>
     </div>
     <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
       <div style="${subTitle}">Next</div>
-      <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;font-weight:700" title="Next">${next?'🎯':'○'}</span>
+      <div style="display:flex;align-items:center;justify-content:center;height:28px">
+        <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;font-weight:700;line-height:1" title="Next">${next?'🎯':'○'}</span>
+      </div>
     </div>` : '';
     const cntSec  = _showRank ? `
     <div style="flex:1;min-width:0">
