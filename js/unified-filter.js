@@ -873,32 +873,37 @@
 
   // ── 保存した検索条件: 件数 (filt() と同ロジック) ──
   function _countSavedSearch(ss) {
-    if (!ss || !ss.state) return 0;
-    const s = ss.state;
-    const sf = s.filters || {};
-    const q = (s.query || '').trim().toLowerCase();
-    return (window.videos || []).filter(v => {
-      if (v.archived) return false;
-      if (s.favOnly     && !v.fav)     return false;
-      if (s.unwOnly     && v.watched)  return false;
-      if (s.watchedOnly && !v.watched) return false;
-      if (sf.platform?.length && !sf.platform.includes(v.pt)) return false;
-      if (sf.channel?.length  && !sf.channel.includes(v.channel || v.ch)) return false;
-      if (sf.playlist?.length && !sf.playlist.includes(v.pl)) return false;
-      if (sf.prio?.length     && !sf.prio.includes(v.prio)) return false;
-      if (sf.status?.length   && !sf.status.includes(v.status)) return false;
-      if (sf.tb?.length       && !(v.tb||[]).some(t => sf.tb.includes(t))) return false;
-      if (sf.action?.length   && !(v.cat||[]).some(a => sf.action.includes(a))) return false;
-      if (sf.position?.length && !(v.pos||[]).some(p => sf.position.includes(p))) return false;
-      if (sf.tags?.length     && !(v.tags||[]).some(t => sf.tags.includes(t))) return false;
-      if (q) {
-        const title = (v.title || '').toLowerCase();
-        const ch    = (v.channel || v.ch || '').toLowerCase();
-        const pl    = (v.pl || '').toLowerCase();
-        if (!title.includes(q) && !ch.includes(q) && !pl.includes(q)) return false;
-      }
-      return true;
-    }).length;
+    if (!ss || !ss.state || !window._filt) return 0;
+    const s  = ss.state;
+    const f  = window.filters || {};
+    // 現在の状態を退避
+    const prev = {
+      favOnly:     window.favOnly,
+      unwOnly:     window.unwOnly,
+      watchedOnly: window.watchedOnly,
+      filters:     Object.fromEntries(Object.keys(f).map(k => [k, [...(f[k] || [])]])),
+    };
+    const siEl   = document.getElementById('si');
+    const siPcEl = document.getElementById('si-lib-pc');
+    const prevSi   = siEl?.value   || '';
+    const prevSiPc = siPcEl?.value || '';
+    // 保存条件を仮適用
+    window.favOnly     = s.favOnly     || false;
+    window.unwOnly     = s.unwOnly     || false;
+    window.watchedOnly = s.watchedOnly || false;
+    Object.entries(s.filters || {}).forEach(([k, v]) => { if (f[k]) { f[k].clear(); (v||[]).forEach(x => f[k].add(x)); } });
+    if (siEl)   siEl.value   = s.query || '';
+    if (siPcEl) siPcEl.value = s.query || '';
+    // filt() と同じロジックで件数を取得
+    const count = window._filt(window.videos || []).length;
+    // 元の状態に復元
+    window.favOnly     = prev.favOnly;
+    window.unwOnly     = prev.unwOnly;
+    window.watchedOnly = prev.watchedOnly;
+    Object.entries(prev.filters).forEach(([k, vals]) => { if (f[k]) { f[k].clear(); vals.forEach(x => f[k].add(x)); } });
+    if (siEl)   siEl.value   = prevSi;
+    if (siPcEl) siPcEl.value = prevSiPc;
+    return count;
   }
 
   // ── 保存した検索条件: UI操作 ──

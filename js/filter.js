@@ -378,6 +378,7 @@ export function filt(list) {
     return true;
   });
 }
+window._filt = filt;
 
 // ── カウントヘルパー ──
 export function countByField(field, val) {
