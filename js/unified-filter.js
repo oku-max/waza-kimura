@@ -7,7 +7,7 @@
     { k: 'src',   label: 'プレイリスト' },
     { k: 'tag',   label: 'タグ' },
     { k: 'video', label: 'タイトル' },
-    { k: 'state', label: '習得' }
+    { k: 'state', label: 'その他' }
   ];
 
   let _tab = 'src';
