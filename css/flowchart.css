@@ -247,8 +247,10 @@ body:has(#fc-overlay.open) #vp-tut-overlay{z-index:10001}
 #fc-label-editor{display:none;position:absolute;z-index:9300;pointer-events:all}
 #fc-label-input{border:1.5px solid var(--accent,#e05a00);border-radius:5px;padding:4px 10px;font-size:11px;outline:none;background:#fff;min-width:100px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.18)}
 
-/* Inline video setup (empty node) */
+/* Empty video node — add button */
 #fc-overlay .node-vid-setup{padding:10px;display:flex;flex-direction:column;gap:6px}
+#fc-overlay .fc-add-vid-btn{width:100%;padding:10px;border-radius:8px;border:1.5px dashed var(--border,#d0d0d0);background:none;color:var(--text2,#666);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s}
+#fc-overlay .fc-add-vid-btn:hover{border-color:var(--accent,#e05a00);color:var(--accent,#e05a00)}
 #fc-overlay .fc-url-row{display:flex;gap:6px}
 #fc-overlay .fc-url-input{flex:1;padding:7px 10px;border:1px solid var(--border,#d0d0d0);border-radius:6px;font-size:12px;outline:none;background:var(--surface,#fff);color:var(--text,#111);min-width:0}
 #fc-overlay .fc-url-input:focus{border-color:var(--accent,#e05a00)}

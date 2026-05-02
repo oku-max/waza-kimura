@@ -462,13 +462,7 @@
   function _videoHTML(nd){
     const vid=nd.content.videoId||'';
     if(!vid) return `<div class="node-content node-vid-setup">
-      <div class="fc-url-row">
-        <input class="fc-url-input" id="fc-url-in-${nd.id}" type="text" placeholder="YouTube URL を入力…"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();window._fcUrlOk('${nd.id}')}"
-          onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
-        <button class="fc-url-ok-btn" onclick="event.stopPropagation();window._fcUrlOk('${nd.id}')">▶</button>
-      </div>
-      <button class="fc-lib-btn" onclick="event.stopPropagation();window._fcLibPick('${nd.id}')">📚 ライブラリから選ぶ</button>
+      <button class="fc-add-vid-btn" onclick="event.stopPropagation();window._fcShowAddSheet('${nd.id}')">＋ 動画を追加</button>
     </div>`;
     const platform=nd.content.platform||'youtube';
     const displayUrl=platform==='gdrive'
@@ -921,11 +915,69 @@
     };
     window.uniOpenForNote?.('__fc__');
   }
+  window._fcShowAddSheet = function(nid) {
+    document.getElementById('fc-add-sheet')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'fc-add-sheet';
+    overlay.className = 'n-sheet-overlay vis';
+    overlay.innerHTML = `<div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">＋ 動画を追加</span></div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">追加方法を選択</label>
+        <div class="n-src-list">
+          <button class="n-src-btn" onclick="window._fcSheetToUrl('${nid}')">
+            <span class="n-src-icon">🔗</span>
+            <div class="n-src-info"><div class="n-src-ttl">URLで追加</div><div class="n-src-sub">YouTube・URL直接入力</div></div>
+            <span class="n-src-arr">›</span>
+          </button>
+          <button class="n-src-btn" onclick="window._fcAddSheetClose();window._fcLibPick('${nid}')">
+            <span class="n-src-icon">🔍</span>
+            <div class="n-src-info"><div class="n-src-ttl">ライブラリから選ぶ</div><div class="n-src-sub">フィルターで絞り込んで選択</div></div>
+            <span class="n-src-arr">›</span>
+          </button>
+        </div>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._fcAddSheetClose()">キャンセル</button>
+      </div>
+    </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) window._fcAddSheetClose(); });
+    document.body.appendChild(overlay);
+  };
+
+  window._fcSheetToUrl = function(nid) {
+    const overlay = document.getElementById('fc-add-sheet'); if(!overlay) return;
+    overlay.innerHTML = `<div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr">
+        <button class="n-sheet-back" onclick="window._fcShowAddSheet('${nid}')">‹</button>
+        <span class="n-sheet-title">🔗 URLで追加</span>
+      </div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">YouTube URL</label>
+        <input id="fc-sheet-url-in" class="n-sheet-input" type="text"
+               placeholder="https://www.youtube.com/watch?v=..."
+               onkeydown="if(event.key==='Enter') window._fcUrlOk('${nid}')">
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._fcShowAddSheet('${nid}')">戻る</button>
+        <button class="n-btn n-btn-primary" onclick="window._fcUrlOk('${nid}')">追加する</button>
+      </div>
+    </div>`;
+    overlay.querySelector('.n-sheet-overlay') && null;
+    setTimeout(() => document.getElementById('fc-sheet-url-in')?.focus(), 80);
+  };
+
+  window._fcAddSheetClose = function() {
+    const el = document.getElementById('fc-add-sheet');
+    if (el) el.remove();
+  };
+
   window._fcUrlOk = function(nid){
-    const inp = document.getElementById('fc-url-in-'+nid); if(!inp) return;
+    const inp = document.getElementById('fc-sheet-url-in'); if(!inp) return;
     const ytId = _extractVid(inp.value.trim());
     if(!ytId){ inp.style.outline='2px solid red'; setTimeout(()=>inp.style.outline='',1500); return; }
     const nd = _nodes.find(n=>n.id===nid); if(!nd) return;
+    window._fcAddSheetClose();
     nd.content = {type:'video', videoId:ytId, platform:'youtube', title:'', channel:''};
     if(!_abState[nd.id]) _abState[nd.id]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false};
     _reRenderVideoNode(nid);
