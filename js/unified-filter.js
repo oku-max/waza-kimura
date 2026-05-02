@@ -200,10 +200,6 @@
 #uni-popup .uni-vc-addall-btn:hover{background:rgba(59,130,246,.2)}
 @media(max-width:480px){#uni-popup .uni-col-vc{flex:0 0 240px}}
 /* ── ノートに追加モード ── */
-#uni-popup .uni-nm-banner{padding:8px 14px;background:#05966912;border-bottom:1px solid #05966930;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text1);flex-shrink:0}
-#uni-popup .uni-nm-banner strong{color:#059669}
-#uni-popup .uni-nm-banner button{margin-left:auto;padding:3px 10px;border:1px solid #05966970;border-radius:6px;background:#05966920;color:#059669;font-size:11px;cursor:pointer;font-family:inherit}
-#uni-popup .uni-nm-banner button:hover{background:#05966938}
 #uni-popup .uni-vc-row-nm{border-left:3px solid #059669}
 #uni-popup .uni-vc-row-nm:hover{background:#05966910}
 #uni-popup .uni-vc-add-btn{font-size:16px;font-weight:700;color:#059669;flex-shrink:0;padding:0 2px}
@@ -225,7 +221,6 @@
     <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2);flex-shrink:0" onclick="uniClose()">✕ 閉じる</button>
   </div>
   <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"></div>
-  <div id="uni-nm-banner" style="display:none"></div>
   <div id="uni-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
   <div class="uni-ftr">
     <span class="uni-lbl">選択中:</span>
@@ -412,18 +407,6 @@
   }
 
   function _render() {
-    // ノートに追加モードのバナー更新
-    const banner = document.getElementById('uni-nm-banner');
-    if (banner) {
-      if (_noteMode) {
-        const noteName = window._notesGetName?.(_noteMode) || _noteMode;
-        banner.innerHTML = `📓 ノートに追加中: <strong>${_esc(noteName)}</strong><button onclick="uniClose()">完了</button>`;
-        banner.className = 'uni-nm-banner';
-        banner.style.display = '';
-      } else {
-        banner.style.display = 'none';
-      }
-    }
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const tabsEl = document.getElementById('uni-tabs');
