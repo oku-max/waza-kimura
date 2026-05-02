@@ -127,9 +127,9 @@
 #uni-popup .uni-apply{background:var(--accent);color:var(--on-accent);border:none;padding:6px 16px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 #uni-popup .uni-apply:hover{filter:brightness(1.1)}
 /* 保存した検索条件 */
-#uni-popup .uni-ss-item{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:12px;display:flex;align-items:center;gap:8px;position:relative}
+#uni-popup .uni-ss-item{padding:8px 12px;cursor:pointer;border-left:3px solid transparent;font-size:12px;display:flex;align-items:flex-start;gap:8px;position:relative}
 #uni-popup .uni-ss-item:hover{background:var(--surface2)}
-#uni-popup .uni-ss-name{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#uni-popup .uni-ss-name{flex:1;font-weight:600;min-width:0;word-break:break-all;line-height:1.5}
 #uni-popup .uni-ss-cnt{font-size:10px;color:var(--text3);flex-shrink:0}
 #uni-popup .uni-ss-dots{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;font-weight:700}
 #uni-popup .uni-ss-dots:hover{background:var(--surface3);color:var(--text)}
