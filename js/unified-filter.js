@@ -886,10 +886,14 @@
       if (sf.playlist?.length && !sf.playlist.includes(v.pl))                              return false;
       if (sf.prio?.length     && !sf.prio.includes(v.prio))                                return false;
       if (sf.status?.length   && !sf.status.includes(v.status))                            return false;
-      if (sf.tb?.length       && !(v.tb   ||[]).some(t => sf.tb.includes(t)))              return false;
-      if (sf.action?.length   && !(v.cat  ||[]).some(a => sf.action.includes(a)))          return false;
-      if (sf.position?.length && !(v.pos  ||[]).some(p => sf.position.includes(p)))        return false;
-      if (sf.tags?.length     && !(v.tags ||[]).some(t => sf.tags.includes(t)))            return false;
+      // sidebar-v4 は tbNew/cat/posNew を使用。古い保存条件は tb/action/position のため両方チェック
+      const _tb  = sf.tbNew  || sf.tb       || [];
+      const _cat = sf.cat    || sf.action   || [];
+      const _pos = sf.posNew || sf.position || [];
+      if (_tb.length  && !(v.tb  ||[]).some(t => _tb.includes(t)))  return false;
+      if (_cat.length && !(v.cat ||[]).some(c => _cat.includes(c))) return false;
+      if (_pos.length && !(v.pos ||[]).some(p => _pos.includes(p))) return false;
+      if (sf.tags?.length && !(v.tags||[]).some(t => sf.tags.includes(t))) return false;
       if (q) {
         const hay = [
           v.title || '', v.channel || v.ch || '', v.pl || '',
