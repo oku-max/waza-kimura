@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.09 ═══
+// ═══ WAZA KIMURA — Notes tab v52.24 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -984,6 +984,18 @@ window._notesSave = function(noteId) {
   window._firebaseSaveNotes?.(_data);
 };
 
+window._notesHeaderSave = function() {
+  const lbl = document.getElementById('nHeaderSaveLbl');
+  const btn = document.getElementById('nHeaderSaveBtn');
+  if (btn) btn.disabled = true;
+  if (lbl) lbl.textContent = '保存中…';
+  window._firebaseSaveNotes?.(_data);
+  setTimeout(() => {
+    if (lbl) lbl.textContent = '完了';
+    setTimeout(() => { if (lbl) lbl.textContent = '保存'; if (btn) btn.disabled = false; }, 1500);
+  }, 600);
+};
+
 window._notesAddTextBlock = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
@@ -1098,6 +1110,7 @@ function _renderColBlock(b, idx, noteId) {
         <button onclick="window._notesColAddText('${noteId}',${idx},${slot})">＋ テキスト</button>
         <button onclick="window._notesColAddVid('${noteId}',${idx},${slot})">＋ 動画</button>
         <button onclick="window._notesColAddImg('${noteId}',${idx},${slot})">＋ 画像</button>
+        <button onclick="window._notesColAddMap('${noteId}',${idx},${slot})">＋ Map</button>
       </div>
     </div>`;
   }).join('');
@@ -1136,6 +1149,21 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
   if (type === 'image' && b.snapId) {
     return `<div class="n-col-block-wrap">
       <div id="n-snap-${_esc(b.snapId)}" class="n-snap-section"></div>${del}
+    </div>`;
+  }
+
+  if (type === 'map') {
+    const nodeCount = (b.nodes || []).length;
+    const edgeCount = (b.edges || []).length;
+    return `<div class="n-col-block-wrap">
+      <div class="n-b-map" onclick="window._notesColOpenMap('${noteId}',${colIdx},${slot},${bIdx})">
+        <div class="n-b-map-icon">🗺</div>
+        <div class="n-b-map-info">
+          <div class="n-b-map-name">${_esc(b.name || 'マップ')}</div>
+          <div class="n-b-map-meta">${nodeCount}ノード · ${edgeCount}接続</div>
+        </div>
+        <div class="n-b-map-open">編集 →</div>
+      </div>${del}
     </div>`;
   }
 
@@ -1235,6 +1263,18 @@ window._notesColAddImg = function(noteId, idx, slot) {
   _save();
   _renderNote(noteId);
   setTimeout(() => _initNoteSnapForCol(noteId, snapId, idx, slot), 50);
+};
+
+window._notesColAddMap = function(noteId, idx, slot) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const colBlock = r.note.blocks[idx];
+  if (!colBlock || colBlock.type !== 'col') return;
+  if (!colBlock.cols[slot]) colBlock.cols[slot] = [];
+  colBlock.cols[slot].push({ type: 'map', name: 'マップ', nodes: [], edges: [], abState: {} });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
 };
 
 window._notesColVidToggle = function(noteId, colIdx, slot, bIdx) {
@@ -1625,6 +1665,26 @@ window._notesOpenMap = function(noteId, idx) {
     block.abState = updated.abState;
     r.note.updatedAt = Date.now();
     // デバウンス経由だと失われることがあるため直接保存
+    window._firebaseSaveNotes?.(_data);
+    if (!document.getElementById('fc-overlay')?.classList.contains('open')) {
+      _renderNote(noteId);
+    }
+  });
+};
+window._notesColOpenMap = function(noteId, colIdx, slot, bIdx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const colBlock = r.note.blocks[colIdx];
+  if (!colBlock || colBlock.type !== 'col') return;
+  const block = (colBlock.cols[slot] || [])[bIdx];
+  if (!block || block.type !== 'map') return;
+  if (!window.fcOpenEditor) return;
+  window.fcOpenEditor(block, function(updated) {
+    block.name    = updated.name;
+    block.nodes   = updated.nodes;
+    block.edges   = updated.edges;
+    block.abState = updated.abState;
+    r.note.updatedAt = Date.now();
     window._firebaseSaveNotes?.(_data);
     if (!document.getElementById('fc-overlay')?.classList.contains('open')) {
       _renderNote(noteId);
