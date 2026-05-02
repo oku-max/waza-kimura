@@ -144,7 +144,7 @@
       <div class="v4-col-body" id="v4-col-pos"></div>
     </div>
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>#タグ</span>
+      <div class="v4-col-hdr"><span>テクニック</span>
         <select onchange="v4SetSort('tags',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-tags"></div>

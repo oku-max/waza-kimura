@@ -190,7 +190,7 @@
     const ql = q.trim().toLowerCase();
     const filtered = ql ? all.filter(t => t.toLowerCase().includes(ql)) : all;
     const _mkItem = t =>
-      `<div class="vp-dd-item" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;
+      `<div class="vp-dd-item" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">${_esc(t)}</div>`;
     if (ql) {
       list.innerHTML = filtered.map(_mkItem).join('') ||
         `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
