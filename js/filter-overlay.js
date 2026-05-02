@@ -732,9 +732,8 @@ export function editSavedSearch(idx, e) {
   e.stopPropagation();
   const ss = savedSearches[idx]; if (!ss) return;
   _setEditingIdx(idx);
-  applySavedSearch(idx);
   renderSavedSearches();
-  window.toast?.(`⚙️ 「${ss.name}」を編集中。フィルターを調整して上書き保存してください`);
+  window.toast?.(`⚙️ 「${ss.name}」を編集中。現在のフィルターで上書き保存します`);
 }
 
 export function commitEditSavedSearch() {
@@ -800,7 +799,7 @@ export function renderSavedSearches() {
         return `
           <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:8px;background:var(--gold-soft);border:1.5px solid var(--gold)">
             <div style="font-size:10px;color:var(--gold);font-weight:700">⚙️ 編集中: ${ss.name}</div>
-            <div style="font-size:10px;color:var(--text2);line-height:1.4">フィルターを調整してから「上書き保存」を押してください</div>
+            <div style="font-size:10px;color:var(--text2);line-height:1.4">現在のフィルター状態で上書き保存されます</div>
             <div style="display:flex;gap:6px">
               <button onclick="commitEditSavedSearch();event.stopPropagation()" style="flex:1;padding:7px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--bg);font-size:11px;font-weight:700;cursor:pointer">💾 上書き保存</button>
               <button onclick="cancelEditSavedSearch();event.stopPropagation()" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:600;cursor:pointer">✕ キャンセル</button>
