@@ -539,7 +539,7 @@
       if(e.target.classList.contains('node-menu-btn'))return;
       if(e.target.classList.contains('node-cmt-btn'))return;
       if(e.target.classList.contains('node-vp-btn'))return;
-      if(e.target.classList.contains('node-name')&&e.target.isContentEditable)return;
+      if(e.target.classList.contains('node-name'))return;
       e.stopPropagation();
       _dragNode=nd; _dragOff={x:(e.clientX-_panX)/_zoom-nd.x,y:(e.clientY-_panY)/_zoom-nd.y};
       el.style.zIndex=10;
