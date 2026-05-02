@@ -24,6 +24,19 @@ body:has(#fc-overlay.open) #vp-tut-overlay{z-index:10001}
 #fc-overlay .fc-tb-btn.accent{background:var(--accent,#e05a00);border-color:var(--accent,#e05a00);color:#fff}
 #fc-overlay .fc-tb-btn.accent:hover{opacity:.9}
 #fc-overlay .fc-tb-btn.placing{background:#fffbe6;border-color:#fbbf24;color:#92400e}
+#fc-overlay .fc-placing-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;
+  background:rgba(224,90,0,.12);border:1.5px solid var(--accent,#e05a00);
+  font-size:12px;font-weight:700;color:var(--accent,#e05a00);
+  white-space:nowrap;pointer-events:none;
+}
+#fc-overlay .fc-placing-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent,#e05a00);flex-shrink:0;
+  animation:fc-dot-pulse 1s ease-in-out infinite;
+}
+@keyframes fc-dot-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /* ── Type picker ── */
 #fc-type-picker{

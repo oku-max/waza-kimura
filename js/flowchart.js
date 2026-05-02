@@ -853,16 +853,23 @@
     });
   }
   function _hidePicker(){ _el('type-picker').style.display='none'; }
+  const _typeLabel = { text:'💬 テキスト', video:'▶ 動画', image:'🖼 画像' };
   function _startPlace(type){
     _hidePicker(); _pendingContent=null;
-    if(type==='text'){ _enterPlacingMode(); }
-    else if(type==='video'){ _pendingContent={type:'video',videoId:'',platform:'youtube',title:'',channel:''}; _enterPlacingMode(); }
-    else if(type==='image'){ _onImgInsert=()=>_enterPlacingMode(); _openFcImgPicker(); }
+    if(type==='text'){ _enterPlacingMode('text'); }
+    else if(type==='video'){ _pendingContent={type:'video',videoId:'',platform:'youtube',title:'',channel:''}; _enterPlacingMode('video'); }
+    else if(type==='image'){ _onImgInsert=()=>_enterPlacingMode('image'); _openFcImgPicker(); }
   }
-  function _enterPlacingMode(){
+  function _enterPlacingMode(type){
     _placing=true; _addBtnCancelling=true; _el('wrap').classList.add('placing');
     const btn=_el('add-btn');
     btn.classList.add('placing'); btn.textContent='✕ キャンセル';
+    document.getElementById('fc-placing-badge')?.remove();
+    const badge = document.createElement('span');
+    badge.id = 'fc-placing-badge';
+    badge.className = 'fc-placing-badge';
+    badge.innerHTML = `<span class="fc-placing-dot"></span>${_typeLabel[type]||''}`;
+    btn.insertAdjacentElement('afterend', badge);
     _el('hint').textContent='キャンバスをクリックしてノードを配置  /  Esc でキャンセル';
     _el('hint').classList.remove('hidden');
   }
@@ -870,6 +877,7 @@
     _placing=false; _addBtnCancelling=false; _pendingContent=null; _el('wrap').classList.remove('placing');
     const btn=_el('add-btn');
     btn.classList.remove('placing'); btn.textContent='＋ ノード追加 ▾';
+    document.getElementById('fc-placing-badge')?.remove();
     _el('hint').textContent='ノードをドラッグして移動 / 下の ＋ をクリックまたはドラッグで接続';
     _el('hint').classList.remove('hidden');
   }
