@@ -74,6 +74,7 @@ let _recentIds = [];
 let _dragSrcNoteId = null;
 let _dragSrcIdx = null;
 let _dragSrcEndIdx = null;
+let _dragSrcSlot = null; // {colIdx, slot, bIdx} — colスロット内から drag中のとき
 let _statusFilter = null; // null=全て, 'new'/'wip'/'done'/'review'
 
 // ── lookup ──
@@ -872,51 +873,123 @@ window._notesDragStart = function(e, noteId, idx, endIdx) {
   _dragSrcNoteId = noteId;
   _dragSrcIdx = idx;
   _dragSrcEndIdx = endIdx ?? idx;
+  _dragSrcSlot = null;
   e.dataTransfer.effectAllowed = 'move';
   e.target.closest?.('.n-block-wrap')?.classList.add('n-dragging');
+};
+
+window._notesColDragStart = function(e, noteId, colIdx, slot, bIdx) {
+  _dragSrcNoteId = noteId;
+  _dragSrcIdx = null;
+  _dragSrcEndIdx = null;
+  _dragSrcSlot = { colIdx, slot, bIdx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+  e.target.closest?.('.n-col-block-wrap')?.classList.add('n-col-dragging');
 };
 
 // contenteditable がdragover/dropを横取りするためドキュメントレベルで処理
 (function _initNotesDnd() {
   let _dndOverWrap = null;
+  let _dndOverSlot = null;
+
+  function _clearHighlights() {
+    _dndOverWrap?.classList.remove('n-drag-over');
+    _dndOverWrap = null;
+    _dndOverSlot?.classList.remove('n-col-slot-over');
+    _dndOverSlot = null;
+  }
+
   document.addEventListener('dragover', function(e) {
     if (_dragSrcNoteId == null) return;
     e.preventDefault();
-    const wrap = e.target.closest?.('.n-block-wrap[data-note-id]');
-    if (wrap === _dndOverWrap) return;
-    _dndOverWrap?.classList.remove('n-drag-over');
-    _dndOverWrap = wrap || null;
-    wrap?.classList.add('n-drag-over');
+    // colスロット内 → スロットをハイライト（ただしコラム→コラム外はwrapを優先）
+    const slotEl = _dragSrcSlot == null
+      ? e.target.closest?.('.n-col-slot[data-note-id]')  // top→col
+      : null; // col→top では slot ではなく wrap を見る
+    const wrapEl = e.target.closest?.('.n-block-wrap[data-note-id]');
+
+    if (slotEl && slotEl !== _dndOverSlot) {
+      _clearHighlights();
+      _dndOverSlot = slotEl;
+      slotEl.classList.add('n-col-slot-over');
+    } else if (!slotEl && wrapEl && wrapEl !== _dndOverWrap) {
+      _clearHighlights();
+      _dndOverWrap = wrapEl;
+      wrapEl.classList.add('n-drag-over');
+    } else if (!slotEl && !wrapEl) {
+      _clearHighlights();
+    }
   });
+
   document.addEventListener('drop', function(e) {
     if (_dragSrcNoteId == null) return;
     e.preventDefault();
     document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
-    _dndOverWrap = null;
-    const wrap = e.target.closest?.('.n-block-wrap[data-note-id]');
-    if (!wrap) { _dragSrcNoteId = null; return; }
-    const targetNoteId = wrap.dataset.noteId;
-    const dst = parseInt(wrap.dataset.idx);
-    const src = _dragSrcIdx;
-    const srcEnd = _dragSrcEndIdx ?? src;
+    document.querySelectorAll('.n-col-slot').forEach(el => el.classList.remove('n-col-slot-over'));
+    document.querySelectorAll('.n-col-block-wrap').forEach(el => el.classList.remove('n-col-dragging'));
+    _dndOverWrap = null; _dndOverSlot = null;
+
     const srcNoteId = _dragSrcNoteId;
-    _dragSrcNoteId = null; _dragSrcIdx = null; _dragSrcEndIdx = null;
-    if (targetNoteId !== srcNoteId || isNaN(dst) || src === dst) return;
-    const r = _findNote(targetNoteId);
+    const srcSlot   = _dragSrcSlot;
+    const srcIdx    = _dragSrcIdx;
+    const srcEndIdx = _dragSrcEndIdx;
+    _dragSrcNoteId = null; _dragSrcIdx = null; _dragSrcEndIdx = null; _dragSrcSlot = null;
+
+    const r = _findNote(srcNoteId);
     if (!r) return;
-    const blocks = r.note.blocks;
-    const count = srcEnd - src + 1;
-    const moved = blocks.splice(src, count);
-    const insertAt = dst > src ? dst - count : dst;
-    blocks.splice(insertAt, 0, ...moved);
+
+    const slotEl = e.target.closest?.('.n-col-slot[data-note-id]');
+    const wrapEl = e.target.closest?.('.n-block-wrap[data-note-id]');
+
+    if (slotEl && slotEl.dataset.noteId === srcNoteId && srcSlot == null) {
+      // ── top → col ──
+      const dstColIdx = parseInt(slotEl.dataset.colIdx);
+      const dstSlot   = parseInt(slotEl.dataset.slot);
+      const count     = (srcEndIdx ?? srcIdx) - srcIdx + 1;
+      const toMove    = r.note.blocks.slice(srcIdx, srcIdx + count);
+      if (toMove.some(mb => mb.type === 'col')) return; // col内にcolは不可
+      r.note.blocks.splice(srcIdx, count);
+      const adjustedColIdx = dstColIdx > srcIdx ? dstColIdx - count : dstColIdx;
+      const dstColBlock = r.note.blocks[adjustedColIdx];
+      if (!dstColBlock || dstColBlock.type !== 'col') return;
+      if (!dstColBlock.cols[dstSlot]) dstColBlock.cols[dstSlot] = [];
+      dstColBlock.cols[dstSlot].push(...toMove);
+
+    } else if (wrapEl && wrapEl.dataset.noteId === srcNoteId && srcSlot != null) {
+      // ── col → top ──
+      const dst        = parseInt(wrapEl.dataset.idx);
+      const srcColBlock = r.note.blocks[srcSlot.colIdx];
+      if (!srcColBlock || srcColBlock.type !== 'col') return;
+      const [moved] = srcColBlock.cols[srcSlot.slot].splice(srcSlot.bIdx, 1);
+      // colIdx 以降の top-level index は変わらない（colブロック自体は残る）
+      const insertAt = dst > srcSlot.colIdx ? dst : dst;
+      r.note.blocks.splice(insertAt, 0, moved);
+
+    } else if (wrapEl && wrapEl.dataset.noteId === srcNoteId && srcSlot == null) {
+      // ── top → top（既存）──
+      const dst   = parseInt(wrapEl.dataset.idx);
+      const count = (srcEndIdx ?? srcIdx) - srcIdx + 1;
+      if (isNaN(dst) || srcIdx === dst) return;
+      const moved = r.note.blocks.splice(srcIdx, count);
+      const insertAt = dst > srcIdx ? dst - count : dst;
+      r.note.blocks.splice(insertAt, 0, ...moved);
+
+    } else {
+      return;
+    }
+
     r.note.updatedAt = Date.now();
     _save();
-    _renderNote(targetNoteId);
+    _renderNote(srcNoteId);
   });
+
   document.addEventListener('dragend', function() {
     document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
-    _dndOverWrap = null;
-    _dragSrcNoteId = null; _dragSrcIdx = null; _dragSrcEndIdx = null;
+    document.querySelectorAll('.n-col-slot').forEach(el => el.classList.remove('n-col-slot-over'));
+    document.querySelectorAll('.n-col-block-wrap').forEach(el => el.classList.remove('n-col-dragging'));
+    _dndOverWrap = null; _dndOverSlot = null;
+    _dragSrcNoteId = null; _dragSrcIdx = null; _dragSrcEndIdx = null; _dragSrcSlot = null;
   });
 })();
 
@@ -1104,7 +1177,7 @@ function _renderColBlock(b, idx, noteId) {
   const slotsHTML = [0, 1].map(slot => {
     const slotBlocks = cols[slot] || [];
     const blocksHTML = slotBlocks.map((sb, bIdx) => _colBlockHTML(sb, bIdx, noteId, idx, slot)).join('');
-    return `<div class="n-col-slot">
+    return `<div class="n-col-slot" data-note-id="${noteId}" data-col-idx="${idx}" data-slot="${slot}">
       ${blocksHTML}
       <div class="n-col-slot-add">
         <button onclick="window._notesColAddText('${noteId}',${idx},${slot})">＋ テキスト</button>
@@ -1125,6 +1198,8 @@ function _renderColBlock(b, idx, noteId) {
 
 function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
   const del = `<button class="n-cb-del" onclick="event.stopPropagation();window._notesColDelBlock('${noteId}',${colIdx},${slot},${bIdx})" title="削除">✕</button>`;
+  const drag = `<div class="n-col-drag-handle" draggable="true" title="ドラッグして移動"
+    ondragstart="window._notesColDragStart(event,'${noteId}',${colIdx},${slot},${bIdx})">⠿</div>`;
   const type = b.type || 'text';
 
   if (type === 'video') {
@@ -1133,6 +1208,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
       ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:18px',textContent:'🎥'}))">`
       : `<span style="font-size:18px">🎥</span>`;
     return `<div class="n-col-block-wrap">
+      ${drag}
       <div class="n-b-video-inline">
         <div class="n-bvi-header" onclick="window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})">
           <div class="n-bvi-thumb">${thumbEl}<div class="n-bvi-play-badge"><div class="n-bvi-play-icon">▶</div></div></div>
@@ -1148,6 +1224,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
 
   if (type === 'image' && b.snapId) {
     return `<div class="n-col-block-wrap">
+      ${drag}
       <div id="n-snap-${_esc(b.snapId)}" class="n-snap-section"></div>${del}
     </div>`;
   }
@@ -1156,6 +1233,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
     const nodeCount = (b.nodes || []).length;
     const edgeCount = (b.edges || []).length;
     return `<div class="n-col-block-wrap">
+      ${drag}
       <div class="n-b-map" onclick="window._notesColOpenMap('${noteId}',${colIdx},${slot},${bIdx})">
         <div class="n-b-map-icon">🗺</div>
         <div class="n-b-map-info">
@@ -1172,6 +1250,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
   const placeholder = type === 'h2' ? '見出し' : type === 'quote' ? '引用' : 'テキストを入力…';
   const content = b.richText ? (b.content || '') : _esc(b.content || '').replace(/\n/g, '<br>');
   return `<div class="n-col-block-wrap">
+    ${drag}
     <${tag} class="${cls}" contenteditable="true" placeholder="${placeholder}"
       data-note-id="${noteId}" data-col-idx="${colIdx}" data-col-slot="${slot}" data-col-bidx="${bIdx}"
       onblur="window._notesBlockSave(this)">${content}</${tag}>
