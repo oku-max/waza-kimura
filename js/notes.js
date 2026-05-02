@@ -334,6 +334,7 @@ window._notesCatRename = function(catId) {
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add('vis'));
   setTimeout(() => document.getElementById('n-cat-name')?.focus(), 80);
+  document.addEventListener('keydown', _sheetEscHandler);
 };
 
 window._notesCatRenameConfirm = function() {
@@ -526,17 +527,23 @@ function _showCreateSheet({ mode = 'create', catId = null, noteId = null, curren
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add('vis'));
   setTimeout(() => document.getElementById('n-sheet-name')?.focus(), 80);
+  document.addEventListener('keydown', _sheetEscHandler);
 }
 
 function _removeSheet() {
   document.getElementById('n-sheet-overlay')?.remove();
+  document.removeEventListener('keydown', _sheetEscHandler);
+}
+
+function _sheetEscHandler(e) {
+  if (e.key === 'Escape') window._notesSheetClose();
 }
 
 window._notesSheetClose = function() {
   const overlay = document.getElementById('n-sheet-overlay');
   if (!overlay) return;
   overlay.classList.remove('vis');
-  window._notesInsertAfterIdx = null; // キャンセル時にリセット
+  window._notesInsertAfterIdx = null;
   setTimeout(_removeSheet, 200);
 };
 
