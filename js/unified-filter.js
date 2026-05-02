@@ -921,6 +921,12 @@
     const isOrg = _ctx === 'org';
     if (isOrg) window.applySavedSearchToOrg?.(idx);
     else       window.applySavedSearch?.(idx);
+    // 保存名入力欄にその条件名をセット（すぐ上書き保存できるように）
+    const nameInput = document.getElementById('uni-save-name');
+    if (nameInput && !isOrg) {
+      const ss = window.savedSearches?.[idx];
+      if (ss) nameInput.value = ss.name;
+    }
     _render();
   };
   window.uniSSRename = function (idx, e) {
