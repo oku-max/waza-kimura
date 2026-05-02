@@ -13,6 +13,9 @@ const STORE_NAME = 'snapshots';
 
 let dbInstance = null;
 
+// Firestoreアップロード完了を待つために外部から参照可能なPromiseセット
+export const pendingUploads = new Set();
+
 // ── Firestore helpers ──
 
 function _getDb() {
@@ -169,7 +172,10 @@ export async function putSnapshot(id, videoId, blob, annotations = []) {
     });
 
     // Upload to Firestore in background (don't block UI)
-    _uploadToFirestore(id, videoId, blob, annotations);
+    // pendingUploads でトラッキングし、呼び出し元がアップロード完了を待てるようにする
+    const up = _uploadToFirestore(id, videoId, blob, annotations);
+    pendingUploads.add(up);
+    up.finally(() => pendingUploads.delete(up));
 
     return record;
   } catch (err) {

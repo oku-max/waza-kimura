@@ -1,5 +1,5 @@
 // ═══ WAZA KIMURA — Notes tab v52.09 ═══
-import { getSnapshot, putSnapshot } from './snapshot-db.js';
+import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
 let _saveFsTimer = null;
@@ -1765,7 +1765,7 @@ function _initNoteSnap(noteId, snapId, block, blockIdx) {
   window._noteSnapVideos = window._noteSnapVideos || {};
   window._noteSnapVideos[snapId] = { id: snapId, snapshots: block.refs || [] };
 
-  window._onSnapSync = (sid, refs) => {
+  window._onSnapSync = async (sid, refs) => {
     if (sid !== snapId) return;
     const r2 = _findNote(noteId);
     if (!r2) return;
@@ -1773,6 +1773,8 @@ function _initNoteSnap(noteId, snapId, block, blockIdx) {
     if (b && b.snapId === snapId) {
       b.refs = refs;
       r2.note.updatedAt = Date.now();
+      // 画像のFirestoreアップロードが完了してからノートを保存する（クロスデバイス同期のレースコンディション対策）
+      if (pendingUploads.size > 0) await Promise.allSettled([...pendingUploads]);
       _save();
     }
   };
@@ -1788,14 +1790,18 @@ function _initNoteSnap(noteId, snapId, block, blockIdx) {
 function _initNoteSnapForCol(noteId, snapId, colIdx, slot) {
   window._noteSnapVideos = window._noteSnapVideos || {};
   window._noteSnapVideos[snapId] = { id: snapId, snapshots: [] };
-  window._onSnapSync = (sid, refs) => {
+  window._onSnapSync = async (sid, refs) => {
     if (sid !== snapId) return;
     const r2 = _findNote(noteId);
     if (!r2) return;
     const colBlock = r2.note.blocks[colIdx];
     if (!colBlock || colBlock.type !== 'col') return;
     const ib = (colBlock.cols[slot] || []).find(b => b.snapId === snapId);
-    if (ib) { ib.refs = refs; r2.note.updatedAt = Date.now(); _save(); }
+    if (ib) {
+      ib.refs = refs; r2.note.updatedAt = Date.now();
+      if (pendingUploads.size > 0) await Promise.allSettled([...pendingUploads]);
+      _save();
+    }
   };
   const container = document.getElementById('n-snap-' + snapId);
   if (container && window.initSnapshotSection) {
