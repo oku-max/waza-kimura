@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.33</title>
+<title>WAZA KIMURA v52.34</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -278,6 +278,13 @@
       if (orgC) orgC.style.display = '';
       window.renderOrg?.();
     }
+  };
+
+  window._libRandom = function() {
+    const vids = window.filteredVideos || [];
+    if (!vids.length) { window.toast?.('表示中の動画がありません'); return; }
+    const v = vids[Math.floor(Math.random() * vids.length)];
+    window.openVPanel?.(v.id);
   };
 
   // cards
@@ -871,6 +878,20 @@
   color: var(--on-accent);
   border-color: var(--accent);
 }
+.lvt-sep {
+  width: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+  flex-shrink: 0;
+}
+.lvt-rand {
+  color: var(--text2);
+}
+.lvt-rand:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--text3);
+}
 /* カードホスト: 内部スクロール */
 #lib-card-host {
   flex: 1;
@@ -1215,6 +1236,8 @@
   <div class="lib-view-bar">
     <button id="lvt-card" class="lvt-btn lvt-active" onclick="window._libView('card')">📋 カードビュー</button>
     <button id="lvt-org"  class="lvt-btn"            onclick="window._libView('org')">📊 テーブルビュー</button>
+    <div class="lvt-sep"></div>
+    <button class="lvt-btn lvt-rand" onclick="window._libRandom()">🔀 ランダム再生</button>
   </div>
   <!-- Library操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="library-actionbar">
