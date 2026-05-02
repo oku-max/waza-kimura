@@ -873,37 +873,7 @@
 
   // ── 保存した検索条件: 件数 (filt() と同ロジック) ──
   function _countSavedSearch(ss) {
-    if (!ss || !ss.state || !window._filt) return 0;
-    const s  = ss.state;
-    const f  = window.filters || {};
-    // 現在の状態を退避
-    const prev = {
-      favOnly:     window.favOnly,
-      unwOnly:     window.unwOnly,
-      watchedOnly: window.watchedOnly,
-      filters:     Object.fromEntries(Object.keys(f).map(k => [k, [...(f[k] || [])]])),
-    };
-    const siEl   = document.getElementById('si');
-    const siPcEl = document.getElementById('si-lib-pc');
-    const prevSi   = siEl?.value   || '';
-    const prevSiPc = siPcEl?.value || '';
-    // 保存条件を仮適用
-    window.favOnly     = s.favOnly     || false;
-    window.unwOnly     = s.unwOnly     || false;
-    window.watchedOnly = s.watchedOnly || false;
-    Object.entries(s.filters || {}).forEach(([k, v]) => { if (f[k]) { f[k].clear(); (v||[]).forEach(x => f[k].add(x)); } });
-    if (siEl)   siEl.value   = s.query || '';
-    if (siPcEl) siPcEl.value = s.query || '';
-    // filt() と同じロジックで件数を取得
-    const count = window._filt(window.videos || []).length;
-    // 元の状態に復元
-    window.favOnly     = prev.favOnly;
-    window.unwOnly     = prev.unwOnly;
-    window.watchedOnly = prev.watchedOnly;
-    Object.entries(prev.filters).forEach(([k, vals]) => { if (f[k]) { f[k].clear(); vals.forEach(x => f[k].add(x)); } });
-    if (siEl)   siEl.value   = prevSi;
-    if (siPcEl) siPcEl.value = prevSiPc;
-    return count;
+    return ss?.state?.count ?? 0;
   }
 
   // ── 保存した検索条件: UI操作 ──

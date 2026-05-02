@@ -1,5 +1,5 @@
 ﻿// ═══ WAZA KIMURA — フィルターオーバーレイ & サイドバー ═══
-import { _syncChipsToState } from './filter.js';
+import { _syncChipsToState, filt } from './filter.js';
 
 // ── ドロップダウン外クリックで全DD閉じる（フィルター・VPanel・GDrive共通）──
 document.addEventListener('click', function(e) {
@@ -622,7 +622,8 @@ export function saveCurrentSearch() {
   const state = {
     favOnly: window.favOnly, unwOnly: window.unwOnly, watchedOnly: window.watchedOnly,
     filters: Object.fromEntries(Object.entries(f).map(([k,v]) => [k, [...v]])),
-    query: (document.getElementById('si')||{}).value || (document.getElementById('si-lib-pc')||{}).value || ''
+    query: (document.getElementById('si')||{}).value || (document.getElementById('si-lib-pc')||{}).value || '',
+    count: filt(window.videos || []).length,
   };
   const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
     Object.values(state.filters).some(a => a.length > 0) || state.query;
@@ -650,7 +651,8 @@ export function saveCurrentSearchFromInput(inputId, isOrg = false) {
     query: isOrg
       ? (document.getElementById('si-org')?.value    || document.getElementById('si-org-pc')?.value || '')
       : (document.getElementById('si')?.value        || document.getElementById('si-lib-pc')?.value
-         || document.getElementById('uni-q')?.value  || '')
+         || document.getElementById('uni-q')?.value  || ''),
+    count: isOrg ? 0 : filt(window.videos || []).length,
   };
   const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
     Object.values(state.filters).some(a => a.length > 0) || state.query;
@@ -746,7 +748,8 @@ export function commitEditSavedSearch() {
     unwOnly:     window.unwOnly     || false,
     watchedOnly: window.watchedOnly || false,
     filters: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v]])),
-    query: document.getElementById('si')?.value || document.getElementById('si-lib-pc')?.value || ''
+    query: document.getElementById('si')?.value || document.getElementById('si-lib-pc')?.value || '',
+    count: filt(window.videos || []).length,
   };
   savedSearches[_editingIdx] = { name: ss.name, state, createdAt: Date.now() };
   _persistSavedSearches();
