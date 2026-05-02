@@ -824,8 +824,8 @@ export function renderSavedSearches() {
       ` : '';
       return `
         <div style="background:var(--surface2);border-radius:6px">
-          <div onclick="${applyFn}(${i})" style="display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;font-size:11px;font-weight:500">
-            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ss.name}</span>
+          <div onclick="${applyFn}(${i})" style="display:flex;align-items:flex-start;gap:4px;padding:5px 8px;cursor:pointer;font-size:11px;font-weight:500">
+            <span style="flex:1;min-width:0;word-break:break-all;line-height:1.5">${ss.name}</span>
             <span onclick="toggleSavedSearchMenu(${i},event)" title="操作" style="color:var(--text3);font-size:14px;padding:2px 7px;border-radius:4px;line-height:1">⋯</span>
           </div>
           ${menu}
