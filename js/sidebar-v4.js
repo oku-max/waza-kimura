@@ -170,7 +170,7 @@
     { key:'tb',   label:'トップ/ボトム/スタンディング', short:'T/B' },
     { key:'cat',  label:'カテゴリ',        short:'カテゴリ' },
     { key:'pos',  label:'ポジション',      short:'ポジション' },
-    { key:'tags', label:'#タグ',          short:'#タグ' }
+    { key:'tags', label:'テクニック',      short:'テクニック' }
   ];
 
   function _esc(s){return String(s==null?'':s).replace(/[&<>"'\\]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'\\\\'}[c]));}

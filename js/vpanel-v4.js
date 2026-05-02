@@ -51,13 +51,13 @@
 
     // Tags row — カスタム DD（インライン input を廃止してモバイルキーボード誤起動を防止）
     const tagChips = v.tags.map(t =>
-      `<span class="vp-chip on-tags" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">#${_esc(t)} ×</span>`
+      `<span class="vp-chip on-tags" style="cursor:pointer" onclick="vpV4RemoveTag('${id}','${_esc(t)}',this)">${_esc(t)} ×</span>`
     ).join('');
     const tagInput = `
       <div class="vp-dd-wrap" style="display:inline-block;position:relative">
-        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenTagDd('${id}',this)">＋ #タグ</span>
+        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenTagDd('${id}',this)">＋ テクニック</span>
         <div class="vp-dd" id="vp-v4-tag-dd-${id}" style="display:none">
-          <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="#タグ検索・新規追加（Enterで追加）"
+          <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="テクニック検索・新規追加（Enterで追加）"
             oninput="vpV4TagFilter('${id}',this.value)"
             onkeydown="vpV4TagKey('${id}',event,this)">
           <div class="vp-dd-list" id="vp-v4-tag-sug-${id}"></div>
