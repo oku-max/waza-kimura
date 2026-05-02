@@ -682,7 +682,7 @@
         name:n, cnt: posCtx.filter(v => (v.pos||[]).includes(n)).length, sel: !!f[tkPos]?.has(n)
       }));
 
-      const tagsLabel = isOrg ? 'Technique' : '#タグ';
+      const tagsLabel = isOrg ? 'Technique' : 'テクニック';
       const tagsSrc   = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
       const tagsCtx = _ctxVideos('tags');
       const tagItems = tagsSrc.map(n => ({

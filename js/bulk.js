@@ -172,13 +172,13 @@ export function buildBulkDrawerHTML() {
 
   // #タグ row (選択中チップ + カスタムDD)
   const tagChips = commonTags.map(t =>
-    `<span class="vp-chip on-tags" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">#${_esc(t)} ×</span>`
+    `<span class="vp-chip on-tags" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">${_esc(t)} ×</span>`
   ).join('');
   const tagInput = `
     <div class="vp-dd-wrap" style="display:inline-block;position:relative">
-      <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="bvpOpenTagDd()">＋ #タグ</span>
+      <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="bvpOpenTagDd()">＋ テクニック</span>
       <div class="vp-dd" id="bvp-tag-dd" style="display:none">
-        <input class="vp-dd-search" id="bvp-tag-inp" placeholder="#タグ検索・新規追加（Enterで追加）"
+        <input class="vp-dd-search" id="bvp-tag-inp" placeholder="テクニック検索・新規追加（Enterで追加）"
           oninput="bvpTagFilter(this.value)"
           onkeydown="bvpTagKey(event,this)">
         <div class="vp-dd-list" id="bvp-tag-sug"></div>
