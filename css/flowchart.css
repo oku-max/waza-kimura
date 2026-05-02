@@ -9,6 +9,7 @@
 }
 #fc-overlay.open{display:block}
 body:has(#fc-overlay.open) #vpanel{z-index:10000}
+body:has(#fc-overlay.open) #vp-tut-overlay{z-index:10001}
 
 /* ── Topbar ── */
 #fc-topbar{
