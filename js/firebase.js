@@ -37,6 +37,35 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 // ── Firestore リアルタイム同期 共通 ──
+// Firestoreはネスト配列（Array<Array>）を禁止。保存前に配列→オブジェクト変換、読み込み後に逆変換する
+function _packNested(v) {
+  if (Array.isArray(v)) {
+    const mapped = v.map(_packNested);
+    return mapped.map(item => Array.isArray(item) ? { _s: item } : item);
+  }
+  if (v && typeof v === 'object') {
+    const o = {};
+    for (const [k, val] of Object.entries(v)) o[k] = _packNested(val);
+    return o;
+  }
+  return v;
+}
+function _unpackNested(v) {
+  if (Array.isArray(v)) {
+    return v.map(item =>
+      (item && typeof item === 'object' && '_s' in item && Object.keys(item).length === 1)
+        ? _unpackNested(item._s)
+        : _unpackNested(item)
+    );
+  }
+  if (v && typeof v === 'object') {
+    const o = {};
+    for (const [k, val] of Object.entries(v)) o[k] = _unpackNested(val);
+    return o;
+  }
+  return v;
+}
+
 let _notesUnsubscribe = null;
 let _videosUnsubscribe = null;
 let _videosLoadedAt = '';
@@ -49,7 +78,7 @@ window._firebaseSaveNotes = async function(data) {
     const uid = currentUser.uid;
     const updatedAt = new Date().toISOString();
     await db.collection('users').doc(uid).collection('data').doc('notes').set({
-      data, updatedAt, savedBy: _sessionId
+      data: _packNested(data), updatedAt, savedBy: _sessionId
     });
     console.log('[notes] saved', data.length, 'notes');
   } catch(e) { console.error('[notes] save error:', e); showToast('⚠️ ノート保存失敗: ' + e.message, 5000); }
@@ -63,7 +92,7 @@ async function loadNotes(uid) {
     if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
     if (!snap.exists || !snap.data()?.data?.length) return;
     if (snap.data().savedBy === _sessionId) return;
-    window._notesLoadFromRemote?.(snap.data().data);
+    window._notesLoadFromRemote?.(_unpackNested(snap.data().data));
   }, e => console.error('notes onSnapshot:', e));
 }
 
@@ -79,7 +108,7 @@ window._notesSyncNow = async function() {
   try {
     const snap = await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').get();
     if (snap.exists && snap.data()?.data?.length) {
-      window._notesLoadFromRemote?.(snap.data().data);
+      window._notesLoadFromRemote?.(_unpackNested(snap.data().data));
     }
   } catch(e) {
     console.error('[sync] manual sync failed:', e);
