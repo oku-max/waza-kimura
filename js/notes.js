@@ -52,6 +52,15 @@ window._notesLoadFromRemote = function(remoteData) {
     _data = remoteData;
     if (_activeId) _renderNote(_activeId);
     window.renderNotes?.();
+    // ヘッダー同期ボタンのステータスを更新
+    const icon = document.getElementById('nSyncIcon');
+    const lbl  = document.getElementById('nSyncLbl');
+    if (icon) icon.textContent = '✓';
+    if (lbl)  lbl.textContent  = '完了';
+    setTimeout(() => {
+      if (icon) icon.textContent = '↕';
+      if (lbl)  lbl.textContent  = '同期';
+    }, 2000);
     window.toast?.('📓 ノートを同期しました');
   } catch(e) {
     window.toast?.('⚠️ 同期エラー: ' + e.message);

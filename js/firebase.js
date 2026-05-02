@@ -67,6 +67,34 @@ async function loadNotes(uid) {
   }, e => console.error('notes onSnapshot:', e));
 }
 
+// 手動同期：ヘッダーの同期ボタンから呼ばれる
+window._notesSyncNow = async function() {
+  if (!currentUser) return;
+  const icon = document.getElementById('nSyncIcon');
+  const lbl  = document.getElementById('nSyncLbl');
+  const btn  = document.getElementById('nSyncBtn');
+  if (btn) btn.disabled = true;
+  if (icon) icon.textContent = '⟳';
+  if (lbl)  lbl.textContent  = '同期中…';
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').get();
+    if (snap.exists && snap.data()?.data?.length) {
+      window._notesLoadFromRemote?.(snap.data().data);
+    }
+  } catch(e) {
+    console.error('[sync] manual sync failed:', e);
+    showToast('⚠️ 同期に失敗しました: ' + e.message, 4000);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (icon) icon.textContent = '✓';
+    if (lbl)  lbl.textContent  = '完了';
+    setTimeout(() => {
+      if (icon) icon.textContent = '↕';
+      if (lbl)  lbl.textContent  = '同期';
+    }, 2000);
+  }
+};
+
 export function updateAuthUI(user) {
   const btn     = document.getElementById('auth-btn');
   const avatar  = document.getElementById('auth-avatar');
