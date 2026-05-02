@@ -77,8 +77,10 @@ window._firebaseSaveNotes = async function(data) {
   try {
     const uid = currentUser.uid;
     const updatedAt = new Date().toISOString();
+    // JSON round-trip で undefined を除去してから、ネスト配列をFirestore対応形式に変換
+    const safe = _packNested(JSON.parse(JSON.stringify(data)));
     await db.collection('users').doc(uid).collection('data').doc('notes').set({
-      data: _packNested(data), updatedAt, savedBy: _sessionId
+      data: safe, updatedAt, savedBy: _sessionId
     });
     console.log('[notes] saved', data.length, 'notes');
   } catch(e) { console.error('[notes] save error:', e); showToast('⚠️ ノート保存失敗: ' + e.message, 5000); }
