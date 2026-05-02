@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.24</title>
+<title>WAZA KIMURA v52.25</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -4283,6 +4283,19 @@ window.addEventListener('resize', adjustTopbarOffset);
       <button class="fb-type-btn"        data-v="other"   onclick="fbSetType(this)">その他</button>
     </div>
 
+    <label style="display:block;font-size:12px;color:var(--text-sub,#888);margin-bottom:6px">使用環境 <span style="color:var(--accent,#e05a00)">*</span></label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <button class="fb-type-btn fb-dev-btn" data-v="pc" onclick="fbSetDevice(this)">💻 PC</button>
+      <button class="fb-type-btn fb-dev-btn" data-v="sp" onclick="fbSetDevice(this)">📱 スマホ</button>
+    </div>
+    <div id="fb-os-row" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+      <button class="fb-type-btn fb-os-btn fb-os-pc" data-v="mac"     onclick="fbSetOS(this)">Mac</button>
+      <button class="fb-type-btn fb-os-btn fb-os-pc" data-v="windows" onclick="fbSetOS(this)">Windows</button>
+      <button class="fb-type-btn fb-os-btn fb-os-sp" data-v="ios"     onclick="fbSetOS(this)" style="display:none">iOS</button>
+      <button class="fb-type-btn fb-os-btn fb-os-sp" data-v="android" onclick="fbSetOS(this)" style="display:none">Android</button>
+    </div>
+    <div id="fb-env-err" style="display:none;font-size:11px;color:var(--accent,#e05a00);margin-bottom:10px">※ デバイスとOSを両方選択してください</div>
+
     <label style="display:block;font-size:12px;color:var(--text-sub,#888);margin-bottom:4px">内容 <span style="opacity:.6">（任意）</span></label>
     <textarea id="fb-text" rows="4" placeholder="詳しく教えてもらえると助かります"
       style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border,#444);
@@ -4369,6 +4382,8 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <script>
 let _fbType = 'howto';
+let _fbDevice = '';
+let _fbOS = '';
 const _fbImgs = [null, null, null];
 let _fbAnnSlot = -1;
 let _fbAnnTool = 'pen';
@@ -4390,13 +4405,34 @@ function closeFeedback() {
   document.getElementById('fb-overlay').style.display = 'none';
   document.getElementById('fb-text').value = '';
   _fbType = 'howto';
+  _fbDevice = '';
+  _fbOS = '';
   document.querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b.dataset.v === 'howto'));
+  document.querySelectorAll('.fb-dev-btn, .fb-os-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('fb-os-row').style.display = 'none';
+  document.getElementById('fb-env-err').style.display = 'none';
   _fbImgs.fill(null);
   fbRenderSlots();
 }
 function fbSetType(btn) {
   _fbType = btn.dataset.v;
   document.querySelectorAll('.fb-type-btn').forEach(b => b.classList.toggle('active', b === btn));
+}
+function fbSetDevice(btn) {
+  _fbDevice = btn.dataset.v;
+  _fbOS = '';
+  document.querySelectorAll('.fb-dev-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.fb-os-btn').forEach(b => b.classList.remove('active'));
+  const isPc = _fbDevice === 'pc';
+  document.querySelectorAll('.fb-os-pc').forEach(b => b.style.display = isPc ? '' : 'none');
+  document.querySelectorAll('.fb-os-sp').forEach(b => b.style.display = isPc ? 'none' : '');
+  document.getElementById('fb-os-row').style.display = 'flex';
+  document.getElementById('fb-env-err').style.display = 'none';
+}
+function fbSetOS(btn) {
+  _fbOS = btn.dataset.v;
+  document.querySelectorAll('.fb-os-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.getElementById('fb-env-err').style.display = 'none';
 }
 
 function fbRenderSlots() {
@@ -4585,10 +4621,14 @@ async function submitFeedback() {
   const page = document.getElementById('fb-page').value;
   const text = document.getElementById('fb-text').value.trim();
   const btn  = document.getElementById('fb-submit-btn');
+  if (!_fbDevice || !_fbOS) {
+    document.getElementById('fb-env-err').style.display = 'block';
+    return;
+  }
   btn.disabled = true; btn.textContent = '送信中…';
   try {
     const images = _fbImgs.filter(Boolean);
-    await window.saveFeedback?.({ page, type: _fbType, text, images });
+    await window.saveFeedback?.({ page, type: _fbType, text, images, device: _fbDevice, os: _fbOS });
     closeFeedback();
     window.toast?.('✅ フィードバックありがとうございます！');
   } catch(e) {
