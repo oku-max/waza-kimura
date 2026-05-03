@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.54</title>
+<title>WAZA KIMURA v52.55</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -2380,7 +2380,10 @@ async function detectUrls() {
           nonPl.push(`https://www.youtube.com/watch?v=${v.vid}`);
         });
       } else {
-        nonPl.push(plUrl); // 展開失敗 → そのまま残す（エラー表示される）
+        if (!window._ytToken) {
+          toast('⚠️ プレイリストの展開にはYouTubeログインが必要です。画面右上からログインしてください。', 6000);
+        }
+        nonPl.push(plUrl); // 展開失敗 → 1件として登録
       }
     }
   }
