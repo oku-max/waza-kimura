@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.53</title>
+<title>WAZA KIMURA v52.54</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -2316,11 +2316,19 @@ async function _expandPlaylistUrl(line) {
     if (vids.length) return { plId, vids };
   }
 
-  // フォールバック: RSS（最大15本、認証不要）
+  // フォールバック: rss-proxy（サーバー側でYT API or RSS XML取得）
   try {
     const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${plId}`;
     const res = await fetch('/api/rss-proxy?url=' + encodeURIComponent(feedUrl));
     if (!res.ok) return null;
+    // プロキシがYT APIで全件JSON返した場合はそのまま使用
+    const src = res.headers.get('X-Source');
+    if (src === 'yt-api') {
+      const json = await res.json();
+      if (json.vids?.length) return { plId: json.plId || plId, vids: json.vids, rss: false };
+      return null;
+    }
+    // フォールバック: RSS XML解析
     const xml = await res.text();
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     const entries = Array.from(doc.getElementsByTagName('entry'));
