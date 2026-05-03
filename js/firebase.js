@@ -72,17 +72,19 @@ let _videosLoadedAt = '';
 // セッションID: このタブ/ページロードを一意に識別（メモリのみ、再起動で再生成）
 const _sessionId = Math.random().toString(36).slice(2);
 
-window._firebaseSaveNotes = async function(data) {
+window._firebaseSaveNotes = async function(payload) {
   if (!currentUser) { console.warn('[notes] save skipped: not logged in'); return; }
   try {
     const uid = currentUser.uid;
     const updatedAt = new Date().toISOString();
-    // JSON round-trip で undefined を除去してから、ネスト配列をFirestore対応形式に変換
-    const safe = _packNested(JSON.parse(JSON.stringify(data)));
+    const folders = Array.isArray(payload) ? payload : (payload?.folders || []);
+    const root    = Array.isArray(payload) ? []      : (payload?.root    || []);
+    const safe     = _packNested(JSON.parse(JSON.stringify(folders)));
+    const safeRoot = _packNested(JSON.parse(JSON.stringify(root)));
     await db.collection('users').doc(uid).collection('data').doc('notes').set({
-      data: safe, updatedAt, savedBy: _sessionId
+      data: safe, root: safeRoot, updatedAt, savedBy: _sessionId
     });
-    console.log('[notes] saved', data.length, 'notes');
+    console.log('[notes] saved', folders.length, 'folders,', root.length, 'root notes');
   } catch(e) { console.error('[notes] save error:', e); showToast('⚠️ ノート保存失敗: ' + e.message, 5000); }
 };
 
@@ -92,9 +94,13 @@ async function loadNotes(uid) {
 
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
     if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
-    if (!snap.exists || !snap.data()?.data?.length) return;
-    if (snap.data().savedBy === _sessionId) return;
-    window._notesLoadFromRemote?.(_unpackNested(snap.data().data));
+    const snapData = snap.data();
+    if (!snap.exists || !snapData?.data?.length) return;
+    if (snapData.savedBy === _sessionId) return;
+    window._notesLoadFromRemote?.({
+      folders: _unpackNested(snapData.data),
+      root: snapData.root ? _unpackNested(snapData.root) : []
+    });
   }, e => console.error('notes onSnapshot:', e));
 }
 
@@ -110,7 +116,11 @@ window._notesSyncNow = async function() {
   try {
     const snap = await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').get();
     if (snap.exists && snap.data()?.data?.length) {
-      window._notesLoadFromRemote?.(_unpackNested(snap.data().data));
+      const d = snap.data();
+      window._notesLoadFromRemote?.({
+        folders: _unpackNested(d.data),
+        root: d.root ? _unpackNested(d.root) : []
+      });
     }
   } catch(e) {
     console.error('[sync] manual sync failed:', e);

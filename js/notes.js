@@ -10,7 +10,7 @@ function _save() {
       console.error('[notes] _firebaseSaveNotes undefined — save skipped');
       return;
     }
-    window._firebaseSaveNotes(_data);
+    window._firebaseSaveNotes({ folders: _data, root: _root });
   }, 500);
 }
 
@@ -19,7 +19,7 @@ const _flushNotes = () => {
   if (_saveFsTimer) {
     clearTimeout(_saveFsTimer);
     _saveFsTimer = null;
-    window._firebaseSaveNotes?.(_data);
+    window._firebaseSaveNotes?.({ folders: _data, root: _root });
   }
 };
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushNotes(); });
@@ -31,6 +31,7 @@ window._notesInitForUser = function() {
   clearTimeout(_saveFsTimer);
   _saveFsTimer = null;
   _data = [];
+  _root = [];
   _activeId = null;
   window.renderNotes?.();
 };
@@ -40,16 +41,21 @@ window._notesClear = function() {
   clearTimeout(_saveFsTimer); // 残留タイマーを必ずキャンセル
   _saveFsTimer = null;
   _data = [];
+  _root = [];
   _activeId = null;
   window.renderNotes?.();
 };
 
 window._notesGetData = () => _data;
 
-window._notesLoadFromRemote = function(remoteData) {
-  if (!Array.isArray(remoteData) || !remoteData.length) return;
+window._notesLoadFromRemote = function(payload) {
+  // 旧フォーマット（配列）と新フォーマット（{ folders, root }）に両対応
+  const folders = Array.isArray(payload) ? payload : (payload?.folders || []);
+  const root    = Array.isArray(payload) ? []      : (payload?.root    || []);
+  if (!folders.length && !root.length) return;
   try {
-    _data = remoteData;
+    _data = folders;
+    _root = root;
     if (_activeId) _renderNote(_activeId);
     window.renderNotes?.();
     // ヘッダー同期ボタンのステータスを更新
@@ -68,7 +74,8 @@ window._notesLoadFromRemote = function(remoteData) {
   }
 };
 
-let _data = [];
+let _data = [];   // フォルダ配列
+let _root = [];   // フォルダなしノート配列
 let _activeId = null;
 let _recentIds = [];
 let _dragSrcNoteId = null;
@@ -79,6 +86,8 @@ let _statusFilter = null; // null=全て, 'new'/'wip'/'done'/'review'
 
 // ── lookup ──
 function _findNote(id) {
+  const rootNote = _root.find(n => n.id === id);
+  if (rootNote) return { note: rootNote, cat: null };
   for (const cat of _data) {
     const n = cat.notes.find(n => n.id === id);
     if (n) return { note: n, cat };
@@ -124,6 +133,7 @@ window._notesCtxMenu = function(noteId, e) {
   menu.className = 'n-ctx-menu';
   menu.innerHTML = `
     <div class="n-ctx-item" onclick="window._notesRename('${noteId}')">✎ 名前変更</div>
+    <div class="n-ctx-item" onclick="window._notesMoveNote('${noteId}')">📂 移動</div>
     <div class="n-ctx-item n-ctx-danger" onclick="window._notesDelete('${noteId}')">🗑 削除</div>
   `;
 
@@ -136,6 +146,65 @@ window._notesCtxMenu = function(noteId, e) {
 
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', _closeCtx, { once: true }), 0);
+};
+
+// ── move between folders ──
+window._notesMoveNote = function(noteId) {
+  _closeCtx();
+  const r = _findNote(noteId);
+  if (!r) return;
+  _removeSheet();
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.dataset.mode = 'move';
+  overlay.dataset.noteId = noteId;
+  const options = `<option value="">（フォルダなし）</option>` +
+    _data.map(c => {
+      const isCurrent = r.cat && r.cat.id === c.id;
+      return `<option value="${c.id}"${isCurrent ? ' selected' : ''}>${_esc(c.icon + ' ' + c.name)}</option>`;
+    }).join('');
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">📂 ノートを移動</span></div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">移動先フォルダ</label>
+        <select id="n-move-dest" class="n-sheet-select">${options}</select>
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesMoveConfirm()">移動する</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  document.addEventListener('keydown', _sheetEscHandler);
+};
+
+window._notesMoveConfirm = function() {
+  const overlay = document.getElementById('n-sheet-overlay');
+  if (!overlay || overlay.dataset.mode !== 'move') return;
+  const noteId   = overlay.dataset.noteId;
+  const destCatId = document.getElementById('n-move-dest')?.value;
+  const r = _findNote(noteId);
+  if (!r) return;
+  // 移動元から削除
+  if (r.cat) { r.cat.notes = r.cat.notes.filter(n => n.id !== noteId); }
+  else        { _root = _root.filter(n => n.id !== noteId); }
+  // 移動先へ追加
+  if (destCatId) {
+    const dest = _data.find(c => c.id === destCatId);
+    if (dest) dest.notes.push(r.note); else _root.push(r.note);
+  } else {
+    _root.push(r.note);
+  }
+  r.note.updatedAt = Date.now();
+  _save();
+  window._notesSheetClose();
+  _renderSb();
+  window.toast?.(`📂「${r.note.name}」を移動しました`);
 };
 
 // ── rename ──
@@ -459,14 +528,21 @@ window._notesDeleteConfirm = function(noteId) {
   const r = _findNote(noteId);
   if (!r) return;
   const name = r.note.name;
-  r.cat.notes = r.cat.notes.filter(n => n.id !== noteId);
+  if (r.cat) {
+    r.cat.notes = r.cat.notes.filter(n => n.id !== noteId);
+  } else {
+    _root = _root.filter(n => n.id !== noteId);
+  }
   _save();
 
   // update active selection
   if (_activeId === noteId) {
     _activeId = null;
-    for (const cat of _data) {
-      if (cat.notes.length) { _activeId = cat.notes[0].id; break; }
+    if (_root.length) { _activeId = _root[0].id; }
+    else {
+      for (const cat of _data) {
+        if (cat.notes.length) { _activeId = cat.notes[0].id; break; }
+      }
     }
   }
   _recentIds = _recentIds.filter(id => id !== noteId);
@@ -484,9 +560,10 @@ function _showCreateSheet({ mode = 'create', catId = null, noteId = null, curren
   const isRename = mode === 'rename';
   const title = isRename ? '✎ ノートを名前変更' : '📓 新しいノートを作成';
 
-  const catOptions = _data.map(c =>
-    `<option value="${c.id}"${c.id === catId ? ' selected' : ''}>${_esc(c.icon + ' ' + c.name)}</option>`
-  ).join('');
+  const catOptions = `<option value=""${!catId ? ' selected' : ''}>（フォルダなし）</option>` +
+    _data.map(c =>
+      `<option value="${c.id}"${c.id === catId ? ' selected' : ''}>${_esc(c.icon + ' ' + c.name)}</option>`
+    ).join('');
 
   const overlay = document.createElement('div');
   overlay.id = 'n-sheet-overlay';
@@ -570,14 +647,18 @@ window._notesSheetConfirm = function() {
     }
   } else {
     const catId = document.getElementById('n-sheet-cat')?.value;
-    const cat = _data.find(c => c.id === catId) || _data[0];
     const initStatus = document.getElementById('n-sheet-status')?.value || 'new';
     const newNote = {
       id: _uid(), name, status: initStatus, tags: [],
       updatedAt: Date.now(),
       blocks: []
     };
-    cat.notes.push(newNote);
+    if (catId) {
+      const cat = _data.find(c => c.id === catId);
+      if (cat) cat.notes.push(newNote); else _root.push(newNote);
+    } else {
+      _root.push(newNote);
+    }
     _save();
     window._notesSheetClose();
     _activeId = newNote.id;
@@ -607,6 +688,21 @@ function _renderSb() {
     tabs.map(t => `<button class="n-status-tab${_statusFilter === t.k ? ' active' : ''}"
       onclick="window._notesSetFilter(${t.k === null ? 'null' : `'${t.k}'`})">${t.label}</button>`).join('') +
     `</div>`;
+
+  // フォルダなしノートをリスト上部に表示
+  const visRoot = _statusFilter ? _root.filter(n => n.status === _statusFilter) : _root;
+  if (visRoot.length > 0) {
+    h += `<div class="n-root-notes">` +
+      visRoot.map(n => `
+        <div class="n-note-item${n.id === _activeId ? ' active' : ''}"
+             onclick="window._notesOpenNote('${n.id}',event)">
+          <span class="n-note-dot ${STATUS_DOT[n.status] || ''}"></span>
+          <span class="n-note-name">${_esc(n.name)}</span>
+          <button class="n-note-more" title="オプション"
+                  onclick="window._notesCtxMenu('${n.id}',event)">⋯</button>
+        </div>`).join('') +
+      `</div>`;
+  }
 
   for (const cat of _data) {
     const visNotes = _statusFilter ? cat.notes.filter(n => n.status === _statusFilter) : cat.notes;
@@ -2096,7 +2192,7 @@ window._notesImageConfirm = function() {
 
 // called from "+ New" button and category "+" buttons
 window.notesNew = function(catId = null) {
-  _showCreateSheet({ mode: 'create', catId: catId || (_data[0]?.id || null) });
+  _showCreateSheet({ mode: 'create', catId: catId || null });
 };
 
 // ── VPanel integration ──
