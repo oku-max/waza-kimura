@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.52</title>
+<title>WAZA KIMURA v52.53</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -2195,6 +2195,9 @@ function _parseVideoUrl(line) {
   const urlMatch = line.match(/https?:\/\/[^\s,"'、\t]+/);
   if (urlMatch) line = urlMatch[0];
   const _attach = (obj) => { if (csvCh) obj.ch = csvCh; if (csvPl) obj.pl = csvPl; return obj; };
+  // YouTube: プレイリスト（個別動画より先に判定）
+  const ytpl = line.match(/youtube\.com\/playlist\?.*list=([A-Za-z0-9_-]+)/);
+  if (ytpl) return _attach({ id: 'yt-pl-' + ytpl[1], pt: 'youtube', url: line, isPlaylist: true, plId: ytpl[1] });
   // YouTube: 各種URL形式
   const yt = line.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (yt) return _attach({ id: yt[1], pt: 'youtube', url: line });
@@ -2263,6 +2266,8 @@ async function _fetchTitle(parsed) {
       ? `https://vimeo.com/${parsed.id}${parsed.vmHash ? '/' + parsed.vmHash : ''}`
       : parsed.pt === 'x'
       ? `https://twitter.com/${parsed.xUser}/status/${parsed.xTweetId}`
+      : parsed.isPlaylist
+      ? `https://www.youtube.com/playlist?list=${parsed.plId}`
       : `https://www.youtube.com/watch?v=${parsed.id}`;
     const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(fullUrl)}`;
     const res = await fetch(oembedUrl);
