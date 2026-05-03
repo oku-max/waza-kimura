@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.24 ═══
+// ═══ WAZA KIMURA — Notes tab v52.49 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -83,6 +83,172 @@ let _dragSrcIdx = null;
 let _dragSrcEndIdx = null;
 let _dragSrcSlot = null; // {colIdx, slot, bIdx} — colスロット内から drag中のとき
 let _statusFilter = null; // null=全て, 'new'/'wip'/'done'/'review'
+
+// ── inline video player state (AB repeat / bookmarks / memo) ──
+const _nBviYtP = {};   // key → YT.Player
+const _nBviVmP = {};   // key → Vimeo.Player
+const _nBviVmT = {};   // key → current vimeo time
+const _nBviGdV = {};   // key → <video> element
+const _nBviTmr = {};   // key → setInterval id
+const _nBviAb  = {};   // key → {a,b,looping,activeTab,abOpen,bmOpen,editBm}
+
+function _nBviKey(noteId, idx) { return noteId + '-' + idx; }
+
+function _nBviGetAb(k) {
+  if (!_nBviAb[k]) _nBviAb[k] = { a: null, b: null, looping: false, activeTab: 'a', abOpen: false, bmOpen: true, editBm: null };
+  return _nBviAb[k];
+}
+
+function _nBviFmt(t) {
+  if (t == null) return '--:--';
+  t = Math.max(0, t);
+  return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+}
+
+function _nBviCurTime(k) {
+  if (_nBviVmP[k]) return _nBviVmT[k] || 0;
+  if (_nBviGdV[k]) return _nBviGdV[k].currentTime || 0;
+  return _nBviYtP[k]?.getCurrentTime?.() || 0;
+}
+
+function _nBviSeekTo(k, sec) {
+  const yt = _nBviYtP[k];
+  if (yt?.seekTo) { yt.seekTo(sec, true); yt.playVideo?.(); return; }
+  const vm = _nBviVmP[k];
+  if (vm) { vm.setCurrentTime(sec).then(() => vm.play().catch(() => {})).catch(() => {}); return; }
+  const gd = _nBviGdV[k];
+  if (gd) { gd.currentTime = sec; gd.play().catch(() => {}); }
+}
+
+function _nBviGetLibV(noteId, idx) {
+  const r = _findNote(noteId);
+  const b = r?.note?.blocks?.[idx];
+  if (!b?.videoId) return null;
+  return (window.videos || []).find(v => v.id === b.videoId || v.ytId === b.videoId) || null;
+}
+
+function _nBviSyncBmsToLib(k, noteId, idx) {
+  const v = _nBviGetLibV(noteId, idx);
+  if (!v) return;
+  const bms = _nBviGetAb(k).bookmarks || [];
+  v.bookmarks = bms.map(b => {
+    const o = { time: b.a ?? 0, label: b.label || '', note: b.note || '' };
+    if (b.b != null) o.endTime = b.b;
+    return o;
+  });
+  window.debounceSave?.();
+}
+
+function _nBviRefreshBm(k, noteId, idx) {
+  const st = _nBviGetAb(k);
+  const list = document.getElementById('n-bvi-bm-list-' + k);
+  if (list) {
+    const bms = st.bookmarks || [];
+    list.innerHTML = bms.length
+      ? bms.map((bm, i) => _nBviBmItemHTML(k, noteId, idx, bm, i)).join('')
+      : '<div style="color:var(--text3);font-size:11px;padding:4px 0">ブックマークなし</div>';
+  }
+  const lbl = document.getElementById('n-bvi-bm-lbl-' + k);
+  if (lbl) lbl.textContent = `📌 ブックマーク${(st.bookmarks || []).length ? ' (' + st.bookmarks.length + ')' : ''}`;
+}
+
+function _nBviBmItemHTML(k, noteId, idx, bm, i) {
+  const eb = _nBviAb[k]?.editBm;
+  if (eb?.idx === i) return _nBviBmEditHTML(k, noteId, idx, bm, i);
+  return `<div class="bm-item">
+    <span class="bm-chip" onclick="window._nbviSeekBm('${k}',${i})">${_nBviFmt(bm.a)}${bm.b != null ? ' → ' + _nBviFmt(bm.b) : ''}</span>
+    <span class="bm-item-label">${_esc(bm.label || '（ラベルなし）')}</span>
+    <button class="bm-edit-btn" onclick="window._nbviBmEdit('${k}','${noteId}',${idx},${i})">編集</button>
+    <button class="bm-del-btn" onclick="window._nbviDelBm('${k}','${noteId}',${idx},${i})">×</button>
+  </div>`;
+}
+
+function _nBviBmEditHTML(k, noteId, idx, bm, i) {
+  const eb = _nBviAb[k].editBm;
+  const field = eb?.field || 'start';
+  const curVal = field === 'start' ? (bm.a || 0) : (bm.b ?? bm.a ?? 0);
+  const hasEnd = bm.b != null;
+  const timeDisp = field === 'start' ? _nBviFmt(bm.a) : (hasEnd ? _nBviFmt(bm.b) : '——');
+  const sp = e => `event.stopPropagation();${e}`;
+  const adjBtn = s => `<button onclick="${sp(`window._nbviBmMicro('${k}','${noteId}',${idx},${i},${s})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">${s > 0 ? '+' : ''}${s}s</button>`;
+  const tabS = field === 'start' ? 'background:var(--accent,#2563eb);color:#fff;font-weight:600' : 'background:var(--surface2);color:var(--text2)';
+  const tabE = field === 'end'   ? 'background:var(--accent,#2563eb);color:#fff;font-weight:600' : 'background:var(--surface2);color:var(--text2)';
+  return `<div class="bm-item" style="display:block;padding:8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent,#2563eb);border-radius:4px;margin:2px 0">
+    <input id="n-bvi-bm-lbl-in-${k}-${i}" type="text" value="${_esc(bm.label || '')}" placeholder="ブックマーク名"
+      style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent,#2563eb);border-radius:6px;background:var(--surface);color:var(--text);margin-bottom:5px;box-sizing:border-box"
+      onclick="${sp('')}" onmousedown="${sp('')}">
+    <input id="n-bvi-bm-note-${k}-${i}" type="text" value="${_esc(bm.note || '')}" placeholder="コメント（任意）"
+      style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);margin-bottom:8px;box-sizing:border-box"
+      onclick="${sp('')}" onmousedown="${sp('')}">
+    <div style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px">
+      <div style="display:flex;border-bottom:0.5px solid var(--border)">
+        <div onclick="${sp(`window._nbviBmTab('${k}','${noteId}',${idx},${i},'start')`)}" style="flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;${tabS}">▶ 開始</div>
+        <div onclick="${sp(`window._nbviBmTab('${k}','${noteId}',${idx},${i},'end')`)}" style="flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;${tabE}">■ 終了</div>
+      </div>
+      <div style="padding:8px 10px">
+        <div id="n-bvi-bm-tdisp-${k}-${i}" style="font-size:20px;font-weight:500;text-align:center;margin:2px 0 6px;font-family:monospace">${timeDisp}</div>
+        <input type="range" id="n-bvi-bm-sl-${k}-${i}" min="0" max="600" value="${curVal}" step="1"
+          style="width:100%;margin-bottom:6px;accent-color:var(--accent,#2563eb)"
+          oninput="${sp(`window._nbviBmSlider('${k}','${noteId}',${idx},${i},this.value)`)}"
+          onclick="${sp('')}" onmousedown="${sp('')}">
+        <div style="display:flex;gap:3px;flex-wrap:wrap">
+          ${[-10,-5,-3,-1,1,3,5,10].map(s => adjBtn(s)).join('')}
+          <button onclick="${sp(`window._nbviBmCur('${k}','${noteId}',${idx},${i})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--accent,#2563eb);color:#fff;cursor:pointer">現在地</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <div style="display:flex;gap:5px">
+        <button onclick="${sp(`window._nbviBmEditReset('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">↺ リセット</button>
+        <button onclick="${sp(`window._nbviDelBm('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--danger,#dc2626);cursor:pointer">🗑 削除</button>
+      </div>
+      <div style="display:flex;gap:5px">
+        <button onclick="${sp(`window._nbviBmEditClose('${k}')`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">閉じる</button>
+        <button onclick="${sp(`window._nbviBmEditSave('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--text);background:var(--text);color:#fff;cursor:pointer;font-weight:600">✔ 保存</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _nBviAbBodyHTML(k, st) {
+  return `<div class="ab-body">
+    <div class="ab-times-row">
+      <span class="ab-pt-lbl">開始:</span><span class="ab-t" id="n-bvi-ab-a-${k}">${_nBviFmt(st.a)}</span>
+      <span class="ab-arrow">↔</span>
+      <span class="ab-pt-lbl">終了:</span><span class="ab-t" id="n-bvi-ab-b-${k}">${_nBviFmt(st.b)}</span>
+      <button class="ab-clear-btn" onclick="window._nbviClearAb('${k}')">× クリア</button>
+    </div>
+    <div class="ab-pt-tabs">
+      <button class="ab-pt-tab${st.activeTab === 'a' ? ' on' : ''}" id="n-bvi-tab-a-${k}" onclick="window._nbviSetAbTab('${k}','a')">▶ 開始</button>
+      <button class="ab-pt-tab${st.activeTab === 'b' ? ' on' : ''}" id="n-bvi-tab-b-${k}" onclick="window._nbviSetAbTab('${k}','b')">■ 終了</button>
+    </div>
+    <div class="ab-time-display" id="n-bvi-ab-disp-${k}">${_nBviFmt(st.activeTab === 'a' ? st.a : st.b)}</div>
+    <div class="ab-slider-outer">
+      <span style="font-size:9px;color:#888;font-family:monospace;min-width:26px">0:00</span>
+      <input type="range" class="ab-slider" id="n-bvi-ab-sl-${k}" min="0" max="300" value="${st.activeTab === 'a' ? (st.a || 0) : (st.b || 0)}" oninput="window._nbviSlider('${k}',this.value)">
+      <span id="n-bvi-ab-dur-${k}" style="font-size:9px;color:#888;font-family:monospace;min-width:30px;text-align:right">--:--</span>
+    </div>
+    <div class="ab-micro-row">
+      <span class="ab-micro-lbl">微調整</span>
+      ${[-10,-5,-3,-1,1,3,5,10].map(s => `<button class="ab-micro-btn" onclick="window._nbviMicro('${k}',${s})">${s > 0 ? '+' : ''}${s}s</button>`).join('')}
+      <button class="ab-micro-btn cur" onclick="window._nbviMicro('${k}',null)">現在地</button>
+    </div>
+    <div class="ab-save-row"><button class="ab-save-btn" onclick="window._nbviSaveAb('${k}')">✓ ブックマークに保存</button></div>
+  </div>`;
+}
+
+function _nBviLoadVimeoApi(cb) {
+  if (window.Vimeo?.Player) return cb();
+  if (document.getElementById('vm-iframe-api-script')) {
+    const t = setInterval(() => { if (window.Vimeo?.Player) { clearInterval(t); cb(); } }, 50);
+    return;
+  }
+  const s = document.createElement('script');
+  s.id = 'vm-iframe-api-script';
+  s.src = 'https://player.vimeo.com/api/player.js';
+  s.onload = () => cb();
+  document.head.appendChild(s);
+}
 
 // ── lookup ──
 function _findNote(id) {
@@ -1494,53 +1660,372 @@ window._notesVidToggleMode = function(noteId, idx) {
   _renderNote(noteId);
 };
 
+function _nBviClose(k) {
+  if (_nBviTmr[k]) { clearInterval(_nBviTmr[k]); delete _nBviTmr[k]; }
+  if (_nBviYtP[k]) { try { _nBviYtP[k].destroy(); } catch(e) {} delete _nBviYtP[k]; }
+  if (_nBviVmP[k]) { try { _nBviVmP[k].destroy(); } catch(e) {} delete _nBviVmP[k]; delete _nBviVmT[k]; }
+  if (_nBviGdV[k]) { try { _nBviGdV[k].pause(); } catch(e) {} delete _nBviGdV[k]; }
+}
+
+function _nBviStartTimer(k) {
+  if (_nBviTmr[k]) return;
+  _nBviTmr[k] = setInterval(() => {
+    const t = _nBviCurTime(k);
+    const sl = document.getElementById('n-bvi-ab-sl-' + k);
+    if (sl) sl.value = t;
+    const st = _nBviGetAb(k);
+    const disp = document.getElementById('n-bvi-ab-disp-' + k);
+    if (disp) disp.textContent = _nBviFmt(st.activeTab === 'a' ? (st.a ?? t) : (st.b ?? t));
+    if (st.looping && st.a != null && st.b != null && t >= st.b) _nBviSeekTo(k, st.a);
+  }, 200);
+}
+
 window._notesVidTogglePlayer = function(noteId, idx) {
-  const playerId = `n-bvi-player-${noteId}-${idx}`;
-  const player = document.getElementById(playerId);
-  if (!player) return;
-  const isOpen = player.classList.contains('open');
+  const k = _nBviKey(noteId, idx);
+  const playerId = 'n-bvi-player-' + noteId + '-' + idx;
+  const playerEl = document.getElementById(playerId);
+  if (!playerEl) return;
+  const isOpen = playerEl.classList.contains('open');
+  // close all open players
   document.querySelectorAll('.n-bvi-player.open').forEach(p => {
+    const m = p.id.match(/^n-bvi-player-(.+)-(\d+)$/);
+    if (m) _nBviClose(_nBviKey(m[1], +m[2]));
     p.classList.remove('open');
     p.innerHTML = '';
   });
   if (isOpen) return;
+
   const r = _findNote(noteId);
   if (!r) return;
   const b = r.note.blocks[idx];
   if (!b?.videoId) return;
   const platform = b.platform || 'youtube';
-  const iframe = document.createElement('iframe');
-  if (platform === 'gdrive') {
-    const fileId = b.videoId.startsWith('gd-') ? b.videoId.slice(3) : b.videoId;
-    iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
-    iframe.allow = 'autoplay; encrypted-media; fullscreen';
-  } else if (platform === 'vimeo') {
-    const hash = b.vmHash ? `h=${b.vmHash}&` : '';
-    iframe.src = `https://player.vimeo.com/video/${b.videoId}?${hash}autoplay=1`;
-    iframe.allow = 'autoplay; encrypted-media; fullscreen';
-  } else {
-    const ytId = b.ytId || b.videoId;
-    iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
-    iframe.allow = 'autoplay; encrypted-media; fullscreen';
-  }
-  iframe.allowFullscreen = true;
-  player.innerHTML = '';
-  player.appendChild(iframe);
   const widthPct = b.vidWidth || 100;
-  const ctrl = document.createElement('div');
-  ctrl.className = 'n-bvi-ctrl';
-  ctrl.innerHTML = `<span>📺 インライン再生中</span>
+
+  // init bookmarks from library video
+  const libV = _nBviGetLibV(noteId, idx);
+  const st = _nBviGetAb(k);
+  if (libV?.bookmarks?.length && !(st.bookmarks || []).length) {
+    st.bookmarks = (libV.bookmarks || []).map(bm => {
+      const o = { a: bm.time ?? bm.a ?? 0, label: bm.label || '', note: bm.note || '' };
+      const end = bm.endTime ?? bm.b;
+      if (end != null) o.b = end;
+      return o;
+    });
+  }
+  if (!st.bookmarks) st.bookmarks = [];
+
+  // build container
+  playerEl.innerHTML = '';
+  const vidWrap = document.createElement('div');
+  vidWrap.id = 'n-bvi-vid-' + k;
+  vidWrap.style.cssText = 'width:100%;aspect-ratio:16/9;background:#000;position:relative';
+  playerEl.appendChild(vidWrap);
+
+  // ctrl row
+  const ctrlRow = document.createElement('div');
+  ctrlRow.className = 'n-bvi-ctrl';
+  ctrlRow.innerHTML = `<span>📺 再生中</span>
     <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)">
       幅 <input type="range" min="30" max="100" step="5" value="${widthPct}"
         style="width:80px" oninput="window._notesVidResize('${noteId}',${idx},+this.value)">
       <span id="n-bvi-w-${noteId}-${idx}">${widthPct}%</span>
     </label>
     <button onclick="window._notesVidTogglePlayer('${noteId}',${idx})">▲ 閉じる</button>`;
-  player.appendChild(ctrl);
-  // apply current width
-  const wrap = document.getElementById(`n-vid-wrap-${noteId}-${idx}`);
+  playerEl.appendChild(ctrlRow);
+
+  const isApiPlatform = platform === 'youtube' || platform === 'vimeo';
+
+  // AB section (YT/Vimeo only)
+  if (isApiPlatform) {
+    const abSec = document.createElement('div');
+    abSec.className = 'ab-section';
+    const statusBadge = st.a != null && st.b != null
+      ? `<span class="ab-status-badge active">${_nBviFmt(st.a)}〜${_nBviFmt(st.b)}</span>`
+      : `<span class="ab-status-badge">未設定</span>`;
+    abSec.innerHTML = `<div class="ab-hdr" onclick="window._nbviTogAb('${k}')">
+      <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
+      <span class="ab-toggle">${st.abOpen ? '∧' : '∨'}</span>
+    </div>${st.abOpen ? _nBviAbBodyHTML(k, st) : ''}`;
+    playerEl.appendChild(abSec);
+  }
+
+  // bookmark section
+  const bmSec = document.createElement('div');
+  bmSec.className = 'bm-section';
+  const bms = st.bookmarks;
+  const bmOpen = st.bmOpen !== false;
+  const bmList = bms.length
+    ? bms.map((bm, i) => _nBviBmItemHTML(k, noteId, idx, bm, i)).join('')
+    : '<div style="color:var(--text3);font-size:11px;padding:4px 0">ブックマークなし</div>';
+  bmSec.innerHTML = `<div class="bm-hdr" onclick="window._nbviTogBm('${k}')">
+    <span class="bm-hdr-label" id="n-bvi-bm-lbl-${k}">📌 ブックマーク${bms.length ? ' (' + bms.length + ')' : ''}</span>
+    <button class="bm-add-btn" onclick="event.stopPropagation();window._nbviAddBmNow('${k}','${noteId}',${idx})">＋ 現在位置</button>
+    <span class="bm-toggle">${bmOpen ? '∧' : '∨'}</span>
+  </div>
+  ${bmOpen ? `<div class="bm-list" id="n-bvi-bm-list-${k}">${bmList}</div>` : ''}`;
+  playerEl.appendChild(bmSec);
+
+  // memo section
+  const memo = libV?.memo || '';
+  const memoSec = document.createElement('div');
+  memoSec.style.cssText = 'padding:6px 8px;border-top:1px solid var(--border)';
+  memoSec.innerHTML = `<div style="font-size:10px;color:var(--text3);margin-bottom:3px">📝 メモ（VPanel共有）</div>
+    <textarea id="n-bvi-memo-${k}" rows="3"
+      style="width:100%;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);resize:vertical;box-sizing:border-box;font-family:inherit"
+      onchange="window._nbviSaveMemo('${k}','${noteId}',${idx})"
+    >${_esc(memo)}</textarea>`;
+  playerEl.appendChild(memoSec);
+
+  // apply width
+  const wrap = document.getElementById('n-vid-wrap-' + noteId + '-' + idx);
   if (wrap) wrap.style.maxWidth = widthPct + '%';
-  player.classList.add('open');
+  playerEl.classList.add('open');
+
+  // init player
+  if (platform === 'youtube') {
+    const ytId = b.ytId || b.videoId;
+    const doInit = () => {
+      if (!document.getElementById('n-bvi-vid-' + k)) return;
+      _nBviYtP[k] = new YT.Player('n-bvi-vid-' + k, {
+        videoId: ytId,
+        playerVars: { rel: 0, modestbranding: 1, autoplay: 1, playsinline: 1 },
+        events: {
+          onReady: e => {
+            const dur = e.target.getDuration();
+            const sl = document.getElementById('n-bvi-ab-dur-' + k);
+            if (sl) document.getElementById('n-bvi-ab-dur-' + k).textContent = _nBviFmt(dur);
+            const abSl = document.getElementById('n-bvi-ab-sl-' + k);
+            if (abSl && dur > 0) abSl.max = Math.ceil(dur);
+            _nBviStartTimer(k);
+          }
+        }
+      });
+    };
+    if (window.YT && window.YT.Player) { doInit(); }
+    else {
+      if (!document.getElementById('yt-iframe-api-script')) {
+        const tag = document.createElement('script');
+        tag.id = 'yt-iframe-api-script';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      }
+      const prev = window._pendingYTInit;
+      window._pendingYTInit = function() { if (prev) prev(); doInit(); };
+    }
+  } else if (platform === 'vimeo') {
+    const hash = b.vmHash ? `?h=${b.vmHash}` : '';
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://player.vimeo.com/video/${b.videoId}${hash}`;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.style.cssText = 'border:none;display:block;width:100%;height:100%';
+    vidWrap.appendChild(iframe);
+    _nBviLoadVimeoApi(() => {
+      try {
+        const vm = new Vimeo.Player(iframe);
+        _nBviVmP[k] = vm;
+        _nBviVmT[k] = 0;
+        vm.on('timeupdate', d => { _nBviVmT[k] = d.seconds || 0; });
+        vm.getDuration().then(dur => {
+          const sl = document.getElementById('n-bvi-ab-sl-' + k);
+          if (sl && dur > 0) sl.max = Math.ceil(dur);
+          const lbl = document.getElementById('n-bvi-ab-dur-' + k);
+          if (lbl) lbl.textContent = _nBviFmt(dur);
+        }).catch(() => {});
+        vm.play().catch(() => {});
+        _nBviStartTimer(k);
+      } catch(e) { console.warn('Vimeo notes player:', e); }
+    });
+  } else if (platform === 'gdrive') {
+    const fileId = b.videoId.startsWith('gd-') ? b.videoId.slice(3) : b.videoId;
+    const token = window.getDriveTokenIfAvailable?.();
+    if (token) {
+      const video = document.createElement('video');
+      video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
+      video.controls = true; video.playsinline = true; video.autoplay = true;
+      video.style.cssText = 'width:100%;height:100%;background:#000';
+      _nBviGdV[k] = video;
+      vidWrap.appendChild(video);
+      _nBviStartTimer(k);
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+      iframe.allow = 'autoplay; encrypted-media; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.style.cssText = 'border:none;display:block;width:100%;height:100%';
+      vidWrap.appendChild(iframe);
+    }
+  } else {
+    // x / unknown — fallback iframe
+    const iframe = document.createElement('iframe');
+    iframe.src = b.url || '';
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.style.cssText = 'border:none;display:block;width:100%;height:100%';
+    vidWrap.appendChild(iframe);
+  }
+};
+
+// ── inline video AB/BM/Memo callbacks ──
+window._nbviTogAb = function(k) {
+  const st = _nBviGetAb(k);
+  st.abOpen = !st.abOpen;
+  const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
+  const playerEl = document.getElementById('n-bvi-player-' + noteId + '-' + idx);
+  const abSec = playerEl?.querySelector('.ab-section');
+  if (!abSec) return;
+  const toggle = abSec.querySelector('.ab-toggle');
+  if (toggle) toggle.textContent = st.abOpen ? '∧' : '∨';
+  const body = abSec.querySelector('.ab-body');
+  if (st.abOpen) { if (!body) abSec.insertAdjacentHTML('beforeend', _nBviAbBodyHTML(k, st)); }
+  else { body?.remove(); }
+};
+window._nbviSetAbTab = function(k, tab) {
+  const st = _nBviGetAb(k); st.activeTab = tab;
+  ['a','b'].forEach(t => document.getElementById('n-bvi-tab-' + t + '-' + k)?.classList.toggle('on', t === tab));
+  const sl = document.getElementById('n-bvi-ab-sl-' + k);
+  if (sl) sl.value = tab === 'a' ? (st.a || 0) : (st.b || 0);
+  const disp = document.getElementById('n-bvi-ab-disp-' + k);
+  if (disp) disp.textContent = _nBviFmt(tab === 'a' ? st.a : st.b);
+};
+window._nbviSlider = function(k, val) {
+  const t = parseFloat(val); const st = _nBviGetAb(k);
+  if (st.activeTab === 'a') st.a = t; else st.b = t;
+  const disp = document.getElementById('n-bvi-ab-disp-' + k);
+  if (disp) disp.textContent = _nBviFmt(t);
+  const ea = document.getElementById('n-bvi-ab-a-' + k); if (ea) ea.textContent = _nBviFmt(st.a);
+  const eb = document.getElementById('n-bvi-ab-b-' + k); if (eb) eb.textContent = _nBviFmt(st.b);
+  _nBviSeekTo(k, t);
+};
+window._nbviMicro = function(k, secs) {
+  const st = _nBviGetAb(k);
+  const base = secs === null ? _nBviCurTime(k) : Math.max(0, (st.activeTab === 'a' ? (st.a ?? 0) : (st.b ?? 0)) + secs);
+  if (st.activeTab === 'a') st.a = base; else st.b = base;
+  const sl = document.getElementById('n-bvi-ab-sl-' + k); if (sl) sl.value = base;
+  _nBviSeekTo(k, base);
+  const disp = document.getElementById('n-bvi-ab-disp-' + k); if (disp) disp.textContent = _nBviFmt(base);
+  const ea = document.getElementById('n-bvi-ab-a-' + k); if (ea) ea.textContent = _nBviFmt(st.a);
+  const eb = document.getElementById('n-bvi-ab-b-' + k); if (eb) eb.textContent = _nBviFmt(st.b);
+};
+window._nbviClearAb = function(k) {
+  const st = _nBviGetAb(k); st.a = null; st.b = null; st.looping = false;
+  const ea = document.getElementById('n-bvi-ab-a-' + k); if (ea) ea.textContent = '--:--';
+  const eb = document.getElementById('n-bvi-ab-b-' + k); if (eb) eb.textContent = '--:--';
+  const badge = document.querySelector('.ab-section .ab-status-badge');
+  if (badge) { badge.className = 'ab-status-badge'; badge.textContent = '未設定'; }
+};
+window._nbviSaveAb = function(k) {
+  const st = _nBviGetAb(k);
+  if (st.a == null || st.b == null) { window.toast?.('開始と終了を設定してください'); return; }
+  if (!st.bookmarks) st.bookmarks = [];
+  st.bookmarks.push({ a: st.a, b: st.b, label: '', note: '' });
+  // parse noteId/idx from k
+  const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
+  _nBviSyncBmsToLib(k, noteId, idx);
+  _nBviRefreshBm(k, noteId, idx);
+  window.toast?.('📌 ブックマークに保存しました');
+};
+window._nbviTogBm = function(k) {
+  const st = _nBviGetAb(k); st.bmOpen = !(st.bmOpen !== false);
+  const toggle = document.querySelector(`#n-bvi-bm-lbl-${k}`)?.closest('.bm-section')?.querySelector('.bm-toggle');
+  if (toggle) toggle.textContent = st.bmOpen ? '∧' : '∨';
+  const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
+  let list = document.getElementById('n-bvi-bm-list-' + k);
+  if (st.bmOpen) {
+    if (!list) {
+      list = document.createElement('div'); list.className = 'bm-list'; list.id = 'n-bvi-bm-list-' + k;
+      document.getElementById('n-bvi-bm-lbl-' + k)?.closest('.bm-section')?.appendChild(list);
+    }
+    _nBviRefreshBm(k, noteId, idx);
+  } else { list?.remove(); }
+};
+window._nbviAddBmNow = function(k, noteId, idx) {
+  const st = _nBviGetAb(k); if (!st.bookmarks) st.bookmarks = [];
+  st.bookmarks.push({ a: _nBviCurTime(k), label: '', note: '' });
+  _nBviSyncBmsToLib(k, noteId, idx);
+  _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviSeekBm = function(k, i) {
+  const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  _nBviSeekTo(k, bm.a);
+  if (bm.b != null) { st.a = bm.a; st.b = bm.b; st.looping = true; }
+};
+window._nbviDelBm = function(k, noteId, idx, i) {
+  const st = _nBviGetAb(k); if (!st.bookmarks) return;
+  st.bookmarks.splice(i, 1); st.editBm = null;
+  _nBviSyncBmsToLib(k, noteId, idx);
+  _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviBmEdit = function(k, noteId, idx, i) {
+  const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  st.editBm = { idx: i, field: 'start', origA: bm.a, origB: bm.b };
+  _nBviRefreshBm(k, noteId, idx);
+  setTimeout(() => {
+    const sl = document.getElementById('n-bvi-bm-sl-' + k + '-' + i); if (!sl) return;
+    if (_nBviYtP[k]?.getDuration) { const d = _nBviYtP[k].getDuration(); if (d > 0) sl.max = Math.ceil(d); }
+    else if (_nBviGdV[k]) { const d = _nBviGdV[k].duration; if (d > 0) sl.max = Math.ceil(d); }
+    else if (_nBviVmP[k]) _nBviVmP[k].getDuration().then(d => { if (sl && d > 0) sl.max = Math.ceil(d); }).catch(() => {});
+    document.getElementById('n-bvi-bm-lbl-in-' + k + '-' + i)?.focus();
+  }, 50);
+};
+window._nbviBmEditClose = function(k) {
+  const st = _nBviGetAb(k); st.editBm = null;
+  const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
+  _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviBmEditSave = function(k, noteId, idx, i) {
+  const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  const lbl = document.getElementById('n-bvi-bm-lbl-in-' + k + '-' + i);
+  const note = document.getElementById('n-bvi-bm-note-' + k + '-' + i);
+  if (lbl) bm.label = lbl.value.trim();
+  if (note) bm.note = note.value.trim();
+  st.editBm = null;
+  _nBviSyncBmsToLib(k, noteId, idx);
+  _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviBmTab = function(k, noteId, idx, i, field) {
+  const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  if (field === 'end' && bm.b == null) bm.b = bm.a;
+  st.editBm.field = field;
+  _nBviRefreshBm(k, noteId, idx);
+  setTimeout(() => {
+    const sl = document.getElementById('n-bvi-bm-sl-' + k + '-' + i);
+    if (sl) sl.value = field === 'start' ? (bm.a || 0) : (bm.b ?? 0);
+  }, 30);
+};
+window._nbviBmSlider = function(k, noteId, idx, i, val) {
+  const t = parseFloat(val); const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  const field = st.editBm?.field || 'start';
+  if (field === 'start') bm.a = t; else bm.b = t;
+  const disp = document.getElementById('n-bvi-bm-tdisp-' + k + '-' + i); if (disp) disp.textContent = _nBviFmt(t);
+  _nBviSeekTo(k, t);
+};
+window._nbviBmMicro = function(k, noteId, idx, i, secs) {
+  const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  const field = st.editBm?.field || 'start';
+  const cur = field === 'start' ? (bm.a || 0) : (bm.b ?? bm.a ?? 0);
+  const t = Math.max(0, cur + secs);
+  if (field === 'start') bm.a = t; else bm.b = t;
+  _nBviSeekTo(k, t);
+  _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviBmCur = function(k, noteId, idx, i) {
+  const t = _nBviCurTime(k); const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
+  const field = st.editBm?.field || 'start';
+  if (field === 'start') bm.a = t; else bm.b = t;
+  _nBviSeekTo(k, t); _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviBmEditReset = function(k, noteId, idx, i) {
+  const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm || !st.editBm) return;
+  bm.a = st.editBm.origA; bm.b = st.editBm.origB;
+  _nBviRefreshBm(k, noteId, idx);
+};
+window._nbviSaveMemo = function(k, noteId, idx) {
+  const ta = document.getElementById('n-bvi-memo-' + k); if (!ta) return;
+  const v = _nBviGetLibV(noteId, idx); if (!v) return;
+  v.memo = ta.value;
+  window.debounceSave?.();
 };
 
 window._notesVidResize = function(noteId, idx, pct) {
