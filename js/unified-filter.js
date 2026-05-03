@@ -110,7 +110,7 @@
 #uni-popup .uni-col.wide{flex:1.5 0 240px}
 #uni-popup .uni-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px;flex-shrink:0}
 #uni-popup .uni-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
-#uni-popup .uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#uni-popup .uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0;-webkit-overflow-scrolling:touch}
 #uni-popup .uni-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
 #uni-popup .uni-row:hover{background:var(--surface2)}
 #uni-popup .uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
