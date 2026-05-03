@@ -103,14 +103,14 @@
 #uni-popup .uni-x:hover{color:var(--text)}
 #uni-popup .uni-searchbar{padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px}
 #uni-popup .uni-searchbar input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit;box-sizing:border-box}
-#uni-popup .uni-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;min-height:0;-webkit-overflow-scrolling:touch}
+#uni-popup .uni-cols{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;min-height:0;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
 #uni-popup .uni-col{flex:1 0 160px;display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0;overflow:hidden}
 #uni-popup .uni-col:last-child{border-right:none}
 #uni-popup .uni-col.narrow{flex:0 0 auto;width:clamp(100px,12vw,140px)}
 #uni-popup .uni-col.wide{flex:1.5 0 240px}
 #uni-popup .uni-col-hdr{padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;letter-spacing:.3px;flex-shrink:0}
 #uni-popup .uni-col-hdr select{font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit}
-#uni-popup .uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0}
+#uni-popup .uni-col-body{flex:1;overflow-y:auto;padding:2px 0;min-height:0;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 #uni-popup .uni-row{padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:12px;border-left:3px solid transparent;color:var(--text)}
 #uni-popup .uni-row:hover{background:var(--surface2)}
 #uni-popup .uni-row.on{background:rgba(107,63,212,.14);border-left-color:var(--accent);color:var(--accent);font-weight:700}
@@ -221,7 +221,7 @@
     <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2);flex-shrink:0" onclick="uniClose()">✕ 閉じる</button>
   </div>
   <div class="uni-searchbar"><input id="uni-q" placeholder="🔍 検索..." oninput="uniSearch(this.value)"></div>
-  <div id="uni-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>
+  <div id="uni-content" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:visible"></div>
   <div class="uni-ftr">
     <span class="uni-lbl">選択中:</span>
     <div id="uni-pills" style="display:flex;gap:5px;flex-wrap:wrap"></div>
