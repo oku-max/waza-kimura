@@ -386,6 +386,10 @@ function _extractYtId(url) {
   const m = url.match(/(?:youtu\.be\/|[?&]v=|embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
+function _extractPlaylistId(url) {
+  const m = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  return m ? m[1] : null;
+}
 
 // ── VPanelスナップ参照ブロック用キャッシュ ──
 const _snapBlobCache = new Map(); // snapId → object URL
@@ -431,6 +435,8 @@ function _blockThumbUrl(block) {
     return block.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w320`;
   }
   if (platform === 'x') return block.thumb || null;
+  // youtube playlist
+  if (block.isPlaylist) return block.thumb || null;
   // youtube (default)
   const ytId = block.ytId || block.videoId || '';
   return block.thumb || (ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : null);
@@ -1734,7 +1740,7 @@ window._notesVidTogglePlayer = function(noteId, idx) {
     <button onclick="window._notesVidTogglePlayer('${noteId}',${idx})">▲ 閉じる</button>`;
   playerEl.appendChild(ctrlRow);
 
-  const isApiPlatform = platform === 'youtube' || platform === 'vimeo';
+  const isApiPlatform = (platform === 'youtube' && !b.isPlaylist) || platform === 'vimeo';
 
   // AB section (YT/Vimeo only)
   if (isApiPlatform) {
@@ -1784,6 +1790,15 @@ window._notesVidTogglePlayer = function(noteId, idx) {
 
   // init player
   if (platform === 'youtube') {
+    if (b.isPlaylist) {
+      // プレイリスト: iframe embed（videoseries）
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube.com/embed/videoseries?list=${b.videoId}&autoplay=1&rel=0`;
+      iframe.allow = 'autoplay; encrypted-media; fullscreen';
+      iframe.allowFullscreen = true;
+      iframe.style.cssText = 'border:none;display:block;width:100%;height:100%';
+      vidWrap.appendChild(iframe);
+    } else {
     const ytId = b.ytId || b.videoId;
     const doInit = () => {
       if (!document.getElementById('n-bvi-vid-' + k)) return;
@@ -1813,6 +1828,7 @@ window._notesVidTogglePlayer = function(noteId, idx) {
       const prev = window._pendingYTInit;
       window._pendingYTInit = function() { if (prev) prev(); doInit(); };
     }
+    } // end !isPlaylist
   } else if (platform === 'vimeo') {
     const hash = b.vmHash ? `?h=${b.vmHash}` : '';
     const iframe = document.createElement('iframe');
@@ -2233,15 +2249,23 @@ window._notesUrlAutoFetch = function(url) {
   clearTimeout(_ytFetchTimer);
   const status = document.getElementById('n-url-fetch-status');
   const ytId = _extractYtId(url);
-  if (!ytId) { if (status) status.textContent = ''; return; }
+  const listId = _extractPlaylistId(url);
+  if (!ytId && !listId) { if (status) status.textContent = ''; return; }
   if (status) status.textContent = '取得中…';
   _ytFetchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`);
+      const oembedUrl = ytId
+        ? `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`
+        : `https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${listId}&format=json`;
+      const res = await fetch(oembedUrl);
       if (!res.ok) { if (status) status.textContent = ''; return; }
       const data = await res.json();
       const titleEl = document.getElementById('n-block-video-title');
-      if (titleEl) { titleEl.value = data.title || ''; titleEl.dataset.channel = data.author_name || ''; }
+      if (titleEl) {
+        titleEl.value = data.title || '';
+        titleEl.dataset.channel = data.author_name || '';
+        titleEl.dataset.thumb = data.thumbnail_url || '';
+      }
       if (status) status.textContent = '✓ 自動取得';
     } catch { if (status) status.textContent = ''; }
   }, 700);
@@ -2596,9 +2620,16 @@ window._notesVideoConfirm = function() {
   const viewMode = overlay.dataset.viewMode || 'carousel';
   const url = document.getElementById('n-block-video-url')?.value.trim();
   if (!url) { document.getElementById('n-block-video-url')?.focus(); return; }
-  const videoId = _extractYtId(url) || url;
-  const title = document.getElementById('n-block-video-title')?.value.trim() || '';
+  const ytId   = _extractYtId(url);
+  const listId = _extractPlaylistId(url);
+  const isPlaylist = !ytId && !!listId;
+  const videoId = ytId || listId || url;
+  const title   = document.getElementById('n-block-video-title')?.value.trim() || '';
   const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
+  const thumb   = document.getElementById('n-block-video-title')?.dataset.thumb || '';
+
+  const block = { type: 'video', videoId, title, channel, duration: '', viewMode };
+  if (isPlaylist) { block.isPlaylist = true; if (thumb) block.thumb = thumb; }
 
   const ctx = window._notesColContext;
   window._notesColContext = null;
@@ -2608,7 +2639,7 @@ window._notesVideoConfirm = function() {
     const colBlock = r2.note.blocks[ctx.colIdx];
     if (!colBlock || colBlock.type !== 'col') return;
     if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
-    colBlock.cols[ctx.slot].push({ type: 'video', videoId, title, channel, duration: '', viewMode: 'inline' });
+    colBlock.cols[ctx.slot].push({ ...block, viewMode: 'inline' });
     r2.note.updatedAt = Date.now();
     _save();
     window._notesSheetClose();
@@ -2618,7 +2649,7 @@ window._notesVideoConfirm = function() {
 
   const r = _findNote(noteId);
   if (!r) return;
-  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode });
+  _blocksInsertOrPush(r.note.blocks, block);
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
