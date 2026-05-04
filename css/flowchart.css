@@ -5,7 +5,7 @@
   display:none;position:fixed;inset:0;z-index:9000;
   background:var(--bg,#e8e8e8);color:var(--text,#111);
   font-family:-apple-system,Helvetica,sans-serif;
-  overflow:hidden;user-select:none;
+  user-select:none;
 }
 #fc-overlay.open{display:block}
 body:has(#fc-overlay.open) #vpanel{z-index:10000}

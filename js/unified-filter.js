@@ -777,25 +777,13 @@
     }
     _q = _queries[t] || '';
   }
-  function _uniShowPopup() {
-    document.getElementById('uni-bd').classList.add('open');
-    document.getElementById('uni-popup').classList.add('open');
-    // iOS: マップオーバーレイがタッチイベントを横取りするためpointer-eventsで切り離す
-    const fcOv = document.getElementById('fc-overlay');
-    if (fcOv) fcOv.style.pointerEvents = 'none';
-  }
-  function _uniHidePopup() {
-    document.getElementById('uni-bd')?.classList.remove('open');
-    document.getElementById('uni-popup')?.classList.remove('open');
-    const fcOv = document.getElementById('fc-overlay');
-    if (fcOv) fcOv.style.pointerEvents = '';
-  }
   window.uniOpenForNote = function (noteId) {
     _noteMode = noteId;
     _ctx = 'lib';
     _inject();
     _tab = 'src';
-    _uniShowPopup();
+    document.getElementById('uni-bd').classList.add('open');
+    document.getElementById('uni-popup').classList.add('open');
     _syncSearchbar(_tab);
     _render();
   };
@@ -804,13 +792,15 @@
     _ctx = ctx || 'lib';
     _inject();
     if (tab && MAIN.some(m => m.k === tab)) _tab = tab;
-    _uniShowPopup();
+    document.getElementById('uni-bd').classList.add('open');
+    document.getElementById('uni-popup').classList.add('open');
     _syncSearchbar(_tab);
     _render();
   };
   window.uniClose = function () {
     _noteMode = null;
-    _uniHidePopup();
+    document.getElementById('uni-bd')?.classList.remove('open');
+    document.getElementById('uni-popup')?.classList.remove('open');
     Object.keys(_queries).forEach(k => _queries[k] = '');
     _q = '';
     const inp = document.getElementById('uni-q');
