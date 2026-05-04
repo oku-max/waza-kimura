@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.06 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.63 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1794,7 +1794,7 @@ export function buildDrawerHTML(id) {
         <span class="vp-lbl">チャンネル</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-          ${v.channel ? `<span class="chip active" id="vp-ch-badge-${id}">${v.channel}</span>` : ''}
+          ${v.channel ? `<span class="chip active" id="vp-ch-badge-${id}" onclick="vpJumpToChannel('${id}')" style="cursor:pointer" title="タップしてチャンネルに絞り込む">${v.channel}</span>` : ''}
           ${v.pt === 'gdrive' ? `<div class="chip" style="border-style:dashed" onclick="vpTogChannelDd('${id}')">${v.channel ? '✎ 変更' : '＋ チャンネルを選ぶ'}</div>` : ''}
         </div>
         ${v.pt === 'gdrive' ? `<div class="vp-dd" id="vp-dd-ch-${id}" style="display:none">
@@ -1809,7 +1809,7 @@ export function buildDrawerHTML(id) {
       <span class="vp-lbl">プレイリスト</span>
       <div class="vp-dd-wrap">
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-          <span class="chip active" id="vp-pl-badge-${id}">${v.pl||'未分類'}</span>
+          <span class="chip active" id="vp-pl-badge-${id}" onclick="vpJumpToPlaylist('${id}')" style="cursor:pointer" title="タップしてプレイリストに絞り込む">${v.pl||'未分類'}</span>
           <div class="chip" style="border-style:dashed" onclick="vpTogPlNameDd('${id}')">✎ 変更・検索</div>
         </div>
         <div class="vp-dd" id="vp-dd-plname-${id}" style="display:none">
@@ -2847,6 +2847,36 @@ let _openVPanelId = null;
 window._vpLoopSectionHTML      = () => _loopSectionHTML();
 window._vpBookmarkSectionHTML  = (id) => _bookmarkSectionHTML(id);
 window._vpChapterSectionHTML   = (id) => _chapterSectionHTML(id);
+
+// ── チャンネル/プレイリスト → ライブラリジャンプ ──
+window.vpJumpToChannel = function(id) {
+  const v = (window.videos||[]).find(x => x.id === id);
+  if (!v || !v.channel) return;
+  const name = v.channel;
+  window.showConf?.('🔍 チャンネルを表示', `チャンネル「${name}」を表示しますか？`, () => {
+    window.closeVPanel?.();
+    window.switchTab?.('home');
+    const f = window.filters;
+    if (f) { f.channel.clear(); f.channel.add(name); }
+    window.buildChSrow?.(); window.buildFsChSrow?.();
+    window.AF?.();
+  });
+};
+
+window.vpJumpToPlaylist = function(id) {
+  const v = (window.videos||[]).find(x => x.id === id);
+  if (!v) return;
+  const name = v.pl;
+  if (!name) return;
+  window.showConf?.('🔍 プレイリストを表示', `プレイリスト「${name}」を表示しますか？`, () => {
+    window.closeVPanel?.();
+    window.switchTab?.('home');
+    const f = window.filters;
+    if (f) { f.playlist.clear(); f.playlist.add(name); }
+    window.buildPlSrow?.(); window.buildFsPlSrow?.();
+    window.AF?.();
+  });
+};
 
 // ══════════════════════════════════════════════════════
 // Vパネル → サーチ 遷移メニュー
