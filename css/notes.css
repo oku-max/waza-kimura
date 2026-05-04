@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v51.06 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.63 ═══ */
 
 /* ── layout ── */
 #notesTab {
@@ -192,7 +192,7 @@
   background: var(--surface);
   position: fixed;
   top: var(--topbar-h, 72px);
-  left: calc(var(--sbw, 0px) + 220px);
+  left: 220px;
   right: 0;
   z-index: 50;
   transition: transform 0.22s ease, box-shadow 0.22s ease;
@@ -228,9 +228,9 @@
 .n-topbar-fmt-btn:hover .n-tfb-lbl,
 .n-topbar-fmt-btn.active .n-tfb-lbl { color: var(--accent) }
 
-/* recent chips (mobile only) */
+/* recent chips — permanently hidden */
 .notes-recent {
-  display: none;
+  display: none !important;
   padding: 7px 12px; border-bottom: 1px solid var(--border);
   background: var(--surface); gap: 6px; flex-wrap: wrap; align-items: center;
   flex-shrink: 0;
@@ -681,14 +681,13 @@
   }
   .notes-sidebar.open { transform: translateX(0) }
   .notes-hamburger { display: flex; align-items: center }
-  .notes-recent { display: flex }
   .notes-topbar { left: 0; top: var(--topbar-h, 56px); }
   .notes-content { padding: 52px 16px 16px }
   .n-page-title { font-size: 20px }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .notes-sidebar { width: 180px }
-  .notes-topbar { left: calc(var(--sbw, 0px) + 180px); }
+  .notes-topbar { left: 180px; }
   .notes-content { padding: 52px 24px 20px }
 }
 
