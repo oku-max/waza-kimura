@@ -171,6 +171,9 @@
 }
 .n-note-item:hover { background: var(--surface2) }
 .n-note-item.active { background: rgba(232,201,106,.12); color: var(--accent); font-weight: 600 }
+.n-note-item[draggable] { cursor: grab }
+.n-note-item.n-sb-dragging { opacity: 0.35 }
+.n-note-item.n-sb-drag-over { border-top: 2px solid var(--accent) }
 
 /* status dots */
 .n-note-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text3); flex-shrink: 0 }

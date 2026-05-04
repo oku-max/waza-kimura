@@ -83,6 +83,8 @@ let _dragSrcIdx = null;
 let _dragSrcEndIdx = null;
 let _dragSrcSlot = null; // {colIdx, slot, bIdx} — colスロット内から drag中のとき
 let _statusFilter = null; // null=全て, 'new'/'wip'/'done'/'review'
+let _sbDragNoteId = null; // サイドバーノート並び替え用
+let _sbDragCatId  = null;
 
 // ── inline video player state (AB repeat / bookmarks / memo) ──
 const _nBviYtP = {};   // key → YT.Player
@@ -844,6 +846,47 @@ window._notesSheetConfirm = function() {
 };
 
 // ── sidebar ──
+// ── サイドバーノート並び替え DnD ──
+window._notesSbDragStart = function(e, noteId, catId) {
+  _sbDragNoteId = noteId;
+  _sbDragCatId  = catId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+  e.currentTarget.classList.add('n-sb-dragging');
+};
+window._notesSbDragOver = function(e, noteId) {
+  if (!_sbDragNoteId || _sbDragNoteId === noteId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.n-note-item.n-sb-drag-over').forEach(el => el.classList.remove('n-sb-drag-over'));
+  e.currentTarget.classList.add('n-sb-drag-over');
+};
+window._notesSbDragLeave = function(e) {
+  e.currentTarget.classList.remove('n-sb-drag-over');
+};
+window._notesSbDrop = function(e, targetNoteId, targetCatId) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.n-note-item').forEach(el => el.classList.remove('n-sb-drag-over', 'n-sb-dragging'));
+  const srcNoteId = _sbDragNoteId;
+  const srcCatId  = _sbDragCatId;
+  _sbDragNoteId = null; _sbDragCatId = null;
+  if (!srcNoteId || srcNoteId === targetNoteId || srcCatId !== targetCatId) return;
+  const cat = _data.find(c => c.id === srcCatId);
+  if (!cat) return;
+  const fromIdx = cat.notes.findIndex(n => n.id === srcNoteId);
+  const toIdx   = cat.notes.findIndex(n => n.id === targetNoteId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [note] = cat.notes.splice(fromIdx, 1);
+  cat.notes.splice(toIdx, 0, note);
+  _save();
+  _renderSb();
+};
+window._notesSbDragEnd = function() {
+  document.querySelectorAll('.n-note-item').forEach(el => el.classList.remove('n-sb-drag-over', 'n-sb-dragging'));
+  _sbDragNoteId = null; _sbDragCatId = null;
+};
+
 function _renderSb() {
   const tree = document.getElementById('notesSbTree');
   if (!tree) return;
@@ -894,6 +937,12 @@ function _renderSb() {
       <div class="n-cat-notes">
         ${visNotes.map(n => `
           <div class="n-note-item${n.id === _activeId ? ' active' : ''}"
+               draggable="true"
+               ondragstart="window._notesSbDragStart(event,'${n.id}','${cat.id}')"
+               ondragover="window._notesSbDragOver(event,'${n.id}')"
+               ondragleave="window._notesSbDragLeave(event)"
+               ondrop="window._notesSbDrop(event,'${n.id}','${cat.id}')"
+               ondragend="window._notesSbDragEnd()"
                onclick="window._notesOpenNote('${n.id}',event)">
             <span class="n-note-dot ${STATUS_DOT[n.status] || ''}"></span>
             <span class="n-note-name">${_esc(n.name)}</span>
