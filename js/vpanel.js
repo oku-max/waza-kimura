@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.63 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.66 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -31,6 +31,10 @@ function _loadVimeoApi() {
     document.head.appendChild(s);
   });
 }
+
+// ── 連続再生・シャッフル状態 ──
+let _vpRepeat  = 'off'; // 'off' | 'list' | 'one'
+let _vpShuffle = false;
 
 // ── フィードバックキャプチャ（AI修正検出） ──
 let _vpTagSnapshot = null;  // { id, tb, cat, pos, tags } — openVPanel時にAI動画のタグをスナップショット
@@ -173,7 +177,10 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
         },
         onStateChange: (e) => {
           if (e.data === 1) { _startTimeDisplay(); }
-          else { _stopTimeDisplay(); _updateTimeDisplay(); }
+          else {
+            _stopTimeDisplay(); _updateTimeDisplay();
+            if (e.data === 0) _vpHandleEnded();
+          }
         },
         onError: (e) => { console.warn('YT player error:', e.data); },
       },
@@ -278,6 +285,74 @@ function _updateTimeDisplay() {
   } catch(e) {}
 }
 
+// ── 動画終了時ハンドラ ──
+function _vpHandleEnded() {
+  _stopTimeDisplay(); _updateTimeDisplay();
+  if (_vpRepeat === 'one') {
+    // 1本ループ: 先頭にシークして再生
+    if (_gdVideoEl) { _gdVideoEl.currentTime = 0; _gdVideoEl.play().catch(()=>{}); }
+    else if (_ytPlayer && _ytPlayerReady) { try { _ytPlayer.seekTo(0, true); _ytPlayer.playVideo(); } catch(e) {} }
+    return;
+  }
+  if (_vpRepeat === 'list' || _vpShuffle) {
+    const list = window._noteVidList || window.filteredVideos || window.videos || [];
+    if (list.length <= 1) return;
+    if (_vpShuffle) {
+      const cur = window.openVPanelId;
+      const others = list.filter(v => v.id !== cur);
+      const next = others[Math.floor(Math.random() * others.length)];
+      if (next) openVPanel(next.id);
+    } else {
+      vpNav(1);
+    }
+  }
+}
+
+// ── リピート/シャッフルトグル ──
+export function vpCycleRepeat() {
+  _vpRepeat = _vpRepeat === 'off' ? 'list' : _vpRepeat === 'list' ? 'one' : 'off';
+  _refreshRepeatBtn();
+}
+export function vpToggleShuffle() {
+  _vpShuffle = !_vpShuffle;
+  _refreshShuffleBtn();
+}
+window.vpCycleRepeat  = vpCycleRepeat;
+window.vpToggleShuffle = vpToggleShuffle;
+
+function _refreshRepeatBtn() {
+  document.querySelectorAll('.vp-repeat-btn').forEach(btn => {
+    btn.dataset.state = _vpRepeat;
+    if (_vpRepeat === 'off')  { btn.style.background='var(--surface2)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--text3)'; }
+    if (_vpRepeat === 'list') { btn.style.background='#111'; btn.style.borderColor='#111'; btn.style.color='#fff'; }
+    if (_vpRepeat === 'one')  { btn.style.background='#2563eb'; btn.style.borderColor='#2563eb'; btn.style.color='#fff'; }
+    const badge = btn.querySelector('.vp-repeat-badge');
+    if (badge) badge.style.display = _vpRepeat === 'one' ? 'block' : 'none';
+  });
+}
+function _refreshShuffleBtn() {
+  document.querySelectorAll('.vp-shuffle-btn').forEach(btn => {
+    if (_vpShuffle) { btn.style.background='#111'; btn.style.borderColor='#111'; btn.style.color='#fff'; }
+    else { btn.style.background='var(--surface2)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--text3)'; }
+  });
+}
+
+function _repeatBtnStyle() {
+  if (_vpRepeat === 'list') return 'background:#111;border-color:#111;color:#fff';
+  if (_vpRepeat === 'one')  return 'background:#2563eb;border-color:#2563eb;color:#fff';
+  return 'background:var(--surface2);border-color:var(--border);color:var(--text3)';
+}
+function _shuffleBtnStyle() {
+  return _vpShuffle ? 'background:#111;border-color:#111;color:#fff' : 'background:var(--surface2);border-color:var(--border);color:var(--text3)';
+}
+
+function _repeatSVG() {
+  return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+}
+function _shuffleSVG() {
+  return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><path d="M4 20c4 0 7-9 11-9h6"/><polyline points="21 16 21 21 16 21"/><path d="M4 4c4 0 7 9 11 9"/></svg>`;
+}
+
 // ── スキップボタンHTML ──
 function _skipBtnsHTML() {
   const minus = [
@@ -295,7 +370,10 @@ function _skipBtnsHTML() {
   const sep = '<div class="ab-skip-sep"></div>';
   const left  = minus.map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">${b.icon}</span>${b.label}</button>`).join('');
   const right = plus.map(b  => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-plus">${b.label}<span class="ab-skip-arrow">${b.icon}</span></button>`).join('');
-  return `<div class="ab-skip-bar">${left}${sep}${right}</div>`;
+  const listSrchSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+  const listBtn = `<button onclick="vpOpenNextList()" class="ab-skip-btn ab-skip-nav" title="次の動画リスト" style="flex-shrink:0;width:34px">☰</button>`;
+  const srchBtn = `<button id="vp-search-btn" onclick="vpTogSearchMenu(event, window.openVPanelId)" class="ab-skip-btn ab-skip-nav" title="検索" style="flex-shrink:0;width:34px">${listSrchSvg}</button>`;
+  return `<div class="ab-skip-bar">${left}${sep}${right}${sep}${listBtn}${srchBtn}</div>`;
 }
 
 export function vpSkip(sec) {
@@ -1307,23 +1385,20 @@ export function openVPanel(id) {
   // タイトル+時間表示+☰リストボタンを左カラム（動画の下）に表示
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
-    const isGd = v.pt === 'gdrive';
-    const editBtn = isGd
-      ? `<button id="vp-title-edit-btn" onclick="vpEditTitle('${id}')" title="タイトルを変更" style="flex-shrink:0;width:24px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✎</button>`
-      : '';
-    const navBtnStyle = "flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
-    const srchSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+    const navBtnStyle = "flex-shrink:0;width:32px;height:32px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
+    const iconBtnBase = "flex-shrink:0;width:32px;height:32px;border-radius:7px;border:1.5px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,border-color .15s,color .15s;position:relative";
     const mirrorSvg = `<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="flex-shrink:0"><path d="M4.5 3L1 7l3.5 4V8.5H7v-1H4.5V3zm7 0v4.5H9v1h2.5V11L15 7l-3.5-4z"/></svg>`;
     const mirrorActive = window._vpMirrored;
-    const mirrorBtnStyle = `flex-shrink:0;height:24px;padding:0 8px;border-radius:20px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px;line-height:1;font-family:inherit`;
-    titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px">
+    const mirrorBtnStyle = `flex-shrink:0;height:32px;padding:0 8px;border-radius:20px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px;line-height:1;font-family:inherit`;
+    const repeatStyle = _repeatBtnStyle();
+    const shuffleStyle = _shuffleBtnStyle();
+    titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:5px;padding:5px 8px 5px 10px">
       <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
       <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
-      ${editBtn}
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
-      <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtnStyle}">☰</button>
-      <button id="vp-search-btn" onclick="vpTogSearchMenu(event,'${id}')" title="このチャンネル・関連技を検索" style="${navBtnStyle}">${srchSvg}</button>
+      <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtnBase};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:800;line-height:1;display:${_vpRepeat==='one'?'block':'none'}">1</span></button>
+      <button class="vp-shuffle-btn" onclick="vpToggleShuffle()" title="シャッフル" style="${iconBtnBase};${shuffleStyle}">${_shuffleSVG()}</button>
       <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
       <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtnStyle}">?</button>
     </div>`;
@@ -1695,7 +1770,7 @@ function _createGDriveVideoEl(container, fileId, token) {
   container.addEventListener('click', _gdContainerClick);
   video.addEventListener('play',  () => _startTimeDisplay());
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
-  video.addEventListener('ended', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
+  video.addEventListener('ended', () => { _vpHandleEnded(); });
   video.addEventListener('error', () => {
     console.error('GDrive video error:', video.error?.code, video.error?.message, src);
     _onGDriveVideoError(container, fileId);
