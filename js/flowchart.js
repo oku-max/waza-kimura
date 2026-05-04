@@ -370,6 +370,7 @@
     });
     document.addEventListener('touchmove', e=>{
       if(!_el('overlay').classList.contains('open')) return;
+      if(e.target.closest('#uni-popup')) return;
       e.preventDefault();
       if(e.touches.length===2 && _pinchDist>0){
         const t0=e.touches[0], t1=e.touches[1];
