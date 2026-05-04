@@ -3223,14 +3223,16 @@ function _setupTopbarScroll() {
 
 // ── init ──
 export function renderNotes() {
-  if (!_activeId) {
-    for (const cat of _data) {
-      if (cat.notes.length) { _activeId = cat.notes[0].id; break; }
-    }
-  }
   _setupFormatBar();
   _setupTopbarScroll();
   _renderSb();
-  if (_activeId) _renderNote(_activeId);
+  if (_activeId) {
+    _renderNote(_activeId);
+  } else {
+    const bc = document.getElementById('notesBreadcrumb');
+    if (bc) bc.innerHTML = '';
+    const content = document.getElementById('notesContent');
+    if (content) content.innerHTML = '';
+  }
   _renderRecent();
 }
