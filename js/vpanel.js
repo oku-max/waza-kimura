@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.67 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.68 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1387,9 +1387,8 @@ export function openVPanel(id) {
   if (titleEl) {
     const navBtnStyle = "flex-shrink:0;width:32px;height:32px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
     const iconBtnBase = "flex-shrink:0;width:32px;height:32px;border-radius:7px;border:1.5px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,border-color .15s,color .15s;position:relative";
-    const mirrorSvg = `<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="flex-shrink:0"><path d="M4.5 3L1 7l3.5 4V8.5H7v-1H4.5V3zm7 0v4.5H9v1h2.5V11L15 7l-3.5-4z"/></svg>`;
     const mirrorActive = window._vpMirrored;
-    const mirrorBtnStyle = `flex-shrink:0;height:32px;padding:0 8px;border-radius:20px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px;line-height:1;font-family:inherit`;
+    const mirrorBtnStyle = `flex-shrink:0;width:36px;height:32px;border-radius:7px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Georgia,serif;letter-spacing:-1px`;
     const repeatStyle = _repeatBtnStyle();
     const shuffleStyle = _shuffleBtnStyle();
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:5px;padding:5px 8px 5px 10px">
@@ -1399,7 +1398,7 @@ export function openVPanel(id) {
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
       <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtnBase};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:900;line-height:1;background:rgba(0,0,0,.4);border-radius:3px;padding:0 2px;display:${_vpRepeat==='one'?'block':'none'}">1</span></button>
       <button class="vp-shuffle-btn" onclick="vpToggleShuffle()" title="シャッフル" style="${iconBtnBase};${shuffleStyle}">${_shuffleSVG()}</button>
-      <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
+      <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">R|Я</button>
       <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtnStyle}">?</button>
     </div>`;
   }
