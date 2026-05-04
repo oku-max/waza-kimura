@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.66 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.67 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -327,7 +327,7 @@ function _refreshRepeatBtn() {
     if (_vpRepeat === 'list') { btn.style.background='#111'; btn.style.borderColor='#111'; btn.style.color='#fff'; }
     if (_vpRepeat === 'one')  { btn.style.background='#2563eb'; btn.style.borderColor='#2563eb'; btn.style.color='#fff'; }
     const badge = btn.querySelector('.vp-repeat-badge');
-    if (badge) badge.style.display = _vpRepeat === 'one' ? 'block' : 'none';
+    if (badge) badge.style.display = _vpRepeat === 'one' ? 'inline-block' : 'none';
   });
 }
 function _refreshShuffleBtn() {
@@ -350,7 +350,7 @@ function _repeatSVG() {
   return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 }
 function _shuffleSVG() {
-  return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><path d="M4 20c4 0 7-9 11-9h6"/><polyline points="21 16 21 21 16 21"/><path d="M4 4c4 0 7 9 11 9"/></svg>`;
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><path d="M4 20c5 0 9-16 13-16h4"/><polyline points="21 16 21 21 16 21"/><path d="M4 4c5 0 9 16 13 16"/></svg>`;
 }
 
 // ── スキップボタンHTML ──
@@ -1395,9 +1395,9 @@ export function openVPanel(id) {
     titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:5px;padding:5px 8px 5px 10px">
       <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
       <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
-      <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+      <span id="vp-title-time" style="flex-shrink:0;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
       <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
-      <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtnBase};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;top:3px;right:4px;font-size:9px;font-weight:800;line-height:1;display:${_vpRepeat==='one'?'block':'none'}">1</span></button>
+      <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtnBase};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:900;line-height:1;background:rgba(0,0,0,.4);border-radius:3px;padding:0 2px;display:${_vpRepeat==='one'?'block':'none'}">1</span></button>
       <button class="vp-shuffle-btn" onclick="vpToggleShuffle()" title="シャッフル" style="${iconBtnBase};${shuffleStyle}">${_shuffleSVG()}</button>
       <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">${mirrorSvg}Mirror</button>
       <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtnStyle}">?</button>
