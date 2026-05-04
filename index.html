@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.64</title>
+<title>WAZA KIMURA v52.65</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -2614,7 +2614,7 @@ function closeOv(id){
   const filterPickers = ['posOv','plOv','tfOv','tbPickerOv','acPickerOv'];
   if(filterPickers.includes(id)){ openFilterOverlay(); }
 }
-function showConf(t,tx,cb){document.getElementById('confT').textContent=t;document.getElementById('confTx').textContent=tx;document.getElementById('confOv').classList.add('open');document.getElementById('confYes').onclick=()=>{closeConf();cb&&cb();};}
+function showConf(t,tx,cb){const el=document.getElementById('confOv');el.style.zIndex='99999';document.body.appendChild(el);document.getElementById('confT').textContent=t;document.getElementById('confTx').textContent=tx;el.classList.add('open');document.getElementById('confYes').onclick=()=>{closeConf();cb&&cb();};}
 function closeConf(){document.getElementById('confOv').classList.remove('open');}
 // toast → js/ui.js に移動
 
