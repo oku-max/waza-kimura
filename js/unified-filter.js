@@ -91,7 +91,7 @@
     const css = `<style id="uni-css">
 #uni-bd{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:100000}
 #uni-bd.open{display:block}
-#uni-popup{position:fixed;inset:32px;max-width:1080px;max-height:600px;margin:auto;background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;flex-direction:column;z-index:100001}
+#uni-popup{position:fixed;inset:32px;max-width:1080px;max-height:600px;margin:auto;background:var(--surface);color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid var(--border);border-radius:12px;overflow:clip;display:none;flex-direction:column;z-index:100001}
 #uni-popup.open{display:flex}
 #uni-popup .uni-topbar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
 #uni-popup .uni-tabs{display:flex;gap:3px;flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -777,13 +777,25 @@
     }
     _q = _queries[t] || '';
   }
+  function _uniShowPopup() {
+    document.getElementById('uni-bd').classList.add('open');
+    document.getElementById('uni-popup').classList.add('open');
+    // iOS: マップオーバーレイのoverflow:hiddenがタッチスクロールをブロックするため一時解除
+    const fcOv = document.getElementById('fc-overlay');
+    if (fcOv) fcOv.style.overflow = 'visible';
+  }
+  function _uniHidePopup() {
+    document.getElementById('uni-bd')?.classList.remove('open');
+    document.getElementById('uni-popup')?.classList.remove('open');
+    const fcOv = document.getElementById('fc-overlay');
+    if (fcOv) fcOv.style.overflow = '';
+  }
   window.uniOpenForNote = function (noteId) {
     _noteMode = noteId;
     _ctx = 'lib';
     _inject();
     _tab = 'src';
-    document.getElementById('uni-bd').classList.add('open');
-    document.getElementById('uni-popup').classList.add('open');
+    _uniShowPopup();
     _syncSearchbar(_tab);
     _render();
   };
@@ -792,15 +804,13 @@
     _ctx = ctx || 'lib';
     _inject();
     if (tab && MAIN.some(m => m.k === tab)) _tab = tab;
-    document.getElementById('uni-bd').classList.add('open');
-    document.getElementById('uni-popup').classList.add('open');
+    _uniShowPopup();
     _syncSearchbar(_tab);
     _render();
   };
   window.uniClose = function () {
     _noteMode = null;
-    document.getElementById('uni-bd')?.classList.remove('open');
-    document.getElementById('uni-popup')?.classList.remove('open');
+    _uniHidePopup();
     Object.keys(_queries).forEach(k => _queries[k] = '');
     _q = '';
     const inp = document.getElementById('uni-q');
