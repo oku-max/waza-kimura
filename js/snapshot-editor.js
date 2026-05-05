@@ -74,7 +74,8 @@ let editorListenersBound = false;
 
 // 手書きキャンバス
 let isHandwritingMode = false;
-let hwBgType = 'plain';
+let hwBgType  = 'plain';
+let hwBgColor = '#ffffff';
 let hwZoom = 1;
 let hwPanX = 0;
 let hwPanY = 0;
@@ -1497,21 +1498,30 @@ function onAnnUp(e) {
 // ── Handwriting Canvas
 // ════════════════════════════════════════════════════════════════
 
-function generateHwBaseImage(bgType, W, H) {
+function generateHwBaseImage(bgType, bgColor, W, H) {
   if (!W || !H) { W = 1080; H = 1440; }
+  if (!bgColor) bgColor = '#ffffff';
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, W, H);
-  const step = Math.round(W / 15); // ~28px at display scale
-  ctx.strokeStyle = '#d4d4d4';
+
+  // パターン線色：背景が暗ければ明るく、明るければ暗く
+  const hex = bgColor.replace('#', '');
+  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  const patternColor = brightness > 128 ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)';
+
+  const step = Math.round(W / 15);
+  ctx.strokeStyle = patternColor;
   ctx.lineWidth = Math.round(W / 540);
+
   if (bgType === 'dot') {
     for (let x = step; x < W; x += step)
       for (let y = step; y < H; y += step) {
-        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#cccccc'; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, Math.round(W / 360), 0, Math.PI * 2);
+        ctx.fillStyle = patternColor; ctx.fill();
       }
   } else if (bgType === 'line') {
     for (let y = step; y < H; y += step) {
@@ -1527,6 +1537,7 @@ function generateHwBaseImage(bgType, W, H) {
 function openHandwritingCanvas() {
   isHandwritingMode = true;
   hwBgType = 'plain';
+  hwBgColor = '#ffffff';
   annIdx = -1;
   annotations = [];
   redoStack = [];
@@ -1573,7 +1584,7 @@ function openHandwritingCanvas() {
 
   annImg = new Image();
   annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
-  annImg.src = generateHwBaseImage('plain', bW, bH);
+  annImg.src = generateHwBaseImage('plain', hwBgColor, bW, bH);
 
   bindHwPinchEvents();
 }
@@ -1583,12 +1594,23 @@ export function changeHwBgType(newBgType) {
   hwBgType = newBgType;
   const bgBar = document.getElementById('snap-hw-bg-bar');
   if (bgBar) bgBar.querySelectorAll('.hw-bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === newBgType));
-  // 現在の解像度を維持したまま背景を再生成
   const W = annImg ? annImg.naturalWidth  : 1080;
   const H = annImg ? annImg.naturalHeight : 1440;
   annImg = new Image();
   annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
-  annImg.src = generateHwBaseImage(newBgType, W, H);
+  annImg.src = generateHwBaseImage(newBgType, hwBgColor, W, H);
+}
+
+export function changeHwBgColor(newColor) {
+  if (!isHandwritingMode) return;
+  hwBgColor = newColor;
+  const bgBar = document.getElementById('snap-hw-bg-bar');
+  if (bgBar) bgBar.querySelectorAll('.hw-bg-color').forEach(b => b.classList.toggle('active', b.dataset.color === newColor));
+  const W = annImg ? annImg.naturalWidth  : 1080;
+  const H = annImg ? annImg.naturalHeight : 1440;
+  annImg = new Image();
+  annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
+  annImg.src = generateHwBaseImage(hwBgType, newColor, W, H);
 }
 
 async function addSnapshotBlob(videoId, blob) {
@@ -2378,7 +2400,8 @@ export function getSnapshotRefs(videoId) {
 window.snapOpenLightbox = (idx) => openLightbox(idx);
 window.snapDelete = (idx) => deleteSnap(idx);
 window.snapOpenHandwritingCanvas = () => openHandwritingCanvas();
-window.snapChangeHwBgType = (t) => changeHwBgType(t);
+window.snapChangeHwBgType  = (t) => changeHwBgType(t);
+window.snapChangeHwBgColor = (c) => changeHwBgColor(c);
 window.snapAddFile = (videoId) => {
   const fileInput = getFileInput();
   if (fileInput) {
