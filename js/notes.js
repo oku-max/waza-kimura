@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.49 ═══
+// ═══ WAZA KIMURA — Notes tab v52.77 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2111,7 +2111,7 @@ function _renderNote(id) {
   const { note, cat } = r;
 
   const bc = document.getElementById('notesBreadcrumb');
-  if (bc) bc.innerHTML = `Notes › ${_esc(cat.name)} › <b>${_esc(note.name)}</b>`;
+  if (bc) bc.innerHTML = cat ? `Notes › ${_esc(cat.name)} › <b>${_esc(note.name)}</b>` : `Notes › <b>${_esc(note.name)}</b>`;
 
   const content = document.getElementById('notesContent');
   if (!content) return;
