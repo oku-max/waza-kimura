@@ -1719,10 +1719,27 @@ export function closeVPanel() {
   }
 }
 
+function _vpAutoLandscapeRatio() {
+  // スマホ横向きのみ（innerHeight>500 = タブレット以上は除外）
+  if (window.innerHeight > 500) return;
+  if (window.innerWidth <= window.innerHeight) return;
+  const leftCol   = document.getElementById('vpanel-left-col');
+  const titleArea = document.getElementById('vpanel-title-area');
+  const skipArea  = document.getElementById('vpanel-skip-area');
+  if (!leftCol) return;
+  const titleH = titleArea ? titleArea.offsetHeight : 52;
+  const skipH  = skipArea  ? skipArea.offsetHeight  : 30;
+  const availH = window.innerHeight - titleH - skipH;
+  leftCol.style.width = Math.max(160, availH * (16 / 9)) + 'px';
+}
+
 function _vpUpdateOrientation() {
   const inner = document.getElementById('vpanelInner');
   if (!inner) return;
   inner.classList.toggle('is-portrait', window.innerHeight > window.innerWidth);
+  if (window.innerWidth > window.innerHeight) {
+    setTimeout(_vpAutoLandscapeRatio, 50);
+  }
 }
 
 window.addEventListener('resize', () => {
