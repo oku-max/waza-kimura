@@ -1426,7 +1426,7 @@ body.hide-tags .fov-row-tags { display: none !important; }
 
 /* ═══ AB LOOP EDITOR ═══ */
 .ab-skip-bar{display:flex;gap:3px;padding:5px 10px;justify-content:center;align-items:center}
-.ab-skip-btn{flex:1;padding:3px 4px;min-height:36px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:2px;transition:opacity .12s,transform .1s}
+.ab-skip-btn{flex:1;padding:3px 4px;min-height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:2px;transition:opacity .12s,transform .1s}
 .ab-skip-btn:hover{opacity:.75;transform:scale(1.06)}
 .ab-skip-minus{color:#2266aa;border-color:#2266aa}
 .ab-skip-plus{color:#c47a20;border-color:#c47a20}

@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.71 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.72 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1383,10 +1383,10 @@ export function openVPanel(id) {
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
     const chName = v.channel || v.ch || '';
-    const navBtn = "flex-shrink:0;width:24px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
-    const iconBtn = "flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1.5px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,border-color .15s,color .15s;position:relative";
+    const navBtn = "flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
+    const iconBtn = "flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1.5px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,border-color .15s,color .15s;position:relative";
     const mirrorActive = window._vpMirrored;
-    const mirrorBtn = `flex-shrink:0;width:28px;height:22px;border-radius:6px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Georgia,serif;letter-spacing:-1px`;
+    const mirrorBtn = `flex-shrink:0;width:30px;height:26px;border-radius:6px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Georgia,serif;letter-spacing:-1px`;
     const repeatStyle = _repeatBtnStyle();
     const shuffleStyle = _shuffleBtnStyle();
     const ctrlSep = '<div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:3px 0"></div>';
