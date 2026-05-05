@@ -1513,14 +1513,16 @@ function generateHwBaseImage(bgType, bgColor, W, H) {
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   const patternColor = brightness > 128 ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)';
 
-  const step = Math.round(W / 30);   // 間隔を半分（本数が倍）
+  // 固定canvasピクセル値（W比率にすると画面サイズで見た目が変わるため）
+  // canvasは常に displayWidth×2 で生成されCSSで0.5倍表示 → 25canvas px = 12.5物理px
+  const step = 25;
   ctx.strokeStyle = patternColor;
-  ctx.lineWidth = Math.round(W / 1080);  // 線の太さを半分
+  ctx.lineWidth = 1;
 
   if (bgType === 'dot') {
     for (let x = step; x < W; x += step)
       for (let y = step; y < H; y += step) {
-        ctx.beginPath(); ctx.arc(x, y, Math.round(W / 720), 0, Math.PI * 2);  // ドット半径を半分
+        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2);
         ctx.fillStyle = patternColor; ctx.fill();
       }
   } else if (bgType === 'line') {
