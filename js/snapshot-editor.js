@@ -1522,7 +1522,7 @@ function generateHwBaseImage(bgType, bgColor, W, H) {
   if (bgType === 'dot') {
     for (let x = step; x < W; x += step)
       for (let y = step; y < H; y += step) {
-        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2);
         ctx.fillStyle = patternColor; ctx.fill();
       }
   } else if (bgType === 'line') {
