@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.70 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.71 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -370,10 +370,7 @@ function _skipBtnsHTML() {
   const sep = '<div class="ab-skip-sep"></div>';
   const left  = minus.map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">${b.icon}</span>${b.label}</button>`).join('');
   const right = plus.map(b  => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-plus">${b.label}<span class="ab-skip-arrow">${b.icon}</span></button>`).join('');
-  const listSrchSvg = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
-  const listBtn = `<button onclick="vpOpenNextList()" class="ab-skip-btn ab-skip-nav" title="次の動画リスト" style="flex-shrink:0;width:34px">☰</button>`;
-  const srchBtn = `<button id="vp-search-btn" onclick="vpTogSearchMenu(event, window.openVPanelId)" class="ab-skip-btn ab-skip-nav" title="検索" style="flex-shrink:0;width:34px">${listSrchSvg}</button>`;
-  return `<div class="ab-skip-bar">${left}${sep}${right}${sep}${listBtn}${srchBtn}</div>`;
+  return `<div class="ab-skip-bar">${left}${sep}${right}</div>`;
 }
 
 export function vpSkip(sec) {
@@ -1385,22 +1382,34 @@ export function openVPanel(id) {
   // タイトル+時間表示+☰リストボタンを左カラム（動画の下）に表示
   const titleEl = document.getElementById('vpanel-title-area');
   if (titleEl) {
-    const navBtnStyle = "flex-shrink:0;width:32px;height:32px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
-    const iconBtnBase = "flex-shrink:0;width:32px;height:32px;border-radius:7px;border:1.5px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,border-color .15s,color .15s;position:relative";
+    const chName = v.channel || v.ch || '';
+    const navBtn = "flex-shrink:0;width:24px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1";
+    const iconBtn = "flex-shrink:0;width:22px;height:22px;border-radius:6px;border:1.5px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s,border-color .15s,color .15s;position:relative";
     const mirrorActive = window._vpMirrored;
-    const mirrorBtnStyle = `flex-shrink:0;width:36px;height:32px;border-radius:7px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Georgia,serif;letter-spacing:-1px`;
+    const mirrorBtn = `flex-shrink:0;width:28px;height:22px;border-radius:6px;border:1.5px solid ${mirrorActive ? 'var(--accent)' : 'var(--border)'};background:${mirrorActive ? 'rgba(229,196,122,.15)' : 'var(--surface2)'};color:${mirrorActive ? 'var(--accent)' : 'var(--text2)'};font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Georgia,serif;letter-spacing:-1px`;
     const repeatStyle = _repeatBtnStyle();
     const shuffleStyle = _shuffleBtnStyle();
-    titleEl.innerHTML = `<div style="display:flex;align-items:center;gap:5px;padding:5px 8px 5px 10px">
-      <button onclick="vpNav(-1)" title="前の動画" style="${navBtnStyle}">⏮</button>
-      <div id="vp-title-text-${id}" style="flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
-      <span id="vp-title-time" style="flex-shrink:0;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
-      <button onclick="vpNav(1)" title="次の動画" style="${navBtnStyle}">⏭</button>
-      <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtnBase};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:900;line-height:1;background:rgba(0,0,0,.4);border-radius:3px;padding:0 2px;display:${_vpRepeat==='one'?'block':'none'}">1</span></button>
-      <button class="vp-shuffle-btn" onclick="vpToggleShuffle()" title="シャッフル" style="${iconBtnBase};${shuffleStyle}">${_shuffleSVG()}</button>
-      <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtnStyle}">R|Я</button>
-      <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtnStyle}">?</button>
-    </div>`;
+    const ctrlSep = '<div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:3px 0"></div>';
+    const srchSvg = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+    const chHtml = chName ? `<div style="width:100px;flex-shrink:0;font-size:9px;font-weight:600;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1">${chName}</div>${ctrlSep}` : '';
+    titleEl.innerHTML = `
+      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border)">
+        <div id="vp-title-text-${id}" style="font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-bottom:1px solid var(--border)">
+        ${chHtml}
+        <button onclick="vpNav(-1)" title="前の動画" style="${navBtn}">⏮</button>
+        <button onclick="vpNav(1)" title="次の動画" style="${navBtn}">⏭</button>
+        <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtn};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:900;line-height:1;background:rgba(0,0,0,.4);border-radius:3px;padding:0 2px;display:${_vpRepeat==='one'?'inline-block':'none'}">1</span></button>
+        <button class="vp-shuffle-btn" onclick="vpToggleShuffle()" title="シャッフル" style="${iconBtn};${shuffleStyle}">${_shuffleSVG()}</button>
+        <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtn}">R|Я</button>
+        <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${iconBtn};background:var(--surface2);border-color:var(--border);color:var(--text2)">?</button>
+        ${ctrlSep}
+        <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtn}">☰</button>
+        <button id="vp-search-btn" onclick="vpTogSearchMenu(event,window.openVPanelId)" title="検索" style="${navBtn}">${srchSvg}</button>
+        <div style="flex:1"></div>
+        <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+      </div>`;
   }
 
 
