@@ -75,6 +75,11 @@ let editorListenersBound = false;
 // 手書きキャンバス
 let isHandwritingMode = false;
 let hwBgType = 'plain';
+let hwZoom = 1;
+let hwPanX = 0;
+let hwPanY = 0;
+let _hwPinch = null;
+let _hwPinchListenersBound = false;
 
 // ════════════════════════════════════════════════════════════════
 // ── DOM Element Helpers (lazy-cached)
@@ -736,11 +741,83 @@ function moveAnnotation(a, dx, dy) {
 // ── Annotation Editor — Canvas Management
 // ════════════════════════════════════════════════════════════════
 
+function hwApplyTransform() {
+  const canvas = getAnnCanvas();
+  if (!canvas) return;
+  canvas.style.transform = `translate(${hwPanX}px, ${hwPanY}px) scale(${hwZoom})`;
+}
+
+function bindHwPinchEvents() {
+  if (_hwPinchListenersBound) return;
+  _hwPinchListenersBound = true;
+  const wrap = getAnnCanvasWrap();
+  if (!wrap) return;
+
+  wrap.addEventListener('touchstart', (e) => {
+    if (!isHandwritingMode || e.touches.length < 2) return;
+    e.preventDefault();
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX, dy = t2.clientY - t1.clientY;
+    const wRect = wrap.getBoundingClientRect();
+    _hwPinch = {
+      startDist: Math.sqrt(dx * dx + dy * dy),
+      startZoom: hwZoom,
+      startPanX: hwPanX,
+      startPanY: hwPanY,
+      startMidX: (t1.clientX + t2.clientX) / 2 - wRect.left,
+      startMidY: (t1.clientY + t2.clientY) / 2 - wRect.top,
+    };
+  }, { passive: false });
+
+  wrap.addEventListener('touchmove', (e) => {
+    if (!isHandwritingMode || !_hwPinch || e.touches.length < 2) return;
+    e.preventDefault();
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX, dy = t2.clientY - t1.clientY;
+    const newDist = Math.sqrt(dx * dx + dy * dy);
+    const wRect = wrap.getBoundingClientRect();
+    const newMidX = (t1.clientX + t2.clientX) / 2 - wRect.left;
+    const newMidY = (t1.clientY + t2.clientY) / 2 - wRect.top;
+    const newZoom = Math.max(0.5, Math.min(8, _hwPinch.startZoom * newDist / _hwPinch.startDist));
+    const zr = newZoom / _hwPinch.startZoom;
+    hwZoom = newZoom;
+    hwPanX = (_hwPinch.startPanX - _hwPinch.startMidX) * zr + newMidX;
+    hwPanY = (_hwPinch.startPanY - _hwPinch.startMidY) * zr + newMidY;
+    hwApplyTransform();
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) _hwPinch = null;
+  });
+}
+
 function resizeAnnCanvas() {
   if (!annImg) return;
   const canvas = getAnnCanvas();
   const wrap = getAnnCanvasWrap();
   if (!canvas || !wrap) return;
+
+  if (isHandwritingMode) {
+    // キャンバスをラップ全体に広げる（余白なし）
+    const dispW = wrap.clientWidth;
+    const dispH = wrap.clientHeight;
+    canvas.width  = annImg.naturalWidth;
+    canvas.height = annImg.naturalHeight;
+    canvas.style.width  = dispW + 'px';
+    canvas.style.height = dispH + 'px';
+    canvas.style.maxWidth  = 'none';
+    canvas.style.maxHeight = 'none';
+    canvas.style.transformOrigin = '0 0';
+    annScaleX = annImg.naturalWidth  / dispW;
+    annScaleY = annImg.naturalHeight / dispH;
+    hwApplyTransform();
+    return;
+  }
+
+  // 通常モード（写真アノテーション）
+  canvas.style.maxWidth  = '';
+  canvas.style.maxHeight = '';
+  canvas.style.transform = '';
   const maxW = wrap.clientWidth - 20;
   const maxH = wrap.clientHeight - 20;
   let w = annImg.naturalWidth, h = annImg.naturalHeight;
@@ -749,7 +826,7 @@ function resizeAnnCanvas() {
   const dispH = Math.round(h * scale);
   canvas.width = w;
   canvas.height = h;
-  canvas.style.width = dispW + 'px';
+  canvas.style.width  = dispW + 'px';
   canvas.style.height = dispH + 'px';
   annScaleX = w / dispW;
   annScaleY = h / dispH;
@@ -1152,6 +1229,9 @@ function openTextReEdit(a) {
 // ════════════════════════════════════════════════════════════════
 
 function onAnnDown(e) {
+  // 手書きピンチ中は描画しない
+  if (isHandwritingMode && e.touches && e.touches.length >= 2) return;
+
   // Crop mode
   if (annTool === 'crop') {
     const pos = canvasPos(e);
@@ -1270,6 +1350,9 @@ function onAnnDown(e) {
 }
 
 function onAnnMove(e) {
+  // 手書きピンチ中は描画しない
+  if (isHandwritingMode && e.touches && e.touches.length >= 2) return;
+
   // Crop mode drag
   if (annTool === 'crop' && cropDragging) {
     e.preventDefault();
@@ -1414,16 +1497,16 @@ function onAnnUp(e) {
 // ── Handwriting Canvas
 // ════════════════════════════════════════════════════════════════
 
-function generateHwBaseImage(bgType) {
-  const W = 1080, H = 1440;
+function generateHwBaseImage(bgType, W, H) {
+  if (!W || !H) { W = 1080; H = 1440; }
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
-  const step = 72; // ~28px at display scale
+  const step = Math.round(W / 15); // ~28px at display scale
   ctx.strokeStyle = '#d4d4d4';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = Math.round(W / 540);
   if (bgType === 'dot') {
     for (let x = step; x < W; x += step)
       for (let y = step; y < H; y += step) {
@@ -1474,12 +1557,25 @@ function openHandwritingCanvas() {
     bgBar.querySelectorAll('.hw-bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === 'plain'));
   }
 
+  // ズーム状態リセット
+  hwZoom = 1; hwPanX = 0; hwPanY = 0; _hwPinch = null;
+
   const canvas = getAnnCanvas();
-  if (canvas) annCtx = canvas.getContext('2d');
+  if (canvas) {
+    annCtx = canvas.getContext('2d');
+    canvas.style.transform = '';
+  }
+
+  // ラップの実サイズに合わせてベース画像を生成（2倍解像度）
+  const wrap = getAnnCanvasWrap();
+  const bW = (wrap ? wrap.clientWidth  : window.innerWidth)  * 2;
+  const bH = (wrap ? wrap.clientHeight : window.innerHeight) * 2;
 
   annImg = new Image();
   annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
-  annImg.src = generateHwBaseImage('plain');
+  annImg.src = generateHwBaseImage('plain', bW, bH);
+
+  bindHwPinchEvents();
 }
 
 export function changeHwBgType(newBgType) {
@@ -1487,9 +1583,12 @@ export function changeHwBgType(newBgType) {
   hwBgType = newBgType;
   const bgBar = document.getElementById('snap-hw-bg-bar');
   if (bgBar) bgBar.querySelectorAll('.hw-bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === newBgType));
+  // 現在の解像度を維持したまま背景を再生成
+  const W = annImg ? annImg.naturalWidth  : 1080;
+  const H = annImg ? annImg.naturalHeight : 1440;
   annImg = new Image();
   annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
-  annImg.src = generateHwBaseImage(newBgType);
+  annImg.src = generateHwBaseImage(newBgType, W, H);
 }
 
 async function addSnapshotBlob(videoId, blob) {
@@ -1549,6 +1648,13 @@ function closeAnnotationEditor() {
   const editor = getAnnEditor();
   if (editor) editor.classList.remove('active');
   isHandwritingMode = false;
+  hwZoom = 1; hwPanX = 0; hwPanY = 0; _hwPinch = null;
+  const canvas = getAnnCanvas();
+  if (canvas) {
+    canvas.style.transform = '';
+    canvas.style.maxWidth  = '';
+    canvas.style.maxHeight = '';
+  }
   const bgBar = document.getElementById('snap-hw-bg-bar');
   if (bgBar) bgBar.style.display = 'none';
 }
