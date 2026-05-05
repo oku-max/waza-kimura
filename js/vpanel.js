@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.72 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.73 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -370,7 +370,8 @@ function _skipBtnsHTML() {
   const sep = '<div class="ab-skip-sep"></div>';
   const left  = minus.map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">${b.icon}</span>${b.label}</button>`).join('');
   const right = plus.map(b  => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-plus">${b.label}<span class="ab-skip-arrow">${b.icon}</span></button>`).join('');
-  return `<div class="ab-skip-bar">${left}${sep}${right}</div>`;
+  const timer = `<span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;margin-left:2px"></span>`;
+  return `<div class="ab-skip-bar">${left}${sep}${right}${timer}</div>`;
 }
 
 export function vpSkip(sec) {
@@ -1407,8 +1408,6 @@ export function openVPanel(id) {
         ${ctrlSep}
         <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtn}">☰</button>
         <button id="vp-search-btn" onclick="vpTogSearchMenu(event,window.openVPanelId)" title="検索" style="${navBtn}">${srchSvg}</button>
-        <div style="flex:1"></div>
-        <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
       </div>`;
   }
 
