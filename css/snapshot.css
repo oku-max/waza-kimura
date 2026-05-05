@@ -548,6 +548,27 @@ canvas.eraser-cursor {
 }
 
 
+/* ── Annotation Editor top-right save button ── */
+.ann-save-top {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 10;
+  background: #2ecc71;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  transition: background .15s, transform .1s;
+}
+.ann-save-top:hover { background: #27ae60; }
+.ann-save-top:active { transform: scale(.96); }
+
 /* ── Handwriting BG Bar ── */
 
 .hw-bg-color {

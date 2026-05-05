@@ -24,6 +24,10 @@
   border-bottom: 1px solid var(--border);
   padding: 10px 14px;
 }
+.yt-sr-search-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
 .yt-sr-search-row {
   display: flex;
   align-items: stretch;
@@ -31,10 +35,35 @@
   border-radius: 10px;
   overflow: hidden;
   background: var(--surface2);
-  margin-bottom: 8px;
   transition: border-color .15s;
 }
 .yt-sr-search-row:focus-within { border-color: rgba(204,40,0,.65); }
+
+/* ── サジェストドロップダウン ── */
+.yt-sr-suggest-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--surface2, #1e1e1e);
+  border: 1px solid var(--border, #333);
+  border-radius: 10px;
+  z-index: 3000;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0,0,0,.5);
+}
+.yt-sr-sug-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text, #eee);
+  transition: background .1s;
+}
+.yt-sr-sug-item:hover,
+.yt-sr-sug-item.focused { background: var(--surface3, #2a2a2a); }
+.yt-sr-sug-icon { font-size: 13px; color: var(--text3, #666); flex-shrink: 0; }
 
 /* YouTubeピル（入力欄左） */
 .yt-sr-yt-area {
