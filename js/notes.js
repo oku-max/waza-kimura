@@ -3232,14 +3232,17 @@ function _setupTopbarScroll() {
 export function renderNotes() {
   _setupFormatBar();
   _setupTopbarScroll();
+  // タブ切り替え時は常にサイドバー表示・未選択状態をデフォルトにする
+  _activeId = null;
   _renderSb();
-  if (_activeId) {
-    _renderNote(_activeId);
-  } else {
-    const bc = document.getElementById('notesBreadcrumb');
-    if (bc) bc.innerHTML = '';
-    const content = document.getElementById('notesContent');
-    if (content) content.innerHTML = '';
+  const bc = document.getElementById('notesBreadcrumb');
+  if (bc) bc.innerHTML = '';
+  const content = document.getElementById('notesContent');
+  if (content) content.innerHTML = '';
+  // モバイルはサイドバーを自動で開く
+  if (window.innerWidth < 768) {
+    document.getElementById('notesSidebar')?.classList.add('open');
+    document.getElementById('notesSbOverlay')?.classList.add('vis');
   }
   _renderRecent();
 }
