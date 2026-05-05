@@ -2453,6 +2453,14 @@ function _notesSnapAddPicker(noteId, targetSnapId) {
           </div>
           <span class="n-src-arr">›</span>
         </button>
+        <button class="n-src-btn" id="n-src-hw-btn">
+          <span class="n-src-icon">✏️</span>
+          <div class="n-src-info">
+            <div class="n-src-ttl">手書きキャンバス</div>
+            <div class="n-src-sub">自由に描いてスナップに保存</div>
+          </div>
+          <span class="n-src-arr">›</span>
+        </button>
         <button class="n-src-btn" id="n-src-lib-btn">
           <span class="n-src-icon">🎬</span>
           <div class="n-src-info">
@@ -2473,6 +2481,10 @@ function _notesSnapAddPicker(noteId, targetSnapId) {
   overlay.querySelector('#n-src-new-btn').addEventListener('click', () => {
     _removeSheet();
     window.triggerSnapFileInput?.();
+  });
+  overlay.querySelector('#n-src-hw-btn').addEventListener('click', () => {
+    _removeSheet();
+    window.snapOpenHandwritingCanvas?.();
   });
   overlay.querySelector('#n-src-lib-btn').addEventListener('click', () => {
     window._notesImgFromLib(noteId, targetSnapId);
