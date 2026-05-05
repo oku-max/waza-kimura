@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.85</title>
+<title>WAZA KIMURA v52.86</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -110,7 +110,7 @@
   } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
-  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput } from './js/snapshot-editor.js';
+  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput, changeHwBgType } from './js/snapshot-editor.js';
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
@@ -481,6 +481,7 @@
   window.cleanupSnapshots      = cleanupSnapshots;
   window.handleSnapshotPaste   = handleSnapshotPaste;
   window.triggerSnapFileInput  = triggerSnapFileInput;
+  window.snapChangeHwBgType    = changeHwBgType;
   window.autoSaveVp            = autoSaveVp;
   window.vpSave                = vpSave;
   window.vpTogChannelDd        = vpTogChannelDd;
@@ -4217,6 +4218,22 @@ window.addEventListener('resize', adjustTopbarOffset);
   }
 })();
 </script>
+<!-- ── Snapshot Add Type Sheet ── -->
+<div id="snap-add-type-sheet" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.65);align-items:flex-end;justify-content:center;">
+  <div style="background:#1e1e1e;border-radius:16px 16px 0 0;padding:20px 20px 40px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:10px">
+    <p style="font-size:13px;color:#666;text-align:center;margin-bottom:4px">追加する種類を選択</p>
+    <button onclick="snapAddTypeSelect('photo')" style="padding:16px;border-radius:12px;background:#2a2a2a;border:none;color:#eee;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit">
+      <span style="font-size:22px;width:32px;text-align:center">📷</span>
+      <div><div>写真</div><div style="font-size:11px;color:#666;margin-top:2px">カメラロールから選択</div></div>
+    </button>
+    <button onclick="snapAddTypeSelect('canvas')" style="padding:16px;border-radius:12px;background:#2a2a2a;border:none;color:#eee;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:12px;text-align:left;font-family:inherit">
+      <span style="font-size:22px;width:32px;text-align:center">✏️</span>
+      <div><div>手書きキャンバス</div><div style="font-size:11px;color:#666;margin-top:2px">白紙に自由に描く</div></div>
+    </button>
+    <button onclick="snapAddTypeClose()" style="background:none;border:none;color:#666;font-size:14px;text-align:center;cursor:pointer;padding:8px;font-family:inherit">キャンセル</button>
+  </div>
+</div>
+
 <!-- ── Snapshot Lightbox ── -->
 <div class="lightbox" id="snap-lightbox">
   <button class="lb-close" id="snap-lb-close">&times;</button>
@@ -4234,6 +4251,22 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- ── Snapshot Annotation Editor ── -->
 <div class="ann-editor" id="snap-ann-editor">
+  <!-- 手書きキャンバス用背景パターンバー（手書き時のみ表示） -->
+  <div id="snap-hw-bg-bar" style="display:none;background:#141414;border-bottom:1px solid #222;padding:6px 12px;align-items:center;gap:8px;flex-shrink:0">
+    <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">背景</span>
+    <button class="hw-bg-btn active" data-bg="plain" onclick="window.snapChangeHwBgType('plain')" title="無地" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #e5c47a;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+      <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/></svg>
+    </button>
+    <button class="hw-bg-btn" data-bg="dot" onclick="window.snapChangeHwBgType('dot')" title="ドット" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #2e2e2e;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+      <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/><circle cx="7" cy="7" r="1.4" fill="#bbb"/><circle cx="13" cy="7" r="1.4" fill="#bbb"/><circle cx="19" cy="7" r="1.4" fill="#bbb"/><circle cx="7" cy="13" r="1.4" fill="#bbb"/><circle cx="13" cy="13" r="1.4" fill="#bbb"/><circle cx="19" cy="13" r="1.4" fill="#bbb"/><circle cx="7" cy="19" r="1.4" fill="#bbb"/><circle cx="13" cy="19" r="1.4" fill="#bbb"/><circle cx="19" cy="19" r="1.4" fill="#bbb"/></svg>
+    </button>
+    <button class="hw-bg-btn" data-bg="line" onclick="window.snapChangeHwBgType('line')" title="横線" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #2e2e2e;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+      <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/><line x1="0" y1="9" x2="26" y2="9" stroke="#bbb" stroke-width="1"/><line x1="0" y1="17" x2="26" y2="17" stroke="#bbb" stroke-width="1"/></svg>
+    </button>
+    <button class="hw-bg-btn" data-bg="grid" onclick="window.snapChangeHwBgType('grid')" title="方眼" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #2e2e2e;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+      <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/><line x1="9" y1="0" x2="9" y2="26" stroke="#bbb" stroke-width="1"/><line x1="17" y1="0" x2="17" y2="26" stroke="#bbb" stroke-width="1"/><line x1="0" y1="9" x2="26" y2="9" stroke="#bbb" stroke-width="1"/><line x1="0" y1="17" x2="26" y2="17" stroke="#bbb" stroke-width="1"/></svg>
+    </button>
+  </div>
   <div class="ann-canvas-wrap" id="snap-ann-canvas-wrap">
     <canvas id="snap-ann-canvas"></canvas>
     <textarea class="ann-text-input" id="snap-ann-text-input" placeholder="テキスト入力..." rows="1"></textarea>
@@ -4744,6 +4777,22 @@ async function submitFeedback() {
     <div><span class="vp-tut-skip" onclick="vpEndTutorial()">スキップ</span></div>
   </div>
 </div>
+
+<script>
+function snapAddTypeClose() {
+  const sheet = document.getElementById('snap-add-type-sheet');
+  if (sheet) sheet.style.display = 'none';
+}
+function snapAddTypeSelect(type) {
+  snapAddTypeClose();
+  if (type === 'photo') {
+    const fi = document.getElementById('snap-file-input');
+    if (fi) fi.click();
+  } else if (type === 'canvas') {
+    window.snapOpenHandwritingCanvas?.();
+  }
+}
+</script>
 
 </body>
 </html>
