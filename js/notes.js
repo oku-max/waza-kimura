@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.78 ═══
+// ═══ WAZA KIMURA — Notes tab v52.79 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -49,6 +49,8 @@ window._notesClear = function() {
 window._notesGetData = () => _data;
 
 window._notesLoadFromRemote = function(payload) {
+  // ローカルに未保存の変更がある間はリモートの上書きをスキップ（競合防止）
+  if (_saveFsTimer) return;
   // 旧フォーマット（配列）と新フォーマット（{ folders, root }）に両対応
   const folders = Array.isArray(payload) ? payload : (payload?.folders || []);
   const root    = Array.isArray(payload) ? []      : (payload?.root    || []);
