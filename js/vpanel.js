@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.73 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.74 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -356,7 +356,7 @@ function _shuffleSVG() {
 // ── スキップボタンHTML ──
 function _skipBtnsHTML() {
   const minus = [
-    {sec:-60, label:'1m',  icon:'◀◀'},
+    {sec:-60, label:'1m',  icon:'◀'},
     {sec:-30, label:'30s', icon:'◀'},
     {sec:-10, label:'10s', icon:'◀'},
     {sec: -3, label:'3s',  icon:'◀'},
@@ -365,13 +365,13 @@ function _skipBtnsHTML() {
     {sec:  3, label:'3s',  icon:'▶'},
     {sec: 10, label:'10s', icon:'▶'},
     {sec: 30, label:'30s', icon:'▶'},
-    {sec: 60, label:'1m',  icon:'▶▶'},
+    {sec: 60, label:'1m',  icon:'▶'},
   ];
   const sep = '<div class="ab-skip-sep"></div>';
   const left  = minus.map(b => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">${b.icon}</span>${b.label}</button>`).join('');
   const right = plus.map(b  => `<button onclick="vpSkip(${b.sec})" class="ab-skip-btn ab-skip-plus">${b.label}<span class="ab-skip-arrow">${b.icon}</span></button>`).join('');
-  const timer = `<span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;margin-left:2px"></span>`;
-  return `<div class="ab-skip-bar">${left}${sep}${right}${timer}</div>`;
+  const timer = `<span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;margin-right:2px"></span>`;
+  return `<div class="ab-skip-bar">${timer}${left}${sep}${right}</div>`;
 }
 
 export function vpSkip(sec) {
@@ -1392,7 +1392,7 @@ export function openVPanel(id) {
     const shuffleStyle = _shuffleBtnStyle();
     const ctrlSep = '<div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:3px 0"></div>';
     const srchSvg = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
-    const chHtml = chName ? `<div style="width:100px;flex-shrink:0;font-size:9px;font-weight:600;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1">${chName}</div>${ctrlSep}` : '';
+    const chHtml = chName ? `<div style="flex:1;min-width:0;font-size:9px;font-weight:600;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1">${chName}</div>${ctrlSep}` : '<div style="flex:1"></div>';
     titleEl.innerHTML = `
       <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border)">
         <div id="vp-title-text-${id}" style="font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
