@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.77 ═══
+// ═══ WAZA KIMURA — Notes tab v52.78 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2768,19 +2768,24 @@ window.notesAddVideo = function(arg) {
   if (!sheet) return;
   const list = document.getElementById('notesVpSheetList');
   if (!list) return;
+  const noteItemHTML = (n) => {
+    const dotCls = STATUS_DOT[n.status] || '';
+    const statusLbl = STATUS_LABEL[n.status] || '';
+    const statusCls = STATUS_CLS[n.status] || '';
+    return `<div class="nvps-note-item" onclick="window._notesVpAddConfirm('${n.id}','${_esc(videoId)}')">
+      <span class="n-note-dot ${dotCls}" style="width:8px;height:8px"></span>
+      <span class="nvps-note-name">${_esc(n.name)}</span>
+      <span class="n-s-badge ${statusCls}" style="font-size:10px">${statusLbl}</span>
+    </div>`;
+  };
   let h = '';
+  if (_root.length) {
+    h += `<div class="nvps-cat-lbl">📄 フォルダなし</div>`;
+    for (const n of _root) h += noteItemHTML(n);
+  }
   for (const cat of _data) {
     h += `<div class="nvps-cat-lbl">${cat.icon} ${_esc(cat.name)}</div>`;
-    for (const n of cat.notes) {
-      const dotCls = STATUS_DOT[n.status] || '';
-      const statusLbl = STATUS_LABEL[n.status] || '';
-      const statusCls = STATUS_CLS[n.status] || '';
-      h += `<div class="nvps-note-item" onclick="window._notesVpAddConfirm('${n.id}','${_esc(videoId)}')">
-        <span class="n-note-dot ${dotCls}" style="width:8px;height:8px"></span>
-        <span class="nvps-note-name">${_esc(n.name)}</span>
-        <span class="n-s-badge ${statusCls}" style="font-size:10px">${statusLbl}</span>
-      </div>`;
-    }
+    for (const n of cat.notes) h += noteItemHTML(n);
   }
   list.innerHTML = h;
   document.body.appendChild(sheet); // DOM末尾に移動して確実にVPanel上に表示
