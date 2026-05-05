@@ -121,8 +121,83 @@ export async function ytSrSearch() {
 }
 
 export function ytSrKeydown(e) {
-  if (e.key === 'Enter') ytSrSearch();
+  if (e.key === 'ArrowDown') { _sugMove(1); e.preventDefault(); return; }
+  if (e.key === 'ArrowUp')   { _sugMove(-1); e.preventDefault(); return; }
+  if (e.key === 'Escape')    { _sugHide(); return; }
+  if (e.key === 'Enter')     { const sel = _sugSelected(); if (sel) { _sugPick(sel); } else { ytSrSearch(); } _sugHide(); }
 }
+
+// ────────────────────────────────────────
+// SUGGEST
+// ────────────────────────────────────────
+let _sugTimer = null;
+let _sugFocusIdx = -1;
+
+function _sugDrop() { return document.getElementById('yt-sr-suggest-drop'); }
+function _sugHide() {
+  const d = _sugDrop(); if (d) d.style.display = 'none';
+  _sugFocusIdx = -1;
+}
+function _sugShow(items) {
+  const d = _sugDrop(); if (!d) return;
+  if (!items.length) { _sugHide(); return; }
+  _sugFocusIdx = -1;
+  d.innerHTML = items.map((t, i) =>
+    `<div class="yt-sr-sug-item" data-idx="${i}" data-q="${t.replace(/"/g,'&quot;')}" onmousedown="window.ytSrSugPick(this)">
+      <span class="yt-sr-sug-icon">🔍</span>${t}
+    </div>`
+  ).join('');
+  d.style.display = 'block';
+}
+function _sugMove(dir) {
+  const d = _sugDrop(); if (!d || d.style.display === 'none') return;
+  const items = d.querySelectorAll('.yt-sr-sug-item');
+  if (!items.length) return;
+  items[_sugFocusIdx]?.classList.remove('focused');
+  _sugFocusIdx = Math.max(-1, Math.min(items.length - 1, _sugFocusIdx + dir));
+  if (_sugFocusIdx >= 0) {
+    items[_sugFocusIdx].classList.add('focused');
+    document.getElementById('yt-sr-input').value = items[_sugFocusIdx].dataset.q;
+  }
+}
+function _sugSelected() {
+  const d = _sugDrop(); if (!d || d.style.display === 'none') return null;
+  return d.querySelector('.yt-sr-sug-item.focused')?.dataset.q || null;
+}
+function _sugPick(q) {
+  const inp = document.getElementById('yt-sr-input');
+  if (inp) inp.value = q;
+  _sugHide();
+  ytSrSearch();
+}
+window.ytSrSugPick = function(el) { _sugPick(el.dataset.q); };
+
+window.ytSrSuggest = function(q) {
+  clearTimeout(_sugTimer);
+  if (!q || q.length < 2) { _sugHide(); return; }
+  _sugTimer = setTimeout(() => {
+    const cb = '_ytSrSugCb' + Date.now();
+    window[cb] = (data) => {
+      try {
+        const suggs = (data[1] || []).map(s => Array.isArray(s) ? s[0] : s).filter(Boolean).slice(0, 8);
+        _sugShow(suggs);
+      } catch { _sugHide(); }
+      delete window[cb];
+      document.getElementById('_ytSrSugScript')?.remove();
+    };
+    const sc = document.createElement('script');
+    sc.id = '_ytSrSugScript';
+    sc.src = `https://suggestqueries.google.com/complete/search?client=youtube&q=${encodeURIComponent(q)}&hl=ja&callback=${cb}`;
+    sc.onerror = () => { _sugHide(); delete window[cb]; };
+    document.getElementById('_ytSrSugScript')?.remove();
+    document.head.appendChild(sc);
+  }, 200);
+};
+
+// 入力欄外クリックでサジェストを閉じる
+document.addEventListener('click', e => {
+  if (!e.target.closest('.yt-sr-search-row')) _sugHide();
+}, true);
 
 // ────────────────────────────────────────
 // MODE (動画 / プレイリスト)

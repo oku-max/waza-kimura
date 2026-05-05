@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.96</title>
+<title>WAZA KIMURA v52.97</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -1533,14 +1533,19 @@
     <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
     <div class="yt-sr-topbar">
       <!-- Row1: 検索バー -->
-      <div class="yt-sr-search-row">
-        <div class="yt-sr-yt-area">
-          <div class="yt-sr-yt-pill"></div>
+      <div class="yt-sr-search-wrap">
+        <div class="yt-sr-search-row">
+          <div class="yt-sr-yt-area">
+            <div class="yt-sr-yt-pill"></div>
+          </div>
+          <input id="yt-sr-input" class="yt-sr-input" type="text"
+                 placeholder="YouTubeで検索"
+                 oninput="window.ytSrSuggest?.(this.value)"
+                 onkeydown="window.ytSrKeydown?.(event)"
+                 autocomplete="off">
+          <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍</button>
         </div>
-        <input id="yt-sr-input" class="yt-sr-input" type="text"
-               placeholder="YouTubeで検索"
-               onkeydown="window.ytSrKeydown?.(event)">
-        <button class="yt-sr-btn" onclick="window.ytSrSearch?.()">🔍</button>
+        <div id="yt-sr-suggest-drop" class="yt-sr-suggest-drop" style="display:none"></div>
       </div>
       <!-- Row2: セグメント / 並べ替え / 未取込のみ -->
       <div class="yt-sr-filter-row">
@@ -4242,6 +4247,8 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- ── Snapshot Annotation Editor ── -->
 <div class="ann-editor" id="snap-ann-editor">
+  <!-- 右上フローティング保存ボタン -->
+  <button class="ann-save-top" id="snap-ann-save-top" title="保存" onclick="document.getElementById('snap-ann-save').click()">✓ 保存</button>
   <!-- 手書きキャンバス用背景バー（手書き時のみ表示） -->
   <div id="snap-hw-bg-bar" style="display:none;background:#141414;border-bottom:1px solid #222;padding:6px 12px;align-items:center;gap:6px;flex-shrink:0;overflow-x:auto">
     <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">色</span>
