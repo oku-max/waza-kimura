@@ -548,6 +548,36 @@ canvas.eraser-cursor {
 }
 
 
+/* ── Handwriting BG Bar ── */
+
+.hw-bg-color {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer; flex-shrink: 0;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+  outline: none;
+}
+.hw-bg-color:hover { transform: scale(1.12); }
+.hw-bg-color.active {
+  border: 3px solid #e5c47a;
+  box-shadow: 0 0 0 2px rgba(229,196,122,.35);
+}
+
+.hw-bg-btn {
+  width: 34px; height: 34px; border-radius: 7px;
+  border: 2px solid transparent;
+  background: #1e1e1e; cursor: pointer; padding: 3px; flex-shrink: 0;
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+}
+.hw-bg-btn:hover { border-color: #555; }
+.hw-bg-btn.active {
+  border: 2px solid #e5c47a;
+  box-shadow: 0 0 0 2px rgba(229,196,122,.35);
+  background: #2a2a1a;
+}
+
+
 /* ── Annotation Widths ── */
 
 .ann-widths {

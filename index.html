@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.93</title>
+<title>WAZA KIMURA v52.94</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -4245,23 +4245,23 @@ window.addEventListener('resize', adjustTopbarOffset);
   <!-- 手書きキャンバス用背景バー（手書き時のみ表示） -->
   <div id="snap-hw-bg-bar" style="display:none;background:#141414;border-bottom:1px solid #222;padding:6px 12px;align-items:center;gap:6px;flex-shrink:0;overflow-x:auto">
     <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">色</span>
-    <button class="hw-bg-color active" data-color="#ffffff" onclick="window.snapChangeHwBgColor('#ffffff')" title="白" style="width:28px;height:28px;border-radius:50%;border:2px solid #e5c47a;background:#ffffff;cursor:pointer;flex-shrink:0"></button>
-    <button class="hw-bg-color" data-color="#fdf6e3" onclick="window.snapChangeHwBgColor('#fdf6e3')" title="クリーム" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#fdf6e3;cursor:pointer;flex-shrink:0"></button>
-    <button class="hw-bg-color" data-color="#b0c4de" onclick="window.snapChangeHwBgColor('#b0c4de')" title="ブルーグレー" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#b0c4de;cursor:pointer;flex-shrink:0"></button>
-    <button class="hw-bg-color" data-color="#4a4a4a" onclick="window.snapChangeHwBgColor('#4a4a4a')" title="グレー" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#4a4a4a;cursor:pointer;flex-shrink:0"></button>
-    <button class="hw-bg-color" data-color="#1a1a2e" onclick="window.snapChangeHwBgColor('#1a1a2e')" title="ダーク" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#1a1a2e;cursor:pointer;flex-shrink:0"></button>
+    <button class="hw-bg-color active" data-color="#ffffff" onclick="window.snapChangeHwBgColor('#ffffff')" title="白" style="background:#ffffff"></button>
+    <button class="hw-bg-color" data-color="#fdf6e3" onclick="window.snapChangeHwBgColor('#fdf6e3')" title="クリーム" style="background:#fdf6e3"></button>
+    <button class="hw-bg-color" data-color="#b0c4de" onclick="window.snapChangeHwBgColor('#b0c4de')" title="ブルーグレー" style="background:#b0c4de"></button>
+    <button class="hw-bg-color" data-color="#4a4a4a" onclick="window.snapChangeHwBgColor('#4a4a4a')" title="グレー" style="background:#4a4a4a"></button>
+    <button class="hw-bg-color" data-color="#1a1a2e" onclick="window.snapChangeHwBgColor('#1a1a2e')" title="ダーク" style="background:#1a1a2e"></button>
     <div style="width:1px;height:24px;background:#2e2e2e;flex-shrink:0;margin:0 2px"></div>
     <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">罫線</span>
-    <button class="hw-bg-btn active" data-bg="plain" onclick="window.snapChangeHwBgType('plain')" title="無地" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #e5c47a;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+    <button class="hw-bg-btn active" data-bg="plain" onclick="window.snapChangeHwBgType('plain')" title="無地">
       <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/></svg>
     </button>
-    <button class="hw-bg-btn" data-bg="dot" onclick="window.snapChangeHwBgType('dot')" title="ドット" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #2e2e2e;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+    <button class="hw-bg-btn" data-bg="dot" onclick="window.snapChangeHwBgType('dot')" title="ドット">
       <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/><circle cx="7" cy="7" r="1.4" fill="#bbb"/><circle cx="13" cy="7" r="1.4" fill="#bbb"/><circle cx="19" cy="7" r="1.4" fill="#bbb"/><circle cx="7" cy="13" r="1.4" fill="#bbb"/><circle cx="13" cy="13" r="1.4" fill="#bbb"/><circle cx="19" cy="13" r="1.4" fill="#bbb"/><circle cx="7" cy="19" r="1.4" fill="#bbb"/><circle cx="13" cy="19" r="1.4" fill="#bbb"/><circle cx="19" cy="19" r="1.4" fill="#bbb"/></svg>
     </button>
-    <button class="hw-bg-btn" data-bg="line" onclick="window.snapChangeHwBgType('line')" title="横線" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #2e2e2e;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+    <button class="hw-bg-btn" data-bg="line" onclick="window.snapChangeHwBgType('line')" title="横線">
       <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/><line x1="0" y1="9" x2="26" y2="9" stroke="#bbb" stroke-width="1"/><line x1="0" y1="17" x2="26" y2="17" stroke="#bbb" stroke-width="1"/></svg>
     </button>
-    <button class="hw-bg-btn" data-bg="grid" onclick="window.snapChangeHwBgType('grid')" title="方眼" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #2e2e2e;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
+    <button class="hw-bg-btn" data-bg="grid" onclick="window.snapChangeHwBgType('grid')" title="方眼">
       <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/><line x1="9" y1="0" x2="9" y2="26" stroke="#bbb" stroke-width="1"/><line x1="17" y1="0" x2="17" y2="26" stroke="#bbb" stroke-width="1"/><line x1="0" y1="9" x2="26" y2="9" stroke="#bbb" stroke-width="1"/><line x1="0" y1="17" x2="26" y2="17" stroke="#bbb" stroke-width="1"/></svg>
     </button>
   </div>
