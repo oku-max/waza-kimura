@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.74 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.75 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1755,8 +1755,10 @@ function _createGDriveVideoEl(container, fileId, token) {
   const video = document.createElement('video');
   video.src         = src;
   video.controls    = true;
-  video.playsinline = true;
   video.autoplay    = true;
+  // iOS Safari はJS propertyではなくHTML attributeで判定するため両方必要
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
   video.style.cssText = 'width:100%;height:100%;background:#000';
   // 停止後1秒でコントロール非表示（スクショ用）、タップで再生復帰
   video.addEventListener('pause', () => {
