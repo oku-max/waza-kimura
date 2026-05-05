@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.75</title>
+<title>WAZA KIMURA v52.76</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -683,6 +683,16 @@
 
 #vpanel-title-area { flex-shrink: 0; }
 #vpanel-skip-area  { flex-shrink: 0; background: var(--surface); }
+
+/* スマホ横向き: スキップバーが常に見えるよう動画エリアを伸縮 */
+@media (orientation:landscape) and (max-height:500px) {
+  #vpanel-iframe-container {
+    flex: 1 1 0 !important;
+    aspect-ratio: unset !important;
+    height: 0 !important;
+    min-height: 0 !important;
+  }
+}
 
 /* ── Vパネル 検索メニュー ── */
 .vp-search-menu {
