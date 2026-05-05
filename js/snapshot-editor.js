@@ -1515,7 +1515,7 @@ function generateHwBaseImage(bgType, bgColor, W, H) {
 
   // 固定canvasピクセル値（W比率にすると画面サイズで見た目が変わるため）
   // canvasは常に displayWidth×2 で生成されCSSで0.5倍表示 → 25canvas px = 12.5物理px
-  const step = 25;
+  const step = 50;
   ctx.strokeStyle = patternColor;
   ctx.lineWidth = 1;
 
