@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.79 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.80 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -17,6 +17,8 @@ let _gdSeekTimer = null;            // seekデバウンスタイマー
 let _vmPlayer  = null;
 let _vmCurTime = 0;
 let _vmDuration = 0;
+// 再生速度（連続再生時に引き継ぎ）
+let _vpPlaybackRate = 1;
 function _loadVimeoApi() {
   return new Promise((resolve) => {
     if (window.Vimeo && window.Vimeo.Player) return resolve();
@@ -172,6 +174,7 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
       events: {
         onReady: (e) => {
           _ytPlayerReady = true;
+          if (_vpPlaybackRate !== 1) { try { _ytPlayer.setPlaybackRate(_vpPlaybackRate); } catch(e2) {} }
           _startTimeDisplay();
           if (onReady) onReady(e);
         },
@@ -350,7 +353,7 @@ function _repeatSVG() {
   return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
 }
 function _shuffleSVG() {
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><path d="M4 20c5 0 9-16 13-16h4"/><polyline points="21 16 21 21 16 21"/><path d="M4 4c5 0 9 16 13 16"/></svg>`;
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><path d="M4 20c5 0 9-16 13-16h4"/><polyline points="21 16 21 21 16 21"/><path d="M4 4c5 0 9 16 13 16h4"/></svg>`;
 }
 
 // ── スキップボタンHTML ──
@@ -1367,6 +1370,11 @@ export function openVPanel(id) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
 
+  // 再生速度を保存（次の動画に引き継ぐ）
+  if (_ytPlayer && _ytPlayerReady)  { try { _vpPlaybackRate = _ytPlayer.getPlaybackRate(); } catch(e) {} }
+  else if (_gdVideoEl)               { _vpPlaybackRate = _gdVideoEl.playbackRate || 1; }
+  // Vimeo は playbackratechange イベントで _vpPlaybackRate をキャッシュ済み
+
   // GDriveリセット — pause・タイマー・clickハンドラをすべて解除してから参照を切る
   if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} }
   clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
@@ -1442,7 +1450,11 @@ export function openVPanel(id) {
           _vmPlayer = new Vimeo.Player(ifr);
           _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
           _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
-          _vmPlayer.on('loaded', () => { _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{}); });
+          _vmPlayer.on('playbackratechange', (data) => { _vpPlaybackRate = data.playbackRate || 1; });
+          _vmPlayer.on('loaded', () => {
+            _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
+            if (_vpPlaybackRate !== 1) _vmPlayer.setPlaybackRate(_vpPlaybackRate).catch(()=>{});
+          });
           _startTimeDisplay();
         } catch(e) { console.warn('Vimeo player init error', e); }
       });
@@ -1794,7 +1806,11 @@ function _createGDriveVideoEl(container, fileId, token) {
     }
   };
   container.addEventListener('click', _gdContainerClick);
-  video.addEventListener('play',  () => _startTimeDisplay());
+  video.addEventListener('ratechange', () => { _vpPlaybackRate = video.playbackRate || 1; });
+  video.addEventListener('play',  () => {
+    if (_vpPlaybackRate !== 1 && video.playbackRate !== _vpPlaybackRate) video.playbackRate = _vpPlaybackRate;
+    _startTimeDisplay();
+  });
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
   video.addEventListener('ended', () => { _vpHandleEnded(); });
   video.addEventListener('error', () => {
