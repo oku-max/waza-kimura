@@ -2487,27 +2487,31 @@ export function vpEditTitle(id) {
   const v = (window.videos||[]).find(v => v.id === id); if (!v) return;
   const area = document.getElementById('vpanel-title-area'); if (!area) return;
   const titleDiv = document.getElementById('vp-title-text-' + id); if (!titleDiv) return;
-  const current = v.title || '';
-  // テキスト表示をインライン入力に置換
+  const orig = v.title || '';
   titleDiv.style.display = 'none';
   const editBtn = document.getElementById('vp-title-edit-btn');
   if (editBtn) editBtn.style.display = 'none';
   const inp = document.createElement('input');
   inp.id = 'vp-title-inp-' + id;
-  inp.value = current;
+  inp.value = orig;
   inp.style.cssText = 'flex:1;font-size:12px;font-weight:700;border:1.5px solid var(--accent);border-radius:6px;padding:3px 6px;outline:none;font-family:inherit;color:var(--text);background:var(--surface);min-width:0';
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = '保存';
-  saveBtn.style.cssText = 'flex-shrink:0;padding:3px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
-  saveBtn.onclick = () => vpSaveTitle(id);
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = 'キャンセル';
-  cancelBtn.style.cssText = 'flex-shrink:0;padding:3px 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit';
-  cancelBtn.onclick = () => { inp.remove(); saveBtn.remove(); cancelBtn.remove(); titleDiv.style.display=''; if(editBtn)editBtn.style.display=''; };
-  inp.onkeydown = e => { if(e.key==='Enter'){vpSaveTitle(id);} else if(e.key==='Escape'){cancelBtn.click();} };
+  const finish = (save) => {
+    inp.onblur = null;
+    if (save) {
+      vpSaveTitle(id); // GDrive rename + toast + DOM cleanup を委譲
+    } else {
+      inp.remove();
+      titleDiv.style.display = '';
+      if (editBtn) editBtn.style.display = '';
+      titleDiv.textContent = orig;
+    }
+  };
+  inp.onblur = () => finish(true);
+  inp.onkeydown = e => {
+    if (e.key === 'Enter') { finish(true); }
+    else if (e.key === 'Escape') { inp.onblur = null; finish(false); }
+  };
   titleDiv.parentNode.insertBefore(inp, titleDiv);
-  titleDiv.parentNode.insertBefore(saveBtn, titleDiv);
-  titleDiv.parentNode.insertBefore(cancelBtn, titleDiv);
   inp.focus(); inp.select();
 }
 
@@ -2523,7 +2527,6 @@ export async function vpSaveTitle(id) {
   // タイトル表示を更新して編集モード終了
   const titleDiv = document.getElementById('vp-title-text-' + id);
   if (titleDiv) { titleDiv.textContent = newTitle; titleDiv.style.display = ''; }
-  inp.nextSibling?.remove(); inp.nextSibling?.remove(); // save/cancelボタン除去
   inp.remove();
   const editBtn = document.getElementById('vp-title-edit-btn');
   if (editBtn) editBtn.style.display = '';
