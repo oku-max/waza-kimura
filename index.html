@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.87</title>
+<title>WAZA KIMURA v52.88</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -110,7 +110,7 @@
   } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
-  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput, changeHwBgType } from './js/snapshot-editor.js';
+  import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput, changeHwBgType, changeHwBgColor } from './js/snapshot-editor.js';
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
@@ -482,6 +482,7 @@
   window.handleSnapshotPaste   = handleSnapshotPaste;
   window.triggerSnapFileInput  = triggerSnapFileInput;
   window.snapChangeHwBgType    = changeHwBgType;
+  window.snapChangeHwBgColor   = changeHwBgColor;
   window.autoSaveVp            = autoSaveVp;
   window.vpSave                = vpSave;
   window.vpTogChannelDd        = vpTogChannelDd;
@@ -4241,9 +4242,16 @@ window.addEventListener('resize', adjustTopbarOffset);
 
 <!-- ── Snapshot Annotation Editor ── -->
 <div class="ann-editor" id="snap-ann-editor">
-  <!-- 手書きキャンバス用背景パターンバー（手書き時のみ表示） -->
-  <div id="snap-hw-bg-bar" style="display:none;background:#141414;border-bottom:1px solid #222;padding:6px 12px;align-items:center;gap:8px;flex-shrink:0">
-    <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">背景</span>
+  <!-- 手書きキャンバス用背景バー（手書き時のみ表示） -->
+  <div id="snap-hw-bg-bar" style="display:none;background:#141414;border-bottom:1px solid #222;padding:6px 12px;align-items:center;gap:6px;flex-shrink:0;overflow-x:auto">
+    <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">色</span>
+    <button class="hw-bg-color active" data-color="#ffffff" onclick="window.snapChangeHwBgColor('#ffffff')" title="白" style="width:28px;height:28px;border-radius:50%;border:2px solid #e5c47a;background:#ffffff;cursor:pointer;flex-shrink:0"></button>
+    <button class="hw-bg-color" data-color="#fdf6e3" onclick="window.snapChangeHwBgColor('#fdf6e3')" title="クリーム" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#fdf6e3;cursor:pointer;flex-shrink:0"></button>
+    <button class="hw-bg-color" data-color="#b0c4de" onclick="window.snapChangeHwBgColor('#b0c4de')" title="ブルーグレー" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#b0c4de;cursor:pointer;flex-shrink:0"></button>
+    <button class="hw-bg-color" data-color="#4a4a4a" onclick="window.snapChangeHwBgColor('#4a4a4a')" title="グレー" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#4a4a4a;cursor:pointer;flex-shrink:0"></button>
+    <button class="hw-bg-color" data-color="#1a1a2e" onclick="window.snapChangeHwBgColor('#1a1a2e')" title="ダーク" style="width:28px;height:28px;border-radius:50%;border:2px solid #2e2e2e;background:#1a1a2e;cursor:pointer;flex-shrink:0"></button>
+    <div style="width:1px;height:24px;background:#2e2e2e;flex-shrink:0;margin:0 2px"></div>
+    <span style="font-size:10px;color:#555;font-weight:700;letter-spacing:.5px;flex-shrink:0">罫線</span>
     <button class="hw-bg-btn active" data-bg="plain" onclick="window.snapChangeHwBgType('plain')" title="無地" style="width:34px;height:34px;border-radius:7px;border:1.5px solid #e5c47a;background:#1e1e1e;cursor:pointer;padding:3px;flex-shrink:0">
       <svg width="26" height="26"><rect width="26" height="26" rx="3" fill="#fff"/></svg>
     </button>
@@ -4312,6 +4320,7 @@ window.addEventListener('resize', adjustTopbarOffset);
       <div class="ann-color" data-color="#ffffff" style="background:#ffffff;border-color:#ccc"></div>
       <div class="ann-color" data-color="#3498db" style="background:#3498db"></div>
       <div class="ann-color" data-color="#2ecc71" style="background:#2ecc71"></div>
+      <div class="ann-color" data-color="#000000" style="background:#000000;border-color:#555"></div>
     </div>
     <div class="ann-color-popup" id="snap-ann-color-popup" style="display:none">
       <input type="color" id="snap-ann-color-picker" value="#e74c3c">
