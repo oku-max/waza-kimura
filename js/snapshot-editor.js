@@ -72,6 +72,10 @@ let globalListenersBound = false;
 let lbListenersBound = false;
 let editorListenersBound = false;
 
+// 手書きキャンバス
+let isHandwritingMode = false;
+let hwBgType = 'plain';
+
 // ════════════════════════════════════════════════════════════════
 // ── DOM Element Helpers (lazy-cached)
 // ════════════════════════════════════════════════════════════════
@@ -1407,6 +1411,98 @@ function onAnnUp(e) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// ── Handwriting Canvas
+// ════════════════════════════════════════════════════════════════
+
+function generateHwBaseImage(bgType) {
+  const W = 1080, H = 1440;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  const step = 72; // ~28px at display scale
+  ctx.strokeStyle = '#d4d4d4';
+  ctx.lineWidth = 2;
+  if (bgType === 'dot') {
+    for (let x = step; x < W; x += step)
+      for (let y = step; y < H; y += step) {
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#cccccc'; ctx.fill();
+      }
+  } else if (bgType === 'line') {
+    for (let y = step; y < H; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  } else if (bgType === 'grid') {
+    for (let x = step; x < W; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = step; y < H; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  }
+  return c.toDataURL('image/png');
+}
+
+function openHandwritingCanvas() {
+  isHandwritingMode = true;
+  hwBgType = 'plain';
+  annIdx = -1;
+  annotations = [];
+  redoStack = [];
+  selectedIdx = null;
+  editingTextIdx = null;
+  selDragging = false;
+  cropActive = false;
+  annTextBg = false;
+
+  const cropEl = getCropActionsEl();
+  if (cropEl) cropEl.style.display = 'none';
+
+  const editor = getAnnEditor();
+  if (!editor) return;
+  editor.classList.add('active');
+
+  // 手書きモードはペンをデフォルトツールに
+  annTool = 'pen';
+  editor.querySelectorAll('.ann-tool[data-tool]').forEach(b => b.classList.remove('active'));
+  const penBtn = editor.querySelector('.ann-tool[data-tool="pen"]');
+  if (penBtn) penBtn.classList.add('active');
+  updateFontsizeVisibility();
+
+  // 背景パターンバーを表示、アクティブボタンをリセット
+  const bgBar = document.getElementById('snap-hw-bg-bar');
+  if (bgBar) {
+    bgBar.style.display = 'flex';
+    bgBar.querySelectorAll('.hw-bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === 'plain'));
+  }
+
+  const canvas = getAnnCanvas();
+  if (canvas) annCtx = canvas.getContext('2d');
+
+  annImg = new Image();
+  annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
+  annImg.src = generateHwBaseImage('plain');
+}
+
+export function changeHwBgType(newBgType) {
+  if (!isHandwritingMode) return;
+  hwBgType = newBgType;
+  const bgBar = document.getElementById('snap-hw-bg-bar');
+  if (bgBar) bgBar.querySelectorAll('.hw-bg-btn').forEach(b => b.classList.toggle('active', b.dataset.bg === newBgType));
+  annImg = new Image();
+  annImg.onload = () => { resizeAnnCanvas(); renderAnnotations(); };
+  annImg.src = generateHwBaseImage(newBgType);
+}
+
+async function addSnapshotBlob(videoId, blob) {
+  const id = generateId();
+  const url = URL.createObjectURL(blob);
+  const snap = { id, videoId, blob, url, memo: '', annotations: [], order: snapshots.length };
+  snapshots.push(snap);
+  try { await putSnapshot(id, videoId, blob, []); } catch (e) { console.error('[snapshot-editor] putSnapshot (hw) failed:', e); }
+  renderGrid();
+  syncVideoRefs();
+}
+
+// ════════════════════════════════════════════════════════════════
 // ── Open / Close Annotation Editor
 // ════════════════════════════════════════════════════════════════
 
@@ -1452,6 +1548,9 @@ function openAnnotationEditor(idx) {
 function closeAnnotationEditor() {
   const editor = getAnnEditor();
   if (editor) editor.classList.remove('active');
+  isHandwritingMode = false;
+  const bgBar = document.getElementById('snap-hw-bg-bar');
+  if (bgBar) bgBar.style.display = 'none';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1494,8 +1593,27 @@ function commitPendingText() {
 
 async function saveAnnotationEditor() {
   if (cropActive) return;
-  if (!annImg || annIdx < 0 || !snapshots[annIdx]) return;
   commitPendingText();
+
+  // 手書きキャンバス: 新規スナップショットとして保存
+  if (isHandwritingMode) {
+    if (!annImg) return;
+    const c = document.createElement('canvas');
+    c.width = annImg.naturalWidth || annImg.width;
+    c.height = annImg.naturalHeight || annImg.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(annImg, 0, 0);
+    annotations.forEach(a => drawAnnotation(ctx, a));
+    return new Promise((resolve) => {
+      c.toBlob(async (blob) => {
+        await addSnapshotBlob(currentVideoId, blob);
+        closeAnnotationEditor();
+        resolve();
+      }, 'image/png');
+    });
+  }
+
+  if (!annImg || annIdx < 0 || !snapshots[annIdx]) return;
 
   const c = document.createElement('canvas');
   c.width = annImg.naturalWidth || annImg.width;
@@ -1922,8 +2040,15 @@ function bindAddButton() {
   if (addBtn) {
     if (_snapOpts.onAddClick) {
       addBtn.addEventListener('click', _snapOpts.onAddClick);
-    } else if (fileInput) {
-      addBtn.addEventListener('click', () => fileInput.click());
+    } else {
+      addBtn.addEventListener('click', () => {
+        const sheet = document.getElementById('snap-add-type-sheet');
+        if (sheet) {
+          sheet.style.display = 'flex';
+        } else if (fileInput) {
+          fileInput.click();
+        }
+      });
     }
   }
   if (fileInput) {
@@ -2146,6 +2271,8 @@ export function getSnapshotRefs(videoId) {
 
 window.snapOpenLightbox = (idx) => openLightbox(idx);
 window.snapDelete = (idx) => deleteSnap(idx);
+window.snapOpenHandwritingCanvas = () => openHandwritingCanvas();
+window.snapChangeHwBgType = (t) => changeHwBgType(t);
 window.snapAddFile = (videoId) => {
   const fileInput = getFileInput();
   if (fileInput) {
