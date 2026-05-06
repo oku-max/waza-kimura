@@ -2383,6 +2383,13 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
 
 // （ブックマーク追加/削除/シークは _nbvi* 既存ハンドラを使用）
 
+// ── Vパネルが開かれたとき等に全インライン動画を一時停止 ──
+window._notesPauseAllInlineVideos = function() {
+  Object.values(_nBviYtP).forEach(p => { try { p?.pauseVideo?.(); } catch(e) {} });
+  Object.values(_nBviVmP).forEach(p => { try { p?.pause?.(); } catch(e) {} });
+  Object.values(_nBviGdV).forEach(v => { try { v?.pause?.(); } catch(e) {} });
+};
+
 // ── インライン動画ヘッダー: ⋮ メニュー ──
 window._notesVidMenu = function(noteId, idx, btnEl) {
   const r = _findNote(noteId);
