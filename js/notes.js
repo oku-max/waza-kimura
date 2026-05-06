@@ -1018,13 +1018,16 @@ function _blockHTML(block, idx, noteId, total) {
     case 'video': {
       const platform = block.platform || 'youtube';
       const rawId = block.videoId || '';
-      const widthPct = block.vidWidth || 100;
+      const widthPct = block.vidWidth || 30;
       const displayUrl = platform === 'gdrive'
         ? `drive.google.com/file/d/${rawId.replace(/^gd-/,'')}/view`
         : (platform === 'vimeo' || platform === 'vm')
         ? `vimeo.com/${rawId.replace(/^yt-/,'')}`
         : `youtube.com/watch?v=${rawId}`;
       const title = block.title || block.videoId || '(無題)';
+      const libV = (window.videos || []).find(v => v.id === rawId || v.ytId === rawId);
+      const chapters = libV?.ytChapters || [];
+      const hasChapters = chapters.length > 0;
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
           <div class="n-iv-hdr">
@@ -1039,6 +1042,14 @@ function _blockHTML(block, idx, noteId, total) {
           <div class="n-iv-content">
             <div class="n-iv-url-bar">${_esc(displayUrl)}</div>
             <div class="n-iv-vid-wrap" id="n-iv-vid-${noteId}-${idx}" data-platform="${platform}"></div>
+            ${hasChapters ? `<div class="n-iv-chap-section" id="n-iv-chap-${noteId}-${idx}">
+              <div class="n-iv-chap-hdr"
+                onclick="event.stopPropagation();window._notesIvTogChap('${noteId}',${idx})">
+                <span class="n-iv-chap-label">📑 チャプター (${chapters.length})</span>
+                <span class="n-iv-toggle">∨</span>
+              </div>
+              <div class="n-iv-chap-list" style="display:none"></div>
+            </div>` : ''}
             <div class="n-iv-ab-section" id="n-iv-ab-${noteId}-${idx}">
               <div class="n-iv-ab-hdr">
                 <span class="n-iv-ab-label">🔁 ループ再生</span>
@@ -1047,12 +1058,20 @@ function _blockHTML(block, idx, noteId, total) {
               </div>
             </div>
             <div class="n-iv-bm-section" id="n-iv-bm-${noteId}-${idx}">
-              <div class="n-iv-bm-hdr">
+              <div class="n-iv-bm-hdr"
+                onclick="event.stopPropagation();window._notesIvTogBm('${noteId}',${idx})">
                 <span class="n-iv-bm-label">📌 ブックマーク</span>
                 <button class="n-iv-bm-add-btn"
                   onclick="event.stopPropagation();window._notesIvBmAddNow('${noteId}',${idx})">＋ 現在位置</button>
                 <span class="n-iv-toggle">∨</span>
               </div>
+              <div class="n-iv-bm-list" style="display:none"></div>
+            </div>
+            <div class="n-iv-memo-section" id="n-iv-memo-${noteId}-${idx}" style="display:none">
+              <div class="n-iv-memo-hdr">📝 動画メモ（Vパネルと共有）</div>
+              <textarea class="n-iv-memo-area" id="n-iv-memo-ta-${noteId}-${idx}"
+                placeholder="この動画についてのメモ..."
+                onblur="window._notesIvSaveMemo('${noteId}',${idx},this.value)"></textarea>
             </div>
           </div>
           <div class="n-iv-resize" title="ドラッグで幅変更"
@@ -2175,9 +2194,11 @@ function _initInlineVideo(noteId, idx, block) {
   const platform = block.platform || 'youtube';
   const rawId = block.videoId;
   if (!rawId) return;
+  const k = _nBviKey(noteId, idx);
   const wrap = document.getElementById(`n-iv-vid-${noteId}-${idx}`);
   if (!wrap) return;
-  // 既存iframe等のクリーンアップ
+  // 既存プレイヤー・iframeのクリーンアップ
+  _nBviClose(k);
   wrap.innerHTML = '';
 
   if (platform === 'youtube') {
@@ -2187,32 +2208,32 @@ function _initInlineVideo(noteId, idx, block) {
       iframe.allow = 'autoplay; encrypted-media; fullscreen';
       iframe.allowFullscreen = true;
       wrap.appendChild(iframe);
-      return;
-    }
-    const ytId = block.ytId || rawId;
-    const playerDivId = `n-iv-yt-${noteId}-${idx}`;
-    const playerDiv = document.createElement('div');
-    playerDiv.id = playerDivId;
-    wrap.appendChild(playerDiv);
-    const doInit = () => {
-      if (!document.getElementById(playerDivId)) return;
-      try {
-        new YT.Player(playerDivId, {
-          videoId: ytId,
-          playerVars: { rel: 0, modestbranding: 1, autoplay: 0, playsinline: 1 }
-        });
-      } catch(e) { console.warn('[notes inline yt]', e); }
-    };
-    if (window.YT && window.YT.Player) { doInit(); }
-    else {
-      if (!document.getElementById('yt-iframe-api-script')) {
-        const tag = document.createElement('script');
-        tag.id = 'yt-iframe-api-script';
-        tag.src = 'https://www.youtube.com/iframe_api';
-        document.head.appendChild(tag);
+    } else {
+      const ytId = block.ytId || rawId;
+      const playerDivId = `n-iv-yt-${noteId}-${idx}`;
+      const playerDiv = document.createElement('div');
+      playerDiv.id = playerDivId;
+      wrap.appendChild(playerDiv);
+      const doInit = () => {
+        if (!document.getElementById(playerDivId)) return;
+        try {
+          _nBviYtP[k] = new YT.Player(playerDivId, {
+            videoId: ytId,
+            playerVars: { rel: 0, modestbranding: 1, autoplay: 0, playsinline: 1 }
+          });
+        } catch(e) { console.warn('[notes inline yt]', e); }
+      };
+      if (window.YT && window.YT.Player) { doInit(); }
+      else {
+        if (!document.getElementById('yt-iframe-api-script')) {
+          const tag = document.createElement('script');
+          tag.id = 'yt-iframe-api-script';
+          tag.src = 'https://www.youtube.com/iframe_api';
+          document.head.appendChild(tag);
+        }
+        const prev = window._pendingYTInit;
+        window._pendingYTInit = function() { if (prev) prev(); doInit(); };
       }
-      const prev = window._pendingYTInit;
-      window._pendingYTInit = function() { if (prev) prev(); doInit(); };
     }
   } else if (platform === 'vimeo' || platform === 'vm') {
     const vmId = rawId.replace(/^yt-/,'');
@@ -2222,6 +2243,14 @@ function _initInlineVideo(noteId, idx, block) {
     iframe.allow = 'autoplay; encrypted-media; fullscreen';
     iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
+    _nBviLoadVimeoApi?.(() => {
+      try {
+        const vm = new Vimeo.Player(iframe);
+        _nBviVmP[k] = vm;
+        _nBviVmT[k] = 0;
+        vm.on('timeupdate', d => { _nBviVmT[k] = d.seconds || 0; });
+      } catch(e) { console.warn('[notes inline vm]', e); }
+    });
   } else if (platform === 'gdrive') {
     const fileId = rawId.startsWith('gd-') ? rawId.slice(3) : rawId;
     const token = window.getDriveTokenIfAvailable?.();
@@ -2229,6 +2258,7 @@ function _initInlineVideo(noteId, idx, block) {
       const video = document.createElement('video');
       video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
       video.controls = true; video.playsinline = true;
+      _nBviGdV[k] = video;
       wrap.appendChild(video);
     } else {
       const iframe = document.createElement('iframe');
@@ -2238,13 +2268,63 @@ function _initInlineVideo(noteId, idx, block) {
       wrap.appendChild(iframe);
     }
   } else {
-    // x / unknown — fallback
     const iframe = document.createElement('iframe');
     iframe.src = `https://www.youtube.com/embed/${rawId}?rel=0`;
     iframe.allow = 'autoplay; encrypted-media; fullscreen';
     iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
   }
+
+  // ブックマーク・メモを初期描画
+  _ivRefreshBmHdr(noteId, idx);
+  _ivRefreshChapList(noteId, idx);
+  _ivPopulateMemo(noteId, idx);
+}
+
+// ── 内部ヘルパー: BM ヘッダーと一覧の再描画 ──
+function _ivRefreshBmHdr(noteId, idx) {
+  const libV = _nBviGetLibV(noteId, idx);
+  const bms = libV?.bookmarks || [];
+  const lblEl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-label`);
+  if (lblEl) lblEl.textContent = `📌 ブックマーク${bms.length ? ' (' + bms.length + ')' : ''}`;
+  const listEl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-list`);
+  if (listEl) {
+    listEl.innerHTML = bms.length
+      ? bms.map((bm, i) => {
+          const t = bm.time ?? bm.a ?? 0;
+          const e = bm.endTime ?? bm.b;
+          const range = e != null ? `${_nBviFmt(t)} → ${_nBviFmt(e)}` : _nBviFmt(t);
+          return `<div class="n-iv-bm-item">
+            <span class="n-iv-bm-chip" onclick="event.stopPropagation();window._notesIvBmSeek('${noteId}',${idx},${t})">${range}</span>
+            <span class="n-iv-bm-item-label">${_esc(bm.label || '（ラベルなし）')}</span>
+            <button class="n-iv-bm-del-btn" onclick="event.stopPropagation();window._notesIvBmDel('${noteId}',${idx},${i})">×</button>
+          </div>`;
+        }).join('')
+      : '<div class="n-iv-bm-empty">ブックマークなし</div>';
+  }
+}
+
+// ── 内部ヘルパー: チャプター一覧の再描画 ──
+function _ivRefreshChapList(noteId, idx) {
+  const libV = _nBviGetLibV(noteId, idx);
+  const chapters = libV?.ytChapters || [];
+  const listEl = document.querySelector(`#n-iv-chap-${noteId}-${idx} .n-iv-chap-list`);
+  if (!listEl) return;
+  listEl.innerHTML = chapters.map(ch => {
+    const t = ch.t, h = Math.floor(t/3600), m = Math.floor((t%3600)/60), s = t%60;
+    const time = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+    return `<div class="n-iv-chap-item" onclick="event.stopPropagation();window._notesIvChapSeek('${noteId}',${idx},${t})">
+      <span class="n-iv-chap-time">${time}</span>
+      <span class="n-iv-chap-text">${_esc(ch.label)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── 内部ヘルパー: メモを v.memo から流し込み ──
+function _ivPopulateMemo(noteId, idx) {
+  const libV = _nBviGetLibV(noteId, idx);
+  const ta = document.getElementById(`n-iv-memo-ta-${noteId}-${idx}`);
+  if (ta) ta.value = libV?.memo || '';
 }
 
 // ── インライン動画ヘッダー: Vパネルへジャンプ ──
@@ -2259,9 +2339,68 @@ window._notesVidJumpVp = function(noteId, idx) {
   window.toast?.('ライブラリにこの動画が見つかりません', 2500);
 };
 
-// ── インライン動画ヘッダー: メモトグル（Vパネルメモと同期） ── Phase 2
+// ── インライン動画ヘッダー: メモトグル（Vパネルメモと同期） ──
 window._notesVidTogMemo = function(noteId, idx) {
-  window.toast?.('メモ表示は近日対応', 1800);
+  const sec = document.getElementById(`n-iv-memo-${noteId}-${idx}`);
+  const btn = document.querySelector(`#n-iv-${noteId}-${idx} .n-iv-cmt-btn`);
+  if (!sec) return;
+  const willOpen = sec.style.display === 'none';
+  sec.style.display = willOpen ? 'block' : 'none';
+  if (btn) btn.classList.toggle('open', willOpen);
+  if (willOpen) {
+    _ivPopulateMemo(noteId, idx);
+    setTimeout(() => document.getElementById(`n-iv-memo-ta-${noteId}-${idx}`)?.focus(), 50);
+  }
+};
+
+// ── メモ保存（v.memo に直接書き込み、debounceSave で同期） ──
+window._notesIvSaveMemo = function(noteId, idx, value) {
+  const libV = _nBviGetLibV(noteId, idx);
+  if (!libV) return;
+  if (libV.memo === value) return;
+  libV.memo = value;
+  window.debounceSave?.();
+  // 既にVパネルが開いていたらメモ欄も同期
+  const vpMemo = document.getElementById('vp-memo-' + libV.id);
+  if (vpMemo && vpMemo.value !== value) vpMemo.value = value;
+};
+
+// ── チャプター/AB/BM セクションのアコーディオン展開 ──
+window._notesIvTogChap = function(noteId, idx) {
+  const list = document.querySelector(`#n-iv-chap-${noteId}-${idx} .n-iv-chap-list`);
+  const tgl = document.querySelector(`#n-iv-chap-${noteId}-${idx} .n-iv-toggle`);
+  if (!list) return;
+  const willOpen = list.style.display === 'none';
+  list.style.display = willOpen ? 'block' : 'none';
+  if (tgl) tgl.textContent = willOpen ? '∧' : '∨';
+};
+
+window._notesIvTogBm = function(noteId, idx) {
+  const list = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-list`);
+  const tgl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-hdr .n-iv-toggle`);
+  if (!list) return;
+  const willOpen = list.style.display === 'none';
+  list.style.display = willOpen ? 'block' : 'none';
+  if (tgl) tgl.textContent = willOpen ? '∧' : '∨';
+};
+
+// ── チャプタークリック → シーク ──
+window._notesIvChapSeek = function(noteId, idx, sec) {
+  _nBviSeekTo(_nBviKey(noteId, idx), sec);
+};
+
+// ── ブックマーククリック → シーク ──
+window._notesIvBmSeek = function(noteId, idx, sec) {
+  _nBviSeekTo(_nBviKey(noteId, idx), sec);
+};
+
+// ── ブックマーク削除 ──
+window._notesIvBmDel = function(noteId, idx, bmIdx) {
+  const libV = _nBviGetLibV(noteId, idx);
+  if (!libV?.bookmarks) return;
+  libV.bookmarks.splice(bmIdx, 1);
+  window.debounceSave?.();
+  _ivRefreshBmHdr(noteId, idx);
 };
 
 // ── インライン動画ヘッダー: ⋮ メニュー ──
@@ -2306,9 +2445,25 @@ window._notesVidMenu = function(noteId, idx, btnEl) {
   }, 0);
 };
 
-// ── ブックマーク追加（Phase 2） ──
+// ── ブックマーク追加（現在位置） ──
 window._notesIvBmAddNow = function(noteId, idx) {
-  window.toast?.('ブックマーク追加機能は近日対応', 1800);
+  const k = _nBviKey(noteId, idx);
+  const libV = _nBviGetLibV(noteId, idx);
+  if (!libV) { window.toast?.('ライブラリにこの動画が見つかりません'); return; }
+  const t = Math.floor(_nBviCurTime(k));
+  if (!libV.bookmarks) libV.bookmarks = [];
+  libV.bookmarks.push({ time: t, label: '', note: '' });
+  libV.bookmarks.sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+  window.debounceSave?.();
+  // 一覧を開いて再描画
+  const list = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-list`);
+  if (list && list.style.display === 'none') {
+    list.style.display = 'block';
+    const tgl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-hdr .n-iv-toggle`);
+    if (tgl) tgl.textContent = '∧';
+  }
+  _ivRefreshBmHdr(noteId, idx);
+  window.toast?.(`📌 ${_nBviFmt(t)} に追加`, 1500);
 };
 
 // ── 右下ハンドルでドラッグリサイズ ──
@@ -2379,20 +2534,12 @@ function _closeSb() {
 window._notesCloseSb = _closeSb;
 
 // ── 動画追加ピッカー ──
-function _modePick(vm) {
-  return `<label class="n-sheet-lbl">表示スタイル</label>
-    <div class="n-vm-pick" id="n-vm-pick" style="margin-bottom:16px">
-      <button class="n-vm-btn${vm==='carousel'?' sel':''}" data-vm="carousel" onclick="window._notesVmPick('carousel')">🎠 カード</button>
-      <button class="n-vm-btn${vm==='inline'?' sel':''}" data-vm="inline" onclick="window._notesVmPick('inline')">📺 インライン</button>
-    </div>`;
-}
+// 旧「表示スタイル」（カード/インライン）はインライン統一に伴い廃止 (v52.107)
 
 function _notesVidPickerRenderPick(overlay) {
-  const vm = overlay.dataset.viewMode || 'carousel';
   overlay.innerHTML = `<div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
     <div class="n-sheet-hdr"><span class="n-sheet-title">＋ 動画を追加</span></div>
     <div class="n-sheet-body">
-      ${_modePick(vm)}
       <label class="n-sheet-lbl">追加方法を選択</label>
       <div class="n-src-list">
         <button class="n-src-btn" onclick="window._notesPickLib()">
@@ -2553,7 +2700,7 @@ window._notesVideoConfirm = function() {
     const colBlock = r2.note.blocks[ctx.colIdx];
     if (!colBlock || colBlock.type !== 'col') return;
     if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
-    colBlock.cols[ctx.slot].push({ type: 'video', videoId, title, channel, duration: '', viewMode: 'inline' });
+    colBlock.cols[ctx.slot].push({ type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 });
     r2.note.updatedAt = Date.now();
     _save();
     window._notesSheetClose();
@@ -2565,7 +2712,7 @@ window._notesVideoConfirm = function() {
   if (!r) return;
   const added = r.note.blocks.some(b => b.type === 'video' && b.videoId === videoId);
   if (added) { window.toast?.('この動画はすでに追加されています'); return; }
-  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode });
+  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 });
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
@@ -2835,17 +2982,12 @@ function _showVideoAddSheet(noteId) {
   overlay.className = 'n-sheet-overlay';
   overlay.dataset.mode = 'video-add';
   overlay.dataset.noteId = noteId;
-  overlay.dataset.viewMode = 'carousel';
+  overlay.dataset.viewMode = 'inline';
   overlay.innerHTML = `
     <div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
       <div class="n-sheet-hdr"><span class="n-sheet-title">📹 動画を追加</span></div>
       <div class="n-sheet-body">
-        <label class="n-sheet-lbl" style="margin-bottom:6px">表示スタイル</label>
-        <div class="n-vm-pick" id="n-vm-pick">
-          <button class="n-vm-btn sel" data-vm="carousel" onclick="window._notesVmPick('carousel')">🎠 カード</button>
-          <button class="n-vm-btn"     data-vm="inline"   onclick="window._notesVmPick('inline')">📺 インライン</button>
-        </div>
-        <label class="n-sheet-lbl" style="margin-top:12px">YouTube URL</label>
+        <label class="n-sheet-lbl">YouTube URL</label>
         <input id="n-block-video-url" class="n-sheet-input" type="text"
                placeholder="https://www.youtube.com/watch?v=..."
                style="margin-bottom:10px"
@@ -2887,7 +3029,7 @@ window._notesVideoConfirm = function() {
   const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
   const thumb   = document.getElementById('n-block-video-title')?.dataset.thumb || '';
 
-  const block = { type: 'video', videoId, title, channel, duration: '', viewMode };
+  const block = { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 };
   if (isPlaylist) { block.isPlaylist = true; if (thumb) block.thumb = thumb; }
 
   const ctx = window._notesColContext;
@@ -3018,7 +3160,7 @@ window._notesVpAddConfirm = function(noteId, videoId) {
     const platform = v ? (v.pt || v.src || 'youtube') : 'youtube';
     const isYT = platform === 'youtube';
     note.blocks.push({
-      type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'carousel',
+      type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'inline', vidWidth: 30,
       platform,
       ytId: (isYT && v?.ytId) ? v.ytId : undefined,
       vmHash: v?.vmHash || undefined,
@@ -3059,9 +3201,8 @@ window._notesAddFromLib = function(videoId, noteId) {
   if (!v) return;
   const platform = v.pt || v.src || 'youtube';
   const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
-  const viewMode = window._noteModeViewMode || 'carousel';
   const vidBlock = {
-    type: 'video', videoId, platform, viewMode,
+    type: 'video', videoId, platform, viewMode: 'inline', vidWidth: 30,
     ytId: ytId || undefined,
     vmHash: v.vmHash || undefined,
     thumb: ytId ? undefined
