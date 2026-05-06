@@ -112,6 +112,108 @@
 }
 .n-iv-bm-add-btn:hover { border-color: #d4a843; color: #d4a843; }
 
+/* ── 動画リストブロック (vidlist) ── */
+.n-vl-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 8px 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.n-vl-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface2, #f6f6f4);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; color: var(--text);
+}
+.n-vl-icon { font-size: 14px; }
+.n-vl-name { flex: 1; }
+.n-vl-badge {
+  background: #d4a843; color: #1a1a1a;
+  padding: 1px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 700;
+}
+.n-vl-edit {
+  padding: 3px 8px; border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 10px; font-weight: 600;
+  color: var(--text2); cursor: pointer;
+  background: transparent;
+}
+.n-vl-edit:hover { background: var(--surface); border-color: var(--text3); }
+.n-vl-summary {
+  padding: 6px 14px;
+  font-size: 10px; color: var(--text3);
+  background: var(--surface2, #f6f6f4);
+  border-bottom: 1px solid var(--border2, #ebebeb);
+  word-break: break-word;
+}
+.n-vl-list { display: flex; flex-direction: column; }
+.n-vl-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border2, #ebebeb);
+  cursor: pointer; transition: background .12s;
+}
+.n-vl-row:last-child { border-bottom: 0; }
+.n-vl-row:hover { background: var(--surface2, #f6f6f4); }
+.n-vl-thumb {
+  width: 56px; height: 32px; border-radius: 4px;
+  flex-shrink: 0; overflow: hidden;
+  background: linear-gradient(135deg, #444 0%, #888 100%);
+}
+.n-vl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.n-vl-info { flex: 1; min-width: 0; }
+.n-vl-ttl {
+  font-size: 12px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.n-vl-meta {
+  display: flex; gap: 8px;
+  font-size: 10px; color: var(--text3);
+  margin-top: 2px;
+}
+.n-vl-pl { color: #d4a843; font-weight: 600; }
+.n-vl-ch { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-vl-dur {
+  font-size: 11px; color: var(--text3);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.n-vl-empty {
+  padding: 16px; text-align: center;
+  font-size: 11px; color: var(--text3);
+}
+.n-vl-more {
+  padding: 8px; text-align: center;
+  font-size: 10px; color: var(--text3);
+  background: var(--surface2, #f6f6f4);
+  cursor: default;
+}
+
+/* リスト条件編集シートのチップ */
+.n-vl-chip-row {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  margin: 0 0 14px;
+}
+.n-vl-chip {
+  display: inline-block;
+  padding: 4px 10px; border-radius: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 11px; color: var(--text2);
+  cursor: pointer;
+  user-select: none;
+}
+.n-vl-chip:hover { border-color: var(--text3); color: var(--text); }
+.n-vl-chip.on {
+  background: var(--accent, #c8a040);
+  border-color: var(--accent, #c8a040);
+  color: #fff; font-weight: 600;
+}
+
 /* AB ループ body（flowchart.css のマップ仕様を Notes scope に複製） */
 .n-iv-ab-section .ab-body { padding: 0; border-top: 1px solid #383838; }
 .n-iv-ab-section .ab-times-row {
