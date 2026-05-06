@@ -10,7 +10,53 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.100</title>
+<title>WAZA KIMURA v52.101</title>
+<script>
+// ── パフォーマンス計測（?perf=1 のときだけ表示） ──
+(function(){
+  window.__perf = { t0: performance.now ? performance.now() : Date.now() };
+  window.__pmark = function(name){
+    var t = performance.now ? performance.now() : Date.now();
+    window.__perf[name] = Math.round(t - window.__perf.t0);
+    if (window.__perfRender) window.__perfRender();
+  };
+  if (location.search.indexOf('perf=1') < 0) return;
+  function render(){
+    var p = window.__perf;
+    var lines = [
+      ['HTML start',           p.t0 != null ? '0' : '-'],
+      ['Firebase SDK done',    p.fb_sdk     != null ? p.fb_sdk + ' ms' : '...'],
+      ['config+tag-master',    p.cfg        != null ? p.cfg + ' ms'    : '...'],
+      ['Module script start',  p.mod_start  != null ? p.mod_start + ' ms' : '...'],
+      ['Imports done',         p.mod_done   != null ? p.mod_done + ' ms'  : '...'],
+      ['DOMContentLoaded',     p.dcl        != null ? p.dcl + ' ms'   : '...'],
+      ['window.load',          p.load       != null ? p.load + ' ms'  : '...'],
+      ['First data (auth)',    p.auth       != null ? p.auth + ' ms'  : '...'],
+      ['Cards rendered',       p.cards      != null ? p.cards + ' ms' : '...']
+    ];
+    var html = '<table style="border-collapse:collapse;font:11px/1.3 monospace;color:#0f0">'
+      + lines.map(function(r){
+          var col = r[1] === '...' ? '#888' : (parseInt(r[1])>3000 ? '#f44' : (parseInt(r[1])>1000 ? '#fa0' : '#0f0'));
+          return '<tr><td style="padding:1px 8px 1px 0">'+r[0]+'</td><td style="color:'+col+';font-weight:700">'+r[1]+'</td></tr>';
+        }).join('') + '</table>';
+    var el = document.getElementById('__perf_panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__perf_panel';
+      el.style.cssText = 'position:fixed;top:0;left:0;background:rgba(0,0,0,.92);padding:8px 12px;z-index:99999;border-bottom-right-radius:8px;pointer-events:none;max-width:calc(100% - 8px)';
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.innerHTML = html;
+  }
+  window.__perfRender = render;
+  if (document.readyState !== 'loading') render();
+  else document.addEventListener('DOMContentLoaded', function(){
+    window.__pmark('dcl');
+    render();
+  });
+  window.addEventListener('load', function(){ window.__pmark('load'); });
+})();
+</script>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/snapshot.css">
 <link rel="stylesheet" href="css/search.css">
@@ -22,10 +68,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script>window.__pmark&&window.__pmark('fb_sdk');</script>
 <!-- Google Identity Services (YouTube インポート用) -->
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="js/config.js"></script>
 <script src="js/tag-master.js"></script>
+<script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/tag-master-ui.js" defer></script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
@@ -33,6 +81,7 @@
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
 <script type="module">
+  window.__pmark&&window.__pmark('mod_start');
   import { showToast } from './js/ui.js';
   import { currentUser, saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings, saveFeedback } from './js/firebase.js';
   window.saveFeedback = saveFeedback;
@@ -136,6 +185,7 @@
     refreshOpenSbAccordions, buildOrgSbSrcChips,
     openSbPopup, closeSbPopup
   } from './js/filter-overlay.js';
+  window.__pmark&&window.__pmark('mod_done');
 
   // yt-search
   window.ytSrInit          = ytSrInit;
