@@ -145,25 +145,27 @@ function _nBviSyncBmsToLib(k, noteId, idx) {
 
 function _nBviRefreshBm(k, noteId, idx) {
   const st = _nBviGetAb(k);
-  const list = document.getElementById('n-bvi-bm-list-' + k);
-  if (list) {
-    const bms = st.bookmarks || [];
-    list.innerHTML = bms.length
+  const bms = st.bookmarks || [];
+  // 新HTML構造（.n-iv-bm-list / .n-iv-bm-label）に描画
+  const newList = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-list`);
+  if (newList) {
+    newList.innerHTML = bms.length
       ? bms.map((bm, i) => _nBviBmItemHTML(k, noteId, idx, bm, i)).join('')
-      : '<div style="color:var(--text3);font-size:11px;padding:4px 0">ブックマークなし</div>';
+      : '<div class="n-iv-bm-empty">ブックマークなし</div>';
   }
-  const lbl = document.getElementById('n-bvi-bm-lbl-' + k);
-  if (lbl) lbl.textContent = `📌 ブックマーク${(st.bookmarks || []).length ? ' (' + st.bookmarks.length + ')' : ''}`;
+  const newLbl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-label`);
+  if (newLbl) newLbl.textContent = `📌 ブックマーク${bms.length ? ' (' + bms.length + ')' : ''}`;
 }
 
 function _nBviBmItemHTML(k, noteId, idx, bm, i) {
   const eb = _nBviAb[k]?.editBm;
   if (eb?.idx === i) return _nBviBmEditHTML(k, noteId, idx, bm, i);
-  return `<div class="bm-item">
-    <span class="bm-chip" onclick="window._nbviSeekBm('${k}',${i})">${_nBviFmt(bm.a)}${bm.b != null ? ' → ' + _nBviFmt(bm.b) : ''}</span>
-    <span class="bm-item-label">${_esc(bm.label || '（ラベルなし）')}</span>
-    <button class="bm-edit-btn" onclick="window._nbviBmEdit('${k}','${noteId}',${idx},${i})">編集</button>
-    <button class="bm-del-btn" onclick="window._nbviDelBm('${k}','${noteId}',${idx},${i})">×</button>
+  const range = bm.b != null ? `${_nBviFmt(bm.a)} → ${_nBviFmt(bm.b)}` : _nBviFmt(bm.a);
+  return `<div class="n-iv-bm-item">
+    <span class="n-iv-bm-chip" onclick="event.stopPropagation();window._nbviSeekBm('${k}',${i})">${range}</span>
+    <span class="n-iv-bm-item-label">${_esc(bm.label || '（ラベルなし）')}</span>
+    <button class="n-iv-bm-edit-btn" onclick="event.stopPropagation();window._nbviBmEdit('${k}','${noteId}',${idx},${i})">編集</button>
+    <button class="n-iv-bm-del-btn" onclick="event.stopPropagation();window._nbviDelBm('${k}','${noteId}',${idx},${i})">×</button>
   </div>`;
 }
 
@@ -1063,9 +1065,9 @@ function _blockHTML(block, idx, noteId, total) {
                 <span class="n-iv-bm-label">📌 ブックマーク</span>
                 <button class="n-iv-bm-add-btn"
                   onclick="event.stopPropagation();window._notesIvBmAddNow('${noteId}',${idx})">＋ 現在位置</button>
-                <span class="n-iv-toggle">∨</span>
+                <span class="n-iv-toggle">∧</span>
               </div>
-              <div class="n-iv-bm-list" style="display:none"></div>
+              <div class="n-iv-bm-list"></div>
             </div>
             <div class="n-iv-memo-section" id="n-iv-memo-${noteId}-${idx}" style="display:none">
               <div class="n-iv-memo-hdr">📝 動画メモ（Vパネルと共有）</div>
@@ -2275,33 +2277,23 @@ function _initInlineVideo(noteId, idx, block) {
     wrap.appendChild(iframe);
   }
 
-  // ブックマーク・メモを初期描画
-  _ivRefreshBmHdr(noteId, idx);
+  // ブックマーク状態をライブラリから初期化（per-block stateへロード）
+  const libV = _nBviGetLibV(noteId, idx);
+  const st = _nBviGetAb(k);
+  if (libV?.bookmarks?.length && !(st.bookmarks || []).length) {
+    st.bookmarks = (libV.bookmarks || []).map(bm => {
+      const o = { a: bm.time ?? bm.a ?? 0, label: bm.label || '', note: bm.note || '' };
+      const end = bm.endTime ?? bm.b;
+      if (end != null) o.b = end;
+      return o;
+    });
+  }
+  if (!st.bookmarks) st.bookmarks = [];
+  st.editBm = null; // 描画ごとに編集状態リセット
+  // ブックマーク・チャプター・メモを初期描画
+  _nBviRefreshBm(k, noteId, idx);
   _ivRefreshChapList(noteId, idx);
   _ivPopulateMemo(noteId, idx);
-}
-
-// ── 内部ヘルパー: BM ヘッダーと一覧の再描画 ──
-function _ivRefreshBmHdr(noteId, idx) {
-  const libV = _nBviGetLibV(noteId, idx);
-  const bms = libV?.bookmarks || [];
-  const lblEl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-label`);
-  if (lblEl) lblEl.textContent = `📌 ブックマーク${bms.length ? ' (' + bms.length + ')' : ''}`;
-  const listEl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-list`);
-  if (listEl) {
-    listEl.innerHTML = bms.length
-      ? bms.map((bm, i) => {
-          const t = bm.time ?? bm.a ?? 0;
-          const e = bm.endTime ?? bm.b;
-          const range = e != null ? `${_nBviFmt(t)} → ${_nBviFmt(e)}` : _nBviFmt(t);
-          return `<div class="n-iv-bm-item">
-            <span class="n-iv-bm-chip" onclick="event.stopPropagation();window._notesIvBmSeek('${noteId}',${idx},${t})">${range}</span>
-            <span class="n-iv-bm-item-label">${_esc(bm.label || '（ラベルなし）')}</span>
-            <button class="n-iv-bm-del-btn" onclick="event.stopPropagation();window._notesIvBmDel('${noteId}',${idx},${i})">×</button>
-          </div>`;
-        }).join('')
-      : '<div class="n-iv-bm-empty">ブックマークなし</div>';
-  }
 }
 
 // ── 内部ヘルパー: チャプター一覧の再描画 ──
@@ -2389,19 +2381,7 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
   _nBviSeekTo(_nBviKey(noteId, idx), sec);
 };
 
-// ── ブックマーククリック → シーク ──
-window._notesIvBmSeek = function(noteId, idx, sec) {
-  _nBviSeekTo(_nBviKey(noteId, idx), sec);
-};
-
-// ── ブックマーク削除 ──
-window._notesIvBmDel = function(noteId, idx, bmIdx) {
-  const libV = _nBviGetLibV(noteId, idx);
-  if (!libV?.bookmarks) return;
-  libV.bookmarks.splice(bmIdx, 1);
-  window.debounceSave?.();
-  _ivRefreshBmHdr(noteId, idx);
-};
+// （ブックマーク追加/削除/シークは _nbvi* 既存ハンドラを使用）
 
 // ── インライン動画ヘッダー: ⋮ メニュー ──
 window._notesVidMenu = function(noteId, idx, btnEl) {
@@ -2451,10 +2431,11 @@ window._notesIvBmAddNow = function(noteId, idx) {
   const libV = _nBviGetLibV(noteId, idx);
   if (!libV) { window.toast?.('ライブラリにこの動画が見つかりません'); return; }
   const t = Math.floor(_nBviCurTime(k));
-  if (!libV.bookmarks) libV.bookmarks = [];
-  libV.bookmarks.push({ time: t, label: '', note: '' });
-  libV.bookmarks.sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
-  window.debounceSave?.();
+  const st = _nBviGetAb(k);
+  if (!st.bookmarks) st.bookmarks = [];
+  st.bookmarks.push({ a: t, label: '', note: '' });
+  st.bookmarks.sort((a, b) => (a.a ?? 0) - (b.a ?? 0));
+  _nBviSyncBmsToLib(k, noteId, idx);
   // 一覧を開いて再描画
   const list = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-list`);
   if (list && list.style.display === 'none') {
@@ -2462,7 +2443,7 @@ window._notesIvBmAddNow = function(noteId, idx) {
     const tgl = document.querySelector(`#n-iv-bm-${noteId}-${idx} .n-iv-bm-hdr .n-iv-toggle`);
     if (tgl) tgl.textContent = '∧';
   }
-  _ivRefreshBmHdr(noteId, idx);
+  _nBviRefreshBm(k, noteId, idx);
   window.toast?.(`📌 ${_nBviFmt(t)} に追加`, 1500);
 };
 
