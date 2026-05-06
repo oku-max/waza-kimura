@@ -15,15 +15,7 @@
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
-  // 動画リストのソート: { key, asc } オブジェクトで管理（localStorage に永続化）
-  let _vidSort = (() => {
-    try {
-      return {
-        key: localStorage.getItem('uni_vidSortKey') || 'addedAt',
-        asc: localStorage.getItem('uni_vidSortAsc') === 'true'
-      };
-    } catch { return { key: 'addedAt', asc: false }; }
-  })();
+  // 動画ソートはvidlistブロック単位（notes.js）で実装。ピッカー側では並び替えUIを持たない。
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
@@ -205,11 +197,6 @@
 #uni-popup .uni-vc-title{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 #uni-popup .uni-vc-meta{font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #uni-popup .uni-vc-notice{padding:7px 10px;font-size:10px;color:var(--text3);background:rgba(107,63,212,.06);border-bottom:1px solid rgba(107,63,212,.12);text-align:center;line-height:1.5}
-#uni-popup .uni-vc-sortbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
-#uni-popup .uni-vc-sortbar-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.3px;flex-shrink:0}
-#uni-popup .uni-vc-sortbar-sel{flex:1;min-width:0;font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit}
-#uni-popup .uni-vc-sortbar-dir{flex-shrink:0;font-size:12px;font-weight:700;padding:3px 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;line-height:1}
-#uni-popup .uni-vc-sortbar-dir:hover{background:var(--surface2)}
 #uni-popup .uni-vc-notice-sm{background:none;border-bottom:1px solid var(--border);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:space-between}
 #uni-popup .uni-vc-addall-btn{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid rgba(59,130,246,.4);background:rgba(59,130,246,.1);color:#93c5fd;cursor:pointer;white-space:nowrap;font-family:inherit}
 #uni-popup .uni-vc-addall-btn:hover{background:rgba(59,130,246,.2)}
@@ -325,25 +312,10 @@
   // ── 該当動画カラム ──
   function _mkVideoCol() {
     const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
-    let vids = _ctxVideos(null);
-    vids = _sortVidsForUni(vids);
+    const vids = _ctxVideos(null);
 
     const total = vids.length;
     const shown = vids.slice(0, 30);
-
-    const dirArrow = _vidSort.asc ? '↑' : '↓';
-    // ソートUIは別途body直下のバーとして表示（列ヘッダーは狭くて見切れるため）
-    const sortBar = `<div class="uni-vc-sortbar">
-      <span class="uni-vc-sortbar-lbl">並び替え</span>
-      <select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" class="uni-vc-sortbar-sel">
-        <option value="addedAt"${_vidSort.key==='addedAt'?' selected':''}>追加日</option>
-        <option value="title"${_vidSort.key==='title'?' selected':''}>タイトル</option>
-        <option value="status"${_vidSort.key==='status'?' selected':''}>習得度</option>
-        <option value="lastPlayed"${_vidSort.key==='lastPlayed'?' selected':''}>最近再生</option>
-        <option value="duration"${_vidSort.key==='duration'?' selected':''}>再生時間</option>
-      </select>
-      <button onclick="event.stopPropagation();uniToggleVidSortDir()" title="昇降順切替" class="uni-vc-sortbar-dir">${dirArrow}</button>
-    </div>`;
 
     const isNoteMode = !!_noteMode;
     const isVlMode = !!_vlBlockTarget;
@@ -393,7 +365,7 @@
     const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
     return `<div class="uni-col uni-col-vc">
       <div class="uni-col-hdr"><span>${colHeader}</span></div>
-      <div class="uni-col-body">${sortBar}${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
+      <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
     </div>`;
   }
 
@@ -922,47 +894,7 @@
     _render();
   };
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
-  // 動画ソートのキー変更
-  window.uniSetVidSort = function (key) {
-    _vidSort.key = key;
-    try { localStorage.setItem('uni_vidSortKey', key); } catch {}
-    _render();
-  };
-  // 動画ソートの昇降順切替
-  window.uniToggleVidSortDir = function () {
-    _vidSort.asc = !_vidSort.asc;
-    try { localStorage.setItem('uni_vidSortAsc', String(_vidSort.asc)); } catch {}
-    _render();
-  };
-  // ソート適用関数
-  function _sortVidsForUni(vids) {
-    const k = _vidSort.key;
-    const asc = _vidSort.asc;
-    const parseDur = d => {
-      if (typeof d === 'number') return d;
-      if (typeof d !== 'string' || !d) return 0;
-      const parts = d.split(':').map(n => parseInt(n, 10) || 0);
-      if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
-      if (parts.length === 2) return parts[0]*60 + parts[1];
-      return parseFloat(d) || 0;
-    };
-    const get = v => {
-      switch (k) {
-        case 'addedAt':    return v.addedAt || '';
-        case 'title':      return (v.title || '').toLowerCase();
-        case 'status':     return STATUS_ORDER[v.status || '未着手'] ?? 9;
-        case 'lastPlayed': return v.lastPlayed || 0;
-        case 'duration':   return parseDur(v.duration);
-        default:           return v.addedAt || '';
-      }
-    };
-    return vids.slice().sort((a, b) => {
-      const va = get(a), vb = get(b);
-      if (va < vb) return asc ? -1 : 1;
-      if (va > vb) return asc ? 1 : -1;
-      return 0;
-    });
-  }
+  // 動画ソートはvidlistブロック単位（notes.js）で実装。ここでは未提供。
   window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _queries[_tab] = _q; _render(); };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
