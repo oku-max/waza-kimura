@@ -1053,7 +1053,8 @@ function _blockHTML(block, idx, noteId, total) {
               <div class="n-iv-chap-list" style="display:none"></div>
             </div>` : ''}
             <div class="n-iv-ab-section" id="n-iv-ab-${noteId}-${idx}">
-              <div class="n-iv-ab-hdr">
+              <div class="n-iv-ab-hdr"
+                onclick="event.stopPropagation();window._nbviTogAb('${noteId}-${idx}')">
                 <span class="n-iv-ab-label">🔁 ループ再生</span>
                 <span class="n-iv-status-badge">未設定</span>
                 <span class="n-iv-toggle">∨</span>
@@ -1973,14 +1974,27 @@ window._nbviTogAb = function(k) {
   const st = _nBviGetAb(k);
   st.abOpen = !st.abOpen;
   const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
-  const playerEl = document.getElementById('n-bvi-player-' + noteId + '-' + idx);
-  const abSec = playerEl?.querySelector('.ab-section');
+  // 新HTML構造: .n-iv-ab-section
+  const abSec = document.getElementById(`n-iv-ab-${noteId}-${idx}`);
   if (!abSec) return;
-  const toggle = abSec.querySelector('.ab-toggle');
+  const toggle = abSec.querySelector('.n-iv-toggle');
   if (toggle) toggle.textContent = st.abOpen ? '∧' : '∨';
   const body = abSec.querySelector('.ab-body');
-  if (st.abOpen) { if (!body) abSec.insertAdjacentHTML('beforeend', _nBviAbBodyHTML(k, st)); }
-  else { body?.remove(); }
+  if (st.abOpen) {
+    if (!body) abSec.insertAdjacentHTML('beforeend', _nBviAbBodyHTML(k, st));
+    // duration があればスライダー最大値を更新
+    setTimeout(() => {
+      const sl = document.getElementById('n-bvi-ab-sl-' + k);
+      if (!sl) return;
+      let dur = 0;
+      if (_nBviYtP[k]?.getDuration) { try { dur = _nBviYtP[k].getDuration(); } catch(e){} }
+      else if (_nBviGdV[k]) dur = _nBviGdV[k].duration || 0;
+      else if (_nBviVmP[k]) _nBviVmP[k].getDuration().then(d => { if (d > 0) sl.max = Math.ceil(d); }).catch(()=>{});
+      if (dur > 0) sl.max = Math.ceil(dur);
+      const durLbl = document.getElementById('n-bvi-ab-dur-' + k);
+      if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
+    }, 30);
+  } else { body?.remove(); }
 };
 window._nbviSetAbTab = function(k, tab) {
   const st = _nBviGetAb(k); st.activeTab = tab;
@@ -1998,6 +2012,7 @@ window._nbviSlider = function(k, val) {
   const ea = document.getElementById('n-bvi-ab-a-' + k); if (ea) ea.textContent = _nBviFmt(st.a);
   const eb = document.getElementById('n-bvi-ab-b-' + k); if (eb) eb.textContent = _nBviFmt(st.b);
   _nBviSeekTo(k, t);
+  _nBviRefreshAbBadge(k);
 };
 window._nbviMicro = function(k, secs) {
   const st = _nBviGetAb(k);
@@ -2008,13 +2023,30 @@ window._nbviMicro = function(k, secs) {
   const disp = document.getElementById('n-bvi-ab-disp-' + k); if (disp) disp.textContent = _nBviFmt(base);
   const ea = document.getElementById('n-bvi-ab-a-' + k); if (ea) ea.textContent = _nBviFmt(st.a);
   const eb = document.getElementById('n-bvi-ab-b-' + k); if (eb) eb.textContent = _nBviFmt(st.b);
+  _nBviRefreshAbBadge(k);
 };
+
+// ── AB ヘッダーバッジを現在の状態で更新 ──
+function _nBviRefreshAbBadge(k) {
+  const st = _nBviGetAb(k);
+  const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
+  const badge = document.querySelector(`#n-iv-ab-${noteId}-${idx} .n-iv-status-badge`);
+  if (!badge) return;
+  if (st.a != null && st.b != null) {
+    badge.classList.add('active');
+    badge.textContent = `${_nBviFmt(st.a)}〜${_nBviFmt(st.b)}`;
+  } else {
+    badge.classList.remove('active');
+    badge.textContent = '未設定';
+  }
+}
 window._nbviClearAb = function(k) {
   const st = _nBviGetAb(k); st.a = null; st.b = null; st.looping = false;
   const ea = document.getElementById('n-bvi-ab-a-' + k); if (ea) ea.textContent = '--:--';
   const eb = document.getElementById('n-bvi-ab-b-' + k); if (eb) eb.textContent = '--:--';
-  const badge = document.querySelector('.ab-section .ab-status-badge');
-  if (badge) { badge.className = 'ab-status-badge'; badge.textContent = '未設定'; }
+  const sep = k.lastIndexOf('-'); const noteId = k.slice(0, sep); const idx = +k.slice(sep + 1);
+  const badge = document.querySelector(`#n-iv-ab-${noteId}-${idx} .n-iv-status-badge`);
+  if (badge) { badge.className = 'n-iv-status-badge'; badge.textContent = '未設定'; }
 };
 window._nbviSaveAb = function(k) {
   const st = _nBviGetAb(k);
@@ -2050,7 +2082,7 @@ window._nbviAddBmNow = function(k, noteId, idx) {
 window._nbviSeekBm = function(k, i) {
   const st = _nBviGetAb(k); const bm = (st.bookmarks || [])[i]; if (!bm) return;
   _nBviSeekTo(k, bm.a);
-  if (bm.b != null) { st.a = bm.a; st.b = bm.b; st.looping = true; }
+  if (bm.b != null) { st.a = bm.a; st.b = bm.b; st.looping = true; _nBviRefreshAbBadge(k); }
 };
 window._nbviDelBm = function(k, noteId, idx, i) {
   const st = _nBviGetAb(k); if (!st.bookmarks) return;
@@ -2221,7 +2253,17 @@ function _initInlineVideo(noteId, idx, block) {
         try {
           _nBviYtP[k] = new YT.Player(playerDivId, {
             videoId: ytId,
-            playerVars: { rel: 0, modestbranding: 1, autoplay: 0, playsinline: 1 }
+            playerVars: { rel: 0, modestbranding: 1, autoplay: 0, playsinline: 1 },
+            events: {
+              onReady: e => {
+                const dur = e.target.getDuration();
+                const sl = document.getElementById('n-bvi-ab-sl-' + k);
+                if (sl && dur > 0) sl.max = Math.ceil(dur);
+                const durLbl = document.getElementById('n-bvi-ab-dur-' + k);
+                if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
+                _nBviStartTimer(k);
+              }
+            }
           });
         } catch(e) { console.warn('[notes inline yt]', e); }
       };
@@ -2251,6 +2293,13 @@ function _initInlineVideo(noteId, idx, block) {
         _nBviVmP[k] = vm;
         _nBviVmT[k] = 0;
         vm.on('timeupdate', d => { _nBviVmT[k] = d.seconds || 0; });
+        vm.getDuration().then(dur => {
+          const sl = document.getElementById('n-bvi-ab-sl-' + k);
+          if (sl && dur > 0) sl.max = Math.ceil(dur);
+          const durLbl = document.getElementById('n-bvi-ab-dur-' + k);
+          if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
+        }).catch(()=>{});
+        _nBviStartTimer(k);
       } catch(e) { console.warn('[notes inline vm]', e); }
     });
   } else if (platform === 'gdrive') {
@@ -2261,6 +2310,14 @@ function _initInlineVideo(noteId, idx, block) {
       video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
       video.controls = true; video.playsinline = true;
       _nBviGdV[k] = video;
+      video.addEventListener('loadedmetadata', () => {
+        const dur = video.duration || 0;
+        const sl = document.getElementById('n-bvi-ab-sl-' + k);
+        if (sl && dur > 0) sl.max = Math.ceil(dur);
+        const durLbl = document.getElementById('n-bvi-ab-dur-' + k);
+        if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
+        _nBviStartTimer(k);
+      });
       wrap.appendChild(video);
     } else {
       const iframe = document.createElement('iframe');
@@ -2290,10 +2347,11 @@ function _initInlineVideo(noteId, idx, block) {
   }
   if (!st.bookmarks) st.bookmarks = [];
   st.editBm = null; // 描画ごとに編集状態リセット
-  // ブックマーク・チャプター・メモを初期描画
+  // ブックマーク・チャプター・メモ・ABバッジを初期描画
   _nBviRefreshBm(k, noteId, idx);
   _ivRefreshChapList(noteId, idx);
   _ivPopulateMemo(noteId, idx);
+  _nBviRefreshAbBadge(k);
 }
 
 // ── 内部ヘルパー: チャプター一覧の再描画 ──
