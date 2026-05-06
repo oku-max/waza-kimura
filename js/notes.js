@@ -1016,27 +1016,48 @@ function _blockHTML(block, idx, noteId, total) {
     case 'text':  return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-text')}${drag}${upBtn}${dnBtn}${del}</div>`;
     case 'quote': return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-quote')}${drag}${upBtn}${dnBtn}${del}</div>`;
     case 'video': {
-      // carousel blocks are grouped by _renderBlocks — only inline reaches here
-      const thumbUrl = _blockThumbUrl(block);
-      const thumbEl = thumbUrl
-        ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:18px',textContent:'🎥'}))">`
-        : `<span style="font-size:18px">🎥</span>`;
-      const modeBtn = `<button class="n-bvi-mode-btn" title="カードに切替"
-        onclick="event.stopPropagation();window._notesVidToggleMode('${noteId}',${idx})">🎠</button>`;
+      const platform = block.platform || 'youtube';
+      const rawId = block.videoId || '';
+      const widthPct = block.vidWidth || 100;
+      const displayUrl = platform === 'gdrive'
+        ? `drive.google.com/file/d/${rawId.replace(/^gd-/,'')}/view`
+        : (platform === 'vimeo' || platform === 'vm')
+        ? `vimeo.com/${rawId.replace(/^yt-/,'')}`
+        : `youtube.com/watch?v=${rawId}`;
+      const title = block.title || block.videoId || '(無題)';
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
-        <div class="n-b-video-inline">
-          <div class="n-bvi-header" onclick="window._notesVidTogglePlayer('${noteId}',${idx})">
-            <div class="n-bvi-thumb">${thumbEl}
-              <div class="n-bvi-play-badge"><div class="n-bvi-play-icon">▶</div></div>
-            </div>
-            <div class="n-bvi-info">
-              <div class="n-bvi-ttl">${_esc(block.title || block.videoId || '')}</div>
-              <div class="n-bvi-ch">${_esc(block.channel || '')}</div>
-              <div class="n-bvi-hint">▶ タップして展開再生</div>
-            </div>
-            ${modeBtn}
+        <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
+          <div class="n-iv-hdr">
+            <span class="n-iv-name" title="${_esc(title)}">${_esc(title)}</span>
+            <button class="n-iv-hdr-btn" title="Vパネルで開く"
+              onclick="event.stopPropagation();window._notesVidJumpVp('${noteId}',${idx})">▶</button>
+            <button class="n-iv-hdr-btn n-iv-cmt-btn" title="メモ"
+              onclick="event.stopPropagation();window._notesVidTogMemo('${noteId}',${idx})">📝</button>
+            <button class="n-iv-hdr-btn" title="メニュー"
+              onclick="event.stopPropagation();window._notesVidMenu('${noteId}',${idx},this)">⋮</button>
           </div>
-          <div class="n-bvi-player" id="n-bvi-player-${noteId}-${idx}"></div>
+          <div class="n-iv-content">
+            <div class="n-iv-url-bar">${_esc(displayUrl)}</div>
+            <div class="n-iv-vid-wrap" id="n-iv-vid-${noteId}-${idx}" data-platform="${platform}"></div>
+            <div class="n-iv-ab-section" id="n-iv-ab-${noteId}-${idx}">
+              <div class="n-iv-ab-hdr">
+                <span class="n-iv-ab-label">🔁 ループ再生</span>
+                <span class="n-iv-status-badge">未設定</span>
+                <span class="n-iv-toggle">∨</span>
+              </div>
+            </div>
+            <div class="n-iv-bm-section" id="n-iv-bm-${noteId}-${idx}">
+              <div class="n-iv-bm-hdr">
+                <span class="n-iv-bm-label">📌 ブックマーク</span>
+                <button class="n-iv-bm-add-btn"
+                  onclick="event.stopPropagation();window._notesIvBmAddNow('${noteId}',${idx})">＋ 現在位置</button>
+                <span class="n-iv-toggle">∨</span>
+              </div>
+            </div>
+          </div>
+          <div class="n-iv-resize" title="ドラッグで幅変更"
+            onmousedown="window._notesIvResizeStart(event,'${noteId}',${idx})"
+            ontouchstart="window._notesIvResizeStart(event,'${noteId}',${idx})"></div>
         </div>${drag}${upBtn}${dnBtn}${del}</div>`;
     }
     case 'image': {
@@ -1464,14 +1485,6 @@ function _renderBlocks(blocks, noteId) {
       parts.push(_renderColBlock(b, i, noteId));
       if (i < blocks.length - 1) parts.push(_insertStrip(noteId, i));
       i++;
-    } else if (b.type === 'video' && b.viewMode !== 'inline') {
-      const group = [];
-      while (i < blocks.length && blocks[i].type === 'video' && blocks[i].viewMode !== 'inline') {
-        group.push({ block: blocks[i], idx: i });
-        i++;
-      }
-      parts.push(_renderCarouselGroup(group, noteId));
-      if (i < blocks.length) parts.push(_insertStrip(noteId, i - 1));
     } else {
       parts.push(_blockHTML(b, i, noteId, total));
       if (i < blocks.length - 1) parts.push(_insertStrip(noteId, i));
@@ -2140,6 +2153,9 @@ function _renderNote(id) {
     if (b.type === 'image' && b.snapId) {
       _initNoteSnap(id, b.snapId, b, idx);
     }
+    if (b.type === 'video' && b.videoId) {
+      _initInlineVideo(id, idx, b);
+    }
     if (b.type === 'col' && b.cols) {
       b.cols.forEach((slotBlocks, slot) => {
         slotBlocks?.forEach(ib => {
@@ -2153,6 +2169,186 @@ function _renderNote(id) {
   // VPanel参照スナップを非同期ロード
   _hydrateRefSnaps();
 }
+
+// ── インライン動画パネル: 描画後にプレイヤー初期化 ──
+function _initInlineVideo(noteId, idx, block) {
+  const platform = block.platform || 'youtube';
+  const rawId = block.videoId;
+  if (!rawId) return;
+  const wrap = document.getElementById(`n-iv-vid-${noteId}-${idx}`);
+  if (!wrap) return;
+  // 既存iframe等のクリーンアップ
+  wrap.innerHTML = '';
+
+  if (platform === 'youtube') {
+    if (block.isPlaylist) {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube.com/embed/videoseries?list=${rawId}&rel=0`;
+      iframe.allow = 'autoplay; encrypted-media; fullscreen';
+      iframe.allowFullscreen = true;
+      wrap.appendChild(iframe);
+      return;
+    }
+    const ytId = block.ytId || rawId;
+    const playerDivId = `n-iv-yt-${noteId}-${idx}`;
+    const playerDiv = document.createElement('div');
+    playerDiv.id = playerDivId;
+    wrap.appendChild(playerDiv);
+    const doInit = () => {
+      if (!document.getElementById(playerDivId)) return;
+      try {
+        new YT.Player(playerDivId, {
+          videoId: ytId,
+          playerVars: { rel: 0, modestbranding: 1, autoplay: 0, playsinline: 1 }
+        });
+      } catch(e) { console.warn('[notes inline yt]', e); }
+    };
+    if (window.YT && window.YT.Player) { doInit(); }
+    else {
+      if (!document.getElementById('yt-iframe-api-script')) {
+        const tag = document.createElement('script');
+        tag.id = 'yt-iframe-api-script';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      }
+      const prev = window._pendingYTInit;
+      window._pendingYTInit = function() { if (prev) prev(); doInit(); };
+    }
+  } else if (platform === 'vimeo' || platform === 'vm') {
+    const vmId = rawId.replace(/^yt-/,'');
+    const hash = block.vmHash ? `?h=${block.vmHash}` : '';
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://player.vimeo.com/video/${vmId}${hash}`;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+    iframe.allowFullscreen = true;
+    wrap.appendChild(iframe);
+  } else if (platform === 'gdrive') {
+    const fileId = rawId.startsWith('gd-') ? rawId.slice(3) : rawId;
+    const token = window.getDriveTokenIfAvailable?.();
+    if (token) {
+      const video = document.createElement('video');
+      video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
+      video.controls = true; video.playsinline = true;
+      wrap.appendChild(video);
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+      iframe.allow = 'autoplay; encrypted-media; fullscreen';
+      iframe.allowFullscreen = true;
+      wrap.appendChild(iframe);
+    }
+  } else {
+    // x / unknown — fallback
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${rawId}?rel=0`;
+    iframe.allow = 'autoplay; encrypted-media; fullscreen';
+    iframe.allowFullscreen = true;
+    wrap.appendChild(iframe);
+  }
+}
+
+// ── インライン動画ヘッダー: Vパネルへジャンプ ──
+window._notesVidJumpVp = function(noteId, idx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b?.videoId) return;
+  // ライブラリに存在するならVパネルで開く
+  const libV = (window.videos || []).find(v => v.id === b.videoId);
+  if (libV && window.openVPanel) { window.openVPanel(b.videoId); return; }
+  window.toast?.('ライブラリにこの動画が見つかりません', 2500);
+};
+
+// ── インライン動画ヘッダー: メモトグル（Vパネルメモと同期） ── Phase 2
+window._notesVidTogMemo = function(noteId, idx) {
+  window.toast?.('メモ表示は近日対応', 1800);
+};
+
+// ── インライン動画ヘッダー: ⋮ メニュー ──
+window._notesVidMenu = function(noteId, idx, btnEl) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b) return;
+  const widthPct = b.vidWidth || 100;
+  const existing = document.getElementById('n-iv-menu');
+  if (existing) { existing.remove(); return; }
+  const menu = document.createElement('div');
+  menu.id = 'n-iv-menu';
+  menu.style.cssText = 'position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9700;min-width:200px;font-size:12px';
+  menu.innerHTML = `
+    <div style="padding:6px 10px;color:var(--text2);font-size:10px;letter-spacing:.5px">幅: <span id="n-iv-w-lbl">${widthPct}%</span></div>
+    <div style="padding:0 10px 8px"><input type="range" min="30" max="100" step="5" value="${widthPct}" style="width:100%" id="n-iv-w-sl"></div>
+    <div style="height:1px;background:var(--border2);margin:4px 0"></div>
+    <div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer">📂 動画を差し替え</div>
+    <div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer;color:#c00">🗑 削除</div>`;
+  document.body.appendChild(menu);
+  const rect = btnEl.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, rect.right - menu.offsetWidth) + 'px';
+  const sl = menu.querySelector('#n-iv-w-sl');
+  const lbl = menu.querySelector('#n-iv-w-lbl');
+  sl.addEventListener('input', () => {
+    const w = +sl.value;
+    lbl.textContent = w + '%';
+    b.vidWidth = w;
+    const node = document.getElementById(`n-iv-${noteId}-${idx}`);
+    if (node) node.style.maxWidth = w + '%';
+  });
+  sl.addEventListener('change', () => { r.note.updatedAt = Date.now(); _save(); });
+  const items = menu.querySelectorAll('.n-iv-menu-item');
+  items[0].onclick = () => { menu.remove(); window._notesShowVidPicker?.(noteId, { replaceIdx: idx }); };
+  items[1].onclick = () => { menu.remove(); window._notesBlockDel?.(noteId, idx); };
+  setTimeout(() => {
+    document.addEventListener('click', function close(ev) {
+      if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close); }
+    });
+  }, 0);
+};
+
+// ── ブックマーク追加（Phase 2） ──
+window._notesIvBmAddNow = function(noteId, idx) {
+  window.toast?.('ブックマーク追加機能は近日対応', 1800);
+};
+
+// ── 右下ハンドルでドラッグリサイズ ──
+window._notesIvResizeStart = function(event, noteId, idx) {
+  event.preventDefault();
+  event.stopPropagation();
+  const node = document.getElementById(`n-iv-${noteId}-${idx}`);
+  if (!node) return;
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b) return;
+  const parentW = node.parentElement?.getBoundingClientRect().width || 600;
+  const startX = event.touches ? event.touches[0].clientX : event.clientX;
+  const startW = node.getBoundingClientRect().width;
+  const move = (e) => {
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const newW = Math.max(150, Math.min(parentW, startW + (x - startX)));
+    const pct = Math.round(Math.max(30, Math.min(100, (newW / parentW) * 100)) / 5) * 5;
+    node.style.maxWidth = pct + '%';
+    node.dataset.tempPct = String(pct);
+  };
+  const end = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', end);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend', end);
+    const pct = parseInt(node.dataset.tempPct || '100', 10);
+    if (pct && pct !== (b.vidWidth || 100)) {
+      b.vidWidth = pct;
+      r.note.updatedAt = Date.now();
+      _save();
+    }
+    delete node.dataset.tempPct;
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', end);
+  document.addEventListener('touchmove', move, { passive: false });
+  document.addEventListener('touchend', end);
+};
 
 // ── public actions ──
 window._notesTogCat = function(id, e) {
