@@ -2017,49 +2017,47 @@ export function buildDrawerHTML(id) {
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
 
-    <div id="vp-notes-row-${id}" style="padding:8px 0 4px">
-      <button onclick="window.notesAddVideo?.('${id}')"
-        style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);
-               background:rgba(232,201,106,.08);color:var(--accent);font-size:13px;
-               font-weight:700;cursor:pointer;letter-spacing:.3px;margin-bottom:6px">
+    <div style="padding:8px 0 0;display:flex;gap:8px">
+      <button id="vp-notes-row-${id}" onclick="window.notesAddVideo?.('${id}')"
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);
+               background:transparent;color:var(--accent);font-size:12px;
+               font-weight:700;cursor:pointer">
         📓 Notes に追加
       </button>
-    </div>
-    <div id="vp-ai-row-${id}" style="padding:0 0 4px">
       <button id="vp-ai-tag-btn"
         onclick="window.onAiTagBtn?.('${id}')"
-        style="width:100%;padding:10px;border-radius:10px;border:1px dashed var(--border);
-               background:var(--surface2);color:var(--accent);font-size:13px;
-               font-weight:700;cursor:pointer;letter-spacing:.3px">
+        style="flex:1;padding:8px;border-radius:8px;border:1px dashed var(--border);
+               background:transparent;color:var(--accent);font-size:12px;
+               font-weight:700;cursor:pointer">
         🤖 AIタグ提案
       </button>
     </div>
+    <div style="padding:6px 0 0;display:flex;gap:8px">
+      <button onclick="vpArchive('${id}')"
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);
+               background:transparent;color:var(--text2);font-size:12px;
+               font-weight:700;cursor:pointer">
+        📦 アーカイブ
+      </button>
+      <button onclick="vpTagReset('${id}')"
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);
+               background:transparent;color:var(--text2);font-size:12px;
+               font-weight:700;cursor:pointer">
+        🔄 タグリセット
+      </button>
+    </div>
     ${window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
-      ? `<div style="padding:4px 16px" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
+      ? `<div style="padding:6px 0 0" id="vp-verify-wrap-${id}" class="verify-dot-ctrl">
           ${v.verified
             ? `<div style="text-align:center;font-size:11px;color:var(--green,#6bc490);font-weight:600;padding:6px 0">✓ 検証済み</div>`
             : `<button onclick="vpVerify('${id}')"
-                style="width:100%;padding:9px;border-radius:8px;border:1.5px solid var(--green,#6bc490);
+                style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);
                        background:transparent;color:var(--green,#6bc490);font-size:12px;
                        font-weight:700;cursor:pointer">
                 ✓ 検証済みにする
               </button>`}
         </div>`
       : ''}
-    <div style="padding:4px 16px;display:flex;gap:8px">
-      <button onclick="vpArchive('${id}')"
-        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--purple,#8b5cf6);
-               background:transparent;color:var(--purple,#8b5cf6);font-size:12px;
-               font-weight:700;cursor:pointer">
-        📦 アーカイブ
-      </button>
-      <button onclick="vpTagReset('${id}')"
-        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--text3);
-               background:transparent;color:var(--text3);font-size:12px;
-               font-weight:700;cursor:pointer">
-        🔄 タグリセット
-      </button>
-    </div>
     <div id="vp-autosave-${id}" style="text-align:center;font-size:10px;color:var(--text3);opacity:0;transition:opacity .3s;padding:4px 0 8px;letter-spacing:.5px;">✓ 自動保存済み</div>
   `;
 }
