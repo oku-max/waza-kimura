@@ -1324,6 +1324,8 @@ export function vpNav(dir) {
 export function openVPanel(id) {
   const menu = document.getElementById('org-col-menu');
   if (menu) menu.remove();
+  // Notesタブで再生中のインライン動画があれば一時停止
+  window._notesPauseAllInlineVideos?.();
   const v = (window.videos||[]).find(v => v.id === id);
   if (!v) return;
   // カード要素がなければ（Organizeタブ等）ビデオオブジェクトから算出
