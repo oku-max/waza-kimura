@@ -16,6 +16,7 @@ export function renderCards(list, cid) {
   // 最初のバッチだけ描画
   const first = list.slice(0, BATCH_SIZE);
   c.innerHTML = first.map(v => cardHTML(v)).join('');
+  if (window.__pmark && !window.__perf?.cards) window.__pmark('cards');
   _renderedCount = first.length;
   _pendingList = list;
   _pendingCid = cid;

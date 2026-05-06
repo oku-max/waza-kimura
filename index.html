@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.101</title>
+<title>WAZA KIMURA v52.102</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -31,8 +31,9 @@
       ['Imports done',         p.mod_done   != null ? p.mod_done + ' ms'  : '...'],
       ['DOMContentLoaded',     p.dcl        != null ? p.dcl + ' ms'   : '...'],
       ['window.load',          p.load       != null ? p.load + ' ms'  : '...'],
-      ['First data (auth)',    p.auth       != null ? p.auth + ' ms'  : '...'],
-      ['Cards rendered',       p.cards      != null ? p.cards + ' ms' : '...']
+      ['Auth resolved',        p.auth       != null ? p.auth + ' ms'       : '...'],
+      ['Firestore 1st data',   p.data_first != null ? p.data_first + ' ms' : '...'],
+      ['Cards rendered',       p.cards      != null ? p.cards + ' ms'      : '...']
     ];
     var html = '<table style="border-collapse:collapse;font:11px/1.3 monospace;color:#0f0">'
       + lines.map(function(r){
