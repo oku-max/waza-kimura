@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bare Test (no Firebase)</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; padding: 20px; background: #fff; color: #111; }
+  .num { font-size: 56px; font-weight: 900; line-height: 1.1; margin: 6px 0 18px; }
+  .row { font-size: 14px; margin: 4px 0; color: #444; }
+  .ok  { color: #0a0; }
+  .warn{ color: #c80; }
+  .ng  { color: #c00; }
+  button { font-size: 18px; padding: 12px 22px; margin-top: 22px; border-radius: 10px; border: 1.5px solid #888; background: #f4f4f4; }
+  hr { margin: 24px 0; border: none; border-top: 1px solid #ddd; }
+  pre { font-size: 11px; background: #f7f7f7; padding: 8px; border-radius: 6px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<div>連続リロード回数（このブラウザ）</div>
+<div class="num" id="cnt">…</div>
+
+<div class="row">今回ロード時刻: <span id="now"></span></div>
+<div class="row">前回ロードからの間隔: <span id="gap"></span></div>
+<div class="row">DOM準備完了までの時間: <span id="dom"></span></div>
+<div class="row">window.onload までの時間: <span id="lod"></span></div>
+<div class="row">ネットワーク種別: <span id="net"></span></div>
+<div class="row">User-Agent: <span id="ua" style="font-size:10px"></span></div>
+
+<hr>
+<div style="font-size:13px;color:#444">
+このページは Firebase もアプリの JS も一切読み込みません。<br>
+連続でリロード（pull-to-refresh または更新ボタン連打）してみてください。<br>
+詰まりが発生したら、その時の回数と症状をスクショして送ってください。
+</div>
+
+<button onclick="localStorage.removeItem('bare_cnt');location.reload()">カウンタをリセット</button>
+
+<script>
+(function(){
+  // 連続リロードカウンタ
+  var cnt = parseInt(localStorage.getItem('bare_cnt')||'0', 10) + 1;
+  localStorage.setItem('bare_cnt', String(cnt));
+  document.getElementById('cnt').textContent = cnt;
+
+  // 今回ロード時刻
+  var d = new Date();
+  document.getElementById('now').textContent = d.toLocaleTimeString('ja-JP') + '.' + String(d.getMilliseconds()).padStart(3,'0');
+
+  // 前回ロードとの間隔
+  var prev = parseInt(localStorage.getItem('bare_last_ms')||'0', 10);
+  var nowMs = Date.now();
+  if (prev) {
+    var gap = nowMs - prev;
+    var el = document.getElementById('gap');
+    el.textContent = gap + ' ms';
+    if (gap > 5000) el.className = 'ng';
+    else if (gap > 1500) el.className = 'warn';
+    else el.className = 'ok';
+  } else {
+    document.getElementById('gap').textContent = '(初回)';
+  }
+  localStorage.setItem('bare_last_ms', String(nowMs));
+
+  // タイミング
+  function showTimings(){
+    try {
+      var nav = performance.getEntriesByType('navigation')[0];
+      if (nav) {
+        document.getElementById('dom').textContent = Math.round(nav.domContentLoadedEventEnd - nav.startTime) + ' ms';
+        document.getElementById('lod').textContent = Math.round(nav.loadEventEnd - nav.startTime) + ' ms';
+      }
+    } catch(e){}
+  }
+  if (document.readyState === 'complete') showTimings();
+  else window.addEventListener('load', function(){ setTimeout(showTimings, 0); });
+
+  // Network info
+  var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  document.getElementById('net').textContent = conn ? (conn.effectiveType + ' / ' + (conn.downlink||'?') + ' Mbps') : '(取得不可)';
+
+  document.getElementById('ua').textContent = navigator.userAgent;
+})();
+</script>
+</body>
+</html>
