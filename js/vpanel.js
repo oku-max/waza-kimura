@@ -1496,6 +1496,74 @@ export function openVPanel(id) {
   setTimeout(() => _renderBlurArea(id), 200);
 }
 
+// ── プレイリスト並べ替え状態 ──
+let _vplSortKey = localStorage.getItem('wk_vplSortKey') || 'addedAt';
+let _vplSortAsc = (() => { const v = localStorage.getItem('wk_vplSortAsc'); return v === null ? false : v === 'true'; })();
+
+function _vplSort(list) {
+  const key = _vplSortKey;
+  const asc = _vplSortAsc;
+  const sorted = [...list];
+  sorted.sort((a, b) => {
+    let va, vb;
+    if (key === 'addedAt') {
+      const ea = !a.addedAt, eb = !b.addedAt;
+      if (ea && eb) return 0; if (ea) return 1; if (eb) return -1;
+      va = a.addedAt; vb = b.addedAt;
+    } else if (key === 'title') {
+      va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
+    } else if (key === 'status') {
+      const ord = { '未着手': 0, '理解': 1, '把握': 1, '練習中': 2, '習得中': 2, 'マスター': 3 };
+      va = ord[a.status] ?? 9; vb = ord[b.status] ?? 9;
+    } else if (key === 'lastPlayed') {
+      va = a.lastPlayed || 0; vb = b.lastPlayed || 0;
+    } else if (key === 'duration') {
+      va = a.duration || 0; vb = b.duration || 0;
+    }
+    if (va < vb) return asc ? -1 : 1;
+    if (va > vb) return asc ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+window.vplSetSort = function(key) {
+  _vplSortKey = key;
+  localStorage.setItem('wk_vplSortKey', key);
+  document.querySelectorAll('.vpl-sort-sel').forEach(s => { s.value = key; });
+  _rerenderVpl();
+};
+window.vplToggleDir = function() {
+  _vplSortAsc = !_vplSortAsc;
+  localStorage.setItem('wk_vplSortAsc', _vplSortAsc);
+  document.querySelectorAll('.vpl-sort-dir').forEach(b => { b.textContent = _vplSortAsc ? '↑' : '↓'; });
+  _rerenderVpl();
+};
+
+function _rerenderVpl() {
+  const id = window.openVPanelId;
+  if (!id) return;
+  _renderBlurArea(id);
+  // ボトムシートが開いていれば再描画
+  if (document.getElementById('vp-bs-sheet')?.classList.contains('open')) {
+    window.vpOpenNextList();
+  }
+}
+
+function _vplSortRow() {
+  const dir = _vplSortAsc ? '↑' : '↓';
+  return `<div style="display:flex;align-items:center;gap:4px;padding:5px 10px 5px">
+    <select class="vpl-sort-sel" onchange="vplSetSort(this.value)" style="flex:1;font-size:10px;padding:3px 5px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+      <option value="addedAt"${_vplSortKey==='addedAt'?' selected':''}>追加日</option>
+      <option value="title"${_vplSortKey==='title'?' selected':''}>タイトル</option>
+      <option value="status"${_vplSortKey==='status'?' selected':''}>習得度</option>
+      <option value="lastPlayed"${_vplSortKey==='lastPlayed'?' selected':''}>最近再生した</option>
+      <option value="duration"${_vplSortKey==='duration'?' selected':''}>再生時間</option>
+    </select>
+    <button class="vpl-sort-dir" onclick="vplToggleDir()" style="font-size:11px;padding:3px 7px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">${dir}</button>
+  </div>`;
+}
+
 // ── blur-area: 次の動画リスト ──
 function _renderBlurArea(id) {
   const area = document.getElementById('vpanel-blur-area');
@@ -1506,13 +1574,14 @@ function _renderBlurArea(id) {
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 現在の動画を除く（最大20件 — 770件全件はDOM負荷が大きすぎる）
-  const candidates = all.filter((_, i) => i !== idx).slice(0, 20);
+  // 現在の動画を除いてソート（最大20件 — 770件全件はDOM負荷が大きすぎる）
+  const candidates = _vplSort(all.filter((_, i) => i !== idx)).slice(0, 20);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
 
   area.innerHTML = `
     <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
+    ${_vplSortRow()}
     ${candidates.map((rv) => {
       const ytId = _extractYtId(rv.emb || '');
       const gdId = (rv.id||'').replace(/^gd-/,'');
@@ -1566,7 +1635,10 @@ window.vpOpenNextList = function () {
   const all = window._noteVidList || window.filteredVideos || window.videos || [];
   const list = document.getElementById('vp-bs-list');
   if (!list) return;
-  const displayAll = window._noteVidList ? all : all.slice(0, 30);
+  const hdr = document.getElementById('vp-bs-hdr');
+  if (hdr) hdr.innerHTML = `次の動画${_vplSortRow()}`;
+  const sorted = _vplSort(window._noteVidList ? all : all.slice(0, 30));
+  const displayAll = sorted;
   list.innerHTML = displayAll.map(rv => {
     const isCur = rv.id === id;
     const ytId = _extractYtId(rv.emb || '');
