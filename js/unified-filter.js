@@ -205,6 +205,11 @@
 #uni-popup .uni-vc-title{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 #uni-popup .uni-vc-meta{font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #uni-popup .uni-vc-notice{padding:7px 10px;font-size:10px;color:var(--text3);background:rgba(107,63,212,.06);border-bottom:1px solid rgba(107,63,212,.12);text-align:center;line-height:1.5}
+#uni-popup .uni-vc-sortbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+#uni-popup .uni-vc-sortbar-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.3px;flex-shrink:0}
+#uni-popup .uni-vc-sortbar-sel{flex:1;min-width:0;font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit}
+#uni-popup .uni-vc-sortbar-dir{flex-shrink:0;font-size:12px;font-weight:700;padding:3px 9px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;line-height:1}
+#uni-popup .uni-vc-sortbar-dir:hover{background:var(--surface2)}
 #uni-popup .uni-vc-notice-sm{background:none;border-bottom:1px solid var(--border);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:space-between}
 #uni-popup .uni-vc-addall-btn{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid rgba(59,130,246,.4);background:rgba(59,130,246,.1);color:#93c5fd;cursor:pointer;white-space:nowrap;font-family:inherit}
 #uni-popup .uni-vc-addall-btn:hover{background:rgba(59,130,246,.2)}
@@ -327,15 +332,17 @@
     const shown = vids.slice(0, 30);
 
     const dirArrow = _vidSort.asc ? '↑' : '↓';
-    const sortSel = `<div style="display:inline-flex;align-items:center;gap:4px">
-      <select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
+    // ソートUIは別途body直下のバーとして表示（列ヘッダーは狭くて見切れるため）
+    const sortBar = `<div class="uni-vc-sortbar">
+      <span class="uni-vc-sortbar-lbl">並び替え</span>
+      <select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" class="uni-vc-sortbar-sel">
         <option value="addedAt"${_vidSort.key==='addedAt'?' selected':''}>追加日</option>
         <option value="title"${_vidSort.key==='title'?' selected':''}>タイトル</option>
         <option value="status"${_vidSort.key==='status'?' selected':''}>習得度</option>
-        <option value="lastPlayed"${_vidSort.key==='lastPlayed'?' selected':''}>最近再生した</option>
+        <option value="lastPlayed"${_vidSort.key==='lastPlayed'?' selected':''}>最近再生</option>
         <option value="duration"${_vidSort.key==='duration'?' selected':''}>再生時間</option>
       </select>
-      <button onclick="event.stopPropagation();uniToggleVidSortDir()" title="昇降順切替" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit">${dirArrow}</button>
+      <button onclick="event.stopPropagation();uniToggleVidSortDir()" title="昇降順切替" class="uni-vc-sortbar-dir">${dirArrow}</button>
     </div>`;
 
     const isNoteMode = !!_noteMode;
@@ -385,8 +392,8 @@
 
     const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
     return `<div class="uni-col uni-col-vc">
-      <div class="uni-col-hdr"><span>${colHeader}</span>${sortSel}</div>
-      <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
+      <div class="uni-col-hdr"><span>${colHeader}</span></div>
+      <div class="uni-col-body">${sortBar}${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
     </div>`;
   }
 
