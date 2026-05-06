@@ -397,6 +397,13 @@
     </div>`;
   }
 
+  // フィルタ条件問わず動画列までスクロール（uniOpenFor* で使用）
+  function _forceScrollToVidCol() {
+    const cols = document.querySelector('#uni-popup .uni-cols');
+    if (!cols) return;
+    cols.scrollTo({ left: cols.scrollWidth, behavior: 'smooth' });
+    _autoScrolled = true;
+  }
   function _scrollToVidCol() {
     if (_autoScrolled) return;
     if (!_hasActiveFilters()) return;
@@ -799,12 +806,15 @@
   window.uniOpenForNote = function (noteId) {
     _noteMode = noteId;
     _ctx = 'lib';
+    _autoScrolled = false;
     _inject();
     _tab = 'src';
     document.getElementById('uni-bd').classList.add('open');
     document.getElementById('uni-popup').classList.add('open');
     _syncSearchbar(_tab);
     _render();
+    // 動画追加モードでは並び替え・追加ボタンが見える動画列まで自動スクロール
+    setTimeout(() => _forceScrollToVidCol(), 60);
   };
 
   // ── vidlistブロックの条件編集モード ──
@@ -812,6 +822,7 @@
   window.uniOpenForVlBlock = function (noteId, idx, blockFilter) {
     _vlBlockTarget = { noteId, idx };
     _ctx = 'lib';
+    _autoScrolled = false;
     // 現状のフィルタをバックアップ
     _vlFilterBackup = _snapshotFilters();
     // ブロックの条件をwindow.filters系に流し込む
@@ -822,6 +833,8 @@
     document.getElementById('uni-popup').classList.add('open');
     _syncSearchbar(_tab);
     _render();
+    // vlBlock編集モードでは並び替え・保存ボタンが見える動画列まで自動スクロール
+    setTimeout(() => _forceScrollToVidCol(), 60);
   };
 
   function _snapshotFilters() {
