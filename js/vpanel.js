@@ -2017,18 +2017,18 @@ export function buildDrawerHTML(id) {
     </div>
     ${window.vpV4SectionHTML?.(id) || ''}
 
-    <div id="vp-notes-row-${id}" style="padding:8px 16px 4px">
+    <div id="vp-notes-row-${id}" style="padding:8px 0 4px">
       <button onclick="window.notesAddVideo?.('${id}')"
-        style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--accent);
+        style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);
                background:rgba(232,201,106,.08);color:var(--accent);font-size:13px;
                font-weight:700;cursor:pointer;letter-spacing:.3px;margin-bottom:6px">
         📓 Notes に追加
       </button>
     </div>
-    <div id="vp-ai-row-${id}" style="padding:0 16px 4px">
+    <div id="vp-ai-row-${id}" style="padding:0 0 4px">
       <button id="vp-ai-tag-btn"
         onclick="window.onAiTagBtn?.('${id}')"
-        style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
+        style="width:100%;padding:10px;border-radius:10px;border:1px dashed var(--border);
                background:var(--surface2);color:var(--accent);font-size:13px;
                font-weight:700;cursor:pointer;letter-spacing:.3px">
         🤖 AIタグ提案

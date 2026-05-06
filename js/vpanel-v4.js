@@ -74,8 +74,8 @@
     const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
     const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
     return `
-    <div id="vp-tag-fsec-${id}" class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
-      <div class="fsec-title" style="color:var(--accent)">タグ</div>
+    <div id="vp-tag-fsec-${id}" class="fsec">
+      <div class="fsec-title">タグ</div>
       ${tbRowHtml}${catRowHtml}${posRowHtml}${tagsRowHtml}
     </div>`;
   };
