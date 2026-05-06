@@ -1762,10 +1762,13 @@ function _nBviClose(k) {
 function _nBviStartTimer(k) {
   if (_nBviTmr[k]) return;
   _nBviTmr[k] = setInterval(() => {
+    const st = _nBviGetAb(k);
+    // AB body 非表示 & ループ無効なら iframe へ postMessage を送らない
+    // （YouTubeのコントロール自動非表示タイマーが postMessage 受信でリセットされるのを回避）
+    if (!st.abOpen && !st.looping) return;
     const t = _nBviCurTime(k);
     const sl = document.getElementById('n-bvi-ab-sl-' + k);
     if (sl) sl.value = t;
-    const st = _nBviGetAb(k);
     const disp = document.getElementById('n-bvi-ab-disp-' + k);
     if (disp) disp.textContent = _nBviFmt(st.activeTab === 'a' ? (st.a ?? t) : (st.b ?? t));
     if (st.looping && st.a != null && st.b != null && t >= st.b) _nBviSeekTo(k, st.a);
