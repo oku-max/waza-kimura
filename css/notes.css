@@ -120,6 +120,7 @@
   overflow: hidden;
   margin: 8px 0;
   box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  min-width: 240px;  /* これより細い slot に置かれた場合は slot 側で横スクロール */
 }
 .n-vl-hdr {
   display: flex; align-items: center; gap: 6px;
@@ -145,7 +146,7 @@
 }
 .n-vl-sort-dir:hover { background: var(--surface2); }
 .n-vl-icon { font-size: 14px; }
-.n-vl-name { flex: 1; }
+.n-vl-name { flex: 1; min-width: 0; }
 .n-vl-badge {
   background: #d4a843; color: #1a1a1a;
   padding: 1px 8px; border-radius: 10px;
@@ -1301,9 +1302,13 @@
 .n-col-slot {
   border: 1px dashed var(--border2); border-radius: 6px; padding: 6px;
   min-height: 60px; display: flex; flex-direction: column;
+  min-width: 0;          /* grid 比率を尊重するため min-width:auto を解除 */
+  overflow-x: auto;      /* コンテンツがslot幅を超えたら slot 内で横スクロール */
+  -webkit-overflow-scrolling: touch;
 }
 .n-col-block-wrap {
   position: relative; border-radius: 4px; border: 1px solid transparent; margin-bottom: 2px;
+  min-width: 0;
 }
 .n-col-block-wrap:hover { border-color: var(--border); }
 .n-col-block-wrap:hover .n-cb-del { display: block; }
