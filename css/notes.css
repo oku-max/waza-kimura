@@ -112,6 +112,104 @@
 }
 .n-iv-bm-add-btn:hover { border-color: #d4a843; color: #d4a843; }
 
+/* チャプター セクション */
+.n-iv-chap-section { background: #1a1a1a; border-top: 1px solid #383838; }
+.n-iv-chap-hdr {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.n-iv-chap-hdr:hover { background: #242424; }
+.n-iv-chap-label {
+  font-size: 11px; font-weight: 600; color: #d0d0d0; flex: 1;
+}
+.n-iv-chap-list {
+  max-height: 180px; overflow-y: auto;
+  padding: 0 0 4px;
+  border-top: 1px solid #383838;
+}
+.n-iv-chap-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.n-iv-chap-item:hover { background: #242424; }
+.n-iv-chap-time {
+  font-size: 10px; font-weight: 600;
+  color: #d4a843;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap; flex-shrink: 0;
+}
+.n-iv-chap-text {
+  font-size: 11px; color: #d0d0d0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ブックマーク一覧 */
+.n-iv-bm-list {
+  padding: 4px 10px 8px;
+  display: flex; flex-direction: column; gap: 5px;
+  border-top: 1px solid #383838;
+}
+.n-iv-bm-item { display: flex; align-items: center; gap: 6px; }
+.n-iv-bm-chip {
+  padding: 3px 8px; border-radius: 5px;
+  background: rgba(212,168,67,.15);
+  border: 1px solid rgba(212,168,67,.3);
+  color: #d4a843;
+  font-size: 10px; font-family: ui-monospace, monospace;
+  cursor: pointer; white-space: nowrap;
+}
+.n-iv-bm-chip:hover { background: rgba(212,168,67,.25); }
+.n-iv-bm-item-label {
+  font-size: 10px; color: #d0d0d0;
+  flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.n-iv-bm-del-btn {
+  padding: 2px 6px; border-radius: 4px;
+  border: 1px solid #383838;
+  background: none; color: #888;
+  font-size: 10px; cursor: pointer;
+}
+.n-iv-bm-del-btn:hover { border-color: #f87171; color: #f87171; }
+.n-iv-bm-empty {
+  font-size: 10px; color: #888;
+  padding: 4px 0; font-style: italic;
+}
+
+/* メモ展開エリア */
+.n-iv-memo-section {
+  background: #fafef5;
+  border-top: 1px solid var(--border2, #ebebeb);
+  padding: 8px 10px 10px;
+}
+.n-iv-memo-hdr {
+  font-size: 9px; font-weight: 700;
+  color: var(--text3, #aaa);
+  letter-spacing: .5px;
+  margin-bottom: 5px;
+  text-transform: none;
+}
+.n-iv-memo-area {
+  width: 100%;
+  min-height: 60px;
+  font-size: 11px;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #d0d0d0);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.n-iv-memo-area:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 /* リサイズハンドル */
 .n-iv-resize {
   position: absolute; right: 0; bottom: 0;
