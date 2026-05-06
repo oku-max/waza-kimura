@@ -1552,8 +1552,8 @@ function _rerenderVpl() {
 
 function _vplSortRow() {
   const dir = _vplSortAsc ? '↑' : '↓';
-  return `<div style="display:flex;align-items:center;gap:4px;padding:5px 10px 5px">
-    <select class="vpl-sort-sel" onchange="vplSetSort(this.value)" style="flex:1;font-size:10px;padding:3px 5px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
+  return `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:4px 10px">
+    <select class="vpl-sort-sel" onchange="vplSetSort(this.value)" style="width:110px;font-size:10px;padding:3px 5px;border-radius:7px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
       <option value="addedAt"${_vplSortKey==='addedAt'?' selected':''}>追加日</option>
       <option value="title"${_vplSortKey==='title'?' selected':''}>タイトル</option>
       <option value="status"${_vplSortKey==='status'?' selected':''}>習得度</option>
