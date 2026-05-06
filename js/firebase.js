@@ -13,6 +13,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 export const auth = firebase.auth();
 export const db   = firebase.firestore();
+// iOS Safari/WebKit で WebSocket が30秒ハングしてからlong-pollingにフォールバックする問題の対策。
+// 最初からlong-pollingを使うことで、その30秒待ちを回避する。
+db.settings({ experimentalForceLongPolling: true });
 
 export let currentUser = null;
 let _durFetchDone = false; // duration補完は初回ロード1回だけ
