@@ -122,12 +122,28 @@
   box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 .n-vl-hdr {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
   padding: 10px 14px;
   background: var(--surface2, #f6f6f4);
   border-bottom: 1px solid var(--border);
   font-size: 12px; font-weight: 700; color: var(--text);
 }
+.n-vl-sort-sel {
+  margin-left: auto;
+  font-size: 10px; padding: 3px 6px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--surface); color: var(--text);
+  font-family: inherit; cursor: pointer;
+}
+.n-vl-sort-dir {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--surface); color: var(--text);
+  cursor: pointer; font-family: inherit; line-height: 1;
+}
+.n-vl-sort-dir:hover { background: var(--surface2); }
 .n-vl-icon { font-size: 14px; }
 .n-vl-name { flex: 1; }
 .n-vl-badge {

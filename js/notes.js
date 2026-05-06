@@ -1144,12 +1144,25 @@ function _blockHTML(block, idx, noteId, total) {
           }).join('')
         : `<div class="n-vl-empty">${isManual ? 'まだ動画が追加されていません' : '条件にマッチする動画がありません'}</div>`;
       const moreHtml = all.length > max ? `<div class="n-vl-more">他 ${all.length - max} 件</div>` : '';
+      const sortKey = block.sort?.key || 'addedAt';
+      const sortAsc = !!block.sort?.asc;
+      const sortArrow = sortAsc ? '↑' : '↓';
       return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
         <div class="n-vl-card" id="n-vl-${noteId}-${idx}">
           <div class="n-vl-hdr">
             <span class="n-vl-icon">📋</span>
             <span class="n-vl-name">${_esc(block.name || 'リスト')}</span>
             <span class="n-vl-badge">${all.length}</span>
+            <select class="n-vl-sort-sel" onclick="event.stopPropagation()"
+              onchange="window._notesVlSetSort('${noteId}',${idx},this.value)">
+              <option value="addedAt"${sortKey==='addedAt'?' selected':''}>追加日</option>
+              <option value="title"${sortKey==='title'?' selected':''}>タイトル</option>
+              <option value="status"${sortKey==='status'?' selected':''}>習得度</option>
+              <option value="lastPlayed"${sortKey==='lastPlayed'?' selected':''}>最近再生</option>
+              <option value="duration"${sortKey==='duration'?' selected':''}>再生時間</option>
+            </select>
+            <button class="n-vl-sort-dir" title="昇降順切替"
+              onclick="event.stopPropagation();window._notesVlToggleSortDir('${noteId}',${idx})">${sortArrow}</button>
             <span class="n-vl-edit" title="条件編集"
               onclick="event.stopPropagation();window._notesVlEdit('${noteId}',${idx})">✎ 条件</span>
           </div>
@@ -2484,14 +2497,48 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
 
 // （ブックマーク追加/削除/シークは _nbvi* 既存ハンドラを使用）
 
-// ── 動画リスト（vidlist）: モードに応じて動画を解決 ──
+// ── 動画リスト（vidlist）: モードに応じて動画を解決 + ブロック単位ソート適用 ──
 function _resolveVidList(block) {
   if (!block) return [];
+  let vids;
   if (block.mode === 'manual' && Array.isArray(block.ids)) {
     const map = new Map((window.videos || []).filter(v => !v.archived).map(v => [v.id, v]));
-    return block.ids.map(id => map.get(id)).filter(Boolean);
+    vids = block.ids.map(id => map.get(id)).filter(Boolean);
+  } else {
+    vids = _filterVidList(block.filter || {});
   }
-  return _filterVidList(block.filter || {});
+  return _applyVlSort(vids, block.sort);
+}
+
+// ブロックの並び替えキー設定に従って動画配列をソート
+function _applyVlSort(vids, sort) {
+  const k = sort?.key || 'addedAt';
+  const asc = !!sort?.asc;
+  const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
+  const parseDur = d => {
+    if (typeof d === 'number') return d;
+    if (typeof d !== 'string' || !d) return 0;
+    const parts = d.split(':').map(n => parseInt(n, 10) || 0);
+    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+    if (parts.length === 2) return parts[0]*60 + parts[1];
+    return parseFloat(d) || 0;
+  };
+  const get = v => {
+    switch (k) {
+      case 'addedAt':    return v.addedAt || '';
+      case 'title':      return (v.title || '').toLowerCase();
+      case 'status':     return STATUS_ORDER[v.status || '未着手'] ?? 9;
+      case 'lastPlayed': return v.lastPlayed || 0;
+      case 'duration':   return parseDur(v.duration);
+      default:           return v.addedAt || '';
+    }
+  };
+  return vids.slice().sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (va < vb) return asc ? -1 : 1;
+    if (va > vb) return asc ? 1 : -1;
+    return 0;
+  });
 }
 
 // ── 動画リスト（vidlist）: フィルタを共通形式に正規化 ──
@@ -2672,6 +2719,32 @@ window._notesVlGetIds = function(noteId, idx) {
   const b = r.note.blocks[idx];
   if (!b || !Array.isArray(b.ids)) return new Set();
   return new Set(b.ids);
+};
+
+// vidlist のソートキー設定
+window._notesVlSetSort = function(noteId, idx, key) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b) return;
+  if (!b.sort) b.sort = { key: 'addedAt', asc: false };
+  b.sort.key = key;
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+// vidlist のソート方向（昇降）切替
+window._notesVlToggleSortDir = function(noteId, idx) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b) return;
+  if (!b.sort) b.sort = { key: 'addedAt', asc: false };
+  b.sort.asc = !b.sort.asc;
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
 };
 
 // vidlist 行の × 削除（手動モード時）
