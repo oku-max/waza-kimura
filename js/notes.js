@@ -2480,37 +2480,62 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
 
 // （ブックマーク追加/削除/シークは _nbvi* 既存ハンドラを使用）
 
-// ── 動画リスト（vidlist）: フィルタロジック ──
+// ── 動画リスト（vidlist）: フィルタを共通形式に正規化 ──
+// 旧フォーマット { tb[], cat[], pos[], tags[], pl, status, channel } と
+// 新フォーマット（window.filtersスナップショット形式）両対応
+function _vlGetFilterFields(filter) {
+  if (!filter) return { pl:[], status:[], channel:[], tb:[], cat:[], pos:[], tags:[], prio:[], platform:[], favOnly:false, unwOnly:false, watchedOnly:false };
+  const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
+  return {
+    pl:       Array.isArray(filter.playlist) ? filter.playlist : arr(filter.pl),
+    status:   Array.isArray(filter.status)   ? filter.status   : arr(filter.status),
+    channel:  Array.isArray(filter.channel)  ? filter.channel  : arr(filter.channel),
+    tb:       filter.tb       || [],
+    cat:      filter.action   || filter.cat || [],
+    pos:      filter.position || filter.pos || [],
+    tags:     filter.tags     || [],
+    prio:     filter.prio     || [],
+    platform: filter.platform || [],
+    favOnly:     !!filter._favOnly,
+    unwOnly:     !!filter._unwOnly,
+    watchedOnly: !!filter._watchedOnly
+  };
+}
+
+// ── 動画リスト: フィルタロジック ──
 function _filterVidList(filter) {
-  let videos = (window.videos || []).filter(v => !v.archived);
-  if (!filter) return videos;
-  if (filter.pl)      videos = videos.filter(v => v.pl === filter.pl);
-  if (filter.status)  videos = videos.filter(v => (v.status || '未着手') === filter.status);
-  if (filter.channel) videos = videos.filter(v => (v.channel || v.ch) === filter.channel);
-  if (filter.tb && filter.tb.length)
-    videos = videos.filter(v => filter.tb.some(t => (v.tb || []).includes(t)));
-  if (filter.cat && filter.cat.length)
-    videos = videos.filter(v => filter.cat.some(c => (v.cat || []).includes(c)));
-  if (filter.pos && filter.pos.length)
-    videos = videos.filter(v => filter.pos.some(p => (v.pos || []).includes(p)));
-  if (filter.tags && filter.tags.length)
-    videos = videos.filter(v => filter.tags.some(t => (v.tags || []).includes(t)));
-  // 追加日新しい順
-  videos.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
-  return videos;
+  const f = _vlGetFilterFields(filter);
+  let vs = (window.videos || []).filter(v => !v.archived);
+  if (f.pl.length)       vs = vs.filter(v => f.pl.includes(v.pl));
+  if (f.status.length)   vs = vs.filter(v => f.status.includes(v.status || '未着手'));
+  if (f.channel.length)  vs = vs.filter(v => f.channel.includes(v.channel || v.ch));
+  if (f.tb.length)       vs = vs.filter(v => f.tb.some(t => (v.tb || []).includes(t)));
+  if (f.cat.length)      vs = vs.filter(v => f.cat.some(c => (v.cat || []).includes(c)));
+  if (f.pos.length)      vs = vs.filter(v => f.pos.some(p => (v.pos || []).includes(p)));
+  if (f.tags.length)     vs = vs.filter(v => f.tags.some(t => (v.tags || []).includes(t)));
+  if (f.prio.length)     vs = vs.filter(v => f.prio.includes(v.prio));
+  if (f.platform.length) vs = vs.filter(v => f.platform.includes(v.pt || v.platform));
+  if (f.favOnly)         vs = vs.filter(v => v.fav);
+  if (f.unwOnly)         vs = vs.filter(v => v.unw);
+  if (f.watchedOnly)     vs = vs.filter(v => v.watched);
+  vs.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+  return vs;
 }
 
 // ── 動画リスト: 条件サマリー文字列 ──
 function _vlSummary(filter) {
-  if (!filter) return '';
+  const f = _vlGetFilterFields(filter);
   const parts = [];
-  if (filter.tb && filter.tb.length) parts.push(filter.tb.join('/'));
-  if (filter.cat && filter.cat.length) parts.push(filter.cat.join('/'));
-  if (filter.pos && filter.pos.length) parts.push(filter.pos.join('/'));
-  if (filter.tags && filter.tags.length) parts.push('#' + filter.tags.join(' #'));
-  if (filter.pl) parts.push(`PL:${filter.pl}`);
-  if (filter.status) parts.push(filter.status);
-  if (filter.channel) parts.push(filter.channel);
+  if (f.tb.length)      parts.push(f.tb.join('/'));
+  if (f.cat.length)     parts.push(f.cat.join('/'));
+  if (f.pos.length)     parts.push(f.pos.join('/'));
+  if (f.tags.length)    parts.push('#' + f.tags.join(' #'));
+  if (f.pl.length)      parts.push('PL:' + f.pl.join(','));
+  if (f.status.length)  parts.push(f.status.join(','));
+  if (f.channel.length) parts.push(f.channel.join(','));
+  if (f.favOnly)        parts.push('★お気に入り');
+  if (f.unwOnly)        parts.push('未着手');
+  if (f.watchedOnly)    parts.push('視聴済');
   return parts.join(' · ');
 }
 
@@ -2532,140 +2557,50 @@ window._notesAddVlBlock = function(noteId) {
   setTimeout(() => window._notesVlEdit(noteId, newIdx), 50);
 };
 
-// ── 動画リスト: 条件編集シート ──
+// ── 動画リスト: 条件編集 → 統一フィルタオーバーレイを vlBlock モードで開く ──
 window._notesVlEdit = function(noteId, idx) {
   const r = _findNote(noteId);
   if (!r) return;
   const b = r.note.blocks[idx];
   if (!b || b.type !== 'vidlist') return;
-  const f = b.filter = b.filter || {};
-  // 利用可能な選択肢を集計
-  const allVideos = (window.videos || []).filter(v => !v.archived);
-  const collect = (key) => {
-    const set = new Set();
-    allVideos.forEach(v => (v[key] || []).forEach(x => set.add(x)));
-    return Array.from(set).sort();
-  };
-  const tbOpts   = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
-  const catOpts  = (window.CATEGORIES || []).map(c => c.name);
-  const posOpts  = collect('pos');
-  const tagOpts  = collect('tags');
-  const plOpts   = Array.from(new Set(allVideos.map(v => v.pl).filter(Boolean))).sort();
-  const chOpts   = Array.from(new Set(allVideos.map(v => v.channel || v.ch).filter(Boolean))).sort();
-  const statusOpts = ['未着手','理解','練習中','マスター'];
-
-  const chip = (val, label, key, isMulti) => {
-    const cur = f[key] || (isMulti ? [] : '');
-    const on = isMulti ? cur.includes(val) : cur === val;
-    return `<span class="n-vl-chip${on?' on':''}" data-key="${key}" data-val="${_esc(val)}" data-multi="${isMulti?1:0}">${_esc(label)}</span>`;
-  };
-
-  let overlay = document.getElementById('n-sheet-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'n-sheet-overlay';
-    overlay.className = 'n-sheet-overlay';
-    document.body.appendChild(overlay);
+  if (typeof window.uniOpenForVlBlock !== 'function') {
+    window.toast?.('フィルタ画面が読み込まれていません', 1800);
+    return;
   }
-  overlay.innerHTML = `
-    <div class="n-sheet" onclick="event.stopPropagation()">
-      <div class="n-sheet-hdr"><span class="n-sheet-title">📋 リスト条件</span></div>
-      <div class="n-sheet-body" style="max-height:60vh;overflow-y:auto">
-        <label class="n-sheet-lbl">名前</label>
-        <input id="n-vl-name-inp" class="n-sheet-input" type="text" value="${_esc(b.name||'')}" placeholder="リスト名" style="margin-bottom:14px">
-
-        ${tbOpts.length ? `<label class="n-sheet-lbl">トップ/ボトム/スタンディング</label>
-        <div class="n-vl-chip-row">${tbOpts.map(t => chip(t, t, 'tb', true)).join('')}</div>` : ''}
-
-        ${catOpts.length ? `<label class="n-sheet-lbl">カテゴリ</label>
-        <div class="n-vl-chip-row">${catOpts.map(c => chip(c, c, 'cat', true)).join('')}</div>` : ''}
-
-        ${posOpts.length ? `<label class="n-sheet-lbl">ポジション</label>
-        <div class="n-vl-chip-row">${posOpts.map(p => chip(p, p, 'pos', true)).join('')}</div>` : ''}
-
-        ${tagOpts.length ? `<label class="n-sheet-lbl">テクニック</label>
-        <div class="n-vl-chip-row">${tagOpts.slice(0, 60).map(t => chip(t, t, 'tags', true)).join('')}${tagOpts.length>60?'<span style="font-size:10px;color:var(--text3)">他' + (tagOpts.length-60) + '件は手入力で…（未対応）</span>':''}</div>` : ''}
-
-        <label class="n-sheet-lbl">習得度</label>
-        <div class="n-vl-chip-row">
-          <span class="n-vl-chip${!f.status?' on':''}" data-key="status" data-val="" data-multi="0">すべて</span>
-          ${statusOpts.map(s => chip(s, s, 'status', false)).join('')}
-        </div>
-
-        ${plOpts.length ? `<label class="n-sheet-lbl">プレイリスト</label>
-        <select id="n-vl-pl-sel" class="n-sheet-input" style="margin-bottom:14px">
-          <option value="">すべて</option>
-          ${plOpts.map(p => `<option value="${_esc(p)}"${f.pl===p?' selected':''}>${_esc(p)}</option>`).join('')}
-        </select>` : ''}
-
-        ${chOpts.length ? `<label class="n-sheet-lbl">チャンネル</label>
-        <select id="n-vl-ch-sel" class="n-sheet-input" style="margin-bottom:14px">
-          <option value="">すべて</option>
-          ${chOpts.map(c => `<option value="${_esc(c)}"${f.channel===c?' selected':''}>${_esc(c)}</option>`).join('')}
-        </select>` : ''}
-
-        <label class="n-sheet-lbl">最大表示件数</label>
-        <input id="n-vl-max-inp" class="n-sheet-input" type="number" min="1" max="200" value="${b.max || 20}" style="width:100px">
-      </div>
-      <div class="n-sheet-btns">
-        <button class="n-btn n-btn-ghost" onclick="window._notesVlEditClear('${noteId}',${idx})">条件クリア</button>
-        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
-        <button class="n-btn n-btn-primary" onclick="window._notesVlEditSave('${noteId}',${idx})">適用</button>
-      </div>
-    </div>`;
-  overlay.onclick = window._notesSheetClose;
-  requestAnimationFrame(() => overlay.classList.add('vis'));
-
-  // チップトグル
-  overlay.querySelectorAll('.n-vl-chip').forEach(el => {
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      const key = el.dataset.key;
-      const val = el.dataset.val;
-      const isMulti = el.dataset.multi === '1';
-      if (isMulti) {
-        f[key] = f[key] || [];
-        const i = f[key].indexOf(val);
-        if (i >= 0) f[key].splice(i, 1); else f[key].push(val);
-        el.classList.toggle('on');
-      } else {
-        f[key] = val;
-        overlay.querySelectorAll(`.n-vl-chip[data-key="${key}"]`).forEach(c => c.classList.toggle('on', c.dataset.val === val));
-      }
-    });
-  });
+  // 旧フォーマット {tb[], cat[], pos[], tags[], pl, status, channel} を
+  // window.filters用スナップショット形式に変換してから渡す
+  const f = b.filter || {};
+  const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
+  const snap = {
+    prio:     f.prio     || [],
+    tb:       f.tb       || [],
+    action:   f.action   || f.cat || [],
+    position: f.position || f.pos || [],
+    playlist: Array.isArray(f.playlist) ? f.playlist : arr(f.pl),
+    status:   Array.isArray(f.status)   ? f.status   : arr(f.status),
+    tags:     f.tags     || [],
+    platform: f.platform || [],
+    channel:  Array.isArray(f.channel)  ? f.channel  : arr(f.channel),
+    _favOnly:     !!f._favOnly,
+    _unwOnly:     !!f._unwOnly,
+    _watchedOnly: !!f._watchedOnly,
+    _prRank:      f._prRank ?? null,
+    _prDate:      f._prDate ?? null
+  };
+  window.uniOpenForVlBlock(noteId, idx, snap);
 };
 
-window._notesVlEditClear = function(noteId, idx) {
+// 統一フィルタオーバーレイ側から呼ばれる保存コールバック
+window._notesVlSaveFilter = function(noteId, idx, filterSnapshot) {
   const r = _findNote(noteId);
   if (!r) return;
   const b = r.note.blocks[idx];
   if (!b) return;
-  b.filter = {};
+  b.filter = filterSnapshot;
   r.note.updatedAt = Date.now();
   _save();
-  window._notesSheetClose();
   _renderNote(noteId);
-};
-
-window._notesVlEditSave = function(noteId, idx) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b) return;
-  // 名前 / プレイリスト / チャンネル / 最大件数を反映（チップ系は既にinline更新済み）
-  const nameInp = document.getElementById('n-vl-name-inp');
-  if (nameInp) b.name = nameInp.value.trim() || 'リスト';
-  const plSel = document.getElementById('n-vl-pl-sel');
-  if (plSel) b.filter.pl = plSel.value;
-  const chSel = document.getElementById('n-vl-ch-sel');
-  if (chSel) b.filter.channel = chSel.value;
-  const maxInp = document.getElementById('n-vl-max-inp');
-  if (maxInp) b.max = Math.max(1, Math.min(200, parseInt(maxInp.value) || 20));
-  r.note.updatedAt = Date.now();
-  _save();
-  window._notesSheetClose();
-  _renderNote(noteId);
+  window.toast?.('📋 条件を保存しました', 1500);
 };
 
 // ── Vパネルが開かれたとき等に全インライン動画を一時停止 ──
