@@ -15,7 +15,15 @@
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
-  let _vidSort = 'auto';
+  // 動画リストのソート: { key, asc } オブジェクトで管理（localStorage に永続化）
+  let _vidSort = (() => {
+    try {
+      return {
+        key: localStorage.getItem('uni_vidSortKey') || 'addedAt',
+        asc: localStorage.getItem('uni_vidSortAsc') === 'true'
+      };
+    } catch { return { key: 'addedAt', asc: false }; }
+  })();
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
@@ -313,31 +321,30 @@
   function _mkVideoCol() {
     const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
     let vids = _ctxVideos(null);
-
-    switch (_vidSort) {
-      case 'title':
-        vids = vids.slice().sort((a,b) => (a.title||'').localeCompare(b.title,'ja'));
-        break;
-      case 'status':
-        vids = vids.slice().sort((a,b) =>
-          (STATUS_ORDER[a.status||'未着手'] ?? 3) - (STATUS_ORDER[b.status||'未着手'] ?? 3));
-        break;
-      case 'practice':
-        vids = vids.slice().sort((a,b) => (b.practice||0) - (a.practice||0));
-        break;
-    }
+    vids = _sortVidsForUni(vids);
 
     const total = vids.length;
     const shown = vids.slice(0, 30);
 
-    const sortSel = `<select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
-      <option value="auto"${_vidSort==='auto'?' selected':''}>自動</option>
-      <option value="title"${_vidSort==='title'?' selected':''}>名前順</option>
-    </select>`;
+    const dirArrow = _vidSort.asc ? '↑' : '↓';
+    const sortSel = `<div style="display:inline-flex;align-items:center;gap:4px">
+      <select onchange="uniSetVidSort(this.value)" onclick="event.stopPropagation()" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
+        <option value="addedAt"${_vidSort.key==='addedAt'?' selected':''}>追加日</option>
+        <option value="title"${_vidSort.key==='title'?' selected':''}>タイトル</option>
+        <option value="status"${_vidSort.key==='status'?' selected':''}>習得度</option>
+        <option value="lastPlayed"${_vidSort.key==='lastPlayed'?' selected':''}>最近再生した</option>
+        <option value="duration"${_vidSort.key==='duration'?' selected':''}>再生時間</option>
+      </select>
+      <button onclick="event.stopPropagation();uniToggleVidSortDir()" title="昇降順切替" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit">${dirArrow}</button>
+    </div>`;
 
     const isNoteMode = !!_noteMode;
-    const addedIds = isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set();
-    if (isNoteMode) _shownNoteVideos = shown.filter(v => !addedIds.has(v.id)).map(v => v.id);
+    const isVlMode = !!_vlBlockTarget;
+    const isAddMode = isNoteMode || isVlMode;
+    const addedIds = isVlMode
+      ? (window._notesVlGetIds?.(_vlBlockTarget.noteId, _vlBlockTarget.idx) || new Set())
+      : (isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set());
+    if (isAddMode) _shownNoteVideos = shown.filter(v => !addedIds.has(v.id)).map(v => v.id);
     else _shownNoteVideos = [];
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
@@ -346,12 +353,12 @@
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
-      const isAdded = isNoteMode && addedIds.has(v.id);
+      const isAdded = isAddMode && addedIds.has(v.id);
       const onclick = !isAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '';
-      const rowClass = isNoteMode
+      const rowClass = isAddMode
         ? 'uni-vc-row uni-vc-row-nm' + (isAdded ? ' uni-vc-row-added' : '')
         : 'uni-vc-row';
-      const indicator = isNoteMode
+      const indicator = isAddMode
         ? (isAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
         : '';
       return `<div class="${rowClass}" onclick="${onclick}">
@@ -363,21 +370,20 @@
       </div>`;
     }).join('');
 
-    const isVlMode = !!_vlBlockTarget;
     const addableCount = _shownNoteVideos.length;
-    const addAllBtn = isNoteMode && !isVlMode && addableCount > 0
+    const addAllBtn = isAddMode && addableCount > 0
       ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">＋ ${addableCount}件すべて追加</button>`
       : '';
     const saveVlBtn = isVlMode
-      ? `<button class="uni-vc-addall-btn" onclick="window._uniSaveVlBlockFilter()">✓ この条件で保存</button>`
+      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="window._uniSaveVlBlockFilter()">💾 動的条件で保存</button>`
       : '';
     const notice = total > 30
-      ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件)${saveVlBtn ? '' : ' — 続きはライブラリ・オーガナイズで'}${saveVlBtn}</div>`
+      ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件)${saveVlBtn ? '' : ' — 続きはライブラリ・オーガナイズで'}${addAllBtn}${saveVlBtn}</div>`
       : total === 0
       ? `<div class="uni-vc-notice">条件に一致する動画がありません${saveVlBtn}</div>`
       : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}${saveVlBtn}</div>`;
 
-    const colHeader = isVlMode ? '📋 リスト条件編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
+    const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
     return `<div class="uni-col uni-col-vc">
       <div class="uni-col-hdr"><span>${colHeader}</span>${sortSel}</div>
       <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
@@ -866,10 +872,14 @@
     _render();
   };
   window.uniClose = function () {
-    // vlBlock編集モードのまま閉じられた場合は変更を破棄してバックアップを復元
-    if (_vlBlockTarget && _vlFilterBackup) {
-      _restoreFilters(_vlFilterBackup);
-      _vlFilterBackup = null;
+    // vlBlock編集モードを閉じる場合: フィルタバックアップを復元、ノートを再描画
+    let vlNoteId = null;
+    if (_vlBlockTarget) {
+      vlNoteId = _vlBlockTarget.noteId;
+      if (_vlFilterBackup) {
+        _restoreFilters(_vlFilterBackup);
+        _vlFilterBackup = null;
+      }
       _vlBlockTarget = null;
     }
     _noteMode = null;
@@ -879,6 +889,10 @@
     _q = '';
     const inp = document.getElementById('uni-q');
     if (inp) inp.value = '';
+    // 手動追加の反映
+    if (vlNoteId && typeof window._notesRerenderNote === 'function') {
+      window._notesRerenderNote(vlNoteId);
+    }
   };
   window.uniSetTab = function (t) {
     _queries[_tab] = _q;
@@ -888,7 +902,47 @@
     _render();
   };
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
-  window.uniSetVidSort = function (v) { _vidSort = v; _render(); };
+  // 動画ソートのキー変更
+  window.uniSetVidSort = function (key) {
+    _vidSort.key = key;
+    try { localStorage.setItem('uni_vidSortKey', key); } catch {}
+    _render();
+  };
+  // 動画ソートの昇降順切替
+  window.uniToggleVidSortDir = function () {
+    _vidSort.asc = !_vidSort.asc;
+    try { localStorage.setItem('uni_vidSortAsc', String(_vidSort.asc)); } catch {}
+    _render();
+  };
+  // ソート適用関数
+  function _sortVidsForUni(vids) {
+    const k = _vidSort.key;
+    const asc = _vidSort.asc;
+    const parseDur = d => {
+      if (typeof d === 'number') return d;
+      if (typeof d !== 'string' || !d) return 0;
+      const parts = d.split(':').map(n => parseInt(n, 10) || 0);
+      if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+      if (parts.length === 2) return parts[0]*60 + parts[1];
+      return parseFloat(d) || 0;
+    };
+    const get = v => {
+      switch (k) {
+        case 'addedAt':    return v.addedAt || '';
+        case 'title':      return (v.title || '').toLowerCase();
+        case 'status':     return STATUS_ORDER[v.status || '未着手'] ?? 9;
+        case 'lastPlayed': return v.lastPlayed || 0;
+        case 'duration':   return parseDur(v.duration);
+        default:           return v.addedAt || '';
+      }
+    };
+    return vids.slice().sort((a, b) => {
+      const va = get(a), vb = get(b);
+      if (va < vb) return asc ? -1 : 1;
+      if (va > vb) return asc ? 1 : -1;
+      return 0;
+    });
+  }
   window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _queries[_tab] = _q; _render(); };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
@@ -1024,18 +1078,29 @@
   // popoverを外クリックで閉じる
   document.addEventListener('click', () => _closeSSMenus());
 
-  // ノートモード — 表示中の動画をすべてノートに追加
+  // 表示中の動画をすべてノートまたはvidlistに一括追加
   window._uniAddAllToNote = function() {
-    if (!_noteMode || !_shownNoteVideos.length) return;
-    _shownNoteVideos.forEach(id => window._notesAddFromLib?.(id, _noteMode));
-    _shownNoteVideos = [];
-    _render();
+    if (!_shownNoteVideos.length) return;
+    if (_vlBlockTarget) {
+      window._notesVlAddAllVideos?.(_vlBlockTarget.noteId, _vlBlockTarget.idx, _shownNoteVideos);
+      window.toast?.(`📋 ${_shownNoteVideos.length}件をリストに追加`, 1500);
+      _shownNoteVideos = [];
+      _render();
+      return;
+    }
+    if (_noteMode) {
+      _shownNoteVideos.forEach(id => window._notesAddFromLib?.(id, _noteMode));
+      _shownNoteVideos = [];
+      _render();
+    }
   };
 
-  // ノートモード動画クリック — _noteMode をクリック時に読む（render時に焼き込まない）
+  // 動画クリックの分岐
   window._uniVideoClick = function(videoId) {
     if (_vlBlockTarget) {
-      // vlBlock編集モードでは動画クリックは何もしない（条件絞込のプレビューとして見るだけ）
+      // vlBlock編集中: 1件ずつ手動リストに追加
+      window._notesVlAddVideo?.(_vlBlockTarget.noteId, _vlBlockTarget.idx, videoId);
+      _render(); // 追加済みバッジを即時更新
       return;
     }
     if (_noteMode) {

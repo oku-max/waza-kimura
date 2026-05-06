@@ -1119,16 +1119,19 @@ function _blockHTML(block, idx, noteId, total) {
         </div>${drag}${upBtn}${dnBtn}${del}</div>`;
     }
     case 'vidlist': {
-      const filter = block.filter || {};
-      const max = block.max || 20;
-      const all = _filterVidList(filter);
+      const max = block.max || 50;
+      const isManual = block.mode === 'manual';
+      const all = _resolveVidList(block);
       const display = all.slice(0, max);
-      const summary = _vlSummary(filter);
+      const summary = isManual ? `📌 手動 ${all.length}件` : _vlSummary(block.filter || {});
       const rowsHtml = display.length
         ? display.map(v => {
             const ytId = v.ytId || (v.pt === 'youtube' ? v.id : '');
             const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
             const dur = v.duration || '';
+            const removeBtn = isManual
+              ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}',${idx},'${_esc(v.id)}')">×</button>`
+              : '';
             return `<div class="n-vl-row" onclick="window.openVPanel?.('${v.id}')">
               <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
               <div class="n-vl-info">
@@ -1136,9 +1139,10 @@ function _blockHTML(block, idx, noteId, total) {
                 <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
               </div>
               <div class="n-vl-dur">${_esc(dur)}</div>
+              ${removeBtn}
             </div>`;
           }).join('')
-        : '<div class="n-vl-empty">条件にマッチする動画がありません</div>';
+        : `<div class="n-vl-empty">${isManual ? 'まだ動画が追加されていません' : '条件にマッチする動画がありません'}</div>`;
       const moreHtml = all.length > max ? `<div class="n-vl-more">他 ${all.length - max} 件</div>` : '';
       return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
         <div class="n-vl-card" id="n-vl-${noteId}-${idx}">
@@ -2480,6 +2484,16 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
 
 // （ブックマーク追加/削除/シークは _nbvi* 既存ハンドラを使用）
 
+// ── 動画リスト（vidlist）: モードに応じて動画を解決 ──
+function _resolveVidList(block) {
+  if (!block) return [];
+  if (block.mode === 'manual' && Array.isArray(block.ids)) {
+    const map = new Map((window.videos || []).filter(v => !v.archived).map(v => [v.id, v]));
+    return block.ids.map(id => map.get(id)).filter(Boolean);
+  }
+  return _filterVidList(block.filter || {});
+}
+
 // ── 動画リスト（vidlist）: フィルタを共通形式に正規化 ──
 // 旧フォーマット { tb[], cat[], pos[], tags[], pl, status, channel } と
 // 新フォーマット（window.filtersスナップショット形式）両対応
@@ -2590,17 +2604,88 @@ window._notesVlEdit = function(noteId, idx) {
   window.uniOpenForVlBlock(noteId, idx, snap);
 };
 
-// 統一フィルタオーバーレイ側から呼ばれる保存コールバック
+// 統一フィルタオーバーレイ側から呼ばれる保存コールバック（フィルタ条件保存）
 window._notesVlSaveFilter = function(noteId, idx, filterSnapshot) {
   const r = _findNote(noteId);
   if (!r) return;
   const b = r.note.blocks[idx];
   if (!b) return;
   b.filter = filterSnapshot;
+  b.mode = 'filter';  // フィルタ動的モードへ
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
   window.toast?.('📋 条件を保存しました', 1500);
+};
+
+// 1件ずつ手動でvidlistに追加
+window._notesVlAddVideo = function(noteId, idx, videoId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b) return;
+  if (b.mode !== 'manual') {
+    b.mode = 'manual';
+    b.ids = b.ids || [];
+  }
+  if (!Array.isArray(b.ids)) b.ids = [];
+  if (b.ids.includes(videoId)) return;
+  b.ids.push(videoId);
+  r.note.updatedAt = Date.now();
+  _save();
+  // 注意: ここで _renderNote すると統合オーバーレイが閉じてしまう。
+  // 描画は次回 _renderNote 時に反映される。「追加済み」バッジは
+  // _notesVlGetIds 経由で _render() がvidlist編集中に正しく取得する。
+};
+
+// フィルタ結果すべてを手動リストに一括追加
+window._notesVlAddAllVideos = function(noteId, idx, videoIds) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b) return;
+  if (b.mode !== 'manual') {
+    b.mode = 'manual';
+    b.ids = b.ids || [];
+  }
+  if (!Array.isArray(b.ids)) b.ids = [];
+  let added = 0;
+  videoIds.forEach(id => {
+    if (!b.ids.includes(id)) { b.ids.push(id); added++; }
+  });
+  if (added > 0) {
+    r.note.updatedAt = Date.now();
+    _save();
+  }
+  return added;
+};
+
+// 統合オーバーレイ等から呼べる、指定ノートの再描画
+window._notesRerenderNote = function(noteId) {
+  if (_findNote(noteId)) _renderNote(noteId);
+};
+
+// vidlist 編集中: ブロックに既に入ってる動画ID集合を返す（追加済みバッジ用）
+window._notesVlGetIds = function(noteId, idx) {
+  const r = _findNote(noteId);
+  if (!r) return new Set();
+  const b = r.note.blocks[idx];
+  if (!b || !Array.isArray(b.ids)) return new Set();
+  return new Set(b.ids);
+};
+
+// vidlist 行の × 削除（手動モード時）
+window._notesVlRemoveId = function(noteId, idx, videoId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[idx];
+  if (!b || b.mode !== 'manual' || !Array.isArray(b.ids)) return;
+  const i = b.ids.indexOf(videoId);
+  if (i < 0) return;
+  b.ids.splice(i, 1);
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
 };
 
 // ── Vパネルが開かれたとき等に全インライン動画を一時停止 ──
