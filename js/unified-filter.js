@@ -19,6 +19,8 @@
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
+  let _vlBlockTarget = null; // null = 通常, { noteId, idx } = vidlistブロック条件編集モード
+  let _vlFilterBackup = null; // 編集前のフィルタ状態（保存・キャンセルで復元）
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -361,17 +363,21 @@
       </div>`;
     }).join('');
 
+    const isVlMode = !!_vlBlockTarget;
     const addableCount = _shownNoteVideos.length;
-    const addAllBtn = isNoteMode && addableCount > 0
+    const addAllBtn = isNoteMode && !isVlMode && addableCount > 0
       ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">＋ ${addableCount}件すべて追加</button>`
       : '';
+    const saveVlBtn = isVlMode
+      ? `<button class="uni-vc-addall-btn" onclick="window._uniSaveVlBlockFilter()">✓ この条件で保存</button>`
+      : '';
     const notice = total > 30
-      ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件) — 続きはライブラリ・オーガナイズで</div>`
+      ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件)${saveVlBtn ? '' : ' — 続きはライブラリ・オーガナイズで'}${saveVlBtn}</div>`
       : total === 0
-      ? `<div class="uni-vc-notice">条件に一致する動画がありません</div>`
-      : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}</div>`;
+      ? `<div class="uni-vc-notice">条件に一致する動画がありません${saveVlBtn}</div>`
+      : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}${saveVlBtn}</div>`;
 
-    const colHeader = isNoteMode ? 'ノートに追加' : '該当動画';
+    const colHeader = isVlMode ? '📋 リスト条件編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
     return `<div class="uni-col uni-col-vc">
       <div class="uni-col-hdr"><span>${colHeader}</span>${sortSel}</div>
       <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
@@ -787,6 +793,68 @@
     _syncSearchbar(_tab);
     _render();
   };
+
+  // ── vidlistブロックの条件編集モード ──
+  // 開く前に window.filters と関連globalsをバックアップし、ブロックの保存済み条件をロード
+  window.uniOpenForVlBlock = function (noteId, idx, blockFilter) {
+    _vlBlockTarget = { noteId, idx };
+    _ctx = 'lib';
+    // 現状のフィルタをバックアップ
+    _vlFilterBackup = _snapshotFilters();
+    // ブロックの条件をwindow.filters系に流し込む
+    _restoreFilters(blockFilter || {});
+    _inject();
+    _tab = 'src';
+    document.getElementById('uni-bd').classList.add('open');
+    document.getElementById('uni-popup').classList.add('open');
+    _syncSearchbar(_tab);
+    _render();
+  };
+
+  function _snapshotFilters() {
+    const f = window.filters || {};
+    const snap = {};
+    Object.keys(f).forEach(k => {
+      snap[k] = f[k] instanceof Set ? [...f[k]] : f[k];
+    });
+    snap._favOnly = !!window.favOnly;
+    snap._unwOnly = !!window.unwOnly;
+    snap._watchedOnly = !!window.watchedOnly;
+    snap._prRank = window.prRank ?? null;
+    snap._prDate = window.prDate ?? null;
+    return snap;
+  }
+
+  function _restoreFilters(snap) {
+    const f = window.filters || {};
+    Object.keys(f).forEach(k => {
+      if (f[k] instanceof Set) {
+        f[k].clear();
+        const arr = snap[k];
+        if (Array.isArray(arr)) arr.forEach(v => f[k].add(v));
+      }
+    });
+    if ('_favOnly'     in snap) window.favOnly     = !!snap._favOnly;
+    if ('_unwOnly'     in snap) window.unwOnly     = !!snap._unwOnly;
+    if ('_watchedOnly' in snap) window.watchedOnly = !!snap._watchedOnly;
+    if ('_prRank' in snap) window.prRank = snap._prRank;
+    if ('_prDate' in snap) window.prDate = snap._prDate;
+    window.AF?.();
+  }
+
+  // vidlistブロックに現在のフィルタ条件を保存
+  window._uniSaveVlBlockFilter = function () {
+    if (!_vlBlockTarget) return;
+    const snap = _snapshotFilters();
+    if (typeof window._notesVlSaveFilter === 'function') {
+      window._notesVlSaveFilter(_vlBlockTarget.noteId, _vlBlockTarget.idx, snap);
+    }
+    // 元のフィルタ状態に復元してオーバーレイを閉じる
+    if (_vlFilterBackup) _restoreFilters(_vlFilterBackup);
+    _vlFilterBackup = null;
+    _vlBlockTarget = null;
+    window.uniClose?.();
+  };
   window.uniOpen = function (tab, ctx) {
     _noteMode = null;
     _ctx = ctx || 'lib';
@@ -798,6 +866,12 @@
     _render();
   };
   window.uniClose = function () {
+    // vlBlock編集モードのまま閉じられた場合は変更を破棄してバックアップを復元
+    if (_vlBlockTarget && _vlFilterBackup) {
+      _restoreFilters(_vlFilterBackup);
+      _vlFilterBackup = null;
+      _vlBlockTarget = null;
+    }
     _noteMode = null;
     document.getElementById('uni-bd')?.classList.remove('open');
     document.getElementById('uni-popup')?.classList.remove('open');
@@ -960,6 +1034,10 @@
 
   // ノートモード動画クリック — _noteMode をクリック時に読む（render時に焼き込まない）
   window._uniVideoClick = function(videoId) {
+    if (_vlBlockTarget) {
+      // vlBlock編集モードでは動画クリックは何もしない（条件絞込のプレビューとして見るだけ）
+      return;
+    }
     if (_noteMode) {
       window._notesAddFromLib?.(videoId, _noteMode);
       _render(); // 追加済みバッジを即時更新
