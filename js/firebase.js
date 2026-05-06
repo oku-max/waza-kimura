@@ -25,6 +25,7 @@ auth.onAuthStateChanged(async (user) => {
   if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
 
   currentUser = user;
+  if (window.__pmark && !window.__perf?.auth) window.__pmark('auth');
   updateAuthUI(user);
   if (user) {
     window._notesInitForUser?.();
@@ -166,6 +167,7 @@ export function loadUserData(uid) {
   let _firstLoad = true;
 
   _videosUnsubscribe = docRef.onSnapshot(async snap => {
+    if (window.__pmark && !window.__perf?.data_first) window.__pmark('data_first');
     if (!snap.exists) return;
     const data = snap.data();
     const saved = data?.videos;
