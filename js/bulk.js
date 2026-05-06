@@ -194,21 +194,21 @@ export function buildBulkDrawerHTML() {
   const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips">${catRow}</div></div>` : '';
   const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
   const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
-  const tagSec = (_showTb || _showCat || _showPos || _showTagsF) ? `<div class="fsec" style="border:1px solid var(--accent);border-radius:8px;margin:6px;padding:6px">
-    <div class="fsec-title" style="color:var(--accent)">タグ</div>
+  const tagSec = (_showTb || _showCat || _showPos || _showTagsF) ? `<div class="fsec">
+    <div class="fsec-title">タグ</div>
     ${_tbRowEl}${_catRowEl}${_posRowEl}${_tagsRowEl}
   </div>` : '';
 
   return markSec + (_showStatus ? progSec : '') + srcSec + tagSec
-  + `<div style="padding:8px 16px 4px">
+  + `<div style="padding:8px 0 4px">
       <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
-        style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--accent);
+        style="width:100%;padding:10px;border-radius:10px;border:1px dashed var(--border);
                background:var(--surface2);color:var(--accent);font-size:13px;
                font-weight:700;cursor:pointer;letter-spacing:.3px">
         🤖 AIタグ提案
       </button>
     </div>
-    <div style="padding:4px 16px;display:flex;gap:8px">
+    <div style="padding:4px 0;display:flex;gap:8px">
       <button onclick="bulkDo('archive')"
         style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--purple,#8b5cf6);
                background:transparent;color:var(--purple,#8b5cf6);font-size:12px;
