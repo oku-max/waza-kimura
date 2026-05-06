@@ -1308,7 +1308,8 @@
 }
 .n-col-block-wrap {
   position: relative; border-radius: 4px; border: 1px solid transparent; margin-bottom: 2px;
-  min-width: 0;
+  /* min-width:0 にしない: wrap がコンテンツの自然な最小幅を保つことで
+     vidlist の min-width:240px が slot 幅を超え、slot 側で横スクロールが効く */
 }
 .n-col-block-wrap:hover { border-color: var(--border); }
 .n-col-block-wrap:hover .n-cb-del { display: block; }
