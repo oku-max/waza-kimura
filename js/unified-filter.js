@@ -19,7 +19,7 @@
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
-  let _vlBlockTarget = null; // null = 通常, { noteId, idx } = vidlistブロック条件編集モード
+  let _vlBlockTarget = null; // null = 通常, { noteId, path } = vidlistブロック条件編集モード
   let _vlFilterBackup = null; // 編集前のフィルタ状態（保存・キャンセルで復元）
 
   function _esc(s) {
@@ -321,7 +321,7 @@
     const isVlMode = !!_vlBlockTarget;
     const isAddMode = isNoteMode || isVlMode;
     const addedIds = isVlMode
-      ? (window._notesVlGetIds?.(_vlBlockTarget.noteId, _vlBlockTarget.idx) || new Set())
+      ? (window._notesVlGetIds?.(_vlBlockTarget.noteId, _vlBlockTarget.path) || new Set())
       : (isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set());
     if (isAddMode) _shownNoteVideos = shown.filter(v => !addedIds.has(v.id)).map(v => v.id);
     else _shownNoteVideos = [];
@@ -791,13 +791,12 @@
 
   // ── vidlistブロックの条件編集モード ──
   // 開く前に window.filters と関連globalsをバックアップし、ブロックの保存済み条件をロード
-  window.uniOpenForVlBlock = function (noteId, idx, blockFilter) {
-    _vlBlockTarget = { noteId, idx };
+  // path: ルート階層なら "5"、カラム内なら "3.0.1"（colIdx.slot.bIdx）
+  window.uniOpenForVlBlock = function (noteId, path, blockFilter) {
+    _vlBlockTarget = { noteId, path: String(path) };
     _ctx = 'lib';
     _autoScrolled = false;
-    // 現状のフィルタをバックアップ
     _vlFilterBackup = _snapshotFilters();
-    // ブロックの条件をwindow.filters系に流し込む
     _restoreFilters(blockFilter || {});
     _inject();
     _tab = 'src';
@@ -805,7 +804,6 @@
     document.getElementById('uni-popup').classList.add('open');
     _syncSearchbar(_tab);
     _render();
-    // vlBlock編集モードでは並び替え・保存ボタンが見える動画列まで自動スクロール
     setTimeout(() => _forceScrollToVidCol(), 60);
   };
 
@@ -845,9 +843,8 @@
     if (!_vlBlockTarget) return;
     const snap = _snapshotFilters();
     if (typeof window._notesVlSaveFilter === 'function') {
-      window._notesVlSaveFilter(_vlBlockTarget.noteId, _vlBlockTarget.idx, snap);
+      window._notesVlSaveFilter(_vlBlockTarget.noteId, _vlBlockTarget.path, snap);
     }
-    // 元のフィルタ状態に復元してオーバーレイを閉じる
     if (_vlFilterBackup) _restoreFilters(_vlFilterBackup);
     _vlFilterBackup = null;
     _vlBlockTarget = null;
@@ -1034,7 +1031,7 @@
   window._uniAddAllToNote = function() {
     if (!_shownNoteVideos.length) return;
     if (_vlBlockTarget) {
-      window._notesVlAddAllVideos?.(_vlBlockTarget.noteId, _vlBlockTarget.idx, _shownNoteVideos);
+      window._notesVlAddAllVideos?.(_vlBlockTarget.noteId, _vlBlockTarget.path, _shownNoteVideos);
       window.toast?.(`📋 ${_shownNoteVideos.length}件をリストに追加`, 1500);
       _shownNoteVideos = [];
       _render();
@@ -1050,14 +1047,13 @@
   // 動画クリックの分岐
   window._uniVideoClick = function(videoId) {
     if (_vlBlockTarget) {
-      // vlBlock編集中: 1件ずつ手動リストに追加
-      window._notesVlAddVideo?.(_vlBlockTarget.noteId, _vlBlockTarget.idx, videoId);
-      _render(); // 追加済みバッジを即時更新
+      window._notesVlAddVideo?.(_vlBlockTarget.noteId, _vlBlockTarget.path, videoId);
+      _render();
       return;
     }
     if (_noteMode) {
       window._notesAddFromLib?.(videoId, _noteMode);
-      _render(); // 追加済みバッジを即時更新
+      _render();
     } else {
       window.openVPanel?.(videoId);
       window.uniClose();

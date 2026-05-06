@@ -1119,56 +1119,7 @@ function _blockHTML(block, idx, noteId, total) {
         </div>${drag}${upBtn}${dnBtn}${del}</div>`;
     }
     case 'vidlist': {
-      const max = block.max || 50;
-      const isManual = block.mode === 'manual';
-      const all = _resolveVidList(block);
-      const display = all.slice(0, max);
-      const summary = isManual ? `📌 手動 ${all.length}件` : _vlSummary(block.filter || {});
-      const rowsHtml = display.length
-        ? display.map(v => {
-            const ytId = v.ytId || (v.pt === 'youtube' ? v.id : '');
-            const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
-            const dur = v.duration || '';
-            const removeBtn = isManual
-              ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}',${idx},'${_esc(v.id)}')">×</button>`
-              : '';
-            return `<div class="n-vl-row" onclick="window.openVPanel?.('${v.id}')">
-              <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
-              <div class="n-vl-info">
-                <div class="n-vl-ttl">${_esc(v.title || v.id)}</div>
-                <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
-              </div>
-              <div class="n-vl-dur">${_esc(dur)}</div>
-              ${removeBtn}
-            </div>`;
-          }).join('')
-        : `<div class="n-vl-empty">${isManual ? 'まだ動画が追加されていません' : '条件にマッチする動画がありません'}</div>`;
-      const moreHtml = all.length > max ? `<div class="n-vl-more">他 ${all.length - max} 件</div>` : '';
-      const sortKey = block.sort?.key || 'addedAt';
-      const sortAsc = !!block.sort?.asc;
-      const sortArrow = sortAsc ? '↑' : '↓';
-      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
-        <div class="n-vl-card" id="n-vl-${noteId}-${idx}">
-          <div class="n-vl-hdr">
-            <span class="n-vl-icon">📋</span>
-            <span class="n-vl-name">${_esc(block.name || 'リスト')}</span>
-            <span class="n-vl-badge">${all.length}</span>
-            <select class="n-vl-sort-sel" onclick="event.stopPropagation()"
-              onchange="window._notesVlSetSort('${noteId}',${idx},this.value)">
-              <option value="addedAt"${sortKey==='addedAt'?' selected':''}>追加日</option>
-              <option value="title"${sortKey==='title'?' selected':''}>タイトル</option>
-              <option value="status"${sortKey==='status'?' selected':''}>習得度</option>
-              <option value="lastPlayed"${sortKey==='lastPlayed'?' selected':''}>最近再生</option>
-              <option value="duration"${sortKey==='duration'?' selected':''}>再生時間</option>
-            </select>
-            <button class="n-vl-sort-dir" title="昇降順切替"
-              onclick="event.stopPropagation();window._notesVlToggleSortDir('${noteId}',${idx})">${sortArrow}</button>
-            <span class="n-vl-edit" title="条件編集"
-              onclick="event.stopPropagation();window._notesVlEdit('${noteId}',${idx})">✎ 条件</span>
-          </div>
-          ${summary ? `<div class="n-vl-summary">${_esc(summary)}</div>` : ''}
-          <div class="n-vl-list">${rowsHtml}${moreHtml}</div>
-        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
+      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>${_renderVidlistCard(block, String(idx), noteId)}${drag}${upBtn}${dnBtn}${del}</div>`;
     }
     default: return '';
   }
@@ -1590,6 +1541,7 @@ function _renderColBlock(b, idx, noteId) {
         <button onclick="window._notesColAddVid('${noteId}',${idx},${slot})">＋ 動画</button>
         <button onclick="window._notesColAddImg('${noteId}',${idx},${slot})">＋ 画像</button>
         <button onclick="window._notesColAddMap('${noteId}',${idx},${slot})">＋ Map</button>
+        <button onclick="window._notesColAddVl('${noteId}',${idx},${slot})">＋ リスト</button>
       </div>
     </div>`;
   }).join('');
@@ -1649,6 +1601,11 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
         <div class="n-b-map-open">編集 →</div>
       </div>${del}
     </div>`;
+  }
+
+  if (type === 'vidlist') {
+    const path = `${colIdx}.${slot}.${bIdx}`;
+    return `<div class="n-col-block-wrap">${drag}${_renderVidlistCard(b, path, noteId)}${del}</div>`;
   }
 
   const tag = type === 'h2' ? 'h2' : type === 'quote' ? 'blockquote' : 'div';
@@ -1760,6 +1717,21 @@ window._notesColAddMap = function(noteId, idx, slot) {
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
+};
+
+window._notesColAddVl = function(noteId, idx, slot) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const colBlock = r.note.blocks[idx];
+  if (!colBlock || colBlock.type !== 'col') return;
+  if (!colBlock.cols[slot]) colBlock.cols[slot] = [];
+  colBlock.cols[slot].push({ type: 'vidlist', name: '関連動画', mode: 'filter', filter: {}, max: 50, sort: { key: 'addedAt', asc: false } });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+  // 追加直後に条件編集を開く
+  const newBIdx = colBlock.cols[slot].length - 1;
+  setTimeout(() => window._notesVlEdit(noteId, `${idx}.${slot}.${newBIdx}`), 50);
 };
 
 window._notesColVidToggle = function(noteId, colIdx, slot, bIdx) {
@@ -2497,6 +2469,81 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
 
 // （ブックマーク追加/削除/シークは _nbvi* 既存ハンドラを使用）
 
+// ── 動画リスト: カード本体のレンダラ（ルート・カラム両方から呼ぶ） ──
+function _renderVidlistCard(block, path, noteId) {
+  const max = block.max || 50;
+  const isManual = block.mode === 'manual';
+  const all = _resolveVidList(block);
+  const display = all.slice(0, max);
+  const summary = isManual ? `📌 手動 ${all.length}件` : _vlSummary(block.filter || {});
+  const cardId = `n-vl-${noteId}-${String(path).replace(/\./g,'-')}`;
+  const rowsHtml = display.length
+    ? display.map(v => {
+        const ytId = v.ytId || (v.pt === 'youtube' ? v.id : '');
+        const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
+        const dur = v.duration || '';
+        const removeBtn = isManual
+          ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}','${path}','${_esc(v.id)}')">×</button>`
+          : '';
+        return `<div class="n-vl-row" onclick="window.openVPanel?.('${v.id}')">
+          <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
+          <div class="n-vl-info">
+            <div class="n-vl-ttl">${_esc(v.title || v.id)}</div>
+            <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
+          </div>
+          <div class="n-vl-dur">${_esc(dur)}</div>
+          ${removeBtn}
+        </div>`;
+      }).join('')
+    : `<div class="n-vl-empty">${isManual ? 'まだ動画が追加されていません' : '条件にマッチする動画がありません'}</div>`;
+  const moreHtml = all.length > max ? `<div class="n-vl-more">他 ${all.length - max} 件</div>` : '';
+  const sortKey = block.sort?.key || 'addedAt';
+  const sortAsc = !!block.sort?.asc;
+  const sortArrow = sortAsc ? '↑' : '↓';
+  return `<div class="n-vl-card" id="${cardId}">
+    <div class="n-vl-hdr">
+      <span class="n-vl-icon">📋</span>
+      <span class="n-vl-name">${_esc(block.name || 'リスト')}</span>
+      <span class="n-vl-badge">${all.length}</span>
+      <select class="n-vl-sort-sel" onclick="event.stopPropagation()"
+        onchange="window._notesVlSetSort('${noteId}','${path}',this.value)">
+        <option value="addedAt"${sortKey==='addedAt'?' selected':''}>追加日</option>
+        <option value="title"${sortKey==='title'?' selected':''}>タイトル</option>
+        <option value="status"${sortKey==='status'?' selected':''}>習得度</option>
+        <option value="lastPlayed"${sortKey==='lastPlayed'?' selected':''}>最近再生</option>
+        <option value="duration"${sortKey==='duration'?' selected':''}>再生時間</option>
+      </select>
+      <button class="n-vl-sort-dir" title="昇降順切替"
+        onclick="event.stopPropagation();window._notesVlToggleSortDir('${noteId}','${path}')">${sortArrow}</button>
+      <span class="n-vl-edit" title="条件編集"
+        onclick="event.stopPropagation();window._notesVlEdit('${noteId}','${path}')">✎ 条件</span>
+    </div>
+    ${summary ? `<div class="n-vl-summary">${_esc(summary)}</div>` : ''}
+    <div class="n-vl-list">${rowsHtml}${moreHtml}</div>
+  </div>`;
+}
+
+// ── 動画リスト（vidlist）: ブロック位置を path 文字列で扱う共通ヘルパー ──
+// path 形式:
+//   "5"        - ルート階層 (note.blocks[5])
+//   "3.0.1"    - カラム内 (note.blocks[3].cols[0][1])
+function _vlGetBlockByPath(noteId, path) {
+  const r = _findNote(noteId);
+  if (!r) return null;
+  const parts = String(path).split('.');
+  if (parts.length === 1) {
+    const b = r.note.blocks[+parts[0]];
+    return b ? { note: r.note, block: b } : null;
+  }
+  if (parts.length === 3) {
+    const cb = r.note.blocks[+parts[0]];
+    if (!cb || cb.type !== 'col' || !cb.cols) return null;
+    const b = cb.cols[+parts[1]]?.[+parts[2]];
+    return b ? { note: r.note, block: b } : null;
+  }
+  return null;
+}
+
 // ── 動画リスト（vidlist）: モードに応じて動画を解決 + ブロック単位ソート適用 ──
 function _resolveVidList(block) {
   if (!block) return [];
@@ -2619,18 +2666,14 @@ window._notesAddVlBlock = function(noteId) {
 };
 
 // ── 動画リスト: 条件編集 → 統一フィルタオーバーレイを vlBlock モードで開く ──
-window._notesVlEdit = function(noteId, idx) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b || b.type !== 'vidlist') return;
+window._notesVlEdit = function(noteId, path) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block || ref.block.type !== 'vidlist') return;
   if (typeof window.uniOpenForVlBlock !== 'function') {
     window.toast?.('フィルタ画面が読み込まれていません', 1800);
     return;
   }
-  // 旧フォーマット {tb[], cat[], pos[], tags[], pl, status, channel} を
-  // window.filters用スナップショット形式に変換してから渡す
-  const f = b.filter || {};
+  const f = ref.block.filter || {};
   const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
   const snap = {
     prio:     f.prio     || [],
@@ -2648,60 +2691,49 @@ window._notesVlEdit = function(noteId, idx) {
     _prRank:      f._prRank ?? null,
     _prDate:      f._prDate ?? null
   };
-  window.uniOpenForVlBlock(noteId, idx, snap);
+  window.uniOpenForVlBlock(noteId, String(path), snap);
 };
 
 // 統一フィルタオーバーレイ側から呼ばれる保存コールバック（フィルタ条件保存）
-window._notesVlSaveFilter = function(noteId, idx, filterSnapshot) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b) return;
-  b.filter = filterSnapshot;
-  b.mode = 'filter';  // フィルタ動的モードへ
-  r.note.updatedAt = Date.now();
+window._notesVlSaveFilter = function(noteId, path, filterSnapshot) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block) return;
+  ref.block.filter = filterSnapshot;
+  ref.block.mode = 'filter';
+  ref.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
   window.toast?.('📋 条件を保存しました', 1500);
 };
 
 // 1件ずつ手動でvidlistに追加
-window._notesVlAddVideo = function(noteId, idx, videoId) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b) return;
-  if (b.mode !== 'manual') {
-    b.mode = 'manual';
-    b.ids = b.ids || [];
-  }
+window._notesVlAddVideo = function(noteId, path, videoId) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block) return;
+  const b = ref.block;
+  if (b.mode !== 'manual') { b.mode = 'manual'; b.ids = b.ids || []; }
   if (!Array.isArray(b.ids)) b.ids = [];
   if (b.ids.includes(videoId)) return;
   b.ids.push(videoId);
-  r.note.updatedAt = Date.now();
+  ref.note.updatedAt = Date.now();
   _save();
   // 注意: ここで _renderNote すると統合オーバーレイが閉じてしまう。
-  // 描画は次回 _renderNote 時に反映される。「追加済み」バッジは
-  // _notesVlGetIds 経由で _render() がvidlist編集中に正しく取得する。
+  // 描画は次回 _renderNote 時に反映される。
 };
 
 // フィルタ結果すべてを手動リストに一括追加
-window._notesVlAddAllVideos = function(noteId, idx, videoIds) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b) return;
-  if (b.mode !== 'manual') {
-    b.mode = 'manual';
-    b.ids = b.ids || [];
-  }
+window._notesVlAddAllVideos = function(noteId, path, videoIds) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block) return 0;
+  const b = ref.block;
+  if (b.mode !== 'manual') { b.mode = 'manual'; b.ids = b.ids || []; }
   if (!Array.isArray(b.ids)) b.ids = [];
   let added = 0;
   videoIds.forEach(id => {
     if (!b.ids.includes(id)) { b.ids.push(id); added++; }
   });
   if (added > 0) {
-    r.note.updatedAt = Date.now();
+    ref.note.updatedAt = Date.now();
     _save();
   }
   return added;
@@ -2713,50 +2745,42 @@ window._notesRerenderNote = function(noteId) {
 };
 
 // vidlist 編集中: ブロックに既に入ってる動画ID集合を返す（追加済みバッジ用）
-window._notesVlGetIds = function(noteId, idx) {
-  const r = _findNote(noteId);
-  if (!r) return new Set();
-  const b = r.note.blocks[idx];
-  if (!b || !Array.isArray(b.ids)) return new Set();
-  return new Set(b.ids);
+window._notesVlGetIds = function(noteId, path) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block || !Array.isArray(ref.block.ids)) return new Set();
+  return new Set(ref.block.ids);
 };
 
 // vidlist のソートキー設定
-window._notesVlSetSort = function(noteId, idx, key) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b) return;
-  if (!b.sort) b.sort = { key: 'addedAt', asc: false };
-  b.sort.key = key;
-  r.note.updatedAt = Date.now();
+window._notesVlSetSort = function(noteId, path, key) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block) return;
+  if (!ref.block.sort) ref.block.sort = { key: 'addedAt', asc: false };
+  ref.block.sort.key = key;
+  ref.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
 };
 
 // vidlist のソート方向（昇降）切替
-window._notesVlToggleSortDir = function(noteId, idx) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b) return;
-  if (!b.sort) b.sort = { key: 'addedAt', asc: false };
-  b.sort.asc = !b.sort.asc;
-  r.note.updatedAt = Date.now();
+window._notesVlToggleSortDir = function(noteId, path) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block) return;
+  if (!ref.block.sort) ref.block.sort = { key: 'addedAt', asc: false };
+  ref.block.sort.asc = !ref.block.sort.asc;
+  ref.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
 };
 
 // vidlist 行の × 削除（手動モード時）
-window._notesVlRemoveId = function(noteId, idx, videoId) {
-  const r = _findNote(noteId);
-  if (!r) return;
-  const b = r.note.blocks[idx];
-  if (!b || b.mode !== 'manual' || !Array.isArray(b.ids)) return;
-  const i = b.ids.indexOf(videoId);
+window._notesVlRemoveId = function(noteId, path, videoId) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (!ref?.block || ref.block.mode !== 'manual' || !Array.isArray(ref.block.ids)) return;
+  const i = ref.block.ids.indexOf(videoId);
   if (i < 0) return;
-  b.ids.splice(i, 1);
-  r.note.updatedAt = Date.now();
+  ref.block.ids.splice(i, 1);
+  ref.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
 };
