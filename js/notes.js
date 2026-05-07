@@ -1629,7 +1629,7 @@ window._notesOpenVPanel = function(noteId, videoId) {
     .filter(b => b.type === 'video' && b.videoId)
     .map(b => vids.find(v => v.id === b.videoId))
     .filter(Boolean);
-  window._noteVidList = noteVids.length > 1 ? noteVids : null;
+  window._noteVidList = noteVids.length ? noteVids : null;
   window.openVPanel?.(videoId);
 };
 
