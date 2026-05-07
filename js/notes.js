@@ -1725,13 +1725,10 @@ window._notesColAddVl = function(noteId, idx, slot) {
   const colBlock = r.note.blocks[idx];
   if (!colBlock || colBlock.type !== 'col') return;
   if (!colBlock.cols[slot]) colBlock.cols[slot] = [];
-  colBlock.cols[slot].push({ type: 'vidlist', name: '関連動画', mode: 'filter', filter: {}, max: 50, sort: { key: 'addedAt', asc: false } });
+  colBlock.cols[slot].push({ type: 'vidlist', name: '関連動画', mode: 'manual', ids: [], max: 50, sort: { key: 'addedAt', asc: false } });
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
-  // 追加直後に条件編集を開く
-  const newBIdx = colBlock.cols[slot].length - 1;
-  setTimeout(() => window._notesVlEdit(noteId, `${idx}.${slot}.${newBIdx}`), 50);
 };
 
 window._notesColVidToggle = function(noteId, colIdx, slot, bIdx) {
@@ -2485,7 +2482,7 @@ function _renderVidlistCard(block, path, noteId) {
         const removeBtn = isManual
           ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}','${path}','${_esc(v.id)}')">×</button>`
           : '';
-        return `<div class="n-vl-row" onclick="window.openVPanel?.('${v.id}')">
+        return `<div class="n-vl-row" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')">
           <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
           <div class="n-vl-info">
             <div class="n-vl-ttl">${_esc(v.title || v.id)}</div>
@@ -2503,7 +2500,7 @@ function _renderVidlistCard(block, path, noteId) {
   return `<div class="n-vl-card" id="${cardId}">
     <div class="n-vl-hdr">
       <span class="n-vl-icon">📋</span>
-      <span class="n-vl-name">${_esc(block.name || 'リスト')}</span>
+      <span class="n-vl-name" title="タップで名前変更" onclick="event.stopPropagation();window._notesVlRenameTap('${noteId}','${path}',this)">${_esc(block.name || 'リスト')}</span>
       <span class="n-vl-badge">${all.length}</span>
       <select class="n-vl-sort-sel" onclick="event.stopPropagation()"
         onchange="window._notesVlSetSort('${noteId}','${path}',this.value)">
@@ -2654,15 +2651,13 @@ window._notesAddVlBlock = function(noteId) {
   _blocksInsertOrPush(r.note.blocks, {
     type: 'vidlist',
     name: '関連動画',
-    filter: {},
+    mode: 'manual',
+    ids: [],
     max: 20
   });
   r.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
-  // 追加直後に編集シートを開く
-  const newIdx = r.note.blocks.length - 1;
-  setTimeout(() => window._notesVlEdit(noteId, newIdx), 50);
 };
 
 // ── 動画リスト: 条件編集 → 統一フィルタオーバーレイを vlBlock モードで開く ──
@@ -2783,6 +2778,42 @@ window._notesVlRemoveId = function(noteId, path, videoId) {
   ref.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
+};
+
+// ── vidlist 動画クリック: _noteVidList をセットして vpanel を開く ──
+window._notesVlOpenVPanel = function(noteId, path, videoId) {
+  const ref = _vlGetBlockByPath(noteId, path);
+  if (ref?.block) {
+    const vids = _resolveVidList(ref.block);
+    window._noteVidList = vids.length > 1 ? vids : null;
+  }
+  window.openVPanel?.(videoId);
+};
+
+// ── vidlist 名前: タップでインライン編集 ──
+window._notesVlRenameTap = function(noteId, path, el) {
+  const cur = el.textContent;
+  const input = document.createElement('input');
+  input.value = cur;
+  input.style.cssText = 'font:inherit;font-weight:700;font-size:inherit;border:none;border-bottom:1.5px solid var(--accent);outline:none;background:transparent;width:120px;max-width:160px;padding:0;color:inherit;';
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  const commit = () => {
+    const val = input.value.trim() || cur;
+    const ref = _vlGetBlockByPath(noteId, path);
+    if (ref?.block) {
+      ref.block.name = val;
+      ref.note.updatedAt = Date.now();
+      _save();
+    }
+    _renderNote(noteId);
+  };
+  input.onblur = commit;
+  input.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.replaceWith(el); }
+  };
 };
 
 // ── Vパネルが開かれたとき等に全インライン動画を一時停止 ──
