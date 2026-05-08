@@ -296,6 +296,71 @@ export async function fetchMissingGdDurations() {
 }
 window.fetchMissingGdDurations = fetchMissingGdDurations;
 
+// ── GDriveサムネをDOMに直接差し込む（AF()後に呼ぶ）──
+// drive.google.com/thumbnailはChromeの3rd-partyクッキー制限で失敗するため
+// /api/thumb-proxyを使ってサーバーサイドで取得する
+window.loadGdriveCardThumbs = async function() {
+  // GDriveトークンがなければスキップ
+  if (!_token) {
+    const cached = _loadCachedToken();
+    if (cached) { _token = cached; } else return;
+  }
+
+  // 画像が壊れているGDriveカードを収集（fileId → [{ img, vid }]）
+  const toFetch = new Map();
+  const addImg = (img, vid) => {
+    const fileId = vid.replace(/^gd-/, '');
+    if (!fileId) return;
+    if (!toFetch.has(fileId)) toFetch.set(fileId, []);
+    toFetch.get(fileId).push({ img, vid });
+  };
+
+  document.querySelectorAll('.card[data-plat="gd"]').forEach(card => {
+    const img = card.querySelector('.card-thumb > img');
+    if (!img || img.naturalWidth > 0) return;
+    addImg(img, card.id.replace('card-', ''));
+  });
+  document.querySelectorAll('.org-tr[id^="org-row-gd-"] img.org-thumb').forEach(img => {
+    if (img.naturalWidth > 0) return;
+    const row = img.closest('.org-tr');
+    if (row) addImg(img, row.id.replace('org-row-', ''));
+  });
+
+  if (!toFetch.size) return;
+
+  await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
+    try {
+      // Drive APIからthumbnailLinkを取得
+      const data = await driveGet(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,thumbnailLink`
+      );
+      const thumbnailLink = data?.thumbnailLink;
+      if (!thumbnailLink) return;
+
+      // プロキシ経由で画像取得
+      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+
+      targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
+
+      // Firebase Storageに永続化し、v.thumbを更新
+      _uploadThumbToStorage(fileId, thumbnailLink).then(url => {
+        if (!url) return;
+        targets.forEach(({ img, vid }) => {
+          if (img.src === objUrl) img.src = url;
+          const v = (window.videos || []).find(v => v.id === vid);
+          if (v) v.thumb = url;
+        });
+        URL.revokeObjectURL(objUrl);
+        window.debounceSave?.();
+      }).catch(() => {});
+    } catch { /* skip on error */ }
+  }));
+};
+
 async function scanFolder(folderId, folderName, depth) {
   const files   = await listFolder(folderId);
   const videos  = [];
