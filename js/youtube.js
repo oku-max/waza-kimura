@@ -261,11 +261,13 @@ export async function fetchMissingYtDetails(token) {
 }
 window.fetchMissingYtDetails = fetchMissingYtDetails;
 
-// ── Vimeo 動画の duration 補完（oEmbed API, 認証不要）──
+// ── Vimeo 動画の duration・thumbnail 補完（oEmbed API, 認証不要）──
 export async function fetchMissingVimeoDurations() {
   const missing = (window.videos || []).filter(v => {
     const pt = v.pt || v.src || 'youtube';
-    return !['youtube', 'gdrive', 'x'].includes(pt) && !v.duration && v.id;
+    if (['youtube', 'gdrive', 'x'].includes(pt) || !v.id) return false;
+    const needsThumb = !v.thumb || v.thumb.includes('vumbnail.com');
+    return !v.duration || needsThumb;
   });
   if (!missing.length) return;
 
@@ -287,7 +289,11 @@ export async function fetchMissingVimeoDurations() {
           );
           if (!res.ok) return;
           const data = await res.json();
-          if (data.duration > 0) { v.duration = data.duration; updated++; }
+          if (data.duration > 0 && !v.duration) { v.duration = data.duration; updated++; }
+          if (data.thumbnail_url && (!v.thumb || v.thumb.includes('vumbnail.com'))) {
+            v.thumb = data.thumbnail_url;
+            updated++;
+          }
         } catch { /* skip on error */ }
       })
     );
@@ -295,7 +301,6 @@ export async function fetchMissingVimeoDurations() {
 
   if (updated > 0) {
     window.debounceSave?.();
-    showToast(`✅ ${updated}本のVimeo動画の長さを取得しました`);
     window.AF?.();
   }
 }

@@ -679,7 +679,7 @@ export function renderOrg() {
       ? (v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`)
       : v.pt === 'x'
       ? (v.thumb || '')
-      : (v.thumb || `https://vumbnail.com/${_vmId}.jpg`);
+      : (v.thumb && !v.thumb.includes('vumbnail.com') ? v.thumb : '');
 
     const mkTagCell = (items, filterKey, colKey) => {
       const chips = items.map(t => `<span class="org-tag-chip">${t}</span>`).join('');

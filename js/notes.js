@@ -1034,9 +1034,13 @@ function _blockHTML(block, idx, noteId, total) {
       const chapters = libV?.ytChapters || [];
       const hasChapters = chapters.length > 0;
       const isVM = platform === 'vimeo' || platform === 'vm';
+      const vmThumb = isVM
+        ? (libV?.thumb && !libV.thumb.includes('vumbnail.com') ? libV.thumb
+          : block.thumb && !block.thumb.includes('vumbnail.com') ? block.thumb : '')
+        : '';
       const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
                      : isGD && gdId ? `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`
-                     : isVM && rawId ? `https://vumbnail.com/${rawId}.jpg`
+                     : isVM ? vmThumb
                      : '';
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
@@ -3683,7 +3687,7 @@ window._notesVpAddConfirm = function(noteId, videoId) {
       platform,
       ytId: (isYT && v?.ytId) ? v.ytId : undefined,
       vmHash: v?.vmHash || undefined,
-      thumb: isYT ? undefined : (v?.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${videoId}.jpg` : undefined)),
+      thumb: isYT ? undefined : (v?.thumb && !v.thumb.includes('vumbnail.com') ? v.thumb : undefined),
     });
     note.updatedAt = Date.now();
     _save();
@@ -3725,7 +3729,7 @@ window._notesAddFromLib = function(videoId, noteId) {
     ytId: ytId || undefined,
     vmHash: v.vmHash || undefined,
     thumb: ytId ? undefined
-         : v.thumb || (platform === 'vimeo' ? `https://vumbnail.com/${v.id}.jpg` : undefined),
+         : (v.thumb && !v.thumb.includes('vumbnail.com') ? v.thumb : undefined),
     title: v.title || '', channel: v.channel || v.ch || '', duration: v.duration || '', memo: ''
   };
   const ctx = window._notesColContext;

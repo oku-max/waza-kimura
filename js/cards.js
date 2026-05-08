@@ -84,7 +84,7 @@ export function cardHTML(v) {
   const thumb = isYT ? (v.thumb || `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`)
               : isGD ? (v.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w320`)
               : isX  ? (v.thumb || '')
-              : (v.thumb || `https://vumbnail.com/${vmId}.jpg`);
+              : (v.thumb && !v.thumb.includes('vumbnail.com') ? v.thumb : '');
   const emb   = isYT ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`
               : isGD ? `https://drive.google.com/file/d/${gdId}/preview`
               : isX  ? `https://platform.twitter.com/embed/Tweet.html?id=${xId}&lang=ja&theme=light&dnt=true&frame=false&hideCard=false&hideThread=false`
