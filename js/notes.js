@@ -1419,7 +1419,7 @@ window._notesColDragStart = function(e, noteId, colIdx, slot, bIdx) {
 window._notesSave = function(noteId) {
   const btn = document.getElementById('n-save-btn-' + noteId);
   if (btn) { btn.textContent = '✅ 保存済み'; btn.disabled = true; setTimeout(() => { if (btn) { btn.textContent = '💾 保存'; btn.disabled = false; } }, 2000); }
-  window._firebaseSaveNotes?.(_data);
+  window._firebaseSaveNotes?.({ folders: _data, root: _root });
 };
 
 window._notesHeaderSave = function() {
@@ -1427,7 +1427,7 @@ window._notesHeaderSave = function() {
   const btn = document.getElementById('nHeaderSaveBtn');
   if (btn) btn.disabled = true;
   if (lbl) lbl.textContent = '保存中…';
-  window._firebaseSaveNotes?.(_data);
+  window._firebaseSaveNotes?.({ folders: _data, root: _root });
   setTimeout(() => {
     if (lbl) lbl.textContent = '完了';
     setTimeout(() => { if (lbl) lbl.textContent = '保存'; if (btn) btn.disabled = false; }, 1500);
@@ -3164,7 +3164,7 @@ window._notesOpenMap = function(noteId, idx) {
     block.abState = updated.abState;
     r.note.updatedAt = Date.now();
     // デバウンス経由だと失われることがあるため直接保存
-    window._firebaseSaveNotes?.(_data);
+    window._firebaseSaveNotes?.({ folders: _data, root: _root });
     if (!document.getElementById('fc-overlay')?.classList.contains('open')) {
       _renderNote(noteId);
     }
@@ -3184,7 +3184,7 @@ window._notesColOpenMap = function(noteId, colIdx, slot, bIdx) {
     block.edges   = updated.edges;
     block.abState = updated.abState;
     r.note.updatedAt = Date.now();
-    window._firebaseSaveNotes?.(_data);
+    window._firebaseSaveNotes?.({ folders: _data, root: _root });
     if (!document.getElementById('fc-overlay')?.classList.contains('open')) {
       _renderNote(noteId);
     }
