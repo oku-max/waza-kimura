@@ -49,6 +49,23 @@
 }
 .n-iv-hdr-btn:hover { background: #eee; color: var(--text); }
 .n-iv-cmt-btn.open { color: var(--accent); background: rgba(232,201,106,.12); }
+/* サムネイル（アコーディオン閉じた状態） */
+.n-iv-thumb-mini {
+  flex-shrink: 0;
+  width: 48px; height: 28px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #111;
+  margin-right: 4px;
+}
+.n-iv-thumb-mini img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* 展開ボタン: 開いているとき色を変える */
+.n-iv-node.acc-open .n-iv-expand-btn { color: var(--accent, #e85); }
+/* コンテンツ: デフォルト非表示、acc-openで表示 */
 .n-iv-content { border-top: 1px solid var(--border2, #ebebeb); }
 .n-iv-url-bar {
   padding: 4px 10px;

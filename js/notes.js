@@ -1022,27 +1022,33 @@ function _blockHTML(block, idx, noteId, total) {
       const platform = block.platform || 'youtube';
       const rawId = block.videoId || '';
       const widthPct = block.vidWidth || 30;
-      const displayUrl = platform === 'gdrive'
-        ? `drive.google.com/file/d/${rawId.replace(/^gd-/,'')}/view`
-        : (platform === 'vimeo' || platform === 'vm')
-        ? `vimeo.com/${rawId.replace(/^yt-/,'')}`
+      const isYT = platform === 'youtube';
+      const isGD = platform === 'gdrive';
+      const ytId = block.ytId || (isYT ? rawId : '');
+      const gdId = isGD ? rawId.replace(/^gd-/, '') : '';
+      const displayUrl = isGD ? `drive.google.com/file/d/${gdId}/view`
+        : (platform === 'vimeo' || platform === 'vm') ? `vimeo.com/${rawId.replace(/^yt-/,'')}`
         : `youtube.com/watch?v=${rawId}`;
       const title = block.title || block.videoId || '(無題)';
       const libV = (window.videos || []).find(v => v.id === rawId || v.ytId === rawId);
       const chapters = libV?.ytChapters || [];
       const hasChapters = chapters.length > 0;
+      const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
+                     : isGD && gdId ? `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`
+                     : '';
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
-          <div class="n-iv-hdr">
+          <div class="n-iv-hdr" onclick="event.stopPropagation();window._notesIvToggle('${noteId}',${idx})">
+            ${thumbUrl ? `<div class="n-iv-thumb-mini"><img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'"></div>` : ''}
             <span class="n-iv-name" title="${_esc(title)}">${_esc(title)}</span>
-            <button class="n-iv-hdr-btn" title="Vパネルで開く"
-              onclick="event.stopPropagation();window._notesVidJumpVp('${noteId}',${idx})">▶</button>
+            <button class="n-iv-expand-btn n-iv-hdr-btn" title="展開して再生"
+              onclick="event.stopPropagation();window._notesIvToggle('${noteId}',${idx})">▶</button>
             <button class="n-iv-hdr-btn n-iv-cmt-btn" title="メモ"
               onclick="event.stopPropagation();window._notesVidTogMemo('${noteId}',${idx})">📝</button>
             <button class="n-iv-hdr-btn" title="メニュー"
               onclick="event.stopPropagation();window._notesVidMenu('${noteId}',${idx},this)">⋮</button>
           </div>
-          <div class="n-iv-content">
+          <div class="n-iv-content" style="display:none">
             <div class="n-iv-url-bar">${_esc(displayUrl)}</div>
             <div class="n-iv-vid-wrap" id="n-iv-vid-${noteId}-${idx}" data-platform="${platform}"></div>
             ${hasChapters ? `<div class="n-iv-chap-section" id="n-iv-chap-${noteId}-${idx}">
@@ -2232,9 +2238,7 @@ function _renderNote(id) {
     if (b.type === 'image' && b.snapId) {
       _initNoteSnap(id, b.snapId, b, idx);
     }
-    if (b.type === 'video' && b.videoId) {
-      _initInlineVideo(id, idx, b);
-    }
+    // video blocks are lazy-init: player created on first accordion open (_notesIvToggle)
     if (b.type === 'col' && b.cols) {
       b.cols.forEach((slotBlocks, slot) => {
         slotBlocks?.forEach(ib => {
@@ -2402,6 +2406,30 @@ function _ivPopulateMemo(noteId, idx) {
   const ta = document.getElementById(`n-iv-memo-ta-${noteId}-${idx}`);
   if (ta) ta.value = libV?.memo || '';
 }
+
+// ── インライン動画アコーディオン: 展開／折りたたみ ──
+window._notesIvToggle = function(noteId, idx) {
+  const node = document.getElementById(`n-iv-${noteId}-${idx}`);
+  if (!node) return;
+  const content = node.querySelector('.n-iv-content');
+  const btn = node.querySelector('.n-iv-expand-btn');
+  if (!content) return;
+  const isOpen = node.classList.contains('acc-open');
+  if (isOpen) {
+    node.classList.remove('acc-open');
+    content.style.display = 'none';
+    if (btn) btn.textContent = '▶';
+    _nBviClose(`${noteId}-${idx}`);
+  } else {
+    node.classList.add('acc-open');
+    content.style.display = 'block';
+    if (btn) btn.textContent = '⏹';
+    // lazy-init player on first open
+    const r = _findNote(noteId);
+    const block = r?.note?.blocks?.[idx];
+    if (block?.videoId) _initInlineVideo(noteId, idx, block);
+  }
+};
 
 // ── インライン動画ヘッダー: Vパネルへジャンプ ──
 window._notesVidJumpVp = function(noteId, idx) {
