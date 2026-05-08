@@ -175,6 +175,8 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
         onReady: (e) => {
           _ytPlayerReady = true;
           if (_vpPlaybackRate !== 1) { try { _ytPlayer.setPlaybackRate(_vpPlaybackRate); } catch(e2) {} }
+          // autoplay:1 がブラウザにブロックされた場合の明示フォールバック
+          if (autoplay) { try { _ytPlayer.playVideo(); } catch(e2) {} }
           _startTimeDisplay();
           if (onReady) onReady(e);
         },
@@ -1453,6 +1455,7 @@ export function openVPanel(id) {
           _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
           _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
           _vmPlayer.on('playbackratechange', (data) => { _vpPlaybackRate = data.playbackRate || 1; });
+          _vmPlayer.on('ended', () => { _vpHandleEnded(); });
           _vmPlayer.on('loaded', () => {
             _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
             if (_vpPlaybackRate !== 1) _vmPlayer.setPlaybackRate(_vpPlaybackRate).catch(()=>{});
@@ -1894,6 +1897,8 @@ function _createGDriveVideoEl(container, fileId, token) {
   _gdVideoEl = video;
   container.innerHTML = '';
   container.appendChild(video);
+  // autoplay属性だけではブラウザにブロックされる場合があるため明示的に再生を試みる
+  video.play().catch(() => {});
 }
 
 function _showGDriveAuthUI(container, fileId) {
