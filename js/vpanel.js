@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.128 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.129 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -37,6 +37,7 @@ function _loadVimeoApi() {
 // ── 連続再生・シャッフル状態 ──
 let _vpRepeat  = 'off'; // 'off' | 'list' | 'one'
 let _vpShuffle = false;
+let _vpCurrentPlat = null; // 現在再生中のプラットフォーム（YT→YT再利用判定用）
 
 // ── フィードバックキャプチャ（AI修正検出） ──
 let _vpTagSnapshot = null;  // { id, tb, cat, pos, tags } — openVPanel時にAI動画のタグをスナップショット
@@ -1379,6 +1380,10 @@ export function openVPanel(id) {
   else if (_gdVideoEl)               { _vpPlaybackRate = _gdVideoEl.playbackRate || 1; }
   // Vimeo は playbackratechange イベントで _vpPlaybackRate をキャッシュ済み
 
+  // YT→YT 遷移かどうか（プレイヤー再利用で autoplay を確実にするため）
+  const isYTtoYT = plat === 'yt' && _vpCurrentPlat === 'yt' && _ytPlayer && _ytPlayerReady;
+  _vpCurrentPlat = plat;
+
   // GDriveリセット — pause・タイマー・clickハンドラをすべて解除してから参照を切る
   if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} }
   clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
@@ -1388,7 +1393,8 @@ export function openVPanel(id) {
   _gdContainerClick = null;
   _gdVideoEl = null; _gdFileId = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
-  if (iframeContainer) {
+  // YT→YT の場合はプレイヤーを破棄しない（再利用して autoplay を保持する）
+  if (iframeContainer && !isYTtoYT) {
     iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
   }
 
@@ -1431,7 +1437,20 @@ export function openVPanel(id) {
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
     if (ytId) {
-      _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+      if (isYTtoYT) {
+        // プレイヤー再利用: loadVideoById は autoplay が保証される
+        try {
+          if (_vpPlaybackRate !== 1) _ytPlayer.setPlaybackRate(_vpPlaybackRate);
+          _ytPlayer.loadVideoById(ytId, 0);
+          _startTimeDisplay();
+        } catch(e) {
+          // 失敗時は通常フロー（新規作成）にフォールバック
+          if (iframeContainer) iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
+          _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+        }
+      } else {
+        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+      }
     }
   } else if (plat === 'x') {
     if (iframeContainer) {
