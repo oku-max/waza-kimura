@@ -99,10 +99,12 @@ async function loadNotes(uid) {
   _notesUnsubscribe = docRef.onSnapshot(async snap => {
     if (currentUser?.uid !== uid) return; // stale listener guard: 別ユーザーに切り替わっていたら無視
     const snapData = snap.data();
-    if (!snap.exists || !snapData?.data?.length) return;
+    if (!snap.exists) return;
+    // フォルダが0件でもroot（フォルダ外）ノートがあれば読み込む
+    if (!snapData?.data?.length && !snapData?.root?.length) return;
     if (snapData.savedBy === _sessionId) return;
     window._notesLoadFromRemote?.({
-      folders: _unpackNested(snapData.data),
+      folders: _unpackNested(snapData.data || []),
       root: snapData.root ? _unpackNested(snapData.root) : []
     });
   }, e => console.error('notes onSnapshot:', e));
@@ -111,6 +113,11 @@ async function loadNotes(uid) {
 // 手動同期：ヘッダーの同期ボタンから呼ばれる
 window._notesSyncNow = async function() {
   if (!currentUser) return;
+  // 未保存のローカル変更がある間は同期を拒否（上書き競合防止）
+  if (window._notesHasPendingSave?.()) {
+    showToast('⚠️ 保存中です。しばらくしてから再試行してください', 3000);
+    return;
+  }
   const icon = document.getElementById('nSyncIcon');
   const lbl  = document.getElementById('nSyncLbl');
   const btn  = document.getElementById('nSyncBtn');
@@ -119,10 +126,11 @@ window._notesSyncNow = async function() {
   if (lbl)  lbl.textContent  = '同期中…';
   try {
     const snap = await db.collection('users').doc(currentUser.uid).collection('data').doc('notes').get();
-    if (snap.exists && snap.data()?.data?.length) {
+    // フォルダが0件でもroot（フォルダ外）ノートがあれば読み込む
+    if (snap.exists && (snap.data()?.data?.length || snap.data()?.root?.length)) {
       const d = snap.data();
       window._notesLoadFromRemote?.({
-        folders: _unpackNested(d.data),
+        folders: _unpackNested(d.data || []),
         root: d.root ? _unpackNested(d.root) : []
       });
     }

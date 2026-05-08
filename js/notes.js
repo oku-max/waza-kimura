@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.79 ═══
+// ═══ WAZA KIMURA — Notes tab v52.131 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -47,6 +47,7 @@ window._notesClear = function() {
 };
 
 window._notesGetData = () => _data;
+window._notesHasPendingSave = () => !!_saveFsTimer;
 
 window._notesLoadFromRemote = function(payload) {
   // ローカルに未保存の変更がある間はリモートの上書きをスキップ（競合防止）
