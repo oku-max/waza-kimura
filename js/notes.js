@@ -1043,6 +1043,8 @@ function _blockHTML(block, idx, noteId, total) {
             <span class="n-iv-name" title="${_esc(title)}">${_esc(title)}</span>
             <button class="n-iv-expand-btn n-iv-hdr-btn" title="展開して再生"
               onclick="event.stopPropagation();window._notesIvToggle('${noteId}',${idx})">▶</button>
+            <button class="n-iv-hdr-btn" title="Vパネルで開く"
+              onclick="event.stopPropagation();window._notesVidJumpVp('${noteId}',${idx})">⊞</button>
             <button class="n-iv-hdr-btn n-iv-cmt-btn" title="メモ"
               onclick="event.stopPropagation();window._notesVidTogMemo('${noteId}',${idx})">📝</button>
             <button class="n-iv-hdr-btn" title="メニュー"
