@@ -185,8 +185,6 @@ export function renderSettings() {
   _renderTagDisplaySettings();
   _renderFilterColSettings();
   _renderAiImportSettings();
-  // オーナー専用設定の表示状態を毎回同期（Firebase auth タイミングのレースコンディション対策）
-  window.initOwnerSettings?.();
 }
 
 function _syncTagPresetsFromVideos() {
