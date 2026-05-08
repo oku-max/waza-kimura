@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.126 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.127 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1405,9 +1405,11 @@ export function openVPanel(id) {
     const ctrlSep = '<div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:3px 0"></div>';
     const srchSvg = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
     const chHtml = chName ? `<div style="flex:1;min-width:0;font-size:9px;font-weight:600;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1">${chName}</div>${ctrlSep}` : '<div style="flex:1"></div>';
+    const pencilSvg = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
     titleEl.innerHTML = `
-      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border)">
-        <div id="vp-title-text-${id}" style="font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
+      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:6px">
+        <div id="vp-title-text-${id}" style="flex:1;font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
+        <button onclick="vpEditTitle('${id}')" title="タイトルを編集" style="flex-shrink:0;width:22px;height:22px;border:none;background:transparent;color:var(--text3);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">${pencilSvg}</button>
       </div>
       <div style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-bottom:1px solid var(--border)">
         ${chHtml}
@@ -1666,6 +1668,45 @@ window.vpOpenNextList = function () {
 window.vpCloseNextList = function () {
   document.getElementById('vp-bs-overlay')?.classList.remove('open');
   document.getElementById('vp-bs-sheet')?.classList.remove('open');
+};
+
+// ── タイトル編集 ──
+window.vpEditTitle = function(id) {
+  const v = (window.videos || []).find(v => v.id === id);
+  if (!v) return;
+  const titleEl = document.getElementById('vp-title-text-' + id);
+  if (!titleEl) return;
+  const cur = v.title || '';
+  const input = document.createElement('input');
+  input.type  = 'text';
+  input.value = cur;
+  input.style.cssText = 'flex:1;font-size:11px;font-weight:700;color:var(--text);line-height:1.35;border:none;border-bottom:1.5px solid var(--accent);outline:none;background:transparent;width:100%;padding:2px 0;font-family:inherit;';
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const restore = (newTitle) => {
+    const div = document.createElement('div');
+    div.id = 'vp-title-text-' + id;
+    div.style.cssText = 'flex:1;font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical';
+    div.textContent = newTitle;
+    input.replaceWith(div);
+  };
+  const save = () => {
+    const val = input.value.trim();
+    if (!val || val === cur) { restore(cur); return; }
+    v.title = val;
+    window.debounceSave?.();
+    restore(val);
+    // メイン画面カードのタイトルも即時反映
+    const cardTitleEl = document.querySelector(`#card-${id} .card-title`);
+    if (cardTitleEl) cardTitleEl.textContent = val;
+    window.toast?.(`タイトルを変更しました`, 1500);
+  };
+  input.onblur  = save;
+  input.onkeydown = e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.onblur = null; restore(cur); }
+  };
 };
 
 function _vpMirrorGetPos() {
