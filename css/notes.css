@@ -169,18 +169,45 @@
 }
 .n-vl-list {
   display: flex; flex-direction: column;
-  max-height: 256px;       /* 約5行ぶん（行高さ ~50px x 5 + α）でスクロール */
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  /* max-height 削除: アコーディオン展開に対応 */
 }
 .n-vl-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px;
+  display: flex; flex-direction: column; align-items: stretch;
   border-bottom: 1px solid var(--border2, #ebebeb);
-  cursor: pointer; transition: background .12s;
 }
 .n-vl-row:last-child { border-bottom: 0; }
-.n-vl-row:hover { background: var(--surface2, #f6f6f4); }
+/* アコーディオン: ヘッダー行 */
+.n-vl-row-hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer; transition: background .12s;
+}
+.n-vl-row-hdr:hover { background: var(--surface2, #f6f6f4); }
+/* インライン再生ボタン */
+.n-vl-play-btn {
+  flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #4a9eff; color: #fff;
+  border: none; cursor: pointer; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+  padding: 0;
+}
+.n-vl-play-btn:hover { filter: brightness(1.2); }
+.n-vl-row.acc-open .n-vl-play-btn { background: #888; }
+/* アコーディオン: 展開エリア */
+.n-vl-row-body { display: none; border-top: 1px solid var(--border2, #ebebeb); }
+.n-vl-row.acc-open .n-vl-row-body { display: block; }
+/* インラインプレイヤー */
+.n-vl-inline-player {
+  width: 100%; aspect-ratio: 16/9; background: #000;
+  position: relative;
+}
+.n-vl-inline-player iframe,
+.n-vl-inline-player video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; display: block; border: none;
+}
 .n-vl-thumb {
   width: 56px; height: 32px; border-radius: 4px;
   flex-shrink: 0; overflow: hidden;

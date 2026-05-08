@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.131 ═══
+// ═══ WAZA KIMURA — Notes tab v52.132 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2480,17 +2480,25 @@ function _renderVidlistCard(block, path, noteId) {
         const ytId = v.ytId || (v.pt === 'youtube' ? v.id : '');
         const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
         const dur = v.duration || '';
+        const rowId = `n-vl-r-${noteId}-${v.id}`.replace(/[^a-zA-Z0-9\-_]/g, '_');
         const removeBtn = isManual
           ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}','${path}','${_esc(v.id)}')">×</button>`
           : '';
-        return `<div class="n-vl-row" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')">
-          <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
-          <div class="n-vl-info">
-            <div class="n-vl-ttl">${_esc(v.title || v.id)}</div>
-            <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
+        return `<div class="n-vl-row" id="${rowId}">
+          <div class="n-vl-row-hdr" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')">
+            <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
+            <div class="n-vl-info">
+              <div class="n-vl-ttl">${_esc(v.title || v.id)}</div>
+              <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
+            </div>
+            <div class="n-vl-dur">${_esc(dur)}</div>
+            <button class="n-vl-play-btn" title="その場で再生"
+              onclick="event.stopPropagation();window._notesVlInlinePlay('${rowId}','${v.id}')">▶</button>
+            ${removeBtn}
           </div>
-          <div class="n-vl-dur">${_esc(dur)}</div>
-          ${removeBtn}
+          <div class="n-vl-row-body">
+            <div class="n-vl-inline-player" id="${rowId}-player"></div>
+          </div>
         </div>`;
       }).join('')
     : `<div class="n-vl-empty">${isManual ? 'まだ動画が追加されていません' : '条件にマッチする動画がありません'}</div>`;
@@ -2779,6 +2787,63 @@ window._notesVlRemoveId = function(noteId, path, videoId) {
   ref.note.updatedAt = Date.now();
   _save();
   _renderNote(noteId);
+};
+
+// ── vidlist インライン再生: アコーディオン展開 + プレイヤー生成 ──
+window._notesVlInlinePlay = function(rowId, videoId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const isOpen = row.classList.contains('acc-open');
+  const btn = row.querySelector('.n-vl-play-btn');
+
+  // 同じリスト内の他の展開済み行を閉じる
+  const list = row.closest('.n-vl-list');
+  if (list) {
+    list.querySelectorAll('.n-vl-row.acc-open').forEach(r => {
+      if (r === row) return;
+      r.classList.remove('acc-open');
+      const p = r.querySelector('.n-vl-inline-player');
+      if (p) p.innerHTML = '';
+      const b = r.querySelector('.n-vl-play-btn');
+      if (b) b.textContent = '▶';
+    });
+  }
+
+  if (isOpen) {
+    // 閉じる
+    row.classList.remove('acc-open');
+    const player = document.getElementById(rowId + '-player');
+    if (player) player.innerHTML = '';
+    if (btn) btn.textContent = '▶';
+    return;
+  }
+
+  // 開く
+  row.classList.add('acc-open');
+  if (btn) btn.textContent = '⏹';
+
+  const v = (window.videos || []).find(v => v.id === videoId);
+  const player = document.getElementById(rowId + '-player');
+  if (!player) return;
+  if (!v) { player.innerHTML = '<div style="padding:16px;color:#888;font-size:12px;">動画が見つかりません</div>'; return; }
+
+  const isYT = v.pt === 'youtube';
+  const isGD = v.pt === 'gdrive';
+  const isX  = v.pt === 'x';
+  const ytId = v.ytId || (isYT ? v.id : '');
+  const gdId = isGD ? (v.id || '').replace('gd-', '') : '';
+  const vmId = (!isYT && !isGD && !isX) ? (v.id || '').replace('yt-', '') : '';
+
+  let src = '';
+  if (isYT && ytId)      src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
+  else if (isGD && gdId) src = `https://drive.google.com/file/d/${gdId}/preview`;
+  else if (!isYT && !isGD && !isX && vmId) src = `https://player.vimeo.com/video/${vmId}?${v.vmHash ? 'h=' + v.vmHash + '&' : ''}autoplay=1`;
+
+  if (src) {
+    player.innerHTML = `<iframe src="${src}" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>`;
+  } else {
+    player.innerHTML = '<div style="padding:14px;color:#888;font-size:12px;text-align:center">このプラットフォームはインライン再生非対応<br>タイトルをタップしてVPanelで再生してください</div>';
+  }
 };
 
 // ── vidlist 動画クリック: _noteVidList をセットして vpanel を開く ──
