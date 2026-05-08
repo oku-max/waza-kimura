@@ -59,6 +59,7 @@ function _silentRefresh() {
           _saveToken(resp.access_token);
           _setAuthUI(true);
           fetchMissingGdDurations();
+          window.loadGdriveCardThumbs?.();
           resolve(resp.access_token);
         }
       },
@@ -92,6 +93,7 @@ export function initDriveAuth(forceConsent = false) {
           _saveToken(token);
           _setAuthUI(true);
           fetchMissingGdDurations();
+          window.loadGdriveCardThumbs?.();
           resolve(true);
         } else if (!forceConsent) {
           // トークンなし → consent強制で再試行
@@ -303,11 +305,18 @@ window.loadGdriveCardThumbs = async function() {
   // GDriveトークンがなければスキップ
   if (!_token) {
     const cached = _loadCachedToken();
-    if (cached) { _token = cached; } else return;
+    if (cached) { _token = cached; }
+    else { console.log('[GDthumb] token なし – スキップ'); return; }
   }
+  console.log('[GDthumb] token あり, カードをスキャン中…');
 
   // 画像が壊れているGDriveカードを収集（fileId → [{ img, vid }]）
+  // naturalWidth===0（ロード失敗）またはsrcがdrive.google.comのフォールバックURL
   const toFetch = new Map();
+  const _needsThumb = img =>
+    !img ||
+    img.naturalWidth === 0 ||
+    (img.src && img.src.includes('drive.google.com/thumbnail'));
   const addImg = (img, vid) => {
     const fileId = vid.replace(/^gd-/, '');
     if (!fileId) return;
@@ -317,15 +326,16 @@ window.loadGdriveCardThumbs = async function() {
 
   document.querySelectorAll('.card[data-plat="gd"]').forEach(card => {
     const img = card.querySelector('.card-thumb > img');
-    if (!img || img.naturalWidth > 0) return;
+    if (!_needsThumb(img)) return;
     addImg(img, card.id.replace('card-', ''));
   });
   document.querySelectorAll('.org-tr[id^="org-row-gd-"] img.org-thumb').forEach(img => {
-    if (img.naturalWidth > 0) return;
+    if (!_needsThumb(img)) return;
     const row = img.closest('.org-tr');
     if (row) addImg(img, row.id.replace('org-row-', ''));
   });
 
+  console.log(`[GDthumb] 対象カード: ${toFetch.size}件`);
   if (!toFetch.size) return;
 
   await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
@@ -335,7 +345,7 @@ window.loadGdriveCardThumbs = async function() {
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,thumbnailLink`
       );
       const thumbnailLink = data?.thumbnailLink;
-      if (!thumbnailLink) return;
+      if (!thumbnailLink) { console.log(`[GDthumb] ${fileId}: thumbnailLink なし`); return; }
 
       // プロキシ経由で画像取得
       const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbnailLink)}&token=${encodeURIComponent(_token)}`;
