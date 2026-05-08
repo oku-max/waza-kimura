@@ -301,10 +301,62 @@ export async function fetchMissingVimeoDurations() {
 
   if (updated > 0) {
     window.debounceSave?.();
-    window.AF?.();
+    window.loadVimeoCardThumbs?.(); // 永続化後にDOMに反映
   }
 }
 window.fetchMissingVimeoDurations = fetchMissingVimeoDurations;
+
+// ── VimeoサムネをoEmbed経由でDOMに直接差し込む ──
+// AF()後に呼ぶことで、描画済みカードのimgを即時更新する
+window.loadVimeoCardThumbs = async function() {
+  const toFetch = [];
+
+  // Libraryカードビュー
+  document.querySelectorAll('.card[data-plat="vm"]').forEach(card => {
+    const img = card.querySelector('.card-thumb > img');
+    if (!img) return;
+    if (img.naturalWidth > 0 && !img.src.includes('vumbnail.com')) return;
+    const ext = card.dataset.ext || '';
+    const m = ext.match(/vimeo\.com\/(\d+)(?:\/([a-z0-9]+))?/);
+    if (!m) return;
+    toFetch.push({ img, vmId: m[1], vmHash: m[2] || '', vid: card.id.replace('card-', '') });
+  });
+
+  // フィルタービュー（organize.js）
+  document.querySelectorAll('.org-tr[id^="org-row-"] img.org-thumb').forEach(img => {
+    if (img.naturalWidth > 0 && !img.src.includes('vumbnail.com')) return;
+    const row = img.closest('.org-tr');
+    if (!row) return;
+    const vid = row.id.replace('org-row-', '');
+    const v = (window.videos || []).find(v => v.id === vid);
+    if (!v) return;
+    const pt = v.pt || v.src || 'youtube';
+    if (['youtube', 'gdrive', 'x'].includes(pt)) return;
+    const vmId = (v.id || '').replace(/^(vm-|vimeo-|yt-)/i, '');
+    if (!vmId || !/^\d/.test(vmId)) return;
+    toFetch.push({ img, vmId, vmHash: v.vmHash || '', vid });
+  });
+
+  if (!toFetch.length) return;
+
+  await Promise.allSettled(toFetch.map(async ({ img, vmId, vmHash, vid }) => {
+    try {
+      const vUrl = vmHash ? `https://vimeo.com/${vmId}/${vmHash}` : `https://vimeo.com/${vmId}`;
+      const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vUrl)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.thumbnail_url) return;
+      img.style.display = '';
+      img.src = data.thumbnail_url;
+      // メモリ上のv.thumbも更新（次のAF()から即使える）
+      const v = (window.videos || []).find(v => v.id === vid);
+      if (v && (!v.thumb || v.thumb.includes('vumbnail.com'))) {
+        v.thumb = data.thumbnail_url;
+        window.debounceSave?.();
+      }
+    } catch { /* skip on error */ }
+  }));
+};
 
 async function fetchVideoDescriptions(vids, token) {
   const descMap = {};
