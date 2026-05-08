@@ -1033,8 +1033,10 @@ function _blockHTML(block, idx, noteId, total) {
       const libV = (window.videos || []).find(v => v.id === rawId || v.ytId === rawId);
       const chapters = libV?.ytChapters || [];
       const hasChapters = chapters.length > 0;
+      const isVM = platform === 'vimeo' || platform === 'vm';
       const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
                      : isGD && gdId ? `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`
+                     : isVM && rawId ? `https://vumbnail.com/${rawId}.jpg`
                      : '';
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
