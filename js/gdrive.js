@@ -355,10 +355,38 @@ window.loadGdriveCardThumbs = async function() {
       console.log(`[GDthumb] ${fileId.slice(0,8)}: hasThumbnail=${meta.hasThumbnail}, link=${meta.thumbnailLink ? '有' : 'null'}`);
 
       if (!meta.thumbnailLink) {
-        // thumbnailLink=null → 512KBトリガーしてGoogleの処理を促す
-        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-          headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
-        }).catch(() => {});
+        if (meta.hasThumbnail) {
+          // hasThumbnail=true なのに link=null の場合：
+          // サムネは存在するが <img> 直接読み込みはChromeのサードパーティCookieブロックで失敗している
+          // → WorkerプロキシはBearer認証でCookie不要のためこれを回避できる可能性がある
+          const directUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
+          const pr = `/api/thumb-proxy?url=${encodeURIComponent(directUrl)}&token=${encodeURIComponent(_token)}`;
+          try {
+            const ir = await fetch(pr);
+            if (ir.ok) {
+              const ct = ir.headers.get('content-type') || '';
+              if (ct.startsWith('image/')) {
+                const blob = await ir.blob();
+                if (blob.size > 500) {
+                  const objUrl = URL.createObjectURL(blob);
+                  targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
+                  // 成功したらv.thumbに永続保存
+                  const vid = targets[0]?.vid;
+                  const vObj = (window.videos||[]).find(v => v.id===vid || v.id==='gd-'+fileId);
+                  if (vObj) { vObj.thumb = directUrl; window.saveUserData?.(); }
+                  console.log(`[GDthumb] ✅ hasThumbnail=true proxy成功: ${fileId}`);
+                  return;
+                }
+              }
+            }
+            console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
+          } catch(e) {}
+        } else {
+          // hasThumbnail=false → Googleがまだ生成していない → 512KBトリガー
+          fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+            headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
+          }).catch(() => {});
+        }
         return;
       }
 
