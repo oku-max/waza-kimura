@@ -382,10 +382,8 @@ window.loadGdriveCardThumbs = async function() {
             console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
           } catch(e) {}
         } else {
-          // hasThumbnail=false → Googleがまだ生成していない → 512KBトリガー
-          fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
-          }).catch(() => {});
+          // hasThumbnail=false → Googleがサムネを持っていない。できることはない
+          console.log(`[GDthumb] hasThumbnail=false: ${fileId} → スキップ`);
         }
         return;
       }
@@ -845,7 +843,6 @@ export async function fetchMissingGdThumbnails() {
   if (!missing.length) return;
 
   let done = 0;
-  const nullIds = []; // thumbnailLink=nullだったfileId（処理トリガー対象）
 
   for (let i = 0; i < missing.length; i += 10) {
     const batch = missing.slice(i, i + 10);
@@ -854,11 +851,8 @@ export async function fetchMissingGdThumbnails() {
       try {
         const data = await driveGet(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`);
         if (data.thumbnailLink) {
-          // thumbnailLinkをv.thumbに直接保存（Firebase不要）
           v.thumb = data.thumbnailLink;
           done++;
-        } else {
-          nullIds.push(fileId);
         }
       } catch(e) { /* skip */ }
     }));
@@ -870,15 +864,7 @@ export async function fetchMissingGdThumbnails() {
     console.log(`[GDthumb] fetchMissing: ${done}件のthumbを更新`);
   }
 
-  // thumbnailLink=nullのファイルは512KBトリガーして後続リトライに任せる
-  if (nullIds.length) {
-    console.log(`[GDthumb] ${nullIds.length}件はthumbnailLink=null → 処理トリガー`);
-    nullIds.forEach(fileId => {
-      fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-        headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
-      }).catch(() => {});
-    });
-  }
+  // thumbnailLink=null → Googleにサムネなし。できることはない
 }
 window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
 
