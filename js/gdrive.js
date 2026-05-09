@@ -382,8 +382,35 @@ window.loadGdriveCardThumbs = async function() {
             console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
           } catch(e) {}
         } else {
-          // hasThumbnail=false → Googleがサムネを持っていない。できることはない
-          console.log(`[GDthumb] hasThumbnail=false: ${fileId} → スキップ`);
+          // hasThumbnail=false → VLC等で動画データにアクセスするとGoogleがトランスコードを開始する（再現性確認済み）
+          // 64KBのRangeリクエスト = VLCと同じ「動画データへのアクセス」の最小版
+          await _triggerGdThumbViaRange(fileId);
+          // Googleの処理完了を待って2分・10分後にリトライ
+          const _retryLater = async (delaySec) => {
+            await new Promise(r => setTimeout(r, delaySec * 1000));
+            try {
+              const rr = await fetch(
+                `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
+                { headers: { Authorization: `Bearer ${_token}` } }
+              );
+              if (!rr.ok) return false;
+              const mr = await rr.json();
+              if (!mr.thumbnailLink) return false;
+              const pr = `/api/thumb-proxy?url=${encodeURIComponent(mr.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+              const ir = await fetch(pr);
+              if (!ir.ok) return false;
+              const blob = await ir.blob();
+              if (blob.size < 500) return false;
+              const objUrl = URL.createObjectURL(blob);
+              targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
+              const vid = targets[0]?.vid;
+              const vObj = (window.videos||[]).find(v => v.id===vid || v.id==='gd-'+fileId);
+              if (vObj) { vObj.thumb = mr.thumbnailLink; window.saveUserData?.(); }
+              console.log(`[GDthumb] ✅ ${delaySec}秒後リトライ成功: ${fileId}`);
+              return true;
+            } catch { return false; }
+          };
+          _retryLater(120).then(ok => ok || _retryLater(600));
         }
         return;
       }
@@ -826,6 +853,25 @@ async function _uploadThumbsBatch(jobs) {
     await window.saveUserData?.();
     window.AF?.();
     window.toast?.(`🖼 ${done}本のサムネイルを保存しました`);
+  }
+}
+
+// ── 動画データの先頭64KBを取得してGoogleのトランスコードをトリガー ──
+// 根拠：VLCで「その他のアプリを接続」すると動画データにアクセスし、その後サムネが生成される（再現性確認済み）
+// 何日放置してもサムネが生成されない＝Googleは自動処理しない。VLCのアクセスがトリガー。
+// alt=mediaリクエストはVLCと同じ動画データアクセスの最小版（64KB）
+const _rangeTriggered = new Set();
+async function _triggerGdThumbViaRange(fileId) {
+  if (_rangeTriggered.has(fileId)) return;
+  _rangeTriggered.add(fileId);
+  try {
+    await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-65535' } }
+    );
+    console.log(`[GDthumb] Rangeリクエスト送信: ${fileId.slice(0,8)}`);
+  } catch(e) {
+    console.warn(`[GDthumb] Rangeリクエスト失敗: ${fileId.slice(0,8)}`, e.message);
   }
 }
 
