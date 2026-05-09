@@ -382,34 +382,9 @@ window.loadGdriveCardThumbs = async function() {
             console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
           } catch(e) {}
         } else {
-          // hasThumbnail=false → Worker経由でget_video_infoを叩く（ネイティブDriveの内部処理を擬似再現）
-          _triggerGdThumb(fileId);
-          // Googleの処理完了を待って2分・10分後にリトライ
-          const _retryLater = async (delaySec) => {
-            await new Promise(r => setTimeout(r, delaySec * 1000));
-            try {
-              const rr = await fetch(
-                `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
-                { headers: { Authorization: `Bearer ${_token}` } }
-              );
-              if (!rr.ok) return false;
-              const mr = await rr.json();
-              if (!mr.thumbnailLink) return false;
-              const pr = `/api/thumb-proxy?url=${encodeURIComponent(mr.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
-              const ir = await fetch(pr);
-              if (!ir.ok) return false;
-              const blob = await ir.blob();
-              if (blob.size < 500) return false;
-              const objUrl = URL.createObjectURL(blob);
-              targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
-              const vid = targets[0]?.vid;
-              const vObj = (window.videos||[]).find(v => v.id===vid || v.id==='gd-'+fileId);
-              if (vObj) { vObj.thumb = mr.thumbnailLink; window.saveUserData?.(); }
-              console.log(`[GDthumb] ✅ ${delaySec}秒後リトライ成功: ${fileId}`);
-              return true;
-            } catch { return false; }
-          };
-          _retryLater(120).then(ok => ok || _retryLater(600));
+          // hasThumbnail=false → Googleがまだサムネを生成していない
+          // Drive で動画を直接再生することでサムネが生成される（vpanelの🔄Driveボタン参照）
+          console.log(`[GDthumb] hasThumbnail=false: ${fileId.slice(0,8)} — Driveで再生が必要`);
         }
         return;
       }
@@ -855,37 +830,6 @@ async function _uploadThumbsBatch(jobs) {
   }
 }
 
-// ── hasThumbnail=false のファイルに対するトリガー ──
-// ① Worker経由（Bearer token）: get_video_info + alt=media + uc?export=download
-// ② ブラウザ直接（no-cors + credentials:include）: ユーザーのGoogle sessionCookieを送る
-const _triggered = new Set();
-async function _triggerGdThumb(fileId) {
-  if (_triggered.has(fileId)) return;
-  _triggered.add(fileId);
-
-  // ① Worker経由（Bearer token）
-  try {
-    const res = await fetch(
-      `/api/gd-trigger?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(_token)}`
-    );
-    const data = await res.json();
-    console.log(`[GDthumb] trigger結果 ${fileId.slice(0,8)}:`, JSON.stringify(data));
-  } catch(e) {
-    console.warn(`[GDthumb] trigger失敗 ${fileId.slice(0,8)}:`, e.message);
-  }
-
-  // ② ブラウザ直接no-cors: ユーザーのGoogleセッションCookieを送る（レスポンスは読めない）
-  // Bearer tokenとは違い、ネイティブDriveと同じ認証コンテキストで届く可能性がある
-  try {
-    await fetch(
-      `https://drive.google.com/u/0/get_video_info?docid=${encodeURIComponent(fileId)}&drive_originator_app=303`,
-      { mode: 'no-cors', credentials: 'include' }
-    );
-    console.log(`[GDthumb] no-cors fetch送信: ${fileId.slice(0,8)}`);
-  } catch(e) {
-    console.warn(`[GDthumb] no-cors fetch失敗: ${fileId.slice(0,8)}`, e.message);
-  }
-}
 
 // ── 既存GDrive動画のサムネイル補完（Firebase不要・thumbnailLink直接保存）──
 export async function fetchMissingGdThumbnails() {
