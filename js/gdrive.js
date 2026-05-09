@@ -318,7 +318,7 @@ window.loadGdriveCardThumbs = async function() {
     fetchMissingGdThumbnails(); // バックグラウンドで実行（awaitしない）
   }
 
-  // naturalWidth === 0 のカードのみ対象（表示できているものはスキップ）
+  // naturalWidth === 0 のカードのみ対象
   const toFetch = new Map();
   const _needsThumb = img => !img || img.naturalWidth === 0 || !img.src;
   const addImg = (img, vid) => {
@@ -340,64 +340,41 @@ window.loadGdriveCardThumbs = async function() {
   });
 
   if (!toFetch.size) return;
-  console.log(`[GDthumb] ${toFetch.size}件: Drive APIでthumbnailLink確認→proxy取得`);
 
   await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
     try {
-      // ① Drive API で thumbnailLink を取得（ブラウザから直接Bearerで取得可）
+      // drive.google.com/thumbnail をBearerトークン付きでWorker proxy経由取得
+      // thumbnailLink不要・Drive API不要・thumbnailLink=nullでも動作する
+      const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
+      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbUrl)}&token=${encodeURIComponent(_token)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.startsWith('image/')) {
+          const blob = await res.blob();
+          if (blob.size > 500) {
+            const objUrl = URL.createObjectURL(blob);
+            targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
+            return;
+          }
+        }
+      }
+      // proxy失敗時はDrive API thumbnailLinkにフォールバック
       const metaRes = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
         { headers: { Authorization: `Bearer ${_token}` } }
       );
-      if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
+      if (!metaRes.ok) return;
       const meta = await metaRes.json();
-      if (!meta.thumbnailLink) {
-        // thumbnailLink=null → 512KB取得でGoogleの動画処理をトリガーし、リトライ
-        console.log(`[GDthumb] thumbnailLink=null: ${fileId} → 処理トリガー中...`);
-        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-          headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
-        }).catch(() => {});
-        // 5秒→15秒→40秒の3段階リトライ
-        const _retry = async (delaySec) => {
-          await new Promise(r => setTimeout(r, delaySec * 1000));
-          try {
-            const rr = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
-              { headers: { Authorization: `Bearer ${_token}` } }
-            );
-            if (!rr.ok) return false;
-            const mr = await rr.json();
-            if (!mr.thumbnailLink) return false;
-            const pr = `/api/thumb-proxy?url=${encodeURIComponent(mr.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
-            const ir = await fetch(pr);
-            if (!ir.ok) return false;
-            const br = await ir.blob();
-            if (br.size < 500) return false;
-            const ou = URL.createObjectURL(br);
-            targets.forEach(({ img }) => { img.style.display = ''; img.src = ou; });
-            // リトライ成功 → v.thumbに永続保存して次回ロード時に再取得不要にする
-            const vid = targets[0]?.vid;
-            const vObj = (window.videos || []).find(v => (v.id === vid || v.id === 'gd-' + fileId));
-            if (vObj) { vObj.thumb = mr.thumbnailLink; window.saveUserData?.(); }
-            console.log(`[GDthumb] ✅ ${delaySec}秒リトライ成功: ${fileId}`);
-            return true;
-          } catch { return false; }
-        };
-        _retry(5).then(ok => ok || _retry(15)).then(ok => ok || _retry(40));
-        return;
-      }
-
-      // ② thumbnailLink (lh3.googleusercontent.com) はCORSブロックのためproxy経由で取得
-      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(meta.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
-      const imgRes = await fetch(proxyUrl);
-      if (!imgRes.ok) { console.warn(`[GDthumb] proxy失敗 ${fileId}: ${imgRes.status}`); return; }
-      const blob = await imgRes.blob();
-      if (blob.size < 500) { console.warn(`[GDthumb] blobが小さすぎ ${fileId}: ${blob.size}bytes`); return; }
-
-      const objUrl = URL.createObjectURL(blob);
-      targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
-      console.log(`[GDthumb] ✅ 表示成功: ${fileId}`);
-    } catch(e) { console.warn(`[GDthumb] エラー ${fileId}:`, e.message); }
+      if (!meta.thumbnailLink) return;
+      const pr = `/api/thumb-proxy?url=${encodeURIComponent(meta.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+      const ir = await fetch(pr);
+      if (!ir.ok) return;
+      const blob2 = await ir.blob();
+      if (blob2.size < 500) return;
+      const objUrl2 = URL.createObjectURL(blob2);
+      targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl2; });
+    } catch(e) {}
   }));
 };
 
