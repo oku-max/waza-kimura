@@ -74,8 +74,6 @@ async function handleDrive(request) {
 }
 
 // ── /api/gd-trigger — GDriveサムネ生成トリガー ──────────────
-// ネイティブDriveが内部で呼ぶ get_video_info エンドポイントをWorker経由で叩く
-// → 埋め込みプレイヤー経由では発生しないサムネ生成トリガーを擬似再現する試み
 async function handleGdTrigger(request) {
   const params = new URL(request.url).searchParams;
   const fileId = params.get('fileId');
@@ -84,7 +82,7 @@ async function handleGdTrigger(request) {
 
   const results = {};
 
-  // ① get_video_info（ネイティブDriveプレイヤーが内部で呼ぶエンドポイント）
+  // ① get_video_info（Drive内部API）
   try {
     const r1 = await fetch(
       `https://drive.google.com/u/0/get_video_info?docid=${encodeURIComponent(fileId)}&drive_originator_app=303`,
@@ -93,23 +91,49 @@ async function handleGdTrigger(request) {
     results.getVideoInfo = { status: r1.status };
     if (r1.ok) {
       const body = await r1.text();
-      const match = body.match(/url=([^&]+)/);
-      results.getVideoInfo.hasUrl = !!match;
-      results.getVideoInfo.body = body.slice(0, 300); // デバッグ用：レスポンス先頭300文字
+      // 成功時はURL形式を解析（transcodingが完了していればURLが含まれる）
+      const urlMatch  = body.match(/url=([^&\n]+)/);
+      const errMatch  = body.match(/errorcode=(\d+)/);
+      results.getVideoInfo.errorcode = errMatch ? errMatch[1] : null;
+      results.getVideoInfo.hasStreamUrl = !!urlMatch;
+      if (urlMatch) {
+        // URLデコードしてストリーミングURLを取得
+        const streamUrl = decodeURIComponent(urlMatch[1]);
+        results.getVideoInfo.streamUrlDomain = new URL(streamUrl).hostname;
+        // ③ トランスコード済みストリームへのRangeリクエスト（ブラウザ再生の完全再現）
+        try {
+          const r3 = await fetch(streamUrl, { headers: { Range: 'bytes=0-65535' } });
+          results.streamRange = { status: r3.status };
+          await r3.arrayBuffer(); // bodyを消費
+        } catch(e) { results.streamRange = { error: e.message }; }
+      }
     }
   } catch (e) {
     results.getVideoInfo = { error: e.message };
   }
 
-  // ② alt=media Range request（VLC相当のフォールバック）
+  // ② alt=media 256KB（bodyを実際に消費して接続を正常に完了させる）
   try {
     const r2 = await fetch(
       `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
-      { headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-65535' } }
+      { headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-262143' } }
     );
     results.altMedia = { status: r2.status };
+    await r2.arrayBuffer(); // bodyを消費（切断せず正常完了）
   } catch (e) {
     results.altMedia = { error: e.message };
+  }
+
+  // ③ drive.google.com/uc（VLCが受け取るWebContentLinkに近いエンドポイント、256KB）
+  try {
+    const r3 = await fetch(
+      `https://drive.google.com/uc?id=${encodeURIComponent(fileId)}&export=download`,
+      { headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-262143' }, redirect: 'follow' }
+    );
+    results.ucDownload = { status: r3.status };
+    await r3.arrayBuffer();
+  } catch (e) {
+    results.ucDownload = { error: e.message };
   }
 
   return jsonRes(results);
