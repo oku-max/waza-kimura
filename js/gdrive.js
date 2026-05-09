@@ -352,11 +352,12 @@ window.loadGdriveCardThumbs = async function() {
       if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
       const meta = await metaRes.json();
       if (!meta.thumbnailLink) {
-        // thumbnailLink=null → 隠しiframeでpreviewを読み込みGoogleの動画処理をトリガー
-        // （ユーザーがGoogle Driveで動画を再生するのと同等の処理をプログラム側で擬似実行）
-        console.log(`[GDthumb] thumbnailLink=null: ${fileId} → iframeで処理トリガー`);
-        _triggerGdProcessingViaIframe(fileId);
-        // 10秒→30秒→90秒の3段階リトライ（iframe読み込み後にGoogleが処理する時間を確保）
+        // thumbnailLink=null → 先頭512KBのみ取得してGoogleの動画処理をトリガー
+        // Rangeリクエストなので最大512KB/本、ビデオストリームは発生しない
+        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
+        }).catch(() => {});
+        // 30秒→90秒の2段階リトライ（Googleの処理待ちを考慮）
         const _retry = async (delaySec) => {
           await new Promise(r => setTimeout(r, delaySec * 1000));
           try {
@@ -381,7 +382,7 @@ window.loadGdriveCardThumbs = async function() {
             return true;
           } catch { return false; }
         };
-        _retry(10).then(ok => ok || _retry(30)).then(ok => ok || _retry(90));
+        _retry(30).then(ok => ok || _retry(90));
         return;
       }
 
@@ -824,20 +825,6 @@ async function _uploadThumbsBatch(jobs) {
     window.AF?.();
     window.toast?.(`🖼 ${done}本のサムネイルを保存しました`);
   }
-}
-
-// ── 隠しiframeでGoogle Driveのビデオプレビューを読み込み、サムネイル生成をトリガー ──
-// ユーザーがGoogle Driveで動画を開く動作をプログラム側で擬似的に再現する
-const _iframeTriggered = new Set(); // 重複実行防止
-function _triggerGdProcessingViaIframe(fileId) {
-  if (_iframeTriggered.has(fileId)) return;
-  _iframeTriggered.add(fileId);
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px;left:-9999px';
-  iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
-  document.body.appendChild(iframe);
-  // 15秒後に削除（Googleの処理を起動させるのに十分な時間）
-  setTimeout(() => { try { iframe.remove(); } catch(e) {} }, 15000);
 }
 
 // ── 既存GDrive動画のサムネイル補完（Firebase不要・thumbnailLink直接保存）──
