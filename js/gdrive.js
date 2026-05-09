@@ -340,7 +340,6 @@ window.loadGdriveCardThumbs = async function() {
   });
 
   if (!toFetch.size) return;
-  console.log(`[GDthumb] ${toFetch.size}件: Drive APIでthumbnailLink確認→proxy取得`);
 
   await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
     try {
@@ -349,16 +348,12 @@ window.loadGdriveCardThumbs = async function() {
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=hasThumbnail,thumbnailLink`,
         { headers: { Authorization: `Bearer ${_token}` } }
       );
-      if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
+      if (!metaRes.ok) return;
       const meta = await metaRes.json();
-      // ← この値を確認することで「Googleにサムネがあるのか」を診断できる
-      console.log(`[GDthumb] ${fileId.slice(0,8)}: hasThumbnail=${meta.hasThumbnail}, link=${meta.thumbnailLink ? '有' : 'null'}`);
 
       if (!meta.thumbnailLink) {
         if (meta.hasThumbnail) {
-          // hasThumbnail=true なのに link=null の場合：
-          // サムネは存在するが <img> 直接読み込みはChromeのサードパーティCookieブロックで失敗している
-          // → WorkerプロキシはBearer認証でCookie不要のためこれを回避できる可能性がある
+          // hasThumbnail=true なのに link=null → Workerプロキシでdrive.google.com/thumbnailを取得
           const directUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
           const pr = `/api/thumb-proxy?url=${encodeURIComponent(directUrl)}&token=${encodeURIComponent(_token)}`;
           try {
@@ -370,36 +365,29 @@ window.loadGdriveCardThumbs = async function() {
                 if (blob.size > 500) {
                   const objUrl = URL.createObjectURL(blob);
                   targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
-                  // 成功したらv.thumbに永続保存
                   const vid = targets[0]?.vid;
                   const vObj = (window.videos||[]).find(v => v.id===vid || v.id==='gd-'+fileId);
                   if (vObj) { vObj.thumb = directUrl; window.saveUserData?.(); }
-                  console.log(`[GDthumb] ✅ hasThumbnail=true proxy成功: ${fileId}`);
                   return;
                 }
               }
             }
-            console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
           } catch(e) {}
-        } else {
-          // hasThumbnail=false → Googleがまだサムネを生成していない
-          // Drive で動画を直接再生することでサムネが生成される（vpanelの🔄Driveボタン参照）
-          console.log(`[GDthumb] hasThumbnail=false: ${fileId.slice(0,8)} — Driveで再生が必要`);
         }
+        // hasThumbnail=false → Driveで直接再生が必要（vpanelの↗GDriveボタン参照）
         return;
       }
 
       // ② thumbnailLink (lh3.googleusercontent.com) はCORSブロックのためproxy経由で取得
       const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(meta.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
       const imgRes = await fetch(proxyUrl);
-      if (!imgRes.ok) { console.warn(`[GDthumb] proxy失敗 ${fileId}: ${imgRes.status}`); return; }
+      if (!imgRes.ok) return;
       const blob = await imgRes.blob();
-      if (blob.size < 500) { console.warn(`[GDthumb] blobが小さすぎ ${fileId}: ${blob.size}bytes`); return; }
+      if (blob.size < 500) return;
 
       const objUrl = URL.createObjectURL(blob);
       targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
-      console.log(`[GDthumb] ✅ 表示成功: ${fileId}`);
-    } catch(e) { console.warn(`[GDthumb] エラー ${fileId}:`, e.message); }
+    } catch(e) {}
   }));
 };
 
@@ -863,7 +851,6 @@ export async function fetchMissingGdThumbnails() {
   if (done > 0) {
     await window.saveUserData?.();
     window.AF?.();
-    console.log(`[GDthumb] fetchMissing: ${done}件のthumbを更新`);
   }
 
   // thumbnailLink=null → Googleにサムネなし。できることはない
