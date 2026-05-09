@@ -382,8 +382,8 @@ window.loadGdriveCardThumbs = async function() {
             console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
           } catch(e) {}
         } else {
-          // hasThumbnail=false → 2段階トリガー（①Range request → ②30秒後にpreview iframe）
-          _triggerGdThumbTwoStep(fileId);
+          // hasThumbnail=false → Worker経由でget_video_infoを叩く（ネイティブDriveの内部処理を擬似再現）
+          _triggerGdThumb(fileId);
           // Googleの処理完了を待って2分・10分後にリトライ
           const _retryLater = async (delaySec) => {
             await new Promise(r => setTimeout(r, delaySec * 1000));
@@ -855,38 +855,22 @@ async function _uploadThumbsBatch(jobs) {
   }
 }
 
-// ── hasThumbnail=false のファイルに対して2段階トリガー ──
-// ユーザー確認済みシーケンス：
-//   ① VLCで再生（生ファイルアクセス） → トランスコード開始
-//   ② ブラウザで再生（Drive playerアクセス） → サムネ生成
-// ①相当: alt=media Range request（64KB）
-// ②相当: drive.google.com/file/d/{fileId}/preview をiframeで読み込む（Googleセッション使用）
+// ── hasThumbnail=false のファイルに対するトリガー ──
+// ネイティブDriveがサムネ生成に使う内部エンドポイント get_video_info を
+// CloudflareWorker経由でBearerトークンで叩く（埋め込みプレイヤーでは発生しない処理を擬似再現）
 const _triggered = new Set();
-async function _triggerGdThumbTwoStep(fileId) {
+async function _triggerGdThumb(fileId) {
   if (_triggered.has(fileId)) return;
   _triggered.add(fileId);
-
-  // ① VLC相当：生ファイルの先頭64KBをリクエスト → トランスコードをトリガー
   try {
-    await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-65535' } }
+    const res = await fetch(
+      `/api/gd-trigger?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(_token)}`
     );
-    console.log(`[GDthumb] ①Rangeリクエスト完了: ${fileId.slice(0,8)}`);
+    const data = await res.json();
+    console.log(`[GDthumb] trigger結果 ${fileId.slice(0,8)}:`, JSON.stringify(data));
   } catch(e) {
-    console.warn(`[GDthumb] ①Rangeリクエスト失敗: ${fileId.slice(0,8)}`, e.message);
+    console.warn(`[GDthumb] trigger失敗 ${fileId.slice(0,8)}:`, e.message);
   }
-
-  // ② ブラウザ再生相当：30秒後にpreview iframeを読み込む（トランスコード完了を待つ）
-  // iframeはユーザーのGoogleセッションでgooglevideo.comから動画をストリーミングする
-  setTimeout(() => {
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px;left:-9999px';
-    iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
-    document.body.appendChild(iframe);
-    console.log(`[GDthumb] ②preview iframe起動（30秒後）: ${fileId.slice(0,8)}`);
-    setTimeout(() => { try { iframe.remove(); } catch(e) {} }, 20000);
-  }, 30000);
 }
 
 // ── 既存GDrive動画のサムネイル補完（Firebase不要・thumbnailLink直接保存）──

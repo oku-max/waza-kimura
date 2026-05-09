@@ -31,6 +31,7 @@ async function handleApi(request, env, path) {
     case '/api/drive':       return handleDrive(request);
     case '/api/rss-proxy':   return handleRssProxy(request);
     case '/api/thumb-proxy': return handleThumbProxy(request);
+    case '/api/gd-trigger':  return handleGdTrigger(request);
     case '/api/yt-search':        return handleYtSearch(request, env);
     case '/api/yt-playlist-items': return handleYtPlaylistItems(request, env);
     case '/api/ai-group':         return handleAiGroup(request, env);
@@ -70,6 +71,48 @@ async function handleDrive(request) {
   if (cr) resHeaders['Content-Range']  = cr;
 
   return new Response(driveRes.body, { status: driveRes.status, headers: resHeaders });
+}
+
+// ── /api/gd-trigger — GDriveサムネ生成トリガー ──────────────
+// ネイティブDriveが内部で呼ぶ get_video_info エンドポイントをWorker経由で叩く
+// → 埋め込みプレイヤー経由では発生しないサムネ生成トリガーを擬似再現する試み
+async function handleGdTrigger(request) {
+  const params = new URL(request.url).searchParams;
+  const fileId = params.get('fileId');
+  const token  = params.get('token');
+  if (!fileId || !token) return jsonRes({ error: 'Missing fileId or token' }, 400);
+
+  const results = {};
+
+  // ① get_video_info（ネイティブDriveプレイヤーが内部で呼ぶエンドポイント）
+  try {
+    const r1 = await fetch(
+      `https://drive.google.com/u/0/get_video_info?docid=${encodeURIComponent(fileId)}&drive_originator_app=303`,
+      { headers: { Authorization: `Bearer ${token}`, 'X-Origin': 'https://drive.google.com' } }
+    );
+    results.getVideoInfo = { status: r1.status };
+    if (r1.ok) {
+      const body = await r1.text();
+      // URLエンコードされたレスポンスからstreamingURLを探す
+      const match = body.match(/url=([^&]+)/);
+      results.getVideoInfo.hasUrl = !!match;
+    }
+  } catch (e) {
+    results.getVideoInfo = { error: e.message };
+  }
+
+  // ② alt=media Range request（VLC相当のフォールバック）
+  try {
+    const r2 = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+      { headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-65535' } }
+    );
+    results.altMedia = { status: r2.status };
+  } catch (e) {
+    results.altMedia = { error: e.message };
+  }
+
+  return jsonRes(results);
 }
 
 // ── /api/rss-proxy — YouTube RSS フィード ────────────────
