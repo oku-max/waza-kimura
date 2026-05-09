@@ -1193,6 +1193,8 @@
   .n-page-title { font-size: 20px }
   /* スマホ幅: 閉じた/開いた両方で全幅（30%はデスクトップ専用） */
   .n-iv-node { max-width: 100% !important; }
+  /* スマホでは幅調整ハンドル不要（常に全幅のため） */
+  .n-iv-resize { display: none; }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .notes-sidebar { width: 180px }
