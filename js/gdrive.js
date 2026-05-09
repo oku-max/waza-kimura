@@ -330,20 +330,30 @@ window.loadGdriveCardThumbs = async function() {
   });
 
   if (!toFetch.size) return;
-  console.log(`[GDthumb] ${toFetch.size}件をプロキシ経由で取得`);
+  console.log(`[GDthumb] ${toFetch.size}件: Drive APIでthumbnailLink確認→proxy取得`);
 
   await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
     try {
-      // drive.google.com/thumbnail → /api/thumb-proxy 経由で Bearer token 付きで取得
-      // サーバー保存なし: createObjectURL でセッション内のみ表示
-      const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
-      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbUrl)}&token=${encodeURIComponent(_token)}`;
-      const res = await fetch(proxyUrl);
-      if (!res.ok) return;
-      const blob = await res.blob();
+      // ① Drive API で thumbnailLink を取得（ブラウザから直接Bearerで取得可）
+      const metaRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
+        { headers: { Authorization: `Bearer ${_token}` } }
+      );
+      if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
+      const meta = await metaRes.json();
+      if (!meta.thumbnailLink) { console.log(`[GDthumb] thumbnailLink=null: ${fileId} スキップ`); return; }
+
+      // ② thumbnailLink (lh3.googleusercontent.com) はCORSブロックのためproxy経由で取得
+      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(meta.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+      const imgRes = await fetch(proxyUrl);
+      if (!imgRes.ok) { console.warn(`[GDthumb] proxy失敗 ${fileId}: ${imgRes.status}`); return; }
+      const blob = await imgRes.blob();
+      if (blob.size < 500) { console.warn(`[GDthumb] blobが小さすぎ ${fileId}: ${blob.size}bytes`); return; }
+
       const objUrl = URL.createObjectURL(blob);
       targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
-    } catch { /* skip on error */ }
+      console.log(`[GDthumb] ✅ 表示成功: ${fileId}`);
+    } catch(e) { console.warn(`[GDthumb] エラー ${fileId}:`, e.message); }
   }));
 };
 
