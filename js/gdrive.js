@@ -382,9 +382,8 @@ window.loadGdriveCardThumbs = async function() {
             console.warn(`[GDthumb] hasThumbnail=true proxy失敗(${ir.status}): ${fileId}`);
           } catch(e) {}
         } else {
-          // hasThumbnail=false → VLC等で動画データにアクセスするとGoogleがトランスコードを開始する（再現性確認済み）
-          // 64KBのRangeリクエスト = VLCと同じ「動画データへのアクセス」の最小版
-          await _triggerGdThumbViaRange(fileId);
+          // hasThumbnail=false → 2段階トリガー（①Range request → ②30秒後にpreview iframe）
+          _triggerGdThumbTwoStep(fileId);
           // Googleの処理完了を待って2分・10分後にリトライ
           const _retryLater = async (delaySec) => {
             await new Promise(r => setTimeout(r, delaySec * 1000));
@@ -856,23 +855,38 @@ async function _uploadThumbsBatch(jobs) {
   }
 }
 
-// ── 動画データの先頭64KBを取得してGoogleのトランスコードをトリガー ──
-// 根拠：VLCで「その他のアプリを接続」すると動画データにアクセスし、その後サムネが生成される（再現性確認済み）
-// 何日放置してもサムネが生成されない＝Googleは自動処理しない。VLCのアクセスがトリガー。
-// alt=mediaリクエストはVLCと同じ動画データアクセスの最小版（64KB）
-const _rangeTriggered = new Set();
-async function _triggerGdThumbViaRange(fileId) {
-  if (_rangeTriggered.has(fileId)) return;
-  _rangeTriggered.add(fileId);
+// ── hasThumbnail=false のファイルに対して2段階トリガー ──
+// ユーザー確認済みシーケンス：
+//   ① VLCで再生（生ファイルアクセス） → トランスコード開始
+//   ② ブラウザで再生（Drive playerアクセス） → サムネ生成
+// ①相当: alt=media Range request（64KB）
+// ②相当: drive.google.com/file/d/{fileId}/preview をiframeで読み込む（Googleセッション使用）
+const _triggered = new Set();
+async function _triggerGdThumbTwoStep(fileId) {
+  if (_triggered.has(fileId)) return;
+  _triggered.add(fileId);
+
+  // ① VLC相当：生ファイルの先頭64KBをリクエスト → トランスコードをトリガー
   try {
     await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
       { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-65535' } }
     );
-    console.log(`[GDthumb] Rangeリクエスト送信: ${fileId.slice(0,8)}`);
+    console.log(`[GDthumb] ①Rangeリクエスト完了: ${fileId.slice(0,8)}`);
   } catch(e) {
-    console.warn(`[GDthumb] Rangeリクエスト失敗: ${fileId.slice(0,8)}`, e.message);
+    console.warn(`[GDthumb] ①Rangeリクエスト失敗: ${fileId.slice(0,8)}`, e.message);
   }
+
+  // ② ブラウザ再生相当：30秒後にpreview iframeを読み込む（トランスコード完了を待つ）
+  // iframeはユーザーのGoogleセッションでgooglevideo.comから動画をストリーミングする
+  setTimeout(() => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;top:-9999px;left:-9999px';
+    iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
+    document.body.appendChild(iframe);
+    console.log(`[GDthumb] ②preview iframe起動（30秒後）: ${fileId.slice(0,8)}`);
+    setTimeout(() => { try { iframe.remove(); } catch(e) {} }, 20000);
+  }, 30000);
 }
 
 // ── 既存GDrive動画のサムネイル補完（Firebase不要・thumbnailLink直接保存）──
