@@ -375,6 +375,10 @@ window.loadGdriveCardThumbs = async function() {
             if (br.size < 500) return false;
             const ou = URL.createObjectURL(br);
             targets.forEach(({ img }) => { img.style.display = ''; img.src = ou; });
+            // リトライ成功 → v.thumbに永続保存して次回ロード時に再取得不要にする
+            const vid = targets[0]?.vid;
+            const vObj = (window.videos || []).find(v => (v.id === vid || v.id === 'gd-' + fileId));
+            if (vObj) { vObj.thumb = mr.thumbnailLink; window.saveUserData?.(); }
             console.log(`[GDthumb] ✅ ${delaySec}秒リトライ成功: ${fileId}`);
             return true;
           } catch { return false; }
