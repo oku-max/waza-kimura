@@ -59,6 +59,7 @@ function _silentRefresh() {
           _saveToken(resp.access_token);
           _setAuthUI(true);
           fetchMissingGdDurations();
+          fetchMissingGdThumbnails();
           window.loadGdriveCardThumbs?.();
           resolve(resp.access_token);
         }
@@ -93,6 +94,7 @@ export function initDriveAuth(forceConsent = false) {
           _saveToken(token);
           _setAuthUI(true);
           fetchMissingGdDurations();
+          fetchMissingGdThumbnails();
           window.loadGdriveCardThumbs?.();
           resolve(true);
         } else if (!forceConsent) {
@@ -776,7 +778,8 @@ export async function gdImport() {
     newIds.push(newId);
     added++;
     const tl = cb.dataset.thumb;
-    if (tl) thumbJobs.push({ video: v, fileId, thumbnailLink: tl });
+    if (tl) v.thumb = tl; // thumbnailLinkを直接保存（Firebase不要）
+    else thumbJobs.push({ video: v, fileId }); // null→後でトリガー
   });
 
   if (window.AF) window.AF();
@@ -813,50 +816,54 @@ async function _uploadThumbsBatch(jobs) {
   }
 }
 
-// ── 既存GDrive動画のサムネイル補完 ──
+// ── 既存GDrive動画のサムネイル補完（Firebase不要・thumbnailLink直接保存）──
 export async function fetchMissingGdThumbnails() {
-  // Firebase Storage URL以外は「未設定」扱い（期限切れのDrive URLも含む）
-  const _hasPermanentThumb = t => t && t.includes('firebasestorage.googleapis.com');
-  const missing = (window.videos || []).filter(v =>
-    v.pt === 'gdrive' && !_hasPermanentThumb(v.thumb) && v.id
-  );
-  if (!missing.length) { window.toast?.('サムネイル未設定のGDrive動画はありません'); return; }
-
-  // Drive認証チェック — 未認証なら先にトークン取得を試みる
-  let token = _token || await ensureDriveToken().catch(() => null);
-  if (!token) {
-    window.toast?.('⚠ Google Driveにログインしてください（＋動画を追加 → Google Drive）');
-    return;
+  if (!_token) {
+    const cached = _loadCachedToken();
+    if (cached) { _token = cached; } else { return; }
   }
+  // v.thumbが空 or drive.google.com/thumbnailのままのものが対象
+  const missing = (window.videos || []).filter(v =>
+    v.pt === 'gdrive' && v.id &&
+    (!v.thumb || v.thumb.includes('drive.google.com/thumbnail') || v.thumb.includes('firebasestorage'))
+  );
+  if (!missing.length) return;
 
-  window.toast?.(`🖼 ${missing.length}本のサムネイルを取得中...`);
-  let done = 0, fail = 0;
-  for (let i = 0; i < missing.length; i += 5) {
-    const batch = missing.slice(i, i + 5);
+  let done = 0;
+  const nullIds = []; // thumbnailLink=nullだったfileId（処理トリガー対象）
+
+  for (let i = 0; i < missing.length; i += 10) {
+    const batch = missing.slice(i, i + 10);
     await Promise.allSettled(batch.map(async (v) => {
       const fileId = v.id.replace(/^gd-/, '');
       try {
         const data = await driveGet(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`);
         if (data.thumbnailLink) {
-          const url = await _uploadThumbToStorage(fileId, data.thumbnailLink);
-          if (url) { v.thumb = url; done++; }
-          else fail++;
-        } else { fail++; }
-      } catch (e) {
-        fail++;
-        if (fail <= 3) console.warn('Thumb fetch failed:', fileId, e.message);
-      }
+          // thumbnailLinkをv.thumbに直接保存（Firebase不要）
+          v.thumb = data.thumbnailLink;
+          done++;
+        } else {
+          nullIds.push(fileId);
+        }
+      } catch(e) { /* skip */ }
     }));
-    // 途中経過（50件ごと）
-    if ((i + 5) % 50 === 0 && i + 5 < missing.length) {
-      window.toast?.(`🖼 処理中... ${done}件完了 / ${missing.length}件`);
-    }
   }
+
   if (done > 0) {
     await window.saveUserData?.();
     window.AF?.();
+    console.log(`[GDthumb] fetchMissing: ${done}件のthumbを更新`);
   }
-  window.toast?.(`🖼 ${done}/${missing.length}本のサムネイルを保存しました${fail ? ` (${fail}件失敗)` : ''}`);
+
+  // thumbnailLink=nullのファイルは512KBトリガーして後続リトライに任せる
+  if (nullIds.length) {
+    console.log(`[GDthumb] ${nullIds.length}件はthumbnailLink=null → 処理トリガー`);
+    nullIds.forEach(fileId => {
+      fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
+      }).catch(() => {});
+    });
+  }
 }
 window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
 
