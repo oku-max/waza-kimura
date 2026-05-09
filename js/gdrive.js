@@ -856,12 +856,14 @@ async function _uploadThumbsBatch(jobs) {
 }
 
 // ── hasThumbnail=false のファイルに対するトリガー ──
-// ネイティブDriveがサムネ生成に使う内部エンドポイント get_video_info を
-// CloudflareWorker経由でBearerトークンで叩く（埋め込みプレイヤーでは発生しない処理を擬似再現）
+// ① Worker経由（Bearer token）: get_video_info + alt=media + uc?export=download
+// ② ブラウザ直接（no-cors + credentials:include）: ユーザーのGoogle sessionCookieを送る
 const _triggered = new Set();
 async function _triggerGdThumb(fileId) {
   if (_triggered.has(fileId)) return;
   _triggered.add(fileId);
+
+  // ① Worker経由（Bearer token）
   try {
     const res = await fetch(
       `/api/gd-trigger?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(_token)}`
@@ -870,6 +872,18 @@ async function _triggerGdThumb(fileId) {
     console.log(`[GDthumb] trigger結果 ${fileId.slice(0,8)}:`, JSON.stringify(data));
   } catch(e) {
     console.warn(`[GDthumb] trigger失敗 ${fileId.slice(0,8)}:`, e.message);
+  }
+
+  // ② ブラウザ直接no-cors: ユーザーのGoogleセッションCookieを送る（レスポンスは読めない）
+  // Bearer tokenとは違い、ネイティブDriveと同じ認証コンテキストで届く可能性がある
+  try {
+    await fetch(
+      `https://drive.google.com/u/0/get_video_info?docid=${encodeURIComponent(fileId)}&drive_originator_app=303`,
+      { mode: 'no-cors', credentials: 'include' }
+    );
+    console.log(`[GDthumb] no-cors fetch送信: ${fileId.slice(0,8)}`);
+  } catch(e) {
+    console.warn(`[GDthumb] no-cors fetch失敗: ${fileId.slice(0,8)}`, e.message);
   }
 }
 
