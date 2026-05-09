@@ -1190,8 +1190,8 @@
   .notes-topbar { left: 0; top: var(--topbar-h, 56px); }
   .notes-content { padding: 52px 16px 16px }
   .n-page-title { font-size: 20px }
-  /* スマホ幅: 閉じた状態のヘッダーのみ全幅（展開・再生中は30%を維持） */
-  .n-iv-node:not(.acc-open) { max-width: 100% !important; }
+  /* スマホ幅: 閉じた/開いた両方で全幅（30%はデスクトップ専用） */
+  .n-iv-node { max-width: 100% !important; }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .notes-sidebar { width: 180px }
