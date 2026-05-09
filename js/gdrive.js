@@ -299,24 +299,18 @@ export async function fetchMissingGdDurations() {
 window.fetchMissingGdDurations = fetchMissingGdDurations;
 
 // ── GDriveサムネをDOMに直接差し込む（AF()後に呼ぶ）──
-// drive.google.com/thumbnailはChromeの3rd-partyクッキー制限で失敗するため
-// /api/thumb-proxyを使ってサーバーサイドで取得する
+// Drive API の thumbnailLink は null になるケースが多いため使わない
+// drive.google.com/thumbnail?id=X&sz=w320 を /api/thumb-proxy 経由で直接取得する
 window.loadGdriveCardThumbs = async function() {
-  // GDriveトークンがなければスキップ
   if (!_token) {
     const cached = _loadCachedToken();
     if (cached) { _token = cached; }
-    else { console.log('[GDthumb] token なし – スキップ'); return; }
+    else { return; }
   }
-  console.log('[GDthumb] token あり, カードをスキャン中…');
 
-  // 画像が壊れているGDriveカードを収集（fileId → [{ img, vid }]）
-  // naturalWidth===0（ロード失敗）またはsrcがdrive.google.comのフォールバックURL
+  // naturalWidth === 0 のカードのみ対象（表示できているものはスキップ）
   const toFetch = new Map();
-  const _needsThumb = img =>
-    !img ||
-    img.naturalWidth === 0 ||
-    (img.src && img.src.includes('drive.google.com/thumbnail'));
+  const _needsThumb = img => !img || img.naturalWidth === 0 || !img.src;
   const addImg = (img, vid) => {
     const fileId = vid.replace(/^gd-/, '');
     if (!fileId) return;
@@ -335,38 +329,20 @@ window.loadGdriveCardThumbs = async function() {
     if (row) addImg(img, row.id.replace('org-row-', ''));
   });
 
-  console.log(`[GDthumb] 対象カード: ${toFetch.size}件`);
   if (!toFetch.size) return;
+  console.log(`[GDthumb] ${toFetch.size}件をプロキシ経由で取得`);
 
   await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
     try {
-      // Drive APIからthumbnailLinkを取得
-      const data = await driveGet(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,thumbnailLink`
-      );
-      const thumbnailLink = data?.thumbnailLink;
-      if (!thumbnailLink) { console.log(`[GDthumb] ${fileId}: thumbnailLink なし`); return; }
-
-      // プロキシ経由で画像取得
-      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+      // drive.google.com/thumbnail → /api/thumb-proxy 経由で Bearer token 付きで取得
+      // サーバー保存なし: createObjectURL でセッション内のみ表示
+      const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
+      const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(thumbUrl)}&token=${encodeURIComponent(_token)}`;
       const res = await fetch(proxyUrl);
       if (!res.ok) return;
       const blob = await res.blob();
       const objUrl = URL.createObjectURL(blob);
-
       targets.forEach(({ img }) => { img.style.display = ''; img.src = objUrl; });
-
-      // Firebase Storageに永続化し、v.thumbを更新
-      _uploadThumbToStorage(fileId, thumbnailLink).then(url => {
-        if (!url) return;
-        targets.forEach(({ img, vid }) => {
-          if (img.src === objUrl) img.src = url;
-          const v = (window.videos || []).find(v => v.id === vid);
-          if (v) v.thumb = url;
-        });
-        URL.revokeObjectURL(objUrl);
-        window.debounceSave?.();
-      }).catch(() => {});
     } catch { /* skip on error */ }
   }));
 };
