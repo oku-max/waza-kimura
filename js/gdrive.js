@@ -344,45 +344,21 @@ window.loadGdriveCardThumbs = async function() {
 
   await Promise.allSettled([...toFetch.entries()].map(async ([fileId, targets]) => {
     try {
-      // ① Drive API で thumbnailLink を取得（ブラウザから直接Bearerで取得可）
+      // ① Drive API で hasThumbnail + thumbnailLink を同時取得
       const metaRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=hasThumbnail,thumbnailLink`,
         { headers: { Authorization: `Bearer ${_token}` } }
       );
       if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
       const meta = await metaRes.json();
+      // ← この値を確認することで「Googleにサムネがあるのか」を診断できる
+      console.log(`[GDthumb] ${fileId.slice(0,8)}: hasThumbnail=${meta.hasThumbnail}, link=${meta.thumbnailLink ? '有' : 'null'}`);
+
       if (!meta.thumbnailLink) {
-        // thumbnailLink=null → 先頭512KBのみ取得してGoogleの動画処理をトリガー
-        // Rangeリクエストなので最大512KB/本、ビデオストリームは発生しない
+        // thumbnailLink=null → 512KBトリガーしてGoogleの処理を促す
         fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
           headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
         }).catch(() => {});
-        // 30秒→90秒の2段階リトライ（Googleの処理待ちを考慮）
-        const _retry = async (delaySec) => {
-          await new Promise(r => setTimeout(r, delaySec * 1000));
-          try {
-            const rr = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
-              { headers: { Authorization: `Bearer ${_token}` } }
-            );
-            if (!rr.ok) return false;
-            const mr = await rr.json();
-            if (!mr.thumbnailLink) return false;
-            const pr = `/api/thumb-proxy?url=${encodeURIComponent(mr.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
-            const ir = await fetch(pr);
-            if (!ir.ok) return false;
-            const br = await ir.blob();
-            if (br.size < 500) return false;
-            const ou = URL.createObjectURL(br);
-            targets.forEach(({ img }) => { img.style.display = ''; img.src = ou; });
-            const vid = targets[0]?.vid;
-            const vObj = (window.videos || []).find(v => (v.id === vid || v.id === 'gd-' + fileId));
-            if (vObj) { vObj.thumb = mr.thumbnailLink; window.saveUserData?.(); }
-            console.log(`[GDthumb] ✅ ${delaySec}秒リトライ成功: ${fileId}`);
-            return true;
-          } catch { return false; }
-        };
-        _retry(30).then(ok => ok || _retry(90));
         return;
       }
 
