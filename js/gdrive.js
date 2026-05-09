@@ -303,11 +303,19 @@ window.fetchMissingGdDurations = fetchMissingGdDurations;
 // ── GDriveサムネをDOMに直接差し込む（AF()後に呼ぶ）──
 // Drive API の thumbnailLink は null になるケースが多いため使わない
 // drive.google.com/thumbnail?id=X&sz=w320 を /api/thumb-proxy 経由で直接取得する
+let _fetchMissingDone = false; // セッション内で1回だけ永続化補完を走らせるフラグ
+
 window.loadGdriveCardThumbs = async function() {
   if (!_token) {
     const cached = _loadCachedToken();
     if (cached) { _token = cached; }
     else { return; }
+  }
+
+  // 初回のみ: 既取り込み済みで thumb が空／デフォルトのものを一括補完（永続化）
+  if (!_fetchMissingDone) {
+    _fetchMissingDone = true;
+    fetchMissingGdThumbnails(); // バックグラウンドで実行（awaitしない）
   }
 
   // naturalWidth === 0 のカードのみ対象（表示できているものはスキップ）
