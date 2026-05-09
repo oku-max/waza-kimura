@@ -341,7 +341,33 @@ window.loadGdriveCardThumbs = async function() {
       );
       if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
       const meta = await metaRes.json();
-      if (!meta.thumbnailLink) { console.log(`[GDthumb] thumbnailLink=null: ${fileId} スキップ`); return; }
+      if (!meta.thumbnailLink) {
+        // thumbnailLink=null → Googleの動画処理が未完了。Range requestでトリガーして30秒後にリトライ
+        console.log(`[GDthumb] thumbnailLink=null: ${fileId} → 処理トリガー中...`);
+        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+          { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-0' } }
+        ).catch(() => {});
+        setTimeout(async () => {
+          try {
+            const r2 = await fetch(
+              `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
+              { headers: { Authorization: `Bearer ${_token}` } }
+            );
+            if (!r2.ok) return;
+            const m2 = await r2.json();
+            if (!m2.thumbnailLink) { console.log(`[GDthumb] 30秒後もnull: ${fileId}`); return; }
+            const p2 = `/api/thumb-proxy?url=${encodeURIComponent(m2.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+            const ir2 = await fetch(p2);
+            if (!ir2.ok) return;
+            const b2 = await ir2.blob();
+            if (b2.size < 500) return;
+            const ou2 = URL.createObjectURL(b2);
+            targets.forEach(({ img }) => { img.style.display = ''; img.src = ou2; });
+            console.log(`[GDthumb] ✅ 30秒リトライ成功: ${fileId}`);
+          } catch(e) {}
+        }, 30000);
+        return;
+      }
 
       // ② thumbnailLink (lh3.googleusercontent.com) はCORSブロックのためproxy経由で取得
       const proxyUrl = `/api/thumb-proxy?url=${encodeURIComponent(meta.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
