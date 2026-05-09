@@ -93,9 +93,9 @@ async function handleGdTrigger(request) {
     results.getVideoInfo = { status: r1.status };
     if (r1.ok) {
       const body = await r1.text();
-      // URLエンコードされたレスポンスからstreamingURLを探す
       const match = body.match(/url=([^&]+)/);
       results.getVideoInfo.hasUrl = !!match;
+      results.getVideoInfo.body = body.slice(0, 300); // デバッグ用：レスポンス先頭300文字
     }
   } catch (e) {
     results.getVideoInfo = { error: e.message };
