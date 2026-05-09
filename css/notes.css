@@ -211,7 +211,8 @@
   padding: 0;
 }
 .n-vl-play-btn:hover { filter: brightness(1.2); }
-.n-vl-row.acc-open .n-vl-play-btn { background: #888; }
+.n-vl-row.acc-open .n-vl-play-btn,
+.n-iv-node.acc-open .n-vl-play-btn { background: #888; }
 /* アコーディオン: 展開エリア */
 .n-vl-row-body { display: none; border-top: 1px solid var(--border2, #ebebeb); }
 .n-vl-row.acc-open .n-vl-row-body { display: block; }
@@ -233,7 +234,7 @@
 .n-vl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .n-vl-info { flex: 1; min-width: 0; }
 .n-vl-ttl {
-  font-size: 12px; font-weight: 600; color: var(--text);
+  font-size: 12px; font-weight: 500; color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .n-vl-meta {

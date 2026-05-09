@@ -1042,12 +1042,18 @@ function _blockHTML(block, idx, noteId, total) {
                      : isGD && gdId ? `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`
                      : isVM ? vmThumb
                      : '';
+      const channel = libV?.ch || libV?.channel || block.channel || '';
+      const duration = libV?.duration || block.duration || '';
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
-          <div class="n-iv-hdr" onclick="event.stopPropagation();window._notesIvToggle('${noteId}',${idx})">
-            ${thumbUrl ? `<div class="n-iv-thumb-mini"><img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'"></div>` : ''}
-            <span class="n-iv-name" title="${_esc(title)}">${_esc(title)}</span>
-            <button class="n-iv-expand-btn n-iv-hdr-btn" title="展開して再生"
+          <div class="n-vl-row-hdr">
+            <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
+            <div class="n-vl-info">
+              <div class="n-vl-ttl" title="${_esc(title)}">${_esc(title)}</div>
+              ${channel ? `<div class="n-vl-meta"><span class="n-vl-ch">${_esc(channel)}</span></div>` : ''}
+            </div>
+            ${duration ? `<div class="n-vl-dur">${_esc(duration)}</div>` : ''}
+            <button class="n-vl-play-btn n-iv-expand-btn" title="インラインで再生"
               onclick="event.stopPropagation();window._notesIvToggle('${noteId}',${idx})">▶</button>
             <button class="n-iv-hdr-btn" title="Vパネルで開く"
               onclick="event.stopPropagation();window._notesVidJumpVp('${noteId}',${idx})">⊞</button>
