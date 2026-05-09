@@ -342,30 +342,34 @@ window.loadGdriveCardThumbs = async function() {
       if (!metaRes.ok) { console.warn(`[GDthumb] meta失敗 ${fileId}: ${metaRes.status}`); return; }
       const meta = await metaRes.json();
       if (!meta.thumbnailLink) {
-        // thumbnailLink=null → Googleの動画処理が未完了。Range requestでトリガーして30秒後にリトライ
+        // thumbnailLink=null → 512KB取得でGoogleの動画処理をトリガーし、リトライ
         console.log(`[GDthumb] thumbnailLink=null: ${fileId} → 処理トリガー中...`);
-        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-          { headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-0' } }
-        ).catch(() => {});
-        setTimeout(async () => {
+        fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: { Authorization: `Bearer ${_token}`, Range: 'bytes=0-524287' }
+        }).catch(() => {});
+        // 5秒→15秒→40秒の3段階リトライ
+        const _retry = async (delaySec) => {
+          await new Promise(r => setTimeout(r, delaySec * 1000));
           try {
-            const r2 = await fetch(
+            const rr = await fetch(
               `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`,
               { headers: { Authorization: `Bearer ${_token}` } }
             );
-            if (!r2.ok) return;
-            const m2 = await r2.json();
-            if (!m2.thumbnailLink) { console.log(`[GDthumb] 30秒後もnull: ${fileId}`); return; }
-            const p2 = `/api/thumb-proxy?url=${encodeURIComponent(m2.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
-            const ir2 = await fetch(p2);
-            if (!ir2.ok) return;
-            const b2 = await ir2.blob();
-            if (b2.size < 500) return;
-            const ou2 = URL.createObjectURL(b2);
-            targets.forEach(({ img }) => { img.style.display = ''; img.src = ou2; });
-            console.log(`[GDthumb] ✅ 30秒リトライ成功: ${fileId}`);
-          } catch(e) {}
-        }, 30000);
+            if (!rr.ok) return false;
+            const mr = await rr.json();
+            if (!mr.thumbnailLink) return false;
+            const pr = `/api/thumb-proxy?url=${encodeURIComponent(mr.thumbnailLink)}&token=${encodeURIComponent(_token)}`;
+            const ir = await fetch(pr);
+            if (!ir.ok) return false;
+            const br = await ir.blob();
+            if (br.size < 500) return false;
+            const ou = URL.createObjectURL(br);
+            targets.forEach(({ img }) => { img.style.display = ''; img.src = ou; });
+            console.log(`[GDthumb] ✅ ${delaySec}秒リトライ成功: ${fileId}`);
+            return true;
+          } catch { return false; }
+        };
+        _retry(5).then(ok => ok || _retry(15)).then(ok => ok || _retry(40));
         return;
       }
 
