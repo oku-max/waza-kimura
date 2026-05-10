@@ -1401,6 +1401,22 @@ window._notesColDragStart = function(e, noteId, colIdx, slot, bIdx) {
   });
 })();
 
+// モバイル: ブロックタップで ctrl-bar 表示トグル
+document.addEventListener('touchstart', function(e) {
+  const wrap = e.target.closest('.n-block-wrap[data-note-id]');
+  const allWraps = document.querySelectorAll('.n-block-wrap.n-ctrl-active');
+  if (!wrap) {
+    // ブロック外タップ → 全解除
+    allWraps.forEach(el => el.classList.remove('n-ctrl-active'));
+    return;
+  }
+  if (e.target.closest('.n-ctrl-bar')) return; // ピル内ボタン操作は無視
+  // 同じブロックを再タップ → 解除、別ブロック → 切替
+  const wasActive = wrap.classList.contains('n-ctrl-active');
+  allWraps.forEach(el => el.classList.remove('n-ctrl-active'));
+  if (!wasActive) wrap.classList.add('n-ctrl-active');
+}, { passive: true });
+
 // Touch drag-and-drop for mobile
 (function _initNotesTouchDnd() {
   let _src = null;

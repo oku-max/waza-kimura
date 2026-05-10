@@ -1267,9 +1267,9 @@
   user-select: none;
 }
 .n-block-wrap:hover .n-ctrl-bar { display: flex }
-/* モバイル: タッチデバイスでも表示 */
+/* モバイル: タップしたブロックのみ表示 */
 @media (hover: none) and (pointer: coarse) {
-  .n-ctrl-bar { display: flex }
+  .n-block-wrap.n-ctrl-active .n-ctrl-bar { display: flex }
 }
 
 /* ピル内の各コントロール */
