@@ -61,7 +61,8 @@
   function _createGDriveVideo(nodeId, gdId, div, token){
     const src=`/api/drive?fileId=${encodeURIComponent(gdId)}&token=${encodeURIComponent(token)}`;
     const video=document.createElement('video');
-    video.src=src; video.controls=true; video.playsinline=true;
+    video.src=src; video.controls=true; video.autoplay=true;
+    video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline','');
     video.style.cssText='width:100%;height:100%;background:#000';
     video.addEventListener('loadedmetadata',()=>_updateDurLabel(nodeId,video.duration));
     _gdVideoEls[nodeId]=video;

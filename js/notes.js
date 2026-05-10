@@ -2377,7 +2377,8 @@ function _initInlineVideo(noteId, idx, block) {
       video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
       video.controls = true;
       video.autoplay = true;
-      video.playsinline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
       _nBviGdV[k] = video;
       video.addEventListener('loadedmetadata', () => {
         const dur = video.duration || 0;
