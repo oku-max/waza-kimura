@@ -94,6 +94,8 @@ const _nBviYtP = {};   // key → YT.Player
 const _nBviVmP = {};   // key → Vimeo.Player
 const _nBviVmT = {};   // key → current vimeo time
 const _nBviGdV = {};   // key → <video> element
+const _nBviGdSeekTmr = {};  // key → debounce timer (GDrive seek)
+const _nBviGdIntTime = {};  // key → intended seek time (GDrive)
 const _nBviTmr = {};   // key → setInterval id
 const _nBviAb  = {};   // key → {a,b,looping,activeTab,abOpen,bmOpen,editBm}
 
@@ -123,8 +125,15 @@ function _nBviSeekTo(k, sec) {
   if (vm) { vm.setCurrentTime(sec).then(() => vm.play().catch(() => {})).catch(() => {}); return; }
   const gd = _nBviGdV[k];
   if (gd) {
-    if (gd.fastSeek) gd.fastSeek(sec); else gd.currentTime = sec;
-    gd.play().catch(() => {});
+    clearTimeout(_nBviGdSeekTmr[k]);
+    _nBviGdIntTime[k] = sec;
+    _nBviGdSeekTmr[k] = setTimeout(() => {
+      const t = _nBviGdIntTime[k];
+      if (!_nBviGdV[k] || t == null) return;
+      _nBviGdV[k].currentTime = t;
+      delete _nBviGdIntTime[k];
+      if (_nBviGdV[k].paused) _nBviGdV[k].play().catch(() => {});
+    }, 120);
   }
 }
 
@@ -1807,6 +1816,7 @@ function _nBviClose(k) {
   if (_nBviYtP[k]) { try { _nBviYtP[k].destroy(); } catch(e) {} delete _nBviYtP[k]; }
   if (_nBviVmP[k]) { try { _nBviVmP[k].destroy(); } catch(e) {} delete _nBviVmP[k]; delete _nBviVmT[k]; }
   if (_nBviGdV[k]) { try { _nBviGdV[k].pause(); } catch(e) {} delete _nBviGdV[k]; }
+  clearTimeout(_nBviGdSeekTmr[k]); delete _nBviGdSeekTmr[k]; delete _nBviGdIntTime[k];
 }
 
 function _nBviStartTimer(k) {
