@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.177 ═══
+// ═══ WAZA KIMURA — Notes tab v52.179 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -1594,7 +1594,7 @@ function _renderColBlock(b, idx, noteId) {
   }).join('');
   const slotsHTML = [0, 1].map(slot => {
     const slotBlocks = cols[slot] || [];
-    const blocksHTML = slotBlocks.map((sb, bIdx) => _colBlockHTML(sb, bIdx, noteId, idx, slot)).join('');
+    const blocksHTML = slotBlocks.map((sb, bIdx) => _colBlockHTML(sb, bIdx, noteId, idx, slot, slotBlocks.length)).join('');
     return `<div class="n-col-slot" data-note-id="${noteId}" data-col-idx="${idx}" data-slot="${slot}">
       ${blocksHTML}
       <div class="n-col-slot-add">
@@ -1615,10 +1615,17 @@ function _renderColBlock(b, idx, noteId) {
   </div>`;
 }
 
-function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
-  const del = `<button class="n-cb-del" onclick="event.stopPropagation();window._notesColDelBlock('${noteId}',${colIdx},${slot},${bIdx})" title="削除">✕</button>`;
-  const drag = `<div class="n-col-drag-handle" draggable="true" title="ドラッグして移動"
+function _colBlockHTML(b, bIdx, noteId, colIdx, slot, total) {
+  const drag = `<div class="n-drag-handle" draggable="true" title="ドラッグして移動"
     ondragstart="window._notesColDragStart(event,'${noteId}',${colIdx},${slot},${bIdx})">⠿</div>`;
+  const upBtn = bIdx > 0
+    ? `<button class="n-block-move n-block-up" title="上へ" onclick="event.stopPropagation();window._notesColBlockMove('${noteId}',${colIdx},${slot},${bIdx},-1)">↑</button>`
+    : `<button class="n-block-move n-block-up n-ctrl-dis" tabindex="-1">↑</button>`;
+  const dnBtn = bIdx < total - 1
+    ? `<button class="n-block-move n-block-dn" title="下へ" onclick="event.stopPropagation();window._notesColBlockMove('${noteId}',${colIdx},${slot},${bIdx},1)">↓</button>`
+    : `<button class="n-block-move n-block-dn n-ctrl-dis" tabindex="-1">↓</button>`;
+  const del = `<button class="n-block-del" title="削除" onclick="event.stopPropagation();window._notesColDelBlock('${noteId}',${colIdx},${slot},${bIdx})">✕</button>`;
+  const ctrlBar = `<div class="n-ctrl-bar">${drag}<span class="n-ctrl-sep"></span>${upBtn}${dnBtn}<span class="n-ctrl-sep"></span>${del}</div>`;
   const type = b.type || 'text';
 
   if (type === 'video') {
@@ -1644,7 +1651,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
     const channel = libV?.ch || libV?.channel || b.channel || '';
     const duration = _fmtDur(libV?.duration || b.duration);
     return `<div class="n-col-block-wrap">
-      ${drag}
+      ${ctrlBar}
       <div class="n-iv-node" id="n-iv-${noteId}-${colKey}" data-note-id="${noteId}" data-col-key="${colKey}" data-platform="${platform}" style="max-width:100%">
         <div class="n-vl-row-hdr">
           <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
@@ -1693,14 +1700,14 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
               onblur="window._notesIvSaveMemo('${noteId}','${colKey}',this.value)"></textarea>
           </div>
         </div>
-      </div>${del}
+      </div>
     </div>`;
   }
 
   if (type === 'image' && b.snapId) {
     return `<div class="n-col-block-wrap">
-      ${drag}
-      <div id="n-snap-${_esc(b.snapId)}" class="n-snap-section"></div>${del}
+      ${ctrlBar}
+      <div id="n-snap-${_esc(b.snapId)}" class="n-snap-section"></div>
     </div>`;
   }
 
@@ -1708,7 +1715,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
     const nodeCount = (b.nodes || []).length;
     const edgeCount = (b.edges || []).length;
     return `<div class="n-col-block-wrap">
-      ${drag}
+      ${ctrlBar}
       <div class="n-b-map" onclick="window._notesColOpenMap('${noteId}',${colIdx},${slot},${bIdx})">
         <div class="n-b-map-icon">🗺</div>
         <div class="n-b-map-info">
@@ -1716,13 +1723,13 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
           <div class="n-b-map-meta">${nodeCount}ノード · ${edgeCount}接続</div>
         </div>
         <div class="n-b-map-open">編集 →</div>
-      </div>${del}
+      </div>
     </div>`;
   }
 
   if (type === 'vidlist') {
     const path = `${colIdx}.${slot}.${bIdx}`;
-    return `<div class="n-col-block-wrap">${drag}${_renderVidlistCard(b, path, noteId)}${del}</div>`;
+    return `<div class="n-col-block-wrap">${ctrlBar}${_renderVidlistCard(b, path, noteId)}</div>`;
   }
 
   const tag = type === 'h2' ? 'h2' : type === 'quote' ? 'blockquote' : 'div';
@@ -1730,11 +1737,10 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
   const placeholder = type === 'h2' ? '見出し' : type === 'quote' ? '引用' : 'テキストを入力…';
   const content = b.richText ? (b.content || '') : _esc(b.content || '').replace(/\n/g, '<br>');
   return `<div class="n-col-block-wrap">
-    ${drag}
+    ${ctrlBar}
     <${tag} class="${cls}" contenteditable="true" placeholder="${placeholder}"
       data-note-id="${noteId}" data-col-idx="${colIdx}" data-col-slot="${slot}" data-col-bidx="${bIdx}"
       onblur="window._notesBlockSave(this)">${content}</${tag}>
-    ${del}
   </div>`;
 }
 
@@ -3028,6 +3034,20 @@ window._notesVlOpenVPanel = function(noteId, path, videoId) {
     window._noteVidList = vids.length > 1 ? vids : null;
   }
   window.openVPanel?.(videoId);
+};
+
+// ── カラム内ブロック: 上下移動 ──
+window._notesColBlockMove = function(noteId, colIdx, slot, bIdx, dir) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const arr = r.note.blocks[colIdx]?.cols?.[slot];
+  if (!arr) return;
+  const newIdx = bIdx + dir;
+  if (newIdx < 0 || newIdx >= arr.length) return;
+  [arr[bIdx], arr[newIdx]] = [arr[newIdx], arr[bIdx]];
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
 };
 
 // ── カラム内動画: VPanel起動 ──

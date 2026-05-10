@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v52.178 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.179 ═══ */
 
 /* ── インライン動画パネル（マップ仕様準拠） ── */
 .n-iv-node {
@@ -1398,13 +1398,15 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
   -webkit-overflow-scrolling: touch;
 }
 .n-col-block-wrap {
-  position: relative; border-radius: 4px; border: 1px solid transparent; margin-bottom: 2px;
+  position: relative; border-radius: 4px; border: 1px solid transparent; margin-bottom: 2px; margin-top: 14px;
   /* min-width:0 にしない: wrap がコンテンツの自然な最小幅を保つことで
      vidlist の min-width:240px が slot 幅を超え、slot 側で横スクロールが効く */
 }
 .n-col-block-wrap:hover { border-color: var(--border); }
-.n-col-block-wrap:hover .n-cb-del { display: block; }
-.n-col-block-wrap:hover .n-col-drag-handle { opacity: 1; }
+.n-col-block-wrap:hover .n-ctrl-bar { display: flex; }
+@media (hover: none) and (pointer: coarse) {
+  .n-col-block-wrap.n-ctrl-active .n-ctrl-bar { display: flex; }
+}
 .n-col-block-wrap.n-col-dragging { opacity: .35; }
 .n-col-drag-handle {
   position: absolute; top: 4px; left: -16px;
