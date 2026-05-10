@@ -61,7 +61,7 @@
   function _createGDriveVideo(nodeId, gdId, div, token){
     const src=`/api/drive?fileId=${encodeURIComponent(gdId)}&token=${encodeURIComponent(token)}`;
     const video=document.createElement('video');
-    video.src=src; video.controls=true; video.autoplay=true;
+    video.src=src; video.controls=true; video.autoplay=false;
     video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline','');
     video.style.cssText='width:100%;height:100%;background:#000';
     video.addEventListener('loadedmetadata',()=>_updateDurLabel(nodeId,video.duration));
@@ -467,15 +467,12 @@
       <button class="fc-add-vid-btn" onclick="event.stopPropagation();window._fcShowAddSheet('${nd.id}')">＋ 動画を追加</button>
     </div>`;
     const platform=nd.content.platform||'youtube';
-    const displayUrl=platform==='gdrive'
-      ?`drive.google.com/file/d/${vid.replace(/^gd-/,'')}/view`
-      :platform==='vimeo'||platform==='vm'
-      ?`vimeo.com/${vid.replace(/^yt-/,'')}`
-      :`youtube.com/watch?v=${vid}`;
     const isYT=platform==='youtube';
     const isVM=(platform==='vimeo'||platform==='vm');
+    const libVid=_findLibVid(vid);
+    const title=_esc(libVid?.title||nd.label||vid);
     const st=_getAb(nd.id);
-    const bmOpen=st.bmOpen!==false;
+    const bmOpen=st.bmOpen===true;
     const bmList=st.bookmarks.length
       ?st.bookmarks.map((bm,i)=>_bmItemHTML(nd.id,bm,i)).join('')
       :`<div class="bm-empty">ブックマークなし</div>`;
@@ -484,7 +481,7 @@
       :`<span class="ab-status-badge">未設定</span>`;
     const addBmBtn=`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`;
     return `<div class="node-content">
-      <div class="node-url-bar">${_esc(displayUrl)}</div>
+      <div class="node-vid-title">${title}</div>
       <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
       ${(isYT||isVM||platform==='gdrive')?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
@@ -500,9 +497,6 @@
           <span class="bm-toggle">${bmOpen?'∧':'∨'}</span>
         </div>
         ${bmOpen?`<div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>`:''}
-      </div>
-      <div class="vpanel-btns">
-        <button class="vpanel-btn" onclick="event.stopPropagation();window._fcVpJump('${nd.id}')">↗ ライブラリへ</button>
       </div>
     </div>`;
   }
@@ -1209,9 +1203,9 @@
   function _toggleBmListDOM(nid){
     const st=_getAb(nid);
     const section=document.querySelector(`#fc-node-${nid} .bm-section`); if(!section) return;
-    const toggle=section.querySelector('.bm-toggle'); if(toggle) toggle.textContent=st.bmOpen!==false?'∧':'∨';
+    const toggle=section.querySelector('.bm-toggle'); if(toggle) toggle.textContent=st.bmOpen===true?'∧':'∨';
     let list=document.getElementById('fc-bm-list-'+nid);
-    if(st.bmOpen!==false){
+    if(st.bmOpen===true){
       if(!list){ list=document.createElement('div'); list.className='bm-list'; list.id='fc-bm-list-'+nid; section.appendChild(list); }
       _refreshBmUI(nid);
     } else {
@@ -1332,7 +1326,7 @@
     window.openVPanel?.(v?.id||nd.content.videoId);
   };
   window._fcToggleBm = function(nid){
-    const st=_getAb(nid); st.bmOpen=!(st.bmOpen!==false); _toggleBmListDOM(nid);
+    const st=_getAb(nid); st.bmOpen=!(st.bmOpen===true); _toggleBmListDOM(nid);
   };
   window._fcAddBmManual = function(nid){
     _getAb(nid).bookmarks.push({label:'',a:0});
