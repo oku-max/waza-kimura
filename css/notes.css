@@ -186,7 +186,10 @@
 }
 .n-vl-list {
   display: flex; flex-direction: column;
-  /* max-height 削除: アコーディオン展開に対応 */
+  max-height: 245px; /* 5行分 (49px×5) */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
 }
 .n-vl-row {
   display: flex; flex-direction: column; align-items: stretch;

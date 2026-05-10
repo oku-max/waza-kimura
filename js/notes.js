@@ -2572,10 +2572,9 @@ window._notesIvChapSeek = function(noteId, idx, sec) {
 
 // ── 動画リスト: カード本体のレンダラ（ルート・カラム両方から呼ぶ） ──
 function _renderVidlistCard(block, path, noteId) {
-  const max = block.max || 50;
   const isManual = block.mode === 'manual';
   const all = _resolveVidList(block);
-  const display = all.slice(0, max);
+  const display = all; // 全件表示・max-heightでスクロール
   const summary = isManual ? `📌 手動 ${all.length}件` : _vlSummary(block.filter || {});
   const cardId = `n-vl-${noteId}-${String(path).replace(/\./g,'-')}`;
   const rowsHtml = display.length
@@ -2605,7 +2604,7 @@ function _renderVidlistCard(block, path, noteId) {
         </div>`;
       }).join('')
     : `<div class="n-vl-empty">${isManual ? 'まだ動画が追加されていません' : '条件にマッチする動画がありません'}</div>`;
-  const moreHtml = all.length > max ? `<div class="n-vl-more">他 ${all.length - max} 件</div>` : '';
+  const moreHtml = ''; // 全件表示のためmore不要
   const sortKey = block.sort?.key || 'addedAt';
   const sortAsc = !!block.sort?.asc;
   const sortArrow = sortAsc ? '↑' : '↓';
