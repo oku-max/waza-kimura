@@ -1623,17 +1623,20 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
     const thumbUrl = _blockThumbUrl(b);
     const dur = _fmtDur(b.duration);
     const videoId = b.videoId || '';
+    const playerId = `n-col-player-${noteId}-${colIdx}-${slot}-${bIdx}`;
     return `<div class="n-col-block-wrap">
       ${drag}
-      <div class="n-vl-row" onclick="window._notesColVidOpenVP('${noteId}',${colIdx},${slot},${bIdx})" style="cursor:pointer">
-        <div class="n-vl-row-hdr">
+      <div class="n-vl-row">
+        <div class="n-vl-row-hdr" onclick="window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})" style="cursor:pointer">
           <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
           <div class="n-vl-info">
             <div class="n-vl-ttl">${_esc(b.title || videoId || '')}</div>
             <div class="n-vl-meta"><span class="n-vl-ch">${_esc(b.channel || '')}</span></div>
           </div>
           ${dur ? `<div class="n-vl-dur">${_esc(dur)}</div>` : ''}
+          <button class="n-vl-play-btn" onclick="event.stopPropagation();window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})">▶</button>
         </div>
+        <div class="n-bvi-player" id="${playerId}"></div>
       </div>${del}
     </div>`;
   }
