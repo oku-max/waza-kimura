@@ -1759,9 +1759,9 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot, total) {
               <span class="n-iv-bm-label">📌 ブックマーク</span>
               <button class="n-iv-bm-add-btn"
                 onclick="event.stopPropagation();window._notesIvBmAddNow('${noteId}','${colKey}')">＋ 現在位置</button>
-              <span class="n-iv-toggle">∧</span>
+              <span class="n-iv-toggle">∨</span>
             </div>
-            <div class="n-iv-bm-list"></div>
+            <div class="n-iv-bm-list" style="display:none"></div>
           </div>
           <div class="n-iv-memo-section" id="n-iv-memo-${noteId}-${colKey}" style="display:none">
             <div class="n-iv-memo-hdr">📝 動画メモ（Vパネルと共有）</div>
