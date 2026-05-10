@@ -122,7 +122,10 @@ function _nBviSeekTo(k, sec) {
   const vm = _nBviVmP[k];
   if (vm) { vm.setCurrentTime(sec).then(() => vm.play().catch(() => {})).catch(() => {}); return; }
   const gd = _nBviGdV[k];
-  if (gd) { gd.currentTime = sec; gd.play().catch(() => {}); }
+  if (gd) {
+    if (gd.fastSeek) gd.fastSeek(sec); else gd.currentTime = sec;
+    gd.play().catch(() => {});
+  }
 }
 
 function _nBviGetLibV(noteId, idx) {
