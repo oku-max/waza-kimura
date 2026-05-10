@@ -1458,24 +1458,27 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 
 /* ── ホバーライン移動モード ── */
 .n-move-gap {
-  height: 14px; margin: -3px 0; position: relative; z-index: 10;
+  height: 32px; margin: 2px 0; position: relative; z-index: 10;
   cursor: pointer; flex-shrink: 0;
 }
 .n-move-gap::before {
   content: ''; position: absolute;
   left: 0; right: 0; top: 50%; transform: translateY(-50%);
   height: 3px; border-radius: 2px;
-  background: transparent; transition: background .1s;
+  background: #6366f1;
 }
 .n-move-gap::after {
   content: ''; position: absolute;
   left: 0; width: 9px; height: 9px; border-radius: 50%; top: 50%; transform: translateY(-50%);
-  background: transparent; transition: background .1s;
+  background: #6366f1;
 }
-.n-move-gap:hover::before { background: #6366f1 }
-.n-move-gap:hover::after  { background: #6366f1 }
+.n-move-gap:hover::before,
+.n-move-gap:active::before { background: #4338ca }
+.n-move-gap:hover::after,
+.n-move-gap:active::after  { background: #4338ca }
 .n-move-gap-noop { pointer-events: none }
-.n-move-gap-noop::before, .n-move-gap-noop::after { display: none }
+.n-move-gap-noop::before { background: #e0e7ff }
+.n-move-gap-noop::after  { display: none }
 
 /* 移動中ブロック: 薄く */
 .n-block-wrap.n-moving,
@@ -1488,20 +1491,6 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 .n-move-active .n-drag-handle { color: #818cf8 }
 
 /* ダークモード */
-body.dark .n-move-gap:hover::before,
-body.dark .n-move-gap:hover::after { background: #818cf8 }
-
-/* モバイル: 常時表示＋大きいタップ領域 */
-@media (hover: none) and (pointer: coarse) {
-  .n-move-gap { height: 36px; margin: -10px 0 }
-  .n-move-gap::before { background: #6366f1 }
-  .n-move-gap::after  { background: #6366f1 }
-  .n-move-gap:active::before { background: #4338ca }
-  .n-move-gap:active::after  { background: #4338ca }
-  /* noop（移動元の隣）: 薄く表示して視覚の連続性を保つ、タップ不可 */
-  .n-move-gap-noop::before { display: block; background: #e0e7ff }
-  .n-move-gap-noop::after  { display: none }
-  body.dark .n-move-gap::before,
-  body.dark .n-move-gap::after { background: #818cf8 }
-  body.dark .n-move-gap-noop::before { background: #312e81 }
-}
+body.dark .n-move-gap::before,
+body.dark .n-move-gap::after { background: #818cf8 }
+body.dark .n-move-gap-noop::before { background: #312e81 }
