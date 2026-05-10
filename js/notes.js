@@ -4464,7 +4464,9 @@ function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
     r.note.blocks.splice(ins, 0, moved);
   } else {
     // カラムスロットへ
-    const tgtArr = r.note.blocks[tgtColIdx]?.cols?.[tgtSlot];
+    // main→col の場合、splice(srcIdx) でメイン配列が1つ縮んでいるので tgtColIdx を補正
+    const adjColIdx = (srcType === 'block' && tgtColIdx > srcIdx) ? tgtColIdx - 1 : tgtColIdx;
+    const tgtArr = r.note.blocks[adjColIdx]?.cols?.[tgtSlot];
     if (!tgtArr) { _notesMoveCancelAll(); return; }
     const isSameSlot = srcType === 'col' && srcColIdx === tgtColIdx && srcSlot === tgtSlot;
     let ins = isSameSlot
