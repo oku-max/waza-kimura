@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.132 ═══
+// ═══ WAZA KIMURA — Notes tab v52.133 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -101,6 +101,7 @@ const _nBviTmr = {};   // key → setInterval id
 const _nBviAb  = {};   // key → {a,b,looping,activeTab,abOpen,bmOpen,editBm}
 
 function _nBviKey(noteId, idx) { return noteId + '-' + idx; }
+const _nBviBlockMap = {};  // full-key → block (for column video blocks)
 
 function _nBviGetAb(k) {
   if (!_nBviAb[k]) _nBviAb[k] = { a: null, b: null, looping: false, activeTab: 'a', abOpen: false, bmOpen: true, editBm: null };
@@ -143,7 +144,8 @@ function _nBviSeekTo(k, sec) {
 
 function _nBviGetLibV(noteId, idx) {
   const r = _findNote(noteId);
-  const b = r?.note?.blocks?.[idx];
+  // blocks[idx] works for regular blocks; _nBviBlockMap fallback for column blocks
+  const b = r?.note?.blocks?.[idx] ?? _nBviBlockMap[noteId + '-' + String(idx)];
   if (!b?.videoId) return null;
   return (window.videos || []).find(v => v.id === b.videoId || v.ytId === b.videoId) || null;
 }
@@ -1620,23 +1622,77 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
   const type = b.type || 'text';
 
   if (type === 'video') {
-    const thumbUrl = _blockThumbUrl(b);
-    const dur = _fmtDur(b.duration);
-    const videoId = b.videoId || '';
-    const playerId = `n-col-player-${noteId}-${colIdx}-${slot}-${bIdx}`;
+    const colKey = `col-${colIdx}-${slot}-${bIdx}`;
+    const platform = b.platform || 'youtube';
+    const rawId = b.videoId || '';
+    const isYT = platform === 'youtube';
+    const isGD = platform === 'gdrive';
+    const ytId = b.ytId || (isYT ? rawId : '');
+    const gdId = isGD ? rawId.replace(/^gd-/, '') : '';
+    const isVM = platform === 'vimeo' || platform === 'vm';
+    const libV = (window.videos || []).find(v => v.id === rawId || v.ytId === rawId);
+    const chapters = libV?.ytChapters || [];
+    const hasChapters = chapters.length > 0;
+    const vmThumb = isVM
+      ? (libV?.thumb && !libV.thumb.includes('vumbnail.com') ? libV.thumb
+        : b.thumb && !b.thumb.includes('vumbnail.com') ? b.thumb : '')
+      : '';
+    const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
+                   : isGD && gdId ? `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`
+                   : isVM ? vmThumb : '';
+    const title = b.title || rawId || '(無題)';
+    const channel = libV?.ch || libV?.channel || b.channel || '';
+    const duration = _fmtDur(libV?.duration || b.duration);
     return `<div class="n-col-block-wrap">
       ${drag}
-      <div class="n-vl-row">
-        <div class="n-vl-row-hdr" onclick="window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})" style="cursor:pointer">
+      <div class="n-iv-node" id="n-iv-${noteId}-${colKey}" data-note-id="${noteId}" data-col-key="${colKey}" data-platform="${platform}" style="max-width:100%">
+        <div class="n-vl-row-hdr">
           <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
           <div class="n-vl-info">
-            <div class="n-vl-ttl">${_esc(b.title || videoId || '')}</div>
-            <div class="n-vl-meta"><span class="n-vl-ch">${_esc(b.channel || '')}</span></div>
+            <div class="n-vl-ttl" title="${_esc(title)}">${_esc(title)}</div>
+            ${channel ? `<div class="n-vl-meta"><span class="n-vl-ch">${_esc(channel)}</span></div>` : ''}
           </div>
-          ${dur ? `<div class="n-vl-dur">${_esc(dur)}</div>` : ''}
-          <button class="n-vl-play-btn" onclick="event.stopPropagation();window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})">▶</button>
+          ${duration ? `<div class="n-vl-dur">${_esc(duration)}</div>` : ''}
+          <button class="n-vl-play-btn n-iv-expand-btn" title="インラインで再生"
+            onclick="event.stopPropagation();window._notesColIvToggle('${noteId}',${colIdx},${slot},${bIdx})">▶</button>
+          <button class="n-iv-hdr-btn" title="メニュー"
+            onclick="event.stopPropagation();window._notesColVidMenu('${noteId}',${colIdx},${slot},${bIdx},this)">⋮</button>
         </div>
-        <div class="n-bvi-player" id="${playerId}"></div>
+        <div class="n-iv-content" style="display:none">
+          <div class="n-iv-vid-wrap" id="n-iv-vid-${noteId}-${colKey}" data-platform="${platform}"></div>
+          ${hasChapters ? `<div class="n-iv-chap-section" id="n-iv-chap-${noteId}-${colKey}">
+            <div class="n-iv-chap-hdr"
+              onclick="event.stopPropagation();window._notesIvTogChap('${noteId}','${colKey}')">
+              <span class="n-iv-chap-label">📑 チャプター (${chapters.length})</span>
+              <span class="n-iv-toggle">∨</span>
+            </div>
+            <div class="n-iv-chap-list" style="display:none"></div>
+          </div>` : ''}
+          <div class="n-iv-ab-section" id="n-iv-ab-${noteId}-${colKey}">
+            <div class="n-iv-ab-hdr"
+              onclick="event.stopPropagation();window._nbviTogAb('${noteId}-${colKey}')">
+              <span class="n-iv-ab-label">🔁 ループ再生</span>
+              <span class="n-iv-status-badge">未設定</span>
+              <span class="n-iv-toggle">∨</span>
+            </div>
+          </div>
+          <div class="n-iv-bm-section" id="n-iv-bm-${noteId}-${colKey}">
+            <div class="n-iv-bm-hdr"
+              onclick="event.stopPropagation();window._notesIvTogBm('${noteId}','${colKey}')">
+              <span class="n-iv-bm-label">📌 ブックマーク</span>
+              <button class="n-iv-bm-add-btn"
+                onclick="event.stopPropagation();window._notesIvBmAddNow('${noteId}','${colKey}')">＋ 現在位置</button>
+              <span class="n-iv-toggle">∧</span>
+            </div>
+            <div class="n-iv-bm-list"></div>
+          </div>
+          <div class="n-iv-memo-section" id="n-iv-memo-${noteId}-${colKey}" style="display:none">
+            <div class="n-iv-memo-hdr">📝 動画メモ（Vパネルと共有）</div>
+            <textarea class="n-iv-memo-area" id="n-iv-memo-ta-${noteId}-${colKey}"
+              placeholder="この動画についてのメモ..."
+              onblur="window._notesIvSaveMemo('${noteId}','${colKey}',this.value)"></textarea>
+          </div>
+        </div>
       </div>${del}
     </div>`;
   }
@@ -2961,6 +3017,60 @@ window._notesColVidOpenVP = function(noteId, colIdx, slot, bIdx) {
   const col = r?.note?.blocks?.[colIdx];
   const b = col?.cols?.[slot]?.[bIdx];
   if (b?.videoId) window.openVPanel?.(b.videoId);
+};
+
+// ── カラム内動画: アコーディオン展開（note内動画と同じシステム） ──
+window._notesColIvToggle = function(noteId, colIdx, slot, bIdx) {
+  const colKey = `col-${colIdx}-${slot}-${bIdx}`;
+  const node = document.getElementById(`n-iv-${noteId}-${colKey}`);
+  if (!node) return;
+  const content = node.querySelector('.n-iv-content');
+  const btn = node.querySelector('.n-iv-expand-btn');
+  if (!content) return;
+  const isOpen = node.classList.contains('acc-open');
+  if (isOpen) {
+    node.classList.remove('acc-open');
+    content.style.display = 'none';
+    if (btn) btn.textContent = '▶';
+    _nBviClose(`${noteId}-${colKey}`);
+  } else {
+    node.classList.add('acc-open');
+    content.style.display = 'block';
+    if (btn) btn.textContent = '⏹';
+    const r = _findNote(noteId);
+    const b = r?.note?.blocks?.[colIdx]?.cols?.[slot]?.[bIdx];
+    if (b?.videoId) {
+      _nBviBlockMap[`${noteId}-${colKey}`] = b;
+      _initInlineVideo(noteId, colKey, b);
+    }
+  }
+};
+
+// ── カラム内動画: ⋮ メニュー ──
+window._notesColVidMenu = function(noteId, colIdx, slot, bIdx, btnEl) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  const b = r.note.blocks[colIdx]?.cols?.[slot]?.[bIdx];
+  if (!b) return;
+  const existing = document.getElementById('n-iv-menu');
+  if (existing) { existing.remove(); return; }
+  const menu = document.createElement('div');
+  menu.id = 'n-iv-menu';
+  menu.style.cssText = 'position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9700;min-width:160px;font-size:12px';
+  const mi = (label, color='') => `<div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer;${color?'color:'+color:''}">${label}</div>`;
+  menu.innerHTML = `${mi('⊞ Vパネルで開く')}<div style="height:1px;background:var(--border2);margin:4px 0"></div>${mi('🗑 削除', '#c00')}`;
+  document.body.appendChild(menu);
+  const rect = btnEl.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, rect.right - menu.offsetWidth) + 'px';
+  const items = menu.querySelectorAll('.n-iv-menu-item');
+  items[0].onclick = () => { menu.remove(); if (b.videoId) window.openVPanel?.(b.videoId); };
+  items[1].onclick = () => { menu.remove(); window._notesColDelBlock?.(noteId, colIdx, slot, bIdx); };
+  setTimeout(() => {
+    document.addEventListener('click', function close(ev) {
+      if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close); }
+    });
+  }, 0);
 };
 
 // ── vidlist 名前: タップでインライン編集 ──
