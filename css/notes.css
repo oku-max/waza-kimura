@@ -1490,3 +1490,16 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 /* ダークモード */
 body.dark .n-move-gap:hover::before,
 body.dark .n-move-gap:hover::after { background: #818cf8 }
+
+/* モバイル: 常時表示＋大きいタップ領域 */
+@media (hover: none) and (pointer: coarse) {
+  .n-move-gap { height: 36px; margin: -10px 0 }
+  .n-move-gap::before { background: #c7d2fe }
+  .n-move-gap::after  { background: #c7d2fe }
+  .n-move-gap:active::before { background: #6366f1 }
+  .n-move-gap:active::after  { background: #6366f1 }
+  .n-move-gap-noop::before,
+  .n-move-gap-noop::after { display: none }
+  body.dark .n-move-gap::before,
+  body.dark .n-move-gap::after { background: #3730a3 }
+}
