@@ -1236,14 +1236,33 @@ window._notesBlockKeydown = function(el, e) {
   }
 };
 
+function _notesDelConfirm(onOk) {
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:0 16px 16px';
+  ov.innerHTML = `<div style="background:var(--surface);border-radius:12px;padding:20px 16px;width:100%;max-width:400px;font-family:inherit">
+    <div style="font-size:14px;color:var(--text);margin-bottom:16px">このブロックを削除しますか？<br><span style="font-size:12px;color:var(--text3)">この操作は取り消せません。</span></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="n-dc-cancel" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;font-family:inherit">キャンセル</button>
+      <button id="n-dc-ok" style="padding:7px 16px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">削除する</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#n-dc-cancel').onclick = () => ov.remove();
+  ov.querySelector('#n-dc-ok').onclick = () => { ov.remove(); onOk(); };
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+}
+
 window._notesBlockDel = function(noteId, idx) {
   const r = _findNote(noteId);
-  if (!r) return;
-  if (r.note.blocks.length <= 1) return; // keep at least one block
-  r.note.blocks.splice(idx, 1);
-  r.note.updatedAt = Date.now();
-  _save();
-  _renderNote(noteId);
+  if (!r || r.note.blocks.length <= 1) return;
+  _notesDelConfirm(() => {
+    const r2 = _findNote(noteId);
+    if (!r2) return;
+    r2.note.blocks.splice(idx, 1);
+    r2.note.updatedAt = Date.now();
+    _save();
+    _renderNote(noteId);
+  });
 };
 
 window._notesBlockMove = function(noteId, idx, dir) {
@@ -1767,13 +1786,13 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot, total) {
     const edgeCount = (b.edges || []).length;
     return `<div class="n-col-block-wrap">
       ${ctrlBar}
-      <div class="n-b-map" onclick="window._notesColOpenMap('${noteId}',${colIdx},${slot},${bIdx})">
+      <div class="n-b-map">
         <div class="n-b-map-icon">🗺</div>
         <div class="n-b-map-info">
           <div class="n-b-map-name">${_esc(b.name || 'マップ')}</div>
           <div class="n-b-map-meta">${nodeCount}ノード · ${edgeCount}接続</div>
         </div>
-        <div class="n-b-map-open">編集 →</div>
+        <div class="n-b-map-open" onclick="event.stopPropagation();window._notesColOpenMap('${noteId}',${colIdx},${slot},${bIdx})">編集 →</div>
       </div>
     </div>`;
   }
@@ -1851,10 +1870,16 @@ window._notesColDelBlock = function(noteId, idx, slot, bIdx) {
   if (!r) return;
   const b = r.note.blocks[idx];
   if (!b || b.type !== 'col') return;
-  b.cols[slot].splice(bIdx, 1);
-  r.note.updatedAt = Date.now();
-  _save();
-  _renderNote(noteId);
+  _notesDelConfirm(() => {
+    const r2 = _findNote(noteId);
+    if (!r2) return;
+    const b2 = r2.note.blocks[idx];
+    if (!b2 || b2.type !== 'col') return;
+    b2.cols[slot].splice(bIdx, 1);
+    r2.note.updatedAt = Date.now();
+    _save();
+    _renderNote(noteId);
+  });
 };
 
 window._notesInsertColAt = function(noteId, afterIdx) {
