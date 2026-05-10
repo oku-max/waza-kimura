@@ -1464,21 +1464,14 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 .n-move-gap::before {
   content: ''; position: absolute;
   left: 0; right: 0; top: 50%; transform: translateY(-50%);
-  height: 2.5px; border-radius: 2px;
-  background: #6366f1;
+  height: 2px; border-radius: 2px;
+  background: var(--accent);
 }
-.n-move-gap::after {
-  content: ''; position: absolute;
-  left: 0; width: 9px; height: 9px; border-radius: 50%; top: 50%; transform: translateY(-50%);
-  background: #6366f1;
-}
+.n-move-gap::after { display: none }
 .n-move-gap:hover::before,
-.n-move-gap:active::before { background: #4338ca }
-.n-move-gap:hover::after,
-.n-move-gap:active::after  { background: #4338ca }
+.n-move-gap:active::before { opacity: .6 }
 .n-move-gap-noop { pointer-events: none }
-.n-move-gap-noop::before { background: #e0e7ff }
-.n-move-gap-noop::after  { display: none }
+.n-move-gap-noop::before { opacity: .2 }
 
 /* 移動中ブロック: 薄く */
 .n-block-wrap.n-moving,
@@ -1488,12 +1481,7 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 .n-move-active .n-ins-strip { display: none }
 
 /* 移動モード中: ⠿ ハイライト */
-.n-move-active .n-drag-handle { color: #818cf8 }
-
-/* ダークモード */
-body.dark .n-move-gap::before,
-body.dark .n-move-gap::after { background: #818cf8 }
-body.dark .n-move-gap-noop::before { background: #312e81 }
+.n-move-active .n-drag-handle { color: var(--accent) }
 
 /* 移動モードオーバーレイ＋バナー */
 .n-move-overlay {
