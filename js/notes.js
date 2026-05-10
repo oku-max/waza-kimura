@@ -1299,6 +1299,16 @@ window._notesInsertImageAt = function(noteId, afterIdx) {
   window._notesAddImageBlock?.(noteId);
 };
 
+window._notesInsertMapAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesAddMapBlock(noteId);
+};
+
+window._notesInsertVlAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesAddVlBlock(noteId);
+};
+
 window._notesDragStart = function(e, noteId, idx, endIdx) {
   _dragSrcNoteId = noteId;
   _dragSrcIdx = idx;
@@ -1626,6 +1636,8 @@ function _insertStrip(noteId, afterIdx) {
     <button class="n-ins-btn" onclick="window._notesInsertVideoAt('${noteId}',${afterIdx})">動画</button>
     <button class="n-ins-btn" onclick="window._notesInsertImageAt('${noteId}',${afterIdx})">画像</button>
     <button class="n-ins-btn" onclick="window._notesInsertColAt('${noteId}',${afterIdx})">カラム</button>
+    <button class="n-ins-btn" onclick="window._notesInsertMapAt('${noteId}',${afterIdx})">Map</button>
+    <button class="n-ins-btn" onclick="window._notesInsertVlAt('${noteId}',${afterIdx})">リスト</button>
     <div class="n-ins-line"></div>
   </div>`;
 }
