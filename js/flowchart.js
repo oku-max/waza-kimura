@@ -143,7 +143,7 @@
 
   // ── AB state ──────────────────────────────────────────────────
   function _getAb(nid){
-    if(!_abState[nid]) _abState[nid]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false};
+    if(!_abState[nid]) _abState[nid]={a:null,b:null,looping:false,activeTab:'a',bookmarks:[],abOpen:false,vidOpen:false};
     return _abState[nid];
   }
 
@@ -421,7 +421,7 @@
       el.innerHTML=_nodeHTML(nd);
       cv.appendChild(el);
       _wireNode(el,nd);
-      if(nd.content?.type==='video' && nd.content.videoId) setTimeout(()=>_initVidNode(nd.id),100);
+      if(nd.content?.type==='video' && nd.content.videoId && _getAb(nd.id).vidOpen===true) setTimeout(()=>_initVidNode(nd.id),100);
     });
   }
 
@@ -469,10 +469,17 @@
     const platform=nd.content.platform||'youtube';
     const isYT=platform==='youtube';
     const isVM=(platform==='vimeo'||platform==='vm');
+    const isGD=platform==='gdrive';
     const libVid=_findLibVid(vid);
     const title=_esc(libVid?.title||nd.label||vid);
     const channel=_esc(libVid?.ch||libVid?.channel||'');
+    const rawId=vid.replace(/^yt-/,'').replace(/^gd-/,'');
+    const ytId=isYT?rawId:null;
+    const gdId=isGD?rawId:null;
+    const thumbUrl=ytId?`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
+      :isGD&&gdId?`https://drive.google.com/thumbnail?id=${gdId}&sz=w120`:'';
     const st=_getAb(nd.id);
+    const vidOpen=st.vidOpen===true;
     const bmOpen=st.bmOpen===true;
     const bmList=st.bookmarks.length
       ?st.bookmarks.map((bm,i)=>_bmItemHTML(nd.id,bm,i)).join('')
@@ -482,22 +489,31 @@
       :`<span class="ab-status-badge">未設定</span>`;
     const addBmBtn=`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`;
     return `<div class="node-content">
-      <div class="node-vid-title"><div class="node-vid-title-main">${title}</div>${channel?`<div class="node-vid-title-ch">${channel}</div>`:''}</div>
-      <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
-      ${(isYT||isVM||platform==='gdrive')?`<div class="ab-section">
-        <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
-          <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
-          <span class="ab-toggle">${st.abOpen?'∧':'∨'}</span>
+      <div class="n-vl-row-hdr fc-vid-hdr${vidOpen?' acc-open':''}">
+        <div class="n-vl-thumb">${thumbUrl?`<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">`:''}</div>
+        <div class="n-vl-info">
+          <div class="n-vl-ttl">${title}</div>
+          ${channel?`<div class="n-vl-meta"><span class="n-vl-ch">${channel}</span></div>`:''}
         </div>
-        ${st.abOpen?_abBodyHTML(nd,st):''}
-      </div>`:''}
-      <div class="bm-section">
-        <div class="bm-hdr" onclick="window._fcToggleBm('${nd.id}')">
-          <span class="bm-hdr-label">📌 ブックマーク${st.bookmarks.length?` (${st.bookmarks.length})`:''}</span>
-          ${addBmBtn}
-          <span class="bm-toggle">${bmOpen?'∧':'∨'}</span>
+        <button class="n-vl-play-btn" onclick="event.stopPropagation();window._fcToggleVidPanel('${nd.id}')">▶</button>
+      </div>
+      <div class="fc-vid-body" id="fc-vid-body-${nd.id}" style="${vidOpen?'':'display:none'}">
+        <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
+        ${(isYT||isVM||isGD)?`<div class="ab-section">
+          <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
+            <span class="ab-hdr-label">🔁 ループ再生</span>${statusBadge}
+            <span class="ab-toggle">${st.abOpen?'∧':'∨'}</span>
+          </div>
+          ${st.abOpen?_abBodyHTML(nd,st):''}
+        </div>`:''}
+        <div class="bm-section">
+          <div class="bm-hdr" onclick="window._fcToggleBm('${nd.id}')">
+            <span class="bm-hdr-label">📌 ブックマーク${st.bookmarks.length?` (${st.bookmarks.length})`:''}</span>
+            ${addBmBtn}
+            <span class="bm-toggle">${bmOpen?'∧':'∨'}</span>
+          </div>
+          ${bmOpen?`<div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>`:''}
         </div>
-        ${bmOpen?`<div class="bm-list" id="fc-bm-list-${nd.id}">${bmList}</div>`:''}
       </div>
     </div>`;
   }
@@ -1326,6 +1342,22 @@
     const v=_findLibVid(nd.content.videoId);
     window.openVPanel?.(v?.id||nd.content.videoId);
   };
+  window._fcToggleVidPanel = function(nid){
+    const body=document.getElementById('fc-vid-body-'+nid);
+    const hdr=body?.previousElementSibling;
+    if(!body) return;
+    const opening=body.style.display==='none';
+    body.style.display=opening?'':'none';
+    if(hdr) hdr.classList.toggle('acc-open',opening);
+    if(opening){
+      setTimeout(()=>_initVidNode(nid),50);
+    } else {
+      const yt=_ytPlayers[nid]; if(yt?.pauseVideo) try{yt.pauseVideo();}catch(e){}
+      const gd=_gdVideoEls[nid]; if(gd) gd.pause();
+    }
+    const st=_getAb(nid); st.vidOpen=opening;
+    _triggerAutoSave();
+  };
   window._fcToggleBm = function(nid){
     const st=_getAb(nid); st.bmOpen=!(st.bmOpen===true); _toggleBmListDOM(nid);
   };
@@ -1368,7 +1400,7 @@
       const ifr=savedPlayer.getIframe();
       if(ifr) wrap.appendChild(ifr);
       _ytPlayers[nid]=savedPlayer; _startNodeTimer(nid);
-    } else if(nd.content.videoId) setTimeout(()=>_initVidNode(nid),100);
+    } else if(nd.content.videoId && _getAb(nid).vidOpen===true) setTimeout(()=>_initVidNode(nid),100);
     _renderEdges();
   }
 
