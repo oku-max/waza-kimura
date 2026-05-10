@@ -1022,16 +1022,17 @@ function _fmtDur(secs) {
 
 // ── block rendering ──
 function _blockHTML(block, idx, noteId, total) {
-  const del = `<button class="n-block-del" title="削除"
-    onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>`;
   const upBtn = idx > 0
     ? `<button class="n-block-move n-block-up" title="上へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},-1)">↑</button>`
-    : `<button class="n-block-move n-block-up" style="visibility:hidden" tabindex="-1">↑</button>`;
+    : `<button class="n-block-move n-block-up n-ctrl-dis" tabindex="-1">↑</button>`;
   const dnBtn = idx < total - 1
     ? `<button class="n-block-move n-block-dn" title="下へ" onclick="event.stopPropagation();window._notesBlockMove('${noteId}',${idx},1)">↓</button>`
-    : `<button class="n-block-move n-block-dn" style="visibility:hidden" tabindex="-1">↓</button>`;
+    : `<button class="n-block-move n-block-dn n-ctrl-dis" tabindex="-1">↓</button>`;
   const drag = `<div class="n-drag-handle" draggable="true" title="ドラッグして並び替え"
     ondragstart="window._notesDragStart(event,'${noteId}',${idx})">⠿</div>`;
+  const del = `<button class="n-block-del" title="削除"
+    onclick="event.stopPropagation();window._notesBlockDel('${noteId}',${idx})">✕</button>`;
+  const ctrlBar = `<div class="n-ctrl-bar">${drag}<span class="n-ctrl-sep"></span>${upBtn}${dnBtn}<span class="n-ctrl-sep"></span>${del}</div>`;
   const wrapAttrs = `data-note-id="${noteId}" data-idx="${idx}"`;
   const editable = (cls) =>
     `<div class="${cls} n-editable" contenteditable="true"
@@ -1041,9 +1042,9 @@ function _blockHTML(block, idx, noteId, total) {
      >${block.richText ? block.content : _esc(block.content).replace(/\n/g, '<br>')}</div>`;
 
   switch (block.type) {
-    case 'h2':    return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-h2')}${drag}${upBtn}${dnBtn}${del}</div>`;
-    case 'text':  return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-text')}${drag}${upBtn}${dnBtn}${del}</div>`;
-    case 'quote': return `<div class="n-block-wrap" ${wrapAttrs}>${editable('n-b-quote')}${drag}${upBtn}${dnBtn}${del}</div>`;
+    case 'h2':    return `<div class="n-block-wrap" ${wrapAttrs}>${ctrlBar}${editable('n-b-h2')}</div>`;
+    case 'text':  return `<div class="n-block-wrap" ${wrapAttrs}>${ctrlBar}${editable('n-b-text')}</div>`;
+    case 'quote': return `<div class="n-block-wrap" ${wrapAttrs}>${ctrlBar}${editable('n-b-quote')}</div>`;
     case 'video': {
       const platform = block.platform || 'youtube';
       const rawId = block.videoId || '';
@@ -1070,7 +1071,7 @@ function _blockHTML(block, idx, noteId, total) {
                      : '';
       const channel = libV?.ch || libV?.channel || block.channel || '';
       const duration = _fmtDur(libV?.duration || block.duration);
-      return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
+      return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>${ctrlBar}
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" data-platform="${platform}" style="max-width:${widthPct}%">
           <div class="n-vl-row-hdr">
             <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
@@ -1122,7 +1123,7 @@ function _blockHTML(block, idx, noteId, total) {
           <div class="n-iv-resize" title="ドラッグで幅変更"
             onmousedown="window._notesIvResizeStart(event,'${noteId}',${idx})"
             ontouchstart="window._notesIvResizeStart(event,'${noteId}',${idx})"></div>
-        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
+        </div>${ctrlBar}</div>`;
     }
     case 'image': {
       if (block.refSnapId) {
@@ -1134,18 +1135,18 @@ function _blockHTML(block, idx, noteId, total) {
               <span style="color:var(--text3);font-size:11px">📷 読み込み中…</span>
             </div>
             <div class="n-b-img-caption">${caption}</div>
-          </div>${drag}${upBtn}${dnBtn}${del}</div>`;
+          </div>${ctrlBar}</div>`;
       }
       if (block.snapId) {
         return `<div class="n-block-wrap n-block-wrap-snap n-block-wrap-card" data-snap-id="${_esc(block.snapId)}" data-note-id="${noteId}" data-idx="${idx}" ${wrapAttrs}>
-          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${drag}${upBtn}${dnBtn}${del}</div>`;
+          <div id="n-snap-${_esc(block.snapId)}" class="n-snap-section"></div>${ctrlBar}</div>`;
       }
       // legacy: data URL stored directly
       return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
         <div class="n-b-image">
           <img src="${_esc(block.src)}" alt="${_esc(block.caption || '')}" class="n-b-img">
           ${block.caption ? `<div class="n-b-img-caption">${_esc(block.caption)}</div>` : ''}
-        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
+        </div>${ctrlBar}</div>`;
     }
     case 'map': {
       const nodeCount = (block.nodes||[]).length;
@@ -1158,10 +1159,10 @@ function _blockHTML(block, idx, noteId, total) {
             <div class="n-b-map-meta">${nodeCount}ノード · ${edgeCount}接続</div>
           </div>
           <div class="n-b-map-open">編集 →</div>
-        </div>${drag}${upBtn}${dnBtn}${del}</div>`;
+        </div>${ctrlBar}</div>`;
     }
     case 'vidlist': {
-      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>${_renderVidlistCard(block, String(idx), noteId)}${drag}${upBtn}${dnBtn}${del}</div>`;
+      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>${_renderVidlistCard(block, String(idx), noteId)}${ctrlBar}</div>`;
     }
     default: return '';
   }
