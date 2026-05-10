@@ -1455,3 +1455,38 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
   background: var(--surface3); color: var(--accent);
   padding: 1px 4px; border-radius: 3px;
 }
+
+/* ── ホバーライン移動モード ── */
+.n-move-gap {
+  height: 14px; margin: -3px 0; position: relative; z-index: 10;
+  cursor: pointer; flex-shrink: 0;
+}
+.n-move-gap::before {
+  content: ''; position: absolute;
+  left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  height: 3px; border-radius: 2px;
+  background: transparent; transition: background .1s;
+}
+.n-move-gap::after {
+  content: ''; position: absolute;
+  left: 0; width: 9px; height: 9px; border-radius: 50%; top: 50%; transform: translateY(-50%);
+  background: transparent; transition: background .1s;
+}
+.n-move-gap:hover::before { background: #6366f1 }
+.n-move-gap:hover::after  { background: #6366f1 }
+.n-move-gap-noop { pointer-events: none }
+.n-move-gap-noop::before, .n-move-gap-noop::after { display: none }
+
+/* 移動中ブロック: 薄く */
+.n-block-wrap.n-moving,
+.n-col-block-wrap.n-moving { opacity: .4; pointer-events: none }
+
+/* 移動モード中: insert-strip を非表示 */
+.n-move-active .n-ins-strip { display: none }
+
+/* 移動モード中: ⠿ ハイライト */
+.n-move-active .n-drag-handle { color: #818cf8 }
+
+/* ダークモード */
+body.dark .n-move-gap:hover::before,
+body.dark .n-move-gap:hover::after { background: #818cf8 }
