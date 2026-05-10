@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.176 ═══
+// ═══ WAZA KIMURA — Notes tab v52.177 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2479,15 +2479,34 @@ function _initInlineVideo(noteId, idx, block) {
       wrap.appendChild(video);
       video.play().catch(() => {});
     } else {
-      // トークンなし → 認証を促すUIを表示（iframeはスマホで崩れるため使わない）
-      const msg = document.createElement('div');
-      msg.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;height:100%;background:#111;color:#ccc;text-align:center';
-      msg.innerHTML = `
-        <div style="font-size:12px;line-height:1.5">Google Drive の認証が必要です</div>
-        <button onclick="window.startDriveAuth?.()" style="padding:7px 16px;border-radius:6px;border:none;background:#4a9eff;color:#fff;font-size:12px;cursor:pointer;font-weight:600">Drive に接続</button>
-        <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank" rel="noopener"
-           style="font-size:11px;color:#888;text-decoration:none">↗ Drive で直接開く</a>`;
-      wrap.appendChild(msg);
+      // トークンなし → vpanel.js の _showGDriveAuthUI をそのまま使う
+      window._showGDriveAuthUI?.(wrap, fileId, (token) => {
+        wrap.innerHTML = '';
+        const video = document.createElement('video');
+        video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
+        video.controls = true;
+        video.autoplay = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        _nBviGdV[k] = video;
+        video.addEventListener('loadedmetadata', () => {
+          const dur = video.duration || 0;
+          const sl = document.getElementById('n-bvi-ab-sl-' + k);
+          if (sl && dur > 0) sl.max = Math.ceil(dur);
+          _nBviStartTimer(k);
+        });
+        video.addEventListener('playing', () => { clearTimeout(_nBviGdStallTmr[k]); delete _nBviGdStallTmr[k]; });
+        video.addEventListener('seeked',  () => { clearTimeout(_nBviGdStallTmr[k]); delete _nBviGdStallTmr[k]; });
+        video.addEventListener('waiting', () => {
+          clearTimeout(_nBviGdStallTmr[k]);
+          _nBviGdStallTmr[k] = setTimeout(() => {
+            const v = _nBviGdV[k]; if (!v || v.paused) return;
+            v.currentTime = v.currentTime;
+          }, 3000);
+        });
+        wrap.appendChild(video);
+        video.play().catch(() => {});
+      });
     }
   } else {
     const iframe = document.createElement('iframe');

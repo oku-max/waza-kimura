@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.139 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.177 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1979,7 +1979,7 @@ function _createGDriveVideoEl(container, fileId, token) {
   video.play().catch(() => {});
 }
 
-function _showGDriveAuthUI(container, fileId) {
+function _showGDriveAuthUI(container, fileId, onAuth) {
   container.innerHTML = `
     <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;padding:20px;box-sizing:border-box">
       <div style="color:var(--text3);font-size:13px;text-align:center;line-height:1.6">Googleドライブの動画を再生するには認証が必要です</div>
@@ -1992,11 +1992,16 @@ function _showGDriveAuthUI(container, fileId) {
     btn.textContent = '認証中...';
     btn.disabled = true;
     const token = await window.ensureDriveToken?.();
-    if (token) { _createGDriveVideoEl(container, fileId, token); return; }
+    if (token) {
+      if (onAuth) { onAuth(token); return; }
+      _createGDriveVideoEl(container, fileId, token);
+      return;
+    }
     btn.textContent = '認証に失敗しました。再試行';
     btn.disabled = false;
   };
 }
+window._showGDriveAuthUI = _showGDriveAuthUI;
 
 function _onGDriveVideoError(container, fileId) {
   _gdVideoEl = null;
