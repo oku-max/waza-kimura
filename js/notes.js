@@ -994,6 +994,16 @@ function _renderRecent() {
     }).join('');
 }
 
+// ── 再生時間フォーマット（秒→ m:ss / h:mm:ss）──
+function _fmtDur(secs) {
+  if (!secs || secs <= 0) return '';
+  const s = +secs; if (!s) return '';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+    : `${m}:${String(sec).padStart(2,'0')}`;
+}
+
 // ── block rendering ──
 function _blockHTML(block, idx, noteId, total) {
   const del = `<button class="n-block-del" title="削除"
@@ -1043,7 +1053,7 @@ function _blockHTML(block, idx, noteId, total) {
                      : isVM ? vmThumb
                      : '';
       const channel = libV?.ch || libV?.channel || block.channel || '';
-      const duration = libV?.duration || block.duration || '';
+      const duration = _fmtDur(libV?.duration || block.duration);
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
         <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
           <div class="n-vl-row-hdr">
@@ -2521,7 +2531,7 @@ function _renderVidlistCard(block, path, noteId) {
     ? display.map(v => {
         const ytId = v.ytId || (v.pt === 'youtube' ? v.id : '');
         const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
-        const dur = v.duration || '';
+        const dur = _fmtDur(v.duration);
         const rowId = `n-vl-r-${noteId}-${v.id}`.replace(/[^a-zA-Z0-9\-_]/g, '_');
         const removeBtn = isManual
           ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}','${path}','${_esc(v.id)}')">×</button>`
