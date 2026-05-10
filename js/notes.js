@@ -1021,7 +1021,7 @@ function _blockHTML(block, idx, noteId, total) {
     case 'video': {
       const platform = block.platform || 'youtube';
       const rawId = block.videoId || '';
-      const widthPct = block.vidWidth || 30;
+      const widthPct = block.vidWidth || (window.innerWidth < 768 ? 100 : 30);
       const isYT = platform === 'youtube';
       const isGD = platform === 'gdrive';
       const ytId = block.ytId || (isYT ? rawId : '');
