@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v52.179 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.180 ═══ */
 
 /* ── インライン動画パネル（マップ仕様準拠） ── */
 .n-iv-node {
@@ -1281,7 +1281,7 @@
   position: static;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none;
-  color: #9ca3c8;
+  color: #e2e4f0;
   font-size: 12px; line-height: 1;
   padding: 2px 7px; border-radius: 12px;
   cursor: pointer; min-width: 28px; height: 24px;
