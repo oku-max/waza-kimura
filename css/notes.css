@@ -203,7 +203,7 @@
   cursor: pointer; transition: background .12s;
 }
 .n-vl-row-hdr:hover { background: var(--surface2, #f6f6f4); }
-/* インライン再生ボタン */
+/* インライン再生ボタン（vidlist内では非表示・n-iv-nodeでは使用継続） */
 .n-vl-play-btn {
   flex-shrink: 0;
   width: 28px; height: 28px; border-radius: 50%;

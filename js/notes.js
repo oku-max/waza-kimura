@@ -2586,20 +2586,15 @@ function _renderVidlistCard(block, path, noteId) {
         const removeBtn = isManual
           ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}','${path}','${_esc(v.id)}')">×</button>`
           : '';
-        return `<div class="n-vl-row" id="${rowId}">
-          <div class="n-vl-row-hdr" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')">
+        return `<div class="n-vl-row" id="${rowId}" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')" style="cursor:pointer">
+          <div class="n-vl-row-hdr">
             <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
             <div class="n-vl-info">
               <div class="n-vl-ttl">${_esc(v.title || v.id)}</div>
               <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
             </div>
             <div class="n-vl-dur">${_esc(dur)}</div>
-            <button class="n-vl-play-btn" title="その場で再生"
-              onclick="event.stopPropagation();window._notesVlInlinePlay('${rowId}','${v.id}')">▶</button>
             ${removeBtn}
-          </div>
-          <div class="n-vl-row-body">
-            <div class="n-vl-inline-player" id="${rowId}-player"></div>
           </div>
         </div>`;
       }).join('')
