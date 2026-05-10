@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v52.63 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.178 ═══ */
 
 /* ── インライン動画パネル（マップ仕様準拠） ── */
 .n-iv-node {
@@ -1389,6 +1389,7 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 }
 .n-col-del:hover { background: rgba(248,113,113,.15); color: var(--red, #f87171); border-color: var(--red, #f87171); }
 .n-col-grid { display: grid; gap: 8px; }
+@media (max-width: 599px) { .n-col-grid { grid-template-columns: 1fr !important; } }
 .n-col-slot {
   border: 1px dashed var(--border2); border-radius: 6px; padding: 6px;
   min-height: 60px; display: flex; flex-direction: column;
