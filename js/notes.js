@@ -1055,7 +1055,7 @@ function _blockHTML(block, idx, noteId, total) {
       const channel = libV?.ch || libV?.channel || block.channel || '';
       const duration = _fmtDur(libV?.duration || block.duration);
       return `<div class="n-block-wrap n-block-wrap-card" id="n-vid-wrap-${noteId}-${idx}" ${wrapAttrs}>
-        <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" style="max-width:${widthPct}%">
+        <div class="n-iv-node" id="n-iv-${noteId}-${idx}" data-note-id="${noteId}" data-idx="${idx}" data-platform="${platform}" style="max-width:${widthPct}%">
           <div class="n-vl-row-hdr">
             <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
             <div class="n-vl-info">

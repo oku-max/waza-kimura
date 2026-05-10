@@ -216,6 +216,8 @@
 /* 展開時: サムネ非表示・ヘッダー縮小 */
 .n-iv-node.acc-open .n-vl-thumb { display: none; }
 .n-iv-node.acc-open .n-vl-row-hdr { padding: 5px 10px; }
+/* GDrive展開時: コントロール表示に最低460px必要 */
+.n-iv-node[data-platform="gdrive"].acc-open { min-width: min(460px, calc(100vw - 32px)); }
 /* アコーディオン: 展開エリア */
 .n-vl-row-body { display: none; border-top: 1px solid var(--border2, #ebebeb); }
 .n-vl-row.acc-open .n-vl-row-body { display: block; }
