@@ -96,6 +96,7 @@ const _nBviVmT = {};   // key → current vimeo time
 const _nBviGdV = {};   // key → <video> element
 const _nBviGdSeekTmr = {};  // key → debounce timer (GDrive seek)
 const _nBviGdIntTime = {};  // key → intended seek time (GDrive)
+const _nBviGdStallTmr = {}; // key → waiting stall recovery timer
 const _nBviTmr = {};   // key → setInterval id
 const _nBviAb  = {};   // key → {a,b,looping,activeTab,abOpen,bmOpen,editBm}
 
@@ -130,9 +131,12 @@ function _nBviSeekTo(k, sec) {
     _nBviGdSeekTmr[k] = setTimeout(() => {
       const t = _nBviGdIntTime[k];
       if (!_nBviGdV[k] || t == null) return;
-      _nBviGdV[k].currentTime = t;
+      const gd = _nBviGdV[k];
+      const wasPlaying = !gd.paused;
+      if (wasPlaying) gd.pause(); // 既存downloadをabortしてから
+      gd.currentTime = t;
       delete _nBviGdIntTime[k];
-      if (_nBviGdV[k].paused) _nBviGdV[k].play().catch(() => {});
+      if (wasPlaying) gd.play().catch(() => {});
     }, 120);
   }
 }
@@ -1817,6 +1821,7 @@ function _nBviClose(k) {
   if (_nBviVmP[k]) { try { _nBviVmP[k].destroy(); } catch(e) {} delete _nBviVmP[k]; delete _nBviVmT[k]; }
   if (_nBviGdV[k]) { try { _nBviGdV[k].pause(); } catch(e) {} delete _nBviGdV[k]; }
   clearTimeout(_nBviGdSeekTmr[k]); delete _nBviGdSeekTmr[k]; delete _nBviGdIntTime[k];
+  clearTimeout(_nBviGdStallTmr[k]); delete _nBviGdStallTmr[k];
 }
 
 function _nBviStartTimer(k) {
@@ -2381,6 +2386,16 @@ function _initInlineVideo(noteId, idx, block) {
         const durLbl = document.getElementById('n-bvi-ab-dur-' + k);
         if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
         _nBviStartTimer(k);
+      });
+      video.addEventListener('playing', () => { clearTimeout(_nBviGdStallTmr[k]); delete _nBviGdStallTmr[k]; });
+      video.addEventListener('seeked',  () => { clearTimeout(_nBviGdStallTmr[k]); delete _nBviGdStallTmr[k]; });
+      video.addEventListener('waiting', () => {
+        clearTimeout(_nBviGdStallTmr[k]);
+        _nBviGdStallTmr[k] = setTimeout(() => {
+          const v = _nBviGdV[k];
+          if (!v || v.paused) return;
+          v.currentTime = v.currentTime; // Range再要求でスタック解除
+        }, 3000);
       });
       video.addEventListener('error', () => {
         console.error('GDrive inline video error:', video.error?.code, video.error?.message);

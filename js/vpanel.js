@@ -13,6 +13,7 @@ let _gdPauseTimer = null;           // コントロール非表示タイマー
 let _gdContainerClick = null;       // container click handler（蓄積防止用）
 let _gdIntendedTime = null;         // 連続seek時の目標時刻（debounce用）
 let _gdSeekTimer = null;            // seekデバウンスタイマー
+let _gdStallTimer = null;           // waiting状態スタック回復タイマー
 // Vimeo Player API
 let _vmPlayer  = null;
 let _vmCurTime = 0;
@@ -224,9 +225,11 @@ function _seekTo(sec) {
     _gdIntendedTime = sec;
     _gdSeekTimer = setTimeout(() => {
       if (!_gdVideoEl || _gdIntendedTime === null) return;
+      const wasPlaying = !_gdVideoEl.paused;
+      if (wasPlaying) _gdVideoEl.pause(); // 既存downloadをabortしてから
       _gdVideoEl.currentTime = _gdIntendedTime;
       _gdIntendedTime = null;
-      if (_gdVideoEl.paused) _gdVideoEl.play().catch(() => {});
+      if (wasPlaying) _gdVideoEl.play().catch(() => {});
     }, 120);
     return;
   }
@@ -1388,6 +1391,7 @@ export function openVPanel(id) {
   if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} }
   clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
   clearTimeout(_gdSeekTimer); _gdSeekTimer = null; _gdIntendedTime = null;
+  clearTimeout(_gdStallTimer); _gdStallTimer = null;
   const _gdResetContainer = document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
@@ -1950,6 +1954,17 @@ function _createGDriveVideoEl(container, fileId, token) {
   video.addEventListener('play',  () => {
     if (_vpPlaybackRate !== 1 && video.playbackRate !== _vpPlaybackRate) video.playbackRate = _vpPlaybackRate;
     _startTimeDisplay();
+    clearTimeout(_gdStallTimer); _gdStallTimer = null;
+  });
+  video.addEventListener('playing', () => { clearTimeout(_gdStallTimer); _gdStallTimer = null; });
+  video.addEventListener('seeked',  () => { clearTimeout(_gdStallTimer); _gdStallTimer = null; });
+  video.addEventListener('waiting', () => {
+    clearTimeout(_gdStallTimer);
+    _gdStallTimer = setTimeout(() => {
+      if (!_gdVideoEl || _gdVideoEl.paused) return;
+      // バッファ停止から回復: currentTimeを微小に動かしてRange再要求
+      _gdVideoEl.currentTime = _gdVideoEl.currentTime;
+    }, 3000);
   });
   video.addEventListener('pause', () => { _stopTimeDisplay(); _updateTimeDisplay(); });
   video.addEventListener('ended', () => { _vpHandleEnded(); });
