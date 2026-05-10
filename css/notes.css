@@ -1494,12 +1494,14 @@ body.dark .n-move-gap:hover::after { background: #818cf8 }
 /* モバイル: 常時表示＋大きいタップ領域 */
 @media (hover: none) and (pointer: coarse) {
   .n-move-gap { height: 36px; margin: -10px 0 }
-  .n-move-gap::before { background: #c7d2fe }
-  .n-move-gap::after  { background: #c7d2fe }
-  .n-move-gap:active::before { background: #6366f1 }
-  .n-move-gap:active::after  { background: #6366f1 }
-  .n-move-gap-noop::before,
-  .n-move-gap-noop::after { display: none }
+  .n-move-gap::before { background: #6366f1 }
+  .n-move-gap::after  { background: #6366f1 }
+  .n-move-gap:active::before { background: #4338ca }
+  .n-move-gap:active::after  { background: #4338ca }
+  /* noop（移動元の隣）: 薄く表示して視覚の連続性を保つ、タップ不可 */
+  .n-move-gap-noop::before { display: block; background: #e0e7ff }
+  .n-move-gap-noop::after  { display: none }
   body.dark .n-move-gap::before,
-  body.dark .n-move-gap::after { background: #3730a3 }
+  body.dark .n-move-gap::after { background: #818cf8 }
+  body.dark .n-move-gap-noop::before { background: #312e81 }
 }
