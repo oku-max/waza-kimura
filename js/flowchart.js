@@ -471,6 +471,7 @@
     const isVM=(platform==='vimeo'||platform==='vm');
     const libVid=_findLibVid(vid);
     const title=_esc(libVid?.title||nd.label||vid);
+    const channel=_esc(libVid?.ch||libVid?.channel||'');
     const st=_getAb(nd.id);
     const bmOpen=st.bmOpen===true;
     const bmList=st.bookmarks.length
@@ -481,7 +482,7 @@
       :`<span class="ab-status-badge">未設定</span>`;
     const addBmBtn=`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`;
     return `<div class="node-content">
-      <div class="node-vid-title">${title}</div>
+      <div class="node-vid-title"><div class="node-vid-title-main">${title}</div>${channel?`<div class="node-vid-title-ch">${channel}</div>`:''}</div>
       <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
       ${(isYT||isVM||platform==='gdrive')?`<div class="ab-section">
         <div class="ab-hdr" onclick="window._fcToggleAb('${nd.id}')">
