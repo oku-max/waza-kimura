@@ -4354,9 +4354,11 @@ function _moveModeEsc(e) { if (e.key === 'Escape') _notesMoveCancelAll(); }
 
 function _notesMoveCancelAll() {
   if (!_moveMode) return;
-  const { container } = _moveMode;
-  container?.classList.remove('n-move-active');
-  container?.querySelectorAll('.n-move-gap').forEach(g => g.remove());
+  const root = document.getElementById('n-blocks-' + _moveMode.noteId);
+  root?.classList.remove('n-move-active');
+  root?.querySelectorAll('.n-move-gap').forEach(g => g.remove());
+  root?.querySelectorAll('.n-col-slot').forEach(s => s.classList.remove('n-move-active'));
+  root?.querySelectorAll('.n-moving').forEach(el => el.classList.remove('n-moving'));
   document.removeEventListener('keydown', _moveModeEsc);
   _moveMode = null;
 }
@@ -4365,91 +4367,110 @@ window._notesMoveCancelAll = _notesMoveCancelAll;
 function _makeMoveGap(clickHandler, noop) {
   const el = document.createElement('div');
   el.className = 'n-move-gap' + (noop ? ' n-move-gap-noop' : '');
-  if (!noop) el.addEventListener('click', clickHandler);
+  if (!noop) el.addEventListener('click', () => { clickHandler(); });
   return el;
 }
 
-// 通常ブロックの移動モード
-window._notesMoveStart = function(noteId, srcIdx) {
+// 移動モード共通起動 — 全コンテナにギャップラインを展開
+function _startMoveMode(noteId, src) {
   if (_moveMode) { _notesMoveCancelAll(); return; }
+  _moveMode = { noteId, ...src };
 
-  const container = document.getElementById('n-blocks-' + noteId);
-  if (!container) return;
+  const root = document.getElementById('n-blocks-' + noteId);
+  if (!root) return;
 
-  _moveMode = { noteId, srcIdx, container };
-  container.classList.add('n-move-active');
+  root.classList.add('n-move-active');
 
-  const wraps = [...container.querySelectorAll(':scope > .n-block-wrap')];
-  // 先頭ギャップ (afterIdx = -1)
-  const isNoop0 = (srcIdx === 0);
-  container.insertBefore(_makeMoveGap(() => window._notesMoveToPos(noteId, -1), isNoop0), wraps[0] || null);
+  // ── 移動元ブロックをハイライト ──
+  if (src.type === 'block') {
+    root.querySelector(`.n-block-wrap[data-idx="${src.srcIdx}"]`)?.classList.add('n-moving');
+  } else {
+    root.querySelector(
+      `.n-col-slot[data-col-idx="${src.colIdx}"][data-slot="${src.slot}"]`
+    )?.querySelectorAll('.n-col-block-wrap')[src.srcBIdx]?.classList.add('n-moving');
+  }
 
-  wraps.forEach((w, i) => {
-    const noop = (i === srcIdx - 1 || i === srcIdx);
-    if (i === srcIdx) w.classList.add('n-moving');
-    w.after(_makeMoveGap(() => window._notesMoveToPos(noteId, i), noop));
-  });
-
-  document.addEventListener('keydown', _moveModeEsc);
-};
-
-window._notesMoveToPos = function(noteId, afterIdx) {
-  if (!_moveMode || _moveMode.noteId !== noteId) return;
-  const { srcIdx } = _moveMode;
+  // ── メインリストにギャップ挿入 ──
   const r = _findNote(noteId);
-  if (!r) { _notesMoveCancelAll(); return; }
-
-  const blocks = r.note.blocks;
-  const [moved] = blocks.splice(srcIdx, 1);
-  const insertAt = afterIdx < srcIdx ? afterIdx + 1 : afterIdx;
-  blocks.splice(Math.max(0, Math.min(blocks.length, insertAt)), 0, moved);
-
-  r.note.updatedAt = Date.now();
-  _save();
-  _notesMoveCancelAll();
-  _renderNote(noteId);
-};
-
-// カラム内ブロックの移動モード
-window._notesColMoveStart = function(noteId, colIdx, slot, srcBIdx) {
-  if (_moveMode) { _notesMoveCancelAll(); return; }
-
-  const container = document.querySelector(
-    `.n-col-slot[data-note-id="${noteId}"][data-col-idx="${colIdx}"][data-slot="${slot}"]`
+  const isColTypeBlock = src.type === 'block' && r?.note?.blocks?.[src.srcIdx]?.type === 'col';
+  const mainWraps = [...root.querySelectorAll(':scope > .n-block-wrap')];
+  root.insertBefore(
+    _makeMoveGap(() => _execMove(noteId, 'block', -1, null, null),
+      src.type === 'block' && src.srcIdx === 0),
+    mainWraps[0] || null
   );
-  if (!container) return;
-
-  _moveMode = { noteId, colIdx, slot, srcBIdx, container, isCol: true };
-  container.classList.add('n-move-active');
-
-  const wraps = [...container.querySelectorAll(':scope > .n-col-block-wrap')];
-  const isNoop0 = (srcBIdx === 0);
-  container.insertBefore(_makeMoveGap(() => window._notesColMoveToPos(noteId, colIdx, slot, -1), isNoop0), wraps[0] || null);
-
-  wraps.forEach((w, i) => {
-    const noop = (i === srcBIdx - 1 || i === srcBIdx);
-    if (i === srcBIdx) w.classList.add('n-moving');
-    w.after(_makeMoveGap(() => window._notesColMoveToPos(noteId, colIdx, slot, i), noop));
+  mainWraps.forEach((w, i) => {
+    const noop = src.type === 'block' && (i === src.srcIdx - 1 || i === src.srcIdx);
+    w.after(_makeMoveGap(() => _execMove(noteId, 'block', i, null, null), noop));
   });
 
-  document.addEventListener('keydown', _moveModeEsc);
-};
+  // ── 全カラムスロットにギャップ挿入（col型ブロックは除外）──
+  if (!isColTypeBlock) {
+    root.querySelectorAll('.n-col-slot').forEach(slotEl => {
+      const tColIdx = parseInt(slotEl.dataset.colIdx);
+      const tSlot   = parseInt(slotEl.dataset.slot);
+      slotEl.classList.add('n-move-active');
 
-window._notesColMoveToPos = function(noteId, colIdx, slot, afterBIdx) {
+      const colWraps = [...slotEl.querySelectorAll(':scope > .n-col-block-wrap')];
+      const isSameSlot = src.type === 'col' && src.colIdx === tColIdx && src.slot === tSlot;
+      slotEl.insertBefore(
+        _makeMoveGap(() => _execMove(noteId, 'col', -1, tColIdx, tSlot),
+          isSameSlot && src.srcBIdx === 0),
+        colWraps[0] || null
+      );
+      colWraps.forEach((w, i) => {
+        const noop = isSameSlot && (i === src.srcBIdx - 1 || i === src.srcBIdx);
+        w.after(_makeMoveGap(() => _execMove(noteId, 'col', i, tColIdx, tSlot), noop));
+      });
+    });
+  }
+
+  document.addEventListener('keydown', _moveModeEsc);
+}
+
+// 移動実行
+function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
   if (!_moveMode || _moveMode.noteId !== noteId) return;
-  const { srcBIdx } = _moveMode;
+  const { type: srcType, srcIdx, colIdx: srcColIdx, slot: srcSlot, srcBIdx } = _moveMode;
   const r = _findNote(noteId);
   if (!r) { _notesMoveCancelAll(); return; }
 
-  const arr = r.note.blocks[colIdx]?.cols?.[slot];
-  if (!arr) { _notesMoveCancelAll(); return; }
+  // 移動元からブロックを取り出す
+  let moved;
+  if (srcType === 'block') {
+    [moved] = r.note.blocks.splice(srcIdx, 1);
+  } else {
+    const srcArr = r.note.blocks[srcColIdx]?.cols?.[srcSlot];
+    if (!srcArr) { _notesMoveCancelAll(); return; }
+    [moved] = srcArr.splice(srcBIdx, 1);
+  }
 
-  const [moved] = arr.splice(srcBIdx, 1);
-  const insertAt = afterBIdx < srcBIdx ? afterBIdx + 1 : afterBIdx;
-  arr.splice(Math.max(0, Math.min(arr.length, insertAt)), 0, moved);
+  // 挿入先に応じて位置計算して挿入
+  if (tgtType === 'block') {
+    // メインリストへ
+    let ins = srcType === 'block'
+      ? (afterIdx < srcIdx ? afterIdx + 1 : afterIdx)
+      : afterIdx + 1;
+    ins = Math.max(0, Math.min(r.note.blocks.length, ins));
+    r.note.blocks.splice(ins, 0, moved);
+  } else {
+    // カラムスロットへ
+    const tgtArr = r.note.blocks[tgtColIdx]?.cols?.[tgtSlot];
+    if (!tgtArr) { _notesMoveCancelAll(); return; }
+    const isSameSlot = srcType === 'col' && srcColIdx === tgtColIdx && srcSlot === tgtSlot;
+    let ins = isSameSlot
+      ? (afterIdx < srcBIdx ? afterIdx + 1 : afterIdx)
+      : afterIdx + 1;
+    ins = Math.max(0, Math.min(tgtArr.length, ins));
+    tgtArr.splice(ins, 0, moved);
+  }
 
   r.note.updatedAt = Date.now();
   _save();
   _notesMoveCancelAll();
   _renderNote(noteId);
-};
+}
+
+// 公開エントリポイント
+window._notesMoveStart    = (noteId, srcIdx)              => _startMoveMode(noteId, { type: 'block', srcIdx });
+window._notesColMoveStart = (noteId, colIdx, slot, srcBIdx) => _startMoveMode(noteId, { type: 'col', colIdx, slot, srcBIdx });
