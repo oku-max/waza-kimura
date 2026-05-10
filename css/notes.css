@@ -828,7 +828,7 @@
   background: var(--surface2); border: 1px solid var(--border2);
   color: var(--text3); cursor: pointer; line-height: 1;
 }
-.n-block-wrap:hover .n-block-del { display: block }
+.n-block-wrap:hover > .n-block-del { display: block }
 .n-block-del:hover { background: rgba(248,113,113,.15); color: var(--red, #f87171); border-color: var(--red, #f87171) }
 
 .n-note-actions {
@@ -1268,10 +1268,10 @@
   z-index: 20;
   user-select: none;
 }
-.n-block-wrap:hover .n-ctrl-bar { display: flex }
+.n-block-wrap:hover > .n-ctrl-bar { display: flex }
 /* モバイル: タップしたブロックのみ表示 */
 @media (hover: none) and (pointer: coarse) {
-  .n-block-wrap.n-ctrl-active .n-ctrl-bar { display: flex }
+  .n-block-wrap.n-ctrl-active > .n-ctrl-bar { display: flex }
 }
 
 /* ピル内の各コントロール */
