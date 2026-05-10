@@ -1296,6 +1296,20 @@
 }
 .n-ctrl-bar .n-ctrl-dis { opacity: 0.2; pointer-events: none }
 
+/* ダークモード: ピルを反転（暗背景に白ピル） */
+body.dark .n-ctrl-bar {
+  background: #dde0f5;
+  box-shadow: 0 2px 10px rgba(0,0,0,.5);
+}
+body.dark .n-ctrl-bar .n-drag-handle,
+body.dark .n-ctrl-bar .n-block-move {
+  color: #2a2a40;
+}
+body.dark .n-ctrl-bar .n-block-del { color: #b91c1c }
+body.dark .n-ctrl-bar button:hover { background: rgba(0,0,0,.1); color: #1a1a2e }
+body.dark .n-ctrl-bar .n-block-del:hover { background: rgba(185,28,28,.12); color: #b91c1c }
+body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
+
 /* カルーセル外の旧スタイル（carousel の groupDrag 用に残す） */
 .n-drag-handle {
   display: none; position: absolute; top: 4px; right: 70px;
