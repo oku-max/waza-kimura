@@ -63,7 +63,7 @@ async function handleDrive(request) {
     'Access-Control-Allow-Origin': '*',
   };
   const ct = driveRes.headers.get('content-type');
-  if (ct) resHeaders['Content-Type']   = ct;
+  resHeaders['Content-Type'] = ct || 'video/mp4';
   const cl = driveRes.headers.get('content-length');
   if (cl) resHeaders['Content-Length'] = cl;
   const cr = driveRes.headers.get('content-range');
