@@ -2353,13 +2353,45 @@ function _initInlineVideo(noteId, idx, block) {
     });
   } else if (platform === 'gdrive') {
     const fileId = rawId.startsWith('gd-') ? rawId.slice(3) : rawId;
-    // ライブラリタブと同じiframe方式（Androidでも動作確認済み）
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://drive.google.com/file/d/${fileId}/preview`;
-    iframe.allow = 'autoplay; encrypted-media; fullscreen';
-    iframe.allowFullscreen = true;
-    iframe.style.cssText = 'width:100%;height:100%;border:none;';
-    wrap.appendChild(iframe);
+    const token = window.getDriveTokenIfAvailable?.();
+    if (token) {
+      const video = document.createElement('video');
+      video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
+      video.controls = true; video.playsinline = true;
+      video.setAttribute('webkit-playsinline', '');
+      video.preload = 'metadata';
+      _nBviGdV[k] = video;
+      video.addEventListener('loadedmetadata', () => {
+        const dur = video.duration || 0;
+        const sl = document.getElementById('n-bvi-ab-sl-' + k);
+        if (sl && dur > 0) sl.max = Math.ceil(dur);
+        const durLbl = document.getElementById('n-bvi-ab-dur-' + k);
+        if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
+        _nBviStartTimer(k);
+      });
+      // プロキシ経由が失敗した場合（Android等）はiframeにフォールバック
+      video.addEventListener('error', () => {
+        delete _nBviGdV[k];
+        const fb = document.createElement('iframe');
+        fb.src = `https://drive.google.com/file/d/${fileId}/preview`;
+        fb.allow = 'autoplay; encrypted-media; fullscreen';
+        fb.allowFullscreen = true;
+        fb.style.cssText = 'width:100%;height:100%;border:none;';
+        wrap.replaceChild(fb, video);
+      });
+      video.load();
+      wrap.appendChild(video);
+    } else {
+      // トークンなし → 認証を促すUIを表示（iframeはスマホで崩れるため使わない）
+      const msg = document.createElement('div');
+      msg.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;height:100%;background:#111;color:#ccc;text-align:center';
+      msg.innerHTML = `
+        <div style="font-size:12px;line-height:1.5">Google Drive の認証が必要です</div>
+        <button onclick="window.startDriveAuth?.()" style="padding:7px 16px;border-radius:6px;border:none;background:#4a9eff;color:#fff;font-size:12px;cursor:pointer;font-weight:600">Drive に接続</button>
+        <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank" rel="noopener"
+           style="font-size:11px;color:#888;text-decoration:none">↗ Drive で直接開く</a>`;
+      wrap.appendChild(msg);
+    }
   } else {
     const iframe = document.createElement('iframe');
     iframe.src = `https://www.youtube.com/embed/${rawId}?rel=0`;
