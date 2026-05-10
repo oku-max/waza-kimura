@@ -1432,8 +1432,13 @@ document.addEventListener('touchstart', function(e) {
 // Touch drag-and-drop for mobile
 (function _initNotesTouchDnd() {
   let _src = null;
+  let _srcHandle = null;
   let _overWrap = null;
+  let _didDrag = false;
+  let _startX = 0, _startY = 0;
 
+  // passive:true にして touchstart で preventDefault しない
+  // → クリック合成が生き残り、タップで onclick (移動モード起動) が発火する
   document.addEventListener('touchstart', function(e) {
     const handle = e.target.closest('.n-drag-handle');
     if (!handle) return;
@@ -1444,12 +1449,21 @@ document.addEventListener('touchstart', function(e) {
       idx: parseInt(wrap.dataset.idx),
       endIdx: parseInt(wrap.dataset.idxEnd ?? wrap.dataset.idx)
     };
-    wrap.classList.add('n-dragging');
-    e.preventDefault();
-  }, { passive: false });
+    _srcHandle = handle;
+    _didDrag = false;
+    _startX = e.touches[0].clientX;
+    _startY = e.touches[0].clientY;
+  }, { passive: true });
 
   document.addEventListener('touchmove', function(e) {
     if (!_src) return;
+    const dx = Math.abs(e.touches[0].clientX - _startX);
+    const dy = Math.abs(e.touches[0].clientY - _startY);
+    if (!_didDrag) {
+      if (dx < 8 && dy < 8) return; // 閾値未満はまだドラッグ扱いしない
+      _didDrag = true;
+      _srcHandle?.closest('.n-block-wrap[data-note-id]')?.classList.add('n-dragging');
+    }
     e.preventDefault();
     const t = e.touches[0];
     const dragging = document.querySelector('.n-block-wrap.n-dragging');
@@ -1466,10 +1480,31 @@ document.addEventListener('touchstart', function(e) {
   document.addEventListener('touchend', function() {
     if (!_src) return;
     document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
+
+    if (!_didDrag) {
+      // タップ判定: 移動モードを手動起動
+      const handle = _srcHandle;
+      const { noteId, idx } = _src;
+      _src = null; _srcHandle = null; _overWrap = null;
+      const colWrap = handle?.closest('.n-col-block-wrap');
+      if (colWrap) {
+        const slotEl = colWrap.closest('.n-col-slot');
+        const colIdx = parseInt(slotEl?.dataset.colIdx);
+        const slot   = parseInt(slotEl?.dataset.slot);
+        const bIdx   = [...(slotEl?.querySelectorAll(':scope > .n-col-block-wrap') || [])].indexOf(colWrap);
+        if (!isNaN(colIdx) && !isNaN(slot) && bIdx >= 0)
+          window._notesColMoveStart(noteId, colIdx, slot, bIdx);
+      } else {
+        window._notesMoveStart(noteId, idx);
+      }
+      return;
+    }
+
+    // ドラッグ判定: 既存 DnD 実行
     const wrap = _overWrap;
     _overWrap = null;
     const { noteId: srcNoteId, idx: src, endIdx: srcEnd } = _src;
-    _src = null;
+    _src = null; _srcHandle = null; _didDrag = false;
     if (!wrap) return;
     const targetNoteId = wrap.dataset.noteId;
     const dst = parseInt(wrap.dataset.idx);
