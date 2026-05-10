@@ -288,6 +288,7 @@
   <div class="fc-ctx-item" id="fc-ctx-img">🖼 画像を追加</div>
   <div class="fc-ctx-item" id="fc-ctx-txt">💬 テキストを追加</div>
   <div class="fc-ctx-item" id="fc-ctx-chg" style="display:none">🔄 コンテンツを変更</div>
+  <div class="fc-ctx-item" id="fc-ctx-vp" style="display:none">▶ Vパネルで開く</div>
   <div class="fc-ctx-sep"></div>
   <div class="fc-ctx-item danger" id="fc-ctx-del">🗑 削除</div>
 </div>
@@ -349,6 +350,7 @@
     _el('ctx-img').addEventListener('click', ()=>_ctxAct('img'));
     _el('ctx-txt').addEventListener('click', ()=>_ctxAct('txt'));
     _el('ctx-chg').addEventListener('click', ()=>_ctxAct('chg'));
+    _el('ctx-vp').addEventListener('click', ()=>_ctxAct('vp'));
     _el('ctx-del').addEventListener('click', ()=>_ctxAct('del'));
 
     _el('ep-edit').addEventListener('click', _edgePopupEdit);
@@ -436,12 +438,40 @@
   }
   function _nodeHTML(nd){
     const isVid=nd.content?.type==='video' && nd.content?.videoId;
-    return `<div class="node-hdr">
-      <span class="node-name" id="fc-nm-${nd.id}">${_esc(nd.name)}</span>
-      ${isVid?`<span class="node-hdr-btn node-vp-btn" title="Vパネルで開く">▶</span>`:''}
-      <span class="node-hdr-btn node-cmt-btn${nd._commentOpen?' open':''}" id="fc-cmt-btn-${nd.id}" title="メモ">📝</span>
-      <span class="node-hdr-btn node-menu-btn" data-id="${nd.id}">⋮</span>
-    </div>
+    let hdrHtml;
+    if(isVid){
+      const vid=nd.content.videoId;
+      const platform=nd.content.platform||'youtube';
+      const isYT=platform==='youtube';
+      const isGD=platform==='gdrive';
+      const rawId=vid.replace(/^yt-/,'').replace(/^gd-/,'');
+      const ytId=isYT?rawId:null;
+      const gdId=isGD?rawId:null;
+      const thumbUrl=ytId?`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
+        :isGD&&gdId?`https://drive.google.com/thumbnail?id=${gdId}&sz=w120`:'';
+      const libVid=_findLibVid(vid);
+      const title=_esc(libVid?.title||nd.name||vid);
+      const channel=_esc(libVid?.ch||libVid?.channel||'');
+      const st=_getAb(nd.id);
+      const vidOpen=st.vidOpen===true;
+      hdrHtml=`<div class="node-hdr n-vl-row-hdr fc-vid-hdr${vidOpen?' acc-open':''}">
+        <div class="n-vl-thumb">${thumbUrl?`<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">`:''}</div>
+        <div class="n-vl-info">
+          <div class="n-vl-ttl">${title}</div>
+          ${channel?`<div class="n-vl-meta"><span class="n-vl-ch">${channel}</span></div>`:''}
+        </div>
+        <button class="n-vl-play-btn fc-expand-btn" title="動画を表示">▶</button>
+        <span class="node-hdr-btn node-cmt-btn${nd._commentOpen?' open':''}" id="fc-cmt-btn-${nd.id}" title="メモ">📝</span>
+        <span class="node-hdr-btn node-menu-btn" data-id="${nd.id}">⋮</span>
+      </div>`;
+    } else {
+      hdrHtml=`<div class="node-hdr">
+        <span class="node-name" id="fc-nm-${nd.id}">${_esc(nd.name)}</span>
+        <span class="node-hdr-btn node-cmt-btn${nd._commentOpen?' open':''}" id="fc-cmt-btn-${nd.id}" title="メモ">📝</span>
+        <span class="node-hdr-btn node-menu-btn" data-id="${nd.id}">⋮</span>
+      </div>`;
+    }
+    return `${hdrHtml}
     ${nd.content?_contentHTML(nd):''}
     <div class="node-comment-area" id="fc-cmt-area-${nd.id}">
       <div class="node-cmt-inner">
@@ -470,14 +500,6 @@
     const isYT=platform==='youtube';
     const isVM=(platform==='vimeo'||platform==='vm');
     const isGD=platform==='gdrive';
-    const libVid=_findLibVid(vid);
-    const title=_esc(libVid?.title||nd.label||vid);
-    const channel=_esc(libVid?.ch||libVid?.channel||'');
-    const rawId=vid.replace(/^yt-/,'').replace(/^gd-/,'');
-    const ytId=isYT?rawId:null;
-    const gdId=isGD?rawId:null;
-    const thumbUrl=ytId?`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`
-      :isGD&&gdId?`https://drive.google.com/thumbnail?id=${gdId}&sz=w120`:'';
     const st=_getAb(nd.id);
     const vidOpen=st.vidOpen===true;
     const bmOpen=st.bmOpen===true;
@@ -489,14 +511,6 @@
       :`<span class="ab-status-badge">未設定</span>`;
     const addBmBtn=`<button class="bm-add-btn" onclick="event.stopPropagation();window._fcAddBmNow('${nd.id}')">＋ 現在位置</button>`;
     return `<div class="node-content">
-      <div class="n-vl-row-hdr fc-vid-hdr${vidOpen?' acc-open':''}">
-        <div class="n-vl-thumb">${thumbUrl?`<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">`:''}</div>
-        <div class="n-vl-info">
-          <div class="n-vl-ttl">${title}</div>
-          ${channel?`<div class="n-vl-meta"><span class="n-vl-ch">${channel}</span></div>`:''}
-        </div>
-        <button class="n-vl-play-btn" onclick="event.stopPropagation();window._fcToggleVidPanel('${nd.id}')">▶</button>
-      </div>
       <div class="fc-vid-body" id="fc-vid-body-${nd.id}" style="${vidOpen?'':'display:none'}">
         <div class="node-yt-div" id="fc-vid-wrap-${nd.id}" data-platform="${platform}"><div id="fc-vid-${nd.id}"></div></div>
         ${(isYT||isVM||isGD)?`<div class="ab-section">
@@ -551,7 +565,7 @@
     hdr.addEventListener('mousedown',e=>{
       if(e.target.classList.contains('node-menu-btn'))return;
       if(e.target.classList.contains('node-cmt-btn'))return;
-      if(e.target.classList.contains('node-vp-btn'))return;
+      if(e.target.classList.contains('fc-expand-btn'))return;
       if(e.target.classList.contains('node-name'))return;
       e.stopPropagation();
       _dragNode=nd; _dragOff={x:(e.clientX-_panX)/_zoom-nd.x,y:(e.clientY-_panY)/_zoom-nd.y};
@@ -560,7 +574,7 @@
     hdr.addEventListener('touchstart',e=>{
       if(e.target.classList.contains('node-menu-btn'))return;
       if(e.target.classList.contains('node-cmt-btn'))return;
-      if(e.target.classList.contains('node-vp-btn'))return;
+      if(e.target.classList.contains('fc-expand-btn'))return;
       e.stopPropagation(); e.preventDefault();
       const t=e.touches[0];
       _dragNode=nd; _dragOff={x:(t.clientX-_panX)/_zoom-nd.x,y:(t.clientY-_panY)/_zoom-nd.y};
@@ -568,9 +582,11 @@
     },{passive:false});
 
     const nm=el.querySelector('.node-name');
-    nm.addEventListener('dblclick',e=>{ e.stopPropagation(); nm.contentEditable='true'; nm.classList.add('editing'); nm.focus(); _selAll(nm); });
-    nm.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();nm.blur()} if(e.key==='Escape'){nm.textContent=_esc(nd.name);nm.blur()} });
-    nm.addEventListener('blur',()=>{ nm.contentEditable='false'; nm.classList.remove('editing'); const v=nm.textContent.trim(); if(v) nd.name=v; nm.textContent=nd.name; _triggerAutoSave(); });
+    if(nm){
+      nm.addEventListener('dblclick',e=>{ e.stopPropagation(); nm.contentEditable='true'; nm.classList.add('editing'); nm.focus(); _selAll(nm); });
+      nm.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();nm.blur()} if(e.key==='Escape'){nm.textContent=_esc(nd.name);nm.blur()} });
+      nm.addEventListener('blur',()=>{ nm.contentEditable='false'; nm.classList.remove('editing'); const v=nm.textContent.trim(); if(v) nd.name=v; nm.textContent=nd.name; _triggerAutoSave(); });
+    }
 
     const ta=el.querySelector('.node-text-area');
     if(ta){
@@ -579,8 +595,8 @@
       ta.addEventListener('click',e=>e.stopPropagation());
     }
 
-    const vpBtn=el.querySelector('.node-vp-btn');
-    if(vpBtn) vpBtn.addEventListener('click',e=>{ e.stopPropagation(); const v=_findLibVid(nd.content.videoId); window.openVPanel?.(v?.id||nd.content.videoId); });
+    const expandBtn=el.querySelector('.fc-expand-btn');
+    if(expandBtn) expandBtn.addEventListener('click',e=>{ e.stopPropagation(); window._fcToggleVidPanel(nd.id); });
 
     el.querySelector('.node-cmt-btn').addEventListener('click',e=>{
       e.stopPropagation();
@@ -915,6 +931,7 @@
     const nd=_nodes.find(n=>n.id===nodeId), has=!!(nd?.content);
     ['ctx-vid','ctx-img','ctx-txt'].forEach(id=>_el(id).style.display=has?'none':'');
     _el('ctx-chg').style.display=has?'':'none';
+    _el('ctx-vp').style.display=(has&&nd.content?.type==='video'&&nd.content?.videoId)?'':'none';
     const m=_el('ctx-menu'); m.style.display='block'; m.style.left=x+'px'; m.style.top=y+'px';
   }
   function _hideCtx(){ _el('ctx-menu').style.display='none'; }
@@ -925,6 +942,7 @@
     if(action==='vid'||action==='chg'){ _onVidInsert=null; if(window._fcLibPick) window._fcLibPick(nd.id); else _openFcVidPicker(); }
     else if(action==='img'){ _onImgInsert=null; _openFcImgPicker(); }
     else if(action==='txt'){ nd.content={type:'text',text:''}; _renderAll(); setTimeout(()=>{ const ta=document.getElementById('fc-ta-'+nd.id); if(ta){ ta.contentEditable='true'; ta.classList.add('editing'); ta.focus(); }},50); }
+    else if(action==='vp'){ if(nd.content?.videoId){ const v=_findLibVid(nd.content.videoId); window.openVPanel?.(v?.id||nd.content.videoId); } }
   }
 
   // ── Video picker ───────────────────────────────────────────────
@@ -1344,7 +1362,8 @@
   };
   window._fcToggleVidPanel = function(nid){
     const body=document.getElementById('fc-vid-body-'+nid);
-    const hdr=body?.previousElementSibling;
+    const nodeEl=document.getElementById('fc-node-'+nid);
+    const hdr=nodeEl?.querySelector('.fc-vid-hdr');
     if(!body) return;
     const opening=body.style.display==='none';
     body.style.display=opening?'':'none';
