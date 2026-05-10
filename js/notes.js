@@ -1482,21 +1482,8 @@ document.addEventListener('touchstart', function(e) {
     document.querySelectorAll('.n-block-wrap').forEach(el => el.classList.remove('n-drag-over', 'n-dragging'));
 
     if (!_didDrag) {
-      // タップ判定: 移動モードを手動起動
-      const handle = _srcHandle;
-      const { noteId, idx } = _src;
+      // タップ: onclick が合成されるのでここでは呼ばない（二重呼び出し防止）
       _src = null; _srcHandle = null; _overWrap = null;
-      const colWrap = handle?.closest('.n-col-block-wrap');
-      if (colWrap) {
-        const slotEl = colWrap.closest('.n-col-slot');
-        const colIdx = parseInt(slotEl?.dataset.colIdx);
-        const slot   = parseInt(slotEl?.dataset.slot);
-        const bIdx   = [...(slotEl?.querySelectorAll(':scope > .n-col-block-wrap') || [])].indexOf(colWrap);
-        if (!isNaN(colIdx) && !isNaN(slot) && bIdx >= 0)
-          window._notesColMoveStart(noteId, colIdx, slot, bIdx);
-      } else {
-        window._notesMoveStart(noteId, idx);
-      }
       return;
     }
 
