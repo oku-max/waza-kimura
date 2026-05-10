@@ -1065,15 +1065,10 @@ function _blockHTML(block, idx, noteId, total) {
             ${duration ? `<div class="n-vl-dur">${_esc(duration)}</div>` : ''}
             <button class="n-vl-play-btn n-iv-expand-btn" title="インラインで再生"
               onclick="event.stopPropagation();window._notesIvToggle('${noteId}',${idx})">▶</button>
-            <button class="n-iv-hdr-btn" title="Vパネルで開く"
-              onclick="event.stopPropagation();window._notesVidJumpVp('${noteId}',${idx})">⊞</button>
-            <button class="n-iv-hdr-btn n-iv-cmt-btn" title="メモ"
-              onclick="event.stopPropagation();window._notesVidTogMemo('${noteId}',${idx})">📝</button>
             <button class="n-iv-hdr-btn" title="メニュー"
               onclick="event.stopPropagation();window._notesVidMenu('${noteId}',${idx},this)">⋮</button>
           </div>
           <div class="n-iv-content" style="display:none">
-            <div class="n-iv-url-bar">${_esc(displayUrl)}</div>
             <div class="n-iv-vid-wrap" id="n-iv-vid-${noteId}-${idx}" data-platform="${platform}"></div>
             ${hasChapters ? `<div class="n-iv-chap-section" id="n-iv-chap-${noteId}-${idx}">
               <div class="n-iv-chap-hdr"
@@ -2953,12 +2948,16 @@ window._notesVidMenu = function(noteId, idx, btnEl) {
   const menu = document.createElement('div');
   menu.id = 'n-iv-menu';
   menu.style.cssText = 'position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9700;min-width:200px;font-size:12px';
+  const mi = (label, color='') => `<div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer;${color?'color:'+color:'}'}">${label}</div>`;
   menu.innerHTML = `
     <div style="padding:6px 10px;color:var(--text2);font-size:10px;letter-spacing:.5px">幅: <span id="n-iv-w-lbl">${widthPct}%</span></div>
     <div style="padding:0 10px 8px"><input type="range" min="30" max="100" step="5" value="${widthPct}" style="width:100%" id="n-iv-w-sl"></div>
     <div style="height:1px;background:var(--border2);margin:4px 0"></div>
-    <div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer">📂 動画を差し替え</div>
-    <div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer;color:#c00">🗑 削除</div>`;
+    ${mi('⊞ Vパネルで開く')}
+    ${mi('📝 メモ')}
+    <div style="height:1px;background:var(--border2);margin:4px 0"></div>
+    ${mi('📂 動画を差し替え')}
+    ${mi('🗑 削除', '#c00')}`;
   document.body.appendChild(menu);
   const rect = btnEl.getBoundingClientRect();
   menu.style.top = (rect.bottom + 4) + 'px';
@@ -2974,8 +2973,10 @@ window._notesVidMenu = function(noteId, idx, btnEl) {
   });
   sl.addEventListener('change', () => { r.note.updatedAt = Date.now(); _save(); });
   const items = menu.querySelectorAll('.n-iv-menu-item');
-  items[0].onclick = () => { menu.remove(); window._notesShowVidPicker?.(noteId, { replaceIdx: idx }); };
-  items[1].onclick = () => { menu.remove(); window._notesBlockDel?.(noteId, idx); };
+  items[0].onclick = () => { menu.remove(); window._notesVidJumpVp?.(noteId, idx); };
+  items[1].onclick = () => { menu.remove(); window._notesVidTogMemo?.(noteId, idx); };
+  items[2].onclick = () => { menu.remove(); window._notesShowVidPicker?.(noteId, { replaceIdx: idx }); };
+  items[3].onclick = () => { menu.remove(); window._notesBlockDel?.(noteId, idx); };
   setTimeout(() => {
     document.addEventListener('click', function close(ev) {
       if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close); }
