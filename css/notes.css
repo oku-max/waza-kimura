@@ -1464,7 +1464,7 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 .n-move-gap::before {
   content: ''; position: absolute;
   left: 0; right: 0; top: 50%; transform: translateY(-50%);
-  height: 3px; border-radius: 2px;
+  height: 2.5px; border-radius: 2px;
   background: #6366f1;
 }
 .n-move-gap::after {
@@ -1494,3 +1494,25 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 body.dark .n-move-gap::before,
 body.dark .n-move-gap::after { background: #818cf8 }
 body.dark .n-move-gap-noop::before { background: #312e81 }
+
+/* 移動モードオーバーレイ＋バナー */
+.n-move-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(99,102,241,.07);
+  pointer-events: none;
+}
+.n-move-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 201;
+  background: #6366f1; color: #fff;
+  font-size: 13px; font-weight: 600;
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(99,102,241,.4);
+  gap: 8px;
+}
+.n-move-banner-cancel {
+  background: rgba(255,255,255,.2); border: none; color: #fff;
+  border-radius: 6px; padding: 4px 10px; cursor: pointer;
+  font-size: 12px; flex-shrink: 0;
+}
+body.dark .n-move-banner { background: #4f46e5 }

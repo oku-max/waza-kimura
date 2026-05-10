@@ -1155,13 +1155,13 @@ function _blockHTML(block, idx, noteId, total) {
       const nodeCount = (block.nodes||[]).length;
       const edgeCount = (block.edges||[]).length;
       return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
-        <div class="n-b-map" onclick="window._notesOpenMap('${noteId}',${idx})">
+        <div class="n-b-map">
           <div class="n-b-map-icon">🗺</div>
           <div class="n-b-map-info">
             <div class="n-b-map-name">${_esc(block.name||'マップ')}</div>
             <div class="n-b-map-meta">${nodeCount}ノード · ${edgeCount}接続</div>
           </div>
-          <div class="n-b-map-open">編集 →</div>
+          <div class="n-b-map-open" onclick="event.stopPropagation();window._notesOpenMap('${noteId}',${idx})">編集 →</div>
         </div>${ctrlBar}</div>`;
     }
     case 'vidlist': {
@@ -1405,7 +1405,10 @@ window._notesColDragStart = function(e, noteId, colIdx, slot, bIdx) {
 })();
 
 // モバイル: ブロックタップで ctrl-bar 表示トグル
+// _ctrlJustActivated: このタッチで初めてアクティブになったラップを記録（名前変更など即発火を防ぐ）
+let _ctrlJustActivated = null;
 document.addEventListener('touchstart', function(e) {
+  _ctrlJustActivated = null;
   if (e.target.closest('.n-move-gap')) return; // 移動モードのギャップは無視
   // カラム内ブロック (.n-col-block-wrap) を優先処理
   const colWrap = e.target.closest('.n-col-block-wrap');
@@ -1414,7 +1417,7 @@ document.addEventListener('touchstart', function(e) {
     const allCol = document.querySelectorAll('.n-col-block-wrap.n-ctrl-active');
     const wasActive = colWrap.classList.contains('n-ctrl-active');
     allCol.forEach(el => el.classList.remove('n-ctrl-active'));
-    if (!wasActive) colWrap.classList.add('n-ctrl-active');
+    if (!wasActive) { colWrap.classList.add('n-ctrl-active'); _ctrlJustActivated = colWrap; }
     return;
   }
   const wrap = e.target.closest('.n-block-wrap[data-note-id]');
@@ -1426,7 +1429,7 @@ document.addEventListener('touchstart', function(e) {
   if (e.target.closest('.n-ctrl-bar')) return;
   const wasActive = wrap.classList.contains('n-ctrl-active');
   allWraps.forEach(el => el.classList.remove('n-ctrl-active'));
-  if (!wasActive) wrap.classList.add('n-ctrl-active');
+  if (!wasActive) { wrap.classList.add('n-ctrl-active'); _ctrlJustActivated = wrap; }
 }, { passive: true });
 
 // Touch drag-and-drop for mobile
@@ -3162,6 +3165,8 @@ window._notesColVidMenu = function(noteId, colIdx, slot, bIdx, btnEl) {
 
 // ── vidlist 名前: タップでインライン編集 ──
 window._notesVlRenameTap = function(noteId, path, el) {
+  // タッチで ctrl-bar が初めて表示されたタイミングの synthesized click は無視
+  if (_ctrlJustActivated && _ctrlJustActivated === el.closest('.n-block-wrap, .n-col-block-wrap')) return;
   const cur = el.textContent;
   const input = document.createElement('input');
   input.value = cur;
@@ -4406,6 +4411,8 @@ function _notesMoveCancelAll() {
   root?.querySelectorAll('.n-col-slot').forEach(s => s.classList.remove('n-move-active'));
   root?.querySelectorAll('.n-moving').forEach(el => el.classList.remove('n-moving'));
   document.removeEventListener('keydown', _moveModeEsc);
+  document.getElementById('n-move-overlay')?.remove();
+  document.getElementById('n-move-banner')?.remove();
   _moveMode = null;
 }
 window._notesMoveCancelAll = _notesMoveCancelAll;
@@ -4426,6 +4433,19 @@ function _startMoveMode(noteId, src) {
   if (!root) return;
 
   root.classList.add('n-move-active');
+
+  // オーバーレイ＋上部バナー
+  const overlay = document.createElement('div');
+  overlay.id = 'n-move-overlay';
+  overlay.className = 'n-move-overlay';
+  document.body.appendChild(overlay);
+
+  const banner = document.createElement('div');
+  banner.id = 'n-move-banner';
+  banner.className = 'n-move-banner';
+  banner.innerHTML = '<span>📍 移動モード — 移動先のラインをタップ</span>'
+    + '<button class="n-move-banner-cancel" onclick="window._notesMoveCancelAll()">✕ キャンセル</button>';
+  document.body.appendChild(banner);
 
   // ── 移動元ブロックをハイライト ──
   if (src.type === 'block') {
