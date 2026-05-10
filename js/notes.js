@@ -1621,20 +1621,19 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot) {
 
   if (type === 'video') {
     const thumbUrl = _blockThumbUrl(b);
-    const thumbEl = thumbUrl
-      ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'font-size:18px',textContent:'🎥'}))">`
-      : `<span style="font-size:18px">🎥</span>`;
+    const dur = _fmtDur(b.duration);
+    const videoId = b.videoId || '';
     return `<div class="n-col-block-wrap">
       ${drag}
-      <div class="n-b-video-inline">
-        <div class="n-bvi-header" onclick="window._notesColVidToggle('${noteId}',${colIdx},${slot},${bIdx})">
-          <div class="n-bvi-thumb">${thumbEl}<div class="n-bvi-play-badge"><div class="n-bvi-play-icon">▶</div></div></div>
-          <div class="n-bvi-info">
-            <div class="n-bvi-ttl">${_esc(b.title || b.videoId || '')}</div>
-            <div class="n-bvi-ch">${_esc(b.channel || '')}</div>
+      <div class="n-vl-row" onclick="window._notesColVidOpenVP('${noteId}',${colIdx},${slot},${bIdx})" style="cursor:pointer">
+        <div class="n-vl-row-hdr">
+          <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
+          <div class="n-vl-info">
+            <div class="n-vl-ttl">${_esc(b.title || videoId || '')}</div>
+            <div class="n-vl-meta"><span class="n-vl-ch">${_esc(b.channel || '')}</span></div>
           </div>
+          ${dur ? `<div class="n-vl-dur">${_esc(dur)}</div>` : ''}
         </div>
-        <div class="n-bvi-player" id="n-col-player-${noteId}-${colIdx}-${slot}-${bIdx}"></div>
       </div>${del}
     </div>`;
   }
@@ -2951,6 +2950,14 @@ window._notesVlOpenVPanel = function(noteId, path, videoId) {
     window._noteVidList = vids.length > 1 ? vids : null;
   }
   window.openVPanel?.(videoId);
+};
+
+// ── カラム内動画: VPanel起動 ──
+window._notesColVidOpenVP = function(noteId, colIdx, slot, bIdx) {
+  const r = _findNote(noteId);
+  const col = r?.note?.blocks?.[colIdx];
+  const b = col?.cols?.[slot]?.[bIdx];
+  if (b?.videoId) window.openVPanel?.(b.videoId);
 };
 
 // ── vidlist 名前: タップでインライン編集 ──
