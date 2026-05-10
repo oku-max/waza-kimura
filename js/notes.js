@@ -2357,9 +2357,9 @@ function _initInlineVideo(noteId, idx, block) {
     if (token) {
       const video = document.createElement('video');
       video.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
-      video.controls = true; video.playsinline = true;
-      video.setAttribute('webkit-playsinline', '');
-      video.preload = 'metadata';
+      video.controls = true;
+      video.autoplay = true;
+      video.playsinline = true;
       _nBviGdV[k] = video;
       video.addEventListener('loadedmetadata', () => {
         const dur = video.duration || 0;
@@ -2369,18 +2369,11 @@ function _initInlineVideo(noteId, idx, block) {
         if (durLbl && dur > 0) durLbl.textContent = _nBviFmt(dur);
         _nBviStartTimer(k);
       });
-      // プロキシ経由が失敗した場合（Android等）はiframeにフォールバック
       video.addEventListener('error', () => {
-        delete _nBviGdV[k];
-        const fb = document.createElement('iframe');
-        fb.src = `https://drive.google.com/file/d/${fileId}/preview`;
-        fb.allow = 'autoplay; encrypted-media; fullscreen';
-        fb.allowFullscreen = true;
-        fb.style.cssText = 'width:100%;height:100%;border:none;';
-        wrap.replaceChild(fb, video);
+        console.error('GDrive inline video error:', video.error?.code, video.error?.message);
       });
-      video.load();
       wrap.appendChild(video);
+      video.play().catch(() => {});
     } else {
       // トークンなし → 認証を促すUIを表示（iframeはスマホで崩れるため使わない）
       const msg = document.createElement('div');
