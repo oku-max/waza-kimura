@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v51.03 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.205 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -327,8 +327,12 @@
     else _shownNoteVideos = [];
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
-      const thumb = ytId
-        ? `<img src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px">`
+      const gdId = (v.pt==='gdrive'||(v.id||'').startsWith('gd-')) ? (v.id||'').replace(/^gd-/,'') : null;
+      const thumbUrl = v.thumb
+        || (ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : '')
+        || (gdId ? `https://drive.google.com/thumbnail?id=${gdId}&sz=w120` : '');
+      const thumb = thumbUrl
+        ? `<img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none'">`
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
