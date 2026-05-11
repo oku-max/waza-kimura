@@ -262,6 +262,15 @@
   font-size: 13px; cursor: pointer; line-height: 1;
 }
 .n-vl-rm:hover { border-color: #f87171; color: #f87171; }
+.n-vl-mv {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border-radius: 4px; border: 1px solid var(--border);
+  background: transparent; color: var(--text3);
+  font-size: 14px; cursor: grab; line-height: 1;
+}
+.n-vl-mv:hover { border-color: var(--accent); color: var(--accent); }
+.n-vl-row.n-moving { opacity: .4; pointer-events: none; }
 .n-vl-empty {
   padding: 16px; text-align: center;
   font-size: 11px; color: var(--text3);
