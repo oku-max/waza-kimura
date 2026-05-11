@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.177 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.202 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1379,7 +1379,7 @@ export function openVPanel(id) {
   const autoplay   = autoplayEl ? autoplayEl.checked : true;
 
   // 再生速度を保存（次の動画に引き継ぐ）
-  if (_ytPlayer && _ytPlayerReady)  { try { _vpPlaybackRate = _ytPlayer.getPlaybackRate(); } catch(e) {} }
+  if (_ytPlayer && _ytPlayerReady)  { try { const r = _ytPlayer.getPlaybackRate(); if (isFinite(r) && r > 0) _vpPlaybackRate = r; } catch(e) {} }
   else if (_gdVideoEl)               { _vpPlaybackRate = _gdVideoEl.playbackRate || 1; }
   // Vimeo は playbackratechange イベントで _vpPlaybackRate をキャッシュ済み
 
@@ -1447,7 +1447,7 @@ export function openVPanel(id) {
       if (isYTtoYT) {
         // プレイヤー再利用: loadVideoById は autoplay が保証される
         try {
-          if (_vpPlaybackRate !== 1) _ytPlayer.setPlaybackRate(_vpPlaybackRate);
+          if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1) _ytPlayer.setPlaybackRate(_vpPlaybackRate);
           _ytPlayer.loadVideoById(ytId, 0);
           _startTimeDisplay();
         } catch(e) {
@@ -1952,7 +1952,7 @@ function _createGDriveVideoEl(container, fileId, token) {
   container.addEventListener('click', _gdContainerClick);
   video.addEventListener('ratechange', () => { _vpPlaybackRate = video.playbackRate || 1; });
   video.addEventListener('play',  () => {
-    if (_vpPlaybackRate !== 1 && video.playbackRate !== _vpPlaybackRate) video.playbackRate = _vpPlaybackRate;
+    if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1 && video.playbackRate !== _vpPlaybackRate) video.playbackRate = _vpPlaybackRate;
     _startTimeDisplay();
     clearTimeout(_gdStallTimer); _gdStallTimer = null;
   });
