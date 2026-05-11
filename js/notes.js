@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.204 ═══
+// ═══ WAZA KIMURA — Notes tab v52.208 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2765,6 +2765,9 @@ function _renderVidlistCard(block, path, noteId) {
         const removeBtn = isManual
           ? `<button class="n-vl-rm" title="リストから削除" onclick="event.stopPropagation();window._notesVlRemoveId('${noteId}','${path}','${_esc(v.id)}')">×</button>`
           : '';
+        const moveBtn = isManual
+          ? `<button class="n-vl-mv" title="インライン動画として移動" onclick="event.stopPropagation();window._notesVlItemMoveStart('${noteId}','${path}','${_esc(v.id)}')">⠿</button>`
+          : '';
         return `<div class="n-vl-row" id="${rowId}" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')" style="cursor:pointer">
           <div class="n-vl-row-hdr">
             <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
@@ -2773,7 +2776,7 @@ function _renderVidlistCard(block, path, noteId) {
               <div class="n-vl-meta">${v.pl ? `<span class="n-vl-pl">${_esc(v.pl)}</span>` : ''}<span class="n-vl-ch">${_esc(v.channel || v.ch || '')}</span></div>
             </div>
             <div class="n-vl-dur">${_esc(dur)}</div>
-            ${removeBtn}
+            ${moveBtn}${removeBtn}
           </div>
         </div>`;
       }).join('')
@@ -4510,10 +4513,13 @@ function _startMoveMode(noteId, src) {
   // ── 移動元ブロックをハイライト ──
   if (src.type === 'block') {
     root.querySelector(`.n-block-wrap[data-idx="${src.srcIdx}"]`)?.classList.add('n-moving');
-  } else {
+  } else if (src.type === 'col') {
     root.querySelector(
       `.n-col-slot[data-col-idx="${src.colIdx}"][data-slot="${src.slot}"]`
     )?.querySelectorAll('.n-col-block-wrap')[src.srcBIdx]?.classList.add('n-moving');
+  } else if (src.type === 'vlist-item') {
+    const rowId = `n-vl-r-${noteId}-${src.vlVideoId}`.replace(/[^a-zA-Z0-9\-_]/g, '_');
+    document.getElementById(rowId)?.classList.add('n-moving');
   }
 
   // ── メインリストにギャップ挿入 ──
@@ -4565,10 +4571,19 @@ function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
   let moved;
   if (srcType === 'block') {
     [moved] = r.note.blocks.splice(srcIdx, 1);
-  } else {
+  } else if (srcType === 'col') {
     const srcArr = r.note.blocks[srcColIdx]?.cols?.[srcSlot];
     if (!srcArr) { _notesMoveCancelAll(); return; }
     [moved] = srcArr.splice(srcBIdx, 1);
+  } else if (srcType === 'vlist-item') {
+    const { vlPath, vlVideoId } = _moveMode;
+    const vlRef = _vlGetBlockByPath(noteId, vlPath);
+    if (!vlRef?.block) { _notesMoveCancelAll(); return; }
+    if (vlRef.block.mode === 'manual' && Array.isArray(vlRef.block.ids)) {
+      vlRef.block.ids = vlRef.block.ids.filter(id => id !== vlVideoId);
+    }
+    const libV = (window.videos || []).find(v => v.id === vlVideoId);
+    moved = { type: 'video', videoId: vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 30 };
   }
 
   // 挿入先に応じて位置計算して挿入
@@ -4600,5 +4615,6 @@ function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
 }
 
 // 公開エントリポイント
-window._notesMoveStart    = (noteId, srcIdx)              => _startMoveMode(noteId, { type: 'block', srcIdx });
-window._notesColMoveStart = (noteId, colIdx, slot, srcBIdx) => _startMoveMode(noteId, { type: 'col', colIdx, slot, srcBIdx });
+window._notesMoveStart       = (noteId, srcIdx)                => _startMoveMode(noteId, { type: 'block', srcIdx });
+window._notesColMoveStart    = (noteId, colIdx, slot, srcBIdx) => _startMoveMode(noteId, { type: 'col', colIdx, slot, srcBIdx });
+window._notesVlItemMoveStart = (noteId, path, videoId)         => _startMoveMode(noteId, { type: 'vlist-item', vlPath: path, vlVideoId: videoId });
