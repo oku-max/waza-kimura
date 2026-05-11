@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.208 ═══
+// ═══ WAZA KIMURA — Notes tab v52.209 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2767,7 +2767,7 @@ function _renderVidlistCard(block, path, noteId) {
           : '';
         const moveBtn = isManual
           ? `<button class="n-vl-mv" title="インライン動画として移動" onclick="event.stopPropagation();window._notesVlItemMoveStart('${noteId}','${path}','${_esc(v.id)}')">⠿</button>`
-          : '';
+          : `<button class="n-vl-cp" title="インライン動画としてコピー" onclick="event.stopPropagation();window._notesVlItemCopyStart('${noteId}','${path}','${_esc(v.id)}')">⎘</button>`;
         return `<div class="n-vl-row" id="${rowId}" onclick="window._notesVlOpenVPanel('${noteId}','${path}','${v.id}')" style="cursor:pointer">
           <div class="n-vl-row-hdr">
             <div class="n-vl-thumb">${thumb ? `<img src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
@@ -2785,7 +2785,7 @@ function _renderVidlistCard(block, path, noteId) {
   const sortKey = block.sort?.key || 'addedAt';
   const sortAsc = !!block.sort?.asc;
   const sortArrow = sortAsc ? '↑' : '↓';
-  return `<div class="n-vl-card" id="${cardId}">
+  return `<div class="n-vl-card" id="${cardId}" data-note-id="${noteId}" data-path="${path}">
     <div class="n-vl-hdr">
       <span class="n-vl-icon">📋</span>
       <span class="n-vl-name" title="タップで名前変更" onclick="event.stopPropagation();window._notesVlRenameTap('${noteId}','${path}',this)">${_esc(block.name || 'リスト')}</span>
@@ -4473,6 +4473,10 @@ function _notesMoveCancelAll() {
   root?.querySelectorAll('.n-move-gap').forEach(g => g.remove());
   root?.querySelectorAll('.n-col-slot').forEach(s => s.classList.remove('n-move-active'));
   root?.querySelectorAll('.n-moving').forEach(el => el.classList.remove('n-moving'));
+  root?.querySelectorAll('.n-vl-card.n-vl-drop-target').forEach(card => {
+    card.classList.remove('n-vl-drop-target');
+    if (card._vlDropHandler) { card.removeEventListener('click', card._vlDropHandler); delete card._vlDropHandler; }
+  });
   document.removeEventListener('keydown', _moveModeEsc);
   document.getElementById('n-move-overlay')?.remove();
   document.getElementById('n-move-banner')?.remove();
@@ -4517,7 +4521,7 @@ function _startMoveMode(noteId, src) {
     root.querySelector(
       `.n-col-slot[data-col-idx="${src.colIdx}"][data-slot="${src.slot}"]`
     )?.querySelectorAll('.n-col-block-wrap')[src.srcBIdx]?.classList.add('n-moving');
-  } else if (src.type === 'vlist-item') {
+  } else if (src.type === 'vlist-item' || src.type === 'vlist-copy') {
     const rowId = `n-vl-r-${noteId}-${src.vlVideoId}`.replace(/[^a-zA-Z0-9\-_]/g, '_');
     document.getElementById(rowId)?.classList.add('n-moving');
   }
@@ -4557,7 +4561,64 @@ function _startMoveMode(noteId, src) {
     });
   }
 
+  // ── 動画ブロックを移動中: manual vlistカードをドロップターゲットにする ──
+  const srcBlock = src.type === 'block' ? r?.note?.blocks?.[src.srcIdx]
+    : src.type === 'col' ? r?.note?.blocks?.[src.colIdx]?.cols?.[src.slot]?.[src.srcBIdx]
+    : null;
+  const isVideoSrc = srcBlock?.type === 'video' || src.type === 'vlist-item' || src.type === 'vlist-copy';
+  if (isVideoSrc) {
+    root.querySelectorAll('.n-vl-card[data-note-id][data-path]').forEach(card => {
+      const vlPath = card.dataset.path;
+      if (src.type === 'vlist-item' && vlPath === src.vlPath) return; // 自分自身は除外
+      const vlRef = _vlGetBlockByPath(noteId, vlPath);
+      if (!vlRef?.block || vlRef.block.mode !== 'manual') return; // manual only
+      card.classList.add('n-vl-drop-target');
+      const handler = (e) => { e.stopPropagation(); _execMoveToVlist(noteId, vlPath); };
+      card.addEventListener('click', handler);
+      card._vlDropHandler = handler;
+    });
+  }
+
   document.addEventListener('keydown', _moveModeEsc);
+}
+
+// ── vlistカードへのドロップ実行 ──
+function _execMoveToVlist(noteId, vlPath) {
+  if (!_moveMode || _moveMode.noteId !== noteId) return;
+  const { type: srcType, srcIdx, colIdx: srcColIdx, slot: srcSlot, srcBIdx } = _moveMode;
+  const r = _findNote(noteId);
+  if (!r) { _notesMoveCancelAll(); return; }
+  const vlRef = _vlGetBlockByPath(noteId, vlPath);
+  if (!vlRef?.block || vlRef.block.type !== 'vidlist' || vlRef.block.mode !== 'manual') { _notesMoveCancelAll(); return; }
+
+  let videoId;
+  if (srcType === 'vlist-item') {
+    videoId = _moveMode.vlVideoId;
+    const srcVlRef = _vlGetBlockByPath(noteId, _moveMode.vlPath);
+    if (srcVlRef?.block?.mode === 'manual' && Array.isArray(srcVlRef.block.ids))
+      srcVlRef.block.ids = srcVlRef.block.ids.filter(id => id !== videoId);
+  } else if (srcType === 'block') {
+    const b = r.note.blocks[srcIdx];
+    if (b?.type !== 'video') { _notesMoveCancelAll(); return; }
+    videoId = b.videoId;
+    r.note.blocks.splice(srcIdx, 1);
+  } else if (srcType === 'col') {
+    const srcArr = r.note.blocks[srcColIdx]?.cols?.[srcSlot];
+    if (!srcArr) { _notesMoveCancelAll(); return; }
+    const b = srcArr[srcBIdx];
+    if (b?.type !== 'video') { _notesMoveCancelAll(); return; }
+    videoId = b.videoId;
+    srcArr.splice(srcBIdx, 1);
+  }
+  if (!videoId) { _notesMoveCancelAll(); return; }
+
+  if (!Array.isArray(vlRef.block.ids)) vlRef.block.ids = [];
+  if (!vlRef.block.ids.includes(videoId)) vlRef.block.ids.unshift(videoId);
+
+  r.note.updatedAt = Date.now();
+  _save();
+  _notesMoveCancelAll();
+  _renderNote(noteId);
 }
 
 // 移動実行
@@ -4584,6 +4645,9 @@ function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
     }
     const libV = (window.videos || []).find(v => v.id === vlVideoId);
     moved = { type: 'video', videoId: vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 30 };
+  } else if (srcType === 'vlist-copy') {
+    const libV = (window.videos || []).find(v => v.id === _moveMode.vlVideoId);
+    moved = { type: 'video', videoId: _moveMode.vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 30 };
   }
 
   // 挿入先に応じて位置計算して挿入
@@ -4618,3 +4682,4 @@ function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
 window._notesMoveStart       = (noteId, srcIdx)                => _startMoveMode(noteId, { type: 'block', srcIdx });
 window._notesColMoveStart    = (noteId, colIdx, slot, srcBIdx) => _startMoveMode(noteId, { type: 'col', colIdx, slot, srcBIdx });
 window._notesVlItemMoveStart = (noteId, path, videoId)         => _startMoveMode(noteId, { type: 'vlist-item', vlPath: path, vlVideoId: videoId });
+window._notesVlItemCopyStart = (noteId, path, videoId)         => _startMoveMode(noteId, { type: 'vlist-copy', vlPath: path, vlVideoId: videoId });
