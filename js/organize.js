@@ -673,13 +673,18 @@ export function renderOrg() {
     const _ytId = v.ytId || (v.id||'').replace(/^yt-/,'');
     const _vmId = (v.id||'').replace(/^vm-/,'');
     const _gdId = (v.id||'').replace(/^gd-/,'');
-    const thumb = v.pt === 'youtube'
-      ? (v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`)
-      : v.pt === 'gdrive'
-      ? (v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`)
-      : v.pt === 'x'
-      ? (v.thumb || '')
-      : (v.thumb && !v.thumb.includes('vumbnail.com') ? v.thumb : '');
+    let thumb;
+    if (v.pt === 'youtube') {
+      thumb = v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`;
+    } else if (v.pt === 'gdrive') {
+      const gdTok = window.getDriveTokenIfAvailable?.() || '';
+      const directUrl = v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`;
+      thumb = gdTok ? `/api/thumb-proxy?url=${encodeURIComponent(directUrl)}&token=${encodeURIComponent(gdTok)}` : directUrl;
+    } else if (v.pt === 'x') {
+      thumb = v.thumb || '';
+    } else {
+      thumb = (v.thumb && !v.thumb.includes('vumbnail.com')) ? v.thumb : '';
+    }
 
     const mkTagCell = (items, filterKey, colKey) => {
       const chips = items.map(t => `<span class="org-tag-chip">${t}</span>`).join('');
@@ -776,6 +781,8 @@ export function renderOrg() {
   _bindOrgInlineEdit();
   // フィルターアイコンを全列同期
   Object.keys(_colFilterConfig).forEach(c => _syncFiltIcon(c));
+  // GDriveサムネをproxy経由で差し込み（トークン取得後に備えて）
+  window.loadGdriveCardThumbs?.();
 }
 
 // ═══ Column headers sync ═══
