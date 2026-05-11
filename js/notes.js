@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.179 ═══
+// ═══ WAZA KIMURA — Notes tab v52.204 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2683,9 +2683,17 @@ window._notesVidJumpVp = function(noteId, idx) {
   if (!r) return;
   const b = r.note.blocks[idx];
   if (!b?.videoId) return;
-  // ライブラリに存在するならVパネルで開く
   const libV = (window.videos || []).find(v => v.id === b.videoId);
-  if (libV && window.openVPanel) { window.openVPanel(b.videoId); return; }
+  if (libV && window.openVPanel) {
+    const vids = (window.videos || []);
+    const noteVids = r.note.blocks
+      .filter(bl => bl.type === 'video' && bl.videoId)
+      .map(bl => vids.find(v => v.id === bl.videoId))
+      .filter(Boolean);
+    window._noteVidList = noteVids.length > 1 ? noteVids : null;
+    window.openVPanel(b.videoId);
+    return;
+  }
   window.toast?.('ライブラリにこの動画が見つかりません', 2500);
 };
 
@@ -3143,7 +3151,22 @@ window._notesColVidOpenVP = function(noteId, colIdx, slot, bIdx) {
   const r = _findNote(noteId);
   const col = r?.note?.blocks?.[colIdx];
   const b = col?.cols?.[slot]?.[bIdx];
-  if (b?.videoId) window.openVPanel?.(b.videoId);
+  if (!b?.videoId) return;
+  const vids = (window.videos || []);
+  const noteVids = [];
+  (r.note.blocks || []).forEach(blk => {
+    if (blk.type === 'video' && blk.videoId) {
+      const v = vids.find(v => v.id === blk.videoId); if (v) noteVids.push(v);
+    } else if (blk.type === 'col' && blk.cols) {
+      blk.cols.forEach(sArr => (sArr || []).forEach(cb => {
+        if (cb.type === 'video' && cb.videoId) {
+          const v = vids.find(v => v.id === cb.videoId); if (v) noteVids.push(v);
+        }
+      }));
+    }
+  });
+  window._noteVidList = noteVids.length > 1 ? noteVids : null;
+  window.openVPanel?.(b.videoId);
 };
 
 // ── カラム内動画: アコーディオン展開（note内動画と同じシステム） ──
@@ -3191,7 +3214,7 @@ window._notesColVidMenu = function(noteId, colIdx, slot, bIdx, btnEl) {
   menu.style.top = (rect.bottom + 4) + 'px';
   menu.style.left = Math.max(8, rect.right - menu.offsetWidth) + 'px';
   const items = menu.querySelectorAll('.n-iv-menu-item');
-  items[0].onclick = () => { menu.remove(); if (b.videoId) window.openVPanel?.(b.videoId); };
+  items[0].onclick = () => { menu.remove(); window._notesColVidOpenVP?.(noteId, colIdx, slot, bIdx); };
   items[1].onclick = () => { menu.remove(); window._notesColDelBlock?.(noteId, colIdx, slot, bIdx); };
   setTimeout(() => {
     document.addEventListener('click', function close(ev) {

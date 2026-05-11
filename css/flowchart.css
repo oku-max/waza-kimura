@@ -10,6 +10,8 @@
 #fc-overlay.open{display:block}
 body:has(#fc-overlay.open) #vpanel{z-index:10000}
 body:has(#fc-overlay.open) #vp-tut-overlay{z-index:10001}
+body:has(#fc-overlay.open) #vp-bs-overlay{z-index:10002}
+body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 
 /* ── Topbar ── */
 #fc-topbar{

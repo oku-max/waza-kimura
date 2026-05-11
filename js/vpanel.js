@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.203 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.204 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -1607,14 +1607,15 @@ function _renderBlurArea(id) {
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
-  // 現在の動画を除いてソート（最大20件 — 770件全件はDOM負荷が大きすぎる）
-  const candidates = _vplSort(all.filter((_, i) => i !== idx)).slice(0, 20);
+  // _noteVidList は手動順を保持、それ以外はソート（最大20件）
+  const _filtered = all.filter((_, i) => i !== idx);
+  const candidates = (window._noteVidList ? _filtered : _vplSort(_filtered)).slice(0, 20);
 
   if (candidates.length === 0) { area.innerHTML = ''; return; }
 
   area.innerHTML = `
     <div style="padding:7px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--text3);text-transform:uppercase">次の動画</div>
-    ${_vplSortRow()}
+    ${window._noteVidList ? '' : _vplSortRow()}
     ${candidates.map((rv) => {
       const ytId = _extractYtId(rv.emb || '');
       const gdId = (rv.id||'').replace(/^gd-/,'');
