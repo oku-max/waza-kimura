@@ -626,7 +626,7 @@
       });
     }
 
-    el.querySelector('.node-menu-btn').addEventListener('click',e=>{ e.stopPropagation(); _showCtx(nd.id,e.clientX,e.clientY); });
+    el.querySelector('.node-menu-btn').addEventListener('click',e=>{ e.stopPropagation(); const r=e.currentTarget.getBoundingClientRect(); _showCtx(nd.id,r.left,r.bottom+4); });
 
     const rh=el.querySelector('.fc-resize-handle');
     if(rh){
@@ -932,7 +932,12 @@
     ['ctx-vid','ctx-img','ctx-txt'].forEach(id=>_el(id).style.display=has?'none':'');
     _el('ctx-chg').style.display=has?'':'none';
     _el('ctx-vp').style.display=(has&&nd.content?.type==='video'&&nd.content?.videoId)?'':'none';
-    const m=_el('ctx-menu'); m.style.display='block'; m.style.left=x+'px'; m.style.top=y+'px';
+    const m=_el('ctx-menu'); m.style.display='block';
+    // ビューポートからはみ出さないよう調整
+    const mw=m.offsetWidth||180, mh=m.offsetHeight||160;
+    const vw=window.innerWidth, vh=window.innerHeight;
+    m.style.left=Math.max(4,Math.min(x,vw-mw-4))+'px';
+    m.style.top=Math.max(4,Math.min(y,vh-mh-4))+'px';
   }
   function _hideCtx(){ _el('ctx-menu').style.display='none'; }
   function _ctxAct(action){
@@ -942,7 +947,14 @@
     if(action==='vid'||action==='chg'){ _onVidInsert=null; if(window._fcLibPick) window._fcLibPick(nd.id); else _openFcVidPicker(); }
     else if(action==='img'){ _onImgInsert=null; _openFcImgPicker(); }
     else if(action==='txt'){ nd.content={type:'text',text:''}; _renderAll(); setTimeout(()=>{ const ta=document.getElementById('fc-ta-'+nd.id); if(ta){ ta.contentEditable='true'; ta.classList.add('editing'); ta.focus(); }},50); }
-    else if(action==='vp'){ if(nd.content?.videoId){ const v=_findLibVid(nd.content.videoId); window.openVPanel?.(v?.id||nd.content.videoId); } }
+    else if(action==='vp'){ if(nd.content?.videoId){
+      const v=_findLibVid(nd.content.videoId);
+      const mapVids=_nodes.filter(n=>n.content?.type==='video'&&n.content?.videoId)
+        .map(n=>{ const lv=_findLibVid(n.content.videoId); return lv||(window.videos||[]).find(x=>x.id===n.content.videoId); })
+        .filter(Boolean);
+      window._noteVidList=mapVids.length>1?mapVids:null;
+      window.openVPanel?.(v?.id||nd.content.videoId);
+    } }
   }
 
   // ── Video picker ───────────────────────────────────────────────
