@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.212 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.213 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -332,7 +332,7 @@
       if (ytId) {
         thumbSrc = `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
       } else if (gdId) {
-        thumbSrc = v.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`;
+        thumbSrc = `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`;
       } else if (v.thumb) {
         thumbSrc = v.thumb;
       }

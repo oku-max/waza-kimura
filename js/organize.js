@@ -677,7 +677,7 @@ export function renderOrg() {
     if (v.pt === 'youtube') {
       thumb = v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`;
     } else if (v.pt === 'gdrive') {
-      thumb = v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`;
+      thumb = `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`;
     } else if (v.pt === 'x') {
       thumb = v.thumb || '';
     } else {

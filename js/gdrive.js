@@ -833,7 +833,7 @@ export async function fetchMissingGdThumbnails() {
   // v.thumbが空 or drive.google.com/thumbnailのままのものが対象
   const missing = (window.videos || []).filter(v =>
     v.pt === 'gdrive' && v.id &&
-    (!v.thumb || v.thumb.includes('drive.google.com/thumbnail') || v.thumb.includes('firebasestorage'))
+    (!v.thumb || v.thumb.includes('firebasestorage'))
   );
   if (!missing.length) return;
 
