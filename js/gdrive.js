@@ -338,6 +338,11 @@ window.loadGdriveCardThumbs = async function() {
     const row = img.closest('.org-tr');
     if (row) addImg(img, row.id.replace('org-row-', ''));
   });
+  // unified-filter や任意の場所の GDrive サムネ（data-gdid 属性で識別）
+  document.querySelectorAll('img[data-gdid]').forEach(img => {
+    if (!_needsThumb(img)) return;
+    addImg(img, 'gd-' + img.dataset.gdid);
+  });
 
   if (!toFetch.size) return;
 

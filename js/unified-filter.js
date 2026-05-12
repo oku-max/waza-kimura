@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.207 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.211 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -328,20 +328,16 @@
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
       const gdId = (v.pt==='gdrive'||(v.id||'').startsWith('gd-')) ? (v.id||'').replace(/^gd-/,'') : null;
-      let thumbUrl = '';
+      let thumbAttr = '';
       if (ytId) {
-        thumbUrl = `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
+        thumbAttr = `src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg"`;
       } else if (gdId) {
-        const gdTok = window.getDriveTokenIfAvailable?.() || '';
-        const directUrl = `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`;
-        thumbUrl = gdTok
-          ? `/api/thumb-proxy?url=${encodeURIComponent(directUrl)}&token=${encodeURIComponent(gdTok)}`
-          : directUrl;
+        thumbAttr = `data-gdid="${gdId}"`;  // loadGdriveCardThumbs が Drive API 経由で差し込む
       } else if (v.thumb) {
-        thumbUrl = v.thumb;
+        thumbAttr = `src="${v.thumb}"`;
       }
-      const thumb = thumbUrl
-        ? `<img src="${thumbUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\\'font-size:12px;color:var(--text3)\\'>▶</span>'">`
+      const thumb = thumbAttr
+        ? `<img ${thumbAttr} loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\\'font-size:12px;color:var(--text3)\\'>▶</span>'">`
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
@@ -588,6 +584,7 @@
 
       content.innerHTML = `<div class="uni-cols">${mkCol1()}${mkCol2()}${mkCol3()}</div>`;
       _restoreColScrolls();
+      window.loadGdriveCardThumbs?.();
     }
 
     else if (_tab === 'src') {
@@ -633,6 +630,7 @@
       </div>`;
       _restoreColScrolls();
       _scrollToVidCol();
+      window.loadGdriveCardThumbs?.();
     }
 
     else if (_tab === 'video') {
@@ -710,6 +708,7 @@
       content.innerHTML = `<div class="uni-cols">${tagCols}${_mkVideoCol()}</div>`;
       _restoreColScrolls();
       _scrollToVidCol();
+      window.loadGdriveCardThumbs?.();
     }
 
     // ── Pills ──
