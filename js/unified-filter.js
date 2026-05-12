@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.211 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.212 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -328,16 +328,17 @@
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
       const gdId = (v.pt==='gdrive'||(v.id||'').startsWith('gd-')) ? (v.id||'').replace(/^gd-/,'') : null;
-      let thumbAttr = '';
+      let thumbSrc = '';
       if (ytId) {
-        thumbAttr = `src="https://i.ytimg.com/vi/${ytId}/mqdefault.jpg"`;
+        thumbSrc = `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
       } else if (gdId) {
-        thumbAttr = `data-gdid="${gdId}"`;  // loadGdriveCardThumbs が Drive API 経由で差し込む
+        thumbSrc = v.thumb || `https://drive.google.com/thumbnail?id=${gdId}&sz=w120`;
       } else if (v.thumb) {
-        thumbAttr = `src="${v.thumb}"`;
+        thumbSrc = v.thumb;
       }
-      const thumb = thumbAttr
-        ? `<img ${thumbAttr} loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\\'font-size:12px;color:var(--text3)\\'>▶</span>'">`
+      const gdAttr = gdId ? ` data-gdid="${gdId}"` : '';
+      const thumb = thumbSrc
+        ? `<img src="${thumbSrc}"${gdAttr} loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\\'font-size:12px;color:var(--text3)\\'>▶</span>'">`
         : `<span style="font-size:12px;color:var(--text3)">▶</span>`;
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
