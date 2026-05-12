@@ -677,9 +677,7 @@ export function renderOrg() {
     if (v.pt === 'youtube') {
       thumb = v.thumb || `https://img.youtube.com/vi/${_ytId}/mqdefault.jpg`;
     } else if (v.pt === 'gdrive') {
-      const gdTok = window.getDriveTokenIfAvailable?.() || '';
-      const directUrl = v.thumb || `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320`;
-      thumb = gdTok ? `/api/thumb-proxy?url=${encodeURIComponent(directUrl)}&token=${encodeURIComponent(gdTok)}` : directUrl;
+      thumb = '';  // loadGdriveCardThumbs が Drive API 経由で差し込む（src 空で _needsThumb=true を保証）
     } else if (v.pt === 'x') {
       thumb = v.thumb || '';
     } else {
@@ -767,6 +765,7 @@ export function renderOrg() {
       while (temp.firstChild) frag.appendChild(temp.firstChild);
       tbody.appendChild(frag);
       _orgRendered += next.length;
+      window.loadGdriveCardThumbs?.();
       if (_orgRendered < displayList.length) {
         tbody.appendChild(sentinel);
       } else {
