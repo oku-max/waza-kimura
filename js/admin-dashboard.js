@@ -521,36 +521,35 @@ window.filterCategory = filterCategory;
 // ═══════════════════════════════════════════
 
 const DEFAULT_POSITIONS = [
-  // ── ガード系 ──
-  { id:'p1',  names:{ja:'クローズドガード',en:'Closed Guard'}, group:'guard', aliases:{ja:['フルガード'],en:['full guard','closed']} },
-  { id:'p2',  names:{ja:'ハーフガード',en:'Half Guard'}, group:'guard', aliases:{ja:['脇差し','アンダーフックハーフ','ロックダウン','シングルレッグハーフ'],en:['half','underhook half','lockdown','single leg half']} },
-  { id:'p3',  names:{ja:'ディープハーフ',en:'Deep Half Guard'}, group:'guard', aliases:{ja:[],en:['deep half']} },
-  { id:'p4',  names:{ja:'バタフライガード',en:'Butterfly Guard'}, group:'guard', aliases:{ja:['ハーフバタフライ'],en:['butterfly','half butterfly']} },
-  { id:'p5',  names:{ja:'デラヒーバ',en:'De La Riva'}, group:'guard', aliases:{ja:['DLR'],en:['DLR','de la riva']} },
-  { id:'p6',  names:{ja:'リバースデラヒーバ',en:'Reverse De La Riva'}, group:'guard', aliases:{ja:['RDLR','リバデラ'],en:['RDLR','reverse DLR']} },
-  { id:'p7',  names:{ja:'スパイダーガード',en:'Spider Guard'}, group:'guard', aliases:{ja:['インバーテッドスパイダー'],en:['spider','inverted spider']} },
-  { id:'p8',  names:{ja:'ラッソーガード',en:'Lasso Guard'}, group:'guard', aliases:{ja:['シャローラッソー'],en:['lasso','shallow lasso']} },
-  { id:'p9',  names:{ja:'Xガード',en:'X Guard'}, group:'guard', aliases:{ja:[],en:['x guard','x-guard']} },
-  { id:'p10', names:{ja:'SLX',en:'Single Leg X'}, group:'guard', aliases:{ja:['シングルレッグX','シングルレッグXガード'],en:['SLX','single leg X','single leg x guard']} },
-  { id:'p11', names:{ja:'Kガード',en:'K Guard'}, group:'guard', aliases:{ja:[],en:['k guard','k-guard']} },
-  { id:'p12', names:{ja:'ラペルガード',en:'Lapel Guard'}, group:'guard', aliases:{ja:['ワームガード','スクイッドガード','グッバーガード','ラペル系'],en:['lapel','worm guard','worm','squid guard','squid','gubber guard','gubber']} },
-  { id:'p13', names:{ja:'ニーシールド',en:'Knee Shield'}, group:'guard', aliases:{ja:['Zガード'],en:['Z guard','knee shield','z-guard']} },
-  { id:'p14', names:{ja:'片襟片袖',en:'Collar Sleeve'}, group:'guard', aliases:{ja:['片襟片袖ガード'],en:['collar sleeve','collar and sleeve']} },
-  { id:'p15', names:{ja:'インバーテッド',en:'Inverted'}, group:'guard', aliases:{ja:['トルネードガード'],en:['inverted guard','tornado guard','tornado']} },
+  // ── 数字・アルファベット ──
+  { id:'p23', names:{ja:'50/50',en:'50/50'}, group:'leg', aliases:{ja:['フィフティフィフティ'],en:['fifty fifty']} },
   { id:'p16', names:{ja:'70/30ガード',en:'70/30 Guard'}, group:'guard', aliases:{ja:[],en:['70/30','seventy thirty']} },
-  { id:'p17', names:{ja:'シッティングガード',en:'Sit-Up Guard'}, group:'guard', aliases:{ja:['シットアップガード'],en:['sit up guard','sitting guard','seated guard']} },
-  { id:'p18', names:{ja:'シングルレッグガード',en:'Single Leg Guard'}, group:'guard', aliases:{ja:[],en:['single leg guard']} },
-  { id:'p19', names:{ja:'クロスガード',en:'Cross Guard'}, group:'guard', aliases:{ja:[],en:['cross guard']} },
-  { id:'p20', names:{ja:'リバースハーフガード',en:'Reverse Half Guard'}, group:'guard', aliases:{ja:['リバースハーフ'],en:['reverse half','reverse half guard']} },
+  { id:'p11', names:{ja:'Kガード',en:'K Guard'}, group:'guard', aliases:{ja:[],en:['k guard','k-guard']} },
+  { id:'p10', names:{ja:'SLX',en:'Single Leg X'}, group:'guard', aliases:{ja:['シングルレッグX','シングルレッグXガード'],en:['SLX','single leg X','single leg x guard']} },
+  { id:'p9',  names:{ja:'Xガード',en:'X Guard'}, group:'guard', aliases:{ja:[],en:['x guard','x-guard']} },
+  // ── あいうえお順 ──
+  { id:'p15', names:{ja:'インバーテッド',en:'Inverted'}, group:'guard', aliases:{ja:['トルネードガード'],en:['inverted guard','tornado guard','tornado']} },
   { id:'p21', names:{ja:'オープンガード',en:'Open Guard'}, group:'guard', aliases:{ja:['手ぶらガード'],en:['open guard','no grip guard']} },
   { id:'p22', names:{ja:'オクトパスガード',en:'Octopus Guard'}, group:'guard', aliases:{ja:[],en:['octopus','octopus guard']} },
-  // ── レッグ系 ──
-  { id:'p23', names:{ja:'50/50',en:'50/50'}, group:'leg', aliases:{ja:['フィフティフィフティ'],en:['fifty fifty']} },
+  { id:'p14', names:{ja:'片襟片袖',en:'Collar Sleeve'}, group:'guard', aliases:{ja:['片襟片袖ガード'],en:['collar sleeve','collar and sleeve']} },
+  { id:'p1',  names:{ja:'クローズドガード',en:'Closed Guard'}, group:'guard', aliases:{ja:['フルガード'],en:['full guard','closed']} },
+  { id:'p19', names:{ja:'クロスガード',en:'Cross Guard'}, group:'guard', aliases:{ja:[],en:['cross guard']} },
   { id:'p24', names:{ja:'サドル',en:'Saddle / Inside Sankaku'}, group:'leg', aliases:{ja:['内三角','411'],en:['411','inside sankaku','honeyhole','ashi garami']} },
-  // ── トップ・スタンド・その他 ──
-  { id:'p25', names:{ja:'タートル',en:'Turtle'}, group:'top', aliases:{ja:['亀'],en:[]} },
+  { id:'p17', names:{ja:'シッティングガード',en:'Sit-Up Guard'}, group:'guard', aliases:{ja:['シットアップガード'],en:['sit up guard','sitting guard','seated guard']} },
+  { id:'p18', names:{ja:'シングルレッグガード',en:'Single Leg Guard'}, group:'guard', aliases:{ja:[],en:['single leg guard']} },
   { id:'p26', names:{ja:'スタンディング',en:'Standing'}, group:'stand', aliases:{ja:['立ち技'],en:['stand up','standing']} },
+  { id:'p7',  names:{ja:'スパイダーガード',en:'Spider Guard'}, group:'guard', aliases:{ja:['インバーテッドスパイダー'],en:['spider','inverted spider']} },
   { id:'p27', names:{ja:'その他',en:'Other'}, group:'other', aliases:{ja:[],en:[]} },
+  { id:'p25', names:{ja:'タートル',en:'Turtle'}, group:'top', aliases:{ja:['亀'],en:[]} },
+  { id:'p3',  names:{ja:'ディープハーフ',en:'Deep Half Guard'}, group:'guard', aliases:{ja:[],en:['deep half']} },
+  { id:'p5',  names:{ja:'デラヒーバ',en:'De La Riva'}, group:'guard', aliases:{ja:['DLR'],en:['DLR','de la riva']} },
+  { id:'p13', names:{ja:'ニーシールド',en:'Knee Shield'}, group:'guard', aliases:{ja:['Zガード'],en:['Z guard','knee shield','z-guard']} },
+  { id:'p2',  names:{ja:'ハーフガード',en:'Half Guard'}, group:'guard', aliases:{ja:['脇差し','アンダーフックハーフ','ロックダウン','シングルレッグハーフ'],en:['half','underhook half','lockdown','single leg half']} },
+  { id:'p4',  names:{ja:'バタフライガード',en:'Butterfly Guard'}, group:'guard', aliases:{ja:['ハーフバタフライ'],en:['butterfly','half butterfly']} },
+  { id:'p8',  names:{ja:'ラッソーガード',en:'Lasso Guard'}, group:'guard', aliases:{ja:['シャローラッソー'],en:['lasso','shallow lasso']} },
+  { id:'p12', names:{ja:'ラペルガード',en:'Lapel Guard'}, group:'guard', aliases:{ja:['ワームガード','スクイッドガード','グッバーガード','ラペル系'],en:['lapel','worm guard','worm','squid guard','squid','gubber guard','gubber']} },
+  { id:'p6',  names:{ja:'リバースデラヒーバ',en:'Reverse De La Riva'}, group:'guard', aliases:{ja:['RDLR','リバデラ'],en:['RDLR','reverse DLR']} },
+  { id:'p20', names:{ja:'リバースハーフガード',en:'Reverse Half Guard'}, group:'guard', aliases:{ja:['リバースハーフ'],en:['reverse half','reverse half guard']} },
 ];
 
 const POS_GROUPS = {
