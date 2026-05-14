@@ -2022,6 +2022,7 @@ function _onGDriveVideoError(container, fileId) {
   if (btn) btn.onclick = async () => {
     btn.textContent = '認証中...';
     btn.disabled = true;
+    window.clearDriveToken?.();
     const token = await window.ensureDriveToken?.();
     if (token) { _createGDriveVideoEl(container, fileId, token); return; }
     btn.textContent = '認証に失敗しました。再試行';
