@@ -830,10 +830,10 @@ export async function fetchMissingGdThumbnails() {
     const cached = _loadCachedToken();
     if (cached) { _token = cached; } else { return; }
   }
-  // v.thumbが空 or drive.google.com/thumbnailのままのものが対象
+  // v.thumbが空・firebasestorage・lh3（期限切れ）のものが対象
   const missing = (window.videos || []).filter(v =>
     v.pt === 'gdrive' && v.id &&
-    (!v.thumb || v.thumb.includes('firebasestorage'))
+    (!v.thumb || v.thumb.includes('firebasestorage') || v.thumb.includes('lh3.googleusercontent.com'))
   );
   if (!missing.length) return;
 
@@ -846,7 +846,7 @@ export async function fetchMissingGdThumbnails() {
       try {
         const data = await driveGet(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink`);
         if (data.thumbnailLink) {
-          v.thumb = data.thumbnailLink;
+          v.thumb = `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
           done++;
         }
       } catch(e) { /* skip */ }
