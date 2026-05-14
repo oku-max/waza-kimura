@@ -6,7 +6,7 @@ const _URL_SET_KEYS = {
   pl: 'playlist', ch: 'channel', pt: 'platform', tb: 'tb',
   ac: 'action', pos: 'position', tech: 'tags', prio: 'prio', st: 'status'
 };
-const _URL_BOOL_KEYS = { fav: 'favOnly', unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
+const _URL_BOOL_KEYS = { fav: 'favOnly', nxt: 'nextOnly', unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
 
 let _urlSyncPaused = false;
 
@@ -36,7 +36,7 @@ export function _restoreFromURL() {
   _urlSyncPaused = true;
   // Clear existing state
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.favOnly = false; window.nextOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   // Restore Set filters
   for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
@@ -165,7 +165,7 @@ export function togImg() {
 
 export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.favOnly = false; window.nextOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   window.prRank = null; window.prDate = null;
   const si = document.getElementById('si'); if (si) si.value = '';
@@ -325,7 +325,7 @@ export function resetFilters() { clearAll(); }
 
 export function updateResetBtn() {
   const btn = document.getElementById('filter-reset-btn'); if (!btn) return;
-  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
+  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.nextOnly || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
   btn.style.display = active ? 'inline-block' : 'none';
 }
 
@@ -337,8 +337,9 @@ export function filt(list) {
   const parsed = _parseQuery(raw);
   return list.filter(v => {
     if (v.archived) return false;
-    if (window.favOnly && !v.fav) return false;
-    if (window.unwOnly && v.watched) return false;
+    if (window.favOnly  && !v.fav)  return false;
+    if (window.nextOnly && !v.next) return false;
+    if (window.unwOnly  && v.watched) return false;
     if (window.watchedOnly && !v.watched) return false;
     if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;
     if (window.memoOnly && !v.memo) return false;
