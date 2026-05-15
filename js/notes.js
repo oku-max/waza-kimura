@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.218 ═══
+// ═══ WAZA KIMURA — Notes tab v52.219 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -3217,10 +3217,10 @@ window._notesColVidMenu = function(noteId, colIdx, slot, bIdx, btnEl) {
     <div style="padding:6px 10px;color:var(--text2);font-size:10px;letter-spacing:.5px">幅: <span id="n-iv-w-lbl">${widthPct}%</span></div>
     <div style="padding:0 10px 8px"><input type="range" min="30" max="100" step="5" value="${widthPct}" style="width:100%" id="n-iv-w-sl"></div>
     <div style="height:1px;background:var(--border2);margin:4px 0"></div>
-    ${mi('⊞ Vパネルで開く')}
+    ${mi('▶ Vパネルで開く')}
     ${mi('📝 メモ')}
     <div style="height:1px;background:var(--border2);margin:4px 0"></div>
-    ${mi('📂 動画を差し替え')}
+    ${mi('🔄 動画を差し替え')}
     ${mi('🗑 削除', '#c00')}`;
   document.body.appendChild(menu);
   const rect = btnEl.getBoundingClientRect();
@@ -3314,10 +3314,10 @@ window._notesVidMenu = function(noteId, idx, btnEl) {
     <div style="padding:6px 10px;color:var(--text2);font-size:10px;letter-spacing:.5px">幅: <span id="n-iv-w-lbl">${widthPct}%</span></div>
     <div style="padding:0 10px 8px"><input type="range" min="30" max="100" step="5" value="${widthPct}" style="width:100%" id="n-iv-w-sl"></div>
     <div style="height:1px;background:var(--border2);margin:4px 0"></div>
-    ${mi('⊞ Vパネルで開く')}
+    ${mi('▶ Vパネルで開く')}
     ${mi('📝 メモ')}
     <div style="height:1px;background:var(--border2);margin:4px 0"></div>
-    ${mi('📂 動画を差し替え')}
+    ${mi('🔄 動画を差し替え')}
     ${mi('🗑 削除', '#c00')}`;
   document.body.appendChild(menu);
   const rect = btnEl.getBoundingClientRect();
