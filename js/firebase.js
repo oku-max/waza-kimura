@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Firebase・認証 v52.223 ═══
+// ═══ WAZA KIMURA — Firebase・認証 v52.224 ═══
 import { showToast } from './ui.js';
 
 const firebaseConfig = {
@@ -201,7 +201,7 @@ async function _applyVideosData(saved, updatedAt) {
   if (_migratedAddedAt > 0) {
     console.log(`[migration] addedAt補完: ${_migratedAddedAt}本`);
     await saveUserData();
-    return;
+    // onSnapshotがないためここで描画まで続ける（return しない）
   }
 
   if (window.AF) window.AF();
