@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.213 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.221 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -15,7 +15,7 @@
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
   const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
-  // 動画ソートはvidlistブロック単位（notes.js）で実装。ピッカー側では並び替えUIを持たない。
+  let _vcSort = 'addedAt'; let _vcSortAsc = false;
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
@@ -312,10 +312,23 @@
   // ── 該当動画カラム ──
   function _mkVideoCol() {
     const STATUS_ORDER = { 'マスター':0, '練習中':1, '理解':2, '未着手':3 };
-    const vids = _ctxVideos(null);
+    const raw = _ctxVideos(null);
 
-    const total = vids.length;
-    const shown = vids.slice(0, 30);
+    const sorted = [...raw].sort((a, b) => {
+      let av, bv;
+      if      (_vcSort === 'title')      { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
+      else if (_vcSort === 'addedAt')    { av = a.addedAt||0;    bv = b.addedAt||0; }
+      else if (_vcSort === 'duration')   { av = a.duration||0;   bv = b.duration||0; }
+      else if (_vcSort === 'playCount')  { av = a.playCount||0;  bv = b.playCount||0; }
+      else if (_vcSort === 'lastPlayed') { av = a.lastPlayed||0; bv = b.lastPlayed||0; }
+      else return 0;
+      if (av < bv) return _vcSortAsc ? -1 : 1;
+      if (av > bv) return _vcSortAsc ? 1 : -1;
+      return 0;
+    });
+
+    const total = raw.length;
+    const shown = sorted.slice(0, 50);
 
     const isNoteMode = !!_noteMode;
     const isVlMode = !!_vlBlockTarget;
@@ -366,17 +379,36 @@
     const saveVlBtn = isVlMode
       ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="window._uniSaveVlBlockFilter()">💾 動的条件で保存</button>`
       : '';
-    const notice = total > 30
-      ? `<div class="uni-vc-notice">上位30件を表示中 (全${total}件)${saveVlBtn ? '' : ' — 続きはライブラリ・オーガナイズで'}${addAllBtn}${saveVlBtn}</div>`
+    const notice = total > 50
+      ? `<div class="uni-vc-notice">上位50件を表示中 (全${total}件)${addAllBtn}${saveVlBtn}</div>`
       : total === 0
       ? `<div class="uni-vc-notice">条件に一致する動画がありません${saveVlBtn}</div>`
       : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}${saveVlBtn}</div>`;
 
     const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
+    const sortSel = `<span style="display:flex;align-items:center;gap:2px">
+      <select onchange="window._uniVcSortKey(this.value)" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
+        <option value="addedAt"   ${_vcSort==='addedAt'   ?'selected':''}>追加日</option>
+        <option value="title"     ${_vcSort==='title'     ?'selected':''}>名前</option>
+        <option value="duration"  ${_vcSort==='duration'  ?'selected':''}>長さ</option>
+        <option value="playCount" ${_vcSort==='playCount' ?'selected':''}>再生回数</option>
+        <option value="lastPlayed"${_vcSort==='lastPlayed'?'selected':''}>最近再生</option>
+      </select>
+      <button onclick="window._uniVcSortDir()" style="font-size:10px;padding:2px 5px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit">${_vcSortAsc ? '↑' : '↓'}</button>
+    </span>`;
     return `<div class="uni-col uni-col-vc">
-      <div class="uni-col-hdr"><span>${colHeader}</span></div>
+      <div class="uni-col-hdr"><span>${colHeader}</span>${sortSel}</div>
       <div class="uni-col-body">${notice}${rows || '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px">フィルターを選択すると<br>動画が表示されます</div>'}</div>
     </div>`;
+  }
+
+  function _rebuildVideoCol() {
+    const existing = document.querySelector('#uni-popup .uni-col-vc');
+    if (!existing) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = _mkVideoCol();
+    existing.replaceWith(tmp.firstElementChild);
+    window.loadGdriveCardThumbs?.();
   }
 
   // フィルタ条件問わず動画列までスクロール（uniOpenFor* で使用）
@@ -904,7 +936,8 @@
     _render();
   };
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
-  // 動画ソートはvidlistブロック単位（notes.js）で実装。ここでは未提供。
+  window._uniVcSortKey = function (v) { _vcSort = v; _rebuildVideoCol(); };
+  window._uniVcSortDir = function ()  { _vcSortAsc = !_vcSortAsc; _rebuildVideoCol(); };
   window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _queries[_tab] = _q; _render(); };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
