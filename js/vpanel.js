@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.220 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.222 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -304,7 +304,8 @@ function _vpHandleEnded() {
     return;
   }
   if (_vpRepeat === 'list' || _vpShuffle) {
-    const list = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
+    const raw = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
+    const list = window._noteVidList ? raw : _vplSort(raw);
     if (list.length <= 1) return;
     if (_vpShuffle) {
       const cur = window.openVPanelId;
@@ -1320,7 +1321,8 @@ export function vpBmReset(id, idx) {
 export function vpNav(dir) {
   const cur = window.openVPanelId;
   if (!cur) return;
-  const list = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
+  const raw = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
+  const list = window._noteVidList ? raw : _vplSort(raw);
   const idx = list.findIndex(v => v.id === cur);
   if (idx < 0) return;
   const next = list[(idx + dir + list.length) % list.length];
