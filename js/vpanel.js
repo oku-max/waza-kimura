@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.204 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.220 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -304,7 +304,7 @@ function _vpHandleEnded() {
     return;
   }
   if (_vpRepeat === 'list' || _vpShuffle) {
-    const list = window._noteVidList || window.filteredVideos || window.videos || [];
+    const list = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
     if (list.length <= 1) return;
     if (_vpShuffle) {
       const cur = window.openVPanelId;
@@ -1320,7 +1320,7 @@ export function vpBmReset(id, idx) {
 export function vpNav(dir) {
   const cur = window.openVPanelId;
   if (!cur) return;
-  const list = window._noteVidList || window.filteredVideos || window.videos || [];
+  const list = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
   const idx = list.findIndex(v => v.id === cur);
   if (idx < 0) return;
   const next = list[(idx + dir + list.length) % list.length];
@@ -1603,7 +1603,7 @@ function _renderBlurArea(id) {
   if (!area) return;
 
   // フィルター済み配列を優先、なければ全件
-  const all = window._noteVidList || window.filteredVideos || window.videos || [];
+  const all = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
   const idx = all.findIndex(v => v.id === id);
   if (idx < 0) { area.innerHTML = ''; return; }
 
@@ -1666,7 +1666,7 @@ function _ensureBottomSheet() {
 window.vpOpenNextList = function () {
   _ensureBottomSheet();
   const id = window.openVPanelId;
-  const all = window._noteVidList || window.filteredVideos || window.videos || [];
+  const all = window._noteVidList || window._vpFilteredList || window.filteredVideos || window.videos || [];
   const list = document.getElementById('vp-bs-list');
   if (!list) return;
   const hdr = document.getElementById('vp-bs-hdr');
