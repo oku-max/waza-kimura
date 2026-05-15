@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.209 ═══
+// ═══ WAZA KIMURA — Notes tab v52.218 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -1734,7 +1734,7 @@ function _colBlockHTML(b, bIdx, noteId, colIdx, slot, total) {
     const duration = _fmtDur(libV?.duration || b.duration);
     return `<div class="n-col-block-wrap">
       ${ctrlBar}
-      <div class="n-iv-node" id="n-iv-${noteId}-${colKey}" data-note-id="${noteId}" data-col-key="${colKey}" data-platform="${platform}" style="max-width:100%">
+      <div class="n-iv-node" id="n-iv-${noteId}-${colKey}" data-note-id="${noteId}" data-col-key="${colKey}" data-platform="${platform}" style="max-width:${b.vidWidth||100}%">
         <div class="n-vl-row-hdr">
           <div class="n-vl-thumb">${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" onerror="this.style.display='none'">` : ''}</div>
           <div class="n-vl-info">
@@ -3205,20 +3205,56 @@ window._notesColVidMenu = function(noteId, colIdx, slot, bIdx, btnEl) {
   if (!r) return;
   const b = r.note.blocks[colIdx]?.cols?.[slot]?.[bIdx];
   if (!b) return;
+  const colKey = `col-${colIdx}-${slot}-${bIdx}`;
+  const widthPct = b.vidWidth || 100;
   const existing = document.getElementById('n-iv-menu');
   if (existing) { existing.remove(); return; }
   const menu = document.createElement('div');
   menu.id = 'n-iv-menu';
-  menu.style.cssText = 'position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9700;min-width:160px;font-size:12px';
+  menu.style.cssText = 'position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9700;min-width:200px;font-size:12px';
   const mi = (label, color='') => `<div class="n-iv-menu-item" style="padding:7px 11px;border-radius:5px;cursor:pointer;${color?'color:'+color:''}">${label}</div>`;
-  menu.innerHTML = `${mi('⊞ Vパネルで開く')}<div style="height:1px;background:var(--border2);margin:4px 0"></div>${mi('🗑 削除', '#c00')}`;
+  menu.innerHTML = `
+    <div style="padding:6px 10px;color:var(--text2);font-size:10px;letter-spacing:.5px">幅: <span id="n-iv-w-lbl">${widthPct}%</span></div>
+    <div style="padding:0 10px 8px"><input type="range" min="30" max="100" step="5" value="${widthPct}" style="width:100%" id="n-iv-w-sl"></div>
+    <div style="height:1px;background:var(--border2);margin:4px 0"></div>
+    ${mi('⊞ Vパネルで開く')}
+    ${mi('📝 メモ')}
+    <div style="height:1px;background:var(--border2);margin:4px 0"></div>
+    ${mi('📂 動画を差し替え')}
+    ${mi('🗑 削除', '#c00')}`;
   document.body.appendChild(menu);
   const rect = btnEl.getBoundingClientRect();
   menu.style.top = (rect.bottom + 4) + 'px';
   menu.style.left = Math.max(8, rect.right - menu.offsetWidth) + 'px';
+  const sl = menu.querySelector('#n-iv-w-sl');
+  const lbl = menu.querySelector('#n-iv-w-lbl');
+  sl.addEventListener('input', () => {
+    const w = +sl.value;
+    lbl.textContent = w + '%';
+    b.vidWidth = w;
+    const node = document.getElementById(`n-iv-${noteId}-${colKey}`);
+    if (node) node.style.maxWidth = w + '%';
+  });
+  sl.addEventListener('change', () => { r.note.updatedAt = Date.now(); _save(); });
   const items = menu.querySelectorAll('.n-iv-menu-item');
   items[0].onclick = () => { menu.remove(); window._notesColVidOpenVP?.(noteId, colIdx, slot, bIdx); };
-  items[1].onclick = () => { menu.remove(); window._notesColDelBlock?.(noteId, colIdx, slot, bIdx); };
+  items[1].onclick = () => {
+    menu.remove();
+    const sec = document.getElementById(`n-iv-memo-${noteId}-${colKey}`);
+    if (!sec) return;
+    const willOpen = sec.style.display === 'none';
+    sec.style.display = willOpen ? 'block' : 'none';
+    if (willOpen) {
+      _ivPopulateMemo(noteId, colKey);
+      setTimeout(() => document.getElementById(`n-iv-memo-ta-${noteId}-${colKey}`)?.focus(), 50);
+    }
+  };
+  items[2].onclick = () => {
+    menu.remove();
+    window._notesColContext = { noteId, colIdx, slot, replaceBIdx: bIdx };
+    window._notesShowVidPicker?.(noteId);
+  };
+  items[3].onclick = () => { menu.remove(); window._notesColDelBlock?.(noteId, colIdx, slot, bIdx); };
   setTimeout(() => {
     document.addEventListener('click', function close(ev) {
       if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', close); }
@@ -3556,7 +3592,7 @@ window._notesVideoConfirm = function() {
     return;
   }
 
-  // カラムスロットへの挿入
+  // カラムスロットへの挿入・差し替え
   const ctx = window._notesColContext;
   window._notesColContext = null;
   if (ctx) {
@@ -3565,7 +3601,13 @@ window._notesVideoConfirm = function() {
     const colBlock = r2.note.blocks[ctx.colIdx];
     if (!colBlock || colBlock.type !== 'col') return;
     if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
-    colBlock.cols[ctx.slot].push({ type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 });
+    const newBlock = { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 };
+    if (ctx.replaceBIdx != null) {
+      const old = colBlock.cols[ctx.slot][ctx.replaceBIdx] || {};
+      colBlock.cols[ctx.slot][ctx.replaceBIdx] = { ...newBlock, vidWidth: old.vidWidth || 30 };
+    } else {
+      colBlock.cols[ctx.slot].push(newBlock);
+    }
     r2.note.updatedAt = Date.now();
     _save();
     window._notesSheetClose();
@@ -3905,7 +3947,13 @@ window._notesVideoConfirm = function() {
     const colBlock = r2.note.blocks[ctx.colIdx];
     if (!colBlock || colBlock.type !== 'col') return;
     if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
-    colBlock.cols[ctx.slot].push({ ...block, viewMode: 'inline' });
+    const newBlock = { ...block, viewMode: 'inline' };
+    if (ctx.replaceBIdx != null) {
+      const old = colBlock.cols[ctx.slot][ctx.replaceBIdx] || {};
+      colBlock.cols[ctx.slot][ctx.replaceBIdx] = { ...newBlock, vidWidth: old.vidWidth || 30 };
+    } else {
+      colBlock.cols[ctx.slot].push(newBlock);
+    }
     r2.note.updatedAt = Date.now();
     _save();
     window._notesSheetClose();
