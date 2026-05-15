@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Firebase・認証 v52.225 ═══
+// ═══ WAZA KIMURA — Firebase・認証 v52.226 ═══
 import { showToast } from './ui.js';
 
 const firebaseConfig = {
@@ -11,8 +11,9 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-export const auth = firebase.auth();
-export const db   = firebase.firestore();
+export const auth    = firebase.auth();
+export const db      = firebase.firestore();
+export const storage = firebase.storage();
 // iOS Safari/WebKit で WebSocket が30秒ハングしてからlong-pollingにフォールバックする問題の対策。
 // 最初からlong-pollingを使うことで、その30秒待ちを回避する。
 db.settings({ experimentalForceLongPolling: true });
@@ -172,67 +173,77 @@ export function updateAuthUI(user) {
   window.initOwnerSettings?.();
 }
 
-export function loadUserData(uid) {
+// 動画データをメモリに適用してマイグレーションを実行。再保存が必要なら true を返す
+async function _applyVideosData(saved) {
+  saved.forEach(sv => {
+    const v = window.videos?.find(v => v.id === sv.id);
+    if (v) Object.assign(v, sv);
+    else if (window.videos) window.videos.push(sv);
+  });
+  if (window.migrateAllVideos && window.videos) window.videos = window.migrateAllVideos(window.videos);
+  (window.videos || []).forEach(v => {
+    if (v.status === '把握')   v.status = '理解';
+    if (v.status === '習得中') v.status = '練習中';
+  });
+  if (window.retagAllFromTitle && window.videos) window.retagAllFromTitle();
+  const _oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  let migratedAddedAt = 0;
+  (window.videos || []).forEach(v => { if (!v.addedAt) { v.addedAt = _oneMonthAgo; migratedAddedAt++; } });
+  if (migratedAddedAt > 0) console.log(`[migration] addedAt補完: ${migratedAddedAt}本`);
+  return migratedAddedAt > 0;
+}
+
+export async function loadUserData(uid) {
   if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
-  const docRef = db.collection('users').doc(uid).collection('data').doc('videos');
-  let _firstLoad = true;
+  if (window.__pmark && !window.__perf?.data_first) window.__pmark('data_first');
 
-  _videosUnsubscribe = docRef.onSnapshot(async snap => {
-    if (window.__pmark && !window.__perf?.data_first) window.__pmark('data_first');
-    if (!snap.exists) return;
-    const data = snap.data();
-    const saved = data?.videos;
-    if (!saved || !saved.length) return;
+  let loaded = false;
+  let needsSave = false;
 
-    // 判定1: 自分のセッションの書き込み → スキップ
-    if (data.savedBy === _sessionId) return;
-
-    // 判定2: 別セッション → 自分のほうが新しければスキップ
-    const remoteAt = data.updatedAt || '';
-    if (!_firstLoad && remoteAt && _videosLoadedAt && remoteAt <= _videosLoadedAt) return;
-
-    _videosLoadedAt = remoteAt;
-    _firstLoad = false;
-
-    // マージ
-    saved.forEach(sv => {
-      const v = window.videos?.find(v => v.id === sv.id);
-      if (v) Object.assign(v, sv);
-      else if (window.videos) window.videos.push(sv);
-    });
-
-    // ─── 4層タグ体系へのマイグレーション (冪等) ───
-    if (window.migrateAllVideos && window.videos) {
-      window.videos = window.migrateAllVideos(window.videos);
+  // 1. Firebase Storage を優先
+  try {
+    const ref = storage.ref(`users/${uid}/videos.json`);
+    const url = await ref.getDownloadURL();
+    const resp = await fetch(url);
+    const json = await resp.json();
+    if (json.videos?.length) {
+      needsSave = await _applyVideosData(json.videos);
+      _videosLoadedAt = json.updatedAt || '';
+      loaded = true;
     }
-    // ─── 習得度名称マイグレーション ───
-    (window.videos || []).forEach(v => {
-      if (v.status === '把握') v.status = '理解';
-      if (v.status === '習得中') v.status = '練習中';
-    });
-    // 未タグ補完
-    if (window.retagAllFromTitle && window.videos) window.retagAllFromTitle();
-    // ─── addedAt 空動画を1ヶ月前で補完 ───
-    const _oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    let _migratedAddedAt = 0;
-    (window.videos || []).forEach(v => { if (!v.addedAt) { v.addedAt = _oneMonthAgo; _migratedAddedAt++; } });
-    if (_migratedAddedAt > 0) {
-      console.log(`[migration] addedAt補完: ${_migratedAddedAt}本`);
-      await saveUserData();
-      return;
-    }
+  } catch (e) {
+    if (e.code !== 'storage/object-not-found') console.warn('[loadUserData] Storage:', e.message);
+  }
 
-    if (window.AF) window.AF();
-    if (window.renderTagMasterUI) window.renderTagMasterUI();
-    showToast('✅ データを読み込みました');
-    // duration補完（初回ロードのみ）
-    // GDrive: tokenがあれば即実行、なければfail-safe。Vimeo: 認証不要
-    if (!_durFetchDone) {
-      _durFetchDone = true;
-      window.fetchMissingGdDurations?.();
-      window.fetchMissingVimeoDurations?.();
+  // 2. Firestore にフォールバック（旧データの自動移行）
+  if (!loaded) {
+    try {
+      const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
+      const data = snap.data();
+      if (snap.exists && data?.videos?.length) {
+        await _applyVideosData(data.videos);
+        _videosLoadedAt = data.updatedAt || '';
+        loaded = true;
+        needsSave = true; // Firestore → Storage へ移行
+        console.log('[migration] Firestore → Storage移行を開始');
+      }
+    } catch (e) {
+      console.error('[loadUserData] Firestore:', e);
     }
-  }, e => console.error('loadUserData onSnapshot:', e));
+  }
+
+  if (!loaded) return;
+
+  if (needsSave) await saveUserData();
+
+  if (window.AF) window.AF();
+  if (window.renderTagMasterUI) window.renderTagMasterUI();
+  showToast('✅ データを読み込みました');
+  if (!_durFetchDone) {
+    _durFetchDone = true;
+    window.fetchMissingGdDurations?.();
+    window.fetchMissingVimeoDurations?.();
+  }
 }
 
 export async function saveUserData() {
@@ -244,11 +255,9 @@ export async function saveUserData() {
   try {
     const updatedAt = new Date().toISOString();
     _videosLoadedAt = updatedAt;
-    await db.collection('users').doc(currentUser.uid).collection('data').doc('videos').set({
-      videos: (window.videos || []).filter(v => !v._srTemp),
-      updatedAt,
-      savedBy: _sessionId
-    });
+    const videos = (window.videos || []).filter(v => !v._srTemp);
+    const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
+    await storage.ref(`users/${currentUser.uid}/videos.json`).put(blob);
     showToast('💾 保存', 1500);
   } catch (e) {
     console.error('[saveUserData] save failed:', e);
