@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v52.240 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.245 ═══ */
 
 /* ── インライン動画パネル（マップ仕様準拠） ── */
 .n-iv-node {
@@ -539,7 +539,7 @@
 #notesTab {
   display: none;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
 }
 #notesTab.active { display: flex; }
@@ -1519,3 +1519,8 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
   font-size: 12px; flex-shrink: 0;
 }
 body.dark .n-move-banner { background: #4f46e5 }
+
+/* ── PC(1200px+): notesトップバーをサイドバー幅分右にオフセット ── */
+@media (min-width: 1200px) {
+  .notes-topbar { left: var(--sbw, 220px); }
+}
