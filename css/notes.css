@@ -571,9 +571,9 @@
   transition: transform .25s;
   position: absolute; top: 0; left: 0; bottom: 0; z-index: 100;
   transform: translateX(-100%);
-  box-shadow: 6px 0 24px rgba(0,0,0,.35);
+  box-shadow: none;
 }
-.notes-sidebar.open { transform: translateX(0) }
+.notes-sidebar.open { transform: translateX(0); box-shadow: 6px 0 24px rgba(0,0,0,.35); }
 .notes-sb-hdr {
   padding: 12px 12px 10px;
   border-bottom: 1px solid var(--border);
