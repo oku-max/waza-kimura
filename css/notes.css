@@ -544,7 +544,7 @@
   flex-direction: column;
   position: fixed;
   top: var(--topbar-h, 72px);
-  left: var(--sbw, 0px);
+  left: 0;
   right: 0;
   bottom: 0;
   overflow: hidden;
@@ -739,7 +739,7 @@
   background: var(--surface);
   position: fixed;
   top: var(--topbar-h, 72px);
-  left: var(--sbw, 0px);
+  left: 0;
   right: 0;
   z-index: 101;
   transition: transform 0.22s ease, box-shadow 0.22s ease;
