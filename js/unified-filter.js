@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.234 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.235 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -476,6 +476,8 @@
   }
 
   function _render() {
+    // タイトルタブのクエリをグローバルに同期（filter.js の filt() が参照する）
+    window._uniVideoQ = _queries['video'] || '';
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
     const tabsEl = document.getElementById('uni-tabs');
@@ -1003,7 +1005,16 @@
   window.uniSetSort = function (k, v) { _sort[k] = v; _render(); };
   window._uniVcSortKey = function (v) { _vcSort = v; _rebuildVideoCol(); };
   window._uniVcSortDir = function ()  { _vcSortAsc = !_vcSortAsc; _rebuildVideoCol(); };
-  window.uniSearch = function (v) { _q = (v||'').trim().toLowerCase(); _queries[_tab] = _q; _render(); };
+  window.uniSearch = function (v) {
+    _q = (v||'').trim().toLowerCase();
+    _queries[_tab] = _q;
+    if (_tab === 'video' && !_noteMode && !_vlBlockTarget) {
+      window._uniVideoQ = _q;
+      window.AF?.();
+      window.buildSidebarFovRows?.();
+    }
+    _render();
+  };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
@@ -1033,6 +1044,7 @@
     _render();
   };
   window.uniClearAll = function () {
+    window._uniVideoQ = '';  // clearAll() が AF() を呼ぶ前にクリアしておく
     _ctx === 'org' ? window.clearOrgFilters?.() : window.clearAll?.();
     Object.keys(_queries).forEach(k => _queries[k] = '');
     _q = '';

@@ -377,6 +377,10 @@ export function filt(list) {
     if (window.filters.tags.size && !(v.tags||[]).some(t => window.filters.tags.has(t))) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
     if (window.filters.videoIds?.size && !window.filters.videoIds.has(v.id)) return false;
+    if (window._uniVideoQ) {
+      const hay = [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ');
+      if (!hay.includes(window._uniVideoQ)) return false;
+    }
     return true;
   });
 }
