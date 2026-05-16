@@ -573,7 +573,7 @@
   transform: translateX(-100%);
   box-shadow: none;
 }
-.notes-sidebar.open { transform: translateX(0); box-shadow: 6px 0 24px rgba(0,0,0,.35); }
+.notes-sidebar.open { transform: translateX(0); box-shadow: 6px 0 24px rgba(0,0,0,.35); z-index: 102; }
 .notes-sb-hdr {
   padding: 12px 12px 10px;
   border-bottom: 1px solid var(--border);
