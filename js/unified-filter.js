@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.236 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.242 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -946,6 +946,7 @@
 
   function _restoreFilters(snap) {
     const f = window.filters || {};
+    ['tbNew','cat','posNew'].forEach(k => { if (!(k in f)) f[k] = new Set(); });
     Object.keys(f).forEach(k => {
       if (f[k] instanceof Set) {
         f[k].clear();

@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.219 ═══
+// ═══ WAZA KIMURA — Notes tab v52.242 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2967,9 +2967,12 @@ window._notesVlEdit = function(noteId, path) {
   const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
   const snap = {
     prio:     f.prio     || [],
-    tb:       f.tb       || [],
-    action:   f.action   || f.cat || [],
-    position: f.position || f.pos || [],
+    tb:       f.tbNew    || f.tb       || [],
+    tbNew:    f.tbNew    || f.tb       || [],
+    action:   f.cat      || f.action   || [],
+    cat:      f.cat      || f.action   || [],
+    position: f.posNew   || f.position || f.pos || [],
+    posNew:   f.posNew   || f.position || f.pos || [],
     playlist: Array.isArray(f.playlist) ? f.playlist : arr(f.pl),
     status:   Array.isArray(f.status)   ? f.status   : arr(f.status),
     tags:     f.tags     || [],
