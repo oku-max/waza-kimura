@@ -28,6 +28,24 @@
     }[c]));
   }
 
+  // ── メイン検索バーのテキストに動画がマッチするか（全単語AND） ──
+  function _matchMainQ(v) {
+    const isOrg = _ctx === 'org';
+    const raw = isOrg
+      ? (document.getElementById('si-org-pc')?.value || document.getElementById('si-org')?.value || '')
+      : (document.getElementById('si-lib-pc')?.value || document.getElementById('si')?.value || '');
+    const q = raw.trim().toLowerCase();
+    if (!q) return true;
+    const words = q.split(/\s+/).filter(Boolean);
+    const hay = [
+      (v.title || '').toLowerCase(),
+      (v.channel || v.ch || '').toLowerCase(),
+      (v.pl || '').toLowerCase(),
+      ...(v.tags || []).map(t => t.toLowerCase()),
+    ].join(' ');
+    return words.every(w => hay.includes(w));
+  }
+
   // ── ファセット用: excludeKey 以外の全フィルターを適用した動画 ──
   // _ctx='org' 時は orgFilters / orgXxxOnly を参照する
   function _ctxVideos(excludeKey) {
@@ -47,6 +65,7 @@
     const tkTags = isOrg ? 'tags'     : 'tags';
     return (window.videos || []).filter(v => {
       if (v.archived) return false;
+      if (!_matchMainQ(v)) return false;
       if (excludeKey !== 'fav'  && fav  && !v.fav) return false;
       if (excludeKey !== 'next'&& next && !v.next) return false;
       if (excludeKey !== 'unw' && unw && v.watched) return false;
