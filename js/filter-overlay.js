@@ -1034,8 +1034,11 @@ export function renderRecentSidebar() {
   const recents = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]');
   const emptyHTML = '<div style="font-size:10px;color:var(--text3);padding:8px 14px">まだ視聴した動画はありません</div>';
   const listHTML = recents.length ? recents.map(v => {
+    const _gdId = (v.id||'').startsWith('gd-') ? (v.id).replace('gd-', '') : '';
     const thumb = v.ytId
       ? `<img src="https://i.ytimg.com/vi/${v.ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+      : _gdId
+      ? `<img src="https://drive.google.com/thumbnail?id=${_gdId}&sz=w320" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
       : '';
     return `<div onclick="window.openVPanel?.('${v.id}')" style="display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <div style="width:44px;min-width:44px;height:28px;background:var(--surface3);border-radius:4px;overflow:hidden;flex-shrink:0">${thumb}</div>

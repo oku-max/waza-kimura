@@ -2759,7 +2759,8 @@ function _renderVidlistCard(block, path, noteId) {
   const rowsHtml = display.length
     ? display.map(v => {
         const ytId = v.ytId || (v.pt === 'youtube' ? v.id : '');
-        const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '');
+        const _gdId = (!ytId && (v.pt === 'gdrive' || (v.id||'').startsWith('gd-'))) ? (v.id||'').replace(/^gd-/,'') : '';
+        const thumb = v.thumb || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : _gdId ? `https://drive.google.com/thumbnail?id=${_gdId}&sz=w320` : '');
         const dur = _fmtDur(v.duration);
         const rowId = `n-vl-r-${noteId}-${v.id}`.replace(/[^a-zA-Z0-9\-_]/g, '_');
         const removeBtn = isManual

@@ -600,8 +600,11 @@
       const mkCol3 = () => {
         const recents = JSON.parse(localStorage.getItem('wk_recent_views') || '[]').slice(0, 15);
         const rows = recents.length ? recents.map((v, i) => {
+          const _gdId = (v.id||'').startsWith('gd-') ? (v.id).replace('gd-', '') : '';
           const thumb = v.ytId
             ? `<img src="https://i.ytimg.com/vi/${v.ytId}/mqdefault.jpg" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+            : _gdId
+            ? `<img src="https://drive.google.com/thumbnail?id=${_gdId}&sz=w320" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
             : '';
           return `<div class="uni-rc-item" onclick="window.openVPanel?.('${v.id}');uniClose()">
             <span class="uni-rc-rank">${i+1}</span>
@@ -677,8 +680,11 @@
       const rows = vids.length
         ? vids.map(v => {
             const ytId = v.ytId || ((v.pt || v.src || 'youtube') === 'youtube' ? v.id : null);
+            const _gdId = (!ytId && (v.pt === 'gdrive' || (v.id||'').startsWith('gd-'))) ? (v.id||'').replace(/^gd-/,'') : '';
             const thumb = ytId
               ? `<img src="https://i.ytimg.com/vi/${ytId}/default.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
+              : _gdId
+              ? `<img src="https://drive.google.com/thumbnail?id=${_gdId}&sz=w120" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
               : '▶';
             const isVidAdded = !!_noteMode && vidAddedIds.has(v.id);
             const vidOnclick = !isVidAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '';
