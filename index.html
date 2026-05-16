@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.250</title>
+<title>WAZA KIMURA v52.251</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2321,25 +2321,15 @@ async function _fetchTitle(parsed) {
       parsed.ch = parsed.ch || ('@' + (parsed.xUser || ''));
       return `@${parsed.xUser} のツイート`;
     }
-    // Vimeo: noembed.com（CORS OK・YouTube と同じ仕組み）→ 失敗時はサーバープロキシ
+    // Vimeoは公式oEmbed APIを直接使う（CORS対応済み）
     if (parsed.pt === 'vimeo') {
       const vmUrl = `https://vimeo.com/${parsed.id}${parsed.vmHash ? '/' + parsed.vmHash : ''}`;
-      let vd = null;
-      try {
-        const r = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(vmUrl)}`);
-        if (r.ok) { const j = await r.json(); if (!j.error && j.title) vd = j; }
-      } catch {}
-      if (!vd) {
-        // フォールバック: サーバープロキシ（プライベート動画など）
-        try {
-          const r2 = await fetch(`/api/vimeo-proxy?url=${encodeURIComponent(vmUrl)}`);
-          if (r2.ok) vd = await r2.json();
-        } catch {}
-      }
-      if (!vd || !vd.title) throw new Error('vimeo oEmbed failed');
-      parsed.ch = vd.author_name || '';
-      if (vd.thumbnail_url) parsed.thumb = vd.thumbnail_url;
-      return vd.title;
+      const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vmUrl)}`);
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      parsed.ch = data.author_name || '';
+      if (data.thumbnail_url) parsed.thumb = data.thumbnail_url;
+      return data.title || null;
     }
     const fullUrl = parsed.pt === 'x'
       ? `https://twitter.com/${parsed.xUser}/status/${parsed.xTweetId}`
