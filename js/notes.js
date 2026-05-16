@@ -3432,8 +3432,14 @@ window._notesOpenNote = function(id, e) {
 };
 
 window.notesOpenSb = function() {
-  document.getElementById('notesSidebar')?.classList.add('open');
-  document.getElementById('notesSbOverlay')?.classList.add('vis');
+  const sb = document.getElementById('notesSidebar');
+  if (!sb) return;
+  if (sb.classList.contains('open')) {
+    _closeSb();
+  } else {
+    sb.classList.add('open');
+    document.getElementById('notesSbOverlay')?.classList.add('vis');
+  }
 };
 
 function _closeSb() {
