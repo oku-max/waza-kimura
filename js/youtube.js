@@ -285,7 +285,7 @@ export async function fetchMissingVimeoDurations() {
             ? `https://vimeo.com/${vmId}/${v.vmHash}`
             : `https://vimeo.com/${vmId}`;
           const res = await fetch(
-            `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vUrl)}`
+            `/api/vimeo-proxy?url=${encodeURIComponent(vUrl)}`
           );
           if (!res.ok) return;
           const data = await res.json();
@@ -342,7 +342,7 @@ window.loadVimeoCardThumbs = async function() {
   await Promise.allSettled(toFetch.map(async ({ img, vmId, vmHash, vid }) => {
     try {
       const vUrl = vmHash ? `https://vimeo.com/${vmId}/${vmHash}` : `https://vimeo.com/${vmId}`;
-      const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vUrl)}`);
+      const res = await fetch(`/api/vimeo-proxy?url=${encodeURIComponent(vUrl)}`);
       if (!res.ok) return;
       const data = await res.json();
       if (!data.thumbnail_url) return;
