@@ -1965,7 +1965,7 @@ const CVIDS=[
 const TRENDING=["Xガード","クローズドガード","バックコントロール","ハーフガード","ヒールフック","十字絞め","キムラ","ベリンボロ","RNC","エスケープ","ベリンボロ","デラヒーバ"];
 const plVids={"クローズドガード":[{id:"dQw4w9WgXcQ",title:"Kimura from Closed Guard",ch:"Bernardo Faria BJJ"},{id:"9bsuvPFNLvE",title:"Triangle Choke from Closed Guard",ch:"Lachlan Giles"},{id:"xA001",title:"Armbar from Closed Guard",ch:"Bernardo Faria BJJ"}],"ハーフガード":[{id:"M7lc1UVf-VE",title:"Half Guard Sweep",ch:"Tom DeBlass"},{id:"xA002",title:"Deep Half Entry",ch:"Jeff Glover"}],"バックコントロール":[{id:"xA003",title:"Back Take from Turtle",ch:"John Danaher"},{id:"xA004",title:"RNC Finish",ch:"Gordon Ryan"}],"エスケープ":[{id:"oHg5SJYRHA0",title:"Hip Escape Drill",ch:"Gordon Ryan"},{id:"xA005",title:"Mount Escape",ch:"Marcelo Garcia"}]};
 
-let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tags:new Set(),platform:new Set(),channel:new Set()};
+let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tags:new Set(),platform:new Set(),channel:new Set(),videoIds:new Set()};
 let favOnly=false,unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
 let selIds=new Set(),openPlayer=null,editId=null;
 // ES Module側からアクセスできるようwindowに公開

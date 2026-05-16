@@ -81,7 +81,8 @@
       if (excludeKey !== 'tb'   && f[tkTb]?.size   && !(v.tb  ||[]).some(t => f[tkTb].has(t)))         return false;
       if (excludeKey !== 'cat'  && f[tkCat]?.size  && !(v.cat||[]).some(c => f[tkCat].has(c))) return false;
       if (excludeKey !== 'pos'  && f[tkPos]?.size  && !(v.pos ||[]).some(p => f[tkPos].has(p)))        return false;
-      if (excludeKey !== 'tags' && f[tkTags]?.size && !(v.tags||[]).some(t => f[tkTags].has(t))) return false;
+      if (excludeKey !== 'tags'     && f[tkTags]?.size    && !(v.tags||[]).some(t => f[tkTags].has(t))) return false;
+      if (excludeKey !== 'videoIds' && f.videoIds?.size   && !f.videoIds.has(v.id)) return false;
       const prRank = isOrg ? window.orgPrRank : window.prRank;
       const prDate = isOrg ? window.orgPrDate : window.prDate;
       if (excludeKey !== 'prRank' && prRank != null && window.vpCntRank) {
@@ -171,6 +172,8 @@
 #uni-popup .uni-tab-video.on{background:#16a34a;color:#fff;border-color:#16a34a}
 #uni-popup .uni-vid-row{padding:8px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:10px;align-items:center}
 #uni-popup .uni-vid-row:hover{background:var(--surface2)}
+#uni-popup .uni-vid-row.on{background:rgba(107,63,212,.12);border-left:3px solid var(--accent)}
+#uni-popup .uni-vid-sel-hdr{display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;font-size:11px;color:var(--text2)}
 #uni-popup .uni-vid-thumb{width:56px;height:36px;background:var(--surface3);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(0,0,0,.25)}
 #uni-popup .uni-vid-info{flex:1;min-width:0}
 #uni-popup .uni-vid-title{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -462,7 +465,8 @@
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
     const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
     const tagN = (f[tkTb]?.size || 0) + (f[tkCat]?.size || 0) + (f[tkPos]?.size || 0) + (f[tkTags]?.size || 0);
-    return { state: stateN, src: srcN, tag: tagN };
+    const vidN = f.videoIds?.size || 0;
+    return { state: stateN, src: srcN, tag: tagN, video: vidN };
   }
 
   function _render() {
@@ -689,12 +693,29 @@
     }
 
     else if (_tab === 'video') {
-      const vids = _ctxVideos(null).filter(v => {
+      const vids = _ctxVideos('videoIds').filter(v => {
         if (!_q) return true;
         return (v.title || '').toLowerCase().includes(_q)
           || (v.channel || v.ch || '').toLowerCase().includes(_q);
       });
       const vidAddedIds = _noteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set();
+      const selSet = (!_noteMode && !_vlBlockTarget) ? ((isOrg ? window.orgFilters : window.filters)?.videoIds || new Set()) : new Set();
+      const allSel = vids.length > 0 && vids.every(v => selSet.has(v.id));
+      const selCount = vids.filter(v => selSet.has(v.id)).length;
+      // store current list for _uniVidSelAll
+      window._uniCurVidIds = vids.map(v => v.id);
+
+      const hdr = (!_noteMode && !_vlBlockTarget)
+        ? `<div class="uni-vid-sel-hdr">
+            <span>${vids.length}件${selCount ? ` · <b style="color:var(--accent)">${selCount}件選択中</b>` : ''}</span>
+            <span style="flex:1"></span>
+            <button onclick="window._uniVidSelAll(${allSel})"
+              style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit">
+              ${allSel ? '全解除' : '全選択'}
+            </button>
+           </div>`
+        : '';
+
       const rows = vids.length
         ? vids.map(v => {
             const ytId = v.ytId || ((v.pt || v.src || 'youtube') === 'youtube' ? v.id : null);
@@ -705,13 +726,17 @@
               ? `<img src="https://drive.google.com/thumbnail?id=${_gdId}&sz=w120" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
               : '▶';
             const isVidAdded = !!_noteMode && vidAddedIds.has(v.id);
-            const vidOnclick = !isVidAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '';
+            const isSel = selSet.has(v.id);
+            const vidOnclick = _noteMode || _vlBlockTarget
+              ? (!isVidAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '')
+              : `window._uniVidToggle('${_esc(v.id)}')`;
             const vidRowClass = _noteMode
               ? 'uni-vid-row uni-vid-row-nm' + (isVidAdded ? ' uni-vid-row-added' : '')
-              : 'uni-vid-row';
+              : 'uni-vid-row' + (isSel ? ' on' : '');
             const vidIndicator = _noteMode
               ? (isVidAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
-              : '';
+              : _vlBlockTarget ? `<span class="uni-vc-add-btn">＋</span>`
+              : (isSel ? `<span style="color:var(--accent);font-size:14px;flex-shrink:0">✓</span>` : '');
             return `<div class="${vidRowClass}" onclick="${vidOnclick}">
               <div class="uni-vid-thumb">${thumb}</div>
               <div class="uni-vid-info">
@@ -721,7 +746,7 @@
             </div>`;
           }).join('')
         : '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">一致する動画がありません</div>';
-      content.innerHTML = `<div style="flex:1;overflow-y:auto">${rows}</div>`;
+      content.innerHTML = `<div style="flex:1;display:flex;flex-direction:column;overflow:hidden">${hdr}<div style="flex:1;overflow-y:auto">${rows}</div></div>`;
     }
 
     else {
@@ -1117,6 +1142,28 @@
       _shownNoteVideos = [];
       _render();
     }
+  };
+
+  // タイトルタブ：1件トグル選択
+  window._uniVidToggle = function(id) {
+    const isOrg = _ctx === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    if (!f.videoIds) f.videoIds = new Set();
+    f.videoIds.has(id) ? f.videoIds.delete(id) : f.videoIds.add(id);
+    (isOrg ? window.renderOrg?.() : (window.AF?.(), window.buildSidebarFovRows?.()));
+    _render();
+  };
+
+  // タイトルタブ：全選択 / 全解除（現在表示中の一覧を対象）
+  window._uniVidSelAll = function(currentlyAllSel) {
+    const isOrg = _ctx === 'org';
+    const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
+    if (!f.videoIds) f.videoIds = new Set();
+    const ids = window._uniCurVidIds || [];
+    if (currentlyAllSel) ids.forEach(id => f.videoIds.delete(id));
+    else ids.forEach(id => f.videoIds.add(id));
+    (isOrg ? window.renderOrg?.() : (window.AF?.(), window.buildSidebarFovRows?.()));
+    _render();
   };
 
   // 動画クリックの分岐

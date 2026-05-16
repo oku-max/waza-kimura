@@ -376,6 +376,7 @@ export function filt(list) {
     if (window.filters.position.size && !(v.pos||[]).some(p => window.filters.position.has(p))) return false;
     if (window.filters.tags.size && !(v.tags||[]).some(t => window.filters.tags.has(t))) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
+    if (window.filters.videoIds?.size && !window.filters.videoIds.has(v.id)) return false;
     return true;
   });
 }
