@@ -670,8 +670,7 @@
     }
 
     else if (_tab === 'video') {
-      const vids = (window.videos || []).filter(v => {
-        if (v.archived) return false;
+      const vids = _ctxVideos(null).filter(v => {
         if (!_q) return true;
         return (v.title || '').toLowerCase().includes(_q)
           || (v.channel || v.ch || '').toLowerCase().includes(_q);
@@ -822,6 +821,11 @@
     if (sb)  sb.style.display = t === 'state' ? 'none' : '';
     if (inp) {
       inp.placeholder = _phMap[t] || '🔍 検索...';
+      // タイトルタブ: まだ入力がなければメイン検索バーの値を引き継ぐ
+      if (t === 'video' && !_queries[t]) {
+        const mainQ = (document.getElementById('si-lib-pc')?.value || document.getElementById('si')?.value || '').trim();
+        _queries[t] = mainQ.toLowerCase();
+      }
       inp.value = _queries[t] || '';
     }
     _q = _queries[t] || '';
