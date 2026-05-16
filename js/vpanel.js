@@ -1432,7 +1432,6 @@ export function openVPanel(id) {
       </div>
       <div style="display:flex;align-items:center;gap:4px;padding:5px 8px">
         <button onclick="vpNav(-1)" title="前の動画" style="${navBtn}">⏮</button>
-        <button onclick="vpNav(1)" title="次の動画" style="${navBtn}">⏭</button>
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px"></div>
         <button onclick="vpSkip(-60)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>1m</button>
         <button onclick="vpSkip(-30)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>30s</button>
@@ -1442,6 +1441,8 @@ export function openVPanel(id) {
         <button onclick="vpSkip(10)" class="ab-skip-btn ab-skip-plus">10s<span class="ab-skip-arrow">▶</span></button>
         <button onclick="vpSkip(30)" class="ab-skip-btn ab-skip-plus">30s<span class="ab-skip-arrow">▶</span></button>
         <button onclick="vpSkip(60)" class="ab-skip-btn ab-skip-plus">1m<span class="ab-skip-arrow">▶</span></button>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px"></div>
+        <button onclick="vpNav(1)" title="次の動画" style="${navBtn}">⏭</button>
       </div>`;
   }
 
@@ -3295,15 +3296,21 @@ window.vpTogMoreMenu = function(e, id) {
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
 
-  const ri = _menuItem(repeatSvg, 'リピート', 'ループ・ワンリピート切替');
+  const _activeStyle = (el) => { el.style.borderLeft = '3px solid var(--accent)'; el.style.paddingLeft = '9px'; };
+  const repeatSub = _vpRepeat === 'off' ? 'オフ' : _vpRepeat === 'list' ? '✓ リスト（全曲）' : '✓ 1曲リピート';
+  const ri = _menuItem(repeatSvg, 'リピート', repeatSub);
+  if (_vpRepeat !== 'off') _activeStyle(ri);
   ri.onclick = () => { menu.remove(); vpCycleRepeat(); };
   menu.appendChild(ri);
 
-  const si = _menuItem(shuffleSvg, 'シャッフル', '再生順をランダムに');
+  const si = _menuItem(shuffleSvg, 'シャッフル', _vpShuffle ? '✓ オン' : 'オフ');
+  if (_vpShuffle) _activeStyle(si);
   si.onclick = () => { menu.remove(); vpToggleShuffle(); };
   menu.appendChild(si);
 
-  const mi = _menuItem(mirrorSvg, 'リバース', '左右反転モード');
+  const mirrorOn = !!window._vpMirrored;
+  const mi = _menuItem(mirrorSvg, 'リバース', mirrorOn ? '✓ オン' : 'オフ');
+  if (mirrorOn) _activeStyle(mi);
   mi.onclick = () => { menu.remove(); window.vpToggleMirror?.(); };
   menu.appendChild(mi);
 
