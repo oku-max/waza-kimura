@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.242 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.243 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -364,7 +364,7 @@
     const addedIds = isVlMode
       ? (window._notesVlGetIds?.(_vlBlockTarget.noteId, _vlBlockTarget.path) || new Set())
       : (isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set());
-    if (isAddMode) _shownNoteVideos = shown.filter(v => !addedIds.has(v.id)).map(v => v.id);
+    if (isAddMode) _shownNoteVideos = sorted.filter(v => !addedIds.has(v.id)).map(v => v.id);
     else _shownNoteVideos = [];
     const rows = shown.map(v => {
       const ytId = v.ytId || ((v.pt||v.src||'youtube') === 'youtube' ? v.id : null);
