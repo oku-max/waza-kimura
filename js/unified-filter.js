@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.221 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.233 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -328,7 +328,7 @@
            (isOrg ? window.orgImgOnly  : window.imgOnly)  ||
            (isOrg ? window.orgPrRank   : window.prRank) != null ||
            !!(isOrg ? window.orgPrDate : window.prDate)  ||
-           ['platform','channel','playlist','status','tbNew','cat','posNew','tags','tb','action','position'].some(k => f[k]?.size > 0);
+           ['platform','channel','playlist','status','tbNew','cat','posNew','tags','tb','action','position','videoIds'].some(k => f[k]?.size > 0);
   }
 
   // ── 該当動画カラム ──
@@ -823,10 +823,15 @@
     [...(f[tkCatP]||[])].forEach(v => pills.push([tkCatP, v]));
     [...(f[tkPosP]||[])].forEach(v => pills.push([tkPosP, v]));
     [...(f[tkTagsP]||[])].forEach(v => pills.push([tkTagsP, v]));
+    [...(f.videoIds||[])].forEach(id => {
+      const vid = (window.videos||[]).find(v => v.id === id);
+      const lbl = vid?.title ? (vid.title.length > 25 ? vid.title.slice(0, 25) + '…' : vid.title) : id;
+      pills.push(['videoIds', id, lbl]);
+    });
 
     const pillsEl = document.getElementById('uni-pills');
     pillsEl.innerHTML = pills.length
-      ? pills.map(([k,v]) => `<span class="uni-pill" onclick="uniToggle('${k}','${_esc(String(v)).replace(/'/g,'&#39;')}')">${_esc(String(v))}</span>`).join('')
+      ? pills.map(([k, val, lbl]) => `<span class="uni-pill" onclick="uniToggle('${k}','${_esc(String(val)).replace(/'/g,'&#39;')}')">${_esc(String(lbl !== undefined ? lbl : val))}</span>`).join('')
       : '<span style="color:var(--text3);font-size:11px">なし</span>';
 
     // Hit
