@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.251</title>
+<title>WAZA KIMURA v52.252</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2321,10 +2321,10 @@ async function _fetchTitle(parsed) {
       parsed.ch = parsed.ch || ('@' + (parsed.xUser || ''));
       return `@${parsed.xUser} のツイート`;
     }
-    // Vimeoは公式oEmbed APIを直接使う（CORS対応済み）
+    // Vimeo: oEmbed APIはCORSブロックのためサーバープロキシ経由
     if (parsed.pt === 'vimeo') {
       const vmUrl = `https://vimeo.com/${parsed.id}${parsed.vmHash ? '/' + parsed.vmHash : ''}`;
-      const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vmUrl)}`);
+      const res = await fetch(`/api/vimeo-proxy?url=${encodeURIComponent(vmUrl)}`);
       if (!res.ok) throw new Error(res.status);
       const data = await res.json();
       parsed.ch = data.author_name || '';
