@@ -920,6 +920,8 @@
     _autoScrolled = false;
     _vlFilterBackup = _snapshotFilters();
     _restoreFilters(blockFilter || {});
+    console.log('[vlBlock] blockFilter=', JSON.stringify(blockFilter));
+    console.log('[vlBlock] after restore: tbNew=', [...(window.filters.tbNew||[])], 'cat=', [...(window.filters.cat||[])], 'posNew=', [...(window.filters.posNew||[])]);
     _inject();
     _tab = 'src';
     document.getElementById('uni-bd').classList.add('open');
