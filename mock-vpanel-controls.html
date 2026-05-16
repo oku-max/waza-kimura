@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VPanel コントロール デザイン提案</title>
+<style>
+/* ─── CSS変数（ダーク） ─── */
+:root {
+  --bg:        #0f0f1a;
+  --bg2:       #141414;
+  --bg3:       #1a1a1a;
+  --bg4:       #1e1e1e;
+  --border:    #2a2a2a;
+  --border2:   #252525;
+  --text:      #eeeeee;
+  --text2:     #bbbbbb;
+  --text3:     #888888;
+  --text4:     #555555;
+  --accent:    #f0c040;
+  --accent-bg: #1a1a0a;
+  --accent-bd: #3a3a10;
+  --blue:      #7ab4ff;
+  --blue-bg:   #101828;
+  --blue-bd:   #1a2a4a;
+  --green:     #4aff4a;
+  --green-bg:  #0a1a0a;
+  --phone-bg:  #141414;
+  --thumb-bg:  linear-gradient(135deg,#1a2a4a 0%,#0a1a2a 100%);
+  --sub-bg:    #0f0f0f;
+  --sub-bd:    #1e1e1e;
+  --card-bg:   #111;
+  --shadow:    0 4px 20px #0008;
+}
+[data-theme="light"] {
+  --bg:        #f0f0f5;
+  --bg2:       #ffffff;
+  --bg3:       #f5f5f8;
+  --bg4:       #ebebef;
+  --border:    #d8d8e0;
+  --border2:   #e0e0e8;
+  --text:      #111111;
+  --text2:     #333333;
+  --text3:     #666666;
+  --text4:     #999999;
+  --accent:    #c08000;
+  --accent-bg: #fffbe6;
+  --accent-bd: #f0c040;
+  --blue:      #1a6adf;
+  --blue-bg:   #e8f0ff;
+  --blue-bd:   #a0c0ff;
+  --green:     #1a8a1a;
+  --green-bg:  #e6ffe6;
+  --phone-bg:  #ffffff;
+  --thumb-bg:  linear-gradient(135deg,#b0c8e8 0%,#8aaece 100%);
+  --sub-bg:    #f8f8fb;
+  --sub-bd:    #e0e0e8;
+  --card-bg:   #f8f8fb;
+  --shadow:    0 4px 20px #0001;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  color: var(--text);
+  padding: 24px 16px 48px;
+  transition: background .25s, color .25s;
+}
+
+/* ─── トグル ─── */
+.theme-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.theme-toggle {
+  display: flex;
+  background: var(--bg4);
+  border-radius: 24px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+}
+.theme-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: var(--text3);
+  transition: all .2s;
+  user-select: none;
+}
+.theme-btn.active {
+  background: var(--bg2);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+h1 {
+  text-align: center;
+  font-size: 18px;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: .04em;
+}
+.page-sub {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 32px;
+}
+.section-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text4);
+  text-align: center;
+  margin: 40px 0 20px;
+}
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  justify-content: center;
+}
+.card {
+  width: 360px;
+}
+.card-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-align: center;
+}
+.card-concept {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 10px;
+  text-align: center;
+  line-height: 1.6;
+  min-height: 36px;
+}
+.phone {
+  background: var(--phone-bg);
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.thumb {
+  width: 100%;
+  height: 100px;
+  background: var(--thumb-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.thumb-play {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,.25);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+}
+
+/* ─── 共通パーツ ─── */
+.row { display: flex; align-items: center; }
+.divider-v { width: 1px; background: var(--border); margin: 0 5px; align-self: stretch; }
+.small-badge {
+  font-size: 10px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px 8px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.help-btn {
+  width: 22px; height: 22px;
+  background: var(--bg4);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--text3);
+  flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--border);
+}
+.timer-badge {
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bd);
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.skip-btn {
+  font-size: 8.5px;
+  color: var(--text2);
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 5px 2px;
+  min-width: 28px;
+  text-align: center;
+  cursor: pointer;
+}
+.skip-btn.fwd {
+  color: var(--blue);
+  border-color: var(--blue-bd);
+  background: var(--blue-bg);
+}
+.title-block { flex: 1; min-width: 0; }
+.vt { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch { font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.edit-btn { font-size: 12px; color: var(--text4); flex-shrink: 0; padding: 3px; cursor: pointer; }
+.google-btn {
+  font-size: 10px; color: var(--text3);
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 6px;
+  flex-shrink: 0; cursor: pointer;
+}
+.ctrl-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 5px; border-radius: 6px; cursor: pointer;
+}
+.ctrl-btn:hover { background: var(--blue-bg); }
+.ctrl-icon { font-size: 17px; line-height: 1; }
+.ctrl-text { font-size: 7.5px; color: var(--text3); white-space: nowrap; }
+.ctrl-btn.active .ctrl-text { color: var(--accent); }
+
+/* ─── 現在のデザイン ─── */
+.cur-row1 {
+  display: flex; align-items: center; padding: 7px 10px 4px; gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.cur-row2 {
+  display: flex; align-items: center; padding: 5px 8px; gap: 3px;
+  overflow: hidden;
+}
+.cur-ch { font-size: 10px; color: var(--text3); flex-shrink: 0; margin-right: 4px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cur-sep { width: 1px; height: 16px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+.cur-btn { font-size: 16px; padding: 3px 4px; color: var(--text2); cursor: pointer; flex-shrink: 0; }
+.cur-btn.sm { font-size: 13px; }
+.cur-row3 {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 4px 8px 8px;
+  background: var(--sub-bg); border-top: 1px solid var(--sub-bd);
+}
+
+/* ─── あなたの案 ─── */
+.u-row1 { display: flex; align-items: center; gap: 5px; padding: 8px 10px 4px; }
+.u-row2 { display: flex; align-items: center; padding: 6px 8px 9px; gap: 2px; }
+.u-skip-grp { display: flex; gap: 2px; flex-shrink: 0; }
+
+/* ─── 提案A ─── */
+.a-row1 { display: flex; align-items: center; padding: 8px 12px 5px; gap: 6px; }
+.a-row2 { display: flex; align-items: stretch; padding: 0 8px 10px; gap: 6px; }
+.a-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.a-group-label { font-size: 8px; color: var(--text4); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+.a-group-btns { display: flex; gap: 3px; }
+.a-sep { width: 1px; background: var(--border); margin: 8px 2px; }
+.a-nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 5px 7px; border-radius: 7px;
+  background: var(--bg4); cursor: pointer;
+  border: 1px solid var(--border);
+}
+.a-nav-icon { font-size: 18px; line-height: 1; }
+.a-nav-text { font-size: 8px; color: var(--text3); }
+.a-nav-btn.primary { background: var(--blue-bg); border-color: var(--blue-bd); }
+.a-nav-btn.primary .a-nav-text { color: var(--blue); }
+.a-nav-btn.row { flex-direction: row; gap: 4px; padding: 3px 7px; }
+
+/* ─── 提案B ─── */
+.b-row1 { display: flex; align-items: center; padding: 8px 12px 4px; gap: 6px; }
+.b-row2 { display: flex; align-items: center; justify-content: space-around; padding: 8px 12px 4px; }
+.b-big-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 6px; border-radius: 10px; }
+.b-big-btn:hover { background: var(--blue-bg); }
+.b-big-icon { font-size: 22px; line-height: 1; color: var(--text); }
+.b-big-text { font-size: 9px; color: var(--text3); font-weight: 500; }
+.b-big-btn.active .b-big-icon { color: var(--accent); }
+.b-big-btn.active .b-big-text { color: var(--accent); }
+.b-row3 {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 5px 12px 10px;
+  background: var(--sub-bg); border-top: 1px solid var(--sub-bd);
+}
+.b-skip {
+  font-size: 9px; color: var(--text2);
+  background: var(--bg4); border: 1px solid var(--border2);
+  border-radius: 5px; padding: 4px 3px; min-width: 28px; text-align: center; cursor: pointer;
+}
+.b-skip-label { font-size: 9px; color: var(--text4); padding: 4px 2px; }
+
+/* ─── 提案C ─── */
+.c-row1 { display: flex; align-items: center; padding: 8px 12px 4px; gap: 6px; }
+.c-row2 { display: flex; align-items: center; gap: 6px; padding: 6px 10px 4px; overflow-x: auto; scrollbar-width: none; }
+.c-row2::-webkit-scrollbar { display: none; }
+.c-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 12px;
+  white-space: nowrap; cursor: pointer; flex-shrink: 0;
+}
+.c-pill:hover { background: var(--blue-bg); border-color: var(--blue-bd); }
+.c-pill.active { background: var(--green-bg); border-color: var(--blue-bd); }
+.c-pill-icon { font-size: 15px; line-height: 1; }
+.c-pill-text { font-size: 11px; color: var(--text2); font-weight: 500; }
+.c-pill.active .c-pill-text { color: var(--green); }
+.c-scroll-hint { font-size: 9px; color: var(--text4); text-align: right; padding: 2px 12px; margin-top: -4px; }
+.c-row3 { display: flex; align-items: center; justify-content: center; gap: 3px; padding: 4px 10px 10px; }
+
+/* ─── 提案D ─── */
+.d-row1 { display: flex; align-items: center; padding: 8px 12px 5px; gap: 6px; }
+.d-row2 { display: flex; align-items: center; padding: 4px 8px 6px; gap: 4px; }
+.d-skip-compact { display: flex; gap: 2px; flex: 1; }
+.d-sc-btn {
+  font-size: 8.5px; color: var(--text2);
+  background: var(--bg4); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 5px 2px; min-width: 26px; text-align: center; cursor: pointer; flex: 1;
+}
+.d-main-ctrl { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.d-main-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; padding: 4px 5px; border-radius: 6px; }
+.d-main-btn:hover { background: var(--blue-bg); }
+.d-main-icon { font-size: 20px; line-height: 1; color: var(--text); }
+.d-main-text { font-size: 8px; color: var(--text3); }
+.d-more-row {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 5px 10px 9px;
+  background: var(--sub-bg); border-top: 1px solid var(--sub-bd);
+}
+.d-more-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text3);
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer;
+}
+.d-more-btn.active { color: var(--accent); border-color: var(--accent-bd); background: var(--accent-bg); }
+
+/* ─── 提案E ─── */
+.e-row1 { display: flex; align-items: center; padding: 8px 12px 4px; gap: 6px; }
+.e-row2 { display: flex; flex-direction: column; padding: 6px 12px 4px; gap: 4px; }
+.e-timeline-label { display: flex; justify-content: space-between; font-size: 9px; color: var(--text4); }
+.e-timeline {
+  position: relative; height: 28px;
+  background: var(--bg4); border-radius: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 4px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.e-tl-marker {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px; height: 18px;
+  background: var(--blue); border-radius: 2px;
+}
+.e-tl-btn {
+  font-size: 9px; color: var(--text2);
+  background: var(--bg3); border-radius: 10px;
+  padding: 3px 6px; cursor: pointer; z-index: 1;
+}
+.e-tl-btn.fwd { color: var(--blue); background: var(--blue-bg); }
+.e-row3 { display: flex; align-items: center; justify-content: space-around; padding: 4px 8px 10px; }
+.e-ctrl { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.e-ctrl:hover { background: var(--blue-bg); }
+.e-ctrl-icon { font-size: 20px; line-height: 1; color: var(--text); }
+.e-ctrl-text { font-size: 8.5px; color: var(--text3); font-weight: 500; }
+.e-ctrl.active .e-ctrl-icon { color: var(--accent); }
+.e-ctrl.active .e-ctrl-text { color: var(--accent); }
+
+/* ─── サマリー ─── */
+.summary {
+  max-width: 700px; margin: 0 auto;
+  font-size: 12px; line-height: 2; color: var(--text3);
+  background: var(--card-bg); border-radius: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+}
+.summary span { color: var(--accent); font-weight: 700; }
+.footer { text-align: center; font-size: 11px; color: var(--text4); margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<!-- テーマ切り替え -->
+<div class="theme-bar">
+  <div class="theme-toggle">
+    <div class="theme-btn active" id="btn-dark" onclick="setTheme('dark')">🌙 ダーク</div>
+    <div class="theme-btn"        id="btn-light" onclick="setTheme('light')">☀️ ライト</div>
+  </div>
+</div>
+
+<h1>VPanel 再生コントロール デザイン提案</h1>
+<p class="page-sub">スマホ縦長ビュー想定 · 横幅 360px</p>
+
+<!-- ── 現状 ── -->
+<div class="section-header">── 現在のデザイン（参照用）──</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-label">現在の構成</div>
+    <div class="card-concept">3行: タイトル / チャンネル+コントロール / スキップ秒数<br>アイコンのみ・機能名の説明なし</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="cur-row1">
+        <div class="title-block"><div class="vt">#1 究極のフックスイープ完全版</div></div>
+        <div class="edit-btn">✏️</div>
+      </div>
+      <div class="cur-row2">
+        <div class="cur-ch">新・柔術日記Channel</div>
+        <div class="cur-sep"></div>
+        <div class="cur-btn">⏮</div><div class="cur-btn">⏭</div>
+        <div class="cur-sep"></div>
+        <div class="cur-btn">🔁</div><div class="cur-btn">🔀</div>
+        <div class="cur-btn sm">反反</div>
+        <div class="cur-sep"></div>
+        <div class="cur-btn">?</div><div class="cur-btn">≡</div><div class="cur-btn">🔍</div>
+      </div>
+      <div class="cur-row3">
+        <div class="skip-btn">◄1m</div><div class="skip-btn">◄30s</div>
+        <div class="skip-btn">◄10s</div><div class="skip-btn">◄3s</div>
+        <div class="skip-btn fwd">3s►</div><div class="skip-btn fwd">10s►</div>
+        <div class="skip-btn fwd">30s►</div><div class="skip-btn fwd">1m►</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ユーザー案 ── -->
+<div class="section-header">── あなたの提案案 ──</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-label">あなたの案</div>
+    <div class="card-concept">行1: タイトル＋チャンネル / Gボタン / ヘルプ / タイマー<br>行2: スキップ秒数（左）＋ 機能ボタン＋ラベル（右）<br>虫眼鏡を廃止</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="u-row1">
+        <div class="google-btn">↗G</div>
+        <div class="title-block">
+          <div class="vt">#1 究極のフックスイープ完全版</div>
+          <div class="ch">新・柔術日記Channel</div>
+        </div>
+        <div class="edit-btn">✏️</div>
+        <div class="help-btn">?</div>
+        <div class="timer-badge">0:00</div>
+      </div>
+      <div class="u-row2">
+        <div class="u-skip-grp">
+          <div class="skip-btn">◄1m</div><div class="skip-btn">◄30s</div><div class="skip-btn">◄3s</div>
+        </div>
+        <div class="divider-v"></div>
+        <div class="u-skip-grp">
+          <div class="skip-btn fwd">3s►</div><div class="skip-btn fwd">30s►</div><div class="skip-btn fwd">1m►</div>
+        </div>
+        <div class="divider-v"></div>
+        <div style="display:flex;gap:2px;flex:1;justify-content:flex-end;">
+          <div class="ctrl-btn">
+            <div class="ctrl-icon">⏮⏭</div>
+            <div class="ctrl-text">スキップ</div>
+          </div>
+          <div class="ctrl-btn active">
+            <div class="ctrl-icon">🔁</div>
+            <div class="ctrl-text">リピート</div>
+          </div>
+          <div class="ctrl-btn">
+            <div class="ctrl-icon">🔀</div>
+            <div class="ctrl-text">ランダム</div>
+          </div>
+          <div class="ctrl-btn">
+            <div class="ctrl-icon">反</div>
+            <div class="ctrl-text">ミラー</div>
+          </div>
+          <div class="ctrl-btn">
+            <div class="ctrl-icon">≡</div>
+            <div class="ctrl-text">リスト</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 5提案 ── -->
+<div class="section-header">── 5つの提案 ──</div>
+<div class="grid">
+
+  <!-- 提案A -->
+  <div class="card">
+    <div class="card-label">提案A：グループ分け明示型</div>
+    <div class="card-concept">「巻戻し」「前後の動画」「早送り」「設定」を明確にグループ分け<br>セクションラベルで初見でも意味が伝わる</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="a-row1">
+        <div class="title-block">
+          <div class="vt">#1 究極のフックスイープ完全版</div>
+          <div class="ch">新・柔術日記Channel</div>
+        </div>
+        <div class="small-badge">? ヘルプ</div>
+        <div class="timer-badge">0:00</div>
+      </div>
+      <div class="a-row2">
+        <div class="a-group">
+          <div class="a-group-label">巻戻し</div>
+          <div class="a-group-btns">
+            <div class="skip-btn">◄1m</div><div class="skip-btn">◄30s</div><div class="skip-btn">◄3s</div>
+          </div>
+        </div>
+        <div class="a-sep"></div>
+        <div class="a-group">
+          <div class="a-group-label">前後の動画</div>
+          <div class="a-group-btns">
+            <div class="a-nav-btn primary"><div class="a-nav-icon">⏮</div><div class="a-nav-text">前へ</div></div>
+            <div class="a-nav-btn primary"><div class="a-nav-icon">⏭</div><div class="a-nav-text">次へ</div></div>
+          </div>
+        </div>
+        <div class="a-sep"></div>
+        <div class="a-group">
+          <div class="a-group-label">早送り</div>
+          <div class="a-group-btns">
+            <div class="skip-btn fwd">3s►</div><div class="skip-btn fwd">30s►</div><div class="skip-btn fwd">1m►</div>
+          </div>
+        </div>
+        <div class="a-sep"></div>
+        <div class="a-group">
+          <div class="a-group-label">設定</div>
+          <div class="a-group-btns" style="flex-direction:column;gap:3px;">
+            <div class="a-nav-btn row"><span style="font-size:14px">🔁</span><span class="a-nav-text">リピート</span></div>
+            <div class="a-nav-btn row"><span style="font-size:14px">🔀</span><span class="a-nav-text">ランダム</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提案B -->
+  <div class="card">
+    <div class="card-label">提案B：大ボタン＋サブバー型</div>
+    <div class="card-concept">主要機能を大きなアイコン＋テキストで中央表示<br>秒数ジャンプは下部サブバーへ。機能が一番わかりやすい</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="b-row1">
+        <div class="title-block"><div class="vt">#1 究極のフックスイープ完全版</div></div>
+        <div class="help-btn">?</div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);padding:0 12px 4px;">新・柔術日記Channel</div>
+      <div class="b-row2">
+        <div class="b-big-btn"><div class="b-big-icon">⏮</div><div class="b-big-text">前の動画</div></div>
+        <div class="b-big-btn active"><div class="b-big-icon">🔁</div><div class="b-big-text">リピート</div></div>
+        <div class="b-big-btn"><div class="b-big-icon">🔀</div><div class="b-big-text">ランダム</div></div>
+        <div class="b-big-btn"><div class="b-big-icon">反</div><div class="b-big-text">ミラー</div></div>
+        <div class="b-big-btn"><div class="b-big-icon">≡</div><div class="b-big-text">リスト</div></div>
+        <div class="b-big-btn"><div class="b-big-icon">⏭</div><div class="b-big-text">次の動画</div></div>
+      </div>
+      <div class="b-row3">
+        <div class="b-skip-label">←巻戻し</div>
+        <div class="b-skip">1m</div><div class="b-skip">30s</div>
+        <div class="b-skip">10s</div><div class="b-skip">3s</div>
+        <div style="width:6px"></div>
+        <div class="b-skip">3s</div><div class="b-skip">10s</div>
+        <div class="b-skip">30s</div><div class="b-skip">1m</div>
+        <div class="b-skip-label">早送り→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提案C -->
+  <div class="card">
+    <div class="card-label">提案C：ピル型スクロール</div>
+    <div class="card-concept">テキスト＋アイコンのピル形ボタンを横スクロールで並べる<br>ON/OFFが色で一目瞭然。すっきりした見た目</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="c-row1">
+        <div class="title-block">
+          <div class="vt">#1 究極のフックスイープ完全版</div>
+          <div class="ch">新・柔術日記Channel</div>
+        </div>
+        <div class="help-btn">?</div>
+        <div class="timer-badge">0:00</div>
+      </div>
+      <div class="c-row2">
+        <div class="c-pill"><span class="c-pill-icon">⏮</span><span class="c-pill-text">前の動画</span></div>
+        <div class="c-pill active"><span class="c-pill-icon">🔁</span><span class="c-pill-text">リピート中</span></div>
+        <div class="c-pill"><span class="c-pill-icon">🔀</span><span class="c-pill-text">ランダム</span></div>
+        <div class="c-pill"><span class="c-pill-icon">反</span><span class="c-pill-text">ミラー</span></div>
+        <div class="c-pill"><span class="c-pill-icon">≡</span><span class="c-pill-text">リスト</span></div>
+        <div class="c-pill"><span class="c-pill-icon">⏭</span><span class="c-pill-text">次の動画</span></div>
+      </div>
+      <div class="c-scroll-hint">← スクロールして全機能を表示 →</div>
+      <div class="c-row3">
+        <div class="skip-btn">◄1m</div><div class="skip-btn">◄30s</div>
+        <div class="skip-btn">◄10s</div><div class="skip-btn">◄3s</div>
+        <div class="skip-btn fwd">3s►</div><div class="skip-btn fwd">10s►</div>
+        <div class="skip-btn fwd">30s►</div><div class="skip-btn fwd">1m►</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提案D -->
+  <div class="card">
+    <div class="card-label">提案D：プライマリ＋サブ開示型</div>
+    <div class="card-concept">「前/次の動画」「リピート」だけ大きく常時表示<br>使用頻度の低い機能は下バーにまとめてすっきり</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="d-row1">
+        <div class="title-block">
+          <div class="vt">#1 究極のフックスイープ完全版</div>
+          <div class="ch">新・柔術日記Channel</div>
+        </div>
+        <div class="help-btn">?</div>
+      </div>
+      <div class="d-row2">
+        <div class="d-skip-compact">
+          <div class="d-sc-btn">◄30s</div><div class="d-sc-btn">◄3s</div>
+          <div class="d-sc-btn fwd" style="color:var(--blue);border-color:var(--blue-bd);background:var(--blue-bg);">3s►</div>
+          <div class="d-sc-btn fwd" style="color:var(--blue);border-color:var(--blue-bd);background:var(--blue-bg);">30s►</div>
+        </div>
+        <div class="divider-v" style="margin:0 6px;"></div>
+        <div class="d-main-ctrl">
+          <div class="d-main-btn"><div class="d-main-icon">⏮</div><div class="d-main-text">前の動画</div></div>
+          <div class="d-main-btn" style="background:var(--green-bg);border-radius:8px;">
+            <div class="d-main-icon" style="color:var(--green);">🔁</div>
+            <div class="d-main-text" style="color:var(--green);">リピートON</div>
+          </div>
+          <div class="d-main-btn"><div class="d-main-icon">⏭</div><div class="d-main-text">次の動画</div></div>
+        </div>
+      </div>
+      <div class="d-more-row">
+        <div class="d-more-btn">🔀 ランダム</div>
+        <div class="d-more-btn active">反 ミラーON</div>
+        <div class="d-more-btn">≡ リスト</div>
+        <div class="d-more-btn">1m◄▸1m</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提案E -->
+  <div class="card">
+    <div class="card-label">提案E：タイムライン一本化型</div>
+    <div class="card-concept">「時間移動」を1本のバーで視覚化。◄左が巻戻し・右►が早送り<br>方向感が直感的で初見ユーザーにわかりやすい</div>
+    <div class="phone">
+      <div class="thumb"><div class="thumb-play">▶</div></div>
+      <div class="e-row1">
+        <div class="title-block">
+          <div class="vt">#1 究極のフックスイープ完全版</div>
+          <div class="ch">新・柔術日記Channel</div>
+        </div>
+        <div class="help-btn">?</div>
+        <div class="timer-badge">0:00</div>
+      </div>
+      <div class="e-row2">
+        <div class="e-timeline-label"><span>← 巻き戻し</span><span>早送り →</span></div>
+        <div class="e-timeline">
+          <div class="e-tl-btn">1m</div><div class="e-tl-btn">30s</div>
+          <div class="e-tl-btn">10s</div><div class="e-tl-btn">3s</div>
+          <div class="e-tl-marker"></div>
+          <div class="e-tl-btn fwd">3s</div><div class="e-tl-btn fwd">10s</div>
+          <div class="e-tl-btn fwd">30s</div><div class="e-tl-btn fwd">1m</div>
+        </div>
+      </div>
+      <div class="e-row3">
+        <div class="e-ctrl"><div class="e-ctrl-icon">⏮</div><div class="e-ctrl-text">前の動画</div></div>
+        <div class="e-ctrl active"><div class="e-ctrl-icon">🔁</div><div class="e-ctrl-text">リピート</div></div>
+        <div class="e-ctrl"><div class="e-ctrl-icon">🔀</div><div class="e-ctrl-text">ランダム</div></div>
+        <div class="e-ctrl"><div class="e-ctrl-icon">反</div><div class="e-ctrl-text">ミラー</div></div>
+        <div class="e-ctrl"><div class="e-ctrl-icon">≡</div><div class="e-ctrl-text">リスト</div></div>
+        <div class="e-ctrl"><div class="e-ctrl-icon">⏭</div><div class="e-ctrl-text">次の動画</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- サマリー -->
+<div class="section-header">── 各案の特徴まとめ ──</div>
+<div class="summary">
+  <div><span>あなたの案</span>　2行完結・スキップ秒数とラベル付き機能ボタンを横並び。実装コスト低い</div>
+  <div><span>提案A</span>　グループラベルで意味を明示。情報量が多く、やや横幅がタイト</div>
+  <div><span>提案B</span>　機能名テキストが最も大きく視認性が高い。前後ナビを両端に配置。3行になる</div>
+  <div><span>提案C</span>　ピル型でON/OFFが色で一目瞭然。横スクロールで場所を取らない</div>
+  <div><span>提案D</span>　よく使う機能だけ目立たせ、サブ機能は下バーへ。最もすっきり</div>
+  <div><span>提案E</span>　タイムラインで「前←→後」の方向感が視覚的に直感的</div>
+</div>
+<p class="footer">気に入った案・要素があれば組み合わせてブラッシュアップします</p>
+
+<script>
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+}
+</script>
+</body>
+</html>

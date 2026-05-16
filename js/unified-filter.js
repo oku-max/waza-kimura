@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.245 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.246 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';

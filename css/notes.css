@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v52.245 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.246 ═══ */
 
 /* ── インライン動画パネル（マップ仕様準拠） ── */
 .n-iv-node {
@@ -539,7 +539,7 @@
 #notesTab {
   display: none;
   flex-direction: column;
-  flex: 1;
+  height: 100%;
   overflow: hidden;
 }
 #notesTab.active { display: flex; }
