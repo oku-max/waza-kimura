@@ -1,4 +1,4 @@
-/* ═══ WAZA KIMURA — Notes tab v52.246 ═══ */
+/* ═══ WAZA KIMURA — Notes tab v52.248 ═══ */
 
 /* ── インライン動画パネル（マップ仕様準拠） ── */
 .n-iv-node {
@@ -538,11 +538,19 @@
 /* ── layout ── */
 #notesTab {
   display: none;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
 }
-#notesTab.active { display: flex; }
+#notesTab.active {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: var(--topbar-h, 72px);
+  left: var(--sbw, 0px);
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: var(--surface);
+  z-index: 15;
+}
 
 .notes-app {
   display: flex;
@@ -731,7 +739,7 @@
   background: var(--surface);
   position: fixed;
   top: var(--topbar-h, 72px);
-  left: 0;
+  left: var(--sbw, 0px);
   right: 0;
   z-index: 101;
   transition: transform 0.22s ease, box-shadow 0.22s ease;
@@ -1213,7 +1221,8 @@
 
 /* ── responsive ── */
 @media (max-width: 767px) {
-  .notes-topbar { top: var(--topbar-h, 56px); }
+  #notesTab.active { left: 0; top: var(--topbar-h, 56px); }
+  .notes-topbar { left: 0; top: var(--topbar-h, 56px); }
   .notes-content { padding: 52px 16px 16px }
   .n-page-title { font-size: 20px }
 }
@@ -1520,7 +1529,3 @@ body.dark .n-ctrl-bar .n-ctrl-sep { background: #b0b0cc }
 }
 body.dark .n-move-banner { background: #4f46e5 }
 
-/* ── PC(1200px+): notesトップバーをサイドバー幅分右にオフセット ── */
-@media (min-width: 1200px) {
-  .notes-topbar { left: var(--sbw, 220px); }
-}
