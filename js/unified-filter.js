@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.233 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.234 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -63,9 +63,15 @@
     const tkCat  = isOrg ? 'action'   : 'cat';
     const tkPos  = isOrg ? 'position' : 'posNew';
     const tkTags = isOrg ? 'tags'     : 'tags';
+    // タイトルタブの検索クエリ — 他タブのファセット計算にも適用して双方向連動させる
+    const _vidTabQ = _queries['video'];
     return (window.videos || []).filter(v => {
       if (v.archived) return false;
       if (!_matchMainQ(v)) return false;
+      if (_vidTabQ) {
+        const hay = [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ');
+        if (!hay.includes(_vidTabQ)) return false;
+      }
       if (excludeKey !== 'fav'  && fav  && !v.fav) return false;
       if (excludeKey !== 'next'&& next && !v.next) return false;
       if (excludeKey !== 'unw' && unw && v.watched) return false;
