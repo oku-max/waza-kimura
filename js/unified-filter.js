@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.235 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.236 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -713,16 +713,26 @@
       // store current list for _uniVidSelAll
       window._uniCurVidIds = vids.map(v => v.id);
 
-      const hdr = (!_noteMode && !_vlBlockTarget)
+      const hdr = _vlBlockTarget
         ? `<div class="uni-vid-sel-hdr">
-            <span>${vids.length}件${selCount ? ` · <b style="color:var(--accent)">${selCount}件選択中</b>` : ''}</span>
+            <span style="color:var(--text3)">タイトル条件:</span>
+            <span style="color:${_q ? 'var(--accent)' : 'var(--text3)'};font-weight:${_q ? '700' : '400'}">${_q ? `"${_esc(_q)}"` : '(未設定)'}</span>
             <span style="flex:1"></span>
-            <button onclick="window._uniVidSelAll(${allSel})"
-              style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit">
-              ${allSel ? '全解除' : '全選択'}
+            <button onclick="window._uniSaveVlBlockFilter()"
+              style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-family:inherit">
+              💾 動的条件で保存
             </button>
            </div>`
-        : '';
+        : (!_noteMode
+          ? `<div class="uni-vid-sel-hdr">
+              <span>${vids.length}件${selCount ? ` · <b style="color:var(--accent)">${selCount}件選択中</b>` : ''}</span>
+              <span style="flex:1"></span>
+              <button onclick="window._uniVidSelAll(${allSel})"
+                style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit">
+                ${allSel ? '全解除' : '全選択'}
+              </button>
+             </div>`
+          : '');
 
       const rows = vids.length
         ? vids.map(v => {
@@ -930,6 +940,7 @@
     snap._watchedOnly = !!window.watchedOnly;
     snap._prRank = window.prRank ?? null;
     snap._prDate = window.prDate ?? null;
+    snap.titleQ = _queries['video'] || '';
     return snap;
   }
 
@@ -947,6 +958,7 @@
     if ('_watchedOnly' in snap) window.watchedOnly = !!snap._watchedOnly;
     if ('_prRank' in snap) window.prRank = snap._prRank;
     if ('_prDate' in snap) window.prDate = snap._prDate;
+    if ('titleQ' in snap) _queries['video'] = snap.titleQ || '';
     window.AF?.();
   }
 

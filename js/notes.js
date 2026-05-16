@@ -2878,7 +2878,7 @@ function _applyVlSort(vids, sort) {
 // 旧フォーマット { tb[], cat[], pos[], tags[], pl, status, channel } と
 // 新フォーマット（window.filtersスナップショット形式）両対応
 function _vlGetFilterFields(filter) {
-  if (!filter) return { pl:[], status:[], channel:[], tb:[], cat:[], pos:[], tags:[], prio:[], platform:[], favOnly:false, unwOnly:false, watchedOnly:false };
+  if (!filter) return { pl:[], status:[], channel:[], tb:[], cat:[], pos:[], tags:[], prio:[], platform:[], favOnly:false, unwOnly:false, watchedOnly:false, titleQ:'' };
   const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
   return {
     pl:       Array.isArray(filter.playlist) ? filter.playlist : arr(filter.pl),
@@ -2892,7 +2892,8 @@ function _vlGetFilterFields(filter) {
     platform: filter.platform || [],
     favOnly:     !!filter._favOnly,
     unwOnly:     !!filter._unwOnly,
-    watchedOnly: !!filter._watchedOnly
+    watchedOnly: !!filter._watchedOnly,
+    titleQ:   filter.titleQ || ''
   };
 }
 
@@ -2912,6 +2913,10 @@ function _filterVidList(filter) {
   if (f.favOnly)         vs = vs.filter(v => v.fav);
   if (f.unwOnly)         vs = vs.filter(v => v.unw);
   if (f.watchedOnly)     vs = vs.filter(v => v.watched);
+  if (f.titleQ) {
+    const q = f.titleQ.toLowerCase();
+    vs = vs.filter(v => (v.title || '').toLowerCase().includes(q) || (v.channel || v.ch || '').toLowerCase().includes(q));
+  }
   vs.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
   return vs;
 }
@@ -2930,6 +2935,7 @@ function _vlSummary(filter) {
   if (f.favOnly)        parts.push('★お気に入り');
   if (f.unwOnly)        parts.push('未着手');
   if (f.watchedOnly)    parts.push('視聴済');
+  if (f.titleQ)         parts.push('🔍 ' + f.titleQ);
   return parts.join(' · ');
 }
 
@@ -2973,7 +2979,8 @@ window._notesVlEdit = function(noteId, path) {
     _unwOnly:     !!f._unwOnly,
     _watchedOnly: !!f._watchedOnly,
     _prRank:      f._prRank ?? null,
-    _prDate:      f._prDate ?? null
+    _prDate:      f._prDate ?? null,
+    titleQ:       f.titleQ || ''
   };
   window.uniOpenForVlBlock(noteId, String(path), snap);
 };
