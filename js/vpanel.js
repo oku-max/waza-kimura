@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.222 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.228 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -3146,7 +3146,7 @@ window.vpJumpToChannel = function(id) {
     const f = window.filters;
     if (f) { f.channel.clear(); f.channel.add(name); }
     window.buildChSrow?.(); window.buildFsChSrow?.();
-    window.AF?.();
+    window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };
 
@@ -3161,7 +3161,7 @@ window.vpJumpToPlaylist = function(id) {
     const f = window.filters;
     if (f) { f.playlist.clear(); f.playlist.add(name); }
     window.buildPlSrow?.(); window.buildFsPlSrow?.();
-    window.AF?.();
+    window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };
 

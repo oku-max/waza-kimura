@@ -76,7 +76,9 @@
 
   // ── 描画 ─────────────────────────────────────────────
   function _render() {
+    if (!_steps.length) return;
     const s  = _steps[_cur];
+    if (!s) return;
     const el = document.getElementById(s.id);
 
     // 要素が存在しない場合はそのステップをスキップ
