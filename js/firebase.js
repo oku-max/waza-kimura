@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Firebase・認証 v52.227 ═══
+// ═══ WAZA KIMURA — Firebase・認証 v52.255 ═══
 import { showToast } from './ui.js';
 
 const firebaseConfig = {
@@ -199,9 +199,7 @@ export async function loadUserData(uid) {
 
   let loaded = false;
   let needsSave = false;
-  const base = db.collection('users').doc(uid).collection('data');
-
-  // 1. Firebase Storage を優先（CORS設定後に動作）
+  // 1. Firebase Storage を優先
   try {
     const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
     const resp = await fetch(url);
@@ -217,41 +215,20 @@ export async function loadUserData(uid) {
     if (e.code !== 'storage/object-not-found') console.warn('[loadUserData] Storage:', e.message);
   }
 
-  // 2. Firestoreチャンク形式にフォールバック
+  // 2. Firestore にフォールバック（旧データの自動移行）
   if (!loaded) {
     try {
-      const meta = await base.doc('videos_meta').get();
-      if (meta.exists) {
-        const { chunks, updatedAt } = meta.data();
-        const snaps = await Promise.all(
-          Array.from({ length: chunks }, (_, i) => base.doc(`videos_${i}`).get())
-        );
-        const allVideos = snaps.flatMap(s => s.data()?.videos || []);
-        if (allVideos.length) {
-          needsSave = await _applyVideosData(allVideos);
-          _videosLoadedAt = updatedAt || '';
-          loaded = true;
-        }
-      }
-    } catch (e) {
-      console.error('[loadUserData] Firestore chunks:', e);
-    }
-  }
-
-  // 3. 旧Firestoreシングルドキュメント形式にフォールバック
-  if (!loaded) {
-    try {
-      const snap = await base.doc('videos').get();
+      const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
       const data = snap.data();
       if (snap.exists && data?.videos?.length) {
         needsSave = await _applyVideosData(data.videos);
         _videosLoadedAt = data.updatedAt || '';
         loaded = true;
         needsSave = true;
-        console.log('[migration] 旧Firestore形式 → チャンク形式へ移行');
+        console.log('[migration] Firestore → Storage移行を開始');
       }
     } catch (e) {
-      console.error('[loadUserData] Firestore legacy:', e);
+      console.error('[loadUserData] Firestore:', e);
     }
   }
 
@@ -269,8 +246,6 @@ export async function loadUserData(uid) {
   }
 }
 
-const _VC_CHUNK = 300; // 300件×~600B = ~180KB < 1MB/doc
-
 export async function saveUserData() {
   if (!currentUser) {
     console.warn('[saveUserData] currentUser is null — save skipped. Videos in memory:', (window.videos||[]).length);
@@ -282,24 +257,8 @@ export async function saveUserData() {
     _videosLoadedAt = updatedAt;
     const uid = currentUser.uid;
     const videos = (window.videos || []).filter(v => !v._srTemp);
-
-    // 1. Firebase Storage に保存（無制限・CORS設定後に読み込みも有効）
-    try {
-      const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
-      await storage.ref(`users/${uid}/videos.json`).put(blob);
-    } catch (e) {
-      console.warn('[saveUserData] Storage write failed:', e.message);
-    }
-
-    // 2. Firestoreチャンク形式に保存（Storage読み込みのCORS問題回避フォールバック）
-    const base = db.collection('users').doc(uid).collection('data');
-    const chunks = [];
-    for (let i = 0; i < videos.length; i += _VC_CHUNK) chunks.push(videos.slice(i, i + _VC_CHUNK));
-    const batch = db.batch();
-    batch.set(base.doc('videos_meta'), { chunks: chunks.length, updatedAt, savedBy: _sessionId });
-    chunks.forEach((chunk, i) => batch.set(base.doc(`videos_${i}`), { videos: chunk, updatedAt }));
-    await batch.commit();
-
+    const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
+    await storage.ref(`users/${uid}/videos.json`).put(blob);
     showToast('💾 保存', 1500);
   } catch (e) {
     console.error('[saveUserData] save failed:', e);
