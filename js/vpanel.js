@@ -1421,22 +1421,27 @@ export function openVPanel(id) {
     const gdFileId = plat === 'gd' ? id.replace(/^gd-/, '') : '';
     const driveOpenBtn = gdFileId ? `<a href="https://drive.google.com/file/d/${gdFileId}/view" target="_blank" rel="noopener" title="GDriveで開いて再生→サムネイル生成" style="flex-shrink:0;display:flex;align-items:center;gap:2px;color:var(--accent);font-size:9px;font-weight:600;text-decoration:none;line-height:1;white-space:nowrap;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity='1';this.style.textDecoration='underline'" onmouseout="this.style.opacity='.75';this.style.textDecoration='none'">↗ GDrive</a>` : '';
     titleEl.innerHTML = `
-      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:6px">
-        <div id="vp-title-text-${id}" style="flex:1;font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
-        ${driveOpenBtn}
-        <button onclick="vpEditTitle('${id}')" title="タイトルを編集" style="flex-shrink:0;width:22px;height:22px;border:none;background:transparent;color:var(--text3);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">${pencilSvg}</button>
+      <div style="padding:7px 10px 6px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:5px">
+        <div style="flex:1;min-width:0">
+          <div id="vp-title-text-${id}" style="font-size:11px;font-weight:700;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${v.title}</div>
+          ${chName ? `<div style="font-size:9px;font-weight:600;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chName}</div>` : ''}
+        </div>
+        <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;align-self:center"></span>
+        <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="その他のアクション" style="${navBtn};font-size:14px;letter-spacing:-1px">•••</button>
+        <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
       </div>
-      <div style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-bottom:1px solid var(--border)">
-        ${chHtml}
+      <div style="display:flex;align-items:center;gap:4px;padding:5px 8px">
         <button onclick="vpNav(-1)" title="前の動画" style="${navBtn}">⏮</button>
         <button onclick="vpNav(1)" title="次の動画" style="${navBtn}">⏭</button>
-        <button class="vp-repeat-btn" onclick="vpCycleRepeat()" title="リピート" data-state="${_vpRepeat}" style="${iconBtn};${repeatStyle}">${_repeatSVG()}<span class="vp-repeat-badge" style="position:absolute;bottom:2px;right:3px;font-size:8px;font-weight:900;line-height:1;background:rgba(0,0,0,.4);border-radius:3px;padding:0 2px;display:${_vpRepeat==='one'?'inline-block':'none'}">1</span></button>
-        <button class="vp-shuffle-btn" onclick="vpToggleShuffle()" title="シャッフル" style="${iconBtn};${shuffleStyle}">${_shuffleSVG()}</button>
-        <button id="vp-mirror-btn" onclick="vpToggleMirror()" title="左右反転" style="${mirrorBtn}">R|Я</button>
-        <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${iconBtn};background:var(--surface2);border-color:var(--border);color:var(--text2)">?</button>
-        ${ctrlSep}
-        <button onclick="vpOpenNextList()" title="次の動画リスト" style="${navBtn}">☰</button>
-        <button id="vp-search-btn" onclick="vpTogSearchMenu(event,window.openVPanelId)" title="検索" style="${navBtn}">${srchSvg}</button>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px"></div>
+        <button onclick="vpSkip(-60)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>1m</button>
+        <button onclick="vpSkip(-30)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>30s</button>
+        <button onclick="vpSkip(-10)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>10s</button>
+        <button onclick="vpSkip(-3)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>3s</button>
+        <button onclick="vpSkip(3)" class="ab-skip-btn ab-skip-plus">3s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="vpSkip(10)" class="ab-skip-btn ab-skip-plus">10s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="vpSkip(30)" class="ab-skip-btn ab-skip-plus">30s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="vpSkip(60)" class="ab-skip-btn ab-skip-plus">1m<span class="ab-skip-arrow">▶</span></button>
       </div>`;
   }
 
@@ -1498,7 +1503,7 @@ export function openVPanel(id) {
 
   // UI 全て同期レンダリング（panel hidden のまま — 1回の reflow に集約）
   const skipArea = document.getElementById('vpanel-skip-area');
-  if (skipArea) skipArea.innerHTML = _skipBtnsHTML();
+  if (skipArea) skipArea.innerHTML = '';
 
   const abArea = document.getElementById('vpanel-ab-area');
   if (abArea) abArea.innerHTML = _abBarHTML();
@@ -3263,6 +3268,77 @@ function _menuItem(iconHtml, label, sub, hasArrow = false) {
   `;
   return el;
 }
+
+window.vpTogMoreMenu = function(e, id) {
+  e.stopPropagation();
+  const existing = document.getElementById('vp-more-menu');
+  if (existing) { existing.remove(); return; }
+
+  const btn = document.getElementById('vp-more-btn');
+  if (!btn) return;
+
+  const isGd = (id || '').startsWith('gd-');
+  const gdFileId = isGd ? id.replace(/^gd-/, '') : '';
+
+  const menu = document.createElement('div');
+  menu.id = 'vp-more-menu';
+  menu.className = 'vp-search-menu';
+
+  const mkSvg = (path, w=14) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="currentColor">${path}</svg>`;
+  const repeatSvg  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+  const shuffleSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 3 21 6 17 9"/><path d="M2 19H5C9 19 15 6 21 6"/><polyline points="17 15 21 18 17 21"/><path d="M2 5H5C9 5 15 18 21 18"/></svg>`;
+  const mirrorSvg  = `<span style="font-size:11px;font-weight:800;font-family:Georgia,serif;letter-spacing:-1px">R|Я</span>`;
+  const listSvg    = mkSvg('<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>');
+  const searchSvg  = mkSvg('<path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>');
+  const editSvg    = mkSvg('<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>');
+  const driveSvg   = mkSvg('<path d="M7.71 3.5L1.15 15l3.43 5.5h15.84l3.43-5.5L18.29 3.5H7.71zm.71 9.5l3.58-6h4l3.58 6H8.42z"/>');
+
+  const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
+
+  const ri = _menuItem(repeatSvg, 'リピート', 'ループ・ワンリピート切替');
+  ri.onclick = () => { menu.remove(); vpCycleRepeat(); };
+  menu.appendChild(ri);
+
+  const si = _menuItem(shuffleSvg, 'シャッフル', '再生順をランダムに');
+  si.onclick = () => { menu.remove(); vpToggleShuffle(); };
+  menu.appendChild(si);
+
+  const mi = _menuItem(mirrorSvg, 'リバース', '左右反転モード');
+  mi.onclick = () => { menu.remove(); window.vpToggleMirror?.(); };
+  menu.appendChild(mi);
+
+  addDivider();
+
+  const li = _menuItem(listSvg, 'リスト表示', 'プレイリストを確認');
+  li.onclick = () => { menu.remove(); window.vpOpenNextList?.(); };
+  menu.appendChild(li);
+
+  const sci = _menuItem(searchSvg, 'YouTube検索', '関連動画を探す');
+  sci.onclick = (ev) => { menu.remove(); window.vpTogSearchMenu?.(ev, id); };
+  menu.appendChild(sci);
+
+  addDivider();
+
+  const ei = _menuItem(editSvg, 'タイトル編集', '名前を変更する');
+  ei.onclick = () => { menu.remove(); vpEditTitle(id); };
+  menu.appendChild(ei);
+
+  if (gdFileId) {
+    const di = _menuItem(driveSvg, 'Drive を開く', 'Google Drive で確認');
+    di.onclick = () => { menu.remove(); window.open(`https://drive.google.com/file/d/${gdFileId}/view`, '_blank', 'noopener'); };
+    menu.appendChild(di);
+  }
+
+  _positionMenu(menu, btn);
+
+  const onOutside = (ev) => {
+    if (!menu.contains(ev.target) && ev.target !== btn) {
+      menu.remove();
+      document.removeEventListener('click', onOutside, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+};
 
 function _positionMenu(menu, anchor) {
   menu.style.position = 'fixed';
