@@ -35,6 +35,7 @@ async function handleApi(request, env, path) {
     case '/api/yt-playlist-items': return handleYtPlaylistItems(request, env);
     case '/api/ai-group':         return handleAiGroup(request, env);
     case '/api/ai-tag':      return handleAiTag(request, env);
+    case '/api/vimeo-proxy': return handleVimeoProxy(request);
     default:                 return new Response('Not found', { status: 404 });
   }
 }
@@ -364,6 +365,25 @@ ${rulesSection}${blockSection}
 }
 
 // ── ユーティリティ ────────────────────────────────────────
+// ── /api/vimeo-proxy — Vimeo oEmbed プロキシ ─────────────
+async function handleVimeoProxy(request) {
+  const videoUrl = new URL(request.url).searchParams.get('url');
+  if (!videoUrl || !/^https:\/\/vimeo\.com\/\d/.test(videoUrl)) {
+    return jsonRes({ error: 'url パラメータが不正です' }, 400);
+  }
+  const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(videoUrl)}`;
+  try {
+    const res  = await fetch(oembedUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WazaKimura/1.0)' } });
+    const text = await res.text();
+    return new Response(text, {
+      status: res.status,
+      headers: { 'Content-Type': 'application/json', ...CORS, 'Cache-Control': 'public, max-age=3600' },
+    });
+  } catch (e) {
+    return jsonRes({ error: 'proxy failed: ' + e.message }, 500);
+  }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
