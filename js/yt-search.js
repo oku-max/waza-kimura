@@ -724,6 +724,7 @@ export function ytSrOpenVPanel(idx) {
           ${ch ? `<div class="yt-sr-vp-ch-text">${_esc(ch)}</div>` : ''}
         </div>
         <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+        <button class="yt-sr-vp-results-btn" style="letter-spacing:-1px;font-size:14px" onclick="vpTogMoreMenu(event, window.openVPanelId||'')" title="その他のアクション">•••</button>
         <button class="yt-sr-vp-results-btn" onclick="window.ytSrOpenResultsList()" title="検索結果一覧">☰</button>
       </div>
       <div class="yt-sr-vp-ctrl-row2">
@@ -877,6 +878,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
           ${ch ? `<div class="yt-sr-vp-ch-text">${_esc(ch)}</div>` : ''}
         </div>
         <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+        <button class="yt-sr-vp-results-btn" style="letter-spacing:-1px;font-size:14px" onclick="vpTogMoreMenu(event, window.openVPanelId||'')" title="その他のアクション">•••</button>
         <button class="yt-sr-vp-results-btn" onclick="window.ytSrOpenPlListSheet('${plId}',${vidIdx})" title="プレイリスト一覧">☰</button>
       </div>
       <div class="yt-sr-vp-ctrl-row2">
