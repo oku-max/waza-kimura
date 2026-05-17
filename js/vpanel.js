@@ -3182,7 +3182,7 @@ window.vpTogSearchMenu = function(e, id) {
   const v = (window.videos || []).find(x => x.id === id);
   if (!v) return;
 
-  const btn = document.getElementById('vp-search-btn');
+  const btn = document.getElementById('vp-search-btn') || document.getElementById('vp-more-btn');
   if (!btn) return;
 
   const tags = [...new Set([...(v.tb||[]), ...(v.cat||[]), ...(v.pos||[]), ...(v.tags||[])])].filter(Boolean);
@@ -3391,13 +3391,31 @@ function _positionMenu(menu, anchor) {
   menu.style.position = 'fixed';
   menu.style.visibility = 'hidden';
   document.body.appendChild(menu);
-  const r = anchor.getBoundingClientRect();
-  const mw = menu.offsetWidth || 220;
-  const mh = menu.offsetHeight || 100;
-  let top = r.top - mh - 6;
+  const r   = anchor.getBoundingClientRect();
+  const mw  = menu.offsetWidth  || 220;
+  const mh  = menu.offsetHeight || 100;
+  const vw  = window.innerWidth;
+  const vh  = window.innerHeight;
+  const pad = 8;
+
+  // 左右（右端クリッピング防止）
   let left = r.right - mw;
-  if (top < 8) top = r.bottom + 6;
-  if (left < 8) left = 8;
+  if (left + mw > vw - pad) left = vw - mw - pad;
+  if (left < pad) left = pad;
+
+  // 上下: まず上方向、入らなければ下方向
+  let top = r.top - mh - 6;
+  if (top < pad) top = r.bottom + 6;
+  // 下端クリッピング防止
+  if (top + mh > vh - pad) {
+    top = vh - mh - pad;
+    if (top < pad) {
+      top = pad;
+      menu.style.maxHeight = (vh - pad * 2) + 'px';
+      menu.style.overflowY = 'auto';
+    }
+  }
+
   menu.style.top  = top + 'px';
   menu.style.left = left + 'px';
   menu.style.visibility = '';
