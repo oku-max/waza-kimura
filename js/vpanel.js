@@ -3390,31 +3390,29 @@ window.vpTogMoreMenu = function(e, id) {
 function _positionMenu(menu, anchor) {
   menu.style.position = 'fixed';
   menu.style.visibility = 'hidden';
-  document.body.appendChild(menu);
-  const r   = anchor.getBoundingClientRect();
-  const mw  = menu.offsetWidth  || 220;
-  const mh  = menu.offsetHeight || 100;
   const vw  = window.innerWidth;
   const vh  = window.innerHeight;
   const pad = 8;
+
+  // 先にmax-heightを設定してからDOMに追加・計測（スマホ横長対応）
+  const maxH = Math.floor(vh * 0.82) - pad;
+  menu.style.maxHeight = maxH + 'px';
+  menu.style.overflowY = 'auto';
+  document.body.appendChild(menu);
+
+  const r   = anchor.getBoundingClientRect();
+  const mw  = menu.offsetWidth  || 220;
+  const mh  = menu.offsetHeight || 100;
 
   // 左右（右端クリッピング防止）
   let left = r.right - mw;
   if (left + mw > vw - pad) left = vw - mw - pad;
   if (left < pad) left = pad;
 
-  // 上下: まず上方向、入らなければ下方向
+  // 上下: まず上方向、入らなければ下方向、それでも溢れたら上端固定
   let top = r.top - mh - 6;
   if (top < pad) top = r.bottom + 6;
-  // 下端クリッピング防止
-  if (top + mh > vh - pad) {
-    top = vh - mh - pad;
-    if (top < pad) {
-      top = pad;
-      menu.style.maxHeight = (vh - pad * 2) + 'px';
-      menu.style.overflowY = 'auto';
-    }
-  }
+  if (top + mh > vh - pad) top = Math.max(pad, vh - mh - pad);
 
   menu.style.top  = top + 'px';
   menu.style.left = left + 'px';
