@@ -1430,7 +1430,7 @@ export function openVPanel(id) {
         <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="その他のアクション" style="${navBtn};font-size:14px;letter-spacing:-1px">•••</button>
         <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
       </div>
-      <div style="display:flex;align-items:center;gap:4px;padding:5px 8px">
+      <div id="vpanel-ctrl-row2" style="display:flex;align-items:center;gap:4px;padding:5px 8px">
         <button onclick="vpNav(-1)" title="前の動画" style="${navBtn}">⏮</button>
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px"></div>
         <button onclick="vpSkip(-60)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>1m</button>

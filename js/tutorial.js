@@ -13,8 +13,7 @@
   function buildSteps() {
     const vid = window.openVPanelId || '';
     return [
-      { id: 'vpanel-title-area',    title: '動画ナビゲーション', desc: '⏮ ⏭ で前後の動画に移動。☰ で次の動画リストを表示できます。' },
-      { id: 'vpanel-skip-area',     title: 'スキップボタン',    desc: 'ボタンを押すと指定秒数だけ早送り・巻き戻し。技の直前に素早く戻るときに便利です。' },
+      { id: 'vpanel-ctrl-row2',     title: '再生コントロール', desc: '⏮ ⏭ で前後の動画に移動。中央のボタンで 3秒〜1分 単位でスキップ。••• からリピート・シャッフルなどの詳細設定を開けます。' },
       { id: 'vpanel-ab-area',       title: 'A-B ループ',        desc: 'A・B で区間を指定して繰り返し再生。技の細かい動きをじっくり確認できます。' },
       { id: `vp-bm-section-${vid}`, title: 'ブックマーク',      desc: '重要シーンのタイムスタンプを記録。タップするとその場面に移動します。' },
       { id: `vp-memo-row-${vid}`,   title: 'メモ',              desc: '気づき・次に試すこと・ポイントを自分の言葉で書き留めましょう。' },
