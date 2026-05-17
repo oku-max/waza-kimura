@@ -3275,7 +3275,7 @@ window.vpTogMoreMenu = function(e, id) {
   const existing = document.getElementById('vp-more-menu');
   if (existing) { existing.remove(); return; }
 
-  const btn = document.getElementById('vp-more-btn');
+  const btn = e.currentTarget || document.getElementById('vp-more-btn');
   if (!btn) return;
 
   const isGd = (id || '').startsWith('gd-');
@@ -3360,7 +3360,7 @@ window.vpTogMoreMenu = function(e, id) {
   addDivider();
 
   const li = _menuItem(listSvg, 'リスト表示', 'プレイリストを確認');
-  li.onclick = () => { closeMenu(); window.vpOpenNextList?.(); };
+  li.onclick = () => { closeMenu(); (window._srVpListAction || window.vpOpenNextList)?.(); };
   menu.appendChild(li);
 
   const sci = _menuItem(searchSvg, 'YouTube検索', '関連動画を探す');

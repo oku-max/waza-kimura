@@ -699,6 +699,7 @@ export function ytSrOpenVPanel(idx) {
 
   // ── vpanel.js 統合フラグをセット ──
   window._srVpOpen            = true;
+  window._srVpListAction      = () => window.ytSrOpenResultsList?.();
   window._srYtGetCurrentTime  = _srGetCurrentTime;
   window._srYtSeekTo          = _srSeekTo;
   window.openVPanelId         = _srOpenLibId;
@@ -725,7 +726,6 @@ export function ytSrOpenVPanel(idx) {
         </div>
         <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
         <button class="yt-sr-vp-results-btn" style="letter-spacing:-1px;font-size:14px" onclick="vpTogMoreMenu(event, window.openVPanelId||'')" title="その他のアクション">•••</button>
-        <button class="yt-sr-vp-results-btn" onclick="window.ytSrOpenResultsList()" title="検索結果一覧">☰</button>
       </div>
       <div class="yt-sr-vp-ctrl-row2">
         <button onclick="window.ytSrOpenVPanel(${idx - 1})" class="ab-skip-btn" ${idx === 0 ? 'disabled' : ''} title="前の結果">⏮</button>
@@ -857,6 +857,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
 
   _srOpenLibId = libEntry.id;
   window._srVpOpen           = true;
+  window._srVpListAction     = () => window.ytSrOpenPlListSheet?.(plId, vidIdx);
   window._srYtGetCurrentTime = _srGetCurrentTime;
   window._srYtSeekTo         = _srSeekTo;
   window.openVPanelId        = _srOpenLibId;
@@ -879,7 +880,6 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
         </div>
         <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
         <button class="yt-sr-vp-results-btn" style="letter-spacing:-1px;font-size:14px" onclick="vpTogMoreMenu(event, window.openVPanelId||'')" title="その他のアクション">•••</button>
-        <button class="yt-sr-vp-results-btn" onclick="window.ytSrOpenPlListSheet('${plId}',${vidIdx})" title="プレイリスト一覧">☰</button>
       </div>
       <div class="yt-sr-vp-ctrl-row2">
         <button onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx - 1})" class="ab-skip-btn" ${vidIdx === 0 ? 'disabled' : ''} title="前の動画">⏮</button>
@@ -1053,6 +1053,7 @@ export function ytSrCloseVPanel() {
 
   // vpanel.js 統合フラグをクリア
   window._srVpOpen           = false;
+  window._srVpListAction     = null;
   window._srYtGetCurrentTime = null;
   window._srYtSeekTo         = null;
   if (window.openVPanelId === _srOpenLibId) window.openVPanelId = null;
