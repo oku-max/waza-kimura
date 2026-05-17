@@ -1051,7 +1051,7 @@ function _blockHTML(block, idx, noteId, total) {
     case 'video': {
       const platform = block.platform || 'youtube';
       const rawId = block.videoId || '';
-      const widthPct = block.vidWidth || (window.innerWidth < 768 ? 100 : 30);
+      const widthPct = block.vidWidth || 100;
       const isYT = platform === 'youtube';
       const isGD = platform === 'gdrive';
       const ytId = block.ytId || (isYT ? rawId : '');
@@ -3618,7 +3618,7 @@ window._notesVideoConfirm = function() {
     const colBlock = r2.note.blocks[ctx.colIdx];
     if (!colBlock || colBlock.type !== 'col') return;
     if (!colBlock.cols[ctx.slot]) colBlock.cols[ctx.slot] = [];
-    const newBlock = { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 };
+    const newBlock = { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 100 };
     if (ctx.replaceBIdx != null) {
       const old = colBlock.cols[ctx.slot][ctx.replaceBIdx] || {};
       colBlock.cols[ctx.slot][ctx.replaceBIdx] = { ...newBlock, vidWidth: old.vidWidth || 30 };
@@ -3636,7 +3636,7 @@ window._notesVideoConfirm = function() {
   if (!r) return;
   const added = r.note.blocks.some(b => b.type === 'video' && b.videoId === videoId);
   if (added) { window.toast?.('この動画はすでに追加されています'); return; }
-  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 });
+  _blocksInsertOrPush(r.note.blocks, { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 100 });
   r.note.updatedAt = Date.now();
   _save();
   window._notesSheetClose();
@@ -3953,7 +3953,7 @@ window._notesVideoConfirm = function() {
   const channel = document.getElementById('n-block-video-title')?.dataset.channel || '';
   const thumb   = document.getElementById('n-block-video-title')?.dataset.thumb || '';
 
-  const block = { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 30 };
+  const block = { type: 'video', videoId, title, channel, duration: '', viewMode: 'inline', vidWidth: 100 };
   if (isPlaylist) { block.isPlaylist = true; if (thumb) block.thumb = thumb; }
 
   const ctx = window._notesColContext;
@@ -4090,7 +4090,7 @@ window._notesVpAddConfirm = function(noteId, videoId) {
     const platform = v ? (v.pt || v.src || 'youtube') : 'youtube';
     const isYT = platform === 'youtube';
     note.blocks.push({
-      type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'inline', vidWidth: 30,
+      type: 'video', videoId, title, channel, duration, memo: '', viewMode: 'inline', vidWidth: 100,
       platform,
       ytId: (isYT && v?.ytId) ? v.ytId : undefined,
       vmHash: v?.vmHash || undefined,
@@ -4132,7 +4132,7 @@ window._notesAddFromLib = function(videoId, noteId) {
   const platform = v.pt || v.src || 'youtube';
   const ytId = v.ytId || (platform === 'youtube' ? v.id : null);
   const vidBlock = {
-    type: 'video', videoId, platform, viewMode: 'inline', vidWidth: 30,
+    type: 'video', videoId, platform, viewMode: 'inline', vidWidth: 100,
     ytId: ytId || undefined,
     vmHash: v.vmHash || undefined,
     thumb: ytId ? undefined
@@ -4709,10 +4709,10 @@ function _execMove(noteId, tgtType, afterIdx, tgtColIdx, tgtSlot) {
       vlRef.block.ids = vlRef.block.ids.filter(id => id !== vlVideoId);
     }
     const libV = (window.videos || []).find(v => v.id === vlVideoId);
-    moved = { type: 'video', videoId: vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 30 };
+    moved = { type: 'video', videoId: vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 100 };
   } else if (srcType === 'vlist-copy') {
     const libV = (window.videos || []).find(v => v.id === _moveMode.vlVideoId);
-    moved = { type: 'video', videoId: _moveMode.vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 30 };
+    moved = { type: 'video', videoId: _moveMode.vlVideoId, title: libV?.title || '', channel: libV?.channel || libV?.ch || '', duration: '', viewMode: 'inline', vidWidth: 100 };
   }
 
   // 挿入先に応じて位置計算して挿入
