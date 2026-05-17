@@ -751,6 +751,30 @@
 }
 .yt-sr-vp-ch-text { font-size: 11px; color: var(--text3); padding: 0 10px 6px; flex-shrink: 0; }
 
+/* title-block: タイトル+チャンネルを縦積み（Row1内） */
+.yt-sr-vp-title-block { flex: 1; min-width: 0; }
+.yt-sr-vp-titlebar .yt-sr-vp-ch-text { padding: 2px 0 0; font-size: 10px; }
+
+/* Row2: ⏮ スキップ ⏭（ライブラリVPanelと同仕様） */
+.yt-sr-vp-ctrl-row2 {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 8px; flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.yt-sr-vp-ctrl-row2::-webkit-scrollbar { display: none; }
+.yt-sr-vp-ctrl-row2 .ab-skip-btn:disabled { opacity: .35; cursor: default; }
+
+/* ☰ 検索結果一覧ボタン */
+.yt-sr-vp-results-btn {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 6px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  color: var(--text2); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+}
+.yt-sr-vp-results-btn:hover { background: var(--hover, rgba(255,255,255,.07)); }
+
 /* CTA (右列上部 固定) */
 .yt-sr-vp-cta {
   padding: 12px 14px 10px;

@@ -710,8 +710,7 @@ export function ytSrOpenVPanel(idx) {
   // AB ループ状態を初期化（前回の残骸をクリア）
   window.vpAbReset?.();
 
-  // ── 左列: プレイヤー + タイトル(⏮/⏭) + スキップ + 検索結果リスト ──
-  const navBtnStyle = 'flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.85);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit';
+  // ── 左列: プレイヤー + タイトル行 + コントロール行 ──
   const left = document.getElementById('yt-sr-vp-left');
   if (left) {
     left.innerHTML = `
@@ -720,14 +719,29 @@ export function ytSrOpenVPanel(idx) {
         <div id="yt-sr-vp-player-div" style="width:100%;height:100%"></div>
       </div>
       <div class="yt-sr-vp-titlebar">
-        <button style="${navBtnStyle}" onclick="window.ytSrOpenVPanel(${idx - 1})" ${idx === 0 ? 'disabled' : ''} title="前の結果">⏮</button>
-        <div class="yt-sr-vp-title-text">${_esc(title)}</div>
-        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:4px"></span>
-        <button style="${navBtnStyle}" onclick="window.ytSrOpenVPanel(${idx + 1})" ${idx >= _srItems.length - 1 ? 'disabled' : ''} title="次の結果">⏭</button>
-        <button style="${navBtnStyle}" onclick="window.ytSrOpenResultsList()" title="検索結果一覧">☰</button>
+        <div class="yt-sr-vp-title-block">
+          <div class="yt-sr-vp-title-text">${_esc(title)}</div>
+          ${ch ? `<div class="yt-sr-vp-ch-text">${_esc(ch)}</div>` : ''}
+        </div>
+        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+        <button class="yt-sr-vp-results-btn" onclick="window.ytSrOpenResultsList()" title="検索結果一覧">☰</button>
       </div>
-      <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
-      ${ytId ? `<div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>` : ''}
+      <div class="yt-sr-vp-ctrl-row2">
+        <button onclick="window.ytSrOpenVPanel(${idx - 1})" class="ab-skip-btn" ${idx === 0 ? 'disabled' : ''} title="前の結果">⏮</button>
+        ${ytId ? `
+        <div class="ab-skip-sep"></div>
+        <button onclick="window.ytSrSkip(-60)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>1m</button>
+        <button onclick="window.ytSrSkip(-30)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>30s</button>
+        <button onclick="window.ytSrSkip(-10)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>10s</button>
+        <button onclick="window.ytSrSkip(-3)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>3s</button>
+        <button onclick="window.ytSrSkip(3)" class="ab-skip-btn ab-skip-plus">3s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="window.ytSrSkip(10)" class="ab-skip-btn ab-skip-plus">10s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="window.ytSrSkip(30)" class="ab-skip-btn ab-skip-plus">30s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="window.ytSrSkip(60)" class="ab-skip-btn ab-skip-plus">1m<span class="ab-skip-arrow">▶</span></button>
+        <div class="ab-skip-sep"></div>
+        ` : ''}
+        <button onclick="window.ytSrOpenVPanel(${idx + 1})" class="ab-skip-btn" ${idx >= _srItems.length - 1 ? 'disabled' : ''} title="次の結果">⏭</button>
+      </div>
     `;
 
     // YT.Player 初期化（動画のみ。プレイリストはiframeフォールバック）
@@ -850,7 +864,6 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
   if (realAbArea) realAbArea.innerHTML = '';
   window.vpAbReset?.();
 
-  const navBtnStyle = 'flex-shrink:0;width:26px;height:24px;border-radius:6px;border:1.5px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.85);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit';
   const left = document.getElementById('yt-sr-vp-left');
   if (left) {
     left.innerHTML = `
@@ -859,14 +872,27 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
         <div id="yt-sr-vp-player-div" style="width:100%;height:100%"></div>
       </div>
       <div class="yt-sr-vp-titlebar">
-        <button style="${navBtnStyle}" onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx - 1})" ${vidIdx === 0 ? 'disabled' : ''} title="前の動画">⏮</button>
-        <div class="yt-sr-vp-title-text">${_esc(title)}</div>
-        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;padding-left:4px"></span>
-        <button style="${navBtnStyle}" onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx + 1})" ${vidIdx >= items.length - 1 ? 'disabled' : ''} title="次の動画">⏭</button>
-        <button style="${navBtnStyle}" onclick="window.ytSrOpenPlListSheet('${plId}',${vidIdx})" title="プレイリスト一覧">☰</button>
+        <div class="yt-sr-vp-title-block">
+          <div class="yt-sr-vp-title-text">${_esc(title)}</div>
+          ${ch ? `<div class="yt-sr-vp-ch-text">${_esc(ch)}</div>` : ''}
+        </div>
+        <span id="yt-sr-vp-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap"></span>
+        <button class="yt-sr-vp-results-btn" onclick="window.ytSrOpenPlListSheet('${plId}',${vidIdx})" title="プレイリスト一覧">☰</button>
       </div>
-      <div class="yt-sr-vp-ch-text">${_esc(ch)}</div>
-      <div id="yt-sr-vp-skip-wrap">${_srSkipBtnsHTML()}</div>
+      <div class="yt-sr-vp-ctrl-row2">
+        <button onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx - 1})" class="ab-skip-btn" ${vidIdx === 0 ? 'disabled' : ''} title="前の動画">⏮</button>
+        <div class="ab-skip-sep"></div>
+        <button onclick="window.ytSrSkip(-60)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>1m</button>
+        <button onclick="window.ytSrSkip(-30)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>30s</button>
+        <button onclick="window.ytSrSkip(-10)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>10s</button>
+        <button onclick="window.ytSrSkip(-3)" class="ab-skip-btn ab-skip-minus"><span class="ab-skip-arrow">◀</span>3s</button>
+        <button onclick="window.ytSrSkip(3)" class="ab-skip-btn ab-skip-plus">3s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="window.ytSrSkip(10)" class="ab-skip-btn ab-skip-plus">10s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="window.ytSrSkip(30)" class="ab-skip-btn ab-skip-plus">30s<span class="ab-skip-arrow">▶</span></button>
+        <button onclick="window.ytSrSkip(60)" class="ab-skip-btn ab-skip-plus">1m<span class="ab-skip-arrow">▶</span></button>
+        <div class="ab-skip-sep"></div>
+        <button onclick="window.ytSrOpenPlVPanel('${plId}',${vidIdx + 1})" class="ab-skip-btn" ${vidIdx >= items.length - 1 ? 'disabled' : ''} title="次の動画">⏭</button>
+      </div>
     `;
     _srInitPlayer(videoId);
   }
