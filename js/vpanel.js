@@ -3284,6 +3284,19 @@ window.vpTogMoreMenu = function(e, id) {
   const menu = document.createElement('div');
   menu.id = 'vp-more-menu';
   menu.className = 'vp-search-menu';
+  menu.style.paddingTop = '34px';
+
+  let onOutside;
+  const closeMenu = () => {
+    menu.remove();
+    document.removeEventListener('click', onOutside, true);
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'vp-more-close';
+  closeBtn.textContent = '閉じる ✕';
+  closeBtn.onclick = (ev) => { ev.stopPropagation(); closeMenu(); };
+  menu.appendChild(closeBtn);
 
   const mkSvg = (path, w=14) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="currentColor">${path}</svg>`;
   const repeatSvg  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
@@ -3296,53 +3309,80 @@ window.vpTogMoreMenu = function(e, id) {
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
 
-  const _activeStyle = (el) => { el.style.borderLeft = '3px solid var(--accent)'; el.style.paddingLeft = '9px'; };
-  const repeatSub = _vpRepeat === 'off' ? 'オフ' : _vpRepeat === 'list' ? '✓ リスト（全曲）' : '✓ 1曲リピート';
+  const animItem = (el) => {
+    el.classList.remove('vp-smenu-anim');
+    void el.offsetWidth;
+    el.classList.add('vp-smenu-anim');
+    setTimeout(() => el.classList.remove('vp-smenu-anim'), 450);
+  };
+
+  // ── リピート（3段階: off → list → one → off）──
+  const repeatSub = _vpRepeat === 'off' ? 'オフ' : _vpRepeat === 'list' ? 'リスト全体' : 'この動画のみ';
   const ri = _menuItem(repeatSvg, 'リピート', repeatSub);
-  if (_vpRepeat !== 'off') _activeStyle(ri);
-  ri.onclick = () => { menu.remove(); vpCycleRepeat(); };
+  if (_vpRepeat === 'list') ri.classList.add('vp-smenu-on-list');
+  else if (_vpRepeat === 'one') ri.classList.add('vp-smenu-on');
+  const riSub = ri.querySelector('.vp-smenu-sub');
+  ri.onclick = () => {
+    vpCycleRepeat();
+    ri.classList.remove('vp-smenu-on', 'vp-smenu-on-list');
+    if (_vpRepeat === 'list') { ri.classList.add('vp-smenu-on-list'); riSub.textContent = 'リスト全体'; }
+    else if (_vpRepeat === 'one') { ri.classList.add('vp-smenu-on'); riSub.textContent = 'この動画のみ'; }
+    else { riSub.textContent = 'オフ'; }
+    animItem(ri);
+  };
   menu.appendChild(ri);
 
-  const si = _menuItem(shuffleSvg, 'シャッフル', _vpShuffle ? '✓ オン' : 'オフ');
-  if (_vpShuffle) _activeStyle(si);
-  si.onclick = () => { menu.remove(); vpToggleShuffle(); };
+  // ── シャッフル ──
+  const si = _menuItem(shuffleSvg, 'シャッフル', _vpShuffle ? 'オン' : 'オフ');
+  if (_vpShuffle) si.classList.add('vp-smenu-on');
+  const siSub = si.querySelector('.vp-smenu-sub');
+  si.onclick = () => {
+    vpToggleShuffle();
+    si.classList.toggle('vp-smenu-on', !!_vpShuffle);
+    siSub.textContent = _vpShuffle ? 'オン' : 'オフ';
+    animItem(si);
+  };
   menu.appendChild(si);
 
-  const mirrorOn = !!window._vpMirrored;
-  const mi = _menuItem(mirrorSvg, 'リバース', mirrorOn ? '✓ オン' : 'オフ');
-  if (mirrorOn) _activeStyle(mi);
-  mi.onclick = () => { menu.remove(); window.vpToggleMirror?.(); };
+  // ── リバース ──
+  const mi = _menuItem(mirrorSvg, 'リバース', window._vpMirrored ? 'オン' : 'オフ');
+  if (window._vpMirrored) mi.classList.add('vp-smenu-on');
+  const miSub = mi.querySelector('.vp-smenu-sub');
+  mi.onclick = () => {
+    window.vpToggleMirror?.();
+    const nowOn = !!window._vpMirrored;
+    mi.classList.toggle('vp-smenu-on', nowOn);
+    miSub.textContent = nowOn ? 'オン' : 'オフ';
+    animItem(mi);
+  };
   menu.appendChild(mi);
 
   addDivider();
 
   const li = _menuItem(listSvg, 'リスト表示', 'プレイリストを確認');
-  li.onclick = () => { menu.remove(); window.vpOpenNextList?.(); };
+  li.onclick = () => { closeMenu(); window.vpOpenNextList?.(); };
   menu.appendChild(li);
 
   const sci = _menuItem(searchSvg, 'YouTube検索', '関連動画を探す');
-  sci.onclick = (ev) => { menu.remove(); window.vpTogSearchMenu?.(ev, id); };
+  sci.onclick = (ev) => { closeMenu(); window.vpTogSearchMenu?.(ev, id); };
   menu.appendChild(sci);
 
   addDivider();
 
   const ei = _menuItem(editSvg, 'タイトル編集', '名前を変更する');
-  ei.onclick = () => { menu.remove(); vpEditTitle(id); };
+  ei.onclick = () => { closeMenu(); vpEditTitle(id); };
   menu.appendChild(ei);
 
   if (gdFileId) {
     const di = _menuItem(driveSvg, 'Drive を開く', 'Google Drive で確認');
-    di.onclick = () => { menu.remove(); window.open(`https://drive.google.com/file/d/${gdFileId}/view`, '_blank', 'noopener'); };
+    di.onclick = () => { closeMenu(); window.open(`https://drive.google.com/file/d/${gdFileId}/view`, '_blank', 'noopener'); };
     menu.appendChild(di);
   }
 
   _positionMenu(menu, btn);
 
-  const onOutside = (ev) => {
-    if (!menu.contains(ev.target) && ev.target !== btn) {
-      menu.remove();
-      document.removeEventListener('click', onOutside, true);
-    }
+  onOutside = (ev) => {
+    if (!menu.contains(ev.target) && ev.target !== btn) closeMenu();
   };
   setTimeout(() => document.addEventListener('click', onOutside, true), 0);
 };
