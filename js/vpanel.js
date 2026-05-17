@@ -3389,6 +3389,7 @@ window.vpTogMoreMenu = function(e, id) {
 
 function _positionMenu(menu, anchor) {
   menu.style.position = 'fixed';
+  menu.style.zIndex   = '10005';  // #vpanel は fc-overlay open時にz-index:10000になる
   menu.style.visibility = 'hidden';
   const vw  = window.innerWidth;
   const vh  = window.innerHeight;
