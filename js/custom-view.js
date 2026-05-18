@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.275 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.276 ═══
 (function () {
 'use strict';
 
@@ -1221,6 +1221,9 @@ window.cvToggleColMenu = function(e) {
   e.stopPropagation();
   let menu = document.getElementById('cv-col-menu');
   if (menu) { menu.remove(); return; }
+  const view = _views.find(v => v.id === _curId);
+  if (!view || !view.columns?.length) return;
+  const cols = view.columns;
   menu = document.createElement('div');
   menu.id = 'cv-col-menu';
   menu.style.cssText = 'position:fixed;z-index:9999;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.4);min-width:200px';
@@ -1228,15 +1231,12 @@ window.cvToggleColMenu = function(e) {
   const r = btn.getBoundingClientRect();
   menu.style.left = r.left + 'px';
   menu.style.top = (r.bottom + 4) + 'px';
-  menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
-    cvColOrder.map((col, i) => `
+  menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">カスタム列（↑↓で並替え）</div>' +
+    cols.map((col, i) => `
       <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
-        <button onclick="window.cvMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
-        <button onclick="window.cvMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===cvColOrder.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===cvColOrder.length-1?'disabled':''}>▼</button>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
-          <input type="checkbox" ${cvColVisibility[col]!==false?'checked':''} onchange="cvColVisibility['${col}']=this.checked;window._cvSave();window._cvRerenderCur()" style="accent-color:var(--accent);width:14px;height:14px">
-          ${_esc(ORG_COL_LABELS[col]||col)}
-        </label>
+        <button onclick="window.cvMoveCol('${col.id}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
+        <button onclick="window.cvMoveCol('${col.id}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===cols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===cols.length-1?'disabled':''}>▼</button>
+        <span style="font-size:12px;flex:1">${_esc(col.label)}</span>
       </div>`).join('');
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function h(ev){
@@ -1245,19 +1245,25 @@ window.cvToggleColMenu = function(e) {
     }
   }), 100);
 };
-window.cvMoveCol = function(col, dir) {
-  const i = cvColOrder.indexOf(col);
+window.cvMoveCol = function(colId, dir) {
+  const view = _views.find(v => v.id === _curId);
+  if (!view) return;
+  const i = view.columns.findIndex(c => c.id === colId);
   if (i < 0) return;
   const j = i + dir;
-  if (j < 0 || j >= cvColOrder.length) return;
-  cvColOrder.splice(i, 1); cvColOrder.splice(j, 0, col);
+  if (j < 0 || j >= view.columns.length) return;
+  const [col] = view.columns.splice(i, 1);
+  view.columns.splice(j, 0, col);
   _save();
-  const menu = document.getElementById('cv-col-menu'); if (menu) menu.remove();
+  document.getElementById('cv-col-menu')?.remove();
   window._cvRerenderCur();
   setTimeout(() => { const btn = document.querySelector('[onclick*="cvToggleColMenu"]'); if (btn) window.cvToggleColMenu({currentTarget:btn, stopPropagation:()=>{}}); }, 50);
 };
 window._cvRerenderCur = function() {
-  const view = _views.find(v => v.id === _curId); if (view) _renderTable(view);
+  const view = _views.find(v => v.id === _curId);
+  if (!view) return;
+  document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
+  _renderTable(view);
 };
 
 // ── グローバルクリック閉じる ──
