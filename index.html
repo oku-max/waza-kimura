@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.269</title>
+<title>WAZA KIMURA v52.270</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1020,6 +1020,70 @@
 .cv-tpl-icon { font-size:20px;flex-shrink:0 }
 .cv-tpl-label { font-size:12px;font-weight:700;color:var(--text) }
 .cv-tpl-desc { font-size:11px;color:var(--text3);margin-top:2px }
+/* th filter/menu buttons */
+.cv-th-filter-btn { background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 3px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity .15s,background .15s,color .15s }
+#cv-host thead th:hover .cv-th-filter-btn { opacity:.6 }
+.cv-th-filter-btn:hover { background:var(--surface3);color:var(--text);opacity:1!important }
+.cv-th-filter-btn.active { color:var(--accent);opacity:1!important;background:rgba(74,144,217,.15) }
+.cv-th-menu-btn { background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:2px;border-radius:3px;opacity:0;transition:opacity .15s,background .15s,color .15s }
+#cv-host thead th:hover .cv-th-menu-btn { opacity:1 }
+.cv-th-menu-btn:hover { background:var(--surface3);color:var(--text) }
+/* cv-popup (select/multiselect) */
+#cv-popup { position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:6px;z-index:10010;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.5) }
+.cv-popup-title { font-size:10px;color:var(--text3);padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.05em }
+.cv-popup-item { display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:12px;transition:background .1s }
+.cv-popup-item:hover { background:var(--surface3) }
+.cv-popup-check { font-size:13px;width:14px;color:var(--accent) }
+.cv-popup-close { margin-top:4px;padding-top:4px;border-top:1px solid var(--border);text-align:center }
+.cv-popup-close button { background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px }
+.cv-popup-close button:hover { background:var(--surface3);color:var(--text) }
+/* cv-th-dropdown */
+#cv-th-dropdown { position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:10010;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,.5) }
+#cv-th-dropdown button { display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:none;background:transparent;color:var(--text2);font-size:12px;text-align:left;cursor:pointer;border-radius:5px;transition:background .1s;font-family:inherit }
+#cv-th-dropdown button:hover { background:var(--surface3);color:var(--text) }
+#cv-th-dropdown button.danger:hover { background:rgba(220,50,50,.2);color:#ff6060 }
+/* cv-filter-popup */
+#cv-filter-popup { position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:6px;z-index:10011;min-width:190px;max-width:270px;box-shadow:0 8px 24px rgba(0,0,0,.55) }
+.cv-filter-row { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text2);transition:background .1s;user-select:none }
+.cv-filter-row:hover { background:var(--surface3) }
+.cv-filter-chk { width:13px;height:13px;accent-color:var(--accent);cursor:pointer;flex-shrink:0 }
+.cv-filter-input { width:calc(100% - 16px);background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--text);font-size:12px;outline:none;margin:4px 8px;transition:border-color .15s;font-family:inherit }
+.cv-filter-input:focus { border-color:var(--accent) }
+.cv-filter-number-row { display:flex;align-items:center;gap:6px;padding:4px 8px }
+.cv-filter-op-select { background:var(--surface3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 6px;font-size:11px;outline:none;cursor:pointer;flex-shrink:0;font-family:inherit }
+.cv-filter-num-input { flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:5px 7px;color:var(--text);font-size:12px;outline:none;min-width:0;transition:border-color .15s;font-family:inherit }
+.cv-filter-num-input:focus { border-color:var(--accent) }
+.cv-filter-clear-btn { width:100%;text-align:center;padding:7px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;border-radius:5px;transition:background .15s,color .15s;font-family:inherit }
+.cv-filter-clear-btn:hover { background:var(--surface3);color:var(--text) }
+/* cv-add-col-modal */
+#cv-add-col-modal { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10020;display:none;align-items:center;justify-content:center }
+.cv-modal-box { background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:24px;width:420px;max-width:92vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.7) }
+.cv-modal-box h2 { font-size:16px;font-weight:600;margin-bottom:20px;color:var(--text) }
+.cv-type-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px }
+.cv-type-btn { display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,color .15s;font-family:inherit }
+.cv-type-btn:hover { border-color:var(--accent);color:var(--accent) }
+.cv-type-btn.selected { border-color:var(--accent);background:rgba(74,144,217,.15);color:var(--accent) }
+.cv-type-icon { font-size:15px;width:20px;text-align:center }
+.cv-modal-section { margin-top:16px }
+.cv-modal-label { font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px }
+.cv-modal-input { width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;transition:border-color .15s;box-sizing:border-box;font-family:inherit }
+.cv-modal-input:focus { border-color:var(--accent) }
+.cv-options-list { display:flex;flex-direction:column;gap:4px;margin-bottom:6px }
+.cv-option-row { display:flex;align-items:center;gap:6px }
+.cv-option-row input { flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--text);font-size:12px;outline:none;transition:border-color .15s;font-family:inherit }
+.cv-option-row input:focus { border-color:var(--accent) }
+.cv-option-del { background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px;border-radius:4px;transition:background .15s,color .15s }
+.cv-option-del:hover { background:rgba(220,50,50,.2);color:#ff6060 }
+.cv-add-option-btn { background:none;border:1px dashed var(--border2);border-radius:6px;color:var(--text3);font-size:12px;padding:6px 10px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s,color .15s;font-family:inherit }
+.cv-add-option-btn:hover { border-color:var(--accent);color:var(--accent) }
+.cv-days-group { display:flex;gap:6px;flex-wrap:wrap }
+.cv-days-btn { padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,color .15s;font-family:inherit }
+.cv-days-btn.selected { border-color:var(--accent);background:rgba(74,144,217,.15);color:var(--accent) }
+.cv-modal-actions { display:flex;justify-content:flex-end;gap:8px;margin-top:24px }
+.cv-btn-cancel { padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;transition:background .15s;font-family:inherit }
+.cv-btn-cancel:hover { background:var(--surface3) }
+.cv-btn-primary { padding:9px 18px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:inherit }
+.cv-btn-primary:hover { opacity:.85 }
 </style>
 <script src="js/flowchart.js"></script>
 </head>
@@ -1488,11 +1552,40 @@
       <button onclick="window.cvSrcClose()" style="background:none;border:none;font-size:18px;color:var(--text3);cursor:pointer">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button onclick="window.cvSrcPickLib()" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;text-align:left">
+      <button onclick="window.cvSrcPickLib()" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;text-align:left;font-family:inherit;width:100%">
         <span style="font-size:20px">🔍</span>
         <span style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">ライブラリから選ぶ</div><div style="font-size:11px;color:var(--text3);margin-top:2px">保存済みの動画から選択</div></span>
         <span style="color:var(--text3);font-size:18px">›</span>
       </button>
+      <button onclick="window.toast?.('URLで追加は近日対応予定です')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;text-align:left;font-family:inherit;width:100%">
+        <span style="font-size:20px">🔗</span>
+        <span style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">URLで追加</div><div style="font-size:11px;color:var(--text3);margin-top:2px">YouTube / Vimeo など</div></span>
+        <span style="color:var(--text3);font-size:18px">›</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!-- カスタムビュー: select/multiselect ポップアップ -->
+<div id="cv-popup" style="display:none"></div>
+<!-- カスタムビュー: フィルターポップアップ -->
+<div id="cv-filter-popup" style="display:none"></div>
+<!-- カスタムビュー: 列ヘッダードロップダウン -->
+<div id="cv-th-dropdown" style="display:none"></div>
+<!-- カスタムビュー: 列を追加モーダル -->
+<div id="cv-add-col-modal">
+  <div class="cv-modal-box" onclick="event.stopPropagation()">
+    <h2>列を追加</h2>
+    <div class="cv-type-grid" id="cv-type-grid"></div>
+    <div id="cv-col-config" style="display:none">
+      <div class="cv-modal-section">
+        <div class="cv-modal-label">列名</div>
+        <input type="text" class="cv-modal-input" id="cv-new-col-label" placeholder="列名を入力...">
+      </div>
+      <div id="cv-extra-config"></div>
+    </div>
+    <div class="cv-modal-actions">
+      <button class="cv-btn-cancel" onclick="window.cvCloseAddColModal()">キャンセル</button>
+      <button class="cv-btn-primary" onclick="window.cvConfirmAddCol()">追加する</button>
     </div>
   </div>
 </div>

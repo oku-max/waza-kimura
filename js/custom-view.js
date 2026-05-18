@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.266 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.270 ═══
 (function () {
 'use strict';
 
@@ -10,6 +10,28 @@ const ORG_COL_LABELS = {
   fav:'お気に入り', next:'🎯 Next', duration:'長さ'
 };
 const CV_COL_DEFAULT = ['fav','next','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
+
+const SEL_COLORS = [
+  { bg:'rgba(74,144,217,.25)',  text:'#70b0f0' },
+  { bg:'rgba(224,144,0,.25)',   text:'#f0b830' },
+  { bg:'rgba(76,175,80,.25)',   text:'#7ed680' },
+  { bg:'rgba(224,90,0,.25)',    text:'#f07840' },
+  { bg:'rgba(160,90,200,.25)',  text:'#c898f8' },
+  { bg:'rgba(0,180,210,.25)',   text:'#60d8f8' },
+];
+
+const TYPE_DEFS = [
+  { type:'checkbox',    icon:'☐', label:'チェックボックス' },
+  { type:'select',      icon:'▾', label:'セレクト' },
+  { type:'multiselect', icon:'≡', label:'マルチセレクト' },
+  { type:'tracker',     icon:'●', label:'トラッカー' },
+  { type:'text',        icon:'T', label:'テキスト' },
+  { type:'number',      icon:'#', label:'数値' },
+  { type:'progress',    icon:'%', label:'進捗バー' },
+  { type:'stars',       icon:'★', label:'評価' },
+];
+
+const FILTERABLE_TYPES = new Set(['checkbox','select','multiselect','text','number','stars','progress']);
 
 const CV_TEMPLATES = [
   { id:'drill', icon:'🏋️', label:'ドリル管理', desc:'練習頻度と進捗を追う',
@@ -26,15 +48,31 @@ const BLANK_TEMPLATE = { id:'blank', icon:'📄', label:'空白から始める',
 // ── 状態 ──
 let _views = [];
 let _curId = null;
-let _editingViewId = null; // 条件再編集中のビューID
-let _cvSelectedIds = new Set(); // static選択中の動画ID
+let _editingViewId = null;
+let _cvSelectedIds = new Set();
 let cvColOrder = [...CV_COL_DEFAULT];
 let cvColVisibility = {tb:true,action:true,position:true,technique:true,counter:false,status:true,channel:true,playlist:true,memo:true,addedAt:true,fav:true,next:true,duration:true};
 let _nextColId = 100;
 let _selectedTplId = CV_TEMPLATES[0].id;
 
+// add-col modal state
+let _addColTargetViewId = null;
+let _selectedType = null;
+let _newColOptions = [];
+let _newColPastDays = 3;
+let _newColFutureDays = 1;
+
+// filter state
+const filterState = {}; // { [viewId]: { [colId]: filterData } }
+let _filterCtx = null;
+
 function _esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function getOptionColor(options, value) {
+  const idx = (options || []).indexOf(value);
+  return SEL_COLORS[((idx % SEL_COLORS.length) + SEL_COLORS.length) % SEL_COLORS.length];
 }
 
 // ── Storage ──
@@ -94,18 +132,14 @@ function _renderViewBar() {
 // ── ビュー切替 ──
 function _showView(id) {
   _curId = id;
-  // lib-view-bar の card/org ボタンを非アクティブに
   document.getElementById('lvt-card')?.classList.remove('lvt-active');
   document.getElementById('lvt-org')?.classList.remove('lvt-active');
-  // card/org host を隠す
   const cardHost = document.getElementById('lib-card-host');
   const orgHost  = document.getElementById('lib-org-host');
   if (cardHost) cardHost.style.display = 'none';
   if (orgHost)  orgHost.style.display  = 'none';
-  // cv-host を表示
   const cvHost = document.getElementById('cv-host');
   if (cvHost) cvHost.style.display = '';
-  // actionbar 隠す
   document.getElementById('library-actionbar')?.style && (document.getElementById('library-actionbar').style.display = 'none');
   document.getElementById('organize-actionbar')?.style && (document.getElementById('organize-actionbar').style.display = 'none');
   _renderViewBar();
@@ -144,7 +178,12 @@ function _renderTable(view) {
   hh += '<th style="width:56px;min-width:56px;position:sticky;left:36px;z-index:11;background:var(--surface)"><div class="th-inner"></div></th>';
   hh += '<th style="min-width:200px;max-width:280px;position:sticky;left:92px;z-index:11;background:var(--surface)"><div class="th-inner">タイトル</div></th>';
   view.columns.forEach(col => {
-    hh += `<th data-col-id="${col.id}"><div class="th-inner" style="font-size:11px">${_esc(col.label)}</div></th>`;
+    const canFilter = FILTERABLE_TYPES.has(col.type);
+    const filterActive = canFilter && hasActiveFilter(view.id, col.id);
+    const filterBtn = canFilter
+      ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>`
+      : '';
+    hh += `<th data-col-id="${col.id}"><div class="th-inner" style="font-size:11px">${_esc(col.label)}${filterBtn}<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div></th>`;
   });
   cvColOrder.filter(k => cvColVisibility[k] !== false).forEach(k => {
     hh += `<th><div class="th-inner" style="font-size:10px;color:var(--text3)">${_esc(ORG_COL_LABELS[k])}</div></th>`;
@@ -152,6 +191,21 @@ function _renderTable(view) {
   hh += `<th><div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div></th>`;
   hh += '</tr>';
   thead.innerHTML = hh;
+
+  // ヘッダーボタンのイベントを付ける
+  thead.querySelectorAll('.cv-th-menu-btn').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); openThDropdown(btn, view, btn.dataset.colId); });
+  });
+  thead.querySelectorAll('.cv-th-filter-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const col = view.columns.find(c => c.id === btn.dataset.colId);
+      if (!col) return;
+      const fp = document.getElementById('cv-filter-popup');
+      if (fp && fp.style.display !== 'none' && _filterCtx?.col.id === col.id) closeFilterPopup();
+      else openFilterPopup(btn, view, col);
+    });
+  });
 
   // 動画リスト
   tbody.innerHTML = '';
@@ -170,7 +224,6 @@ function _renderTable(view) {
     const tr = document.createElement('tr');
     tr.dataset.vid = v.id;
 
-    // サムネイル
     const ytId = v.ytId || ((v.pt||'youtube') === 'youtube' ? v.id : null);
     const gdId = (v.pt === 'gdrive' || (v.id||'').startsWith('gd-')) ? (v.id||'').replace(/^gd-/,'') : null;
     let thumbHtml = '<span style="font-size:14px">▶</span>';
@@ -183,7 +236,6 @@ function _renderTable(view) {
       <td style="position:sticky;left:92px;background:var(--bg);z-index:5"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px" title="${_esc(v.title||'')}">${_esc(v.title||'')}</div></td>
     `;
 
-    // カスタム列
     view.columns.forEach(col => {
       const td = document.createElement('td');
       td.dataset.vid = v.id;
@@ -192,7 +244,6 @@ function _renderTable(view) {
       tr.appendChild(td);
     });
 
-    // 標準列
     cvColOrder.filter(k => cvColVisibility[k] !== false).forEach(k => {
       const td = document.createElement('td');
       td.style.fontSize = '11px';
@@ -200,10 +251,11 @@ function _renderTable(view) {
       tr.appendChild(td);
     });
 
-    // 追加列プレースホルダー
     tr.appendChild(document.createElement('td'));
     tbody.appendChild(tr);
   });
+
+  applyFilters(view);
 }
 
 function _getViewVideos(view) {
@@ -244,56 +296,196 @@ function _condSummary(fc) {
 
 // ── セルレンダリング ──
 function _renderCell(td, col, val, view) {
-  td.style.padding = '4px 8px';
+  td.innerHTML = '';
   switch(col.type) {
-    case 'checkbox':
-      td.innerHTML = `<input type="checkbox" ${val ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer" onchange="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',this.checked)">`;
+    case 'checkbox': {
+      td.style.width = '80px';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;justify-content:center';
+      const chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.checked = !!val;
+      chk.style.cssText = 'accent-color:var(--accent);width:16px;height:16px;cursor:pointer';
+      chk.addEventListener('change', () => window._cvSetCell(view.id, td.dataset.vid, col.id, chk.checked));
+      wrap.appendChild(chk); td.appendChild(wrap);
       break;
+    }
     case 'stars': {
-      const n = parseInt(val)||0;
-      td.innerHTML = [1,2,3,4,5].map(i => `<span onclick="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',${i===n?0:i})" style="cursor:pointer;font-size:15px;color:${i<=n?'#f59e0b':'var(--text3)'}">${i<=n?'★':'☆'}</span>`).join('');
+      td.style.width = '100px';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;gap:1px';
+      let current = Number(val) || 0;
+      const btns = [];
+      for (let i = 1; i <= 5; i++) {
+        const b = document.createElement('button');
+        b.style.cssText = `background:none;border:none;cursor:pointer;font-size:16px;color:${i<=current?'#f0c040':'var(--text3)'};padding:0;line-height:1`;
+        b.textContent = '★'; b.dataset.star = i; btns.push(b); wrap.appendChild(b);
+      }
+      function setStars(n, hover) {
+        btns.forEach((b, idx) => { b.style.color = idx < n ? (hover ? '#f0c040' : '#f0c040') : 'var(--text3)'; });
+      }
+      btns.forEach((b, idx) => {
+        b.addEventListener('mouseenter', () => setStars(idx+1, true));
+        b.addEventListener('click', () => {
+          const n = idx+1; current = current === n ? 0 : n;
+          window._cvSetCell(view.id, td.dataset.vid, col.id, current);
+          setStars(current, false);
+        });
+      });
+      wrap.addEventListener('mouseleave', () => setStars(current, false));
+      td.appendChild(wrap);
       break;
     }
     case 'progress': {
-      const pct = Math.max(0,Math.min(100,parseInt(val)||0));
-      td.innerHTML = `<div style="display:flex;align-items:center;gap:6px;min-width:100px">
-        <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px"></div>
-        </div>
-        <span style="font-size:10px;color:var(--text3);width:28px;text-align:right">${pct}%</span>
-        <input type="range" min="0" max="100" value="${pct}" style="position:absolute;opacity:0;width:80px;cursor:pointer" oninput="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',+this.value);window._cvRerender('${view.id}')">
-      </div>`;
+      td.style.width = '140px';
+      const pct = Math.max(0, Math.min(100, Number(val)||0));
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;align-items:center;gap:6px';
+      const barWrap = document.createElement('div');
+      barWrap.style.cssText = 'flex:1;height:8px;background:var(--surface3);border-radius:4px;overflow:visible;cursor:pointer;position:relative;border-radius:4px;flex-shrink:0;width:90px';
+      const fill = document.createElement('div');
+      fill.style.cssText = `height:100%;border-radius:4px;background:var(--accent);width:${pct}%;pointer-events:none`;
+      barWrap.appendChild(fill);
+      const pctLabel = document.createElement('div');
+      pctLabel.style.cssText = 'font-size:11px;color:var(--text2);min-width:30px;text-align:right;font-family:monospace';
+      pctLabel.textContent = pct + '%';
+      function updateProgress(e) {
+        const rect = barWrap.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const newPct = Math.round(ratio * 100);
+        fill.style.width = newPct + '%'; pctLabel.textContent = newPct + '%';
+        window._cvSetCell(view.id, td.dataset.vid, col.id, newPct);
+      }
+      let dragging = false;
+      barWrap.addEventListener('mousedown', e => { dragging = true; updateProgress(e); e.preventDefault(); });
+      document.addEventListener('mousemove', e => { if (dragging) updateProgress(e); });
+      document.addEventListener('mouseup', () => { dragging = false; });
+      wrap.appendChild(barWrap); wrap.appendChild(pctLabel); td.appendChild(wrap);
       break;
     }
     case 'number': {
-      const unit = col.unit ? ` <span style="font-size:10px;color:var(--text3)">${_esc(col.unit)}</span>` : '';
-      td.innerHTML = `<span contenteditable="true" style="display:inline-block;min-width:40px;padding:2px 4px;border-radius:4px;border:1px solid transparent;font-size:12px" onblur="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',+this.textContent.replace(/[^0-9.]/g,''))" onfocus="this.parentNode.querySelector('span:last-child') && (this.style.borderColor='var(--accent)')" onblur="this.style.borderColor='transparent';window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',+this.textContent.replace(/[^0-9.]/g,''))">${val||0}</span>${unit}`;
+      td.style.width = '90px';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;align-items:center;gap:4px;justify-content:flex-end';
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.value = val != null ? val : ''; inp.min = '0';
+      inp.style.cssText = 'background:transparent;border:none;color:var(--text);font-size:12px;font-family:monospace;width:50px;text-align:right;outline:none;padding:2px 4px;border-radius:4px';
+      inp.addEventListener('mouseenter', () => inp.style.background = 'var(--surface3)');
+      inp.addEventListener('mouseleave', () => { if (document.activeElement !== inp) inp.style.background = 'transparent'; });
+      inp.addEventListener('focus', () => inp.style.background = 'var(--surface2)');
+      inp.addEventListener('blur', () => { inp.style.background = 'transparent'; window._cvSetCell(view.id, td.dataset.vid, col.id, inp.value === '' ? null : Number(inp.value)); });
+      const unit = document.createElement('span');
+      unit.style.cssText = 'color:var(--text3);font-size:11px'; unit.textContent = col.unit || '';
+      wrap.appendChild(inp); wrap.appendChild(unit); td.appendChild(wrap);
       break;
     }
-    case 'text':
-      td.innerHTML = `<span contenteditable="true" style="display:inline-block;min-width:80px;max-width:200px;padding:2px 4px;border-radius:4px;border:1px solid transparent;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onblur="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',this.textContent.trim());this.style.borderColor='transparent'" onfocus="this.style.borderColor='var(--accent)'">${_esc(val||'')}</span>`;
+    case 'text': {
+      td.style.width = '160px';
+      const wrap = document.createElement('div');
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = val || ''; inp.placeholder = 'メモを入力...';
+      inp.style.cssText = 'background:transparent;border:none;color:var(--text);font-size:12px;width:150px;outline:none;padding:2px 4px;border-radius:4px';
+      inp.addEventListener('mouseenter', () => inp.style.background = 'var(--surface3)');
+      inp.addEventListener('mouseleave', () => { if (document.activeElement !== inp) inp.style.background = 'transparent'; });
+      inp.addEventListener('focus', () => { inp.style.background = 'var(--surface2)'; inp.style.outline = '1px solid var(--accent)'; });
+      inp.addEventListener('blur', () => { inp.style.background = 'transparent'; inp.style.outline = 'none'; window._cvSetCell(view.id, td.dataset.vid, col.id, inp.value); });
+      wrap.appendChild(inp); td.appendChild(wrap);
       break;
+    }
     case 'select': {
+      td.style.width = '110px';
+      const wrap = document.createElement('div');
+      wrap.style.cursor = 'pointer';
       const opts = col.options || [];
       const cur = val || '';
-      td.innerHTML = `<select style="font-size:11px;padding:2px 6px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer" onchange="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',this.value)">
-        <option value="">—</option>
-        ${opts.map(o => `<option value="${_esc(o)}" ${o===cur?'selected':''}>${_esc(o)}</option>`).join('')}
-      </select>`;
+      if (cur && opts.includes(cur)) {
+        const color = getOptionColor(opts, cur);
+        const pill = document.createElement('span');
+        pill.style.cssText = `display:inline-flex;align-items:center;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:500;background:${color.bg};color:${color.text}`;
+        pill.textContent = cur;
+        wrap.appendChild(pill);
+      } else {
+        const empty = document.createElement('span');
+        empty.style.cssText = 'color:var(--text3);font-size:12px';
+        empty.textContent = '─ 選択'; wrap.appendChild(empty);
+      }
+      wrap.addEventListener('click', e => {
+        e.stopPropagation();
+        openSelectPopup(td, col, cur, view, newVal => {
+          window._cvSetCell(view.id, td.dataset.vid, col.id, newVal);
+          _renderCell(td, col, newVal, view);
+        });
+      });
+      td.appendChild(wrap);
+      break;
+    }
+    case 'multiselect': {
+      td.style.width = '150px';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'cursor:pointer;display:flex;align-items:center;gap:3px;flex-wrap:nowrap;overflow:hidden;max-width:150px';
+      const vals = Array.isArray(val) ? val : [];
+      if (vals.length === 0) {
+        const empty = document.createElement('span');
+        empty.style.cssText = 'color:var(--text3);font-size:12px';
+        empty.textContent = '─ 選択'; wrap.appendChild(empty);
+      } else {
+        vals.forEach(v => {
+          const color = getOptionColor(col.options || [], v);
+          const pill = document.createElement('span');
+          pill.style.cssText = `display:inline-flex;align-items:center;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:500;flex-shrink:0;background:${color.bg};color:${color.text}`;
+          pill.textContent = v; wrap.appendChild(pill);
+        });
+      }
+      wrap.addEventListener('click', e => {
+        e.stopPropagation();
+        openMultiselectPopup(td, col, vals, view, newVals => {
+          window._cvSetCell(view.id, td.dataset.vid, col.id, newVals);
+          _renderCell(td, col, newVals, view);
+        });
+      });
+      td.appendChild(wrap);
       break;
     }
     case 'date':
       td.innerHTML = `<input type="date" value="${_esc(val||'')}" style="font-size:11px;padding:2px 6px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer" onchange="window._cvSetCell('${view.id}','${td.dataset.vid}','${col.id}',this.value)">`;
       break;
     case 'tracker': {
-      const days = []; const today = new Date(); const entries = Array.isArray(val) ? val : [];
-      for (let i = -(col.pastDays||4); i <= (col.futureDays||1); i++) {
-        const d = new Date(today); d.setDate(d.getDate() + i);
+      const past = col.pastDays ?? 4;
+      const future = col.futureDays ?? 1;
+      const doneDates = Array.isArray(val) ? [...val] : [];
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;gap:0;align-items:flex-end';
+      for (let i = -past; i <= future; i++) {
+        if (i === 1) {
+          const sep = document.createElement('div');
+          sep.style.cssText = 'width:1px;height:20px;background:var(--border2);margin:0 3px;flex-shrink:0;align-self:center';
+          wrap.appendChild(sep);
+        }
+        const d = new Date(); d.setDate(d.getDate() + i);
         const ds = d.toISOString().slice(0,10);
-        const done = entries.includes(ds);
-        days.push(`<span onclick="window._cvToggleTracker('${view.id}','${td.dataset.vid}','${col.id}','${ds}')" title="${ds}" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:10px;background:${done?'var(--accent)':'var(--surface3)'};color:${done?'var(--on-accent)':'var(--text3)'};">${i===0?'●':'·'}</span>`);
+        const isToday = i === 0; const isFuture = i > 0;
+        const isDone = doneDates.includes(ds);
+        const mm = d.getMonth()+1; const dd2 = d.getDate();
+        const dayWrap = document.createElement('div');
+        dayWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:3px;width:28px';
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:9px;color:var(--text3);line-height:1';
+        lbl.textContent = `${mm}/${dd2}`;
+        const dot = document.createElement('div');
+        let dotStyle = 'width:14px;height:14px;border-radius:50%;cursor:pointer;';
+        if (isDone) dotStyle += `background:${isFuture?'rgba(74,144,217,.35)':'var(--accent)'};border:1.5px solid var(--accent);border-style:${isFuture?'dashed':'solid'};`;
+        else if (isToday) dotStyle += 'background:transparent;border:1.5px solid var(--accent);';
+        else if (isFuture) dotStyle += 'background:transparent;border:1.5px dashed var(--border2);';
+        else dotStyle += 'background:transparent;border:1.5px solid var(--border2);';
+        dot.style.cssText = dotStyle;
+        dot.addEventListener('click', () => {
+          const idx = doneDates.indexOf(ds);
+          if (idx >= 0) doneDates.splice(idx, 1); else doneDates.push(ds);
+          window._cvSetCell(view.id, td.dataset.vid, col.id, [...doneDates]);
+          _renderCell(td, col, [...doneDates], view);
+        });
+        dayWrap.appendChild(lbl); dayWrap.appendChild(dot); wrap.appendChild(dayWrap);
       }
-      td.innerHTML = `<div style="display:flex;gap:2px">${days.join('')}</div>`;
+      td.appendChild(wrap);
       break;
     }
     default:
@@ -324,6 +516,551 @@ window._cvToggleTracker = function(viewId, videoId, colId, dateStr) {
   _save();
   _renderTable(view);
 };
+
+// ── Select / Multiselect ポップアップ ──
+function openSelectPopup(td, col, currentValue, view, callback) {
+  const popup = document.getElementById('cv-popup');
+  if (!popup) return;
+  popup.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'cv-popup-title'; title.textContent = col.label;
+  popup.appendChild(title);
+  (col.options || []).forEach(opt => {
+    const color = getOptionColor(col.options, opt);
+    const item = document.createElement('div');
+    item.className = 'cv-popup-item';
+    const check = document.createElement('span');
+    check.className = 'cv-popup-check'; check.textContent = currentValue === opt ? '✓' : '';
+    const pill = document.createElement('span');
+    pill.style.cssText = `display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;background:${color.bg};color:${color.text}`;
+    pill.textContent = opt;
+    item.appendChild(check); item.appendChild(pill);
+    item.addEventListener('click', e => { e.stopPropagation(); callback(currentValue === opt ? null : opt); closePopup(); });
+    popup.appendChild(item);
+  });
+  positionAndShowPopup(popup, td);
+}
+
+function openMultiselectPopup(td, col, currentValues, view, callback) {
+  const popup = document.getElementById('cv-popup');
+  if (!popup) return;
+  popup.innerHTML = '';
+  let selected = [...currentValues];
+  const title = document.createElement('div');
+  title.className = 'cv-popup-title'; title.textContent = col.label;
+  popup.appendChild(title);
+  const itemsWrap = document.createElement('div');
+  popup.appendChild(itemsWrap);
+  function refreshItems() {
+    itemsWrap.innerHTML = '';
+    (col.options || []).forEach(opt => {
+      const color = getOptionColor(col.options, opt);
+      const item = document.createElement('div');
+      item.className = 'cv-popup-item';
+      const check = document.createElement('span');
+      check.className = 'cv-popup-check'; check.textContent = selected.includes(opt) ? '✓' : '';
+      const pill = document.createElement('span');
+      pill.style.cssText = `display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;background:${color.bg};color:${color.text}`;
+      pill.textContent = opt;
+      item.appendChild(check); item.appendChild(pill);
+      item.addEventListener('click', e => {
+        e.stopPropagation();
+        const idx = selected.indexOf(opt);
+        if (idx >= 0) selected.splice(idx, 1); else selected.push(opt);
+        callback([...selected]); refreshItems();
+      });
+      itemsWrap.appendChild(item);
+    });
+  }
+  refreshItems();
+  const closeWrap = document.createElement('div');
+  closeWrap.className = 'cv-popup-close';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ 閉じる';
+  closeBtn.addEventListener('click', e => { e.stopPropagation(); closePopup(); });
+  closeWrap.appendChild(closeBtn);
+  popup.appendChild(closeWrap);
+  positionAndShowPopup(popup, td);
+}
+
+function positionAndShowPopup(popup, anchorEl) {
+  popup.style.display = 'block';
+  const rect = anchorEl.getBoundingClientRect();
+  const winH = window.innerHeight, winW = window.innerWidth;
+  const popH = popup.offsetHeight || 200;
+  let top = rect.bottom + 4;
+  if (top + popH > winH - 8) top = rect.top - popH - 4;
+  if (top < 8) top = 8;
+  let left = rect.left;
+  const popW = popup.offsetWidth || 180;
+  if (left + popW > winW - 8) left = winW - popW - 8;
+  if (left < 8) left = 8;
+  popup.style.top = top + 'px'; popup.style.left = left + 'px';
+}
+
+function closePopup() {
+  const p = document.getElementById('cv-popup');
+  if (p) p.style.display = 'none';
+}
+
+// ── TH ドロップダウン ──
+function openThDropdown(btn, view, colId) {
+  const dd = document.getElementById('cv-th-dropdown');
+  if (!dd) return;
+  const col = view.columns.find(c => c.id === colId);
+  if (!col) return;
+  dd.innerHTML = '';
+  const renameBtn = document.createElement('button');
+  renameBtn.innerHTML = '📝 列名を変更';
+  renameBtn.addEventListener('click', () => {
+    const newLabel = prompt('新しい列名:', col.label);
+    if (newLabel && newLabel.trim()) { col.label = newLabel.trim(); _save(); _renderTable(view); }
+    closeThDropdown();
+  });
+  dd.appendChild(renameBtn);
+  const delBtn = document.createElement('button');
+  delBtn.className = 'danger';
+  delBtn.innerHTML = '🗑 列を削除';
+  delBtn.addEventListener('click', () => {
+    if (confirm(`列「${col.label}」を削除しますか？`)) {
+      const idx = view.columns.findIndex(c => c.id === colId);
+      if (idx >= 0) view.columns.splice(idx, 1);
+      Object.keys(view.rowData).forEach(vid => delete view.rowData[vid][colId]);
+      _save(); _renderTable(view);
+    }
+    closeThDropdown();
+  });
+  dd.appendChild(delBtn);
+  dd.style.display = 'block';
+  const rect = btn.getBoundingClientRect();
+  const winW = window.innerWidth;
+  let left = rect.left;
+  if (left + 160 > winW - 8) left = winW - 160 - 8;
+  dd.style.top = (rect.bottom + 4) + 'px'; dd.style.left = left + 'px';
+}
+
+function closeThDropdown() {
+  const dd = document.getElementById('cv-th-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+// ── 列を追加モーダル ──
+window.cvOpenAddCol = function(viewId) { openAddColModal(viewId); };
+
+function openAddColModal(viewId) {
+  _addColTargetViewId = viewId;
+  _selectedType = null;
+  _newColOptions = ['A', 'B', 'C'];
+  _newColPastDays = 3; _newColFutureDays = 1;
+  const grid = document.getElementById('cv-type-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  TYPE_DEFS.forEach(def => {
+    const btn = document.createElement('button');
+    btn.className = 'cv-type-btn'; btn.dataset.type = def.type;
+    btn.innerHTML = `<span class="cv-type-icon">${def.icon}</span>${def.label}`;
+    btn.addEventListener('click', () => {
+      _selectedType = def.type;
+      grid.querySelectorAll('.cv-type-btn').forEach(b => b.classList.toggle('selected', b.dataset.type === def.type));
+      showColConfig(def.type);
+    });
+    grid.appendChild(btn);
+  });
+  const colConfig = document.getElementById('cv-col-config');
+  if (colConfig) colConfig.style.display = 'none';
+  const newLabel = document.getElementById('cv-new-col-label');
+  if (newLabel) newLabel.value = '';
+  const extraConfig = document.getElementById('cv-extra-config');
+  if (extraConfig) extraConfig.innerHTML = '';
+  const modal = document.getElementById('cv-add-col-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function showColConfig(type) {
+  const colConfig = document.getElementById('cv-col-config');
+  if (colConfig) colConfig.style.display = 'block';
+  const extra = document.getElementById('cv-extra-config');
+  if (!extra) return;
+  extra.innerHTML = '';
+  if (type === 'select' || type === 'multiselect') {
+    extra.innerHTML = `
+      <div class="cv-modal-section">
+        <div class="cv-modal-label">選択肢</div>
+        <div class="cv-options-list" id="cv-options-list"></div>
+        <button class="cv-add-option-btn" onclick="window._cvAddOptionRow()">＋ 選択肢を追加</button>
+      </div>`;
+    _newColOptions = ['A', 'B', 'C'];
+    _renderOptionsList();
+  } else if (type === 'tracker') {
+    extra.innerHTML = `
+      <div class="cv-modal-section">
+        <div class="cv-modal-label">過去◯日</div>
+        <div class="cv-days-group" id="cv-past-days-group">
+          ${[0,1,2,3,5,7].map(n => `<button class="cv-days-btn${n===3?' selected':''}" data-days="${n}">${n}日</button>`).join('')}
+        </div>
+      </div>
+      <div class="cv-modal-section" style="margin-top:10px">
+        <div class="cv-modal-label">未来◯日</div>
+        <div class="cv-days-group" id="cv-future-days-group">
+          ${[0,1,2,3,5,7].map(n => `<button class="cv-days-btn${n===1?' selected':''}" data-days="${n}">${n}日</button>`).join('')}
+        </div>
+      </div>`;
+    _newColPastDays = 3; _newColFutureDays = 1;
+    document.getElementById('cv-past-days-group').querySelectorAll('.cv-days-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('cv-past-days-group').querySelectorAll('.cv-days-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected'); _newColPastDays = parseInt(btn.dataset.days);
+      });
+    });
+    document.getElementById('cv-future-days-group').querySelectorAll('.cv-days-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('cv-future-days-group').querySelectorAll('.cv-days-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected'); _newColFutureDays = parseInt(btn.dataset.days);
+      });
+    });
+  } else if (type === 'number') {
+    extra.innerHTML = `
+      <div class="cv-modal-section">
+        <div class="cv-modal-label">単位</div>
+        <input type="text" class="cv-modal-input" id="cv-new-col-unit" placeholder="例: 回、分、kg">
+      </div>`;
+  }
+}
+
+function _renderOptionsList() {
+  const list = document.getElementById('cv-options-list');
+  if (!list) return;
+  list.innerHTML = '';
+  _newColOptions.forEach((opt, idx) => {
+    const row = document.createElement('div');
+    row.className = 'cv-option-row';
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = opt;
+    inp.addEventListener('change', () => { _newColOptions[idx] = inp.value; });
+    const del = document.createElement('button');
+    del.className = 'cv-option-del'; del.textContent = '✕';
+    del.addEventListener('click', () => { _newColOptions.splice(idx, 1); _renderOptionsList(); });
+    row.appendChild(inp); row.appendChild(del); list.appendChild(row);
+  });
+}
+
+window._cvAddOptionRow = function() {
+  _newColOptions.push('');
+  _renderOptionsList();
+  const inputs = document.querySelectorAll('#cv-options-list input');
+  if (inputs.length) inputs[inputs.length-1].focus();
+};
+
+window.cvCloseAddColModal = function() {
+  const modal = document.getElementById('cv-add-col-modal');
+  if (modal) modal.style.display = 'none';
+  _selectedType = null;
+};
+
+window.cvConfirmAddCol = function() {
+  if (!_selectedType) { alert('型を選択してください'); return; }
+  const labelEl = document.getElementById('cv-new-col-label');
+  const label = (labelEl ? labelEl.value.trim() : '') || TYPE_DEFS.find(d => d.type === _selectedType)?.label || '新しい列';
+  const view = _views.find(v => v.id === _addColTargetViewId);
+  if (!view) return;
+  const newCol = { id: 'col' + (++_nextColId), type: _selectedType, label };
+  if (_selectedType === 'select' || _selectedType === 'multiselect') {
+    newCol.options = _newColOptions.filter(o => o.trim() !== '');
+  } else if (_selectedType === 'tracker') {
+    newCol.pastDays = _newColPastDays; newCol.futureDays = _newColFutureDays;
+  } else if (_selectedType === 'number') {
+    const unitEl = document.getElementById('cv-new-col-unit');
+    newCol.unit = unitEl ? unitEl.value.trim() : '';
+  }
+  const all = window.videos || [];
+  all.forEach(v => {
+    if (!view.rowData[v.id]) view.rowData[v.id] = {};
+    if (_selectedType === 'checkbox') view.rowData[v.id][newCol.id] = false;
+    else if (_selectedType === 'multiselect') view.rowData[v.id][newCol.id] = [];
+    else if (_selectedType === 'tracker') view.rowData[v.id][newCol.id] = [];
+    else if (_selectedType === 'stars') view.rowData[v.id][newCol.id] = 0;
+    else if (_selectedType === 'progress') view.rowData[v.id][newCol.id] = 0;
+    else view.rowData[v.id][newCol.id] = null;
+  });
+  view.columns.push(newCol);
+  _save();
+  window.cvCloseAddColModal();
+  _renderTable(view);
+};
+
+// ── フィルターシステム ──
+function getFilter(viewId, colId) { return (filterState[viewId] || {})[colId] || null; }
+function setFilter(viewId, colId, data) {
+  if (!filterState[viewId]) filterState[viewId] = {};
+  filterState[viewId][colId] = data;
+}
+function clearFilter(viewId, colId) { if (filterState[viewId]) delete filterState[viewId][colId]; }
+function hasActiveFilter(viewId, colId) { const f = getFilter(viewId, colId); return !!(f && f.active); }
+
+function applyFilters(view) {
+  const tbody = document.getElementById('cv-table-body');
+  if (!tbody) return;
+  const fs = filterState[view.id] || {};
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const vid = tr.dataset.vid;
+    if (!vid) { tr.style.display = ''; return; }
+    let show = true;
+    for (const col of view.columns) {
+      const f = fs[col.id];
+      if (!f || !f.active) continue;
+      if (!passesFilter(col, f, (view.rowData[vid] || {})[col.id])) { show = false; break; }
+    }
+    tr.style.display = show ? '' : 'none';
+  });
+  view.columns.forEach(col => {
+    const th = document.querySelector(`#cv-table-head th[data-col-id="${col.id}"]`);
+    if (!th) return;
+    const fb = th.querySelector('.cv-th-filter-btn');
+    if (fb) fb.classList.toggle('active', hasActiveFilter(view.id, col.id));
+  });
+}
+
+function passesFilter(col, f, value) {
+  switch(col.type) {
+    case 'checkbox':
+      if (!f.active || f.value === 'all') return true;
+      return f.value === 'on' ? value === true : value !== true;
+    case 'select': {
+      if (!f.active || !f.values || f.values.size === 0) return true;
+      const v = (value == null || value === '') ? '__empty__' : value;
+      return f.values.has(v);
+    }
+    case 'multiselect': {
+      if (!f.active || !f.values || f.values.size === 0) return true;
+      const arr = Array.isArray(value) ? value : [];
+      if (arr.length === 0) return f.values.has('__empty__');
+      return arr.some(v => f.values.has(v));
+    }
+    case 'text':
+      if (!f.active || !f.text) return true;
+      return (value || '').toLowerCase().includes(f.text.toLowerCase());
+    case 'number': {
+      if (!f.active || f.val === '' || f.val == null) return true;
+      const n = Number(value);
+      if (isNaN(n)) return false;
+      if (f.op === '=')     return n === Number(f.val);
+      if (f.op === '>=')    return n >= Number(f.val);
+      if (f.op === '<=')    return n <= Number(f.val);
+      if (f.op === 'range') return n >= Number(f.val) && n <= Number(f.val2);
+      return true;
+    }
+    case 'stars':
+      if (!f.active || f.minStars == null) return true;
+      return (Number(value) || 0) >= f.minStars;
+    case 'progress': {
+      if (!f.active || f.val === '' || f.val == null) return true;
+      const pct = Number(value) || 0;
+      if (f.op === '>=')    return pct >= Number(f.val);
+      if (f.op === '<=')    return pct <= Number(f.val);
+      if (f.op === 'range') return pct >= Number(f.val) && pct <= Number(f.val2);
+      return true;
+    }
+    default: return true;
+  }
+}
+
+function openFilterPopup(btn, view, col) {
+  closeFilterPopup(); closePopup(); closeThDropdown();
+  const popup = document.getElementById('cv-filter-popup');
+  if (!popup) return;
+  popup.innerHTML = '';
+  _filterCtx = { view, col, btn };
+  const title = document.createElement('div');
+  title.className = 'cv-popup-title'; title.textContent = 'フィルター: ' + col.label;
+  popup.appendChild(title);
+  const f = getFilter(view.id, col.id) || {};
+  switch(col.type) {
+    case 'checkbox':    buildChkFilterUI(popup, view, col, f);       break;
+    case 'select':      buildSelFilterUI(popup, view, col, f);        break;
+    case 'multiselect': buildSelFilterUI(popup, view, col, f);        break;
+    case 'text':        buildTextFilterUI(popup, view, col, f);       break;
+    case 'number':      buildNumFilterUI(popup, view, col, f);        break;
+    case 'stars':       buildStarsFilterUI(popup, view, col, f);      break;
+    case 'progress':    buildProgressFilterUI(popup, view, col, f);   break;
+  }
+  const sep = document.createElement('div');
+  sep.style.cssText = 'margin-top:6px;padding-top:6px;border-top:1px solid var(--border)';
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'cv-filter-clear-btn'; clearBtn.textContent = 'フィルターをクリア';
+  clearBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    clearFilter(view.id, col.id); applyFilters(view); closeFilterPopup();
+  });
+  sep.appendChild(clearBtn); popup.appendChild(sep);
+  popup.style.display = 'block';
+  _positionFilterPopup(btn);
+}
+
+function _positionFilterPopup(anchor) {
+  const popup = document.getElementById('cv-filter-popup');
+  if (!popup) return;
+  const rect = anchor.getBoundingClientRect();
+  const winH = window.innerHeight, winW = window.innerWidth;
+  const popH = popup.offsetHeight || 200, popW = popup.offsetWidth || 200;
+  let top = rect.bottom + 4;
+  if (top + popH > winH - 8) top = rect.top - popH - 4;
+  if (top < 8) top = 8;
+  let left = rect.left;
+  if (left + popW > winW - 8) left = winW - popW - 8;
+  if (left < 8) left = 8;
+  popup.style.top = top + 'px'; popup.style.left = left + 'px';
+}
+
+function closeFilterPopup() {
+  const fp = document.getElementById('cv-filter-popup');
+  if (fp) fp.style.display = 'none';
+  _filterCtx = null;
+}
+
+function buildChkFilterUI(popup, view, col, f) {
+  const cur = f.value || 'all';
+  [{v:'all',l:'すべて'},{v:'on',l:'チェックあり ✓'},{v:'off',l:'チェックなし'}].forEach(opt => {
+    const label = document.createElement('label');
+    label.className = 'cv-filter-row';
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = 'cv-fp-chk'; radio.value = opt.v;
+    radio.className = 'cv-filter-chk'; radio.checked = cur === opt.v;
+    radio.addEventListener('change', () => {
+      setFilter(view.id, col.id, { active: opt.v !== 'all', value: opt.v });
+      applyFilters(view);
+    });
+    label.appendChild(radio); label.appendChild(document.createTextNode(' ' + opt.l));
+    popup.appendChild(label);
+  });
+}
+
+function buildSelFilterUI(popup, view, col, f) {
+  const allOpts = [...(col.options || []), '__empty__'];
+  const curSel = (f.active && f.values) ? f.values : new Set(allOpts);
+  const masterLabel = document.createElement('label');
+  masterLabel.className = 'cv-filter-row';
+  const masterChk = document.createElement('input');
+  masterChk.type = 'checkbox'; masterChk.className = 'cv-filter-chk';
+  masterChk.checked = curSel.size >= allOpts.length;
+  masterLabel.appendChild(masterChk); masterLabel.appendChild(document.createTextNode(' すべて'));
+  popup.appendChild(masterLabel);
+  const divider = document.createElement('div');
+  divider.style.cssText = 'height:1px;background:var(--border);margin:3px 0'; popup.appendChild(divider);
+  const rows = [];
+  allOpts.forEach(opt => {
+    const isEmpty = opt === '__empty__';
+    const label = document.createElement('label');
+    label.className = 'cv-filter-row';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox'; chk.className = 'cv-filter-chk'; chk.checked = curSel.has(opt);
+    const span = document.createElement('span');
+    if (!isEmpty) {
+      const c = getOptionColor(col.options || [], opt);
+      span.style.cssText = `display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;background:${c.bg};color:${c.text}`;
+      span.textContent = opt;
+    } else {
+      span.style.color = 'var(--text3)'; span.textContent = '(未設定)';
+    }
+    label.appendChild(chk); label.appendChild(span);
+    popup.appendChild(label); rows.push({ chk, opt });
+    chk.addEventListener('change', () => updateSel());
+  });
+  masterChk.addEventListener('change', () => { rows.forEach(r => { r.chk.checked = masterChk.checked; }); updateSel(); });
+  function updateSel() {
+    const vals = new Set(rows.filter(r => r.chk.checked).map(r => r.opt));
+    masterChk.checked = vals.size >= allOpts.length;
+    setFilter(view.id, col.id, { active: vals.size < allOpts.length, values: vals });
+    applyFilters(view);
+  }
+}
+
+function buildTextFilterUI(popup, view, col, f) {
+  const input = document.createElement('input');
+  input.type = 'text'; input.className = 'cv-filter-input';
+  input.placeholder = 'キーワードで検索...'; input.value = f.text || '';
+  input.addEventListener('input', () => {
+    setFilter(view.id, col.id, { active: input.value.length > 0, text: input.value });
+    applyFilters(view);
+  });
+  popup.appendChild(input);
+  setTimeout(() => input.focus(), 50);
+}
+
+function buildNumFilterUI(popup, view, col, f) {
+  const curOp = f.op || '>=', curVal = f.val ?? '', curVal2 = f.val2 ?? '';
+  const opRow = document.createElement('div');
+  opRow.className = 'cv-filter-number-row';
+  const opSel = document.createElement('select');
+  opSel.className = 'cv-filter-op-select';
+  [{v:'>=',l:'以上 (≥)'},{v:'<=',l:'以下 (≤)'},{v:'=',l:'等しい (=)'},{v:'range',l:'範囲'}].forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.v; opt.textContent = o.l; opt.selected = curOp === o.v;
+    opSel.appendChild(opt);
+  });
+  const valInput = document.createElement('input');
+  valInput.type = 'number'; valInput.className = 'cv-filter-num-input';
+  valInput.value = curVal; valInput.placeholder = '値';
+  opRow.appendChild(opSel); opRow.appendChild(valInput);
+  if (col.unit) { const u = document.createElement('span'); u.style.cssText = 'color:var(--text3);font-size:11px;white-space:nowrap'; u.textContent = col.unit; opRow.appendChild(u); }
+  popup.appendChild(opRow);
+  const rangeRow = document.createElement('div');
+  rangeRow.className = 'cv-filter-number-row';
+  rangeRow.style.display = curOp === 'range' ? 'flex' : 'none';
+  const toLabel = document.createElement('span'); toLabel.style.cssText = 'color:var(--text3);font-size:11px;flex-shrink:0'; toLabel.textContent = '〜';
+  const val2Input = document.createElement('input'); val2Input.type = 'number'; val2Input.className = 'cv-filter-num-input'; val2Input.value = curVal2; val2Input.placeholder = '上限';
+  rangeRow.appendChild(toLabel); rangeRow.appendChild(val2Input);
+  if (col.unit) { const u2 = document.createElement('span'); u2.style.cssText = 'color:var(--text3);font-size:11px;white-space:nowrap'; u2.textContent = col.unit; rangeRow.appendChild(u2); }
+  popup.appendChild(rangeRow);
+  function updateNum() {
+    const op = opSel.value, val = valInput.value, val2 = val2Input.value;
+    rangeRow.style.display = op === 'range' ? 'flex' : 'none';
+    setFilter(view.id, col.id, { active: val !== '', op, val, val2 });
+    applyFilters(view);
+    if (_filterCtx?.btn) _positionFilterPopup(_filterCtx.btn);
+  }
+  opSel.addEventListener('change', updateNum);
+  valInput.addEventListener('input', updateNum);
+  val2Input.addEventListener('input', updateNum);
+}
+
+function buildStarsFilterUI(popup, view, col, f) {
+  const curMin = f.active ? f.minStars : null;
+  [{v:null,l:'すべて',stars:0},{v:1,l:'★1以上',stars:1},{v:2,l:'★2以上',stars:2},{v:3,l:'★3以上',stars:3},{v:4,l:'★4以上',stars:4},{v:5,l:'★5のみ',stars:5}].forEach(opt => {
+    const label = document.createElement('label');
+    label.className = 'cv-filter-row';
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = 'cv-fp-stars'; radio.className = 'cv-filter-chk'; radio.checked = curMin === opt.v;
+    const span = document.createElement('span');
+    span.innerHTML = (opt.stars > 0 ? `<span style="color:#f0c040;font-size:12px">${'★'.repeat(opt.stars)}</span> ` : '') + opt.l;
+    radio.addEventListener('change', () => { setFilter(view.id, col.id, { active: opt.v !== null, minStars: opt.v }); applyFilters(view); });
+    label.appendChild(radio); label.appendChild(span); popup.appendChild(label);
+  });
+}
+
+function buildProgressFilterUI(popup, view, col, f) {
+  const curOp = f.op || '>=', curVal = f.val ?? '', curVal2 = f.val2 ?? '';
+  const opRow = document.createElement('div'); opRow.className = 'cv-filter-number-row';
+  const opSel = document.createElement('select'); opSel.className = 'cv-filter-op-select';
+  [{v:'>=',l:'以上 (≥)'},{v:'<=',l:'以下 (≤)'},{v:'range',l:'範囲'}].forEach(o => {
+    const opt = document.createElement('option'); opt.value = o.v; opt.textContent = o.l; opt.selected = curOp === o.v; opSel.appendChild(opt);
+  });
+  const valInput = document.createElement('input'); valInput.type = 'number'; valInput.className = 'cv-filter-num-input'; valInput.value = curVal; valInput.placeholder = '0〜100'; valInput.min = '0'; valInput.max = '100';
+  const pct1 = document.createElement('span'); pct1.style.cssText = 'color:var(--text3);font-size:11px;flex-shrink:0'; pct1.textContent = '%';
+  opRow.appendChild(opSel); opRow.appendChild(valInput); opRow.appendChild(pct1); popup.appendChild(opRow);
+  const rangeRow = document.createElement('div'); rangeRow.className = 'cv-filter-number-row'; rangeRow.style.display = curOp === 'range' ? 'flex' : 'none';
+  const toLabel = document.createElement('span'); toLabel.style.cssText = 'color:var(--text3);font-size:11px;flex-shrink:0'; toLabel.textContent = '〜';
+  const val2Input = document.createElement('input'); val2Input.type = 'number'; val2Input.className = 'cv-filter-num-input'; val2Input.value = curVal2; val2Input.placeholder = '100'; val2Input.min = '0'; val2Input.max = '100';
+  const pct2 = document.createElement('span'); pct2.style.cssText = 'color:var(--text3);font-size:11px;flex-shrink:0'; pct2.textContent = '%';
+  rangeRow.appendChild(toLabel); rangeRow.appendChild(val2Input); rangeRow.appendChild(pct2); popup.appendChild(rangeRow);
+  function updatePct() {
+    const op = opSel.value, val = valInput.value, val2 = val2Input.value;
+    rangeRow.style.display = op === 'range' ? 'flex' : 'none';
+    setFilter(view.id, col.id, { active: val !== '', op, val, val2 });
+    applyFilters(view);
+    if (_filterCtx?.btn) _positionFilterPopup(_filterCtx.btn);
+  }
+  opSel.addEventListener('change', updatePct); valInput.addEventListener('input', updatePct); val2Input.addEventListener('input', updatePct);
+}
 
 // ── 新規ビューフロー ──
 window.cvOpenNewModal = function() {
@@ -370,21 +1107,17 @@ window.cvSrcPickLib = function() {
   const sheet = document.getElementById('cv-src-sheet');
   sheet.classList.remove('vis');
   setTimeout(() => { sheet.style.display = 'none'; }, 200);
-  // uni-popup を cv モードで開く（viewId = '__new__' で新規作成シグナル）
   _cvSelectedIds = new Set();
   window.uniOpenForCv('__new__');
 };
 
 // Unified Filter からのフック
-window._cvGetAddedIds = function(viewId) {
-  return _cvSelectedIds;
-};
+window._cvGetAddedIds = function(viewId) { return _cvSelectedIds; };
 window._cvVideoClick = function(videoId) {
   if (_cvSelectedIds.has(videoId)) _cvSelectedIds.delete(videoId);
   else _cvSelectedIds.add(videoId);
 };
 window._cvApply = function() {
-  // static 保存（適用ボタン）
   if (_editingViewId) {
     const view = _views.find(v => v.id === _editingViewId);
     if (view) { view.saveMode = 'static'; view.videoIds = [..._cvSelectedIds]; view.filterConditions = null; _save(); _renderTable(view); _renderViewBar(); }
@@ -394,7 +1127,6 @@ window._cvApply = function() {
   }
 };
 window._cvSaveDynamic = function() {
-  // dynamic 保存（💾 ボタン）
   const fc = _getCurrentFilterConditions();
   if (_editingViewId) {
     const view = _views.find(v => v.id === _editingViewId);
@@ -457,7 +1189,7 @@ window.cvConfirm = function() {
   if (!name) return;
   const tpl = [...CV_TEMPLATES, BLANK_TEMPLATE].find(t => t.id === _selectedTplId) || BLANK_TEMPLATE;
   const id = 'cv_' + Date.now();
-  const cols = tpl.columns.map((c, i) => ({ id: 'col' + (++_nextColId), ...c }));
+  const cols = tpl.columns.map(c => ({ id: 'col' + (++_nextColId), ...c }));
   const view = {
     id, label: name,
     saveMode: window._cvPendingSaveMode || 'static',
@@ -478,7 +1210,6 @@ window.cvOpenConditionEditor = function(viewId) {
   if (!view) return;
   _editingViewId = viewId;
   _cvSelectedIds = new Set(view.videoIds || []);
-  // 既存のdynamic条件をフィルターに反映
   if (view.saveMode === 'dynamic' && view.filterConditions) {
     const fc = view.filterConditions;
     const f = window.filters || {};
@@ -507,11 +1238,6 @@ window._cvDeleteView = function(viewId) {
   _renderViewBar();
 };
 
-// ── 列を追加 ──
-window.cvOpenAddCol = function(viewId) {
-  window.toast?.('列追加機能は近日対応予定です');
-};
-
 // ── III列メニュー ──
 window.cvToggleColMenu = function(e) {
   e.stopPropagation();
@@ -530,7 +1256,7 @@ window.cvToggleColMenu = function(e) {
         <button onclick="window.cvMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
         <button onclick="window.cvMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===cvColOrder.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===cvColOrder.length-1?'disabled':''}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
-          <input type="checkbox" ${cvColVisibility[col]!==false?'checked':''} onchange="cvColVisibility['${col}']=this.checked;_save();window._cvRerenderCur()" style="accent-color:var(--accent);width:14px;height:14px">
+          <input type="checkbox" ${cvColVisibility[col]!==false?'checked':''} onchange="cvColVisibility['${col}']=this.checked;window._cvSave();window._cvRerenderCur()" style="accent-color:var(--accent);width:14px;height:14px">
           ${_esc(ORG_COL_LABELS[col]||col)}
         </label>
       </div>`).join('');
@@ -556,7 +1282,17 @@ window._cvRerenderCur = function() {
   const view = _views.find(v => v.id === _curId); if (view) _renderTable(view);
 };
 
-// ── _libView フック: カスタムビュー表示中に card/org 切替時に cv-host を隠す ──
+// ── グローバルクリック閉じる ──
+document.addEventListener('click', e => {
+  const popup = document.getElementById('cv-popup');
+  if (popup && popup.style.display !== 'none' && !popup.contains(e.target)) closePopup();
+  const dd = document.getElementById('cv-th-dropdown');
+  if (dd && dd.style.display !== 'none' && !dd.contains(e.target)) closeThDropdown();
+  const fp = document.getElementById('cv-filter-popup');
+  if (fp && fp.style.display !== 'none' && !fp.contains(e.target) && !e.target.closest('.cv-th-filter-btn')) closeFilterPopup();
+});
+
+// ── _libView フック ──
 const _origLibView = window._libView;
 window._libView = function(mode) {
   _curId = null;
@@ -577,7 +1313,6 @@ function _init() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _init);
 else _init();
 
-// グローバル公開
 window._cvSave = _save;
 
 })();
