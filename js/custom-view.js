@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.270 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.272 ═══
 (function () {
 'use strict';
 
@@ -89,8 +89,8 @@ function _load() {
 function _save() {
   try {
     localStorage.setItem('wk_cv_views', JSON.stringify(_views));
-    localStorage.setItem('wk_cv_col_prefs', JSON.stringify({ order: cvColOrder, vis: cvColVisibility }));
   } catch(e) {}
+  window.saveUserSettings?.();
 }
 
 // ── 標準列セル値 ──
@@ -132,23 +132,8 @@ function _renderViewBar() {
 // ── ビュー切替 ──
 function _showView(id) {
   _curId = id;
-  document.getElementById('lvt-card')?.classList.remove('lvt-active');
-  document.getElementById('lvt-org')?.classList.remove('lvt-active');
-  const cardHost = document.getElementById('lib-card-host');
-  const orgHost  = document.getElementById('lib-org-host');
-  if (cardHost) cardHost.style.display = 'none';
-  if (orgHost)  orgHost.style.display  = '';
-  const cvHost = document.getElementById('cv-host');
-  if (cvHost) cvHost.style.display = 'none';
-  document.getElementById('library-actionbar')?.style && (document.getElementById('library-actionbar').style.display = 'none');
-  document.getElementById('organize-actionbar')?.style && (document.getElementById('organize-actionbar').style.display = 'none');
   _renderViewBar();
   const view = _views.find(v => v.id === id);
-  if (view) _renderTable(view);
-}
-
-// ── テーブル描画（org-tableに差し込む）──
-function _renderTable(view) {
   if (!view) return;
 
   // ツールバー更新
@@ -165,20 +150,27 @@ function _renderTable(view) {
     `;
   }
 
-  // org-tableに絞り込みフィルターをセット
+  // このビューの動画だけ見せるフィルター
   const videoIds = view.saveMode === 'dynamic' && view.filterConditions
     ? _applyConditions(view.filterConditions, window.videos || []).map(v => v.id)
     : (view.videoIds || []);
   window._cvVideoIds = new Set(videoIds);
 
-  // 前回の追加ヘッダーを削除（tbodyはrenderOrgが自動クリア）
+  // 前回のカスタム列ヘッダーを削除
   document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
 
-  // renderOrg後にカスタム列を追加するコールバック
+  // renderOrg完了後にカスタム列を追加
   window._cvAfterRender = () => _appendCustomCols(view);
 
-  // org-tableを描画（ソート/フィルター/インライン編集/バルク全て自動で動く）
-  window.renderOrg?.();
+  // _libViewフックに「内部呼び出し」と伝えてcv状態をクリアさせない
+  window._cvInternalNav = true;
+  window._libView?.('org');
+}
+
+// ── テーブル再描画（列追加・削除・名前変更後）──
+function _renderTable(view) {
+  if (!view) return;
+  _showView(view.id);
 }
 
 // ── カスタム列をorg-tableに追加 ──
@@ -1279,13 +1271,19 @@ document.addEventListener('click', e => {
 // ── _libView フック ──
 const _origLibView = window._libView;
 window._libView = function(mode) {
-  _curId = null;
-  window._cvVideoIds = null;
-  window._cvAfterRender = null;
-  document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
-  const toolbar = document.getElementById('cv-toolbar');
-  if (toolbar) toolbar.style.display = 'none';
-  _renderViewBar();
+  if (window._cvInternalNav) {
+    // _showView からの内部呼び出し — cv状態はクリアしない
+    window._cvInternalNav = false;
+  } else {
+    // タブ切り替えなど外部からの呼び出し — cv状態をクリア
+    _curId = null;
+    window._cvVideoIds = null;
+    window._cvAfterRender = null;
+    document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
+    const toolbar = document.getElementById('cv-toolbar');
+    if (toolbar) toolbar.style.display = 'none';
+    _renderViewBar();
+  }
   _origLibView?.(mode);
 };
 
@@ -1299,5 +1297,14 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else _init();
 
 window._cvSave = _save;
+
+// Firestore sync 用: saveUserSettings から参照
+Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _views = v; }, configurable: true });
+window._cvApplyLoadedViews = function(views) {
+  if (!Array.isArray(views)) return;
+  _views = views;
+  _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
+  _renderViewBar();
+};
 
 })();

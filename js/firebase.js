@@ -279,6 +279,7 @@ export async function saveUserSettings() {
       filterColVis:      window.filterColVis      || {},
       // appearance はデバイスごと（localStorage管理）のため Firebase に保存しない
       tagGroups:         window.getTagGroups?.()  || [],
+      customViews:       window._cvViews         || [],
       updatedAt: new Date().toISOString()
     });
   } catch (e) { console.error('saveUserSettings:', e); }
@@ -319,6 +320,9 @@ export async function loadUserSettings(uid) {
         if (vis.status === undefined) vis.status = true;
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
+      }
+      if (Array.isArray(data.customViews) && data.customViews.length) {
+        window._cvApplyLoadedViews?.(data.customViews);
       }
       // appearance はデバイスごと（localStorage管理）のため Firebase から復元しない
     }
