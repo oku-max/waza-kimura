@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.273 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.274 ═══
 (function () {
 'use strict';
 
@@ -1099,7 +1099,9 @@ window._cvApply = function() {
     const view = _views.find(v => v.id === _editingViewId);
     if (view) { view.saveMode = 'static'; view.videoIds = [..._cvSelectedIds]; view.filterConditions = null; _save(); _renderTable(view); _renderViewBar(); }
     _editingViewId = null;
+    window.uniCloseForCv?.();
   } else {
+    window.uniCloseForCv?.();
     _goStep3(null, [..._cvSelectedIds], 'static');
   }
 };
@@ -1269,23 +1271,27 @@ document.addEventListener('click', e => {
 });
 
 // ── _libView フック ──
-const _origLibView = window._libView;
-window._libView = function(mode) {
-  if (window._cvInternalNav) {
-    // _showView からの内部呼び出し — cv状態はクリアしない
-    window._cvInternalNav = false;
-  } else {
-    // タブ切り替えなど外部からの呼び出し — cv状態をクリア
-    _curId = null;
-    window._cvVideoIds = null;
-    window._cvAfterRender = null;
-    document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
-    const toolbar = document.getElementById('cv-toolbar');
-    if (toolbar) toolbar.style.display = 'none';
-    _renderViewBar();
-  }
-  _origLibView?.(mode);
-};
+// module script (line 85) が defer script (line 81) より後に window._libView を上書きするため
+// setTimeout で module script 完了後にフックをインストールする
+setTimeout(() => {
+  const _origLibView = window._libView;
+  window._libView = function(mode) {
+    if (window._cvInternalNav) {
+      // _showView からの内部呼び出し — cv状態はクリアしない
+      window._cvInternalNav = false;
+    } else {
+      // タブ切り替えなど外部からの呼び出し — cv状態をクリア
+      _curId = null;
+      window._cvVideoIds = null;
+      window._cvAfterRender = null;
+      document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
+      const toolbar = document.getElementById('cv-toolbar');
+      if (toolbar) toolbar.style.display = 'none';
+      _renderViewBar();
+    }
+    _origLibView?.(mode);
+  };
+}, 0);
 
 // ── 初期化 ──
 function _init() {
