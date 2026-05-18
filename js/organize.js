@@ -310,7 +310,7 @@ export function _matchFieldSpecific(v, field, values) {
 let _advSearch = null; // { include, exclude, fields, durMin, durMax, dateFrom, dateTo, source, status }
 
 export function orgFilt(list) {
-  if (window._cvVideoIds) list = list.filter(v => window._cvVideoIds.has(v.id));
+  if (window._cvVideoIds) return list.filter(v => !v.archived && window._cvVideoIds.has(v.id));
   const siEl = document.getElementById('si-org');
   const siPcEl = document.getElementById('si-org-pc');
   const raw = ((siEl?siEl.value:'') || (siPcEl?siPcEl.value:'')).trim();
