@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.268</title>
+<title>WAZA KIMURA v52.269</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -78,6 +78,7 @@
 <script src="js/tag-master-ui.js" defer></script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
+<script src="js/custom-view.js" defer></script>
 <script src="js/vpanel-v4.js" defer></script>
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
@@ -997,6 +998,28 @@
 }
 #lib-org-host .org-count-bar { flex-shrink: 0; }
 #lib-org-host .org-table-wrap { flex: 1; min-height: 0; }
+/* ── カスタムビュー ── */
+.cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
+.cv-chip:hover { background:var(--surface3);color:var(--text) }
+.cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
+.cv-chip-del { font-size:10px;color:var(--text3);cursor:pointer;padding:1px 3px;border-radius:50% }
+.cv-chip-del:hover { background:rgba(255,80,80,.2);color:#ff5050 }
+.cv-col-vis-btn { display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-family:inherit }
+.cv-col-vis-btn:hover { background:var(--surface2) }
+.cv-conditions-btn { font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit }
+.cv-conditions-btn:hover { background:var(--surface2);color:var(--text) }
+#cv-host thead th { position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border2);font-weight:500;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;user-select:none }
+#cv-host .th-inner { display:flex;align-items:center;gap:4px;padding:8px 10px;height:36px }
+#cv-host tbody tr { border-bottom:1px solid var(--border) }
+#cv-host tbody tr:hover td { background:var(--surface2) }
+#cv-host td { padding:6px 10px;vertical-align:middle;background:var(--bg);white-space:nowrap }
+.cv-template-card { display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;transition:border-color .15s,background .15s }
+.cv-template-card:hover { border-color:var(--accent);background:rgba(74,144,217,.06) }
+.cv-template-card.selected { border-color:var(--accent);background:rgba(74,144,217,.1) }
+.cv-template-card.blank { grid-column:1/-1 }
+.cv-tpl-icon { font-size:20px;flex-shrink:0 }
+.cv-tpl-label { font-size:12px;font-weight:700;color:var(--text) }
+.cv-tpl-desc { font-size:11px;color:var(--text3);margin-top:2px }
 </style>
 <script src="js/flowchart.js"></script>
 </head>
@@ -1320,7 +1343,13 @@
     <button id="lvt-org"  class="lvt-btn"            onclick="window._libView('org')">📊 テーブル</button>
     <div class="lvt-sep"></div>
     <button class="lvt-btn lvt-rand" onclick="window._libRandom()">🔀 ランダム</button>
+    <div class="lvt-sep"></div>
+    <span style="font-size:10px;color:var(--text3);white-space:nowrap;margin-right:2px">マイビュー:</span>
+    <div id="cv-chips-host" style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;"></div>
+    <button class="lvt-btn" style="border-style:dashed;color:var(--text3);border-color:var(--border2)" onclick="window.cvOpenNewModal()">＋ 新しいビュー</button>
   </div>
+  <!-- カスタムビューツールバー -->
+  <div id="cv-toolbar" style="display:none;flex-shrink:0;display:none;align-items:center;gap:8px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
   <!-- Library操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="library-actionbar">
     <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
@@ -1400,6 +1429,70 @@
     <div id="org-empty" class="org-empty" style="display:none">
       <div style="font-size:28px;margin-bottom:8px">🔍</div>
       <div>動画が見つかりませんでした</div>
+    </div>
+  </div>
+  <!-- カスタムビューホスト -->
+  <div id="cv-host" style="display:none;flex:1;min-height:0;overflow:auto;">
+    <table style="border-collapse:collapse;width:max-content;min-width:100%">
+      <thead id="cv-table-head"></thead>
+      <tbody id="cv-table-body"></tbody>
+    </table>
+  </div>
+</div>
+<!-- カスタムビュー: 新規作成モーダル -->
+<div id="cv-new-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center;">
+  <div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:14px;padding:28px;width:460px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <!-- Step1: 名前入力 -->
+    <div id="cv-step1">
+      <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:20px;font-size:11px;color:var(--text3)">
+        <span style="background:var(--accent);color:var(--on-accent);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">1</span>ビュー名
+        <span style="flex:0 0 24px;height:1px;background:var(--border)"></span>
+        <span style="border:1.5px solid var(--border);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">2</span>動画を選ぶ
+        <span style="flex:0 0 24px;height:1px;background:var(--border)"></span>
+        <span style="border:1.5px solid var(--border);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">3</span>テンプレート
+      </div>
+      <h2 style="margin-bottom:16px;font-size:16px">新しいビューを作成</h2>
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">ビュー名</div>
+        <input id="cv-new-name" type="text" placeholder="例: スパー準備、今月の課題..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')window.cvGoStep2()">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="window.cvCloseModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit">キャンセル</button>
+        <button onclick="window.cvGoStep2()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);font-weight:700;cursor:pointer;font-family:inherit">次へ →</button>
+      </div>
+    </div>
+    <!-- Step3: テンプレート -->
+    <div id="cv-step3" style="display:none">
+      <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:20px;font-size:11px;color:var(--text3)">
+        <span style="background:var(--green);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">✓</span>ビュー名
+        <span style="flex:0 0 24px;height:1px;background:var(--accent)"></span>
+        <span style="background:var(--green);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">✓</span>動画を選ぶ
+        <span style="flex:0 0 24px;height:1px;background:var(--accent)"></span>
+        <span style="background:var(--accent);color:var(--on-accent);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">3</span>テンプレート
+      </div>
+      <h2 style="margin-bottom:4px;font-size:16px">テンプレートを選ぶ</h2>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px">後から列の追加・削除ができます</p>
+      <div id="cv-template-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="window.cvGoBackToLib()" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit">← 戻る</button>
+        <button onclick="window.cvConfirm()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);font-weight:700;cursor:pointer;font-family:inherit">このテンプレートで作成</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- カスタムビュー: ソース選択シート -->
+<div id="cv-src-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;display:none;align-items:flex-end;justify-content:center;">
+  <div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:14px 14px 0 0;padding:20px;width:100%;max-width:480px;box-shadow:0 -4px 20px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <span style="font-size:14px;font-weight:700">動画を選ぶ</span>
+      <button onclick="window.cvSrcClose()" style="background:none;border:none;font-size:18px;color:var(--text3);cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="window.cvSrcPickLib()" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;text-align:left">
+        <span style="font-size:20px">🔍</span>
+        <span style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--text)">ライブラリから選ぶ</div><div style="font-size:11px;color:var(--text3);margin-top:2px">保存済みの動画から選択</div></span>
+        <span style="color:var(--text3);font-size:18px">›</span>
+      </button>
     </div>
   </div>
 </div>

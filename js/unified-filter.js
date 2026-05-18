@@ -21,6 +21,7 @@
   let _shownNoteVideos = []; // ノートモードで表示中の動画ID一覧（全追加用）
   let _vlBlockTarget = null; // null = 通常, { noteId, path } = vidlistブロック条件編集モード
   let _vlFilterBackup = null; // 編集前のフィルタ状態（保存・キャンセルで復元）
+  let _cvMode = null; // null = 通常, viewId = カスタムビュー動画選択モード
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
@@ -258,7 +259,7 @@
     <span class="uni-sp"></span>
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
-    <button class="uni-apply" onclick="uniClose()">適用</button>
+    <button class="uni-apply" onclick="window._uniApplyHook?.()||uniClose()">適用</button>
   </div>
   <div class="uni-save-bar">
     <span class="uni-save-lbl">この条件を保存：</span>
@@ -360,10 +361,12 @@
 
     const isNoteMode = !!_noteMode;
     const isVlMode = !!_vlBlockTarget;
-    const isAddMode = isNoteMode || isVlMode;
+    const isCvMode = !!_cvMode;
+    const isAddMode = isNoteMode || isVlMode || isCvMode;
     const addedIds = isVlMode
       ? (window._notesVlGetIds?.(_vlBlockTarget.noteId, _vlBlockTarget.path) || new Set())
-      : (isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set());
+      : (isNoteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set())
+      : (isCvMode ? (window._cvGetAddedIds?.(_cvMode) || new Set()) : new Set()));
     if (isAddMode) _shownNoteVideos = sorted.filter(v => !addedIds.has(v.id)).map(v => v.id);
     else _shownNoteVideos = [];
     const rows = shown.map(v => {
@@ -404,8 +407,8 @@
     const addAllBtn = isAddMode && addableCount > 0
       ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">＋ ${addableCount}件すべて追加</button>`
       : '';
-    const saveVlBtn = isVlMode
-      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="window._uniSaveVlBlockFilter()">💾 動的条件で保存</button>`
+    const saveVlBtn = (isVlMode || isCvMode)
+      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">💾 動的条件で保存</button>`
       : '';
     const notice = total > 50
       ? `<div class="uni-vc-notice">上位50件を表示中 (全${total}件)${addAllBtn}${saveVlBtn}</div>`
@@ -413,7 +416,7 @@
       ? `<div class="uni-vc-notice">条件に一致する動画がありません${saveVlBtn}</div>`
       : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}${saveVlBtn}</div>`;
 
-    const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : '該当動画');
+    const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : (isCvMode ? 'ビューに追加' : '該当動画'));
     const sortSel = `<span style="display:flex;align-items:center;gap:2px">
       <select onchange="window._uniVcSortKey(this.value)" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;background:var(--surface);color:var(--text2);font-family:inherit">
         <option value="addedAt"   ${_vcSort==='addedAt'   ?'selected':''}>追加日</option>
@@ -1209,6 +1212,11 @@
       _render();
       return;
     }
+    if (_cvMode) {
+      window._cvVideoClick?.(videoId);
+      _render();
+      return;
+    }
     if (_noteMode) {
       window._notesAddFromLib?.(videoId, _noteMode);
       _render();
@@ -1216,5 +1224,30 @@
       window.openVPanel?.(videoId);
       window.uniClose();
     }
+  };
+
+  window.uniOpenForCv = function(viewId) {
+    _cvMode = viewId;
+    _noteMode = null;
+    _vlBlockTarget = null;
+    window._uniApplyHook = function() {
+      window._cvApply?.();
+      _cvMode = null;
+      window._uniApplyHook = null;
+      window.uniClose();
+      return true;
+    };
+    _inject();
+    document.getElementById('uni-bd').classList.add('open');
+    document.getElementById('uni-popup').classList.add('open');
+    _syncSearchbar(_tab);
+    _render();
+    setTimeout(() => document.getElementById('uni-q')?.focus(), 80);
+  };
+
+  window.uniCloseForCv = function() {
+    _cvMode = null;
+    window._uniApplyHook = null;
+    window.uniClose();
   };
 })();
