@@ -137,9 +137,9 @@ function _showView(id) {
   const cardHost = document.getElementById('lib-card-host');
   const orgHost  = document.getElementById('lib-org-host');
   if (cardHost) cardHost.style.display = 'none';
-  if (orgHost)  orgHost.style.display  = 'none';
+  if (orgHost)  orgHost.style.display  = '';
   const cvHost = document.getElementById('cv-host');
-  if (cvHost) cvHost.style.display = '';
+  if (cvHost) cvHost.style.display = 'none';
   document.getElementById('library-actionbar')?.style && (document.getElementById('library-actionbar').style.display = 'none');
   document.getElementById('organize-actionbar')?.style && (document.getElementById('organize-actionbar').style.display = 'none');
   _renderViewBar();
@@ -147,115 +147,98 @@ function _showView(id) {
   if (view) _renderTable(view);
 }
 
-// ── テーブル描画 ──
+// ── テーブル描画（org-tableに差し込む）──
 function _renderTable(view) {
-  const thead = document.getElementById('cv-table-head');
-  const tbody = document.getElementById('cv-table-body');
-  const toolbar = document.getElementById('cv-toolbar');
-  if (!thead || !tbody) return;
+  if (!view) return;
 
-  // ツールバー
+  // ツールバー更新
+  const toolbar = document.getElementById('cv-toolbar');
   if (toolbar) {
-    toolbar.style.display = '';
+    toolbar.style.display = 'flex';
     const isDynamic = view.saveMode === 'dynamic';
-    const modeLabel = isDynamic ? '🔄 動的' : '📌 個別選択';
     const condSummary = isDynamic && view.filterConditions ? _condSummary(view.filterConditions) : '';
     toolbar.innerHTML = `
-      <button onclick="window.cvToggleColMenu(event)" title="表示する列を選択" class="cv-col-vis-btn">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
-      </button>
-      <span style="flex:1"></span>
       <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
-      <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${modeLabel}</span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 動的' : '📌 個別選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
       <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">条件 ✎</button>
     `;
   }
 
-  // ヘッダー
-  let hh = '<tr>';
-  hh += '<th style="width:36px;min-width:36px;position:sticky;left:0;z-index:11;background:var(--surface)"><div class="th-inner"></div></th>';
-  hh += '<th style="width:56px;min-width:56px;position:sticky;left:36px;z-index:11;background:var(--surface)"><div class="th-inner"></div></th>';
-  hh += '<th style="min-width:200px;max-width:280px;position:sticky;left:92px;z-index:11;background:var(--surface)"><div class="th-inner">タイトル</div></th>';
-  view.columns.forEach(col => {
-    const canFilter = FILTERABLE_TYPES.has(col.type);
-    const filterActive = canFilter && hasActiveFilter(view.id, col.id);
-    const filterBtn = canFilter
-      ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>`
-      : '';
-    hh += `<th data-col-id="${col.id}"><div class="th-inner" style="font-size:11px">${_esc(col.label)}${filterBtn}<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div></th>`;
-  });
-  cvColOrder.filter(k => cvColVisibility[k] !== false).forEach(k => {
-    hh += `<th><div class="th-inner" style="font-size:10px;color:var(--text3)">${_esc(ORG_COL_LABELS[k])}</div></th>`;
-  });
-  hh += `<th><div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div></th>`;
-  hh += '</tr>';
-  thead.innerHTML = hh;
+  // org-tableに絞り込みフィルターをセット
+  const videoIds = view.saveMode === 'dynamic' && view.filterConditions
+    ? _applyConditions(view.filterConditions, window.videos || []).map(v => v.id)
+    : (view.videoIds || []);
+  window._cvVideoIds = new Set(videoIds);
 
-  // ヘッダーボタンのイベントを付ける
-  thead.querySelectorAll('.cv-th-menu-btn').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); openThDropdown(btn, view, btn.dataset.colId); });
-  });
-  thead.querySelectorAll('.cv-th-filter-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const col = view.columns.find(c => c.id === btn.dataset.colId);
-      if (!col) return;
-      const fp = document.getElementById('cv-filter-popup');
-      if (fp && fp.style.display !== 'none' && _filterCtx?.col.id === col.id) closeFilterPopup();
-      else openFilterPopup(btn, view, col);
+  // 前回の追加ヘッダーを削除（tbodyはrenderOrgが自動クリア）
+  document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
+
+  // renderOrg後にカスタム列を追加するコールバック
+  window._cvAfterRender = () => _appendCustomCols(view);
+
+  // org-tableを描画（ソート/フィルター/インライン編集/バルク全て自動で動く）
+  window.renderOrg?.();
+}
+
+// ── カスタム列をorg-tableに追加 ──
+function _appendCustomCols(view) {
+  if (!view || !view.columns) return;
+
+  // カスタム列ヘッダーを追加（未追加の場合のみ）
+  const theadRow = document.getElementById('orgTheadRow');
+  if (theadRow && !theadRow.querySelector('.cv-custom-th')) {
+    view.columns.forEach(col => {
+      const canFilter = FILTERABLE_TYPES.has(col.type);
+      const filterActive = canFilter && hasActiveFilter(view.id, col.id);
+      const th = document.createElement('th');
+      th.className = 'cv-custom-th';
+      th.dataset.colId = col.id;
+      th.innerHTML = `<div class="th-inner" style="font-size:11px">${_esc(col.label)}${
+        canFilter ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>` : ''
+      }<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div>`;
+      th.querySelector('.cv-th-filter-btn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        const fp = document.getElementById('cv-filter-popup');
+        if (fp && fp.style.display !== 'none' && _filterCtx?.col.id === col.id) closeFilterPopup();
+        else openFilterPopup(e.currentTarget, view, col);
+      });
+      th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        openThDropdown(e.currentTarget, view, col.id);
+      });
+      theadRow.appendChild(th);
     });
-  });
-
-  // 動画リスト
-  tbody.innerHTML = '';
-  const videos = _getViewVideos(view);
-
-  if (!videos.length) {
-    tbody.innerHTML = `<tr><td colspan="20" style="padding:40px;text-align:center;color:var(--text3);font-size:13px">
-      動画が選択されていません<br><span style="font-size:11px;display:block;margin-top:6px">条件ボタンで動画を追加してください</span>
-    </td></tr>`;
-    return;
+    // 「＋ 列を追加」ボタン
+    const addTh = document.createElement('th');
+    addTh.className = 'cv-custom-th';
+    addTh.innerHTML = `<div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div>`;
+    theadRow.appendChild(addTh);
   }
 
-  videos.forEach(v => {
-    if (!view.rowData[v.id]) view.rowData[v.id] = {};
-    const rd = view.rowData[v.id];
-    const tr = document.createElement('tr');
-    tr.dataset.vid = v.id;
-
-    const ytId = v.ytId || ((v.pt||'youtube') === 'youtube' ? v.id : null);
-    const gdId = (v.pt === 'gdrive' || (v.id||'').startsWith('gd-')) ? (v.id||'').replace(/^gd-/,'') : null;
-    let thumbHtml = '<span style="font-size:14px">▶</span>';
-    if (ytId) thumbHtml = `<img src="https://i.ytimg.com/vi/${ytId}/default.jpg" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none'">`;
-    else if (gdId) thumbHtml = `<img src="https://drive.google.com/thumbnail?id=${gdId}&sz=w80" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:3px" onerror="this.style.display='none'">`;
-
-    tr.innerHTML = `
-      <td style="position:sticky;left:0;background:var(--bg);z-index:5"><div style="display:flex;justify-content:center"><input type="checkbox" class="row-chk" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer"></div></td>
-      <td style="position:sticky;left:36px;background:var(--bg);z-index:5"><div style="width:40px;height:28px;border-radius:4px;background:var(--surface3);display:flex;align-items:center;justify-content:center;overflow:hidden">${thumbHtml}</div></td>
-      <td style="position:sticky;left:92px;background:var(--bg);z-index:5"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px" title="${_esc(v.title||'')}">${_esc(v.title||'')}</div></td>
-    `;
-
+  // 各行にカスタムセルを追加（未追加の行のみ）
+  const tbody = document.getElementById('orgList');
+  if (!tbody) return;
+  tbody.querySelectorAll('tr.org-tr').forEach(tr => {
+    if (tr.querySelector('.cv-custom-td')) return;
+    const vid = tr.id.replace('org-row-', '');
+    if (!vid) return;
+    if (!view.rowData[vid]) view.rowData[vid] = {};
+    const rd = view.rowData[vid];
     view.columns.forEach(col => {
       const td = document.createElement('td');
-      td.dataset.vid = v.id;
+      td.className = 'cv-custom-td org-td';
+      td.dataset.vid = vid;
       td.dataset.colId = col.id;
       _renderCell(td, col, rd[col.id], view);
       tr.appendChild(td);
     });
-
-    cvColOrder.filter(k => cvColVisibility[k] !== false).forEach(k => {
-      const td = document.createElement('td');
-      td.style.fontSize = '11px';
-      td.innerHTML = _stdCell(v, k);
-      tr.appendChild(td);
-    });
-
-    tr.appendChild(document.createElement('td'));
-    tbody.appendChild(tr);
+    const emptyTd = document.createElement('td');
+    emptyTd.className = 'cv-custom-td';
+    tr.appendChild(emptyTd);
   });
 
-  applyFilters(view);
+  _applyCustomFilters(view);
 }
 
 function _getViewVideos(view) {
@@ -514,7 +497,9 @@ window._cvToggleTracker = function(viewId, videoId, colId, dateStr) {
   else arr.push(dateStr);
   view.rowData[videoId][colId] = arr;
   _save();
-  _renderTable(view);
+  // セル単体だけ再描画（テーブル全体の再レンダリング不要）
+  const td = document.querySelector(`tr#org-row-${videoId} .cv-custom-td[data-col-id="${colId}"]`);
+  if (td) _renderCell(td, view.columns.find(c => c.id === colId), arr, view);
 };
 
 // ── Select / Multiselect ポップアップ ──
@@ -797,12 +782,12 @@ function setFilter(viewId, colId, data) {
 function clearFilter(viewId, colId) { if (filterState[viewId]) delete filterState[viewId][colId]; }
 function hasActiveFilter(viewId, colId) { const f = getFilter(viewId, colId); return !!(f && f.active); }
 
-function applyFilters(view) {
-  const tbody = document.getElementById('cv-table-body');
+function _applyCustomFilters(view) {
+  const tbody = document.getElementById('orgList');
   if (!tbody) return;
   const fs = filterState[view.id] || {};
-  tbody.querySelectorAll('tr').forEach(tr => {
-    const vid = tr.dataset.vid;
+  tbody.querySelectorAll('tr.org-tr').forEach(tr => {
+    const vid = tr.id.replace('org-row-', '');
     if (!vid) { tr.style.display = ''; return; }
     let show = true;
     for (const col of view.columns) {
@@ -813,7 +798,7 @@ function applyFilters(view) {
     tr.style.display = show ? '' : 'none';
   });
   view.columns.forEach(col => {
-    const th = document.querySelector(`#cv-table-head th[data-col-id="${col.id}"]`);
+    const th = document.querySelector(`.cv-custom-th[data-col-id="${col.id}"]`);
     if (!th) return;
     const fb = th.querySelector('.cv-th-filter-btn');
     if (fb) fb.classList.toggle('active', hasActiveFilter(view.id, col.id));
@@ -889,7 +874,7 @@ function openFilterPopup(btn, view, col) {
   clearBtn.className = 'cv-filter-clear-btn'; clearBtn.textContent = 'フィルターをクリア';
   clearBtn.addEventListener('click', e => {
     e.stopPropagation();
-    clearFilter(view.id, col.id); applyFilters(view); closeFilterPopup();
+    clearFilter(view.id, col.id); _applyCustomFilters(view); closeFilterPopup();
   });
   sep.appendChild(clearBtn); popup.appendChild(sep);
   popup.style.display = 'block';
@@ -927,7 +912,7 @@ function buildChkFilterUI(popup, view, col, f) {
     radio.className = 'cv-filter-chk'; radio.checked = cur === opt.v;
     radio.addEventListener('change', () => {
       setFilter(view.id, col.id, { active: opt.v !== 'all', value: opt.v });
-      applyFilters(view);
+      _applyCustomFilters(view);
     });
     label.appendChild(radio); label.appendChild(document.createTextNode(' ' + opt.l));
     popup.appendChild(label);
@@ -970,7 +955,7 @@ function buildSelFilterUI(popup, view, col, f) {
     const vals = new Set(rows.filter(r => r.chk.checked).map(r => r.opt));
     masterChk.checked = vals.size >= allOpts.length;
     setFilter(view.id, col.id, { active: vals.size < allOpts.length, values: vals });
-    applyFilters(view);
+    _applyCustomFilters(view);
   }
 }
 
@@ -980,7 +965,7 @@ function buildTextFilterUI(popup, view, col, f) {
   input.placeholder = 'キーワードで検索...'; input.value = f.text || '';
   input.addEventListener('input', () => {
     setFilter(view.id, col.id, { active: input.value.length > 0, text: input.value });
-    applyFilters(view);
+    _applyCustomFilters(view);
   });
   popup.appendChild(input);
   setTimeout(() => input.focus(), 50);
@@ -1015,7 +1000,7 @@ function buildNumFilterUI(popup, view, col, f) {
     const op = opSel.value, val = valInput.value, val2 = val2Input.value;
     rangeRow.style.display = op === 'range' ? 'flex' : 'none';
     setFilter(view.id, col.id, { active: val !== '', op, val, val2 });
-    applyFilters(view);
+    _applyCustomFilters(view);
     if (_filterCtx?.btn) _positionFilterPopup(_filterCtx.btn);
   }
   opSel.addEventListener('change', updateNum);
@@ -1032,7 +1017,7 @@ function buildStarsFilterUI(popup, view, col, f) {
     radio.type = 'radio'; radio.name = 'cv-fp-stars'; radio.className = 'cv-filter-chk'; radio.checked = curMin === opt.v;
     const span = document.createElement('span');
     span.innerHTML = (opt.stars > 0 ? `<span style="color:#f0c040;font-size:12px">${'★'.repeat(opt.stars)}</span> ` : '') + opt.l;
-    radio.addEventListener('change', () => { setFilter(view.id, col.id, { active: opt.v !== null, minStars: opt.v }); applyFilters(view); });
+    radio.addEventListener('change', () => { setFilter(view.id, col.id, { active: opt.v !== null, minStars: opt.v }); _applyCustomFilters(view); });
     label.appendChild(radio); label.appendChild(span); popup.appendChild(label);
   });
 }
@@ -1056,7 +1041,7 @@ function buildProgressFilterUI(popup, view, col, f) {
     const op = opSel.value, val = valInput.value, val2 = val2Input.value;
     rangeRow.style.display = op === 'range' ? 'flex' : 'none';
     setFilter(view.id, col.id, { active: val !== '', op, val, val2 });
-    applyFilters(view);
+    _applyCustomFilters(view);
     if (_filterCtx?.btn) _positionFilterPopup(_filterCtx.btn);
   }
   opSel.addEventListener('change', updatePct); valInput.addEventListener('input', updatePct); val2Input.addEventListener('input', updatePct);
@@ -1229,10 +1214,9 @@ window._cvDeleteView = function(viewId) {
   _save();
   if (_curId === viewId) {
     _curId = null;
-    const cvHost = document.getElementById('cv-host');
-    if (cvHost) cvHost.style.display = 'none';
-    const toolbar = document.getElementById('cv-toolbar');
-    if (toolbar) toolbar.style.display = 'none';
+    window._cvVideoIds = null;
+    window._cvAfterRender = null;
+    document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
     window._libView?.('card');
   }
   _renderViewBar();
@@ -1296,8 +1280,9 @@ document.addEventListener('click', e => {
 const _origLibView = window._libView;
 window._libView = function(mode) {
   _curId = null;
-  const cvHost = document.getElementById('cv-host');
-  if (cvHost) cvHost.style.display = 'none';
+  window._cvVideoIds = null;
+  window._cvAfterRender = null;
+  document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
   const toolbar = document.getElementById('cv-toolbar');
   if (toolbar) toolbar.style.display = 'none';
   _renderViewBar();

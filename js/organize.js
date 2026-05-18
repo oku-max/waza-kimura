@@ -310,6 +310,7 @@ export function _matchFieldSpecific(v, field, values) {
 let _advSearch = null; // { include, exclude, fields, durMin, durMax, dateFrom, dateTo, source, status }
 
 export function orgFilt(list) {
+  if (window._cvVideoIds) list = list.filter(v => window._cvVideoIds.has(v.id));
   const siEl = document.getElementById('si-org');
   const siPcEl = document.getElementById('si-org-pc');
   const raw = ((siEl?siEl.value:'') || (siPcEl?siPcEl.value:'')).trim();
@@ -765,6 +766,7 @@ export function renderOrg() {
       while (temp.firstChild) frag.appendChild(temp.firstChild);
       tbody.appendChild(frag);
       _orgRendered += next.length;
+      window._cvAfterRender?.();
       window.loadGdriveCardThumbs?.();
       if (_orgRendered < displayList.length) {
         tbody.appendChild(sentinel);
@@ -782,6 +784,7 @@ export function renderOrg() {
   Object.keys(_colFilterConfig).forEach(c => _syncFiltIcon(c));
   // GDriveサムネをproxy経由で差し込み（トークン取得後に備えて）
   window.loadGdriveCardThumbs?.();
+  window._cvAfterRender?.();
 }
 
 // ═══ Column headers sync ═══
