@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.272</title>
+<title>WAZA KIMURA v52.273</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1008,11 +1008,9 @@
 .cv-col-vis-btn:hover { background:var(--surface2) }
 .cv-conditions-btn { font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit }
 .cv-conditions-btn:hover { background:var(--surface2);color:var(--text) }
-#cv-host thead th { position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border2);font-weight:500;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;user-select:none }
-#cv-host .th-inner { display:flex;align-items:center;gap:4px;padding:8px 10px;height:36px }
-#cv-host tbody tr { border-bottom:1px solid var(--border) }
-#cv-host tbody tr:hover td { background:var(--surface2) }
-#cv-host td { padding:6px 10px;vertical-align:middle;background:var(--bg);white-space:nowrap }
+.cv-custom-th { position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border2);font-weight:500;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;user-select:none }
+.cv-custom-th .th-inner { display:flex;align-items:center;gap:4px;padding:8px 10px;height:36px }
+.cv-custom-td { padding:6px 10px;vertical-align:middle;background:var(--bg);white-space:nowrap }
 .cv-template-card { display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;transition:border-color .15s,background .15s }
 .cv-template-card:hover { border-color:var(--accent);background:rgba(74,144,217,.06) }
 .cv-template-card.selected { border-color:var(--accent);background:rgba(74,144,217,.1) }
@@ -1022,11 +1020,11 @@
 .cv-tpl-desc { font-size:11px;color:var(--text3);margin-top:2px }
 /* th filter/menu buttons */
 .cv-th-filter-btn { background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 3px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity .15s,background .15s,color .15s }
-#cv-host thead th:hover .cv-th-filter-btn { opacity:.6 }
+.cv-custom-th:hover .cv-th-filter-btn { opacity:.6 }
 .cv-th-filter-btn:hover { background:var(--surface3);color:var(--text);opacity:1!important }
 .cv-th-filter-btn.active { color:var(--accent);opacity:1!important;background:rgba(74,144,217,.15) }
 .cv-th-menu-btn { background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:2px;border-radius:3px;opacity:0;transition:opacity .15s,background .15s,color .15s }
-#cv-host thead th:hover .cv-th-menu-btn { opacity:1 }
+.cv-custom-th:hover .cv-th-menu-btn { opacity:1 }
 .cv-th-menu-btn:hover { background:var(--surface3);color:var(--text) }
 /* cv-popup (select/multiselect) */
 #cv-popup { position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:6px;z-index:10010;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.5) }
@@ -1413,7 +1411,7 @@
     <button class="lvt-btn" style="border-style:dashed;color:var(--text3);border-color:var(--border2)" onclick="window.cvOpenNewModal()">＋ 新しいビュー</button>
   </div>
   <!-- カスタムビューツールバー -->
-  <div id="cv-toolbar" style="display:none;flex-shrink:0;display:none;align-items:center;gap:8px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
+  <div id="cv-toolbar" style="display:none;flex-shrink:0;align-items:center;gap:8px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
   <!-- Library操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="library-actionbar">
     <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
@@ -1494,13 +1492,6 @@
       <div style="font-size:28px;margin-bottom:8px">🔍</div>
       <div>動画が見つかりませんでした</div>
     </div>
-  </div>
-  <!-- カスタムビューホスト -->
-  <div id="cv-host" style="display:none;flex:1;min-height:0;overflow:auto;">
-    <table style="border-collapse:collapse;width:max-content;min-width:100%">
-      <thead id="cv-table-head"></thead>
-      <tbody id="cv-table-body"></tbody>
-    </table>
   </div>
 </div>
 <!-- カスタムビュー: 新規作成モーダル -->
