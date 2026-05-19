@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.280 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.281 ═══
 (function () {
 'use strict';
 
@@ -200,7 +200,8 @@ function _addCvCols(view) {
       const th = document.createElement('th');
       th.className = 'cv-custom-th';
       th.dataset.colId = col.id;
-      th.style.cssText = 'width:120px;min-width:120px;max-width:120px';
+      th.dataset.col = 'cv:' + col.id; // resize machinaryが th[data-col] を参照するため
+      th.style.cssText = 'width:120px;min-width:60px';
       th.innerHTML = `<div class="th-inner" style="font-size:11px">${_esc(col.label)}${
         canFilter ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>` : ''
       }<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div>`;
@@ -215,6 +216,15 @@ function _addCvCols(view) {
         openThDropdown(e.currentTarget, view, col.id);
       });
       theadRow.appendChild(th);
+      // リサイズハンドル（organize.js の addResizeHandle を再利用）
+      window.addResizeHandle?.(th, () => {
+        const tbl = theadRow.closest('table');
+        if (!tbl) return;
+        const fW = 40 + 76 + 180;
+        let sW = 0;
+        tbl.querySelectorAll('thead tr th[data-col]').forEach(t => sW += t.offsetWidth || parseInt(t.style.width) || 120);
+        tbl.style.width = (fW + sW) + 'px';
+      }, null);
     });
     // 「＋ 列を追加」ボタン
     const addTh = document.createElement('th');
@@ -375,16 +385,35 @@ function _renderCell(td, col, val, view) {
       break;
     }
     case 'text': {
-      td.style.width = '160px';
-      const wrap = document.createElement('div');
-      const inp = document.createElement('input');
-      inp.type = 'text'; inp.value = val || ''; inp.placeholder = 'メモを入力...';
-      inp.style.cssText = 'background:transparent;border:none;color:var(--text);font-size:12px;width:150px;outline:none;padding:2px 4px;border-radius:4px';
-      inp.addEventListener('mouseenter', () => inp.style.background = 'var(--surface3)');
-      inp.addEventListener('mouseleave', () => { if (document.activeElement !== inp) inp.style.background = 'transparent'; });
-      inp.addEventListener('focus', () => { inp.style.background = 'var(--surface2)'; inp.style.outline = '1px solid var(--accent)'; });
-      inp.addEventListener('blur', () => { inp.style.background = 'transparent'; inp.style.outline = 'none'; window._cvSetCell(view.id, td.dataset.vid, col.id, inp.value); });
-      wrap.appendChild(inp); td.appendChild(wrap);
+      const displayText = val || '';
+      const div = document.createElement('div');
+      div.className = 'org-memo-text';
+      div.style.cssText = 'cursor:pointer;min-height:20px';
+      div.innerHTML = displayText
+        ? _esc(displayText).replace(/\n/g, '<br>')
+        : '<span style="color:var(--text3);font-size:10px">—</span>';
+      div.addEventListener('click', e => {
+        e.stopPropagation();
+        const curVal = td.dataset.cvVal || '';
+        const ta = document.createElement('textarea');
+        ta.className = 'org-inline-memo';
+        ta.value = curVal;
+        td.innerHTML = '';
+        td.classList.add('org-td-editing');
+        td.appendChild(ta);
+        requestAnimationFrame(() => { ta.focus(); ta.style.height = Math.max(48, td.clientHeight - 4) + 'px'; });
+        ta.addEventListener('keydown', e2 => {
+          if (e2.key === 'Escape') { _renderCell(td, col, curVal, view); td.classList.remove('org-td-editing'); e2.preventDefault(); }
+        });
+        ta.addEventListener('blur', () => {
+          const nv = ta.value;
+          window._cvSetCell(view.id, td.dataset.vid, col.id, nv);
+          _renderCell(td, col, nv, view);
+          td.classList.remove('org-td-editing');
+        });
+      });
+      td.dataset.cvVal = displayText; // 生の値を保持（HTML escapeせずに取得するため）
+      td.appendChild(div);
       break;
     }
     case 'select': {
@@ -467,12 +496,19 @@ function _renderCell(td, col, val, view) {
         lbl.style.cssText = 'font-size:9px;color:var(--text3);line-height:1';
         lbl.textContent = `${mm}/${dd2}`;
         const dot = document.createElement('div');
-        let dotStyle = 'width:14px;height:14px;border-radius:50%;cursor:pointer;';
-        if (isDone) dotStyle += `background:${isFuture?'rgba(74,144,217,.35)':'var(--accent)'};border:1.5px solid var(--accent);border-style:${isFuture?'dashed':'solid'};`;
-        else if (isToday) dotStyle += 'background:transparent;border:1.5px solid var(--accent);';
-        else if (isFuture) dotStyle += 'background:transparent;border:1.5px dashed var(--border2);';
-        else dotStyle += 'background:transparent;border:1.5px solid var(--border2);';
-        dot.style.cssText = dotStyle;
+        dot.style.cssText = [
+          'width:18px;height:18px;border-radius:50%;cursor:pointer;',
+          'display:flex;align-items:center;justify-content:center;',
+          'font-size:11px;font-weight:700;line-height:1;flex-shrink:0;',
+          isDone
+            ? `background:${isFuture ? 'rgba(74,144,217,.4)' : 'var(--accent)'};border:none;color:#fff;`
+            : isToday
+              ? 'background:transparent;border:2px solid var(--accent);color:transparent;'
+              : isFuture
+                ? 'background:transparent;border:1.5px dashed var(--text3);color:transparent;'
+                : 'background:var(--surface3);border:1.5px solid var(--text3);color:transparent;'
+        ].join('');
+        dot.textContent = isDone ? '✓' : '';
         dot.addEventListener('click', () => {
           const idx = doneDates.indexOf(ds);
           if (idx >= 0) doneDates.splice(idx, 1); else doneDates.push(ds);
