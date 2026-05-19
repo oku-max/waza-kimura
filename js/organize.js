@@ -1164,9 +1164,15 @@ export function orgMoveCol(col, dir) {
   orgColOrder.splice(j, 0, col);
   _saveOrgColPrefs();
   document.getElementById('org-col-menu')?.remove();
+  const tw = document.querySelector('.org-table-wrap');
+  const savedTop = tw?.scrollTop || 0;
+  const savedLeft = tw?.scrollLeft || 0;
+  const winY = window.scrollY;
   syncOrgColHeaders();        // ヘッダーのみ再構築（cv-custom-thも一旦削除される）
   _reorderOrgCellsInPlace();  // 既存セルをDOMで並べ替え（スクロールなし）
   window._cvAfterRender?.(); // syncOrgColHeadersで消えたカスタム列ヘッダーを再追加
+  if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
+  window.scrollTo(0, winY);
   toggleOrgColMenu();
 }
 
