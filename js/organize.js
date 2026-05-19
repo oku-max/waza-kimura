@@ -1092,18 +1092,16 @@ export function orgTogSelAll(cb) {
 
 // ─── 列メニュー ───
 export function toggleOrgColMenu() {
-  let menu = document.getElementById('org-col-menu');
-  if (menu) { menu.remove(); return; }
-  menu = document.createElement('div');
-  menu.id = 'org-col-menu';
-  menu.style.cssText = 'position:fixed;z-index:290;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;overflow-y:auto';
-  // ⚙ボタンの位置を基準に表示
-  const gear = document.querySelector('.org-settings-btn');
-  const r = gear ? gear.getBoundingClientRect() : {left:10, bottom:40};
-  const menuTop = r.bottom + 4;
-  menu.style.left = r.left + 'px';
-  menu.style.top = menuTop + 'px';
-  menu.style.maxHeight = (window.innerHeight - menuTop - 8) + 'px';
+  let overlay = document.getElementById('org-col-menu');
+  if (overlay) { overlay.remove(); return; }
+  // ── ボトムシート（cv-src-sheetと同じパターン）──
+  overlay = document.createElement('div');
+  overlay.id = 'org-col-menu';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:290;display:flex;align-items:flex-end;justify-content:center';
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const panel = document.createElement('div');
+  panel.style.cssText = 'background:var(--surface);border-radius:14px 14px 0 0;padding:16px 14px 24px;width:100%;max-width:480px;max-height:70dvh;overflow-y:auto;box-shadow:0 -4px 20px rgba(0,0,0,.4)';
+  panel.addEventListener('click', e => e.stopPropagation());
   const _fcv3 = window.filterColVis || {};
   const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvVisible = col => {
@@ -1127,18 +1125,15 @@ export function toggleOrgColMenu() {
           ${ORG_COL_LABELS[col]||col}
         </label>
       </div>`).join('');
-  // カスタムビューが有効な場合、カスタム列セクションを追加
   const cvSection = window._cvGetColMenuSection?.();
   if (cvSection) {
     menuHTML += '<div style="height:1px;background:var(--border);margin:8px 0"></div>' +
       '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">カスタム列（↑↓で並替え）</div>' +
       cvSection;
   }
-  menu.innerHTML = menuHTML;
-  document.body.appendChild(menu);
-  setTimeout(() => document.addEventListener('click', function h(e){
-    if(!menu.contains(e.target)&&!e.target.closest('.org-settings-btn')){menu.remove();document.removeEventListener('click',h);}
-  }, 100));
+  panel.innerHTML = menuHTML;
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 }
 
 export function orgMoveCol(col, dir) {
