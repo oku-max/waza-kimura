@@ -395,6 +395,7 @@ function onDragEnd(e) {
 async function deleteSnap(idx) {
   const snap = snapshots[idx];
   if (!snap) return;
+  if (!confirm('このスクリーンショットを削除しますか？')) return;
   URL.revokeObjectURL(snap.url);
   snapshots.splice(idx, 1);
 
