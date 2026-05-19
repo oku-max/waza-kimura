@@ -52,13 +52,14 @@
   function _ctxVideos(excludeKey) {
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
-    const fav  = isOrg ? window.orgFavOnly     : window.favOnly;
-    const unw  = isOrg ? window.orgUnwOnly     : window.unwOnly;
-    const wat  = isOrg ? window.orgWatchedOnly : window.watchedOnly;
-    const bm   = isOrg ? window.orgBmOnly      : window.bmOnly;
-    const memo = isOrg ? window.orgMemoOnly    : window.memoOnly;
-    const img  = isOrg ? window.orgImgOnly     : window.imgOnly;
-    const next = isOrg ? window.orgNextOnly   : window.nextOnly;
+    const fav   = isOrg ? window.orgFavOnly     : window.favOnly;
+    const unw   = isOrg ? window.orgUnwOnly     : window.unwOnly;
+    const wat   = isOrg ? window.orgWatchedOnly : window.watchedOnly;
+    const bm    = isOrg ? window.orgBmOnly      : window.bmOnly;
+    const memo  = isOrg ? window.orgMemoOnly    : window.memoOnly;
+    const img   = isOrg ? window.orgImgOnly     : window.imgOnly;
+    const next  = isOrg ? window.orgNextOnly    : window.nextOnly;
+    const drill = isOrg ? window.orgDrillOnly   : window.drillOnly;
     // tag filter keys: lib uses tbNew/cat/posNew/tags, org uses tb/action/position/tags
     const tkTb   = isOrg ? 'tb'       : 'tbNew';
     const tkCat  = isOrg ? 'action'   : 'cat';
@@ -73,8 +74,9 @@
         const hay = [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ');
         if (!hay.includes(_vidTabQ)) return false;
       }
-      if (excludeKey !== 'fav'  && fav  && !v.fav) return false;
-      if (excludeKey !== 'next'&& next && !v.next) return false;
+      if (excludeKey !== 'fav'  && fav   && !v.fav)   return false;
+      if (excludeKey !== 'next' && next  && !v.next)  return false;
+      if (excludeKey !== 'drill'&& drill && !v.drill) return false;
       if (excludeKey !== 'unw' && unw && v.watched) return false;
       if (excludeKey !== 'wat' && wat && !v.watched) return false;
       if (excludeKey !== 'bm'  && bm  && !(v.bm || (v.bookmarks && v.bookmarks.length))) return false;
