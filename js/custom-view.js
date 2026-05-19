@@ -157,8 +157,8 @@ function _showView(id) {
       <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
       <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 今の条件で自動選択' : '📌 手動で選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
-      ${!isDynamic ? `<button onclick="window.cvOpenQuickAdd('${view.id}')" style="padding:3px 10px;border-radius:7px;font-size:11px;font-weight:600;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;margin-left:auto">＋ 追加</button>` : `<span style="margin-left:auto"></span>`}
-      <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">条件 ✎</button>
+      <span style="margin-left:auto"></span>
+      <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">動画選択 ✎</button>
     `;
   }
 
