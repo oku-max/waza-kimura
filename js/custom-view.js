@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.283 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.284 ═══
 (function () {
 'use strict';
 
@@ -240,9 +240,11 @@ function _addCvCols(view) {
         e.preventDefault();
         if (!_cvDragSrc || _cvDragSrc === col.id) return;
         const from = view.columns.findIndex(c => c.id === _cvDragSrc);
-        const to   = view.columns.findIndex(c => c.id === col.id);
-        if (from < 0 || to < 0) return;
+        if (from < 0) return;
         const [moved] = view.columns.splice(from, 1);
+        // spliceで削除後にターゲットのインデックスを再取得（左→右ドラッグ時のズレ防止）
+        const to = view.columns.findIndex(c => c.id === col.id);
+        if (to < 0) { view.columns.splice(from, 0, moved); return; }
         view.columns.splice(to, 0, moved);
         _save();
         window._cvRerenderCur();
