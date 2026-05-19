@@ -2792,8 +2792,8 @@ export function vpTogDrill(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
   v.drill = !v.drill;
   if (el) {
-    const on  = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">ドリル</text></svg>`;
-    const off = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">ドリル</text></svg>`;
+    const on  = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
+    const off = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
     el.innerHTML = v.drill ? on : off;
     el.style.opacity = v.drill ? '1' : '0.4';
   }
