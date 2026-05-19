@@ -1144,10 +1144,14 @@ export function orgMoveCol(col, dir) {
   orgColOrder.splice(i, 1);
   orgColOrder.splice(j, 0, col);
   _saveOrgColPrefs();
-  // メニューを閉じて再描画→再表示
-  const menu = document.getElementById('org-col-menu');
-  if (menu) menu.remove();
+  document.getElementById('org-col-menu')?.remove();
+  // スクロール位置を保存してrenderOrg後に復元
+  const tw = document.querySelector('.org-table-wrap');
+  const savedTop = tw?.scrollTop || 0;
+  const savedLeft = tw?.scrollLeft || 0;
   renderOrg();
+  if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
+  requestAnimationFrame(() => { if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; } });
   toggleOrgColMenu();
 }
 

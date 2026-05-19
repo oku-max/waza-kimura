@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.285 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.289 ═══
 (function () {
 'use strict';
 
@@ -1343,8 +1343,15 @@ window.cvMoveCol = function(colId, dir) {
   view.columns.splice(j, 0, col);
   _save();
   document.getElementById('org-col-menu')?.remove();
+  // スクロール位置を保存してrerender後に復元
+  const tw = document.querySelector('.org-table-wrap');
+  const savedTop = tw?.scrollTop || 0;
+  const savedLeft = tw?.scrollLeft || 0;
   window._cvRerenderCur();
-  setTimeout(() => window.toggleOrgColMenu?.(), 50);
+  setTimeout(() => {
+    if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
+    window.toggleOrgColMenu?.();
+  }, 60);
 };
 
 // 標準の列ボタンメニューにカスタム列セクションを提供するフック
