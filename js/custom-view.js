@@ -7,7 +7,7 @@ const ORG_COL_LABELS = {
   tb:'トップ/ボトム/スタン', action:'カテゴリ', position:'ポジション',
   technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル',
   playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日',
-  fav:'お気に入り', next:'🎯 Next', drill:'Drill', duration:'長さ'
+  fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'
 };
 const CV_COL_DEFAULT = ['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
 
