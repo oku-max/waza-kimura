@@ -1523,7 +1523,7 @@ window.cvGoStep2 = function() {
   }
   document.getElementById('cv-new-modal').style.display = 'none';
   const sheet = document.getElementById('cv-src-sheet');
-  sheet.style.display = '';
+  sheet.style.display = 'flex';
   requestAnimationFrame(() => sheet.classList.add('vis'));
 };
 
