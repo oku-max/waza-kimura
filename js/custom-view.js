@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.279 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.280 ═══
 (function () {
 'use strict';
 
@@ -184,12 +184,23 @@ function _addCvCols(view) {
   const theadRow = document.getElementById('orgTheadRow');
   if (theadRow) {
     theadRow.querySelectorAll('.cv-custom-th').forEach(el => el.remove());
+
+    // 標準列のみの幅を計算（カスタム列削除後＝標準列のみの状態で計算）
+    const table = theadRow.closest('table');
+    const fixedW = 40 + 76 + 180;
+    let scrollW = 0;
+    theadRow.querySelectorAll('th[data-col]').forEach(th => {
+      scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
+    });
+    const baseW = fixedW + scrollW;
+
     view.columns.forEach(col => {
       const canFilter = FILTERABLE_TYPES.has(col.type);
       const filterActive = canFilter && hasActiveFilter(view.id, col.id);
       const th = document.createElement('th');
       th.className = 'cv-custom-th';
       th.dataset.colId = col.id;
+      th.style.cssText = 'width:120px;min-width:120px;max-width:120px';
       th.innerHTML = `<div class="th-inner" style="font-size:11px">${_esc(col.label)}${
         canFilter ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>` : ''
       }<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div>`;
@@ -210,6 +221,12 @@ function _addCvCols(view) {
     addTh.className = 'cv-custom-th';
     addTh.innerHTML = `<div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div>`;
     theadRow.appendChild(addTh);
+
+    // テーブル幅を標準列＋カスタム列の合計に更新
+    if (table) {
+      const cvW = view.columns.length * 120 + 80; // 120px/列 + 80px for add button
+      table.style.width = (baseW + cvW) + 'px';
+    }
   }
 
   // 各行にカスタムセルを追加（バッチ遅延追加があるため未追加行のみ）
