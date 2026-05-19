@@ -407,7 +407,7 @@
 
     const addableCount = _shownNoteVideos.length;
     const addAllBtn = isAddMode && addableCount > 0
-      ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">＋ ${addableCount}件すべて追加</button>`
+      ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">📌 手動で選択（${addableCount}件）</button>`
       : '';
     const saveVlBtn = (isVlMode || isCvMode)
       ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">🔄 今の条件で自動選択</button>`
