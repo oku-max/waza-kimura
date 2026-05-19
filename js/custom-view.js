@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.278 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.279 ═══
 (function () {
 'use strict';
 
@@ -156,11 +156,8 @@ function _showView(id) {
     : (view.videoIds || []);
   window._cvVideoIds = new Set(videoIds);
 
-  // 前回のカスタム列ヘッダーを削除
-  document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
-
-  // renderOrg完了後にカスタム列を追加
-  window._cvAfterRender = () => _appendCustomCols(view);
+  // renderOrg完了後にカスタム列を追加（バッチ追加も含め毎回呼ばれる）
+  window._cvAfterRender = () => _addCvCols(view);
 
   // 既にorgビューにいる場合は直接renderOrgを呼ぶ（_libViewの副作用を避ける）
   if (window._libViewMode === 'org') {
@@ -178,12 +175,15 @@ function _renderTable(view) {
 }
 
 // ── カスタム列をorg-tableに追加 ──
-function _appendCustomCols(view) {
+// ヘッダーは毎回削除→再追加（syncOrgColHeadersの後に正しく末尾へ配置するため）
+// セルはバッチ遅延追加があるため未追加行のみ処理
+function _addCvCols(view) {
   if (!view || !view.columns) return;
 
-  // カスタム列ヘッダーを追加（未追加の場合のみ）
+  // カスタム列ヘッダー: 常に削除して再構築
   const theadRow = document.getElementById('orgTheadRow');
-  if (theadRow && !theadRow.querySelector('.cv-custom-th')) {
+  if (theadRow) {
+    theadRow.querySelectorAll('.cv-custom-th').forEach(el => el.remove());
     view.columns.forEach(col => {
       const canFilter = FILTERABLE_TYPES.has(col.type);
       const filterActive = canFilter && hasActiveFilter(view.id, col.id);
@@ -212,7 +212,7 @@ function _appendCustomCols(view) {
     theadRow.appendChild(addTh);
   }
 
-  // 各行にカスタムセルを追加（未追加の行のみ）
+  // 各行にカスタムセルを追加（バッチ遅延追加があるため未追加行のみ）
   const tbody = document.getElementById('orgList');
   if (!tbody) return;
   tbody.querySelectorAll('tr.org-tr').forEach(tr => {
@@ -1266,7 +1266,6 @@ window.cvMoveCol = function(colId, dir) {
 window._cvRerenderCur = function() {
   const view = _views.find(v => v.id === _curId);
   if (!view) return;
-  document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
   _renderTable(view);
 };
 
