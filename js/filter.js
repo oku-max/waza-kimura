@@ -340,6 +340,7 @@ export function updateResetBtn() {
 
 // ── フィルタリング本体 ──
 export function filt(list) {
+  if (window._cvCardVideoIds) return list.filter(v => !v.archived && window._cvCardVideoIds.has(v.id));
   const siEl   = document.getElementById('si');
   const siPcEl = document.getElementById('si-lib-pc');
   const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.303</title>
+<title>WAZA KIMURA v52.304</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1526,6 +1526,21 @@
       <div style="margin-bottom:20px">
         <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">ビュー名</div>
         <input id="cv-new-name" type="text" placeholder="例: スパー準備、今月の課題..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')window.cvGoStep2()">
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">ビューの種類</div>
+        <div style="display:flex;gap:8px">
+          <div id="cv-type-table-lbl" onclick="window._cvSelViewType('table')" style="flex:1;padding:10px;border:2px solid var(--accent);border-radius:8px;cursor:pointer;text-align:center;background:rgba(0,0,0,.04);transition:.15s">
+            <div style="font-size:18px;margin-bottom:4px">📊</div>
+            <div style="font-size:12px;font-weight:700">テーブル型</div>
+            <div style="font-size:10px;color:var(--text3)">カスタム列で管理</div>
+          </div>
+          <div id="cv-type-card-lbl" onclick="window._cvSelViewType('card')" style="flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:.15s">
+            <div style="font-size:18px;margin-bottom:4px">🃏</div>
+            <div style="font-size:12px;font-weight:700">カード型</div>
+            <div style="font-size:10px;color:var(--text3)">サムネ一覧表示</div>
+          </div>
+        </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="window.cvCloseModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit">キャンセル</button>

@@ -80,7 +80,7 @@ export function buildOrgTblSortOptions() {
 window.buildOrgTblSortOptions = buildOrgTblSortOptions;
 window.orgTblSortKey = function(val) { orgSortCol = val || null; orgSortAsc = true; _syncOrgTblSortUI(); renderOrg(); };
 window.orgTblTogDir  = function() { orgSortAsc = !orgSortAsc; _syncOrgTblSortUI(); renderOrg(); };
-export const ORG_COL_LABELS = {tb:'トップ/ボトム/スタンディング', action:'カテゴリ', position:'ポジション', technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', duration:'長さ'};
+export const ORG_COL_LABELS = {tb:'トップ/ボトム/スタンディング', action:'カテゴリ', position:'ポジション', technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'};
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};

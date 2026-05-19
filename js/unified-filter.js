@@ -410,7 +410,7 @@
       ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">＋ ${addableCount}件すべて追加</button>`
       : '';
     const saveVlBtn = (isVlMode || isCvMode)
-      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">💾 動的条件で保存</button>`
+      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">🔄 今の条件で自動選択</button>`
       : '';
     const notice = total > 50
       ? `<div class="uni-vc-notice">上位50件を表示中 (全${total}件)${addAllBtn}${saveVlBtn}</div>`
@@ -713,7 +713,8 @@
           || (v.channel || v.ch || '').toLowerCase().includes(_q);
       });
       const vidAddedIds = _noteMode ? (window._notesGetAddedVideoIds?.(_noteMode) || new Set()) : new Set();
-      const selSet = (!_noteMode && !_vlBlockTarget) ? ((isOrg ? window.orgFilters : window.filters)?.videoIds || new Set()) : new Set();
+      const cvAddedIds = _cvMode ? (window._cvGetAddedIds?.(_cvMode) || new Set()) : new Set();
+      const selSet = (!_noteMode && !_vlBlockTarget && !_cvMode) ? ((isOrg ? window.orgFilters : window.filters)?.videoIds || new Set()) : new Set();
       const allSel = vids.length > 0 && vids.every(v => selSet.has(v.id));
       const selCount = vids.filter(v => selSet.has(v.id)).length;
       // store current list for _uniVidSelAll
@@ -729,7 +730,7 @@
               💾 動的条件で保存
             </button>
            </div>`
-        : (!_noteMode
+        : (!_noteMode && !_cvMode
           ? `<div class="uni-vid-sel-hdr">
               <span>${vids.length}件${selCount ? ` · <b style="color:var(--accent)">${selCount}件選択中</b>` : ''}</span>
               <span style="flex:1"></span>
@@ -750,15 +751,20 @@
               ? `<img src="https://drive.google.com/thumbnail?id=${_gdId}&sz=w120" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:4px">`
               : '▶';
             const isVidAdded = !!_noteMode && vidAddedIds.has(v.id);
+            const isVidCvAdded = !!_cvMode && cvAddedIds.has(v.id);
             const isSel = selSet.has(v.id);
-            const vidOnclick = _noteMode || _vlBlockTarget
-              ? (!isVidAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '')
+            const vidOnclick = _noteMode || _vlBlockTarget || _cvMode
+              ? ((!isVidAdded && !isVidCvAdded) ? `window._uniVideoClick('${_esc(v.id)}')` : '')
               : `window._uniVidToggle('${_esc(v.id)}')`;
             const vidRowClass = _noteMode
               ? 'uni-vid-row uni-vid-row-nm' + (isVidAdded ? ' uni-vid-row-added' : '')
+              : _cvMode
+              ? 'uni-vid-row uni-vid-row-nm' + (isVidCvAdded ? ' uni-vid-row-added' : '')
               : 'uni-vid-row' + (isSel ? ' on' : '');
             const vidIndicator = _noteMode
               ? (isVidAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
+              : _cvMode
+              ? (isVidCvAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
               : _vlBlockTarget ? `<span class="uni-vc-add-btn">＋</span>`
               : (isSel ? `<span style="color:var(--accent);font-size:14px;flex-shrink:0">✓</span>` : '');
             return `<div class="${vidRowClass}" onclick="${vidOnclick}">
