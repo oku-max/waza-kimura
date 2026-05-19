@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.284 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.285 ═══
 (function () {
 'use strict';
 
@@ -144,10 +144,6 @@ function _showView(id) {
     const isDynamic = view.saveMode === 'dynamic';
     const condSummary = isDynamic && view.filterConditions ? _condSummary(view.filterConditions) : '';
     toolbar.innerHTML = `
-      <button onclick="window.cvToggleColMenu(event)" title="カスタム列の並べ替え"
-        style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-family:inherit;flex-shrink:0">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
-      </button>
       <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
       <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 動的' : '📌 個別選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
@@ -1346,9 +1342,22 @@ window.cvMoveCol = function(colId, dir) {
   const [col] = view.columns.splice(i, 1);
   view.columns.splice(j, 0, col);
   _save();
-  document.getElementById('cv-col-menu')?.remove();
+  document.getElementById('org-col-menu')?.remove();
   window._cvRerenderCur();
-  setTimeout(() => { const btn = document.querySelector('[onclick*="cvToggleColMenu"]'); if (btn) window.cvToggleColMenu({currentTarget:btn, stopPropagation:()=>{}}); }, 50);
+  setTimeout(() => window.toggleOrgColMenu?.(), 50);
+};
+
+// 標準の列ボタンメニューにカスタム列セクションを提供するフック
+window._cvGetColMenuSection = function() {
+  const view = _views.find(v => v.id === _curId);
+  if (!view || !view.columns?.length) return '';
+  const cols = view.columns;
+  return cols.map((col, i) => `
+    <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+      <button onclick="window.cvMoveCol('${col.id}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
+      <button onclick="window.cvMoveCol('${col.id}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===cols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===cols.length-1?'disabled':''}>▼</button>
+      <span style="font-size:12px;flex:1">${_esc(col.label)}</span>
+    </div>`).join('');
 };
 window._cvRerenderCur = function() {
   const view = _views.find(v => v.id === _curId);

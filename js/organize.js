@@ -1096,7 +1096,7 @@ export function toggleOrgColMenu() {
   if (menu) { menu.remove(); return; }
   menu = document.createElement('div');
   menu.id = 'org-col-menu';
-  menu.style.cssText = 'position:fixed;z-index:290;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px';
+  menu.style.cssText = 'position:fixed;z-index:290;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;max-height:calc(100svh - 80px);overflow-y:auto';
   // ⚙ボタンの位置を基準に表示
   const gear = document.querySelector('.org-settings-btn');
   const r = gear ? gear.getBoundingClientRect() : {left:10, bottom:40};
@@ -1115,7 +1115,7 @@ export function toggleOrgColMenu() {
     return true;
   };
   const _visibleOrgCols = orgColOrder.filter(_fcvVisible);
-  menu.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
+  let menuHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
     _visibleOrgCols.map((col, i) => `
       <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
         <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
@@ -1125,6 +1125,14 @@ export function toggleOrgColMenu() {
           ${ORG_COL_LABELS[col]||col}
         </label>
       </div>`).join('');
+  // カスタムビューが有効な場合、カスタム列セクションを追加
+  const cvSection = window._cvGetColMenuSection?.();
+  if (cvSection) {
+    menuHTML += '<div style="height:1px;background:var(--border);margin:8px 0"></div>' +
+      '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">カスタム列（↑↓で並替え）</div>' +
+      cvSection;
+  }
+  menu.innerHTML = menuHTML;
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function h(e){
     if(!menu.contains(e.target)&&!e.target.closest('.org-settings-btn')){menu.remove();document.removeEventListener('click',h);}
