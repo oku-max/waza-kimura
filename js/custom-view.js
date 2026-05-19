@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.282 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.283 ═══
 (function () {
 'use strict';
 
@@ -65,6 +65,7 @@ let _newColFutureDays = 1;
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
 let _filterCtx = null;
+let _cvDragSrc = null;
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -219,6 +220,33 @@ function _addCvCols(view) {
         e.stopPropagation();
         openThDropdown(e.currentTarget, view, col.id);
       });
+      // ドラッグ&ドロップで列順変更
+      th.draggable = true;
+      th.ondragstart = e => {
+        _cvDragSrc = col.id;
+        th.classList.add('org-th-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      };
+      th.ondragend = () => {
+        theadRow.querySelectorAll('.cv-custom-th').forEach(el => el.classList.remove('org-th-dragging', 'org-th-drag-over'));
+      };
+      th.ondragover = e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        theadRow.querySelectorAll('.cv-custom-th').forEach(el => el.classList.remove('org-th-drag-over'));
+        if (col.id !== _cvDragSrc) th.classList.add('org-th-drag-over');
+      };
+      th.ondrop = e => {
+        e.preventDefault();
+        if (!_cvDragSrc || _cvDragSrc === col.id) return;
+        const from = view.columns.findIndex(c => c.id === _cvDragSrc);
+        const to   = view.columns.findIndex(c => c.id === col.id);
+        if (from < 0 || to < 0) return;
+        const [moved] = view.columns.splice(from, 1);
+        view.columns.splice(to, 0, moved);
+        _save();
+        window._cvRerenderCur();
+      };
       theadRow.appendChild(th);
       // リサイズハンドル（organize.js の addResizeHandle を再利用）
       window.addResizeHandle?.(th, () => {
