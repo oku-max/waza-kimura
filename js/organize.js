@@ -1160,20 +1160,24 @@ export function orgMoveCol(col, dir) {
   if (i < 0) return;
   const j = i + dir;
   if (j < 0 || j >= orgColOrder.length) return;
-  orgColOrder.splice(i, 1);
-  orgColOrder.splice(j, 0, col);
-  _saveOrgColPrefs();
-  document.getElementById('org-col-menu')?.remove();
+  // スクロール保存は全DOM変更より前（最初）
   const tw = document.querySelector('.org-table-wrap');
   const savedTop = tw?.scrollTop || 0;
   const savedLeft = tw?.scrollLeft || 0;
   const winY = window.scrollY;
+  orgColOrder.splice(i, 1);
+  orgColOrder.splice(j, 0, col);
+  _saveOrgColPrefs();
+  document.getElementById('org-col-menu')?.remove();
   syncOrgColHeaders();        // ヘッダーのみ再構築（cv-custom-thも一旦削除される）
   _reorderOrgCellsInPlace();  // 既存セルをDOMで並べ替え（スクロールなし）
   window._cvAfterRender?.(); // syncOrgColHeadersで消えたカスタム列ヘッダーを再追加
-  if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
-  window.scrollTo(0, winY);
   toggleOrgColMenu();
+  // レイアウト確定後（次フレーム）に復元
+  requestAnimationFrame(() => {
+    if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
+    window.scrollTo(0, winY);
+  });
 }
 
 export function bindOrgDrag() {
