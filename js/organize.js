@@ -1091,19 +1091,7 @@ export function orgTogSelAll(cb) {
 }
 
 // ─── 列メニュー ───
-export function toggleOrgColMenu() {
-  let overlay = document.getElementById('org-col-menu');
-  if (overlay) { overlay.remove(); return; }
-  // ── ボトムシート（cv-src-sheetと同じパターン）──
-  overlay = document.createElement('div');
-  overlay.id = 'org-col-menu';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:290;display:flex;align-items:flex-end;justify-content:center';
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  const outer = document.createElement('div');
-  outer.style.cssText = 'background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);margin-bottom:12px;width:calc(100% - 24px);max-width:480px';
-  outer.addEventListener('click', e => e.stopPropagation());
-  const panel = document.createElement('div');
-  panel.style.cssText = 'padding:16px 14px 20px;max-height:70dvh;overflow-y:auto';
+function _buildOrgColMenuHTML() {
   const _fcv3 = window.filterColVis || {};
   const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvVisible = col => {
@@ -1117,7 +1105,7 @@ export function toggleOrgColMenu() {
     return true;
   };
   const _visibleOrgCols = orgColOrder.filter(_fcvVisible);
-  let menuHTML = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
+  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
     _visibleOrgCols.map((col, i) => `
       <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
         <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
@@ -1129,11 +1117,28 @@ export function toggleOrgColMenu() {
       </div>`).join('');
   const cvSection = window._cvGetColMenuSection?.();
   if (cvSection) {
-    menuHTML += '<div style="height:1px;background:var(--border);margin:8px 0"></div>' +
+    html += '<div style="height:1px;background:var(--border);margin:8px 0"></div>' +
       '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">カスタム列（↑↓で並替え）</div>' +
       cvSection;
   }
-  panel.innerHTML = menuHTML;
+  return html;
+}
+
+export function toggleOrgColMenu() {
+  let overlay = document.getElementById('org-col-menu');
+  if (overlay) { overlay.remove(); return; }
+  // ── ボトムシート（cv-src-sheetと同じパターン）──
+  overlay = document.createElement('div');
+  overlay.id = 'org-col-menu';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:290;display:flex;align-items:flex-end;justify-content:center';
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const outer = document.createElement('div');
+  outer.style.cssText = 'background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);margin-bottom:12px;width:calc(100% - 24px);max-width:480px';
+  outer.addEventListener('click', e => e.stopPropagation());
+  const panel = document.createElement('div');
+  panel.id = 'org-col-menu-panel';
+  panel.style.cssText = 'padding:16px 14px 20px;max-height:70dvh;overflow-y:auto';
+  panel.innerHTML = _buildOrgColMenuHTML();
   outer.appendChild(panel);
   overlay.appendChild(outer);
   document.body.appendChild(overlay);
@@ -1160,24 +1165,16 @@ export function orgMoveCol(col, dir) {
   if (i < 0) return;
   const j = i + dir;
   if (j < 0 || j >= orgColOrder.length) return;
-  // スクロール保存は全DOM変更より前（最初）
-  const tw = document.querySelector('.org-table-wrap');
-  const savedTop = tw?.scrollTop || 0;
-  const savedLeft = tw?.scrollLeft || 0;
-  const winY = window.scrollY;
   orgColOrder.splice(i, 1);
   orgColOrder.splice(j, 0, col);
   _saveOrgColPrefs();
-  document.getElementById('org-col-menu')?.remove();
   syncOrgColHeaders();        // ヘッダーのみ再構築（cv-custom-thも一旦削除される）
   _reorderOrgCellsInPlace();  // 既存セルをDOMで並べ替え（スクロールなし）
   window._cvAfterRender?.(); // syncOrgColHeadersで消えたカスタム列ヘッダーを再追加
-  toggleOrgColMenu();
-  // レイアウト確定後（次フレーム）に復元
-  requestAnimationFrame(() => {
-    if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
-    window.scrollTo(0, winY);
-  });
+  // オーバーレイを閉じず中身だけ更新（削除→再生成するとiOS Safariでスクロールリセット）
+  const panel = document.getElementById('org-col-menu-panel');
+  if (panel) panel.innerHTML = _buildOrgColMenuHTML();
+  else toggleOrgColMenu();
 }
 
 export function bindOrgDrag() {
@@ -2093,6 +2090,7 @@ window.addResizeHandle = addResizeHandle;
 window.orgTogSel = orgTogSel;
 window.orgTogSelAll = orgTogSelAll;
 window.toggleOrgColMenu = toggleOrgColMenu;
+window._buildOrgColMenuHTML = _buildOrgColMenuHTML;
 window.orgMoveCol = orgMoveCol;
 window.bindOrgDrag = bindOrgDrag;
 window.openTagFilterFor = openTagFilterFor;

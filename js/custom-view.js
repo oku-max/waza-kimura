@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.295 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.296 ═══
 (function () {
 'use strict';
 
@@ -1342,17 +1342,13 @@ window.cvMoveCol = function(colId, dir) {
   const [moved] = view.columns.splice(i, 1);
   view.columns.splice(j, 0, moved);
   _save();
-  document.getElementById('org-col-menu')?.remove();
-  const tw = document.querySelector('.org-table-wrap');
-  const savedTop = tw?.scrollTop || 0;
-  const savedLeft = tw?.scrollLeft || 0;
-  const winY = window.scrollY;
   // カスタムセルを全削除→新順で再追加（renderOrg不要なのでスクロール維持）
   document.querySelectorAll('.cv-custom-td').forEach(td => td.remove());
   _addCvCols(view);
-  if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
-  window.scrollTo(0, winY);
-  window.toggleOrgColMenu?.();
+  // オーバーレイを閉じず中身だけ更新（削除→再生成するとiOS Safariでスクロールリセット）
+  const panel = document.getElementById('org-col-menu-panel');
+  if (panel) panel.innerHTML = window._buildOrgColMenuHTML?.() || '';
+  else window.toggleOrgColMenu?.();
 };
 
 // 標準の列ボタンメニューにカスタム列セクションを提供するフック
