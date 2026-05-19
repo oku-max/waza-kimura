@@ -1136,6 +1136,22 @@ export function toggleOrgColMenu() {
   document.body.appendChild(overlay);
 }
 
+// 列並べ替え: renderOrg()を呼ばずDOMだけ並べ替え（スクロールリセット防止）
+function _reorderOrgCellsInPlace() {
+  const tbody = document.getElementById('orgList');
+  if (!tbody) return;
+  const visCols = orgColOrder.filter(col => orgColVisibility[col] !== false);
+  tbody.querySelectorAll('tr.org-tr').forEach(tr => {
+    const cells = {};
+    tr.querySelectorAll('td[data-col]').forEach(td => { cells[td.dataset.col] = td; });
+    if (!Object.keys(cells).length) return;
+    const anchor = tr.querySelector('.cv-custom-td') || null;
+    visCols.forEach(col => {
+      if (cells[col]) anchor ? tr.insertBefore(cells[col], anchor) : tr.appendChild(cells[col]);
+    });
+  });
+}
+
 export function orgMoveCol(col, dir) {
   const i = orgColOrder.indexOf(col);
   if (i < 0) return;
@@ -1145,13 +1161,8 @@ export function orgMoveCol(col, dir) {
   orgColOrder.splice(j, 0, col);
   _saveOrgColPrefs();
   document.getElementById('org-col-menu')?.remove();
-  // スクロール位置を保存してrenderOrg後に復元
-  const tw = document.querySelector('.org-table-wrap');
-  const savedTop = tw?.scrollTop || 0;
-  const savedLeft = tw?.scrollLeft || 0;
-  renderOrg();
-  if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
-  requestAnimationFrame(() => { if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; } });
+  syncOrgColHeaders();        // ヘッダーのみ再構築
+  _reorderOrgCellsInPlace();  // 既存セルをDOMで並べ替え（スクロールなし）
   toggleOrgColMenu();
 }
 
