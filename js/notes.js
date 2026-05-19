@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Notes tab v52.247 ═══
+// ═══ WAZA KIMURA — Notes tab v52.297 ═══
 import { getSnapshot, putSnapshot, pendingUploads } from './snapshot-db.js';
 window._getSnapshot = getSnapshot;
 
@@ -2754,7 +2754,7 @@ function _renderVidlistCard(block, path, noteId) {
   const isManual = block.mode === 'manual';
   const all = _resolveVidList(block);
   const display = all; // 全件表示・max-heightでスクロール
-  const summary = isManual ? `📌 手動 ${all.length}件` : _vlSummary(block.filter || {});
+  const summary = isManual ? `📌 手動で選択 ${all.length}件` : _vlSummary(block.filter || {});
   const cardId = `n-vl-${noteId}-${String(path).replace(/\./g,'-')}`;
   const rowsHtml = display.length
     ? display.map(v => {

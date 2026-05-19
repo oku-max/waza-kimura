@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.296 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.297 ═══
 (function () {
 'use strict';
 
@@ -145,7 +145,7 @@ function _showView(id) {
     const condSummary = isDynamic && view.filterConditions ? _condSummary(view.filterConditions) : '';
     toolbar.innerHTML = `
       <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
-      <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 動的' : '📌 個別選択'}</span>
+      <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 今の条件で自動選択' : '📌 手動で選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
       <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">条件 ✎</button>
     `;
