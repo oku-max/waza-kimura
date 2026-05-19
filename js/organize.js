@@ -1099,9 +1099,11 @@ export function toggleOrgColMenu() {
   overlay.id = 'org-col-menu';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:290;display:flex;align-items:flex-end;justify-content:center';
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const outer = document.createElement('div');
+  outer.style.cssText = 'background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);margin-bottom:12px;width:calc(100% - 24px);max-width:480px';
+  outer.addEventListener('click', e => e.stopPropagation());
   const panel = document.createElement('div');
-  panel.style.cssText = 'background:var(--surface);border-radius:14px;padding:16px 14px 20px;width:calc(100% - 24px);max-width:480px;max-height:70dvh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,.5);margin-bottom:12px';
-  panel.addEventListener('click', e => e.stopPropagation());
+  panel.style.cssText = 'padding:16px 14px 20px;max-height:70dvh;overflow-y:auto';
   const _fcv3 = window.filterColVis || {};
   const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvVisible = col => {
@@ -1132,7 +1134,8 @@ export function toggleOrgColMenu() {
       cvSection;
   }
   panel.innerHTML = menuHTML;
-  overlay.appendChild(panel);
+  outer.appendChild(panel);
+  overlay.appendChild(outer);
   document.body.appendChild(overlay);
 }
 

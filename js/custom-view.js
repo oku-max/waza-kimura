@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.291 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.292 ═══
 (function () {
 'use strict';
 
@@ -1343,9 +1343,15 @@ window.cvMoveCol = function(colId, dir) {
   view.columns.splice(j, 0, moved);
   _save();
   document.getElementById('org-col-menu')?.remove();
+  const tw = document.querySelector('.org-table-wrap');
+  const savedTop = tw?.scrollTop || 0;
+  const savedLeft = tw?.scrollLeft || 0;
+  const winY = window.scrollY;
   // カスタムセルを全削除→新順で再追加（renderOrg不要なのでスクロール維持）
   document.querySelectorAll('.cv-custom-td').forEach(td => td.remove());
   _addCvCols(view);
+  if (tw) { tw.scrollTop = savedTop; tw.scrollLeft = savedLeft; }
+  window.scrollTo(0, winY);
   window.toggleOrgColMenu?.();
 };
 
