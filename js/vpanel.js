@@ -2136,7 +2136,7 @@ export function buildDrawerHTML(id) {
       </button>
     </div>
     <div style="padding:6px 0 0;display:flex;gap:8px">
-      <button onclick="vpArchive('${id}')"
+      <button onclick="if(confirm('アーカイブしますか？'))vpArchive('${id}')"
         style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);
                background:transparent;color:var(--text2);font-size:12px;
                font-weight:700;cursor:pointer">
