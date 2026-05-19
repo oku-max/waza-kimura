@@ -1096,12 +1096,14 @@ export function toggleOrgColMenu() {
   if (menu) { menu.remove(); return; }
   menu = document.createElement('div');
   menu.id = 'org-col-menu';
-  menu.style.cssText = 'position:fixed;z-index:290;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;max-height:calc(100svh - 80px);overflow-y:auto';
+  menu.style.cssText = 'position:fixed;z-index:290;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:160px;overflow-y:auto';
   // ⚙ボタンの位置を基準に表示
   const gear = document.querySelector('.org-settings-btn');
   const r = gear ? gear.getBoundingClientRect() : {left:10, bottom:40};
+  const menuTop = r.bottom + 4;
   menu.style.left = r.left + 'px';
-  menu.style.top = (r.bottom + 4) + 'px';
+  menu.style.top = menuTop + 'px';
+  menu.style.maxHeight = (window.innerHeight - menuTop - 8) + 'px';
   const _fcv3 = window.filterColVis || {};
   const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvVisible = col => {
