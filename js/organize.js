@@ -1164,8 +1164,9 @@ export function orgMoveCol(col, dir) {
   orgColOrder.splice(j, 0, col);
   _saveOrgColPrefs();
   document.getElementById('org-col-menu')?.remove();
-  syncOrgColHeaders();        // ヘッダーのみ再構築
+  syncOrgColHeaders();        // ヘッダーのみ再構築（cv-custom-thも一旦削除される）
   _reorderOrgCellsInPlace();  // 既存セルをDOMで並べ替え（スクロールなし）
+  window._cvAfterRender?.(); // syncOrgColHeadersで消えたカスタム列ヘッダーを再追加
   toggleOrgColMenu();
 }
 
