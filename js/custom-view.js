@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.290 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.291 ═══
 (function () {
 'use strict';
 
@@ -1332,27 +1332,6 @@ window.cvToggleColMenu = function(e) {
     }
   }), 100);
 };
-// カスタム列並べ替え: DOMのみ並べ替え（スクロールリセットなし）
-function _reorderCvCellsInPlace(view) {
-  const theadRow = document.getElementById('orgTheadRow');
-  if (theadRow) {
-    const addBtn = [...theadRow.querySelectorAll('.cv-custom-th')].find(th => !th.dataset.colId);
-    view.columns.forEach(col => {
-      const th = theadRow.querySelector(`.cv-custom-th[data-col-id="${col.id}"]`);
-      if (th && addBtn) theadRow.insertBefore(th, addBtn);
-    });
-  }
-  const tbody = document.getElementById('orgList');
-  if (!tbody) return;
-  tbody.querySelectorAll('tr.org-tr').forEach(tr => {
-    const spacer = [...tr.querySelectorAll('.cv-custom-td')].find(td => !td.dataset.colId);
-    view.columns.forEach(col => {
-      const td = tr.querySelector(`.cv-custom-td[data-col-id="${col.id}"]`);
-      if (td) spacer ? tr.insertBefore(td, spacer) : tr.appendChild(td);
-    });
-  });
-}
-
 window.cvMoveCol = function(colId, dir) {
   const view = _views.find(v => v.id === _curId);
   if (!view) return;
@@ -1360,11 +1339,13 @@ window.cvMoveCol = function(colId, dir) {
   if (i < 0) return;
   const j = i + dir;
   if (j < 0 || j >= view.columns.length) return;
-  const [col] = view.columns.splice(i, 1);
-  view.columns.splice(j, 0, col);
+  const [moved] = view.columns.splice(i, 1);
+  view.columns.splice(j, 0, moved);
   _save();
   document.getElementById('org-col-menu')?.remove();
-  _reorderCvCellsInPlace(view);   // DOMのみ並べ替え
+  // カスタムセルを全削除→新順で再追加（renderOrg不要なのでスクロール維持）
+  document.querySelectorAll('.cv-custom-td').forEach(td => td.remove());
+  _addCvCols(view);
   window.toggleOrgColMenu?.();
 };
 
