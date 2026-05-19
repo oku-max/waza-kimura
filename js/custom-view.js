@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.297 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.298 ═══
 (function () {
 'use strict';
 
@@ -61,6 +61,9 @@ let _selectedType = null;
 let _newColOptions = [];
 let _newColPastDays = 3;
 let _newColFutureDays = 1;
+// edit-col modal state
+let _editColMode = false;
+let _editColId = null;
 
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
@@ -202,7 +205,8 @@ function _addCvCols(view) {
       th.className = 'cv-custom-th';
       th.dataset.colId = col.id;
       th.dataset.col = 'cv:' + col.id; // resize machinaryが th[data-col] を参照するため
-      th.style.cssText = 'width:120px;min-width:60px';
+      th.style.cssText = 'width:120px;min-width:60px;cursor:pointer';
+      th.title = 'クリックで列設定を編集';
       th.innerHTML = `<div class="th-inner" style="font-size:11px">${_esc(col.label)}${
         canFilter ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>` : ''
       }<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div>`;
@@ -215,6 +219,10 @@ function _addCvCols(view) {
       th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
         e.stopPropagation();
         openThDropdown(e.currentTarget, view, col.id);
+      });
+      th.addEventListener('click', e => {
+        if (e.target.closest('button')) return;
+        openColEditModal(view, col.id);
       });
       // ドラッグ&ドロップで列順変更
       th.draggable = true;
@@ -740,6 +748,62 @@ function openAddColModal(viewId) {
   if (modal) modal.style.display = 'flex';
 }
 
+// ── 列を編集モーダル（ヘッダークリック） ──
+function openColEditModal(view, colId) {
+  const col = view.columns.find(c => c.id === colId);
+  if (!col) return;
+  _editColMode = true;
+  _editColId = colId;
+  _addColTargetViewId = view.id;
+  _selectedType = col.type;
+
+  // 型グリッドを構築（現在の型を選択済みに）
+  const grid = document.getElementById('cv-type-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  TYPE_DEFS.forEach(def => {
+    const btn = document.createElement('button');
+    btn.className = 'cv-type-btn' + (def.type === col.type ? ' selected' : '');
+    btn.dataset.type = def.type;
+    btn.innerHTML = `<span class="cv-type-icon">${def.icon}</span>${def.label}`;
+    btn.addEventListener('click', () => {
+      _selectedType = def.type;
+      grid.querySelectorAll('.cv-type-btn').forEach(b => b.classList.toggle('selected', b.dataset.type === def.type));
+      showColConfig(def.type);
+    });
+    grid.appendChild(btn);
+  });
+
+  // 設定フォームを表示（showColConfigはデフォルト値でリセットする）
+  showColConfig(col.type);
+
+  // 既存値で上書き
+  const labelEl = document.getElementById('cv-new-col-label');
+  if (labelEl) labelEl.value = col.label || '';
+  if (col.type === 'select' || col.type === 'multiselect') {
+    _newColOptions = [...(col.options || [])];
+    _renderOptionsList();
+  } else if (col.type === 'tracker') {
+    _newColPastDays = col.pastDays ?? 3;
+    _newColFutureDays = col.futureDays ?? 1;
+    document.getElementById('cv-past-days-group')?.querySelectorAll('.cv-days-btn').forEach(btn => {
+      btn.classList.toggle('selected', parseInt(btn.dataset.days) === _newColPastDays);
+    });
+    document.getElementById('cv-future-days-group')?.querySelectorAll('.cv-days-btn').forEach(btn => {
+      btn.classList.toggle('selected', parseInt(btn.dataset.days) === _newColFutureDays);
+    });
+  } else if (col.type === 'number') {
+    const unitEl = document.getElementById('cv-new-col-unit');
+    if (unitEl) unitEl.value = col.unit || '';
+  }
+
+  const modal = document.getElementById('cv-add-col-modal');
+  if (!modal) return;
+  modal.querySelector('h2').textContent = '列を編集';
+  modal.querySelector('.cv-btn-primary').textContent = '変更を保存';
+  modal.style.display = 'flex';
+}
+
 function showColConfig(type) {
   const colConfig = document.getElementById('cv-col-config');
   if (colConfig) colConfig.style.display = 'block';
@@ -817,14 +881,54 @@ window._cvAddOptionRow = function() {
 
 window.cvCloseAddColModal = function() {
   const modal = document.getElementById('cv-add-col-modal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'none';
+    const h2 = modal.querySelector('h2');
+    const btn = modal.querySelector('.cv-btn-primary');
+    if (h2) h2.textContent = '列を追加';
+    if (btn) btn.textContent = '追加する';
+  }
   _selectedType = null;
+  _editColMode = false;
+  _editColId = null;
 };
 
 window.cvConfirmAddCol = function() {
   if (!_selectedType) { alert('型を選択してください'); return; }
   const labelEl = document.getElementById('cv-new-col-label');
   const label = (labelEl ? labelEl.value.trim() : '') || TYPE_DEFS.find(d => d.type === _selectedType)?.label || '新しい列';
+
+  // ── 編集モード ──
+  if (_editColMode) {
+    const view = _views.find(v => v.id === _addColTargetViewId);
+    if (!view) return;
+    const col = view.columns.find(c => c.id === _editColId);
+    if (!col) return;
+    col.label = label;
+    if (col.type !== _selectedType) {
+      col.type = _selectedType;
+      Object.values(view.rowData).forEach(rd => { if (rd[_editColId] !== undefined) rd[_editColId] = null; });
+    }
+    if (_selectedType === 'select' || _selectedType === 'multiselect') {
+      col.options = _newColOptions.filter(o => o.trim() !== '');
+      delete col.pastDays; delete col.futureDays; delete col.unit;
+    } else if (_selectedType === 'tracker') {
+      col.pastDays = _newColPastDays; col.futureDays = _newColFutureDays;
+      delete col.options; delete col.unit;
+    } else if (_selectedType === 'number') {
+      const unitEl = document.getElementById('cv-new-col-unit');
+      col.unit = unitEl ? unitEl.value.trim() : '';
+      delete col.options; delete col.pastDays; delete col.futureDays;
+    } else {
+      delete col.options; delete col.pastDays; delete col.futureDays; delete col.unit;
+    }
+    _save();
+    _renderTable(view);
+    window.cvCloseAddColModal();
+    return;
+  }
+
+  // ── 追加モード ──
   const view = _views.find(v => v.id === _addColTargetViewId);
   if (!view) return;
   const newCol = { id: 'col' + (++_nextColId), type: _selectedType, label };
