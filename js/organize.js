@@ -647,6 +647,7 @@ export function renderOrg() {
   if (!displayList.length) {
     if (empty) empty.style.display = '';
     if (tableWrap) tableWrap.style.display = 'none';
+    window._cvAfterRender?.();
     return;
   }
   if (empty) empty.style.display = 'none';

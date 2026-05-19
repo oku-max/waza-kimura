@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.276 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.278 ═══
 (function () {
 'use strict';
 
@@ -162,9 +162,13 @@ function _showView(id) {
   // renderOrg完了後にカスタム列を追加
   window._cvAfterRender = () => _appendCustomCols(view);
 
-  // _libViewフックに「内部呼び出し」と伝えてcv状態をクリアさせない
-  window._cvInternalNav = true;
-  window._libView?.('org');
+  // 既にorgビューにいる場合は直接renderOrgを呼ぶ（_libViewの副作用を避ける）
+  if (window._libViewMode === 'org') {
+    window.renderOrg?.();
+  } else {
+    window._cvInternalNav = true;
+    window._libView?.('org');
+  }
 }
 
 // ── テーブル再描画（列追加・削除・名前変更後）──
