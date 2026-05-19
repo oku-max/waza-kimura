@@ -36,7 +36,7 @@ export function _restoreFromURL() {
   _urlSyncPaused = true;
   // Clear existing state
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  window.favOnly = false; window.nextOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.favOnly = false; window.nextOnly = false; window.drillOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   // Restore Set filters
   for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
@@ -71,6 +71,7 @@ export function _syncChipsToState() {
   // Boolean toggle chips
   const boolChips = {
     favOnly:     ['chip-fav','m-chip-fav','fs-chip-fav2','fov-chip-fav'],
+    drillOnly:   ['fov-chip-drill'],
     unwOnly:     ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'],
     watchedOnly: ['chip-watched','fs-chip-watched','fov-chip-watched'],
     bmOnly:      ['fov-chip-bm','fs-chip-bm'],
@@ -123,6 +124,14 @@ export function togNext() {
   window.AF();
 }
 
+export function togDrill() {
+  window.drillOnly = !window.drillOnly;
+  ['fov-chip-drill'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.toggle('active', window.drillOnly);
+  });
+  window.AF();
+}
+
 export function togUnw() {
   window.unwOnly = !window.unwOnly;
   ['chip-unw','m-chip-unw','fs-chip-unw2','fov-chip-unw'].forEach(id => {
@@ -165,7 +174,7 @@ export function togImg() {
 
 export function clearAll() {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
-  window.favOnly = false; window.nextOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.favOnly = false; window.nextOnly = false; window.drillOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   window.prRank = null; window.prDate = null;
   const si = document.getElementById('si'); if (si) si.value = '';
@@ -325,7 +334,7 @@ export function resetFilters() { clearAll(); }
 
 export function updateResetBtn() {
   const btn = document.getElementById('filter-reset-btn'); if (!btn) return;
-  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.nextOnly || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
+  const active = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.nextOnly || window.drillOnly || window.unwOnly || window.watchedOnly || window.bmOnly || window.memoOnly;
   btn.style.display = active ? 'inline-block' : 'none';
 }
 
@@ -337,8 +346,9 @@ export function filt(list) {
   const parsed = _parseQuery(raw);
   return list.filter(v => {
     if (v.archived) return false;
-    if (window.favOnly  && !v.fav)  return false;
-    if (window.nextOnly && !v.next) return false;
+    if (window.favOnly   && !v.fav)   return false;
+    if (window.nextOnly  && !v.next)  return false;
+    if (window.drillOnly && !v.drill) return false;
     if (window.unwOnly  && v.watched) return false;
     if (window.watchedOnly && !v.watched) return false;
     if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;

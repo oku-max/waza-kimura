@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.298 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.299 ═══
 (function () {
 'use strict';
 
@@ -7,9 +7,9 @@ const ORG_COL_LABELS = {
   tb:'トップ/ボトム/スタン', action:'カテゴリ', position:'ポジション',
   technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル',
   playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日',
-  fav:'お気に入り', next:'🎯 Next', duration:'長さ'
+  fav:'お気に入り', next:'🎯 Next', drill:'Drill', duration:'長さ'
 };
-const CV_COL_DEFAULT = ['fav','next','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
+const CV_COL_DEFAULT = ['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
 
 const SEL_COLORS = [
   { bg:'rgba(74,144,217,.25)',  text:'#70b0f0' },

@@ -34,6 +34,14 @@ export function qNext(id) {
   debounceSave();
 }
 
+export function qDrill(id) {
+  const v = window.videos?.find(v => v.id === id);
+  if (!v) return;
+  v.drill = !v.drill;
+  window.AF(); window.toast(v.drill ? '🟣 Drill に追加' : 'Drill 解除');
+  debounceSave();
+}
+
 export function qWatch(id) {
   const v = window.videos?.find(v => v.id === id);
   if (v) { v.watched = !v.watched; window.AF(); window.toast(v.watched ? '✅ 視聴済み' : '👁 未視聴に戻しました'); debounceSave(); }

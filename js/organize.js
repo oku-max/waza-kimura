@@ -8,11 +8,11 @@ export let orgFilters = {
   fav: new Set(), next: new Set(), counter: new Set(),
   memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
-export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false;
+export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false, orgDrillOnly = false;
 export let orgMemoSearch = '';
 export let orgPrRank = null, orgPrDate = null;
-const _ORG_DEFAULT_ORDER = ['fav', 'next', 'tb', 'action', 'position', 'technique', 'counter', 'status', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
-const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, status: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, duration: true};
+const _ORG_DEFAULT_ORDER = ['fav', 'next', 'drill', 'tb', 'action', 'position', 'technique', 'counter', 'status', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
+const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, status: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, drill: true, duration: true};
 const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', status:'90px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', next:'52px', duration:'64px'};
 function _loadOrgColPrefs() {
   try {
@@ -93,6 +93,7 @@ Object.defineProperty(window, 'orgWatchedOnly', {get: () => orgWatchedOnly, set:
 Object.defineProperty(window, 'orgBmOnly',      {get: () => orgBmOnly,      set: v => { orgBmOnly = v; }});
 Object.defineProperty(window, 'orgMemoOnly',    {get: () => orgMemoOnly,    set: v => { orgMemoOnly = v; }});
 Object.defineProperty(window, 'orgImgOnly',     {get: () => orgImgOnly,     set: v => { orgImgOnly = v; }});
+Object.defineProperty(window, 'orgDrillOnly',   {get: () => orgDrillOnly,   set: v => { orgDrillOnly = v; }});
 Object.defineProperty(window, 'orgPrRank',     {get: () => orgPrRank,     set: v => { orgPrRank = v; }});
 Object.defineProperty(window, 'orgPrDate',     {get: () => orgPrDate,     set: v => { orgPrDate = v; }});
 Object.defineProperty(window, 'orgColOrder', {get: () => orgColOrder, set: v => { orgColOrder = v; }});
@@ -168,6 +169,12 @@ export function togOrgNext() {
   renderOrg();
 }
 
+export function togOrgDrill() {
+  orgDrillOnly = !orgDrillOnly;
+  ['org-fs-chip-drill','org-fov-chip-drill'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgDrillOnly); });
+  renderOrg();
+}
+
 export function togOrgUnw() {
   orgUnwOnly = !orgUnwOnly;
   ['org-fs-chip-unw2','org-fov-chip-unw'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', orgUnwOnly); });
@@ -200,7 +207,7 @@ export function togOrgImg() {
 
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
-  orgFavOnly = false; orgNextOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
+  orgFavOnly = false; orgNextOnly = false; orgDrillOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
   orgMemoSearch = '';
   orgPrRank = null; orgPrDate = null;
   const si = document.getElementById('si-org'); if(si) si.value = '';
@@ -321,6 +328,7 @@ export function orgFilt(list) {
     if (v.archived) return false;
     if (orgFavOnly     && !v.fav) return false;
     if (orgNextOnly    && !v.next) return false;
+    if (orgDrillOnly   && !v.drill) return false;
     if (orgUnwOnly     && v.watched) return false;
     if (orgWatchedOnly && !v.watched) return false;
     if (orgBmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
@@ -586,7 +594,7 @@ function _updateOrgResetBtn() {
   const btn = document.getElementById('org-filter-reset-btn');
   if (!btn) return;
   const active = Object.values(orgFilters).some(s => s.size > 0)
-    || orgFavOnly || orgNextOnly || orgUnwOnly || orgWatchedOnly
+    || orgFavOnly || orgNextOnly || orgDrillOnly || orgUnwOnly || orgWatchedOnly
     || orgBmOnly || orgMemoOnly || orgImgOnly || orgPrRank || orgPrDate;
   btn.style.display = active ? 'inline-block' : 'none';
 }
@@ -616,6 +624,7 @@ export function renderOrg() {
     else if (orgSortCol === 'channel')   { av = (a.ch||'').toLowerCase(); bv = (b.ch||'').toLowerCase(); }
     else if (orgSortCol === 'playlist')  { av = (a.pl||'').toLowerCase(); bv = (b.pl||'').toLowerCase(); }
     else if (orgSortCol === 'next')      { av=a.next?0:1; bv=b.next?0:1; }
+    else if (orgSortCol === 'drill')     { av=a.drill?0:1; bv=b.drill?0:1; }
     else if (orgSortCol === 'counter')   { av=a.practice||0; bv=b.practice||0; }
     else if (orgSortCol === 'addedAt')   { av = a.addedAt||''; bv = b.addedAt||''; }
     else if (orgSortCol === 'duration')  { av = a.duration||0; bv = b.duration||0; }
@@ -714,6 +723,7 @@ export function renderOrg() {
       if (col === 'memo')      return `<td class="org-td" data-col="memo" style="overflow:hidden"><div class="org-memo-text">${v.memo||'<span style="color:var(--text3);font-size:10px">—</span>'}</div></td>`;
       if (col === 'fav')       return `<td class="org-td" data-col="fav" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogFav('${v.id}')" class="${v.fav?'org-fav-on':'org-fav-off'}" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.fav?'お気に入りを外す':'お気に入りに追加'}">${v.fav?'★':'☆'}</button></td>`;
       if (col === 'next')      return `<td class="org-td" data-col="next" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogNext('${v.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:transform .1s" title="${v.next?'Next解除':'Nextに追加'}">${v.next?'🎯':'○'}</button></td>`;
+      if (col === 'drill') { const _don=`<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`, _doff=`<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#555" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#555" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`; return `<td class="org-td" data-col="drill" style="text-align:center;padding:4px"><button onclick="event.stopPropagation();orgTogDrill('${v.id}')" style="background:none;border:none;cursor:pointer;padding:2px;border-radius:4px;line-height:0;transition:opacity .15s;opacity:${v.drill?'1':'0.35'}" title="${v.drill?'Drill解除':'Drillに追加'}">${v.drill?_don:_doff}</button></td>`; }
       if (col === 'addedAt') {
         const d = v.addedAt ? new Date(v.addedAt) : null;
         const ds = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '—';
@@ -921,6 +931,26 @@ export function orgTogNext(id) {
     }
     window.debounceSave?.();
   } catch(e) { console.error('orgTogNext error:', e); }
+}
+
+export function orgTogDrill(id) {
+  try {
+    const v = (window.videos || []).find(v => v.id === id);
+    if (!v) return;
+    v.drill = !v.drill;
+    const _don  = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
+    const _doff = `<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#555" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#555" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
+    const tr = document.getElementById('org-row-' + id);
+    if (tr) {
+      const btn = tr.querySelector('[onclick*="orgTogDrill"]');
+      if (btn) {
+        btn.innerHTML = v.drill ? _don : _doff;
+        btn.style.opacity = v.drill ? '1' : '0.35';
+        btn.title = v.drill ? 'Drill解除' : 'Drillに追加';
+      }
+    }
+    window.debounceSave?.();
+  } catch(e) { console.error('orgTogDrill error:', e); }
 }
 
 // ─── Organizeテーブル: 列幅リサイズ（mouse + touch対応）───
@@ -2085,6 +2115,8 @@ window.syncOrgColHeaders = syncOrgColHeaders;
 window.orgSetSort = orgSetSort;
 window.orgTogFav = orgTogFav;
 window.orgTogNext = orgTogNext;
+window.orgTogDrill = orgTogDrill;
+window.togOrgDrill = togOrgDrill;
 window.initOrgResize = initOrgResize;
 window.addResizeHandle = addResizeHandle;
 window.orgTogSel = orgTogSel;

@@ -108,10 +108,16 @@
         <span id="vp-fav-${id}" onclick="vpTogFav('${id}',this)" style="cursor:pointer;font-size:20px;color:${fav?'#d4a017':'var(--text3)'};font-weight:700;line-height:1" title="お気に入り">★</span>
       </div>
     </div>
-    <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
+    <div style="flex:0 0 auto;padding-right:14px;display:flex;flex-direction:column;align-items:center">
       <div style="${subTitle}">Next</div>
       <div style="display:flex;align-items:center;justify-content:center;height:28px">
         <span id="vp-next-${id}" onclick="vpTogNext('${id}',this)" style="cursor:pointer;font-size:16px;font-weight:700;line-height:1" title="Next">${next?'🎯':'○'}</span>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding-right:14px;${_showRank?'border-right:1px solid var(--border);':''}display:flex;flex-direction:column;align-items:center">
+      <div style="${subTitle}">Drill</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:28px">
+        <span id="vp-drill-${id}" onclick="vpTogDrill('${id}',this)" style="cursor:pointer;line-height:0;opacity:${v.drill?'1':'0.35'}" title="Drill">${v.drill?'<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>':'<svg width="29" height="16" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>'}</span>
       </div>
     </div>` : '';
     const cntSec  = _showRank ? `

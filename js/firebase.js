@@ -301,7 +301,7 @@ export async function loadUserSettings(uid) {
       if (Array.isArray(data.orgColOrder) && data.orgColOrder.length) {
         // 廃止カラム除去 + 新規カラム補完
         const _DEAD = ['prio'];
-        const _REQUIRED = ['fav','next','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
+        const _REQUIRED = ['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
         let cleaned = data.orgColOrder.filter(c => !_DEAD.includes(c));
         for (const r of _REQUIRED) { if (!cleaned.includes(r)) {
           // 'status'はcounterの直後に挿入
