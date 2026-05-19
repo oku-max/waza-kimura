@@ -65,6 +65,11 @@ let _newColFutureDays = 1;
 let _editColMode = false;
 let _editColId = null;
 
+// sort state
+let _cvSortColId = null, _cvSortAsc = true;
+// quick-add state
+let _cvQuickAddViewId = null;
+
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
 let _filterCtx = null;
@@ -150,6 +155,7 @@ function _showView(id) {
       <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
       <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 今の条件で自動選択' : '📌 手動で選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
+      ${!isDynamic ? `<button onclick="window.cvOpenQuickAdd('${view.id}')" style="padding:3px 10px;border-radius:7px;font-size:11px;font-weight:600;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;margin-left:auto">＋ 追加</button>` : `<span style="margin-left:auto"></span>`}
       <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">条件 ✎</button>
     `;
   }
@@ -205,24 +211,12 @@ function _addCvCols(view) {
       th.className = 'cv-custom-th';
       th.dataset.colId = col.id;
       th.dataset.col = 'cv:' + col.id; // resize machinaryが th[data-col] を参照するため
-      th.style.cssText = 'width:120px;min-width:60px;cursor:pointer';
-      th.title = 'クリックで列設定を編集';
-      th.innerHTML = `<div class="th-inner" style="font-size:11px">${_esc(col.label)}${
-        canFilter ? `<button class="cv-th-filter-btn${filterActive ? ' active' : ''}" data-col-id="${col.id}" title="フィルター"><svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 0L5.5 4.5L5.5 9.5L3.5 9.5L3.5 4.5Z"/></svg></button>` : ''
-      }<button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション">▾</button></div>`;
-      th.querySelector('.cv-th-filter-btn')?.addEventListener('click', e => {
-        e.stopPropagation();
-        const fp = document.getElementById('cv-filter-popup');
-        if (fp && fp.style.display !== 'none' && _filterCtx?.col.id === col.id) closeFilterPopup();
-        else openFilterPopup(e.currentTarget, view, col);
-      });
+      th.style.cssText = 'width:120px;min-width:60px';
+      const sortInd = _cvSortColId === col.id ? (_cvSortAsc ? ' ▲' : ' ▼') : '';
+      th.innerHTML = `<div class="th-inner" style="font-size:11px">${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;color:var(--accent);margin-left:2px">${sortInd}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
       th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
         e.stopPropagation();
         openThDropdown(e.currentTarget, view, col.id);
-      });
-      th.addEventListener('click', e => {
-        if (e.target.closest('button')) return;
-        openColEditModal(view, col.id);
       });
       // ドラッグ&ドロップで列順変更
       th.draggable = true;
@@ -299,6 +293,7 @@ function _addCvCols(view) {
     tr.appendChild(emptyTd);
   });
 
+  _applyCvSort(view);
   _applyCustomFilters(view);
 }
 
@@ -675,45 +670,177 @@ function closePopup() {
   if (p) p.style.display = 'none';
 }
 
-// ── TH ドロップダウン ──
+// ── TH ドロップダウン（ソート・再設定・フィルター・操作を統合） ──
 function openThDropdown(btn, view, colId) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
   const col = view.columns.find(c => c.id === colId);
   if (!col) return;
+  closeFilterPopup(); closePopup();
   dd.innerHTML = '';
+  dd.style.cssText = 'position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:230px;max-width:270px;max-height:80vh;overflow-y:auto;padding:0';
+
+  // ── ヘッダー ──
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:8px 12px 6px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)';
+  hdr.textContent = col.label;
+  dd.appendChild(hdr);
+
+  // ── ソート ──
+  const sortSec = document.createElement('div');
+  sortSec.style.cssText = 'display:flex;gap:6px;padding:8px 10px';
+  const isActive = _cvSortColId === col.id;
+  [['↑ 昇順', true], ['↓ 降順', false]].forEach(([lbl, asc]) => {
+    const b = document.createElement('button');
+    const on = isActive && _cvSortAsc === asc;
+    b.textContent = lbl;
+    b.style.cssText = `flex:1;padding:5px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid ${on?'var(--accent)':'var(--border)'};background:${on?'var(--accent)':'var(--surface2)'};color:${on?'#fff':'var(--text)'}`;
+    b.addEventListener('click', () => { _cvSortColId = col.id; _cvSortAsc = asc; _applyCvSort(view); closeThDropdown(); });
+    sortSec.appendChild(b);
+  });
+  const clearSortBtn = document.createElement('button');
+  clearSortBtn.textContent = '✕';
+  clearSortBtn.title = 'ソート解除';
+  clearSortBtn.style.cssText = `padding:5px 7px;border-radius:6px;font-size:11px;cursor:pointer;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);opacity:${isActive?'1':'0.4'}`;
+  clearSortBtn.addEventListener('click', () => { _cvSortColId = null; _applyCvSort(view); closeThDropdown(); });
+  sortSec.appendChild(clearSortBtn);
+  dd.appendChild(sortSec);
+
+  // ── 列の再設定（型によって表示を変える） ──
+  if (col.type === 'select' || col.type === 'multiselect') {
+    const sec = _mkSec('選択肢');
+    let curOpts = [...(col.options || [])];
+    const optList = document.createElement('div');
+    function renderOpts() {
+      optList.innerHTML = '';
+      curOpts.forEach((opt, i) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px';
+        const inp = document.createElement('input'); inp.type = 'text'; inp.value = opt;
+        inp.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:3px 6px;min-width:0;outline:none';
+        inp.addEventListener('change', () => { curOpts[i] = inp.value; });
+        const del = document.createElement('button'); del.textContent = '✕';
+        del.style.cssText = 'background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 4px;flex-shrink:0';
+        del.addEventListener('click', e => { e.stopPropagation(); curOpts.splice(i, 1); renderOpts(); });
+        row.appendChild(inp); row.appendChild(del); optList.appendChild(row);
+      });
+      const actRow = document.createElement('div');
+      actRow.style.cssText = 'display:flex;gap:6px;margin-top:4px';
+      const addBtn2 = document.createElement('button'); addBtn2.textContent = '＋ 追加';
+      addBtn2.style.cssText = 'font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0';
+      addBtn2.addEventListener('click', e => { e.stopPropagation(); curOpts.push(''); renderOpts(); setTimeout(() => { const ins = optList.querySelectorAll('input'); if (ins.length) ins[ins.length-1].focus(); }, 30); });
+      const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
+      saveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-left:auto';
+      saveBtn.addEventListener('click', e => { e.stopPropagation(); col.options = curOpts.map(o => o.trim()).filter(Boolean); _save(); _renderTable(view); closeThDropdown(); });
+      actRow.appendChild(addBtn2); actRow.appendChild(saveBtn); optList.appendChild(actRow);
+    }
+    renderOpts();
+    sec.appendChild(optList);
+    dd.appendChild(sec);
+  } else if (col.type === 'tracker') {
+    const sec = _mkSec('日数設定');
+    let curPast = col.pastDays ?? 4, curFuture = col.futureDays ?? 1;
+    [['過去◯日', [0,1,2,3,5,7], () => curPast, v => { curPast = v; }],
+     ['未来◯日', [0,1,2,3,5,7], () => curFuture, v => { curFuture = v; }]
+    ].forEach(([label, opts, get, set], gi) => {
+      const lbl2 = document.createElement('div');
+      lbl2.style.cssText = `font-size:10px;color:var(--text3);margin-bottom:4px${gi?';margin-top:8px':''}`;
+      lbl2.textContent = label;
+      sec.appendChild(lbl2);
+      const btnRow = document.createElement('div'); btnRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap';
+      opts.forEach(n => {
+        const b = document.createElement('button');
+        b.textContent = n + '日';
+        const on2 = get() === n;
+        b.style.cssText = `padding:3px 7px;border-radius:5px;font-size:11px;cursor:pointer;border:1.5px solid ${on2?'var(--accent)':'var(--border)'};background:${on2?'var(--accent)':'var(--surface2)'};color:${on2?'#fff':'var(--text)'}`;
+        b.addEventListener('click', e => {
+          e.stopPropagation(); set(n);
+          btnRow.querySelectorAll('button').forEach((b2, i) => { const sel = opts[i] === n; b2.style.border = `1.5px solid ${sel?'var(--accent)':'var(--border)'}`; b2.style.background = sel?'var(--accent)':'var(--surface2)'; b2.style.color = sel?'#fff':'var(--text)'; });
+        });
+        btnRow.appendChild(b);
+      });
+      sec.appendChild(btnRow);
+    });
+    const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
+    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-top:8px;display:block';
+    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.pastDays = curPast; col.futureDays = curFuture; _save(); _renderTable(view); closeThDropdown(); });
+    sec.appendChild(saveBtn);
+    dd.appendChild(sec);
+  } else if (col.type === 'number') {
+    const sec = _mkSec('単位');
+    const inp = document.createElement('input'); inp.type = 'text'; inp.value = col.unit || '';
+    inp.placeholder = '例: 回、分、kg';
+    inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:4px 8px;outline:none;margin-bottom:6px';
+    const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
+    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer';
+    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.unit = inp.value.trim(); _save(); _renderTable(view); closeThDropdown(); });
+    sec.appendChild(inp); sec.appendChild(saveBtn);
+    dd.appendChild(sec);
+  }
+
+  // ── フィルター ──
+  if (FILTERABLE_TYPES.has(col.type)) {
+    const sec = _mkSec('フィルター');
+    const f = getFilter(view.id, col.id) || {};
+    _filterCtx = { view, col, btn };
+    switch(col.type) {
+      case 'checkbox':    buildChkFilterUI(sec, view, col, f);     break;
+      case 'select':
+      case 'multiselect': buildSelFilterUI(sec, view, col, f);     break;
+      case 'text':        buildTextFilterUI(sec, view, col, f);    break;
+      case 'number':      buildNumFilterUI(sec, view, col, f);     break;
+      case 'stars':       buildStarsFilterUI(sec, view, col, f);   break;
+      case 'progress':    buildProgressFilterUI(sec, view, col, f); break;
+    }
+    const clrBtn = document.createElement('button'); clrBtn.textContent = 'クリア';
+    clrBtn.style.cssText = 'font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 0;display:block';
+    clrBtn.addEventListener('click', e => { e.stopPropagation(); clearFilter(view.id, col.id); _applyCustomFilters(view); closeThDropdown(); });
+    sec.appendChild(clrBtn);
+    dd.appendChild(sec);
+  }
+
+  // ── 操作 ──
+  const actSec = document.createElement('div');
+  actSec.style.cssText = 'padding:4px 6px;border-top:1px solid var(--border)';
   const renameBtn = document.createElement('button');
   renameBtn.innerHTML = '📝 列名を変更';
-  renameBtn.addEventListener('click', () => {
-    const newLabel = prompt('新しい列名:', col.label);
-    if (newLabel && newLabel.trim()) { col.label = newLabel.trim(); _save(); _renderTable(view); }
-    closeThDropdown();
-  });
-  dd.appendChild(renameBtn);
+  renameBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)';
+  renameBtn.addEventListener('click', () => { const n = prompt('新しい列名:', col.label); if (n && n.trim()) { col.label = n.trim(); _save(); _renderTable(view); } closeThDropdown(); });
   const delBtn = document.createElement('button');
-  delBtn.className = 'danger';
   delBtn.innerHTML = '🗑 列を削除';
+  delBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:#e53e3e';
   delBtn.addEventListener('click', () => {
-    if (confirm(`列「${col.label}」を削除しますか？`)) {
-      const idx = view.columns.findIndex(c => c.id === colId);
-      if (idx >= 0) view.columns.splice(idx, 1);
-      Object.keys(view.rowData).forEach(vid => delete view.rowData[vid][colId]);
-      _save(); _renderTable(view);
-    }
+    if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = view.columns.findIndex(c => c.id === colId); if (idx >= 0) view.columns.splice(idx, 1); Object.keys(view.rowData).forEach(vid => delete view.rowData[vid][colId]); _save(); _renderTable(view); }
     closeThDropdown();
   });
-  dd.appendChild(delBtn);
+  actSec.appendChild(renameBtn); actSec.appendChild(delBtn);
+  dd.appendChild(actSec);
+
+  // ── 位置決め ──
   dd.style.display = 'block';
   const rect = btn.getBoundingClientRect();
   const winW = window.innerWidth;
   let left = rect.left;
-  if (left + 160 > winW - 8) left = winW - 160 - 8;
+  if (left + 240 > winW - 8) left = winW - 240 - 8;
+  if (left < 8) left = 8;
   dd.style.top = (rect.bottom + 4) + 'px'; dd.style.left = left + 'px';
+}
+
+function _mkSec(title) {
+  const sec = document.createElement('div');
+  sec.style.cssText = 'padding:8px 10px;border-top:1px solid var(--border)';
+  if (title) {
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px';
+    lbl.textContent = title; sec.appendChild(lbl);
+  }
+  return sec;
 }
 
 function closeThDropdown() {
   const dd = document.getElementById('cv-th-dropdown');
   if (dd) dd.style.display = 'none';
+  _filterCtx = null;
 }
 
 // ── 列を追加モーダル ──
@@ -1229,6 +1356,122 @@ function buildProgressFilterUI(popup, view, col, f) {
   }
   opSel.addEventListener('change', updatePct); valInput.addEventListener('input', updatePct); val2Input.addEventListener('input', updatePct);
 }
+
+// ── カスタム列ソート ──
+function _applyCvSort(view) {
+  const tbody = document.getElementById('orgList');
+  if (!tbody) return;
+  // sort indicator sync
+  document.querySelectorAll('.cv-custom-th').forEach(th => {
+    const ind = th.querySelector('.cv-sort-ind');
+    if (!ind) return;
+    const cid = th.dataset.colId;
+    ind.textContent = cid === _cvSortColId ? (_cvSortAsc ? ' ▲' : ' ▼') : '';
+  });
+  if (!_cvSortColId) return;
+  const col = view.columns.find(c => c.id === _cvSortColId);
+  if (!col) return;
+  const rows = [...tbody.querySelectorAll('tr.org-tr')];
+  rows.sort((a, b) => {
+    const va = a.id.replace('org-row-', '');
+    const vb = b.id.replace('org-row-', '');
+    let av = (view.rowData[va] || {})[_cvSortColId];
+    let bv = (view.rowData[vb] || {})[_cvSortColId];
+    if (col.type === 'number' || col.type === 'stars' || col.type === 'progress') {
+      av = Number(av) || 0; bv = Number(bv) || 0;
+    } else if (col.type === 'checkbox') {
+      av = av ? 1 : 0; bv = bv ? 1 : 0;
+    } else if (col.type === 'tracker') {
+      av = Array.isArray(av) ? av.length : 0; bv = Array.isArray(bv) ? bv.length : 0;
+    } else if (col.type === 'multiselect') {
+      av = Array.isArray(av) ? av.join(',') : ''; bv = Array.isArray(bv) ? bv.join(',') : '';
+    } else {
+      av = String(av || '').toLowerCase(); bv = String(bv || '').toLowerCase();
+    }
+    if (av < bv) return _cvSortAsc ? -1 : 1;
+    if (av > bv) return _cvSortAsc ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ── クイック追加（タイトル検索・最近見た） ──
+window.cvOpenQuickAdd = function(viewId) {
+  _cvQuickAddViewId = viewId;
+  const modal = document.getElementById('cv-quick-add-modal');
+  if (!modal) return;
+  const q = document.getElementById('cv-quick-add-q');
+  if (q) { q.value = ''; q.oninput = () => _renderQuickAddList(q.value); }
+  _renderQuickAddList('');
+  modal.style.display = 'flex';
+  setTimeout(() => q?.focus(), 80);
+};
+
+function _renderQuickAddList(query) {
+  const list = document.getElementById('cv-quick-add-list');
+  if (!list) return;
+  const view = _views.find(v => v.id === _cvQuickAddViewId);
+  if (!view) return;
+  const all = window.videos || [];
+  const inView = new Set(view.videoIds || []);
+  let candidates;
+  if (query.trim()) {
+    const q2 = query.toLowerCase();
+    candidates = all.filter(v => (v.title||'').toLowerCase().includes(q2) || (v.ch||v.channel||'').toLowerCase().includes(q2)).slice(0, 40);
+  } else {
+    candidates = [...all].filter(v => v.lastPlayed).sort((a, b) => (b.lastPlayed||0) - (a.lastPlayed||0)).slice(0, 15);
+  }
+  list.innerHTML = '';
+  if (!candidates.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:var(--text3);font-size:12px;padding:16px 0;text-align:center';
+    empty.textContent = '該当なし';
+    list.appendChild(empty); return;
+  }
+  if (!query.trim()) {
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px';
+    hdr.textContent = '最近見た動画';
+    list.appendChild(hdr);
+  }
+  candidates.forEach(v => {
+    let isIn = inView.has(v.id);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)';
+    const info = document.createElement('div'); info.style.cssText = 'flex:1;min-width:0';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    title.textContent = v.title || '(無題)';
+    const ch = document.createElement('div');
+    ch.style.cssText = 'font-size:10px;color:var(--text3)';
+    ch.textContent = v.ch || v.channel || '';
+    info.appendChild(title); info.appendChild(ch);
+    const btn2 = document.createElement('button');
+    function _syncBtn() {
+      btn2.textContent = isIn ? '✓' : '＋';
+      btn2.style.cssText = `width:28px;height:28px;border-radius:50%;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;border:1.5px solid ${isIn?'var(--accent)':'var(--border)'};background:${isIn?'var(--accent)':'var(--surface2)'};color:${isIn?'#fff':'var(--text)'}`;
+    }
+    _syncBtn();
+    btn2.addEventListener('click', () => {
+      if (!view.videoIds) view.videoIds = [];
+      if (isIn) { view.videoIds = view.videoIds.filter(id => id !== v.id); isIn = false; }
+      else { view.videoIds.push(v.id); isIn = true; }
+      _save(); _syncBtn();
+    });
+    row.appendChild(info); row.appendChild(btn2); list.appendChild(row);
+  });
+}
+
+window.cvCloseQuickAdd = function() {
+  const modal = document.getElementById('cv-quick-add-modal');
+  if (modal) modal.style.display = 'none';
+  const view = _views.find(v => v.id === _cvQuickAddViewId);
+  if (view) {
+    window._cvVideoIds = new Set(view.videoIds || []);
+    window.renderOrg?.();
+  }
+  _cvQuickAddViewId = null;
+};
 
 // ── 新規ビューフロー ──
 window.cvOpenNewModal = function() {

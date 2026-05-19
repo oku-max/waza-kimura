@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.300</title>
+<title>WAZA KIMURA v52.301</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1496,6 +1496,18 @@
       <div style="font-size:28px;margin-bottom:8px">🔍</div>
       <div>動画が見つかりませんでした</div>
     </div>
+  </div>
+</div>
+<!-- カスタムビュー: クイック追加モーダル（タイトル検索・最近見た） -->
+<div id="cv-quick-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;align-items:center;justify-content:center" onclick="window.cvCloseQuickAdd()">
+  <div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:14px;padding:20px;width:90%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:14px;font-weight:700">動画を追加</span>
+      <button onclick="window.cvCloseQuickAdd()" style="background:none;border:none;font-size:18px;color:var(--text3);cursor:pointer;line-height:1">✕</button>
+    </div>
+    <input type="text" id="cv-quick-add-q" placeholder="🔍 タイトルで検索…" style="padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:10px">
+    <div id="cv-quick-add-list" style="flex:1;overflow-y:auto;min-height:200px;max-height:50vh"></div>
+    <button onclick="window.cvCloseQuickAdd()" style="margin-top:12px;padding:8px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;width:100%">完了</button>
   </div>
 </div>
 <!-- カスタムビュー: 新規作成モーダル -->
