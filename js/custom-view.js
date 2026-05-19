@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.281 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.282 ═══
 (function () {
 'use strict';
 
@@ -143,6 +143,10 @@ function _showView(id) {
     const isDynamic = view.saveMode === 'dynamic';
     const condSummary = isDynamic && view.filterConditions ? _condSummary(view.filterConditions) : '';
     toolbar.innerHTML = `
+      <button onclick="window.cvToggleColMenu(event)" title="カスタム列の並べ替え"
+        style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-family:inherit;flex-shrink:0">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
+      </button>
       <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
       <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 動的' : '📌 個別選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
