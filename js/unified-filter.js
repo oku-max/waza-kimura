@@ -374,6 +374,7 @@
     const isNoteMode = !!_noteMode;
     const isVlMode = !!_vlBlockTarget;
     const isCvMode = !!_cvMode;
+    const isCvCond = isCvMode && window._cvSelectionMode === 'condition';
     const isAddMode = isNoteMode || isVlMode || isCvMode;
     const addedIds = isVlMode
       ? (window._notesVlGetIds?.(_vlBlockTarget.noteId, _vlBlockTarget.path) || new Set())
@@ -399,13 +400,15 @@
       const sColor = {'マスター':'#22c55e','練習中':'#f59e0b','理解':'#3b82f6'}[v.status] || '';
       const sMark  = v.status && v.status !== '未着手' ? `<span style="color:${sColor};font-size:9px;font-weight:700"> · ${_esc(v.status)}</span>` : '';
       const isAdded = isAddMode && addedIds.has(v.id);
-      const onclick = !isAdded ? `window._uniVideoClick('${_esc(v.id)}')` : '';
+      const onclick = (!isAdded && !isCvCond) ? `window._uniVideoClick('${_esc(v.id)}')` : '';
       const rowClass = isAddMode
         ? 'uni-vc-row uni-vc-row-nm' + (isAdded ? ' uni-vc-row-added' : '')
         : 'uni-vc-row';
-      const indicator = isAddMode
-        ? (isAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
-        : '';
+      const indicator = isCvCond
+        ? ''
+        : (isAddMode
+          ? (isAdded ? `<span class="uni-vc-added-badge">✓ 追加済み</span>` : `<span class="uni-vc-add-btn">＋</span>`)
+          : '');
       return `<div class="${rowClass}" onclick="${onclick}">
         <div class="uni-vc-thumb">${thumb}</div>
         <div class="uni-vc-info">
@@ -416,11 +419,11 @@
     }).join('');
 
     const addableCount = _shownNoteVideos.length;
-    const addAllBtn = isAddMode && addableCount > 0
+    const addAllBtn = isAddMode && !isCvCond && addableCount > 0
       ? `<button class="uni-vc-addall-btn" onclick="window._uniAddAllToNote()">📌 手動で選択（${addableCount}件）</button>`
       : '';
-    const saveVlBtn = (isVlMode || isCvMode)
-      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">🔄 今の条件で自動選択</button>`
+    const saveVlBtn = (isVlMode || isCvCond)
+      ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">🔄 現在の条件で保存</button>`
       : '';
     const notice = total > 50
       ? `<div class="uni-vc-notice">上位50件を表示中 (全${total}件)${addAllBtn}${saveVlBtn}</div>`
@@ -1238,6 +1241,15 @@
     if (_vlBlockTarget) {
       window._notesVlAddAllVideos?.(_vlBlockTarget.noteId, _vlBlockTarget.path, _shownNoteVideos);
       window.toast?.(`📋 ${_shownNoteVideos.length}件をリストに追加`, 1500);
+      _shownNoteVideos = [];
+      _render();
+      return;
+    }
+    if (_cvMode) {
+      const addedIds = window._cvGetAddedIds?.(_cvMode) || new Set();
+      const toAdd = _shownNoteVideos.filter(id => !addedIds.has(id));
+      toAdd.forEach(id => window._cvVideoClick?.(id));
+      if (toAdd.length) window.toast?.(`📌 ${toAdd.length}件を追加しました`, 1500);
       _shownNoteVideos = [];
       _render();
       return;

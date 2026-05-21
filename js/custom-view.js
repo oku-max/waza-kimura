@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.312 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.313 ═══
 (function () {
 'use strict';
 
@@ -1557,6 +1557,10 @@ window._cvGetAddedIds = function(viewId) { return _cvSelectedIds; };
 window._cvVideoClick = function(videoId) {
   if (_cvSelectedIds.has(videoId)) _cvSelectedIds.delete(videoId);
   else _cvSelectedIds.add(videoId);
+  if (_editingViewId) {
+    const view = _views.find(v => v.id === _editingViewId);
+    if (view) { view.videoIds = [..._cvSelectedIds]; _save(); _renderTable(view); _renderViewBar(); }
+  }
 };
 window._cvApply = function() {
   if (_editingViewId) {
