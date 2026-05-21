@@ -197,17 +197,21 @@
 #uni-popup .uni-rc-info{flex:1;min-width:0}
 #uni-popup .uni-rc-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
 #uni-popup .uni-rc-meta{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* 検索条件保存バー */
-#uni-popup .uni-save-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;flex-wrap:wrap}
-#uni-popup .uni-save-lbl{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0}
-#uni-popup .uni-save-input{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text)}
-#uni-popup .uni-save-input::placeholder{color:var(--text3)}
-#uni-popup .uni-save-input:focus{border-color:var(--accent)}
-#uni-popup .uni-save-btn{flex-shrink:0;background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-#uni-popup .uni-save-btn:hover{filter:brightness(1.1)}
-@media(max-width:480px){#uni-popup .uni-save-lbl{width:100%}}
-/* uni-q フォーカス中（キーボード表示時）は保存バーを非表示 */
-#uni-popup.uni-q-focus .uni-save-bar{display:none}
+/* 検索条件保存ボタン */
+#uni-popup .uni-save-modal-btn{font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 12px;font-family:inherit}
+#uni-popup .uni-save-modal-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* 検索条件保存モーダル */
+#uni-save-modal-bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10100;align-items:center;justify-content:center}
+#uni-save-modal-bd.open{display:flex}
+#uni-save-modal{background:var(--surface);border-radius:12px;padding:22px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.4);font-family:inherit}
+#uni-save-modal .usm-title{font-size:14px;font-weight:700;margin-bottom:5px;color:var(--text)}
+#uni-save-modal .usm-desc{font-size:11px;color:var(--text3);margin-bottom:14px;line-height:1.5}
+#uni-save-modal input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:14px}
+#uni-save-modal input:focus{border-color:var(--accent)}
+#uni-save-modal .usm-actions{display:flex;gap:8px;justify-content:flex-end}
+#uni-save-modal .usm-cancel{padding:7px 15px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
+#uni-save-modal .usm-ok{padding:7px 18px;border-radius:7px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+#uni-save-modal .usm-ok:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed}
 /* スクロールバー常時表示 — style.css の ::-webkit-scrollbar{display:none} を上書き */
 #uni-popup .uni-col-body::-webkit-scrollbar{display:block;width:7px}
 #uni-popup .uni-col-body::-webkit-scrollbar-track{background:#dddde5}
@@ -261,13 +265,20 @@
     <span class="uni-sp"></span>
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
+    <button class="uni-save-modal-btn" onclick="uniOpenSaveModal()">検索条件を保存</button>
     <button class="uni-apply" onclick="window._uniApplyHook?.()||uniClose()">適用</button>
   </div>
-  <div class="uni-save-bar">
-    <span class="uni-save-lbl">この条件を保存：</span>
-    <input id="uni-save-name" class="uni-save-input" placeholder="リスト名を入力…"
-      onkeydown="if(event.key==='Enter')uniSaveFromBar()">
-    <button class="uni-save-btn" onclick="uniSaveFromBar()">💾 保存</button>
+</div>
+<input type="hidden" id="uni-save-name">
+<div id="uni-save-modal-bd" onclick="if(event.target===this)uniCloseSaveModal()">
+  <div id="uni-save-modal">
+    <div class="usm-title">検索条件を保存</div>
+    <div class="usm-desc" id="usm-desc">現在の絞り込み条件をリストとして保存します</div>
+    <input type="text" id="usm-input" placeholder="リスト名を入力…" oninput="document.getElementById('usm-ok').disabled=!this.value.trim()">
+    <div class="usm-actions">
+      <button class="usm-cancel" onclick="uniCloseSaveModal()">キャンセル</button>
+      <button class="usm-ok" id="usm-ok" disabled onclick="uniConfirmSaveModal()">保存</button>
+    </div>
   </div>
 </div>`);
   }
@@ -1128,15 +1139,14 @@
     _closeSSMenus();
     if (!wasOpen && pop) pop.classList.add('open');
   };
+  let _currentSavedName = null;
   window.uniApplySaved = function (idx) {
     const isOrg = _ctx === 'org';
     if (isOrg) window.applySavedSearchToOrg?.(idx);
     else       window.applySavedSearch?.(idx);
-    // 保存名入力欄にその条件名をセット（すぐ上書き保存できるように）
-    const nameInput = document.getElementById('uni-save-name');
-    if (nameInput && !isOrg) {
+    if (!isOrg) {
       const ss = window.savedSearches?.[idx];
-      if (ss) nameInput.value = ss.name;
+      _currentSavedName = ss ? ss.name : null;
     }
     _render();
   };
@@ -1170,6 +1180,41 @@
     window.saveCurrentSearch?.();
     _render();
   };
+  window.uniOpenSaveModal = function () {
+    const bd = document.getElementById('uni-save-modal-bd');
+    const input = document.getElementById('usm-input');
+    const desc = document.getElementById('usm-desc');
+    const ok = document.getElementById('usm-ok');
+    if (!bd) return;
+    if (_currentSavedName) {
+      input.value = _currentSavedName;
+      desc.textContent = '名前をそのままにすると上書き保存、変更すると別名で保存されます';
+      ok.disabled = false;
+      setTimeout(() => { input.select(); }, 50);
+    } else {
+      input.value = '';
+      desc.textContent = '現在の絞り込み条件をリストとして保存します';
+      ok.disabled = true;
+      setTimeout(() => input.focus(), 50);
+    }
+    bd.classList.add('open');
+  };
+  window.uniCloseSaveModal = function () {
+    document.getElementById('uni-save-modal-bd')?.classList.remove('open');
+  };
+  window.uniConfirmSaveModal = function () {
+    const input = document.getElementById('usm-input');
+    if (!input) return;
+    const name = input.value.trim();
+    if (!name) return;
+    // 既存名と同じなら上書き、違えば別名保存
+    const el = document.getElementById('uni-save-name');
+    if (el) el.value = name;
+    window.saveCurrentSearchFromInput?.('uni-save-name', _ctx === 'org');
+    _currentSavedName = name;
+    window.uniCloseSaveModal();
+    _render();
+  };
   window.uniSaveFromBar = function () {
     window.saveCurrentSearchFromInput?.('uni-save-name', _ctx === 'org');
     _render();
@@ -1177,6 +1222,16 @@
 
   // popoverを外クリックで閉じる
   document.addEventListener('click', () => _closeSSMenus());
+  // モーダルをEscで閉じる / Enterで確定
+  document.addEventListener('keydown', e => {
+    const bd = document.getElementById('uni-save-modal-bd');
+    if (!bd?.classList.contains('open')) return;
+    if (e.key === 'Escape') { e.stopPropagation(); window.uniCloseSaveModal(); }
+    if (e.key === 'Enter') {
+      const ok = document.getElementById('usm-ok');
+      if (!ok?.disabled) { e.preventDefault(); window.uniConfirmSaveModal(); }
+    }
+  });
 
   // 表示中の動画をすべてノートまたはvidlistに一括追加
   window._uniAddAllToNote = function() {
