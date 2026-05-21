@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.318</title>
+<title>WAZA KIMURA v52.319</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -943,6 +943,7 @@
 .lib-view-bar {
   flex-shrink: 0;
   display: flex;
+  align-items: center;
   gap: 6px;
   padding: 8px 12px;
   background: var(--surface);
@@ -962,6 +963,8 @@
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background .15s, color .15s, border-color .15s;
 }
 .lvt-btn.lvt-active {
@@ -1413,7 +1416,7 @@
     <button id="lvt-org"  class="lvt-btn"            onclick="window._libView('org')">📊 テーブル</button>
     <div class="lvt-sep"></div>
     <span style="font-size:10px;color:var(--text3);white-space:nowrap;margin-right:2px">カスタムビュー:</span>
-    <div id="cv-chips-host" style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;"></div>
+    <div id="cv-chips-host" style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;flex-shrink:0;"></div>
     <button class="lvt-btn" style="border-style:dashed;color:var(--text3);border-color:var(--border2)" onclick="window.cvOpenNewModal()">＋ 新しいビュー</button>
   </div>
   <!-- カスタムビューツールバー -->
