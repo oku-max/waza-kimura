@@ -242,7 +242,7 @@ export async function fetchMissingGdDurations() {
   if (!_token) {
     const cached = _loadCachedToken();
     if (cached) { _token = cached; _setAuthUI(true); _scheduleRefresh(); }
-    else { window.toast?.('⚠️ Google Driveに再接続してください（＋動画を追加 → Google Drive）'); return; }
+    else { return; }
   }
   const missing = (window.videos || []).filter(v =>
     v.pt === 'gdrive' && !v.duration && v.id

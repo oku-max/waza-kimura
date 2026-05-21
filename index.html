@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.317</title>
+<title>WAZA KIMURA v52.318</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -947,7 +947,11 @@
   padding: 8px 12px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
 }
+.lib-view-bar::-webkit-scrollbar { display: none; }
 .lvt-btn {
   padding: 5px 14px;
   border-radius: 20px;
@@ -1407,8 +1411,6 @@
   <div class="lib-view-bar">
     <button id="lvt-card" class="lvt-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
     <button id="lvt-org"  class="lvt-btn"            onclick="window._libView('org')">📊 テーブル</button>
-    <div class="lvt-sep"></div>
-    <button class="lvt-btn lvt-rand" onclick="window._libRandom()">🔀 ランダム</button>
     <div class="lvt-sep"></div>
     <span style="font-size:10px;color:var(--text3);white-space:nowrap;margin-right:2px">カスタムビュー:</span>
     <div id="cv-chips-host" style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;"></div>

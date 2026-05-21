@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.316 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.318 ═══
 (function () {
 'use strict';
 
@@ -139,7 +139,8 @@ function _renderViewBar() {
     const btn = document.createElement('button');
     btn.className = 'cv-chip' + (view.id === _curId ? ' active' : '');
     btn.dataset.viewId = view.id;
-    btn.innerHTML = `<span>${_esc(view.label)}</span><span class="cv-chip-del" onclick="event.stopPropagation();window._cvDeleteView('${view.id}')" title="削除">×</span>`;
+    const icon = (view.viewType || 'table') === 'card' ? '📋' : '📊';
+    btn.innerHTML = `<span>${icon} ${_esc(view.label)}</span><span class="cv-chip-del" onclick="event.stopPropagation();window._cvDeleteView('${view.id}')" title="削除">×</span>`;
     btn.addEventListener('click', () => _showView(view.id));
     host.appendChild(btn);
   });
