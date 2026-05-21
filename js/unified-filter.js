@@ -266,7 +266,6 @@
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
     <button class="uni-save-modal-btn" onclick="uniOpenSaveModal()">検索条件を保存</button>
-    <button class="uni-apply" onclick="window._uniApplyHook?.()||uniClose()">適用</button>
   </div>
 </div>
 <input type="hidden" id="uni-save-name">
