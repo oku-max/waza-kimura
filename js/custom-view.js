@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.315 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.316 ═══
 (function () {
 'use strict';
 
@@ -73,6 +73,9 @@ let _cvQuickAddViewId = null;
 let _selectedViewType = 'table';
 let _selectedSelectionMode = 'manual';
 let _cvSrchQ = '';
+let _cvSavedOrgColOrder = null;
+let _cvSavedOrgColVis = null;
+let _cvSavedOrgSavePrefs = null;
 
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
@@ -175,6 +178,21 @@ function _showView(id) {
     }
     const advBtn = document.getElementById('adv-search-btn-mob');
     if (advBtn) advBtn.style.display = 'none';
+    // 初回のみグローバル列設定をバックアップ
+    if (_cvSavedOrgColOrder === null) {
+      _cvSavedOrgColOrder = [...(window.orgColOrder || [])];
+      _cvSavedOrgColVis   = {...(window.orgColVisibility || {})};
+      _cvSavedOrgSavePrefs = window._saveOrgColPrefs;
+    }
+    // ビュー固有の列設定を適用
+    window.orgColOrder      = view.colOrder ? [...view.colOrder] : [..._cvSavedOrgColOrder];
+    window.orgColVisibility = view.colVis   ? {...view.colVis}   : {..._cvSavedOrgColVis};
+    // _saveOrgColPrefs をビュー保存にオーバーライド
+    window._saveOrgColPrefs = () => {
+      view.colOrder = [...window.orgColOrder];
+      view.colVis   = {...window.orgColVisibility};
+      _save();
+    };
     const siOrg = document.getElementById('si-org');
     if (siOrg) {
       siOrg.oninput = () => { _cvSrchQ = siOrg.value; _cvUpdateSearch(view); };
@@ -1818,6 +1836,17 @@ window._cvOnViewChange = function() {
   }
   const advBtn = document.getElementById('adv-search-btn-mob');
   if (advBtn) advBtn.style.display = '';
+  // グローバル列設定を復元
+  if (_cvSavedOrgColOrder !== null) {
+    window.orgColOrder      = _cvSavedOrgColOrder;
+    window.orgColVisibility = _cvSavedOrgColVis;
+    _cvSavedOrgColOrder = null;
+    _cvSavedOrgColVis   = null;
+  }
+  if (_cvSavedOrgSavePrefs !== null) {
+    window._saveOrgColPrefs = _cvSavedOrgSavePrefs;
+    _cvSavedOrgSavePrefs = null;
+  }
   const siOrg = document.getElementById('si-org');
   if (siOrg) { siOrg.value = ''; siOrg.oninput = () => window.renderOrg?.(); }
   _renderViewBar();
