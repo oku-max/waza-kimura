@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.314 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.315 ═══
 (function () {
 'use strict';
 
@@ -173,6 +173,8 @@ function _showView(id) {
       filterBtn.textContent = '動画の追加';
       filterBtn.onclick = () => window.cvOpenConditionEditor(id);
     }
+    const advBtn = document.getElementById('adv-search-btn-mob');
+    if (advBtn) advBtn.style.display = 'none';
     const siOrg = document.getElementById('si-org');
     if (siOrg) {
       siOrg.oninput = () => { _cvSrchQ = siOrg.value; _cvUpdateSearch(view); };
@@ -281,6 +283,14 @@ function _addCvCols(view) {
     addTh.className = 'cv-custom-th';
     addTh.innerHTML = `<div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div>`;
     theadRow.appendChild(addTh);
+    // 手動モード専用: 削除列ヘッダー
+    if (view.saveMode !== 'dynamic') {
+      const delTh = document.createElement('th');
+      delTh.className = 'cv-custom-th';
+      delTh.style.cssText = 'width:40px;min-width:40px';
+      delTh.innerHTML = `<div class="th-inner"></div>`;
+      theadRow.appendChild(delTh);
+    }
 
     // テーブル幅を標準列＋カスタム列の合計に更新
     if (table) {
@@ -309,6 +319,14 @@ function _addCvCols(view) {
     const emptyTd = document.createElement('td');
     emptyTd.className = 'cv-custom-td';
     tr.appendChild(emptyTd);
+    // 手動モード専用: 削除ボタン
+    if (view.saveMode !== 'dynamic') {
+      const delTd = document.createElement('td');
+      delTd.className = 'cv-custom-td org-td';
+      delTd.style.cssText = 'text-align:center;padding:0 4px;width:40px';
+      delTd.innerHTML = `<button onclick="window._cvRemoveVideo('${view.id}','${_esc(vid)}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:4px;line-height:1" title="リストから削除" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>`;
+      tr.appendChild(delTd);
+    }
   });
 
   _applyCvSort(view);
@@ -592,6 +610,16 @@ window._cvSetCell = function(viewId, videoId, colId, val) {
   view.rowData[videoId][colId] = val;
   _save();
 };
+window._cvRemoveVideo = function(viewId, videoId) {
+  const view = _views.find(v => v.id === viewId);
+  if (!view) return;
+  view.videoIds = (view.videoIds || []).filter(id => id !== videoId);
+  _cvSelectedIds.delete(videoId);
+  _save();
+  _cvUpdateSearch(view);
+  _renderViewBar();
+};
+
 window._cvRerender = function(viewId) {
   const view = _views.find(v => v.id === viewId);
   if (view) _renderTable(view);
@@ -1788,6 +1816,8 @@ window._cvOnViewChange = function() {
     filterBtn.textContent = '☰ フィルター';
     filterBtn.onclick = () => window.openOrgFilterOverlay?.();
   }
+  const advBtn = document.getElementById('adv-search-btn-mob');
+  if (advBtn) advBtn.style.display = '';
   const siOrg = document.getElementById('si-org');
   if (siOrg) { siOrg.value = ''; siOrg.oninput = () => window.renderOrg?.(); }
   _renderViewBar();
