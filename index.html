@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.311</title>
+<title>WAZA KIMURA v52.312</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1516,11 +1516,9 @@
     <!-- Step1: 名前入力 -->
     <div id="cv-step1">
       <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:20px;font-size:11px;color:var(--text3)">
-        <span style="background:var(--accent);color:var(--on-accent);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">1</span>ビュー名
+        <span style="background:var(--accent);color:var(--on-accent);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">1</span>ビュー名・追加方法
         <span style="flex:0 0 24px;height:1px;background:var(--border)"></span>
-        <span style="border:1.5px solid var(--border);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">2</span>動画を選ぶ
-        <span style="flex:0 0 24px;height:1px;background:var(--border)"></span>
-        <span style="border:1.5px solid var(--border);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">3</span>テンプレート
+        <span style="border:1.5px solid var(--border);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">2</span>テンプレート
       </div>
       <h2 style="margin-bottom:16px;font-size:16px">新しいビューを作成</h2>
       <div style="margin-bottom:20px">
@@ -1542,6 +1540,21 @@
           </div>
         </div>
       </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">動画の追加方法</div>
+        <div style="display:flex;gap:8px">
+          <div id="cv-sel-manual-lbl" onclick="window._cvSelSelectionMode('manual')" style="flex:1;padding:10px;border:2px solid var(--accent);border-radius:8px;cursor:pointer;text-align:center;background:rgba(0,120,255,.08);transition:.15s">
+            <div style="font-size:18px;margin-bottom:4px">📌</div>
+            <div style="font-size:12px;font-weight:700">手動で選択</div>
+            <div style="font-size:10px;color:var(--text3)">自分でピックアップ</div>
+          </div>
+          <div id="cv-sel-condition-lbl" onclick="window._cvSelSelectionMode('condition')" style="flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:.15s">
+            <div style="font-size:18px;margin-bottom:4px">🔄</div>
+            <div style="font-size:12px;font-weight:700">条件で自動選択</div>
+            <div style="font-size:10px;color:var(--text3)">フィルター条件で更新</div>
+          </div>
+        </div>
+      </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="window.cvCloseModal()" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit">キャンセル</button>
         <button onclick="window.cvGoStep2()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);font-weight:700;cursor:pointer;font-family:inherit">次へ →</button>
@@ -1550,11 +1563,9 @@
     <!-- Step3: テンプレート -->
     <div id="cv-step3" style="display:none">
       <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:20px;font-size:11px;color:var(--text3)">
-        <span style="background:var(--green);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">✓</span>ビュー名
+        <span style="background:var(--green);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">✓</span>ビュー名・追加方法
         <span style="flex:0 0 24px;height:1px;background:var(--accent)"></span>
-        <span style="background:var(--green);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">✓</span>動画を選ぶ
-        <span style="flex:0 0 24px;height:1px;background:var(--accent)"></span>
-        <span style="background:var(--accent);color:var(--on-accent);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">3</span>テンプレート
+        <span style="background:var(--accent);color:var(--on-accent);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">2</span>テンプレート
       </div>
       <h2 style="margin-bottom:4px;font-size:16px">テンプレートを選ぶ</h2>
       <p style="font-size:12px;color:var(--text3);margin-bottom:14px">後から列の追加・削除ができます</p>

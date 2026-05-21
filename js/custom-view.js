@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.299 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.312 ═══
 (function () {
 'use strict';
 
@@ -71,6 +71,7 @@ let _cvSortColId = null, _cvSortAsc = true;
 let _cvQuickAddViewId = null;
 // new view type selection state
 let _selectedViewType = 'table';
+let _selectedSelectionMode = 'manual';
 
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
@@ -158,7 +159,7 @@ function _showView(id) {
       <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 今の条件で自動選択' : '📌 手動で選択'}</span>
       ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
       <span style="margin-left:auto"></span>
-      <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">動画選択 ✎</button>
+      <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">${isDynamic ? '🔄 更新' : '≡ フィルター'}</button>
     `;
   }
 
@@ -1491,13 +1492,26 @@ window._cvSelViewType = function(type) {
   tblLbl.style.background = type === 'table' ? 'rgba(0,120,255,.08)' : '';
 };
 
+window._cvSelSelectionMode = function(mode) {
+  _selectedSelectionMode = mode;
+  const manualLbl = document.getElementById('cv-sel-manual-lbl');
+  const condLbl = document.getElementById('cv-sel-condition-lbl');
+  if (!manualLbl || !condLbl) return;
+  manualLbl.style.borderColor = mode === 'manual' ? 'var(--accent)' : 'var(--border)';
+  manualLbl.style.background = mode === 'manual' ? 'rgba(0,120,255,.08)' : '';
+  condLbl.style.borderColor = mode === 'condition' ? 'var(--accent)' : 'var(--border)';
+  condLbl.style.background = mode === 'condition' ? 'rgba(0,120,255,.08)' : '';
+};
+
 window.cvOpenNewModal = function() {
   document.getElementById('cv-new-name').value = '';
   _selectedTplId = CV_TEMPLATES[0].id;
   _cvSelectedIds = new Set();
   _editingViewId = null;
   _selectedViewType = 'table';
+  _selectedSelectionMode = 'manual';
   window._cvSelViewType('table');
+  window._cvSelSelectionMode('manual');
   const modal = document.getElementById('cv-new-modal');
   document.getElementById('cv-step1').style.display = '';
   document.getElementById('cv-step3').style.display = 'none';
@@ -1521,10 +1535,7 @@ window.cvGoStep2 = function() {
     setTimeout(() => inp.style.outline = '', 1200);
     return;
   }
-  document.getElementById('cv-new-modal').style.display = 'none';
-  const sheet = document.getElementById('cv-src-sheet');
-  sheet.style.display = 'flex';
-  requestAnimationFrame(() => sheet.classList.add('vis'));
+  _goStep3(null, null, _selectedSelectionMode === 'condition' ? 'dynamic' : 'static');
 };
 
 window.cvSrcClose = function() {
@@ -1599,8 +1610,9 @@ function _goStep3(filterConditions, videoIds, saveMode) {
 }
 
 window.cvGoBackToLib = function() {
-  document.getElementById('cv-new-modal').style.display = 'none';
-  window.cvSrcPickLib();
+  document.getElementById('cv-step3').style.display = 'none';
+  document.getElementById('cv-step1').style.display = '';
+  document.getElementById('cv-new-modal').style.display = 'flex';
 };
 
 function _renderTemplateGrid() {
@@ -1648,6 +1660,7 @@ window.cvOpenConditionEditor = function(viewId) {
   if (!view) return;
   _editingViewId = viewId;
   _cvSelectedIds = new Set(view.videoIds || []);
+  window._cvSelectionMode = view.saveMode === 'dynamic' ? 'condition' : 'manual';
   if (view.saveMode === 'dynamic' && view.filterConditions) {
     const fc = view.filterConditions;
     const f = window.filters || {};
