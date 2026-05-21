@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.313 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.314 ═══
 (function () {
 'use strict';
 
@@ -72,6 +72,7 @@ let _cvQuickAddViewId = null;
 // new view type selection state
 let _selectedViewType = 'table';
 let _selectedSelectionMode = 'manual';
+let _cvSrchQ = '';
 
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
@@ -148,21 +149,6 @@ function _showView(id) {
   const view = _views.find(v => v.id === id);
   if (!view) return;
 
-  // ツールバー更新
-  const toolbar = document.getElementById('cv-toolbar');
-  if (toolbar) {
-    toolbar.style.display = 'flex';
-    const isDynamic = view.saveMode === 'dynamic';
-    const condSummary = isDynamic && view.filterConditions ? _condSummary(view.filterConditions) : '';
-    toolbar.innerHTML = `
-      <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(view.label)}</span>
-      <span style="font-size:10px;padding:2px 8px;border-radius:9px;background:var(--surface3);color:var(--text3)">${isDynamic ? '🔄 今の条件で自動選択' : '📌 手動で選択'}</span>
-      ${condSummary ? `<span style="font-size:11px;color:var(--text3)">${_esc(condSummary)}</span>` : ''}
-      <span style="margin-left:auto"></span>
-      <button class="cv-conditions-btn" onclick="window.cvOpenConditionEditor('${view.id}')">${isDynamic ? '🔄 更新' : '≡ フィルター'}</button>
-    `;
-  }
-
   // このビューの動画だけ見せるフィルター
   const videoIds = view.saveMode === 'dynamic' && view.filterConditions
     ? _applyConditions(view.filterConditions, window.videos || []).map(v => v.id)
@@ -182,9 +168,20 @@ function _showView(id) {
   } else {
     window._cvCardVideoIds = null;
     window._cvAfterRender = () => _addCvCols(view);
+    const filterBtn = document.getElementById('org-filter-toggle-btn');
+    if (filterBtn) {
+      filterBtn.textContent = '動画の追加';
+      filterBtn.onclick = () => window.cvOpenConditionEditor(id);
+    }
+    const siOrg = document.getElementById('si-org');
+    if (siOrg) {
+      siOrg.oninput = () => { _cvSrchQ = siOrg.value; _cvUpdateSearch(view); };
+    }
     if (window._libViewMode === 'org') {
-      window.renderOrg?.();
+      _cvUpdateSearch(view);
     } else {
+      _cvSrchQ = '';
+      if (siOrg) siOrg.value = '';
       window._cvInternalNav = true;
       window._libView?.('org');
     }
@@ -327,6 +324,14 @@ function _getViewVideos(view) {
     return all.filter(v => view.videoIds.includes(v.id));
   }
   return [];
+}
+
+function _cvUpdateSearch(view) {
+  const q = (_cvSrchQ || '').toLowerCase().trim();
+  const videos = _getViewVideos(view);
+  const filtered = q ? videos.filter(v => (v.title || '').toLowerCase().includes(q)) : videos;
+  window._cvVideoIds = new Set(filtered.map(v => v.id));
+  window.renderOrg?.();
 }
 
 function _applyConditions(fc, all) {
@@ -1559,7 +1564,7 @@ window._cvVideoClick = function(videoId) {
   else _cvSelectedIds.add(videoId);
   if (_editingViewId) {
     const view = _views.find(v => v.id === _editingViewId);
-    if (view) { view.videoIds = [..._cvSelectedIds]; _save(); _renderTable(view); _renderViewBar(); }
+    if (view) { view.videoIds = [..._cvSelectedIds]; _save(); _cvUpdateSearch(view); _renderViewBar(); }
   }
 };
 window._cvApply = function() {
@@ -1773,12 +1778,18 @@ document.addEventListener('click', e => {
 // index.html の _libView(mode==='card') から直接呼ばれる
 window._cvOnViewChange = function() {
   _curId = null;
+  _cvSrchQ = '';
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
   window._cvAfterRender = null;
   document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
-  const toolbar = document.getElementById('cv-toolbar');
-  if (toolbar) toolbar.style.display = 'none';
+  const filterBtn = document.getElementById('org-filter-toggle-btn');
+  if (filterBtn) {
+    filterBtn.textContent = '☰ フィルター';
+    filterBtn.onclick = () => window.openOrgFilterOverlay?.();
+  }
+  const siOrg = document.getElementById('si-org');
+  if (siOrg) { siOrg.value = ''; siOrg.oninput = () => window.renderOrg?.(); }
   _renderViewBar();
 };
 
