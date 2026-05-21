@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.320 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.321 ═══
 (function () {
 'use strict';
 
@@ -150,6 +150,8 @@ function _renderViewBar() {
 function _showView(id) {
   _curId = id;
   _renderViewBar();
+  document.getElementById('lvt-card')?.classList.remove('lvt-active');
+  document.getElementById('lvt-org')?.classList.remove('lvt-active');
   const view = _views.find(v => v.id === id);
   if (!view) return;
 
