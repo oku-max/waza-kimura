@@ -694,7 +694,7 @@ export function applySavedSearchToOrg(idx) {
   window.renderOrg?.();
   window.syncOrgFilterOvRows?.();
   renderSavedSearches();
-  window.toast?.('🔍 「' + ss.name + '」をOrganizeに適用しました');
+  window.toast?.('🔍 「' + ss.name + '」をライブラリに適用しました');
 }
 
 export function deleteSavedSearch(idx, e) {
