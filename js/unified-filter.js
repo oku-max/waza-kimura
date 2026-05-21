@@ -201,7 +201,7 @@
 #uni-popup .uni-save-modal-btn{font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 12px;font-family:inherit}
 #uni-popup .uni-save-modal-btn:hover{border-color:var(--accent);color:var(--accent)}
 /* 検索条件保存モーダル */
-#uni-save-modal-bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10100;align-items:center;justify-content:center}
+#uni-save-modal-bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100200;align-items:center;justify-content:center}
 #uni-save-modal-bd.open{display:flex}
 #uni-save-modal{background:var(--surface);border-radius:12px;padding:22px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.4);font-family:inherit}
 #uni-save-modal .usm-title{font-size:14px;font-weight:700;margin-bottom:5px;color:var(--text)}
