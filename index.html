@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.339</title>
+<title>WAZA KIMURA v52.340</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -297,7 +297,6 @@
     const orgHost  = document.getElementById('lib-org-host');
     const cardBtn  = document.getElementById('lvt-card');
     const orgBtn   = document.getElementById('lvt-org');
-    const libActbar = document.getElementById('library-actionbar');
     const orgActbar = document.getElementById('organize-actionbar');
     const libC     = document.getElementById('fs-library-content');
     const orgC     = document.getElementById('fs-organize-content');
@@ -314,7 +313,6 @@
       if (orgHost)    orgHost.style.display    = 'none';
       if (cardBtn)    cardBtn.classList.add('lvt-active');
       if (orgBtn)     orgBtn.classList.remove('lvt-active');
-      if (libActbar)  libActbar.style.display  = '';
       if (orgActbar)  orgActbar.style.display  = 'none';
       if (libC) libC.style.display = '';
       if (orgC) orgC.style.display = 'none';
@@ -329,7 +327,6 @@
       if (orgHost)    orgHost.style.display    = '';
       if (cardBtn)    cardBtn.classList.remove('lvt-active');
       if (orgBtn)     orgBtn.classList.add('lvt-active');
-      if (libActbar)  libActbar.style.display  = 'none';
       if (orgActbar)  orgActbar.style.display  = '';
       if (libC) libC.style.display = 'none';
       if (orgC) orgC.style.display = '';
@@ -1085,6 +1082,8 @@
 .lib-sb-toggle { padding:5px 9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;line-height:1.2;transition:background .12s,color .12s; }
 .lib-sb-toggle:hover { background:var(--surface2);color:var(--text); }
 .lib-sb-toggle.sb-open { background:var(--surface3);border-color:var(--text3);color:var(--text); }
+.lib-sb-master-box { border-color:#4caf50 !important;background:rgba(76,175,80,.07) !important; }
+.lib-sb-master-box .lvt-inner-btn.lvt-active { background:#4caf50 !important;color:#fff !important; }
 .cv-chip-del { font-size:10px;color:var(--text3);cursor:pointer;padding:1px 3px;border-radius:50% }
 .cv-chip-del:hover { background:rgba(255,80,80,.2);color:#ff5050 }
 .cv-col-vis-btn { display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-family:inherit }
@@ -1384,9 +1383,13 @@
       <button class="lib-sb-close" onclick="libSbClose()">✕</button>
     </div>
     <div class="lib-sb-body">
+      <!-- 一括編集 -->
+      <div class="lib-sb-section" style="padding-top:10px">
+        <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
+      </div>
       <!-- ビュー切替 -->
       <div class="lib-sb-section">
-        <span class="lib-sb-sec-title">マスタービュー</span>
+        <span class="lib-sb-sec-title" style="color:#4caf50;opacity:.9">マスタービュー</span>
         <div class="lib-sb-master-box">
           <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
           <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._libView('org')">📊 テーブル</button>
@@ -1473,16 +1476,10 @@
   </div>
   <!-- カスタムビューツールバー -->
   <div id="cv-toolbar" style="display:none;flex-shrink:0;align-items:center;gap:8px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
-  <!-- Library操作バー -->
-  <div class="tab-actionbar" id="library-actionbar">
-    <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
-    <button id="filter-toggle-btn" style="display:none"></button>
-    <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
-    <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn">☑ 一括編集</button>
-  </div>
+  <!-- filter-toggle-btn: hidden, kept for onboarding compat -->
+  <button id="filter-toggle-btn" style="display:none"></button>
   <!-- Organize操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="organize-actionbar" style="display:none">
-    <button class="lib-sb-toggle" onclick="libSbToggle()" style="margin-right:4px">≡</button>
     <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
     <button id="org-filter-reset-btn" onclick="clearOrgFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
     <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>
@@ -1495,8 +1492,12 @@
   <div id="lib-card-host">
     <div class="results-header" id="lib-results-header">
       <div class="toolbar-normal">
-        <span class="results-count" id="rc"></span>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+          <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
+          <span class="results-count" id="rc"></span>
+        </div>
         <div style="display:flex;align-items:center;gap:4px">
+          <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
           <select id="sort-key" onchange="_setSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
             <option value="addedAt">追加日</option>
             <option value="title">タイトル</option>
@@ -1522,6 +1523,7 @@
   <div id="lib-org-host" style="display:none">
     <div class="org-count-bar" id="org-count-bar">
       <div class="toolbar-normal" style="display:flex;gap:6px;align-items:center;justify-content:flex-start">
+        <button class="lib-sb-toggle" onclick="libSbToggle()" style="flex-shrink:0">≡</button>
         <span id="oc" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
         <button class="bulk-btn org-col-vis-btn org-settings-btn" onclick="toggleOrgColMenu()" title="表示する列を選択">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-1px;margin-right:3px"><rect x="0" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="5" y="1" width="3" height="11" rx="1" fill="currentColor"/><rect x="10" y="1" width="3" height="11" rx="1" fill="currentColor"/></svg>列
