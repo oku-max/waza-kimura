@@ -469,7 +469,7 @@ body.bulk-mode .card-sel-ov{display:block;}
 .org-tr:hover { background:var(--surface2); }
 .org-td { padding:8px 10px; font-size:12px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
 .org-td-title { max-width:180px; }
-.org-title-text { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.4; cursor:pointer; }
+.org-title-text { font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; line-height:1.4; cursor:pointer; }
 .org-title-text:hover { color:var(--accent); }
 .org-ch { font-size:10px; color:var(--text3); margin-top:2px; }
 .org-thumb { width:56px; height:32px; border-radius:4px; object-fit:cover; background:var(--surface3); cursor:pointer; flex-shrink:0; }

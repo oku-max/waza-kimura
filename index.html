@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.350</title>
+<title>WAZA KIMURA v52.351</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1427,7 +1427,7 @@
                 <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
                 <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
               </div>
-              <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
+              <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 12px;text-align:left;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
             </div>
             <!-- アコーディオンフィルター -->
             <div class="fs-acc-sec">
@@ -1483,10 +1483,10 @@
           </div>
         </div>
         <div style="padding:10px 12px 8px;border-top:1px solid var(--border)">
-          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
+          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px">☑ 一括編集</button>
         </div>
         <div style="padding:0 12px 12px">
-          <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">リセット</button>
+          <button onclick="clearAll()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px">リセット</button>
         </div>
       </div>
     </div>

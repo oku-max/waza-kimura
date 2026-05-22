@@ -379,7 +379,7 @@ function _addCvCols(view) {
       th.className = 'cv-custom-th';
       th.dataset.colId = col.id;
       th.dataset.col = 'cv:' + col.id; // resize machinaryが th[data-col] を参照するため
-      th.style.cssText = 'width:120px;min-width:60px';
+      th.style.cssText = `width:${col.width||120}px;min-width:60px`;
       const isSortActive = _cvSortColId === col.id;
       const sortIndText = isSortActive ? (_cvSortAsc ? '▲' : '▼') : '⇅';
       th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
@@ -426,6 +426,8 @@ function _addCvCols(view) {
       theadRow.appendChild(th);
       // リサイズハンドル（organize.js の addResizeHandle を再利用）
       window.addResizeHandle?.(th, () => {
+        col.width = th.offsetWidth;
+        _save();
         const tbl = theadRow.closest('table');
         if (!tbl) return;
         const fW = 40 + 76 + 180;
@@ -434,12 +436,7 @@ function _addCvCols(view) {
         tbl.style.width = (fW + sW) + 'px';
       }, null);
     });
-    // 「＋ 列を追加」ボタン
-    const addTh = document.createElement('th');
-    addTh.className = 'cv-custom-th';
-    addTh.innerHTML = `<div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div>`;
-    theadRow.appendChild(addTh);
-    // 手動モード専用: 削除列ヘッダー
+    // 手動モード専用: 削除列ヘッダー（addThより先に追加してaddThが常に最後）
     if (view.saveMode !== 'dynamic') {
       const delTh = document.createElement('th');
       delTh.className = 'cv-custom-th';
@@ -447,6 +444,11 @@ function _addCvCols(view) {
       delTh.innerHTML = `<div class="th-inner"></div>`;
       theadRow.appendChild(delTh);
     }
+    // 「＋ 列を追加」ボタン（常に最後）
+    const addTh = document.createElement('th');
+    addTh.className = 'cv-custom-th';
+    addTh.innerHTML = `<div class="th-inner"><button onclick="window.cvOpenAddCol('${view.id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap">＋ 列を追加</button></div>`;
+    theadRow.appendChild(addTh);
 
     // テーブル幅を標準列＋カスタム列の合計に更新
     if (table) {
@@ -472,10 +474,7 @@ function _addCvCols(view) {
       _renderCell(td, col, rd[col.id], view);
       tr.appendChild(td);
     });
-    const emptyTd = document.createElement('td');
-    emptyTd.className = 'cv-custom-td';
-    tr.appendChild(emptyTd);
-    // 手動モード専用: 削除ボタン
+    // 手動モード専用: 削除ボタン（emptyTdより先に追加）
     if (view.saveMode !== 'dynamic') {
       const delTd = document.createElement('td');
       delTd.className = 'cv-custom-td org-td';
@@ -483,6 +482,9 @@ function _addCvCols(view) {
       delTd.innerHTML = `<button onclick="window._cvRemoveVideo('${view.id}','${_esc(vid)}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:4px;line-height:1" title="リストから削除" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>`;
       tr.appendChild(delTd);
     }
+    const emptyTd = document.createElement('td');
+    emptyTd.className = 'cv-custom-td';
+    tr.appendChild(emptyTd);
   });
 
   _applyCvSort(view);
