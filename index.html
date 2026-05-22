@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.334</title>
+<title>WAZA KIMURA v52.335</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -981,6 +981,17 @@
   margin: 4px 2px;
   flex-shrink: 0;
 }
+/* ── マスター / カスタムビュー グループラベルUI ── */
+.lvt-group { display:flex; flex-direction:column; flex-shrink:0; }
+.lvt-group-lbl { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:0 2px 3px; height:16px; display:flex; align-items:flex-end; }
+.lvt-group-lbl-cv { color:#4caf50; opacity:.55; transition:opacity .15s; }
+.lvt-group-lbl-cv.cv-lbl-active { opacity:1; }
+.lvt-group-box { display:flex; align-items:center; gap:4px; padding:3px 7px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface2); min-height:32px; transition:border-color .15s,background .15s; }
+.lvt-group-box.cv-active { border-color:#4caf50; background:rgba(76,175,80,.07); }
+.lvt-group-sep { width:1px; height:32px; background:var(--border); flex-shrink:0; margin-top:16px; }
+.lvt-inner-btn { padding:3px 11px; border-radius:7px; border:none; background:transparent; color:var(--text2); font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .12s,color .12s; white-space:nowrap; line-height:1.5; flex-shrink:0; }
+.lvt-inner-btn:hover { background:var(--surface3); color:var(--text); }
+.lvt-inner-btn.lvt-active { background:var(--accent); color:var(--on-accent); }
 .lvt-rand {
   color: var(--text2);
 }
@@ -1431,17 +1442,29 @@
 <div class="tab-panel active" id="homeTab">
   <!-- ビュー切替バー -->
   <div class="lib-view-bar">
-    <button id="lvt-card" class="lvt-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
-    <button id="lvt-org"  class="lvt-btn"            onclick="window._libView('org')">📊 テーブル</button>
-    <div class="lvt-sep"></div>
-    <button id="cv-main-btn" class="lvt-btn" onclick="window.cvOpenViewPicker()">☰ カスタムビュー</button>
-    <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px;padding:4px 10px 4px 8px;border-radius:14px;background:rgba(76,175,80,.1);border:1.5px solid #4caf50;font-size:11px;font-weight:600;color:#4caf50;white-space:nowrap;flex-shrink:0">
-      <span onclick="window.cvOpenViewPicker()" style="display:flex;align-items:center;gap:5px;cursor:pointer">
-        <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;display:inline-block"></span>
-        <span id="cv-badge-text">—</span>
-      </span>
-      <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1;padding:1px 3px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='rgba(76,175,80,.2)'" onmouseout="this.style.opacity='.7';this.style.background='transparent'">✏️</span>
-      <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1">×</span>
+    <!-- マスタービューグループ -->
+    <div class="lvt-group">
+      <div class="lvt-group-lbl">マスタービュー</div>
+      <div class="lvt-group-box">
+        <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
+        <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._libView('org')">📊 テーブル</button>
+      </div>
+    </div>
+    <div class="lvt-group-sep"></div>
+    <!-- カスタムビューグループ -->
+    <div class="lvt-group">
+      <div class="lvt-group-lbl lvt-group-lbl-cv" id="cv-group-lbl">カスタムビュー</div>
+      <div class="lvt-group-box" id="cv-group-box">
+        <button id="cv-main-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()">☰ 選択</button>
+        <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px">
+          <span onclick="window.cvOpenViewPicker()" style="display:flex;align-items:center;gap:5px;cursor:pointer">
+            <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;display:inline-block"></span>
+            <span id="cv-badge-text" style="font-size:12px;font-weight:600;color:#4caf50;white-space:nowrap">—</span>
+          </span>
+          <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1;padding:1px 3px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='rgba(76,175,80,.2)'" onmouseout="this.style.opacity='.7';this.style.background='transparent'">✏️</span>
+          <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1">×</span>
+        </div>
+      </div>
     </div>
   </div>
   <!-- カスタムビューツールバー -->

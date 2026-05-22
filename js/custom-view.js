@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.334 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.335 ═══
 (function () {
 'use strict';
 
@@ -158,6 +158,8 @@ function _renderViewBar() {
   const mainBtn   = document.getElementById('cv-main-btn');
   const badge     = document.getElementById('cv-selected-badge');
   const badgeText = document.getElementById('cv-badge-text');
+  const groupBox  = document.getElementById('cv-group-box');
+  const groupLbl  = document.getElementById('cv-group-lbl');
   if (!mainBtn || !badge) return;
   if (_curId) {
     const view = _views.find(v => v.id === _curId);
@@ -166,11 +168,15 @@ function _renderViewBar() {
       badgeText.textContent = icon + ' ' + view.label;
       badge.style.display = 'flex';
       mainBtn.style.display = 'none';
+      groupBox?.classList.add('cv-active');
+      groupLbl?.classList.add('cv-lbl-active');
       return;
     }
   }
   badge.style.display = 'none';
   mainBtn.style.display = '';
+  groupBox?.classList.remove('cv-active');
+  groupLbl?.classList.remove('cv-lbl-active');
 }
 
 // ── カスタムビュー選択モーダル ──
