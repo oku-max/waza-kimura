@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.344</title>
+<title>WAZA KIMURA v52.345</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1084,19 +1084,22 @@
 .lib-sb-body { flex:1;overflow-y:auto;display:flex;flex-direction:column; }
 .lib-sb-section { padding:0 12px 12px;border-bottom:1px solid var(--border); }
 .lib-sb-sec-title { font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:10px 2px 7px;display:block; }
-.lib-sb-sec-title-cv { color:#4caf50;opacity:.55;transition:opacity .15s; }
-.lib-sb-sec-title-cv.cv-lbl-active { opacity:1; }
-.lib-sb-master-box { display:flex;align-items:center;gap:4px;padding:3px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2); }
-.lib-sb-cv-box { display:flex;align-items:center;gap:4px;padding:3px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);min-height:32px;transition:border-color .15s,background .15s; }
-.lib-sb-cv-box.cv-active { border-color:#4caf50;background:rgba(76,175,80,.07); }
+.lib-sb-sec-title-cv { color:var(--text3);transition:color .15s; }
+.lib-sb-sec-title-cv.cv-lbl-active { color:var(--text); }
+/* Type D: pill chip コンテナ */
+.lib-sb-master-box { display:flex;flex-wrap:wrap;gap:5px;padding:4px 0 6px;border:none !important;background:none !important;border-radius:0; }
+.lib-sb-cv-box { display:flex;flex-wrap:wrap;gap:5px;padding:4px 0 6px;border:none !important;background:none !important;min-height:auto;border-radius:0; }
+.lib-sb-cv-box.cv-active { border:none;background:none; }
+/* Type D: pill chip ボタン（lib-sidebar内のみ） */
+.lib-sidebar .lvt-inner-btn { padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2); }
+.lib-sidebar .lvt-inner-btn:hover { background:var(--surface3);border-color:var(--text2);color:var(--text); }
+.lib-sidebar .lvt-inner-btn.lvt-active { background:var(--text);color:var(--surface);border-color:var(--text); }
 .lib-sb-search { display:flex;align-items:center;gap:6px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2); }
 .lib-sb-search input { flex:1;background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:inherit; }
 .lib-sb-search input::placeholder { color:var(--text3); }
 .lib-sb-toggle { padding:5px 9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;line-height:1.2;transition:background .12s,color .12s; }
 .lib-sb-toggle:hover { background:var(--surface2);color:var(--text); }
 .lib-sb-toggle.sb-open { background:var(--surface3);border-color:var(--text3);color:var(--text); }
-.lib-sb-master-box { border-color:#4caf50 !important;background:rgba(76,175,80,.07) !important; }
-.lib-sb-master-box .lvt-inner-btn.lvt-active { background:#4caf50 !important;color:#fff !important; }
 .cv-chip-del { font-size:10px;color:var(--text3);cursor:pointer;padding:1px 3px;border-radius:50% }
 .cv-chip-del:hover { background:rgba(255,80,80,.2);color:#ff5050 }
 .cv-col-vis-btn { display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-family:inherit }
@@ -1396,7 +1399,7 @@
     <div class="lib-sb-body">
       <!-- ビュー切替 -->
       <div class="lib-sb-section">
-        <span class="lib-sb-sec-title" style="color:#4caf50;opacity:.9">マスタービュー</span>
+        <span class="lib-sb-sec-title">マスタービュー</span>
         <div class="lib-sb-master-box">
           <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
           <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._libView('org')">📊 テーブル</button>
@@ -1404,13 +1407,12 @@
         <span class="lib-sb-sec-title lib-sb-sec-title-cv" id="cv-group-lbl">カスタムビュー</span>
         <div class="lib-sb-cv-box" id="cv-group-box">
           <button id="cv-main-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()">☰ 選択</button>
-          <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px">
-            <span onclick="window.cvOpenViewPicker()" style="display:flex;align-items:center;gap:5px;cursor:pointer">
-              <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;display:inline-block"></span>
-              <span id="cv-badge-text" style="font-size:12px;font-weight:600;color:#4caf50;white-space:nowrap">—</span>
+          <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:var(--text);color:var(--surface);font-size:11px;font-weight:700;border:1.5px solid var(--text)">
+              <span id="cv-badge-text" onclick="window.cvOpenViewPicker()" style="cursor:pointer;white-space:nowrap">—</span>
+              <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1">×</span>
             </span>
-            <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1;padding:1px 3px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='rgba(76,175,80,.2)'" onmouseout="this.style.opacity='.7';this.style.background='transparent'">✏️</span>
-            <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1">×</span>
+            <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.55;font-size:12px;line-height:1;padding:2px 4px;border-radius:4px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity='.55'">✏️</span>
           </div>
         </div>
       </div>
