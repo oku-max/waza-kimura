@@ -122,7 +122,7 @@ export function initOrgFixedHeaders() {
     const th = document.createElement('th');
     th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
     th.dataset.fixed = def.key;
-    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
+    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.w===0?'padding:0;overflow:hidden;':''}${def.sep?'border-right:2.5px solid var(--border)':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
       th.title = 'クリックでメニュー';
@@ -145,7 +145,7 @@ export function initOrgFixedHeaders() {
     } else {
       th.textContent = def.label;
     }
-    if (def.key === 'chk') {
+    if (def.key === 'chk' && _bulkOrg) {
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.id = 'org-sel-all';
       cb.onchange = function(){ orgTogSelAll(this); };
