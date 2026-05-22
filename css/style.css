@@ -1507,34 +1507,8 @@ body.bulk-mode .results-header.bulk-transform {
 }
 body.bulk-mode #cardList { padding-top: 0; }
 
-/* Library mobile/tablet (< 1200px): lib-view-bar・actionbar・results-header を順に固定 */
-@media(max-width:1199px) {
-  /* lib-view-bar を fixed に（library-actionbar に覆われないよう最上位に） */
-  body.bulk-mode .lib-view-bar {
-    position: fixed;
-    top: var(--topbar-h, 56px);
-    left: 0; right: 0;
-    z-index: 77;
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-  }
-  /* actionbar を lib-view-bar (47px) の下に配置 */
-  body.bulk-mode #library-actionbar {
-    position: fixed;
-    top: calc(var(--topbar-h, 56px) + 47px);
-    left: 0; right: 0;
-    z-index: 76;
-  }
-  /* results-header は actionbar の下に配置 */
-  body.bulk-mode .results-header.bulk-transform {
-    top: calc(var(--topbar-h, 56px) + 47px + 46px) !important;
-    left: 0;
-  }
-  /* cardList: view-bar(47) + actionbar(46) + results-header(40) 分の余白 */
-  body.bulk-mode #cardList { padding-top: 133px; }
-  /* テーブルビュー: organize-actionbarは非表示のため、org-count-barは通常フロー内（固定不要） */
-  body.bulk-mode #org-table-wrap { margin-top: 0; }
-}
+/* テーブルビュー: organize-actionbarは非表示のため、org-count-barは通常フロー内（固定不要） */
+body.bulk-mode #org-table-wrap { margin-top: 0; }
 
 /* Organize: org-count-bar は fixed コンテナ内の flex child なので元から非スクロール。
    flex-shrink:0 を追加してサイズ崩れを防ぐ */
