@@ -204,8 +204,8 @@ function openOrgTitleMenu(thEl) {
     });
     return btn;
   };
-  sortRow.appendChild(mkSortBtn('A → Z', true));
-  sortRow.appendChild(mkSortBtn('Z → A', false));
+  sortRow.appendChild(mkSortBtn('昇順 ▲', true));
+  sortRow.appendChild(mkSortBtn('降順 ▼', false));
   dd.appendChild(sortRow);
 
   // サムネイル切り替え
