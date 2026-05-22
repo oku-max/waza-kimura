@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.228 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.381 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -2079,6 +2079,14 @@ export function buildDrawerHTML(id) {
   if (!v) return '';
 
   return `
+    <div style="padding:6px 0 8px">
+      <button onclick="vpAddBm('${id}')"
+        style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);
+               background:transparent;color:var(--accent);font-size:13px;
+               font-weight:700;cursor:pointer;text-align:center">
+        🔖 現在位置でブックマーク
+      </button>
+    </div>
     ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav }) : ''}
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
