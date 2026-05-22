@@ -122,7 +122,7 @@ export function initOrgFixedHeaders() {
     const th = document.createElement('th');
     th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
     th.dataset.fixed = def.key;
-    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.w===0?'padding:0;overflow:hidden;':''}${def.sep?'border-right:2.5px solid var(--border)':''}`;
+    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.w===0?'display:none;':''}${def.sep?'border-right:2.5px solid var(--border)':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
       th.title = 'クリックでメニュー';
@@ -821,10 +821,10 @@ export function renderOrg() {
     }).join('');
 
     return `<tr class="org-tr" id="org-row-${v.id}">
-      <td class="org-td org-td-fixed org-td-fixed-chk" style="left:0;width:${_chkW}px;min-width:${_chkW}px;${bulkOrg?'padding:6px 6px':'padding:0;overflow:hidden'}" id="org-chk-cell-${v.id}">
+      <td class="org-td org-td-fixed org-td-fixed-chk" style="left:0;width:${_chkW}px;min-width:${_chkW}px;${bulkOrg?'padding:6px 6px':'display:none'}" id="org-chk-cell-${v.id}">
         ${bulkOrg ? `<input type="checkbox" id="org-cb-${v.id}" ${selIds.has(v.id)?'checked':''} onchange="orgTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">` : ''}
       </td>
-      <td class="org-td org-td-fixed org-td-fixed-thumb" style="left:${_chkW}px;width:${_thumbW}px;min-width:${_thumbW}px;${_orgThumbVisible?'padding:6px 8px':'padding:0;overflow:hidden'}">
+      <td class="org-td org-td-fixed org-td-fixed-thumb" style="left:${_chkW}px;width:${_thumbW}px;min-width:${_thumbW}px;${_orgThumbVisible?'padding:6px 8px':'display:none'}">
         ${_orgThumbVisible ? `<img class="org-thumb" src="${thumb}" onerror="this.style.background='var(--surface3)'" onclick="openVPanel('${v.id}')">` : ''}
       </td>
       <td class="org-td org-td-fixed org-td-fixed-title org-col-sep" style="left:${_titleL}px" onclick="openVPanel('${v.id}')">
