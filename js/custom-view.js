@@ -888,6 +888,7 @@ function openThDropdown(btn, view, colId) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
   const col = view.columns.find(c => c.id === colId);
+  console.log('[CV-TH] colId=', colId, 'col=', col && col.label, 'type=', col && col.type, 'allCols=', view.columns.map(c=>c.id+':'+c.type));
   if (!col) return;
   const _now = Date.now();
   if (_now - _openThDdLastTime < 350) return;
@@ -903,7 +904,7 @@ function openThDropdown(btn, view, colId) {
   // ── ヘッダー ──
   const hdr = document.createElement('div');
   hdr.style.cssText = 'padding:8px 12px 6px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)';
-  hdr.textContent = col.label;
+  hdr.textContent = col.label + ' [' + col.type + ' / ' + colId + ']';
   dd.appendChild(hdr);
 
 
