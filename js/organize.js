@@ -938,7 +938,7 @@ export function syncOrgColHeaders() {
   // テーブル幅を全列の合計に明示設定（width:max-contentによる列幅の再分配を防止）
   const table = thead.closest('table');
   if (table) {
-    const fixedW = 40 + 76 + 180; // chk + thumb + title
+    const fixedW = 40 + (_orgThumbVisible ? 76 : 0) + 180; // chk + thumb + title
     let scrollW = 0;
     thead.querySelectorAll('th[data-col]').forEach(th => {
       scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
