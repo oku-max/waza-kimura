@@ -126,7 +126,7 @@ export function initOrgFixedHeaders() {
       th.title = 'クリックでメニュー';
       th.addEventListener('click', e => {
         if (e.target.closest('.rh')) return;
-        if (def.key === 'title') { openOrgTitleMenu(e, th); }
+        if (def.key === 'title') { openOrgTitleMenu(th); }
         else { orgSetSort(def.sortKey); }
       });
       // ソートインジケーター
@@ -161,25 +161,32 @@ export function initOrgFixedHeaders() {
 export function toggleOrgThumb() {
   _orgThumbVisible = !_orgThumbVisible;
   localStorage.setItem('wk_orgThumbVis', _orgThumbVisible ? '1' : '0');
-  initOrgFixedHeaders();
+  renderOrg();
 }
 
-function openOrgTitleMenu(e, thEl) {
-  e.stopPropagation();
-  const existing = document.getElementById('org-title-menu-dd');
-  if (existing) { existing.remove(); return; }
+let _titleMenuEl = null;
+
+function _closeTitleMenu() {
+  if (_titleMenuEl) { _titleMenuEl.remove(); _titleMenuEl = null; }
+}
+
+function openOrgTitleMenu(thEl) {
+  const isSame = !!_titleMenuEl;
+  _closeTitleMenu();
+  if (isSame) return;
 
   const dd = document.createElement('div');
   dd.id = 'org-title-menu-dd';
   dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:180px;display:flex;flex-direction:column;gap:6px;font-size:12px';
   document.body.appendChild(dd);
+  _titleMenuEl = dd;
 
   const rect = thEl.getBoundingClientRect();
   const z = parseFloat(document.body.style.zoom) || 1;
-  let left = rect.left / z;
-  const ddW = 180;
-  if ((left + ddW) * z > window.innerWidth - 8) left = (window.innerWidth - ddW * z - 8) / z;
-  dd.style.left = Math.max(4, left) + 'px';
+  let left = rect.left;
+  const ddW = dd.offsetWidth || 180;
+  if (left + ddW * z > window.innerWidth - 8) left = window.innerWidth - ddW * z - 8;
+  dd.style.left = (Math.max(4, left) / z) + 'px';
   dd.style.top = ((rect.bottom + 4) / z) + 'px';
 
   // ソートボタン
@@ -193,7 +200,7 @@ function openOrgTitleMenu(e, thEl) {
     btn.addEventListener('click', () => {
       orgSortCol = 'title'; orgSortAsc = asc;
       _syncOrgTblSortUI(); renderOrg();
-      dd.remove();
+      _closeTitleMenu();
     });
     return btn;
   };
@@ -205,13 +212,18 @@ function openOrgTitleMenu(e, thEl) {
   const thumbBtn = document.createElement('button');
   thumbBtn.textContent = _orgThumbVisible ? 'サムネイルを非表示' : 'サムネイルを表示';
   thumbBtn.style.cssText = 'width:100%;padding:6px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-family:inherit;background:var(--surface2);color:var(--text2);text-align:left';
-  thumbBtn.addEventListener('click', () => { toggleOrgThumb(); dd.remove(); });
+  thumbBtn.addEventListener('click', () => { _closeTitleMenu(); toggleOrgThumb(); });
   dd.appendChild(thumbBtn);
 
-  const closeHandler = ev => {
-    if (!dd.contains(ev.target)) { dd.remove(); document.removeEventListener('click', closeHandler, true); }
-  };
-  setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+  setTimeout(() => {
+    const closeHandler = ev => {
+      if (_titleMenuEl && !_titleMenuEl.contains(ev.target)) {
+        _closeTitleMenu();
+        document.removeEventListener('mousedown', closeHandler);
+      }
+    };
+    document.addEventListener('mousedown', closeHandler);
+  }, 50);
 }
 window.openOrgTitleMenu = openOrgTitleMenu;
 
