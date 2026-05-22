@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.337 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.375 ═══
 (function () {
 'use strict';
 
@@ -31,7 +31,7 @@ const TYPE_DEFS = [
   { type:'stars',       icon:'★', label:'評価' },
 ];
 
-const FILTERABLE_TYPES = new Set(['checkbox','select','multiselect','text','number','stars','progress']);
+const FILTERABLE_TYPES = new Set(['checkbox','select','multiselect','text','number','stars','progress','tracker']);
 
 const CV_TEMPLATES = [
   { id:'drill', icon:'🏋️', label:'ドリル管理', desc:'練習頻度と進捗を追う',
@@ -392,6 +392,7 @@ function _addCvCols(view) {
         e.stopPropagation();
         openThDropdown(th, view, col.id);
       });
+      th.addEventListener('dblclick', e => { e.stopPropagation(); e.preventDefault(); });
       // ドラッグ&ドロップで列順変更
       th.draggable = true;
       th.ondragstart = e => {
@@ -882,12 +883,17 @@ function closePopup() {
 }
 
 // ── TH ドロップダウン（ソート・再設定・フィルター・操作を統合） ──
+let _openThDdColId = null, _openThDdViewId = null;
 function openThDropdown(btn, view, colId) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
   const col = view.columns.find(c => c.id === colId);
   if (!col) return;
+  const _isSameDd = (_openThDdColId === colId && _openThDdViewId === view.id);
   closeFilterPopup(); closePopup();
+  closeThDropdown();
+  if (_isSameDd) return;
+  _openThDdColId = colId; _openThDdViewId = view.id;
   dd.innerHTML = '';
   dd.style.cssText = 'position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:230px;max-width:270px;max-height:80vh;overflow-y:auto;padding:0';
 
@@ -932,31 +938,27 @@ function openThDropdown(btn, view, colId) {
   } else if (col.type === 'tracker') {
     const sec = _mkSec('日数設定');
     let curPast = col.pastDays ?? 4, curFuture = col.futureDays ?? 1;
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center';
-    [['過去', [0,1,2,3,5,7], () => curPast, v => { curPast = v; }],
-     ['未来', [0,1,2,3,5,7], () => curFuture, v => { curFuture = v; }]
-    ].forEach(([label, opts, get, set]) => {
-      const lbl2 = document.createElement('div');
-      lbl2.style.cssText = 'font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap';
-      lbl2.textContent = label;
-      const btnRow = document.createElement('div'); btnRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
-      opts.forEach(n => {
-        const b = document.createElement('button');
-        b.textContent = n + '日';
-        const on2 = get() === n;
-        b.style.cssText = `padding:2px 5px;border-radius:4px;font-size:10px;cursor:pointer;border:1.5px solid ${on2?'var(--accent)':'var(--border)'};background:${on2?'var(--accent)':'var(--surface2)'};color:${on2?'#fff':'var(--text)'}`;
-        b.addEventListener('click', e => {
-          e.stopPropagation(); set(n);
-          btnRow.querySelectorAll('button').forEach((b2, i) => { const sel = opts[i] === n; b2.style.border = `1.5px solid ${sel?'var(--accent)':'var(--border)'}`; b2.style.background = sel?'var(--accent)':'var(--surface2)'; b2.style.color = sel?'#fff':'var(--text)'; });
-        });
-        btnRow.appendChild(b);
-      });
-      grid.appendChild(lbl2); grid.appendChild(btnRow);
-    });
-    sec.appendChild(grid);
+    const _btnS = 'width:24px;height:24px;border-radius:5px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0';
+    const mkStp = (lbl, getV, setV) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+      const l = document.createElement('span');
+      l.style.cssText = 'font-size:10px;color:var(--text3);font-weight:700;white-space:nowrap;min-width:22px';
+      l.textContent = lbl;
+      const dec = document.createElement('button'); dec.textContent = '−'; dec.style.cssText = _btnS;
+      const valEl = document.createElement('span');
+      valEl.style.cssText = 'font-size:14px;font-weight:700;color:var(--text);min-width:32px;text-align:center';
+      valEl.textContent = getV() + '日';
+      const inc = document.createElement('button'); inc.textContent = '＋'; inc.style.cssText = _btnS;
+      dec.addEventListener('click', e => { e.stopPropagation(); if (getV() > 0) { setV(getV() - 1); valEl.textContent = getV() + '日'; } });
+      inc.addEventListener('click', e => { e.stopPropagation(); if (getV() < 7) { setV(getV() + 1); valEl.textContent = getV() + '日'; } });
+      row.appendChild(l); row.appendChild(dec); row.appendChild(valEl); row.appendChild(inc);
+      return row;
+    };
+    sec.appendChild(mkStp('過去', () => curPast, v => { curPast = v; }));
+    sec.appendChild(mkStp('未来', () => curFuture, v => { curFuture = v; }));
     const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-top:8px;display:block';
+    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-top:4px;display:block';
     saveBtn.addEventListener('click', e => { e.stopPropagation(); col.pastDays = curPast; col.futureDays = curFuture; _save(); _renderTable(view); closeThDropdown(); });
     sec.appendChild(saveBtn);
     dd.appendChild(sec);
@@ -985,6 +987,7 @@ function openThDropdown(btn, view, colId) {
       case 'number':      buildNumFilterUI(sec, view, col, f);     break;
       case 'stars':       buildStarsFilterUI(sec, view, col, f);   break;
       case 'progress':    buildProgressFilterUI(sec, view, col, f); break;
+      case 'tracker':     buildTrackerFilterUI(sec, view, col, f);  break;
     }
     const clrBtn = document.createElement('button'); clrBtn.textContent = 'クリア';
     clrBtn.style.cssText = 'font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 0;display:block';
@@ -1032,6 +1035,7 @@ function _mkSec(title) {
 }
 
 function closeThDropdown() {
+  _openThDdColId = null; _openThDdViewId = null;
   const dd = document.getElementById('cv-th-dropdown');
   if (dd) dd.style.display = 'none';
   _filterCtx = null;
@@ -1107,12 +1111,10 @@ function openColEditModal(view, colId) {
   } else if (col.type === 'tracker') {
     _newColPastDays = col.pastDays ?? 3;
     _newColFutureDays = col.futureDays ?? 1;
-    document.getElementById('cv-past-days-group')?.querySelectorAll('.cv-days-btn').forEach(btn => {
-      btn.classList.toggle('selected', parseInt(btn.dataset.days) === _newColPastDays);
-    });
-    document.getElementById('cv-future-days-group')?.querySelectorAll('.cv-days-btn').forEach(btn => {
-      btn.classList.toggle('selected', parseInt(btn.dataset.days) === _newColFutureDays);
-    });
+    const _pv = document.getElementById('cv-past-days-val');
+    const _fv = document.getElementById('cv-future-days-val');
+    if (_pv) _pv.textContent = _newColPastDays;
+    if (_fv) _fv.textContent = _newColFutureDays;
   } else if (col.type === 'number') {
     const unitEl = document.getElementById('cv-new-col-unit');
     if (unitEl) unitEl.value = col.unit || '';
@@ -1141,31 +1143,36 @@ function showColConfig(type) {
     _newColOptions = ['A', 'B', 'C'];
     _renderOptionsList();
   } else if (type === 'tracker') {
+    const _stepBtnS = 'width:28px;height:28px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;font-family:inherit;line-height:1';
     extra.innerHTML = `
       <div class="cv-modal-section">
         <div class="cv-modal-label">過去◯日</div>
-        <div class="cv-days-group" id="cv-past-days-group">
-          ${[0,1,2,3,5,7].map(n => `<button class="cv-days-btn${n===3?' selected':''}" data-days="${n}">${n}日</button>`).join('')}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <button type="button" id="cv-past-dec" style="${_stepBtnS}">−</button>
+          <span id="cv-past-days-val" style="font-size:16px;font-weight:700;color:var(--text);min-width:32px;text-align:center">3</span>
+          <button type="button" id="cv-past-inc" style="${_stepBtnS}">＋</button>
         </div>
       </div>
       <div class="cv-modal-section" style="margin-top:10px">
         <div class="cv-modal-label">未来◯日</div>
-        <div class="cv-days-group" id="cv-future-days-group">
-          ${[0,1,2,3,5,7].map(n => `<button class="cv-days-btn${n===1?' selected':''}" data-days="${n}">${n}日</button>`).join('')}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <button type="button" id="cv-future-dec" style="${_stepBtnS}">−</button>
+          <span id="cv-future-days-val" style="font-size:16px;font-weight:700;color:var(--text);min-width:32px;text-align:center">1</span>
+          <button type="button" id="cv-future-inc" style="${_stepBtnS}">＋</button>
         </div>
       </div>`;
     _newColPastDays = 3; _newColFutureDays = 1;
-    document.getElementById('cv-past-days-group').querySelectorAll('.cv-days-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById('cv-past-days-group').querySelectorAll('.cv-days-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected'); _newColPastDays = parseInt(btn.dataset.days);
-      });
+    document.getElementById('cv-past-dec').addEventListener('click', () => {
+      if (_newColPastDays > 0) { _newColPastDays--; document.getElementById('cv-past-days-val').textContent = _newColPastDays; }
     });
-    document.getElementById('cv-future-days-group').querySelectorAll('.cv-days-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById('cv-future-days-group').querySelectorAll('.cv-days-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected'); _newColFutureDays = parseInt(btn.dataset.days);
-      });
+    document.getElementById('cv-past-inc').addEventListener('click', () => {
+      if (_newColPastDays < 7) { _newColPastDays++; document.getElementById('cv-past-days-val').textContent = _newColPastDays; }
+    });
+    document.getElementById('cv-future-dec').addEventListener('click', () => {
+      if (_newColFutureDays > 0) { _newColFutureDays--; document.getElementById('cv-future-days-val').textContent = _newColFutureDays; }
+    });
+    document.getElementById('cv-future-inc').addEventListener('click', () => {
+      if (_newColFutureDays < 7) { _newColFutureDays++; document.getElementById('cv-future-days-val').textContent = _newColFutureDays; }
     });
   } else if (type === 'number') {
     extra.innerHTML = `
@@ -1349,6 +1356,11 @@ function passesFilter(col, f, value) {
       if (f.op === 'range') return pct >= Number(f.val) && pct <= Number(f.val2);
       return true;
     }
+    case 'tracker': {
+      if (!f.active || f.value === 'all') return true;
+      const dates = Array.isArray(value) ? value : [];
+      return f.value === 'done' ? dates.length > 0 : dates.length === 0;
+    }
     default: return true;
   }
 }
@@ -1371,6 +1383,7 @@ function openFilterPopup(btn, view, col) {
     case 'number':      buildNumFilterUI(popup, view, col, f);        break;
     case 'stars':       buildStarsFilterUI(popup, view, col, f);      break;
     case 'progress':    buildProgressFilterUI(popup, view, col, f);   break;
+    case 'tracker':     buildTrackerFilterUI(popup, view, col, f);    break;
   }
   const sep = document.createElement('div');
   sep.style.cssText = 'margin-top:6px;padding-top:6px;border-top:1px solid var(--border)';
@@ -1413,6 +1426,23 @@ function buildChkFilterUI(popup, view, col, f) {
     label.className = 'cv-filter-row';
     const radio = document.createElement('input');
     radio.type = 'radio'; radio.name = 'cv-fp-chk'; radio.value = opt.v;
+    radio.className = 'cv-filter-chk'; radio.checked = cur === opt.v;
+    radio.addEventListener('change', () => {
+      setFilter(view.id, col.id, { active: opt.v !== 'all', value: opt.v });
+      _applyCustomFilters(view);
+    });
+    label.appendChild(radio); label.appendChild(document.createTextNode(' ' + opt.l));
+    popup.appendChild(label);
+  });
+}
+
+function buildTrackerFilterUI(popup, view, col, f) {
+  const cur = f.value || 'all';
+  [{v:'all',l:'すべて'},{v:'done',l:'完了あり'},{v:'none',l:'完了なし'}].forEach(opt => {
+    const label = document.createElement('label');
+    label.className = 'cv-filter-row';
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = 'cv-fp-trk'; radio.value = opt.v;
     radio.className = 'cv-filter-chk'; radio.checked = cur === opt.v;
     radio.addEventListener('change', () => {
       setFilter(view.id, col.id, { active: opt.v !== 'all', value: opt.v });

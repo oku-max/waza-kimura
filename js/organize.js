@@ -9,7 +9,7 @@ export let orgFilters = {
   memo: new Set(), addedAtFilter: new Set(), durationFilter: new Set()
 };
 export let orgFavOnly = false, orgNextOnly = false, orgUnwOnly = false, orgWatchedOnly = false, orgBmOnly = false, orgMemoOnly = false, orgImgOnly = false, orgDrillOnly = false;
-export let orgMemoSearch = '';
+export let orgMemoSearch = ''; export let orgChannelSearch = ''; export let orgPlaylistSearch = '';
 export let orgPrRank = null, orgPrDate = null;
 const _ORG_DEFAULT_ORDER = ['fav', 'next', 'drill', 'tb', 'action', 'position', 'technique', 'counter', 'status', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, status: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, drill: true, duration: true};
@@ -285,7 +285,7 @@ export function togOrgImg() {
 export function clearOrgFilters() {
   Object.keys(orgFilters).forEach(k => orgFilters[k].clear());
   orgFavOnly = false; orgNextOnly = false; orgDrillOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
-  orgMemoSearch = '';
+  orgMemoSearch = ''; orgChannelSearch = ''; orgPlaylistSearch = '';
   orgPrRank = null; orgPrDate = null;
   const si = document.getElementById('si-org'); if(si) si.value = '';
   const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
@@ -477,6 +477,12 @@ export function orgFilt(list) {
     if (orgMemoSearch) {
       const q = orgMemoSearch.toLowerCase();
       if (!(v.memo || '').toLowerCase().includes(q)) return false;
+    }
+    if (orgChannelSearch) {
+      if (!(v.channel || v.ch || '').toLowerCase().includes(orgChannelSearch.toLowerCase())) return false;
+    }
+    if (orgPlaylistSearch) {
+      if (!(v.pl || '').toLowerCase().includes(orgPlaylistSearch.toLowerCase())) return false;
     }
     if (orgFilters.addedAtFilter.size) {
       const ym = v.addedAt ? (() => { const d = new Date(v.addedAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : '不明';
@@ -1933,7 +1939,7 @@ export function openOrgColFilter(col, thEl) {
   }
 
   // ── ソートボタン ──
-  if (sortableCols.includes(col)) {
+  if (sortableCols.includes(col) && col !== 'channel' && col !== 'playlist') {
     const sortRow = document.createElement('div');
     sortRow.style.cssText = 'display:flex;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border)';
     const mkSortBtn = (label, asc) => {
@@ -1978,8 +1984,28 @@ export function openOrgColFilter(col, thEl) {
     dd.appendChild(memoWrap);
   }
 
+  // ── チャンネル/プレイリスト: テキスト検索のみ ──
+  if (col === 'channel' || col === 'playlist') {
+    const _isC = col === 'channel';
+    const _si = document.createElement('input');
+    _si.type = 'text';
+    _si.placeholder = _isC ? 'チャンネル名で検索...' : 'プレイリスト名で検索...';
+    _si.value = (_isC ? orgChannelSearch : orgPlaylistSearch) || '';
+    _si.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface2);color:var(--text);outline:none';
+    let _deb = null;
+    _si.addEventListener('input', () => {
+      clearTimeout(_deb);
+      _deb = setTimeout(() => {
+        if (_isC) orgChannelSearch = _si.value.trim(); else orgPlaylistSearch = _si.value.trim();
+        renderOrg(); _syncFiltIcon(col);
+      }, 300);
+    });
+    dd.appendChild(_si);
+    const _isTch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!_isTch) setTimeout(() => _si.focus(), 50);
+  }
   // ── フィルターセクション ──
-  if (cfg && sortedVals.length > 0) {
+  if (cfg && sortedVals.length > 0 && col !== 'channel' && col !== 'playlist') {
     // 検索ボックス（選択肢が少ない列は非表示）
     let searchBox = null;
     if (!cfg.noSearch) {
@@ -2130,6 +2156,8 @@ function _syncFiltIcon(col) {
   const cfg = _colFilterConfig[col];
   let active = cfg && orgFilters[cfg.filterKey] && orgFilters[cfg.filterKey].size > 0;
   if (col === 'memo' && orgMemoSearch) active = true;
+  if (col === 'channel' && orgChannelSearch) active = true;
+  if (col === 'playlist' && orgPlaylistSearch) active = true;
   icon.style.color   = active ? 'var(--accent)' : 'var(--text3)';
   icon.style.opacity = active ? '1' : '0.4';
 }
