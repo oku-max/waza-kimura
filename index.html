@@ -303,6 +303,8 @@
     const libSi    = document.getElementById('si-lib-pc');
     const orgSi    = document.getElementById('si-org');
 
+    const fSidebar = document.getElementById('filterSidebar');
+    const rz       = document.getElementById('sbResizer');
     if (mode === 'card') {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
@@ -316,6 +318,10 @@
       if (orgActbar)  orgActbar.style.display  = 'none';
       if (libC) libC.style.display = '';
       if (orgC) orgC.style.display = 'none';
+      // Library card mode: filterSidebar は lib-sidebar に統合済みなので非表示
+      if (fSidebar) fSidebar.style.setProperty('display', 'none', 'important');
+      if (rz)       rz.style.setProperty('display', 'none', 'important');
+      document.documentElement.style.setProperty('--sbw', '0px');
       window.AF?.();
     } else {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
@@ -330,6 +336,13 @@
       if (orgActbar)  orgActbar.style.display  = '';
       if (libC) libC.style.display = 'none';
       if (orgC) orgC.style.display = '';
+      // Org mode: filterSidebar を復元して --sbw を再計算
+      if (fSidebar) fSidebar.style.removeProperty('display');
+      if (rz)       rz.style.removeProperty('display');
+      requestAnimationFrame(function() {
+        const w = (fSidebar?.offsetWidth||0) + (rz?.offsetWidth||0);
+        if (w > 0) document.documentElement.style.setProperty('--sbw', w + 'px');
+      });
       window.renderOrg?.();
     }
   };
