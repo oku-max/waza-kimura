@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.343</title>
+<title>WAZA KIMURA v52.344</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1414,21 +1414,22 @@
           </div>
         </div>
       </div>
-      <!-- 検索 -->
-      <div class="lib-sb-section">
-        <div class="lib-sb-search">
-          <span style="color:var(--text3)">🔍</span>
-          <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
-          <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
-        </div>
-        <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
-      </div>
-      <!-- フィルター + 保存 + 最近 + リセット -->
+      <!-- フィルター + 検索 + 保存 + 最近 + リセット -->
       <div class="fs-scroll" style="flex:1">
-        <!-- フィルターボックス -->
+        <!-- フィルターボックス（検索含む） -->
         <div style="padding:0 12px 8px">
           <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;padding:10px 2px 7px">フィルター</span>
           <div class="lib-sb-filter-box">
+            <!-- 検索（フィルターboxの先頭） -->
+            <div style="padding:8px 10px 6px;border-bottom:1px solid var(--border2)">
+              <div class="lib-sb-search">
+                <span style="color:var(--text3)">🔍</span>
+                <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
+                <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
+              </div>
+              <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
+            </div>
+            <!-- アコーディオンフィルター -->
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('state')">
                 <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
@@ -1481,7 +1482,7 @@
             <div id="fs-recent-list"></div>
           </div>
         </div>
-        <div style="padding:0 12px 8px">
+        <div style="padding:10px 12px 8px;border-top:1px solid var(--border)">
           <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
         </div>
         <div style="padding:0 12px 12px">
