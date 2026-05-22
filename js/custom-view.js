@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.376 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.377 ═══
 (function () {
 'use strict';
 
@@ -887,24 +887,29 @@ let _openThDdColId = null, _openThDdViewId = null, _openThDdLastTime = 0;
 function openThDropdown(btn, view, colId) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
-  const col = view.columns.find(c => c.id === colId);
-  console.log('[CV-TH] colId=', colId, 'col=', col && col.label, 'type=', col && col.type, 'allCols=', view.columns.map(c=>c.id+':'+c.type));
+  // 最新の _views から取得（stale closure 対策）
+  const currentView = _views.find(v => v.id === view.id) || view;
+  const col = currentView.columns.find(c => c.id === colId);
   if (!col) return;
   const _now = Date.now();
-  if (_now - _openThDdLastTime < 350) return;
-  _openThDdLastTime = _now;
-  const _isSameDd = (_openThDdColId === colId && _openThDdViewId === view.id);
+  const _isSameDd = (_openThDdColId === colId && _openThDdViewId === currentView.id);
+  const _timeDiff = _now - _openThDdLastTime;
+  // 必ず先に既存ドロップダウンを閉じる（古い内容が残る問題を防ぐ）
   closeFilterPopup(); closePopup();
   closeThDropdown();
-  if (_isSameDd) return;
-  _openThDdColId = colId; _openThDdViewId = view.id;
+  // 同じ列を 350ms 以内に再タップ → トグルで閉じる
+  if (_isSameDd && _timeDiff < 350) return;
+  // 異なる列を 100ms 以内 → ファントムクリック防止
+  if (!_isSameDd && _timeDiff < 100) return;
+  _openThDdLastTime = _now;
+  _openThDdColId = colId; _openThDdViewId = currentView.id;
   dd.innerHTML = '';
   dd.style.cssText = 'position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:230px;max-width:270px;max-height:80vh;overflow-y:auto;padding:0';
 
   // ── ヘッダー ──
   const hdr = document.createElement('div');
   hdr.style.cssText = 'padding:8px 12px 6px;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)';
-  hdr.textContent = col.label + ' [' + col.type + ' / ' + colId + ']';
+  hdr.textContent = col.label;
   dd.appendChild(hdr);
 
 
@@ -933,7 +938,7 @@ function openThDropdown(btn, view, colId) {
       addBtn2.addEventListener('click', e => { e.stopPropagation(); curOpts.push(''); renderOpts(); setTimeout(() => { const ins = optList.querySelectorAll('input'); if (ins.length) ins[ins.length-1].focus(); }, 30); });
       const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
       saveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-left:auto';
-      saveBtn.addEventListener('click', e => { e.stopPropagation(); col.options = curOpts.map(o => o.trim()).filter(Boolean); _save(); _renderTable(view); closeThDropdown(); });
+      saveBtn.addEventListener('click', e => { e.stopPropagation(); col.options = curOpts.map(o => o.trim()).filter(Boolean); _save(); _renderTable(currentView); closeThDropdown(); });
       actRow.appendChild(addBtn2); actRow.appendChild(saveBtn); optList.appendChild(actRow);
     }
     renderOpts();
@@ -963,7 +968,7 @@ function openThDropdown(btn, view, colId) {
     sec.appendChild(mkStp('未来', () => curFuture, v => { curFuture = v; }));
     const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
     saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-top:4px;display:block';
-    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.pastDays = curPast; col.futureDays = curFuture; _save(); _renderTable(view); closeThDropdown(); });
+    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.pastDays = curPast; col.futureDays = curFuture; _save(); _renderTable(currentView); closeThDropdown(); });
     sec.appendChild(saveBtn);
     dd.appendChild(sec);
   } else if (col.type === 'number') {
@@ -973,7 +978,7 @@ function openThDropdown(btn, view, colId) {
     inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:4px 8px;outline:none;margin-bottom:6px';
     const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
     saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer';
-    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.unit = inp.value.trim(); _save(); _renderTable(view); closeThDropdown(); });
+    saveBtn.addEventListener('click', e => { e.stopPropagation(); col.unit = inp.value.trim(); _save(); _renderTable(currentView); closeThDropdown(); });
     sec.appendChild(inp); sec.appendChild(saveBtn);
     dd.appendChild(sec);
   }
@@ -981,21 +986,21 @@ function openThDropdown(btn, view, colId) {
   // ── フィルター ──
   if (FILTERABLE_TYPES.has(col.type)) {
     const sec = _mkSec('フィルター');
-    const f = getFilter(view.id, col.id) || {};
-    _filterCtx = { view, col, btn };
+    const f = getFilter(currentView.id, col.id) || {};
+    _filterCtx = { view: currentView, col, btn };
     switch(col.type) {
-      case 'checkbox':    buildChkFilterUI(sec, view, col, f);     break;
+      case 'checkbox':    buildChkFilterUI(sec, currentView, col, f);     break;
       case 'select':
-      case 'multiselect': buildSelFilterUI(sec, view, col, f);     break;
-      case 'text':        buildTextFilterUI(sec, view, col, f);    break;
-      case 'number':      buildNumFilterUI(sec, view, col, f);     break;
-      case 'stars':       buildStarsFilterUI(sec, view, col, f);   break;
-      case 'progress':    buildProgressFilterUI(sec, view, col, f); break;
-      case 'tracker':     buildTrackerFilterUI(sec, view, col, f);  break;
+      case 'multiselect': buildSelFilterUI(sec, currentView, col, f);     break;
+      case 'text':        buildTextFilterUI(sec, currentView, col, f);    break;
+      case 'number':      buildNumFilterUI(sec, currentView, col, f);     break;
+      case 'stars':       buildStarsFilterUI(sec, currentView, col, f);   break;
+      case 'progress':    buildProgressFilterUI(sec, currentView, col, f); break;
+      case 'tracker':     buildTrackerFilterUI(sec, currentView, col, f);  break;
     }
     const clrBtn = document.createElement('button'); clrBtn.textContent = 'クリア';
     clrBtn.style.cssText = 'font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 0;display:block';
-    clrBtn.addEventListener('click', e => { e.stopPropagation(); clearFilter(view.id, col.id); _applyCustomFilters(view); closeThDropdown(); });
+    clrBtn.addEventListener('click', e => { e.stopPropagation(); clearFilter(currentView.id, col.id); _applyCustomFilters(currentView); closeThDropdown(); });
     sec.appendChild(clrBtn);
     dd.appendChild(sec);
   }
@@ -1006,12 +1011,12 @@ function openThDropdown(btn, view, colId) {
   const renameBtn = document.createElement('button');
   renameBtn.innerHTML = '📝 列名を変更';
   renameBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)';
-  renameBtn.addEventListener('click', () => { const n = prompt('新しい列名:', col.label); if (n && n.trim()) { col.label = n.trim(); _save(); _renderTable(view); } closeThDropdown(); });
+  renameBtn.addEventListener('click', () => { const n = prompt('新しい列名:', col.label); if (n && n.trim()) { col.label = n.trim(); _save(); _renderTable(currentView); } closeThDropdown(); });
   const delBtn = document.createElement('button');
   delBtn.innerHTML = '🗑 列を削除';
   delBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:#e53e3e';
   delBtn.addEventListener('click', () => {
-    if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = view.columns.findIndex(c => c.id === colId); if (idx >= 0) view.columns.splice(idx, 1); Object.keys(view.rowData).forEach(vid => delete view.rowData[vid][colId]); _save(); _renderTable(view); }
+    if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = currentView.columns.findIndex(c => c.id === colId); if (idx >= 0) currentView.columns.splice(idx, 1); Object.keys(currentView.rowData).forEach(vid => delete currentView.rowData[vid][colId]); _save(); _renderTable(currentView); }
     closeThDropdown();
   });
   actSec.appendChild(renameBtn); actSec.appendChild(delBtn);
@@ -2048,6 +2053,14 @@ window._cvApplyLoadedViews = function(views) {
   _views = views;
   _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
   _renderViewBar();
+  // アクティブなテーブルビューがある場合、列ヘッダーを最新データで再構築（stale closure 対策）
+  if (_curId) {
+    const v = _views.find(v => v.id === _curId);
+    if (v && (v.viewType || 'table') === 'table') {
+      window._cvAfterRender = () => _addCvCols(v);
+      window._cvAfterRender();
+    }
+  }
 };
 
 })();
