@@ -821,10 +821,10 @@ export function renderOrg() {
     }).join('');
 
     return `<tr class="org-tr" id="org-row-${v.id}">
-      <td class="org-td org-td-fixed org-td-fixed-chk" style="left:0;width:${_chkW}px;min-width:${_chkW}px;${bulkOrg?'padding:6px 6px':''}" id="org-chk-cell-${v.id}">
+      <td class="org-td org-td-fixed org-td-fixed-chk" style="left:0;width:${_chkW}px;min-width:${_chkW}px;${bulkOrg?'padding:6px 6px':'padding:0;overflow:hidden'}" id="org-chk-cell-${v.id}">
         ${bulkOrg ? `<input type="checkbox" id="org-cb-${v.id}" ${selIds.has(v.id)?'checked':''} onchange="orgTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">` : ''}
       </td>
-      <td class="org-td org-td-fixed org-td-fixed-thumb" style="left:${_chkW}px;width:${_thumbW}px;min-width:${_thumbW}px;${_orgThumbVisible?'padding:6px 8px':''}">
+      <td class="org-td org-td-fixed org-td-fixed-thumb" style="left:${_chkW}px;width:${_thumbW}px;min-width:${_thumbW}px;${_orgThumbVisible?'padding:6px 8px':'padding:0;overflow:hidden'}">
         ${_orgThumbVisible ? `<img class="org-thumb" src="${thumb}" onerror="this.style.background='var(--surface3)'" onclick="openVPanel('${v.id}')">` : ''}
       </td>
       <td class="org-td org-td-fixed org-td-fixed-title org-col-sep" style="left:${_titleL}px" onclick="openVPanel('${v.id}')">
