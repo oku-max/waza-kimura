@@ -385,14 +385,11 @@ function _addCvCols(view) {
       th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
       th.addEventListener('click', e => {
         if (e.target.closest('.cv-th-menu-btn')) return;
-        if (_cvSortColId !== col.id) { _cvSortColId = col.id; _cvSortAsc = true; }
-        else if (_cvSortAsc) { _cvSortAsc = false; }
-        else { _cvSortColId = null; }
-        _applyCvSort(view);
+        openThDropdown(th, view, col.id);
       });
       th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
         e.stopPropagation();
-        openThDropdown(e.currentTarget, view, col.id);
+        openThDropdown(th, view, col.id);
       });
       // ドラッグ&ドロップで列順変更
       th.draggable = true;
