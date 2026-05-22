@@ -513,6 +513,12 @@ body.bulk-mode .card-sel-ov{display:block;}
 .org-td-fixed-chk   { left:0px; width:40px; min-width:40px; }
 .org-td-fixed-thumb { left:40px; width:76px; min-width:76px; padding:6px 8px; }
 .org-td-fixed-title { left:116px; width:180px; min-width:180px; max-width:180px; overflow:hidden; cursor:pointer; }
+/* サムネイル非表示モード */
+#orgTable.org-hide-thumb .org-td-fixed-thumb { width:0 !important; min-width:0 !important; padding:0 !important; overflow:hidden; }
+#orgTable.org-hide-thumb .org-td-fixed-title { left:40px !important; }
+/* タイトルヘッダー内サムネイル切替ボタン */
+.org-thumb-tog { background:none;border:none;cursor:pointer;font-size:10px;padding:1px 3px;border-radius:3px;opacity:.45;margin-left:4px;color:var(--text3);vertical-align:middle;line-height:1;font-family:inherit;flex-shrink:0; }
+.org-thumb-tog:hover { opacity:1;background:var(--surface3); }
 /* リサイズハンドル */
 .rh { position:absolute; right:0; top:0; bottom:0; width:5px; cursor:col-resize; z-index:5; }
 .rh:hover { background:var(--accent); opacity:.4; }

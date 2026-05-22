@@ -84,6 +84,7 @@ export const ORG_COL_LABELS = {tb:'トップ/ボトム/スタンディング', a
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
+let _orgThumbVisible = localStorage.getItem('wk_orgThumbVis') !== '0';
 
 // Register state on window so inline HTML handlers can access them
 window.orgFilters = orgFilters;
@@ -108,9 +109,10 @@ export function initOrgFixedHeaders() {
   if (!thead) return;
   // 毎回再構築（guardなし）
   [...thead.querySelectorAll('th[data-fixed]')].forEach(el => el.remove());
+  const thumbW = _orgThumbVisible ? 76 : 0;
   const fixedDefs = [
-    {key:'chk',   w:40,  label:''},
-    {key:'thumb', w:76,  label:''},
+    {key:'chk',   w:40,     label:''},
+    {key:'thumb', w:thumbW, label:''},
     {key:'title', w:180, label:'Title', sep:true, sortKey:'title'},
   ];
   let left = 0;
@@ -134,6 +136,14 @@ export function initOrgFixedHeaders() {
       sortInd.textContent = orgSortCol === def.sortKey ? (orgSortAsc ? '▲' : '▼') : '⇅';
       if (orgSortCol === def.sortKey) sortInd.style.opacity = '1';
       th.appendChild(sortInd);
+      if (def.key === 'title') {
+        const thumbBtn = document.createElement('button');
+        thumbBtn.className = 'rh org-thumb-tog';
+        thumbBtn.textContent = _orgThumbVisible ? '🖼' : '□';
+        thumbBtn.title = _orgThumbVisible ? 'サムネイルを非表示' : 'サムネイルを表示';
+        thumbBtn.addEventListener('click', e => { e.stopPropagation(); toggleOrgThumb(); });
+        th.appendChild(thumbBtn);
+      }
     } else {
       th.textContent = def.label;
     }
@@ -147,7 +157,15 @@ export function initOrgFixedHeaders() {
     thead.appendChild(th);
     left += def.w;
   });
-  _orgFixedLefts = {chk:0, thumb:40, title:116};
+  _orgFixedLefts = {chk:0, thumb:40, title: _orgThumbVisible ? 116 : 40};
+  const _tbl = document.getElementById('orgTable');
+  if (_tbl) _tbl.classList.toggle('org-hide-thumb', !_orgThumbVisible);
+}
+
+export function toggleOrgThumb() {
+  _orgThumbVisible = !_orgThumbVisible;
+  localStorage.setItem('wk_orgThumbVis', _orgThumbVisible ? '1' : '0');
+  initOrgFixedHeaders();
 }
 
 // ═══ Filter toggle functions ═══
@@ -2076,6 +2094,7 @@ export function bulkRenamePl(from, to) {
 // ═══ Register all exported functions on window for inline HTML handler access ═══
 window._saveOrgColPrefs = _saveOrgColPrefs;
 window.initOrgFixedHeaders = initOrgFixedHeaders;
+window.toggleOrgThumb = toggleOrgThumb;
 window.togOrgF = togOrgF;
 window.togOrgFav = togOrgFav;
 window.togOrgNext = togOrgNext;
