@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.346</title>
+<title>WAZA KIMURA v52.347</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -324,8 +324,6 @@
       document.documentElement.style.setProperty('--sbw', '0px');
       window.AF?.();
     } else {
-      // org mode: lib-sidebar を閉じてから filterSidebar を表示（ダブルオフセット防止）
-      window.libSbClose?.();
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
       _syncLibFilters('lib');
@@ -338,13 +336,9 @@
       if (orgActbar)  orgActbar.style.display  = '';
       if (libC) libC.style.display = 'none';
       if (orgC) orgC.style.display = '';
-      // Org mode: filterSidebar を復元して --sbw を再計算
-      if (fSidebar) fSidebar.style.removeProperty('display');
-      if (rz)       rz.style.removeProperty('display');
-      requestAnimationFrame(function() {
-        const w = (fSidebar?.offsetWidth||0) + (rz?.offsetWidth||0);
-        if (w > 0) document.documentElement.style.setProperty('--sbw', w + 'px');
-      });
+      // filterSidebar は lib-sidebar に統合済みのため org mode でも非表示のまま
+      if (fSidebar) fSidebar.style.setProperty('display', 'none', 'important');
+      if (rz)       rz.style.setProperty('display', 'none', 'important');
       window.renderOrg?.();
     }
   };
