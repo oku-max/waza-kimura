@@ -120,7 +120,8 @@ export function initOrgFixedHeaders() {
     const th = document.createElement('th');
     th.className = 'org-th org-col-fixed' + (def.sep?' org-col-sep':'');
     th.dataset.fixed = def.key;
-    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
+    const isTitle = def.key === 'title';
+    th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}${isTitle?';display:flex;align-items:center;gap:3px;':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
       th.title = 'クリックでソート';
@@ -132,14 +133,18 @@ export function initOrgFixedHeaders() {
       const sortInd = document.createElement('span');
       sortInd.className = 'org-sort-ind';
       sortInd.dataset.sortCol = def.sortKey;
-      sortInd.style.cssText = 'margin-left:3px;font-size:9px;opacity:.4;';
+      sortInd.style.cssText = 'font-size:9px;opacity:.4;';
       sortInd.textContent = orgSortCol === def.sortKey ? (orgSortAsc ? '▲' : '▼') : '⇅';
       if (orgSortCol === def.sortKey) sortInd.style.opacity = '1';
       th.appendChild(sortInd);
-      if (def.key === 'title') {
+      if (isTitle) {
+        const spacer = document.createElement('span');
+        spacer.style.cssText = 'flex:1';
+        th.appendChild(spacer);
         const thumbBtn = document.createElement('button');
         thumbBtn.className = 'rh org-thumb-tog';
-        thumbBtn.textContent = _orgThumbVisible ? '🖼' : '□';
+        thumbBtn.textContent = _orgThumbVisible ? 'img' : 'img';
+        thumbBtn.style.cssText = `opacity:${_orgThumbVisible ? '0.45' : '1'};text-decoration:${_orgThumbVisible ? 'none' : 'line-through'}`;
         thumbBtn.title = _orgThumbVisible ? 'サムネイルを非表示' : 'サムネイルを表示';
         thumbBtn.addEventListener('click', e => { e.stopPropagation(); toggleOrgThumb(); });
         th.appendChild(thumbBtn);
