@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.323 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.331 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -266,6 +266,7 @@
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
     <button class="uni-save-modal-btn" onclick="uniOpenSaveModal()">検索条件を保存</button>
+    <button id="uni-cv-ftr-btn" class="uni-save-modal-btn" style="display:none"></button>
   </div>
 </div>
 <input type="hidden" id="uni-save-name">
@@ -882,6 +883,27 @@
     // Hit
     const hitEl = document.getElementById('uni-hit');
     if (hitEl) hitEl.textContent = _ctxVideos(null).length + ' 件';
+
+    // CVモード時はフッターの「検索条件を保存」を非表示にし、代替ボタンを表示
+    const saveMdBtn = document.getElementById('uni-save-modal-btn') || document.querySelector('.uni-save-modal-btn');
+    const cvFtrBtn = document.getElementById('uni-cv-ftr-btn');
+    if (saveMdBtn) saveMdBtn.style.display = _cvMode ? 'none' : '';
+    if (cvFtrBtn) {
+      const isCvCondNow = !!_cvMode && window._cvSelectionMode === 'condition';
+      if (_cvMode) {
+        cvFtrBtn.style.display = '';
+        if (isCvCondNow) {
+          cvFtrBtn.textContent = '🔄 現在の条件で保存';
+          cvFtrBtn.onclick = () => window._cvSaveDynamic?.();
+        } else {
+          const cnt = _shownNoteVideos.length;
+          cvFtrBtn.textContent = `📌 手動で選択（${cnt}件）`;
+          cvFtrBtn.onclick = () => window._uniAddAllToNote?.();
+        }
+      } else {
+        cvFtrBtn.style.display = 'none';
+      }
+    }
 
     // Sidebar badge sync
     _syncSidebarBadges(bd);
