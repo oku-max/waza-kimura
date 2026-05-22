@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.332 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.333 ═══
 (function () {
 'use strict';
 
@@ -174,7 +174,13 @@ function _buildPickerHTML() {
     const isActive = v.id === _curId;
     return `<div class="cv-picker-item${isActive ? ' active' : ''}" onclick="window._cvPickerSelect('${v.id}')">
       <span class="cv-picker-icon">${icon}</span>
-      <span class="cv-picker-info"><span class="cv-picker-name">${_esc(v.label)}</span><span class="cv-picker-meta">${modeLbl} · ${cnt}本</span></span>
+      <span class="cv-picker-info">
+        <span style="display:flex;align-items:center;gap:4px">
+          <span class="cv-picker-name">${_esc(v.label)}</span>
+          <button class="cv-picker-rename-btn" onclick="event.stopPropagation();window._cvRenameView('${v.id}')" title="名前を変更">✏️</button>
+        </span>
+        <span class="cv-picker-meta">${modeLbl} · ${cnt}本</span>
+      </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
       <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">編集</button>
     </div>`;
@@ -203,6 +209,20 @@ function _buildPickerHTML() {
     </div>
   </div>`;
 }
+
+window._cvRenameView = function(id) {
+  const view = _views.find(v => v.id === id);
+  if (!view) return;
+  const newName = prompt('カスタムビューの名前を変更', view.label);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) return;
+  view.label = trimmed;
+  _save();
+  _renderViewBar();
+  const el = document.getElementById('cv-picker-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+};
 
 window._cvPickerSelect = function(id) {
   _closePicker();
