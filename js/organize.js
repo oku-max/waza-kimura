@@ -123,8 +123,12 @@ export function initOrgFixedHeaders() {
     th.style.cssText = `position:sticky;top:0;left:${left}px;width:${def.w}px;min-width:${def.w}px;background:var(--surface);z-index:11;${def.sep?'border-right:2.5px solid var(--border)':''}`;
     if (def.sortKey) {
       th.style.cursor = 'pointer';
-      th.title = 'クリックでソート';
-      th.addEventListener('click', e => { if(e.target.closest('.rh')) return; orgSetSort(def.sortKey); });
+      th.title = 'クリックでメニュー';
+      th.addEventListener('click', e => {
+        if (e.target.closest('.rh')) return;
+        if (def.key === 'title') { openOrgTitleMenu(e, th); }
+        else { orgSetSort(def.sortKey); }
+      });
       // ソートインジケーター
       const labelSpan = document.createElement('span');
       labelSpan.textContent = def.label;
@@ -136,14 +140,6 @@ export function initOrgFixedHeaders() {
       sortInd.textContent = orgSortCol === def.sortKey ? (orgSortAsc ? '▲' : '▼') : '⇅';
       if (orgSortCol === def.sortKey) sortInd.style.opacity = '1';
       th.appendChild(sortInd);
-      if (def.key === 'title') {
-        const thumbBtn = document.createElement('button');
-        thumbBtn.className = 'rh org-thumb-tog';
-        thumbBtn.textContent = _orgThumbVisible ? '🖼' : '□';
-        thumbBtn.title = _orgThumbVisible ? 'サムネイルを非表示' : 'サムネイルを表示';
-        thumbBtn.addEventListener('click', e => { e.stopPropagation(); toggleOrgThumb(); });
-        th.appendChild(thumbBtn);
-      }
     } else {
       th.textContent = def.label;
     }
@@ -167,6 +163,57 @@ export function toggleOrgThumb() {
   localStorage.setItem('wk_orgThumbVis', _orgThumbVisible ? '1' : '0');
   initOrgFixedHeaders();
 }
+
+function openOrgTitleMenu(e, thEl) {
+  e.stopPropagation();
+  const existing = document.getElementById('org-title-menu-dd');
+  if (existing) { existing.remove(); return; }
+
+  const dd = document.createElement('div');
+  dd.id = 'org-title-menu-dd';
+  dd.style.cssText = 'position:fixed;z-index:500;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 6px 28px rgba(0,0,0,.18);min-width:180px;display:flex;flex-direction:column;gap:6px;font-size:12px';
+  document.body.appendChild(dd);
+
+  const rect = thEl.getBoundingClientRect();
+  const z = parseFloat(document.body.style.zoom) || 1;
+  let left = rect.left / z;
+  const ddW = 180;
+  if ((left + ddW) * z > window.innerWidth - 8) left = (window.innerWidth - ddW * z - 8) / z;
+  dd.style.left = Math.max(4, left) + 'px';
+  dd.style.top = ((rect.bottom + 4) / z) + 'px';
+
+  // ソートボタン
+  const sortRow = document.createElement('div');
+  sortRow.style.cssText = 'display:flex;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--border)';
+  const mkSortBtn = (label, asc) => {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    const isActive = orgSortCol === 'title' && orgSortAsc === asc;
+    btn.style.cssText = `flex:1;padding:5px 0;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-family:inherit;background:${isActive?'var(--accent)':'var(--surface2)'};color:${isActive?'#fff':'var(--text2)'}`;
+    btn.addEventListener('click', () => {
+      orgSortCol = 'title'; orgSortAsc = asc;
+      _syncOrgTblSortUI(); renderOrg();
+      dd.remove();
+    });
+    return btn;
+  };
+  sortRow.appendChild(mkSortBtn('A → Z', true));
+  sortRow.appendChild(mkSortBtn('Z → A', false));
+  dd.appendChild(sortRow);
+
+  // サムネイル切り替え
+  const thumbBtn = document.createElement('button');
+  thumbBtn.textContent = _orgThumbVisible ? 'サムネイルを非表示' : 'サムネイルを表示';
+  thumbBtn.style.cssText = 'width:100%;padding:6px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-family:inherit;background:var(--surface2);color:var(--text2);text-align:left';
+  thumbBtn.addEventListener('click', () => { toggleOrgThumb(); dd.remove(); });
+  dd.appendChild(thumbBtn);
+
+  const closeHandler = ev => {
+    if (!dd.contains(ev.target)) { dd.remove(); document.removeEventListener('click', closeHandler, true); }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+}
+window.openOrgTitleMenu = openOrgTitleMenu;
 
 // ═══ Filter toggle functions ═══
 
