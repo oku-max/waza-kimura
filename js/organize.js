@@ -156,8 +156,6 @@ export function initOrgFixedHeaders() {
     left += def.w;
   });
   _orgFixedLefts = {chk:0, thumb:40, title: _orgThumbVisible ? 116 : 40};
-  const _tbl = document.getElementById('orgTable');
-  if (_tbl) _tbl.classList.toggle('org-hide-thumb', !_orgThumbVisible);
 }
 
 export function toggleOrgThumb() {
