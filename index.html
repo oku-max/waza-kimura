@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.352</title>
+<title>WAZA KIMURA v52.353</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1089,7 +1089,7 @@
 .lib-sb-cv-box { display:flex;flex-wrap:wrap;gap:5px;padding:4px 0 6px;border:none !important;background:none !important;min-height:auto;border-radius:0; }
 .lib-sb-cv-box.cv-active { border:none;background:none; }
 /* Type D: pill chip ボタン（lib-sidebar内のみ） */
-.lib-sidebar .lvt-inner-btn { padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2); }
+.lib-sidebar .lvt-inner-btn { padding:5px 8px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);flex:1;text-align:center; }
 .lib-sidebar .lvt-inner-btn:hover { background:var(--surface3);border-color:var(--text2);color:var(--text); }
 .lib-sidebar .lvt-inner-btn.lvt-active { background:var(--text);color:var(--surface);border-color:var(--text); }
 .lib-sb-search { display:flex;align-items:center;gap:6px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2); }
@@ -1483,7 +1483,7 @@
           </div>
         </div>
         <div style="padding:10px 12px 8px;border-top:1px solid var(--border)">
-          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px">☑ 一括編集</button>
+          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" style="width:100%;font-family:inherit;font-size:11px;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;padding:2px 0">☑ 一括編集</button>
         </div>
         <div style="padding:0 12px 12px">
           <button onclick="clearAll()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px">リセット</button>
