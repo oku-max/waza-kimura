@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.326</title>
+<title>WAZA KIMURA v52.327</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -305,7 +305,8 @@
     const orgSi    = document.getElementById('si-org');
 
     if (mode === 'card') {
-      window._cvOnViewChange?.();
+      if (!window._cvInternalNav) window._cvOnViewChange?.();
+      window._cvInternalNav = false;
       _syncLibFilters('org');
       if (orgSi && libSi) libSi.value = orgSi.value;
       _transferLibBulk('card');
@@ -319,7 +320,8 @@
       if (orgC) orgC.style.display = 'none';
       window.AF?.();
     } else {
-      window._cvOnViewChange?.();
+      if (!window._cvInternalNav) window._cvOnViewChange?.();
+      window._cvInternalNav = false;
       _syncLibFilters('lib');
       if (libSi && orgSi) orgSi.value = libSi.value;
       _transferLibBulk('org');
