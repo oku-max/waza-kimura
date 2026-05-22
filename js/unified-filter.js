@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.334 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.336 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -47,6 +47,15 @@
     return words.every(w => hay.includes(w));
   }
 
+  // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
+  function _getCvBase() {
+    const cvIds = !_cvMode && (window._cvVideoIds || window._cvCardVideoIds);
+    if (cvIds && cvIds.size > 0) {
+      return (window.videos || []).filter(v => cvIds.has(v.id));
+    }
+    return window.videos || [];
+  }
+
   // ── ファセット用: excludeKey 以外の全フィルターを適用した動画 ──
   // _ctx='org' 時は orgFilters / orgXxxOnly を参照する
   function _ctxVideos(excludeKey) {
@@ -67,7 +76,7 @@
     const tkTags = isOrg ? 'tags'     : 'tags';
     // タイトルタブの検索クエリ — 他タブのファセット計算にも適用して双方向連動させる
     const _vidTabQ = _queries['video'];
-    return (window.videos || []).filter(v => {
+    return _getCvBase().filter(v => {
       if (v.archived) return false;
       if (!_matchMainQ(v)) return false;
       if (_vidTabQ) {
@@ -112,7 +121,7 @@
 
   function _collectTags() {
     const s = new Set();
-    (window.videos || []).forEach(v => (v.tags || []).forEach(t => t && s.add(t)));
+    _getCvBase().forEach(v => (v.tags || []).forEach(t => t && s.add(t)));
     return [...s].sort((a,b) => a.localeCompare(b,'ja'));
   }
 
