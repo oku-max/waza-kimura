@@ -385,6 +385,7 @@ function _addCvCols(view) {
       th.innerHTML = `<div class="th-inner" style="font-size:11px;cursor:pointer">${_esc(col.label)}<span class="cv-sort-ind" style="font-size:9px;margin-left:4px;color:${isSortActive ? 'var(--accent)' : 'var(--text3)'};opacity:${isSortActive ? '1' : '0.5'}">${sortIndText}</span><button class="cv-th-menu-btn" data-col-id="${col.id}" title="列オプション" style="margin-left:auto">▾</button></div>`;
       th.addEventListener('click', e => {
         if (e.target.closest('.cv-th-menu-btn')) return;
+        e.stopPropagation();
         openThDropdown(th, view, col.id);
       });
       th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
