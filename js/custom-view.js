@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.379 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.380 ═══
 (function () {
 'use strict';
 
@@ -782,6 +782,7 @@ window._cvSetCell = function(viewId, videoId, colId, val) {
   _save();
 };
 window._cvRemoveVideo = function(viewId, videoId) {
+  if (!confirm('本当に削除してよろしいですか？')) return;
   const view = _views.find(v => v.id === viewId);
   if (!view) return;
   view.videoIds = (view.videoIds || []).filter(id => id !== videoId);
