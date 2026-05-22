@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.353</title>
+<title>WAZA KIMURA v52.354</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -333,9 +333,9 @@
       if (orgHost)    orgHost.style.display    = '';
       if (cardBtn)    cardBtn.classList.remove('lvt-active');
       if (orgBtn)     orgBtn.classList.add('lvt-active');
-      if (orgActbar)  orgActbar.style.display  = '';
+      if (orgActbar)  orgActbar.style.display  = 'none'; // lib-sidebar統合済みのため常に非表示
       if (libC) libC.style.display = 'none';
-      if (orgC) orgC.style.display = '';
+      if (orgC) orgC.style.display = 'none';
       // filterSidebar は lib-sidebar に統合済みのため org mode でも非表示のまま
       if (fSidebar) fSidebar.style.setProperty('display', 'none', 'important');
       if (rz)       rz.style.setProperty('display', 'none', 'important');
