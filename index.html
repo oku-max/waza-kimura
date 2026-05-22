@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.338</title>
+<title>WAZA KIMURA v52.339</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -301,7 +301,7 @@
     const orgActbar = document.getElementById('organize-actionbar');
     const libC     = document.getElementById('fs-library-content');
     const orgC     = document.getElementById('fs-organize-content');
-    const libSi    = document.getElementById('si');
+    const libSi    = document.getElementById('si-lib-pc');
     const orgSi    = document.getElementById('si-org');
 
     if (mode === 'card') {
@@ -335,6 +335,25 @@
       if (orgC) orgC.style.display = '';
       window.renderOrg?.();
     }
+  };
+
+  // ── Library サイドバー開閉 ──
+  window.libSbToggle = function() {
+    const sb  = document.getElementById('libSidebar');
+    const ov  = document.getElementById('libSbOverlay');
+    const btn = document.getElementById('lib-sb-toggle-btn');
+    if (!sb) return;
+    const isOpen = sb.classList.toggle('open');
+    if (ov)  ov.classList.toggle('vis', isOpen);
+    if (btn) btn.classList.toggle('sb-open', isOpen);
+  };
+  window.libSbClose = function() {
+    const sb  = document.getElementById('libSidebar');
+    const ov  = document.getElementById('libSbOverlay');
+    const btn = document.getElementById('lib-sb-toggle-btn');
+    if (sb)  sb.classList.remove('open');
+    if (ov)  ov.classList.remove('vis');
+    if (btn) btn.classList.remove('sb-open');
   };
 
   window._libRandom = function() {
@@ -1043,6 +1062,29 @@
 .cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
 .cv-chip:hover { background:var(--surface3);color:var(--text) }
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
+/* ── Library サイドバー v52.339 ── */
+.lib-sidebar { width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .25s cubic-bezier(.4,0,.2,1);position:absolute;top:0;left:0;bottom:0;z-index:100;transform:translateX(-100%); }
+.lib-sidebar.open { transform:translateX(0);box-shadow:6px 0 32px rgba(0,0,0,.45); }
+.lib-sb-overlay { display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:99; }
+.lib-sb-overlay.vis { display:block; }
+.lib-sb-hdr { padding:11px 12px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
+.lib-sb-hdr-title { font-size:12px;font-weight:700;color:var(--text); }
+.lib-sb-close { background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);padding:2px 6px;border-radius:4px;line-height:1; }
+.lib-sb-close:hover { background:var(--border);color:var(--text); }
+.lib-sb-body { flex:1;overflow-y:auto;display:flex;flex-direction:column; }
+.lib-sb-section { padding:0 12px 12px;border-bottom:1px solid var(--border); }
+.lib-sb-sec-title { font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:10px 2px 7px;display:block; }
+.lib-sb-sec-title-cv { color:#4caf50;opacity:.55;transition:opacity .15s; }
+.lib-sb-sec-title-cv.cv-lbl-active { opacity:1; }
+.lib-sb-master-box { display:flex;align-items:center;gap:4px;padding:3px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2); }
+.lib-sb-cv-box { display:flex;align-items:center;gap:4px;padding:3px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface2);min-height:32px;transition:border-color .15s,background .15s; }
+.lib-sb-cv-box.cv-active { border-color:#4caf50;background:rgba(76,175,80,.07); }
+.lib-sb-search { display:flex;align-items:center;gap:6px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2); }
+.lib-sb-search input { flex:1;background:none;border:none;outline:none;color:var(--text);font-size:12px;font-family:inherit; }
+.lib-sb-search input::placeholder { color:var(--text3); }
+.lib-sb-toggle { padding:5px 9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;line-height:1.2;transition:background .12s,color .12s; }
+.lib-sb-toggle:hover { background:var(--surface2);color:var(--text); }
+.lib-sb-toggle.sb-open { background:var(--surface3);border-color:var(--text3);color:var(--text); }
 .cv-chip-del { font-size:10px;color:var(--text3);cursor:pointer;padding:1px 3px;border-radius:50% }
 .cv-chip-del:hover { background:rgba(255,80,80,.2);color:#ff5050 }
 .cv-col-vis-btn { display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;cursor:pointer;font-family:inherit }
@@ -1181,117 +1223,10 @@
     <div class="fs-nav-i" id="fnav-archive" onclick="switchTab('archive')" style="display:none"><span>◫</span> Archive</div>
   </nav>
 
-  <!-- 新サイドバー：Library / Organize 共通 -->
+  <!-- Library / Organize 共通（Libraryフィルターはlib-sidebarに移動済み v52.339） -->
   <div id="fs-library-content">
-
-    <!-- 固定上部：検索・ソート・一括編集 -->
-    <div style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--border)">
-      <!-- 検索 -->
-      <div class="tab-srch" style="width:100%;box-sizing:border-box">
-        <span style="color:var(--text3)">🔍</span>
-        <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.()" style="width:100%">
-      </div>
-      <button id="adv-search-btn-lib-pc" onclick="toggleAdvSearch()" style="width:100%;padding:5px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔎 詳細検索</button>
-      <!-- ソート + リセット -->
-      <div style="display:flex;align-items:center;gap:4px">
-        <select id="sort-key-pc" onchange="_setSortKey(this.value)" style="flex:1;font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-          <option value="addedAt">追加日</option>
-          <option value="title">タイトル</option>
-          <option value="status">習得度</option>
-          <option value="lastPlayed">最近再生した</option>
-          <option value="duration">再生時間</option>
-        </select>
-        <button class="sort-dir-btn" onclick="_toggleSortDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
-        <button onclick="clearAll()" style="font-size:11px;padding:4px 9px;border-radius:8px;border:1.5px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;font-weight:700" title="フィルターリセット">✕</button>
-      </div>
-      <!-- 一括編集 -->
-      <div id="fs-bulk-area2">
-        <button class="tab-bar-btn" id="fs-bulk-sel-btn" onclick="enterBulk()" style="width:100%">☑ 一括編集</button>
-      </div>
-    </div>
-
-    <!-- スクロールエリア（全フィルター） -->
-    <div class="fs-scroll" id="fs-accordion-area">
-
-      <!-- ═ 統合フィルターパネル 3ボタン ═ -->
-      <div class="fs-acc-sec">
-        <div class="fs-acc-hdr" onclick="uniOpen('state')">
-          <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="uni-open-ic" aria-hidden="true">+</span>
-        </div>
-      </div>
-      <div class="fs-acc-sec">
-        <div class="fs-acc-hdr" onclick="uniOpen('src')">
-          <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="uni-open-ic" aria-hidden="true">+</span>
-        </div>
-      </div>
-      <div class="fs-acc-sec">
-        <div class="fs-acc-hdr" onclick="uniOpen('tag')">
-          <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="uni-open-ic" aria-hidden="true">+</span>
-        </div>
-      </div>
-      <!-- 旧バッジID (互換) -->
-      <span id="fs-v4-btn-badge" style="display:none"></span>
-
-      <!-- Top / Bottom -->
-      <div class="fs-acc-sec" id="fs-acc-tb" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('tb', this)">
-          <span>Top / Bottom</span><span class="fs-acc-arrow" id="fs-acc-arr-tb">▶</span>
-        </div>
-      </div>
-
-      <!-- Action -->
-      <div class="fs-acc-sec" id="fs-acc-cat" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('cat', this)">
-          <span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-cat">▶</span>
-        </div>
-      </div>
-
-      <!-- Position -->
-      <div class="fs-acc-sec" id="fs-acc-pos" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('pos', this)">
-          <span>Position</span><span class="fs-acc-arrow" id="fs-acc-arr-pos">▶</span>
-        </div>
-      </div>
-
-      <!-- Technique -->
-      <div class="fs-acc-sec" id="fs-acc-tags" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('tags', this)">
-          <span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tags">▶</span>
-        </div>
-      </div>
-
-      <!-- 💾 保存した検索条件 -->
-      <div class="fs-acc-sec" id="fs-acc-saved">
-        <div class="fs-acc-hdr" onclick="toggleAcc('saved')">
-          <span>💾 保存した検索条件</span><span class="fs-acc-arrow" id="fs-acc-arr-saved">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-saved" style="display:none;padding:6px 12px 10px">
-          <div id="fs-saved-list" style="display:flex;flex-direction:column;gap:4px">
-            <div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>
-          </div>
-          <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px">＋ 現在の検索条件を保存</button>
-        </div>
-      </div>
-
-      <!-- 🕐 最近みた動画 (保存検索の下へ移動) -->
-      <div class="fs-acc-sec" id="fs-acc-recent">
-        <div class="fs-acc-hdr" onclick="toggleAcc('recent')">
-          <span>🕐 最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
-        </div>
-        <div class="fs-acc-body" id="fs-acc-body-recent" style="display:none;padding:4px 0 6px">
-          <div id="fs-recent-list"></div>
-        </div>
-      </div>
-
-      <!-- リセット -->
-      <div style="padding:12px">
-        <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">リセット</button>
-      </div>
-
-    </div><!-- /fs-accordion-area -->
+    <!-- フィルターエリアは lib-sidebar に移動済み（v52.339） -->
+    <div id="fs-accordion-area" style="display:none"></div>
 
     <!-- Organizeタブ用コンテンツ（Library非表示時に表示） -->
   </div><!-- /fs-library-content -->
@@ -1440,48 +1375,114 @@
 <!-- HOME -->
 
 <div class="tab-panel active" id="homeTab">
-  <!-- ビュー切替バー -->
-  <div class="lib-view-bar">
-    <!-- マスタービューグループ -->
-    <div class="lvt-group">
-      <div class="lvt-group-lbl">マスタービュー</div>
-      <div class="lvt-group-box">
-        <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
-        <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._libView('org')">📊 テーブル</button>
-      </div>
+  <!-- Library サイドバーオーバーレイ -->
+  <div class="lib-sb-overlay" id="libSbOverlay" onclick="libSbClose()"></div>
+  <!-- Library サイドバー -->
+  <div class="lib-sidebar" id="libSidebar">
+    <div class="lib-sb-hdr">
+      <span class="lib-sb-hdr-title">□ ライブラリ</span>
+      <button class="lib-sb-close" onclick="libSbClose()">✕</button>
     </div>
-    <div class="lvt-group-sep"></div>
-    <!-- カスタムビューグループ -->
-    <div class="lvt-group">
-      <div class="lvt-group-lbl lvt-group-lbl-cv" id="cv-group-lbl">カスタムビュー</div>
-      <div class="lvt-group-box" id="cv-group-box">
-        <button id="cv-main-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()">☰ 選択</button>
-        <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px">
-          <span onclick="window.cvOpenViewPicker()" style="display:flex;align-items:center;gap:5px;cursor:pointer">
-            <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;display:inline-block"></span>
-            <span id="cv-badge-text" style="font-size:12px;font-weight:600;color:#4caf50;white-space:nowrap">—</span>
-          </span>
-          <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1;padding:1px 3px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='rgba(76,175,80,.2)'" onmouseout="this.style.opacity='.7';this.style.background='transparent'">✏️</span>
-          <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1">×</span>
+    <div class="lib-sb-body">
+      <!-- ビュー切替 -->
+      <div class="lib-sb-section">
+        <span class="lib-sb-sec-title">マスタービュー</span>
+        <div class="lib-sb-master-box">
+          <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._libView('card')">📋 カード</button>
+          <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._libView('org')">📊 テーブル</button>
+        </div>
+        <span class="lib-sb-sec-title lib-sb-sec-title-cv" id="cv-group-lbl">カスタムビュー</span>
+        <div class="lib-sb-cv-box" id="cv-group-box">
+          <button id="cv-main-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()">☰ 選択</button>
+          <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px">
+            <span onclick="window.cvOpenViewPicker()" style="display:flex;align-items:center;gap:5px;cursor:pointer">
+              <span style="width:6px;height:6px;border-radius:50%;background:#4caf50;flex-shrink:0;display:inline-block"></span>
+              <span id="cv-badge-text" style="font-size:12px;font-weight:600;color:#4caf50;white-space:nowrap">—</span>
+            </span>
+            <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1;padding:1px 3px;border-radius:4px" onmouseover="this.style.opacity=1;this.style.background='rgba(76,175,80,.2)'" onmouseout="this.style.opacity='.7';this.style.background='transparent'">✏️</span>
+            <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;color:var(--text3);font-size:13px;line-height:1">×</span>
+          </div>
+        </div>
+      </div>
+      <!-- 検索 -->
+      <div class="lib-sb-section">
+        <div class="lib-sb-search">
+          <span style="color:var(--text3)">🔍</span>
+          <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
+          <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
+        </div>
+        <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔎 詳細検索</button>
+      </div>
+      <!-- フィルター + 保存 + 最近 + リセット -->
+      <div class="fs-scroll" style="flex:1">
+        <div class="fs-acc-sec">
+          <div class="fs-acc-hdr" onclick="uniOpen('state')">
+            <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+            <span class="uni-open-ic" aria-hidden="true">+</span>
+          </div>
+        </div>
+        <div class="fs-acc-sec">
+          <div class="fs-acc-hdr" onclick="uniOpen('src')">
+            <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+            <span class="uni-open-ic" aria-hidden="true">+</span>
+          </div>
+        </div>
+        <div class="fs-acc-sec">
+          <div class="fs-acc-hdr" onclick="uniOpen('tag')">
+            <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+            <span class="uni-open-ic" aria-hidden="true">+</span>
+          </div>
+        </div>
+        <span id="fs-v4-btn-badge" style="display:none"></span>
+        <div class="fs-acc-sec" id="fs-acc-tb" style="display:none">
+          <div class="fs-acc-hdr" onclick="openSbPopup('tb', this)"><span>Top / Bottom</span><span class="fs-acc-arrow" id="fs-acc-arr-tb">▶</span></div>
+        </div>
+        <div class="fs-acc-sec" id="fs-acc-cat" style="display:none">
+          <div class="fs-acc-hdr" onclick="openSbPopup('cat', this)"><span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-cat">▶</span></div>
+        </div>
+        <div class="fs-acc-sec" id="fs-acc-pos" style="display:none">
+          <div class="fs-acc-hdr" onclick="openSbPopup('pos', this)"><span>Position</span><span class="fs-acc-arrow" id="fs-acc-arr-pos">▶</span></div>
+        </div>
+        <div class="fs-acc-sec" id="fs-acc-tags" style="display:none">
+          <div class="fs-acc-hdr" onclick="openSbPopup('tags', this)"><span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tags">▶</span></div>
+        </div>
+        <div class="fs-acc-sec" id="fs-acc-saved">
+          <div class="fs-acc-hdr" onclick="toggleAcc('saved')">
+            <span>💾 保存した検索条件</span><span class="fs-acc-arrow" id="fs-acc-arr-saved">▶</span>
+          </div>
+          <div class="fs-acc-body" id="fs-acc-body-saved" style="display:none;padding:6px 12px 10px">
+            <div id="fs-saved-list" style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>
+            </div>
+            <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px">＋ 現在の検索条件を保存</button>
+          </div>
+        </div>
+        <div class="fs-acc-sec" id="fs-acc-recent">
+          <div class="fs-acc-hdr" onclick="toggleAcc('recent')">
+            <span>🕐 最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
+          </div>
+          <div class="fs-acc-body" id="fs-acc-body-recent" style="display:none;padding:4px 0 6px">
+            <div id="fs-recent-list"></div>
+          </div>
+        </div>
+        <div style="padding:12px">
+          <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">リセット</button>
         </div>
       </div>
     </div>
   </div>
   <!-- カスタムビューツールバー -->
   <div id="cv-toolbar" style="display:none;flex-shrink:0;align-items:center;gap:8px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
-  <!-- Library操作バー（モバイル・タブレット表示） -->
+  <!-- Library操作バー -->
   <div class="tab-actionbar" id="library-actionbar">
-    <button id="filter-toggle-btn" onclick="openFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
+    <button class="lib-sb-toggle" id="lib-sb-toggle-btn" onclick="libSbToggle()">≡</button>
+    <button id="filter-toggle-btn" style="display:none"></button>
     <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
     <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn">☑ 一括編集</button>
-    <div style="display:flex;gap:4px;align-items:center;flex:1;min-width:0">
-      <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'flex':'none'"></div>
-      <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🔎 詳細</button>
-    </div>
-    <button id="si-clear" onclick="document.getElementById('si').value='';window.AF?.();this.style.display='none'" style="display:none;align-items:center;padding:4px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;letter-spacing:.3px">× 解除</button>
   </div>
   <!-- Organize操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="organize-actionbar" style="display:none">
+    <button class="lib-sb-toggle" onclick="libSbToggle()" style="margin-right:4px">≡</button>
     <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
     <button id="org-filter-reset-btn" onclick="clearOrgFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
     <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>

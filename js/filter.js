@@ -85,7 +85,7 @@ export function _syncChipsToState() {
   }
   // Search clear button
   const siClear = document.getElementById('si-clear');
-  if (siClear) siClear.style.display = (document.getElementById('si')?.value) ? 'flex' : 'none';
+  if (siClear) siClear.style.display = (document.getElementById('si-lib-pc') || document.getElementById('si'))?.value ? 'flex' : 'none';
 }
 
 // popstate は index.html の一元バックボタンハンドラに統合済み
@@ -499,7 +499,7 @@ export function AF() {
   const rc = document.getElementById('rc'); if (rc) rc.textContent = f.length + ' 本 表示中';
   const rct = document.getElementById('rc-topbar');
   if (rct) {
-    const siEl = document.getElementById('si');
+    const siEl = document.getElementById('si-lib-pc') || document.getElementById('si');
     const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || (siEl && siEl.value.trim());
     rct.textContent = f.length + ' 件';
     rct.style.display = hasFilter ? 'inline' : 'none';
