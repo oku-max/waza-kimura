@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.328 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.329 ═══
 (function () {
 'use strict';
 
@@ -1791,6 +1791,7 @@ window.cvConfirm = function() {
   _save();
   window.cvCloseModal();
   _showView(id);
+  window.cvOpenConditionEditor(id);
 };
 
 // ── 条件再編集 ──
