@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.321 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.322 ═══
 (function () {
 'use strict';
 
@@ -132,18 +132,93 @@ function _stdCell(v, col) {
 
 // ── ビューバー描画 ──
 function _renderViewBar() {
-  const host = document.getElementById('cv-chips-host');
-  if (!host) return;
-  host.innerHTML = '';
-  _views.forEach(view => {
-    const btn = document.createElement('button');
-    btn.className = 'cv-chip' + (view.id === _curId ? ' active' : '');
-    btn.dataset.viewId = view.id;
-    const icon = view.saveMode === 'dynamic' ? '🔄' : '📌';
-    btn.innerHTML = `<span>${icon} ${_esc(view.label)}</span><span class="cv-chip-del" onclick="event.stopPropagation();window._cvDeleteView('${view.id}')" title="削除">×</span>`;
-    btn.addEventListener('click', () => _showView(view.id));
-    host.appendChild(btn);
-  });
+  const mainBtn   = document.getElementById('cv-main-btn');
+  const badge     = document.getElementById('cv-selected-badge');
+  const badgeText = document.getElementById('cv-badge-text');
+  if (!mainBtn || !badge) return;
+  if (_curId) {
+    const view = _views.find(v => v.id === _curId);
+    if (view) {
+      const icon = view.saveMode === 'dynamic' ? '🔄' : '📌';
+      badgeText.textContent = icon + ' ' + view.label;
+      badge.style.display = 'flex';
+      mainBtn.style.display = 'none';
+      return;
+    }
+  }
+  badge.style.display = 'none';
+  mainBtn.style.display = '';
+}
+
+// ── カスタムビュー選択モーダル ──
+window.cvOpenViewPicker = function() {
+  let el = document.getElementById('cv-picker-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cv-picker-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;display:flex;align-items:center;justify-content:center';
+    el.addEventListener('click', e => { if (e.target === el) _closePicker(); });
+    document.body.appendChild(el);
+  }
+  el.innerHTML = _buildPickerHTML();
+  el.style.display = 'flex';
+};
+
+function _buildPickerHTML() {
+  const items = _views.map(v => {
+    const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
+    const modeLbl = v.saveMode === 'dynamic' ? '条件で自動選択' : '手動選択';
+    const cnt = v.saveMode === 'dynamic'
+      ? (v.filterConditions ? _applyConditions(v.filterConditions, window.videos || []).length : 0)
+      : (v.videoIds || []).length;
+    const isActive = v.id === _curId;
+    return `<div class="cv-picker-item${isActive ? ' active' : ''}" onclick="window._cvPickerSelect('${v.id}')">
+      <span class="cv-picker-icon">${icon}</span>
+      <span class="cv-picker-info"><span class="cv-picker-name">${_esc(v.label)}</span><span class="cv-picker-meta">${modeLbl} · ${cnt}本</span></span>
+      <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
+    </div>`;
+  }).join('');
+
+  const clearRow = _curId ? `
+    <div class="cv-picker-divider"></div>
+    <div class="cv-picker-item cv-picker-clear" onclick="window._cvClearSelection();_closePicker()">
+      <span class="cv-picker-icon" style="font-size:14px">✕</span>
+      <span class="cv-picker-info"><span class="cv-picker-name" style="color:#e06060">選択を解除</span><span class="cv-picker-meta">ライブラリ全件に戻る</span></span>
+    </div>` : '';
+
+  return `<div class="cv-picker-modal">
+    <div class="cv-picker-header">
+      <span style="font-size:14px;font-weight:700">カスタムビュー</span>
+      <button onclick="_closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div class="cv-picker-body">
+      ${items || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">ビューがありません</div>'}
+      <div class="cv-picker-divider"></div>
+      ${clearRow}
+      <div class="cv-picker-item cv-picker-new" onclick="_closePicker();window.cvOpenNewModal()">
+        <span class="cv-picker-icon" style="color:var(--accent);font-size:18px">＋</span>
+        <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+window._cvPickerSelect = function(id) {
+  _closePicker();
+  _showView(id);
+};
+
+window._cvClearSelection = function() {
+  _curId = null;
+  window._cvVideoIds = null;
+  window._cvCardVideoIds = null;
+  window._cvOnViewChange?.();
+  window._libView?.(window._libViewMode || 'card');
+};
+
+function _closePicker() {
+  const el = document.getElementById('cv-picker-overlay');
+  if (el) el.style.display = 'none';
 }
 
 // ── ビュー切替 ──
