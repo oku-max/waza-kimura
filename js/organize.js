@@ -1939,7 +1939,7 @@ export function openOrgColFilter(col, thEl) {
   }
 
   // ── ソートボタン ──
-  if (sortableCols.includes(col) && col !== 'channel' && col !== 'playlist') {
+  if (sortableCols.includes(col)) {
     const sortRow = document.createElement('div');
     sortRow.style.cssText = 'display:flex;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--border)';
     const mkSortBtn = (label, asc) => {

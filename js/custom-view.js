@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.375 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.376 ═══
 (function () {
 'use strict';
 
@@ -883,12 +883,15 @@ function closePopup() {
 }
 
 // ── TH ドロップダウン（ソート・再設定・フィルター・操作を統合） ──
-let _openThDdColId = null, _openThDdViewId = null;
+let _openThDdColId = null, _openThDdViewId = null, _openThDdLastTime = 0;
 function openThDropdown(btn, view, colId) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
   const col = view.columns.find(c => c.id === colId);
   if (!col) return;
+  const _now = Date.now();
+  if (_now - _openThDdLastTime < 350) return;
+  _openThDdLastTime = _now;
   const _isSameDd = (_openThDdColId === colId && _openThDdViewId === view.id);
   closeFilterPopup(); closePopup();
   closeThDropdown();
