@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.324 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.325 ═══
 (function () {
 'use strict';
 
@@ -181,7 +181,7 @@ function _buildPickerHTML() {
 
   const clearRow = _curId ? `
     <div class="cv-picker-divider"></div>
-    <div class="cv-picker-item cv-picker-clear" onclick="window._cvClearSelection();_closePicker()">
+    <div class="cv-picker-item cv-picker-clear" onclick="window._cvClearSelection();window._closePicker()">
       <span class="cv-picker-icon" style="font-size:14px">✕</span>
       <span class="cv-picker-info"><span class="cv-picker-name" style="color:#e06060">選択を解除</span><span class="cv-picker-meta">ライブラリ全件に戻る</span></span>
     </div>` : '';
@@ -189,15 +189,15 @@ function _buildPickerHTML() {
   return `<div class="cv-picker-modal">
     <div class="cv-picker-header">
       <span style="font-size:14px;font-weight:700">カスタムビュー</span>
-      <button onclick="_closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
+      <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
     </div>
     <div class="cv-picker-body">
       ${items || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">ビューがありません</div>'}
       <div class="cv-picker-divider"></div>
       ${clearRow}
-      <div class="cv-picker-item cv-picker-new" onclick="_closePicker();window.cvOpenNewModal()">
+      <div class="cv-picker-item cv-picker-new" onclick="window._closePicker();window.cvOpenNewModal()">
         <span class="cv-picker-icon" style="color:var(--accent);font-size:18px">＋</span>
-        <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
+        <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいカスタムビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
       </div>
     </div>
   </div>`;
@@ -216,10 +216,10 @@ window._cvClearSelection = function() {
   window._libView?.(window._libViewMode || 'card');
 };
 
-function _closePicker() {
+window._closePicker = function() {
   const el = document.getElementById('cv-picker-overlay');
   if (el) el.style.display = 'none';
-}
+};
 
 // ── ビュー切替 ──
 function _showView(id) {
@@ -231,10 +231,10 @@ function _showView(id) {
   if (!view) return;
 
   // このビューの動画だけ見せるフィルター
-  const videoIds = view.saveMode === 'dynamic' && view.filterConditions
-    ? _applyConditions(view.filterConditions, window.videos || []).map(v => v.id)
-    : (view.videoIds || []);
+  const viewVideos = _getViewVideos(view);
+  const videoIds = viewVideos.map(v => v.id);
   window._cvVideoIds = new Set(videoIds);
+  window._vpFilteredList = viewVideos.length ? viewVideos : null;
 
   if ((view.viewType || 'table') === 'card') {
     window._cvCardVideoIds = window._cvVideoIds;
@@ -449,6 +449,7 @@ function _cvUpdateSearch(view) {
   const videos = _getViewVideos(view);
   const filtered = q ? videos.filter(v => (v.title || '').toLowerCase().includes(q)) : videos;
   window._cvVideoIds = new Set(filtered.map(v => v.id));
+  window._vpFilteredList = filtered.length ? filtered : null;
   window.renderOrg?.();
 }
 
@@ -1915,6 +1916,7 @@ window._cvOnViewChange = function() {
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
   window._cvAfterRender = null;
+  window._vpFilteredList = null;
   document.querySelectorAll('#orgTheadRow .cv-custom-th').forEach(el => el.remove());
   const filterBtn = document.getElementById('org-filter-toggle-btn');
   if (filterBtn) {
