@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.377 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.378 ═══
 (function () {
 'use strict';
 
@@ -115,11 +115,24 @@ function getOptionColor(options, value) {
 }
 
 // ── Storage ──
+// _nextColId を既存データの最大値に更新（セッション跨ぎの ID 重複防止）
+function _syncNextColId() {
+  _views.forEach(v => {
+    (v.columns || []).forEach(c => {
+      if (c.id && c.id.startsWith('col')) {
+        const n = parseInt(c.id.slice(3));
+        if (!isNaN(n) && n > _nextColId) _nextColId = n;
+      }
+    });
+  });
+}
+
 function _load() {
   try {
     const raw = localStorage.getItem('wk_cv_views');
     if (raw) _views = JSON.parse(raw);
     _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
+    _syncNextColId();
     const prefs = localStorage.getItem('wk_cv_col_prefs');
     if (prefs) { const p = JSON.parse(prefs); cvColOrder = p.order || cvColOrder; cvColVisibility = p.vis || cvColVisibility; }
   } catch(e) { _views = []; }
@@ -883,16 +896,18 @@ function closePopup() {
 }
 
 // ── TH ドロップダウン（ソート・再設定・フィルター・操作を統合） ──
-let _openThDdColId = null, _openThDdViewId = null, _openThDdLastTime = 0;
+let _openThDdColIdx = null, _openThDdViewId = null, _openThDdLastTime = 0;
 function openThDropdown(btn, view, colId) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
-  // 最新の _views から取得（stale closure 対策）
+  // TH の DOM 位置で列を特定（ID 重複があっても正しい列を返す）
+  const allCustomThs = Array.from(document.querySelectorAll('#orgTheadRow .cv-custom-th'));
+  const thIdx = allCustomThs.indexOf(btn);
   const currentView = _views.find(v => v.id === view.id) || view;
-  const col = currentView.columns.find(c => c.id === colId);
+  const col = (thIdx >= 0 ? currentView.columns[thIdx] : null) || currentView.columns.find(c => c.id === colId);
   if (!col) return;
   const _now = Date.now();
-  const _isSameDd = (_openThDdColId === colId && _openThDdViewId === currentView.id);
+  const _isSameDd = (_openThDdColIdx === thIdx && _openThDdViewId === currentView.id);
   const _timeDiff = _now - _openThDdLastTime;
   // 必ず先に既存ドロップダウンを閉じる（古い内容が残る問題を防ぐ）
   closeFilterPopup(); closePopup();
@@ -902,7 +917,7 @@ function openThDropdown(btn, view, colId) {
   // 異なる列を 100ms 以内 → ファントムクリック防止
   if (!_isSameDd && _timeDiff < 100) return;
   _openThDdLastTime = _now;
-  _openThDdColId = colId; _openThDdViewId = currentView.id;
+  _openThDdColIdx = thIdx; _openThDdViewId = currentView.id;
   dd.innerHTML = '';
   dd.style.cssText = 'position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:230px;max-width:270px;max-height:80vh;overflow-y:auto;padding:0';
 
@@ -1044,7 +1059,7 @@ function _mkSec(title) {
 }
 
 function closeThDropdown() {
-  _openThDdColId = null; _openThDdViewId = null;
+  _openThDdColIdx = null; _openThDdViewId = null;
   const dd = document.getElementById('cv-th-dropdown');
   if (dd) dd.style.display = 'none';
   _filterCtx = null;
@@ -2052,6 +2067,7 @@ window._cvApplyLoadedViews = function(views) {
   if (!Array.isArray(views)) return;
   _views = views;
   _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
+  _syncNextColId();
   _renderViewBar();
   // アクティブなテーブルビューがある場合、列ヘッダーを最新データで再構築（stale closure 対策）
   if (_curId) {
