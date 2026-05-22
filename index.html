@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.354</title>
+<title>WAZA KIMURA v52.355</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1483,7 +1483,7 @@
           </div>
         </div>
         <div style="padding:10px 12px 8px;border-top:1px solid var(--border)">
-          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" style="width:100%;font-family:inherit;font-size:11px;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;padding:2px 0">☑ 一括編集</button>
+          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():(window._libViewMode==='org'?enterBulk('organize'):enterBulk())" style="width:100%;font-family:inherit;font-size:11px;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;padding:2px 0">☑ 一括編集</button>
         </div>
         <div style="padding:0 12px 12px">
           <button onclick="clearAll()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px">リセット</button>
