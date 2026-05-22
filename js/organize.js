@@ -109,9 +109,11 @@ export function initOrgFixedHeaders() {
   if (!thead) return;
   // 毎回再構築（guardなし）
   [...thead.querySelectorAll('th[data-fixed]')].forEach(el => el.remove());
+  const _bulkOrg = !!(window.bulkMode && window.bulkCtx === 'organize');
+  const chkW   = _bulkOrg ? 40 : 0;
   const thumbW = _orgThumbVisible ? 76 : 0;
   const fixedDefs = [
-    {key:'chk',   w:40,     label:''},
+    {key:'chk',   w:chkW,   label:''},
     {key:'thumb', w:thumbW, label:''},
     {key:'title', w:180, label:'Title', sep:true, sortKey:'title'},
   ];
@@ -740,6 +742,7 @@ export function renderOrg() {
   if (tableWrap) tableWrap.style.display = '';
 
   const selIds = window.selIds || new Set();
+  const bulkOrg = !!(window.bulkMode && window.bulkCtx === 'organize');
   const tbody = document.getElementById('orgList');
   if (!tbody) return;
 
@@ -815,8 +818,8 @@ export function renderOrg() {
     }).join('');
 
     return `<tr class="org-tr" id="org-row-${v.id}">
-      <td class="org-td org-td-fixed org-td-fixed-chk" style="padding:6px 6px" id="org-chk-cell-${v.id}">
-        <input type="checkbox" id="org-cb-${v.id}" ${selIds.has(v.id)?'checked':''} onchange="orgTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">
+      <td class="org-td org-td-fixed org-td-fixed-chk"${bulkOrg ? ' style="padding:6px 6px"' : ''} id="org-chk-cell-${v.id}">
+        ${bulkOrg ? `<input type="checkbox" id="org-cb-${v.id}" ${selIds.has(v.id)?'checked':''} onchange="orgTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">` : ''}
       </td>
       <td class="org-td org-td-fixed org-td-fixed-thumb"${_orgThumbVisible ? ' style="padding:6px 8px"' : ''}>
         ${_orgThumbVisible ? `<img class="org-thumb" src="${thumb}" onerror="this.style.background='var(--surface3)'" onclick="openVPanel('${v.id}')">` : ''}
@@ -938,7 +941,7 @@ export function syncOrgColHeaders() {
   // テーブル幅を全列の合計に明示設定（width:max-contentによる列幅の再分配を防止）
   const table = thead.closest('table');
   if (table) {
-    const fixedW = 40 + (_orgThumbVisible ? 76 : 0) + 180; // chk + thumb + title
+    const fixedW = (!!(window.bulkMode && window.bulkCtx === 'organize') ? 40 : 0) + (_orgThumbVisible ? 76 : 0) + 180; // chk + thumb + title
     let scrollW = 0;
     thead.querySelectorAll('th[data-col]').forEach(th => {
       scrollW += th.offsetWidth || parseInt(th.style.width) || 120;
