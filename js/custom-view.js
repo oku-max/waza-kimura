@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.378 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.379 ═══
 (function () {
 'use strict';
 
@@ -399,11 +399,11 @@ function _addCvCols(view) {
       th.addEventListener('click', e => {
         if (e.target.closest('.cv-th-menu-btn')) return;
         e.stopPropagation();
-        openThDropdown(th, view, col.id);
+        openThDropdown(th, view, col);
       });
       th.querySelector('.cv-th-menu-btn')?.addEventListener('click', e => {
         e.stopPropagation();
-        openThDropdown(th, view, col.id);
+        openThDropdown(th, view, col);
       });
       th.addEventListener('dblclick', e => { e.stopPropagation(); e.preventDefault(); });
       // ドラッグ&ドロップで列順変更
@@ -896,28 +896,23 @@ function closePopup() {
 }
 
 // ── TH ドロップダウン（ソート・再設定・フィルター・操作を統合） ──
-let _openThDdColIdx = null, _openThDdViewId = null, _openThDdLastTime = 0;
-function openThDropdown(btn, view, colId) {
+let _openThDdCol = null, _openThDdViewId = null, _openThDdLastTime = 0;
+// col はクロージャから直接渡される列オブジェクト（find/indexOf 不要、重複IDにも対応）
+function openThDropdown(btn, view, col) {
   const dd = document.getElementById('cv-th-dropdown');
   if (!dd) return;
-  // TH の DOM 位置で列を特定（ID 重複があっても正しい列を返す）
-  const allCustomThs = Array.from(document.querySelectorAll('#orgTheadRow .cv-custom-th'));
-  const thIdx = allCustomThs.indexOf(btn);
+  if (!col || !col.type) return;
   const currentView = _views.find(v => v.id === view.id) || view;
-  const col = (thIdx >= 0 ? currentView.columns[thIdx] : null) || currentView.columns.find(c => c.id === colId);
-  if (!col) return;
   const _now = Date.now();
-  const _isSameDd = (_openThDdColIdx === thIdx && _openThDdViewId === currentView.id);
+  const _isSameDd = (_openThDdCol === col && _openThDdViewId === currentView.id);
   const _timeDiff = _now - _openThDdLastTime;
   // 必ず先に既存ドロップダウンを閉じる（古い内容が残る問題を防ぐ）
   closeFilterPopup(); closePopup();
   closeThDropdown();
   // 同じ列を 350ms 以内に再タップ → トグルで閉じる
   if (_isSameDd && _timeDiff < 350) return;
-  // 異なる列を 100ms 以内 → ファントムクリック防止
-  if (!_isSameDd && _timeDiff < 100) return;
   _openThDdLastTime = _now;
-  _openThDdColIdx = thIdx; _openThDdViewId = currentView.id;
+  _openThDdCol = col; _openThDdViewId = currentView.id;
   dd.innerHTML = '';
   dd.style.cssText = 'position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);min-width:230px;max-width:270px;max-height:80vh;overflow-y:auto;padding:0';
 
@@ -1031,7 +1026,7 @@ function openThDropdown(btn, view, colId) {
   delBtn.innerHTML = '🗑 列を削除';
   delBtn.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;background:none;border:none;border-radius:6px;cursor:pointer;font-size:12px;color:#e53e3e';
   delBtn.addEventListener('click', () => {
-    if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = currentView.columns.findIndex(c => c.id === colId); if (idx >= 0) currentView.columns.splice(idx, 1); Object.keys(currentView.rowData).forEach(vid => delete currentView.rowData[vid][colId]); _save(); _renderTable(currentView); }
+    if (confirm(`列「${col.label}」を削除しますか？`)) { const idx = currentView.columns.indexOf(col); if (idx >= 0) currentView.columns.splice(idx, 1); Object.keys(currentView.rowData).forEach(vid => delete currentView.rowData[vid][col.id]); _save(); _renderTable(currentView); }
     closeThDropdown();
   });
   actSec.appendChild(renameBtn); actSec.appendChild(delBtn);
@@ -1059,7 +1054,7 @@ function _mkSec(title) {
 }
 
 function closeThDropdown() {
-  _openThDdColIdx = null; _openThDdViewId = null;
+  _openThDdCol = null; _openThDdViewId = null;
   const dd = document.getElementById('cv-th-dropdown');
   if (dd) dd.style.display = 'none';
   _filterCtx = null;
