@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.335 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.337 ═══
 (function () {
 'use strict';
 
@@ -314,8 +314,6 @@ function _showView(id) {
       filterBtn.textContent = '☰ フィルター';
       filterBtn.onclick = () => window.openOrgFilterOverlay?.();
     }
-    const advBtn = document.getElementById('adv-search-btn-mob');
-    if (advBtn) advBtn.style.display = 'none';
     // 初回のみグローバル列設定をバックアップ
     if (_cvSavedOrgColOrder === null) {
       _cvSavedOrgColOrder = [...(window.orgColOrder || [])];
@@ -1982,8 +1980,6 @@ window._cvOnViewChange = function() {
     filterBtn.textContent = '☰ フィルター';
     filterBtn.onclick = () => window.openOrgFilterOverlay?.();
   }
-  const advBtn = document.getElementById('adv-search-btn-mob');
-  if (advBtn) advBtn.style.display = '';
   // グローバル列設定を復元
   if (_cvSavedOrgColOrder !== null) {
     window.orgColOrder      = _cvSavedOrgColOrder;

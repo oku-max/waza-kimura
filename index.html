@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.336</title>
+<title>WAZA KIMURA v52.337</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4195,35 +4195,6 @@ window.addEventListener('resize', adjustTopbarOffset);
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-tech" checked style="accent-color:var(--accent);width:14px;height:14px"> タグ</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer"><input type="checkbox" id="adv-f-memo" style="accent-color:var(--accent);width:14px;height:14px"> メモ</label>
         </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:3px">
-        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">動画の長さ</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="adv-dur-min" type="number" placeholder="0" min="0" style="width:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface);color:var(--text)">
-          <span style="font-size:10px;color:var(--text3)">分〜</span>
-          <input id="adv-dur-max" type="number" placeholder="∞" min="0" style="width:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;background:var(--surface);color:var(--text)">
-          <span style="font-size:10px;color:var(--text3)">分</span>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:3px">
-        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">追加日</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="adv-date-from" type="date" style="flex:1;padding:6px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:10px;background:var(--surface);color:var(--text);font-family:inherit">
-          <span style="font-size:10px;color:var(--text3)">〜</span>
-          <input id="adv-date-to" type="date" style="flex:1;padding:6px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:10px;background:var(--surface);color:var(--text);font-family:inherit">
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:3px">
-        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">ソース</label>
-        <select id="adv-source" style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;background:var(--surface);color:var(--text);font-family:inherit">
-          <option value="">すべて</option><option value="youtube">YouTube</option><option value="vimeo">Vimeo</option><option value="gdrive">Google Drive</option><option value="x">X (Twitter)</option>
-        </select>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:3px">
-        <label style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">状態</label>
-        <select id="adv-status" style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;background:var(--surface);color:var(--text);font-family:inherit">
-          <option value="">すべて</option><option value="fav">★ Favのみ</option><option value="unseen">未視聴のみ</option><option value="watched">視聴済みのみ</option><option value="bm">ブックマークあり</option><option value="memo">メモあり</option>
-        </select>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:12px">
