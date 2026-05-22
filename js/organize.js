@@ -818,8 +818,8 @@ export function renderOrg() {
       <td class="org-td org-td-fixed org-td-fixed-chk" style="padding:6px 6px" id="org-chk-cell-${v.id}">
         <input type="checkbox" id="org-cb-${v.id}" ${selIds.has(v.id)?'checked':''} onchange="orgTogSel('${v.id}',this)" onclick="event.stopPropagation()" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">
       </td>
-      <td class="org-td org-td-fixed org-td-fixed-thumb" style="padding:6px 8px">
-        <img class="org-thumb" src="${thumb}" onerror="this.style.background='var(--surface3)'" onclick="openVPanel('${v.id}')">
+      <td class="org-td org-td-fixed org-td-fixed-thumb"${_orgThumbVisible ? ' style="padding:6px 8px"' : ''}>
+        ${_orgThumbVisible ? `<img class="org-thumb" src="${thumb}" onerror="this.style.background='var(--surface3)'" onclick="openVPanel('${v.id}')">` : ''}
       </td>
       <td class="org-td org-td-fixed org-td-fixed-title org-col-sep" onclick="openVPanel('${v.id}')">
         <div class="org-title-text">${v.title}</div>
