@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.322 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.323 ═══
 (function () {
 'use strict';
 
@@ -1794,14 +1794,19 @@ window.cvOpenConditionEditor = function(viewId) {
   _editingViewId = viewId;
   _cvSelectedIds = new Set(view.videoIds || []);
   window._cvSelectionMode = view.saveMode === 'dynamic' ? 'condition' : 'manual';
+  const f = window.filters || {};
+  // まず全フィルターをリセット
+  ['tb','cat','posNew','channel','playlist','tags'].forEach(k => f[k]?.clear());
+  window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
   if (view.saveMode === 'dynamic' && view.filterConditions) {
+    // 条件モード: 保存済み条件を復元
     const fc = view.filterConditions;
-    const f = window.filters || {};
-    if (f.tb)       { f.tb.clear();       (fc.tb  ||[]).forEach(x => f.tb.add(x)); }
-    if (f.cat)      { f.cat.clear();      (fc.cat ||[]).forEach(x => f.cat.add(x)); }
-    if (f.posNew)   { f.posNew.clear();   (fc.pos ||[]).forEach(x => f.posNew.add(x)); }
-    if (f.channel)  { f.channel.clear();  (fc.ch  ||[]).forEach(x => f.channel.add(x)); }
-    if (f.playlist) { f.playlist.clear(); (fc.pl  ||[]).forEach(x => f.playlist.add(x)); }
+    if (f.tb)       (fc.tb  ||[]).forEach(x => f.tb.add(x));
+    if (f.cat)      (fc.cat ||[]).forEach(x => f.cat.add(x));
+    if (f.posNew)   (fc.pos ||[]).forEach(x => f.posNew.add(x));
+    if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
+    if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
+    if (f.tags)     (fc.tech||[]).forEach(x => f.tags.add(x));
   }
   window.uniOpenForCv(viewId);
 };
