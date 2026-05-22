@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.323 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.324 ═══
 (function () {
 'use strict';
 
@@ -246,6 +246,8 @@ function _showView(id) {
       window._cvInternalNav = true;
       window._libView?.('card');
     }
+    document.getElementById('lvt-card')?.classList.remove('lvt-active');
+    document.getElementById('lvt-org')?.classList.remove('lvt-active');
   } else {
     window._cvCardVideoIds = null;
     window._cvAfterRender = () => _addCvCols(view);
@@ -282,6 +284,8 @@ function _showView(id) {
       if (siOrg) siOrg.value = '';
       window._cvInternalNav = true;
       window._libView?.('org');
+      document.getElementById('lvt-card')?.classList.remove('lvt-active');
+      document.getElementById('lvt-org')?.classList.remove('lvt-active');
     }
   }
 }
