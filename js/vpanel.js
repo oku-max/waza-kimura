@@ -1,4 +1,4 @@
-﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.381 ═══
+﻿// ═══ WAZA KIMURA — 動画パネル（VPanel） v52.382 ═══
 // YouTube iFrame Player API対応版
 // モバイル用(#vpanel)・PC用(#vp-panel)両対応
 
@@ -3328,6 +3328,13 @@ window.vpTogMoreMenu = function(e, id) {
   const driveSvg   = mkSvg('<path d="M7.71 3.5L1.15 15l3.43 5.5h15.84l3.43-5.5L18.29 3.5H7.71zm.71 9.5l3.58-6h4l3.58 6H8.42z"/>');
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
+
+  // ── 現在位置でブックマーク（最上部）──
+  const bmSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>`;
+  const bmi = _menuItem(bmSvg, '現在位置でブックマーク', '再生中の時間を記録');
+  bmi.onclick = () => { closeMenu(); vpAddBm(id); };
+  menu.appendChild(bmi);
+  addDivider();
 
   const animItem = (el) => {
     el.classList.remove('vp-smenu-anim');
