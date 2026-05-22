@@ -1499,16 +1499,13 @@ body.admin-mode .verify-dot-ctrl{display:flex !important;}
 
 /* ═══ BULK MODE — P1: 一括操作バーをスクロール時も固定表示 ═══ */
 
-/* Library desktop (1200px+): results-header を lib-view-bar(47px)の下に fixed */
+/* Library desktop (1200px+): results-header sticky (push sidebar mode v52.341) */
 body.bulk-mode .results-header.bulk-transform {
-  position: fixed !important;
-  top: calc(var(--topbar-h, 72px) + 47px) !important;
-  left: var(--sbw, 0px);
-  right: 0;
+  position: sticky !important;
+  top: 0 !important;
   z-index: 75;
 }
-/* cardList: fixed になった results-header 分の余白を追加 */
-body.bulk-mode #cardList { padding-top: 46px; }
+body.bulk-mode #cardList { padding-top: 0; }
 
 /* Library mobile/tablet (< 1200px): lib-view-bar・actionbar・results-header を順に固定 */
 @media(max-width:1199px) {

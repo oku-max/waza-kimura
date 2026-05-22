@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.340</title>
+<title>WAZA KIMURA v52.341</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -946,7 +946,7 @@
 /* organizeTab と同じ fixed flex-column 構造 */
 #homeTab.active {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   position: fixed;
   top: var(--topbar-h, 72px);
   left: var(--sbw, 0px);
@@ -1059,11 +1059,11 @@
 .cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
 .cv-chip:hover { background:var(--surface3);color:var(--text) }
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
-/* ── Library サイドバー v52.339 ── */
-.lib-sidebar { width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .25s cubic-bezier(.4,0,.2,1);position:absolute;top:0;left:0;bottom:0;z-index:100;transform:translateX(-100%); }
-.lib-sidebar.open { transform:translateX(0);box-shadow:6px 0 32px rgba(0,0,0,.45); }
-.lib-sb-overlay { display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:99; }
-.lib-sb-overlay.vis { display:block; }
+/* ── Library サイドバー v52.341 (push mode) ── */
+.lib-sidebar { width:0;flex-shrink:0;background:var(--surface);border-right:0px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .25s cubic-bezier(.4,0,.2,1),border-right-width .25s; }
+.lib-sidebar.open { width:240px;border-right-width:1px; }
+.lib-main { flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden; }
+.lib-sb-filter-box { border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin:0 0 4px; }
 .lib-sb-hdr { padding:11px 12px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
 .lib-sb-hdr-title { font-size:12px;font-weight:700;color:var(--text); }
 .lib-sb-close { background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);padding:2px 6px;border-radius:4px;line-height:1; }
@@ -1374,19 +1374,13 @@
 <!-- HOME -->
 
 <div class="tab-panel active" id="homeTab">
-  <!-- Library サイドバーオーバーレイ -->
-  <div class="lib-sb-overlay" id="libSbOverlay" onclick="libSbClose()"></div>
-  <!-- Library サイドバー -->
+  <!-- Library サイドバー (push mode v52.341) -->
   <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr">
       <span class="lib-sb-hdr-title">□ ライブラリ</span>
       <button class="lib-sb-close" onclick="libSbClose()">✕</button>
     </div>
     <div class="lib-sb-body">
-      <!-- 一括編集 -->
-      <div class="lib-sb-section" style="padding-top:10px">
-        <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
-      </div>
       <!-- ビュー切替 -->
       <div class="lib-sb-section">
         <span class="lib-sb-sec-title" style="color:#4caf50;opacity:.9">マスタービュー</span>
@@ -1414,26 +1408,32 @@
           <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
           <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
         </div>
-        <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔎 詳細検索</button>
+        <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 0;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
       </div>
       <!-- フィルター + 保存 + 最近 + リセット -->
       <div class="fs-scroll" style="flex:1">
-        <div class="fs-acc-sec">
-          <div class="fs-acc-hdr" onclick="uniOpen('state')">
-            <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-            <span class="uni-open-ic" aria-hidden="true">+</span>
-          </div>
-        </div>
-        <div class="fs-acc-sec">
-          <div class="fs-acc-hdr" onclick="uniOpen('src')">
-            <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-            <span class="uni-open-ic" aria-hidden="true">+</span>
-          </div>
-        </div>
-        <div class="fs-acc-sec">
-          <div class="fs-acc-hdr" onclick="uniOpen('tag')">
-            <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-            <span class="uni-open-ic" aria-hidden="true">+</span>
+        <!-- フィルターボックス -->
+        <div style="padding:0 12px 8px">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;padding:10px 2px 7px">フィルター</span>
+          <div class="lib-sb-filter-box">
+            <div class="fs-acc-sec">
+              <div class="fs-acc-hdr" onclick="uniOpen('state')">
+                <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+                <span class="uni-open-ic" aria-hidden="true">+</span>
+              </div>
+            </div>
+            <div class="fs-acc-sec">
+              <div class="fs-acc-hdr" onclick="uniOpen('src')">
+                <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+                <span class="uni-open-ic" aria-hidden="true">+</span>
+              </div>
+            </div>
+            <div class="fs-acc-sec" style="border-bottom:none">
+              <div class="fs-acc-hdr" onclick="uniOpen('tag')">
+                <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
+                <span class="uni-open-ic" aria-hidden="true">+</span>
+              </div>
+            </div>
           </div>
         </div>
         <span id="fs-v4-btn-badge" style="display:none"></span>
@@ -1468,12 +1468,17 @@
             <div id="fs-recent-list"></div>
           </div>
         </div>
-        <div style="padding:12px">
+        <div style="padding:0 12px 8px">
+          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():enterBulk()" class="tab-bar-btn" style="width:100%">☑ 一括編集</button>
+        </div>
+        <div style="padding:0 12px 12px">
           <button onclick="clearAll()" style="width:100%;padding:10px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(107,63,212,.25);font-family:inherit">リセット</button>
         </div>
       </div>
     </div>
   </div>
+  <!-- メインコンテンツ (push sidebar wrapper v52.341) -->
+  <div class="lib-main" id="libMain">
   <!-- カスタムビューツールバー -->
   <div id="cv-toolbar" style="display:none;flex-shrink:0;align-items:center;gap:8px;padding:5px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
   <!-- filter-toggle-btn: hidden, kept for onboarding compat -->
@@ -1553,6 +1558,7 @@
       <div>動画が見つかりませんでした</div>
     </div>
   </div>
+  </div><!-- /lib-main -->
 </div>
 <!-- カスタムビュー: クイック追加モーダル（タイトル検索・最近見た） -->
 <div id="cv-quick-add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10002;align-items:center;justify-content:center" onclick="window.cvCloseQuickAdd()">
