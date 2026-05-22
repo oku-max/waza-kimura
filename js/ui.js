@@ -65,10 +65,6 @@ export function switchTab(t) {
     const settingsC = document.getElementById('fs-settings-content');
     if (t === 'home') {
       if (settingsC) settingsC.style.display = 'none';
-      const fsEl = document.getElementById('filterSidebar');
-      const rz   = document.getElementById('sbResizer');
-      if (fsEl) fsEl.style.removeProperty('display');
-      if (rz)   rz.style.removeProperty('display');
       window._libView?.(window._libViewMode || 'card');
     } else if (t === 'settings' || t === 'admin') {
       if (orgC) orgC.style.display = 'none';
