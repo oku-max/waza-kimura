@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.325 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.328 ═══
 (function () {
 'use strict';
 
@@ -176,6 +176,7 @@ function _buildPickerHTML() {
       <span class="cv-picker-icon">${icon}</span>
       <span class="cv-picker-info"><span class="cv-picker-name">${_esc(v.label)}</span><span class="cv-picker-meta">${modeLbl} · ${cnt}本</span></span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
+      <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">編集</button>
     </div>`;
   }).join('');
 
@@ -253,8 +254,8 @@ function _showView(id) {
     window._cvAfterRender = () => _addCvCols(view);
     const filterBtn = document.getElementById('org-filter-toggle-btn');
     if (filterBtn) {
-      filterBtn.textContent = '動画の追加';
-      filterBtn.onclick = () => window.cvOpenConditionEditor(id);
+      filterBtn.textContent = '☰ フィルター';
+      filterBtn.onclick = () => window.openOrgFilterOverlay?.();
     }
     const advBtn = document.getElementById('adv-search-btn-mob');
     if (advBtn) advBtn.style.display = 'none';
