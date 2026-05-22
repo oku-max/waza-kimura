@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.333 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.334 ═══
 (function () {
 'use strict';
 
@@ -76,6 +76,29 @@ let _cvSrchQ = '';
 let _cvSavedOrgColOrder = null;
 let _cvSavedOrgColVis = null;
 let _cvSavedOrgSavePrefs = null;
+
+// ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
+const _viewFilterSnapshots = {};
+
+function _saveCurrentFilterSnapshot() {
+  if (!window._uniSnapshotFilters) return;
+  const key = _curId || 'master';
+  _viewFilterSnapshots[key] = window._uniSnapshotFilters();
+}
+
+function _restoreFilterSnapshot(key) {
+  if (!window._uniRestoreFilters) return;
+  const snap = _viewFilterSnapshots[key];
+  // 初回訪問の条件ビューは保存済みfilterConditionsから復元
+  if (!snap && key !== 'master') {
+    const view = _views.find(v => v.id === key);
+    if (view?.saveMode === 'dynamic' && view.filterConditions) {
+      window._uniRestoreFilters(view.filterConditions);
+      return;
+    }
+  }
+  window._uniRestoreFilters(snap || {});
+}
 
 // filter state
 const filterState = {}; // { [viewId]: { [colId]: filterData } }
@@ -210,6 +233,10 @@ function _buildPickerHTML() {
   </div>`;
 }
 
+window._cvEditCurrent = function() {
+  if (_curId) window.cvOpenConditionEditor(_curId);
+};
+
 window._cvRenameView = function(id) {
   const view = _views.find(v => v.id === id);
   if (!view) return;
@@ -230,10 +257,12 @@ window._cvPickerSelect = function(id) {
 };
 
 window._cvClearSelection = function() {
+  _saveCurrentFilterSnapshot();
   _curId = null;
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
   window._cvOnViewChange?.();
+  _restoreFilterSnapshot('master');
   window._libView?.(window._libViewMode || 'card');
 };
 
@@ -244,7 +273,9 @@ window._closePicker = function() {
 
 // ── ビュー切替 ──
 function _showView(id) {
+  _saveCurrentFilterSnapshot();
   _curId = id;
+  _restoreFilterSnapshot(id);
   _renderViewBar();
   document.getElementById('lvt-card')?.classList.remove('lvt-active');
   document.getElementById('lvt-org')?.classList.remove('lvt-active');

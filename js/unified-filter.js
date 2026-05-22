@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.332 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.334 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -1352,4 +1352,8 @@
     window._uniApplyHook = null;
     window.uniClose();
   };
+
+  // ビュー切替時のフィルタ状態保存・復元（custom-view.js から呼ぶ）
+  window._uniSnapshotFilters = _snapshotFilters;
+  window._uniRestoreFilters = function(snap) { _restoreFilters(snap || {}); };
 })();
