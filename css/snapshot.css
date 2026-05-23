@@ -319,20 +319,20 @@
 }
 
 .lb-nav {
-  position: absolute;
+  position: fixed;
   top: 50%;
   transform: translateY(-50%);
   background: rgba(255,255,255,.15);
   border: none;
   color: #fff;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  font-size: 16px;
+  font-size: 20px;
   cursor: pointer;
   opacity: .7;
   transition: opacity .15s;
-  z-index: 10;
+  z-index: 1010;
 }
 
 .lb-nav:hover {
@@ -340,11 +340,11 @@
 }
 
 .lb-nav.prev {
-  left: -48px;
+  left: 8px;
 }
 
 .lb-nav.next {
-  right: -48px;
+  right: 8px;
 }
 
 .lb-bottom {
