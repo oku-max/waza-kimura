@@ -7,30 +7,36 @@ const PAD           = 10;
 // ── Library ツアー ──
 const LIBRARY_STEPS = [
   {
-    target: '#acct-btn',
-    title:  'まずGoogleでログインする',
-    body:   '<b>ログインは最初に必ずやること。</b><br>ログインしないとデータがブラウザ内にしか保存されず、タブを閉じると消えてしまいます。右上のボタンをタップして「Googleでログイン」を選んでください。',
+    target:      '#acct-menu-login',   // ログイン中なら非表示 → target2へフォールバック
+    target2:     '#acct-btn',
+    title:       'まずGoogleでログインする',
+    body:        '<b>ログインは最初に必ずやること。</b><br>ログインしないとデータがブラウザ内にしか保存されず、タブを閉じると消えてしまいます。右上のボタンをタップして「Googleでログイン」を選んでください。',
+    beforeStep:  () => _openAcctMenu(),
+    beforeDelay: 200,
   },
   {
-    target: '#acct-btn',
-    title:  '動画を追加する',
-    body:   '右上のボタンから <b>「＋ 動画を追加」</b> でインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
+    target:      '#acct-menu-add-video', // 未ログインなら非表示 → target2へフォールバック
+    target2:     '#acct-btn',
+    title:       '動画を追加する',
+    body:        '右上のボタンから <b>「＋ 動画を追加」</b> でインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
+    beforeStep:  () => _openAcctMenu(),
+    beforeDelay: 200,
   },
   {
     targets:    ['#lvt-card', '#lvt-org'],
     title:      '表示を切り替える',
     body:       '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
     beforeStep: () => {
-      // サイドバーが閉じている場合は開く（モバイル対応）
+      window.closeAcctMenu?.(); // ステップ1/2で開いたメニューを閉じる
       const sb = document.getElementById('libSidebar');
       if (sb && !sb.classList.contains('open')) sb.classList.add('open');
     },
-    beforeDelay: 300, // CSSアニメ（width .25s）完了を待つ
+    beforeDelay: 300,
   },
   {
     target:     '#libSidebar',
     beforeStep: () => {
-      // サイドバーが閉じている場合は開く（モバイル対応）
+      window.closeAcctMenu?.();
       const sb = document.getElementById('libSidebar');
       if (sb && !sb.classList.contains('open')) sb.classList.add('open');
     },
@@ -183,6 +189,19 @@ function _hideOverlay() {
   _svgRect.setAttribute('width', 0);
   _svgRect.setAttribute('height', 0);
   _current = -1;
+  window.closeAcctMenu?.(); // ツアー終了時にドロップダウンを閉じる
+}
+
+// アカウントメニューを beforeStep から開くためのヘルパー
+function _openAcctMenu() {
+  const menu = document.getElementById('acct-menu');
+  const btn  = document.getElementById('acct-btn');
+  if (!menu || !btn) return;
+  const r = btn.getBoundingClientRect();
+  menu.style.top   = (r.bottom + 6) + 'px';
+  menu.style.right = (window.innerWidth - r.right) + 'px';
+  menu.style.left  = 'auto';
+  menu.classList.add('open');
 }
 
 // ── Step navigation ──
