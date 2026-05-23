@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.424 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.425 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -160,6 +160,7 @@ function _ensureDOM() {
             '<div id="tw-pl" style="display:none;font-size:10px;color:var(--text3,#999);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>',
             '<div id="tw-title" style="font-size:13px;font-weight:700;color:var(--text,#111);line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"></div>',
             '<div id="tw-hint" style="margin-top:5px;font-size:11px;color:var(--text3,#999)"></div>',
+            '<div id="tw-debug" style="margin-top:4px;font-size:10px;color:#e05;font-family:monospace;word-break:break-all;background:rgba(255,0,0,.06);padding:2px 4px;border-radius:4px"></div>',
           '</div>',
         '</div>',
         // iframe
@@ -341,6 +342,12 @@ function _loadItem() {
   if (elCh)    elCh.textContent    = channel || '（不明）';
   if (elPl)  { elPl.textContent = pl ? '📋 ' + pl : ''; elPl.style.display = pl ? 'block' : 'none'; }
   if (elHint)  elHint.textContent  = hintArr.length ? '検出: ' + hintArr.join(' / ') : '';
+
+  // ── DEBUG: 動画IDフィールドを表示 ──
+  var elDbg = document.getElementById('tw-debug');
+  if (elDbg) {
+    elDbg.textContent = 'id=' + (v.id||'—') + '  ytId=' + (v.ytId||'—') + '  pt=' + (v.pt||'—') + '  → 使用中=' + (ytId||'なし');
+  }
 
   // サムネイル
   var thumbSrc = v.thumb || (ytId ? 'https://img.youtube.com/vi/' + ytId + '/mqdefault.jpg' : '');
