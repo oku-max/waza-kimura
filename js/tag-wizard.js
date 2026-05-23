@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.427 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.428 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -105,12 +105,18 @@ function _suggest(title, channel) {
 // ── キュー管理 ──
 var _queue=[], _qIdx=0, _autoTags=null, _pendingRule=null, _previewOpen=false;
 
+function _hasData(v) {
+  return (v.tb&&v.tb.length) || (v.pos&&v.pos.length) || (v.cat&&v.cat.length) || (v.tags&&v.tags.length);
+}
 function _buildQueue() {
   var vids = (window.videos||[]).filter(function(v){ return !v.archived; });
-  var untagged   = vids.filter(function(v){ return (!v.tb||!v.tb.length)&&(!v.pos||!v.pos.length)&&(!v.cat||!v.cat.length); });
-  var unverified = vids.filter(function(v){ return !v.verified&&!((!v.tb||!v.tb.length)&&(!v.pos||!v.pos.length)&&(!v.cat||!v.cat.length)); });
-  var rest       = vids.filter(function(v){ return v.verified; });
-  return untagged.concat(unverified).concat(rest);
+  // ① データあり・未確認（VPanelで入力済み） → まず確認してもらう
+  var withData  = vids.filter(function(v){ return !v.verified && _hasData(v); });
+  // ② データなし・未確認（完全未タグ）
+  var noData    = vids.filter(function(v){ return !v.verified && !_hasData(v); });
+  // ③ 確認済み（最後）
+  var verified  = vids.filter(function(v){ return  v.verified; });
+  return withData.concat(noData).concat(verified);
 }
 
 // ── DOM構築 ──
