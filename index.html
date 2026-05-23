@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.393</title>
+<title>WAZA KIMURA v52.394</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -78,7 +78,7 @@
 <script src="js/tag-master-ui.js" defer></script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
-<script src="js/custom-view.js?v=52.393" defer></script>
+<script src="js/custom-view.js?v=52.394" defer></script>
 <script src="js/vpanel-v4.js" defer></script>
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
@@ -1029,6 +1029,18 @@
 }
 #lib-org-host .org-count-bar { flex-shrink: 0; }
 #lib-org-host .org-table-wrap { flex: 1; min-height: 0; }
+/* ── ノート内カスタムビューリンクブロック ── */
+.n-b-cvlink {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 8px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  cursor: pointer; transition: background .12s, border-color .12s;
+}
+.n-b-cvlink:hover { background: var(--accent-bg,rgba(107,63,212,.08)); border-color: var(--accent); }
+.n-b-cvlink-icon { font-size: 20px; flex-shrink: 0; }
+.n-b-cvlink-info { flex: 1; min-width: 0; }
+.n-b-cvlink-name { font-size: 12px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-b-cvlink-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
 /* ── カスタムビュー ── */
 .cv-picker-modal { background:var(--surface);border-radius:14px;width:320px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden }
 .cv-picker-header { display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border) }
@@ -1528,6 +1540,12 @@
       </div>
     </div>
     <div class="card-list" id="cardList"></div>
+  </div>
+  <!-- ノートから来た時の戻るバナー -->
+  <div id="cv-return-banner" style="display:none;flex-shrink:0;align-items:center;gap:8px;padding:6px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+    <button onclick="window._cvReturnToNote()" style="flex-shrink:0;padding:4px 14px;border-radius:20px;border:1.5px solid var(--accent);background:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">← ノートに戻る</button>
+    <span id="cv-return-note-name" style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0"></span>
+    <button onclick="window._cvHideReturnBanner()" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px;line-height:1">✕</button>
   </div>
   <!-- テーブルビューホスト -->
   <div id="lib-org-host" style="display:none">

@@ -48,6 +48,7 @@ const BLANK_TEMPLATE = { id:'blank', icon:'📄', label:'空白から始める',
 // ── 状態 ──
 let _views = [];
 let _curId = null;
+window._cvGetViews = () => _views;
 let _editingViewId = null;
 let _cvSelectedIds = new Set();
 let cvColOrder = [...CV_COL_DEFAULT];
@@ -311,9 +312,31 @@ window._cvRenameView = function(id) {
   if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
 };
 
-window._cvPickerSelect = function(id) {
+window._cvPickerSelect = function(id, fromNote) {
   _closePicker();
+  if (!fromNote) window._cvHideReturnBanner?.();
   _showView(id);
+};
+
+// ── ノートへの戻るバナー ──
+window._cvShowReturnBanner = function(noteId, noteName) {
+  window._cvReturnNoteId = noteId;
+  const banner = document.getElementById('cv-return-banner');
+  const nameEl = document.getElementById('cv-return-note-name');
+  if (!banner) return;
+  if (nameEl) nameEl.textContent = noteName || 'ノート';
+  banner.style.display = 'flex';
+};
+window._cvHideReturnBanner = function() {
+  window._cvReturnNoteId = null;
+  const banner = document.getElementById('cv-return-banner');
+  if (banner) banner.style.display = 'none';
+};
+window._cvReturnToNote = function() {
+  const noteId = window._cvReturnNoteId;
+  window._cvHideReturnBanner();
+  window.switchTab?.('notes');
+  if (noteId) setTimeout(() => window._notesOpenNote?.(noteId), 60);
 };
 
 window._cvClearSelection = function() {

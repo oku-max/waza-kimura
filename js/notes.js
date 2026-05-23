@@ -1167,6 +1167,20 @@ function _blockHTML(block, idx, noteId, total) {
     case 'vidlist': {
       return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>${_renderVidlistCard(block, String(idx), noteId)}${ctrlBar}</div>`;
     }
+    case 'customview': {
+      const _cvViews = window._cvGetViews?.() || [];
+      const _cvView = _cvViews.find(v => v.id === block.viewId);
+      const _cvLabel = _cvView ? _esc(_cvView.label || '無名ビュー') : '（削除済みビュー）';
+      const _cvCount = _cvView ? (_cvView.videoIds || []).length : 0;
+      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>
+        <div class="n-b-cvlink" onclick="window._notesOpenCv('${noteId}','${_esc(block.viewId||'')}','${_cvLabel}')">
+          <span class="n-b-cvlink-icon">📊</span>
+          <div class="n-b-cvlink-info">
+            <div class="n-b-cvlink-name">${_cvLabel}</div>
+            <div class="n-b-cvlink-meta">${_cvCount}動画 · カスタムビューを開く →</div>
+          </div>
+        </div>${ctrlBar}</div>`;
+    }
     default: return '';
   }
 }
@@ -2435,6 +2449,7 @@ function _renderNote(id) {
       <button class="n-add-inline" onclick="window._notesAddColBlock('${id}')">⊞ カラム</button>
       <button class="n-add-inline" onclick="window._notesAddMapBlock('${id}')">🗺 Map</button>
       <button class="n-add-inline" onclick="window._notesAddVlBlock('${id}')">📋 リスト</button>
+      <button class="n-add-inline" onclick="window._notesAddCvBlock('${id}')">📊 CV</button>
       <button class="n-add-inline" id="n-save-btn-${id}" onclick="window._notesSave('${id}')">💾 保存</button>
     </div>
   `;
@@ -2938,6 +2953,60 @@ function _vlSummary(filter) {
   if (f.titleQ)         parts.push('🔍 ' + f.titleQ);
   return parts.join(' · ');
 }
+
+// ── カスタムビューリンク: ピッカー表示 → ブロック挿入 ──
+window._notesAddCvBlock = function(noteId) {
+  const views = window._cvGetViews?.() || [];
+  if (!views.length) {
+    window.toast?.('カスタムビューがありません。先にビューを作成してください。', 2000);
+    return;
+  }
+  let overlay = document.getElementById('n-cv-picker-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'n-cv-picker-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div style="background:var(--surface);border-radius:14px;padding:18px 16px;min-width:260px;max-width:88vw;max-height:70vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📊 カスタムビューを選択</div>
+    ${views.map(v => `<div onclick="window._notesPickCv('${noteId}','${v.id}');document.getElementById('n-cv-picker-overlay')?.remove()"
+      style="padding:9px 12px;border-radius:8px;cursor:pointer;transition:background .12s;display:flex;align-items:center;gap:8px"
+      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+      <span style="font-size:15px">📊</span>
+      <div style="min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(v.label||'無名ビュー')}</div>
+        <div style="font-size:10px;color:var(--text3)">${(v.videoIds||[]).length}動画</div>
+      </div>
+    </div>`).join('')}
+    <button onclick="document.getElementById('n-cv-picker-overlay')?.remove()"
+      style="margin-top:10px;width:100%;padding:7px;border-radius:8px;border:1.5px solid var(--border);background:none;color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit">キャンセル</button>
+  </div>`;
+};
+
+window._notesPickCv = function(noteId, viewId) {
+  const r = _findNote(noteId);
+  if (!r) return;
+  _blocksInsertOrPush(r.note.blocks, { type: 'customview', viewId });
+  r.note.updatedAt = Date.now();
+  _save();
+  _renderNote(noteId);
+};
+
+window._notesOpenCv = function(noteId, viewId, label) {
+  window.switchTab?.('home');
+  window._libView?.('org');
+  // fromNote=true でバナー消去をスキップ
+  window._cvPickerSelect?.(viewId, true);
+  const r = _findNote(noteId);
+  window._cvShowReturnBanner?.(noteId, r?.note?.name || label || 'ノート');
+};
+
+window._notesInsertCvAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesAddCvBlock(noteId);
+};
 
 // ── 動画リスト: ノートに新規追加 ──
 window._notesAddVlBlock = function(noteId) {
