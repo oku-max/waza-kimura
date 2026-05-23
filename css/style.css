@@ -506,6 +506,8 @@ body.bulk-mode .card-sel-ov{display:block;}
 .org-th-draggable:active { cursor:grabbing; }
 .org-th-drag-over { outline:2px solid var(--accent) !important; background:var(--surface2) !important; }
 .org-th-dragging  { opacity:.4; }
+.org-th-drop-before { border-left:2px solid var(--accent) !important; }
+.org-th-drop-after  { border-right:2px solid var(--accent) !important; }
 .org-col-fixed, .org-td-fixed { position:sticky; background:var(--surface); z-index:3; }
 .org-th.org-col-fixed { position:sticky; top:0; z-index:11; overflow:visible; }
 .org-col-sep { border-right:2px solid var(--border) !important; }

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.409</title>
+<title>WAZA KIMURA v52.410</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -334,7 +334,7 @@
     }
   };
 
-  // ── Library サイドバー開閉（overlay mode v52.409） ──
+  // ── Library サイドバー開閉（overlay mode v52.410） ──
   window.libSbToggle = function() {
     const sb  = document.getElementById('libSidebar');
     const ov  = document.getElementById('libSbOverlay');
@@ -1065,7 +1065,7 @@
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
 /* lib-sidebar統合後: filterSidebarは常に非表示 */
 #filterSidebar { display: none !important; }
-/* ── Library サイドバー v52.409 (overlay mode) ── */
+/* ── Library サイドバー v52.410 (overlay mode) ── */
 .lib-sidebar {
   position: absolute; top: 0; left: 0; bottom: 0;
   width: 220px; flex-shrink: 0;
@@ -1413,7 +1413,7 @@
 <div class="tab-panel active" id="homeTab">
   <!-- 暗幕オーバーレイ -->
   <div id="libSbOverlay" onclick="libSbClose()"></div>
-  <!-- Library サイドバー (overlay mode v52.409) -->
+  <!-- Library サイドバー (overlay mode v52.410) -->
   <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr">
       <span class="lib-sb-hdr-title">□ Library</span>
@@ -1929,7 +1929,7 @@
 <div class="tab-panel" id="searchTab">
   <!-- sticky ラッパー: 検索バー・履歴・件数/並び替え行をまとめて固定 -->
   <div class="yt-sr-sticky-wrap">
-    <!-- ページタイトルヘッダー v52.409 -->
+    <!-- ページタイトルヘッダー v52.410 -->
     <div class="yt-sr-page-hdr">○ Search</div>
     <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
     <div class="yt-sr-topbar">
@@ -3860,7 +3860,7 @@ document.addEventListener('click', function(e) {
 
 
 
-// SIDEBAR RESIZER: v52.409でオーバーレイ方式に変更したため削除済み
+// SIDEBAR RESIZER: v52.410でオーバーレイ方式に変更したため削除済み
 
 // ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
 (function(){

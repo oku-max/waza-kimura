@@ -705,7 +705,7 @@ function _addCvCols(view) {
         openThDropdown(th, view, col);
       });
       th.addEventListener('dblclick', e => { e.stopPropagation(); e.preventDefault(); });
-      // ドラッグ&ドロップで列順変更
+      // ドラッグ&ドロップで列順変更（before/after をマウスX位置で判定）
       th.draggable = true;
       th.ondragstart = e => {
         _cvDragSrc = col.id;
@@ -713,39 +713,50 @@ function _addCvCols(view) {
         e.dataTransfer.effectAllowed = 'move';
       };
       th.ondragend = () => {
-        theadRow.querySelectorAll('.cv-custom-th').forEach(el => el.classList.remove('org-th-dragging', 'org-th-drag-over'));
+        _cvDragSrc = null;
+        theadRow.querySelectorAll('th').forEach(el =>
+          el.classList.remove('org-th-dragging', 'org-th-drop-before', 'org-th-drop-after'));
       };
       th.ondragover = e => {
+        if (!_cvDragSrc || _cvDragSrc === col.id) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        theadRow.querySelectorAll('.cv-custom-th').forEach(el => el.classList.remove('org-th-drag-over'));
-        if (col.id !== _cvDragSrc) th.classList.add('org-th-drag-over');
+        const rect = th.getBoundingClientRect();
+        const isBefore = e.clientX < rect.left + rect.width / 2;
+        theadRow.querySelectorAll('th').forEach(el =>
+          el.classList.remove('org-th-drop-before', 'org-th-drop-after'));
+        th.classList.add(isBefore ? 'org-th-drop-before' : 'org-th-drop-after');
+        th.dataset.cvDropAfter = isBefore ? '0' : '1';
       };
+      th.ondragleave = () => th.classList.remove('org-th-drop-before', 'org-th-drop-after');
       th.ondrop = e => {
         e.preventDefault();
         if (!_cvDragSrc || _cvDragSrc === col.id) return;
         const srcId = _cvDragSrc;
+        const insertAfter = th.dataset.cvDropAfter === '1';
+        theadRow.querySelectorAll('th').forEach(el =>
+          el.classList.remove('org-th-drop-before', 'org-th-drop-after'));
 
-        // 1. view.columns の順序を更新
+        // 1. view.columns の順序を更新（before/after を反映）
         const from = view.columns.findIndex(c => c.id === srcId);
         if (from < 0) return;
         const [moved] = view.columns.splice(from, 1);
         const to = view.columns.findIndex(c => c.id === col.id);
         if (to < 0) { view.columns.splice(from, 0, moved); return; }
-        view.columns.splice(to, 0, moved);
+        view.columns.splice(insertAfter ? to + 1 : to, 0, moved);
 
         // 2. view.unifiedOrder も同期（_reorderAllCols が参照するため必須）
         _ensureUnifiedOrder(view);
         const ui = view.unifiedOrder.indexOf(srcId);
-        const uj = view.unifiedOrder.indexOf(col.id);
-        if (ui >= 0 && uj >= 0 && ui !== uj) {
+        if (ui >= 0) {
           view.unifiedOrder.splice(ui, 1);
           const newUj = view.unifiedOrder.indexOf(col.id);
-          view.unifiedOrder.splice(newUj, 0, srcId);
+          if (newUj >= 0) view.unifiedOrder.splice(insertAfter ? newUj + 1 : newUj, 0, srcId);
+          else view.unifiedOrder.push(srcId);
         }
 
         _save();
-        _reorderAllCols(view); // unifiedOrder に従いTH/TDをDOM並べ替え
+        _reorderAllCols(view);
       };
       theadRow.appendChild(th);
       // リサイズハンドル（organize.js の addResizeHandle を再利用）
@@ -769,23 +780,29 @@ function _addCvCols(view) {
         if (!_cvDragSrc) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        theadRow.querySelectorAll('th').forEach(el => el.classList.remove('org-th-drag-over'));
-        stdTh.classList.add('org-th-drag-over');
+        const rect = stdTh.getBoundingClientRect();
+        const isBefore = e.clientX < rect.left + rect.width / 2;
+        theadRow.querySelectorAll('th').forEach(el =>
+          el.classList.remove('org-th-drop-before', 'org-th-drop-after'));
+        stdTh.classList.add(isBefore ? 'org-th-drop-before' : 'org-th-drop-after');
+        stdTh.dataset.cvDropAfter = isBefore ? '0' : '1';
       };
-      stdTh.ondragleave = () => stdTh.classList.remove('org-th-drag-over');
+      stdTh.ondragleave = () => stdTh.classList.remove('org-th-drop-before', 'org-th-drop-after');
       stdTh.ondrop = e => {
         e.preventDefault();
         if (!_cvDragSrc) return;
         const srcId = _cvDragSrc;
+        const insertAfter = stdTh.dataset.cvDropAfter === '1';
         _ensureUnifiedOrder(view);
         const ui = view.unifiedOrder.indexOf(srcId);
-        const uj = view.unifiedOrder.indexOf(stdColId);
-        if (ui >= 0 && uj >= 0 && ui !== uj) {
+        if (ui >= 0) {
           view.unifiedOrder.splice(ui, 1);
           const newUj = view.unifiedOrder.indexOf(stdColId);
-          view.unifiedOrder.splice(newUj, 0, srcId);
+          if (newUj >= 0) view.unifiedOrder.splice(insertAfter ? newUj + 1 : newUj, 0, srcId);
+          else view.unifiedOrder.push(srcId);
         }
-        theadRow.querySelectorAll('th').forEach(el => el.classList.remove('org-th-drag-over'));
+        theadRow.querySelectorAll('th').forEach(el =>
+          el.classList.remove('org-th-drop-before', 'org-th-drop-after'));
         _save();
         _reorderAllCols(view);
       };
