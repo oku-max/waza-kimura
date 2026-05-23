@@ -2705,6 +2705,8 @@ window._cvApplySearch = function(q) {
   _cvSrchQ = q || '';
   const siOrg = document.getElementById('si-org');
   if (siOrg) siOrg.value = _cvSrchQ;
+  const siOrgPc = document.getElementById('si-org-pc'); // orgFilt の fallback 先も同期
+  if (siOrgPc) siOrgPc.value = _cvSrchQ;
   const view = _views.find(v => v.id === _curId);
   if (view) _cvUpdateSearch(view);
 };
@@ -2714,6 +2716,12 @@ window._cvClearFilters = function() {
   _cvSrchQ = '';
   const siOrg = document.getElementById('si-org');
   if (siOrg) siOrg.value = '';
+  const siOrgPc = document.getElementById('si-org-pc'); // orgFilt の fallback 先も必ずクリア
+  if (siOrgPc) siOrgPc.value = '';
+  const siLibPc = document.getElementById('si-lib-pc');
+  if (siLibPc) siLibPc.value = '';
+  const siClear = document.getElementById('si-clear');
+  if (siClear) siClear.style.display = 'none';
   if (_curId && filterState[_curId]) {
     Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
   }

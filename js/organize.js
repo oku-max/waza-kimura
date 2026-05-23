@@ -2354,3 +2354,11 @@ window.saveAdvSearch      = saveAdvSearch;
 window._parseQuery        = _parseQuery;
 window._matchQueryField   = _matchQueryField;
 window._matchFieldSpecific = _matchFieldSpecific;
+// フィルターリセット用: _advSearch と si-org-pc をクリア（renderOrg/AF は呼ばない）
+window._clearOrgSearchForReset = function() {
+  _advSearch = null;
+  const siOrgPc = document.getElementById('si-org-pc');
+  if (siOrgPc) siOrgPc.value = '';
+  const siOrg = document.getElementById('si-org');
+  if (siOrg) siOrg.value = '';
+};

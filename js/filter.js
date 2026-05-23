@@ -184,7 +184,8 @@ export function clearAll() {
   window.buildSidebarFovRows?.();
   window.refreshOpenSbAccordions?.();
   window.renderTFC?.();
-  window._cvClearFilters?.();  // カスタムビューの検索文字・列フィルターもリセット
+  window._clearOrgSearchForReset?.(); // _advSearch + si-org-pc + si-org をクリア
+  window._cvClearFilters?.();         // カスタムビューの _cvSrchQ・列フィルターもリセット
   window.AF?.();
 }
 
