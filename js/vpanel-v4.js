@@ -130,14 +130,19 @@
     if (!list) return;
     const v = _findV(id);
     const selected = v?.pos || [];
-    const POSS = window.POSITIONS || [];
+    // window.POSITIONS（tag-master.js → 単一の真実）＋ 動画データ合算
+    const masterPoss = window.POSITIONS || [];
+    const masterNames = new Set(masterPoss.map(p => p.ja));
+    const extraNames = [...new Set((window.videos||[]).flatMap(v2 => v2.pos||[]))]
+      .filter(n => !masterNames.has(n)).sort();
+    const allPoss = [...masterPoss, ...extraNames.map(n => ({ ja: n, en: '' }))];
     const ql = q.trim().toLowerCase();
     const filtered = ql
-      ? POSS.filter(p => !selected.includes(p.ja) && (p.ja.includes(ql) || p.en.toLowerCase().includes(ql)))
-      : POSS.filter(p => !selected.includes(p.ja));
+      ? allPoss.filter(p => !selected.includes(p.ja) && (p.ja.includes(ql) || p.en.toLowerCase().includes(ql)))
+      : allPoss.filter(p => !selected.includes(p.ja));
     list.innerHTML = filtered.length
       ? filtered.map(p =>
-          `<div class="vp-dd-item" onmousedown="vpV4PosPick('${id}','${_esc(p.ja)}')">${_esc(p.ja)}<span class="vp-dd-cnt">${_esc(p.en)}</span></div>`
+          `<div class="vp-dd-item" onmousedown="vpV4PosPick('${id}','${_esc(p.ja)}')">${_esc(p.ja)}${p.en ? `<span class="vp-dd-cnt">${_esc(p.en)}</span>` : ''}</div>`
         ).join('')
       : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
   }
