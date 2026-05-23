@@ -724,15 +724,28 @@ function _addCvCols(view) {
       th.ondrop = e => {
         e.preventDefault();
         if (!_cvDragSrc || _cvDragSrc === col.id) return;
-        const from = view.columns.findIndex(c => c.id === _cvDragSrc);
+        const srcId = _cvDragSrc;
+
+        // 1. view.columns の順序を更新
+        const from = view.columns.findIndex(c => c.id === srcId);
         if (from < 0) return;
         const [moved] = view.columns.splice(from, 1);
-        // spliceで削除後にターゲットのインデックスを再取得（左→右ドラッグ時のズレ防止）
         const to = view.columns.findIndex(c => c.id === col.id);
         if (to < 0) { view.columns.splice(from, 0, moved); return; }
         view.columns.splice(to, 0, moved);
+
+        // 2. view.unifiedOrder も同期（_reorderAllCols が参照するため必須）
+        _ensureUnifiedOrder(view);
+        const ui = view.unifiedOrder.indexOf(srcId);
+        const uj = view.unifiedOrder.indexOf(col.id);
+        if (ui >= 0 && uj >= 0 && ui !== uj) {
+          view.unifiedOrder.splice(ui, 1);
+          const newUj = view.unifiedOrder.indexOf(col.id);
+          view.unifiedOrder.splice(newUj, 0, srcId);
+        }
+
         _save();
-        window._cvRerenderCur();
+        _reorderAllCols(view); // unifiedOrder に従いTH/TDをDOM並べ替え
       };
       theadRow.appendChild(th);
       // リサイズハンドル（organize.js の addResizeHandle を再利用）
