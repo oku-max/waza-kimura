@@ -150,24 +150,55 @@ window._notesSyncNow = async function() {
 };
 
 export function updateAuthUI(user) {
-  const btn     = document.getElementById('auth-btn');
-  const avatar  = document.getElementById('auth-avatar');
-  const fsBtn   = document.getElementById('fs-auth-btn');
-  const fsAvatar = document.getElementById('fs-auth-avatar');
-  const signIn  = () => {
+  const signIn = () => {
     const p = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(p).catch(e => console.error('login error:', e));
   };
+  // グローバルに公開（ドロップダウン内の未ログインボタンから呼ぶ）
+  window._acctSignIn = signIn;
+
+  const acctBtn      = document.getElementById('acct-btn');
+  const menuUser     = document.getElementById('acct-menu-user');
+  const menuLogin    = document.getElementById('acct-menu-login');
+  const menuAddVideo = document.getElementById('acct-menu-add-video');
+  const menuLogout   = document.getElementById('acct-menu-logout');
+  const sep1         = document.getElementById('acct-sep1');
+  const sep2         = document.getElementById('acct-sep2');
+  const avatarText   = document.getElementById('acct-menu-avatar-text');
+  const userName     = document.getElementById('acct-menu-user-name');
+  const userEmail    = document.getElementById('acct-menu-user-email');
+
   if (user) {
-    if (btn)     { btn.textContent    = 'ログアウト';   btn.onclick    = () => auth.signOut(); }
-    if (fsBtn)   { fsBtn.textContent  = 'ログアウト';   fsBtn.onclick  = () => auth.signOut(); }
-    if (avatar)  { avatar.src  = user.photoURL || ''; avatar.style.display  = user.photoURL ? 'block' : 'none'; }
-    if (fsAvatar){ fsAvatar.src = user.photoURL || ''; fsAvatar.style.display = user.photoURL ? 'block' : 'none'; }
+    const initial = (user.displayName || user.email || '?')[0].toUpperCase();
+    if (acctBtn) {
+      acctBtn.textContent = initial;
+      acctBtn.className   = 'acct-btn acct-btn-in';
+      acctBtn.title       = user.displayName || user.email || '';
+    }
+    if (avatarText) avatarText.textContent = initial;
+    if (userName)   userName.textContent   = user.displayName || '';
+    if (userEmail)  userEmail.textContent  = user.email || '';
+    if (menuUser)     menuUser.style.display     = '';
+    if (menuLogin)    menuLogin.style.display     = 'none';
+    if (menuAddVideo) menuAddVideo.style.display  = '';
+    if (sep1)         sep1.style.display           = '';
+    if (sep2)         sep2.style.display           = '';
+    if (menuLogout) {
+      menuLogout.style.display = '';
+      menuLogout.onclick = () => { auth.signOut(); window.closeAcctMenu?.(); };
+    }
   } else {
-    if (btn)   { btn.textContent   = 'Googleでログイン'; btn.onclick   = signIn; }
-    if (fsBtn) { fsBtn.textContent = 'Googleでログイン'; fsBtn.onclick = signIn; }
-    if (avatar)   avatar.style.display   = 'none';
-    if (fsAvatar) fsAvatar.style.display = 'none';
+    if (acctBtn) {
+      acctBtn.textContent = '👤';
+      acctBtn.className   = 'acct-btn acct-btn-out';
+      acctBtn.title       = 'ログイン';
+    }
+    if (menuUser)     menuUser.style.display     = 'none';
+    if (menuLogin)    menuLogin.style.display      = '';
+    if (menuAddVideo) menuAddVideo.style.display   = 'none';
+    if (sep1)         sep1.style.display            = 'none';
+    if (sep2)         sep2.style.display            = 'none';
+    if (menuLogout)   menuLogout.style.display      = 'none';
     window._ytToken = null;
   }
   window.initOwnerSettings?.();

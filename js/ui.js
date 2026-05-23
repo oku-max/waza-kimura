@@ -57,8 +57,7 @@ export function switchTab(t) {
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
     const fn = document.getElementById('fnav-' + n); if (fn) fn.className = 'fs-nav-i'  + (t === n ? ' active' : '');
   });
-  const helpBtn = document.getElementById('ob-help-btn');
-  if (helpBtn) helpBtn.style.display = t === 'settings' ? 'none' : '';
+  // ob-help-btn は acct-menu 内の「使い方ガイド」に統合済み（v52.398〜）
   try {
     const libC = document.getElementById('fs-library-content');
     const orgC = document.getElementById('fs-organize-content');

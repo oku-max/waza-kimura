@@ -7,14 +7,14 @@ const PAD           = 10;
 // ── Library ツアー ──
 const LIBRARY_STEPS = [
   {
-    target: '#auth-btn',
+    target: '#acct-btn',
     title:  'まずGoogleでログインする',
-    body:   '<b>ログインは最初に必ずやること。</b><br>ログインしないとデータがブラウザ内にしか保存されず、タブを閉じると消えてしまいます。右上の「Googleでログイン」をタップしてください。',
+    body:   '<b>ログインは最初に必ずやること。</b><br>ログインしないとデータがブラウザ内にしか保存されず、タブを閉じると消えてしまいます。右上のボタンをタップして「Googleでログイン」を選んでください。',
   },
   {
-    target: '#yt-import-btn',
+    target: '#acct-btn',
     title:  '動画を追加する',
-    body:   '右上の <b>「＋ 動画を追加」</b> から動画をインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
+    body:   '右上のボタンから <b>「＋ 動画を追加」</b> でインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
   },
   {
     targets: ['#lvt-card', '#lvt-org'],
@@ -48,9 +48,9 @@ const LIBRARY_STEPS = [
     body:    '<b>「○ Search」タブ</b>では YouTube の動画をキーワードで検索し、気になった動画をそのままライブラリに追加できます。',
   },
   {
-    targets: ['#fb-tab-btn', '#ob-help-btn'],
-    title:   'お困りのときは右上へ',
-    body:    '<b>「?」ボタン</b>：操作でお困りのときはこのボタンからいつでもツアーを再表示できます。<br><br><b>「フィードバック」ボタン</b>：ご意見・ご質問・改善のアイデアがあればお気軽にどうぞ。テスト期間中、皆さんのフィードバックがとても参考になります。',
+    target: '#acct-btn',
+    title:  'お困りのときは右上のボタンへ',
+    body:   '右上のボタンをタップするとメニューが開きます。<br><br><b>「使い方ガイド」</b>：このツアーをいつでも再表示できます。<br><br><b>「フィードバック」</b>：ご意見・ご質問・改善のアイデアがあればお気軽にどうぞ。テスト期間中、皆さんのフィードバックがとても参考になります。',
   },
 ];
 
@@ -140,17 +140,13 @@ export function startNotesOnboarding() {
 
 function _showHint() {
   document.getElementById('ob-hint').style.display = 'flex';
-  ['#fb-tab-btn', '#ob-help-btn'].forEach(sel => {
-    document.querySelector(sel)?.classList.add('ob-hint-glow');
-  });
+  document.querySelector('#acct-btn')?.classList.add('ob-hint-glow');
   localStorage.setItem(HINT_KEY, String(Date.now()));
 }
 
 function _hideHint() {
   document.getElementById('ob-hint').style.display = 'none';
-  ['#fb-tab-btn', '#ob-help-btn'].forEach(sel => {
-    document.querySelector(sel)?.classList.remove('ob-hint-glow');
-  });
+  document.querySelector('#acct-btn')?.classList.remove('ob-hint-glow');
 }
 
 // ── Start screen ──
@@ -383,8 +379,8 @@ function _inject() {
       <button id="ob-hint-close" style="background:none;border:none;color:var(--text3,#666);font-size:18px;cursor:pointer;line-height:1;padding:0;flex-shrink:0;">×</button>
     </div>
     <p style="font-size:12px;color:var(--text2,#bbb);line-height:1.65;margin:0;">
-      操作でお困りのときは <b style="color:var(--text,#fff);">「?」</b> ボタンからツアーを再表示できます。<br>
-      ご意見・改善点は <b style="color:var(--text,#fff);">「フィードバック」</b> ボタンへお気軽にどうぞ。
+      操作でお困りのときは右上のボタンから <b style="color:var(--text,#fff);">「使い方ガイド」</b> でツアーを再表示できます。<br>
+      ご意見・改善点は <b style="color:var(--text,#fff);">「フィードバック」</b> へお気軽にどうぞ。
     </p>`;
   document.body.appendChild(hintEl);
 

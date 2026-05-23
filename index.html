@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.397</title>
+<title>WAZA KIMURA v52.398</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1199,16 +1199,45 @@
       <div class="tn-i" id="tnav-organize" onclick="switchTab('organize')" style="display:none">≡ Organize</div>
       <div class="tn-i" id="tnav-archive" onclick="switchTab('archive')" style="display:none">◫ Archive</div>
     </nav>
-  </div>
-  <!-- 検索＋ボタン行 -->
-  <div class="tb-row-main">
-    <img id="auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;flex-shrink:0">
-    <button id="auth-btn" class="topbar-btn">Googleでログイン</button>
-    <button id="yt-import-btn" onclick="openImportHub()" style="display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">＋ 動画を追加</button>
-    <button id="fb-tab-btn" onclick="openFeedback()" title="フィードバックを送る" style="margin-left:auto;padding:4px 10px;border-radius:14px;border:1px solid var(--border,#444);background:var(--surface2,#2a2a2a);color:var(--text2,#aaa);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;opacity:.85;transition:opacity .15s">フィードバック</button>
-    <button id="ob-help-btn" onclick="window.startTabOnboarding?.()" title="使い方ガイド" style="width:28px;height:28px;border-radius:50%;background:var(--surface2,#2a2a2a);border:1px solid var(--border,#444);color:var(--text2,#aaa);font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">?</button>
+    <!-- アカウントボタン（ログイン状態に応じてfirebase.jsが更新） -->
+    <button id="acct-btn" class="acct-btn acct-btn-out" onclick="window.toggleAcctMenu(event)" title="ログイン">👤</button>
   </div>
   <span id="totalCount" class="topbar-count" style="display:none"></span>
+</div>
+
+<!-- アカウントドロップダウン -->
+<div id="acct-menu" class="acct-menu">
+  <!-- ログイン中: ユーザー情報 -->
+  <div id="acct-menu-user" class="acct-menu-user" style="display:none">
+    <div class="acct-menu-avatar" id="acct-menu-avatar-text">?</div>
+    <div class="acct-menu-user-info">
+      <div class="acct-menu-user-name" id="acct-menu-user-name"></div>
+      <div class="acct-menu-user-email" id="acct-menu-user-email"></div>
+    </div>
+  </div>
+  <!-- 未ログイン: ログインエリア -->
+  <div id="acct-menu-login" class="acct-menu-login-area">
+    <div class="acct-menu-login-desc">ログインすると動画の追加・<br>トラッキングが利用できます</div>
+    <button class="acct-menu-login-btn" onclick="window._acctSignIn?.()">
+      <span class="acct-google-icon"></span> Googleでログイン
+    </button>
+  </div>
+  <div class="acct-menu-items">
+    <div id="acct-menu-add-video" class="acct-menu-item acct-menu-item-accent" style="display:none" onclick="openImportHub();window.closeAcctMenu()">
+      <span class="acct-menu-icon">＋</span> 動画を追加
+    </div>
+    <div class="acct-menu-sep" id="acct-sep1" style="display:none"></div>
+    <div class="acct-menu-item" onclick="openFeedback();window.closeAcctMenu()">
+      <span class="acct-menu-icon">💬</span> フィードバック
+    </div>
+    <div class="acct-menu-item" onclick="window.startTabOnboarding?.();window.closeAcctMenu()">
+      <span class="acct-menu-icon">❓</span> 使い方ガイド
+    </div>
+    <div class="acct-menu-sep" id="acct-sep2" style="display:none"></div>
+    <div id="acct-menu-logout" class="acct-menu-item acct-menu-item-danger" style="display:none">
+      <span class="acct-menu-icon">⏏</span> ログアウト
+    </div>
+  </div>
 </div>
 
 
@@ -1222,11 +1251,6 @@
   <div class="fs-scroll">
   <div class="fs-section" style="padding:14px;border-bottom:1px solid var(--border)">
     <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;margin-bottom:10px">WAZA <span style="color:var(--text3)">KIMURA</span></div>
-    <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
-      <img id="fs-auth-avatar" style="width:28px;height:28px;border-radius:50%;display:none;margin:4px 10px;">
-      <div id="fs-auth-btn" class="fs-nav-i" style="font-weight:400">Googleでログイン</div>
-      <div onclick="openImportHub()" class="fs-nav-i" style="font-weight:400">＋ 動画を追加</div>
-    </div>
   </div>
   <nav class="fs-nav">
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
@@ -3795,6 +3819,35 @@ function adjustTopbarOffset() {
 }
 window.addEventListener('load', adjustTopbarOffset);
 window.addEventListener('resize', adjustTopbarOffset);
+
+// ── アカウントドロップダウン制御 ──
+window.toggleAcctMenu = function(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('acct-menu');
+  if (!menu) return;
+  if (menu.classList.contains('open')) {
+    menu.classList.remove('open');
+    return;
+  }
+  // ボタン位置に合わせて配置
+  const btn = document.getElementById('acct-btn');
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    menu.style.top  = (r.bottom + 6) + 'px';
+    menu.style.right = (window.innerWidth - r.right) + 'px';
+    menu.style.left = 'auto';
+  }
+  menu.classList.add('open');
+};
+window.closeAcctMenu = function() {
+  document.getElementById('acct-menu')?.classList.remove('open');
+};
+// 外クリックで閉じる
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#acct-menu') && !e.target.closest('#acct-btn')) {
+    window.closeAcctMenu();
+  }
+});
 
 
 

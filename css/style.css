@@ -1197,6 +1197,99 @@ body.bulk-mode .card-sel-ov{display:block;}
 }
 .topbar-btn:hover { background: var(--surface3); }
 
+/* ── アカウントボタン（右上） ── */
+.acct-btn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  font-weight: 800;
+  transition: opacity .15s, transform .1s;
+}
+.acct-btn:hover { opacity: .82; transform: scale(1.06); }
+.acct-btn-in {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13px;
+}
+.acct-btn-out {
+  background: transparent;
+  color: var(--text2);
+  font-size: 16px;
+  border: 1.5px solid var(--border2) !important;
+}
+
+/* ── アカウントドロップダウン ── */
+.acct-menu {
+  position: fixed;
+  width: 224px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.55);
+  z-index: 9100;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px) scale(.97);
+  transition: opacity .15s, transform .15s;
+  pointer-events: none;
+  display: block;
+}
+.acct-menu.open {
+  opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;
+}
+.acct-menu-user {
+  padding: 13px 14px 10px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.acct-menu-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent);
+  font-size: 16px; font-weight: 800; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.acct-menu-user-info { flex: 1; overflow: hidden; }
+.acct-menu-user-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-menu-user-email { font-size: 10px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.acct-menu-login-area {
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 9px;
+}
+.acct-menu-login-desc { font-size: 11px; color: var(--text3); line-height: 1.6; }
+.acct-menu-login-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px;
+  background: #fff; color: #333;
+  font-size: 12px; font-weight: 600;
+  border: none; cursor: pointer; width: 100%;
+  transition: opacity .15s;
+}
+.acct-menu-login-btn:hover { opacity: .9; }
+.acct-google-icon {
+  width: 15px; height: 15px; flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%234285F4' d='M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.9 2.3 30.3 0 24 0 14.6 0 6.6 5.5 2.6 13.5l7.8 6C12.4 13.2 17.8 9.5 24 9.5z'/%3E%3Cpath fill='%2334A853' d='M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.4c-.5 2.8-2.1 5.2-4.5 6.8l7 5.4C43 36.6 46.1 31 46.1 24.5z'/%3E%3Cpath fill='%23FBBC04' d='M10.4 28.5a14.4 14.4 0 010-9l-7.8-6A23.9 23.9 0 000 24c0 3.9.9 7.5 2.6 10.5l7.8-6z'/%3E%3Cpath fill='%23EA4335' d='M24 48c6.3 0 11.6-2.1 15.5-5.7l-7-5.4c-2.1 1.4-4.8 2.2-8.5 2.2-6.2 0-11.6-3.7-13.6-9.1l-7.8 6C6.6 42.5 14.6 48 24 48z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.acct-menu-items { padding: 5px 0; }
+.acct-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  color: var(--text2); cursor: pointer;
+  font-size: 13px;
+  transition: background .1s, color .1s;
+}
+.acct-menu-item:hover { background: var(--surface3); color: var(--text); }
+.acct-menu-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+.acct-menu-item-accent { color: var(--accent) !important; }
+.acct-menu-item-accent:hover { background: rgba(200,168,75,.12) !important; }
+.acct-menu-item-danger { color: var(--danger, #e05555) !important; }
+.acct-menu-item-danger:hover { background: rgba(224,85,85,.1) !important; }
+.acct-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
 /* ── タブ内操作バー（モバイル・タブレット） ── */
 .tab-actionbar {
   display: flex;
