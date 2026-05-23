@@ -439,6 +439,36 @@ function _renderCategories() {
       </div>
     </div>
 
+    <!-- Edit category form -->
+    <div id="categories-edit-form" style="display:none;background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px">カテゴリを編集</div>
+      <input type="hidden" id="cat-edit-idx">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">日本語名</div>
+          <input id="cat-edit-ja" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">English name</div>
+          <input id="cat-edit-en" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">JA エイリアス（カンマ区切り）</div>
+          <input id="cat-edit-aliases-ja" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">EN aliases (comma separated)</div>
+          <input id="cat-edit-aliases-en" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button onclick="hideEditCatForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
+        <button onclick="saveCategoryEdit()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">保存</button>
+      </div>
+    </div>
+
     <!-- Tag list -->
     <div id="categories-list" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:500px">
@@ -446,7 +476,7 @@ function _renderCategories() {
           <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">名前</th>
           <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">エイリアス</th>
           <th style="text-align:right;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">使用数</th>
-          <th style="padding:10px 8px;border-bottom:2px solid var(--border);width:60px"></th>
+          <th style="padding:10px 8px;border-bottom:2px solid var(--border)"></th>
         </tr>
         ${dict.map((t, i) => {
           const cnt = catCounts[t.names.ja] || 0;
@@ -461,7 +491,8 @@ function _renderCategories() {
               ${(t.aliases?.en||[]).map(a => `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;background:var(--surface2);color:var(--text2);margin:1px 2px;border:1px solid var(--border2)"><span style="font-size:9px;font-weight:700;color:var(--text3);margin-right:2px">EN</span>${_esc(a)}</span>`).join('')}
             </td>
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--text2)">${cnt}</td>
-            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right">
+            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;white-space:nowrap">
+              <button onclick="editCategoryEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;margin-right:4px">編集</button>
               <button onclick="deleteCategoryEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
             </td>
           </tr>`;
@@ -506,6 +537,45 @@ export function deleteCategoryEntry(idx) {
   window.toast?.('カテゴリを削除しました');
 }
 window.deleteCategoryEntry = deleteCategoryEntry;
+
+export function editCategoryEntry(idx) {
+  const dict = _getCategory();
+  const t = dict[idx];
+  if (!t) return;
+  document.getElementById('cat-edit-idx').value = idx;
+  document.getElementById('cat-edit-ja').value  = t.names.ja;
+  document.getElementById('cat-edit-en').value  = t.names.en;
+  document.getElementById('cat-edit-aliases-ja').value = (t.aliases?.ja||[]).join(', ');
+  document.getElementById('cat-edit-aliases-en').value = (t.aliases?.en||[]).join(', ');
+  hideAddCatForm();
+  const f = document.getElementById('categories-edit-form');
+  if (f) { f.style.display = 'block'; f.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+window.editCategoryEntry = editCategoryEntry;
+
+export function hideEditCatForm() {
+  const f = document.getElementById('categories-edit-form');
+  if (f) f.style.display = 'none';
+}
+window.hideEditCatForm = hideEditCatForm;
+
+export function saveCategoryEdit() {
+  const idx     = parseInt(document.getElementById('cat-edit-idx')?.value);
+  const ja      = document.getElementById('cat-edit-ja')?.value.trim();
+  const en      = document.getElementById('cat-edit-en')?.value.trim();
+  const aliasJa = (document.getElementById('cat-edit-aliases-ja')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const aliasEn = (document.getElementById('cat-edit-aliases-en')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if (!ja) { window.toast?.('日本語名を入力してください'); return; }
+  const dict = _getCategory();
+  if (isNaN(idx) || idx < 0 || idx >= dict.length) return;
+  dict[idx] = { ...dict[idx], names: { ja, en: en || ja }, aliases: { ja: aliasJa, en: aliasEn } };
+  _saveCategory(dict);
+  window.syncCatsFromStorage?.();
+  hideEditCatForm();
+  _renderCategories();
+  window.toast?.('保存しました');
+}
+window.saveCategoryEdit = saveCategoryEdit;
 
 export function filterCategory() {
   const q = (document.getElementById('categories-search')?.value || '').toLowerCase();
@@ -642,6 +712,42 @@ function _renderPositions() {
       </div>
     </div>
 
+    <!-- Edit position form -->
+    <div id="pos-edit-form" style="display:none;background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px">ポジションを編集</div>
+      <input type="hidden" id="pos-edit-idx">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">日本語名</div>
+          <input id="pos-edit-ja" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+        <div style="flex:1;min-width:100px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">English name</div>
+          <input id="pos-edit-en" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+        <div style="min-width:100px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">グループ</div>
+          <select id="pos-edit-group" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer;box-sizing:border-box">
+            ${Object.entries(POS_GROUPS).map(([g, info]) => `<option value="${g}">${info.ja} / ${info.en}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">JA エイリアス（カンマ区切り）</div>
+          <input id="pos-edit-aliases-ja" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">EN aliases (comma separated)</div>
+          <input id="pos-edit-aliases-en" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button onclick="hideEditPosForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
+        <button onclick="savePositionEdit()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">保存</button>
+      </div>
+    </div>
+
     <!-- Position list -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:550px">
@@ -650,7 +756,7 @@ function _renderPositions() {
           <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">グループ</th>
           <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">エイリアス</th>
           <th style="text-align:right;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">使用数</th>
-          <th style="padding:10px 8px;border-bottom:2px solid var(--border);width:60px"></th>
+          <th style="padding:10px 8px;border-bottom:2px solid var(--border)"></th>
         </tr>
         ${filtered.map((p, i) => {
           const cnt = posCounts[p.names.ja] || 0;
@@ -670,7 +776,8 @@ function _renderPositions() {
               ${(p.aliases?.en||[]).map(a => `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;background:var(--surface2);color:var(--text2);margin:1px 2px;border:1px solid var(--border2)"><span style="font-size:9px;font-weight:700;color:var(--text3);margin-right:2px">EN</span>${_esc(a)}</span>`).join('')}
             </td>
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--text2)">${cnt}</td>
-            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right">
+            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;white-space:nowrap">
+              <button onclick="editPosition(${realIdx})" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;margin-right:4px">編集</button>
               <button onclick="deletePosition(${realIdx})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
             </td>
           </tr>`;
@@ -716,6 +823,47 @@ export function deletePosition(idx) {
   window.toast?.('ポジションを削除しました');
 }
 window.deletePosition = deletePosition;
+
+export function editPosition(idx) {
+  const positions = _getPositions();
+  const p = positions[idx];
+  if (!p) return;
+  document.getElementById('pos-edit-idx').value = idx;
+  document.getElementById('pos-edit-ja').value  = p.names.ja;
+  document.getElementById('pos-edit-en').value  = p.names.en;
+  document.getElementById('pos-edit-group').value = p.group || 'other';
+  document.getElementById('pos-edit-aliases-ja').value = (p.aliases?.ja||[]).join(', ');
+  document.getElementById('pos-edit-aliases-en').value = (p.aliases?.en||[]).join(', ');
+  hideAddPosForm();
+  const f = document.getElementById('pos-edit-form');
+  if (f) { f.style.display = 'block'; f.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+}
+window.editPosition = editPosition;
+
+export function hideEditPosForm() {
+  const f = document.getElementById('pos-edit-form');
+  if (f) f.style.display = 'none';
+}
+window.hideEditPosForm = hideEditPosForm;
+
+export function savePositionEdit() {
+  const idx     = parseInt(document.getElementById('pos-edit-idx')?.value);
+  const ja      = document.getElementById('pos-edit-ja')?.value.trim();
+  const en      = document.getElementById('pos-edit-en')?.value.trim();
+  const group   = document.getElementById('pos-edit-group')?.value || 'other';
+  const aliasJa = (document.getElementById('pos-edit-aliases-ja')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const aliasEn = (document.getElementById('pos-edit-aliases-en')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if (!ja) { window.toast?.('日本語名を入力してください'); return; }
+  const positions = _getPositions();
+  if (isNaN(idx) || idx < 0 || idx >= positions.length) return;
+  positions[idx] = { ...positions[idx], names: { ja, en: en || ja }, group, aliases: { ja: aliasJa, en: aliasEn } };
+  _savePositions(positions);
+  window.syncPositionsFromStorage?.();
+  hideEditPosForm();
+  _renderPositions();
+  window.toast?.('保存しました');
+}
+window.savePositionEdit = savePositionEdit;
 
 export function filterPosGroup(group) {
   _posFilterGroup = _posFilterGroup === group ? null : group;
