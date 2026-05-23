@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.380 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.383 ═══
 (function () {
 'use strict';
 
@@ -193,6 +193,8 @@ function _renderViewBar() {
 }
 
 // ── カスタムビュー選択モーダル ──
+let _cvPickerEditMode = false;
+
 window.cvOpenViewPicker = function() {
   let el = document.getElementById('cv-picker-overlay');
   if (!el) {
@@ -207,13 +209,31 @@ window.cvOpenViewPicker = function() {
 };
 
 function _buildPickerHTML() {
-  const items = _views.map(v => {
+  const items = _views.map((v, idx) => {
     const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
     const modeLbl = v.saveMode === 'dynamic' ? '条件で自動選択' : '手動選択';
     const cnt = v.saveMode === 'dynamic'
       ? (v.filterConditions ? _applyConditions(v.filterConditions, window.videos || []).length : 0)
       : (v.videoIds || []).length;
     const isActive = v.id === _curId;
+
+    if (_cvPickerEditMode) {
+      const canUp   = idx > 0;
+      const canDown = idx < _views.length - 1;
+      return `<div class="cv-picker-item cv-picker-edit-row">
+        <div class="cv-picker-arrows">
+          <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',-1)" ${canUp ? '' : 'disabled'}>▲</button>
+          <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',1)" ${canDown ? '' : 'disabled'}>▼</button>
+        </div>
+        <span class="cv-picker-icon">${icon}</span>
+        <span class="cv-picker-info">
+          <span class="cv-picker-name">${_esc(v.label)}</span>
+          <span class="cv-picker-meta">${modeLbl} · ${cnt}本</span>
+        </span>
+        <button class="cv-picker-del-btn" onclick="event.stopPropagation();window._cvDeleteView('${v.id}')" title="削除">🗑</button>
+      </div>`;
+    }
+
     return `<div class="cv-picker-item${isActive ? ' active' : ''}" onclick="window._cvPickerSelect('${v.id}')">
       <span class="cv-picker-icon">${icon}</span>
       <span class="cv-picker-info">
@@ -235,19 +255,27 @@ function _buildPickerHTML() {
       <span class="cv-picker-info"><span class="cv-picker-name" style="color:#e06060">選択を解除</span><span class="cv-picker-meta">ライブラリ全件に戻る</span></span>
     </div>` : '';
 
-  return `<div class="cv-picker-modal">
-    <div class="cv-picker-header">
-      <span style="font-size:14px;font-weight:700">カスタムビュー</span>
-      <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
-    </div>
-    <div class="cv-picker-body">
-      ${items || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">ビューがありません</div>'}
+  const footer = _cvPickerEditMode ? '' : `
       <div class="cv-picker-divider"></div>
       ${clearRow}
       <div class="cv-picker-item cv-picker-new" onclick="window._closePicker();window.cvOpenNewModal()">
         <span class="cv-picker-icon" style="color:var(--accent);font-size:18px">＋</span>
         <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいカスタムビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
+      </div>`;
+
+  const editToggleBtn = _views.length > 0 ? `<button onclick="window._cvPickerToggleEdit()" class="cv-picker-organize-btn${_cvPickerEditMode ? ' active' : ''}">${_cvPickerEditMode ? '完了' : '整理'}</button>` : '';
+
+  return `<div class="cv-picker-modal">
+    <div class="cv-picker-header">
+      <span style="font-size:14px;font-weight:700">カスタムビュー</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${editToggleBtn}
+        <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
       </div>
+    </div>
+    <div class="cv-picker-body">
+      ${items || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">ビューがありません</div>'}
+      ${footer}
     </div>
   </div>`;
 }
@@ -286,8 +314,44 @@ window._cvClearSelection = function() {
 };
 
 window._closePicker = function() {
+  _cvPickerEditMode = false;
   const el = document.getElementById('cv-picker-overlay');
   if (el) el.style.display = 'none';
+};
+
+window._cvPickerToggleEdit = function() {
+  _cvPickerEditMode = !_cvPickerEditMode;
+  const el = document.getElementById('cv-picker-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+};
+
+window._cvDeleteView = function(id) {
+  const view = _views.find(v => v.id === id);
+  if (!view) return;
+  if (!confirm(`「${view.label}」を削除してよろしいですか？`)) return;
+  _views = _views.filter(v => v.id !== id);
+  if (_curId === id) {
+    _curId = null;
+    window._cvVideoIds = null;
+    window._cvCardVideoIds = null;
+    window._cvOnViewChange?.();
+  }
+  _save();
+  _renderViewBar();
+  const el = document.getElementById('cv-picker-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+};
+
+window._cvMoveView = function(id, dir) {
+  const idx = _views.findIndex(v => v.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= _views.length) return;
+  [_views[idx], _views[newIdx]] = [_views[newIdx], _views[idx]];
+  _save();
+  _renderViewBar();
+  const el = document.getElementById('cv-picker-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
 };
 
 // ── ビュー切替 ──
