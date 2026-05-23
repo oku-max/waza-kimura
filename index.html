@@ -2298,20 +2298,10 @@ const BELT_L={white:'白帯',blue:'青帯',purple:'紫帯',brown:'茶帯',black:
 
 let videos=[]
 window.videos = videos;
-const CUSERS=[
-  {id:"u1",name:"Kenji_BJJ",belt:"blue",gym:"Tri-force新宿",vids:23,fols:41,following:false},
-  {id:"u2",name:"Tanaka_Grappler",belt:"purple",gym:"草加柔術",vids:67,fols:128,following:true},
-  {id:"u3",name:"Yuki_Rolls",belt:"brown",gym:"Aacc目黒",vids:89,fols:203,following:false},
-  {id:"u4",name:"黒帯先生",belt:"black",gym:"パラエストラ東京",vids:145,fols:512,following:false},
-];
-const CVIDS=[
-  {id:"c1",vid:"9bsuvPFNLvE",pt:"youtube",title:"Triangle Choke Setup & Finish from Closed Guard",ch:"Lachlan Giles",uid:"u3",tags:["十字絞め","アームバー"],pos:["クローズドガード"],status:"マスター",memo:"この動画で腰の角度がやっとわかった。ポイントは腕の引き込みと同時に腰を切ること。",saves:34},
-  {id:"c2",vid:"76979871",pt:"vimeo",title:"X-Guard Complete System - John Danaher",ch:"Danaher Death Squad",uid:"u4",tags:["SLXスイープ","アームバー"],pos:["Xガード"],status:"マスター",memo:"黒帯取得後も定期的に見返す。Xガードの基礎の確認に最適。",saves:89},
-  {id:"c3",vid:"dQw4w9WgXcQ",pt:"youtube",title:"Kimura from Closed Guard - Complete System",ch:"Bernardo Faria BJJ",uid:"u1",tags:["キムラ"],pos:["クローズドガード"],status:"練習中",memo:"クローズドガード強化中。グリップ戦がポイントと気づいた。",saves:12},
-  {id:"c4",vid:"oHg5SJYRHA0",pt:"youtube",title:"Hip Escape Drill",ch:"Gordon Ryan",uid:"u2",tags:[],pos:["サイドコントロール","マウント"],status:"マスター",memo:"週3回のドリルで明らかにエスケープが改善。白帯〜青帯に全力でおすすめ。",saves:56},
-];
-const TRENDING=["Xガード","クローズドガード","バックコントロール","ハーフガード","ヒールフック","十字絞め","キムラ","ベリンボロ","RNC","エスケープ","ベリンボロ","デラヒーバ"];
-const plVids={"クローズドガード":[{id:"dQw4w9WgXcQ",title:"Kimura from Closed Guard",ch:"Bernardo Faria BJJ"},{id:"9bsuvPFNLvE",title:"Triangle Choke from Closed Guard",ch:"Lachlan Giles"},{id:"xA001",title:"Armbar from Closed Guard",ch:"Bernardo Faria BJJ"}],"ハーフガード":[{id:"M7lc1UVf-VE",title:"Half Guard Sweep",ch:"Tom DeBlass"},{id:"xA002",title:"Deep Half Entry",ch:"Jeff Glover"}],"バックコントロール":[{id:"xA003",title:"Back Take from Turtle",ch:"John Danaher"},{id:"xA004",title:"RNC Finish",ch:"Gordon Ryan"}],"エスケープ":[{id:"oHg5SJYRHA0",title:"Hip Escape Drill",ch:"Gordon Ryan"},{id:"xA005",title:"Mount Escape",ch:"Marcelo Garcia"}]};
+const CUSERS=[];
+const CVIDS=[];
+const TRENDING=[];
+const plVids={};
 
 let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tags:new Set(),platform:new Set(),channel:new Set(),videoIds:new Set()};
 let favOnly=false,unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
