@@ -464,8 +464,8 @@ body.bulk-mode .card-sel-ov{display:block;}
 .org-table-wrap::-webkit-scrollbar-thumb { background:var(--text3); border-radius:4px; }
 .org-table-wrap::-webkit-scrollbar-thumb:hover { background:var(--text3); }
 .org-table-wrap::-webkit-scrollbar-corner { background:transparent; }
-.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid rgba(0,0,0,0.08); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; box-sizing:border-box; }
-.cv-custom-th { border-right:1px solid rgba(0,0,0,0.08); }
+.org-th { font-size:10px; font-weight:800; color:var(--text3); letter-spacing:.7px; padding:7px 8px; border-bottom:2px solid var(--border); border-right:1px solid var(--border); background:var(--surface) !important; text-align:left; white-space:nowrap; position:sticky; top:0; z-index:10; box-sizing:border-box; }
+.cv-custom-th { border-right:1px solid var(--border); }
 .org-tr { border-bottom:1px solid var(--border); transition:background .15s; }
 .org-tr:hover { background:var(--surface2); }
 .org-td { padding:8px 10px; font-size:12px; vertical-align:middle; overflow:hidden; box-sizing:border-box; }
