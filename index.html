@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.400</title>
+<title>WAZA KIMURA v52.401</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3842,9 +3842,11 @@ window.toggleAcctMenu = function(e) {
 window.closeAcctMenu = function() {
   document.getElementById('acct-menu')?.classList.remove('open');
 };
-// 外クリックで閉じる
+// 外クリックで閉じる（オンボーディング中はメニューを閉じない）
 document.addEventListener('click', function(e) {
   if (!e.target.closest('#acct-menu') && !e.target.closest('#acct-btn')) {
+    const obOverlay = document.getElementById('ob-overlay');
+    if (obOverlay && obOverlay.style.display === 'block') return;
     window.closeAcctMenu();
   }
 });
