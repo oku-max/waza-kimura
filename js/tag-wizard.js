@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.425 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.427 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -53,20 +53,24 @@ function _induceRule() {
   return {keyword:parts[0], tag:parts[1]};
 }
 
-// ── YouTube ID バリデーター（11文字英数字/_/- のみ）──
-function _isYtId(s) { return typeof s === 'string' && /^[A-Za-z0-9_-]{11}$/.test(s); }
-
-// ── YouTube ID 取得（cards.js / organize.js と同じパターン）──
-// v.ytId → v.id から yt- プレフィックス除去 → v.id 直接（旧形式対応）
-function _getYtId(v) {
-  if (!v) return '';
-  if (v.ytId) return v.ytId;
-  var rawPt = (v.pt || v.src || 'youtube').toLowerCase();
-  var isYT  = rawPt === 'youtube' || rawPt === 'yt';
-  if (!isYT) return '';
-  // "yt-{ytId}" 形式の旧フォーマット対応
-  var raw = (v.id || '').replace(/^yt-/, '');
-  return _isYtId(raw) ? raw : '';
+// ── プラットフォーム別 embed 情報取得（vpanel.js と完全一致のロジック）──
+function _getEmbedInfo(v) {
+  if (!v) return { embedUrl:'', thumb:'', canPlay:false };
+  var pt   = v.pt || '';
+  var isYT = pt === 'youtube';
+  var isGD = pt === 'gdrive';
+  var isX  = pt === 'x';
+  var ytId = v.ytId || (isYT ? v.id : '') || '';
+  var gdId = isGD ? (v.id||'').replace('gd-', '') : '';
+  var vmId = (!isYT && !isGD && !isX) ? (v.id||'').replace('yt-', '') : '';
+  var embedUrl = isYT && ytId ? ('https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0')
+               : isGD && gdId ? ('https://drive.google.com/file/d/' + gdId + '/preview')
+               : (!isX && vmId) ? ('https://player.vimeo.com/video/' + vmId + '?' + (v.vmHash ? 'h=' + v.vmHash + '&' : '') + 'autoplay=1')
+               : '';
+  var thumb = v.thumb
+    || (ytId ? 'https://img.youtube.com/vi/' + ytId + '/mqdefault.jpg' : '')
+    || (gdId ? 'https://drive.google.com/thumbnail?id=' + gdId + '&sz=w320' : '');
+  return { embedUrl:embedUrl, thumb:thumb, canPlay:!!embedUrl };
 }
 
 // ── 提案エンジン（tag-master.js の autoTagFromTitle を使用）──
@@ -77,14 +81,25 @@ function _suggest(title, channel) {
   // TB は配列だが wizard は単一選択 → 先頭を使う
   var tb = (base.tb && base.tb.length) ? base.tb[0] : null;
 
-  // チャンネル学習でカテゴリを補完
+  // ポジション: autoTagFromTitle の結果 + window.POSITIONS（admin管理の最新リスト）でも追加マッチング
+  // → tag-master.js の内部リストにない「サイドコントロール」等も検出できる
+  var posList = (base.pos || []).slice();
+  var tLower  = (title || '').toLowerCase();
+  (window.POSITIONS || []).forEach(function(p) {
+    if (!p.ja || posList.indexOf(p.ja) >= 0) return;
+    var keys = [p.ja, p.en].concat(p.aliases || []).filter(Boolean);
+    var hit  = keys.some(function(k) { return k && k.length >= 2 && tLower.indexOf(k.toLowerCase()) >= 0; });
+    if (hit) posList.push(p.ja);
+  });
+
+  // カテゴリ: チャンネル学習で補完
   var cats = (base.cat || []).slice();
   _getChannelSuggest(channel, 5).forEach(function(tag) {
     var inCat = (window.CATEGORIES||[]).some(function(c){ return c.name === tag; });
     if (inCat && cats.indexOf(tag) < 0) cats.push(tag);
   });
 
-  return { tb: tb, pos: base.pos||[], cat: cats, tech: base.tags||[] };
+  return { tb: tb, pos: posList, cat: cats, tech: base.tags||[] };
 }
 
 // ── キュー管理 ──
@@ -160,7 +175,6 @@ function _ensureDOM() {
             '<div id="tw-pl" style="display:none;font-size:10px;color:var(--text3,#999);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>',
             '<div id="tw-title" style="font-size:13px;font-weight:700;color:var(--text,#111);line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"></div>',
             '<div id="tw-hint" style="margin-top:5px;font-size:11px;color:var(--text3,#999)"></div>',
-            '<div id="tw-debug" style="margin-top:4px;font-size:10px;color:#e05;font-family:monospace;word-break:break-all;background:rgba(255,0,0,.06);padding:2px 4px;border-radius:4px"></div>',
           '</div>',
         '</div>',
         // iframe
@@ -317,7 +331,7 @@ function _loadItem() {
   var title   = v.title   || v.name || '';
   var channel = v.ch      || v.channel || '';
   var pl      = v.pl      || '';
-  var ytId    = _getYtId(v);
+  var _info   = _getEmbedInfo(v);
 
   // プレイヤーリセット
   _previewOpen = false;
@@ -343,18 +357,11 @@ function _loadItem() {
   if (elPl)  { elPl.textContent = pl ? '📋 ' + pl : ''; elPl.style.display = pl ? 'block' : 'none'; }
   if (elHint)  elHint.textContent  = hintArr.length ? '検出: ' + hintArr.join(' / ') : '';
 
-  // ── DEBUG: 動画IDフィールドを表示 ──
-  var elDbg = document.getElementById('tw-debug');
-  if (elDbg) {
-    elDbg.textContent = 'id=' + (v.id||'—') + '  ytId=' + (v.ytId||'—') + '  pt=' + (v.pt||'—') + '  → 使用中=' + (ytId||'なし');
-  }
-
-  // サムネイル
-  var thumbSrc = v.thumb || (ytId ? 'https://img.youtube.com/vi/' + ytId + '/mqdefault.jpg' : '');
-  var elThumb  = document.getElementById('tw-thumb');
+  // サムネイル・再生ボタン
+  var elThumb   = document.getElementById('tw-thumb');
   var elPlayBtn = document.getElementById('tw-play-btn');
-  if (elThumb) { elThumb.src = thumbSrc || ''; elThumb.style.display = thumbSrc ? 'block' : 'none'; }
-  if (elPlayBtn) elPlayBtn.style.display = ytId ? 'flex' : 'none';
+  if (elThumb)   { elThumb.src = _info.thumb || ''; elThumb.style.display = _info.thumb ? 'block' : 'none'; }
+  if (elPlayBtn) elPlayBtn.style.display = _info.canPlay ? 'flex' : 'none';
 
   // TB chips（window.TB_VALUES を使用 / 既存 v.tb を事前選択）
   var tbValues    = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
@@ -417,16 +424,16 @@ function _loadItem() {
   _updateProgress();
 }
 
-// ── 再生トグル ──
+// ── 再生トグル（YouTube / Google Drive / Vimeo 対応）──
 function _togglePreview() {
   var v = _queue[_qIdx];
   if (!v) return;
-  var ytId = _getYtId(v);
-  if (!ytId) { if (window.toast) window.toast('YouTube IDが見つかりません'); return; }
+  var info = _getEmbedInfo(v);
+  if (!info.canPlay) { if (window.toast) window.toast('再生できません'); return; }
   var fr = document.getElementById('tw-iframe');
   if (!fr) return;
   _previewOpen = !_previewOpen;
-  fr.src         = _previewOpen ? 'https://www.youtube.com/embed/' + ytId + '?autoplay=1' : '';
+  fr.src           = _previewOpen ? info.embedUrl : '';
   fr.style.display = _previewOpen ? 'block' : 'none';
 }
 
