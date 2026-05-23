@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.423 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.424 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -55,6 +55,19 @@ function _induceRule() {
 
 // ── YouTube ID バリデーター（11文字英数字/_/- のみ）──
 function _isYtId(s) { return typeof s === 'string' && /^[A-Za-z0-9_-]{11}$/.test(s); }
+
+// ── YouTube ID 取得（cards.js / organize.js と同じパターン）──
+// v.ytId → v.id から yt- プレフィックス除去 → v.id 直接（旧形式対応）
+function _getYtId(v) {
+  if (!v) return '';
+  if (v.ytId) return v.ytId;
+  var rawPt = (v.pt || v.src || 'youtube').toLowerCase();
+  var isYT  = rawPt === 'youtube' || rawPt === 'yt';
+  if (!isYT) return '';
+  // "yt-{ytId}" 形式の旧フォーマット対応
+  var raw = (v.id || '').replace(/^yt-/, '');
+  return _isYtId(raw) ? raw : '';
+}
 
 // ── 提案エンジン（tag-master.js の autoTagFromTitle を使用）──
 function _suggest(title, channel) {
@@ -303,8 +316,7 @@ function _loadItem() {
   var title   = v.title   || v.name || '';
   var channel = v.ch      || v.channel || '';
   var pl      = v.pl      || '';
-  var pt      = v.pt      || v.src || 'youtube';
-  var ytId    = v.ytId    || (_isYtId(v.id) ? v.id : '') || '';
+  var ytId    = _getYtId(v);
 
   // プレイヤーリセット
   _previewOpen = false;
@@ -402,7 +414,7 @@ function _loadItem() {
 function _togglePreview() {
   var v = _queue[_qIdx];
   if (!v) return;
-  var ytId = v.ytId || (_isYtId(v.id) ? v.id : '') || '';
+  var ytId = _getYtId(v);
   if (!ytId) { if (window.toast) window.toast('YouTube IDが見つかりません'); return; }
   var fr = document.getElementById('tw-iframe');
   if (!fr) return;
@@ -534,6 +546,9 @@ function _acceptRule() {
 // ── open / close / next ──
 function _open() {
   _ensureDOM();
+  // admin-dashboard で更新された POSITIONS/CATEGORIES を確実に反映する
+  if (window.syncPositionsFromStorage) window.syncPositionsFromStorage();
+  if (window.syncCatsFromStorage)      window.syncCatsFromStorage();
   _queue = _buildQueue();
   _qIdx = 0;
   _pendingRule = null;
