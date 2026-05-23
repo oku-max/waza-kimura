@@ -2346,7 +2346,11 @@ export function saveAdvSearch() {
   if (window.saveCurrentSearch) window.saveCurrentSearch();
 }
 
-window.toggleAdvSearch = toggleAdvSearch;
-window.applyAdvSearch  = applyAdvSearch;
-window.clearAdvSearch  = clearAdvSearch;
-window.saveAdvSearch   = saveAdvSearch;
+window.toggleAdvSearch    = toggleAdvSearch;
+window.applyAdvSearch     = applyAdvSearch;
+window.clearAdvSearch     = clearAdvSearch;
+window.saveAdvSearch      = saveAdvSearch;
+// カスタムビューなど IIFE モジュール向けにクエリパーサーも公開
+window._parseQuery        = _parseQuery;
+window._matchQueryField   = _matchQueryField;
+window._matchFieldSpecific = _matchFieldSpecific;
