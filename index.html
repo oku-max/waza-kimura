@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.383</title>
+<title>WAZA KIMURA v52.384</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -78,7 +78,7 @@
 <script src="js/tag-master-ui.js" defer></script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
-<script src="js/custom-view.js?v=52.383" defer></script>
+<script src="js/custom-view.js?v=52.384" defer></script>
 <script src="js/vpanel-v4.js" defer></script>
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
@@ -1417,7 +1417,7 @@
           <button id="cv-main-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()">☰ 選択</button>
           <div id="cv-selected-badge" style="display:none;align-items:center;gap:5px;flex-wrap:wrap">
             <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:var(--text);color:var(--surface);font-size:11px;font-weight:700;border:1.5px solid var(--text)">
-              <span id="cv-badge-text" onclick="window.cvOpenViewPicker()" style="cursor:pointer;white-space:nowrap">—</span>
+              <span id="cv-badge-text" onclick="window.cvOpenViewPicker()" style="cursor:pointer;word-break:break-all">—</span>
               <span onclick="event.stopPropagation();window._cvClearSelection()" style="cursor:pointer;opacity:.7;font-size:12px;line-height:1">×</span>
             </span>
             <span onclick="event.stopPropagation();window._cvEditCurrent()" title="編集" style="cursor:pointer;opacity:.55;font-size:12px;line-height:1;padding:2px 4px;border-radius:4px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity='.55'">✏️</span>

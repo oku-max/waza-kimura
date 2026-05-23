@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.383 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.384 ═══
 (function () {
 'use strict';
 
