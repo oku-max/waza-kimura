@@ -184,6 +184,7 @@ export function clearAll() {
   window.buildSidebarFovRows?.();
   window.refreshOpenSbAccordions?.();
   window.renderTFC?.();
+  window._cvClearFilters?.();  // カスタムビューの検索文字・列フィルターもリセット
   window.AF?.();
 }
 
@@ -340,7 +341,8 @@ export function updateResetBtn() {
 
 // ── フィルタリング本体 ──
 export function filt(list) {
-  if (window._cvCardVideoIds) return list.filter(v => !v.archived && window._cvCardVideoIds.has(v.id));
+  // カード型カスタムビュー: IDでプールを絞るが、その後の全フィルターは通常通り適用
+  if (window._cvCardVideoIds) list = list.filter(v => window._cvCardVideoIds.has(v.id));
   const siEl   = document.getElementById('si');
   const siPcEl = document.getElementById('si-lib-pc');
   const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();

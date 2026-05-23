@@ -2311,6 +2311,7 @@ export function applyAdvSearch() {
   const siLibMob = document.getElementById('si');
   if (siLib) siLib.value = q.trim();
   if (siLibMob) siLibMob.value = q.trim();
+  window._cvApplySearch?.(q.trim()); // カスタムビューのテーブルにも反映
   window.AF?.();
 }
 
@@ -2335,6 +2336,7 @@ export function clearAdvSearch() {
   const siLibMob = document.getElementById('si');
   if (siLib) siLib.value = '';
   if (siLibMob) siLibMob.value = '';
+  window._cvApplySearch?.(''); // カスタムビューの検索もクリア
   renderOrg();
   window.AF?.();
 }

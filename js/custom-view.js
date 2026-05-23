@@ -880,10 +880,34 @@ function _getViewVideos(view) {
 function _cvUpdateSearch(view) {
   const q = (_cvSrchQ || '').toLowerCase().trim();
   const videos = _getViewVideos(view);
-  const filtered = q ? videos.filter(v => (v.title || '').toLowerCase().includes(q)) : videos;
+  let filtered = q ? videos.filter(v => (v.title || '').toLowerCase().includes(q)) : videos;
+  filtered = _cvApplyGlobalFilters(filtered);
   window._cvVideoIds = new Set(filtered.map(v => v.id));
   window._vpFilteredList = filtered.length ? filtered : null;
   window.renderOrg?.();
+}
+
+function _cvApplyGlobalFilters(list) {
+  const f = window.filters;
+  if (!f) return list;
+  return list.filter(v => {
+    if (window.favOnly    && !v.fav)                                    return false;
+    if (window.nextOnly   && !v.next)                                   return false;
+    if (window.unwOnly    && v.watched)                                 return false;
+    if (window.watchedOnly && !v.watched)                               return false;
+    if (window.bmOnly     && !(v.bookmarks && v.bookmarks.length > 0)) return false;
+    if (window.memoOnly   && !v.memo)                                   return false;
+    if (f.platform?.size  && !f.platform.has(v.pt))                    return false;
+    if (f.playlist?.size  && !f.playlist.has(v.pl))                    return false;
+    if (f.prio?.size      && !f.prio.has(v.prio))                      return false;
+    if (f.status?.size    && !f.status.has(v.status))                  return false;
+    if (f.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))     return false;
+    if (f.action?.size    && !(v.cat ||[]).some(a => f.action.has(a))) return false;
+    if (f.position?.size  && !(v.pos ||[]).some(p => f.position.has(p))) return false;
+    if (f.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))   return false;
+    if (f.channel?.size   && !f.channel.has(v.channel || v.ch))        return false;
+    return true;
+  });
 }
 
 function _applyConditions(fc, all) {
@@ -2647,6 +2671,40 @@ window._cvApplyLoadedViews = function(views) {
       window._cvAfterRender();
     }
   }
+};
+
+// ── パブリックAPI（フィルタールーティング用） ──
+
+// 現在テーブル型カスタムビューを表示中かどうか
+window._cvIsTableView = function() {
+  return !!(_curId && !window._cvCardVideoIds);
+};
+
+// ワード検索をカスタムビューに反映（si-lib-pc oninput から呼ばれる）
+window._cvApplySearch = function(q) {
+  _cvSrchQ = q || '';
+  const siOrg = document.getElementById('si-org');
+  if (siOrg) siOrg.value = _cvSrchQ;
+  const view = _views.find(v => v.id === _curId);
+  if (view) _cvUpdateSearch(view);
+};
+
+// フィルターリセット時にカスタムビュー状態もクリア（clearAll から呼ばれる）
+window._cvClearFilters = function() {
+  _cvSrchQ = '';
+  const siOrg = document.getElementById('si-org');
+  if (siOrg) siOrg.value = '';
+  if (_curId && filterState[_curId]) {
+    Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
+  }
+  // 再描画は呼び出し元の AF() → _cvOnAfCalled に委ねる
+};
+
+// AF() 実行後にテーブルビューも更新（window.AF ラッパーから呼ばれる）
+window._cvOnAfCalled = function() {
+  if (!_curId || window._cvCardVideoIds) return; // テーブルビュー以外は無視
+  const view = _views.find(v => v.id === _curId);
+  if (view) _cvUpdateSearch(view);
 };
 
 })();

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.411</title>
+<title>WAZA KIMURA v52.415</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -429,6 +429,7 @@
   let _startupTabApplied = false;
   window.AF = function() {
     _origAF.apply(this, arguments);
+    window._cvOnAfCalled?.(); // テーブル型カスタムビューにもフィルター結果を反映
     // .cardクラスを持つ要素のみ対象（子要素の誤ヒットを防ぐ）
     const cards = document.querySelectorAll('#cardList .card[id^="card-"]');
     if (cards.length > 0) {
@@ -1448,7 +1449,7 @@
             <div style="padding:8px 10px 6px;border-bottom:1px solid var(--border2)">
               <div class="lib-sb-search">
                 <span style="color:var(--text3)">🔍</span>
-                <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
+                <input id="si-lib-pc" type="text" placeholder="Search..." oninput="if(window._cvIsTableView?.())window._cvApplySearch?.(this.value);else window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
                 <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
               </div>
               <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 12px;text-align:center;border:1.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
