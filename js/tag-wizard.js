@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.428 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.429 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -22,6 +22,21 @@ function _getChannelSuggest(channel, n) {
     var chData = profiles[channel] || {};
     return Object.keys(chData).sort(function(a,b){ return chData[b]-chData[a]; }).slice(0, n||5);
   } catch(e) { return []; }
+}
+
+// ── スキップ済みルール管理 ──
+function _saveSkippedRule(rule) {
+  try {
+    var list = JSON.parse(localStorage.getItem('wk_tw_skipped_rules') || '[]');
+    var key  = rule.keyword + '|||' + rule.tag;
+    if (!list.includes(key)) { list.push(key); localStorage.setItem('wk_tw_skipped_rules', JSON.stringify(list)); }
+  } catch(e) {}
+}
+function _isRuleSkipped(rule) {
+  try {
+    var list = JSON.parse(localStorage.getItem('wk_tw_skipped_rules') || '[]');
+    return list.includes(rule.keyword + '|||' + rule.tag);
+  } catch(e) { return false; }
 }
 
 // ── 帰納エンジン ──
@@ -210,6 +225,11 @@ function _ensureDOM() {
             '<button id="tw-btn-add-tech" style="padding:5px 12px;border-radius:20px;background:var(--surface2,#f1f1ef);border:1.5px solid var(--border,#e0e0dc);color:var(--text3,#999);font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit">追加</button>',
           '</div>',
         '</div>',
+        // メモ（自由入力）
+        '<div>',
+          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">メモ</div>',
+          '<textarea id="tw-memo" rows="2" placeholder="補足メモを自由に入力..." style="width:100%;padding:7px 10px;border-radius:10px;border:1.5px solid var(--border,#e0e0dc);background:var(--surface2,#f1f1ef);color:var(--text,#111);font-size:12px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>',
+        '</div>',
         // デルタ
         '<div id="tw-delta-box" style="display:none;background:var(--surface2,#f1f1ef);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--text3,#999)">',
           '<div style="font-weight:700;margin-bottom:4px;color:var(--text2,#555)">変更内容</div>',
@@ -243,7 +263,10 @@ function _ensureDOM() {
   document.getElementById('tw-tech-select').addEventListener('change', function(){ _addTechFromSelect(this); });
   document.getElementById('tw-play-btn').addEventListener('click', _togglePreview);
   document.getElementById('tw-btn-accept-rule').addEventListener('click', _acceptRule);
-  document.getElementById('tw-btn-skip-rule').addEventListener('click', _next);
+  document.getElementById('tw-btn-skip-rule').addEventListener('click', function() {
+    if (_pendingRule) _saveSkippedRule(_pendingRule);
+    _next();
+  });
 }
 
 // ── タグピル追加 ──
@@ -422,6 +445,9 @@ function _loadItem() {
   var techInput = document.getElementById('tw-tech-input');
   if (techInput) techInput.value = '';
 
+  var memoEl = document.getElementById('tw-memo');
+  if (memoEl) memoEl.value = v.memo || '';
+
   var deltaBox  = document.getElementById('tw-delta-box');
   var inductBox = document.getElementById('tw-induct-box');
   if (deltaBox)  deltaBox.style.display  = 'none';
@@ -528,6 +554,8 @@ function _confirm() {
   v.pos      = finalPos;
   v.cat      = finalCat;
   v.tags     = finalTech.length ? Array.from(new Set((v.tags||[]).concat(finalTech))) : (v.tags||[]);
+  var memoEl = document.getElementById('tw-memo');
+  if (memoEl) { var m = memoEl.value.trim(); if (m) v.memo = m; else delete v.memo; }
   v.verified = Date.now();
 
   if (window.saveUserData) window.saveUserData();
@@ -539,6 +567,8 @@ function _confirm() {
   _updateChannelProfile(channel, final);
 
   var rule = _induceRule();
+  // スキップ済みのルールは表示しない
+  if (rule && _isRuleSkipped(rule)) rule = null;
   if (rule) {
     _pendingRule = rule;
     var inductBox  = document.getElementById('tw-induct-box');

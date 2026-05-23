@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.428</title>
+<title>WAZA KIMURA v52.429</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3639,11 +3639,19 @@ function initOwnerSettings() {
   const isOwner = email === _OWNER_EMAIL;
   const el = document.getElementById('owner-only-settings');
   if (el) el.style.display = isOwner ? '' : 'none';
-  // 非オーナーはAdminタブを強制非表示（localStorageのadmin_modeが残っていても無効化）
   if (!isOwner) {
+    // 非オーナーはAdminタブを強制非表示
     ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
+    });
+  } else {
+    // オーナー確認後: localStorage の admin_mode 設定を再適用
+    // (initAdminMode() は認証前に走るため、その後この関数で上書きされて消える問題を修正)
+    const adminOn = localStorage.getItem('waza_admin_mode') === '1';
+    ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = adminOn ? '' : 'none';
     });
   }
 }
