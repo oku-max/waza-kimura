@@ -870,7 +870,7 @@
   pointer-events: none;
 }
 
-/* 戻るボタン: #vpanel-left-col左下に固定 */
+/* 戻るボタン: #vpanel-iframe-container左下に固定 */
 #vpanel-back-btn {
   position: absolute;
   bottom: 8px;
@@ -4178,8 +4178,10 @@ window.addEventListener('resize', adjustTopbarOffset);
   <div class="vpanel-inner" onclick="event.stopPropagation()" id="vpanelInner">
     <!-- 左カラム: 動画 + タイトル + スキップボタン + ぼかし余白 -->
     <div id="vpanel-left-col">
-      <button id="vpanel-back-btn" onclick="closeVPanel()">← 戻る</button>
-      <div id="vpanel-iframe-container"><div id="vpanel-yt-player"></div></div>
+      <div id="vpanel-iframe-container">
+        <div id="vpanel-yt-player"></div>
+        <button id="vpanel-back-btn" onclick="closeVPanel()">← 戻る</button>
+      </div>
       <div id="vpanel-title-area" style="background:var(--surface);border-top:1px solid var(--border)"></div>
       <div id="vpanel-skip-area"></div>
       <div id="vpanel-blur-area"></div>
