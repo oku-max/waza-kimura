@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.418 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.419 ═══
 (function () {
 'use strict';
 
@@ -235,7 +235,7 @@ var _pendingRule = null;
 var _previewOpen = false;
 
 function _buildQueue() {
-  var vids = (window.videos || []).filter(function(v) { return !v.archive; });
+  var vids = (window.videos || []).filter(function(v) { return !v.archived; });
   // 未タグ優先 → 未verified → その他
   var untagged = vids.filter(function(v) {
     return (!v.tb || !v.tb.length) && (!v.pos || !v.pos.length) && (!v.cat || !v.cat.length);
@@ -666,7 +666,7 @@ window._twConfirm = function() {
   v.pos = finalPos;
   v.cat = finalCat;
   v.tags = [...new Set([...(v.tags || []), ...finalTech])];
-  v.verified = true;
+  v.verified = Date.now();
 
   // 保存・表示更新
   if (window.saveUserData) window.saveUserData();
