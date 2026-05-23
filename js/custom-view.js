@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.387 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.388 ═══
 (function () {
 'use strict';
 
@@ -2367,7 +2367,6 @@ window._cvGetUnifiedMenuHTML = function() {
 
   if (hiddenIds.length) {
     html += '<div style="height:1px;background:var(--border);margin:8px 0"></div>';
-    html += '<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;opacity:.6">非表示の列</div>';
     hiddenIds.forEach(id => {
       const isCv  = _isCustomColId(id);
       const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
