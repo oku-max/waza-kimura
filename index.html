@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.401</title>
+<title>WAZA KIMURA v52.402</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -303,8 +303,6 @@
     const libSi    = document.getElementById('si-lib-pc');
     const orgSi    = document.getElementById('si-org');
 
-    const fSidebar = document.getElementById('filterSidebar');
-    const rz       = document.getElementById('sbResizer');
     if (mode === 'card') {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
@@ -318,10 +316,6 @@
       if (orgActbar)  orgActbar.style.display  = 'none';
       if (libC) libC.style.display = '';
       if (orgC) orgC.style.display = 'none';
-      // Library card mode: filterSidebar は lib-sidebar に統合済みなので非表示
-      if (fSidebar) fSidebar.style.setProperty('display', 'none', 'important');
-      if (rz)       rz.style.setProperty('display', 'none', 'important');
-      document.documentElement.style.setProperty('--sbw', '0px');
       window.AF?.();
     } else {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
@@ -333,24 +327,22 @@
       if (orgHost)    orgHost.style.display    = '';
       if (cardBtn)    cardBtn.classList.remove('lvt-active');
       if (orgBtn)     orgBtn.classList.add('lvt-active');
-      if (orgActbar)  orgActbar.style.display  = 'none'; // lib-sidebar統合済みのため常に非表示
+      if (orgActbar)  orgActbar.style.display  = 'none';
       if (libC) libC.style.display = 'none';
       if (orgC) orgC.style.display = 'none';
-      // filterSidebar は lib-sidebar に統合済みのため org mode でも非表示のまま
-      if (fSidebar) fSidebar.style.setProperty('display', 'none', 'important');
-      if (rz)       rz.style.setProperty('display', 'none', 'important');
       window.renderOrg?.();
     }
   };
 
-  // ── Library サイドバー開閉 ──
+  // ── Library サイドバー開閉（overlay mode v52.402） ──
   window.libSbToggle = function() {
     const sb  = document.getElementById('libSidebar');
     const ov  = document.getElementById('libSbOverlay');
     const btn = document.getElementById('lib-sb-toggle-btn');
     if (!sb) return;
     const isOpen = sb.classList.toggle('open');
-    if (ov)  ov.classList.toggle('vis', isOpen);
+    // モバイルのみ暗幕を表示（PC は暗幕なし・Notes と同じ挙動）
+    if (ov)  ov.classList.toggle('vis', isOpen && window.innerWidth < 768);
     if (btn) btn.classList.toggle('sb-open', isOpen);
   };
   window.libSbClose = function() {
@@ -939,7 +931,7 @@
   flex-direction: row;
   position: fixed;
   top: var(--topbar-h, 72px);
-  left: var(--sbw, 0px);
+  left: 0;
   right: 0;
   bottom: 0;
   overflow: hidden;
@@ -947,7 +939,7 @@
   z-index: 15;
 }
 @media(max-width:767px) {
-  #homeTab.active { left: 0; top: var(--topbar-h, 56px); }
+  #homeTab.active { top: var(--topbar-h, 56px); }
 }
 .lib-view-bar {
   flex-shrink: 0;
@@ -1071,11 +1063,21 @@
 .cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
 .cv-chip:hover { background:var(--surface3);color:var(--text) }
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
-/* lib-sidebar統合後: filterSidebar/sbResizerは常に非表示（initSbwが--sbw=0を計算するため） */
-#filterSidebar, #sbResizer { display: none !important; }
-/* ── Library サイドバー v52.341 (push mode) ── */
-.lib-sidebar { width:0;flex-shrink:0;background:var(--surface);border-right:0px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .25s cubic-bezier(.4,0,.2,1),border-right-width .25s; }
-.lib-sidebar.open { width:180px;border-right-width:1px; }
+/* lib-sidebar統合後: filterSidebarは常に非表示 */
+#filterSidebar { display: none !important; }
+/* ── Library サイドバー v52.402 (overlay mode) ── */
+.lib-sidebar {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: 220px; flex-shrink: 0;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  transform: translateX(-100%);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: none; z-index: 100;
+}
+.lib-sidebar.open { transform: translateX(0); box-shadow: 6px 0 24px rgba(0,0,0,.35); }
+#libSbOverlay { display:none; position:absolute; inset:0; background:rgba(0,0,0,.5); z-index:99; }
+#libSbOverlay.vis { display:block; }
 .lib-main { flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden; }
 .lib-sb-filter-box { border:none;border-radius:0;overflow:visible;margin:0 0 4px; }
 .lib-sb-hdr { padding:11px 12px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
@@ -1410,13 +1412,15 @@
   <div id="sb-popup-body" style="max-height:min(554px,calc(var(--zvh-100,100vh) - 120px));overflow-y:auto"></div>
 </div>
 
-<div id="sbResizer"></div><div class="main-area">
+<div class="main-area">
 
 <!-- HOME -->
 
 <div class="tab-panel active" id="homeTab">
-  <!-- Library サイドバー (push mode v52.341) -->
-  <div class="lib-sidebar open" id="libSidebar">
+  <!-- 暗幕オーバーレイ（モバイル用） -->
+  <div id="libSbOverlay" onclick="libSbClose()"></div>
+  <!-- Library サイドバー (overlay mode v52.402) -->
+  <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr">
       <span class="lib-sb-hdr-title">□ ライブラリ</span>
       <button class="lib-sb-close" onclick="libSbClose()">✕</button>
@@ -3820,6 +3824,16 @@ function adjustTopbarOffset() {
 window.addEventListener('load', adjustTopbarOffset);
 window.addEventListener('resize', adjustTopbarOffset);
 
+// ── ライブラリサイドバー: デフォルトで開く（Notes と同じ挙動）
+document.addEventListener('DOMContentLoaded', function() {
+  const sb = document.getElementById('libSidebar');
+  if (sb) sb.classList.add('open');
+  // モバイルのみ暗幕を表示
+  if (window.innerWidth < 768) {
+    document.getElementById('libSbOverlay')?.classList.add('vis');
+  }
+});
+
 // ── アカウントドロップダウン制御 ──
 window.toggleAcctMenu = function(e) {
   e.stopPropagation();
@@ -3859,66 +3873,7 @@ document.addEventListener('click', function(e) {
 
 
 
-// ═══ SIDEBAR RESIZER ═══
-(function(){
-  var SB_MIN=160, SB_MAX=420;
-  var sidebar=document.getElementById('filterSidebar');
-  var resizer=document.getElementById('sbResizer');
-  if(!sidebar||!resizer){console.log('resizer: element not found');return;}
-
-  var dragging=false, startX=0, startW=0;
-
-  // 初期化: --sbw をサイドバー+リサイザーの実幅（offsetWidth = CSS px, zoom非依存）で設定
-  // rAF はバックグラウンドタブで止まるため同期で実行
-  (function initSbw(){
-    var w=sidebar.offsetWidth+resizer.offsetWidth;
-    if(w>0) document.documentElement.style.setProperty('--sbw',w+'px');
-  })();
-
-  function startDrag(x){
-    dragging=true;
-    startX=x;
-    startW=sidebar.offsetWidth||220;
-    resizer.classList.add('dragging');
-  }
-  function moveDrag(x){
-    if(!dragging) return;
-    var w=startW+(x-startX);
-    w=Math.max(SB_MIN,Math.min(SB_MAX,w));
-    sidebar.style.width=w+'px';
-    sidebar.style.minWidth=w+'px';
-    var btn=document.getElementById('sidebar-toggle-btn');
-    if(btn) btn.style.left=w+'px';
-    // --sbw を更新 → CSS left:var(--sbw) が organizeTab を自動追随
-    document.documentElement.style.setProperty('--sbw',(w+resizer.offsetWidth)+'px');
-  }
-  function endDrag(){
-    if(!dragging) return;
-    dragging=false;
-    resizer.classList.remove('dragging');
-  }
-
-  // Mouse
-  resizer.addEventListener('mousedown', function(e){
-    e.preventDefault(); e.stopImmediatePropagation();
-    startDrag(e.clientX);
-  });
-  document.addEventListener('mousemove', function(e){ moveDrag(e.clientX); }, true);
-  document.addEventListener('mouseup', endDrag, true);
-
-  // Touch
-  resizer.addEventListener('touchstart', function(e){
-    e.preventDefault(); e.stopImmediatePropagation();
-    startDrag(e.touches[0].clientX);
-  }, {passive:false});
-  document.addEventListener('touchmove', function(e){
-    if(!dragging) return;
-    e.preventDefault();
-    moveDrag(e.touches[0].clientX);
-  }, {passive:false, capture:true});
-  document.addEventListener('touchend', endDrag, true);
-  document.addEventListener('touchcancel', endDrag, true);
-})();
+// SIDEBAR RESIZER: v52.402でオーバーレイ方式に変更したため削除済み
 
 // ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
 (function(){
