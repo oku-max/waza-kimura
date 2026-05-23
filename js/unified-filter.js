@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — 統合フィルターパネル v52.336 ═══
+// ═══ WAZA KIMURA — 統合フィルターパネル v52.337 ═══
 // state / src / tag の3グループを1つのポップアップに統合
 (function () {
   'use strict';
@@ -1280,8 +1280,15 @@
     if (_cvMode) {
       const addedIds = window._cvGetAddedIds?.(_cvMode) || new Set();
       const toAdd = _shownNoteVideos.filter(id => !addedIds.has(id));
-      toAdd.forEach(id => window._cvVideoClick?.(id));
-      if (toAdd.length) window.toast?.(`📌 ${toAdd.length}件を追加しました`, 1500);
+      if (toAdd.length) {
+        // _cvBulkAdd があればまとめて1回で保存・再描画（_cvVideoClick の N 回ループは renderOrg が N 回走る O(n²) 問題）
+        if (window._cvBulkAdd) {
+          window._cvBulkAdd(toAdd);
+        } else {
+          toAdd.forEach(id => window._cvVideoClick?.(id));
+        }
+        window.toast?.(`📌 ${toAdd.length}件を追加しました`, 1500);
+      }
       _shownNoteVideos = [];
       _render();
       return;

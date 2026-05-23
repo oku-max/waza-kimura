@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.386 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.387 ═══
 (function () {
 'use strict';
 
@@ -2076,6 +2076,14 @@ window._cvGetAddedIds = function(viewId) { return _cvSelectedIds; };
 window._cvVideoClick = function(videoId) {
   if (_cvSelectedIds.has(videoId)) _cvSelectedIds.delete(videoId);
   else _cvSelectedIds.add(videoId);
+  if (_editingViewId) {
+    const view = _views.find(v => v.id === _editingViewId);
+    if (view) { view.videoIds = [..._cvSelectedIds]; _save(); _cvUpdateSearch(view); _renderViewBar(); }
+  }
+};
+// 一括追加用: IDをまとめてセットし、保存・再描画を1回だけ実行（_cvVideoClick N回ループによる O(n²) 問題の解消）
+window._cvBulkAdd = function(ids) {
+  ids.forEach(id => _cvSelectedIds.add(id));
   if (_editingViewId) {
     const view = _views.find(v => v.id === _editingViewId);
     if (view) { view.videoIds = [..._cvSelectedIds]; _save(); _cvUpdateSearch(view); _renderViewBar(); }
