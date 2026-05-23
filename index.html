@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.402</title>
+<title>WAZA KIMURA v52.403</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -334,15 +334,15 @@
     }
   };
 
-  // ── Library サイドバー開閉（overlay mode v52.402） ──
+  // ── Library サイドバー開閉（overlay mode v52.403） ──
   window.libSbToggle = function() {
     const sb  = document.getElementById('libSidebar');
     const ov  = document.getElementById('libSbOverlay');
     const btn = document.getElementById('lib-sb-toggle-btn');
     if (!sb) return;
     const isOpen = sb.classList.toggle('open');
-    // モバイルのみ暗幕を表示（PC は暗幕なし・Notes と同じ挙動）
-    if (ov)  ov.classList.toggle('vis', isOpen && window.innerWidth < 768);
+    // PC・モバイル共通で暗幕を表示
+    if (ov)  ov.classList.toggle('vis', isOpen);
     if (btn) btn.classList.toggle('sb-open', isOpen);
   };
   window.libSbClose = function() {
@@ -1065,7 +1065,7 @@
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
 /* lib-sidebar統合後: filterSidebarは常に非表示 */
 #filterSidebar { display: none !important; }
-/* ── Library サイドバー v52.402 (overlay mode) ── */
+/* ── Library サイドバー v52.403 (overlay mode) ── */
 .lib-sidebar {
   position: absolute; top: 0; left: 0; bottom: 0;
   width: 220px; flex-shrink: 0;
@@ -1417,13 +1417,12 @@
 <!-- HOME -->
 
 <div class="tab-panel active" id="homeTab">
-  <!-- 暗幕オーバーレイ（モバイル用） -->
+  <!-- 暗幕オーバーレイ -->
   <div id="libSbOverlay" onclick="libSbClose()"></div>
-  <!-- Library サイドバー (overlay mode v52.402) -->
+  <!-- Library サイドバー (overlay mode v52.403) -->
   <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr">
       <span class="lib-sb-hdr-title">□ ライブラリ</span>
-      <button class="lib-sb-close" onclick="libSbClose()">✕</button>
     </div>
     <div class="lib-sb-body">
       <!-- ビュー切替 -->
@@ -3828,10 +3827,8 @@ window.addEventListener('resize', adjustTopbarOffset);
 document.addEventListener('DOMContentLoaded', function() {
   const sb = document.getElementById('libSidebar');
   if (sb) sb.classList.add('open');
-  // モバイルのみ暗幕を表示
-  if (window.innerWidth < 768) {
-    document.getElementById('libSbOverlay')?.classList.add('vis');
-  }
+  // PC・モバイル共通で暗幕を表示
+  document.getElementById('libSbOverlay')?.classList.add('vis');
 });
 
 // ── アカウントドロップダウン制御 ──
@@ -3873,7 +3870,7 @@ document.addEventListener('click', function(e) {
 
 
 
-// SIDEBAR RESIZER: v52.402でオーバーレイ方式に変更したため削除済み
+// SIDEBAR RESIZER: v52.403でオーバーレイ方式に変更したため削除済み
 
 // ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
 (function(){
