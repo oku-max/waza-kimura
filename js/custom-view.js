@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.384 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.385 ═══
 (function () {
 'use strict';
 
@@ -429,6 +429,89 @@ function _renderTable(view) {
   _showView(view.id);
 }
 
+// ══════════════════════════════════════════════════════════
+// ── 統合列順序エンジン（標準列＋カスタム列の混在配置）──
+// ══════════════════════════════════════════════════════════
+
+// カスタム列IDかどうか（標準列IDは固定セット）
+const _STD_COL_IDS = new Set(['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo']);
+const _isCustomColId = id => !_STD_COL_IDS.has(id);
+
+// view.unifiedOrder を最新状態に同期
+function _ensureUnifiedOrder(view) {
+  if (!view.unifiedOrder || !view.unifiedOrder.length) {
+    // 初回: 標準列(現在の順)→カスタム列 の順で初期化
+    view.unifiedOrder = [
+      ...(window.orgColOrder || []),
+      ...(view.columns || []).filter(c => !c.hidden).map(c => c.id)
+    ];
+    _save();
+    return;
+  }
+  const current = new Set(view.unifiedOrder);
+  // 新しい標準列を末尾に追加
+  (window.orgColOrder || []).forEach(id => {
+    if (!current.has(id)) { view.unifiedOrder.push(id); current.add(id); }
+  });
+  // 新しいカスタム列を末尾に追加
+  (view.columns || []).forEach(c => {
+    if (!current.has(c.id)) { view.unifiedOrder.push(c.id); current.add(c.id); }
+  });
+  // 削除されたカスタム列を除去（標準列は非表示でも保持）
+  const validCustom = new Set((view.columns || []).map(c => c.id));
+  const validStd    = new Set(window.orgColOrder || []);
+  view.unifiedOrder = view.unifiedOrder.filter(id =>
+    _isCustomColId(id) ? validCustom.has(id) : validStd.has(id)
+  );
+  _save();
+}
+
+// orgColOrder を view.unifiedOrder の標準列部分に同期
+function _syncStdColOrder(view) {
+  const newStd = view.unifiedOrder.filter(id => !_isCustomColId(id));
+  window.orgColOrder.length = 0;
+  newStd.forEach(id => window.orgColOrder.push(id));
+  view.colOrder = [...newStd];
+  window._saveOrgColPrefs?.();
+}
+
+// TH / TD を view.unifiedOrder の順にDOM並べ替え
+function _reorderAllCols(view) {
+  if (!view?.unifiedOrder?.length) return;
+  const order = view.unifiedOrder;
+
+  // ─ TH 並べ替え ─
+  const theadRow = document.getElementById('orgTheadRow');
+  if (theadRow) {
+    // アンカー: data-col-id を持たない .cv-custom-th（削除ボタン・追加ボタン）
+    const anchor = [...theadRow.querySelectorAll('.cv-custom-th')]
+      .find(th => !th.dataset.colId) || null;
+    order.forEach(id => {
+      const th = _isCustomColId(id)
+        ? theadRow.querySelector(`.cv-custom-th[data-col-id="${id}"]`)
+        : theadRow.querySelector(`th[data-col="${id}"]`);
+      if (!th) return; // 非表示 or 未存在はスキップ
+      anchor ? theadRow.insertBefore(th, anchor) : theadRow.appendChild(th);
+    });
+  }
+
+  // ─ TD 並べ替え（各行）─
+  const tbody = document.getElementById('orgList');
+  if (!tbody) return;
+  tbody.querySelectorAll('tr.org-tr').forEach(tr => {
+    // アンカー: data-col-id を持たない .cv-custom-td（削除ボタン・空セル）
+    const anchor = [...tr.querySelectorAll('.cv-custom-td')]
+      .find(td => !td.dataset.colId) || null;
+    order.forEach(id => {
+      const td = _isCustomColId(id)
+        ? tr.querySelector(`.cv-custom-td[data-col-id="${id}"]`)
+        : tr.querySelector(`td[data-col="${id}"]`);
+      if (!td) return;
+      anchor ? tr.insertBefore(td, anchor) : tr.appendChild(td);
+    });
+  });
+}
+
 // ── カスタム列をorg-tableに追加 ──
 // ヘッダーは毎回削除→再追加（syncOrgColHeadersの後に正しく末尾へ配置するため）
 // セルはバッチ遅延追加があるため未追加行のみ処理
@@ -565,6 +648,9 @@ function _addCvCols(view) {
 
   _applyCvSort(view);
   _applyCustomFilters(view);
+  // 統合順序を適用（標準列とカスタム列を混在配置）
+  _ensureUnifiedOrder(view);
+  _reorderAllCols(view);
 }
 
 function _getViewVideos(view) {
@@ -2039,29 +2125,197 @@ window.cvMoveCol = function(colId, dir) {
   if (i < 0) return;
   const j = i + dir;
   if (j < 0 || j >= view.columns.length) return;
+  const targetId = view.columns[j].id; // splice前に記録
   const [moved] = view.columns.splice(i, 1);
   view.columns.splice(j, 0, moved);
+  // unifiedOrder も同期（隣接スワップ）
+  if (view.unifiedOrder) {
+    const ui = view.unifiedOrder.indexOf(colId);
+    const uj = view.unifiedOrder.indexOf(targetId);
+    if (ui >= 0 && uj >= 0) [view.unifiedOrder[ui], view.unifiedOrder[uj]] = [view.unifiedOrder[uj], view.unifiedOrder[ui]];
+  }
   _save();
-  // カスタムセルを全削除→新順で再追加（renderOrg不要なのでスクロール維持）
   document.querySelectorAll('.cv-custom-td').forEach(td => td.remove());
   _addCvCols(view);
-  // オーバーレイを閉じず中身だけ更新（削除→再生成するとiOS Safariでスクロールリセット）
   const panel = document.getElementById('org-col-menu-panel');
   if (panel) panel.innerHTML = window._buildOrgColMenuHTML?.() || '';
   else window.toggleOrgColMenu?.();
 };
 
-// 標準の列ボタンメニューにカスタム列セクションを提供するフック
-window._cvGetColMenuSection = function() {
+// 統合列メニューフック（_buildOrgColMenuHTML から呼ばれる）
+// カスタムビュー中は標準列+カスタム列を一本のリストで表示
+window._cvGetColMenuSection = function() { return null; }; // 統合メニューで置き換え済み
+
+window._cvGetUnifiedMenuHTML = function() {
+  if (!_curId) return null;
   const view = _views.find(v => v.id === _curId);
-  if (!view || !view.columns?.length) return '';
-  const cols = view.columns;
-  return cols.map((col, i) => `
-    <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
-      <button onclick="window.cvMoveCol('${col.id}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
-      <button onclick="window.cvMoveCol('${col.id}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===cols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===cols.length-1?'disabled':''}>▼</button>
-      <span style="font-size:12px;flex:1">${_esc(col.label)}</span>
-    </div>`).join('');
+  if (!view) return null;
+  _ensureUnifiedOrder(view);
+
+  const stdVis = window.orgColVisibility || {};
+  const order  = view.unifiedOrder;
+
+  // 表示中の列（DOM上に存在する列）
+  const visOrder = order.filter(id => {
+    if (_isCustomColId(id)) {
+      const col = view.columns.find(c => c.id === id);
+      return col && !col.hidden;
+    }
+    return stdVis[id] !== false;
+  });
+
+  // 非表示の列
+  const hiddenIds = order.filter(id => {
+    if (_isCustomColId(id)) {
+      const col = view.columns.find(c => c.id === id);
+      return col && col.hidden;
+    }
+    return stdVis[id] === false;
+  });
+
+  const _btnS = `background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center`;
+  const _cbS  = `accent-color:var(--accent);width:14px;height:14px`;
+
+  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>';
+
+  visOrder.forEach((id, i) => {
+    const isCv   = _isCustomColId(id);
+    const label  = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
+    const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
+    const disUp  = i === 0 ? 'disabled' : '';
+    const disDown= i === visOrder.length - 1 ? 'disabled' : '';
+    html += `
+      <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+        <button onclick="window._cvUnifiedMoveCol('${id}',-1)" style="${_btnS};opacity:${disUp?'.2':'1'}" ${disUp}>▲</button>
+        <button onclick="window._cvUnifiedMoveCol('${id}',1)"  style="${_btnS};opacity:${disDown?'.2':'1'}" ${disDown}>▼</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
+          <input type="checkbox" checked onchange="window._cvUnifiedSetVis('${id}',this.checked)" style="${_cbS}">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}${badge}</span>
+        </label>
+      </div>`;
+  });
+
+  if (hiddenIds.length) {
+    html += '<div style="height:1px;background:var(--border);margin:8px 0"></div>';
+    html += '<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;opacity:.6">非表示の列</div>';
+    hiddenIds.forEach(id => {
+      const isCv  = _isCustomColId(id);
+      const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
+      const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
+      html += `
+        <div style="display:flex;align-items:center;gap:4px;padding:2px 0;opacity:.5">
+          <span style="min-width:68px"></span>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
+            <input type="checkbox" onchange="window._cvUnifiedSetVis('${id}',this.checked)" style="${_cbS}">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}${badge}</span>
+          </label>
+        </div>`;
+    });
+  }
+
+  return html;
+};
+
+// 統合メニューから列を移動（表示中の列の中での前後移動）
+window._cvUnifiedMoveCol = function(id, dir) {
+  if (!_curId) return;
+  const view = _views.find(v => v.id === _curId);
+  if (!view) return;
+  _ensureUnifiedOrder(view);
+
+  const stdVis = window.orgColVisibility || {};
+  const order  = view.unifiedOrder;
+
+  // 表示中の列インデックスで移動
+  const visIds = order.filter(oid => {
+    if (_isCustomColId(oid)) { const c = view.columns.find(cc => cc.id === oid); return c && !c.hidden; }
+    return stdVis[oid] !== false;
+  });
+  const visIdx = visIds.indexOf(id);
+  if (visIdx < 0) return;
+  const newVisIdx = visIdx + dir;
+  if (newVisIdx < 0 || newVisIdx >= visIds.length) return;
+
+  const targetId = visIds[newVisIdx];
+  const i = order.indexOf(id);
+  const j = order.indexOf(targetId);
+  if (i < 0 || j < 0) return;
+  [order[i], order[j]] = [order[j], order[i]];
+
+  // 標準列の並び順も同期
+  _syncStdColOrder(view);
+  _save();
+  _reorderAllCols(view);
+
+  // モーダル内容を更新
+  const panel = document.getElementById('org-col-menu-panel');
+  if (panel) panel.innerHTML = window._cvGetUnifiedMenuHTML() || '';
+};
+
+// 統合メニューから列の表示/非表示を切替
+window._cvUnifiedSetVis = function(id, visible) {
+  if (!_curId) return;
+  const view = _views.find(v => v.id === _curId);
+  if (!view) return;
+
+  if (_isCustomColId(id)) {
+    const col = view.columns.find(c => c.id === id);
+    if (!col) return;
+    col.hidden = !visible;
+    _save();
+    window._cvRerenderCur?.();
+  } else {
+    window.orgColVisibility[id] = visible;
+    view.colVis = { ...window.orgColVisibility };
+    _save();
+    window._saveOrgColPrefs?.();
+    window._cvRerenderCur?.();
+  }
+};
+
+// orgMoveCol のカスタムビュー文脈での上書き
+window.orgMoveColOverride = function(col, dir) {
+  if (!_curId) return false;
+  const view = _views.find(v => v.id === _curId);
+  if (!view) return false;
+  _ensureUnifiedOrder(view);
+
+  const order = view.unifiedOrder;
+  const i = order.indexOf(col);
+  if (i < 0) return false;
+  const j = i + dir;
+  if (j < 0 || j >= order.length) return false;
+  [order[i], order[j]] = [order[j], order[i]];
+
+  _syncStdColOrder(view);
+  _save();
+  _reorderAllCols(view);
+
+  const panel = document.getElementById('org-col-menu-panel');
+  if (panel) panel.innerHTML = window._cvGetUnifiedMenuHTML() || '';
+  return true;
+};
+
+// ヘッダードラッグのカスタムビュー文脈での上書き
+window.orgDragReorderOverride = function(fromCol, toCol) {
+  if (!_curId) return false;
+  const view = _views.find(v => v.id === _curId);
+  if (!view) return false;
+  _ensureUnifiedOrder(view);
+
+  const order = view.unifiedOrder;
+  const i = order.indexOf(fromCol);
+  const j = order.indexOf(toCol);
+  if (i < 0 || j < 0) return false;
+  order.splice(i, 1);
+  order.splice(j, 0, fromCol);
+
+  _syncStdColOrder(view);
+  _save();
+  // ヘッダー再構築 → カスタム列再追加 → DOM並べ替え
+  window.syncOrgColHeaders?.();
+  window._cvAfterRender?.();
+  return true;
 };
 window._cvRerenderCur = function() {
   const view = _views.find(v => v.id === _curId);

@@ -1209,6 +1209,10 @@ export function orgTogSelAll(cb) {
 
 // ─── 列メニュー ───
 function _buildOrgColMenuHTML() {
+  // カスタムビュー統合メニューフック（標準+カスタム列を混在表示）
+  const unified = window._cvGetUnifiedMenuHTML?.();
+  if (unified != null) return unified;
+
   const _fcv3 = window.filterColVis || {};
   const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvVisible = col => {
@@ -1278,6 +1282,7 @@ function _reorderOrgCellsInPlace() {
 }
 
 export function orgMoveCol(col, dir) {
+  if (window.orgMoveColOverride?.(col, dir)) return;
   const i = orgColOrder.indexOf(col);
   if (i < 0) return;
   const j = i + dir;
@@ -1337,13 +1342,15 @@ export function bindOrgDrag() {
       const el = document.elementFromPoint(t.clientX, t.clientY);
       const target = el?.closest?.('.org-th-draggable');
       if (target && target.dataset.col !== _touchSrc) {
-        const from = orgColOrder.indexOf(_touchSrc);
-        const to   = orgColOrder.indexOf(target.dataset.col);
-        if (from >= 0 && to >= 0) {
-          orgColOrder.splice(from, 1);
-          orgColOrder.splice(to, 0, _touchSrc);
-          _saveOrgColPrefs();
-          renderOrg();
+        if (!window.orgDragReorderOverride?.(_touchSrc, target.dataset.col)) {
+          const from = orgColOrder.indexOf(_touchSrc);
+          const to   = orgColOrder.indexOf(target.dataset.col);
+          if (from >= 0 && to >= 0) {
+            orgColOrder.splice(from, 1);
+            orgColOrder.splice(to, 0, _touchSrc);
+            _saveOrgColPrefs();
+            renderOrg();
+          }
         }
       }
       _touchClone.remove();
@@ -1382,6 +1389,7 @@ export function bindOrgDrag() {
     th.ondrop = e => {
       e.preventDefault();
       if (!dragSrc || dragSrc === th.dataset.col) return;
+      if (window.orgDragReorderOverride?.(dragSrc, th.dataset.col)) return;
       const from = orgColOrder.indexOf(dragSrc);
       const to   = orgColOrder.indexOf(th.dataset.col);
       if (from < 0 || to < 0) return;
