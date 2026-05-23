@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.430 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.431 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -88,33 +88,51 @@ function _getEmbedInfo(v) {
   return { embedUrl:embedUrl, thumb:thumb, canPlay:!!embedUrl };
 }
 
-// ── 提案エンジン（tag-master.js の autoTagFromTitle を使用）──
-function _suggest(title, channel) {
-  // window.autoTagFromTitle は tag-master.js で定義 → {tb:[], cat:[], pos:[], tags:[]}
-  var base = window.autoTagFromTitle ? window.autoTagFromTitle(title) : {tb:[], cat:[], pos:[], tags:[]};
+// ── 提案エンジン（タイトル＋プレイリスト＋チャンネルの3シグナルを統合）──
+// 優先度: タイトル > プレイリスト > チャンネル学習
+// 設計方針: プレイリスト = 文脈の器、タイトル = 器の中の精度向上
+//   例) PL「デラヒーバ講座」→ pos=デラヒーバ, tb=ボトム が基底
+//       + タイトルに「パス」→ tb=トップ に上書き
+//       + タイトルに「スイープ」→ cat=スイープ を追加
+function _suggest(title, channel, pl) {
+  var atf = window.autoTagFromTitle;
+  // タイトルとプレイリストをそれぞれ解析
+  var tBase  = atf ? atf(title || '') : {tb:[],cat:[],pos:[],tags:[]};
+  var plBase = atf ? atf(pl    || '') : {tb:[],cat:[],pos:[],tags:[]};
 
-  // TB は配列だが wizard は単一選択 → 先頭を使う
-  var tb = (base.tb && base.tb.length) ? base.tb[0] : null;
+  // ── TB: タイトル優先、なければプレイリストから補完 ──
+  var tbArr = (tBase.tb && tBase.tb.length) ? tBase.tb : (plBase.tb || []);
+  var tb    = tbArr.length ? tbArr[0] : null;
 
-  // ポジション: autoTagFromTitle の結果 + window.POSITIONS（admin管理の最新リスト）でも追加マッチング
-  // → tag-master.js の内部リストにない「サイドコントロール」等も検出できる
-  var posList = (base.pos || []).slice();
+  // ── Pos: タイトル + プレイリストの union ──
+  var posList = (tBase.pos || []).slice();
+  (plBase.pos || []).forEach(function(p) { if (posList.indexOf(p) < 0) posList.push(p); });
+
+  // ── window.POSITIONS でさらに追加マッチング（タイトル・プレイリスト両方） ──
   var tLower  = (title || '').toLowerCase();
+  var plLower = (pl    || '').toLowerCase();
   (window.POSITIONS || []).forEach(function(p) {
     if (!p.ja || posList.indexOf(p.ja) >= 0) return;
     var keys = [p.ja, p.en].concat(p.aliases || []).filter(Boolean);
-    var hit  = keys.some(function(k) { return k && k.length >= 2 && tLower.indexOf(k.toLowerCase()) >= 0; });
+    var hit  = keys.some(function(k) {
+      if (!k || k.length < 2) return false;
+      var kl = k.toLowerCase();
+      return tLower.indexOf(kl) >= 0 || plLower.indexOf(kl) >= 0;
+    });
     if (hit) posList.push(p.ja);
   });
 
-  // カテゴリ: チャンネル学習で補完
-  var cats = (base.cat || []).slice();
+  // ── Cat: タイトル + プレイリストの union ──
+  var cats = (tBase.cat || []).slice();
+  (plBase.cat || []).forEach(function(c) { if (cats.indexOf(c) < 0) cats.push(c); });
+
+  // チャンネル学習で補完
   _getChannelSuggest(channel, 5).forEach(function(tag) {
     var inCat = (window.CATEGORIES||[]).some(function(c){ return c.name === tag; });
     if (inCat && cats.indexOf(tag) < 0) cats.push(tag);
   });
 
-  return { tb: tb, pos: posList, cat: cats, tech: base.tags||[] };
+  return { tb: tb, pos: posList, cat: cats, tech: tBase.tags||[] };
 }
 
 // ── キュー管理 ──
@@ -367,8 +385,8 @@ function _loadItem() {
   var fr = document.getElementById('tw-iframe');
   if (fr) { fr.src = ''; fr.style.display = 'none'; }
 
-  // ── 自動提案（tag-master.js の autoTagFromTitle を使用）──
-  _autoTags = _suggest(title, channel);
+  // ── 自動提案（タイトル＋プレイリスト＋チャンネル）──
+  _autoTags = _suggest(title, channel, pl);
 
   // ヒント表示
   var hintArr = [];
