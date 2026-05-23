@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.417</title>
+<title>WAZA KIMURA v52.418</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -79,6 +79,7 @@
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
 <script src="js/custom-view.js?v=52.397" defer></script>
+<script src="js/tag-wizard.js" defer></script>
 <script src="js/vpanel-v4.js" defer></script>
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
@@ -1894,6 +1895,7 @@
       <div class="admin-stab" onclick="switchAdminSub('categories')" data-sub="categories" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">カテゴリ</div>
       <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
       <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
+      <button onclick="window._twOpen?.()" style="margin-left:auto;padding:5px 14px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷 タグ付けウィザード</button>
     </div>
 
     <!-- A: 精度パネル -->
