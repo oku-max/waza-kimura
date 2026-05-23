@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — AI管理ダッシュボード v50.9 ═══
+// ═══ WAZA KIMURA — AI管理ダッシュボード v50.10 ═══
 // Admin-only: 精度・修正履歴・ルール管理
 
 const FEEDBACK_KEY  = 'waza_tag_feedback';
@@ -197,6 +197,39 @@ function _renderRules() {
   const rules = _getRules();
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+  // ビルトインルールとユーザー定義ルールを分離
+  const builtinItems = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'ビルトイン');
+  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン');
+
+  const _ruleRow = ({r, i}, isBuiltin) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
+      <div onclick="toggleRule(${i})" title="${r.enabled ? '無効化' : '有効化'}"
+           style="width:36px;height:20px;border-radius:10px;background:${r.enabled?'var(--green)':'var(--surface3)'};cursor:pointer;position:relative;flex-shrink:0;margin-top:2px;transition:background .2s">
+        <div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:${r.enabled?'18px':'2px'};transition:left .2s"></div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:12px;line-height:1.5">
+          タイトルに「<strong>${_esc(r.condition)}</strong>」→ ${r.field} を
+          <strong>${_esc(r.action === 'add' ? '追加' : r.action === 'replace' ? '置換' : '削除')}</strong>:
+          <strong style="color:var(--accent)">${_esc(r.value)}</strong>
+        </div>
+        ${r.desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${_esc(r.desc)}</div>` : ''}
+        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;
+            background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};
+            color:${r.field==='cat'?'var(--blue)':r.field==='pos'?'var(--purple)':r.field==='tb'?'var(--accent)':'var(--green)'}">${r.field}</span>
+          ${isBuiltin ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(100,100,220,.12);color:#6464cc">🔧 ビルトイン</span>' : ''}
+          ${r.proposed ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.15);color:var(--accent)">提案</span>' : ''}
+          ${r.source && !isBuiltin ? `<span style="font-size:10px;color:var(--text3)">${_esc(r.source)}</span>` : ''}
+        </div>
+      </div>
+      ${!isBuiltin ? `
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
+      </div>` : ''}
+    </div>
+  `;
+
   el.innerHTML = `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -237,29 +270,26 @@ function _renderRules() {
         </div>
       </div>
 
-      ${!rules.length ? `
+      ${builtinItems.length ? `
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px">
+          <span style="font-size:11px;font-weight:700;color:#6464cc;letter-spacing:.03em">🔧 組み込みルール</span>
+          <span style="font-size:10px;color:var(--text3)">${builtinItems.length}件 — ウィザード起動時に自動追加。トグルで個別に無効化できます。</span>
+        </div>
+        ${builtinItems.map(item => _ruleRow(item, true)).join('')}
+      ` : ''}
+
+      ${userItems.length ? `
+        <div style="display:flex;align-items:center;gap:8px;margin:${builtinItems.length ? '14px' : '4px'} 0 8px">
+          <span style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.03em">📝 ユーザー定義ルール</span>
+          <span style="font-size:10px;color:var(--text3)">${userItems.length}件</span>
+        </div>
+        ${userItems.map(item => _ruleRow(item, false)).join('')}
+      ` : (!builtinItems.length ? `
         <div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">
           <div style="font-size:24px;margin-bottom:8px">📐</div>
-          ルールがまだありません。<br>修正パターンから自動提案されるか、手動で追加できます。
+          ルールがまだありません。<br>タグ付けウィザードを一度開くと組み込みルールが追加されます。
         </div>
-      ` : rules.map((r, i) => `
-        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
-          <div onclick="toggleRule(${i})" style="width:36px;height:20px;border-radius:10px;background:${r.enabled?'var(--green)':'var(--surface3)'};cursor:pointer;position:relative;flex-shrink:0;margin-top:2px;transition:background .2s">
-            <div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:${r.enabled?'18px':'2px'};transition:left .2s"></div>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:12px;line-height:1.5">タイトルに「<strong>${_esc(r.condition)}</strong>」→ ${r.field} を <strong>${_esc(r.action === 'add' ? '追加' : r.action === 'replace' ? '置換' : '削除')}</strong>: ${_esc(r.value)}</div>
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};color:${r.field==='cat'?'var(--blue)':r.field==='pos'?'var(--purple)':r.field==='tb'?'var(--accent)':'var(--green)'}">${r.field}</span>
-              ${r.proposed ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.15);color:var(--accent)">提案</span>' : ''}
-              ${r.source ? `<span style="font-size:10px;color:var(--text3)">${_esc(r.source)}</span>` : ''}
-            </div>
-          </div>
-          <div style="display:flex;gap:4px;flex-shrink:0">
-            <button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
-          </div>
-        </div>
-      `).join('')}
+      ` : '')}
     </div>
   `;
 }

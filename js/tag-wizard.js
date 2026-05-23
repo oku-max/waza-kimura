@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.431 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.432 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -37,6 +37,42 @@ function _isRuleSkipped(rule) {
     var list = JSON.parse(localStorage.getItem('wk_tw_skipped_rules') || '[]');
     return list.includes(rule.keyword + '|||' + rule.tag);
   } catch(e) { return false; }
+}
+
+// ── 組み込みルール定義（TB判定の文脈パターン）──
+// Admin「ルール」タブに反映・編集可能。source='ビルトイン' / id='_b_xxx' で識別。
+var _BUILTIN_RULES = [
+  // ── TB: トップシグナル（ガードを攻略・崩す視点のキーワード）──
+  { id:'_b_dominate', condition:'dominate', field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Dominate [guard] → トップ（ガードを制圧する側）' },
+  { id:'_b_passing',  condition:'passing',  field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Passing [guard] → トップ（パスガード側）' },
+  { id:'_b_beat',     condition:'beat',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Beat [guard] → トップ（ガードを攻略する側）' },
+  { id:'_b_攻略',     condition:'攻略',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'攻略 → トップ（ガードを崩す視点）' },
+  { id:'_b_突破',     condition:'突破',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'突破 → トップ（突破する側）' },
+  { id:'_b_制圧',     condition:'制圧',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'制圧 → トップ（制圧する側）' },
+  { id:'_b_崩し',     condition:'崩し',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'崩し → トップ（ガードを崩す側）' },
+  { id:'_b_対策',     condition:'対策',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'対策 → トップ（ガード対策 = パス側）' },
+  // ── TB: ボトムシグナル（ガードをプレーする・使う視点のキーワード）──
+  { id:'_b_playing',    condition:'playing',    field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'Playing [guard] → ボトム（ガードプレイヤー側）' },
+  { id:'_b_using',      condition:'using',      field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'Using [guard] → ボトム（ガードを使う側）' },
+  { id:'_b_ガード構築',  condition:'ガード構築',  field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'ガード構築 → ボトム（ガードを張る側）' },
+  { id:'_b_ガードから',  condition:'ガードから',  field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'ガードから〜 → ボトム（ガードから仕掛ける側）' },
+  { id:'_b_ガードプレイ', condition:'ガードプレイ', field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'ガードプレイ → ボトム' },
+];
+
+// ── ビルトインルールを localStorage に追加（未登録分のみ、ユーザー変更済みは上書きしない）──
+function _seedBuiltinRules() {
+  try {
+    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    var changed = false;
+    _BUILTIN_RULES.forEach(function(br) {
+      var exists = rules.some(function(r) { return r.id === br.id; });
+      if (!exists) {
+        rules.push(Object.assign({}, br, { created: Date.now() }));
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
+  } catch(e) {}
 }
 
 // ── 帰納エンジン ──
@@ -132,7 +168,44 @@ function _suggest(title, channel, pl) {
     if (inCat && cats.indexOf(tag) < 0) cats.push(tag);
   });
 
-  return { tb: tb, pos: posList, cat: cats, tech: tBase.tags||[] };
+  var _result = { tb: tb, pos: posList, cat: cats, tech: tBase.tags||[] };
+  return _applyRules(_result, title, pl);
+}
+
+// ── ルール適用エンジン（waza_ai_rules を読んで提案結果に上乗せ）──
+// TB:     action='add'     → tbが未設定の場合のみセット
+//         action='replace' → 既存値を上書き
+// pos/cat/tech: action='add'/'remove'/'replace' それぞれ対応
+function _applyRules(result, title, pl) {
+  try {
+    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    var tLower  = (title || '').toLowerCase();
+    var plLower = (pl    || '').toLowerCase();
+    rules.forEach(function(r) {
+      if (!r.enabled || !r.condition) return;
+      var cLower = r.condition.toLowerCase();
+      if (tLower.indexOf(cLower) < 0 && plLower.indexOf(cLower) < 0) return;
+      if (r.field === 'tb') {
+        if      (r.action === 'add'     && !result.tb) result.tb = r.value;
+        else if (r.action === 'replace')               result.tb = r.value;
+      } else if (r.field === 'pos') {
+        if (!result.pos) result.pos = [];
+        if      (r.action === 'add'     && result.pos.indexOf(r.value) < 0) result.pos.push(r.value);
+        else if (r.action === 'replace') result.pos = [r.value];
+        else if (r.action === 'remove')  result.pos = result.pos.filter(function(p){ return p !== r.value; });
+      } else if (r.field === 'cat') {
+        if (!result.cat) result.cat = [];
+        if      (r.action === 'add'     && result.cat.indexOf(r.value) < 0) result.cat.push(r.value);
+        else if (r.action === 'replace') result.cat = [r.value];
+        else if (r.action === 'remove')  result.cat = result.cat.filter(function(c){ return c !== r.value; });
+      } else if (r.field === 'tags') {
+        if (!result.tech) result.tech = [];
+        if      (r.action === 'add'     && result.tech.indexOf(r.value) < 0) result.tech.push(r.value);
+        else if (r.action === 'remove')  result.tech = result.tech.filter(function(t){ return t !== r.value; });
+      }
+    });
+  } catch(e) {}
+  return result;
 }
 
 // ── キュー管理 ──
@@ -620,6 +693,8 @@ function _open() {
     _domInited = false;
   }
   _ensureDOM();
+  // ビルトインルールを localStorage に追加（未登録分のみ）
+  _seedBuiltinRules();
   // admin-dashboard で更新された POSITIONS/CATEGORIES を確実に反映する
   if (window.syncPositionsFromStorage) window.syncPositionsFromStorage();
   if (window.syncCatsFromStorage)      window.syncCatsFromStorage();
