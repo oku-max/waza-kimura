@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.388 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.389 ═══
 (function () {
 'use strict';
 
@@ -2440,6 +2440,9 @@ window._cvUnifiedSetVis = function(id, visible) {
     window._saveOrgColPrefs?.();
     window._cvRerenderCur?.();
   }
+  // メニューパネルを即座に再描画（列が表示/非表示セクション間を移動するため）
+  const panel = document.getElementById('org-col-menu-panel');
+  if (panel) panel.innerHTML = window._cvGetUnifiedMenuHTML() || '';
 };
 
 // orgMoveCol のカスタムビュー文脈での上書き
