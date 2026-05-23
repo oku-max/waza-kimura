@@ -17,21 +17,31 @@ const LIBRARY_STEPS = [
     body:   '右上のボタンから <b>「＋ 動画を追加」</b> でインポートできます。<br><br>📺 <b>YouTube</b>（プレイリスト一括対応）<br>🎬 <b>Vimeo</b><br>💾 <b>Google Drive</b>',
   },
   {
-    targets: ['#lvt-card', '#lvt-org'],
-    title:   '表示を切り替える',
-    body:    '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
+    targets:    ['#lvt-card', '#lvt-org'],
+    title:      '表示を切り替える',
+    body:       '<b>📋 カードビュー</b>：サムネイル付きでざっと眺めるのに最適。<br><br><b>📊 テーブルビュー</b>：習得度・タグ・メモを一覧で管理したいときに。',
+    beforeStep: () => {
+      // サイドバーが閉じている場合は開く（モバイル対応）
+      const sb = document.getElementById('libSidebar');
+      if (sb && !sb.classList.contains('open')) sb.classList.add('open');
+    },
+    beforeDelay: 300, // CSSアニメ（width .25s）完了を待つ
   },
   {
-    target:     '#filterSidebar',
-    target2:    '#filter-toggle-btn',
-    beforeStep: () => window.closeFilterOverlay?.(),
+    target:     '#libSidebar',
+    beforeStep: () => {
+      // サイドバーが閉じている場合は開く（モバイル対応）
+      const sb = document.getElementById('libSidebar');
+      if (sb && !sb.classList.contains('open')) sb.classList.add('open');
+    },
+    beforeDelay: 300,
     title:      'フィルターとタグで絞り込む',
     body:       'この左サイドバーからチャンネル・プレイリスト・タグ・習得度など複数条件で絞り込めます。<br><br>タグは自分で自由に作成・編集できます。',
   },
   {
     target:        '.card',
-    target_empty:  '#yt-import-btn',
-    body_empty:    'まず <b>「＋ 動画を追加」</b> から動画を取り込んでください。<br><br>取り込んだ後、カードをクリックすると <b>Vパネル</b> が開いて再生できます。タイムスタンプのコピーや連続再生にも対応しています。',
+    target_empty:  '#acct-btn',
+    body_empty:    'まず右上のボタンから <b>「＋ 動画を追加」</b> で動画を取り込んでください。<br><br>取り込んだ後、カードをクリックすると <b>Vパネル</b> が開いて再生できます。タイムスタンプのコピーや連続再生にも対応しています。',
     title:         '動画を再生する（Vパネル）',
     body:          '動画カードをクリックすると <b>Vパネル</b> が開いて再生できます。<br><br>タイムスタンプのコピーや、プレイリスト内の連続再生にも対応しています。',
   },
@@ -183,6 +193,18 @@ function _goto(idx) {
   const step  = steps[idx];
 
   step.beforeStep?.();
+
+  // beforeDelay: beforeStep でサイドバー開閉などのアニメがある場合に待機
+  if (step.beforeDelay) {
+    setTimeout(() => _gotoRender(idx), step.beforeDelay);
+  } else {
+    _gotoRender(idx);
+  }
+}
+
+function _gotoRender(idx) {
+  const steps = _activeSteps;
+  const step  = steps[idx];
 
   let r = null;
   let useEmpty = false;
