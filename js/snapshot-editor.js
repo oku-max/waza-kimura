@@ -1223,7 +1223,7 @@ function openTextReEdit(a) {
   textInput.dataset.ay = a.y;
   textInput.dataset.mode = 'edit';
   textInput.dataset.editIdx = editingTextIdx;
-  setTimeout(() => { textInput.focus(); textInput.select(); }, 50);
+  setTimeout(() => { textInput.focus({ preventScroll: true }); textInput.select(); }, 50);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1326,7 +1326,7 @@ function onAnnDown(e) {
     textInput.dataset.ax = pos.x;
     textInput.dataset.ay = pos.y;
     textInput.dataset.mode = 'new';
-    setTimeout(() => textInput.focus(), 50);
+    setTimeout(() => textInput.focus({ preventScroll: true }), 50);
     return;
   }
 

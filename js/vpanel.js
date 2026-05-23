@@ -963,7 +963,7 @@ export function vpEditBm(id, idx) {
   inp.style.cssText = 'flex:1;font-size:11px;padding:2px 6px;border:1.5px solid var(--accent);border-radius:5px;background:var(--surface);color:var(--text);font-family:inherit;min-width:0;width:100%';
   inp.placeholder = 'ラベルを入力...';
   dispEl.replaceWith(inp);
-  inp.focus(); inp.select();
+  inp.focus({ preventScroll: true }); inp.select();
   const commit = () => {
     bm.label = inp.value.trim();
     window.debounceSave?.();
@@ -1158,7 +1158,11 @@ function _refreshBmList(id, flashIdx) {
   }
   if (!el) el = document.getElementById('vp-bm-list-' + id);
   if (el) {
+    // スクロール位置を保持（innerHTML置換でジャンプしないように）
+    const _scrollWrap = document.getElementById('vpanel-edit-wrap');
+    const _savedScroll = _scrollWrap ? _scrollWrap.scrollTop : 0;
     el.innerHTML = _bookmarkListHTML(id);
+    if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
     // スライダーのmax値をプレイヤーから取得
     try {
       const dur = _ytPlayer?.getDuration?.();
@@ -1718,7 +1722,7 @@ window.vpEditTitle = function(id) {
   input.value = cur;
   input.style.cssText = 'flex:1;font-size:11px;font-weight:700;color:var(--text);line-height:1.35;border:none;border-bottom:1.5px solid var(--accent);outline:none;background:transparent;width:100%;padding:2px 0;font-family:inherit;';
   titleEl.replaceWith(input);
-  input.focus();
+  input.focus({ preventScroll: true });
   input.select();
   const restore = (newTitle) => {
     const div = document.createElement('div');
@@ -2694,7 +2698,7 @@ export function vpEditTitle(id) {
     else if (e.key === 'Escape') { inp.onblur = null; finish(false); }
   };
   titleDiv.parentNode.insertBefore(inp, titleDiv);
-  inp.focus(); inp.select();
+  inp.focus({ preventScroll: true }); inp.select();
 }
 
 export async function vpSaveTitle(id) {
