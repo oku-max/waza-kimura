@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.403</title>
+<title>WAZA KIMURA v52.404</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -334,7 +334,7 @@
     }
   };
 
-  // ── Library サイドバー開閉（overlay mode v52.403） ──
+  // ── Library サイドバー開閉（overlay mode v52.404） ──
   window.libSbToggle = function() {
     const sb  = document.getElementById('libSidebar');
     const ov  = document.getElementById('libSbOverlay');
@@ -1065,7 +1065,7 @@
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
 /* lib-sidebar統合後: filterSidebarは常に非表示 */
 #filterSidebar { display: none !important; }
-/* ── Library サイドバー v52.403 (overlay mode) ── */
+/* ── Library サイドバー v52.404 (overlay mode) ── */
 .lib-sidebar {
   position: absolute; top: 0; left: 0; bottom: 0;
   width: 220px; flex-shrink: 0;
@@ -1325,21 +1325,15 @@
       <!-- ═ 統合フィルターパネル 3ボタン ═ -->
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('state','org')">
-          <span>マーク・習得 <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="uni-open-ic" aria-hidden="true">+</span>
-        </div>
+          <span>マーク・習得 <span id="org-uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('src','org')">
-          <span>ソース・チャンネル・プレイリスト <span id="org-uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="uni-open-ic" aria-hidden="true">+</span>
-        </div>
+          <span>ソース・チャンネル・プレイリスト <span id="org-uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
       <div class="fs-acc-sec">
         <div class="fs-acc-hdr" onclick="uniOpen('tag','org')">
-          <span>タグ <span id="org-uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-          <span class="uni-open-ic" aria-hidden="true">+</span>
-        </div>
+          <span>タグ <span id="org-uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
 
       <!-- Top / Bottom -->
@@ -1419,10 +1413,10 @@
 <div class="tab-panel active" id="homeTab">
   <!-- 暗幕オーバーレイ -->
   <div id="libSbOverlay" onclick="libSbClose()"></div>
-  <!-- Library サイドバー (overlay mode v52.403) -->
+  <!-- Library サイドバー (overlay mode v52.404) -->
   <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr">
-      <span class="lib-sb-hdr-title">□ ライブラリ</span>
+      <span class="lib-sb-hdr-title">□ Library</span>
     </div>
     <div class="lib-sb-body">
       <!-- ビュー切替 -->
@@ -1462,21 +1456,15 @@
             <!-- アコーディオンフィルター -->
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('state')">
-                <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-                <span class="uni-open-ic" aria-hidden="true">+</span>
-              </div>
+                <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('src')">
-                <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-                <span class="uni-open-ic" aria-hidden="true">+</span>
-              </div>
+                <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
             <div class="fs-acc-sec" style="border-bottom:none">
               <div class="fs-acc-hdr" onclick="uniOpen('tag')">
-                <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>
-                <span class="uni-open-ic" aria-hidden="true">+</span>
-              </div>
+                <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
           </div>
         </div>
@@ -1941,6 +1929,8 @@
 <div class="tab-panel" id="searchTab">
   <!-- sticky ラッパー: 検索バー・履歴・件数/並び替え行をまとめて固定 -->
   <div class="yt-sr-sticky-wrap">
+    <!-- ページタイトルヘッダー v52.404 -->
+    <div class="yt-sr-page-hdr">○ Search</div>
     <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
     <div class="yt-sr-topbar">
       <!-- Row1: 検索バー -->
@@ -2011,7 +2001,7 @@
     <div class="notes-sb-overlay" id="notesSbOverlay" onclick="window._notesCloseSb?.()"></div>
     <div class="notes-sidebar" id="notesSidebar">
       <div class="notes-sb-hdr">
-        <span class="notes-sb-logo">📓 Notes</span>
+        <span class="notes-sb-logo">≡ Notes</span>
         <button class="notes-sb-new" onclick="window.notesNew?.()">＋ New</button>
       </div>
       <div class="notes-sb-tree" id="notesSbTree"></div>
@@ -3870,7 +3860,7 @@ document.addEventListener('click', function(e) {
 
 
 
-// SIDEBAR RESIZER: v52.403でオーバーレイ方式に変更したため削除済み
+// SIDEBAR RESIZER: v52.404でオーバーレイ方式に変更したため削除済み
 
 // ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
 (function(){

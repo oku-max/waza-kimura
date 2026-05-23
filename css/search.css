@@ -18,6 +18,16 @@
   flex-shrink: 0;
 }
 
+/* ── ページタイトルヘッダー v52.404 ── */
+.yt-sr-page-hdr {
+  padding: 11px 14px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
 /* ── 検索バー ── */
 .yt-sr-topbar {
   background: var(--surface);
