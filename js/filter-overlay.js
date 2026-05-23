@@ -324,7 +324,7 @@ export function fovDdOpen(rowId) {
 
 export function fovDdFilter(rowId, filterKey, q) {
   const vids = window.videos || [];
-  const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
+  const POS_BASE = window.getPositionNames?.() || ['50/50','70/30ガード','Kガード','SLX','Xガード','インバーテッド','オープンガード','オクトパスガード','片襟片袖','クローズドガード','クロスガード','サドル','シッティングガード','シングルレッグガード','スタンディング','スパイダーガード','その他','タートル','ディープハーフ','デラヒーバ','ニーシールド','ハーフガード','バタフライガード','ラッソーガード','ラペルガード','リバースデラヒーバ','リバースハーフガード'];
   let items = [];
   if (filterKey === 'tb') items = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
   else if (filterKey === 'action') items = (window.CATEGORIES || []).map(c => c.name);
@@ -413,7 +413,7 @@ export function buildFovRows(isOrg=false) {
   const p    = isOrg ? 'org-fov' : 'fov';
   const f    = isOrg ? (window.orgFilters||{}) : (window.filters||{});
   const vids = window.videos || [];
-  const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
+  const POS_BASE = window.getPositionNames?.() || ['50/50','70/30ガード','Kガード','SLX','Xガード','インバーテッド','オープンガード','オクトパスガード','片襟片袖','クローズドガード','クロスガード','サドル','シッティングガード','シングルレッグガード','スタンディング','スパイダーガード','その他','タートル','ディープハーフ','デラヒーバ','ニーシールド','ハーフガード','バタフライガード','ラッソーガード','ラペルガード','リバースデラヒーバ','リバースハーフガード'];
 
   // Source（固定2択）
   const srcRow = document.getElementById(`${p}-srow-src`);
@@ -525,7 +525,7 @@ export function clearFovField(fieldKey) {
 // ── フィルターピッカー（サイドバー：Position/Playlist/Technique/Channel）──
 const FS_PICKER_FIELDS = {
   pos:  { label:'Position',  filterKey:'position', getAll: () => {
-    const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
+    const POS_BASE = window.getPositionNames?.() || ['50/50','70/30ガード','Kガード','SLX','Xガード','インバーテッド','オープンガード','オクトパスガード','片襟片袖','クローズドガード','クロスガード','サドル','シッティングガード','シングルレッグガード','スタンディング','スパイダーガード','その他','タートル','ディープハーフ','デラヒーバ','ニーシールド','ハーフガード','バタフライガード','ラッソーガード','ラペルガード','リバースデラヒーバ','リバースハーフガード'];
     return [...new Set([...POS_BASE, ...(window.videos||[]).flatMap(v => v.pos||[])])].sort();
   }},
   pl:   { label:'Playlist',  filterKey:'playlist', getAll: () => [...new Set((window.videos||[]).map(v => v.pl).filter(Boolean))].sort() },
@@ -869,7 +869,7 @@ function _sbPopupRender(key, ctx='lib') {
   else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
   else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES||['トップ','ボトム','スタンディング'], ctx);
   else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
-  else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([..._SB_POS_BASE, ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
+  else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([..._getSbPosBase(), ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
   else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 
@@ -1055,7 +1055,9 @@ export function renderRecentSidebar() {
 }
 
 // ── サイドバー インライン ピッカー (Channel / Playlist / タグ) ──
-const _SB_POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
+// window.getPositionNames() (admin-dashboard.js) を優先して使用する
+const _SB_POS_BASE_FALLBACK = ['50/50','70/30ガード','Kガード','SLX','Xガード','インバーテッド','オープンガード','オクトパスガード','片襟片袖','クローズドガード','クロスガード','サドル','シッティングガード','シングルレッグガード','スタンディング','スパイダーガード','その他','タートル','ディープハーフ','デラヒーバ','ニーシールド','ハーフガード','バタフライガード','ラッソーガード','ラペルガード','リバースデラヒーバ','リバースハーフガード'];
+const _getSbPosBase = () => window.getPositionNames?.() || _SB_POS_BASE_FALLBACK;
 const _sbTagItems  = {};
 
 // ── 最近選んだフィルター項目（localStorage 永続化、最大15件）──

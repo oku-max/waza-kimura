@@ -566,6 +566,9 @@ function _getPositions() {
     return stored ? JSON.parse(stored) : [...DEFAULT_POSITIONS];
   } catch(e) { return [...DEFAULT_POSITIONS]; }
 }
+// filter-overlay.js 等から参照できるよう公開（位置リストの唯一の真実）
+window.getPositionNames = () => _getPositions().map(p => p.names.ja);
+
 function _savePositions(pos) {
   try { localStorage.setItem(POSITIONS_KEY, JSON.stringify(pos)); } catch(e) {}
 }
