@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.422 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.423 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -52,6 +52,9 @@ function _induceRule() {
   var parts = best.split('|||');
   return {keyword:parts[0], tag:parts[1]};
 }
+
+// ── YouTube ID バリデーター（11文字英数字/_/- のみ）──
+function _isYtId(s) { return typeof s === 'string' && /^[A-Za-z0-9_-]{11}$/.test(s); }
 
 // ── 提案エンジン（tag-master.js の autoTagFromTitle を使用）──
 function _suggest(title, channel) {
@@ -272,6 +275,27 @@ function _fillChips(containerId, all, autoVals) {
   });
 }
 
+// 既存タグ（青/アクセント）＋自動提案（オレンジ）を事前選択してチップを描画
+function _fillChipsWithExisting(containerId, all, existingVals, autoVals) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  var existArr = (existingVals||[]).filter(function(v){ return v; });
+  var autoArr  = (autoVals||[]).filter(function(v){ return v; });
+  // 一覧に存在しない既存タグも先頭に追加（管理外タグ対応）
+  var extra = existArr.filter(function(v){ return all.indexOf(v)<0; });
+  var ordered = extra.concat(
+    all.filter(function(v){ return existArr.indexOf(v)>=0; }),  // 既存（リスト内）
+    autoArr.filter(function(v){ return all.indexOf(v)>=0; }),   // 自動提案（リスト内）
+    all.filter(function(v){ return existArr.indexOf(v)<0 && autoArr.indexOf(v)<0; }) // 残り
+  );
+  ordered.forEach(function(val){
+    var isAuto   = autoArr.indexOf(val)>=0;
+    var isActive = existArr.indexOf(val)>=0 || isAuto;
+    container.appendChild(_makeChip(val, isAuto, isActive, false));
+  });
+}
+
 // ── アイテム読み込み ──
 function _loadItem() {
   if (_qIdx >= _queue.length) { _showDone(); return; }
@@ -280,7 +304,7 @@ function _loadItem() {
   var channel = v.ch      || v.channel || '';
   var pl      = v.pl      || '';
   var pt      = v.pt      || v.src || 'youtube';
-  var ytId    = v.ytId    || (pt === 'youtube' ? v.id : '') || '';
+  var ytId    = v.ytId    || (_isYtId(v.id) ? v.id : '') || '';
 
   // プレイヤーリセット
   _previewOpen = false;
@@ -313,23 +337,30 @@ function _loadItem() {
   if (elThumb) { elThumb.src = thumbSrc || ''; elThumb.style.display = thumbSrc ? 'block' : 'none'; }
   if (elPlayBtn) elPlayBtn.style.display = ytId ? 'flex' : 'none';
 
-  // TB chips（window.TB_VALUES を使用）
-  var tbValues = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  // TB chips（window.TB_VALUES を使用 / 既存 v.tb を事前選択）
+  var tbValues    = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  var existingTb  = (v.tb && v.tb.length) ? v.tb[0] : null;
   var tbContainer = document.getElementById('tw-tb-chips');
   if (tbContainer) {
     tbContainer.innerHTML = '';
     tbValues.forEach(function(tb){
-      tbContainer.appendChild(_makeChip(tb, _autoTags.tb===tb, _autoTags.tb===tb, true));
+      var isExisting = tb === existingTb;
+      var isAuto     = !isExisting && _autoTags.tb === tb;
+      tbContainer.appendChild(_makeChip(tb, isAuto, isExisting || isAuto, true));
     });
   }
 
-  // ポジション chips（window.POSITIONS を使用）
-  var allPos = (window.POSITIONS||[]).map(function(p){ return p.ja; });
-  _fillChips('tw-pos-chips', allPos, _autoTags.pos || []);
+  // ポジション chips（window.POSITIONS を使用 / 既存 v.pos を事前選択）
+  var allPos      = (window.POSITIONS||[]).map(function(p){ return p.ja; });
+  var existingPos = v.pos || [];
+  var autoPos     = (_autoTags.pos||[]).filter(function(p){ return existingPos.indexOf(p)<0; });
+  _fillChipsWithExisting('tw-pos-chips', allPos, existingPos, autoPos);
 
-  // カテゴリ chips（window.CATEGORIES を使用）
-  var allCat = (window.CATEGORIES||[]).map(function(c){ return c.name; });
-  _fillChips('tw-cat-chips', allCat, _autoTags.cat || []);
+  // カテゴリ chips（window.CATEGORIES を使用 / 既存 v.cat を事前選択）
+  var allCat      = (window.CATEGORIES||[]).map(function(c){ return c.name; });
+  var existingCat = v.cat || [];
+  var autoCat     = (_autoTags.cat||[]).filter(function(c){ return existingCat.indexOf(c)<0; });
+  _fillChipsWithExisting('tw-cat-chips', allCat, existingCat, autoCat);
 
   // #タグ プルダウン（既存動画の tags から収集）
   var existingTags = [];
@@ -371,9 +402,8 @@ function _loadItem() {
 function _togglePreview() {
   var v = _queue[_qIdx];
   if (!v) return;
-  var pt   = v.pt || v.src || 'youtube';
-  var ytId = v.ytId || (pt === 'youtube' ? v.id : '') || '';
-  if (!ytId) return;
+  var ytId = v.ytId || (_isYtId(v.id) ? v.id : '') || '';
+  if (!ytId) { if (window.toast) window.toast('YouTube IDが見つかりません'); return; }
   var fr = document.getElementById('tw-iframe');
   if (!fr) return;
   _previewOpen = !_previewOpen;
