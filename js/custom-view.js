@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.389 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.397 ═══
 (function () {
 'use strict';
 
@@ -760,6 +760,37 @@ function _addCvCols(view) {
         tbl.style.width = (fW + sW) + 'px';
       }, null);
     });
+
+    // 標準列TH にもCV列ドラッグの受け入れを追加（カスタム列をデフォルト列の間に挿入可能にする）
+    theadRow.querySelectorAll('th[data-col]').forEach(stdTh => {
+      const stdColId = stdTh.dataset.col;
+      if (!stdColId || stdColId.startsWith('cv:')) return; // カスタム列は別途処理済みなのでスキップ
+      stdTh.ondragover = e => {
+        if (!_cvDragSrc) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        theadRow.querySelectorAll('th').forEach(el => el.classList.remove('org-th-drag-over'));
+        stdTh.classList.add('org-th-drag-over');
+      };
+      stdTh.ondragleave = () => stdTh.classList.remove('org-th-drag-over');
+      stdTh.ondrop = e => {
+        e.preventDefault();
+        if (!_cvDragSrc) return;
+        const srcId = _cvDragSrc;
+        _ensureUnifiedOrder(view);
+        const ui = view.unifiedOrder.indexOf(srcId);
+        const uj = view.unifiedOrder.indexOf(stdColId);
+        if (ui >= 0 && uj >= 0 && ui !== uj) {
+          view.unifiedOrder.splice(ui, 1);
+          const newUj = view.unifiedOrder.indexOf(stdColId);
+          view.unifiedOrder.splice(newUj, 0, srcId);
+        }
+        theadRow.querySelectorAll('th').forEach(el => el.classList.remove('org-th-drag-over'));
+        _save();
+        _reorderAllCols(view);
+      };
+    });
+
     // 手動モード専用: 削除列ヘッダー（addThより先に追加してaddThが常に最後）
     if (view.saveMode !== 'dynamic') {
       const delTh = document.createElement('th');
