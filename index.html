@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.406</title>
+<title>WAZA KIMURA v52.407</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -334,7 +334,7 @@
     }
   };
 
-  // ── Library サイドバー開閉（overlay mode v52.406） ──
+  // ── Library サイドバー開閉（overlay mode v52.407） ──
   window.libSbToggle = function() {
     const sb  = document.getElementById('libSidebar');
     const ov  = document.getElementById('libSbOverlay');
@@ -1065,7 +1065,7 @@
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
 /* lib-sidebar統合後: filterSidebarは常に非表示 */
 #filterSidebar { display: none !important; }
-/* ── Library サイドバー v52.406 (overlay mode) ── */
+/* ── Library サイドバー v52.407 (overlay mode) ── */
 .lib-sidebar {
   position: absolute; top: 0; left: 0; bottom: 0;
   width: 220px; flex-shrink: 0;
@@ -1413,7 +1413,7 @@
 <div class="tab-panel active" id="homeTab">
   <!-- 暗幕オーバーレイ -->
   <div id="libSbOverlay" onclick="libSbClose()"></div>
-  <!-- Library サイドバー (overlay mode v52.406) -->
+  <!-- Library サイドバー (overlay mode v52.407) -->
   <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr">
       <span class="lib-sb-hdr-title">□ Library</span>
@@ -1481,7 +1481,7 @@
         <div class="fs-acc-sec" id="fs-acc-tags" style="display:none">
           <div class="fs-acc-hdr" onclick="openSbPopup('tags', this)"><span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tags">▶</span></div>
         </div>
-        <div class="fs-acc-sec" id="fs-acc-saved">
+        <div class="fs-acc-sec" id="fs-acc-saved" style="border-top:1px solid var(--border2)">
           <div class="fs-acc-hdr" onclick="toggleAcc('saved')" style="padding-left:26px">
             <span>保存した検索条件</span><span class="fs-acc-arrow" id="fs-acc-arr-saved">▶</span>
           </div>
@@ -1500,7 +1500,7 @@
             <div id="fs-recent-list"></div>
           </div>
         </div>
-        <div style="border-top:1px solid var(--border)">
+        <div style="border-top:1px solid var(--border2)">
           <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():(window._libViewMode==='org'?enterBulk('organize'):enterBulk())" style="display:block;width:100%;font-family:inherit;font-size:12px;font-weight:400;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;padding:9px 14px 9px 26px">☑ 一括編集</button>
         </div>
         <div style="padding:8px 22px 12px">
@@ -1929,7 +1929,7 @@
 <div class="tab-panel" id="searchTab">
   <!-- sticky ラッパー: 検索バー・履歴・件数/並び替え行をまとめて固定 -->
   <div class="yt-sr-sticky-wrap">
-    <!-- ページタイトルヘッダー v52.406 -->
+    <!-- ページタイトルヘッダー v52.407 -->
     <div class="yt-sr-page-hdr">○ Search</div>
     <!-- ① YouTube 検索バー（B-4: 薄枠 + ピル） -->
     <div class="yt-sr-topbar">
@@ -3860,7 +3860,7 @@ document.addEventListener('click', function(e) {
 
 
 
-// SIDEBAR RESIZER: v52.406でオーバーレイ方式に変更したため削除済み
+// SIDEBAR RESIZER: v52.407でオーバーレイ方式に変更したため削除済み
 
 // ═══ VPANEL リサイザー（スマホ:高さ / タブレット:幅） ═══
 (function(){
