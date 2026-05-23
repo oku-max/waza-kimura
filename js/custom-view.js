@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — カスタムビュー v52.385 ═══
+// ═══ WAZA KIMURA — カスタムビュー v52.386 ═══
 (function () {
 'use strict';
 
@@ -54,6 +54,7 @@ let cvColOrder = [...CV_COL_DEFAULT];
 let cvColVisibility = {tb:true,action:true,position:true,technique:true,counter:false,status:true,channel:true,playlist:true,memo:true,addedAt:true,fav:true,next:true,duration:true};
 let _nextColId = 100;
 let _selectedTplId = CV_TEMPLATES[0].id;
+let _cvUserTemplates = [];
 
 // add-col modal state
 let _addColTargetViewId = null;
@@ -127,12 +128,21 @@ function _syncNextColId() {
   });
 }
 
+const _UTPL_KEY = 'wk_cv_user_tpls';
+function _saveTemplates() {
+  try { localStorage.setItem(_UTPL_KEY, JSON.stringify(_cvUserTemplates)); } catch(e) {}
+}
+function _loadTemplates() {
+  try { const r = localStorage.getItem(_UTPL_KEY); if (r) _cvUserTemplates = JSON.parse(r); } catch(e) {}
+}
+
 function _load() {
   try {
     const raw = localStorage.getItem('wk_cv_views');
     if (raw) _views = JSON.parse(raw);
     _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
     _syncNextColId();
+    _loadTemplates();
     const prefs = localStorage.getItem('wk_cv_col_prefs');
     if (prefs) { const p = JSON.parse(prefs); cvColOrder = p.order || cvColOrder; cvColVisibility = p.vis || cvColVisibility; }
   } catch(e) { _views = []; }
@@ -230,6 +240,7 @@ function _buildPickerHTML() {
           <span class="cv-picker-name">${_esc(v.label)}</span>
           <span class="cv-picker-meta">${modeLbl} · ${cnt}本</span>
         </span>
+        <button class="cv-picker-save-tpl-btn" onclick="event.stopPropagation();window._cvSaveAsTemplate('${v.id}')" title="テンプレとして保存" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;line-height:1">💾</button>
         <button class="cv-picker-del-btn" onclick="event.stopPropagation();window._cvDeleteView('${v.id}')" title="削除">🗑</button>
       </div>`;
     }
@@ -264,11 +275,13 @@ function _buildPickerHTML() {
       </div>`;
 
   const editToggleBtn = _views.length > 0 ? `<button onclick="window._cvPickerToggleEdit()" class="cv-picker-organize-btn${_cvPickerEditMode ? ' active' : ''}">${_cvPickerEditMode ? '完了' : '整理'}</button>` : '';
+  const tplMgrBtn = _cvUserTemplates.length > 0 ? `<button onclick="window._cvOpenTemplateManager()" class="cv-picker-organize-btn">テンプレ</button>` : '';
 
   return `<div class="cv-picker-modal">
     <div class="cv-picker-header">
       <span style="font-size:14px;font-weight:700">カスタムビュー</span>
       <div style="display:flex;gap:6px;align-items:center">
+        ${tplMgrBtn}
         ${editToggleBtn}
         <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
       </div>
@@ -352,6 +365,122 @@ window._cvMoveView = function(id, dir) {
   _renderViewBar();
   const el = document.getElementById('cv-picker-overlay');
   if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+};
+
+// ── テンプレート保存 ──
+window._cvSaveAsTemplate = function(viewId) {
+  const view = _views.find(v => v.id === viewId);
+  if (!view) return;
+  const name = prompt('テンプレート名を入力してください', view.label);
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+
+  // カスタム列を ID なしでコピー（cus:N プレースホルダー用）
+  const cols = (view.columns || []).map(({ id: _id, ...rest }) => rest);
+
+  // unifiedOrder の custom col ID → 'cus:N' に変換
+  const colIdToCusN = {};
+  (view.columns || []).forEach((c, i) => { colIdToCusN[c.id] = 'cus:' + i; });
+  const unifiedOrder = (view.unifiedOrder || []).map(id => _isCustomColId(id) ? (colIdToCusN[id] || id) : id);
+
+  // 標準列の表示状態と順序のみ保存
+  const colVis = {};
+  Object.entries(view.colVis || window.orgColVisibility || {}).forEach(([k, v]) => { if (!_isCustomColId(k)) colVis[k] = v; });
+  const colOrder = (view.colOrder || window.orgColOrder || []).filter(id => !_isCustomColId(id));
+
+  _cvUserTemplates.push({
+    id: 'utpl_' + Date.now(),
+    label: trimmed,
+    columns: cols,
+    colOrder,
+    colVis,
+    unifiedOrder,
+    createdAt: Date.now()
+  });
+  _saveTemplates();
+
+  const el = document.getElementById('cv-picker-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+  window.toast?.(`「${trimmed}」をテンプレートとして保存しました`);
+};
+
+// ── テンプレートマネージャー ──
+function _buildTemplateManagerHTML() {
+  const items = _cvUserTemplates.map((tpl, idx) => {
+    const canUp   = idx > 0;
+    const canDown = idx < _cvUserTemplates.length - 1;
+    return `<div class="cv-picker-item cv-picker-edit-row">
+      <div class="cv-picker-arrows">
+        <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',-1)" ${canUp?'':'disabled'}>▲</button>
+        <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',1)" ${canDown?'':'disabled'}>▼</button>
+      </div>
+      <span class="cv-picker-icon" style="font-size:16px">📐</span>
+      <span class="cv-picker-info" style="flex:1;min-width:0">
+        <span class="cv-picker-name" style="word-break:break-all">${_esc(tpl.label)}</span>
+        <span class="cv-picker-meta">${tpl.columns.length}列のカスタムテンプレート</span>
+      </span>
+      <button onclick="event.stopPropagation();window._cvRenameTpl('${tpl.id}')" title="名前を変更" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;line-height:1">✏️</button>
+      <button class="cv-picker-del-btn" onclick="event.stopPropagation();window._cvDeleteTpl('${tpl.id}')" title="削除">🗑</button>
+    </div>`;
+  }).join('') || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">テンプレートがありません</div>';
+
+  return `<div class="cv-picker-modal">
+    <div class="cv-picker-header">
+      <span style="font-size:14px;font-weight:700">マイテンプレート</span>
+      <button onclick="document.getElementById('cv-tpl-manager-overlay').style.display='none'" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div class="cv-picker-body">${items}</div>
+  </div>`;
+}
+
+window._cvOpenTemplateManager = function() {
+  let el = document.getElementById('cv-tpl-manager-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cv-tpl-manager-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9200;display:flex;align-items:center;justify-content:center';
+    el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
+    document.body.appendChild(el);
+  }
+  el.innerHTML = _buildTemplateManagerHTML();
+  el.style.display = 'flex';
+};
+
+window._cvDeleteTpl = function(id) {
+  const tpl = _cvUserTemplates.find(t => t.id === id);
+  if (!tpl) return;
+  if (!confirm(`「${tpl.label}」を削除しますか？`)) return;
+  _cvUserTemplates = _cvUserTemplates.filter(t => t.id !== id);
+  _saveTemplates();
+  const mgr = document.getElementById('cv-tpl-manager-overlay');
+  if (mgr && mgr.style.display !== 'none') mgr.innerHTML = _buildTemplateManagerHTML();
+  const picker = document.getElementById('cv-picker-overlay');
+  if (picker && picker.style.display !== 'none') picker.innerHTML = _buildPickerHTML();
+};
+
+window._cvRenameTpl = function(id) {
+  const tpl = _cvUserTemplates.find(t => t.id === id);
+  if (!tpl) return;
+  const newName = prompt('テンプレート名を変更', tpl.label);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) return;
+  tpl.label = trimmed;
+  _saveTemplates();
+  const el = document.getElementById('cv-tpl-manager-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
+};
+
+window._cvMoveTpl = function(id, dir) {
+  const idx = _cvUserTemplates.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= _cvUserTemplates.length) return;
+  [_cvUserTemplates[idx], _cvUserTemplates[newIdx]] = [_cvUserTemplates[newIdx], _cvUserTemplates[idx]];
+  _saveTemplates();
+  const el = document.getElementById('cv-tpl-manager-overlay');
+  if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
 };
 
 // ── ビュー切替 ──
@@ -2013,9 +2142,10 @@ function _renderTemplateGrid() {
   const grid = document.getElementById('cv-template-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  [...CV_TEMPLATES, BLANK_TEMPLATE].forEach((tpl, i) => {
+
+  const addCard = (tpl, extraClass = '') => {
     const card = document.createElement('div');
-    card.className = 'cv-template-card' + (tpl.id === _selectedTplId ? ' selected' : '') + (tpl.id === 'blank' ? ' blank' : '');
+    card.className = 'cv-template-card' + (tpl.id === _selectedTplId ? ' selected' : '') + (extraClass ? ' ' + extraClass : '');
     card.dataset.tplId = tpl.id;
     card.innerHTML = `<span class="cv-tpl-icon">${tpl.icon}</span>
       <div><div class="cv-tpl-label">${_esc(tpl.label)}</div><div class="cv-tpl-desc">${_esc(tpl.desc)}</div></div>`;
@@ -2024,15 +2154,37 @@ function _renderTemplateGrid() {
       grid.querySelectorAll('.cv-template-card').forEach(c => c.classList.toggle('selected', c.dataset.tplId === tpl.id));
     });
     grid.appendChild(card);
-  });
+  };
+
+  // 組み込みテンプレート
+  [...CV_TEMPLATES, BLANK_TEMPLATE].forEach(tpl => addCard(tpl, tpl.id === 'blank' ? 'blank' : ''));
+
+  // ユーザーテンプレート
+  if (_cvUserTemplates.length > 0) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'grid-column:1/-1;font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.5px;margin-top:8px;padding-top:10px;border-top:1px solid var(--border)';
+    sep.textContent = 'マイテンプレート';
+    grid.appendChild(sep);
+    _cvUserTemplates.forEach(tpl => addCard({ ...tpl, icon: '📐', desc: `カスタム${tpl.columns.length}列` }));
+  }
 }
 
 window.cvConfirm = function() {
   const name = document.getElementById('cv-new-name').value.trim();
   if (!name) return;
-  const tpl = [...CV_TEMPLATES, BLANK_TEMPLATE].find(t => t.id === _selectedTplId) || BLANK_TEMPLATE;
+  const builtIn  = [...CV_TEMPLATES, BLANK_TEMPLATE].find(t => t.id === _selectedTplId);
+  const userTpl  = _cvUserTemplates.find(t => t.id === _selectedTplId);
+  const tpl = builtIn || userTpl || BLANK_TEMPLATE;
   const id = 'cv_' + Date.now();
-  const cols = tpl.columns.map(c => ({ id: 'col' + (++_nextColId), ...c }));
+
+  // 各カスタム列に新しいIDを割り当て、cus:N → 新ID のマップを作る
+  const colIdMap = {};
+  const cols = tpl.columns.map((c, i) => {
+    const newId = 'col' + (++_nextColId);
+    colIdMap['cus:' + i] = newId;
+    return { id: newId, ...c };
+  });
+
   const view = {
     id, label: name,
     viewType: _selectedViewType,
@@ -2042,6 +2194,16 @@ window.cvConfirm = function() {
     columns: cols,
     rowData: {}
   };
+
+  // ユーザーテンプレートなら列設定も復元
+  if (userTpl) {
+    if (userTpl.colOrder) view.colOrder = [...userTpl.colOrder];
+    if (userTpl.colVis)   view.colVis   = { ...userTpl.colVis };
+    if (userTpl.unifiedOrder) {
+      view.unifiedOrder = userTpl.unifiedOrder.map(oid => colIdMap[oid] || oid);
+    }
+  }
+
   _views.push(view);
   _save();
   window.cvCloseModal();
