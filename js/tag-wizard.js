@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.429 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.430 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -595,6 +595,12 @@ function _acceptRule() {
 
 // ── open / close / next ──
 function _open() {
+  // _showDone() が modal.innerHTML を上書きした場合、overlay ごと再構築する
+  if (document.getElementById('tw-overlay') && !document.getElementById('tw-title')) {
+    var _oldOv = document.getElementById('tw-overlay');
+    if (_oldOv) _oldOv.parentNode.removeChild(_oldOv);
+    _domInited = false;
+  }
   _ensureDOM();
   // admin-dashboard で更新された POSITIONS/CATEGORIES を確実に反映する
   if (window.syncPositionsFromStorage) window.syncPositionsFromStorage();
