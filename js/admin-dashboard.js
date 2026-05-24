@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — AI管理ダッシュボード v50.10 ═══
+// ═══ WAZA KIMURA — AI管理ダッシュボード v50.11 ═══
 // Admin-only: 精度・修正履歴・ルール管理
 
 const FEEDBACK_KEY  = 'waza_tag_feedback';
@@ -6,7 +6,7 @@ const RULES_KEY     = 'waza_ai_rules';
 const TAGDICT_KEY   = 'waza_tag_dict';
 const POSITIONS_KEY = 'waza_positions';
 
-const ALL_SUBS = ['accuracy','corrections','rules','categories','positions','feedback'];
+const ALL_SUBS = ['accuracy','corrections','rules','memos','categories','positions','feedback'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -23,6 +23,7 @@ export function switchAdminSub(sub) {
   if (sub === 'accuracy')    _renderAccuracy();
   if (sub === 'corrections') _renderCorrections();
   if (sub === 'rules')       _renderRules();
+  if (sub === 'memos')       _renderMemos();
   if (sub === 'categories')  _renderCategories();
   if (sub === 'positions')   _renderPositions();
   if (sub === 'feedback')    _renderFeedbackAdmin();
@@ -293,6 +294,90 @@ function _renderRules() {
     </div>
   `;
 }
+
+// ═══ E: メモ一覧（私からアルゴリズムへのヒント）═══
+function _renderMemos() {
+  const el = document.getElementById('admin-p-memos');
+  if (!el) return;
+
+  const videos = (window.videos || []).filter(v => !v.archived && v.memo && v.memo.trim());
+  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  if (!videos.length) {
+    el.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:32px;text-align:center;color:var(--text3);font-size:12px">
+        <div style="font-size:28px;margin-bottom:10px">🗒</div>
+        メモがまだありません。<br>タグ付けウィザードで動画にメモを書くと、ここに一覧表示されます。<br>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3)">メモはルールマッチングにも自動的に使われます。</div>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">メモ一覧</span>
+        <span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:2px 8px;border-radius:10px;font-weight:600">${videos.length}件</span>
+        <span style="font-size:10px;color:var(--text3);margin-left:4px">— メモはタグ提案のルールマッチングに自動で使われます</span>
+      </div>
+      ${videos.map((v, i) => {
+        const title = _esc(v.title || v.name || '（タイトルなし）');
+        const ch    = _esc(v.ch || v.channel || '');
+        const memo  = _esc(v.memo || '');
+        const tb    = v.tb ? v.tb[0] : null;
+        const pos   = (v.pos||[]).join(', ');
+        const memoKey = encodeURIComponent((v.memo||'').split('\n')[0].slice(0, 80));
+        return `
+        <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border2);align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            ${ch ? `<div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:2px">${ch}</div>` : ''}
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+              ${tb ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.18);color:var(--accent)">${_esc(tb)}</span>` : ''}
+              ${pos ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(160,144,208,.15);color:var(--purple)">${_esc(pos)}</span>` : ''}
+            </div>
+            <div style="background:rgba(100,100,220,.07);border-left:3px solid #8888dd;border-radius:0 6px 6px 0;padding:8px 10px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap">${memo}</div>
+          </div>
+          <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;margin-top:2px">
+            <button onclick="proposeRuleFromMemo(decodeURIComponent('${memoKey}'))"
+              style="background:var(--accent);color:var(--on-accent);border:none;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">→ ルール化</button>
+            <button onclick="editVideoMemo('${_esc(v.id)}')"
+              style="background:none;border:1px solid var(--border);color:var(--text3);padding:4px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+export function proposeRuleFromMemo(memoText) {
+  // メモの最初の行をルール条件として提案
+  const firstLine = (memoText || '').split('\n')[0].trim().slice(0, 80);
+  switchAdminSub('rules');
+  // 少し遅延してフォームを開く（タブ切替後にDOMが確定するのを待つ）
+  setTimeout(function() {
+    const form = document.getElementById('add-rule-form');
+    if (form) form.style.display = 'block';
+    const condEl = document.getElementById('rule-condition');
+    if (condEl) { condEl.value = firstLine; condEl.focus(); }
+    form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 80);
+}
+window.proposeRuleFromMemo = proposeRuleFromMemo;
+
+export function editVideoMemo(videoId) {
+  // 該当動画を探してメモ編集（ウィザードを開いてその動画にジャンプ）
+  const v = (window.videos||[]).find(v => v.id === videoId);
+  if (!v) { window.toast?.('動画が見つかりません'); return; }
+  const newMemo = prompt('メモを編集:', v.memo || '');
+  if (newMemo === null) return; // キャンセル
+  v.memo = newMemo.trim() || undefined;
+  if (!v.memo) delete v.memo;
+  if (window.saveUserData) window.saveUserData();
+  _renderMemos();
+  window.toast?.('メモを保存しました');
+}
+window.editVideoMemo = editVideoMemo;
 
 // ── Pattern detection ──
 function _detectPatterns(feedback) {

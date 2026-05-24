@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.432 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.433 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -130,7 +130,8 @@ function _getEmbedInfo(v) {
 //   例) PL「デラヒーバ講座」→ pos=デラヒーバ, tb=ボトム が基底
 //       + タイトルに「パス」→ tb=トップ に上書き
 //       + タイトルに「スイープ」→ cat=スイープ を追加
-function _suggest(title, channel, pl) {
+// memo: ユーザーが書いたメモ（アルゴリズムへのヒント）も4番目のシグナルとして統合
+function _suggest(title, channel, pl, memo) {
   var atf = window.autoTagFromTitle;
   // タイトルとプレイリストをそれぞれ解析
   var tBase  = atf ? atf(title || '') : {tb:[],cat:[],pos:[],tags:[]};
@@ -169,22 +170,24 @@ function _suggest(title, channel, pl) {
   });
 
   var _result = { tb: tb, pos: posList, cat: cats, tech: tBase.tags||[] };
-  return _applyRules(_result, title, pl);
+  return _applyRules(_result, title, pl, memo);
 }
 
 // ── ルール適用エンジン（waza_ai_rules を読んで提案結果に上乗せ）──
 // TB:     action='add'     → tbが未設定の場合のみセット
 //         action='replace' → 既存値を上書き
 // pos/cat/tech: action='add'/'remove'/'replace' それぞれ対応
-function _applyRules(result, title, pl) {
+// memo: ユーザーが書いたメモも検索対象に含める（メモはアルゴリズムへのヒント）
+function _applyRules(result, title, pl, memo) {
   try {
     var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
-    var tLower  = (title || '').toLowerCase();
-    var plLower = (pl    || '').toLowerCase();
+    var tLower   = (title || '').toLowerCase();
+    var plLower  = (pl    || '').toLowerCase();
+    var memLower = (memo  || '').toLowerCase();
     rules.forEach(function(r) {
       if (!r.enabled || !r.condition) return;
       var cLower = r.condition.toLowerCase();
-      if (tLower.indexOf(cLower) < 0 && plLower.indexOf(cLower) < 0) return;
+      if (tLower.indexOf(cLower) < 0 && plLower.indexOf(cLower) < 0 && memLower.indexOf(cLower) < 0) return;
       if (r.field === 'tb') {
         if      (r.action === 'add'     && !result.tb) result.tb = r.value;
         else if (r.action === 'replace')               result.tb = r.value;
@@ -451,6 +454,7 @@ function _loadItem() {
   var title   = v.title   || v.name || '';
   var channel = v.ch      || v.channel || '';
   var pl      = v.pl      || '';
+  var memo    = v.memo    || '';
   var _info   = _getEmbedInfo(v);
 
   // プレイヤーリセット
@@ -458,8 +462,9 @@ function _loadItem() {
   var fr = document.getElementById('tw-iframe');
   if (fr) { fr.src = ''; fr.style.display = 'none'; }
 
-  // ── 自動提案（タイトル＋プレイリスト＋チャンネル）──
-  _autoTags = _suggest(title, channel, pl);
+  // ── 自動提案（タイトル＋プレイリスト＋チャンネル＋メモ）──
+  // memo: ユーザーが前回書いたヒントをルールマッチングに活用
+  _autoTags = _suggest(title, channel, pl, memo);
 
   // ヒント表示
   var hintArr = [];
