@@ -1397,16 +1397,41 @@ function _saveProposals(list) {
   try { localStorage.setItem(PROPOSALS_KEY, JSON.stringify(list)); } catch(e) {}
 }
 function _seedProposals() {
-  const stored = _getProposals();
+  let stored = _getProposals();
+
+  // ── 復元: waza_ai_rules に source='ルール審査' のエントリがあれば承認済みに戻す ──
+  const rules = _getRules();
+  const approvedByRule = new Map(); // id → rule
+  rules.forEach(r => {
+    if (r.source === 'ルール審査' && r.id) approvedByRule.set(r.id, r);
+  });
+  if (approvedByRule.size > 0) {
+    let changed = false;
+    stored = stored.map(p => {
+      if (p.status !== 'approved' && approvedByRule.has(p.id)) {
+        changed = true;
+        return { ...p, status: 'approved', approved_at: approvedByRule.get(p.id).created || Date.now() };
+      }
+      return p;
+    });
+    if (changed) _saveProposals(stored);
+  }
+
+  // ── 新規エントリを追加（未登録IDのみ）──
   const storedIds = new Set(stored.map(p => p.id));
   const toAdd = _INITIAL_PROPOSALS.filter(p => !storedIds.has(p.id));
   if (!toAdd.length) return;
-  const merged = stored.concat(toAdd.map(p => ({
-    ...p,
-    status: 'pending',
-    user_note: '',
-    created: Date.now()
-  })));
+  const merged = stored.concat(toAdd.map(p => {
+    // 新規エントリでも承認済みルールと一致するなら承認状態で追加
+    const matchedRule = rules.find(r => r.source === 'ルール審査' && r.condition === p.condition && r.field === p.field && r.value === p.value);
+    return {
+      ...p,
+      status: matchedRule ? 'approved' : 'pending',
+      approved_at: matchedRule ? (matchedRule.created || Date.now()) : undefined,
+      user_note: '',
+      created: Date.now()
+    };
+  }));
   _saveProposals(merged);
 }
 
