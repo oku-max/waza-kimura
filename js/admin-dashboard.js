@@ -1781,35 +1781,94 @@ window._renderTbQueue = function(container) {
 
   const TB_COLORS = { 'トップ':'var(--accent)', 'ボトム':'#4fc3f7', 'スタンディング':'var(--green)' };
 
-  const rows = untagged.map((v, i) => {
-    const label = ((v.title||'') || (v.pl||'')).substring(0, 72);
-    const pl    = v.pl ? v.pl.substring(0, 50) : '';
-    const suggest = autoTag ? autoTag((v.title||'') + ' ' + (v.pl||'')).tb : [];
-    const suggestHtml = suggest.length
-      ? suggest.map(s => `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${TB_COLORS[s]||'var(--surface3)'};color:#fff;font-weight:700">${s}</span>`).join(' ')
-      : '<span style="font-size:10px;color:var(--text3)">推測なし</span>';
+  // ── プレイリスト単位でグループ化 ──
+  // TB推測: タイトル優先、なければプレイリスト名から（tag-wizardと同じ設計）
+  const getSuggest = v => {
+    if (!autoTag) return [];
+    const fromTitle = autoTag(v.title || '').tb;
+    if (fromTitle.length) return fromTitle;
+    return autoTag(v.pl || '').tb;
+  };
 
-    const btns = ['トップ','ボトム','スタンディング'].map(tb =>
-      `<button onclick="window._assignTbFromQueue('${v.id}', '${tb}')" style="background:${TB_COLORS[tb]};color:#fff;border:none;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${tb}</button>`
+  const groups = new Map(); // plKey → {pl, ids[], suggest, allSame}
+  untagged.forEach(v => {
+    const plKey = v.pl || '(プレイリストなし)';
+    if (!groups.has(plKey)) groups.set(plKey, { pl: plKey, videos: [], plSuggest: autoTag ? autoTag(v.pl||'').tb : [] });
+    groups.get(plKey).videos.push(v);
+  });
+
+  const _esc = s => String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const btnStyle = tb => `background:${TB_COLORS[tb]};color:#fff;border:none;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap`;
+
+  let html = '';
+  groups.forEach(({ pl, videos: gvids, plSuggest }) => {
+    const ids = gvids.map(v => v.id);
+
+    // プレイリスト全体の推測: PLからの単一推測があるか
+    const plOneSuggest = (plSuggest.length === 1) ? plSuggest[0] : null;
+
+    // プレイリスト行（折りたたみ式ヘッダー）
+    const plBtns = ['トップ','ボトム','スタンディング'].map(tb =>
+      `<button onclick="window._assignTbBulk(${JSON.stringify(ids)}, '${tb}')" style="${btnStyle(tb)}">全${gvids.length}本 ${tb}</button>`
     ).join('');
+    const plSuggestBadge = plOneSuggest
+      ? `<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:${TB_COLORS[plOneSuggest]};color:#fff;font-weight:700">PL→${plOneSuggest}</span>`
+      : '';
 
-    return `<div id="tbq-row-${v.id}" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${label||'(タイトルなし)'}</div>
-        ${pl ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${pl}</div>` : ''}
+    html += `<div style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--surface2);padding:8px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="flex:1;font-size:11px;font-weight:700;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${_esc(pl)} <span style="color:var(--text3);font-weight:400">(${gvids.length}本)</span></div>
+        ${plSuggestBadge}
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${plBtns}</div>
+        <button onclick="window._assignTbBulk(${JSON.stringify(ids)}, null)" style="background:var(--surface);border:1px solid var(--border);color:var(--text3);padding:3px 8px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit">全スキップ</button>
       </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">${suggestHtml}</div>
-      <div style="display:flex;gap:4px;flex-shrink:0">${btns}</div>
-      <button onclick="window._assignTbFromQueue('${v.id}', null)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);padding:4px 8px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">スキップ</button>
-    </div>`;
+      <div style="padding:4px 10px">`;
+
+    // 各動画行
+    gvids.forEach(v => {
+      const label = (v.title || v.pl || '(タイトルなし)').substring(0, 70);
+      const vSuggest = getSuggest(v);
+      const vSuggestHtml = vSuggest.length
+        ? vSuggest.map(s => `<span style="font-size:10px;padding:1px 5px;border-radius:6px;background:${TB_COLORS[s]||'var(--surface3)'};color:#fff">${s}</span>`).join(' ')
+        : '<span style="font-size:10px;color:var(--text3)">—</span>';
+      const vBtns = ['トップ','ボトム','スタンディング'].map(tb =>
+        `<button onclick="window._assignTbFromQueue('${v.id}', '${tb}')" style="${btnStyle(tb)}">${tb}</button>`
+      ).join('');
+
+      html += `<div id="tbq-row-${v.id}" style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap">
+        <div style="flex:1;min-width:0;font-size:11px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}</div>
+        ${vSuggestHtml}
+        <div style="display:flex;gap:3px">${vBtns}</div>
+        <button onclick="window._assignTbFromQueue('${v.id}', null)" style="background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:0 4px">✕</button>
+      </div>`;
+    });
+
+    html += `</div></div>`;
   });
 
   container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2)">TB未設定 ${untagged.length}本</div>
-      <button onclick="window._applyAllSuggestions()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚡ 推測を一括適用</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2)">TB未設定 ${untagged.length}本 / ${groups.size}プレイリスト</div>
+      <button onclick="window._applyAllSuggestions()" style="background:var(--accent);color:var(--on-accent);border:none;padding:4px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚡ 推測を全一括適用</button>
     </div>
-    <div style="max-height:400px;overflow-y:auto">${rows.join('')}</div>`;
+    <div style="max-height:500px;overflow-y:auto">${html}</div>`;
+};
+
+// プレイリスト単位で一括 TB 割り当て
+window._assignTbBulk = function(ids, tb) {
+  let count = 0;
+  ids.forEach(id => {
+    const v = (window.videos||[]).find(v => v.id === id);
+    if (!v) return;
+    if (tb) { v.tb = [tb]; v.tbLocked = true; }
+    else { v._tbSkipped = true; }
+    const row = document.getElementById('tbq-row-' + id);
+    if (row) { row.style.opacity = '0.3'; row.style.pointerEvents = 'none'; }
+    count++;
+  });
+  if (count) { window.debounceSave?.(); window.AF?.(); }
+  window.toast?.(tb ? `✓ ${count}本を「${tb}」に設定しました` : `${count}本をスキップしました`);
+  window._analyzeTbCoverage();
 };
 
 // 個別に TB を割り当てて行を消す
