@@ -1356,6 +1356,134 @@ function _seedProposals() {
   _saveProposals(merged);
 }
 
+// ── ライブラリスキャン: タグ済み動画からルール未カバーパターンを検出 ──
+function _scanLibraryForProposals() {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  if (!videos.length) { window.toast?.('動画データが読み込まれていません'); return; }
+
+  const rules     = _getRules().filter(r => r.enabled !== false);
+  const proposals = _getProposals();
+
+  // 既存ルール + 既存提案の条件（小文字）を収集 → 重複除外に使う
+  const coveredConds = new Set([
+    ...rules.map(r => r.condition.toLowerCase()),
+    ...proposals.map(p => p.condition.toLowerCase())
+  ]);
+  const usedIds = new Set(proposals.map(p => p.id));
+
+  // candidate: condLow → Map<"field:value" → {field, value, count, condOrig}>
+  const candidateMap = new Map();
+
+  function _addCandidate(tokOrig, field, value) {
+    if (!tokOrig || tokOrig.length < 2 || tokOrig.length > 30) return;
+    const condLow = tokOrig.toLowerCase();
+    if (coveredConds.has(condLow)) return;
+    // 数字のみ・記号のみはスキップ
+    if (/^[\d\s\-\_\.]+$/.test(condLow)) return;
+    const key = field + ':' + value;
+    if (!candidateMap.has(condLow)) candidateMap.set(condLow, new Map());
+    const fvMap = candidateMap.get(condLow);
+    if (!fvMap.has(key)) fvMap.set(key, { field, value, count: 0, condOrig: tokOrig });
+    fvMap.get(key).count++;
+  }
+
+  // タイトルからトークンを抽出（原文の大文字小文字を保持）
+  function _tokens(title) {
+    const parts = title.trim()
+      .split(/[\s　\/・【】「」『』（）\(\)\[\]\|＝=＋\+]+/)
+      .map(s => s.replace(/^[\-\_\.\,\!\?\~#]+|[\-\_\.\,\!\?\~#]+$/g, '').trim())
+      .filter(s => s.length >= 2);
+    // 大文字小文字を区別せず重複除去（元の表記を保持）
+    const seen = new Set();
+    const uniq = parts.filter(s => { const l = s.toLowerCase(); if (seen.has(l)) return false; seen.add(l); return true; });
+    // 英語2語フレーズも候補に追加
+    const bigrams = [];
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (/^[a-zA-Z0-9]+$/.test(parts[i]) && /^[a-zA-Z0-9]+$/.test(parts[i+1])) {
+        bigrams.push(parts[i].toLowerCase() + ' ' + parts[i+1].toLowerCase());
+      }
+    }
+    return [...uniq, ...bigrams];
+  }
+
+  // TB値の正規化（配列 or 文字列）
+  const TB_VALID = new Set(['トップ', 'ボトム', 'スタンディング']);
+
+  videos.forEach(v => {
+    const rawTitle = (v.title || v.name || '').trim();
+    if (!rawTitle) return;
+    const titleLow  = rawTitle.toLowerCase();
+    const tokens    = _tokens(rawTitle);
+
+    // ── TB ──
+    const tbArr = Array.isArray(v.tb) ? v.tb : (v.tb ? [v.tb] : []);
+    tbArr.forEach(tbVal => {
+      if (!TB_VALID.has(tbVal)) return;
+      // 現在のルールでこのビデオのtbが説明されているか？
+      const explained = rules.some(r => r.field === 'tb' && titleLow.includes(r.condition.toLowerCase()));
+      if (!explained) tokens.forEach(tok => _addCandidate(tok, 'tb', tbVal));
+    });
+
+    // ── POS ──
+    (v.pos || []).forEach(posVal => {
+      if (!posVal) return;
+      const explained = rules.some(r => r.field === 'pos' && titleLow.includes(r.condition.toLowerCase()));
+      if (!explained) tokens.forEach(tok => _addCandidate(tok, 'pos', posVal));
+    });
+
+    // ── CAT ──
+    (v.cat || []).forEach(catVal => {
+      if (!catVal) return;
+      const explained = rules.some(r => r.field === 'cat' && titleLow.includes(r.condition.toLowerCase()));
+      if (!explained) tokens.forEach(tok => _addCandidate(tok, 'cat', catVal));
+    });
+  });
+
+  // 閾値: 2件以上の動画に出現するものだけ採用
+  const MIN_COUNT = 2;
+  const newProps = [];
+
+  candidateMap.forEach((fvMap, condLow) => {
+    fvMap.forEach(({ field, value, count, condOrig }) => {
+      if (count < MIN_COUNT) return;
+      const safeId = condLow.replace(/[^a-z0-9ぁ-ん一-龯ァ-ン]/g, '_').slice(0, 20);
+      const id = '_sc_' + field + '_' + safeId + '_' + (value.slice(0, 4).replace(/[^a-z0-9ぁ-ん一-龯ァ-ン]/g, ''));
+      if (usedIds.has(id)) return;
+      usedIds.add(id);
+      newProps.push({
+        id,
+        field,
+        condition: condOrig,
+        value,
+        action: 'add',
+        rationale: `${count}件の動画でタイトルに「${condOrig}」を含み「${value}」タグが付いているがルール未定義`,
+        status: 'pending',
+        user_note: '',
+        created: Date.now(),
+        source: 'スキャン'
+      });
+    });
+  });
+
+  if (!newProps.length) {
+    window.toast?.('新しい候補は見つかりませんでした（全パターンカバー済み）');
+    return;
+  }
+
+  // 出現数の多い順にソート
+  newProps.sort((a, b) => {
+    const ca = parseInt(a.rationale.match(/^(\d+)/)?.[1] || '0');
+    const cb = parseInt(b.rationale.match(/^(\d+)/)?.[1] || '0');
+    return cb - ca;
+  });
+
+  const merged = _getProposals().concat(newProps);
+  _saveProposals(merged);
+  _renderReview();
+  window.toast?.(`🔍 ${newProps.length}件の新規候補を追加しました`);
+}
+window._scanLibraryForProposals = _scanLibraryForProposals;
+
 function _renderReview() {
   const el = document.getElementById('admin-p-review');
   if (!el) return;
@@ -1401,7 +1529,8 @@ function _renderReview() {
         <div onclick="setReviewFilter('${f}')" style="padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;color:${filter===f?'var(--accent)':'var(--text3)'};border-bottom:2px solid ${filter===f?'var(--accent)':'transparent'}">
           ${label} <span style="font-size:10px;color:${filter===f?'var(--accent)':c}">${cnt}</span>
         </div>`).join('')}
-      <div style="margin-left:auto;padding-bottom:6px">
+      <div style="margin-left:auto;padding-bottom:6px;display:flex;gap:6px">
+        <button onclick="window._scanLibraryForProposals()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 スキャン</button>
         <button onclick="addProposalRow()" style="background:var(--accent);color:var(--on-accent);border:none;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ 追加</button>
       </div>
     </div>
