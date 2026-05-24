@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.459</title>
+<title>WAZA KIMURA v52.458</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1887,16 +1887,47 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">🔒 AI管理 <span style="font-size:11px;background:var(--accent);color:var(--on-accent);padding:2px 8px;border-radius:10px;font-weight:700">ADMIN</span></div>
     </div>
-    <!-- Admin header actions -->
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button onclick="window._twOpen?.()" style="padding:5px 14px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷 タグ付けウィザード</button>
+    <!-- Admin sub-tabs -->
+    <div id="admin-sub-tabs" style="display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
+      <div class="admin-stab active" onclick="switchAdminSub('accuracy')" data-sub="accuracy" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">精度</div>
+      <div class="admin-stab" onclick="switchAdminSub('corrections')" data-sub="corrections" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">修正履歴</div>
+      <div class="admin-stab" onclick="switchAdminSub('rules')" data-sub="rules" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ルール</div>
+      <div class="admin-stab" onclick="switchAdminSub('categories')" data-sub="categories" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">カテゴリ</div>
+      <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
+      <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
+      <div class="admin-stab" onclick="switchAdminSub('review')" data-sub="review" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">📋 審査</div>
+      <button onclick="window._twOpen?.()" style="margin-left:auto;padding:5px 14px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷 タグ付けウィザード</button>
     </div>
 
-    <!-- ルールパネル -->
-    <div id="admin-p-rules">
+    <!-- A: 精度パネル -->
+    <div id="admin-p-accuracy">
+      <div id="admin-accuracy-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- B: 修正履歴パネル -->
+    <div id="admin-p-corrections" style="display:none">
+      <div id="admin-corrections-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- D: ルールパネル -->
+    <div id="admin-p-rules" style="display:none">
       <div id="admin-rules-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
     </div>
 
+    <!-- カテゴリパネル -->
+    <div id="admin-p-categories" style="display:none">
+      <div id="admin-categories-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- ポジション管理パネル -->
+    <div id="admin-p-positions" style="display:none">
+      <div id="admin-positions-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
+    </div>
+
+    <!-- フィードバック閲覧パネル -->
+    <div id="admin-p-feedback" style="display:none"></div>
+    <!-- ルール審査パネル -->
+    <div id="admin-p-review" style="display:none"></div>
   </div>
 </div>
 
