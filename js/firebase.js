@@ -216,7 +216,9 @@ async function _applyVideosData(saved) {
     if (v.status === '把握')   v.status = '理解';
     if (v.status === '習得中') v.status = '練習中';
   });
-  if (window.retagAllFromTitle && window.videos) window.retagAllFromTitle();
+  // 管理者アカウントは自動バッチ再タグ付けをスキップ（手動操作時のみ実行）
+  const _isAdminUser = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
+  if (!_isAdminUser && window.retagAllFromTitle && window.videos) window.retagAllFromTitle();
   const _oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   let migratedAddedAt = 0;
   (window.videos || []).forEach(v => { if (!v.addedAt) { v.addedAt = _oneMonthAgo; migratedAddedAt++; } });
