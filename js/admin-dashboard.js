@@ -725,17 +725,11 @@ function _renderCategories() {
     (v.cat || []).forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
   });
 
-  el.innerHTML = `
-    <!-- カテゴリ カバレッジ診断 -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">🔬 カテゴリ カバレッジ診断</div>
-      <div id="cat-analysis-result" style="font-size:12px;color:var(--text3);margin-bottom:10px">未実行 — 「診断実行」を押してください</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="window._analyzeCatCoverage()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 診断実行</button>
-        <button onclick="window._applyAllCatSuggestions()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚡ 推測を全一括適用</button>
-      </div>
-    </div>
+  // tag-master.js の CATEGORIES から判定キーワードを引く
+  const catRules = {};
+  (window.CATEGORIES || []).forEach(c => { catRules[c.name] = c.aliases || []; });
 
+  el.innerHTML = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)">${dict.length}</span>
@@ -804,26 +798,24 @@ function _renderCategories() {
       <table style="width:100%;border-collapse:collapse;min-width:500px">
         <tr>
           <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">名前</th>
-          <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">エイリアス</th>
-          <th style="text-align:right;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">使用数</th>
+          <th style="text-align:left;padding:10px 8px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">判定キーワード</th>
           <th style="padding:10px 8px;border-bottom:2px solid var(--border)"></th>
         </tr>
         ${dict.map((t, i) => {
-          const cnt = catCounts[t.names.ja] || 0;
+          const keywords = catRules[t.names.ja] || [];
           return `
-          <tr class="categories-row" data-search="${_esc((t.names.ja + ' ' + t.names.en + ' ' + (t.aliases?.ja||[]).join(' ') + ' ' + (t.aliases?.en||[]).join(' ')).toLowerCase())}">
-            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);vertical-align:top">
+          <tr class="categories-row" data-search="${_esc((t.names.ja + ' ' + t.names.en + ' ' + keywords.join(' ')).toLowerCase())}">
+            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);vertical-align:top;min-width:140px">
               <div style="font-weight:700;font-size:13px">${_esc(t.names.ja)}</div>
-              <div style="font-size:12px;color:var(--text2);margin-top:2px">${_esc(t.names.en)}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${_esc(t.names.en)}</div>
             </td>
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);vertical-align:top">
-              ${(t.aliases?.ja||[]).map(a => `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;background:var(--surface2);color:var(--text2);margin:1px 2px;border:1px solid var(--border2)"><span style="font-size:9px;font-weight:700;color:var(--text3);margin-right:2px">JA</span>${_esc(a)}</span>`).join('')}
-              ${(t.aliases?.en||[]).map(a => `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;background:var(--surface2);color:var(--text2);margin:1px 2px;border:1px solid var(--border2)"><span style="font-size:9px;font-weight:700;color:var(--text3);margin-right:2px">EN</span>${_esc(a)}</span>`).join('')}
+              ${keywords.length
+                ? keywords.map(k => `<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;background:var(--surface2);color:var(--text2);margin:1px 2px;border:1px solid var(--border2)">${_esc(k)}</span>`).join('')
+                : `<span style="font-size:11px;color:var(--text3)">—</span>`}
             </td>
-            <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--text2)">${cnt}</td>
             <td style="padding:10px 8px;border-bottom:1px solid var(--border2);text-align:right;white-space:nowrap">
-              <button onclick="editCategoryEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;margin-right:4px">編集</button>
-              <button onclick="deleteCategoryEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
+              <button onclick="editCategoryEntry(${i})" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">編集</button>
             </td>
           </tr>`;
         }).join('')}
