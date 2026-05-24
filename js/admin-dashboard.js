@@ -236,9 +236,10 @@ function _renderRules() {
   const rules = _getRules();
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // 2種類に分類: ビルトイン / ユーザー定義
+  // 3種類に分類: グラウンドルール / ビルトイン / ユーザー定義
+  const groundItems  = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'グラウンドルール');
   const builtinItems = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'ビルトイン');
-  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン');
+  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン' && r.source !== 'グラウンドルール');
 
   const _fieldBadge = r => `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;
     background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};
@@ -260,9 +261,10 @@ function _renderRules() {
         ${r.desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${_esc(r.desc)}</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center">
           ${_fieldBadge(r)}
+          ${r.source === 'グラウンドルール' ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(229,196,122,.2);color:var(--accent)">⭐ 大前提</span>' : ''}
           ${isBuiltin ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(100,100,220,.12);color:#6464cc">🔧 ビルトイン</span>' : ''}
           ${r.proposed ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.15);color:var(--accent)">提案</span>' : ''}
-          ${r.source && !isBuiltin ? `<span style="font-size:10px;color:var(--text3)">${_esc(r.source)}</span>` : ''}
+          ${r.source && !isBuiltin && r.source !== 'グラウンドルール' ? `<span style="font-size:10px;color:var(--text3)">${_esc(r.source)}</span>` : ''}
         </div>
       </div>
       <div style="display:flex;gap:4px;flex-shrink:0">
@@ -273,14 +275,32 @@ function _renderRules() {
   `;
 
   el.innerHTML = `
+    <!-- ⭐ グラウンドルール -->
+    <div style="background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${groundItems.length ? '10px' : '0'}">
+        <div>
+          <span style="font-size:13px;font-weight:700;color:var(--accent)">⭐ グラウンドルール</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:8px">— 他の全ルールより上位の大前提</span>
+        </div>
+        <button onclick="addGroundRule()" style="background:var(--accent);color:var(--on-accent);border:none;padding:5px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ 追加</button>
+      </div>
+      ${groundItems.length ? groundItems.map(item => _ruleRow(item, false)).join('') : `
+        <div style="margin-top:10px;padding:16px;text-align:center;color:var(--text3);font-size:12px;border-top:1px solid var(--border)">
+          グラウンドルールはまだありません
+        </div>
+      `}
+    </div>
+
+    <!-- ルール一覧 -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">ルール一覧</div>
-        <button onclick="toggleAddRuleForm()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ルール追加</button>
+        <button onclick="toggleAddRuleForm()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ルール追加</button>
       </div>
 
       <!-- Add rule form (hidden by default) -->
       <div id="add-rule-form" style="display:none;background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div id="add-rule-mode-label" style="display:none;font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px;padding:4px 8px;background:rgba(229,196,122,.12);border-radius:6px">⭐ グラウンドルールとして追加</div>
         <div style="margin-bottom:8px">
           <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">条件（タイトルに含む文字列）</div>
           <input id="rule-condition" type="text" placeholder="例: kimura, 木村" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
@@ -381,9 +401,28 @@ window.clearTagFeedback = clearTagFeedback;
 
 export function toggleAddRuleForm() {
   const form = document.getElementById('add-rule-form');
-  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (!form) return;
+  const opening = form.style.display === 'none';
+  form.style.display = opening ? 'block' : 'none';
+  if (!opening) {
+    delete form.dataset.source;
+    const lbl = document.getElementById('add-rule-mode-label');
+    if (lbl) lbl.style.display = 'none';
+  }
 }
 window.toggleAddRuleForm = toggleAddRuleForm;
+
+export function addGroundRule() {
+  const form = document.getElementById('add-rule-form');
+  if (!form) return;
+  form.style.display = 'block';
+  form.dataset.source = 'グラウンドルール';
+  const lbl = document.getElementById('add-rule-mode-label');
+  if (lbl) lbl.style.display = 'block';
+  document.getElementById('rule-condition')?.focus();
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+window.addGroundRule = addGroundRule;
 
 export function saveNewRule() {
   const form      = document.getElementById('add-rule-form');
@@ -400,8 +439,9 @@ export function saveNewRule() {
     rules[editIdx] = { ...rules[editIdx], condition, field, action, value };
     if (form) delete form.dataset.editIdx;
   } else {
-    // 追加モード
-    rules.push({ condition, field, action, value, enabled: true, created: Date.now(), source: '手動' });
+    // 追加モード（グラウンドルール or 通常）
+    const source = form?.dataset?.source || '手動';
+    rules.push({ condition, field, action, value, enabled: true, created: Date.now(), source });
   }
   _saveRules(rules);
   toggleAddRuleForm();
