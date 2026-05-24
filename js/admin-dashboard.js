@@ -1442,7 +1442,8 @@ window.approveProposal = function(id) {
   const rules = _getRules();
   const exists = rules.some(r => r.id === id || (r.condition === p.condition && r.field === p.field && r.value === p.value));
   if (!exists) {
-    rules.push({ id, condition: p.condition, field: p.field, action: p.action || 'add', value: p.value, enabled: true, created: Date.now(), source: 'ルール審査' });
+    const desc = (p.user_note || p.rationale || '').trim();
+    rules.push({ id, condition: p.condition, field: p.field, action: p.action || 'add', value: p.value, enabled: true, created: Date.now(), source: 'ルール審査', ...(desc ? { desc } : {}) });
     _saveRules(rules);
   }
   _renderReview();
