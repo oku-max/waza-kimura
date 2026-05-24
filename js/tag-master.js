@@ -539,10 +539,8 @@ function autoTagFromTitle(title, pl = '', channel = '') {
   if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
   if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
 
-  // ── Category 判定: タイトル → プレイリスト → チャンネルの順でフォールバック ──
-  result.cat = _detectCatFromText(title);
-  if (!result.cat.length && pl)      result.cat = _detectCatFromText(pl);
-  if (!result.cat.length && channel) result.cat = _detectCatFromText(channel);
+  // ── Category 判定: waza_ai_rules のみ（下の rules 適用セクションで処理）──
+  // CATEGORIES.aliases はサーチ用途のみ。自動判定は waza_ai_rules に一本化。
 
   // ── Position 判定 (タイトルのみ; PLからのpos推測は誤検知リスクが高い) ──
   for (const p of POSITIONS) {
