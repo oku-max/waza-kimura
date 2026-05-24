@@ -258,9 +258,62 @@ function autoTagFromTitle(title) {
 
   // ── TB 判定 ──
   const tbKeywords = {
-    'トップ':       ['トップ','top','パス','pass','smash','スマッシュ','プレッシャー','pressure','コントロール','control','ニーオン','knee on'],
-    'ボトム':       ['ボトム','bottom','ガード','guard','スイープ','sweep','リテンション','retention','ハーフ','half','デラヒーバ','dlr','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x-guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k-guard','slx','ベリンボロ','berimbolo'],
-    'スタンディング':['スタンディング','standing','テイクダウン','takedown','立ち技','投げ','throw','レスリング','wrestling','引き込み'],
+    'トップ': [
+      'トップ','top',
+      'パス','pass','passing',
+      'smash','スマッシュ',
+      'プレッシャー','pressure',
+      'コントロール','control',
+      'ニーオン','knee on',
+      'mount','マウント',
+      'side control','サイドコントロール','side mount',
+      'north south','ノースサウス',
+      'back take','back mount','back control','back attack',
+      'バックテイク','バックマウント','バックコントロール','バックアタック',
+      'dominate','beat',
+      '攻略','突破','制圧','崩し','対策',
+      'torreando','torando','leg drag','stack','knee slice','ニースライス',
+    ],
+    'ボトム': [
+      'ボトム','bottom',
+      'ガード','guard',
+      'スイープ','sweep',
+      'エスケープ','escape',
+      'リテンション','retention',
+      '引き込み',
+      'ハーフ','half',
+      'デラヒーバ','dlr','de la riva',
+      'ラッソ','lasso',
+      'スパイダー','spider',
+      'バタフライ','butterfly',
+      'xガード','x-guard','x guard',
+      'インバーテッド','inverted',
+      'ワーム','worm',
+      'ラペル','lapel',
+      '50/50','5050',
+      'サドル','saddle',
+      'ニーシールド','knee shield',
+      'kガード','k-guard','k guard',
+      'slx',
+      'ベリンボロ','berimbolo',
+      'クローズドガード','closed guard',
+      'ディープハーフ','deep half',
+      'オープンガード','open guard',
+      'ガードリカバリー','guard recovery',
+      'playing','from guard',
+    ],
+    'スタンディング': [
+      'スタンディング','standing',
+      'テイクダウン','takedown',
+      '立ち技','投げ','throw',
+      'レスリング','wrestling',
+      'シングルレッグ','single leg',
+      'ダブルレッグ','double leg',
+      'アンクルピック','ankle pick',
+      'ボディロック','body lock',
+      'ヒップスロー','hip throw','hip toss',
+      'タックル',
+    ],
   };
   for (const [tb, keywords] of Object.entries(tbKeywords)) {
     for (const kw of keywords) {
@@ -270,9 +323,14 @@ function autoTagFromTitle(title) {
       }
     }
   }
-  // スイープはボトム起点だが成功するとトップ
-  if (tNorm.includes(_norm('スイープ')) || tNorm.includes('sweep')) {
-    if (!result.tb.includes('ボトム')) result.tb.push('ボトム');
+
+  // ── 競合解決: パスガード系はトップのみ ──
+  // "guard pass" タイトルで pass→トップ / guard→ボトム が両方立つのを修正
+  if (result.tb.includes('トップ') && result.tb.includes('ボトム')) {
+    const hasPassToken = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => tNorm.includes(_norm(kw)));
+    if (hasPassToken) {
+      result.tb = result.tb.filter(t => t !== 'ボトム');
+    }
   }
 
   // ── Category 判定 ──

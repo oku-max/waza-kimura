@@ -162,6 +162,17 @@ function _renderAccuracy() {
       <div style="font-size:24px;margin-bottom:8px">📊</div>
       修正データがまだありません。<br>AI タグを修正すると、ここに精度データが表示されます。
     </div>` : ''}
+
+    <!-- TB診断 -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">🔬 TB カバレッジ診断</div>
+      <div id="tb-analysis-result" style="font-size:12px;color:var(--text3);margin-bottom:10px">未実行 — ログイン後に「診断実行」を押してください</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="window._analyzeTbCoverage()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 診断実行</button>
+        <button onclick="window._showUntaggedTb()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 未設定リスト</button>
+      </div>
+      <div id="tb-untagged-list" style="margin-top:10px;max-height:300px;overflow-y:auto;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.8;display:none"></div>
+    </div>
   `;
 }
 
@@ -1710,6 +1721,71 @@ function _scanLibraryForProposals() {
   window.toast?.(`🔍 ${newProps.length}件の高精度候補を追加しました`);
 }
 window._scanLibraryForProposals = _scanLibraryForProposals;
+
+// ── TB カバレッジ診断 ──
+window._analyzeTbCoverage = function() {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  if (!videos.length) { window.toast?.('動画がありません（ログイン後に実行してください）'); return; }
+
+  let top = 0, bot = 0, stand = 0, topBot = 0, empty = 0;
+  videos.forEach(v => {
+    const tb = Array.isArray(v.tb) ? v.tb : (v.tb ? [v.tb] : []);
+    const hasTop = tb.includes('トップ'), hasBot = tb.includes('ボトム'), hasSt = tb.includes('スタンディング');
+    if (hasTop) top++;
+    if (hasBot) bot++;
+    if (hasSt)  stand++;
+    if (hasTop && hasBot) topBot++;
+    if (!tb.length) empty++;
+  });
+
+  const total = videos.length;
+  const covered = total - empty;
+  const pct = total ? Math.round(covered / total * 100) : 0;
+
+  const el = document.getElementById('tb-analysis-result');
+  if (el) {
+    el.innerHTML = [
+      `全動画 <b>${total}</b> 本 → TB設定済 <b style="color:var(--green)">${covered}</b> 本 (<b>${pct}%</b>) / 未設定 <b style="color:var(--red)">${empty}</b> 本`,
+      `トップ <b>${top}</b> / ボトム <b>${bot}</b> / スタンディング <b>${stand}</b>`,
+      topBot ? `<span style="color:var(--red)">⚠ トップ+ボトム 両方タグ: ${topBot}本</span>` : '',
+    ].filter(Boolean).join('<br>');
+    el.style.color = 'var(--text2)';
+  }
+  window.toast?.(`📊 TB診断: ${covered}/${total}本 (${pct}%) カバー済`);
+  return { total, covered, empty, top, bot, stand, topBot };
+};
+
+// 未設定動画のリスト + アルゴリズム推測を表示
+window._showUntaggedTb = function() {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  if (!videos.length) { window.toast?.('動画がありません'); return; }
+
+  const container = document.getElementById('tb-untagged-list');
+  if (!container) return;
+
+  const autoTag = window.autoTagFromTitle;
+  const untagged = videos.filter(v => {
+    const tb = Array.isArray(v.tb) ? v.tb : (v.tb ? [v.tb] : []);
+    return !tb.length;
+  });
+
+  if (!untagged.length) {
+    container.textContent = '✓ 未設定の動画はありません';
+    container.style.display = '';
+    return;
+  }
+
+  // アルゴリズム推測を付けて表示
+  const lines = untagged.slice(0, 200).map(v => {
+    const title = (v.pl || v.title || '(no title)').substring(0, 80);
+    const suggest = autoTag ? (autoTag(v.pl || v.title || '').tb.join('/') || '—') : '?';
+    const color = suggest === '—' ? '#888' : suggest.includes('トップ') ? 'var(--accent)' : suggest.includes('スタンディング') ? 'var(--green)' : '#4fc3f7';
+    return `<div style="padding:2px 0;border-bottom:1px solid var(--border2)"><span style="color:${color};font-weight:700">[${suggest}]</span> ${title}</div>`;
+  });
+
+  container.innerHTML = `<div style="margin-bottom:6px;color:var(--text3)">未設定 ${untagged.length}本 (先頭200件) — [ ] 内はアルゴリズム推測</div>` + lines.join('');
+  container.style.display = '';
+};
 
 // 未確認スキャン提案をクリア（承認/却下済みは残す）
 window._clearScanProposals = function() {
