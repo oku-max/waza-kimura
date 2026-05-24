@@ -1817,7 +1817,7 @@ window._renderTbQueue = function(container) {
 
     html += `<div style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
       <div style="background:var(--surface2);padding:8px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div style="flex:1;font-size:11px;font-weight:700;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${_esc(pl)} <span style="color:var(--text3);font-weight:400">(${gvids.length}本)</span></div>
+        <div style="flex:1;font-size:11px;font-weight:700;color:var(--text2);min-width:0;word-break:break-all">📁 ${_esc(pl)} <span style="color:var(--text3);font-weight:400">(${gvids.length}本)</span></div>
         ${plSuggestBadge}
         <div style="display:flex;gap:4px;flex-wrap:wrap">${plBtns}</div>
         <button onclick="window._assignTbBulk(${JSON.stringify(ids)}, null)" style="background:var(--surface);border:1px solid var(--border);color:var(--text3);padding:3px 8px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit">全スキップ</button>
