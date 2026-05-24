@@ -1730,12 +1730,12 @@ function _renderReview() {
         ['approved', approved.length,  '承認',   'var(--green)'],
         ['rejected', rejected.length,  '却下',   'var(--red)']
       ].map(([f, n, label, color]) => `
-        <div onclick="setReviewFilter('${f}')"
-             style="flex:1;background:${filter===f ? color+'1a' : 'var(--surface)'};
+        <div id="rv-card-${f}" onclick="setReviewFilter('${f}')"
+             style="flex:1;background:var(--surface);
                     border:${filter===f ? '2px solid '+color : '1px solid var(--border)'};
-                    border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;transition:background .15s,border .15s">
-          <div style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${filter===f ? color : color}">${n}</div>
-          <div style="font-size:10px;margin-top:3px;font-weight:${filter===f ? '700' : '400'};color:${filter===f ? color : 'var(--text3)'}">${label}</div>
+                    border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;transition:border .15s">
+          <div class="rv-card-num" style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${color}">${n}</div>
+          <div class="rv-card-lbl" style="font-size:10px;margin-top:3px;font-weight:${filter===f ? '700' : '400'};color:${filter===f ? color : 'var(--text3)'}">${label}</div>
         </div>`).join('')}
       <div style="display:flex;flex-direction:column;gap:6px;justify-content:center;padding-left:4px">
         <button onclick="window._scanLibraryForProposals()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 スキャン</button>
@@ -1743,10 +1743,10 @@ function _renderReview() {
       </div>
     </div>
 
-    ${filtered.length === 0 ? `
+    ${proposals.length === 0 ? `
       <div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">
         <div style="font-size:32px;margin-bottom:12px">📋</div>
-        ${filter === 'pending' ? '未確認の提案はありません' : filter === 'approved' ? '承認済みのルールがありません' : filter === 'rejected' ? '却下済みはありません' : '提案がありません'}
+        提案がありません
       </div>
     ` : `
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
@@ -1761,8 +1761,17 @@ function _renderReview() {
           </tr>
         </thead>
         <tbody>
-          ${filtered.map(p => `
-          <tr style="border-bottom:1px solid var(--border2)">
+          <tr id="rv-no-results" style="${filter !== 'all' && !filtered.length ? '' : 'display:none'}">
+            <td colspan="5" style="text-align:center;padding:32px;color:var(--text3);font-size:12px">
+              <div style="font-size:24px;margin-bottom:8px">📋</div>
+              ${filter === 'pending' ? '未確認の提案はありません' : filter === 'approved' ? '承認済みのルールがありません' : filter === 'rejected' ? '却下済みはありません' : ''}
+            </td>
+          </tr>
+          ${proposals.map(p => {
+            const st = p.status || 'pending';
+            const hidden = filter !== 'all' && st !== filter;
+            return `
+          <tr class="rv-row" data-status="${st}" style="${hidden ? 'display:none;' : ''}border-bottom:1px solid var(--border2)">
             <td style="padding:10px 10px;vertical-align:top">
               <div style="display:flex;flex-direction:column;gap:4px">
                 ${_pt(p)}
@@ -1791,7 +1800,8 @@ function _renderReview() {
               ${_sb(p.status)}
               ${p.approved_at ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">${new Date(p.approved_at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}</div>` : ''}
             </td>
-          </tr>`).join('')}
+          </tr>`;
+          }).join('')}
         </tbody>
       </table>
     </div>
@@ -1852,8 +1862,32 @@ window.saveProposalNote = function(id, note) {
 
 window.setReviewFilter = function(f) {
   const el = document.getElementById('admin-p-review');
-  if (el) el.dataset.filter = f;
-  _renderReview();
+  if (!el) return;
+  el.dataset.filter = f;
+
+  // カードのアクティブ状態を更新（再描画なし）
+  const COLORS = { all:'var(--accent)', pending:'var(--text3)', approved:'var(--green)', rejected:'var(--red)' };
+  ['all','pending','approved','rejected'].forEach(key => {
+    const card = document.getElementById('rv-card-' + key);
+    if (!card) return;
+    const active = key === f;
+    const color  = COLORS[key];
+    card.style.border = active ? '2px solid ' + color : '1px solid var(--border)';
+    const lblEl = card.querySelector('.rv-card-lbl');
+    if (lblEl) { lblEl.style.fontWeight = active ? '700' : '400'; lblEl.style.color = active ? color : 'var(--text3)'; }
+  });
+
+  // 行の show/hide（再描画なし — これが高速化の核心）
+  let visibleCount = 0;
+  document.querySelectorAll('#admin-p-review .rv-row').forEach(row => {
+    const show = f === 'all' || (row.dataset.status || 'pending') === f;
+    row.style.display = show ? '' : 'none';
+    if (show) visibleCount++;
+  });
+
+  // 「該当なし」行の表示制御
+  const noResults = document.getElementById('rv-no-results');
+  if (noResults) noResults.style.display = visibleCount === 0 && f !== 'all' ? '' : 'none';
 };
 
 window.addProposalRow = function() {
