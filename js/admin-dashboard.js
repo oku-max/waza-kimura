@@ -1780,7 +1780,7 @@ window._showUntaggedTb = function() {
   // アルゴリズム推測を付けて表示
   const lines = untagged.slice(0, 200).map(v => {
     const title = (v.pl || v.title || '(no title)').substring(0, 80);
-    const suggest = autoTag ? (autoTag(v.pl || v.title || '').tb.join('/') || '—') : '?';
+    const suggest = autoTag ? (autoTag((v.title||'') + ' ' + (v.pl||'')).tb.join('/') || '—') : '?';
     const color = suggest === '—' ? '#888' : suggest.includes('トップ') ? 'var(--accent)' : suggest.includes('スタンディング') ? 'var(--green)' : '#4fc3f7';
     return `<div style="padding:2px 0;border-bottom:1px solid var(--border2)"><span style="color:${color};font-weight:700">[${suggest}]</span> ${title}</div>`;
   });

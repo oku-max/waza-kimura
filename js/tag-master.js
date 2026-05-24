@@ -273,10 +273,11 @@ function autoTagFromTitle(title) {
       'dominate','beat',
       '攻略','突破','制圧','崩し','対策',
       'torreando','torando','leg drag','stack','knee slice','ニースライス',
+      'guard break','guard breaker','guard opener','ガードブレイク',
     ],
     'ボトム': [
       'ボトム','bottom',
-      'ガード','guard',
+      // 注: 'ガード'/'guard' 単体は _norm で空文字になるため下の raw チェックで処理
       'スイープ','sweep',
       'エスケープ','escape',
       'リテンション','retention',
@@ -300,6 +301,7 @@ function autoTagFromTitle(title) {
       'ディープハーフ','deep half',
       'オープンガード','open guard',
       'ガードリカバリー','guard recovery',
+      'インサイドガード','inside guard',
       'playing','from guard',
     ],
     'スタンディング': [
@@ -324,12 +326,23 @@ function autoTagFromTitle(title) {
     }
   }
 
-  // ── 競合解決: パスガード系はトップのみ ──
-  // "guard pass" タイトルで pass→トップ / guard→ボトム が両方立つのを修正
+  // ── ガード/guard の raw チェック ──
+  // _norm('ガード') = '' になるためキーワードループでは検出できない。
+  // 直接正規表現でタイトルに「ガード」「Guard」を含む場合はボトム候補に追加。
+  if (/ガード|guard/i.test(t) && !result.tb.includes('ボトム')) {
+    result.tb.push('ボトム');
+  }
+
+  // ── 競合解決 ──
   if (result.tb.includes('トップ') && result.tb.includes('ボトム')) {
-    const hasPassToken = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => tNorm.includes(_norm(kw)));
-    if (hasPassToken) {
-      result.tb = result.tb.filter(t => t !== 'ボトム');
+    // 優先①: エスケープ/ディフェンス → ボトム確定（マウントエスケープ = 下から逃げる）
+    const hasEscape = ['escape','エスケープ','ディフェンス','defense'].some(kw => { const n = _norm(kw); return n && tNorm.includes(n); });
+    if (hasEscape) {
+      result.tb = result.tb.filter(t => t !== 'トップ');
+    } else {
+      // 優先②: パスガード系 → トップ確定（guard pass = 上から超える）
+      const hasPassToken = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => tNorm.includes(_norm(kw)));
+      if (hasPassToken) result.tb = result.tb.filter(t => t !== 'ボトム');
     }
   }
 
