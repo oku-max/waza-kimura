@@ -169,11 +169,11 @@ function _renderAccuracy() {
       <div id="tb-analysis-result" style="font-size:12px;color:var(--text3);margin-bottom:10px">未実行 — ログイン後に「診断実行」を押してください</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="window._analyzeTbCoverage()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 診断実行</button>
-        <button onclick="window._showUntaggedTb()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 未設定リスト</button>
+        <button onclick="window._openTbQueue()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✏️ TB判定キュー</button>
         <button onclick="window._previewTbConflicts()" style="background:var(--surface2);border:1px solid var(--border);color:var(--red);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚠ 競合プレビュー</button>
         <button onclick="window._fixTbConflicts()" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔧 競合修正</button>
       </div>
-      <div id="tb-untagged-list" style="margin-top:10px;max-height:300px;overflow-y:auto;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.8;display:none"></div>
+      <div id="tb-queue-container" style="margin-top:12px;display:none"></div>
     </div>
   `;
 }
@@ -1757,36 +1757,101 @@ window._analyzeTbCoverage = function() {
   return { total, covered, empty, top, bot, stand, topBot };
 };
 
-// 未設定動画のリスト + アルゴリズム推測を表示
-window._showUntaggedTb = function() {
-  const videos = (window.videos || []).filter(v => !v.archived);
-  if (!videos.length) { window.toast?.('動画がありません'); return; }
-
-  const container = document.getElementById('tb-untagged-list');
+// ── TB判定キュー ──
+// 未設定動画を一覧表示。ボタンでその場で TB を確定・保存。
+window._openTbQueue = function() {
+  const container = document.getElementById('tb-queue-container');
   if (!container) return;
+  window._renderTbQueue(container);
+  container.style.display = '';
+};
+
+window._renderTbQueue = function(container) {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  if (!videos.length) { container.innerHTML = '<div style="color:var(--text3);font-size:12px">動画がありません（ログイン確認）</div>'; return; }
 
   const autoTag = window.autoTagFromTitle;
-  const untagged = videos.filter(v => {
-    const tb = Array.isArray(v.tb) ? v.tb : (v.tb ? [v.tb] : []);
-    return !tb.length;
-  });
+  const untagged = videos.filter(v => { const tb = Array.isArray(v.tb) ? v.tb : (v.tb ? [v.tb] : []); return !tb.length; });
 
   if (!untagged.length) {
-    container.textContent = '✓ 未設定の動画はありません';
-    container.style.display = '';
+    container.innerHTML = '<div style="color:var(--green);font-size:12px;padding:12px 0">✓ TB未設定の動画はありません</div>';
+    window._analyzeTbCoverage();
     return;
   }
 
-  // アルゴリズム推測を付けて表示
-  const lines = untagged.slice(0, 200).map(v => {
-    const title = (v.pl || v.title || '(no title)').substring(0, 80);
-    const suggest = autoTag ? (autoTag((v.title||'') + ' ' + (v.pl||'')).tb.join('/') || '—') : '?';
-    const color = suggest === '—' ? '#888' : suggest.includes('トップ') ? 'var(--accent)' : suggest.includes('スタンディング') ? 'var(--green)' : '#4fc3f7';
-    return `<div style="padding:2px 0;border-bottom:1px solid var(--border2)"><span style="color:${color};font-weight:700">[${suggest}]</span> ${title}</div>`;
+  const TB_COLORS = { 'トップ':'var(--accent)', 'ボトム':'#4fc3f7', 'スタンディング':'var(--green)' };
+
+  const rows = untagged.map((v, i) => {
+    const label = ((v.title||'') || (v.pl||'')).substring(0, 72);
+    const pl    = v.pl ? v.pl.substring(0, 50) : '';
+    const suggest = autoTag ? autoTag((v.title||'') + ' ' + (v.pl||'')).tb : [];
+    const suggestHtml = suggest.length
+      ? suggest.map(s => `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${TB_COLORS[s]||'var(--surface3)'};color:#fff;font-weight:700">${s}</span>`).join(' ')
+      : '<span style="font-size:10px;color:var(--text3)">推測なし</span>';
+
+    const btns = ['トップ','ボトム','スタンディング'].map(tb =>
+      `<button onclick="window._assignTbFromQueue('${v.id}', '${tb}')" style="background:${TB_COLORS[tb]};color:#fff;border:none;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">${tb}</button>`
+    ).join('');
+
+    return `<div id="tbq-row-${v.id}" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2);flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${label||'(タイトルなし)'}</div>
+        ${pl ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${pl}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">${suggestHtml}</div>
+      <div style="display:flex;gap:4px;flex-shrink:0">${btns}</div>
+      <button onclick="window._assignTbFromQueue('${v.id}', null)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);padding:4px 8px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">スキップ</button>
+    </div>`;
   });
 
-  container.innerHTML = `<div style="margin-bottom:6px;color:var(--text3)">未設定 ${untagged.length}本 (先頭200件) — [ ] 内はアルゴリズム推測</div>` + lines.join('');
-  container.style.display = '';
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2)">TB未設定 ${untagged.length}本</div>
+      <button onclick="window._applyAllSuggestions()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚡ 推測を一括適用</button>
+    </div>
+    <div style="max-height:400px;overflow-y:auto">${rows.join('')}</div>`;
+};
+
+// 個別に TB を割り当てて行を消す
+window._assignTbFromQueue = function(videoId, tb) {
+  const v = (window.videos||[]).find(v => v.id === videoId);
+  if (!v) return;
+  if (tb) {
+    v.tb = [tb];
+    v.tbLocked = true;
+  }
+  // スキップ: tbLocked だけ立てて再判定しないようにする
+  if (!tb) v._tbSkipped = true;
+
+  window.debounceSave?.();
+  const row = document.getElementById('tbq-row-' + videoId);
+  if (row) { row.style.opacity = '0.3'; row.style.pointerEvents = 'none'; }
+
+  // 残り件数を更新
+  const container = document.getElementById('tb-queue-container');
+  if (container) {
+    const remaining = container.querySelectorAll('[id^="tbq-row-"]');
+    const active = [...remaining].filter(r => r.style.opacity !== '0.3').length;
+    if (active === 0) { window._renderTbQueue(container); window._analyzeTbCoverage(); }
+  }
+};
+
+// アルゴリズム推測を一括適用（推測ありの動画のみ）
+window._applyAllSuggestions = function() {
+  const autoTag = window.autoTagFromTitle;
+  if (!autoTag) return;
+  const videos = (window.videos||[]).filter(v => !v.archived);
+  const untagged = videos.filter(v => { const tb = Array.isArray(v.tb)?v.tb:(v.tb?[v.tb]:[]); return !tb.length; });
+  let applied = 0;
+  untagged.forEach(v => {
+    const suggest = autoTag((v.title||'') + ' ' + (v.pl||'')).tb;
+    if (suggest.length === 1) { v.tb = suggest; v.tbLocked = true; applied++; }
+  });
+  if (applied) { window.debounceSave?.(); window.AF?.(); }
+  window.toast?.(`⚡ ${applied}本に推測を適用しました`);
+  const container = document.getElementById('tb-queue-container');
+  if (container) window._renderTbQueue(container);
+  window._analyzeTbCoverage();
 };
 
 // ── TB競合プレビュー（実行前に何件修正されるか確認）──
