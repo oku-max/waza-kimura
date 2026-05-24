@@ -200,9 +200,47 @@ function _suggest(title, channel, pl, memo) {
     if (hit) posList.push(p.ja);
   });
 
+  // ── Admin管理ポジション（waza_positions）でさらに追加マッチング ──
+  // window.POSITIONS はハードコード定数。Admin で追加したエイリアスはここで反映。
+  try {
+    var userPos = JSON.parse(localStorage.getItem('waza_positions') || '[]');
+    userPos.forEach(function(p) {
+      if (!p.names || !p.names.ja || posList.indexOf(p.names.ja) >= 0) return;
+      var keys = [p.names.ja, p.names.en || '']
+        .concat((p.aliases && p.aliases.ja) ? p.aliases.ja : [])
+        .concat((p.aliases && p.aliases.en) ? p.aliases.en : [])
+        .filter(Boolean);
+      var hit = keys.some(function(k) {
+        if (!k || k.length < 2) return false;
+        var kl = k.toLowerCase();
+        return tLower.indexOf(kl) >= 0 || plLower.indexOf(kl) >= 0;
+      });
+      if (hit) posList.push(p.names.ja);
+    });
+  } catch(e) {}
+
   // ── Cat: タイトル + プレイリストの union ──
   var cats = (tBase.cat || []).slice();
   (plBase.cat || []).forEach(function(c) { if (cats.indexOf(c) < 0) cats.push(c); });
+
+  // ── Admin管理カテゴリ（waza_tag_dict）でさらに追加マッチング ──
+  // window.CATEGORIES はハードコード定数。Admin で追加したエイリアスはここで反映。
+  try {
+    var userCats = JSON.parse(localStorage.getItem('waza_tag_dict') || '[]');
+    userCats.forEach(function(c) {
+      if (!c.names || !c.names.ja || cats.indexOf(c.names.ja) >= 0) return;
+      var keys = [c.names.ja, c.names.en || '']
+        .concat((c.aliases && c.aliases.ja) ? c.aliases.ja : [])
+        .concat((c.aliases && c.aliases.en) ? c.aliases.en : [])
+        .filter(Boolean);
+      var hit = keys.some(function(k) {
+        if (!k || k.length < 2) return false;
+        var kl = k.toLowerCase();
+        return tLower.indexOf(kl) >= 0 || plLower.indexOf(kl) >= 0;
+      });
+      if (hit) cats.push(c.names.ja);
+    });
+  } catch(e) {}
 
   // チャンネル学習で補完
   _getChannelSuggest(channel, 5).forEach(function(tag) {
