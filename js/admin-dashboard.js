@@ -32,8 +32,39 @@ export function switchAdminSub(sub) {
 }
 window.switchAdminSub = switchAdminSub;
 
+// ── Firestore 双方向同期 ──
+// 全設定データ（ルール/審査/ポジション/カテゴリ）を Firestore config/admin に保存し
+// 端末をまたいで共有する。localStorage はキャッシュとして使い続ける。
+const _FS_COL = 'config';
+const _FS_DOC = 'admin';
+let _adminSynced = false;
+
+async function _syncFromFirestore() {
+  if (_adminSynced) return;
+  try {
+    const doc = await firebase.firestore().collection(_FS_COL).doc(_FS_DOC).get();
+    if (doc.exists) {
+      const d = doc.data();
+      if (Array.isArray(d.ai_rules)       && d.ai_rules.length)       localStorage.setItem(RULES_KEY,      JSON.stringify(d.ai_rules));
+      if (Array.isArray(d.rule_proposals) && d.rule_proposals.length) localStorage.setItem(PROPOSALS_KEY,  JSON.stringify(d.rule_proposals));
+      if (Array.isArray(d.positions)      && d.positions.length)      localStorage.setItem(POSITIONS_KEY,  JSON.stringify(d.positions));
+      if (Array.isArray(d.tag_dict)       && d.tag_dict.length)       localStorage.setItem(TAGDICT_KEY,    JSON.stringify(d.tag_dict));
+    }
+    _adminSynced = true;
+  } catch(e) { _adminSynced = true; }
+}
+
+function _pushToFirestore(field, data) {
+  try {
+    firebase.firestore().collection(_FS_COL).doc(_FS_DOC)
+      .set({ [field]: data }, { merge: true })
+      .catch(() => {});
+  } catch(e) {}
+}
+
 // ── Main render (called from switchTab('admin')) ──
-export function renderAdminDashboard() {
+export async function renderAdminDashboard() {
+  await _syncFromFirestore();
   _renderAccuracy();
 }
 window.renderAdminDashboard = renderAdminDashboard;
@@ -450,6 +481,7 @@ function _getRules() {
 }
 function _saveRules(rules) {
   try { localStorage.setItem(RULES_KEY, JSON.stringify(rules)); } catch(e) {}
+  _pushToFirestore('ai_rules', rules);
 }
 
 // ── Global actions ──
@@ -573,6 +605,7 @@ function _getCategory() {
 }
 function _saveCategory(dict) {
   try { localStorage.setItem(TAGDICT_KEY, JSON.stringify(dict)); } catch(e) {}
+  _pushToFirestore('tag_dict', dict);
 }
 
 function _renderCategories() {
@@ -822,6 +855,7 @@ function _getPositions() {
 }
 function _savePositions(pos) {
   try { localStorage.setItem(POSITIONS_KEY, JSON.stringify(pos)); } catch(e) {}
+  _pushToFirestore('positions', pos);
 }
 
 let _posFilterGroup = null;
@@ -1395,6 +1429,7 @@ function _getProposals() {
 }
 function _saveProposals(list) {
   try { localStorage.setItem(PROPOSALS_KEY, JSON.stringify(list)); } catch(e) {}
+  _pushToFirestore('rule_proposals', list);
 }
 function _seedProposals() {
   let stored = _getProposals();
