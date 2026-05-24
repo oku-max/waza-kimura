@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — AI管理ダッシュボード v50.11 ═══
+// ═══ WAZA KIMURA — AI管理ダッシュボード v50.12 ═══
 // Admin-only: 精度・修正履歴・ルール管理
 
 const FEEDBACK_KEY  = 'waza_tag_feedback';
@@ -198,10 +198,42 @@ function _renderRules() {
   const rules = _getRules();
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // ビルトインルールとユーザー定義ルールを分離
+  // 3種類に分類: メモ提案 / ビルトイン / ユーザー定義
+  const memoItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'メモ');
   const builtinItems = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'ビルトイン');
-  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン');
+  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン' && r.source !== 'メモ');
 
+  const _fieldBadge = r => `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;
+    background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};
+    color:${r.field==='cat'?'var(--blue)':r.field==='pos'?'var(--purple)':r.field==='tb'?'var(--accent)':'var(--green)'}">${r.field}</span>`;
+
+  // メモ提案行（未承認）
+  const _memoRow = ({r, i}) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
+      <div onclick="toggleRule(${i})" title="${r.enabled ? '無効化' : '有効化'}"
+           style="width:36px;height:20px;border-radius:10px;background:${r.enabled?'var(--green)':'var(--surface3)'};cursor:pointer;position:relative;flex-shrink:0;margin-top:2px;transition:background .2s">
+        <div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:${r.enabled?'18px':'2px'};transition:left .2s"></div>
+      </div>
+      <div style="flex:1">
+        ${r.memo_original ? `<div style="font-size:11px;color:var(--text3);background:rgba(100,100,220,.06);border-left:2px solid #8888dd;padding:4px 8px;border-radius:0 4px 4px 0;margin-bottom:5px;white-space:pre-wrap;line-height:1.5">${_esc(r.memo_original)}</div>` : ''}
+        <div style="font-size:12px;line-height:1.5">
+          「<strong>${_esc(r.condition)}</strong>」→ ${r.field}:
+          <strong style="color:var(--accent)">${_esc(r.value)}</strong>
+          ${!r.enabled ? '<span style="font-size:10px;color:var(--text3);margin-left:4px">（無効）</span>' : ''}
+        </div>
+        <div style="display:flex;gap:5px;margin-top:5px;align-items:center;flex-wrap:wrap">
+          ${_fieldBadge(r)}
+          <span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(100,180,100,.12);color:#448844">🗒 メモ提案</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0;flex-direction:column">
+        <button onclick="editRule(${i})" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
+        <button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap">削除</button>
+      </div>
+    </div>
+  `;
+
+  // ビルトイン・ユーザー定義行
   const _ruleRow = ({r, i}, isBuiltin) => `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
       <div onclick="toggleRule(${i})" title="${r.enabled ? '無効化' : '有効化'}"
@@ -216,18 +248,16 @@ function _renderRules() {
         </div>
         ${r.desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${_esc(r.desc)}</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center">
-          <span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;
-            background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};
-            color:${r.field==='cat'?'var(--blue)':r.field==='pos'?'var(--purple)':r.field==='tb'?'var(--accent)':'var(--green)'}">${r.field}</span>
+          ${_fieldBadge(r)}
           ${isBuiltin ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(100,100,220,.12);color:#6464cc">🔧 ビルトイン</span>' : ''}
           ${r.proposed ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.15);color:var(--accent)">提案</span>' : ''}
           ${r.source && !isBuiltin ? `<span style="font-size:10px;color:var(--text3)">${_esc(r.source)}</span>` : ''}
         </div>
       </div>
-      ${!isBuiltin ? `
       <div style="display:flex;gap:4px;flex-shrink:0">
-        <button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>
-      </div>` : ''}
+        ${!isBuiltin ? `<button onclick="editRule(${i})" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">編集</button>` : ''}
+        ${!isBuiltin ? `<button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>` : ''}
+      </div>
     </div>
   `;
 
@@ -271,8 +301,16 @@ function _renderRules() {
         </div>
       </div>
 
-      ${builtinItems.length ? `
+      ${memoItems.length ? `
         <div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px">
+          <span style="font-size:11px;font-weight:700;color:#448844;letter-spacing:.03em">🗒 メモ提案</span>
+          <span style="font-size:10px;color:var(--text3)">${memoItems.length}件 — ウィザードで書いたメモから自動生成。条件を編集してトグルで有効化してください。</span>
+        </div>
+        ${memoItems.map(item => _memoRow(item)).join('')}
+      ` : ''}
+
+      ${builtinItems.length ? `
+        <div style="display:flex;align-items:center;gap:8px;margin:${memoItems.length ? '14px' : '4px'} 0 8px">
           <span style="font-size:11px;font-weight:700;color:#6464cc;letter-spacing:.03em">🔧 組み込みルール</span>
           <span style="font-size:10px;color:var(--text3)">${builtinItems.length}件 — ウィザード起動時に自動追加。トグルで個別に無効化できます。</span>
         </div>
@@ -280,12 +318,12 @@ function _renderRules() {
       ` : ''}
 
       ${userItems.length ? `
-        <div style="display:flex;align-items:center;gap:8px;margin:${builtinItems.length ? '14px' : '4px'} 0 8px">
+        <div style="display:flex;align-items:center;gap:8px;margin:${(memoItems.length || builtinItems.length) ? '14px' : '4px'} 0 8px">
           <span style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.03em">📝 ユーザー定義ルール</span>
           <span style="font-size:10px;color:var(--text3)">${userItems.length}件</span>
         </div>
         ${userItems.map(item => _ruleRow(item, false)).join('')}
-      ` : (!builtinItems.length ? `
+      ` : (!memoItems.length && !builtinItems.length ? `
         <div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">
           <div style="font-size:24px;margin-bottom:8px">📐</div>
           ルールがまだありません。<br>タグ付けウィザードを一度開くと組み込みルールが追加されます。
@@ -428,19 +466,48 @@ export function toggleAddRuleForm() {
 window.toggleAddRuleForm = toggleAddRuleForm;
 
 export function saveNewRule() {
+  const form      = document.getElementById('add-rule-form');
+  const editIdxStr = form?.dataset?.editIdx;
+  const editIdx   = editIdxStr !== undefined ? parseInt(editIdxStr) : NaN;
   const condition = document.getElementById('rule-condition')?.value.trim();
-  const field = document.getElementById('rule-field')?.value;
-  const action = document.getElementById('rule-action')?.value;
-  const value = document.getElementById('rule-value')?.value.trim();
+  const field     = document.getElementById('rule-field')?.value;
+  const action    = document.getElementById('rule-action')?.value;
+  const value     = document.getElementById('rule-value')?.value.trim();
   if (!condition || !value) { window.toast?.('条件と値を入力してください'); return; }
   const rules = _getRules();
-  rules.push({ condition, field, action, value, enabled: true, created: Date.now(), source: '手動' });
+  if (!isNaN(editIdx) && editIdx >= 0 && editIdx < rules.length) {
+    // 編集モード
+    rules[editIdx] = { ...rules[editIdx], condition, field, action, value };
+    if (form) delete form.dataset.editIdx;
+  } else {
+    // 追加モード
+    rules.push({ condition, field, action, value, enabled: true, created: Date.now(), source: '手動' });
+  }
   _saveRules(rules);
   toggleAddRuleForm();
   _renderRules();
-  window.toast?.('ルールを追加しました');
+  window.toast?.(!isNaN(editIdx) && editIdx >= 0 ? 'ルールを更新しました' : 'ルールを追加しました');
 }
 window.saveNewRule = saveNewRule;
+
+export function editRule(idx) {
+  const rules = _getRules();
+  const r = rules[idx];
+  if (!r) return;
+  const form = document.getElementById('add-rule-form');
+  if (form) { form.style.display = 'block'; form.dataset.editIdx = idx; }
+  const condEl   = document.getElementById('rule-condition');
+  const fieldEl  = document.getElementById('rule-field');
+  const actionEl = document.getElementById('rule-action');
+  const valueEl  = document.getElementById('rule-value');
+  if (condEl)   condEl.value   = r.condition || '';
+  if (fieldEl)  fieldEl.value  = r.field     || 'tb';
+  if (actionEl) actionEl.value = r.action    || 'add';
+  if (valueEl)  valueEl.value  = r.value     || '';
+  form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  condEl?.focus();
+}
+window.editRule = editRule;
 
 export function toggleRule(idx) {
   const rules = _getRules();

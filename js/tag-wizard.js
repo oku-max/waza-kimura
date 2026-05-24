@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.433 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.434 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -72,6 +72,47 @@ function _seedBuiltinRules() {
       }
     });
     if (changed) localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
+  } catch(e) {}
+}
+
+// ── メモ → waza_ai_rules に未承認ルールとして追加 ──
+// Admin「ルール」タブ → 🗒 メモ提案 セクションに即座に反映。
+// condition = メモの最初の行（最大60文字）、field/value = 確定タグから推定、enabled = false
+function _saveMemoToRules(memo, final) {
+  if (!memo || !memo.trim()) return;
+  var condition = memo.trim().split('\n')[0].trim().slice(0, 60);
+  if (!condition || condition.length < 2) return;
+  // field / value を確定タグから推定（TB > pos > cat の優先度）
+  var tbVals = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
+  var field, value;
+  if (final.tb && tbVals.indexOf(final.tb) >= 0) {
+    field = 'tb'; value = final.tb;
+  } else if (final.pos && final.pos.length) {
+    field = 'pos'; value = final.pos[0];
+  } else if (final.cat && final.cat.length) {
+    field = 'cat'; value = final.cat[0];
+  } else {
+    return; // タグ未確定なら作成しない
+  }
+  try {
+    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    // 同一条件の重複を防ぐ
+    var dup = rules.some(function(r) {
+      return r.condition && r.condition.toLowerCase() === condition.toLowerCase() && r.field === field && r.value === value;
+    });
+    if (dup) return;
+    rules.push({
+      id: '_m_' + Date.now(),
+      condition: condition,
+      field: field,
+      action: 'add',
+      value: value,
+      enabled: false,
+      created: Date.now(),
+      source: 'メモ',
+      memo_original: memo.trim()
+    });
+    localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
   } catch(e) {}
 }
 
@@ -662,6 +703,9 @@ function _confirm() {
   _record(title, channel, _autoTags, final);
   _updateChannelProfile(channel, final);
 
+  // メモ → Admin ルールに未承認エントリとして追加（ユーザーが Admin で承認）
+  _saveMemoToRules(v.memo || '', final);
+
   var rule = _induceRule();
   // スキップ済みのルールは表示しない
   if (rule && _isRuleSkipped(rule)) rule = null;
@@ -676,16 +720,28 @@ function _confirm() {
   _next();
 }
 
-// ── ルール採用 ──
+// ── ルール採用（waza_ai_rules に保存 → 即座に _applyRules() で効く）──
 function _acceptRule() {
   if (!_pendingRule) { _next(); return; }
-  // 帰納ルールはチャンネルプロファイルに蓄積するのみ（CATEGORIES/POSITIONSへの追加は行わない）
   try {
-    var saved = JSON.parse(localStorage.getItem('wk_tw_rules')||'[]');
-    saved.push(_pendingRule);
-    localStorage.setItem('wk_tw_rules', JSON.stringify(saved));
+    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    var tbVals = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
+    var field = _pendingRule.field
+              || (tbVals.indexOf(_pendingRule.tag) >= 0 ? 'tb'
+                : (window.POSITIONS||[]).some(function(p){ return p.ja === _pendingRule.tag; }) ? 'pos'
+                : 'cat');
+    rules.push({
+      condition: _pendingRule.keyword,
+      field: field,
+      action: 'add',
+      value: _pendingRule.tag,
+      enabled: true,
+      created: Date.now(),
+      source: _pendingRule.source || '帰納学習'
+    });
+    localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
   } catch(e) {}
-  if (window.toast) window.toast('"'+_pendingRule.keyword+'" パターンを記録しました');
+  if (window.toast) window.toast('"' + _pendingRule.keyword + '" ルールを追加しました');
   _next();
 }
 
