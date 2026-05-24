@@ -214,7 +214,9 @@ export async function onAiTagBtn(videoId) {
   try {
     const video = (window.videos || []).find(v => v.id === videoId);
     if (!video) throw new Error('動画が見つかりません');
-    const suggestions = await fetchAiTags(video);
+    // 管理者アカウントは外部AI APIをスキップ — ローカルアルゴリズムのみ使用
+    const _isAdmin = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
+    const suggestions = _isAdmin ? { tb: [], cat: [], pos: [], tags: [] } : await fetchAiTags(video);
     // ルールベースで補完 — AIが見落としたキーワードをタイトル・チャプターから拾う
     if (window.autoTagFromTitle) {
       const chapterText = (video.ytChapters || []).map(c => c.label).join(' ');
@@ -311,24 +313,42 @@ export async function autoTagNewVideos(ids) {
   if (!ids?.length) return;
   const videos = window.videos || [];
   let done = 0, totalAdded = 0, errors = 0;
-  window.toast?.(`🤖 AIタグ付けを開始します (${ids.length}本)`);
+  // 管理者アカウントは外部AI APIをスキップ — ローカルアルゴリズムのみ使用
+  const _isAdmin = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
+  window.toast?.(`🤖 タグ付けを開始します (${ids.length}本)`);
   for (const id of ids) {
     const video = videos.find(v => v.id === id);
     if (!video) continue;
     try {
-      const suggestions = await _fetchWithRetry(video);
+      let suggestions;
+      if (_isAdmin) {
+        suggestions = { tb: [], cat: [], pos: [], tags: [] };
+        if (window.autoTagFromTitle) {
+          const chapterText = (video.ytChapters || []).map(c => c.label).join(' ');
+          for (const text of [video.title, chapterText].filter(Boolean)) {
+            const rule = window.autoTagFromTitle(text);
+            for (const field of ['tb', 'cat', 'pos']) {
+              for (const val of (rule[field] || [])) {
+                if (!suggestions[field].includes(val)) suggestions[field].push(val);
+              }
+            }
+          }
+        }
+      } else {
+        suggestions = await _fetchWithRetry(video);
+      }
       totalAdded += _applyNewTagsToVideo(video, suggestions);
     } catch (e) {
       console.warn('autoTag failed for', id, e);
       errors++;
     }
     done++;
-    if (ids.length > 1) window.toast?.(`🤖 AIタグ付け中... ${done}/${ids.length}`);
-    // レート制限回避: 次のリクエストまで待機
-    if (done < ids.length) await _sleep(AI_BATCH_DELAY);
+    if (ids.length > 1) window.toast?.(`🤖 タグ付け中... ${done}/${ids.length}`);
+    // レート制限回避: 外部API使用時のみ待機
+    if (!_isAdmin && done < ids.length) await _sleep(AI_BATCH_DELAY);
   }
   if (totalAdded > 0) window.debounceSave?.();
   const errNote = errors ? ` (${errors}件失敗)` : '';
-  window.toast?.(`🤖 AIタグ付け完了: ${totalAdded}件追加${errNote}`);
+  window.toast?.(`🤖 タグ付け完了: ${totalAdded}件追加${errNote}`);
 }
 window.autoTagNewVideos = autoTagNewVideos;
