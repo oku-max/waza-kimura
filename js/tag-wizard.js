@@ -75,47 +75,6 @@ function _seedBuiltinRules() {
   } catch(e) {}
 }
 
-// ── メモ → waza_ai_rules に未承認ルールとして追加 ──
-// Admin「ルール」タブ → 🗒 メモ提案 セクションに即座に反映。
-// condition = メモの最初の行（最大60文字）、field/value = 確定タグから推定、enabled = false
-function _saveMemoToRules(memo, final) {
-  if (!memo || !memo.trim()) return;
-  var condition = memo.trim().split('\n')[0].trim().slice(0, 60);
-  if (!condition || condition.length < 2) return;
-  // field / value を確定タグから推定（TB > pos > cat の優先度）
-  var tbVals = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
-  var field, value;
-  if (final.tb && tbVals.indexOf(final.tb) >= 0) {
-    field = 'tb'; value = final.tb;
-  } else if (final.pos && final.pos.length) {
-    field = 'pos'; value = final.pos[0];
-  } else if (final.cat && final.cat.length) {
-    field = 'cat'; value = final.cat[0];
-  } else {
-    return; // タグ未確定なら作成しない
-  }
-  try {
-    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
-    // 同一条件の重複を防ぐ
-    var dup = rules.some(function(r) {
-      return r.condition && r.condition.toLowerCase() === condition.toLowerCase() && r.field === field && r.value === value;
-    });
-    if (dup) return;
-    rules.push({
-      id: '_m_' + Date.now(),
-      condition: condition,
-      field: field,
-      action: 'add',
-      value: value,
-      enabled: true,
-      created: Date.now(),
-      source: 'メモ',
-      memo_original: memo.trim()
-    });
-    localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
-  } catch(e) {}
-}
-
 // ── 帰納エンジン ──
 var _history = [];
 
@@ -740,9 +699,6 @@ function _confirm() {
   var channel = v.ch || v.channel || '';
   _record(title, channel, _autoTags, final);
   _updateChannelProfile(channel, final);
-
-  // メモ → Admin ルールに未承認エントリとして追加（ユーザーが Admin で承認）
-  _saveMemoToRules(v.memo || '', final);
 
   var rule = _induceRule();
   // スキップ済みのルールは表示しない

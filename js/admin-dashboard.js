@@ -7,7 +7,7 @@ const TAGDICT_KEY    = 'waza_tag_dict';
 const POSITIONS_KEY  = 'waza_positions';
 const PROPOSALS_KEY  = 'waza_rule_proposals';
 
-const ALL_SUBS = ['accuracy','corrections','rules','memos','categories','positions','feedback','review'];
+const ALL_SUBS = ['accuracy','corrections','rules','categories','positions','feedback','review'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -24,7 +24,6 @@ export function switchAdminSub(sub) {
   if (sub === 'accuracy')    _renderAccuracy();
   if (sub === 'corrections') _renderCorrections();
   if (sub === 'rules')       _renderRules();
-  if (sub === 'memos')       _renderMemos();
   if (sub === 'categories')  _renderCategories();
   if (sub === 'positions')   _renderPositions();
   if (sub === 'feedback')    _renderFeedbackAdmin();
@@ -237,40 +236,13 @@ function _renderRules() {
   const rules = _getRules();
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // 3種類に分類: メモ提案 / ビルトイン / ユーザー定義
-  const memoItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'メモ');
+  // 2種類に分類: ビルトイン / ユーザー定義
   const builtinItems = rules.map((r, i) => ({r, i})).filter(({r}) => r.source === 'ビルトイン');
-  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン' && r.source !== 'メモ');
+  const userItems    = rules.map((r, i) => ({r, i})).filter(({r}) => r.source !== 'ビルトイン');
 
   const _fieldBadge = r => `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;
     background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};
     color:${r.field==='cat'?'var(--blue)':r.field==='pos'?'var(--purple)':r.field==='tb'?'var(--accent)':'var(--green)'}">${r.field}</span>`;
-
-  // メモ提案行（未承認）
-  const _memoRow = ({r, i}) => `
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
-      <div onclick="toggleRule(${i})" title="${r.enabled ? '無効化' : '有効化'}"
-           style="width:36px;height:20px;border-radius:10px;background:${r.enabled?'var(--green)':'var(--surface3)'};cursor:pointer;position:relative;flex-shrink:0;margin-top:2px;transition:background .2s">
-        <div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:${r.enabled?'18px':'2px'};transition:left .2s"></div>
-      </div>
-      <div style="flex:1">
-        ${r.memo_original ? `<div style="font-size:11px;color:var(--text3);background:rgba(100,100,220,.06);border-left:2px solid #8888dd;padding:4px 8px;border-radius:0 4px 4px 0;margin-bottom:5px;white-space:pre-wrap;line-height:1.5">${_esc(r.memo_original)}</div>` : ''}
-        <div style="font-size:12px;line-height:1.5">
-          「<strong>${_esc(r.condition)}</strong>」→ ${r.field}:
-          <strong style="color:var(--accent)">${_esc(r.value)}</strong>
-          ${!r.enabled ? '<span style="font-size:10px;color:var(--text3);margin-left:4px">（無効）</span>' : ''}
-        </div>
-        <div style="display:flex;gap:5px;margin-top:5px;align-items:center;flex-wrap:wrap">
-          ${_fieldBadge(r)}
-          <span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(100,180,100,.12);color:#448844">🗒 メモ提案</span>
-        </div>
-      </div>
-      <div style="display:flex;gap:4px;flex-shrink:0;flex-direction:column">
-        <button onclick="editRule(${i})" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
-        <button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap">削除</button>
-      </div>
-    </div>
-  `;
 
   // ビルトイン・ユーザー定義行
   const _ruleRow = ({r, i}, isBuiltin) => `
@@ -340,16 +312,8 @@ function _renderRules() {
         </div>
       </div>
 
-      ${memoItems.length ? `
-        <div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px">
-          <span style="font-size:11px;font-weight:700;color:#448844;letter-spacing:.03em">🗒 メモ提案</span>
-          <span style="font-size:10px;color:var(--text3)">${memoItems.length}件 — ウィザードで書いたメモから自動生成。条件を編集してトグルで有効化してください。</span>
-        </div>
-        ${memoItems.map(item => _memoRow(item)).join('')}
-      ` : ''}
-
       ${builtinItems.length ? `
-        <div style="display:flex;align-items:center;gap:8px;margin:${memoItems.length ? '14px' : '4px'} 0 8px">
+        <div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px">
           <span style="font-size:11px;font-weight:700;color:#6464cc;letter-spacing:.03em">🔧 組み込みルール</span>
           <span style="font-size:10px;color:var(--text3)">${builtinItems.length}件 — ウィザード起動時に自動追加。トグルで個別に無効化できます。</span>
         </div>
@@ -357,12 +321,12 @@ function _renderRules() {
       ` : ''}
 
       ${userItems.length ? `
-        <div style="display:flex;align-items:center;gap:8px;margin:${(memoItems.length || builtinItems.length) ? '14px' : '4px'} 0 8px">
+        <div style="display:flex;align-items:center;gap:8px;margin:${builtinItems.length ? '14px' : '4px'} 0 8px">
           <span style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.03em">📝 ユーザー定義ルール</span>
           <span style="font-size:10px;color:var(--text3)">${userItems.length}件</span>
         </div>
         ${userItems.map(item => _ruleRow(item, false)).join('')}
-      ` : (!memoItems.length && !builtinItems.length ? `
+      ` : (!builtinItems.length ? `
         <div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">
           <div style="font-size:24px;margin-bottom:8px">📐</div>
           ルールがまだありません。<br>タグ付けウィザードを一度開くと組み込みルールが追加されます。
@@ -371,90 +335,6 @@ function _renderRules() {
     </div>
   `;
 }
-
-// ═══ E: メモ一覧（私からアルゴリズムへのヒント）═══
-function _renderMemos() {
-  const el = document.getElementById('admin-p-memos');
-  if (!el) return;
-
-  const videos = (window.videos || []).filter(v => !v.archived && v.memo && v.memo.trim());
-  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  if (!videos.length) {
-    el.innerHTML = `
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:32px;text-align:center;color:var(--text3);font-size:12px">
-        <div style="font-size:28px;margin-bottom:10px">🗒</div>
-        メモがまだありません。<br>タグ付けウィザードで動画にメモを書くと、ここに一覧表示されます。<br>
-        <div style="margin-top:10px;font-size:11px;color:var(--text3)">メモはルールマッチングにも自動的に使われます。</div>
-      </div>`;
-    return;
-  }
-
-  el.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">メモ一覧</span>
-        <span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:2px 8px;border-radius:10px;font-weight:600">${videos.length}件</span>
-        <span style="font-size:10px;color:var(--text3);margin-left:4px">— メモはタグ提案のルールマッチングに自動で使われます</span>
-      </div>
-      ${videos.map((v, i) => {
-        const title = _esc(v.title || v.name || '（タイトルなし）');
-        const ch    = _esc(v.ch || v.channel || '');
-        const memo  = _esc(v.memo || '');
-        const tb    = v.tb ? v.tb[0] : null;
-        const pos   = (v.pos||[]).join(', ');
-        const memoKey = encodeURIComponent((v.memo||'').split('\n')[0].slice(0, 80));
-        return `
-        <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border2);align-items:flex-start">
-          <div style="flex:1;min-width:0">
-            ${ch ? `<div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:2px">${ch}</div>` : ''}
-            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-              ${tb ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.18);color:var(--accent)">${_esc(tb)}</span>` : ''}
-              ${pos ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(160,144,208,.15);color:var(--purple)">${_esc(pos)}</span>` : ''}
-            </div>
-            <div style="background:rgba(100,100,220,.07);border-left:3px solid #8888dd;border-radius:0 6px 6px 0;padding:8px 10px;font-size:12px;color:var(--text);line-height:1.6;white-space:pre-wrap">${memo}</div>
-          </div>
-          <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px;margin-top:2px">
-            <button onclick="proposeRuleFromMemo(decodeURIComponent('${memoKey}'))"
-              style="background:var(--accent);color:var(--on-accent);border:none;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">→ ルール化</button>
-            <button onclick="editVideoMemo('${_esc(v.id)}')"
-              style="background:none;border:1px solid var(--border);color:var(--text3);padding:4px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  `;
-}
-
-export function proposeRuleFromMemo(memoText) {
-  // メモの最初の行をルール条件として提案
-  const firstLine = (memoText || '').split('\n')[0].trim().slice(0, 80);
-  switchAdminSub('rules');
-  // 少し遅延してフォームを開く（タブ切替後にDOMが確定するのを待つ）
-  setTimeout(function() {
-    const form = document.getElementById('add-rule-form');
-    if (form) form.style.display = 'block';
-    const condEl = document.getElementById('rule-condition');
-    if (condEl) { condEl.value = firstLine; condEl.focus(); }
-    form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, 80);
-}
-window.proposeRuleFromMemo = proposeRuleFromMemo;
-
-export function editVideoMemo(videoId) {
-  // 該当動画を探してメモ編集（ウィザードを開いてその動画にジャンプ）
-  const v = (window.videos||[]).find(v => v.id === videoId);
-  if (!v) { window.toast?.('動画が見つかりません'); return; }
-  const newMemo = prompt('メモを編集:', v.memo || '');
-  if (newMemo === null) return; // キャンセル
-  v.memo = newMemo.trim() || undefined;
-  if (!v.memo) delete v.memo;
-  if (window.saveUserData) window.saveUserData();
-  _renderMemos();
-  window.toast?.('メモを保存しました');
-}
-window.editVideoMemo = editVideoMemo;
 
 // ── Pattern detection ──
 function _detectPatterns(feedback) {
