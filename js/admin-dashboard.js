@@ -35,14 +35,20 @@ window.switchAdminSub = switchAdminSub;
 // ── Firestore 双方向同期 ──
 // 全設定データ（ルール/審査/ポジション/カテゴリ）を Firestore config/admin に保存し
 // 端末をまたいで共有する。localStorage はキャッシュとして使い続ける。
-const _FS_COL = 'config';
-const _FS_DOC = 'admin';
 let _adminSynced = false;
+
+function _adminDocRef() {
+  const uid = firebase.auth().currentUser?.uid;
+  if (!uid) return null;
+  return firebase.firestore().collection('users').doc(uid).collection('data').doc('admin_config');
+}
 
 async function _syncFromFirestore() {
   if (_adminSynced) return;
   try {
-    const doc = await firebase.firestore().collection(_FS_COL).doc(_FS_DOC).get();
+    const ref = _adminDocRef();
+    if (!ref) return;
+    const doc = await ref.get();
     if (doc.exists) {
       const d = doc.data();
       if (Array.isArray(d.ai_rules)       && d.ai_rules.length)       localStorage.setItem(RULES_KEY,      JSON.stringify(d.ai_rules));
@@ -51,14 +57,14 @@ async function _syncFromFirestore() {
       if (Array.isArray(d.tag_dict)       && d.tag_dict.length)       localStorage.setItem(TAGDICT_KEY,    JSON.stringify(d.tag_dict));
     }
     _adminSynced = true;
-  } catch(e) { _adminSynced = true; }
+  } catch(e) { console.warn('[admin sync]', e.message); _adminSynced = true; }
 }
 
 function _pushToFirestore(field, data) {
   try {
-    firebase.firestore().collection(_FS_COL).doc(_FS_DOC)
-      .set({ [field]: data }, { merge: true })
-      .catch(() => {});
+    const ref = _adminDocRef();
+    if (!ref) return;
+    ref.set({ [field]: data }, { merge: true }).catch(e => console.warn('[admin push]', e.message));
   } catch(e) {}
 }
 
