@@ -264,6 +264,7 @@ function _renderRules() {
       descLine = `${r.field} が未設定なら「<strong style="color:var(--accent)">${_esc(r.value)}</strong>」をデフォルト設定`;
     }
     const TYPE_BADGES = {
+      keyword:    '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(229,196,122,.12);color:var(--accent)">キーワード</span>',
       and:        '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(64,160,112,.15);color:#40a070">AND</span>',
       not:        '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(224,96,96,.15);color:var(--red)">NOT</span>',
       conflict:   '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(200,80,200,.15);color:#c850c8">競合</span>',
@@ -1705,6 +1706,15 @@ function _renderReview() {
     const [bg,fg] = colors[f] || ['rgba(107,196,144,.15)','var(--green)'];
     return `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:${bg};color:${fg}">${f}</span>`;
   };
+  const _REVIEW_TYPE_BADGES = {
+    keyword:    `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(229,196,122,.12);color:var(--accent)">キーワード</span>`,
+    and:        `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(64,160,112,.15);color:#40a070">AND</span>`,
+    not:        `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(224,96,96,.15);color:var(--red)">NOT</span>`,
+    conflict:   `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(200,80,200,.15);color:#c850c8">競合</span>`,
+    pos_implies:`<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(80,120,220,.15);color:#5078dc">継承</span>`,
+    default:    `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(160,160,160,.15);color:var(--text3)">デフォルト</span>`,
+  };
+  const _pt = p => _REVIEW_TYPE_BADGES[p.type || 'keyword'] || _REVIEW_TYPE_BADGES.keyword;
   const _sb = s => s === 'approved'
     ? `<span style="font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;background:rgba(107,196,144,.2);color:var(--green)">✓ 承認</span>`
     : s === 'rejected'
@@ -1755,6 +1765,7 @@ function _renderReview() {
           <tr style="border-bottom:1px solid var(--border2)">
             <td style="padding:10px 10px;vertical-align:top">
               <div style="display:flex;flex-direction:column;gap:4px">
+                ${_pt(p)}
                 ${_fb(p.field)}
                 <div style="font-size:13px;font-weight:700;color:var(--accent)">${_esc2(p.value)}</div>
                 <div style="font-size:10px;color:var(--text3)">${p.action==='add'?'追加':'置換'}</div>
