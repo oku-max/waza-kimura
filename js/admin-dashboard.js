@@ -1509,29 +1509,24 @@ function _renderReview() {
     : `<span style="font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;background:rgba(160,160,160,.15);color:var(--text3)">未確認</span>`;
 
   el.innerHTML = `
-    <!-- 統計 -->
-    <div style="display:flex;gap:8px;margin-bottom:12px">
+    <!-- 統計カード（クリックでフィルター兼用） -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:stretch">
       ${[
-        [proposals.length, '合計',   'var(--text)'],
-        [pending.length,   '未確認', 'var(--text3)'],
-        [approved.length,  '承認',   'var(--green)'],
-        [rejected.length,  '却下',   'var(--red)']
-      ].map(([n,label,color]) => `
-        <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center">
-          <div style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${color}">${n}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">${label}</div>
+        ['all',      proposals.length, '合計',   'var(--accent)'],
+        ['pending',  pending.length,   '未確認', 'var(--text3)'],
+        ['approved', approved.length,  '承認',   'var(--green)'],
+        ['rejected', rejected.length,  '却下',   'var(--red)']
+      ].map(([f, n, label, color]) => `
+        <div onclick="setReviewFilter('${f}')"
+             style="flex:1;background:${filter===f ? color+'1a' : 'var(--surface)'};
+                    border:${filter===f ? '2px solid '+color : '1px solid var(--border)'};
+                    border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;transition:background .15s,border .15s">
+          <div style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${filter===f ? color : color}">${n}</div>
+          <div style="font-size:10px;margin-top:3px;font-weight:${filter===f ? '700' : '400'};color:${filter===f ? color : 'var(--text3)'}">${label}</div>
         </div>`).join('')}
-    </div>
-
-    <!-- フィルタータブ + 追加ボタン -->
-    <div style="display:flex;align-items:center;border-bottom:1px solid var(--border);margin-bottom:12px">
-      ${[['all','全て',proposals.length,'var(--text)'],['pending','未確認',pending.length,'var(--text3)'],['approved','承認',approved.length,'var(--green)'],['rejected','却下',rejected.length,'var(--red)']].map(([f,label,cnt,c]) => `
-        <div onclick="setReviewFilter('${f}')" style="padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;color:${filter===f?'var(--accent)':'var(--text3)'};border-bottom:2px solid ${filter===f?'var(--accent)':'transparent'}">
-          ${label} <span style="font-size:10px;color:${filter===f?'var(--accent)':c}">${cnt}</span>
-        </div>`).join('')}
-      <div style="margin-left:auto;padding-bottom:6px;display:flex;gap:6px">
-        <button onclick="window._scanLibraryForProposals()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 スキャン</button>
-        <button onclick="addProposalRow()" style="background:var(--accent);color:var(--on-accent);border:none;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ 追加</button>
+      <div style="display:flex;flex-direction:column;gap:6px;justify-content:center;padding-left:4px">
+        <button onclick="window._scanLibraryForProposals()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 スキャン</button>
+        <button onclick="addProposalRow()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ 追加</button>
       </div>
     </div>
 
