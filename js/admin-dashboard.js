@@ -1560,7 +1560,10 @@ function _seedProposals() {
   _saveProposals(merged);
 }
 
-// ── ライブラリスキャン: タグ済み動画からルール未カバーパターンを検出 ──
+// ── ライブラリスキャン v2: 精度ベースの高品質候補検出 ──
+// 「このトークンが出現する全動画中、このタグが付いている割合（精度）」を計算し、
+// 精度が高いもの（= 概念語: escape, sweep, retention）のみ提案する。
+// 個別具体的な技名（straight, arm, bar）は精度が低くなるため自動除外される。
 function _scanLibraryForProposals() {
   const videos = (window.videos || []).filter(v => !v.archived);
   if (!videos.length) { window.toast?.('動画データが読み込まれていません'); return; }
@@ -1568,39 +1571,21 @@ function _scanLibraryForProposals() {
   const rules     = _getRules().filter(r => r.enabled !== false);
   const proposals = _getProposals();
 
-  // 既存ルール + 既存提案の条件（小文字）を収集 → 重複除外に使う
+  // 却下済みは除外対象としない（再提案できる）
   const coveredConds = new Set([
-    ...rules.map(r => r.condition.toLowerCase()),
-    ...proposals.map(p => p.condition.toLowerCase())
+    ...rules.map(r => (r.condition || '').toLowerCase()).filter(Boolean),
+    ...proposals.filter(p => p.status !== 'rejected').map(p => (p.condition || '').toLowerCase()).filter(Boolean)
   ]);
   const usedIds = new Set(proposals.map(p => p.id));
 
-  // candidate: condLow → Map<"field:value" → {field, value, count, condOrig}>
-  const candidateMap = new Map();
-
-  function _addCandidate(tokOrig, field, value) {
-    if (!tokOrig || tokOrig.length < 2 || tokOrig.length > 30) return;
-    const condLow = tokOrig.toLowerCase();
-    if (coveredConds.has(condLow)) return;
-    // 数字のみ・記号のみはスキップ
-    if (/^[\d\s\-\_\.]+$/.test(condLow)) return;
-    const key = field + ':' + value;
-    if (!candidateMap.has(condLow)) candidateMap.set(condLow, new Map());
-    const fvMap = candidateMap.get(condLow);
-    if (!fvMap.has(key)) fvMap.set(key, { field, value, count: 0, condOrig: tokOrig });
-    fvMap.get(key).count++;
-  }
-
-  // タイトルからトークンを抽出（原文の大文字小文字を保持）
+  // トークン抽出（単語 + 英語バイグラム）
   function _tokens(title) {
     const parts = title.trim()
       .split(/[\s　\/・【】「」『』（）\(\)\[\]\|＝=＋\+]+/)
       .map(s => s.replace(/^[\-\_\.\,\!\?\~#]+|[\-\_\.\,\!\?\~#]+$/g, '').trim())
       .filter(s => s.length >= 2);
-    // 大文字小文字を区別せず重複除去（元の表記を保持）
     const seen = new Set();
     const uniq = parts.filter(s => { const l = s.toLowerCase(); if (seen.has(l)) return false; seen.add(l); return true; });
-    // 英語2語フレーズも候補に追加
     const bigrams = [];
     for (let i = 0; i < parts.length - 1; i++) {
       if (/^[a-zA-Z0-9]+$/.test(parts[i]) && /^[a-zA-Z0-9]+$/.test(parts[i+1])) {
@@ -1610,83 +1595,133 @@ function _scanLibraryForProposals() {
     return [...uniq, ...bigrams];
   }
 
-  // TB値の正規化（配列 or 文字列）
-  const TB_VALID = new Set(['トップ', 'ボトム', 'スタンディング']);
+  function _valid(tl) {
+    return tl && tl.length >= 2 && tl.length <= 30 && !/^[\d\s\-\_\.]+$/.test(tl) && !coveredConds.has(tl);
+  }
 
+  // ── Step 1: 全タグ付き動画でトークン総出現数を集計（精度の分母）──
+  const tokenTotal = new Map();
+  videos.forEach(v => {
+    if (!v.tb && !(v.pos && v.pos.length) && !(v.cat && v.cat.length)) return;
+    const rawTitle = (v.title || v.name || '').trim();
+    if (!rawTitle) return;
+    const seen = new Set();
+    _tokens(rawTitle).forEach(tok => {
+      const tl = tok.toLowerCase();
+      if (seen.has(tl) || !_valid(tl)) return;
+      seen.add(tl);
+      tokenTotal.set(tl, (tokenTotal.get(tl) || 0) + 1);
+    });
+  });
+
+  // ── Step 2: (token, field, value) の共起カウント（精度の分子）──
+  const candidateMap = new Map();
+  function _addCandidate(tokOrig, field, value) {
+    const tl = tokOrig.toLowerCase();
+    if (!_valid(tl)) return;
+    const key = field + ':' + value;
+    if (!candidateMap.has(tl)) candidateMap.set(tl, new Map());
+    const fvMap = candidateMap.get(tl);
+    if (!fvMap.has(key)) fvMap.set(key, { field, value, count: 0, condOrig: tokOrig });
+    fvMap.get(key).count++;
+  }
+
+  const TB_VALID = new Set(['トップ', 'ボトム', 'スタンディング']);
   videos.forEach(v => {
     const rawTitle = (v.title || v.name || '').trim();
     if (!rawTitle) return;
-    const titleLow  = rawTitle.toLowerCase();
-    const tokens    = _tokens(rawTitle);
+    const titleLow = rawTitle.toLowerCase();
+    const tokens   = _tokens(rawTitle);
 
-    // ── TB ──
     const tbArr = Array.isArray(v.tb) ? v.tb : (v.tb ? [v.tb] : []);
     tbArr.forEach(tbVal => {
       if (!TB_VALID.has(tbVal)) return;
-      // 現在のルールでこのビデオのtbが説明されているか？
-      const explained = rules.some(r => r.field === 'tb' && titleLow.includes(r.condition.toLowerCase()));
+      const explained = rules.some(r => r.field === 'tb' && r.condition && titleLow.includes(r.condition.toLowerCase()));
       if (!explained) tokens.forEach(tok => _addCandidate(tok, 'tb', tbVal));
     });
-
-    // ── POS ──
     (v.pos || []).forEach(posVal => {
       if (!posVal) return;
-      const explained = rules.some(r => r.field === 'pos' && titleLow.includes(r.condition.toLowerCase()));
+      const explained = rules.some(r => r.field === 'pos' && r.condition && titleLow.includes(r.condition.toLowerCase()));
       if (!explained) tokens.forEach(tok => _addCandidate(tok, 'pos', posVal));
     });
-
-    // ── CAT ──
     (v.cat || []).forEach(catVal => {
       if (!catVal) return;
-      const explained = rules.some(r => r.field === 'cat' && titleLow.includes(r.condition.toLowerCase()));
+      const explained = rules.some(r => r.field === 'cat' && r.condition && titleLow.includes(r.condition.toLowerCase()));
       if (!explained) tokens.forEach(tok => _addCandidate(tok, 'cat', catVal));
     });
   });
 
-  // 閾値: 2件以上の動画に出現するものだけ採用
-  const MIN_COUNT = 2;
-  const newProps = [];
+  // ── Step 3: 精度フィルタ ──
+  // MIN_COUNT     : 最低4動画に出現（雑音除去）
+  // MIN_PRECISION : 60%以上の出現でこのタグが付いている（技名を除外する核心）
+  //   例: escape(15動画中13件=87%) → 提案 / straight(20動画中3件=15%) → スキップ
+  // MAX_PER_FV    : 同一タグへの提案は上位3件に限定（爆発防止）
+  const MIN_COUNT     = 4;
+  const MIN_PRECISION = 0.60;
+  const MAX_PER_FV    = 3;
 
-  candidateMap.forEach((fvMap, condLow) => {
+  const byFV = new Map();
+  candidateMap.forEach((fvMap, tl) => {
+    const total = tokenTotal.get(tl) || 1;
     fvMap.forEach(({ field, value, count, condOrig }) => {
       if (count < MIN_COUNT) return;
-      const safeId = condLow.replace(/[^a-z0-9ぁ-ん一-龯ァ-ン]/g, '_').slice(0, 20);
+      const precision = count / total;
+      if (precision < MIN_PRECISION) return;
+      const fvKey = field + ':' + value;
+      if (!byFV.has(fvKey)) byFV.set(fvKey, []);
+      byFV.get(fvKey).push({ tl, condOrig, count, precision, total });
+    });
+  });
+
+  const newProps = [];
+  byFV.forEach((items, fvKey) => {
+    const sep   = fvKey.indexOf(':');
+    const field = fvKey.slice(0, sep);
+    const value = fvKey.slice(sep + 1);
+    items.sort((a, b) => (b.precision * b.count) - (a.precision * a.count));
+    items.slice(0, MAX_PER_FV).forEach(({ tl, condOrig, count, precision, total }) => {
+      const safeId = tl.replace(/[^a-z0-9ぁ-ん一-龯ァ-ン]/g, '_').slice(0, 20);
       const id = '_sc_' + field + '_' + safeId + '_' + (value.slice(0, 4).replace(/[^a-z0-9ぁ-ん一-龯ァ-ン]/g, ''));
       if (usedIds.has(id)) return;
       usedIds.add(id);
       newProps.push({
-        id,
-        field,
-        condition: condOrig,
-        value,
-        action: 'add',
-        rationale: `${count}件の動画でタイトルに「${condOrig}」を含み「${value}」タグが付いているがルール未定義`,
-        status: 'pending',
-        user_note: '',
-        created: Date.now(),
-        source: 'スキャン'
+        id, field, condition: condOrig, value, action: 'add',
+        rationale: `${count}/${total}件の動画で出現し${Math.round(precision * 100)}%が「${value}」タグ付き`,
+        status: 'pending', user_note: '', created: Date.now(), source: 'スキャン'
       });
     });
   });
 
   if (!newProps.length) {
-    window.toast?.('新しい候補は見つかりませんでした（全パターンカバー済み）');
+    window.toast?.('高精度の新規候補は見つかりませんでした（既存ルール・提案がカバー済み）');
     return;
   }
 
-  // 出現数の多い順にソート
+  // 精度の高い順にソート
   newProps.sort((a, b) => {
-    const ca = parseInt(a.rationale.match(/^(\d+)/)?.[1] || '0');
-    const cb = parseInt(b.rationale.match(/^(\d+)/)?.[1] || '0');
-    return cb - ca;
+    const pa = parseInt((a.rationale.match(/(\d+)%/) || ['0','0'])[1]);
+    const pb = parseInt((b.rationale.match(/(\d+)%/) || ['0','0'])[1]);
+    return pb - pa;
   });
 
   const merged = _getProposals().concat(newProps);
   _saveProposals(merged);
   _renderReview();
-  window.toast?.(`🔍 ${newProps.length}件の新規候補を追加しました`);
+  window.toast?.(`🔍 ${newProps.length}件の高精度候補を追加しました`);
 }
 window._scanLibraryForProposals = _scanLibraryForProposals;
+
+// 未確認スキャン提案をクリア（承認/却下済みは残す）
+window._clearScanProposals = function() {
+  const proposals = _getProposals();
+  const before = proposals.length;
+  const kept = proposals.filter(p => !(p.source === 'スキャン' && p.status === 'pending'));
+  if (kept.length === before) { window.toast?.('クリア対象の未確認スキャン候補がありません'); return; }
+  if (!confirm(`未確認のスキャン候補 ${before - kept.length}件を削除します。承認・却下済みは残ります。よろしいですか？`)) return;
+  _saveProposals(kept);
+  _renderReview();
+  window.toast?.(`🗑 ${before - kept.length}件の未確認スキャン候補を削除しました`);
+};
 
 function _renderReview() {
   const el = document.getElementById('admin-p-review');
@@ -1739,6 +1774,7 @@ function _renderReview() {
         </div>`).join('')}
       <div style="display:flex;flex-direction:column;gap:6px;justify-content:center;padding-left:4px">
         <button onclick="window._scanLibraryForProposals()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 スキャン</button>
+        <button onclick="window._clearScanProposals()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🗑 クリア</button>
         <button onclick="addProposalRow()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ 追加</button>
       </div>
     </div>
