@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.434</title>
+<title>WAZA KIMURA v52.435</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1896,6 +1896,7 @@
       <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
       <div class="admin-stab" onclick="switchAdminSub('memos')" data-sub="memos" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🗒 メモ</div>
       <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
+      <div class="admin-stab" onclick="switchAdminSub('review')" data-sub="review" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">📋 審査</div>
       <button onclick="window._twOpen?.()" style="margin-left:auto;padding:5px 14px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷 タグ付けウィザード</button>
     </div>
 
@@ -1928,6 +1929,8 @@
     <div id="admin-p-memos" style="display:none"></div>
     <!-- フィードバック閲覧パネル -->
     <div id="admin-p-feedback" style="display:none"></div>
+    <!-- ルール審査パネル -->
+    <div id="admin-p-review" style="display:none"></div>
   </div>
 </div>
 

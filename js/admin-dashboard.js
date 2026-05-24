@@ -1,12 +1,13 @@
 // ═══ WAZA KIMURA — AI管理ダッシュボード v50.12 ═══
 // Admin-only: 精度・修正履歴・ルール管理
 
-const FEEDBACK_KEY  = 'waza_tag_feedback';
-const RULES_KEY     = 'waza_ai_rules';
-const TAGDICT_KEY   = 'waza_tag_dict';
-const POSITIONS_KEY = 'waza_positions';
+const FEEDBACK_KEY   = 'waza_tag_feedback';
+const RULES_KEY      = 'waza_ai_rules';
+const TAGDICT_KEY    = 'waza_tag_dict';
+const POSITIONS_KEY  = 'waza_positions';
+const PROPOSALS_KEY  = 'waza_rule_proposals';
 
-const ALL_SUBS = ['accuracy','corrections','rules','memos','categories','positions','feedback'];
+const ALL_SUBS = ['accuracy','corrections','rules','memos','categories','positions','feedback','review'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -27,6 +28,7 @@ export function switchAdminSub(sub) {
   if (sub === 'categories')  _renderCategories();
   if (sub === 'positions')   _renderPositions();
   if (sub === 'feedback')    _renderFeedbackAdmin();
+  if (sub === 'review')      _renderReview();
 }
 window.switchAdminSub = switchAdminSub;
 
@@ -1224,4 +1226,289 @@ window.fbAdmSaveMemo = async function(docId, idx) {
   } catch(e) {
     alert('保存に失敗しました。Firestoreルールにdelete/updateを追加してください。');
   }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ルール審査テーブル — 「📋 審査」タブ
+// HaikuのBJJタグ付け暗黙ルールをすべて明文化し、ユーザーが承認/却下
+// ═══════════════════════════════════════════════════════════════
+
+const _INITIAL_PROPOSALS = [
+  // ── TB: トップシグナル ──
+  { id:'_ip_tb01', field:'tb', condition:'pass',       value:'トップ', action:'add', rationale:'ガードを越える（pass）= 必ずトップ視点。パスガード側が対象' },
+  { id:'_ip_tb02', field:'tb', condition:'passing',    value:'トップ', action:'add', rationale:'passの進行形。パスガード動作全般を指す英語表現' },
+  { id:'_ip_tb03', field:'tb', condition:'パスガード',  value:'トップ', action:'add', rationale:'日本語で「パスガード」= ガードを通過する側 = トップ確定' },
+  { id:'_ip_tb04', field:'tb', condition:'攻略',        value:'トップ', action:'add', rationale:'「〇〇ガード攻略」はトップ目線で相手ガードを崩す文脈' },
+  { id:'_ip_tb05', field:'tb', condition:'突破',        value:'トップ', action:'add', rationale:'ガードを突破する = トップが相手ガードを越えていく動作' },
+  { id:'_ip_tb06', field:'tb', condition:'dominate',   value:'トップ', action:'add', rationale:'相手を支配する = トップポジションの概念' },
+  { id:'_ip_tb07', field:'tb', condition:'beat',       value:'トップ', action:'add', rationale:'「〇〇ガードを倒す/beat」= トップ側が相手ガードに勝つ表現' },
+  { id:'_ip_tb08', field:'tb', condition:'制圧',        value:'トップ', action:'add', rationale:'トップから相手を押さえ込む・制圧する文脈' },
+  { id:'_ip_tb09', field:'tb', condition:'崩し',        value:'トップ', action:'add', rationale:'ガードの崩し = トップがボトムの態勢を崩す動作' },
+  { id:'_ip_tb10', field:'tb', condition:'対策',        value:'トップ', action:'add', rationale:'「〇〇ガード対策」= トップ側がボトムのガードに対応する視点' },
+  { id:'_ip_tb11', field:'tb', condition:'pressure',   value:'トップ', action:'add', rationale:'プレッシャーをかけるのはトップ側の技術。ボトムは受ける側' },
+  { id:'_ip_tb12', field:'tb', condition:'プレッシャー',value:'トップ', action:'add', rationale:'「プレッシャーパス」などトップ視点の技術用語' },
+  { id:'_ip_tb13', field:'tb', condition:'mount',      value:'トップ', action:'add', rationale:'マウントは定義上トップポジション（相手の上に乗る）' },
+  { id:'_ip_tb14', field:'tb', condition:'マウント',    value:'トップ', action:'add', rationale:'日本語マウントも同様。マウントを取る/維持する = トップ' },
+  // ── TB: ボトムシグナル ──
+  { id:'_ip_tb20', field:'tb', condition:'playing',    value:'ボトム', action:'add', rationale:'「playing guard」= ガードプレイヤー = ボトム側' },
+  { id:'_ip_tb21', field:'tb', condition:'using',      value:'ボトム', action:'add', rationale:'「using guard」= ガードを使う = ボトム側が自分のガードを活用' },
+  { id:'_ip_tb22', field:'tb', condition:'ガードから',  value:'ボトム', action:'add', rationale:'「ガードから〇〇する」= ボトムポジションからのアクション' },
+  { id:'_ip_tb23', field:'tb', condition:'ガード構築',  value:'ボトム', action:'add', rationale:'ガードを作る = ボトム側の行動' },
+  { id:'_ip_tb24', field:'tb', condition:'ガードプレイ',value:'ボトム', action:'add', rationale:'ガードプレイ = ボトム側の技術体系' },
+  { id:'_ip_tb25', field:'tb', condition:'引き込み',    value:'ボトム', action:'add', rationale:'引き込み = 自分からボトムポジションを選択する' },
+  { id:'_ip_tb26', field:'tb', condition:'retention',  value:'ボトム', action:'add', rationale:'guard retention = ボトム側がガードを維持する技術' },
+  { id:'_ip_tb27', field:'tb', condition:'リテンション',value:'ボトム', action:'add', rationale:'日本語「リテンション」= ガードリテンション = ボトム側' },
+  { id:'_ip_tb28', field:'tb', condition:'guard game', value:'ボトム', action:'add', rationale:'ガードゲーム全体 = ボトム側の戦略' },
+  { id:'_ip_tb29', field:'tb', condition:'sweep',      value:'ボトム', action:'add', rationale:'スイープはボトムが行う動作（catでもスイープを付ける）' },
+  { id:'_ip_tb30', field:'tb', condition:'スイープ',    value:'ボトム', action:'add', rationale:'日本語スイープも同様にボトム視点の動作' },
+  // ── TB: スタンディング ──
+  { id:'_ip_tb40', field:'tb', condition:'takedown',   value:'スタンディング', action:'add', rationale:'テイクダウン = 立ち技の文脈。トップ/ボトムはテイクダウン後に決まる' },
+  { id:'_ip_tb41', field:'tb', condition:'テイクダウン',value:'スタンディング', action:'add', rationale:'日本語テイクダウン。立ちのシチュエーション' },
+  { id:'_ip_tb42', field:'tb', condition:'wrestling',  value:'スタンディング', action:'add', rationale:'レスリング技術 = スタンディング／組み手の文脈' },
+  { id:'_ip_tb43', field:'tb', condition:'レスリング',  value:'スタンディング', action:'add', rationale:'日本語レスリングも同様の立ち技文脈' },
+  { id:'_ip_tb44', field:'tb', condition:'standup',    value:'スタンディング', action:'add', rationale:'standup = 立ちのポジションに戻る/立ち技全般' },
+  // ── pos: ガードポジション ──
+  { id:'_ip_ps01', field:'pos', condition:'spider',     value:'スパイダーガード',  action:'add', rationale:'spider guard の英語キーワード' },
+  { id:'_ip_ps02', field:'pos', condition:'de la riva', value:'デラヒーバ',        action:'add', rationale:'de la riva guard の英語キーワード（スペース含む）' },
+  { id:'_ip_ps03', field:'pos', condition:'dlr',        value:'デラヒーバ',        action:'add', rationale:'De La Riva の略称 DLR（大文字・小文字両対応）' },
+  { id:'_ip_ps04', field:'pos', condition:'butterfly',  value:'バタフライガード',  action:'add', rationale:'butterfly guard の英語キーワード' },
+  { id:'_ip_ps05', field:'pos', condition:'バタフライ',  value:'バタフライガード',  action:'add', rationale:'日本語バタフライ（バタフライガード/バタフライフック）' },
+  { id:'_ip_ps06', field:'pos', condition:'half guard', value:'ハーフガード',      action:'add', rationale:'half guard の英語キーワード（スペース含む）' },
+  { id:'_ip_ps07', field:'pos', condition:'ハーフガード',value:'ハーフガード',      action:'add', rationale:'日本語ハーフガード' },
+  { id:'_ip_ps08', field:'pos', condition:'closed guard',value:'クローズドガード', action:'add', rationale:'closed guard の英語キーワード' },
+  { id:'_ip_ps09', field:'pos', condition:'クローズドガード',value:'クローズドガード', action:'add', rationale:'日本語クローズドガード' },
+  { id:'_ip_ps10', field:'pos', condition:'x guard',    value:'Xガード',           action:'add', rationale:'x guard の英語キーワード' },
+  { id:'_ip_ps11', field:'pos', condition:'lasso',      value:'ラッソーガード',    action:'add', rationale:'lasso guard の英語キーワード' },
+  { id:'_ip_ps12', field:'pos', condition:'rdlr',       value:'リバースデラヒーバ',action:'add', rationale:'Reverse De La Riva の略称 RDLR' },
+  { id:'_ip_ps13', field:'pos', condition:'deep half',  value:'ディープハーフ',    action:'add', rationale:'deep half guard の英語キーワード' },
+  { id:'_ip_ps14', field:'pos', condition:'saddle',     value:'サドル',            action:'add', rationale:'saddle（inside sankaku）の英語キーワード' },
+  { id:'_ip_ps15', field:'pos', condition:'worm guard', value:'ラペルガード',      action:'add', rationale:'worm guard = ラペルを使ったガード系の総称' },
+  { id:'_ip_ps16', field:'pos', condition:'turtle',     value:'タートル',          action:'add', rationale:'turtle position の英語キーワード' },
+  { id:'_ip_ps17', field:'pos', condition:'タートル',    value:'タートル',          action:'add', rationale:'日本語タートル（亀）' },
+  { id:'_ip_ps18', field:'pos', condition:'50/50',      value:'50/50',             action:'add', rationale:'50/50ガードは足関節のシチュエーション' },
+  // ── cat: カテゴリ ──
+  { id:'_ip_ct01', field:'cat', condition:'sweep',      value:'スイープ',                  action:'add', rationale:'sweep 技術 = カテゴリ「スイープ」' },
+  { id:'_ip_ct02', field:'cat', condition:'スイープ',    value:'スイープ',                  action:'add', rationale:'日本語スイープ = カテゴリ「スイープ」' },
+  { id:'_ip_ct03', field:'cat', condition:'submission', value:'フィニッシュ',               action:'add', rationale:'submission = サブミッション = フィニッシュカテゴリ' },
+  { id:'_ip_ct04', field:'cat', condition:'finish',     value:'フィニッシュ',               action:'add', rationale:'finish の英語キーワード = フィニッシュカテゴリ' },
+  { id:'_ip_ct05', field:'cat', condition:'フィニッシュ',value:'フィニッシュ',               action:'add', rationale:'日本語フィニッシュ = フィニッシュカテゴリ' },
+  { id:'_ip_ct06', field:'cat', condition:'escape',     value:'エスケープ・ディフェンス',    action:'add', rationale:'escape 技術 = エスケープ・ディフェンスカテゴリ' },
+  { id:'_ip_ct07', field:'cat', condition:'defense',    value:'エスケープ・ディフェンス',    action:'add', rationale:'defense 技術 = エスケープ・ディフェンスカテゴリ' },
+  { id:'_ip_ct08', field:'cat', condition:'back take',  value:'バックテイク・バックアタック', action:'add', rationale:'back take = バックテイク・バックアタックカテゴリ' },
+  { id:'_ip_ct09', field:'cat', condition:'バックテイク',value:'バックテイク・バックアタック', action:'add', rationale:'日本語バックテイク = バックテイク・バックアタックカテゴリ' },
+  { id:'_ip_ct10', field:'cat', condition:'retention',  value:'ガードリテンション',          action:'add', rationale:'guard retention = ガードリテンションカテゴリ' },
+  { id:'_ip_ct11', field:'cat', condition:'リテンション',value:'ガードリテンション',          action:'add', rationale:'日本語リテンション = ガードリテンションカテゴリ' },
+  { id:'_ip_ct12', field:'cat', condition:'control',    value:'コントロール／プレッシャー',   action:'add', rationale:'control = コントロール／プレッシャーカテゴリ' },
+  { id:'_ip_ct13', field:'cat', condition:'concept',    value:'コンセプト・原理',            action:'add', rationale:'concept/principle = コンセプト・原理カテゴリ' },
+  { id:'_ip_ct14', field:'cat', condition:'コンセプト',  value:'コンセプト・原理',            action:'add', rationale:'日本語コンセプト = コンセプト・原理カテゴリ' },
+  { id:'_ip_ct15', field:'cat', condition:'原理',        value:'コンセプト・原理',            action:'add', rationale:'日本語原理 = コンセプト・原理カテゴリ' },
+  { id:'_ip_ct16', field:'cat', condition:'guard pull',  value:'ガード構築・エントリー',      action:'add', rationale:'guard pull = ガードへの引き込み・エントリーカテゴリ' },
+  { id:'_ip_ct17', field:'cat', condition:'ガード引き込み',value:'ガード構築・エントリー',    action:'add', rationale:'日本語ガード引き込み = ガード構築・エントリーカテゴリ' },
+];
+
+function _getProposals() {
+  try { return JSON.parse(localStorage.getItem(PROPOSALS_KEY) || '[]'); } catch(e) { return []; }
+}
+function _saveProposals(list) {
+  try { localStorage.setItem(PROPOSALS_KEY, JSON.stringify(list)); } catch(e) {}
+}
+function _seedProposals() {
+  const stored = _getProposals();
+  const storedIds = new Set(stored.map(p => p.id));
+  const toAdd = _INITIAL_PROPOSALS.filter(p => !storedIds.has(p.id));
+  if (!toAdd.length) return;
+  const merged = stored.concat(toAdd.map(p => ({
+    ...p,
+    status: 'pending',
+    user_note: '',
+    created: Date.now()
+  })));
+  _saveProposals(merged);
+}
+
+function _renderReview() {
+  const el = document.getElementById('admin-p-review');
+  if (!el) return;
+  _seedProposals();
+  const proposals = _getProposals();
+  const filter = el.dataset.filter || 'all';
+  const _esc2 = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const pending  = proposals.filter(p => p.status === 'pending');
+  const approved = proposals.filter(p => p.status === 'approved');
+  const rejected = proposals.filter(p => p.status === 'rejected');
+  const filtered = filter === 'pending' ? pending : filter === 'approved' ? approved : filter === 'rejected' ? rejected : proposals;
+
+  const _fb = f => {
+    const colors = { cat:['rgba(122,184,224,.15)','var(--blue)'], pos:['rgba(160,144,208,.15)','var(--purple)'], tb:['rgba(229,196,122,.15)','var(--accent)'] };
+    const [bg,fg] = colors[f] || ['rgba(107,196,144,.15)','var(--green)'];
+    return `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:${bg};color:${fg}">${f}</span>`;
+  };
+  const _sb = s => s === 'approved'
+    ? `<span style="font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;background:rgba(107,196,144,.2);color:var(--green)">✓ 承認</span>`
+    : s === 'rejected'
+    ? `<span style="font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;background:rgba(224,96,96,.15);color:var(--red)">✗ 却下</span>`
+    : `<span style="font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;background:rgba(160,160,160,.15);color:var(--text3)">未確認</span>`;
+
+  el.innerHTML = `
+    <!-- 統計 -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      ${[
+        [proposals.length, '合計',   'var(--text)'],
+        [pending.length,   '未確認', 'var(--text3)'],
+        [approved.length,  '承認',   'var(--green)'],
+        [rejected.length,  '却下',   'var(--red)']
+      ].map(([n,label,color]) => `
+        <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center">
+          <div style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:${color}">${n}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${label}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- フィルタータブ + 追加ボタン -->
+    <div style="display:flex;align-items:center;border-bottom:1px solid var(--border);margin-bottom:12px">
+      ${[['all','全て',proposals.length,'var(--text)'],['pending','未確認',pending.length,'var(--text3)'],['approved','承認',approved.length,'var(--green)'],['rejected','却下',rejected.length,'var(--red)']].map(([f,label,cnt,c]) => `
+        <div onclick="setReviewFilter('${f}')" style="padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;color:${filter===f?'var(--accent)':'var(--text3)'};border-bottom:2px solid ${filter===f?'var(--accent)':'transparent'}">
+          ${label} <span style="font-size:10px;color:${filter===f?'var(--accent)':c}">${cnt}</span>
+        </div>`).join('')}
+      <div style="margin-left:auto;padding-bottom:6px">
+        <button onclick="addProposalRow()" style="background:var(--accent);color:var(--on-accent);border:none;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ 追加</button>
+      </div>
+    </div>
+
+    ${filtered.length === 0 ? `
+      <div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">
+        <div style="font-size:32px;margin-bottom:12px">📋</div>
+        ${filter === 'pending' ? '未確認の提案はありません' : filter === 'approved' ? '承認済みのルールがありません' : filter === 'rejected' ? '却下済みはありません' : '提案がありません'}
+      </div>
+    ` : `
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;border-collapse:collapse;min-width:640px">
+        <thead>
+          <tr style="background:var(--surface2)">
+            <th style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);width:110px">条件</th>
+            <th style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);width:120px">キーワード</th>
+            <th style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)">根拠</th>
+            <th style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);width:190px">私の判断と根拠</th>
+            <th style="padding:8px 10px;font-size:10px;font-weight:700;color:var(--text3);text-align:left;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);width:90px">今後のルール</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(p => `
+          <tr style="border-bottom:1px solid var(--border2)">
+            <td style="padding:10px 10px;vertical-align:top">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                ${_fb(p.field)}
+                <div style="font-size:13px;font-weight:700;color:var(--accent)">${_esc2(p.value)}</div>
+                <div style="font-size:10px;color:var(--text3)">${p.action==='add'?'追加':'置換'}</div>
+              </div>
+            </td>
+            <td style="padding:10px 10px;vertical-align:top">
+              <code style="font-size:12px;color:var(--text);background:var(--surface2);padding:3px 7px;border-radius:5px;font-family:'DM Mono',monospace">${_esc2(p.condition)}</code>
+            </td>
+            <td style="padding:10px 10px;vertical-align:top;font-size:11px;color:var(--text2);line-height:1.6">${_esc2(p.rationale||'')}</td>
+            <td style="padding:8px 10px;vertical-align:top">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <input type="text" value="${_esc2(p.user_note||'')}" placeholder="コメント（任意）"
+                  onblur="saveProposalNote('${p.id}', this.value)"
+                  style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:11px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+                <div style="display:flex;gap:4px">
+                  ${p.status !== 'approved' ? `<button onclick="approveProposal('${p.id}')" style="flex:1;background:rgba(107,196,144,.2);border:1px solid var(--green);color:var(--green);padding:3px 6px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✓ 承認</button>` : ''}
+                  ${p.status !== 'rejected' ? `<button onclick="rejectProposal('${p.id}')" style="flex:1;background:rgba(224,96,96,.1);border:1px solid var(--red);color:var(--red);padding:3px 6px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✗ 却下</button>` : ''}
+                </div>
+                ${p.status !== 'pending' ? `<button onclick="resetProposal('${p.id}')" style="background:none;border:1px solid var(--border);color:var(--text3);padding:2px 6px;border-radius:6px;font-size:10px;cursor:pointer;font-family:inherit;width:100%">↩ 戻す</button>` : ''}
+              </div>
+            </td>
+            <td style="padding:10px 10px;vertical-align:top">
+              ${_sb(p.status)}
+              ${p.approved_at ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">${new Date(p.approved_at).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}</div>` : ''}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    `}
+  `;
+}
+
+window.approveProposal = function(id) {
+  const proposals = _getProposals();
+  const p = proposals.find(x => x.id === id);
+  if (!p) return;
+  p.status = 'approved';
+  p.approved_at = Date.now();
+  _saveProposals(proposals);
+  // waza_ai_rules に追加（重複チェック）
+  const rules = _getRules();
+  const exists = rules.some(r => r.id === id || (r.condition === p.condition && r.field === p.field && r.value === p.value));
+  if (!exists) {
+    rules.push({ id, condition: p.condition, field: p.field, action: p.action || 'add', value: p.value, enabled: true, created: Date.now(), source: 'ルール審査' });
+    _saveRules(rules);
+  }
+  _renderReview();
+  window.toast?.('✓ 承認 — ルールに追加しました');
+};
+window.approveProposal = window.approveProposal;
+
+window.rejectProposal = function(id) {
+  const proposals = _getProposals();
+  const p = proposals.find(x => x.id === id);
+  if (!p) return;
+  p.status = 'rejected';
+  p.rejected_at = Date.now();
+  _saveProposals(proposals);
+  _renderReview();
+  window.toast?.('✗ 却下しました');
+};
+
+window.resetProposal = function(id) {
+  const proposals = _getProposals();
+  const p = proposals.find(x => x.id === id);
+  if (!p) return;
+  p.status = 'pending';
+  delete p.approved_at;
+  delete p.rejected_at;
+  _saveProposals(proposals);
+  _renderReview();
+  window.toast?.('未確認に戻しました');
+};
+
+window.saveProposalNote = function(id, note) {
+  const proposals = _getProposals();
+  const p = proposals.find(x => x.id === id);
+  if (!p) return;
+  p.user_note = note;
+  _saveProposals(proposals);
+};
+
+window.setReviewFilter = function(f) {
+  const el = document.getElementById('admin-p-review');
+  if (el) el.dataset.filter = f;
+  _renderReview();
+};
+
+window.addProposalRow = function() {
+  const condition = prompt('キーワード（タイトルに含まれる文字列）:');
+  if (!condition) return;
+  const field = prompt('フィールド（tb / pos / cat）:', 'tb');
+  if (!field || !['tb','pos','cat','tags'].includes(field.trim())) { window.toast?.('フィールドは tb / pos / cat / tags で入力してください'); return; }
+  const value = prompt('値（例: トップ, スパイダーガード, フィニッシュ）:');
+  if (!value) return;
+  const rationale = prompt('根拠（なぜこのルール？）:', '') || '';
+  const proposals = _getProposals();
+  proposals.unshift({
+    id: '_up_' + Date.now(),
+    field: field.trim(),
+    condition: condition.trim(),
+    value: value.trim(),
+    action: 'add',
+    rationale,
+    status: 'pending',
+    user_note: '',
+    created: Date.now(),
+    source: '手動追加'
+  });
+  _saveProposals(proposals);
+  _renderReview();
+  window.toast?.('提案を追加しました');
 };

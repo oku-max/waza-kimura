@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.434 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.435 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -107,7 +107,7 @@ function _saveMemoToRules(memo, final) {
       field: field,
       action: 'add',
       value: value,
-      enabled: false,
+      enabled: true,
       created: Date.now(),
       source: 'メモ',
       memo_original: memo.trim()
