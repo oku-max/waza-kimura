@@ -267,7 +267,8 @@ function _renderRules() {
           ${r.source && !isBuiltin && r.source !== 'グラウンドルール' ? `<span style="font-size:10px;color:var(--text3)">${_esc(r.source)}</span>` : ''}
         </div>
       </div>
-      <div style="display:flex;gap:4px;flex-shrink:0">
+      <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+        ${r.source !== 'グラウンドルール' ? `<button onclick="promoteToGround(${i})" title="グラウンドルールに昇格" style="background:rgba(229,196,122,.15);border:1px solid var(--accent);color:var(--accent);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;white-space:nowrap">⭐ 大前提へ</button>` : ''}
         ${!isBuiltin ? `<button onclick="editRule(${i})" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">編集</button>` : ''}
         ${!isBuiltin ? `<button onclick="deleteRule(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:11px;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit">削除</button>` : ''}
       </div>
@@ -423,6 +424,16 @@ export function addGroundRule() {
   form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 window.addGroundRule = addGroundRule;
+
+export function promoteToGround(idx) {
+  const rules = _getRules();
+  if (!rules[idx]) return;
+  rules[idx].source = 'グラウンドルール';
+  _saveRules(rules);
+  _renderRules();
+  window.toast?.('⭐ グラウンドルールに移動しました');
+}
+window.promoteToGround = promoteToGround;
 
 export function saveNewRule() {
   const form      = document.getElementById('add-rule-form');
