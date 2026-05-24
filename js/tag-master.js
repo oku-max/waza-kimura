@@ -9,18 +9,141 @@
 const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 
 // ─── Layer 2: Category (10 fixed, user editable) ─────
-// name : 表示名 / desc : AI が分類に使う説明文 / aliases : 検索ヒット用
+// ════════════════════════════════════════════════════
+// name    : 表示名
+// desc    : カテゴリの定義（何を指すか）
+// aliases : タイトル・PL名・チャンネル名からの自動検出キーワード（検索にも使用）
+//
+// カテゴリ定義:
+//   エスケープ・ディフェンス = 不利ポジションから逃げる・守る動作
+//   ガード構築・エントリー   = 特定ガードへの入り方・作り方
+//   ガードリテンション       = 足を切られないようにガードを保持する動作
+//   コントロール／プレッシャー= トップからポジションを維持・支配する動作
+//   コンセプト・原理         = 技そのものではなく考え方・理論・哲学
+//   スイープ                 = ボトムから相手をひっくり返してトップを取る動作
+//   テイクダウン             = 立ち技から相手を地面に連れ込む動作（投げ含む）
+//   バックテイク・バックアタック = バックポジションを取る・バックから攻める動作
+//   パスガード               = 相手のガードを越えてトップサイドを取る動作
+//   フィニッシュ             = タップを取りにいく絞め技・関節技・極め技
+// ════════════════════════════════════════════════════
 const CATEGORIES = [
-  { id: 'escape',     name: 'エスケープ・ディフェンス', desc: '不利ポジションからの脱出と防御',         aliases: ['Escape','Defense','ディフェンス','エスケープ'] },
-  { id: 'entry',      name: 'ガード構築・エントリー', desc: 'ガードを取る・特定ガードの入り口',         aliases: ['Guard Entry','Setup','エントリー','ガード構築'] },
-  { id: 'retention',  name: 'ガードリテンション',     desc: '足を取られないボトムの守り',               aliases: ['Guard Retention','Retention','リテンション'] },
-  { id: 'control',    name: 'コントロール／プレッシャー', desc: 'トップポジションの維持・押さえ',       aliases: ['Control','Pressure','Top Control','コントロール','プレッシャー'] },
-  { id: 'concept',    name: 'コンセプト・原理',       desc: '技ではない原則的な学び',                   aliases: ['Concept','Principle','理論','コンセプト'] },
-  { id: 'sweep',      name: 'スイープ',               desc: 'ボトムから相手をひっくり返す動作',         aliases: ['Sweep'] },
-  { id: 'takedown',   name: 'テイクダウン',           desc: '立ちから相手を倒す動作（投げ技含む）',     aliases: ['Takedown','Throw','投げ'] },
-  { id: 'back',       name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',     aliases: ['Back Take','Back Attack','バックテイク','バックアタック','バック'] },
-  { id: 'pass',       name: 'パスガード',             desc: '相手のガードを越えてトップを取る動作',     aliases: ['Guard Pass','Passing','パス'] },
-  { id: 'finish',     name: 'フィニッシュ',           desc: 'チョーク・関節技など相手を極めにいく動作', aliases: ['Submission','Finish','サブミッション','チョーク','アームロック','アームバー','キムラ','三角','三角絞め','オモプラッタ','ギロチン','腕十字','絞め'] },
+  { id: 'escape', name: 'エスケープ・ディフェンス', desc: '不利ポジションからの脱出と防御',
+    aliases: [
+      'Escape','Defense','ディフェンス','エスケープ',
+      'サバイバル','survival',
+      '脱出','逃げ','逃げ方',
+      'ダメージコントロール','damage control',
+      'ブリッジ','bridge',            // マウントエスケープのブリッジ
+      'アンパス','unpass',            // ガードリカバリー文脈
+    ]},
+  { id: 'entry', name: 'ガード構築・エントリー', desc: 'ガードを取る・特定ガードの入り口',
+    aliases: [
+      'Guard Entry','Setup','エントリー','ガード構築',
+      '入り方','入り口','作り方','取り方',
+      '引き込み',
+      'セットアップ',
+      'getting to guard','taking guard',
+    ]},
+  { id: 'retention', name: 'ガードリテンション', desc: '足を取られないボトムの守り',
+    aliases: [
+      'Guard Retention','Retention','リテンション',
+      'リガード','reguard','re-guard',
+      'ガードの守り','フレーミング','framing',
+      '足を切られない','カットされない',
+    ]},
+  { id: 'control', name: 'コントロール／プレッシャー', desc: 'トップポジションの維持・押さえ',
+    aliases: [
+      'Control','Pressure','Top Control','コントロール','プレッシャー',
+      'キープ','keep','維持',
+      'ピン','pin','抑え込み','ホールドダウン','hold down',
+      'ドミネート','dominate',
+      'ウェイト','weight',
+    ]},
+  { id: 'concept', name: 'コンセプト・原理', desc: '技ではない原則的な学び',
+    aliases: [
+      'Concept','Principle','理論','コンセプト',
+      'セオリー','theory',
+      '原理','原則','考え方','哲学',
+      '解説','入門','基礎','ファンダメンタル','fundamentals',
+      'ストラテジー','strategy',
+      'アプローチ','approach',
+      'メカニクス','mechanics',
+      'システム','system',           // 〜システムという名の教則
+    ]},
+  { id: 'sweep', name: 'スイープ', desc: 'ボトムから相手をひっくり返す動作',
+    aliases: [
+      'Sweep','スイープ',
+      '切り返し','ひっくり返し',
+      'リバーサル',                  // reversal = スイープの別表現
+      'elevator','エレベーター',     // butterfly sweep の別名
+      'scissor','シザー',            // シザースイープ
+    ]},
+  { id: 'takedown', name: 'テイクダウン', desc: '立ちから相手を倒す動作（投げ技含む）',
+    aliases: [
+      'Takedown','Throw','投げ','テイクダウン',
+      'タックル',
+      'レスリング','wrestling',
+      'シングルレッグ','single leg',
+      'ダブルレッグ','double leg',
+      'アンクルピック','ankle pick',
+      'ヒップスロー','hip throw','hip toss',
+      'judo','柔道',
+      '払い腰','大外刈','大内刈','足払い','内股','巴投げ',
+      'trip','トリップ',
+      'body lock takedown',
+    ]},
+  { id: 'back', name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',
+    aliases: [
+      'Back Take','Back Attack','バックテイク','バックアタック','バック',
+      'back mount','back control','バックマウント','バックコントロール',
+      'シートベルト','seat belt',    // バックコントロールの基本グリップ
+      'ボウアンドアロー','bow and arrow',
+      'RNC','rear naked choke','リアネイキッドチョーク',
+    ]},
+  { id: 'pass', name: 'パスガード', desc: '相手のガードを越えてトップを取る動作',
+    aliases: [
+      'Guard Pass','Passing','パス','パスガード',
+      'ニーカット','knee cut',
+      'ニースライス','knee slice',
+      'トレアンド','torreando','torando',
+      'スタックパス','stack pass',
+      'レッグドラッグ','leg drag',
+      'プレッシャーパス','pressure pass',
+      'スマッシュパス','smash pass',
+    ]},
+  { id: 'finish', name: 'フィニッシュ', desc: 'チョーク・関節技など相手を極めにいく動作',
+    aliases: [
+      // 総称
+      'Submission','Finish','サブミッション','フィニッシュ',
+      '極め','絞め技','関節技','タップ',
+      // 腕系
+      'アームバー','armbar','腕十字','腕ひしぎ',
+      'アームロック','arm lock',
+      'キムラ','kimura',
+      'オモプラッタ','omoplata',
+      'ウメプラタ',
+      // チョーク系
+      'チョーク','choke','絞め',
+      '三角','三角絞め','triangle',
+      'ギロチン','guillotine',
+      'ダースチョーク','darce',
+      'アナコンダ','anaconda',
+      'クロックチョーク','clock choke',
+      'ボウアンドアロー','bow and arrow',
+      'ベースボールチョーク','baseball choke',
+      'リアネイキッドチョーク','rear naked choke','RNC',
+      'ノースサウスチョーク','north south choke',
+      // 足関節系
+      'ヒールフック','heel hook',
+      'フットロック','foot lock',
+      'アンクルロック','ankle lock',
+      'ニーバー','knee bar',
+      'トーホールド','toe hold',
+      'ストレートフットロック','straight foot lock',
+      'インサイドヒール','inside heel',
+      'アウトサイドヒール','outside heel',
+      '足関節','レッグロック','leg lock',
+    ]},
 ];
 
 // ─── Layer 3: Position (27 fixed) ────────────────────
@@ -384,31 +507,44 @@ function _detectTbFromText(text) {
 }
 window._detectTbFromText = _detectTbFromText;
 
+// ── カテゴリ検出ロジック (1テキストに対して実行) ────
+// text: タイトル / プレイリスト名 / チャンネル名 いずれでも可
+// 複数カテゴリに同時ヒット可（TB と違い排他でない）
+function _detectCatFromText(text) {
+  if (!text) return [];
+  const n = _norm(text);
+  const found = [];
+  for (const c of CATEGORIES) {
+    const keys = [c.name, ...(c.aliases || [])];
+    for (const k of keys) {
+      const kn = _norm(k);
+      if (kn && n.includes(kn)) {
+        if (!found.includes(c.name)) found.push(c.name);
+        break;
+      }
+    }
+  }
+  return found;
+}
+window._detectCatFromText = _detectCatFromText;
+
 function autoTagFromTitle(title, pl = '', channel = '') {
   const result = { tb: [], cat: [], pos: [], tags: [] };
   if (!title) return result;
 
-  const t = title;
-  const tNorm = _norm(t);
+  const tNorm = _norm(title);
 
   // ── TB 判定: タイトル → プレイリスト → チャンネルの順でフォールバック ──
   result.tb = _detectTbFromText(title);
   if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
   if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
 
-  // ── Category 判定 ──
-  for (const c of CATEGORIES) {
-    const keys = [c.name, ...(c.aliases || [])];
-    for (const k of keys) {
-      const kn = _norm(k);
-      if (kn && tNorm.includes(kn)) {
-        if (!result.cat.includes(c.name)) result.cat.push(c.name);
-        break;
-      }
-    }
-  }
+  // ── Category 判定: タイトル → プレイリスト → チャンネルの順でフォールバック ──
+  result.cat = _detectCatFromText(title);
+  if (!result.cat.length && pl)      result.cat = _detectCatFromText(pl);
+  if (!result.cat.length && channel) result.cat = _detectCatFromText(channel);
 
-  // ── Position 判定 ──
+  // ── Position 判定 (タイトルのみ; PLからのpos推測は誤検知リスクが高い) ──
   for (const p of POSITIONS) {
     const keys = [p.ja, p.en, ...(p.aliases || [])];
     for (const k of keys) {
