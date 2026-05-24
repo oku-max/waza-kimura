@@ -245,22 +245,45 @@ function _renderRules() {
     background:${r.field==='cat'?'rgba(122,184,224,.15)':r.field==='pos'?'rgba(160,144,208,.15)':r.field==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};
     color:${r.field==='cat'?'var(--blue)':r.field==='pos'?'var(--purple)':r.field==='tb'?'var(--accent)':'var(--green)'}">${r.field}</span>`;
 
-  // ビルトイン・ユーザー定義行
-  const _ruleRow = ({r, i}, isBuiltin) => `
+  // ビルトイン・ユーザー定義行（ルールタイプ対応）
+  const _ruleRow = ({r, i}, isBuiltin) => {
+    const t = r.type || 'keyword';
+    const _al = a => a === 'add' ? '追加' : a === 'replace' ? '置換' : '削除';
+    let descLine = '';
+    if (t === 'keyword') {
+      descLine = `タイトルに「<strong>${_esc(r.condition)}</strong>」→ ${r.field} を <strong>${_esc(_al(r.action))}</strong>: <strong style="color:var(--accent)">${_esc(r.value)}</strong>`;
+    } else if (t === 'and') {
+      descLine = `「<strong>${_esc(r.condition_a)}</strong>」かつ「<strong>${_esc(r.condition_b)}</strong>」→ ${r.field} を <strong>${_esc(_al(r.action))}</strong>: <strong style="color:var(--accent)">${_esc(r.value)}</strong>`;
+    } else if (t === 'not') {
+      descLine = `「<strong>${_esc(r.condition)}</strong>」あり「<strong>${_esc(r.not_condition)}</strong>」なし → ${r.field} を <strong>${_esc(_al(r.action))}</strong>: <strong style="color:var(--accent)">${_esc(r.value)}</strong>`;
+    } else if (t === 'conflict') {
+      descLine = `${r.field}「<strong style="color:var(--red)">${_esc(r.if_value)}</strong>」があるとき「<strong>${_esc(r.then_remove)}</strong>」を削除（競合解決）`;
+    } else if (t === 'pos_implies') {
+      descLine = `${r.if_field}「<strong>${_esc(r.if_value)}</strong>」→ ${r.then_field} を「<strong style="color:var(--accent)">${_esc(r.then_value)}</strong>」に設定`;
+    } else if (t === 'default') {
+      descLine = `${r.field} が未設定なら「<strong style="color:var(--accent)">${_esc(r.value)}</strong>」をデフォルト設定`;
+    }
+    const TYPE_BADGES = {
+      and:        '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(64,160,112,.15);color:#40a070">AND</span>',
+      not:        '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(224,96,96,.15);color:var(--red)">NOT</span>',
+      conflict:   '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(200,80,200,.15);color:#c850c8">競合</span>',
+      pos_implies:'<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(80,120,220,.15);color:#5078dc">継承</span>',
+      default:    '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700;background:rgba(160,160,160,.15);color:var(--text3)">デフォルト</span>',
+    };
+    const df = r.field || r.if_field || r.then_field || '—';
+    const fieldBadge = `<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:${df==='cat'?'rgba(122,184,224,.15)':df==='pos'?'rgba(160,144,208,.15)':df==='tb'?'rgba(229,196,122,.15)':'rgba(107,196,144,.15)'};color:${df==='cat'?'var(--blue)':df==='pos'?'var(--purple)':df==='tb'?'var(--accent)':'var(--green)'}">${df}</span>`;
+    return `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
       <div onclick="toggleRule(${i})" title="${r.enabled ? '無効化' : '有効化'}"
            style="width:36px;height:20px;border-radius:10px;background:${r.enabled?'var(--green)':'var(--surface3)'};cursor:pointer;position:relative;flex-shrink:0;margin-top:2px;transition:background .2s">
         <div style="position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:${r.enabled?'18px':'2px'};transition:left .2s"></div>
       </div>
       <div style="flex:1">
-        <div style="font-size:12px;line-height:1.5">
-          タイトルに「<strong>${_esc(r.condition)}</strong>」→ ${r.field} を
-          <strong>${_esc(r.action === 'add' ? '追加' : r.action === 'replace' ? '置換' : '削除')}</strong>:
-          <strong style="color:var(--accent)">${_esc(r.value)}</strong>
-        </div>
+        <div style="font-size:12px;line-height:1.5">${descLine}</div>
         ${r.desc ? `<div style="font-size:11px;color:var(--text3);margin-top:2px">${_esc(r.desc)}</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center">
-          ${_fieldBadge(r)}
+          ${fieldBadge}
+          ${TYPE_BADGES[t] || ''}
           ${r.source === 'グラウンドルール' ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(229,196,122,.2);color:var(--accent)">⭐ 大前提</span>' : ''}
           ${isBuiltin ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:rgba(100,100,220,.12);color:#6464cc">🔧 ビルトイン</span>' : ''}
           ${r.proposed ? '<span style="font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600;background:rgba(229,196,122,.15);color:var(--accent)">提案</span>' : ''}
@@ -274,6 +297,7 @@ function _renderRules() {
       </div>
     </div>
   `;
+  };
 
   el.innerHTML = `
     <!-- ⭐ グラウンドルール -->
@@ -302,30 +326,104 @@ function _renderRules() {
       <!-- Add rule form (hidden by default) -->
       <div id="add-rule-form" style="display:none;background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:12px">
         <div id="add-rule-mode-label" style="display:none;font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px;padding:4px 8px;background:rgba(229,196,122,.12);border-radius:6px">⭐ グラウンドルールとして追加</div>
-        <div style="margin-bottom:8px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">条件（タイトルに含む文字列）</div>
-          <input id="rule-condition" type="text" placeholder="例: kimura, 木村" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        <!-- タイプ選択 -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">ルールタイプ</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            <button onclick="setRuleType('keyword')"     id="rt-keyword"     style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:var(--on-accent);border:1px solid var(--accent)">キーワード</button>
+            <button onclick="setRuleType('and')"         id="rt-and"         style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text2);border:1px solid var(--border)">AND条件</button>
+            <button onclick="setRuleType('not')"         id="rt-not"         style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text2);border:1px solid var(--border)">NOT条件</button>
+            <button onclick="setRuleType('conflict')"    id="rt-conflict"    style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text2);border:1px solid var(--border)">競合解決</button>
+            <button onclick="setRuleType('pos_implies')" id="rt-pos_implies" style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text2);border:1px solid var(--border)">継承</button>
+            <button onclick="setRuleType('default')"     id="rt-default"     style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text2);border:1px solid var(--border)">デフォルト</button>
+          </div>
         </div>
-        <div style="margin-bottom:8px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">フィールド</div>
-          <select id="rule-field" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
-            <option value="cat">カテゴリ</option>
-            <option value="pos">ポジション</option>
-            <option value="tags">タグ</option>
-            <option value="tb">トップ/ボトム</option>
-          </select>
+        <!-- キーワード -->
+        <div id="rfields-keyword">
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">キーワード（タイトルに含む）</div>
+            <input id="rule-condition" type="text" placeholder="例: kimura, 木村" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">フィールド</div>
+              <select id="rule-field" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="cat">カテゴリ</option><option value="pos">ポジション</option><option value="tags">タグ</option><option value="tb">TB</option></select></div>
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">アクション</div>
+              <select id="rule-action" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="add">追加</option><option value="replace">置換</option><option value="remove">削除</option></select></div>
+          </div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">値</div>
+            <input id="rule-value" type="text" placeholder="例: フィニッシュ" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
         </div>
-        <div style="margin-bottom:8px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">アクション</div>
-          <select id="rule-action" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
-            <option value="add">追加する</option>
-            <option value="replace">置換する</option>
-            <option value="remove">削除する</option>
-          </select>
+        <!-- AND条件 -->
+        <div id="rfields-and" style="display:none">
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">キーワードA（必須）</div>
+            <input id="rule-cond-a" type="text" placeholder="例: guard" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">キーワードB（必須）</div>
+            <input id="rule-cond-b" type="text" placeholder="例: sweep" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">フィールド</div>
+              <select id="rule-and-field" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="cat">カテゴリ</option><option value="pos">ポジション</option><option value="tags">タグ</option><option value="tb">TB</option></select></div>
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">アクション</div>
+              <select id="rule-and-action" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="add">追加</option><option value="replace">置換</option><option value="remove">削除</option></select></div>
+          </div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">値</div>
+            <input id="rule-and-value" type="text" placeholder="例: スイープ" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
         </div>
-        <div style="margin-bottom:8px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">値</div>
-          <input id="rule-value" type="text" placeholder="例: フィニッシュ" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box">
+        <!-- NOT条件 -->
+        <div id="rfields-not" style="display:none">
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">キーワード（含む）</div>
+            <input id="rule-not-cond" type="text" placeholder="例: guard" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">NOT キーワード（含まない）</div>
+            <input id="rule-not-excl" type="text" placeholder="例: pass" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">フィールド</div>
+              <select id="rule-not-field" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="cat">カテゴリ</option><option value="pos">ポジション</option><option value="tags">タグ</option><option value="tb">TB</option></select></div>
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">アクション</div>
+              <select id="rule-not-action" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="add">追加</option><option value="remove">削除</option></select></div>
+          </div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">値</div>
+            <input id="rule-not-value" type="text" placeholder="例: ボトム" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+        </div>
+        <!-- 競合解決 -->
+        <div id="rfields-conflict" style="display:none">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:6px 8px;background:rgba(200,80,200,.08);border-radius:6px">同一フィールドで共存できない値の競合を解決します（例: トップとボトムは同時に存在できない）</div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">フィールド</div>
+            <select id="rule-cf-field" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+              <option value="tb">TB</option><option value="cat">カテゴリ</option><option value="pos">ポジション</option></select></div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">この値がある場合</div>
+            <input id="rule-cf-ifval" type="text" placeholder="例: トップ" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">この値を削除する</div>
+            <input id="rule-cf-remove" type="text" placeholder="例: ボトム" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+        </div>
+        <!-- 継承 (pos_implies) -->
+        <div id="rfields-pos_implies" style="display:none">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:6px 8px;background:rgba(80,120,220,.08);border-radius:6px">あるフィールドの値が確定したとき、別のフィールドを自動設定します（例: ポジション → TB継承）</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">条件フィールド</div>
+              <select id="rule-pi-iffield" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="pos">ポジション</option><option value="cat">カテゴリ</option><option value="tb">TB</option></select></div>
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">条件値</div>
+              <input id="rule-pi-ifval" type="text" placeholder="例: スパイダーガード" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">設定フィールド</div>
+              <select id="rule-pi-thenfield" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+                <option value="tb">TB</option><option value="pos">ポジション</option><option value="cat">カテゴリ</option></select></div>
+            <div style="flex:1;min-width:100px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">設定値</div>
+              <input id="rule-pi-thenval" type="text" placeholder="例: ボトム" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
+          </div>
+        </div>
+        <!-- デフォルト値 -->
+        <div id="rfields-default" style="display:none">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:6px 8px;background:rgba(160,160,160,.08);border-radius:6px">全ルール適用後もフィールドが空なら、この値をデフォルトとして設定します</div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">フィールド</div>
+            <select id="rule-df-field" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;cursor:pointer">
+              <option value="tb">TB</option><option value="cat">カテゴリ</option><option value="pos">ポジション</option></select></div>
+          <div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">デフォルト値</div>
+            <input id="rule-df-value" type="text" placeholder="例: スタンディング" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"></div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
           <button onclick="toggleAddRuleForm()" style="background:var(--surface);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:6px 14px;border-radius:14px;cursor:pointer;font-family:inherit">キャンセル</button>
@@ -400,13 +498,33 @@ export function clearTagFeedback() {
 }
 window.clearTagFeedback = clearTagFeedback;
 
+export function setRuleType(type) {
+  const types = ['keyword', 'and', 'not', 'conflict', 'pos_implies', 'default'];
+  const form = document.getElementById('add-rule-form');
+  if (form) form.dataset.ruleType = type;
+  types.forEach(t => {
+    const fields = document.getElementById('rfields-' + t);
+    const btn    = document.getElementById('rt-' + t);
+    if (fields) fields.style.display = t === type ? '' : 'none';
+    if (btn) {
+      btn.style.background   = t === type ? 'var(--accent)' : 'var(--surface)';
+      btn.style.color        = t === type ? 'var(--on-accent)' : 'var(--text2)';
+      btn.style.borderColor  = t === type ? 'var(--accent)' : 'var(--border)';
+    }
+  });
+}
+window.setRuleType = setRuleType;
+
 export function toggleAddRuleForm() {
   const form = document.getElementById('add-rule-form');
   if (!form) return;
   const opening = form.style.display === 'none';
   form.style.display = opening ? 'block' : 'none';
-  if (!opening) {
+  if (opening) {
+    setRuleType('keyword');
+  } else {
     delete form.dataset.source;
+    delete form.dataset.ruleType;
     const lbl = document.getElementById('add-rule-mode-label');
     if (lbl) lbl.style.display = 'none';
   }
@@ -420,6 +538,7 @@ export function addGroundRule() {
   form.dataset.source = 'グラウンドルール';
   const lbl = document.getElementById('add-rule-mode-label');
   if (lbl) lbl.style.display = 'block';
+  setRuleType('keyword');
   document.getElementById('rule-condition')?.focus();
   form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -436,23 +555,49 @@ export function promoteToGround(idx) {
 window.promoteToGround = promoteToGround;
 
 export function saveNewRule() {
-  const form      = document.getElementById('add-rule-form');
+  const form       = document.getElementById('add-rule-form');
   const editIdxStr = form?.dataset?.editIdx;
-  const editIdx   = editIdxStr !== undefined ? parseInt(editIdxStr) : NaN;
-  const condition = document.getElementById('rule-condition')?.value.trim();
-  const field     = document.getElementById('rule-field')?.value;
-  const action    = document.getElementById('rule-action')?.value;
-  const value     = document.getElementById('rule-value')?.value.trim();
-  if (!condition || !value) { window.toast?.('条件と値を入力してください'); return; }
+  const editIdx    = editIdxStr !== undefined ? parseInt(editIdxStr) : NaN;
+  const ruleType   = form?.dataset?.ruleType || 'keyword';
+
+  let data = null;
+  const _v = id => document.getElementById(id)?.value.trim() || '';
+  const _s = id => document.getElementById(id)?.value || '';
+
+  if (ruleType === 'keyword') {
+    const condition = _v('rule-condition'), field = _s('rule-field'), action = _s('rule-action'), value = _v('rule-value');
+    if (!condition || !value) { window.toast?.('条件と値を入力してください'); return; }
+    data = { type: 'keyword', condition, field, action, value };
+  } else if (ruleType === 'and') {
+    const condition_a = _v('rule-cond-a'), condition_b = _v('rule-cond-b'), field = _s('rule-and-field'), action = _s('rule-and-action'), value = _v('rule-and-value');
+    if (!condition_a || !condition_b || !value) { window.toast?.('キーワードA・B・値を入力してください'); return; }
+    data = { type: 'and', condition_a, condition_b, field, action, value };
+  } else if (ruleType === 'not') {
+    const condition = _v('rule-not-cond'), not_condition = _v('rule-not-excl'), field = _s('rule-not-field'), action = _s('rule-not-action'), value = _v('rule-not-value');
+    if (!condition || !not_condition || !value) { window.toast?.('キーワード・NOTキーワード・値を入力してください'); return; }
+    data = { type: 'not', condition, not_condition, field, action, value };
+  } else if (ruleType === 'conflict') {
+    const field = _s('rule-cf-field'), if_value = _v('rule-cf-ifval'), then_remove = _v('rule-cf-remove');
+    if (!if_value || !then_remove) { window.toast?.('競合する値を両方入力してください'); return; }
+    data = { type: 'conflict', field, if_value, then_remove };
+  } else if (ruleType === 'pos_implies') {
+    const if_field = _s('rule-pi-iffield'), if_value = _v('rule-pi-ifval'), then_field = _s('rule-pi-thenfield'), then_value = _v('rule-pi-thenval');
+    if (!if_value || !then_value) { window.toast?.('条件値と設定値を入力してください'); return; }
+    data = { type: 'pos_implies', if_field, if_value, then_field, then_value };
+  } else if (ruleType === 'default') {
+    const field = _s('rule-df-field'), value = _v('rule-df-value');
+    if (!value) { window.toast?.('デフォルト値を入力してください'); return; }
+    data = { type: 'default', field, value };
+  }
+  if (!data) return;
+
   const rules = _getRules();
   if (!isNaN(editIdx) && editIdx >= 0 && editIdx < rules.length) {
-    // 編集モード
-    rules[editIdx] = { ...rules[editIdx], condition, field, action, value };
+    rules[editIdx] = { ...rules[editIdx], ...data };
     if (form) delete form.dataset.editIdx;
   } else {
-    // 追加モード（グラウンドルール or 通常）
     const source = form?.dataset?.source || '手動';
-    rules.push({ condition, field, action, value, enabled: true, created: Date.now(), source });
+    rules.push({ ...data, enabled: true, created: Date.now(), source });
   }
   _saveRules(rules);
   toggleAddRuleForm();
@@ -467,16 +612,23 @@ export function editRule(idx) {
   if (!r) return;
   const form = document.getElementById('add-rule-form');
   if (form) { form.style.display = 'block'; form.dataset.editIdx = idx; }
-  const condEl   = document.getElementById('rule-condition');
-  const fieldEl  = document.getElementById('rule-field');
-  const actionEl = document.getElementById('rule-action');
-  const valueEl  = document.getElementById('rule-value');
-  if (condEl)   condEl.value   = r.condition || '';
-  if (fieldEl)  fieldEl.value  = r.field     || 'tb';
-  if (actionEl) actionEl.value = r.action    || 'add';
-  if (valueEl)  valueEl.value  = r.value     || '';
+  const t = r.type || 'keyword';
+  setRuleType(t);
+  const _set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  if (t === 'keyword') {
+    _set('rule-condition', r.condition); _set('rule-field', r.field || 'tb'); _set('rule-action', r.action || 'add'); _set('rule-value', r.value);
+  } else if (t === 'and') {
+    _set('rule-cond-a', r.condition_a); _set('rule-cond-b', r.condition_b); _set('rule-and-field', r.field || 'tb'); _set('rule-and-action', r.action || 'add'); _set('rule-and-value', r.value);
+  } else if (t === 'not') {
+    _set('rule-not-cond', r.condition); _set('rule-not-excl', r.not_condition); _set('rule-not-field', r.field || 'tb'); _set('rule-not-action', r.action || 'add'); _set('rule-not-value', r.value);
+  } else if (t === 'conflict') {
+    _set('rule-cf-field', r.field || 'tb'); _set('rule-cf-ifval', r.if_value); _set('rule-cf-remove', r.then_remove);
+  } else if (t === 'pos_implies') {
+    _set('rule-pi-iffield', r.if_field || 'pos'); _set('rule-pi-ifval', r.if_value); _set('rule-pi-thenfield', r.then_field || 'tb'); _set('rule-pi-thenval', r.then_value);
+  } else if (t === 'default') {
+    _set('rule-df-field', r.field || 'tb'); _set('rule-df-value', r.value);
+  }
   form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  condEl?.focus();
 }
 window.editRule = editRule;
 

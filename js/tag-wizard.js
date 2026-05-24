@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — タグ付けウィザード v52.435 ═══
+// ═══ WAZA KIMURA — タグ付けウィザード v52.441 ═══
 // データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
 (function () {
 'use strict';
@@ -212,39 +212,100 @@ function _suggest(title, channel, pl, memo) {
 }
 
 // ── ルール適用エンジン（waza_ai_rules を読んで提案結果に上乗せ）──
-// TB:     action='add'     → tbが未設定の場合のみセット
-//         action='replace' → 既存値を上書き
-// pos/cat/tech: action='add'/'remove'/'replace' それぞれ対応
-// memo: ユーザーが書いたメモも検索対象に含める（メモはアルゴリズムへのヒント）
+// Phase 1: keyword / and / not  — タイトルマッチング
+// Phase 2: pos_implies          — タグ値からの継承
+// Phase 3: conflict             — 競合する値を削除
+// Phase 4: default              — 全フェーズ後も空なら補完
 function _applyRules(result, title, pl, memo) {
   try {
-    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    var rules    = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
     var tLower   = (title || '').toLowerCase();
     var plLower  = (pl    || '').toLowerCase();
     var memLower = (memo  || '').toLowerCase();
-    rules.forEach(function(r) {
-      if (!r.enabled || !r.condition) return;
-      var cLower = r.condition.toLowerCase();
-      if (tLower.indexOf(cLower) < 0 && plLower.indexOf(cLower) < 0 && memLower.indexOf(cLower) < 0) return;
-      if (r.field === 'tb') {
-        if      (r.action === 'add'     && !result.tb) result.tb = r.value;
-        else if (r.action === 'replace')               result.tb = r.value;
-      } else if (r.field === 'pos') {
+
+    function _matches(str) {
+      var s = (str || '').toLowerCase();
+      return tLower.indexOf(s) >= 0 || plLower.indexOf(s) >= 0 || memLower.indexOf(s) >= 0;
+    }
+    function _applyFA(field, action, value) {
+      if (field === 'tb') {
+        if      (action === 'add'     && !result.tb) result.tb = value;
+        else if (action === 'replace')               result.tb = value;
+      } else if (field === 'pos') {
         if (!result.pos) result.pos = [];
-        if      (r.action === 'add'     && result.pos.indexOf(r.value) < 0) result.pos.push(r.value);
-        else if (r.action === 'replace') result.pos = [r.value];
-        else if (r.action === 'remove')  result.pos = result.pos.filter(function(p){ return p !== r.value; });
-      } else if (r.field === 'cat') {
+        if      (action === 'add'     && result.pos.indexOf(value) < 0) result.pos.push(value);
+        else if (action === 'replace') result.pos = [value];
+        else if (action === 'remove')  result.pos = result.pos.filter(function(p){ return p !== value; });
+      } else if (field === 'cat') {
         if (!result.cat) result.cat = [];
-        if      (r.action === 'add'     && result.cat.indexOf(r.value) < 0) result.cat.push(r.value);
-        else if (r.action === 'replace') result.cat = [r.value];
-        else if (r.action === 'remove')  result.cat = result.cat.filter(function(c){ return c !== r.value; });
-      } else if (r.field === 'tags') {
+        if      (action === 'add'     && result.cat.indexOf(value) < 0) result.cat.push(value);
+        else if (action === 'replace') result.cat = [value];
+        else if (action === 'remove')  result.cat = result.cat.filter(function(c){ return c !== value; });
+      } else if (field === 'tags') {
         if (!result.tech) result.tech = [];
-        if      (r.action === 'add'     && result.tech.indexOf(r.value) < 0) result.tech.push(r.value);
-        else if (r.action === 'remove')  result.tech = result.tech.filter(function(t){ return t !== r.value; });
+        if      (action === 'add'     && result.tech.indexOf(value) < 0) result.tech.push(value);
+        else if (action === 'remove')  result.tech = result.tech.filter(function(v){ return v !== value; });
+      }
+    }
+    function _hasVal(field, value) {
+      if (field === 'tb')   return result.tb === value;
+      if (field === 'pos')  return (result.pos  || []).indexOf(value) >= 0;
+      if (field === 'cat')  return (result.cat  || []).indexOf(value) >= 0;
+      if (field === 'tags') return (result.tech || []).indexOf(value) >= 0;
+      return false;
+    }
+
+    // Phase 1: keyword / and / not
+    rules.forEach(function(r) {
+      if (!r.enabled) return;
+      var t = r.type || 'keyword';
+      if (t === 'keyword') {
+        if (!r.condition || !_matches(r.condition)) return;
+        _applyFA(r.field, r.action, r.value);
+      } else if (t === 'and') {
+        if (!r.condition_a || !r.condition_b) return;
+        if (!_matches(r.condition_a) || !_matches(r.condition_b)) return;
+        _applyFA(r.field, r.action, r.value);
+      } else if (t === 'not') {
+        if (!r.condition || !_matches(r.condition)) return;
+        if (r.not_condition && _matches(r.not_condition)) return;
+        _applyFA(r.field, r.action, r.value);
       }
     });
+
+    // Phase 2: pos_implies (derive from already-set tag values)
+    rules.forEach(function(r) {
+      if (!r.enabled || r.type !== 'pos_implies') return;
+      if (!r.if_value || !r.then_value) return;
+      if (!_hasVal(r.if_field, r.if_value)) return;
+      _applyFA(r.then_field, 'add', r.then_value);
+    });
+
+    // Phase 3: conflict (remove contradicting values)
+    rules.forEach(function(r) {
+      if (!r.enabled || r.type !== 'conflict') return;
+      if (!r.if_value || !r.then_remove) return;
+      if (!_hasVal(r.field, r.if_value)) return;
+      var f = r.field;
+      if (f === 'tb' && result.tb === r.then_remove)   result.tb  = null;
+      else if (f === 'pos')  result.pos  = (result.pos  || []).filter(function(v){ return v !== r.then_remove; });
+      else if (f === 'cat')  result.cat  = (result.cat  || []).filter(function(v){ return v !== r.then_remove; });
+      else if (f === 'tags') result.tech = (result.tech || []).filter(function(v){ return v !== r.then_remove; });
+    });
+
+    // Phase 4: default (fallback for empty fields)
+    rules.forEach(function(r) {
+      if (!r.enabled || r.type !== 'default') return;
+      if (!r.value) return;
+      var f = r.field;
+      var empty = f === 'tb' ? !result.tb
+                : f === 'pos'  ? !(result.pos  && result.pos.length)
+                : f === 'cat'  ? !(result.cat  && result.cat.length)
+                : f === 'tags' ? !(result.tech && result.tech.length)
+                : false;
+      if (empty) _applyFA(f, 'add', r.value);
+    });
+
   } catch(e) {}
   return result;
 }
