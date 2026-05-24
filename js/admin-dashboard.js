@@ -1784,12 +1784,10 @@ window._renderTbQueue = function(container) {
   window._tbGroups = {};
 
   // ── プレイリスト単位でグループ化 ──
-  // TB推測: タイトル優先、なければプレイリスト名から（tag-wizardと同じ設計）
+  // TB推測: タイトル→プレイリスト→チャンネルの順でフォールバック (tag-masterと同じ設計)
   const getSuggest = v => {
     if (!autoTag) return [];
-    const fromTitle = autoTag(v.title || '').tb;
-    if (fromTitle.length) return fromTitle;
-    return autoTag(v.pl || '').tb;
+    return autoTag(v.title || '', v.pl || '', v.channel || '').tb;
   };
 
   const groups = new Map(); // plKey → {pl, ids[], suggest, allSame}
@@ -1907,7 +1905,7 @@ window._applyAllSuggestions = function() {
   const untagged = videos.filter(v => { const tb = Array.isArray(v.tb)?v.tb:(v.tb?[v.tb]:[]); return !tb.length; });
   let applied = 0;
   untagged.forEach(v => {
-    const suggest = autoTag((v.title||'') + ' ' + (v.pl||'')).tb;
+    const suggest = autoTag(v.title||'', v.pl||'', v.channel||'').tb;
     if (suggest.length === 1) { v.tb = suggest; v.tbLocked = true; applied++; }
   });
   if (applied) { window.debounceSave?.(); window.AF?.(); }

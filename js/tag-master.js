@@ -247,104 +247,154 @@ function _remapOldCatNames(videos) {
 }
 
 // ─── タイトルから自動タグ付け (ルールベース) ───────
-// AI API を使わず、タイトル文字列だけでタグを推定する
-// 取り込み直後に即座にタグが付くため、AI非同期タグ付けの補完として機能する
-function autoTagFromTitle(title) {
+// ════════════════════════════════════════════════════
+// AIのAPI呼び出しは一切なし。JavaScriptのみで完結する。
+//
+// TB 判定の優先チェーン:
+//   1. タイトル  → 明示的なキーワードで判定
+//   2. プレイリスト名 → タイトルで判定できない場合のフォールバック
+//   3. チャンネル名   → 最終フォールバック
+//
+// TB 定義:
+//   トップ       = 相手ガードの上にいる側。パスする・マウントを取る・コントロールする側
+//   ボトム       = ガードをかける側。スイープ・エスケープ・ガードリテンションを行う側
+//   スタンディング = 寝技に入る前の立ち技・テイクダウン局面
+//
+// 競合解決ルール (トップ+ボトム両方ヒット時):
+//   優先①: escape/エスケープ/ディフェンス → ボトム確定
+//           (例: マウントエスケープ = マウントされた下の人が逃げる動作)
+//   優先②: pass/パス/攻略/突破 → トップ確定
+//           (例: ガードパス = 上の人がガードを越える動作)
+//   解決不能: 両方保持のまま (TB判定キューで手動解決)
+//
+// ⚠ 既知の制約:
+//   _norm('ガード') = '' → 末尾 "guard/がど" 除去の副作用
+//   → 裸の「ガード」「guard」は rawGuardCheck で別処理
+// ════════════════════════════════════════════════════
+
+// TB キーワード定義 (関数外に出して再利用可能にする)
+const TB_KEYWORDS = {
+  'トップ': [
+    // ポジション名: 上の人が取るポジション
+    'トップ','top',
+    'mount','マウント',
+    'side control','サイドコントロール','side mount',
+    'north south','ノースサウス',
+    'ニーオン','knee on',
+    // バック系: バックを取る・コントロールする側
+    'back take','back mount','back control','back attack',
+    'バックテイク','バックマウント','バックコントロール','バックアタック',
+    // パスガード系: ガードを越える動作
+    'パス','pass','passing',
+    'torreando','torando','leg drag','stack','knee slice','ニースライス',
+    'guard break','guard breaker','guard opener','ガードブレイク',
+    // コントロール・プレッシャー系
+    'プレッシャー','pressure',
+    'コントロール','control',
+    'dominate',
+    // 攻略・対策系: 相手ガードを崩す文脈
+    '攻略','突破','制圧','崩し','対策',
+    // その他トップ動作
+    'smash','スマッシュ',
+  ],
+  'ボトム': [
+    // 明示的なボトムワード
+    'ボトム','bottom',
+    // 注: 'ガード'/'guard' 単体は _norm で空文字になるため rawGuardCheck で処理
+    // ガードシステム名 (特定ガードはボトムが使う)
+    'デラヒーバ','dlr','de la riva',
+    'ラッソ','lasso',
+    'スパイダー','spider',
+    'バタフライ','butterfly',
+    'xガード','x-guard','x guard',
+    'インバーテッド','inverted',
+    'ワーム','worm',
+    'ラペル','lapel',
+    '50/50','5050',
+    'サドル','saddle',
+    'ニーシールド','knee shield',
+    'kガード','k-guard','k guard',
+    'slx',
+    'ベリンボロ','berimbolo',
+    'クローズドガード','closed guard',
+    'ディープハーフ','deep half',
+    'ハーフ','half',
+    'オープンガード','open guard',
+    'ガードリカバリー','guard recovery',
+    'インサイドガード','inside guard',
+    // ボトムの動作
+    'スイープ','sweep',
+    'エスケープ','escape',
+    'リテンション','retention',
+    '引き込み',
+    'playing','from guard',
+  ],
+  'スタンディング': [
+    'スタンディング','standing',
+    'テイクダウン','takedown',
+    '立ち技','投げ','throw',
+    'レスリング','wrestling',
+    'シングルレッグ','single leg',
+    'ダブルレッグ','double leg',
+    'アンクルピック','ankle pick',
+    'ボディロック','body lock',
+    'ヒップスロー','hip throw','hip toss',
+    'タックル',
+    'モータル','morote','片足','両足',
+  ],
+};
+window.TB_KEYWORDS = TB_KEYWORDS;
+
+// ── TB検出ロジック (1テキストに対して実行) ──────────
+// text: タイトル / プレイリスト名 / チャンネル名 いずれでも可
+function _detectTbFromText(text) {
+  if (!text) return [];
+  const tNorm = _norm(text);
+  const found = [];
+
+  for (const [tb, keywords] of Object.entries(TB_KEYWORDS)) {
+    for (const kw of keywords) {
+      const kwn = _norm(kw);
+      if (kwn && tNorm.includes(kwn)) {
+        if (!found.includes(tb)) found.push(tb);
+        break;
+      }
+    }
+  }
+
+  // rawGuardCheck: _norm('ガード')='' になる制約の回避
+  if (/ガード|guard/i.test(text) && !found.includes('ボトム')) {
+    found.push('ボトム');
+  }
+
+  // 競合解決
+  if (found.includes('トップ') && found.includes('ボトム')) {
+    const n = tNorm;
+    const hasEscape = ['escape','エスケープ','ディフェンス','defense'].some(kw => { const kn = _norm(kw); return kn && n.includes(kn); });
+    if (hasEscape) {
+      return found.filter(t => t !== 'トップ'); // エスケープ → ボトム確定
+    }
+    const hasPass = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => n.includes(_norm(kw)));
+    if (hasPass) {
+      return found.filter(t => t !== 'ボトム'); // パスガード → トップ確定
+    }
+  }
+
+  return found;
+}
+window._detectTbFromText = _detectTbFromText;
+
+function autoTagFromTitle(title, pl = '', channel = '') {
   const result = { tb: [], cat: [], pos: [], tags: [] };
   if (!title) return result;
 
   const t = title;
   const tNorm = _norm(t);
 
-  // ── TB 判定 ──
-  const tbKeywords = {
-    'トップ': [
-      'トップ','top',
-      'パス','pass','passing',
-      'smash','スマッシュ',
-      'プレッシャー','pressure',
-      'コントロール','control',
-      'ニーオン','knee on',
-      'mount','マウント',
-      'side control','サイドコントロール','side mount',
-      'north south','ノースサウス',
-      'back take','back mount','back control','back attack',
-      'バックテイク','バックマウント','バックコントロール','バックアタック',
-      'dominate','beat',
-      '攻略','突破','制圧','崩し','対策',
-      'torreando','torando','leg drag','stack','knee slice','ニースライス',
-      'guard break','guard breaker','guard opener','ガードブレイク',
-    ],
-    'ボトム': [
-      'ボトム','bottom',
-      // 注: 'ガード'/'guard' 単体は _norm で空文字になるため下の raw チェックで処理
-      'スイープ','sweep',
-      'エスケープ','escape',
-      'リテンション','retention',
-      '引き込み',
-      'ハーフ','half',
-      'デラヒーバ','dlr','de la riva',
-      'ラッソ','lasso',
-      'スパイダー','spider',
-      'バタフライ','butterfly',
-      'xガード','x-guard','x guard',
-      'インバーテッド','inverted',
-      'ワーム','worm',
-      'ラペル','lapel',
-      '50/50','5050',
-      'サドル','saddle',
-      'ニーシールド','knee shield',
-      'kガード','k-guard','k guard',
-      'slx',
-      'ベリンボロ','berimbolo',
-      'クローズドガード','closed guard',
-      'ディープハーフ','deep half',
-      'オープンガード','open guard',
-      'ガードリカバリー','guard recovery',
-      'インサイドガード','inside guard',
-      'playing','from guard',
-    ],
-    'スタンディング': [
-      'スタンディング','standing',
-      'テイクダウン','takedown',
-      '立ち技','投げ','throw',
-      'レスリング','wrestling',
-      'シングルレッグ','single leg',
-      'ダブルレッグ','double leg',
-      'アンクルピック','ankle pick',
-      'ボディロック','body lock',
-      'ヒップスロー','hip throw','hip toss',
-      'タックル',
-    ],
-  };
-  for (const [tb, keywords] of Object.entries(tbKeywords)) {
-    for (const kw of keywords) {
-      if (_norm(kw) && tNorm.includes(_norm(kw))) {
-        if (!result.tb.includes(tb)) result.tb.push(tb);
-        break;
-      }
-    }
-  }
-
-  // ── ガード/guard の raw チェック ──
-  // _norm('ガード') = '' になるためキーワードループでは検出できない。
-  // 直接正規表現でタイトルに「ガード」「Guard」を含む場合はボトム候補に追加。
-  if (/ガード|guard/i.test(t) && !result.tb.includes('ボトム')) {
-    result.tb.push('ボトム');
-  }
-
-  // ── 競合解決 ──
-  if (result.tb.includes('トップ') && result.tb.includes('ボトム')) {
-    // 優先①: エスケープ/ディフェンス → ボトム確定（マウントエスケープ = 下から逃げる）
-    const hasEscape = ['escape','エスケープ','ディフェンス','defense'].some(kw => { const n = _norm(kw); return n && tNorm.includes(n); });
-    if (hasEscape) {
-      result.tb = result.tb.filter(t => t !== 'トップ');
-    } else {
-      // 優先②: パスガード系 → トップ確定（guard pass = 上から超える）
-      const hasPassToken = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => tNorm.includes(_norm(kw)));
-      if (hasPassToken) result.tb = result.tb.filter(t => t !== 'ボトム');
-    }
-  }
+  // ── TB 判定: タイトル → プレイリスト → チャンネルの順でフォールバック ──
+  result.tb = _detectTbFromText(title);
+  if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
+  if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
 
   // ── Category 判定 ──
   for (const c of CATEGORIES) {
@@ -380,7 +430,8 @@ function retagAllFromTitle() {
   let updated = 0;
   for (const v of videos) {
     if (!v.title) continue;
-    const tags = autoTagFromTitle(v.title);
+    // タイトル → プレイリスト → チャンネルの順でフォールバック
+    const tags = autoTagFromTitle(v.title, v.pl || '', v.channel || '');
     if (!tags) continue;
     let changed = false;
     // TB: 空の場合のみ追加
