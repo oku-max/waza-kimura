@@ -1780,6 +1780,8 @@ window._renderTbQueue = function(container) {
   }
 
   const TB_COLORS = { 'トップ':'var(--accent)', 'ボトム':'#4fc3f7', 'スタンディング':'var(--green)' };
+  // IDリストを onclick に直接埋め込むと " が属性クォートと衝突するため window に退避
+  window._tbGroups = {};
 
   // ── プレイリスト単位でグループ化 ──
   // TB推測: タイトル優先、なければプレイリスト名から（tag-wizardと同じ設計）
@@ -1807,9 +1809,11 @@ window._renderTbQueue = function(container) {
     // プレイリスト全体の推測: PLからの単一推測があるか
     const plOneSuggest = (plSuggest.length === 1) ? plSuggest[0] : null;
 
-    // プレイリスト行（折りたたみ式ヘッダー）
+    // プレイリスト行 — IDリストを window._tbGroups に退避してキーだけ onclick に渡す
+    const gid = 'g' + Array.from(groups.keys()).indexOf(pl);
+    window._tbGroups[gid] = ids;
     const plBtns = ['トップ','ボトム','スタンディング'].map(tb =>
-      `<button onclick="window._assignTbBulk(${JSON.stringify(ids)}, '${tb}')" style="${btnStyle(tb)}">全${gvids.length}本 ${tb}</button>`
+      `<button onclick="window._assignTbBulk(window._tbGroups['${gid}'], '${tb}')" style="${btnStyle(tb)}">全${gvids.length}本 ${tb}</button>`
     ).join('');
     const plSuggestBadge = plOneSuggest
       ? `<span style="font-size:10px;padding:1px 8px;border-radius:8px;background:${TB_COLORS[plOneSuggest]};color:#fff;font-weight:700">PL→${plOneSuggest}</span>`
@@ -1820,7 +1824,7 @@ window._renderTbQueue = function(container) {
         <div style="flex:1;font-size:11px;font-weight:700;color:var(--text2);min-width:0;word-break:break-all">📁 ${_esc(pl)} <span style="color:var(--text3);font-weight:400">(${gvids.length}本)</span></div>
         ${plSuggestBadge}
         <div style="display:flex;gap:4px;flex-wrap:wrap">${plBtns}</div>
-        <button onclick="window._assignTbBulk(${JSON.stringify(ids)}, null)" style="background:var(--surface);border:1px solid var(--border);color:var(--text3);padding:3px 8px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit">全スキップ</button>
+        <button onclick="window._assignTbBulk(window._tbGroups['${gid}'], null)" style="background:var(--surface);border:1px solid var(--border);color:var(--text3);padding:3px 8px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit">全スキップ</button>
       </div>
       <div style="padding:4px 10px">`;
 
