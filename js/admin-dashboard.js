@@ -726,6 +726,16 @@ function _renderCategories() {
   });
 
   el.innerHTML = `
+    <!-- カテゴリ カバレッジ診断 -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">🔬 カテゴリ カバレッジ診断</div>
+      <div id="cat-analysis-result" style="font-size:12px;color:var(--text3);margin-bottom:10px">未実行 — 「診断実行」を押してください</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="window._analyzeCatCoverage()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 診断実行</button>
+        <button onclick="window._applyAllCatSuggestions()" style="background:var(--accent);color:var(--on-accent);border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚡ 推測を全一括適用</button>
+      </div>
+    </div>
+
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)">${dict.length}</span>
@@ -1755,6 +1765,63 @@ window._analyzeTbCoverage = function() {
   }
   window.toast?.(`📊 TB診断: ${covered}/${total}本 (${pct}%) カバー済`);
   return { total, covered, empty, top, bot, stand, topBot };
+};
+
+// ── カテゴリ カバレッジ診断 ──
+window._analyzeCatCoverage = function() {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  if (!videos.length) { window.toast?.('動画がありません（ログイン後に実行してください）'); return; }
+
+  const total = videos.length;
+  let withCat = 0, withoutCat = 0, canSuggest = 0;
+  const catCounts = {};
+  const autoTag = window.autoTagFromTitle;
+
+  videos.forEach(v => {
+    const cat = Array.isArray(v.cat) ? v.cat : (v.cat ? [v.cat] : []);
+    if (cat.length) {
+      withCat++;
+      cat.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
+    } else {
+      withoutCat++;
+      if (autoTag) {
+        const suggest = autoTag(v.title || '', v.pl || '', v.channel || '').cat;
+        if (suggest.length) canSuggest++;
+      }
+    }
+  });
+
+  const pct = total ? Math.round(withCat / total * 100) : 0;
+  const topCats = Object.entries(catCounts).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+  const el = document.getElementById('cat-analysis-result');
+  if (el) {
+    el.innerHTML = [
+      `全動画 <b>${total}</b> 本 → カテゴリ設定済 <b style="color:var(--green)">${withCat}</b> 本 (<b>${pct}%</b>) / 未設定 <b style="color:var(--red)">${withoutCat}</b> 本`,
+      canSuggest ? `未設定のうち自動推測可能: <b style="color:var(--accent)">${canSuggest}</b> 本 → ⚡ 推測を全一括適用で処理できます` : '',
+      topCats.length ? `上位: ${topCats.map(([n,c])=>`<b>${n}</b> ${c}本`).join(' / ')}` : '',
+    ].filter(Boolean).join('<br>');
+    el.style.color = 'var(--text2)';
+  }
+  window.toast?.(`📊 カテゴリ診断: ${withCat}/${total}本 (${pct}%) カバー済`);
+  return { total, withCat, withoutCat, canSuggest };
+};
+
+// カテゴリ推測を未設定動画に一括適用
+window._applyAllCatSuggestions = function() {
+  const autoTag = window.autoTagFromTitle;
+  if (!autoTag) return;
+  const videos = (window.videos || []).filter(v => !v.archived);
+  let applied = 0;
+  videos.forEach(v => {
+    const cat = Array.isArray(v.cat) ? v.cat : (v.cat ? [v.cat] : []);
+    if (cat.length) return; // すでにカテゴリあり → スキップ
+    const suggest = autoTag(v.title || '', v.pl || '', v.channel || '').cat;
+    if (suggest.length) { v.cat = suggest; applied++; }
+  });
+  if (applied) { window.debounceSave?.(); window.AF?.(); }
+  window.toast?.(`⚡ ${applied}本にカテゴリを適用しました`);
+  window._analyzeCatCoverage();
 };
 
 // ── TB判定キュー ──
