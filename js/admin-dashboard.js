@@ -170,6 +170,8 @@ function _renderAccuracy() {
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="window._analyzeTbCoverage()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 診断実行</button>
         <button onclick="window._showUntaggedTb()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 未設定リスト</button>
+        <button onclick="window._previewTbConflicts()" style="background:var(--surface2);border:1px solid var(--border);color:var(--red);padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">⚠ 競合プレビュー</button>
+        <button onclick="window._fixTbConflicts()" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🔧 競合修正</button>
       </div>
       <div id="tb-untagged-list" style="margin-top:10px;max-height:300px;overflow-y:auto;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.8;display:none"></div>
     </div>
@@ -1785,6 +1787,82 @@ window._showUntaggedTb = function() {
 
   container.innerHTML = `<div style="margin-bottom:6px;color:var(--text3)">未設定 ${untagged.length}本 (先頭200件) — [ ] 内はアルゴリズム推測</div>` + lines.join('');
   container.style.display = '';
+};
+
+// ── TB競合プレビュー（実行前に何件修正されるか確認）──
+window._previewTbConflicts = function() {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  const norm = s => (s||'').toLowerCase().replace(/[\s\-_/・]/g,'');
+  const TOP_WIN = ['pass','passing','パス','pasu','mount','マウント','sidecontrol','サイドコントロール','northsouth','ノースサウス','dominate','beat','攻略','突破','制圧','崩し','対策','torreando','legdrag','stack','kneeslice','smash','pressure'];
+  const BOT_WIN = ['playing','fromguard','ガードから','guardpull','引き込み','closedguard','クローズドガード','butterflyguard','spiderguard','dlr','delariva','lasso','berimbolo','slx','kguard','deephalf'];
+
+  let toTop = [], toBot = [], skip = [];
+  videos.forEach(v => {
+    const tb = Array.isArray(v.tb) ? v.tb : [];
+    if (!tb.includes('トップ') || !tb.includes('ボトム')) return;
+    const t = norm((v.pl||'') + ' ' + (v.title||''));
+    const hasTop = TOP_WIN.some(kw => t.includes(kw));
+    const hasBot = BOT_WIN.some(kw => t.includes(kw));
+    const label = ((v.pl||'') + ' ' + (v.title||'')).substring(0,80).trim();
+    if (hasTop && !hasBot)       toTop.push(label);
+    else if (hasBot && !hasTop)  toBot.push(label);
+    else                         skip.push(label);
+  });
+
+  const container = document.getElementById('tb-untagged-list');
+  if (container) {
+    container.innerHTML = [
+      `<div style="margin-bottom:8px;color:var(--text2);font-weight:700">競合 ${toTop.length+toBot.length+skip.length}本の内訳（プレビュー）</div>`,
+      `<div style="color:var(--accent);margin-bottom:4px">▶ トップのみに修正: ${toTop.length}本</div>`,
+      ...toTop.slice(0,30).map(l=>`<div style="padding:1px 0;padding-left:10px;border-bottom:1px solid var(--border2)">${l}</div>`),
+      `<div style="color:#4fc3f7;margin:8px 0 4px">▶ ボトムのみに修正: ${toBot.length}本</div>`,
+      ...toBot.slice(0,30).map(l=>`<div style="padding:1px 0;padding-left:10px;border-bottom:1px solid var(--border2)">${l}</div>`),
+      `<div style="color:#888;margin:8px 0 4px">▶ 判定不能（手動確認必要）: ${skip.length}本</div>`,
+      ...skip.slice(0,20).map(l=>`<div style="padding:1px 0;padding-left:10px;border-bottom:1px solid var(--border2)">${l}</div>`),
+    ].join('');
+    container.style.display = '';
+  }
+  window.toast?.(`プレビュー: TOP修正${toTop.length}本, BOT修正${toBot.length}本, 不明${skip.length}本`);
+};
+
+// ── TB競合一括修正（確認後に実行）──
+window._fixTbConflicts = function() {
+  const videos = (window.videos || []).filter(v => !v.archived);
+  const norm = s => (s||'').toLowerCase().replace(/[\s\-_/・]/g,'');
+  const TOP_WIN = ['pass','passing','パス','pasu','mount','マウント','sidecontrol','サイドコントロール','northsouth','ノースサウス','dominate','beat','攻略','突破','制圧','崩し','対策','torreando','legdrag','stack','kneeslice','smash','pressure'];
+  const BOT_WIN = ['playing','fromguard','ガードから','guardpull','引き込み','closedguard','クローズドガード','butterflyguard','spiderguard','dlr','delariva','lasso','berimbolo','slx','kguard','deephalf'];
+
+  const conflicts = videos.filter(v => {
+    const tb = Array.isArray(v.tb) ? v.tb : [];
+    return tb.includes('トップ') && tb.includes('ボトム');
+  });
+  if (!conflicts.length) { window.toast?.('競合はありません'); return; }
+
+  // プレビュー件数を計算
+  let toTop = 0, toBot = 0, skip = 0;
+  conflicts.forEach(v => {
+    const t = norm((v.pl||'') + ' ' + (v.title||''));
+    const hasTop = TOP_WIN.some(kw => t.includes(kw));
+    const hasBot = BOT_WIN.some(kw => t.includes(kw));
+    if (hasTop && !hasBot) toTop++;
+    else if (hasBot && !hasTop) toBot++;
+    else skip++;
+  });
+
+  if (!confirm(`TB競合 ${conflicts.length}本を修正します:\n・トップのみに: ${toTop}本\n・ボトムのみに: ${toBot}本\n・判定不能(スキップ): ${skip}本\n\n実行しますか？`)) return;
+
+  let fixed = 0;
+  conflicts.forEach(v => {
+    const t = norm((v.pl||'') + ' ' + (v.title||''));
+    const hasTop = TOP_WIN.some(kw => t.includes(kw));
+    const hasBot = BOT_WIN.some(kw => t.includes(kw));
+    if (hasTop && !hasBot)      { v.tb = (v.tb||[]).filter(x => x !== 'ボトム'); fixed++; }
+    else if (hasBot && !hasTop) { v.tb = (v.tb||[]).filter(x => x !== 'トップ'); fixed++; }
+  });
+
+  if (fixed) { window.debounceSave?.(); window.AF?.(); }
+  window.toast?.(`🔧 ${fixed}本の競合を修正しました（${skip}本はスキップ）`);
+  window._analyzeTbCoverage();
 };
 
 // 未確認スキャン提案をクリア（承認/却下済みは残す）
