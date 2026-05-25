@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alias Builder v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2f2f6;--card:#fff;--border:#e2e2e8;
+  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --blue:#2a6faa;--green:#2e8b57;--purple:#6a3fa0;
+  --gold:#b8860b;--red:#c0392b;
+  --top-bg:#e8eef8;--top-c:#2040a0;
+  --bot-bg:#e8f4e8;--bot-c:#206020;
+  --std-bg:#f3eef8;--std-c:#6020a0;
+  --neu-bg:#f0f0f0;--neu-c:#555;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino Sans','Segoe UI',sans-serif;font-size:14px}
+
+/* ── screens ── */
+#s-auth{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:16px;padding:40px 20px}
+#s-auth h1{font-size:22px;font-weight:700}
+#s-auth .sub{font-size:13px;color:var(--text3);text-align:center}
+.btn-google{display:flex;align-items:center;gap:10px;padding:12px 24px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.btn-google:hover{background:#f8f8f8}
+
+#s-load{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-msg{font-size:13px;color:var(--text3)}
+
+#s-main{display:none;max-width:500px;margin:0 auto;padding-bottom:60px}
+
+/* ── tabs ── */
+.tab-bar{display:flex;border-bottom:2px solid var(--border);background:var(--card);position:sticky;top:0;z-index:20}
+.tab-btn{flex:1;padding:12px 4px;border:none;background:none;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-badge{display:inline-block;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle}
+
+/* ── progress ── */
+.prog-wrap{padding:10px 16px 0}
+.prog-row{display:flex;justify-content:space-between;margin-bottom:5px}
+.prog-label{font-size:12px;color:var(--text3)}
+.prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--blue);transition:width .3s}
+
+/* ── word card ── */
+.wcard{background:var(--card);border-radius:12px;margin:12px 16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.word-pos{font-size:11px;color:var(--text3);text-align:center;margin-bottom:4px}
+.word-text{font-size:30px;font-weight:800;text-align:center;margin-bottom:4px;word-break:break-all}
+.word-count{text-align:center;font-size:12px;color:var(--text3);margin-bottom:16px}
+
+/* ── AI box ── */
+.ai-box{background:#f8f4ff;border:1.5px solid #c8a8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.ai-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.ai-lbl{font-size:10px;font-weight:800;color:#6a3fa0;letter-spacing:.5px;text-transform:uppercase}
+.ai-val{font-size:17px;font-weight:800;color:var(--text)}
+.tb-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;vertical-align:middle;margin-left:6px}
+.tb-top{background:var(--top-bg);color:var(--top-c)}
+.tb-bot{background:var(--bot-bg);color:var(--bot-c)}
+.tb-std{background:var(--std-bg);color:var(--std-c)}
+.tb-neu{background:var(--neu-bg);color:var(--neu-c)}
+.ai-reason{font-size:11px;color:#888;margin-top:3px}
+
+/* ── thumbnails ── */
+.thumbs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.thumb-a{flex-shrink:0;width:100px;text-decoration:none}
+.thumb-img{width:100px;height:56px;object-fit:cover;border-radius:6px;background:#eee;display:block}
+.thumb-title{font-size:9px;color:var(--text3);margin-top:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── accept button ── */
+.btn-accept{width:100%;padding:15px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:14px;transition:opacity .15s}
+.btn-accept:hover{opacity:.88}
+
+/* ── or divider ── */
+.or-div{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin-bottom:10px}
+.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── category buttons ── */
+.cat-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.cat-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:left;transition:background .1s,border-color .1s;width:100%}
+.cat-btn:hover{background:#eef4ff;border-color:var(--blue)}
+.cat-btn .tb-badge{flex-shrink:0}
+
+/* ── action row ── */
+.act-row{display:flex;gap:7px;margin-bottom:12px}
+.btn-pos{flex:1;padding:11px;border-radius:8px;border:1.5px solid #90c878;background:#f0fce8;color:#306010;font-size:12px;font-weight:700;cursor:pointer}
+.btn-pos:hover{background:#e4f8d8}
+.btn-hold{flex:1;padding:11px;border-radius:8px;border:1.5px solid #e0c070;background:#fdf8e0;color:#806020;font-size:12px;font-weight:700;cursor:pointer}
+.btn-hold:hover{background:#f8f0c8}
+.btn-ignore{flex:1;padding:11px;border-radius:8px;border:1.5px solid #ccc;background:#f5f5f5;color:#888;font-size:12px;font-weight:700;cursor:pointer}
+.btn-ignore:hover{background:#eee}
+
+/* ── nav ── */
+.nav-row{display:flex;gap:8px;padding:0 16px;margin-top:2px}
+.btn-nav{flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer}
+.btn-nav:hover{background:#f0f0f0}
+
+/* ── hold tab ── */
+.hold-list{padding:10px 16px;display:flex;flex-direction:column;gap:10px}
+.hold-item{background:var(--card);border-radius:10px;padding:14px;border:1px solid var(--border)}
+.hold-word{font-size:18px;font-weight:800;margin-bottom:6px}
+.hold-vlist{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.hold-vlink{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--blue);font-size:12px}
+.hold-vlink:hover{text-decoration:underline}
+.hold-vthumb{width:54px;height:30px;object-fit:cover;border-radius:4px;background:#eee;flex-shrink:0}
+.hold-resolve{display:flex;flex-wrap:wrap;gap:5px}
+.btn-res{padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:background .1s,border-color .1s}
+.btn-res:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-res.pos{border-color:#90c878;background:#f0fce8;color:#306010}
+.btn-res.ignore{border-color:#ccc;color:#aaa}
+
+/* ── done tab ── */
+.done-wrap{padding:10px 16px 6px}
+.done-group{margin-bottom:14px}
+.done-glabel{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.done-chips{display:flex;flex-wrap:wrap;gap:4px}
+.done-chip{padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;border:1.5px solid;cursor:pointer;background:#fff;transition:opacity .1s}
+.done-chip:hover{opacity:.65}
+.btn-export{display:block;width:calc(100% - 32px);margin:8px 16px 12px;padding:12px;border-radius:8px;border:none;background:var(--gold);color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+.export-out{margin:0 16px 20px;background:#1a1a2e;color:#a8d8a8;font-size:11px;padding:12px;border-radius:8px;font-family:monospace;line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;display:none}
+
+/* ── empty / done states ── */
+.empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px;line-height:1.7}
+.all-done{text-align:center;padding:32px 20px}
+.all-done .big{font-size:48px;margin-bottom:12px}
+.all-done .msg{font-size:14px;color:var(--text2);margin-bottom:16px}
+
+/* ── toast ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(26,26,46,.92);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+</style>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+</head>
+<body>
+
+<!-- Auth -->
+<div id="s-auth">
+  <div style="font-size:36px">📚</div>
+  <h1>Alias Builder</h1>
+  <p class="sub">管理者アカウントでログインして<br>エイリアス分類を開始します</p>
+  <button class="btn-google" onclick="signIn()">
+    <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    Google でログイン
+  </button>
+</div>
+
+<!-- Loading -->
+<div id="s-load">
+  <div class="spinner"></div>
+  <div class="load-msg" id="load-msg">データを読み込み中…</div>
+</div>
+
+<!-- Main -->
+<div id="s-main">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('card')" id="tbtn-card">分類作業</button>
+    <button class="tab-btn" onclick="switchTab('hold')" id="tbtn-hold">保留<span class="tab-badge" id="hold-badge" style="display:none">0</span></button>
+    <button class="tab-btn" onclick="switchTab('done')" id="tbtn-done">完了済み</button>
+  </div>
+
+  <!-- Card tab -->
+  <div id="tab-card">
+    <div class="prog-wrap">
+      <div class="prog-row">
+        <span class="prog-label" id="prog-label">0 / 0</span>
+        <span class="prog-label" id="prog-pct">0%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0"></div></div>
+    </div>
+    <div id="word-card" class="wcard"></div>
+    <div class="nav-row">
+      <button class="btn-nav" onclick="navigate(-1)">← 前へ</button>
+      <button class="btn-nav" onclick="navigate(1)">次へ →</button>
+    </div>
+  </div>
+
+  <!-- Hold tab -->
+  <div id="tab-hold" style="display:none">
+    <div class="hold-list" id="hold-list"></div>
+  </div>
+
+  <!-- Done tab -->
+  <div id="tab-done" style="display:none">
+    <div class="done-wrap" id="done-wrap"></div>
+    <button class="btn-export" onclick="exportAliases()">📋 alias をエクスポート</button>
+    <div class="export-out" id="export-out"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// Firebase
+// ═══════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyC1VafF24ys4XdTZe7lqIDAZjSmOUqM6Lw",
+  authDomain: "waza-kimura.firebaseapp.com",
+  projectId: "waza-kimura",
+  storageBucket: "waza-kimura.firebasestorage.app",
+  messagingSenderId: "502684957551",
+  appId: "1:502684957551:web:0e16f0d37868851479869a"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+db.settings({ experimentalForceLongPolling: true });
+const storage = firebase.storage();
+
+// ═══════════════════════════════════════════════════════
+// Master data (inlined from tag-master.js)
+// ═══════════════════════════════════════════════════════
+const CATS = [
+  {name:'エスケープ・ディフェンス',    tb:'中立'          },
+  {name:'ガード構築・エントリー',       tb:'ボトム'        },
+  {name:'ガードリテンション',           tb:'ボトム'        },
+  {name:'コントロール／プレッシャー',   tb:'中立'          },
+  {name:'コンセプト・原理',             tb:'中立'          },
+  {name:'スイープ',                     tb:'ボトム'        },
+  {name:'テイクダウン',                 tb:'スタンディング'},
+  {name:'バックテイク・バックアタック', tb:'中立'          },
+  {name:'パスガード',                   tb:'トップ'        },
+  {name:'フィニッシュ',                 tb:'中立'          },
+  {name:'テクニック（ボトム）',         tb:'ボトム'        },
+  {name:'テクニック（トップ）',         tb:'トップ'        },
+];
+const TB_CLS = {トップ:'tb-top',ボトム:'tb-bot',スタンディング:'tb-std',中立:'tb-neu'};
+
+const POSITIONS = [
+  {id:'fifty',    ja:'50/50',              aliases:['5050','フィフティフィフティ','fifty fifty']},
+  {id:'seventy',  ja:'70/30ガード',        aliases:['70/30','seventy thirty']},
+  {id:'kguard',   ja:'Kガード',            aliases:['K-Guard','K Guard','ケーガード']},
+  {id:'slx',      ja:'SLX',               aliases:['シングルレッグX','シングルレッグXガード','Single Leg X','Single X']},
+  {id:'xguard',   ja:'Xガード',            aliases:['X-Guard','X Guard','エックスガード']},
+  {id:'inverted', ja:'インバーテッド',     aliases:['Inverted','Inverted Guard','トルネードガード','Tornado Guard']},
+  {id:'open',     ja:'オープンガード',     aliases:['Open Guard','open guard']},
+  {id:'octopus',  ja:'オクトパスガード',   aliases:['Octopus','Octopus Guard']},
+  {id:'collar',   ja:'片襟片袖',           aliases:['Collar Sleeve','Collar Sleeve Guard','カラースリーブ']},
+  {id:'closed',   ja:'クローズドガード',   aliases:['Closed','Closed Guard','クロガ','フルガード','full guard']},
+  {id:'cross',    ja:'クロスガード',       aliases:['Cross Guard','cross guard']},
+  {id:'saddle',   ja:'サドル',             aliases:['Saddle','411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole','ashi garami']},
+  {id:'situp',    ja:'シッティングガード', aliases:['Sit-Up Guard','シットアップガード','sit up guard','seated guard']},
+  {id:'slguard',  ja:'シングルレッグガード',aliases:['Single Leg Guard','single leg guard']},
+  {id:'standing', ja:'スタンディング',     aliases:['Standing','Stand Up','立ち','立ち技']},
+  {id:'spider',   ja:'スパイダーガード',   aliases:['Spider','Spider Guard','スパイダ','インバーテッドスパイダー']},
+  {id:'turtle',   ja:'タートル',           aliases:['Turtle','Turtle Position','亀']},
+  {id:'deephalf', ja:'ディープハーフ',     aliases:['Deep Half','Deep Half Guard','ディープ']},
+  {id:'dlr',      ja:'デラヒーバ',         aliases:['DLR','De La Riva','De La Riva Guard','デラヒバ']},
+  {id:'kneeshield',ja:'ニーシールド',      aliases:['Knee Shield','Z Guard','Z-Guard','Zガード']},
+  {id:'half',     ja:'ハーフガード',       aliases:['Half','Half Guard','ハーフ','脇差し','アンダーフックハーフ','ロックダウン','underhook half','lockdown']},
+  {id:'butterfly',ja:'バタフライガード',   aliases:['Butterfly','Butterfly Guard','バタフラ','ハーフバタフライ','half butterfly']},
+  {id:'lasso',    ja:'ラッソーガード',     aliases:['Lasso','Lasso Guard','ラッソ','シャローラッソー']},
+  {id:'lapel',    ja:'ラペルガード',       aliases:['Lapel','Lapel Guard','ワームガード','Worm Guard','Worm','スクイッドガード','Squid Guard','グッバーガード']},
+  {id:'rdlr',     ja:'リバースデラヒーバ', aliases:['RDLR','Reverse De La Riva','Reverse DLR','リバデラ']},
+  {id:'revhalf',  ja:'リバースハーフガード',aliases:['Reverse Half Guard','Reverse Half','リバースハーフ']},
+];
+
+// CATEGORIES aliases (for AI matching, subset of tag-master.js)
+const CAT_ALIASES = [
+  {name:'エスケープ・ディフェンス', al:['Escape','Defense','ディフェンス','エスケープ','サバイバル','survival','脱出','逃げ方','ダメージコントロール','damage control','ブリッジ','bridge','アンパス','unpass']},
+  {name:'ガード構築・エントリー',   al:['Guard Entry','Setup','エントリー','ガード構築','入り方','入り口','作り方','取り方','引き込み','セットアップ','getting to guard']},
+  {name:'ガードリテンション',       al:['Guard Retention','Retention','リテンション','リガード','reguard','re-guard','ガードの守り','フレーミング','framing','足を切られない','カットされない']},
+  {name:'コントロール／プレッシャー',al:['Control','Pressure','Top Control','コントロール','プレッシャー','キープ','維持','ピン','pin','抑え込み','ホールドダウン','hold down','ドミネート','dominate']},
+  {name:'コンセプト・原理',         al:['Concept','Principle','理論','コンセプト','セオリー','theory','原理','原則','考え方','哲学','ファンダメンタル','fundamentals','ストラテジー','strategy','メカニクス','mechanics','システム','system']},
+  {name:'スイープ',                 al:['Sweep','スイープ','切り返し','ひっくり返し','リバーサル','elevator','エレベーター','scissor','シザー']},
+  {name:'テイクダウン',             al:['Takedown','Throw','投げ','テイクダウン','タックル','レスリング','wrestling','シングルレッグ','single leg','ダブルレッグ','double leg','アンクルピック','ankle pick','ヒップスロー','hip throw','judo','柔道','払い腰','大外刈','大内刈','足払い','内股','巴投げ','trip','body lock takedown']},
+  {name:'バックテイク・バックアタック',al:['Back Take','Back Attack','バックテイク','バックアタック','back mount','back control','バックマウント','バックコントロール','シートベルト','seat belt','ボウアンドアロー','bow and arrow','RNC','rear naked choke','リアネイキッドチョーク']},
+  {name:'パスガード',               al:['Guard Pass','Passing','パス','パスガード','ニーカット','knee cut','ニースライス','knee slice','torreando','torando','スタックパス','stack pass','レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass']},
+  {name:'フィニッシュ',             al:['Submission','Finish','サブミッション','フィニッシュ','極め','絞め技','関節技','タップ','アームバー','armbar','腕十字','アームロック','arm lock','キムラ','kimura','オモプラッタ','omoplata','ウメプラタ','チョーク','choke','絞め','三角','三角絞め','triangle','ギロチン','guillotine','ダースチョーク','darce','アナコンダ','anaconda','クロックチョーク','clock choke','ベースボールチョーク','baseball choke','ノースサウスチョーク','north south choke','ヒールフック','heel hook','フットロック','foot lock','アンクルロック','ankle lock','ニーバー','knee bar','トーホールド','toe hold','ストレートフットロック','straight foot lock','インサイドヒール','inside heel','アウトサイドヒール','outside heel','足関節','レッグロック','leg lock']},
+];
+
+const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
+const TB_KW_BOT = ['ボトム','bottom','デラヒーバ','dlr','de la riva','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k guard','slx','ベリンボロ','berimbolo','クローズドガード','closed guard','ディープハーフ','deep half','ハーフ','half','オープンガード','open guard','ガードリカバリー','guard recovery','スイープ','sweep','エスケープ','escape','リテンション','retention','引き込み'];
+
+// ─── _norm (from tag-master.js) ──────────────────────
+function _norm(s) {
+  if (!s) return '';
+  let v = String(s);
+  v = v.replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  v = v.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  v = v.toLowerCase();
+  v = v.replace(/[ー\-_/\s・,.、。]+/g, '');
+  v = v.replace(/(がーど|がど|guard)$/i, '');
+  return v;
+}
+
+// ─── Stopwords ───────────────────────────────────────
+const SW_JA = new Set(['の','を','が','は','に','で','と','も','から','まで','より','など','て','し','な','い','う','こと','もの','ため','際','場合','として','について','という','ような','ので','けど','ながら','する','した','して','できる','わかる','なる','ある','いる','方','その','この','あの','どう','なぜ','なに','何','それ','これ','あれ','でも','しかし','また','そして','つまり','完全','完璧','最強','最高','最新','必見','必須','おすすめ','まとめ','解説','入門','基礎','基本','応用','道場','先生','師匠','試合','世界','日本']);
+const SW_EN = new Set(['a','an','the','and','or','of','to','in','for','on','at','by','from','with','about','is','are','was','were','be','been','have','has','had','do','does','did','will','would','could','should','may','might','can','you','your','my','i','we','vs','bjj','mma','jiu','jitsu','jiujitsu','grappling','no','gi','how','why','what','when','where','who','if','this','that']);
+const EP_PAT = /^(part|vol|ep|lecture|lesson|第)[0-9０-９]*$|^[0-9０-９]+(回|講|号|章|本目|部)$|^#?[0-9０-９]+$/i;
+
+// ═══════════════════════════════════════════════════════
+// Tokenizer
+// ═══════════════════════════════════════════════════════
+function tokenize(title) {
+  if (!title) return [];
+  // Strip long bracket content (channel names)
+  let t = title
+    .replace(/【[^】]{12,}】/g, ' ')
+    .replace(/\([^)]{12,}\)/g, ' ')
+    .replace(/（[^）]{12,}）/g, ' ');
+
+  const parts = t.split(/[\s　【】「」『』（）()[\]＆&＃#・〜~→←↑↓★☆♪●○■□▶！!？?。、,.\|｜\/]+/);
+  const result = new Set();
+  const enWords = [];
+
+  for (const tok of parts) {
+    const w = tok.trim();
+    if (!w || w.length < 2) continue;
+    if (EP_PAT.test(w)) continue;
+    if (/^(part|vol|ep|no\.?|lecture|lesson)\.?\d+$/i.test(w)) continue;
+
+    const wl = w.toLowerCase();
+    if (SW_JA.has(w) || SW_EN.has(wl)) continue;
+
+    // Japanese compound (kanji + kana, 2+ chars)
+    if (/^[぀-鿿ｦ-ﾟ]+$/.test(w) && w.length >= 2) {
+      result.add(w);
+    }
+    // Katakana compound
+    else if (/^[゠-ヿ]+$/.test(w) && w.length >= 2) {
+      result.add(w);
+    }
+    // English word (letters, maybe digits/slash for 50/50)
+    else if (/^[a-zA-Z]{2,}$/.test(w)) {
+      result.add(w);
+      enWords.push(wl);
+    }
+    // Mixed (Xガード, 50/50, SLX, etc.)
+    else if (w.length >= 2 && /[぀-鿿a-zA-Z]/.test(w) && !/^[\d０-９]+$/.test(w)) {
+      result.add(w);
+    }
+  }
+
+  // English bigrams (e.g., "leg drag", "arm bar", "back take")
+  for (let i = 0; i < enWords.length - 1; i++) {
+    if (!SW_EN.has(enWords[i]) && !SW_EN.has(enWords[i+1])) {
+      result.add(enWords[i] + ' ' + enWords[i+1]);
+    }
+  }
+
+  return Array.from(result);
+}
+
+// ═══════════════════════════════════════════════════════
+// AI pre-classification
+// ═══════════════════════════════════════════════════════
+function aiSuggest(word) {
+  const n = _norm(word);
+  if (!n || n.length < 1) return {type:'ignore', label:'無視', reason:'短すぎ'};
+
+  // 1. Exact match in POSITIONS
+  for (const p of POSITIONS) {
+    const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(Boolean);
+    if (keys.some(k => k === n)) {
+      return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション一致: ${p.ja}`};
+    }
+  }
+
+  // 2. Partial POSITIONS match (longer keys, 3+ chars to avoid false positives)
+  for (const p of POSITIONS) {
+    const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(k => k && k.length >= 3);
+    if (n.length >= 3 && keys.some(k => k.includes(n) || n.includes(k))) {
+      return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション類似: ${p.ja}`};
+    }
+  }
+
+  // 3. Exact match in CAT_ALIASES
+  for (const c of CAT_ALIASES) {
+    const keys = [c.name, ...(c.al||[])].map(_norm).filter(Boolean);
+    if (keys.some(k => k === n)) {
+      return {type:'cat', catName:c.name, label:c.name, reason:'カテゴリ一致'};
+    }
+  }
+
+  // 4. Partial CAT_ALIASES match (3+ chars)
+  for (const c of CAT_ALIASES) {
+    const keys = [c.name, ...(c.al||[])].map(_norm).filter(k => k && k.length >= 3);
+    if (n.length >= 3 && keys.some(k => k.includes(n) || n.includes(k))) {
+      return {type:'cat', catName:c.name, label:c.name, reason:'カテゴリ部分一致'};
+    }
+  }
+
+  // 5. TB_KEYWORDS トップ → テクニック（トップ）
+  const topNorms = TB_KW_TOP.map(_norm).filter(k => k && k.length >= 2);
+  if (topNorms.some(k => k === n || (n.length >= 3 && k.length >= 3 && (k.includes(n) || n.includes(k))))) {
+    return {type:'cat', catName:'テクニック（トップ）', label:'テクニック（トップ）', reason:'トップ系キーワードに一致'};
+  }
+
+  // 6. TB_KEYWORDS ボトム → テクニック（ボトム）
+  const botNorms = TB_KW_BOT.map(_norm).filter(k => k && k.length >= 2);
+  if (botNorms.some(k => k === n || (n.length >= 3 && k.length >= 3 && (k.includes(n) || n.includes(k))))) {
+    return {type:'cat', catName:'テクニック（ボトム）', label:'テクニック（ボトム）', reason:'ボトム系キーワードに一致'};
+  }
+
+  // 7. Default → 保留
+  return {type:'hold', label:'保留', reason:'判断不能'};
+}
+
+// ═══════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════
+let uid       = null;
+let wordItems = [];   // [{word, count, vids:[{ytId,title}], sug, dec}]
+let curIdx    = 0;
+let pending   = {};   // word → {d,c,t} to save
+let saveTimer = null;
+let curTab    = 'card';
+
+// ═══════════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════════
+function signIn() {
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(e => showToast('ログイン失敗: ' + e.message));
+}
+
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    uid = user.uid;
+    show('s-load');
+    await loadAll();
+  } else {
+    show('s-auth');
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// Load
+// ═══════════════════════════════════════════════════════
+async function loadAll() {
+  setMsg('保存済みデータを確認中…');
+  let saved = {};
+  try {
+    const snap = await db.doc(`users/${uid}/data/alias_builder`).get();
+    if (snap.exists) saved = snap.data().words || {};
+  } catch(e) { console.warn('alias_builder load:', e); }
+
+  setMsg('動画リストを読み込み中…');
+  let videos = [];
+  try {
+    const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
+    const res = await fetch(url);
+    const json = await res.json();
+    videos = json.videos || [];
+  } catch(e) {
+    try {
+      const snap = await db.doc(`users/${uid}/data/videos`).get();
+      videos = snap.data()?.videos || [];
+    } catch(e2) { console.warn('videos load:', e2); }
+  }
+
+  setMsg(`${videos.length}本を分析中…`);
+  buildItems(videos, saved);
+  show('s-main');
+  renderCard();
+  updateBadges();
+}
+
+function setMsg(m) { document.getElementById('load-msg').textContent = m; }
+
+// ═══════════════════════════════════════════════════════
+// Build word items
+// ═══════════════════════════════════════════════════════
+function buildItems(videos, saved) {
+  const freq = new Map();  // word → count
+  const vmap = new Map();  // word → [{ytId, title}]
+
+  for (const v of videos) {
+    const tokens = tokenize(v.title || '');
+    const seen = new Set();
+    for (const tok of tokens) {
+      if (seen.has(tok)) continue;
+      seen.add(tok);
+      freq.set(tok, (freq.get(tok) || 0) + 1);
+      if (!vmap.has(tok)) vmap.set(tok, []);
+      const list = vmap.get(tok);
+      if (list.length < 3) {
+        const ytId = String(v.ytId || v.id || '');
+        list.push({ytId: ytId.length === 11 ? ytId : '', title: v.title || ''});
+      }
+    }
+  }
+
+  // Convert saved keys: old format might have different encoding
+  // Build a lookup: word → saved entry
+  const savedByWord = {};
+  for (const [k, val] of Object.entries(saved)) {
+    // If entry has original word stored, use it; else use key
+    const w = val.w || k;
+    if (val.d && val.d !== 'undecided') savedByWord[w] = val;
+  }
+
+  wordItems = Array.from(freq.entries())
+    .filter(([, c]) => c >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .map(([word, count]) => {
+      const sv = savedByWord[word];
+      return {
+        word,
+        count,
+        vids: vmap.get(word) || [],
+        sug: aiSuggest(word),
+        dec: sv ? {type: sv.d, catName: sv.c || null} : null,
+      };
+    });
+
+  // Sort: undecided first (by freq), then decided
+  wordItems.sort((a, b) => {
+    if (!a.dec && !b.dec) return b.count - a.count;
+    if (!a.dec) return -1;
+    if (!b.dec) return  1;
+    return 0;
+  });
+
+  curIdx = wordItems.findIndex(w => !w.dec);
+  if (curIdx < 0) curIdx = 0;
+}
+
+// ═══════════════════════════════════════════════════════
+// Render card
+// ═══════════════════════════════════════════════════════
+function renderCard() {
+  const total   = wordItems.length;
+  const decided = wordItems.filter(w => w.dec && w.dec.type !== 'hold').length;
+  document.getElementById('prog-label').textContent = `${decided} / ${total} 完了`;
+  const pct = total ? Math.round(decided / total * 100) : 0;
+  document.getElementById('prog-pct').textContent  = pct + '%';
+  document.getElementById('prog-fill').style.width = pct + '%';
+
+  const card = document.getElementById('word-card');
+
+  if (!wordItems.length) {
+    card.innerHTML = '<div class="empty">動画データがありません</div>';
+    return;
+  }
+
+  // Check if all decided
+  const undecided = wordItems.filter(w => !w.dec);
+  if (!undecided.length) {
+    card.innerHTML = `<div class="all-done">
+      <div class="big">🎉</div>
+      <div class="msg">全ての単語を分類しました！<br>「完了済み」タブで確認 → エクスポートできます。</div>
+    </div>`;
+    return;
+  }
+
+  const item = wordItems[curIdx];
+  if (!item) return;
+
+  const s = item.sug;
+  const sCat = s.type === 'cat' ? CATS.find(c => c.name === s.catName) : null;
+  const sTb  = s.type === 'pos' ? 'ボトム' : (sCat?.tb || null);
+  const sTbCls = sTb ? (TB_CLS[sTb] || 'tb-neu') : '';
+
+  // Accept label
+  const acceptLbl =
+    s.type === 'pos'  ? `✓ ポジション (${s.detail || ''})` :
+    s.type === 'cat'  ? `✓ ${s.catName}` :
+    s.type === 'hold' ? `✓ 保留` : `✓ 無視`;
+
+  // Thumbnails
+  const thumbsHtml = item.vids.filter(v => v.ytId).slice(0, 3).map(v =>
+    `<a class="thumb-a" href="https://youtu.be/${esc(v.ytId)}" target="_blank" rel="noopener">
+      <img class="thumb-img" src="https://img.youtube.com/vi/${esc(v.ytId)}/mqdefault.jpg" loading="lazy"
+           onerror="this.parentElement.style.display='none'" alt="">
+      <div class="thumb-title">${esc(v.title)}</div>
+    </a>`).join('');
+
+  // Category buttons (all 12)
+  const catBtns = CATS.map(c => {
+    const tcls = TB_CLS[c.tb] || 'tb-neu';
+    return `<button class="cat-btn" data-type="cat" data-cat="${esc(c.name)}" onclick="decideBtn(this)">
+      <span class="tb-badge ${tcls}">${c.tb}</span>${esc(c.name)}
+    </button>`;
+  }).join('');
+
+  // Position index for display
+  const posIdx = wordItems.filter(w => !w.dec).indexOf(item);
+  const total2 = wordItems.filter(w => !w.dec).length;
+
+  card.innerHTML = `
+    <div class="word-pos">残り ${total2} 件 (${curIdx + 1}/${wordItems.length})</div>
+    <div class="word-text">${esc(item.word)}</div>
+    <div class="word-count">${item.count}本の動画に登場</div>
+
+    <div class="ai-box">
+      <div class="ai-header">
+        <span style="font-size:16px">🤖</span>
+        <span class="ai-lbl">AI提案</span>
+      </div>
+      <div>
+        <span class="ai-val">${esc(s.label)}</span>
+        ${sTb ? `<span class="tb-badge ${sTbCls}">${sTb}</span>` : ''}
+      </div>
+      <div class="ai-reason">${esc(s.reason)}</div>
+    </div>
+
+    ${thumbsHtml ? `<div class="thumbs">${thumbsHtml}</div>` : ''}
+
+    <button class="btn-accept" onclick="acceptSug()">${acceptLbl}</button>
+
+    <div class="or-div">または変更</div>
+
+    <div class="cat-list">${catBtns}</div>
+
+    <div class="act-row">
+      <button class="btn-pos" onclick="decide('pos')">📍 ポジション</button>
+      <button class="btn-hold" onclick="decide('hold')">🔖 保留</button>
+      <button class="btn-ignore" onclick="decide('ignore')">✕ 無視</button>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+// Decision
+// ═══════════════════════════════════════════════════════
+function acceptSug() {
+  const s = wordItems[curIdx]?.sug;
+  if (!s) return;
+  decide(s.type, s.type === 'cat' ? s.catName : null);
+}
+
+function decideBtn(el) {
+  decide(el.dataset.type, el.dataset.cat || null);
+}
+
+function decide(type, catName = null) {
+  const item = wordItems[curIdx];
+  if (!item) return;
+
+  item.dec = {type, catName};
+
+  // Queue save (encode word key: replace . and / which are Firestore path separators)
+  const key = item.word.replace(/\./g, '__dot__').replace(/\//g, '__sl__');
+  pending[key] = {d: type, w: item.word, t: Date.now()};
+  if (catName) pending[key].c = catName;
+  scheduleSave();
+
+  const label = type === 'pos' ? 'ポジション ✓' :
+                type === 'hold' ? '保留 🔖' :
+                type === 'ignore' ? '無視' :
+                (catName || '') + ' ✓';
+  showToast(label);
+
+  advanceNext();
+  updateBadges();
+  if (curTab === 'done') renderDone();
+}
+
+function advanceNext() {
+  // Find next undecided after current
+  let next = wordItems.findIndex((w, i) => i > curIdx && !w.dec);
+  if (next < 0) next = wordItems.findIndex(w => !w.dec); // wrap
+  if (next >= 0) curIdx = next;
+  renderCard();
+}
+
+function navigate(dir) {
+  curIdx = Math.max(0, Math.min(wordItems.length - 1, curIdx + dir));
+  renderCard();
+}
+
+// ═══════════════════════════════════════════════════════
+// Firestore save (debounced)
+// ═══════════════════════════════════════════════════════
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 2500);
+}
+
+async function flush() {
+  if (!uid || !Object.keys(pending).length) return;
+  const batch = {...pending};
+  pending = {};
+  try {
+    await db.doc(`users/${uid}/data/alias_builder`).set(
+      {words: batch, lastUpdated: firebase.firestore.FieldValue.serverTimestamp()},
+      {merge: true}
+    );
+  } catch(e) {
+    console.error('Save failed:', e);
+    Object.assign(pending, batch);
+    setTimeout(flush, 6000);
+  }
+}
+
+// Un-decide: set dec=null and mark for deletion
+function undecide(word) {
+  const item = wordItems.find(w => w.word === word);
+  if (!item) return;
+  item.dec = null;
+  const key = word.replace(/\./g, '__dot__').replace(/\//g, '__sl__');
+  pending[key] = {d: 'undecided', w: word, t: Date.now()};
+  scheduleSave();
+  curIdx = wordItems.indexOf(item);
+  switchTab('card');
+  renderCard();
+  renderDone();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════
+// Hold tab
+// ═══════════════════════════════════════════════════════
+function renderHold() {
+  const held = wordItems.filter(w => w.dec?.type === 'hold');
+  const el = document.getElementById('hold-list');
+  if (!held.length) {
+    el.innerHTML = '<div class="empty">保留中の項目はありません</div>';
+    return;
+  }
+  el.innerHTML = held.map(item => {
+    const vlinks = item.vids.filter(v => v.ytId).map(v =>
+      `<a class="hold-vlink" href="https://youtu.be/${esc(v.ytId)}" target="_blank" rel="noopener">
+        <img class="hold-vthumb" src="https://img.youtube.com/vi/${esc(v.ytId)}/mqdefault.jpg" loading="lazy" onerror="this.style.display='none'" alt="">
+        <span>${esc(v.title)}</span>
+      </a>`).join('');
+
+    // All 12 cat buttons + pos + ignore
+    const resBtns = CATS.map(c =>
+      `<button class="btn-res" data-word="${esc(item.word)}" data-type="cat" data-cat="${esc(c.name)}" onclick="resolveBtn(this)">${esc(c.name)}</button>`
+    ).join('') +
+    `<button class="btn-res pos" data-word="${esc(item.word)}" data-type="pos" onclick="resolveBtn(this)">📍 ポジション</button>` +
+    `<button class="btn-res ignore" data-word="${esc(item.word)}" data-type="ignore" onclick="resolveBtn(this)">✕ 無視</button>`;
+
+    return `<div class="hold-item">
+      <div class="hold-word">${esc(item.word)} <span style="font-size:11px;color:#999">(${item.count}本)</span></div>
+      <div class="hold-vlist">${vlinks || '<span style="color:#bbb;font-size:12px">サムネイルなし</span>'}</div>
+      <div class="hold-resolve">${resBtns}</div>
+    </div>`;
+  }).join('');
+}
+
+function resolveBtn(el) {
+  const word    = el.dataset.word;
+  const type    = el.dataset.type;
+  const catName = el.dataset.cat || null;
+  const item = wordItems.find(w => w.word === word);
+  if (!item) return;
+  item.dec = {type, catName};
+  const key = word.replace(/\./g, '__dot__').replace(/\//g, '__sl__');
+  pending[key] = {d: type, w: word, t: Date.now()};
+  if (catName) pending[key].c = catName;
+  scheduleSave();
+  showToast((catName || type) + ' ✓');
+  renderHold();
+  renderDone();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════
+// Done tab
+// ═══════════════════════════════════════════════════════
+function renderDone() {
+  const wrap = document.getElementById('done-wrap');
+  const groups = {};
+  for (const item of wordItems) {
+    if (!item.dec || item.dec.type === 'hold') continue;
+    const key = item.dec.type === 'cat' ? item.dec.catName :
+                item.dec.type === 'pos' ? '_pos' : '_ignore';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  }
+
+  let html = '';
+  for (const cat of CATS) {
+    const items = groups[cat.name];
+    if (!items?.length) continue;
+    const tcls = TB_CLS[cat.tb] || 'tb-neu';
+    const chips = items.map(item =>
+      `<span class="done-chip ${tcls}" style="border-color:currentColor"
+        onclick="undecide('${esc(item.word)}')" title="クリックで取り消し">${esc(item.word)}</span>`
+    ).join('');
+    html += `<div class="done-group">
+      <div class="done-glabel"><span class="tb-badge ${tcls}">${cat.tb}</span>${esc(cat.name)} (${items.length})</div>
+      <div class="done-chips">${chips}</div>
+    </div>`;
+  }
+  if (groups['_pos']?.length) {
+    const chips = groups['_pos'].map(i =>
+      `<span class="done-chip" style="background:#f0fce8;border-color:#90c878;color:#306010"
+        onclick="undecide('${esc(i.word)}')" title="クリックで取り消し">${esc(i.word)}</span>`).join('');
+    html += `<div class="done-group">
+      <div class="done-glabel">📍 ポジション (${groups['_pos'].length})</div>
+      <div class="done-chips">${chips}</div>
+    </div>`;
+  }
+  if (groups['_ignore']?.length) {
+    const chips = groups['_ignore'].map(i =>
+      `<span class="done-chip" style="background:#f5f5f5;border-color:#ccc;color:#aaa"
+        onclick="undecide('${esc(i.word)}')" title="クリックで取り消し">${esc(i.word)}</span>`).join('');
+    html += `<div class="done-group">
+      <div class="done-glabel" style="color:var(--text3)">✕ 無視 (${groups['_ignore'].length})</div>
+      <div class="done-chips">${chips}</div>
+    </div>`;
+  }
+  wrap.innerHTML = html || '<div class="empty">まだ完了済みの項目はありません</div>';
+}
+
+function exportAliases() {
+  const lines = [];
+  for (const cat of CATS) {
+    const items = wordItems.filter(w => w.dec?.type === 'cat' && w.dec.catName === cat.name);
+    if (items.length) {
+      lines.push(`// ${cat.name}  (TB: ${cat.tb})\n  aliases: [...existing, '${items.map(i => i.word).join("', '")}'],`);
+    }
+  }
+  const pos = wordItems.filter(w => w.dec?.type === 'pos');
+  if (pos.length) lines.push(`// ポジション追加候補\n  '${pos.map(i => i.word).join("', '")}'`);
+  const out = document.getElementById('export-out');
+  out.style.display = 'block';
+  out.textContent = lines.length ? lines.join('\n\n') : '（まだ割り当てがありません）';
+}
+
+// ═══════════════════════════════════════════════════════
+// Tabs
+// ═══════════════════════════════════════════════════════
+function switchTab(tab) {
+  curTab = tab;
+  ['card','hold','done'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
+    document.getElementById('tbtn-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'hold') renderHold();
+  if (tab === 'done') renderDone();
+}
+
+function updateBadges() {
+  const n = wordItems.filter(w => w.dec?.type === 'hold').length;
+  const b = document.getElementById('hold-badge');
+  b.textContent = n;
+  b.style.display = n ? 'inline' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// UI helpers
+// ═══════════════════════════════════════════════════════
+function show(id) {
+  document.getElementById('s-auth').style.display = id === 's-auth' ? 'flex' : 'none';
+  document.getElementById('s-load').style.display = id === 's-load' ? 'flex' : 'none';
+  document.getElementById('s-main').style.display = id === 's-main' ? 'block' : 'none';
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+let toastT;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (curTab !== 'card') return;
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Enter')       { acceptSug(); }
+  if (e.key === 'ArrowRight')  { navigate(1); }
+  if (e.key === 'ArrowLeft')   { navigate(-1); }
+  if (e.key === 'h' || e.key === 'H') { decide('hold'); }
+  if (e.key === 'x' || e.key === 'X') { decide('ignore'); }
+});
+</script>
+</body>
+</html>
