@@ -287,6 +287,8 @@ const CAT_ALIASES = [
 ];
 const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
 const TB_KW_BOT = ['ボトム','bottom','デラヒーバ','dlr','de la riva','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k guard','slx','ベリンボロ','berimbolo','クローズドガード','closed guard','ディープハーフ','deep half','ハーフ','half','オープンガード','open guard','ガードリカバリー','guard recovery','スイープ','sweep','エスケープ','escape','リテンション','retention','引き込み'];
+// 純カタカナ複合語の末尾に現れるアクション語（「技名＋エスケープ」→2トークンに分割）
+const ACTION_SUFFIXES_KA = ['エスケープ','スイープ','フィニッシュ','テイクダウン'];
 
 function _norm(s) {
   if (!s) return '';
@@ -333,7 +335,16 @@ function tokenize(title) {
         }
       } else { result.add(w); }
     }
-    else if (/^[゠-ヿ]+$/.test(w) && w.length >= 2) result.add(w);
+    else if (/^[゠-ヿ]+$/.test(w) && w.length >= 2) {
+      let split = false;
+      for (const suf of ACTION_SUFFIXES_KA) {
+        if (w.endsWith(suf) && w.length > suf.length + 1) {
+          const pref = w.slice(0, w.length - suf.length);
+          if (_norm(pref).length >= 2) { result.add(pref); result.add(suf); split = true; break; }
+        }
+      }
+      if (!split) result.add(w);
+    }
     else if (/^[a-zA-Z]{2,}$/.test(w)) { result.add(w); enWords.push(wl); }
     else if (w.length >= 2 && /[a-zA-Z]/.test(w) && !/^[\d０-９]+$/.test(w)) {
       if (/[ぁ-ゖ]/.test(w)) {
@@ -387,6 +398,10 @@ function aiSuggest(word) {
   // POSITIONS部分一致より先に判定しないと「ハーフガードパス」がポジションに取られる
   if (n.includes('ぱす')) {
     return {type:'cat', catName:'パスガード', label:'パスガード', reason:'パス系→パスガード'};
+  }
+  // カウンター系はTier2/3修飾語 → 無視（alias builderで決める概念ではない）
+  if (n.endsWith('かうんた')) {
+    return {type:'ignore', label:'無視', reason:'カウンター系 (Tier2/3修飾語)'};
   }
   for (const p of POSITIONS) {
     const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(Boolean);
