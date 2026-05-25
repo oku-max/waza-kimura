@@ -322,10 +322,31 @@ function tokenize(title) {
     const wl = w.toLowerCase();
     if (SW_JA.has(w) || SW_EN.has(wl)) continue;
     if (SW_JA.has(_norm(w))) continue;
-    if (/^[぀-鿿ｦ-ﾟ]+$/.test(w) && w.length >= 2) result.add(w);
+    if (/^[぀-鿿ｦ-ﾟ]+$/.test(w) && w.length >= 2) {
+      if (/[ぁ-ゖ]/.test(w) && /[゠-ヿ]/.test(w)) {
+        // カタカナ＋ひらがな混合 → ひらがな助詞で分割
+        // 「ブルーファイターからのロングステップパス」→「ブルーファイター」+「ロングステップパス」
+        for (const frag of w.split(/[ぁ-ゖ]+/).filter(f => f.length >= 2)) {
+          if (SW_JA.has(frag) || SW_JA.has(_norm(frag))) continue;
+          if (_norm(frag).length < 2) continue;
+          result.add(frag);
+        }
+      } else { result.add(w); }
+    }
     else if (/^[゠-ヿ]+$/.test(w) && w.length >= 2) result.add(w);
     else if (/^[a-zA-Z]{2,}$/.test(w)) { result.add(w); enWords.push(wl); }
-    else if (w.length >= 2 && /[぀-鿿a-zA-Z]/.test(w) && !/^[\d０-９]+$/.test(w)) result.add(w);
+    else if (w.length >= 2 && /[a-zA-Z]/.test(w) && !/^[\d０-９]+$/.test(w)) {
+      if (/[ぁ-ゖ]/.test(w)) {
+        // ラテン＋ひらがな混合 → ひらがな部分で分割（「SLXへの入り方」→「SLX」）
+        for (const frag of w.split(/[ぁ-ゖ]+/).filter(f => f.length >= 2)) {
+          if (SW_JA.has(frag) || SW_JA.has(_norm(frag))) continue;
+          if (_norm(frag).length < 1) continue;
+          result.add(frag);
+          for (const lp of (frag.match(/[a-zA-Z]{2,}/g) || []))
+            if (!SW_EN.has(lp.toLowerCase())) enWords.push(lp.toLowerCase());
+        }
+      } else { result.add(w); }
+    }
   }
   for (let i = 0; i < enWords.length - 1; i++) {
     if (!SW_EN.has(enWords[i]) && !SW_EN.has(enWords[i+1]))
