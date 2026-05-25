@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Alias Builder v3</title>
+<title>Alias Builder v4</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#f2f2f6;--card:#fff;--border:#e2e2e8;
   --text:#1a1a1a;--text2:#555;--text3:#999;
-  --blue:#2a6faa;--green:#2e8b57;--purple:#6a3fa0;
-  --gold:#b8860b;--red:#c0392b;
+  --blue:#2a6faa;--gold:#b8860b;--red:#c0392b;
   --top-bg:#e8eef8;--top-c:#2040a0;
   --bot-bg:#e8f4e8;--bot-c:#206020;
   --std-bg:#f3eef8;--std-c:#6020a0;
@@ -18,18 +17,16 @@
 }
 body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino Sans','Segoe UI',sans-serif;font-size:14px}
 
-/* ── screens ── */
+/* ── auth ── */
 #s-auth{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:16px;padding:40px 20px}
 #s-auth h1{font-size:22px;font-weight:700}
 #s-auth .sub{font-size:13px;color:var(--text3);text-align:center}
 .btn-google{display:flex;align-items:center;gap:10px;padding:12px 24px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .btn-google:hover{background:#f8f8f8}
-
 #s-load{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px}
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .load-msg{font-size:13px;color:var(--text3)}
-
 #s-main{display:none;max-width:500px;margin:0 auto;padding-bottom:60px}
 
 /* ── tabs ── */
@@ -39,86 +36,76 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
 .tab-badge{display:inline-block;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle}
 
 /* ── progress ── */
-.prog-wrap{padding:10px 16px 0}
-.prog-row{display:flex;justify-content:space-between;margin-bottom:5px}
+.prog-wrap{padding:10px 16px 6px;background:var(--card);border-bottom:1px solid var(--border)}
+.prog-row{display:flex;justify-content:space-between;margin-bottom:4px}
 .prog-label{font-size:12px;color:var(--text3)}
-.prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
 .prog-fill{height:100%;background:var(--blue);transition:width .3s}
 
-/* ── word card ── */
-.wcard{background:var(--card);border-radius:12px;margin:12px 16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
-.word-pos{font-size:11px;color:var(--text3);text-align:center;margin-bottom:4px}
-.word-text{font-size:30px;font-weight:800;text-align:center;margin-bottom:4px;word-break:break-all}
-.word-count{text-align:center;font-size:12px;color:var(--text3);margin-bottom:16px}
+/* ── word list ── */
+.word-list{padding:8px 10px 60px}
 
-/* ── step label ── */
-.step-label{font-size:10px;font-weight:700;color:var(--text3);text-align:center;margin-bottom:10px;letter-spacing:.8px;text-transform:uppercase}
+/* ── list row ── */
+.list-row{background:var(--card);border-radius:10px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden;transition:box-shadow .15s}
+.list-row.expanded{box-shadow:0 3px 14px rgba(0,0,0,.11)}
 
-/* ── Step 1: TB grid ── */
-.tb-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.btn-tb{padding:20px 8px;border-radius:12px;border:2.5px solid transparent;font-size:17px;font-weight:800;cursor:pointer;transition:all .15s;text-align:center;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:3px}
-.btn-tb .tb-sub{font-size:9px;font-weight:600;opacity:.75;letter-spacing:.3px}
-.btn-tb.tbbot{background:var(--bot-bg);color:var(--bot-c);border-color:#6ab87c}
-.btn-tb.tbtop{background:var(--top-bg);color:var(--top-c);border-color:#6080d0}
-.btn-tb.tbstd{background:var(--std-bg);color:var(--std-c);border-color:#9060c8}
-.btn-tb.tbneu{background:var(--neu-bg);color:var(--neu-c);border-color:#bbb}
-.btn-tb.ai-pick{box-shadow:0 0 0 3px currentColor;transform:scale(1.04)}
-.btn-tb:hover{filter:brightness(.92)}
-.btn-tb:active{transform:scale(.97)}
+.row-compact{padding:11px 13px;cursor:pointer;user-select:none}
+.row-top{display:flex;align-items:baseline;gap:7px;margin-bottom:5px}
+.row-word{font-size:19px;font-weight:800;line-height:1.2;word-break:break-all}
+.row-count{font-size:11px;color:var(--text3);flex-shrink:0;white-space:nowrap}
+.row-bottom{display:flex;align-items:center;gap:6px}
+.row-sug{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden}
+.row-sug-cat{font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-actions{display:flex;gap:4px;flex-shrink:0}
+.btn-ok{padding:7px 12px;border-radius:7px;border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-ok:hover{opacity:.88}
+.btn-hold-s{padding:7px 9px;border-radius:7px;border:1.5px solid #e0c070;background:#fdf8e0;color:#806020;font-size:12px;cursor:pointer}
+.btn-ign-s{padding:7px 9px;border-radius:7px;border:1.5px solid #ccc;background:#f5f5f5;color:#888;font-size:12px;cursor:pointer}
 
-/* ── Step 2: TB confirmed header ── */
-.step2-tb{display:flex;align-items:center;gap:8px;background:#f5f5fa;border-radius:8px;padding:9px 12px;margin-bottom:14px}
-.step2-tb-lbl{font-size:11px;color:var(--text3);font-weight:600}
-.btn-back-tb{margin-left:auto;padding:5px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer}
-.btn-back-tb:hover{background:#f0f0f0}
+/* ── expanded area ── */
+.row-expand{padding:12px 13px;border-top:1px solid var(--border);background:#f9f9fc}
+.exp-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:7px}
 
-/* ── AI box ── */
-.ai-box{background:#f8f4ff;border:1.5px solid #c8a8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px}
-.ai-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.ai-lbl{font-size:10px;font-weight:800;color:#6a3fa0;letter-spacing:.5px;text-transform:uppercase}
-.ai-val{font-size:17px;font-weight:800;color:var(--text)}
-.tb-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;vertical-align:middle;margin-left:4px}
+/* TB row (inline, compact) */
+.tb-row-sm{display:flex;gap:5px;margin-bottom:4px}
+.btn-tb-s{flex:1;padding:8px 4px;border-radius:8px;border:2px solid transparent;font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .12s;white-space:nowrap}
+.btn-tb-s.tbbot{background:var(--bot-bg);color:var(--bot-c);border-color:#c8e8c8}
+.btn-tb-s.tbtop{background:var(--top-bg);color:var(--top-c);border-color:#c8d8f0}
+.btn-tb-s.tbstd{background:var(--std-bg);color:var(--std-c);border-color:#d8c8f0}
+.btn-tb-s.tbneu{background:var(--neu-bg);color:var(--neu-c);border-color:#ddd}
+.btn-tb-s.sel{border-color:currentColor;box-shadow:0 0 0 2px currentColor;font-weight:800}
+.btn-tb-s:hover{filter:brightness(.92)}
+
+/* 2-col category grid */
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px}
+.cat-btn-s{display:flex;align-items:center;gap:5px;padding:7px 8px;border-radius:7px;border:1.5px solid var(--border);background:var(--bg);font-size:11px;font-weight:600;cursor:pointer;text-align:left;transition:background .1s;width:100%;overflow:hidden}
+.cat-btn-s:hover{background:#eef4ff;border-color:var(--blue)}
+.cat-btn-s.ai-hi{background:#f0eaff;border-color:#8a5fc8}
+.cat-btn-s .tb-badge{font-size:8px;padding:1px 4px;flex-shrink:0}
+.cat-btn-s .cat-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.cat-btn-s .ai-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#8a5fc8}
+
+/* act row */
+.act-row{display:flex;gap:6px}
+.btn-pos{flex:1;padding:9px;border-radius:7px;border:1.5px solid #90c878;background:#f0fce8;color:#306010;font-size:11px;font-weight:700;cursor:pointer}
+.btn-pos:hover{background:#e4f8d8}
+.btn-hold{flex:1;padding:9px;border-radius:7px;border:1.5px solid #e0c070;background:#fdf8e0;color:#806020;font-size:11px;font-weight:700;cursor:pointer}
+.btn-hold:hover{background:#f8f0c8}
+.btn-ignore{flex:1;padding:9px;border-radius:7px;border:1.5px solid #ccc;background:#f5f5f5;color:#888;font-size:11px;font-weight:700;cursor:pointer}
+.btn-ignore:hover{background:#eee}
+
+/* ── thumbnails ── */
+.thumbs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.thumb-a{flex-shrink:0;width:90px;text-decoration:none}
+.thumb-img{width:90px;height:51px;object-fit:cover;border-radius:5px;background:#eee;display:block}
+.thumb-title{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── tb-badge shared ── */
+.tb-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;vertical-align:middle}
 .tb-top{background:var(--top-bg);color:var(--top-c)}
 .tb-bot{background:var(--bot-bg);color:var(--bot-c)}
 .tb-std{background:var(--std-bg);color:var(--std-c)}
 .tb-neu{background:var(--neu-bg);color:var(--neu-c)}
-.ai-reason{font-size:11px;color:#888;margin-top:3px}
-
-/* ── thumbnails ── */
-.thumbs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
-.thumb-a{flex-shrink:0;width:100px;text-decoration:none}
-.thumb-img{width:100px;height:56px;object-fit:cover;border-radius:6px;background:#eee;display:block}
-.thumb-title{font-size:9px;color:var(--text3);margin-top:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-
-/* ── accept button ── */
-.btn-accept{width:100%;padding:15px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:14px;transition:opacity .15s}
-.btn-accept:hover{opacity:.88}
-
-/* ── or divider ── */
-.or-div{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin-bottom:10px}
-.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--border)}
-
-/* ── category buttons ── */
-.cat-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
-.cat-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:left;transition:background .1s,border-color .1s;width:100%}
-.cat-btn:hover{background:#eef4ff;border-color:var(--blue)}
-.cat-btn .tb-badge{flex-shrink:0}
-.cat-btn.ai-pick-cat{background:#f0eaff;border-color:#8a5fc8}
-.cat-btn .ai-tag{margin-left:auto;font-size:9px;color:#6a3fa0;font-weight:600;letter-spacing:.3px;flex-shrink:0}
-
-/* ── action row ── */
-.act-row{display:flex;gap:7px;margin-bottom:12px}
-.btn-pos{flex:1;padding:11px;border-radius:8px;border:1.5px solid #90c878;background:#f0fce8;color:#306010;font-size:12px;font-weight:700;cursor:pointer}
-.btn-pos:hover{background:#e4f8d8}
-.btn-hold{flex:1;padding:11px;border-radius:8px;border:1.5px solid #e0c070;background:#fdf8e0;color:#806020;font-size:12px;font-weight:700;cursor:pointer}
-.btn-hold:hover{background:#f8f0c8}
-.btn-ignore{flex:1;padding:11px;border-radius:8px;border:1.5px solid #ccc;background:#f5f5f5;color:#888;font-size:12px;font-weight:700;cursor:pointer}
-.btn-ignore:hover{background:#eee}
-
-/* ── nav ── */
-.nav-row{display:flex;gap:8px;padding:0 16px;margin-top:2px}
-.btn-nav{flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer}
-.btn-nav:hover{background:#f0f0f0}
 
 /* ── hold tab ── */
 .hold-list{padding:10px 16px;display:flex;flex-direction:column;gap:10px}
@@ -126,19 +113,16 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
 .hold-word{font-size:18px;font-weight:800;margin-bottom:6px}
 .hold-vlist{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
 .hold-vlink{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--blue);font-size:12px}
-.hold-vlink:hover{text-decoration:underline}
 .hold-vthumb{width:54px;height:30px;object-fit:cover;border-radius:4px;background:#eee;flex-shrink:0}
-/* Hold tab TB selector */
+.hold-section-lbl{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase}
 .hold-tb-row{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
-.btn-hold-tb{padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;transition:all .12s;color:var(--text2)}
+.btn-hold-tb{padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg);font-size:11px;font-weight:700;cursor:pointer;color:var(--text2)}
 .btn-hold-tb.sel.tbbot{background:var(--bot-bg);border-color:#6ab87c;color:var(--bot-c)}
 .btn-hold-tb.sel.tbtop{background:var(--top-bg);border-color:#6080d0;color:var(--top-c)}
 .btn-hold-tb.sel.tbstd{background:var(--std-bg);border-color:#9060c8;color:var(--std-c)}
 .btn-hold-tb.sel.tbneu{background:var(--neu-bg);border-color:#999;color:var(--neu-c)}
-.btn-hold-tb:hover{background:#f0f0f0}
-.hold-section-lbl{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase}
 .hold-resolve{display:flex;flex-wrap:wrap;gap:5px}
-.btn-res{padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:background .1s,border-color .1s}
+.btn-res{padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:background .1s}
 .btn-res:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
 .btn-res.pos{border-color:#90c878;background:#f0fce8;color:#306010}
 .btn-res.ignore{border-color:#ccc;color:#aaa}
@@ -150,17 +134,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
 .done-chips{display:flex;flex-wrap:wrap;gap:4px}
 .done-chip{display:inline-flex;align-items:center;gap:3px;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:600;border:1.5px solid;cursor:pointer;background:#fff;transition:opacity .1s}
 .done-chip:hover{opacity:.65}
-.done-chip .chip-tb{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;opacity:.85}
 .btn-export{display:block;width:calc(100% - 32px);margin:8px 16px 12px;padding:12px;border-radius:8px;border:none;background:var(--gold);color:#fff;font-size:14px;font-weight:700;cursor:pointer}
 .export-out{margin:0 16px 20px;background:#1a1a2e;color:#a8d8a8;font-size:11px;padding:12px;border-radius:8px;font-family:monospace;line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;display:none}
 
-/* ── empty / done states ── */
+/* ── misc ── */
 .empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px;line-height:1.7}
-.all-done{text-align:center;padding:32px 20px}
+.all-done{text-align:center;padding:40px 20px}
 .all-done .big{font-size:48px;margin-bottom:12px}
-.all-done .msg{font-size:14px;color:var(--text2);margin-bottom:16px}
-
-/* ── toast ── */
+.all-done .msg{font-size:14px;color:var(--text2)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(26,26,46,.92);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap;max-width:90vw;text-align:center}
 #toast.show{opacity:1}
 </style>
@@ -171,7 +152,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
 </head>
 <body>
 
-<!-- Auth -->
 <div id="s-auth">
   <div style="font-size:36px">📚</div>
   <h1>Alias Builder</h1>
@@ -182,13 +162,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
   </button>
 </div>
 
-<!-- Loading -->
 <div id="s-load">
   <div class="spinner"></div>
   <div class="load-msg" id="load-msg">データを読み込み中…</div>
 </div>
 
-<!-- Main -->
 <div id="s-main">
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('card')" id="tbtn-card">分類作業</button>
@@ -196,7 +174,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
     <button class="tab-btn" onclick="switchTab('done')" id="tbtn-done">完了済み</button>
   </div>
 
-  <!-- Card tab -->
   <div id="tab-card">
     <div class="prog-wrap">
       <div class="prog-row">
@@ -205,19 +182,13 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
       </div>
       <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0"></div></div>
     </div>
-    <div id="word-card" class="wcard"></div>
-    <div class="nav-row">
-      <button class="btn-nav" onclick="navigate(-1)">← 前へ</button>
-      <button class="btn-nav" onclick="navigate(1)">次へ →</button>
-    </div>
+    <div class="word-list" id="word-list"></div>
   </div>
 
-  <!-- Hold tab -->
   <div id="tab-hold" style="display:none">
     <div class="hold-list" id="hold-list"></div>
   </div>
 
-  <!-- Done tab -->
   <div id="tab-done" style="display:none">
     <div class="done-wrap" id="done-wrap"></div>
     <button class="btn-export" onclick="exportAliases()">📋 alias をエクスポート</button>
@@ -246,7 +217,7 @@ db.settings({ experimentalForceLongPolling: true });
 const storage = firebase.storage();
 
 // ═══════════════════════════════════════════════════════
-// Master data (inlined from tag-master.js)
+// Master data
 // ═══════════════════════════════════════════════════════
 const CATS = [
   {name:'エスケープ・ディフェンス',    tb:'中立'          },
@@ -263,21 +234,15 @@ const CATS = [
   {name:'テクニック（トップ）',         tb:'トップ'        },
 ];
 const TB_CLS = {トップ:'tb-top',ボトム:'tb-bot',スタンディング:'tb-std',中立:'tb-neu'};
-
-// TB selection metadata
 const TB_LIST = ['ボトム','トップ','スタンディング','判断不能'];
 const TB_INFO = {
-  'ボトム':        {cls:'tbbot', emoji:'⬇️'},
-  'トップ':        {cls:'tbtop', emoji:'⬆️'},
-  'スタンディング':{cls:'tbstd', emoji:'🥋'},
-  '判断不能':      {cls:'tbneu', emoji:'❓'},
+  'ボトム':        {cls:'tbbot'},
+  'トップ':        {cls:'tbtop'},
+  'スタンディング':{cls:'tbstd'},
+  '判断不能':      {cls:'tbneu'},
 };
-// TB badge class for explicit TB values
 function tbBadgeCls(tb) {
-  if (tb === 'ボトム') return 'tb-bot';
-  if (tb === 'トップ') return 'tb-top';
-  if (tb === 'スタンディング') return 'tb-std';
-  return 'tb-neu';
+  return tb==='ボトム'?'tb-bot':tb==='トップ'?'tb-top':tb==='スタンディング'?'tb-std':'tb-neu';
 }
 
 const POSITIONS = [
@@ -308,7 +273,6 @@ const POSITIONS = [
   {id:'rdlr',     ja:'リバースデラヒーバ', aliases:['RDLR','Reverse De La Riva','Reverse DLR','リバデラ']},
   {id:'revhalf',  ja:'リバースハーフガード',aliases:['Reverse Half Guard','Reverse Half','リバースハーフ']},
 ];
-
 const CAT_ALIASES = [
   {name:'エスケープ・ディフェンス', al:['Escape','Defense','ディフェンス','エスケープ','サバイバル','survival','脱出','逃げ方','ダメージコントロール','damage control','ブリッジ','bridge','アンパス','unpass']},
   {name:'ガード構築・エントリー',   al:['Guard Entry','Setup','エントリー','ガード構築','入り方','入り口','作り方','取り方','引き込み','セットアップ','getting to guard']},
@@ -321,11 +285,9 @@ const CAT_ALIASES = [
   {name:'パスガード',               al:['Guard Pass','Passing','パス','パスガード','ニーカット','knee cut','ニースライス','knee slice','torreando','torando','スタックパス','stack pass','レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass']},
   {name:'フィニッシュ',             al:['Submission','Finish','サブミッション','フィニッシュ','極め','絞め技','関節技','タップ','アームバー','armbar','腕十字','アームロック','arm lock','キムラ','kimura','オモプラッタ','omoplata','ウメプラタ','チョーク','choke','絞め','三角','三角絞め','triangle','ギロチン','guillotine','ダースチョーク','darce','アナコンダ','anaconda','クロックチョーク','clock choke','ベースボールチョーク','baseball choke','ノースサウスチョーク','north south choke','ヒールフック','heel hook','フットロック','foot lock','アンクルロック','ankle lock','ニーバー','knee bar','トーホールド','toe hold','ストレートフットロック','straight foot lock','インサイドヒール','inside heel','アウトサイドヒール','outside heel','足関節','レッグロック','leg lock']},
 ];
-
 const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
 const TB_KW_BOT = ['ボトム','bottom','デラヒーバ','dlr','de la riva','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k guard','slx','ベリンボロ','berimbolo','クローズドガード','closed guard','ディープハーフ','deep half','ハーフ','half','オープンガード','open guard','ガードリカバリー','guard recovery','スイープ','sweep','エスケープ','escape','リテンション','retention','引き込み'];
 
-// ─── _norm ──────────────────────────────────────────
 function _norm(s) {
   if (!s) return '';
   let v = String(s);
@@ -336,8 +298,6 @@ function _norm(s) {
   v = v.replace(/(がーど|がど|guard)$/i, '');
   return v;
 }
-
-// ─── Stopwords ──────────────────────────────────────
 const SW_JA = new Set(['の','を','が','は','に','で','と','も','から','まで','より','など','て','し','な','い','う','こと','もの','ため','際','場合','として','について','という','ような','ので','けど','ながら','する','した','して','できる','わかる','なる','ある','いる','方','その','この','あの','どう','なぜ','なに','何','それ','これ','あれ','でも','しかし','また','そして','つまり','完全','完璧','最強','最高','最新','必見','必須','おすすめ','まとめ','解説','入門','基礎','基本','応用','道場','先生','師匠','試合','世界','日本']);
 const SW_EN = new Set(['a','an','the','and','or','of','to','in','for','on','at','by','from','with','about','is','are','was','were','be','been','have','has','had','do','does','did','will','would','could','should','may','might','can','you','your','my','i','we','vs','bjj','mma','jiu','jitsu','jiujitsu','grappling','no','gi','how','why','what','when','where','who','if','this','that']);
 const EP_PAT = /^(part|vol|ep|lecture|lesson|第)[0-9０-９]*$|^[0-9０-９]+(回|講|号|章|本目|部)$|^#?[0-9０-９]+$/i;
@@ -351,11 +311,9 @@ function tokenize(title) {
     .replace(/【[^】]{12,}】/g, ' ')
     .replace(/\([^)]{12,}\)/g, ' ')
     .replace(/（[^）]{12,}）/g, ' ');
-
   const parts = t.split(/[\s　【】「」『』（）()[\]＆&＃#・〜~→←↑↓★☆♪●○■□▶！!？?。、,.\|｜\/]+/);
   const result = new Set();
   const enWords = [];
-
   for (const tok of parts) {
     const w = tok.trim();
     if (!w || w.length < 2) continue;
@@ -364,19 +322,15 @@ function tokenize(title) {
     const wl = w.toLowerCase();
     if (SW_JA.has(w) || SW_EN.has(wl)) continue;
     if (SW_JA.has(_norm(w))) continue;
-
     if (/^[぀-鿿ｦ-ﾟ]+$/.test(w) && w.length >= 2) result.add(w);
     else if (/^[゠-ヿ]+$/.test(w) && w.length >= 2) result.add(w);
     else if (/^[a-zA-Z]{2,}$/.test(w)) { result.add(w); enWords.push(wl); }
     else if (w.length >= 2 && /[぀-鿿a-zA-Z]/.test(w) && !/^[\d０-９]+$/.test(w)) result.add(w);
   }
-
   for (let i = 0; i < enWords.length - 1; i++) {
     if (!SW_EN.has(enWords[i]) && !SW_EN.has(enWords[i+1]))
       result.add(enWords[i] + ' ' + enWords[i+1]);
   }
-
-  // Pass 2: タイトル正規化スキャンで既知ポジション名を抽出
   const tNorm = _norm(title);
   const foundPos = new Set();
   for (const p of POSITIONS) {
@@ -388,8 +342,6 @@ function tokenize(title) {
       if (tNorm.includes(kn)) { result.add(p.ja); foundPos.add(p.ja); break; }
     }
   }
-
-  // Pass 3: 発見したポジション名の断片を除去
   for (const tok of Array.from(result)) {
     if (foundPos.has(tok)) continue;
     const tn = _norm(tok);
@@ -397,65 +349,52 @@ function tokenize(title) {
     for (const posName of foundPos) {
       const pos = POSITIONS.find(p => p.ja === posName);
       if (!pos) continue;
-      const longerNorms = [pos.ja, ...(pos.aliases||[])].map(_norm)
-        .filter(k => k && k.length > tn.length);
+      const longerNorms = [pos.ja, ...(pos.aliases||[])].map(_norm).filter(k => k && k.length > tn.length);
       if (longerNorms.some(k => k.includes(tn))) { result.delete(tok); break; }
     }
   }
-
   return Array.from(result);
 }
 
 // ═══════════════════════════════════════════════════════
-// AI pre-classification
+// AI classification
 // ═══════════════════════════════════════════════════════
 function aiSuggest(word) {
   const n = _norm(word);
   if (!n || n.length < 1) return {type:'ignore', label:'無視', reason:'短すぎ'};
-
   for (const p of POSITIONS) {
     const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(Boolean);
-    if (keys.some(k => k === n))
-      return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション一致: ${p.ja}`};
+    if (keys.some(k => k === n)) return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション一致: ${p.ja}`};
   }
-
   for (const p of POSITIONS) {
     const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(k => k && k.length >= 2);
     if (n.length >= 2 && keys.some(k => k.includes(n) || n.includes(k)))
       return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション類似: ${p.ja}`};
   }
-
   for (const c of CAT_ALIASES) {
     const keys = [c.name, ...(c.al||[])].map(_norm).filter(Boolean);
-    if (keys.some(k => k === n))
-      return {type:'cat', catName:c.name, label:c.name, reason:'カテゴリ一致'};
+    if (keys.some(k => k === n)) return {type:'cat', catName:c.name, label:c.name, reason:'カテゴリ一致'};
   }
-
   for (const c of CAT_ALIASES) {
     const keys = [c.name, ...(c.al||[])].map(_norm).filter(k => k && k.length >= 2);
     if (n.length >= 3 && keys.some(k => k.includes(n) || n.includes(k)))
       return {type:'cat', catName:c.name, label:c.name, reason:'カテゴリ部分一致'};
   }
-
   const topNorms = TB_KW_TOP.map(_norm).filter(k => k && k.length >= 2);
   if (topNorms.some(k => k === n || (n.length >= 3 && k.length >= 2 && (k.includes(n) || n.includes(k)))))
-    return {type:'cat', catName:'テクニック（トップ）', label:'テクニック（トップ）', reason:'トップ系キーワードに一致'};
-
+    return {type:'cat', catName:'テクニック（トップ）', label:'テクニック（トップ）', reason:'トップ系KW一致'};
   const botNorms = TB_KW_BOT.map(_norm).filter(k => k && k.length >= 2);
   if (botNorms.some(k => k === n || (n.length >= 3 && k.length >= 2 && (k.includes(n) || n.includes(k)))))
-    return {type:'cat', catName:'テクニック（ボトム）', label:'テクニック（ボトム）', reason:'ボトム系キーワードに一致'};
-
+    return {type:'cat', catName:'テクニック（ボトム）', label:'テクニック（ボトム）', reason:'ボトム系KW一致'};
   return {type:'hold', label:'保留', reason:'判断不能'};
 }
 
-// Derive TB suggestion from aiSuggest result
 function getTBFromSug(sug) {
   if (sug.type === 'pos') return 'ボトム';
   if (sug.type === 'cat') {
     const cat = CATS.find(c => c.name === sug.catName);
     if (!cat) return '判断不能';
-    if (cat.tb === '中立') return '判断不能'; // 中立 → force user to decide
-    return cat.tb;
+    return cat.tb === '中立' ? '判断不能' : cat.tb;
   }
   return '判断不能';
 }
@@ -463,15 +402,14 @@ function getTBFromSug(sug) {
 // ═══════════════════════════════════════════════════════
 // State
 // ═══════════════════════════════════════════════════════
-let uid       = null;
-let wordItems = [];   // [{word, count, vids, sug, dec:{type,catName,tb}}]
-let curIdx    = 0;
-let pending   = {};
-let saveTimer = null;
-let curTab    = 'card';
-let cardStep  = 1;        // 1=TB選択, 2=カテゴリ選択
-let cardPendingTB = null; // step1で選んだTB
-let holdTBState   = {};   // word → selected TB for hold tab
+let uid         = null;
+let wordItems   = [];
+let pending     = {};
+let saveTimer   = null;
+let curTab      = 'card';
+let activeWord  = null;   // expanded row's word
+let activeTB    = null;   // TB selected in expanded row
+let holdTBState = {};     // word → chosen TB for hold tab
 
 // ═══════════════════════════════════════════════════════
 // Auth
@@ -480,15 +418,9 @@ function signIn() {
   auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
     .catch(e => showToast('ログイン失敗: ' + e.message));
 }
-
 auth.onAuthStateChanged(async user => {
-  if (user) {
-    uid = user.uid;
-    show('s-load');
-    await loadAll();
-  } else {
-    show('s-auth');
-  }
+  if (user) { uid = user.uid; show('s-load'); await loadAll(); }
+  else show('s-auth');
 });
 
 // ═══════════════════════════════════════════════════════
@@ -501,43 +433,32 @@ async function loadAll() {
     const snap = await db.doc(`users/${uid}/data/alias_builder`).get();
     if (snap.exists) saved = snap.data().words || {};
   } catch(e) { console.warn('alias_builder load:', e); }
-
   setMsg('動画リストを読み込み中…');
   let videos = [];
   try {
     const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
-    const res = await fetch(url);
-    const json = await res.json();
-    videos = json.videos || [];
+    videos = (await (await fetch(url)).json()).videos || [];
   } catch(e) {
-    try {
-      const snap = await db.doc(`users/${uid}/data/videos`).get();
-      videos = snap.data()?.videos || [];
-    } catch(e2) { console.warn('videos load:', e2); }
+    try { videos = (await db.doc(`users/${uid}/data/videos`).get()).data()?.videos || []; }
+    catch(e2) { console.warn('videos load:', e2); }
   }
-
   setMsg(`${videos.length}本を分析中…`);
   buildItems(videos, saved);
   show('s-main');
-  renderCard();
+  renderList();
   updateBadges();
 }
-
 function setMsg(m) { document.getElementById('load-msg').textContent = m; }
 
 // ═══════════════════════════════════════════════════════
 // Build word items
 // ═══════════════════════════════════════════════════════
 function buildItems(videos, saved) {
-  const freq = new Map();
-  const vmap = new Map();
-
+  const freq = new Map(), vmap = new Map();
   for (const v of videos) {
-    const tokens = tokenize(v.title || '');
     const seen = new Set();
-    for (const tok of tokens) {
-      if (seen.has(tok)) continue;
-      seen.add(tok);
+    for (const tok of tokenize(v.title || '')) {
+      if (seen.has(tok)) continue; seen.add(tok);
       freq.set(tok, (freq.get(tok) || 0) + 1);
       if (!vmap.has(tok)) vmap.set(tok, []);
       const list = vmap.get(tok);
@@ -547,42 +468,32 @@ function buildItems(videos, saved) {
       }
     }
   }
-
   const savedByWord = {};
   for (const [k, val] of Object.entries(saved)) {
     const w = val.w || k;
     if (val.d && val.d !== 'undecided') savedByWord[w] = val;
   }
-
   wordItems = Array.from(freq.entries())
     .filter(([, c]) => c >= 2)
     .sort((a, b) => b[1] - a[1])
     .map(([word, count]) => {
       const sv = savedByWord[word];
-      return {
-        word,
-        count,
-        vids: vmap.get(word) || [],
-        sug: aiSuggest(word),
-        dec: sv ? {type: sv.d, catName: sv.c || null, tb: sv.tb || null} : null,
-      };
+      return {word, count, vids: vmap.get(word)||[], sug: aiSuggest(word),
+              dec: sv ? {type:sv.d, catName:sv.c||null, tb:sv.tb||null} : null};
     });
-
   wordItems.sort((a, b) => {
     if (!a.dec && !b.dec) return b.count - a.count;
-    if (!a.dec) return -1;
-    if (!b.dec) return  1;
-    return 0;
+    if (!a.dec) return -1; if (!b.dec) return 1; return 0;
   });
-
-  curIdx = wordItems.findIndex(w => !w.dec);
-  if (curIdx < 0) curIdx = 0;
 }
 
 // ═══════════════════════════════════════════════════════
-// Render card (dispatcher)
+// Render list
 // ═══════════════════════════════════════════════════════
-function renderCard() {
+function renderList() {
+  const scrollY = window.scrollY;
+  const listEl  = document.getElementById('word-list');
+
   const total   = wordItems.length;
   const decided = wordItems.filter(w => w.dec && w.dec.type !== 'hold').length;
   document.getElementById('prog-label').textContent = `${decided} / ${total} 完了`;
@@ -590,273 +501,200 @@ function renderCard() {
   document.getElementById('prog-pct').textContent  = pct + '%';
   document.getElementById('prog-fill').style.width = pct + '%';
 
-  const card = document.getElementById('word-card');
-
-  if (!wordItems.length) {
-    card.innerHTML = '<div class="empty">動画データがありません</div>';
-    return;
-  }
-
   const undecided = wordItems.filter(w => !w.dec);
   if (!undecided.length) {
-    card.innerHTML = `<div class="all-done">
-      <div class="big">🎉</div>
-      <div class="msg">全ての単語を分類しました！<br>「完了済み」タブで確認 → エクスポートできます。</div>
-    </div>`;
-    return;
+    listEl.innerHTML = `<div class="all-done"><div class="big">🎉</div>
+      <div class="msg">全ての単語を分類しました！<br>「完了済み」タブでエクスポートできます。</div></div>`;
+    window.scrollTo(0, scrollY); return;
   }
 
-  const item = wordItems[curIdx];
-  if (!item) return;
+  listEl.innerHTML = undecided.map(item => {
+    const s       = item.sug;
+    const sugTB   = getTBFromSug(s);
+    const sugTbCls = tbBadgeCls(sugTB);
+    const isExp   = activeWord === item.word;
+    const curTB   = isExp ? activeTB : null; // activeTB is set when row expands
 
-  if (cardStep === 1) renderStep1(card, item);
-  else                renderStep2(card, item);
-}
+    // Compact row suggestion label
+    const sugLabel = s.type === 'pos' ? `📍 ${s.detail||'ポジション'}` :
+                     s.type === 'cat' ? s.catName : '（保留）';
 
-// ───────────────────────────────────────────────────────
-// Step 1: TB selection
-// ───────────────────────────────────────────────────────
-function renderStep1(card, item) {
-  const sugTB  = getTBFromSug(item.sug);
-  const total2 = wordItems.filter(w => !w.dec).length;
+    let expandHtml = '';
+    if (isExp) {
+      // TB buttons — activeTB pre-set to AI suggestion
+      const tbBtns = TB_LIST.map(tb => {
+        const info  = TB_INFO[tb];
+        const isSel = tb === activeTB;
+        const isAI  = tb === sugTB;
+        return `<button class="btn-tb-s ${info.cls}${isSel?' sel':''}"
+          data-tb="${tb}" onclick="selectTBInRow(this)">${tb}${isAI?'✦':''}</button>`;
+      }).join('');
 
-  const thumbsHtml = item.vids.filter(v => v.ytId).slice(0, 3).map(v =>
-    `<a class="thumb-a" href="https://youtu.be/${esc(v.ytId)}" target="_blank" rel="noopener">
-      <img class="thumb-img" src="https://img.youtube.com/vi/${esc(v.ytId)}/mqdefault.jpg" loading="lazy"
-           onerror="this.parentElement.style.display='none'" alt="">
-      <div class="thumb-title">${esc(v.title)}</div>
-    </a>`).join('');
+      // Sort cats: matching activeTB first
+      const sorted = [...CATS].sort((a, b) => {
+        const aM = a.tb === activeTB || (activeTB==='判断不能' && a.tb==='中立');
+        const bM = b.tb === activeTB || (activeTB==='判断不能' && b.tb==='中立');
+        return (aM&&!bM)?-1:(!aM&&bM)?1:0;
+      });
+      const catBtns = sorted.map(c => {
+        const tcls = TB_CLS[c.tb]||'tb-neu';
+        const isAI = s.type==='cat' && s.catName===c.name;
+        return `<button class="cat-btn-s${isAI?' ai-hi':''}"
+          data-word="${esc(item.word)}" data-type="cat" data-cat="${esc(c.name)}"
+          onclick="listDecide(this)">
+          <span class="tb-badge ${tcls}">${c.tb}</span>
+          <span class="cat-name">${esc(c.name)}</span>
+          ${isAI?'<span class="ai-dot"></span>':''}
+        </button>`;
+      }).join('');
 
-  const tbBtns = TB_LIST.map(tb => {
-    const info  = TB_INFO[tb];
-    const isAI  = tb === sugTB;
-    return `<button class="btn-tb ${info.cls}${isAI ? ' ai-pick' : ''}" onclick="selectTB('${tb}')">
-      <span>${info.emoji} ${tb}</span>
-      ${isAI ? '<span class="tb-sub">AI提案</span>' : '<span class="tb-sub">&nbsp;</span>'}
-    </button>`;
-  }).join('');
+      const thumbs = item.vids.filter(v=>v.ytId).slice(0,3).map(v=>
+        `<a class="thumb-a" href="https://youtu.be/${esc(v.ytId)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <img class="thumb-img" src="https://img.youtube.com/vi/${esc(v.ytId)}/mqdefault.jpg" loading="lazy" onerror="this.parentElement.style.display='none'" alt="">
+          <div class="thumb-title">${esc(v.title)}</div>
+        </a>`).join('');
 
-  card.innerHTML = `
-    <div class="word-pos">残り ${total2} 件 (${curIdx + 1}/${wordItems.length})</div>
-    <div class="word-text">${esc(item.word)}</div>
-    <div class="word-count">${item.count}本の動画に登場</div>
+      expandHtml = `<div class="row-expand" onclick="event.stopPropagation()">
+        ${thumbs?`<div class="thumbs">${thumbs}</div>`:''}
+        <div class="exp-lbl">TB　<span style="font-weight:400;opacity:.6;font-size:9px">（✦ = AI提案）</span></div>
+        <div class="tb-row-sm">${tbBtns}</div>
+        <div class="exp-lbl" style="margin-top:10px">カテゴリ</div>
+        <div class="cat-grid">${catBtns}</div>
+        <div class="act-row">
+          <button class="btn-pos"    data-word="${esc(item.word)}" data-type="pos"    onclick="listDecide(this)">📍 ポジション</button>
+          <button class="btn-hold"   data-word="${esc(item.word)}" data-type="hold"   onclick="listDecide(this)">🔖 保留</button>
+          <button class="btn-ignore" data-word="${esc(item.word)}" data-type="ignore" onclick="listDecide(this)">✕ 無視</button>
+        </div>
+      </div>`;
+    }
 
-    ${thumbsHtml ? `<div class="thumbs">${thumbsHtml}</div>` : ''}
-
-    <div class="step-label">Step 1 — T/B を選択</div>
-    <div class="tb-grid">${tbBtns}</div>
-
-    <div class="act-row">
-      <button class="btn-hold"   onclick="decide('hold')">🔖 保留</button>
-      <button class="btn-ignore" onclick="decide('ignore')">✕ 無視</button>
-    </div>
-  `;
-}
-
-function selectTB(tb) {
-  cardPendingTB = tb;
-  cardStep = 2;
-  renderCard();
-}
-
-// ───────────────────────────────────────────────────────
-// Step 2: Category selection
-// ───────────────────────────────────────────────────────
-function renderStep2(card, item) {
-  const s       = item.sug;
-  const total2  = wordItems.filter(w => !w.dec).length;
-  const tbCls   = tbBadgeCls(cardPendingTB);
-
-  const thumbsHtml = item.vids.filter(v => v.ytId).slice(0, 3).map(v =>
-    `<a class="thumb-a" href="https://youtu.be/${esc(v.ytId)}" target="_blank" rel="noopener">
-      <img class="thumb-img" src="https://img.youtube.com/vi/${esc(v.ytId)}/mqdefault.jpg" loading="lazy"
-           onerror="this.parentElement.style.display='none'" alt="">
-      <div class="thumb-title">${esc(v.title)}</div>
-    </a>`).join('');
-
-  // Accept button label
-  const showAccept = s.type === 'pos' || s.type === 'cat';
-  const acceptLbl  = s.type === 'pos' ? `✓ ポジション (${s.detail || ''})` : `✓ ${s.catName}`;
-
-  // Sort cats: matching TB first, then others
-  const sortedCats = [...CATS].sort((a, b) => {
-    const aTB = a.tb;
-    const bTB = b.tb;
-    // Exact match
-    const aMatch = aTB === cardPendingTB;
-    const bMatch = bTB === cardPendingTB;
-    // 判断不能 → treat 中立 as matching
-    const aNeut  = cardPendingTB === '判断不能' && aTB === '中立';
-    const bNeut  = cardPendingTB === '判断不能' && bTB === '中立';
-    if ((aMatch || aNeut) && !(bMatch || bNeut)) return -1;
-    if (!(aMatch || aNeut) && (bMatch || bNeut)) return  1;
-    return 0;
-  });
-
-  const catBtns = sortedCats.map(c => {
-    const tcls = TB_CLS[c.tb] || 'tb-neu';
-    const isAI = s.type === 'cat' && s.catName === c.name;
-    return `<button class="cat-btn${isAI ? ' ai-pick-cat' : ''}" data-type="cat" data-cat="${esc(c.name)}" onclick="decideBtn(this)">
-      <span class="tb-badge ${tcls}">${c.tb}</span>${esc(c.name)}
-      ${isAI ? '<span class="ai-tag">AI提案</span>' : ''}
-    </button>`;
-  }).join('');
-
-  card.innerHTML = `
-    <div class="word-pos">残り ${total2} 件 (${curIdx + 1}/${wordItems.length})</div>
-    <div class="word-text">${esc(item.word)}</div>
-    <div class="word-count">${item.count}本の動画に登場</div>
-
-    <div class="step2-tb">
-      <span class="step2-tb-lbl">TB</span>
-      <span class="tb-badge ${tbCls}">${cardPendingTB}</span>
-      <button class="btn-back-tb" onclick="backToStep1()">← 変更</button>
-    </div>
-
-    <div class="ai-box">
-      <div class="ai-header">
-        <span style="font-size:16px">🤖</span>
-        <span class="ai-lbl">AI提案カテゴリ</span>
+    return `<div class="list-row${isExp?' expanded':''}" data-word="${esc(item.word)}" onclick="toggleExpand(this)">
+      <div class="row-compact">
+        <div class="row-top">
+          <span class="row-word">${esc(item.word)}</span>
+          <span class="row-count">${item.count}本</span>
+        </div>
+        <div class="row-bottom">
+          <div class="row-sug">
+            <span class="tb-badge ${sugTbCls}">${sugTB}</span>
+            <span class="row-sug-cat">${esc(sugLabel)}</span>
+          </div>
+          <div class="row-actions" onclick="event.stopPropagation()">
+            <button class="btn-ok" data-word="${esc(item.word)}" onclick="acceptAI(this)">✓ 承認</button>
+            <button class="btn-hold-s" data-word="${esc(item.word)}" data-type="hold"   onclick="listDecide(this)">🔖</button>
+            <button class="btn-ign-s"  data-word="${esc(item.word)}" data-type="ignore" onclick="listDecide(this)">✕</button>
+          </div>
+        </div>
       </div>
-      <div><span class="ai-val">${esc(s.label)}</span></div>
-      <div class="ai-reason">${esc(s.reason)}</div>
-    </div>
+      ${expandHtml}
+    </div>`;
+  }).join('');
 
-    ${thumbsHtml ? `<div class="thumbs">${thumbsHtml}</div>` : ''}
-
-    ${showAccept ? `<button class="btn-accept" onclick="acceptSug()">${acceptLbl}</button>` : ''}
-
-    <div class="or-div">または選択</div>
-
-    <div class="cat-list">${catBtns}</div>
-
-    <div class="act-row">
-      <button class="btn-pos"    onclick="decide('pos')">📍 ポジション</button>
-      <button class="btn-hold"   onclick="decide('hold')">🔖 保留</button>
-      <button class="btn-ignore" onclick="decide('ignore')">✕ 無視</button>
-    </div>
-  `;
-}
-
-function backToStep1() {
-  cardStep = 1;
-  cardPendingTB = null;
-  renderCard();
+  window.scrollTo(0, scrollY);
 }
 
 // ═══════════════════════════════════════════════════════
-// Decision
+// List interactions
 // ═══════════════════════════════════════════════════════
-function acceptSug() {
-  if (cardStep === 1) {
-    // Accept AI TB suggestion → move to step 2
-    const sugTB = getTBFromSug(wordItems[curIdx]?.sug || {type:'hold'});
-    cardPendingTB = sugTB;
-    cardStep = 2;
-    renderCard();
-    return;
+function toggleExpand(el) {
+  const word = el.dataset.word;
+  if (activeWord === word) {
+    activeWord = null; activeTB = null;
+  } else {
+    activeWord = word;
+    const item = wordItems.find(w => w.word === word);
+    activeTB = item ? getTBFromSug(item.sug) : '判断不能'; // pre-select AI TB
   }
-  // Step 2: accept AI category
-  const s = wordItems[curIdx]?.sug;
-  if (!s) return;
-  decide(s.type, s.type === 'cat' ? s.catName : null);
+  renderList();
+  if (activeWord) {
+    setTimeout(() => {
+      const row = document.querySelector('.list-row.expanded');
+      if (row) row.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }, 40);
+  }
 }
 
-function decideBtn(el) {
-  decide(el.dataset.type, el.dataset.cat || null);
+function selectTBInRow(el) {
+  event.stopPropagation();
+  activeTB = el.dataset.tb;
+  renderList();
 }
 
-function decide(type, catName = null) {
-  const item = wordItems[curIdx];
+function acceptAI(el) {
+  event.stopPropagation();
+  const word = el.dataset.word;
+  const item = wordItems.find(w => w.word === word);
+  if (!item) return;
+  const s  = item.sug;
+  const tb = getTBFromSug(s);
+  if (s.type === 'pos') decide(word, 'pos', null, tb);
+  else if (s.type === 'cat') decide(word, 'cat', s.catName, tb);
+  else decide(word, 'hold', null, null);
+}
+
+function listDecide(el) {
+  event.stopPropagation();
+  const word = el.dataset.word;
+  const type = el.dataset.type;
+  const cat  = el.dataset.cat || null;
+  const tb   = (type==='cat'||type==='pos') ? (activeTB||'判断不能') : null;
+  decide(word, type, cat, tb);
+}
+
+// ═══════════════════════════════════════════════════════
+// Decide (core)
+// ═══════════════════════════════════════════════════════
+function decide(word, type, catName, tb) {
+  const item = wordItems.find(w => w.word === word);
   if (!item) return;
 
-  // TB: use cardPendingTB if available; ignore/hold don't need it
   let finalTB = null;
-  if (type === 'cat' || type === 'pos') {
-    finalTB = cardPendingTB || '判断不能';
-  } else if (type === 'hold') {
-    finalTB = cardPendingTB || null; // record TB if already chosen
-  }
-  // ignore → finalTB stays null
+  if (type === 'cat' || type === 'pos') finalTB = tb || '判断不能';
+  else if (type === 'hold') finalTB = tb || null;
 
-  item.dec = {type, catName, tb: finalTB};
+  item.dec = {type, catName: catName||null, tb: finalTB};
 
-  const key = item.word.replace(/\./g, '__dot__').replace(/\//g, '__sl__');
-  pending[key] = {d: type, w: item.word, t: Date.now()};
+  const key = word.replace(/\./g,'__dot__').replace(/\//g,'__sl__');
+  pending[key] = {d:type, w:word, t:Date.now()};
   if (finalTB) pending[key].tb = finalTB;
   if (catName) pending[key].c = catName;
   scheduleSave();
 
-  const tbTag  = finalTB ? ` [${finalTB}]` : '';
-  const label  = type === 'pos'    ? `ポジション${tbTag} ✓` :
-                 type === 'hold'   ? '保留 🔖' :
-                 type === 'ignore' ? '無視' :
-                 `${catName || ''}${tbTag} ✓`;
-  showToast(label);
+  const tbTag = finalTB ? ` [${finalTB}]` : '';
+  showToast(type==='pos'    ? `📍 ポジション${tbTag}` :
+            type==='hold'   ? '🔖 保留' :
+            type==='ignore' ? '✕ 無視' :
+            `${catName||''}${tbTag} ✓`);
 
-  // Reset step state
-  cardStep = 1;
-  cardPendingTB = null;
-
-  advanceNext();
+  if (activeWord === word) { activeWord = null; activeTB = null; }
+  renderList();
   updateBadges();
   if (curTab === 'done') renderDone();
-}
-
-function advanceNext() {
-  cardStep = 1;
-  cardPendingTB = null;
-  let next = wordItems.findIndex((w, i) => i > curIdx && !w.dec);
-  if (next < 0) next = wordItems.findIndex(w => !w.dec);
-  if (next >= 0) curIdx = next;
-  renderCard();
-}
-
-function navigate(dir) {
-  cardStep = 1;
-  cardPendingTB = null;
-  curIdx = Math.max(0, Math.min(wordItems.length - 1, curIdx + dir));
-  renderCard();
-}
-
-// ═══════════════════════════════════════════════════════
-// Firestore save (debounced)
-// ═══════════════════════════════════════════════════════
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(flush, 2500);
-}
-
-async function flush() {
-  if (!uid || !Object.keys(pending).length) return;
-  const batch = {...pending};
-  pending = {};
-  try {
-    await db.doc(`users/${uid}/data/alias_builder`).set(
-      {words: batch, lastUpdated: firebase.firestore.FieldValue.serverTimestamp()},
-      {merge: true}
-    );
-  } catch(e) {
-    console.error('Save failed:', e);
-    Object.assign(pending, batch);
-    setTimeout(flush, 6000);
-  }
 }
 
 function undecide(word) {
   const item = wordItems.find(w => w.word === word);
   if (!item) return;
   item.dec = null;
-  const key = word.replace(/\./g, '__dot__').replace(/\//g, '__sl__');
-  pending[key] = {d: 'undecided', w: word, t: Date.now()};
+  const key = word.replace(/\./g,'__dot__').replace(/\//g,'__sl__');
+  pending[key] = {d:'undecided', w:word, t:Date.now()};
   scheduleSave();
-  cardStep = 1;
-  cardPendingTB = null;
-  curIdx = wordItems.indexOf(item);
+  activeWord = null; activeTB = null;
   switchTab('card');
-  renderCard();
-  renderDone();
-  updateBadges();
+  renderList(); renderDone(); updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════
+// Firestore save
+// ═══════════════════════════════════════════════════════
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 2500); }
+async function flush() {
+  if (!uid || !Object.keys(pending).length) return;
+  const batch = {...pending}; pending = {};
+  try {
+    await db.doc(`users/${uid}/data/alias_builder`).set(
+      {words:batch, lastUpdated:firebase.firestore.FieldValue.serverTimestamp()}, {merge:true});
+  } catch(e) { console.error('Save failed:', e); Object.assign(pending, batch); setTimeout(flush, 6000); }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -865,34 +703,28 @@ function undecide(word) {
 function renderHold() {
   const held = wordItems.filter(w => w.dec?.type === 'hold');
   const el = document.getElementById('hold-list');
-  if (!held.length) {
-    el.innerHTML = '<div class="empty">保留中の項目はありません</div>';
-    return;
-  }
+  if (!held.length) { el.innerHTML = '<div class="empty">保留中の項目はありません</div>'; return; }
   el.innerHTML = held.map(item => {
-    const vlinks = item.vids.filter(v => v.ytId).map(v =>
+    const vlinks = item.vids.filter(v=>v.ytId).map(v=>
       `<a class="hold-vlink" href="https://youtu.be/${esc(v.ytId)}" target="_blank" rel="noopener">
         <img class="hold-vthumb" src="https://img.youtube.com/vi/${esc(v.ytId)}/mqdefault.jpg" loading="lazy" onerror="this.style.display='none'" alt="">
         <span>${esc(v.title)}</span>
       </a>`).join('');
-
     const selTB = holdTBState[item.word] || null;
     const tbBtns = TB_LIST.map(tb => {
-      const info  = TB_INFO[tb];
       const isSel = selTB === tb;
-      return `<button class="btn-hold-tb ${info.cls}${isSel ? ' sel' : ''}"
+      const cls   = TB_INFO[tb].cls;
+      return `<button class="btn-hold-tb ${cls}${isSel?' sel':''}"
         onclick="selectHoldTB('${esc(item.word)}','${tb}')">${tb}</button>`;
     }).join('');
-
     const resBtns = CATS.map(c =>
       `<button class="btn-res" data-word="${esc(item.word)}" data-type="cat" data-cat="${esc(c.name)}" onclick="resolveBtn(this)">${esc(c.name)}</button>`
     ).join('') +
-    `<button class="btn-res pos" data-word="${esc(item.word)}" data-type="pos" onclick="resolveBtn(this)">📍 ポジション</button>` +
+    `<button class="btn-res pos"    data-word="${esc(item.word)}" data-type="pos"    onclick="resolveBtn(this)">📍 ポジション</button>` +
     `<button class="btn-res ignore" data-word="${esc(item.word)}" data-type="ignore" onclick="resolveBtn(this)">✕ 無視</button>`;
-
     return `<div class="hold-item">
       <div class="hold-word">${esc(item.word)} <span style="font-size:11px;color:#999">(${item.count}本)</span></div>
-      <div class="hold-vlist">${vlinks || '<span style="color:#bbb;font-size:12px">サムネイルなし</span>'}</div>
+      <div class="hold-vlist">${vlinks||'<span style="color:#bbb;font-size:12px">サムネイルなし</span>'}</div>
       <div class="hold-section-lbl">TB 選択</div>
       <div class="hold-tb-row">${tbBtns}</div>
       <div class="hold-section-lbl">カテゴリ</div>
@@ -900,37 +732,22 @@ function renderHold() {
     </div>`;
   }).join('');
 }
-
-function selectHoldTB(word, tb) {
-  holdTBState[word] = tb;
-  renderHold();
-}
-
+function selectHoldTB(word, tb) { holdTBState[word] = tb; renderHold(); }
 function resolveBtn(el) {
-  const word    = el.dataset.word;
-  const type    = el.dataset.type;
-  const catName = el.dataset.cat || null;
+  const word = el.dataset.word, type = el.dataset.type, cat = el.dataset.cat||null;
   const item = wordItems.find(w => w.word === word);
   if (!item) return;
-
-  let finalTB = null;
-  if (type === 'cat' || type === 'pos') {
-    finalTB = holdTBState[word] || '判断不能';
-  }
-
-  item.dec = {type, catName, tb: finalTB};
-  const key = word.replace(/\./g, '__dot__').replace(/\//g, '__sl__');
-  pending[key] = {d: type, w: word, t: Date.now()};
+  const finalTB = (type==='cat'||type==='pos') ? (holdTBState[word]||'判断不能') : null;
+  item.dec = {type, catName:cat, tb:finalTB};
+  const key = word.replace(/\./g,'__dot__').replace(/\//g,'__sl__');
+  pending[key] = {d:type, w:word, t:Date.now()};
   if (finalTB) pending[key].tb = finalTB;
-  if (catName) pending[key].c = catName;
+  if (cat) pending[key].c = cat;
   scheduleSave();
-
   delete holdTBState[word];
   const tbTag = finalTB ? ` [${finalTB}]` : '';
-  showToast((catName || type) + tbTag + ' ✓');
-  renderHold();
-  renderDone();
-  updateBadges();
+  showToast((cat||type) + tbTag + ' ✓');
+  renderHold(); renderDone(); updateBadges();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -941,55 +758,40 @@ function renderDone() {
   const groups = {};
   for (const item of wordItems) {
     if (!item.dec || item.dec.type === 'hold') continue;
-    const key = item.dec.type === 'cat' ? item.dec.catName :
-                item.dec.type === 'pos' ? '_pos' : '_ignore';
+    const key = item.dec.type==='cat' ? item.dec.catName :
+                item.dec.type==='pos' ? '_pos' : '_ignore';
     if (!groups[key]) groups[key] = [];
     groups[key].push(item);
   }
-
   let html = '';
   for (const cat of CATS) {
-    const items = groups[cat.name];
-    if (!items?.length) continue;
-    const tcls = TB_CLS[cat.tb] || 'tb-neu';
+    const items = groups[cat.name]; if (!items?.length) continue;
+    const tcls = TB_CLS[cat.tb]||'tb-neu';
     const chips = items.map(item => {
-      // Show the explicit TB on the chip
       const eTB  = item.dec.tb;
       const eCls = eTB ? tbBadgeCls(eTB) : tcls;
       return `<span class="done-chip ${eCls}" style="border-color:currentColor"
-        onclick="undecide('${esc(item.word)}')" title="クリックで取り消し">
-        ${eTB && eTB !== cat.tb ? `<span class="chip-tb">${eTB}</span>` : ''}
-        ${esc(item.word)}
-      </span>`;
+        onclick="undecide('${esc(item.word)}')" title="クリックで取り消し">${esc(item.word)}</span>`;
     }).join('');
     html += `<div class="done-group">
       <div class="done-glabel"><span class="tb-badge ${tcls}">${cat.tb}</span>${esc(cat.name)} (${items.length})</div>
-      <div class="done-chips">${chips}</div>
-    </div>`;
+      <div class="done-chips">${chips}</div></div>`;
   }
   if (groups['_pos']?.length) {
     const chips = groups['_pos'].map(i => {
-      const eTB  = i.dec.tb;
-      const eCls = eTB ? tbBadgeCls(eTB) : 'tb-bot';
+      const eTB = i.dec.tb; const eCls = eTB ? tbBadgeCls(eTB) : 'tb-bot';
       return `<span class="done-chip ${eCls}" style="border-color:currentColor"
-        onclick="undecide('${esc(i.word)}')" title="クリックで取り消し">
-        ${eTB ? `<span class="chip-tb">${eTB}</span>` : ''}
-        ${esc(i.word)}
-      </span>`;
+        onclick="undecide('${esc(i.word)}')" title="クリックで取り消し">${esc(i.word)}</span>`;
     }).join('');
-    html += `<div class="done-group">
-      <div class="done-glabel">📍 ポジション (${groups['_pos'].length})</div>
-      <div class="done-chips">${chips}</div>
-    </div>`;
+    html += `<div class="done-group"><div class="done-glabel">📍 ポジション (${groups['_pos'].length})</div>
+      <div class="done-chips">${chips}</div></div>`;
   }
   if (groups['_ignore']?.length) {
     const chips = groups['_ignore'].map(i =>
       `<span class="done-chip tb-neu" style="border-color:#ccc;color:#aaa"
         onclick="undecide('${esc(i.word)}')" title="クリックで取り消し">${esc(i.word)}</span>`).join('');
-    html += `<div class="done-group">
-      <div class="done-glabel" style="color:var(--text3)">✕ 無視 (${groups['_ignore'].length})</div>
-      <div class="done-chips">${chips}</div>
-    </div>`;
+    html += `<div class="done-group"><div class="done-glabel" style="color:var(--text3)">✕ 無視 (${groups['_ignore'].length})</div>
+      <div class="done-chips">${chips}</div></div>`;
   }
   wrap.innerHTML = html || '<div class="empty">まだ完了済みの項目はありません</div>';
 }
@@ -997,80 +799,65 @@ function renderDone() {
 function exportAliases() {
   const lines = [];
   for (const cat of CATS) {
-    const items = wordItems.filter(w => w.dec?.type === 'cat' && w.dec.catName === cat.name);
+    const items = wordItems.filter(w => w.dec?.type==='cat' && w.dec.catName===cat.name);
     if (items.length) {
-      const tbNote = items.map(i => `${i.word}[TB:${i.dec.tb||'?'}]`).join(', ');
-      lines.push(
-        `// ${cat.name}  (カテゴリTB: ${cat.tb})\n` +
-        `  aliases: [...existing, '${items.map(i => i.word).join("', '")}'],\n` +
-        `  // TB明示: ${tbNote}`
-      );
+      lines.push(`// ${cat.name}  (カテゴリTB: ${cat.tb})\n` +
+        `  aliases: [...existing, '${items.map(i=>i.word).join("', '")}'],\n` +
+        `  // TB明示: ${items.map(i=>`${i.word}[${i.dec.tb||'?'}]`).join(', ')}`);
     }
   }
-  const pos = wordItems.filter(w => w.dec?.type === 'pos');
-  if (pos.length) lines.push(`// ポジション候補\n  '${pos.map(i => i.word).join("', '")}'`);
+  const pos = wordItems.filter(w => w.dec?.type==='pos');
+  if (pos.length) lines.push(`// ポジション候補\n  '${pos.map(i=>i.word).join("', '")}'`);
   const out = document.getElementById('export-out');
   out.style.display = 'block';
   out.textContent = lines.length ? lines.join('\n\n') : '（まだ割り当てがありません）';
 }
 
 // ═══════════════════════════════════════════════════════
-// Tabs
+// Tabs / UI helpers
 // ═══════════════════════════════════════════════════════
 function switchTab(tab) {
   curTab = tab;
   ['card','hold','done'].forEach(t => {
-    document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
-    document.getElementById('tbtn-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-'+t).style.display = t===tab?'':'none';
+    document.getElementById('tbtn-'+t).classList.toggle('active', t===tab);
   });
-  if (tab === 'hold') renderHold();
-  if (tab === 'done') renderDone();
+  if (tab==='hold') renderHold();
+  if (tab==='done') renderDone();
 }
-
 function updateBadges() {
-  const n = wordItems.filter(w => w.dec?.type === 'hold').length;
+  const n = wordItems.filter(w => w.dec?.type==='hold').length;
   const b = document.getElementById('hold-badge');
-  b.textContent = n;
-  b.style.display = n ? 'inline' : 'none';
+  b.textContent = n; b.style.display = n ? 'inline' : 'none';
 }
-
-// ═══════════════════════════════════════════════════════
-// UI helpers
-// ═══════════════════════════════════════════════════════
 function show(id) {
-  document.getElementById('s-auth').style.display = id === 's-auth' ? 'flex' : 'none';
-  document.getElementById('s-load').style.display = id === 's-load' ? 'flex' : 'none';
-  document.getElementById('s-main').style.display = id === 's-main' ? 'block' : 'none';
+  document.getElementById('s-auth').style.display = id==='s-auth'?'flex':'none';
+  document.getElementById('s-load').style.display = id==='s-load'?'flex':'none';
+  document.getElementById('s-main').style.display = id==='s-main'?'block':'none';
 }
-
 function esc(s) {
-  if (s == null) return '';
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  if (s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-
 let toastT;
 function showToast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastT);
-  toastT = setTimeout(() => el.classList.remove('show'), 1800);
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   if (curTab !== 'card') return;
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Enter')      { acceptSug(); }
-  if (e.key === 'ArrowRight') { navigate(1); }
-  if (e.key === 'ArrowLeft')  { navigate(-1); }
-  if (e.key === 'Escape' || e.key === 'Backspace') {
-    if (cardStep === 2) { e.preventDefault(); backToStep1(); }
-  }
-  if (e.key === 'h' || e.key === 'H') { decide('hold'); }
-  if (e.key === 'x' || e.key === 'X') { decide('ignore'); }
+  if (e.key === 'Escape') { activeWord = null; activeTB = null; renderList(); }
+  if (!activeWord) return;
+  const item = wordItems.find(w => w.word === activeWord);
+  if (!item) return;
+  if (e.key === 'Enter') acceptAI({dataset:{word:activeWord}});
+  if (e.key === 'h' || e.key === 'H') decide(activeWord, 'hold', null, null);
+  if (e.key === 'x' || e.key === 'X') decide(activeWord, 'ignore', null, null);
 });
 </script>
 </body>
