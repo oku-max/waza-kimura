@@ -362,6 +362,11 @@ function tokenize(title) {
 function aiSuggest(word) {
   const n = _norm(word);
   if (!n || n.length < 1) return {type:'ignore', label:'無視', reason:'短すぎ'};
+  // ドメインルール: パスを含む語は必ずパスガード
+  // POSITIONS部分一致より先に判定しないと「ハーフガードパス」がポジションに取られる
+  if (n.includes('ぱす')) {
+    return {type:'cat', catName:'パスガード', label:'パスガード', reason:'パス系→パスガード'};
+  }
   for (const p of POSITIONS) {
     const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(Boolean);
     if (keys.some(k => k === n)) return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション一致: ${p.ja}`};
