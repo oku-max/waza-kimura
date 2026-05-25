@@ -317,6 +317,8 @@ function tokenize(title) {
 
     const wl = w.toLowerCase();
     if (SW_JA.has(w) || SW_EN.has(wl)) continue;
+    // 正規化後もストップワードになる語を除去（例: カラー→から、スタ→した等）
+    if (SW_JA.has(_norm(w))) continue;
 
     // Japanese compound (kanji + kana, 2+ chars)
     if (/^[぀-鿿ｦ-ﾟ]+$/.test(w) && w.length >= 2) {
@@ -344,6 +346,46 @@ function tokenize(title) {
     }
   }
 
+  // ═══ Pass 2: タイトル全体を正規化スキャンして既知のポジション名を抽出 ═══
+  // 「カラー・スリーブ」(区切り文字で分断)→「片襟片袖」として抽出する
+  // _norm はスペース・長音符・区切りをすべて除去するため、
+  // 区切り文字で分かれていても連語として発見できる
+  const tNorm = _norm(title);
+  const foundPos = new Set();
+  for (const p of POSITIONS) {
+    if (p.id === 'other') continue;
+    // 長いキーから優先チェック（"ディープハーフ"が"ハーフ"より先にマッチするように）
+    const allKeys = [p.ja, ...(p.aliases||[])].sort((a,b) => b.length - a.length);
+    for (const k of allKeys) {
+      const kn = _norm(k);
+      if (kn.length < 3) continue; // 短すぎるキーは誤検知リスク大
+      if (tNorm.includes(kn)) {
+        result.add(p.ja); // 正式名称（日本語）を追加
+        foundPos.add(p.ja);
+        break;
+      }
+    }
+  }
+
+  // ═══ Pass 3: 発見したポジション名の「断片」を除去 ═══
+  // 「片襟片袖」が見つかった後に「カラー」「スリーブ」が残っていたら消す
+  for (const tok of Array.from(result)) {
+    if (foundPos.has(tok)) continue; // 正式名称は保持
+    const tn = _norm(tok);
+    if (!tn) { result.delete(tok); continue; }
+    for (const posName of foundPos) {
+      const pos = POSITIONS.find(p => p.ja === posName);
+      if (!pos) continue;
+      // このポジションの正規化キーのうち、tnより長いものにtnが含まれているか
+      const longerNorms = [pos.ja, ...(pos.aliases||[])].map(_norm)
+        .filter(k => k && k.length > tn.length);
+      if (longerNorms.some(k => k.includes(tn))) {
+        result.delete(tok); // 断片なので除去
+        break;
+      }
+    }
+  }
+
   return Array.from(result);
 }
 
@@ -362,10 +404,10 @@ function aiSuggest(word) {
     }
   }
 
-  // 2. Partial POSITIONS match (longer keys, 3+ chars to avoid false positives)
+  // 2. Partial POSITIONS match (2文字以上のキーで部分一致)
   for (const p of POSITIONS) {
-    const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(k => k && k.length >= 3);
-    if (n.length >= 3 && keys.some(k => k.includes(n) || n.includes(k))) {
+    const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(k => k && k.length >= 2);
+    if (n.length >= 2 && keys.some(k => k.includes(n) || n.includes(k))) {
       return {type:'pos', label:'ポジション', detail:p.ja, reason:`ポジション類似: ${p.ja}`};
     }
   }
@@ -378,9 +420,9 @@ function aiSuggest(word) {
     }
   }
 
-  // 4. Partial CAT_ALIASES match (3+ chars)
+  // 4. Partial CAT_ALIASES match (2文字以上のキーで部分一致 — 「パス」等の短い語を拾う)
   for (const c of CAT_ALIASES) {
-    const keys = [c.name, ...(c.al||[])].map(_norm).filter(k => k && k.length >= 3);
+    const keys = [c.name, ...(c.al||[])].map(_norm).filter(k => k && k.length >= 2);
     if (n.length >= 3 && keys.some(k => k.includes(n) || n.includes(k))) {
       return {type:'cat', catName:c.name, label:c.name, reason:'カテゴリ部分一致'};
     }
@@ -388,13 +430,13 @@ function aiSuggest(word) {
 
   // 5. TB_KEYWORDS トップ → テクニック（トップ）
   const topNorms = TB_KW_TOP.map(_norm).filter(k => k && k.length >= 2);
-  if (topNorms.some(k => k === n || (n.length >= 3 && k.length >= 3 && (k.includes(n) || n.includes(k))))) {
+  if (topNorms.some(k => k === n || (n.length >= 3 && k.length >= 2 && (k.includes(n) || n.includes(k))))) {
     return {type:'cat', catName:'テクニック（トップ）', label:'テクニック（トップ）', reason:'トップ系キーワードに一致'};
   }
 
   // 6. TB_KEYWORDS ボトム → テクニック（ボトム）
   const botNorms = TB_KW_BOT.map(_norm).filter(k => k && k.length >= 2);
-  if (botNorms.some(k => k === n || (n.length >= 3 && k.length >= 3 && (k.includes(n) || n.includes(k))))) {
+  if (botNorms.some(k => k === n || (n.length >= 3 && k.length >= 2 && (k.includes(n) || n.includes(k))))) {
     return {type:'cat', catName:'テクニック（ボトム）', label:'テクニック（ボトム）', reason:'ボトム系キーワードに一致'};
   }
 
