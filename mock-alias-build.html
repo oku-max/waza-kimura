@@ -197,11 +197,16 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino 
   </div>
 
   <div id="tab-aliases" style="display:none;padding:10px 12px 60px">
-    <div style="margin-bottom:8px">
+    <div style="margin-bottom:8px;display:flex;gap:6px;align-items:center">
       <input id="alias-search" type="text" placeholder="キーワードで絞り込み…"
         oninput="renderAliasTab()"
-        style="width:100%;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;background:var(--card)">
+        style="flex:1;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;background:var(--card)">
+      <button onclick="syncAllDecisionsToTagMaster(this)"
+        style="padding:8px 12px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
+        🔄 全同期
+      </button>
     </div>
+    <div id="alias-sync-msg" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;background:#e8f4e8;font-size:12px;color:#206020;font-weight:600"></div>
     <div id="alias-list"></div>
   </div>
 </div>
@@ -984,6 +989,35 @@ async function deleteAlias(catId, alias, btn) {
   btn.disabled = true;
   btn.textContent = '…';
   await removeFromTagMaster(catId, alias);
+  renderAliasTab();
+}
+
+// Firestore の全 cat 判断を tag-master.js に一括同期
+async function syncAllDecisionsToTagMaster(btn) {
+  const catItems = wordItems.filter(w => w.dec?.type === 'cat' && w.dec.catName);
+  if (!catItems.length) { showToast('同期対象なし'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '同期中…';
+  const msgEl = document.getElementById('alias-sync-msg');
+  msgEl.style.display = 'block';
+  msgEl.textContent = `0 / ${catItems.length} 語を同期中…`;
+
+  let done = 0, failed = 0;
+  for (const item of catItems) {
+    try {
+      await syncToTagMaster(item.word, item.dec.catName);
+      done++;
+    } catch(e) {
+      failed++;
+    }
+    msgEl.textContent = `${done} / ${catItems.length} 語を同期中…`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔄 全同期';
+  msgEl.textContent = `✅ ${done}語を tag-master.js に同期しました${failed ? ` (失敗: ${failed})` : ''}`;
+  setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
   renderAliasTab();
 }
 function updateBadges() {
