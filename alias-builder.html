@@ -559,6 +559,15 @@ async function loadAll() {
   show('s-main');
   renderList();
   updateBadges();
+
+  // AUTO-SYNC: tag_master が空で cat 決定がある場合は自動同期
+  const catCount   = wordItems.filter(w => w.dec?.type === 'cat' && w.dec.catName).length;
+  const syncedCount = CAT_ALIASES.reduce((s, c) => s + (c.al?.length || 0), 0);
+  if (catCount > 0 && syncedCount === 0) {
+    console.log(`[alias-builder] tag_master が空 (cat決定 ${catCount}件) → 自動同期開始`);
+    const synced = await syncAllDecisionsToTagMaster(null);
+    console.log(`[alias-builder] 自動同期完了: ${synced}語`);
+  }
 }
 function setMsg(m) { document.getElementById('load-msg').textContent = m; }
 
@@ -1001,15 +1010,18 @@ async function deleteAlias(catId, alias, btn) {
 
 // 全 cat 判断を Firestore (tag_master) に一括同期
 async function syncAllDecisionsToTagMaster(btn) {
+  const silent = !btn;
   const catItems = wordItems.filter(w => w.dec?.type === 'cat' && w.dec.catName);
-  if (!catItems.length) { showToast('同期対象なし'); return; }
-  if (!uid) { showToast('ログインが必要です'); return; }
+  if (!catItems.length) { if (!silent) showToast('同期対象なし'); return 0; }
+  if (!uid) { if (!silent) showToast('ログインが必要です'); return 0; }
 
-  btn.disabled = true;
-  btn.textContent = '同期中…';
   const msgEl = document.getElementById('alias-sync-msg');
-  msgEl.style.display = 'block';
-  msgEl.textContent = '同期中…';
+  if (!silent) {
+    btn.disabled = true;
+    btn.textContent = '同期中…';
+    msgEl.style.display = 'block';
+    msgEl.textContent = '同期中…';
+  }
 
   // catId ごとにまとめる
   const aliasMap = {};
@@ -1020,24 +1032,32 @@ async function syncAllDecisionsToTagMaster(btn) {
     if (!aliasMap[catId].includes(item.word)) aliasMap[catId].push(item.word);
   }
 
+  let total = 0;
   try {
     // Firestore に一括書き込み（aliases フィールドを完全置き換え）
     await tagMasterRef().set({ aliases: aliasMap }, { merge: true });
-    const total = Object.values(aliasMap).reduce((s, a) => s + a.length, 0);
-    msgEl.textContent = `✅ ${total}語を Firestore に同期しました`;
+    total = Object.values(aliasMap).reduce((s, a) => s + a.length, 0);
     // ローカルキャッシュも更新
     CAT_ALIASES = CATS
       .filter(c => CAT_NAME_TO_ID[c.name])
       .map(c => ({ name: c.name, id: CAT_NAME_TO_ID[c.name], al: aliasMap[CAT_NAME_TO_ID[c.name]] || [] }));
+    if (!silent) {
+      msgEl.textContent = `✅ ${total}語を Firestore に同期しました`;
+    }
   } catch(e) {
-    msgEl.textContent = `❌ 同期失敗: ${e.message}`;
+    if (!silent) {
+      msgEl.textContent = `❌ 同期失敗: ${e.message}`;
+    }
     console.error('syncAllDecisions failed', e);
   }
 
-  btn.disabled = false;
-  btn.textContent = '🔄 全同期';
-  setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
-  renderAliasTab();
+  if (!silent) {
+    btn.disabled = false;
+    btn.textContent = '🔄 全同期';
+    setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
+    renderAliasTab();
+  }
+  return total;
 }
 function updateBadges() {
   const n = wordItems.filter(w => w.dec?.type==='hold').length;
