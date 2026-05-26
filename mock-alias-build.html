@@ -283,155 +283,55 @@ const POSITIONS = [
   {id:'rdlr',     ja:'リバースデラヒーバ', aliases:['RDLR','Reverse De La Riva','Reverse DLR','リバデラ']},
   {id:'revhalf',  ja:'リバースハーフガード',aliases:['Reverse Half Guard','Reverse Half','リバースハーフ']},
 ];
-const CAT_ALIASES = [
-  // ── エスケープ・ディフェンス ──────────────────────────────────────────────
-  {name:'エスケープ・ディフェンス', al:[
-    'Escape','Defense','ディフェンス','エスケープ','サバイバル','survival','脱出','逃げ方',
-    'ダメージコントロール','damage control','ブリッジ','bridge','アンパス','unpass',
-    // "Against X" / "解除" 系キーワード
-    'against','解除',
-    // 特定エスケープ技
-    'hitchhiker','ヒッチハイカー','shrimp','シュリンプ',
-  ]},
-  // ── ガード構築・エントリー ────────────────────────────────────────────────
-  {name:'ガード構築・エントリー', al:[
-    'Guard Entry','Setup','エントリー','ガード構築','入り方','入り口','作り方','取り方',
-    '引き込み','セットアップ','getting to guard',
-  ]},
-  // ── ガードリテンション ────────────────────────────────────────────────────
-  {name:'ガードリテンション', al:[
-    'Guard Retention','Retention','リテンション','リガード','reguard','re-guard',
-    'ガードの守り','フレーミング','framing','足を切られない','カットされない',
-  ]},
-  // ── コントロール／プレッシャー ─────────────────────────────────────────────
-  {name:'コントロール／プレッシャー', al:[
-    'Control','Pressure','Top Control','コントロール','プレッシャー','キープ','維持',
-    'ピン','pin','抑え込み','ホールドダウン','hold down','ドミネート','dominate',
-  ]},
-  // ── コンセプト・原理 ──────────────────────────────────────────────────────
-  {name:'コンセプト・原理', al:[
-    'Concept','Principle','理論','コンセプト','セオリー','theory','原理','原則',
-    '考え方','哲学','ファンダメンタル','fundamentals','ストラテジー','strategy',
-    'メカニクス','mechanics','システム','system',
-  ]},
-  // ── スイープ ──────────────────────────────────────────────────────────────
-  {name:'スイープ', al:[
-    'Sweep','スイープ','切り返し','ひっくり返し','リバーサル','elevator','エレベーター',
-    'scissor','シザー',
-    // 特定スイープ技（bjjequipment.com データベースより）
-    'pendulum','ペンデュラム',             // Pendulum Sweep
-    'tomahawk','トマホーク',               // Tomahawk Sweep
-    'sickle','シクル',                     // Sickle Sweep
-    'lumberjack','ランバージャック',       // Lumberjack Sweep
-    'peterson','ピーターソン',             // Peterson Roll
-    'waiter','ウェイター',                 // Waiter Sweep
-    'flower','フラワー',                   // Flower Sweep
-    'balloon','バルーン',                  // Balloon Sweep
-    'tripod','トライポッド',               // Tripod Sweep
-    'hip bump','ヒップバンプ',             // Hip Bump Sweep
-    'old school','オールドスクール',       // Old School Sweep
-    'john wayne','ジョンウェイン',         // John Wayne Sweep
-    'double ankle','ダブルアンクル',       // Double Ankle Sweep
-    'single ankle','シングルアンクル',     // Single Ankle Sweep
-    'arm wrap','アームラップ',             // Arm Wrap Sweep
-    'open book','オープンブック',          // Open Book Sweep
-  ]},
-  // ── テイクダウン ──────────────────────────────────────────────────────────
-  {name:'テイクダウン', al:[
-    'Takedown','Throw','投げ','テイクダウン','タックル','レスリング','wrestling',
-    'シングルレッグ','single leg','ダブルレッグ','double leg',
-    'アンクルピック','ankle pick','ヒップスロー','hip throw',
-    'judo','柔道','払い腰','大外刈','大内刈','足払い','内股','巴投げ','trip',
-    'body lock takedown',
-    // 柔道技（英語名・日本語名）
-    'harai','ハライゴシ','払い腰',          // Harai Goshi
-    'seoi','背負い投げ','セオイナゲ',       // Seoi Nage 系
-    'ippon seoi','一本背負い',             // Ippon Seoi Nage
-    'osoto','大外刈','オソトガリ',          // Osoto Gari
-    'ouchi','大内刈','オウチガリ',          // Ouchi Gari
-    'kouchi','小内刈','コウチガリ',         // Kouchi Gari
-    'kosoto','小外刈','コソトガリ',         // Kosoto Gari
-    'koshi','腰車','コシグルマ',           // Koshi Guruma
-    'tai otoshi','体落','タイオトシ',      // Tai Otoshi
-    'hiza','膝車','ヒザグルマ',            // Hiza Guruma
-    'uchi mata','内股','ウチマタ',         // Uchi Mata
-    // レスリング技
-    'duck','ダックアンダー',        // Duck Under
-    'fireman','ファイヤーマン',     // Fireman's Carry
-    'crotch','ハイクロッチ',        // High Crotch
-    'snap down','スナップダウン',   // Snap Down
-    'knee tap','ニータップ',        // Knee Tap
-  ]},
-  // ── バックテイク・バックアタック ──────────────────────────────────────────
-  {name:'バックテイク・バックアタック', al:[
-    'Back Take','Back Attack','バックテイク','バックアタック',
-    'back mount','back control','バックマウント','バックコントロール',
-    'シートベルト','seat belt','ボウアンドアロー','bow and arrow',
-    'RNC','rear naked choke','リアネイキッドチョーク',
-    // 特定バックテイク技
-    'berimbolo','ベリンボロ',       // Berimbolo (De La Riva → Back)
-    'kiss of the dragon','キスオブザドラゴン',
-  ]},
-  // ── パスガード ────────────────────────────────────────────────────────────
-  {name:'パスガード', al:[
-    'Guard Pass','Passing','パス','パスガード',
-    'ニーカット','knee cut','ニースライス','knee slice',
-    'torreando','torando','スタックパス','stack pass',
-    'レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass',
-    // 特定パスガード技（bjjequipment.com データベースより）
-    'matador','マタドール',              // Matador Pass
-    'toreador','トレアドール',          // Toreador Pass
-    'backstep','バックステップ',    // Back Step Pass
-    'double under','ダブルアンダー',// Double Under Pass
-    'over under','オーバーアンダー',// Over Under Pass
-    'leg weave','レッグウィーブ',   // Leg Weave Pass
-    'knee slide','ニースライド',    // Knee Slide Pass
-    'leg lace','レッグレース',      // Leg Lace Pass
-    'cross knee','クロスニー',      // Cross Knee Slide
-  ]},
-  // ── フィニッシュ ──────────────────────────────────────────────────────────
-  {name:'フィニッシュ', al:[
-    'Submission','Finish','サブミッション','フィニッシュ','極め','絞め技','関節技','タップ',
-    'アームバー','armbar','腕十字','アームロック','arm lock',
-    'キムラ','kimura','オモプラッタ','omoplata','ウメプラタ',
-    'チョーク','choke','絞め','三角','三角絞め','triangle',
-    'ギロチン','guillotine','ダースチョーク','darce','アナコンダ','anaconda',
-    'クロックチョーク','clock choke','ベースボールチョーク','baseball choke',
-    'ノースサウスチョーク','north south choke',
-    'ヒールフック','heel hook','フットロック','foot lock',
-    'アンクルロック','ankle lock','ニーバー','knee bar','トーホールド','toe hold',
-    'ストレートフットロック','straight foot lock',
-    'インサイドヒール','inside heel','アウトサイドヒール','outside heel',
-    '足関節','レッグロック','leg lock',
-    // 特定サブミッション技（bjjequipment.com データベースより）
-    'americana','アメリカーナ',
-    'aoki','アオキロック',          // Aoki Lock
-    'baratoplata','バラトプラータ',
-    'bicep','バイセップスライサー', // Bicep Slicer
-    'boston crab','ボストンクラブ',
-    'brabo','ブラボー','ブラボーチョーク',   // Brabo Choke
-    'buggy','バギー','バギーチョーク',      // Buggy Choke
-    'calf','カーフスライサー',      // Calf Slicer
-    'opener','キャンオープナー',    // Can Opener（canはSW_EN済みのためopenerで捕捉）
-    'cross choke','クロスチョーク',
-    'electric chair','エレクトリックチェア',
-    'estima','エスティマ','エスティマロック',       // Estima Lock
-    'ezekiel','エゼキエル','エゼキエルチョーク',   // Ezekiel Choke
-    'gogoplata','ゴゴプラータ',
-    'lins','リンズロック',          // Lins Lock
-    'loop choke','ループチョーク',
-    'mir lock','ミルロック',
-    'paper cutter','ペーパーカッター',
-    'spine lock','スパインロック',
-    'suloev','スロエフ',            // Suloev Stretch
-    'tarikoplata','タリコプラータ',
-    'twister','ツイスター',
-    'von flue','フォンフルー','フォンフルーチョーク',  // Von Flue Choke
-    'wrist lock','リストロック',
-    'groin stretch','グロインストレッチ',
-    'kneebar','ニーバー',
-  ]},
-];
+// CAT_ALIASES は tag-master.js から /api/aliases で動的ロード
+// initAliases() で設定される
+let CAT_ALIASES = [];
+
+// catName → catId マッピング（tag-master.js の id と一致）
+const CAT_NAME_TO_ID = {
+  'エスケープ・ディフェンス':    'escape',
+  'ガード構築・エントリー':       'entry',
+  'ガードリテンション':           'retention',
+  'コントロール／プレッシャー':   'control',
+  'コンセプト・原理':             'concept',
+  'スイープ':                     'sweep',
+  'テイクダウン':                 'takedown',
+  'バックテイク・バックアタック': 'back',
+  'パスガード':                   'pass',
+  'フィニッシュ':                 'finish',
+};
+
+async function initAliases() {
+  try {
+    const res  = await fetch('/api/aliases');
+    const data = await res.json();
+    CAT_ALIASES = data.map(c => ({ name: c.name, id: c.id, al: c.aliases }));
+  } catch(e) {
+    console.warn('alias API unavailable, CAT_ALIASES empty', e);
+  }
+}
+
+async function syncToTagMaster(word, catName) {
+  const catId = CAT_NAME_TO_ID[catName];
+  if (!catId) return;
+  try {
+    await fetch('/api/alias/add', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ catId, alias: word }),
+    });
+  } catch(e) {
+    console.warn('syncToTagMaster failed', e);
+  }
+}
+
+async function removeFromTagMaster(catId, alias) {
+  await fetch('/api/alias/remove', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ catId, alias }),
+  });
+}
 const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
 const TB_KW_BOT = ['ボトム','bottom','デラヒーバ','dlr','de la riva','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k guard','slx','ベリンボロ','berimbolo','クローズドガード','closed guard','ディープハーフ','deep half','ハーフ','half','オープンガード','open guard','ガードリカバリー','guard recovery','スイープ','sweep','エスケープ','escape','リテンション','retention','引き込み'];
 // 純カタカナ複合語の末尾に現れるアクション語（「技名＋エスケープ」→2トークンに分割）
@@ -618,6 +518,8 @@ auth.onAuthStateChanged(async user => {
 // Load
 // ═══════════════════════════════════════════════════════
 async function loadAll() {
+  setMsg('tag-master.js を読み込み中…');
+  await initAliases();
   setMsg('保存済みデータを確認中…');
   let saved = {};
   try {
@@ -862,6 +764,9 @@ function decide(word, type, catName, tb) {
   if (catName) pending[key].c = catName;
   scheduleSave();
 
+  // tag-master.js に即時書き込み（カテゴリ分類のみ）
+  if (type === 'cat' && catName) syncToTagMaster(word, catName);
+
   const tbTag = finalTB ? ` [${finalTB}]` : '';
   showToast(type==='pos'    ? `📍 ポジション${tbTag}` :
             type==='hold'   ? '🔖 保留' :
@@ -1028,7 +933,20 @@ function switchTab(tab) {
   if (tab==='done') renderDone();
   if (tab==='aliases') renderAliasTab();
 }
-function renderAliasTab() {
+async function renderAliasTab() {
+  const el = document.getElementById('alias-list');
+  el.innerHTML = '<div class="empty">読み込み中…</div>';
+
+  // 毎回サーバーから最新を取得
+  try {
+    const res  = await fetch('/api/aliases');
+    const data = await res.json();
+    CAT_ALIASES = data.map(c => ({ name: c.name, id: c.id, al: c.aliases }));
+  } catch(e) {
+    el.innerHTML = '<div class="empty" style="color:#c00">サーバーに接続できません。dev-server.js を起動してください。</div>';
+    return;
+  }
+
   const q = (document.getElementById('alias-search')?.value||'').toLowerCase().replace(/\s/g,'');
   const CAT_COLOR = {
     'エスケープ・ディフェンス':'#e8f4e8','ガード構築・エントリー':'#e8eef8',
@@ -1037,10 +955,12 @@ function renderAliasTab() {
     'テイクダウン':'#f3eef8','バックテイク・バックアタック':'#fef6e4',
     'パスガード':'#f3eef8','フィニッシュ':'#fde8e8',
   };
-  const el = document.getElementById('alias-list');
+
   let html = '';
   for (const c of CAT_ALIASES) {
-    const filtered = q ? c.al.filter(a => a.toLowerCase().replace(/\s/g,'').includes(q) || c.name.toLowerCase().includes(q)) : c.al;
+    const filtered = q
+      ? c.al.filter(a => a.toLowerCase().replace(/\s/g,'').includes(q) || c.name.toLowerCase().includes(q))
+      : c.al;
     if (q && !filtered.length && !c.name.toLowerCase().includes(q)) continue;
     const displayAl = q ? filtered : c.al;
     html += `<div style="margin-bottom:14px;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">`;
@@ -1048,11 +968,23 @@ function renderAliasTab() {
     html += `<div style="padding:8px 10px;background:var(--card);display:flex;flex-wrap:wrap;gap:4px">`;
     for (const a of displayAl) {
       const hi = q && a.toLowerCase().replace(/\s/g,'').includes(q);
-      html += `<span style="padding:3px 8px;border-radius:10px;font-size:11px;border:1px solid var(--border);background:${hi?'#fff3cd':'var(--bg)'};color:${hi?'#856404':'var(--text2)'}">${a}</span>`;
+      const safeA = esc(a); const safeId = esc(c.id);
+      html += `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 6px 3px 8px;border-radius:10px;font-size:11px;border:1px solid var(--border);background:${hi?'#fff3cd':'var(--bg)'};color:${hi?'#856404':'var(--text2)'}">
+        ${safeA}
+        <button onclick="deleteAlias('${safeId}','${safeA}',this)" title="削除"
+          style="border:none;background:none;cursor:pointer;color:#aaa;font-size:12px;padding:0 1px;line-height:1" onmouseover="this.style.color='#c00'" onmouseout="this.style.color='#aaa'">×</button>
+      </span>`;
     }
     html += `</div></div>`;
   }
   el.innerHTML = html || '<div class="empty">該当なし</div>';
+}
+
+async function deleteAlias(catId, alias, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  await removeFromTagMaster(catId, alias);
+  renderAliasTab();
 }
 function updateBadges() {
   const n = wordItems.filter(w => w.dec?.type==='hold').length;

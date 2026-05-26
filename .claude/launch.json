@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "waza-kimura",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5502", "--directory", "C:\\Users\\okuso\\Documents\\waza-kimura"],
-      "port": 5502
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dev-server.js"],
+      "port": 5710,
+      "autoPort": true
     }
   ]
 }

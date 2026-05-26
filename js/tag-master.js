@@ -72,11 +72,15 @@ const CATEGORIES = [
     ]},
   { id: 'sweep', name: 'スイープ', desc: 'ボトムから相手をひっくり返す動作',
     aliases: [
-      'Sweep','スイープ',
-      '切り返し','ひっくり返し',
-      'リバーサル',                  // reversal = スイープの別表現
-      'elevator','エレベーター',     // butterfly sweep の別名
-      'scissor','シザー',            // シザースイープ
+      'Sweep',
+      'スイープ',
+      '切り返し',
+      'ひっくり返し',
+      'リバーサル',
+      'elevator',
+      'エレベーター',
+      'scissor',
+      'シザー',
     ]},
   { id: 'takedown', name: 'テイクダウン', desc: '立ちから相手を倒す動作（投げ技含む）',
     aliases: [
