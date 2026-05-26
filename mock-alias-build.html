@@ -309,15 +309,22 @@ const CAT_ALIASES = [
     'Sweep','スイープ','切り返し','ひっくり返し','リバーサル','elevator','エレベーター',
     'scissor','シザー',
     // 特定スイープ技（bjjequipment.com データベースより）
-    'pendulum','ペンデュラム',       // Pendulum Sweep
-    'tomahawk','トマホーク',         // Tomahawk Sweep
-    'sickle','シクル',               // Sickle Sweep
-    'lumberjack','ランバージャック', // Lumberjack Sweep
-    'peterson','ピーターソン',       // Peterson Roll
-    'waiter','ウェイター',           // Waiter Sweep
-    'flower','フラワー',             // Flower Sweep
-    'balloon','バルーン',            // Balloon Sweep
-    'tripod','トライポッド',         // Tripod Sweep
+    'pendulum','ペンデュラム',             // Pendulum Sweep
+    'tomahawk','トマホーク',               // Tomahawk Sweep
+    'sickle','シクル',                     // Sickle Sweep
+    'lumberjack','ランバージャック',       // Lumberjack Sweep
+    'peterson','ピーターソン',             // Peterson Roll
+    'waiter','ウェイター',                 // Waiter Sweep
+    'flower','フラワー',                   // Flower Sweep
+    'balloon','バルーン',                  // Balloon Sweep
+    'tripod','トライポッド',               // Tripod Sweep
+    'hip bump','ヒップバンプ',             // Hip Bump Sweep
+    'old school','オールドスクール',       // Old School Sweep
+    'john wayne','ジョンウェイン',         // John Wayne Sweep
+    'double ankle','ダブルアンクル',       // Double Ankle Sweep
+    'single ankle','シングルアンクル',     // Single Ankle Sweep
+    'arm wrap','アームラップ',             // Arm Wrap Sweep
+    'open book','オープンブック',          // Open Book Sweep
   ]},
   // ── テイクダウン ──────────────────────────────────────────────────────────
   {name:'テイクダウン', al:[
@@ -326,15 +333,18 @@ const CAT_ALIASES = [
     'アンクルピック','ankle pick','ヒップスロー','hip throw',
     'judo','柔道','払い腰','大外刈','大内刈','足払い','内股','巴投げ','trip',
     'body lock takedown',
-    // 柔道技（英語名）
-    'harai','ハライゴシ',           // Harai Goshi
-    'seoi','背負い投げ',            // Seoi Nage 系
-    'osoto','大外刈',               // Osoto Gari
-    'ouchi',                         // Ouchi Gari
-    'kouchi','小内刈',              // Kouchi Gari
-    'kosoto',                        // Kosoto Gari
-    'koshi','腰車',                 // Koshi Guruma
-    'tai otoshi','体落',            // Tai Otoshi
+    // 柔道技（英語名・日本語名）
+    'harai','ハライゴシ','払い腰',          // Harai Goshi
+    'seoi','背負い投げ','セオイナゲ',       // Seoi Nage 系
+    'ippon seoi','一本背負い',             // Ippon Seoi Nage
+    'osoto','大外刈','オソトガリ',          // Osoto Gari
+    'ouchi','大内刈','オウチガリ',          // Ouchi Gari
+    'kouchi','小内刈','コウチガリ',         // Kouchi Gari
+    'kosoto','小外刈','コソトガリ',         // Kosoto Gari
+    'koshi','腰車','コシグルマ',           // Koshi Guruma
+    'tai otoshi','体落','タイオトシ',      // Tai Otoshi
+    'hiza','膝車','ヒザグルマ',            // Hiza Guruma
+    'uchi mata','内股','ウチマタ',         // Uchi Mata
     // レスリング技
     'duck','ダックアンダー',        // Duck Under
     'fireman','ファイヤーマン',     // Fireman's Carry
@@ -359,8 +369,8 @@ const CAT_ALIASES = [
     'torreando','torando','スタックパス','stack pass',
     'レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass',
     // 特定パスガード技（bjjequipment.com データベースより）
-    'matador','マタドール',         // Matador Pass
-    'toreador',                      // Toreador Pass
+    'matador','マタドール',              // Matador Pass
+    'toreador','トレアドール',          // Toreador Pass
     'backstep','バックステップ',    // Back Step Pass
     'double under','ダブルアンダー',// Double Under Pass
     'over under','オーバーアンダー',// Over Under Pass
@@ -389,14 +399,14 @@ const CAT_ALIASES = [
     'baratoplata','バラトプラータ',
     'bicep','バイセップスライサー', // Bicep Slicer
     'boston crab','ボストンクラブ',
-    'brabo','ブラボー',             // Brabo Choke
-    'buggy','バギー',               // Buggy Choke
+    'brabo','ブラボー','ブラボーチョーク',   // Brabo Choke
+    'buggy','バギー','バギーチョーク',      // Buggy Choke
     'calf','カーフスライサー',      // Calf Slicer
     'opener','キャンオープナー',    // Can Opener（canはSW_EN済みのためopenerで捕捉）
     'cross choke','クロスチョーク',
     'electric chair','エレクトリックチェア',
-    'estima','エスティマ',          // Estima Lock
-    'ezekiel','エゼキエル',         // Ezekiel Choke
+    'estima','エスティマ','エスティマロック',       // Estima Lock
+    'ezekiel','エゼキエル','エゼキエルチョーク',   // Ezekiel Choke
     'gogoplata','ゴゴプラータ',
     'lins','リンズロック',          // Lins Lock
     'loop choke','ループチョーク',
@@ -406,10 +416,10 @@ const CAT_ALIASES = [
     'suloev','スロエフ',            // Suloev Stretch
     'tarikoplata','タリコプラータ',
     'twister','ツイスター',
-    'von flue','フォンフルー',      // Von Flue Choke
+    'von flue','フォンフルー','フォンフルーチョーク',  // Von Flue Choke
     'wrist lock','リストロック',
     'groin stretch','グロインストレッチ',
-    'kneebar',
+    'kneebar','ニーバー',
   ]},
 ];
 const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
