@@ -466,63 +466,6 @@ function autoTagFromTitle(title, pl = '', channel = '') {
     }
   }
 
-  // ── waza_tag_rules を読んで上乗せ適用 ──
-  // ルールタブで管理するルールが唯一の判断基準。
-  // 動画取り込み時・AI判定ボタン時・どのタイミングでも必ずここを通す。
-  try {
-    const storedRules = JSON.parse(localStorage.getItem('waza_tag_rules') || '[]');
-    if (storedRules.length) {
-      const tL  = title.toLowerCase();
-      const plL = (pl      || '').toLowerCase();
-      const chL = (channel || '').toLowerCase();
-      const _m  = s => { const sl = (s||'').toLowerCase(); return tL.includes(sl) || plL.includes(sl) || chL.includes(sl); };
-      const _has = (field, val) => {
-        if (field === 'tb')  return result.tb.includes(val);
-        if (field === 'cat') return result.cat.includes(val);
-        if (field === 'pos') return result.pos.includes(val);
-        return false;
-      };
-      const _apply = (field, action, value) => {
-        if (!field || !value) return;
-        const arr = field === 'tb' ? result.tb : field === 'cat' ? result.cat : field === 'pos' ? result.pos : null;
-        if (!arr) return;
-        if      (action === 'add'     && !arr.includes(value)) arr.push(value);
-        else if (action === 'replace')                         { arr.length = 0; arr.push(value); }
-        else if (action === 'remove')                          { const idx = arr.indexOf(value); if (idx >= 0) arr.splice(idx, 1); }
-      };
-
-      // Phase 1: keyword / and / not
-      storedRules.forEach(r => {
-        if (!r.enabled) return;
-        const t = r.type || 'keyword';
-        let fires = false;
-        if      (t === 'keyword') fires = !!(r.condition && _m(r.condition));
-        else if (t === 'and')     fires = !!(r.condition_a && r.condition_b && _m(r.condition_a) && _m(r.condition_b));
-        else if (t === 'not')     fires = !!(r.condition && _m(r.condition) && !(r.not_condition && _m(r.not_condition)));
-        if (fires) _apply(r.field, r.action, r.value);
-      });
-
-      // Phase 2: pos_implies
-      storedRules.forEach(r => {
-        if (!r.enabled || r.type !== 'pos_implies') return;
-        if (r.if_value && _has(r.if_field, r.if_value)) _apply(r.then_field, 'add', r.then_value);
-      });
-
-      // Phase 3: conflict
-      storedRules.forEach(r => {
-        if (!r.enabled || r.type !== 'conflict') return;
-        if (r.if_value && _has(r.field, r.if_value)) _apply(r.field, 'remove', r.then_remove);
-      });
-
-      // Phase 4: default (フィールドが空のときのみ)
-      storedRules.forEach(r => {
-        if (!r.enabled || r.type !== 'default') return;
-        const arr = r.field === 'tb' ? result.tb : r.field === 'cat' ? result.cat : r.field === 'pos' ? result.pos : null;
-        if (arr && !arr.length && r.value) arr.push(r.value);
-      });
-    }
-  } catch(e) { /* localStorage 読み取り失敗は無視 */ }
-
   return result;
 }
 
