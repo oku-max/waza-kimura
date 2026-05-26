@@ -546,9 +546,12 @@ function aiSuggest(word) {
   if (n.includes('ぱす')) {
     return {type:'cat', catName:'パスガード', label:'パスガード', reason:'パス系→パスガード'};
   }
-  // カウンター系はTier2/3修飾語 → 無視（alias builderで決める概念ではない）
+  // Tier2/3修飾語複合語 → 無視（技名＋カウンター / 技名＋エスケープ）
   if (n.endsWith('かうんた')) {
     return {type:'ignore', label:'無視', reason:'カウンター系 (Tier2/3修飾語)'};
+  }
+  if (n.endsWith('えすけぷ') && n.length > 4) {
+    return {type:'ignore', label:'無視', reason:'技＋エスケープ複合語 (Tier2/3)'};
   }
   for (const p of POSITIONS) {
     const keys = [p.ja, ...(p.aliases||[])].map(_norm).filter(Boolean);
