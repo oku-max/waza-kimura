@@ -29,16 +29,16 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 // aliases はすべて Alias Builder でユーザーが承認したものだけを記載する
 // Claude が直接書くことは禁止。Alias Builder → /api/alias/add 経由のみ
 const CATEGORIES = [
-  { id: 'escape',    name: 'エスケープ・ディフェンス',     desc: '不利ポジションからの脱出と防御',             aliases: [] },
-  { id: 'entry',     name: 'ガード構築・エントリー',       desc: 'ガードを取る・特定ガードの入り口',           aliases: [] },
-  { id: 'retention', name: 'ガードリテンション',           desc: '足を取られないボトムの守り',                 aliases: [] },
-  { id: 'control',   name: 'コントロール／プレッシャー',   desc: 'トップポジションの維持・押さえ',             aliases: [] },
-  { id: 'concept',   name: 'コンセプト・原理',             desc: '技ではない原則的な学び',                     aliases: [] },
-  { id: 'sweep',     name: 'スイープ',                     desc: 'ボトムから相手をひっくり返す動作',           aliases: [] },
-  { id: 'takedown',  name: 'テイクダウン',                 desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [] },
-  { id: 'back',      name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',             aliases: [] },
-  { id: 'pass',      name: 'パスガード',                   desc: '相手のガードを越えてトップを取る動作',       aliases: [] },
-  { id: 'finish',    name: 'フィニッシュ',                 desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [] },
+  { id: 'escape',    name: 'エスケープ・ディフェンス',     tb: '中立',           desc: '不利ポジションからの脱出と防御',             aliases: [] },
+  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [] },
+  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [] },
+  { id: 'control',   name: 'コントロール／プレッシャー',   tb: '中立',           desc: 'トップポジションの維持・押さえ',             aliases: [] },
+  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [] },
+  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [] },
+  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [] },
+  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [] },
+  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [] },
+  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [] },
 ];
 
 // ─── Layer 3: Position (27 fixed) ────────────────────
@@ -443,6 +443,14 @@ function autoTagFromTitle(title, pl = '', channel = '') {
         if (!result.cat.includes(cat.name)) result.cat.push(cat.name);
         break;
       }
+    }
+  }
+
+  // ── Category → TB 推論 ──
+  for (const catName of result.cat) {
+    const cat = CATEGORIES.find(c => c.name === catName);
+    if (cat?.tb && cat.tb !== '中立' && !result.tb.includes(cat.tb)) {
+      result.tb.push(cat.tb);
     }
   }
 
