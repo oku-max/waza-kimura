@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.470</title>
+<title>WAZA KIMURA v52.471</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1888,19 +1888,21 @@
       <div style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px">🔒 AI管理 <span style="font-size:11px;background:var(--accent);color:var(--on-accent);padding:2px 8px;border-radius:10px;font-weight:700">ADMIN</span></div>
     </div>
     <!-- Admin sub-tabs -->
-    <div id="admin-sub-tabs" style="display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;scrollbar-width:none">
-      <div class="admin-stab active" onclick="switchAdminSub('accuracy')" data-sub="accuracy" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">精度</div>
-      <div class="admin-stab" onclick="switchAdminSub('corrections')" data-sub="corrections" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">修正履歴</div>
-      <div class="admin-stab" onclick="switchAdminSub('rules')" data-sub="rules" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ルール</div>
-      <div class="admin-stab" onclick="switchAdminSub('categories')" data-sub="categories" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">カテゴリ</div>
-      <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
-      <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
-      <div class="admin-stab" onclick="switchAdminSub('review')" data-sub="review" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">📋 審査</div>
-      <div class="admin-stab" onclick="switchAdminSub('tagmaster')" data-sub="tagmaster" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🗂 タグ全体図</div>
-      <div class="admin-stab" onclick="switchAdminSub('aliasbuilder')" data-sub="aliasbuilder" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🔧 Aliasビルダー</div>
-      <div class="admin-stab" onclick="switchAdminSub('tbtuner')" data-sub="tbtuner" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">⚙️ TB調整</div>
-      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-        <button onclick="window._twOpen?.()" style="padding:5px 14px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷 タグ付けウィザード</button>
+    <div style="border-bottom:1px solid var(--border);margin-bottom:16px;display:flex;align-items:stretch">
+      <div id="admin-sub-tabs" style="display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex:1;min-width:0">
+        <div class="admin-stab active" onclick="switchAdminSub('accuracy')" data-sub="accuracy" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">精度</div>
+        <div class="admin-stab" onclick="switchAdminSub('corrections')" data-sub="corrections" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">修正履歴</div>
+        <div class="admin-stab" onclick="switchAdminSub('rules')" data-sub="rules" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ルール</div>
+        <div class="admin-stab" onclick="switchAdminSub('categories')" data-sub="categories" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">カテゴリ</div>
+        <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">ポジション</div>
+        <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
+        <div class="admin-stab" onclick="switchAdminSub('review')" data-sub="review" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">📋 審査</div>
+        <div class="admin-stab" onclick="switchAdminSub('tagmaster')" data-sub="tagmaster" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🗂 タグ全体図</div>
+        <div class="admin-stab" onclick="switchAdminSub('aliasbuilder')" data-sub="aliasbuilder" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🔧 Alias</div>
+        <div class="admin-stab" onclick="switchAdminSub('tbtuner')" data-sub="tbtuner" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">⚙️ TB</div>
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center;padding:0 8px;border-left:1px solid var(--border)">
+        <button onclick="window._twOpen?.()" style="padding:5px 12px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷</button>
       </div>
     </div>
 
