@@ -545,19 +545,29 @@ function retagAllFromTitle() {
   return updated;
 }
 
+// ─── Tier 1c: 反転トリガー ────────────────────────
+// トップ／ボトムが競合したとき、このワードが含まれていたら判定を反転する
+// ユーザーが mock-tier1.html の UI から追加・削除できる
+// dev-server.js の /api/reversal-triggers で読み書き
+const REVERSAL_TRIGGERS = [
+  '対策','防ぐ','防御','守る','止める','対処','防止',
+  'カウンター','ディフェンス','defense','counter',
+];
+
 // ─── exports ──────────────────────────────────────
-window.TB_VALUES      = TB_VALUES;
-window.CATEGORIES     = CATEGORIES;
-window.POSITIONS      = POSITIONS;
-window._normTag       = _norm;
-window.findPosition   = findPosition;
-window.findCategory   = findCategory;
-window.matchPosition  = matchPosition;
-window.matchCategory  = matchCategory;
-window.migrateVideo   = migrateVideo;
-window.migrateAllVideos = migrateAll;
-window.autoTagFromTitle = autoTagFromTitle;
-window.retagAllFromTitle = retagAllFromTitle;
+window.TB_VALUES          = TB_VALUES;
+window.CATEGORIES         = CATEGORIES;
+window.POSITIONS          = POSITIONS;
+window.REVERSAL_TRIGGERS  = REVERSAL_TRIGGERS;
+window._normTag           = _norm;
+window.findPosition       = findPosition;
+window.findCategory       = findCategory;
+window.matchPosition      = matchPosition;
+window.matchCategory      = matchCategory;
+window.migrateVideo       = migrateVideo;
+window.migrateAllVideos   = migrateAll;
+window.autoTagFromTitle   = autoTagFromTitle;
+window.retagAllFromTitle  = retagAllFromTitle;
 
 // 旧スキーマ互換ブリッジは削除済み (v50)
 // 全ての参照は新4層スキーマ (tb/cat/pos/tags) に統一

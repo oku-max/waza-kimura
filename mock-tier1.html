@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>モック — Tier 1 設計</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,'Segoe UI',sans-serif;font-size:13px;padding:16px;max-width:680px;margin:0 auto}
+:root{
+  --surface:#fff;--surface2:#f0f0f0;--surface3:#e8e8e8;
+  --border:#ddd;--border2:#ebebeb;
+  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --accent:#b8860b;--on-accent:#fff;
+  --green:#2e8b57;--blue:#2a6faa;--purple:#6a3fa0;--red:#c0392b;
+  --orange:#c0600a;
+}
+button{cursor:pointer;font-family:inherit}
+.main-nav{display:flex;border-bottom:2px solid var(--border);margin-bottom:16px}
+.nav-btn{padding:9px 18px;border:none;background:none;color:var(--text3);font-size:12px;font-weight:700;border-bottom:2px solid transparent;margin-bottom:-2px}
+.nav-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+.inner-tabs{display:flex;border-bottom:1.5px solid var(--border2);margin-bottom:14px}
+.itab{padding:7px 14px;border:none;background:none;font-size:11px;font-weight:700;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1.5px}
+.itab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.section-title{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.8px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.tier-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}
+.t1a{background:#e8f4e8;color:var(--green)}
+.t1b{background:#e8eef8;color:var(--blue)}
+.t1c{background:#fef3e8;color:var(--orange)}
+.readonly-note{font-size:10px;color:var(--text3);margin-top:8px}
+.marker-list{display:flex;flex-wrap:wrap;gap:6px}
+.marker-chip{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--text2)}
+
+/* ── Tier 1b ── */
+.t1b-block{border:1px solid var(--border2);border-radius:7px;margin-bottom:10px;overflow:hidden}
+.t1b-block-head{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface2);cursor:pointer;user-select:none}
+.t1b-block-title{font-size:11px;font-weight:700;color:var(--text2)}
+.t1b-block-meta{font-size:10px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.tb-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;display:inline-block}
+.tb-top{background:#e8eef8;color:var(--blue)}
+.tb-bot{background:#e8f4e8;color:var(--green)}
+.tb-std{background:#f3eef8;color:var(--purple)}
+.tb-neu{background:var(--surface2);color:var(--text3)}
+.t1b-block-body{padding:10px 12px;display:none}
+.alias-chips{display:flex;flex-wrap:wrap;gap:4px}
+.alias-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:2px 7px;font-size:10px;color:var(--text2)}
+.alias-chip.hit{background:#d4edff;border-color:#90c0e8;color:var(--blue);font-weight:700}
+.cat-tb-select{padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:inherit;background:var(--surface);color:var(--text2)}
+.edit-link{font-size:10px;color:var(--blue);text-decoration:none;opacity:.7}
+
+/* ── Tier 1c ── */
+.trigger-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.trigger-chip{display:inline-flex;align-items:center;gap:4px;background:#fef3e8;border:1px solid #f0c890;border-radius:12px;padding:3px 10px;font-size:11px;color:var(--orange);font-weight:600}
+.trigger-chip button{background:none;border:none;color:var(--orange);font-size:11px;padding:0;cursor:pointer;line-height:1}
+.add-trigger-row{display:flex;gap:6px}
+.add-trigger-row input{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit}
+.btn-add-small{padding:6px 12px;border-radius:6px;border:1px solid var(--accent);background:#fef8ec;color:var(--accent);font-size:11px;font-weight:700;white-space:nowrap}
+
+/* ── テスト ── */
+.test-input-row{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.test-input-row label{font-size:10px;font-weight:700;color:var(--text3)}
+.test-input-row input{padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit}
+.test-input-row input:focus{outline:none;border-color:var(--blue)}
+.test-actions{display:flex;gap:6px;margin-bottom:12px}
+.btn-run{flex:1;padding:10px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:700}
+.vlist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.vlist-count{font-size:11px;color:var(--text3)}
+.vlist-search{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;margin-bottom:8px}
+.vlist-search:focus{outline:none;border-color:var(--blue)}
+.vlist-wrap{max-height:200px;overflow-y:auto;border:1px solid var(--border2);border-radius:6px}
+.vlist-item{padding:8px 10px;border-bottom:1px solid var(--border2);cursor:pointer;font-size:12px;line-height:1.4}
+.vlist-item:last-child{border-bottom:none}
+.vlist-item:hover{background:#f0f6ff}
+.vlist-item.selected{background:#e8f0fb;font-weight:600}
+.vlist-pl{font-size:10px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:6px}
+.vlist-empty{padding:16px;text-align:center;color:var(--text3);font-size:12px}
+.load-guide{background:#f0f6ff;border:1px solid #c0d8f0;border-radius:8px;padding:12px;margin-bottom:10px}
+.load-guide-title{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px}
+.load-snippet{background:#1a1a2e;color:#a8d8a8;font-size:11px;padding:8px 10px;border-radius:5px;font-family:monospace;line-height:1.5;white-space:pre-wrap;word-break:break-all;margin-bottom:8px;cursor:pointer}
+.load-snippet:hover{opacity:.85}
+.btn-load{width:100%;padding:8px;border-radius:6px;border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:700}
+.load-status{font-size:11px;color:var(--text3);margin-top:6px;text-align:center}
+.log-wrap{background:#f8f8f8;border:1px solid var(--border2);border-radius:7px;padding:12px}
+.log-step{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.log-step:last-child{margin-bottom:0}
+.log-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.log-body{flex:1}
+.log-tier{font-size:10px;font-weight:800;letter-spacing:.5px;margin-bottom:2px;color:var(--text2)}
+.log-detail{font-size:12px;color:var(--text2);line-height:1.5}
+.log-hit{color:var(--green);font-weight:600}
+.log-miss{color:var(--text3)}
+.log-flip{color:var(--orange);font-weight:600}
+.log-conflict{color:var(--orange)}
+.log-result{background:var(--surface);border:1.5px solid var(--blue);border-radius:7px;padding:10px 14px;margin-top:10px;display:flex;align-items:center;gap:10px}
+.log-result-label{font-size:11px;font-weight:700;color:var(--text3)}
+.log-result-val{font-size:14px;font-weight:800;color:var(--blue)}
+.log-empty{color:var(--text3);font-size:12px;text-align:center;padding:12px 0}
+.cur-tb-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;border:1px solid}
+.cur-tb-top{background:#e8eef8;color:var(--blue);border-color:#aac4e8}
+.cur-tb-bot{background:#e8f4e8;color:var(--green);border-color:#a8d5b8}
+.cur-tb-std{background:#f3eef8;color:var(--purple);border-color:#c8a8e8}
+.cur-tb-none{background:var(--surface2);color:var(--text3);border-color:var(--border)}
+.current-tb{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div class="main-nav">
+  <button class="nav-btn">□ Library</button>
+  <button class="nav-btn">○ Search</button>
+  <button class="nav-btn">≡ Notes</button>
+  <button class="nav-btn">⚙ Settings</button>
+  <button class="nav-btn active">🔒 Admin</button>
+</div>
+
+<div class="inner-tabs">
+  <button class="itab active" onclick="switchTab(this,'tb')">TB</button>
+  <button class="itab" onclick="switchTab(this,'cat')">カテゴリ</button>
+  <button class="itab" onclick="switchTab(this,'pos')">ポジション</button>
+  <button class="itab" onclick="switchTab(this,'fb')">💬 フィードバック</button>
+</div>
+
+<div id="panel-tb">
+
+  <!-- Tier 1a -->
+  <div class="section">
+    <div class="section-title"><span class="tier-badge t1a">Tier 1a</span>宣言マーカー — タイトル冒頭の括弧表記</div>
+    <div class="marker-list">
+      <span class="marker-chip">（トップ）〜</span>
+      <span class="marker-chip">（ボトム）〜</span>
+      <span class="marker-chip">【トップ】〜</span>
+      <span class="marker-chip">【ボトム】〜</span>
+      <span class="marker-chip">[Top] 〜</span>
+      <span class="marker-chip">[Bottom] 〜</span>
+      <span class="marker-chip">〜 (Top)</span>
+      <span class="marker-chip">〜 (Bottom)</span>
+    </div>
+    <div class="readonly-note">※ 最優先。他のTierをすべて上書きします。</div>
+  </div>
+
+  <!-- Tier 1b -->
+  <div class="section">
+    <div class="section-title"><span class="tier-badge t1b">Tier 1b</span>技・ガード名 → TB の対応</div>
+    <div class="readonly-note" style="margin-bottom:10px;font-size:11px;color:var(--text2);line-height:1.6">
+      ガード名はポジションタブ、技名はカテゴリタブで管理します。<br>
+      ここでは各リストがどの TB に対応するかを設定します。
+    </div>
+
+    <!-- ポジション → ボトム（固定） -->
+    <div class="t1b-block">
+      <div class="t1b-block-head" onclick="toggleBlock('pos-block')">
+        <span class="t1b-block-title">ガード名（ポジションリスト）</span>
+        <span class="t1b-block-meta">
+          <span class="tb-badge tb-bot">ボトム 固定</span>
+          <span id="pos-count" style="color:var(--text3)"></span>
+          <span>▾</span>
+        </span>
+      </div>
+      <div class="t1b-block-body" id="pos-block">
+        <div class="alias-chips" id="pos-chips"></div>
+        <div class="readonly-note" style="margin-top:8px">※ ガードを使う側は常にボトム。ポジションタブで追加・編集できます。</div>
+      </div>
+    </div>
+
+    <!-- カテゴリ → TB（設定可） -->
+    <div id="cat-blocks"></div>
+
+    <div class="readonly-note" style="margin-top:4px">※ 「中立」に設定したカテゴリはTB判定に使いません。</div>
+  </div>
+
+  <!-- Tier 1c -->
+  <div class="section">
+    <div class="section-title"><span class="tier-badge t1c">Tier 1c</span>反転トリガー — 視点を逆にする語</div>
+    <div class="trigger-wrap" id="trigger-wrap"></div>
+    <div class="add-trigger-row">
+      <input id="new-trigger" type="text" placeholder="反転ワード（例: 対策）">
+      <button class="btn-add-small" onclick="addTrigger()">＋ 追加</button>
+    </div>
+    <div class="readonly-note" style="margin-top:8px">※ 強さ：1a > 1c > 1b。1cは1bの結論を上書きします。</div>
+  </div>
+
+  <!-- テストパネル -->
+  <div class="section">
+    <div class="section-title">🧪 判断テスト</div>
+    <div id="load-guide-wrap">
+      <div class="load-guide">
+        <div class="load-guide-title">① メインアプリのコンソールで実行（1回だけ）</div>
+        <div class="load-snippet" onclick="copySnippet()">localStorage.setItem('wk_mock_videos', JSON.stringify((window.videos||[]).map(v=>({id:v.id,title:v.title||'',pl:v.pl||'',ch:v.ch||v.channel||'',tb:v.tb||[]}))));
+</div>
+        <button class="btn-load" onclick="loadVideos()">② 動画リストを読み込む</button>
+        <div class="load-status" id="load-status">未読み込み</div>
+      </div>
+    </div>
+    <div id="vlist-section" style="display:none;margin-bottom:12px">
+      <div class="vlist-header">
+        <span class="vlist-count" id="vlist-count"></span>
+        <button class="btn-add-small" onclick="pickRandom()">🎲 ランダム</button>
+      </div>
+      <input class="vlist-search" id="vlist-search" type="text" placeholder="タイトルで絞り込み…" oninput="filterList()">
+      <div class="vlist-wrap" id="vlist-wrap"></div>
+    </div>
+    <div class="test-input-row">
+      <label>タイトル</label>
+      <input id="t-title" type="text" placeholder="例: レッグドラッグ対策 クローズドガード">
+    </div>
+    <div class="test-input-row" style="margin-bottom:4px">
+      <label>現在のTB（参考）</label>
+      <div class="current-tb" id="current-tb-display"><span class="cur-tb-chip cur-tb-none">—</span></div>
+    </div>
+    <div class="test-input-row">
+      <label>プレイリスト（任意）</label>
+      <input id="t-pl" type="text" placeholder="">
+    </div>
+    <div class="test-actions">
+      <button class="btn-run" onclick="runTest()">▶ 判断を実行</button>
+    </div>
+    <div id="log-output"><div class="log-empty">タイトルを入力して「判断を実行」を押してください</div></div>
+  </div>
+
+</div>
+
+<div id="panel-cat" style="display:none"><div class="section"><div class="log-empty" style="padding:24px">カテゴリ管理（このモックでは省略）</div></div></div>
+<div id="panel-pos" style="display:none"><div class="section"><div class="log-empty" style="padding:24px">ポジション管理（このモックでは省略）</div></div></div>
+<div id="panel-fb" style="display:none"><div class="section"><div class="log-empty" style="padding:24px">フィードバック（このモックでは省略）</div></div></div>
+
+<script>
+// ── ポジションリスト（= ガード名 = ボトム） ──
+const POSITIONS = [
+  {ja:'50/50',          aliases:['5050','フィフティフィフティ','fifty fifty']},
+  {ja:'70/30ガード',    aliases:['70/30','seventy thirty']},
+  {ja:'Kガード',        aliases:['K-Guard','K Guard','ケーガード']},
+  {ja:'SLX',            aliases:['シングルレッグX','Single X','single leg x guard']},
+  {ja:'Xガード',        aliases:['X-Guard','X Guard','エックスガード']},
+  {ja:'インバーテッド', aliases:['Inverted','Inverted Guard','トルネードガード']},
+  {ja:'オープンガード', aliases:['open guard','Open Guard']},
+  {ja:'オクトパスガード',aliases:['Octopus','octopus guard']},
+  {ja:'片襟片袖',       aliases:['Collar Sleeve','カラースリーブ','collar and sleeve']},
+  {ja:'クローズドガード',aliases:['Closed','Closed Guard','クロガ','フルガード','full guard']},
+  {ja:'クロスガード',   aliases:['cross guard','Cross Guard']},
+  {ja:'サドル',         aliases:['411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole','ashi garami']},
+  {ja:'シッティングガード',aliases:['シットアップガード','sit up guard','sitting guard','seated guard']},
+  {ja:'スパイダーガード',aliases:['Spider','スパイダー','inverted spider']},
+  {ja:'ディープハーフ', aliases:['Deep Half Guard','Deep Half','ディープ']},
+  {ja:'デラヒーバ',     aliases:['DLR','De La Riva','De La Riva Guard','デラヒバ']},
+  {ja:'ニーシールド',   aliases:['Z Guard','Z-Guard','Zガード']},
+  {ja:'ハーフガード',   aliases:['Half','Half Guard','ハーフ','脇差し','ロックダウン','lockdown','underhook half']},
+  {ja:'バタフライガード',aliases:['Butterfly','Butterfly Guard','バタフライ','ハーフバタフライ','half butterfly']},
+  {ja:'ラッソーガード', aliases:['Lasso','Lasso Guard','ラッソー','shallow lasso','シャローラッソー']},
+  {ja:'ラペルガード',   aliases:['Lapel','Lapel Guard','ワームガード','Worm Guard','スクイッドガード']},
+  {ja:'リバースデラヒーバ',aliases:['RDLR','Reverse DLR','リバデラ']},
+  {ja:'リバースハーフガード',aliases:['リバースハーフ','reverse half','reverse half guard']},
+  {ja:'タートル',       aliases:['Turtle','Turtle Position','亀']},
+  {ja:'シングルレッグガード',aliases:['single leg guard']},
+];
+
+// ── カテゴリリスト ──
+const CATS = [
+  { name:'エスケープ・ディフェンス', aliases:['Escape','Defense','ディフェンス','エスケープ','脱出','逃げ','逃げ方','ブリッジ','bridge'] },
+  { name:'ガード構築・エントリー',   aliases:['Guard Entry','Setup','エントリー','ガード構築','入り方','作り方','取り方','引き込み','セットアップ'] },
+  { name:'ガードリテンション',       aliases:['Guard Retention','Retention','リテンション','リガード','reguard','フレーミング'] },
+  { name:'コントロール／プレッシャー',aliases:['Control','Pressure','Top Control','コントロール','プレッシャー','抑え込み','ドミネート','dominate','ピン','pin'] },
+  { name:'コンセプト・原理',         aliases:['Concept','Principle','理論','コンセプト','システム','解説','入門','基礎','ファンダメンタル','fundamentals','メカニクス'] },
+  { name:'スイープ',                 aliases:['Sweep','スイープ','切り返し','リバーサル','elevator','scissor','シザー'] },
+  { name:'テイクダウン',             aliases:['Takedown','Throw','投げ','テイクダウン','タックル','レスリング','wrestling','シングルレッグ','single leg','ダブルレッグ','double leg','ヒップスロー','hip throw','柔道','judo','アンクルピック'] },
+  { name:'バックテイク・バックアタック', aliases:['Back Take','Back Attack','バックテイク','バックアタック','back mount','back control','シートベルト','seat belt','ボウアンドアロー','RNC','rear naked choke'] },
+  { name:'パスガード',               aliases:['Guard Pass','Passing','パス','パスガード','ニーカット','knee cut','ニースライス','knee slice','トレアンド','torreando','レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass','スタックパス','stack pass','ガードブレイク'] },
+  { name:'フィニッシュ',             aliases:['Submission','Finish','サブミッション','フィニッシュ','極め','絞め','アームバー','armbar','キムラ','kimura','オモプラッタ','omoplata','三角','triangle','ギロチン','guillotine','ヒールフック','heel hook','フットロック','足関節','レッグロック','leg lock'] },
+];
+
+let catTbMap = {
+  'エスケープ・ディフェンス':      'ボトム',
+  'ガード構築・エントリー':        'ボトム',
+  'ガードリテンション':            'ボトム',
+  'コントロール／プレッシャー':    'トップ',
+  'コンセプト・原理':              '中立',
+  'スイープ':                      'ボトム',
+  'テイクダウン':                  'スタンディング',
+  'バックテイク・バックアタック':  '中立',
+  'パスガード':                    'トップ',
+  'フィニッシュ':                  '中立',
+};
+
+let triggers = [];  // tag-master.js から /api/reversal-triggers で動的ロード
+let allVideos=[], filteredVideos=[], selectedVideoId=null;
+
+// ── 描画 ──
+function tbClass(tb){ return tb==='トップ'?'tb-top':tb==='ボトム'?'tb-bot':tb==='スタンディング'?'tb-std':'tb-neu'; }
+
+function renderPositionBlock(){
+  const allKws = POSITIONS.flatMap(p=>[p.ja,...(p.aliases||[])]);
+  document.getElementById('pos-count').textContent = `${allKws.length}語`;
+  document.getElementById('pos-chips').innerHTML = allKws.map(k=>`<span class="alias-chip" data-src="pos">${k}</span>`).join('');
+}
+
+function renderCatBlocks(){
+  document.getElementById('cat-blocks').innerHTML = CATS.map((c,i)=>{
+    const tb = catTbMap[c.name]||'中立';
+    const opts = ['トップ','ボトム','スタンディング','中立'].map(v=>`<option${v===tb?' selected':''}>${v}</option>`).join('');
+    return `<div class="t1b-block">
+      <div class="t1b-block-head" onclick="toggleBlock('cat-block-${i}')">
+        <span class="t1b-block-title">${c.name}</span>
+        <span class="t1b-block-meta">
+          <select class="cat-tb-select" onclick="event.stopPropagation()" onchange="setCatTb('${c.name}',this.value)">${opts}</select>
+          <span style="color:var(--text3)">${c.aliases.length}語</span>
+          <span>▾</span>
+        </span>
+      </div>
+      <div class="t1b-block-body" id="cat-block-${i}">
+        <div class="alias-chips" id="cat-chips-${i}">${c.aliases.map(a=>`<span class="alias-chip" data-src="cat" data-cat="${c.name}">${a}</span>`).join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTriggers(){
+  document.getElementById('trigger-wrap').innerHTML = triggers.map(t=>{
+    const safe = t.replace(/'/g,"\\'");
+    return `<span class="trigger-chip">${t}<button onclick="delTrigger('${safe}')">✕</button></span>`;
+  }).join('');
+}
+
+function toggleBlock(id){ const el=document.getElementById(id); if(el) el.style.display=el.style.display==='block'?'none':'block'; }
+function setCatTb(name,val){ catTbMap[name]=val; }
+
+async function addTrigger() {
+  const input = document.getElementById('new-trigger');
+  const w = input.value.trim();
+  if (!w) return;
+  input.value = '';
+  try {
+    await fetch('/api/reversal-trigger/add', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ trigger: w }),
+    });
+    triggers = await (await fetch('/api/reversal-triggers')).json();
+  } catch(e) {
+    // フォールバック: APIなしでもメモリ上で動作
+    if (!triggers.includes(w)) triggers.push(w);
+  }
+  renderTriggers();
+}
+
+async function delTrigger(word) {
+  try {
+    await fetch('/api/reversal-trigger/remove', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ trigger: word }),
+    });
+    triggers = await (await fetch('/api/reversal-triggers')).json();
+  } catch(e) {
+    triggers = triggers.filter(t => t !== word);
+  }
+  renderTriggers();
+}
+
+async function loadTriggers() {
+  try {
+    triggers = await (await fetch('/api/reversal-triggers')).json();
+  } catch(e) {
+    console.warn('reversal-triggers API unavailable, using empty list');
+    triggers = [];
+  }
+  renderTriggers();
+}
+
+// ── 動画リスト ──
+function copySnippet(){ navigator.clipboard?.writeText(document.querySelector('.load-snippet').textContent).then(()=>{ document.getElementById('load-status').textContent='コピーしました ✓ メインアプリのコンソールに貼り付けてください'; }); }
+function loadVideos(){
+  const raw=localStorage.getItem('wk_mock_videos');
+  if(!raw){ document.getElementById('load-status').textContent='⚠ データが見つかりません。スニペットを先に実行してください。'; return; }
+  try{
+    allVideos=JSON.parse(raw); filteredVideos=allVideos;
+    document.getElementById('load-status').textContent=`✓ ${allVideos.length}本 読み込み済み`;
+    document.getElementById('vlist-section').style.display='';
+    document.getElementById('load-guide-wrap').style.display='none';
+    document.getElementById('vlist-count').textContent=`${allVideos.length}本`;
+    renderVideoList();
+  }catch(e){ document.getElementById('load-status').textContent='読み込み失敗'; }
+}
+function renderVideoList(){
+  const wrap=document.getElementById('vlist-wrap');
+  if(!filteredVideos.length){ wrap.innerHTML='<div class="vlist-empty">該当なし</div>'; return; }
+  wrap.innerHTML=filteredVideos.slice(0,200).map(v=>{
+    const isSel=v.id===selectedVideoId;
+    const tbHtml=(v.tb||[]).length?v.tb.map(t=>`<span class="cur-tb-chip ${t==='トップ'?'cur-tb-top':t==='ボトム'?'cur-tb-bot':'cur-tb-std'}" style="font-size:9px">${t}</span>`).join(''):`<span class="cur-tb-chip cur-tb-none" style="font-size:9px">未設定</span>`;
+    return `<div class="vlist-item${isSel?' selected':''}" onclick="selectVideo('${v.id.replace(/'/g,"\\'")}')">
+      <div>${v.title}</div>
+      <div class="vlist-pl"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.pl||v.ch||''}</span><span style="display:flex;gap:3px;flex-shrink:0">${tbHtml}</span></div>
+    </div>`;
+  }).join('');
+}
+function filterList(){
+  const q=document.getElementById('vlist-search').value.toLowerCase();
+  filteredVideos=q?allVideos.filter(v=>v.title.toLowerCase().includes(q)):allVideos;
+  document.getElementById('vlist-count').textContent=filteredVideos.length<allVideos.length?`${filteredVideos.length} / ${allVideos.length}本`:`${allVideos.length}本`;
+  renderVideoList();
+}
+function selectVideo(id){
+  const v=allVideos.find(v=>v.id===id); if(!v)return;
+  selectedVideoId=id;
+  document.getElementById('t-title').value=v.title;
+  document.getElementById('t-pl').value=v.pl||'';
+  const tbDisp=document.getElementById('current-tb-display');
+  tbDisp.innerHTML=(v.tb||[]).length?v.tb.map(t=>`<span class="cur-tb-chip ${t==='トップ'?'cur-tb-top':t==='ボトム'?'cur-tb-bot':'cur-tb-std'}">${t}</span>`).join(''):'<span class="cur-tb-chip cur-tb-none">未設定</span>';
+  renderVideoList();
+  runTest();
+}
+function pickRandom(){
+  if(!allVideos.length)return;
+  const src=filteredVideos.length?filteredVideos:allVideos;
+  selectVideo(src[Math.floor(Math.random()*src.length)].id);
+  setTimeout(()=>{ const sel=document.getElementById('vlist-wrap').querySelector('.selected'); if(sel)sel.scrollIntoView({block:'nearest'}); },50);
+}
+
+// ── 判断ロジック ──
+const T1A=[
+  {re:/^[（(【\[]*(トップ|top)[）)】\]]/i,tb:'トップ'},
+  {re:/^[（(【\[]*(ボトム|bottom)[）)】\]]/i,tb:'ボトム'},
+  {re:/[（(【\[](トップ|top)[）)】\]]/i,tb:'トップ'},
+  {re:/[（(【\[](ボトム|bottom)[）)】\]]/i,tb:'ボトム'},
+];
+
+function detectT1b(title){
+  const tL=title.toLowerCase();
+  const results=[];
+  // ポジション → ボトム
+  for(const p of POSITIONS){
+    const kws=[p.ja,...(p.aliases||[])];
+    for(const k of kws){
+      const kn=k.toLowerCase().replace(/[-_/\s・]/g,'');
+      const tn=tL.replace(/[-_/\s・]/g,'');
+      if(kn.length>=2&&tn.includes(kn)){
+        results.push({tb:'ボトム',via:'ガード名',keyword:k,category:p.ja});
+        break;
+      }
+    }
+  }
+  // カテゴリ → TB
+  for(const cat of CATS){
+    const impliedTb=catTbMap[cat.name];
+    if(!impliedTb||impliedTb==='中立') continue;
+    for(const alias of cat.aliases){
+      if(alias.length>=2&&tL.includes(alias.toLowerCase())){
+        results.push({tb:impliedTb,via:'カテゴリ',keyword:alias,category:cat.name});
+        break;
+      }
+    }
+  }
+  return results;
+}
+
+function opposite(tb){ return tb==='トップ'?'ボトム':tb==='ボトム'?'トップ':tb; }
+
+function runTest(){
+  const title=document.getElementById('t-title').value.trim(); if(!title)return;
+  const tL=title.toLowerCase();
+  const steps=[];
+  let finalTb=null;
+
+  // 1a
+  let t1aHit=null;
+  for(const p of T1A){ if(p.re.test(title)){t1aHit=p.tb;break;} }
+  if(t1aHit){
+    steps.push({icon:'🟢',tier:'Tier 1a — 宣言マーカー',detail:`<span class="log-hit">「${t1aHit}」の括弧表記 → 確定</span>`});
+    finalTb=[t1aHit];
+  } else {
+    steps.push({icon:'⚪',tier:'Tier 1a — 宣言マーカー',detail:`<span class="log-miss">なし → 次へ</span>`});
+  }
+
+  // 1b
+  const hits=detectT1b(title);
+  if(!finalTb){
+    if(!hits.length){
+      steps.push({icon:'⚪',tier:'Tier 1b — 技・ガード名',detail:`<span class="log-miss">ヒットなし → 次へ</span>`});
+    } else {
+      const byTb={};
+      hits.forEach(h=>{if(!byTb[h.tb])byTb[h.tb]=[];byTb[h.tb].push(h);});
+      const tbKeys=Object.keys(byTb);
+      const hitDesc=hits.map(h=>`「${h.keyword}」→<b>${h.category}</b>→${h.tb}`).join('、');
+      if(tbKeys.length===1){
+        steps.push({icon:'🟢',tier:'Tier 1b — 技・ガード名',detail:`<span class="log-hit">${hitDesc}（競合なし）</span>`});
+        const trg=triggers.find(t=>tL.includes(t.toLowerCase()));
+        if(trg){
+          const flipped=opposite(tbKeys[0]);
+          steps.push({icon:'🔄',tier:'Tier 1c — 反転トリガー',detail:`<span class="log-flip">「${trg}」→ ${tbKeys[0]} を反転 → ${flipped} 確定</span>`});
+          finalTb=[flipped];
+        } else {
+          steps.push({icon:'⚪',tier:'Tier 1c — 反転トリガー',detail:`<span class="log-miss">なし</span>`});
+          finalTb=[tbKeys[0]];
+        }
+      } else {
+        steps.push({icon:'⚠️',tier:'Tier 1b — 技・ガード名',detail:`<span class="log-conflict">競合 — ${hitDesc}</span>`});
+        const trg=triggers.find(t=>tL.includes(t.toLowerCase()));
+        if(trg){
+          const dominant=tbKeys.reduce((a,b)=>byTb[a].length>=byTb[b].length?a:b);
+          steps.push({icon:'🔄',tier:'Tier 1c — 反転トリガー',detail:`<span class="log-flip">「${trg}」→ 優勢な ${dominant} を反転 → ${opposite(dominant)} 確定</span>`});
+          finalTb=[opposite(dominant)];
+        } else {
+          steps.push({icon:'⚪',tier:'Tier 1c — 反転トリガー',detail:`<span class="log-miss">なし → Tier 2 へ</span>`});
+        }
+      }
+    }
+  } else if(hits.length){
+    steps.push({icon:'ℹ️',tier:'Tier 1b（参考）',detail:hits.map(h=>`「${h.keyword}」→${h.tb}`).join('、')+'（1a確定済みにつき無視）'});
+  }
+
+  const stepsHtml=steps.map(s=>`<div class="log-step"><div class="log-icon">${s.icon}</div><div class="log-body"><div class="log-tier">${s.tier}</div><div class="log-detail">${s.detail}</div></div></div>`).join('');
+  const resultHtml=finalTb
+    ?`<div class="log-result"><div class="log-result-label">Tier 1 判定</div><div class="log-result-val">${finalTb.join(' / ')}</div></div>`
+    :`<div class="log-result" style="border-color:var(--text3)"><div class="log-result-label">Tier 1 判定</div><div class="log-result-val" style="color:var(--text3)">判定不能 — Tier 2 へ</div></div>`;
+  document.getElementById('log-output').innerHTML=`<div class="log-wrap">${stepsHtml}</div>${resultHtml}`;
+  highlightAliases(title);
+}
+
+function highlightAliases(title){
+  const tL=title.toLowerCase().replace(/[-_/\s・]/g,'');
+  document.querySelectorAll('.alias-chip').forEach(chip=>{
+    const k=chip.textContent.toLowerCase().replace(/[-_/\s・]/g,'');
+    chip.classList.toggle('hit', k.length>=2&&tL.includes(k));
+  });
+}
+
+function switchTab(btn,panel){
+  document.querySelectorAll('.itab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['tb','cat','pos','fb'].forEach(p=>{ const el=document.getElementById('panel-'+p); if(el)el.style.display=p===panel?'':'none'; });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&['t-title','t-pl'].includes(document.activeElement.id))runTest();});
+
+(function(){
+  const raw=localStorage.getItem('wk_mock_videos');
+  if(raw){ try{ allVideos=JSON.parse(raw); filteredVideos=allVideos; document.getElementById('vlist-section').style.display=''; document.getElementById('load-guide-wrap').style.display='none'; document.getElementById('vlist-count').textContent=`${allVideos.length}本`; renderVideoList(); }catch(e){} }
+})();
+
+renderPositionBlock();
+renderCatBlocks();
+loadTriggers();  // tag-master.js から API 経由でロード
+</script>
+</body>
+</html>
