@@ -434,8 +434,8 @@ function autoTagFromTitle(title, pl = '', channel = '') {
   if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
   if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
 
-  // ── Category 判定: waza_ai_rules のみ（下の rules 適用セクションで処理）──
-  // CATEGORIES.aliases はサーチ用途のみ。自動判定は waza_ai_rules に一本化。
+  // ── Category 判定: waza_tag_rules のみ（下の rules 適用セクションで処理）──
+  // CATEGORIES.aliases はサーチ用途のみ。自動判定は waza_tag_rules に一本化。
 
   // ── Position 判定 (タイトルのみ; PLからのpos推測は誤検知リスクが高い) ──
   for (const p of POSITIONS) {
@@ -449,11 +449,11 @@ function autoTagFromTitle(title, pl = '', channel = '') {
     }
   }
 
-  // ── waza_ai_rules を読んで上乗せ適用 ──
+  // ── waza_tag_rules を読んで上乗せ適用 ──
   // ルールタブで管理するルールが唯一の判断基準。
   // 動画取り込み時・AI判定ボタン時・どのタイミングでも必ずここを通す。
   try {
-    const storedRules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    const storedRules = JSON.parse(localStorage.getItem('waza_tag_rules') || '[]');
     if (storedRules.length) {
       const tL  = title.toLowerCase();
       const plL = (pl      || '').toLowerCase();

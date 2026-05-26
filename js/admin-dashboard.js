@@ -2,7 +2,7 @@
 // Admin-only: 精度・修正履歴・ルール管理
 
 const FEEDBACK_KEY   = 'waza_tag_feedback';
-const RULES_KEY      = 'waza_ai_rules';
+const RULES_KEY      = 'waza_tag_rules';
 const TAGDICT_KEY    = 'waza_tag_dict';
 const POSITIONS_KEY  = 'waza_positions';
 const PROPOSALS_KEY  = 'waza_rule_proposals';
@@ -47,6 +47,16 @@ function _adminDocRef() {
   return firebase.firestore().collection('users').doc(uid).collection('data').doc('admin_config');
 }
 
+// 旧キー waza_ai_rules → 新キー waza_tag_rules へ一回限りのマイグレーション
+(function _migrateRulesKey() {
+  try {
+    if (!localStorage.getItem('waza_tag_rules') && localStorage.getItem('waza_ai_rules')) {
+      localStorage.setItem('waza_tag_rules', localStorage.getItem('waza_ai_rules'));
+      localStorage.removeItem('waza_ai_rules');
+    }
+  } catch(e) {}
+})();
+
 async function _syncFromFirestore() {
   if (_adminSynced) return;
   try {
@@ -55,7 +65,9 @@ async function _syncFromFirestore() {
     const doc = await ref.get();
     if (doc.exists) {
       const d = doc.data();
-      if (Array.isArray(d.ai_rules)       && d.ai_rules.length)       localStorage.setItem(RULES_KEY,      JSON.stringify(d.ai_rules));
+      // tag_rules（新）または ai_rules（旧）どちらでも読む
+      const rules = d.tag_rules || d.ai_rules;
+      if (Array.isArray(rules) && rules.length) localStorage.setItem(RULES_KEY, JSON.stringify(rules));
       if (Array.isArray(d.rule_proposals) && d.rule_proposals.length) localStorage.setItem(PROPOSALS_KEY,  JSON.stringify(d.rule_proposals));
       if (Array.isArray(d.positions)      && d.positions.length)      localStorage.setItem(POSITIONS_KEY,  JSON.stringify(d.positions));
       if (Array.isArray(d.tag_dict)       && d.tag_dict.length)       localStorage.setItem(TAGDICT_KEY,    JSON.stringify(d.tag_dict));
@@ -710,7 +722,7 @@ function _getRules() {
 }
 function _saveRules(rules) {
   try { localStorage.setItem(RULES_KEY, JSON.stringify(rules)); } catch(e) {}
-  _pushToFirestore('ai_rules', rules);
+  _pushToFirestore('tag_rules', rules);
 }
 
 // ── Global actions ──
