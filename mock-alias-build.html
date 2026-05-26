@@ -274,16 +274,143 @@ const POSITIONS = [
   {id:'revhalf',  ja:'リバースハーフガード',aliases:['Reverse Half Guard','Reverse Half','リバースハーフ']},
 ];
 const CAT_ALIASES = [
-  {name:'エスケープ・ディフェンス', al:['Escape','Defense','ディフェンス','エスケープ','サバイバル','survival','脱出','逃げ方','ダメージコントロール','damage control','ブリッジ','bridge','アンパス','unpass']},
-  {name:'ガード構築・エントリー',   al:['Guard Entry','Setup','エントリー','ガード構築','入り方','入り口','作り方','取り方','引き込み','セットアップ','getting to guard']},
-  {name:'ガードリテンション',       al:['Guard Retention','Retention','リテンション','リガード','reguard','re-guard','ガードの守り','フレーミング','framing','足を切られない','カットされない']},
-  {name:'コントロール／プレッシャー',al:['Control','Pressure','Top Control','コントロール','プレッシャー','キープ','維持','ピン','pin','抑え込み','ホールドダウン','hold down','ドミネート','dominate']},
-  {name:'コンセプト・原理',         al:['Concept','Principle','理論','コンセプト','セオリー','theory','原理','原則','考え方','哲学','ファンダメンタル','fundamentals','ストラテジー','strategy','メカニクス','mechanics','システム','system']},
-  {name:'スイープ',                 al:['Sweep','スイープ','切り返し','ひっくり返し','リバーサル','elevator','エレベーター','scissor','シザー']},
-  {name:'テイクダウン',             al:['Takedown','Throw','投げ','テイクダウン','タックル','レスリング','wrestling','シングルレッグ','single leg','ダブルレッグ','double leg','アンクルピック','ankle pick','ヒップスロー','hip throw','judo','柔道','払い腰','大外刈','大内刈','足払い','内股','巴投げ','trip','body lock takedown']},
-  {name:'バックテイク・バックアタック',al:['Back Take','Back Attack','バックテイク','バックアタック','back mount','back control','バックマウント','バックコントロール','シートベルト','seat belt','ボウアンドアロー','bow and arrow','RNC','rear naked choke','リアネイキッドチョーク']},
-  {name:'パスガード',               al:['Guard Pass','Passing','パス','パスガード','ニーカット','knee cut','ニースライス','knee slice','torreando','torando','スタックパス','stack pass','レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass']},
-  {name:'フィニッシュ',             al:['Submission','Finish','サブミッション','フィニッシュ','極め','絞め技','関節技','タップ','アームバー','armbar','腕十字','アームロック','arm lock','キムラ','kimura','オモプラッタ','omoplata','ウメプラタ','チョーク','choke','絞め','三角','三角絞め','triangle','ギロチン','guillotine','ダースチョーク','darce','アナコンダ','anaconda','クロックチョーク','clock choke','ベースボールチョーク','baseball choke','ノースサウスチョーク','north south choke','ヒールフック','heel hook','フットロック','foot lock','アンクルロック','ankle lock','ニーバー','knee bar','トーホールド','toe hold','ストレートフットロック','straight foot lock','インサイドヒール','inside heel','アウトサイドヒール','outside heel','足関節','レッグロック','leg lock']},
+  // ── エスケープ・ディフェンス ──────────────────────────────────────────────
+  {name:'エスケープ・ディフェンス', al:[
+    'Escape','Defense','ディフェンス','エスケープ','サバイバル','survival','脱出','逃げ方',
+    'ダメージコントロール','damage control','ブリッジ','bridge','アンパス','unpass',
+    // "Against X" / "解除" 系キーワード
+    'against','解除',
+    // 特定エスケープ技
+    'hitchhiker','ヒッチハイカー','shrimp','シュリンプ',
+  ]},
+  // ── ガード構築・エントリー ────────────────────────────────────────────────
+  {name:'ガード構築・エントリー', al:[
+    'Guard Entry','Setup','エントリー','ガード構築','入り方','入り口','作り方','取り方',
+    '引き込み','セットアップ','getting to guard',
+  ]},
+  // ── ガードリテンション ────────────────────────────────────────────────────
+  {name:'ガードリテンション', al:[
+    'Guard Retention','Retention','リテンション','リガード','reguard','re-guard',
+    'ガードの守り','フレーミング','framing','足を切られない','カットされない',
+  ]},
+  // ── コントロール／プレッシャー ─────────────────────────────────────────────
+  {name:'コントロール／プレッシャー', al:[
+    'Control','Pressure','Top Control','コントロール','プレッシャー','キープ','維持',
+    'ピン','pin','抑え込み','ホールドダウン','hold down','ドミネート','dominate',
+  ]},
+  // ── コンセプト・原理 ──────────────────────────────────────────────────────
+  {name:'コンセプト・原理', al:[
+    'Concept','Principle','理論','コンセプト','セオリー','theory','原理','原則',
+    '考え方','哲学','ファンダメンタル','fundamentals','ストラテジー','strategy',
+    'メカニクス','mechanics','システム','system',
+  ]},
+  // ── スイープ ──────────────────────────────────────────────────────────────
+  {name:'スイープ', al:[
+    'Sweep','スイープ','切り返し','ひっくり返し','リバーサル','elevator','エレベーター',
+    'scissor','シザー',
+    // 特定スイープ技（bjjequipment.com データベースより）
+    'pendulum','ペンデュラム',       // Pendulum Sweep
+    'tomahawk','トマホーク',         // Tomahawk Sweep
+    'sickle','シクル',               // Sickle Sweep
+    'lumberjack','ランバージャック', // Lumberjack Sweep
+    'peterson','ピーターソン',       // Peterson Roll
+    'waiter','ウェイター',           // Waiter Sweep
+    'flower','フラワー',             // Flower Sweep
+    'balloon','バルーン',            // Balloon Sweep
+    'tripod','トライポッド',         // Tripod Sweep
+  ]},
+  // ── テイクダウン ──────────────────────────────────────────────────────────
+  {name:'テイクダウン', al:[
+    'Takedown','Throw','投げ','テイクダウン','タックル','レスリング','wrestling',
+    'シングルレッグ','single leg','ダブルレッグ','double leg',
+    'アンクルピック','ankle pick','ヒップスロー','hip throw',
+    'judo','柔道','払い腰','大外刈','大内刈','足払い','内股','巴投げ','trip',
+    'body lock takedown',
+    // 柔道技（英語名）
+    'harai','ハライゴシ',           // Harai Goshi
+    'seoi','背負い投げ',            // Seoi Nage 系
+    'osoto','大外刈',               // Osoto Gari
+    'ouchi',                         // Ouchi Gari
+    'kouchi','小内刈',              // Kouchi Gari
+    'kosoto',                        // Kosoto Gari
+    'koshi','腰車',                 // Koshi Guruma
+    'tai otoshi','体落',            // Tai Otoshi
+    // レスリング技
+    'duck','ダックアンダー',        // Duck Under
+    'fireman','ファイヤーマン',     // Fireman's Carry
+    'crotch','ハイクロッチ',        // High Crotch
+    'snap down','スナップダウン',   // Snap Down
+    'knee tap','ニータップ',        // Knee Tap
+  ]},
+  // ── バックテイク・バックアタック ──────────────────────────────────────────
+  {name:'バックテイク・バックアタック', al:[
+    'Back Take','Back Attack','バックテイク','バックアタック',
+    'back mount','back control','バックマウント','バックコントロール',
+    'シートベルト','seat belt','ボウアンドアロー','bow and arrow',
+    'RNC','rear naked choke','リアネイキッドチョーク',
+    // 特定バックテイク技
+    'berimbolo','ベリンボロ',       // Berimbolo (De La Riva → Back)
+    'kiss of the dragon','キスオブザドラゴン',
+  ]},
+  // ── パスガード ────────────────────────────────────────────────────────────
+  {name:'パスガード', al:[
+    'Guard Pass','Passing','パス','パスガード',
+    'ニーカット','knee cut','ニースライス','knee slice',
+    'torreando','torando','スタックパス','stack pass',
+    'レッグドラッグ','leg drag','プレッシャーパス','pressure pass','スマッシュパス','smash pass',
+    // 特定パスガード技（bjjequipment.com データベースより）
+    'matador','マタドール',         // Matador Pass
+    'toreador',                      // Toreador Pass
+    'backstep','バックステップ',    // Back Step Pass
+    'double under','ダブルアンダー',// Double Under Pass
+    'over under','オーバーアンダー',// Over Under Pass
+    'leg weave','レッグウィーブ',   // Leg Weave Pass
+    'knee slide','ニースライド',    // Knee Slide Pass
+    'leg lace','レッグレース',      // Leg Lace Pass
+    'cross knee','クロスニー',      // Cross Knee Slide
+  ]},
+  // ── フィニッシュ ──────────────────────────────────────────────────────────
+  {name:'フィニッシュ', al:[
+    'Submission','Finish','サブミッション','フィニッシュ','極め','絞め技','関節技','タップ',
+    'アームバー','armbar','腕十字','アームロック','arm lock',
+    'キムラ','kimura','オモプラッタ','omoplata','ウメプラタ',
+    'チョーク','choke','絞め','三角','三角絞め','triangle',
+    'ギロチン','guillotine','ダースチョーク','darce','アナコンダ','anaconda',
+    'クロックチョーク','clock choke','ベースボールチョーク','baseball choke',
+    'ノースサウスチョーク','north south choke',
+    'ヒールフック','heel hook','フットロック','foot lock',
+    'アンクルロック','ankle lock','ニーバー','knee bar','トーホールド','toe hold',
+    'ストレートフットロック','straight foot lock',
+    'インサイドヒール','inside heel','アウトサイドヒール','outside heel',
+    '足関節','レッグロック','leg lock',
+    // 特定サブミッション技（bjjequipment.com データベースより）
+    'americana','アメリカーナ',
+    'aoki','アオキロック',          // Aoki Lock
+    'baratoplata','バラトプラータ',
+    'bicep','バイセップスライサー', // Bicep Slicer
+    'boston crab','ボストンクラブ',
+    'brabo','ブラボー',             // Brabo Choke
+    'buggy','バギー',               // Buggy Choke
+    'calf','カーフスライサー',      // Calf Slicer
+    'opener','キャンオープナー',    // Can Opener（canはSW_EN済みのためopenerで捕捉）
+    'cross choke','クロスチョーク',
+    'electric chair','エレクトリックチェア',
+    'estima','エスティマ',          // Estima Lock
+    'ezekiel','エゼキエル',         // Ezekiel Choke
+    'gogoplata','ゴゴプラータ',
+    'lins','リンズロック',          // Lins Lock
+    'loop choke','ループチョーク',
+    'mir lock','ミルロック',
+    'paper cutter','ペーパーカッター',
+    'spine lock','スパインロック',
+    'suloev','スロエフ',            // Suloev Stretch
+    'tarikoplata','タリコプラータ',
+    'twister','ツイスター',
+    'von flue','フォンフルー',      // Von Flue Choke
+    'wrist lock','リストロック',
+    'groin stretch','グロインストレッチ',
+    'kneebar',
+  ]},
 ];
 const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
 const TB_KW_BOT = ['ボトム','bottom','デラヒーバ','dlr','de la riva','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k guard','slx','ベリンボロ','berimbolo','クローズドガード','closed guard','ディープハーフ','deep half','ハーフ','half','オープンガード','open guard','ガードリカバリー','guard recovery','スイープ','sweep','エスケープ','escape','リテンション','retention','引き込み'];
