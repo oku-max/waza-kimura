@@ -288,7 +288,7 @@ const POSITIONS = [
   {id:'rdlr',     ja:'リバースデラヒーバ', aliases:['RDLR','Reverse De La Riva','Reverse DLR','リバデラ']},
   {id:'revhalf',  ja:'リバースハーフガード',aliases:['Reverse Half Guard','Reverse Half','リバースハーフ']},
 ];
-// CAT_ALIASES は tag-master.js から /api/aliases で動的ロード
+// CAT_ALIASES は Firestore users/{uid}/data/tag_master から動的ロード
 // initAliases() で設定される
 let CAT_ALIASES = [];
 
@@ -306,36 +306,50 @@ const CAT_NAME_TO_ID = {
   'フィニッシュ':                 'finish',
 };
 
+function tagMasterRef() {
+  return db.doc(`users/${uid}/data/tag_master`);
+}
+
 async function initAliases() {
+  if (!uid) { CAT_ALIASES = []; return; }
   try {
-    const res  = await fetch('/api/aliases');
-    const data = await res.json();
-    CAT_ALIASES = data.map(c => ({ name: c.name, id: c.id, al: c.aliases }));
+    const snap = await tagMasterRef().get();
+    const aliasMap = snap.exists ? (snap.data().aliases || {}) : {};
+    CAT_ALIASES = CATS
+      .filter(c => CAT_NAME_TO_ID[c.name])
+      .map(c => ({ name: c.name, id: CAT_NAME_TO_ID[c.name], al: aliasMap[CAT_NAME_TO_ID[c.name]] || [] }));
   } catch(e) {
-    console.warn('alias API unavailable, CAT_ALIASES empty', e);
+    console.warn('initAliases failed', e);
+    CAT_ALIASES = [];
   }
 }
 
 async function syncToTagMaster(word, catName) {
   const catId = CAT_NAME_TO_ID[catName];
-  if (!catId) return;
+  if (!catId || !uid) return;
+  const ref = tagMasterRef();
   try {
-    await fetch('/api/alias/add', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ catId, alias: word }),
+    await ref.update({
+      [`aliases.${catId}`]: firebase.firestore.FieldValue.arrayUnion(word)
     });
   } catch(e) {
-    console.warn('syncToTagMaster failed', e);
+    if (e.code === 'not-found') {
+      await ref.set({ aliases: { [catId]: [word] } }, { merge: true });
+    } else {
+      console.warn('syncToTagMaster failed', e);
+    }
   }
 }
 
 async function removeFromTagMaster(catId, alias) {
-  await fetch('/api/alias/remove', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ catId, alias }),
-  });
+  if (!uid) return;
+  try {
+    await tagMasterRef().update({
+      [`aliases.${catId}`]: firebase.firestore.FieldValue.arrayRemove(alias)
+    });
+  } catch(e) {
+    console.warn('removeFromTagMaster failed', e);
+  }
 }
 const TB_KW_TOP = ['トップ','top','mount','マウント','side control','サイドコントロール','north south','ノースサウス','ニーオン','knee on','back take','back mount','back control','back attack','バックテイク','バックマウント','バックコントロール','バックアタック','パス','pass','passing','torreando','torando','leg drag','knee slice','ニースライス','guard break','ガードブレイク','プレッシャー','pressure','コントロール','control','dominate','攻略','突破','制圧','崩し','対策','smash','スマッシュ'];
 const TB_KW_BOT = ['ボトム','bottom','デラヒーバ','dlr','de la riva','ラッソ','lasso','スパイダー','spider','バタフライ','butterfly','xガード','x guard','インバーテッド','inverted','ワーム','worm','ラペル','lapel','50/50','5050','サドル','saddle','ニーシールド','knee shield','kガード','k guard','slx','ベリンボロ','berimbolo','クローズドガード','closed guard','ディープハーフ','deep half','ハーフ','half','オープンガード','open guard','ガードリカバリー','guard recovery','スイープ','sweep','エスケープ','escape','リテンション','retention','引き込み'];
@@ -942,15 +956,8 @@ async function renderAliasTab() {
   const el = document.getElementById('alias-list');
   el.innerHTML = '<div class="empty">読み込み中…</div>';
 
-  // 毎回サーバーから最新を取得
-  try {
-    const res  = await fetch('/api/aliases');
-    const data = await res.json();
-    CAT_ALIASES = data.map(c => ({ name: c.name, id: c.id, al: c.aliases }));
-  } catch(e) {
-    el.innerHTML = '<div class="empty" style="color:#c00">サーバーに接続できません。dev-server.js を起動してください。</div>';
-    return;
-  }
+  // 毎回 Firestore から最新を取得
+  await initAliases();
 
   const q = (document.getElementById('alias-search')?.value||'').toLowerCase().replace(/\s/g,'');
   const CAT_COLOR = {
@@ -992,31 +999,43 @@ async function deleteAlias(catId, alias, btn) {
   renderAliasTab();
 }
 
-// Firestore の全 cat 判断を tag-master.js に一括同期
+// 全 cat 判断を Firestore (tag_master) に一括同期
 async function syncAllDecisionsToTagMaster(btn) {
   const catItems = wordItems.filter(w => w.dec?.type === 'cat' && w.dec.catName);
   if (!catItems.length) { showToast('同期対象なし'); return; }
+  if (!uid) { showToast('ログインが必要です'); return; }
 
   btn.disabled = true;
   btn.textContent = '同期中…';
   const msgEl = document.getElementById('alias-sync-msg');
   msgEl.style.display = 'block';
-  msgEl.textContent = `0 / ${catItems.length} 語を同期中…`;
+  msgEl.textContent = '同期中…';
 
-  let done = 0, failed = 0;
+  // catId ごとにまとめる
+  const aliasMap = {};
   for (const item of catItems) {
-    try {
-      await syncToTagMaster(item.word, item.dec.catName);
-      done++;
-    } catch(e) {
-      failed++;
-    }
-    msgEl.textContent = `${done} / ${catItems.length} 語を同期中…`;
+    const catId = CAT_NAME_TO_ID[item.dec.catName];
+    if (!catId) continue;
+    if (!aliasMap[catId]) aliasMap[catId] = [];
+    if (!aliasMap[catId].includes(item.word)) aliasMap[catId].push(item.word);
+  }
+
+  try {
+    // Firestore に一括書き込み（aliases フィールドを完全置き換え）
+    await tagMasterRef().set({ aliases: aliasMap }, { merge: true });
+    const total = Object.values(aliasMap).reduce((s, a) => s + a.length, 0);
+    msgEl.textContent = `✅ ${total}語を Firestore に同期しました`;
+    // ローカルキャッシュも更新
+    CAT_ALIASES = CATS
+      .filter(c => CAT_NAME_TO_ID[c.name])
+      .map(c => ({ name: c.name, id: CAT_NAME_TO_ID[c.name], al: aliasMap[CAT_NAME_TO_ID[c.name]] || [] }));
+  } catch(e) {
+    msgEl.textContent = `❌ 同期失敗: ${e.message}`;
+    console.error('syncAllDecisions failed', e);
   }
 
   btn.disabled = false;
   btn.textContent = '🔄 全同期';
-  msgEl.textContent = `✅ ${done}語を tag-master.js に同期しました${failed ? ` (失敗: ${failed})` : ''}`;
   setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
   renderAliasTab();
 }

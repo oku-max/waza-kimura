@@ -36,6 +36,7 @@ auth.onAuthStateChanged(async (user) => {
     await loadUserData(user.uid);
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
+    await loadTagMasterAliases(user.uid);
   } else {
     window._notesClear?.();
   }
@@ -387,5 +388,27 @@ export async function saveFeedback({ page, type, text, images, device, os }) {
   } catch (e) {
     console.error('saveFeedback:', e);
     throw e;
+  }
+}
+
+// ── tag_master aliases を Firestore からロードして CATEGORIES に注入 ──
+async function loadTagMasterAliases(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('data').doc('tag_master').get();
+    if (!snap.exists) return;
+    const aliasMap = snap.data().aliases || {};
+    const cats = window.CATEGORIES;
+    if (!Array.isArray(cats)) return;
+    let changed = false;
+    for (const cat of cats) {
+      if (aliasMap[cat.id] !== undefined) {
+        cat.aliases = aliasMap[cat.id];
+        changed = true;
+      }
+    }
+    if (changed) window.rebuildCategoryIndex?.();
+    console.log('[tag_master] aliases loaded from Firestore');
+  } catch(e) {
+    console.warn('[tag_master] loadTagMasterAliases failed:', e);
   }
 }

@@ -124,7 +124,7 @@ function _buildCategoryIndex() {
   }
   return idx;
 }
-const CATEGORY_INDEX = _buildCategoryIndex();
+let CATEGORY_INDEX = _buildCategoryIndex();
 
 // 任意の語からポジション/カテゴリーを引く (検索ヒット判定用)
 function findPosition(q) { return POSITION_INDEX.get(_norm(q)) || null; }
@@ -555,6 +555,9 @@ const REVERSAL_TRIGGERS = [
 ];
 
 // ─── exports ──────────────────────────────────────
+// Firestore からエイリアスをロード後に呼ぶ — インデックスを再構築する
+window.rebuildCategoryIndex = function() { CATEGORY_INDEX = _buildCategoryIndex(); };
+
 window.TB_VALUES          = TB_VALUES;
 window.CATEGORIES         = CATEGORIES;
 window.POSITIONS          = POSITIONS;
