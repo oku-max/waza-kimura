@@ -26,128 +26,19 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 //   パスガード               = 相手のガードを越えてトップサイドを取る動作
 //   フィニッシュ             = タップを取りにいく絞め技・関節技・極め技
 // ════════════════════════════════════════════════════
+// aliases はすべて Alias Builder でユーザーが承認したものだけを記載する
+// Claude が直接書くことは禁止。Alias Builder → /api/alias/add 経由のみ
 const CATEGORIES = [
-  { id: 'escape', name: 'エスケープ・ディフェンス', desc: '不利ポジションからの脱出と防御',
-    aliases: [
-      'Escape','Defense','ディフェンス','エスケープ',
-      'サバイバル','survival',
-      '脱出','逃げ','逃げ方',
-      'ダメージコントロール','damage control',
-      'ブリッジ','bridge',            // マウントエスケープのブリッジ
-      'アンパス','unpass',            // ガードリカバリー文脈
-    ]},
-  { id: 'entry', name: 'ガード構築・エントリー', desc: 'ガードを取る・特定ガードの入り口',
-    aliases: [
-      'Guard Entry','Setup','エントリー','ガード構築',
-      '入り方','入り口','作り方','取り方',
-      '引き込み',
-      'セットアップ',
-      'getting to guard','taking guard',
-    ]},
-  { id: 'retention', name: 'ガードリテンション', desc: '足を取られないボトムの守り',
-    aliases: [
-      'Guard Retention','Retention','リテンション',
-      'リガード','reguard','re-guard',
-      'ガードの守り','フレーミング','framing',
-      '足を切られない','カットされない',
-    ]},
-  { id: 'control', name: 'コントロール／プレッシャー', desc: 'トップポジションの維持・押さえ',
-    aliases: [
-      'Control','Pressure','Top Control','コントロール','プレッシャー',
-      'キープ','keep','維持',
-      'ピン','pin','抑え込み','ホールドダウン','hold down',
-      'ドミネート','dominate',
-      'ウェイト','weight',
-    ]},
-  { id: 'concept', name: 'コンセプト・原理', desc: '技ではない原則的な学び',
-    aliases: [
-      'Concept','Principle','理論','コンセプト',
-      'セオリー','theory',
-      '原理','原則','考え方','哲学',
-      '解説','入門','基礎','ファンダメンタル','fundamentals',
-      'ストラテジー','strategy',
-      'アプローチ','approach',
-      'メカニクス','mechanics',
-      'システム','system',           // 〜システムという名の教則
-    ]},
-  { id: 'sweep', name: 'スイープ', desc: 'ボトムから相手をひっくり返す動作',
-    aliases: [
-      'Sweep',
-      'スイープ',
-      '切り返し',
-      'ひっくり返し',
-      'リバーサル',
-      'elevator',
-      'エレベーター',
-      'scissor',
-      'シザー',
-    ]},
-  { id: 'takedown', name: 'テイクダウン', desc: '立ちから相手を倒す動作（投げ技含む）',
-    aliases: [
-      'Takedown','Throw','投げ','テイクダウン',
-      'タックル',
-      'レスリング','wrestling',
-      'シングルレッグ','single leg',
-      'ダブルレッグ','double leg',
-      'アンクルピック','ankle pick',
-      'ヒップスロー','hip throw','hip toss',
-      'judo','柔道',
-      '払い腰','大外刈','大内刈','足払い','内股','巴投げ',
-      'trip','トリップ',
-      'body lock takedown',
-    ]},
-  { id: 'back', name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',
-    aliases: [
-      'Back Take','Back Attack','バックテイク','バックアタック','バック',
-      'back mount','back control','バックマウント','バックコントロール',
-      'シートベルト','seat belt',    // バックコントロールの基本グリップ
-      'ボウアンドアロー','bow and arrow',
-      'RNC','rear naked choke','リアネイキッドチョーク',
-    ]},
-  { id: 'pass', name: 'パスガード', desc: '相手のガードを越えてトップを取る動作',
-    aliases: [
-      'Guard Pass','Passing','パス','パスガード',
-      'ニーカット','knee cut',
-      'ニースライス','knee slice',
-      'トレアンド','torreando','torando',
-      'スタックパス','stack pass',
-      'レッグドラッグ','leg drag',
-      'プレッシャーパス','pressure pass',
-      'スマッシュパス','smash pass',
-    ]},
-  { id: 'finish', name: 'フィニッシュ', desc: 'チョーク・関節技など相手を極めにいく動作',
-    aliases: [
-      // 総称
-      'Submission','Finish','サブミッション','フィニッシュ',
-      '極め','絞め技','関節技','タップ',
-      // 腕系
-      'アームバー','armbar','腕十字','腕ひしぎ',
-      'アームロック','arm lock',
-      'キムラ','kimura',
-      'オモプラッタ','omoplata',
-      'ウメプラタ',
-      // チョーク系
-      'チョーク','choke','絞め',
-      '三角','三角絞め','triangle',
-      'ギロチン','guillotine',
-      'ダースチョーク','darce',
-      'アナコンダ','anaconda',
-      'クロックチョーク','clock choke',
-      'ボウアンドアロー','bow and arrow',
-      'ベースボールチョーク','baseball choke',
-      'リアネイキッドチョーク','rear naked choke','RNC',
-      'ノースサウスチョーク','north south choke',
-      // 足関節系
-      'ヒールフック','heel hook',
-      'フットロック','foot lock',
-      'アンクルロック','ankle lock',
-      'ニーバー','knee bar',
-      'トーホールド','toe hold',
-      'ストレートフットロック','straight foot lock',
-      'インサイドヒール','inside heel',
-      'アウトサイドヒール','outside heel',
-      '足関節','レッグロック','leg lock',
-    ]},
+  { id: 'escape',    name: 'エスケープ・ディフェンス',     desc: '不利ポジションからの脱出と防御',             aliases: [] },
+  { id: 'entry',     name: 'ガード構築・エントリー',       desc: 'ガードを取る・特定ガードの入り口',           aliases: [] },
+  { id: 'retention', name: 'ガードリテンション',           desc: '足を取られないボトムの守り',                 aliases: [] },
+  { id: 'control',   name: 'コントロール／プレッシャー',   desc: 'トップポジションの維持・押さえ',             aliases: [] },
+  { id: 'concept',   name: 'コンセプト・原理',             desc: '技ではない原則的な学び',                     aliases: [] },
+  { id: 'sweep',     name: 'スイープ',                     desc: 'ボトムから相手をひっくり返す動作',           aliases: [] },
+  { id: 'takedown',  name: 'テイクダウン',                 desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [] },
+  { id: 'back',      name: 'バックテイク・バックアタック', desc: 'バックを取る／バックからの攻撃',             aliases: [] },
+  { id: 'pass',      name: 'パスガード',                   desc: '相手のガードを越えてトップを取る動作',       aliases: [] },
+  { id: 'finish',    name: 'フィニッシュ',                 desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [] },
 ];
 
 // ─── Layer 3: Position (27 fixed) ────────────────────
