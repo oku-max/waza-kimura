@@ -668,9 +668,20 @@ function buildItems(videos, saved) {
     .filter(([, c]) => c >= 2)
     .sort((a, b) => b[1] - a[1])
     .map(([word, count]) => {
-      const sv = savedByWord[word];
-      return {word, count, vids: vmap.get(word)||[], sug: aiSuggest(word),
-              dec: sv ? {type:sv.d, catName:sv.c||null, tb:sv.tb||null} : null};
+      const sv  = savedByWord[word];
+      const sug = aiSuggest(word);
+      // 保存済みの決定があればそれを使う
+      let dec = sv ? {type:sv.d, catName:sv.c||null, tb:sv.tb||null} : null;
+      // 未決定 & AIが明確に判定できる語 → 自動適用（分類作業に出さない）
+      if (!dec && sug.type !== 'hold') {
+        if (sug.type === 'ignore') {
+          dec = {type:'ignore', catName:null, tb:null};
+        } else {
+          const tb = getTBFromSug(sug);
+          dec = {type:sug.type, catName:sug.catName||sug.detail||null, tb: tb!=='判断不能' ? tb : null};
+        }
+      }
+      return {word, count, vids: vmap.get(word)||[], sug, dec};
     });
   wordItems.sort((a, b) => {
     if (!a.dec && !b.dec) return b.count - a.count;
