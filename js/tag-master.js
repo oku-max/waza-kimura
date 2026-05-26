@@ -547,8 +547,7 @@ function retagAllFromTitle() {
 
 // ─── Tier 1c: 反転トリガー ────────────────────────
 // トップ／ボトムが競合したとき、このワードが含まれていたら判定を反転する
-// ユーザーが mock-tier1.html の UI から追加・削除できる
-// dev-server.js の /api/reversal-triggers で読み書き
+// ユーザーが tb-tuner.html の UI から追加・削除できる
 const REVERSAL_TRIGGERS = [
   '対策','防ぐ','防御','守る','止める','対処','防止',
   'カウンター','ディフェンス','defense','counter',
