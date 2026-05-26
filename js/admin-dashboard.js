@@ -9,7 +9,7 @@ const PROPOSALS_KEY  = 'waza_rule_proposals';
 
 let _activeInnerTab = 'tb'; // ルールタブ内の現在アクティブな内部タブ
 
-const ALL_SUBS = ['accuracy','corrections','rules','categories','positions','feedback','review','tagmaster'];
+const ALL_SUBS = ['accuracy','corrections','rules','categories','positions','feedback','review','tagmaster','aliasbuilder','tbtuner'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -23,14 +23,16 @@ export function switchAdminSub(sub) {
       tab.classList.toggle('active', s === sub);
     }
   });
-  if (sub === 'accuracy')    _renderAccuracy();
-  if (sub === 'corrections') _renderCorrections();
-  if (sub === 'rules')       _renderRules();
-  if (sub === 'categories')  _renderCategories();
-  if (sub === 'positions')   _renderPositions();
-  if (sub === 'feedback')    _renderFeedbackAdmin();
-  if (sub === 'review')      _renderReview();
-  if (sub === 'tagmaster')   _renderTagMaster();
+  if (sub === 'accuracy')     _renderAccuracy();
+  if (sub === 'corrections')  _renderCorrections();
+  if (sub === 'rules')        _renderRules();
+  if (sub === 'categories')   _renderCategories();
+  if (sub === 'positions')    _renderPositions();
+  if (sub === 'feedback')     _renderFeedbackAdmin();
+  if (sub === 'review')       _renderReview();
+  if (sub === 'tagmaster')    _renderTagMaster();
+  if (sub === 'aliasbuilder') _renderIframe('admin-p-aliasbuilder', '/alias-builder.html');
+  if (sub === 'tbtuner')      _renderIframe('admin-p-tbtuner', '/tb-tuner.html');
 }
 window.switchAdminSub = switchAdminSub;
 
@@ -2498,6 +2500,15 @@ window.addProposalRow = function() {
   _renderReview();
   window.toast?.('提案を追加しました');
 };
+
+// ─── iframe ページ埋め込み（遅延ロード）────────────────────────
+function _renderIframe(panelId, src) {
+  const el = document.getElementById(panelId);
+  if (!el) return;
+  // 既に iframe が入っていたらスキップ（再レンダリング不要）
+  if (el.querySelector('iframe')) return;
+  el.innerHTML = `<iframe src="${src}" style="width:100%;height:calc(100vh - 120px);border:none;display:block"></iframe>`;
+}
 
 // ─── タグ全体図 ──────────────────────────────────────────────
 function _renderTagMaster() {
