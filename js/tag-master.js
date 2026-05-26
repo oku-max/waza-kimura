@@ -434,8 +434,17 @@ function autoTagFromTitle(title, pl = '', channel = '') {
   if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
   if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
 
-  // ── Category 判定: waza_tag_rules のみ（下の rules 適用セクションで処理）──
-  // CATEGORIES.aliases はサーチ用途のみ。自動判定は waza_tag_rules に一本化。
+  // ── Category 判定: CATEGORIES.aliases でタイトルを照合 ──
+  for (const cat of CATEGORIES) {
+    const terms = [cat.name, ...(cat.aliases || [])];
+    for (const t of terms) {
+      const n = _norm(t);
+      if (n && n.length >= 2 && tNorm.includes(n)) {
+        if (!result.cat.includes(cat.name)) result.cat.push(cat.name);
+        break;
+      }
+    }
+  }
 
   // ── Position 判定 (タイトルのみ; PLからのpos推測は誤検知リスクが高い) ──
   for (const p of POSITIONS) {

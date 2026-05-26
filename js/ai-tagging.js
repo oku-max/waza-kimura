@@ -22,7 +22,7 @@ export async function fetchAiTags(video) {
   const ai = window.aiSettings || {};
   // tag-master の固定リストを backend に渡す
   const categories = (window.CATEGORIES || []).map(c => ({
-    id: c.id, name: c.name, desc: c.desc || '', aliases: c.aliases || [],
+    id: c.id, name: c.name, desc: c.desc || '',
   }));
   const positions = (window.POSITIONS || []).map(p => ({
     id: p.id, ja: p.ja, en: p.en || '', aliases: p.aliases || [],
