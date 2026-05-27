@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- v6.3 -->
+<!DOCTYPE html><!-- v6.4 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -662,8 +662,6 @@ async function flush() {
       })),
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // 保存と同時に tag_master にも自動反映
-    await _syncSilent();
   } catch(e) { console.error('save failed:', e); setTimeout(flush, 5000); }
 }
 
