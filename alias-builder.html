@@ -85,7 +85,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
 .col-tb{width:130px}
 .col-cat{width:185px}
 .col-pos{width:120px}
-.col-act{width:56px;text-align:center}
+.col-act{width:68px;text-align:center}
 .cell-sel{font-size:11px;padding:3px 6px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:4px;font-family:inherit;outline:none;cursor:pointer}
 .cell-sel:focus{border-color:#888}
 .pos-span{cursor:text;font-size:12px;color:var(--text2)}
@@ -1041,10 +1041,12 @@ function renderSheet() {
         <span class="pos-span" title="ダブルクリックで編集">${esc(e.pos||'—')}</span>
       </td>
       <td class="col-act">
-        <button class="btn btn-sm" style="color:#6a3fa0;border-color:#c9a8f0;font-size:10px;padding:2px 7px;margin-bottom:3px"
-          onclick="suggestEntry(${e.id})">✨提案</button>
-        <button class="btn btn-sm" style="color:#c05000;border-color:#f0c0a0;font-size:10px;padding:2px 7px"
-          onclick="ignoreEntry(${e.id})">無視</button>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <button class="btn btn-sm" style="color:#6a3fa0;border-color:#c9a8f0;font-size:10px;padding:2px 6px;width:100%"
+            onclick="suggestEntry(${e.id})">✨提案</button>
+          <button class="btn btn-sm" style="color:#c05000;border-color:#f0c0a0;font-size:10px;padding:2px 6px;width:100%"
+            onclick="ignoreEntry(${e.id})">無視</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
