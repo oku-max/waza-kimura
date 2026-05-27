@@ -921,13 +921,14 @@ function getSuggestionsFor(entry) {
 function suggestEntry(id) {
   try {
     const e = entries.find(x => x.id == id);
-    if (!e) { showToast('not found: ' + id); return; }
+    alert('suggestEntry called. id=' + id + ' found=' + !!e + (e ? ' words=' + e.words : ''));
+    if (!e) return;
     const s = getSuggestionsFor(e).filter(w => !(e.suggested||[]).includes(w));
     if (!s.length) { showToast('提案なし'); return; }
     e.suggested = [...(e.suggested||[]), ...s];
     scheduleAutosave(); renderSheet(); updateSugBanner();
     showToast('✨ ' + s.length + '件追加');
-  } catch(err) { showToast('ERR: ' + String(err).slice(0,50)); }
+  } catch(err) { alert('ERR: ' + String(err)); }
 }
 function runSuggestAll() {
   let total = 0;
