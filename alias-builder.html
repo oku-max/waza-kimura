@@ -256,6 +256,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <button class="btn btn-sm" onclick="bulkTB('スタンディング')">🥋 スタンド</button>
     <button class="btn btn-sm" onclick="bulkTB('中立')">━ 中立</button>
     <span class="sep">|</span>
+    <button class="btn btn-sm" id="btn-merge" style="color:#2a6faa;border-color:#90c0e0;display:none" onclick="mergeSelected()">⊕ マージ</button>
     <button class="btn btn-sm" style="color:#c05000;border-color:#f0c0a0" onclick="bulkIgnore()">無視リストへ</button>
     <button class="btn btn-sm" style="margin-left:auto" onclick="clearSel()">✕ 解除</button>
   </div>
@@ -388,7 +389,7 @@ const TB_LABEL= {'トップ':'⬆ トップ','ボトム':'⬇ ボトム','スタ
 // ═══════════════════════════════════════════════════════
 // 提案辞書 — BJJ全技日本語↔英語双方向ペア
 // ═══════════════════════════════════════════════════════
-const _BUILD = '20260527-v6.5';
+const _BUILD = '20260527-v6.6';
 const SUGGEST_DICT = {
   // ── テイクダウン ──
   'テイクダウン':['takedown','TD','shoot','shooting'],'takedown':['テイクダウン','TD','shooting'],
@@ -998,6 +999,7 @@ function renderSheet() {
   const sel = selIds.size;
   document.getElementById('bulk-bar').classList.toggle('show', sel>0);
   if(sel>0) document.getElementById('bulk-count').textContent=`${sel}件選択中`;
+  document.getElementById('btn-merge').style.display = sel>=2 ? '' : 'none';
 
   const active  = entries.filter(e=>!e.ignored).length;
   const ignored = entries.filter(e=>e.ignored).length;
@@ -1140,6 +1142,45 @@ function bulkTB(tb) {
 function bulkIgnore() {
   selIds.forEach(id => { const e=entries.find(x=>x.id===id); if(e) e.ignored=true; });
   scheduleAutosave(); clearSel();
+}
+function mergeSelected() {
+  const ids = [...selIds];
+  if (ids.length < 2) return;
+  const sel = ids.map(id => entries.find(x=>x.id===id)).filter(Boolean);
+  // 最初のエントリをベースにする（TB・catName・posを引き継ぐ）
+  const base = sel[0];
+  // 全エントリのwordsをまとめ、重複除去（小文字比較）
+  const seen = new Set();
+  const merged = [];
+  for (const e of sel) {
+    for (const w of e.words) {
+      if (!seen.has(w.toLowerCase())) { seen.add(w.toLowerCase()); merged.push(w); }
+    }
+  }
+  // suggested・rejectedも統合
+  const sugSeen = new Set(merged.map(w=>w.toLowerCase()));
+  const mergedSug = [];
+  for (const e of sel) {
+    for (const w of (e.suggested||[])) {
+      if (!sugSeen.has(w.toLowerCase())) { sugSeen.add(w.toLowerCase()); mergedSug.push(w); }
+    }
+  }
+  const rejSeen = new Set();
+  const mergedRej = [];
+  for (const e of sel) {
+    for (const w of (e.rejected||[])) {
+      if (!rejSeen.has(w.toLowerCase())) { rejSeen.add(w.toLowerCase()); mergedRej.push(w); }
+    }
+  }
+  base.words = merged;
+  base.suggested = mergedSug;
+  base.rejected = mergedRej;
+  base.ignored = false;
+  // ベース以外を削除
+  const keepIds = new Set([base.id]);
+  entries = entries.filter(e => keepIds.has(e.id) || !ids.includes(e.id));
+  scheduleAutosave(); clearSel();
+  showToast(`⊕ ${sel.length}件を1エントリにマージ（${merged.length}ワード）`);
 }
 
 // ═══════════════════════════════════════════════════════
