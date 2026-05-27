@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Alias Builder v5.6</title>
+<title>Alias Builder v5.7</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -217,7 +217,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <button class="btn btn-sm btn-suggest" onclick="runSuggestAll()">✨ 全エントリに提案</button>
     <button class="btn btn-sm btn-sync" onclick="syncToTagMaster()">🔄 tag_master に同期</button>
     <div id="count-label"></div>
-    <span style="font-size:10px;color:#ccc;margin-left:4px">v5.6</span>
+    <span style="font-size:10px;color:#ccc;margin-left:4px">v5.7</span>
   </div>
 
   <!-- 一括追加パネル -->
@@ -263,6 +263,14 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
   <!-- テーブル -->
   <div class="sheet-wrap">
     <table class="sheet">
+      <colgroup>
+        <col style="width:36px">
+        <col><!-- words: 残り全幅 -->
+        <col style="width:130px">
+        <col style="width:185px">
+        <col style="width:120px">
+        <col style="width:56px">
+      </colgroup>
       <thead>
         <tr>
           <th style="vertical-align:bottom;padding-bottom:8px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
@@ -514,10 +522,14 @@ async function loadAll() {
     }
   } catch(e) { console.warn('tag_rules load:', e); }
   updateRevBadge();
-  consolidateEntries();
+  const consolidated = consolidateEntries();
   showScreen('s-main');
   renderSheet();
   updateSugBanner();
+  if (consolidated) {
+    await flush(); // タイマー待ちをせず即時保存
+    showToast('🔗 表記揺れを統合して保存しました');
+  }
   // 起動時自動同期
   const hasCatEntries = entries.some(e => !e.ignored && e.catName);
   if (hasCatEntries) await _syncSilent();
@@ -560,9 +572,9 @@ async function importFromTagMaster() {
     }
   }
   consolidateEntries();
-  scheduleAutosave();
   renderSheet();
-  showToast(`✅ ${entries.length}件インポート完了`);
+  await flush();
+  showToast(`✅ ${entries.filter(e=>!e.ignored).length}件インポート完了`);
 }
 function dismissImport() {
   importDismissed = true;
@@ -652,6 +664,16 @@ function renderReverseRules() {
     </span>`).join('');
   const catRows = CATS.map(c => {
     const inv = tagRules.categoryInverse?.[c.name] || '';
+    // このカテゴリに属する単語（pos未設定エントリから取得）
+    const srcWords = entries
+      .filter(e => !e.ignored && e.catName === c.name)
+      .flatMap(e => e.words)
+      .filter(Boolean);
+    const wordPreview = srcWords.length
+      ? `<div style="font-size:10px;color:#9060c8;margin-top:3px;line-height:1.5">
+           📋 ${srcWords.slice(0,6).map(w=>esc(w)).join('　')}${srcWords.length>6?`　…他${srcWords.length-6}語`:''}
+         </div>`
+      : `<div style="font-size:10px;color:#ccc;margin-top:3px">（エントリなし）</div>`;
     return `<tr>
       <td><span class="tb-badge ${TB_CLS[c.tb]||'tb-neu'}">${TB_LABEL[c.tb]||''}</span></td>
       <td style="font-weight:600;white-space:nowrap">${esc(c.name)}</td>
@@ -661,6 +683,7 @@ function renderReverseRules() {
           <option value="">（変換なし）</option>
           ${CATS.filter(x=>x.name!==c.name).map(x=>`<option value="${esc(x.name)}"${inv===x.name?' selected':''}>${esc(x.name)}</option>`).join('')}
         </select>
+        ${wordPreview}
       </td>
     </tr>`;
   }).join('');
@@ -746,10 +769,9 @@ function consolidateEntries() {
   const before = entries.length;
   entries = [...ignoredList, ...nocat, ...result];
   const after = entries.length;
-  if (before !== after) {
-    console.log(`[consolidate] ${before} → ${after} エントリ（${before - after}件統合）`);
-    scheduleAutosave();
-  }
+  const changed = before !== after;
+  if (changed) console.log(`[consolidate] ${before} → ${after} エントリ（${before - after}件統合）`);
+  return changed;
 }
 
 
