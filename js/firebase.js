@@ -37,6 +37,7 @@ auth.onAuthStateChanged(async (user) => {
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
     await loadTagMasterAliases(user.uid);
+    await loadTagRules(user.uid);
   } else {
     window._notesClear?.();
   }
@@ -410,5 +411,17 @@ async function loadTagMasterAliases(uid) {
     console.log('[tag_master] aliases loaded from Firestore');
   } catch(e) {
     console.warn('[tag_master] loadTagMasterAliases failed:', e);
+  }
+}
+
+// ── tag_rules (反転ルール) を Firestore からロードして window.tagRules に注入 ──
+async function loadTagRules(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('data').doc('tag_rules').get();
+    if (!snap.exists) return;
+    window.tagRules = snap.data();
+    console.log('[tag_rules] loaded from Firestore');
+  } catch(e) {
+    console.warn('[tag_rules] load failed:', e);
   }
 }

@@ -429,6 +429,12 @@ function autoTagFromTitle(title, pl = '', channel = '') {
 
   const tNorm = _norm(title);
 
+  // ── 反転トリガー判定（REVERSAL_TRIGGERS + ユーザー設定の negationWords）──
+  const userTagRules  = window.tagRules || {};
+  const negWords      = [...REVERSAL_TRIGGERS, ...(userTagRules.negationWords || [])];
+  const hasNegation   = negWords.some(w => w && tNorm.includes(_norm(w)));
+  const catInverse    = userTagRules.categoryInverse || {};
+
   // ── TB 判定: タイトル → プレイリスト → チャンネルの順でフォールバック ──
   result.tb = _detectTbFromText(title);
   if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
@@ -444,6 +450,13 @@ function autoTagFromTitle(title, pl = '', channel = '') {
         break;
       }
     }
+  }
+
+  // ── 反転ルール適用: 否定語が含まれていた場合、カテゴリを反転先に切り替え ──
+  if (hasNegation && Object.keys(catInverse).length > 0) {
+    result.cat = result.cat.map(catName => catInverse[catName] || catName);
+    // 重複除去
+    result.cat = [...new Set(result.cat)];
   }
 
   // ── Category → TB 推論 ──
