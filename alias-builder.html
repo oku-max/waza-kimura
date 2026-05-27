@@ -446,6 +446,9 @@ async function loadAll() {
   showScreen('s-main');
   renderSheet();
   updateSugBanner();
+  // 起動時自動同期
+  const hasCatEntries = entries.some(e => !e.ignored && e.catName);
+  if (hasCatEntries) await _syncSilent();
 }
 
 function scheduleAutosave() {
@@ -462,6 +465,8 @@ async function flush() {
       })),
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // 保存と同時に tag_master にも自動反映
+    await _syncSilent();
   } catch(e) { console.error('save failed:', e); setTimeout(flush, 5000); }
 }
 
@@ -493,12 +498,7 @@ function dismissImport() {
 // ═══════════════════════════════════════════════════════
 // Sync to tag_master
 // ═══════════════════════════════════════════════════════
-async function syncToTagMaster() {
-  if (!uid) return;
-  const msgEl = document.getElementById('sync-msg');
-  msgEl.className = ''; msgEl.style.display = 'block';
-  msgEl.textContent = '同期中…';
-
+function _buildAliasMap() {
   const aliasMap = {};
   for (const e of entries) {
     if (e.ignored || !e.catName) continue;
@@ -508,22 +508,42 @@ async function syncToTagMaster() {
       if (w && !aliasMap[catId].includes(w)) aliasMap[catId].push(w);
     }
   }
+  return aliasMap;
+}
+
+async function _writeAliasMap(aliasMap) {
+  await db.doc(`users/${uid}/data/tag_master`).set({ aliases: aliasMap }, { merge: true });
+  // 親フレームの CATEGORIES メモリも即時更新
+  if (window.parent?.CATEGORIES) {
+    for (const [catId, words] of Object.entries(aliasMap)) {
+      const cat = window.parent.CATEGORIES[catId];
+      if (cat) cat.aliases = [...words];
+    }
+  }
+}
+
+// ボタンから呼ぶ（UI表示あり）
+async function syncToTagMaster() {
+  if (!uid) return;
+  const msgEl = document.getElementById('sync-msg');
+  msgEl.className = ''; msgEl.style.display = 'block';
+  msgEl.textContent = '同期中…';
   try {
-    await db.doc(`users/${uid}/data/tag_master`).set({ aliases: aliasMap }, { merge: true });
+    const aliasMap = _buildAliasMap();
+    await _writeAliasMap(aliasMap);
     const total = Object.values(aliasMap).reduce((s,a) => s+a.length, 0);
     msgEl.textContent = `✅ ${total}語を tag_master に同期しました`;
-    // tag-master.js のメモリも更新（iframe 経由）
-    if (window.parent?.CATEGORIES) {
-      for (const [catId, words] of Object.entries(aliasMap)) {
-        const catName = Object.entries(CAT_NAME_TO_ID).find(([,id])=>id===catId)?.[0];
-        const cat = window.parent.CATEGORIES[catId];
-        if (cat && catName) cat.aliases = [...words];
-      }
-    }
   } catch(e) {
     msgEl.className = 'err'; msgEl.textContent = `❌ 同期失敗: ${e.message}`;
   }
   setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
+}
+
+// 自動呼び出し用（UIなし、エラーは静かに無視）
+async function _syncSilent() {
+  if (!uid) return;
+  try { await _writeAliasMap(_buildAliasMap()); }
+  catch(e) { console.warn('[alias-builder] auto-sync failed:', e); }
 }
 
 // ═══════════════════════════════════════════════════════
