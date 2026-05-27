@@ -300,13 +300,13 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
           <th class="sortable col-words has-filter" onclick="sortBy('words')">
             <div class="th-label">単語 ↕</div>
             <div class="th-filter" onclick="event.stopPropagation()">
-              <input type="text" id="search-input" placeholder="🔍 絞り込む..." oninput="renderSheet()">
+              <input type="text" id="search-input" placeholder="🔍 絞り込む..." oninput="renderDebounced()">
             </div>
           </th>
           <th class="sortable col-tb has-filter" onclick="sortBy('tb')">
             <div class="th-label">TB ↕</div>
             <div class="th-filter" onclick="event.stopPropagation()">
-              <select id="filter-tb" onchange="renderSheet()" style="cursor:pointer">
+              <select id="filter-tb" onchange="renderDebounced()" style="cursor:pointer">
                 <option value="">すべて</option>
                 <option value="__blank__">（空白）</option>
                 <option value="トップ">⬆ トップ</option>
@@ -319,13 +319,13 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
           <th class="sortable col-cat has-filter" onclick="sortBy('catName')">
             <div class="th-label">カテゴリ ↕</div>
             <div class="th-filter" onclick="event.stopPropagation()">
-              <select id="filter-cat" onchange="renderSheet()" style="cursor:pointer"></select>
+              <select id="filter-cat" onchange="renderDebounced()" style="cursor:pointer"></select>
             </div>
           </th>
           <th class="sortable col-pos has-filter" onclick="sortBy('pos')">
             <div class="th-label">ポジション ↕</div>
             <div class="th-filter" onclick="event.stopPropagation()">
-              <input type="text" id="filter-pos" placeholder="絞り込む..." oninput="renderSheet()">
+              <input type="text" id="filter-pos" placeholder="絞り込む..." oninput="renderDebounced()">
             </div>
           </th>
           <th class="col-act" style="vertical-align:bottom;padding-bottom:8px">操作</th>
@@ -411,7 +411,7 @@ const TB_LABEL= {'トップ':'⬆ トップ','ボトム':'⬇ ボトム','スタ
 // ═══════════════════════════════════════════════════════
 // 提案辞書 — BJJ全技日本語↔英語双方向ペア
 // ═══════════════════════════════════════════════════════
-const _BUILD = '20260527-v7.0';
+const _BUILD = '20260527-v7.1';
 // 表記揺れ専用辞書 — 同一技・同一概念の異なる表記のみを収録
 // グルーピング（親→子、上位→下位）は含まない
 const SUGGEST_DICT = {
@@ -995,6 +995,17 @@ function rejectAllSuggestions() {
 // ═══════════════════════════════════════════════════════
 // Render
 // ═══════════════════════════════════════════════════════
+let _renderTimer = null;
+function renderDebounced() { clearTimeout(_renderTimer); _renderTimer = setTimeout(renderSheet, 120); }
+
+// TB・カテゴリのoption文字列をキャッシュ（renderSheet内で毎回生成しない）
+let _tbOptsHtml = '';
+let _catOptsHtml = '';
+function _buildOptCaches() {
+  _tbOptsHtml = TB_LIST.map(t=>`<option value="${t}">${TB_LABEL[t]}</option>`).join('');
+  _catOptsHtml = CATS.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+}
+
 function renderSheet() {
   // カテゴリフィルター選択肢を動的に維持
   const catSel = document.getElementById('filter-cat');
@@ -1029,8 +1040,11 @@ function renderSheet() {
   document.getElementById('count-label').textContent = `${rows.length} / ${active} エントリ`;
   document.getElementById('ign-count').textContent = ignored;
 
+  // TB・catのoption文字列は事前計算済みを使う（N行 × M選択肢 の生成コストを削減）
+  const tbOpts  = _tbOptsHtml  || (_buildOptCaches(), _tbOptsHtml);
+  const catOpts = _catOptsHtml || _catOptsHtml;
+
   document.getElementById('sheet-body').innerHTML = rows.map(e => {
-    const tbCls = TB_CLS[e.tb] || 'tb-neu';
     const sugArr = e.suggested || [];
     return `<tr class="${selIds.has(e.id)?'selected':''}" id="sr-${e.id}">
       <td><input type="checkbox" ${selIds.has(e.id)?'checked':''} onchange="toggleSel(${e.id},this)"></td>
@@ -1054,15 +1068,13 @@ function renderSheet() {
         </div>
       </td>
       <td class="col-tb">
-        <select class="cell-sel" onchange="setTB(${e.id},this.value)">
-          <option value="">—</option>
-          ${TB_LIST.map(t=>`<option value="${t}"${e.tb===t?' selected':''}>${TB_LABEL[t]}</option>`).join('')}
+        <select class="cell-sel _tb-sel" data-val="${esc(e.tb||'')}" onchange="setTB(${e.id},this.value)">
+          <option value="">—</option>${tbOpts}
         </select>
       </td>
       <td class="col-cat">
-        <select class="cell-sel" onchange="setCat(${e.id},this.value)">
-          <option value="">—</option>
-          ${CATS.map(c=>`<option${e.catName===c.name?' selected':''}>${esc(c.name)}</option>`).join('')}
+        <select class="cell-sel _cat-sel" data-val="${esc(e.catName||'')}" onchange="setCat(${e.id},this.value)">
+          <option value="">—</option>${catOpts}
         </select>
       </td>
       <td class="col-pos" ondblclick="startPosEdit(${e.id},this)">
@@ -1079,7 +1091,12 @@ function renderSheet() {
     </tr>`;
   }).join('');
 
-  renderIgnoreList();
+  // innerHTML設定後にselectの選択値を一括反映（selected属性を各行で生成しないための後処理）
+  const body = document.getElementById('sheet-body');
+  body.querySelectorAll('._tb-sel,._cat-sel').forEach(s => { s.value = s.dataset.val || ''; });
+
+  // 無視リストが開いている時だけ再描画（閉じてるときは不要）
+  if (ignoreOpen) renderIgnoreList();
   updateRepairBtn();
 }
 
