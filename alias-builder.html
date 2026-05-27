@@ -402,7 +402,7 @@ const TB_LABEL= {'トップ':'⬆ トップ','ボトム':'⬇ ボトム','スタ
 // ═══════════════════════════════════════════════════════
 // 提案辞書 — BJJ全技日本語↔英語双方向ペア
 // ═══════════════════════════════════════════════════════
-const _BUILD = '20260527-v6.7';
+const _BUILD = '20260527-v6.8';
 const SUGGEST_DICT = {
   // ── テイクダウン ──
   'テイクダウン':['takedown','TD','shoot','shooting'],'takedown':['テイクダウン','TD','shooting'],
@@ -1306,20 +1306,22 @@ function updateBulkRemovePreview() {
   const prev = document.getElementById('bulk-remove-preview');
   if (!w) { prev.textContent=''; return; }
   const count = entries.filter(e=>e.words.some(x=>x.toLowerCase()===w)).length;
-  prev.textContent = count ? `${count}件のエントリに含まれています` : '該当なし';
+  if (!count) { prev.textContent='該当なし'; return; }
+  prev.textContent = `${count}件に含まれています（1件保持・${Math.max(0,count-1)}件削除）`;
 }
 function execBulkRemove() {
   const w = (document.getElementById('bulk-remove-input').value||'').trim();
   if (!w) return;
   const lower = w.toLowerCase();
   let affected = 0;
+  let kept = false; // 最初の1件は必ず保持
   for (const e of entries) {
+    const hasWord = e.words.some(x => x.toLowerCase() === lower);
+    if (hasWord && !kept) { kept = true; continue; } // 最初の1件はスキップ
     const before = e.words.length;
-    // 単語が1つしかないエントリは残す
     if (e.words.length > 1) {
       e.words = e.words.filter(x => x.toLowerCase() !== lower);
     }
-    // suggested/rejectedからも削除
     e.suggested = (e.suggested||[]).filter(x => x.toLowerCase() !== lower);
     e.rejected  = (e.rejected||[]).filter(x  => x.toLowerCase() !== lower);
     if (e.words.length < before) affected++;
@@ -1327,7 +1329,7 @@ function execBulkRemove() {
   scheduleAutosave(); renderSheet(); updateSugBanner();
   document.getElementById('bulk-remove-input').value = '';
   document.getElementById('bulk-remove-preview').textContent = '';
-  showToast(`✂ "${w}" を ${affected}件のエントリから削除しました`);
+  showToast(`✂ "${w}" を ${affected}件から削除（1件保持）`);
 }
 
 // ═══════════════════════════════════════════════════════
