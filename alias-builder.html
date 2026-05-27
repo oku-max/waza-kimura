@@ -216,6 +216,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <button class="btn btn-sm" id="bat-btn" onclick="toggleBulkAdd()">📋 一括追加</button>
     <button class="btn btn-sm btn-suggest" onclick="runSuggestAll()">✨ 全エントリに提案</button>
     <button class="btn btn-sm btn-sync" onclick="syncToTagMaster()">🔄 tag_master に同期</button>
+    <button class="btn btn-sm" id="repair-btn" onclick="repairSplitEntries()" style="background:#fff0e8;border-color:#f0a070;color:#c04000;display:none">🔧 エントリを分割修復</button>
     <div id="count-label"></div>
   </div>
 
@@ -527,6 +528,7 @@ async function loadAll() {
   document.getElementById('rev-body').classList.add('show');
   renderSheet();
   updateSugBanner();
+  updateRepairBtn();
   renderReverseRules();
   // 起動時自動同期
   const hasCatEntries = entries.some(e => !e.ignored && e.catName);
@@ -727,6 +729,41 @@ function setCatInverse(catName, invCat) {
 // 「同じカテゴリ = 表記揺れ」は誤定義。
 // 各エントリは独立した技を表す。表記揺れ提案は runSuggestAll() で行う。
 
+// ═══════════════════════════════════════════════════════
+// データ修復：統合されたエントリを1ワード=1エントリに分割して元に戻す
+// ═══════════════════════════════════════════════════════
+async function repairSplitEntries() {
+  const fat = entries.filter(e => !e.ignored && (e.words.length + (e.suggested||[]).length) > 1);
+  if (!fat.length) { showToast('分割が必要なエントリはありません'); return; }
+  if (!confirm(`${fat.length}件のエントリを単語ごとに分割します。\n合計 ${fat.reduce((n,e)=>n+e.words.length+(e.suggested||[]).length,0)} エントリになります。\n続けますか？`)) return;
+
+  const newEntries = [];
+  for (const e of entries) {
+    if (e.ignored) { newEntries.push(e); continue; }
+    const allWords = [...e.words, ...(e.suggested||[])];
+    if (allWords.length <= 1) {
+      newEntries.push({ ...e, suggested: [] });
+      continue;
+    }
+    for (const w of allWords) {
+      if (!w || !w.trim()) continue;
+      newEntries.push({ id: idSeq++, words: [w.trim()], suggested: [], tb: e.tb||'', catName: e.catName||'', pos: e.pos||'', ignored: false });
+    }
+  }
+  entries = newEntries;
+  await flush();
+  renderSheet();
+  updateSugBanner();
+  updateRepairBtn();
+  showToast(`✅ ${entries.filter(e=>!e.ignored).length}件のエントリに分割しました`);
+}
+
+function updateRepairBtn() {
+  const btn = document.getElementById('repair-btn'); if (!btn) return;
+  const needs = entries.some(e => !e.ignored && (e.words.length + (e.suggested||[]).length) > 1);
+  btn.style.display = needs ? '' : 'none';
+}
+
 
 // ═══════════════════════════════════════════════════════
 // Suggest
@@ -867,6 +904,7 @@ function renderSheet() {
   }).join('');
 
   renderIgnoreList();
+  updateRepairBtn();
 }
 
 function esc(s) {
