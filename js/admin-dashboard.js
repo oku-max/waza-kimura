@@ -26,7 +26,7 @@ export function switchAdminSub(sub) {
   if (sub === 'positions')    _renderPositions();
   if (sub === 'feedback')     _renderFeedbackAdmin();
   if (sub === 'tagmaster')    _renderTagMaster();
-  if (sub === 'aliasbuilder') _renderIframe('admin-p-aliasbuilder', '/alias-builder.html');
+  if (sub === 'aliasbuilder') _renderIframe('admin-p-aliasbuilder', '/alias-builder.html?v=6');
 }
 window.switchAdminSub = switchAdminSub;
 
