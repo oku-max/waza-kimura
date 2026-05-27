@@ -18,6 +18,9 @@ export function switchAdminSub(sub) {
       tab.classList.toggle('active', s === sub);
     }
   });
+  // aliasbuilder は全幅表示のため720px制限コンテナのpaddingを調整
+  const adminInner = document.querySelector('#adminTab > div[style*="max-width:720px"]');
+  if (adminInner) adminInner.style.paddingBottom = sub === 'aliasbuilder' ? '8px' : '';
   if (sub === 'corrections')  _renderCorrections();
   if (sub === 'categories')   _renderCategories();
   if (sub === 'positions')    _renderPositions();
