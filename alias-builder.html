@@ -1043,7 +1043,7 @@ function renderSheet() {
       <td class="col-act">
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
           <button class="btn btn-sm" style="color:#6a3fa0;border-color:#c9a8f0;font-size:10px;padding:2px 6px;width:100%"
-            onclick="suggestEntry(${e.id})">✨提案</button>
+            data-action="suggest" data-id="${e.id}">✨提案</button>
           <button class="btn btn-sm" style="color:#c05000;border-color:#f0c0a0;font-size:10px;padding:2px 6px;width:100%"
             onclick="ignoreEntry(${e.id})">無視</button>
         </div>
@@ -1243,6 +1243,14 @@ function showToast(msg) {
   el.textContent = msg; el.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(()=>el.classList.remove('show'), 2000);
 }
+
+// ─ per-row suggest ─
+document.addEventListener('click', function(ev) {
+  const btn = ev.target.closest('[data-action="suggest"]');
+  if (!btn) return;
+  ev.preventDefault();
+  suggestEntry(Number(btn.dataset.id));
+});
 </script>
 </body>
 </html>
