@@ -521,7 +521,6 @@ async function loadAll() {
     }
   } catch(e) { console.warn('tag_rules load:', e); }
   updateRevBadge();
-  const consolidated = consolidateEntries();
   showScreen('s-main');
   // 反転ルールセクションをデフォルト展開
   document.getElementById('rev-toggle').classList.add('open');
@@ -529,14 +528,6 @@ async function loadAll() {
   renderSheet();
   updateSugBanner();
   renderReverseRules();
-  if (consolidated.changed) {
-    await flush(); // タイマー待ちをせず即時保存
-    if (consolidated.suggestionsAdded > 0) {
-      showToast(`✨ ${consolidated.suggestionsAdded}語を提案チップに変換しました。確認してください`);
-    } else if (consolidated.removedCount > 0) {
-      showToast(`🔗 ${consolidated.removedCount}件の重複エントリを整理しました`);
-    }
-  }
   // 起動時自動同期
   const hasCatEntries = entries.some(e => !e.ignored && e.catName);
   if (hasCatEntries) await _syncSilent();
@@ -578,14 +569,10 @@ async function importFromTagMaster() {
       entries.push({ id: idSeq++, words: validWords, suggested: [], tb, catName, pos: '', ignored: false });
     }
   }
-  const r = consolidateEntries();
   renderSheet();
   updateSugBanner();
   await flush();
-  const msg = r.suggestionsAdded > 0
-    ? `✅ インポート完了。${r.suggestionsAdded}語を提案チップに変換しました`
-    : `✅ ${entries.filter(e=>!e.ignored).length}件インポート完了`;
-  showToast(msg);
+  showToast(`✅ ${entries.filter(e=>!e.ignored).length}件インポート完了`);
 }
 function dismissImport() {
   importDismissed = true;
@@ -736,61 +723,9 @@ function setCatInverse(catName, invCat) {
   flushTagRules();
 }
 
-// ═══════════════════════════════════════════════════════
-// 表記揺れ検出（ロード時・インポート時に自動実行）
-// 同カテゴリ内で pos 未設定のエントリが複数ある場合、
-// サイレントマージせず、重複ワードを提案チップ（suggested[]）に追加して
-// ユーザーが目で確認・承認できるようにする
-// ═══════════════════════════════════════════════════════
-function consolidateEntries() {
-  const ignoredList = entries.filter(e => e.ignored);
-  const active      = entries.filter(e => !e.ignored);
-  const nocat       = active.filter(e => !e.catName);
-  const hasCat      = active.filter(e =>  e.catName);
-
-  const byCat = {};
-  for (const e of hasCat) {
-    if (!byCat[e.catName]) byCat[e.catName] = [];
-    byCat[e.catName].push(e);
-  }
-
-  const result = [];
-  let suggestionsAdded = 0;
-
-  for (const catEntries of Object.values(byCat)) {
-    const withPos = catEntries.filter(e =>  e.pos);
-    const noPos   = catEntries.filter(e => !e.pos);
-
-    if (noPos.length > 0) {
-      // 先頭エントリをプライマリとして保持
-      const primary = { ...noPos[0], words: [...noPos[0].words], suggested: [...(noPos[0].suggested||[])] };
-      // セカンダリエントリのワードを提案チップとして追加（サイレントマージしない）
-      for (const e of noPos.slice(1)) {
-        for (const w of [...e.words, ...(e.suggested||[])]) {
-          const wl = w.toLowerCase();
-          if (!primary.words.some(x => x.toLowerCase() === wl) &&
-              !primary.suggested.some(x => x.toLowerCase() === wl)) {
-            primary.suggested.push(w);
-            suggestionsAdded++;
-          }
-        }
-      }
-      result.push(primary);
-      // セカンダリエントリは削除（ワードは提案チップへ移動済み）
-    }
-    for (const e of withPos) {
-      result.push({ ...e, words: [...e.words], suggested: [...(e.suggested||[])] });
-    }
-  }
-
-  const before = entries.length;
-  entries = [...ignoredList, ...nocat, ...result];
-  const after = entries.length;
-  const removedCount = before - after;
-  const changed = removedCount > 0 || suggestionsAdded > 0;
-  if (changed) console.log(`[consolidate] ${before} → ${after} (${removedCount}件削減, ${suggestionsAdded}語を提案チップへ変換)`);
-  return { changed, suggestionsAdded, removedCount };
-}
+// 廃止: consolidateEntries は削除。
+// 「同じカテゴリ = 表記揺れ」は誤定義。
+// 各エントリは独立した技を表す。表記揺れ提案は runSuggestAll() で行う。
 
 
 // ═══════════════════════════════════════════════════════
