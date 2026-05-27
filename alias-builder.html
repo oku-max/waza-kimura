@@ -128,6 +128,27 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
 .ign-chip{padding:2px 8px;border-radius:8px;background:#f5e8e8;border:1px solid #e8c8c8;font-size:11px;color:#888}
 .ign-meta{font-size:10px;color:#ccc;white-space:nowrap}
 
+/* ── Reverse rules section ── */
+.reverse-section{border-top:1px solid var(--border)}
+.rev-toggle{padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--text3);background:#f8f7f4;user-select:none;transition:background .1s}
+.rev-toggle:hover{background:#f0ede8}
+.rev-arrow{transition:transform .2s;font-size:9px}
+.rev-toggle.open .rev-arrow{transform:rotate(90deg)}
+.rev-badge{background:#d8e8ff;color:#2055a0;border-radius:8px;padding:1px 7px;font-size:10px}
+.rev-body{display:none;padding:14px 16px;background:#f8f5ff}
+.rev-body.show{display:block}
+.rev-block-label{font-size:10px;font-weight:700;color:#7040a0;margin-bottom:7px;letter-spacing:.04em}
+.neg-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px}
+.neg-chip{display:inline-flex;align-items:center;border-radius:10px;background:#fff0f0;border:1px solid #f0c0c0;font-size:11px;overflow:hidden}
+.neg-chip-label{padding:2px 4px 2px 8px;color:#a03030}
+.neg-chip-x{padding:2px 6px 2px 2px;cursor:pointer;color:#ccc;font-size:9px;background:transparent;border:none;font-family:inherit;transition:color .1s}
+.neg-chip-x:hover{color:var(--red)}
+.rev-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
+.rev-table th{text-align:left;padding:5px 8px;border-bottom:1px solid #e0d8f0;font-size:10px;color:#9060c0;font-weight:700;background:#f0e8ff}
+.rev-table td{padding:5px 8px;border-bottom:1px solid #ede8f8;vertical-align:middle}
+.rev-table tr:last-child td{border-bottom:none}
+.rev-table tr:hover td{background:#f8f0ff}
+
 /* ── Sync msg ── */
 #sync-msg{font-size:11px;padding:6px 12px;background:#e8f4e8;color:#206020;display:none;border-bottom:1px solid #c8e8c8}
 #sync-msg.err{background:#fde8e8;color:#a03030;border-color:#f0c0c0}
@@ -269,6 +290,17 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <div class="ign-body" id="ign-body"></div>
   </div>
 
+  <!-- 反転ルール -->
+  <div class="reverse-section">
+    <div class="rev-toggle" id="rev-toggle" onclick="toggleReverseRules()">
+      <span class="rev-arrow">▶</span>
+      <span>反転ルール</span>
+      <span class="rev-badge" id="rev-badge"></span>
+      <span style="font-weight:400;font-size:10px;color:#bbb">— タイトルに否定ワードが含まれると、タグを別カテゴリへ切り替え</span>
+    </div>
+    <div class="rev-body" id="rev-body"></div>
+  </div>
+
 </div><!-- /frame -->
 </div><!-- /s-main -->
 
@@ -397,8 +429,9 @@ let idSeq = 1000;
 let saveTimer = null;
 let sortKey = '', sortDir = 1;
 let selIds = new Set();
-let ignoreOpen = false, bulkAddOpen = false;
+let ignoreOpen = false, bulkAddOpen = false, reverseOpen = false;
 let importDismissed = false;
+let tagRules = { negationWords: [], categoryInverse: {} };
 
 // ═══════════════════════════════════════════════════════
 // Auth
@@ -443,6 +476,19 @@ async function loadAll() {
     console.warn('loadAll:', e);
     entries = [];
   }
+  // tag_rules 読み込み
+  try {
+    const trSnap = await db.doc(`users/${uid}/data/tag_rules`).get();
+    if (trSnap.exists) {
+      tagRules = { negationWords: [], categoryInverse: {}, ...trSnap.data() };
+    } else {
+      tagRules = {
+        negationWords: ['防ぐ','対策','防御','させない','止める','防止','ディフェンス','defense','counter','prevent','stop','avoid'],
+        categoryInverse: {}
+      };
+    }
+  } catch(e) { console.warn('tag_rules load:', e); }
+  updateRevBadge();
   consolidateEntries();
   showScreen('s-main');
   renderSheet();
@@ -546,6 +592,88 @@ async function _syncSilent() {
   if (!uid) return;
   try { await _writeAliasMap(_buildAliasMap()); }
   catch(e) { console.warn('[alias-builder] auto-sync failed:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// 反転ルール（tag_rules）
+// ═══════════════════════════════════════════════════════
+async function flushTagRules() {
+  if (!uid) return;
+  try {
+    await db.doc(`users/${uid}/data/tag_rules`).set(tagRules);
+    updateRevBadge();
+  } catch(e) { console.error('tag_rules save failed:', e); }
+}
+function updateRevBadge() {
+  const neg  = (tagRules.negationWords||[]).length;
+  const inv  = Object.values(tagRules.categoryInverse||{}).filter(Boolean).length;
+  const badge = document.getElementById('rev-badge'); if (!badge) return;
+  badge.textContent = neg || inv ? `否定語 ${neg} / 反転 ${inv}` : '';
+  badge.style.display = neg || inv ? '' : 'none';
+}
+function toggleReverseRules() {
+  reverseOpen = !reverseOpen;
+  document.getElementById('rev-toggle').classList.toggle('open', reverseOpen);
+  document.getElementById('rev-body').classList.toggle('show', reverseOpen);
+  if (reverseOpen) renderReverseRules();
+}
+function renderReverseRules() {
+  const body = document.getElementById('rev-body'); if (!body) return;
+  const negChips = (tagRules.negationWords||[]).map(w => `
+    <span class="neg-chip">
+      <span class="neg-chip-label">${esc(w)}</span>
+      <button class="neg-chip-x" onclick="removeNegWord('${esc(w)}')">✕</button>
+    </span>`).join('');
+  const catRows = CATS.map(c => {
+    const inv = tagRules.categoryInverse?.[c.name] || '';
+    return `<tr>
+      <td><span class="tb-badge ${TB_CLS[c.tb]||'tb-neu'}">${TB_LABEL[c.tb]||''}</span></td>
+      <td style="font-weight:600;white-space:nowrap">${esc(c.name)}</td>
+      <td style="color:#c0a0e0;font-size:12px;padding:0 4px">→</td>
+      <td>
+        <select class="cell-sel" onchange="setCatInverse('${esc(c.name)}',this.value)">
+          <option value="">（変換なし）</option>
+          ${CATS.filter(x=>x.name!==c.name).map(x=>`<option value="${esc(x.name)}"${inv===x.name?' selected':''}>${esc(x.name)}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `
+    <div class="rev-block-label">🚫 否定ワード — タイトルにこのいずれかが含まれると反転ルールを起動</div>
+    <div class="neg-chips">
+      ${negChips}
+      <input type="text" id="neg-input" placeholder="単語を追加..." style="width:140px;font-size:11px"
+        onkeydown="negInputKey(event)">
+      <button class="btn btn-sm" onclick="addNegWord()">追加</button>
+    </div>
+    <div style="font-size:10px;color:#bbb;margin-bottom:14px">「防ぐ」「対策」などを登録。複数ある場合はOR条件で判定。</div>
+    <div class="rev-block-label">🔄 カテゴリ反転マッピング — 否定ワードがあったときに適用されるカテゴリ変換</div>
+    <table class="rev-table">
+      <thead><tr><th>TB</th><th>元カテゴリ</th><th></th><th>反転先カテゴリ</th></tr></thead>
+      <tbody>${catRows}</tbody>
+    </table>
+    <div style="font-size:10px;color:#bbb;margin-top:8px">例：「スイープ」+「対策」→ 反転先を「パスガード」にすると、スイープではなくパスガードとしてタグ付けされます。</div>
+  `;
+}
+function addNegWord() {
+  const inp = document.getElementById('neg-input'); if (!inp) return;
+  const w = inp.value.trim(); if (!w) return;
+  if (!(tagRules.negationWords||[]).includes(w)) {
+    tagRules.negationWords = [...(tagRules.negationWords||[]), w];
+    flushTagRules(); renderReverseRules();
+  }
+  inp.value = '';
+}
+function negInputKey(ev) { if (ev.key==='Enter') addNegWord(); }
+function removeNegWord(w) {
+  tagRules.negationWords = (tagRules.negationWords||[]).filter(x=>x!==w);
+  flushTagRules(); renderReverseRules();
+}
+function setCatInverse(catName, invCat) {
+  if (!tagRules.categoryInverse) tagRules.categoryInverse = {};
+  if (invCat) tagRules.categoryInverse[catName] = invCat;
+  else delete tagRules.categoryInverse[catName];
+  flushTagRules();
 }
 
 // ═══════════════════════════════════════════════════════
