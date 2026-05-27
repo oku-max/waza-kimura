@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- v6.2 -->
+<!DOCTYPE html><!-- v6.3 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -218,7 +218,6 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <button class="btn btn-sm btn-sync" onclick="syncToTagMaster()">🔄 tag_master に同期</button>
     <button class="btn btn-sm" id="repair-btn" onclick="repairSplitEntries()" style="background:#fff0e8;border-color:#f0a070;color:#c04000;display:none">🔧 エントリを分割修復</button>
     <div id="count-label"></div>
-    <span style="font-size:9px;color:#bbb;margin-left:auto">v6.1</span>
   </div>
 
   <!-- 一括追加パネル -->
@@ -601,7 +600,7 @@ async function loadAll() {
     const snap = await db.doc(`users/${uid}/data/alias_entries`).get();
     if (snap.exists && snap.data().entries?.length) {
       const raw = snap.data().entries;
-      entries = raw.map(e => ({ ...e, suggested: e.suggested || [] }));
+      entries = raw.map(e => ({ ...e, suggested: e.suggested || [], rejected: e.rejected || [] }));
       idSeq = Math.max(idSeq, ...entries.map(e => e.id || 0)) + 1;
     } else {
       // 既存 tag_master があればインポート提案
@@ -658,7 +657,7 @@ async function flush() {
   try {
     await db.doc(`users/${uid}/data/alias_entries`).set({
       entries: entries.map(e => ({
-        id: e.id, words: e.words, suggested: e.suggested||[],
+        id: e.id, words: e.words, suggested: e.suggested||[], rejected: e.rejected||[],
         tb: e.tb||'', catName: e.catName||'', pos: e.pos||'', ignored: !!e.ignored
       })),
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
@@ -886,7 +885,7 @@ const JP_RE = /[぀-ゟ゠-ヿ一-鿿]/;
 const EN_RE = /^[a-zA-Z0-9\s\-\/'.]+$/;
 
 function getSuggestionsFor(entry) {
-  const existing = new Set([...entry.words, ...(entry.suggested||[])].map(w => w.toLowerCase()));
+  const existing = new Set([...entry.words, ...(entry.suggested||[]), ...(entry.rejected||[])].map(w => w.toLowerCase()));
   // 日本語のみ／英語のみ／混在を判定
   const hasJp = entry.words.some(w => JP_RE.test(w));
   const hasEn = entry.words.some(w => /[a-zA-Z]/.test(w) && !JP_RE.test(w));
@@ -956,6 +955,7 @@ function acceptSug(id, word) {
 function rejectSug(id, word) {
   const e = entries.find(x=>x.id===id); if (!e) return;
   e.suggested = (e.suggested||[]).filter(s=>s!==word);
+  if (!(e.rejected||[]).includes(word)) e.rejected = [...(e.rejected||[]), word];
   scheduleAutosave(); renderSheet(); updateSugBanner();
 }
 function acceptAllSuggestions() {
