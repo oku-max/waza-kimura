@@ -30,7 +30,7 @@ body{font-family:-apple-system,'Hiragino Sans','Segoe UI',sans-serif;background:
 
 /* ── Main ── */
 #s-main{display:none}
-.frame{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);max-width:1060px;margin:16px auto}
+.frame{background:var(--card);border:none;border-radius:0;overflow:hidden;box-shadow:none;max-width:none;margin:0}
 
 /* ── Toolbar ── */
 .toolbar{background:#f8f7f4;border-bottom:1px solid #e8e5e0;padding:8px 12px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -443,6 +443,7 @@ async function loadAll() {
     console.warn('loadAll:', e);
     entries = [];
   }
+  consolidateEntries();
   showScreen('s-main');
   renderSheet();
   updateSugBanner();
@@ -486,6 +487,7 @@ async function importFromTagMaster() {
       entries.push({ id: idSeq++, words: [word], suggested: [], tb, catName, pos: '', ignored: false });
     }
   }
+  consolidateEntries();
   scheduleAutosave();
   renderSheet();
   showToast(`✅ ${entries.length}件インポート完了`);
@@ -544,6 +546,129 @@ async function _syncSilent() {
   if (!uid) return;
   try { await _writeAliasMap(_buildAliasMap()); }
   catch(e) { console.warn('[alias-builder] auto-sync failed:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// 表記揺れ統合（ロード時・インポート時に自動実行）
+// ═══════════════════════════════════════════════════════
+function consolidateEntries() {
+  // 同義語グループ：同カテゴリ内でこれらに一致する単語を持つエントリは1つに統合
+  const KNOWN_EQ = [
+    ['sweep','sweeps','sweeping','swept','スイープ'],
+    ['knee slice','knee cut','knee cutting','knee slicing','ニースライス','ニーカット'],
+    ['leg drag','leg dragging','レッグドラッグ'],
+    ['armbar','arm bar','juji gatame','腕ひしぎ','十字固め'],
+    ['triangle','triangle choke','sankaku','三角絞め','三角'],
+    ['berimbolo','ベリンボロ','bolo','ベリンボロガード'],
+    ['guard pass','pass','passing','passing guard','パスガード','ガードパス'],
+    ['mount','mounted','top mount','マウント','マウントポジション'],
+    ['escape','escaping','エスケープ'],
+    ['back take','back mount','back control','バックテイク','バックマウント'],
+    ['deep half','deep half guard','ディープハーフ'],
+    ['x guard','x-guard','Xガード','xガード'],
+    ['lasso','lasso guard','ラッソー','ラッソ'],
+    ['spider','spider guard','スパイダー','スパイダーガード'],
+    ['half guard','half-guard','ハーフガード','ハーフ'],
+    ['butterfly','butterfly guard','バタフライ','バタフライガード'],
+    ['closed guard','full guard','クローズドガード','フルガード','クロガ'],
+    ['de la riva','dlr','デラヒーバ','デラヒーバガード'],
+    ['rdlr','reverse de la riva','リバースデラヒーバ','リバデラ'],
+    ['heel hook','ヒールフック','inside heel hook','outside heel hook'],
+    ['knee on belly','knee on stomach','kob','ニーオンベリー'],
+    ['50/50','5050','fifty fifty','フィフティフィフティ'],
+    ['saddle','411','4-11','inside sankaku','サドル','honey hole'],
+    ['worm guard','lapel guard','ワームガード','ラペルガード'],
+    ['takedown','take down','take-down','テイクダウン'],
+    ['choke','rear naked choke','rnc','チョーク'],
+    ['control','controlling','コントロール'],
+    ['pressure','pressuring','プレッシャー'],
+    ['back attack','back choke','バックアタック','バックコントロール'],
+    ['double leg','double leg takedown','ダブルレッグ'],
+    ['single leg','single leg takedown','シングルレッグ'],
+    ['kimura','kimura trap','キムラ','キムラトラップ'],
+    ['north south','north-south','ノースサウス'],
+    ['standing','スタンディング','stand up'],
+    ['retention','guard retention','ガードリテンション','リテンション'],
+    ['defense','defence','ディフェンス'],
+    ['combat base','コンバットベース'],
+    ['dogfight','dog fight','ドッグファイト'],
+  ];
+
+  // 正規化ワード → グループ番号 のマップを構築
+  const wordToGroup = new Map();
+  KNOWN_EQ.forEach((group, gi) => {
+    group.forEach(w => wordToGroup.set(w.toLowerCase(), gi));
+  });
+
+  function getGroupIdx(words) {
+    for (const w of words) {
+      const gi = wordToGroup.get(w.toLowerCase());
+      if (gi !== undefined) return gi;
+    }
+    return null;
+  }
+
+  function mergeWords(primary, extra) {
+    for (const w of extra) {
+      if (!primary.some(x => x.toLowerCase() === w.toLowerCase())) primary.push(w);
+    }
+  }
+
+  // 無視エントリはそのまま
+  const ignoredList = entries.filter(e => e.ignored);
+  const active = entries.filter(e => !e.ignored);
+
+  // カテゴリなしエントリはそのまま（グループ化の根拠がないため）
+  const nocat = active.filter(e => !e.catName);
+  const hasCat = active.filter(e => e.catName);
+
+  // カテゴリごとに統合
+  const byCat = {};
+  for (const e of hasCat) {
+    if (!byCat[e.catName]) byCat[e.catName] = [];
+    byCat[e.catName].push(e);
+  }
+
+  const result = [];
+
+  for (const catEntries of Object.values(byCat)) {
+    const groupMap = new Map(); // groupIdx -> entry
+    const unmatched = [];
+
+    for (const e of catEntries) {
+      const gi = getGroupIdx(e.words);
+      if (gi !== null) {
+        if (!groupMap.has(gi)) {
+          groupMap.set(gi, { ...e, words: [...e.words], suggested: [...(e.suggested||[])] });
+        } else {
+          const primary = groupMap.get(gi);
+          mergeWords(primary.words, e.words);
+          for (const s of (e.suggested||[])) {
+            if (!primary.suggested.includes(s)) primary.suggested.push(s);
+          }
+        }
+      } else {
+        // グループ未定義の場合は大文字小文字を無視した重複チェック
+        let found = false;
+        for (const ex of unmatched) {
+          if (e.words.some(w => ex.words.some(x => x.toLowerCase() === w.toLowerCase()))) {
+            mergeWords(ex.words, e.words);
+            found = true; break;
+          }
+        }
+        if (!found) unmatched.push({ ...e, words: [...e.words], suggested: [...(e.suggested||[])] });
+      }
+    }
+    result.push(...groupMap.values(), ...unmatched);
+  }
+
+  const before = entries.length;
+  entries = [...ignoredList, ...nocat, ...result];
+  const after = entries.length;
+  if (before !== after) {
+    console.log(`[consolidate] ${before} → ${after} エントリ（${before - after}件統合）`);
+    scheduleAutosave();
+  }
 }
 
 // ═══════════════════════════════════════════════════════
