@@ -918,7 +918,9 @@ function getSuggestionsFor(entry) {
   return all.slice(0, 4);
 }
 function suggestEntry(id) {
-  const e = entries.find(x => x.id === id); if (!e) return;
+  const nid = Number(id);
+  const e = entries.find(x => Number(x.id) === nid);
+  if (!e) { showToast('エントリーが見つかりません id=' + id); return; }
   const newSugs = getSuggestionsFor(e).filter(s => !(e.suggested||[]).includes(s));
   if (!newSugs.length) { showToast('新しい提案なし'); return; }
   e.suggested = [...(e.suggested||[]), ...newSugs];
