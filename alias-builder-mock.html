@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alias Builder — スプレッドシート型 モック v3</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  background:#f0ede8;color:#1a1a1a;font-size:13px;line-height:1.5}
+
+.toolbar{background:#f8f7f4;border-bottom:1px solid #e8e5e0;padding:8px 12px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;border:1px solid #ddd;background:#fff;color:#333;transition:all .1s}
+.btn:hover{background:#f0ede8}
+.btn-primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn-primary:hover{background:#333}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn-suggest{background:#f5f0ff;border-color:#c8a8f0;color:#7040c0}
+.btn-suggest:hover{background:#ede5ff}
+input[type=text],select,textarea{background:#fff;border:1px solid #d0ccc8;border-radius:5px;
+  padding:5px 8px;font-size:12px;font-family:inherit;color:#1a1a1a;outline:none}
+input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
+
+.frame{background:#fff;border:1px solid #ddd;border-radius:10px;overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);max-width:1040px;margin:20px auto}
+
+/* 一括追加 */
+.bulk-add-panel{border-bottom:1px solid #e8e5e0;padding:12px 14px;display:none;background:#f8f7f4}
+.bulk-add-panel.show{display:block}
+.bulk-add-panel textarea{width:100%;height:110px;resize:vertical;font-size:12px;
+  line-height:1.8;border-radius:6px;padding:8px 10px}
+.bulk-hint{font-size:11px;color:#888;margin-top:6px;line-height:1.8}
+.bulk-hint code{background:#e8e5e0;border-radius:3px;padding:0 4px;font-size:11px}
+
+/* 選択バー */
+.bulk-bar{background:#fffbe8;border-bottom:1px solid #e8d860;padding:7px 12px;
+  display:none;align-items:center;gap:8px;font-size:11px;font-weight:700}
+.bulk-bar.show{display:flex}
+.sep{color:#ddd}
+
+/* テーブル */
+.sheet-wrap{overflow:auto;max-height:480px}
+.sheet{width:100%;border-collapse:collapse;min-width:700px}
+.sheet thead th{position:sticky;top:0;z-index:10;background:#f8f7f4;font-size:11px;
+  font-weight:700;text-align:left;padding:8px 10px;border-bottom:2px solid #ddd;
+  color:#555;white-space:nowrap;user-select:none}
+.sheet thead th.sortable{cursor:pointer}
+.sheet thead th.sortable:hover{background:#f0ede8;color:#1a1a1a}
+.sheet tbody tr{border-bottom:1px solid #f0ede8;transition:background .1s}
+.sheet tbody tr:hover{background:#faf9f7}
+.sheet tbody tr.selected{background:#fffbe8}
+.sheet td{padding:7px 10px;vertical-align:middle}
+.sheet td:first-child{width:36px;text-align:center}
+.col-words{min-width:280px}
+.col-tb{width:130px}
+.col-cat{width:170px}
+.col-pos{width:115px}
+.col-act{width:56px;text-align:center}
+.cell-sel{font-size:11px;padding:3px 6px;width:100%;background:#fff;
+  border:1px solid #d0ccc8;border-radius:4px;font-family:inherit;outline:none;cursor:pointer}
+.cell-sel:focus{border-color:#888}
+.pos-span{cursor:text;font-size:12px;color:#555}
+.pos-span:hover{background:#f8f7f4;border-radius:3px;padding:0 3px}
+.edit-cell{border:1px solid #b8860b!important;outline:none;border-radius:3px;
+  padding:2px 6px;font-size:12px;font-family:inherit;background:#fffbe8;width:100%}
+
+/* 単語チップ（確定済み）*/
+.words-cell{display:flex;flex-wrap:wrap;gap:3px;align-items:center;min-height:28px}
+.wchip{display:inline-flex;align-items:center;gap:0;border-radius:10px;
+  background:#f5f4f0;border:1px solid #e0ddd8;overflow:hidden;font-size:11px;
+  transition:border-color .1s}
+.wchip:focus-within{border-color:#b8860b;background:#fffbe8}
+.wchip-text{padding:2px 5px 2px 8px;outline:none;min-width:28px;
+  cursor:text;background:transparent;border:none;font-size:11px;
+  font-family:inherit;color:#1a1a1a;line-height:1.4}
+.wchip-x{padding:2px 6px 2px 2px;cursor:pointer;color:#ccc;font-size:9px;
+  line-height:1;background:transparent;border:none;font-family:inherit;transition:color .1s}
+.wchip-x:hover{color:#c03030}
+
+/* 提案チップ（承認待ち）*/
+.schip{display:inline-flex;align-items:center;gap:0;border-radius:10px;
+  background:#f5f0ff;border:1.5px dashed #b8a0e0;overflow:hidden;font-size:11px;
+  transition:all .15s;white-space:nowrap}
+.schip-label{padding:2px 5px 2px 8px;color:#6030a0;line-height:1.4}
+.schip-ok{padding:2px 4px;cursor:pointer;color:#2a7a50;font-size:11px;
+  background:transparent;border:none;font-family:inherit;font-weight:700;
+  line-height:1;transition:all .1s}
+.schip-ok:hover{color:#fff;background:#2a7a50}
+.schip-no{padding:2px 6px 2px 2px;cursor:pointer;color:#aaa;font-size:10px;
+  background:transparent;border:none;font-family:inherit;line-height:1;transition:color .1s}
+.schip-no:hover{color:#c03030}
+
+/* 提案バッジ (行に未承認提案がある場合) */
+.sug-count{font-size:9px;background:#e8d8ff;color:#7040c0;border-radius:7px;
+  padding:1px 5px;margin-left:2px;font-weight:700}
+
+/* 提案セクション（行内） */
+.sug-row-label{font-size:9px;color:#9060c8;font-weight:700;white-space:nowrap;
+  background:#f0e8ff;border-radius:5px;padding:2px 6px;display:inline-flex;
+  align-items:center;gap:3px}
+.add-word-btn{font-size:10px;color:#aaa;border:1px dashed #ccc;border-radius:10px;
+  padding:2px 8px;cursor:pointer;background:none;font-family:inherit;
+  transition:all .1s;white-space:nowrap;line-height:1.4}
+.add-word-btn:hover{color:#555;border-color:#888;background:#fafafa}
+
+/* 提案一括承認バナー */
+.sug-banner{background:#f5f0ff;border-bottom:1px solid #d8c8f0;padding:7px 14px;
+  display:none;align-items:center;gap:8px;font-size:11px}
+.sug-banner.show{display:flex}
+
+/* 無視リスト */
+.ignore-section{border-top:1px solid #e8e5e0}
+.ign-toggle{padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:700;color:#999;background:#f8f7f4;user-select:none;
+  transition:background .1s}
+.ign-toggle:hover{background:#f0ede8}
+.ign-arrow{transition:transform .2s;font-size:9px}
+.ign-toggle.open .ign-arrow{transform:rotate(90deg)}
+.ign-badge{background:#f0c0c0;color:#c03030;border-radius:8px;padding:1px 7px;font-size:10px}
+.ign-body{display:none;padding:10px 14px;background:#fdf7f7}
+.ign-body.show{display:block}
+.ign-row{display:flex;align-items:center;gap:8px;padding:5px 0;
+  border-bottom:1px solid #f5eaea;font-size:11px}
+.ign-row:last-child{border-bottom:none}
+.ign-words{flex:1;display:flex;flex-wrap:wrap;gap:3px}
+.ign-chip{padding:2px 8px;border-radius:8px;background:#f5e8e8;
+  border:1px solid #e8c8c8;font-size:11px;color:#888}
+.ign-meta{font-size:10px;color:#ccc;white-space:nowrap}
+
+/* TB */
+.tb{display:inline-flex;align-items:center;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:10px;white-space:nowrap}
+.tb-top{background:#fff8e0;color:#b8860b;border:1px solid #e0c060}
+.tb-bot{background:#e8f2fb;color:#2a72b0;border:1px solid #90c0e0}
+.tb-std{background:#e8f5ee;color:#2a8050;border:1px solid #80c090}
+.tb-neu{background:#f0ede8;color:#888;border:1px solid #d0ccc8}
+
+#s1-count{font-size:11px;color:#aaa;margin-left:auto;white-space:nowrap}
+#s1-count.ok{color:#2a7a50;font-weight:700}
+
+@keyframes flash-new{0%{background:#e8f5ee}100%{background:transparent}}
+.flash-new{animation:flash-new .8s ease-out}
+@keyframes flash-accept{0%{background:#e8f5ee}100%{background:transparent}}
+.flash-accept{animation:flash-accept .4s ease-out}
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <!-- ツールバー -->
+  <div class="toolbar">
+    <input type="text" id="s1-search" placeholder="🔍 単語を絞り込む..." style="width:190px" oninput="renderSheet()">
+    <select id="s1-ftb" onchange="renderSheet()">
+      <option value="">TB: すべて</option>
+      <option value="top">トップ</option>
+      <option value="bot">ボトム</option>
+      <option value="std">スタンディング</option>
+      <option value="neu">中立</option>
+    </select>
+    <select id="s1-fcat" onchange="renderSheet()"></select>
+    <button class="btn btn-sm btn-primary" onclick="addRowPrompt()">+ 1件追加</button>
+    <button class="btn btn-sm" id="bat-btn" onclick="toggleBulkAdd()">📋 一括追加</button>
+    <button class="btn btn-sm btn-suggest" onclick="runSuggestAll()">✨ 全エントリに提案</button>
+    <div id="s1-count"></div>
+  </div>
+
+  <!-- 一括追加パネル -->
+  <div class="bulk-add-panel" id="bulk-add-panel">
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px">一括追加</div>
+    <textarea id="bulk-input" placeholder="スイープ / sweep
+ベリンボロ / berimbolo
+パスガード, pass, passing"></textarea>
+    <div class="bulk-hint">
+      ・1行 = 1エントリ　　・<code>/</code> または <code>,</code> で区切ると<strong>同一エントリの複数単語</strong><br>
+      ・追加後に「✨ 全エントリに提案」で英語・別表記の候補を自動提案できます
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-sm btn-primary" onclick="execBulkAdd()">追加実行</button>
+      <button class="btn btn-sm" onclick="toggleBulkAdd()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- 提案一括承認バナー -->
+  <div class="sug-banner" id="sug-banner">
+    <span>✨</span>
+    <span id="sug-total-count" style="font-weight:700"></span>
+    <span style="font-weight:400;color:#7040c0">件の提案があります。各行で個別に確認するか、</span>
+    <button class="btn btn-sm btn-suggest" onclick="acceptAllSuggestions()">すべて承認</button>
+    <button class="btn btn-sm" onclick="rejectAllSuggestions()">すべて却下</button>
+  </div>
+
+  <!-- 一括選択バー -->
+  <div class="bulk-bar" id="bulk-bar">
+    <span id="bulk-count" style="white-space:nowrap"></span>
+    <span class="sep">|</span>
+    <span style="font-weight:400">TB変更:</span>
+    <button class="btn btn-sm" onclick="bulkTB('top')">⬆ トップ</button>
+    <button class="btn btn-sm" onclick="bulkTB('bot')">⬇ ボトム</button>
+    <button class="btn btn-sm" onclick="bulkTB('std')">🥋 スタンド</button>
+    <button class="btn btn-sm" onclick="bulkTB('neu')">━ 中立</button>
+    <span class="sep">|</span>
+    <button class="btn btn-sm" style="color:#c05000;border-color:#f0c0a0"
+      onclick="bulkIgnore()">無視リストへ</button>
+    <button class="btn btn-sm" style="margin-left:auto" onclick="clearSel()">✕ 解除</button>
+  </div>
+
+  <!-- テーブル -->
+  <div class="sheet-wrap">
+    <table class="sheet" id="sheet">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+          <th class="sortable col-words" onclick="sortBy('words')">単語（日本語・英語まとめて） ↕</th>
+          <th class="sortable col-tb" onclick="sortBy('tb')">TB ↕</th>
+          <th class="sortable col-cat" onclick="sortBy('cat')">カテゴリ ↕</th>
+          <th class="sortable col-pos" onclick="sortBy('pos')">ポジション ↕</th>
+          <th class="col-act">操作</th>
+        </tr>
+      </thead>
+      <tbody id="sheet-body"></tbody>
+    </table>
+  </div>
+
+  <!-- 無視リスト -->
+  <div class="ignore-section">
+    <div class="ign-toggle" id="ign-toggle" onclick="toggleIgnoreList()">
+      <span class="ign-arrow">▶</span>
+      <span>無視リスト</span>
+      <span class="ign-badge" id="ign-count">0</span>
+      <span style="font-weight:400;font-size:10px;color:#bbb">— タグ付けで無視される単語。復元可能。</span>
+    </div>
+    <div class="ign-body" id="ign-body"></div>
+  </div>
+
+</div>
+
+<script>
+const TB_LABEL = {top:'⬆ トップ', bot:'⬇ ボトム', std:'🥋 スタンディング', neu:'━ 中立'};
+const TB_CLS   = {top:'tb-top', bot:'tb-bot', std:'tb-std', neu:'tb-neu'};
+const TB_OPT   = ['top','bot','std','neu'];
+const CATS = [
+  'スイープ','パスガード','エスケープ・ディフェンス','ガード構築・エントリー',
+  'フィニッシュ','テイクダウン','コントロール／プレッシャー','ガードリテンション','バックアタック'
+];
+
+// ── 提案辞書（本番では AI API 呼び出し）──
+// キー: 正規化した単語、値: 提案候補リスト
+const SUGGEST_DICT = {
+  'スイープ':     ['sweep','sweeping','swept'],
+  'sweep':        ['スイープ','sweeping'],
+  'ベリンボロ':   ['berimbolo','bolo','ベリンボロガード'],
+  'berimbolo':    ['ベリンボロ','bolo'],
+  'パスガード':   ['guard pass','passing guard','パス'],
+  'pass':         ['パスガード','guard pass'],
+  'passing':      ['パスガード','passing guard'],
+  'マウント':     ['mount','mounted','マウントポジション'],
+  'mount':        ['マウント','mounted','top mount'],
+  'エスケープ':   ['escape','escaping','エスケープ'],
+  'escape':       ['エスケープ','escaping'],
+  'ディフェンス': ['defense','defence','defensive','守り'],
+  'defense':      ['ディフェンス','defence'],
+  'デラヒーバ':   ['de la riva','dlr','DLR','デラヒーバガード'],
+  'dlr':          ['デラヒーバ','de la riva','DLR'],
+  '三角絞め':     ['triangle choke','triangle','sankaku','三角'],
+  'triangle':     ['三角絞め','triangle choke','sankaku'],
+  'テイクダウン': ['takedown','take down','テイクダウン'],
+  'takedown':     ['テイクダウン','take down'],
+  'タックル':     ['tackle','double leg','single leg'],
+  'コントロール': ['control','controlling','top control','コントロールポジション'],
+  'control':      ['コントロール','controlling'],
+  'ハーフガード': ['half guard','half-guard','ハーフ','half'],
+  'half guard':   ['ハーフガード','half-guard','ハーフ'],
+  'ニーオンベリー': ['knee on belly','KOB','knee on stomach','ニーオンベリー'],
+  'バックテイク':   ['back take','取り','バック'],
+  'チョーク':       ['choke','choking','チョーク絞め'],
+  'アームバー':     ['armbar','arm bar','十字固め','腕ひしぎ'],
+  'レッグロック':   ['leg lock','ヒールフック','knee bar'],
+};
+
+// ── サンプルデータ ──
+let data = [
+  {id:0,  words:['スイープ','sweep'],               suggested:[],  tb:'bot', cat:'スイープ',               pos:'',           ignored:false},
+  {id:1,  words:['ベリンボロ','berimbolo'],           suggested:[],  tb:'bot', cat:'ガード構築・エントリー',   pos:'ベリンボロ',   ignored:false},
+  {id:2,  words:['パスガード','pass','passing'],      suggested:[],  tb:'top', cat:'パスガード',             pos:'',           ignored:false},
+  {id:3,  words:['マウント','mount'],                 suggested:[],  tb:'top', cat:'',                      pos:'マウント',     ignored:false},
+  {id:4,  words:['エスケープ','escape'],              suggested:[],  tb:'bot', cat:'エスケープ・ディフェンス', pos:'',           ignored:false},
+  {id:5,  words:['ディフェンス','defense'],           suggested:[],  tb:'neu', cat:'エスケープ・ディフェンス', pos:'',           ignored:false},
+  {id:6,  words:['デラヒーバ','dlr'],                 suggested:[],  tb:'bot', cat:'ガード構築・エントリー',   pos:'デラヒーバ',   ignored:false},
+  {id:7,  words:['三角絞め','triangle'],              suggested:[],  tb:'bot', cat:'フィニッシュ',           pos:'三角絞め',     ignored:false},
+  {id:8,  words:['テイクダウン','takedown','タックル'], suggested:[], tb:'std', cat:'テイクダウン',           pos:'',           ignored:false},
+  {id:9,  words:['コントロール'],                     suggested:[],  tb:'top', cat:'コントロール／プレッシャー', pos:'',          ignored:false},
+  {id:10, words:['ハーフガード','half guard'],         suggested:[],  tb:'bot', cat:'ガード構築・エントリー',   pos:'ハーフガード', ignored:false},
+  {id:11, words:['北川'],                             suggested:[],  tb:'neu', cat:'',                      pos:'',           ignored:true},
+];
+
+let sortKey='', sortDir=1, selIds=new Set(), idSeq=100;
+let ignoreOpen=false, bulkAddOpen=false;
+
+// カテゴリフィルター初期化
+(function(){
+  const sel=document.getElementById('s1-fcat');
+  sel.innerHTML='<option value="">カテゴリ: すべて</option>';
+  CATS.forEach(c=>{ const o=document.createElement('option'); o.textContent=c; sel.appendChild(o); });
+})();
+
+// ────────────────────────────────────
+// 提案ロジック
+// ────────────────────────────────────
+function getSuggestionsFor(row) {
+  // すでに登録済み or 提案済みを除外して候補を返す
+  const existing = new Set([...row.words, ...row.suggested].map(w=>w.toLowerCase()));
+  const candidates = new Set();
+  row.words.forEach(w => {
+    const key = w.toLowerCase();
+    // 完全一致
+    if(SUGGEST_DICT[key]) SUGGEST_DICT[key].forEach(s=>candidates.add(s));
+    // 部分一致（辞書キーが単語を含む場合）
+    Object.keys(SUGGEST_DICT).forEach(k=>{
+      if(k.includes(key) || key.includes(k)) SUGGEST_DICT[k].forEach(s=>candidates.add(s));
+    });
+  });
+  return [...candidates].filter(s=>!existing.has(s.toLowerCase())).slice(0,4);
+}
+
+function runSuggestAll() {
+  let total=0;
+  data.forEach(r=>{
+    if(r.ignored) return;
+    const newSugs = getSuggestionsFor(r).filter(s=>!r.suggested.includes(s));
+    r.suggested = [...r.suggested, ...newSugs];
+    total += r.suggested.length;
+  });
+  renderSheet();
+  updateSugBanner();
+}
+
+function updateSugBanner() {
+  const total = data.filter(r=>!r.ignored).reduce((n,r)=>n+r.suggested.length,0);
+  const banner=document.getElementById('sug-banner');
+  banner.classList.toggle('show', total>0);
+  document.getElementById('sug-total-count').textContent=`${total}`;
+}
+
+function acceptSug(id, word) {
+  const r=data.find(x=>x.id===id); if(!r) return;
+  r.words.push(word);
+  r.suggested=r.suggested.filter(s=>s!==word);
+  renderSheet();
+  updateSugBanner();
+  // フラッシュ
+  setTimeout(()=>{ const tr=document.getElementById('sr-'+id); if(tr) tr.classList.add('flash-accept'); },20);
+}
+function rejectSug(id, word) {
+  const r=data.find(x=>x.id===id); if(!r) return;
+  r.suggested=r.suggested.filter(s=>s!==word);
+  renderSheet();
+  updateSugBanner();
+}
+function acceptAllSuggestions() {
+  data.forEach(r=>{ r.words=[...r.words,...r.suggested]; r.suggested=[]; });
+  renderSheet();
+  updateSugBanner();
+}
+function rejectAllSuggestions() {
+  data.forEach(r=>{ r.suggested=[]; });
+  renderSheet();
+  updateSugBanner();
+}
+
+// ────────────────────────────────────
+// レンダリング
+// ────────────────────────────────────
+function renderSheet() {
+  const q    = (document.getElementById('s1-search')?.value||'').toLowerCase();
+  const ftb  = document.getElementById('s1-ftb')?.value||'';
+  const fcat = document.getElementById('s1-fcat')?.value||'';
+
+  let rows = data.filter(r=>
+    !r.ignored &&
+    (!q    || r.words.some(w=>w.toLowerCase().includes(q)) || r.suggested.some(w=>w.toLowerCase().includes(q)) || r.cat.toLowerCase().includes(q)) &&
+    (!ftb  || r.tb===ftb) &&
+    (!fcat || r.cat===fcat)
+  );
+
+  if(sortKey==='words') rows.sort((a,b)=>(a.words[0]>b.words[0]?1:-1)*sortDir);
+  else if(sortKey) rows.sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir);
+
+  const sel=selIds.size;
+  document.getElementById('bulk-bar').classList.toggle('show',sel>0);
+  if(sel>0) document.getElementById('bulk-count').textContent=`${sel}件選択中`;
+
+  const active=data.filter(r=>!r.ignored).length;
+  const ignored=data.filter(r=>r.ignored).length;
+  document.getElementById('s1-count').textContent=`${rows.length} / ${active} エントリ`;
+  document.getElementById('ign-count').textContent=ignored;
+
+  document.getElementById('sheet-body').innerHTML = rows.map(r=>`
+    <tr class="${selIds.has(r.id)?'selected':''}" id="sr-${r.id}">
+      <td><input type="checkbox" ${selIds.has(r.id)?'checked':''}
+        onchange="toggleSel(${r.id},this)"></td>
+      <td class="col-words">
+        <div class="words-cell">
+          ${r.words.map((w,wi)=>`<span class="wchip">
+            <input class="wchip-text" value="${esc(w)}"
+              onblur="renameWord(${r.id},${wi},this)"
+              onkeydown="chipKey(event,${r.id},${wi},this)">
+            <button class="wchip-x" onclick="removeWord(${r.id},${wi})">✕</button>
+          </span>`).join('')}
+          ${r.suggested.length ? `
+            <span class="sug-row-label">✨ 提案</span>
+            ${r.suggested.map(s=>`<span class="schip">
+              <span class="schip-label">${esc(s)}</span>
+              <button class="schip-ok" onclick="acceptSug(${r.id},'${esc(s)}')" title="承認">✓</button>
+              <button class="schip-no" onclick="rejectSug(${r.id},'${esc(s)}')" title="却下">✕</button>
+            </span>`).join('')}
+          ` : ''}
+          <button class="add-word-btn" onclick="addWordInline(${r.id})">+ 単語</button>
+        </div>
+      </td>
+      <td class="col-tb">
+        <select class="cell-sel" onchange="tbSel(${r.id},this.value)">
+          ${TB_OPT.map(t=>`<option value="${t}"${r.tb===t?' selected':''}>${TB_LABEL[t]}</option>`).join('')}
+        </select>
+      </td>
+      <td class="col-cat">
+        <select class="cell-sel" onchange="catSel(${r.id},this.value)">
+          <option value="">—</option>
+          ${CATS.map(c=>`<option${r.cat===c?' selected':''}>${esc(c)}</option>`).join('')}
+        </select>
+      </td>
+      <td class="col-pos" ondblclick="startPosEdit(${r.id},this)">
+        <span class="pos-span" title="ダブルクリックで編集">${esc(r.pos||'—')}</span>
+      </td>
+      <td class="col-act">
+        <button class="btn btn-sm"
+          style="color:#c05000;border-color:#f0c0a0;font-size:10px;padding:2px 7px"
+          onclick="ignoreRow(${r.id})">無視</button>
+      </td>
+    </tr>`).join('');
+
+  renderIgnoreList();
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ────────────────────────────────────
+// 単語チップ編集
+// ────────────────────────────────────
+function renameWord(id,wi,inp) {
+  const r=data.find(x=>x.id===id); if(!r) return;
+  const v=inp.value.trim();
+  if(v) r.words[wi]=v;
+  else { r.words.splice(wi,1); if(!r.words.length){ignoreRow(id);return;} }
+  renderSheet();
+}
+function chipKey(e,id,wi,inp) {
+  if(e.key==='Enter'){e.preventDefault();inp.blur();}
+  if(e.key==='Escape'){renderSheet();}
+}
+function removeWord(id,wi) {
+  const r=data.find(x=>x.id===id); if(!r) return;
+  r.words.splice(wi,1);
+  if(!r.words.length) ignoreRow(id); else renderSheet();
+}
+function addWordInline(id) {
+  const r=data.find(x=>x.id===id); if(!r) return;
+  const w=prompt('追加する単語（日本語・英語など）:');
+  if(w&&w.trim()){
+    r.words.push(w.trim());
+    // 追加後に提案も生成
+    const newSugs=getSuggestionsFor(r).filter(s=>!r.suggested.includes(s));
+    if(newSugs.length){ r.suggested=[...r.suggested,...newSugs]; updateSugBanner(); }
+    renderSheet();
+  }
+}
+
+// ────────────────────────────────────
+// セル編集
+// ────────────────────────────────────
+function tbSel(id,v){ const r=data.find(x=>x.id===id); if(r) r.tb=v; }
+function catSel(id,v){ const r=data.find(x=>x.id===id); if(r) r.cat=v; }
+function startPosEdit(id,td) {
+  const r=data.find(x=>x.id===id); if(!r) return;
+  const inp=document.createElement('input');
+  inp.type='text'; inp.className='edit-cell'; inp.value=r.pos;
+  td.innerHTML=''; td.appendChild(inp); inp.focus(); inp.select();
+  const fin=()=>{ r.pos=inp.value.trim(); renderSheet(); };
+  inp.onblur=fin;
+  inp.onkeydown=e=>{if(e.key==='Enter')fin();if(e.key==='Escape')renderSheet();};
+}
+
+// ────────────────────────────────────
+// 選択・ソート
+// ────────────────────────────────────
+function toggleSel(id,cb){ cb.checked?selIds.add(id):selIds.delete(id); renderSheet(); }
+function toggleAll(cb){
+  document.querySelectorAll('#sheet-body tr').forEach(tr=>{
+    const id=parseInt(tr.id.replace('sr-',''));
+    cb.checked?selIds.add(id):selIds.delete(id);
+  });
+  renderSheet();
+}
+function clearSel(){ selIds.clear(); renderSheet(); }
+function sortBy(k){ if(sortKey===k) sortDir*=-1; else{sortKey=k;sortDir=1;} renderSheet(); }
+
+// ────────────────────────────────────
+// 一括操作
+// ────────────────────────────────────
+function bulkTB(tb){ selIds.forEach(id=>{const r=data.find(x=>x.id===id);if(r)r.tb=tb;}); clearSel(); }
+function bulkIgnore(){ selIds.forEach(id=>{const r=data.find(x=>x.id===id);if(r)r.ignored=true;}); clearSel(); }
+
+// ────────────────────────────────────
+// 無視・復元
+// ────────────────────────────────────
+function ignoreRow(id){
+  const r=data.find(x=>x.id===id); if(r){r.ignored=true;selIds.delete(id);renderSheet();}
+}
+function restoreRow(id){
+  const r=data.find(x=>x.id===id); if(r){r.ignored=false;renderSheet();}
+}
+function permDeleteRow(id){ data=data.filter(r=>r.id!==id); renderSheet(); }
+
+// ────────────────────────────────────
+// 無視リスト表示
+// ────────────────────────────────────
+function toggleIgnoreList(){
+  ignoreOpen=!ignoreOpen;
+  document.getElementById('ign-toggle').classList.toggle('open',ignoreOpen);
+  document.getElementById('ign-body').classList.toggle('show',ignoreOpen);
+}
+function renderIgnoreList(){
+  const ignored=data.filter(r=>r.ignored);
+  const body=document.getElementById('ign-body'); if(!body) return;
+  if(!ignored.length){
+    body.innerHTML='<div style="font-size:11px;color:#bbb;padding:6px 0">なし</div>';
+    return;
+  }
+  body.innerHTML=ignored.map(r=>`
+    <div class="ign-row">
+      <div class="ign-words">
+        ${r.words.map(w=>`<span class="ign-chip">${esc(w)}</span>`).join('')}
+      </div>
+      <span class="ign-meta">${esc(r.cat||'カテゴリなし')} / ${TB_LABEL[r.tb]}</span>
+      <button class="btn btn-sm" style="font-size:10px;color:#2a7a50;border-color:#90c090"
+        onclick="restoreRow(${r.id})">復元</button>
+      <button class="btn btn-sm" style="font-size:10px;color:#999;border-color:#ddd"
+        onclick="permDeleteRow(${r.id})">完全削除</button>
+    </div>`).join('');
+}
+
+// ────────────────────────────────────
+// 1件追加
+// ────────────────────────────────────
+function addRowPrompt(){
+  const w=prompt('単語を入力（複数の場合は / または , で区切る）:\n例: バックテイク / back take');
+  if(!w) return;
+  const words=w.split(/[\/,]/).map(s=>s.trim()).filter(Boolean);
+  if(!words.length) return;
+  const newId=idSeq++;
+  const newRow={id:newId, words, suggested:[], tb:'neu', cat:'', pos:'', ignored:false};
+  // 追加と同時に提案生成
+  newRow.suggested=getSuggestionsFor(newRow);
+  data.push(newRow);
+  renderSheet();
+  if(newRow.suggested.length) updateSugBanner();
+  setTimeout(()=>{ const tr=document.getElementById('sr-'+newId); if(tr) tr.classList.add('flash-new'); },50);
+}
+
+// ────────────────────────────────────
+// 一括追加
+// ────────────────────────────────────
+function toggleBulkAdd(){
+  bulkAddOpen=!bulkAddOpen;
+  const panel=document.getElementById('bulk-add-panel');
+  const btn=document.getElementById('bat-btn');
+  panel.classList.toggle('show',bulkAddOpen);
+  btn.style.background=bulkAddOpen?'#fffbe8':'';
+  btn.style.borderColor=bulkAddOpen?'#e8d860':'';
+  if(bulkAddOpen) setTimeout(()=>document.getElementById('bulk-input').focus(),50);
+}
+function execBulkAdd(){
+  const text=document.getElementById('bulk-input').value;
+  if(!text.trim()) return;
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const newIds=[];
+  lines.forEach(line=>{
+    const words=line.split(/[\/,]/).map(s=>s.trim()).filter(Boolean);
+    if(!words.length) return;
+    const id=idSeq++;
+    const newRow={id, words, suggested:[], tb:'neu', cat:'', pos:'', ignored:false};
+    newRow.suggested=getSuggestionsFor(newRow);
+    data.push(newRow);
+    newIds.push(id);
+  });
+  document.getElementById('bulk-input').value='';
+  toggleBulkAdd();
+  renderSheet();
+  updateSugBanner();
+  setTimeout(()=>{
+    newIds.forEach(id=>{ const tr=document.getElementById('sr-'+id); if(tr) tr.classList.add('flash-new'); });
+    const cnt=document.getElementById('s1-count');
+    cnt.textContent=`✓ ${newIds.length}件追加しました`;
+    cnt.classList.add('ok');
+    setTimeout(()=>{ cnt.classList.remove('ok'); renderSheet(); },2500);
+  },50);
+}
+
+// ── 初期描画 ──
+renderSheet();
+toggleIgnoreList();
+</script>
+</body>
+</html>
