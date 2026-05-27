@@ -70,6 +70,11 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
 .sheet thead th{position:sticky;top:0;z-index:10;background:#f8f7f4;font-size:11px;font-weight:700;text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:#555;white-space:nowrap;user-select:none}
 .sheet thead th.sortable{cursor:pointer}
 .sheet thead th.sortable:hover{background:#f0ede8;color:var(--text)}
+.sheet thead th.has-filter{white-space:normal;padding:6px 8px 5px;vertical-align:top}
+.th-label{display:flex;align-items:center;gap:3px;white-space:nowrap;margin-bottom:4px;font-size:11px;font-weight:700;color:#555;cursor:pointer;user-select:none}
+.th-filter{font-weight:400}
+.th-filter input,.th-filter select{width:100%;font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid #ddd;background:#fff;font-family:inherit;color:var(--text);outline:none;cursor:text}
+.th-filter input:focus,.th-filter select:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(184,134,11,.15)}
 .sheet tbody tr{border-bottom:1px solid #f0ede8;transition:background .1s}
 .sheet tbody tr:hover{background:#faf9f7}
 .sheet tbody tr.selected{background:#fffbe8}
@@ -206,15 +211,6 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
 
   <!-- ツールバー -->
   <div class="toolbar">
-    <input type="text" id="search-input" placeholder="🔍 単語を絞り込む..." style="width:190px" oninput="renderSheet()">
-    <select id="filter-tb" onchange="renderSheet()">
-      <option value="">TB: すべて</option>
-      <option value="トップ">⬆ トップ</option>
-      <option value="ボトム">⬇ ボトム</option>
-      <option value="スタンディング">🥋 スタンディング</option>
-      <option value="中立">━ 中立</option>
-    </select>
-    <select id="filter-cat" onchange="renderSheet()"></select>
     <button class="btn btn-sm btn-primary" onclick="addRowPrompt()">+ 1件追加</button>
     <button class="btn btn-sm" id="bat-btn" onclick="toggleBulkAdd()">📋 一括追加</button>
     <button class="btn btn-sm btn-suggest" onclick="runSuggestAll()">✨ 全エントリに提案</button>
@@ -267,12 +263,38 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <table class="sheet">
       <thead>
         <tr>
-          <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
-          <th class="sortable col-words" onclick="sortBy('words')">単語（日本語・英語まとめて） ↕</th>
-          <th class="sortable col-tb" onclick="sortBy('tb')">TB ↕</th>
-          <th class="sortable col-cat" onclick="sortBy('catName')">カテゴリ ↕</th>
-          <th class="sortable col-pos" onclick="sortBy('pos')">ポジション ↕</th>
-          <th class="col-act">操作</th>
+          <th style="vertical-align:bottom;padding-bottom:8px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+          <th class="sortable col-words has-filter" onclick="sortBy('words')">
+            <div class="th-label">単語（日本語・英語まとめて） ↕</div>
+            <div class="th-filter" onclick="event.stopPropagation()">
+              <input type="text" id="search-input" placeholder="🔍 絞り込む..." oninput="renderSheet()">
+            </div>
+          </th>
+          <th class="sortable col-tb has-filter" onclick="sortBy('tb')">
+            <div class="th-label">TB ↕</div>
+            <div class="th-filter" onclick="event.stopPropagation()">
+              <select id="filter-tb" onchange="renderSheet()" style="cursor:pointer">
+                <option value="">すべて</option>
+                <option value="トップ">⬆ トップ</option>
+                <option value="ボトム">⬇ ボトム</option>
+                <option value="スタンディング">🥋 スタンド</option>
+                <option value="中立">━ 中立</option>
+              </select>
+            </div>
+          </th>
+          <th class="sortable col-cat has-filter" onclick="sortBy('catName')">
+            <div class="th-label">カテゴリ ↕</div>
+            <div class="th-filter" onclick="event.stopPropagation()">
+              <select id="filter-cat" onchange="renderSheet()" style="cursor:pointer"></select>
+            </div>
+          </th>
+          <th class="sortable col-pos has-filter" onclick="sortBy('pos')">
+            <div class="th-label">ポジション ↕</div>
+            <div class="th-filter" onclick="event.stopPropagation()">
+              <input type="text" id="filter-pos" placeholder="絞り込む..." oninput="renderSheet()">
+            </div>
+          </th>
+          <th class="col-act" style="vertical-align:bottom;padding-bottom:8px">操作</th>
         </tr>
       </thead>
       <tbody id="sheet-body"></tbody>
@@ -869,12 +891,14 @@ function renderSheet() {
   const q    = (document.getElementById('search-input')?.value||'').toLowerCase();
   const ftb  = document.getElementById('filter-tb')?.value||'';
   const fcat = document.getElementById('filter-cat')?.value||'';
+  const fpos = (document.getElementById('filter-pos')?.value||'').toLowerCase();
 
   let rows = entries.filter(e =>
     !e.ignored &&
     (!q    || e.words.some(w=>w.toLowerCase().includes(q)) || (e.suggested||[]).some(w=>w.toLowerCase().includes(q)) || (e.catName||'').toLowerCase().includes(q)) &&
     (!ftb  || e.tb===ftb) &&
-    (!fcat || e.catName===fcat)
+    (!fcat || e.catName===fcat) &&
+    (!fpos || (e.pos||'').toLowerCase().includes(fpos))
   );
 
   if(sortKey==='words') rows.sort((a,b)=>(( a.words[0]||'')>(b.words[0]||'')?1:-1)*sortDir);
