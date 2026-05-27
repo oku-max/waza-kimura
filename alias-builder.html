@@ -65,7 +65,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
 .sep{color:#ddd}
 
 /* ── Table ── */
-.sheet-wrap{overflow:auto;max-height:calc(100vh - 220px)}
+.sheet-wrap{overflow-x:hidden;overflow-y:auto;max-height:calc(100vh - 220px)}
 .sheet{width:100%;border-collapse:collapse;table-layout:fixed}
 .sheet thead th{position:sticky;top:0;z-index:10;background:#f8f7f4;font-size:11px;font-weight:700;text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:#555;white-space:nowrap;user-select:none}
 .sheet thead th:first-child{width:36px}
@@ -217,7 +217,6 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
     <button class="btn btn-sm btn-suggest" onclick="runSuggestAll()">✨ 全エントリに提案</button>
     <button class="btn btn-sm btn-sync" onclick="syncToTagMaster()">🔄 tag_master に同期</button>
     <div id="count-label"></div>
-    <span style="font-size:10px;color:#ccc;margin-left:4px">v5.7</span>
   </div>
 
   <!-- 一括追加パネル -->
@@ -275,7 +274,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
         <tr>
           <th style="vertical-align:bottom;padding-bottom:8px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
           <th class="sortable col-words has-filter" onclick="sortBy('words')">
-            <div class="th-label">単語（日本語・英語まとめて） ↕</div>
+            <div class="th-label">単語 ↕</div>
             <div class="th-filter" onclick="event.stopPropagation()">
               <input type="text" id="search-input" placeholder="🔍 絞り込む..." oninput="renderSheet()">
             </div>
@@ -462,7 +461,7 @@ let idSeq = 1000;
 let saveTimer = null;
 let sortKey = '', sortDir = 1;
 let selIds = new Set();
-let ignoreOpen = false, bulkAddOpen = false, reverseOpen = false;
+let ignoreOpen = false, bulkAddOpen = false, reverseOpen = true;
 let importDismissed = false;
 let tagRules = { negationWords: [], categoryInverse: {} };
 
@@ -524,11 +523,19 @@ async function loadAll() {
   updateRevBadge();
   const consolidated = consolidateEntries();
   showScreen('s-main');
+  // 反転ルールセクションをデフォルト展開
+  document.getElementById('rev-toggle').classList.add('open');
+  document.getElementById('rev-body').classList.add('show');
   renderSheet();
   updateSugBanner();
-  if (consolidated) {
+  renderReverseRules();
+  if (consolidated.changed) {
     await flush(); // タイマー待ちをせず即時保存
-    showToast('🔗 表記揺れを統合して保存しました');
+    if (consolidated.suggestionsAdded > 0) {
+      showToast(`✨ ${consolidated.suggestionsAdded}語を提案チップに変換しました。確認してください`);
+    } else if (consolidated.removedCount > 0) {
+      showToast(`🔗 ${consolidated.removedCount}件の重複エントリを整理しました`);
+    }
   }
   // 起動時自動同期
   const hasCatEntries = entries.some(e => !e.ignored && e.catName);
@@ -571,10 +578,14 @@ async function importFromTagMaster() {
       entries.push({ id: idSeq++, words: validWords, suggested: [], tb, catName, pos: '', ignored: false });
     }
   }
-  consolidateEntries();
+  const r = consolidateEntries();
   renderSheet();
+  updateSugBanner();
   await flush();
-  showToast(`✅ ${entries.filter(e=>!e.ignored).length}件インポート完了`);
+  const msg = r.suggestionsAdded > 0
+    ? `✅ インポート完了。${r.suggestionsAdded}語を提案チップに変換しました`
+    : `✅ ${entries.filter(e=>!e.ignored).length}件インポート完了`;
+  showToast(msg);
 }
 function dismissImport() {
   importDismissed = true;
@@ -726,20 +737,12 @@ function setCatInverse(catName, invCat) {
 }
 
 // ═══════════════════════════════════════════════════════
-// 表記揺れ統合（ロード時・インポート時に自動実行）
-// 同カテゴリ内で pos 未設定のエントリはすべて 1 件に統合する
-// pos が設定済みのエントリは独立した技として保持する
+// 表記揺れ検出（ロード時・インポート時に自動実行）
+// 同カテゴリ内で pos 未設定のエントリが複数ある場合、
+// サイレントマージせず、重複ワードを提案チップ（suggested[]）に追加して
+// ユーザーが目で確認・承認できるようにする
 // ═══════════════════════════════════════════════════════
 function consolidateEntries() {
-  function mergeInto(target, source) {
-    for (const w of source.words) {
-      if (!target.words.some(x => x.toLowerCase() === w.toLowerCase())) target.words.push(w);
-    }
-    for (const s of (source.suggested||[])) {
-      if (!target.suggested.includes(s)) target.suggested.push(s);
-    }
-  }
-
   const ignoredList = entries.filter(e => e.ignored);
   const active      = entries.filter(e => !e.ignored);
   const nocat       = active.filter(e => !e.catName);
@@ -752,14 +755,28 @@ function consolidateEntries() {
   }
 
   const result = [];
+  let suggestionsAdded = 0;
+
   for (const catEntries of Object.values(byCat)) {
     const withPos = catEntries.filter(e =>  e.pos);
     const noPos   = catEntries.filter(e => !e.pos);
 
     if (noPos.length > 0) {
+      // 先頭エントリをプライマリとして保持
       const primary = { ...noPos[0], words: [...noPos[0].words], suggested: [...(noPos[0].suggested||[])] };
-      for (const e of noPos.slice(1)) mergeInto(primary, e);
+      // セカンダリエントリのワードを提案チップとして追加（サイレントマージしない）
+      for (const e of noPos.slice(1)) {
+        for (const w of [...e.words, ...(e.suggested||[])]) {
+          const wl = w.toLowerCase();
+          if (!primary.words.some(x => x.toLowerCase() === wl) &&
+              !primary.suggested.some(x => x.toLowerCase() === wl)) {
+            primary.suggested.push(w);
+            suggestionsAdded++;
+          }
+        }
+      }
       result.push(primary);
+      // セカンダリエントリは削除（ワードは提案チップへ移動済み）
     }
     for (const e of withPos) {
       result.push({ ...e, words: [...e.words], suggested: [...(e.suggested||[])] });
@@ -769,9 +786,10 @@ function consolidateEntries() {
   const before = entries.length;
   entries = [...ignoredList, ...nocat, ...result];
   const after = entries.length;
-  const changed = before !== after;
-  if (changed) console.log(`[consolidate] ${before} → ${after} エントリ（${before - after}件統合）`);
-  return changed;
+  const removedCount = before - after;
+  const changed = removedCount > 0 || suggestionsAdded > 0;
+  if (changed) console.log(`[consolidate] ${before} → ${after} (${removedCount}件削減, ${suggestionsAdded}語を提案チップへ変換)`);
+  return { changed, suggestionsAdded, removedCount };
 }
 
 
