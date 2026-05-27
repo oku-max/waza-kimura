@@ -164,7 +164,7 @@ input[type=text]:focus,select:focus,textarea:focus{border-color:#888}
 #import-banner.show{display:flex}
 
 /* ── Toast ── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(26,26,46,.92);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(26,26,46,.92);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
 #toast.show{opacity:1}
 
 /* ── Animations ── */
@@ -921,14 +921,13 @@ function getSuggestionsFor(entry) {
 function suggestEntry(id) {
   try {
     const e = entries.find(x => x.id == id);
-    alert('suggestEntry called. id=' + id + ' found=' + !!e + (e ? ' words=' + e.words : ''));
-    if (!e) return;
+    if (!e) { showToast('not found: ' + id); return; }
     const s = getSuggestionsFor(e).filter(w => !(e.suggested||[]).includes(w));
     if (!s.length) { showToast('提案なし'); return; }
     e.suggested = [...(e.suggested||[]), ...s];
     scheduleAutosave(); renderSheet(); updateSugBanner();
     showToast('✨ ' + s.length + '件追加');
-  } catch(err) { alert('ERR: ' + String(err)); }
+  } catch(err) { showToast('ERR: ' + String(err).slice(0, 60)); }
 }
 function runSuggestAll() {
   let total = 0;
