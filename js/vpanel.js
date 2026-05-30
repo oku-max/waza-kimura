@@ -2948,33 +2948,13 @@ window.vpAiSummary = async function(id) {
       if (rendered) rendered.innerHTML = _renderTimestamps(v.memo, id);
     } catch(e) {}
 
-    // タイムスタンプ → ブックマーク自動作成
-    let bmAdded = 0;
-    try {
-      const newBms = _buildBookmarksFromSummary(data.summary);
-      if (newBms.length > 0) {
-        if (!v.bookmarks) v.bookmarks = [];
-        for (const bm of newBms) {
-          if (!v.bookmarks.some(b => b.time === bm.time)) {
-            v.bookmarks.push(bm);
-            bmAdded++;
-          }
-        }
-        if (bmAdded > 0) {
-          v.bookmarks.sort((a, b) => a.time - b.time);
-          _refreshBmList(id);
-        }
-      }
-    } catch(e) { console.warn('[bmFromSummary]', e); }
-
     // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
     if (window.saveUserData) {
       await window.saveUserData();
     } else {
       autoSaveVp(id);
     }
-    const bmMsg = bmAdded > 0 ? `、ブックマーク${bmAdded}件追加` : '';
-    window.toast?.(`✨ AI要約をMemoに追記しました${bmMsg}`);
+    window.toast?.('✨ AI要約をMemoに追記しました');
   } catch (e) {
     window.toast?.('要約エラー: ' + e.message);
   } finally {
