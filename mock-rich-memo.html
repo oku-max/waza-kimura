@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>リッチメモ モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:#f2f2f6;padding:16px;max-width:420px;margin:0 auto}
+
+/* ── Vパネル風レイアウト ── */
+.vpanel{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+
+/* ── 動画プレイヤーモック ── */
+.player{background:#111;height:200px;display:flex;align-items:center;justify-content:center;color:#fff;flex-direction:column;gap:8px;position:relative}
+.player-time{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+.player-label{font-size:11px;color:#aaa}
+.play-btns{display:flex;gap:8px;margin-top:4px}
+.play-btns button{padding:4px 12px;border-radius:6px;border:1px solid #555;background:#222;color:#fff;font-size:11px;cursor:pointer}
+.play-btns button:hover{background:#333}
+
+/* ── メモセクション ── */
+.memo-section{padding:12px}
+.memo-header{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.memo-label{font-size:11px;font-weight:700;color:#888}
+
+/* ── ツールバー ── */
+.toolbar{display:flex;gap:4px;flex-wrap:wrap;padding:5px 6px;background:#f8f7f4;border:1px solid #e8e5e0;border-bottom:none;border-radius:6px 6px 0 0}
+.tb-btn{padding:3px 8px;border:1px solid #ddd;background:#fff;border-radius:4px;font-size:11px;cursor:pointer;color:#333;white-space:nowrap}
+.tb-btn:hover{background:#f0ede8}
+.tb-btn.ts-btn{background:#e8f0ff;border-color:#a8c0f0;color:#2050c0;font-weight:700}
+.tb-btn.ts-btn:hover{background:#d8e4ff}
+.tb-sep{width:1px;background:#ddd;margin:2px 2px}
+
+/* ── contenteditable メモ欄 ── */
+.memo-edit{
+  min-height:120px;padding:8px 10px;
+  border:1px solid #e8e5e0;border-top:none;border-radius:0 0 6px 6px;
+  font-size:13px;line-height:1.7;outline:none;
+  white-space:pre-wrap;word-break:break-word;
+  background:#fff;
+}
+.memo-edit:focus{border-color:#aaa}
+.memo-edit:empty:before{content:attr(data-placeholder);color:#bbb;pointer-events:none}
+
+/* ── タイムスタンプリンク ── */
+.memo-edit .ts-link{
+  display:inline-block;
+  color:#2050c0;background:#e8f0ff;
+  border:1px solid #a8c0f0;border-radius:4px;
+  padding:0 5px;font-size:11px;font-weight:700;
+  cursor:pointer;white-space:nowrap;
+  text-decoration:none;user-select:none;
+}
+.memo-edit .ts-link:hover{background:#d0e0ff}
+
+/* ── シーク通知 ── */
+.seek-toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1a1a1a;color:#fff;padding:8px 18px;border-radius:20px;
+  font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;
+  pointer-events:none;white-space:nowrap;
+}
+.seek-toast.show{opacity:1}
+
+/* ── 説明 ── */
+.note{margin-top:12px;font-size:11px;color:#888;line-height:1.6;padding:0 2px}
+.note b{color:#444}
+</style>
+</head>
+<body>
+
+<div class="vpanel">
+
+  <!-- 動画プレイヤーモック -->
+  <div class="player">
+    <div class="player-label">▶ 再生中（モック）</div>
+    <div class="player-time" id="player-time">0:00</div>
+    <div class="play-btns">
+      <button onclick="setTime(0)">0:00</button>
+      <button onclick="setTime(30)">0:30</button>
+      <button onclick="setTime(83)">1:23</button>
+      <button onclick="setTime(150)">2:30</button>
+      <button onclick="setTime(247)">4:07</button>
+    </div>
+  </div>
+
+  <!-- メモセクション -->
+  <div class="memo-section">
+    <div class="memo-header">
+      <span class="memo-label">MEMO</span>
+    </div>
+
+    <!-- ツールバー -->
+    <div class="toolbar">
+      <button class="tb-btn" onclick="aiSummary()" id="ai-btn" style="background:#f5f0ff;border-color:#c8a8f0;color:#7040c0;font-weight:700">✨ AI要約</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="fmt('bold')" title="太字"><b>B</b></button>
+      <button class="tb-btn" onclick="fmt('italic')" title="イタリック"><i>I</i></button>
+      <button class="tb-btn" onclick="fmt('underline')" title="下線"><u>U</u></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn ts-btn" onclick="insertTimestamp()" id="ts-btn">📍 現在位置を挿入</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="clearMemo()" style="color:#c00;border-color:#f0a0a0">✕ クリア</button>
+    </div>
+
+    <!-- リッチテキスト編集エリア -->
+    <div class="memo-edit" id="memo-edit" contenteditable="true"
+         data-placeholder="メモを入力…&#10;📍 ボタンで現在の再生位置をタイムスタンプとして挿入できます"></div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>操作方法：</b><br>
+  1. 上のボタンで再生位置を変える（0:30 など）<br>
+  2. メモ欄にカーソルを置いて <b>📍 現在位置を挿入</b> をクリック<br>
+  3. 挿入された <b>▶ 0:30</b> をタップ → 動画がその時間にジャンプ<br>
+  4. B / I / U で書式も付けられます
+</div>
+
+<!-- シーク通知 -->
+<div class="seek-toast" id="seek-toast"></div>
+
+<script>
+// ── 現在時刻管理（モック） ──
+let currentSec = 0;
+
+function setTime(sec) {
+  currentSec = sec;
+  document.getElementById('player-time').textContent = fmt_time(sec);
+  showToast(`⏩ ${fmt_time(sec)} に移動`);
+}
+
+function fmt_time(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+// ── シークトースト ──
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('seek-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ── 書式 ──
+function fmt(cmd) {
+  document.getElementById('memo-edit').focus();
+  document.execCommand(cmd, false, null);
+}
+
+// ── タイムスタンプ挿入 ──
+function insertTimestamp() {
+  const sec   = currentSec;
+  const label = fmt_time(sec);
+  const editor = document.getElementById('memo-edit');
+  editor.focus();
+
+  // タイムスタンプspan要素を生成
+  const span = document.createElement('a');
+  span.className = 'ts-link';
+  span.dataset.sec = sec;
+  span.textContent = `▶ ${label}`;
+  span.contentEditable = 'false';  // 選択・編集不可（リンクとして扱う）
+  span.onclick = () => seekTo(sec, label);
+
+  // カーソル位置に挿入
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+
+    // 前にスペース
+    const before = document.createTextNode(' ');
+    range.insertNode(before);
+    range.setStartAfter(before);
+
+    range.insertNode(span);
+
+    // 後にスペース＋カーソル
+    const after = document.createTextNode(' ');
+    range.setStartAfter(span);
+    range.insertNode(after);
+    range.setStartAfter(after);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } else {
+    // フォーカスがない場合は末尾に追加
+    editor.appendChild(document.createTextNode(' '));
+    editor.appendChild(span);
+    editor.appendChild(document.createTextNode(' '));
+  }
+}
+
+// ── タイムスタンプクリック → シーク ──
+function seekTo(sec, label) {
+  setTime(sec);
+  showToast(`▶ ${label} にジャンプ！`);
+}
+
+// ── クリア ──
+function clearMemo() {
+  if (confirm('メモをクリアしますか？')) {
+    document.getElementById('memo-edit').innerHTML = '';
+  }
+}
+
+// ── AI要約（デモ：本文中タイムスタンプをクリッカブルに） ──
+// サーバーから返ってくる生テキスト（[M:SS] 形式）の例
+const SAMPLE_SUMMARY = `── ✨ AI要約 (2026-05-30) ──
+
+■ 一言まとめ
+デラヒーバガードの基本原則は、自分の身体・足・手・肩をすべて相手の正面に向けること。
+
+■ 重要なディテール／コツ
+- [0:19] 身体は必ず相手の正面を向く。
+- [0:24] かかとをコントロールしつつ、相手の膝をしっかりとかぶせて止める。
+- [0:31] 自分の膝もなるべく正面向きにする。
+- [1:23] 相手が身体から落ちてくるので、相手の肩を止める。
+
+■ ありがちなミス・注意点
+- [4:07] デラヒーバをかけていない足がガニ股にならないよう注意する。`;
+
+function aiSummary() {
+  const btn = document.getElementById('ai-btn');
+  btn.textContent = '⏳ 要約中…';
+  btn.disabled = true;
+
+  // 実際はサーバーから取得。ここではサンプルを使用
+  setTimeout(() => {
+    const editor = document.getElementById('memo-edit');
+    const html = renderSummaryToHtml(SAMPLE_SUMMARY);
+    // 既存メモの先頭に追記
+    editor.innerHTML = html + (editor.innerHTML ? '<br><br>' + editor.innerHTML : '');
+    bindTsLinks(editor);
+    btn.textContent = '✨ AI要約';
+    btn.disabled = false;
+    showToast('✨ AI要約を挿入しました');
+  }, 600);
+}
+
+// 生テキスト [M:SS] → クリッカブルなタイムスタンプリンク付きHTML
+function renderSummaryToHtml(text) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc(text)
+    .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m, a, b, c) => {
+      const sec = c != null ? (+a*3600 + +b*60 + +c) : (+a*60 + +b);
+      const label = c != null ? `${a}:${b}:${c}` : `${a}:${b}`;
+      return `<a class="ts-link" contenteditable="false" data-sec="${sec}">▶ ${label}</a>`;
+    })
+    .replace(/\n/g, '<br>');
+}
+
+// 挿入後の ts-link にクリックハンドラを付与
+function bindTsLinks(container) {
+  container.querySelectorAll('.ts-link').forEach(el => {
+    if (el._bound) return;
+    el._bound = true;
+    const sec = parseInt(el.dataset.sec);
+    el.onclick = () => seekTo(sec, fmt_time(sec));
+  });
+}
+
+// ── デモ用：初期コンテンツ ──
+window.onload = () => {
+  const editor = document.getElementById('memo-edit');
+  // サンプルテキストを挿入
+  editor.innerHTML = '';
+};
+</script>
+</body>
+</html>

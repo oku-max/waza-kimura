@@ -1530,15 +1530,13 @@ export function openVPanel(id) {
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <span class="vp-lbl">Memo${_sumBtn}</span>
-          <div id="vp-memo-rendered-${vid}" style="font-size:11px;line-height:1.7;word-break:break-word;padding:2px 0 4px;color:var(--text,#1a1a1a)"></div>
-          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')" oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)">${vd?.memo||''}</textarea>
+          ${_memoToolbarHTML(vid)}
+          <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
+            onblur="vpSaveMemo('${vid}')"
+            oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),800)"></div>
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
-    // タイムスタンプのみ別途レンダリング（テキストエリアは常に表示）
-    try {
-      const _md = document.getElementById('vp-memo-rendered-' + vid);
-      if (_md && vd?.memo) _md.innerHTML = _renderTimestamps(vd.memo, vid);
-    } catch(e) { console.warn('[memoRender]', e); }
+    _initMemoEditor(vid, vd?.memo||'');
     if (window.initSnapshotSection) {
       window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
     }
@@ -2838,71 +2836,117 @@ export function vpSetShare(id, val, el) {
   autoSaveVp(id);
 }
 
+// メモはリッチテキスト（HTML）として保存。
+// vp-memo は contenteditable div（VPanel）または textarea（yt-search 等）の両方がある。
 export function vpSaveMemo(id) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const memo = document.getElementById('vp-memo-' + id);
-  if (memo) v.memo = memo.value.trim();
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  if (el.isContentEditable) {
+    const html = el.innerHTML.trim();
+    // テキストもタイムスタンプも無ければ空に正規化（<br>だけ等を残さない）
+    v.memo = (el.textContent.trim() === '' && !/ts-link/.test(html)) ? '' : html;
+  } else {
+    v.memo = el.value.trim(); // textarea（yt-search 等）
+  }
   autoSaveVp(id);
 }
 
-// ── タイムスタンプチップ表示（メモ欄上部） ──
-function _renderTimestamps(text, id) {
-  if (!text) return '';
-  const chips = [];
-  const tsRe = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
-  let m;
-  while ((m = tsRe.exec(text)) !== null) {
-    const [, a, b, c] = m;
-    const s = c != null ? parseInt(a)*3600+parseInt(b)*60+parseInt(c) : parseInt(a)*60+parseInt(b);
-    const label = c != null ? `${a}:${b}:${c}` : `${a}:${b}`;
-    chips.push(`<span onclick="vpSeek('${id}',${s})" title="${s}秒にジャンプ" style="display:inline-block;cursor:pointer;color:var(--accent,#6c8cff);background:rgba(108,140,255,.12);border:1px solid rgba(108,140,255,.3);border-radius:4px;padding:1px 6px;margin:1px 2px;font-size:10px;font-weight:700;white-space:nowrap">▶ ${label}</span>`);
-  }
-  if (!chips.length) return '';
-  return `<div style="margin-bottom:4px">${chips.join('')}</div>`;
+// ── タイムスタンプリンク ──
+const _TS_STYLE = 'display:inline-block;color:#2050c0;background:#e8f0ff;border:1px solid #a8c0f0;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none;user-select:none';
+function _fmtSec(sec) {
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  const p = n => String(n).padStart(2,'0');
+  return h>0 ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
+}
+function _tsLinkHtml(sec, label) {
+  return `<a class="ts-link" contenteditable="false" data-sec="${sec}" style="${_TS_STYLE}">▶ ${label}</a>`;
 }
 
-// ── AI要約テキストからタイムスタンプを抽出してブックマーク化 ──
-function _buildBookmarksFromSummary(summaryText) {
-  const lines = summaryText.split('\n');
-  const result = [];
-  let section = '';
-  const sectionRe = /^[-\s]*[◾■●▶▼※＊*#]{1,2}\s*(.+)/;
-  const tsRe = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)/;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-    const tsMatch = line.match(tsRe);
-    if (tsMatch) {
-      const [, a, b, c, rest] = tsMatch;
-      const time = c != null ? parseInt(a)*3600+parseInt(b)*60+parseInt(c) : parseInt(a)*60+parseInt(b);
-      const label = rest.replace(/^[-・\s]+/, '').trim() || `${a}:${b}`;
-      result.push({ time, label, note: section });
-    } else {
-      const secMatch = line.match(sectionRe);
-      if (secMatch) section = secMatch[1].trim();
-    }
-  }
-  return result;
+// メモ文字列 → 表示用HTML。既存プレーンテキスト（[M:SS]含む）も互換変換する。
+function _memoToHtml(memo) {
+  if (!memo) return '';
+  // すでにリッチHTML（タグを含む）ならそのまま使う
+  if (/<(a|b|i|u|br|div|span|strong|em|p)\b[^>]*>/i.test(memo)) return memo;
+  // プレーンテキスト → エスケープ + タイムスタンプリンク + 改行
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc(memo)
+    .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m,a,b,c) => {
+      const sec = c!=null ? (+a*3600 + +b*60 + +c) : (+a*60 + +b);
+      const label = c!=null ? `${a}:${b}:${c}` : `${a}:${b}`;
+      return _tsLinkHtml(sec, label);
+    })
+    .replace(/\n/g, '<br>');
 }
+
+// メモ内の ts-link に data-sec からクリックハンドラを再付与
+function _bindTsLinks(container) {
+  if (!container) return;
+  container.querySelectorAll('a.ts-link').forEach(el => {
+    const sec = parseInt(el.dataset.sec);
+    if (isNaN(sec)) return;
+    el.contentEditable = 'false';
+    el.onclick = (e) => { e.preventDefault(); _seekTo(sec); };
+  });
+}
+
+// メモ欄を初期化（HTML流し込み + リンクbind）
+function _initMemoEditor(id, memo) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  try { el.innerHTML = _memoToHtml(memo||''); _bindTsLinks(el); }
+  catch(e) { console.warn('[memoInit]', e); el.textContent = memo||''; }
+}
+
+// メモ欄ツールバー（書式 + 現在位置タイムスタンプ挿入）
+function _memoToolbarHTML(id) {
+  const b = (cmd,label) => `<button onmousedown="event.preventDefault()" onclick="vpMemoFmt('${id}','${cmd}')" style="padding:2px 8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);border-radius:4px;font-size:11px;cursor:pointer;color:var(--text,#333)">${label}</button>`;
+  return `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">`
+    + b('bold','<b>B</b>') + b('italic','<i>I</i>') + b('underline','<u>U</u>')
+    + `<button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')" title="現在の再生位置をタイムスタンプとして挿入" style="padding:2px 8px;border:1px solid #a8c0f0;background:#e8f0ff;border-radius:4px;font-size:11px;cursor:pointer;color:#2050c0;font-weight:700">📍 現在位置</button>`
+    + `</div>`;
+}
+
 window.vpSeek = function(id, secs) { _seekTo(secs); };
 
-window.vpMemoEdit = function(id) {
-  const r = document.getElementById('vp-memo-rendered-' + id);
-  const t = document.getElementById('vp-memo-' + id);
-  if (!t) return;
-  if (r) r.style.display = 'none';
-  t.style.display = '';
-  t.focus();
-};
-window.vpMemoBlur = function(id) {
+window.vpMemoFmt = function(id, cmd) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  el.focus();
+  try { document.execCommand(cmd, false, null); } catch(e) {}
   vpSaveMemo(id);
-  const v = (window.videos||[]).find(v => v.id===id);
-  const r = document.getElementById('vp-memo-rendered-' + id);
-  const t = document.getElementById('vp-memo-' + id);
-  if (!r || !t) return;
-  r.innerHTML = _renderMemoHtml(v?.memo || '', id);
-  r.style.display = '';
-  t.style.display = 'none';
+};
+
+window.vpMemoInsertTs = function(id) {
+  const sec = _getCurrentTime();
+  if (sec == null) { window.toast?.('動画を再生してから挿入してください'); return; }
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  el.focus();
+  const link = document.createElement('a');
+  link.className = 'ts-link';
+  link.dataset.sec = sec;
+  link.contentEditable = 'false';
+  link.textContent = `▶ ${_fmtSec(sec)}`;
+  link.setAttribute('style', _TS_STYLE);
+  link.onclick = (e) => { e.preventDefault(); _seekTo(sec); };
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount && el.contains(sel.anchorNode)) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const sp1 = document.createTextNode(' ');
+    range.insertNode(sp1); range.setStartAfter(sp1);
+    range.insertNode(link); range.setStartAfter(link);
+    const sp2 = document.createTextNode(' ');
+    range.insertNode(sp2); range.setStartAfter(sp2);
+    range.collapse(true);
+    sel.removeAllRanges(); sel.addRange(range);
+  } else {
+    el.appendChild(document.createTextNode(' '));
+    el.appendChild(link);
+    el.appendChild(document.createTextNode(' '));
+  }
+  vpSaveMemo(id);
 };
 
 // ── AI要約（Gemini / YouTube・Google Drive・オーナー限定）──
@@ -2951,17 +2995,19 @@ window.vpAiSummary = async function(id) {
       return;
     }
 
-    // 既存メモを壊さず、AI要約を見出し付きで追記（先頭が空なら置き換え相当）
-    const stamp  = new Date().toISOString().slice(0, 10);
-    const block  = `── ✨ AI要約 (${stamp}) ──\n${data.summary}`;
-    const cur    = (v.memo || '').trim();
-    v.memo = cur ? `${block}\n\n${cur}` : block;
-    if (memoEl) memoEl.value = v.memo;
-    // タイムスタンプチップを更新
-    try {
-      const rendered = document.getElementById('vp-memo-rendered-' + id);
-      if (rendered) rendered.innerHTML = _renderTimestamps(v.memo, id);
-    } catch(e) {}
+    // AI要約をHTML化（本文中の [M:SS] をクリッカブルなタイムスタンプリンクに変換）
+    const stamp = new Date().toISOString().slice(0, 10);
+    const summaryHtml = _memoToHtml(`── ✨ AI要約 (${stamp}) ──\n${data.summary}`);
+    // 既存メモを壊さず先頭に追記（メモ欄はcontenteditable）
+    if (memoEl) {
+      const curHtml = memoEl.innerHTML.trim();
+      memoEl.innerHTML = curHtml ? `${summaryHtml}<br><br>${curHtml}` : summaryHtml;
+      _bindTsLinks(memoEl);
+      v.memo = memoEl.innerHTML.trim();
+    } else {
+      const curHtml = (v.memo || '').trim();
+      v.memo = curHtml ? `${summaryHtml}<br><br>${curHtml}` : summaryHtml;
+    }
 
     // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
     if (window.saveUserData) {
@@ -2990,8 +3036,15 @@ export function autoSaveVp(id) {
 
 export function vpSave(id) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const memo = document.getElementById('vp-memo-' + id);
-  if (memo) v.memo = memo.value.trim();
+  const el = document.getElementById('vp-memo-' + id);
+  if (el) {
+    if (el.isContentEditable) {
+      const html = el.innerHTML.trim();
+      v.memo = (el.textContent.trim() === '' && !/ts-link/.test(html)) ? '' : html;
+    } else {
+      v.memo = el.value.trim();
+    }
+  }
   window.AF?.();
   window.debounceSave?.();
 }
@@ -3083,17 +3136,15 @@ export function _openPanel(id, emb, ext, plat) {
         <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
           ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
           : ''}</span>
-        <div id="vp-memo-rendered-${id}" style="font-size:11px;line-height:1.7;word-break:break-word;padding:2px 0 4px;color:var(--text,#1a1a1a)"></div>
-        <textarea class="vp-memo" id="vp-memo-${id}" placeholder="" onblur="vpSaveMemo('${id}')">${v?.memo||''}</textarea>
+        ${_memoToolbarHTML(id)}
+        <div class="vp-memo" id="vp-memo-${id}" contenteditable="true"
+          onblur="vpSaveMemo('${id}')"
+          oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${id}'),800)"></div>
       </div>
       <div id="vp-snap-section-${id}"></div>
       ${buildDrawerHTML(id)}
     `;
-    // タイムスタンプのみ別途レンダリング（テキストエリアは常に表示）
-    try {
-      const _md = document.getElementById('vp-memo-rendered-' + id);
-      if (_md && v?.memo) _md.innerHTML = _renderTimestamps(v.memo, id);
-    } catch(e) { console.warn('[memoRender]', e); }
+    _initMemoEditor(id, v?.memo||'');
     if (window.initSnapshotSection) {
       window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
     }
