@@ -427,6 +427,12 @@ function closeLightbox() {
   if (lb) lb.classList.remove('active');
 }
 
+function _fmtSnapTime(sec) {
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  const p = n => String(n).padStart(2,'0');
+  return h>0 ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
+}
+
 function updateLightbox() {
   if (!snapshots[lbIdx]) return;
   const lbImg = getLbImg();
@@ -435,6 +441,17 @@ function updateLightbox() {
   if (lbImg) lbImg.src = snapshots[lbIdx].url;
   if (lbCounter) lbCounter.textContent = (lbIdx + 1) + ' / ' + snapshots.length;
   if (lbMemo) lbMemo.value = snapshots[lbIdx].memo || '';
+  // 撮影時刻があれば「この場面から再生」ボタンを表示
+  const seekBtn = document.getElementById('snap-lb-seek');
+  if (seekBtn) {
+    const t = snapshots[lbIdx].time;
+    if (t != null && window.vpSeek) {
+      seekBtn.style.display = '';
+      seekBtn.innerHTML = `&#9654; ${_fmtSnapTime(t)} から再生`;
+    } else {
+      seekBtn.style.display = 'none';
+    }
+  }
 }
 
 function lbPrevSlide() {
@@ -2075,6 +2092,15 @@ function bindLightboxEvents() {
       openAnnotationEditor(lbIdx);
     });
   }
+  // 「この場面から再生」: スナップショットの撮影時刻に動画をシーク
+  const lbSeekBtn = document.getElementById('snap-lb-seek');
+  if (lbSeekBtn) {
+    lbSeekBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const t = snapshots[lbIdx]?.time;
+      if (t != null && window.vpSeek) { window.vpSeek(null, t); closeLightbox(); }
+    });
+  }
 
   // Swipe
   lb.addEventListener('touchstart', (e) => { swipeStartX = e.touches[0].clientX; }, { passive: true });
@@ -2269,6 +2295,7 @@ export async function initSnapshotSection(videoId, container, opts = {}) {
       memo:        ref.memo || '',
       annotations: db.annotations || [],
       order:       i,
+      time:        ref.time ?? null,  // 撮影時刻（再生ジャンプ・時刻バッジ用）
     };
   };
 
