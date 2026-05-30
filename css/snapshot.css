@@ -351,7 +351,8 @@
   margin-top: 12px;
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
+  max-width: 90vw;
 }
 
 .lb-memo {
@@ -359,10 +360,13 @@
   border: 1px solid rgba(255,255,255,.2);
   border-radius: 6px;
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  padding: 6px 10px;
-  width: 260px;
+  font-family: -apple-system, 'Hiragino Sans', 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 8px 12px;
+  width: min(620px, 82vw);
+  min-height: 64px;
+  resize: vertical;
   outline: none;
 }
 
