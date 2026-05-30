@@ -996,6 +996,10 @@
     snap._favOnly = !!window.favOnly;
     snap._unwOnly = !!window.unwOnly;
     snap._watchedOnly = !!window.watchedOnly;
+    snap._nextOnly = !!window.nextOnly;
+    snap._drillOnly = !!window.drillOnly;
+    snap._bmOnly = !!window.bmOnly;
+    snap._memoOnly = !!window.memoOnly;
     snap._prRank = window.prRank ?? null;
     snap._prDate = window.prDate ?? null;
     snap.titleQ = _queries['video'] || '';
@@ -1012,12 +1016,20 @@
         if (Array.isArray(arr)) arr.forEach(v => f[k].add(v));
       }
     });
-    if ('_favOnly'     in snap) window.favOnly     = !!snap._favOnly;
-    if ('_unwOnly'     in snap) window.unwOnly     = !!snap._unwOnly;
-    if ('_watchedOnly' in snap) window.watchedOnly = !!snap._watchedOnly;
-    if ('_prRank' in snap) window.prRank = snap._prRank;
-    if ('_prDate' in snap) window.prDate = snap._prDate;
-    if ('titleQ' in snap) _queries['video'] = snap.titleQ || '';
+    // boolean/スカラー系は snap に無ければ既定値へ確実にリセットする。
+    // ('in' チェックだと空 snap={} のとき現状維持になり、マスタービューの
+    //  お気に入り/Next/ブックマーク等のフィルターがカスタムビューへ引き継がれ
+    //  「0本」になるバグの原因になる)
+    window.favOnly     = !!snap._favOnly;
+    window.unwOnly     = !!snap._unwOnly;
+    window.watchedOnly = !!snap._watchedOnly;
+    window.nextOnly    = !!snap._nextOnly;
+    window.drillOnly   = !!snap._drillOnly;
+    window.bmOnly      = !!snap._bmOnly;
+    window.memoOnly    = !!snap._memoOnly;
+    window.prRank = snap._prRank ?? null;
+    window.prDate = snap._prDate ?? null;
+    _queries['video'] = snap.titleQ || '';
     window.AF?.();
   }
 
