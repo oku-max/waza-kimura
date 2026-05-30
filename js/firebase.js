@@ -237,7 +237,8 @@ export async function loadUserData(uid) {
   // 1. Firebase Storage を優先
   try {
     const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
-    const resp = await fetch(url);
+    // ブラウザ/CDNキャッシュを避けて常に最新を取得（保存直後の別端末反映のため）
+    const resp = await fetch(url, { cache: 'no-store' });
     if (resp.ok) {
       const json = await resp.json();
       if (json.videos?.length) {
@@ -293,7 +294,12 @@ export async function saveUserData() {
     const uid = currentUser.uid;
     const videos = (window.videos || []).filter(v => !v._srTemp);
     const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
-    await storage.ref(`users/${uid}/videos.json`).put(blob);
+    // cacheControl: no-cache を付けないと Storage はデフォルトで max-age=3600 を付与し、
+    // 保存直後のリロード/別端末で古いキャッシュが返る（メモが消えて見える原因）
+    await storage.ref(`users/${uid}/videos.json`).put(blob, {
+      contentType: 'application/json',
+      cacheControl: 'no-cache, max-age=0',
+    });
     showToast('💾 保存', 1500);
   } catch (e) {
     console.error('[saveUserData] save failed:', e);
