@@ -411,7 +411,7 @@ const TB_LABEL= {'トップ':'⬆ トップ','ボトム':'⬇ ボトム','スタ
 // ═══════════════════════════════════════════════════════
 // 提案辞書 — BJJ全技日本語↔英語双方向ペア
 // ═══════════════════════════════════════════════════════
-const _BUILD = '20260527-v7.1';
+const _BUILD = '20260527-v7.2';
 // 表記揺れ専用辞書 — 同一技・同一概念の異なる表記のみを収録
 // グルーピング（親→子、上位→下位）は含まない
 const SUGGEST_DICT = {
@@ -1041,8 +1041,9 @@ function renderSheet() {
   document.getElementById('ign-count').textContent = ignored;
 
   // TB・catのoption文字列は事前計算済みを使う（N行 × M選択肢 の生成コストを削減）
-  const tbOpts  = _tbOptsHtml  || (_buildOptCaches(), _tbOptsHtml);
-  const catOpts = _catOptsHtml || _catOptsHtml;
+  if (!_tbOptsHtml) _buildOptCaches();
+  const tbOpts  = _tbOptsHtml;
+  const catOpts = _catOptsHtml;
 
   document.getElementById('sheet-body').innerHTML = rows.map(e => {
     const sugArr = e.suggested || [];
