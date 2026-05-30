@@ -2876,7 +2876,12 @@ window.vpAiSummary = async function(id) {
     const cur    = (v.memo || '').trim();
     v.memo = cur ? `${block}\n\n${cur}` : block;
     if (memoEl) memoEl.value = v.memo;
-    autoSaveVp(id);
+    // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
+    if (window.saveUserData) {
+      await window.saveUserData();
+    } else {
+      autoSaveVp(id);
+    }
     window.toast?.('✨ AI要約をMemoに追記しました');
   } catch (e) {
     window.toast?.('要約エラー: ' + e.message);
