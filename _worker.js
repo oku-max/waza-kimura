@@ -35,6 +35,7 @@ async function handleApi(request, env, path) {
     case '/api/yt-playlist-items': return handleYtPlaylistItems(request, env);
     case '/api/ai-group':         return handleAiGroup(request, env);
     case '/api/ai-tag':      return handleAiTag(request, env);
+    case '/api/ai-summary':  return handleAiSummary(request, env);
     case '/api/vimeo-proxy': return handleVimeoProxy(request);
     default:                 return new Response('Not found', { status: 404 });
   }
@@ -362,6 +363,100 @@ ${rulesSection}${blockSection}
 - JSONのみ返す
 
 返却形式: {"tb":[],"cat":[],"pos":[],"tags":[]}`;
+}
+
+// ── /api/ai-summary — Gemini 動画要約（オーナー限定）──────
+// POST { idToken, source:'youtube', ytId, title?, channel?, playlist? }
+// Returns: { summary }
+const OWNER_EMAIL          = 'okujournal@gmail.com';
+const FIREBASE_WEB_API_KEY = 'AIzaSyC1VafF24ys4XdTZe7lqIDAZjSmOUqM6Lw'; // 公開Webキー（クライアント同梱済み）
+
+// Firebase IDトークンを Identity Toolkit で検証し、オーナーのメールか確認する
+async function verifyOwner(idToken, env) {
+  if (!idToken) return { ok: false, error: 'missing idToken' };
+  const key = env.FIREBASE_API_KEY || FIREBASE_WEB_API_KEY;
+  try {
+    const res  = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${key}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ idToken }),
+    });
+    const data  = await res.json();
+    const email = data.users?.[0]?.email;
+    if (!res.ok || !email)     return { ok: false, error: 'invalid token' };
+    if (email !== OWNER_EMAIL) return { ok: false, error: 'forbidden' };
+    return { ok: true, email };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+async function handleAiSummary(request, env) {
+  if (request.method === 'OPTIONS') return corsOk();
+  if (request.method !== 'POST')    return jsonRes({ error: 'Method not allowed' }, 405);
+
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) return jsonRes({ error: 'GEMINI_API_KEY が未設定です（Cloudflare環境変数を確認）' }, 500);
+
+  const body = await request.json().catch(() => ({}));
+  const { idToken, source, ytId, title, channel, playlist } = body;
+
+  const auth = await verifyOwner(idToken, env);
+  if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
+
+  // フェーズ1: YouTube のみ対応
+  if (source !== 'youtube' || !ytId || !/^[\w-]{6,20}$/.test(ytId)) {
+    return jsonRes({ error: 'YouTube動画のみ対応しています（ytIdが不正）' }, 400);
+  }
+  const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+
+  const ctx = [
+    title    ? `タイトル: ${title}`        : null,
+    channel  ? `チャンネル: ${channel}`    : null,
+    playlist ? `プレイリスト: ${playlist}` : null,
+  ].filter(Boolean).join('\n');
+
+  const prompt = `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+この動画を視聴し、練習メモとして使える日本語の要約を作成してください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+【出力フォーマット】該当しない項目は省略可。簡潔に、箇条書き中心で。
+◾️一言まとめ（1〜2文）
+◾️扱う技術・ポジション
+◾️手順の要点（ステップ順）
+◾️重要なディテール／コツ
+◾️ありがちなミス・注意点
+
+専門用語はBJJで一般的な表記を使い、冗長な前置きは書かないこと。`;
+
+  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+  try {
+    const gRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          contents: [{ parts: [
+            { fileData: { fileUri: videoUrl } },
+            { text: prompt },
+          ] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1200 },
+        }),
+      }
+    );
+    const data = await gRes.json();
+    if (!gRes.ok) {
+      return jsonRes({ error: 'Gemini API error', detail: data?.error?.message || JSON.stringify(data).slice(0, 500) }, 502);
+    }
+    const summary = (data.candidates?.[0]?.content?.parts || [])
+      .map(p => p.text).filter(Boolean).join('\n').trim();
+    if (!summary) {
+      return jsonRes({ error: '要約を取得できませんでした', detail: data.candidates?.[0]?.finishReason || 'no text' }, 502);
+    }
+    return jsonRes({ summary });
+  } catch (e) {
+    return jsonRes({ error: e.message }, 500);
+  }
 }
 
 // ── ユーティリティ ────────────────────────────────────────

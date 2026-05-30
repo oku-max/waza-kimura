@@ -1518,9 +1518,15 @@ export function openVPanel(id) {
   if (bmContainer) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
+    const _isOwner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
+    const _canSummarize = _isOwner && vd?.pt === 'youtube' && vd?.ytId;
+    const _sumBtn = _canSummarize
+      ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追記"
+           style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
+      : '';
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
-          <span class="vp-lbl">Memo</span>
+          <span class="vp-lbl">Memo${_sumBtn}</span>
           <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')" oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)">${vd?.memo||''}</textarea>
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
@@ -2830,6 +2836,55 @@ export function vpSaveMemo(id) {
   autoSaveVp(id);
 }
 
+// ── AI要約（Gemini / YouTube・オーナー限定）──
+window.vpAiSummary = async function(id) {
+  const v = (window.videos||[]).find(v => v.id===id);
+  if (!v) return;
+  if (v.pt !== 'youtube' || !v.ytId) { window.toast?.('YouTube動画のみ対応しています'); return; }
+
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { window.toast?.('ログインが必要です'); return; }
+
+  const btn = document.getElementById('vp-aisum-' + id);
+  const memoEl = document.getElementById('vp-memo-' + id);
+  const origLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 要約中…'; btn.style.opacity = '0.6'; }
+
+  try {
+    const idToken = await user.getIdToken();
+    const res = await fetch('/api/ai-summary', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        idToken,
+        source:   'youtube',
+        ytId:     v.ytId,
+        title:    v.title || '',
+        channel:  v.ch || v.channel || '',
+        playlist: v.pl || '',
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.summary) {
+      window.toast?.('要約失敗: ' + (data.error || res.status) + (data.detail ? ` (${data.detail})` : ''));
+      return;
+    }
+
+    // 既存メモを壊さず、AI要約を見出し付きで追記（先頭が空なら置き換え相当）
+    const stamp  = new Date().toISOString().slice(0, 10);
+    const block  = `── ✨ AI要約 (${stamp}) ──\n${data.summary}`;
+    const cur    = (v.memo || '').trim();
+    v.memo = cur ? `${block}\n\n${cur}` : block;
+    if (memoEl) memoEl.value = v.memo;
+    autoSaveVp(id);
+    window.toast?.('✨ AI要約をMemoに追記しました');
+  } catch (e) {
+    window.toast?.('要約エラー: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
+  }
+};
+
 export function autoSaveVp(id) {
   _captureTagFeedback(id);  // AI修正差分を検出・記録
   window.debounceSave?.();
@@ -2933,7 +2988,9 @@ export function _openPanel(id, emb, ext, plat) {
       ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
-        <span class="vp-lbl">Memo</span>
+        <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && v?.pt === 'youtube' && v?.ytId)
+          ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
+          : ''}</span>
         <textarea class="vp-memo" id="vp-memo-${id}" placeholder="" onblur="vpSaveMemo('${id}')">${v?.memo||''}</textarea>
       </div>
       <div id="vp-snap-section-${id}"></div>
