@@ -3013,6 +3013,27 @@ function _memoToolbarHTML(id) {
 
 window.vpSeek = function(id, secs) { _seekTo(secs); };
 
+// ── 検索VPanel（yt-search.js）等、後からbindできない場所向けのフック ──
+window._vpMemoToolbarHTML = (id) => _memoToolbarHTML(id);
+// メモHTML（ts-link に onclick をインライン付与。bind不要で動く静的版）
+window._vpMemoToHtmlStatic = function(memo) {
+  if (!memo) return '';
+  const inj = sec => ` onclick="event.preventDefault();window.vpSeek&&window.vpSeek(null,${sec})"`;
+  if (/<(a|b|i|u|br|div|span|strong|em|p)\b[^>]*>/i.test(memo)) {
+    // 保存済みリッチHTML: data-sec を持つ ts-link に onclick を補う
+    return memo.replace(/<a class="ts-link"([^>]*?)data-sec="(\d+)"([^>]*)>/g,
+      (m, a, sec, b) => `<a class="ts-link"${a}data-sec="${sec}"${b}${inj(sec)}>`);
+  }
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc(memo)
+    .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m,a,b,c) => {
+      const sec = c!=null ? (+a*3600 + +b*60 + +c) : (+a*60 + +b);
+      const lb = c!=null ? `${a}:${b}:${c}` : `${a}:${b}`;
+      return `<a class="ts-link" contenteditable="false" data-sec="${sec}"${inj(sec)}>▶ ${lb}</a>`;
+    })
+    .replace(/\n/g, '<br>');
+};
+
 window.vpMemoFmt = function(id, cmd) {
   const el = document.getElementById('vp-memo-' + id);
   if (!el) return;

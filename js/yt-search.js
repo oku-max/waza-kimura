@@ -783,8 +783,10 @@ export function ytSrOpenVPanel(idx) {
     const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
     const memoHTML = `<div class="vp-row" style="margin-top:8px">
       <span class="vp-lbl">Memo</span>
-      <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
-        onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
+      ${window._vpMemoToolbarHTML?.(bmId) || ''}
+      <div class="vp-memo" id="vp-memo-${bmId}" contenteditable="true"
+        onblur="vpSaveMemo('${bmId}')"
+        oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${bmId}'),800)">${window._vpMemoToHtmlStatic?.(libEntry.memo||'') || _esc(libEntry.memo || '')}</div>
     </div>
     <div id="vp-snap-section-${bmId}"></div>`;
     const bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
@@ -919,8 +921,10 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
     const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
     const memoHTML = `<div class="vp-row" style="margin-top:8px">
       <span class="vp-lbl">Memo</span>
-      <textarea class="vp-memo" id="vp-memo-${bmId}" placeholder=""
-        onblur="vpSaveMemo('${bmId}')">${_esc(libEntry.memo || '')}</textarea>
+      ${window._vpMemoToolbarHTML?.(bmId) || ''}
+      <div class="vp-memo" id="vp-memo-${bmId}" contenteditable="true"
+        onblur="vpSaveMemo('${bmId}')"
+        oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${bmId}'),800)">${window._vpMemoToHtmlStatic?.(libEntry.memo||'') || _esc(libEntry.memo || '')}</div>
     </div>
     <div id="vp-snap-section-${bmId}"></div>`;
     const bmAreaHTML  = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
