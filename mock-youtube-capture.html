@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YouTube画面共有キャプチャ モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:#f2f2f6;padding:14px;max-width:520px;margin:0 auto;color:#1a1a1a}
+h1{font-size:16px;margin-bottom:10px}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.player-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden}
+#player{width:100%;height:100%}
+.id-row{display:flex;gap:6px;margin-bottom:10px}
+.id-row input{flex:1;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px}
+.id-row button{padding:8px 14px;border:1px solid #1a1a1a;background:#1a1a1a;color:#fff;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
+.btn{display:block;width:100%;padding:11px;margin-bottom:8px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-share{background:#2a8050;color:#fff}
+.btn-share:hover{background:#236b43}
+.btn-shot{background:#2050c0;color:#fff}
+.btn-shot:hover{background:#1a44a8}
+.btn-auto{background:#7040c0;color:#fff}
+.btn-auto:hover{background:#5e34a3}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.status{font-size:12px;color:#666;margin:8px 0;min-height:18px;line-height:1.5}
+.status.ok{color:#2a8050;font-weight:700}
+.status.err{color:#c0392b;font-weight:700}
+.shots{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.shots img{width:140px;border-radius:6px;border:1px solid #ddd;cursor:pointer}
+.shots .shot-wrap{position:relative}
+.shots .shot-ts{position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,.75);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px}
+.note{font-size:11px;color:#888;line-height:1.7;margin-top:6px}
+.note b{color:#444}
+.env{font-size:11px;padding:8px 10px;background:#f8f7f4;border-radius:6px;margin-bottom:10px;line-height:1.6}
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.lb.show{display:flex}
+.lb img{max-width:94vw;max-height:90vh;border-radius:8px}
+.lb-close{position:absolute;top:14px;right:18px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none}
+</style>
+</head>
+<body>
+
+<h1>📸 YouTube 画面共有キャプチャ（実証モック）</h1>
+
+<div class="env" id="env-info">環境チェック中…</div>
+
+<div class="card">
+  <div class="id-row">
+    <input type="text" id="vid-input" placeholder="YouTube動画ID（例: M7lc1UVf-VE）" value="M7lc1UVf-VE">
+    <button onclick="loadVideo()">読込</button>
+  </div>
+  <div class="player-wrap">
+    <div id="player"></div>
+  </div>
+</div>
+
+<div class="card">
+  <button class="btn btn-share" id="btn-share" onclick="startShare()">① 画面（タブ）共有を開始</button>
+  <button class="btn btn-shot" id="btn-shot" onclick="captureOne()" disabled>② 今のフレームを1枚撮影</button>
+  <button class="btn btn-auto" id="btn-auto" onclick="captureAuto()" disabled>③ 自動: 0:10 / 0:30 / 1:00 で撮影</button>
+  <div class="status" id="status">まず「① 画面共有を開始」を押し、<b>この動画のタブ</b>を選んで共有してください。</div>
+  <div class="shots" id="shots"></div>
+  <div class="note">
+    <b>使い方:</b><br>
+    1. 動画を再生<br>
+    2. ①で「このタブ」を共有許可（デスクトップ）<br>
+    3. ②で現在のフレーム、③で自動で複数撮影<br>
+    4. 撮れた画像をタップで拡大<br>
+    ※ プレイヤー部分だけを切り出して撮影します
+  </div>
+</div>
+
+<div class="lb" id="lb" onclick="this.classList.remove('show')">
+  <button class="lb-close">×</button>
+  <img id="lb-img" src="">
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let player = null;
+let shareStream = null;
+let shareVideo = null;
+let shots = [];
+
+// ── 環境チェック ──
+(function checkEnv(){
+  const el = document.getElementById('env-info');
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1 && !/Macintosh/.test(ua));
+  const isAndroid = /Android/.test(ua);
+  const hasGDM = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  let msg = '';
+  if (!hasGDM) {
+    msg = '❌ この端末/ブラウザは画面共有(getDisplayMedia)に<b>非対応</b>です。';
+    if (isIOS) msg += ' iOS Safariは未対応です。';
+  } else if (isAndroid) {
+    msg = '⚠️ Android: 画面共有に対応していますが<b>画面全体共有</b>になります。実機で要確認。';
+  } else if (isIOS) {
+    msg = '❌ iOSは画面共有に非対応です。';
+  } else {
+    msg = '✅ この端末は画面共有に対応しています（デスクトップ想定）。';
+  }
+  el.innerHTML = msg;
+})();
+
+// ── YouTube Player ──
+function onYouTubeIframeAPIReady(){
+  player = new YT.Player('player', {
+    videoId: document.getElementById('vid-input').value.trim() || 'M7lc1UVf-VE',
+    playerVars: { rel:0, playsinline:1 },
+  });
+}
+function loadVideo(){
+  const id = document.getElementById('vid-input').value.trim();
+  if (player && id) player.loadVideoById(id);
+}
+
+function setStatus(msg, cls){
+  const el = document.getElementById('status');
+  el.innerHTML = msg;
+  el.className = 'status' + (cls ? ' '+cls : '');
+}
+
+// ── ① 画面共有開始 ──
+async function startShare(){
+  try {
+    shareStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
+    shareVideo = document.createElement('video');
+    shareVideo.srcObject = shareStream;
+    shareVideo.muted = true;
+    await shareVideo.play();
+    // 共有停止を検知
+    shareStream.getVideoTracks()[0].addEventListener('ended', () => {
+      setStatus('画面共有が停止されました。再度①から開始してください。', 'err');
+      document.getElementById('btn-shot').disabled = true;
+      document.getElementById('btn-auto').disabled = true;
+      shareStream = null;
+    });
+    document.getElementById('btn-shot').disabled = false;
+    document.getElementById('btn-auto').disabled = false;
+    setStatus('✅ 共有開始！ ②か③で撮影できます。共有解像度: ' + shareVideo.videoWidth + '×' + shareVideo.videoHeight, 'ok');
+  } catch(e) {
+    setStatus('共有がキャンセル/失敗しました: ' + e.message, 'err');
+  }
+}
+
+// ── プレイヤー領域を切り出してキャプチャ ──
+function captureFrame(){
+  if (!shareVideo) return null;
+  const playerEl = document.querySelector('.player-wrap');
+  const rect = playerEl.getBoundingClientRect();
+  // 共有映像（タブ全体）とビューポートの対応スケール
+  const scaleX = shareVideo.videoWidth / window.innerWidth;
+  const scaleY = shareVideo.videoHeight / window.innerHeight;
+  const sx = Math.max(0, rect.left * scaleX);
+  const sy = Math.max(0, rect.top * scaleY);
+  const sw = rect.width * scaleX;
+  const sh = rect.height * scaleY;
+  const canvas = document.createElement('canvas');
+  canvas.width = sw; canvas.height = sh;
+  try {
+    canvas.getContext('2d').drawImage(shareVideo, sx, sy, sw, sh, 0, 0, sw, sh);
+    return canvas.toDataURL('image/jpeg', 0.75);
+  } catch(e) {
+    setStatus('キャプチャ失敗: ' + e.message, 'err');
+    return null;
+  }
+}
+
+function fmtTime(sec){ const m=Math.floor(sec/60),s=Math.floor(sec%60); return `${m}:${String(s).padStart(2,'0')}`; }
+
+function addShot(dataUrl, sec){
+  shots.push({ dataUrl, sec });
+  renderShots();
+}
+function renderShots(){
+  document.getElementById('shots').innerHTML = shots.map((s,i)=>`
+    <div class="shot-wrap">
+      <img src="${s.dataUrl}" onclick="openLb('${i}')">
+      ${s.sec!=null?`<span class="shot-ts">▶ ${fmtTime(s.sec)}</span>`:''}
+    </div>`).join('');
+}
+function openLb(i){ document.getElementById('lb-img').src=shots[i].dataUrl; document.getElementById('lb').classList.add('show'); }
+
+// ── ② 1枚撮影 ──
+function captureOne(){
+  const t = player && player.getCurrentTime ? Math.floor(player.getCurrentTime()) : null;
+  const d = captureFrame();
+  if (d) { addShot(d, t); setStatus('✅ 1枚撮影しました（' + (t!=null?fmtTime(t):'?') + '）', 'ok'); }
+}
+
+// ── ③ 自動撮影 ──
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+async function captureAuto(){
+  if (!player || !shareVideo) return;
+  const secs = [10, 30, 60];
+  document.getElementById('btn-auto').disabled = true;
+  for (let i=0;i<secs.length;i++){
+    setStatus(`📸 ${fmtTime(secs[i])} を撮影中… (${i+1}/${secs.length})`);
+    player.seekTo(secs[i], true);
+    player.playVideo();
+    await sleep(1600); // 画面に反映されるまで待つ
+    player.pauseVideo();
+    await sleep(400);
+    const d = captureFrame();
+    if (d) addShot(d, secs[i]);
+  }
+  setStatus('✅ 自動撮影完了！', 'ok');
+  document.getElementById('btn-auto').disabled = false;
+}
+</script>
+</body>
+</html>
