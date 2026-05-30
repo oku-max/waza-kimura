@@ -404,19 +404,26 @@ async function handleAiSummary(request, env) {
   const auth = await verifyOwner(idToken, env);
   if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
 
-  // フェーズ1: YouTube のみ対応
-  if (source !== 'youtube' || !ytId || !/^[\w-]{6,20}$/.test(ytId)) {
-    return jsonRes({ error: 'YouTube動画のみ対応しています（ytIdが不正）' }, 400);
+  const { gdFileId, accessToken: gdToken } = body;
+
+  if (source === 'youtube') {
+    if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
+      return jsonRes({ error: 'ytId が不正です' }, 400);
+    }
+    return _aiSummaryYoutube(env, ytId, title, channel, playlist);
   }
-  const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+  if (source === 'gdrive') {
+    if (!gdFileId || !gdToken) {
+      return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
+    }
+    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist);
+  }
+  return jsonRes({ error: 'source は youtube または gdrive を指定してください' }, 400);
+}
 
-  const ctx = [
-    title    ? `タイトル: ${title}`        : null,
-    channel  ? `チャンネル: ${channel}`    : null,
-    playlist ? `プレイリスト: ${playlist}` : null,
-  ].filter(Boolean).join('\n');
-
-  const prompt = `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+// ── 共通プロンプト生成 ──────────────────────────────────────
+function _aiPrompt(ctx) {
+  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
 この動画を視聴し、練習メモとして使える日本語の要約を作成してください。
 ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
 【出力フォーマット】該当しない項目は省略可。簡潔に、箇条書き中心で。
@@ -428,36 +435,146 @@ ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
 
 【タイムスタンプ】手順・コツ・注意点の各項目には、動画内の対応する時間を [M:SS] 形式で行頭に付けること（例: [1:23]）。タイムスタンプが特定できない項目は省略可。
 専門用語はBJJで一般的な表記を使い、冗長な前置きは書かないこと。`;
+}
 
+function _ctxStr(title, channel, playlist) {
+  return [
+    title    ? `タイトル: ${title}`        : null,
+    channel  ? `チャンネル: ${channel}`    : null,
+    playlist ? `プレイリスト: ${playlist}` : null,
+  ].filter(Boolean).join('\n');
+}
+
+async function _geminiGenerate(env, parts) {
   const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const apiKey = env.GEMINI_API_KEY;
+  const gRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 2500 },
+      }),
+    }
+  );
+  const data = await gRes.json();
+  if (!gRes.ok) return { error: 'Gemini API error', detail: data?.error?.message || JSON.stringify(data).slice(0, 300) };
+  const summary = (data.candidates?.[0]?.content?.parts || []).map(p => p.text).filter(Boolean).join('\n').trim();
+  if (!summary) return { error: '要約を取得できませんでした', detail: data.candidates?.[0]?.finishReason || 'no text' };
+  return { summary };
+}
+
+// ── YouTube 要約 ───────────────────────────────────────────
+async function _aiSummaryYoutube(env, ytId, title, channel, playlist) {
+  const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+  const prompt   = _aiPrompt(_ctxStr(title, channel, playlist));
   try {
-    const gRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          contents: [{ parts: [
-            { fileData: { fileUri: videoUrl } },
-            { text: prompt },
-          ] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 2500 },
-        }),
-      }
-    );
-    const data = await gRes.json();
-    if (!gRes.ok) {
-      return jsonRes({ error: 'Gemini API error', detail: data?.error?.message || JSON.stringify(data).slice(0, 500) }, 502);
-    }
-    const summary = (data.candidates?.[0]?.content?.parts || [])
-      .map(p => p.text).filter(Boolean).join('\n').trim();
-    if (!summary) {
-      return jsonRes({ error: '要約を取得できませんでした', detail: data.candidates?.[0]?.finishReason || 'no text' }, 502);
-    }
-    return jsonRes({ summary });
+    const result = await _geminiGenerate(env, [
+      { fileData: { fileUri: videoUrl } },
+      { text: prompt },
+    ]);
+    if (result.error) return jsonRes(result, 502);
+    return jsonRes({ summary: result.summary });
   } catch (e) {
     return jsonRes({ error: e.message }, 500);
   }
+}
+
+// ── Google Drive 要約（Drive→Gemini Files APIストリーミング中継）──
+async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist) {
+  const apiKey = env.GEMINI_API_KEY;
+
+  // 1. Drive ファイルメタデータ取得
+  const metaRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdFileId)}?fields=size,mimeType,name`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!metaRes.ok) return jsonRes({ error: 'Drive metadata error', detail: (await metaRes.text()).slice(0, 200) }, 502);
+  const meta = await metaRes.json();
+  const fileSize = parseInt(meta.size || '0');
+  const mimeType = meta.mimeType || 'video/mp4';
+  const fileName = meta.name || 'video.mp4';
+  if (!fileSize) return jsonRes({ error: 'ファイルサイズが取得できませんでした' }, 400);
+
+  // 2. Gemini Files API — resumable upload 開始
+  const initRes = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=resumable&key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Upload-Protocol': 'resumable',
+        'X-Goog-Upload-Command': 'start',
+        'X-Goog-Upload-Header-Content-Length': String(fileSize),
+        'X-Goog-Upload-Header-Content-Type': mimeType,
+      },
+      body: JSON.stringify({ file: { display_name: fileName } }),
+    }
+  );
+  if (!initRes.ok) return jsonRes({ error: 'Gemini upload init failed', detail: (await initRes.text()).slice(0, 200) }, 502);
+  const uploadUrl = initRes.headers.get('X-Goog-Upload-URL');
+  if (!uploadUrl) return jsonRes({ error: 'Gemini upload URL not returned' }, 502);
+
+  // 3. Drive ダウンロード → Gemini へストリーミング中継
+  const driveRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdFileId)}?alt=media`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!driveRes.ok) return jsonRes({ error: `Drive download failed: ${driveRes.status}` }, 502);
+
+  const upRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Length': String(fileSize),
+      'Content-Type': mimeType,
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+    },
+    body: driveRes.body,
+  });
+  if (!upRes.ok) return jsonRes({ error: 'Gemini upload failed', detail: (await upRes.text()).slice(0, 200) }, 502);
+  const upData  = await upRes.json();
+  const fileUri  = upData.file?.uri;
+  const geminiName = upData.file?.name;
+  if (!fileUri) return jsonRes({ error: 'Gemini file URI not returned', detail: JSON.stringify(upData).slice(0, 200) }, 502);
+
+  // 4. ファイル処理待ち（ACTIVE になるまでポーリング）
+  let state = upData.file?.state || 'PROCESSING';
+  for (let i = 0; i < 20 && state !== 'ACTIVE'; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const poll = await fetch(`https://generativelanguage.googleapis.com/v1beta/${geminiName}?key=${apiKey}`);
+    const pd   = await poll.json();
+    state = pd.state || state;
+    if (pd.state === 'FAILED') {
+      _deleteGeminiFile(apiKey, geminiName);
+      return jsonRes({ error: 'Gemini ファイル処理失敗' }, 502);
+    }
+  }
+  if (state !== 'ACTIVE') {
+    _deleteGeminiFile(apiKey, geminiName);
+    return jsonRes({ error: 'Gemini ファイル処理タイムアウト' }, 504);
+  }
+
+  // 5. 要約生成
+  const prompt = _aiPrompt(_ctxStr(title, channel, playlist));
+  let result;
+  try {
+    result = await _geminiGenerate(env, [
+      { fileData: { mimeType, fileUri } },
+      { text: prompt },
+    ]);
+  } finally {
+    _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
+  }
+  if (result.error) return jsonRes(result, 502);
+  return jsonRes({ summary: result.summary });
+}
+
+function _deleteGeminiFile(apiKey, name) {
+  if (!name) return;
+  fetch(`https://generativelanguage.googleapis.com/v1beta/${name}?key=${apiKey}`, { method: 'DELETE' }).catch(() => {});
 }
 
 // ── ユーティリティ ────────────────────────────────────────

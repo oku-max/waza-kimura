@@ -1519,7 +1519,10 @@ export function openVPanel(id) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
     const _isOwner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
-    const _canSummarize = _isOwner && vd?.pt === 'youtube' && vd?.ytId;
+    const _canSummarize = _isOwner && (
+      (vd?.pt === 'youtube' && vd?.ytId) ||
+      (vd?.pt === 'gdrive')
+    );
     const _sumBtn = _canSummarize
       ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追記"
            style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
@@ -2902,14 +2905,27 @@ window.vpMemoBlur = function(id) {
   t.style.display = 'none';
 };
 
-// ── AI要約（Gemini / YouTube・オーナー限定）──
+// ── AI要約（Gemini / YouTube・Google Drive・オーナー限定）──
 window.vpAiSummary = async function(id) {
   const v = (window.videos||[]).find(v => v.id===id);
   if (!v) return;
-  if (v.pt !== 'youtube' || !v.ytId) { window.toast?.('YouTube動画のみ対応しています'); return; }
+
+  const isYT = v.pt === 'youtube' && v.ytId;
+  const isGD = v.pt === 'gdrive';
+  if (!isYT && !isGD) { window.toast?.('YouTube または Google Drive の動画のみ対応しています'); return; }
 
   const user = window._firebaseCurrentUser?.();
   if (!user) { window.toast?.('ログインが必要です'); return; }
+
+  // Google Drive の場合はアクセストークンが必要
+  let gdAccessToken = null;
+  if (isGD) {
+    gdAccessToken = window.getDriveTokenIfAvailable?.();
+    if (!gdAccessToken) {
+      window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。');
+      return;
+    }
+  }
 
   const btn = document.getElementById('vp-aisum-' + id);
   const memoEl = document.getElementById('vp-memo-' + id);
@@ -2918,17 +2934,16 @@ window.vpAiSummary = async function(id) {
 
   try {
     const idToken = await user.getIdToken();
+
+    // リクエストボディを platform 別に構築
+    const reqBody = isYT
+      ? { idToken, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
+      : { idToken, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
+
     const res = await fetch('/api/ai-summary', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        idToken,
-        source:   'youtube',
-        ytId:     v.ytId,
-        title:    v.title || '',
-        channel:  v.ch || v.channel || '',
-        playlist: v.pl || '',
-      }),
+      body:    JSON.stringify(reqBody),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.summary) {
@@ -3065,7 +3080,7 @@ export function _openPanel(id, emb, ext, plat) {
       ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
-        <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && v?.pt === 'youtube' && v?.ytId)
+        <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
           ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
           : ''}</span>
         <div id="vp-memo-rendered-${id}" style="font-size:11px;line-height:1.7;word-break:break-word;padding:2px 0 4px;color:var(--text,#1a1a1a)"></div>
