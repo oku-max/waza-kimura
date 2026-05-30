@@ -199,6 +199,14 @@ function renderGrid() {
     idx.textContent = i + 1;
     div.appendChild(idx);
 
+    // 撮影時刻バッジ（AI要約スクショ等、time があるもの）
+    if (snap.time != null) {
+      const tb = document.createElement('span');
+      tb.className = 'snap-ts-badge';
+      tb.textContent = '▶ ' + _fmtSnapTime(snap.time);
+      div.appendChild(tb);
+    }
+
     const del = document.createElement('button');
     del.className = 'del-btn';
     del.textContent = '\u00d7';

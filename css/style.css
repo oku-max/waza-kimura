@@ -848,6 +848,8 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-tag-input{border:none;outline:none;background:transparent;font-size:11px;color:var(--text);width:120px;padding:4px 6px;}
 .vp-memo{width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;background:var(--surface2);color:var(--text);}
 .vp-memo:focus{outline:none;border-color:var(--accent);}
+.ts-link{display:inline-block;color:#2050c0;background:#e8f0ff;border:1px solid #a8c0f0;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none;user-select:none;}
+.ts-link:hover{background:#d0e0ff;}
 .vp-btn{padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;}
 .vp-btn.active{background:var(--green-soft);color:var(--green);border-color:var(--green);}
 .vp-btn.fav{background:var(--gold-soft);color:var(--gold);border-color:var(--gold);}

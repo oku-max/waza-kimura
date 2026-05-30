@@ -2852,15 +2852,14 @@ export function vpSaveMemo(id) {
   autoSaveVp(id);
 }
 
-// ── タイムスタンプリンク ──
-const _TS_STYLE = 'display:inline-block;color:#2050c0;background:#e8f0ff;border:1px solid #a8c0f0;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none;user-select:none';
+// ── タイムスタンプリンク（スタイルは style.css の .ts-link） ──
 function _fmtSec(sec) {
   const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
   const p = n => String(n).padStart(2,'0');
   return h>0 ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
 }
 function _tsLinkHtml(sec, label) {
-  return `<a class="ts-link" contenteditable="false" data-sec="${sec}" style="${_TS_STYLE}">▶ ${label}</a>`;
+  return `<a class="ts-link" contenteditable="false" data-sec="${sec}">▶ ${label}</a>`;
 }
 
 // メモ文字列 → 表示用HTML。既存プレーンテキスト（[M:SS]含む）も互換変換する。
@@ -3033,7 +3032,6 @@ window.vpMemoInsertTs = function(id) {
   link.dataset.sec = sec;
   link.contentEditable = 'false';
   link.textContent = `▶ ${_fmtSec(sec)}`;
-  link.setAttribute('style', _TS_STYLE);
   link.onclick = (e) => { e.preventDefault(); _seekTo(sec); };
   const sel = window.getSelection();
   if (sel && sel.rangeCount && el.contains(sel.anchorNode)) {
