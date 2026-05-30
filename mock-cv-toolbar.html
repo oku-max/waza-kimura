@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>カスタムビュー ツールバー モック</title>
+<style>
+:root{
+  --bg:#f2f2f6;--surface:#fff;--surface2:#f8f7f4;--border:#e2e2e8;
+  --text:#1a1a1a;--text2:#666;--accent:#2050c0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:14px;max-width:760px;margin:0 auto}
+h1{font-size:15px;margin-bottom:4px}
+.sub{font-size:11px;color:var(--text2);margin-bottom:14px}
+
+.app{background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+
+/* ビュー名バッジ（ページヘッダー） */
+.cv-header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.cv-badge{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700}
+.cv-count{font-size:12px;color:var(--text2);margin-left:4px}
+
+/* ── cv-toolbar（今回の主役） ── */
+.cv-toolbar{display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.tb-group{display:flex;gap:5px;align-items:center}
+.tb-spacer{flex:1}
+.tb-sep{width:1px;height:22px;background:var(--border)}
+
+/* 切替ボタン（マスターと同じ lvt スタイル） */
+.lvt-btn{padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer}
+.lvt-btn.active{background:var(--text);color:var(--surface);border-color:var(--text)}
+
+/* 操作ボタン（追加・編集） */
+.op-btn{padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.op-btn:hover{background:#f0ede8}
+.op-btn.primary{background:#eafaf0;border-color:#90c0a0;color:#2a8050}
+.op-btn.primary:hover{background:#d8f5e4}
+
+/* テーブル表示 */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{background:var(--surface2);text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid #f0ede8}
+.tbl tr:hover td{background:#faf9f7}
+.tag{display:inline-block;background:#e8f0ff;color:#2050c0;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700;margin-right:3px}
+
+/* カード表示 */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:12px}
+.card{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
+.card-thumb{aspect-ratio:16/9;background:linear-gradient(135deg,#2a4a6a,#1a2535);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px}
+.card-body{padding:8px}
+.card-ttl{font-size:11px;font-weight:700;line-height:1.4;margin-bottom:4px}
+
+.view-area{min-height:240px}
+
+/* 操作系の説明トースト */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 18px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+
+.note{margin-top:14px;font-size:11px;color:var(--text2);line-height:1.8;padding:0 2px}
+.note b{color:var(--text)}
+
+/* バリエーション切替 */
+.variant-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.variant-bar button{padding:6px 10px;border:1px solid #ccc;background:#fff;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700}
+.variant-bar button.on{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+</style>
+</head>
+<body>
+
+<h1>カスタムビュー ツールバー（案1: cv-toolbar 左右分離）</h1>
+<div class="sub">左 = 表示の切り替え（カード/テーブル）｜右 = データ操作（動画追加/編集）</div>
+
+<div class="variant-bar">
+  <span style="font-size:11px;color:#888;align-self:center">ラベル表示:</span>
+  <button id="v-full" class="on" onclick="setVariant('full')">アイコン+文字</button>
+  <button id="v-icon" onclick="setVariant('icon')">アイコンのみ（モバイル想定）</button>
+  <span style="width:10px"></span>
+  <span style="font-size:11px;color:#888;align-self:center">ビュー種別:</span>
+  <button id="m-manual" class="on" onclick="setMode('manual')">手動選択ビュー</button>
+  <button id="m-cond" onclick="setMode('cond')">条件自動ビュー</button>
+</div>
+
+<div class="app">
+  <!-- ビュー名ヘッダー -->
+  <div class="cv-header">
+    <span class="cv-badge" id="view-badge">📌 トライフォースベーシック Quick</span>
+    <span class="cv-count" id="view-count">· 150本</span>
+  </div>
+
+  <!-- ★ cv-toolbar ★ -->
+  <div class="cv-toolbar">
+    <!-- 左: 表示切り替え -->
+    <div class="tb-group">
+      <button class="lvt-btn active" id="btn-card" onclick="switchView('card')"><span class="ico">📋</span><span class="lbl"> カード</span></button>
+      <button class="lvt-btn" id="btn-table" onclick="switchView('table')"><span class="ico">📊</span><span class="lbl"> テーブル</span></button>
+    </div>
+
+    <div class="tb-spacer"></div>
+    <div class="tb-sep"></div>
+
+    <!-- 右: データ操作 -->
+    <div class="tb-group">
+      <button class="op-btn primary" id="btn-add" onclick="act('add')"><span class="ico">➕</span><span class="lbl" id="add-lbl"> 動画追加</span></button>
+      <button class="op-btn" id="btn-edit" onclick="act('edit')"><span class="ico">✏️</span><span class="lbl" id="edit-lbl"> 編集</span></button>
+    </div>
+  </div>
+
+  <!-- 表示エリア -->
+  <div class="view-area" id="view-area"></div>
+</div>
+
+<div class="note">
+  <b>確認ポイント:</b><br>
+  ・<b>カード/テーブル</b>を押すと表示が即切り替わる（マスタービューと同じ操作感）<br>
+  ・<b>➕動画追加</b>でその場から追加フロー（サイドバー経由が不要に）<br>
+  ・<b>ビュー種別</b>を「条件自動」に変えると、ボタンが「⚙️ 条件編集」に変化（動的ラベル）<br>
+  ・<b>アイコンのみ</b>はモバイルで横幅が足りない場合の案
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let variant = 'full';
+let mode = 'manual';
+let view = 'card';
+
+const VIDEOS = [
+  { t:'デラヒーバガード 基本の足の位置', tags:['デラヒーバ','ガード'] },
+  { t:'オーバーアンダーパス ヒップピン', tags:['パスガード'] },
+  { t:'三角絞めのディテール', tags:['サブミッション'] },
+  { t:'バタフライスイープ 入口', tags:['スイープ'] },
+  { t:'ベリンボロ 回転の原理', tags:['スイープ'] },
+  { t:'ニーオンベリーの圧力', tags:['コントロール'] },
+];
+
+function renderView(){
+  const area = document.getElementById('view-area');
+  if (view === 'table') {
+    area.innerHTML = `<table class="tbl">
+      <thead><tr><th>タイトル</th><th>テクニック</th><th>習得度</th></tr></thead>
+      <tbody>${VIDEOS.map(v=>`<tr>
+        <td>${v.t}</td>
+        <td>${v.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</td>
+        <td>練習中</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } else {
+    area.innerHTML = `<div class="cards">${VIDEOS.map(v=>`
+      <div class="card">
+        <div class="card-thumb">▶ 動画</div>
+        <div class="card-body"><div class="card-ttl">${v.t}</div>
+          <div>${v.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+}
+
+function switchView(v){
+  view = v;
+  document.getElementById('btn-card').classList.toggle('active', v==='card');
+  document.getElementById('btn-table').classList.toggle('active', v==='table');
+  renderView();
+  showToast(v==='card'?'📋 カード表示に切替':'📊 テーブル表示に切替');
+}
+
+function setVariant(x){
+  variant = x;
+  document.getElementById('v-full').classList.toggle('on', x==='full');
+  document.getElementById('v-icon').classList.toggle('on', x==='icon');
+  document.querySelectorAll('.lbl').forEach(el=>el.style.display = x==='icon' ? 'none' : '');
+}
+
+function setMode(x){
+  mode = x;
+  document.getElementById('m-manual').classList.toggle('on', x==='manual');
+  document.getElementById('m-cond').classList.toggle('on', x==='cond');
+  // バッジと操作ボタンを切替
+  const badge = document.getElementById('view-badge');
+  const addLbl = document.getElementById('add-lbl');
+  const editLbl = document.getElementById('edit-lbl');
+  const addBtn = document.getElementById('btn-add');
+  if (x==='cond') {
+    badge.textContent = '🔄 777';
+    document.getElementById('view-count').textContent = '· 109本（条件で自動）';
+    // 条件ビューは「動画追加」ではなく「条件編集」
+    addBtn.style.display = 'none';
+    editLbl.textContent = ' 条件編集';
+    document.getElementById('btn-edit').querySelector('.ico').textContent = '⚙️';
+  } else {
+    badge.textContent = '📌 トライフォースベーシック Quick';
+    document.getElementById('view-count').textContent = '· 150本';
+    addBtn.style.display = '';
+    editLbl.textContent = ' 編集';
+    document.getElementById('btn-edit').querySelector('.ico').textContent = '✏️';
+  }
+}
+
+function act(type){
+  if (type==='add') showToast('➕ 「ライブラリから選ぶ」シートを開く（その場で追加）');
+  else showToast(mode==='cond' ? '⚙️ 条件編集パネルを開く' : '✏️ 動画の追加・並べ替えを開く');
+}
+
+let toastT;
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+renderView();
+</script>
+</body>
+</html>
