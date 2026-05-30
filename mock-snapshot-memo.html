@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>スナップショット連携メモ モック</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:#f2f2f6;padding:16px;max-width:440px;margin:0 auto;color:#1a1a1a}
+
+.vpanel{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+
+/* 動画プレイヤーモック */
+.player{background:linear-gradient(135deg,#1a2a4a,#0a1525);height:180px;display:flex;align-items:center;justify-content:center;color:#fff;flex-direction:column;gap:6px;position:relative}
+.player-time{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.player-label{font-size:10px;color:#7a90b0}
+.player-badge{position:absolute;top:8px;left:8px;font-size:9px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:10px}
+
+/* AI要約ボタン */
+.memo-section{padding:12px}
+.memo-label{font-size:11px;font-weight:700;color:#888;margin-bottom:8px;display:block}
+.ai-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ai-btn{padding:6px 12px;border-radius:7px;border:1px solid #c8a8f0;background:#f5f0ff;color:#7040c0;font-size:12px;font-weight:700;cursor:pointer}
+.ai-btn:hover{background:#ede5ff}
+.ai-btn.shot{border-color:#90c0a0;background:#eafaf0;color:#2a8050}
+.ai-btn.shot:hover{background:#d8f5e4}
+
+/* メモ本文 */
+.memo-body{border:1px solid #e8e5e0;border-radius:8px;padding:10px;font-size:13px;line-height:1.7;min-height:100px}
+.memo-h{font-size:12px;font-weight:700;color:#555;margin:10px 0 4px}
+.memo-h:first-child{margin-top:0}
+
+/* タイムスタンプリンク */
+.ts-link{display:inline-block;color:#2050c0;background:#e8f0ff;border:1px solid #a8c0f0;border-radius:4px;padding:0 5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none;user-select:none}
+.ts-link:hover{background:#d0e0ff}
+
+/* ── 案A: 行頭インラインサムネ ── */
+.memo-line{display:flex;gap:7px;align-items:flex-start;margin:6px 0}
+.memo-line .thumb{width:52px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0;border:1px solid #ddd;margin-top:2px;transition:transform .12s}
+.memo-line .thumb:hover{transform:scale(1.08);border-color:#2050c0}
+.memo-line .txt{flex:1;font-size:12px}
+
+/* ── 案B: ブロックサムネ ── */
+.memo-block{margin:8px 0}
+.memo-block .thumb-b{width:100%;max-width:200px;height:auto;border-radius:6px;cursor:pointer;display:block;margin:4px 0;border:1px solid #ddd}
+.memo-block .thumb-b:hover{border-color:#2050c0}
+
+/* スナップショットグリッド（既存風） */
+.snap-section{padding:0 12px 12px}
+.snap-title{font-size:11px;font-weight:700;color:#888;margin-bottom:6px}
+.snap-grid{display:flex;flex-wrap:wrap;gap:6px}
+.snap-thumb{width:90px;height:64px;border-radius:6px;object-fit:cover;cursor:pointer;border:1px solid #e2e2e8;position:relative}
+.snap-thumb:hover{border-color:#2050c0}
+.snap-thumb-wrap{position:relative}
+.snap-ts-badge{position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,.7);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;pointer-events:none}
+
+/* ライトボックス */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
+.lightbox.show{display:flex}
+.lightbox img{max-width:92vw;max-height:70vh;border-radius:8px}
+.lb-controls{display:flex;gap:10px;align-items:center}
+.lb-btn{padding:8px 16px;border-radius:8px;border:1px solid #555;background:#222;color:#fff;font-size:12px;cursor:pointer;font-weight:700}
+.lb-btn:hover{background:#333}
+.lb-close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none}
+
+/* シークトースト */
+.seek-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;z-index:1100}
+.seek-toast.show{opacity:1}
+
+/* 進捗バー */
+.shot-progress{display:none;margin:8px 0;font-size:11px;color:#2a8050}
+.shot-progress.show{display:block}
+.pbar{height:5px;background:#e0e0e0;border-radius:3px;overflow:hidden;margin-top:3px}
+.pbar-fill{height:100%;background:#2a8050;width:0;transition:width .2s}
+
+.note{margin-top:14px;font-size:11px;color:#888;line-height:1.7;padding:0 2px}
+.note b{color:#444}
+.toggle-bar{display:flex;gap:6px;margin-bottom:10px}
+.toggle-bar button{flex:1;padding:6px;border:1px solid #ccc;background:#fff;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700}
+.toggle-bar button.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+</style>
+</head>
+<body>
+
+<div class="toggle-bar">
+  <button id="tg-a" class="active" onclick="setLayout('A')">案A: 行頭インラインサムネ</button>
+  <button id="tg-b" onclick="setLayout('B')">案B: ブロックサムネ</button>
+</div>
+
+<div class="vpanel">
+
+  <!-- 動画プレイヤーモック -->
+  <div class="player">
+    <div class="player-badge">📁 Google Drive 動画（モック）</div>
+    <div class="player-label">▶ 再生位置</div>
+    <div class="player-time" id="player-time">0:00</div>
+  </div>
+
+  <!-- メモセクション -->
+  <div class="memo-section">
+    <span class="memo-label">MEMO</span>
+
+    <div class="ai-bar">
+      <button class="ai-btn shot" onclick="autoShotSummary()">📸 AI要約＋自動スクショ</button>
+    </div>
+
+    <div class="shot-progress" id="shot-progress">
+      <span id="shot-msg">スクショ取得中…</span>
+      <div class="pbar"><div class="pbar-fill" id="pbar-fill"></div></div>
+    </div>
+
+    <!-- メモ本文 -->
+    <div class="memo-body" id="memo-body">
+      <span style="color:#bbb;font-size:12px">「📸 AI要約＋自動スクショ」を押すと、各タイムスタンプで自動撮影したサムネイル付きの要約が入ります</span>
+    </div>
+  </div>
+
+  <!-- スナップショットグリッド -->
+  <div class="snap-section">
+    <div class="snap-title">SNAPSHOT <span id="snap-count" style="color:#bbb">0枚</span></div>
+    <div class="snap-grid" id="snap-grid"></div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>操作方法：</b><br>
+  1. 上部で <b>案A / 案B</b> のレイアウトを切り替え<br>
+  2. <b>📸 AI要約＋自動スクショ</b> を押す（各タイムスタンプで自動撮影をシミュレート）<br>
+  3. メモ内の <b>サムネをタップ</b> → 拡大（ライトボックス）<br>
+  4. ライトボックス内の <b>▶ この場面から再生</b> で動画シーク<br>
+  5. 本文の <b>▶ 0:14</b> リンクでも動画シーク<br>
+  6. 下部の <b>スナップショット</b> にも同じ画像が時刻バッジ付きで並ぶ
+</div>
+
+<!-- ライトボックス -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" onclick="closeLightbox()">×</button>
+  <img id="lb-img" src="">
+  <div class="lb-controls">
+    <button class="lb-btn" id="lb-seek" onclick="lbSeek()">▶ この場面から再生</button>
+  </div>
+</div>
+
+<div class="seek-toast" id="seek-toast"></div>
+
+<script>
+let currentSec = 0;
+let layout = 'A';
+let lbCurrentSec = 0;
+
+// サンプルAI要約データ（タイムスタンプ + 説明）
+const SUMMARY = {
+  oneLineSummary: 'デラヒーバガードにおける足の適切な位置と使い方を解説。',
+  sections: [
+    { title: '手順の要点', items: [
+      { sec: 14, text: '左足は相手の右脚にデラヒーバをかけ、膝を相手の膝より少し上に被せる。' },
+      { sec: 68, text: '右足は相手の左腰骨の真ん中に置く。' },
+    ]},
+    { title: '重要なディテール／コツ', items: [
+      { sec: 32, text: 'デラヒーバは深く入れる必要はない。' },
+      { sec: 37, text: '左足の膝は常に相手の膝より上に位置させる。' },
+      { sec: 55, text: '相手が膝でプレッシャーをかけてきても、自分の膝が上を向く状態を保つ。' },
+    ]},
+    { title: 'ありがちなミス・注意点', items: [
+      { sec: 72, text: '右足を相手の膝あたりに置くと、簡単にまたがれフレームが使えなくなる。' },
+    ]},
+  ]
+};
+
+function fmt_time(sec){const m=Math.floor(sec/60),s=sec%60;return `${m}:${String(s).padStart(2,'0')}`;}
+
+function setTime(sec){currentSec=sec;document.getElementById('player-time').textContent=fmt_time(sec);}
+
+let toastTimer;
+function showToast(msg){const el=document.getElementById('seek-toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1600);}
+
+function seekTo(sec){setTime(sec);showToast(`▶ ${fmt_time(sec)} から再生`);}
+
+function setLayout(l){
+  layout=l;
+  document.getElementById('tg-a').classList.toggle('active',l==='A');
+  document.getElementById('tg-b').classList.toggle('active',l==='B');
+  if(document.getElementById('memo-body').dataset.filled) renderMemo();
+}
+
+// ダミー動画フレームを生成（時刻に応じた色＋時刻表示）
+function makeDummyFrame(sec){
+  const c=document.createElement('canvas');c.width=320;c.height=180;
+  const ctx=c.getContext('2d');
+  // 時刻でグラデの色相を変える
+  const hue=(sec*7)%360;
+  const g=ctx.createLinearGradient(0,0,320,180);
+  g.addColorStop(0,`hsl(${hue},45%,35%)`);
+  g.addColorStop(1,`hsl(${(hue+40)%360},55%,18%)`);
+  ctx.fillStyle=g;ctx.fillRect(0,0,320,180);
+  // 柔術っぽい人物シルエット
+  ctx.fillStyle='rgba(255,255,255,.12)';
+  ctx.beginPath();ctx.arc(120,90,42,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(200,110,50,0,7);ctx.fill();
+  // 時刻表示
+  ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,150,320,30);
+  ctx.fillStyle='#fff';ctx.font='bold 18px sans-serif';
+  ctx.fillText(`▶ ${fmt_time(sec)}`,10,172);
+  return c.toDataURL('image/jpeg',0.7);
+}
+
+let shots = {}; // sec -> dataURL
+
+// 📸 AI要約＋自動スクショ
+async function autoShotSummary(){
+  const prog=document.getElementById('shot-progress');
+  const fill=document.getElementById('pbar-fill');
+  const msg=document.getElementById('shot-msg');
+  prog.classList.add('show');
+
+  // 全タイムスタンプを収集
+  const allSecs=[];
+  SUMMARY.sections.forEach(s=>s.items.forEach(it=>allSecs.push(it.sec)));
+  const uniq=[...new Set(allSecs)].sort((a,b)=>a-b);
+
+  // 各タイムスタンプでスクショ（シミュレート：seek→capture）
+  for(let i=0;i<uniq.length;i++){
+    const sec=uniq[i];
+    setTime(sec);
+    msg.textContent=`📸 ${fmt_time(sec)} を撮影中… (${i+1}/${uniq.length})`;
+    fill.style.width=`${Math.round((i+1)/uniq.length*100)}%`;
+    await new Promise(r=>setTimeout(r,400)); // seek待ちシミュレート
+    shots[sec]=makeDummyFrame(sec);
+  }
+
+  msg.textContent='✅ 完了！';
+  setTimeout(()=>prog.classList.remove('show'),800);
+
+  renderMemo();
+  renderSnapGrid();
+}
+
+function renderMemo(){
+  const body=document.getElementById('memo-body');
+  body.dataset.filled='1';
+  let html=`<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:6px">── ✨ AI要約 ──</div>`;
+  html+=`<div class="memo-h">一言まとめ</div><div style="font-size:12px">${SUMMARY.oneLineSummary}</div>`;
+
+  SUMMARY.sections.forEach(s=>{
+    html+=`<div class="memo-h">${s.title}</div>`;
+    s.items.forEach(it=>{
+      const thumb=shots[it.sec];
+      if(layout==='A'){
+        html+=`<div class="memo-line">
+          ${thumb?`<img class="thumb" src="${thumb}" onclick="openLightbox(${it.sec})">`:''}
+          <div class="txt"><a class="ts-link" onclick="seekTo(${it.sec})">▶ ${fmt_time(it.sec)}</a> ${it.text}</div>
+        </div>`;
+      }else{
+        html+=`<div class="memo-block">
+          <div class="txt" style="font-size:12px"><a class="ts-link" onclick="seekTo(${it.sec})">▶ ${fmt_time(it.sec)}</a> ${it.text}</div>
+          ${thumb?`<img class="thumb-b" src="${thumb}" onclick="openLightbox(${it.sec})">`:''}
+        </div>`;
+      }
+    });
+  });
+  body.innerHTML=html;
+}
+
+function renderSnapGrid(){
+  const grid=document.getElementById('snap-grid');
+  const secs=Object.keys(shots).map(Number).sort((a,b)=>a-b);
+  document.getElementById('snap-count').textContent=`${secs.length}枚`;
+  grid.innerHTML=secs.map(sec=>`
+    <div class="snap-thumb-wrap">
+      <img class="snap-thumb" src="${shots[sec]}" onclick="openLightbox(${sec})">
+      <span class="snap-ts-badge">▶ ${fmt_time(sec)}</span>
+    </div>`).join('');
+}
+
+// ライトボックス
+function openLightbox(sec){
+  lbCurrentSec=sec;
+  document.getElementById('lb-img').src=shots[sec];
+  document.getElementById('lb-seek').textContent=`▶ ${fmt_time(sec)} から再生`;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('show');}
+function lbSeek(){seekTo(lbCurrentSec);closeLightbox();}
+document.getElementById('lightbox').addEventListener('click',e=>{if(e.target.id==='lightbox')closeLightbox();});
+</script>
+</body>
+</html>
