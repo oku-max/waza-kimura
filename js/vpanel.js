@@ -2842,18 +2842,30 @@ export function vpSaveMemo(id) {
   autoSaveVp(id);
 }
 
-// ── タイムスタンプのみ抽出してクリッカブルチップとして表示 ──
-// テキストエリアは常に表示、その上に [M:SS] だけをチップ表示する
+// ── メモからタイムスタンプ・URLを抽出してクリッカブルチップ表示 ──
 function _renderTimestamps(text, id) {
   if (!text) return '';
   const chips = [];
-  const re = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+  // タイムスタンプチップ [M:SS]
+  const tsRe = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
   let m;
-  while ((m = re.exec(text)) !== null) {
+  while ((m = tsRe.exec(text)) !== null) {
     const [, a, b, c] = m;
     const s = c != null ? parseInt(a)*3600+parseInt(b)*60+parseInt(c) : parseInt(a)*60+parseInt(b);
     const label = c != null ? `${a}:${b}:${c}` : `${a}:${b}`;
     chips.push(`<span onclick="vpSeek('${id}',${s})" title="${s}秒にジャンプ" style="display:inline-block;cursor:pointer;color:var(--accent,#6c8cff);background:rgba(108,140,255,.12);border:1px solid rgba(108,140,255,.3);border-radius:4px;padding:1px 6px;margin:1px 2px;font-size:10px;font-weight:700;white-space:nowrap">▶ ${label}</span>`);
+  }
+  // URLチップ（http / https）
+  const urlRe = /https?:\/\/[^\s<>"'）】\]]+/g;
+  const seenUrls = new Set();
+  let um;
+  while ((um = urlRe.exec(text)) !== null) {
+    const url = um[0].replace(/[.,;:!?]+$/, '');
+    if (seenUrls.has(url)) continue;
+    seenUrls.add(url);
+    let label = url;
+    try { label = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
+    chips.push(`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;color:#2a7a50;background:rgba(42,122,80,.1);border:1px solid rgba(42,122,80,.3);border-radius:4px;padding:1px 6px;margin:1px 2px;font-size:10px;font-weight:700;white-space:nowrap;text-decoration:none">🔗 ${esc(label)}</a>`);
   }
   if (!chips.length) return '';
   return `<div style="margin-bottom:4px">${chips.join('')}</div>`;
