@@ -2846,16 +2846,14 @@ export function vpSaveMemo(id) {
 // ── メモ レンダリング（タイムスタンプをクリッカブルスパンに変換）──
 function _renderMemoHtml(text, id) {
   if (!text || !text.trim()) return '<span style="color:#bbb;font-size:12px">クリックして編集…</span>';
+  // \n→<br> を先に行う（後でspanを生成するので、span内に<br>が混入しないように）
   return esc(text)
+    .replace(/\n/g, '<br>')
     .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m, a, b, c) => {
-      const s = c != null
-        ? parseInt(a)*3600 + parseInt(b)*60 + parseInt(c)
-        : parseInt(a)*60 + parseInt(b);
+      const s = c != null ? parseInt(a)*3600+parseInt(b)*60+parseInt(c) : parseInt(a)*60+parseInt(b);
       const label = c != null ? `${a}:${b}:${c}` : `${a}:${b}`;
-      return `<span onclick="event.stopPropagation();vpSeek('${id}',${s})" title="${s}秒にジャンプ"
-        style="cursor:pointer;color:var(--accent,#6c8cff);background:rgba(108,140,255,.12);border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;white-space:nowrap">▶ ${label}</span>`;
-    })
-    .replace(/\n/g, '<br>');
+      return `<span onclick="event.stopPropagation();vpSeek('${id}',${s})" title="${s}秒にジャンプ" style="cursor:pointer;color:var(--accent,#6c8cff);background:rgba(108,140,255,.12);border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;white-space:nowrap">▶ ${label}</span>`;
+    });
 }
 window.vpSeek = function(id, secs) { _seekTo(secs); };
 
