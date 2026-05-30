@@ -2842,11 +2842,10 @@ export function vpSaveMemo(id) {
   autoSaveVp(id);
 }
 
-// ── メモからタイムスタンプ・URLを抽出してクリッカブルチップ表示 ──
+// ── タイムスタンプチップ表示（メモ欄上部） ──
 function _renderTimestamps(text, id) {
   if (!text) return '';
   const chips = [];
-  // タイムスタンプチップ [M:SS]
   const tsRe = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
   let m;
   while ((m = tsRe.exec(text)) !== null) {
@@ -2855,20 +2854,32 @@ function _renderTimestamps(text, id) {
     const label = c != null ? `${a}:${b}:${c}` : `${a}:${b}`;
     chips.push(`<span onclick="vpSeek('${id}',${s})" title="${s}秒にジャンプ" style="display:inline-block;cursor:pointer;color:var(--accent,#6c8cff);background:rgba(108,140,255,.12);border:1px solid rgba(108,140,255,.3);border-radius:4px;padding:1px 6px;margin:1px 2px;font-size:10px;font-weight:700;white-space:nowrap">▶ ${label}</span>`);
   }
-  // URLチップ（http / https）
-  const urlRe = /https?:\/\/[^\s<>"'）】\]]+/g;
-  const seenUrls = new Set();
-  let um;
-  while ((um = urlRe.exec(text)) !== null) {
-    const url = um[0].replace(/[.,;:!?]+$/, '');
-    if (seenUrls.has(url)) continue;
-    seenUrls.add(url);
-    let label = url;
-    try { label = new URL(url).hostname.replace(/^www\./, ''); } catch(e) {}
-    chips.push(`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;color:#2a7a50;background:rgba(42,122,80,.1);border:1px solid rgba(42,122,80,.3);border-radius:4px;padding:1px 6px;margin:1px 2px;font-size:10px;font-weight:700;white-space:nowrap;text-decoration:none">🔗 ${esc(label)}</a>`);
-  }
   if (!chips.length) return '';
   return `<div style="margin-bottom:4px">${chips.join('')}</div>`;
+}
+
+// ── AI要約テキストからタイムスタンプを抽出してブックマーク化 ──
+function _buildBookmarksFromSummary(summaryText) {
+  const lines = summaryText.split('\n');
+  const result = [];
+  let section = '';
+  const sectionRe = /^[-\s]*[◾■●▶▼※＊*#]{1,2}\s*(.+)/;
+  const tsRe = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)/;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const tsMatch = line.match(tsRe);
+    if (tsMatch) {
+      const [, a, b, c, rest] = tsMatch;
+      const time = c != null ? parseInt(a)*3600+parseInt(b)*60+parseInt(c) : parseInt(a)*60+parseInt(b);
+      const label = rest.replace(/^[-・\s]+/, '').trim() || `${a}:${b}`;
+      result.push({ time, label, note: section });
+    } else {
+      const secMatch = line.match(sectionRe);
+      if (secMatch) section = secMatch[1].trim();
+    }
+  }
+  return result;
 }
 window.vpSeek = function(id, secs) { _seekTo(secs); };
 
@@ -2936,13 +2947,34 @@ window.vpAiSummary = async function(id) {
       const rendered = document.getElementById('vp-memo-rendered-' + id);
       if (rendered) rendered.innerHTML = _renderTimestamps(v.memo, id);
     } catch(e) {}
+
+    // タイムスタンプ → ブックマーク自動作成
+    let bmAdded = 0;
+    try {
+      const newBms = _buildBookmarksFromSummary(data.summary);
+      if (newBms.length > 0) {
+        if (!v.bookmarks) v.bookmarks = [];
+        for (const bm of newBms) {
+          if (!v.bookmarks.some(b => b.time === bm.time)) {
+            v.bookmarks.push(bm);
+            bmAdded++;
+          }
+        }
+        if (bmAdded > 0) {
+          v.bookmarks.sort((a, b) => a.time - b.time);
+          _refreshBmList(id);
+        }
+      }
+    } catch(e) { console.warn('[bmFromSummary]', e); }
+
     // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
     if (window.saveUserData) {
       await window.saveUserData();
     } else {
       autoSaveVp(id);
     }
-    window.toast?.('✨ AI要約をMemoに追記しました');
+    const bmMsg = bmAdded > 0 ? `、ブックマーク${bmAdded}件追加` : '';
+    window.toast?.(`✨ AI要約をMemoに追記しました${bmMsg}`);
   } catch (e) {
     window.toast?.('要約エラー: ' + e.message);
   } finally {
