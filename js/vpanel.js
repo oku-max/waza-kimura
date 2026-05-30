@@ -3108,12 +3108,17 @@ window.vpAiSummary = async function(id) {
     // スクショ撮影（opts.shot かつ GDrive動画）
     const shotMap = {};
     if (opts.shot && isGD && _gdVideoEl) {
-      // 要約中の全タイムスタンプ（秒）を収集
-      const secs = [...new Set(
-        [...data.summary.matchAll(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g)].map(m => {
-          const c = m[3]; return c!=null ? (+m[1]*3600 + +m[2]*60 + +c) : (+m[1]*60 + +m[2]);
-        })
-      )].sort((a,b)=>a-b);
+      // 各タイムスタンプの秒数と解説テキストを収集（解説はスナップショットのメモに使う）
+      const tsText = {};
+      for (const line of data.summary.split('\n')) {
+        const m = line.match(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)/);
+        if (!m) continue;
+        const c = m[3];
+        const sec = c!=null ? (+m[1]*3600 + +m[2]*60 + +c) : (+m[1]*60 + +m[2]);
+        const text = (m[4]||'').replace(/^[-・*\s]+/, '').trim();
+        if (!(sec in tsText)) tsText[sec] = text;
+      }
+      const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
 
       const origTime = _gdVideoEl.currentTime;
       const wasPlaying = !_gdVideoEl.paused;
@@ -3123,7 +3128,8 @@ window.vpAiSummary = async function(id) {
         try {
           const cap = await _captureGdFrame(secs[i]);
           if (cap && cap.fullBlob && window.snapAddBlob) {
-            const snapId = await window.snapAddBlob(id, cap.fullBlob, secs[i]);
+            // スナップショットのメモにタイムスタンプ解説を入れる
+            const snapId = await window.snapAddBlob(id, cap.fullBlob, secs[i], tsText[secs[i]] || '');
             shotMap[secs[i]] = { snapId, thumbDataUrl: cap.thumbDataUrl };
           }
         } catch(e) { console.warn('[shot]', secs[i], e); }

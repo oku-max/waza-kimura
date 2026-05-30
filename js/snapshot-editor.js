@@ -1616,10 +1616,10 @@ export function changeHwBgColor(newColor) {
   annImg.src = generateHwBaseImage(hwBgType, newColor, W, H);
 }
 
-async function addSnapshotBlob(videoId, blob, time = null) {
+async function addSnapshotBlob(videoId, blob, time = null, memo = '') {
   const id = generateId();
   const url = URL.createObjectURL(blob);
-  const snap = { id, videoId, blob, url, memo: '', annotations: [], order: snapshots.length, time };
+  const snap = { id, videoId, blob, url, memo: memo || '', annotations: [], order: snapshots.length, time };
   snapshots.push(snap);
   try { await putSnapshot(id, videoId, blob, []); } catch (e) { console.error('[snapshot-editor] putSnapshot (hw) failed:', e); }
   renderGrid();
@@ -1629,7 +1629,8 @@ async function addSnapshotBlob(videoId, blob, time = null) {
 
 // ── 外部（AI要約スクショ等）から利用するフック ──
 // 現在開いているVPanelのスナップショットに blob を追加し、スナップショットIDを返す
-window.snapAddBlob = function(videoId, blob, time = null) { return addSnapshotBlob(videoId, blob, time); };
+// memo: ライトボックスの「この画像のメモ」欄に表示される説明（AI要約のタイムスタンプ解説）
+window.snapAddBlob = function(videoId, blob, time = null, memo = '') { return addSnapshotBlob(videoId, blob, time, memo); };
 // メモ内サムネのクリック等から、スナップショットIDでライトボックスを開く
 window.snapOpenLightboxById = function(id) {
   const idx = snapshots.findIndex(s => s.id === id);
