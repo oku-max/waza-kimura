@@ -1530,13 +1530,18 @@ export function openVPanel(id) {
           <div id="vp-memo-rendered-${vid}"
             onclick="vpMemoEdit('${vid}')"
             style="min-height:56px;padding:6px 8px;font-size:12px;line-height:1.7;word-break:break-word;cursor:text;border:1px solid var(--border,#e2e2e8);border-radius:6px;background:var(--card,#fff);color:var(--text,#1a1a1a)"
-          >${_renderMemoHtml(vd?.memo||'', vid)}</div>
+          ></div>
           <textarea class="vp-memo" id="vp-memo-${vid}" style="display:none"
             onblur="vpMemoBlur('${vid}')"
             oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)"
           >${vd?.memo||''}</textarea>
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
+    // innerHTML設定後にレンダリング（テンプレート内での実行を避けてパネル開不能を防ぐ）
+    try {
+      const _md = document.getElementById('vp-memo-rendered-' + vid);
+      if (_md) _md.innerHTML = _renderMemoHtml(vd?.memo||'', vid);
+    } catch(e) { console.warn('[memoRender]', e); }
     if (window.initSnapshotSection) {
       window.initSnapshotSection(vid, document.getElementById('vp-snap-section-' + vid));
     }
@@ -3043,7 +3048,7 @@ export function _openPanel(id, emb, ext, plat) {
         <div id="vp-memo-rendered-${id}"
           onclick="vpMemoEdit('${id}')"
           style="min-height:56px;padding:6px 8px;font-size:12px;line-height:1.7;word-break:break-word;cursor:text;border:1px solid var(--border,#e2e2e8);border-radius:6px;background:var(--card,#fff);color:var(--text,#1a1a1a)"
-        >${_renderMemoHtml(v?.memo||'', id)}</div>
+        ></div>
         <textarea class="vp-memo" id="vp-memo-${id}" style="display:none"
           onblur="vpMemoBlur('${id}')"
           oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${id}'),600)"
@@ -3052,6 +3057,11 @@ export function _openPanel(id, emb, ext, plat) {
       <div id="vp-snap-section-${id}"></div>
       ${buildDrawerHTML(id)}
     `;
+    // innerHTML設定後にレンダリング（テンプレート内での実行を避けてパネル開不能を防ぐ）
+    try {
+      const _md = document.getElementById('vp-memo-rendered-' + id);
+      if (_md) _md.innerHTML = _renderMemoHtml(v?.memo||'', id);
+    } catch(e) { console.warn('[memoRender]', e); }
     if (window.initSnapshotSection) {
       window.initSnapshotSection(id, document.getElementById('vp-snap-section-' + id));
     }
