@@ -239,7 +239,7 @@ function _seekTo(sec) {
     return;
   }
   if (!_ytPlayer || !_ytPlayerReady) return;
-  try { _ytPlayer.seekTo(sec, true); } catch(e) {}
+  try { _ytPlayer.seekTo(sec, true); _ytPlayer.playVideo(); } catch(e) {}
 }
 
 // 秒数を mm:ss 形式に変換
@@ -2916,9 +2916,10 @@ window.vpAiSummary = async function(id) {
     const cur    = (v.memo || '').trim();
     v.memo = cur ? `${block}\n\n${cur}` : block;
     if (memoEl) memoEl.value = v.memo;
-    // レンダリングビューを更新（タイムスタンプをクリッカブルに反映）
+    // レンダリングビューを更新して表示モードに切り替え（編集中でも強制的にビューモードへ）
     const rendered = document.getElementById('vp-memo-rendered-' + id);
-    if (rendered) rendered.innerHTML = _renderMemoHtml(v.memo, id);
+    if (rendered) { rendered.innerHTML = _renderMemoHtml(v.memo, id); rendered.style.display = ''; }
+    if (memoEl) memoEl.style.display = 'none';
     // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
     if (window.saveUserData) {
       await window.saveUserData();
