@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>カスタムビュー 5案 モック</title>
+<style>
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--on-accent:#fff;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--on-accent:#1a1a1a;--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;--border:#48484a;--border2:#3a3a3c;--green:#6bc490;--green-soft:#1e2e24;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:14px;max-width:560px;margin:0 auto;transition:background .2s,color .2s}
+h1{font-size:15px;margin-bottom:2px}
+.sub{font-size:11px;color:var(--text2);margin-bottom:12px}
+
+.theme-bar{position:sticky;top:0;z-index:10;background:var(--bg);padding:8px 0;display:flex;gap:6px;align-items:center;margin-bottom:8px;border-bottom:1px solid var(--border)}
+.theme-bar button{padding:6px 14px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:20px;font-size:12px;cursor:pointer;font-weight:700}
+.theme-bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+
+.case{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px}
+.case-ttl{font-size:13px;font-weight:800;margin-bottom:2px}
+.case-desc{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px}
+
+/* 共通ボタン */
+.pill{padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.pill.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.lbl-sm{font-size:10px;color:var(--text3);font-weight:700;min-width:46px}
+.seg-sep{height:1px;background:var(--border);margin:8px 0}
+
+/* 表示エリア（ミニ） */
+.mini{margin-top:10px;min-height:88px;border:1px dashed var(--border2);border-radius:8px;padding:8px;background:var(--surface2)}
+.mini-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mc{border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface)}
+.mc-th{aspect-ratio:16/9;background:linear-gradient(135deg,#3a5a7a,#1a2535);display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px}
+.mc-t{padding:4px;font-size:9px;font-weight:700;line-height:1.3}
+.mini-tbl{width:100%;border-collapse:collapse;font-size:10px}
+.mini-tbl th{text-align:left;padding:4px 6px;border-bottom:1.5px solid var(--border);color:var(--text2);font-size:9px}
+.mini-tbl td{padding:4px 6px;border-bottom:1px solid var(--border2)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:4px}
+
+/* 案2 タブ */
+.tabs{display:flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px;overflow-x:auto}
+.tab{padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--text2);border:none;background:transparent}
+.tab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.icontog{display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+.icontog button{padding:5px 10px;border:none;background:var(--surface);color:var(--text2);cursor:pointer;font-size:13px}
+.icontog button.on{background:var(--accent);color:var(--on-accent)}
+
+/* 案3 ドロップダウン */
+.dd{position:relative}
+.dd-btn{padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px}
+.dd-menu{display:none;position:absolute;top:110%;left:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:5;min-width:200px;overflow:hidden}
+.dd-menu.open{display:block}
+.dd-item{padding:9px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.dd-item:hover{background:var(--surface2)}
+.dd-item.on{background:var(--surface2);font-weight:700}
+
+/* 案4 サイドリスト */
+.layout4{display:flex;gap:10px}
+.side4{width:130px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.side4-item{padding:8px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;border-bottom:1px solid var(--border2)}
+.side4-item.on{background:var(--accent);color:var(--on-accent);font-weight:700}
+.main4{flex:1;min-width:0}
+.bar4{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:8px;margin-bottom:8px;font-size:11px}
+
+.op-btn{padding:5px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:11px;font-weight:700;cursor:pointer}
+.op-btn.add{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+
+.memo-tag{font-size:9px;color:var(--text3);font-style:italic}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--on-accent);padding:8px 16px;border-radius:18px;font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>カスタムビュー — 設計5案</h1>
+<div class="sub">「データ選択（軸A）」と「表示形式（軸B）」を分離。表示形式は全ビュー共通トグル。</div>
+
+<div class="theme-bar">
+  <span style="font-size:11px;color:var(--text2)">テーマ:</span>
+  <button id="t-light" class="on" onclick="setTheme('light')">☀️ ライト</button>
+  <button id="t-dark" onclick="setTheme('dark')">🌙 ダーク</button>
+</div>
+
+<!-- ───────── 案1 ───────── -->
+<div class="case">
+  <div class="case-ttl">案1：2段スタック（選択段 / 表示段）</div>
+  <div class="case-desc">上=ビュー選択、下=表示形式（共通）。ビューを切り替えても表示形式は維持。</div>
+  <div class="row"><span class="lbl-sm">ビュー</span>
+    <button class="pill on" onclick="c1view('master',this)">🏠 マスター</button>
+    <button class="pill" onclick="c1view('A',this)">📌 ベーシック</button>
+    <button class="pill" onclick="c1view('B',this)">🔄 777</button>
+  </div>
+  <div class="seg-sep"></div>
+  <div class="row"><span class="lbl-sm">表示</span>
+    <button class="pill on" id="c1-card" onclick="c1disp('card')">📋 カード</button>
+    <button class="pill" id="c1-table" onclick="c1disp('table')">📊 テーブル</button>
+  </div>
+  <div class="mini" id="c1-mini"></div>
+</div>
+
+<!-- ───────── 案2 ───────── -->
+<div class="case">
+  <div class="case-ttl">案2：セグメントタブ + 表示トグル</div>
+  <div class="case-desc">ビューをタブで選択、右端アイコンで表示切替。1行完結。</div>
+  <div class="row" style="gap:8px">
+    <div class="tabs" style="flex:1">
+      <button class="tab on" onclick="c2view('master',this)">🏠 マスター</button>
+      <button class="tab" onclick="c2view('A',this)">📌 ベーシック</button>
+      <button class="tab" onclick="c2view('B',this)">🔄 777</button>
+      <button class="tab" onclick="showToast('＋ 新規ビュー作成')">＋</button>
+    </div>
+    <div class="icontog">
+      <button class="on" id="c2-card" onclick="c2disp('card')" title="カード">⊞</button>
+      <button id="c2-table" onclick="c2disp('table')" title="テーブル">☰</button>
+    </div>
+  </div>
+  <div class="mini" id="c2-mini"></div>
+</div>
+
+<!-- ───────── 案3 ───────── -->
+<div class="case">
+  <div class="case-ttl">案3：ビュー名ドロップダウン + 表示トグル（最省スペース）</div>
+  <div class="case-desc">1つのドロップダウンに全ビュー。モバイル向き。</div>
+  <div class="row" style="gap:8px">
+    <div class="dd">
+      <button class="dd-btn" id="c3-ddbtn" onclick="c3toggle()">🏠 マスタービュー <span style="font-size:9px">▾</span></button>
+      <div class="dd-menu" id="c3-menu">
+        <div class="dd-item on" onclick="c3view('master','🏠 マスタービュー',this)">🏠 マスタービュー</div>
+        <div class="dd-item" onclick="c3view('A','📌 ベーシック',this)">📌 ベーシック</div>
+        <div class="dd-item" onclick="c3view('B','🔄 777',this)">🔄 777</div>
+      </div>
+    </div>
+    <button class="pill on" id="c3-card" onclick="c3disp('card')">📋</button>
+    <button class="pill" id="c3-table" onclick="c3disp('table')">📊</button>
+  </div>
+  <div class="mini" id="c3-mini"></div>
+</div>
+
+<!-- ───────── 案4 ───────── -->
+<div class="case">
+  <div class="case-ttl">案4：サイドにビュー一覧 + 上部バーに表示形式</div>
+  <div class="case-desc">選択は縦リスト（マスターも一員）、表示形式と操作はメイン上部に常駐。</div>
+  <div class="layout4">
+    <div class="side4">
+      <div class="side4-item on" onclick="c4view('master',this)">🏠 マスター<span class="dot"></span></div>
+      <div class="side4-item" onclick="c4view('A',this)">📌 ベーシック</div>
+      <div class="side4-item" onclick="c4view('B',this)">🔄 777</div>
+      <div class="side4-item" style="color:var(--text3)" onclick="showToast('＋ 新規ビュー')">＋ 新規</div>
+    </div>
+    <div class="main4">
+      <div class="bar4">
+        <span id="c4-count">770本</span>
+        <span style="flex:1"></span>
+        <button class="pill on" id="c4-card" onclick="c4disp('card')" style="padding:3px 9px;font-size:11px">📋</button>
+        <button class="pill" id="c4-table" onclick="c4disp('table')" style="padding:3px 9px;font-size:11px">📊</button>
+        <button class="op-btn add" id="c4-add" onclick="showToast('➕ 動画を追加')" style="padding:3px 9px">➕</button>
+      </div>
+      <div class="mini" id="c4-mini" style="margin-top:0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 案5 ───────── -->
+<div class="case">
+  <div class="case-ttl">案5：表示形式をビューごとに記憶（賢いトグル）</div>
+  <div class="case-desc">各ビューが「前回の表示形式」を記憶。マスター=テーブル派、ベーシック=カード派…を保持。既存のviewType仕様と自然に繋がる。</div>
+  <div class="row"><span class="lbl-sm">ビュー</span>
+    <button class="pill on" onclick="c5view('master',this)">🏠 マスター</button>
+    <button class="pill" onclick="c5view('A',this)">📌 ベーシック</button>
+    <button class="pill" onclick="c5view('B',this)">🔄 777</button>
+  </div>
+  <div class="seg-sep"></div>
+  <div class="row"><span class="lbl-sm">表示</span>
+    <button class="pill" id="c5-card" onclick="c5disp('card')">📋 カード</button>
+    <button class="pill on" id="c5-table" onclick="c5disp('table')">📊 テーブル</button>
+    <span class="memo-tag" id="c5-memo">（このビューはテーブルで記憶）</span>
+  </div>
+  <div class="mini" id="c5-mini"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const V = {
+  master:{name:'マスター', cards:['デラヒーバ','三角絞め','スイープ'], rows:[['デラヒーバガード','練習中'],['三角絞め','理解'],['バタフライ','未着手']]},
+  A:{name:'ベーシック', cards:['ガード','パス','エスケープ'], rows:[['クローズドガード','理解'],['ニースライス','練習中']]},
+  B:{name:'777', cards:['バック','チョーク'], rows:[['RNC','マスター'],['ボウアンドアロー','練習中']]},
+};
+function miniHTML(key, disp){
+  const v = V[key];
+  if (disp === 'table') {
+    return `<table class="mini-tbl"><thead><tr><th>タイトル</th><th>習得度</th></tr></thead><tbody>${v.rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</tbody></table>`;
+  }
+  return `<div class="mini-cards">${v.cards.map(c=>`<div class="mc"><div class="mc-th">▶</div><div class="mc-t">${c}</div></div>`).join('')}</div>`;
+}
+
+function setTheme(t){
+  document.body.classList.toggle('dark', t==='dark');
+  document.getElementById('t-light').classList.toggle('on', t==='light');
+  document.getElementById('t-dark').classList.toggle('on', t==='dark');
+}
+
+let toastT;
+function showToast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1600);}
+
+// 案1: 共通表示形式
+let c1v='master', c1d='card';
+function c1view(k,el){c1v=k;document.querySelectorAll('#c1-mini').forEach(()=>{});el.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('on'));el.classList.add('on');c1render();}
+function c1disp(d){c1d=d;document.getElementById('c1-card').classList.toggle('on',d==='card');document.getElementById('c1-table').classList.toggle('on',d==='table');c1render();}
+function c1render(){document.getElementById('c1-mini').innerHTML=miniHTML(c1v,c1d);}
+
+// 案2
+let c2v='master',c2d='card';
+function c2view(k,el){c2v=k;el.parentElement.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));el.classList.add('on');c2render();}
+function c2disp(d){c2d=d;document.getElementById('c2-card').classList.toggle('on',d==='card');document.getElementById('c2-table').classList.toggle('on',d==='table');c2render();}
+function c2render(){document.getElementById('c2-mini').innerHTML=miniHTML(c2v,c2d);}
+
+// 案3
+let c3v='master',c3d='card';
+function c3toggle(){document.getElementById('c3-menu').classList.toggle('open');}
+function c3view(k,name,el){c3v=k;document.getElementById('c3-ddbtn').innerHTML=name+' <span style="font-size:9px">▾</span>';el.parentElement.querySelectorAll('.dd-item').forEach(b=>b.classList.remove('on'));el.classList.add('on');document.getElementById('c3-menu').classList.remove('open');c3render();}
+function c3disp(d){c3d=d;document.getElementById('c3-card').classList.toggle('on',d==='card');document.getElementById('c3-table').classList.toggle('on',d==='table');c3render();}
+function c3render(){document.getElementById('c3-mini').innerHTML=miniHTML(c3v,c3d);}
+
+// 案4
+let c4v='master',c4d='card';
+const c4counts={master:'770本',A:'150本',B:'109本（条件）'};
+function c4view(k,el){c4v=k;el.parentElement.querySelectorAll('.side4-item').forEach(b=>b.classList.remove('on'));el.classList.add('on');document.getElementById('c4-count').textContent=c4counts[k];document.getElementById('c4-add').style.display=k==='B'?'none':'';c4render();}
+function c4disp(d){c4d=d;document.getElementById('c4-card').classList.toggle('on',d==='card');document.getElementById('c4-table').classList.toggle('on',d==='table');c4render();}
+function c4render(){document.getElementById('c4-mini').innerHTML=miniHTML(c4v,c4d);}
+
+// 案5: ビューごと記憶
+let c5v='master';
+const c5mem={master:'table', A:'card', B:'card'};
+function c5view(k,el){c5v=k;el.parentElement.querySelectorAll('.pill').forEach(b=>b.classList.remove('on'));el.classList.add('on');c5sync();}
+function c5disp(d){c5mem[c5v]=d;c5sync();}
+function c5sync(){
+  const d=c5mem[c5v];
+  document.getElementById('c5-card').classList.toggle('on',d==='card');
+  document.getElementById('c5-table').classList.toggle('on',d==='table');
+  document.getElementById('c5-memo').textContent=`（このビューは${d==='card'?'カード':'テーブル'}で記憶）`;
+  document.getElementById('c5-mini').innerHTML=miniHTML(c5v,d);
+}
+
+c1render();c2render();c3render();c4render();c5sync();
+</script>
+</body>
+</html>
