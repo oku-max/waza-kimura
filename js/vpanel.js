@@ -2879,7 +2879,7 @@ function _memoToHtml(memo) {
     .replace(/\n/g, '<br>');
 }
 
-// メモ内の ts-link に data-sec からクリックハンドラを再付与
+// メモ内の ts-link / snap-ref にクリックハンドラを再付与
 function _bindTsLinks(container) {
   if (!container) return;
   container.querySelectorAll('a.ts-link').forEach(el => {
@@ -2887,6 +2887,111 @@ function _bindTsLinks(container) {
     if (isNaN(sec)) return;
     el.contentEditable = 'false';
     el.onclick = (e) => { e.preventDefault(); _seekTo(sec); };
+  });
+  // スナップショットサムネ → クリックで既存ライトボックス（フル画質）
+  container.querySelectorAll('img.snap-ref').forEach(el => {
+    el.contentEditable = 'false';
+    const snapId = el.dataset.snapId;
+    el.onclick = (e) => {
+      e.preventDefault();
+      if (snapId && window.snapOpenLightboxById) window.snapOpenLightboxById(snapId);
+    };
+  });
+}
+
+// ── スナップショットサムネ（メモ埋め込み用） ──
+function _thumbHtml(snapId, sec, dataUrl, layout) {
+  const base = 'border-radius:4px;cursor:pointer;border:1px solid #ddd';
+  if (layout === 'block') {
+    return `<img class="snap-ref" contenteditable="false" data-snap-id="${snapId}" data-sec="${sec}" src="${dataUrl}" style="${base};display:block;max-width:220px;width:100%;height:auto;margin:4px 0">`;
+  }
+  return `<img class="snap-ref" contenteditable="false" data-snap-id="${snapId}" data-sec="${sec}" src="${dataUrl}" style="${base};height:34px;width:56px;object-fit:cover;flex-shrink:0;margin-top:1px">`;
+}
+
+// AI要約テキスト（[M:SS]含む）+ スクショ → サムネ付きHTML
+function _summaryToHtmlWithShots(summaryText, shotMap, layout) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const tsLinkify = str => esc(str).replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m,x,y,z) => {
+    const s2 = z!=null ? (+x*3600 + +y*60 + +z) : (+x*60 + +y);
+    const lb = z!=null ? `${x}:${y}:${z}` : `${x}:${y}`;
+    return _tsLinkHtml(s2, lb);
+  });
+  const out = [];
+  for (const line of summaryText.split('\n')) {
+    if (line.trim() === '') { out.push('<div><br></div>'); continue; }
+    const tsMatch = line.match(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/);
+    const lineHtml = tsLinkify(line);
+    if (tsMatch) {
+      const c = tsMatch[3];
+      const sec = c!=null ? (+tsMatch[1]*3600 + +tsMatch[2]*60 + +c) : (+tsMatch[1]*60 + +tsMatch[2]);
+      const shot = shotMap[sec];
+      if (shot && layout === 'inline') {
+        out.push(`<div style="display:flex;gap:6px;align-items:flex-start;margin:3px 0">${_thumbHtml(shot.snapId,sec,shot.thumbDataUrl,'inline')}<span style="flex:1">${lineHtml}</span></div>`);
+        continue;
+      }
+      if (shot && layout === 'block') {
+        out.push(`<div style="margin:3px 0">${lineHtml}${_thumbHtml(shot.snapId,sec,shot.thumbDataUrl,'block')}</div>`);
+        continue;
+      }
+    }
+    out.push(`<div>${lineHtml}</div>`);
+  }
+  return out.join('');
+}
+
+// ── Google Drive 動画の指定秒をキャプチャ ──
+// 同一オリジン（/api/drive プロキシ）配信なので canvas キャプチャ可能
+// 返り値: { fullBlob（スナップショット用・高画質）, thumbDataUrl（メモ埋め込み用・小型） }
+async function _captureGdFrame(sec) {
+  const video = _gdVideoEl;
+  if (!video) return null;
+  await new Promise((resolve) => {
+    let done = false;
+    const fin = () => { if (done) return; done = true; video.removeEventListener('seeked', fin); resolve(); };
+    video.addEventListener('seeked', fin);
+    try { video.currentTime = sec; } catch(e) { fin(); }
+    setTimeout(fin, 2500); // seeked が来ない場合の保険
+  });
+  const w = video.videoWidth, h = video.videoHeight;
+  if (!w || !h) return null;
+  try {
+    const fc = document.createElement('canvas');
+    const fs = Math.min(1, 1280 / Math.max(w, h));
+    fc.width = Math.round(w*fs); fc.height = Math.round(h*fs);
+    fc.getContext('2d').drawImage(video, 0, 0, fc.width, fc.height);
+    const fullBlob = await new Promise(r => fc.toBlob(r, 'image/jpeg', 0.6));
+    const tc = document.createElement('canvas');
+    const ts = Math.min(1, 320 / Math.max(w, h));
+    tc.width = Math.round(w*ts); tc.height = Math.round(h*ts);
+    tc.getContext('2d').drawImage(video, 0, 0, tc.width, tc.height);
+    const thumbDataUrl = tc.toDataURL('image/jpeg', 0.5);
+    return { fullBlob, thumbDataUrl };
+  } catch(e) { console.warn('[captureGdFrame]', e); return null; }
+}
+
+// ── AI要約オプションダイアログ（スクショ有無 + レイアウト） ──
+// canShot=false（YouTube等）なら即「スクショなし」を返す
+function _askSummaryOptions(canShot) {
+  return new Promise(resolve => {
+    if (!canShot) { resolve({ shot:false }); return; }
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    const pick = (val) => { try { document.body.removeChild(ov); } catch(e){} resolve(val); };
+    const btn = (id,bg,bc,col,label) => `<button id="${id}" style="display:block;width:100%;padding:11px;margin-bottom:8px;border:1px solid ${bc};background:${bg};color:${col};border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">${label}</button>`;
+    ov.innerHTML = `<div style="background:#fff;border-radius:12px;padding:18px;max-width:300px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">✨ AI要約</div>
+      <div style="font-size:12px;color:#666;margin-bottom:14px">各タイムスタンプのスクショをメモに入れますか？</div>
+      ${btn('_so-inline','#eafaf0','#90c0a0','#2a8050','📸 スクショあり（行頭インライン）')}
+      ${btn('_so-block','#eafaf0','#90c0a0','#2a8050','📸 スクショあり（大きめブロック）')}
+      ${btn('_so-none','#fff','#ccc','#555','要約のみ（スクショなし）')}
+      <button id="_so-cancel" style="display:block;width:100%;padding:8px;border:none;background:none;color:#999;font-size:12px;cursor:pointer">キャンセル</button>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_so-inline').onclick = () => pick({ shot:true, layout:'inline' });
+    ov.querySelector('#_so-block').onclick  = () => pick({ shot:true, layout:'block' });
+    ov.querySelector('#_so-none').onclick   = () => pick({ shot:false });
+    ov.querySelector('#_so-cancel').onclick = () => pick(null);
+    ov.onclick = (e) => { if (e.target === ov) pick(null); };
   });
 }
 
@@ -2974,6 +3079,11 @@ window.vpAiSummary = async function(id) {
   const btn = document.getElementById('vp-aisum-' + id);
   const memoEl = document.getElementById('vp-memo-' + id);
   const origLabel = btn ? btn.textContent : '';
+
+  // スクショオプションを先に確認（GDriveのみ撮影可。YouTubeはダイアログ無しで要約のみ）
+  const opts = await _askSummaryOptions(isGD);
+  if (!opts) return; // キャンセル
+
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 要約中…'; btn.style.opacity = '0.6'; }
 
   try {
@@ -2995,9 +3105,42 @@ window.vpAiSummary = async function(id) {
       return;
     }
 
-    // AI要約をHTML化（本文中の [M:SS] をクリッカブルなタイムスタンプリンクに変換）
+    // スクショ撮影（opts.shot かつ GDrive動画）
+    const shotMap = {};
+    if (opts.shot && isGD && _gdVideoEl) {
+      // 要約中の全タイムスタンプ（秒）を収集
+      const secs = [...new Set(
+        [...data.summary.matchAll(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g)].map(m => {
+          const c = m[3]; return c!=null ? (+m[1]*3600 + +m[2]*60 + +c) : (+m[1]*60 + +m[2]);
+        })
+      )].sort((a,b)=>a-b);
+
+      const origTime = _gdVideoEl.currentTime;
+      const wasPlaying = !_gdVideoEl.paused;
+      try { _gdVideoEl.pause(); } catch(e) {}
+      for (let i = 0; i < secs.length; i++) {
+        if (btn) btn.textContent = `📸 ${i+1}/${secs.length}`;
+        try {
+          const cap = await _captureGdFrame(secs[i]);
+          if (cap && cap.fullBlob && window.snapAddBlob) {
+            const snapId = await window.snapAddBlob(id, cap.fullBlob, secs[i]);
+            shotMap[secs[i]] = { snapId, thumbDataUrl: cap.thumbDataUrl };
+          }
+        } catch(e) { console.warn('[shot]', secs[i], e); }
+      }
+      // 撮影後、元の再生位置に戻す
+      try { _gdVideoEl.currentTime = origTime; if (wasPlaying) _gdVideoEl.play().catch(()=>{}); } catch(e) {}
+      if (btn) btn.textContent = '⏳ 整理中…';
+    }
+
+    // メモHTML生成（スクショありならサムネ付き、なければ従来通り）
     const stamp = new Date().toISOString().slice(0, 10);
-    const summaryHtml = _memoToHtml(`── ✨ AI要約 (${stamp}) ──\n${data.summary}`);
+    const header = `── ✨ AI要約 (${stamp}) ──`;
+    const shotCount = Object.keys(shotMap).length;
+    const summaryHtml = shotCount
+      ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(data.summary, shotMap, opts.layout)
+      : _memoToHtml(`${header}\n${data.summary}`);
+
     // 既存メモを壊さず先頭に追記（メモ欄はcontenteditable）
     if (memoEl) {
       const curHtml = memoEl.innerHTML.trim();
@@ -3015,7 +3158,7 @@ window.vpAiSummary = async function(id) {
     } else {
       autoSaveVp(id);
     }
-    window.toast?.('✨ AI要約をMemoに追記しました');
+    window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
   } catch (e) {
     window.toast?.('要約エラー: ' + e.message);
   } finally {

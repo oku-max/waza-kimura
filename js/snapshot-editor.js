@@ -161,7 +161,7 @@ function compressImage(file) {
 // ════════════════════════════════════════════════════════════════
 
 function syncVideoRefs() {
-  const refs = snapshots.map((s, i) => ({ id: s.id, memo: s.memo || '', order: i }));
+  const refs = snapshots.map((s, i) => ({ id: s.id, memo: s.memo || '', order: i, time: s.time ?? null }));
   const v = (window.videos || []).find(x => x.id === currentVideoId);
   if (v) {
     v.snapshots = refs;
@@ -1616,15 +1616,25 @@ export function changeHwBgColor(newColor) {
   annImg.src = generateHwBaseImage(hwBgType, newColor, W, H);
 }
 
-async function addSnapshotBlob(videoId, blob) {
+async function addSnapshotBlob(videoId, blob, time = null) {
   const id = generateId();
   const url = URL.createObjectURL(blob);
-  const snap = { id, videoId, blob, url, memo: '', annotations: [], order: snapshots.length };
+  const snap = { id, videoId, blob, url, memo: '', annotations: [], order: snapshots.length, time };
   snapshots.push(snap);
   try { await putSnapshot(id, videoId, blob, []); } catch (e) { console.error('[snapshot-editor] putSnapshot (hw) failed:', e); }
   renderGrid();
   syncVideoRefs();
+  return id;
 }
+
+// ── 外部（AI要約スクショ等）から利用するフック ──
+// 現在開いているVPanelのスナップショットに blob を追加し、スナップショットIDを返す
+window.snapAddBlob = function(videoId, blob, time = null) { return addSnapshotBlob(videoId, blob, time); };
+// メモ内サムネのクリック等から、スナップショットIDでライトボックスを開く
+window.snapOpenLightboxById = function(id) {
+  const idx = snapshots.findIndex(s => s.id === id);
+  if (idx >= 0) openLightbox(idx);
+};
 
 // ════════════════════════════════════════════════════════════════
 // ── Open / Close Annotation Editor
