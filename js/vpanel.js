@@ -1527,7 +1527,14 @@ export function openVPanel(id) {
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <span class="vp-lbl">Memo${_sumBtn}</span>
-          <textarea class="vp-memo" id="vp-memo-${vid}" placeholder="" onblur="vpSaveMemo('${vid}')" oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)">${vd?.memo||''}</textarea>
+          <div id="vp-memo-rendered-${vid}"
+            onclick="vpMemoEdit('${vid}')"
+            style="min-height:56px;padding:6px 8px;font-size:12px;line-height:1.7;word-break:break-word;cursor:text;border:1px solid var(--border,#e2e2e8);border-radius:6px;background:var(--card,#fff);color:var(--text,#1a1a1a)"
+          >${_renderMemoHtml(vd?.memo||'', vid)}</div>
+          <textarea class="vp-memo" id="vp-memo-${vid}" style="display:none"
+            onblur="vpMemoBlur('${vid}')"
+            oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),600)"
+          >${vd?.memo||''}</textarea>
         </div>
         <div id="vp-snap-section-${vid}"></div>`;
     if (window.initSnapshotSection) {
@@ -2836,6 +2843,41 @@ export function vpSaveMemo(id) {
   autoSaveVp(id);
 }
 
+// ── メモ レンダリング（タイムスタンプをクリッカブルスパンに変換）──
+function _renderMemoHtml(text, id) {
+  if (!text || !text.trim()) return '<span style="color:#bbb;font-size:12px">クリックして編集…</span>';
+  return esc(text)
+    .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m, a, b, c) => {
+      const s = c != null
+        ? parseInt(a)*3600 + parseInt(b)*60 + parseInt(c)
+        : parseInt(a)*60 + parseInt(b);
+      const label = c != null ? `${a}:${b}:${c}` : `${a}:${b}`;
+      return `<span onclick="event.stopPropagation();vpSeek('${id}',${s})" title="${s}秒にジャンプ"
+        style="cursor:pointer;color:var(--accent,#6c8cff);background:rgba(108,140,255,.12);border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;white-space:nowrap">▶ ${label}</span>`;
+    })
+    .replace(/\n/g, '<br>');
+}
+window.vpSeek = function(id, secs) { _seekTo(secs); };
+
+window.vpMemoEdit = function(id) {
+  const r = document.getElementById('vp-memo-rendered-' + id);
+  const t = document.getElementById('vp-memo-' + id);
+  if (!t) return;
+  if (r) r.style.display = 'none';
+  t.style.display = '';
+  t.focus();
+};
+window.vpMemoBlur = function(id) {
+  vpSaveMemo(id);
+  const v = (window.videos||[]).find(v => v.id===id);
+  const r = document.getElementById('vp-memo-rendered-' + id);
+  const t = document.getElementById('vp-memo-' + id);
+  if (!r || !t) return;
+  r.innerHTML = _renderMemoHtml(v?.memo || '', id);
+  r.style.display = '';
+  t.style.display = 'none';
+};
+
 // ── AI要約（Gemini / YouTube・オーナー限定）──
 window.vpAiSummary = async function(id) {
   const v = (window.videos||[]).find(v => v.id===id);
@@ -2876,6 +2918,9 @@ window.vpAiSummary = async function(id) {
     const cur    = (v.memo || '').trim();
     v.memo = cur ? `${block}\n\n${cur}` : block;
     if (memoEl) memoEl.value = v.memo;
+    // レンダリングビューを更新（タイムスタンプをクリッカブルに反映）
+    const rendered = document.getElementById('vp-memo-rendered-' + id);
+    if (rendered) rendered.innerHTML = _renderMemoHtml(v.memo, id);
     // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
     if (window.saveUserData) {
       await window.saveUserData();
@@ -2996,7 +3041,14 @@ export function _openPanel(id, emb, ext, plat) {
         <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && v?.pt === 'youtube' && v?.ytId)
           ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
           : ''}</span>
-        <textarea class="vp-memo" id="vp-memo-${id}" placeholder="" onblur="vpSaveMemo('${id}')">${v?.memo||''}</textarea>
+        <div id="vp-memo-rendered-${id}"
+          onclick="vpMemoEdit('${id}')"
+          style="min-height:56px;padding:6px 8px;font-size:12px;line-height:1.7;word-break:break-word;cursor:text;border:1px solid var(--border,#e2e2e8);border-radius:6px;background:var(--card,#fff);color:var(--text,#1a1a1a)"
+        >${_renderMemoHtml(v?.memo||'', id)}</div>
+        <textarea class="vp-memo" id="vp-memo-${id}" style="display:none"
+          onblur="vpMemoBlur('${id}')"
+          oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${id}'),600)"
+        >${v?.memo||''}</textarea>
       </div>
       <div id="vp-snap-section-${id}"></div>
       ${buildDrawerHTML(id)}
