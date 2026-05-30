@@ -440,7 +440,7 @@ ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
             { fileData: { fileUri: videoUrl } },
             { text: prompt },
           ] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 1200 },
+          generationConfig: { temperature: 0.3, maxOutputTokens: 2500 },
         }),
       }
     );
