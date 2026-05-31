@@ -1300,9 +1300,12 @@ export function orgMoveCol(col, dir) {
 }
 
 export function bindOrgDrag() {
+  // 前回のドラッグで残った孤児ゴーストを必ず掃除（溜まり防止）
+  document.getElementById('org-drag-ghost')?.remove();
+
   let dragSrc = null;
-  // ── タッチ用 ──
-  let _touchSrc = null, _touchClone = null, _touchStartX = 0;
+  // ── タッチ用 ── ゴーストは id='org-drag-ghost' でDOM管理し、変数スコープに依存しない
+  let _touchSrc = null, _touchStartX = 0;
   function _touchStart(e) {
     const th = e.target.closest('.org-th-draggable');
     if (!th || e.target.closest('.rh')) return; // リサイズハンドルは除外
@@ -1311,21 +1314,24 @@ export function bindOrgDrag() {
     // 長押し判定: 300ms後にドラッグ開始
     th._dragTimer = setTimeout(() => {
       th.classList.add('org-th-dragging');
-      // ゴーストを作成
-      _touchClone = th.cloneNode(true);
-      _touchClone.style.cssText = 'position:fixed;top:0;left:0;opacity:.7;pointer-events:none;z-index:9999;background:var(--surface2);padding:4px 8px;border-radius:4px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
-      document.body.appendChild(_touchClone);
+      // ゴーストを作成（既存があれば必ず除去してから1つだけ）
+      document.getElementById('org-drag-ghost')?.remove();
+      const ghost = th.cloneNode(true);
+      ghost.id = 'org-drag-ghost';
+      ghost.style.cssText = 'position:fixed;top:0;left:0;opacity:.7;pointer-events:none;z-index:9999;background:var(--surface2);padding:4px 8px;border-radius:4px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+      document.body.appendChild(ghost);
     }, 300);
   }
   function _touchMove(e) {
     if (!_touchSrc) return;
+    const ghost = document.getElementById('org-drag-ghost');
     const t = e.touches[0];
     // 移動が少なければ何もしない（スクロールと区別）
-    if (!_touchClone && Math.abs(t.clientX - _touchStartX) < 15) return;
-    if (!_touchClone) return;
+    if (!ghost && Math.abs(t.clientX - _touchStartX) < 15) return;
+    if (!ghost) return;
     e.preventDefault();
-    _touchClone.style.left = (t.clientX - 30) + 'px';
-    _touchClone.style.top = (t.clientY - 15) + 'px';
+    ghost.style.left = (t.clientX - 30) + 'px';
+    ghost.style.top = (t.clientY - 15) + 'px';
     // ドロップ先をハイライト
     const el = document.elementFromPoint(t.clientX, t.clientY);
     const target = el?.closest?.('.org-th-draggable');
@@ -1333,10 +1339,10 @@ export function bindOrgDrag() {
     if (target && target.dataset.col !== _touchSrc) target.classList.add('org-th-drag-over');
   }
   function _touchEnd(e) {
-    if (!_touchSrc) return;
-    const th = document.querySelector(`.org-th-draggable[data-col="${_touchSrc}"]`);
+    const th = _touchSrc ? document.querySelector(`.org-th-draggable[data-col="${_touchSrc}"]`) : null;
     if (th?._dragTimer) clearTimeout(th._dragTimer);
-    if (_touchClone) {
+    const ghost = document.getElementById('org-drag-ghost');
+    if (_touchSrc && ghost) {
       // ドロップ先を特定
       const t = e.changedTouches[0];
       const el = document.elementFromPoint(t.clientX, t.clientY);
@@ -1353,17 +1359,16 @@ export function bindOrgDrag() {
           }
         }
       }
-      _touchClone.remove();
-      _touchClone = null;
     }
+    // ゴーストは常に削除（ドロップ有無・srcの有無に関わらず）
+    ghost?.remove();
     document.querySelectorAll('.org-th-draggable').forEach(h => h.classList.remove('org-th-dragging', 'org-th-drag-over'));
     _touchSrc = null;
   }
+  // thead への重複バインドを防止（ハンドラ蓄積 → ゴースト溜まりの根本原因）
   const thead = document.querySelector('.org-table thead');
-  if (thead) {
-    thead.removeEventListener('touchstart', _touchStart);
-    thead.removeEventListener('touchmove', _touchMove);
-    thead.removeEventListener('touchend', _touchEnd);
+  if (thead && !thead._orgDragBound) {
+    thead._orgDragBound = true;
     thead.addEventListener('touchstart', _touchStart, { passive: true });
     thead.addEventListener('touchmove', _touchMove, { passive: false });
     thead.addEventListener('touchend', _touchEnd);
