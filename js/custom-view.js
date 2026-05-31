@@ -985,6 +985,14 @@ function _applyConditions(fc, all) {
     if (fc.ch   && fc.ch.length   && !fc.ch.includes(v.channel||v.ch||'')           ) return false;
     if (fc.tech && fc.tech.length && !(v.tags ||[]).some(x => fc.tech.includes(x))) return false;
     if (fc.pl   && fc.pl.length   && !fc.pl.includes(v.pl||''))                      return false;
+    // boolean系（マスターのフィルタ filt() と同じ判定）
+    if (fc.favOnly     && !v.fav)   return false;
+    if (fc.nextOnly    && !v.next)  return false;
+    if (fc.drillOnly   && !v.drill) return false;
+    if (fc.unwOnly     && v.watched) return false;
+    if (fc.watchedOnly && !v.watched) return false;
+    if (fc.bmOnly      && !(v.bookmarks && v.bookmarks.length > 0)) return false;
+    if (fc.memoOnly    && !v.memo) return false;
     return true;
   });
 }
@@ -2296,6 +2304,14 @@ function _getCurrentFilterConditions() {
   if (f.channel  && f.channel.size)   fc.ch   = [...f.channel];
   if (f.playlist && f.playlist.size)  fc.pl   = [...f.playlist];
   if (f.tags     && f.tags.size)      fc.tech = [...f.tags];
+  // boolean系フラグ（true のものだけ保存）
+  if (window.favOnly)     fc.favOnly = true;
+  if (window.nextOnly)    fc.nextOnly = true;
+  if (window.drillOnly)   fc.drillOnly = true;
+  if (window.unwOnly)     fc.unwOnly = true;
+  if (window.watchedOnly) fc.watchedOnly = true;
+  if (window.bmOnly)      fc.bmOnly = true;
+  if (window.memoOnly)    fc.memoOnly = true;
   return fc;
 }
 
@@ -2401,9 +2417,10 @@ window.cvOpenConditionEditor = function(viewId) {
   _cvSelectedIds = new Set(view.videoIds || []);
   window._cvSelectionMode = view.saveMode === 'dynamic' ? 'condition' : 'manual';
   const f = window.filters || {};
-  // まず全フィルターをリセット
+  // まず全フィルターをリセット（boolean系も漏れなく）
   ['tb','cat','posNew','channel','playlist','tags'].forEach(k => f[k]?.clear());
-  window.favOnly = false; window.unwOnly = false; window.watchedOnly = false;
+  window.favOnly = false; window.nextOnly = false; window.drillOnly = false;
+  window.unwOnly = false; window.watchedOnly = false; window.bmOnly = false; window.memoOnly = false;
   if (view.saveMode === 'dynamic' && view.filterConditions) {
     // 条件モード: 保存済み条件を復元
     const fc = view.filterConditions;
@@ -2413,6 +2430,14 @@ window.cvOpenConditionEditor = function(viewId) {
     if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
     if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
     if (f.tags)     (fc.tech||[]).forEach(x => f.tags.add(x));
+    // boolean系を復元（ドリル等の条件が保存・抽出されるように）
+    window.favOnly     = !!fc.favOnly;
+    window.nextOnly    = !!fc.nextOnly;
+    window.drillOnly   = !!fc.drillOnly;
+    window.unwOnly     = !!fc.unwOnly;
+    window.watchedOnly = !!fc.watchedOnly;
+    window.bmOnly      = !!fc.bmOnly;
+    window.memoOnly    = !!fc.memoOnly;
   }
   window.uniOpenForCv(viewId);
 };
