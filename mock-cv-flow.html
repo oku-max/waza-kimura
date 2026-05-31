@@ -67,6 +67,8 @@ h1{font-size:14px;margin-bottom:2px}
 .pk-pen{color:#d08a5a;font-size:11px;cursor:pointer}
 .pk-edit{padding:3px 10px;border:1px solid var(--border);background:var(--surface);border-radius:7px;font-size:10px;cursor:pointer;color:var(--text2);font-weight:700}
 .pk-div{height:1px;background:var(--border2);margin:5px 14px}
+.pk-sec{display:flex;align-items:center;gap:6px;padding:7px 14px 4px}
+.pk-sec-lbl{font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;flex:1}
 .pk-foot{display:flex;align-items:center;gap:9px;padding:10px 14px;cursor:pointer;color:var(--text3)}
 .pk-foot:hover{background:var(--surface2)}
 
@@ -116,8 +118,6 @@ h1{font-size:14px;margin-bottom:2px}
     <div class="picker">
       <div class="pk-head">
         <span class="pk-title">リスト</span>
-        <button class="pk-hbtn">テンプレ</button>
-        <button class="pk-hbtn">整理</button>
         <button class="pk-x" onclick="closePicker()">✕</button>
       </div>
       <div class="pk-body" id="pk-body"></div>
@@ -195,9 +195,14 @@ function rowHTML(id){
 }
 
 function renderPicker(){
-  // マスター(先頭) + ボーダー + カスタム群 + 新規作成
+  // マスター(先頭) + ボーダー + 「カスタムビュー」見出し(テンプレ/整理) + カスタム群 + 新規作成
   let html = rowHTML('master');
   html += `<div class="pk-div"></div>`;
+  html += `<div class="pk-sec">
+    <span class="pk-sec-lbl">カスタムビュー</span>
+    <button class="pk-hbtn" onclick="showToast('テンプレートから作成')">テンプレ</button>
+    <button class="pk-hbtn" onclick="showToast('リストを整理')">整理</button>
+  </div>`;
   html += ORDER.map(rowHTML).join('');
   html += `<div class="pk-foot" onclick="showToast('＋ 新しいリストを作成')">
     <div class="pk-ic" style="background:transparent;border:1px dashed var(--border)">＋</div>
