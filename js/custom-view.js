@@ -179,29 +179,44 @@ function _stdCell(v, col) {
 
 // ── ビューバー描画 ──
 function _renderViewBar() {
-  const mainBtn   = document.getElementById('cv-main-btn');
-  const badge     = document.getElementById('cv-selected-badge');
-  const badgeText = document.getElementById('cv-badge-text');
-  const groupBox  = document.getElementById('cv-group-box');
-  const groupLbl  = document.getElementById('cv-group-lbl');
-  if (!mainBtn || !badge) return;
+  // サイドバー「リスト」ボタンに現在選択中のリスト名を表示
+  const iconEl = document.getElementById('cv-list-icon');
+  const nameEl = document.getElementById('cv-list-name');
+  if (!iconEl || !nameEl) return;
   if (_curId) {
     const view = _views.find(v => v.id === _curId);
     if (view) {
-      const icon = view.saveMode === 'dynamic' ? '🔄' : '📌';
-      badgeText.textContent = icon + ' ' + view.label;
-      badge.style.display = 'flex';
-      mainBtn.style.display = 'none';
-      groupBox?.classList.add('cv-active');
-      groupLbl?.classList.add('cv-lbl-active');
+      iconEl.textContent = view.saveMode === 'dynamic' ? '🔄' : '📌';
+      nameEl.textContent = view.label;
       return;
     }
   }
-  badge.style.display = 'none';
-  mainBtn.style.display = '';
-  groupBox?.classList.remove('cv-active');
-  groupLbl?.classList.remove('cv-lbl-active');
+  // 未選択＝マスター
+  iconEl.textContent = '🏠';
+  nameEl.textContent = 'マスター';
 }
+
+// リストの表示形式（'card' | 'table'）を取得
+function _viewTypeOf(id) {
+  if (id === '__master__') {
+    const s = localStorage.getItem('wk_masterViewType');
+    return s === 'card' ? 'card' : (s === 'org' ? 'table' : (window._libViewMode === 'card' ? 'card' : 'table'));
+  }
+  const v = _views.find(x => x.id === id);
+  return (v && v.viewType === 'card') ? 'card' : 'table';
+}
+
+// サイドバー「ビュー」切替：選択中リストの表示形式を変更＆リストごとに記憶
+window._cvSetView = function(vt) { // vt: 'card' | 'table'
+  const mode = vt === 'card' ? 'card' : 'org';
+  if (_curId) {
+    const view = _views.find(v => v.id === _curId);
+    if (view) { view.viewType = (vt === 'card' ? 'card' : 'table'); _save(); _showView(_curId); }
+  } else {
+    localStorage.setItem('wk_masterViewType', mode);
+    window._libView?.(mode);
+  }
+};
 
 // ── カスタムビュー選択モーダル ──
 let _cvPickerEditMode = false;
@@ -219,7 +234,45 @@ window.cvOpenViewPicker = function() {
   el.style.display = 'flex';
 };
 
+// ピッカー各行の表示形式トグル（📋/📊）
+function _rowDispHTML(id, vt) {
+  const base = 'border:none;background:transparent;cursor:pointer;font-size:11px;padding:3px 7px';
+  const on = 'background:var(--accent);color:var(--on-accent)';
+  const off = 'color:var(--text3)';
+  return `<span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden" onclick="event.stopPropagation()">
+    <button style="${base};${vt==='card'?on:off}" onclick="event.stopPropagation();window._cvRowSetView('${id}','card')" title="カード">📋</button>
+    <button style="${base};${vt==='table'?on:off}" onclick="event.stopPropagation();window._cvRowSetView('${id}','table')" title="テーブル">📊</button>
+  </span>`;
+}
+
+// ピッカー行から表示形式を変更（リストごとに記憶）
+window._cvRowSetView = function(id, vt) {
+  if (id === '__master__') {
+    const mode = vt === 'card' ? 'card' : 'org';
+    localStorage.setItem('wk_masterViewType', mode);
+    if (!_curId) window._libView?.(mode);
+  } else {
+    const view = _views.find(v => v.id === id);
+    if (view) { view.viewType = (vt === 'card' ? 'card' : 'table'); _save(); if (_curId === id) _showView(id); }
+  }
+  const ov = document.getElementById('cv-picker-overlay');
+  if (ov) ov.innerHTML = _buildPickerHTML();
+};
+
 function _buildPickerHTML() {
+  // ── マスター行（先頭） ──
+  const masterActive = !_curId;
+  const masterRow = `<div class="cv-picker-item${masterActive ? ' active' : ''}" onclick="window._cvClearSelection();window._closePicker()">
+    <span class="cv-picker-icon">🏠</span>
+    <span class="cv-picker-info">
+      <span class="cv-picker-name">マスター</span>
+      <span class="cv-picker-meta">ライブラリ全体</span>
+    </span>
+    <span class="cv-picker-check">${masterActive ? '✓' : ''}</span>
+    ${_rowDispHTML('__master__', _viewTypeOf('__master__'))}
+  </div>`;
+
+  // ── カスタムリスト群 ──
   const items = _views.map((v, idx) => {
     const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
     const modeLbl = v.saveMode === 'dynamic' ? '条件で自動選択' : '手動選択';
@@ -256,40 +309,36 @@ function _buildPickerHTML() {
         <span class="cv-picker-meta">${modeLbl} · ${cnt}本</span>
       </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
+      ${_rowDispHTML(v.id, _viewTypeOf(v.id))}
       <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">編集</button>
     </div>`;
   }).join('');
 
-  const clearRow = _curId ? `
-    <div class="cv-picker-divider"></div>
-    <div class="cv-picker-item cv-picker-clear" onclick="window._cvClearSelection();window._closePicker()">
-      <span class="cv-picker-icon" style="font-size:14px">✕</span>
-      <span class="cv-picker-info"><span class="cv-picker-name" style="color:#e06060">選択を解除</span><span class="cv-picker-meta">ライブラリ全件に戻る</span></span>
-    </div>` : '';
-
-  const footer = _cvPickerEditMode ? '' : `
-      <div class="cv-picker-divider"></div>
-      ${clearRow}
-      <div class="cv-picker-item cv-picker-new" onclick="window._closePicker();window.cvOpenNewModal()">
-        <span class="cv-picker-icon" style="color:var(--accent);font-size:18px">＋</span>
-        <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいカスタムビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
-      </div>`;
-
+  // ── カスタムビュー見出し（テンプレ/整理を内包） ──
   const editToggleBtn = _views.length > 0 ? `<button onclick="window._cvPickerToggleEdit()" class="cv-picker-organize-btn${_cvPickerEditMode ? ' active' : ''}">${_cvPickerEditMode ? '完了' : '整理'}</button>` : '';
   const tplMgrBtn = _cvUserTemplates.length > 0 ? `<button onclick="window._cvOpenTemplateManager()" class="cv-picker-organize-btn">テンプレ</button>` : '';
+  const cvSecHeader = `<div style="display:flex;align-items:center;gap:6px;padding:8px 16px 4px">
+    <span style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.04em;flex:1">カスタムビュー</span>
+    ${tplMgrBtn}${editToggleBtn}
+  </div>`;
+
+  const newRow = _cvPickerEditMode ? '' : `
+    <div class="cv-picker-item cv-picker-new" onclick="window._closePicker();window.cvOpenNewModal()">
+      <span class="cv-picker-icon" style="color:var(--accent);font-size:18px">＋</span>
+      <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいカスタムビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
+    </div>`;
 
   return `<div class="cv-picker-modal">
     <div class="cv-picker-header">
-      <span style="font-size:14px;font-weight:700">カスタムビュー</span>
-      <div style="display:flex;gap:6px;align-items:center">
-        ${tplMgrBtn}
-        ${editToggleBtn}
-        <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
-      </div>
+      <span style="font-size:14px;font-weight:700">リスト</span>
+      <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
     </div>
     <div class="cv-picker-body">
-      ${items || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text3)">ビューがありません</div>'}
-      ${footer}
+      ${masterRow}
+      <div class="cv-picker-divider"></div>
+      ${cvSecHeader}
+      ${items || '<div style="padding:10px 16px;font-size:12px;color:var(--text3)">カスタムビューがありません</div>'}
+      ${newRow}
     </div>
   </div>`;
 }
@@ -346,7 +395,10 @@ window._cvClearSelection = function() {
   window._cvCardVideoIds = null;
   window._cvOnViewChange?.();
   _restoreFilterSnapshot('master');
-  window._libView?.(window._libViewMode || 'card');
+  // マスターの表示形式を記憶から復元
+  const saved = localStorage.getItem('wk_masterViewType');
+  window._libView?.(saved || window._libViewMode || 'card');
+  _renderViewBar();
 };
 
 window._closePicker = function() {
@@ -512,8 +564,6 @@ function _showView(id) {
   _curId = id;
   _restoreFilterSnapshot(id);
   _renderViewBar();
-  document.getElementById('lvt-card')?.classList.remove('lvt-active');
-  document.getElementById('lvt-org')?.classList.remove('lvt-active');
   const view = _views.find(v => v.id === id);
   if (!view) return;
 
@@ -533,8 +583,6 @@ function _showView(id) {
       window._cvInternalNav = true;
       window._libView?.('card');
     }
-    document.getElementById('lvt-card')?.classList.remove('lvt-active');
-    document.getElementById('lvt-org')?.classList.remove('lvt-active');
   } else {
     window._cvCardVideoIds = null;
     window._cvAfterRender = () => _addCvCols(view);
@@ -569,8 +617,6 @@ function _showView(id) {
       if (siOrg) siOrg.value = '';
       window._cvInternalNav = true;
       window._libView?.('org');
-      document.getElementById('lvt-card')?.classList.remove('lvt-active');
-      document.getElementById('lvt-org')?.classList.remove('lvt-active');
     }
   }
 }
