@@ -2299,8 +2299,8 @@ function _getCurrentFilterConditions() {
   const f = window.filters || {};
   const fc = {};
   if (f.tb       && f.tb.size)        fc.tb   = [...f.tb];
-  if (f.cat      && f.cat.size)       fc.cat  = [...f.cat];
-  if (f.posNew   && f.posNew.size)    fc.pos  = [...f.posNew];
+  if (f.action   && f.action.size)    fc.cat  = [...f.action];
+  if (f.position && f.position.size)  fc.pos  = [...f.position];
   if (f.channel  && f.channel.size)   fc.ch   = [...f.channel];
   if (f.playlist && f.playlist.size)  fc.pl   = [...f.playlist];
   if (f.tags     && f.tags.size)      fc.tech = [...f.tags];
@@ -2417,16 +2417,16 @@ window.cvOpenConditionEditor = function(viewId) {
   _cvSelectedIds = new Set(view.videoIds || []);
   window._cvSelectionMode = view.saveMode === 'dynamic' ? 'condition' : 'manual';
   const f = window.filters || {};
-  // まず全フィルターをリセット（boolean系も漏れなく）
-  ['tb','cat','posNew','channel','playlist','tags'].forEach(k => f[k]?.clear());
+  // 全フィルターをリセット（マスターのフィルタが残らないよう window.filters の全Set + boolean）
+  Object.keys(f).forEach(k => { if (f[k] instanceof Set) f[k].clear(); });
   window.favOnly = false; window.nextOnly = false; window.drillOnly = false;
   window.unwOnly = false; window.watchedOnly = false; window.bmOnly = false; window.memoOnly = false;
   if (view.saveMode === 'dynamic' && view.filterConditions) {
-    // 条件モード: 保存済み条件を復元
+    // 条件モード: 保存済み条件を正しいキー（action/position）で復元
     const fc = view.filterConditions;
     if (f.tb)       (fc.tb  ||[]).forEach(x => f.tb.add(x));
-    if (f.cat)      (fc.cat ||[]).forEach(x => f.cat.add(x));
-    if (f.posNew)   (fc.pos ||[]).forEach(x => f.posNew.add(x));
+    if (f.action)   (fc.cat ||[]).forEach(x => f.action.add(x));
+    if (f.position) (fc.pos ||[]).forEach(x => f.position.add(x));
     if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
     if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
     if (f.tags)     (fc.tech||[]).forEach(x => f.tags.add(x));
