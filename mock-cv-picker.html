@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>既存ピッカー活用案 モック</title>
+<style>
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--surface3:#e8e8e5;--accent:#111;--on-accent:#fff;--text:#111;--text2:#555;--text3:#999;--border:#e0e0dc;--border2:#eaeae6;--green:#2d6a4f;--green-soft:#edf5f1;--red:#c0392b;}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--surface3:#48484a;--accent:#e5c47a;--on-accent:#1a1a1a;--text:#e5e5e7;--text2:#ababab;--text3:#8e8e93;--border:#48484a;--border2:#3a3a3c;--green:#6bc490;--green-soft:#1e2e24;--red:#ff6b5b;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;padding:14px;max-width:560px;margin:0 auto;transition:background .2s}
+h1{font-size:15px;margin-bottom:2px}
+.sub{font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6}
+
+.bar{position:sticky;top:0;z-index:10;background:var(--bg);padding:8px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;border-bottom:1px solid var(--border)}
+.bar button{padding:6px 11px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:18px;font-size:11px;cursor:pointer;font-weight:700}
+.bar button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.bar .grp{display:flex;gap:5px}
+.bar .glbl{font-size:10px;color:var(--text2);align-self:center}
+
+/* ── ピッカー（既存再現） ── */
+.picker{background:var(--surface);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);overflow:hidden;max-width:420px;margin:0 auto}
+.pk-head{display:flex;align-items:center;gap:8px;padding:14px 16px 10px}
+.pk-title{font-size:16px;font-weight:800;flex:1}
+.pk-hbtn{padding:4px 12px;border:1px solid var(--border);background:var(--surface2);border-radius:14px;font-size:12px;cursor:pointer;color:var(--text2);font-weight:700}
+.pk-x{width:26px;height:26px;border-radius:50%;background:var(--surface2);border:none;color:var(--text2);cursor:pointer;font-size:14px}
+
+/* 表示形式トグル（案B: ヘッダーに） */
+.disp-tog{display:inline-flex;border:1.5px solid var(--border);border-radius:14px;overflow:hidden}
+.disp-tog button{padding:4px 10px;border:none;background:var(--surface);color:var(--text2);cursor:pointer;font-size:12px;font-weight:700}
+.disp-tog button.on{background:var(--accent);color:var(--on-accent)}
+
+.pk-list{padding:4px 0 8px}
+.pk-row{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer}
+.pk-row:hover{background:var(--surface2)}
+.pk-row.sel{background:var(--green-soft)}
+.pk-icon{width:30px;height:30px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.pk-row.sel .pk-icon{background:rgba(45,106,79,.15)}
+.pk-info{flex:1;min-width:0}
+.pk-name{font-size:13px;font-weight:700;line-height:1.3}
+.pk-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.pk-check{color:var(--green);font-weight:800;font-size:14px}
+.pk-pen{color:#d08a5a;font-size:12px}
+.pk-edit{padding:4px 12px;border:1px solid var(--border);background:var(--surface);border-radius:8px;font-size:11px;cursor:pointer;color:var(--text2);font-weight:700}
+
+/* 各行の表示形式アイコン（案C） */
+.row-disp{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-right:2px}
+.row-disp button{padding:3px 7px;border:none;background:var(--surface);color:var(--text3);cursor:pointer;font-size:11px}
+.row-disp button.on{background:var(--accent);color:var(--on-accent)}
+
+.pk-div{height:1px;background:var(--border2);margin:4px 16px}
+.pk-master{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer}
+.pk-master:hover{background:var(--surface2)}
+.pk-master.sel{background:var(--green-soft)}
+.pk-master .pk-icon{background:rgba(26,58,92,.12)}
+.pk-foot{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;color:var(--text3)}
+.pk-foot:hover{background:var(--surface2)}
+.pk-foot.danger{color:var(--red)}
+
+/* 案A: メイン画面上部バーのイメージ */
+.mainbar{max-width:420px;margin:10px auto 0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px}
+.mainbar .mb-name{font-weight:800}
+.mainbar .mb-count{color:var(--text3);font-size:11px}
+.pill{padding:4px 11px;border-radius:16px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer}
+.pill.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+
+.cap{max-width:420px;margin:8px auto 0;font-size:11px;color:var(--text2);line-height:1.7;padding:0 4px}
+.cap b{color:var(--text)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--on-accent);padding:8px 16px;border-radius:18px;font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<h1>既存ピッカーを活かす — 表示形式の組み込み3案</h1>
+<div class="sub">ピッカー（ビュー選択）はそのまま活用。「✕ 選択を解除」を <b>🏠 マスタービュー</b> に格上げ。カード/テーブルの組み込み方を3通り。</div>
+
+<div class="bar">
+  <span class="glbl">テーマ:</span>
+  <div class="grp"><button id="t-l" class="on" onclick="theme('light')">☀️</button><button id="t-d" onclick="theme('dark')">🌙</button></div>
+  <span style="width:8px"></span>
+  <span class="glbl">組み込み案:</span>
+  <div class="grp">
+    <button id="p-a" class="on" onclick="setCase('a')">案A メイン常駐</button>
+    <button id="p-b" onclick="setCase('b')">案B ヘッダー</button>
+    <button id="p-c" onclick="setCase('c')">案C 行ごと記憶</button>
+  </div>
+</div>
+
+<!-- ピッカー -->
+<div class="picker">
+  <div class="pk-head">
+    <span class="pk-title">カスタムビュー</span>
+    <button class="pk-hbtn">テンプレ</button>
+    <button class="pk-hbtn">整理</button>
+    <!-- 案B: 表示形式トグルをヘッダーに -->
+    <div class="disp-tog" id="head-tog" style="display:none">
+      <button class="on" id="hb-card" onclick="globalDisp('card')">📋</button>
+      <button id="hb-table" onclick="globalDisp('table')">📊</button>
+    </div>
+    <button class="pk-x">✕</button>
+  </div>
+
+  <div class="pk-list" id="pk-list"></div>
+
+  <div class="pk-div"></div>
+
+  <!-- マスタービュー（旧「選択を解除」を格上げ） -->
+  <div class="pk-master" id="row-master" onclick="selectView('master')">
+    <div class="pk-icon">🏠</div>
+    <div class="pk-info">
+      <div class="pk-name">マスタービュー</div>
+      <div class="pk-meta">ライブラリ全体 · 770本</div>
+    </div>
+    <span class="pk-check" id="master-check" style="display:none">✓</span>
+  </div>
+
+  <div class="pk-foot" onclick="showToast('＋ 新しいカスタムビューを作成')">
+    <div class="pk-icon" style="background:transparent;border:1px dashed var(--border)">＋</div>
+    <div class="pk-info"><div class="pk-name" style="font-weight:700;color:var(--text)">新しいカスタムビューを作成</div>
+      <div class="pk-meta">手動選択 / 条件で自動選択</div></div>
+  </div>
+</div>
+
+<!-- 案A: メイン画面上部バーのイメージ -->
+<div class="mainbar" id="mainbar">
+  <span class="mb-name" id="mb-name">🔄 777</span>
+  <span class="mb-count" id="mb-count">· 2109本</span>
+  <span style="flex:1"></span>
+  <button class="pill on" id="mb-card" onclick="globalDisp('card')">📋 カード</button>
+  <button class="pill" id="mb-table" onclick="globalDisp('table')">📊 テーブル</button>
+</div>
+
+<div class="cap" id="cap"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const VIEWS = [
+  {id:'now', icon:'📌', name:'いま取り組み中', meta:'手動選択 · 114本'},
+  {id:'basic', icon:'📌', name:'トライフォースベーシック Quick', meta:'手動選択 · 150本'},
+  {id:'adv', icon:'📌', name:'トライフォースアドバンスド Quick', meta:'手動選択 · 150本'},
+  {id:'777', icon:'🔄', name:'777', meta:'条件で自動選択 · 2109本'},
+  {id:'next', icon:'🔄', name:'next ☆ Drill', meta:'条件で自動選択 · 62本'},
+  {id:'tf', icon:'🔄', name:'TFアドバンスド 通常', meta:'条件で自動選択 · 330本'},
+];
+let curCase='a', sel='777', globalView='card';
+const memDisp={now:'card',basic:'card',adv:'table','777':'table',next:'card',tf:'table',master:'table'};
+
+const CAPS={
+  a:'<b>案A メイン常駐</b>：ピッカーは選択専用（既存のまま）。カード/テーブルはメイン画面の上部バーに常駐し、今選んでいるビューに効く。全ビュー共通の1状態。ピッカーをいじらず最小変更。',
+  b:'<b>案B ヘッダー</b>：ピッカーの「テンプレ/整理」の並びに表示形式トグルを追加。ビューを選ぶ前に「カードで見る/テーブルで見る」を決められる。全ビュー共通。',
+  c:'<b>案C 行ごと記憶</b>：各ビュー行に小さな📋/📊を付け、ビューごとに表示形式を記憶。マスター=テーブル、ベーシック=カード…と好みを保持。既存のviewType仕様と最も自然に繋がる。',
+};
+
+function renderList(){
+  document.getElementById('pk-list').innerHTML = VIEWS.map(v=>{
+    const isSel = sel===v.id;
+    const rowDisp = curCase==='c' ? `<div class="row-disp">
+        <button class="${memDisp[v.id]==='card'?'on':''}" onclick="event.stopPropagation();rowDispSet('${v.id}','card')">📋</button>
+        <button class="${memDisp[v.id]==='table'?'on':''}" onclick="event.stopPropagation();rowDispSet('${v.id}','table')">📊</button>
+      </div>` : '';
+    return `<div class="pk-row ${isSel?'sel':''}" onclick="selectView('${v.id}')">
+      <div class="pk-icon">${v.icon}</div>
+      <div class="pk-info"><div class="pk-name">${v.name}</div><div class="pk-meta">${v.meta}</div></div>
+      ${isSel?'<span class="pk-check">✓</span>':''}
+      ${rowDisp}
+      <span class="pk-pen">✏️</span>
+      <button class="pk-edit" onclick="event.stopPropagation();showToast('編集')">編集</button>
+    </div>`;
+  }).join('');
+}
+
+function setCase(c){
+  curCase=c;
+  ['a','b','c'].forEach(x=>document.getElementById('p-'+x).classList.toggle('on',x===c));
+  document.getElementById('head-tog').style.display = c==='b' ? '' : 'none';
+  document.getElementById('mainbar').style.display = c==='a' ? 'flex' : 'none';
+  document.getElementById('cap').innerHTML = CAPS[c];
+  renderList();
+  syncDisp();
+}
+
+function selectView(id){
+  sel=id;
+  document.getElementById('master-check').style.display = id==='master' ? '' : 'none';
+  document.getElementById('row-master').classList.toggle('sel', id==='master');
+  renderList();
+  // メインバーの名前更新
+  const v = id==='master' ? {name:'🏠 マスタービュー',count:'770本'} :
+    (()=>{const x=VIEWS.find(v=>v.id===id);return {name:x.icon+' '+x.name, count:x.meta.split('· ')[1]};})();
+  document.getElementById('mb-name').textContent=v.name;
+  document.getElementById('mb-count').textContent='· '+v.count;
+  syncDisp();
+  showToast((id==='master'?'🏠 マスタービュー':'ビュー')+'を表示');
+}
+
+// 案A/B: 全ビュー共通の表示形式
+function globalDisp(d){
+  globalView=d;
+  syncDisp();
+}
+// 案C: 行ごと記憶
+function rowDispSet(id,d){memDisp[id]=d;renderList();if(sel===id)syncDisp();showToast((d==='card'?'カード':'テーブル')+'で記憶');}
+
+function syncDisp(){
+  const d = curCase==='c' ? memDisp[sel] : globalView;
+  // メインバー
+  document.getElementById('mb-card').classList.toggle('on',d==='card');
+  document.getElementById('mb-table').classList.toggle('on',d==='table');
+  // ヘッダートグル
+  document.getElementById('hb-card').classList.toggle('on',d==='card');
+  document.getElementById('hb-table').classList.toggle('on',d==='table');
+}
+
+function theme(t){document.body.classList.toggle('dark',t==='dark');document.getElementById('t-l').classList.toggle('on',t==='light');document.getElementById('t-d').classList.toggle('on',t==='dark');}
+let toastT;function showToast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1500);}
+
+setCase('a');
+</script>
+</body>
+</html>
