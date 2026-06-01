@@ -3113,14 +3113,29 @@ window.vpAiSummary = async function(id) {
       ? { idToken, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
       : { idToken, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
 
-    const res = await fetch('/api/ai-summary', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(reqBody),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.summary) {
-      window.toast?.('要約失敗: ' + (data.error || res.status) + (data.detail ? ` (${data.detail})` : ''));
+    // 要約生成は一時的に失敗しやすい（Geminiのレート/タイムアウト）ので最大2回試行
+    let data = null, lastErr = '';
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      if (btn) btn.textContent = attempt === 1 ? '⏳ 要約中…' : '⏳ 再試行中…';
+      try {
+        const res = await fetch('/api/ai-summary', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(reqBody),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok && d.summary) { data = d; break; }
+        lastErr = (d.error || ('HTTP ' + res.status)) + (d.detail ? ` (${d.detail})` : '');
+        console.warn(`[aiSummary] 生成失敗 attempt ${attempt}/2:`, res.status, d);
+      } catch (e) {
+        lastErr = e.message;
+        console.warn(`[aiSummary] 生成エラー attempt ${attempt}/2:`, e);
+      }
+      if (attempt < 2) await new Promise(r => setTimeout(r, 1800));
+    }
+    if (!data) {
+      window.toast?.('要約失敗（2回試行）: ' + lastErr, 6000);
+      console.error('[aiSummary] 最終的に生成失敗:', lastErr);
       return;
     }
 
@@ -3177,15 +3192,29 @@ window.vpAiSummary = async function(id) {
       v.memo = curHtml ? `${summaryHtml}<br><br>${curHtml}` : summaryHtml;
     }
 
-    // debounce経由ではなく直接保存（AI要約は明示的アクションなので即時確定）
+    // debounce経由ではなく直接保存（AI要約は明示的アクション）。
+    // 保存は一時障害で失敗しうるので成否を確認し、失敗なら1回リトライ。
     if (window.saveUserData) {
-      await window.saveUserData();
+      if (btn) btn.textContent = '⏳ 保存中…';
+      let saved = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try { saved = await window.saveUserData(); } catch(e) { console.warn('[aiSummary] save throw', e); saved = false; }
+        if (saved) break;
+        console.warn(`[aiSummary] 保存失敗 attempt ${attempt}/2`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1200));
+      }
+      if (!saved) {
+        window.toast?.('⚠️ 要約は表示されていますが保存に失敗しました。もう一度「✨AI要約」を押すか、メモを編集して保存してください', 7000);
+        console.error('[aiSummary] 保存が2回とも失敗。v.memo はメモリ上にのみ存在');
+        return; // 成功トーストは出さない
+      }
     } else {
       autoSaveVp(id);
     }
     window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
   } catch (e) {
     window.toast?.('要約エラー: ' + e.message);
+    console.error('[aiSummary] 例外:', e);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
   }

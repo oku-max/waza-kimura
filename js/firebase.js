@@ -286,7 +286,7 @@ export async function saveUserData() {
   if (!currentUser) {
     console.warn('[saveUserData] currentUser is null — save skipped. Videos in memory:', (window.videos||[]).length);
     showToast('⚠️ 未ログイン: データを保存できませんでした', 4000);
-    return;
+    return false;
   }
   try {
     const updatedAt = new Date().toISOString();
@@ -301,9 +301,11 @@ export async function saveUserData() {
       cacheControl: 'no-cache, max-age=0',
     });
     showToast('💾 保存', 1500);
+    return true; // 呼び出し元が保存成否を判定できるようにする（AI要約のリトライ等）
   } catch (e) {
     console.error('[saveUserData] save failed:', e);
     showToast('⚠️ 保存に失敗しました: ' + e.message, 5000);
+    return false;
   }
 }
 
