@@ -3608,11 +3608,12 @@ window.vpJumpToChannel = function(id) {
   if (!v || !v.channel) return;
   const name = v.channel;
   window.showConf?.('🔍 チャンネルを表示', `チャンネル「${name}」を表示しますか？`, () => {
-    window._vpJumpClosing = true; // history.back()を抑制してpopstate/_restoreFromURL競合を防ぐ
+    window._vpJumpClosing = true;
     window.closeVPanel?.();
     window.switchTab?.('home');
     const f = window.filters;
     if (f) { f.channel.clear(); f.channel.add(name); }
+    if (window.orgFilters) { window.orgFilters.channel = new Set([name]); }
     window.buildChSrow?.(); window.buildFsChSrow?.();
     window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
@@ -3624,13 +3625,21 @@ window.vpJumpToPlaylist = function(id) {
   const name = v.pl;
   if (!name) return;
   window.showConf?.('🔍 プレイリストを表示', `プレイリスト「${name}」を表示しますか？`, () => {
-    window._vpJumpClosing = true; // history.back()を抑制してpopstate/_restoreFromURL競合を防ぐ
+    window._vpJumpClosing = true;
     window.closeVPanel?.();
     window.switchTab?.('home');
     const f = window.filters;
+    console.log('[vpJump] libViewMode=', window._libViewMode,
+      '| filters.playlist BEFORE=', [...(f?.playlist||[])],
+      '| orgFilters.playlist BEFORE=', [...(window.orgFilters?.playlist||[])],
+      '| _cvCardVideoIds=', window._cvCardVideoIds,
+      '| _cvVideoIds=', window._cvVideoIds);
     if (f) { f.playlist.clear(); f.playlist.add(name); }
+    if (window.orgFilters) { window.orgFilters.playlist = new Set([name]); }
     window.buildPlSrow?.(); window.buildFsPlSrow?.();
+    console.log('[vpJump] filters.playlist AFTER=', [...(f?.playlist||[])], '| calling', window._libViewMode === 'org' ? 'renderOrg' : 'AF');
     window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
+    setTimeout(() => console.log('[vpJump] 200ms後 filters.playlist=', [...(window.filters?.playlist||[])]), 200);
   });
 };
 
