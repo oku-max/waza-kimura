@@ -2996,38 +2996,72 @@ function _initMemoEditor(id, memo) {
 }
 
 // メモ欄ツールバー（書式 + 現在位置タイムスタンプ挿入）
+const _MEMO_COLORS_TEXT = ['#e53935','#f57c00','#f1c40f','#388e3c','#1976d2','#7b1fa2','#e91e63'];
+const _MEMO_COLORS_HL   = ['#fff176','#a5d6a7','#90caf9','#ffcc80','#f48fb1','#b2dfdb','#e1bee7'];
+
 function _memoToolbarHTML(id) {
   const btn = (cmd, label, extra='') =>
     `<button onmousedown="event.preventDefault()" onclick="vpMemoFmt('${id}','${cmd}')"
       class="vp-memo-tb-btn" ${extra}>${label}</button>`;
-  const colorsText = ['#e53935','#f57c00','#388e3c','#1976d2','#7b1fa2','#000000'];
-  const colorsHL   = ['#fff176','#a5d6a7','#90caf9','#ffcc80','#f48fb1','#e0e0e0'];
-  const swatchT = colorsText.map(c =>
-    `<span onmousedown="event.preventDefault()" onclick="vpMemoColor('${id}','fore','${c}')"
-      style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${c};cursor:pointer;border:1.5px solid rgba(0,0,0,.15);flex-shrink:0"></span>`).join('');
-  const swatchH = colorsHL.map(c =>
-    `<span onmousedown="event.preventDefault()" onclick="vpMemoColor('${id}','hilite','${c}')"
-      style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${c};cursor:pointer;border:1.5px solid rgba(0,0,0,.15);flex-shrink:0"></span>`).join('');
   return `<div class="vp-memo-toolbar">
     <div class="vp-memo-tb-row">
-      ${btn('bold','<b>B</b>')}${btn('italic','<i>I</i>')}${btn('underline','<u>U</u>')}
+      ${btn('bold','<b>B</b>')}${btn('italic','<i>I</i>')}${btn('underline','<u>U</u>')}${btn('strikeThrough','<s style="font-size:10px">S</s>')}
       <span class="vp-memo-tb-sep"></span>
-      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',2)" class="vp-memo-tb-btn" style="font-size:9px">小</button>
-      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',3)" class="vp-memo-tb-btn" style="font-size:11px">中</button>
-      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',5)" class="vp-memo-tb-btn" style="font-size:14px">大</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',2)" class="vp-memo-tb-btn" style="font-size:8px;font-weight:700;line-height:1;padding:2px 4px">A</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',3)" class="vp-memo-tb-btn" style="font-size:11px;font-weight:700;line-height:1;padding:2px 4px">A</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',4)" class="vp-memo-tb-btn" style="font-size:14px;font-weight:700;line-height:1;padding:2px 4px">A</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',6)" class="vp-memo-tb-btn" style="font-size:18px;font-weight:700;line-height:1;padding:2px 4px">A</button>
       <span class="vp-memo-tb-sep"></span>
-      <div style="display:flex;align-items:center;gap:2px">${swatchT}</div>
-      <span class="vp-memo-tb-sep"></span>
-      <div style="display:flex;align-items:center;gap:2px">${swatchH}</div>
+      <div class="vp-memo-pal-wrap" id="vp-memo-pal-text-${id}">
+        <button onmousedown="event.preventDefault()" onclick="vpMemoPalToggle('${id}','text')"
+          class="vp-memo-tb-btn vp-memo-pal-btn" title="文字色"
+          style="background:linear-gradient(135deg,#e53935 0%,#1976d2 50%,#388e3c 100%);border-color:transparent;width:20px;height:20px;padding:0;border-radius:50%"></button>
+        <div class="vp-memo-pal" id="vp-memo-pal-text-pop-${id}" style="display:none">
+          <div class="vp-memo-pal-inner">
+            ${_MEMO_COLORS_TEXT.map(c=>`<span onmousedown="event.preventDefault()" onclick="vpMemoColor('${id}','fore','${c}');vpMemoPalClose('${id}','text')"
+              style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:border .1s" onmouseover="this.style.borderColor='#fff'" onmouseout="this.style.borderColor='transparent'"></span>`).join('')}
+            <span onmousedown="event.preventDefault()" onclick="document.execCommand('foreColor',false,'inherit');vpSaveMemo('${id}');vpMemoPalClose('${id}','text')"
+              style="width:22px;height:22px;border-radius:50%;background:var(--surface2);cursor:pointer;flex-shrink:0;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3)">✕</span>
+          </div>
+        </div>
+      </div>
+      <div class="vp-memo-pal-wrap" id="vp-memo-pal-hl-${id}">
+        <button onmousedown="event.preventDefault()" onclick="vpMemoPalToggle('${id}','hl')"
+          class="vp-memo-tb-btn vp-memo-pal-btn" title="蛍光ペン"
+          style="background:linear-gradient(135deg,#fff176 0%,#90caf9 50%,#f48fb1 100%);border-color:transparent;width:20px;height:20px;padding:0;border-radius:50%"></button>
+        <div class="vp-memo-pal" id="vp-memo-pal-hl-pop-${id}" style="display:none">
+          <div class="vp-memo-pal-inner">
+            ${_MEMO_COLORS_HL.map(c=>`<span onmousedown="event.preventDefault()" onclick="vpMemoColor('${id}','hilite','${c}');vpMemoPalClose('${id}','hl')"
+              style="width:22px;height:22px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:border .1s" onmouseover="this.style.borderColor='#999'" onmouseout="this.style.borderColor='transparent'"></span>`).join('')}
+            <span onmousedown="event.preventDefault()" onclick="document.execCommand('hiliteColor',false,'transparent');vpSaveMemo('${id}');vpMemoPalClose('${id}','hl')"
+              style="width:22px;height:22px;border-radius:50%;background:var(--surface2);cursor:pointer;flex-shrink:0;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3)">✕</span>
+          </div>
+        </div>
+      </div>
       <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoResetColor('${id}')"
-        class="vp-memo-tb-btn" title="色をリセット" style="font-size:11px;padding:2px 6px">✕色</button>
+        class="vp-memo-tb-btn" title="すべての書式をリセット" style="font-size:10px;color:var(--text3)">✕</button>
       <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')"
-        class="vp-memo-tb-btn" style="border-color:#a8c0f0;background:#e8f0ff;color:#2050c0;font-weight:700">📍 現在位置</button>
+        class="vp-memo-tb-btn" style="border-color:#a8c0f0;background:#e8f0ff;color:#2050c0;font-weight:700">📍</button>
     </div>
   </div>`;
 }
+
+window.vpMemoPalToggle = function(id, type) {
+  const popId = `vp-memo-pal-${type === 'text' ? 'text' : 'hl'}-pop-${id}`;
+  const pop = document.getElementById(popId);
+  if (!pop) return;
+  const isOpen = pop.style.display !== 'none';
+  // 他のパレットを閉じる
+  document.querySelectorAll('.vp-memo-pal').forEach(el => { el.style.display = 'none'; });
+  if (!isOpen) pop.style.display = 'block';
+};
+
+window.vpMemoPalClose = function(id, type) {
+  const pop = document.getElementById(`vp-memo-pal-${type === 'text' ? 'text' : 'hl'}-pop-${id}`);
+  if (pop) pop.style.display = 'none';
+};
 
 window.vpSeek = function(id, secs) { _seekTo(secs); };
 
