@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.502</title>
+<title>WAZA KIMURA v52.503</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1424,12 +1424,13 @@
       <!-- ビュー切替 -->
       <div class="lib-sb-section">
         <span class="lib-sb-sec-title">リスト</span>
-        <div class="lib-sb-cv-box">
-          <button id="cv-list-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()" style="width:100%;display:flex;align-items:center;gap:6px">
-            <span id="cv-list-icon">🏠</span>
-            <span id="cv-list-name" style="flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">マスター</span>
-            <span style="font-size:9px;opacity:.55">▾</span>
+        <div class="lib-sb-cv-box" style="display:flex;gap:4px;align-items:stretch">
+          <button id="cv-list-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
+            <span id="cv-list-icon" style="flex-shrink:0">🏠</span>
+            <span id="cv-list-name" style="flex:1;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;word-break:break-word">マスター</span>
+            <span style="font-size:9px;opacity:.55;flex-shrink:0">▾</span>
           </button>
+          <button id="cv-list-edit" onclick="event.stopPropagation();window._cvEditCurrent()" title="リストを編集" class="lvt-inner-btn" style="display:none;flex:0 0 auto;padding:5px 9px">✏️</button>
         </div>
         <span class="lib-sb-sec-title">ビュー</span>
         <div class="lib-sb-master-box">

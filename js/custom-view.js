@@ -187,18 +187,21 @@ function _renderViewBar() {
   // サイドバー「リスト」ボタンに現在選択中のリスト名を表示
   const iconEl = document.getElementById('cv-list-icon');
   const nameEl = document.getElementById('cv-list-name');
+  const editBtn = document.getElementById('cv-list-edit');
   if (!iconEl || !nameEl) return;
   if (_curId) {
     const view = _views.find(v => v.id === _curId);
     if (view) {
       iconEl.textContent = view.saveMode === 'dynamic' ? '🔄' : '📌';
       nameEl.textContent = view.label;
+      if (editBtn) editBtn.style.display = '';  // カスタムビュー選択中＝編集ボタン表示
       return;
     }
   }
-  // 未選択＝マスター
+  // 未選択＝マスター（編集ボタンは隠す）
   iconEl.textContent = '🏠';
   nameEl.textContent = 'マスター';
+  if (editBtn) editBtn.style.display = 'none';
 }
 
 // リストの表示形式（'card' | 'table'）を取得
