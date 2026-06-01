@@ -3054,7 +3054,7 @@ function _memoToolbarHTML(id) {
     <div class="vp-memo-pal-wrap" id="vp-memo-pal-hl-${id}">
       <button onmousedown="event.preventDefault()" onclick="vpMemoPalToggle('${id}','hl')"
         class="vp-memo-tb-btn vp-memo-pal-btn" title="蛍光ペン"
-        style="font-weight:900;font-size:13px;min-width:24px;background:#fff176;color:#555;border-color:rgba(0,0,0,.15)">M</button>
+        style="font-weight:900;font-size:13px;min-width:24px;background:#fffde7;color:#888;border-color:rgba(0,0,0,.10)">M</button>
       ${_memoPalHTML(id,'hl',_MEMO_COLORS_HL,'hiliteColor','transparent')}
     </div>`;
 
