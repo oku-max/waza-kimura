@@ -82,33 +82,6 @@ let _cvSavedOrgSavePrefs = null;
 // ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
 const _viewFilterSnapshots = {};
 
-// ── フィルター状態の計測パネル（クリック透過・画面下部・原因特定後に削除）──
-function _fdbg(label) {
-  try {
-    let el = document.getElementById('_fdbg-panel');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = '_fdbg-panel';
-      el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.82);color:#0f0;font:9px/1.35 monospace;padding:4px 6px;max-height:30vh;overflow:auto;white-space:pre-wrap;pointer-events:none;border-top:2px solid #0f0';
-      document.body.appendChild(el);
-    }
-    const f = window.filters || {};
-    const sets = {};
-    Object.keys(f).forEach(k => { if (f[k] instanceof Set && f[k].size) sets[k] = [...f[k]]; });
-    const bools = ['favOnly','nextOnly','drillOnly','unwOnly','watchedOnly','bmOnly','memoOnly'].filter(b => window[b]).join(',') || '-';
-    const si = (document.getElementById('si-lib-pc')?.value || document.getElementById('si-org')?.value || '');
-    const line = `[${label}] cur=${_curId||'master'} sets=${JSON.stringify(sets)} bool=${bools} si="${si}" cvIds=${window._cvVideoIds?.size||0} cvCard=${window._cvCardVideoIds?.size||0} cols=${(window.orgColOrder||[]).length} snaps=${JSON.stringify(Object.keys(_viewFilterSnapshots))}`;
-    el.textContent = (line + '\n' + el.textContent).slice(0, 2000);
-  } catch(e) {}
-}
-setTimeout(function _hookAF() {
-  if (window.AF && !window.AF._fdbgWrapped) {
-    const _orig = window.AF;
-    window.AF = function(...a) { const r = _orig.apply(this, a); _fdbg('AF'); return r; };
-    window.AF._fdbgWrapped = true;
-  } else if (!window.AF) { setTimeout(_hookAF, 500); }
-}, 800);
-
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   const key = _curId || 'master';
@@ -417,8 +390,9 @@ window._cvClearSelection = function() {
   window._cvOnViewChange?.();
   _restoreFilterSnapshot('master');
   // リスト切替時は検索ボックスと残存バックアップを必ずクリア（独立保証）
-  ['si-lib-pc','si-org','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
+  ['si-lib-pc','si-org','si-org-pc','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
   _cvSrchQ = '';
+  window._uniVideoQ = '';
   window._cvFilterBackup = null;
   // マスターの表示形式を記憶から復元
   const saved = localStorage.getItem('wk_masterViewType');
@@ -589,8 +563,9 @@ function _showView(id) {
   _curId = id;
   _restoreFilterSnapshot(id);
   // リスト切替時は検索ボックスと残存バックアップを必ずクリア（各リストを独立させる）
-  ['si-lib-pc','si-org','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
+  ['si-lib-pc','si-org','si-org-pc','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
   _cvSrchQ = '';
+  window._uniVideoQ = '';
   window._cvFilterBackup = null;
   _renderViewBar();
   const view = _views.find(v => v.id === id);
