@@ -82,10 +82,9 @@ let _cvSavedOrgSavePrefs = null;
 // ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
 const _viewFilterSnapshots = {};
 
-// ── 一時的なフィルター状態計測パネル（?fdebug=1 で表示）──
+// ── 一時的なフィルター状態計測パネル（常時表示・原因特定後に削除）──
 function _fdbg(label) {
   try {
-    if (!location.search.includes('fdebug')) return;
     let el = document.getElementById('_fdbg-panel');
     if (!el) {
       el = document.createElement('div');
