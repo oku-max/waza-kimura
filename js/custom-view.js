@@ -2417,6 +2417,8 @@ window.cvOpenConditionEditor = function(viewId) {
   _cvSelectedIds = new Set(view.videoIds || []);
   window._cvSelectionMode = view.saveMode === 'dynamic' ? 'condition' : 'manual';
   const f = window.filters || {};
+  // window.filters をいじる前に現在状態をバックアップ（パネルを閉じたら uniClose で復元）
+  window._cvFilterBackup = window._uniSnapshotFilters ? window._uniSnapshotFilters() : null;
   // 全フィルターをリセット（マスターのフィルタが残らないよう window.filters の全Set + boolean）
   Object.keys(f).forEach(k => { if (f[k] instanceof Set) f[k].clear(); });
   window.favOnly = false; window.nextOnly = false; window.drillOnly = false;

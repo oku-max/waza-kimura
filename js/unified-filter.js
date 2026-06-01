@@ -1066,6 +1066,12 @@
       }
       _vlBlockTarget = null;
     }
+    // カスタムビュー条件編集/新規作成のフィルタバックアップを復元
+    // （保存時もキャンセル時も、開く前の window.filters 状態に戻す）
+    if (window._cvFilterBackup) {
+      _restoreFilters(window._cvFilterBackup);
+      window._cvFilterBackup = null;
+    }
     _noteMode = null;
     _cvMode = null;
     document.getElementById('uni-bd')?.classList.remove('open');
@@ -1360,6 +1366,10 @@
     _ctx = 'lib';
     _noteMode = null;
     _vlBlockTarget = null;
+    // パネルを開く前の window.filters をバックアップし、閉じたら必ず復元する。
+    // （条件編集の選択がマスター/カスタム表示へ漏れるのを防ぐ）
+    // cvOpenConditionEditor 側で既にバックアップ済みならそれを尊重、無ければここで取る。
+    if (window._cvFilterBackup == null) window._cvFilterBackup = _snapshotFilters();
     window._uniApplyHook = function() {
       window._cvApply?.();
       _cvMode = null;
