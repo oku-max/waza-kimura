@@ -1671,6 +1671,7 @@ function _insertStrip(noteId, afterIdx) {
     <button class="n-ins-btn" onclick="window._notesInsertMapAt('${noteId}',${afterIdx})">Map</button>
     <button class="n-ins-btn" onclick="window._notesInsertVlAt('${noteId}',${afterIdx})">リスト</button>
     <button class="n-ins-btn" onclick="window._notesInsertCvAt('${noteId}',${afterIdx})">カスタムビュー</button>
+    <button class="n-ins-btn" onclick="window._notesInsertLinkAt('${noteId}',${afterIdx})">🔗 リンク</button>
     <div class="n-ins-line"></div>
   </div>`;
 }
@@ -2521,15 +2522,14 @@ function _renderNote(id) {
     <div class="n-tag-row">${tagsHTML}${statusHTML}</div>
     <div id="n-blocks-${id}">${_renderBlocks(note.blocks, id)}</div>
     <div class="n-note-actions">
-      <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">＋ テキスト</button>
-      <button class="n-add-inline n-add-video-btn" onclick="window._notesShowVidPicker?.('${id}')">＋ 動画を追加</button>
+      <button class="n-add-inline" onclick="window._notesAddTextBlock('${id}')">テキスト</button>
+      <button class="n-add-inline" onclick="window._notesShowVidPicker?.('${id}')">動画を追加</button>
       <button class="n-add-inline" onclick="window._notesAddImageBlock?.('${id}')">📸 画像</button>
       <button class="n-add-inline" onclick="window._notesAddColBlock('${id}')">⊞ カラム</button>
       <button class="n-add-inline" onclick="window._notesAddMapBlock('${id}')">🗺 Map</button>
       <button class="n-add-inline" onclick="window._notesAddVlBlock('${id}')">📋 リスト</button>
       <button class="n-add-inline" onclick="window._notesAddCvBlock('${id}')">📊 カスタムビュー</button>
       <button class="n-add-inline" onclick="window._notesAddLinkBlock('${id}')">🔗 リンク</button>
-      <button class="n-add-inline" id="n-save-btn-${id}" onclick="window._notesSave('${id}')">💾 保存</button>
     </div>
   `;
 
@@ -3108,7 +3108,8 @@ function _showLinkSheet(noteId, editIdx) {
         <label class="n-sheet-lbl">URL <span style="color:var(--red)">*</span></label>
         <input id="n-link-url" class="n-sheet-input" type="url" placeholder="https://..."
                value="${_esc(existing?.url || '')}"
-               onkeydown="if(event.key==='Enter') document.getElementById('n-link-label')?.focus()">
+               onkeydown="if(event.key==='Enter') document.getElementById('n-link-label')?.focus()"
+               onblur="window._notesLinkFetchTitle()">
         <label class="n-sheet-lbl" style="margin-top:12px">表示名（任意）</label>
         <input id="n-link-label" class="n-sheet-input" type="text" placeholder="リンクのタイトル"
                value="${_esc(existing?.label || '')}"
@@ -3130,6 +3131,23 @@ function _showLinkSheet(noteId, editIdx) {
   setTimeout(() => document.getElementById('n-link-url')?.focus(), 80);
   document.addEventListener('keydown', _sheetEscHandler);
 }
+
+window._notesLinkFetchTitle = async function() {
+  const urlEl   = document.getElementById('n-link-url');
+  const labelEl = document.getElementById('n-link-label');
+  if (!urlEl || !labelEl) return;
+  const url = urlEl.value.trim();
+  if (!url || labelEl.value.trim()) return; // ラベルが既にあれば何もしない
+  labelEl.placeholder = '取得中…';
+  try {
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxy, { signal: AbortSignal.timeout(6000) });
+    const json = await res.json();
+    const m = json.contents?.match(/<title[^>]*>([^<]{1,200})<\/title>/i);
+    if (m) labelEl.value = m[1].trim();
+  } catch(_) {}
+  labelEl.placeholder = 'リンクのタイトル';
+};
 
 window._notesAddLinkBlock = function(noteId) { _showLinkSheet(noteId, null); };
 

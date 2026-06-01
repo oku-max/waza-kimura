@@ -896,7 +896,6 @@
   cursor:pointer; padding:0 8px 0 0; line-height:1; font-family:inherit;
 }
 .n-sheet-back:hover { color:var(--text) }
-.n-add-video-btn { font-weight:700; border-style:solid; color:var(--accent); border-color:var(--accent); background:rgba(232,201,106,.06) }
 
 /* ── モード選択ピッカー ── */
 .n-vm-pick { display:flex; gap:6px; margin-bottom:2px }
