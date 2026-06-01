@@ -82,37 +82,6 @@ let _cvSavedOrgSavePrefs = null;
 // ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
 const _viewFilterSnapshots = {};
 
-// ── 一時的なフィルター状態計測パネル（常時表示・原因特定後に削除）──
-function _fdbg(label) {
-  try {
-    let el = document.getElementById('_fdbg-panel');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = '_fdbg-panel';
-      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.88);color:#0f0;font:10px/1.4 monospace;padding:6px;max-height:45vh;overflow:auto;white-space:pre-wrap;border-bottom:2px solid #0f0';
-      document.body.appendChild(el);
-    }
-    const f = window.filters || {};
-    const sets = {};
-    Object.keys(f).forEach(k => { if (f[k] instanceof Set && f[k].size) sets[k] = [...f[k]]; });
-    const bools = ['favOnly','nextOnly','drillOnly','unwOnly','watchedOnly','bmOnly','memoOnly']
-      .filter(b => window[b]).join(',') || '-';
-    const si = (document.getElementById('si-lib-pc')?.value || document.getElementById('si-org')?.value || '');
-    const line = `[${label}] cur=${_curId||'master'} | sets=${JSON.stringify(sets)} | bool=${bools} | si="${si}" | cvIds=${window._cvVideoIds?.size||0} cvCard=${window._cvCardVideoIds?.size||0} | snaps=${JSON.stringify(Object.keys(_viewFilterSnapshots))} | bk=${window._cvFilterBackup?'Y':'n'}`;
-    el.textContent = (line + '\n' + el.textContent).slice(0, 2400);
-  } catch(e) {}
-}
-// window.AF（全表示更新）をフックして、フィルター操作やリスト切替を常時計測する
-setTimeout(function _hookAF() {
-  if (window.AF && !window.AF._fdbgWrapped) {
-    const _orig = window.AF;
-    window.AF = function(...a) { const r = _orig.apply(this, a); _fdbg('AF'); return r; };
-    window.AF._fdbgWrapped = true;
-  } else if (!window.AF) {
-    setTimeout(_hookAF, 500);
-  }
-}, 800);
-
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   const key = _curId || 'master';
@@ -120,17 +89,11 @@ function _saveCurrentFilterSnapshot() {
 }
 
 function _restoreFilterSnapshot(key) {
-  if (!window._uniRestoreFilters) return;
-  const snap = _viewFilterSnapshots[key];
-  // 初回訪問の条件ビューは保存済みfilterConditionsから復元
-  if (!snap && key !== 'master') {
-    const view = _views.find(v => v.id === key);
-    if (view?.saveMode === 'dynamic' && view.filterConditions) {
-      window._uniRestoreFilters(view.filterConditions);
-      return;
-    }
-  }
-  window._uniRestoreFilters(snap || {});
+  // 各リストを完全に独立させるため、リスト切替時は window.filters を必ず空にする。
+  // 条件ビュー(dynamic)の絞り込みは _getViewVideos→_applyConditions→_cvVideoIds で
+  // 行うので、window.filters に filterConditions を入れてはいけない（入れると追加
+  // フィルターとして次のリストへ漏れ、リスト間が干渉する原因になる）。
+  if (window._uniRestoreFilters) window._uniRestoreFilters({});
 }
 
 // filter state
@@ -595,12 +558,9 @@ window._cvMoveTpl = function(id, dir) {
 
 // ── ビュー切替 ──
 function _showView(id) {
-  _fdbg('showView:IN ' + id);
   _saveCurrentFilterSnapshot();
-  _fdbg('afterSave(prev)');
   _curId = id;
   _restoreFilterSnapshot(id);
-  _fdbg('afterRestore ' + id);
   // リスト切替時は検索ボックスと残存バックアップを必ずクリア（各リストを独立させる）
   ['si-lib-pc','si-org','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
   _cvSrchQ = '';
