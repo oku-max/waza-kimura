@@ -82,6 +82,28 @@ let _cvSavedOrgSavePrefs = null;
 // ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
 const _viewFilterSnapshots = {};
 
+// ── 一時的なフィルター状態計測パネル（?fdebug=1 で表示）──
+function _fdbg(label) {
+  try {
+    if (!location.search.includes('fdebug')) return;
+    let el = document.getElementById('_fdbg-panel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '_fdbg-panel';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.88);color:#0f0;font:10px/1.4 monospace;padding:6px;max-height:45vh;overflow:auto;white-space:pre-wrap;border-bottom:2px solid #0f0';
+      document.body.appendChild(el);
+    }
+    const f = window.filters || {};
+    const sets = {};
+    Object.keys(f).forEach(k => { if (f[k] instanceof Set && f[k].size) sets[k] = [...f[k]]; });
+    const bools = ['favOnly','nextOnly','drillOnly','unwOnly','watchedOnly','bmOnly','memoOnly']
+      .filter(b => window[b]).join(',') || '-';
+    const si = (document.getElementById('si-lib-pc')?.value || document.getElementById('si-org')?.value || '');
+    const line = `[${label}] cur=${_curId||'master'} | sets=${JSON.stringify(sets)} | bool=${bools} | si="${si}" | cvIds=${window._cvVideoIds?.size||0} cvCard=${window._cvCardVideoIds?.size||0} | snaps=${JSON.stringify(Object.keys(_viewFilterSnapshots))} | bk=${window._cvFilterBackup?'Y':'n'}`;
+    el.textContent = (line + '\n' + el.textContent).slice(0, 2400);
+  } catch(e) {}
+}
+
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   const key = _curId || 'master';
@@ -564,9 +586,12 @@ window._cvMoveTpl = function(id, dir) {
 
 // ── ビュー切替 ──
 function _showView(id) {
+  _fdbg('showView:IN ' + id);
   _saveCurrentFilterSnapshot();
+  _fdbg('afterSave(prev)');
   _curId = id;
   _restoreFilterSnapshot(id);
+  _fdbg('afterRestore ' + id);
   // リスト切替時は検索ボックスと残存バックアップを必ずクリア（各リストを独立させる）
   ['si-lib-pc','si-org','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
   _cvSrchQ = '';
