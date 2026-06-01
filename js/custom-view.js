@@ -395,6 +395,10 @@ window._cvClearSelection = function() {
   window._cvCardVideoIds = null;
   window._cvOnViewChange?.();
   _restoreFilterSnapshot('master');
+  // リスト切替時は検索ボックスと残存バックアップを必ずクリア（独立保証）
+  ['si-lib-pc','si-org','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
+  _cvSrchQ = '';
+  window._cvFilterBackup = null;
   // マスターの表示形式を記憶から復元
   const saved = localStorage.getItem('wk_masterViewType');
   window._libView?.(saved || window._libViewMode || 'card');
@@ -563,6 +567,10 @@ function _showView(id) {
   _saveCurrentFilterSnapshot();
   _curId = id;
   _restoreFilterSnapshot(id);
+  // リスト切替時は検索ボックスと残存バックアップを必ずクリア（各リストを独立させる）
+  ['si-lib-pc','si-org','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
+  _cvSrchQ = '';
+  window._cvFilterBackup = null;
   _renderViewBar();
   const view = _views.find(v => v.id === id);
   if (!view) return;
