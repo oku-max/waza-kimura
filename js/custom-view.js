@@ -102,6 +102,16 @@ function _fdbg(label) {
     el.textContent = (line + '\n' + el.textContent).slice(0, 2400);
   } catch(e) {}
 }
+// window.AF（全表示更新）をフックして、フィルター操作やリスト切替を常時計測する
+setTimeout(function _hookAF() {
+  if (window.AF && !window.AF._fdbgWrapped) {
+    const _orig = window.AF;
+    window.AF = function(...a) { const r = _orig.apply(this, a); _fdbg('AF'); return r; };
+    window.AF._fdbgWrapped = true;
+  } else if (!window.AF) {
+    setTimeout(_hookAF, 500);
+  }
+}, 800);
 
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
