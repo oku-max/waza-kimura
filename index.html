@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.510</title>
+<title>WAZA KIMURA v52.511</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1035,6 +1035,22 @@
 .n-b-cvlink-info { flex: 1; min-width: 0; }
 .n-b-cvlink-name { font-size: 12px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .n-b-cvlink-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+/* ── 外部リンクブロック ── */
+.n-b-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 8px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  cursor: pointer; transition: background .12s, border-color .12s; flex: 1;
+}
+.n-b-link:hover { background: var(--accent-bg,rgba(107,63,212,.08)); border-color: var(--accent); }
+.n-b-link-icon { font-size: 18px; flex-shrink: 0; }
+.n-b-link-body { flex: 1; min-width: 0; }
+.n-b-link-label { font-size: 12px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-b-link-desc { font-size: 10px; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-b-link-arrow { font-size: 14px; color: var(--text3); flex-shrink: 0; }
+.n-b-link-edit { position: absolute; top: 6px; right: 32px; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text3); padding: 2px 5px; border-radius: 4px; }
+.n-b-link-edit:hover { background: var(--surface2); color: var(--text); }
+.n-block-wrap-card { position: relative; }
 /* ── カスタムビュー ── */
 .cv-picker-modal { background:var(--surface);border-radius:14px;width:320px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden }
 .cv-picker-header { display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border) }

@@ -1183,6 +1183,22 @@ function _blockHTML(block, idx, noteId, total) {
           </div>
         </div>${ctrlBar}</div>`;
     }
+    case 'link': {
+      const href = block.url || '';
+      const label = block.label || href;
+      const desc = block.desc || '';
+      return `<div class="n-block-wrap n-block-wrap-card" ${wrapAttrs}>${ctrlBar}
+        <div class="n-b-link" onclick="event.stopPropagation();window.open('${_esc(href)}','_blank',\'noopener\')">
+          <span class="n-b-link-icon">🔗</span>
+          <div class="n-b-link-body">
+            <div class="n-b-link-label">${_esc(label)}</div>
+            ${desc ? `<div class="n-b-link-desc">${_esc(desc)}</div>` : `<div class="n-b-link-desc">${_esc(href)}</div>`}
+          </div>
+          <span class="n-b-link-arrow">↗</span>
+        </div>
+        <button class="n-b-link-edit" onclick="event.stopPropagation();window._notesEditLinkBlock('${noteId}',${idx})" title="編集">✎</button>
+      ${ctrlBar}</div>`;
+    }
     default: return '';
   }
 }
@@ -2512,6 +2528,7 @@ function _renderNote(id) {
       <button class="n-add-inline" onclick="window._notesAddMapBlock('${id}')">🗺 Map</button>
       <button class="n-add-inline" onclick="window._notesAddVlBlock('${id}')">📋 リスト</button>
       <button class="n-add-inline" onclick="window._notesAddCvBlock('${id}')">📊 カスタムビュー</button>
+      <button class="n-add-inline" onclick="window._notesAddLinkBlock('${id}')">🔗 リンク</button>
       <button class="n-add-inline" id="n-save-btn-${id}" onclick="window._notesSave('${id}')">💾 保存</button>
     </div>
   `;
@@ -3074,6 +3091,72 @@ window._notesOpenCv = function(noteId, viewId, label) {
 window._notesInsertCvAt = function(noteId, afterIdx) {
   window._notesInsertAfterIdx = afterIdx;
   window._notesAddCvBlock(noteId);
+};
+
+function _showLinkSheet(noteId, editIdx) {
+  _removeSheet();
+  const isEdit = editIdx != null;
+  const r = _findNote(noteId);
+  const existing = isEdit ? r?.note?.blocks?.[editIdx] : null;
+  const overlay = document.createElement('div');
+  overlay.id = 'n-sheet-overlay';
+  overlay.className = 'n-sheet-overlay';
+  overlay.innerHTML = `
+    <div class="n-sheet" onclick="event.stopPropagation()">
+      <div class="n-sheet-hdr"><span class="n-sheet-title">🔗 外部リンクを${isEdit ? '編集' : '挿入'}</span></div>
+      <div class="n-sheet-body">
+        <label class="n-sheet-lbl">URL <span style="color:var(--red)">*</span></label>
+        <input id="n-link-url" class="n-sheet-input" type="url" placeholder="https://..."
+               value="${_esc(existing?.url || '')}"
+               onkeydown="if(event.key==='Enter') document.getElementById('n-link-label')?.focus()">
+        <label class="n-sheet-lbl" style="margin-top:12px">表示名（任意）</label>
+        <input id="n-link-label" class="n-sheet-input" type="text" placeholder="リンクのタイトル"
+               value="${_esc(existing?.label || '')}"
+               onkeydown="if(event.key==='Enter') window._notesLinkConfirm('${noteId}',${isEdit ? editIdx : 'null'})">
+        <label class="n-sheet-lbl" style="margin-top:12px">説明（任意）</label>
+        <input id="n-link-desc" class="n-sheet-input" type="text" placeholder="メモや説明"
+               value="${_esc(existing?.desc || '')}"
+               onkeydown="if(event.key==='Enter') window._notesLinkConfirm('${noteId}',${isEdit ? editIdx : 'null'})">
+      </div>
+      <div class="n-sheet-btns">
+        <button class="n-btn n-btn-ghost" onclick="window._notesSheetClose()">キャンセル</button>
+        <button class="n-btn n-btn-primary" onclick="window._notesLinkConfirm('${noteId}',${isEdit ? editIdx : 'null'})">${isEdit ? '更新する' : '追加する'}</button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', window._notesSheetClose);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('vis'));
+  setTimeout(() => document.getElementById('n-link-url')?.focus(), 80);
+  document.addEventListener('keydown', _sheetEscHandler);
+}
+
+window._notesAddLinkBlock = function(noteId) { _showLinkSheet(noteId, null); };
+
+window._notesEditLinkBlock = function(noteId, idx) { _showLinkSheet(noteId, idx); };
+
+window._notesLinkConfirm = function(noteId, editIdx) {
+  const url = document.getElementById('n-link-url')?.value.trim();
+  if (!url) { document.getElementById('n-link-url')?.focus(); return; }
+  const label = document.getElementById('n-link-label')?.value.trim() || '';
+  const desc  = document.getElementById('n-link-desc')?.value.trim() || '';
+  const r = _findNote(noteId);
+  if (!r) return;
+  if (editIdx != null) {
+    const block = r.note.blocks[editIdx];
+    if (block) { block.url = url; block.label = label; block.desc = desc; }
+  } else {
+    _blocksInsertOrPush(r.note.blocks, { type: 'link', url, label, desc });
+  }
+  r.note.updatedAt = Date.now();
+  _save();
+  window._notesSheetClose();
+  _renderNote(noteId);
+};
+
+window._notesInsertLinkAt = function(noteId, afterIdx) {
+  window._notesInsertAfterIdx = afterIdx;
+  window._notesAddLinkBlock(noteId);
 };
 
 // ── 動画リスト: ノートに新規追加 ──
