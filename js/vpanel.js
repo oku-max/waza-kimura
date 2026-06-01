@@ -1893,10 +1893,11 @@ export function closeVPanel() {
     window._noteVidList = null;
     document.querySelector('.main-area')?.classList.remove('vpanel-main-blur');
     // pushStateで追加した履歴エントリを除去（Xボタン/Escape経由の場合のみ）
-    // バックボタン経由（_backButtonClosing）なら既にpopされているのでback()不要
-    if (!window._backButtonClosing && history.state?.vpanel) {
+    // バックボタン経由（_backButtonClosing）またはジャンプ遷移（_vpJumpClosing）なら back()不要
+    if (!window._backButtonClosing && !window._vpJumpClosing && history.state?.vpanel) {
       history.back();
     }
+    window._vpJumpClosing = false;
   } catch(e) {
     console.error('closeVPanel error:', e);
     const panel = document.getElementById('vpanel');
@@ -3607,15 +3608,13 @@ window.vpJumpToChannel = function(id) {
   if (!v || !v.channel) return;
   const name = v.channel;
   window.showConf?.('🔍 チャンネルを表示', `チャンネル「${name}」を表示しますか？`, () => {
+    window._vpJumpClosing = true; // history.back()を抑制してpopstate/_restoreFromURL競合を防ぐ
     window.closeVPanel?.();
     window.switchTab?.('home');
-    // history.back() の popstate → _restoreFromURL() より後に実行する
-    setTimeout(() => {
-      const f = window.filters;
-      if (f) { f.channel.clear(); f.channel.add(name); }
-      window.buildChSrow?.(); window.buildFsChSrow?.();
-      window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
-    }, 80);
+    const f = window.filters;
+    if (f) { f.channel.clear(); f.channel.add(name); }
+    window.buildChSrow?.(); window.buildFsChSrow?.();
+    window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };
 
@@ -3625,15 +3624,13 @@ window.vpJumpToPlaylist = function(id) {
   const name = v.pl;
   if (!name) return;
   window.showConf?.('🔍 プレイリストを表示', `プレイリスト「${name}」を表示しますか？`, () => {
+    window._vpJumpClosing = true; // history.back()を抑制してpopstate/_restoreFromURL競合を防ぐ
     window.closeVPanel?.();
     window.switchTab?.('home');
-    // history.back() の popstate → _restoreFromURL() より後に実行する
-    setTimeout(() => {
-      const f = window.filters;
-      if (f) { f.playlist.clear(); f.playlist.add(name); }
-      window.buildPlSrow?.(); window.buildFsPlSrow?.();
-      window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
-    }, 80);
+    const f = window.filters;
+    if (f) { f.playlist.clear(); f.playlist.add(name); }
+    window.buildPlSrow?.(); window.buildFsPlSrow?.();
+    window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };
 
