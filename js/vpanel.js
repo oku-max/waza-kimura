@@ -3609,10 +3609,13 @@ window.vpJumpToChannel = function(id) {
   window.showConf?.('🔍 チャンネルを表示', `チャンネル「${name}」を表示しますか？`, () => {
     window.closeVPanel?.();
     window.switchTab?.('home');
-    const f = window.filters;
-    if (f) { f.channel.clear(); f.channel.add(name); }
-    window.buildChSrow?.(); window.buildFsChSrow?.();
-    window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
+    // history.back() の popstate → _restoreFromURL() より後に実行する
+    setTimeout(() => {
+      const f = window.filters;
+      if (f) { f.channel.clear(); f.channel.add(name); }
+      window.buildChSrow?.(); window.buildFsChSrow?.();
+      window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
+    }, 80);
   });
 };
 
@@ -3624,10 +3627,13 @@ window.vpJumpToPlaylist = function(id) {
   window.showConf?.('🔍 プレイリストを表示', `プレイリスト「${name}」を表示しますか？`, () => {
     window.closeVPanel?.();
     window.switchTab?.('home');
-    const f = window.filters;
-    if (f) { f.playlist.clear(); f.playlist.add(name); }
-    window.buildPlSrow?.(); window.buildFsPlSrow?.();
-    window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
+    // history.back() の popstate → _restoreFromURL() より後に実行する
+    setTimeout(() => {
+      const f = window.filters;
+      if (f) { f.playlist.clear(); f.playlist.add(name); }
+      window.buildPlSrow?.(); window.buildFsPlSrow?.();
+      window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
+    }, 80);
   });
 };
 
