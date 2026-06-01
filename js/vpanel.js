@@ -3020,6 +3020,9 @@ function _memoToolbarHTML(id) {
       <span class="vp-memo-tb-sep"></span>
       <div style="display:flex;align-items:center;gap:2px">${swatchH}</div>
       <span class="vp-memo-tb-sep"></span>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoResetColor('${id}')"
+        class="vp-memo-tb-btn" title="色をリセット" style="font-size:11px;padding:2px 6px">✕色</button>
+      <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')"
         class="vp-memo-tb-btn" style="border-color:#a8c0f0;background:#e8f0ff;color:#2050c0;font-weight:700">📍 現在位置</button>
     </div>
@@ -3063,6 +3066,18 @@ window.vpMemoColor = function(id, type, color) {
   el.focus();
   try {
     document.execCommand(type === 'hilite' ? 'hiliteColor' : 'foreColor', false, color);
+  } catch(e) {}
+  vpSaveMemo(id);
+};
+
+window.vpMemoResetColor = function(id) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  el.focus();
+  try {
+    document.execCommand('foreColor', false, 'inherit');
+    document.execCommand('hiliteColor', false, 'transparent');
+    document.execCommand('removeFormat', false, null);
   } catch(e) {}
   vpSaveMemo(id);
 };
