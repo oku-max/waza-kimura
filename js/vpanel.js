@@ -1527,9 +1527,11 @@ export function openVPanel(id) {
       ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追記"
            style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
       : '';
+    const _snapBtn = `<button id="vp-snap-now-btn-${vid}" onclick="vpMemoSnapNow('${vid}')" title="現在のフレームをスクショしてメモに挿入"
+           style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">📸</button>`;
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
-          <span class="vp-lbl">Memo${_sumBtn}</span>
+          <span class="vp-lbl">Memo${_sumBtn}${_snapBtn}</span>
           ${_memoToolbarHTML(vid)}
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
             onblur="vpSaveMemo('${vid}')"
@@ -3109,6 +3111,52 @@ window._vpMemoToHtmlStatic = function(memo) {
       return `<a class="ts-link" contenteditable="false" data-sec="${sec}"${inj(sec)}>▶ ${lb}</a>`;
     })
     .replace(/\n/g, '<br>');
+};
+
+window.vpMemoSnapNow = async function(id) {
+  const sec = _getCurrentTime();
+  if (sec == null) { window.toast?.('動画を再生してからスクショしてください'); return; }
+  const btn = document.getElementById(`vp-snap-now-btn-${id}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const v = (window.videos||[]).find(x => x.id === id);
+    const memoEl = document.getElementById('vp-memo-' + id);
+    if (!memoEl) return;
+    const label = _fmtSec(sec);
+    const tsHtml = _tsLinkHtml(sec, label);
+
+    if (_gdVideoEl && v?.pt === 'gdrive') {
+      // GDrive: フレームキャプチャ → スナップ保存 → サムネ＋タイムスタンプをメモに挿入
+      const cap = await _captureGdFrame(sec);
+      if (cap?.fullBlob && window.snapAddBlob) {
+        const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
+        const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
+        const rowHtml = `<div style="display:flex;gap:6px;align-items:flex-start;margin:3px 0">${thumbHtml}<span>${tsHtml}&nbsp;</span></div>`;
+        memoEl.focus();
+        document.execCommand('insertHTML', false, rowHtml);
+        _bindTsLinks(memoEl);
+        vpSaveMemo(id);
+        // スナップセクション更新
+        const snapSec = document.getElementById('vp-snap-section-' + id);
+        if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
+        window.toast?.('📸 スクショをメモに追加しました');
+      } else {
+        window.toast?.('⚠️ キャプチャに失敗しました');
+      }
+    } else {
+      // YouTube / Vimeo: タイムスタンプリンクのみ挿入
+      memoEl.focus();
+      document.execCommand('insertHTML', false, `<span>${tsHtml}&nbsp;</span>`);
+      _bindTsLinks(memoEl);
+      vpSaveMemo(id);
+      window.toast?.('📍 タイムスタンプを挿入しました');
+    }
+  } catch(e) {
+    console.error('[vpMemoSnapNow]', e);
+    window.toast?.('⚠️ エラーが発生しました');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📸'; }
+  }
 };
 
 window.vpMemoFmt = function(id, cmd) {
