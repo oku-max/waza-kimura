@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.509</title>
+<title>WAZA KIMURA v52.510</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1417,8 +1417,9 @@
   <div id="libSbOverlay" onclick="libSbClose()"></div>
   <!-- Library サイドバー (overlay mode v52.410) -->
   <div class="lib-sidebar" id="libSidebar">
-    <div class="lib-sb-hdr">
+    <div class="lib-sb-hdr" style="display:flex;align-items:center;gap:8px">
       <span class="lib-sb-hdr-title">□ Library</span>
+      <button id="lib-sb-add-video" onclick="openImportHub()" style="display:block;margin-left:auto;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 動画を追加</button>
     </div>
     <div class="lib-sb-body">
       <!-- ビュー切替 -->
