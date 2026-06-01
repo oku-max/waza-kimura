@@ -3620,11 +3620,14 @@ window.vpJumpToChannel = function(id) {
 };
 
 window.vpJumpToPlaylist = function(id) {
+  console.log('[vpJump-A] 関数呼び出し id=', id);
   const v = (window.videos||[]).find(x => x.id === id);
   if (!v) return;
   const name = v.pl;
   if (!name) return;
+  console.log('[vpJump-B] showConf呼び出し name=', name, '| showConf=', typeof window.showConf);
   window.showConf?.('🔍 プレイリストを表示', `プレイリスト「${name}」を表示しますか？`, () => {
+    console.log('[vpJump-C] callback開始');
     window._vpJumpClosing = true;
     window.closeVPanel?.();
     window.switchTab?.('home');
