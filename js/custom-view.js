@@ -975,6 +975,8 @@ function _cvApplyGlobalFilters(list) {
   return list.filter(v => {
     if (window.favOnly    && !v.fav)                                    return false;
     if (window.nextOnly   && !v.next)                                   return false;
+    // ドリルだけ判定が欠けていた。テーブルは orgDrillOnly を使うので両方を見る
+    if ((window.drillOnly || window.orgDrillOnly) && !v.drill)          return false;
     if (window.unwOnly    && v.watched)                                 return false;
     if (window.watchedOnly && !v.watched)                               return false;
     if (window.bmOnly     && !(v.bookmarks && v.bookmarks.length > 0)) return false;
