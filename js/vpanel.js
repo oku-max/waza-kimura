@@ -2996,11 +2996,33 @@ function _initMemoEditor(id, memo) {
 
 // メモ欄ツールバー（書式 + 現在位置タイムスタンプ挿入）
 function _memoToolbarHTML(id) {
-  const b = (cmd,label) => `<button onmousedown="event.preventDefault()" onclick="vpMemoFmt('${id}','${cmd}')" style="padding:2px 8px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);border-radius:4px;font-size:11px;cursor:pointer;color:var(--text,#333)">${label}</button>`;
-  return `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">`
-    + b('bold','<b>B</b>') + b('italic','<i>I</i>') + b('underline','<u>U</u>')
-    + `<button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')" title="現在の再生位置をタイムスタンプとして挿入" style="padding:2px 8px;border:1px solid #a8c0f0;background:#e8f0ff;border-radius:4px;font-size:11px;cursor:pointer;color:#2050c0;font-weight:700">📍 現在位置</button>`
-    + `</div>`;
+  const btn = (cmd, label, extra='') =>
+    `<button onmousedown="event.preventDefault()" onclick="vpMemoFmt('${id}','${cmd}')"
+      class="vp-memo-tb-btn" ${extra}>${label}</button>`;
+  const colorsText = ['#e53935','#f57c00','#388e3c','#1976d2','#7b1fa2','#000000'];
+  const colorsHL   = ['#fff176','#a5d6a7','#90caf9','#ffcc80','#f48fb1','#e0e0e0'];
+  const swatchT = colorsText.map(c =>
+    `<span onmousedown="event.preventDefault()" onclick="vpMemoColor('${id}','fore','${c}')"
+      style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${c};cursor:pointer;border:1.5px solid rgba(0,0,0,.15);flex-shrink:0"></span>`).join('');
+  const swatchH = colorsHL.map(c =>
+    `<span onmousedown="event.preventDefault()" onclick="vpMemoColor('${id}','hilite','${c}')"
+      style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${c};cursor:pointer;border:1.5px solid rgba(0,0,0,.15);flex-shrink:0"></span>`).join('');
+  return `<div class="vp-memo-toolbar">
+    <div class="vp-memo-tb-row">
+      ${btn('bold','<b>B</b>')}${btn('italic','<i>I</i>')}${btn('underline','<u>U</u>')}
+      <span class="vp-memo-tb-sep"></span>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',2)" class="vp-memo-tb-btn" style="font-size:9px">小</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',3)" class="vp-memo-tb-btn" style="font-size:11px">中</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoSize('${id}',5)" class="vp-memo-tb-btn" style="font-size:14px">大</button>
+      <span class="vp-memo-tb-sep"></span>
+      <div style="display:flex;align-items:center;gap:2px">${swatchT}</div>
+      <span class="vp-memo-tb-sep"></span>
+      <div style="display:flex;align-items:center;gap:2px">${swatchH}</div>
+      <span class="vp-memo-tb-sep"></span>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')"
+        class="vp-memo-tb-btn" style="border-color:#a8c0f0;background:#e8f0ff;color:#2050c0;font-weight:700">📍 現在位置</button>
+    </div>
+  </div>`;
 }
 
 window.vpSeek = function(id, secs) { _seekTo(secs); };
@@ -3031,6 +3053,24 @@ window.vpMemoFmt = function(id, cmd) {
   if (!el) return;
   el.focus();
   try { document.execCommand(cmd, false, null); } catch(e) {}
+  vpSaveMemo(id);
+};
+
+window.vpMemoColor = function(id, type, color) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  el.focus();
+  try {
+    document.execCommand(type === 'hilite' ? 'hiliteColor' : 'foreColor', false, color);
+  } catch(e) {}
+  vpSaveMemo(id);
+};
+
+window.vpMemoSize = function(id, size) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  el.focus();
+  try { document.execCommand('fontSize', false, String(size)); } catch(e) {}
   vpSaveMemo(id);
 };
 
