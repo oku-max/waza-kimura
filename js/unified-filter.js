@@ -1016,10 +1016,18 @@
         if (Array.isArray(arr)) arr.forEach(v => f[k].add(v));
       }
     });
+    // orgFilters も同期（カスタムビュー切替時のフィルター漏れを防ぐ）
+    const of = window.orgFilters;
+    if (of) {
+      Object.keys(of).forEach(k => {
+        if (of[k] instanceof Set) {
+          of[k].clear();
+          const arr = snap[k];
+          if (Array.isArray(arr)) arr.forEach(v => of[k].add(v));
+        }
+      });
+    }
     // boolean/スカラー系は snap に無ければ既定値へ確実にリセットする。
-    // ('in' チェックだと空 snap={} のとき現状維持になり、マスタービューの
-    //  お気に入り/Next/ブックマーク等のフィルターがカスタムビューへ引き継がれ
-    //  「0本」になるバグの原因になる)
     window.favOnly     = !!snap._favOnly;
     window.unwOnly     = !!snap._unwOnly;
     window.watchedOnly = !!snap._watchedOnly;
