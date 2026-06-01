@@ -4206,6 +4206,11 @@ window.notesAddVideo = function(arg) {
     h += `<div class="nvps-cat-lbl">${cat.icon} ${_esc(cat.name)}</div>`;
     for (const n of cat.notes) h += noteItemHTML(n);
   }
+  // その場で新しいノートを作成して追加
+  h += `<div class="nvps-note-item" onclick="window._notesVpCreateAndAdd('${_esc(videoId)}')" style="border-top:1px solid var(--border);margin-top:6px;padding-top:10px">
+    <span style="font-size:15px;color:var(--accent);width:8px;text-align:center;line-height:1">＋</span>
+    <span class="nvps-note-name" style="color:var(--accent);font-weight:700">新しいノートを作成</span>
+  </div>`;
   list.innerHTML = h;
   document.body.appendChild(sheet); // DOM末尾に移動して確実にVPanel上に表示
   sheet.classList.add('vis');
@@ -4213,6 +4218,19 @@ window.notesAddVideo = function(arg) {
 
 window._notesVpSheetClose = function() {
   document.getElementById('notesVpSheet')?.classList.remove('vis');
+};
+
+// その場で新しいノートを作成し、その動画を追加する
+window._notesVpCreateAndAdd = function(videoId) {
+  const name = (prompt('新しいノートの名前を入力してください') || '').trim();
+  if (!name) return;
+  const newNote = { id: _uid(), name, status: 'new', tags: [], updatedAt: Date.now(), blocks: [] };
+  _root.push(newNote);
+  _save();
+  _renderSb?.();
+  _renderRecent?.();
+  // 作成したノートにこの動画を追加（_notesVpAddConfirm が追加＋閉じる＋トーストを実行）
+  window._notesVpAddConfirm(newNote.id, videoId);
 };
 
 window._notesVpAddConfirm = function(noteId, videoId) {
