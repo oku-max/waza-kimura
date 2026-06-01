@@ -85,15 +85,26 @@ const _viewFilterSnapshots = {};
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   const key = _curId || 'master';
-  _viewFilterSnapshots[key] = window._uniSnapshotFilters();
+  const snap = window._uniSnapshotFilters(); // window.filters + boolean + titleQ
+  // そのリストの検索ワードも記憶（カード/テーブルの検索を1つにまとめる）
+  snap._search = (document.getElementById('si-lib-pc')?.value
+    || document.getElementById('si-org-pc')?.value
+    || document.getElementById('si-org')?.value
+    || _cvSrchQ || window._uniVideoQ || '');
+  _viewFilterSnapshots[key] = snap;
 }
 
 function _restoreFilterSnapshot(key) {
-  // 各リストを完全に独立させるため、リスト切替時は window.filters を必ず空にする。
-  // 条件ビュー(dynamic)の絞り込みは _getViewVideos→_applyConditions→_cvVideoIds で
-  // 行うので、window.filters に filterConditions を入れてはいけない（入れると追加
-  // フィルターとして次のリストへ漏れ、リスト間が干渉する原因になる）。
-  if (window._uniRestoreFilters) window._uniRestoreFilters({});
+  const snap = _viewFilterSnapshots[key];
+  // window.filters + boolean + titleQ を復元（記憶が無ければ空＝完全クリア）。
+  // 条件ビューの filterConditions は window.filters に入れない（絞り込みは
+  // _getViewVideos→_applyConditions→_cvVideoIds で行う。入れると次リストへ漏れる）。
+  if (window._uniRestoreFilters) window._uniRestoreFilters(snap || {});
+  // そのリストの検索ワードを復元（リスト切替専用。条件編集パネルには影響しない）。
+  const q = (snap && snap._search) || '';
+  ['si-lib-pc','si-org','si-org-pc','si'].forEach(id => { const el = document.getElementById(id); if (el) el.value = q; });
+  _cvSrchQ = q;
+  window._uniVideoQ = q;
 }
 
 // filter state
@@ -562,10 +573,8 @@ function _showView(id) {
   _saveCurrentFilterSnapshot();
   _curId = id;
   _restoreFilterSnapshot(id);
-  // リスト切替時は検索ボックスと残存バックアップを必ずクリア（各リストを独立させる）
-  ['si-lib-pc','si-org','si-org-pc','si'].forEach(eid => { const el = document.getElementById(eid); if (el) el.value = ''; });
-  _cvSrchQ = '';
-  window._uniVideoQ = '';
+  // 検索・フィルターは _restoreFilterSnapshot がリストごとに復元/クリア済み。
+  // 条件編集の残存バックアップだけは念のため除去する。
   window._cvFilterBackup = null;
   _renderViewBar();
   const view = _views.find(v => v.id === id);
