@@ -1003,6 +1003,11 @@
     snap._prRank = window.prRank ?? null;
     snap._prDate = window.prDate ?? null;
     snap.titleQ = _queries['video'] || '';
+    // ライブラリ検索ボックス（filt() が読む si-lib-pc/si-org/si の値）も記憶する。
+    // これを保存しないとリスト切替後も前リストの検索（例: -QUICK）が残る。
+    snap._libSearch = (document.getElementById('si-lib-pc')?.value
+      || document.getElementById('si-org')?.value
+      || document.getElementById('si')?.value || '');
     return snap;
   }
 
@@ -1030,6 +1035,9 @@
     window.prRank = snap._prRank ?? null;
     window.prDate = snap._prDate ?? null;
     _queries['video'] = snap.titleQ || '';
+    // ライブラリ検索ボックスを復元（snapに無ければ空＝検索クリア）。AF前に設定する。
+    const _ls = snap._libSearch || '';
+    ['si-lib-pc','si-org','si'].forEach(id => { const el = document.getElementById(id); if (el) el.value = _ls; });
     window.AF?.();
   }
 
