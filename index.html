@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.529</title>
+<title>WAZA KIMURA v52.530</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3768,16 +3768,19 @@ function cardShowMemo(id) {
   if (!v) return;
   document.getElementById('card-memo-title').textContent = v.title;
   var ta = document.getElementById('card-memo-ta');
-  ta.value = v.memo || '';
+  ta.innerHTML = v.memo || '';
   ta.dataset.id = id;
+  // ts-linkにクリックハンドラを付与
+  window._bindTsLinks?.(ta);
   document.getElementById('card-memo-ov').classList.add('open');
+  setTimeout(() => ta.focus(), 80);
 }
 function cardSaveMemo() {
   var ta = document.getElementById('card-memo-ta');
   var id = ta.dataset.id;
   var v = videos.find(function(v){ return v.id === id; });
   if (!v) return;
-  v.memo = ta.value.trim();
+  v.memo = ta.innerHTML.trim() === '<br>' ? '' : ta.innerHTML.trim();
   // メモボタンのスタイル更新
   var btn = document.querySelector('#card-' + id + ' .ca-btn[onclick*="cardShowMemo"]');
   if (btn) btn.className = 'ca-btn' + (v.memo ? ' ca-memo-on' : '');
@@ -3786,12 +3789,13 @@ function cardSaveMemo() {
   if (cardEl) {
     var existing = cardEl.querySelector('.card-memo-preview');
     if (v.memo) {
+      var _memoForPrev = v.memo.replace(/<img[^>]*>/gi,'').replace(/<div[^>]*>\s*<\/div>/gi,'').trim();
       if (existing) {
-        existing.textContent = v.memo;
+        existing.innerHTML = _memoForPrev;
       } else {
         var preview = document.createElement('div');
         preview.className = 'card-memo-preview';
-        preview.textContent = v.memo;
+        preview.innerHTML = _memoForPrev;
         preview.onclick = function(e) { e.stopPropagation(); cardShowMemo(id); };
         var actions = cardEl.querySelector('.card-actions');
         if (actions) actions.before(preview);
@@ -3961,7 +3965,7 @@ document.addEventListener('click', function(e) {
     <div class="sheet-handle"></div>
     <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:4px">💬 メモ</div>
     <div id="card-memo-title" style="font-size:13px;font-weight:700;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-    <textarea id="card-memo-ta" class="vp-memo" placeholder="ポイント、気づき、試合前に見る理由など..." style="min-height:120px;width:100%;margin-bottom:10px"></textarea>
+    <div id="card-memo-ta" class="vp-memo" contenteditable="true" placeholder="ポイント、気づき、試合前に見る理由など..." style="min-height:120px;width:100%;margin-bottom:10px;overflow-y:auto"></div>
     <div style="display:flex;gap:8px">
       <button onclick="cardSaveMemo()" style="flex:1;padding:9px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:700;cursor:pointer">💾 保存</button>
       <button onclick="closeOv('card-memo-ov')" style="padding:9px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;cursor:pointer">キャンセル</button>
