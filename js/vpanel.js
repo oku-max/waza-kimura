@@ -1527,13 +1527,17 @@ export function openVPanel(id) {
       ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追記"
            style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
       : '';
+    const _ytShotBtn = (_canSummarize && vd?.pt === 'youtube' && navigator.mediaDevices?.getDisplayMedia)
+      ? `<button id="vp-aisum-shot-${vid}" onclick="vpAiSummaryWithShot('${vid}')" title="AI要約＋スクショ（YouTubeタブを共有してください）"
+           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">✨📸</button>`
+      : '';
     const _snapBtn = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
       ? `<button id="vp-snap-now-btn-${vid}" onclick="vpMemoSnapNow('${vid}')" title="現在のフレームをスクショしてメモに挿入"
            style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">📸</button>`
       : '';
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
-          <span class="vp-lbl">Memo${_sumBtn}${_snapBtn}</span>
+          <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}</span>
           ${_memoToolbarHTML(vid)}
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
             onblur="vpSaveMemo('${vid}')"
@@ -3440,6 +3444,123 @@ window.vpAiSummary = async function(id) {
     console.error('[aiSummary] 例外:', e);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
+  }
+};
+
+// ── YouTube AI要約 + getDisplayMediaスクショ ──
+window.vpAiSummaryWithShot = async function(id) {
+  const v = (window.videos||[]).find(v => v.id===id);
+  if (!v || v.pt !== 'youtube' || !v.ytId) { window.toast?.('YouTube動画のみ対応です'); return; }
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { window.toast?.('ログインが必要です'); return; }
+
+  const btn = document.getElementById('vp-aisum-shot-' + id);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; btn.style.opacity = '0.6'; }
+
+  try {
+    // 1. AI要約テキスト生成
+    if (btn) btn.textContent = '⏳ 要約中…';
+    const idToken = await user.getIdToken();
+    const res = await fetch('/api/ai-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.summary) { window.toast?.('要約失敗: ' + (data.error || 'エラー')); return; }
+
+    // 2. タイムスタンプ収集
+    const tsText = {};
+    for (const line of data.summary.split('\n')) {
+      const m = line.match(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)/);
+      if (!m) continue;
+      const c = m[3];
+      const sec = c!=null ? (+m[1]*3600 + +m[2]*60 + +c) : (+m[1]*60 + +m[2]);
+      if (!(sec in tsText)) tsText[sec] = (m[4]||'').replace(/^[-・*\s]+/,'').trim();
+    }
+    const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
+
+    // 3. getDisplayMedia でタブをキャプチャ（1回だけ許可を求める）
+    if (btn) btn.textContent = '📸 画面共有…';
+    window.toast?.('「このタブ」を選択してください（OKしてから撮影が始まります）');
+    const playerEl = document.getElementById('vpanel-iframe-container');
+    const playerRect = playerEl?.getBoundingClientRect();
+
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 5, displaySurface: 'browser' },
+      audio: false, selfBrowserSurface: 'include', preferCurrentTab: true
+    });
+
+    const capVideo = document.createElement('video');
+    capVideo.srcObject = stream;
+    capVideo.muted = true;
+    await new Promise((res, rej) => { capVideo.onloadedmetadata = () => capVideo.play().then(res).catch(rej); setTimeout(rej, 5000); });
+
+    // 4. 各タイムスタンプでシーク→待機→キャプチャ
+    const shotMap = {};
+    const origTime = _getCurrentTime() ?? 0;
+    for (let i = 0; i < secs.length; i++) {
+      if (btn) btn.textContent = `📸 ${i+1}/${secs.length}`;
+      _seekTo(secs[i]);
+      await new Promise(r => setTimeout(r, 700)); // 描画待ち
+
+      const capW = capVideo.videoWidth, capH = capVideo.videoHeight;
+      const scaleX = capW / window.innerWidth, scaleY = capH / window.innerHeight;
+      const fc = document.createElement('canvas');
+      fc.width = capW; fc.height = capH;
+      fc.getContext('2d').drawImage(capVideo, 0, 0);
+
+      let srcCanvas = fc;
+      if (playerRect?.width > 10) {
+        const sx = Math.round(playerRect.left * scaleX), sy = Math.round(playerRect.top * scaleY);
+        const sw = Math.round(playerRect.width * scaleX), sh = Math.round(playerRect.height * scaleY);
+        const cc = document.createElement('canvas');
+        cc.width = sw; cc.height = sh;
+        cc.getContext('2d').drawImage(fc, sx, sy, sw, sh, 0, 0, sw, sh);
+        srcCanvas = cc;
+      }
+      const fullBlob = await new Promise(r => srcCanvas.toBlob(r, 'image/jpeg', 0.85));
+      const tc = document.createElement('canvas');
+      const sc = Math.min(1, 200 / srcCanvas.width);
+      tc.width = Math.round(srcCanvas.width*sc); tc.height = Math.round(srcCanvas.height*sc);
+      tc.getContext('2d').drawImage(srcCanvas, 0, 0, tc.width, tc.height);
+      const thumbDataUrl = tc.toDataURL('image/jpeg', 0.7);
+
+      if (fullBlob && window.snapAddBlob) {
+        const snapId = await window.snapAddBlob(id, fullBlob, secs[i], tsText[secs[i]]||'');
+        shotMap[secs[i]] = { snapId, thumbDataUrl };
+      }
+    }
+    stream.getTracks().forEach(t => t.stop());
+    _seekTo(origTime); // 元の位置に戻す
+
+    // 5. メモに挿入
+    if (btn) btn.textContent = '⏳ 整理中…';
+    const stamp = new Date().toISOString().slice(0,10);
+    const header = `── ✨ AI要約+📸 (${stamp}) ──`;
+    const shotCount = Object.keys(shotMap).length;
+    const summaryHtml = shotCount
+      ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(data.summary, shotMap, 'inline')
+      : `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _memoToHtml(data.summary);
+
+    const memoEl = document.getElementById('vp-memo-' + id);
+    if (memoEl) {
+      const cur = memoEl.innerHTML.trim();
+      memoEl.innerHTML = cur ? `${summaryHtml}<br><br>${cur}` : summaryHtml;
+      _bindTsLinks(memoEl);
+      v.memo = memoEl.innerHTML.trim();
+    } else {
+      v.memo = summaryHtml;
+    }
+    const snapSec = document.getElementById('vp-snap-section-' + id);
+    if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
+    autoSaveVp(id);
+    window.toast?.(`✨ 要約＋スクショ${shotCount}枚を追記しました`);
+  } catch(e) {
+    if (e.name === 'NotAllowedError') window.toast?.('キャンセルしました');
+    else { console.error('[aiSummaryWithShot]', e); window.toast?.('エラー: ' + e.message); }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨📸'; btn.style.opacity = '1'; }
   }
 };
 
