@@ -3115,8 +3115,12 @@ window._vpMemoToHtmlStatic = function(memo) {
     .replace(/\n/g, '<br>');
 };
 
-// 現在のタブ画面をキャプチャ（getDisplayMedia）→ Blob + dataUrl を返す
+// 現在のタブ画面をキャプチャ（getDisplayMedia）→ 動画プレイヤー部分を自動クロップ
 async function _captureScreenFrame() {
+  // キャプチャ前に動画プレイヤーの位置を記録
+  const playerEl = document.getElementById('vpanel-iframe-container');
+  const playerRect = playerEl?.getBoundingClientRect();
+
   const stream = await navigator.mediaDevices.getDisplayMedia({
     video: { frameRate: 1, displaySurface: 'browser' },
     audio: false,
@@ -3131,20 +3135,38 @@ async function _captureScreenFrame() {
       video.onloadedmetadata = () => video.play().then(res).catch(rej);
       setTimeout(rej, 5000);
     });
-    await new Promise(r => setTimeout(r, 120)); // フレーム確定待ち
+    await new Promise(r => setTimeout(r, 120));
 
-    const w = video.videoWidth, h = video.videoHeight;
+    const capW = video.videoWidth, capH = video.videoHeight;
     const fc = document.createElement('canvas');
-    fc.width = w; fc.height = h;
+    fc.width = capW; fc.height = capH;
     fc.getContext('2d').drawImage(video, 0, 0);
 
-    const fullBlob = await new Promise(r => fc.toBlob(r, 'image/jpeg', 0.85));
+    // キャプチャ解像度とブラウザ座標系のスケール比を算出
+    const scaleX = capW / window.innerWidth;
+    const scaleY = capH / window.innerHeight;
+
+    // 動画プレイヤー領域をクロップ
+    let srcCanvas = fc;
+    if (playerRect && playerRect.width > 10 && playerRect.height > 10) {
+      const sx = Math.round(playerRect.left * scaleX);
+      const sy = Math.round(playerRect.top  * scaleY);
+      const sw = Math.round(playerRect.width  * scaleX);
+      const sh = Math.round(playerRect.height * scaleY);
+      const cc = document.createElement('canvas');
+      cc.width = sw; cc.height = sh;
+      cc.getContext('2d').drawImage(fc, sx, sy, sw, sh, 0, 0, sw, sh);
+      srcCanvas = cc;
+    }
+
+    const fullBlob = await new Promise(r => srcCanvas.toBlob(r, 'image/jpeg', 0.9));
 
     // サムネ（幅200px以内に縮小）
     const tc = document.createElement('canvas');
-    const scale = Math.min(1, 200 / w);
-    tc.width = Math.round(w * scale); tc.height = Math.round(h * scale);
-    tc.getContext('2d').drawImage(fc, 0, 0, tc.width, tc.height);
+    const scale = Math.min(1, 200 / srcCanvas.width);
+    tc.width = Math.round(srcCanvas.width * scale);
+    tc.height = Math.round(srcCanvas.height * scale);
+    tc.getContext('2d').drawImage(srcCanvas, 0, 0, tc.width, tc.height);
     const thumbDataUrl = tc.toDataURL('image/jpeg', 0.7);
 
     return { fullBlob, thumbDataUrl };
