@@ -3113,6 +3113,44 @@ window._vpMemoToHtmlStatic = function(memo) {
     .replace(/\n/g, '<br>');
 };
 
+// 現在のタブ画面をキャプチャ（getDisplayMedia）→ Blob + dataUrl を返す
+async function _captureScreenFrame() {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: { frameRate: 1, displaySurface: 'browser' },
+    audio: false,
+    selfBrowserSurface: 'include',
+    preferCurrentTab: true
+  });
+  try {
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    await new Promise((res, rej) => {
+      video.onloadedmetadata = () => video.play().then(res).catch(rej);
+      setTimeout(rej, 5000);
+    });
+    await new Promise(r => setTimeout(r, 120)); // フレーム確定待ち
+
+    const w = video.videoWidth, h = video.videoHeight;
+    const fc = document.createElement('canvas');
+    fc.width = w; fc.height = h;
+    fc.getContext('2d').drawImage(video, 0, 0);
+
+    const fullBlob = await new Promise(r => fc.toBlob(r, 'image/jpeg', 0.85));
+
+    // サムネ（幅200px以内に縮小）
+    const tc = document.createElement('canvas');
+    const scale = Math.min(1, 200 / w);
+    tc.width = Math.round(w * scale); tc.height = Math.round(h * scale);
+    tc.getContext('2d').drawImage(fc, 0, 0, tc.width, tc.height);
+    const thumbDataUrl = tc.toDataURL('image/jpeg', 0.7);
+
+    return { fullBlob, thumbDataUrl };
+  } finally {
+    stream.getTracks().forEach(t => t.stop());
+  }
+}
+
 window.vpMemoSnapNow = async function(id) {
   const sec = _getCurrentTime();
   if (sec == null) { window.toast?.('動画を再生してからスクショしてください'); return; }
@@ -3125,35 +3163,41 @@ window.vpMemoSnapNow = async function(id) {
     const label = _fmtSec(sec);
     const tsHtml = _tsLinkHtml(sec, label);
 
+    // GDriveは直接キャプチャ、それ以外はgetDisplayMedia（画面キャプチャ）
+    let cap = null;
     if (_gdVideoEl && v?.pt === 'gdrive') {
-      // GDrive: フレームキャプチャ → スナップ保存 → サムネ＋タイムスタンプをメモに挿入
-      const cap = await _captureGdFrame(sec);
-      if (cap?.fullBlob && window.snapAddBlob) {
-        const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
-        const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
-        const rowHtml = `<div style="display:flex;gap:6px;align-items:flex-start;margin:3px 0">${thumbHtml}<span>${tsHtml}&nbsp;</span></div>`;
-        memoEl.focus();
-        document.execCommand('insertHTML', false, rowHtml);
-        _bindTsLinks(memoEl);
-        vpSaveMemo(id);
-        // スナップセクション更新
-        const snapSec = document.getElementById('vp-snap-section-' + id);
-        if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
-        window.toast?.('📸 スクショをメモに追加しました');
-      } else {
-        window.toast?.('⚠️ キャプチャに失敗しました');
-      }
+      cap = await _captureGdFrame(sec);
+    } else if (navigator.mediaDevices?.getDisplayMedia) {
+      window.toast?.('「このタブ」または「このウィンドウ」を選択してください');
+      cap = await _captureScreenFrame();
+    }
+
+    if (cap?.fullBlob && window.snapAddBlob) {
+      const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
+      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
+      const rowHtml = `<div style="display:flex;gap:6px;align-items:flex-start;margin:3px 0">${thumbHtml}<span>${tsHtml}&nbsp;</span></div>`;
+      memoEl.focus();
+      document.execCommand('insertHTML', false, rowHtml);
+      _bindTsLinks(memoEl);
+      vpSaveMemo(id);
+      const snapSec = document.getElementById('vp-snap-section-' + id);
+      if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
+      window.toast?.('📸 スクショをメモに追加しました');
     } else {
-      // YouTube / Vimeo: タイムスタンプリンクのみ挿入
+      // キャプチャ不可（モバイル等）→ タイムスタンプのみ
       memoEl.focus();
       document.execCommand('insertHTML', false, `<span>${tsHtml}&nbsp;</span>`);
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
-      window.toast?.('📍 タイムスタンプを挿入しました');
+      window.toast?.('📍 タイムスタンプを挿入しました（スクショ非対応環境）');
     }
   } catch(e) {
-    console.error('[vpMemoSnapNow]', e);
-    window.toast?.('⚠️ エラーが発生しました');
+    if (e.name === 'NotAllowedError') {
+      window.toast?.('キャンセルしました');
+    } else {
+      console.error('[vpMemoSnapNow]', e);
+      window.toast?.('⚠️ キャプチャに失敗しました');
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '📸'; }
   }
