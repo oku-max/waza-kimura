@@ -107,7 +107,10 @@ export function cardHTML(v) {
   const showMark   = _fcv.mark   !== false;
   const showStatus = _fcv.status !== false;
   const showRank   = _fcv.rank   !== false;
-  const memoPreview = (showMark && v.memo) ? `<div class="card-memo-preview" onclick="event.stopPropagation();cardShowMemo('${vid}')">${v.memo}</div>` : '';
+  const _memoForPreview = v.memo
+    ? v.memo.replace(/<img[^>]*>/gi, '').replace(/<div[^>]*>\s*<\/div>/gi, '').trim()
+    : '';
+  const memoPreview = (showMark && _memoForPreview) ? `<div class="card-memo-preview" onclick="event.stopPropagation();cardShowMemo('${vid}')">${_memoForPreview}</div>` : '';
   const aiBar = v.ai ? `<div class="ai-bar"><span style="font-size:12px">✨</span><div class="ai-bar-text">${v.ai}</div></div>` : '';
   // 🆕 4層タグバッジ (新スキーマ: tb/cat/pos/tags)
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
