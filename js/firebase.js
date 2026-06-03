@@ -289,19 +289,34 @@ export async function saveUserData() {
     return false;
   }
   try {
+    const uid = currentUser.uid;
+    const ref = storage.ref(`users/${uid}/videos.json`);
+
+    // ── 競合チェック: サーバー上のタイムスタンプが自分がロードした時より新しければ上書きしない ──
+    try {
+      const meta = await ref.getMetadata();
+      const serverUpdatedAt = meta.customMetadata?.updatedAt || '';
+      if (serverUpdatedAt && _videosLoadedAt && serverUpdatedAt > _videosLoadedAt) {
+        console.warn('[saveUserData] 競合検出 — サーバー:', serverUpdatedAt, '自分がロードした時刻:', _videosLoadedAt);
+        showToast('⚠️ 別の端末で更新されています。ページを更新してから再操作してください', 7000);
+        return false;
+      }
+    } catch (metaErr) {
+      // ファイルが存在しない場合は無視して保存続行
+      if (metaErr.code !== 'storage/object-not-found') console.warn('[saveUserData] メタデータ取得失敗:', metaErr.message);
+    }
+
     const updatedAt = new Date().toISOString();
     _videosLoadedAt = updatedAt;
-    const uid = currentUser.uid;
     const videos = (window.videos || []).filter(v => !v._srTemp);
     const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
-    // cacheControl: no-cache を付けないと Storage はデフォルトで max-age=3600 を付与し、
-    // 保存直後のリロード/別端末で古いキャッシュが返る（メモが消えて見える原因）
-    await storage.ref(`users/${uid}/videos.json`).put(blob, {
+    await ref.put(blob, {
       contentType: 'application/json',
       cacheControl: 'no-cache, max-age=0',
+      customMetadata: { updatedAt }, // 競合チェック用タイムスタンプをメタデータにも保存
     });
     showToast('💾 保存', 1500);
-    return true; // 呼び出し元が保存成否を判定できるようにする（AI要約のリトライ等）
+    return true;
   } catch (e) {
     console.error('[saveUserData] save failed:', e);
     showToast('⚠️ 保存に失敗しました: ' + e.message, 5000);

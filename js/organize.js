@@ -1152,6 +1152,7 @@ document.addEventListener('mousemove', e => _resizeMove(e.clientX));
 document.addEventListener('mouseup', _resizeEnd);
 document.addEventListener('touchmove', e => { if (_resizeDragging) { e.preventDefault(); _resizeMove(e.touches[0].clientX); } }, {passive: false});
 document.addEventListener('touchend', _resizeEnd);
+document.addEventListener('touchcancel', _resizeEnd); // タッチキャンセル時もdraggable=trueを復元
 
 export function addResizeHandle(th, onResize, onEnd) {
   const rh = document.createElement('div');
@@ -1374,13 +1375,16 @@ export function bindOrgDrag() {
     thead.addEventListener('touchend', _touchEnd);
   }
   // ── デスクトップ: HTML5 Drag & Drop ──
+  // dragSrc を window._orgDragSrc に持ち上げてリレンダリング時のリセットを防ぐ
   document.querySelectorAll('.org-th-draggable').forEach(th => {
     th.ondragstart = e => {
-      dragSrc = th.dataset.col;
+      window._orgDragSrc = th.dataset.col;
       th.classList.add('org-th-dragging');
       e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', th.dataset.col);
     };
     th.ondragend = () => {
+      window._orgDragSrc = null;
       document.querySelectorAll('.org-th-draggable').forEach(el => {
         el.classList.remove('org-th-dragging', 'org-th-drag-over');
       });
@@ -1389,17 +1393,18 @@ export function bindOrgDrag() {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       document.querySelectorAll('.org-th-draggable').forEach(el => el.classList.remove('org-th-drag-over'));
-      if (th.dataset.col !== dragSrc) th.classList.add('org-th-drag-over');
+      if (th.dataset.col !== window._orgDragSrc) th.classList.add('org-th-drag-over');
     };
     th.ondrop = e => {
       e.preventDefault();
-      if (!dragSrc || dragSrc === th.dataset.col) return;
-      if (window.orgDragReorderOverride?.(dragSrc, th.dataset.col)) return;
-      const from = orgColOrder.indexOf(dragSrc);
+      const src = window._orgDragSrc;
+      if (!src || src === th.dataset.col) return;
+      if (window.orgDragReorderOverride?.(src, th.dataset.col)) return;
+      const from = orgColOrder.indexOf(src);
       const to   = orgColOrder.indexOf(th.dataset.col);
       if (from < 0 || to < 0) return;
       orgColOrder.splice(from, 1);
-      orgColOrder.splice(to, 0, dragSrc);
+      orgColOrder.splice(to, 0, src);
       _saveOrgColPrefs();
       renderOrg();
     };
