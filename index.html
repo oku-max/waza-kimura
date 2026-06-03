@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.532</title>
+<title>WAZA KIMURA v52.533</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -86,7 +86,8 @@
 <script type="module">
   window.__pmark&&window.__pmark('mod_start');
   import { showToast } from './js/ui.js';
-  import { currentUser, saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings, saveFeedback } from './js/firebase.js';
+  import { currentUser, saveUserData, loadUserData, updateAuthUI, saveUserSettings, loadUserSettings, saveFeedback, db } from './js/firebase.js';
+  window._firebaseDb = db;
   window.saveFeedback = saveFeedback;
   import { initOnboarding, startOnboarding, startSearchOnboarding, startNotesOnboarding } from './js/onboarding.js';
   window.startOnboarding = startOnboarding;
@@ -1878,6 +1879,29 @@
       </div>
     </div>
 
+    <!-- ═══ バックアップ ═══ -->
+    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">バックアップ / 復元</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:3px">軽量バックアップ</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">動画リスト・タグ・メモ・ノート・設定をJSONで保存（画像除く）</div>
+        <button onclick="wazaExportLight()" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📥 エクスポート</button>
+      </div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:3px">フルバックアップ</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">上記＋スナップショット画像もすべて含む（枚数が多いと時間がかかります）</div>
+        <button onclick="wazaExportFull()" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📥 フルエクスポート</button>
+      </div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:3px">インポート（復元）</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">バックアップJSONを読み込んでデータを復元します（現在のデータは上書きされます）</div>
+        <input type="file" id="waza-import-file" accept=".json" style="display:none" onchange="wazaImport(this)">
+        <button onclick="document.getElementById('waza-import-file').click()" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📤 インポート</button>
+      </div>
+    </div>
+
   </div>
   </div><!-- /settings-main-content -->
 
@@ -3614,6 +3638,128 @@ function loadSettings() {
 loadSettings();
 
 // ── 管理モード ──
+// ══════════════════════════════════════════════════════════════
+// ── バックアップ / 復元
+// ══════════════════════════════════════════════════════════════
+function _wazaDownloadJson(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+async function _wazaCollectLightData() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    videos: (window.videos || []).filter(v => !v._srTemp),
+    tagSettings: window.tagSettings || [],
+    aiSettings: window.aiSettings || {},
+    savedSearches: window.savedSearches || [],
+    filterPresets: window.filterPresets || [],
+    orgColOrder: window.orgColOrder || [],
+    orgColVisibility: window.orgColVisibility || {},
+    notes: window._notesGetData ? { folders: window._notesGetData(), root: [] } : null,
+  };
+}
+
+window.wazaExportLight = async function() {
+  toast('📥 エクスポート中…');
+  try {
+    const data = await _wazaCollectLightData();
+    const date = new Date().toISOString().slice(0,10);
+    _wazaDownloadJson({ ...data, type: 'light' }, `waza-backup-light-${date}.json`);
+    toast('✅ 軽量バックアップを保存しました');
+  } catch(e) {
+    toast('⚠️ エクスポート失敗: ' + e.message);
+    console.error('[export]', e);
+  }
+};
+
+window.wazaExportFull = async function() {
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 画像収集中…'; }
+  try {
+    toast('📥 スナップショットを収集中…（時間がかかる場合があります）');
+    const data = await _wazaCollectLightData();
+
+    // Firestoreからスナップショット画像を収集
+    const snapshots = [];
+    const user = window._firebaseCurrentUser?.();
+    if (user && window._firebaseDb) {
+      const snap = await window._firebaseDb
+        .collection('users').doc(user.uid).collection('snapshots').get();
+      snap.forEach(doc => {
+        const d = doc.data();
+        if (d) snapshots.push({ id: doc.id, ...d });
+      });
+    }
+    const date = new Date().toISOString().slice(0,10);
+    _wazaDownloadJson({ ...data, type: 'full', snapshots }, `waza-backup-full-${date}.json`);
+    toast(`✅ フルバックアップ完了（スナップ${snapshots.length}枚）`);
+  } catch(e) {
+    toast('⚠️ エクスポート失敗: ' + e.message);
+    console.error('[export-full]', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 フルエクスポート'; }
+  }
+};
+
+window.wazaImport = async function(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  input.value = '';
+  const text = await file.text();
+  let data;
+  try { data = JSON.parse(text); } catch { toast('⚠️ JSONの読み込みに失敗しました'); return; }
+  if (!data.videos) { toast('⚠️ バックアップファイルが正しくありません'); return; }
+
+  const confirmed = confirm(
+    `バックアップを復元しますか？\n\n` +
+    `エクスポート日時: ${data.exportedAt || '不明'}\n` +
+    `動画数: ${data.videos?.length || 0}本\n` +
+    `スナップ: ${data.snapshots?.length || 0}枚\n\n` +
+    `⚠️ 現在のデータは上書きされます。`
+  );
+  if (!confirmed) return;
+
+  try {
+    toast('⏳ 復元中…');
+    // 動画データを復元
+    window.videos = data.videos;
+    await window.saveUserData?.();
+
+    // 設定を復元
+    if (data.tagSettings) { window.tagSettings = data.tagSettings; window.saveTagSettings?.(); }
+    if (data.savedSearches) { window.savedSearches = data.savedSearches; }
+    if (data.filterPresets) { window.filterPresets = data.filterPresets; }
+    if (data.orgColOrder) { window.orgColOrder = data.orgColOrder; }
+    if (data.orgColVisibility) { window.orgColVisibility = data.orgColVisibility; }
+    window.saveUserSettings?.();
+
+    // フルバックアップのスナップショット復元
+    if (data.snapshots?.length && window._firebaseCurrentUser?.() && window._firebaseDb) {
+      const user = window._firebaseCurrentUser();
+      let ok = 0;
+      for (const snap of data.snapshots) {
+        const { id, ...rest } = snap;
+        await window._firebaseDb
+          .collection('users').doc(user.uid).collection('snapshots').doc(id).set(rest);
+        ok++;
+        if (ok % 10 === 0) toast(`⏳ スナップ復元中… ${ok}/${data.snapshots.length}`);
+      }
+    }
+
+    window.AF?.();
+    toast(`✅ 復元完了（動画${data.videos.length}本）`);
+  } catch(e) {
+    toast('⚠️ 復元失敗: ' + e.message);
+    console.error('[import]', e);
+  }
+};
+
 function toggleAdminMode(on) {
   document.body.classList.toggle('admin-mode', on);
   localStorage.setItem('waza_admin_mode', on ? '1' : '');
