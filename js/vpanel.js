@@ -3540,7 +3540,7 @@ window.vpAiSummaryWithShot = async function(id) {
     const header = `── ✨ AI要約+📸 (${stamp}) ──`;
     const shotCount = Object.keys(shotMap).length;
     const summaryHtml = shotCount
-      ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(data.summary, shotMap, 'inline')
+      ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(data.summary, shotMap, 'block')
       : `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _memoToHtml(data.summary);
 
     const memoEl = document.getElementById('vp-memo-' + id);
