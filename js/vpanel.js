@@ -3165,13 +3165,13 @@ async function _captureScreenFrame() {
 
     const fullBlob = await new Promise(r => srcCanvas.toBlob(r, 'image/jpeg', 0.9));
 
-    // サムネ（幅200px以内に縮小）
+    // サムネ（幅320px以内に縮小）
     const tc = document.createElement('canvas');
-    const scale = Math.min(1, 200 / srcCanvas.width);
+    const scale = Math.min(1, 320 / srcCanvas.width);
     tc.width = Math.round(srcCanvas.width * scale);
     tc.height = Math.round(srcCanvas.height * scale);
     tc.getContext('2d').drawImage(srcCanvas, 0, 0, tc.width, tc.height);
-    const thumbDataUrl = tc.toDataURL('image/jpeg', 0.7);
+    const thumbDataUrl = tc.toDataURL('image/jpeg', 0.75);
 
     return { fullBlob, thumbDataUrl };
   } finally {
@@ -3202,8 +3202,8 @@ window.vpMemoSnapNow = async function(id) {
 
     if (cap?.fullBlob && window.snapAddBlob) {
       const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
-      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
-      const rowHtml = `<div style="display:flex;gap:6px;align-items:flex-start;margin:3px 0">${thumbHtml}<span>${tsHtml}&nbsp;</span></div>`;
+      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'block');
+      const rowHtml = `<div style="margin:4px 0">${tsHtml}&nbsp;${thumbHtml}</div>`;
       memoEl.focus();
       document.execCommand('insertHTML', false, rowHtml);
       _bindTsLinks(memoEl);
