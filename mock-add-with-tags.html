@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — 追加時にタグを自分で選ぶ</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f2f2f7;--surface:#fff;--surface2:#f5f5f5;
+  --border:#e0e0e0;--border2:#ebebeb;
+  --text:#1c1c1e;--text2:#3c3c43;--text3:#8e8e93;
+  --accent:#ff9500;--blue:#007aff;--red:#ff3b30;--green:#34c759;--purple:#af52de;
+  --accent-soft:rgba(255,149,0,.12);--blue-soft:rgba(0,122,255,.12);--green-soft:rgba(52,199,89,.14);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:#e5e5ea;color:var(--text);padding:24px 12px 80px;line-height:1.5}
+.wrap{max-width:560px;margin:0 auto}
+h1{font-size:17px;font-weight:800;margin-bottom:4px}
+.sub{font-size:12px;color:var(--text3);margin-bottom:18px}
+.note{background:#fff;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:var(--text2)}
+.note b{color:var(--text)}
+
+/* モーダル */
+.modal{background:var(--surface);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--border2)}
+.m-title{font-size:15px;font-weight:800}
+.m-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);line-height:1}
+.m-body{padding:16px 18px;max-height:74vh;overflow-y:auto}
+
+.sec-lbl{font-size:11px;font-weight:800;color:var(--text3);margin:0 0 7px;display:flex;align-items:center;gap:6px}
+.sec-lbl .opt{font-size:9px;font-weight:700;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px}
+
+/* 取り込み対象リスト */
+.vid-row{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border2);border-radius:10px;margin-bottom:6px;background:var(--surface)}
+.vid-row.active{border-color:var(--accent);background:var(--accent-soft)}
+.thumb{width:64px;height:38px;border-radius:6px;flex-shrink:0;background:#000;background-size:cover;background-position:center;position:relative;overflow:hidden}
+.thumb .pt{position:absolute;left:3px;bottom:3px;font-size:8px;font-weight:800;color:#fff;background:rgba(0,0,0,.6);border-radius:3px;padding:1px 4px}
+.vid-meta{flex:1;min-width:0}
+.vid-title{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vid-tagline{font-size:10.5px;color:var(--text3);margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-height:15px}
+.mini-chip{font-size:9.5px;font-weight:700;border-radius:5px;padding:1px 6px;white-space:nowrap}
+.mini-chip.tb{background:var(--blue-soft);color:var(--blue)}
+.mini-chip.cat{background:var(--accent-soft);color:#c2710a}
+.mini-chip.pos{background:var(--green-soft);color:#1f9d4d}
+.mini-chip.tag{background:var(--surface2);color:var(--text2)}
+.mini-empty{font-size:10px;color:var(--text3);font-style:italic}
+.vid-edit{font-size:11px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;flex-shrink:0;padding:4px 6px}
+
+/* セグメント */
+.seg{display:flex;background:var(--surface2);border-radius:10px;padding:3px;gap:3px;margin-bottom:6px}
+.seg button{flex:1;border:none;background:none;padding:9px 4px;border-radius:8px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;transition:.12s;white-space:nowrap}
+.seg button .s{font-size:9px;font-weight:600;color:var(--text3)}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.seg button.on .s{color:var(--text2)}
+
+.divider{height:1px;background:var(--border2);margin:16px -18px}
+
+/* タグピッカー */
+.picker{margin-top:2px}
+.scope-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:9px 11px;background:var(--surface2);border-radius:10px}
+.scope-row .ico{font-size:15px}
+.scope-txt{flex:1;font-size:11.5px;color:var(--text2);font-weight:600}
+.scope-txt b{color:var(--text)}
+.switch{position:relative;width:42px;height:24px;background:var(--border);border-radius:12px;cursor:pointer;transition:.15s;flex-shrink:0}
+.switch.on{background:var(--accent)}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.switch.on::after{left:20px}
+
+.field{margin-bottom:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11.5px;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);border-radius:16px;padding:5px 11px;cursor:pointer;transition:.1s;user-select:none}
+.chip:hover{border-color:var(--text3)}
+.chip.on{color:#fff}
+.chip.tb.on{background:var(--blue);border-color:var(--blue)}
+.chip.cat.on{background:var(--accent);border-color:var(--accent)}
+.chip.pos.on{background:var(--green);border-color:var(--green)}
+
+.pos-search{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:var(--surface2);margin-bottom:8px}
+.pos-search:focus{border-color:var(--accent)}
+.pos-box{max-height:128px;overflow-y:auto;border:1px solid var(--border2);border-radius:8px;padding:8px}
+.pos-box.collapsed{display:none}
+
+.tagin-row{display:flex;gap:6px;margin-bottom:8px}
+.tagin-row input{flex:1;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:var(--surface2)}
+.tagin-row input:focus{border-color:var(--accent)}
+.tagin-row button{background:#1c1c1e;color:#fff;border:none;padding:0 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.free-chips{display:flex;flex-wrap:wrap;gap:6px}
+.free-chip{font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:14px;padding:4px 9px;display:flex;align-items:center;gap:5px}
+.free-chip .x{cursor:pointer;color:var(--text3);font-weight:800}
+
+.collapse-hd{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;font-weight:800;color:var(--text3);margin-bottom:8px}
+.collapse-hd .arrow{transition:.15s;font-size:9px}
+.collapse-hd.open .arrow{transform:rotate(90deg)}
+
+/* per-video editor */
+.pv-back{font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;margin-bottom:12px;display:flex;align-items:center;gap:5px}
+.pv-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.pv-head .vid-title{white-space:normal}
+
+/* フッター */
+.m-foot{padding:13px 18px;border-top:1px solid var(--border);display:flex;gap:9px;align-items:center}
+.foot-info{flex:1;font-size:11px;color:var(--text3)}
+.btn{border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-ghost{background:var(--surface2);color:var(--text2)}
+
+/* 結果トースト */
+.result{display:none;margin-top:18px;background:#1c1c1e;color:#fff;border-radius:12px;padding:14px 16px;font-size:12px}
+.result.show{display:block}
+.result h3{font-size:12px;margin-bottom:8px;color:var(--green)}
+.result pre{font-size:10.5px;line-height:1.55;color:#d6d6db;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>動画追加 × タグ自選 — 動くモック</h1>
+  <div class="sub">URL解析の後に「自分でタグを選ぶ」を選択 → その場でタグ付けして追加</div>
+
+  <div class="note">
+    <b>提案する追加方法</b><br>
+    解析結果のすぐ下に <b>「🤖 自動判別 / ✋ 自分で選ぶ / 🚫 タグなし」</b> の3択を置きます。<br>
+    ・<b>自動判別</b>…AIが推定（<span style="color:var(--red)">間違えることがある旨を明記</span>。後で整理画面で直せる）<br>
+    ・<b>自分で選ぶ</b>…その場で手動タグ付け。複数本は初期値「まとめて適用」、<b>個別設定</b>で1本ずつも可<br>
+    ・<b>タグなし</b>…とりあえず追加だけ。あとでまとめて整理<br>
+    タグ体系は本番と同じ <b>TB → カテゴリ → ポジション → #テクニック</b> の4層です。
+  </div>
+
+  <!-- ════ モーダル ════ -->
+  <div class="modal">
+    <div class="m-head">
+      <span class="m-title">🔗 URLから動画を追加</span>
+      <button class="m-close">✕</button>
+    </div>
+
+    <div class="m-body">
+
+      <!-- メイン画面 -->
+      <div id="main-view">
+        <!-- 解析済みリスト -->
+        <div class="sec-lbl">取り込む動画 <span id="vcount">3</span>本</div>
+        <div id="vid-list"></div>
+
+        <div class="divider"></div>
+
+        <!-- モード切替 -->
+        <div class="sec-lbl">タグの付け方</div>
+        <div class="seg" id="mode-seg">
+          <button data-mode="ai" class="on">🤖 自動判別<span class="s">AIにおまかせ</span></button>
+          <button data-mode="manual">✋ 自分で選ぶ<span class="s">いま手動で</span></button>
+          <button data-mode="none">🚫 タグなし<span class="s">あとで整理</span></button>
+        </div>
+
+        <!-- AIモードの説明（注意書き付き） -->
+        <div id="ai-hint" style="margin-top:8px">
+          <div style="font-size:11.5px;color:var(--text3);padding:10px 12px;background:var(--surface2);border-radius:10px">
+            タイトル・チャンネル名からAIがタグを推定します。
+          </div>
+          <div style="display:flex;gap:7px;align-items:flex-start;font-size:11px;color:#b23b30;background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.25);border-radius:10px;padding:9px 11px;margin-top:7px">
+            <span style="font-size:13px;line-height:1.2">⚠️</span>
+            <span>AIの自動判別は<b>間違えることがあります</b>。正確でない場合があるため、追加後に整理モードの「テクニック未設定」で確認・修正できます。</span>
+          </div>
+        </div>
+
+        <!-- タグなしモードの説明 -->
+        <div id="none-hint" class="hidden" style="font-size:11.5px;color:var(--text3);padding:10px 12px;background:var(--surface2);border-radius:10px;margin-top:8px">
+          タグを付けずに追加します。あとで整理モードからまとめてタグ付けできます。
+        </div>
+
+        <!-- 手動モードのピッカー -->
+        <div id="picker" class="picker hidden">
+          <!-- 適用範囲 -->
+          <div class="scope-row">
+            <span class="ico">🎯</span>
+            <span class="scope-txt" id="scope-txt"><b>全 3本</b>に同じタグを適用</span>
+            <span style="font-size:10.5px;color:var(--text3);font-weight:700">個別設定</span>
+            <div class="switch" id="scope-switch"></div>
+          </div>
+
+          <!-- 一括ピッカー -->
+          <div id="batch-picker">
+            <div id="picker-fields"></div>
+          </div>
+
+          <!-- 個別: 動画選択を促す -->
+          <div id="perv-hint" class="hidden" style="font-size:11.5px;color:var(--text2);padding:12px;background:var(--green-soft);border-radius:10px;text-align:center">
+            上のリストの各動画の <b style="color:var(--blue)">編集</b> から、1本ずつタグを設定してください。
+          </div>
+        </div>
+      </div>
+
+      <!-- 個別編集ビュー -->
+      <div id="perv-view" class="hidden">
+        <button class="pv-back" id="pv-back">‹ 戻る</button>
+        <div class="pv-head">
+          <div class="thumb" id="pv-thumb"><span class="pt" id="pv-pt"></span></div>
+          <div style="flex:1;min-width:0">
+            <div class="vid-title" id="pv-title"></div>
+          </div>
+        </div>
+        <div id="pv-fields"></div>
+      </div>
+
+    </div><!-- /m-body -->
+
+    <div class="m-foot" id="main-foot">
+      <span class="foot-info" id="foot-info">AIが自動でタグ付けします</span>
+      <button class="btn btn-ghost">キャンセル</button>
+      <button class="btn btn-primary" id="add-btn">＋ 追加</button>
+    </div>
+    <div class="m-foot hidden" id="perv-foot">
+      <span class="foot-info">この動画のタグを設定中</span>
+      <button class="btn btn-primary" id="pv-done">この設定で保存</button>
+    </div>
+  </div>
+
+  <!-- 結果出力 -->
+  <div class="result" id="result">
+    <h3>✅ ライブラリに追加しました（保存されるデータ）</h3>
+    <pre id="result-pre"></pre>
+  </div>
+</div>
+
+<script>
+// ───── 本番と同じタグ体系（js/tag-master.js より） ─────
+const TB_VALUES = ['トップ','ボトム','スタンディング'];
+const CATEGORIES = [
+  {id:'escape',name:'エスケープ・ディフェンス'},
+  {id:'entry',name:'ガード構築・エントリー'},
+  {id:'retention',name:'ガードリテンション'},
+  {id:'control',name:'コントロール／プレッシャー'},
+  {id:'concept',name:'コンセプト・原理'},
+  {id:'sweep',name:'スイープ'},
+  {id:'takedown',name:'テイクダウン'},
+  {id:'back',name:'バックテイク・バックアタック'},
+  {id:'pass',name:'パスガード'},
+  {id:'finish',name:'フィニッシュ'},
+];
+const POSITIONS = ['50/50','70/30ガード','Kガード','SLX','Xガード','インバーテッド','オープンガード','オクトパスガード','片襟片袖','クローズドガード','クロスガード','サドル','シッティングガード','シングルレッグガード','スタンディング','スパイダーガード','タートル','ディープハーフ','デラヒーバ','ニーシールド','ハーフガード','バタフライガード','ラッソーガード','ラペルガード','リバースデラヒーバ','リバースハーフガード','その他'];
+
+// ───── 取り込み対象（解析済みのサンプル） ─────
+const videos = [
+  {id:'v1',pt:'YT',title:'Closed Guard Sweep - 基本のシザースイープ',thumb:'#7b1fa2',tb:[],cat:[],pos:[],tags:[]},
+  {id:'v2',pt:'Vimeo',title:'Knee Cut Pass Details by John Danaher',thumb:'#1565c0',tb:[],cat:[],pos:[],tags:[]},
+  {id:'v3',pt:'YT',title:'Rear Naked Choke finishing mechanics',thumb:'#c62828',tb:[],cat:[],pos:[],tags:[]},
+];
+
+let mode='ai';        // 'ai' | 'manual' | 'none'
+let perVideo=false;   // 個別設定ON/OFF
+let batch={tb:[],cat:[],pos:[],tags:[]};  // 一括タグ
+let editingId=null;   // 個別編集中の動画ID
+
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+
+// ───── リスト描画 ─────
+function renderList(){
+  $('#vid-list').innerHTML = videos.map(v=>{
+    const t = perVideo ? v : null;  // 個別ONなら各動画のタグ、OFFなら一括プレビュー
+    return `<div class="vid-row ${perVideo?'':''}" data-id="${v.id}">
+      <div class="thumb" style="background:${v.thumb}"><span class="pt">${v.pt}</span></div>
+      <div class="vid-meta">
+        <div class="vid-title">${v.title}</div>
+        <div class="vid-tagline">${tagPreview(v)}</div>
+      </div>
+      ${(mode==='manual'&&perVideo)?`<button class="vid-edit" data-edit="${v.id}">✎ 編集</button>`:''}
+    </div>`;
+  }).join('');
+  $$('[data-edit]').forEach(b=>b.onclick=()=>openPerVideo(b.dataset.edit));
+}
+function tagPreview(v){
+  // 個別ONなら個別タグ、手動一括なら一括タグ、それ以外は状態メッセージ
+  const src = (mode==='manual') ? (perVideo ? v : batch) : null;
+  if(!src) return mode==='ai'
+    ? `<span class="mini-empty">🤖 AIが自動でタグ付け</span>`
+    : `<span class="mini-empty">🚫 タグなし（あとで整理）</span>`;
+  const chips=[];
+  src.tb.forEach(x=>chips.push(`<span class="mini-chip tb">${x}</span>`));
+  src.cat.forEach(id=>{const c=CATEGORIES.find(c=>c.id===id);if(c)chips.push(`<span class="mini-chip cat">${c.name}</span>`);});
+  src.pos.forEach(x=>chips.push(`<span class="mini-chip pos">${x}</span>`));
+  src.tags.forEach(x=>chips.push(`<span class="mini-chip tag">#${x}</span>`));
+  return chips.length?chips.join(''):`<span class="mini-empty">タグ未設定</span>`;
+}
+
+// ───── タグピッカーのフィールド描画（一括 or 個別共通） ─────
+function renderFields(target, containerSel){
+  const c=$(containerSel);
+  c.innerHTML = `
+    <div class="field">
+      <div class="sec-lbl">① TB（起点）<span class="opt">複数可</span></div>
+      <div class="chips" data-layer="tb">
+        ${TB_VALUES.map(v=>`<span class="chip tb ${target.tb.includes(v)?'on':''}" data-v="${v}">${v}</span>`).join('')}
+      </div>
+    </div>
+    <div class="field">
+      <div class="sec-lbl">② カテゴリ<span class="opt">複数可</span></div>
+      <div class="chips" data-layer="cat">
+        ${CATEGORIES.map(c=>`<span class="chip cat ${target.cat.includes(c.id)?'on':''}" data-v="${c.id}">${c.name}</span>`).join('')}
+      </div>
+    </div>
+    <div class="field">
+      <div class="collapse-hd ${target.pos.length?'open':''}" data-toggle="pos">
+        <span class="arrow">▶</span> ③ ポジション <span style="font-weight:600;color:var(--text3)">（任意・ボトム系）</span>
+      </div>
+      <div class="pos-wrap ${target.pos.length?'':'collapsed'}">
+        <input class="pos-search" placeholder="ポジション名で絞り込み…" data-possearch>
+        <div class="pos-box">
+          <div class="chips" data-layer="pos">
+            ${POSITIONS.map(p=>`<span class="chip pos ${target.pos.includes(p)?'on':''}" data-v="${p}">${p}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <div class="sec-lbl">④ #テクニック<span class="opt">自由入力</span></div>
+      <div class="tagin-row">
+        <input placeholder="例: シザースイープ" data-taginput>
+        <button data-tagadd>追加</button>
+      </div>
+      <div class="free-chips" data-freechips></div>
+    </div>`;
+
+  // チップtoggle
+  c.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
+    const layer=ch.closest('.chips').dataset.layer, v=ch.dataset.v;
+    const arr=target[layer];
+    const i=arr.indexOf(v);
+    if(i>=0)arr.splice(i,1);else arr.push(v);
+    ch.classList.toggle('on');
+    afterChange();
+  });
+  // ポジション折りたたみ
+  c.querySelector('[data-toggle="pos"]').onclick=function(){
+    this.classList.toggle('open');
+    c.querySelector('.pos-wrap').classList.toggle('collapsed');
+  };
+  // ポジション検索
+  const ps=c.querySelector('[data-possearch]');
+  ps.oninput=()=>{
+    const q=ps.value.trim().toLowerCase();
+    c.querySelectorAll('[data-layer="pos"] .chip').forEach(ch=>{
+      ch.style.display = (!q||ch.dataset.v.toLowerCase().includes(q))?'':'none';
+    });
+  };
+  // 自由タグ
+  const ti=c.querySelector('[data-taginput]');
+  const addTag=()=>{
+    const v=ti.value.trim();
+    if(v&&!target.tags.includes(v))target.tags.push(v);
+    ti.value='';renderFree(c,target);afterChange();
+  };
+  c.querySelector('[data-tagadd]').onclick=addTag;
+  ti.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addTag();}};
+  renderFree(c,target);
+}
+function renderFree(c,target){
+  c.querySelector('[data-freechips]').innerHTML = target.tags.map(t=>
+    `<span class="free-chip">#${t}<span class="x" data-rm="${t}">✕</span></span>`).join('');
+  c.querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{
+    target.tags=target.tags.filter(t=>t!==x.dataset.rm);
+    renderFree(c,target);afterChange();
+  });
+}
+
+function afterChange(){
+  if(!perVideo) renderList();   // 一括プレビュー更新
+  updateFoot();
+}
+
+// ───── モード切替 ─────
+$$('#mode-seg button').forEach(b=>b.onclick=()=>{
+  $$('#mode-seg button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  mode=b.dataset.mode;
+  $('#ai-hint').classList.toggle('hidden',mode!=='ai');
+  $('#none-hint').classList.toggle('hidden',mode!=='none');
+  $('#picker').classList.toggle('hidden',mode!=='manual');
+  if(mode==='manual') renderFields(batch,'#picker-fields');
+  renderList();updateFoot();
+});
+
+// ───── 個別設定スイッチ ─────
+$('#scope-switch').onclick=()=>{
+  perVideo=!perVideo;
+  $('#scope-switch').classList.toggle('on',perVideo);
+  $('#batch-picker').classList.toggle('hidden',perVideo);
+  $('#perv-hint').classList.toggle('hidden',!perVideo);
+  $('#scope-txt').innerHTML = perVideo
+    ? `<b>動画ごと</b>に個別にタグを設定`
+    : `<b>全 ${videos.length}本</b>に同じタグを適用`;
+  renderList();updateFoot();
+};
+
+// ───── 個別編集ビュー ─────
+function openPerVideo(id){
+  editingId=id;
+  const v=videos.find(x=>x.id===id);
+  $('#main-view').classList.add('hidden');
+  $('#main-foot').classList.add('hidden');
+  $('#perv-view').classList.remove('hidden');
+  $('#perv-foot').classList.remove('hidden');
+  $('#pv-thumb').style.background=v.thumb;
+  $('#pv-pt').textContent=v.pt;
+  $('#pv-title').textContent=v.title;
+  renderFields(v,'#pv-fields');
+}
+$('#pv-back').onclick=closePerVideo;
+$('#pv-done').onclick=closePerVideo;
+function closePerVideo(){
+  editingId=null;
+  $('#perv-view').classList.add('hidden');
+  $('#perv-foot').classList.add('hidden');
+  $('#main-view').classList.remove('hidden');
+  $('#main-foot').classList.remove('hidden');
+  renderList();
+}
+
+// ───── フッター情報 ─────
+function updateFoot(){
+  let msg;
+  if(mode==='ai') msg='🤖 AIが自動でタグ付け（間違える場合あり）';
+  else if(mode==='none') msg='🚫 タグなしで追加 → あとで整理';
+  else if(perVideo) msg='✋ 動画ごとに手動設定';
+  else{
+    const n=batch.tb.length+batch.cat.length+batch.pos.length+batch.tags.length;
+    msg=`✋ 全${videos.length}本に ${n}個のタグを適用`;
+  }
+  $('#foot-info').textContent=msg;
+}
+
+// ───── 追加実行 → 結果データを表示 ─────
+$('#add-btn').onclick=()=>{
+  const out=videos.map(v=>{
+    let tags;
+    if(mode==='ai') tags={tb:'[AI推定]',cat:'[AI推定]',pos:'[AI推定]',tags:'[AI推定]',prio:'保留',source:'ai'};
+    else if(mode==='none') tags={tb:[],cat:[],pos:[],tags:[],prio:'保留',source:'none'};
+    else if(perVideo) tags={tb:v.tb,cat:v.cat,pos:v.pos,tags:v.tags,prio:'手動',source:'manual'};
+    else tags={tb:batch.tb,cat:batch.cat,pos:batch.pos,tags:batch.tags,prio:'手動',source:'manual'};
+    return {id:v.id,title:v.title,...tags};
+  });
+  $('#result-pre').textContent=JSON.stringify(out,null,2);
+  $('#result').classList.add('show');
+  $('#result').scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+
+// init
+renderList();updateFoot();
+</script>
+</body>
+</html>
