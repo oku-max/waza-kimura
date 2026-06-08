@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.538</title>
+<title>WAZA KIMURA v52.539</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3100,95 +3100,127 @@ function urlTagCurrent() {
   if (!urlTagOverrides[urlTagTarget]) urlTagOverrides[urlTagTarget] = { tb: [], cat: [], pos: [], tags: [] };
   return urlTagOverrides[urlTagTarget];
 }
+// ── タグ編集UIは Vパネル (vpanel-v4.js) と同一の .vp-chip / .vp-dd を流用 ──
+//   ハンドラは window.videos ではなく urlTagCurrent()（追加前の保留タグ）を操作。
 function urlTagRenderFields() {
   const c = document.getElementById('utagFields');
   if (!c) return;
   const t = urlTagCurrent();
-  const esc = s => String(s).replace(/'/g, "\\'");
+  const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
   const TB = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
   const CATS = (window.CATEGORIES || []).map(x => x.name);
-  const POS = (window.POSITIONS || []).map(x => x.ja);
-  const chip = (layer, v) => `<span class="utag-chip ${layer} ${t[layer].includes(v) ? 'on' : ''}" onclick="urlTagToggle('${layer}','${esc(v)}',this)">${v}</span>`;
-  c.innerHTML = `
-    <div class="utag-field">
-      <div class="utag-flbl">① TB（起点）<span class="opt">複数可</span></div>
-      <div class="utag-chips">${TB.map(v => chip('tb', v)).join('')}</div>
-    </div>
-    <div class="utag-field">
-      <div class="utag-flbl">② カテゴリ<span class="opt">複数可</span></div>
-      <div class="utag-chips">${CATS.map(v => chip('cat', v)).join('')}</div>
-    </div>
-    <div class="utag-field">
-      <div class="utag-collapse ${t.pos.length ? 'open' : ''}" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'">
-        <span class="arr">▶</span> ③ ポジション <span style="font-weight:600;color:var(--text3)">（任意）</span>
-      </div>
-      <div style="display:${t.pos.length ? 'block' : 'none'}">
-        <input class="utag-possearch" placeholder="ポジション名で絞り込み…" oninput="urlTagPosFilter(this.value)">
-        <div class="utag-posbox"><div class="utag-chips" id="utagPosChips">${POS.map(v => chip('pos', v)).join('')}</div></div>
-      </div>
-    </div>
-    <div class="utag-field">
-      <div class="utag-flbl">④ #テクニック<span class="opt">既存から選ぶ / 自由入力</span></div>
-      <div class="utag-freein">
-        <input id="utagFreeIn" placeholder="既存を検索 または 新規入力…" oninput="urlTagFreeFilter(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();urlTagAddFree();}">
-        <button type="button" onclick="urlTagAddFree()">追加</button>
-      </div>
-      <div id="utagFreeSug" class="utag-sug"></div>
-      <div id="utagFreeChips" style="margin-top:8px"></div>
-    </div>`;
-  urlTagRenderFree();
-  urlTagFreeFilter('');
+  const tbRow = TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="urlTagTog('tb','${esc(v)}',this)">${v}</span>`).join('');
+  const catRow = CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="urlTagTog('cat','${esc(v)}',this)">${v}</span>`).join('');
+  const posChips = t.pos.map(p => `<span class="vp-chip on-pos" style="cursor:pointer" onclick="urlTagRmChip('pos','${esc(p)}')">${p} ×</span>`).join('');
+  const posPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="urlTagOpenPosDd()">＋ ポジション</span><div class="vp-dd" id="utag-pos-dd" style="display:none"><input class="vp-dd-search" placeholder="絞り込み..." oninput="urlTagFilterPosDd(this.value)" onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}"><div class="vp-dd-list" id="utag-pos-list"></div></div></div>`;
+  const tagChips = t.tags.map(x => `<span class="vp-chip on-tags" style="cursor:pointer" onclick="urlTagRmChip('tags','${esc(x)}')">${x} ×</span>`).join('');
+  const tagPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="urlTagOpenTagDd()">＋ テクニック</span><div class="vp-dd" id="utag-tag-dd" style="display:none"><input class="vp-dd-search" id="utag-tag-inp" placeholder="テクニック検索・新規追加（Enterで追加）" oninput="urlTagTagFilter(this.value)" onkeydown="urlTagTagKey(event,this)"><div class="vp-dd-list" id="utag-tag-sug"></div></div></div>`;
+  c.innerHTML = `<div class="fsec">
+    <div class="fsec-title">タグ</div>
+    <div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips">${tbRow}</div></div>
+    <div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips">${catRow}</div></div>
+    <div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips">${posChips}${posPicker}</div></div>
+    <div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips">${tagChips}${tagPicker}</div></div>
+  </div>`;
 }
-function urlTagToggle(layer, v, el) {
-  const t = urlTagCurrent(); const arr = t[layer];
-  const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v);
-  if (el) el.classList.toggle('on');
+// TB / カテゴリ トグル
+function urlTagTog(layer, val, el) {
+  const t = urlTagCurrent(); const a = t[layer];
+  const i = a.indexOf(val); if (i >= 0) a.splice(i, 1); else a.push(val);
+  if (el) el.classList.toggle('on-' + layer);
 }
-function urlTagPosFilter(q) {
-  const ql = (q || '').trim().toLowerCase();
-  document.querySelectorAll('#utagPosChips .utag-chip').forEach(ch => {
-    ch.style.display = (!ql || ch.textContent.toLowerCase().includes(ql)) ? '' : 'none';
-  });
+// 選択済みチップの削除（ポジション / テクニック）
+function urlTagRmChip(layer, val) {
+  const t = urlTagCurrent(); t[layer] = t[layer].filter(x => x !== val);
+  urlTagRenderFields();
 }
-function urlTagAddFree() {
-  const inp = document.getElementById('utagFreeIn'); if (!inp) return;
-  const v = (inp.value || '').trim(); if (!v) return;
-  const t = urlTagCurrent(); if (!t.tags.includes(v)) t.tags.push(v);
-  inp.value = ''; urlTagRenderFree(); urlTagFreeFilter('');
+// Vパネル共通の DD オープナー（_vpOpenDd）を使用。未ロード時のみ簡易フォールバック。
+function _urlTagDdOpen(dd) {
+  if (typeof window._vpOpenDd === 'function') { window._vpOpenDd(dd); return; }
+  dd.style.position = 'fixed'; dd.style.top = '50%'; dd.style.transform = 'translateY(-50%)';
+  dd.style.bottom = 'auto'; dd.style.left = 'auto'; dd.style.right = '12px';
+  dd.style.width = 'min(360px,92vw)'; dd.style.maxHeight = '58vh'; dd.style.zIndex = '500';
+  dd.style.display = 'flex'; dd.style.flexDirection = 'column'; dd.style.overflow = 'hidden';
 }
-function urlTagRenderFree() {
-  const box = document.getElementById('utagFreeChips'); if (!box) return;
-  const t = urlTagCurrent();
-  box.innerHTML = t.tags.map(x => `<span class="utag-freechip">#${x}<span class="x" onclick="urlTagRemoveFree('${x.replace(/'/g, "\\'")}')">✕</span></span>`).join('');
+// ── ポジション ドロップダウン（Vパネル vpV4*Pos* と同等）──
+function urlTagOpenPosDd() {
+  const dd = document.getElementById('utag-pos-dd'); if (!dd) return;
+  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
+  _urlTagDdOpen(dd);
+  urlTagRenderPosDd('');
+  const inp = dd.querySelector('.vp-dd-search'); if (inp) { inp.value = ''; inp.focus(); }
 }
-function urlTagRemoveFree(v) {
-  const t = urlTagCurrent(); t.tags = t.tags.filter(x => x !== v);
-  urlTagRenderFree(); urlTagFreeFilter(document.getElementById('utagFreeIn')?.value || '');
+function urlTagFilterPosDd(q) { urlTagRenderPosDd(q); }
+function urlTagRenderPosDd(q) {
+  const list = document.getElementById('utag-pos-list'); if (!list) return;
+  const sel = urlTagCurrent().pos || [];
+  const master = window.POSITIONS || [];
+  const masterNames = new Set(master.map(p => p.ja));
+  const extra = [...new Set((window.videos || []).flatMap(v => v.pos || []))].filter(n => !masterNames.has(n)).sort();
+  const all = [...master, ...extra.map(n => ({ ja: n, en: '' }))];
+  const ql = q.trim().toLowerCase();
+  const filtered = ql
+    ? all.filter(p => !sel.includes(p.ja) && (p.ja.toLowerCase().includes(ql) || (p.en || '').toLowerCase().includes(ql)))
+    : all.filter(p => !sel.includes(p.ja));
+  list.innerHTML = filtered.length
+    ? filtered.map(p => `<div class="vp-dd-item" onmousedown="urlTagPosPick('${p.ja.replace(/'/g, "\\'")}')">${p.ja}${p.en ? `<span class="vp-dd-cnt">${p.en}</span>` : ''}</div>`).join('')
+    : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
 }
-// 既存テクニック（ライブラリ内の全 tags）を頻度順で集計
-function urlTagAllTechniques() {
-  const m = {};
-  (window.videos || []).forEach(v => (v.tags || []).forEach(t => { if (t) m[t] = (m[t] || 0) + 1; }));
-  return Object.keys(m).sort((a, b) => m[b] - m[a] || a.localeCompare(b, 'ja')).map(name => ({ name, count: m[name] }));
+function urlTagPosPick(val) {
+  const t = urlTagCurrent(); if (!t.pos.includes(val)) t.pos.push(val);
+  const dd = document.getElementById('utag-pos-dd'); if (dd) dd.style.display = 'none';
+  urlTagRenderFields();
 }
-// 既存テクニックのサジェスト表示（入力で絞り込み・タップで追加）
-function urlTagFreeFilter(q) {
-  const box = document.getElementById('utagFreeSug'); if (!box) return;
-  const t = urlTagCurrent();
-  const ql = (q || '').trim().toLowerCase();
-  let list = urlTagAllTechniques().filter(x => !t.tags.includes(x.name));
-  if (ql) list = list.filter(x => x.name.toLowerCase().includes(ql));
-  list = list.slice(0, 12);
-  if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.style.display = 'flex';
-  const hd = ql ? '一致する既存テクニック' : 'よく使うテクニックから選ぶ';
-  box.innerHTML = `<div class="utag-sughd">${hd}</div>` +
-    list.map(x => `<span class="utag-sugchip" onclick="urlTagPickFree('${x.name.replace(/'/g, "\\'")}')">${x.name}<span class="c">${x.count}</span></span>`).join('');
+// ── テクニック ドロップダウン（Vパネル vpV4*Tag* と同等：グループ表示＋Enterで新規）──
+function urlTagOpenTagDd() {
+  const dd = document.getElementById('utag-tag-dd'); if (!dd) return;
+  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
+  _urlTagDdOpen(dd);
+  urlTagRenderTagList('');
+  // search input には自動 focus しない（モバイルキーボード誤起動防止）
 }
-function urlTagPickFree(name) {
-  const t = urlTagCurrent(); if (!t.tags.includes(name)) t.tags.push(name);
-  const inp = document.getElementById('utagFreeIn'); if (inp) inp.value = '';
-  urlTagRenderFree(); urlTagFreeFilter('');
+function urlTagTagFilter(q) { urlTagRenderTagList(q); }
+function urlTagRenderTagList(q) {
+  const list = document.getElementById('utag-tag-sug'); if (!list) return;
+  const existing = urlTagCurrent().tags || [];
+  const all = [...new Set((window.videos || []).flatMap(v => v.tags || []))]
+    .sort((a, b) => a.localeCompare(b, 'ja')).filter(t => !existing.includes(t));
+  const ql = q.trim().toLowerCase();
+  const mk = t => `<div class="vp-dd-item" onmousedown="urlTagTagPick('${t.replace(/'/g, "&#39;")}')">${t}</div>`;
+  if (ql) {
+    const f = all.filter(t => t.toLowerCase().includes(ql));
+    list.innerHTML = f.map(mk).join('') || `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし（Enterで新規追加）</div>`;
+  } else {
+    const groups = window.getTagGroups ? window.getTagGroups() : [];
+    const inGrp = new Set(groups.flatMap(g => g.techNames || []));
+    const parts = [];
+    groups.forEach(g => {
+      const m = all.filter(t => (g.techNames || []).includes(t));
+      if (!m.length) return;
+      parts.push(`<div class="tag-grp-hdr">${g.name}</div>`);
+      m.forEach(t => parts.push(mk(t)));
+    });
+    const unc = all.filter(t => !inGrp.has(t));
+    if (unc.length) {
+      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">未グループ</div>`);
+      unc.forEach(t => parts.push(mk(t)));
+    }
+    list.innerHTML = parts.length ? parts.join('') : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">既存テクニックなし（入力して新規追加）</div>`;
+  }
+}
+function urlTagTagPick(val) {
+  const t = urlTagCurrent(); if (!t.tags.includes(val)) t.tags.push(val);
+  const dd = document.getElementById('utag-tag-dd'); if (dd) dd.style.display = 'none';
+  urlTagRenderFields();
+}
+function urlTagTagKey(ev, inp) {
+  if (ev.key === 'Escape') { const dd = document.getElementById('utag-tag-dd'); if (dd) dd.style.display = 'none'; return; }
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  const val = inp.value.trim(); if (!val) return;
+  const t = urlTagCurrent(); if (!t.tags.includes(val)) t.tags.push(val);
+  inp.value = '';
+  urlTagRenderFields();
 }
 
 // 旧API互換
@@ -4472,30 +4504,8 @@ document.addEventListener('click', function(e) {
           .utag-hint{font-size:11.5px;color:var(--text3);background:var(--surface2);border-radius:10px;padding:9px 11px}
           .utag-warn{display:flex;gap:6px;align-items:flex-start;font-size:11px;color:#b23b30;background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.25);border-radius:9px;padding:8px 10px;margin-top:7px}
           #utagTarget{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface2);margin-bottom:12px}
-          .utag-field{margin-bottom:13px}
-          .utag-flbl{font-size:11px;font-weight:800;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px}
-          .utag-flbl .opt{font-size:9px;font-weight:700;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px}
-          .utag-chips{display:flex;flex-wrap:wrap;gap:6px}
-          .utag-chip{font-size:11.5px;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);border-radius:16px;padding:5px 11px;cursor:pointer;user-select:none}
-          .utag-chip.on{color:#fff}
-          .utag-chip.tb.on{background:var(--blue);border-color:var(--blue)}
-          .utag-chip.cat.on{background:var(--accent);border-color:var(--accent)}
-          .utag-chip.pos.on{background:var(--green);border-color:var(--green)}
-          .utag-collapse{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;font-weight:800;color:var(--text3);margin-bottom:8px}
-          .utag-collapse .arr{transition:.15s;font-size:9px}
-          .utag-collapse.open .arr{transform:rotate(90deg)}
-          .utag-possearch{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:var(--surface2);margin-bottom:8px}
-          .utag-posbox{max-height:128px;overflow-y:auto;border:1px solid var(--border2);border-radius:8px;padding:8px}
-          .utag-freein{display:flex;gap:6px;margin-bottom:8px}
-          .utag-freein input{flex:1;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:var(--surface2)}
-          .utag-freein button{background:var(--text);color:var(--surface);border:none;padding:0 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
-          .utag-freechip{font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:14px;padding:4px 9px;display:inline-flex;align-items:center;gap:5px;margin:0 6px 6px 0}
-          .utag-freechip .x{cursor:pointer;color:var(--text3);font-weight:800}
-          .utag-sug{display:none;flex-wrap:wrap;gap:6px;margin-top:8px}
-          .utag-sughd{font-size:10px;font-weight:700;color:var(--text3);width:100%;margin-bottom:-2px}
-          .utag-sugchip{font-size:11px;font-weight:700;background:var(--surface);border:1.5px dashed var(--border);color:var(--text2);border-radius:14px;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;user-select:none}
-          .utag-sugchip:hover{border-color:var(--accent);color:var(--accent)}
-          .utag-sugchip .c{font-size:9px;font-weight:700;color:var(--text3);background:var(--surface2);border-radius:8px;padding:0 5px}
+          /* タグ編集はVパネルと同一の .vp-row / .vp-chip / .vp-dd を流用（style.css） */
+          #utagFields .fsec-title{font-size:11px;font-weight:800;color:var(--text3);margin-bottom:8px}
         </style>
         <div class="form-group" id="urlTagSection">
           <div class="form-label">🏷 タグの付け方</div>
@@ -4506,9 +4516,9 @@ document.addEventListener('click', function(e) {
           </div>
           <div id="utagAiHint" class="utag-hint">
             タイトル・チャンネル名からAIがタグを推定します。
-            <div class="utag-warn"><span>⚠️</span><span>自動判別は<b>間違えることがあります</b>。正確でない場合があるため、追加後に<b>テーブルビュー</b>で確認・修正できます。</span></div>
+            <div class="utag-warn"><span>⚠️</span><span>AIの判定は<b>正確でない場合があります</b>。あとからいつでも修正できます。</span></div>
           </div>
-          <div id="utagNoneHint" class="utag-hint" style="display:none">タグを付けずに追加します。あとでテーブルビューからまとめてタグ付けできます。</div>
+          <div id="utagNoneHint" class="utag-hint" style="display:none">タグを付けずに追加します。あとからいつでもタグ付けできます。</div>
           <div id="utagPicker" style="display:none">
             <select id="utagTarget" onchange="urlTagSetTarget(this.value)"></select>
             <div id="utagFields"></div>
