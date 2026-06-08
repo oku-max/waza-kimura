@@ -663,6 +663,8 @@ export function ytShowVideoStage() {
   const alreadyCount = allItems.filter(i => i.already).length;
   document.getElementById('yt-stage2-title').textContent = `動画を選択 (${total}本 / 取込済 ${alreadyCount}本)`;
   ytRenderVideoList();
+  // 取り込み共通: タグの付け方ピッカーをマウント（プレイリストは多数のため一括のみ）
+  window.itagMount?.('ytTagMount', { perVideo: false });
 }
 
 export function ytRenderVideoList() {
@@ -742,7 +744,12 @@ export async function ytImportCheckedVideos() {
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       tbLocked: false,
-      ...(() => { const t = window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : {tb:[],cat:[],pos:[],tags:[]}; return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags }; })()
+      ...(() => {
+        const t = window.itagGetTagsFor
+          ? window.itagGetTagsFor(newId, cb.dataset.title, cb.dataset.pl, cb.dataset.channel)
+          : (window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : {tb:[],cat:[],pos:[],tags:[]});
+        return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags };
+      })()
     });
     added++;
   });
