@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.537</title>
+<title>WAZA KIMURA v52.538</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3203,7 +3203,7 @@ function tV(id,el){impSel.has(id)?(impSel.delete(id),el.classList.remove('sel'),
 function selAllV(){const pvids=(plVids[impPl]||[]).filter(v=>!videos.some(e=>e.id===v.id));const all=pvids.every(v=>impSel.has(v.id));pvids.forEach(v=>{const el=document.getElementById(`vs-${v.id}`);if(all){impSel.delete(v.id);el?.classList.remove('sel');if(el)el.querySelector('.vid-chk').textContent='';}else{impSel.add(v.id);el?.classList.add('sel');if(el)el.querySelector('.vid-chk').textContent='✓';}});updS3();}
 function updS3(){const b=document.getElementById('toS3');b.disabled=!impSel.size;b.textContent=impSel.size?`${impSel.size}本を取り込む`:'動画を選択してください';}
 function goBS1(){document.getElementById('is2').style.display='none';document.getElementById('is1').style.display='block';document.getElementById('step1').className='step active';document.getElementById('step2').className='step';}
-function goS3(){document.getElementById('is2').style.display='none';document.getElementById('is3').style.display='block';document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';document.getElementById('impPr').style.display='block';document.getElementById('impDn').style.display='none';document.getElementById('impSt').textContent=`${impPl} から ${impSel.size} 本を取り込んでいます...`;document.getElementById('impSb').textContent='AIで自動タグ付けを実行中...';const fill=document.getElementById('pFill');fill.style.width='0%';let p=0;const t=setInterval(()=>{p+=Math.random()*18+7;if(p>=100){p=100;clearInterval(t);(plVids[impPl]||[]).filter(v=>impSel.has(v.id)).forEach(v=>{if(!(window.videos||[]).some(e=>e.id===v.id))window.videos.push({id:v.id,pt:'youtube',title:v.title,ch:v.ch,pl:impPl,tb:[],cat:[],pos:[],tags:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});});setTimeout(()=>{document.getElementById('impPr').style.display='none';document.getElementById('impDn').style.display='block';document.getElementById('impDT').textContent=`${impSel.size}本を取り込みました。整理モードの「テクニック未設定」からタグを設定してください。`;window.AF?.();window.saveUserData?.();},300);}fill.style.width=p+'%';},150);}
+function goS3(){document.getElementById('is2').style.display='none';document.getElementById('is3').style.display='block';document.getElementById('step2').className='step done';document.getElementById('step3').className='step active';document.getElementById('impPr').style.display='block';document.getElementById('impDn').style.display='none';document.getElementById('impSt').textContent=`${impPl} から ${impSel.size} 本を取り込んでいます...`;document.getElementById('impSb').textContent='AIで自動タグ付けを実行中...';const fill=document.getElementById('pFill');fill.style.width='0%';let p=0;const t=setInterval(()=>{p+=Math.random()*18+7;if(p>=100){p=100;clearInterval(t);(plVids[impPl]||[]).filter(v=>impSel.has(v.id)).forEach(v=>{if(!(window.videos||[]).some(e=>e.id===v.id))window.videos.push({id:v.id,pt:'youtube',title:v.title,ch:v.ch,pl:impPl,tb:[],cat:[],pos:[],tags:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});});setTimeout(()=>{document.getElementById('impPr').style.display='none';document.getElementById('impDn').style.display='block';document.getElementById('impDT').textContent=`${impSel.size}本を取り込みました。テーブルビューからタグを設定してください。`;window.AF?.();window.saveUserData?.();},300);}fill.style.width=p+'%';},150);}
 
 function closeOv(id){
   document.getElementById(id).classList.remove('open');
@@ -4506,9 +4506,9 @@ document.addEventListener('click', function(e) {
           </div>
           <div id="utagAiHint" class="utag-hint">
             タイトル・チャンネル名からAIがタグを推定します。
-            <div class="utag-warn"><span>⚠️</span><span>自動判別は<b>間違えることがあります</b>。正確でない場合があるため、追加後に整理モードの「テクニック未設定」で確認・修正できます。</span></div>
+            <div class="utag-warn"><span>⚠️</span><span>自動判別は<b>間違えることがあります</b>。正確でない場合があるため、追加後に<b>テーブルビュー</b>で確認・修正できます。</span></div>
           </div>
-          <div id="utagNoneHint" class="utag-hint" style="display:none">タグを付けずに追加します。あとで整理モードからまとめてタグ付けできます。</div>
+          <div id="utagNoneHint" class="utag-hint" style="display:none">タグを付けずに追加します。あとでテーブルビューからまとめてタグ付けできます。</div>
           <div id="utagPicker" style="display:none">
             <select id="utagTarget" onchange="urlTagSetTarget(this.value)"></select>
             <div id="utagFields"></div>
