@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.536</title>
+<title>WAZA KIMURA v52.537</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3128,14 +3128,16 @@ function urlTagRenderFields() {
       </div>
     </div>
     <div class="utag-field">
-      <div class="utag-flbl">④ #テクニック<span class="opt">自由入力</span></div>
+      <div class="utag-flbl">④ #テクニック<span class="opt">既存から選ぶ / 自由入力</span></div>
       <div class="utag-freein">
-        <input id="utagFreeIn" placeholder="例: シザースイープ" onkeydown="if(event.key==='Enter'){event.preventDefault();urlTagAddFree();}">
+        <input id="utagFreeIn" placeholder="既存を検索 または 新規入力…" oninput="urlTagFreeFilter(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();urlTagAddFree();}">
         <button type="button" onclick="urlTagAddFree()">追加</button>
       </div>
-      <div id="utagFreeChips"></div>
+      <div id="utagFreeSug" class="utag-sug"></div>
+      <div id="utagFreeChips" style="margin-top:8px"></div>
     </div>`;
   urlTagRenderFree();
+  urlTagFreeFilter('');
 }
 function urlTagToggle(layer, v, el) {
   const t = urlTagCurrent(); const arr = t[layer];
@@ -3152,7 +3154,7 @@ function urlTagAddFree() {
   const inp = document.getElementById('utagFreeIn'); if (!inp) return;
   const v = (inp.value || '').trim(); if (!v) return;
   const t = urlTagCurrent(); if (!t.tags.includes(v)) t.tags.push(v);
-  inp.value = ''; urlTagRenderFree();
+  inp.value = ''; urlTagRenderFree(); urlTagFreeFilter('');
 }
 function urlTagRenderFree() {
   const box = document.getElementById('utagFreeChips'); if (!box) return;
@@ -3160,7 +3162,33 @@ function urlTagRenderFree() {
   box.innerHTML = t.tags.map(x => `<span class="utag-freechip">#${x}<span class="x" onclick="urlTagRemoveFree('${x.replace(/'/g, "\\'")}')">✕</span></span>`).join('');
 }
 function urlTagRemoveFree(v) {
-  const t = urlTagCurrent(); t.tags = t.tags.filter(x => x !== v); urlTagRenderFree();
+  const t = urlTagCurrent(); t.tags = t.tags.filter(x => x !== v);
+  urlTagRenderFree(); urlTagFreeFilter(document.getElementById('utagFreeIn')?.value || '');
+}
+// 既存テクニック（ライブラリ内の全 tags）を頻度順で集計
+function urlTagAllTechniques() {
+  const m = {};
+  (window.videos || []).forEach(v => (v.tags || []).forEach(t => { if (t) m[t] = (m[t] || 0) + 1; }));
+  return Object.keys(m).sort((a, b) => m[b] - m[a] || a.localeCompare(b, 'ja')).map(name => ({ name, count: m[name] }));
+}
+// 既存テクニックのサジェスト表示（入力で絞り込み・タップで追加）
+function urlTagFreeFilter(q) {
+  const box = document.getElementById('utagFreeSug'); if (!box) return;
+  const t = urlTagCurrent();
+  const ql = (q || '').trim().toLowerCase();
+  let list = urlTagAllTechniques().filter(x => !t.tags.includes(x.name));
+  if (ql) list = list.filter(x => x.name.toLowerCase().includes(ql));
+  list = list.slice(0, 12);
+  if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'flex';
+  const hd = ql ? '一致する既存テクニック' : 'よく使うテクニックから選ぶ';
+  box.innerHTML = `<div class="utag-sughd">${hd}</div>` +
+    list.map(x => `<span class="utag-sugchip" onclick="urlTagPickFree('${x.name.replace(/'/g, "\\'")}')">${x.name}<span class="c">${x.count}</span></span>`).join('');
+}
+function urlTagPickFree(name) {
+  const t = urlTagCurrent(); if (!t.tags.includes(name)) t.tags.push(name);
+  const inp = document.getElementById('utagFreeIn'); if (inp) inp.value = '';
+  urlTagRenderFree(); urlTagFreeFilter('');
 }
 
 // 旧API互換
@@ -4463,6 +4491,11 @@ document.addEventListener('click', function(e) {
           .utag-freein button{background:var(--text);color:var(--surface);border:none;padding:0 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
           .utag-freechip{font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:14px;padding:4px 9px;display:inline-flex;align-items:center;gap:5px;margin:0 6px 6px 0}
           .utag-freechip .x{cursor:pointer;color:var(--text3);font-weight:800}
+          .utag-sug{display:none;flex-wrap:wrap;gap:6px;margin-top:8px}
+          .utag-sughd{font-size:10px;font-weight:700;color:var(--text3);width:100%;margin-bottom:-2px}
+          .utag-sugchip{font-size:11px;font-weight:700;background:var(--surface);border:1.5px dashed var(--border);color:var(--text2);border-radius:14px;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;user-select:none}
+          .utag-sugchip:hover{border-color:var(--accent);color:var(--accent)}
+          .utag-sugchip .c{font-size:9px;font-weight:700;color:var(--text3);background:var(--surface2);border-radius:8px;padding:0 5px}
         </style>
         <div class="form-group" id="urlTagSection">
           <div class="form-label">🏷 タグの付け方</div>
