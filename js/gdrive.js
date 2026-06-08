@@ -654,6 +654,8 @@ async function _scanAndShow(folderId, folderName) {
     document.getElementById('gd-stage-browser').style.display = 'none';
     document.getElementById('gd-stage2').style.display = '';
     gdRenderFileList();
+    // 取り込み共通: タグの付け方ピッカーをマウント（フォルダは多数のため一括のみ）
+    window.itagMount?.('gdTagMount', { perVideo: false });
   } catch(e) {
     console.error('scan error:', e);
     window.toast?.('スキャンに失敗しました: ' + e.message);
@@ -779,7 +781,9 @@ export async function gdImport() {
       isQR:     cb.dataset.isqr === 'true',
       duration: parseInt(cb.dataset.duration) || 0,
       tbLocked: false,
-      ...(window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : { tb: [], cat: [], pos: [], tags: [] }),
+      ...(window.itagGetTagsFor
+        ? window.itagGetTagsFor(newId, cb.dataset.title, cb.dataset.folder || playlist, channel)
+        : (window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : { tb: [], cat: [], pos: [], tags: [] })),
     };
     window.videos.push(v);
     newIds.push(newId);
