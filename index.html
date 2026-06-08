@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.535</title>
+<title>WAZA KIMURA v52.536</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2879,6 +2879,7 @@ async function detectUrls() {
     document.getElementById('urlPlPop').style.display = 'none';
     document.getElementById('urlAddBtn').textContent = `＋ ${validCount}件をライブラリに追加`;
     document.getElementById('urlForm').style.display = 'block';
+    urlTagInit();
   }
 }
 
@@ -3021,9 +3022,22 @@ function addUrls() {
   let added = 0;
   parsed.forEach(p => {
     if ((window.videos||[]).some(v => v.id === p.id)) return;
+    // ── 追加時のタグ付け（自動判別 / 手動 / なし）──
+    let tg;
+    if (urlTagMode === 'manual') {
+      const o = urlTagOverrides[p.id] || urlTagBatch;
+      tg = { tb: [...o.tb], cat: [...o.cat], pos: [...o.pos], tags: [...o.tags] };
+    } else if (urlTagMode === 'ai') {
+      tg = window.autoTagFromTitle
+        ? window.autoTagFromTitle(p.title || '', manualPl || p.pl || '', manualCh || p.ch || '')
+        : { tb: [], cat: [], pos: [], tags: [] };
+    } else {
+      tg = { tb: [], cat: [], pos: [], tags: [] }; // none
+    }
     const vid = {
       id: p.id, pt: p.pt, title: p.title || (p.pt + '動画'),
-      ch: manualCh || p.ch || '', pl: manualPl || p.pl || '未分類', tb: [], cat: [], pos: [], tags: [],
+      ch: manualCh || p.ch || '', pl: manualPl || p.pl || '未分類',
+      tb: tg.tb || [], cat: tg.cat || [], pos: tg.pos || [], tags: tg.tags || [],
       prio: urlPrio, fav: false, memo: '', watched: false,
       status: '未着手', archived: false, shared: 0, ai: ''
     };
@@ -3038,8 +3052,117 @@ function addUrls() {
   window.AF?.();
   // 即時保存（debounceではなく）
   if (window.saveUserData) { window.saveUserData().catch(e => console.error('save error', e)); }
-  toast(`✅ ${added}件をライブラリに追加しました`);
+  const tagMsg = urlTagMode === 'ai' ? '（AIが自動タグ付け・後で確認できます）'
+               : urlTagMode === 'manual' ? '（手動タグ付き）' : '';
+  toast(`✅ ${added}件をライブラリに追加しました${tagMsg}`);
 }
+
+// ════ URL追加: 追加時のタグ自選（自動判別 / 手動 / なし）════
+let urlTagMode = 'ai';                          // 'ai' | 'manual' | 'none'
+let urlTagTarget = '';                          // '' = 全動画に一括 / それ以外 = 動画ID個別
+let urlTagBatch = { tb: [], cat: [], pos: [], tags: [] };
+let urlTagOverrides = {};                       // id -> {tb,cat,pos,tags}
+
+function urlTagInit() {
+  urlTagMode = 'ai'; urlTagTarget = '';
+  urlTagBatch = { tb: [], cat: [], pos: [], tags: [] };
+  urlTagOverrides = {};
+  urlTagBuildTargetSelect();
+  urlTagSetMode('ai');
+}
+function urlTagSetMode(m) {
+  urlTagMode = m;
+  document.querySelectorAll('#utagSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  const ai = document.getElementById('utagAiHint'), no = document.getElementById('utagNoneHint'), pk = document.getElementById('utagPicker');
+  if (ai) ai.style.display = m === 'ai' ? 'block' : 'none';
+  if (no) no.style.display = m === 'none' ? 'block' : 'none';
+  if (pk) pk.style.display = m === 'manual' ? 'block' : 'none';
+  if (m === 'manual') urlTagRenderFields();
+}
+function urlTagBuildTargetSelect() {
+  const sel = document.getElementById('utagTarget');
+  if (!sel) return;
+  const ok = window._urlParsed || [];
+  let html = '<option value="">📌 全ての動画に同じタグを適用</option>';
+  ok.forEach(p => {
+    const t = p.title || p.id;
+    const short = t.length > 26 ? t.slice(0, 26) + '…' : t;
+    const mark = (urlTagOverrides[p.id] && _urlTagCount(urlTagOverrides[p.id])) ? ' ✏️' : '';
+    html += `<option value="${p.id}">▸ ${short}${mark}</option>`;
+  });
+  sel.innerHTML = html;
+  sel.value = urlTagTarget;
+}
+function urlTagSetTarget(id) { urlTagTarget = id; urlTagRenderFields(); }
+function _urlTagCount(o) { return (o.tb.length + o.cat.length + o.pos.length + o.tags.length); }
+function urlTagCurrent() {
+  if (!urlTagTarget) return urlTagBatch;
+  if (!urlTagOverrides[urlTagTarget]) urlTagOverrides[urlTagTarget] = { tb: [], cat: [], pos: [], tags: [] };
+  return urlTagOverrides[urlTagTarget];
+}
+function urlTagRenderFields() {
+  const c = document.getElementById('utagFields');
+  if (!c) return;
+  const t = urlTagCurrent();
+  const esc = s => String(s).replace(/'/g, "\\'");
+  const TB = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
+  const CATS = (window.CATEGORIES || []).map(x => x.name);
+  const POS = (window.POSITIONS || []).map(x => x.ja);
+  const chip = (layer, v) => `<span class="utag-chip ${layer} ${t[layer].includes(v) ? 'on' : ''}" onclick="urlTagToggle('${layer}','${esc(v)}',this)">${v}</span>`;
+  c.innerHTML = `
+    <div class="utag-field">
+      <div class="utag-flbl">① TB（起点）<span class="opt">複数可</span></div>
+      <div class="utag-chips">${TB.map(v => chip('tb', v)).join('')}</div>
+    </div>
+    <div class="utag-field">
+      <div class="utag-flbl">② カテゴリ<span class="opt">複数可</span></div>
+      <div class="utag-chips">${CATS.map(v => chip('cat', v)).join('')}</div>
+    </div>
+    <div class="utag-field">
+      <div class="utag-collapse ${t.pos.length ? 'open' : ''}" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'">
+        <span class="arr">▶</span> ③ ポジション <span style="font-weight:600;color:var(--text3)">（任意）</span>
+      </div>
+      <div style="display:${t.pos.length ? 'block' : 'none'}">
+        <input class="utag-possearch" placeholder="ポジション名で絞り込み…" oninput="urlTagPosFilter(this.value)">
+        <div class="utag-posbox"><div class="utag-chips" id="utagPosChips">${POS.map(v => chip('pos', v)).join('')}</div></div>
+      </div>
+    </div>
+    <div class="utag-field">
+      <div class="utag-flbl">④ #テクニック<span class="opt">自由入力</span></div>
+      <div class="utag-freein">
+        <input id="utagFreeIn" placeholder="例: シザースイープ" onkeydown="if(event.key==='Enter'){event.preventDefault();urlTagAddFree();}">
+        <button type="button" onclick="urlTagAddFree()">追加</button>
+      </div>
+      <div id="utagFreeChips"></div>
+    </div>`;
+  urlTagRenderFree();
+}
+function urlTagToggle(layer, v, el) {
+  const t = urlTagCurrent(); const arr = t[layer];
+  const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v);
+  if (el) el.classList.toggle('on');
+}
+function urlTagPosFilter(q) {
+  const ql = (q || '').trim().toLowerCase();
+  document.querySelectorAll('#utagPosChips .utag-chip').forEach(ch => {
+    ch.style.display = (!ql || ch.textContent.toLowerCase().includes(ql)) ? '' : 'none';
+  });
+}
+function urlTagAddFree() {
+  const inp = document.getElementById('utagFreeIn'); if (!inp) return;
+  const v = (inp.value || '').trim(); if (!v) return;
+  const t = urlTagCurrent(); if (!t.tags.includes(v)) t.tags.push(v);
+  inp.value = ''; urlTagRenderFree();
+}
+function urlTagRenderFree() {
+  const box = document.getElementById('utagFreeChips'); if (!box) return;
+  const t = urlTagCurrent();
+  box.innerHTML = t.tags.map(x => `<span class="utag-freechip">#${x}<span class="x" onclick="urlTagRemoveFree('${x.replace(/'/g, "\\'")}')">✕</span></span>`).join('');
+}
+function urlTagRemoveFree(v) {
+  const t = urlTagCurrent(); t.tags = t.tags.filter(x => x !== v); urlTagRenderFree();
+}
+
 // 旧API互換
 function addUrl() { addUrls(); }
 function detectUrl() { detectUrls(); }
@@ -4309,6 +4432,53 @@ document.addEventListener('click', function(e) {
           <div id="urlPlPop" class="url-pk-pop" style="display:none">
             <input class="url-pk-search" id="urlPlSearch" oninput="_urlRenderPk('pl')" placeholder="検索または新しいプレイリスト名を入力...">
             <div id="urlPlList" class="url-pk-list"></div>
+          </div>
+        </div>
+        <!-- ── 追加時のタグ付け ── -->
+        <style>
+          #utagSeg{display:flex;background:var(--surface2);border-radius:10px;padding:3px;gap:3px;margin-bottom:8px}
+          #utagSeg button{flex:1;border:none;background:none;padding:8px 3px;border-radius:8px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap}
+          #utagSeg button span{font-size:9px;font-weight:600;color:var(--text3)}
+          #utagSeg button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+          #utagSeg button.on span{color:var(--text2)}
+          .utag-hint{font-size:11.5px;color:var(--text3);background:var(--surface2);border-radius:10px;padding:9px 11px}
+          .utag-warn{display:flex;gap:6px;align-items:flex-start;font-size:11px;color:#b23b30;background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.25);border-radius:9px;padding:8px 10px;margin-top:7px}
+          #utagTarget{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;color:var(--text);background:var(--surface2);margin-bottom:12px}
+          .utag-field{margin-bottom:13px}
+          .utag-flbl{font-size:11px;font-weight:800;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+          .utag-flbl .opt{font-size:9px;font-weight:700;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px}
+          .utag-chips{display:flex;flex-wrap:wrap;gap:6px}
+          .utag-chip{font-size:11.5px;font-weight:700;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);border-radius:16px;padding:5px 11px;cursor:pointer;user-select:none}
+          .utag-chip.on{color:#fff}
+          .utag-chip.tb.on{background:var(--blue);border-color:var(--blue)}
+          .utag-chip.cat.on{background:var(--accent);border-color:var(--accent)}
+          .utag-chip.pos.on{background:var(--green);border-color:var(--green)}
+          .utag-collapse{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:11px;font-weight:800;color:var(--text3);margin-bottom:8px}
+          .utag-collapse .arr{transition:.15s;font-size:9px}
+          .utag-collapse.open .arr{transform:rotate(90deg)}
+          .utag-possearch{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:var(--surface2);margin-bottom:8px}
+          .utag-posbox{max-height:128px;overflow-y:auto;border:1px solid var(--border2);border-radius:8px;padding:8px}
+          .utag-freein{display:flex;gap:6px;margin-bottom:8px}
+          .utag-freein input{flex:1;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:var(--surface2)}
+          .utag-freein button{background:var(--text);color:var(--surface);border:none;padding:0 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+          .utag-freechip{font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:14px;padding:4px 9px;display:inline-flex;align-items:center;gap:5px;margin:0 6px 6px 0}
+          .utag-freechip .x{cursor:pointer;color:var(--text3);font-weight:800}
+        </style>
+        <div class="form-group" id="urlTagSection">
+          <div class="form-label">🏷 タグの付け方</div>
+          <div id="utagSeg">
+            <button type="button" data-mode="ai" class="on" onclick="urlTagSetMode('ai')">🤖 自動判別<span>AIにおまかせ</span></button>
+            <button type="button" data-mode="manual" onclick="urlTagSetMode('manual')">✋ 自分で選ぶ<span>いま手動で</span></button>
+            <button type="button" data-mode="none" onclick="urlTagSetMode('none')">🚫 タグなし<span>あとで整理</span></button>
+          </div>
+          <div id="utagAiHint" class="utag-hint">
+            タイトル・チャンネル名からAIがタグを推定します。
+            <div class="utag-warn"><span>⚠️</span><span>自動判別は<b>間違えることがあります</b>。正確でない場合があるため、追加後に整理モードの「テクニック未設定」で確認・修正できます。</span></div>
+          </div>
+          <div id="utagNoneHint" class="utag-hint" style="display:none">タグを付けずに追加します。あとで整理モードからまとめてタグ付けできます。</div>
+          <div id="utagPicker" style="display:none">
+            <select id="utagTarget" onchange="urlTagSetTarget(this.value)"></select>
+            <div id="utagFields"></div>
           </div>
         </div>
         <button class="btn-save" onclick="addUrls()" id="urlAddBtn" style="width:100%;margin-top:8px">＋ ライブラリに追加</button>
