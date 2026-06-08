@@ -17,7 +17,10 @@
       "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__list_deployments",
       "mcp__5ffe470e-c87e-4828-ac4b-590f357dafee__get_deployment_build_logs",
       "Bash(xargs grep:*)",
-      "Bash(grep -r \"serviceWorker\\\\|sw.js\\\\|Service Worker\" C:UsersokusoDocumentswaza-kimura --include=*.js --include=*.html -l)"
+      "Bash(grep -r \"serviceWorker\\\\|sw.js\\\\|Service Worker\" C:UsersokusoDocumentswaza-kimura --include=*.js --include=*.html -l)",
+      "mcp__Vercel__list_teams",
+      "mcp__Vercel__list_projects",
+      "mcp__Vercel__list_deployments"
     ]
   }
 }
