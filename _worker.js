@@ -532,25 +532,45 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   const uploadUrl = initRes.headers.get('X-Goog-Upload-URL');
   if (!uploadUrl) return jsonRes({ error: 'Gemini upload URL not returned' }, 502);
 
-  // 3. Drive ダウンロード → Gemini へストリーミング中継
-  const driveRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdFileId)}?alt=media`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  if (!driveRes.ok) return jsonRes({ error: `Drive download failed: ${driveRes.status}` }, 502);
-
-  const upRes = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Length': String(fileSize),
-      'Content-Type': mimeType,
-      'X-Goog-Upload-Offset': '0',
-      'X-Goog-Upload-Command': 'upload, finalize',
-    },
-    body: driveRes.body,
-  });
-  if (!upRes.ok) return jsonRes({ error: 'Gemini upload failed', detail: (await upRes.text()).slice(0, 200) }, 502);
-  const upData  = await upRes.json();
+  // 3. Drive を Range で分割取得し、Gemini へ分割アップロード（resumable）
+  //    一括ストリーム中継は大容量で "Network connection lost" になるため、16MBずつ中継する。
+  const driveUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdFileId)}?alt=media`;
+  const CHUNK = 16 * 1024 * 1024;
+  let upData = null;
+  for (let offset = 0; offset < fileSize; offset += CHUNK) {
+    const end = Math.min(offset + CHUNK, fileSize) - 1;
+    const isLast = end >= fileSize - 1;
+    // Drive から該当バイト範囲を取得（一過性失敗に1回リトライ）
+    let buf = null, dlErr = '';
+    for (let attempt = 0; attempt < 2 && !buf; attempt++) {
+      try {
+        const dr = await fetch(driveUrl, { headers: { Authorization: `Bearer ${accessToken}`, Range: `bytes=${offset}-${end}` } });
+        if (dr.status !== 206 && dr.status !== 200) { dlErr = 'Drive ' + dr.status; continue; }
+        buf = await dr.arrayBuffer();
+      } catch (e) { dlErr = e.message || String(e); }
+    }
+    if (!buf) return jsonRes({ error: 'Drive download failed', detail: `offset ${offset}: ${dlErr}` }, 502);
+    // Gemini へ該当チャンクをPUT（最後のみ finalize、一過性失敗に1回リトライ）
+    let okRes = null, upErr = '';
+    for (let attempt = 0; attempt < 2 && !okRes; attempt++) {
+      try {
+        const r = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Length': String(buf.byteLength),
+            'X-Goog-Upload-Offset': String(offset),
+            'X-Goog-Upload-Command': isLast ? 'upload, finalize' : 'upload',
+          },
+          body: buf,
+        });
+        if (r.ok) okRes = r;
+        else upErr = r.status + ': ' + (await r.text()).slice(0, 150);
+      } catch (e) { upErr = e.message || String(e); }
+    }
+    if (!okRes) return jsonRes({ error: 'Gemini upload failed', detail: `chunk@${offset} ${upErr}` }, 502);
+    if (isLast) upData = await okRes.json();
+  }
+  if (!upData) return jsonRes({ error: 'Gemini upload: 最終応答なし' }, 502);
   const fileUri  = upData.file?.uri;
   const geminiName = upData.file?.name;
   if (!fileUri) return jsonRes({ error: 'Gemini file URI not returned', detail: JSON.stringify(upData).slice(0, 200) }, 502);
