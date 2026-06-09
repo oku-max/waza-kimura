@@ -3403,8 +3403,10 @@ window.vpAiSummary = async function(id) {
       if (attempt < 2) await new Promise(r => setTimeout(r, 1800));
     }
     if (!data) {
-      window.toast?.('⚠️ AI要約に失敗しました: ' + (lastErr || '原因不明') + '（動画が長い・非公開・年齢制限などで処理できない場合があります）', 9000);
+      const reason = lastErr || '原因不明';
       console.error('[aiSummary] 最終的に生成失敗:', lastErr);
+      window.toast?.('⚠️ AI要約に失敗: ' + reason, 9000);
+      try { alert('⚠️ AI要約に失敗しました\n\n理由: ' + reason + '\n\n（動画が長い・非公開・年齢制限などで処理できない場合があります）'); } catch(e) {}
       return;
     }
 
@@ -3496,8 +3498,9 @@ window.vpAiSummary = async function(id) {
     }
     window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
   } catch (e) {
-    window.toast?.('要約エラー: ' + e.message);
     console.error('[aiSummary] 例外:', e);
+    window.toast?.('要約エラー: ' + e.message);
+    try { alert('⚠️ AI要約エラー: ' + ((e && e.message) || e)); } catch(_) {}
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
   }
@@ -3525,8 +3528,9 @@ window.vpAiSummaryWithShot = async function(id) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.summary) {
       const reason = (data.error || ('HTTP ' + res.status)) + (data.detail ? ` (${data.detail})` : '');
-      window.toast?.('⚠️ AI要約に失敗しました: ' + reason + '（動画が長い・非公開・年齢制限などで処理できない場合があります）', 9000);
       console.error('[aiSummaryWithShot] 失敗:', res.status, data);
+      window.toast?.('⚠️ AI要約に失敗: ' + reason, 9000);
+      try { alert('⚠️ AI要約に失敗しました\n\n理由: ' + reason + '\n\n（動画が長い・非公開・年齢制限などで処理できない場合があります）'); } catch(e) {}
       return;
     }
 
@@ -3619,7 +3623,11 @@ window.vpAiSummaryWithShot = async function(id) {
     window.toast?.(`✨ 要約＋スクショ${shotCount}枚を追記しました`);
   } catch(e) {
     if (e.name === 'NotAllowedError') window.toast?.('キャンセルしました');
-    else { console.error('[aiSummaryWithShot]', e); window.toast?.('エラー: ' + e.message); }
+    else {
+      console.error('[aiSummaryWithShot]', e);
+      window.toast?.('エラー: ' + e.message);
+      try { alert('⚠️ AI要約エラー: ' + ((e && e.message) || e)); } catch(_) {}
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✨📸'; btn.style.opacity = '1'; }
   }

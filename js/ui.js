@@ -13,13 +13,14 @@ export function showToast(msg, duration = 3000) {
 }
 
 // アプリ内トースト（#toastエレメント使用）
-export function toast(msg) {
+export function toast(msg, duration = 2200) {
   const t = document.getElementById('toast');
+  if (!t) { try { console.warn('[toast]', msg); } catch(e) {} return; } // 要素が無くても落ちない
   clearTimeout(t._tid);
   t.innerHTML = '';
   t.appendChild(document.createTextNode(msg));
   t.classList.add('show');
-  t._tid = setTimeout(() => t.classList.remove('show'), 2200);
+  t._tid = setTimeout(() => t.classList.remove('show'), duration); // 呼び出し側のdurationを尊重
 }
 
 // 取り消しボタン付きトースト
