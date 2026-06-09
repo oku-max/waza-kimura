@@ -449,21 +449,30 @@ function _ctxStr(title, channel, playlist) {
 async function _geminiGenerate(env, parts) {
   const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
   const apiKey = env.GEMINI_API_KEY;
+  // 2.5系の思考モデルは思考トークンが出力枠を食い潰し、本文が空（finishReason=MAX_TOKENS）になることがある。
+  // 思考量を上限付きに固定し、出力枠を広く確保して要約本文ぶんを必ず残す。
+  const generationConfig = { temperature: 0.3, maxOutputTokens: 8192 };
+  if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 2048 };
   const gRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 5000 },
-      }),
+      body: JSON.stringify({ contents: [{ parts }], generationConfig }),
     }
   );
   const data = await gRes.json();
   if (!gRes.ok) return { error: 'Gemini API error', detail: data?.error?.message || JSON.stringify(data).slice(0, 300) };
-  const summary = (data.candidates?.[0]?.content?.parts || []).map(p => p.text).filter(Boolean).join('\n').trim();
-  if (!summary) return { error: '要約を取得できませんでした', detail: data.candidates?.[0]?.finishReason || 'no text' };
+  const cand = data.candidates?.[0];
+  const summary = (cand?.content?.parts || []).map(p => p.text).filter(Boolean).join('\n').trim();
+  if (!summary) {
+    const fr = cand?.finishReason || 'no text';
+    const detail = fr === 'MAX_TOKENS' ? '出力が上限に達しました（動画が長い可能性）'
+                 : fr === 'SAFETY' || fr === 'PROHIBITED_CONTENT' ? 'コンテンツ判定で生成がブロックされました'
+                 : fr === 'RECITATION' ? '引用判定でブロックされました'
+                 : fr;
+    return { error: '要約を取得できませんでした', detail };
+  }
   return { summary };
 }
 
