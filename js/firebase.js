@@ -379,8 +379,22 @@ export async function loadUserSettings(uid) {
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
-      if (Array.isArray(data.customViews) && data.customViews.length) {
-        window._cvApplyLoadedViews?.(data.customViews);
+      // カスタムビュー復元 ＋ 自動復旧
+      const remoteCV = Array.isArray(data.customViews) ? data.customViews : [];
+      if (remoteCV.length) {
+        window._cvApplyLoadedViews?.(remoteCV);
+      } else {
+        // クラウドが空。ローカル(メモリ/localStorage)にビューが残っていれば自動でクラウドへ書き戻す
+        // （消失バグからの自己修復。空のクラウドを非空ローカルで上書きするだけで、逆方向の破壊はしない）
+        let localCV = window._cvViews || [];
+        if (!localCV.length) {
+          try { localCV = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch(e) { localCV = []; }
+        }
+        if (localCV.length) {
+          console.warn('[recovery] クラウドのcustomViewsが空。ローカルの', localCV.length, '件をクラウドへ復旧します');
+          window._cvApplyLoadedViews?.(localCV);
+          window._cvSave?.();  // localStorage + Firestore へ書き戻し
+        }
       }
       // appearance はデバイスごと（localStorage管理）のため Firebase から復元しない
     }
