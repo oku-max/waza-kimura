@@ -27,17 +27,22 @@ export default {
 
 // ── ルーティング ──────────────────────────────────────────
 async function handleApi(request, env, path) {
-  switch (path) {
-    case '/api/drive':       return handleDrive(request);
-    case '/api/rss-proxy':   return handleRssProxy(request);
-    case '/api/thumb-proxy': return handleThumbProxy(request);
-    case '/api/yt-search':        return handleYtSearch(request, env);
-    case '/api/yt-playlist-items': return handleYtPlaylistItems(request, env);
-    case '/api/ai-group':         return handleAiGroup(request, env);
-    case '/api/ai-tag':      return handleAiTag(request, env);
-    case '/api/ai-summary':  return handleAiSummary(request, env);
-    case '/api/vimeo-proxy': return handleVimeoProxy(request);
-    default:                 return new Response('Not found', { status: 404 });
+  // 未捕捉の例外でCloudflare既定の500（非JSON）を返さないよう、必ずJSONエラーに変換する
+  try {
+    switch (path) {
+      case '/api/drive':       return await handleDrive(request);
+      case '/api/rss-proxy':   return await handleRssProxy(request);
+      case '/api/thumb-proxy': return await handleThumbProxy(request);
+      case '/api/yt-search':        return await handleYtSearch(request, env);
+      case '/api/yt-playlist-items': return await handleYtPlaylistItems(request, env);
+      case '/api/ai-group':         return await handleAiGroup(request, env);
+      case '/api/ai-tag':      return await handleAiTag(request, env);
+      case '/api/ai-summary':  return await handleAiSummary(request, env);
+      case '/api/vimeo-proxy': return await handleVimeoProxy(request);
+      default:                 return new Response('Not found', { status: 404 });
+    }
+  } catch (e) {
+    return jsonRes({ error: 'サーバー内部エラー', detail: String((e && (e.message || e.name)) || e).slice(0, 300) }, 500);
   }
 }
 
