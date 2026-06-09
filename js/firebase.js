@@ -40,7 +40,6 @@ auth.onAuthStateChanged(async (user) => {
     await loadTagRules(user.uid);
   } else {
     window._notesClear?.();
-    window._cvClearForLogout?.();
   }
 });
 

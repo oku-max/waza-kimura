@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.546</title>
+<title>WAZA KIMURA v52.547</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3887,6 +3887,8 @@ async function _wazaCollectLightData() {
     filterPresets: window.filterPresets || [],
     orgColOrder: window.orgColOrder || [],
     orgColVisibility: window.orgColVisibility || {},
+    customViews: window._cvViews || [],          // カスタムビュー（設定docのデータ。従来は欠落していた）
+    tagGroups: window.getTagGroups?.() || [],    // タググループ（同上）
     notes: window._notesGetData ? { folders: window._notesGetData(), root: [] } : null,
   };
 }
@@ -3963,6 +3965,9 @@ window.wazaImport = async function(input) {
     if (data.filterPresets) { window.filterPresets = data.filterPresets; }
     if (data.orgColOrder) { window.orgColOrder = data.orgColOrder; }
     if (data.orgColVisibility) { window.orgColVisibility = data.orgColVisibility; }
+    // カスタムビュー / タググループを復元（従来は復元されず欠落していた）
+    if (Array.isArray(data.customViews)) { window._cvApplyLoadedViews?.(data.customViews); window._cvSave?.(); }
+    if (Array.isArray(data.tagGroups) && data.tagGroups.length) { window.applyRemoteSettings?.({ tagGroups: data.tagGroups }); }
     window.saveUserSettings?.();
 
     // フルバックアップのスナップショット復元
