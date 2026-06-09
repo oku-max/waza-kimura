@@ -3403,7 +3403,7 @@ window.vpAiSummary = async function(id) {
       if (attempt < 2) await new Promise(r => setTimeout(r, 1800));
     }
     if (!data) {
-      window.toast?.('要約失敗（2回試行）: ' + lastErr, 6000);
+      window.toast?.('⚠️ AI要約に失敗しました: ' + (lastErr || '原因不明') + '（動画が長い・非公開・年齢制限などで処理できない場合があります）', 9000);
       console.error('[aiSummary] 最終的に生成失敗:', lastErr);
       return;
     }
@@ -3523,7 +3523,12 @@ window.vpAiSummaryWithShot = async function(id) {
       body: JSON.stringify({ idToken, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.summary) { window.toast?.('要約失敗: ' + (data.error || 'エラー')); return; }
+    if (!res.ok || !data.summary) {
+      const reason = (data.error || ('HTTP ' + res.status)) + (data.detail ? ` (${data.detail})` : '');
+      window.toast?.('⚠️ AI要約に失敗しました: ' + reason + '（動画が長い・非公開・年齢制限などで処理できない場合があります）', 9000);
+      console.error('[aiSummaryWithShot] 失敗:', res.status, data);
+      return;
+    }
 
     // 2. タイムスタンプ収集
     const tsText = {};
