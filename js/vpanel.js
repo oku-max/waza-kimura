@@ -2942,6 +2942,45 @@ function _summaryToHtmlWithShots(summaryText, shotMap, layout) {
 // ── Google Drive 動画の指定秒をキャプチャ ──
 // 同一オリジン（/api/drive プロキシ）配信なので canvas キャプチャ可能
 // 返り値: { fullBlob（スナップショット用・高画質）, thumbDataUrl（メモ埋め込み用・小型） }
+// シーク後、新フレームが実際に描画されるまで待つ（seeked直後は前フレームのままのことが多い）
+function _waitForPresentedFrame(video, timeoutMs = 700) {
+  return new Promise((resolve) => {
+    let done = false;
+    const fin = () => { if (done) return; done = true; resolve(); };
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      try { video.requestVideoFrameCallback(() => fin()); } catch(e) { fin(); }
+    } else {
+      // 非対応環境: ダブルrAF + 小休止で代替
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(fin, 90)));
+    }
+    setTimeout(fin, timeoutMs); // 保険（フレームコールバックが来ない場合）
+  });
+}
+
+// フレームの簡易シグネチャ（16x16 グレースケール）。連続重複の検出に使う。
+function _frameSignature(video) {
+  try {
+    const N = 16;
+    const c = document.createElement('canvas');
+    c.width = N; c.height = N;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(video, 0, 0, N, N);
+    const d = ctx.getImageData(0, 0, N, N).data;
+    const sig = new Uint8Array(N * N);
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+      sig[j] = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    }
+    return sig;
+  } catch (e) { return null; }
+}
+// 2フレームの平均輝度差（0–255）。小さいほど似ている。
+function _sigDiff(a, b) {
+  if (!a || !b || a.length !== b.length) return 255;
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+  return s / a.length;
+}
+
 async function _captureGdFrame(sec) {
   const video = _gdVideoEl;
   if (!video) return null;
@@ -2952,6 +2991,8 @@ async function _captureGdFrame(sec) {
     try { video.currentTime = sec; } catch(e) { fin(); }
     setTimeout(fin, 2500); // seeked が来ない場合の保険
   });
+  // seeked 後、実フレームが描画されるまで待ってから撮影（重複・前フレーム取得を防止）
+  await _waitForPresentedFrame(video);
   const w = video.videoWidth, h = video.videoHeight;
   if (!w || !h) return null;
   try {
@@ -2965,7 +3006,8 @@ async function _captureGdFrame(sec) {
     tc.width = Math.round(w*ts); tc.height = Math.round(h*ts);
     tc.getContext('2d').drawImage(video, 0, 0, tc.width, tc.height);
     const thumbDataUrl = tc.toDataURL('image/jpeg', 0.5);
-    return { fullBlob, thumbDataUrl };
+    const sig = _frameSignature(video);
+    return { fullBlob, thumbDataUrl, sig };
   } catch(e) { console.warn('[captureGdFrame]', e); return null; }
 }
 
@@ -3384,14 +3426,28 @@ window.vpAiSummary = async function(id) {
       const origTime = _gdVideoEl.currentTime;
       const wasPlaying = !_gdVideoEl.paused;
       try { _gdVideoEl.pause(); } catch(e) {}
+      let prevSig = null;
+      const DUP_THRESHOLD = 5; // 平均輝度差がこれ未満なら「直前とほぼ同じ画」とみなす
       for (let i = 0; i < secs.length; i++) {
         if (btn) btn.textContent = `📸 ${i+1}/${secs.length}`;
         try {
-          const cap = await _captureGdFrame(secs[i]);
+          let cap = await _captureGdFrame(secs[i]);
+          // 直前ショットと酷似していたら少し先へずらして撮り直す（最大2回）
+          let nudge = 0;
+          while (cap && prevSig && _sigDiff(cap.sig, prevSig) < DUP_THRESHOLD && nudge < 2) {
+            nudge++;
+            const dur = _gdVideoEl.duration || (secs[i] + 3);
+            const nx = Math.min(dur - 0.2, secs[i] + 0.7 * nudge);
+            if (nx <= secs[i]) break;
+            const c2 = await _captureGdFrame(nx);
+            if (!c2) break;
+            cap = c2;
+          }
           if (cap && cap.fullBlob && window.snapAddBlob) {
             // スナップショットのメモにタイムスタンプ解説を入れる
             const snapId = await window.snapAddBlob(id, cap.fullBlob, secs[i], tsText[secs[i]] || '');
             shotMap[secs[i]] = { snapId, thumbDataUrl: cap.thumbDataUrl };
+            prevSig = cap.sig || prevSig;
           }
         } catch(e) { console.warn('[shot]', secs[i], e); }
       }
