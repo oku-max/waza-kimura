@@ -2784,18 +2784,9 @@ window._cvApplyLoadedViews = function(views) {
   }
 };
 
-// ── ログアウト時にカスタムビューをクリア（_cvApplyLoadedViews の対）──
-// localStorage(wk_cv_views) はFirestoreに同期済みのため、再ログイン時に復元される。
-window._cvClearForLogout = function() {
-  _views = [];
-  try { localStorage.removeItem('wk_cv_views'); } catch(e) {}
-  // カスタムビュー表示中ならマスターへ戻す（内部で _curId=null＆ライブラリ再描画）
-  if (_curId) { window._cvClearSelection?.(); }
-  else { _curId = null; _renderViewBar(); }
-  // ピッカーが開いていればマスターのみに再描画
-  const ov = document.getElementById('cv-picker-overlay');
-  if (ov && ov.style.display !== 'none') ov.innerHTML = _buildPickerHTML();
-};
+// ── （撤去）ログアウト時のカスタムビュー消去は、Firestoreを空で上書きしてデータ消失を
+//    起こすため廃止。安全策が固まるまで何もしない（_views と localStorage は保持する）。
+window._cvClearForLogout = function() { /* no-op: データ保全のため無効化 */ };
 
 // ── パブリックAPI（フィルタールーティング用） ──
 
