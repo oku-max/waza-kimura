@@ -200,7 +200,7 @@ function _renderViewBar() {
   }
   // 未選択＝マスター（編集ボタンは隠す）
   iconEl.textContent = '🏠';
-  nameEl.textContent = 'マスター';
+  nameEl.textContent = window.t ? window.t('cv.master', 'マスター') : 'マスター';
   if (editBtn) editBtn.style.display = 'none';
 }
 
@@ -268,13 +268,14 @@ window._cvRowSetView = function(id, vt) {
 };
 
 function _buildPickerHTML() {
+  const T = (k, fb) => (window.t ? window.t(k, fb) : fb);
   // ── マスター行（先頭） ──
   const masterActive = !_curId;
   const masterRow = `<div class="cv-picker-item${masterActive ? ' active' : ''}" onclick="window._cvClearSelection();window._closePicker()">
     <span class="cv-picker-icon">🏠</span>
     <span class="cv-picker-info">
-      <span class="cv-picker-name">マスター</span>
-      <span class="cv-picker-meta">ライブラリ全体</span>
+      <span class="cv-picker-name">${T('cv.master','マスター')}</span>
+      <span class="cv-picker-meta">${T('cv.masterDesc','ライブラリ全体')}</span>
     </span>
     <span class="cv-picker-check">${masterActive ? '✓' : ''}</span>
     ${_rowDispHTML('__master__', _viewTypeOf('__master__'))}
@@ -283,7 +284,7 @@ function _buildPickerHTML() {
   // ── カスタムリスト群 ──
   const items = _views.map((v, idx) => {
     const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
-    const modeLbl = v.saveMode === 'dynamic' ? '条件で自動選択' : '手動選択';
+    const modeLbl = v.saveMode === 'dynamic' ? T('cv.dynamic','条件で自動選択') : T('cv.manual','手動選択');
     const cnt = v.saveMode === 'dynamic'
       ? (v.filterConditions ? _applyConditions(v.filterConditions, window.videos || []).length : 0)
       : (v.videoIds || []).length;
@@ -300,7 +301,7 @@ function _buildPickerHTML() {
         <span class="cv-picker-icon">${icon}</span>
         <span class="cv-picker-info">
           <span class="cv-picker-name">${_esc(v.label)}</span>
-          <span class="cv-picker-meta">${modeLbl} · ${cnt}本</span>
+          <span class="cv-picker-meta">${modeLbl} · ${cnt}${T('cv.count','本')}</span>
         </span>
         <button class="cv-picker-save-tpl-btn" onclick="event.stopPropagation();window._cvSaveAsTemplate('${v.id}')" title="テンプレとして保存" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;line-height:1">💾</button>
         <button class="cv-picker-del-btn" onclick="event.stopPropagation();window._cvDeleteView('${v.id}')" title="削除">🗑</button>
@@ -314,38 +315,38 @@ function _buildPickerHTML() {
           <span class="cv-picker-name">${_esc(v.label)}</span>
           <button class="cv-picker-rename-btn" onclick="event.stopPropagation();window._cvRenameView('${v.id}')" title="名前を変更">✏️</button>
         </span>
-        <span class="cv-picker-meta">${modeLbl} · ${cnt}本</span>
+        <span class="cv-picker-meta">${modeLbl} · ${cnt}${T('cv.count','本')}</span>
       </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
       ${_rowDispHTML(v.id, _viewTypeOf(v.id))}
-      <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">編集</button>
+      <button class="cv-picker-edit-btn" onclick="event.stopPropagation();window._closePicker();window.cvOpenConditionEditor('${v.id}')">${T('cv.edit','編集')}</button>
     </div>`;
   }).join('');
 
   // ── カスタムビュー見出し（テンプレ/整理を内包） ──
-  const editToggleBtn = _views.length > 0 ? `<button onclick="window._cvPickerToggleEdit()" class="cv-picker-organize-btn${_cvPickerEditMode ? ' active' : ''}">${_cvPickerEditMode ? '完了' : '整理'}</button>` : '';
-  const tplMgrBtn = _cvUserTemplates.length > 0 ? `<button onclick="window._cvOpenTemplateManager()" class="cv-picker-organize-btn">テンプレ</button>` : '';
+  const editToggleBtn = _views.length > 0 ? `<button onclick="window._cvPickerToggleEdit()" class="cv-picker-organize-btn${_cvPickerEditMode ? ' active' : ''}">${_cvPickerEditMode ? T('cv.done','完了') : T('cv.manage','整理')}</button>` : '';
+  const tplMgrBtn = _cvUserTemplates.length > 0 ? `<button onclick="window._cvOpenTemplateManager()" class="cv-picker-organize-btn">${T('cv.tpl','テンプレ')}</button>` : '';
   const cvSecHeader = `<div style="display:flex;align-items:center;gap:6px;padding:8px 16px 4px">
-    <span style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.04em;flex:1">カスタムビュー</span>
+    <span style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.04em;flex:1">${T('cv.section','カスタムビュー')}</span>
     ${tplMgrBtn}${editToggleBtn}
   </div>`;
 
   const newRow = _cvPickerEditMode ? '' : `
     <div class="cv-picker-item cv-picker-new" onclick="window._closePicker();window.cvOpenNewModal()">
       <span class="cv-picker-icon" style="color:var(--accent);font-size:18px">＋</span>
-      <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">新しいカスタムビューを作成</span><span class="cv-picker-meta">手動選択 / 条件で自動選択</span></span>
+      <span class="cv-picker-info"><span class="cv-picker-name" style="color:var(--accent)">${T('cv.new','新しいカスタムビューを作成')}</span><span class="cv-picker-meta">${T('cv.manual','手動選択')} / ${T('cv.dynamic','条件で自動選択')}</span></span>
     </div>`;
 
   return `<div class="cv-picker-modal">
     <div class="cv-picker-header">
-      <span style="font-size:14px;font-weight:700">リスト</span>
+      <span style="font-size:14px;font-weight:700">${T('cv.picker.title','リスト')}</span>
       <button onclick="window._closePicker()" style="border:none;background:var(--surface2);color:var(--text3);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px">✕</button>
     </div>
     <div class="cv-picker-body">
       ${masterRow}
       <div class="cv-picker-divider"></div>
       ${cvSecHeader}
-      ${items || '<div style="padding:10px 16px;font-size:12px;color:var(--text3)">カスタムビューがありません</div>'}
+      ${items || `<div style="padding:10px 16px;font-size:12px;color:var(--text3)">${T('cv.empty','カスタムビューがありません')}</div>`}
       ${newRow}
     </div>
   </div>`;
@@ -2765,6 +2766,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else _init();
 
 window._cvSave = _save;
+window._cvRefreshViewBar = _renderViewBar;  // 言語切替時の再描画用
 
 // Firestore sync 用: saveUserSettings から参照
 Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _views = v; }, configurable: true });
