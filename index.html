@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.550</title>
+<title>WAZA KIMURA v52.551</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -73,6 +73,7 @@
 <!-- Google Identity Services (YouTube インポート用) -->
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="js/config.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/tag-master.js"></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/tag-master-ui.js" defer></script>
@@ -1783,6 +1784,17 @@
     <div style="font-size:16px;font-weight:800;margin-bottom:4px">Settings</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:20px">表示・AI・再生・外観の設定</div>
 
+    <!-- ═══ 言語 / Language ═══ -->
+    <div id="sec-language" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="settings.language">言語</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:24px">
+      <div id="wk-lang-seg" style="display:flex;gap:6px">
+        <button type="button" onclick="wkSetLang('auto')" data-lang="auto" data-i18n="settings.language.auto" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">自動（端末設定）</button>
+        <button type="button" onclick="wkSetLang('ja')" data-lang="ja" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">日本語</button>
+        <button type="button" onclick="wkSetLang('en')" data-lang="en" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">English</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px" data-i18n="settings.language.desc">表示言語。データは変更されません。</div>
+    </div>
+
     <!-- ═══ タグ表示設定 ═══ -->
     <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase">タグ表示設定</div>
     <div id="tag-display-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
@@ -3064,27 +3076,29 @@ let itagPerVideo = false;
 let _itagRoot = null;
 
 function _itagBuildRoot() {
-  if (_itagRoot) return _itagRoot;
-  const root = document.createElement('div');
-  root.id = 'itagRoot';
-  root.className = 'form-group';
+  // 単一要素を使い回す（ID重複回避）。言語変更を反映するため innerHTML は毎回現在の言語で再構築。
+  if (!_itagRoot) {
+    _itagRoot = document.createElement('div');
+    _itagRoot.id = 'itagRoot';
+    _itagRoot.className = 'form-group';
+  }
+  const root = _itagRoot;
   root.innerHTML = `
-    <div class="form-label">🏷 タグの付け方</div>
+    <div class="form-label">${window.t?.('itag.howto','🏷 タグの付け方')}</div>
     <div id="utagSeg">
-      <button type="button" data-mode="ai" class="on" onclick="itagSetMode('ai')">🤖 自動判別<span>AIにおまかせ</span></button>
-      <button type="button" data-mode="manual" onclick="itagSetMode('manual')">✋ 自分で選ぶ<span>いま手動で</span></button>
-      <button type="button" data-mode="none" onclick="itagSetMode('none')">🚫 タグなし<span>あとで整理</span></button>
+      <button type="button" data-mode="ai" class="on" onclick="itagSetMode('ai')">${window.t?.('itag.mode.ai','🤖 自動判別')}<span>${window.t?.('itag.mode.ai.sub','AIにおまかせ')}</span></button>
+      <button type="button" data-mode="manual" onclick="itagSetMode('manual')">${window.t?.('itag.mode.manual','✋ 自分で選ぶ')}<span>${window.t?.('itag.mode.manual.sub','いま手動で')}</span></button>
+      <button type="button" data-mode="none" onclick="itagSetMode('none')">${window.t?.('itag.mode.none','🚫 タグなし')}<span>${window.t?.('itag.mode.none.sub','あとで整理')}</span></button>
     </div>
     <div id="utagAiHint" class="utag-hint">
-      タイトル・チャンネル名からAIがタグを推定します。
-      <div class="utag-warn"><span>⚠️</span><span>AIの判定は<b>正確でない場合があります</b>。あとからいつでも修正できます。</span></div>
+      ${window.t?.('itag.ai.hint','タイトル・チャンネル名からAIがタグを推定します。')}
+      <div class="utag-warn"><span>⚠️</span><span>${window.t?.('itag.ai.warn','AIの判定は正確でない場合があります。あとからいつでも修正できます。')}</span></div>
     </div>
-    <div id="utagNoneHint" class="utag-hint" style="display:none">タグを付けずに追加します。あとからいつでもタグ付けできます。</div>
+    <div id="utagNoneHint" class="utag-hint" style="display:none">${window.t?.('itag.none.hint','タグを付けずに追加します。あとからいつでもタグ付けできます。')}</div>
     <div id="utagPicker" style="display:none">
       <select id="utagTarget" onchange="itagSetTarget(this.value)"></select>
       <div id="utagFields"></div>
     </div>`;
-  _itagRoot = root;
   return root;
 }
 
@@ -3131,7 +3145,7 @@ function itagBuildTargetSelect() {
   if (!itagPerVideo) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
   sel.style.display = '';
   const escHtml = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  let html = '<option value="">📌 全ての動画に同じタグを適用</option>';
+  let html = `<option value="">${escHtml(window.t?.('itag.target.all','📌 全ての動画に同じタグを適用'))}</option>`;
   itagItems.forEach(p => {
     const t = p.title || p.id;
     const short = t.length > 26 ? t.slice(0, 26) + '…' : t;
@@ -3155,20 +3169,24 @@ function itagRenderFields() {
   if (!c) return;
   const t = itagCurrent();
   const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
+  const T = (k, fb) => window.t ? window.t(k, fb) : fb;
+  const lblTb = v => window.tTb ? window.tTb(v) : v;     // 表示は翻訳、値(value)は日本語のまま
+  const lblCat = v => window.tCat ? window.tCat(v) : v;
+  const lblPos = v => window.tPos ? window.tPos(v) : v;
   const TB = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
   const CATS = (window.CATEGORIES || []).map(x => x.name);
-  const tbRow = TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="itagTog('tb','${esc(v)}',this)">${v}</span>`).join('');
-  const catRow = CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="itagTog('cat','${esc(v)}',this)">${v}</span>`).join('');
-  const posChips = t.pos.map(p => `<span class="vp-chip on-pos" style="cursor:pointer" onclick="itagRmChip('pos','${esc(p)}')">${p} ×</span>`).join('');
-  const posPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenPosDd()">＋ ポジション</span><div class="vp-dd" id="utag-pos-dd" style="display:none"><input class="vp-dd-search" placeholder="絞り込み..." oninput="itagFilterPosDd(this.value)" onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}"><div class="vp-dd-list" id="utag-pos-list"></div></div></div>`;
+  const tbRow = TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="itagTog('tb','${esc(v)}',this)">${lblTb(v)}</span>`).join('');
+  const catRow = CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="itagTog('cat','${esc(v)}',this)">${lblCat(v)}</span>`).join('');
+  const posChips = t.pos.map(p => `<span class="vp-chip on-pos" style="cursor:pointer" onclick="itagRmChip('pos','${esc(p)}')">${lblPos(p)} ×</span>`).join('');
+  const posPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenPosDd()">${T('itag.add.pos','＋ ポジション')}</span><div class="vp-dd" id="utag-pos-dd" style="display:none"><input class="vp-dd-search" placeholder="${T('itag.dd.filter','絞り込み...')}" oninput="itagFilterPosDd(this.value)" onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}"><div class="vp-dd-list" id="utag-pos-list"></div></div></div>`;
   const tagChips = t.tags.map(x => `<span class="vp-chip on-tags" style="cursor:pointer" onclick="itagRmChip('tags','${esc(x)}')">${x} ×</span>`).join('');
-  const tagPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenTagDd()">＋ テクニック</span><div class="vp-dd" id="utag-tag-dd" style="display:none"><input class="vp-dd-search" id="utag-tag-inp" placeholder="テクニック検索・新規追加（Enterで追加）" oninput="itagTagFilter(this.value)" onkeydown="itagTagKey(event,this)"><div class="vp-dd-list" id="utag-tag-sug"></div></div></div>`;
+  const tagPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenTagDd()">${T('itag.add.tech','＋ テクニック')}</span><div class="vp-dd" id="utag-tag-dd" style="display:none"><input class="vp-dd-search" id="utag-tag-inp" placeholder="${T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）')}" oninput="itagTagFilter(this.value)" onkeydown="itagTagKey(event,this)"><div class="vp-dd-list" id="utag-tag-sug"></div></div></div>`;
   c.innerHTML = `<div class="fsec">
-    <div class="fsec-title">タグ</div>
-    <div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips">${tbRow}</div></div>
-    <div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips">${catRow}</div></div>
-    <div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips">${posChips}${posPicker}</div></div>
-    <div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips">${tagChips}${tagPicker}</div></div>
+    <div class="fsec-title">${T('itag.section.tags','タグ')}</div>
+    <div class="vp-row"><span class="vp-lbl">${T('itag.row.tb','トップ/ボトム/スタンディング')}</span><div class="vp-chips">${tbRow}</div></div>
+    <div class="vp-row"><span class="vp-lbl">${T('itag.row.cat','カテゴリ')}</span><div class="vp-chips">${catRow}</div></div>
+    <div class="vp-row"><span class="vp-lbl">${T('itag.row.pos','ポジション')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>
+    <div class="vp-row"><span class="vp-lbl">${T('itag.row.tech','テクニック')}</span><div class="vp-chips">${tagChips}${tagPicker}</div></div>
   </div>`;
 }
 function itagTog(layer, val, el) {
@@ -3207,9 +3225,14 @@ function itagRenderPosDd(q) {
   const filtered = ql
     ? all.filter(p => !sel.includes(p.ja) && (p.ja.toLowerCase().includes(ql) || (p.en || '').toLowerCase().includes(ql)))
     : all.filter(p => !sel.includes(p.ja));
+  const en = window.WK_LANG && window.WK_LANG() === 'en';
   list.innerHTML = filtered.length
-    ? filtered.map(p => `<div class="vp-dd-item" onmousedown="itagPosPick('${p.ja.replace(/'/g, "\\'")}')">${p.ja}${p.en ? `<span class="vp-dd-cnt">${p.en}</span>` : ''}</div>`).join('')
-    : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
+    ? filtered.map(p => {
+        const main = en && p.en ? p.en : p.ja;          // 表示は言語に応じて、値は p.ja
+        const sub = en ? (p.ja !== main ? p.ja : '') : (p.en || '');
+        return `<div class="vp-dd-item" onmousedown="itagPosPick('${p.ja.replace(/'/g, "\\'")}')">${main}${sub ? `<span class="vp-dd-cnt">${sub}</span>` : ''}</div>`;
+      }).join('')
+    : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.none','候補なし')}</div>`;
 }
 function itagPosPick(val) {
   const t = itagCurrent(); if (!t.pos.includes(val)) t.pos.push(val);
@@ -3233,7 +3256,7 @@ function itagRenderTagList(q) {
   const mk = t => `<div class="vp-dd-item" onmousedown="itagTagPick('${t.replace(/'/g, "&#39;")}')">${t}</div>`;
   if (ql) {
     const f = all.filter(t => t.toLowerCase().includes(ql));
-    list.innerHTML = f.map(mk).join('') || `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし（Enterで新規追加）</div>`;
+    list.innerHTML = f.map(mk).join('') || `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.tech.none','候補なし（Enterで新規追加）')}</div>`;
   } else {
     const groups = window.getTagGroups ? window.getTagGroups() : [];
     const inGrp = new Set(groups.flatMap(g => g.techNames || []));
@@ -3246,10 +3269,10 @@ function itagRenderTagList(q) {
     });
     const unc = all.filter(t => !inGrp.has(t));
     if (unc.length) {
-      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">未グループ</div>`);
+      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${window.t?.('itag.dd.ungrouped','未グループ')}</div>`);
       unc.forEach(t => parts.push(mk(t)));
     }
-    list.innerHTML = parts.length ? parts.join('') : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">既存テクニックなし（入力して新規追加）</div>`;
+    list.innerHTML = parts.length ? parts.join('') : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.empty','既存テクニックなし（入力して新規追加）')}</div>`;
   }
 }
 function itagTagPick(val) {
