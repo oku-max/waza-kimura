@@ -220,6 +220,14 @@
     // ── 通知/トースト（固定文） ──
     '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語',
     'ソース・チャンネル・プレイリスト':'Source / Channel / Playlist',
+    // ── Vパネル ループ/メニュー（実機フィードバック対応） ──
+    '開始':'Start','終了':'End','微調整':'Fine-tune','現在地':'Now','クリア':'Clear',
+    'リピート':'Repeat','シャッフル':'Shuffle','リバース':'Mirror','オン':'On','オフ':'Off',
+    'リスト表示':'Show playlist','プレイリストを確認':'View the playlist','YouTube検索':'Search YouTube',
+    '関連動画を探す':'Find related videos','再生中の時間を記録':'Records current playback time',
+    'タイトル編集':'Edit title','表示中の動画がありません':'No videos shown','未':'0',
+    'アームトライアングル':'Arm Triangle','アームロック':'Armlock','アンストッパブルスイープ':'Unstoppable Sweep',
+    'エルボーエスケープ':'Elbow Escape','崩し':'Kuzushi',
     // ── 収束ラウンド1（クロール収集 224語） ──
     '0本選択':'0 selected',
     '1.📋 未着手':'1.📋 Not started',
@@ -458,6 +466,10 @@
     [/^🏷 (\d+)本のタグをタイトルから補完しました$/, '🏷 Tagged $1 videos from titles'],
     [/^(\d+)本を取り込む$/, 'Import $1 videos'],
     [/^動画を選択 \((\d+)本 \/ 取込済 (\d+)本\)$/, 'Select videos ($1 / $2 imported)'],
+    [/^(\d+) 本 表示中$/, '$1 videos'],
+    [/^🔖 (開始|終了)を (.+) に(?:更新|設定)しました$/, (m, f, t) => `🔖 ${f === '開始' ? 'Start' : 'End'} set to ${t}`],
+    [/^終了を (.+) にセットしました$/, 'End set to $1'],
+    [/^(A|B)点を (.+) にセットしました$/, 'Point $1 set to $2'],
   ];
 
   const _autoMap = new Map();
@@ -466,6 +478,10 @@
     _autoMap.clear();
     for (const [ja, en] of Object.entries(STATIC_AUTO)) _autoMap.set(ja, en);
     (window.POSITIONS || []).forEach(p => { if (p.ja && p.en && p.ja !== p.en) _autoMap.set(p.ja, p.en); });
+    (window.TECHNIQUE_BUILTIN || []).forEach(tq => {
+      const en = (tq.terms || []).find(x => !/[぀-ヿ一-鿿]/.test(x));
+      if (tq.ja && en) _autoMap.set(tq.ja, en.replace(/\b[a-z]/g, c => c.toUpperCase()));
+    });
     for (const [ja, en] of Object.entries(CAT_EN)) _autoMap.set(ja, en);
     for (const [ja, en] of Object.entries(TB_EN)) _autoMap.set(ja, en);
     _autoBuilt = true;
@@ -479,6 +495,12 @@
     const hit = _autoMap.get(t);
     if (hit != null) return hit;
     for (const [re, rep] of AUTO_PATTERNS) { if (re.test(t)) return t.replace(re, rep); }
+    // 絵文字・記号など前後の装飾を剥がしてコアで照合（例: '📍クローズドガード' '✔ 保存' '開始：'）
+    const m = t.match(/^([^぀-ヿ一-鿿]*)([぀-ヿ一-鿿](?:.*[぀-ヿ一-鿿])?)([^぀-ヿ一-鿿]*)$/);
+    if (m) {
+      const core = _autoMap.get(m[2]);
+      if (core != null) return m[1] + core + m[3];
+    }
     if (t.length <= 80) _missed.add(t);
     return null;
   }
