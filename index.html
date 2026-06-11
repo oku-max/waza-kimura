@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.549</title>
+<title>WAZA KIMURA v52.550</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3130,12 +3130,13 @@ function itagBuildTargetSelect() {
   if (!sel) return;
   if (!itagPerVideo) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
   sel.style.display = '';
+  const escHtml = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   let html = '<option value="">📌 全ての動画に同じタグを適用</option>';
   itagItems.forEach(p => {
     const t = p.title || p.id;
     const short = t.length > 26 ? t.slice(0, 26) + '…' : t;
     const mark = (itagOverrides[p.id] && _itagCount(itagOverrides[p.id])) ? ' ✏️' : '';
-    html += `<option value="${p.id}">▸ ${short}${mark}</option>`;
+    html += `<option value="${escHtml(p.id)}">▸ ${escHtml(short)}${mark}</option>`;
   });
   sel.innerHTML = html;
   sel.value = itagTarget;

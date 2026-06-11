@@ -3,7 +3,8 @@
 // TB     : 起点。AI 自動判定。トップ/ボトム/スタンディング (複数可)
 // Cat    : 10 個固定 (ユーザー編集可)。AI が説明文を読んで分類
 // Pos    : 21 個固定 (ボトム系のみ)。AI 自動判定
-// #Tag   : 自由記入。サイドバー非表示。AI 自動抽出はデフォルト OFF
+// #Tag   : 自由記入。サイドバー非表示。
+//          ルールベース抽出あり: TECHNIQUE_BUILTIN（組み込み技名辞書）+ ユーザー既存タグ語彙
 
 // ─── Layer 1: TB ─────────────────────────────────────
 const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
@@ -97,6 +98,31 @@ function _norm(s) {
   // 末尾「がーど / guard」を除去
   v = v.replace(/(がーど|がど|guard)$/i, '');
   return v;
+}
+
+// ── 全角→半角＋小文字化（ASCII語の単語境界マッチ用） ──
+function _rawLower(s) {
+  return String(s == null ? '' : s)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .toLowerCase();
+}
+
+// ── 語句マッチ共通ヘルパー ──────────────────────────
+// ASCII語  : 単語境界つき正規表現（'pass' が 'compass' に当たらない）
+// 日本語等 : _norm 正規化後の部分一致
+// 正規化後1文字に縮退するキー（'kガード'→'k' 等）は誤爆源のため不採用
+function _termHit(term, rawLower, tNorm) {
+  if (!term) return false;
+  if (/^[\x20-\x7E]+$/.test(term)) {
+    const core = term.toLowerCase().trim();
+    if (core.replace(/[\s\-_]+/g, '').length < 2) return false;
+    const esc = core
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/[\s\-_]+/g, '[\\s\\-_]+');
+    return new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').test(rawLower);
+  }
+  const n = _norm(term);
+  return n.length >= 2 && tNorm.includes(n);
 }
 
 // 正規化済みエイリアステーブルを構築
@@ -368,16 +394,11 @@ window.TB_KEYWORDS = TB_KEYWORDS;
 function _detectTbFromText(text) {
   if (!text) return [];
   const tNorm = _norm(text);
+  const rawLower = _rawLower(text);
   const found = [];
 
   for (const [tb, keywords] of Object.entries(TB_KEYWORDS)) {
-    for (const kw of keywords) {
-      const kwn = _norm(kw);
-      if (kwn && tNorm.includes(kwn)) {
-        if (!found.includes(tb)) found.push(tb);
-        break;
-      }
-    }
+    if (keywords.some(kw => _termHit(kw, rawLower, tNorm))) found.push(tb);
   }
 
   // rawGuardCheck: _norm('ガード')='' になる制約の回避
@@ -387,12 +408,11 @@ function _detectTbFromText(text) {
 
   // 競合解決
   if (found.includes('トップ') && found.includes('ボトム')) {
-    const n = tNorm;
-    const hasEscape = ['escape','エスケープ','ディフェンス','defense'].some(kw => { const kn = _norm(kw); return kn && n.includes(kn); });
+    const hasEscape = ['escape','エスケープ','ディフェンス','defense'].some(kw => _termHit(kw, rawLower, tNorm));
     if (hasEscape) {
       return found.filter(t => t !== 'トップ'); // エスケープ → ボトム確定
     }
-    const hasPass = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => n.includes(_norm(kw)));
+    const hasPass = ['pass','passing','パス','攻略','突破','制圧','崩し'].some(kw => _termHit(kw, rawLower, tNorm));
     if (hasPass) {
       return found.filter(t => t !== 'ボトム'); // パスガード → トップ確定
     }
@@ -402,21 +422,82 @@ function _detectTbFromText(text) {
 }
 window._detectTbFromText = _detectTbFromText;
 
+// ── 組み込みBJJ語彙（カテゴリ判定用） ────────────────
+// ※ CATEGORIES.aliases（Alias Builder でユーザーが承認した語）とは別系統の内蔵辞書。
+//   ユーザー承認エイリアスの仕組みには触れない。ここはアプリ標準のBJJ文脈知識（EN/JA）。
+const CATEGORY_BUILTIN_TERMS = {
+  escape:    ['escape','escapes','escaping','defense','defence','defending','survival','エスケープ','ディフェンス','脱出','防御'],
+  entry:     ['entry','entries','guard pull','pull guard','pulling guard','エントリー','引き込み','入り方'],
+  retention: ['retention','retain','guard recovery','recover guard','リテンション','ガードリカバリー'],
+  control:   ['pressure','pinning','maintaining mount','maintaining side','プレッシャー','抑え込み','コントロール'],
+  concept:   ['concept','concepts','principle','principles','theory','mindset','コンセプト','原理','原則','理論','考え方'],
+  sweep:     ['sweep','sweeps','sweeping','swept','スイープ'],
+  takedown:  ['takedown','takedowns','take down','wrestling','judo','throw','throws','double leg','ankle pick','snap down','テイクダウン','タックル','投げ技'],
+  back:      ['back take','back takes','backtake','taking the back','take the back','back attack','back control','back mount','バックテイク','バックアタック','バックコントロール','バック奪取'],
+  pass:      ['pass','passes','passing','guard pass','パス','パスガード','ガードパス'],
+  finish:    ['submission','submissions','finish','finishing','choke','chokes','strangle','strangles','サブミッション','フィニッシュ','絞め','絞め技','関節技','極め','チョーク'],
+};
+
+// ── 組み込みBJJテクニック辞書（#タグ自動抽出 + カテゴリ含意） ──
+// ja: 付与する #タグ名 / terms: 検出語（EN/JA） / cat: 含意カテゴリ(id)
+const TECHNIQUE_BUILTIN = [
+  { ja: 'アームバー',          terms: ['armbar','arm bar','juji gatame','腕十字','アームバー'], cat: 'finish' },
+  { ja: '三角絞め',            terms: ['triangle choke','triangle','三角絞め','三角締め','トライアングル'], cat: 'finish' },
+  { ja: 'キムラ',              terms: ['kimura','キムラ'], cat: 'finish' },
+  { ja: 'アメリカーナ',        terms: ['americana','アメリカーナ'], cat: 'finish' },
+  { ja: 'ギロチン',            terms: ['guillotine','ギロチン'], cat: 'finish' },
+  { ja: 'リアネイキドチョーク', terms: ['rear naked choke','rnc','裸絞め','裸絞','リアネイキド'], cat: 'finish' },
+  { ja: 'ヒールフック',        terms: ['heel hook','heelhook','ヒールフック'], cat: 'finish' },
+  { ja: 'ニーバー',            terms: ['kneebar','knee bar','ニーバー','膝十字'], cat: 'finish' },
+  { ja: 'トーホールド',        terms: ['toe hold','toehold','トーホールド'], cat: 'finish' },
+  { ja: 'アンクルロック',      terms: ['ankle lock','straight ankle','footlock','foot lock','アンクルロック','フットロック'], cat: 'finish' },
+  { ja: 'ダース',              terms: ["darce","d'arce","ダース"], cat: 'finish' },
+  { ja: 'アナコンダ',          terms: ['anaconda','アナコンダ'], cat: 'finish' },
+  { ja: 'ノースサウスチョーク', terms: ['north south choke','ノースサウスチョーク'], cat: 'finish' },
+  { ja: 'エゼキエル',          terms: ['ezekiel','ezequiel','エゼキエル','袖車'], cat: 'finish' },
+  { ja: 'ボーアンドアロー',    terms: ['bow and arrow','ボーアンドアロー','弓矢絞め'], cat: 'finish' },
+  { ja: 'クロスチョーク',      terms: ['cross choke','cross collar choke','クロスチョーク','十字絞め'], cat: 'finish' },
+  { ja: 'ループチョーク',      terms: ['loop choke','ループチョーク'], cat: 'finish' },
+  { ja: 'ペーパーカッター',    terms: ['paper cutter','ペーパーカッター'], cat: 'finish' },
+  { ja: 'オモプラッタ',        terms: ['omoplata','オモプラッタ','オモプラータ'], cat: 'finish' },
+  { ja: 'ツイスター',          terms: ['twister','ツイスター'], cat: 'finish' },
+  { ja: 'ベリンボロ',          terms: ['berimbolo','ベリンボロ'], cat: 'back' },
+  { ja: 'クラブライド',        terms: ['crab ride','クラブライド'], cat: 'back' },
+  { ja: 'キスオブザドラゴン',  terms: ['kiss of the dragon','キスオブザドラゴン'], cat: 'back' },
+  { ja: 'アームドラッグ',      terms: ['arm drag','armdrag','アームドラッグ'], cat: 'back' },
+  { ja: 'レッグドラッグ',      terms: ['leg drag','legdrag','レッグドラッグ'], cat: 'pass' },
+  { ja: 'トレアドール',        terms: ['toreando','torreando','toreada','bullfighter pass','トレアンド','トレアドール'], cat: 'pass' },
+  { ja: 'ニーカット',          terms: ['knee cut','knee slice','knee slide','ニーカット','ニースライス'], cat: 'pass' },
+  { ja: 'サンパウロパス',      terms: ['sao paulo pass','sao paulo','サンパウロパス'], cat: 'pass' },
+  { ja: 'ボディロックパス',    terms: ['body lock pass','bodylock pass','ボディロックパス'], cat: 'pass' },
+  { ja: 'スタックパス',        terms: ['stack pass','スタックパス'], cat: 'pass' },
+  { ja: 'オーバーアンダー',    terms: ['over under pass','over-under pass','オーバーアンダーパス'], cat: 'pass' },
+  { ja: 'シザースイープ',      terms: ['scissor sweep','シザースイープ'], cat: 'sweep' },
+  { ja: 'ヒップバンプスイープ', terms: ['hip bump','ヒップバンプ'], cat: 'sweep' },
+  { ja: 'フラワースイープ',    terms: ['flower sweep','pendulum sweep','フラワースイープ','ペンデュラムスイープ'], cat: 'sweep' },
+  { ja: 'バタフライスイープ',  terms: ['butterfly sweep','バタフライスイープ'], cat: 'sweep' },
+  { ja: 'シングルレッグ',      terms: ['single leg takedown','シングルレッグタックル'], cat: 'takedown' },
+  { ja: 'ダブルレッグ',        terms: ['double leg takedown','ダブルレッグ','両足タックル'], cat: 'takedown' },
+  { ja: '内股',                terms: ['uchi mata','uchimata','内股'], cat: 'takedown' },
+  { ja: '背負投',              terms: ['seoi nage','seoinage','背負投','背負い投げ'], cat: 'takedown' },
+  { ja: 'アンクルピック',      terms: ['ankle pick','アンクルピック'], cat: 'takedown' },
+  { ja: 'スナップダウン',      terms: ['snap down','snapdown','スナップダウン'], cat: 'takedown' },
+];
+window.TECHNIQUE_BUILTIN = TECHNIQUE_BUILTIN;
+
 // ── カテゴリ検出ロジック (1テキストに対して実行) ────
 // text: タイトル / プレイリスト名 / チャンネル名 いずれでも可
 // 複数カテゴリに同時ヒット可（TB と違い排他でない）
+// ユーザー承認エイリアス + 組み込みBJJ語彙の両方で判定する
 function _detectCatFromText(text) {
   if (!text) return [];
-  const n = _norm(text);
+  const tNorm = _norm(text);
+  const rawLower = _rawLower(text);
   const found = [];
   for (const c of CATEGORIES) {
-    const keys = [c.name, ...(c.aliases || [])];
-    for (const k of keys) {
-      const kn = _norm(k);
-      if (kn && n.includes(kn)) {
-        if (!found.includes(c.name)) found.push(c.name);
-        break;
-      }
+    const keys = [c.name, ...(c.aliases || []), ...(CATEGORY_BUILTIN_TERMS[c.id] || [])];
+    if (keys.some(k => _termHit(k, rawLower, tNorm))) {
+      if (!found.includes(c.name)) found.push(c.name);
     }
   }
   return found;
@@ -440,16 +521,26 @@ function autoTagFromTitle(title, pl = '', channel = '') {
   if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
   if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
 
-  // ── Category 判定: CATEGORIES.aliases でタイトルを照合 ──
-  for (const cat of CATEGORIES) {
-    const terms = [cat.name, ...(cat.aliases || [])];
-    for (const t of terms) {
-      const n = _norm(t);
-      if (n && n.length >= 2 && tNorm.includes(n)) {
-        if (!result.cat.includes(cat.name)) result.cat.push(cat.name);
-        break;
-      }
+  const rawLower = _rawLower(title);
+
+  // ── Category 判定: ユーザー承認エイリアス + 組み込みBJJ語彙 ──
+  result.cat = _detectCatFromText(title);
+
+  // ── テクニック判定: 組み込み辞書（#タグ付与 + カテゴリ含意） ──
+  for (const tech of TECHNIQUE_BUILTIN) {
+    if (tech.terms.some(t => _termHit(t, rawLower, tNorm))) {
+      if (!result.tags.includes(tech.ja)) result.tags.push(tech.ja);
+      const c = CATEGORIES.find(c => c.id === tech.cat);
+      if (c && !result.cat.includes(c.name)) result.cat.push(c.name);
     }
+  }
+  // ── ユーザーが既に使っているテクニック名にもマッチ（表記の自動適応） ──
+  const userVocab = new Set([
+    ...((window.videos || []).flatMap(v => v.tags || [])),
+    ...((window.getTagGroups?.() || []).flatMap(g => g.techNames || [])),
+  ]);
+  for (const name of userVocab) {
+    if (name && !result.tags.includes(name) && _termHit(name, rawLower, tNorm)) result.tags.push(name);
   }
 
   // ── 反転ルール適用: 否定語が含まれていた場合、カテゴリを反転先に切り替え ──
@@ -470,13 +561,14 @@ function autoTagFromTitle(title, pl = '', channel = '') {
   // ── Position 判定 (タイトルのみ; PLからのpos推測は誤検知リスクが高い) ──
   for (const p of POSITIONS) {
     const keys = [p.ja, p.en, ...(p.aliases || [])];
-    for (const k of keys) {
-      const kn = _norm(k);
-      if (kn && kn.length >= 2 && tNorm.includes(kn)) {
-        if (!result.pos.includes(p.ja)) result.pos.push(p.ja);
-        break;
-      }
+    if (keys.some(k => _termHit(k, rawLower, tNorm))) {
+      if (!result.pos.includes(p.ja)) result.pos.push(p.ja);
     }
+  }
+
+  // テイクダウン文脈の 'single leg' はタックルでありガードではない
+  if (result.cat.includes('テイクダウン') && !/guard|ガード/i.test(title)) {
+    result.pos = result.pos.filter(p => p !== 'シングルレッグガード');
   }
 
   return result;
@@ -504,6 +596,10 @@ function retagAllFromTitle() {
     // Pos: 空の場合のみ追加
     if ((!v.pos || !v.pos.length) && tags.pos && tags.pos.length) {
       v.pos = tags.pos; changed = true;
+    }
+    // #Tag: 空の場合のみ追加（組み込み技名辞書 + ユーザー語彙から）
+    if ((!v.tags || !v.tags.length) && tags.tags && tags.tags.length) {
+      v.tags = tags.tags; changed = true;
     }
     // tbLocked 確保
     if (!('tbLocked' in v)) { v.tbLocked = false; changed = true; }
