@@ -220,6 +220,10 @@
     // ── 通知/トースト（固定文） ──
     '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語',
     'ソース・チャンネル・プレイリスト':'Source / Channel / Playlist',
+    '全て':'All','まだ動画が追加されていません':'No videos added yet','条件にマッチする動画がありません':'No videos match',
+    '名前を変更する':'Rename it','Google Drive で確認':'Open in Google Drive','Drive を開く':'Open in Drive',
+    'テキストを入力':'Enter text','手動で選択':'Manually selected','手動選択':'Manual',
+    
     // ── Vパネル ループ/メニュー（実機フィードバック対応） ──
     '開始':'Start','終了':'End','微調整':'Fine-tune','現在地':'Now','クリア':'Clear',
     'リピート':'Repeat','シャッフル':'Shuffle','リバース':'Mirror','オン':'On','オフ':'Off',
@@ -1193,6 +1197,19 @@
     [/^🔖 (開始|終了)を (.+) に(?:更新|設定)しました$/, (m, f, t) => `🔖 ${f === '開始' ? 'Start' : 'End'} set to ${t}`],
     [/^終了を (.+) にセットしました$/, 'End set to $1'],
     [/^(A|B)点を (.+) にセットしました$/, 'Point $1 set to $2'],
+    // ── テンプレート文（実機フィードバック） ──
+    [/^(\d+)本を選択中$/, '$1 selected'],
+    [/^🔄 一括タグリセット（(\d+)本）$/, '🔄 Bulk tag reset ($1 videos)'],
+    [/^TOP\/BOTTOMをリセット（(\d+)本, 計(\d+)件）$/, 'Reset Top/Bottom ($1 videos, $2 total)'],
+    [/^(.+?)をリセット（(\d+)本, 計(\d+)件）$/, (m, a, n, t) => `Reset ${(window.tCat?window.tCat(a):a)} (${n} videos, ${t} total)`],
+    [/^🔄 (\d+)本の全タグをリセット（(\d+)件削除）$/, '🔄 Reset all tags on $1 videos ($2 removed)'],
+    [/^🔄 (\d+)本の(.+?)をリセット（(\d+)件削除）$/, (m, n, a, c) => `🔄 Reset ${(window.tCat?window.tCat(a):a)} on ${n} videos (${c} removed)`],
+    [/^プレイリスト「(.+)」を表示しますか？$/, 'Show the playlist “$1”?'],
+    [/^「(.+)」を削除しますか？$/, 'Delete “$1”?'],
+    [/^「(.+)」とその中のノート (\d+) 件を削除しますか？$/, 'Delete “$1” and the $2 notes inside it?'],
+    [/^📌 手動で選択 (\d+)件$/, '📌 Manually selected: $1'],
+    [/^(.*?)(\d+)動画 · 開く →$/, (m, pre, n) => `${pre}${n} videos · Open →`],
+    [/^条件にマッチする動画がありません$/, 'No videos match the conditions'],
   ];
 
   const _autoMap = new Map();
