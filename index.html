@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.551</title>
+<title>WAZA KIMURA v52.552</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1239,14 +1239,14 @@
   </div>
   <!-- 未ログイン: ログインエリア -->
   <div id="acct-menu-login" class="acct-menu-login-area">
-    <div class="acct-menu-login-desc">ログインすると動画の追加・<br>トラッキングが利用できます</div>
+    <div class="acct-menu-login-desc" data-i18n="acct.loginDesc">ログインすると動画の追加・トラッキングが利用できます</div>
     <button class="acct-menu-login-btn" onclick="window._acctSignIn?.()">
       <span class="acct-google-icon"></span> Googleでログイン
     </button>
   </div>
   <div class="acct-menu-items">
     <div id="acct-menu-add-video" class="acct-menu-item acct-menu-item-accent" style="display:none" onclick="openImportHub();window.closeAcctMenu()">
-      <span class="acct-menu-icon">＋</span> 動画を追加
+      <span class="acct-menu-icon">＋</span> <span data-i18n="acct.addVideo">動画を追加</span>
     </div>
     <div class="acct-menu-sep" id="acct-sep1" style="display:none"></div>
     <div class="acct-menu-item" onclick="openFeedback();window.closeAcctMenu()">
@@ -1257,7 +1257,7 @@
     </div>
     <div class="acct-menu-sep" id="acct-sep2" style="display:none"></div>
     <div id="acct-menu-logout" class="acct-menu-item acct-menu-item-danger" style="display:none">
-      <span class="acct-menu-icon">⏏</span> ログアウト
+      <span class="acct-menu-icon">⏏</span> <span data-i18n="acct.logout">ログアウト</span>
     </div>
   </div>
 </div>
@@ -1391,9 +1391,9 @@
         </div>
         <div class="fs-acc-body" id="org-fs-acc-body-saved" style="display:none;padding:6px 12px 10px">
           <div id="org-fs-saved-list" style="display:flex;flex-direction:column;gap:3px">
-            <div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>
+            <div style="font-size:10px;color:var(--text3)" data-i18n="sb.savedNone">保存した検索条件はありません</div>
           </div>
-          <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px">＋ 現在の検索条件を保存</button>
+          <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px" data-i18n="sb.saveCurrent">＋ 現在の検索条件を保存</button>
         </div>
       </div>
 
@@ -1437,12 +1437,12 @@
   <div class="lib-sidebar" id="libSidebar">
     <div class="lib-sb-hdr" style="display:flex;align-items:center;gap:8px">
       <span class="lib-sb-hdr-title">□ Library</span>
-      <button id="lib-sb-add-video" onclick="openImportHub()" style="display:block;margin-left:auto;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 動画を追加</button>
+      <button id="lib-sb-add-video" onclick="openImportHub()" style="display:block;margin-left:auto;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap" data-i18n="sb.addVideo">＋ 動画を追加</button>
     </div>
     <div class="lib-sb-body">
       <!-- ビュー切替 -->
       <div class="lib-sb-section">
-        <span class="lib-sb-sec-title">リスト</span>
+        <span class="lib-sb-sec-title" data-i18n="sb.list">リスト</span>
         <div class="lib-sb-cv-box" style="display:flex;gap:4px;align-items:stretch">
           <button id="cv-list-btn" class="lvt-inner-btn" onclick="window.cvOpenViewPicker()" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
             <span id="cv-list-icon" style="flex-shrink:0">🏠</span>
@@ -1451,17 +1451,17 @@
           </button>
           <button id="cv-list-edit" onclick="event.stopPropagation();window._cvEditCurrent()" title="リストを編集" class="lvt-inner-btn" style="display:none;flex:0 0 auto;padding:5px 9px">✏️</button>
         </div>
-        <span class="lib-sb-sec-title">ビュー</span>
+        <span class="lib-sb-sec-title" data-i18n="sb.view">ビュー</span>
         <div class="lib-sb-master-box">
-          <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._cvSetView('card')">📋 カード</button>
-          <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._cvSetView('table')">📊 テーブル</button>
+          <button id="lvt-card" class="lvt-inner-btn lvt-active" onclick="window._cvSetView('card')" data-i18n="sb.card">📋 カード</button>
+          <button id="lvt-org"  class="lvt-inner-btn"            onclick="window._cvSetView('table')" data-i18n="sb.table">📊 テーブル</button>
         </div>
       </div>
       <!-- フィルター + 検索 + 保存 + 最近 + リセット -->
       <div class="fs-scroll" style="flex:1">
         <!-- フィルターボックス（検索含む） -->
         <div style="padding:0 12px 8px">
-          <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;padding:10px 2px 7px">フィルター</span>
+          <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);display:block;padding:10px 2px 7px" data-i18n="sb.filter">フィルター</span>
           <div class="lib-sb-filter-box">
             <!-- 検索（フィルターboxの先頭） -->
             <div style="padding:8px 10px 6px;border-bottom:1px solid var(--border2)">
@@ -1470,20 +1470,20 @@
                 <input id="si-lib-pc" type="text" placeholder="Search..." oninput="if(window._cvIsTableView?.())window._cvApplySearch?.(this.value);else window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
                 <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
               </div>
-              <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 12px;text-align:center;border:1.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">詳細検索</button>
+              <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 12px;text-align:center;border:1.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit" data-i18n="sb.advSearch">詳細検索</button>
             </div>
             <!-- アコーディオンフィルター -->
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('state')">
-                <span>マーク・習得 <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
+                <span><span data-i18n="sb.state">マーク・習得</span> <span id="uni-state-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
             <div class="fs-acc-sec">
               <div class="fs-acc-hdr" onclick="uniOpen('src')">
-                <span>ソース・チャンネル・プレイリスト <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
+                <span><span data-i18n="sb.src">ソース・チャンネル・プレイリスト</span> <span id="uni-src-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
             <div class="fs-acc-sec" style="border-bottom:none">
               <div class="fs-acc-hdr" onclick="uniOpen('tag')">
-                <span>タグ <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
+                <span><span data-i18n="sb.tag">タグ</span> <span id="uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>              </div>
             </div>
           </div>
         </div>
@@ -1502,28 +1502,28 @@
         </div>
         <div class="fs-acc-sec" id="fs-acc-saved" style="border-top:1px solid var(--border2);border-bottom:none">
           <div class="fs-acc-hdr" onclick="toggleAcc('saved')" style="padding-left:26px">
-            <span>保存した検索条件</span><span class="fs-acc-arrow" id="fs-acc-arr-saved">▶</span>
+            <span data-i18n="sb.saved">保存した検索条件</span><span class="fs-acc-arrow" id="fs-acc-arr-saved">▶</span>
           </div>
           <div class="fs-acc-body" id="fs-acc-body-saved" style="display:none;padding:6px 12px 10px">
             <div id="fs-saved-list" style="display:flex;flex-direction:column;gap:4px">
-              <div style="font-size:10px;color:var(--text3)">保存した検索条件はありません</div>
+              <div style="font-size:10px;color:var(--text3)" data-i18n="sb.savedNone">保存した検索条件はありません</div>
             </div>
-            <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px">＋ 現在の検索条件を保存</button>
+            <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px" data-i18n="sb.saveCurrent">＋ 現在の検索条件を保存</button>
           </div>
         </div>
         <div class="fs-acc-sec" id="fs-acc-recent">
           <div class="fs-acc-hdr" onclick="toggleAcc('recent')" style="padding-left:26px">
-            <span>最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
+            <span data-i18n="sb.recent">最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
           </div>
           <div class="fs-acc-body" id="fs-acc-body-recent" style="display:none;padding:4px 0 6px">
             <div id="fs-recent-list"></div>
           </div>
         </div>
         <div style="border-top:1px solid var(--border2)">
-          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():(window._libViewMode==='org'?enterBulk('organize'):enterBulk())" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" style="display:block;width:100%;font-family:inherit;font-size:12px;font-weight:400;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;padding:9px 14px 9px 26px">☑ 一括編集</button>
+          <button id="bulk-sel-btn" onclick="(window.bulkMode||false)?exitBulk():(window._libViewMode==='org'?enterBulk('organize'):enterBulk())" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" style="display:block;width:100%;font-family:inherit;font-size:12px;font-weight:400;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;padding:9px 14px 9px 26px" data-i18n="sb.bulk">☑ 一括編集</button>
         </div>
         <div style="padding:8px 22px 12px">
-          <button onclick="clearAll()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px;text-align:center;border-radius:20px">フィルターをリセット</button>
+          <button onclick="clearAll()" class="tab-bar-btn" style="width:100%;font-family:inherit;font-size:11px;text-align:center;border-radius:20px" data-i18n="sb.resetFilters">フィルターをリセット</button>
         </div>
       </div>
     </div>
@@ -1537,7 +1537,7 @@
   <!-- Organize操作バー（モバイル・タブレット表示） -->
   <div class="tab-actionbar" id="organize-actionbar" style="display:none">
     <button id="org-filter-toggle-btn" onclick="openOrgFilterOverlay()" class="tab-bar-btn">☰ フィルター</button>
-    <button id="org-filter-reset-btn" onclick="clearOrgFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
+    <button id="org-filter-reset-btn" onclick="clearOrgFilters()" style="display:none;padding:5px 11px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px" data-i18n="common.reset">リセット</button>
     <button id="org-bulk-sel-btn" onclick="enterBulk('organize')" class="tab-bar-btn">☑ 一括編集</button>
     <div style="display:flex;gap:4px;align-items:center;flex:1;min-width:0">
       <div class="tab-srch" style="flex:1;min-width:0"><span style="color:var(--text3)">🔍</span><input id="si-org" type="text" placeholder="Search..." oninput="renderOrg()"></div>
@@ -1553,13 +1553,13 @@
           <span class="results-count" id="rc"></span>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
-          <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px">リセット</button>
+          <button id="filter-reset-btn" onclick="resetFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:none;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px" data-i18n="common.reset">リセット</button>
           <select id="sort-key" onchange="_setSortKey(this.value)" style="font-size:11px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;cursor:pointer">
-            <option value="addedAt">追加日</option>
-            <option value="title">タイトル</option>
-            <option value="status">習得度</option>
-            <option value="lastPlayed">最近再生した</option>
-            <option value="duration">再生時間</option>
+            <option value="addedAt" data-i18n="sort.addedAt">追加日</option>
+            <option value="title" data-i18n="sort.title">タイトル</option>
+            <option value="status" data-i18n="sort.status">習得度</option>
+            <option value="lastPlayed" data-i18n="sort.lastPlayed">最近再生した</option>
+            <option value="duration" data-i18n="sort.duration">再生時間</option>
           </select>
           <button class="sort-dir-btn" onclick="_toggleSortDir()" style="font-size:12px;padding:4px 7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer" title="昇降順切替">↓</button>
         </div>
@@ -1782,7 +1782,7 @@
 
     <!-- ヘッダー -->
     <div style="font-size:16px;font-weight:800;margin-bottom:4px">Settings</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:20px">表示・AI・再生・外観の設定</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:20px" data-i18n="set.subtitle">表示・AI・再生・外観の設定</div>
 
     <!-- ═══ 言語 / Language ═══ -->
     <div id="sec-language" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="settings.language">言語</div>
@@ -1796,7 +1796,7 @@
     </div>
 
     <!-- ═══ タグ表示設定 ═══ -->
-    <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase">タグ表示設定</div>
+    <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="set.tag">タグ表示設定</div>
     <div id="tag-display-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
 
     <!-- タグ編集モーダル -->
@@ -1805,7 +1805,7 @@
     </div>
 
     <!-- ═══ フィルター設定 ═══ -->
-    <div id="sec-filter" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">フィルター設定</div>
+    <div id="sec-filter" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase" data-i18n="set.filter">フィルター設定</div>
     <div id="filter-col-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
 
     <!-- ═══ AI取込設定 ═══ -->
@@ -1892,7 +1892,7 @@
     </div>
 
     <!-- ═══ バックアップ ═══ -->
-    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">バックアップ / 復元</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase" data-i18n="set.backup">バックアップ / 復元</div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;">
       <div>
         <div style="font-size:12px;font-weight:600;margin-bottom:3px">軽量バックアップ</div>
@@ -4532,13 +4532,13 @@ document.addEventListener('click', function(e) {
     </div><!-- /gd-import-body -->
     <!-- URL直接入力 UI -->
     <div id="url-import-body" style="display:none">
-      <div style="font-size:15px;font-weight:800;margin-bottom:4px">🔗 URLから動画を追加</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px" data-i18n="url.title">🔗 URLから動画を追加</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">YouTube・Vimeo・Google Drive・XのURLを貼り付け（複数行OK）／CSV・Excelはヘッダー <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:11px">channel, playlist, url</code> に対応</div>
       <textarea id="urlIn" rows="4" style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5" placeholder="https://www.youtube.com/watch?v=abc123&#10;https://youtu.be/def456&#10;https://vimeo.com/123456&#10;https://drive.google.com/file/d/.../view"></textarea>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn-save" onclick="detectUrls()" style="flex:1;min-width:140px">🔍 解析する</button>
+        <button class="btn-save" onclick="detectUrls()" style="flex:1;min-width:140px" data-i18n="url.analyze">🔍 解析する</button>
         <label style="flex-shrink:0;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer">📄 CSV/Excel<input id="urlCsvFile" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,text/*" style="display:none" onchange="_urlLoadCsv(this)"></label>
-        <button onclick="_urlDlTemplate()" style="flex-shrink:0;padding:9px 12px;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer">⬇ テンプレ</button>
+        <button onclick="_urlDlTemplate()" style="flex-shrink:0;padding:9px 12px;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer" data-i18n="url.template">⬇ テンプレ</button>
       </div>
 
       <!-- 解析結果リスト -->
@@ -4554,15 +4554,15 @@ document.addEventListener('click', function(e) {
       <div id="urlForm" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
         <div class="form-group">
           <div class="form-label">📺 チャンネル名 <span style="font-size:9px;font-weight:600;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px;margin-left:4px">任意</span></div>
-          <button type="button" class="url-pk-btn" onclick="_urlTogPk('ch')"><span id="urlChVal" style="color:var(--text3)">既存から選ぶ / 新規追加</span><span style="float:right">▾</span></button>
+          <button type="button" class="url-pk-btn" onclick="_urlTogPk('ch')"><span id="urlChVal" style="color:var(--text3)" data-i18n="url.pick">既存から選ぶ / 新規追加</span><span style="float:right">▾</span></button>
           <div id="urlChPop" class="url-pk-pop" style="display:none">
             <input class="url-pk-search" id="urlChSearch" oninput="_urlRenderPk('ch')" placeholder="検索または新しいチャンネル名を入力...">
             <div id="urlChList" class="url-pk-list"></div>
           </div>
         </div>
         <div class="form-group">
-          <div class="form-label">📋 プレイリストに追加</div>
-          <button type="button" class="url-pk-btn" onclick="_urlTogPk('pl')"><span id="urlPlVal" style="color:var(--text3)">既存から選ぶ / 新規追加</span><span style="float:right">▾</span></button>
+          <div class="form-label" data-i18n="url.playlist">📋 プレイリストに追加</div>
+          <button type="button" class="url-pk-btn" onclick="_urlTogPk('pl')"><span id="urlPlVal" style="color:var(--text3)" data-i18n="url.pick">既存から選ぶ / 新規追加</span><span style="float:right">▾</span></button>
           <div id="urlPlPop" class="url-pk-pop" style="display:none">
             <input class="url-pk-search" id="urlPlSearch" oninput="_urlRenderPk('pl')" placeholder="検索または新しいプレイリスト名を入力...">
             <div id="urlPlList" class="url-pk-list"></div>

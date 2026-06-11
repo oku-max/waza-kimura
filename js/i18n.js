@@ -38,6 +38,7 @@
     _highlightLangSeg();
     // 動的描画を更新
     try { window.AF && window.AF(); } catch (e) {}
+    try { window._cvRefreshViewBar && window._cvRefreshViewBar(); } catch (e) {}
     try { window.renderSettings && window.renderSettings(); } catch (e) {}
     try { window.toast && window.toast(_lang === 'en' ? 'Language: English' : '言語: 日本語'); } catch (e) {}
   };
@@ -76,6 +77,72 @@
     'itag.dd.tech.none':        { ja: '候補なし（Enterで新規追加）', en: 'No matches (Enter to add new)' },
     'itag.dd.ungrouped':        { ja: '未グループ', en: 'Ungrouped' },
     'itag.dd.empty':            { ja: '既存テクニックなし（入力して新規追加）', en: 'No techniques yet (type to add)' },
+    // サイドバー
+    'sb.addVideo':       { ja: '＋ 動画を追加', en: '+ Add videos' },
+    'sb.list':           { ja: 'リスト', en: 'List' },
+    'sb.view':           { ja: 'ビュー', en: 'View' },
+    'sb.card':           { ja: '📋 カード', en: '📋 Cards' },
+    'sb.table':          { ja: '📊 テーブル', en: '📊 Table' },
+    'sb.filter':         { ja: 'フィルター', en: 'Filters' },
+    'sb.advSearch':      { ja: '詳細検索', en: 'Advanced search' },
+    'sb.state':          { ja: 'マーク・習得', en: 'Marks & Progress' },
+    'sb.src':            { ja: 'ソース・チャンネル・プレイリスト', en: 'Source / Channel / Playlist' },
+    'sb.tag':            { ja: 'タグ', en: 'Tags' },
+    'sb.saved':          { ja: '保存した検索条件', en: 'Saved searches' },
+    'sb.savedNone':      { ja: '保存した検索条件はありません', en: 'No saved searches' },
+    'sb.saveCurrent':    { ja: '＋ 現在の検索条件を保存', en: '+ Save current search' },
+    'sb.recent':         { ja: '最近みた動画', en: 'Recently watched' },
+    'sb.bulk':           { ja: '☑ 一括編集', en: '☑ Bulk edit' },
+    'sb.resetFilters':   { ja: 'フィルターをリセット', en: 'Reset filters' },
+    // リスト（カスタムビュー）ピッカー
+    'cv.picker.title':   { ja: 'リスト', en: 'Lists' },
+    'cv.master':         { ja: 'マスター', en: 'Master' },
+    'cv.masterDesc':     { ja: 'ライブラリ全体', en: 'Entire library' },
+    'cv.section':        { ja: 'カスタムビュー', en: 'Custom views' },
+    'cv.manage':         { ja: '整理', en: 'Manage' },
+    'cv.done':           { ja: '完了', en: 'Done' },
+    'cv.edit':           { ja: '編集', en: 'Edit' },
+    'cv.tpl':            { ja: 'テンプレ', en: 'Templates' },
+    'cv.new':            { ja: '新しいカスタムビューを作成', en: 'Create a new custom view' },
+    'cv.manual':         { ja: '手動選択', en: 'Manual' },
+    'cv.dynamic':        { ja: '条件で自動', en: 'Auto (filter)' },
+    'cv.count':          { ja: '本', en: ' videos' },
+    // Vパネル タグ編集
+    'vp.tags':           { ja: 'タグ', en: 'Tags' },
+    'vp.locked':         { ja: '🔒 ロック中', en: '🔒 Locked' },
+    'vp.unlocked':       { ja: '🔓 自動', en: '🔓 Auto' },
+    // URL取込
+    'url.title':         { ja: '🔗 URLから動画を追加', en: '🔗 Add videos from URLs' },
+    'url.desc':          { ja: 'YouTube・Vimeo・Google Drive・XのURLを貼り付け（複数行OK）', en: 'Paste YouTube / Vimeo / Google Drive / X URLs (multiple lines OK)' },
+    'url.analyze':       { ja: '🔍 解析する', en: '🔍 Analyze' },
+    'url.template':      { ja: '⬇ テンプレ', en: '⬇ Template' },
+    'url.channel':       { ja: '📺 チャンネル名', en: '📺 Channel' },
+    'url.optional':      { ja: '任意', en: 'optional' },
+    'url.pick':          { ja: '既存から選ぶ / 新規追加', en: 'Choose existing / add new' },
+    'url.playlist':      { ja: '📋 プレイリストに追加', en: '📋 Add to playlist' },
+    'url.add':           { ja: '＋ ライブラリに追加', en: '+ Add to library' },
+    // 設定
+    'set.subtitle':      { ja: '表示・AI・再生・外観の設定', en: 'Display, AI, playback and appearance' },
+    'set.tag':           { ja: 'タグ表示設定', en: 'Tag display' },
+    'set.filter':        { ja: 'フィルター設定', en: 'Filters' },
+    'set.ai':            { ja: 'AI取込設定', en: 'AI import' },
+    'set.playback':      { ja: '再生設定', en: 'Playback' },
+    'set.appearance':    { ja: '外観設定', en: 'Appearance' },
+    'set.backup':        { ja: 'バックアップ / 復元', en: 'Backup / Restore' },
+    // アカウントメニュー
+    'acct.loginDesc':    { ja: 'ログインすると動画の追加・トラッキングが利用できます', en: 'Sign in to add and track videos' },
+    'acct.addVideo':     { ja: '動画を追加', en: 'Add videos' },
+    'acct.logout':       { ja: 'ログアウト', en: 'Sign out' },
+    // ソート
+    'sort.addedAt':      { ja: '追加日', en: 'Date added' },
+    'sort.title':        { ja: 'タイトル', en: 'Title' },
+    'sort.status':       { ja: '習得度', en: 'Progress' },
+    'sort.lastPlayed':   { ja: '最近再生した', en: 'Recently played' },
+    'sort.duration':     { ja: '再生時間', en: 'Duration' },
+    'cv.empty':          { ja: 'カスタムビューがありません', en: 'No custom views yet' },
+    // 共通
+    'common.cancel':     { ja: 'キャンセル', en: 'Cancel' },
+    'common.reset':      { ja: 'リセット', en: 'Reset' },
   };
 
   window.t = function (key, fallback) {

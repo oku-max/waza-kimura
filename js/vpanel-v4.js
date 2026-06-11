@@ -7,6 +7,10 @@
   'use strict';
 
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  const _T   = (k, fb) => (window.t    ? window.t(k, fb) : fb);
+  const _lTb  = v => (window.tTb  ? window.tTb(v)  : v);   // 表示のみ翻訳。データ値は日本語のまま
+  const _lCat = v => (window.tCat ? window.tCat(v) : v);
+  const _lPos = v => (window.tPos ? window.tPos(v) : v);
   function _findV(id) { return (window.videos || []).find(v => v.id === id); }
   function _tagVis(key) { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; }
 
@@ -24,25 +28,25 @@
     // TB row (3固定 + 🔒)
     const tbRow = TB.map(t => {
       const on = v.tb.includes(t);
-      return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="vpV4ToggleTb('${id}','${t}',this)">${t}</span>`;
+      return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="vpV4ToggleTb('${id}','${t}',this)">${_lTb(t)}</span>`;
     }).join('');
-    const lockBtn = `<span class="vp-chip" style="cursor:pointer;background:${v.tbLocked?'rgba(255,180,0,.2)':'var(--surface2)'};color:${v.tbLocked?'#c80':'var(--text3)'}" onclick="vpV4ToggleLock('${id}',this)" title="ロック中はAI再解析でTBが上書きされません">${v.tbLocked?'🔒 ロック中':'🔓 自動'}</span>`;
+    const lockBtn = `<span class="vp-chip" style="cursor:pointer;background:${v.tbLocked?'rgba(255,180,0,.2)':'var(--surface2)'};color:${v.tbLocked?'#c80':'var(--text3)'}" onclick="vpV4ToggleLock('${id}',this)" title="ロック中はAI再解析でTBが上書きされません">${v.tbLocked?_T('vp.locked','🔒 ロック中'):_T('vp.unlocked','🔓 自動')}</span>`;
 
     // Category row (10固定 multi-select)
     const catRow = CATS.map(c => {
       const on = v.cat.includes(c.name);
-      return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc)}" onclick="vpV4ToggleCat('${id}','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
+      return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc)}" onclick="vpV4ToggleCat('${id}','${_esc(c.name)}',this)">${_esc(_lCat(c.name))}</span>`;
     }).join('');
 
     // Position row — カスタム DD（<select>を廃止してネイティブピッカーを回避）
     const posChips = v.pos.map(p =>
-      `<span class="vp-chip on-pos" style="cursor:pointer" onclick="vpV4RemovePos('${id}','${_esc(p)}',this)">${_esc(p)} ×</span>`
+      `<span class="vp-chip on-pos" style="cursor:pointer" onclick="vpV4RemovePos('${id}','${_esc(p)}',this)">${_esc(_lPos(p))} ×</span>`
     ).join('');
     const posPicker = `
       <div class="vp-dd-wrap" style="display:inline-block;position:relative">
-        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenPosDd('${id}',this)">＋ ポジション</span>
+        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenPosDd('${id}',this)">${_T('itag.add.pos','＋ ポジション')}</span>
         <div class="vp-dd" id="vp-v4-pos-dd-${id}" style="display:none">
-          <input class="vp-dd-search" placeholder="絞り込み..."
+          <input class="vp-dd-search" placeholder="${_T('itag.dd.filter','絞り込み...')}"
             oninput="vpV4FilterPosDd('${id}',this.value)"
             onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}">
           <div class="vp-dd-list" id="vp-v4-pos-list-${id}"></div>
@@ -55,9 +59,9 @@
     ).join('');
     const tagInput = `
       <div class="vp-dd-wrap" style="display:inline-block;position:relative">
-        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenTagDd('${id}',this)">＋ テクニック</span>
+        <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="vpV4OpenTagDd('${id}',this)">${_T('itag.add.tech','＋ テクニック')}</span>
         <div class="vp-dd" id="vp-v4-tag-dd-${id}" style="display:none">
-          <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="テクニック検索・新規追加（Enterで追加）"
+          <input class="vp-dd-search" id="vp-v4-tag-inp-${id}" placeholder="${_T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）')}"
             oninput="vpV4TagFilter('${id}',this.value)"
             onkeydown="vpV4TagKey('${id}',event,this)">
           <div class="vp-dd-list" id="vp-v4-tag-sug-${id}"></div>
@@ -69,13 +73,13 @@
     const showPos  = _tagVis('pos');
     const showTags = _tagVis('tags');
     if (!showTb && !showCat && !showPos && !showTags) return '';
-    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
-    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
-    const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
-    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
+    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.tb','トップ/ボトム/スタンディング')}</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
+    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.cat','カテゴリ')}</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
+    const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.pos','ポジション')}</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
+    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.tech','テクニック')}</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
     return `
     <div id="vp-tag-fsec-${id}" class="fsec">
-      <div class="fsec-title">タグ</div>
+      <div class="fsec-title">${_T('vp.tags','タグ')}</div>
       ${tbRowHtml}${catRowHtml}${posRowHtml}${tagsRowHtml}
     </div>`;
   };
@@ -142,9 +146,9 @@
       : allPoss.filter(p => !selected.includes(p.ja));
     list.innerHTML = filtered.length
       ? filtered.map(p =>
-          `<div class="vp-dd-item" onmousedown="vpV4PosPick('${id}','${_esc(p.ja)}')">${_esc(p.ja)}${p.en ? `<span class="vp-dd-cnt">${_esc(p.en)}</span>` : ''}</div>`
+          (() => { const en = window.WK_LANG && window.WK_LANG() === 'en'; const main = en && p.en ? p.en : p.ja; const sub = en ? (p.ja !== main ? p.ja : '') : (p.en || ''); return `<div class="vp-dd-item" onmousedown="vpV4PosPick('${id}','${_esc(p.ja)}')">${_esc(main)}${sub ? `<span class="vp-dd-cnt">${_esc(sub)}</span>` : ''}</div>`; })()
         ).join('')
-      : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
+      : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${_T('itag.dd.none','候補なし')}</div>`;
   }
 
   window.vpV4FilterPosDd = function (id, q) { _vpV4RenderPosDd(id, q); };
@@ -198,7 +202,7 @@
       `<div class="vp-dd-item" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">${_esc(t)}</div>`;
     if (ql) {
       list.innerHTML = filtered.map(_mkItem).join('') ||
-        `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
+        `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${_T('itag.dd.none','候補なし')}</div>`;
     } else {
       const _groups = window.getTagGroups ? window.getTagGroups() : [];
       const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
@@ -211,7 +215,7 @@
       });
       const unc = filtered.filter(t => !_inGrp.has(t));
       if (unc.length) {
-        parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
+        parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc(_T('itag.dd.ungrouped','未グループ'))}</div>`);
         unc.forEach(t => parts.push(_mkItem(t)));
       }
       list.innerHTML = parts.length ? parts.join('') : '';
