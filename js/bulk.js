@@ -242,29 +242,19 @@ function _bvpGetAllOpts(key) {
 }
 
 export function bvpTogDd(key) {
-  const dd = document.getElementById('bvp-dd-' + key);
-  if (!dd) return;
-  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
-  // 他のDDを閉じる
-  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
-  window._vpOpenDd?.(dd);
-  const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
-  if (key === 'ch') bvpChSuggest(inp);
-  else if (key === 'pl') bvpPlSuggest(inp);
-  else bvpRenderDdList(key, '');
+  window.wkDdToggle(document.getElementById('bvp-dd-' + key), {
+    focus: true,
+    after: inp => {
+      if (key === 'ch') bvpChSuggest(inp);
+      else if (key === 'pl') bvpPlSuggest(inp);
+      else bvpRenderDdList(key, '');
+    },
+  });
 }
 
 // ── ポジション カスタムDD ──
 export function bvpOpenPosDd() {
-  const dd = document.getElementById('bvp-pos-dd');
-  if (!dd) return;
-  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
-  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
-  window._vpOpenDd?.(dd);
-  _bvpRenderPosDd('');
-  const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  window.wkDdToggle(document.getElementById('bvp-pos-dd'), { focus: true, after: () => _bvpRenderPosDd('') });
 }
 
 function _bvpRenderPosDd(q) {
@@ -303,13 +293,8 @@ export function bvpPickPos(val) {
 
 // ── #タグ カスタムDD ──
 export function bvpOpenTagDd() {
-  const dd = document.getElementById('bvp-tag-dd');
-  if (!dd) return;
-  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
-  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
-  window._vpOpenDd?.(dd);
-  _bvpRenderTagList('');
-  // auto-focusなし（モバイルキーボード誤起動防止）
+  // focus/clearなし（モバイルキーボード誤起動防止＋既存挙動の保持）
+  window.wkDdToggle(document.getElementById('bvp-tag-dd'), { clear: false, after: () => _bvpRenderTagList('') });
 }
 
 export function bvpTagFilter(q) { _bvpRenderTagList(q); }
