@@ -24,10 +24,18 @@ let _durFetchDone = false; // duration補完は初回ロード1回だけ
 window._currentUserUid = () => currentUser?.uid;
 
 auth.onAuthStateChanged(async (user) => {
+  const _prevUid = currentUser?.uid || null;
+  const _newUid = user?.uid || null;
   // ユーザーが変わったら必ず全リスナーを先に解除する（Firebase標準パターン）
   if (_notesUnsubscribe)  { _notesUnsubscribe();  _notesUnsubscribe  = null; }
   if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
 
+  // ユーザーが実際に変わった/ログアウトしたときだけ保存を一旦ロック。
+  // （同一ユーザーのトークン更新では再ロード中も保存ロックの警告を出さない）
+  if (_newUid !== _prevUid) {
+    _videosReady = false;
+    _settingsReady = false;
+  }
   currentUser = user;
   if (window.__pmark && !window.__perf?.auth) window.__pmark('auth');
   updateAuthUI(user);
@@ -76,6 +84,11 @@ function _unpackNested(v) {
 let _notesUnsubscribe = null;
 let _videosUnsubscribe = null;
 let _videosLoadedAt = '';
+// ── 保存ガード用フラグ（v52.558）──
+// クラウドの状態を「確実に把握できた」ときだけ true。読み込み失敗時は false のままにして、
+// 空/部分データでクラウドを上書きする事故（cf. v52.541 カスタムビュー消失）を防ぐ。
+let _videosReady = false;   // loadUserData がクラウドの動画状態を確定できた
+let _settingsReady = false; // loadUserSettings がクラウドの設定状態を確定できた
 // セッションID: このタブ/ページロードを一意に識別（メモリのみ、再起動で再生成）
 const _sessionId = Math.random().toString(36).slice(2);
 
@@ -234,12 +247,14 @@ export async function loadUserData(uid) {
 
   let loaded = false;
   let needsSave = false;
+  let storageKnown = false; // Storageの状態を確実に把握できた（ファイル読込成功 or 不在を確認）
   // 1. Firebase Storage を優先
   try {
     const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
     // ブラウザ/CDNキャッシュを避けて常に最新を取得（保存直後の別端末反映のため）
     const resp = await fetch(url, { cache: 'no-store' });
     if (resp.ok) {
+      storageKnown = true; // ファイルを読み込めた（中身が空でも状態は確定）
       const json = await resp.json();
       if (json.videos?.length) {
         needsSave = await _applyVideosData(json.videos);
@@ -248,7 +263,11 @@ export async function loadUserData(uid) {
       }
     }
   } catch (e) {
-    if (e.code !== 'storage/object-not-found') console.warn('[loadUserData] Storage:', e.message);
+    if (e.code === 'storage/object-not-found') {
+      storageKnown = true; // ファイル不在を確認 = 新規/空ユーザー（状態は確定）
+    } else {
+      console.warn('[loadUserData] Storage:', e.message); // 実際の読込失敗 → 状態未確定
+    }
   }
 
   // 2. Firestore にフォールバック（旧データの自動移行）
@@ -268,6 +287,12 @@ export async function loadUserData(uid) {
     }
   }
 
+  // 保存ロック解除の判定: クラウド状態を確実に把握できたときだけ保存を許可する。
+  //   - 非空データを読み込めた → 当然OK
+  //   - Storageを読めた/不在を確認できた（新規・空ユーザー） → OK（_videosLoadedAtは空のまま）
+  //   - それ以外（ネットワーク/権限エラーで未確定） → ロックのまま（空上書き防止）
+  if (loaded || storageKnown) _videosReady = true;
+
   if (!loaded) return;
 
   if (needsSave) await saveUserData();
@@ -286,6 +311,13 @@ export async function saveUserData() {
   if (!currentUser) {
     console.warn('[saveUserData] currentUser is null — save skipped. Videos in memory:', (window.videos||[]).length);
     showToast('⚠️ 未ログイン: データを保存できませんでした', 4000);
+    return false;
+  }
+  // クラウドの動画状態を読めていない（読込失敗等）ときは保存しない。
+  // メモリが空のままクラウドの非空データを上書きする事故を防ぐ。
+  if (!_videosReady) {
+    console.warn('[saveUserData] not ready (load incomplete) — save skipped to avoid overwriting cloud data');
+    showToast('⚠️ データ読込が未完了のため保存を見送りました。ページを更新してください', 5000);
     return false;
   }
   try {
@@ -326,6 +358,11 @@ export async function saveUserData() {
 
 export async function saveUserSettings() {
   if (!currentUser) return;
+  // クラウドの設定を読めていないうちは保存しない（空配列で全置換して消す事故を防ぐ）。
+  if (!_settingsReady) {
+    console.warn('[saveUserSettings] not ready (settings not loaded) — save skipped');
+    return;
+  }
   try {
     await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set({
       tagSettings:       window.tagSettings       || [],
@@ -398,6 +435,9 @@ export async function loadUserSettings(uid) {
       }
       // appearance はデバイスごと（localStorage管理）のため Firebase から復元しない
     }
+    // ここまで来た = 読み込みが成功した（設定docが無い新規ユーザーでも例外は出ない）。
+    // これ以降の saveUserSettings を許可する。読込が throw した場合は false のまま＝保存ロック。
+    _settingsReady = true;
   } catch (e) { console.error('loadUserSettings:', e); }
 }
 
