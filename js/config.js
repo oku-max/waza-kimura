@@ -15,3 +15,20 @@ window.normStatus = function (s) {
 // 並び順用ランク。旧表記キーも同値で持たせ、生データ混在に耐える。
 const _STATUS_ORDER = { '未着手': 0, '理解': 1, '把握': 1, '練習中': 2, '習得中': 2, 'マスター': 3 };
 window.statusRank = function (s) { return _STATUS_ORDER[s] ?? 0; };
+
+// ── vp-dd 系ドロップダウンの開閉トグル（共通 v52.560）──
+// 位置決め(_vpOpenDd)は従来どおり共有。開閉・他DDを閉じる・入力クリア/フォーカスの定型を集約。
+// opts: { focus=false, clear=true, after(inp) }  戻り値: 開いたら true / 閉じたら false。
+window.wkDdToggle = function (dd, opts) {
+  opts = opts || {};
+  if (!dd) return false;
+  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
+  if (isOpen) { dd.style.display = 'none'; return false; }
+  document.querySelectorAll('.vp-dd').forEach(d => { if (d !== dd) d.style.display = 'none'; });
+  window._vpOpenDd?.(dd);
+  const inp = dd.querySelector('.vp-dd-search');
+  if (inp && opts.clear !== false) inp.value = '';
+  if (inp && opts.focus) inp.focus();
+  if (typeof opts.after === 'function') opts.after(inp);
+  return true;
+};
