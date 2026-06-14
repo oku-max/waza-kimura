@@ -476,9 +476,8 @@ export function sortVideos(list) {
       va = (a.title || '').toLowerCase();
       vb = (b.title || '').toLowerCase();
     } else if (key === 'status') {
-      const ord = { '未着手': 0, '理解': 1, '把握': 1, '練習中': 2, '習得中': 2, 'マスター': 3 };
-      va = ord[a.status] ?? 9;
-      vb = ord[b.status] ?? 9;
+      va = window.statusRank(a.status);
+      vb = window.statusRank(b.status);
     } else if (key === 'lastPlayed') {
       va = a.lastPlayed || 0;
       vb = b.lastPlayed || 0;

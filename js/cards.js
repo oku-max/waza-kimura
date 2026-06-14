@@ -95,7 +95,7 @@ export function cardHTML(v) {
               : `https://vimeo.com/${vmId}${v.vmHash ? '/' + v.vmHash : ''}`;
   const pc    = v.prio === '今すぐ' ? 'p1' : v.prio === 'そのうち' ? 'p2' : 'p3';
   const pe    = v.prio === '今すぐ' ? '🔴' : v.prio === 'そのうち' ? '🟡' : '⚪';
-  const _st   = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手';
+  const _st   = window.normStatus(v.status);
   const sc    = _st === '理解' ? 's1' : _st === '練習中' ? 's2' : _st === 'マスター' ? 's3' : 's0';
   const _sNum = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
   const _sIco = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};

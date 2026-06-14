@@ -228,8 +228,8 @@ async function _applyVideosData(saved) {
   });
   if (window.migrateAllVideos && window.videos) window.videos = window.migrateAllVideos(window.videos);
   (window.videos || []).forEach(v => {
-    if (v.status === '把握')   v.status = '理解';
-    if (v.status === '習得中') v.status = '練習中';
+    // 旧表記が保存データに残っていれば正準値へ書き換え（status未設定のものは触らない）
+    if (v.status === '把握' || v.status === '習得中') v.status = window.normStatus(v.status);
   });
   // 管理者アカウントは自動バッチ再タグ付けをスキップ（手動操作時のみ実行）
   const _isAdminUser = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';

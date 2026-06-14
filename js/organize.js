@@ -448,7 +448,7 @@ export function orgFilt(list) {
       const cVal = pc === 0 ? '未練習' : pc <= 3 ? '1〜3回' : pc <= 10 ? '4〜10回' : '11回以上';
       if (!orgFilters.counter.has(cVal)) return false;
     }
-    if (orgFilters.status.size) { const _sn=v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手'; if(!orgFilters.status.has(_sn)) return false; }
+    if (orgFilters.status.size) { const _sn=window.normStatus(v.status); if(!orgFilters.status.has(_sn)) return false; }
     if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
     if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
     if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
@@ -716,7 +716,7 @@ export function renderOrg() {
     else if (orgSortCol === 'action')    { av=(a.cat||[]).join(); bv=(b.cat||[]).join(); }
     else if (orgSortCol === 'position')  { av=(a.pos||[]).join(); bv=(b.pos||[]).join(); }
     else if (orgSortCol === 'technique') { av=(a.tags||[]).join(); bv=(b.tags||[]).join(); }
-    else if (orgSortCol === 'status')         { const o={'未着手':0,'理解':1,'把握':1,'練習中':2,'習得中':2,'マスター':3}; av=o[a.status]??0; bv=o[b.status]??0; }
+    else if (orgSortCol === 'status')         { av=window.statusRank(a.status); bv=window.statusRank(b.status); }
     else if (orgSortCol === 'lastPlayed')    { av=a.lastPlayed||0; bv=b.lastPlayed||0; }
     else if (orgSortCol === 'playCount')     { av=a.playCount||0; bv=b.playCount||0; }
     else if (orgSortCol === 'practice')      { av=a.practice||0; bv=b.practice||0; }
@@ -793,7 +793,7 @@ export function renderOrg() {
       if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
       if (col === 'technique') return mkTagCell(v.tags||[], 'tags', 'technique');
       if (col === 'status') {
-        const sN = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手';
+        const sN = window.normStatus(v.status);
         return `<td class="org-td" data-col="status" style="white-space:nowrap">${_statusSpan(sN)}</td>`;
       }
       if (col === 'channel')   return `<td class="org-td" data-col="channel" style="overflow:hidden"><div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.ch||v.channel||'—'}</div></td>`;
@@ -1537,7 +1537,7 @@ function _openRadioPicker(v, cfg, col, td) {
 
   _orgInlineActive.picker = picker;
 
-  const normV = v[field]==='把握'?'理解':v[field]==='習得中'?'練習中':v[field]||'未着手';
+  const normV = window.normStatus(v[field]);
   opts.forEach(opt => {
     const btn = document.createElement('button');
     btn.style.cssText = 'display:block;width:100%;margin:2px 0;text-align:left;cursor:pointer;font-size:11px;padding:6px 10px;font-weight:700;font-family:inherit;border:none;border-radius:6px;background:' + (normV===opt ? 'var(--surface3)' : 'transparent');
@@ -1816,7 +1816,7 @@ function _closeOrgInlineEditor(save) {
   } else if (cfg?.type === 'radio') {
     const v = (window.videos || []).find(x => x.id === videoId);
     if (v) {
-      const sN = v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手';
+      const sN = window.normStatus(v.status);
       td.innerHTML = _statusSpan(sN);
     }
   }
@@ -1874,7 +1874,7 @@ const _colFilterConfig = {
     const s = v.duration || 0;
     return [!s ? '不明' : s < 300 ? '〜5分' : s < 900 ? '5〜15分' : s < 1800 ? '15〜30分' : '30分以上'];
   }},
-  status:         { filterKey: 'status', noSearch: true, valueGetter: v => { const s=v.status==='把握'?'理解':v.status==='習得中'?'練習中':v.status||'未着手'; return [s]; } },
+  status:         { filterKey: 'status', noSearch: true, valueGetter: v => [window.normStatus(v.status)] },
 };
 
 // duration バケットの並び順

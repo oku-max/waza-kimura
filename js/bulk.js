@@ -69,7 +69,7 @@ export function buildBulkDrawerHTML() {
   // ── 習得度 section ──
   const STATUS_LABELS = ['未着手','理解','練習中','マスター'];
   const STATUS_MAP    = {'未着手':'s0','理解':'s1','練習中':'s2','マスター':'s3'};
-  const _normSt = s => s==='把握'?'理解':s==='習得中'?'練習中':s||'未着手';
+  const _normSt = window.normStatus;
   const commonStatus  = selVids.length && selVids.every(v=>_normSt(v.status)===_normSt(selVids[0]?.status)) ? _normSt(selVids[0]?.status) : null;
   const STATUS_NUM  = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
   const STATUS_ICONS2 = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
