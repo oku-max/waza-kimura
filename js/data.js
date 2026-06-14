@@ -1,17 +1,28 @@
 // ═══ WAZA KIMURA — データ操作 ═══
 
-// ─── 自動保存（即時Firebase書き込み）───
+// ─── 自動保存（debounce + 直列化）───
+// 連打しても (1) 600ms待ってまとめて1回、(2) 保存中はもう1回だけ予約して直列実行。
+// これで saveUserData が並走して競合チェックをすり抜ける事故を防ぐ。
 let _autoSaveTimer = null;
+let _saveInFlight = false;
+let _savePending = false;
+
+async function _runSave() {
+  if (_saveInFlight) { _savePending = true; return; } // 実行中なら末尾に1回だけ予約
+  _saveInFlight = true;
+  try {
+    if (window.saveUserData) await window.saveUserData();
+  } catch (e) {
+    console.error('debounceSave error:', e);
+  } finally {
+    _saveInFlight = false;
+    if (_savePending) { _savePending = false; _runSave(); } // 予約分を流す
+  }
+}
 
 export function debounceSave() {
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(async () => {
-    try {
-      if (window.saveUserData) {
-        await window.saveUserData();
-      }
-    } catch(e) { console.error('debounceSave error:', e); }
-  }, 0);
+  _autoSaveTimer = setTimeout(_runSave, 600);
 }
 
 export function qFav(id) {
