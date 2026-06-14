@@ -88,7 +88,7 @@
     const btnP = `width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit`;
     const subTitle = `font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px`;
     const next = v.next || false;
-    const status = (()=>{ const s=v.status; return s==='把握'?'理解':s==='習得中'?'練習中':s||'未着手'; })();
+    const status = window.normStatus(v.status);
     const sMap = { '未着手':'s0', '理解':'s1', '練習中':'s2', 'マスター':'s3' };
     const sLabels = ['未着手','理解','練習中','マスター'];
     const sNum    = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
