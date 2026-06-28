@@ -353,6 +353,9 @@ function renderGrid() {
   // Update count
   const countEl = containerEl.querySelector('.snap-count');
   if (countEl) countEl.textContent = snapshots.length + '枚';
+  // 全削除ボタンは1枚以上あるときだけ表示
+  const clearBtn = containerEl.querySelector('#snap-clear-all-btn');
+  if (clearBtn) clearBtn.style.display = snapshots.length ? '' : 'none';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -412,6 +415,33 @@ async function deleteSnap(idx) {
     await deleteSnapshot(snap.id);
   } catch (err) {
     console.error('[snapshot-editor] deleteSnapshot failed:', err);
+  }
+
+  renderGrid();
+  syncVideoRefs();
+}
+
+// この動画のスナップショットを全削除（確認あり）。ユーザー明示操作のみ。
+function bindClearAllButton() {
+  if (!containerEl) return;
+  const btn = containerEl.querySelector('#snap-clear-all-btn');
+  if (btn) btn.addEventListener('click', deleteAllSnaps);
+}
+
+async function deleteAllSnaps() {
+  if (!snapshots.length) return;
+  if (!confirm(`${snapshots.length}枚の写真を全て削除しますか？`)) return;
+  const ids = snapshots.map(s => s.id);
+  snapshots.forEach(s => { try { URL.revokeObjectURL(s.url); } catch (e) {} });
+  snapshots = [];
+
+  // Remove each from IndexedDB
+  for (const sid of ids) {
+    try {
+      await deleteSnapshot(sid);
+    } catch (err) {
+      console.error('[snapshot-editor] deleteSnapshot failed:', err);
+    }
   }
 
   renderGrid();
@@ -2267,6 +2297,8 @@ export async function initSnapshotSection(videoId, container, opts = {}) {
       <div class="fsec-title">
         SNAPSHOT
         <span class="snap-count">${refs.length}枚</span>
+        <button id="snap-clear-all-btn" title="写真を全て削除"
+          style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid #f0a8a8;background:transparent;color:#c02020;cursor:pointer;${refs.length ? '' : 'display:none'}">🗑 全削除</button>
       </div>
       <div class="snap-grid">
         <button class="snap-add" id="snap-add-btn">
@@ -2277,6 +2309,7 @@ export async function initSnapshotSection(videoId, container, opts = {}) {
     </div>`;
 
   bindAddButton();
+  bindClearAllButton();
   bindGlobalListeners();
   bindLightboxEvents();
   bindEditorEvents();
