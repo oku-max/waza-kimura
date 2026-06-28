@@ -402,6 +402,9 @@ function _loopSVG() {
 let _abActiveField = 'start';
 
 function _loopSectionHTML() {
+  // 既定では非表示。三点リーダーメニューの「ループ再生」を押した時だけ表示する。
+  // ループ動作中（_ab.loop）は OFF 操作を残すため常に表示。
+  if (!window._vpLoopVisible && !_ab.loop) return '';
   const isExpanded = _ab.setMode === 'loop';
   const aLabel = _ab.a != null ? _formatTime(Math.floor(_ab.a)) : '--:--';
   const bLabel = _ab.b != null ? _formatTime(Math.floor(_ab.b)) : '--:--';
@@ -1239,6 +1242,7 @@ export function vpBmTimeClick(id, idx, startTime, endTime) {
     _ab.a = startTime; _ab.b = endTime;
     _ab.loop = false;
     clearInterval(_ab.timer); _ab.timer = null;
+    window._vpLoopVisible = true; // ループ起動に伴いループ再生UIを表示
     vpAbToggleLoop();
   } else {
     // 通常BM → ABリセット＋再生
@@ -1512,6 +1516,7 @@ export function openVPanel(id) {
   if (skipArea) skipArea.innerHTML = '';
 
   const abArea = document.getElementById('vpanel-ab-area');
+  window._vpLoopVisible = false; // 動画を開くたびにループ再生UIは非表示から始める
   if (abArea) abArea.innerHTML = _abBarHTML();
 
   const bmContainer = document.getElementById('vpanel-bm-area');
@@ -1867,6 +1872,7 @@ export function closeVPanel() {
     // ボトムシートを閉じる
     window.vpCloseNextList?.();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
+    window._vpLoopVisible = false; // ループ再生UIは既定で非表示に戻す
     _stopTimeDisplay();
     clearInterval(_mirrorProgressTimer); _mirrorProgressTimer = null;
     _vpMirrorProgressToggle(false);
@@ -4231,6 +4237,22 @@ window.vpTogMoreMenu = function(e, id) {
     animItem(mi);
   };
   menu.appendChild(mi);
+
+  // ── ループ再生（A-B区間ループ）: 押した時だけ既存の場所にループ再生バーを表示 ──
+  const loopMenuSub = _ab.loop ? '区間ループ中' : (window._vpLoopVisible ? '表示中' : 'オフ');
+  const lpi = _menuItem(repeatSvg, 'ループ再生', loopMenuSub);
+  if (_ab.loop || window._vpLoopVisible) lpi.classList.add('vp-smenu-on');
+  const lpiSub = lpi.querySelector('.vp-smenu-sub');
+  lpi.onclick = () => {
+    // トグル表示。ただしループ動作中は OFF 操作を残すため隠さない。
+    window._vpLoopVisible = !window._vpLoopVisible;
+    if (!window._vpLoopVisible && _ab.loop) window._vpLoopVisible = true;
+    _abRefresh(id);
+    lpi.classList.toggle('vp-smenu-on', _ab.loop || window._vpLoopVisible);
+    lpiSub.textContent = _ab.loop ? '区間ループ中' : (window._vpLoopVisible ? '表示中' : 'オフ');
+    animItem(lpi);
+  };
+  menu.appendChild(lpi);
 
   addDivider();
 

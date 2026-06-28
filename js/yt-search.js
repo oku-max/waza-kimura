@@ -699,6 +699,7 @@ export function ytSrOpenVPanel(idx) {
 
   // ── vpanel.js 統合フラグをセット ──
   window._srVpOpen            = true;
+  window._vpLoopVisible       = false; // ループ再生UIは既定で非表示
   window._srVpListAction      = () => window.ytSrOpenResultsList?.();
   window._srYtGetCurrentTime  = _srGetCurrentTime;
   window._srYtSeekTo          = _srSeekTo;
@@ -859,6 +860,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
 
   _srOpenLibId = libEntry.id;
   window._srVpOpen           = true;
+  window._vpLoopVisible      = false; // ループ再生UIは既定で非表示
   window._srVpListAction     = () => window.ytSrOpenPlListSheet?.(plId, vidIdx);
   window._srYtGetCurrentTime = _srGetCurrentTime;
   window._srYtSeekTo         = _srSeekTo;
