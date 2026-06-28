@@ -3120,9 +3120,27 @@ function _memoToolbarHTML(id) {
       <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')"
         class="vp-memo-tb-btn" style="border-color:#a8c0f0;background:#e8f0ff;color:#2050c0;font-weight:700">📍</button>
+      <span class="vp-memo-tb-sep"></span>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoClear('${id}')"
+        class="vp-memo-tb-btn" title="メモを全て削除"
+        style="border-color:#f0a8a8;color:#c02020">🗑</button>
     </div>
   </div>`;
 }
+
+// メモ本文を全削除（確認あり）。ユーザー明示操作のみ。
+window.vpMemoClear = function(id) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el) return;
+  const isEmpty = el.isContentEditable
+    ? (el.textContent.trim() === '' && !/ts-link/.test(el.innerHTML))
+    : (el.value.trim() === '');
+  if (isEmpty) return;
+  if (!confirm('このメモを全て削除しますか？')) return;
+  if (el.isContentEditable) el.innerHTML = '';
+  else el.value = '';
+  vpSaveMemo(id);
+};
 
 window.vpMemoPalToggle = function(id, type) {
   const pop = document.getElementById(`vp-memo-pal-${type}-pop-${id}`);
