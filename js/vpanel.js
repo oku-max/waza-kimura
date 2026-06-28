@@ -1537,8 +1537,10 @@ export function openVPanel(id) {
       : '';
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
-          <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}</span>
-          ${_memoToolbarHTML(vid)}
+          <div class="vp-memo-stickyhead">
+            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}</span>
+            ${_memoToolbarHTML(vid)}
+          </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
             onblur="vpSaveMemo('${vid}')"
             oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${vid}'),800)"></div>
@@ -3762,10 +3764,12 @@ export function _openPanel(id, emb, ext, plat) {
       ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
-        <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
-          ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
-          : ''}</span>
-        ${_memoToolbarHTML(id)}
+        <div class="vp-memo-stickyhead">
+          <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
+            ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
+            : ''}</span>
+          ${_memoToolbarHTML(id)}
+        </div>
         <div class="vp-memo" id="vp-memo-${id}" contenteditable="true"
           onblur="vpSaveMemo('${id}')"
           oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${id}'),800)"></div>

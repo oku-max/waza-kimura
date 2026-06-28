@@ -848,7 +848,10 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-tag-input{border:none;outline:none;background:transparent;font-size:11px;color:var(--text);width:120px;padding:4px 6px;}
 .vp-memo{width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;background:var(--surface2);color:var(--text);}
 .vp-memo:focus{outline:none;border-color:var(--accent);}
+/* メモのラベル行＋書式ツールバーをスクロール中も上部に固定 */
+.vp-memo-stickyhead{position:sticky;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;background:var(--surface);padding:4px 0 6px;}
 .vp-memo-toolbar{margin-bottom:4px;}
+.vp-memo-stickyhead .vp-memo-toolbar{margin-bottom:0;}
 .vp-memo-tb-row{display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
 .vp-memo-tb-btn{padding:2px 7px;border:1px solid var(--border,#ddd);background:var(--surface,#fff);border-radius:4px;font-size:11px;cursor:pointer;color:var(--text,#333);font-family:inherit;line-height:1.4;}
 .vp-memo-tb-btn:hover{background:var(--surface2);}
