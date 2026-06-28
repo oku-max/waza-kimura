@@ -2875,6 +2875,7 @@ function _memoToHtml(memo) {
       const label = c!=null ? `${a}:${b}:${c}` : `${a}:${b}`;
       return _tsLinkHtml(sec, label);
     })
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')  // **強調** → 太字（AI要約の小見出し等）
     .replace(/\n/g, '<br>');
 }
 
@@ -2914,7 +2915,7 @@ function _summaryToHtmlWithShots(summaryText, shotMap, layout) {
     const s2 = z!=null ? (+x*3600 + +y*60 + +z) : (+x*60 + +y);
     const lb = z!=null ? `${x}:${y}:${z}` : `${x}:${y}`;
     return _tsLinkHtml(s2, lb);
-  });
+  }).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');  // **強調** → 太字
   const out = [];
   for (const line of summaryText.split('\n')) {
     if (line.trim() === '') { out.push('<div><br></div>'); continue; }
@@ -3175,6 +3176,7 @@ window._vpMemoToHtmlStatic = function(memo) {
       const lb = c!=null ? `${a}:${b}:${c}` : `${a}:${b}`;
       return `<a class="ts-link" contenteditable="false" data-sec="${sec}"${inj(sec)}>▶ ${lb}</a>`;
     })
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')  // **強調** → 太字（AI要約の小見出し等）
     .replace(/\n/g, '<br>');
 };
 
