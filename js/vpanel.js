@@ -2113,7 +2113,7 @@ export function buildDrawerHTML(id) {
   if (!v) return '';
 
   return `
-    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav }) : ''}
+    ${window.vpCounterSectionHTML ? window.vpCounterSectionHTML(id, { fav: v.fav, hideTop: true }) : ''}
     <div class="fsec">
       <div class="fsec-title">チャンネル・プレイリスト</div>
       <div class="vp-row">
@@ -3977,8 +3977,9 @@ document.addEventListener('keydown', (e) => {
   if (key === 'f') {
     e.preventDefault();
     const id = window.openVPanelId;
-    const el = document.getElementById('vp-fav-' + id);
-    if (el) vpTogFav(id, el);
+    // お気に入りUIは三点メニューへ移設したのでパネル要素には依存せず直接トグル
+    vpTogFav(id);
+    window.toast?.((window.videos||[]).find(v=>v.id===id)?.fav ? '⭐ お気に入りに追加' : 'お気に入りを解除');
     return;
   }
 
@@ -4154,6 +4155,7 @@ window.vpTogMoreMenu = function(e, id) {
 
   const isGd = (id || '').startsWith('gd-');
   const gdFileId = isGd ? id.replace(/^gd-/, '') : '';
+  const vObj = (window.videos || []).find(x => x.id === id) || {};
 
   const menu = document.createElement('div');
   menu.id = 'vp-more-menu';
@@ -4180,6 +4182,10 @@ window.vpTogMoreMenu = function(e, id) {
   const searchSvg  = mkSvg('<path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>');
   const editSvg    = mkSvg('<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>');
   const driveSvg   = mkSvg('<path d="M7.71 3.5L1.15 15l3.43 5.5h15.84l3.43-5.5L18.29 3.5H7.71zm.71 9.5l3.58-6h4l3.58 6H8.42z"/>');
+  const favSvg     = mkSvg('<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>');
+  const nextSvg    = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>`;
+  const drillSvg   = mkSvg('<path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>');
+  const cntSvg     = mkSvg('<path d="M4 9h4v11H4zM10 4h4v16h-4zM16 13h4v7h-4z"/>');
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
 
@@ -4253,6 +4259,46 @@ window.vpTogMoreMenu = function(e, id) {
     animItem(lpi);
   };
   menu.appendChild(lpi);
+
+  addDivider();
+
+  // ── お気に入り / NEXT / ドリル（トグル）＋ カウンター（ステッパー）──
+  // 旧パネル下部の行を三点メニューへ移設。いずれもユーザー明示操作で v.* をトグル/増減し autoSaveVp。
+  const _mkToggle = (icon, label, getOn, toggleFn) => {
+    const on0 = !!getOn();
+    const it = _menuItem(icon, label, on0 ? 'オン' : 'オフ');
+    if (on0) it.classList.add('vp-smenu-on');
+    const sub = it.querySelector('.vp-smenu-sub');
+    it.onclick = () => {
+      toggleFn();
+      const on = !!getOn();
+      it.classList.toggle('vp-smenu-on', on);
+      sub.textContent = on ? 'オン' : 'オフ';
+      animItem(it);
+    };
+    menu.appendChild(it);
+  };
+  _mkToggle(favSvg,   'お気に入り', () => vObj.fav,   () => vpTogFav(id));
+  _mkToggle(nextSvg,  'NEXT',      () => vObj.next,  () => vpTogNext(id));
+  _mkToggle(drillSvg, 'ドリル',     () => vObj.drill, () => vpTogDrill(id));
+
+  // カウンター（練習回数）: −/数字/＋。＋/−でメニューは閉じない。
+  const cntBtnS = 'width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:15px;font-weight:700;color:var(--text2);padding:0;font-family:inherit;line-height:1;flex-shrink:0';
+  const cntBtnP = 'width:26px;height:26px;border-radius:50%;border:none;background:var(--accent);cursor:pointer;font-size:15px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit;line-height:1;flex-shrink:0';
+  const cntRow = document.createElement('div');
+  cntRow.className = 'vp-smenu-item';
+  cntRow.style.cursor = 'default';
+  cntRow.innerHTML = `
+    <div class="vp-smenu-icon">${cntSvg}</div>
+    <div class="vp-smenu-texts"><div class="vp-smenu-label">カウンター</div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+      <button type="button" data-act="dec" style="${cntBtnS}">−</button>
+      <span id="vp-cnt-p-${id}" style="font-size:16px;font-weight:800;color:#e8590c;min-width:22px;text-align:center;font-variant-numeric:tabular-nums">${vObj.practice || 0}</span>
+      <button type="button" data-act="inc" style="${cntBtnP}">＋</button>
+    </div>`;
+  cntRow.querySelector('[data-act="dec"]').onclick = (ev) => { ev.stopPropagation(); window.vpCntDec?.(id, 'practice'); };
+  cntRow.querySelector('[data-act="inc"]').onclick = (ev) => { ev.stopPropagation(); window.vpCntInc?.(id, 'practice'); };
+  menu.appendChild(cntRow);
 
   addDivider();
 

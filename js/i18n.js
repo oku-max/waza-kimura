@@ -445,6 +445,7 @@
     '開始':'Start','終了':'End','微調整':'Fine-tune','現在地':'Now','クリア':'Clear',
     'リピート':'Repeat','シャッフル':'Shuffle','リバース':'Mirror','オン':'On','オフ':'Off',
     '区間ループ中':'Looping section','表示中':'Shown',
+    '⭐ お気に入りに追加':'⭐ Added to favorites','お気に入りを解除':'Unfavorited',
     'リスト表示':'Show playlist','プレイリストを確認':'View the playlist','YouTube検索':'Search YouTube',
     '関連動画を探す':'Find related videos','再生中の時間を記録':'Records current playback time',
     'タイトル編集':'Edit title','表示中の動画がありません':'No videos shown','未':'0',
