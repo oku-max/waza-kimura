@@ -3133,9 +3133,72 @@ function _memoToolbarHTML(id) {
       <button onmousedown="event.preventDefault()" onclick="vpMemoClear('${id}')"
         class="vp-memo-tb-btn" title="メモを全て削除"
         style="border-color:#f0a8a8;color:#c02020">🗑</button>
+      <span class="vp-memo-tb-sep"></span>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoHelp(event)"
+        class="vp-memo-tb-btn" title="各ボタンの説明"
+        style="font-weight:800;color:var(--accent)">?</button>
     </div>
   </div>`;
 }
+
+// メモ書式ツールバー各ボタンのヘルプポップアップ（三点メニュー風）
+window.vpMemoHelp = function(e) {
+  if (e) e.stopPropagation();
+  const existing = document.getElementById('vp-memo-help-menu');
+  if (existing) { existing.remove(); return; } // トグル
+  const btn = (e && e.currentTarget) || null;
+
+  const items = [
+    { ic: '<b>B</b>',                                            label: '太字',          sub: '選択した文字を太字にする' },
+    { ic: '<i>I</i>',                                            label: '斜体',          sub: '選択した文字を斜体にする' },
+    { ic: '<u>U</u>',                                            label: '下線',          sub: '選択した文字に下線を引く' },
+    { ic: '<s>S</s>',                                            label: '取り消し線',     sub: '選択した文字に取り消し線を引く' },
+    { ic: '<b>A</b>',                                            label: '文字サイズ',     sub: '文字の大きさを4段階で変える' },
+    { ic: '<b style="color:#e53935">T</b>',                      label: '文字色',         sub: '文字の色を変える' },
+    { ic: '<b style="background:#fff176;color:#555;padding:0 3px;border-radius:2px">M</b>', label: '蛍光ペン', sub: '文字に蛍光ペン（ハイライト）を引く' },
+    { ic: '✕',                                                   label: '書式リセット',   sub: '選択範囲の書式をすべて消す' },
+    { ic: '📍',                                                  label: 'タイムスタンプ', sub: '今の再生位置を [分:秒] で挿入。タップで頭出し' },
+    { ic: '🗑',                                                  label: 'メモを全て削除', sub: 'このメモの内容をすべて消す（確認あり）' },
+  ];
+
+  const menu = document.createElement('div');
+  menu.id = 'vp-memo-help-menu';
+  menu.className = 'vp-search-menu';
+  menu.style.paddingTop = '34px';
+
+  let onOutside;
+  const closeMenu = () => { menu.remove(); document.removeEventListener('click', onOutside, true); };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'vp-more-close';
+  closeBtn.textContent = '閉じる ✕';
+  closeBtn.onclick = (ev) => { ev.stopPropagation(); closeMenu(); };
+  menu.appendChild(closeBtn);
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.4px;padding:2px 10px 8px;text-transform:uppercase';
+  title.textContent = 'メモ書式ボタンの説明';
+  menu.appendChild(title);
+
+  for (const it of items) {
+    const row = document.createElement('div');
+    row.className = 'vp-smenu-item';
+    row.style.cursor = 'default';
+    row.innerHTML = `
+      <div class="vp-smenu-icon" style="font-size:13px">${it.ic}</div>
+      <div class="vp-smenu-texts">
+        <div class="vp-smenu-label">${it.label}</div>
+        <div class="vp-smenu-sub">${it.sub}</div>
+      </div>`;
+    menu.appendChild(row);
+  }
+
+  if (btn) _positionMenu(menu, btn);
+  else { menu.style.position = 'fixed'; menu.style.left = '50%'; menu.style.top = '20%'; menu.style.transform = 'translateX(-50%)'; menu.style.zIndex = '10005'; document.body.appendChild(menu); }
+
+  onOutside = (ev) => { if (!menu.contains(ev.target) && ev.target !== btn) closeMenu(); };
+  setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+};
 
 // メモ本文を全削除（確認あり）。ユーザー明示操作のみ。
 window.vpMemoClear = function(id) {
