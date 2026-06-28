@@ -135,7 +135,9 @@
     <div style="${subTitle}">習得度</div>
     <div class="vp-chips" id="vp-status-chips-${id}">${statusChips}</div>
   </div>` : '';
-    const topRow = (favSec || cntSec) ? `<div style="display:flex;gap:14px;align-items:flex-start">${favSec}${cntSec}</div>` : '';
+    // hideTop: お気に入り/NEXT/ドリル/カウンターの上段はパネルでは描画しない（三点メニューへ移設）
+    const topRow = (opts && opts.hideTop) ? ''
+      : ((favSec || cntSec) ? `<div style="display:flex;gap:14px;align-items:flex-start">${favSec}${cntSec}</div>` : '');
     if (!topRow && !statusSec) return `<div id="vp-cnt-sec-${id}"></div>`;
     return `
 <div class="fsec" id="vp-cnt-sec-${id}">
