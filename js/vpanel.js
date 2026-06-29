@@ -3128,7 +3128,7 @@ function _memoToolbarHTML(id) {
         class="vp-memo-tb-btn" title="すべての書式をリセット" style="font-size:10px;color:var(--text3)">✕</button>
       <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')"
-        class="vp-memo-tb-btn" style="border-color:#a8c0f0;background:#e8f0ff;color:#2050c0;font-weight:700">📍</button>
+        class="vp-memo-tb-btn" title="タイムスタンプ" style="border-color:#a8c0f0;color:#2050c0;font-weight:700">📍</button>
       <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoClear('${id}')"
         class="vp-memo-tb-btn" title="メモを全て削除"
