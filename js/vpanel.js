@@ -4248,8 +4248,13 @@ window.vpTogMoreMenu = function(e, id) {
   const editSvg    = mkSvg('<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>');
   const driveSvg   = mkSvg('<path d="M7.71 3.5L1.15 15l3.43 5.5h15.84l3.43-5.5L18.29 3.5H7.71zm.71 9.5l3.58-6h4l3.58 6H8.42z"/>');
   const favSvg     = mkSvg('<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>');
-  const nextSvg    = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>`;
-  const drillSvg   = mkSvg('<path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>');
+  // NEXT / ドリル はアプリ本来のマーク（🎯 / 紫DRILLバッジ）に合わせ、オン/オフで切替
+  const nextIcon   = (on) => on
+    ? `<span style="font-size:16px;line-height:1">🎯</span>`
+    : `<span style="font-size:15px;line-height:1;color:var(--text3)">○</span>`;
+  const drillIcon  = (on) => on
+    ? `<svg width="26" height="15" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="#7c3aed"/><text x="17.5" y="14" text-anchor="middle" fill="white" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`
+    : `<svg width="26" height="15" viewBox="0 0 35 20" fill="none"><rect x="1" y="1" width="33" height="18" rx="9" fill="none" stroke="#666" stroke-width="1.5"/><text x="17.5" y="14" text-anchor="middle" fill="#666" font-size="9" font-weight="900" font-family="Arial Black,sans-serif" letter-spacing="0.8">DRILL</text></svg>`;
   const cntSvg     = mkSvg('<path d="M4 9h4v11H4zM10 4h4v16h-4zM16 13h4v7h-4z"/>');
 
   const addDivider = () => { const d = document.createElement('div'); d.className = 'vp-smenu-divider'; menu.appendChild(d); };
@@ -4330,22 +4335,25 @@ window.vpTogMoreMenu = function(e, id) {
   // ── お気に入り / NEXT / ドリル（トグル）＋ カウンター（ステッパー）──
   // 旧パネル下部の行を三点メニューへ移設。いずれもユーザー明示操作で v.* をトグル/増減し autoSaveVp。
   const _mkToggle = (icon, label, getOn, toggleFn) => {
+    const iconFn = (typeof icon === 'function') ? icon : () => icon;
     const on0 = !!getOn();
-    const it = _menuItem(icon, label, on0 ? 'オン' : 'オフ');
+    const it = _menuItem(iconFn(on0), label, on0 ? 'オン' : 'オフ');
     if (on0) it.classList.add('vp-smenu-on');
     const sub = it.querySelector('.vp-smenu-sub');
+    const iconBox = it.querySelector('.vp-smenu-icon');
     it.onclick = () => {
       toggleFn();
       const on = !!getOn();
       it.classList.toggle('vp-smenu-on', on);
       sub.textContent = on ? 'オン' : 'オフ';
+      if (iconBox) iconBox.innerHTML = iconFn(on);
       animItem(it);
     };
     menu.appendChild(it);
   };
-  _mkToggle(favSvg,   'お気に入り', () => vObj.fav,   () => vpTogFav(id));
-  _mkToggle(nextSvg,  'NEXT',      () => vObj.next,  () => vpTogNext(id));
-  _mkToggle(drillSvg, 'ドリル',     () => vObj.drill, () => vpTogDrill(id));
+  _mkToggle(favSvg,    'お気に入り', () => vObj.fav,   () => vpTogFav(id));
+  _mkToggle(nextIcon,  'NEXT',      () => vObj.next,  () => vpTogNext(id));
+  _mkToggle(drillIcon, 'ドリル',     () => vObj.drill, () => vpTogDrill(id));
 
   // カウンター（練習回数）: −/数字/＋。＋/−でメニューは閉じない。
   const cntBtnS = 'width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:15px;font-weight:700;color:var(--text2);padding:0;font-family:inherit;line-height:1;flex-shrink:0';
