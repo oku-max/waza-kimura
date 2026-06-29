@@ -448,6 +448,9 @@
     '⭐ お気に入りに追加':'⭐ Added to favorites','お気に入りを解除':'Unfavorited',
     // ── メモ書式ボタンのヘルプ ──
     '各ボタンの説明':'About each button','メモ書式ボタンの説明':'Memo formatting buttons',
+    'AI要約':'AI summary','スナップショット':'Snapshot',
+    'この動画をAIが解析し、要約をメモに自動で書き込む':'AI analyzes the video and writes a summary into the memo',
+    '今の動画フレームを撮影してメモ・写真に追加する':'Capture the current frame and add it to the memo/photos',
     '太字':'Bold','斜体':'Italic','下線':'Underline','取り消し線':'Strikethrough',
     '文字サイズ':'Font size','文字色':'Text color','蛍光ペン':'Highlighter','書式リセット':'Clear formatting',
     'タイムスタンプ':'Timestamp',
