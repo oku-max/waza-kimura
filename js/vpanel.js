@@ -3149,6 +3149,8 @@ window.vpMemoHelp = function(e) {
   const btn = (e && e.currentTarget) || null;
 
   const items = [
+    { ic: '✨',                                                  label: 'AI要約',        sub: 'この動画をAIが解析し、要約をメモに自動で書き込む' },
+    { ic: '📷',                                                  label: 'スナップショット', sub: '今の動画フレームを撮影してメモ・写真に追加する' },
     { ic: '<b>B</b>',                                            label: '太字',          sub: '選択した文字を太字にする' },
     { ic: '<i>I</i>',                                            label: '斜体',          sub: '選択した文字を斜体にする' },
     { ic: '<u>U</u>',                                            label: '下線',          sub: '選択した文字に下線を引く' },
