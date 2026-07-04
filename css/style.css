@@ -849,8 +849,10 @@ body.bulk-mode .card-sel-ov{display:block;}
 .vp-memo{width:100%;min-height:80px;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;background:var(--surface2);color:var(--text);}
 .vp-memo:focus{outline:none;border-color:var(--accent);}
 /* ダークモード: 蛍光ペン(明るい背景色)に白文字が乗ると読めなくなるため、ハイライト部分は濃い文字色にする。
-   明示的に文字色を指定したspanは自前のcolorが優先されるので上書きしない(!important不使用)。 */
-body.dark .vp-memo [style*="background-color"]{color:#1a1a1a;}
+   明示的に文字色を指定したspanは自前のcolorが優先されるので上書きしない(!important不使用)。
+   .vp-memo（動画メモ）と .n-editable（ノート）の両方に適用。 */
+body.dark .vp-memo [style*="background-color"],
+body.dark .n-editable [style*="background-color"]{color:#1a1a1a;}
 /* メモのラベル行＋書式ツールバーをスクロール中も上部に固定 */
 .vp-memo-stickyhead{position:sticky;top:0;z-index:8;display:flex;flex-direction:column;gap:4px;background:var(--surface);padding:4px 0 6px;}
 .vp-memo-toolbar{margin-bottom:4px;}
