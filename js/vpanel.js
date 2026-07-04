@@ -3118,6 +3118,11 @@ function _memoToolbarHTML(id) {
 
   return `<div class="vp-memo-toolbar">
     <div class="vp-memo-tb-row">
+      <button onmousedown="event.preventDefault()" onclick="vpMemoUndo('${id}')"
+        class="vp-memo-tb-btn" title="元に戻す" style="font-size:15px">↶</button>
+      <button onmousedown="event.preventDefault()" onclick="vpMemoRedo('${id}')"
+        class="vp-memo-tb-btn" title="やり直し" style="font-size:15px">↷</button>
+      <span class="vp-memo-tb-sep"></span>
       ${btn('bold','<b>B</b>')}${btn('italic','<i>I</i>')}${btn('underline','<u>U</u>')}${btn('strikeThrough','<s style="font-size:10px">S</s>')}
       <span class="vp-memo-tb-sep"></span>
       ${sizePicker}
@@ -3151,6 +3156,8 @@ window.vpMemoHelp = function(e) {
   const items = [
     { ic: '✨',                                                  label: 'AI要約',        sub: 'この動画をAIが解析し、要約をメモに自動で書き込む' },
     { ic: '📷',                                                  label: 'スナップショット', sub: '今の動画フレームを撮影してメモ・写真に追加する' },
+    { ic: '<span style="font-size:15px">↶</span>',              label: '元に戻す',       sub: '直前の編集を取り消す' },
+    { ic: '<span style="font-size:15px">↷</span>',              label: 'やり直し',       sub: '取り消した編集をやり直す' },
     { ic: '<b>B</b>',                                            label: '太字',          sub: '選択した文字を太字にする' },
     { ic: '<i>I</i>',                                            label: '斜体',          sub: '選択した文字を斜体にする' },
     { ic: '<u>U</u>',                                            label: '下線',          sub: '選択した文字に下線を引く' },
@@ -3200,6 +3207,22 @@ window.vpMemoHelp = function(e) {
 
   onOutside = (ev) => { if (!menu.contains(ev.target) && ev.target !== btn) closeMenu(); };
   setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+};
+
+// メモ編集の元に戻す/やり直し（contenteditable のブラウザ標準履歴を利用）
+window.vpMemoUndo = function(id) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el || !el.isContentEditable) return;
+  el.focus();
+  document.execCommand('undo');
+  vpSaveMemo(id);
+};
+window.vpMemoRedo = function(id) {
+  const el = document.getElementById('vp-memo-' + id);
+  if (!el || !el.isContentEditable) return;
+  el.focus();
+  document.execCommand('redo');
+  vpSaveMemo(id);
 };
 
 // メモ本文を全削除（確認あり）。ユーザー明示操作のみ。
