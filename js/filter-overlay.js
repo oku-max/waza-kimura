@@ -55,7 +55,14 @@ export function syncSidebarChipStates() {
 // ── フィルターオーバーレイ開閉 ──
 // スマホ/タブレットでも統合フィルターパネル（uniOpen）を使用
 export function openFilterOverlay() {
-  if (window.uniOpen) { window.uniOpen('src'); return; }
+  if (window.uniOpen) {
+    // 現在のビューモードに合わせて書き込み先を選ぶ。
+    // テーブル(org)モードで lib 文脈に書くと orgFilters を読むテーブルに反映されず、
+    // カードだけタグが効く不整合になっていた。
+    const ctx = (window._libViewMode === 'org') ? 'org' : 'lib';
+    window.uniOpen('src', ctx);
+    return;
+  }
   // fallback: 旧オーバーレイ
   const ov = document.getElementById('filter-overlay');
   if (!ov) return;
