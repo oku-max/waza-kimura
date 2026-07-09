@@ -441,9 +441,12 @@ export function countContextual(key, val) {
     if (key !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                      return false;
     if (key !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                        return false;
     if (key !== 'status'   && f.status?.size   && !f.status.has(v.status))                    return false;
-    if (key !== 'tb'       && f.tb?.size       && !(v.tb||[]).some(t => f.tb.has(t)))         return false;
-    if (key !== 'action'   && f.action?.size   && !(v.cat||[]).some(a => f.action.has(a)))     return false;
-    if (key !== 'position' && f.position?.size && !(v.pos||[]).some(p => f.position.has(p))) return false;
+    const _fTb  = (f.tbNew?.size  ? f.tbNew  : f.tb);
+    const _fCat = (f.cat?.size    ? f.cat    : f.action);
+    const _fPos = (f.posNew?.size ? f.posNew : f.position);
+    if (key !== 'tb'       && _fTb?.size  && !(v.tb||[]).some(t => _fTb.has(t)))   return false;
+    if (key !== 'action'   && _fCat?.size && !(v.cat||[]).some(a => _fCat.has(a))) return false;
+    if (key !== 'position' && _fPos?.size && !(v.pos||[]).some(p => _fPos.has(p))) return false;
     if (key !== 'tags'     && f.tags?.size     && !(v.tags||[]).some(t => f.tags.has(t)))    return false;
     if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
     // このvalが該当するか

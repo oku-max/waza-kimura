@@ -1084,9 +1084,12 @@ function _sbContextVideos(filterKey, f) {
     if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt || v.src || 'youtube'))                   return false;
     if (filterKey !== 'channel'   && f?.channel?.size   && !f.channel.has(v.channel || v.ch))                             return false;
     if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
-    if (filterKey !== 'tb'        && f?.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))                          return false;
-    if (filterKey !== 'action'    && f?.action?.size    && !(v.cat ||[]).some(a => f.action.has(a)))                      return false;
-    if (filterKey !== 'position'  && f?.position?.size  && !(v.pos ||[]).some(p => f.position.has(p)))                    return false;
+    const _fTb  = (f?.tbNew?.size  ? f.tbNew  : f?.tb);
+    const _fCat = (f?.cat?.size    ? f.cat    : f?.action);
+    const _fPos = (f?.posNew?.size ? f.posNew : f?.position);
+    if (filterKey !== 'tb'        && _fTb?.size        && !(v.tb  ||[]).some(t => _fTb.has(t)))                          return false;
+    if (filterKey !== 'action'    && _fCat?.size       && !(v.cat ||[]).some(a => _fCat.has(a)))                         return false;
+    if (filterKey !== 'position'  && _fPos?.size       && !(v.pos ||[]).some(p => _fPos.has(p)))                         return false;
     if (filterKey !== 'tags'      && f?.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))                        return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;

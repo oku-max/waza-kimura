@@ -986,9 +986,14 @@ function _cvApplyGlobalFilters(list) {
     if (f.playlist?.size  && !f.playlist.has(v.pl))                    return false;
     if (f.prio?.size      && !f.prio.has(v.prio))                      return false;
     if (f.status?.size    && !f.status.has(v.status))                  return false;
-    if (f.tb?.size        && !(v.tb  ||[]).some(t => f.tb.has(t)))     return false;
-    if (f.action?.size    && !(v.cat ||[]).some(a => f.action.has(a))) return false;
-    if (f.position?.size  && !(v.pos ||[]).some(p => f.position.has(p))) return false;
+    // 現行キー tbNew/cat/posNew（sidebar-v4・統合フィルタ）を優先し、旧キー tb/action/position は後方互換。
+    // org の orgFilters には新キーが無いため自動で旧キーへフォールバックし、両コンテキストで正しく動く。
+    const _fTb  = (f.tbNew?.size  ? f.tbNew  : f.tb);
+    const _fCat = (f.cat?.size    ? f.cat    : f.action);
+    const _fPos = (f.posNew?.size ? f.posNew : f.position);
+    if (_fTb?.size  && !(v.tb  ||[]).some(t => _fTb.has(t)))  return false;
+    if (_fCat?.size && !(v.cat ||[]).some(a => _fCat.has(a))) return false;
+    if (_fPos?.size && !(v.pos ||[]).some(p => _fPos.has(p))) return false;
     if (f.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))   return false;
     if (f.channel?.size   && !f.channel.has(v.channel || v.ch))        return false;
     return true;
@@ -2317,9 +2322,12 @@ window._cvSaveDynamic = function() {
 function _getCurrentFilterConditions() {
   const f = window.filters || {};
   const fc = {};
-  if (f.tb       && f.tb.size)        fc.tb   = [...f.tb];
-  if (f.action   && f.action.size)    fc.cat  = [...f.action];
-  if (f.position && f.position.size)  fc.pos  = [...f.position];
+  const _fTb  = (f.tbNew?.size  ? f.tbNew  : f.tb);
+  const _fCat = (f.cat?.size    ? f.cat    : f.action);
+  const _fPos = (f.posNew?.size ? f.posNew : f.position);
+  if (_fTb?.size)  fc.tb  = [..._fTb];
+  if (_fCat?.size) fc.cat = [..._fCat];
+  if (_fPos?.size) fc.pos = [..._fPos];
   if (f.channel  && f.channel.size)   fc.ch   = [...f.channel];
   if (f.playlist && f.playlist.size)  fc.pl   = [...f.playlist];
   if (f.tags     && f.tags.size)      fc.tech = [...f.tags];
