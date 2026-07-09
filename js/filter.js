@@ -385,9 +385,14 @@ export function filt(list) {
     if (window.filters.playlist.size && !window.filters.playlist.has(v.pl)) return false;
     if (window.filters.prio.size && !window.filters.prio.has(v.prio)) return false;
     if (window.filters.status.size && !window.filters.status.has(v.status)) return false;
-    if (window.filters.tb.size && !(v.tb||[]).some(t => window.filters.tb.has(t))) return false;
-    if (window.filters.action.size && !(v.cat||[]).some(a => window.filters.action.has(a))) return false;
-    if (window.filters.position.size && !(v.pos||[]).some(p => window.filters.position.has(p))) return false;
+    // 現行キーは tbNew / cat / posNew（sidebar-v4・統合フィルタが使用）。
+    // 旧キー tb / action / position は後方互換フォールバック（古い保存条件など）。
+    const _fTb  = (window.filters.tbNew?.size  ? window.filters.tbNew  : window.filters.tb);
+    const _fCat = (window.filters.cat?.size    ? window.filters.cat    : window.filters.action);
+    const _fPos = (window.filters.posNew?.size ? window.filters.posNew : window.filters.position);
+    if (_fTb?.size  && !(v.tb ||[]).some(t => _fTb.has(t)))  return false;
+    if (_fCat?.size && !(v.cat||[]).some(a => _fCat.has(a))) return false;
+    if (_fPos?.size && !(v.pos||[]).some(p => _fPos.has(p))) return false;
     if (window.filters.tags.size && !(v.tags||[]).some(t => window.filters.tags.has(t))) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
     if (window.filters.videoIds?.size && !window.filters.videoIds.has(v.id)) return false;
