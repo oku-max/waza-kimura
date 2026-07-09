@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.575</title>
+<title>WAZA KIMURA v52.576</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -266,17 +266,24 @@
   window._libViewMode = 'card';
 
   function _syncLibFilters(from) {
-    const SETS  = ['channel','playlist','position','tags','status','tb','action','platform'];
+    // 同名でコピーするキー
+    const SAME  = ['channel','playlist','status','platform'];
+    // ライブラリ側キー ↔ オーガナイズ側キー が異なるもの [libKey, orgKey]
+    // lib は tbNew/cat/posNew/tags、org は tb/action/position/tags を使う。
+    // ここを同名コピーしていたためタグ(ポジション等)がビュー間で消えていた。
+    const MAP   = [['tbNew','tb'],['cat','action'],['posNew','position'],['tags','tags']];
     const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['unwOnly','orgUnwOnly'],
                    ['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],['memoOnly','orgMemoOnly'],
                    ['imgOnly','orgImgOnly'],['prRank','orgPrRank'],['prDate','orgPrDate']];
     const f  = window.filters    || {};
     const of = window.orgFilters || {};
     if (from === 'lib') {
-      SETS.forEach(k  => { of[k] = f[k]  ? new Set(f[k])  : new Set(); });
+      SAME.forEach(k => { of[k] = f[k] ? new Set(f[k]) : new Set(); });
+      MAP.forEach(([lk,ok]) => { of[ok] = f[lk] ? new Set(f[lk]) : new Set(); });
       PAIRS.forEach(([lk,ok]) => { window[ok] = window[lk]; });
     } else {
-      SETS.forEach(k  => { f[k]  = of[k] ? new Set(of[k]) : new Set(); });
+      SAME.forEach(k => { f[k] = of[k] ? new Set(of[k]) : new Set(); });
+      MAP.forEach(([lk,ok]) => { f[lk] = of[ok] ? new Set(of[ok]) : new Set(); });
       PAIRS.forEach(([lk,ok]) => { window[lk] = window[ok]; });
     }
   }
