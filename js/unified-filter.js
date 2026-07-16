@@ -537,7 +537,7 @@
         { name:'🖼 画像あり', cnt:_ctxVideos('img').filter(v=>v.img || (v.snapshots && v.snapshots.length)).length,     sel:!!(isOrg ? window.orgImgOnly : window.imgOnly),  key:'@img' }
       ];
 
-      const STATUS_MANUAL = ['未着手','理解','練習中','マスター'];
+      const STATUS_MANUAL = window.STATUS_CANON || [];
       const sCtx = _ctxVideos('status');
       const statusItems = STATUS_MANUAL.map(s => ({
         name: s, cnt: sCtx.filter(v => window.normStatus(v.status) === s).length,
@@ -804,7 +804,7 @@
 
     else {
       // tag — lib: tbNew/cat/posNew/tags, org: tb/action/position/tags
-      const TB  = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+      const TB  = window.TB_VALUES || [];
       const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
 
       const tbCtx = _ctxVideos('tb');

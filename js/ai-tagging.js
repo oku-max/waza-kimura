@@ -11,7 +11,7 @@ const KEY_LABELS = {
 };
 
 function isPresetTag(key, val) {
-  if (key === 'tb')  return ['トップ','ボトム','スタンディング'].includes(val);
+  if (key === 'tb')  return (window.TB_VALUES || []).includes(val);
   if (key === 'cat') return (window.CATEGORIES || []).some(c => c.name === val);
   if (key === 'pos') return (window.POSITIONS  || []).some(p => p.ja   === val);
   return false; // tags は常に「自由」扱い
@@ -36,7 +36,7 @@ export async function fetchAiTags(video) {
       channel:      video.ch || video.channel || '',
       playlist:     video.pl || '',
       chapters:     (video.ytChapters || []).map(ch => ch.label),
-      tbValues:     ['トップ','ボトム','スタンディング'],
+      tbValues:     window.TB_VALUES || [],
       categories,
       positions,
       tagBlocklist:     ai.techBlocklist || [],

@@ -203,7 +203,7 @@
     // Carousel cols
     if (trackEl) {
       const lists = {
-        tb:   (window.TB_VALUES || ['トップ','ボトム','スタンディング']).map(t => ({ name:t,   cnt:_cnt('tbNew', t),   sel:f.tbNew.has(t) })),
+        tb:   (window.TB_VALUES || []).map(t => ({ name:t,   cnt:_cnt('tbNew', t),   sel:f.tbNew.has(t) })),
         cat:  (window.CATEGORIES || []).map(c => ({ name:c.name, cnt:_cnt('cat', c.name), sel:f.cat.has(c.name) })),
         pos:  (window.POSITIONS  || []).map(p => ({ name:p.ja,   cnt:_cnt('posNew', p.ja), sel:f.posNew.has(p.ja) })),
         tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:f.tags.has(t) }))

@@ -23,7 +23,7 @@
     if (!Array.isArray(v.pos))  v.pos  = [];
     if (!Array.isArray(v.tags)) v.tags = [];
 
-    const TB = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+    const TB = window.TB_VALUES || [];
     const CATS = window.CATEGORIES || [];
     // TB row (3固定 + 🔒)
     const tbRow = TB.map(t => {

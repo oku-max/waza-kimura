@@ -671,7 +671,7 @@ function _loadItem() {
   if (elPlayBtn) elPlayBtn.style.display = _info.canPlay ? 'flex' : 'none';
 
   // TB chips（window.TB_VALUES を使用 / 既存 v.tb を事前選択）
-  var tbValues    = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  var tbValues    = window.TB_VALUES || [];
   var existingTb  = (v.tb && v.tb.length) ? v.tb[0] : null;
   var tbContainer = document.getElementById('tw-tb-chips');
   if (tbContainer) {
@@ -863,7 +863,7 @@ function _acceptRule() {
   if (!_pendingRule) { _next(); return; }
   try {
     var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
-    var tbVals = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
+    var tbVals = window.TB_VALUES || [];
     var field = _pendingRule.field
               || (tbVals.indexOf(_pendingRule.tag) >= 0 ? 'tb'
                 : (window.POSITIONS||[]).some(function(p){ return p.ja === _pendingRule.tag; }) ? 'pos'

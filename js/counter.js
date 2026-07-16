@@ -90,7 +90,7 @@
     const next = v.next || false;
     const status = window.normStatus(v.status);
     const sMap = { '未着手':'s0', '理解':'s1', '練習中':'s2', 'マスター':'s3' };
-    const sLabels = ['未着手','理解','練習中','マスター'];
+    const sLabels = window.STATUS_CANON || [];
     const sNum    = {'未着手':'1.','理解':'2.','練習中':'3.','マスター':'4.'};
     const sIcons  = {'未着手':'📋','理解':'📖','練習中':'🔄','マスター':'⭐'};
     const statusChips = sLabels.map(s =>
