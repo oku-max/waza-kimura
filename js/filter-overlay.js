@@ -42,7 +42,7 @@ export function toggleSidebar() {
 
 export function syncSidebarChipStates() {
   const f = window.filters || {};
-  ['未着手','理解','練習中','マスター'].forEach(v => {
+  (window.STATUS_CANON || []).forEach(v => {
     const el  = document.getElementById('fs-stat-' + v);  if (el)  el.classList.toggle('active', f.status?.has(v));
     const el2 = document.getElementById('fov-stat-' + v); if (el2) el2.classList.toggle('active', f.status?.has(v));
   });
@@ -332,7 +332,7 @@ export function fovDdOpen(rowId) {
 export function fovDdFilter(rowId, filterKey, q) {
   const vids = window.videos || [];
   let items = [];
-  if (filterKey === 'tb') items = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  if (filterKey === 'tb') items = window.TB_VALUES || [];
   else if (filterKey === 'action') items = (window.CATEGORIES || []).map(c => c.name);
   else if (filterKey === 'position') items = [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort();
   else if (filterKey === 'tags') items = [...new Set(vids.flatMap(v => v.tags||[]))].sort();
@@ -383,7 +383,7 @@ export function syncFilterOvRows(isOrg=false) {
     _fovDdUpdateChips(`${p}-srow-${k}`, fk);
   });
   // Status/Prio
-  ['未着手','理解','練習中','マスター'].forEach(v => {
+  (window.STATUS_CANON || []).forEach(v => {
     const el = document.getElementById(`${p}-stat-${v}`); if(el) el.classList.toggle('active', f.status?.has(v));
   });
   ['今すぐ','そのうち','保留'].forEach(v => {
@@ -439,7 +439,7 @@ export function buildFovRows(isOrg=false) {
     });
   }
 
-  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES||['トップ','ボトム','スタンディング'], 'トップ/ボトム/スタンディング検索...', isOrg);
+  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES || [], 'トップ/ボトム/スタンディング検索...', isOrg);
   buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), 'カテゴリ検索...', isOrg);
   buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort(), 'ポジション検索...', isOrg);
   buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'テクニック検索...', isOrg);
@@ -506,7 +506,7 @@ export function syncFovChips() {
   const favChip = document.getElementById('fov-chip-fav');     if (favChip) favChip.classList.toggle('active', window.favOnly||false);
   const unwChip = document.getElementById('fov-chip-unw');     if (unwChip) unwChip.classList.toggle('active', window.unwOnly||false);
   const watChip = document.getElementById('fov-chip-watched'); if (watChip) watChip.classList.toggle('active', window.watchedOnly||false);
-  ['未着手','理解','練習中','マスター'].forEach(v => {
+  (window.STATUS_CANON || []).forEach(v => {
     const el = document.getElementById('fov-stat-' + v); if (el) el.classList.toggle('active', f.status?.has(v));
   });
   ['今すぐ','そのうち','保留'].forEach(v => {
@@ -870,7 +870,7 @@ function _sbPopupRender(key, ctx='lib') {
   const vids = window.videos || [];
   if (key === 'ch')        buildSbPickerInline(cId, 'channel', ctx);
   else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
-  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES||['トップ','ボトム','スタンディング'], ctx);
+  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES || [], ctx);
   else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
   else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
   else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);

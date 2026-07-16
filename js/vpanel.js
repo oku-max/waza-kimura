@@ -2332,12 +2332,7 @@ export function vpRemovePosEl(el) {
 }
 
 // ── タグドロップダウン ──
-const VP_TAG_OPTS_FALLBACK = {
-  tb:   ['トップ','ボトム','スタンディング'],
-  cat:  ['エスケープ・ディフェンス','ガード構築・エントリー','ガードリテンション','コントロール／プレッシャー','コンセプト・原理','スイープ','テイクダウン','バックテイク・バックアタック','パスガード','フィニッシュ'],
-  pos:  ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'],
-  tags: []
-};
+// 選択肢はハードコードせず、必ず正典(tag-master.js → window.*)から取得する。
 const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
 
 // 正典(tag-master.js → window.POSITIONS/CATEGORIES/TB_VALUES)から選択肢を取得。
@@ -2352,9 +2347,7 @@ function _vpCanonicalOpts(type) {
 export function vpGetAllOpts(type) {
   const ts = window.tagSettings || [];
   const fromSettings = ts.find(t => t.key === type)?.presets || [];
-  const canonical = _vpCanonicalOpts(type);
-  // 基準は正典(window.*)。取得できない場合のみハードコードfallbackを使う。
-  const base = canonical.length ? canonical : (VP_TAG_OPTS_FALLBACK[type] || []);
+  const base = _vpCanonicalOpts(type);
   const fromVideos = (window.videos || []).flatMap(v => v[type] || []);
   return [...new Set([...base, ...fromSettings, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
 }

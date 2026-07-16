@@ -67,7 +67,7 @@ export function buildBulkDrawerHTML() {
   </div>` : '';
 
   // ── 習得度 section ──
-  const STATUS_LABELS = ['未着手','理解','練習中','マスター'];
+  const STATUS_LABELS = window.STATUS_CANON || [];
   const STATUS_MAP    = {'未着手':'s0','理解':'s1','練習中':'s2','マスター':'s3'};
   const _normSt = window.normStatus;
   const commonStatus  = selVids.length && selVids.every(v=>_normSt(v.status)===_normSt(selVids[0]?.status)) ? _normSt(selVids[0]?.status) : null;
@@ -132,7 +132,7 @@ export function buildBulkDrawerHTML() {
   </div>`;
 
   // ── タグ section (VPanel v4 と同じ構造) ──
-  const TB = window.TB_VALUES || ['トップ','ボトム','スタンディング'];
+  const TB = window.TB_VALUES || [];
   const CATS = window.CATEGORIES || [];
   const POSS = window.POSITIONS || [];
   const allTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
@@ -720,7 +720,7 @@ export function bvpAddTech() {
 
 export function bvpPosSuggest(inp) {
   const q = inp.value.trim().toLowerCase();
-  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_BASE = (window.POSITIONS || []).map(p => p.ja).filter(Boolean);
   const videos = window.videos || [];
   const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
   const sug = document.getElementById('bvp-pos-sug');
@@ -858,21 +858,26 @@ export function bulkSnapshot(){
 }
 
 // ─── Bulk Picker ───
+// status(一括アクション種別) と prio(優先度) は分類タグではないためここに定義。
+// 習得度/TB/カテゴリ/ポジションはハードコードせず正典(tag-master.js/config.js)から生成する。
 const BULK_PICKER_OPTS_BASE = {
   status: [{val:'watched',label:'視聴済み'},{val:'unwatched',label:'未視聴'},{val:'fav-add',label:'Fav 追加'},{val:'fav-remove',label:'Fav 解除'}],
   prio: [{val:'今すぐ',label:'今すぐ'},{val:'そのうち',label:'そのうち'},{val:'保留',label:'保留'}],
-  prog: [{val:'未着手',label:'未着手'},{val:'理解',label:'理解'},{val:'練習中',label:'練習中'},{val:'マスター',label:'マスター'}],
-  tb:   [{val:'トップ',label:'トップ'},{val:'ボトム',label:'ボトム'},{val:'スタンディング',label:'スタンディング'}],
-  cat:  [{val:'エスケープ・ディフェンス',label:'エスケープ・ディフェンス'},{val:'ガード構築・エントリー',label:'ガード構築・エントリー'},{val:'ガードリテンション',label:'ガードリテンション'},{val:'コントロール／プレッシャー',label:'コントロール／プレッシャー'},{val:'コンセプト・原理',label:'コンセプト・原理'},{val:'スイープ',label:'スイープ'},{val:'テイクダウン',label:'テイクダウン'},{val:'バックテイク・バックアタック',label:'バックテイク・バックアタック'},{val:'パスガード',label:'パスガード'},{val:'フィニッシュ',label:'フィニッシュ'}]
 };
 
 export function getBulkPickerOpts(type) {
-  if(type !== 'pos') return BULK_PICKER_OPTS_BASE[type] || [];
-  // Positionはライブラリ既存データ＋固定リストを統合
-  const POS_BASE = ['インバーテッド','片襟片袖','Kガード','クローズドガード','サドル','スパイダーガード','スタンディング','SLX','タートル','ディープハーフ','デラヒーバ','ニーシールド','バタフライガード','ハーフガード','50/50','Xガード','ラッソーガード','ラペルガード','リバースデラヒーバ','ワームガード','その他'];
-  const videos = window.videos || [];
-  const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
-  return all.map(p => ({val:p, label:p}));
+  const _mk = arr => arr.map(x => ({ val:x, label:x }));
+  if (type === 'prog') return _mk(window.STATUS_CANON || []);
+  if (type === 'tb')   return _mk(window.TB_VALUES || []);
+  if (type === 'cat')  return _mk((window.CATEGORIES || []).map(c => c.name).filter(Boolean));
+  if (type === 'pos') {
+    // 正典(window.POSITIONS)＋ライブラリ既存データを統合
+    const base = (window.POSITIONS || []).map(p => p.ja).filter(Boolean);
+    const videos = window.videos || [];
+    const all = [...new Set([...base, ...videos.flatMap(v=>v.pos||[])])].sort((a,b)=>a.localeCompare(b,'ja'));
+    return _mk(all);
+  }
+  return BULK_PICKER_OPTS_BASE[type] || [];
 }
 
 let activeBulkPicker = null;
@@ -1327,7 +1332,7 @@ export function bulkChipToggle(type, val, el) {
 
 // Position行を動的生成
 export function buildBbPosRow() {
-  const POS_BASE = ['クローズドガード','ハーフガード','マウント','サイドコントロール','バック','タートル','Xガード','デラヒーバ','バタフライガード','オープンガード','50/50','スタンディング'];
+  const POS_BASE = (window.POSITIONS || []).map(p => p.ja).filter(Boolean);
   const videos = window.videos || [];
   const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
   const panel = document.getElementById('bb-panel-pos');

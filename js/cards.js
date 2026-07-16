@@ -115,7 +115,8 @@ export function cardHTML(v) {
   // 🆕 4層タグバッジ (新スキーマ: tb/cat/pos/tags)
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
-  const newTb   = _tsV('tb')   && Array.isArray(v.tb)   ? v.tb.filter(t => t==='トップ'||t==='ボトム'||t==='スタンディング') : [];
+  const _tbv    = window.TB_VALUES || [];
+  const newTb   = _tsV('tb')   && Array.isArray(v.tb)   ? v.tb.filter(t => _tbv.includes(t)) : [];
   const newCat  = _tsV('cat')  && Array.isArray(v.cat)  ? v.cat  : [];
   const newPos  = _tsV('pos')  && Array.isArray(v.pos)  ? v.pos  : [];
   const newTags = _tsV('tags') && Array.isArray(v.tags) ? v.tags : [];
