@@ -2340,13 +2340,23 @@ const VP_TAG_OPTS_FALLBACK = {
 };
 const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
 
+// 正典(tag-master.js → window.POSITIONS/CATEGORIES/TB_VALUES)から選択肢を取得。
+// テーブルビュー等と同じソースを見ることで、編集パネルの選択肢が食い違わないようにする。
+function _vpCanonicalOpts(type) {
+  if (type === 'pos') return (window.POSITIONS  || []).map(p => p.ja).filter(Boolean);
+  if (type === 'cat') return (window.CATEGORIES || []).map(c => c.name).filter(Boolean);
+  if (type === 'tb')  return [...(window.TB_VALUES || [])];
+  return []; // tags は固定の正典なし（動画データ・設定から収集）
+}
+
 export function vpGetAllOpts(type) {
   const ts = window.tagSettings || [];
   const fromSettings = ts.find(t => t.key === type)?.presets || [];
-  const fallback = VP_TAG_OPTS_FALLBACK[type] || [];
-  const presets = fromSettings.length ? fromSettings : fallback;
+  const canonical = _vpCanonicalOpts(type);
+  // 基準は正典(window.*)。取得できない場合のみハードコードfallbackを使う。
+  const base = canonical.length ? canonical : (VP_TAG_OPTS_FALLBACK[type] || []);
   const fromVideos = (window.videos || []).flatMap(v => v[type] || []);
-  return [...new Set([...presets, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
+  return [...new Set([...base, ...fromSettings, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
 }
 
 export function vpTogDd(id, type) {
