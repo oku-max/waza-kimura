@@ -73,6 +73,8 @@ body.bulk-mode .card-sel-ov{display:block;}
 .card-meta{display:flex;flex-direction:column;gap:2px;margin-top:3px;}
 .card-ch{font-size:9.5px;color:var(--accent);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .card-pl{font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* AI一言解説（動画を開く前に内容が分かる行） */
+.card-aidesc{font-size:10px;color:var(--text2);line-height:1.5;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .card-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;}
 .tag{font-size:9.5px;padding:1px 6px;border-radius:3px;font-weight:500;font-family:'DM Mono',monospace;}
 .tag-tb{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}

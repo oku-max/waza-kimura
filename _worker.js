@@ -405,6 +405,8 @@ async function handleAiSummary(request, env) {
 
   const body = await request.json().catch(() => ({}));
   const { idToken, source, ytId, title, channel, playlist } = body;
+  // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON)
+  const mode = ['desc','branch'].includes(body.mode) ? body.mode : 'summary';
 
   const auth = await verifyOwner(idToken, env);
   if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
@@ -415,15 +417,46 @@ async function handleAiSummary(request, env) {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
     }
-    return _aiSummaryYoutube(env, ytId, title, channel, playlist);
+    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode);
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
       return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
     }
-    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist);
+    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode);
   }
   return jsonRes({ error: 'source は youtube または gdrive を指定してください' }, 400);
+}
+
+// ── モード別プロンプト選択 ──────────────────────────────────
+function _promptFor(mode, ctx) {
+  if (mode === 'desc')   return _aiDescPrompt(ctx);
+  if (mode === 'branch') return _aiBranchPrompt(ctx);
+  return _aiPrompt(ctx);
+}
+
+// 一言解説: 動画を開く前に内容が分かる1〜2文（サムネ下・タイトル横に表示する想定）
+function _aiDescPrompt(ctx) {
+  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+この動画を視聴し、「動画を開く前に中身が分かる一言解説」を日本語で1〜2文だけ書いてください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+【必ず含める】どのポジション/状況か・自分はトップかボトムか・相手のどんな動きや反応に対して・何（技/コンセプト/対策）を教える動画か。
+例:「デラヒーバ（ボトム）で相手が膝を切ってパスに来た時の、足の組み替えによるリテンションとバックテイクへの分岐を解説。」
+【禁止】前置き・記号・改行・箇条書き・タイトルの繰り返し。プレーンテキスト1〜2文のみを出力すること。`;
+}
+
+// 分岐抽出: シチュエーション×相手の反応×自分の技 を構造化JSONで返す（分岐マップの素材）
+function _aiBranchPrompt(ctx) {
+  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+この動画を視聴し、「状況 → 相手の動き/反応 → 自分の対応(技)」の分岐データをすべて抽出してJSONで出力してください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+【出力形式】次のJSONのみを出力（コードフェンス・説明文は禁止）:
+{"items":[{"situation":"ポジション名（自分がトップかボトムかも含める。例: デラヒーバ（ボトム））","condition":"この分岐が発生する条件・相手の動きや反応（例: 相手が膝を切ってパスに来る）。特に条件がない基本手順なら「基本」","technique":"自分の対応・技の名前（BJJで一般的な表記）","timestamp":"その内容が映像で実演されている瞬間の M:SS","detail":"重要なグリップ・重心・コツを1文で"}]}
+【ルール】
+- 動画内で語られた・実演された分岐は網羅的に全て拾うこと。同じ situation の item が複数あってよい。
+- condition は必ず「相手側の動き・反応・防御」の視点で書くこと（自分の手順の途中経過ではない）。
+- timestamp は解説者が言い始めた瞬間ではなく、実演が画面に映っている瞬間（数秒後ろ寄り）を選ぶこと。
+- 動画に無い情報を推測で足さないこと。`;
 }
 
 // ── 共通プロンプト生成 ──────────────────────────────────────
@@ -460,13 +493,14 @@ function _ctxStr(title, channel, playlist) {
   ].filter(Boolean).join('\n');
 }
 
-async function _geminiGenerate(env, parts) {
+async function _geminiGenerate(env, parts, opts) {
   const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
   const apiKey = env.GEMINI_API_KEY;
   // 2.5系の思考モデルは思考トークンが出力枠を食い潰し、本文が空（finishReason=MAX_TOKENS）になることがある。
   // 思考量を上限付きに固定し、出力枠を広く確保して要約本文ぶんを必ず残す。
   const generationConfig = { temperature: 0.3, maxOutputTokens: 8192 };
   if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 2048 };
+  if (opts && opts.json) generationConfig.responseMimeType = 'application/json';
   const gRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -490,15 +524,15 @@ async function _geminiGenerate(env, parts) {
   return { summary };
 }
 
-// ── YouTube 要約 ───────────────────────────────────────────
-async function _aiSummaryYoutube(env, ytId, title, channel, playlist) {
+// ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
+async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode) {
   const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-  const prompt   = _aiPrompt(_ctxStr(title, channel, playlist));
+  const prompt   = _promptFor(mode, _ctxStr(title, channel, playlist));
   try {
     const result = await _geminiGenerate(env, [
       { fileData: { fileUri: videoUrl } },
       { text: prompt },
-    ]);
+    ], { json: mode === 'branch' });
     if (result.error) return jsonRes(result, 502);
     return jsonRes({ summary: result.summary });
   } catch (e) {
@@ -507,7 +541,7 @@ async function _aiSummaryYoutube(env, ytId, title, channel, playlist) {
 }
 
 // ── Google Drive 要約（Drive→Gemini Files APIストリーミング中継）──
-async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist) {
+async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode) {
   const apiKey = env.GEMINI_API_KEY;
 
   // 1. Drive ファイルメタデータ取得
@@ -601,14 +635,14 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
     return jsonRes({ error: 'Gemini ファイル処理タイムアウト' }, 504);
   }
 
-  // 5. 要約生成
-  const prompt = _aiPrompt(_ctxStr(title, channel, playlist));
+  // 5. 生成（mode: summary/desc/branch）
+  const prompt = _promptFor(mode, _ctxStr(title, channel, playlist));
   let result;
   try {
     result = await _geminiGenerate(env, [
       { fileData: { mimeType, fileUri } },
       { text: prompt },
-    ]);
+    ], { json: mode === 'branch' });
   } finally {
     _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
   }

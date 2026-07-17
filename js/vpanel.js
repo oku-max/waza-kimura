@@ -1540,10 +1540,21 @@ export function openVPanel(id) {
       ? `<button id="vp-snap-now-btn-${vid}" onclick="vpMemoSnapNow('${vid}')" title="現在のフレームをスクショしてメモに挿入"
            style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">📸</button>`
       : '';
+    const _descBtn = _canSummarize
+      ? `<button id="vp-aidesc-btn-${vid}" onclick="vpAiDesc('${vid}')" title="AIが動画を見て一言解説を生成（カードにも表示）"
+           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 一言</button>`
+      : '';
+    const _branchBtn = _canSummarize
+      ? `<button id="vp-aibranch-btn-${vid}" onclick="vpAiBranch('${vid}')" title="分岐データを抽出しMemoに追記（プロトタイプ）"
+           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🌳 分岐</button>`
+      : '';
+    const _escD = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const _descLine = `<div id="vp-aidesc-${vid}" style="margin-top:6px;padding:6px 9px;border-radius:8px;background:var(--surface2);font-size:11.5px;line-height:1.55;color:var(--text2);${vd?.aiDesc?'':'display:none'}">💬 <span id="vp-aidesc-txt-${vid}">${_escD(vd?.aiDesc)}</span></div>`;
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
+      + _descLine
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}</span>
+            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}${_descBtn}${_branchBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
@@ -3458,6 +3469,126 @@ window.vpMemoInsertTs = function(id) {
     el.appendChild(document.createTextNode(' '));
   }
   vpSaveMemo(id);
+};
+
+// ── AI呼び出し共通ヘルパー（desc/branch 用。summaryは既存フローのまま）──
+// 成功: 生成テキストを返す / 失敗: null（トースト表示済み）
+async function _vpAiVideoCall(id, mode, btn, busyLabel) {
+  const v = (window.videos||[]).find(v => v.id===id);
+  if (!v) return null;
+  const isYT = v.pt === 'youtube' && v.ytId;
+  const isGD = v.pt === 'gdrive';
+  if (!isYT && !isGD) { window.toast?.('YouTube または Google Drive の動画のみ対応しています'); return null; }
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { window.toast?.('ログインが必要です'); return null; }
+  let gdAccessToken = null;
+  if (isGD) {
+    gdAccessToken = window.getDriveTokenIfAvailable?.();
+    if (!gdAccessToken) { window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。'); return null; }
+  }
+  const origLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = busyLabel; btn.style.opacity = '0.6'; }
+  try {
+    const idToken = await user.getIdToken();
+    const reqBody = isYT
+      ? { idToken, mode, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
+      : { idToken, mode, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
+    let lastErr = '';
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch('/api/ai-summary', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok && d.summary) return d.summary;
+        lastErr = (d.error || ('HTTP ' + res.status)) + (d.detail ? ` (${d.detail})` : '');
+      } catch (e) { lastErr = e.message; }
+      if (attempt < 2) await new Promise(r => setTimeout(r, 1800));
+    }
+    window.toast?.('⚠️ AI処理に失敗: ' + (lastErr || '原因不明'), 8000);
+    return null;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origLabel; btn.style.opacity = ''; }
+  }
+}
+
+// 保存（一時障害に備えて1回リトライ）
+async function _vpAiSave() {
+  if (!window.saveUserData) return true;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let ok = false;
+    try { ok = await window.saveUserData(); } catch(e) { ok = false; }
+    if (ok) return true;
+    if (attempt < 2) await new Promise(r => setTimeout(r, 1200));
+  }
+  window.toast?.('⚠️ 保存に失敗しました。通信環境を確認してください', 7000);
+  return false;
+}
+
+// ── AI一言解説（動画を開く前に内容が分かる1〜2文。カード・パネルに表示）──
+window.vpAiDesc = async function(id) {
+  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
+  const btn = document.getElementById('vp-aidesc-btn-' + id);
+  const text = await _vpAiVideoCall(id, 'desc', btn, '⏳ 生成中…');
+  if (!text) return;
+  v.aiDesc = text.replace(/\s*\n\s*/g, ' ').trim();
+  const line = document.getElementById('vp-aidesc-' + id);
+  const txt  = document.getElementById('vp-aidesc-txt-' + id);
+  if (txt) txt.textContent = v.aiDesc;
+  if (line) line.style.display = '';
+  await _vpAiSave();
+  window.AF?.(); // カードの一言解説を即時反映
+  window.toast?.('💬 一言解説を生成しました');
+};
+
+// ── AI分岐抽出（状況×相手の反応×技 → v.aiBranches に保存＋Memoにアウトライン追記）──
+window.vpAiBranch = async function(id) {
+  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
+  const btn = document.getElementById('vp-aibranch-btn-' + id);
+  const raw = await _vpAiVideoCall(id, 'branch', btn, '⏳ 抽出中…');
+  if (!raw) return;
+  let items = null;
+  try {
+    const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
+    items = Array.isArray(parsed?.items) ? parsed.items : (Array.isArray(parsed) ? parsed : null);
+  } catch(e) { console.warn('[aiBranch] JSON parse失敗:', e, raw.slice(0, 300)); }
+  if (!items || !items.length) { window.toast?.('⚠️ 分岐データの解析に失敗しました', 6000); return; }
+
+  // 動画ごとの構造化データとして保存（将来のマップ合成の素材。追記のみで安全）
+  v.aiBranches = { items, at: new Date().toISOString().slice(0, 10) };
+
+  // Memo用アウトライン（situationごとにグループ化。[M:SS]はts-link化される）
+  const bySit = new Map();
+  for (const it of items) {
+    const sit = (it.situation || 'その他').trim();
+    if (!bySit.has(sit)) bySit.set(sit, []);
+    bySit.get(sit).push(it);
+  }
+  const lines = [`── 🌳 分岐抽出 (${new Date().toISOString().slice(0,10)}) ──`];
+  for (const [sit, arr] of bySit) {
+    lines.push(`◾️${sit}`);
+    for (const it of arr) {
+      const ts = it.timestamp ? `[${it.timestamp}] ` : '';
+      const cond = (it.condition || '基本').trim();
+      const tech = (it.technique || '').trim();
+      const det  = (it.detail || '').trim();
+      lines.push(`- ${ts}**${cond}** → ${tech}${det ? `（${det}）` : ''}`);
+    }
+  }
+  const html = _memoToHtml(lines.join('\n'));
+  const memoEl = document.getElementById('vp-memo-' + id);
+  if (memoEl) {
+    const cur = memoEl.innerHTML.trim();
+    memoEl.innerHTML = cur ? `${html}<br><br>${cur}` : html;
+    _bindTsLinks(memoEl);
+    v.memo = memoEl.innerHTML.trim();
+  } else {
+    const cur = (v.memo || '').trim();
+    v.memo = cur ? `${html}<br><br>${cur}` : html;
+  }
+  await _vpAiSave();
+  window.toast?.(`🌳 分岐を${items.length}件抽出しました`);
 };
 
 // ── AI要約（Gemini / YouTube・Google Drive・オーナー限定）──
