@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.581</title>
+<title>WAZA KIMURA v52.582</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -272,9 +272,9 @@
     // lib は tbNew/cat/posNew/tags、org は tb/action/position/tags を使う。
     // ここを同名コピーしていたためタグ(ポジション等)がビュー間で消えていた。
     const MAP   = [['tbNew','tb'],['cat','action'],['posNew','position'],['tags','tags']];
-    const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['unwOnly','orgUnwOnly'],
-                   ['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],['memoOnly','orgMemoOnly'],
-                   ['imgOnly','orgImgOnly'],['prRank','orgPrRank'],['prDate','orgPrDate']];
+    const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['drillOnly','orgDrillOnly'],
+                   ['unwOnly','orgUnwOnly'],['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],
+                   ['memoOnly','orgMemoOnly'],['imgOnly','orgImgOnly'],['prRank','orgPrRank'],['prDate','orgPrDate']];
     const f  = window.filters    || {};
     const of = window.orgFilters || {};
     if (from === 'lib') {
