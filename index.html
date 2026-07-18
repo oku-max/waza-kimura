@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.580</title>
+<title>WAZA KIMURA v52.581</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -440,6 +440,23 @@
   window.AF = function() {
     _origAF.apply(this, arguments);
     window._cvOnAfCalled?.(); // テーブル型カスタムビューにもフィルター結果を反映
+    // ── マスターのテーブル表示にもサイドパネル(lib状態)のフィルタを反映 ──
+    // サイドパネル(libSidebar)のワード検索・タグ・マークは常に lib 状態(window.filters /
+    // window.favOnly 等 / si-lib-pc)に書き込み AF() を呼ぶ。カード表示は filt() が、
+    // カスタムビューのテーブルは直上の _cvOnAfCalled が lib 状態を読んで反映する。
+    // だがマスターのテーブルは orgFilt() が org 状態(orgFilters / si-org)を読むため、
+    // ここで lib→org を同期して renderOrg しないとサイドパネルのフィルタが一切効かない
+    // （カードにだけ効いてテーブルに効かない不整合の根本原因）。
+    if (window._libViewMode === 'org' && !window._cvVideoIds && !window._cvCardVideoIds) {
+      _syncLibFilters('lib'); // lib 状態 → org 状態へコピー（切替時 _libView と同じ橋渡し）
+      const _libSi = document.getElementById('si-lib-pc');
+      if (_libSi) {
+        const _v = _libSi.value;
+        const _o1 = document.getElementById('si-org');    if (_o1) _o1.value = _v;
+        const _o2 = document.getElementById('si-org-pc'); if (_o2) _o2.value = _v;
+      }
+      window.renderOrg?.();
+    }
     // .cardクラスを持つ要素のみ対象（子要素の誤ヒットを防ぐ）
     const cards = document.querySelectorAll('#cardList .card[id^="card-"]');
     if (cards.length > 0) {
