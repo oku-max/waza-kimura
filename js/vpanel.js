@@ -3471,6 +3471,55 @@ window.vpMemoInsertTs = function(id) {
   vpSaveMemo(id);
 };
 
+// GDrive動画から指定秒のフレームを撮影しスナップショット登録。shotMap{sec:{snapId,thumbDataUrl}}を返す。
+// 要約・分岐で共通利用（同じ撮影ロジックを2箇所に持たないため一本化）。btnがあれば進捗表示。
+async function _vpCaptureGdShots(id, secs, tsText, btn) {
+  const shotMap = {};
+  if (!_gdVideoEl || !secs.length || !window.snapAddBlob) return shotMap;
+  const origTime = _gdVideoEl.currentTime;
+  const wasPlaying = !_gdVideoEl.paused;
+  try { _gdVideoEl.pause(); } catch(e) {}
+  let prevSig = null;
+  const DUP_THRESHOLD = 5; // 平均輝度差がこれ未満なら「直前とほぼ同じ画」とみなす
+  for (let i = 0; i < secs.length; i++) {
+    if (btn) btn.textContent = `📸 ${i+1}/${secs.length}`;
+    try {
+      let cap = await _captureGdFrame(secs[i]);
+      let nudge = 0;
+      while (cap && prevSig && _sigDiff(cap.sig, prevSig) < DUP_THRESHOLD && nudge < 2) {
+        nudge++;
+        const dur = _gdVideoEl.duration || (secs[i] + 3);
+        const nx = Math.min(dur - 0.2, secs[i] + 0.7 * nudge);
+        if (nx <= secs[i]) break;
+        const c2 = await _captureGdFrame(nx);
+        if (!c2) break;
+        cap = c2;
+      }
+      if (cap && cap.fullBlob) {
+        const snapId = await window.snapAddBlob(id, cap.fullBlob, secs[i], (tsText && tsText[secs[i]]) || '');
+        shotMap[secs[i]] = { snapId, thumbDataUrl: cap.thumbDataUrl };
+        prevSig = cap.sig || prevSig;
+      }
+    } catch(e) { console.warn('[shot]', secs[i], e); }
+  }
+  try { _gdVideoEl.currentTime = origTime; if (wasPlaying) _gdVideoEl.play().catch(()=>{}); } catch(e) {}
+  return shotMap;
+}
+
+// テキスト（[M:SS]含む）から秒→行末テキストの map を作る（撮影ラベル用）
+function _vpCollectTsText(text) {
+  const tsText = {};
+  for (const line of String(text||'').split('\n')) {
+    const m = line.match(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)/);
+    if (!m) continue;
+    const c = m[3];
+    const sec = c!=null ? (+m[1]*3600 + +m[2]*60 + +c) : (+m[1]*60 + +m[2]);
+    const t = (m[4]||'').replace(/^[-・*\s]+/, '').replace(/\*\*/g,'').trim();
+    if (!(sec in tsText)) tsText[sec] = t;
+  }
+  return tsText;
+}
+
 // ── AI呼び出し共通ヘルパー（desc/branch 用。summaryは既存フローのまま）──
 // 成功: 生成テキストを返す / 失敗: null（トースト表示済み）
 async function _vpAiVideoCall(id, mode, btn, busyLabel) {
@@ -3543,9 +3592,16 @@ window.vpAiDesc = async function(id) {
 };
 
 // ── AI分岐抽出（状況×相手の反応×技 → v.aiBranches に保存＋Memoにアウトライン追記）──
+// 要約と同じく、GDrive動画では各分岐のタイムスタンプの写真も自動で埋め込む。
 window.vpAiBranch = async function(id) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
+  const isGD = v.pt === 'gdrive';
   const btn = document.getElementById('vp-aibranch-btn-' + id);
+
+  // 写真の有無・レイアウトを先に確認（GDriveのみ撮影可）
+  const opts = await _askSummaryOptions(isGD);
+  if (!opts) return; // キャンセル
+
   const raw = await _vpAiVideoCall(id, 'branch', btn, '⏳ 抽出中…');
   if (!raw) return;
   let items = null;
@@ -3576,7 +3632,20 @@ window.vpAiBranch = async function(id) {
       lines.push(`- ${ts}**${cond}** → ${tech}${det ? `（${det}）` : ''}`);
     }
   }
-  const html = _memoToHtml(lines.join('\n'));
+  const outline = lines.join('\n');
+
+  // 写真撮影（opts.shot かつ GDrive）→ 要約と同じサムネ埋め込み描画
+  let shotMap = {};
+  if (opts.shot && isGD && _gdVideoEl) {
+    const tsText = _vpCollectTsText(outline);
+    const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+    shotMap = await _vpCaptureGdShots(id, secs, tsText, btn);
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = '🌳 分岐'; }
+  }
+  const html = Object.keys(shotMap).length
+    ? _summaryToHtmlWithShots(outline, shotMap, opts.layout)
+    : _memoToHtml(outline);
   const memoEl = document.getElementById('vp-memo-' + id);
   if (memoEl) {
     const cur = memoEl.innerHTML.trim();
@@ -3659,51 +3728,12 @@ window.vpAiSummary = async function(id) {
       return;
     }
 
-    // スクショ撮影（opts.shot かつ GDrive動画）
-    const shotMap = {};
+    // スクショ撮影（opts.shot かつ GDrive動画）— 分岐抽出と共通のヘルパーを使用
+    let shotMap = {};
     if (opts.shot && isGD && _gdVideoEl) {
-      // 各タイムスタンプの秒数と解説テキストを収集（解説はスナップショットのメモに使う）
-      const tsText = {};
-      for (const line of data.summary.split('\n')) {
-        const m = line.match(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*(.*)/);
-        if (!m) continue;
-        const c = m[3];
-        const sec = c!=null ? (+m[1]*3600 + +m[2]*60 + +c) : (+m[1]*60 + +m[2]);
-        const text = (m[4]||'').replace(/^[-・*\s]+/, '').trim();
-        if (!(sec in tsText)) tsText[sec] = text;
-      }
+      const tsText = _vpCollectTsText(data.summary);
       const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
-
-      const origTime = _gdVideoEl.currentTime;
-      const wasPlaying = !_gdVideoEl.paused;
-      try { _gdVideoEl.pause(); } catch(e) {}
-      let prevSig = null;
-      const DUP_THRESHOLD = 5; // 平均輝度差がこれ未満なら「直前とほぼ同じ画」とみなす
-      for (let i = 0; i < secs.length; i++) {
-        if (btn) btn.textContent = `📸 ${i+1}/${secs.length}`;
-        try {
-          let cap = await _captureGdFrame(secs[i]);
-          // 直前ショットと酷似していたら少し先へずらして撮り直す（最大2回）
-          let nudge = 0;
-          while (cap && prevSig && _sigDiff(cap.sig, prevSig) < DUP_THRESHOLD && nudge < 2) {
-            nudge++;
-            const dur = _gdVideoEl.duration || (secs[i] + 3);
-            const nx = Math.min(dur - 0.2, secs[i] + 0.7 * nudge);
-            if (nx <= secs[i]) break;
-            const c2 = await _captureGdFrame(nx);
-            if (!c2) break;
-            cap = c2;
-          }
-          if (cap && cap.fullBlob && window.snapAddBlob) {
-            // スナップショットのメモにタイムスタンプ解説を入れる
-            const snapId = await window.snapAddBlob(id, cap.fullBlob, secs[i], tsText[secs[i]] || '');
-            shotMap[secs[i]] = { snapId, thumbDataUrl: cap.thumbDataUrl };
-            prevSig = cap.sig || prevSig;
-          }
-        } catch(e) { console.warn('[shot]', secs[i], e); }
-      }
-      // 撮影後、元の再生位置に戻す
-      try { _gdVideoEl.currentTime = origTime; if (wasPlaying) _gdVideoEl.play().catch(()=>{}); } catch(e) {}
+      shotMap = await _vpCaptureGdShots(id, secs, tsText, btn);
       if (btn) btn.textContent = '⏳ 整理中…';
     }
 
