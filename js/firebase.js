@@ -363,21 +363,44 @@ export async function saveUserSettings() {
     console.warn('[saveUserSettings] not ready (settings not loaded) — save skipped');
     return;
   }
+  const payload = {
+    tagSettings:       window.tagSettings       || [],
+    aiSettings:        window.aiSettings        || {},
+    savedSearches:     window.savedSearches     || [],
+    filterPresets:     window.filterPresets     || [],
+    orgColOrder:       window.orgColOrder       || [],
+    orgColVisibility:  window.orgColVisibility  || {},
+    filterColVis:      window.filterColVis      || {},
+    // appearance はデバイスごと（localStorage管理）のため Firebase に保存しない
+    tagGroups:         window.getTagGroups?.()  || [],
+    customViews:       window._cvViews         || [],
+    updatedAt: new Date().toISOString()
+  };
+  // ── 見える化: 設定ドキュメントのサイズを計測（Firestoreは1ドキュメント=1MiB上限）──
+  // カスタムプレイリスト等が積み上がって上限を超えると .set() が失敗し、以降の同期が止まる。
+  // 原因を実データで確定できるよう、サイズと上限接近を常にログし、超過見込みは警告する。
+  const LIMIT = 1048576; // 1 MiB
+  let sizeBytes = 0;
   try {
-    await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set({
-      tagSettings:       window.tagSettings       || [],
-      aiSettings:        window.aiSettings        || {},
-      savedSearches:     window.savedSearches     || [],
-      filterPresets:     window.filterPresets     || [],
-      orgColOrder:       window.orgColOrder       || [],
-      orgColVisibility:  window.orgColVisibility  || {},
-      filterColVis:      window.filterColVis      || {},
-      // appearance はデバイスごと（localStorage管理）のため Firebase に保存しない
-      tagGroups:         window.getTagGroups?.()  || [],
-      customViews:       window._cvViews         || [],
-      updatedAt: new Date().toISOString()
-    });
-  } catch (e) { console.error('saveUserSettings:', e); }
+    sizeBytes = new Blob([JSON.stringify(payload)]).size;
+    const cvBytes = new Blob([JSON.stringify(payload.customViews)]).size;
+    const kb = (sizeBytes / 1024).toFixed(0);
+    console.log(`[saveUserSettings] settings doc size: ${kb}KB (customViews ${(cvBytes/1024).toFixed(0)}KB, ${payload.customViews.length}件) / 上限1024KB`);
+    if (sizeBytes >= LIMIT) {
+      console.error(`[saveUserSettings] ⚠️ 1MiB上限超過 (${kb}KB)。この保存はFirestoreに拒否され、同期が止まります。`);
+      showToast(`⚠️ プレイリスト設定が容量上限(1MB)を超えています(${kb}KB)。これ以上の変更は他デバイスに同期されません`, 8000);
+    } else if (sizeBytes >= LIMIT * 0.85) {
+      console.warn(`[saveUserSettings] 容量上限に接近 (${kb}KB / 1024KB)`);
+      showToast(`⚠️ プレイリスト設定の容量が上限に接近しています(${kb}KB / 1024KB)`, 5000);
+    }
+  } catch (e) { console.warn('[saveUserSettings] size measure failed:', e); }
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('settings').set(payload);
+  } catch (e) {
+    console.error('saveUserSettings:', e, `(size ${(sizeBytes/1024).toFixed(0)}KB)`);
+    // 動画本体の保存(saveUserData)と同様、失敗をユーザーに必ず知らせる（従来は無音で握りつぶしていた）
+    showToast('⚠️ 設定/プレイリストの保存に失敗しました: ' + (e?.message || e), 6000);
+  }
 }
 
 export async function loadUserSettings(uid) {
