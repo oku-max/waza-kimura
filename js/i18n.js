@@ -784,6 +784,8 @@
     "⚠️ ノート保存失敗:": "⚠️ Failed to save note:",
     "⚠️ 保存に失敗しました:": "⚠️ Failed to save:",
     "⚠️ 設定/プレイリストの保存に失敗しました:": "⚠️ Failed to save settings/playlists:",
+    "⚠️ 一部プレイリストの保存に失敗しました": "⚠️ Some playlists failed to save",
+    "⚠️ プレイリスト削除の同期に失敗しました": "⚠️ Failed to sync playlist deletion",
     "⚠️ 保存中です。しばらくしてから再試行してください": "⚠️ Saving. Please try again in a moment.",
     "⚠️ 先にGoogleでログインしてください": "⚠️ Please sign in with Google first",
     "⚠️ 別の端末で更新されています。ページを更新してから再操作してください": "⚠️ Updated on another device. Please refresh the page and try again.",

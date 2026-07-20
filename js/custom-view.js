@@ -158,6 +158,9 @@ function _save() {
   try {
     localStorage.setItem('wk_cv_views', JSON.stringify(_views));
   } catch(e) {}
+  // 新形式: 変更されたプレイリストだけを個別ドキュメントへ同期（多端末クロバー＆1MiB上限対策）
+  window._cvSyncRemote?.();
+  // 旧形式: settings.customViews への保存も当面維持（無回帰フォールバック）
   window.saveUserSettings?.();
 }
 
@@ -432,6 +435,7 @@ window._cvDeleteView = function(id) {
   if (!view) return;
   if (!confirm(`「${view.label}」を削除してよろしいですか？`)) return;
   _views = _views.filter(v => v.id !== id);
+  window._cvDeleteRemote?.(id);  // 新形式: 該当プレイリストの個別ドキュメントを明示削除
   if (_curId === id) {
     _curId = null;
     window._cvVideoIds = null;
@@ -2475,6 +2479,7 @@ window.cvOpenConditionEditor = function(viewId) {
 window._cvDeleteView = function(viewId) {
   if (!confirm('このビューを削除しますか？')) return;
   _views = _views.filter(v => v.id !== viewId);
+  window._cvDeleteRemote?.(viewId);  // 新形式: 該当プレイリストの個別ドキュメントを明示削除
   _save();
   if (_curId === viewId) {
     _curId = null;

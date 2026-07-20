@@ -356,6 +356,124 @@ export async function saveUserData() {
   }
 }
 
+// ═══ カスタムビュー: プレイリスト単位の別ドキュメント同期 ═══════════════════════
+// 背景: 全カスタムプレイリストを settings ドキュメント1件の customViews 配列に .set() で
+//   丸ごと保存していたため、(1) Firestore 1MiB 上限を超えると保存が全拒否され以降同期停止、
+//   (2) 複数端末が同時に配列全体を上書きすると片方の追加が消える（last-write-wins のクロバー）。
+//   → プレイリストごとに data/cv_<id> ドキュメントへ分離し、変更されたものだけ書く。
+//   本実装は「追加のみ・非破壊」: 旧 customViews 配列と saveUserSettings はそのまま残すので、
+//   新経路が失敗（バグ/ルール拒否）しても従来動作にフォールバックし、既存データを壊さない。
+const CV_DOC_PREFIX = 'cv_';
+const CV_INDEX_DOC  = 'cv_index';
+let _cvLastSynced = {};   // id -> 直近クラウドと一致した内容のJSON署名。差分のあるビューだけ書く基準。
+let _cvMigrated   = false; // cv_index.migrated: 移行完了後は旧 customViews 配列を読まない（削除の復活防止）
+
+const _dataDoc    = (uid, name) => db.collection('users').doc(uid).collection('data').doc(name);
+const _cvViewRef  = (uid, id)   => _dataDoc(uid, CV_DOC_PREFIX + id);
+const _cvIndexRef = (uid)       => _dataDoc(uid, CV_INDEX_DOC);
+
+// 変更されたビューだけを各ドキュメントへ保存（他プレイリストには触れない＝多端末クロバー防止）
+window._cvSyncRemote = async function(force) {
+  if (!currentUser) return;
+  // 通常保存はロード完了(_settingsReady)まで待つ（空/部分上書き防止）。
+  // 移行シードは _cvLoadAndMerge 直後＝クラウド状態を確定済みで呼ぶため force で通す。
+  if (!_settingsReady && !force) { console.warn('[cvSync] settings未確定のためスキップ（空/部分上書き防止）'); return; }
+  const uid = currentUser.uid;
+  const views = window._cvViews || [];
+  const ids = [];
+  let wrote = 0, failed = 0;
+  for (let i = 0; i < views.length; i++) {
+    const v = views[i];
+    if (!v || !v.id) continue;
+    ids.push(v.id);
+    const sig = JSON.stringify({ v, order: i });   // 内容＋並び順の署名
+    if (_cvLastSynced[v.id] === sig) continue;      // 変化なし→書かない（他端末の更新を stale 上書きしない）
+    try {
+      const packed = _packNested(JSON.parse(JSON.stringify(v)));
+      await _cvViewRef(uid, v.id).set({
+        view: packed, order: i,
+        updatedAt: new Date().toISOString(), savedBy: _sessionId
+      });
+      _cvLastSynced[v.id] = sig;
+      wrote++;
+    } catch (e) { failed++; console.error('[cvSync] 保存失敗', v.id, e); }
+  }
+  // idインデックスは arrayUnion のみ（union は多端末でも消えない）。削除は _cvDeleteRemote 側で arrayRemove。
+  // 何か書いたときだけ更新（不変時の無駄な書き込みを避ける。arrayUnion は冪等なので全idを渡してよい）。
+  if (wrote && ids.length) {
+    try {
+      await _cvIndexRef(uid).set({
+        ids: firebase.firestore.FieldValue.arrayUnion(...ids),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) { console.error('[cvSync] index更新失敗', e); }
+  }
+  if (wrote) console.log(`[cvSync] ${wrote}件のプレイリストを個別保存${failed ? ` / ${failed}件失敗` : ''}`);
+  if (failed) showToast('⚠️ 一部プレイリストの保存に失敗しました', 5000);
+};
+
+// 明示削除時だけ該当ドキュメントを削除（配列差分による自動削除はしない＝誤消去防止）
+window._cvDeleteRemote = async function(id) {
+  if (!currentUser || !id) return;
+  const uid = currentUser.uid;
+  try {
+    await _cvViewRef(uid, id).delete();
+    await _cvIndexRef(uid).set({ ids: firebase.firestore.FieldValue.arrayRemove(id) }, { merge: true });
+    delete _cvLastSynced[id];
+    console.log('[cvDelete] 個別プレイリスト削除', id);
+  } catch (e) { console.error('[cvDelete] 削除同期失敗', id, e); showToast('⚠️ プレイリスト削除の同期に失敗しました', 5000); }
+};
+
+// 新形式(プレイリスト単位ドキュメント)＋旧形式(settings.customViews)を安全にマージして返す。
+// 優先度: per-doc(最新) > legacy配列 > localStorage(クラウドが全空のときの自己修復のみ)。
+async function _cvLoadAndMerge(uid, legacyArr) {
+  const legacy = Array.isArray(legacyArr) ? legacyArr : [];
+  let idx = null;
+  try { const s = await _cvIndexRef(uid).get(); if (s.exists) idx = s.data(); } catch (e) { console.error('[cvLoad] index読込失敗', e); }
+  _cvMigrated = !!(idx && idx.migrated);
+  const cvIds = (idx && Array.isArray(idx.ids)) ? idx.ids.filter(x => x) : [];
+
+  // per-doc を並列取得
+  const perDoc = new Map();  // id -> {v, order}
+  if (cvIds.length) {
+    const snaps = await Promise.all(cvIds.map(id => _cvViewRef(uid, id).get().catch(() => null)));
+    snaps.forEach(s => {
+      if (s && s.exists) {
+        const d = s.data();
+        const v = _unpackNested(d.view);
+        if (v && v.id) perDoc.set(v.id, { v, order: typeof d.order === 'number' ? d.order : 9999 });
+      }
+    });
+  }
+
+  // クラウドが完全に空のときだけ localStorage/メモリから自己修復（誤消去からの復旧。cf v52.541）
+  const cloudEmpty = !perDoc.size && !legacy.length;
+  let baseLocal = [];
+  if (cloudEmpty) {
+    baseLocal = window._cvViews || [];
+    if (!baseLocal.length) { try { baseLocal = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch (e) {} }
+  }
+
+  // マージ（優先度 低→高 で上書き）: local < legacy < perDoc。どの層のビューも失わない。
+  const map = new Map();  // id -> {v, order}
+  baseLocal.forEach((v, i) => { if (v && v.id) map.set(v.id, { v, order: i }); });
+  if (!_cvMigrated) legacy.forEach((v, i) => { if (v && v.id) map.set(v.id, { v, order: i }); });
+  perDoc.forEach((e, id) => map.set(id, e));
+
+  const merged = [...map.values()].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999)).map(e => e.v);
+
+  // 差分基準を初期化: per-doc に既にあり並び順も一致するものは「同期済み」とし、
+  // legacy/local 由来（per-doc に無い or 並び順ずれ）は未記録＝次の同期で per-doc へ書き込まれる。
+  _cvLastSynced = {};
+  merged.forEach((v, i) => {
+    const p = perDoc.get(v.id);
+    if (p && p.order === i) _cvLastSynced[v.id] = JSON.stringify({ v, order: i });
+  });
+
+  const needSeed = merged.some(v => !perDoc.has(v.id));
+  return { merged, needSeed, hadLegacy: legacy.length > 0, idxExists: !!idx };
+}
+
 export async function saveUserSettings() {
   if (!currentUser) return;
   // クラウドの設定を読めていないうちは保存しない（空配列で全置換して消す事故を防ぐ）。
@@ -439,21 +557,34 @@ export async function loadUserSettings(uid) {
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
         try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
-      // カスタムビュー復元 ＋ 自動復旧
-      const remoteCV = Array.isArray(data.customViews) ? data.customViews : [];
-      if (remoteCV.length) {
-        window._cvApplyLoadedViews?.(remoteCV);
-      } else {
-        // クラウドが空。ローカル(メモリ/localStorage)にビューが残っていれば自動でクラウドへ書き戻す
-        // （消失バグからの自己修復。空のクラウドを非空ローカルで上書きするだけで、逆方向の破壊はしない）
-        let localCV = window._cvViews || [];
-        if (!localCV.length) {
-          try { localCV = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch(e) { localCV = []; }
+      // カスタムビュー: 新形式(プレイリスト単位ドキュメント)＋旧形式(customViews配列)を安全マージ。
+      // 新経路で例外が出ても旧形式にフォールバックし、既存データを失わない（非破壊）。
+      try {
+        const { merged, needSeed, hadLegacy, idxExists } = await _cvLoadAndMerge(uid, data.customViews);
+        window._cvApplyLoadedViews?.(merged);
+        // legacy/local 由来（per-doc に未在）を per-doc へ書き戻し（移行シード。追加のみで既存を壊さない）
+        if (needSeed && merged.length) {
+          console.warn('[cvLoad] per-docへ移行シード:', merged.length, '件');
+          await window._cvSyncRemote?.(true);  // force: ロード直後の確定状態でシード
         }
-        if (localCV.length) {
-          console.warn('[recovery] クラウドのcustomViewsが空。ローカルの', localCV.length, '件をクラウドへ復旧します');
-          window._cvApplyLoadedViews?.(localCV);
-          window._cvSave?.();  // localStorage + Firestore へ書き戻し
+        // 移行完了フラグ: legacy を全て per-doc に写せたら以後 legacy を読まない（削除の復活防止）。
+        // シード失敗（未記録が残る）なら設定しない＝次回も legacy を読んでフォールバック。
+        if (!_cvMigrated && (hadLegacy || idxExists)) {
+          const allSynced = merged.every(v => _cvLastSynced[v.id] !== undefined);
+          if (allSynced || !needSeed) {
+            try { await _cvIndexRef(uid).set({ migrated: true, updatedAt: new Date().toISOString() }, { merge: true }); _cvMigrated = true; }
+            catch (e) { console.error('[cvLoad] migratedフラグ設定失敗', e); }
+          }
+        }
+      } catch (e) {
+        console.error('[cvLoad] マージ失敗、旧形式にフォールバック', e);
+        const remoteCV = Array.isArray(data.customViews) ? data.customViews : [];
+        if (remoteCV.length) window._cvApplyLoadedViews?.(remoteCV);
+        else {
+          // クラウドが空。ローカルにビューが残っていれば自己修復（空→非空の一方向のみ）
+          let localCV = window._cvViews || [];
+          if (!localCV.length) { try { localCV = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch(e2) { localCV = []; } }
+          if (localCV.length) { window._cvApplyLoadedViews?.(localCV); window._cvSave?.(); }
         }
       }
       // appearance はデバイスごと（localStorage管理）のため Firebase から復元しない
