@@ -3621,15 +3621,17 @@ window.vpAiBranch = async function(id) {
     if (!bySit.has(sit)) bySit.set(sit, []);
     bySit.get(sit).push(it);
   }
-  const lines = [`── 🌳 分岐（相手の反応→こちらの対応） (${new Date().toISOString().slice(0,10)}) ──`];
+  const lines = [`── 🌳 分岐（相手の状態→こちらの技） (${new Date().toISOString().slice(0,10)}) ──`];
   for (const [sit, arr] of bySit) {
     lines.push(`◾️${sit}`);
     for (const it of arr) {
       const ts   = it.timestamp ? `[${it.timestamp}] ` : '';
-      const trig = (it.trigger || it.condition || '基本').trim();   // 分岐＝相手の反応（旧condition互換）
-      const resp = (it.response || it.technique || '').trim();       // こちらの対応（旧technique互換）
-      const det  = (it.detail || '').trim();                          // 手順の要点
-      lines.push(`- ${ts}相手：**${trig}** → ${resp}${det ? `（${det}）` : ''}`);
+      const trig = (it.trigger || it.condition || '基本').trim();   // 分岐＝相手の状態（旧condition互換）
+      const resp = (it.response || it.technique || '').trim();       // こちらの技（旧technique互換）
+      // 手順は分岐に含めない方針。detailが来ても長い手順段落は載せない（短ければ括弧で付す）。
+      const det  = (it.detail || '').trim();
+      const shortDet = (det && det.length <= 24) ? `（${det}）` : '';
+      lines.push(`- ${ts}相手：**${trig}** → ${resp}${shortDet}`);
     }
   }
   const outline = lines.join('\n');
