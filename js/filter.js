@@ -12,6 +12,15 @@ let _urlSyncPaused = false;
 
 export function _syncURL() {
   if (_urlSyncPaused) return;
+  // カスタムビュー表示中は絞り込み状態を URL に載せない。
+  // URL(?q= 等)は master 用の共有/復元機構。カスタムビューのワードやタグは view 側
+  // (view.searchQuery / セッションスナップショット)で保持・復元されるため、ここで URL に
+  // 書くと、リロードで master に戻った際に _restoreFromURL がワードを master へ復元してしまい
+  // 「master に戻ったのに検索欄にワードが残る」不自然さの原因になる。CV 中は URL を空にする。
+  if (window._cvVideoIds || window._cvCardVideoIds) {
+    history.replaceState(null, '', location.pathname);
+    return;
+  }
   const p = new URLSearchParams();
   // Set filters
   for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
