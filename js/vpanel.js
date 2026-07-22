@@ -3621,15 +3621,15 @@ window.vpAiBranch = async function(id) {
     if (!bySit.has(sit)) bySit.set(sit, []);
     bySit.get(sit).push(it);
   }
-  const lines = [`── 🌳 分岐抽出 (${new Date().toISOString().slice(0,10)}) ──`];
+  const lines = [`── 🌳 分岐（相手の反応→こちらの対応） (${new Date().toISOString().slice(0,10)}) ──`];
   for (const [sit, arr] of bySit) {
     lines.push(`◾️${sit}`);
     for (const it of arr) {
-      const ts = it.timestamp ? `[${it.timestamp}] ` : '';
-      const cond = (it.condition || '基本').trim();
-      const tech = (it.technique || '').trim();
-      const det  = (it.detail || '').trim();
-      lines.push(`- ${ts}**${cond}** → ${tech}${det ? `（${det}）` : ''}`);
+      const ts   = it.timestamp ? `[${it.timestamp}] ` : '';
+      const trig = (it.trigger || it.condition || '基本').trim();   // 分岐＝相手の反応（旧condition互換）
+      const resp = (it.response || it.technique || '').trim();       // こちらの対応（旧technique互換）
+      const det  = (it.detail || '').trim();                          // 手順の要点
+      lines.push(`- ${ts}相手：**${trig}** → ${resp}${det ? `（${det}）` : ''}`);
     }
   }
   const outline = lines.join('\n');
