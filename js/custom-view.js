@@ -82,6 +82,11 @@ let _cvSavedOrgSavePrefs = null;
 // ビューごとの統合フィルタ状態スナップショット { [viewId | 'master']: snap }
 const _viewFilterSnapshots = {};
 
+// カスタムビューの検索ワード等を localStorage/Firestore に遅延保存（キー入力ごとの
+// Firestore 書き込みを避けるためデバウンス）。永続対象は追加フィールドのみ・非破壊。
+let _cvPersistT = null;
+function _cvPersistSoon() { clearTimeout(_cvPersistT); _cvPersistT = setTimeout(() => { _save(); }, 700); }
+
 function _saveCurrentFilterSnapshot() {
   if (!window._uniSnapshotFilters) return;
   const key = _curId || 'master';
@@ -92,19 +97,29 @@ function _saveCurrentFilterSnapshot() {
     || document.getElementById('si-org')?.value
     || _cvSrchQ || window._uniVideoQ || '');
   _viewFilterSnapshots[key] = snap;
+  // カスタムビューの検索ワードは view オブジェクトにも永続保存し、リロード/再訪時にも復元する
+  // （master には保存先の view が無いのでスキップ）。
+  if (_curId) {
+    const v = _views.find(x => x.id === _curId);
+    if (v && v.searchQuery !== snap._search) { v.searchQuery = snap._search; _cvPersistSoon(); }
+  }
 }
 
 function _restoreFilterSnapshot(key) {
   const snap = _viewFilterSnapshots[key];
+  // 検索ワードの復元: セッション内スナップショットを優先（直近のクリア操作も尊重）、
+  // 無ければ view に永続保存した searchQuery を復元（リロード後の再訪でワードを呼び戻す）。
+  const view = _views.find(v => v.id === key);
+  const q = (snap && typeof snap._search === 'string') ? snap._search : ((view && view.searchQuery) || '');
+  // ワードは _uniRestoreFilters より先に確定する。_uniRestoreFilters は AF→_cvUpdateSearch を
+  // 誘発することがあり、その時点で _cvSrchQ が未設定(空)だと searchQuery を空で上書きしてしまうため。
+  _cvSrchQ = q;
+  window._uniVideoQ = q;
+  ['si-lib-pc','si-org','si-org-pc','si'].forEach(id => { const el = document.getElementById(id); if (el) el.value = q; });
   // window.filters + boolean + titleQ を復元（記憶が無ければ空＝完全クリア）。
   // 条件ビューの filterConditions は window.filters に入れない（絞り込みは
   // _getViewVideos→_applyConditions→_cvVideoIds で行う。入れると次リストへ漏れる）。
   if (window._uniRestoreFilters) window._uniRestoreFilters(snap || {});
-  // そのリストの検索ワードを復元（リスト切替専用。条件編集パネルには影響しない）。
-  const q = (snap && snap._search) || '';
-  ['si-lib-pc','si-org','si-org-pc','si'].forEach(id => { const el = document.getElementById(id); if (el) el.value = q; });
-  _cvSrchQ = q;
-  window._uniVideoQ = q;
 }
 
 // filter state
@@ -971,6 +986,8 @@ function _cvUpdateSearch(view) {
   filtered = _cvApplyGlobalFilters(filtered);
   window._cvVideoIds = new Set(filtered.map(v => v.id));
   window._vpFilteredList = filtered.length ? filtered : null;
+  // 検索ワードを view に永続化（変更時のみ・デバウンス保存）。開いた直後は復元値と一致し保存不要。
+  if (view && view.searchQuery !== rawQ) { view.searchQuery = rawQ; _cvPersistSoon(); }
   window.renderOrg?.();
 }
 
@@ -2834,6 +2851,11 @@ window._cvClearFilters = function() {
   if (siClear) siClear.style.display = 'none';
   if (_curId && filterState[_curId]) {
     Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
+  }
+  // 永続保存した検索ワードもリセット（次回開いたときに残らないように）
+  if (_curId) {
+    const v = _views.find(x => x.id === _curId);
+    if (v && v.searchQuery) { v.searchQuery = ''; _cvPersistSoon(); }
   }
   // 再描画は呼び出し元の AF() → _cvOnAfCalled に委ねる
 };
