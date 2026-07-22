@@ -42,6 +42,7 @@ auth.onAuthStateChanged(async (user) => {
   if (user) {
     window._notesInitForUser?.();
     await loadUserData(user.uid);
+    await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     await loadUserSettings(user.uid);
     await loadNotes(user.uid);
     await loadTagMasterAliases(user.uid);
@@ -519,6 +520,30 @@ export async function saveUserSettings() {
     // 動画本体の保存(saveUserData)と同様、失敗をユーザーに必ず知らせる（従来は無音で握りつぶしていた）
     showToast('⚠️ 設定/プレイリストの保存に失敗しました: ' + (e?.message || e), 6000);
   }
+}
+
+// ── カスタムビュー起動設定（小さな専用ドキュメント）──
+// 起動時に表示するリスト(list)・記憶範囲(scope)・共有スコープ時の直近ビュー(lastView)を
+// data/cvStartup に保存。数十バイトの軽量ドキュメントなので、共有スコープでビュー切替の
+// たびに書いても安価（大きな settings ドキュメントは汚さない・肥大化させない）。
+export async function saveCvStartup(cfg) {
+  if (!currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('cvStartup').set({
+      list:     (cfg && cfg.list)  || 'last',
+      scope:    (cfg && cfg.scope) || 'device',
+      lastView: (cfg && typeof cfg.lastView === 'string') ? cfg.lastView : '',
+      updatedAt: new Date().toISOString()
+    });
+  } catch (e) { console.warn('saveCvStartup:', e); }
+}
+window.saveCvStartup = saveCvStartup;
+
+export async function loadCvStartup(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('data').doc('cvStartup').get();
+    if (snap.exists) window._applyCvStartup?.(snap.data());
+  } catch (e) { console.warn('loadCvStartup:', e); }
 }
 
 export async function loadUserSettings(uid) {

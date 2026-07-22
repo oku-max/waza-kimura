@@ -185,6 +185,7 @@ export function renderSettings() {
   _renderTagDisplaySettings();
   _renderFilterColSettings();
   _renderAiImportSettings();
+  window._cvSyncStartupUI?.(); // 起動リスト/範囲のセレクトを現在設定に同期
 }
 
 function _syncTagPresetsFromVideos() {

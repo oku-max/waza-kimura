@@ -179,20 +179,83 @@ function _save() {
   window.saveUserSettings?.();
 }
 
-// ── 直前に開いていたリストの記憶（端末ローカル・無期限）──
-// 現在選択中のカスタムビューID(master のときは空文字)を localStorage に保存し、
-// リロード時に同じリストへ復帰させる。ビューデータ本体ではなく「どれを開いていたか」だけの
-// 軽量な端末ローカル状態（wk_masterViewType と同種）。Firestore には保存しない。
-const _LAST_VIEW_KEY = 'wk_cv_lastView';
+// ── 起動時に表示するリストの設定 ＆ 直前に開いていたリストの記憶 ──
+// 設定(list/scope)と共有スコープ時の直近ビューは Firestore の小ドキュメント
+// (data/cvStartup, saveCvStartup/loadCvStartup)に集約して全端末同期する。
+// 端末ごとスコープの直近ビューは localStorage(wk_cv_lastView)＝端末ローカル。
+//   list : 'last'   … 前回開いていたリストを復元（既定）
+//          'master' … 常にマスターを表示
+//   scope: 'device' … 直近ビューを端末ごとに記憶（既定）
+//          'shared' … 直近ビューを全端末で共有
+const _LAST_VIEW_KEY   = 'wk_cv_lastView';  // 端末ごとの直近ビューID
+const _STARTUP_CFG_KEY = 'wk_cvStartup';    // 起動設定のローカルミラー {list,scope}（即時利用/オフライン用）
 let _lastViewRestoreDone = false;
-function _saveLastView() {
-  try { localStorage.setItem(_LAST_VIEW_KEY, _curId || ''); } catch(e) {}
+
+window._startupCfg = { list: 'last', scope: 'device' };
+window._cvLastViewShared = ''; // 共有スコープ時の直近ビューID（Firestore同期値）
+
+// ローカルミラーから起動設定を読む（Firestore読込前の即時反映用）
+(function _loadStartupCfgLocal() {
+  try {
+    const c = JSON.parse(localStorage.getItem(_STARTUP_CFG_KEY) || '{}');
+    if (c.list === 'master' || c.list === 'last')  window._startupCfg.list  = c.list;
+    if (c.scope === 'device' || c.scope === 'shared') window._startupCfg.scope = c.scope;
+  } catch(e) {}
+})();
+
+// Firestore(data/cvStartup)の内容を適用（loadCvStartup から呼ばれる）
+window._applyCvStartup = function(data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.list === 'master' || data.list === 'last')  window._startupCfg.list  = data.list;
+  if (data.scope === 'device' || data.scope === 'shared') window._startupCfg.scope = data.scope;
+  if (typeof data.lastView === 'string') window._cvLastViewShared = data.lastView;
+  try { localStorage.setItem(_STARTUP_CFG_KEY, JSON.stringify({ list: window._startupCfg.list, scope: window._startupCfg.scope })); } catch(e) {}
+  window._cvSyncStartupUI?.();
+};
+
+// 設定画面の <select> を現在値へ同期
+window._cvSyncStartupUI = function() {
+  const l = document.getElementById('setting-startup-list');
+  const s = document.getElementById('setting-startup-scope');
+  if (l) l.value = window._startupCfg.list;
+  if (s) s.value = window._startupCfg.scope;
+};
+
+// 設定画面の <select> 変更時（onchange）
+window._saveStartupListCfg = function() {
+  const l = document.getElementById('setting-startup-list');
+  const s = document.getElementById('setting-startup-scope');
+  if (l && (l.value === 'master' || l.value === 'last'))  window._startupCfg.list  = l.value;
+  if (s && (s.value === 'device' || s.value === 'shared')) window._startupCfg.scope = s.value;
+  try { localStorage.setItem(_STARTUP_CFG_KEY, JSON.stringify({ list: window._startupCfg.list, scope: window._startupCfg.scope })); } catch(e) {}
+  // 共有へ切り替えた場合は現在の選択を共有値の初期値にする
+  if (window._startupCfg.scope === 'shared') window._cvLastViewShared = _curId || '';
+  window.saveCvStartup?.({ list: window._startupCfg.list, scope: window._startupCfg.scope, lastView: window._cvLastViewShared || '' });
+};
+
+let _startupSaveT = null;
+function _saveStartupStateSoon() {
+  clearTimeout(_startupSaveT);
+  _startupSaveT = setTimeout(() => {
+    window.saveCvStartup?.({ list: window._startupCfg.list, scope: window._startupCfg.scope, lastView: window._cvLastViewShared || '' });
+  }, 800);
 }
+
+function _saveLastView() {
+  try { localStorage.setItem(_LAST_VIEW_KEY, _curId || ''); } catch(e) {} // 端末ごと値は常に更新
+  if (window._startupCfg.scope === 'shared') {
+    window._cvLastViewShared = _curId || '';
+    _saveStartupStateSoon(); // 共有時のみ小docをデバウンス同期（大きな設定docは書かない）
+  }
+}
+
 function _restoreLastViewOnce() {
   if (_lastViewRestoreDone) return;
+  if (window._startupCfg.list === 'master') { _lastViewRestoreDone = true; return; } // 常にマスター
   let saved = '';
-  try { saved = localStorage.getItem(_LAST_VIEW_KEY) || ''; } catch(e) {}
-  if (!saved) { _lastViewRestoreDone = true; return; }  // 前回は master → 何もしない
+  if (window._startupCfg.scope === 'shared') saved = window._cvLastViewShared || '';
+  else { try { saved = localStorage.getItem(_LAST_VIEW_KEY) || ''; } catch(e) {} }
+  if (!saved) { _lastViewRestoreDone = true; return; }  // 記憶なし → master のまま
   if (!_views.length) return;                           // ビュー未ロード → 次の呼び出しを待つ
   _lastViewRestoreDone = true;
   if (_curId) return;                                   // すでにビューへ遷移済み
