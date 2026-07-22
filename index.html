@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.590</title>
+<title>WAZA KIMURA v52.591</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1894,6 +1894,26 @@
           <option value="notes">Notes</option>
           <option value="search">Search</option>
           <option value="settings">Settings</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text3)">起動時のリスト</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">リロード・起動時に表示するリスト</div>
+        </div>
+        <select id="setting-startup-list" onchange="window._saveStartupListCfg?.()" style="font-size:11px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="last">前回開いたリスト</option>
+          <option value="master">マスター</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text3)">「前回開いたリスト」の記憶範囲</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">直近に開いたリストを端末ごとに覚えるか、全端末で共有するか</div>
+        </div>
+        <select id="setting-startup-scope" onchange="window._saveStartupListCfg?.()" style="font-size:11px;padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer">
+          <option value="device">この端末のみ</option>
+          <option value="shared">すべての端末で共有</option>
         </select>
       </div>
       <div id="owner-only-settings" style="display:none">
@@ -3910,6 +3930,7 @@ function loadSettings() {
     if (autoplay && settings.autoplay !== undefined) autoplay.checked = settings.autoplay;
     const startupTabEl = document.getElementById('setting-startup-tab');
     if (startupTabEl && settings.startupTab) startupTabEl.value = settings.startupTab;
+    window._cvSyncStartupUI?.(); // 起動リスト/範囲のセレクトを現在設定に同期
   } catch(e) {}
 }
 loadSettings();
