@@ -179,6 +179,37 @@ function _save() {
   window.saveUserSettings?.();
 }
 
+// ── 直前に開いていたリストの記憶（端末ローカル・無期限）──
+// 現在選択中のカスタムビューID(master のときは空文字)を localStorage に保存し、
+// リロード時に同じリストへ復帰させる。ビューデータ本体ではなく「どれを開いていたか」だけの
+// 軽量な端末ローカル状態（wk_masterViewType と同種）。Firestore には保存しない。
+const _LAST_VIEW_KEY = 'wk_cv_lastView';
+let _lastViewRestoreDone = false;
+function _saveLastView() {
+  try { localStorage.setItem(_LAST_VIEW_KEY, _curId || ''); } catch(e) {}
+}
+function _restoreLastViewOnce() {
+  if (_lastViewRestoreDone) return;
+  let saved = '';
+  try { saved = localStorage.getItem(_LAST_VIEW_KEY) || ''; } catch(e) {}
+  if (!saved) { _lastViewRestoreDone = true; return; }  // 前回は master → 何もしない
+  if (!_views.length) return;                           // ビュー未ロード → 次の呼び出しを待つ
+  _lastViewRestoreDone = true;
+  if (_curId) return;                                   // すでにビューへ遷移済み
+  const view = _views.find(v => v.id === saved);
+  if (!view) return;                                    // 削除済み → master のまま
+  // 起動タブが Library(home) のときだけ復帰。notes/settings 等を起動タブにしている場合は邪魔しない。
+  if (!document.getElementById('homeTab')?.classList.contains('active')) return;
+  try {
+    // 表示モードをビュー種別に合わせて先に確定＆ホスト表示を切替。
+    // これで _showView が「モード一致(=IF)分岐」を通り、保存済み検索ワードがクリアされず適用される。
+    const mode = (view.viewType || 'table') === 'card' ? 'card' : 'org';
+    window._libViewMode = mode;
+    window._libView?.(mode);
+    _showView(saved);
+  } catch(e) { console.error('restore last view:', e); }
+}
+
 // ── 標準列セル値 ──
 function _stdCell(v, col) {
   const dash = '<span style="color:var(--text3)">—</span>';
@@ -418,6 +449,7 @@ window._cvReturnToNote = function() {
 window._cvClearSelection = function() {
   _saveCurrentFilterSnapshot();
   _curId = null;
+  _saveLastView(); // master に戻ったことを記憶（次回リロードは master 表示）
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
   window._cvOnViewChange?.();
@@ -595,6 +627,7 @@ window._cvMoveTpl = function(id, dir) {
 function _showView(id) {
   _saveCurrentFilterSnapshot();
   _curId = id;
+  _saveLastView(); // リロード復帰用に「直前に開いていたリスト」を記憶
   _restoreFilterSnapshot(id);
   // 検索・フィルターは _restoreFilterSnapshot がリストごとに復元/クリア済み。
   // 条件編集の残存バックアップだけは念のため除去する。
@@ -2800,6 +2833,9 @@ window._cvRefreshViewBar = _renderViewBar;  // 言語切替時の再描画用
 
 // Firestore sync 用: saveUserSettings から参照
 Object.defineProperty(window, '_cvViews', { get: () => _views, set: v => { _views = v; }, configurable: true });
+// 現在選択中のカスタムビューID（master のとき null）。_syncURL 等が「CV 表示中か」を
+// _cvVideoIds 確定前でも判定できるように公開する。
+Object.defineProperty(window, '_cvActiveViewId', { get: () => _curId, configurable: true });
 window._cvApplyLoadedViews = function(views) {
   if (!Array.isArray(views)) return;
   _views = views;
@@ -2814,6 +2850,8 @@ window._cvApplyLoadedViews = function(views) {
       window._cvAfterRender();
     }
   }
+  // 初回ロード時、直前に開いていたカスタムビューへ復帰（動画・ビュー読込後の初回のみ）
+  _restoreLastViewOnce();
 };
 
 // ── （撤去）ログアウト時のカスタムビュー消去は、Firestoreを空で上書きしてデータ消失を

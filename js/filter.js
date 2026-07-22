@@ -17,7 +17,7 @@ export function _syncURL() {
   // (view.searchQuery / セッションスナップショット)で保持・復元されるため、ここで URL に
   // 書くと、リロードで master に戻った際に _restoreFromURL がワードを master へ復元してしまい
   // 「master に戻ったのに検索欄にワードが残る」不自然さの原因になる。CV 中は URL を空にする。
-  if (window._cvVideoIds || window._cvCardVideoIds) {
+  if (window._cvActiveViewId || window._cvVideoIds || window._cvCardVideoIds) {
     history.replaceState(null, '', location.pathname);
     return;
   }
