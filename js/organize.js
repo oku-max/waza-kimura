@@ -372,9 +372,16 @@ export function _matchQueryField(v, text, exact, fields) {
       if (def) aliasKeys.push(...[def.id, def.name, ...(def.aliases || [])]);
     }
   }
+  // マッチ厳格度:
+  //  日本語(CJK)は「部分一致」だと "スマッシュ" が別タグ "スマッシュパス"/"スマッシュパスカウンター" を
+  //  巻き込んで大量誤爆する。CJK は正規化して「完全一致」に限定する（"デラヒーバ"↔"デラヒーバガード" は
+  //  _norm が末尾 がーど を除去するため引き続き一致する）。
+  //  英語は "De La Riva" を単語分割して "de"/"la"/"riva" と入れる使い方があるため、従来どおり部分一致を許容。
+  const asciiTerm = /^[\x20-\x7E]+$/.test(text);
   return aliasKeys.some(k => {
     const nk = norm(k);
-    return nk && nk.includes(nText);
+    if (!nk) return false;
+    return asciiTerm ? nk.includes(nText) : (nk === nText);
   });
 }
 
