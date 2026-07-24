@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.593</title>
+<title>WAZA KIMURA v52.594</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1411,18 +1411,7 @@
         </div>
       </div>
 
-      <!-- 💾 保存した検索条件 -->
-      <div class="fs-acc-sec" id="org-fs-acc-saved">
-        <div class="fs-acc-hdr" onclick="toggleOrgAcc('saved')">
-          <span>💾 保存した検索条件</span><span class="fs-acc-arrow" id="org-fs-acc-arr-saved">▶</span>
-        </div>
-        <div class="fs-acc-body" id="org-fs-acc-body-saved" style="display:none;padding:6px 12px 10px">
-          <div id="org-fs-saved-list" style="display:flex;flex-direction:column;gap:3px">
-            <div style="font-size:10px;color:var(--text3)" data-i18n="sb.savedNone">保存した検索条件はありません</div>
-          </div>
-          <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px" data-i18n="sb.saveCurrent">＋ 現在の検索条件を保存</button>
-        </div>
-      </div>
+      <!-- 「保存した検索条件」はカスタムビューに統合したため撤去（v52.594） -->
 
       <!-- 🕐 最近みた動画 -->
       <div class="fs-acc-sec" id="org-fs-acc-recent">
@@ -1527,17 +1516,7 @@
         <div class="fs-acc-sec" id="fs-acc-tags" style="display:none">
           <div class="fs-acc-hdr" onclick="openSbPopup('tags', this)"><span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tags">▶</span></div>
         </div>
-        <div class="fs-acc-sec" id="fs-acc-saved" style="border-top:1px solid var(--border2);border-bottom:none">
-          <div class="fs-acc-hdr" onclick="toggleAcc('saved')" style="padding-left:26px">
-            <span data-i18n="sb.saved">保存した検索条件</span><span class="fs-acc-arrow" id="fs-acc-arr-saved">▶</span>
-          </div>
-          <div class="fs-acc-body" id="fs-acc-body-saved" style="display:none;padding:6px 12px 10px">
-            <div id="fs-saved-list" style="display:flex;flex-direction:column;gap:4px">
-              <div style="font-size:10px;color:var(--text3)" data-i18n="sb.savedNone">保存した検索条件はありません</div>
-            </div>
-            <button class="tab-bar-btn" onclick="saveCurrentSearch()" style="width:100%;margin-top:8px;font-size:11px" data-i18n="sb.saveCurrent">＋ 現在の検索条件を保存</button>
-          </div>
-        </div>
+        <!-- 「保存した検索条件」はカスタムビューに統合したため撤去（v52.594） -->
         <div class="fs-acc-sec" id="fs-acc-recent">
           <div class="fs-acc-hdr" onclick="toggleAcc('recent')" style="padding-left:26px">
             <span data-i18n="sb.recent">最近みた動画</span><span class="fs-acc-arrow" id="fs-acc-arr-recent">▶</span>
@@ -3955,7 +3934,6 @@ async function _wazaCollectLightData() {
     videos: (window.videos || []).filter(v => !v._srTemp),
     tagSettings: window.tagSettings || [],
     aiSettings: window.aiSettings || {},
-    savedSearches: window.savedSearches || [],
     filterPresets: window.filterPresets || [],
     orgColOrder: window.orgColOrder || [],
     orgColVisibility: window.orgColVisibility || {},
@@ -4033,7 +4011,7 @@ window.wazaImport = async function(input) {
 
     // 設定を復元
     if (data.tagSettings) { window.tagSettings = data.tagSettings; window.saveTagSettings?.(); }
-    if (data.savedSearches) { window.savedSearches = data.savedSearches; }
+    // savedSearches(保存した検索条件)は廃止したため復元しない
     if (data.filterPresets) { window.filterPresets = data.filterPresets; }
     if (data.orgColOrder) { window.orgColOrder = data.orgColOrder; }
     if (data.orgColVisibility) { window.orgColVisibility = data.orgColVisibility; }

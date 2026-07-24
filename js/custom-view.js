@@ -2436,6 +2436,40 @@ window._cvSaveDynamic = function() {
   }
 };
 
+// 「現在の絞り込み」をそのままカスタムビュー(動的条件)として保存する。
+// 旧「保存した検索条件」の代替（統合パネルのフッター等から呼ばれる）。
+// ウィザードに依存せず、名前を尋ねて動的ビューを直接作成する。
+window._cvCreateFromCurrentFilter = function() {
+  const fc = _getCurrentFilterConditions();
+  const q = (document.getElementById('si-lib-pc')?.value
+    || document.getElementById('si-org')?.value
+    || document.getElementById('si')?.value || '').trim();
+  if (!Object.keys(fc).length && !q) {
+    window.toast?.('絞り込み条件が設定されていません');
+    return;
+  }
+  window.uniClose?.();                 // 統合パネルを閉じる
+  const name = (prompt('カスタムビューの名前を入力してください:') || '').trim();
+  if (!name) return;
+  const view = {
+    id: 'cv_' + Date.now(),
+    label: name,
+    viewType: (window._libViewMode === 'card') ? 'card' : 'table',
+    saveMode: 'dynamic',       // 条件で自動選択（=旧「保存した検索条件」相当）
+    videoIds: null,
+    filterConditions: fc,
+    columns: [],
+    rowData: {}
+  };
+  if (q) view.searchQuery = q; // ワード検索も引き継ぐ
+  _views.push(view);
+  _save();
+  _renderViewBar();
+  window._libViewMode = view.viewType;
+  window._cvPickerSelect(view.id);     // 作成したビューを開く
+  window.toast?.('✅ カスタムビュー「' + name + '」を作成しました');
+};
+
 function _getCurrentFilterConditions() {
   const f = window.filters || {};
   const fc = {};
@@ -2536,6 +2570,9 @@ window.cvConfirm = function() {
     columns: cols,
     rowData: {}
   };
+  // 「現在の絞り込みからカスタムビュー化」でワード検索も持ち込んだ場合は引き継ぐ
+  if (window._cvPendingSearchQuery) view.searchQuery = window._cvPendingSearchQuery;
+  window._cvPendingSearchQuery = '';
 
   // ユーザーテンプレートなら列設定も復元
   if (userTpl) {
