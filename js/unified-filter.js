@@ -274,22 +274,11 @@
     <span class="uni-sp"></span>
     <button class="uni-clr" onclick="uniClearAll()">リセット</button>
     <span class="uni-hit" id="uni-hit">0 件</span>
-    <button class="uni-save-modal-btn" onclick="uniOpenSaveModal()">検索条件を保存</button>
+    <button class="uni-save-modal-btn" onclick="window._cvCreateFromCurrentFilter?.()">カスタムビューとして保存</button>
     <button id="uni-cv-ftr-btn" class="uni-save-modal-btn" style="display:none"></button>
   </div>
 </div>
-<input type="hidden" id="uni-save-name">
-<div id="uni-save-modal-bd" onclick="if(event.target===this)uniCloseSaveModal()">
-  <div id="uni-save-modal">
-    <div class="usm-title">検索条件を保存</div>
-    <div class="usm-desc" id="usm-desc">現在の絞り込み条件をリストとして保存します</div>
-    <input type="text" id="usm-input" placeholder="リスト名を入力…" oninput="document.getElementById('usm-ok').disabled=!this.value.trim()">
-    <div class="usm-actions">
-      <button class="usm-cancel" onclick="uniCloseSaveModal()">キャンセル</button>
-      <button class="usm-ok" id="usm-ok" disabled onclick="uniConfirmSaveModal()">保存</button>
-    </div>
-  </div>
-</div>`);
+<input type="hidden" id="uni-save-name">`);
   }
 
   // ── 列HTMLビルダー ──
@@ -630,33 +619,9 @@
         </div>`;
       };
 
-      // ══ 2列目: 保存した検索条件 ══
-      const mkCol2 = () => {
-        const ss = window.savedSearches || [];
-        const rows = ss.length ? ss.map((s, i) => {
-          const cnt = _countSavedSearch(s);
-          return `<div class="uni-ss-item" onclick="uniApplySaved(${i})">
-            <span class="uni-ss-name">${_esc(s.name)}</span>
-            <span class="uni-ss-cnt">${cnt}件</span>
-            <button class="uni-ss-dots" onclick="uniSSMenu(${i},this,event)">···</button>
-            <div class="uni-ss-pop" id="uni-ss-pop-${i}">
-              <div class="uni-ss-reorder"><button onclick="uniSSMove(${i},-1,event)">↑ 上へ</button><button onclick="uniSSMove(${i},1,event)">↓ 下へ</button></div>
-              <div class="uni-ss-div"></div>
-              <div class="uni-ss-act" onclick="uniSSRename(${i},event)"><span class="uni-ss-icon">✏</span>名前を変更</div>
-              <div class="uni-ss-act" onclick="uniSSEdit(${i},event)"><span class="uni-ss-icon">⚙</span>条件を編集</div>
-              <div class="uni-ss-div"></div>
-              <div class="uni-ss-act uni-ss-del" onclick="uniSSDel(${i},event)"><span class="uni-ss-icon">🗑</span>削除</div>
-            </div>
-          </div>`;
-        }).join('') : '';
-        const empty = !ss.length ? '<div style="padding:20px 12px;text-align:center;color:var(--text3);font-size:11px">検索条件を設定後「💾 保存」で追加</div>' : '';
-        return `<div class="uni-col">
-          <div class="uni-col-hdr"><span>保存した検索条件</span><span class="uni-ss-add" onclick="uniSSSave()">＋ 新規保存</span></div>
-          <div class="uni-col-body">${rows}${empty}</div>
-        </div>`;
-      };
+      // ══ 「保存した検索条件」列はカスタムビューに統合したため撤去（v52.594） ══
 
-      // ══ 3列目: 最近みた動画 TOP 15 ══
+      // ══ 最近みた動画 TOP 15 ══
       const mkCol3 = () => {
         const recents = JSON.parse(localStorage.getItem('wk_recent_views') || '[]').slice(0, 15);
         const rows = recents.length ? recents.map((v, i) => {
@@ -678,7 +643,7 @@
         </div>`;
       };
 
-      content.innerHTML = `<div class="uni-cols">${mkCol1()}${mkCol2()}${mkCol3()}</div>`;
+      content.innerHTML = `<div class="uni-cols">${mkCol1()}${mkCol3()}</div>`;
       _restoreColScrolls();
       window.loadGdriveCardThumbs?.();
     }

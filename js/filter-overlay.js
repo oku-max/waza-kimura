@@ -601,71 +601,24 @@ document.addEventListener('mousedown', function(e) {
   }
 }, true);
 
-// ── 保存した検索条件 ──
-let savedSearches = JSON.parse(localStorage.getItem('wk-saved-searches') || '[]');
-window.savedSearches = savedSearches; // Firebase同期用に公開
+// ── 保存した検索条件（廃止・カスタムビューに統合 v52.594）──
+// 機能を撤去。端末ローカルの旧データも削除し、以降は空配列で固定・永続化しない。
+let savedSearches = [];
+try { localStorage.removeItem('wk-saved-searches'); } catch(e) {}
+window.savedSearches = savedSearches; // 後方互換のため公開（常に空）
 
-function _persistSavedSearches() {
-  localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
-  window.savedSearches = savedSearches;
-  window.saveUserSettings?.();   // Firebaseにも保存
-}
+function _persistSavedSearches() { /* 廃止: 保存しない */ }
 
-// Firebase復元時に呼ばれる（firebase.js の loadUserSettings から）
-export function loadSavedSearchesFromRemote(arr) {
-  if (!Array.isArray(arr) || !arr.length) return;
-  savedSearches = arr;
-  window.savedSearches = savedSearches;
-  localStorage.setItem('wk-saved-searches', JSON.stringify(savedSearches));
-  renderSavedSearches();
-}
+// 廃止: リモート復元しない（firebase.js からの呼び出しも撤去済み）
+export function loadSavedSearchesFromRemote(_arr) { /* no-op */ }
 
+// 廃止: 「現在の絞り込みを保存」はカスタムビュー作成（動的条件）に一本化。
+// 旧UIから呼ばれても、そのままカスタムビュー作成フローへ委譲する。
 export function saveCurrentSearch() {
-  const f = window.filters || {};
-  const state = {
-    favOnly: window.favOnly, unwOnly: window.unwOnly, watchedOnly: window.watchedOnly,
-    filters: Object.fromEntries(Object.entries(f).map(([k,v]) => [k, [...v]])),
-    query: (document.getElementById('si')||{}).value || (document.getElementById('si-lib-pc')||{}).value || '',
-  };
-  const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
-    Object.values(state.filters).some(a => a.length > 0) || state.query;
-  if (!hasFilter) { window.toast?.('フィルターが設定されていません'); return; }
-  const name = prompt('検索条件の名前を入力してください:');
-  if (!name) return;
-  savedSearches.unshift({ name, state, createdAt: Date.now() });
-  if (savedSearches.length > 20) savedSearches = savedSearches.slice(0, 20);
-  _persistSavedSearches();
-  renderSavedSearches();
-  window.toast?.('💾 「' + name + '」を保存しました');
+  if (window._cvCreateFromCurrentFilter) return window._cvCreateFromCurrentFilter();
 }
-
-// オーバーレイの入力フィールドから直接保存（Library/Organize 共通）
-export function saveCurrentSearchFromInput(inputId, isOrg = false) {
-  const input = document.getElementById(inputId);
-  const name = input?.value?.trim();
-  if (!name) { window.toast?.('名前を入力してください'); return; }
-  const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
-  const state = {
-    favOnly:     isOrg ? (window.orgFavOnly     || false) : (window.favOnly     || false),
-    unwOnly:     isOrg ? (window.orgUnwOnly     || false) : (window.unwOnly     || false),
-    watchedOnly: isOrg ? (window.orgWatchedOnly || false) : (window.watchedOnly || false),
-    filters: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v]])),
-    query: isOrg
-      ? (document.getElementById('si-org')?.value    || document.getElementById('si-org-pc')?.value || '')
-      : (document.getElementById('si')?.value        || document.getElementById('si-lib-pc')?.value
-         || document.getElementById('uni-q')?.value  || ''),
-  };
-  const hasFilter = state.favOnly || state.unwOnly || state.watchedOnly ||
-    Object.values(state.filters).some(a => a.length > 0) || state.query;
-  if (!hasFilter) { window.toast?.('フィルターが設定されていません'); return; }
-  const existing = savedSearches.findIndex(s => s.name === name);
-  if (existing >= 0) savedSearches[existing] = { name, state, createdAt: Date.now() };
-  else savedSearches.unshift({ name, state, createdAt: Date.now() });
-  if (savedSearches.length > 20) savedSearches = savedSearches.slice(0, 20);
-  _persistSavedSearches();
-  renderSavedSearches();
-  if (input) input.value = '';
-  window.toast?.('💾 「' + name + '」を保存しました');
+export function saveCurrentSearchFromInput(_inputId, _isOrg = false) {
+  if (window._cvCreateFromCurrentFilter) return window._cvCreateFromCurrentFilter();
 }
 
 export function applySavedSearch(idx) {

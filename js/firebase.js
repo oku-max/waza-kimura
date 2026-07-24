@@ -485,7 +485,8 @@ export async function saveUserSettings() {
   const payload = {
     tagSettings:       window.tagSettings       || [],
     aiSettings:        window.aiSettings        || {},
-    savedSearches:     window.savedSearches     || [],
+    // savedSearches(保存した検索条件)はカスタムビューに統合し廃止。payload から除外することで
+    // 次回の settings 保存(.set)時に Firestore 側のフィールドごと削除される（v52.594）。
     filterPresets:     window.filterPresets     || [],
     orgColOrder:       window.orgColOrder       || [],
     orgColVisibility:  window.orgColVisibility  || {},
@@ -552,10 +553,7 @@ export async function loadUserSettings(uid) {
     if (snap.exists) {
       const data = snap.data();
       window.applyRemoteSettings?.(data);
-      // 保存した検索条件を復元
-      if (Array.isArray(data.savedSearches) && data.savedSearches.length) {
-        window.loadSavedSearchesFromRemote?.(data.savedSearches);
-      }
+      // 「保存した検索条件」は廃止（カスタムビューに統合）。復元しない。
       if (Array.isArray(data.filterPresets) && data.filterPresets.length) {
         window.loadFilterPresetsFromRemote?.(data.filterPresets);
       }
