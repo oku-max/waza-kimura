@@ -29,17 +29,19 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 // ════════════════════════════════════════════════════
 // aliases はすべて Alias Builder でユーザーが承認したものだけを記載する
 // Claude が直接書くことは禁止。Alias Builder → /api/alias/add 経由のみ
+// terms : 検索用の英語表記（コード定数。Firestore の別名同期は aliases のみ上書きするため消えない）
+//         英語タイトルの動画を日本語で検索したときに拾うために使う。
 const CATEGORIES = [
-  { id: 'escape',    name: 'エスケープ・ディフェンス',     tb: '中立',           desc: '不利ポジションからの脱出と防御',             aliases: [] },
-  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [] },
-  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [] },
-  { id: 'control',   name: 'コントロール／プレッシャー',   tb: '中立',           desc: 'トップポジションの維持・押さえ',             aliases: [] },
-  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [] },
-  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [] },
-  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [] },
-  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [] },
-  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [] },
-  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [] },
+  { id: 'escape',    name: 'エスケープ・ディフェンス',     tb: '中立',           desc: '不利ポジションからの脱出と防御',             aliases: [], terms: ['escape','escapes','defense','defence'] },
+  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [], terms: ['guard entry','entry','entries'] },
+  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [], terms: ['guard retention','retention','guard recovery'] },
+  { id: 'control',   name: 'コントロール／プレッシャー',   tb: '中立',           desc: 'トップポジションの維持・押さえ',             aliases: [], terms: ['control','pressure'] },
+  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [], terms: ['concept','concepts','principle','principles','theory'] },
+  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [], terms: ['sweep','sweeps','reversal'] },
+  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [], terms: ['takedown','takedowns','throw','throws'] },
+  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [], terms: ['back take','back attack','back control','taking the back'] },
+  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [], terms: ['guard pass','passing','pass','passes'] },
+  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [], terms: ['submission','submissions','finish','finishing'] },
 ];
 
 // ─── Layer 3: Position (27 fixed) ────────────────────
@@ -142,7 +144,7 @@ const POSITION_INDEX = _buildPositionIndex();
 function _buildCategoryIndex() {
   const idx = new Map();
   for (const c of CATEGORIES) {
-    const keys = [c.id, c.name, ...(c.aliases || [])];
+    const keys = [c.id, c.name, ...(c.aliases || []), ...(c.terms || [])];
     for (const k of keys) {
       const n = _norm(k);
       if (n && !idx.has(n)) idx.set(n, c);
@@ -152,9 +154,39 @@ function _buildCategoryIndex() {
 }
 let CATEGORY_INDEX = _buildCategoryIndex();
 
+// 技名(日英)の索引。TECHNIQUE_BUILTIN は { ja, terms:[英語/別表記] } を持つ
+function _buildTechniqueIndex() {
+  const idx = new Map();
+  for (const t of (typeof TECHNIQUE_BUILTIN !== 'undefined' ? TECHNIQUE_BUILTIN : [])) {
+    for (const k of [t.ja, ...(t.terms || [])]) {
+      const n = _norm(k);
+      if (n && n.length >= 2 && !idx.has(n)) idx.set(n, t);
+    }
+  }
+  return idx;
+}
+
 // 任意の語からポジション/カテゴリーを引く (検索ヒット判定用)
 function findPosition(q) { return POSITION_INDEX.get(_norm(q)) || null; }
 function findCategory(q) { return CATEGORY_INDEX.get(_norm(q)) || null; }
+
+// ── 検索語 → 同義語(日英)一覧 ────────────────────────
+// 「デラヒーバ」→ ['デラヒーバ','De La Riva','DLR',...] / 「knee slice」→ ['ニーカット','knee cut',...]
+// 用途: 動画タイトルは英語、検索語は日本語（またはその逆）という普通の状況で、
+//       タイトル本文まで届かせる。索引は正規化後の「完全一致」引きなので誤爆しにくい。
+let _TECHNIQUE_INDEX = null;
+function aliasNamesFor(q) {
+  const n = _norm(q);
+  if (!n) return [];
+  const p = POSITION_INDEX.get(n);
+  if (p) return [p.ja, p.en, ...(p.aliases || [])].filter(Boolean);
+  const c = CATEGORY_INDEX.get(n);
+  if (c) return [c.name, ...(c.aliases || []), ...(c.terms || [])].filter(Boolean);
+  if (!_TECHNIQUE_INDEX) _TECHNIQUE_INDEX = _buildTechniqueIndex();
+  const t = _TECHNIQUE_INDEX.get(n);
+  if (t) return [t.ja, ...(t.terms || [])].filter(Boolean);
+  return [];
+}
 
 // 任意の語が任意のポジション/カテゴリーにマッチするか
 function matchPosition(q, p) {
@@ -635,6 +667,7 @@ window._rawLowerTag       = _rawLower;
 window._termHitTag        = _termHit;
 window.findPosition       = findPosition;
 window.findCategory       = findCategory;
+window.aliasNamesFor      = aliasNamesFor;
 window.matchPosition      = matchPosition;
 window.matchCategory      = matchCategory;
 window.migrateVideo       = migrateVideo;

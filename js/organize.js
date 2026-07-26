@@ -384,6 +384,29 @@ export function _matchQueryField(v, text, exact, fields) {
       || (fPl && hit(pl)) || (fTech && tagWords.some(hit))
       || (fMemo && hit(memo))) return true;
 
+  // ── 検索語の日英展開 → タイトル等の本文を探す ──
+  // 動画タイトルは英語(英語チャンネルからの取り込み)、検索語は日本語という組み合わせが普通に起きる。
+  // 検索語が既知のポジション/カテゴリー/技名なら、その全表記でタイトル・チャンネル・メモも探す。
+  // 例:「デラヒーバ」→ "De La Riva Guard Sweep" /「ニースライス」→ "Knee Slice" (逆方向も同じ)
+  const names = window.aliasNamesFor ? window.aliasNamesFor(text) : null;
+  if (names && names.length) {
+    const parts = [];
+    if (fTitle) parts.push(title);
+    if (fCh)    parts.push(ch);
+    if (fPl)    parts.push(pl);
+    if (fTech)  parts.push(...tagWords);
+    if (fMemo)  parts.push(memo);
+    const blob = parts.join(' / ');
+    for (const nm of names) {
+      const s = String(nm).toLowerCase();
+      if (!s) continue;
+      // 英語は単語境界（"pass" が "compass" に当たらない）、日本語は素直に部分一致
+      if (/^[\x20-\x7E]+$/.test(s)) {
+        if (window._termHitTag && window._termHitTag(s, blob, '')) return true;
+      } else if (blob.includes(s)) return true;
+    }
+  }
+
   // ── 日英ブリッジ (デラヒーバ ↔ De La Riva ↔ DLR / Closed Guard ↔ クローズドガード 等) ──
   // データは常に日本語で保存されるため、英語UIのユーザーが英語や別名で検索したとき、
   // この動画が持つポジション/カテゴリーの全表記(日本語名・英語名・別名)へ橋渡しする。
