@@ -331,9 +331,14 @@ export function _parseQuery(raw) {
       result.includes.push({ text: t, exact: false });
     }
   });
-  // 「k guard」「de la riva」のような複数語は、まずフレーズ(そのままの並び)としても照合する。
-  // 単語バラバラのAND だけだと "k" が "keenan"/"kimura" に当たって誤爆するため。
-  if (plain.length >= 2) result.phrase = plain.join(' ');
+  // 「k guard」「de la riva」のような複数語は、まずフレーズ(そのままの並び)として照合する。
+  if (plain.length >= 2) {
+    result.phrase = plain.join(' ');
+    // フレーズ全体が既知の技/ポジション/カテゴリー名なら、単語バラバラのAND検索はしない。
+    // 「k guard」は "k"×"guard" に分解すると guard がほぼ全動画に当たって関係ない動画を大量に
+    // 巻き込むため、スペース無しの「kguard」と同じ結果になるようフレーズだけで判定する。
+    result.phraseOnly = !!(window.aliasNamesFor && window.aliasNamesFor(result.phrase).length);
+  }
   return result;
 }
 
@@ -351,6 +356,8 @@ export function _matchQuery(v, parsed, fields) {
   }
   // フレーズがそのまま当たれば採用（「k guard」→ Kガード）
   if (parsed.phrase && _matchQueryField(v, parsed.phrase, false, fields)) return true;
+  // 既知の技名フレーズは単語ANDに落とさない（「k guard」＝「kguard」）
+  if (parsed.phraseOnly) return false;
   for (const inc of parsed.includes) {
     if (!inc.exact && !_matchQueryField(v, inc.text, false, fields)) return false;
   }
