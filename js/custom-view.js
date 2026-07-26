@@ -1060,21 +1060,11 @@ function _cvUpdateSearch(view) {
   const videos = _getViewVideos(view);
   let filtered;
   const parse = window._parseQuery;
-  const match = window._matchQueryField;
+  const match = window._matchQuery;
   if (rawQ.trim() && parse && match) {
-    // organize.js と同じクエリ構文 (-除外 / "完全一致" / field:値) を適用
+    // organize.js と同じクエリ構文 (-除外 / "完全一致" / field:値 / フレーズ) を適用
     const parsed = parse(rawQ);
-    const matchField = window._matchFieldSpecific;
-    filtered = videos.filter(v => {
-      for (const inc of parsed.includes) { if (!match(v, inc.text, inc.exact, null)) return false; }
-      for (const exc of parsed.excludes) { if (match(v, exc, false, null)) return false; }
-      if (matchField) {
-        for (const [field, vals] of Object.entries(parsed.fields)) {
-          if (!matchField(v, field, vals)) return false;
-        }
-      }
-      return true;
-    });
+    filtered = videos.filter(v => match(v, parsed, null));
   } else {
     const ql = rawQ.trim().toLowerCase();
     filtered = ql ? videos.filter(v => (v.title || '').toLowerCase().includes(ql)) : videos;
