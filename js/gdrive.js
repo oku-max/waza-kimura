@@ -412,8 +412,15 @@ async function scanFolder(folderId, folderName, depth) {
 }
 
 // ── ユーティリティ ──
+// 既知の動画/メディア拡張子のみ除去する。以前は /\.[^.]+$/ で「最後のドット以降」を
+// 一律に切っていたため、"03.バタフライガードに対するスマッシュパス" のように
+// 番号のあとにドット区切りの日本語タイトルが続き拡張子が無いファイルで、タイトル本体を
+// 拡張子と誤認して丸ごと削除し「03」だけになる不具合があった。拡張子の白名簿方式に変更。
+const _VIDEO_EXT_RE = /\.(mp4|m4v|mov|avi|mkv|webm|wmv|flv|mpe?g|3gp|3g2|ts|m2ts|mts|ogv|qt|vob)$/i;
+function _stripVideoExt(name) { return String(name == null ? '' : name).replace(_VIDEO_EXT_RE, ''); }
+
 function cleanTitle(filename, stripSuffix) {
-  let t = filename.replace(/\.[^.]+$/, '');   // 拡張子のみ除去（先頭番号は保持）
+  let t = _stripVideoExt(filename);   // 既知の動画拡張子のみ除去（先頭番号・ドット区切りタイトルは保持）
   if (stripSuffix?.trim()) {
     const idx = t.indexOf(stripSuffix.trim());
     if (idx > 0) t = t.slice(0, idx).trim();
@@ -426,7 +433,7 @@ function isQRFile(filename) {
 }
 
 function detectCommonSuffix(names) {
-  const titles = names.map(n => n.replace(/\.[^.]+$/, '').replace(/^\d+\.\s*/, ''));
+  const titles = names.map(n => _stripVideoExt(n).replace(/^\d+\.\s*/, ''));
   if (titles.length < 3) return '';
   const ref = titles[0];
   for (let len = Math.min(ref.length, 100); len >= 8; len--) {
