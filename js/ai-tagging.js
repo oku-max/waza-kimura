@@ -207,6 +207,31 @@ function applyAiTags(videoId, panel) {
   panel.remove();
 }
 
+// ── ルールベース判定を suggestions にマージ ──
+// タイトルだけでなくプレイリスト名・チャンネル名も渡す。autoTagFromTitle は
+// (title, pl, channel) を受け取り、タイトルで TB が取れないときに順にフォールバックする
+// 設計だが、従来ここが 1 引数呼び出しだったため一番効く文脈を捨てていた。
+// 例: 「07.足を絡まれた時の対処」単体では何も付かないが、プレイリスト
+// 「柿澤剛之 スマッシュパス」を渡すと TB:トップ が取れる。
+function _mergeRuleTags(suggestions, video) {
+  const pl = video.pl || '';
+  const ch = video.channel || video.ch || '';
+  const chapterText = (video.ytChapters || []).map(c => c.label).join(' ');
+  const runs = [
+    [video.title || '', pl, ch],   // タイトル＋文脈（TBは文脈フォールバックあり）
+    [chapterText, '', ''],         // チャプターは本文のみ（文脈の二重適用を避ける）
+  ];
+  for (const [text, p, c] of runs) {
+    if (!text) continue;
+    const rule = window.autoTagFromTitle(text, p, c);
+    for (const field of ['tb', 'cat', 'pos']) {
+      for (const val of (rule[field] || [])) {
+        if (!suggestions[field].includes(val)) suggestions[field].push(val);
+      }
+    }
+  }
+}
+
 // ── VPanel の AI ボタンクリック処理 ──
 export async function onAiTagBtn(videoId) {
   const btn = document.getElementById('vp-ai-tag-btn');
@@ -218,17 +243,7 @@ export async function onAiTagBtn(videoId) {
     const _isAdmin = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
     const suggestions = _isAdmin ? { tb: [], cat: [], pos: [], tags: [] } : await fetchAiTags(video);
     // ルールベースで補完 — AIが見落としたキーワードをタイトル・チャプターから拾う
-    if (window.autoTagFromTitle) {
-      const chapterText = (video.ytChapters || []).map(c => c.label).join(' ');
-      for (const text of [video.title, chapterText].filter(Boolean)) {
-        const rule = window.autoTagFromTitle(text);
-        for (const field of ['tb', 'cat', 'pos']) {
-          for (const val of (rule[field] || [])) {
-            if (!suggestions[field].includes(val)) suggestions[field].push(val);
-          }
-        }
-      }
-    }
+    if (window.autoTagFromTitle) _mergeRuleTags(suggestions, video);
     showAiTagPanel(videoId, suggestions);
   } catch (e) {
     window.toast?.('❌ AI タグ取得に失敗しました: ' + e.message);
@@ -323,17 +338,7 @@ export async function autoTagNewVideos(ids) {
       let suggestions;
       if (_isAdmin) {
         suggestions = { tb: [], cat: [], pos: [], tags: [] };
-        if (window.autoTagFromTitle) {
-          const chapterText = (video.ytChapters || []).map(c => c.label).join(' ');
-          for (const text of [video.title, chapterText].filter(Boolean)) {
-            const rule = window.autoTagFromTitle(text);
-            for (const field of ['tb', 'cat', 'pos']) {
-              for (const val of (rule[field] || [])) {
-                if (!suggestions[field].includes(val)) suggestions[field].push(val);
-              }
-            }
-          }
-        }
+        if (window.autoTagFromTitle) _mergeRuleTags(suggestions, video);
       } else {
         suggestions = await _fetchWithRetry(video);
       }

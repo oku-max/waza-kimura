@@ -97,8 +97,12 @@ function _norm(s) {
   v = v.toLowerCase();
   // 長音・区切りを除去
   v = v.replace(/[ー\-_/\s・,.、。]+/g, '');
-  // 末尾「がーど / guard」を除去
-  v = v.replace(/(がーど|がど|guard)$/i, '');
+  // 末尾「がーど / guard」を除去（"デラヒーバ"≡"デラヒーバガード" を同一視するため）。
+  // ただし除去後が1文字に潰れる語（'Kガード'→'k' / 'Xガード'→'x'）は、_termHit が
+  // 1文字キーを誤爆源として弾くため永久に一致しなくなる。その場合だけ除去しない。
+  // （'ガード'単体は除去後が空文字になり、従来どおり空のまま＝rawGuardCheck が担当）
+  const _core = v.replace(/(がーど|がど|guard)$/i, '');
+  v = (_core.length === 1) ? v : _core;
   return v;
 }
 
@@ -448,6 +452,13 @@ function _detectTbFromText(text) {
     if (hasPass) {
       return found.filter(t => t !== 'ボトム'); // パスガード → トップ確定
     }
+    // 上記いずれでもなく「ガード」が出てくる場合はガードを取っている側＝ボトム。
+    // 例: 「Kガード 浅いマトリックスからバックテイク」は、バックテイクがトップ語彙に
+    // 含まれるため従来 トップ+ボトム の矛盾になっていた。ガード文脈が明示され、かつ
+    // パス/エスケープ文脈でないならボトムに寄せる。
+    if (/ガード|guard/i.test(text)) {
+      return found.filter(t => t !== 'トップ');
+    }
   }
 
   return found;
@@ -580,6 +591,15 @@ function autoTagFromTitle(title, pl = '', channel = '') {
     result.cat = result.cat.map(catName => catInverse[catName] || catName);
     // 重複除去
     result.cat = [...new Set(result.cat)];
+  }
+
+  // ── 防御文脈のフォールバック ──
+  // 「〜の対処 / 掴まれた時 / 掛けられない」等は否定語として検出済みなのに、
+  // 対応するカテゴリ語彙が無いため今まで結果が完全に空になっていた。
+  // 他に手掛かりが無いときだけエスケープ・ディフェンスを補う（既に何か付いていれば触らない）。
+  if (hasNegation && !result.cat.length) {
+    const esc = CATEGORIES.find(c => c.id === 'escape');
+    if (esc) result.cat.push(esc.name);   // tb は '中立' なので TB を汚さない
   }
 
   // ── Category → TB 推論 ──
