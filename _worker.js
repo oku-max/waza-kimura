@@ -553,7 +553,8 @@ async function _geminiGenerate(env, parts, opts) {
   );
   const data = await gRes.json();
   if (!gRes.ok) return { error: 'Gemini API error', detail: data?.error?.message || JSON.stringify(data).slice(0, 300) };
-  const cand = data.candidates?.[0];
+  const usage = data.usageMetadata || null;
+  const cand  = data.candidates?.[0];
   const summary = (cand?.content?.parts || []).map(p => p.text).filter(Boolean).join('\n').trim();
   if (!summary) {
     const fr = cand?.finishReason || 'no text';
@@ -563,7 +564,26 @@ async function _geminiGenerate(env, parts, opts) {
                  : fr;
     return { error: `${(opts && opts.what) || '要約'}を取得できませんでした`, detail };
   }
-  return { summary };
+  return { summary, usage, costUsd: _estimateCostUsd(env, usage) };
+}
+
+// 実測トークン数から概算コスト(USD)を出す。
+// 単価はCloudflareの環境変数で上書きできる（Googleの価格改定にコード変更なしで追随するため）。
+// 既定値は 2026-07 時点の gemini-2.5-flash 有料枠: 入力$0.30 / 音声入力$1.00 / 出力$2.50 per 1Mトークン。
+function _estimateCostUsd(env, usage) {
+  if (!usage) return null;
+  const pIn    = parseFloat(env.GEMINI_PRICE_IN    || '0.30');
+  const pAudio = parseFloat(env.GEMINI_PRICE_AUDIO || '1.00');
+  const pOut   = parseFloat(env.GEMINI_PRICE_OUT   || '2.50');
+  let audio = 0;
+  for (const d of (usage.promptTokensDetails || [])) {
+    if (String(d.modality || '').toUpperCase() === 'AUDIO') audio += (d.tokenCount || 0);
+  }
+  const nonAudio = Math.max(0, (usage.promptTokenCount || 0) - audio);
+  // 思考トークンは出力と同じ単価で課金される
+  const out = (usage.candidatesTokenCount || 0) + (usage.thoughtsTokenCount || 0);
+  const usd = (nonAudio * pIn + audio * pAudio + out * pOut) / 1e6;
+  return Math.round(usd * 1e6) / 1e6;
 }
 
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
@@ -576,7 +596,7 @@ async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subL
       { text: prompt },
     ], _genOptsFor(mode));
     if (result.error) return jsonRes(result, 502);
-    return jsonRes({ summary: result.summary });
+    return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd });
   } catch (e) {
     return jsonRes({ error: e.message }, 500);
   }
@@ -689,7 +709,7 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
     _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
   }
   if (result.error) return jsonRes(result, 502);
-  return jsonRes({ summary: result.summary });
+  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd });
 }
 
 function _deleteGeminiFile(apiKey, name) {

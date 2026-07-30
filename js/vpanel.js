@@ -2383,6 +2383,9 @@ window.vpGenSubtitle = async function(id) {
     }
     const srt = _cleanSrt(d.summary);
     if (!_looksLikeSrt(srt)) throw new Error('SRT形式で返ってきませんでした。もう一度お試しください');
+    // 実測トークンと概算コスト（内訳はコンソール、金額はトーストに出す）
+    if (d.usage) console.log('[subtitle] tokens:', d.usage, '/ 概算 $', d.costUsd);
+    const costStr = typeof d.costUsd === 'number' ? ` · $${d.costUsd.toFixed(3)}` : '';
 
     // 3. Driveへ保存（既存があればその中身だけ差し替え）
     setBtn('⏳ 保存中…');
@@ -2390,7 +2393,7 @@ window.vpGenSubtitle = async function(id) {
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
-    window.toast?.(`✅ 字幕を作成しました（${target}）`);
+    window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
     if (_gdVideoEl && _gdFileId === fileId) {
       document.getElementById('vp-sub-btn')?.remove();
       _gdSubRevoke();
@@ -4082,7 +4085,10 @@ window.vpAiSummary = async function(id) {
           body:    JSON.stringify(reqBody),
         });
         const d = await res.json().catch(() => ({}));
-        if (res.ok && d.summary) { data = d; break; }
+        if (res.ok && d.summary) {
+          if (d.usage) console.log('[aiSummary] tokens:', d.usage, '/ 概算 $', d.costUsd);
+          data = d; break;
+        }
         lastErr = (d.error || ('HTTP ' + res.status)) + (d.detail ? ` (${d.detail})` : '');
         console.warn(`[aiSummary] 生成失敗 attempt ${attempt}/2:`, res.status, d);
       } catch (e) {
