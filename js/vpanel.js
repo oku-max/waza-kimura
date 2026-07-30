@@ -2893,11 +2893,26 @@ window.vpGenSubtitle = async function(id, preset) {
 //           おまけに検出時刻を字幕キューの頭にスナップできるので、発話の途中で切れない。
 //   video … 字幕が無い動画向け。字幕生成と同じ経路で動画本体をGeminiに読ませる（遅い・高い）。
 // 書き込みは必ず確認ダイアログを通す。既存のブックマークは消さず追加のみ（データ保護）。
-const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす
-const CHAP_MAX_COUNT = 40;    // 検出件数の上限
+const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（'ふつう'の値）
+const CHAP_MAX_COUNT = 40;    // 検出件数の上限（'ふつう'の値）
 const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
+
+// 検出の粒度。設定画面で選んだものを既定にし、確認ダイアログからその場でも変えられる。
+// minSec は「これより短い区切りは作らない」、maxCount は件数の上限。
+const CHAP_GRAINS = {
+  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, label: '細かめ' },
+  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, label: 'ふつう' },
+  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, label: '大きめ' },
+};
+const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
+
+function _chapGrainKey(k) {
+  const v = k || window.aiSettings?.chapterGrain;
+  return CHAP_GRAINS[v] ? v : 'normal';
+}
+function _chapGrain(k) { return CHAP_GRAINS[_chapGrainKey(k)]; }
 
 // チャプター用の時刻表記。_formatTime は 95:30 のように分が膨らむので、
 // 1時間を超える動画では H:MM:SS にしてAIが誤読しないようにする。
@@ -3175,13 +3190,19 @@ function _chapListToChapters(items) {
 
 // 位置合わせの結果を公式タイトルに割り当てる。
 // タイトルは必ず表のものを使う（AIが言い換えても表が正）。位置不明は落とす。
+// 表の順序は確定しているので、時刻が前の章より前に戻った項目も信用せず落とす。
+// （落とさずに後段のソートへ渡すと、公式と違う順番に並び替わったまま通ってしまう）
 function _chapMergeAligned(titles, aligned) {
   const rows = Array.isArray(aligned) ? aligned : [];
   const out = [];
+  let prev = -1;
   for (let i = 0; i < titles.length; i++) {
     const t = _chapSec(rows[i]?.start ?? rows[i]?.time);
     if (t == null) continue;
-    out.push({ time: Math.round(t), label: titles[i], note: '' });
+    const sec = Math.round(t);
+    if (sec <= prev) continue;         // 逆転・重複はAIの取り違えなので採らない
+    out.push({ time: sec, label: titles[i], note: '' });
+    prev = sec;
   }
   return { chaps: out, unknown: titles.length - out.length };
 }
@@ -3258,6 +3279,20 @@ function _chapReviewDialog(chaps, info) {
           <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${_escAttr(info?.note || '')}</div>
           ${info?.warn ? `<div style="font-size:10.5px;color:var(--accent);margin-top:2px">⚠ ${_escAttr(info.warn)}</div>` : ''}
         </div>
+        ${info?.canRedo ? `
+        <div style="padding:8px 14px 0">
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-bottom:4px">刻みすぎ・粗すぎる時は粒度を変えて検出し直せます</div>
+          <div style="display:flex;gap:5px">
+            ${CHAP_GRAIN_KEYS.map(k => {
+              const on = k === info.grain;
+              return `<button class="vp-chap-grain" data-g="${k}" ${on ? 'disabled' : ''}
+                style="flex:1;padding:5px 4px;border-radius:7px;border:1.5px solid ${on ? 'var(--accent)' : 'var(--border,#444)'};
+                       font-size:10.5px;font-weight:600;cursor:${on ? 'default' : 'pointer'};font-family:inherit;
+                       background:${on ? 'var(--accent)' : 'var(--surface2,#2a2a2a)'};color:${on ? '#fff' : 'var(--text2,#bbb)'}"
+                >${CHAP_GRAINS[k].label}</button>`;
+            }).join('')}
+          </div>
+        </div>` : ''}
         <div style="display:flex;gap:6px;padding:7px 14px 0">
           <button id="vp-chap-all"  style="${_adjBtnStyle()}">すべて選択</button>
           <button id="vp-chap-none" style="${_adjBtnStyle()}">すべて解除</button>
@@ -3294,6 +3329,11 @@ function _chapReviewDialog(chaps, info) {
 
     bg.querySelectorAll('.vp-chap-seek').forEach(b =>
       b.addEventListener('click', () => _seekTo(Number(b.dataset.t) || 0)));
+    // 別の粒度を押したら、この結果は捨てて検出からやり直す
+    bg.querySelectorAll('.vp-chap-grain').forEach(b => {
+      if (b.disabled) return;
+      b.addEventListener('click', () => done({ redo: true, grain: b.dataset.g }));
+    });
     cks().forEach(c => c.addEventListener('change', paintOk));
     bg.querySelector('#vp-chap-all').addEventListener('click',  () => { cks().forEach(c => { c.checked = true;  }); paintOk(); });
     bg.querySelector('#vp-chap-none').addEventListener('click', () => { cks().forEach(c => { c.checked = false; }); paintOk(); });
@@ -3400,7 +3440,6 @@ window.vpGenChapters = async function(id, preset) {
     const idToken   = await user.getIdToken();
     const ctxFields = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
     const duration  = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
-    const freeOpts  = { minSec: CHAP_MIN_SEC, maxCount: CHAP_MAX_COUNT };
 
     // 字幕の文字起こしは「字幕から検出」と「表の位置合わせ」の両方で使う
     let cues = [], transcript = '', clipped = false;
@@ -3430,74 +3469,88 @@ window.vpGenChapters = async function(id, preset) {
       return { parsed, d };
     };
 
-    let chaps = [], cost = 0, noteSrc = '', warn = '';
+    // 粒度は設定を既定にし、確認ダイアログで変えられたらその粒度で検出し直す。
+    // 表から作る場合は表のとおりに区切るので粒度は使わない。
+    let grainKey = _chapGrainKey(preset?.grain);
+    let totalCost = 0;
 
-    if (via === 'list') {
-      // 2a. 表を読む（動画も字幕も送らない）
-      const r1 = await post({ idToken, mode: 'chapters', source: 'chapterlist',
-                              listText: input.text, listImages: input.images });
-      cost += Number(r1.d.costUsd) || 0;
-      const conv = _chapListToChapters(r1.parsed?.items);
-      if (!conv.titles.length) return fail('チャプター表を読み取れませんでした');
+    for (;;) {
+      const grain    = _chapGrain(grainKey);
+      const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen };
+      let chaps = [], cost = 0, noteSrc = '', warn = '';
 
-      if (conv.needAlign) {
-        // 2b. 表に時刻が無い → 章立てを正解として、位置だけを字幕（無ければ動画）から探す
-        setBtn('⏳ 位置合わせ中…');
-        const chapOpts = { titles: conv.titles };
-        const useSub = subs.length > 0 && !!(await loadTranscript());
-        const r2 = useSub
-          ? await post({ idToken, mode: 'chapters', source: 'transcript', transcript, chapOpts, ...ctxFields })
-          : await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
-                         accessToken: gdToken, chapOpts, ...ctxFields });
-        cost += Number(r2.d.costUsd) || 0;
-        const merged = _chapMergeAligned(conv.titles, r2.parsed?.items);
-        chaps   = useSub ? _snapChapters(merged.chaps, cues) : merged.chaps;
-        noteSrc = useSub ? '公式チャプター表 ＋ 字幕で位置合わせ' : '公式チャプター表 ＋ 動画で位置合わせ';
-        if (merged.unknown) warn = `${merged.unknown}件は位置が特定できなかったため除きました`;
+      if (via === 'list') {
+        // 2a. 表を読む（動画も字幕も送らない）
+        const r1 = await post({ idToken, mode: 'chapters', source: 'chapterlist',
+                                listText: input.text, listImages: input.images });
+        cost += Number(r1.d.costUsd) || 0;
+        const conv = _chapListToChapters(r1.parsed?.items);
+        if (!conv.titles.length) return fail('チャプター表を読み取れませんでした');
+
+        if (conv.needAlign) {
+          // 2b. 表に時刻が無い → 章立てを正解として、位置だけを字幕（無ければ動画）から探す
+          setBtn('⏳ 位置合わせ中…');
+          const chapOpts = { titles: conv.titles };
+          const useSub = subs.length > 0 && !!(await loadTranscript());
+          const r2 = useSub
+            ? await post({ idToken, mode: 'chapters', source: 'transcript', transcript, chapOpts, ...ctxFields })
+            : await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
+                           accessToken: gdToken, chapOpts, ...ctxFields });
+          cost += Number(r2.d.costUsd) || 0;
+          const merged = _chapMergeAligned(conv.titles, r2.parsed?.items);
+          chaps   = useSub ? _snapChapters(merged.chaps, cues) : merged.chaps;
+          noteSrc = useSub ? '公式チャプター表 ＋ 字幕で位置合わせ' : '公式チャプター表 ＋ 動画で位置合わせ';
+          if (merged.unknown) warn = `${merged.unknown}件は位置が特定できなかったため除きました`;
+        } else {
+          chaps   = conv.chaps;
+          noteSrc = '公式チャプター表';
+          if (conv.missing) warn = `${conv.missing}件は時刻が読み取れなかったため除きました`;
+        }
+        // 動画より後ろの時刻＝別の巻の目次を貼った可能性。落としたことを必ず伝える
+        const over = duration ? chaps.filter(c => c.time > duration - 5).length : 0;
+        if (over) warn = `${over}件は動画の長さを超えるため除きました（別の巻の目次かもしれません）`;
+        // 公式の章立ては短い章も正解なので間引かない
+        chaps = _normalizeChapters(chaps, { duration, minSec: 0, maxCount: 200 });
+
+      } else if (via === 'sub') {
+        if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
+        if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
+        const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
+                               chapOpts: freeOpts, ...ctxFields });
+        cost += Number(r.d.costUsd) || 0;
+        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }), cues);
+        noteSrc = '字幕から検出';
+        if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
+
       } else {
-        chaps   = conv.chaps;
-        noteSrc = '公式チャプター表';
-        if (conv.missing) warn = `${conv.missing}件は時刻が読み取れなかったため除きました`;
+        const r = await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
+                               accessToken: gdToken, chapOpts: freeOpts, ...ctxFields });
+        cost += Number(r.d.costUsd) || 0;
+        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
+        noteSrc = '動画から検出';
       }
-      // 動画より後ろの時刻＝別の巻の目次を貼った可能性。落としたことを必ず伝える
-      const over = duration ? chaps.filter(c => c.time > duration - 5).length : 0;
-      if (over) warn = `${over}件は動画の長さを超えるため除きました（別の巻の目次かもしれません）`;
-      // 公式の章立ては短い章も正解なので間引かない
-      chaps = _normalizeChapters(chaps, { duration, minSec: 0, maxCount: 200 });
 
-    } else if (via === 'sub') {
-      if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
-      if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
-      const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
-                             chapOpts: freeOpts, ...ctxFields });
-      cost += Number(r.d.costUsd) || 0;
-      chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: CHAP_MIN_SEC }), cues);
-      noteSrc = '字幕から検出';
-      if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
+      totalCost += cost;
+      if (!chaps.length) return fail('チャプターを検出できませんでした');
+      endBtn();
 
-    } else {
-      const r = await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
-                             accessToken: gdToken, chapOpts: freeOpts, ...ctxFields });
-      cost += Number(r.d.costUsd) || 0;
-      chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: CHAP_MIN_SEC });
-      noteSrc = '動画から検出';
+      // 3. 確認してから書き込む（粒度を変えられたら検出からやり直す）
+      const autoCount = (v.bookmarks || []).filter(b => b.auto === 'chapter').length;
+      const note = noteSrc + (totalCost ? ` · $${totalCost.toFixed(3)}` : '');
+      const sel = preset
+        ? { chaps, withEnd: preset.withEnd !== false, replaceAuto: !!preset.replaceAuto }
+        : await _chapReviewDialog(chaps, {
+            note, autoCount, warn,
+            grain: grainKey, canRedo: via !== 'list',
+          });
+      if (!sel) return { ok: false, skipped: true };
+      if (sel.redo) { grainKey = _chapGrainKey(sel.grain); setBtn('⏳ 検出中…'); continue; }
+
+      const added = _applyChapters(id, sel, duration);
+      if (!added) return fail('追加できるチャプターがありませんでした');
+      if (!silent) window.toast?.(`📑 ${added}件のチャプターをブックマークに追加しました`);
+      return { ok: true, added, cost: totalCost };
     }
-
-    if (!chaps.length) return fail('チャプターを検出できませんでした');
-    endBtn();
-
-    // 3. 確認してから書き込む
-    const autoCount = (v.bookmarks || []).filter(b => b.auto === 'chapter').length;
-    const note = noteSrc + (cost ? ` · $${cost.toFixed(3)}` : '');
-    const sel = preset
-      ? { chaps, withEnd: preset.withEnd !== false, replaceAuto: !!preset.replaceAuto }
-      : await _chapReviewDialog(chaps, { note, autoCount, warn });
-    if (!sel) return { ok: false, skipped: true };
-
-    const added = _applyChapters(id, sel, duration);
-    if (!added) return fail('追加できるチャプターがありませんでした');
-    if (!silent) window.toast?.(`📑 ${added}件のチャプターをブックマークに追加しました`);
-    return { ok: true, added, cost };
   } catch (e) {
     console.warn('[chapters] 検出失敗:', e);
     if (!silent) window.toast?.('⚠️ チャプターの検出に失敗: ' + (e?.message || e));
