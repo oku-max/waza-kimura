@@ -853,8 +853,20 @@ async function _geminiGenerate(env, parts, opts) {
   }
   if (!gRes.ok) {
     const r = await _jsonOrErr(gRes, 'Gemini の呼び出し');
+    const raw = r.error ? String(r.detail || '') : String(r.data?.error?.message || '');
+    // 枠切れ(429)は待たずに再試行しても絶対に成功しない。英語の長文をそのまま出さず、
+    // 何が起きていて何をすべきかを日本語で返す。quota フラグで呼び出し側の再試行も止める。
+    if (gRes.status === 429 || /free_tier|quota/i.test(raw)) {
+      const m = raw.match(/retry in ([\d.]+)s/i);
+      return {
+        error: 'Gemini APIの利用枠を使い切りました', quota: true,
+        detail: '無料枠の上限に達しています。'
+          + (m ? `約${Math.ceil(Number(m[1]))}秒後に再試行できますが、` : '')
+          + '根本対処は課金の有効化です（Google AI Studio → 該当キーのプロジェクト）',
+      };
+    }
     if (r.error) return r;
-    return { error: 'Gemini API error', detail: r.data?.error?.message || _httpErrText(gRes.status) };
+    return { error: 'Gemini API error', detail: raw || _httpErrText(gRes.status) };
   }
 
   // SSE（data: {...}）を読み進めて本文を繋ぐ
@@ -1120,7 +1132,7 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
       : '';
     const t0 = Date.now();
     let r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);
-    if (r.error) r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);   // 一過性失敗に1回だけ再試行
+    if (r.error && !r.quota) r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);   // 一過性失敗のみ1回再試行。枠切れは再試行しても成功しない
     const sec = Math.round((Date.now() - t0) / 1000);
     if (r.error) {
       diag.push({ seg: k + 1, sec, error: r.detail || r.error });
