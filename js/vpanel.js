@@ -2047,6 +2047,228 @@ function _createGDriveVideoEl(container, fileId, token) {
   _gdAttachSubtitle(video, fileId, token);
 }
 
+
+// ═══ 字幕オプション（整形 / 表示 / 生成）═══════════════════
+// 保存はすべて localStorage のみ（端末ローカル）。Firestore同期対象には一切触れない。
+// 整形と表示は「読み込んだSRTをVTTに変換する時」に適用するので、
+// Drive上の元ファイルは一切書き換えない ＝ 何度でもやり直せる。
+const SUB_OPTS_KEY   = 'wk_subOpts';
+const SUB_OFFSET_KEY = 'wk_subOffsets';
+
+// 字幕の言語表示名（ファイル名の .xx や生成言語の指定に使う）
+const SUB_LANGS = {
+  ja:'日本語', en:'English', zh:'中文', ko:'한국어', es:'Español', pt:'Português',
+  fr:'Français', de:'Deutsch', it:'Italiano', ru:'Русский', th:'ไทย', vi:'Tiếng Việt',
+  id:'Bahasa Indonesia', ar:'العربية', hi:'हिन्दी',
+};
+const SUB_LANG_ALIAS = {
+  jpn:'ja', jp:'ja', japanese:'ja', 日本語:'ja', eng:'en', english:'en', 英語:'en',
+  chi:'zh', zho:'zh', cn:'zh', chinese:'zh', 中国語:'zh', kor:'ko', korean:'ko', 韓国語:'ko',
+  spa:'es', spanish:'es', por:'pt', fra:'fr', fre:'fr', french:'fr', deu:'de', ger:'de',
+  german:'de', ita:'it', rus:'ru', tha:'th', vie:'vi', ind:'id', ara:'ar', hin:'hi',
+};
+
+const SUB_OPTS_DEFAULT = {
+  // 整形（生成済み・教材付属を問わずすべての字幕に効く）
+  maxCharsJa: 20,   // 1行の最大文字数（日本語など全角）
+  maxCharsEn: 42,   // 1行の最大文字数（英語など半角）
+  maxLines:   2,    // 1つの字幕の最大行数
+  minDur:     1.2,  // 最短表示秒
+  maxDur:     7,    // 最長表示秒
+  mergeShort: true, // 短すぎるキューを隣とくっつける
+  // 表示
+  fontScale:  1,        // 文字サイズ倍率
+  bgOpacity:  0.72,     // 背景の濃さ
+  position:   'bottom', // 'bottom' | 'top'
+  // 生成（変更すると再生成が必要＝コストがかかる）
+  genLang:     'ja',        // 出力言語。'orig' で話されている言語のまま
+  genStyle:    'desu',      // 'desu'（ですます調）| 'dearu'（である調）
+  genVerbatim: 'natural',   // 'verbatim'（逐語）| 'natural'（意訳して短く）
+  genTerms:    'katakana',  // 'katakana' | 'english' | 'translate'
+  genFillers:  'drop',      // 'drop' | 'keep'
+  genOnScreen: false,       // 画面内の文字も拾うか
+};
+
+function subOpts() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SUB_OPTS_KEY) || '{}');
+    return { ...SUB_OPTS_DEFAULT, ...(raw && typeof raw === 'object' ? raw : {}) };
+  } catch(e) { return { ...SUB_OPTS_DEFAULT }; }
+}
+function _subOptsSave(o) {
+  try { localStorage.setItem(SUB_OPTS_KEY, JSON.stringify(o)); } catch(e) {}
+}
+
+// 動画ごとのタイミング補正（秒）。fileId をキーに持つ小さな辞書。
+function _subOffsets() {
+  try { const v = JSON.parse(localStorage.getItem(SUB_OFFSET_KEY) || '{}'); return (v && typeof v === 'object') ? v : {}; }
+  catch(e) { return {}; }
+}
+function _subOffsetGet(fileId) { return Number(_subOffsets()[fileId]) || 0; }
+function _subOffsetSet(fileId, sec) {
+  if (!fileId) return;
+  const all = _subOffsets();
+  if (!sec) delete all[fileId]; else all[fileId] = Math.round(sec * 10) / 10;
+  // 際限なく増えないよう、古いものから間引く
+  const keys = Object.keys(all);
+  if (keys.length > 500) for (const k of keys.slice(0, keys.length - 500)) delete all[k];
+  try { localStorage.setItem(SUB_OFFSET_KEY, JSON.stringify(all)); } catch(e) {}
+}
+
+// ── WebVTT の解析・整形・再構築 ──────────────────────────
+function _tc2sec(tc) {
+  const p = String(tc).trim().split(':').map(x => parseFloat(x));
+  if (p.length === 3) return (p[0] * 3600) + (p[1] * 60) + p[2];
+  if (p.length === 2) return (p[0] * 60) + p[1];
+  return p[0] || 0;
+}
+function _sec2tc(s) {
+  s = Math.max(0, s);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${sec.toFixed(3).padStart(6,'0')}`;
+}
+
+function _parseVtt(vtt) {
+  const body = String(vtt).replace(/^WEBVTT[^\n]*\n/, '');
+  const cues = [];
+  for (const b of body.split(/\n{2,}/)) {
+    const lines = b.split('\n').filter(l => l.trim() !== '');
+    if (!lines.length) continue;
+    let i = /-->/.test(lines[0]) ? 0 : 1;         // 1行目がキュー番号のことがある
+    const m = lines[i] && lines[i].match(/^\s*([\d:.]+)\s*-->\s*([\d:.]+)/);
+    if (!m) continue;
+    const text = lines.slice(i + 1).join('\n').trim();
+    if (!text) continue;
+    cues.push({ start: _tc2sec(m[1]), end: _tc2sec(m[2]), text });
+  }
+  return cues;
+}
+
+// 行頭に置かない文字 / 行末に置かない文字（日本語の禁則処理）
+const JA_NO_START = '、。，．・？！」』）〕］｝〉》”’ゝゞーぁぃぅぇぉっゃゅょゎヵヶァィゥェォッャュョヮ';
+const JA_NO_END   = '「『（〔［｛〈《“‘';
+
+function _wrapJa(t, max) {
+  const lines = [];
+  let cur = '';
+  for (const ch of Array.from(t)) {
+    // 文末（。！？）はそこで改行すると読みやすい。ただし極端に短い行は作らない。
+    if (cur.length >= Math.max(4, Math.floor(max * 0.5)) && '。！？'.includes(cur.slice(-1))) {
+      lines.push(cur); cur = ch; continue;
+    }
+    if (cur.length >= max) {
+      if (JA_NO_START.includes(ch)) { cur += ch; continue; }          // 行頭禁則: もう1文字だけ入れる
+      if (JA_NO_END.includes(cur.slice(-1))) {                        // 行末禁則: 開き括弧を次行へ送る
+        const last = cur.slice(-1);
+        lines.push(cur.slice(0, -1)); cur = last + ch; continue;
+      }
+      lines.push(cur); cur = ch; continue;
+    }
+    cur += ch;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function _wrapEn(t, max) {
+  const lines = [];
+  let cur = '';
+  for (const w of t.split(/\s+/)) {
+    if (!cur) { cur = w; continue; }
+    if ((cur + ' ' + w).length <= max) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function _wrapText(text, o) {
+  const t = String(text).replace(/\s*\n\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (!t) return [];
+  return /[぀-ヿ一-鿿]/.test(t) ? _wrapJa(t, o.maxCharsJa) : _wrapEn(t, o.maxCharsEn);
+}
+
+// 行数が上限を超えたら、文字数比で時間を割ってキューを分割する
+function _splitCue(cue, lines, o) {
+  if (lines.length <= o.maxLines) return [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
+  const chunks = [];
+  for (let i = 0; i < lines.length; i += o.maxLines) chunks.push(lines.slice(i, i + o.maxLines));
+  const total = chunks.reduce((s, c) => s + c.join('').length, 0) || 1;
+  const dur = Math.max(0.1, cue.end - cue.start);
+  let t = cue.start;
+  return chunks.map(c => {
+    const d = dur * (c.join('').length / total);
+    const out = { start: t, end: t + d, text: c.join('\n') };
+    t += d;
+    return out;
+  });
+}
+
+// 短すぎて読めないキューを、隣が近ければ結合する
+function _mergeShortCues(cues, o) {
+  const res = [];
+  for (const c of cues) {
+    const prev = res[res.length - 1];
+    if (prev) {
+      const gap    = c.start - prev.end;
+      const bothShort = (prev.end - prev.start) < o.minDur && (c.end - c.start) < o.minDur;
+      if (bothShort && gap >= 0 && gap < 0.4) {
+        const joined = _wrapText(prev.text + ' ' + c.text, o);
+        if (joined.length <= o.maxLines) {
+          prev.end = c.end; prev.text = joined.join('\n');
+          continue;
+        }
+      }
+    }
+    res.push({ start: c.start, end: c.end, text: c.text });
+  }
+  return res;
+}
+
+function _serializeVtt(cues, position) {
+  const setting = position === 'top' ? ' line:8%' : '';
+  let out = 'WEBVTT\n\n';
+  cues.forEach((c, i) => {
+    out += `${i + 1}\n${_sec2tc(c.start)} --> ${_sec2tc(c.end)}${setting}\n${c.text}\n\n`;
+  });
+  return out;
+}
+
+// 元のVTTを設定どおりに作り直す。元ファイルには触らない。
+function _reflowVtt(vtt, o, offset) {
+  let cues = _parseVtt(vtt);
+  if (!cues.length) return vtt;
+
+  let out = [];
+  for (const c of cues) {
+    const lines = _wrapText(c.text, o);
+    if (lines.length) out.push(..._splitCue(c, lines, o));
+  }
+  if (o.mergeShort) out = _mergeShortCues(out, o);
+
+  for (let i = 0; i < out.length; i++) {
+    const nextStart = out[i + 1] ? out[i + 1].start : Infinity;
+    let end = out[i].end;
+    if (end - out[i].start > o.maxDur) end = out[i].start + o.maxDur;
+    if (end - out[i].start < o.minDur) end = Math.min(out[i].start + o.minDur, nextStart);
+    out[i].end = Math.max(end, out[i].start + 0.2);
+  }
+  if (offset) {
+    for (const c of out) { c.start = Math.max(0, c.start + offset); c.end = Math.max(0.2, c.end + offset); }
+  }
+  return _serializeVtt(out, o.position);
+}
+
+// ::cue のスタイルは <style> を差し替えて反映する
+function _applyCueStyle() {
+  const o = subOpts();
+  let el = document.getElementById('wk-cue-style');
+  if (!el) { el = document.createElement('style'); el.id = 'wk-cue-style'; document.head.appendChild(el); }
+  el.textContent = `#vpanel-iframe-container video::cue{`
+    + `background:rgba(0,0,0,${o.bgOpacity});color:#fff;`
+    + `font-size:${o.fontScale}em;line-height:1.45}`;
+}
+
 // ── Google Drive 字幕（サイドカー .srt / .vtt を自動検出 → WebVTT で <track> 表示）──
 // 前提: ブラウザの <video> は MP4 に埋め込まれた字幕トラックを Safari 以外まったく表示しない
 // （Chromium は demuxer 段階で AVDISCARD_ALL、Gecko は MP4 の text track を生成しない）。
@@ -2095,8 +2317,8 @@ function _gdSubNorm(s) {
 // 動画名を取り除いた「残り」から言語を判定する（残りが無ければ言語指定なし）
 function _gdSubLabelOf(rem) {
   if (!rem) return { lang: '', label: '字幕' };
-  if (/^(ja|jpn|jp|japanese|日本語)$/.test(rem)) return { lang: 'ja', label: '日本語' };
-  if (/^(en|eng|english|英語)$/.test(rem))       return { lang: 'en', label: 'English' };
+  const code = SUB_LANG_ALIAS[rem] || rem;
+  if (SUB_LANGS[code]) return { lang: code, label: SUB_LANGS[code] };
   return { lang: rem, label: rem.toUpperCase() };
 }
 
@@ -2163,8 +2385,10 @@ function _srtToVtt(text) {
 function _gdSubRefineLabel(cand, vtt) {
   if (cand.lang) return;
   const body = vtt.replace(/^WEBVTT[\s\S]*?\n\n/, '');
-  if (/[぀-ヿ一-鿿]/.test(body)) { cand.lang = 'ja'; cand.label = '日本語'; }
-  else if (/[A-Za-z]{3,}/.test(body))            { cand.lang = 'en'; cand.label = 'English'; }
+  if (/[ぁ-ゟ゠-ヿ]/.test(body))       { cand.lang = 'ja'; cand.label = SUB_LANGS.ja; }
+  else if (/[가-힣]/.test(body))       { cand.lang = 'ko'; cand.label = SUB_LANGS.ko; }
+  else if (/[一-鿿]/.test(body))       { cand.lang = 'zh'; cand.label = SUB_LANGS.zh; }
+  else if (/[A-Za-z]{3,}/.test(body))  { cand.lang = 'en'; cand.label = SUB_LANGS.en; }
 }
 
 async function _gdAttachSubtitle(video, fileId, token) {
@@ -2189,9 +2413,11 @@ async function _gdAttachSubtitle(video, fileId, token) {
   if (_gdVideoEl !== video || !video.isConnected) return;
 
   _gdSubRevoke();
+  const opts   = subOpts();
+  const offset = _subOffsetGet(fileId);
   for (const item of loaded) {
     if (!item) continue;
-    const url = URL.createObjectURL(new Blob([item.vtt], { type: 'text/vtt' }));
+    const url = URL.createObjectURL(new Blob([_reflowVtt(item.vtt, opts, offset)], { type: 'text/vtt' }));
     _gdSubBlobUrls.push(url);
     const track = document.createElement('track');
     track.kind    = 'subtitles';
@@ -2199,8 +2425,10 @@ async function _gdAttachSubtitle(video, fileId, token) {
     track.srclang = item.cand.lang || 'ja';
     track.src     = url;
     video.appendChild(track);
-    _gdSubTracks.push({ label: item.cand.label, name: item.cand.name, track });
+    // rawVtt を持っておくと、設定変更時に取得し直さず整形だけやり直せる
+    _gdSubTracks.push({ label: item.cand.label, name: item.cand.name, track, rawVtt: item.vtt, url });
   }
+  _applyCueStyle();
   if (!_gdSubTracks.length) return;
 
   // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
@@ -2232,9 +2460,9 @@ function _gdSubPaintButton() {
   btn.textContent = (on && _gdSubTracks.length > 1) ? `CC ${cur?.label || ''}` : 'CC';
   btn.style.borderColor = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.45)';
   btn.style.color       = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.75)';
-  btn.title = _gdSubTracks.length > 1
+  btn.title = (_gdSubTracks.length > 1
     ? `字幕を切替（${_gdSubTracks.map(t => t.label).join(' / ')}）`
-    : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`;
+    : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`) + ' ／ 長押しで調整';
 }
 
 function _gdSubMountButton(container) {
@@ -2246,8 +2474,22 @@ function _gdSubMountButton(container) {
   btn.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;padding:2px 9px;border-radius:6px;'
     + 'font-family:inherit;font-size:11px;font-weight:700;line-height:1.6;cursor:pointer;'
     + 'background:rgba(0,0,0,.55);border:1.5px solid';
+  // タップ＝ON/OFF・言語切替、長押し／右クリック＝調整パネル
+  let lp = null, lpFired = false;
+  const startLp = () => {
+    clearTimeout(lp);
+    lpFired = false;
+    lp = setTimeout(() => { lpFired = true; _gdSubOpenPanel(btn); }, 500);
+  };
+  const cancelLp = () => { clearTimeout(lp); lp = null; };
+  btn.addEventListener('pointerdown', e => { e.stopPropagation(); startLp(); });
+  btn.addEventListener('pointerup',    cancelLp);
+  btn.addEventListener('pointerleave', cancelLp);
+  btn.addEventListener('pointercancel',cancelLp);
+  btn.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); cancelLp(); _gdSubOpenPanel(btn); });
   btn.addEventListener('click', e => {
     e.stopPropagation();   // container の click（停止中タップで再生復帰）を発火させない
+    if (lpFired) { lpFired = false; return; }   // 長押しでパネルを開いた直後は切替しない
     // OFF → 1つ目 → 2つ目 → … → OFF と巡回
     const next = _gdSubIndex + 1 >= _gdSubTracks.length ? -1 : _gdSubIndex + 1;
     _gdSubSelect(next);
@@ -2294,6 +2536,15 @@ async function _driveUploadText(token, { name, parentId, text, existingId }) {
 }
 
 // 生成言語を選ぶ小メニュー。選択で resolve、外クリック/Escで null
+function _subGenLangChoices() {
+  const cur = subOpts().genLang;
+  const list = [['ja', SUB_LANGS.ja], ['orig', '原語のまま'], ['en', SUB_LANGS.en],
+                ['zh', SUB_LANGS.zh], ['ko', SUB_LANGS.ko], ['es', SUB_LANGS.es]];
+  // 設定画面で選んでいる言語を先頭に出す
+  list.sort((a, b) => (b[0] === cur) - (a[0] === cur));
+  return list;
+}
+
 function _askSubtitleLang(anchorEl) {
   return new Promise(resolve => {
     document.getElementById('vp-subgen-menu')?.remove();
@@ -2303,14 +2554,14 @@ function _askSubtitleLang(anchorEl) {
     menu.style.cssText = 'position:fixed;z-index:10000;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
       + 'border-radius:10px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35);min-width:190px;'
       + `top:${Math.min((r?.bottom || 80) + 6, window.innerHeight - 130)}px;left:${Math.max(8, Math.min((r?.left || 8), window.innerWidth - 210))}px`;
-    const item = (label, hint) =>
-      `<button class="vp-subgen-item" data-lang="${label === '日本語' ? 'ja' : 'orig'}"
+    const item = (code, label) =>
+      `<button class="vp-subgen-item" data-lang="${code}"
          style="display:block;width:100%;text-align:left;padding:8px 10px;border:none;border-radius:7px;background:transparent;
                 color:var(--text,#eee);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">
-         ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${hint}</div>
+         ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${
+           code === 'orig' ? '話されている言語で文字起こし' : `この言語に翻訳して字幕にする`}</div>
        </button>`;
-    menu.innerHTML = item('日本語', '外国語の音声は日本語に翻訳')
-                   + item('原語のまま', '話されている言語で文字起こし');
+    menu.innerHTML = _subGenLangChoices().map(([c, l]) => item(c, l)).join('');
     document.body.appendChild(menu);
 
     const done = val => {
@@ -2331,6 +2582,14 @@ function _askSubtitleLang(anchorEl) {
       document.addEventListener('keydown', onKey, true);
     }, 0);
   });
+}
+
+// 生成に関係する設定だけを抜き出してサーバへ渡す（整形・表示設定はクライアント側の話なので送らない）
+function _subGenPayload() {
+  const o = subOpts();
+  return { style: o.genStyle, verbatim: o.genVerbatim, terms: o.genTerms,
+           fillers: o.genFillers, onScreen: !!o.genOnScreen,
+           maxChars: o.maxCharsJa, maxLines: o.maxLines };
 }
 
 window.vpGenSubtitle = async function(id) {
@@ -2358,7 +2617,7 @@ window.vpGenSubtitle = async function(id) {
     const parent = meta?.parents?.[0];
     const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
     if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
-    const target = base + (subLang === 'ja' ? '.ja.srt' : '.srt');
+    const target = base + (subLang === 'orig' ? '.srt' : `.${subLang}.srt`);
 
     const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
     const dup  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
@@ -2372,7 +2631,7 @@ window.vpGenSubtitle = async function(id) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        idToken, mode: 'subtitle', subLang, source: 'gdrive',
+        idToken, mode: 'subtitle', subLang, subOpts: _subGenPayload(), source: 'gdrive',
         gdFileId: fileId, accessToken: gdToken,
         title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
       }),
@@ -2407,6 +2666,183 @@ window.vpGenSubtitle = async function(id) {
     endBtn();
   }
 };
+
+
+// 起動時に ::cue スタイルを当て、設定画面のホストがあれば描いておく
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { _applyCueStyle(); window.wkSubOptsRender?.(); });
+} else {
+  setTimeout(() => { _applyCueStyle(); window.wkSubOptsRender?.(); }, 0);
+}
+
+// ── 字幕設定パネル（設定画面と再生画面で同じ部品を使う）──────
+// 設定変更 → 保存 → 再生中なら取得し直さず整形だけやり直して即反映。
+function _gdSubReapply() {
+  if (!_gdVideoEl || !_gdSubTracks.length) return;
+  const video  = _gdVideoEl;
+  const opts   = subOpts();
+  const offset = _subOffsetGet(_gdFileId);
+  const idx    = _gdSubIndex;
+  const prev   = _gdSubTracks;
+
+  // src の差し替えは再読み込みされないブラウザがあるため、<track> ごと作り直す
+  for (const t of prev) { try { t.track.remove(); } catch(e) {} }
+  for (const u of _gdSubBlobUrls) { try { URL.revokeObjectURL(u); } catch(e) {} }
+  _gdSubBlobUrls = [];
+  _gdSubTracks   = [];
+
+  for (const t of prev) {
+    if (!t.rawVtt) continue;
+    const url = URL.createObjectURL(new Blob([_reflowVtt(t.rawVtt, opts, offset)], { type: 'text/vtt' }));
+    _gdSubBlobUrls.push(url);
+    const track = document.createElement('track');
+    track.kind    = 'subtitles';
+    track.label   = t.label;
+    track.srclang = t.track.srclang || 'ja';
+    track.src     = url;
+    video.appendChild(track);
+    _gdSubTracks.push({ label: t.label, name: t.name, track, rawVtt: t.rawVtt, url });
+  }
+  setTimeout(() => _gdSubSelect(Math.min(idx, _gdSubTracks.length - 1)), 0);
+}
+
+window.wkSubOptSet = function(key, value) {
+  const o = subOpts();
+  if (typeof SUB_OPTS_DEFAULT[key] === 'number')       value = Number(value);
+  else if (typeof SUB_OPTS_DEFAULT[key] === 'boolean') value = !!value;
+  o[key] = value;
+  _subOptsSave(o);
+  _applyCueStyle();
+  // 生成設定(gen*)は次回の生成にだけ効くので整形はやり直さない
+  if (!/^gen/.test(key)) _gdSubReapply();
+  window.wkSubOptsRender();
+};
+
+window.wkSubOptsReset = function() {
+  try { localStorage.removeItem(SUB_OPTS_KEY); } catch(e) {}
+  _applyCueStyle();
+  _gdSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.('字幕設定を既定値に戻しました');
+};
+
+// 動画ごとのタイミング補正
+window.wkSubOffsetNudge = function(delta) {
+  if (!_gdFileId) return;
+  const next = Math.round((_subOffsetGet(_gdFileId) + delta) * 10) / 10;
+  _subOffsetSet(_gdFileId, next);
+  _gdSubReapply();
+  window.wkSubOptsRender();
+};
+
+const _escAttr = v => String(v).replace(/"/g, '&quot;');
+
+function _subSeg(key, cur, choices) {
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap">` + choices.map(([v, label]) =>
+    `<button type="button" onclick="wkSubOptSet('${key}',${typeof v === 'string' ? `'${v}'` : v})"
+       style="padding:4px 10px;border-radius:7px;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;
+              border:1.5px solid ${String(cur) === String(v) ? 'var(--accent,#6c8cff)' : 'var(--border)'};
+              background:transparent;color:${String(cur) === String(v) ? 'var(--accent,#6c8cff)' : 'var(--text2)'}"
+     >${label}</button>`).join('') + `</div>`;
+}
+
+function _subRange(key, cur, min, max, step, fmt) {
+  return `<div style="display:flex;align-items:center;gap:8px">
+    <input type="range" min="${min}" max="${max}" step="${step}" value="${_escAttr(cur)}"
+      oninput="this.nextElementSibling.textContent=this.value${fmt ? `+'${fmt}'` : ''}"
+      onchange="wkSubOptSet('${key}',this.value)"
+      style="flex:1;accent-color:var(--accent,#6c8cff);min-width:110px">
+    <span style="flex-shrink:0;min-width:44px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${_escAttr(cur)}${fmt || ''}</span>
+  </div>`;
+}
+
+function _subRow(label, hint, control) {
+  return `<div style="display:flex;flex-direction:column;gap:5px">
+    <div><div style="font-size:12px;font-weight:600">${label}</div>
+    ${hint ? `<div style="font-size:10.5px;color:var(--text3);margin-top:1px">${hint}</div>` : ''}</div>
+    ${control}
+  </div>`;
+}
+
+// scope: 'full'（設定画面・生成設定も出す）| 'player'（再生中・タイミング補正も出す）
+function _subOptsHTML(scope) {
+  const o   = subOpts();
+  const sec = t => `<div style="font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin-top:4px">${t}</div>`;
+  const langChoices = [['ja','日本語'],['orig','原語のまま'],['en','English'],['zh','中文'],['ko','한국어'],['es','Español']];
+
+  let html = sec('一度に出す量')
+    + _subRow('1行の最大文字数（日本語）', '長いほど1行に詰め込む', _subRange('maxCharsJa', o.maxCharsJa, 8, 40, 1, '字'))
+    + _subRow('1行の最大文字数（英語）', '', _subRange('maxCharsEn', o.maxCharsEn, 20, 80, 1, '字'))
+    + _subRow('最大行数', '超えたぶんは時間を分けて次の字幕に送る', _subSeg('maxLines', o.maxLines, [[1,'1行'],[2,'2行'],[3,'3行']]))
+    + sec('表示時間')
+    + _subRow('最短表示', '一瞬で消えるのを防ぐ', _subRange('minDur', o.minDur, 0.4, 3, 0.1, '秒'))
+    + _subRow('最長表示', '出しっぱなしを防ぐ', _subRange('maxDur', o.maxDur, 2, 15, 0.5, '秒'))
+    + _subRow('短い字幕をまとめる', '細切れの字幕を隣とくっつけて読みやすくする', _subSeg('mergeShort', o.mergeShort, [[true,'まとめる'],[false,'そのまま']]))
+    + sec('見た目')
+    + _subRow('文字サイズ', '', _subRange('fontScale', o.fontScale, 0.6, 2, 0.05, '倍'))
+    + _subRow('背景の濃さ', '0で背景なし', _subRange('bgOpacity', o.bgOpacity, 0, 1, 0.02, ''))
+    + _subRow('表示位置', '', _subSeg('position', o.position, [['bottom','画面下'],['top','画面上']]));
+
+  if (scope === 'player') {
+    const off = _subOffsetGet(_gdFileId);
+    html += sec('タイミング補正（この動画のみ）')
+      + `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${[-1,-0.5,-0.1].map(d => `<button type="button" onclick="wkSubOffsetNudge(${d})" style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer">${d}s</button>`).join('')}
+          <span style="min-width:56px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${off ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${off > 0 ? '+' : ''}${off.toFixed(1)}s</span>
+          ${[0.1,0.5,1].map(d => `<button type="button" onclick="wkSubOffsetNudge(${d})" style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer">+${d}s</button>`).join('')}
+        </div>
+        <div style="font-size:10.5px;color:var(--text3)">字幕が音より早いならマイナス、遅いならプラス</div>`;
+  }
+
+  if (scope === 'full') {
+    html += sec('生成の設定（変更すると再生成が必要 ＝ コストがかかります）')
+      + _subRow('出力言語', '「原語のまま」は話されている言語で文字起こし', _subSeg('genLang', o.genLang, langChoices))
+      + _subRow('文体', '', _subSeg('genStyle', o.genStyle, [['desu','ですます調'],['dearu','である調']]))
+      + _subRow('起こし方', '意訳のほうが字幕としては読みやすい', _subSeg('genVerbatim', o.genVerbatim, [['natural','意訳して短く'],['verbatim','逐語']]))
+      + _subRow('専門用語', 'ガード/スイープ等の扱い', _subSeg('genTerms', o.genTerms, [['katakana','カタカナ'],['english','英語のまま'],['translate','訳す']]))
+      + _subRow('フィラー', '「えーと」「you know」などを残すか', _subSeg('genFillers', o.genFillers, [['drop','落とす'],['keep','残す']]))
+      + _subRow('画面内の文字', 'ホワイトボードやテロップも拾う（精度は落ちる場合あり）', _subSeg('genOnScreen', o.genOnScreen, [[false,'拾わない'],[true,'拾う']]));
+  }
+
+  html += `<div style="display:flex;justify-content:flex-end;padding-top:4px">
+    <button type="button" onclick="wkSubOptsReset()" style="padding:4px 12px;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer">既定値に戻す</button>
+  </div>`;
+  return `<div style="display:flex;flex-direction:column;gap:13px">${html}</div>`;
+}
+
+// 開いているパネル（設定画面・再生中ポップアップ）を描き直す
+window.wkSubOptsRender = function() {
+  const host = document.getElementById('sub-opts-host');
+  if (host) host.innerHTML = _subOptsHTML('full');
+  const pop = document.getElementById('vp-sub-opts');
+  if (pop) {
+    const body = pop.querySelector('#vp-sub-opts-body');
+    if (body) body.innerHTML = _subOptsHTML('player');
+  }
+};
+
+// CCボタン長押し / 右クリックで出す調整パネル
+function _gdSubOpenPanel(anchorEl) {
+  document.getElementById('vp-sub-opts')?.remove();
+  const r = anchorEl?.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.id = 'vp-sub-opts';
+  pop.style.cssText = 'position:fixed;z-index:10001;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
+    + 'border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.4);width:min(320px,calc(100vw - 24px));'
+    + 'max-height:min(70vh,520px);overflow-y:auto;padding:12px 14px;'
+    + `top:${Math.min((r?.bottom || 60) + 6, Math.max(8, window.innerHeight - 340))}px;`
+    + `right:12px`;
+  pop.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700">字幕の調整</div>
+      <button type="button" onclick="document.getElementById('vp-sub-opts')?.remove()"
+        style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+    </div>
+    <div id="vp-sub-opts-body">${_subOptsHTML('player')}</div>`;
+  pop.addEventListener('click', e => e.stopPropagation());
+  document.body.appendChild(pop);
+  const onOut = e => { if (!pop.contains(e.target) && e.target !== anchorEl) { pop.remove(); document.removeEventListener('mousedown', onOut, true); } };
+  setTimeout(() => document.addEventListener('mousedown', onOut, true), 0);
+}
 
 function _showGDriveAuthUI(container, fileId, onAuth) {
   container.innerHTML = `

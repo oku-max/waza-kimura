@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.604</title>
+<title>WAZA KIMURA v52.605</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1343,6 +1343,9 @@
         <div class="fs-nav-i" onclick="scrollToSetting('sec-play')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
           <span>▶</span> 再生設定
         </div>
+        <div class="fs-nav-i" onclick="scrollToSetting('sec-sub')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
+          <span>💬</span> 字幕設定
+        </div>
         <div class="fs-nav-i" onclick="scrollToSetting('sec-appearance')" style="font-size:12px;padding:8px 10px;border-radius:8px;cursor:pointer">
           <span>🎨</span> 外観設定
         </div>
@@ -1840,6 +1843,17 @@
           <span class="settings-toggle-slider"></span>
         </label>
       </div>
+    </div>
+
+    <!-- ═══ 字幕設定 ═══ -->
+    <div id="sec-sub" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase">字幕設定</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:12px">
+        Googleドライブ動画の字幕（同じフォルダの .srt / .vtt）に効きます。<br>
+        「一度に出す量」「表示時間」「見た目」は元ファイルを書き換えずその場で整形するので、<br>
+        生成済みの字幕にも教材付属の字幕にも効き、いつでも変更できます。
+      </div>
+      <div id="sub-opts-host"></div>
     </div>
 
     <!-- ═══ 外観設定 ═══ -->
