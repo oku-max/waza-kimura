@@ -2706,11 +2706,9 @@ function _srtSanity(srt, durationSec) {
     if (outside > cues.length * 0.2) {
       return `時刻が動画の長さ（${Math.round(dur)}秒）と合っていません`;
     }
-    const covered = cues[cues.length - 1].end - cues[0].start;
-    if (covered < dur * 0.3) {
-      return `動画の一部（約${Math.round(covered)}秒ぶん）しか字幕がありません`;
-    }
   }
+  // 「動画の何割を覆っているか」では判定しない。発話が一部に偏る動画は普通にあり、
+  // それを不正とすると正常な字幕まで保存できなくなる。
   return null;
 }
 
