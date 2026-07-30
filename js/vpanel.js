@@ -4433,10 +4433,25 @@ window._vpMemoToHtmlStatic = function(memo) {
     .replace(/\n/g, '<br>');
 };
 
+// 表示中のプレイヤー要素を返す。
+// スマホは #vpanel-iframe-container、PCは #vp-panel-yt-player とidが違うため、
+// 決め打ちで引くと片方のレイアウトで必ず外れる（字幕の見た目が効かない不具合の原因でもあった）。
+// GDrive再生中は実際に使ったコンテナを、それ以外は表示されている方を選ぶ。
+function _vpPlayerEl() {
+  if (_gdContainer && _gdContainer.isConnected) return _gdContainer;
+  for (const id of ['vpanel-iframe-container', 'vp-panel-yt-player']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 10 && r.height > 10) return el;
+  }
+  return null;
+}
+
 // 現在のタブ画面をキャプチャ（getDisplayMedia）→ 動画プレイヤー部分を自動クロップ
 async function _captureScreenFrame() {
   // キャプチャ前に動画プレイヤーの位置を記録
-  const playerEl = document.getElementById('vpanel-iframe-container');
+  const playerEl = _vpPlayerEl();
   const playerRect = playerEl?.getBoundingClientRect();
 
   const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -5023,7 +5038,7 @@ window.vpAiSummaryWithShot = async function(id) {
     // 3. getDisplayMedia でタブをキャプチャ（1回だけ許可を求める）
     if (btn) btn.textContent = '📸 画面共有…';
     window.toast?.('「このタブ」を選択してください（OKしてから撮影が始まります）');
-    const playerEl = document.getElementById('vpanel-iframe-container');
+    const playerEl = _vpPlayerEl();
     const playerRect = playerEl?.getBoundingClientRect();
 
     const stream = await navigator.mediaDevices.getDisplayMedia({
