@@ -2680,6 +2680,20 @@ function _looksLikeSrt(t) {
   return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(String(t || ''));
 }
 
+// ── 生成中にページを離れると結果だけ失われる（課金は発生済み）ので確認する ──
+// 動画はすでにGeminiへ送信済みで、離脱すると結果を受け取れないまま費用だけかかる。
+// カウンタ方式にして、一括実行のように複数が重なっても正しく判定する。
+let _aiBusy = 0;
+window.wkAiBusyBegin = function() { _aiBusy++; };
+window.wkAiBusyEnd   = function() { _aiBusy = Math.max(0, _aiBusy - 1); };
+window.wkAiBusyCount = function() { return _aiBusy; };
+window.addEventListener('beforeunload', (e) => {
+  if (_aiBusy <= 0) return;
+  // 文言はブラウザ側で固定されるため、こちらからは指定できない
+  e.preventDefault();
+  e.returnValue = '';
+});
+
 // 出来上がったSRTが動画に対して妥当かを保存前に検査する。
 // 「タイムコードがあるか」だけでは、1時間ずれや区間の崩れを通してしまう。
 // 壊れたものをDriveに書いてしまうと、消して作り直す手間が発生するので必ずここで止める。
@@ -2824,6 +2838,7 @@ window.vpGenSubtitle = async function(id, preset) {
   const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
   const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
 
+  window.wkAiBusyBegin();
   try {
     // 1. 保存先（動画と同じフォルダ）と、同名ファイルの有無を先に確認する
     setBtn('⏳ 確認中…');
@@ -2889,6 +2904,7 @@ window.vpGenSubtitle = async function(id, preset) {
     if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
+    window.wkAiBusyEnd();
     endBtn();
   }
 };
@@ -5680,6 +5696,7 @@ window.vpAiSummary = async function(id, preset) {
 
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 要約中…'; btn.style.opacity = '0.6'; }
 
+  window.wkAiBusyBegin();
   try {
     const idToken = await user.getIdToken();
 
@@ -5794,6 +5811,7 @@ window.vpAiSummary = async function(id, preset) {
     }
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
+    window.wkAiBusyEnd();
     if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
   }
 };
