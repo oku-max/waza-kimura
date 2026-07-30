@@ -406,37 +406,47 @@ async function handleAiSummary(request, env) {
   const body = await request.json().catch(() => ({}));
   const { idToken, source, ytId, title, channel, playlist } = body;
   // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON) | 'subtitle'(SRT字幕生成)
-  const mode = ['desc','branch','subtitle'].includes(body.mode) ? body.mode : 'summary';
+  //     | 'chapters'(チャプター検出JSON)
+  const mode = ['desc','branch','subtitle','chapters'].includes(body.mode) ? body.mode : 'summary';
   // subtitle時の出力言語: 'ja'(日本語に翻訳・既定) | 'orig'(話されている言語のまま)
   const subLang = body.subLang === 'orig' ? 'orig' : 'ja';
   // 生成の細かい指定（文体・逐語/意訳・用語・フィラー・画面内文字・字幕の量）
   const subOpts = (body.subOpts && typeof body.subOpts === 'object') ? body.subOpts : {};
+  // チャプター検出の指定（最短の長さ・最大件数）
+  const chapOpts = (body.chapOpts && typeof body.chapOpts === 'object') ? body.chapOpts : {};
 
   const auth = await verifyOwner(idToken, env);
   if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
 
   const { gdFileId, accessToken: gdToken } = body;
 
+  // 字幕テキストからチャプターを推定する経路。動画本体を送らないので速く安い。
+  if (source === 'transcript') {
+    if (mode !== 'chapters') return jsonRes({ error: 'source:transcript は mode:chapters のみ対応しています' }, 400);
+    return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
+  }
+
   if (source === 'youtube') {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
     }
-    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts);
+    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts);
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
       return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
     }
-    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts);
+    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts);
   }
-  return jsonRes({ error: 'source は youtube または gdrive を指定してください' }, 400);
+  return jsonRes({ error: 'source は youtube / gdrive / transcript を指定してください' }, 400);
 }
 
 // ── モード別プロンプト選択 ──────────────────────────────────
-function _promptFor(mode, ctx, subLang, subOpts) {
+function _promptFor(mode, ctx, subLang, subOpts, chapOpts) {
   if (mode === 'desc')     return _aiDescPrompt(ctx);
   if (mode === 'branch')   return _aiBranchPrompt(ctx);
   if (mode === 'subtitle') return _aiSubtitlePrompt(ctx, subLang, subOpts);
+  if (mode === 'chapters') return _aiChaptersPrompt(ctx, chapOpts, null);
   return _aiPrompt(ctx);
 }
 
@@ -444,6 +454,9 @@ function _promptFor(mode, ctx, subLang, subOpts) {
 function _genOptsFor(mode) {
   if (mode === 'branch')   return { json: true };
   if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.1, what: '字幕' };
+  // チャプターは出力そのものは短いが「どこで話題が変わるか」の判断に思考を使わせたい。
+  // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
+  if (mode === 'chapters') return { json: true, maxOutputTokens: 16384, thinkingBudget: 4096, temperature: 0.2, what: 'チャプター' };
   return {};
 }
 
@@ -503,6 +516,122 @@ ${rules.map(r => '- ' + r).join('\n')}
 1
 00:00:02,400 --> 00:00:05,120
 クローズドガードから始めます`;
+}
+
+// ── チャプター検出 ────────────────────────────────────────
+// 1本に複数のテクニックが収録された長尺教則を、話題の切り替わりで区切る。
+// transcript が渡された時は字幕テキストだけを根拠に判定する（動画本体は送らない）。
+const CHAP_MIN_SEC   = 45;      // これより短い区切りは作らせない（既定）
+const CHAP_MAX_COUNT = 40;      // 件数の上限（既定）
+const CHAP_TRANSCRIPT_MAX = 400000;  // 送られてくる字幕テキストの上限（文字）
+
+function _aiChaptersPrompt(ctx, chapOpts, transcript) {
+  const o = chapOpts || {};
+  const minSec = Math.max(10, Math.min(600, Number(o.minSec) || CHAP_MIN_SEC));
+  const maxCount = Math.max(2, Math.min(80, Number(o.maxCount) || CHAP_MAX_COUNT));
+  const titleLen = Math.max(6, Math.min(40, Number(o.titleLen) || 18));
+
+  const source = transcript
+    ? `以下は、この動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
+これだけを根拠に、話題が切り替わる点を判定してください。
+
+【字幕】
+${transcript}`
+    : 'この動画を最初から最後まで視聴し、話題が切り替わる点を判定してください。';
+
+  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+1本の長い教則動画に複数のテクニック／トピックが連続して収録されています。その区切り（チャプター）を検出してJSONで出力してください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+${source}
+
+【チャプターの単位】ひとつのテクニック・トピックのまとまりを1チャプターとします。導入の挨拶、コンセプト解説、ドリル、スパー実演、まとめ なども、それぞれ独立した1チャプターとして扱ってよい。
+【区切ってよい点】扱うテクニックが変わる／ポジションや状況設定が変わる／解説から実演やスパーに移る、など話の内容が実際に切り替わる点。
+【区切ってはいけない点】カメラの切り替わり、言い直し、同じ技の説明の続き、繰り返しのデモ。これらは前のチャプターに含めること。
+【start】そのチャプターの話が始まる時刻。「次は〜をやります」のような予告から始まる場合はその予告を含めた時刻にする。動画の先頭を 0:00 として数える。
+【最初のチャプター】動画の冒頭（0:00 付近）から必ず1つ目を始めること。
+【title】そのチャプターの中身が分かる短い日本語のタイトル。${titleLen}文字程度まで。
+  - 通し番号（「1.」「第1章」等）や記号で飾らない。内容だけを書く
+  - 柔術用語（ガード, スイープ, パスガード, マウント, バックテイク, ラペラ 等）はカタカナで表記する
+  - 「〜について」「〜の解説」のような中身の無い語尾は付けない
+  - 良い例: 「デラヒーバから足関節」「ニーカットの膝の入れ方」「クローズドガードのグリップ作り」
+【summary】そのチャプターの内容を1文で。省略可。
+
+【厳守】
+- 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
+- start は時刻の早い順に並べ、同じ時刻を2回出さない
+- 各チャプターは${minSec}秒以上の長さにする（それより細かい切り替わりは前のチャプターに含める）
+- チャプターは最大${maxCount}件まで。迷ったら細かく刻まず、大きなまとまりで捉える
+- 実際に動画（字幕）に無い内容を推測で足さない
+
+{"items":[{"start":"M:SS または H:MM:SS","title":"短い日本語のタイトル","summary":"1文の補足（省略可）"}]}`;
+}
+
+// 動画から検出する時のフレーム間引き。
+// Gemini は既定で毎秒1フレーム（≈258トークン/枚）を見るため、1時間で約100万トークンに達し、
+// 長尺だと入力がコンテキスト上限を超えて検出そのものができない。
+// チャプターの判断材料は主に音声（「次は〜をやります」等）なので、
+// 長い動画はフレームを間引いて全体を1回で読み切れるようにする。
+const CHAP_THIN_FROM_SEC    = 1800;    // これを超える動画だけ間引く（短い動画は既存の挙動のまま）
+const CHAP_INPUT_BUDGET     = 700000;  // 入力全体のトークン目安（1Mコンテキストに余裕を残す）
+const CHAP_TOKENS_PER_FRAME = 258;
+const CHAP_TOKENS_PER_SEC_AUDIO = 32;  // 音声は間引けないので先に差し引く
+
+function _chapThinVideo(filePart, durationSec) {
+  const dur = Number(durationSec) || 0;
+  if (!dur || dur <= CHAP_THIN_FROM_SEC) return filePart;
+  // 音声ぶんは削れないため、残りをフレームに割り当てる
+  const frameBudget = CHAP_INPUT_BUDGET - (CHAP_TOKENS_PER_SEC_AUDIO * dur);
+  const raw = frameBudget / (CHAP_TOKENS_PER_FRAME * dur);
+  const fps = Math.max(0.05, Math.min(0.5, Math.floor(raw * 100) / 100));
+  return { ...filePart, videoMetadata: { ...(filePart.videoMetadata || {}), fps } };
+}
+
+// 音声だけで枠を超える長さは、フレームをいくら間引いても1回では読み切れない。
+// 字幕の生成は区間分割できるので、そちら経由を案内する（無駄な課金をしない）。
+function _chapTooLongForVideo(durationSec) {
+  return (Number(durationSec) || 0) * CHAP_TOKENS_PER_SEC_AUDIO > CHAP_INPUT_BUDGET;
+}
+
+// fps 指定がこのAPIバージョンで通らなかった時だけ、間引き無しでもう一度試す。
+// 「長すぎる」等の本当の失敗で二重に課金しないよう、フィールド不正のときに限る。
+function _chapFpsRejected(r) {
+  return /fps|Unknown name|Invalid JSON payload|INVALID_ARGUMENT/i.test(String(r?.detail || r?.error || ''));
+}
+
+async function _generateChapters(env, filePart, ctx, chapOpts, durationSec) {
+  if (_chapTooLongForVideo(durationSec)) {
+    return {
+      error:  'この動画は長すぎて動画からの検出ができません',
+      detail: '先に字幕を作成し、「字幕から検出」をお使いください',
+    };
+  }
+  const gen    = _genOptsFor('chapters');
+  const prompt = { text: _aiChaptersPrompt(ctx, chapOpts, null) };
+  const thinned = _chapThinVideo(filePart, durationSec);
+  if (thinned !== filePart) {
+    const r = await _geminiGenerate(env, [thinned, prompt], gen);
+    if (!r.error) return r;
+    if (!_chapFpsRejected(r)) return r;
+    console.log('[chapters] fps指定が通らなかったため間引き無しで再試行:', r.detail || r.error);
+  }
+  return _geminiGenerate(env, [filePart, prompt], gen);
+}
+
+// 字幕テキストのみでチャプターを検出する（Drive・Gemini Files APIを使わない軽い経路）
+async function _aiChaptersFromTranscript(env, transcript, title, channel, playlist, chapOpts) {
+  const text = String(transcript || '').trim();
+  if (!text) return jsonRes({ error: '字幕テキストが空です' }, 400);
+  // 上限を超えるぶんは切る（末尾を落とすとチャプターも欠けるので、その旨を返して知らせる）
+  const clipped = text.length > CHAP_TRANSCRIPT_MAX;
+  const body = clipped ? text.slice(0, CHAP_TRANSCRIPT_MAX) : text;
+
+  const prompt = _aiChaptersPrompt(_ctxStr(title, channel, playlist), chapOpts, body);
+  const result = await _geminiGenerate(env, [{ text: prompt }], _genOptsFor('chapters'));
+  if (result.error) return jsonRes(result, 502);
+  return jsonRes({
+    summary: result.summary, usage: result.usage, costUsd: result.costUsd,
+    via: 'transcript', clipped,
+  });
 }
 
 // 一言解説: 動画を開く前に内容が分かる1〜2文（サムネ下・タイトル横に表示する想定）
@@ -794,9 +923,9 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
 }
 
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
-async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts) {
+async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts) {
   const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-  const prompt   = _promptFor(mode, _ctxStr(title, channel, playlist), subLang, subOpts);
+  const prompt   = _promptFor(mode, _ctxStr(title, channel, playlist), subLang, subOpts, chapOpts);
   try {
     const result = await _geminiGenerate(env, [
       { fileData: { fileUri: videoUrl } },
@@ -810,7 +939,7 @@ async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subL
 }
 
 // ── Google Drive 要約（Drive→Gemini Files APIストリーミング中継）──
-async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode, subLang, subOpts) {
+async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode, subLang, subOpts, chapOpts) {
   const apiKey = env.GEMINI_API_KEY;
 
   // 1. Drive ファイルメタデータ取得
@@ -911,15 +1040,20 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   try {
     result = mode === 'subtitle'
       ? await _generateSubtitle(env, { fileData: { mimeType, fileUri } }, ctx, subLang, subOpts, durationSec)
+      : mode === 'chapters'
+      ? await _generateChapters(env, { fileData: { mimeType, fileUri } }, ctx, chapOpts, durationSec)
       : await _geminiGenerate(env, [
           { fileData: { mimeType, fileUri } },
-          { text: _promptFor(mode, ctx, subLang, subOpts) },
+          { text: _promptFor(mode, ctx, subLang, subOpts, chapOpts) },
         ], _genOptsFor(mode));
   } finally {
     _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
   }
   if (result.error) return jsonRes(result, 502);
-  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd, segments: result.segments || 1 });
+  return jsonRes({
+    summary: result.summary, usage: result.usage, costUsd: result.costUsd,
+    segments: result.segments || 1, via: 'video', durationSec,
+  });
 }
 
 function _deleteGeminiFile(apiKey, name) {
