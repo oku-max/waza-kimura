@@ -1460,6 +1460,19 @@
     "公式チャプター表": "Official chapter list",
     "公式チャプター表 ＋ 字幕で位置合わせ": "Official chapter list + located via subtitles",
     "公式チャプター表 ＋ 動画で位置合わせ": "Official chapter list + located via video",
+    // 検出の粒度
+    "自動チャプターの粒度": "Auto chapter granularity",
+    "Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか":
+      "How finely “📑 Auto chapters” splits a Google Drive video",
+    "公式チャプター表から作る時は、表のとおりに区切るのでこの設定は使いません":
+      "Not used when building from an official chapter list — that follows the list exactly",
+    "刻みすぎ・粗すぎる時は粒度を変えて検出し直せます":
+      "Too many or too few? Pick another granularity to detect again",
+    "細かめ": "Finer",
+    "ふつう": "Normal",
+    "大きめ": "Coarser",
+    "1本の技ごと": "One technique each",
+    "章のかたまりで": "Larger sections",
     "この動画の字幕を使います（速い・安い）": "Uses this video's subtitles (fast and cheap)",
     "字幕が見つかりません": "No subtitles found",
     "動画から検出": "Detect from video",
