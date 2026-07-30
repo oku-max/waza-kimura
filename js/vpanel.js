@@ -2933,32 +2933,46 @@ function _vttToTranscript(vtt, maxChars) {
 // AIの返しを掃除する。時刻順に並べ、近すぎる区切り・動画の終わり際は落とす。
 function _normalizeChapters(items, opts) {
   const o = opts || {};
-  const dur    = Number(o.duration) || 0;
-  const minSec = Number(o.minSec) || CHAP_MIN_SEC;
+  const dur = Number(o.duration) || 0;
+  // 0 を渡せるようにする（公式チャプター表は短い章も正解なので間引かない）
+  const minSec   = o.minSec   != null ? Number(o.minSec)   : CHAP_MIN_SEC;
+  const maxCount = o.maxCount != null ? Number(o.maxCount) : CHAP_MAX_COUNT;
   const out = [];
   for (const it of (Array.isArray(items) ? items : [])) {
     const t = _chapSec(it?.start ?? it?.time ?? it?.t);
     if (t == null) continue;
     // 終わり際の区切りは使いどころが無い（数秒しか中身が無いものはAIの取り違え）
     if (dur && t > dur - 5) continue;
-    // 「1.」「第1章」のような通し番号はこちらで並べるので落とす
-    const title = String(it?.title || '')
+    // AIの生の返し（title/summary）と、変換済みチャプター（label/note）のどちらも受ける
+    const rawTitle = it?.title != null ? it.title : it?.label;
+    const rawNote  = it?.summary != null ? it.summary : it?.note;
+    // 「1.」「第1章」「Chapter 3」のような通し番号はこちらで並べるので落とす。
+    // ただし数字だけの接頭辞は区切り記号が付いている時に限る。
+    // 「93 Guard」「50/50 Guard」のように数字が技名の一部であることがあり、
+    // 番号が残るのは見れば直せるが、技名を削るのは気づけないため。
+    const title = String(rawTitle || '')
       .replace(/\s+/g, ' ').trim()
-      .replace(/^(?:第?\s*[\d０-９]+\s*(?:章|話|本目)?)[.．、）)：:\-\s]+/, '')
+      .replace(/^第\s*[\d０-９]+\s*(?:章|話|本目)\s*[.．、）)：:\-–—\s]*/, '')
+      .replace(/^(?:chapter|part|section|track|vol\.?|disc)\s*[\d０-９]+\s*[.．、）)：:\-–—\s]*/i, '')
+      .replace(/^[\d０-９]+\s*[.．、）)：:\-–—]+\s*/, '')
       .trim();
     out.push({
       time:  Math.round(t),
       label: title.slice(0, 60),
-      note:  String(it?.summary || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+      note:  String(rawNote || '').replace(/\s+/g, ' ').trim().slice(0, 200),
     });
   }
   out.sort((a, b) => a.time - b.time);
   const kept = [];
   for (const c of out) {
-    if (kept.length && c.time - kept[kept.length - 1].time < minSec) continue;
+    // minSec=0 でも同一時刻の重複だけは落とす
+    if (kept.length) {
+      const gap = c.time - kept[kept.length - 1].time;
+      if (gap < minSec || gap === 0) continue;
+    }
     kept.push(c);
   }
-  return kept.slice(0, CHAP_MAX_COUNT);
+  return kept.slice(0, maxCount);
 }
 
 // 検出時刻を字幕キューの先頭へ寄せる（発話の途中から始まるチャプターを防ぐ）
@@ -2976,6 +2990,186 @@ function _snapChapters(chaps, cues) {
   return chaps;
 }
 
+// ── 公式チャプター表の貼り付け ────────────────────────────
+// 教則DVDは商品ページに章立てが載っていることが多い。それが手に入るなら
+// AIに推測させるより正確なので、テキスト／スクショを読み取って章立てを確定させ、
+// 時刻が書かれていない時だけ「どこから始まるか」を字幕・動画から探す。
+const CHAP_IMG_MAX      = 6;      // 貼り付けられる画像の枚数
+const CHAP_IMG_LONG_EDGE = 2000;  // 長辺の上限（文字を読ませるので落としすぎない）
+
+// 画像を base64 にする。大きすぎる時だけ縮小し、文字が潰れない品質を保つ。
+function _chapImgToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const long = Math.max(img.width, img.height);
+        const scale = long > CHAP_IMG_LONG_EDGE ? CHAP_IMG_LONG_EDGE / long : 1;
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d');
+        cx.fillStyle = '#fff';           // 透過PNGが黒く潰れて読めなくなるのを防ぐ
+        cx.fillRect(0, 0, w, h);
+        cx.drawImage(img, 0, 0, w, h);
+        const dataUrl = cv.toDataURL('image/jpeg', 0.92);
+        URL.revokeObjectURL(url);
+        resolve({ mimeType: 'image/jpeg', data: dataUrl.split(',')[1], preview: dataUrl });
+      } catch (e) { URL.revokeObjectURL(url); reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像を読み込めませんでした')); };
+    img.src = url;
+  });
+}
+
+// テキスト貼り付け＋画像貼り付けの入力ダイアログ。resolve は {text, images} / キャンセルは null
+function _chapListDialog() {
+  return new Promise(resolve => {
+    document.getElementById('vp-chap-in-bg')?.remove();
+    const bg = document.createElement('div');
+    bg.id = 'vp-chap-in-bg';
+    bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    bg.innerHTML = `
+      <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
+                  width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📋 公式チャプター表から</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">商品ページの目次をそのまま貼り付けてください。文字でも画像でも構いません</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:10px 14px">
+          <textarea id="vp-chap-in-text" placeholder="ここに目次を貼り付け（例: 1. Closed Guard Basics）"
+            style="width:100%;box-sizing:border-box;min-height:110px;font-size:11.5px;line-height:1.5;padding:8px;border:1px solid var(--border,#444);
+                   border-radius:8px;background:var(--surface2,#2a2a2a);color:var(--text,#eee);font-family:inherit;outline:none;resize:vertical"></textarea>
+          <div id="vp-chap-in-drop" style="margin-top:8px;padding:14px 10px;border:1.5px dashed var(--border,#555);border-radius:10px;text-align:center;cursor:pointer">
+            <div style="font-size:11.5px;color:var(--text2,#bbb);font-weight:600">🖼 スクショを貼り付け / ドロップ</div>
+            <div style="font-size:10px;color:var(--text3,#999);margin-top:3px">タップでファイルを選ぶこともできます</div>
+          </div>
+          <input type="file" id="vp-chap-in-file" accept="image/*" multiple style="display:none">
+          <div id="vp-chap-in-thumbs" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        </div>
+        <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end;border-top:0.5px solid var(--border,#444)">
+          <button id="vp-chap-in-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
+          <button id="vp-chap-in-ok" style="${_adjBtnStyle('var(--accent)','#fff')};padding:6px 12px;font-size:11.5px">読み取る</button>
+        </div>
+      </div>`;
+    document.body.appendChild(bg);
+
+    const images  = [];
+    const txt     = bg.querySelector('#vp-chap-in-text');
+    const thumbs  = bg.querySelector('#vp-chap-in-thumbs');
+    const fileInp = bg.querySelector('#vp-chap-in-file');
+    const drop    = bg.querySelector('#vp-chap-in-drop');
+    const okBtn   = bg.querySelector('#vp-chap-in-ok');
+
+    const paint = () => {
+      thumbs.innerHTML = images.map((im, i) => `
+        <div style="position:relative">
+          <img src="${im.preview}" style="width:62px;height:62px;object-fit:cover;border-radius:6px;border:1px solid var(--border,#444)">
+          <button data-rm="${i}" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;border:none;
+                  background:var(--danger,#c84040);color:#fff;font-size:11px;line-height:1;cursor:pointer;font-family:inherit">×</button>
+        </div>`).join('');
+      thumbs.querySelectorAll('[data-rm]').forEach(b =>
+        b.addEventListener('click', () => { images.splice(Number(b.dataset.rm), 1); paint(); }));
+      const has = !!txt.value.trim() || images.length > 0;
+      okBtn.disabled = !has;
+      okBtn.style.opacity = has ? '1' : '.45';
+    };
+    const addFiles = async files => {
+      for (const f of Array.from(files || [])) {
+        if (!f.type?.startsWith('image/')) continue;
+        if (images.length >= CHAP_IMG_MAX) { window.toast?.(`画像は${CHAP_IMG_MAX}枚までです`); break; }
+        try { images.push(await _chapImgToBase64(f)); } catch (e) { console.warn('[chapters] 画像の取り込みに失敗:', e); }
+      }
+      paint();
+    };
+
+    const onPaste = e => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files = [];
+      for (const it of items) if (it.type?.startsWith('image/')) { const f = it.getAsFile(); if (f) files.push(f); }
+      // 画像が入っていた時だけ横取りする（文字の貼り付けは textarea にそのまま入れる）
+      if (files.length) { e.preventDefault(); addFiles(files); }
+    };
+    const done = val => {
+      bg.remove();
+      document.removeEventListener('paste', onPaste, true);
+      document.removeEventListener('keydown', onKey, true);
+      resolve(val);
+    };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+
+    txt.addEventListener('input', paint);
+    drop.addEventListener('click', () => fileInp.click());
+    fileInp.addEventListener('change', () => { addFiles(fileInp.files); fileInp.value = ''; });
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; });
+    drop.addEventListener('dragleave', () => { drop.style.borderColor = 'var(--border,#555)'; });
+    drop.addEventListener('drop', e => {
+      e.preventDefault(); drop.style.borderColor = 'var(--border,#555)';
+      addFiles(e.dataTransfer?.files);
+    });
+    bg.querySelector('#vp-chap-in-cancel').addEventListener('click', () => done(null));
+    bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
+    okBtn.addEventListener('click', () => {
+      const text = txt.value.trim();
+      if (!text && !images.length) return;
+      done({ text, images: images.map(im => ({ mimeType: im.mimeType, data: im.data })) });
+    });
+    paint();
+    document.addEventListener('paste', onPaste, true);
+    document.addEventListener('keydown', onKey, true);
+    setTimeout(() => txt.focus(), 0);
+  });
+}
+
+// 表から取れた項目を、開始時刻つきのチャプターへ。
+// 時刻が無く尺だけの表は積み上げて開始時刻にする。どちらも無ければ位置合わせが要る。
+function _chapListToChapters(items) {
+  const list = (Array.isArray(items) ? items : [])
+    .map(it => ({
+      title: String(it?.title || '').replace(/\s+/g, ' ').trim(),
+      start: _chapSec(it?.start),
+      dur:   _chapSec(it?.duration),
+    }))
+    .filter(x => x.title);
+  if (!list.length) return { chaps: [], titles: [], needAlign: false };
+
+  const titles = list.map(x => x.title);
+  // 開始時刻が過半にあるならそれを使う（1件だけ欠けている表もあるため全件必須にしない）
+  if (list.filter(x => x.start != null).length >= Math.ceil(list.length / 2)) {
+    const chaps = list.filter(x => x.start != null)
+      .map(x => ({ time: Math.round(x.start), label: x.title, note: '' }));
+    return { chaps, titles, needAlign: false, missing: list.length - chaps.length };
+  }
+  // 尺しか無い表は先頭から積み上げる
+  if (list.filter(x => x.dur != null).length >= Math.ceil(list.length / 2)) {
+    let acc = 0;
+    const chaps = [];
+    for (const x of list) {
+      chaps.push({ time: Math.round(acc), label: x.title, note: '' });
+      if (x.dur == null) { return { chaps: [], titles, needAlign: true }; }  // 途中で欠けたら積み上げが狂う
+      acc += x.dur;
+    }
+    return { chaps, titles, needAlign: false, missing: 0 };
+  }
+  return { chaps: [], titles, needAlign: true };
+}
+
+// 位置合わせの結果を公式タイトルに割り当てる。
+// タイトルは必ず表のものを使う（AIが言い換えても表が正）。位置不明は落とす。
+function _chapMergeAligned(titles, aligned) {
+  const rows = Array.isArray(aligned) ? aligned : [];
+  const out = [];
+  for (let i = 0; i < titles.length; i++) {
+    const t = _chapSec(rows[i]?.start ?? rows[i]?.time);
+    if (t == null) continue;
+    out.push({ time: Math.round(t), label: titles[i], note: '' });
+  }
+  return { chaps: out, unknown: titles.length - out.length };
+}
+
 // 検出の入り口を選ぶ小メニュー。選択で resolve、外クリック/Escで null
 function _askChapterSource(anchorEl, subCount) {
   return new Promise(resolve => {
@@ -2991,7 +3185,8 @@ function _askChapterSource(anchorEl, subCount) {
          ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${sub}</div>
        </button>`;
     menu.innerHTML =
-      item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
+      item('list', '公式チャプター表から', '商品ページの目次を貼り付け（最も正確）', false)
+      + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
     _fitPopup(menu, anchorEl);
@@ -3180,66 +3375,113 @@ window.vpGenChapters = async function(id, preset) {
     const via = preset ? (preset.via || (subs.length ? 'sub' : 'video')) : await _askChapterSource(btn, subs.length);
     if (!via) return { ok: false, skipped: true };
 
-    // 2. 検出（字幕からはテキストだけ、動画からは既存の字幕生成と同じ経路）
+    // 公式チャプター表は先に貼り付けてもらう（キャンセルなら通信もしない）
+    const input = via === 'list' ? (preset?.input || await _chapListDialog()) : null;
+    if (via === 'list' && !input) return { ok: false, skipped: true };
+
+    // 2. 検出
     setBtn('⏳ 検出中…');
-    const idToken  = await user.getIdToken();
-    const chapOpts = { minSec: CHAP_MIN_SEC, maxCount: CHAP_MAX_COUNT };
-    const common   = { idToken, mode: 'chapters', chapOpts,
-                       title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
+    const idToken   = await user.getIdToken();
+    const ctxFields = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
+    const duration  = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
+    const freeOpts  = { minSec: CHAP_MIN_SEC, maxCount: CHAP_MAX_COUNT };
 
-    let payload, cues = [], clipped = false;
-    if (via === 'sub') {
+    // 字幕の文字起こしは「字幕から検出」と「表の位置合わせ」の両方で使う
+    let cues = [], transcript = '', clipped = false;
+    const loadTranscript = async () => {
+      if (transcript) return transcript;
+      const tr = _vttToTranscript(await _chapGetVtt(fileId, gdToken, subs), CHAP_TR_MAX);
+      cues = tr.cues; clipped = tr.clipped; transcript = tr.text;
+      return transcript;
+    };
+
+    const post = async payload => {
+      const res = await fetch('/api/ai-summary', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.summary) {
+        throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(String(d.summary).replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/, '').trim());
+      } catch (e) {
+        console.warn('[chapters] JSON parse 失敗:', String(d.summary).slice(0, 300));
+        throw new Error('検出結果を読み取れませんでした。もう一度お試しください');
+      }
+      if (d.usage) console.log('[chapters] tokens:', d.usage, '/ 概算 $', d.costUsd, '/ via:', d.via);
+      return { parsed, d };
+    };
+
+    let chaps = [], cost = 0, noteSrc = '', warn = '';
+
+    if (via === 'list') {
+      // 2a. 表を読む（動画も字幕も送らない）
+      const r1 = await post({ idToken, mode: 'chapters', source: 'chapterlist',
+                              listText: input.text, listImages: input.images });
+      cost += Number(r1.d.costUsd) || 0;
+      const conv = _chapListToChapters(r1.parsed?.items);
+      if (!conv.titles.length) return fail('チャプター表を読み取れませんでした');
+
+      if (conv.needAlign) {
+        // 2b. 表に時刻が無い → 章立てを正解として、位置だけを字幕（無ければ動画）から探す
+        setBtn('⏳ 位置合わせ中…');
+        const chapOpts = { titles: conv.titles };
+        const useSub = subs.length > 0 && !!(await loadTranscript());
+        const r2 = useSub
+          ? await post({ idToken, mode: 'chapters', source: 'transcript', transcript, chapOpts, ...ctxFields })
+          : await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
+                         accessToken: gdToken, chapOpts, ...ctxFields });
+        cost += Number(r2.d.costUsd) || 0;
+        const merged = _chapMergeAligned(conv.titles, r2.parsed?.items);
+        chaps   = useSub ? _snapChapters(merged.chaps, cues) : merged.chaps;
+        noteSrc = useSub ? '公式チャプター表 ＋ 字幕で位置合わせ' : '公式チャプター表 ＋ 動画で位置合わせ';
+        if (merged.unknown) warn = `${merged.unknown}件は位置が特定できなかったため除きました`;
+      } else {
+        chaps   = conv.chaps;
+        noteSrc = '公式チャプター表';
+        if (conv.missing) warn = `${conv.missing}件は時刻が読み取れなかったため除きました`;
+      }
+      // 動画より後ろの時刻＝別の巻の目次を貼った可能性。落としたことを必ず伝える
+      const over = duration ? chaps.filter(c => c.time > duration - 5).length : 0;
+      if (over) warn = `${over}件は動画の長さを超えるため除きました（別の巻の目次かもしれません）`;
+      // 公式の章立ては短い章も正解なので間引かない
+      chaps = _normalizeChapters(chaps, { duration, minSec: 0, maxCount: 200 });
+
+    } else if (via === 'sub') {
       if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
-      const vtt = await _chapGetVtt(fileId, gdToken, subs);
-      const tr  = _vttToTranscript(vtt, CHAP_TR_MAX);
-      if (!tr.text) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
-      cues    = tr.cues;
-      clipped = tr.clipped;
-      payload = { ...common, source: 'transcript', transcript: tr.text };
+      if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
+      const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
+                             chapOpts: freeOpts, ...ctxFields });
+      cost += Number(r.d.costUsd) || 0;
+      chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: CHAP_MIN_SEC }), cues);
+      noteSrc = '字幕から検出';
+      if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
+
     } else {
-      payload = { ...common, source: 'gdrive', gdFileId: fileId, accessToken: gdToken };
+      const r = await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
+                             accessToken: gdToken, chapOpts: freeOpts, ...ctxFields });
+      cost += Number(r.d.costUsd) || 0;
+      chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: CHAP_MIN_SEC });
+      noteSrc = '動画から検出';
     }
 
-    const res = await fetch('/api/ai-summary', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok || !d.summary) {
-      throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
-    }
-
-    // 3. JSONを取り出して掃除する
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(d.summary).replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/, '').trim());
-    } catch (e) {
-      console.warn('[chapters] JSON parse 失敗:', String(d.summary).slice(0, 300));
-      throw new Error('検出結果を読み取れませんでした。もう一度お試しください');
-    }
-    const duration = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
-    let chaps = _normalizeChapters(parsed?.items, { duration, minSec: CHAP_MIN_SEC });
-    if (via === 'sub') chaps = _snapChapters(chaps, cues);
     if (!chaps.length) return fail('チャプターを検出できませんでした');
-
-    if (d.usage) console.log('[chapters] tokens:', d.usage, '/ 概算 $', d.costUsd, '/ via:', d.via);
-    const costStr = typeof d.costUsd === 'number' ? ` · $${d.costUsd.toFixed(3)}` : '';
     endBtn();
 
-    // 4. 確認してから書き込む
+    // 3. 確認してから書き込む
     const autoCount = (v.bookmarks || []).filter(b => b.auto === 'chapter').length;
-    const note = (via === 'sub' ? '字幕から検出' : '動画から検出') + costStr;
+    const note = noteSrc + (cost ? ` · $${cost.toFixed(3)}` : '');
     const sel = preset
       ? { chaps, withEnd: preset.withEnd !== false, replaceAuto: !!preset.replaceAuto }
-      : await _chapReviewDialog(chaps, {
-          note, autoCount,
-          warn: (clipped || d.clipped) ? '字幕が長いため後半は読み取れていません' : '',
-        });
+      : await _chapReviewDialog(chaps, { note, autoCount, warn });
     if (!sel) return { ok: false, skipped: true };
 
     const added = _applyChapters(id, sel, duration);
     if (!added) return fail('追加できるチャプターがありませんでした');
     if (!silent) window.toast?.(`📑 ${added}件のチャプターをブックマークに追加しました`);
-    return { ok: true, added, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
+    return { ok: true, added, cost };
   } catch (e) {
     console.warn('[chapters] 検出失敗:', e);
     if (!silent) window.toast?.('⚠️ チャプターの検出に失敗: ' + (e?.message || e));
