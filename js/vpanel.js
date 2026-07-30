@@ -2614,18 +2614,36 @@ function _subGenPayload() {
            maxChars: o.maxCharsJa, maxLines: o.maxLines };
 }
 
-window.vpGenSubtitle = async function(id) {
+// 実行前の概算コスト(USD)。Gemini のトークンレートから見積もる。
+// 映像 258トークン/秒 @$0.30/1M、音声 32トークン/秒 @$1.00/1M、出力 @$2.50/1M。
+// 実測は生成後に usageMetadata から返るので、これはあくまで事前の目安。
+window.wkEstimateAiCost = function(seconds, mode) {
+  const sec = Number(seconds) || 0;
+  if (sec <= 0) return null;                       // 尺不明。呼び出し側で「不明」と表示する
+  const inUsd = sec * ((258 * 0.30) + (32 * 1.00)) / 1e6;
+  // 字幕は尺に比例して出力が伸びる。要約はほぼ一定＋思考トークン。
+  const outUsd = mode === 'subtitle' ? sec * 11 * 2.50 / 1e6 : (900 + 2048) * 2.50 / 1e6;
+  return inUsd + outUsd;
+};
+
+// preset を渡すと対話なしで実行する（一括処理用）。
+//   preset = { subLang, silent:true, existing:'skip'|'replace' }
+// 戻り値: { ok, skipped, error, cost, target }
+window.vpGenSubtitle = async function(id, preset) {
+  const silent = !!(preset && preset.silent);
+  const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
+
   const v = (window.videos || []).find(x => x.id === id);
-  if (!v || v.pt !== 'gdrive') { window.toast?.('Google Drive の動画のみ対応しています'); return; }
+  if (!v || v.pt !== 'gdrive') return fail('Google Drive の動画のみ対応しています');
 
   const user = window._firebaseCurrentUser?.();
-  if (!user) { window.toast?.('ログインが必要です'); return; }
+  if (!user) return fail('ログインが必要です');
   const gdToken = window.getDriveTokenIfAvailable?.();
-  if (!gdToken) { window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。'); return; }
+  if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
-  const btn = document.getElementById('vp-subgen-' + id);
-  const subLang = await _askSubtitleLang(btn);
-  if (!subLang) return;
+  const btn = preset ? null : document.getElementById('vp-subgen-' + id);
+  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
+  if (!subLang) return { ok: false, skipped: true };
 
   const fileId = (v.id || '').replace(/^gd-/, '');
   const orig   = btn ? btn.textContent : '';
@@ -2644,7 +2662,14 @@ window.vpGenSubtitle = async function(id) {
     const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
     const dup  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
     const existing = dup?.files?.[0] || null;
-    if (existing && !confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) { endBtn(); return; }
+    if (existing) {
+      // 一括処理では既定で「作らない」。既存の字幕を黙って作り直さない安全側に倒す。
+      if (preset) {
+        if (preset.existing !== 'replace') { endBtn(); return { ok: false, skipped: true, target }; }
+      } else if (!confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) {
+        endBtn(); return { ok: false, skipped: true, target };
+      }
+    }
 
     // 2. 生成（動画をGeminiへ送るので長尺だと数分かかる）
     setBtn('⏳ 生成中…');
@@ -2674,16 +2699,18 @@ window.vpGenSubtitle = async function(id) {
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
-    window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
+    if (!silent) window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
     if (_gdVideoEl && _gdFileId === fileId) {
       document.getElementById('vp-sub-ui')?.remove();
       _gdSubRevoke();
       _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
       _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
     }
+    return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
-    window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
+    if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
+    return { ok: false, error: (e?.message || String(e)) };
   } finally {
     endBtn();
   }
@@ -4493,34 +4520,36 @@ window.vpAiBranch = async function(id) {
 };
 
 // ── AI要約（Gemini / YouTube・Google Drive・オーナー限定）──
-window.vpAiSummary = async function(id) {
+// preset を渡すと対話なしで実行する（一括処理用）。preset = { shot:false, silent:true }
+// 戻り値: { ok, skipped, error, cost }
+window.vpAiSummary = async function(id, preset) {
+  const silent = !!(preset && preset.silent);
+  const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
+
   const v = (window.videos||[]).find(v => v.id===id);
-  if (!v) return;
+  if (!v) return fail('動画が見つかりません');
 
   const isYT = v.pt === 'youtube' && v.ytId;
   const isGD = v.pt === 'gdrive';
-  if (!isYT && !isGD) { window.toast?.('YouTube または Google Drive の動画のみ対応しています'); return; }
+  if (!isYT && !isGD) return fail('YouTube または Google Drive の動画のみ対応しています');
 
   const user = window._firebaseCurrentUser?.();
-  if (!user) { window.toast?.('ログインが必要です'); return; }
+  if (!user) return fail('ログインが必要です');
 
   // Google Drive の場合はアクセストークンが必要
   let gdAccessToken = null;
   if (isGD) {
     gdAccessToken = window.getDriveTokenIfAvailable?.();
-    if (!gdAccessToken) {
-      window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。');
-      return;
-    }
+    if (!gdAccessToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
   }
 
-  const btn = document.getElementById('vp-aisum-' + id);
+  const btn = preset ? null : document.getElementById('vp-aisum-' + id);
   const memoEl = document.getElementById('vp-memo-' + id);
   const origLabel = btn ? btn.textContent : '';
 
   // スクショオプションを先に確認（GDriveのみ撮影可。YouTubeはダイアログ無しで要約のみ）
-  const opts = await _askSummaryOptions(isGD);
-  if (!opts) return; // キャンセル
+  const opts = preset || await _askSummaryOptions(isGD);
+  if (!opts) return { ok: false, skipped: true }; // キャンセル
 
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 要約中…'; btn.style.opacity = '0.6'; }
 
@@ -4558,9 +4587,11 @@ window.vpAiSummary = async function(id) {
     if (!data) {
       const reason = lastErr || '原因不明';
       console.error('[aiSummary] 最終的に生成失敗:', lastErr);
-      window.toast?.('⚠️ AI要約に失敗: ' + reason, 9000);
-      try { alert('⚠️ AI要約に失敗しました\n\n理由: ' + reason + '\n\n（動画が長い・非公開・年齢制限などで処理できない場合があります）'); } catch(e) {}
-      return;
+      if (!silent) {
+        window.toast?.('⚠️ AI要約に失敗: ' + reason, 9000);
+        try { alert('⚠️ AI要約に失敗しました\n\n理由: ' + reason + '\n\n（動画が長い・非公開・年齢制限などで処理できない場合があります）'); } catch(e) {}
+      }
+      return { ok: false, error: reason };
     }
 
     // スクショ撮影（opts.shot かつ GDrive動画）— 分岐抽出と共通のヘルパーを使用
@@ -4603,18 +4634,22 @@ window.vpAiSummary = async function(id) {
         if (attempt < 2) await new Promise(r => setTimeout(r, 1200));
       }
       if (!saved) {
-        window.toast?.('⚠️ 要約は表示されていますが保存に失敗しました。もう一度「✨AI要約」を押すか、メモを編集して保存してください', 7000);
+        if (!silent) window.toast?.('⚠️ 要約は表示されていますが保存に失敗しました。もう一度「✨AI要約」を押すか、メモを編集して保存してください', 7000);
         console.error('[aiSummary] 保存が2回とも失敗。v.memo はメモリ上にのみ存在');
-        return; // 成功トーストは出さない
+        return { ok: false, error: '保存に失敗しました' }; // 成功トーストは出さない
       }
     } else {
       autoSaveVp(id);
     }
-    window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
+    if (!silent) window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
+    return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0 };
   } catch (e) {
     console.error('[aiSummary] 例外:', e);
-    window.toast?.('要約エラー: ' + e.message);
-    try { alert('⚠️ AI要約エラー: ' + ((e && e.message) || e)); } catch(_) {}
+    if (!silent) {
+      window.toast?.('要約エラー: ' + e.message);
+      try { alert('⚠️ AI要約エラー: ' + ((e && e.message) || e)); } catch(_) {}
+    }
+    return { ok: false, error: (e?.message || String(e)) };
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
   }
