@@ -978,11 +978,40 @@ function _mergeSrtSegments(segs, durationSec) {
   return _cleanupCues(all, durationSec);
 }
 
+// 全体が一定量ずれている場合に直す。
+// 捨ててから「0件」と言うのではなく、直せるものは直す。
+function _repairOffset(cues, durationSec) {
+  const dur = Number(durationSec) || 0;
+  if (!dur || !cues.length) return cues;
+  const inRange = (sh) => cues.reduce((n, c) =>
+    n + ((c.start + sh) >= -2 && (c.start + sh) <= dur + 5 ? 1 : 0), 0);
+  const now = inRange(0);
+  if (now >= cues.length * 0.8) return cues;        // ほぼ収まっているなら触らない
+
+  // 候補は時間・分単位のきれいなズレのみ。
+  // 「先頭を0に寄せる」を候補にすると、デタラメな時刻でも必ず範囲内に収まって
+  // しまい、壊れた字幕を止められなくなる（検証で発覚したため外した）。
+  const cands = [];
+  for (let h = 1; h <= 5; h++) cands.push(-3600 * h);
+  for (let m = 1; m <= 59; m++) cands.push(-60 * m);
+  let bestN = now;
+  for (const sh of cands) bestN = Math.max(bestN, inRange(sh));
+  if (bestN <= now) return cues;                     // 直しようがない
+  // ほぼ同等ならきれいな単位を優先（ファイル本来の構造を壊さない）
+  for (const sh of cands) {
+    if (inRange(sh) >= bestN * 0.95) {
+      return cues.map(c => ({ ...c, start: c.start + sh, end: c.end + sh }));
+    }
+  }
+  return cues;
+}
+
 // 繋いだ結果を整える。壊れたキューを混ぜたまま保存しないための最後の砦。
 function _cleanupCues(cues, durationSec) {
   const dur = Number(durationSec) || 0;
+  const repaired = _repairOffset(cues, dur);          // 捨てる前に直す
   const limit = dur > 0 ? dur + 5 : Infinity;
-  let out = cues
+  let out = repaired
     .filter(c => c.start >= -1 && c.start < limit && c.end > c.start)
     .sort((a, b) => a.start - b.start);
   // 同じ時刻に重なったキューは後ろを詰める（区間の境目で重複しうる）
@@ -1008,9 +1037,10 @@ function _validateSrt(srt, durationSec) {
   if (dur > 0) {
     const outside = cues.filter(c => c.start > dur + 5).length;
     if (outside > cues.length * 0.2) return `字幕の時刻が動画の長さ(${Math.round(dur)}秒)と合っていません`;
-    const covered = cues[cues.length - 1].end - cues[0].start;
-    if (covered < dur * 0.3) return `字幕が動画の一部（約${Math.round(covered)}秒ぶん）しかありません`;
   }
+  // 「動画の何割を覆っているか」は不正の根拠にならない。
+  // 無音や実演だけの区間が長い教則では、発話が一部に偏るのが普通で、
+  // これを条件にすると正常な字幕まで弾いてしまう（実際に弾いていた）。
   return null;
 }
 

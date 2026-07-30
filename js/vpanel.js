@@ -2706,11 +2706,9 @@ function _srtSanity(srt, durationSec) {
     if (outside > cues.length * 0.2) {
       return `時刻が動画の長さ（${Math.round(dur)}秒）と合っていません`;
     }
-    const covered = cues[cues.length - 1].end - cues[0].start;
-    if (covered < dur * 0.3) {
-      return `動画の一部（約${Math.round(covered)}秒ぶん）しか字幕がありません`;
-    }
   }
+  // 「動画の何割を覆っているか」では判定しない。発話が一部に偏る動画は普通にあり、
+  // それを不正とすると正常な字幕まで保存できなくなる。
   return null;
 }
 
@@ -2901,7 +2899,7 @@ window.vpGenSubtitle = async function(id, preset) {
     return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
-    if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
+    if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e), 9000);
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
     window.wkAiBusyEnd();
