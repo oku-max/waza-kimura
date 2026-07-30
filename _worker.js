@@ -568,40 +568,104 @@ function _ctxStr(title, channel, playlist) {
   ].filter(Boolean).join('\n');
 }
 
+// B: streamGenerateContent を使う。
+// generateContent は生成完了まで応答が来ないため、長尺だと100秒でCloudflareに切られる（524）。
+// ストリーミングなら細切れに届き続けるので接続が切れない。
 async function _geminiGenerate(env, parts, opts) {
-  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model  = env.GEMINI_MODEL || 'gemini-2.5-flash';
   const apiKey = env.GEMINI_API_KEY;
-  // 2.5系の思考モデルは思考トークンが出力枠を食い潰し、本文が空（finishReason=MAX_TOKENS）になることがある。
-  // 思考量を上限付きに固定し、出力枠を広く確保して要約本文ぶんを必ず残す。
   const o = opts || {};
+  // 2.5系の思考モデルは思考トークンが出力枠を食い潰し、本文が空になることがある。
+  // 思考量を上限付きに固定し、出力枠を広く確保して本文ぶんを必ず残す。
   const generationConfig = {
     temperature:     o.temperature != null ? o.temperature : 0.3,
     maxOutputTokens: o.maxOutputTokens || 8192,
   };
   if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: o.thinkingBudget != null ? o.thinkingBudget : 2048 };
   if (o.json) generationConfig.responseMimeType = 'application/json';
-  const gRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig }),
-    }
-  );
-  const data = await gRes.json();
-  if (!gRes.ok) return { error: 'Gemini API error', detail: data?.error?.message || JSON.stringify(data).slice(0, 300) };
-  const usage = data.usageMetadata || null;
-  const cand  = data.candidates?.[0];
-  const summary = (cand?.content?.parts || []).map(p => p.text).filter(Boolean).join('\n').trim();
-  if (!summary) {
-    const fr = cand?.finishReason || 'no text';
-    const detail = fr === 'MAX_TOKENS' ? '出力が上限に達しました（動画が長い可能性）'
-                 : fr === 'SAFETY' || fr === 'PROHIBITED_CONTENT' ? 'コンテンツ判定で生成がブロックされました'
-                 : fr === 'RECITATION' ? '引用判定でブロックされました'
-                 : fr;
-    return { error: `${(opts && opts.what) || '要約'}を取得できませんでした`, detail };
+
+  let gRes;
+  try {
+    gRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts }], generationConfig }),
+      }
+    );
+  } catch (e) {
+    return { error: 'Gemini への接続に失敗しました', detail: (e && e.message) || String(e) };
   }
-  return { summary, usage, costUsd: _estimateCostUsd(env, usage) };
+  if (!gRes.ok) {
+    const r = await _jsonOrErr(gRes, 'Gemini の呼び出し');
+    if (r.error) return r;
+    return { error: 'Gemini API error', detail: r.data?.error?.message || _httpErrText(gRes.status) };
+  }
+
+  // SSE（data: {...}）を読み進めて本文を繋ぐ
+  let text = '', usage = null, finish = '';
+  try {
+    const reader = gRes.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        let j;
+        try { j = JSON.parse(payload); } catch (e) { continue; }
+        const cand = j.candidates?.[0];
+        for (const pt of (cand?.content?.parts || [])) if (pt.text) text += pt.text;
+        if (cand?.finishReason) finish = cand.finishReason;
+        if (j.usageMetadata) usage = j.usageMetadata;
+      }
+    }
+  } catch (e) {
+    // 途中まで取れていればそれを使う（長尺で切れた場合の救済）
+    if (!text.trim()) return { error: 'Gemini の応答の読み取りに失敗しました', detail: (e && e.message) || String(e) };
+  }
+
+  text = text.trim();
+  if (!text) {
+    const detail = finish === 'MAX_TOKENS' ? '出力が上限に達しました（動画が長い可能性）'
+                 : finish === 'SAFETY' || finish === 'PROHIBITED_CONTENT' ? 'コンテンツ判定で生成がブロックされました'
+                 : finish === 'RECITATION' ? '引用判定でブロックされました'
+                 : (finish || '応答が空でした');
+    return { error: `${o.what || '要約'}を取得できませんでした`, detail };
+  }
+  return { summary: text, usage, costUsd: _estimateCostUsd(env, usage) };
+}
+
+// A: 生の数字ではなく何が起きたかを返す。524はCloudflareのタイムアウト（100秒）。
+function _httpErrText(status) {
+  if (status === 524) return '処理が100秒を超えたため接続が切られました（動画が長い可能性）';
+  if (status === 504) return 'ゲートウェイがタイムアウトしました';
+  if (status === 502 || status === 503) return '一時的にサーバーへ到達できませんでした';
+  if (status === 429) return 'リクエストが多すぎます（レート制限）。少し待ってから再試行してください';
+  if (status === 403) return 'アクセスが拒否されました（APIキーまたは権限）';
+  if (status === 400) return 'リクエストが不正です';
+  return `HTTP ${status}`;
+}
+
+// JSONで返らないことがある（524などは素のテキスト）。パースエラーをそのまま
+// 表に出さず、何が起きたかに変換する。
+async function _jsonOrErr(res, what) {
+  const raw = await res.text();
+  try {
+    return { data: JSON.parse(raw) };
+  } catch (e) {
+    const m = raw.match(/error code:\s*(\d+)/i);
+    const code = m ? Number(m[1]) : res.status;
+    return { error: `${what}に失敗しました`, detail: _httpErrText(code) };
+  }
 }
 
 // 実測トークン数から概算コスト(USD)を出す。
@@ -621,6 +685,112 @@ function _estimateCostUsd(env, usage) {
   const out = (usage.candidatesTokenCount || 0) + (usage.thoughtsTokenCount || 0);
   const usd = (nonAudio * pIn + audio * pAudio + out * pOut) / 1e6;
   return Math.round(usd * 1e6) / 1e6;
+}
+
+// ── C: 長尺は区間ごとに生成して繋ぐ ────────────────────────
+// videoMetadata の startOffset/endOffset で区間を指定できるので、
+// 1リクエストの生成時間を抑えつつ、タイムコードの精度も上げる。
+const SUB_SEG_SEC = 600;   // 1区間の長さ（10分）
+const SUB_SEG_MAX = 12;    // 区間数の上限（= 2時間ぶん）
+
+function _srtTime(sec) {
+  const s = Math.max(0, sec);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  const ss = Math.floor(s % 60), ms = Math.round((s - Math.floor(s)) * 1000);
+  const z = (n, w) => String(n).padStart(w, '0');
+  return `${z(h,2)}:${z(m,2)}:${z(ss,2)},${z(ms,3)}`;
+}
+function _srtSec(tc) {
+  const m = String(tc).match(/(\d{1,3}):(\d{2})(?::(\d{2}))?[.,](\d{1,3})/);
+  if (!m) return 0;
+  const ms = Number((m[4] + '00').slice(0, 3));
+  return m[3] != null
+    ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + ms / 1000
+    : Number(m[1]) * 60 + Number(m[2]) + ms / 1000;
+}
+// 空行区切りに依存せず、タイムコード行を目印にキューを取り出す
+function _srtCues(text) {
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+  const TC = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
+  const marks = [];
+  for (let i = 0; i < lines.length; i++) if (TC.test(lines[i])) marks.push(i);
+  const cues = [];
+  for (let k = 0; k < marks.length; k++) {
+    const m = lines[marks[k]].match(TC);
+    const body = lines.slice(marks[k] + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    if (body.length && /^\d{1,5}$/.test(body[body.length - 1].trim())) body.pop();
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    const t = body.join('\n').trim();
+    if (!t) continue;
+    const start = _srtSec(m[1]), end = _srtSec(m[2]);
+    if (!(end > start)) continue;
+    cues.push({ start, end, text: t });
+  }
+  return cues;
+}
+// 区間ごとのSRTを1本に繋ぐ。
+// モデルが区間内の相対時刻で返すか絶対時刻で返すかは保証されないため、
+// 先頭キューの位置を見てどちらかを判定してからずらす（推測で固定しない）。
+function _mergeSrtSegments(segs) {
+  const all = [];
+  for (const { srt, offset } of segs) {
+    const cues = _srtCues(srt);
+    if (!cues.length) continue;
+    const first = cues[0].start;
+    const shift = Math.abs(first - offset) <= Math.abs(first) ? 0 : offset;
+    for (const c of cues) all.push({ start: c.start + shift, end: c.end + shift, text: c.text });
+  }
+  all.sort((a, b) => a.start - b.start);
+  return all.map((c, i) => `${i + 1}\n${_srtTime(c.start)} --> ${_srtTime(c.end)}\n${c.text}`).join('\n\n') + '\n';
+}
+function _mergeUsage(a, b) {
+  if (!b) return a;
+  if (!a) return { ...b };
+  const add = (x, y) => (Number(x) || 0) + (Number(y) || 0);
+  const out = {
+    promptTokenCount:     add(a.promptTokenCount, b.promptTokenCount),
+    candidatesTokenCount: add(a.candidatesTokenCount, b.candidatesTokenCount),
+    thoughtsTokenCount:   add(a.thoughtsTokenCount, b.thoughtsTokenCount),
+    totalTokenCount:      add(a.totalTokenCount, b.totalTokenCount),
+    promptTokensDetails:  [],
+  };
+  const byMod = {};
+  for (const d of [...(a.promptTokensDetails || []), ...(b.promptTokensDetails || [])]) {
+    const k = String(d.modality || '?').toUpperCase();
+    byMod[k] = (byMod[k] || 0) + (Number(d.tokenCount) || 0);
+  }
+  out.promptTokensDetails = Object.entries(byMod).map(([modality, tokenCount]) => ({ modality, tokenCount }));
+  return out;
+}
+
+// 長尺なら区間分割、短ければ従来どおり1回で生成する
+async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec) {
+  const gen = _genOptsFor('subtitle');
+  const dur = Number(durationSec) || 0;
+  const segCount = dur > SUB_SEG_SEC ? Math.min(SUB_SEG_MAX, Math.ceil(dur / SUB_SEG_SEC)) : 1;
+
+  if (segCount <= 1) {
+    return _geminiGenerate(env, [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], gen);
+  }
+
+  const segs = [];
+  let usage = null, cost = 0;
+  for (let k = 0; k < segCount; k++) {
+    const start = k * SUB_SEG_SEC;
+    const end   = Math.min(dur, (k + 1) * SUB_SEG_SEC);
+    const part  = { ...filePart, videoMetadata: { startOffset: `${Math.floor(start)}s`, endOffset: `${Math.ceil(end)}s` } };
+    const note  = `\n【この依頼の範囲】動画全体のうち ${Math.floor(start / 60)}分〜${Math.ceil(end / 60)}分の区間だけを対象にします。`
+                + `\nタイムコードはこの区間の先頭を 00:00:00,000 として数えてください（動画全体の先頭ではありません）。`;
+    const r = await _geminiGenerate(env, [part, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) + note }], gen);
+    if (r.error) return { error: r.error, detail: `区間 ${k + 1}/${segCount}: ${r.detail || ''}` };
+    segs.push({ srt: r.summary, offset: start });
+    cost += Number(r.costUsd) || 0;
+    usage = _mergeUsage(usage, r.usage);
+  }
+  const merged = _mergeSrtSegments(segs);
+  if (!_srtCues(merged).length) return { error: '字幕を取得できませんでした', detail: '区間を繋いだ結果が空でした' };
+  return { summary: merged, usage, costUsd: cost, segments: segCount };
 }
 
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
@@ -645,7 +815,7 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
 
   // 1. Drive ファイルメタデータ取得
   const metaRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdFileId)}?fields=size,mimeType,name`,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdFileId)}?fields=size,mimeType,name,videoMediaMetadata(durationMillis)`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!metaRes.ok) return jsonRes({ error: 'Drive metadata error', detail: (await metaRes.text()).slice(0, 200) }, 502);
@@ -653,6 +823,7 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   const fileSize = parseInt(meta.size || '0');
   const mimeType = meta.mimeType || 'video/mp4';
   const fileName = meta.name || 'video.mp4';
+  const durationSec = Number(meta.videoMediaMetadata?.durationMillis || 0) / 1000;
   if (!fileSize) return jsonRes({ error: 'ファイルサイズが取得できませんでした' }, 400);
 
   // 2. Gemini Files API — resumable upload 開始
@@ -735,18 +906,20 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   }
 
   // 5. 生成（mode: summary/desc/branch）
-  const prompt = _promptFor(mode, _ctxStr(title, channel, playlist), subLang, subOpts);
+  const ctx = _ctxStr(title, channel, playlist);
   let result;
   try {
-    result = await _geminiGenerate(env, [
-      { fileData: { mimeType, fileUri } },
-      { text: prompt },
-    ], _genOptsFor(mode));
+    result = mode === 'subtitle'
+      ? await _generateSubtitle(env, { fileData: { mimeType, fileUri } }, ctx, subLang, subOpts, durationSec)
+      : await _geminiGenerate(env, [
+          { fileData: { mimeType, fileUri } },
+          { text: _promptFor(mode, ctx, subLang, subOpts) },
+        ], _genOptsFor(mode));
   } finally {
     _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
   }
   if (result.error) return jsonRes(result, 502);
-  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd });
+  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd, segments: result.segments || 1 });
 }
 
 function _deleteGeminiFile(apiKey, name) {
