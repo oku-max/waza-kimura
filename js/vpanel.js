@@ -2566,7 +2566,7 @@ function _askSubtitleLang(anchorEl) {
     menu.id = 'vp-subgen-menu';
     menu.style.cssText = 'position:fixed;z-index:10000;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
       + 'border-radius:10px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35);min-width:190px;'
-      + `top:${Math.min((r?.bottom || 80) + 6, window.innerHeight - 130)}px;left:${Math.max(8, Math.min((r?.left || 8), window.innerWidth - 210))}px`;
+      + 'top:0;left:0;visibility:hidden';
     const item = (code, label) =>
       `<button class="vp-subgen-item" data-lang="${code}"
          style="display:block;width:100%;text-align:left;padding:8px 10px;border:none;border-radius:7px;background:transparent;
@@ -2576,6 +2576,9 @@ function _askSubtitleLang(anchorEl) {
        </button>`;
     menu.innerHTML = _subGenLangChoices().map(([c, l]) => item(c, l)).join('');
     document.body.appendChild(menu);
+    // 実寸が出てから位置を決める（項目数が増えても見切れない）
+    _fitPopup(menu, anchorEl);
+    menu.style.visibility = '';
 
     const done = val => {
       menu.remove();
@@ -2862,6 +2865,40 @@ window.wkSubOptsRender = function() {
 };
 
 // CCボタン長押し / 右クリックで出す調整パネル
+// ポップアップを画面内に収める。
+// 高さを決め打ちしていると項目数や画面サイズで見切れるので、
+// DOMに入れたあと実寸を測ってから位置を決める。
+// アンカーの下に入らなければ上に出し、どちらにも入らなければ縮めてスクロールさせる。
+function _fitPopup(el, anchorEl, opts) {
+  const o = opts || {};
+  const gap = 6, margin = 8;
+  const vh = window.innerHeight, vw = window.innerWidth;
+  const r  = anchorEl?.getBoundingClientRect();
+
+  let h = el.offsetHeight;
+  const below = r ? (vh - r.bottom - gap - margin) : (vh - margin * 2);
+  const above = r ? (r.top - gap - margin) : 0;
+
+  let top;
+  if (r && h <= below)      top = r.bottom + gap;          // 下に入る
+  else if (r && h <= above) top = r.top - gap - h;         // 上に入る
+  else {
+    // どちらにも入らない: 広い側に出し、高さを詰めてスクロールさせる
+    const space = Math.max(below, above, 140);
+    el.style.maxHeight = space + 'px';
+    el.style.overflowY = 'auto';
+    h = Math.min(el.offsetHeight, space);
+    top = (r && above > below) ? (r.top - gap - h) : (r ? r.bottom + gap : margin);
+  }
+  el.style.top = Math.max(margin, Math.min(top, vh - h - margin)) + 'px';
+
+  if (o.alignRight) return;   // 右寄せ指定のものは横位置を触らない
+  const w = el.offsetWidth;
+  const left = r ? r.left : margin;
+  el.style.left  = Math.max(margin, Math.min(left, vw - w - margin)) + 'px';
+  el.style.right = 'auto';
+}
+
 function _gdSubOpenPanel(anchorEl) {
   document.getElementById('vp-sub-opts')?.remove();
   const r = anchorEl?.getBoundingClientRect();
@@ -2870,8 +2907,7 @@ function _gdSubOpenPanel(anchorEl) {
   pop.style.cssText = 'position:fixed;z-index:10001;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
     + 'border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.4);width:min(320px,calc(100vw - 24px));'
     + 'max-height:min(70vh,520px);overflow-y:auto;padding:12px 14px;'
-    + `top:${Math.min((r?.bottom || 60) + 6, Math.max(8, window.innerHeight - 340))}px;`
-    + `right:12px`;
+    + 'top:0;right:12px;visibility:hidden';
   pop.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-size:12px;font-weight:700">字幕の調整</div>
       <button type="button" onclick="document.getElementById('vp-sub-opts')?.remove()"
@@ -2880,6 +2916,8 @@ function _gdSubOpenPanel(anchorEl) {
     <div id="vp-sub-opts-body">${_subOptsHTML('player')}</div>`;
   pop.addEventListener('click', e => e.stopPropagation());
   document.body.appendChild(pop);
+  _fitPopup(pop, anchorEl, { alignRight: true });
+  pop.style.visibility = '';
   const onOut = e => { if (!pop.contains(e.target) && e.target !== anchorEl) { pop.remove(); document.removeEventListener('mousedown', onOut, true); } };
   setTimeout(() => document.addEventListener('mousedown', onOut, true), 0);
 }
