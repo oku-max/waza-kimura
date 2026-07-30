@@ -1439,10 +1439,39 @@
     "🤖 自動判別": "🤖 Auto-detect",
     "🥋 はじめに": "🥋 Getting started",
 
+    // ── 自動チャプター（Drive動画を読み取ってチャプターごとにブックマークを作る）──
+    "📑 自動チャプター": "📑 Auto chapters",
+    "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
+    "字幕から検出": "Detect from subtitles",
+    "この動画の字幕を使います（速い・安い）": "Uses this video's subtitles (fast and cheap)",
+    "字幕が見つかりません": "No subtitles found",
+    "動画から検出": "Detect from video",
+    "AIが動画を視聴します（時間とコストがかかります）": "The AI watches the video (slower and more expensive)",
+    "⏳ 検出中…": "⏳ Detecting...",
+    "すべて解除": "Clear all",
+    "タイトルを入力...": "Enter a title...",
+    "終了時間を入れる（次の開始まで）": "Set end times (up to the next chapter)",
+    "1チャプターが区間になり、そのままループ再生できます": "Each chapter becomes a section you can loop",
+    "前に自動で作ったチャプターを消して入れ替える": "Replace the chapters created automatically last time",
+    "✔ ブックマークに追加": "✔ Add to bookmarks",
+    "チャプターを検出できませんでした": "No chapters were detected",
+    "チャプターを取得できませんでした": "Could not get the chapters",   // サーバー側の生成失敗メッセージ
+    "追加できるチャプターがありませんでした": "No new chapters to add",
+    "検出結果を読み取れませんでした。もう一度お試しください": "Could not read the detection result. Please try again",
+    "字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください": "No subtitles found. Create them first with “💬 Subtitles”",
+    "字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください": "Could not read the subtitles. Create them first with “💬 Subtitles”",
+    "字幕が長いため後半は読み取れていません": "The subtitles were too long, so the later part was not processed",
+    // サーバーが返す文言（クライアントは「エラー（詳細）」の形で1文にして出す）
+    "この動画は長すぎて動画からの検出ができません（先に字幕を作成し、「字幕から検出」をお使いください）":
+      "This video is too long to detect from the video itself. Create subtitles first, then use “Detect from subtitles”",
+
   };
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    "✔ ブックマークに追加（#件）": "✔ Add # to bookmarks",
+    "📑 #件のチャプターをブックマークに追加しました": "📑 Added # chapters to bookmarks",
+    "#件を削除します。手で作ったブックマークは消えません": "Removes # of them. Bookmarks you made by hand are kept",
     "(#本)": "(# videos)",
     "(RSS: 最新#本)": "(RSS: latest #)",
     "↩ #本を復元しました": "↩ Restored # videos",
@@ -1564,6 +1593,12 @@
   };
 
   const AUTO_PATTERNS = [
+    // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
+    [/^(字幕|動画)から検出 · (\$[\d.]+)$/,
+      (m, src, cost) => `Detected from ${src === '字幕' ? 'subtitles' : 'video'} · ${cost}`],
+    [/^⚠️ チャプターの検出に失敗: (.+)$/,
+      (m, d) => `⚠️ Chapter detection failed: ${_autoMap.get(d) || d}`],
+    [/^字幕の取得に失敗 \((\d+)\)$/, 'Failed to fetch the subtitles ($1)'],
     [/^(\d+)\s*本$/, '$1 videos'],
     [/^(\d+)\s*件$/, '$1 items'],
     [/^(\d+)\s*枚$/, '$1 shots'],

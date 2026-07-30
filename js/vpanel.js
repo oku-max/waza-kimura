@@ -933,11 +933,20 @@ function _bookmarkSectionHTML(id) {
   const bmBtnStyle = hasAB
     ? 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600;'
     : 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
+  // 自動チャプターはDrive動画のみ（Geminiに動画/字幕を読ませる経路がDrive前提のため）
+  const isGd = ((window.videos||[]).find(v => v.id === id)?.pt) === 'gdrive';
+  const chapBtn = isGd
+    ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
+         style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">📑 自動チャプター</button>`
+    : '';
   return `
     <div class="vp-row" id="vp-bm-section-${id}">
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;margin-bottom:4px;flex-wrap:wrap">
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
-        <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
+        <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
+          ${chapBtn}
+          <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
+        </span>
       </div>
       <div style="width:100%">
         <div id="vp-bm-list-${id}">${_bookmarkListHTML(id)}</div>
@@ -2855,6 +2864,385 @@ window.vpGenSubtitle = async function(id, preset) {
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
     if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
+    return { ok: false, error: (e?.message || String(e)) };
+  } finally {
+    endBtn();
+  }
+};
+
+// ── 自動チャプター（長尺Drive動画を読み取ってチャプターごとにブックマークを作る）──
+// 1本に複数のテクニックが入っている教則を、話題の切り替わりで区切ってブックマーク化する。
+// 検出の入り口は2つ:
+//   sub   … Driveにある字幕(SRT/VTT)の文字起こしだけをAIに渡す。動画を送らないので速く安い。
+//           おまけに検出時刻を字幕キューの頭にスナップできるので、発話の途中で切れない。
+//   video … 字幕が無い動画向け。字幕生成と同じ経路で動画本体をGeminiに読ませる（遅い・高い）。
+// 書き込みは必ず確認ダイアログを通す。既存のブックマークは消さず追加のみ（データ保護）。
+const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす
+const CHAP_MAX_COUNT = 40;    // 検出件数の上限
+const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
+const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
+const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
+
+// チャプター用の時刻表記。_formatTime は 95:30 のように分が膨らむので、
+// 1時間を超える動画では H:MM:SS にしてAIが誤読しないようにする。
+function _chapFmt(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  const z = n => String(n).padStart(2, '0');
+  return h ? `${h}:${z(m)}:${z(ss)}` : `${m}:${z(ss)}`;
+}
+
+// "1:02:03" / "12:34" / "754"（秒だけ）を秒に。読めなければ null
+function _chapSec(v) {
+  if (typeof v === 'number' && isFinite(v)) return Math.max(0, v);
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/^(?:(\d{1,3}):)?(\d{1,3}):(\d{1,2})(?:[.,](\d{1,3}))?$/);
+  if (m) {
+    const ms = m[4] ? Number((m[4] + '00').slice(0, 3)) / 1000 : 0;
+    return (Number(m[1] || 0) * 3600) + (Number(m[2]) * 60) + Number(m[3]) + ms;
+  }
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.max(0, n) : null;
+}
+
+// VTT → 「[M:SS] 発話」形式の文字起こし。
+// 1キュー1行だと長尺で無駄に大きくなるので、近接キューは1行にまとめる
+// （時間の粒度が粗くなるぶんは、あとで実キューへスナップして取り戻す）。
+function _vttToTranscript(vtt, maxChars) {
+  const cues = _parseVtt(vtt);
+  if (!cues.length) return { text: '', cues: [], clipped: false };
+  const lines = [];
+  let cur = null;
+  for (const c of cues) {
+    const t = String(c.text).replace(/<[^>]*>/g, '').replace(/\s*\n\s*/g, ' ').trim();
+    if (!t) continue;
+    if (cur && (c.start - cur.start) < 10 && (cur.text.length + t.length) < 140) {
+      cur.text += ' ' + t;
+    } else {
+      cur = { start: c.start, text: t };
+      lines.push(cur);
+    }
+  }
+  let text = lines.map(l => `[${_chapFmt(l.start)}] ${l.text}`).join('\n');
+  // ここで切ると後半のチャプターが出なくなるので、切ったことを呼び出し側へ伝える
+  const clipped = text.length > maxChars;
+  if (clipped) text = text.slice(0, maxChars);
+  return { text, cues, clipped };
+}
+
+// AIの返しを掃除する。時刻順に並べ、近すぎる区切り・動画の終わり際は落とす。
+function _normalizeChapters(items, opts) {
+  const o = opts || {};
+  const dur    = Number(o.duration) || 0;
+  const minSec = Number(o.minSec) || CHAP_MIN_SEC;
+  const out = [];
+  for (const it of (Array.isArray(items) ? items : [])) {
+    const t = _chapSec(it?.start ?? it?.time ?? it?.t);
+    if (t == null) continue;
+    // 終わり際の区切りは使いどころが無い（数秒しか中身が無いものはAIの取り違え）
+    if (dur && t > dur - 5) continue;
+    // 「1.」「第1章」のような通し番号はこちらで並べるので落とす
+    const title = String(it?.title || '')
+      .replace(/\s+/g, ' ').trim()
+      .replace(/^(?:第?\s*[\d０-９]+\s*(?:章|話|本目)?)[.．、）)：:\-\s]+/, '')
+      .trim();
+    out.push({
+      time:  Math.round(t),
+      label: title.slice(0, 60),
+      note:  String(it?.summary || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+    });
+  }
+  out.sort((a, b) => a.time - b.time);
+  const kept = [];
+  for (const c of out) {
+    if (kept.length && c.time - kept[kept.length - 1].time < minSec) continue;
+    kept.push(c);
+  }
+  return kept.slice(0, CHAP_MAX_COUNT);
+}
+
+// 検出時刻を字幕キューの先頭へ寄せる（発話の途中から始まるチャプターを防ぐ）
+function _snapChapters(chaps, cues) {
+  if (!cues?.length) return chaps;
+  for (const c of chaps) {
+    let best = null;
+    for (const q of cues) {
+      if (q.start > c.time + 1.5) break;   // その時刻の直前に始まったキューを採る
+      best = q;
+    }
+    if (best && Math.abs(best.start - c.time) <= CHAP_SNAP_SEC) c.time = Math.round(best.start);
+  }
+  chaps.sort((a, b) => a.time - b.time);
+  return chaps;
+}
+
+// 検出の入り口を選ぶ小メニュー。選択で resolve、外クリック/Escで null
+function _askChapterSource(anchorEl, subCount) {
+  return new Promise(resolve => {
+    document.getElementById('vp-chapgen-menu')?.remove();
+    const menu = document.createElement('div');
+    menu.id = 'vp-chapgen-menu';
+    menu.style.cssText = 'position:fixed;z-index:10000;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
+      + 'border-radius:10px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35);min-width:230px;top:0;left:0;visibility:hidden';
+    const item = (val, label, sub, disabled) =>
+      `<button class="vp-chapgen-item" data-via="${val}" ${disabled ? 'disabled' : ''}
+         style="display:block;width:100%;text-align:left;padding:8px 10px;border:none;border-radius:7px;background:transparent;
+                color:var(--text,#eee);font-family:inherit;font-size:12px;font-weight:600;cursor:${disabled ? 'default' : 'pointer'};opacity:${disabled ? '.45' : '1'}">
+         ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${sub}</div>
+       </button>`;
+    menu.innerHTML =
+      item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
+      + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
+    document.body.appendChild(menu);
+    _fitPopup(menu, anchorEl);
+    menu.style.visibility = '';
+
+    const done = val => {
+      menu.remove();
+      document.removeEventListener('mousedown', onOut, true);
+      document.removeEventListener('keydown', onKey, true);
+      resolve(val);
+    };
+    const onOut = e => { if (!menu.contains(e.target)) done(null); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    menu.querySelectorAll('.vp-chapgen-item').forEach(b => {
+      if (b.disabled) return;
+      b.addEventListener('mouseenter', () => { b.style.background = 'var(--surface2,#333)'; });
+      b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; });
+      b.addEventListener('click', () => done(b.dataset.via));
+    });
+    setTimeout(() => {
+      document.addEventListener('mousedown', onOut, true);
+      document.addEventListener('keydown', onKey, true);
+    }, 0);
+  });
+}
+
+// 検出結果の確認ダイアログ。ここを通さずにブックマークへ書き込まない。
+// resolve は { chaps, withEnd, replaceAuto } / キャンセルは null
+function _chapReviewDialog(chaps, info) {
+  return new Promise(resolve => {
+    document.getElementById('vp-chap-rv-bg')?.remove();
+    const autoCount = Number(info?.autoCount) || 0;
+    const bg = document.createElement('div');
+    bg.id = 'vp-chap-rv-bg';
+    bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+
+    const rows = chaps.map((c, i) => `
+      <div style="display:flex;align-items:center;gap:7px;padding:5px 2px;border-bottom:0.5px solid var(--border,#444)">
+        <input type="checkbox" class="vp-chap-ck" data-i="${i}" checked style="flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;cursor:pointer">
+        <button class="vp-chap-seek" data-t="${c.time}" title="ここから再生"
+          style="flex-shrink:0;padding:2px 7px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);
+                 font-size:11.5px;font-family:'DM Mono',monospace;cursor:pointer">${_chapFmt(c.time)}</button>
+        <input type="text" class="vp-chap-title" data-i="${i}" value="${_escAttr(c.label || '')}" placeholder="タイトルを入力..."
+          style="flex:1;min-width:0;font-size:11.5px;padding:4px 7px;border:1px solid var(--border,#444);border-radius:6px;
+                 background:var(--surface,#222);color:var(--text,#eee);font-family:inherit;outline:none">
+      </div>`).join('');
+
+    bg.innerHTML = `
+      <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
+                  width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📑 自動チャプター</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${_escAttr(info?.note || '')}</div>
+          ${info?.warn ? `<div style="font-size:10.5px;color:var(--accent);margin-top:2px">⚠ ${_escAttr(info.warn)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;padding:7px 14px 0">
+          <button id="vp-chap-all"  style="${_adjBtnStyle()}">すべて選択</button>
+          <button id="vp-chap-none" style="${_adjBtnStyle()}">すべて解除</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:4px 14px 8px;min-height:60px">${rows}</div>
+        <div style="padding:8px 14px;border-top:0.5px solid var(--border,#444);display:flex;flex-direction:column;gap:6px">
+          <label style="display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text2,#bbb);cursor:pointer">
+            <input type="checkbox" id="vp-chap-end" checked style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
+            <span>終了時間を入れる（次の開始まで）<div style="font-size:10px;color:var(--text3,#999)">1チャプターが区間になり、そのままループ再生できます</div></span>
+          </label>
+          ${autoCount ? `
+          <label style="display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text2,#bbb);cursor:pointer">
+            <input type="checkbox" id="vp-chap-rep" style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
+            <span>前に自動で作ったチャプターを消して入れ替える<div style="font-size:10px;color:var(--text3,#999)">${autoCount}件を削除します。手で作ったブックマークは消えません</div></span>
+          </label>` : ''}
+        </div>
+        <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end">
+          <button id="vp-chap-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
+          <button id="vp-chap-ok" style="${_adjBtnStyle('var(--accent)','#fff')};padding:6px 12px;font-size:11.5px">✔ ブックマークに追加</button>
+        </div>
+      </div>`;
+    document.body.appendChild(bg);
+
+    const cks = () => Array.from(bg.querySelectorAll('.vp-chap-ck'));
+    const paintOk = () => {
+      const n = cks().filter(c => c.checked).length;
+      const ok = bg.querySelector('#vp-chap-ok');
+      ok.textContent = `✔ ブックマークに追加（${n}件）`;
+      ok.disabled = !n;
+      ok.style.opacity = n ? '1' : '.45';
+    };
+    const done = val => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(val); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+
+    bg.querySelectorAll('.vp-chap-seek').forEach(b =>
+      b.addEventListener('click', () => _seekTo(Number(b.dataset.t) || 0)));
+    cks().forEach(c => c.addEventListener('change', paintOk));
+    bg.querySelector('#vp-chap-all').addEventListener('click',  () => { cks().forEach(c => { c.checked = true;  }); paintOk(); });
+    bg.querySelector('#vp-chap-none').addEventListener('click', () => { cks().forEach(c => { c.checked = false; }); paintOk(); });
+    bg.querySelector('#vp-chap-cancel').addEventListener('click', () => done(null));
+    bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
+    bg.querySelector('#vp-chap-ok').addEventListener('click', () => {
+      const titles = {};
+      bg.querySelectorAll('.vp-chap-title').forEach(inp => { titles[inp.dataset.i] = inp.value.trim(); });
+      const picked = cks().filter(c => c.checked).map(c => {
+        const i = c.dataset.i;
+        return { ...chaps[Number(i)], label: titles[i] ?? chaps[Number(i)].label };
+      });
+      if (!picked.length) return;
+      done({
+        chaps: picked,
+        withEnd:     !!bg.querySelector('#vp-chap-end')?.checked,
+        replaceAuto: !!bg.querySelector('#vp-chap-rep')?.checked,
+      });
+    });
+    paintOk();
+    document.addEventListener('keydown', onKey, true);
+  });
+}
+
+// ブックマークへの反映。空では何も書かない・既存は消さない（置き換えは明示指定時のみ）。
+function _applyChapters(id, sel, duration) {
+  const v = (window.videos || []).find(x => x.id === id);
+  if (!v || !sel?.chaps?.length) return 0;
+  if (!Array.isArray(v.bookmarks)) v.bookmarks = [];
+
+  // 明示的に指定された時だけ、この機能が作ったもの（auto:'chapter'）を消す。
+  // 手で作ったブックマークには一切触らない。
+  if (sel.replaceAuto) v.bookmarks = v.bookmarks.filter(b => b.auto !== 'chapter');
+
+  // 再実行で同じ位置が二重にならないよう、近接する既存の自動チャプターは飛ばす
+  const dup = t => v.bookmarks.some(b => b.auto === 'chapter' && Math.abs((b.time || 0) - t) <= CHAP_DUP_SEC);
+  const list = sel.chaps.filter(c => !dup(c.time));
+  if (!list.length) return 0;
+
+  if (sel.withEnd) {
+    const dur = Number(duration) || 0;
+    for (let i = 0; i < list.length; i++) {
+      const next = list[i + 1] ? list[i + 1].time : (dur || 0);
+      if (next > list[i].time + 1) list[i].endTime = Math.round(next);
+    }
+  }
+  for (const c of list) {
+    const bm = { time: c.time, label: c.label || '', note: c.note || '', auto: 'chapter' };
+    if (c.endTime != null) bm.endTime = c.endTime;
+    v.bookmarks.push(bm);
+  }
+  v.bookmarks.sort((a, b) => a.time - b.time);
+  window.debounceSave?.();
+  _refreshBmList(id);
+  return list.length;
+}
+
+// この動画の字幕本文（VTT）を1つ取る。再生中でメモリにあればそれを使う。
+async function _chapGetVtt(fileId, gdToken, subs) {
+  if (_gdFileId === fileId && _gdSubTracks.length) {
+    const t = _gdSubTracks[_gdSubIndex >= 0 ? _gdSubIndex : 0] || _gdSubTracks[0];
+    if (t?.rawVtt) return t.rawVtt;
+  }
+  const cand = subs?.[0];
+  if (!cand) return '';
+  // 動画本体と同じ同一オリジンプロキシ経由で取る（CORS・認証の追加対応が不要）
+  const res = await fetch(`/api/drive?fileId=${encodeURIComponent(cand.id)}&token=${encodeURIComponent(gdToken)}`);
+  if (!res.ok) throw new Error(`字幕の取得に失敗 (${res.status})`);
+  return _srtToVtt(_gdSubDecode(await res.arrayBuffer()));
+}
+
+window.vpGenChapters = async function(id, preset) {
+  const silent = !!(preset && preset.silent);
+  const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
+
+  const v = (window.videos || []).find(x => x.id === id);
+  if (!v || v.pt !== 'gdrive') return fail('Google Drive の動画のみ対応しています');
+
+  const user = window._firebaseCurrentUser?.();
+  if (!user) return fail('ログインが必要です');
+  const gdToken = window.getDriveTokenIfAvailable?.();
+  if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
+
+  const fileId = (v.id || '').replace(/^gd-/, '');
+  const btn  = preset ? null : document.getElementById('vp-chapgen-' + id);
+  const orig = btn ? btn.textContent : '';
+  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
+
+  try {
+    // 1. 字幕があるか先に調べて、入り口を選ばせる
+    setBtn('⏳ 確認中…');
+    const subs = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+    endBtn();
+    const via = preset ? (preset.via || (subs.length ? 'sub' : 'video')) : await _askChapterSource(btn, subs.length);
+    if (!via) return { ok: false, skipped: true };
+
+    // 2. 検出（字幕からはテキストだけ、動画からは既存の字幕生成と同じ経路）
+    setBtn('⏳ 検出中…');
+    const idToken  = await user.getIdToken();
+    const chapOpts = { minSec: CHAP_MIN_SEC, maxCount: CHAP_MAX_COUNT };
+    const common   = { idToken, mode: 'chapters', chapOpts,
+                       title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
+
+    let payload, cues = [], clipped = false;
+    if (via === 'sub') {
+      if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
+      const vtt = await _chapGetVtt(fileId, gdToken, subs);
+      const tr  = _vttToTranscript(vtt, CHAP_TR_MAX);
+      if (!tr.text) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
+      cues    = tr.cues;
+      clipped = tr.clipped;
+      payload = { ...common, source: 'transcript', transcript: tr.text };
+    } else {
+      payload = { ...common, source: 'gdrive', gdFileId: fileId, accessToken: gdToken };
+    }
+
+    const res = await fetch('/api/ai-summary', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.summary) {
+      throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+    }
+
+    // 3. JSONを取り出して掃除する
+    let parsed = null;
+    try {
+      parsed = JSON.parse(String(d.summary).replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/, '').trim());
+    } catch (e) {
+      console.warn('[chapters] JSON parse 失敗:', String(d.summary).slice(0, 300));
+      throw new Error('検出結果を読み取れませんでした。もう一度お試しください');
+    }
+    const duration = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
+    let chaps = _normalizeChapters(parsed?.items, { duration, minSec: CHAP_MIN_SEC });
+    if (via === 'sub') chaps = _snapChapters(chaps, cues);
+    if (!chaps.length) return fail('チャプターを検出できませんでした');
+
+    if (d.usage) console.log('[chapters] tokens:', d.usage, '/ 概算 $', d.costUsd, '/ via:', d.via);
+    const costStr = typeof d.costUsd === 'number' ? ` · $${d.costUsd.toFixed(3)}` : '';
+    endBtn();
+
+    // 4. 確認してから書き込む
+    const autoCount = (v.bookmarks || []).filter(b => b.auto === 'chapter').length;
+    const note = (via === 'sub' ? '字幕から検出' : '動画から検出') + costStr;
+    const sel = preset
+      ? { chaps, withEnd: preset.withEnd !== false, replaceAuto: !!preset.replaceAuto }
+      : await _chapReviewDialog(chaps, {
+          note, autoCount,
+          warn: (clipped || d.clipped) ? '字幕が長いため後半は読み取れていません' : '',
+        });
+    if (!sel) return { ok: false, skipped: true };
+
+    const added = _applyChapters(id, sel, duration);
+    if (!added) return fail('追加できるチャプターがありませんでした');
+    if (!silent) window.toast?.(`📑 ${added}件のチャプターをブックマークに追加しました`);
+    return { ok: true, added, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
+  } catch (e) {
+    console.warn('[chapters] 検出失敗:', e);
+    if (!silent) window.toast?.('⚠️ チャプターの検出に失敗: ' + (e?.message || e));
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
     endBtn();
