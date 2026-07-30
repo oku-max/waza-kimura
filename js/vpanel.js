@@ -3012,13 +3012,40 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">動画本体は削除されません。Driveのゴミ箱から元に戻せます。</div>`;
     }
     const off = _subOffsetGet(_gdFileId);
-    html += sec('タイミング補正（この動画のみ）')
-      + `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${[-1,-0.5,-0.1].map(d => `<button type="button" onclick="wkSubOffsetNudge(${d})" style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer">${d}s</button>`).join('')}
-          <span style="min-width:56px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:${off ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${off > 0 ? '+' : ''}${off.toFixed(1)}s</span>
-          ${[0.1,0.5,1].map(d => `<button type="button" onclick="wkSubOffsetNudge(${d})" style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer">+${d}s</button>`).join('')}
+    const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
+        style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
+               background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
+               font-size:11px;font-weight:600;cursor:pointer">${label}</button>`;
+    const sug = _gdSubSuggestOffset();
+
+    html += sec('ズレを直す（この動画のみ）')
+      + (sug != null
+          ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;display:flex;
+                         align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+               <span style="font-size:11px;line-height:1.5">字幕の時刻が動画の長さと合っていません</span>
+               ${btn('⏱ 自動で合わせる', 'wkSubAutoFix()', 'var(--accent,#6c8cff)')}
+             </div>` : '')
+      + `<div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${btn('⏱ いまのセリフに合わせる', 'wkSubSyncNow()', 'var(--accent,#6c8cff)')}
         </div>
-        <div style="font-size:10.5px;color:var(--text3)">字幕が音より早いならマイナス、遅いならプラス</div>`;
+        <div style="font-size:10.5px;color:var(--text3)">
+          字幕が出ている状態で、その台詞が聞こえた瞬間に押すと合います
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
+          <span style="min-width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;
+                       font-weight:700;color:${off ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${off > 0 ? '+' : ''}${off.toFixed(1)}s</span>
+          ${[0.1, 1, 10, 60].map(d => btn(`+${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
+        </div>
+        <div style="font-size:10.5px;color:var(--text3)">字幕が音より早いならマイナス、遅いならプラス</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${btn('リセット', 'wkSubOffsetReset()')}
+          ${off ? btn('💾 この補正をDriveに保存', 'wkSubBakeOffset()') : ''}
+          ${btn('🔄 読み直す', 'wkSubReload()')}
+        </div>
+        <div style="font-size:10.5px;color:var(--text3)">
+          補正はこの端末だけに残ります。他の端末にも反映するにはDriveに保存してください
+        </div>`;
   }
 
   if (scope === 'full') {
@@ -3042,6 +3069,128 @@ function _subOptsHTML(scope) {
 // 完全削除（files.delete）ではなく trashed:true にする。
 // ユーザーの実データなので、取り返しがつく方向に倒す（Driveのゴミ箱から復元できる）。
 // 対象は _gdSubTracks に載っている字幕ファイルだけで、動画本体には触れない。
+// ── 字幕のズレを直す ──────────────────────────────────────
+// 補正はすべて表示時に適用するだけなので、Drive上の元ファイルは変わらない。
+// 何度でもやり直せるし、消して作り直す必要もない。
+
+// 現在の字幕（整形前）の時刻の範囲を返す
+function _gdSubRange() {
+  const t = _gdSubTracks[_gdSubIndex] || _gdSubTracks[0];
+  if (!t || !t.rawVtt) return null;
+  const cues = _parseVtt(t.rawVtt);
+  if (!cues.length) return null;
+  return { first: cues[0].start, last: cues[cues.length - 1].end, count: cues.length };
+}
+
+// 動画の尺から見て明らかに外れている場合に、ずらす量を提案する。
+// 実際にあった「全体が1時間ずれている」ようなケースを1操作で直すためのもの。
+// 「全部が尺に収まるか」で判定すると、字幕の長さが動画より長い壊れ方（これも実在した）で
+// 一切提案できなくなるため、動画と重なっている長さで評価する。
+function _gdSubSuggestOffset() {
+  const r = _gdSubRange();
+  const dur = Number(_gdVideoEl?.duration) || 0;
+  if (!r || !dur) return null;
+
+  const overlap = (sh) => {
+    if (r.first + sh < -2) return -1;              // 動画の開始より前に出るのは不可
+    return Math.max(0, Math.min(dur, r.last + sh) - Math.max(0, r.first + sh));
+  };
+  const cur = _subOffsetGet(_gdFileId);
+  const curOv = overlap(cur);
+
+  // 時間・分単位のきれいなズレを優先（ファイルの構造を壊さない）。最後に先頭を0へ寄せる案。
+  const cands = [];
+  for (let h = 1; h <= 5; h++) cands.push(-3600 * h);
+  for (let m = 1; m <= 59; m++) cands.push(-60 * m);
+  cands.push(-r.first);
+
+  let bestOv = 0;
+  for (const sh of cands) bestOv = Math.max(bestOv, overlap(sh));
+  if (bestOv < 5) return null;                           // 直しようがない
+  if (curOv >= bestOv * 0.6) return null;                // いまでも十分重なっている
+  // cands は「時間単位 → 分単位 → 先頭を0へ」の順。ほぼ同じ結果になるなら
+  // きれいな単位の方を選ぶ（ファイル本来の構造を壊さないため）。
+  for (const sh of cands) if (overlap(sh) >= bestOv * 0.95) return Math.round(sh * 10) / 10;
+  return null;
+}
+
+window.wkSubAutoFix = function() {
+  const sh = _gdSubSuggestOffset();
+  if (sh == null) { window.toast?.('自動で直せるズレは見つかりませんでした'); return; }
+  _subOffsetSet(_gdFileId, sh);
+  _gdSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.(`⏱ ${sh}秒ずらしました`);
+};
+
+// いま画面に出ている字幕を、いまの再生位置に合わせる。
+// 一定量ズレている場合はこれ1回で合う。
+window.wkSubSyncNow = function() {
+  const t  = _gdSubTracks[_gdSubIndex];
+  const tt = t && t.track && t.track.track;
+  const now = Number(_gdVideoEl?.currentTime);
+  if (!tt || !Number.isFinite(now)) { window.toast?.('動画を再生してから押してください'); return; }
+  const cues = tt.activeCues;
+  if (!cues || !cues.length) { window.toast?.('いま表示されている字幕がありません'); return; }
+  // 表示中のキューの開始が、いまの再生位置に来るようにずらす
+  const delta = now - cues[0].startTime;
+  const next  = Math.round((_subOffsetGet(_gdFileId) + delta) * 10) / 10;
+  _subOffsetSet(_gdFileId, next);
+  _gdSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.(`⏱ 現在位置に合わせました（${next > 0 ? '+' : ''}${next.toFixed(1)}秒）`);
+};
+
+window.wkSubOffsetReset = function() {
+  _subOffsetSet(_gdFileId, 0);
+  _gdSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.('タイミング補正をリセットしました');
+};
+
+// 補正結果をDriveのファイルに書き戻す。
+// これをしないと補正はこの端末にしか残らない。元ファイルを上書きするので必ず確認する。
+window.wkSubBakeOffset = async function() {
+  const t   = _gdSubTracks[_gdSubIndex];
+  const off = _subOffsetGet(_gdFileId);
+  if (!t || !t.id) { window.toast?.('対象の字幕ファイルが特定できませんでした'); return; }
+  if (!off) { window.toast?.('補正がかかっていません'); return; }
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
+  if (!confirm(`「${t.name}」の時刻を ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 ずらして保存しますか？\n\nDrive上のファイルを書き換えます。`)) return;
+
+  const cues = _parseVtt(t.rawVtt).map(c => ({ ...c, start: Math.max(0, c.start + off), end: Math.max(0.2, c.end + off) }));
+  if (!cues.length) { window.toast?.('字幕を読み取れませんでした'); return; }
+  const srt = cues.map((c, i) =>
+    `${i + 1}\n${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}\n${c.text}`).join('\n\n') + '\n';
+  try {
+    await _driveUploadText(token, { name: t.name, text: srt, existingId: t.id });
+  } catch (e) {
+    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    return;
+  }
+  // 焼き込んだので端末側の補正は不要になる
+  t.rawVtt = _srtToVtt(srt);
+  _subOffsetSet(_gdFileId, 0);
+  _gdSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.('💾 補正をDriveのファイルに保存しました');
+};
+
+// Driveから読み直す（他の端末で直した場合など）
+window.wkSubReload = async function() {
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!_gdVideoEl || !_gdFileId || !token) { window.toast?.('動画を再生してから押してください'); return; }
+  _gdSubLookup.delete(_gdFileId);
+  document.getElementById('vp-sub-ui')?.remove();
+  _gdContainer?.querySelector('#vp-sub-overlay')?.remove();
+  _gdSubRevoke();
+  _gdVideoEl.querySelectorAll('track').forEach(el => el.remove());
+  await _gdAttachSubtitle(_gdVideoEl, _gdFileId, token);
+  window.wkSubOptsRender();
+  window.toast?.('🔄 字幕を読み直しました');
+};
+
 window.wkSubDeleteFile = async function(idx) {
   const t = _gdSubTracks[idx];
   if (!t || !t.id) { window.toast?.('対象の字幕ファイルが特定できませんでした'); return; }
