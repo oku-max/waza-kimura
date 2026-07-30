@@ -438,15 +438,46 @@ async function handleAiSummary(request, env) {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
     }
-    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts);
+    return _streamJson(() => _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts));
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
       return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
     }
-    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts);
+    return _streamJson(() => _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts));
   }
   return jsonRes({ error: 'source は youtube / gdrive / transcript を指定してください' }, 400);
+}
+
+// ── 長い処理の応答をストリーミングで返す ─────────────────────
+// Cloudflareは応答が始まらないまま約100秒経つと接続を切る（524）。
+// 以前ユーザーに届いた「error code: 524」はブラウザ→Worker間が切られた証拠
+// （Geminiのサーバーは Cloudflare の後ろにいないので、524が届く経路は他にない）。
+// 生成が100秒を超えると動画の長さに関係なく失敗していたのはこれ。
+//
+// 対策: 先に応答を開始し、処理中は10秒ごとに改行1つを流し続け、
+// 終わったら本体のJSONを書いて閉じる。改行はJSONの先頭空白として合法なので、
+// クライアントの res.json() はそのまま動く（クライアント変更不要・PWAキャッシュの影響なし）。
+// ステータスは常に200になるため、成否は本文の error フィールドで伝える
+// （クライアントは元々 d.summary / d.error を見て判定している）。
+function _streamJson(run) {
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const enc = new TextEncoder();
+  const timer = setInterval(() => { writer.write(enc.encode('\n')).catch(() => {}); }, 10000);
+  (async () => {
+    let out;
+    try {
+      const res = await run();               // 既存の処理は Response を返すのでそのまま使う
+      out = await res.text();
+    } catch (e) {
+      out = JSON.stringify({ error: 'サーバー内部エラー', detail: String((e && (e.message || e.name)) || e).slice(0, 300) });
+    }
+    clearInterval(timer);
+    try { await writer.write(enc.encode(out)); } catch (e) {}
+    try { await writer.close(); } catch (e) {}
+  })();
+  return new Response(readable, { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
 // ── モード別プロンプト選択 ──────────────────────────────────
@@ -657,7 +688,7 @@ async function _aiChapterListParse(env, listText, listImages) {
   if (result.error) return jsonRes(result, 502);
   return jsonRes({
     summary: result.summary, usage: result.usage, costUsd: result.costUsd, via: 'chapterlist',
-  });
+  , diag: result.diag});
 }
 
 // 動画から検出する時のフレーム間引き。
@@ -910,6 +941,209 @@ function _estimateCostUsd(env, usage) {
   return Math.round(usd * 1e6) / 1e6;
 }
 
+function _srtTime(sec) {
+  const s = Math.max(0, sec);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  const ss = Math.floor(s % 60), ms = Math.round((s - Math.floor(s)) * 1000);
+  const z = (n, w) => String(n).padStart(w, '0');
+  return `${z(h,2)}:${z(m,2)}:${z(ss,2)},${z(ms,3)}`;
+}
+function _srtSec(tc) {
+  const m = String(tc).match(/(\d{1,3}):(\d{2})(?::(\d{2}))?[.,](\d{1,3})/);
+  if (!m) return 0;
+  const ms = Number((m[4] + '00').slice(0, 3));
+  return m[3] != null
+    ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + ms / 1000
+    : Number(m[1]) * 60 + Number(m[2]) + ms / 1000;
+}
+// 空行区切りに依存せず、タイムコード行を目印にキューを取り出す
+function _srtCues(text) {
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+  const TC = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
+  const marks = [];
+  for (let i = 0; i < lines.length; i++) if (TC.test(lines[i])) marks.push(i);
+  const cues = [];
+  for (let k = 0; k < marks.length; k++) {
+    const m = lines[marks[k]].match(TC);
+    const body = lines.slice(marks[k] + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    if (body.length && /^\d{1,5}$/.test(body[body.length - 1].trim())) body.pop();
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    const t = body.join('\n').trim();
+    if (!t) continue;
+    const start = _srtSec(m[1]), end = _srtSec(m[2]);
+    if (!(end > start)) continue;
+    cues.push({ start, end, text: t });
+  }
+  return cues;
+}
+// 区間ごとのSRTを1本に繋ぐ。
+// モデルが区間内の相対時刻で返すか絶対時刻で返すかは保証されない。
+// 先頭キュー1件で判定すると、区間の後半から話し始める場合に必ず誤る
+// （区間長の半分を境に判定が反転する）。実際に長尺でこれが起きた。
+// そこで「その区間の時間窓に収まるキューが多いのはどちらの解釈か」で決める。
+function _pickSegShift(cues, segStart, segEnd, offset) {
+  const inWin = (sh) => cues.reduce((n, c) => {
+    const t = c.start + sh;
+    return n + (t >= segStart - 5 && t <= segEnd + 5 ? 1 : 0);
+  }, 0);
+  const asRel = inWin(offset);   // 相対時刻とみなしてずらす
+  const asAbs = inWin(0);        // すでに絶対時刻とみなす
+  return asRel >= asAbs ? offset : 0;
+}
+
+function _mergeSrtSegments(segs, durationSec) {
+  const all = [];
+  for (const { srt, offset, segEnd } of segs) {
+    const cues = _srtCues(srt);
+    if (!cues.length) continue;
+    const shift = _pickSegShift(cues, offset, segEnd, offset);
+    for (const c of cues) all.push({ start: c.start + shift, end: c.end + shift, text: c.text });
+  }
+  return _cleanupCues(all, durationSec);
+}
+
+// 全体が一定量ずれている場合に直す。
+// 捨ててから「0件」と言うのではなく、直せるものは直す。
+function _repairOffset(cues, durationSec) {
+  const dur = Number(durationSec) || 0;
+  if (!dur || !cues.length) return cues;
+  const inRange = (sh) => cues.reduce((n, c) =>
+    n + ((c.start + sh) >= -2 && (c.start + sh) <= dur + 5 ? 1 : 0), 0);
+  const now = inRange(0);
+  if (now >= cues.length * 0.8) return cues;        // ほぼ収まっているなら触らない
+
+  // 候補は時間・分単位のきれいなズレのみ。
+  // 「先頭を0に寄せる」を候補にすると、デタラメな時刻でも必ず範囲内に収まって
+  // しまい、壊れた字幕を止められなくなる（検証で発覚したため外した）。
+  const cands = [];
+  for (let h = 1; h <= 5; h++) cands.push(-3600 * h);
+  for (let m = 1; m <= 59; m++) cands.push(-60 * m);
+  let bestN = now;
+  for (const sh of cands) bestN = Math.max(bestN, inRange(sh));
+  if (bestN <= now) return cues;                     // 直しようがない
+  // ほぼ同等ならきれいな単位を優先（ファイル本来の構造を壊さない）
+  for (const sh of cands) {
+    if (inRange(sh) >= bestN * 0.95) {
+      return cues.map(c => ({ ...c, start: c.start + sh, end: c.end + sh }));
+    }
+  }
+  return cues;
+}
+
+// 繋いだ結果を整える。壊れたキューを混ぜたまま保存しないための最後の砦。
+function _cleanupCues(cues, durationSec) {
+  const dur = Number(durationSec) || 0;
+  const repaired = _repairOffset(cues, dur);          // 捨てる前に直す
+  const limit = dur > 0 ? dur + 5 : Infinity;
+  let out = repaired
+    .filter(c => c.start >= -1 && c.start < limit && c.end > c.start)
+    .sort((a, b) => a.start - b.start);
+  // 同じ時刻に重なったキューは後ろを詰める（区間の境目で重複しうる）
+  for (let i = 0; i < out.length - 1; i++) {
+    if (out[i].end > out[i + 1].start) out[i].end = Math.max(out[i].start + 0.2, out[i + 1].start);
+  }
+  // まったく同じ内容が連続していたら1つにする
+  out = out.filter((c, i) => i === 0 || c.text !== out[i - 1].text || c.start - out[i - 1].start > 0.5);
+  return out;
+}
+
+function _cuesToSrt(cues) {
+  return cues.map((c, i) => `${i + 1}\n${_srtTime(c.start)} --> ${_srtTime(c.end)}\n${c.text}`).join('\n\n') + '\n';
+}
+
+// 出来上がったSRTが動画に対して妥当か検査する。
+// おかしいまま返すとユーザーが「壊れた字幕」を保存してしまうので、
+// ここで止めて理由を返す。
+function _validateSrt(srt, durationSec) {
+  const cues = _srtCues(srt);
+  const dur = Number(durationSec) || 0;
+  if (!cues.length) return '字幕が1件も取れませんでした';
+  if (dur > 0) {
+    const outside = cues.filter(c => c.start > dur + 5).length;
+    if (outside > cues.length * 0.2) return `字幕の時刻が動画の長さ(${Math.round(dur)}秒)と合っていません`;
+  }
+  // 「動画の何割を覆っているか」は不正の根拠にならない。
+  // 無音や実演だけの区間が長い教則では、発話が一部に偏るのが普通で、
+  // これを条件にすると正常な字幕まで弾いてしまう（実際に弾いていた）。
+  return null;
+}
+
+function _mergeUsage(a, b) {
+  if (!b) return a;
+  if (!a) return { ...b };
+  const add = (x, y) => (Number(x) || 0) + (Number(y) || 0);
+  const out = {
+    promptTokenCount:     add(a.promptTokenCount, b.promptTokenCount),
+    candidatesTokenCount: add(a.candidatesTokenCount, b.candidatesTokenCount),
+    thoughtsTokenCount:   add(a.thoughtsTokenCount, b.thoughtsTokenCount),
+    totalTokenCount:      add(a.totalTokenCount, b.totalTokenCount),
+    promptTokensDetails:  [],
+  };
+  const byMod = {};
+  for (const d of [...(a.promptTokensDetails || []), ...(b.promptTokensDetails || [])]) {
+    const k = String(d.modality || '?').toUpperCase();
+    byMod[k] = (byMod[k] || 0) + (Number(d.tokenCount) || 0);
+  }
+  out.promptTokensDetails = Object.entries(byMod).map(([modality, tokenCount]) => ({ modality, tokenCount }));
+  return out;
+}
+
+// ── 字幕生成: 全動画を同じループで処理する ──────────────────
+// 経路は1本だけ。1分の動画は「1区間のループ」であり、長さで処理は分かれない。
+// 10分幅にするのは、60分動画は入力が1Mトークン窓を超えて1回では物理的に
+// 生成できないため（40分でも生成だけで6分超かかる）。
+// 区間の繋ぎは範囲投票（_pickSegShift）: 2区間目以降は相対時刻と絶対時刻の
+// 取りうる範囲が重ならないため、多数決で機械的に判別できる。シミュレーション
+// 5ケース（相対のみ/絶対のみ/混在/1区間破損/全破損）で検証済み。
+// 失敗時は「どの区間で・何が」を diag に載せて全体を失敗にする（部分保存しない）。
+const SUB_SEG_SEC = 600;
+const SUB_SEG_MAX = 12;
+
+async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec) {
+  const gen = _genOptsFor('subtitle');
+  const dur = Number(durationSec) || 0;
+  const segCount = Math.max(1, Math.min(SUB_SEG_MAX, dur > 0 ? Math.ceil(dur / SUB_SEG_SEC) : 1));
+  const prompt = _aiSubtitlePrompt(ctx, subLang, subOpts);
+
+  const segs = [], diag = [];
+  let usage = null, cost = 0;
+  for (let k = 0; k < segCount; k++) {
+    const start = k * SUB_SEG_SEC;
+    const end   = dur > 0 ? Math.min(dur, (k + 1) * SUB_SEG_SEC) : 0;
+    const part  = segCount > 1
+      ? { ...filePart, videoMetadata: { startOffset: `${start}s`, endOffset: `${Math.ceil(end)}s` } }
+      : filePart;
+    const note  = segCount > 1
+      ? `\n【この依頼の範囲】動画全体のうち ${Math.floor(start / 60)}分〜${Math.ceil(end / 60)}分の区間だけを対象にします。`
+        + `\nタイムコードはこの区間の先頭を 00:00:00,000 として数えてください（動画全体の先頭ではありません）。`
+      : '';
+    const t0 = Date.now();
+    let r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);
+    if (r.error) r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);   // 一過性失敗に1回だけ再試行
+    const sec = Math.round((Date.now() - t0) / 1000);
+    if (r.error) {
+      diag.push({ seg: k + 1, sec, error: r.detail || r.error });
+      return { error: '字幕の生成に失敗しました', detail: `区間 ${k + 1}/${segCount}: ${r.detail || r.error}`, diag };
+    }
+    const cues = _srtCues(r.summary);
+    const segEnd = end || (cues.length ? cues[cues.length - 1].end : 0);
+    // 診断: この区間の時刻が窓に収まった割合（繋ぎ判定の妥当性を後から確認できるように）
+    const shift = _pickSegShift(cues, start, segEnd, start);
+    const inWin = cues.length
+      ? Math.round(100 * cues.filter(c => c.start + shift >= start - 5 && c.start + shift <= segEnd + 5).length / cues.length)
+      : 0;
+    diag.push({ seg: k + 1, sec, cues: cues.length, inWin, outTok: r.usage?.candidatesTokenCount || 0 });
+    segs.push({ srt: r.summary, offset: start, segEnd });
+    cost += Number(r.costUsd) || 0;
+    usage = _mergeUsage(usage, r.usage);
+  }
+  const merged = _cuesToSrt(_mergeSrtSegments(segs, dur));
+  const bad = _validateSrt(merged, dur);
+  if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）', diag };
+  return { summary: merged, usage, costUsd: cost, segments: segCount, diag };
+}
+
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
 async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts) {
   const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
@@ -1007,8 +1241,9 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
 
   // 4. ファイル処理待ち（ACTIVE になるまでポーリング）
   let state = upData.file?.state || 'PROCESSING';
-  for (let i = 0; i < 20 && state !== 'ACTIVE'; i++) {
-    await new Promise(r => setTimeout(r, 3000));
+  // 1時間級の動画はGemini側の処理に数分かかる。応答は心拍で維持されるので長めに待つ。
+  for (let i = 0; i < 96 && state !== 'ACTIVE'; i++) {
+    await new Promise(r => setTimeout(r, 5000));
     const poll = await fetch(`https://generativelanguage.googleapis.com/v1beta/${geminiName}?key=${apiKey}`);
     const pd   = await poll.json();
     state = pd.state || state;
@@ -1023,12 +1258,12 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   }
 
   // 5. 生成（mode: summary/desc/branch）
-  // 字幕は他モードと同じ「動画1本＝生成1回」。区間分割と保存前検証は
-  // 動いていたものを壊したため撤去した（詳細はコミット履歴）。
   const ctx = _ctxStr(title, channel, playlist);
   let result;
   try {
-    result = mode === 'chapters'
+    result = mode === 'subtitle'
+      ? await _generateSubtitle(env, { fileData: { mimeType, fileUri } }, ctx, subLang, subOpts, durationSec)
+      : mode === 'chapters'
       ? await _generateChapters(env, { fileData: { mimeType, fileUri } }, ctx, chapOpts, durationSec)
       : await _geminiGenerate(env, [
           { fileData: { mimeType, fileUri } },
