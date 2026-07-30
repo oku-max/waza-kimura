@@ -1550,13 +1550,18 @@ export function openVPanel(id) {
       ? `<button id="vp-aibranch-btn-${vid}" onclick="vpAiBranch('${vid}')" title="分岐データを抽出しMemoに追記（プロトタイプ）"
            style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🌳 分岐</button>`
       : '';
+    // 字幕生成はDrive動画のみ（生成したSRTを動画と同じDriveフォルダに保存する方式のため）
+    const _subGenBtn = (_isOwner && vd?.pt === 'gdrive')
+      ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしし、字幕(SRT)をDriveの同じフォルダに保存します"
+           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
+      : '';
     const _escD = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const _descLine = `<div id="vp-aidesc-${vid}" style="margin-top:6px;padding:6px 9px;border-radius:8px;background:var(--surface2);font-size:11.5px;line-height:1.55;color:var(--text2);${vd?.aiDesc?'':'display:none'}">💬 <span id="vp-aidesc-txt-${vid}">${_escD(vd?.aiDesc)}</span></div>`;
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + _descLine
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}${_descBtn}${_branchBtn}</span>
+            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}${_descBtn}${_branchBtn}${_subGenBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
@@ -2048,17 +2053,30 @@ function _createGDriveVideoEl(container, fileId, token) {
 // また <track> が読めるのは WebVTT のみで SRT は不可。したがって
 // 「動画と同じDriveフォルダに置いた字幕ファイルを取ってきて VTT に変換して載せる」方式を採る。
 // 動画ファイル自体は一切変更しない（再エンコードもDrive上の更新もしない）。
-const GD_SUB_PREF_KEY = 'wk_gdSubOn';   // 表示ON/OFF。端末ローカルの表示設定のみでクラウド同期しない
+const GD_SUB_LANG_KEY = 'wk_gdSubLang'; // 選択中の字幕（'off' | ラベル）。端末ローカルのみでクラウド同期しない
+const GD_SUB_OLD_KEY  = 'wk_gdSubOn';   // v52.602 の ON/OFF キー（移行用）
 const GD_SUB_EXT_RE   = /\.(srt|vtt)$/i;
-const _gdSubLookup    = new Map();      // 動画fileId -> {id,name} | null（セッション内キャッシュ）
-let   _gdSubBlobUrl   = null;           // 生成した blob URL（解放用）
+const GD_SUB_MAX      = 6;              // 1動画あたり取得する字幕ファイルの上限
+const _gdSubLookup    = new Map();      // 動画fileId -> 候補配列（セッション内キャッシュ）
+let   _gdSubBlobUrls  = [];             // 生成した blob URL（解放用）
+let   _gdSubTracks    = [];             // 現在の動画の字幕 [{label, track}]
+let   _gdSubIndex     = -1;             // 表示中のインデックス（-1 = OFF）
 
-function _gdSubEnabled()      { try { return localStorage.getItem(GD_SUB_PREF_KEY) !== '0'; } catch(e) { return true; } }
-function _gdSubSetEnabled(on) { try { localStorage.setItem(GD_SUB_PREF_KEY, on ? '1' : '0'); } catch(e) {} }
+// 保存されている選択（ラベル or 'off'）。未設定なら旧キーから移行
+function _gdSubPref() {
+  try {
+    const v = localStorage.getItem(GD_SUB_LANG_KEY);
+    if (v != null) return v;
+    return localStorage.getItem(GD_SUB_OLD_KEY) === '0' ? 'off' : '';
+  } catch(e) { return ''; }
+}
+function _gdSubSetPref(v) { try { localStorage.setItem(GD_SUB_LANG_KEY, v); } catch(e) {} }
+
 function _gdSubRevoke() {
-  if (!_gdSubBlobUrl) return;
-  try { URL.revokeObjectURL(_gdSubBlobUrl); } catch(e) {}
-  _gdSubBlobUrl = null;
+  for (const u of _gdSubBlobUrls) { try { URL.revokeObjectURL(u); } catch(e) {} }
+  _gdSubBlobUrls = [];
+  _gdSubTracks   = [];
+  _gdSubIndex    = -1;
 }
 
 async function _driveApiGet(path, token) {
@@ -2067,34 +2085,46 @@ async function _driveApiGet(path, token) {
   return res.json();
 }
 
-// 同名度でスコアリング（完全一致 > 日本語指定 > 変換不要なvtt）
-function _gdSubScore(name, base) {
-  const noExt = name.replace(GD_SUB_EXT_RE, '');
-  let s = 0;
-  if (noExt.toLowerCase() === base.toLowerCase()) s += 10;
-  if (/(^|[._\-\s])(ja|jpn|jp|japanese)([._\-\s]|$)/i.test(noExt)) s += 3;
-  if (/\.vtt$/i.test(name)) s += 1;
-  return s;
+// ファイル名の突き合わせ用の正規化。
+// 「01-01- Intro To The Instructional.mp4」と「01-01-_Intro_To_The_Instructional.ja.srt」のように
+// 空白/アンダースコア/ハイフン/ドットの表記ゆれがあっても同じ動画の字幕とみなせるようにする。
+function _gdSubNorm(s) {
+  return String(s).toLowerCase().replace(/[\s　_.\-]+/g, '');
 }
 
-// 動画と同じフォルダから「動画名で始まる .srt / .vtt」を探す
-// （video.mp4 に対し video.srt / video.ja.srt / video_ja.vtt などを拾う）
-async function _gdFindSubtitleFile(fileId, token) {
+// 動画名を取り除いた「残り」から言語を判定する（残りが無ければ言語指定なし）
+function _gdSubLabelOf(rem) {
+  if (!rem) return { lang: '', label: '字幕' };
+  if (/^(ja|jpn|jp|japanese|日本語)$/.test(rem)) return { lang: 'ja', label: '日本語' };
+  if (/^(en|eng|english|英語)$/.test(rem))       return { lang: 'en', label: 'English' };
+  return { lang: rem, label: rem.toUpperCase() };
+}
+
+// 動画と同じフォルダから「動画名で始まる .srt / .vtt」をすべて探す
+async function _gdFindSubtitleFiles(fileId, token) {
   if (_gdSubLookup.has(fileId)) return _gdSubLookup.get(fileId);
-  let found = null;
+  let found = [];
   try {
     const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, token);
     const parent = meta?.parents?.[0];
     const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
     if (parent && base) {
-      const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
-      const list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
-      const cands = (list?.files || []).filter(f =>
-        GD_SUB_EXT_RE.test(f.name) &&
-        f.name.replace(GD_SUB_EXT_RE, '').toLowerCase().startsWith(base.toLowerCase())
-      );
-      cands.sort((a, b) => _gdSubScore(b.name, base) - _gdSubScore(a.name, base));
-      found = cands[0] || null;
+      const nbase = _gdSubNorm(base);
+      const q     = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
+      const list  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
+      for (const f of (list?.files || [])) {
+        if (!GD_SUB_EXT_RE.test(f.name)) continue;
+        const nname = _gdSubNorm(f.name.replace(GD_SUB_EXT_RE, ''));
+        if (!nname.startsWith(nbase)) continue;
+        const rem = nname.slice(nbase.length);
+        // 残りが長い＝別動画の字幕を誤って拾っている可能性が高いので除外
+        if (rem.length > 12) continue;
+        found.push({ id: f.id, name: f.name, ...(_gdSubLabelOf(rem)) });
+      }
+      // 日本語 → 言語指定なし → その他 の順に並べる
+      const rank = x => x.lang === 'ja' ? 0 : x.lang === '' ? 1 : 2;
+      found.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+      found = found.slice(0, GD_SUB_MAX);
     }
   } catch(e) {
     console.warn('subtitle lookup failed:', e?.message || e);
@@ -2129,66 +2159,251 @@ function _srtToVtt(text) {
   return 'WEBVTT\n\n' + t.trim() + '\n';
 }
 
+// ファイル名に言語表記が無い字幕は中身から日本語/英語を判定してラベルを補正する
+function _gdSubRefineLabel(cand, vtt) {
+  if (cand.lang) return;
+  const body = vtt.replace(/^WEBVTT[\s\S]*?\n\n/, '');
+  if (/[぀-ヿ一-鿿]/.test(body)) { cand.lang = 'ja'; cand.label = '日本語'; }
+  else if (/[A-Za-z]{3,}/.test(body))            { cand.lang = 'en'; cand.label = 'English'; }
+}
+
 async function _gdAttachSubtitle(video, fileId, token) {
-  const sub = await _gdFindSubtitleFile(fileId, token);
-  if (!sub) return;
+  const cands = await _gdFindSubtitleFiles(fileId, token);
+  if (!cands.length) return;
   if (_gdVideoEl !== video || !video.isConnected) return;   // 待っている間に別動画へ切替済み
-  let vtt;
-  try {
-    // 字幕本文も動画と同じ同一オリジンプロキシ経由で取る（CORS・認証の追加対応が不要）
-    const res = await fetch(`/api/drive?fileId=${encodeURIComponent(sub.id)}&token=${encodeURIComponent(token)}`);
-    if (!res.ok) throw new Error(`fetch ${res.status}`);
-    vtt = _srtToVtt(_gdSubDecode(await res.arrayBuffer()));
-  } catch(e) {
-    console.warn('subtitle fetch failed:', e?.message || e);
-    return;
-  }
+
+  // 候補をすべて取得（字幕ファイルは数十KB程度なので並列で取り切る）
+  const loaded = await Promise.all(cands.map(async c => {
+    try {
+      // 字幕本文も動画と同じ同一オリジンプロキシ経由で取る（CORS・認証の追加対応が不要）
+      const res = await fetch(`/api/drive?fileId=${encodeURIComponent(c.id)}&token=${encodeURIComponent(token)}`);
+      if (!res.ok) throw new Error(`fetch ${res.status}`);
+      const vtt = _srtToVtt(_gdSubDecode(await res.arrayBuffer()));
+      _gdSubRefineLabel(c, vtt);
+      return { cand: c, vtt };
+    } catch(e) {
+      console.warn('subtitle fetch failed:', c.name, e?.message || e);
+      return null;
+    }
+  }));
   if (_gdVideoEl !== video || !video.isConnected) return;
 
   _gdSubRevoke();
-  _gdSubBlobUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
-  const track = document.createElement('track');
-  track.kind    = 'subtitles';
-  track.label   = '字幕';
-  track.srclang = 'ja';
-  track.src     = _gdSubBlobUrl;
-  track.default = true;
-  video.appendChild(track);
+  for (const item of loaded) {
+    if (!item) continue;
+    const url = URL.createObjectURL(new Blob([item.vtt], { type: 'text/vtt' }));
+    _gdSubBlobUrls.push(url);
+    const track = document.createElement('track');
+    track.kind    = 'subtitles';
+    track.label   = item.cand.label;
+    track.srclang = item.cand.lang || 'ja';
+    track.src     = url;
+    video.appendChild(track);
+    _gdSubTracks.push({ label: item.cand.label, name: item.cand.name, track });
+  }
+  if (!_gdSubTracks.length) return;
+
+  // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
+  const pref = _gdSubPref();
+  let idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
+  if (pref !== 'off' && idx < 0) idx = 0;
   // track追加直後は textTracks が未反映のことがあるため次tickでモードを確定させる
-  setTimeout(() => {
-    const tt = video.textTracks?.[0];
-    if (tt) tt.mode = _gdSubEnabled() ? 'showing' : 'hidden';
-  }, 0);
-  _gdSubMountButton(video.parentElement, sub.name);
+  setTimeout(() => _gdSubSelect(idx), 0);
+  _gdSubMountButton(video.parentElement);
 }
 
-function _gdSubMountButton(container, name) {
+// idx番目だけを表示。-1 で全OFF
+function _gdSubSelect(idx) {
+  _gdSubIndex = idx;
+  _gdSubTracks.forEach((t, i) => {
+    const tt = t.track.track;   // HTMLTrackElement.track → TextTrack
+    if (tt) tt.mode = (i === idx) ? 'showing' : 'hidden';
+  });
+  _gdSubSetPref(idx < 0 ? 'off' : (_gdSubTracks[idx]?.label || ''));
+  _gdSubPaintButton();
+}
+
+function _gdSubPaintButton() {
+  const btn = document.getElementById('vp-sub-btn');
+  if (!btn) return;
+  const on  = _gdSubIndex >= 0;
+  const cur = _gdSubTracks[_gdSubIndex];
+  // 字幕が1つだけなら言語名は出さず CC のみ（切替先が無いので情報にならない）
+  btn.textContent = (on && _gdSubTracks.length > 1) ? `CC ${cur?.label || ''}` : 'CC';
+  btn.style.borderColor = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.45)';
+  btn.style.color       = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.75)';
+  btn.title = _gdSubTracks.length > 1
+    ? `字幕を切替（${_gdSubTracks.map(t => t.label).join(' / ')}）`
+    : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`;
+}
+
+function _gdSubMountButton(container) {
   if (!container) return;
   container.querySelector('#vp-sub-btn')?.remove();
   const btn = document.createElement('button');
   btn.id    = 'vp-sub-btn';
   btn.type  = 'button';
-  btn.title = `字幕: ${name}`;
-  btn.textContent = 'CC';
   btn.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;padding:2px 9px;border-radius:6px;'
     + 'font-family:inherit;font-size:11px;font-weight:700;line-height:1.6;cursor:pointer;'
     + 'background:rgba(0,0,0,.55);border:1.5px solid';
-  const paint = () => {
-    const on = _gdSubEnabled();
-    btn.style.borderColor = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.45)';
-    btn.style.color       = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.75)';
-  };
-  paint();
   btn.addEventListener('click', e => {
     e.stopPropagation();   // container の click（停止中タップで再生復帰）を発火させない
-    const on = !_gdSubEnabled();
-    _gdSubSetEnabled(on);
-    const tt = _gdVideoEl?.textTracks?.[0];
-    if (tt) tt.mode = on ? 'showing' : 'hidden';
-    paint();
+    // OFF → 1つ目 → 2つ目 → … → OFF と巡回
+    const next = _gdSubIndex + 1 >= _gdSubTracks.length ? -1 : _gdSubIndex + 1;
+    _gdSubSelect(next);
   });
   container.appendChild(btn);
+  _gdSubPaintButton();
 }
+
+// ── 字幕の自動生成（Gemini でSRTを作り、動画と同じDriveフォルダに保存）──
+// 生成本体は既存の /api/ai-summary（mode:'subtitle'）を再利用する。
+// 保存先は動画と同じフォルダの「動画名.ja.srt」/「動画名.srt」で、
+// 上書きになる場合は必ず確認を取る（既存の字幕を黙って壊さない）。
+function _looksLikeSrt(t) {
+  return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(String(t || ''));
+}
+
+// モデルがコードフェンスや前置きを付けてきた場合に本文だけ取り出す
+function _cleanSrt(t) {
+  let s = String(t || '').replace(/\r\n?/g, '\n').trim();
+  s = s.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+  const i = s.search(/(^|\n)\d+\n\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/);
+  if (i > 0) s = s.slice(i).trim();
+  return s + '\n';
+}
+
+async function _driveUploadText(token, { name, parentId, text, existingId }) {
+  const boundary = 'wkbnd' + Math.random().toString(36).slice(2);
+  const meta = existingId ? {} : { name, parents: [parentId] };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+    `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n`, text, `\r\n`,
+    `--${boundary}--`,
+  ], { type: `multipart/related; boundary=${boundary}` });
+  const url = existingId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(existingId)}?uploadType=multipart&fields=id,name`
+    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name`;
+  const res = await fetch(url, {
+    method: existingId ? 'PATCH' : 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  if (!res.ok) throw new Error(`Drive保存に失敗 (${res.status}) ${(await res.text()).slice(0, 150)}`);
+  return res.json();
+}
+
+// 生成言語を選ぶ小メニュー。選択で resolve、外クリック/Escで null
+function _askSubtitleLang(anchorEl) {
+  return new Promise(resolve => {
+    document.getElementById('vp-subgen-menu')?.remove();
+    const r = anchorEl?.getBoundingClientRect();
+    const menu = document.createElement('div');
+    menu.id = 'vp-subgen-menu';
+    menu.style.cssText = 'position:fixed;z-index:10000;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
+      + 'border-radius:10px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35);min-width:190px;'
+      + `top:${Math.min((r?.bottom || 80) + 6, window.innerHeight - 130)}px;left:${Math.max(8, Math.min((r?.left || 8), window.innerWidth - 210))}px`;
+    const item = (label, hint) =>
+      `<button class="vp-subgen-item" data-lang="${label === '日本語' ? 'ja' : 'orig'}"
+         style="display:block;width:100%;text-align:left;padding:8px 10px;border:none;border-radius:7px;background:transparent;
+                color:var(--text,#eee);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">
+         ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${hint}</div>
+       </button>`;
+    menu.innerHTML = item('日本語', '外国語の音声は日本語に翻訳')
+                   + item('原語のまま', '話されている言語で文字起こし');
+    document.body.appendChild(menu);
+
+    const done = val => {
+      menu.remove();
+      document.removeEventListener('mousedown', onOut, true);
+      document.removeEventListener('keydown', onKey, true);
+      resolve(val);
+    };
+    const onOut = e => { if (!menu.contains(e.target)) done(null); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    menu.querySelectorAll('.vp-subgen-item').forEach(b => {
+      b.addEventListener('mouseenter', () => { b.style.background = 'var(--surface2,#333)'; });
+      b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; });
+      b.addEventListener('click', () => done(b.dataset.lang));
+    });
+    setTimeout(() => {
+      document.addEventListener('mousedown', onOut, true);
+      document.addEventListener('keydown', onKey, true);
+    }, 0);
+  });
+}
+
+window.vpGenSubtitle = async function(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  if (!v || v.pt !== 'gdrive') { window.toast?.('Google Drive の動画のみ対応しています'); return; }
+
+  const user = window._firebaseCurrentUser?.();
+  if (!user) { window.toast?.('ログインが必要です'); return; }
+  const gdToken = window.getDriveTokenIfAvailable?.();
+  if (!gdToken) { window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。'); return; }
+
+  const btn = document.getElementById('vp-subgen-' + id);
+  const subLang = await _askSubtitleLang(btn);
+  if (!subLang) return;
+
+  const fileId = (v.id || '').replace(/^gd-/, '');
+  const orig   = btn ? btn.textContent : '';
+  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
+
+  try {
+    // 1. 保存先（動画と同じフォルダ）と、同名ファイルの有無を先に確認する
+    setBtn('⏳ 確認中…');
+    const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, gdToken);
+    const parent = meta?.parents?.[0];
+    const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
+    if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
+    const target = base + (subLang === 'ja' ? '.ja.srt' : '.srt');
+
+    const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
+    const dup  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
+    const existing = dup?.files?.[0] || null;
+    if (existing && !confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) { endBtn(); return; }
+
+    // 2. 生成（動画をGeminiへ送るので長尺だと数分かかる）
+    setBtn('⏳ 生成中…');
+    const idToken = await user.getIdToken();
+    const res = await fetch('/api/ai-summary', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        idToken, mode: 'subtitle', subLang, source: 'gdrive',
+        gdFileId: fileId, accessToken: gdToken,
+        title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.summary) {
+      throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+    }
+    const srt = _cleanSrt(d.summary);
+    if (!_looksLikeSrt(srt)) throw new Error('SRT形式で返ってきませんでした。もう一度お試しください');
+
+    // 3. Driveへ保存（既存があればその中身だけ差し替え）
+    setBtn('⏳ 保存中…');
+    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: existing?.id });
+
+    // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
+    _gdSubLookup.delete(fileId);
+    window.toast?.(`✅ 字幕を作成しました（${target}）`);
+    if (_gdVideoEl && _gdFileId === fileId) {
+      document.getElementById('vp-sub-btn')?.remove();
+      _gdSubRevoke();
+      _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
+      _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
+    }
+  } catch (e) {
+    console.warn('[subtitle] 生成失敗:', e);
+    window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
+  } finally {
+    endBtn();
+  }
+};
 
 function _showGDriveAuthUI(container, fileId, onAuth) {
   container.innerHTML = `
@@ -4181,6 +4396,8 @@ export function _openPanel(id, emb, ext, plat) {
         <div class="vp-memo-stickyhead">
           <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
             ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
+            : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && v?.pt === 'gdrive')
+            ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしし、字幕(SRT)をDriveの同じフォルダに保存します" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>
           ${_memoToolbarHTML(id)}
         </div>
