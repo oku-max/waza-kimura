@@ -1405,7 +1405,7 @@ export function openVPanel(id) {
   const _gdResetContainer = document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
-  _gdResetContainer?.querySelector('#vp-sub-btn')?.remove();
+  _gdResetContainer?.querySelector('#vp-sub-ui')?.remove();
   _gdSubRevoke();
   _gdVideoEl = null; _gdFileId = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
@@ -1901,7 +1901,7 @@ export function closeVPanel() {
     const _gdCloseContainer = document.getElementById('vpanel-iframe-container');
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
-    _gdCloseContainer?.querySelector('#vp-sub-btn')?.remove();
+    _gdCloseContainer?.querySelector('#vp-sub-ui')?.remove();
     _gdSubRevoke();
     _gdFileId = null;
     if (_vmPlayer) { try { _vmPlayer.unload(); _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
@@ -2458,22 +2458,32 @@ function _gdSubPaintButton() {
   const cur = _gdSubTracks[_gdSubIndex];
   // 字幕が1つだけなら言語名は出さず CC のみ（切替先が無いので情報にならない）
   btn.textContent = (on && _gdSubTracks.length > 1) ? `CC ${cur?.label || ''}` : 'CC';
-  btn.style.borderColor = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.45)';
-  btn.style.color       = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.75)';
+  // 映像の上に重なるためテーマ変数を使わない。
+  // ライトモードの --accent は #111（ほぼ黒）で、半透明の黒背景に乗せると読めなくなる。
+  btn.style.background  = on ? 'rgba(255,255,255,.92)' : 'rgba(0,0,0,.6)';
+  btn.style.color       = on ? '#111'                  : 'rgba(255,255,255,.85)';
+  btn.style.borderColor = on ? '#fff'                  : 'rgba(255,255,255,.5)';
   btn.title = (_gdSubTracks.length > 1
     ? `字幕を切替（${_gdSubTracks.map(t => t.label).join(' / ')}）`
-    : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`) + ' ／ 長押しで調整';
+    : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`);
 }
 
 function _gdSubMountButton(container) {
   if (!container) return;
-  container.querySelector('#vp-sub-btn')?.remove();
+  container.querySelector('#vp-sub-ui')?.remove();
+
+  // div でラップすると `#vpanel-iframe-container > div` の !important 指定で
+  // 全画面に広がりクリックを奪ってしまうため span を使う
+  const wrap = document.createElement('span');
+  wrap.id = 'vp-sub-ui';
+  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center';
+  const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
+    + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
+
   const btn = document.createElement('button');
   btn.id    = 'vp-sub-btn';
   btn.type  = 'button';
-  btn.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;padding:2px 9px;border-radius:6px;'
-    + 'font-family:inherit;font-size:11px;font-weight:700;line-height:1.6;cursor:pointer;'
-    + 'background:rgba(0,0,0,.55);border:1.5px solid';
+  btn.style.cssText = baseBtn;
   // タップ＝ON/OFF・言語切替、長押し／右クリック＝調整パネル
   let lp = null, lpFired = false;
   const startLp = () => {
@@ -2494,7 +2504,19 @@ function _gdSubMountButton(container) {
     const next = _gdSubIndex + 1 >= _gdSubTracks.length ? -1 : _gdSubIndex + 1;
     _gdSubSelect(next);
   });
-  container.appendChild(btn);
+  // 右クリック/長押しは環境差が出るので、常に見える ⚙ を主導線にする
+  const gear = document.createElement('button');
+  gear.id    = 'vp-sub-gear';
+  gear.type  = 'button';
+  gear.textContent = '⚙';
+  gear.title = '字幕の調整';
+  gear.style.cssText = baseBtn + ';background:rgba(0,0,0,.6);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.5)';
+  gear.addEventListener('pointerdown', e => e.stopPropagation());
+  gear.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); _gdSubOpenPanel(gear); });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(gear);
+  container.appendChild(wrap);
   _gdSubPaintButton();
 }
 
@@ -2654,7 +2676,7 @@ window.vpGenSubtitle = async function(id) {
     _gdSubLookup.delete(fileId);
     window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
     if (_gdVideoEl && _gdFileId === fileId) {
-      document.getElementById('vp-sub-btn')?.remove();
+      document.getElementById('vp-sub-ui')?.remove();
       _gdSubRevoke();
       _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
       _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
