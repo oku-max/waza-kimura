@@ -2319,11 +2319,19 @@ function _reflowVtt(vtt, o, offset) {
 // ::cue のスタイルは <style> を差し替えて反映する
 function _applyCueStyle() {
   const o = subOpts();
+  // 数値が壊れていると rgba(0,0,0,NaN) のような無効値になり、宣言ごと捨てられて
+  // index.html の既定ルールに戻る＝「設定が効かない」ように見える。必ず有効値に丸める。
+  const clamp = (v, lo, hi, def) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+  };
+  const bg    = clamp(o.bgOpacity, 0, 1, SUB_OPTS_DEFAULT.bgOpacity);
+  const scale = clamp(o.fontScale, 0.3, 3, SUB_OPTS_DEFAULT.fontScale);
   let el = document.getElementById('wk-cue-style');
   if (!el) { el = document.createElement('style'); el.id = 'wk-cue-style'; document.head.appendChild(el); }
   el.textContent = `#vpanel-iframe-container video::cue{`
-    + `background:rgba(0,0,0,${o.bgOpacity});color:#fff;`
-    + `font-size:${o.fontScale}em;line-height:1.45}`;
+    + `background:rgba(0,0,0,${bg});color:#fff;`
+    + `font-size:${scale}em;line-height:1.45}`;
 }
 
 // ── Google Drive 字幕（サイドカー .srt / .vtt を自動検出 → WebVTT で <track> 表示）──
@@ -2862,47 +2870,6 @@ function _subRange(key, cur, min, max, step, fmt) {
   </div>`;
 }
 
-// 設定の効き方を見本の文で見せる。3方針を並べて出すので、その設定で差が出るかどうかも分かる。
-// 各行は white-space:nowrap にする。CSSに折り返されると実際の改行位置が分からなくなるため
-// （これを忘れて「どれを選んでも変わらない」状態になっていた）。
-const SUB_PREVIEW_SAMPLE = '正直なところ、最初にガードリテンションに集中して攻撃しないようにしたときは、もっと負けていました。';
-
-function _subWrapPreview(o) {
-  const esc = t => String(t).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
-  const per = Math.max(1, o.maxLines);
-  const modes = [['strict', '文字数優先'], ['balanced', 'バランス'], ['natural', '区切り優先']];
-
-  const results = modes.map(([m, label]) => {
-    const lines = _wrapText(SUB_PREVIEW_SAMPLE, { ...o, wrapMode: m });
-    return { m, label, lines, key: lines.join('|') };
-  });
-  const allSame = results.every(r => r.key === results[0].key);
-
-  const rows = results.map(({ m, label, lines }) => {
-    const sel = (o.wrapMode || 'balanced') === m;
-    const cues = Math.ceil(lines.length / per);
-    const maxLen = lines.reduce((n, l) => Math.max(n, Array.from(l).length), 0);
-    const over = maxLen > o.maxCharsJa;
-    return `<div style="border-radius:7px;padding:6px 7px;background:${sel ? 'rgba(255,255,255,.07)' : 'transparent'};
-                        border:1px solid ${sel ? 'var(--accent,#6c8cff)' : 'transparent'}">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:3px">
-        <span style="font-size:10px;font-weight:700;color:${sel ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${label}</span>
-        <span style="font-size:9.5px;color:var(--text3);white-space:nowrap">${lines.length}行・字幕${cues}枚・最長${maxLen}字${over ? ' ⚠超過' : ''}</span>
-      </div>
-      <div style="overflow-x:auto">
-        ${lines.map((l, i) => `<div style="white-space:nowrap;font-size:11px;line-height:1.65;color:#fff">
-            <span style="display:inline-block;min-width:1.4em;color:var(--text3);font-size:9px">${i % per === 0 ? '▸' : ''}</span>${esc(l)}
-          </div>`).join('')}
-      </div>
-    </div>`;
-  }).join('');
-
-  return `<div style="background:#000;border-radius:8px;padding:5px;display:flex;flex-direction:column;gap:3px">${rows}</div>
-    <div style="font-size:10.5px;color:var(--text3);line-height:1.55">
-      ▸ が1枚の字幕の先頭です。${allSame ? 'この設定では3方針とも同じ結果になります（上限内に区切りが見つかるため）。' : ''}
-    </div>`;
-}
-
 function _subRow(label, hint, control) {
   return `<div style="display:flex;flex-direction:column;gap:5px">
     <div><div style="font-size:12px;font-weight:600">${label}</div>
@@ -2923,7 +2890,6 @@ function _subOptsHTML(scope) {
     + _subRow('最大行数', '超えたぶんは時間を分けて次の字幕に送る', _subSeg('maxLines', o.maxLines, [[1,'1行'],[2,'2行'],[3,'3行']]))
     + _subRow('表示バランス', '上限文字数と区切りの良さは同時に守れないため、どちらを優先するか選びます',
         _subSeg('wrapMode', o.wrapMode, [['strict','文字数優先'],['balanced','バランス'],['natural','区切り優先']]))
-    + _subRow('見本', '3方針を並べて比較できます。横に長い行はスクロールします', _subWrapPreview(o))
     + sec('表示時間')
     + _subRow('最短表示', '一瞬で消えるのを防ぐ', _subRange('minDur', o.minDur, 0.4, 3, 0.1, '秒'))
     + _subRow('最長表示', '出しっぱなしを防ぐ', _subRange('maxDur', o.maxDur, 2, 15, 0.5, '秒'))
@@ -3077,19 +3043,21 @@ window.wkSubOptsClose = function() {
 function _gdSubOpenPanel(anchorEl) {
   window.wkSubOptsClose();
 
-  // 背景に暗幕を敷く。動画やメモの上に直接出すと境界が分からず読みにくいため。
+  // 外クリックで閉じるための当たり判定。透明にしておく。
+  // 画面を暗くすると調整中に肝心の字幕の見え方が判断できなくなるため暗幕にはしない。
   const bg = document.createElement('div');
   bg.id = 'vp-sub-opts-bg';
-  bg.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5)';
+  bg.style.cssText = 'position:fixed;inset:0;z-index:10000;background:transparent';
   bg.addEventListener('mousedown', e => { e.stopPropagation(); window.wkSubOptsClose(); });
   bg.addEventListener('click', e => e.stopPropagation());
   document.body.appendChild(bg);
 
   const pop = document.createElement('div');
   pop.id = 'vp-sub-opts';
-  // 背景と紛れないよう不透明な面色・太めの枠・強い影にする
-  pop.style.cssText = 'position:fixed;z-index:10001;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
-    + 'border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.6);width:min(340px,calc(100vw - 24px));'
+  // 画面全体を暗くする代わりに、パネル自身で視認性を確保する（不透明な面色＋太枠＋強い影）。
+  pop.style.cssText = 'position:fixed;z-index:10001;background:var(--surface,#222);border:2px solid var(--accent,#6c8cff);'
+    + 'border-radius:12px;box-shadow:0 14px 48px rgba(0,0,0,.75);'
+    + 'width:min(340px,calc(100vw - 24px));'
     + 'max-height:min(76vh,560px);overflow-y:auto;padding:0 14px 12px;'
     + 'top:0;right:12px;visibility:hidden';
   pop.innerHTML = `<div style="position:sticky;top:0;background:var(--surface,#222);padding:11px 0 9px;margin-bottom:2px;
