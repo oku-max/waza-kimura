@@ -438,15 +438,46 @@ async function handleAiSummary(request, env) {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
     }
-    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts);
+    return _streamJson(() => _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts));
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
       return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
     }
-    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts);
+    return _streamJson(() => _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts));
   }
   return jsonRes({ error: 'source は youtube / gdrive / transcript を指定してください' }, 400);
+}
+
+// ── 長い処理の応答をストリーミングで返す ─────────────────────
+// Cloudflareは応答が始まらないまま約100秒経つと接続を切る（524）。
+// 以前ユーザーに届いた「error code: 524」はブラウザ→Worker間が切られた証拠
+// （Geminiのサーバーは Cloudflare の後ろにいないので、524が届く経路は他にない）。
+// 生成が100秒を超えると動画の長さに関係なく失敗していたのはこれ。
+//
+// 対策: 先に応答を開始し、処理中は10秒ごとに改行1つを流し続け、
+// 終わったら本体のJSONを書いて閉じる。改行はJSONの先頭空白として合法なので、
+// クライアントの res.json() はそのまま動く（クライアント変更不要・PWAキャッシュの影響なし）。
+// ステータスは常に200になるため、成否は本文の error フィールドで伝える
+// （クライアントは元々 d.summary / d.error を見て判定している）。
+function _streamJson(run) {
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const enc = new TextEncoder();
+  const timer = setInterval(() => { writer.write(enc.encode('\n')).catch(() => {}); }, 10000);
+  (async () => {
+    let out;
+    try {
+      const res = await run();               // 既存の処理は Response を返すのでそのまま使う
+      out = await res.text();
+    } catch (e) {
+      out = JSON.stringify({ error: 'サーバー内部エラー', detail: String((e && (e.message || e.name)) || e).slice(0, 300) });
+    }
+    clearInterval(timer);
+    try { await writer.write(enc.encode(out)); } catch (e) {}
+    try { await writer.close(); } catch (e) {}
+  })();
+  return new Response(readable, { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
 // ── モード別プロンプト選択 ──────────────────────────────────
