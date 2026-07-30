@@ -1405,6 +1405,8 @@ export function openVPanel(id) {
   const _gdResetContainer = document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
+  _gdResetContainer?.querySelector('#vp-sub-btn')?.remove();
+  _gdSubRevoke();
   _gdVideoEl = null; _gdFileId = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
   // YT→YT の場合はプレイヤーを破棄しない（再利用して autoplay を保持する）
@@ -1894,6 +1896,8 @@ export function closeVPanel() {
     const _gdCloseContainer = document.getElementById('vpanel-iframe-container');
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
+    _gdCloseContainer?.querySelector('#vp-sub-btn')?.remove();
+    _gdSubRevoke();
     _gdFileId = null;
     if (_vmPlayer) { try { _vmPlayer.unload(); _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
     _vmCurTime = 0; _vmDuration = 0;
@@ -2034,6 +2038,156 @@ function _createGDriveVideoEl(container, fileId, token) {
   container.appendChild(video);
   // autoplay属性だけではブラウザにブロックされる場合があるため明示的に再生を試みる
   video.play().catch(() => {});
+  // 字幕は再生を待たせずに後追いで載せる（見つからなければ何も起きない）
+  _gdAttachSubtitle(video, fileId, token);
+}
+
+// ── Google Drive 字幕（サイドカー .srt / .vtt を自動検出 → WebVTT で <track> 表示）──
+// 前提: ブラウザの <video> は MP4 に埋め込まれた字幕トラックを Safari 以外まったく表示しない
+// （Chromium は demuxer 段階で AVDISCARD_ALL、Gecko は MP4 の text track を生成しない）。
+// また <track> が読めるのは WebVTT のみで SRT は不可。したがって
+// 「動画と同じDriveフォルダに置いた字幕ファイルを取ってきて VTT に変換して載せる」方式を採る。
+// 動画ファイル自体は一切変更しない（再エンコードもDrive上の更新もしない）。
+const GD_SUB_PREF_KEY = 'wk_gdSubOn';   // 表示ON/OFF。端末ローカルの表示設定のみでクラウド同期しない
+const GD_SUB_EXT_RE   = /\.(srt|vtt)$/i;
+const _gdSubLookup    = new Map();      // 動画fileId -> {id,name} | null（セッション内キャッシュ）
+let   _gdSubBlobUrl   = null;           // 生成した blob URL（解放用）
+
+function _gdSubEnabled()      { try { return localStorage.getItem(GD_SUB_PREF_KEY) !== '0'; } catch(e) { return true; } }
+function _gdSubSetEnabled(on) { try { localStorage.setItem(GD_SUB_PREF_KEY, on ? '1' : '0'); } catch(e) {} }
+function _gdSubRevoke() {
+  if (!_gdSubBlobUrl) return;
+  try { URL.revokeObjectURL(_gdSubBlobUrl); } catch(e) {}
+  _gdSubBlobUrl = null;
+}
+
+async function _driveApiGet(path, token) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Drive API ${res.status}`);
+  return res.json();
+}
+
+// 同名度でスコアリング（完全一致 > 日本語指定 > 変換不要なvtt）
+function _gdSubScore(name, base) {
+  const noExt = name.replace(GD_SUB_EXT_RE, '');
+  let s = 0;
+  if (noExt.toLowerCase() === base.toLowerCase()) s += 10;
+  if (/(^|[._\-\s])(ja|jpn|jp|japanese)([._\-\s]|$)/i.test(noExt)) s += 3;
+  if (/\.vtt$/i.test(name)) s += 1;
+  return s;
+}
+
+// 動画と同じフォルダから「動画名で始まる .srt / .vtt」を探す
+// （video.mp4 に対し video.srt / video.ja.srt / video_ja.vtt などを拾う）
+async function _gdFindSubtitleFile(fileId, token) {
+  if (_gdSubLookup.has(fileId)) return _gdSubLookup.get(fileId);
+  let found = null;
+  try {
+    const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, token);
+    const parent = meta?.parents?.[0];
+    const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
+    if (parent && base) {
+      const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
+      const list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
+      const cands = (list?.files || []).filter(f =>
+        GD_SUB_EXT_RE.test(f.name) &&
+        f.name.replace(GD_SUB_EXT_RE, '').toLowerCase().startsWith(base.toLowerCase())
+      );
+      cands.sort((a, b) => _gdSubScore(b.name, base) - _gdSubScore(a.name, base));
+      found = cands[0] || null;
+    }
+  } catch(e) {
+    console.warn('subtitle lookup failed:', e?.message || e);
+  }
+  _gdSubLookup.set(fileId, found);
+  return found;
+}
+
+// UTF-8（BOM有無）優先、化けたら Shift_JIS を試す（Windows製SRTはCP932のことがある）
+function _gdSubDecode(buf) {
+  const bytes = new Uint8Array(buf);
+  if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  }
+  const utf8 = new TextDecoder('utf-8').decode(bytes);
+  if (utf8.includes('\uFFFD')) {
+    try {
+      const sjis = new TextDecoder('shift_jis').decode(bytes);
+      if (!sjis.includes('\uFFFD')) return sjis;
+    } catch(e) {}
+  }
+  return utf8;
+}
+
+// SRT → WebVTT（ブラウザは WebVTT しか解釈しない）
+function _srtToVtt(text) {
+  let t = String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  if (/^WEBVTT/.test(t.trimStart())) return t;          // すでにVTTならそのまま
+  t = t.replace(/(\d{1,2}:\d{2}(?::\d{2})?),(\d{1,3})/g, '$1.$2');   // 00:00:01,500 → 00:00:01.500
+  // 時間桁が無い mm:ss.mmm 形式には 00: を補う（VTTはどちらも可だが揃えておく）
+  t = t.replace(/^(\d{2}:\d{2}\.\d{1,3})\s*-->\s*(\d{2}:\d{2}\.\d{1,3})/gm, '00:$1 --> 00:$2');
+  return 'WEBVTT\n\n' + t.trim() + '\n';
+}
+
+async function _gdAttachSubtitle(video, fileId, token) {
+  const sub = await _gdFindSubtitleFile(fileId, token);
+  if (!sub) return;
+  if (_gdVideoEl !== video || !video.isConnected) return;   // 待っている間に別動画へ切替済み
+  let vtt;
+  try {
+    // 字幕本文も動画と同じ同一オリジンプロキシ経由で取る（CORS・認証の追加対応が不要）
+    const res = await fetch(`/api/drive?fileId=${encodeURIComponent(sub.id)}&token=${encodeURIComponent(token)}`);
+    if (!res.ok) throw new Error(`fetch ${res.status}`);
+    vtt = _srtToVtt(_gdSubDecode(await res.arrayBuffer()));
+  } catch(e) {
+    console.warn('subtitle fetch failed:', e?.message || e);
+    return;
+  }
+  if (_gdVideoEl !== video || !video.isConnected) return;
+
+  _gdSubRevoke();
+  _gdSubBlobUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+  const track = document.createElement('track');
+  track.kind    = 'subtitles';
+  track.label   = '字幕';
+  track.srclang = 'ja';
+  track.src     = _gdSubBlobUrl;
+  track.default = true;
+  video.appendChild(track);
+  // track追加直後は textTracks が未反映のことがあるため次tickでモードを確定させる
+  setTimeout(() => {
+    const tt = video.textTracks?.[0];
+    if (tt) tt.mode = _gdSubEnabled() ? 'showing' : 'hidden';
+  }, 0);
+  _gdSubMountButton(video.parentElement, sub.name);
+}
+
+function _gdSubMountButton(container, name) {
+  if (!container) return;
+  container.querySelector('#vp-sub-btn')?.remove();
+  const btn = document.createElement('button');
+  btn.id    = 'vp-sub-btn';
+  btn.type  = 'button';
+  btn.title = `字幕: ${name}`;
+  btn.textContent = 'CC';
+  btn.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;padding:2px 9px;border-radius:6px;'
+    + 'font-family:inherit;font-size:11px;font-weight:700;line-height:1.6;cursor:pointer;'
+    + 'background:rgba(0,0,0,.55);border:1.5px solid';
+  const paint = () => {
+    const on = _gdSubEnabled();
+    btn.style.borderColor = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.45)';
+    btn.style.color       = on ? 'var(--accent,#6c8cff)' : 'rgba(255,255,255,.75)';
+  };
+  paint();
+  btn.addEventListener('click', e => {
+    e.stopPropagation();   // container の click（停止中タップで再生復帰）を発火させない
+    const on = !_gdSubEnabled();
+    _gdSubSetEnabled(on);
+    const tt = _gdVideoEl?.textTracks?.[0];
+    if (tt) tt.mode = on ? 'showing' : 'hidden';
+    paint();
+  });
+  container.appendChild(btn);
 }
 
 function _showGDriveAuthUI(container, fileId, onAuth) {
