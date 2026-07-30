@@ -2899,7 +2899,7 @@ window.vpGenSubtitle = async function(id, preset) {
     return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
-    if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e));
+    if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e), 9000);
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
     window.wkAiBusyEnd();

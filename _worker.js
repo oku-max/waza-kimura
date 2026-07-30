@@ -988,10 +988,12 @@ function _repairOffset(cues, durationSec) {
   const now = inRange(0);
   if (now >= cues.length * 0.8) return cues;        // ほぼ収まっているなら触らない
 
+  // 候補は時間・分単位のきれいなズレのみ。
+  // 「先頭を0に寄せる」を候補にすると、デタラメな時刻でも必ず範囲内に収まって
+  // しまい、壊れた字幕を止められなくなる（検証で発覚したため外した）。
   const cands = [];
   for (let h = 1; h <= 5; h++) cands.push(-3600 * h);
   for (let m = 1; m <= 59; m++) cands.push(-60 * m);
-  cands.push(-cues[0].start);
   let bestN = now;
   for (const sh of cands) bestN = Math.max(bestN, inRange(sh));
   if (bestN <= now) return cues;                     // 直しようがない
