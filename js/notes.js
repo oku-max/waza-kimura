@@ -3723,14 +3723,17 @@ function _notesVidPickerRenderPick(overlay) {
 }
 
 function _notesVidPickerRenderUrl(overlay) {
-  const vm = overlay.dataset.viewMode || 'carousel';
+  // かつて表示モード（カルーセル/インライン）のピッカーをここに出していたが、
+  // 選んだ値を使う側が無く（_notesVideoConfirm は viewMode:'inline' 固定、
+  // _noteModeViewMode も誰も読まない）、描画関数 _modePick も存在しないまま
+  // 呼び出しだけが残っていたため、このシートは開くと描画に失敗していた。
+  // 動画ブロックは追加後に個別で切替できるので、死んだ呼び出しを外す。
   overlay.innerHTML = `<div class="n-sheet n-sheet-sm" onclick="event.stopPropagation()">
     <div class="n-sheet-hdr">
       <button class="n-sheet-back" onclick="window._notesPickerBack()">‹</button>
       <span class="n-sheet-title">🔗 URLで追加</span>
     </div>
     <div class="n-sheet-body">
-      ${_modePick(vm)}
       <label class="n-sheet-lbl">YouTube URL</label>
       <input id="n-block-video-url" class="n-sheet-input" type="text"
              placeholder="https://www.youtube.com/watch?v=..."
