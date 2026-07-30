@@ -483,8 +483,10 @@ function _aiSubtitlePrompt(ctx, subLang, subOpts) {
 
   if (o.onScreen) rules.push('ホワイトボードやテロップなど画面内の重要な文字も、該当時刻の字幕として補足する');
 
-  const maxChars = Number(o.maxChars) > 0 ? Number(o.maxChars) : 20;
-  const maxLines = Number(o.maxLines) > 0 ? Number(o.maxLines) : 2;
+  // 行の折り返しはクライアント側が決定論的にやり直すので、ここでは指定しない。
+  // モデルに任せても字数は守られず、守らせても表示前に上書きされるだけで無意味。
+  // 代わりに「表示側では直せないもの」＝キューの区切り方（時間の粒度）だけを指定する。
+  const perCue = Math.max(20, (Number(o.maxChars) || 20) * (Number(o.maxLines) || 2));
 
   return `この動画の音声を最初から最後まで文字起こしし、SRT形式の字幕を作成してください。
 ${ctx ? '\n【動画情報】\n' + ctx + '\n' : ''}
@@ -493,7 +495,9 @@ ${ctx ? '\n【動画情報】\n' + ctx + '\n' : ''}
 - 通し番号は1から連番
 - タイムコードは HH:MM:SS,mmm --> HH:MM:SS,mmm 形式（カンマ区切り・ゼロ埋め）
 - 実際の発話タイミングに正確に合わせる
-- 1つの字幕は最大${maxLines}行、1行あたり${maxChars}文字程度を目安にする
+- 1つの字幕は1〜6秒を目安に、文や句の切れ目で区切る（長い説明は複数の字幕に分ける）
+- 1つの字幕は${perCue}文字程度まで。超えるなら発話タイミングに沿って別の字幕に分ける
+- 改行は入れない。1つの字幕は1行で書く（折り返しは表示側で行う）
 - 無音・発話の無い区間には字幕を作らない
 ${rules.map(r => '- ' + r).join('\n')}
 
