@@ -2680,6 +2680,26 @@ function _looksLikeSrt(t) {
   return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(String(t || ''));
 }
 
+// 出来上がったSRTが動画に対して妥当かを保存前に検査する。
+// 「タイムコードがあるか」だけでは、1時間ずれや区間の崩れを通してしまう。
+// 壊れたものをDriveに書いてしまうと、消して作り直す手間が発生するので必ずここで止める。
+function _srtSanity(srt, durationSec) {
+  const cues = _parseVtt(_srtToVtt(srt));
+  if (!cues.length) return '字幕が1件も読み取れませんでした';
+  const dur = Number(durationSec) || 0;
+  if (dur > 0) {
+    const outside = cues.filter(c => c.start > dur + 5).length;
+    if (outside > cues.length * 0.2) {
+      return `時刻が動画の長さ（${Math.round(dur)}秒）と合っていません`;
+    }
+    const covered = cues[cues.length - 1].end - cues[0].start;
+    if (covered < dur * 0.3) {
+      return `動画の一部（約${Math.round(covered)}秒ぶん）しか字幕がありません`;
+    }
+  }
+  return null;
+}
+
 // モデルがコードフェンスや前置きを付けてきた場合に本文だけ取り出す
 function _cleanSrt(t) {
   let s = String(t || '').replace(/\r\n?/g, '\n').trim();
@@ -2843,6 +2863,9 @@ window.vpGenSubtitle = async function(id, preset) {
     }
     const srt = _cleanSrt(d.summary);
     if (!_looksLikeSrt(srt)) throw new Error('SRT形式で返ってきませんでした。もう一度お試しください');
+    // 壊れた字幕をDriveに書かない。ここで止めれば「消して作り直す」が発生しない。
+    const bad = _srtSanity(srt, v.duration || _gdVideoEl?.duration);
+    if (bad) throw new Error(bad + '。保存していません');
     // 実測トークンと概算コスト（内訳はコンソール、金額はトーストに出す）
     if (d.usage) console.log('[subtitle] tokens:', d.usage, '/ 概算 $', d.costUsd);
     const costStr = typeof d.costUsd === 'number' ? ` · $${d.costUsd.toFixed(3)}` : '';
