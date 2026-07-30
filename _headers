@@ -1,6 +1,11 @@
 # Cloudflare Pages — キャッシュ設定
 # vercel.json の headers 相当（Cloudflare では _headers ファイルで設定）
 
+# 「/」はルート配信で /*.html に一致しないため個別指定が必要
+# （これが無いとトップページだけ古いキャッシュが残り「反映されない」が起きる）
+/
+  Cache-Control: no-cache, must-revalidate
+
 /*.html
   Cache-Control: no-cache, must-revalidate
 
