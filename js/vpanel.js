@@ -8,6 +8,9 @@ let _ytPlayerReady = false; // プレイヤーが操作可能な状態か
 let _ytApiLoaded = false;   // YouTube iFrame API読み込み済みか
 // GDrive用（OAuth + <video>タグ方式 → currentTime完全制御）
 let _gdVideoEl = null;  // 再生中の<video>要素
+let _gdContainer = null; // 再生中の<video>を入れたコンテナ。
+                         // スマホは #vpanel-iframe-container、PCは #vp-panel-yt-player で
+                         // idが違うため、決め打ちで引き直さず実際に使った要素を保持する。
 let _gdFileId  = null;  // 再生中のfileId
 let _gdPauseTimer = null;           // コントロール非表示タイマー
 let _gdContainerClick = null;       // container click handler（蓄積防止用）
@@ -1390,12 +1393,12 @@ export function openVPanel(id) {
   clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
   clearTimeout(_gdSeekTimer); _gdSeekTimer = null; _gdIntendedTime = null;
   clearTimeout(_gdStallTimer); _gdStallTimer = null;
-  const _gdResetContainer = document.getElementById('vpanel-iframe-container');
+  const _gdResetContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
   _gdResetContainer?.querySelector('#vp-sub-ui')?.remove();
   _gdSubRevoke();
-  _gdVideoEl = null; _gdFileId = null;
+  _gdVideoEl = null; _gdFileId = null; _gdContainer = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
   // YT→YT の場合はプレイヤーを破棄しない（再利用して autoplay を保持する）
   if (iframeContainer && !isYTtoYT) {
@@ -1886,12 +1889,12 @@ export function closeVPanel() {
     const _mc = document.getElementById('vpanel-iframe-container'); if (_mc) _mc.style.transform = '';
     if (_gdVideoEl) { try { _gdVideoEl.pause(); } catch(e) {} _gdVideoEl = null; }
     clearTimeout(_gdPauseTimer); _gdPauseTimer = null;
-    const _gdCloseContainer = document.getElementById('vpanel-iframe-container');
+    const _gdCloseContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
     _gdCloseContainer?.querySelector('#vp-sub-ui')?.remove();
     _gdSubRevoke();
-    _gdFileId = null;
+    _gdFileId = null; _gdContainer = null;
     if (_vmPlayer) { try { _vmPlayer.unload(); _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
     _vmCurTime = 0; _vmDuration = 0;
     if (window.openVPanelId) {
@@ -1969,8 +1972,9 @@ window.addEventListener('orientationchange', () => {
 // ── Google Drive 再生（Vercelプロキシ /api/drive 経由ストリーミング）──
 // <video>はAuthorizationヘッダーを送れないため、/api/drive がBearerトークン付きで転送
 function _playGDriveVideo(container, fileId) {
-  _gdFileId  = fileId;
-  _gdVideoEl = null;
+  _gdFileId   = fileId;
+  _gdVideoEl  = null;
+  _gdContainer = container;
 
   const token = window.getDriveTokenIfAvailable?.();
   if (!token) { _showGDriveAuthUI(container, fileId); return; }
@@ -1986,6 +1990,7 @@ function _createGDriveVideoEl(container, fileId, token) {
   // iOS Safari はJS propertyではなくHTML attributeで判定するため両方必要
   video.setAttribute('playsinline', '');
   video.setAttribute('webkit-playsinline', '');
+  video.classList.add('wk-sub-video');   // ::cue の指定に使う（コンテナidはPC/スマホで違う）
   video.style.cssText = 'width:100%;height:100%;background:#000';
   // 停止後1秒でコントロール非表示（スクショ用）、タップで再生復帰
   video.addEventListener('pause', () => {
@@ -2329,7 +2334,7 @@ function _applyCueStyle() {
   const scale = clamp(o.fontScale, 0.3, 3, SUB_OPTS_DEFAULT.fontScale);
   let el = document.getElementById('wk-cue-style');
   if (!el) { el = document.createElement('style'); el.id = 'wk-cue-style'; document.head.appendChild(el); }
-  el.textContent = `#vpanel-iframe-container video::cue{`
+  el.textContent = `video.wk-sub-video::cue{`
     + `background:rgba(0,0,0,${bg});color:#fff;`
     + `font-size:${scale}em;line-height:1.45}`;
 }
