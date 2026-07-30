@@ -2862,25 +2862,45 @@ function _subRange(key, cur, min, max, step, fmt) {
   </div>`;
 }
 
-// 設定の効き方を見本の文で見せる。3方針の違いはこれで比較できる。
-const SUB_PREVIEW_SAMPLE = 'どのガードパスを自信を持って防御できるようになります。';
+// 設定の効き方を見本の文で見せる。3方針を並べて出すので、その設定で差が出るかどうかも分かる。
+// 各行は white-space:nowrap にする。CSSに折り返されると実際の改行位置が分からなくなるため
+// （これを忘れて「どれを選んでも変わらない」状態になっていた）。
+const SUB_PREVIEW_SAMPLE = '正直なところ、最初にガードリテンションに集中して攻撃しないようにしたときは、もっと負けていました。';
 
 function _subWrapPreview(o) {
   const esc = t => String(t).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
-  const lines = _wrapText(SUB_PREVIEW_SAMPLE, o);
   const per = Math.max(1, o.maxLines);
-  const groups = [];
-  for (let i = 0; i < lines.length; i += per) groups.push(lines.slice(i, i + per));
-  const over = lines.filter(l => Array.from(l).length > o.maxCharsJa).length;
-  return `<div style="background:#000;border-radius:8px;padding:9px 8px;display:flex;flex-direction:column;gap:8px">
-      ${groups.map((g, i) => `<div style="text-align:center">
-        ${groups.length > 1 ? `<div style="font-size:9px;color:#888;margin-bottom:3px">${i + 1}枚目</div>` : ''}
-        ${g.map(l => `<span style="display:inline-block;background:rgba(255,255,255,.14);color:#fff;font-size:12px;line-height:1.6;padding:0 3px;border-radius:2px">${esc(l)}</span>`).join('<br>')}
-      </div>`).join('')}
-    </div>
-    <div style="font-size:10.5px;color:var(--text3)">${
-      groups.length > 1 ? `行数を超えたぶんは${groups.length}枚に分かれて順番に出ます。` : ''
-    }${over ? `上限を超える行が${over}行あります。` : ''}</div>`;
+  const modes = [['strict', '文字数優先'], ['balanced', 'バランス'], ['natural', '区切り優先']];
+
+  const results = modes.map(([m, label]) => {
+    const lines = _wrapText(SUB_PREVIEW_SAMPLE, { ...o, wrapMode: m });
+    return { m, label, lines, key: lines.join('|') };
+  });
+  const allSame = results.every(r => r.key === results[0].key);
+
+  const rows = results.map(({ m, label, lines }) => {
+    const sel = (o.wrapMode || 'balanced') === m;
+    const cues = Math.ceil(lines.length / per);
+    const maxLen = lines.reduce((n, l) => Math.max(n, Array.from(l).length), 0);
+    const over = maxLen > o.maxCharsJa;
+    return `<div style="border-radius:7px;padding:6px 7px;background:${sel ? 'rgba(255,255,255,.07)' : 'transparent'};
+                        border:1px solid ${sel ? 'var(--accent,#6c8cff)' : 'transparent'}">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:3px">
+        <span style="font-size:10px;font-weight:700;color:${sel ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${label}</span>
+        <span style="font-size:9.5px;color:var(--text3);white-space:nowrap">${lines.length}行・字幕${cues}枚・最長${maxLen}字${over ? ' ⚠超過' : ''}</span>
+      </div>
+      <div style="overflow-x:auto">
+        ${lines.map((l, i) => `<div style="white-space:nowrap;font-size:11px;line-height:1.65;color:#fff">
+            <span style="display:inline-block;min-width:1.4em;color:var(--text3);font-size:9px">${i % per === 0 ? '▸' : ''}</span>${esc(l)}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div style="background:#000;border-radius:8px;padding:5px;display:flex;flex-direction:column;gap:3px">${rows}</div>
+    <div style="font-size:10.5px;color:var(--text3);line-height:1.55">
+      ▸ が1枚の字幕の先頭です。${allSame ? 'この設定では3方針とも同じ結果になります（上限内に区切りが見つかるため）。' : ''}
+    </div>`;
 }
 
 function _subRow(label, hint, control) {
@@ -2903,7 +2923,7 @@ function _subOptsHTML(scope) {
     + _subRow('最大行数', '超えたぶんは時間を分けて次の字幕に送る', _subSeg('maxLines', o.maxLines, [[1,'1行'],[2,'2行'],[3,'3行']]))
     + _subRow('表示バランス', '上限文字数と区切りの良さは同時に守れないため、どちらを優先するか選びます',
         _subSeg('wrapMode', o.wrapMode, [['strict','文字数優先'],['balanced','バランス'],['natural','区切り優先']]))
-    + _subRow('見本', '設定を変えるとここに反映されます', _subWrapPreview(o))
+    + _subRow('見本', '3方針を並べて比較できます。横に長い行はスクロールします', _subWrapPreview(o))
     + sec('表示時間')
     + _subRow('最短表示', '一瞬で消えるのを防ぐ', _subRange('minDur', o.minDur, 0.4, 3, 0.1, '秒'))
     + _subRow('最長表示', '出しっぱなしを防ぐ', _subRange('maxDur', o.maxDur, 2, 15, 0.5, '秒'))
@@ -2995,7 +3015,7 @@ window.wkSubDeleteFile = async function(idx) {
   if (!_gdSubTracks.length) {
     _gdSubIndex = -1;
     document.getElementById('vp-sub-ui')?.remove();
-    document.getElementById('vp-sub-opts')?.remove();
+    window.wkSubOptsClose();
   } else {
     _gdSubSelect(Math.min(_gdSubIndex, _gdSubTracks.length - 1));
   }
@@ -3048,27 +3068,50 @@ function _fitPopup(el, anchorEl, opts) {
   el.style.right = 'auto';
 }
 
-function _gdSubOpenPanel(anchorEl) {
+// パネルと背景を必ずセットで閉じる
+window.wkSubOptsClose = function() {
   document.getElementById('vp-sub-opts')?.remove();
-  const r = anchorEl?.getBoundingClientRect();
+  document.getElementById('vp-sub-opts-bg')?.remove();
+};
+
+function _gdSubOpenPanel(anchorEl) {
+  window.wkSubOptsClose();
+
+  // 背景に暗幕を敷く。動画やメモの上に直接出すと境界が分からず読みにくいため。
+  const bg = document.createElement('div');
+  bg.id = 'vp-sub-opts-bg';
+  bg.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5)';
+  bg.addEventListener('mousedown', e => { e.stopPropagation(); window.wkSubOptsClose(); });
+  bg.addEventListener('click', e => e.stopPropagation());
+  document.body.appendChild(bg);
+
   const pop = document.createElement('div');
   pop.id = 'vp-sub-opts';
+  // 背景と紛れないよう不透明な面色・太めの枠・強い影にする
   pop.style.cssText = 'position:fixed;z-index:10001;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
-    + 'border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.4);width:min(320px,calc(100vw - 24px));'
-    + 'max-height:min(70vh,520px);overflow-y:auto;padding:12px 14px;'
+    + 'border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.6);width:min(340px,calc(100vw - 24px));'
+    + 'max-height:min(76vh,560px);overflow-y:auto;padding:0 14px 12px;'
     + 'top:0;right:12px;visibility:hidden';
-  pop.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+  pop.innerHTML = `<div style="position:sticky;top:0;background:var(--surface,#222);padding:11px 0 9px;margin-bottom:2px;
+        border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;z-index:1">
       <div style="font-size:12px;font-weight:700">字幕の調整</div>
-      <button type="button" onclick="document.getElementById('vp-sub-opts')?.remove()"
+      <button type="button" onclick="wkSubOptsClose()"
         style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
     </div>
     <div id="vp-sub-opts-body">${_subOptsHTML('player')}</div>`;
   pop.addEventListener('click', e => e.stopPropagation());
+  pop.addEventListener('mousedown', e => e.stopPropagation());
   document.body.appendChild(pop);
   _fitPopup(pop, anchorEl, { alignRight: true });
   pop.style.visibility = '';
-  const onOut = e => { if (!pop.contains(e.target) && e.target !== anchorEl) { pop.remove(); document.removeEventListener('mousedown', onOut, true); } };
-  setTimeout(() => document.addEventListener('mousedown', onOut, true), 0);
+
+  const onKey = e => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    window.wkSubOptsClose();
+    document.removeEventListener('keydown', onKey, true);
+  };
+  document.addEventListener('keydown', onKey, true);
 }
 
 function _showGDriveAuthUI(container, fileId, onAuth) {
