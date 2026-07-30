@@ -1599,6 +1599,8 @@
     [/^🗑 字幕をゴミ箱に移動しました（(.+)）$/, '🗑 Subtitles moved to trash ($1)'],
     [/^⚠️ 字幕の削除に失敗: (.+)$/, '⚠️ Failed to delete subtitles: $1'],
     [/^(\d+)枚目$/, 'Cue $1'],
+    [/^処理が100秒を超えたため接続が切られました（動画が長い可能性）$/, 'The request exceeded 100s and was cut off (the video may be too long)'],
+    [/^区間 (\d+)\/(\d+): (.*)$/, 'Segment $1/$2: $3'],
     [/^(\d+)行・字幕(\d+)枚・最長(\d+)字( ⚠超過)?$/,
       (m, l, c, x, ov) => `${l} lines / ${c} cues / max ${x} chars${ov ? ' ⚠over' : ''}`],
     [/^行数を超えたぶんは(\d+)枚に分かれて順番に出ます。$/, 'Overflow is split into $1 cues shown in sequence.'],

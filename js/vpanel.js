@@ -2870,6 +2870,21 @@ function _subRange(key, cur, min, max, step, fmt) {
   </div>`;
 }
 
+// 「効いていない」を推測で潰さないための表示。
+// 実際に当たっているCSSと、字幕が表示状態かをそのまま出す。
+function _subCueDiag() {
+  const css = (document.getElementById('wk-cue-style') || {}).textContent || '';
+  const m   = css.match(/rgba\(0,\s*0,\s*0,\s*([\d.]+)\)[\s\S]*?font-size:\s*([\d.]+)em/);
+  const tt  = _gdVideoEl && _gdVideoEl.textTracks;
+  let showing = 0, total = 0;
+  if (tt) { total = tt.length; for (let i = 0; i < tt.length; i++) if (tt[i].mode === 'showing') showing++; }
+  return `<div style="font-size:9.5px;color:var(--text3);line-height:1.7;font-family:'DM Mono',monospace;
+      background:var(--surface2);border-radius:6px;padding:5px 7px">
+      適用中の背景 ${m ? m[1] : '取得できず'} ／ 文字 ${m ? m[2] : '取得できず'}倍<br>
+      動画要素 ${_gdVideoEl ? 'あり' : 'なし'} ／ 字幕トラック ${total}本（表示中 ${showing}本）
+    </div>`;
+}
+
 function _subRow(label, hint, control) {
   return `<div style="display:flex;flex-direction:column;gap:5px">
     <div><div style="font-size:12px;font-weight:600">${label}</div>
@@ -2897,7 +2912,8 @@ function _subOptsHTML(scope) {
     + sec('見た目')
     + _subRow('文字サイズ', '', _subRange('fontScale', o.fontScale, 0.6, 2, 0.05, '倍'))
     + _subRow('背景の濃さ', '0で背景なし', _subRange('bgOpacity', o.bgOpacity, 0, 1, 0.02, ''))
-    + _subRow('表示位置', '', _subSeg('position', o.position, [['bottom','画面下'],['top','画面上']]));
+    + _subRow('表示位置', '', _subSeg('position', o.position, [['bottom','画面下'],['top','画面上']]))
+    + _subCueDiag();
 
   if (scope === 'player') {
     if (_gdSubTracks.length) {
