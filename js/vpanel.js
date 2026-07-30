@@ -2110,18 +2110,33 @@ function _sec2tc(s) {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${sec.toFixed(3).padStart(6,'0')}`;
 }
 
+// キューの切り出しは空行区切りに依存しない。
+// タイムコード行そのものを目印にする。
+// （空行の無いSRTを空行区切りで解析すると、通し番号やタイムコードが
+//   字幕テキストに混ざったまま巨大な1キューになる。実際にそれが起きた）
+const VTT_TC_RE = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
+
 function _parseVtt(vtt) {
-  const body = String(vtt).replace(/^WEBVTT[^\n]*\n/, '');
+  const lines = String(vtt).replace(/\r\n?/g, '\n').split('\n');
+  const marks = [];
+  for (let i = 0; i < lines.length; i++) if (VTT_TC_RE.test(lines[i])) marks.push(i);
+
   const cues = [];
-  for (const b of body.split(/\n{2,}/)) {
-    const lines = b.split('\n').filter(l => l.trim() !== '');
-    if (!lines.length) continue;
-    let i = /-->/.test(lines[0]) ? 0 : 1;         // 1行目がキュー番号のことがある
-    const m = lines[i] && lines[i].match(/^\s*([\d:.]+)\s*-->\s*([\d:.]+)/);
+  for (let k = 0; k < marks.length; k++) {
+    const i = marks[k];
+    const m = lines[i].match(VTT_TC_RE);
     if (!m) continue;
-    const text = lines.slice(i + 1).join('\n').trim();
+    // 次のタイムコード行までが本文。末尾に紛れる次キューの通し番号は落とす。
+    const body = lines.slice(i + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    if (body.length && /^\d{1,5}$/.test(body[body.length - 1].trim())) body.pop();
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    const text = body.join('\n').trim();
     if (!text) continue;
-    cues.push({ start: _tc2sec(m[1]), end: _tc2sec(m[2]), text });
+    const start = _tc2sec(m[1].replace(',', '.'));
+    const end   = _tc2sec(m[2].replace(',', '.'));
+    if (!(end > start)) continue;   // 壊れた時間のキューは捨てる
+    cues.push({ start, end, text });
   }
   return cues;
 }
@@ -4645,7 +4660,6 @@ window.vpAiSummary = async function(id, preset) {
         let offscreen = null;
         try {
           if (!_gdVideoEl) {
-            if (opts.onShotProgress) opts.onShotProgress('読み込み中');
             offscreen = await _makeOffscreenGdVideo((v.id||'').replace(/^gd-/,''), gdAccessToken);
           }
           const useEl = _gdVideoEl || offscreen;
