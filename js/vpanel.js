@@ -2055,6 +2055,7 @@ const SUB_OPTS_DEFAULT = {
   maxCharsJa: 20,   // 1行の最大文字数（日本語など全角）
   maxCharsEn: 42,   // 1行の最大文字数（英語など半角）
   maxLines:   2,    // 1つの字幕の最大行数
+  wrapMode:   'balanced', // 折り返し方針 'strict'(文字数優先) | 'balanced' | 'natural'(区切り優先)
   minDur:     1.2,  // 最短表示秒
   maxDur:     7,    // 最長表示秒
   mergeShort: true, // 短すぎるキューを隣とくっつける
@@ -2145,44 +2146,103 @@ function _parseVtt(vtt) {
 const JA_NO_START = '、。，．・？！」』）〕］｝〉》”’ゝゞーぁぃぅぇぉっゃゅょゎヵヶァィゥェォッャュョヮ';
 const JA_NO_END   = '「『（〔［｛〈《“‘';
 
-function _wrapJa(t, max) {
+// 「いい区切り」の判定に使う。行を切ってよいのは、直前が句読点・閉じ括弧・助詞のとき。
+const JA_BREAK_AFTER  = /[、。！？　」』）】]$/;
+const JA_MULTI_AFTER  = /(?:から|まで|より|ので|のに|ため|けど|ように|こと)$/;
+const JA_SINGLE_AFTER = /[はがをにへとでものや]$/;
+const JA_HIRAGANA     = /[ぁ-ゖ]/;
+
+// 上限文字数と「いい区切り」は同時に守れない（区切れる場所は文章側が決めるため、
+// 区切りの無い区間が上限より長いと逃げ場がない）。どちらを優先するかを mode で選ぶ。
+//   strict   … 上限を必ず守る。区切りが無ければ不自然でも切る
+//   balanced … 上限内に区切りが無ければ 1.3倍までは超過を許す（既定）
+//   natural  … 区切りが見つかるまで超過する。不自然な改行を作らない
+function _wrapJa(t, max, mode) {
+  const a = Array.from(t);
   const lines = [];
-  let cur = '';
-  for (const ch of Array.from(t)) {
-    // 文末（。！？）はそこで改行すると読みやすい。ただし極端に短い行は作らない。
-    if (cur.length >= Math.max(4, Math.floor(max * 0.5)) && '。！？'.includes(cur.slice(-1))) {
-      lines.push(cur); cur = ch; continue;
+  let p = 0;
+
+  const isGood = (i) => {
+    if (i <= p || i >= a.length) return false;
+    if (JA_NO_START.includes(a[i])) return false;   // 次の文字が行頭禁則なら切れない
+    const head = a.slice(p, i).join('');
+    if (JA_BREAK_AFTER.test(head)) return true;      // 句読点・閉じ括弧のあとは常に切れる
+    if (JA_MULTI_AFTER.test(head)) return true;      // から/まで/ので/ように 等
+    // 1文字の助詞は語の途中である可能性がある（「防御で|きる」の「で」など）。
+    // 次が平仮名なら語が続いていると見て切らない。漢字・カタカナなら文節の境目とみなす。
+    if (JA_SINGLE_AFTER.test(head) && !JA_HIRAGANA.test(a[i])) return true;
+    return false;
+  };
+  const isSentenceEnd = (i) => /[。！？]$/.test(a.slice(p, i).join(''));
+
+  while (p < a.length) {
+    if (a.length - p <= max) { lines.push(a.slice(p).join('')); break; }
+
+    const hardLimit = Math.min(p + max, a.length - 1);
+    const minLen    = Math.max(3, Math.floor(max * 0.4));
+    let cut = -1;
+
+    // ① 上限内の文末（。！？）を最優先。ただし極端に短い行は作らない
+    for (let i = hardLimit; i > p; i--) {
+      if (isGood(i) && isSentenceEnd(i) && (i - p) >= minLen) { cut = i; break; }
     }
-    if (cur.length >= max) {
-      if (JA_NO_START.includes(ch)) { cur += ch; continue; }          // 行頭禁則: もう1文字だけ入れる
-      if (JA_NO_END.includes(cur.slice(-1))) {                        // 行末禁則: 開き括弧を次行へ送る
-        const last = cur.slice(-1);
-        lines.push(cur.slice(0, -1)); cur = last + ch; continue;
-      }
-      lines.push(cur); cur = ch; continue;
+    // ② 上限内で最も後ろのいい区切り
+    if (cut < 0) for (let i = hardLimit; i > p; i--) if (isGood(i)) { cut = i; break; }
+    // ③ 上限内に無い場合、方針に応じて超過を許して探す
+    if (cut < 0 && mode !== 'strict') {
+      const tol = mode === 'natural' ? a.length - 1 : Math.min(a.length - 1, p + Math.ceil(max * 1.3));
+      for (let i = hardLimit + 1; i <= tol; i++) if (isGood(i)) { cut = i; break; }
     }
-    cur += ch;
+    // ④ どこにも区切れる場所が無い → 禁則だけ守って強制的に切る
+    if (cut < 0) {
+      cut = p + max;
+      while (cut < a.length && JA_NO_START.includes(a[cut])) cut++;
+      if (cut - 1 > p && JA_NO_END.includes(a[cut - 1])) cut--;
+      if (cut <= p) cut = p + max;
+    }
+    lines.push(a.slice(p, cut).join(''));
+    p = cut;
   }
-  if (cur) lines.push(cur);
-  return lines;
+  // 1〜2文字だけの行は読みにくいので、超過を許す方針なら前の行にくっつける
+  if (mode !== 'strict') {
+    for (let i = 1; i < lines.length; i++) {
+      if (Array.from(lines[i]).length > 2) continue;
+      const merged = lines[i - 1] + lines[i];
+      if (Array.from(merged).length <= Math.ceil(max * 1.3)) {
+        lines[i - 1] = merged;
+        lines.splice(i, 1);
+        i--;
+      }
+    }
+  }
+  return lines.filter(x => x !== '');
 }
 
-function _wrapEn(t, max) {
+function _wrapEn(t, max, mode) {
   const lines = [];
   let cur = '';
   for (const w of t.split(/\s+/)) {
+    if (!w) continue;
     if (!cur) { cur = w; continue; }
     if ((cur + ' ' + w).length <= max) cur += ' ' + w;
     else { lines.push(cur); cur = w; }
   }
   if (cur) lines.push(cur);
-  return lines;
+  // 単語1つが上限を超える場合。strict のみ単語を割って上限を守る。
+  if (mode !== 'strict') return lines;
+  const out = [];
+  for (let l of lines) {
+    while (l.length > max) { out.push(l.slice(0, max)); l = l.slice(max); }
+    if (l) out.push(l);
+  }
+  return out;
 }
 
 function _wrapText(text, o) {
   const t = String(text).replace(/\s*\n\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
   if (!t) return [];
-  return /[぀-ヿ一-鿿]/.test(t) ? _wrapJa(t, o.maxCharsJa) : _wrapEn(t, o.maxCharsEn);
+  const mode = o.wrapMode || 'balanced';
+  return /[぀-ヿ一-鿿]/.test(t) ? _wrapJa(t, o.maxCharsJa, mode) : _wrapEn(t, o.maxCharsEn, mode);
 }
 
 // 行数が上限を超えたら、文字数比で時間を割ってキューを分割する
@@ -2802,6 +2862,27 @@ function _subRange(key, cur, min, max, step, fmt) {
   </div>`;
 }
 
+// 設定の効き方を見本の文で見せる。3方針の違いはこれで比較できる。
+const SUB_PREVIEW_SAMPLE = 'どのガードパスを自信を持って防御できるようになります。';
+
+function _subWrapPreview(o) {
+  const esc = t => String(t).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+  const lines = _wrapText(SUB_PREVIEW_SAMPLE, o);
+  const per = Math.max(1, o.maxLines);
+  const groups = [];
+  for (let i = 0; i < lines.length; i += per) groups.push(lines.slice(i, i + per));
+  const over = lines.filter(l => Array.from(l).length > o.maxCharsJa).length;
+  return `<div style="background:#000;border-radius:8px;padding:9px 8px;display:flex;flex-direction:column;gap:8px">
+      ${groups.map((g, i) => `<div style="text-align:center">
+        ${groups.length > 1 ? `<div style="font-size:9px;color:#888;margin-bottom:3px">${i + 1}枚目</div>` : ''}
+        ${g.map(l => `<span style="display:inline-block;background:rgba(255,255,255,.14);color:#fff;font-size:12px;line-height:1.6;padding:0 3px;border-radius:2px">${esc(l)}</span>`).join('<br>')}
+      </div>`).join('')}
+    </div>
+    <div style="font-size:10.5px;color:var(--text3)">${
+      groups.length > 1 ? `行数を超えたぶんは${groups.length}枚に分かれて順番に出ます。` : ''
+    }${over ? `上限を超える行が${over}行あります。` : ''}</div>`;
+}
+
 function _subRow(label, hint, control) {
   return `<div style="display:flex;flex-direction:column;gap:5px">
     <div><div style="font-size:12px;font-weight:600">${label}</div>
@@ -2820,6 +2901,9 @@ function _subOptsHTML(scope) {
     + _subRow('1行の最大文字数（日本語）', '長いほど1行に詰め込む', _subRange('maxCharsJa', o.maxCharsJa, 8, 40, 1, '字'))
     + _subRow('1行の最大文字数（英語）', '', _subRange('maxCharsEn', o.maxCharsEn, 20, 80, 1, '字'))
     + _subRow('最大行数', '超えたぶんは時間を分けて次の字幕に送る', _subSeg('maxLines', o.maxLines, [[1,'1行'],[2,'2行'],[3,'3行']]))
+    + _subRow('表示バランス', '上限文字数と区切りの良さは同時に守れないため、どちらを優先するか選びます',
+        _subSeg('wrapMode', o.wrapMode, [['strict','文字数優先'],['balanced','バランス'],['natural','区切り優先']]))
+    + _subRow('見本', '設定を変えるとここに反映されます', _subWrapPreview(o))
     + sec('表示時間')
     + _subRow('最短表示', '一瞬で消えるのを防ぐ', _subRange('minDur', o.minDur, 0.4, 3, 0.1, '秒'))
     + _subRow('最長表示', '出しっぱなしを防ぐ', _subRange('maxDur', o.maxDur, 2, 15, 0.5, '秒'))
