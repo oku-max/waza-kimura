@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.618</title>
+<title>WAZA KIMURA v52.619</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -789,8 +789,10 @@
   display: block !important;
 }
 
-/* Drive動画のサイドカー字幕（<track>）— 小さい画面でも潰れないよう可読性優先 */
-#vpanel-iframe-container video::cue {
+/* Drive動画のサイドカー字幕（<track>）— 小さい画面でも潰れないよう可読性優先。
+   コンテナidはスマホ(#vpanel-iframe-container)とPC(#vp-panel-yt-player)で違うため、
+   idではなく動画側のクラスで指定する。 */
+video.wk-sub-video::cue {
   background: rgba(0, 0, 0, .72);
   color: #fff;
   font-size: 1em;
