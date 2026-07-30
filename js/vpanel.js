@@ -3877,8 +3877,8 @@ function _sigDiff(a, b) {
   return s / a.length;
 }
 
-async function _captureGdFrame(sec) {
-  const video = _gdVideoEl;
+async function _captureGdFrame(sec, videoEl) {
+  const video = videoEl || _gdVideoEl;
   if (!video) return null;
   await new Promise((resolve) => {
     let done = false;
@@ -4347,25 +4347,49 @@ window.vpMemoInsertTs = function(id) {
 
 // GDrive動画から指定秒のフレームを撮影しスナップショット登録。shotMap{sec:{snapId,thumbDataUrl}}を返す。
 // 要約・分岐で共通利用（同じ撮影ロジックを2箇所に持たないため一本化）。btnがあれば進捗表示。
-async function _vpCaptureGdShots(id, secs, tsText, btn) {
+// 一括処理ではVPanelが開いていないため _gdVideoEl が無い。
+// 撮影用に同じ /api/drive プロキシから隠しの <video> を作って渡す。
+// （同一オリジン配信なので canvas が汚染されず、そのままキャプチャできる）
+async function _makeOffscreenGdVideo(fileId, token) {
+  const v = document.createElement('video');
+  v.src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
+  v.muted = true;
+  v.preload = 'auto';
+  v.setAttribute('playsinline', '');
+  // 一部ブラウザはDOMに無い要素をデコードしないため、見えない形で入れておく
+  v.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(v);
+  const ok = await new Promise(resolve => {
+    let done = false;
+    const fin = (val) => { if (done) return; done = true; resolve(val); };
+    v.addEventListener('loadedmetadata', () => fin(true), { once: true });
+    v.addEventListener('error', () => fin(false), { once: true });
+    setTimeout(() => fin(false), 20000);   // 読み込めない動画で止まらないための保険
+  });
+  if (!ok || !v.videoWidth) { try { v.remove(); } catch(e) {} return null; }
+  return v;
+}
+
+async function _vpCaptureGdShots(id, secs, tsText, btn, videoEl) {
   const shotMap = {};
-  if (!_gdVideoEl || !secs.length || !window.snapAddBlob) return shotMap;
-  const origTime = _gdVideoEl.currentTime;
-  const wasPlaying = !_gdVideoEl.paused;
-  try { _gdVideoEl.pause(); } catch(e) {}
+  const vid = videoEl || _gdVideoEl;
+  if (!vid || !secs.length || !window.snapAddBlob) return shotMap;
+  const origTime = vid.currentTime;
+  const wasPlaying = !vid.paused;
+  try { vid.pause(); } catch(e) {}
   let prevSig = null;
   const DUP_THRESHOLD = 5; // 平均輝度差がこれ未満なら「直前とほぼ同じ画」とみなす
   for (let i = 0; i < secs.length; i++) {
     if (btn) btn.textContent = `📸 ${i+1}/${secs.length}`;
     try {
-      let cap = await _captureGdFrame(secs[i]);
+      let cap = await _captureGdFrame(secs[i], vid);
       let nudge = 0;
       while (cap && prevSig && _sigDiff(cap.sig, prevSig) < DUP_THRESHOLD && nudge < 2) {
         nudge++;
-        const dur = _gdVideoEl.duration || (secs[i] + 3);
+        const dur = vid.duration || (secs[i] + 3);
         const nx = Math.min(dur - 0.2, secs[i] + 0.7 * nudge);
         if (nx <= secs[i]) break;
-        const c2 = await _captureGdFrame(nx);
+        const c2 = await _captureGdFrame(nx, vid);
         if (!c2) break;
         cap = c2;
       }
@@ -4376,7 +4400,7 @@ async function _vpCaptureGdShots(id, secs, tsText, btn) {
       }
     } catch(e) { console.warn('[shot]', secs[i], e); }
   }
-  try { _gdVideoEl.currentTime = origTime; if (wasPlaying) _gdVideoEl.play().catch(()=>{}); } catch(e) {}
+  try { vid.currentTime = origTime; if (wasPlaying) vid.play().catch(()=>{}); } catch(e) {}
   return shotMap;
 }
 
@@ -4613,10 +4637,27 @@ window.vpAiSummary = async function(id, preset) {
 
     // スクショ撮影（opts.shot かつ GDrive動画）— 分岐抽出と共通のヘルパーを使用
     let shotMap = {};
-    if (opts.shot && isGD && _gdVideoEl) {
+    if (opts.shot && isGD) {
       const tsText = _vpCollectTsText(data.summary);
       const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
-      shotMap = await _vpCaptureGdShots(id, secs, tsText, btn);
+      if (secs.length) {
+        // 再生中ならその要素を使う。一括処理でVPanelが無い場合だけ隠し要素を作る。
+        let offscreen = null;
+        try {
+          if (!_gdVideoEl) {
+            if (opts.onShotProgress) opts.onShotProgress('読み込み中');
+            offscreen = await _makeOffscreenGdVideo((v.id||'').replace(/^gd-/,''), gdAccessToken);
+          }
+          const useEl = _gdVideoEl || offscreen;
+          if (useEl) {
+            shotMap = await _vpCaptureGdShots(id, secs, tsText, btn, useEl);
+          } else {
+            console.warn('[aiSummary] スクショ用の動画を読み込めなかったため要約のみ保存します');
+          }
+        } finally {
+          if (offscreen) { try { offscreen.pause(); offscreen.removeAttribute('src'); offscreen.load(); offscreen.remove(); } catch(e) {} }
+        }
+      }
       if (btn) btn.textContent = '⏳ 整理中…';
     }
 
@@ -4659,7 +4700,7 @@ window.vpAiSummary = async function(id, preset) {
       autoSaveVp(id);
     }
     if (!silent) window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
-    return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0 };
+    return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0, shots: shotCount };
   } catch (e) {
     console.error('[aiSummary] 例外:', e);
     if (!silent) {
