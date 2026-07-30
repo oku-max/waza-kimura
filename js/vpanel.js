@@ -2421,7 +2421,7 @@ async function _gdAttachSubtitle(video, fileId, token) {
     track.src     = url;
     video.appendChild(track);
     // rawVtt を持っておくと、設定変更時に取得し直さず整形だけやり直せる
-    _gdSubTracks.push({ label: item.cand.label, name: item.cand.name, track, rawVtt: item.vtt, url });
+    _gdSubTracks.push({ id: item.cand.id, label: item.cand.label, name: item.cand.name, track, rawVtt: item.vtt, url });
   }
   _applyCueStyle();
   if (!_gdSubTracks.length) return;
@@ -2747,7 +2747,7 @@ function _gdSubReapply() {
     track.srclang = t.track.srclang || 'ja';
     track.src     = url;
     video.appendChild(track);
-    _gdSubTracks.push({ label: t.label, name: t.name, track, rawVtt: t.rawVtt, url });
+    _gdSubTracks.push({ id: t.id, label: t.label, name: t.name, track, rawVtt: t.rawVtt, url });
   }
   setTimeout(() => _gdSubSelect(Math.min(idx, _gdSubTracks.length - 1)), 0);
 }
@@ -2830,6 +2830,20 @@ function _subOptsHTML(scope) {
     + _subRow('表示位置', '', _subSeg('position', o.position, [['bottom','画面下'],['top','画面上']]));
 
   if (scope === 'player') {
+    if (_gdSubTracks.length) {
+      html += sec('この動画の字幕ファイル')
+        + _gdSubTracks.map((t, i) => `<div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11.5px;font-weight:600">${t.label}</div>
+              <div style="font-size:10px;color:var(--text3);word-break:break-all">${String(t.name || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>
+            </div>
+            <button type="button" onclick="wkSubDeleteFile(${i})" title="Driveのゴミ箱へ移動"
+              style="flex-shrink:0;padding:4px 9px;border-radius:7px;border:1.5px solid var(--red,#ef4444);
+                     background:transparent;color:var(--red,#ef4444);font-family:inherit;font-size:11px;
+                     font-weight:700;cursor:pointer">🗑 ゴミ箱へ</button>
+          </div>`).join('')
+        + `<div style="font-size:10.5px;color:var(--text3)">動画本体は削除されません。Driveのゴミ箱から元に戻せます。</div>`;
+    }
     const off = _subOffsetGet(_gdFileId);
     html += sec('タイミング補正（この動画のみ）')
       + `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -2857,6 +2871,54 @@ function _subOptsHTML(scope) {
 }
 
 // 開いているパネル（設定画面・再生中ポップアップ）を描き直す
+// 字幕ファイルをDriveのゴミ箱へ移す。
+// 完全削除（files.delete）ではなく trashed:true にする。
+// ユーザーの実データなので、取り返しがつく方向に倒す（Driveのゴミ箱から復元できる）。
+// 対象は _gdSubTracks に載っている字幕ファイルだけで、動画本体には触れない。
+window.wkSubDeleteFile = async function(idx) {
+  const t = _gdSubTracks[idx];
+  if (!t || !t.id) { window.toast?.('対象の字幕ファイルが特定できませんでした'); return; }
+
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) { window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。'); return; }
+
+  if (!confirm(`「${t.name}」をDriveのゴミ箱に移動しますか？\n\n動画本体は削除されません。\nDriveのゴミ箱から元に戻せます。`)) return;
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(t.id)}?fields=id,trashed`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trashed: true }),
+      }
+    );
+    if (!res.ok) throw new Error(`Drive ${res.status}: ${(await res.text()).slice(0, 150)}`);
+  } catch (e) {
+    console.warn('[subtitle] 削除失敗:', e);
+    window.toast?.('⚠️ 字幕の削除に失敗: ' + (e?.message || e));
+    return;
+  }
+
+  // 表示中のトラックを外し、検出キャッシュも捨てる
+  try { t.track.remove(); } catch(e) {}
+  if (t.url) { try { URL.revokeObjectURL(t.url); } catch(e) {} }
+  const ui = _gdSubBlobUrls.indexOf(t.url);
+  if (ui >= 0) _gdSubBlobUrls.splice(ui, 1);
+  _gdSubTracks.splice(idx, 1);
+  if (_gdFileId) _gdSubLookup.delete(_gdFileId);
+
+  if (!_gdSubTracks.length) {
+    _gdSubIndex = -1;
+    document.getElementById('vp-sub-ui')?.remove();
+    document.getElementById('vp-sub-opts')?.remove();
+  } else {
+    _gdSubSelect(Math.min(_gdSubIndex, _gdSubTracks.length - 1));
+  }
+  window.wkSubOptsRender();
+  window.toast?.(`🗑 字幕をゴミ箱に移動しました（${t.name}）`);
+};
+
 window.wkSubOptsRender = function() {
   const host = document.getElementById('sub-opts-host');
   if (host) host.innerHTML = _subOptsHTML('full');
