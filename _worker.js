@@ -953,20 +953,67 @@ function _srtCues(text) {
   return cues;
 }
 // 区間ごとのSRTを1本に繋ぐ。
-// モデルが区間内の相対時刻で返すか絶対時刻で返すかは保証されないため、
-// 先頭キューの位置を見てどちらかを判定してからずらす（推測で固定しない）。
-function _mergeSrtSegments(segs) {
+// モデルが区間内の相対時刻で返すか絶対時刻で返すかは保証されない。
+// 先頭キュー1件で判定すると、区間の後半から話し始める場合に必ず誤る
+// （区間長の半分を境に判定が反転する）。実際に長尺でこれが起きた。
+// そこで「その区間の時間窓に収まるキューが多いのはどちらの解釈か」で決める。
+function _pickSegShift(cues, segStart, segEnd, offset) {
+  const inWin = (sh) => cues.reduce((n, c) => {
+    const t = c.start + sh;
+    return n + (t >= segStart - 5 && t <= segEnd + 5 ? 1 : 0);
+  }, 0);
+  const asRel = inWin(offset);   // 相対時刻とみなしてずらす
+  const asAbs = inWin(0);        // すでに絶対時刻とみなす
+  return asRel >= asAbs ? offset : 0;
+}
+
+function _mergeSrtSegments(segs, durationSec) {
   const all = [];
-  for (const { srt, offset } of segs) {
+  for (const { srt, offset, segEnd } of segs) {
     const cues = _srtCues(srt);
     if (!cues.length) continue;
-    const first = cues[0].start;
-    const shift = Math.abs(first - offset) <= Math.abs(first) ? 0 : offset;
+    const shift = _pickSegShift(cues, offset, segEnd, offset);
     for (const c of cues) all.push({ start: c.start + shift, end: c.end + shift, text: c.text });
   }
-  all.sort((a, b) => a.start - b.start);
-  return all.map((c, i) => `${i + 1}\n${_srtTime(c.start)} --> ${_srtTime(c.end)}\n${c.text}`).join('\n\n') + '\n';
+  return _cleanupCues(all, durationSec);
 }
+
+// 繋いだ結果を整える。壊れたキューを混ぜたまま保存しないための最後の砦。
+function _cleanupCues(cues, durationSec) {
+  const dur = Number(durationSec) || 0;
+  const limit = dur > 0 ? dur + 5 : Infinity;
+  let out = cues
+    .filter(c => c.start >= -1 && c.start < limit && c.end > c.start)
+    .sort((a, b) => a.start - b.start);
+  // 同じ時刻に重なったキューは後ろを詰める（区間の境目で重複しうる）
+  for (let i = 0; i < out.length - 1; i++) {
+    if (out[i].end > out[i + 1].start) out[i].end = Math.max(out[i].start + 0.2, out[i + 1].start);
+  }
+  // まったく同じ内容が連続していたら1つにする
+  out = out.filter((c, i) => i === 0 || c.text !== out[i - 1].text || c.start - out[i - 1].start > 0.5);
+  return out;
+}
+
+function _cuesToSrt(cues) {
+  return cues.map((c, i) => `${i + 1}\n${_srtTime(c.start)} --> ${_srtTime(c.end)}\n${c.text}`).join('\n\n') + '\n';
+}
+
+// 出来上がったSRTが動画に対して妥当か検査する。
+// おかしいまま返すとユーザーが「壊れた字幕」を保存してしまうので、
+// ここで止めて理由を返す。
+function _validateSrt(srt, durationSec) {
+  const cues = _srtCues(srt);
+  const dur = Number(durationSec) || 0;
+  if (!cues.length) return '字幕が1件も取れませんでした';
+  if (dur > 0) {
+    const outside = cues.filter(c => c.start > dur + 5).length;
+    if (outside > cues.length * 0.2) return `字幕の時刻が動画の長さ(${Math.round(dur)}秒)と合っていません`;
+    const covered = cues[cues.length - 1].end - cues[0].start;
+    if (covered < dur * 0.3) return `字幕が動画の一部（約${Math.round(covered)}秒ぶん）しかありません`;
+  }
+  return null;
+}
+
 function _mergeUsage(a, b) {
   if (!b) return a;
   if (!a) return { ...b };
@@ -994,7 +1041,13 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   const segCount = dur > SUB_SEG_SEC ? Math.min(SUB_SEG_MAX, Math.ceil(dur / SUB_SEG_SEC)) : 1;
 
   if (segCount <= 1) {
-    return _geminiGenerate(env, [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], gen);
+    const r = await _geminiGenerate(env, [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], gen);
+    if (r.error) return r;
+    // 1区間でも時刻が動画と合っていないこと（1時間ずれ等）が実際にあったので整えて検査する
+    const fixed = _cuesToSrt(_cleanupCues(_srtCues(r.summary), dur));
+    const bad = _validateSrt(fixed, dur);
+    if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
+    return { ...r, summary: fixed };
   }
 
   const segs = [];
@@ -1007,12 +1060,13 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
                 + `\nタイムコードはこの区間の先頭を 00:00:00,000 として数えてください（動画全体の先頭ではありません）。`;
     const r = await _geminiGenerate(env, [part, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) + note }], gen);
     if (r.error) return { error: r.error, detail: `区間 ${k + 1}/${segCount}: ${r.detail || ''}` };
-    segs.push({ srt: r.summary, offset: start });
+    segs.push({ srt: r.summary, offset: start, segEnd: end });
     cost += Number(r.costUsd) || 0;
     usage = _mergeUsage(usage, r.usage);
   }
-  const merged = _mergeSrtSegments(segs);
-  if (!_srtCues(merged).length) return { error: '字幕を取得できませんでした', detail: '区間を繋いだ結果が空でした' };
+  const merged = _cuesToSrt(_mergeSrtSegments(segs, dur));
+  const bad = _validateSrt(merged, dur);
+  if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
   return { summary: merged, usage, costUsd: cost, segments: segCount };
 }
 

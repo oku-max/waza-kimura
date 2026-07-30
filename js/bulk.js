@@ -1634,6 +1634,7 @@ window._bulkAiStart = async function(mode) {
   if (!targets.length) { _bulkAiClose(); window.toast?.('処理対象がありませんでした（すべて完了済み）'); return; }
 
   _bulkAiAbort = false;
+  window.wkAiBusyBegin?.();   // 実行中はページ離脱を警告する（動画と動画の間も含めて）
   let done = 0, ok = 0, skip = 0, ng = 0, cost = 0, shots = 0;
   const errors = [];
 
@@ -1658,6 +1659,7 @@ window._bulkAiStart = async function(mode) {
   };
   paint('');
 
+  try {
   for (const v of targets) {
     if (_bulkAiAbort) break;
     paint(v.title || v.id);
@@ -1678,6 +1680,9 @@ window._bulkAiStart = async function(mode) {
     else if (r?.skipped) { skip++; }
     else                 { ng++; errors.push(`${v.title || v.id}: ${r?.error || '不明なエラー'}`); }
     paint(v.title || v.id);
+  }
+  } finally {
+    window.wkAiBusyEnd?.();   // 途中で例外が出ても離脱警告を残さない
   }
 
   const stopped = _bulkAiAbort;
