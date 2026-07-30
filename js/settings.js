@@ -77,6 +77,7 @@ export let aiSettings = {
   categories:            { tb: true, action: true, position: true, tags: true },
   autoTagOnImport:       false,
   fetchChaptersOnImport: true,
+  chapterGrain:          'normal',   // 自動チャプターの粒度 'fine' | 'normal' | 'coarse'
   bulkConfirm:           true,
   newTagProposal:        true,
   flexibility:           'standard',
@@ -1221,6 +1222,20 @@ function _renderAiImportSettings() {
       </div>
       ${toggleHtml('autoTagOnImport', '取込時に自動AI分析', 'YouTube取り込み後に自動でタグ付け')}
       ${toggleHtml('fetchChaptersOnImport', 'チャプター取得', 'YouTubeの説明文からタイムスタンプを解析')}
+      <div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">自動チャプターの粒度</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか</div>
+        <div style="display:flex;gap:6px">
+          ${[['fine','細かめ','1本の技ごと'],['normal','ふつう','標準'],['coarse','大きめ','章のかたまりで']].map(([v,label,desc]) => `
+            <button onclick="aiSettings.chapterGrain='${v}';saveAiSettings();_renderAiImportSettings()"
+              style="flex:1;padding:6px 4px;border-radius:8px;border:1.5px solid ${s.chapterGrain===v?'var(--accent)':'var(--border)'};
+                     font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;
+                     background:${s.chapterGrain===v?'var(--accent)':'var(--surface2)'};color:${s.chapterGrain===v?'#fff':'var(--text2)'}">
+              ${label}<div style="font-size:9.5px;font-weight:400;opacity:.85;margin-top:1px">${desc}</div>
+            </button>`).join('')}
+        </div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:5px">公式チャプター表から作る時は、表のとおりに区切るのでこの設定は使いません</div>
+      </div>
     </div>`;
 }
 // expose for inline onchange
