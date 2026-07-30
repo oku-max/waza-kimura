@@ -405,8 +405,10 @@ async function handleAiSummary(request, env) {
 
   const body = await request.json().catch(() => ({}));
   const { idToken, source, ytId, title, channel, playlist } = body;
-  // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON)
-  const mode = ['desc','branch'].includes(body.mode) ? body.mode : 'summary';
+  // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON) | 'subtitle'(SRT字幕生成)
+  const mode = ['desc','branch','subtitle'].includes(body.mode) ? body.mode : 'summary';
+  // subtitle時の言語: 'ja'(日本語に翻訳・既定) | 'orig'(話されている言語のまま)
+  const subLang = body.subLang === 'orig' ? 'orig' : 'ja';
 
   const auth = await verifyOwner(idToken, env);
   if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
@@ -417,22 +419,53 @@ async function handleAiSummary(request, env) {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
     }
-    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode);
+    return _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang);
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
       return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
     }
-    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode);
+    return _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang);
   }
   return jsonRes({ error: 'source は youtube または gdrive を指定してください' }, 400);
 }
 
 // ── モード別プロンプト選択 ──────────────────────────────────
-function _promptFor(mode, ctx) {
-  if (mode === 'desc')   return _aiDescPrompt(ctx);
-  if (mode === 'branch') return _aiBranchPrompt(ctx);
+function _promptFor(mode, ctx, subLang) {
+  if (mode === 'desc')     return _aiDescPrompt(ctx);
+  if (mode === 'branch')   return _aiBranchPrompt(ctx);
+  if (mode === 'subtitle') return _aiSubtitlePrompt(ctx, subLang);
   return _aiPrompt(ctx);
+}
+
+// 生成オプション（mode別）。字幕は本文が長いので出力枠を大きく取り、思考は切って全部本文に回す。
+function _genOptsFor(mode) {
+  if (mode === 'branch')   return { json: true };
+  if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.1, what: '字幕' };
+  return {};
+}
+
+// 字幕生成: 動画の音声をSRT形式に文字起こし（必要なら日本語へ翻訳）
+function _aiSubtitlePrompt(ctx, subLang) {
+  const langRule = subLang === 'orig'
+    ? '- 話されている言語のまま文字起こしする（翻訳しない）'
+    : '- 音声が英語などの外国語なら自然な日本語に翻訳する。日本語音声ならそのまま文字起こしする\n'
+      + '- 柔術用語（ガード, スイープ, パスガード, マウント, バックテイク, ラペラ 等）は無理に和訳せずカタカナで表記する';
+  return `この動画の音声を最初から最後まで文字起こしし、SRT形式の字幕を作成してください。
+${ctx ? '\n【動画情報】\n' + ctx + '\n' : ''}
+【厳守】
+- 出力はSRT本文のみ。前置き・解説・コードフェンスは一切書かない
+- 通し番号は1から連番
+- タイムコードは HH:MM:SS,mmm --> HH:MM:SS,mmm 形式（カンマ区切り・ゼロ埋め）
+- 実際の発話タイミングに正確に合わせる
+- 1つの字幕は最大2行。1行あたり日本語なら20文字程度、英語なら42文字程度まで
+- 無音・発話の無い区間には字幕を作らない
+${langRule}
+
+出力例:
+1
+00:00:02,400 --> 00:00:05,120
+クローズドガードから始めます`;
 }
 
 // 一言解説: 動画を開く前に内容が分かる1〜2文（サムネ下・タイトル横に表示する想定）
@@ -503,9 +536,13 @@ async function _geminiGenerate(env, parts, opts) {
   const apiKey = env.GEMINI_API_KEY;
   // 2.5系の思考モデルは思考トークンが出力枠を食い潰し、本文が空（finishReason=MAX_TOKENS）になることがある。
   // 思考量を上限付きに固定し、出力枠を広く確保して要約本文ぶんを必ず残す。
-  const generationConfig = { temperature: 0.3, maxOutputTokens: 8192 };
-  if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 2048 };
-  if (opts && opts.json) generationConfig.responseMimeType = 'application/json';
+  const o = opts || {};
+  const generationConfig = {
+    temperature:     o.temperature != null ? o.temperature : 0.3,
+    maxOutputTokens: o.maxOutputTokens || 8192,
+  };
+  if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: o.thinkingBudget != null ? o.thinkingBudget : 2048 };
+  if (o.json) generationConfig.responseMimeType = 'application/json';
   const gRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -524,20 +561,20 @@ async function _geminiGenerate(env, parts, opts) {
                  : fr === 'SAFETY' || fr === 'PROHIBITED_CONTENT' ? 'コンテンツ判定で生成がブロックされました'
                  : fr === 'RECITATION' ? '引用判定でブロックされました'
                  : fr;
-    return { error: '要約を取得できませんでした', detail };
+    return { error: `${(opts && opts.what) || '要約'}を取得できませんでした`, detail };
   }
   return { summary };
 }
 
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
-async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode) {
+async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang) {
   const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-  const prompt   = _promptFor(mode, _ctxStr(title, channel, playlist));
+  const prompt   = _promptFor(mode, _ctxStr(title, channel, playlist), subLang);
   try {
     const result = await _geminiGenerate(env, [
       { fileData: { fileUri: videoUrl } },
       { text: prompt },
-    ], { json: mode === 'branch' });
+    ], _genOptsFor(mode));
     if (result.error) return jsonRes(result, 502);
     return jsonRes({ summary: result.summary });
   } catch (e) {
@@ -546,7 +583,7 @@ async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode) {
 }
 
 // ── Google Drive 要約（Drive→Gemini Files APIストリーミング中継）──
-async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode) {
+async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode, subLang) {
   const apiKey = env.GEMINI_API_KEY;
 
   // 1. Drive ファイルメタデータ取得
@@ -641,13 +678,13 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   }
 
   // 5. 生成（mode: summary/desc/branch）
-  const prompt = _promptFor(mode, _ctxStr(title, channel, playlist));
+  const prompt = _promptFor(mode, _ctxStr(title, channel, playlist), subLang);
   let result;
   try {
     result = await _geminiGenerate(env, [
       { fileData: { mimeType, fileUri } },
       { text: prompt },
-    ], { json: mode === 'branch' });
+    ], _genOptsFor(mode));
   } finally {
     _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
   }
