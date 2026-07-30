@@ -521,20 +521,8 @@ export function vpAbSet(point) {
   _abRefresh();
 }
 
-// A/Bボタンタップ → クイック設定パネルを開く
-export function vpAbOpenPanel(pt) {
-  if (_ab.setMode === pt) {
-    // 同じボタンを再タップ → 閉じる
-    _ab.setMode = null;
-    _abCloseQuickPanel();
-    _abRefresh();
-    return;
-  }
-  _ab.setMode = pt;
-  _abRefresh();
-  _abOpenQuickPanel(pt, window.openVPanelId);
-}
-
+// 旧クイック設定パネルの後片付け。対象要素は現在のUIには無いが、
+// ブックマーク再生時のリセット処理から呼ばれているため残す。
 function _abCloseQuickPanel() {
   ['vp-ab-quick-panel','vp-pc-ab-quick-panel'].forEach(id => {
     const el = document.getElementById(id);
