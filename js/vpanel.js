@@ -2056,16 +2056,10 @@ const SUB_OPTS_KEY   = 'wk_subOpts';
 const SUB_OFFSET_KEY = 'wk_subOffsets';
 
 // 字幕の言語表示名（ファイル名の .xx や生成言語の指定に使う）
-const SUB_LANGS = {
-  ja:'日本語', en:'English', zh:'中文', ko:'한국어', es:'Español', pt:'Português',
-  fr:'Français', de:'Deutsch', it:'Italiano', ru:'Русский', th:'ไทย', vi:'Tiếng Việt',
-  id:'Bahasa Indonesia', ar:'العربية', hi:'हिन्दी',
-};
+const SUB_LANGS = { ja:'日本語', en:'English' };
 const SUB_LANG_ALIAS = {
-  jpn:'ja', jp:'ja', japanese:'ja', 日本語:'ja', eng:'en', english:'en', 英語:'en',
-  chi:'zh', zho:'zh', cn:'zh', chinese:'zh', 中国語:'zh', kor:'ko', korean:'ko', 韓国語:'ko',
-  spa:'es', spanish:'es', por:'pt', fra:'fr', fre:'fr', french:'fr', deu:'de', ger:'de',
-  german:'de', ita:'it', rus:'ru', tha:'th', vie:'vi', ind:'id', ara:'ar', hin:'hi',
+  jpn:'ja', jp:'ja', japanese:'ja', 日本語:'ja',
+  eng:'en', english:'en', 英語:'en',
 };
 
 const SUB_OPTS_DEFAULT = {
@@ -2385,9 +2379,7 @@ function _srtToVtt(text) {
 function _gdSubRefineLabel(cand, vtt) {
   if (cand.lang) return;
   const body = vtt.replace(/^WEBVTT[\s\S]*?\n\n/, '');
-  if (/[ぁ-ゟ゠-ヿ]/.test(body))       { cand.lang = 'ja'; cand.label = SUB_LANGS.ja; }
-  else if (/[가-힣]/.test(body))       { cand.lang = 'ko'; cand.label = SUB_LANGS.ko; }
-  else if (/[一-鿿]/.test(body))       { cand.lang = 'zh'; cand.label = SUB_LANGS.zh; }
+  if (/[぀-ヿ一-鿿]/.test(body))       { cand.lang = 'ja'; cand.label = SUB_LANGS.ja; }
   else if (/[A-Za-z]{3,}/.test(body))  { cand.lang = 'en'; cand.label = SUB_LANGS.en; }
 }
 
@@ -2560,8 +2552,7 @@ async function _driveUploadText(token, { name, parentId, text, existingId }) {
 // 生成言語を選ぶ小メニュー。選択で resolve、外クリック/Escで null
 function _subGenLangChoices() {
   const cur = subOpts().genLang;
-  const list = [['ja', SUB_LANGS.ja], ['orig', '原語のまま'], ['en', SUB_LANGS.en],
-                ['zh', SUB_LANGS.zh], ['ko', SUB_LANGS.ko], ['es', SUB_LANGS.es]];
+  const list = [['ja', SUB_LANGS.ja], ['orig', '原語のまま']];
   // 設定画面で選んでいる言語を先頭に出す
   list.sort((a, b) => (b[0] === cur) - (a[0] === cur));
   return list;
@@ -2657,7 +2648,7 @@ window.vpGenSubtitle = async function(id, preset) {
     const parent = meta?.parents?.[0];
     const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
     if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
-    const target = base + (subLang === 'orig' ? '.srt' : `.${subLang}.srt`);
+    const target = base + (subLang === 'ja' ? '.ja.srt' : '.srt');
 
     const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
     const dup  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
@@ -2817,7 +2808,7 @@ function _subRow(label, hint, control) {
 function _subOptsHTML(scope) {
   const o   = subOpts();
   const sec = t => `<div style="font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin-top:4px">${t}</div>`;
-  const langChoices = [['ja','日本語'],['orig','原語のまま'],['en','English'],['zh','中文'],['ko','한국어'],['es','Español']];
+  const langChoices = [['ja','日本語'],['orig','原語のまま']];
 
   let html = sec('一度に出す量')
     + _subRow('1行の最大文字数（日本語）', '長いほど1行に詰め込む', _subRange('maxCharsJa', o.maxCharsJa, 8, 40, 1, '字'))
