@@ -492,7 +492,7 @@ function _promptFor(mode, ctx, subLang, subOpts, chapOpts) {
 // 生成オプション（mode別）。字幕は本文が長いので出力枠を大きく取り、思考は切って全部本文に回す。
 function _genOptsFor(mode) {
   if (mode === 'branch')   return { json: true };
-  if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.1, what: '字幕' };
+  if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.1, what: '字幕', mediaResolution: 'MEDIA_RESOLUTION_LOW' };
   // チャプターは出力そのものは短いが「どこで話題が変わるか」の判断に思考を使わせたい。
   // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
   if (mode === 'chapters') return { json: true, maxOutputTokens: 16384, thinkingBudget: 4096, temperature: 0.2, what: 'チャプター' };
@@ -549,6 +549,7 @@ ${ctx ? '\n【動画情報】\n' + ctx + '\n' : ''}
   字幕と字幕の間には必ず空行を1行入れる（空行を省略しない）
 - タイムコードは動画の先頭を 00:00:00,000 として数える（01:00:00 から始めない）
 - 無音・発話の無い区間には字幕を作らない
+- 「1、2、3…」とレップ（回数）を数えているだけの区間は書き起こさない
 ${rules.map(r => '- ' + r).join('\n')}
 
 出力例:
@@ -837,6 +838,7 @@ async function _geminiGenerate(env, parts, opts) {
   };
   if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: o.thinkingBudget != null ? o.thinkingBudget : 2048 };
   if (o.json) generationConfig.responseMimeType = 'application/json';
+  if (o.mediaResolution) generationConfig.mediaResolution = o.mediaResolution;
 
   let gRes;
   try {
@@ -989,32 +991,6 @@ function _srtCues(text) {
   }
   return cues;
 }
-// 区間ごとのSRTを1本に繋ぐ。
-// モデルが区間内の相対時刻で返すか絶対時刻で返すかは保証されない。
-// 先頭キュー1件で判定すると、区間の後半から話し始める場合に必ず誤る
-// （区間長の半分を境に判定が反転する）。実際に長尺でこれが起きた。
-// そこで「その区間の時間窓に収まるキューが多いのはどちらの解釈か」で決める。
-function _pickSegShift(cues, segStart, segEnd, offset) {
-  const inWin = (sh) => cues.reduce((n, c) => {
-    const t = c.start + sh;
-    return n + (t >= segStart - 5 && t <= segEnd + 5 ? 1 : 0);
-  }, 0);
-  const asRel = inWin(offset);   // 相対時刻とみなしてずらす
-  const asAbs = inWin(0);        // すでに絶対時刻とみなす
-  return asRel >= asAbs ? offset : 0;
-}
-
-function _mergeSrtSegments(segs, durationSec) {
-  const all = [];
-  for (const { srt, offset, segEnd } of segs) {
-    const cues = _srtCues(srt);
-    if (!cues.length) continue;
-    const shift = _pickSegShift(cues, offset, segEnd, offset);
-    for (const c of cues) all.push({ start: c.start + shift, end: c.end + shift, text: c.text });
-  }
-  return _cleanupCues(all, durationSec);
-}
-
 // 全体が一定量ずれている場合に直す。
 // 捨ててから「0件」と言うのではなく、直せるものは直す。
 function _repairOffset(cues, durationSec) {
@@ -1081,79 +1057,36 @@ function _validateSrt(srt, durationSec) {
   return null;
 }
 
-function _mergeUsage(a, b) {
-  if (!b) return a;
-  if (!a) return { ...b };
-  const add = (x, y) => (Number(x) || 0) + (Number(y) || 0);
-  const out = {
-    promptTokenCount:     add(a.promptTokenCount, b.promptTokenCount),
-    candidatesTokenCount: add(a.candidatesTokenCount, b.candidatesTokenCount),
-    thoughtsTokenCount:   add(a.thoughtsTokenCount, b.thoughtsTokenCount),
-    totalTokenCount:      add(a.totalTokenCount, b.totalTokenCount),
-    promptTokensDetails:  [],
-  };
-  const byMod = {};
-  for (const d of [...(a.promptTokensDetails || []), ...(b.promptTokensDetails || [])]) {
-    const k = String(d.modality || '?').toUpperCase();
-    byMod[k] = (byMod[k] || 0) + (Number(d.tokenCount) || 0);
-  }
-  out.promptTokensDetails = Object.entries(byMod).map(([modality, tokenCount]) => ({ modality, tokenCount }));
-  return out;
-}
-
-// ── 字幕生成: 全動画を同じループで処理する ──────────────────
-// 経路は1本だけ。1分の動画は「1区間のループ」であり、長さで処理は分かれない。
-// 10分幅にするのは、60分動画は入力が1Mトークン窓を超えて1回では物理的に
-// 生成できないため（40分でも生成だけで6分超かかる）。
-// 区間の繋ぎは範囲投票（_pickSegShift）: 2区間目以降は相対時刻と絶対時刻の
-// 取りうる範囲が重ならないため、多数決で機械的に判別できる。シミュレーション
-// 5ケース（相対のみ/絶対のみ/混在/1区間破損/全破損）で検証済み。
-// 失敗時は「どの区間で・何が」を diag に載せて全体を失敗にする（部分保存しない）。
-const SUB_SEG_SEC = 600;
-const SUB_SEG_MAX = 12;
-
+// ── 字幕生成: 動画1本＝リクエスト1回（全長共通・経路は1本だけ）──
+// 区間分割（videoMetadataの窓指定）は本番で窓が守られず、前半30分が丸ごと欠けた
+// 二重内容のファイルを$0.365で生成したため廃止した。長尺の成立条件は分割ではなく:
+//  - 転送: 応答を最初の1バイトから流す（645秒のリクエスト完走を本番で確認済み）
+//  - 入力量: media_resolution LOW（フレーム258→66トークン）で60分でも約35万トークン
 async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec) {
-  const gen = _genOptsFor('subtitle');
   const dur = Number(durationSec) || 0;
-  const segCount = Math.max(1, Math.min(SUB_SEG_MAX, dur > 0 ? Math.ceil(dur / SUB_SEG_SEC) : 1));
-  const prompt = _aiSubtitlePrompt(ctx, subLang, subOpts);
+  const t0 = Date.now();
+  const r = await _geminiGenerate(env,
+    [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], _genOptsFor('subtitle'));
+  if (r.error) return r;
+  const sec = Math.round((Date.now() - t0) / 1000);
 
-  const segs = [], diag = [];
-  let usage = null, cost = 0;
-  for (let k = 0; k < segCount; k++) {
-    const start = k * SUB_SEG_SEC;
-    const end   = dur > 0 ? Math.min(dur, (k + 1) * SUB_SEG_SEC) : 0;
-    const part  = segCount > 1
-      ? { ...filePart, videoMetadata: { startOffset: `${start}s`, endOffset: `${Math.ceil(end)}s` } }
-      : filePart;
-    const note  = segCount > 1
-      ? `\n【この依頼の範囲】動画全体のうち ${Math.floor(start / 60)}分〜${Math.ceil(end / 60)}分の区間だけを対象にします。`
-        + `\nタイムコードはこの区間の先頭を 00:00:00,000 として数えてください（動画全体の先頭ではありません）。`
-      : '';
-    const t0 = Date.now();
-    let r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);
-    if (r.error && !r.quota) r = await _geminiGenerate(env, [part, { text: prompt + note }], gen);   // 一過性失敗のみ1回再試行。枠切れは再試行しても成功しない
-    const sec = Math.round((Date.now() - t0) / 1000);
-    if (r.error) {
-      diag.push({ seg: k + 1, sec, error: r.detail || r.error });
-      return { error: '字幕の生成に失敗しました', detail: `区間 ${k + 1}/${segCount}: ${r.detail || r.error}`, diag };
-    }
-    const cues = _srtCues(r.summary);
-    const segEnd = end || (cues.length ? cues[cues.length - 1].end : 0);
-    // 診断: この区間の時刻が窓に収まった割合（繋ぎ判定の妥当性を後から確認できるように）
-    const shift = _pickSegShift(cues, start, segEnd, start);
-    const inWin = cues.length
-      ? Math.round(100 * cues.filter(c => c.start + shift >= start - 5 && c.start + shift <= segEnd + 5).length / cues.length)
-      : 0;
-    diag.push({ seg: k + 1, sec, cues: cues.length, inWin, outTok: r.usage?.candidatesTokenCount || 0 });
-    segs.push({ srt: r.summary, offset: start, segEnd });
-    cost += Number(r.costUsd) || 0;
-    usage = _mergeUsage(usage, r.usage);
+  const cues = _srtCues(r.summary);
+  if (!cues.length) {
+    return { error: '字幕の生成結果が不正です', detail: '字幕が1件も取れませんでした（作り直してください）' };
   }
-  const merged = _cuesToSrt(_mergeSrtSegments(segs, dur));
-  const bad = _validateSrt(merged, dur);
-  if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）', diag };
-  return { summary: merged, usage, costUsd: cost, segments: segCount, diag };
+  // 大量欠損は「範囲外を捨てた後」では検出できない。捨てる前に先頭位置を見る
+  // （前半30分が無いファイルを検証が素通しして保存した反省）。
+  const repaired = _repairOffset(cues, dur);
+  const first = repaired.reduce((m, c) => Math.min(m, c.start), Infinity);
+  if (dur >= 600 && first > dur / 2) {
+    return { error: '字幕の生成結果が不正です',
+             detail: `字幕が${Math.floor(first / 60)}分以降にしかありません（動画全体を処理できていない可能性）。保存していません` };
+  }
+  const fixed = _cuesToSrt(_cleanupCues(cues, dur));
+  const bad = _validateSrt(fixed, dur);
+  if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
+  return { summary: fixed, usage: r.usage, costUsd: r.costUsd,
+           diag: [{ sec, cues: cues.length, first: first === Infinity ? null : Math.round(first), outTok: r.usage?.candidatesTokenCount || 0 }] };
 }
 
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────

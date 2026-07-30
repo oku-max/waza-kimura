@@ -2788,7 +2788,9 @@ function _subGenPayload() {
 window.wkEstimateAiCost = function(seconds, mode) {
   const sec = Number(seconds) || 0;
   if (sec <= 0) return null;                       // 尺不明。呼び出し側で「不明」と表示する
-  const inUsd = sec * ((258 * 0.30) + (32 * 1.00)) / 1e6;
+  // 字幕は低解像度（66トークン/秒）で送る仕様。要約は既定解像度（258）のまま
+  const vidTok = mode === 'subtitle' ? 66 : 258;
+  const inUsd = sec * ((vidTok * 0.30) + (32 * 1.00)) / 1e6;
   // 字幕は尺に比例して出力が伸びる。要約はほぼ一定＋思考トークン。
   const outUsd = mode === 'subtitle' ? sec * 11 * 2.50 / 1e6 : (900 + 2048) * 2.50 / 1e6;
   return inUsd + outUsd;
