@@ -2794,6 +2794,37 @@ window.wkEstimateAiCost = function(seconds, mode) {
   return inUsd + outUsd;
 };
 
+// 長時間処理の結果を一瞬のトーストで知らせない。
+// 失敗は生成開始から100秒以上あとに起きるため、その瞬間に画面を見ていないと
+// 9秒のトーストは確実に見逃される（実際に「エラーが出ない」として何度も報告された）。
+// パネル内に✕で閉じるまで残る表示を出す。バージョンと経過秒も載せる。
+function _subGenShowResult(id, ok, text) {
+  try {
+    const btn  = document.getElementById('vp-subgen-' + id);
+    const host = btn ? btn.closest('.vp-row') : null;
+    if (!host) return;
+    host.querySelector('.vp-subgen-result')?.remove();
+    const box = document.createElement('div');
+    box.className = 'vp-subgen-result';
+    const ver = (document.title.match(/v[\d.]+/) || ['v?'])[0];
+    box.style.cssText = 'margin:6px 0;padding:8px 10px;border-radius:8px;font-size:11.5px;line-height:1.6;'
+      + 'display:flex;gap:8px;align-items:flex-start;user-select:text;'
+      + (ok ? 'background:rgba(45,106,79,.15);border:1.5px solid var(--green,#2d6a4f);color:var(--text);'
+            : 'background:rgba(239,68,68,.12);border:1.5px solid var(--red,#ef4444);color:var(--text);');
+    const span = document.createElement('span');
+    span.style.cssText = 'flex:1;word-break:break-word';
+    span.textContent = (ok ? '✅ ' : '⚠️ ') + text + '（' + ver + '）';
+    const x = document.createElement('button');
+    x.textContent = '✕';
+    x.style.cssText = 'flex-shrink:0;background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 2px';
+    x.onclick = () => box.remove();
+    box.appendChild(span); box.appendChild(x);
+    const head = host.querySelector('.vp-memo-stickyhead');
+    if (head && head.nextSibling) host.insertBefore(box, head.nextSibling);
+    else host.prepend(box);
+  } catch (e) {}
+}
+
 // preset を渡すと対話なしで実行する（一括処理用）。
 //   preset = { subLang, silent:true, existing:'skip'|'replace' }
 // 戻り値: { ok, skipped, error, cost, target }
@@ -2818,6 +2849,7 @@ window.vpGenSubtitle = async function(id, preset) {
   const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
   const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
 
+  const _t0 = Date.now();
   window.wkAiBusyBegin();
   try {
     // 1. 保存先（動画と同じフォルダ）と、同名ファイルの有無を先に確認する
@@ -2868,7 +2900,10 @@ window.vpGenSubtitle = async function(id, preset) {
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
-    if (!silent) window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
+    if (!silent) {
+      window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
+      _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒`);
+    }
     if (_gdVideoEl && _gdFileId === fileId) {
       document.getElementById('vp-sub-ui')?.remove();
       _gdSubRevoke();
@@ -2878,7 +2913,10 @@ window.vpGenSubtitle = async function(id, preset) {
     return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
-    if (!silent) window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e), 9000);
+    if (!silent) {
+      window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e), 9000);
+      _subGenShowResult(id, false, '字幕の生成に失敗: ' + (e?.message || e) + ' / ' + Math.round((Date.now() - _t0) / 1000) + '秒経過');
+    }
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
     window.wkAiBusyEnd();
