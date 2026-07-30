@@ -688,7 +688,7 @@ async function _aiChapterListParse(env, listText, listImages) {
   if (result.error) return jsonRes(result, 502);
   return jsonRes({
     summary: result.summary, usage: result.usage, costUsd: result.costUsd, via: 'chapterlist',
-  , diag: result.diag});
+  });
 }
 
 // 動画から検出する時のフレーム間引き。
@@ -1275,7 +1275,7 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   if (result.error) return jsonRes(result, 502);
   return jsonRes({
     summary: result.summary, usage: result.usage, costUsd: result.costUsd,
-    segments: result.segments || 1, via: 'video', durationSec,
+    segments: result.segments || 1, via: 'video', durationSec, diag: result.diag,
   });
 }
 
