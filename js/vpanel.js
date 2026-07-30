@@ -1397,6 +1397,7 @@ export function openVPanel(id) {
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
   _gdResetContainer?.querySelector('#vp-sub-ui')?.remove();
+  _gdResetContainer?.querySelector('#vp-sub-overlay')?.remove();
   _gdSubRevoke();
   _gdVideoEl = null; _gdFileId = null; _gdContainer = null;
   const iframeContainer = document.getElementById('vpanel-iframe-container');
@@ -1893,6 +1894,7 @@ export function closeVPanel() {
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
     _gdCloseContainer?.querySelector('#vp-sub-ui')?.remove();
+    _gdCloseContainer?.querySelector('#vp-sub-overlay')?.remove();
     _gdSubRevoke();
     _gdFileId = null; _gdContainer = null;
     if (_vmPlayer) { try { _vmPlayer.unload(); _vmPlayer.destroy(); } catch(e) {} _vmPlayer = null; }
@@ -1956,6 +1958,7 @@ function _vpUpdateOrientation() {
 }
 
 window.addEventListener('resize', () => {
+  if (_gdSubTracks.length) { _gdSubLastHtml = ''; _gdSubRenderCues(); }
   const panel = document.getElementById('vpanel');
   if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
 });
@@ -2321,22 +2324,81 @@ function _reflowVtt(vtt, o, offset) {
   return _serializeVtt(out, o.position);
 }
 
-// ::cue のスタイルは <style> を差し替えて反映する
-function _applyCueStyle() {
-  const o = subOpts();
-  // 数値が壊れていると rgba(0,0,0,NaN) のような無効値になり、宣言ごと捨てられて
-  // index.html の既定ルールに戻る＝「設定が効かない」ように見える。必ず有効値に丸める。
-  const clamp = (v, lo, hi, def) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
-  };
-  const bg    = clamp(o.bgOpacity, 0, 1, SUB_OPTS_DEFAULT.bgOpacity);
-  const scale = clamp(o.fontScale, 0.3, 3, SUB_OPTS_DEFAULT.fontScale);
-  let el = document.getElementById('wk-cue-style');
-  if (!el) { el = document.createElement('style'); el.id = 'wk-cue-style'; document.head.appendChild(el); }
-  el.textContent = `video.wk-sub-video::cue{`
-    + `background:rgba(0,0,0,${bg});color:#fff;`
-    + `font-size:${scale}em;line-height:1.45}`;
+// 字幕は ::cue ではなく自前のオーバーレイで描く。
+// ::cue はブラウザ実装差やOSの字幕設定に上書きされることがあり、
+// 文字サイズ・背景の濃さが効かない環境がある（実際に効かなかった）。
+// track は mode='hidden' にしてキューだけ生かし、描画は自分で行う。
+let _gdSubCueHandler = null;   // cuechange ハンドラ（解除用）
+let _gdSubLastHtml   = '';     // 無駄な再描画を避けるための直前の内容
+
+function _gdSubOverlayEl(create) {
+  const host = _gdContainer;
+  if (!host) return null;
+  let el = host.querySelector('#vp-sub-overlay');
+  if (!el && create) {
+    // div にすると `#vpanel-iframe-container > div` の !important 指定に
+    // 巻き込まれて全画面に広がるので span を使う
+    el = document.createElement('span');
+    el.id = 'vp-sub-overlay';
+    host.appendChild(el);
+  }
+  return el;
+}
+
+function _gdSubClamp(v, lo, hi, def) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+}
+
+// 実際に描画する。設定はすべてインラインstyleで当てるので必ず反映される。
+function _gdSubRenderCues() {
+  const el = _gdSubOverlayEl(true);
+  if (!el) return;
+  const o     = subOpts();
+  const scale = _gdSubClamp(o.fontScale, 0.3, 3, SUB_OPTS_DEFAULT.fontScale);
+  const bg    = _gdSubClamp(o.bgOpacity, 0, 1, SUB_OPTS_DEFAULT.bgOpacity);
+  // 画面サイズが変わっても比率を保つため、コンテナの高さから文字サイズを決める
+  const h  = _gdContainer?.clientHeight || 0;
+  const px = Math.max(9, Math.round((h > 0 ? h * 0.052 : 14) * scale));
+
+  el.style.cssText = 'position:absolute;left:0;right:0;z-index:4;pointer-events:none;'
+    + (o.position === 'top' ? 'top:5%;' : 'bottom:6%;')
+    + 'display:flex;flex-direction:column;align-items:center;gap:2px;'
+    + 'padding:0 4%;box-sizing:border-box;text-align:center;'
+    + `font-size:${px}px;line-height:1.35;`;
+
+  const t  = _gdSubTracks[_gdSubIndex];
+  const tt = t && t.track && t.track.track;
+  let html = '';
+  if (_gdSubIndex >= 0 && tt) {
+    const esc = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+    const lines = [];
+    const cues = tt.activeCues || [];
+    for (let i = 0; i < cues.length; i++) {
+      for (const l of String(cues[i].text || '').split('\n')) if (l.trim()) lines.push(l);
+    }
+    html = lines.map(l =>
+      `<span style="display:inline-block;background:rgba(0,0,0,${bg});color:#fff;`
+      + `padding:0 .3em;border-radius:2px;text-shadow:0 1px 2px rgba(0,0,0,.85);`
+      + `white-space:pre-wrap">${esc(l)}</span>`).join('');
+  }
+  if (html !== _gdSubLastHtml) { el.innerHTML = html; _gdSubLastHtml = html; }
+}
+
+// 選択中のトラックの cuechange を監視する
+function _gdSubBindCueRender() {
+  if (_gdSubCueHandler) {
+    for (const t of _gdSubTracks) {
+      const tt = t.track && t.track.track;
+      if (tt) try { tt.removeEventListener('cuechange', _gdSubCueHandler); } catch(e) {}
+    }
+    _gdSubCueHandler = null;
+  }
+  const t  = _gdSubTracks[_gdSubIndex];
+  const tt = t && t.track && t.track.track;
+  if (!tt) return;
+  _gdSubCueHandler = () => _gdSubRenderCues();
+  tt.addEventListener('cuechange', _gdSubCueHandler);
 }
 
 // ── Google Drive 字幕（サイドカー .srt / .vtt を自動検出 → WebVTT で <track> 表示）──
@@ -2365,10 +2427,18 @@ function _gdSubPref() {
 function _gdSubSetPref(v) { try { localStorage.setItem(GD_SUB_LANG_KEY, v); } catch(e) {} }
 
 function _gdSubRevoke() {
+  if (_gdSubCueHandler) {
+    for (const t of _gdSubTracks) {
+      const tt = t.track && t.track.track;
+      if (tt) try { tt.removeEventListener('cuechange', _gdSubCueHandler); } catch(e) {}
+    }
+    _gdSubCueHandler = null;
+  }
   for (const u of _gdSubBlobUrls) { try { URL.revokeObjectURL(u); } catch(e) {} }
   _gdSubBlobUrls = [];
   _gdSubTracks   = [];
   _gdSubIndex    = -1;
+  _gdSubLastHtml = '';
 }
 
 async function _driveApiGet(path, token) {
@@ -2496,7 +2566,7 @@ async function _gdAttachSubtitle(video, fileId, token) {
     // rawVtt を持っておくと、設定変更時に取得し直さず整形だけやり直せる
     _gdSubTracks.push({ id: item.cand.id, label: item.cand.label, name: item.cand.name, track, rawVtt: item.vtt, url });
   }
-  _applyCueStyle();
+  _gdSubRenderCues();
   if (!_gdSubTracks.length) return;
 
   // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
@@ -2513,9 +2583,14 @@ function _gdSubSelect(idx) {
   _gdSubIndex = idx;
   _gdSubTracks.forEach((t, i) => {
     const tt = t.track.track;   // HTMLTrackElement.track → TextTrack
-    if (tt) tt.mode = (i === idx) ? 'showing' : 'hidden';
+    // 'showing' にするとブラウザが自前で描画してしまい、見た目の制御が効かない。
+    // 'hidden' はキューは有効で描画されないので、表示は _gdSubRenderCues が行う。
+    if (tt) tt.mode = (i === idx) ? 'hidden' : 'disabled';
   });
   _gdSubSetPref(idx < 0 ? 'off' : (_gdSubTracks[idx]?.label || ''));
+  _gdSubBindCueRender();
+  _gdSubLastHtml = '';        // 切替時は必ず描き直す
+  _gdSubRenderCues();
   _gdSubPaintButton();
 }
 
@@ -2789,9 +2864,9 @@ window.vpGenSubtitle = async function(id, preset) {
 
 // 起動時に ::cue スタイルを当て、設定画面のホストがあれば描いておく
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { _applyCueStyle(); window.wkSubOptsRender?.(); });
+  document.addEventListener('DOMContentLoaded', () => { window.wkSubOptsRender?.(); });
 } else {
-  setTimeout(() => { _applyCueStyle(); window.wkSubOptsRender?.(); }, 0);
+  setTimeout(() => { window.wkSubOptsRender?.(); }, 0);
 }
 
 // ── 字幕設定パネル（設定画面と再生画面で同じ部品を使う）──────
@@ -2831,7 +2906,7 @@ window.wkSubOptSet = function(key, value) {
   else if (typeof SUB_OPTS_DEFAULT[key] === 'boolean') value = !!value;
   o[key] = value;
   _subOptsSave(o);
-  _applyCueStyle();
+  _gdSubRenderCues();
   // 生成設定(gen*)は次回の生成にだけ効くので整形はやり直さない
   if (!/^gen/.test(key)) _gdSubReapply();
   window.wkSubOptsRender();
@@ -2839,7 +2914,7 @@ window.wkSubOptSet = function(key, value) {
 
 window.wkSubOptsReset = function() {
   try { localStorage.removeItem(SUB_OPTS_KEY); } catch(e) {}
-  _applyCueStyle();
+  _gdSubRenderCues();
   _gdSubReapply();
   window.wkSubOptsRender();
   window.toast?.('字幕設定を既定値に戻しました');
@@ -2878,15 +2953,16 @@ function _subRange(key, cur, min, max, step, fmt) {
 // 「効いていない」を推測で潰さないための表示。
 // 実際に当たっているCSSと、字幕が表示状態かをそのまま出す。
 function _subCueDiag() {
-  const css = (document.getElementById('wk-cue-style') || {}).textContent || '';
-  const m   = css.match(/rgba\(0,\s*0,\s*0,\s*([\d.]+)\)[\s\S]*?font-size:\s*([\d.]+)em/);
-  const tt  = _gdVideoEl && _gdVideoEl.textTracks;
-  let showing = 0, total = 0;
-  if (tt) { total = tt.length; for (let i = 0; i < tt.length; i++) if (tt[i].mode === 'showing') showing++; }
+  const o  = subOpts();
+  const el = _gdContainer && _gdContainer.querySelector('#vp-sub-overlay');
+  const tt = _gdVideoEl && _gdVideoEl.textTracks;
+  let active = 0, total = 0;
+  if (tt) { total = tt.length; for (let i = 0; i < tt.length; i++) if (tt[i].mode !== 'disabled') active++; }
   return `<div style="font-size:9.5px;color:var(--text3);line-height:1.7;font-family:'DM Mono',monospace;
       background:var(--surface2);border-radius:6px;padding:5px 7px">
-      適用中の背景 ${m ? m[1] : '取得できず'} ／ 文字 ${m ? m[2] : '取得できず'}倍<br>
-      動画要素 ${_gdVideoEl ? 'あり' : 'なし'} ／ 字幕トラック ${total}本（表示中 ${showing}本）
+      設定値 背景 ${_gdSubClamp(o.bgOpacity, 0, 1, 0.72)} ／ 文字 ${_gdSubClamp(o.fontScale, 0.3, 3, 1)}倍<br>
+      表示欄 ${el ? el.childElementCount : 0}行 ／ 動画 ${_gdVideoEl ? 'あり' : 'なし'}<br>
+      字幕トラック ${total}本（有効 ${active}本）
     </div>`;
 }
 
