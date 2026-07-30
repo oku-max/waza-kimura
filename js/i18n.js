@@ -1443,6 +1443,23 @@
     "📑 自動チャプター": "📑 Auto chapters",
     "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
     "字幕から検出": "Detect from subtitles",
+    // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
+    "公式チャプター表から": "From the official chapter list",
+    "商品ページの目次を貼り付け（最も正確）": "Paste the list from the product page (most accurate)",
+    "📋 公式チャプター表から": "📋 From the official chapter list",
+    "商品ページの目次をそのまま貼り付けてください。文字でも画像でも構いません":
+      "Paste the list from the product page as-is. Text or a screenshot both work",
+    "ここに目次を貼り付け（例: 1. Closed Guard Basics）": "Paste the list here (e.g. 1. Closed Guard Basics)",
+    "🖼 スクショを貼り付け / ドロップ": "🖼 Paste or drop a screenshot",
+    "タップでファイルを選ぶこともできます": "You can also tap to choose a file",
+    "読み取る": "Read it",
+    "画像を読み込めませんでした": "Could not load the image",
+    "チャプター表を読み取れませんでした": "Could not read the chapter list",
+    "チャプター表のテキストか画像が必要です": "Chapter list text or an image is required",
+    "⏳ 位置合わせ中…": "⏳ Locating...",
+    "公式チャプター表": "Official chapter list",
+    "公式チャプター表 ＋ 字幕で位置合わせ": "Official chapter list + located via subtitles",
+    "公式チャプター表 ＋ 動画で位置合わせ": "Official chapter list + located via video",
     "この動画の字幕を使います（速い・安い）": "Uses this video's subtitles (fast and cheap)",
     "字幕が見つかりません": "No subtitles found",
     "動画から検出": "Detect from video",
@@ -1470,6 +1487,11 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     "✔ ブックマークに追加（#件）": "✔ Add # to bookmarks",
+    "画像は#枚までです": "Up to # images",
+    "#件は位置が特定できなかったため除きました": "# could not be located, so they were left out",
+    "#件は時刻が読み取れなかったため除きました": "# had no readable time, so they were left out",
+    "#件は動画の長さを超えるため除きました（別の巻の目次かもしれません）":
+      "# fall beyond the end of this video and were left out (they may belong to another volume)",
     "📑 #件のチャプターをブックマークに追加しました": "📑 Added # chapters to bookmarks",
     "#件を削除します。手で作ったブックマークは消えません": "Removes # of them. Bookmarks you made by hand are kept",
     "(#本)": "(# videos)",
@@ -1594,8 +1616,11 @@
 
   const AUTO_PATTERNS = [
     // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
-    [/^(字幕|動画)から検出 · (\$[\d.]+)$/,
-      (m, src, cost) => `Detected from ${src === '字幕' ? 'subtitles' : 'video'} · ${cost}`],
+    // 「検出元 · $0.003」。検出元は静的辞書で引き、金額はそのまま残す
+    [/^(.+?) · (\$[\d.]+)$/, (m, head, cost) => {
+      const en = _autoMap.get(head);
+      return en != null ? `${en} · ${cost}` : null;   // 知らない見出しは他のパターンに任せる
+    }],
     [/^⚠️ チャプターの検出に失敗: (.+)$/,
       (m, d) => `⚠️ Chapter detection failed: ${_autoMap.get(d) || d}`],
     [/^字幕の取得に失敗 \((\d+)\)$/, 'Failed to fetch the subtitles ($1)'],

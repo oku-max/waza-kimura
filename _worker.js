@@ -426,6 +426,14 @@ async function handleAiSummary(request, env) {
     return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
   }
 
+  // 公式チャプター表（サイトからコピーしたテキスト／スクショ画像）を読み取る経路。
+  // 動画も字幕も送らないので最も安い。ここでは表を構造化するだけで、
+  // 時刻が書かれていない場合の位置決めは別リクエスト（titles付き）で行う。
+  if (source === 'chapterlist') {
+    if (mode !== 'chapters') return jsonRes({ error: 'source:chapterlist は mode:chapters のみ対応しています' }, 400);
+    return _aiChapterListParse(env, body.listText, body.listImages);
+  }
+
   if (source === 'youtube') {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
@@ -531,6 +539,11 @@ function _aiChaptersPrompt(ctx, chapOpts, transcript) {
   const maxCount = Math.max(2, Math.min(80, Number(o.maxCount) || CHAP_MAX_COUNT));
   const titleLen = Math.max(6, Math.min(40, Number(o.titleLen) || 18));
 
+  // 公式チャプター表が渡された時は「位置合わせ」に切り替える。
+  // 何が何件あるかは確定しているので、探すのは各章の開始時刻だけ。
+  const titles = Array.isArray(o.titles) ? o.titles.filter(t => String(t || '').trim()) : [];
+  if (titles.length) return _aiChapterAlignPrompt(ctx, titles, transcript);
+
   const source = transcript
     ? `以下は、この動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
 これだけを根拠に、話題が切り替わる点を判定してください。
@@ -564,6 +577,87 @@ ${source}
 - 実際に動画（字幕）に無い内容を推測で足さない
 
 {"items":[{"start":"M:SS または H:MM:SS","title":"短い日本語のタイトル","summary":"1文の補足（省略可）"}]}`;
+}
+
+// 位置合わせ: チャプターの顔ぶれと順序は公式の表で確定済み。開始時刻だけを探させる。
+// 自由検出より精度が出るうえ、教則の目次と完全に一致した区切りになる。
+function _aiChapterAlignPrompt(ctx, titles, transcript) {
+  const list = titles.map((t, i) => `${i + 1}. ${t}`).join('\n');
+  const source = transcript
+    ? `以下は、この動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
+これを読んで、各チャプターがどこから始まるかを判定してください。
+
+【字幕】
+${transcript}`
+    : 'この動画を最初から最後まで視聴し、各チャプターがどこから始まるかを判定してください。';
+
+  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
+この動画の公式チャプター一覧はすでに分かっています。あなたの仕事は、各チャプターが動画のどこから始まるかを特定することだけです。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+【公式チャプター一覧（これが正解。全${titles.length}件）】
+${list}
+
+${source}
+
+【厳守】
+- title は上の一覧の文字列を一字一句そのまま返す。翻訳・要約・言い換え・記号の付け足しをしない
+- 項目を増やさない・減らさない・並べ替えない。上から順に必ず${titles.length}件返す
+- start は動画の先頭を 0:00 として数えた、そのチャプターが始まる時刻
+- start は必ず前の項目より後（同じ時刻や逆転はさせない）
+- 1つ目は通常 0:00 付近から始まる
+- どうしても位置が判断できない項目は start を null にする。推測で埋めない
+- 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
+
+{"items":[{"start":"M:SS または H:MM:SS。不明なら null","title":"一覧のタイトルをそのまま"}]}`;
+}
+
+// 公式チャプター表（テキスト／スクショ画像）を構造化する。
+// 表に何が書いてあるかを写すだけで、動画の中身は一切見ない。
+function _aiChapterListPrompt(hasImage) {
+  return `これはブラジリアン柔術の教則DVD/動画の「公式チャプター一覧（目次）」です。${
+    hasImage ? '画像とテキストの' : ''}内容から、チャプターを載っている順にすべて抜き出してJSONで出力してください。
+
+【title】表に書かれているタイトルをそのまま写す。翻訳・要約・言い換えを絶対にしない
+  - 英語なら英語のまま、日本語なら日本語のまま写す
+  - 行頭の通し番号（"1." "01" "Chapter 3" "第2章" 等）は番号部分だけ取り除き、タイトル本体は原文のまま
+【start】その項目に「開始時刻」が書かれていればその値。無ければ null
+【duration】その項目に「長さ・尺」が書かれていればその値。無ければ null
+  - 時間が1つしか書かれていない表では、値が項目ごとに増え続けるなら開始時刻、
+    そうでなければ各章の長さ、と判断して振り分ける
+【含めないもの】見出し行、収録時間の合計、価格・購入案内・出演者・解説文・レビューなど、チャプターでないもの
+
+【厳守】
+- 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
+- 表に載っている項目を飛ばさない。順序も変えない
+- 読み取れない項目があっても、読めた範囲だけを返す
+
+{"items":[{"title":"原文のまま","start":"H:MM:SS / M:SS。無ければ null","duration":"同上。無ければ null"}]}`;
+}
+
+const CHAP_LIST_TEXT_MAX  = 60000;   // 貼り付けテキストの上限（文字）
+const CHAP_LIST_IMG_MAX   = 6;       // 画像の枚数上限
+const CHAP_LIST_IMG_BYTES = 8000000; // 画像1枚あたりのbase64長の上限
+
+async function _aiChapterListParse(env, listText, listImages) {
+  const text = String(listText || '').trim().slice(0, CHAP_LIST_TEXT_MAX);
+  const imgs = (Array.isArray(listImages) ? listImages : [])
+    .filter(im => im && typeof im.data === 'string' && im.data.length <= CHAP_LIST_IMG_BYTES)
+    .slice(0, CHAP_LIST_IMG_MAX);
+  if (!text && !imgs.length) return jsonRes({ error: 'チャプター表のテキストか画像が必要です' }, 400);
+
+  const parts = [];
+  for (const im of imgs) {
+    parts.push({ inlineData: { mimeType: im.mimeType || 'image/jpeg', data: im.data } });
+  }
+  parts.push({ text: _aiChapterListPrompt(imgs.length > 0) + (text ? `\n\n【貼り付けられたテキスト】\n${text}` : '') });
+
+  const result = await _geminiGenerate(env, parts, {
+    json: true, maxOutputTokens: 16384, thinkingBudget: 1024, temperature: 0, what: 'チャプター表',
+  });
+  if (result.error) return jsonRes(result, 502);
+  return jsonRes({
+    summary: result.summary, usage: result.usage, costUsd: result.costUsd, via: 'chapterlist',
+  });
 }
 
 // 動画から検出する時のフレーム間引き。
