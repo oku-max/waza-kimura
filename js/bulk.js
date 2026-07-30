@@ -1568,8 +1568,6 @@ export async function bulkAiRun(mode) {
       <select id="bulk-ai-lang" style="width:100%;padding:7px 9px;border-radius:8px;border:1.5px solid var(--border);
         background:var(--surface);color:var(--text);font-family:inherit;font-size:12px">
         <option value="ja">日本語</option><option value="orig">原語のまま</option>
-        <option value="en">English</option><option value="zh">中文</option>
-        <option value="ko">한국어</option><option value="es">Español</option>
       </select>
     </div>` : '';
 

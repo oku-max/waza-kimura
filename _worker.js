@@ -407,9 +407,8 @@ async function handleAiSummary(request, env) {
   const { idToken, source, ytId, title, channel, playlist } = body;
   // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON) | 'subtitle'(SRT字幕生成)
   const mode = ['desc','branch','subtitle'].includes(body.mode) ? body.mode : 'summary';
-  // subtitle時の出力言語: 'orig'(話されている言語のまま) または言語コード（既定 'ja'）
-  const subLang = /^[a-z]{2}$/.test(String(body.subLang || '')) ? body.subLang
-                : body.subLang === 'orig' ? 'orig' : 'ja';
+  // subtitle時の出力言語: 'ja'(日本語に翻訳・既定) | 'orig'(話されている言語のまま)
+  const subLang = body.subLang === 'orig' ? 'orig' : 'ja';
   // 生成の細かい指定（文体・逐語/意訳・用語・フィラー・画面内文字・字幕の量）
   const subOpts = (body.subOpts && typeof body.subOpts === 'object') ? body.subOpts : {};
 
@@ -449,11 +448,7 @@ function _genOptsFor(mode) {
 }
 
 // 字幕生成: 動画の音声をSRT形式に文字起こし（必要なら指定言語へ翻訳）
-const SUB_LANG_NAMES = {
-  ja:'日本語', en:'英語', zh:'中国語(簡体字)', ko:'韓国語', es:'スペイン語', pt:'ポルトガル語',
-  fr:'フランス語', de:'ドイツ語', it:'イタリア語', ru:'ロシア語', th:'タイ語', vi:'ベトナム語',
-  id:'インドネシア語', ar:'アラビア語', hi:'ヒンディー語',
-};
+const SUB_LANG_NAMES = { ja:'日本語' };
 
 function _aiSubtitlePrompt(ctx, subLang, subOpts) {
   const o = subOpts || {};
