@@ -2893,6 +2893,8 @@ async function _translateLines(lines, lang, opts, onProgress) {
 }
 
 const _subFileName = (base, lang) => base + (lang === 'en' ? '.srt' : `.${lang}.srt`);
+const TR_LANG_LABEL = { zh:'中国語', ko:'韓国語', es:'スペイン語', pt:'ポルトガル語', fr:'フランス語' };
+const _langLabel = (lang) => SUB_LANGS[lang] || TR_LANG_LABEL[lang] || lang;
 
 // ── 音声認識(ASR)で字幕を作る ───────────────────────────────
 // 時刻は音声から実測された値をそのまま使う。折り返しも1行の文字数も向こうに任せ、
@@ -2939,30 +2941,41 @@ async function _asrGenerateAndSave(ctx) {
   const srt    = await srtRes.text();
   if (!srtRes.ok || !_looksLikeSrt(srt)) throw new Error('字幕を取得できませんでした');
 
-  // 4. 保存先の名前は「実際に話されていた言語」で決める。原語版はそのまま残す
-  //    （EN/JA の切り替えができるので、訳と両方あって困らない）。
+  // 4. 保存先の名前は「実際に話されていた言語」で決める。
+  //    要求された言語が音声と違うときは、原語版は「ついでに残すおまけ」であって
+  //    頼まれた成果物ではない。だから既にあっても確認を出さず黙って残す。
+  //    （頼んでいない英語ファイルの上書き確認でキャンセルすると、支払い済みの
+  //      書き起こしごと中断されて肝心の翻訳が作られなかった。その反省）
+  const want   = (subLang && subLang !== 'orig') ? subLang : lang;
   const target = _subFileName(base, lang);
-  const saveOne = async (name, text) => {
+  const translating = want !== lang;
+
+  const saveOne = async (name, lg, text, ask) => {
     const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${name.replace(/'/g, "\\'")}'`;
     const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
     const ex  = dup?.files?.[0] || null;
     if (ex) {
-      if (preset) { if (preset.existing !== 'replace') return { skipped: true }; }
-      else if (!confirm(`「${name}」はすでにあります。\n上書きして作り直しますか？`)) return { skipped: true };
+      // 一括で「作り直す」を選んでいるならおまけ側も更新する。
+      // そうでなければ、おまけは黙って残す（確認を出さない）。
+      if (preset)      { if (preset.existing !== 'replace') return { skipped: true }; }
+      else if (!ask)   { return { kept: true }; }
+      else if (!confirm(`「${name}」（${_langLabel(lg)}の字幕）はすでにあります。\n上書きして作り直しますか？`)) {
+        return { skipped: true };
+      }
     }
     await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id });
     return { saved: true };
   };
 
   setBtn('⏳ 保存中…');
-  const r1 = await saveOne(target, srt);
-  if (r1.skipped) return { ok: false, skipped: true, target };
+  const r1 = await saveOne(target, lang, srt, !translating);
+  // 中断してよいのは「原語版そのものが成果物」のときだけ
+  if (r1.skipped && !translating) return { ok: false, skipped: true, target };
 
   // 5. 要求された言語が音声の言語と違うなら翻訳する。
   //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
   let trTarget = null, trCost = 0, trMissing = 0, trErr = null;
-  const want = (subLang && subLang !== 'orig') ? subLang : lang;
-  if (want !== lang) {
+  if (translating) {
     const cues = _srtSplit(srt);
     setBtn('⏳ 翻訳中…');
     const tr = await _translateLines(cues.map(c => c.text), want, _subGenPayload(),
@@ -2972,7 +2985,7 @@ async function _asrGenerateAndSave(ctx) {
     const trSrt = _srtJoin(cues.map((c, i) => ({ tc: c.tc, text: tr.lines[i] })));
     trTarget = _subFileName(base, want);
     setBtn('⏳ 保存中…');
-    const r2 = await saveOne(trTarget, trSrt);
+    const r2 = await saveOne(trTarget, want, trSrt, true);
     if (r2.skipped) trTarget = null;
   }
 
