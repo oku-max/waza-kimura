@@ -2081,6 +2081,9 @@ const SUB_OPTS_DEFAULT = {
   bgOpacity:  0.72,     // 背景の濃さ
   position:   'bottom', // 'bottom' | 'top'
   // 生成（変更すると再生成が必要＝コストがかかる）
+  // エンジン。'asr' は音声認識で時刻を実測する（ズレない）。'gemini' は動画をLLMに
+  // 見せて時刻ごと書かせる方式で、長尺だと時刻が破綻することが分かっている。
+  genEngine:   'asr',
   genLang:     'ja',        // 出力言語。'orig' で話されている言語のまま
   genStyle:    'desu',      // 'desu'（ですます調）| 'dearu'（である調）
   genVerbatim: 'natural',   // 'verbatim'（逐語）| 'natural'（意訳して短く）
@@ -2830,6 +2833,86 @@ function _subGenShowResult(id, ok, text) {
 // preset を渡すと対話なしで実行する（一括処理用）。
 //   preset = { subLang, silent:true, existing:'skip'|'replace' }
 // 戻り値: { ok, skipped, error, cost, target }
+// ── 音声認識(ASR)で字幕を作る ───────────────────────────────
+// 時刻は音声から実測された値をそのまま使う。折り返しも1行の文字数も向こうに任せ、
+// こちらでは一切いじらない。ここを触ると今回の「ズレる字幕」に逆戻りする。
+async function _asrGenerateAndSave(ctx) {
+  const { id, fileId, gdToken, subLang, setBtn, silent, preset, t0 } = ctx;
+
+  setBtn('⏳ 確認中…');
+  const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, gdToken);
+  const parent = meta?.parents?.[0];
+  const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
+  if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
+
+  // 1. 依頼する（すぐIDが返る。ここで待たされないので100秒制限に当たらない）
+  setBtn('⏳ 依頼中…');
+  const startRes = await fetch('/api/asr-start', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileId, token: gdToken, langCode: subLang === 'en' ? 'en' : null }),
+  });
+  const startD = await startRes.json().catch(() => ({}));
+  if (!startRes.ok || !startD.id) {
+    throw new Error((startD.error || ('HTTP ' + startRes.status)) + (startD.detail ? `（${startD.detail}）` : ''));
+  }
+
+  // 2. 待つ（長尺でも向こうで走り続ける。5秒おきに最大60分）
+  let st = null;
+  for (let i = 0; i < 720; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const sr = await fetch('/api/asr-status?id=' + encodeURIComponent(startD.id));
+    st = await sr.json().catch(() => ({}));
+    if (st.status === 'completed') break;
+    if (st.status === 'error') throw new Error('書き起こしに失敗しました' + (st.error ? `（${st.error}）` : ''));
+    const el = Math.round((Date.now() - t0) / 1000);
+    setBtn(`⏳ 書き起こし中… ${el}秒`);
+  }
+  if (!st || st.status !== 'completed') throw new Error('書き起こしが時間内に終わりませんでした');
+
+  // 3. SRTを取る。1キューの最大文字数は言語に応じて渡すだけ（折り返しは向こうの仕事）
+  const o     = subOpts();
+  const lang  = SUB_LANG_ALIAS[String(st.lang || '').toLowerCase()] || String(st.lang || '').slice(0, 2) || 'en';
+  const chars = lang === 'ja' ? (o.maxCharsJa * (o.maxLines || 1)) : (o.maxCharsEn * (o.maxLines || 1));
+  setBtn('⏳ 取得中…');
+  const srtRes = await fetch(`/api/asr-srt?id=${encodeURIComponent(startD.id)}&chars=${chars}`);
+  const srt    = await srtRes.text();
+  if (!srtRes.ok || !_looksLikeSrt(srt)) throw new Error('字幕を取得できませんでした');
+
+  // 4. 保存先の名前は「実際に話されていた言語」で決める。
+  //    翻訳はまだ繋いでいないので、要求と違う言語で保存されうる。黙って嘘の名前を付けない。
+  const target = base + (lang === 'ja' ? '.ja.srt' : lang === 'en' ? '.srt' : `.${lang}.srt`);
+  const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
+  const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
+  const existing = dup?.files?.[0] || null;
+  if (existing) {
+    if (preset) {
+      if (preset.existing !== 'replace') return { ok: false, skipped: true, target };
+    } else if (!confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) {
+      return { ok: false, skipped: true, target };
+    }
+  }
+
+  setBtn('⏳ 保存中…');
+  await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: existing?.id });
+
+  _gdSubLookup.delete(fileId);
+  const min  = st.sec ? Math.round(st.sec / 60) : 0;
+  const cost = st.sec ? (st.sec / 60) * 0.0025 : 0;
+  const note = (subLang === 'ja' && lang !== 'ja') ? '（音声が日本語ではないため原語のまま。翻訳は未接続）' : '';
+  if (!silent) {
+    window.toast?.(`✅ 字幕を作成しました（${target}）`);
+    _subGenShowResult(id, true,
+      `字幕を作成しました: ${target} / 音声${min}分 · $${cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
+  }
+  if (_gdVideoEl && _gdFileId === fileId) {
+    document.getElementById('vp-sub-ui')?.remove();
+    _gdSubRevoke();
+    _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
+    _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
+  }
+  return { ok: true, target, cost };
+}
+
 window.vpGenSubtitle = async function(id, preset) {
   const silent = !!(preset && preset.silent);
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
@@ -2854,6 +2937,12 @@ window.vpGenSubtitle = async function(id, preset) {
   const _t0 = Date.now();
   window.wkAiBusyBegin();
   try {
+    // 音声認識で作る場合はここで完結する（Gemini経路には触れていない）
+    const engine = (preset && preset.engine) || subOpts().genEngine || 'gemini';
+    if (engine === 'asr') {
+      return await _asrGenerateAndSave({ id, fileId, gdToken, subLang, setBtn, silent, preset, t0: _t0 });
+    }
+
     // 1. 保存先（動画と同じフォルダ）と、同名ファイルの有無を先に確認する
     setBtn('⏳ 確認中…');
     const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, gdToken);
@@ -3789,6 +3878,8 @@ function _subOptsHTML(scope) {
 
   if (scope === 'full') {
     html += sec('生成の設定（変更すると再生成が必要 ＝ コストがかかります）')
+      + _subRow('エンジン', '音声認識は時刻を音から実測するのでズレません。AIに見せる方式は長尺で時刻が壊れます',
+                _subSeg('genEngine', o.genEngine, [['asr','音声認識'],['gemini','AIに見せる']]))
       + _subRow('出力言語', '「原語のまま」は話されている言語で文字起こし', _subSeg('genLang', o.genLang, langChoices))
       + _subRow('文体', '', _subSeg('genStyle', o.genStyle, [['desu','ですます調'],['dearu','である調']]))
       + _subRow('起こし方', '意訳のほうが字幕としては読みやすい', _subSeg('genVerbatim', o.genVerbatim, [['natural','意訳して短く'],['verbatim','逐語']]))
