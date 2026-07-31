@@ -39,6 +39,11 @@ async function handleApi(request, env, path) {
       case '/api/ai-tag':      return await handleAiTag(request, env);
       case '/api/ai-summary':  return await handleAiSummary(request, env);
       case '/api/vimeo-proxy': return await handleVimeoProxy(request);
+      // 字幕をASR（AssemblyAI）で作る経路。Geminiの字幕生成とは別系統で、既存には触らない。
+      case '/api/asr-src':     return await handleAsrSrc(request, env);
+      case '/api/asr-start':   return await handleAsrStart(request, env);
+      case '/api/asr-status':  return await handleAsrStatus(request, env);
+      case '/api/asr-srt':     return await handleAsrSrt(request, env);
       default:                 return new Response('Not found', { status: 404 });
     }
   } catch (e) {
@@ -1304,4 +1309,154 @@ function anthropicCall(apiKey, model, maxTokens, system, messages) {
     },
     body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
   });
+}
+
+// ═══ 字幕をASRで作る（AssemblyAI）════════════════════════════
+// 設計の要点:
+//  - タイムコードは音声から実測された値をそのまま使う。こちらでは一切作らない・直さない。
+//    （LLMに時刻を書かせると60秒グリッドや途中打ち切りになるのが今回の原因だった）
+//  - 非同期ジョブなので、Workerは投げて即返す。100秒制限とは無関係になる。
+//  - Geminiの字幕生成経路には手を入れていない。並行して置く。
+
+// AssemblyAI は audio_url を自分で取りに来る。Driveの動画を渡すには外から読める
+// URLが要るが、ユーザーのGoogleトークンを他社に渡すわけにはいかない。
+// そこで {fileId, token, exp} を封筒に入れて暗号化し、開けるのはこのWorkerだけにする。
+async function _sealKey(env) {
+  const secret = env.URL_SIGNING_KEY || env.ASSEMBLYAI_API_KEY || '';
+  if (!secret) throw new Error('署名鍵がありません');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('wk-asr-src\n' + secret));
+  return crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+function _b64uEnc(bytes) {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function _b64uDec(str) {
+  const s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(s + '='.repeat((4 - s.length % 4) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function _seal(env, obj, ttlSec) {
+  const key = await _sealKey(env);
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
+  const body = new TextEncoder().encode(JSON.stringify({ ...obj, exp: Date.now() + ttlSec * 1000 }));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, body));
+  const all = new Uint8Array(iv.length + ct.length);
+  all.set(iv, 0); all.set(ct, iv.length);
+  return _b64uEnc(all);
+}
+async function _open(env, blob) {
+  const key = await _sealKey(env);
+  const all = _b64uDec(blob);
+  const pt  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, key, all.slice(12));
+  const obj = JSON.parse(new TextDecoder().decode(pt));
+  if (!obj.exp || Date.now() > obj.exp) throw new Error('期限切れ');
+  return obj;
+}
+
+// AssemblyAI がここを取りに来る。封筒を開けてDriveの中身を素通しするだけ。
+async function handleAsrSrc(request, env) {
+  const blob = new URL(request.url).searchParams.get('t');
+  if (!blob) return new Response('Missing t', { status: 400 });
+  let o;
+  try { o = await _open(env, blob); }
+  catch (e) { return new Response('Link expired or invalid', { status: 403 }); }
+
+  const h = { Authorization: `Bearer ${o.token}` };
+  const range = request.headers.get('range');
+  if (range) h['Range'] = range;
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(o.fileId)}?alt=media`, { headers: h });
+
+  const out = { 'Accept-Ranges': 'bytes' };
+  for (const k of ['content-type', 'content-length', 'content-range']) {
+    const v = r.headers.get(k);
+    if (v) out[k] = v;
+  }
+  return new Response(r.body, { status: r.status, headers: out });
+}
+
+const AAI = 'https://api.assemblyai.com/v2';
+function _aaiHeaders(env) {
+  // 認証は authorization にキーをそのまま。Bearer は付けない（AssemblyAIの仕様）
+  return { authorization: env.ASSEMBLYAI_API_KEY, 'content-type': 'application/json' };
+}
+function _aaiGuard(env) {
+  if (!env.ASSEMBLYAI_API_KEY) {
+    return jsonRes({ error: '字幕の書き起こしサービスが未設定です',
+                     detail: 'ASSEMBLYAI_API_KEY が Worker に設定されていません' }, 500);
+  }
+  return null;
+}
+
+// ① 投げる: Driveの動画IDを受け取り、封筒URLを作ってAssemblyAIに渡す
+async function handleAsrStart(request, env) {
+  const bad = _aaiGuard(env); if (bad) return bad;
+  if (request.method !== 'POST') return jsonRes({ error: 'POSTしてください' }, 405);
+
+  let body;
+  try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
+  const { fileId, token, langCode } = body || {};
+  if (!fileId || !token) return jsonRes({ error: 'fileId と token が必要です' }, 400);
+
+  // 30分あれば取り込みは終わる。Driveのアクセストークン自体の寿命より短くする。
+  const sealed = await _seal(env, { fileId, token }, 30 * 60);
+  const srcUrl = new URL(request.url).origin + '/api/asr-src?t=' + sealed;
+
+  const payload = { audio_url: srcUrl };
+  if (langCode) payload.language_code = langCode;   // 未指定なら向こうが自動判定
+  else payload.language_detection = true;
+
+  let res;
+  try {
+    res = await fetch(`${AAI}/transcript`, { method: 'POST', headers: _aaiHeaders(env), body: JSON.stringify(payload) });
+  } catch (e) {
+    return jsonRes({ error: '書き起こしサービスへの接続に失敗しました', detail: String(e && e.message || e) }, 502);
+  }
+  const r = await _jsonOrErr(res, '書き起こしの依頼');
+  if (r.error) return jsonRes(r, 502);
+  if (!res.ok) {
+    return jsonRes({ error: '書き起こしを依頼できませんでした',
+                     detail: String(r.data?.error || _httpErrText(res.status)) }, 502);
+  }
+  return jsonRes({ id: r.data.id, status: r.data.status });
+}
+
+// ② 待つ: 状態だけ返す。動画の長さも返るので、あとで見積りに使える。
+async function handleAsrStatus(request, env) {
+  const bad = _aaiGuard(env); if (bad) return bad;
+  const id = new URL(request.url).searchParams.get('id');
+  if (!id) return jsonRes({ error: 'id が必要です' }, 400);
+
+  const res = await fetch(`${AAI}/transcript/${encodeURIComponent(id)}`, { headers: _aaiHeaders(env) });
+  const r = await _jsonOrErr(res, '書き起こしの確認');
+  if (r.error) return jsonRes(r, 502);
+  const d = r.data || {};
+  return jsonRes({
+    status: d.status,                       // queued / processing / completed / error
+    error:  d.error || null,
+    sec:    d.audio_duration || null,
+    lang:   d.language_code || null,
+  });
+}
+
+// ③ SRTを取る: 1キューあたりの最大文字数は向こうに任せる（自前で折り返さない）
+async function handleAsrSrt(request, env) {
+  const bad = _aaiGuard(env); if (bad) return bad;
+  const q  = new URL(request.url).searchParams;
+  const id = q.get('id');
+  if (!id) return jsonRes({ error: 'id が必要です' }, 400);
+  const chars = Number(q.get('chars')) || 0;
+
+  const u = `${AAI}/transcript/${encodeURIComponent(id)}/srt`
+          + (chars > 0 ? `?chars_per_caption=${Math.min(200, Math.max(8, Math.round(chars)))}` : '');
+  const res = await fetch(u, { headers: { authorization: env.ASSEMBLYAI_API_KEY } });
+  const text = await res.text();
+  if (!res.ok) {
+    return jsonRes({ error: '字幕を取得できませんでした', detail: _httpErrText(res.status) }, 502);
+  }
+  return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
