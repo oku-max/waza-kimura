@@ -2924,6 +2924,7 @@ async function _translateLines(lines, lang, opts, onProgress) {
 
 const TR_LANG_LABEL = { zh:'中国語', ko:'韓国語', es:'スペイン語', pt:'ポルトガル語', fr:'フランス語' };
 const _langLabel = (lang) => SUB_LANGS[lang] || TR_LANG_LABEL[lang] || lang;
+const _subFileName = (base, lang) => base + (lang === 'en' ? '.srt' : `.${lang}.srt`);
 
 // ── 音声認識(ASR)で字幕を作る ───────────────────────────────
 // 時刻は音声から実測された値をそのまま使う。折り返しも1行の文字数も向こうに任せ、
