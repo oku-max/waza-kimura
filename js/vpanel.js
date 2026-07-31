@@ -2833,6 +2833,67 @@ function _subGenShowResult(id, ok, text) {
 // preset を渡すと対話なしで実行する（一括処理用）。
 //   preset = { subLang, silent:true, existing:'skip'|'replace' }
 // 戻り値: { ok, skipped, error, cost, target }
+// ── 字幕の翻訳 ─────────────────────────────────────────────
+// タイムコード行は文字列のまま持ち回り、本文だけを差し替える。
+// 秒に変換して戻す往復をしないので、時刻はバイト単位で元のままになる。
+function _srtSplit(srt) {
+  const lines = String(srt).replace(/\r\n?/g, '\n').split('\n');
+  const marks = [];
+  for (let i = 0; i < lines.length; i++) if (VTT_TC_RE.test(lines[i])) marks.push(i);
+  const out = [];
+  for (let k = 0; k < marks.length; k++) {
+    const body = lines.slice(marks[k] + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    if (body.length && /^\d{1,5}$/.test(body[body.length - 1].trim())) body.pop();
+    while (body.length && body[body.length - 1].trim() === '') body.pop();
+    const text = body.join(' ').trim();
+    if (!text) continue;
+    out.push({ tc: lines[marks[k]].trim(), text });
+  }
+  return out;
+}
+function _srtJoin(cues) {
+  return cues.map((c, i) => `${i + 1}\n${c.tc}\n${c.text}`).join('\n\n') + '\n';
+}
+
+// 行を分割して翻訳する。訳が返らなかった行は原文で埋める（絶対に空にしない）。
+async function _translateLines(lines, lang, opts, onProgress) {
+  const SIZE = 25, CONC = 3;
+  const offsets = [];
+  for (let i = 0; i < lines.length; i += SIZE) offsets.push(i);
+  const total = offsets.length;
+  const out = new Array(lines.length).fill('');
+  let done = 0, cost = 0, firstErr = null;
+
+  const worker = async () => {
+    for (;;) {
+      const off = offsets.shift();
+      if (off === undefined) return;
+      const part = lines.slice(off, off + SIZE);
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lines: part, lang, opts }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+        (d.lines || []).forEach((t, k) => { if (t) out[off + k] = t; });
+        if (typeof d.costUsd === 'number') cost += d.costUsd;
+      } catch (e) {
+        firstErr = firstErr || (e?.message || String(e));
+      }
+      onProgress?.(++done, total);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONC, total) }, worker));
+
+  const missing = [];
+  out.forEach((t, i) => { if (!t) { out[i] = lines[i]; missing.push(i + 1); } });
+  return { lines: out, missing, cost, error: firstErr };
+}
+
+const _subFileName = (base, lang) => base + (lang === 'en' ? '.srt' : `.${lang}.srt`);
+
 // ── 音声認識(ASR)で字幕を作る ───────────────────────────────
 // 時刻は音声から実測された値をそのまま使う。折り返しも1行の文字数も向こうに任せ、
 // こちらでは一切いじらない。ここを触ると今回の「ズレる字幕」に逆戻りする。
@@ -2878,31 +2939,53 @@ async function _asrGenerateAndSave(ctx) {
   const srt    = await srtRes.text();
   if (!srtRes.ok || !_looksLikeSrt(srt)) throw new Error('字幕を取得できませんでした');
 
-  // 4. 保存先の名前は「実際に話されていた言語」で決める。
-  //    翻訳はまだ繋いでいないので、要求と違う言語で保存されうる。黙って嘘の名前を付けない。
-  const target = base + (lang === 'ja' ? '.ja.srt' : lang === 'en' ? '.srt' : `.${lang}.srt`);
-  const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
-  const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
-  const existing = dup?.files?.[0] || null;
-  if (existing) {
-    if (preset) {
-      if (preset.existing !== 'replace') return { ok: false, skipped: true, target };
-    } else if (!confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) {
-      return { ok: false, skipped: true, target };
+  // 4. 保存先の名前は「実際に話されていた言語」で決める。原語版はそのまま残す
+  //    （EN/JA の切り替えができるので、訳と両方あって困らない）。
+  const target = _subFileName(base, lang);
+  const saveOne = async (name, text) => {
+    const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${name.replace(/'/g, "\\'")}'`;
+    const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
+    const ex  = dup?.files?.[0] || null;
+    if (ex) {
+      if (preset) { if (preset.existing !== 'replace') return { skipped: true }; }
+      else if (!confirm(`「${name}」はすでにあります。\n上書きして作り直しますか？`)) return { skipped: true };
     }
-  }
+    await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id });
+    return { saved: true };
+  };
 
   setBtn('⏳ 保存中…');
-  await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: existing?.id });
+  const r1 = await saveOne(target, srt);
+  if (r1.skipped) return { ok: false, skipped: true, target };
+
+  // 5. 要求された言語が音声の言語と違うなら翻訳する。
+  //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
+  let trTarget = null, trCost = 0, trMissing = 0, trErr = null;
+  const want = (subLang && subLang !== 'orig') ? subLang : lang;
+  if (want !== lang) {
+    const cues = _srtSplit(srt);
+    setBtn('⏳ 翻訳中…');
+    const tr = await _translateLines(cues.map(c => c.text), want, _subGenPayload(),
+      (d, n) => setBtn(`⏳ 翻訳中… ${d}/${n}`));
+    trCost = tr.cost; trMissing = tr.missing.length; trErr = tr.error;
+    // 訳せなかった行は原文が入っている。キューの数も時刻も変わらない。
+    const trSrt = _srtJoin(cues.map((c, i) => ({ tc: c.tc, text: tr.lines[i] })));
+    trTarget = _subFileName(base, want);
+    setBtn('⏳ 保存中…');
+    const r2 = await saveOne(trTarget, trSrt);
+    if (r2.skipped) trTarget = null;
+  }
 
   _gdSubLookup.delete(fileId);
   const min  = st.sec ? Math.round(st.sec / 60) : 0;
-  const cost = st.sec ? (st.sec / 60) * 0.0025 : 0;
-  const note = (subLang === 'ja' && lang !== 'ja') ? '（音声が日本語ではないため原語のまま。翻訳は未接続）' : '';
+  const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
+  const names = trTarget ? `${target} + ${trTarget}` : target;
+  const note = trMissing ? `（${trMissing}行は訳せず原文のまま）`
+             : trErr     ? `（翻訳の一部が失敗: ${trErr}）` : '';
   if (!silent) {
-    window.toast?.(`✅ 字幕を作成しました（${target}）`);
+    window.toast?.(`✅ 字幕を作成しました（${names}）`);
     _subGenShowResult(id, true,
-      `字幕を作成しました: ${target} / 音声${min}分 · $${cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
+      `字幕を作成しました: ${names} / 音声${min}分 · $${cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
   }
   if (_gdVideoEl && _gdFileId === fileId) {
     document.getElementById('vp-sub-ui')?.remove();
@@ -2910,7 +2993,7 @@ async function _asrGenerateAndSave(ctx) {
     _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
     _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
   }
-  return { ok: true, target, cost };
+  return { ok: true, target: trTarget || target, cost };
 }
 
 window.vpGenSubtitle = async function(id, preset) {

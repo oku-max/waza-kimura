@@ -44,7 +44,7 @@ async function handleApi(request, env, path) {
       case '/api/asr-start':   return await handleAsrStart(request, env);
       case '/api/asr-status':  return await handleAsrStatus(request, env);
       case '/api/asr-srt':     return await handleAsrSrt(request, env);
-      case '/api/tr-compare':  return await handleTrCompare(request, env);
+      case '/api/translate':   return await handleTranslate(request, env);
       default:                 return new Response('Not found', { status: 404 });
     }
   } catch (e) {
@@ -1465,63 +1465,53 @@ async function handleAsrSrt(request, env) {
   return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
 
-// ═══ 翻訳エンジン比較（Flash vs Haiku）— 一時的な検証用 ═══
-// 目的は「どちらが柔術の文脈を読めるか」を実データで見ること。
-// 判断がついたら、このブロックと compare-translate.html を消す。
-// 設計は本番と同じ: タイムコードは送らず、テキスト行だけを訳させる。
+// ═══ 字幕の翻訳（Gemini 2.5 Flash）════════════════════════════
+// 設計の核心: タイムコードは受け取らない。テキスト行だけを訳す。
+// 時刻はASRの実測値としてクライアント側に残るので、翻訳がどう転んでも
+// 字幕の時刻は絶対に壊れない。
 //
-// 出力は「配列の順番」ではなく「元の行番号つきオブジェクト」で受け取る。
-// 順番だけに頼ると、1本抜けた瞬間に以降が全部ずれて別の行の訳が入る。
-// 番号で復元すれば、抜けた行は空欄のまま特定できる（60行中56行しか返らない
-// 事象が実際に出たため、この形にした）。
+// 出力は「配列の順番」ではなく {"i": 行番号, "ja": 訳文}。順番だけに頼ると
+// 1本抜けた瞬間に以降が全部ずれ、別の行に別の訳が入る（検証で実際に発生）。
+// 番号で戻せば、抜けた行は空欄として特定でき、呼び出し側が原文で埋められる。
 
-function _trPrompt(lines) {
+const TR_LANGS = { ja:'日本語', en:'English', zh:'简体中文', ko:'한국어', es:'Español', pt:'Português', fr:'Français' };
+const TR_MAX_LINES = 30;   // 1リクエストの上限。多いとモデルが途中で打ち切る
+
+function _trPrompt(lines, lang, opts) {
+  const o = opts || {};
+  const target = TR_LANGS[lang] || TR_LANGS.ja;
+  const rules = [`- 出力言語は${target}`];
+  if (lang === 'ja') {
+    rules.push(o.style === 'dearu' ? '- である調' : '- ですます調');
+    if (o.terms === 'english')        rules.push('- 柔術の技術用語は英語のまま残す');
+    else if (o.terms === 'translate') rules.push('- 柔術の技術用語も日本語に訳す');
+    else                              rules.push('- 柔術の技術用語はカタカナ');
+  }
   return `あなたはブラジリアン柔術(BJJ)・グラップリングの教則動画の字幕翻訳者です。
-英語の字幕行を日本語に訳してください。
+英語の字幕行を${target}に訳してください。
 
 【文脈】
-講師が技術を実演しながら解説している教則動画です。一般会話ではありません。
-以下は柔術の技術用語です。一般語として訳さないでください:
-- guard = ガード（警備ではない） / pass the guard = ガードをパスする
-- mount = マウント / side control = サイドコントロール / sweep = スイープ
-- base = ベース / frame = フレーム / grip = グリップ / drill = ドリル
-- underhook = アンダーフック / overhook = オーバーフック
-- dead foot, live foot, side foot = デッドフット, ライブフット, サイドフット
-- heel = かかと / pinky = 小指側 / ball of the foot = 母指球
+講師が技術を実演しながら解説している教則動画です。日常会話ではありません。
+次は柔術の技術用語です。一般語として訳さないでください:
+guard（ガード。警備ではない） / pass the guard / mount / side control / sweep /
+base / frame / grip / drill / hook / underhook / overhook / heel hook /
+dead foot, live foot, side foot / heel / pinky / ball of the foot / posture
 
 【出力の決まり】
 - 入力の各行に対し {"i": 行番号, "ja": 訳文} を1つずつ返す
 - 全${lines.length}行ぶんを必ず返す。1行も飛ばさない
 - i は入力に振られた番号をそのまま使う
-- 行を分割・結合しない。1行の英語 → 1行の日本語
-- ですます調。専門用語はカタカナ
-- 音声認識の誤認識（例: "Gitu"→柔術, "girls"→ドリル, "sci-fi"→サイドフット）は
+- 行を分割・結合しない。1行の入力 → 1行の訳
+${rules.join('\n')}
+- 音声認識の誤認識（例: "Gitu"→jiu-jitsu, "girls"→drills, "sci-fi"→side foot）は
   文脈から補正してよい
 
 【入力】
 ${lines.map((t, i) => `${i + 1}. ${t}`).join('\n')}`;
 }
 
-// Claude（JSON Schema）
-const _TR_SCHEMA_CLAUDE = {
-  type: 'object',
-  properties: {
-    translations: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: { i: { type: 'integer' }, ja: { type: 'string' } },
-        required: ['i', 'ja'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['translations'],
-  additionalProperties: false,
-};
-
-// Gemini（OpenAPIサブセット。型は大文字、additionalProperties は非対応）
-const _TR_SCHEMA_GEMINI = {
+// Gemini の responseSchema（OpenAPIサブセット。型は大文字、additionalProperties 非対応）
+const _TR_SCHEMA = {
   type: 'OBJECT',
   properties: {
     translations: {
@@ -1540,121 +1530,40 @@ const _TR_SCHEMA_GEMINI = {
 // 番号つきの結果を元の並びに戻す。欠けた番号はそのまま報告する。
 function _trRebuild(items, n) {
   const out = new Array(n).fill('');
-  let stray = 0;
   for (const it of (Array.isArray(items) ? items : [])) {
     const i = Number(it && it.i);
     const ja = String((it && it.ja) || '').trim();
-    if (!Number.isFinite(i) || i < 1 || i > n) { stray++; continue; }
-    if (ja) out[i - 1] = ja;
+    if (!Number.isFinite(i) || i < 1 || i > n || !ja) continue;
+    out[i - 1] = ja;
   }
   const missing = [];
   for (let k = 0; k < n; k++) if (!out[k]) missing.push(k + 1);
-  return { lines: out, missing, stray };
+  return { lines: out, missing };
 }
 
-async function _trGeminiChunk(env, lines) {
-  const t0 = Date.now();
-  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines) }], {
-    json: true, schema: _TR_SCHEMA_GEMINI,
-    maxOutputTokens: 16384, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
-  });
-  if (r.error) return { error: r.error + (r.detail ? `（${r.detail}）` : '') };
-  let parsed;
-  try { parsed = JSON.parse(r.summary); }
-  catch (e) { return { error: 'JSONで返りませんでした', raw: String(r.summary).slice(0, 400) }; }
-  const b = _trRebuild(parsed && parsed.translations, lines.length);
-  return { ...b, sec: Math.round((Date.now() - t0) / 1000), usage: r.usage, costUsd: r.costUsd,
-           model: env.GEMINI_MODEL || 'gemini-2.5-flash' };
-}
-
-async function _trClaudeChunk(env, lines) {
-  if (!env.ANTHROPIC_API_KEY) return { error: 'ANTHROPIC_API_KEY が未設定です' };
-  const t0 = Date.now();
-  let res;
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY,
-                 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: env.CLAUDE_TR_MODEL || 'claude-haiku-4-5',
-        max_tokens: 16000,
-        output_config: { format: { type: 'json_schema', schema: _TR_SCHEMA_CLAUDE } },
-        messages: [{ role: 'user', content: _trPrompt(lines) }],
-      }),
-    });
-  } catch (e) { return { error: 'Claudeへの接続に失敗: ' + (e && e.message || e) }; }
-
-  const j = await _jsonOrErr(res, 'Claude の呼び出し');
-  if (j.error) return { error: j.error + `（${j.detail}）` };
-  if (!res.ok) {
-    return { error: 'Claude API error',
-             detail: String(j.data?.error?.message || _httpErrText(res.status)) };
-  }
-
-  const text = (j.data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-  let parsed;
-  try { parsed = JSON.parse(text); }
-  catch (e) { return { error: 'JSONで返りませんでした', raw: text.slice(0, 400) }; }
-
-  const b  = _trRebuild(parsed && parsed.translations, lines.length);
-  const u  = j.data.usage || {};
-  const pI = parseFloat(env.CLAUDE_PRICE_IN  || '1.00');   // Haiku 4.5: $1 / 1M
-  const pO = parseFloat(env.CLAUDE_PRICE_OUT || '5.00');   // Haiku 4.5: $5 / 1M
-  const cost = ((u.input_tokens || 0) * pI + (u.output_tokens || 0) * pO) / 1e6;
-  return { ...b, sec: Math.round((Date.now() - t0) / 1000), usage: u, costUsd: cost,
-           stop: j.data.stop_reason, model: j.data.model };
-}
-
-// 1回に投げる行数。多いと「途中で止まる/行が抜ける」が出るため小さく刻む。
-// 60行を一度に投げてHaikuが56行しか返さなかったので、モデルを責める前に
-// 要求の大きさを下げる（本番でも同じ刻み方をする）。
-const TR_CHUNK = 25;
-
-// チャンクごとに翻訳し、元の通し番号に戻して1本に統合する。
-async function _trRun(fn, env, lines) {
-  const t0 = Date.now();
-  const out = new Array(lines.length).fill('');
-  const missing = [];
-  const stops = [];
-  let inTok = 0, outTok = 0, cost = 0, chunks = 0, err = null;
-
-  for (let off = 0; off < lines.length; off += TR_CHUNK) {
-    const part = lines.slice(off, off + TR_CHUNK);
-    const r = await fn(env, part);
-    chunks++;
-    if (r.error) { err = err || (r.error + (r.detail ? `（${r.detail}）` : '')); 
-                   for (let k = 0; k < part.length; k++) missing.push(off + k + 1);
-                   continue; }
-    r.lines.forEach((ja, k) => { if (ja) out[off + k] = ja; });
-    (r.missing || []).forEach(i => missing.push(off + i));
-    if (r.stop) stops.push(r.stop);
-    const u = r.usage || {};
-    inTok  += (u.input_tokens  || u.promptTokenCount     || 0);
-    outTok += (u.output_tokens || u.candidatesTokenCount || 0);
-    cost   += (typeof r.costUsd === 'number' ? r.costUsd : 0);
-  }
-  return {
-    lines: out, missing, chunks, error: (err && !out.some(Boolean)) ? err : null,
-    partialError: err || null,
-    stop: [...new Set(stops)].join(','),
-    sec: Math.round((Date.now() - t0) / 1000),
-    usage: { input_tokens: inTok, output_tokens: outTok }, costUsd: cost,
-  };
-}
-
-async function handleTrCompare(request, env) {
+// POST /api/translate — 行の配列を受け取り、訳した行の配列を返す。
+// 時刻は一切扱わない。呼び出し側が分割して順に投げる。
+async function handleTranslate(request, env) {
   if (request.method !== 'POST') return jsonRes({ error: 'POSTしてください' }, 405);
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
-  const lines = Array.isArray(body?.lines) ? body.lines.map(s => String(s || '').trim()).filter(Boolean) : [];
-  if (!lines.length) return jsonRes({ error: '翻訳する行がありません' }, 400);
-  if (lines.length > 120) return jsonRes({ error: '一度に比較できるのは120行までです' }, 400);
 
-  // 同じ入力・同じプロンプト・同じスキーマで並行に投げる。片方が失敗しても他方は返す。
-  const [g, c] = await Promise.all([
-    _trRun(_trGeminiChunk, env, lines).catch(e => ({ error: String(e && e.message || e) })),
-    _trRun(_trClaudeChunk, env, lines).catch(e => ({ error: String(e && e.message || e) })),
-  ]);
-  return jsonRes({ n: lines.length, chunk: TR_CHUNK, src: lines, gemini: g, claude: c });
+  const lines = Array.isArray(body?.lines)
+    ? body.lines.map(s => String(s == null ? '' : s)) : [];
+  if (!lines.length)                 return jsonRes({ error: '翻訳する行がありません' }, 400);
+  if (lines.length > TR_MAX_LINES)   return jsonRes({ error: `一度に翻訳できるのは${TR_MAX_LINES}行までです` }, 400);
+  const lang = TR_LANGS[body?.lang] ? body.lang : 'ja';
+
+  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines, lang, body?.opts) }], {
+    json: true, schema: _TR_SCHEMA,
+    maxOutputTokens: 16384, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
+  });
+  if (r.error) return jsonRes(r, r.quota ? 429 : 502);
+
+  let parsed;
+  try { parsed = JSON.parse(r.summary); }
+  catch (e) { return jsonRes({ error: '翻訳結果を読み取れませんでした' }, 502); }
+
+  const b = _trRebuild(parsed && parsed.translations, lines.length);
+  return jsonRes({ ...b, usage: r.usage, costUsd: r.costUsd });
 }
