@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>翻訳エンジン比較 — Gemini Flash vs Claude Haiku</title>
+<style>
+  :root { --bg:#12131a; --panel:#1b1d27; --line:#2c2f3d; --tx:#e8e9f0; --tx2:#9aa0b4; --ac:#6c8cff; }
+  * { box-sizing:border-box }
+  body { margin:0; padding:20px; background:var(--bg); color:var(--tx);
+         font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif; font-size:14px }
+  h1 { font-size:17px; margin:0 0 4px }
+  p.sub { color:var(--tx2); margin:0 0 18px; font-size:12px; line-height:1.6 }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px }
+  label { display:block; font-size:12px; color:var(--tx2); margin-bottom:5px }
+  input[type=number] { width:96px }
+  input, button { font:inherit; padding:7px 10px; border-radius:7px; border:1px solid var(--line);
+                  background:#23263300; color:var(--tx) }
+  input[type=file] { border:none; padding:0 }
+  button { background:var(--ac); border-color:var(--ac); color:#fff; font-weight:700; cursor:pointer; padding:9px 20px }
+  button:disabled { opacity:.5; cursor:default }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end }
+  .stats { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 0 }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:12px }
+  .stat b { display:block; font-size:15px; margin-top:2px }
+  .wrap { overflow-x:auto; -webkit-overflow-scrolling:touch }
+  table { border-collapse:collapse; width:100%; min-width:900px }
+  th,td { border:1px solid var(--line); padding:8px 10px; vertical-align:top; text-align:left; line-height:1.65 }
+  th { background:#232637; position:sticky; top:0; font-size:12px }
+  td.n { color:var(--tx2); text-align:right; width:42px; font-variant-numeric:tabular-nums }
+  td.en { color:var(--tx2); width:34% }
+  .err { color:#ff8080; white-space:pre-wrap }
+  .warn { color:#ffcc66 }
+</style>
+</head>
+<body>
+
+<h1>翻訳エンジン比較 — Gemini 2.5 Flash vs Claude Haiku 4.5</h1>
+<p class="sub">
+  同じ入力・同じプロンプト・同じ用語集で両方に投げ、結果を並べます。<br>
+  タイムコードは送らず<b>テキスト行だけ</b>を訳させます（本番と同じ設計。時刻は壊れません）。<br>
+  ※ 検証用の一時ページです。判断がついたら削除します。
+</p>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label>英語のSRTファイル</label>
+      <input type="file" id="f" accept=".srt,.vtt,.txt">
+    </div>
+    <div>
+      <label>開始キュー番号</label>
+      <input type="number" id="from" value="1" min="1">
+    </div>
+    <div>
+      <label>件数（最大120）</label>
+      <input type="number" id="count" value="60" min="1" max="120">
+    </div>
+    <div><button id="go" disabled>比較する</button></div>
+  </div>
+  <div id="msg" class="sub" style="margin:12px 0 0"></div>
+</div>
+
+<div id="stats" class="stats"></div>
+<div id="out" class="wrap"></div>
+
+<script>
+let CUES = [];
+const $ = id => document.getElementById(id);
+
+$('f').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  CUES = parseSrt(await file.text());
+  $('go').disabled = !CUES.length;
+  $('msg').textContent = CUES.length
+    ? `読み込み: ${CUES.length}キュー。開始位置と件数を決めて「比較する」を押してください。`
+    : '字幕を読み取れませんでした。';
+});
+
+// タイムコード行を目印にキューを取り出す（空行区切りに依存しない）
+function parseSrt(text) {
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+  const TC = /^\s*\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3}\s*-->/;
+  const marks = [];
+  lines.forEach((l, i) => { if (TC.test(l)) marks.push(i); });
+  const out = [];
+  for (let k = 0; k < marks.length; k++) {
+    const body = lines.slice(marks[k] + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
+    while (body.length && !body[body.length - 1].trim()) body.pop();
+    if (body.length && /^\d{1,5}$/.test(body[body.length - 1].trim())) body.pop();
+    const t = body.join(' ').trim();
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+$('go').addEventListener('click', async () => {
+  const from  = Math.max(1, parseInt($('from').value, 10) || 1);
+  const count = Math.min(120, Math.max(1, parseInt($('count').value, 10) || 60));
+  const lines = CUES.slice(from - 1, from - 1 + count);
+  if (!lines.length) { $('msg').textContent = 'その範囲にキューがありません。'; return; }
+
+  $('go').disabled = true;
+  $('stats').innerHTML = '';
+  $('out').innerHTML = '';
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    $('msg').textContent = `両方に投げています… ${Math.round((Date.now() - t0) / 1000)}秒`;
+  }, 1000);
+
+  try {
+    const res = await fetch('/api/tr-compare', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines }),
+    });
+    const d = await res.json();
+    clearInterval(tick);
+    if (!res.ok) throw new Error(d.error || ('HTTP ' + res.status));
+    $('msg').textContent = `完了（${Math.round((Date.now() - t0) / 1000)}秒）。キュー ${from}〜${from + lines.length - 1}`;
+    render(d);
+  } catch (err) {
+    clearInterval(tick);
+    $('msg').innerHTML = '<span class="err">失敗: ' + esc(err.message || err) + '</span>';
+  } finally {
+    $('go').disabled = false;
+  }
+});
+
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
+
+function stat(name, r) {
+  if (r.error) return `<div class="stat">${name}<b class="err">失敗</b>${esc(r.error)}</div>`;
+  const cost = typeof r.costUsd === 'number' ? '$' + r.costUsd.toFixed(4) : '—';
+  const n = (r.lines || []).length;
+  return `<div class="stat">${name}<b>${r.sec}秒 / ${cost}</b>${n}行を返しました</div>`;
+}
+
+function render(d) {
+  $('stats').innerHTML =
+    `<div class="stat">入力<b>${d.n}行</b></div>` +
+    stat('Gemini 2.5 Flash', d.gemini) +
+    stat('Claude Haiku 4.5', d.claude);
+
+  const g = d.gemini.lines || [], c = d.claude.lines || [];
+  // 本数が合わないのは「行が消えた/増えた」失敗。構造化出力で防ぐ対象なので目立たせる。
+  const bad = [];
+  if (g.length && g.length !== d.n) bad.push(`Flash が ${d.n}行に対し ${g.length}行を返しました`);
+  if (c.length && c.length !== d.n) bad.push(`Haiku が ${d.n}行に対し ${c.length}行を返しました`);
+  const warn = bad.length ? `<p class="sub warn">⚠ ${bad.map(esc).join(' / ')}</p>` : '';
+
+  const rows = d.src.map((en, i) =>
+    `<tr><td class="n">${i + 1}</td><td class="en">${esc(en)}</td>` +
+    `<td>${esc(g[i] || '')}</td><td>${esc(c[i] || '')}</td></tr>`).join('');
+
+  $('out').innerHTML = warn +
+    `<table><thead><tr><th></th><th>English（ASRの出力）</th>` +
+    `<th>Gemini 2.5 Flash</th><th>Claude Haiku 4.5</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+</script>
+</body>
+</html>
