@@ -1685,6 +1685,9 @@
         return `Subtitles created: ${name} / ${min} min audio · $${usd} / ${sec}s` + tail;
       }],
     [/^書き起こしに失敗しました（(.+)）$/, 'The transcription failed ($1)'],
+    // 上書き確認（ファイル名はユーザーデータなので訳さず埋める）
+    [/^「(.+)」（(.+)の字幕）はすでにあります。\n上書きして作り直しますか？$/,
+      (m, name, lg) => `“${name}” (${lg} subtitles) already exists.\nOverwrite and regenerate?`],
     [/^⚠️ 字幕の生成に失敗: (.+)$/, '⚠️ Subtitle generation failed: $1'],
     [/^🗑 字幕をゴミ箱に移動しました（(.+)）$/, '🗑 Subtitles moved to trash ($1)'],
     [/^⚠️ 字幕の削除に失敗: (.+)$/, '⚠️ Failed to delete subtitles: $1'],
