@@ -44,6 +44,7 @@ async function handleApi(request, env, path) {
       case '/api/asr-start':   return await handleAsrStart(request, env);
       case '/api/asr-status':  return await handleAsrStatus(request, env);
       case '/api/asr-srt':     return await handleAsrSrt(request, env);
+      case '/api/tr-compare':  return await handleTrCompare(request, env);
       default:                 return new Response('Not found', { status: 404 });
     }
   } catch (e) {
@@ -1459,4 +1460,102 @@ async function handleAsrSrt(request, env) {
     return jsonRes({ error: '字幕を取得できませんでした', detail: _httpErrText(res.status) }, 502);
   }
   return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}
+
+// ═══ 翻訳エンジン比較（Flash vs Haiku）— 一時的な検証用 ═══
+// 目的は「どちらが柔術の文脈を読めるか」を実データで見ること。
+// 判断がついたら、このブロックと compare-translate.html を消す。
+// 設計は本番と同じ: タイムコードは送らず、テキスト行だけを訳させる。
+
+function _trPrompt(lines) {
+  return `あなたはブラジリアン柔術(BJJ)・グラップリングの教則動画の字幕翻訳者です。
+英語の字幕行を日本語に訳してください。
+
+【文脈】
+講師が技術を実演しながら解説している教則動画です。一般会話ではありません。
+以下は柔術の技術用語です。一般語として訳さないでください:
+- guard = ガード（警備ではない） / pass the guard = ガードをパスする
+- mount = マウント / side control = サイドコントロール / sweep = スイープ
+- underhook = アンダーフック / overhook = オーバーフック / grip = グリップ
+- dead foot, live foot, side foot = デッドフット, ライブフット, サイドフット
+- frame = フレーム / base = ベース / drill = ドリル
+- heel = かかと / pinky = 小指側 / ball of the foot = 母指球
+
+【出力の決まり】
+- 入力と同じ本数を、同じ順序で返す（${lines.length}本）
+- 行を分割・結合しない。1行の英語 → 1行の日本語
+- ですます調。専門用語はカタカナ
+- 音声認識の誤認識（例: "Gitu"→柔術, "girls"→ドリル, "sci-fi"→サイドフット）は文脈から補正してよい
+
+【入力】
+${lines.map((t, i) => `${i + 1}. ${t}`).join('\n')}`;
+}
+
+const _TR_SCHEMA = {
+  type: 'object',
+  properties: { translations: { type: 'array', items: { type: 'string' } } },
+  required: ['translations'],
+  additionalProperties: false,
+};
+
+async function _trGemini(env, lines) {
+  const t0 = Date.now();
+  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines) }],
+    { json: true, maxOutputTokens: 32768, thinkingBudget: 0, temperature: 0.3, what: '翻訳' });
+  if (r.error) return { error: r.error + (r.detail ? `（${r.detail}）` : '') };
+  let out;
+  try { out = JSON.parse(r.summary).translations; }
+  catch (e) { return { error: 'JSONで返りませんでした', raw: String(r.summary).slice(0, 400) }; }
+  return { lines: out, sec: Math.round((Date.now() - t0) / 1000), usage: r.usage, costUsd: r.costUsd };
+}
+
+async function _trClaude(env, lines) {
+  if (!env.ANTHROPIC_API_KEY) return { error: 'ANTHROPIC_API_KEY が未設定です' };
+  const t0 = Date.now();
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY,
+                 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: env.CLAUDE_TR_MODEL || 'claude-haiku-4-5',
+        max_tokens: 16000,
+        output_config: { format: { type: 'json_schema', schema: _TR_SCHEMA } },
+        messages: [{ role: 'user', content: _trPrompt(lines) }],
+      }),
+    });
+  } catch (e) { return { error: 'Claudeへの接続に失敗: ' + (e && e.message || e) }; }
+
+  const j = await _jsonOrErr(res, 'Claude の呼び出し');
+  if (j.error) return { error: j.error + `（${j.detail}）` };
+  if (!res.ok) return { error: 'Claude API error', detail: String(j.data?.error?.message || _httpErrText(res.status)) };
+
+  const text = (j.data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  let out;
+  try { out = JSON.parse(text).translations; }
+  catch (e) { return { error: 'JSONで返りませんでした', raw: text.slice(0, 400) }; }
+
+  const u  = j.data.usage || {};
+  const pI = parseFloat(env.CLAUDE_PRICE_IN  || '1.00');   // Haiku 4.5: $1 / 1M
+  const pO = parseFloat(env.CLAUDE_PRICE_OUT || '5.00');   // Haiku 4.5: $5 / 1M
+  const cost = ((u.input_tokens || 0) * pI + (u.output_tokens || 0) * pO) / 1e6;
+  return { lines: out, sec: Math.round((Date.now() - t0) / 1000), usage: u, costUsd: cost,
+           model: j.data.model };
+}
+
+async function handleTrCompare(request, env) {
+  if (request.method !== 'POST') return jsonRes({ error: 'POSTしてください' }, 405);
+  let body;
+  try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
+  const lines = Array.isArray(body?.lines) ? body.lines.map(s => String(s || '').trim()).filter(Boolean) : [];
+  if (!lines.length) return jsonRes({ error: '翻訳する行がありません' }, 400);
+  if (lines.length > 120) return jsonRes({ error: '一度に比較できるのは120行までです' }, 400);
+
+  // 同じ入力・同じプロンプトで並行に投げる。片方が失敗してももう片方は返す。
+  const [g, c] = await Promise.all([
+    _trGemini(env, lines).catch(e => ({ error: String(e && e.message || e) })),
+    _trClaude(env, lines).catch(e => ({ error: String(e && e.message || e) })),
+  ]);
+  return jsonRes({ n: lines.length, src: lines, gemini: g, claude: c });
 }
