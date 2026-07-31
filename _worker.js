@@ -844,6 +844,9 @@ async function _geminiGenerate(env, parts, opts) {
   };
   if (/2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: o.thinkingBudget != null ? o.thinkingBudget : 2048 };
   if (o.json) generationConfig.responseMimeType = 'application/json';
+  // responseMimeType だけでは「JSONではあるが構造は自由」になる。形を決めたいときは
+  // スキーマまで渡す（渡さずに比較して片方が空になった反省）。
+  if (o.schema) generationConfig.responseSchema = o.schema;
   if (o.mediaResolution) generationConfig.mediaResolution = o.mediaResolution;
 
   let gRes;
@@ -1466,6 +1469,11 @@ async function handleAsrSrt(request, env) {
 // 目的は「どちらが柔術の文脈を読めるか」を実データで見ること。
 // 判断がついたら、このブロックと compare-translate.html を消す。
 // 設計は本番と同じ: タイムコードは送らず、テキスト行だけを訳させる。
+//
+// 出力は「配列の順番」ではなく「元の行番号つきオブジェクト」で受け取る。
+// 順番だけに頼ると、1本抜けた瞬間に以降が全部ずれて別の行の訳が入る。
+// 番号で復元すれば、抜けた行は空欄のまま特定できる（60行中56行しか返らない
+// 事象が実際に出たため、この形にした）。
 
 function _trPrompt(lines) {
   return `あなたはブラジリアン柔術(BJJ)・グラップリングの教則動画の字幕翻訳者です。
@@ -1476,37 +1484,87 @@ function _trPrompt(lines) {
 以下は柔術の技術用語です。一般語として訳さないでください:
 - guard = ガード（警備ではない） / pass the guard = ガードをパスする
 - mount = マウント / side control = サイドコントロール / sweep = スイープ
-- underhook = アンダーフック / overhook = オーバーフック / grip = グリップ
+- base = ベース / frame = フレーム / grip = グリップ / drill = ドリル
+- underhook = アンダーフック / overhook = オーバーフック
 - dead foot, live foot, side foot = デッドフット, ライブフット, サイドフット
-- frame = フレーム / base = ベース / drill = ドリル
 - heel = かかと / pinky = 小指側 / ball of the foot = 母指球
 
 【出力の決まり】
-- 入力と同じ本数を、同じ順序で返す（${lines.length}本）
+- 入力の各行に対し {"i": 行番号, "ja": 訳文} を1つずつ返す
+- 全${lines.length}行ぶんを必ず返す。1行も飛ばさない
+- i は入力に振られた番号をそのまま使う
 - 行を分割・結合しない。1行の英語 → 1行の日本語
 - ですます調。専門用語はカタカナ
-- 音声認識の誤認識（例: "Gitu"→柔術, "girls"→ドリル, "sci-fi"→サイドフット）は文脈から補正してよい
+- 音声認識の誤認識（例: "Gitu"→柔術, "girls"→ドリル, "sci-fi"→サイドフット）は
+  文脈から補正してよい
 
 【入力】
 ${lines.map((t, i) => `${i + 1}. ${t}`).join('\n')}`;
 }
 
-const _TR_SCHEMA = {
+// Claude（JSON Schema）
+const _TR_SCHEMA_CLAUDE = {
   type: 'object',
-  properties: { translations: { type: 'array', items: { type: 'string' } } },
+  properties: {
+    translations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { i: { type: 'integer' }, ja: { type: 'string' } },
+        required: ['i', 'ja'],
+        additionalProperties: false,
+      },
+    },
+  },
   required: ['translations'],
   additionalProperties: false,
 };
 
+// Gemini（OpenAPIサブセット。型は大文字、additionalProperties は非対応）
+const _TR_SCHEMA_GEMINI = {
+  type: 'OBJECT',
+  properties: {
+    translations: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { i: { type: 'INTEGER' }, ja: { type: 'STRING' } },
+        required: ['i', 'ja'],
+        propertyOrdering: ['i', 'ja'],
+      },
+    },
+  },
+  required: ['translations'],
+};
+
+// 番号つきの結果を元の並びに戻す。欠けた番号はそのまま報告する。
+function _trRebuild(items, n) {
+  const out = new Array(n).fill('');
+  let stray = 0;
+  for (const it of (Array.isArray(items) ? items : [])) {
+    const i = Number(it && it.i);
+    const ja = String((it && it.ja) || '').trim();
+    if (!Number.isFinite(i) || i < 1 || i > n) { stray++; continue; }
+    if (ja) out[i - 1] = ja;
+  }
+  const missing = [];
+  for (let k = 0; k < n; k++) if (!out[k]) missing.push(k + 1);
+  return { lines: out, missing, stray };
+}
+
 async function _trGemini(env, lines) {
   const t0 = Date.now();
-  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines) }],
-    { json: true, maxOutputTokens: 32768, thinkingBudget: 0, temperature: 0.3, what: '翻訳' });
+  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines) }], {
+    json: true, schema: _TR_SCHEMA_GEMINI,
+    maxOutputTokens: 32768, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
+  });
   if (r.error) return { error: r.error + (r.detail ? `（${r.detail}）` : '') };
-  let out;
-  try { out = JSON.parse(r.summary).translations; }
+  let parsed;
+  try { parsed = JSON.parse(r.summary); }
   catch (e) { return { error: 'JSONで返りませんでした', raw: String(r.summary).slice(0, 400) }; }
-  return { lines: out, sec: Math.round((Date.now() - t0) / 1000), usage: r.usage, costUsd: r.costUsd };
+  const b = _trRebuild(parsed && parsed.translations, lines.length);
+  return { ...b, sec: Math.round((Date.now() - t0) / 1000), usage: r.usage, costUsd: r.costUsd,
+           model: env.GEMINI_MODEL || 'gemini-2.5-flash' };
 }
 
 async function _trClaude(env, lines) {
@@ -1520,8 +1578,8 @@ async function _trClaude(env, lines) {
                  'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: env.CLAUDE_TR_MODEL || 'claude-haiku-4-5',
-        max_tokens: 16000,
-        output_config: { format: { type: 'json_schema', schema: _TR_SCHEMA } },
+        max_tokens: 32000,
+        output_config: { format: { type: 'json_schema', schema: _TR_SCHEMA_CLAUDE } },
         messages: [{ role: 'user', content: _trPrompt(lines) }],
       }),
     });
@@ -1529,19 +1587,23 @@ async function _trClaude(env, lines) {
 
   const j = await _jsonOrErr(res, 'Claude の呼び出し');
   if (j.error) return { error: j.error + `（${j.detail}）` };
-  if (!res.ok) return { error: 'Claude API error', detail: String(j.data?.error?.message || _httpErrText(res.status)) };
+  if (!res.ok) {
+    return { error: 'Claude API error',
+             detail: String(j.data?.error?.message || _httpErrText(res.status)) };
+  }
 
   const text = (j.data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-  let out;
-  try { out = JSON.parse(text).translations; }
+  let parsed;
+  try { parsed = JSON.parse(text); }
   catch (e) { return { error: 'JSONで返りませんでした', raw: text.slice(0, 400) }; }
 
+  const b  = _trRebuild(parsed && parsed.translations, lines.length);
   const u  = j.data.usage || {};
   const pI = parseFloat(env.CLAUDE_PRICE_IN  || '1.00');   // Haiku 4.5: $1 / 1M
   const pO = parseFloat(env.CLAUDE_PRICE_OUT || '5.00');   // Haiku 4.5: $5 / 1M
   const cost = ((u.input_tokens || 0) * pI + (u.output_tokens || 0) * pO) / 1e6;
-  return { lines: out, sec: Math.round((Date.now() - t0) / 1000), usage: u, costUsd: cost,
-           model: j.data.model };
+  return { ...b, sec: Math.round((Date.now() - t0) / 1000), usage: u, costUsd: cost,
+           stop: j.data.stop_reason, model: j.data.model };
 }
 
 async function handleTrCompare(request, env) {
@@ -1552,7 +1614,7 @@ async function handleTrCompare(request, env) {
   if (!lines.length) return jsonRes({ error: '翻訳する行がありません' }, 400);
   if (lines.length > 120) return jsonRes({ error: '一度に比較できるのは120行までです' }, 400);
 
-  // 同じ入力・同じプロンプトで並行に投げる。片方が失敗してももう片方は返す。
+  // 同じ入力・同じプロンプト・同じスキーマで並行に投げる。片方が失敗しても他方は返す。
   const [g, c] = await Promise.all([
     _trGemini(env, lines).catch(e => ({ error: String(e && e.message || e) })),
     _trClaude(env, lines).catch(e => ({ error: String(e && e.message || e) })),

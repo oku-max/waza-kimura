@@ -132,8 +132,16 @@ const esc = s => String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':
 function stat(name, r) {
   if (r.error) return `<div class="stat">${name}<b class="err">失敗</b>${esc(r.error)}</div>`;
   const cost = typeof r.costUsd === 'number' ? '$' + r.costUsd.toFixed(4) : '—';
-  const n = (r.lines || []).length;
-  return `<div class="stat">${name}<b>${r.sec}秒 / ${cost}</b>${n}行を返しました</div>`;
+  const miss = (r.missing || []).length;
+  const ok = miss ? `<span class="err">${miss}行 欠落</span>` : '欠落なし';
+  return `<div class="stat">${name}<b>${r.sec}秒 / ${cost}</b>${ok}</div>`;
+}
+
+function missNote(name, r) {
+  if (r.error || !(r.missing || []).length) return '';
+  const m = r.missing;
+  const head = m.slice(0, 25).join(', ') + (m.length > 25 ? ` …他${m.length - 25}件` : '');
+  return `<p class="sub warn">⚠ ${esc(name)} が返さなかった行: ${esc(head)}</p>`;
 }
 
 function render(d) {
@@ -143,11 +151,8 @@ function render(d) {
     stat('Claude Haiku 4.5', d.claude);
 
   const g = d.gemini.lines || [], c = d.claude.lines || [];
-  // 本数が合わないのは「行が消えた/増えた」失敗。構造化出力で防ぐ対象なので目立たせる。
-  const bad = [];
-  if (g.length && g.length !== d.n) bad.push(`Flash が ${d.n}行に対し ${g.length}行を返しました`);
-  if (c.length && c.length !== d.n) bad.push(`Haiku が ${d.n}行に対し ${c.length}行を返しました`);
-  const warn = bad.length ? `<p class="sub warn">⚠ ${bad.map(esc).join(' / ')}</p>` : '';
+  // 番号で復元しているので、欠けた行は空欄になり、以降がずれることはない。
+  const warn = missNote('Flash', d.gemini) + missNote('Haiku', d.claude);
 
   const rows = d.src.map((en, i) =>
     `<tr><td class="n">${i + 1}</td><td class="en">${esc(en)}</td>` +
