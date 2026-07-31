@@ -872,7 +872,7 @@ async function _geminiGenerate(env, parts, opts) {
   }
 
   // SSE（data: {...}）を読み進めて本文を繋ぐ
-  let text = '', usage = null, finish = '';
+  let text = '', usage = null, finish = '', cut = '';
   try {
     const reader = gRes.body.getReader();
     const dec = new TextDecoder();
@@ -897,9 +897,15 @@ async function _geminiGenerate(env, parts, opts) {
       }
     }
   } catch (e) {
-    // 途中まで取れていればそれを使う（長尺で切れた場合の救済）
-    if (!text.trim()) return { error: 'Gemini の応答の読み取りに失敗しました', detail: (e && e.message) || String(e) };
+    // 途中まで取れていればそれを使う（長尺で切れた場合の救済）。
+    // ただし「切れた」事実は必ず持ち帰る。黙って途中までを完成品として返すと、
+    // 34分の動画に対して5分ぶんしかない字幕がそのまま保存される（実際に起きた）。
+    cut = (e && e.message) || String(e);
+    if (!text.trim()) return { error: 'Gemini の応答の読み取りに失敗しました', detail: cut };
   }
+  // 正常終了なら最後のチャンクに finishReason が来る。何も来ていなければ
+  // 応答が途中で終わっている（例外を伴わない切断）。
+  if (!finish) cut = cut || '応答が最後まで届きませんでした';
 
   text = text.trim();
   if (!text) {
@@ -909,7 +915,7 @@ async function _geminiGenerate(env, parts, opts) {
                  : (finish || '応答が空でした');
     return { error: `${o.what || '要約'}を取得できませんでした`, detail };
   }
-  return { summary: text, usage, costUsd: _estimateCostUsd(env, usage) };
+  return { summary: text, usage, costUsd: _estimateCostUsd(env, usage), finish, cut };
 }
 
 // A: 生の数字ではなく何が起きたかを返す。524はCloudflareのタイムアウト（100秒）。
@@ -1082,11 +1088,26 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
     return { error: '字幕の生成結果が不正です',
              detail: `字幕が${Math.floor(first / 60)}分以降にしかありません（動画全体を処理できていない可能性）。保存していません` };
   }
+  // 生成が途中で終わったのに「完成品」として保存させない。
+  // 判定は2条件そろったときだけ（誤検知で正常な字幕を弾いた過去があるため）:
+  //   ① 応答が最後まで届いていない（finishReasonなし／読み取り例外／MAX_TOKENS）
+  //   ② 最後のキューが動画のかなり手前で終わっている
+  // ①だけなら通す＝取りこぼしても壊さない側に倒す。短尺(10分未満)は対象外。
+  const last = repaired.reduce((m, c) => Math.max(m, c.start), 0);
+  if (dur >= 600 && (r.cut || r.finish === 'MAX_TOKENS') && last < dur * 0.6) {
+    const mmss = (s) => `${Math.floor(s / 60)}分${String(Math.floor(s % 60)).padStart(2, '0')}秒`;
+    return { error: '字幕の生成が途中で切れました',
+             detail: `${mmss(dur)}の動画に対して字幕が${mmss(last)}までしかありません`
+               + `（${r.finish === 'MAX_TOKENS' ? '出力が上限に達しました' : r.cut}）。`
+               + `途中までのものは保存していません。もう一度生成してください` };
+  }
   const fixed = _cuesToSrt(_cleanupCues(cues, dur));
   const bad = _validateSrt(fixed, dur);
   if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
   return { summary: fixed, usage: r.usage, costUsd: r.costUsd,
-           diag: [{ sec, cues: cues.length, first: first === Infinity ? null : Math.round(first), outTok: r.usage?.candidatesTokenCount || 0 }] };
+           diag: [{ sec, cues: cues.length, first: first === Infinity ? null : Math.round(first),
+                    last: Math.round(last), fin: r.finish || (r.cut ? 'CUT' : ''),
+                    outTok: r.usage?.candidatesTokenCount || 0 }] };
 }
 
 // ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
