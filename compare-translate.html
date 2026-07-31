@@ -134,7 +134,14 @@ function stat(name, r) {
   const cost = typeof r.costUsd === 'number' ? '$' + r.costUsd.toFixed(4) : '—';
   const miss = (r.missing || []).length;
   const ok = miss ? `<span class="err">${miss}行 欠落</span>` : '欠落なし';
-  return `<div class="stat">${name}<b>${r.sec}秒 / ${cost}</b>${ok}</div>`;
+  // stop が max_tokens なら出力枠切れ、end_turn なのに欠けるならモデルが自分で
+  // 打ち切っている。原因が別なので区別できるように出す。
+  const extra = [
+    r.chunks ? `${r.chunks}回に分割` : '',
+    r.stop ? `stop=${esc(r.stop)}` : '',
+    r.partialError ? `<span class="err">${esc(r.partialError)}</span>` : '',
+  ].filter(Boolean).join(' · ');
+  return `<div class="stat">${name}<b>${r.sec}秒 / ${cost}</b>${ok}${extra ? ' · ' + extra : ''}</div>`;
 }
 
 function missNote(name, r) {

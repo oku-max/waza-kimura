@@ -1552,11 +1552,11 @@ function _trRebuild(items, n) {
   return { lines: out, missing, stray };
 }
 
-async function _trGemini(env, lines) {
+async function _trGeminiChunk(env, lines) {
   const t0 = Date.now();
   const r = await _geminiGenerate(env, [{ text: _trPrompt(lines) }], {
     json: true, schema: _TR_SCHEMA_GEMINI,
-    maxOutputTokens: 32768, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
+    maxOutputTokens: 16384, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
   });
   if (r.error) return { error: r.error + (r.detail ? `（${r.detail}）` : '') };
   let parsed;
@@ -1567,7 +1567,7 @@ async function _trGemini(env, lines) {
            model: env.GEMINI_MODEL || 'gemini-2.5-flash' };
 }
 
-async function _trClaude(env, lines) {
+async function _trClaudeChunk(env, lines) {
   if (!env.ANTHROPIC_API_KEY) return { error: 'ANTHROPIC_API_KEY が未設定です' };
   const t0 = Date.now();
   let res;
@@ -1578,7 +1578,7 @@ async function _trClaude(env, lines) {
                  'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: env.CLAUDE_TR_MODEL || 'claude-haiku-4-5',
-        max_tokens: 32000,
+        max_tokens: 16000,
         output_config: { format: { type: 'json_schema', schema: _TR_SCHEMA_CLAUDE } },
         messages: [{ role: 'user', content: _trPrompt(lines) }],
       }),
@@ -1606,6 +1606,43 @@ async function _trClaude(env, lines) {
            stop: j.data.stop_reason, model: j.data.model };
 }
 
+// 1回に投げる行数。多いと「途中で止まる/行が抜ける」が出るため小さく刻む。
+// 60行を一度に投げてHaikuが56行しか返さなかったので、モデルを責める前に
+// 要求の大きさを下げる（本番でも同じ刻み方をする）。
+const TR_CHUNK = 25;
+
+// チャンクごとに翻訳し、元の通し番号に戻して1本に統合する。
+async function _trRun(fn, env, lines) {
+  const t0 = Date.now();
+  const out = new Array(lines.length).fill('');
+  const missing = [];
+  const stops = [];
+  let inTok = 0, outTok = 0, cost = 0, chunks = 0, err = null;
+
+  for (let off = 0; off < lines.length; off += TR_CHUNK) {
+    const part = lines.slice(off, off + TR_CHUNK);
+    const r = await fn(env, part);
+    chunks++;
+    if (r.error) { err = err || (r.error + (r.detail ? `（${r.detail}）` : '')); 
+                   for (let k = 0; k < part.length; k++) missing.push(off + k + 1);
+                   continue; }
+    r.lines.forEach((ja, k) => { if (ja) out[off + k] = ja; });
+    (r.missing || []).forEach(i => missing.push(off + i));
+    if (r.stop) stops.push(r.stop);
+    const u = r.usage || {};
+    inTok  += (u.input_tokens  || u.promptTokenCount     || 0);
+    outTok += (u.output_tokens || u.candidatesTokenCount || 0);
+    cost   += (typeof r.costUsd === 'number' ? r.costUsd : 0);
+  }
+  return {
+    lines: out, missing, chunks, error: (err && !out.some(Boolean)) ? err : null,
+    partialError: err || null,
+    stop: [...new Set(stops)].join(','),
+    sec: Math.round((Date.now() - t0) / 1000),
+    usage: { input_tokens: inTok, output_tokens: outTok }, costUsd: cost,
+  };
+}
+
 async function handleTrCompare(request, env) {
   if (request.method !== 'POST') return jsonRes({ error: 'POSTしてください' }, 405);
   let body;
@@ -1616,8 +1653,8 @@ async function handleTrCompare(request, env) {
 
   // 同じ入力・同じプロンプト・同じスキーマで並行に投げる。片方が失敗しても他方は返す。
   const [g, c] = await Promise.all([
-    _trGemini(env, lines).catch(e => ({ error: String(e && e.message || e) })),
-    _trClaude(env, lines).catch(e => ({ error: String(e && e.message || e) })),
+    _trRun(_trGeminiChunk, env, lines).catch(e => ({ error: String(e && e.message || e) })),
+    _trRun(_trClaudeChunk, env, lines).catch(e => ({ error: String(e && e.message || e) })),
   ]);
-  return jsonRes({ n: lines.length, src: lines, gemini: g, claude: c });
+  return jsonRes({ n: lines.length, chunk: TR_CHUNK, src: lines, gemini: g, claude: c });
 }
