@@ -2857,43 +2857,71 @@ function _srtJoin(cues) {
   return cues.map((c, i) => `${i + 1}\n${c.tc}\n${c.text}`).join('\n\n') + '\n';
 }
 
-// 行を分割して翻訳する。訳が返らなかった行は原文で埋める（絶対に空にしない）。
+// 行を分割して翻訳する。
+// 47回の通信のうち1回でも転べばその25行がまるごと英語のまま残る。1回投げて
+// 終わりにせず、抜けた行だけを小さくまとめて投げ直す（実際に26行＝25＋1が
+// 未訳で残ったため）。最後まで訳せなかった行だけ原文で埋める。
 async function _translateLines(lines, lang, opts, onProgress) {
-  const SIZE = 25, CONC = 3;
-  const offsets = [];
-  for (let i = 0; i < lines.length; i += SIZE) offsets.push(i);
-  const total = offsets.length;
+  const SIZE = 25, RETRY_SIZE = 10, CONC = 3, ROUNDS = 2;
   const out = new Array(lines.length).fill('');
-  let done = 0, cost = 0, firstErr = null;
+  const errors = [];
+  let cost = 0, calls = 0;
 
-  const worker = async () => {
-    for (;;) {
-      const off = offsets.shift();
-      if (off === undefined) return;
-      const part = lines.slice(off, off + SIZE);
-      try {
-        const res = await fetch('/api/translate', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lines: part, lang, opts }),
-        });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
-        (d.lines || []).forEach((t, k) => { if (t) out[off + k] = t; });
-        if (typeof d.costUsd === 'number') cost += d.costUsd;
-      } catch (e) {
-        firstErr = firstErr || (e?.message || String(e));
-      }
-      onProgress?.(++done, total);
+  const runBatch = async (idxs) => {
+    calls++;
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lines: idxs.map(i => lines[i]), lang, opts }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+      (d.lines || []).forEach((t, k) => { if (t) out[idxs[k]] = t; });
+      if (typeof d.costUsd === 'number') cost += d.costUsd;
+    } catch (e) {
+      errors.push(e?.message || String(e));
     }
   };
-  await Promise.all(Array.from({ length: Math.min(CONC, total) }, worker));
 
-  const missing = [];
-  out.forEach((t, i) => { if (!t) { out[i] = lines[i]; missing.push(i + 1); } });
-  return { lines: out, missing, cost, error: firstErr };
+  const runAll = async (groups, label) => {
+    if (!groups.length) return;
+    const q = groups.slice();
+    let done = 0;
+    const worker = async () => {
+      for (;;) {
+        const g = q.shift();
+        if (!g) return;
+        await runBatch(g);
+        onProgress?.(++done, groups.length, label);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONC, groups.length) }, worker));
+  };
+
+  const chunk = (arr, size) => {
+    const g = [];
+    for (let i = 0; i < arr.length; i += size) g.push(arr.slice(i, i + size));
+    return g;
+  };
+  const stillMissing = () => out.map((t, i) => (t ? -1 : i)).filter(i => i >= 0);
+
+  await runAll(chunk(lines.map((_, i) => i), SIZE), '翻訳中');
+
+  const firstMissing = stillMissing().length;
+  for (let round = 0; round < ROUNDS; round++) {
+    const miss = stillMissing();
+    if (!miss.length) break;
+    await runAll(chunk(miss, RETRY_SIZE), '再試行中');
+  }
+
+  const missing = stillMissing();
+  missing.forEach(i => { out[i] = lines[i]; });   // 最後まで駄目なら原文を残す
+  console.log('[translate]', { lines: lines.length, calls, firstMissing,
+                               finalMissing: missing.length, cost, errors });
+  return { lines: out, missing: missing.map(i => i + 1), firstMissing,
+           cost, error: errors[0] || null, errorCount: errors.length };
 }
 
-const _subFileName = (base, lang) => base + (lang === 'en' ? '.srt' : `.${lang}.srt`);
 const TR_LANG_LABEL = { zh:'中国語', ko:'韓国語', es:'スペイン語', pt:'ポルトガル語', fr:'フランス語' };
 const _langLabel = (lang) => SUB_LANGS[lang] || TR_LANG_LABEL[lang] || lang;
 
@@ -2985,7 +3013,7 @@ async function _asrGenerateAndSave(ctx) {
     } else {
       setBtn('⏳ 翻訳中…');
       const tr = await _translateLines(cues.map(c => c.text), want, _subGenPayload(),
-        (d, n) => setBtn(`⏳ 翻訳中… ${d}/${n}`));
+        (d, n, label) => setBtn(`⏳ ${label}… ${d}/${n}`));
       trCost = tr.cost; trMissing = tr.missing.length; trErr = tr.error;
       // 1行も訳せていないなら、中身は原文そのもの。それを「.ja.srt」という名前で
       // 保存したら中身と名前が食い違う。保存せず失敗として扱い、原語版だけ残す。
@@ -3008,7 +3036,7 @@ async function _asrGenerateAndSave(ctx) {
   const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
   const names = trTarget ? `${target} + ${trTarget}` : target;
   const note = trFailed        ? `（翻訳に失敗したため原語版のみ: ${trErr}）`
-             : trTarget && trMissing ? `（${trMissing}行は訳せず原文のまま）`
+             : trTarget && trMissing ? `（${trMissing}行は訳せず原文のまま${trErr ? ': ' + trErr : ''}）`
              : trErr             ? `（翻訳の一部が失敗: ${trErr}）` : '';
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${names}）`);

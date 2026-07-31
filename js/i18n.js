@@ -1501,6 +1501,7 @@
   const TEMPLATE_AUTO = {
     "⏳ 書き起こし中… #秒": "⏳ Transcribing... #s",
     "⏳ 翻訳中… #/#": "⏳ Translating... #/#",
+    "⏳ 再試行中… #/#": "⏳ Retrying... #/#",
     "一度に翻訳できるのは#行までです": "Only # lines can be translated at a time",
     "✔ ブックマークに追加（#件）": "✔ Add # to bookmarks",
     "画像は#枚までです": "Up to # images",
@@ -1676,10 +1677,10 @@
       (m, name, min, usd, sec, note) => {
         let tail = '';
         if (note) {
-          const untrans = note.match(/^(\d+)行は訳せず原文のまま$/);
+          const untrans = note.match(/^(\d+)行は訳せず原文のまま(?:: (.+))?$/);
           const failed  = note.match(/^翻訳の一部が失敗: (.+)$/);
           const only    = note.match(/^翻訳に失敗したため原語版のみ: (.+)$/);
-          tail = untrans ? ` (${untrans[1]} lines could not be translated and were left in the original)`
+          tail = untrans ? ` (${untrans[1]} lines could not be translated and were left in the original${untrans[2] ? ': ' + untrans[2] : ''})`
                : only    ? ` (translation failed, so only the original-language file was created: ${only[1]})`
                : failed  ? ` (part of the translation failed: ${failed[1]})`
                : ` (${note})`;
