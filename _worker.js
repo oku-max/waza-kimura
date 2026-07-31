@@ -492,7 +492,7 @@ function _promptFor(mode, ctx, subLang, subOpts, chapOpts) {
 // 生成オプション（mode別）。字幕は本文が長いので出力枠を大きく取り、思考は切って全部本文に回す。
 function _genOptsFor(mode) {
   if (mode === 'branch')   return { json: true };
-  if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.1, what: '字幕', mediaResolution: 'MEDIA_RESOLUTION_LOW' };
+  if (mode === 'subtitle') return { maxOutputTokens: 65536, thinkingBudget: 0, temperature: 0.3, what: '字幕', mediaResolution: 'MEDIA_RESOLUTION_LOW' };
   // チャプターは出力そのものは短いが「どこで話題が変わるか」の判断に思考を使わせたい。
   // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
   if (mode === 'chapters') return { json: true, maxOutputTokens: 16384, thinkingBudget: 4096, temperature: 0.2, what: 'チャプター' };
