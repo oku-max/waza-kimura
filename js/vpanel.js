@@ -2853,6 +2853,7 @@ function _srtSplit(srt) {
   return out;
 }
 function _srtJoin(cues) {
+  if (!cues.length) return '';   // 空を「改行1文字のファイル」にしない
   return cues.map((c, i) => `${i + 1}\n${c.tc}\n${c.text}`).join('\n\n') + '\n';
 }
 
@@ -2963,6 +2964,8 @@ async function _asrGenerateAndSave(ctx) {
         return { skipped: true };
       }
     }
+    // 最後の砦: 字幕として成立していないものは、既存ファイルの上に絶対に書かない
+    if (!_looksLikeSrt(text)) throw new Error('保存しようとした字幕が壊れています（保存を中止しました）');
     await _driveUploadText(gdToken, { name, parentId: parent, text, existingId: ex?.id });
     return { saved: true };
   };
@@ -2974,27 +2977,39 @@ async function _asrGenerateAndSave(ctx) {
 
   // 5. 要求された言語が音声の言語と違うなら翻訳する。
   //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
-  let trTarget = null, trCost = 0, trMissing = 0, trErr = null;
+  let trTarget = null, trCost = 0, trMissing = 0, trErr = null, trFailed = false;
   if (translating) {
     const cues = _srtSplit(srt);
-    setBtn('⏳ 翻訳中…');
-    const tr = await _translateLines(cues.map(c => c.text), want, _subGenPayload(),
-      (d, n) => setBtn(`⏳ 翻訳中… ${d}/${n}`));
-    trCost = tr.cost; trMissing = tr.missing.length; trErr = tr.error;
-    // 訳せなかった行は原文が入っている。キューの数も時刻も変わらない。
-    const trSrt = _srtJoin(cues.map((c, i) => ({ tc: c.tc, text: tr.lines[i] })));
-    trTarget = _subFileName(base, want);
-    setBtn('⏳ 保存中…');
-    const r2 = await saveOne(trTarget, want, trSrt, true);
-    if (r2.skipped) trTarget = null;
+    if (!cues.length) {
+      trFailed = true; trErr = '字幕の中身を読み取れませんでした';
+    } else {
+      setBtn('⏳ 翻訳中…');
+      const tr = await _translateLines(cues.map(c => c.text), want, _subGenPayload(),
+        (d, n) => setBtn(`⏳ 翻訳中… ${d}/${n}`));
+      trCost = tr.cost; trMissing = tr.missing.length; trErr = tr.error;
+      // 1行も訳せていないなら、中身は原文そのもの。それを「.ja.srt」という名前で
+      // 保存したら中身と名前が食い違う。保存せず失敗として扱い、原語版だけ残す。
+      if (tr.missing.length >= cues.length) {
+        trFailed = true;
+        trErr = trErr || '翻訳できませんでした';
+      } else {
+        // 訳せなかった行は原文が入っている。キューの数も時刻も変わらない。
+        const trSrt = _srtJoin(cues.map((c, i) => ({ tc: c.tc, text: tr.lines[i] })));
+        trTarget = _subFileName(base, want);
+        setBtn('⏳ 保存中…');
+        const r2 = await saveOne(trTarget, want, trSrt, true);
+        if (r2.skipped) trTarget = null;
+      }
+    }
   }
 
   _gdSubLookup.delete(fileId);
   const min  = st.sec ? Math.round(st.sec / 60) : 0;
   const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
   const names = trTarget ? `${target} + ${trTarget}` : target;
-  const note = trMissing ? `（${trMissing}行は訳せず原文のまま）`
-             : trErr     ? `（翻訳の一部が失敗: ${trErr}）` : '';
+  const note = trFailed        ? `（翻訳に失敗したため原語版のみ: ${trErr}）`
+             : trTarget && trMissing ? `（${trMissing}行は訳せず原文のまま）`
+             : trErr             ? `（翻訳の一部が失敗: ${trErr}）` : '';
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${names}）`);
     _subGenShowResult(id, true,
