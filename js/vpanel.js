@@ -2265,13 +2265,30 @@ function _wrapText(text, o) {
   return /[぀-ヿ一-鿿]/.test(t) ? _wrapJa(t, o.maxCharsJa, mode) : _wrapEn(t, o.maxCharsEn, mode);
 }
 
-// 行数が上限を超えたら、文字数比で時間を割ってキューを分割する
+// 字幕は「時刻が内容そのもの」なので、表示の都合で時間を作り替えてはいけない。
+//
+// 以前はここで、行数が上限を超えたキューを文字数比で時間分割していた。
+// 日本語訳は maxCharsJa×maxLines（既定40文字）を平気で超えるため、ほぼ全ての
+// キューが2〜3個に切り刻まれ、その内側の時刻は音声から測った値ではなく
+// 文字数で割った推定値になっていた。日本語は動詞が最後に来るので、前半だけ
+// 先に出て残りは講師が次の話に移ってから出る。「字幕がずれる」の正体はこれ。
+//
+// いまは、時間的に十分長いキューだけを分割する。短いキューは分割せず、
+// 測った時刻のまま行数を増やして表示する。レイアウトが時刻に合わせる。
+const SPLIT_MIN_SEC = 4.0;   // これ未満の長さのキューは絶対に分割しない
+
 function _splitCue(cue, lines, o) {
-  if (lines.length <= o.maxLines) return [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
+  const dur = Math.max(0.1, cue.end - cue.start);
+  const one = () => [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
+  if (lines.length <= o.maxLines) return one();
+  if (dur < SPLIT_MIN_SEC)        return one();   // 短いキューは時刻を守る
+
   const chunks = [];
   for (let i = 0; i < lines.length; i += o.maxLines) chunks.push(lines.slice(i, i + o.maxLines));
+  // 分割しても1つあたりが短すぎるなら、切らずに1つのまま出す
+  if (dur / chunks.length < SPLIT_MIN_SEC / 2) return one();
+
   const total = chunks.reduce((s, c) => s + c.join('').length, 0) || 1;
-  const dur = Math.max(0.1, cue.end - cue.start);
   let t = cue.start;
   return chunks.map(c => {
     const d = dur * (c.join('').length / total);
@@ -3033,6 +3050,9 @@ async function _asrGenerateAndSave(ctx) {
   }
 
   _gdSubLookup.delete(fileId);
+  // 前の字幕に合わせた補正は、新しい字幕には無意味どころか有害。
+  // 端末内(localStorage)だけの値で、他端末やFirestoreには波及しない。
+  _subOffsetSet(fileId, 0);
   const min  = st.sec ? Math.round(st.sec / 60) : 0;
   const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
   const names = trTarget ? `${target} + ${trTarget}` : target;
@@ -3987,6 +4007,16 @@ function _subOptsHTML(scope) {
     const sug = _gdSubSuggestOffset();
 
     html += sec('ズレを直す（この動画のみ）')
+      // 補正が残っていると、正しい時刻の字幕にもそれが足され続ける。
+      // 黙って適用せず、掛かっていることを必ず見せる。
+      + (off
+          ? `<div style="background:rgba(239,68,68,.12);border:1.5px solid var(--red,#ef4444);
+                         border-radius:8px;padding:8px 10px;display:flex;align-items:center;
+                         justify-content:space-between;gap:8px;flex-wrap:wrap">
+               <span style="font-size:11.5px;font-weight:700;line-height:1.5">
+                 ⚠ この動画には ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 のタイミング補正が掛かっています</span>
+               ${btn('補正を消す', 'wkSubOffsetReset()', 'var(--red,#ef4444)')}
+             </div>` : '')
       + (sug != null
           ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;display:flex;
                          align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
