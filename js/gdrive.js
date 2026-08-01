@@ -608,99 +608,222 @@ export async function gdOpenBrowser() {
   _browserStack       = [];
   _browserCurrentId   = 'root';
   _browserCurrentName = 'My Drive';
-  document.getElementById('gd-stage-browser').style.display = '';
-  document.getElementById('gd-stage2').style.display        = 'none';
+  _pick.clear();
+  _stripTouched = false;
+  const p = document.getElementById('gd-picker');
+  if (p) p.style.display = '';
+  window.itagMount?.('gdTagMount', { perVideo: false });
   await _browserRender();
 }
 
-function _folderItemHtml(f, isFav) {
-  const eid  = f.id.replace(/'/g,"\\'");
-  const ename = f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+// ── 選択状態（フォルダを移動しても保持する）──
+// 移動のたびに消すと「単独ファイル数本＋フォルダ1つ」のような選び方ができない。
+// key はDriveのfileId、値は取り込みに必要なぶんだけ。
+const _pick = new Map();
+const _folderCount = new Map();   // 走査済みフォルダの本数（分かったものだけ出す）
+const _folderScan  = new Map();   // 走査済みフォルダの中身 [{id, folderName}]
+
+// フォルダのチェック状態。走査していないフォルダは中身が分からないので 'none' 扱い。
+// （一覧の描画で毎回走査すると、フォルダの数だけDriveを叩くことになり重すぎる）
+function _folderState(id) {
+  const list = _folderScan.get(id);
+  if (list && list.length) {
+    const n = list.filter(x => _pick.has(x.id)).length;
+    return n === 0 ? 'none' : n === list.length ? 'all' : 'part';
+  }
+  // 走査していなくても、そのフォルダの下で選んだ動画があれば「半端」と分かる。
+  // 選んだ時点の階層を覚えているので、Driveを叩き直さずに判定できる。
+  for (const v of _pick.values()) if (v.ancestors?.includes(id)) return 'part';
+  return 'none';
+}
+let   _stripTouched = false;      // 除去文字列を手で触ったか（触っていれば自動検出で上書きしない）
+
+// 選んだ動画から共通文字列を検出して除去欄に入れる。
+// 手で入れた値は尊重する（勝手に書き換えると、直したそばから戻されて操作不能になる）。
+function _autoDetectStrip() {
+  const el = document.getElementById('gd-strip-suffix');
+  if (!el || _stripTouched) return;
+  const names = [..._pick.values()].map(v => v.name);
+  el.value = names.length >= 3
+    ? (detectCommonSuffix(names) || detectCommonPrefix(names))
+    : '';
+}
+
+function _gdEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function _folderItemHtml(f, isFav, state, count) {
   const star = isFav ? '★' : '☆';
   const starColor = isFav ? 'var(--gold)' : 'var(--text3)';
-  const bg   = isFav ? 'background:var(--gold-soft);border-color:var(--gold);' : '';
-  return `<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;cursor:pointer;border:1px solid var(--border);margin-bottom:5px;background:var(--surface2);${bg}">
-    <span style="font-size:17px" onclick="gdBrowserEnter('${eid}','${ename}')">📁</span>
-    <span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="gdBrowserEnter('${eid}','${ename}')">${f.name}</span>
-    <button onclick="event.stopPropagation();gdFavToggle('${eid}','${ename}')"
-      style="background:none;border:none;cursor:pointer;font-size:16px;color:${starColor};padding:2px 4px;line-height:1;flex-shrink:0"
-      title="${isFav ? 'お気に入りから外す' : 'お気に入りに追加'}">${star}</button>
-    <span style="color:var(--text3);font-size:14px;flex-shrink:0" onclick="gdBrowserEnter('${eid}','${ename}')">›</span>
+  const bg = isFav ? 'background:var(--gold-soft)' : '';
+  return `<div class="gdp-row" data-kind="folder" data-id="${_gdEsc(f.id)}" tabindex="0" style="${bg}">
+    <input type="checkbox" class="gdp-cb" data-kind="folder" data-id="${_gdEsc(f.id)}"
+      ${state === 'all' ? 'checked' : ''}>
+    <span class="ico">📁</span>
+    <span class="nm">${_gdEsc(f.name)}</span>
+    <span class="meta">${count != null ? count + '本' : ''}</span>
+    <button class="gdp-x" data-fav="${_gdEsc(f.id)}" title="${isFav ? 'お気に入りから外す' : 'お気に入りに追加'}"
+      style="color:${starColor};font-size:15px">${star}</button>
+    <span class="chev">›</span>
   </div>`;
 }
 
-// フォルダ選択画面に並べる動画の行。ここは「どのフォルダを選ぶか」を決める画面なので、
-// 行そのものは押せない（取り込む本数の選択は、フォルダを選んだ次の画面でやる）。
-// 件数だけ出していると、そのフォルダに何が入っているのか確認できなかった。
-function _videoItemHtml(f) {
-  const esc  = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  const mins = f.duration ? `${Math.round(f.duration / 60)}分` : '';
-  const done = (window.videos || []).some(v => v.id === 'gd-' + f.id);   // 取込済みは選ばせない
-  return `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);
-                      margin-bottom:5px;background:var(--surface);cursor:${done ? 'default' : 'pointer'};${done ? 'opacity:.45' : ''}">
-    <input type="checkbox" class="gd-br-vid" data-id="${esc(f.id)}" ${done ? 'disabled' : ''}
-      onchange="gdBrowserPickChanged()" style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">
-    <span style="font-size:15px;flex-shrink:0">🎬</span>
-    <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-      title="${esc(f.name)}">${esc(f.name)}</span>
-    ${done ? '<span style="font-size:9px;color:var(--text3);flex-shrink:0">取込済</span>'
-           : (mins ? `<span style="font-size:10px;color:var(--text3);flex-shrink:0">${mins}</span>` : '')}
-  </label>`;
+function _videoItemHtml(v) {
+  const done = (window.videos || []).some(x => x.id === 'gd-' + v.id);
+  const mins = v.duration ? `${Math.round(v.duration / 60)}分` : '';
+  return `<div class="gdp-row${done ? ' done' : ''}" data-kind="video" data-id="${_gdEsc(v.id)}"
+      tabindex="${done ? -1 : 0}">
+    <input type="checkbox" class="gdp-cb" data-kind="video" data-id="${_gdEsc(v.id)}"
+      ${done ? 'disabled' : ''} ${_pick.has(v.id) ? 'checked' : ''}>
+    <span class="ico">🎬</span>
+    <span class="nm">${_gdEsc(v.name)}</span>
+    <span class="meta">${done ? '取込済' : mins}</span>
+    <span class="chev"></span>
+  </div>`;
 }
 
-// 一覧に出している動画（チェックされたものを復元するために持っておく）
-let _browserVideos = [];
-
-// 選んだ動画だけを取り込む。フォルダ全体を走査すると、
-// サブフォルダの何百本かに埋もれて目的の数本が探せなくなるため。
-export function gdBrowserPickChanged() {
-  const n = document.querySelectorAll('.gd-br-vid:checked').length;
-  const btn = document.getElementById('gd-browser-pick');
-  if (!btn) return;
-  btn.style.display = n ? '' : 'none';
-  btn.textContent = `✓ 選んだ動画を取り込む（${n}本）`;
+// ── 選択の操作 ───────────────────────────────────────────
+function _pickAdd(v, folderName, ancestors) {
+  if ((window.videos || []).some(x => x.id === 'gd-' + v.id)) return;   // 取込済は入れない
+  _pick.set(v.id, { id: v.id, name: v.name, duration: v.duration || 0,
+                    thumbnailLink: v.thumbnailLink || '', folderName,
+                    ancestors: ancestors || _curAncestors() });
 }
 
-export function gdBrowserPickAll() {
-  const cbs = [...document.querySelectorAll('.gd-br-vid:not(:disabled)')];
-  const toOn = cbs.some(cb => !cb.checked);   // 1つでも未選択なら全部つける、全部ついていたら外す
-  cbs.forEach(cb => { cb.checked = toOn; });
-  gdBrowserPickChanged();
+// 今いる場所の祖先フォルダid（ルートから現在地まで）
+function _curAncestors() {
+  return [..._browserStack.map(x => x.id), _browserCurrentId];
 }
 
-export function gdBrowserImportPicked() {
-  const ids = [...document.querySelectorAll('.gd-br-vid:checked')].map(cb => cb.dataset.id);
-  const picked = _browserVideos.filter(v => ids.includes(v.id));
-  if (!picked.length) return;
-  // プレイリスト名は今いるフォルダ名を既定に（空欄にすればプレイリストなし）
-  const plInp = document.getElementById('gd-playlist');
-  if (plInp) plInp.value = _browserCurrentName;
-  _showStage2({ id: _browserCurrentId, name: _browserCurrentName, videos: picked, folders: [] },
-              _browserCurrentName);
+export function gdClearPick() {
+  _pick.clear();
+  _browserRender();
+  window.toast?.('選択を解除しました');
+}
+
+export function gdToggleDrawer() {
+  const d = document.getElementById('gd-drawer');
+  if (!d) return;
+  const open = d.style.display === 'none';
+  d.style.display = open ? '' : 'none';
+  const b = document.getElementById('gd-drawer-btn');
+  if (b) b.textContent = open ? '閉じる' : '内訳';
+  if (open) gdRenderDrawer();
+}
+
+export function gdToggleOpts() {
+  const body = document.getElementById('gd-optsbody');
+  const hd   = document.getElementById('gd-optshd');
+  if (!body || !hd) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  hd.setAttribute('aria-expanded', String(open));
+}
+
+// 手入力を尊重するため、除去欄は「触ったら自動検出しない」に切り替える
+export function gdStripTouched() { _stripTouched = true; gdRenderDrawer(); gdOptsSummary(); }
+
+export function gdOptsSummary() {
+  const any = ['gd-channel', 'gd-playlist', 'gd-strip-suffix']
+    .some(id => (document.getElementById(id)?.value || '').trim());
+  const el = document.getElementById('gd-optsum');
+  if (el) el.textContent = any ? '変更あり' : '既定のまま';
+}
+
+// 内訳。取り込まれる「実際のタイトル」を出すので、除去文字列の効きもここで確認できる。
+export function gdRenderDrawer() {
+  const d = document.getElementById('gd-drawer');
+  if (!d || d.style.display === 'none') return;
+  const strip = document.getElementById('gd-strip-suffix')?.value || '';
+  if (!_pick.size) { d.innerHTML = ''; return; }
+  d.innerHTML = [..._pick.values()].map(v => `
+    <div class="gdp-drow">
+      <span style="color:var(--text3);flex-shrink:0">📁 ${_gdEsc(v.folderName)} /</span>
+      <span class="n">${_gdEsc(cleanTitle(v.name, strip))}</span>
+      <button class="gdp-x" data-unpick="${_gdEsc(v.id)}" title="選択から外す">×</button>
+    </div>`).join('');
+  d.querySelectorAll('[data-unpick]').forEach(b =>
+    b.addEventListener('click', () => { _pick.delete(b.dataset.unpick); _browserRender(); }));
+}
+
+function _renderSelBar() {
+  const n = _pick.size;
+  const bar = document.getElementById('gd-selbar');
+  const btn = document.getElementById('gd-import-btn');
+  if (bar) bar.style.display = n ? '' : 'none';
+  if (!n) {
+    const d = document.getElementById('gd-drawer');
+    if (d) d.style.display = 'none';
+    const db = document.getElementById('gd-drawer-btn');
+    if (db) db.textContent = '内訳';
+    if (btn) { btn.disabled = true; btn.textContent = '取り込む'; }
+    return;
+  }
+  _autoDetectStrip();
+  const mins = Math.round([..._pick.values()].reduce((s, v) => s + (v.duration || 0), 0) / 60);
+  const cnt = document.getElementById('gd-selcount');
+  const sub = document.getElementById('gd-selsub');
+  if (cnt) cnt.textContent = `選択中 ${n}本`;
+  if (sub) sub.textContent = mins >= 60 ? `合計 ${Math.floor(mins / 60)}時間${mins % 60}分` : `合計 ${mins}分`;
+  if (btn) { btn.disabled = false; btn.textContent = `${n}本を取り込む`; }
+  gdRenderDrawer();
+}
+
+// フォルダ丸ごとの選択。中身はここで初めて走査する（一覧の描画では走査しない）。
+async function _togglePickFolder(f) {
+  const cb = document.querySelector(`.gdp-cb[data-kind="folder"][data-id="${CSS.escape(f.id)}"]`);
+  if (cb) { cb.disabled = true; }
+  try {
+    const tree = await scanFolder(f.id, f.name, 0);
+    const list = [];
+    (function walk(node) {
+      node.videos.forEach(v => list.push({ v, folderName: node.name }));
+      node.folders.forEach(walk);
+    })(tree);
+    _folderCount.set(f.id, list.length);
+    const usable = list.filter(x => !(window.videos || []).some(y => y.id === 'gd-' + x.v.id));
+    // 取り込み可能なものだけ覚える。取込済みを含めると永遠に'all'にならない
+    _folderScan.set(f.id, usable.map(x => ({ id: x.v.id, folderName: x.folderName })));
+    const allOn = usable.length > 0 && usable.every(x => _pick.has(x.v.id));
+    if (allOn) usable.forEach(x => _pick.delete(x.v.id));
+    else       usable.forEach(x => _pickAdd(x.v, x.folderName, _curAncestors().concat(f.id)));
+    if (!usable.length) window.toast?.('このフォルダに取り込める動画がありません');
+  } catch (e) {
+    console.error('folder pick error:', e);
+    window.toast?.('フォルダの読み込みに失敗しました');
+  } finally {
+    if (cb) cb.disabled = false;
+    _browserRender();
+  }
 }
 
 async function _browserRender() {
-  const titleEl = document.getElementById('gd-browser-title');
   const listEl  = document.getElementById('gd-browser-list');
-  const breadEl = document.getElementById('gd-browser-breadcrumb');
-  const backBtn = document.getElementById('gd-browser-back');
+  const crumbEl = document.getElementById('gd-crumbs');
+  const upBtn   = document.getElementById('gd-up');
 
-  if (titleEl) titleEl.textContent = _browserCurrentName;
-  if (backBtn) backBtn.style.visibility = _browserStack.length ? 'visible' : 'hidden';
-
-  // パンくず
-  if (breadEl) {
-    const crumbs = [{ id: 'root', name: 'My Drive' }, ..._browserStack];
-    breadEl.innerHTML = crumbs.map((c, i) =>
-      `<span onclick="gdBrowserJump(${i})" style="cursor:pointer;color:var(--accent);text-decoration:underline">${c.name}</span>`
-    ).join(' › ');
+  // パンくず（ルート → 現在地）
+  if (crumbEl) {
+    const crumbs = [..._browserStack, { id: _browserCurrentId, name: _browserCurrentName }];
+    crumbEl.innerHTML = crumbs.map((c, i) =>
+      `${i ? '<span class="gdp-sep">›</span>' : ''}<button class="gdp-crumb" data-jump="${i}"
+        ${i === crumbs.length - 1 ? 'aria-current="page"' : ''}>${_gdEsc(c.name)}</button>`).join('');
+    crumbEl.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () => {
+      const i = Number(b.dataset.jump);
+      if (i >= _browserStack.length) return;          // 現在地は押しても何もしない
+      gdBrowserJump(i);
+    }));
   }
+  if (upBtn) upBtn.disabled = _browserStack.length === 0;
 
-  if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:12px 4px">読み込み中...</div>';
+  if (listEl) listEl.innerHTML = '<div class="gdp-empty">読み込み中...</div>';
+  _renderSelBar();
 
   try {
-    // ショートカットを実体に直してから数える。スキャンと同じ判定にしておかないと、
-    // 一覧では「0本」なのにスキャンすると出てくる（逆も）といった食い違いが起きる。
+    // ショートカットを実体に直してから振り分ける。スキャンと同じ判定にしておかないと、
+    // 一覧に出ないのに取り込まれる（逆も）といった食い違いが起きる。
     const files   = (await listFolder(_browserCurrentId)).map(_gdResolveShortcut);
     const folders = files.filter(f => f.mimeType === GD_FOLDER_MIME);
     const videos  = files.filter(_isVideoFile).map(f => ({
@@ -709,40 +832,77 @@ async function _browserRender() {
         ? Math.round(Number(f.videoMediaMetadata.durationMillis) / 1000) : 0,
       thumbnailLink: f.thumbnailLink || '',
     }));
-    const vCount  = videos.length;
-    _browserVideos = videos;   // チェックされた動画を復元するために持っておく
-    const favs    = _loadFavs();
-    const favIds  = new Set(favs.map(f => f.id));
 
+    const favs   = _loadFavs();
+    const favIds = new Set(favs.map(f => f.id));
     let html = '';
 
-    // お気に入りセクション（ルート表示時のみ）
     if (_browserStack.length === 0 && favs.length > 0) {
-      html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);padding:4px 0 6px;display:flex;align-items:center;gap:6px">★ お気に入り<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
-      html += favs.map(f => _folderItemHtml(f, true)).join('');
-      html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;gap:6px">全フォルダ<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
+      html += `<div class="gdp-grouphd" style="color:var(--gold)">★ お気に入り</div>`;
+      html += favs.map(f => _folderItemHtml(f, true, _folderState(f.id), _folderCount.get(f.id))).join('');
+      html += `<div class="gdp-grouphd">全フォルダ</div>`;
     }
 
-    if (folders.length === 0 && vCount === 0) {
-      html += '<div style="font-size:12px;color:var(--text3);padding:12px 4px">フォルダが空です</div>';
+    if (!folders.length && !videos.length) {
+      html += '<div class="gdp-empty">このフォルダは空です</div>';
     } else {
-      // Drive と同じくフォルダを先に、その下に動画を並べる
-      html += folders.map(f => _folderItemHtml(f, favIds.has(f.id))).join('');
-      if (vCount > 0) {
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:${folders.length ? '8px' : '4px'} 6px 6px">
-          <span style="font-size:11px;color:var(--accent);font-weight:600">🎬 このフォルダの動画 ${vCount} 本</span>
-          <button onclick="gdBrowserPickAll()" style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:5px;
-            border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">全選択</button>
-        </div>`;
+      html += folders.map(f => _folderItemHtml(f, favIds.has(f.id), _folderState(f.id), _folderCount.get(f.id))).join('');
+      if (videos.length) {
+        if (folders.length) html += '<div class="gdp-grouphd">このフォルダの動画</div>';
         html += videos.map(_videoItemHtml).join('');
       }
     }
-    if (listEl) listEl.innerHTML = html;
-    gdBrowserPickChanged();   // フォルダを移動したら選択状態は消えるのでボタンも戻す
+    if (listEl) {
+      listEl.innerHTML = html;
+      // 一部だけ選んだフォルダは「半端な状態」で見せる（属性では表現できない）
+      listEl.querySelectorAll('.gdp-cb[data-kind="folder"]').forEach(cb => {
+        if (_folderState(cb.dataset.id) === 'part') cb.indeterminate = true;
+      });
+      _bindRows(listEl, folders, videos);
+    }
   } catch(e) {
     console.error('browse error:', e);
-    if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:#e74c3c;padding:12px 4px">読み込みに失敗しました</div>';
+    if (listEl) listEl.innerHTML = '<div class="gdp-empty" style="color:#e74c3c">読み込みに失敗しました</div>';
   }
+}
+
+function _bindRows(listEl, folders, videos) {
+  const byId = new Map([...folders, ...videos].map(x => [x.id, x]));
+
+  listEl.querySelectorAll('.gdp-row').forEach(row => {
+    const kind = row.dataset.kind, id = row.dataset.id;
+    const item = byId.get(id) || { id, name: row.querySelector('.nm')?.textContent || '' };
+    const cb   = row.querySelector('.gdp-cb');
+
+    if (kind === 'folder') {
+      // 行＝中に入る、チェック＝中身を丸ごと選ぶ
+      const enter = () => gdBrowserEnter(item.id, item.name);
+      row.addEventListener('click', e => {
+        if (e.target.closest('.gdp-cb') || e.target.closest('[data-fav]')) return;
+        enter();
+      });
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); enter(); }
+      });
+      cb?.addEventListener('click', e => { e.stopPropagation(); _togglePickFolder(item); });
+      row.querySelector('[data-fav]')?.addEventListener('click', e => {
+        e.stopPropagation();
+        gdFavToggle(item.id, item.name);
+      });
+    } else {
+      if (cb?.disabled) return;                       // 取込済
+      const flip = () => {
+        if (_pick.has(id)) _pick.delete(id);
+        else _pickAdd(item, _browserCurrentName);
+        _browserRender();
+      };
+      row.addEventListener('click', e => { if (!e.target.closest('.gdp-cb')) flip(); });
+      cb?.addEventListener('click', e => { e.stopPropagation(); flip(); });
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); }
+      });
+    }
+  });
 }
 
 export function gdBrowserEnter(folderId, folderName) {
@@ -752,7 +912,7 @@ export function gdBrowserEnter(folderId, folderName) {
   _browserRender();
 }
 
-export function gdBrowserBack() {
+export function gdUp() {
   if (!_browserStack.length) return;
   const prev = _browserStack.pop();
   _browserCurrentId   = prev.id;
@@ -761,58 +921,31 @@ export function gdBrowserBack() {
 }
 
 export function gdBrowserJump(index) {
-  const crumbs = [{ id: 'root', name: 'My Drive' }, ..._browserStack];
-  const target = crumbs[index];
+  const target = _browserStack[index];
+  if (!target) return;
   _browserStack       = _browserStack.slice(0, index);
   _browserCurrentId   = target.id;
   _browserCurrentName = target.name;
   _browserRender();
 }
 
-export async function gdBrowserSelect() {
-  document.getElementById('gd-stage-browser').style.display = 'none';
-  // プレイリスト名をフォルダ名でプリセット
-  const plInp = document.getElementById('gd-playlist');
-  if (plInp) plInp.value = _browserCurrentName;
-  await _scanAndShow(_browserCurrentId, _browserCurrentName);
-}
-
-// 取り込み対象が決まったあとの画面（stage2）を出す。
-// フォルダ丸ごとでも、選んだ数本だけでも、ここから先は同じ扱いにする。
-function _showStage2(tree, title) {
-  _scannedTree = tree;
-  // 全ファイル名収集 → 除去する共通文字列の自動検出
-  const allNames = [];
-  function collect(node) {
-    node.videos.forEach(v => allNames.push(v.name));
-    node.folders.forEach(collect);
+// 選んだものを取り込む。ここから先は従来と同じ経路を通す
+// （選択の見た目だけ変えて、登録処理そのものは作り変えない）。
+export function gdDoImport() {
+  if (!_pick.size) return;
+  // フォルダごとにまとめると、プレイリスト名がフォルダ単位で入る（従来と同じ挙動）
+  const byFolder = new Map();
+  for (const v of _pick.values()) {
+    if (!byFolder.has(v.folderName)) byFolder.set(v.folderName, []);
+    byFolder.get(v.folderName).push(v);
   }
-  collect(tree);
-  // 末尾の共通文字列を優先し、無ければ先頭の共通文字列を出す
-  const detected = detectCommonSuffix(allNames) || detectCommonPrefix(allNames);
-  const suffixEl = document.getElementById('gd-strip-suffix');
-  if (suffixEl) suffixEl.value = detected;
-  const titleEl = document.getElementById('gd-stage2-title');
-  if (titleEl) titleEl.textContent = title;
-  document.getElementById('gd-stage-browser').style.display = 'none';
-  document.getElementById('gd-stage2').style.display = '';
-  gdRenderFileList();
-  // 取り込み共通: タグの付け方ピッカーをマウント（フォルダは多数のため一括のみ）
-  window.itagMount?.('gdTagMount', { perVideo: false });
-}
-
-// ── フォルダスキャンして一覧表示 ──
-async function _scanAndShow(folderId, folderName) {
-  const btn = document.getElementById('gd-scan-btn');
-  if (btn) { btn.textContent = 'スキャン中...'; btn.disabled = true; }
-  try {
-    _showStage2(await scanFolder(folderId, folderName, 0), folderName);
-  } catch(e) {
-    console.error('scan error:', e);
-    window.toast?.('スキャンに失敗しました: ' + e.message);
-  } finally {
-    if (btn) { btn.textContent = '📁 フォルダを選択'; btn.disabled = false; }
-  }
+  _scannedTree = {
+    id: 'picked', name: _browserCurrentName, videos: [],
+    folders: [...byFolder].map(([name, vids]) => ({ id: 'g-' + name, name, videos: vids, folders: [] })),
+  };
+  gdRenderFileList();          // 隠し領域に従来どおりのチェックボックスを展開する
+  gdImport();                  // 実際の登録は既存の処理をそのまま使う
+  _pick.clear();
 }
 
 // ── UI: ファイルリスト描画 ──
@@ -870,13 +1003,7 @@ export function gdUpdateCount() {
   if (el) el.textContent = `${checked.length} / ${all.length} 本選択`;
 }
 
-export function gdSelAll()  { document.querySelectorAll('#gd-file-list .gd-vid-cb:not([disabled])').forEach(c => { c.checked = true;  }); gdUpdateCount(); }
-export function gdSelNone() { document.querySelectorAll('#gd-file-list .gd-vid-cb:not([disabled])').forEach(c => { c.checked = false; }); gdUpdateCount(); }
 
-export function gdBackToBrowser() {
-  document.getElementById('gd-stage2').style.display          = 'none';
-  document.getElementById('gd-stage-browser').style.display   = '';
-}
 
 // ── サムネイルを Firebase Storage にアップロード ──
 async function _uploadThumbToStorage(fileId, thumbnailLink) {

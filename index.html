@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.652</title>
+<title>WAZA KIMURA v52.653</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -168,9 +168,9 @@
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
     switchImportTab,
-    gdOpenBrowser, gdBrowserEnter, gdBrowserBack, gdBrowserJump, gdBrowserSelect,
-    gdBrowserPickChanged, gdBrowserPickAll, gdBrowserImportPicked,
-    gdRenderFileList, gdUpdateCount, gdSelAll, gdSelNone, gdBackToBrowser, gdImport,
+    gdOpenBrowser, gdBrowserEnter, gdUp, gdBrowserJump,
+    gdClearPick, gdToggleDrawer, gdToggleOpts, gdOptsSummary, gdRenderDrawer, gdStripTouched, gdDoImport,
+    gdRenderFileList, gdUpdateCount, gdImport,
     renameGdFile, gdChDdOpen, gdChDdFilter, gdChSelect, gdFavToggle,
     fetchMissingGdThumbnails
   } from './js/gdrive.js';
@@ -234,17 +234,17 @@
   window.switchImportTab         = switchImportTab;
   window.gdOpenBrowser           = gdOpenBrowser;
   window.gdBrowserEnter          = gdBrowserEnter;
-  window.gdBrowserBack           = gdBrowserBack;
+  window.gdUp                    = gdUp;
+  window.gdClearPick             = gdClearPick;
+  window.gdToggleDrawer          = gdToggleDrawer;
+  window.gdToggleOpts            = gdToggleOpts;
+  window.gdOptsSummary           = gdOptsSummary;
+  window.gdRenderDrawer          = gdRenderDrawer;
+  window.gdStripTouched          = gdStripTouched;
+  window.gdDoImport              = gdDoImport;
   window.gdBrowserJump           = gdBrowserJump;
-  window.gdBrowserSelect         = gdBrowserSelect;
-  window.gdBrowserPickChanged    = gdBrowserPickChanged;
-  window.gdBrowserPickAll        = gdBrowserPickAll;
-  window.gdBrowserImportPicked   = gdBrowserImportPicked;
   window.gdRenderFileList        = gdRenderFileList;
   window.gdUpdateCount           = gdUpdateCount;
-  window.gdSelAll                = gdSelAll;
-  window.gdSelNone               = gdSelNone;
-  window.gdBackToBrowser         = gdBackToBrowser;
   window.gdFavToggle             = gdFavToggle;
   window.gdImport                = gdImport;
   window.renameGdFile            = renameGdFile;
@@ -4506,75 +4506,78 @@ document.addEventListener('click', function(e) {
     </div><!-- /yt-import-body -->
     <!-- Google Drive UI -->
     <div id="gd-import-body" style="display:none">
-      <!-- GD Stage browser: フォルダナビ -->
-      <div id="gd-stage-browser">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <button id="gd-browser-back" onclick="gdBrowserBack()" style="border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2);visibility:hidden">← 戻る</button>
-          <div style="font-size:14px;font-weight:800" id="gd-browser-title">My Drive</div>
+      <!-- GD ピッカー: エクスプローラー風に1画面で完結させる -->
+      <div id="gd-picker">
+        <div class="gdp-head">
+          <button id="gd-up" class="gdp-up" onclick="gdUp()">← 上へ</button>
+          <div id="gd-crumbs" class="gdp-crumbs"></div>
         </div>
-        <div id="gd-browser-breadcrumb" style="font-size:11px;color:var(--text3);margin-bottom:10px;min-height:16px"></div>
-        <div id="gd-browser-list" style="overflow-y:auto;max-height:var(--zvh-46,46vh);margin-bottom:14px"></div>
-        <button id="gd-browser-pick" class="btn-save" style="width:100%;display:none;margin-bottom:8px"
-          onclick="gdBrowserImportPicked()">✓ 選んだ動画を取り込む（0本）</button>
-        <div style="display:flex;gap:8px">
-          <button class="btn-save" style="flex:1" onclick="gdBrowserSelect()">✓ このフォルダを選択</button>
-          <button class="btn-sub" style="flex:1;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+
+        <div id="gd-selbar" class="gdp-selbar" style="display:none">
+          <span id="gd-selcount" class="gdp-selcount"></span>
+          <span id="gd-selsub" class="gdp-selsub"></span>
+          <button class="gdp-link" style="margin-left:auto" onclick="gdToggleDrawer()" id="gd-drawer-btn">内訳</button>
+          <button class="gdp-link" onclick="gdClearPick()">すべて解除</button>
+        </div>
+        <div id="gd-drawer" class="gdp-drawer" style="display:none"></div>
+
+        <div id="gd-browser-list" class="gdp-list"></div>
+
+        <div class="gdp-opts">
+          <button class="gdp-optshd" id="gd-optshd" aria-expanded="false" onclick="gdToggleOpts()">
+            <span class="gdp-tw">▶</span><span>取り込みの設定</span>
+            <span class="gdp-optsum" id="gd-optsum">既定のまま</span>
+          </button>
+          <div class="gdp-optsbody" id="gd-optsbody" style="display:none">
+            <div>
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+                <span style="font-size:11px;color:var(--text3)">チャンネル名</span>
+                <span style="font-size:9px;font-weight:700;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px">任意</span>
+              </div>
+              <div style="position:relative">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input id="gd-channel" type="text" placeholder="例: Triforce（空欄でも登録できます）"
+                    style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+                    oninput="gdChDdFilter(this.value);gdOptsSummary()">
+                  <div class="vp-dd-trigger" onclick="gdChDdOpen()" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
+                </div>
+                <div class="vp-dd" id="gd-ch-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:2px">
+                  <input class="vp-dd-search" id="gd-ch-search" placeholder="チャンネル名で検索..."
+                    oninput="gdChDdFilter(this.value)">
+                  <div class="vp-dd-list" id="gd-ch-ddlist"></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+                <span style="font-size:11px;color:var(--text3)">プレイリスト名</span>
+                <span style="font-size:9px;font-weight:700;color:var(--green);background:var(--green-soft);border:1px solid var(--green);border-radius:10px;padding:1px 6px">フォルダ名から自動入力</span>
+              </div>
+              <input id="gd-playlist" type="text" placeholder="空欄でプレイリストなし"
+                style="width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+                oninput="gdOptsSummary()">
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">編集可・空欄でプレイリストなし</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">タイトルから除去する文字列（自動検出）</div>
+              <input id="gd-strip-suffix" type="text" placeholder="共通の番号などを自動で検出して入れます"
+                style="width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text);outline:none;font-family:inherit"
+                oninput="gdStripTouched()">
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">「内訳」を開くと、取り込まれるタイトルを確認できます</div>
+            </div>
+            <div id="gdTagMount"></div>
+          </div>
+        </div>
+
+        <div class="gdp-foot">
+          <button class="btn-sub" style="flex:0 0 34%;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+          <button class="btn-save" style="flex:1" id="gd-import-btn" onclick="gdDoImport()" disabled>取り込む</button>
         </div>
       </div>
-      <!-- GD Stage 2: ファイルリスト -->
+      <!-- 取り込み実行用の隠し領域（選んだものをここに展開してから登録する）-->
       <div id="gd-stage2" style="display:none">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <button onclick="gdBackToBrowser()" style="border:none;background:none;cursor:pointer;font-size:13px;color:var(--text2)">← 戻る</button>
-          <div style="font-size:13px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="gd-stage2-title"></div>
-        </div>
-        <!-- チャンネル名（任意） -->
-        <div style="margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-            <span style="font-size:11px;color:var(--text3)">チャンネル名</span>
-            <span style="font-size:9px;font-weight:700;color:var(--text3);border:1px solid var(--border);border-radius:10px;padding:1px 6px">任意</span>
-          </div>
-          <div style="position:relative">
-            <div style="display:flex;gap:6px;align-items:center">
-              <input id="gd-channel" type="text" placeholder="例: Triforce（空欄でも登録できます）"
-                style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
-                oninput="gdChDdFilter(this.value)">
-              <div class="vp-dd-trigger" onclick="gdChDdOpen()" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
-            </div>
-            <div class="vp-dd" id="gd-ch-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:2px">
-              <input class="vp-dd-search" id="gd-ch-search" placeholder="チャンネル名で検索..."
-                oninput="gdChDdFilter(this.value)">
-              <div class="vp-dd-list" id="gd-ch-ddlist"></div>
-            </div>
-          </div>
-        </div>
-        <!-- プレイリスト名（フォルダ名デフォルト） -->
-        <div style="margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-            <span style="font-size:11px;color:var(--text3)">プレイリスト名</span>
-            <span style="font-size:9px;font-weight:700;color:var(--green);background:var(--green-soft);border:1px solid var(--green);border-radius:10px;padding:1px 6px">フォルダ名から自動入力</span>
-          </div>
-          <input id="gd-playlist" type="text" placeholder="空欄でプレイリストなし"
-            style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
-          <div style="font-size:10px;color:var(--text3);margin-top:3px">編集可・空欄でプレイリストなし</div>
-        </div>
-        <!-- タイトルから除去（全選択ボタンの直上） -->
-        <div style="margin-bottom:8px">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">タイトルから除去する文字列（自動検出）</div>
-          <input id="gd-strip-suffix" type="text" placeholder=""
-            style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text);outline:none;font-family:inherit"
-            oninput="gdRenderFileList()">
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
-          <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="gdSelAll()">全選択</button>
-          <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="gdSelNone()">全解除</button>
-          <span id="gd-sel-count" style="font-size:11px;color:var(--text3);margin-left:auto"></span>
-        </div>
-        <div id="gd-file-list" style="overflow-y:auto;max-height:var(--zvh-38,38vh);margin-bottom:14px"></div>
-        <div id="gdTagMount" style="margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn-save" style="flex:1" onclick="gdImport()">取り込む ✓</button>
-          <button class="btn-sub" style="flex:1;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
-        </div>
+        <div id="gd-file-list"></div>
+        <span id="gd-sel-count"></span>
       </div>
     </div><!-- /gd-import-body -->
     <!-- URL直接入力 UI -->
