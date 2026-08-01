@@ -629,6 +629,21 @@ function _folderItemHtml(f, isFav) {
   </div>`;
 }
 
+// フォルダ選択画面に並べる動画の行。ここは「どのフォルダを選ぶか」を決める画面なので、
+// 行そのものは押せない（取り込む本数の選択は、フォルダを選んだ次の画面でやる）。
+// 件数だけ出していると、そのフォルダに何が入っているのか確認できなかった。
+function _videoItemHtml(f) {
+  const esc  = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const mins = f.duration ? `${Math.round(f.duration / 60)}分` : '';
+  return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);
+                      margin-bottom:5px;background:var(--surface);opacity:.92">
+    <span style="font-size:15px;flex-shrink:0">🎬</span>
+    <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+      title="${esc(f.name)}">${esc(f.name)}</span>
+    ${mins ? `<span style="font-size:10px;color:var(--text3);flex-shrink:0">${mins}</span>` : ''}
+  </div>`;
+}
+
 async function _browserRender() {
   const titleEl = document.getElementById('gd-browser-title');
   const listEl  = document.getElementById('gd-browser-list');
@@ -653,7 +668,12 @@ async function _browserRender() {
     // 一覧では「0本」なのにスキャンすると出てくる（逆も）といった食い違いが起きる。
     const files   = (await listFolder(_browserCurrentId)).map(_gdResolveShortcut);
     const folders = files.filter(f => f.mimeType === GD_FOLDER_MIME);
-    const vCount  = files.filter(_isVideoFile).length;
+    const videos  = files.filter(_isVideoFile).map(f => ({
+      id: f.id, name: f.name,
+      duration: f.videoMediaMetadata?.durationMillis
+        ? Math.round(Number(f.videoMediaMetadata.durationMillis) / 1000) : 0,
+    }));
+    const vCount  = videos.length;
     const favs    = _loadFavs();
     const favIds  = new Set(favs.map(f => f.id));
 
@@ -666,13 +686,15 @@ async function _browserRender() {
       html += `<div style="font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;gap:6px">全フォルダ<span style="flex:1;height:1px;background:var(--border);display:block"></span></div>`;
     }
 
-    if (vCount > 0) {
-      html += `<div style="font-size:11px;color:var(--accent);padding:4px 6px 8px;font-weight:600">🎬 このフォルダに動画 ${vCount} 本</div>`;
-    }
     if (folders.length === 0 && vCount === 0) {
       html += '<div style="font-size:12px;color:var(--text3);padding:12px 4px">フォルダが空です</div>';
     } else {
+      // Drive と同じくフォルダを先に、その下に動画を並べる
       html += folders.map(f => _folderItemHtml(f, favIds.has(f.id))).join('');
+      if (vCount > 0) {
+        html += `<div style="font-size:11px;color:var(--accent);padding:${folders.length ? '8px' : '4px'} 6px 6px;font-weight:600">🎬 このフォルダの動画 ${vCount} 本</div>`;
+        html += videos.map(_videoItemHtml).join('');
+      }
     }
     if (listEl) listEl.innerHTML = html;
   } catch(e) {

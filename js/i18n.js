@@ -1569,6 +1569,7 @@
     "絞り込み結果のプレイリスト (#件)": "Playlists in results (#)",
     "（うちMP#解析: #本）": "(MP4-parsed: #)",
     "🎬 このフォルダに動画 # 本": "🎬 # videos in this folder",
+    "🎬 このフォルダの動画 # 本": "🎬 # videos in this folder",
     "🖼 #本のサムネイルを保存しました": "🖼 Saved # thumbnails",
     "# / # 本選択": "# / # selected",
     "#ノード · #接続": "# nodes · # links",
