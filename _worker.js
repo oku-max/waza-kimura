@@ -432,7 +432,7 @@ async function handleAiSummary(request, env) {
     return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
   }
 
-  // 公式チャプター表（サイトからコピーしたテキスト／スクショ画像）を読み取る経路。
+  // 貼り付けられたチャプター一覧（テキスト／スクショ画像）を読み取る経路。
   // 動画も字幕も送らないので最も安い。ここでは表を構造化するだけで、
   // 時刻が書かれていない場合の位置決めは別リクエスト（titles付き）で行う。
   if (source === 'chapterlist') {
@@ -577,7 +577,7 @@ function _aiChaptersPrompt(ctx, chapOpts, transcript) {
   const maxCount = Math.max(2, Math.min(80, Number(o.maxCount) || CHAP_MAX_COUNT));
   const titleLen = Math.max(6, Math.min(40, Number(o.titleLen) || 18));
 
-  // 公式チャプター表が渡された時は「位置合わせ」に切り替える。
+  // チャプター一覧が渡された時は「位置合わせ」に切り替える。
   // 何が何件あるかは確定しているので、探すのは各章の開始時刻だけ。
   const titles = Array.isArray(o.titles) ? o.titles.filter(t => String(t || '').trim()) : [];
   if (titles.length) return _aiChapterAlignPrompt(ctx, titles, transcript);
@@ -649,7 +649,7 @@ ${source}
 {"items":[{"start":"M:SS または H:MM:SS。不明なら null","title":"一覧のタイトルをそのまま"}]}`;
 }
 
-// 公式チャプター表（テキスト／スクショ画像）を構造化する。
+// 貼り付けられたチャプター一覧（テキスト／スクショ画像）を構造化する。
 // 表に何が書いてあるかを写すだけで、動画の中身は一切見ない。
 function _aiChapterListPrompt(hasImage) {
   return `これはブラジリアン柔術の教則DVD/動画の「公式チャプター一覧（目次）」です。${
@@ -681,7 +681,7 @@ async function _aiChapterListParse(env, listText, listImages) {
   const imgs = (Array.isArray(listImages) ? listImages : [])
     .filter(im => im && typeof im.data === 'string' && im.data.length <= CHAP_LIST_IMG_BYTES)
     .slice(0, CHAP_LIST_IMG_MAX);
-  if (!text && !imgs.length) return jsonRes({ error: 'チャプター表のテキストか画像が必要です' }, 400);
+  if (!text && !imgs.length) return jsonRes({ error: 'チャプター名のテキストか画像が必要です' }, 400);
 
   const parts = [];
   for (const im of imgs) {
@@ -690,7 +690,7 @@ async function _aiChapterListParse(env, listText, listImages) {
   parts.push({ text: _aiChapterListPrompt(imgs.length > 0) + (text ? `\n\n【貼り付けられたテキスト】\n${text}` : '') });
 
   const result = await _geminiGenerate(env, parts, {
-    json: true, maxOutputTokens: 16384, thinkingBudget: 1024, temperature: 0, what: 'チャプター表',
+    json: true, maxOutputTokens: 16384, thinkingBudget: 1024, temperature: 0, what: 'チャプター一覧',
   });
   if (result.error) return jsonRes(result, 502);
   return jsonRes({

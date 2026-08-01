@@ -1234,7 +1234,7 @@ function _renderAiImportSettings() {
               ${label}<div style="font-size:9.5px;font-weight:400;opacity:.85;margin-top:1px">${desc}</div>
             </button>`).join('')}
         </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:5px">公式チャプター表から作る時は、表のとおりに区切るのでこの設定は使いません</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:5px">貼り付けた一覧から作る時は、その通りに区切るのでこの設定は使いません</div>
       </div>
     </div>`;
 }
