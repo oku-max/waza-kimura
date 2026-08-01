@@ -1461,6 +1461,7 @@
     "公式チャプター表 ＋ 字幕で位置合わせ": "Official chapter list + located via subtitles",
     "公式チャプター表 ＋ 動画で位置合わせ": "Official chapter list + located via video",
     // 検出の粒度
+    "取込済": "Imported",
     "自動チャプターの粒度": "Auto chapter granularity",
     "Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか":
       "How finely “📑 Auto chapters” splits a Google Drive video",
@@ -1570,6 +1571,7 @@
     "（うちMP#解析: #本）": "(MP4-parsed: #)",
     "🎬 このフォルダに動画 # 本": "🎬 # videos in this folder",
     "🎬 このフォルダの動画 # 本": "🎬 # videos in this folder",
+    "✓ 選んだ動画を取り込む（#本）": "✓ Import selected (#)",
     "🖼 #本のサムネイルを保存しました": "🖼 Saved # thumbnails",
     "# / # 本選択": "# / # selected",
     "#ノード · #接続": "# nodes · # links",
