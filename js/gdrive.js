@@ -421,9 +421,19 @@ function _stripVideoExt(name) { return String(name == null ? '' : name).replace(
 
 function cleanTitle(filename, stripSuffix) {
   let t = _stripVideoExt(filename);   // 既知の動画拡張子のみ除去（先頭番号・ドット区切りタイトルは保持）
-  if (stripSuffix?.trim()) {
-    const idx = t.indexOf(stripSuffix.trim());
-    if (idx > 0) t = t.slice(0, idx).trim();
+  const s = stripSuffix?.trim();
+  if (s) {
+    const idx = t.indexOf(s);
+    if (idx === 0) {
+      // 先頭にある共通文字列（DVDリップの通し番号など）は、それだけを取り除く。
+      // 後ろは題名そのものなので残す。区切り記号が頭に残るのでそれも落とす。
+      const rest = t.slice(s.length).replace(/^[\s_.\-–—:：]+/, '');
+      if (rest) t = rest;   // 題名が丸ごと消える指定は無視する（無題を作らない）
+    } else if (idx > 0) {
+      // 途中〜末尾にある共通文字列は、そこから後ろをまとめて落とす
+      //（「技名 - シリーズ名」の後半を捨てる従来の使い方）
+      t = t.slice(0, idx);
+    }
   }
   return t.trim();
 }
@@ -443,6 +453,32 @@ function detectCommonSuffix(names) {
     }
   }
   return '';
+}
+
+// 全ファイルの頭に付いている共通文字列（DVDリップの通し番号など）を探す。
+// 上の detectCommonSuffix は末尾しか見ないため、
+// 「4497857413218-05-25-Shoulder Walk」のような接頭辞は拾えなかった。
+// 判定は cleanTitle が見る文字列（拡張子だけ落としたもの）と揃える。
+// 揃えないと、返した文字列が題名の先頭に無く「途中一致＝以降を全部落とす」と
+// 誤って扱われ、題名が消えてしまう。
+function detectCommonPrefix(names) {
+  const titles = names.map(n => _stripVideoExt(n));
+  if (titles.length < 3) return '';
+  const ref = titles[0];
+  let len = 0;
+  for (let i = 0; i < ref.length; i++) {
+    if (!titles.every(t => t[i] === ref[i])) break;
+    len = i + 1;
+  }
+  // 数字や単語の途中で切らない。共通部分の最後の区切り記号までに丸める。
+  //（丸めないと「…3218-05」と「…3218-06」の共通部分が「…3218-0」になり、
+  //   題名が「5-25-Shoulder Walk」のように数字の途中から始まってしまう）
+  const m = ref.slice(0, len).match(/^.*[\s_.\-–—:：]/);
+  len = m ? m[0].length : len;
+  if (len < 8) return '';
+  // 取り除いたあとに題名が残らない・短すぎるものは自動では出さない
+  const ok = titles.every(t => t.slice(len).replace(/^[\s_.\-–—:：]+/, '').trim().length >= 3);
+  return ok ? ref.slice(0, len) : '';
 }
 
 function flattenTree(tree, stripSuffix) {
@@ -654,7 +690,8 @@ async function _scanAndShow(folderId, folderName) {
     const allNames = [];
     function collect(node) { node.videos.forEach(v => allNames.push(v.name)); node.folders.forEach(collect); }
     collect(_scannedTree);
-    const detected = detectCommonSuffix(allNames);
+    // 末尾の共通文字列を優先し、無ければ先頭の共通文字列を出す
+    const detected = detectCommonSuffix(allNames) || detectCommonPrefix(allNames);
     const suffixEl = document.getElementById('gd-strip-suffix');
     if (suffixEl) suffixEl.value = detected;
     document.getElementById('gd-stage2-title').textContent = folderName;
