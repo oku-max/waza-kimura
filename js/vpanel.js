@@ -2700,6 +2700,14 @@ function _looksLikeSrt(t) {
   return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(String(t || ''));
 }
 
+// 見つかった字幕から「上書き対象（同名）」と「そもそも字幕があるか」を決める。
+// exact は保存時に中身を差し替える相手、anySub は生成をスキップすべきかの判断材料。
+function _subExisting(found, target) {
+  const list  = Array.isArray(found) ? found : [];
+  const exact = list.find(f => f && f.name === target) || null;
+  return { exact, anySub: exact || list[0] || null };
+}
+
 // ── 生成中にページを離れると結果だけ失われる（課金は発生済み）ので確認する ──
 // 動画はすでにGeminiへ送信済みで、離脱すると結果を受け取れないまま費用だけかかる。
 // カウンタ方式にして、一括実行のように複数が重なっても正しく判定する。
@@ -2955,6 +2963,15 @@ async function _asrGenerateAndSave(ctx) {
   const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
   if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
 
+  // 一括処理で「すでに字幕があるものは飛ばす」が指定されている時は、依頼する前に判定する。
+  // ASRは依頼した時点で課金されるので、保存時の重複チェックでは遅い
+  // （作り直さないつもりでも毎回書き起こし代がかかってしまう）。
+  // 判定は再生時の字幕検出と同じ探し方にして、「プレイヤーで字幕が出る＝ある」と揃える。
+  if (preset && preset.existing !== 'replace') {
+    const already = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+    if (already.length) return { ok: false, skipped: true, target: already[0].name };
+  }
+
   // 1. 依頼する（すぐIDが返る。ここで待たされないので100秒制限に当たらない）
   setBtn('⏳ 依頼中…');
   const startRes = await fetch('/api/asr-start', {
@@ -3111,15 +3128,21 @@ window.vpGenSubtitle = async function(id, preset) {
     if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
     const target = base + (subLang === 'ja' ? '.ja.srt' : '.srt');
 
-    const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
-    const dup  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
-    const existing = dup?.files?.[0] || null;
-    if (existing) {
+    // 既存判定は「同名ファイルがあるか」ではなく、再生時の字幕検出と同じ探し方をする。
+    // 完全一致だけを見ていると、言語サフィックスの違い（.srt と .ja.srt）や、
+    // 動画名との表記ゆれ・リネームで既存を見落とし、課金して作り直してしまう。
+    // 「プレイヤーで字幕が出る＝字幕がある」と判定が一致するのが正しい。
+    const found = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+    const { exact, anySub } = _subExisting(found, target);
+    if (anySub) {
       // 一括処理では既定で「作らない」。既存の字幕を黙って作り直さない安全側に倒す。
       if (preset) {
-        if (preset.existing !== 'replace') { endBtn(); return { ok: false, skipped: true, target }; }
-      } else if (!confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) {
-        endBtn(); return { ok: false, skipped: true, target };
+        if (preset.existing !== 'replace') { endBtn(); return { ok: false, skipped: true, target: anySub.name }; }
+      } else {
+        const msg = exact
+          ? `「${target}」はすでにあります。\n上書きして作り直しますか？`
+          : `この動画にはすでに字幕があります（${anySub.name}）。\n「${target}」として別に作りますか？`;
+        if (!confirm(msg)) { endBtn(); return { ok: false, skipped: true, target }; }
       }
     }
 
@@ -3147,7 +3170,8 @@ window.vpGenSubtitle = async function(id, preset) {
 
     // 3. Driveへ保存（既存があればその中身だけ差し替え）
     setBtn('⏳ 保存中…');
-    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: existing?.id });
+    // 同名があればその中身だけ差し替える。別名の字幕しか無い場合は新規作成（既存には触れない）
+    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id });
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
@@ -3254,7 +3278,7 @@ function _vttToTranscript(vtt, maxChars) {
 function _normalizeChapters(items, opts) {
   const o = opts || {};
   const dur = Number(o.duration) || 0;
-  // 0 を渡せるようにする（公式チャプター表は短い章も正解なので間引かない）
+  // 0 を渡せるようにする（貼り付けた一覧は短い章も正解なので間引かない）
   const minSec   = o.minSec   != null ? Number(o.minSec)   : CHAP_MIN_SEC;
   const maxCount = o.maxCount != null ? Number(o.maxCount) : CHAP_MAX_COUNT;
   const out = [];
@@ -3310,7 +3334,7 @@ function _snapChapters(chaps, cues) {
   return chaps;
 }
 
-// ── 公式チャプター表の貼り付け ────────────────────────────
+// ── チャプター一覧の貼り付け ──────────────────────────────
 // 教則DVDは商品ページに章立てが載っていることが多い。それが手に入るなら
 // AIに推測させるより正確なので、テキスト／スクショを読み取って章立てを確定させ、
 // 時刻が書かれていない時だけ「どこから始まるか」を字幕・動画から探す。
@@ -3355,11 +3379,11 @@ function _chapListDialog() {
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📋 公式チャプター表から</div>
-          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">商品ページの目次をそのまま貼り付けてください。文字でも画像でも構いません</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📋 チャプター一覧を貼り付け</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">チャプター名と時間をそのまま貼り付けてください。文字でも画像でも構いません</div>
         </div>
         <div style="flex:1;overflow-y:auto;padding:10px 14px">
-          <textarea id="vp-chap-in-text" placeholder="ここに目次を貼り付け（例: 1. Closed Guard Basics）"
+          <textarea id="vp-chap-in-text" placeholder="例:\n0:00 イントロ\n2:30 クローズドガード\n15:42 ヒップバンプスイープ"
             style="width:100%;box-sizing:border-box;min-height:110px;font-size:11.5px;line-height:1.5;padding:8px;border:1px solid var(--border,#444);
                    border-radius:8px;background:var(--surface2,#2a2a2a);color:var(--text,#eee);font-family:inherit;outline:none;resize:vertical"></textarea>
           <div id="vp-chap-in-drop" style="margin-top:8px;padding:14px 10px;border:1.5px dashed var(--border,#555);border-radius:10px;text-align:center;cursor:pointer">
@@ -3511,7 +3535,7 @@ function _askChapterSource(anchorEl, subCount) {
          ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${sub}</div>
        </button>`;
     menu.innerHTML =
-      item('list', '公式チャプター表から', '商品ページの目次を貼り付け（最も正確）', false)
+      item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
       + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
@@ -3720,7 +3744,7 @@ window.vpGenChapters = async function(id, preset) {
     const via = preset ? (preset.via || (subs.length ? 'sub' : 'video')) : await _askChapterSource(btn, subs.length);
     if (!via) return { ok: false, skipped: true };
 
-    // 公式チャプター表は先に貼り付けてもらう（キャンセルなら通信もしない）
+    // 一覧は先に貼り付けてもらう（キャンセルなら通信もしない）
     const input = via === 'list' ? (preset?.input || await _chapListDialog()) : null;
     if (via === 'list' && !input) return { ok: false, skipped: true };
 
@@ -3774,7 +3798,7 @@ window.vpGenChapters = async function(id, preset) {
                                 listText: input.text, listImages: input.images });
         cost += Number(r1.d.costUsd) || 0;
         const conv = _chapListToChapters(r1.parsed?.items);
-        if (!conv.titles.length) return fail('チャプター表を読み取れませんでした');
+        if (!conv.titles.length) return fail('貼り付けた内容からチャプターを読み取れませんでした');
 
         if (conv.needAlign) {
           // 2b. 表に時刻が無い → 章立てを正解として、位置だけを字幕（無ければ動画）から探す
@@ -3788,11 +3812,11 @@ window.vpGenChapters = async function(id, preset) {
           cost += Number(r2.d.costUsd) || 0;
           const merged = _chapMergeAligned(conv.titles, r2.parsed?.items);
           chaps   = useSub ? _snapChapters(merged.chaps, cues) : merged.chaps;
-          noteSrc = useSub ? '公式チャプター表 ＋ 字幕で位置合わせ' : '公式チャプター表 ＋ 動画で位置合わせ';
+          noteSrc = useSub ? '貼り付けた一覧 ＋ 字幕で位置合わせ' : '貼り付けた一覧 ＋ 動画で位置合わせ';
           if (merged.unknown) warn = `${merged.unknown}件は位置が特定できなかったため除きました`;
         } else {
           chaps   = conv.chaps;
-          noteSrc = '公式チャプター表';
+          noteSrc = '貼り付けた一覧';
           if (conv.missing) warn = `${conv.missing}件は時刻が読み取れなかったため除きました`;
         }
         // 動画より後ろの時刻＝別の巻の目次を貼った可能性。落としたことを必ず伝える
