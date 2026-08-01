@@ -2278,13 +2278,31 @@ function _wrapText(text, o) {
 // 字幕は「時刻が内容そのもの」なので、表示の都合で開始時刻を動かしてはいけない。
 //
 // 以前はここで、行数が上限を超えたキューを文字数比で時間分割していた。分割後の
-// 時刻は音声から測った値ではなく、文字数で割った推定値になる。実データで測ると
-// 英語字幕でさえ開始時刻の19%が作られた値だった（日本語訳ではもっと多い）。
-// 日本語は動詞が最後に来るので、前半だけ先に出て残りは次の話題に移ってから出る。
+// 時刻は音から測った値ではなく文字数からの推定値になる。だから v52.656 で分割を
+// やめた。ところがそのとき「最大行数」の設定を見る処理まで一緒に消してしまい、
+// 2行に設定しても3行出るようになった（ユーザーのスクリーンショットで発覚）。
 //
-// 分割は一切しない。長い本文は行数を増やして出す。レイアウトが時刻に合わせる。
+// いまは生成の時点で「最大行数 × 1行の文字数」に収めているので、ふつうは超えない。
+// それでも超えるのは外から持ち込んだ字幕など。そのときは、そのキュー自身の時間の
+// 中だけで分ける。文字数比なので推定は入るが、誤差はそのキューの長さで頭打ちで、
+// 前後のキューには一切はみ出さない（内容が丸ごとずれる類の壊れ方はしない）。
 function _splitCue(cue, lines, o) {
-  return [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
+  const one = () => [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
+  const max = Math.max(1, o.maxLines || 1);
+  if (lines.length <= max) return one();
+
+  const chunks = [];
+  for (let i = 0; i < lines.length; i += max) chunks.push(lines.slice(i, i + max));
+  const dur = Math.max(0.1, cue.end - cue.start);
+  const total = chunks.reduce((sum, c) => sum + c.join('').length, 0) || 1;
+  let t = cue.start;
+  return chunks.map((c, i) => {
+    const d = dur * (c.join('').length / total);
+    const end = (i === chunks.length - 1) ? cue.end : t + d;   // 最後は必ず元の終了時刻
+    const out = { start: t, end, text: c.join('\n') };
+    t = end;
+    return out;
+  });
 }
 
 // 短すぎて読めないキューを、隣が近ければ結合する。
@@ -2881,26 +2899,27 @@ function _srtJoin(cues) {
 // 47回の通信のうち1回でも転べばその25行がまるごと英語のまま残る。1回投げて
 // 終わりにせず、抜けた行だけを小さくまとめて投げ直す（実際に26行＝25＋1が
 // 未訳で残ったため）。最後まで訳せなかった行だけ原文で埋める。
-async function _translateLines(lines, lang, opts, onProgress, secs) {
-  const SIZE = 25, RETRY_SIZE = 10, CONC = 3, ROUNDS = 2;
-  const hasSecs = Array.isArray(secs) && secs.length === lines.length;
-  const out = new Array(lines.length).fill('');
+// 文の配列を訳して、字幕1枚ずつの配列に戻す。
+// items: [{ text, secs:[各字幕の秒数] }] / cap: 1枚に入る最大文字数
+// 通信は1回で終わらせない。47回のうち1回転べばその塊がまるごと英語で残るので、
+// 抜けた件だけを小さくまとめて投げ直す（実際に26行＝25＋1が未訳で残ったため）。
+async function _translateItems(items, lang, opts, cap, onProgress) {
+  const SIZE = 20, RETRY_SIZE = 8, CONC = 3, ROUNDS = 2;
+  const out = new Array(items.length).fill(null);
   const errors = [];
-  let cost = 0, calls = 0;
+  let cost = 0, calls = 0, wrongLen = 0;
 
   const runBatch = async (idxs) => {
     calls++;
     try {
       const res = await fetch('/api/translate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lines: idxs.map(i => lines[i]), lang, opts,
-          ...(hasSecs ? { secs: idxs.map(i => secs[i]) } : {}),
-        }),
+        body: JSON.stringify({ items: idxs.map(i => items[i]), lang, opts, cap }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
-      (d.lines || []).forEach((t, k) => { if (t) out[idxs[k]] = t; });
+      (d.parts || []).forEach((p, k) => { if (Array.isArray(p) && p.length) out[idxs[k]] = p; });
+      if (Array.isArray(d.wrongLen)) wrongLen += d.wrongLen.length;
       if (typeof d.costUsd === 'number') cost += d.costUsd;
     } catch (e) {
       errors.push(e?.message || String(e));
@@ -2929,8 +2948,7 @@ async function _translateLines(lines, lang, opts, onProgress, secs) {
   };
   const stillMissing = () => out.map((t, i) => (t ? -1 : i)).filter(i => i >= 0);
 
-  await runAll(chunk(lines.map((_, i) => i), SIZE), '翻訳中');
-
+  await runAll(chunk(items.map((_, i) => i), SIZE), '翻訳中');
   const firstMissing = stillMissing().length;
   for (let round = 0; round < ROUNDS; round++) {
     const miss = stillMissing();
@@ -2939,11 +2957,33 @@ async function _translateLines(lines, lang, opts, onProgress, secs) {
   }
 
   const missing = stillMissing();
-  missing.forEach(i => { out[i] = lines[i]; });   // 最後まで駄目なら原文を残す
-  console.log('[translate]', { lines: lines.length, calls, firstMissing,
-                               finalMissing: missing.length, cost, errors });
-  return { lines: out, missing: missing.map(i => i + 1), firstMissing,
+  // 最後まで駄目な件は原文を1枚目に置き、残りは空。時刻は動かさない。
+  missing.forEach(i => {
+    out[i] = items[i].secs.map((_, k) => (k === 0 ? items[i].text : ''));
+  });
+  console.log('[translate]', { items: items.length, calls, firstMissing,
+                               finalMissing: missing.length, wrongLen, cost, errors });
+  return { parts: out, missing: missing.map(i => i + 1), firstMissing,
            cost, error: errors[0] || null, errorCount: errors.length };
+}
+
+// 実測の字幕（ASRのSRT）を「文」ごとにまとめる。
+// 字幕がどの文に属するかは、字幕の中心時刻がどの文の範囲に入るかで決める。
+// どの文にも入らない字幕（無音の合間など）は、直前の文にぶら下げる。
+function _groupCuesBySentence(cues, sents) {
+  const groups = sents.map(s => ({ text: s.text, idx: [] }));
+  let last = -1;
+  for (let c = 0; c < cues.length; c++) {
+    const mid = (cues[c].start + cues[c].end) / 2;
+    let hit = -1;
+    for (let k = 0; k < sents.length; k++) {
+      if (mid >= sents[k].start && mid <= sents[k].end) { hit = k; break; }
+    }
+    if (hit < 0) hit = last >= 0 ? last : 0;
+    groups[hit].idx.push(c);
+    last = hit;
+  }
+  return groups.filter(g => g.idx.length);
 }
 
 const TR_LANG_LABEL = { zh:'中国語', ko:'韓国語', es:'スペイン語', pt:'ポルトガル語', fr:'フランス語' };
@@ -3041,12 +3081,12 @@ async function _asrGenerateAndSave(ctx) {
   //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
   let trTarget = null, trCost = 0, trMissing = 0, trErr = null, trFailed = false;
   if (translating) {
-    // 翻訳の入力は SRT のキューではなく「文」。
-    // SRT のキューは文字数で切られるので文の途中で切れる。英語と日本語は語順が
-    // 逆なので、途中で切れた断片だけでは日本語の文にならず、モデルは次の行の
-    // 内容を引っ張ってきて1文にしてしまう。その結果、内容が丸ごと1キューぶん
-    // 前にずれ、最後まで戻らない（実データで冒頭から約3〜4秒早く出ていた）。
-    // 文単位なら文が完結しているので借りる必要がなく、ずれが起きない。
+    // 時刻は「実測の字幕(SRT)」の細かさのまま使い、翻訳だけ「文」単位で行う。
+    //   ・字幕1枚ずつ訳させる → 語順が逆なので断片が文にならず、モデルが次の
+    //     字幕から内容を借りて訳がまるごと前にずれる（実データで確認）
+    //   ・文まるごと1枚にする → 1枚が20秒出っぱなしになり話が先へ進む（同上）
+    // 文で訳し、その文にまたがる字幕の枚数に分けて配る。分ける位置は文の中なので
+    // 時刻は実測値の範囲から出ない。字幕翻訳でいうリキュー（cueの振り直し）。
     setBtn('⏳ 文を取得中…');
     let sents = [];
     try {
@@ -3055,26 +3095,38 @@ async function _asrGenerateAndSave(ctx) {
       if (sres.ok && Array.isArray(sd.sentences)) sents = sd.sentences;
     } catch (e) { /* 下で失敗として扱う */ }
 
-    if (!sents.length) {
-      trFailed = true; trErr = '文の区切りを取得できませんでした';
+    const cues = _parseVtt(_srtToVtt(srt));
+    if (!sents.length || !cues.length) {
+      trFailed = true;
+      trErr = !cues.length ? '字幕の中身を読み取れませんでした' : '文の区切りを取得できませんでした';
     } else {
+      const groups = _groupCuesBySentence(cues, sents);
       setBtn('⏳ 翻訳中…');
-      // 各文の長さ(秒)を渡す。1秒に読める文字数から上限が決まり、
-      // 収まらない訳は向こうで縮められる（字幕翻訳の基本作業）。
-      const tr = await _translateLines(sents.map(s => s.text), want, _subGenPayload(),
-        (d, n, label) => setBtn(`⏳ ${label}… ${d}/${n}`),
-        sents.map(s => s.end - s.start));
-      trCost = tr.cost; trMissing = tr.missing.length; trErr = tr.error;
-      // 1行も訳せていないなら、中身は原文そのもの。それを「.ja.srt」という名前で
-      // 保存したら中身と名前が食い違う。保存せず失敗として扱い、原語版だけ残す。
-      if (tr.missing.length >= sents.length) {
+      // 1枚に入る最大文字数は表示設定そのもの（最大行数 × 1行の文字数）。
+      // 生成の時点で収めておけば、表示側で時刻をいじって分ける必要がなくなる。
+      const cap = (want === 'ja' || want === 'zh' || want === 'ko')
+        ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
+      const tr = await _translateItems(
+        groups.map(g => ({ text: g.text, secs: g.idx.map(c => cues[c].end - cues[c].start) })),
+        want, _subGenPayload(), cap,
+        (d, n, label) => setBtn(`⏳ ${label}… ${d}/${n}`));
+      trCost = tr.cost; trErr = tr.error;
+
+      if (tr.missing.length >= groups.length) {
         trFailed = true;
         trErr = trErr || '翻訳できませんでした';
       } else {
-        // 時刻は AssemblyAI が単語単位で実測した文の開始・終了をそのまま使う。
-        const trSrt = _srtJoin(sents.map((s, i) => ({
-          tc: `${_sec2tc(s.start).replace('.', ',')} --> ${_sec2tc(s.end).replace('.', ',')}`,
-          text: tr.lines[i],
+        // 訳を元の字幕1枚ずつに戻す。時刻は実測値をそのまま使う。
+        const text = new Array(cues.length).fill('');
+        groups.forEach((g, k) => {
+          const parts = tr.parts[k] || [];
+          g.idx.forEach((c, j) => { text[c] = parts[j] || ''; });
+        });
+        const keep = cues.map((c, i) => ({ c, t: text[i] })).filter(x => x.t);
+        trMissing = cues.length - keep.length;
+        const trSrt = _srtJoin(keep.map(({ c, t }) => ({
+          tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
+          text: t,
         })));
         trTarget = _subFileName(base, want);
         setBtn('⏳ 保存中…');

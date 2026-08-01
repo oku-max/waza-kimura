@@ -1520,7 +1520,16 @@ function _trMaxChars(sec, lang) {
   return Math.max(10, Math.round((Number(sec) || 0) * cps));
 }
 
-function _trPrompt(lines, lang, opts, secs) {
+// 1つの「文」を、その文にまたがる字幕の数だけに分けて訳させる。
+//
+// なぜこの形か:
+//   ・字幕1枚ずつ訳させると、英語と日本語は語順が逆なので断片が文にならず、
+//     モデルが次の字幕から内容を借りて訳がまるごと前にずれる（実データで確認）
+//   ・かといって「文まるごと1枚」にすると、1枚が20秒間出っぱなしになり、
+//     その間に話は先へ進む（これも実データで確認）
+//   文で訳し、字幕の細かさで出す。字幕翻訳でいうリキュー（cueの振り直し）。
+//   分ける位置は文の中なので、時刻は実測値の範囲から出ない。
+function _trPrompt(items, lang, opts) {
   const o = opts || {};
   const target = TR_LANGS[lang] || TR_LANGS.ja;
   const rules = [`- 出力言語は${target}`];
@@ -1530,21 +1539,14 @@ function _trPrompt(lines, lang, opts, secs) {
     else if (o.terms === 'translate') rules.push('- 柔術の技術用語も日本語に訳す');
     else                              rules.push('- 柔術の技術用語はカタカナ');
   }
-  // 表示秒数が分かっているときは、1行ごとに文字数の上限を渡す。
-  // 字幕翻訳の実務では「尺に収まるまで意訳して縮める」のが基本作業であり、
-  // 上限を伝えないと読み切れない長さの訳が返ってくる。
-  const timed = Array.isArray(secs) && secs.length === lines.length;
-  const body  = lines.map((t, i) => timed
-    ? `${i + 1}. [${_trMaxChars(secs[i], lang)}文字以内] ${t}`
-    : `${i + 1}. ${t}`).join('\n');
-  const lenRule = timed
-    ? `- 各行の [N文字以内] は表示時間から決まった上限。**必ず守る**。
-  収まらないときは、意味の中心を残して言い換え・省略して縮める
-  （字幕翻訳では逐語訳より尺に収めることを優先する）`
-    : '';
+
+  const body = items.map((it, i) => {
+    const caps = it.caps.map((c, k) => `${k + 1}枚目=${c}文字以内`).join(' / ');
+    return `${i + 1}. 【${it.caps.length}枚に分ける／${caps}】\n   ${it.text}`;
+  }).join('\n');
 
   return `あなたはブラジリアン柔術(BJJ)・グラップリングの教則動画の字幕翻訳者です。
-英語の字幕行を${target}に訳してください。
+英語の文を${target}に訳し、字幕として表示できる形に分けてください。
 
 【文脈】
 講師が技術を実演しながら解説している教則動画です。日常会話ではありません。
@@ -1553,14 +1555,20 @@ guard（ガード。警備ではない） / pass the guard / mount / side contro
 base / frame / grip / drill / hook / underhook / overhook / heel hook /
 dead foot, live foot, side foot / heel / pinky / ball of the foot / posture
 
+【いちばん大事な決まり】
+入力の1件は「1つの文」です。その文は動画の中で複数枚の字幕に分けて表示されます。
+- **文全体をまず訳し、それを指定された枚数に分けて** parts に入れる
+- parts の数は指定された枚数と**必ず同じ**にする（多くても少なくてもいけない）
+- 分ける位置は、日本語として意味が切れる場所（読点・助詞のあと）を選ぶ
+- 各枚の文字数上限を守る。収まらないときは、意味の中心を残して
+  言い換え・省略して縮める（字幕翻訳では逐語訳より尺に収めることを優先する）
+- **文の意味を落とさない。**上限に合わせるために内容を切り捨てて、
+  途中で終わる不完全な文にしてはいけない。全体を縮めて枚数ぶんに配る
+
 【出力の決まり】
-- 入力の各行に対し {"i": 行番号, "ja": 訳文} を1つずつ返す
-- 全${lines.length}行ぶんを必ず返す。1行も飛ばさない
+- 入力の各件に対し {"i": 件番号, "parts": ["1枚目", "2枚目", ...]} を1つずつ返す
+- 全${items.length}件ぶんを必ず返す。1件も飛ばさない
 - i は入力に振られた番号をそのまま使う
-- 各行は独立した字幕として表示される。**他の行の内容を混ぜてはいけない。**
-  その行に書かれていることだけを訳す。次の行を先取りしない
-- 行を分割・結合しない。1行の入力 → 1行の訳
-${lenRule}
 ${rules.join('\n')}
 - 音声認識の誤認識（例: "Gitu"→jiu-jitsu, "girls"→drills, "sci-fi"→side foot）は
   文脈から補正してよい
@@ -1577,9 +1585,12 @@ const _TR_SCHEMA = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { i: { type: 'INTEGER' }, ja: { type: 'STRING' } },
-        required: ['i', 'ja'],
-        propertyOrdering: ['i', 'ja'],
+        properties: {
+          i:     { type: 'INTEGER' },
+          parts: { type: 'ARRAY', items: { type: 'STRING' } },
+        },
+        required: ['i', 'parts'],
+        propertyOrdering: ['i', 'parts'],
       },
     },
   },
@@ -1587,17 +1598,22 @@ const _TR_SCHEMA = {
 };
 
 // 番号つきの結果を元の並びに戻す。欠けた番号はそのまま報告する。
-function _trRebuild(items, n) {
-  const out = new Array(n).fill('');
+// 枚数が指定と違って返ってきた件は「訳せなかった」として扱う。無理に詰めると
+// 別の字幕に別の内容が入り、いちばん直したかったズレが再発する。
+function _trRebuild(items, want) {
+  const out = new Array(want.length).fill(null);
+  const wrongLen = [];
   for (const it of (Array.isArray(items) ? items : [])) {
     const i = Number(it && it.i);
-    const ja = String((it && it.ja) || '').trim();
-    if (!Number.isFinite(i) || i < 1 || i > n || !ja) continue;
-    out[i - 1] = ja;
+    if (!Number.isFinite(i) || i < 1 || i > want.length) continue;
+    const parts = Array.isArray(it.parts) ? it.parts.map(x => String(x == null ? '' : x).trim()) : null;
+    if (!parts || !parts.length || parts.some(x => !x)) continue;
+    if (parts.length !== want[i - 1]) { wrongLen.push(i); continue; }
+    out[i - 1] = parts;
   }
   const missing = [];
-  for (let k = 0; k < n; k++) if (!out[k]) missing.push(k + 1);
-  return { lines: out, missing };
+  for (let k = 0; k < want.length; k++) if (!out[k]) missing.push(k + 1);
+  return { parts: out, missing, wrongLen };
 }
 
 // POST /api/translate — 行の配列を受け取り、訳した行の配列を返す。
@@ -1607,16 +1623,24 @@ async function handleTranslate(request, env) {
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
 
-  const lines = Array.isArray(body?.lines)
-    ? body.lines.map(s => String(s == null ? '' : s)) : [];
-  if (!lines.length)                 return jsonRes({ error: '翻訳する行がありません' }, 400);
-  if (lines.length > TR_MAX_LINES)   return jsonRes({ error: `一度に翻訳できるのは${TR_MAX_LINES}行までです` }, 400);
+  // items: [{ text: 文, secs: [各字幕の秒数], cap: 1枚に入る最大文字数 }]
+  const raw = Array.isArray(body?.items) ? body.items : [];
+  if (!raw.length)               return jsonRes({ error: '翻訳する行がありません' }, 400);
+  if (raw.length > TR_MAX_LINES) return jsonRes({ error: `一度に翻訳できるのは${TR_MAX_LINES}件までです` }, 400);
   const lang = TR_LANGS[body?.lang] ? body.lang : 'ja';
-  // 各行の表示秒数（分かるときだけ）。文字数の上限を出すのに使う。
-  const secs = Array.isArray(body?.secs) && body.secs.length === lines.length
-    ? body.secs.map(Number) : null;
 
-  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines, lang, body?.opts, secs) }], {
+  // 1枚あたりの文字数上限 = min(表示秒数 × 読む速度, 行数×1行の文字数)
+  // 前者は読み切れる量、後者は画面に収まる量。どちらも超えてはいけない。
+  const items = [];
+  for (const it of raw) {
+    const text = String(it?.text || '').trim();
+    const secs = Array.isArray(it?.secs) ? it.secs.map(Number).filter(Number.isFinite) : [];
+    if (!text || !secs.length) return jsonRes({ error: 'リクエストが不正です' }, 400);
+    const cap  = Math.max(10, Number(it?.cap) || 9999);
+    items.push({ text, caps: secs.map(sc => Math.min(cap, _trMaxChars(sc, lang))) });
+  }
+
+  const r = await _geminiGenerate(env, [{ text: _trPrompt(items, lang, body?.opts) }], {
     json: true, schema: _TR_SCHEMA,
     maxOutputTokens: 16384, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
   });
@@ -1626,6 +1650,6 @@ async function handleTranslate(request, env) {
   try { parsed = JSON.parse(r.summary); }
   catch (e) { return jsonRes({ error: '翻訳結果を読み取れませんでした' }, 502); }
 
-  const b = _trRebuild(parsed && parsed.translations, lines.length);
+  const b = _trRebuild(parsed && parsed.translations, items.map(x => x.caps.length));
   return jsonRes({ ...b, usage: r.usage, costUsd: r.costUsd });
 }
