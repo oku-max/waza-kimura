@@ -2334,7 +2334,11 @@ function _reflowVtt(vtt, o, offset) {
   for (let i = 0; i < out.length; i++) {
     const nextStart = out[i + 1] ? out[i + 1].start : Infinity;
     let end = out[i].end;
-    if (end - out[i].start > o.maxDur) end = out[i].start + o.maxDur;
+    // maxDur は「話し終わったのに出しっぱなし」を防ぐためのもの。
+    // 次のキューがすぐ続く＝まだ喋っている最中なら縮めない。縮めると、
+    // まだ喋っている途中で字幕だけ消える（文単位のキューで実際に起きうる）。
+    const gap = nextStart - end;
+    if (!(gap < 1) && end - out[i].start > o.maxDur) end = out[i].start + o.maxDur;
     if (end - out[i].start < o.minDur) end = Math.min(out[i].start + o.minDur, nextStart);
     out[i].end = Math.max(end, out[i].start + 0.2);
   }
@@ -2877,8 +2881,9 @@ function _srtJoin(cues) {
 // 47回の通信のうち1回でも転べばその25行がまるごと英語のまま残る。1回投げて
 // 終わりにせず、抜けた行だけを小さくまとめて投げ直す（実際に26行＝25＋1が
 // 未訳で残ったため）。最後まで訳せなかった行だけ原文で埋める。
-async function _translateLines(lines, lang, opts, onProgress) {
+async function _translateLines(lines, lang, opts, onProgress, secs) {
   const SIZE = 25, RETRY_SIZE = 10, CONC = 3, ROUNDS = 2;
+  const hasSecs = Array.isArray(secs) && secs.length === lines.length;
   const out = new Array(lines.length).fill('');
   const errors = [];
   let cost = 0, calls = 0;
@@ -2888,7 +2893,10 @@ async function _translateLines(lines, lang, opts, onProgress) {
     try {
       const res = await fetch('/api/translate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lines: idxs.map(i => lines[i]), lang, opts }),
+        body: JSON.stringify({
+          lines: idxs.map(i => lines[i]), lang, opts,
+          ...(hasSecs ? { secs: idxs.map(i => secs[i]) } : {}),
+        }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
@@ -3033,22 +3041,41 @@ async function _asrGenerateAndSave(ctx) {
   //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
   let trTarget = null, trCost = 0, trMissing = 0, trErr = null, trFailed = false;
   if (translating) {
-    const cues = _srtSplit(srt);
-    if (!cues.length) {
-      trFailed = true; trErr = '字幕の中身を読み取れませんでした';
+    // 翻訳の入力は SRT のキューではなく「文」。
+    // SRT のキューは文字数で切られるので文の途中で切れる。英語と日本語は語順が
+    // 逆なので、途中で切れた断片だけでは日本語の文にならず、モデルは次の行の
+    // 内容を引っ張ってきて1文にしてしまう。その結果、内容が丸ごと1キューぶん
+    // 前にずれ、最後まで戻らない（実データで冒頭から約3〜4秒早く出ていた）。
+    // 文単位なら文が完結しているので借りる必要がなく、ずれが起きない。
+    setBtn('⏳ 文を取得中…');
+    let sents = [];
+    try {
+      const sres = await fetch('/api/asr-sentences?id=' + encodeURIComponent(startD.id));
+      const sd   = await sres.json().catch(() => ({}));
+      if (sres.ok && Array.isArray(sd.sentences)) sents = sd.sentences;
+    } catch (e) { /* 下で失敗として扱う */ }
+
+    if (!sents.length) {
+      trFailed = true; trErr = '文の区切りを取得できませんでした';
     } else {
       setBtn('⏳ 翻訳中…');
-      const tr = await _translateLines(cues.map(c => c.text), want, _subGenPayload(),
-        (d, n, label) => setBtn(`⏳ ${label}… ${d}/${n}`));
+      // 各文の長さ(秒)を渡す。1秒に読める文字数から上限が決まり、
+      // 収まらない訳は向こうで縮められる（字幕翻訳の基本作業）。
+      const tr = await _translateLines(sents.map(s => s.text), want, _subGenPayload(),
+        (d, n, label) => setBtn(`⏳ ${label}… ${d}/${n}`),
+        sents.map(s => s.end - s.start));
       trCost = tr.cost; trMissing = tr.missing.length; trErr = tr.error;
       // 1行も訳せていないなら、中身は原文そのもの。それを「.ja.srt」という名前で
       // 保存したら中身と名前が食い違う。保存せず失敗として扱い、原語版だけ残す。
-      if (tr.missing.length >= cues.length) {
+      if (tr.missing.length >= sents.length) {
         trFailed = true;
         trErr = trErr || '翻訳できませんでした';
       } else {
-        // 訳せなかった行は原文が入っている。キューの数も時刻も変わらない。
-        const trSrt = _srtJoin(cues.map((c, i) => ({ tc: c.tc, text: tr.lines[i] })));
+        // 時刻は AssemblyAI が単語単位で実測した文の開始・終了をそのまま使う。
+        const trSrt = _srtJoin(sents.map((s, i) => ({
+          tc: `${_sec2tc(s.start).replace('.', ',')} --> ${_sec2tc(s.end).replace('.', ',')}`,
+          text: tr.lines[i],
+        })));
         trTarget = _subFileName(base, want);
         setBtn('⏳ 保存中…');
         const r2 = await saveOne(trTarget, want, trSrt, true);

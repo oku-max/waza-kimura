@@ -44,6 +44,7 @@ async function handleApi(request, env, path) {
       case '/api/asr-start':   return await handleAsrStart(request, env);
       case '/api/asr-status':  return await handleAsrStatus(request, env);
       case '/api/asr-srt':     return await handleAsrSrt(request, env);
+      case '/api/asr-sentences': return await handleAsrSentences(request, env);
       case '/api/translate':   return await handleTranslate(request, env);
       default:                 return new Response('Not found', { status: 404 });
     }
@@ -1465,6 +1466,37 @@ async function handleAsrSrt(request, env) {
   return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
 
+// ── /api/asr-sentences — 文単位の書き起こし（翻訳用）─────────────
+// なぜ SRT ではなく文が必要か:
+//   SRT のキューは「文字数」で切られるので、文の途中で切れる。
+//     1) "We're now going to talk about movements which"
+//     2) "are really important for guard retention"
+//   これを1行ずつ訳させると、英語と日本語は語順が逆なので 1) だけでは
+//   日本語の文にならない。モデルは 2) の内容を引っ張ってきて1文にする。
+//   結果、内容が丸ごと1キューぶん前にずれ、そのまま最後まで戻らない。
+//   （実データで確認: 日本語字幕が冒頭から約3〜4秒早く出ていた）
+// 文単位なら文が完結しているので、次の行から借りる必要がない。
+// 時刻も AssemblyAI が単語単位で実測した文の開始・終了をそのまま使える。
+async function handleAsrSentences(request, env) {
+  const bad = _aaiGuard(env); if (bad) return bad;
+  const id = new URL(request.url).searchParams.get('id');
+  if (!id) return jsonRes({ error: 'id が必要です' }, 400);
+
+  const res = await fetch(`${AAI}/transcript/${encodeURIComponent(id)}/sentences`,
+                          { headers: { authorization: env.ASSEMBLYAI_API_KEY } });
+  if (!res.ok) {
+    return jsonRes({ error: '文の取得に失敗しました', detail: _httpErrText(res.status) }, 502);
+  }
+  const d = await res.json();
+  // start/end はミリ秒。秒に直して返す（クライアントは秒で扱う）
+  const sentences = (d.sentences || []).map(s => ({
+    text:  String(s.text || '').trim(),
+    start: Number(s.start || 0) / 1000,
+    end:   Number(s.end   || 0) / 1000,
+  })).filter(s => s.text && s.end > s.start);
+  return jsonRes({ sentences });
+}
+
 // ═══ 字幕の翻訳（Gemini 2.5 Flash）════════════════════════════
 // 設計の核心: タイムコードは受け取らない。テキスト行だけを訳す。
 // 時刻はASRの実測値としてクライアント側に残るので、翻訳がどう転んでも
@@ -1477,7 +1509,18 @@ async function handleAsrSrt(request, env) {
 const TR_LANGS = { ja:'日本語', en:'English', zh:'简体中文', ko:'한국어', es:'Español', pt:'Português', fr:'Français' };
 const TR_MAX_LINES = 30;   // 1リクエストの上限。多いとモデルが途中で打ち切る
 
-function _trPrompt(lines, lang, opts) {
+// 読む速度の上限（1秒あたりの文字数）。字幕制作の一般的な基準に合わせる。
+//   日本語 … 1秒4文字（映像翻訳の実務基準）
+//   英語など … Netflix Timed Text Style Guide の 17〜20 CPS
+// これを超える量を入れると、読み終わる前に次へ変わる。
+const TR_CPS = { ja:4, zh:5, ko:9, en:17, es:17, pt:17, fr:17 };
+
+function _trMaxChars(sec, lang) {
+  const cps = TR_CPS[lang] || TR_CPS.ja;
+  return Math.max(10, Math.round((Number(sec) || 0) * cps));
+}
+
+function _trPrompt(lines, lang, opts, secs) {
   const o = opts || {};
   const target = TR_LANGS[lang] || TR_LANGS.ja;
   const rules = [`- 出力言語は${target}`];
@@ -1487,6 +1530,19 @@ function _trPrompt(lines, lang, opts) {
     else if (o.terms === 'translate') rules.push('- 柔術の技術用語も日本語に訳す');
     else                              rules.push('- 柔術の技術用語はカタカナ');
   }
+  // 表示秒数が分かっているときは、1行ごとに文字数の上限を渡す。
+  // 字幕翻訳の実務では「尺に収まるまで意訳して縮める」のが基本作業であり、
+  // 上限を伝えないと読み切れない長さの訳が返ってくる。
+  const timed = Array.isArray(secs) && secs.length === lines.length;
+  const body  = lines.map((t, i) => timed
+    ? `${i + 1}. [${_trMaxChars(secs[i], lang)}文字以内] ${t}`
+    : `${i + 1}. ${t}`).join('\n');
+  const lenRule = timed
+    ? `- 各行の [N文字以内] は表示時間から決まった上限。**必ず守る**。
+  収まらないときは、意味の中心を残して言い換え・省略して縮める
+  （字幕翻訳では逐語訳より尺に収めることを優先する）`
+    : '';
+
   return `あなたはブラジリアン柔術(BJJ)・グラップリングの教則動画の字幕翻訳者です。
 英語の字幕行を${target}に訳してください。
 
@@ -1501,13 +1557,16 @@ dead foot, live foot, side foot / heel / pinky / ball of the foot / posture
 - 入力の各行に対し {"i": 行番号, "ja": 訳文} を1つずつ返す
 - 全${lines.length}行ぶんを必ず返す。1行も飛ばさない
 - i は入力に振られた番号をそのまま使う
+- 各行は独立した字幕として表示される。**他の行の内容を混ぜてはいけない。**
+  その行に書かれていることだけを訳す。次の行を先取りしない
 - 行を分割・結合しない。1行の入力 → 1行の訳
+${lenRule}
 ${rules.join('\n')}
 - 音声認識の誤認識（例: "Gitu"→jiu-jitsu, "girls"→drills, "sci-fi"→side foot）は
   文脈から補正してよい
 
 【入力】
-${lines.map((t, i) => `${i + 1}. ${t}`).join('\n')}`;
+${body}`;
 }
 
 // Gemini の responseSchema（OpenAPIサブセット。型は大文字、additionalProperties 非対応）
@@ -1553,8 +1612,11 @@ async function handleTranslate(request, env) {
   if (!lines.length)                 return jsonRes({ error: '翻訳する行がありません' }, 400);
   if (lines.length > TR_MAX_LINES)   return jsonRes({ error: `一度に翻訳できるのは${TR_MAX_LINES}行までです` }, 400);
   const lang = TR_LANGS[body?.lang] ? body.lang : 'ja';
+  // 各行の表示秒数（分かるときだけ）。文字数の上限を出すのに使う。
+  const secs = Array.isArray(body?.secs) && body.secs.length === lines.length
+    ? body.secs.map(Number) : null;
 
-  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines, lang, body?.opts) }], {
+  const r = await _geminiGenerate(env, [{ text: _trPrompt(lines, lang, body?.opts, secs) }], {
     json: true, schema: _TR_SCHEMA,
     maxOutputTokens: 16384, thinkingBudget: 0, temperature: 0.3, what: '翻訳',
   });
