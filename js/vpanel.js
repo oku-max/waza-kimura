@@ -2680,6 +2680,14 @@ function _looksLikeSrt(t) {
   return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(String(t || ''));
 }
 
+// 見つかった字幕から「上書き対象（同名）」と「そもそも字幕があるか」を決める。
+// exact は保存時に中身を差し替える相手、anySub は生成をスキップすべきかの判断材料。
+function _subExisting(found, target) {
+  const list  = Array.isArray(found) ? found : [];
+  const exact = list.find(f => f && f.name === target) || null;
+  return { exact, anySub: exact || list[0] || null };
+}
+
 // ── 生成中にページを離れると結果だけ失われる（課金は発生済み）ので確認する ──
 // 動画はすでにGeminiへ送信済みで、離脱すると結果を受け取れないまま費用だけかかる。
 // カウンタ方式にして、一括実行のように複数が重なっても正しく判定する。
@@ -2848,15 +2856,21 @@ window.vpGenSubtitle = async function(id, preset) {
     if (!parent || !base) throw new Error('動画の保存先フォルダを取得できませんでした');
     const target = base + (subLang === 'ja' ? '.ja.srt' : '.srt');
 
-    const q    = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
-    const dup  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, gdToken);
-    const existing = dup?.files?.[0] || null;
-    if (existing) {
+    // 既存判定は「同名ファイルがあるか」ではなく、再生時の字幕検出と同じ探し方をする。
+    // 完全一致だけを見ていると、言語サフィックスの違い（.srt と .ja.srt）や、
+    // 動画名との表記ゆれ・リネームで既存を見落とし、課金して作り直してしまう。
+    // 「プレイヤーで字幕が出る＝字幕がある」と判定が一致するのが正しい。
+    const found = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+    const { exact, anySub } = _subExisting(found, target);
+    if (anySub) {
       // 一括処理では既定で「作らない」。既存の字幕を黙って作り直さない安全側に倒す。
       if (preset) {
-        if (preset.existing !== 'replace') { endBtn(); return { ok: false, skipped: true, target }; }
-      } else if (!confirm(`「${target}」はすでにあります。\n上書きして作り直しますか？`)) {
-        endBtn(); return { ok: false, skipped: true, target };
+        if (preset.existing !== 'replace') { endBtn(); return { ok: false, skipped: true, target: anySub.name }; }
+      } else {
+        const msg = exact
+          ? `「${target}」はすでにあります。\n上書きして作り直しますか？`
+          : `この動画にはすでに字幕があります（${anySub.name}）。\n「${target}」として別に作りますか？`;
+        if (!confirm(msg)) { endBtn(); return { ok: false, skipped: true, target }; }
       }
     }
 
@@ -2887,7 +2901,8 @@ window.vpGenSubtitle = async function(id, preset) {
 
     // 3. Driveへ保存（既存があればその中身だけ差し替え）
     setBtn('⏳ 保存中…');
-    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: existing?.id });
+    // 同名があればその中身だけ差し替える。別名の字幕しか無い場合は新規作成（既存には触れない）
+    await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id });
 
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
     _gdSubLookup.delete(fileId);
