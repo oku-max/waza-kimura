@@ -175,12 +175,42 @@ async function driveGet(url) {
   return res.json();
 }
 
+// ページ送りをする。1回の応答は最大1000件で、以前は1ページ目しか読んでいなかったため、
+// 項目の多いフォルダでは後ろのファイル（フォルダの下に並ぶ単独ファイル等）が丸ごと落ちていた。
 async function listFolder(folderId) {
   const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-  const data = await driveGet(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,videoMediaMetadata,thumbnailLink)&orderBy=name&pageSize=1000`
-  );
-  return data.files || [];
+  const out = [];
+  let pageToken = '';
+  for (let page = 0; page < 20; page++) {   // 上限2万件（万一の無限ループ防止）
+    const url = `https://www.googleapis.com/drive/v3/files?q=${q}`
+      + `&fields=nextPageToken,files(id,name,mimeType,videoMediaMetadata,thumbnailLink,shortcutDetails)`
+      + `&orderBy=name&pageSize=1000`
+      + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '');
+    const data = await driveGet(url);
+    for (const f of (data.files || [])) out.push(f);
+    pageToken = data.nextPageToken || '';
+    if (!pageToken) break;
+  }
+  return out;
+}
+
+const GD_FOLDER_MIME = 'application/vnd.google-apps.folder';
+
+// ショートカットは実体に置き換える。「共有アイテムをドライブに追加」で作られた項目は
+// ショートカットになることがあり、mimeType が …apps.shortcut のため動画と認識できなかった。
+function _gdResolveShortcut(f) {
+  const t = f?.shortcutDetails;
+  if (!t?.targetId) return f;
+  return { ...f, id: t.targetId, mimeType: t.targetMimeType || f.mimeType };
+}
+
+// Drive の mimeType は当てにならないことがある（アップロード経路によっては
+// application/octet-stream になる）。拡張子でも動画と認めて取りこぼさないようにする。
+function _isVideoFile(f) {
+  if (!f || f.mimeType === GD_FOLDER_MIME) return false;
+  if (VIDEO_MIMES.has(f.mimeType)) return true;
+  if (String(f.mimeType || '').startsWith('video/')) return true;
+  return _VIDEO_EXT_RE.test(f.name || '');
 }
 
 async function getFolderName(folderId) {
@@ -400,10 +430,11 @@ async function scanFolder(folderId, folderName, depth) {
   const files   = await listFolder(folderId);
   const videos  = [];
   const folders = [];
-  for (const f of files) {
-    if (f.mimeType === 'application/vnd.google-apps.folder') {
+  for (const raw of files) {
+    const f = _gdResolveShortcut(raw);
+    if (f.mimeType === GD_FOLDER_MIME) {
       if (depth < 3) folders.push(await scanFolder(f.id, f.name, depth + 1));
-    } else if (VIDEO_MIMES.has(f.mimeType)) {
+    } else if (_isVideoFile(f)) {
       const dur = f.videoMediaMetadata?.durationMillis;
       videos.push({ id: f.id, name: f.name, duration: dur ? Math.round(Number(dur) / 1000) : 0, thumbnailLink: f.thumbnailLink || '' });
     }
@@ -618,9 +649,11 @@ async function _browserRender() {
   if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:12px 4px">読み込み中...</div>';
 
   try {
-    const files   = await listFolder(_browserCurrentId);
-    const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
-    const vCount  = files.filter(f => VIDEO_MIMES.has(f.mimeType)).length;
+    // ショートカットを実体に直してから数える。スキャンと同じ判定にしておかないと、
+    // 一覧では「0本」なのにスキャンすると出てくる（逆も）といった食い違いが起きる。
+    const files   = (await listFolder(_browserCurrentId)).map(_gdResolveShortcut);
+    const folders = files.filter(f => f.mimeType === GD_FOLDER_MIME);
+    const vCount  = files.filter(_isVideoFile).length;
     const favs    = _loadFavs();
     const favIds  = new Set(favs.map(f => f.id));
 
