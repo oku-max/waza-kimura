@@ -2075,7 +2075,7 @@ const SUB_OPTS_DEFAULT = {
   wrapMode:   'balanced', // 折り返し方針 'strict'(文字数優先) | 'balanced' | 'natural'(区切り優先)
   minDur:     1.2,  // 最短表示秒
   maxDur:     7,    // 最長表示秒
-  mergeShort: true, // 短すぎるキューを隣とくっつける
+  mergeShort: false,// 隣と結合すると後ろの文が早く出る（開始時刻が動く）ので既定は切る
   // 表示
   fontScale:  1,        // 文字サイズ倍率
   bgOpacity:  0.72,     // 背景の濃さ
@@ -2275,30 +2275,21 @@ function _wrapText(text, o) {
 //
 // いまは、時間的に十分長いキューだけを分割する。短いキューは分割せず、
 // 測った時刻のまま行数を増やして表示する。レイアウトが時刻に合わせる。
-const SPLIT_MIN_SEC = 4.0;   // これ未満の長さのキューは絶対に分割しない
-
+// 字幕は「時刻が内容そのもの」なので、表示の都合で開始時刻を動かしてはいけない。
+//
+// 以前はここで、行数が上限を超えたキューを文字数比で時間分割していた。分割後の
+// 時刻は音声から測った値ではなく、文字数で割った推定値になる。実データで測ると
+// 英語字幕でさえ開始時刻の19%が作られた値だった（日本語訳ではもっと多い）。
+// 日本語は動詞が最後に来るので、前半だけ先に出て残りは次の話題に移ってから出る。
+//
+// 分割は一切しない。長い本文は行数を増やして出す。レイアウトが時刻に合わせる。
 function _splitCue(cue, lines, o) {
-  const dur = Math.max(0.1, cue.end - cue.start);
-  const one = () => [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
-  if (lines.length <= o.maxLines) return one();
-  if (dur < SPLIT_MIN_SEC)        return one();   // 短いキューは時刻を守る
-
-  const chunks = [];
-  for (let i = 0; i < lines.length; i += o.maxLines) chunks.push(lines.slice(i, i + o.maxLines));
-  // 分割しても1つあたりが短すぎるなら、切らずに1つのまま出す
-  if (dur / chunks.length < SPLIT_MIN_SEC / 2) return one();
-
-  const total = chunks.reduce((s, c) => s + c.join('').length, 0) || 1;
-  let t = cue.start;
-  return chunks.map(c => {
-    const d = dur * (c.join('').length / total);
-    const out = { start: t, end: t + d, text: c.join('\n') };
-    t += d;
-    return out;
-  });
+  return [{ start: cue.start, end: cue.end, text: lines.join('\n') }];
 }
 
-// 短すぎて読めないキューを、隣が近ければ結合する
+// 短すぎて読めないキューを、隣が近ければ結合する。
+// ただし結合すると後ろの文が前のキューの開始時刻から出る＝最大0.4秒早く出る。
+// 開始時刻が動くので既定では使わない（設定で明示的に有効にしたときだけ）。
 function _mergeShortCues(cues, o) {
   const res = [];
   for (const c of cues) {
