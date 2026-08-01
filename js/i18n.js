@@ -1444,22 +1444,23 @@
     "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
     "字幕から検出": "Detect from subtitles",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
-    "公式チャプター表から": "From the official chapter list",
-    "商品ページの目次を貼り付け（最も正確）": "Paste the list from the product page (most accurate)",
-    "📋 公式チャプター表から": "📋 From the official chapter list",
-    "商品ページの目次をそのまま貼り付けてください。文字でも画像でも構いません":
-      "Paste the list from the product page as-is. Text or a screenshot both work",
-    "ここに目次を貼り付け（例: 1. Closed Guard Basics）": "Paste the list here (e.g. 1. Closed Guard Basics)",
+    "チャプター一覧を貼り付け": "Paste a chapter list",
+    "チャプター名と時間をコピペする（最も正確）": "Copy and paste the names and times (most accurate)",
+    "📋 チャプター一覧を貼り付け": "📋 Paste a chapter list",
+    "チャプター名と時間をそのまま貼り付けてください。文字でも画像でも構いません":
+      "Paste the chapter names and times as-is. Text or a screenshot both work",
+    "例:\n0:00 イントロ\n2:30 クローズドガード\n15:42 ヒップバンプスイープ":
+      "e.g.\n0:00 Intro\n2:30 Closed Guard\n15:42 Hip Bump Sweep",
     "🖼 スクショを貼り付け / ドロップ": "🖼 Paste or drop a screenshot",
     "タップでファイルを選ぶこともできます": "You can also tap to choose a file",
     "読み取る": "Read it",
     "画像を読み込めませんでした": "Could not load the image",
-    "チャプター表を読み取れませんでした": "Could not read the chapter list",
-    "チャプター表のテキストか画像が必要です": "Chapter list text or an image is required",
+    "貼り付けた内容からチャプターを読み取れませんでした": "Could not find any chapters in what you pasted",
+    "チャプター名のテキストか画像が必要です": "Chapter names as text or an image are required",
     "⏳ 位置合わせ中…": "⏳ Locating...",
-    "公式チャプター表": "Official chapter list",
-    "公式チャプター表 ＋ 字幕で位置合わせ": "Official chapter list + located via subtitles",
-    "公式チャプター表 ＋ 動画で位置合わせ": "Official chapter list + located via video",
+    "貼り付けた一覧": "Pasted list",
+    "貼り付けた一覧 ＋ 字幕で位置合わせ": "Pasted list + located via subtitles",
+    "貼り付けた一覧 ＋ 動画で位置合わせ": "Pasted list + located via video",
     // 検出の粒度
     "取込済": "Imported",
     // ── Drive取り込みピッカー（エクスプローラー風）──
@@ -1479,8 +1480,8 @@
     "自動チャプターの粒度": "Auto chapter granularity",
     "Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか":
       "How finely “📑 Auto chapters” splits a Google Drive video",
-    "公式チャプター表から作る時は、表のとおりに区切るのでこの設定は使いません":
-      "Not used when building from an official chapter list — that follows the list exactly",
+    "貼り付けた一覧から作る時は、その通りに区切るのでこの設定は使いません":
+      "Not used when building from a pasted list — that follows the list exactly",
     "刻みすぎ・粗すぎる時は粒度を変えて検出し直せます":
       "Too many or too few? Pick another granularity to detect again",
     "細かめ": "Finer",
@@ -1501,6 +1502,7 @@
     "✔ ブックマークに追加": "✔ Add to bookmarks",
     "チャプターを検出できませんでした": "No chapters were detected",
     "チャプターを取得できませんでした": "Could not get the chapters",   // サーバー側の生成失敗メッセージ
+    "チャプター一覧を取得できませんでした": "Could not read the chapter list",
     "追加できるチャプターがありませんでした": "No new chapters to add",
     "検出結果を読み取れませんでした。もう一度お試しください": "Could not read the detection result. Please try again",
     "字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください": "No subtitles found. Create them first with “💬 Subtitles”",
