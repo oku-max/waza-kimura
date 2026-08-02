@@ -4304,73 +4304,89 @@ function _sentencesFromCues(cues) {
   }));
 }
 
-// 「翻訳だけやり直す」
+// 「翻訳だけやり直す」の中核。単体ボタンからも点検画面の一括処理からも呼ぶ。
 // 書き起こし(ASR)は課金されるが、そのやり直しが要らない場面のほうが多い。
 // 訳し方・文字数・言語を変えたいだけなら、既にある原語の字幕を使い回せば
 // 翻訳代（42分で $0.05 程度）だけで済む。書き起こし代 $0.105 を毎回払わない。
+async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want, setBtn }) {
+  const o    = subOpts();
+  const cues = _parseVtt(_srtToVtt(srcText));
+  if (!cues.length) throw new Error('字幕を読み取れませんでした');
+
+  const meta   = await _driveApiGet(`files/${encodeURIComponent(videoFileId)}?fields=parents`, token);
+  const parent = meta?.parents?.[0];
+  if (!parent) throw new Error('保存先フォルダを取得できませんでした');
+
+  const groups = _sentencesFromCues(cues);
+  const base   = String(srcName || '').replace(/\.[a-z-]{2,5}\.srt$/i, '').replace(/\.srt$/i, '');
+  const target = _subFileName(base, want);
+  const cap    = (want === 'ja' || want === 'zh' || want === 'ko')
+    ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
+
+  const tr = await _translateItems(
+    groups.map(g => ({ text: g.text, secs: g.idx.map(i => cues[i].end - cues[i].start) })),
+    want, _subGenPayload(), cap, (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
+  if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
+
+  const text = new Array(cues.length).fill('');
+  groups.forEach((g, k) => {
+    const parts = tr.parts[k] || [];
+    g.idx.forEach((c, j) => { text[c] = parts[j] || ''; });
+  });
+  const keep = cues.map((c, i) => ({ c, t: text[i] })).filter(x => x.t);
+  if (!keep.length) throw new Error('翻訳できませんでした');
+  const srt = _srtJoin(keep.map(({ c, t }) => ({
+    tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
+    text: t,
+  })));
+  // 最後の砦: 字幕として成立していないものは既存ファイルの上に絶対に書かない
+  if (!_looksLikeSrt(srt)) throw new Error('作った字幕が壊れています（保存を中止しました）');
+
+  setBtn?.('⏳ 保存中…');
+  const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
+  const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
+  await _driveUploadText(token, { name: target, parentId: parent, text: srt, existingId: dup?.files?.[0]?.id });
+  _gdSubLookup.delete(videoFileId);
+  return { target, cost: tr.cost, cues: cues.length, missing: cues.length - keep.length };
+}
+
+// Driveのゴミ箱へ移す。完全削除（files.delete）ではなく trashed:true にする。
+// ユーザーの実データなので、取り返しがつく方向に倒す（Driveのゴミ箱から復元できる）。
+async function _driveTrash(token, id) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=id,trashed`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trashed: true }),
+  });
+  if (!res.ok) throw new Error(`Drive ${res.status}: ${(await res.text()).slice(0, 150)}`);
+}
+
 window.wkSubRetranslate = async function() {
-  const o     = subOpts();
-  const want  = (o.genLang && o.genLang !== 'orig') ? o.genLang : 'ja';
-  const src   = _gdSubTracks.find(t => t.lang ? t.lang !== want : !new RegExp(`\\.${want}\\.srt$`, 'i').test(t.name || ''))
-             || _gdSubTracks[0];
+  const o    = subOpts();
+  const want = (o.genLang && o.genLang !== 'orig') ? o.genLang : 'ja';
+  const src  = _gdSubTracks.find(t => t.lang ? t.lang !== want : !new RegExp(`\\.${want}\\.srt$`, 'i').test(t.name || ''))
+            || _gdSubTracks[0];
   if (!src || !src.rawVtt) { window.toast?.('元になる字幕が見つかりません'); return; }
-
-  const cues = _parseVtt(src.rawVtt);
-  if (!cues.length) { window.toast?.('字幕を読み取れませんでした'); return; }
-
   const token = window.getDriveTokenIfAvailable?.();
   if (!token || !_gdFileId) { window.toast?.('Google Drive の認証が必要です'); return; }
 
+  const cues   = _parseVtt(src.rawVtt);
   const groups = _sentencesFromCues(cues);
   const est    = (groups.reduce((n, g) => n + g.text.length, 0) / 3.6) * 2 / 1e6 * 0.9;
-  const base   = String(src.name || '').replace(/\.[a-z-]{2,5}\.srt$/i, '').replace(/\.srt$/i, '');
-  const target = _subFileName(base, want);
   if (!confirm(`「${src.name}」を元に、${_langLabel(want)}へ翻訳し直します。\n`
              + `書き起こしはやり直さないので、音声認識の料金はかかりません。\n\n`
-             + `字幕 ${cues.length}枚 / 文 ${groups.length}件 / 概算 $${Math.max(0.001, est).toFixed(3)}\n`
-             + `保存先: ${target}（あれば上書き）`)) return;
+             + `字幕 ${cues.length}枚 / 文 ${groups.length}件 / 概算 $${Math.max(0.001, est).toFixed(3)}`)) return;
 
   const t0  = Date.now();
   const btn = document.getElementById('vp-sub-retr');
-  const set = (s) => { if (btn) btn.textContent = s; };
+  const set = (x) => { if (btn) btn.textContent = x; };
   set('⏳ 翻訳中…');
   try {
-    const meta   = await _driveApiGet(`files/${encodeURIComponent(_gdFileId)}?fields=parents`, token);
-    const parent = meta?.parents?.[0];
-    if (!parent) throw new Error('保存先フォルダを取得できませんでした');
-
-    const cap = (want === 'ja' || want === 'zh' || want === 'ko')
-      ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
-    const tr = await _translateItems(
-      groups.map(g => ({ text: g.text, secs: g.idx.map(i => cues[i].end - cues[i].start) })),
-      want, _subGenPayload(), cap, (d, n, label) => set(`⏳ ${label}… ${d}/${n}`));
-
-    if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
-
-    const text = new Array(cues.length).fill('');
-    groups.forEach((g, k) => {
-      const parts = tr.parts[k] || [];
-      g.idx.forEach((c, j) => { text[c] = parts[j] || ''; });
-    });
-    const keep = cues.map((c, i) => ({ c, t: text[i] })).filter(x => x.t);
-    if (!keep.length) throw new Error('翻訳できませんでした');
-    const srt = _srtJoin(keep.map(({ c, t }) => ({
-      tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
-      text: t,
-    })));
-    // 最後の砦: 字幕として成立していないものは既存ファイルの上に絶対に書かない
-    if (!_looksLikeSrt(srt)) throw new Error('作った字幕が壊れています（保存を中止しました）');
-
-    set('⏳ 保存中…');
-    const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
-    const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
-    await _driveUploadText(token, { name: target, parentId: parent, text: srt, existingId: dup?.files?.[0]?.id });
-
-    _gdSubLookup.delete(_gdFileId);
+    const r = await _retranslateFromSrt({
+      token, videoFileId: _gdFileId, srcName: src.name, srcText: src.rawVtt, want, setBtn: set });
     _subOffsetSet(_gdFileId, 0);
-    const miss = cues.length - keep.length;
-    window.toast?.(`✅ ${target} を作り直しました（$${tr.cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒`
-                 + `${miss ? ` / ${miss}枚は空` : ''}）`);
+    window.toast?.(`✅ ${r.target} を作り直しました（$${r.cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒`
+                 + `${r.missing ? ` / ${r.missing}枚は空` : ''}）`);
     await window.wkSubReload();
   } catch (e) {
     window.toast?.('⚠️ 翻訳し直せませんでした: ' + (e?.message || e));
@@ -4413,6 +4429,24 @@ function _srtDiagnose(text) {
   return { cues: arrows.length, level, reasons, last: starts.length ? starts[starts.length - 1] : 0 };
 }
 
+// 点検結果は「動画ごと」にまとめる。直す単位がファイルではなく動画だから。
+//   原語の字幕が壊れている → 書き起こしからやり直すしかない（音声認識代がかかる）
+//   原語は無事で訳だけ壊れている → 翻訳だけやり直せばよい（安い）
+let _auditRows = [];   // 画面に出している行（チェックボックスの参照先）
+
+function _auditPlanOf(g) {
+  const src = g.files.find(f => !f.lang || f.lang === g.srcLang);
+  const bad = g.files.filter(f => f.level === 'bad' || f.level === 'warn');
+  if (!bad.length) return { kind: 'ok' };
+  if (src && src.level === 'ok') {
+    // 原語が無事。訳だけ作り直せばよい
+    return { kind: 'retranslate', src, bad, cost: (src.chars / 3.6) * 2 / 1e6 * 0.9 };
+  }
+  // 原語も壊れている。動画から書き起こし直す
+  const mins = Math.max(1, Math.round((g.dur || 0) / 60));
+  return { kind: 'asr', bad, mins, cost: mins * (0.0025 + 0.00126) };
+}
+
 window.wkSubAudit = async function() {
   const token = window.getDriveTokenIfAvailable?.();
   if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
@@ -4424,12 +4458,12 @@ window.wkSubAudit = async function() {
                    + 'align-items:center;justify-content:center;padding:16px';
   bg.innerHTML = `
     <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;
-                box-shadow:0 12px 40px rgba(0,0,0,.45);width:100%;max-width:560px;max-height:86vh;
+                box-shadow:0 12px 40px rgba(0,0,0,.45);width:100%;max-width:600px;max-height:88vh;
                 display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444);display:flex;align-items:center;gap:8px">
         <div style="flex:1">
           <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">🔍 字幕の点検</div>
-          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">Driveの字幕を読んで時刻が壊れているものを探します。読むだけなので無料です</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">Driveの字幕を読んで時刻が壊れているものを探し、その場で直します</div>
         </div>
         <button onclick="document.getElementById('vp-sub-audit')?.remove()"
           style="background:none;border:none;color:var(--text3,#999);font-size:18px;cursor:pointer;padding:0 4px">×</button>
@@ -4437,73 +4471,222 @@ window.wkSubAudit = async function() {
       <div id="vp-sub-audit-body" style="flex:1;overflow-y:auto;padding:10px 14px;font-size:11.5px;color:var(--text2,#bbb)">
         <div>⏳ 探しています…</div>
       </div>
+      <div id="vp-sub-audit-foot" style="padding:9px 14px;border-top:0.5px solid var(--border,#444);display:none;gap:6px;flex-wrap:wrap"></div>
     </div>`;
   bg.addEventListener('click', e => { if (e.target === bg) bg.remove(); });
   document.body.appendChild(bg);
   const body = () => document.getElementById('vp-sub-audit-body');
+  const foot = () => document.getElementById('vp-sub-audit-foot');
 
   try {
-    const q = `name contains '.srt' and trashed=false`;
-    const list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime)&pageSize=1000`, token);
-    const files = (list?.files || []).filter(f => GD_SUB_EXT_RE.test(f.name));
-    if (!files.length) { body().innerHTML = '<div>字幕ファイルが見つかりませんでした</div>'; return; }
+    // 字幕と動画をまとめて1回で取る（同じフォルダにある動画と突き合わせるため）
+    const q = `trashed=false and (name contains '.srt' or mimeType contains 'video/')`;
+    const list = await _driveApiGet(
+      `files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,parents,createdTime)&pageSize=1000`, token);
+    const all    = list?.files || [];
+    const subs   = all.filter(f => GD_SUB_EXT_RE.test(f.name));
+    const videos = all.filter(f => String(f.mimeType || '').startsWith('video/'));
+    if (!subs.length) { body().innerHTML = '<div>字幕ファイルが見つかりませんでした</div>'; return; }
 
-    const out = [];
+    // 全部読んで診断する（読むだけなので無料）
+    const diag = [];
     let done = 0;
-    const queue = files.slice();
+    const queue = subs.slice();
     const worker = async () => {
       for (;;) {
         const f = queue.shift();
         if (!f) return;
         try {
           const res = await fetch(`/api/drive?fileId=${encodeURIComponent(f.id)}&token=${encodeURIComponent(token)}`);
-          if (res.ok) out.push({ ...f, ...(_srtDiagnose(_gdSubDecode(await res.arrayBuffer()))) });
-          else        out.push({ ...f, level: 'err', reasons: ['読み込めませんでした'], cues: 0 });
+          if (!res.ok) throw new Error('http');
+          const text = _gdSubDecode(await res.arrayBuffer());
+          diag.push({ ...f, text, chars: text.length, ..._srtDiagnose(text) });
         } catch (e) {
-          out.push({ ...f, level: 'err', reasons: ['読み込めませんでした'], cues: 0 });
+          diag.push({ ...f, level: 'err', reasons: ['読み込めませんでした'], cues: 0, chars: 0 });
         }
         done++;
-        if (body()) body().innerHTML = `<div>⏳ 調べています… ${done}/${files.length}</div>`;
+        if (body()) body().innerHTML = `<div>⏳ 調べています… ${done}/${subs.length}</div>`;
       }
     };
-    await Promise.all(Array.from({ length: Math.min(6, files.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(6, subs.length) }, worker));
     if (!body()) return;
 
-    const rank = { bad: 0, warn: 1, err: 2, ok: 3 };
-    out.sort((a, b) => rank[a.level] - rank[b.level] || a.name.localeCompare(b.name));
-    const n = l => out.filter(x => x.level === l).length;
-    const esc = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
-    const color = { bad:'#ff7a7a', warn:'#ffc46b', err:'#999', ok:'#7ad07a' };
-    const label = { bad:'壊れている', warn:'AIが書いた時刻の疑い', err:'読めなかった', ok:'問題なし' };
+    // 動画ごとにまとめる
+    const groups = new Map();
+    for (const v of videos) {
+      const key = (v.parents?.[0] || '') + '|' + _gdSubNorm(String(v.name).replace(/\.[^.]+$/, ''));
+      groups.set(key, { video: v, name: v.name, files: [], dur: 0 });
+    }
+    const orphan = [];
+    for (const d of diag) {
+      const nb = _gdSubNorm(String(d.name).replace(GD_SUB_EXT_RE, ''));
+      const pa = d.parents?.[0] || '';
+      let hit = null;
+      for (const [k, g] of groups) {
+        if (!k.startsWith(pa + '|')) continue;
+        const vb = k.slice(pa.length + 1);
+        if (nb.startsWith(vb) && nb.length - vb.length <= 12) { hit = g; break; }
+      }
+      const rem  = hit ? nb.slice(_gdSubNorm(String(hit.name).replace(/\.[^.]+$/, '')).length) : '';
+      const info = { ...d, ..._gdSubLabelOf(rem) };
+      if (hit) { hit.files.push(info); hit.dur = Math.max(hit.dur, d.last || 0); }
+      else orphan.push(info);
+    }
 
-    const rows = out.filter(x => x.level !== 'ok').map(x => `
-      <div style="padding:7px 0;border-top:0.5px solid var(--border,#3a3a3a)">
-        <div style="color:${color[x.level]};font-weight:700;font-size:11px">${label[x.level]}</div>
-        <div style="color:var(--text,#eee);word-break:break-all;margin:1px 0">${esc(x.name)}</div>
-        <div style="color:var(--text3,#999);font-size:10.5px">
-          ${x.cues}枚 · ${esc((x.reasons || []).join(' / '))}
-          ${x.createdTime ? ' · ' + esc(String(x.createdTime).slice(0, 10)) : ''}
-        </div>
-      </div>`).join('');
+    // 原語がどれか（言語指定なし、または訳先でない方）
+    for (const g of groups.values()) {
+      const want = (subOpts().genLang && subOpts().genLang !== 'orig') ? subOpts().genLang : 'ja';
+      const src  = g.files.find(f => !f.lang) || g.files.find(f => f.lang !== want);
+      g.srcLang = src ? src.lang : '';
+    }
+
+    _auditRows = [...groups.values()].filter(g => g.files.length)
+      .map(g => ({ ...g, plan: _auditPlanOf(g) }))
+      .filter(g => g.plan.kind !== 'ok')
+      .sort((a, b) => (a.plan.kind === 'asr' ? 0 : 1) - (b.plan.kind === 'asr' ? 0 : 1)
+                   || a.name.localeCompare(b.name));
+
+    const okCount = [...groups.values()].filter(g => g.files.length && _auditPlanOf(g).kind === 'ok').length;
+    const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+    if (!_auditRows.length) {
+      body().innerHTML = `<div style="color:#7ad07a;font-weight:700">すべて問題ありませんでした（動画${okCount}本）</div>`
+        + (orphan.length ? `<div style="margin-top:8px;color:var(--text3,#999);font-size:10.5px">
+             動画が見つからない字幕 ${orphan.length}件（教則に元から付いていたものなど）</div>` : '');
+      return;
+    }
+
+    const rows = _auditRows.map((g, i) => {
+      const kind = g.plan.kind;
+      const act  = kind === 'asr'
+        ? `書き起こしから作り直す（約${g.plan.mins}分 · $${g.plan.cost.toFixed(3)}）`
+        : `翻訳だけやり直す（$${Math.max(0.001, g.plan.cost).toFixed(3)}）`;
+      const col  = kind === 'asr' ? '#ff7a7a' : '#ffc46b';
+      const det  = g.plan.bad.map(f =>
+        `<div style="color:var(--text3,#999);font-size:10.5px;padding-left:2px">
+           · ${esc(f.name)} — ${f.cues}枚 / ${esc((f.reasons || []).join(' / '))}</div>`).join('');
+      return `
+        <label style="display:flex;gap:8px;padding:8px 0;border-top:0.5px solid var(--border,#3a3a3a);cursor:pointer">
+          <input type="checkbox" class="vp-audit-ck" data-i="${i}" checked style="margin-top:2px;flex:none">
+          <div style="flex:1;min-width:0">
+            <div style="color:var(--text,#eee);word-break:break-all;font-weight:600">${esc(g.name)}</div>
+            <div style="color:${col};font-size:10.5px;font-weight:700;margin:1px 0">${act}</div>
+            ${det}
+          </div>
+        </label>`;
+    }).join('');
 
     body().innerHTML =
-      `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-weight:700">
-        <span style="color:${color.bad}">壊れている ${n('bad')}</span>
-        <span style="color:${color.warn}">疑わしい ${n('warn')}</span>
-        <span style="color:${color.ok}">問題なし ${n('ok')}</span>
-        ${n('err') ? `<span style="color:${color.err}">読めず ${n('err')}</span>` : ''}
-        <span style="color:var(--text3,#999);font-weight:400">／ 全${out.length}件</span>
-      </div>`
-      + (rows || '<div style="color:#7ad07a">すべて問題ありませんでした</div>')
-      + `<div style="margin-top:10px;font-size:10.5px;color:var(--text3,#999);line-height:1.6">
-          「壊れている」は時刻として読めない行や逆行があるもの。その字幕は表示されないか、
-          まったく違う時刻に出ます。作り直すしかありません。<br>
-          「疑わしい」はミリ秒がキリのいい値ばかりのもの。音から測った時刻ではなく、
-          AIが書いた時刻の可能性が高いです。
-        </div>`;
+      `<div style="margin-bottom:6px;font-weight:700">
+         <span style="color:#ff7a7a">要 書き起こし ${_auditRows.filter(g => g.plan.kind === 'asr').length}</span>
+         <span style="color:#ffc46b;margin-left:10px">翻訳だけ ${_auditRows.filter(g => g.plan.kind === 'retranslate').length}</span>
+         <span style="color:#7ad07a;margin-left:10px">問題なし ${okCount}</span>
+       </div>
+       <div style="font-size:10.5px;color:var(--text3,#999);margin-bottom:4px">
+         原語の字幕が無事なものは、翻訳だけやり直せば済みます（音声認識の料金がかからない）
+       </div>${rows}
+       <div style="margin-top:10px;font-size:10.5px;color:var(--text3,#999);line-height:1.6">
+         判定の根拠は、時刻として読めない行・時刻の逆行・通し番号の欠落・ミリ秒がキリのいい値ばかり、の4つです。
+         いずれも音から測った時刻では起きません。
+       </div>`;
+
+    const f = foot();
+    f.style.display = 'flex';
+    f.innerHTML = `
+      <button onclick="wkSubAuditFix()" style="flex:1;min-width:150px;font-size:11.5px;font-weight:700;padding:7px 10px;
+        border-radius:8px;border:1px solid var(--accent,#6c8cff);background:var(--accent,#6c8cff);color:#fff;cursor:pointer">
+        選んだものを直す</button>
+      <button onclick="wkSubAuditTrash()" style="font-size:11.5px;padding:7px 10px;border-radius:8px;
+        border:1px solid var(--border,#555);background:transparent;color:var(--text2,#bbb);cursor:pointer">
+        🗑 選んだ字幕をゴミ箱へ</button>`;
   } catch (e) {
     if (body()) body().innerHTML = `<div style="color:#ff7a7a">失敗しました: ${String(e?.message || e)}</div>`;
   }
+};
+
+function _auditSelected() {
+  return [...document.querySelectorAll('.vp-audit-ck')]
+    .filter(c => c.checked).map(c => _auditRows[+c.dataset.i]).filter(Boolean);
+}
+
+// 選んだものをまとめて直す。1本ずつ順に処理して、途中経過を出す。
+window.wkSubAuditFix = async function() {
+  const sel = _auditSelected();
+  if (!sel.length) { window.toast?.('直すものが選ばれていません'); return; }
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
+
+  const asr  = sel.filter(g => g.plan.kind === 'asr');
+  const cost = sel.reduce((n, g) => n + g.plan.cost, 0);
+  if (!confirm(`${sel.length}本の字幕を作り直します。\n`
+             + `  書き起こしから: ${asr.length}本\n  翻訳だけ: ${sel.length - asr.length}本\n\n`
+             + `概算コスト $${cost.toFixed(3)}\n`
+             + `1本ずつ順に処理します。時間がかかるのでこの画面は閉じないでください。`)) return;
+
+  const body = document.getElementById('vp-sub-audit-body');
+  const foot = document.getElementById('vp-sub-audit-foot');
+  if (foot) foot.style.display = 'none';
+  const log = [];
+  const draw = (now) => {
+    if (!body) return;
+    body.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${now}</div>`
+      + log.map(l => `<div style="padding:3px 0;border-top:0.5px solid var(--border,#3a3a3a);color:${l.ok ? 'var(--text2,#bbb)' : '#ff7a7a'}">${l.t}</div>`).join('');
+  };
+
+  const want = (subOpts().genLang && subOpts().genLang !== 'orig') ? subOpts().genLang : 'ja';
+  let spent = 0, okN = 0, ngN = 0;
+  for (let i = 0; i < sel.length; i++) {
+    const g = sel[i];
+    const esc = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
+    const set = (msg) => draw(`(${i + 1}/${sel.length}) ${esc(g.name)} … ${esc(msg)}`);
+    set('開始');
+    try {
+      if (g.plan.kind === 'retranslate') {
+        const r = await _retranslateFromSrt({
+          token, videoFileId: g.video.id, srcName: g.plan.src.name,
+          srcText: g.plan.src.text, want, setBtn: set });
+        spent += r.cost;
+        log.push({ ok: true, t: `✅ ${esc(r.target)}（翻訳のみ $${r.cost.toFixed(3)}）` });
+      } else {
+        const r = await _asrGenerateAndSave({
+          id: null, fileId: g.video.id, gdToken: token, subLang: want,
+          setBtn: set, silent: true, preset: { existing: 'replace' }, t0: Date.now() });
+        spent += (r && r.cost) || g.plan.cost;
+        log.push({ ok: true, t: `✅ ${esc(g.name)}（書き起こしから）` });
+      }
+      okN++;
+      _gdSubLookup.delete(g.video.id);
+      _subOffsetSet(g.video.id, 0);
+    } catch (e) {
+      ngN++;
+      log.push({ ok: false, t: `⚠️ ${String(e?.message || e)} — ${String(g.name)}` });
+    }
+  }
+  draw(`完了: 成功 ${okN} / 失敗 ${ngN} / 実測 $${spent.toFixed(3)}`);
+  window.toast?.(`✅ ${okN}本を作り直しました（$${spent.toFixed(3)}）`);
+  if (_gdFileId) await window.wkSubReload?.();
+};
+
+// 選んだ動画の「壊れている字幕ファイル」だけをゴミ箱へ。動画本体には触れない。
+window.wkSubAuditTrash = async function() {
+  const sel = _auditSelected();
+  if (!sel.length) { window.toast?.('選ばれていません'); return; }
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
+
+  const targets = sel.flatMap(g => g.plan.bad || []);
+  if (!targets.length) { window.toast?.('対象がありません'); return; }
+  if (!confirm(`壊れている字幕 ${targets.length}件をDriveのゴミ箱に移動します。\n\n`
+             + `動画本体は削除されません。\nDriveのゴミ箱から元に戻せます。`)) return;
+
+  let okN = 0, ngN = 0;
+  for (const t of targets) {
+    try { await _driveTrash(token, t.id); okN++; } catch (e) { ngN++; console.warn('trash failed', t.name, e); }
+  }
+  for (const g of sel) _gdSubLookup.delete(g.video.id);
+  window.toast?.(`🗑 ${okN}件をゴミ箱に移動しました${ngN ? `（${ngN}件失敗）` : ''}`);
+  document.getElementById('vp-sub-audit')?.remove();
+  if (_gdFileId) await window.wkSubReload?.();
 };
 
 window.wkSubReload = async function() {
