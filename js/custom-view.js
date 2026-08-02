@@ -397,9 +397,9 @@ function _buildPickerHTML() {
   const items = _views.map((v, idx) => {
     const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
     const modeLbl = v.saveMode === 'dynamic' ? T('cv.dynamic','条件で自動選択') : T('cv.manual','手動選択');
-    const cnt = v.saveMode === 'dynamic'
-      ? (v.filterConditions ? _applyConditions(v.filterConditions, window.videos || []).length : 0)
-      : (v.videoIds || []).length;
+    const cntN = v.saveMode === 'dynamic' ? _dynamicCount(v) : (v.videoIds || []).length;
+    // 動画が未読込のときは 0 と嘘をつかず「—」を出す
+    const cnt = (cntN === null) ? '—' : `${cntN}${T('cv.count','本')}`;
     const isActive = v.id === _curId;
 
     if (_cvPickerEditMode) {
@@ -413,7 +413,7 @@ function _buildPickerHTML() {
         <span class="cv-picker-icon">${icon}</span>
         <span class="cv-picker-info">
           <span class="cv-picker-name">${_esc(v.label)}</span>
-          <span class="cv-picker-meta">${modeLbl} · ${cnt}${T('cv.count','本')}</span>
+          <span class="cv-picker-meta">${modeLbl} · ${cnt}</span>
         </span>
         <button class="cv-picker-save-tpl-btn" onclick="event.stopPropagation();window._cvSaveAsTemplate('${v.id}')" title="テンプレとして保存" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;line-height:1">💾</button>
         <button class="cv-picker-del-btn" onclick="event.stopPropagation();window._cvDeleteView('${v.id}')" title="削除">🗑</button>
@@ -427,7 +427,7 @@ function _buildPickerHTML() {
           <span class="cv-picker-name">${_esc(v.label)}</span>
           <button class="cv-picker-rename-btn" onclick="event.stopPropagation();window._cvRenameView('${v.id}')" title="名前を変更">✏️</button>
         </span>
-        <span class="cv-picker-meta">${modeLbl} · ${cnt}${T('cv.count','本')}</span>
+        <span class="cv-picker-meta">${modeLbl} · ${cnt}</span>
       </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
       ${_rowDispHTML(v.id, _viewTypeOf(v.id))}
@@ -1105,6 +1105,37 @@ function _cvApplyGlobalFilters(list) {
     if (f.channel?.size   && !f.channel.has(v.channel || v.ch))        return false;
     return true;
   });
+}
+
+// 「条件で自動」のリストの件数。
+//
+// 以前は filterConditions だけを見て、無ければ 0 と出していた:
+//   v.filterConditions ? _applyConditions(...).length : 0
+// ところが動的ビューは3通りの作られ方をする。
+//   ・絞り込み条件つき     → filterConditions に中身が入る
+//   ・ワード検索だけ       → filterConditions は空 {}、条件は searchQuery 側
+//   ・条件を持たずに作成   → filterConditions は null（_cvPendingFilterConditions 未設定）
+// null は「1本も無い」ではなく「絞り込みなし＝全部」なのに 0 と表示していた。
+// searchQuery も一切数えていなかった。開くと動画が出るのに 0本 と出るのはこのため。
+//
+// 件数はビューを開いたときと同じ条件で数える（_cvUpdateSearch と同じ照合を使う）。
+// 動画がまだ読み込めていないときは 0 と嘘をつかず null を返す（呼び出し側で「—」）。
+function _dynamicCount(v) {
+  const all = window.videos || [];
+  if (!all.length) return null;
+  let list = _applyConditions(v.filterConditions, all);   // null/未設定は「制限なし」
+  const q = (v.searchQuery || '').trim();
+  if (q) {
+    const parse = window._parseQuery, match = window._matchQuery;
+    if (parse && match) {
+      const parsed = parse(q);
+      list = list.filter(x => match(x, parsed, null));
+    } else {
+      const ql = q.toLowerCase();
+      list = list.filter(x => (x.title || '').toLowerCase().includes(ql));
+    }
+  }
+  return list.length;
 }
 
 function _applyConditions(fc, all) {
