@@ -4562,13 +4562,57 @@ function _srtDiagnose(text) {
   let gap = 0;
   for (let i = 1; i < nums.length; i++) if (nums[i] !== nums[i - 1] + 1) gap++;
 
+  // 5〜6) 中身の検査。
+  // ここが無かったせいで、一括生成で作った破片字幕が「問題なし」で通っていた。
+  // 時刻は AssemblyAI の実測なので、時刻だけ見ていると全部正常に見える。
+  // 実データ（01-05 を一括生成したもの）: 1枚の中央値6字・最短4字。
+  //   「ガードパスの」「様々な種類に」「適用される」「一般的な」…
+  // 読める字幕は日本語で最低でも1枚10字前後ある。中央値が一桁なら破片。
+  const cues = _srtCueBodies(lines);
+  const lens = cues.map(c => c.text.length).filter(n => n > 0);
+  const med  = lens.length ? [...lens].sort((a, b) => a - b)[Math.floor(lens.length / 2)] : 0;
+  const cjk  = /[぀-ヿ一-鿿가-힣]/.test(cues.map(c => c.text).join(''));
+  const maxDur = cues.reduce((m, c) => Math.max(m, c.end - c.start), 0);
+
   const reasons = [];
   if (badTc)         reasons.push(`読めない時刻 ${badTc}件`);
   if (back)          reasons.push(`時刻の逆行 ${back}件`);
   if (gap)           reasons.push(`番号の欠落 ${gap}件`);
   if (roundPct >= 80 && ms.length >= 8) reasons.push(`ミリ秒がキリのいい値 ${roundPct}%`);
+  if (cjk && lens.length >= 8 && med <= SRT_MIN_MED_CHARS) reasons.push(`1枚が短すぎる（中央値${med}字）`);
+  if (maxDur >= SRT_MAX_CUE_SEC) reasons.push(`1枚が${Math.round(maxDur)}秒出っぱなし`);
+
   const level = (badTc || back) ? 'bad' : reasons.length ? 'warn' : 'ok';
-  return { cues: arrows.length, level, reasons, last: starts.length ? starts[starts.length - 1] : 0 };
+  return {
+    cues: arrows.length, level, reasons, med, chars: lens.reduce((a, b) => a + b, 0),
+    last: starts.length ? starts[starts.length - 1] : 0,
+  };
+}
+
+// 破片の判定に使うしきい値。実データで測って決めた値。
+//   一括生成で壊れたもの … 中央値6字（最短4字）
+//   まともな日本語字幕   … 中央値10〜16字
+const SRT_MIN_MED_CHARS = 8;    // 中央値がこれ以下なら破片
+const SRT_MAX_CUE_SEC   = 13;   // 1枚がこれ以上出っぱなしなら追従していない
+// 訳文が原語より極端に短いときの比。英日翻訳はふつう 0.35〜0.55。
+// 一括生成で壊れたものは 0.10 だった（内容が削られている）。
+const SRT_MIN_TR_RATIO  = 0.22;
+
+// 本文と時刻を取り出す（診断用。表示には使わない）
+function _srtCueBodies(lines) {
+  const marks = [];
+  for (let i = 0; i < lines.length; i++) if (VTT_TC_RE.test(lines[i])) marks.push(i);
+  const out = [];
+  for (let k = 0; k < marks.length; k++) {
+    const m = lines[marks[k]].match(VTT_TC_RE);
+    const body = lines.slice(marks[k] + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
+    while (body.length && (body[body.length - 1].trim() === '' || /^\d{1,5}$/.test(body[body.length - 1].trim()))) body.pop();
+    out.push({
+      start: _tc2sec(m[1].replace(',', '.')), end: _tc2sec(m[2].replace(',', '.')),
+      text: body.join('').replace(/\s+/g, ''),
+    });
+  }
+  return out;
 }
 
 // 点検結果は「動画ごと」にまとめる。直す単位がファイルではなく動画だから。
@@ -4578,6 +4622,21 @@ let _auditRows = [];   // 画面に出している行（チェックボックス
 
 function _auditPlanOf(g) {
   const src = g.files.find(f => !f.lang || f.lang === g.srcLang);
+
+  // 訳が原語に比べて極端に短いものを拾う。1ファイル単体では判定できないので
+  // ここで突き合わせる。実データ: 一括生成で壊れたものは 0.10（ふつうは0.35〜0.55）。
+  if (src && src.chars > 200) {
+    for (const f of g.files) {
+      if (f === src || !f.chars) continue;
+      const ratio = f.chars / src.chars;
+      if (ratio < SRT_MIN_TR_RATIO) {
+        if (f.level === 'ok') f.level = 'warn';
+        const why = `訳が原語の${Math.round(ratio * 100)}%しかない（内容が削られている）`;
+        if (!f.reasons.some(r => r.startsWith('訳が原語の'))) f.reasons.push(why);
+      }
+    }
+  }
+
   const bad = g.files.filter(f => f.level === 'bad' || f.level === 'warn');
   if (!bad.length) return { kind: 'ok' };
   if (src && src.level === 'ok') {
@@ -4728,7 +4787,7 @@ window.wkSubAudit = async function() {
          原語の字幕が無事なものは、翻訳だけやり直せば済みます（音声認識の料金がかからない）
        </div>${rows}
        <div style="margin-top:10px;font-size:10.5px;color:var(--text3,#999);line-height:1.6">
-         判定の根拠は、時刻として読めない行・時刻の逆行・通し番号の欠落・ミリ秒がキリのいい値ばかり、の4つです。
+         判定の根拠は、時刻として読めない行・時刻の逆行・通し番号の欠落・ミリ秒がキリのいい値ばかりに加え、1枚が短すぎる・長く出っぱなし・訳が原語より極端に短い、です。
          いずれも音から測った時刻では起きません。
        </div>`;
 
