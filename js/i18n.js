@@ -1470,6 +1470,8 @@
     "既定のまま": "Defaults",
     "変更あり": "Changed",
     "このフォルダの動画": "Videos in this folder",
+    "すべてにチェックを入れる": "Select all here",
+    "すべてのチェックを外す": "Clear all here",
     "このフォルダは空です": "This folder is empty",
     "選択を解除しました": "Selection cleared",
     "このフォルダに取り込める動画がありません": "No videos here to import",

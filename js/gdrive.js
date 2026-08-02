@@ -673,12 +673,16 @@ function _folderItemHtml(f, isFav, state, count) {
 function _videoItemHtml(v) {
   const done = (window.videos || []).some(x => x.id === 'gd-' + v.id);
   const mins = v.duration ? `${Math.round(v.duration / 60)}分` : '';
+  // 除去する文字列を反映した「取り込まれる名前」を出す。
+  // ここが生のファイル名のままだと、除去欄に入れても効いていないように見える。
+  const strip = document.getElementById('gd-strip-suffix')?.value || '';
+  const shown = cleanTitle(v.name, strip);
   return `<div class="gdp-row${done ? ' done' : ''}" data-kind="video" data-id="${_gdEsc(v.id)}"
       tabindex="${done ? -1 : 0}">
     <input type="checkbox" class="gdp-cb" data-kind="video" data-id="${_gdEsc(v.id)}"
       ${done ? 'disabled' : ''} ${_pick.has(v.id) ? 'checked' : ''}>
     <span class="ico">🎬</span>
-    <span class="nm">${_gdEsc(v.name)}</span>
+    <span class="nm" title="${_gdEsc(v.name)}">${_gdEsc(shown)}</span>
     <span class="meta">${done ? '取込済' : mins}</span>
     <span class="chev"></span>
   </div>`;
@@ -699,7 +703,7 @@ function _curAncestors() {
 
 export function gdClearPick() {
   _pick.clear();
-  _browserRender();
+  _refresh();
   window.toast?.('選択を解除しました');
 }
 
@@ -723,7 +727,7 @@ export function gdToggleOpts() {
 }
 
 // 手入力を尊重するため、除去欄は「触ったら自動検出しない」に切り替える
-export function gdStripTouched() { _stripTouched = true; gdRenderDrawer(); gdOptsSummary(); }
+export function gdStripTouched() { _stripTouched = true; _paintList(); gdRenderDrawer(); gdOptsSummary(); }
 
 export function gdOptsSummary() {
   const any = ['gd-channel', 'gd-playlist', 'gd-strip-suffix']
@@ -745,7 +749,7 @@ export function gdRenderDrawer() {
       <button class="gdp-x" data-unpick="${_gdEsc(v.id)}" title="選択から外す">×</button>
     </div>`).join('');
   d.querySelectorAll('[data-unpick]').forEach(b =>
-    b.addEventListener('click', () => { _pick.delete(b.dataset.unpick); _browserRender(); }));
+    b.addEventListener('click', () => { _pick.delete(b.dataset.unpick); _refresh(); }));
 }
 
 function _renderSelBar() {
@@ -795,14 +799,65 @@ async function _togglePickFolder(f) {
     window.toast?.('フォルダの読み込みに失敗しました');
   } finally {
     if (cb) cb.disabled = false;
-    _browserRender();
+    _refresh();
   }
 }
 
+// 今表示しているフォルダの中身。チェックのたびにDriveを叩き直さないよう持っておく。
+let _curFolders = [], _curVideos = [];
+
+// 取得せずに描き直す。チェック操作・除去文字列の変更はこれで足りる。
+function _paintList() {
+  const listEl = document.getElementById('gd-browser-list');
+  if (!listEl) return;
+  const favs   = _loadFavs();
+  const favIds = new Set(favs.map(f => f.id));
+  let html = '';
+
+  if (_browserStack.length === 0 && favs.length > 0) {
+    html += `<div class="gdp-grouphd" style="color:var(--gold)">★ お気に入り</div>`;
+    html += favs.map(f => _folderItemHtml(f, true, _folderState(f.id), _folderCount.get(f.id))).join('');
+    html += `<div class="gdp-grouphd">全フォルダ</div>`;
+  }
+
+  if (!_curFolders.length && !_curVideos.length) {
+    html += '<div class="gdp-empty">このフォルダは空です</div>';
+  } else {
+    html += _curFolders.map(f =>
+      _folderItemHtml(f, favIds.has(f.id), _folderState(f.id), _folderCount.get(f.id))).join('');
+    if (_curVideos.length) {
+      const usable = _curVideos.filter(v => !(window.videos || []).some(x => x.id === 'gd-' + v.id));
+      const allOn  = usable.length > 0 && usable.every(v => _pick.has(v.id));
+      html += `<div class="gdp-grouphd" style="display:flex;align-items:center;gap:8px">
+        <span>このフォルダの動画</span>
+        ${usable.length ? `<button class="gdp-link" id="gd-allhere" style="margin-left:auto;text-transform:none"
+          >${allOn ? 'すべてのチェックを外す' : 'すべてにチェックを入れる'}</button>` : ''}
+      </div>`;
+      html += _curVideos.map(_videoItemHtml).join('');
+    }
+  }
+  listEl.innerHTML = html;
+  // 一部だけ選んだフォルダは「半端な状態」で見せる（属性では表現できない）
+  listEl.querySelectorAll('.gdp-cb[data-kind="folder"]').forEach(cb => {
+    if (_folderState(cb.dataset.id) === 'part') cb.indeterminate = true;
+  });
+  listEl.querySelector('#gd-allhere')?.addEventListener('click', () => {
+    const usable = _curVideos.filter(v => !(window.videos || []).some(x => x.id === 'gd-' + v.id));
+    const allOn  = usable.length > 0 && usable.every(v => _pick.has(v.id));
+    if (allOn) usable.forEach(v => _pick.delete(v.id));
+    else       usable.forEach(v => _pickAdd(v, _browserCurrentName));
+    _refresh();
+  });
+  _bindRows(listEl, _curFolders, _curVideos);
+}
+
+// 選択まわりと一覧をまとめて描き直す（Driveは叩かない）
+function _refresh() { _renderSelBar(); _paintList(); }
+
 async function _browserRender() {
-  const listEl  = document.getElementById('gd-browser-list');
   const crumbEl = document.getElementById('gd-crumbs');
   const upBtn   = document.getElementById('gd-up');
+  const listEl  = document.getElementById('gd-browser-list');
 
   // パンくず（ルート → 現在地）
   if (crumbEl) {
@@ -824,42 +879,15 @@ async function _browserRender() {
   try {
     // ショートカットを実体に直してから振り分ける。スキャンと同じ判定にしておかないと、
     // 一覧に出ないのに取り込まれる（逆も）といった食い違いが起きる。
-    const files   = (await listFolder(_browserCurrentId)).map(_gdResolveShortcut);
-    const folders = files.filter(f => f.mimeType === GD_FOLDER_MIME);
-    const videos  = files.filter(_isVideoFile).map(f => ({
+    const files = (await listFolder(_browserCurrentId)).map(_gdResolveShortcut);
+    _curFolders = files.filter(f => f.mimeType === GD_FOLDER_MIME);
+    _curVideos  = files.filter(_isVideoFile).map(f => ({
       id: f.id, name: f.name,
       duration: f.videoMediaMetadata?.durationMillis
         ? Math.round(Number(f.videoMediaMetadata.durationMillis) / 1000) : 0,
       thumbnailLink: f.thumbnailLink || '',
     }));
-
-    const favs   = _loadFavs();
-    const favIds = new Set(favs.map(f => f.id));
-    let html = '';
-
-    if (_browserStack.length === 0 && favs.length > 0) {
-      html += `<div class="gdp-grouphd" style="color:var(--gold)">★ お気に入り</div>`;
-      html += favs.map(f => _folderItemHtml(f, true, _folderState(f.id), _folderCount.get(f.id))).join('');
-      html += `<div class="gdp-grouphd">全フォルダ</div>`;
-    }
-
-    if (!folders.length && !videos.length) {
-      html += '<div class="gdp-empty">このフォルダは空です</div>';
-    } else {
-      html += folders.map(f => _folderItemHtml(f, favIds.has(f.id), _folderState(f.id), _folderCount.get(f.id))).join('');
-      if (videos.length) {
-        if (folders.length) html += '<div class="gdp-grouphd">このフォルダの動画</div>';
-        html += videos.map(_videoItemHtml).join('');
-      }
-    }
-    if (listEl) {
-      listEl.innerHTML = html;
-      // 一部だけ選んだフォルダは「半端な状態」で見せる（属性では表現できない）
-      listEl.querySelectorAll('.gdp-cb[data-kind="folder"]').forEach(cb => {
-        if (_folderState(cb.dataset.id) === 'part') cb.indeterminate = true;
-      });
-      _bindRows(listEl, folders, videos);
-    }
+    _refresh();
   } catch(e) {
     console.error('browse error:', e);
     if (listEl) listEl.innerHTML = '<div class="gdp-empty" style="color:#e74c3c">読み込みに失敗しました</div>';
@@ -894,7 +922,7 @@ function _bindRows(listEl, folders, videos) {
       const flip = () => {
         if (_pick.has(id)) _pick.delete(id);
         else _pickAdd(item, _browserCurrentName);
-        _browserRender();
+        _refresh();
       };
       row.addEventListener('click', e => { if (!e.target.closest('.gdp-cb')) flip(); });
       cb?.addEventListener('click', e => { e.stopPropagation(); flip(); });
