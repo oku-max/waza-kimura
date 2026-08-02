@@ -484,6 +484,60 @@ function _cvWatch(uid) {
   }, e => console.error('[cvWatch] onSnapshot:', e));
 }
 
+// ── カスタムビューの同期状態を出す（読むだけ・何も書かない）──────
+// 「端末間で同期されない」を推測で追わないための道具。
+// この端末が持っているもの / クラウドにあるもの / 食い違いを並べて出す。
+// コンソールで wkCvDiag() と打つ。
+window.wkCvDiag = async function() {
+  if (!currentUser) { console.log('ログインしていません'); return; }
+  const uid = currentUser.uid;
+  const local = window._cvViews || [];
+  let lsCount = 0;
+  try { lsCount = (JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []).length; } catch (e) {}
+
+  let idx = null, legacy = [];
+  try { const s = await _cvIndexRef(uid).get(); if (s.exists) idx = s.data(); } catch (e) { console.error('index読込失敗', e); }
+  try {
+    const s = await _dataDoc(uid, 'settings').get();
+    if (s.exists && Array.isArray(s.data().customViews)) legacy = s.data().customViews;
+  } catch (e) {}
+
+  const ids = (idx && Array.isArray(idx.ids)) ? idx.ids.filter(Boolean) : [];
+  const snaps = await Promise.all(ids.map(id => _cvViewRef(uid, id).get().catch(() => null)));
+  const cloud = new Map();
+  snaps.forEach((s, i) => {
+    if (s && s.exists) { const v = _unpackNested(s.data().view); if (v && v.id) cloud.set(v.id, v); }
+    else cloud.set(ids[i], null);   // 索引にあるのに本体が無い
+  });
+
+  const allIds = [...new Set([...local.map(v => v.id), ...ids, ...legacy.map(v => v && v.id)])].filter(Boolean);
+  const rows = allIds.map(id => {
+    const l = local.find(v => v.id === id);
+    const c = cloud.has(id) ? cloud.get(id) : undefined;
+    return {
+      名前: (l || c || legacy.find(v => v && v.id === id) || {}).label || '(不明)',
+      この端末: l ? '✓' : '—',
+      クラウド: c === undefined ? '—' : (c === null ? '索引のみ(本体なし)' : '✓'),
+      旧形式: legacy.some(v => v && v.id === id) ? '✓' : '—',
+      未送信: l && _cvLastSynced[id] === undefined ? '⚠️ まだ送れていない' : '',
+      id,
+    };
+  });
+  console.log(`── カスタムビューの同期状態 ──
+  この端末(メモリ)   ${local.length}件
+  この端末(保存済み) ${lsCount}件
+  クラウド(索引)     ${ids.length}件
+  クラウド(本体)     ${[...cloud.values()].filter(Boolean).length}件
+  クラウド(旧形式)   ${legacy.length}件
+  移行済みフラグ     ${idx && idx.migrated ? 'true（旧形式は読まない）' : 'false'}
+  保存ロック         ${_settingsReady ? '解除済み（保存できる）' : '⚠️ ロック中（保存がスキップされる）'}
+  セッションID       ${_sessionId}`);
+  console.table(rows);
+  const notSent = rows.filter(r => r.未送信);
+  if (notSent.length) console.warn(`⚠️ ${notSent.length}件がクラウドへ送れていません。この端末で何か1つリストを編集すると再送されます。`);
+  return rows;
+};
+
 // 新形式(プレイリスト単位ドキュメント)＋旧形式(settings.customViews)を安全にマージして返す。
 // 優先度: per-doc(最新) > legacy配列 > localStorage(クラウドが全空のときの自己修復のみ)。
 async function _cvLoadAndMerge(uid, legacyArr) {
