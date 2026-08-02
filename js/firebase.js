@@ -29,6 +29,7 @@ auth.onAuthStateChanged(async (user) => {
   // ユーザーが変わったら必ず全リスナーを先に解除する（Firebase標準パターン）
   if (_notesUnsubscribe)  { _notesUnsubscribe();  _notesUnsubscribe  = null; }
   if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
+  if (_cvUnsubscribe)     { _cvUnsubscribe();     _cvUnsubscribe     = null; }
 
   // ユーザーが実際に変わった/ログアウトしたときだけ保存を一旦ロック。
   // （同一ユーザーのトークン更新では再ロード中も保存ロックの警告を出さない）
@@ -44,6 +45,7 @@ auth.onAuthStateChanged(async (user) => {
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     await loadUserSettings(user.uid);
+    _cvWatch(user.uid);               // 他端末のカスタムビュー変更を拾う（読むだけ）
     await loadNotes(user.uid);
     await loadTagMasterAliases(user.uid);
     await loadTagRules(user.uid);
@@ -405,7 +407,8 @@ window._cvSyncRemote = async function(force) {
     try {
       await _cvIndexRef(uid).set({
         ids: firebase.firestore.FieldValue.arrayUnion(...ids),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        savedBy: _sessionId   // 自分の書き込みで自分のリスナーを発火させないための印
       }, { merge: true });
     } catch (e) { console.error('[cvSync] index更新失敗', e); }
   }
@@ -419,11 +422,67 @@ window._cvDeleteRemote = async function(id) {
   const uid = currentUser.uid;
   try {
     await _cvViewRef(uid, id).delete();
-    await _cvIndexRef(uid).set({ ids: firebase.firestore.FieldValue.arrayRemove(id) }, { merge: true });
+    await _cvIndexRef(uid).set({
+      ids: firebase.firestore.FieldValue.arrayRemove(id), savedBy: _sessionId,
+    }, { merge: true });
     delete _cvLastSynced[id];
     console.log('[cvDelete] 個別プレイリスト削除', id);
   } catch (e) { console.error('[cvDelete] 削除同期失敗', id, e); showToast('⚠️ プレイリスト削除の同期に失敗しました', 5000); }
 };
+
+// ── 他端末のカスタムビュー変更を拾う ────────────────────────────
+// これまでカスタムビューは「ログイン/リロード時に1回読む」だけだった（ノートには
+// onSnapshot があるのに、こちらには無かった）。だから別の端末で作ったリストは
+// 相手が読み直すまで出てこない。索引ドキュメントを監視して、変わったら読み直す。
+//
+// この経路では絶対に書き込まない。読んでメモリを更新して描き直すだけ。
+// localStorage にも Firestore にも触れない。理由: v52.541 で「空になった状態が
+// 保存に流れて全端末から消える」事故を起こしている。読み取り専用なら、最悪でも
+// 画面の表示が古いままになるだけで、データは減らない。
+//
+// 安全側の決まり:
+//   1. 非空 → 空 の置き換えはしない（クラウドが一時的に空でも消さない）
+//   2. まだ一度も同期していないローカルのビューは残す
+//      （オフラインで作った直後に他端末の更新が来ても消さない）
+//   3. 自分が書いた変更では発火させない（savedBy）
+//   4. 例外が出たら何もしない（現状維持）
+let _cvUnsubscribe = null;
+
+function _cvWatch(uid) {
+  if (_cvUnsubscribe) { _cvUnsubscribe(); _cvUnsubscribe = null; }
+  _cvUnsubscribe = _cvIndexRef(uid).onSnapshot(async snap => {
+    try {
+      if (currentUser?.uid !== uid) return;          // 別ユーザーに切り替わった
+      if (!snap.exists) return;
+      if (!_settingsReady) return;                    // 初回ロードが終わるまでは触らない
+      if (snap.data()?.savedBy === _sessionId) return; // 自分の書き込み
+      if (snap.metadata?.hasPendingWrites) return;     // 自分のローカル書き込みの反映
+
+      const before = window._cvViews || [];
+      const { merged } = await _cvLoadAndMerge(uid, null);
+      if (!Array.isArray(merged)) return;
+
+      // 決まり2: 一度も同期していないローカルのビューは残す。
+      // クラウドから消えたものでも、_cvLastSynced に記録が無ければ
+      // 「削除された」のではなく「まだ送れていない」なので落とさない。
+      const ids = new Set(merged.map(v => v && v.id));
+      const keep = before.filter(v => v && v.id && !ids.has(v.id) && _cvLastSynced[v.id] === undefined);
+      const next = merged.concat(keep);
+
+      // 決まり1: 非空 → 空 にはしない
+      if (!next.length && before.length) {
+        console.warn('[cvWatch] クラウドが空。ローカルを残す（消さない）');
+        return;
+      }
+      if (JSON.stringify(next) === JSON.stringify(before)) return;   // 変化なし
+      console.log(`[cvWatch] 他端末の変更を反映: ${before.length}件 → ${next.length}件`);
+      window._cvApplyLoadedViews?.(next);
+      showToast('🔄 リストを他の端末の内容に更新しました', 3000);
+    } catch (e) {
+      console.error('[cvWatch] 反映に失敗（現状維持）', e);
+    }
+  }, e => console.error('[cvWatch] onSnapshot:', e));
+}
 
 // 新形式(プレイリスト単位ドキュメント)＋旧形式(settings.customViews)を安全にマージして返す。
 // 優先度: per-doc(最新) > legacy配列 > localStorage(クラウドが全空のときの自己修復のみ)。
