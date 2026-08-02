@@ -17,6 +17,8 @@ let _gdContainerClick = null;       // container click handler（蓄積防止用
 let _gdIntendedTime = null;         // 連続seek時の目標時刻（debounce用）
 let _gdSeekTimer = null;            // seekデバウンスタイマー
 let _gdStallTimer = null;           // waiting状態スタック回復タイマー
+let _gdSubUiHideTimer = null;       // 右上CC/⚙の自動非表示タイマー
+let _gdSubUiUnbind = null;          // 右上CC/⚙の表示トリガー解除（蓄積防止用）
 // Vimeo Player API
 let _vmPlayer  = null;
 let _vmCurTime = 0;
@@ -1405,6 +1407,7 @@ export function openVPanel(id) {
   const _gdResetContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
+  _gdSubUiUnbind?.();
   _gdResetContainer?.querySelector('#vp-sub-ui')?.remove();
   _gdResetContainer?.querySelector('#vp-sub-overlay')?.remove();
   _gdSubRevoke();
@@ -1902,6 +1905,7 @@ export function closeVPanel() {
     const _gdCloseContainer = _gdContainer || document.getElementById('vpanel-iframe-container');
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
+    _gdSubUiUnbind?.();
     _gdCloseContainer?.querySelector('#vp-sub-ui')?.remove();
     _gdCloseContainer?.querySelector('#vp-sub-overlay')?.remove();
     _gdSubRevoke();
@@ -2007,12 +2011,17 @@ function _createGDriveVideoEl(container, fileId, token) {
   // 停止後1秒でコントロール非表示（スクショ用）、タップで再生復帰
   video.addEventListener('pause', () => {
     clearTimeout(_gdPauseTimer);
-    _gdPauseTimer = setTimeout(() => { video.controls = false; }, 1000);
+    _gdPauseTimer = setTimeout(() => {
+      video.controls = false;
+      // CC/⚙もコントロールと一緒に消す（調整パネルを開いている間は残す）
+      if (!document.getElementById('vp-sub-opts')) _gdSubUiShow(false);
+    }, 1000);
   });
   video.addEventListener('play', () => {
     clearTimeout(_gdPauseTimer);
     _gdPauseTimer = null;
     video.controls = true;
+    _gdSubUiPoke();
   });
   _gdContainerClick = () => {
     if (video.paused && !video.controls) {
@@ -2653,6 +2662,53 @@ function _gdSubPaintButton() {
     : `字幕: ${cur?.name || _gdSubTracks[0]?.name || ''}`);
 }
 
+// ── 右上のCC/⚙は映像に重なるので出しっぱなしにしない ──
+// 触っている間だけ出して、無操作が続いたら消す（動画のコントロールと同じ感覚）。
+// 停止中はコントロールと一緒に消えるので、スクショにも写り込まない。
+const _GD_SUB_UI_HIDE_MS = 2200;
+
+function _gdSubUiShow(on) {
+  const wrap = document.getElementById('vp-sub-ui');
+  if (!wrap) return;
+  wrap.style.opacity       = on ? '1' : '0';
+  // 消えている間はクリックを奪わない（映像側のタップで復帰させる）
+  wrap.style.pointerEvents = on ? 'auto' : 'none';
+}
+
+// 表示して、無操作が続いたら消す。
+// 調整パネルを開いている間・ボタンにポインタが乗っている間は消さない。
+function _gdSubUiPoke() {
+  const wrap = document.getElementById('vp-sub-ui');
+  if (!wrap) return;
+  _gdSubUiShow(true);
+  clearTimeout(_gdSubUiHideTimer);
+  _gdSubUiHideTimer = setTimeout(() => {
+    if (document.getElementById('vp-sub-opts')) return _gdSubUiPoke();   // 調整パネルを開いている
+    if (wrap.matches(':hover'))                 return _gdSubUiPoke();   // 押そうとしている
+    _gdSubUiShow(false);
+  }, _GD_SUB_UI_HIDE_MS);
+}
+
+// 映像の上でポインタが動いたら出す。タップ（pointerdown）は停止中でも受ける。
+function _gdSubUiBind(container) {
+  _gdSubUiUnbind?.();
+  if (!container) return;
+  const onMove = () => {
+    // 停止＋コントロール非表示は「静止画として見せている」状態なので邪魔しない
+    if (_gdVideoEl && _gdVideoEl.paused && !_gdVideoEl.controls) return;
+    _gdSubUiPoke();
+  };
+  const onDown = () => _gdSubUiPoke();
+  container.addEventListener('pointermove', onMove);
+  container.addEventListener('pointerdown', onDown);
+  _gdSubUiUnbind = () => {
+    container.removeEventListener('pointermove', onMove);
+    container.removeEventListener('pointerdown', onDown);
+    clearTimeout(_gdSubUiHideTimer); _gdSubUiHideTimer = null;
+    _gdSubUiUnbind = null;
+  };
+}
+
 function _gdSubMountButton(container) {
   if (!container) return;
   container.querySelector('#vp-sub-ui')?.remove();
@@ -2661,7 +2717,8 @@ function _gdSubMountButton(container) {
   // 全画面に広がりクリックを奪ってしまうため span を使う
   const wrap = document.createElement('span');
   wrap.id = 'vp-sub-ui';
-  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center';
+  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
+    + 'opacity:1;transition:opacity .25s ease';
   const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
     + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
 
@@ -2677,7 +2734,8 @@ function _gdSubMountButton(container) {
     lp = setTimeout(() => { lpFired = true; _gdSubOpenPanel(btn); }, 500);
   };
   const cancelLp = () => { clearTimeout(lp); lp = null; };
-  btn.addEventListener('pointerdown', e => { e.stopPropagation(); startLp(); });
+  // ボタン上の pointerdown は container まで上がらないので、ここでも表示を延命する
+  btn.addEventListener('pointerdown', e => { e.stopPropagation(); _gdSubUiPoke(); startLp(); });
   btn.addEventListener('pointerup',    cancelLp);
   btn.addEventListener('pointerleave', cancelLp);
   btn.addEventListener('pointercancel',cancelLp);
@@ -2696,13 +2754,16 @@ function _gdSubMountButton(container) {
   gear.textContent = '⚙';
   gear.title = '字幕の調整';
   gear.style.cssText = baseBtn + ';background:rgba(0,0,0,.6);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.5)';
-  gear.addEventListener('pointerdown', e => e.stopPropagation());
+  gear.addEventListener('pointerdown', e => { e.stopPropagation(); _gdSubUiPoke(); });
   gear.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); _gdSubOpenPanel(gear); });
 
   wrap.appendChild(btn);
   wrap.appendChild(gear);
   container.appendChild(wrap);
   _gdSubPaintButton();
+  // 最初は「字幕があること」を知らせるために一度出し、そのまま自動で消す
+  _gdSubUiBind(container);
+  _gdSubUiPoke();
 }
 
 // ── 字幕の自動生成（Gemini でSRTを作り、動画と同じDriveフォルダに保存）──
