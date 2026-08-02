@@ -812,7 +812,7 @@ function _bookmarkListHTML(id) {
             <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
               <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
               ${startActive ? adjBtnsStart : adjBtnsEnd}
-              <button onclick="vpSetBmFieldToCurrent('${id}',${i},'${startActive?'start':'end'}')" style="${_adjBtnStyle('var(--accent)','#fff')}">現在地</button>
+              <button onclick="vpSetBmFieldToCurrent('${id}',${i},'${startActive?'start':'end'}')" style="${_adjBtnStyle('var(--accent)','var(--on-accent)')}">現在地</button>
             </div>
             ${endActive ? `<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;margin-top:5px;">
               <span style="font-size:9px;color:var(--text3);flex-shrink:0;">開始から:</span>
@@ -829,7 +829,7 @@ function _bookmarkListHTML(id) {
           </div>
           <div style="display:flex;gap:5px;">
             <button onclick="vpBmClose('${id}',${i})" style="${_adjBtnStyle()}">閉じる</button>
-            <button onclick="vpBmSave('${id}',${i})" style="${_adjBtnStyle('var(--text)','#fff')}">✔ 保存</button>
+            <button onclick="vpBmSave('${id}',${i})" style="${_adjBtnStyle('var(--text)','var(--bg)')}">✔ 保存</button>
           </div>
         </div>
       </div>` : '';
@@ -3526,7 +3526,7 @@ function _chapListDialog() {
         </div>
         <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end;border-top:0.5px solid var(--border,#444)">
           <button id="vp-chap-in-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
-          <button id="vp-chap-in-ok" style="${_adjBtnStyle('var(--accent)','#fff')};padding:6px 12px;font-size:11.5px">読み取る</button>
+          <button id="vp-chap-in-ok" style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 12px;font-size:11.5px">読み取る</button>
         </div>
       </div>`;
     document.body.appendChild(bg);
@@ -3755,7 +3755,7 @@ function _chapReviewDialog(chaps, info) {
         </div>
         <div style="padding:9px 14px 12px;display:flex;gap:7px;justify-content:flex-end">
           <button id="vp-chap-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
-          <button id="vp-chap-ok" style="${_adjBtnStyle('var(--accent)','#fff')};padding:6px 12px;font-size:11.5px">✔ ブックマークに追加</button>
+          <button id="vp-chap-ok" style="${_adjBtnStyle('var(--accent)','var(--on-accent)')};padding:6px 12px;font-size:11.5px">✔ ブックマークに追加</button>
         </div>
       </div>`;
     document.body.appendChild(bg);

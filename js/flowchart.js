@@ -1229,7 +1229,7 @@
         </div>
         <div style="display:flex;gap:5px">
           <button onclick="${sp(`window._fcBmEditClose('${nid}')`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">閉じる</button>
-          <button onclick="${sp(`window._fcBmEditSave('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--text);background:var(--text);color:#fff;cursor:pointer;font-family:inherit;font-weight:600">✔ 保存</button>
+          <button onclick="${sp(`window._fcBmEditSave('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--text);background:var(--text);color:var(--bg);cursor:pointer;font-family:inherit;font-weight:600">✔ 保存</button>
         </div>
       </div>
     </div>`;

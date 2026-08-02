@@ -1540,7 +1540,7 @@ function openThDropdown(btn, view, col) {
       addBtn2.style.cssText = 'font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0';
       addBtn2.addEventListener('click', e => { e.stopPropagation(); curOpts.push(''); renderOpts(); setTimeout(() => { const ins = optList.querySelectorAll('input'); if (ins.length) ins[ins.length-1].focus(); }, 30); });
       const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-      saveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-left:auto';
+      saveBtn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer;margin-left:auto';
       saveBtn.addEventListener('click', e => { e.stopPropagation(); col.options = curOpts.map(o => o.trim()).filter(Boolean); _save(); _renderTable(currentView); closeThDropdown(); });
       actRow.appendChild(addBtn2); actRow.appendChild(saveBtn); optList.appendChild(actRow);
     }
@@ -1570,7 +1570,7 @@ function openThDropdown(btn, view, col) {
     sec.appendChild(mkStp('過去', () => curPast, v => { curPast = v; }));
     sec.appendChild(mkStp('未来', () => curFuture, v => { curFuture = v; }));
     const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer;margin-top:4px;display:block';
+    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer;margin-top:4px;display:block';
     saveBtn.addEventListener('click', e => { e.stopPropagation(); col.pastDays = curPast; col.futureDays = curFuture; _save(); _renderTable(currentView); closeThDropdown(); });
     sec.appendChild(saveBtn);
     dd.appendChild(sec);
@@ -1580,7 +1580,7 @@ function openThDropdown(btn, view, col) {
     inp.placeholder = '例: 回、分、kg';
     inp.style.cssText = 'width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:4px 8px;outline:none;margin-bottom:6px';
     const saveBtn = document.createElement('button'); saveBtn.textContent = '保存';
-    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:#fff;cursor:pointer';
+    saveBtn.style.cssText = 'font-size:11px;padding:3px 12px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);cursor:pointer';
     saveBtn.addEventListener('click', e => { e.stopPropagation(); col.unit = inp.value.trim(); _save(); _renderTable(currentView); closeThDropdown(); });
     sec.appendChild(inp); sec.appendChild(saveBtn);
     dd.appendChild(sec);
@@ -2724,7 +2724,7 @@ window._cvGetUnifiedMenuHTML = function() {
   visOrder.forEach((id, i) => {
     const isCv   = _isCustomColId(id);
     const label  = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
-    const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
+    const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
     const disUp  = i === 0 ? 'disabled' : '';
     const disDown= i === visOrder.length - 1 ? 'disabled' : '';
     html += `
@@ -2743,7 +2743,7 @@ window._cvGetUnifiedMenuHTML = function() {
     hiddenIds.forEach(id => {
       const isCv  = _isCustomColId(id);
       const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
-      const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
+      const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
       html += `
         <div style="display:flex;align-items:center;gap:4px;padding:2px 0;opacity:.5">
           <span style="min-width:68px"></span>

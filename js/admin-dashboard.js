@@ -774,7 +774,7 @@ async function _renderFeedbackAdmin(targetEl) {
                 <textarea id="fb-memo-${idx}" placeholder="管理メモ（自分用）" rows="2"
                   style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--text);resize:vertical;font-family:inherit">${_esc(d.adminMemo || '')}</textarea>
                 <button onclick="fbAdmSaveMemo('${d.id}',${idx})"
-                  style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">保存</button>
+                  style="background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">保存</button>
               </div>
             </div>
           </td>
