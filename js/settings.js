@@ -1562,7 +1562,7 @@ export function renderAiSettings() {
                 onkeydown="if(event.key==='Enter')window._bjjRuleAdd()">
               <button onclick="window._bjjRuleAdd()"
                 style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent);
-                       color:#fff;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">＋ 追加</button>
+                       color:var(--on-accent);font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">＋ 追加</button>
             </div>
             <div style="margin-top:8px;display:flex;gap:6px">
               <button onclick="window._bjjRulesReset()"

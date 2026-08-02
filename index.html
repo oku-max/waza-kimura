@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.664</title>
+<title>WAZA KIMURA v52.665</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1100,7 +1100,7 @@
 .cv-picker-rename-btn:hover { opacity:1;background:var(--surface2) }
 .cv-picker-divider { height:1px;background:var(--border);margin:6px 10px }
 .cv-picker-organize-btn { padding:3px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .12s,color .12s }
-.cv-picker-organize-btn.active { background:var(--accent);color:#fff;border-color:var(--accent) }
+.cv-picker-organize-btn.active { background:var(--accent);color:var(--on-accent);border-color:var(--accent) }
 .cv-picker-item.cv-picker-edit-row { cursor:default }
 .cv-picker-item.cv-picker-edit-row:hover { background:transparent }
 .cv-picker-arrows { display:flex;flex-direction:column;gap:2px;flex-shrink:0 }
@@ -1233,7 +1233,7 @@
 .cv-modal-actions { display:flex;justify-content:flex-end;gap:8px;margin-top:24px }
 .cv-btn-cancel { padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;cursor:pointer;transition:background .15s;font-family:inherit }
 .cv-btn-cancel:hover { background:var(--surface3) }
-.cv-btn-primary { padding:9px 18px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:inherit }
+.cv-btn-primary { padding:9px 18px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:inherit }
 .cv-btn-primary:hover { opacity:.85 }
 </style>
 <script src="js/flowchart.js"></script>
@@ -1640,7 +1640,7 @@
     </div>
     <input type="text" id="cv-quick-add-q" placeholder="🔍 タイトルで検索…" style="padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:10px">
     <div id="cv-quick-add-list" style="flex:1;overflow-y:auto;min-height:200px;max-height:50vh"></div>
-    <button onclick="window.cvCloseQuickAdd()" style="margin-top:12px;padding:8px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;width:100%">完了</button>
+    <button onclick="window.cvCloseQuickAdd()" style="margin-top:12px;padding:8px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:600;cursor:pointer;width:100%">完了</button>
   </div>
 </div>
 <!-- カスタムビュー: 新規作成モーダル -->

@@ -229,7 +229,7 @@ function _nBviBmEditHTML(k, noteId, idx, bm, i) {
       </div>
       <div style="display:flex;gap:5px">
         <button onclick="${sp(`window._nbviBmEditClose('${k}')`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">閉じる</button>
-        <button onclick="${sp(`window._nbviBmEditSave('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--text);background:var(--text);color:#fff;cursor:pointer;font-weight:600">✔ 保存</button>
+        <button onclick="${sp(`window._nbviBmEditSave('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--text);background:var(--text);color:var(--bg);cursor:pointer;font-weight:600">✔ 保存</button>
       </div>
     </div>
   </div>`;
