@@ -1199,13 +1199,25 @@ export function gdChDdOpen() {
   if (isOpen) { dd.style.display = 'none'; return; }
   gdChDdFilter('');
   dd.style.display = 'block';
+  // 設定欄は画面の下端にあるため、開いても見えない位置に出ることがある。
+  // 「押しても何も起きない」に見えるので、開いたら必ず見える所まで送る。
+  requestAnimationFrame(() => {
+    dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    document.getElementById('gd-ch-search')?.focus();
+  });
 }
 
 export function gdChDdFilter(q) {
   const listEl = document.getElementById('gd-ch-ddlist');
   if (!listEl) return;
   const chMap = {};
-  (window.videos||[]).forEach(v => { if (v.channel) chMap[v.channel] = (chMap[v.channel]||0) + 1; });
+  // 他の画面と同じ読み方に揃える。v.channel だけを見ていると、
+  // アプリ内でチャンネルを変えた動画（v.ch しか入っていない）が候補に出ず、
+  // 「▼ 既存」を押しても『チャンネルなし』になり、押しても効かないように見える。
+  (window.videos||[]).forEach(v => {
+    const c = v.ch || v.channel;
+    if (c) chMap[c] = (chMap[c]||0) + 1;
+  });
   const channels = Object.keys(chMap).sort((a,b) => a.localeCompare(b, 'ja'));
   const ql = (q||'').trim().toLowerCase();
   const filtered = ql ? channels.filter(c => c.toLowerCase().includes(ql)) : channels;
