@@ -4139,6 +4139,7 @@ function _subOptsHTML(scope) {
           <button id="vp-sub-retr" onclick="wkSubRetranslate()"
             style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);
                    background:transparent;color:var(--text2);cursor:pointer">🌐 翻訳だけやり直す</button>
+          ${btn('🔍 字幕の点検', 'wkSubAudit()')}
         </div>
         <div style="font-size:10.5px;color:var(--text3)">
           いまの字幕を元に訳し直します。書き起こしはやり直さないので音声認識の料金はかかりません
@@ -4375,6 +4376,133 @@ window.wkSubRetranslate = async function() {
     window.toast?.('⚠️ 翻訳し直せませんでした: ' + (e?.message || e));
   } finally {
     set('🌐 翻訳だけやり直す');
+  }
+};
+
+// ── 字幕の点検 ──────────────────────────────────────────────
+// Drive にある字幕ファイルを全部読んで、時刻が壊れているものを洗い出す。
+//
+// なぜ要るか: 昔の「動画をAIに見せて時刻ごと書かせる」方式で作った字幕が
+// 残っていて、時刻がAIの創作になっている。見た目では判別できないが、
+// ファイルの中身には必ず痕跡が出る（下記4つ）。読むだけなので無料。
+function _srtDiagnose(text) {
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+  const arrows = lines.filter(l => l.includes('-->'));
+  const good   = arrows.filter(l => VTT_TC_RE.test(l));
+  // 1) 字幕として解釈できないタイムコード行（例: 02:28:400）。この字幕は表示されない
+  const badTc  = arrows.length - good.length;
+  // 2) ミリ秒がキリのいい値ばかり。音から測った値ならこうはならない
+  const ms     = good.map(l => (l.match(VTT_TC_RE)[1].split(/[.,]/)[1] || ''));
+  const round  = ms.filter(m => /0$/.test(m)).length;
+  const roundPct = ms.length ? Math.round(round / ms.length * 100) : 0;
+  // 3) 時刻の逆行
+  const starts = good.map(l => _tc2sec(l.match(VTT_TC_RE)[1].replace(',', '.')));
+  let back = 0;
+  for (let i = 1; i < starts.length; i++) if (starts[i] < starts[i - 1]) back++;
+  // 4) 通し番号の欠落
+  const nums = lines.filter(l => /^\d{1,4}$/.test(l.trim())).map(l => +l.trim());
+  let gap = 0;
+  for (let i = 1; i < nums.length; i++) if (nums[i] !== nums[i - 1] + 1) gap++;
+
+  const reasons = [];
+  if (badTc)         reasons.push(`読めない時刻 ${badTc}件`);
+  if (back)          reasons.push(`時刻の逆行 ${back}件`);
+  if (gap)           reasons.push(`番号の欠落 ${gap}件`);
+  if (roundPct >= 80 && ms.length >= 8) reasons.push(`ミリ秒がキリのいい値 ${roundPct}%`);
+  const level = (badTc || back) ? 'bad' : reasons.length ? 'warn' : 'ok';
+  return { cues: arrows.length, level, reasons, last: starts.length ? starts[starts.length - 1] : 0 };
+}
+
+window.wkSubAudit = async function() {
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
+
+  document.getElementById('vp-sub-audit')?.remove();
+  const bg = document.createElement('div');
+  bg.id = 'vp-sub-audit';
+  bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;'
+                   + 'align-items:center;justify-content:center;padding:16px';
+  bg.innerHTML = `
+    <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;
+                box-shadow:0 12px 40px rgba(0,0,0,.45);width:100%;max-width:560px;max-height:86vh;
+                display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444);display:flex;align-items:center;gap:8px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">🔍 字幕の点検</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">Driveの字幕を読んで時刻が壊れているものを探します。読むだけなので無料です</div>
+        </div>
+        <button onclick="document.getElementById('vp-sub-audit')?.remove()"
+          style="background:none;border:none;color:var(--text3,#999);font-size:18px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+      <div id="vp-sub-audit-body" style="flex:1;overflow-y:auto;padding:10px 14px;font-size:11.5px;color:var(--text2,#bbb)">
+        <div>⏳ 探しています…</div>
+      </div>
+    </div>`;
+  bg.addEventListener('click', e => { if (e.target === bg) bg.remove(); });
+  document.body.appendChild(bg);
+  const body = () => document.getElementById('vp-sub-audit-body');
+
+  try {
+    const q = `name contains '.srt' and trashed=false`;
+    const list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime)&pageSize=1000`, token);
+    const files = (list?.files || []).filter(f => GD_SUB_EXT_RE.test(f.name));
+    if (!files.length) { body().innerHTML = '<div>字幕ファイルが見つかりませんでした</div>'; return; }
+
+    const out = [];
+    let done = 0;
+    const queue = files.slice();
+    const worker = async () => {
+      for (;;) {
+        const f = queue.shift();
+        if (!f) return;
+        try {
+          const res = await fetch(`/api/drive?fileId=${encodeURIComponent(f.id)}&token=${encodeURIComponent(token)}`);
+          if (res.ok) out.push({ ...f, ...(_srtDiagnose(_gdSubDecode(await res.arrayBuffer()))) });
+          else        out.push({ ...f, level: 'err', reasons: ['読み込めませんでした'], cues: 0 });
+        } catch (e) {
+          out.push({ ...f, level: 'err', reasons: ['読み込めませんでした'], cues: 0 });
+        }
+        done++;
+        if (body()) body().innerHTML = `<div>⏳ 調べています… ${done}/${files.length}</div>`;
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, files.length) }, worker));
+    if (!body()) return;
+
+    const rank = { bad: 0, warn: 1, err: 2, ok: 3 };
+    out.sort((a, b) => rank[a.level] - rank[b.level] || a.name.localeCompare(b.name));
+    const n = l => out.filter(x => x.level === l).length;
+    const esc = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+    const color = { bad:'#ff7a7a', warn:'#ffc46b', err:'#999', ok:'#7ad07a' };
+    const label = { bad:'壊れている', warn:'AIが書いた時刻の疑い', err:'読めなかった', ok:'問題なし' };
+
+    const rows = out.filter(x => x.level !== 'ok').map(x => `
+      <div style="padding:7px 0;border-top:0.5px solid var(--border,#3a3a3a)">
+        <div style="color:${color[x.level]};font-weight:700;font-size:11px">${label[x.level]}</div>
+        <div style="color:var(--text,#eee);word-break:break-all;margin:1px 0">${esc(x.name)}</div>
+        <div style="color:var(--text3,#999);font-size:10.5px">
+          ${x.cues}枚 · ${esc((x.reasons || []).join(' / '))}
+          ${x.createdTime ? ' · ' + esc(String(x.createdTime).slice(0, 10)) : ''}
+        </div>
+      </div>`).join('');
+
+    body().innerHTML =
+      `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-weight:700">
+        <span style="color:${color.bad}">壊れている ${n('bad')}</span>
+        <span style="color:${color.warn}">疑わしい ${n('warn')}</span>
+        <span style="color:${color.ok}">問題なし ${n('ok')}</span>
+        ${n('err') ? `<span style="color:${color.err}">読めず ${n('err')}</span>` : ''}
+        <span style="color:var(--text3,#999);font-weight:400">／ 全${out.length}件</span>
+      </div>`
+      + (rows || '<div style="color:#7ad07a">すべて問題ありませんでした</div>')
+      + `<div style="margin-top:10px;font-size:10.5px;color:var(--text3,#999);line-height:1.6">
+          「壊れている」は時刻として読めない行や逆行があるもの。その字幕は表示されないか、
+          まったく違う時刻に出ます。作り直すしかありません。<br>
+          「疑わしい」はミリ秒がキリのいい値ばかりのもの。音から測った時刻ではなく、
+          AIが書いた時刻の可能性が高いです。
+        </div>`;
+  } catch (e) {
+    if (body()) body().innerHTML = `<div style="color:#ff7a7a">失敗しました: ${String(e?.message || e)}</div>`;
   }
 };
 
