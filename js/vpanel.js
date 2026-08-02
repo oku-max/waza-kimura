@@ -4135,6 +4135,14 @@ function _subOptsHTML(scope) {
           ${off ? btn('💾 この補正をDriveに保存', 'wkSubBakeOffset()') : ''}
           ${btn('🔄 読み直す', 'wkSubReload()')}
         </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button id="vp-sub-retr" onclick="wkSubRetranslate()"
+            style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);
+                   background:transparent;color:var(--text2);cursor:pointer">🌐 翻訳だけやり直す</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--text3)">
+          いまの字幕を元に訳し直します。書き起こしはやり直さないので音声認識の料金はかかりません
+        </div>
         <div style="font-size:10.5px;color:var(--text3)">
           補正はこの端末だけに残ります。他の端末にも反映するにはDriveに保存してください
         </div>`;
@@ -4272,6 +4280,104 @@ window.wkSubBakeOffset = async function() {
 };
 
 // Driveから読み直す（他の端末で直した場合など）
+// 実測の字幕(SRT)のキューを「文」にまとめる。
+// AssemblyAI の /sentences と同じ役割を、既にあるファイルだけで行う。
+// キューの本文が文末（. ? !）で終わったところで区切る。文の途中で終わる
+// キューは次とつなげる。これで各かたまりは必ず「完結した文」になるので、
+// 訳すときに次のかたまりから内容を借りる必要がない（＝ズレない）。
+// 句読点が無い書き起こしで1つが巨大にならないよう、キュー数で上限を切る。
+const SENT_MAX_CUES = 6;
+function _sentencesFromCues(cues) {
+  const groups = [];
+  let cur = [];
+  for (let i = 0; i < cues.length; i++) {
+    cur.push(i);
+    const t = String(cues[i].text || '').replace(/["'」』）\]]+$/, '').trim();
+    const done = /[.!?…。！？]$/.test(t) || cur.length >= SENT_MAX_CUES;
+    if (done) { groups.push(cur); cur = []; }
+  }
+  if (cur.length) groups.push(cur);
+  return groups.map(idx => ({
+    idx,
+    text: idx.map(i => String(cues[i].text || '').replace(/\n/g, ' ').trim()).join(' ').replace(/\s+/g, ' '),
+  }));
+}
+
+// 「翻訳だけやり直す」
+// 書き起こし(ASR)は課金されるが、そのやり直しが要らない場面のほうが多い。
+// 訳し方・文字数・言語を変えたいだけなら、既にある原語の字幕を使い回せば
+// 翻訳代（42分で $0.05 程度）だけで済む。書き起こし代 $0.105 を毎回払わない。
+window.wkSubRetranslate = async function() {
+  const o     = subOpts();
+  const want  = (o.genLang && o.genLang !== 'orig') ? o.genLang : 'ja';
+  const src   = _gdSubTracks.find(t => t.lang ? t.lang !== want : !new RegExp(`\\.${want}\\.srt$`, 'i').test(t.name || ''))
+             || _gdSubTracks[0];
+  if (!src || !src.rawVtt) { window.toast?.('元になる字幕が見つかりません'); return; }
+
+  const cues = _parseVtt(src.rawVtt);
+  if (!cues.length) { window.toast?.('字幕を読み取れませんでした'); return; }
+
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token || !_gdFileId) { window.toast?.('Google Drive の認証が必要です'); return; }
+
+  const groups = _sentencesFromCues(cues);
+  const est    = (groups.reduce((n, g) => n + g.text.length, 0) / 3.6) * 2 / 1e6 * 0.9;
+  const base   = String(src.name || '').replace(/\.[a-z-]{2,5}\.srt$/i, '').replace(/\.srt$/i, '');
+  const target = _subFileName(base, want);
+  if (!confirm(`「${src.name}」を元に、${_langLabel(want)}へ翻訳し直します。\n`
+             + `書き起こしはやり直さないので、音声認識の料金はかかりません。\n\n`
+             + `字幕 ${cues.length}枚 / 文 ${groups.length}件 / 概算 $${Math.max(0.001, est).toFixed(3)}\n`
+             + `保存先: ${target}（あれば上書き）`)) return;
+
+  const t0  = Date.now();
+  const btn = document.getElementById('vp-sub-retr');
+  const set = (s) => { if (btn) btn.textContent = s; };
+  set('⏳ 翻訳中…');
+  try {
+    const meta   = await _driveApiGet(`files/${encodeURIComponent(_gdFileId)}?fields=parents`, token);
+    const parent = meta?.parents?.[0];
+    if (!parent) throw new Error('保存先フォルダを取得できませんでした');
+
+    const cap = (want === 'ja' || want === 'zh' || want === 'ko')
+      ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
+    const tr = await _translateItems(
+      groups.map(g => ({ text: g.text, secs: g.idx.map(i => cues[i].end - cues[i].start) })),
+      want, _subGenPayload(), cap, (d, n, label) => set(`⏳ ${label}… ${d}/${n}`));
+
+    if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
+
+    const text = new Array(cues.length).fill('');
+    groups.forEach((g, k) => {
+      const parts = tr.parts[k] || [];
+      g.idx.forEach((c, j) => { text[c] = parts[j] || ''; });
+    });
+    const keep = cues.map((c, i) => ({ c, t: text[i] })).filter(x => x.t);
+    if (!keep.length) throw new Error('翻訳できませんでした');
+    const srt = _srtJoin(keep.map(({ c, t }) => ({
+      tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
+      text: t,
+    })));
+    // 最後の砦: 字幕として成立していないものは既存ファイルの上に絶対に書かない
+    if (!_looksLikeSrt(srt)) throw new Error('作った字幕が壊れています（保存を中止しました）');
+
+    set('⏳ 保存中…');
+    const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
+    const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
+    await _driveUploadText(token, { name: target, parentId: parent, text: srt, existingId: dup?.files?.[0]?.id });
+
+    _gdSubLookup.delete(_gdFileId);
+    _subOffsetSet(_gdFileId, 0);
+    const miss = cues.length - keep.length;
+    window.toast?.(`✅ ${target} を作り直しました（$${tr.cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒`
+                 + `${miss ? ` / ${miss}枚は空` : ''}）`);
+    await window.wkSubReload();
+  } catch (e) {
+    window.toast?.('⚠️ 翻訳し直せませんでした: ' + (e?.message || e));
+  } finally {
+    set('🌐 翻訳だけやり直す');
+  }
+};
+
 window.wkSubReload = async function() {
   const token = window.getDriveTokenIfAvailable?.();
   if (!_gdVideoEl || !_gdFileId || !token) { window.toast?.('動画を再生してから押してください'); return; }
