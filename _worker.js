@@ -1520,15 +1520,16 @@ function _trMaxChars(sec, lang) {
   return Math.max(10, Math.round((Number(sec) || 0) * cps));
 }
 
-// 1つの「文」を、その文にまたがる字幕の数だけに分けて訳させる。
+// 1つの「文」を、まるごと1つの訳文として返させる。
 //
-// なぜこの形か:
-//   ・字幕1枚ずつ訳させると、英語と日本語は語順が逆なので断片が文にならず、
-//     モデルが次の字幕から内容を借りて訳がまるごと前にずれる（実データで確認）
-//   ・かといって「文まるごと1枚」にすると、1枚が20秒間出っぱなしになり、
-//     その間に話は先へ進む（これも実データで確認）
-//   文で訳し、字幕の細かさで出す。字幕翻訳でいうリキュー（cueの振り直し）。
-//   分ける位置は文の中なので、時刻は実測値の範囲から出ない。
+// 設計の経緯（同じ所で2回失敗している）:
+//   1) 字幕1枚ずつ訳させた → 語順が逆で断片が文にならず、モデルが次の字幕から
+//      内容を借りて訳がまるごと前にずれた
+//   2) 文を「元の字幕の枚数」に強制的に割らせた → 日本語は英語よりずっと短いので、
+//      英語6枚ぶんの1文が「ガードパスの／様々な種類に／適用される／一般的な／
+//      コンセプトについて／解説します」という4〜6文字の破片6枚になった
+//   枚数を決めるのは翻訳側の仕事ではない。訳文の長さと表示時間から決まるもの。
+//   ここでは文をまるごと訳すだけにして、何枚に分けるかは呼び出し側で決める。
 function _trPrompt(items, lang, opts) {
   const o = opts || {};
   const target = TR_LANGS[lang] || TR_LANGS.ja;
@@ -1539,14 +1540,10 @@ function _trPrompt(items, lang, opts) {
     else if (o.terms === 'translate') rules.push('- 柔術の技術用語も日本語に訳す');
     else                              rules.push('- 柔術の技術用語はカタカナ');
   }
-
-  const body = items.map((it, i) => {
-    const caps = it.caps.map((c, k) => `${k + 1}枚目=${c}文字以内`).join(' / ');
-    return `${i + 1}. 【${it.caps.length}枚に分ける／${caps}】\n   ${it.text}`;
-  }).join('\n');
+  const body = items.map((it, i) => `${i + 1}. 【${it.cap}文字以内】${it.text}`).join('\n');
 
   return `あなたはブラジリアン柔術(BJJ)・グラップリングの教則動画の字幕翻訳者です。
-英語の文を${target}に訳し、字幕として表示できる形に分けてください。
+英語の文を${target}に訳してください。
 
 【文脈】
 講師が技術を実演しながら解説している教則動画です。日常会話ではありません。
@@ -1555,20 +1552,15 @@ guard（ガード。警備ではない） / pass the guard / mount / side contro
 base / frame / grip / drill / hook / underhook / overhook / heel hook /
 dead foot, live foot, side foot / heel / pinky / ball of the foot / posture
 
-【いちばん大事な決まり】
-入力の1件は「1つの文」です。その文は動画の中で複数枚の字幕に分けて表示されます。
-- **文全体をまず訳し、それを指定された枚数に分けて** parts に入れる
-- parts の数は指定された枚数と**必ず同じ**にする（多くても少なくてもいけない）
-- 分ける位置は、日本語として意味が切れる場所（読点・助詞のあと）を選ぶ
-- 各枚の文字数上限を守る。収まらないときは、意味の中心を残して
-  言い換え・省略して縮める（字幕翻訳では逐語訳より尺に収めることを優先する）
-- **文の意味を落とさない。**上限に合わせるために内容を切り捨てて、
-  途中で終わる不完全な文にしてはいけない。全体を縮めて枚数ぶんに配る
-
 【出力の決まり】
-- 入力の各件に対し {"i": 件番号, "parts": ["1枚目", "2枚目", ...]} を1つずつ返す
+- 入力の各件に対し {"i": 件番号, "ja": 訳文} を1つずつ返す
 - 全${items.length}件ぶんを必ず返す。1件も飛ばさない
 - i は入力に振られた番号をそのまま使う
+- 訳文は**1つの続いた文章**として返す。字幕用に区切らない（区切りは別で行う）
+- 【N文字以内】は表示時間から決まった上限。超えるときは意味の中心を残して
+  言い換え・省略して縮める（字幕翻訳では逐語訳より尺に収めることを優先する）
+- **上限に収めるために内容を削りすぎない。**上限の7割程度は使ってよい。
+  途中で終わる不完全な文にしてはいけない
 ${rules.join('\n')}
 - 音声認識の誤認識（例: "Gitu"→jiu-jitsu, "girls"→drills, "sci-fi"→side foot）は
   文脈から補正してよい
@@ -1585,12 +1577,9 @@ const _TR_SCHEMA = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: {
-          i:     { type: 'INTEGER' },
-          parts: { type: 'ARRAY', items: { type: 'STRING' } },
-        },
-        required: ['i', 'parts'],
-        propertyOrdering: ['i', 'parts'],
+        properties: { i: { type: 'INTEGER' }, ja: { type: 'STRING' } },
+        required: ['i', 'ja'],
+        propertyOrdering: ['i', 'ja'],
       },
     },
   },
@@ -1600,20 +1589,17 @@ const _TR_SCHEMA = {
 // 番号つきの結果を元の並びに戻す。欠けた番号はそのまま報告する。
 // 枚数が指定と違って返ってきた件は「訳せなかった」として扱う。無理に詰めると
 // 別の字幕に別の内容が入り、いちばん直したかったズレが再発する。
-function _trRebuild(items, want) {
-  const out = new Array(want.length).fill(null);
-  const wrongLen = [];
+function _trRebuild(items, n) {
+  const out = new Array(n).fill('');
   for (const it of (Array.isArray(items) ? items : [])) {
-    const i = Number(it && it.i);
-    if (!Number.isFinite(i) || i < 1 || i > want.length) continue;
-    const parts = Array.isArray(it.parts) ? it.parts.map(x => String(x == null ? '' : x).trim()) : null;
-    if (!parts || !parts.length || parts.some(x => !x)) continue;
-    if (parts.length !== want[i - 1]) { wrongLen.push(i); continue; }
-    out[i - 1] = parts;
+    const i  = Number(it && it.i);
+    const ja = String((it && it.ja) || '').trim();
+    if (!Number.isFinite(i) || i < 1 || i > n || !ja) continue;
+    out[i - 1] = ja;
   }
   const missing = [];
-  for (let k = 0; k < want.length; k++) if (!out[k]) missing.push(k + 1);
-  return { parts: out, missing, wrongLen };
+  for (let k = 0; k < n; k++) if (!out[k]) missing.push(k + 1);
+  return { lines: out, missing };
 }
 
 // POST /api/translate — 行の配列を受け取り、訳した行の配列を返す。
@@ -1623,21 +1609,17 @@ async function handleTranslate(request, env) {
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
 
-  // items: [{ text: 文, secs: [各字幕の秒数], cap: 1枚に入る最大文字数 }]
+  // items: [{ text: 文, sec: その文の長さ(秒) }]
   const raw = Array.isArray(body?.items) ? body.items : [];
   if (!raw.length)               return jsonRes({ error: '翻訳する行がありません' }, 400);
   if (raw.length > TR_MAX_LINES) return jsonRes({ error: `一度に翻訳できるのは${TR_MAX_LINES}件までです` }, 400);
   const lang = TR_LANGS[body?.lang] ? body.lang : 'ja';
 
-  // 1枚あたりの文字数上限 = min(表示秒数 × 読む速度, 行数×1行の文字数)
-  // 前者は読み切れる量、後者は画面に収まる量。どちらも超えてはいけない。
   const items = [];
   for (const it of raw) {
     const text = String(it?.text || '').trim();
-    const secs = Array.isArray(it?.secs) ? it.secs.map(Number).filter(Number.isFinite) : [];
-    if (!text || !secs.length) return jsonRes({ error: 'リクエストが不正です' }, 400);
-    const cap  = Math.max(10, Number(it?.cap) || 9999);
-    items.push({ text, caps: secs.map(sc => Math.min(cap, _trMaxChars(sc, lang))) });
+    if (!text) return jsonRes({ error: 'リクエストが不正です' }, 400);
+    items.push({ text, cap: _trMaxChars(it?.sec, lang) });
   }
 
   const r = await _geminiGenerate(env, [{ text: _trPrompt(items, lang, body?.opts) }], {
@@ -1650,6 +1632,6 @@ async function handleTranslate(request, env) {
   try { parsed = JSON.parse(r.summary); }
   catch (e) { return jsonRes({ error: '翻訳結果を読み取れませんでした' }, 502); }
 
-  const b = _trRebuild(parsed && parsed.translations, items.map(x => x.caps.length));
+  const b = _trRebuild(parsed && parsed.translations, items.length);
   return jsonRes({ ...b, usage: r.usage, costUsd: r.costUsd });
 }

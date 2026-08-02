@@ -2964,23 +2964,22 @@ function _srtJoin(cues) {
 // items: [{ text, secs:[各字幕の秒数] }] / cap: 1枚に入る最大文字数
 // 通信は1回で終わらせない。47回のうち1回転べばその塊がまるごと英語で残るので、
 // 抜けた件だけを小さくまとめて投げ直す（実際に26行＝25＋1が未訳で残ったため）。
-async function _translateItems(items, lang, opts, cap, onProgress) {
+async function _translateItems(items, lang, opts, onProgress) {
   const SIZE = 20, RETRY_SIZE = 8, CONC = 3, ROUNDS = 2;
-  const out = new Array(items.length).fill(null);
+  const out = new Array(items.length).fill('');
   const errors = [];
-  let cost = 0, calls = 0, wrongLen = 0;
+  let cost = 0, calls = 0;
 
   const runBatch = async (idxs) => {
     calls++;
     try {
       const res = await fetch('/api/translate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: idxs.map(i => items[i]), lang, opts, cap }),
+        body: JSON.stringify({ items: idxs.map(i => items[i]), lang, opts }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
-      (d.parts || []).forEach((p, k) => { if (Array.isArray(p) && p.length) out[idxs[k]] = p; });
-      if (Array.isArray(d.wrongLen)) wrongLen += d.wrongLen.length;
+      (d.lines || []).forEach((t, k) => { if (t) out[idxs[k]] = t; });
       if (typeof d.costUsd === 'number') cost += d.costUsd;
     } catch (e) {
       errors.push(e?.message || String(e));
@@ -3018,14 +3017,93 @@ async function _translateItems(items, lang, opts, cap, onProgress) {
   }
 
   const missing = stillMissing();
-  // 最後まで駄目な件は原文を1枚目に置き、残りは空。時刻は動かさない。
-  missing.forEach(i => {
-    out[i] = items[i].secs.map((_, k) => (k === 0 ? items[i].text : ''));
-  });
   console.log('[translate]', { items: items.length, calls, firstMissing,
-                               finalMissing: missing.length, wrongLen, cost, errors });
-  return { parts: out, missing: missing.map(i => i + 1), firstMissing,
+                               finalMissing: missing.length, cost, errors });
+  return { lines: out, missing: missing.map(i => i + 1), firstMissing,
            cost, error: errors[0] || null, errorCount: errors.length };
+}
+
+// 訳した1文を、その文にまたがる字幕たちに割り振る（リキュー＝cueの振り直し）。
+//
+// 何枚に分けるかは「元の英語が何枚だったか」では決まらない。日本語は英語より
+// ずっと短いので、英語6枚ぶんの1文をそのまま6枚に割ると4〜6文字の破片になる。
+// 実際にそうなった:
+//   英語1枚目(4.3秒) "We're now talking about general concepts that are going to apply throughout"
+//   日本語 「ガードパスの」「様々な種類に」「適用される」「一般的な」…
+// 枚数は訳文の長さと表示時間から決める:
+//   ・1枚が長すぎない（画面に収まる＝最大行数×1行の文字数）
+//   ・1枚が短すぎない（RECUE_MIN_CHARS 未満の破片を作らない）
+//   ・話の進みに追従する（RECUE_AIM_SEC 秒に1枚くらい）
+// 区切る位置は必ず「元の字幕の境目」。時刻は実測値のまま動かさない。
+const RECUE_MIN_CHARS = 9;    // これ未満の枚を作らない
+const RECUE_AIM_SEC   = 3.5;  // だいたいこの秒数に1枚
+
+function _recueSentence(text, cues, cap) {
+  const t = String(text || '').trim();
+  if (!t || !cues.length) return [];
+  const span = { start: cues[0].start, end: cues[cues.length - 1].end };
+  const dur  = Math.max(0.1, span.end - span.start);
+
+  const byFit  = Math.ceil(t.length / Math.max(1, cap));               // 画面に収めるのに要る枚数
+  const byTime = Math.max(1, Math.round(dur / RECUE_AIM_SEC));         // 話に追従したい枚数
+  const byMin  = Math.max(1, Math.floor(t.length / RECUE_MIN_CHARS));  // 破片を作らない上限
+  const n = Math.max(1, Math.min(cues.length, Math.max(byFit, Math.min(byTime, byMin))));
+  if (n <= 1) return [{ ...span, text: t }];
+
+  // 訳文を n 個に切る。切ってよい場所を、良い順に探す。
+  //   1) 句読点・閉じ括弧のあと      … いちばん自然
+  //   2) 「から」「ので」等のあと
+  //   3) 助詞1文字（は/が/を…）のあと … ただし直後がひらがなだと語の途中で切れる
+  //      （「コンセプトに|ついて」「当ては|まる」）。次が仮名でないときだけ許す。
+  //   4) それも無いときの逃げ道。せめて語の途中では切らない
+  //      （「コンセプ|ト」のようにカタカナ語や英単語を割らない）
+  const kana = /[ぁ-ゖ]/;
+  const run  = /[ァ-ヴーA-Za-z0-9]/;   // 途中で割ってはいけない連なり
+  const okAt = (s2, p, tier) => {
+    const before = s2.slice(0, p);
+    const next   = s2[p] || '';
+    if (tier === 0) return JA_BREAK_AFTER.test(before);
+    if (tier === 1) return JA_MULTI_AFTER.test(before) && !kana.test(next);
+    if (tier === 2) return JA_SINGLE_AFTER.test(before) && !kana.test(next);
+    // 逃げ道: 連なりの内側でなく、行頭に置けない文字が来ない位置
+    return !(run.test(s2[p - 1] || '') && run.test(next))
+        && !JA_NO_START.includes(next);
+  };
+
+  const per = Math.ceil(t.length / n);
+  const parts = [];
+  let rest = t;
+  for (let k = 0; k < n - 1 && rest; k++) {
+    const want = Math.min(per, rest.length - 1);
+    const room = Math.floor(per / 2);
+    let at = -1;
+    for (let tier = 0; tier < 4 && at < 0; tier++) {
+      for (let d = 0; d <= room && at < 0; d++) {
+        for (const p of [want + d, want - d]) {
+          if (p < 2 || p >= rest.length) continue;
+          if (okAt(rest, p, tier)) { at = p; break; }
+        }
+      }
+    }
+    if (at <= 0) at = want;
+    parts.push(rest.slice(0, at).trim());
+    rest = rest.slice(at).trim();
+  }
+  if (rest) parts.push(rest);
+
+  // 各枚に、元の字幕を文字数の割合で割り当てる。境目は必ず字幕の境目。
+  const total = parts.reduce((a, p) => a + p.length, 0) || 1;
+  const out = [];
+  let ci = 0;
+  for (let k = 0; k < parts.length; k++) {
+    const left = parts.length - k;
+    const take = (k === parts.length - 1)
+      ? cues.length - ci
+      : Math.max(1, Math.min(cues.length - ci - (left - 1), Math.round(cues.length * parts[k].length / total)));
+    out.push({ start: cues[ci].start, end: cues[ci + take - 1].end, text: parts[k] });
+    ci += take;
+  }
+  return out;
 }
 
 // 実測の字幕（ASRのSRT）を「文」ごとにまとめる。
@@ -3168,8 +3246,11 @@ async function _asrGenerateAndSave(ctx) {
       const cap = (want === 'ja' || want === 'zh' || want === 'ko')
         ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
       const tr = await _translateItems(
-        groups.map(g => ({ text: g.text, secs: g.idx.map(c => cues[c].end - cues[c].start) })),
-        want, _subGenPayload(), cap,
+        groups.map(g => ({
+          text: g.text,
+          sec:  cues[g.idx[g.idx.length - 1]].end - cues[g.idx[0]].start,
+        })),
+        want, _subGenPayload(),
         (d, n, label) => setBtn(`⏳ ${label}… ${d}/${n}`));
       trCost = tr.cost; trErr = tr.error;
 
@@ -3177,17 +3258,15 @@ async function _asrGenerateAndSave(ctx) {
         trFailed = true;
         trErr = trErr || '翻訳できませんでした';
       } else {
-        // 訳を元の字幕1枚ずつに戻す。時刻は実測値をそのまま使う。
-        const text = new Array(cues.length).fill('');
+        // 訳した文を、その文にまたがる字幕へ割り振る。時刻は実測値のまま。
+        const outCues = [];
         groups.forEach((g, k) => {
-          const parts = tr.parts[k] || [];
-          g.idx.forEach((c, j) => { text[c] = parts[j] || ''; });
+          if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
         });
-        const keep = cues.map((c, i) => ({ c, t: text[i] })).filter(x => x.t);
-        trMissing = cues.length - keep.length;
-        const trSrt = _srtJoin(keep.map(({ c, t }) => ({
+        trMissing = tr.missing.length;
+        const trSrt = _srtJoin(outCues.map(c => ({
           tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
-          text: t,
+          text: c.text,
         })));
         trTarget = _subFileName(base, want);
         setBtn('⏳ 保存中…');
@@ -4385,20 +4464,22 @@ async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want,
     ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
 
   const tr = await _translateItems(
-    groups.map(g => ({ text: g.text, secs: g.idx.map(i => cues[i].end - cues[i].start) })),
-    want, _subGenPayload(), cap, (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
+    groups.map(g => ({
+      text: g.text,
+      sec:  cues[g.idx[g.idx.length - 1]].end - cues[g.idx[0]].start,
+    })),
+    want, _subGenPayload(), (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
   if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
 
-  const text = new Array(cues.length).fill('');
+  // 訳した文を、その文にまたがる字幕へ割り振る。時刻は実測値のまま。
+  const outCues = [];
   groups.forEach((g, k) => {
-    const parts = tr.parts[k] || [];
-    g.idx.forEach((c, j) => { text[c] = parts[j] || ''; });
+    if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
   });
-  const keep = cues.map((c, i) => ({ c, t: text[i] })).filter(x => x.t);
-  if (!keep.length) throw new Error('翻訳できませんでした');
-  const srt = _srtJoin(keep.map(({ c, t }) => ({
+  if (!outCues.length) throw new Error('翻訳できませんでした');
+  const srt = _srtJoin(outCues.map(c => ({
     tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
-    text: t,
+    text: c.text,
   })));
   // 最後の砦: 字幕として成立していないものは既存ファイルの上に絶対に書かない
   if (!_looksLikeSrt(srt)) throw new Error('作った字幕が壊れています（保存を中止しました）');
@@ -4408,7 +4489,7 @@ async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want,
   const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
   await _driveUploadText(token, { name: target, parentId: parent, text: srt, existingId: dup?.files?.[0]?.id });
   _gdSubLookup.delete(videoFileId);
-  return { target, cost: tr.cost, cues: cues.length, missing: cues.length - keep.length };
+  return { target, cost: tr.cost, cues: outCues.length, missing: tr.missing.length };
 }
 
 // Driveのゴミ箱へ移す。完全削除（files.delete）ではなく trashed:true にする。
