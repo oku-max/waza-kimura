@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.671</title>
+<title>WAZA KIMURA v52.672</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2708,6 +2708,38 @@ function _parseVideoUrl(line) {
   return null;
 }
 
+// YouTube公式API（/api/yt-videos）でタイトル・チャンネル名・サムネを埋める。
+// noembed など第三者プロキシはチャンネル名が実際と食い違うことがあるため、
+// YouTubeの一次情報を優先する。取れなかったものは _fetchTitle() のフォールバックに回る。
+async function _fillYtMeta(items) {
+  const targets = items.filter(i =>
+    (i.status === 'ok' || i.status === 'dup') &&
+    i.parsed && i.parsed.pt === 'youtube' && !i.parsed.isPlaylist
+  );
+  if (!targets.length) return;
+  const ids = [...new Set(targets.map(i => i.parsed.id))];
+  for (let s = 0; s < ids.length; s += 50) {
+    const chunk = ids.slice(s, s + 50);
+    try {
+      const res = await fetch('/api/yt-videos?ids=' + encodeURIComponent(chunk.join(',')));
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.error || !Array.isArray(data.items)) { console.warn('[yt-videos]', data.error); continue; }
+      const map = {};
+      data.items.forEach(v => { map[v.id] = v; });
+      for (const it of targets) {
+        const m = map[it.parsed.id];
+        if (!m) continue;                       // 非公開/削除済みなど → フォールバックへ
+        if (m.title)   it.parsed.title = m.title;
+        if (m.channel) it.parsed.ch    = m.channel;
+        if (m.thumb && !it.parsed.thumb) it.parsed.thumb = m.thumb;
+      }
+    } catch (e) {
+      console.warn('[yt-videos]', e);           // 落ちても従来経路で続行
+    }
+  }
+}
+
 async function _fetchTitle(parsed) {
   try {
     if (parsed.pt === 'gdrive') {
@@ -2907,11 +2939,14 @@ async function detectUrls() {
   // Render initial state (loading titles)
   _renderUrlResults(items, true);
 
-  // Phase 2: fetch titles in parallel
+  // Phase 1.5: YouTube公式APIでタイトル/チャンネル名をまとめて取得（一次情報）
+  await _fillYtMeta(items);
+
+  // Phase 2: fetch titles in parallel（公式APIで取れなかったものだけ）
   const titlePromises = items.map(async (item) => {
     if (item.status !== 'ok' && item.status !== 'dup') return;
     const p = item.parsed;
-    p.title = await _fetchTitle(p);
+    if (!p.title) p.title = await _fetchTitle(p);
     if (!p.title) {
       const fallback = { youtube: 'YouTube動画', vimeo: 'Vimeo動画', gdrive: 'Google Drive動画' };
       p.title = fallback[p.pt] || '不明な動画';
@@ -3019,7 +3054,7 @@ function _renderUrlResults(items, loading) {
         ${thumb ? `<img src="${thumb}" style="width:48px;height:36px;border-radius:4px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
-          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.id}</div>
+          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.ch || p.id}</div>
         </div>
         <span style="font-size:14px;flex-shrink:0">✅</span>
       </div>`;
