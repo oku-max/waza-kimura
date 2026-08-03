@@ -674,7 +674,6 @@
     '💾 保存した検索条件':'💾 Saved searches',
     '💾 条件を保存':'💾 Save filters',
     '💾 検索条件を保存':'💾 Save search',
-    '※予備データ':'* fallback data',
     'YouTubeのURLを入力してから実行してください':'Enter a YouTube URL first',
     // ── 共有シートからの追加（Web Share Target）──
     '📱 共有ボタンから直接追加する':'📱 Add straight from the share button',
