@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.673</title>
+<title>WAZA KIMURA v52.674</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2762,7 +2762,7 @@ async function _fillYtMeta(items) {
         const m = map[it.parsed.id];
         if (!m) continue;                       // 非公開/削除済みなど → フォールバックへ
         if (m.title)   it.parsed.title = m.title;
-        if (m.channel) { it.parsed.ch = m.channel; it.parsed.chSrc = 'api'; }
+        if (m.channel) it.parsed.ch = m.channel;
         if (m.thumb && !it.parsed.thumb) it.parsed.thumb = m.thumb;
       }
     } catch (e) {
@@ -2842,7 +2842,6 @@ async function _fetchTitle(parsed) {
     const data = await res.json();
     if (data.error && parsed.pt !== 'x') throw new Error(data.error);
     parsed.ch = data.author_name || (parsed.pt === 'x' ? '@' + parsed.xUser : '');
-    if (parsed.ch) parsed.chSrc = 'oembed';   // 公式APIで取れず第三者プロキシに落ちた印
     if (data.thumbnail_url) parsed.thumb = data.thumbnail_url;
     // Xはhtmlからツイート本文を抽出してタイトルにする
     if (parsed.pt === 'x') {
@@ -3086,7 +3085,7 @@ function _renderUrlResults(items, loading) {
         ${thumb ? `<img src="${thumb}" style="width:48px;height:36px;border-radius:4px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
-          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.ch || p.id}${p.ch && p.chSrc !== 'api' ? ' <span style="color:var(--accent);font-weight:700">※予備データ</span>' : ''}</div>
+          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.ch || p.id}</div>
         </div>
         <span style="font-size:14px;flex-shrink:0">✅</span>
       </div>`;
