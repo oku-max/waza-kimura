@@ -674,6 +674,8 @@
     '💾 保存した検索条件':'💾 Saved searches',
     '💾 条件を保存':'💾 Save filters',
     '💾 検索条件を保存':'💾 Save search',
+    '※予備データ':'* fallback data',
+    'YouTubeのURLを入力してから実行してください':'Enter a YouTube URL first',
     // ── 共有シートからの追加（Web Share Target）──
     '📱 共有ボタンから直接追加する':'📱 Add straight from the share button',
     'WAZA KIMURA をホーム画面にインストールすると、YouTubeの「共有」に WAZA KIMURA が出ます。選ぶとこの画面が開いて自動で解析されます。':'Install WAZA KIMURA to your home screen and it appears in YouTube’s Share sheet. Tap it and this screen opens with the link already being parsed.',
