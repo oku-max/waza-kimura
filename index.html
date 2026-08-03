@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.670</title>
+<title>WAZA KIMURA v52.671</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -84,6 +84,7 @@
 <script src="js/vpanel-v4.js" defer></script>
 <script src="js/counter.js" defer></script>
 <script src="js/tutorial.js" defer></script>
+<script src="js/share-target.js" defer></script>
 <script type="module">
   window.__pmark&&window.__pmark('mod_start');
   import { showToast } from './js/ui.js';
@@ -4644,6 +4645,22 @@ document.addEventListener('click', function(e) {
           <div><span style="color:var(--blue);font-weight:700">🎥</span> vimeo.com/123456</div>
           <div><span style="color:var(--purple);font-weight:700">📁</span> drive.google.com/file/d/.../view</div>
           <div><span style="color:var(--text);font-weight:700">𝕏</span> x.com/user/status/... ・ twitter.com/user/status/...（再生のみ・スキップ等不可）</div>
+        </div>
+      </div>
+
+      <!-- 共有シートからの追加ガイド -->
+      <div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📱 共有ボタンから直接追加する</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;color:var(--text3);line-height:1.65">
+          <div>
+            <span style="font-weight:700;color:var(--text2)">Android</span>
+            <div>WAZA KIMURA をホーム画面にインストールすると、YouTubeの「共有」に WAZA KIMURA が出ます。選ぶとこの画面が開いて自動で解析されます。</div>
+          </div>
+          <div>
+            <span style="font-weight:700;color:var(--text2)">iPhone / iPad</span>
+            <div>iOSは共有シートに直接追加できません。ショートカットAppで「共有シートに表示」→「URLを開く」を作り、下のURLの末尾に共有されたURLをつなげてください。</div>
+            <button type="button" onclick="wkCopyShareUrl()" style="margin-top:6px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 iOS用のURLをコピー</button>
+          </div>
         </div>
       </div>
     </div><!-- /url-import-body -->
