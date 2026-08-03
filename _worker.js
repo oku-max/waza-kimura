@@ -35,6 +35,7 @@ async function handleApi(request, env, path) {
       case '/api/thumb-proxy': return await handleThumbProxy(request);
       case '/api/yt-search':        return await handleYtSearch(request, env);
       case '/api/yt-playlist-items': return await handleYtPlaylistItems(request, env);
+      case '/api/yt-videos':        return await handleYtVideos(request, env);
       case '/api/ai-group':         return await handleAiGroup(request, env);
       case '/api/ai-tag':      return await handleAiTag(request, env);
       case '/api/ai-summary':  return await handleAiSummary(request, env);
@@ -252,6 +253,40 @@ async function handleYtPlaylistItems(request, env) {
     const data = await res.json();
     if (data.error) return jsonRes({ error: data.error.message }, res.status);
     return jsonRes(data, 200, { 'Cache-Control': 's-maxage=300, stale-while-revalidate=600' });
+  } catch (e) {
+    return jsonRes({ error: e.message }, 500);
+  }
+}
+
+// ── /api/yt-videos — 動画IDからタイトル/チャンネル名を取得 ──
+//   URL貼り付けでの登録に使う。noembed など第三者プロキシは
+//   チャンネル名が実際と食い違うことがあるため、YouTube公式APIを一次情報にする。
+async function handleYtVideos(request, env) {
+  if (request.method !== 'GET') return jsonRes({ error: 'Method not allowed' }, 405);
+  const apiKey = env.YOUTUBE_API_KEY;
+  if (!apiKey) return jsonRes({ error: 'YOUTUBE_API_KEY 未設定' }, 500);
+
+  const raw = new URL(request.url).searchParams.get('ids') || '';
+  const ids = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 50);
+  if (!ids.length) return jsonRes({ error: 'ids が必要です' }, 400);
+
+  try {
+    const params = new URLSearchParams({
+      part: 'snippet,contentDetails', id: ids.join(','), key: apiKey,
+    });
+    const res  = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+    const data = await res.json();
+    if (data.error) return jsonRes({ error: data.error.message }, res.status);
+
+    const th = (t) => t?.medium?.url || t?.high?.url || t?.default?.url || '';
+    const items = (data.items || []).map(v => ({
+      id:       v.id,
+      title:    v.snippet?.title        || '',
+      channel:  v.snippet?.channelTitle || '',
+      thumb:    th(v.snippet?.thumbnails),
+      duration: v.contentDetails?.duration || '',
+    }));
+    return jsonRes({ items }, 200, { 'Cache-Control': 's-maxage=300, stale-while-revalidate=600' });
   } catch (e) {
     return jsonRes({ error: e.message }, 500);
   }
