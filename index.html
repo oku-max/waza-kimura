@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.672</title>
+<title>WAZA KIMURA v52.673</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2708,6 +2708,37 @@ function _parseVideoUrl(line) {
   return null;
 }
 
+// 取込モーダルに動いているバージョンを出す（デプロイが届いているかの確認用）
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('wkVerTag');
+  const m = (document.title || '').match(/v[\d.]+/);
+  if (el && m) el.textContent = m[0];
+});
+
+// チャンネル名がおかしいときに、どの取得元が何を返したかを見る診断。
+// コンソールで wkUrlDiag()（URL入力欄の1行目を使う）または wkUrlDiag('https://...')
+window.wkUrlDiag = async function (url) {
+  url = (url || document.getElementById('urlIn')?.value || '').trim().split(/\s+/)[0];
+  const m = url.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (!m) { alert('YouTubeのURLを入力してから実行してください'); return; }
+  const id = m[1];
+  const out = [(document.title || '') + '\nvideoId: ' + id];
+  try {
+    const r = await fetch('/api/yt-videos?ids=' + id);
+    const t = await r.text();
+    out.push('公式API (' + r.status + '):\n' + t.slice(0, 600));
+  } catch (e) { out.push('公式API: 失敗 ' + e.message); }
+  try {
+    const r2 = await fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id));
+    const d2 = await r2.json();
+    out.push('noembed (' + r2.status + '):\ntitle=' + d2.title + '\nauthor=' + d2.author_name);
+  } catch (e) { out.push('noembed: 失敗 ' + e.message); }
+  const text = out.join('\n\n');
+  console.log('[wkUrlDiag]\n' + text);
+  alert(text);
+  return text;
+};
+
 // YouTube公式API（/api/yt-videos）でタイトル・チャンネル名・サムネを埋める。
 // noembed など第三者プロキシはチャンネル名が実際と食い違うことがあるため、
 // YouTubeの一次情報を優先する。取れなかったものは _fetchTitle() のフォールバックに回る。
@@ -2731,7 +2762,7 @@ async function _fillYtMeta(items) {
         const m = map[it.parsed.id];
         if (!m) continue;                       // 非公開/削除済みなど → フォールバックへ
         if (m.title)   it.parsed.title = m.title;
-        if (m.channel) it.parsed.ch    = m.channel;
+        if (m.channel) { it.parsed.ch = m.channel; it.parsed.chSrc = 'api'; }
         if (m.thumb && !it.parsed.thumb) it.parsed.thumb = m.thumb;
       }
     } catch (e) {
@@ -2811,6 +2842,7 @@ async function _fetchTitle(parsed) {
     const data = await res.json();
     if (data.error && parsed.pt !== 'x') throw new Error(data.error);
     parsed.ch = data.author_name || (parsed.pt === 'x' ? '@' + parsed.xUser : '');
+    if (parsed.ch) parsed.chSrc = 'oembed';   // 公式APIで取れず第三者プロキシに落ちた印
     if (data.thumbnail_url) parsed.thumb = data.thumbnail_url;
     // Xはhtmlからツイート本文を抽出してタイトルにする
     if (parsed.pt === 'x') {
@@ -3054,7 +3086,7 @@ function _renderUrlResults(items, loading) {
         ${thumb ? `<img src="${thumb}" style="width:48px;height:36px;border-radius:4px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : ''}
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
-          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.ch || p.id}</div>
+          <div style="font-size:10px;color:var(--text3)"><span style="color:${color};font-weight:700">${icon}</span> ${p.ch || p.id}${p.ch && p.chSrc !== 'api' ? ' <span style="color:var(--accent);font-weight:700">※予備データ</span>' : ''}</div>
         </div>
         <span style="font-size:14px;flex-shrink:0">✅</span>
       </div>`;
@@ -4618,7 +4650,7 @@ document.addEventListener('click', function(e) {
     </div><!-- /gd-import-body -->
     <!-- URL直接入力 UI -->
     <div id="url-import-body" style="display:none">
-      <div style="font-size:15px;font-weight:800;margin-bottom:4px" data-i18n="url.title">🔗 URLから動画を追加</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px"><span data-i18n="url.title">🔗 URLから動画を追加</span><span id="wkVerTag" style="font-size:10px;font-weight:600;color:var(--text3);margin-left:6px"></span></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">YouTube・Vimeo・Google Drive・XのURLを貼り付け（複数行OK）／CSV・Excelはヘッダー <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:11px">channel, playlist, url</code> に対応</div>
       <textarea id="urlIn" rows="4" style="width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5" placeholder="https://www.youtube.com/watch?v=abc123&#10;https://youtu.be/def456&#10;https://vimeo.com/123456&#10;https://drive.google.com/file/d/.../view"></textarea>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
