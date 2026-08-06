@@ -3783,20 +3783,23 @@ function _chapReviewDialog(chaps, info) {
     bg.id = 'vp-chap-rv-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
 
+    // タイトルは1行入力だと長いものが見えなくなる（実際に切れた）。折り返す textarea にして
+    // 中身に合わせて高さを伸ばす。値は markup に埋めずJSで入れる（エスケープ事故を避ける）。
     const rows = chaps.map((c, i) => `
-      <div style="display:flex;align-items:center;gap:7px;padding:5px 2px;border-bottom:0.5px solid var(--border,#444)">
-        <input type="checkbox" class="vp-chap-ck" data-i="${i}" checked style="flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;cursor:pointer">
+      <div style="display:flex;align-items:flex-start;gap:7px;padding:5px 2px;border-bottom:0.5px solid var(--border,#444)">
+        <input type="checkbox" class="vp-chap-ck" data-i="${i}" checked style="flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;cursor:pointer;margin-top:4px">
         <button class="vp-chap-seek" data-t="${c.time}" title="ここから再生"
           style="flex-shrink:0;padding:2px 7px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);
                  font-size:11.5px;font-family:'DM Mono',monospace;cursor:pointer">${_chapFmt(c.time)}</button>
-        <input type="text" class="vp-chap-title" data-i="${i}" value="${_escAttr(c.label || '')}" placeholder="タイトルを入力..."
-          style="flex:1;min-width:0;font-size:11.5px;padding:4px 7px;border:1px solid var(--border,#444);border-radius:6px;
-                 background:var(--surface,#222);color:var(--text,#eee);font-family:inherit;outline:none">
+        <textarea class="vp-chap-title" data-i="${i}" rows="1" placeholder="タイトルを入力..."
+          style="flex:1;min-width:0;font-size:11.5px;line-height:1.45;padding:4px 7px;border:1px solid var(--border,#444);border-radius:6px;
+                 background:var(--surface,#222);color:var(--text,#eee);font-family:inherit;outline:none;
+                 resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;box-sizing:border-box"></textarea>
       </div>`).join('');
 
     bg.innerHTML = `
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
-                  width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+                  width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
           <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📑 自動チャプター</div>
           <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${_escAttr(info?.note || '')}</div>
@@ -3839,6 +3842,21 @@ function _chapReviewDialog(chaps, info) {
       </div>`;
     document.body.appendChild(bg);
 
+    // タイトルを流し込み、中身に合わせて高さを合わせる。
+    // Enter は改行ではなく確定扱い（タイトルに改行は要らない）。
+    // textarea は border-box なので、scrollHeight（＝内容＋余白）だけを height に入れると
+    // 枠線ぶん2px足りずに全行がわずかに切れる。枠線を足して合わせる。
+    const fitH = el => {
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight + el.offsetHeight - el.clientHeight) + 'px';
+    };
+    bg.querySelectorAll('.vp-chap-title').forEach(t => {
+      t.value = chaps[Number(t.dataset.i)]?.label || '';
+      fitH(t);
+      t.addEventListener('input', () => fitH(t));
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
+    });
+
     const cks = () => Array.from(bg.querySelectorAll('.vp-chap-ck'));
     const paintOk = () => {
       const n = cks().filter(c => c.checked).length;
@@ -3864,7 +3882,7 @@ function _chapReviewDialog(chaps, info) {
     bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
     bg.querySelector('#vp-chap-ok').addEventListener('click', () => {
       const titles = {};
-      bg.querySelectorAll('.vp-chap-title').forEach(inp => { titles[inp.dataset.i] = inp.value.trim(); });
+      bg.querySelectorAll('.vp-chap-title').forEach(inp => { titles[inp.dataset.i] = inp.value.replace(/\s*\n\s*/g, ' ').trim(); });
       const picked = cks().filter(c => c.checked).map(c => {
         const i = c.dataset.i;
         return { ...chaps[Number(i)], label: titles[i] ?? chaps[Number(i)].label };
