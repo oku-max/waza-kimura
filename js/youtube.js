@@ -224,7 +224,7 @@ export function parseYtTimestamps(description) {
     const secs = parts.length === 3
       ? parts[0]*3600 + parts[1]*60 + parts[2]
       : parts[0]*60 + parts[1];
-    const label = m[2].trim().slice(0, 80);
+    const label = m[2].trim().slice(0, 300);   // 80文字だと実在のチャプター名が途中で切れる
     if (label) results.push({ t: secs, label });
     if (results.length >= 100) break;
   }

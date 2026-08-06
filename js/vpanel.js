@@ -3419,6 +3419,7 @@ window.vpGenSubtitle = async function(id, preset) {
 const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（'ふつう'の値）
 const CHAP_MAX_COUNT = 40;    // 検出件数の上限（'ふつう'の値）
 const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
+const CHAP_LABEL_MAX = 300;   // チャプター名の上限（暴走した返しへの歯止め。実在の名前は届かない長さ）
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
 
@@ -3512,7 +3513,13 @@ function _normalizeChapters(items, opts) {
       .trim();
     out.push({
       time:  Math.round(t),
-      label: title.slice(0, 60),
+      // 60文字で切っていたため、長いチャプター名が途中で失われていた。
+      //   「the Most Important Message Of This Video: The 5 Steps Of Gua」
+      //   「Negate Advantage Completion Guard Passing Model – NAC Open G」
+      // 画面で切れて見えたのは表示の問題ではなく、ここで文字列を捨てていたため。
+      // 上限は「AIが段落まるごと返してきた場合の歯止め」なので、実在のチャプター名が
+      // 引っかからない長さにする。貼り付けた一覧はユーザーの文字なので削らない。
+      label: title.slice(0, CHAP_LABEL_MAX),
       note:  String(rawNote || '').replace(/\s+/g, ' ').trim().slice(0, 200),
     });
   }
