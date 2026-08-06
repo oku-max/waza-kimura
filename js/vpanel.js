@@ -3783,18 +3783,34 @@ function _chapReviewDialog(chaps, info) {
     bg.id = 'vp-chap-rv-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
 
-    // タイトルは1行入力だと長いものが見えなくなる（実際に切れた）。折り返す textarea にして
-    // 中身に合わせて高さを伸ばす。値は markup に埋めずJSで入れる（エスケープ事故を避ける）。
+    // タイトルは長いものが切れて読めなかった。
+    //
+    // 経緯: input(1行) → textarea + 高さを測って伸ばす、と直したが、まだ切れるという報告。
+    // textarea は「rows で決まる高さ」しか持たないので、中身に合わせるには JS で測って
+    // height を入れるしかなく、測った時点と描かれる時点で条件が違うと必ずずれる
+    // （フォントの遅延適用・スクロールバーの出現・幅の変更）。測る限りこの穴は塞がらない。
+    //
+    // だから測るのをやめる。contenteditable の div は普通のブロック要素なので、
+    // 中身が増えれば高さが勝手に伸びる。JS の計算もイベントも要らず、ずれようがない。
+    // 読み出しは textContent なので、貼り付けにHTMLが混ざっても取り込まない。
+    // contenteditable には placeholder が無いので空のときだけ薄字を出す
+    if (!document.getElementById('vp-chap-ph-style')) {
+      const st = document.createElement('style');
+      st.id = 'vp-chap-ph-style';
+      st.textContent = '.vp-chap-title:empty::before{content:attr(data-ph);color:var(--text3,#999)}';
+      document.head.appendChild(st);
+    }
+
     const rows = chaps.map((c, i) => `
       <div style="display:flex;align-items:flex-start;gap:7px;padding:5px 2px;border-bottom:0.5px solid var(--border,#444)">
         <input type="checkbox" class="vp-chap-ck" data-i="${i}" checked style="flex-shrink:0;accent-color:var(--accent);width:15px;height:15px;cursor:pointer;margin-top:4px">
         <button class="vp-chap-seek" data-t="${c.time}" title="ここから再生"
           style="flex-shrink:0;padding:2px 7px;border-radius:5px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);
                  font-size:11.5px;font-family:'DM Mono',monospace;cursor:pointer">${_chapFmt(c.time)}</button>
-        <textarea class="vp-chap-title" data-i="${i}" rows="1" placeholder="タイトルを入力..."
-          style="flex:1;min-width:0;font-size:11.5px;line-height:1.45;padding:4px 7px;border:1px solid var(--border,#444);border-radius:6px;
+        <div class="vp-chap-title" data-i="${i}" contenteditable="plaintext-only" data-ph="タイトルを入力..."
+          style="flex:1;min-width:0;font-size:11.5px;line-height:1.45;padding:5px 7px;border:1px solid var(--border,#444);border-radius:6px;
                  background:var(--surface,#222);color:var(--text,#eee);font-family:inherit;outline:none;
-                 resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;box-sizing:border-box"></textarea>
+                 white-space:pre-wrap;overflow-wrap:anywhere;box-sizing:border-box"></div>
       </div>`).join('');
 
     bg.innerHTML = `
@@ -3843,28 +3859,12 @@ function _chapReviewDialog(chaps, info) {
     document.body.appendChild(bg);
 
     // タイトルを流し込み、中身に合わせて高さを合わせる。
+    // タイトルを流し込む。高さは要素が勝手に持つので計算しない。
     // Enter は改行ではなく確定扱い（タイトルに改行は要らない）。
-    // textarea は border-box なので、scrollHeight（＝内容＋余白）だけを height に入れると
-    // 枠線ぶん2px足りずに全行がわずかに切れる。枠線を足して合わせる。
-    const fitH = el => {
-      el.style.height = 'auto';
-      el.style.height = (el.scrollHeight + el.offsetHeight - el.clientHeight) + 'px';
-    };
     bg.querySelectorAll('.vp-chap-title').forEach(t => {
-      t.value = chaps[Number(t.dataset.i)]?.label || '';
-      fitH(t);
-      t.addEventListener('input', () => fitH(t));
+      t.textContent = chaps[Number(t.dataset.i)]?.label || '';
       t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
     });
-    // 高さは「そのとき測った文字の幅」で決まる。決めたあとで条件が変わると足りなくなる:
-    //   ・Webフォントが後から効いて文字幅が変わる（1行に収まっていたものが2行になる）
-    //   ・縦スクロールバーが出て枠が細くなる
-    //   ・画面の回転・ウィンドウ幅の変更
-    // どれも「1行ぶんの高さのまま2行が入って下が切れる」形で出る。測り直す。
-    const fitAll = () => bg.querySelectorAll('.vp-chap-title').forEach(fitH);
-    requestAnimationFrame(fitAll);                 // 初回レイアウト確定後
-    document.fonts?.ready?.then(fitAll).catch(() => {});
-    window.addEventListener('resize', fitAll);
 
     const cks = () => Array.from(bg.querySelectorAll('.vp-chap-ck'));
     const paintOk = () => {
@@ -3877,7 +3877,6 @@ function _chapReviewDialog(chaps, info) {
     const done = val => {
       bg.remove();
       document.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('resize', fitAll);
       resolve(val);
     };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
@@ -3896,7 +3895,7 @@ function _chapReviewDialog(chaps, info) {
     bg.addEventListener('mousedown', e => { if (e.target === bg) done(null); });
     bg.querySelector('#vp-chap-ok').addEventListener('click', () => {
       const titles = {};
-      bg.querySelectorAll('.vp-chap-title').forEach(inp => { titles[inp.dataset.i] = inp.value.replace(/\s*\n\s*/g, ' ').trim(); });
+      bg.querySelectorAll('.vp-chap-title').forEach(el => { titles[el.dataset.i] = (el.textContent || '').replace(/\s+/g, ' ').trim(); });
       const picked = cks().filter(c => c.checked).map(c => {
         const i = c.dataset.i;
         return { ...chaps[Number(i)], label: titles[i] ?? chaps[Number(i)].label };
