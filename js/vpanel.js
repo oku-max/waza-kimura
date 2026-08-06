@@ -3856,6 +3856,15 @@ function _chapReviewDialog(chaps, info) {
       t.addEventListener('input', () => fitH(t));
       t.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); t.blur(); } });
     });
+    // 高さは「そのとき測った文字の幅」で決まる。決めたあとで条件が変わると足りなくなる:
+    //   ・Webフォントが後から効いて文字幅が変わる（1行に収まっていたものが2行になる）
+    //   ・縦スクロールバーが出て枠が細くなる
+    //   ・画面の回転・ウィンドウ幅の変更
+    // どれも「1行ぶんの高さのまま2行が入って下が切れる」形で出る。測り直す。
+    const fitAll = () => bg.querySelectorAll('.vp-chap-title').forEach(fitH);
+    requestAnimationFrame(fitAll);                 // 初回レイアウト確定後
+    document.fonts?.ready?.then(fitAll).catch(() => {});
+    window.addEventListener('resize', fitAll);
 
     const cks = () => Array.from(bg.querySelectorAll('.vp-chap-ck'));
     const paintOk = () => {
@@ -3865,7 +3874,12 @@ function _chapReviewDialog(chaps, info) {
       ok.disabled = !n;
       ok.style.opacity = n ? '1' : '.45';
     };
-    const done = val => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(val); };
+    const done = val => {
+      bg.remove();
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('resize', fitAll);
+      resolve(val);
+    };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
 
     bg.querySelectorAll('.vp-chap-seek').forEach(b =>
