@@ -10,7 +10,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WAZA KIMURA">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>WAZA KIMURA v52.678</title>
+<!-- タブのアイコン。SVGを先に置くと対応ブラウザはそちらを使い、どの大きさでも輪郭が崩れない。
+     ico は古いブラウザ用（16/32/48の3枚入り）。png は SVG も ico も使わない環境の保険。 -->
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<title>WAZA KIMURA v52.679</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
