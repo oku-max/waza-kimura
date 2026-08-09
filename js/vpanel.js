@@ -2450,6 +2450,54 @@ function _gdSubBindCueRender() {
   if (!tt) return;
   _gdSubCueHandler = () => _gdSubRenderCues();
   tt.addEventListener('cuechange', _gdSubCueHandler);
+  _gdSubFsSync();
+}
+
+// ── 全画面のときだけブラウザ内蔵の字幕表示に切り替える ────────────
+// 全画面にすると字幕が消えるという報告。理由:
+//   字幕は ::cue が環境ごとに効かないため自前のオーバーレイで描いている。
+//   その置き場所は <video> の外（コンテナ）なので、全画面ボタンで <video> だけが
+//   全画面レイヤーへ上がると、オーバーレイは下に取り残されて見えなくなる。
+//   <video> は置換要素で子要素を持てないので、中へ移すこともできない。
+//   iOS では全画面が完全にネイティブ描画で、そもそもDOMを重ねられない。
+// 動画プレイヤーの定石は「コンテナごと全画面にする」だが、この画面はブラウザ内蔵の
+// コントロール(video.controls=true)を使っており、全画面ボタンは <video> を上げる。
+// そこで全画面の間だけ track を showing にして、ブラウザに描かせる。
+// 見た目の設定（文字サイズ・背景の濃さ）は効かなくなるが、出ないよりよい。
+// 全画面を抜けたら hidden に戻して自前の描画へ戻す。
+function _gdSubFsSync() {
+  const t  = _gdSubTracks[_gdSubIndex];
+  const tt = t && t.track && t.track.track;
+  const ov = _gdSubOverlayEl(false);
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || null;
+  // <video> 自体が全画面に上がっているか（iOS は webkitDisplayingFullscreen で分かる）
+  const videoFs = !!(_gdVideoEl && (_gdVideoEl.webkitDisplayingFullscreen || fsEl === _gdVideoEl));
+  if (!tt) { if (ov) ov.style.display = ''; return; }
+  if (videoFs) {
+    if (tt.mode !== 'showing') tt.mode = 'showing';
+    if (ov) ov.style.display = 'none';        // 二重に出さない
+  } else {
+    if (tt.mode !== 'hidden') tt.mode = 'hidden';
+    if (ov) ov.style.display = '';
+    _gdSubRenderCues();
+  }
+}
+
+// 全画面の出入りを拾う。ブラウザごとにイベント名が違うので全部繋ぐ。
+let _gdSubFsBound = false;
+function _gdSubBindFullscreen(video) {
+  if (!_gdSubFsBound) {
+    for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) {
+      document.addEventListener(ev, _gdSubFsSync);
+    }
+    _gdSubFsBound = true;
+  }
+  if (!video || video._wkFsBound) return;
+  // iOS Safari の全画面は document のイベントを出さない
+  for (const ev of ['webkitbeginfullscreen', 'webkitendfullscreen']) {
+    video.addEventListener(ev, () => setTimeout(_gdSubFsSync, 0));
+  }
+  video._wkFsBound = true;
 }
 
 // ── Google Drive 字幕（サイドカー .srt / .vtt を自動検出 → WebVTT で <track> 表示）──
@@ -2619,6 +2667,7 @@ async function _gdAttachSubtitle(video, fileId, token) {
   }
   _gdSubRenderCues();
   if (!_gdSubTracks.length) return;
+  _gdSubBindFullscreen(video);   // 全画面の出入りを拾えるようにする
 
   // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
   const pref = _gdSubPref();
@@ -4157,6 +4206,7 @@ function _gdSubReapply() {
     video.appendChild(track);
     _gdSubTracks.push({ id: t.id, label: t.label, name: t.name, track, rawVtt: t.rawVtt, url });
   }
+  _gdSubBindFullscreen(video);
   setTimeout(() => _gdSubSelect(Math.min(idx, _gdSubTracks.length - 1)), 0);
 }
 
