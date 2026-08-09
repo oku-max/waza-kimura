@@ -5094,8 +5094,9 @@ function _gdSubOpenPanel(anchorEl) {
   const bg = document.createElement('div');
   bg.id = 'vp-sub-opts-bg';
   bg.style.cssText = 'position:fixed;inset:0;z-index:10000;background:transparent';
-  bg.addEventListener('mousedown', e => { e.stopPropagation(); window.wkSubOptsClose(); });
-  bg.addEventListener('click', e => e.stopPropagation());
+  bg.addEventListener('pointerdown', e => { e.stopPropagation(); window.wkSubOptsClose(); });
+  bg.addEventListener('mousedown',   e => { e.stopPropagation(); window.wkSubOptsClose(); });
+  bg.addEventListener('click',       e => e.stopPropagation());
   document.body.appendChild(bg);
 
   const pop = document.createElement('div');
@@ -5113,8 +5114,9 @@ function _gdSubOpenPanel(anchorEl) {
         style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
     </div>
     <div id="vp-sub-opts-body">${_subOptsHTML('player')}</div>`;
-  pop.addEventListener('click', e => e.stopPropagation());
-  pop.addEventListener('mousedown', e => e.stopPropagation());
+  pop.addEventListener('click',       e => e.stopPropagation());
+  pop.addEventListener('mousedown',   e => e.stopPropagation());
+  pop.addEventListener('pointerdown', e => e.stopPropagation());   // パネル内のタップで閉じない
   document.body.appendChild(pop);
   _fitPopup(pop, anchorEl, { alignRight: true });
   pop.style.visibility = '';
@@ -6282,7 +6284,11 @@ window.vpMemoHelp = function(e) {
   menu.style.paddingTop = '34px';
 
   let onOutside;
-  const closeMenu = () => { menu.remove(); document.removeEventListener('click', onOutside, true); };
+  const closeMenu = () => {
+    menu.remove();
+    document.removeEventListener('click', onOutside, true);
+    document.removeEventListener('pointerdown', onOutside, true);
+  };
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'vp-more-close';
@@ -6312,7 +6318,12 @@ window.vpMemoHelp = function(e) {
   else { menu.style.position = 'fixed'; menu.style.left = '50%'; menu.style.top = '20%'; menu.style.transform = 'translateX(-50%)'; menu.style.zIndex = '10005'; document.body.appendChild(menu); }
 
   onOutside = (ev) => { if (!menu.contains(ev.target) && ev.target !== btn) closeMenu(); };
-  setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+  // タップだと click が出ない/遅れる場面がある（動画のネイティブコントロール上、
+  // 指が少し動いたタップなど）。pointerdown はマウス・タッチ・ペン共通で出る。
+  setTimeout(() => {
+    document.addEventListener('click', onOutside, true);
+    document.addEventListener('pointerdown', onOutside, true);
+  }, 0);
 };
 
 // メモ編集の元に戻す/やり直し（contenteditable のブラウザ標準履歴を利用）
@@ -7542,9 +7553,15 @@ window.vpTogSearchMenu = function(e, id) {
     if (!menu.contains(ev.target) && ev.target !== btn) {
       menu.remove();
       document.removeEventListener('click', onOutside, true);
+      document.removeEventListener('pointerdown', onOutside, true);
     }
   };
-  setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+  // タップだと click が出ない/遅れる場面がある（動画のネイティブコントロール上、
+  // 指が少し動いたタップなど）。pointerdown はマウス・タッチ・ペン共通で出る。
+  setTimeout(() => {
+    document.addEventListener('click', onOutside, true);
+    document.addEventListener('pointerdown', onOutside, true);
+  }, 0);
 };
 
 function _menuItem(iconHtml, label, sub, hasArrow = false) {
@@ -7582,6 +7599,7 @@ window.vpTogMoreMenu = function(e, id) {
   const closeMenu = () => {
     menu.remove();
     document.removeEventListener('click', onOutside, true);
+    document.removeEventListener('pointerdown', onOutside, true);
   };
 
   const closeBtn = document.createElement('button');
@@ -7751,7 +7769,12 @@ window.vpTogMoreMenu = function(e, id) {
   onOutside = (ev) => {
     if (!menu.contains(ev.target) && ev.target !== btn) closeMenu();
   };
-  setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+  // タップだと click が出ない/遅れる場面がある（動画のネイティブコントロール上、
+  // 指が少し動いたタップなど）。pointerdown はマウス・タッチ・ペン共通で出る。
+  setTimeout(() => {
+    document.addEventListener('click', onOutside, true);
+    document.addEventListener('pointerdown', onOutside, true);
+  }, 0);
 };
 
 function _positionMenu(menu, anchor) {
