@@ -424,11 +424,14 @@
     const saveVlBtn = (isVlMode || isCvCond)
       ? `<button class="uni-vc-addall-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="${isVlMode ? 'window._uniSaveVlBlockFilter()' : 'window._cvSaveDynamic()'}">🔄 現在の条件で保存</button>`
       : '';
+    // 件数の後ろに合計時間を出す（書式は一覧の件数バーと共通）。
+    // 数えるのは表示中の50件ではなく、条件に一致した全件(raw)。
+    const durLbl = window._wkTotalDurLabel?.(raw) || '';
     const notice = total > 50
-      ? `<div class="uni-vc-notice">上位50件を表示中 (全${total}件)${addAllBtn}${saveVlBtn}</div>`
+      ? `<div class="uni-vc-notice">上位50件を表示中（全${total}件${durLbl}）${addAllBtn}${saveVlBtn}</div>`
       : total === 0
       ? `<div class="uni-vc-notice">条件に一致する動画がありません${saveVlBtn}</div>`
-      : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件がヒット</span>${addAllBtn}${saveVlBtn}</div>`;
+      : `<div class="uni-vc-notice uni-vc-notice-sm"><span>${total}件${durLbl}</span>${addAllBtn}${saveVlBtn}</div>`;
 
     const colHeader = isVlMode ? '📋 リスト編集' : (isNoteMode ? 'ノートに追加' : (isCvMode ? 'ビューに追加' : '該当動画'));
     const sortSel = `<span style="display:flex;align-items:center;gap:2px">

@@ -751,6 +751,7 @@ function _updateOrgResetBtn() {
 // duration は秒。長さが分からない動画（未取得・YouTubeの取得前など）は数えられないので、
 // 混ざっているときは「+n本 不明」と添えて、出している合計が全部ではないことが分かるようにする。
 // 0本のときや全部不明のときは何も出さない（「0分」は嘘になる）。
+// カスタムビューのピッカーからも同じ書式で使う（custom-view.js は module ではないので window 経由）
 function _orgTotalDurLabel(list) {
   let sec = 0, unknown = 0;
   for (const v of (list || [])) {
@@ -764,6 +765,7 @@ function _orgTotalDurLabel(list) {
     : (min % 60 === 0 ? `${min / 60}時間` : `${Math.floor(min / 60)}時間${min % 60}分`);
   return ` · ${body}${unknown ? `（+${unknown}本 長さ不明）` : ''}`;
 }
+window._wkTotalDurLabel = _orgTotalDurLabel;
 
 export function renderOrg() {
   _closeOrgInlineEditor(false);

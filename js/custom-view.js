@@ -397,9 +397,8 @@ function _buildPickerHTML() {
   const items = _views.map((v, idx) => {
     const icon = v.saveMode === 'dynamic' ? '🔄' : '📌';
     const modeLbl = v.saveMode === 'dynamic' ? T('cv.dynamic','条件で自動選択') : T('cv.manual','手動選択');
-    const cntN = v.saveMode === 'dynamic' ? _dynamicCount(v) : (v.videoIds || []).length;
     // 動画が未読込のときは 0 と嘘をつかず「—」を出す
-    const cnt = (cntN === null) ? '—' : `${cntN}${T('cv.count','本')}`;
+    const cnt = _cvPickerCountLabel(v);
     const isActive = v.id === _curId;
 
     if (_cvPickerEditMode) {
@@ -1120,7 +1119,7 @@ function _cvApplyGlobalFilters(list) {
 //
 // 件数はビューを開いたときと同じ条件で数える（_cvUpdateSearch と同じ照合を使う）。
 // 動画がまだ読み込めていないときは 0 と嘘をつかず null を返す（呼び出し側で「—」）。
-function _dynamicCount(v) {
+function _dynamicList(v) {
   const all = window.videos || [];
   if (!all.length) return null;
   let list = _applyConditions(v.filterConditions, all);   // null/未設定は「制限なし」
@@ -1135,7 +1134,32 @@ function _dynamicCount(v) {
       list = list.filter(x => (x.title || '').toLowerCase().includes(ql));
     }
   }
-  return list.length;
+  return list;
+}
+// ピッカーに出す「N本 · 合計時間」。手動選択は videoIds を実体に引き当てて数える。
+// 合計時間の書式は一覧の件数バーと共通（organize.js の _orgTotalDurLabel）。
+function _cvPickerCountLabel(v) {
+  const all = window.videos || [];
+  let list;
+  if (v.saveMode === 'dynamic') {
+    list = _dynamicList(v);
+    if (!list) return '—';                       // 動画がまだ読み込めていない
+  } else {
+    const ids = v.videoIds || [];
+    if (!all.length) return `${ids.length}${T('cv.count','本')}`;   // 実体が無いので本数だけ
+    const byId = _cvVideoById(all);
+    list = ids.map(id => byId.get(id)).filter(Boolean);
+  }
+  return `${list.length}${T('cv.count','本')}` + (window._wkTotalDurLabel?.(list) || '');
+}
+
+// id→動画 の対応表。ピッカーは行ごとに引くので、videos が変わらない限り使い回す。
+let _cvByIdCache = null, _cvByIdSrc = null;
+function _cvVideoById(all) {
+  if (_cvByIdCache && _cvByIdSrc === all && _cvByIdCache.size === all.length) return _cvByIdCache;
+  _cvByIdCache = new Map(all.map(x => [x.id, x]));
+  _cvByIdSrc = all;
+  return _cvByIdCache;
 }
 
 function _applyConditions(fc, all) {
