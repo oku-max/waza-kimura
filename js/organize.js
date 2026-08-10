@@ -744,6 +744,27 @@ function _updateOrgResetBtn() {
 
 // ═══ Main render ═══
 
+
+// 絞り込んだ動画の合計時間。件数の隣に出す。
+//   1時間未満 … 分だけ（「42分」）
+//   1時間以上 … 時間と分（「3時間5分」／ちょうどなら「3時間」）
+// duration は秒。長さが分からない動画（未取得・YouTubeの取得前など）は数えられないので、
+// 混ざっているときは「+n本 不明」と添えて、出している合計が全部ではないことが分かるようにする。
+// 0本のときや全部不明のときは何も出さない（「0分」は嘘になる）。
+function _orgTotalDurLabel(list) {
+  let sec = 0, unknown = 0;
+  for (const v of (list || [])) {
+    const d = Number(v && v.duration);
+    if (Number.isFinite(d) && d > 0) sec += d; else unknown++;
+  }
+  if (sec <= 0) return '';
+  const min = Math.round(sec / 60);
+  const body = min < 60
+    ? `${min}分`
+    : (min % 60 === 0 ? `${min / 60}時間` : `${Math.floor(min / 60)}時間${min % 60}分`);
+  return ` · ${body}${unknown ? `（+${unknown}本 長さ不明）` : ''}`;
+}
+
 export function renderOrg() {
   _closeOrgInlineEditor(false);
   initOrgFixedHeaders();
@@ -754,7 +775,7 @@ export function renderOrg() {
 
   const totalCount = list.length;
   const oc = document.getElementById('oc');
-  if (oc) oc.textContent = totalCount + ' 本';
+  if (oc) oc.textContent = totalCount + ' 本' + _orgTotalDurLabel(list);
 
   // ソート
   const sortSel = document.getElementById('org-sort-sel');

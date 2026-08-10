@@ -1530,6 +1530,11 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     "⏳ 書き起こし中… #秒": "⏳ Transcribing... #s",
+    "# 本 · #分": "# videos · # min",
+    "# 本 · #時間": "# videos · #h",
+    "# 本 · #時間#分": "# videos · #h #min",
+    "# 本 · #分（+#本 長さ不明）": "# videos · # min (+# unknown length)",
+    "# 本 · #時間#分（+#本 長さ不明）": "# videos · #h #min (+# unknown length)",
     "#枚が短すぎる（中央値#字）": "Cues too short (median # chars)",
     "#枚が#秒出っぱなし": "A cue stays on screen for #s",
     "訳が原語の#%しかない（内容が削られている）": "Translation is only #% of the source (content was cut)",
