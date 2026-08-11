@@ -5979,20 +5979,35 @@ function _tsLinkHtml(sec, label) {
 }
 
 // メモ文字列 → 表示用HTML。既存プレーンテキスト（[M:SS]含む）も互換変換する。
+// AI要約の大見出し（◾️の行）を本文と見分けられるようにする。
+// モデルは「箇条書きは行頭に - 」の指示を見出しにも適用してしまい、
+// 「- ◾️手順とディテール」と本文が同じ見た目で並んでいた。
+// 行頭の「- 」を落として、見出しだけ別の書式（.memo-h）にする。
+// 改行は行ごとに組み立てる。見出しはブロックなので後ろに <br> を足さない
+// （足すと見出しの下だけ余白が二重になる）。
+const MEMO_H_RE = /^\s*(?:[-•・]\s*)?(◾️|◾|■)\s*(.+)$/;
+function _memoLinesToHtml(escaped) {
+  return escaped.split('\n').map((ln, i, arr) => {
+    const m = ln.match(MEMO_H_RE);
+    if (m) return `<div class="memo-h">${m[2].trim()}</div>`;
+    return ln + (i < arr.length - 1 ? '<br>' : '');
+  }).join('');
+}
+
 function _memoToHtml(memo) {
   if (!memo) return '';
   // すでにリッチHTML（タグを含む）ならそのまま使う
   if (/<(a|b|i|u|br|div|span|strong|em|p)\b[^>]*>/i.test(memo)) return memo;
   // プレーンテキスト → エスケープ + タイムスタンプリンク + 改行
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return esc(memo)
+  const body = esc(memo)
     .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m,a,b,c) => {
       const sec = c!=null ? (+a*3600 + +b*60 + +c) : (+a*60 + +b);
       const label = c!=null ? `${a}:${b}:${c}` : `${a}:${b}`;
       return _tsLinkHtml(sec, label);
     })
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')  // **強調** → 太字（AI要約の小見出し等）
-    .replace(/\n/g, '<br>');
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');  // **強調** → 太字（AI要約の小見出し等）
+  return _memoLinesToHtml(body);
 }
 
 // メモ内の ts-link / snap-ref にクリックハンドラを再付与
@@ -6383,14 +6398,14 @@ window._vpMemoToHtmlStatic = function(memo) {
       (m, a, sec, b) => `<a class="ts-link"${a}data-sec="${sec}"${b}${inj(sec)}>`);
   }
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return esc(memo)
+  const body = esc(memo)
     .replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m,a,b,c) => {
       const sec = c!=null ? (+a*3600 + +b*60 + +c) : (+a*60 + +b);
       const lb = c!=null ? `${a}:${b}:${c}` : `${a}:${b}`;
       return `<a class="ts-link" contenteditable="false" data-sec="${sec}"${inj(sec)}>▶ ${lb}</a>`;
     })
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')  // **強調** → 太字（AI要約の小見出し等）
-    .replace(/\n/g, '<br>');
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');  // **強調** → 太字（AI要約の小見出し等）
+  return _memoLinesToHtml(body);
 };
 
 // 表示中のプレイヤー要素を返す。

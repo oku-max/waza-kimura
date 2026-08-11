@@ -1703,3 +1703,12 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
 .gdp-optsbody{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
 .gdp-foot{display:flex;gap:8px;padding-top:12px}
 @media (prefers-reduced-motion: reduce){.gdp-tw{transition:none}}
+
+/* AI要約の大見出し（◾️の行）。本文の箇条書きと同じ見た目だと区別がつかないため、
+   一回り大きく・太く・上に余白を取り、左に色の線を引く。メモ欄の中で使う。 */
+.memo-h{
+  font-size:1.12em; font-weight:800; line-height:1.4;
+  margin:14px 0 5px; padding:2px 0 2px 8px;
+  border-left:3px solid var(--accent); color:var(--text);
+}
+.memo-h:first-child{ margin-top:2px; }
