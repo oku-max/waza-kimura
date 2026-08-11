@@ -117,7 +117,7 @@ export function showAiTagPanel(videoId, suggestions) {
              background:var(--surface2);font-size:12px;font-weight:600;color:var(--accent);`
           : `padding:5px 10px;border-radius:20px;border:2px dashed #f97316;
              background:rgba(249,115,22,.08);font-size:12px;font-weight:600;color:#f97316;`;
-        const badge = isPreset ? '' : `<span style="font-size:10px;background:#f97316;color:#fff;border-radius:8px;padding:1px 5px;margin-left:4px">新規</span>`;
+        const badge = isPreset ? '' : `<span style="font-size:10px;background:#ef6e15;color:#fff;border-radius:8px;padding:1px 5px;margin-left:4px">新規</span>`;
         return `
           <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none;${chipStyle}">
             <input type="checkbox" data-key="${key}" data-val="${v.replace(/"/g,'&quot;')}" data-preset="${isPreset?'1':'0'}"

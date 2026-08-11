@@ -836,7 +836,7 @@ function _bookmarkListHTML(id) {
 
     // 編集中: アクセントカラー背景＋左ボーダー強調、非編集中: グレーアウト
     const rowStyle = isExpanded
-      ? 'border-bottom:1px solid var(--border);padding:6px 8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent);margin:2px 0;border-radius:4px'
+      ? 'border-bottom:1px solid var(--border);padding:6px 8px;background:var(--gold-soft);border-left:3px solid var(--accent);margin:2px 0;border-radius:4px'
       : 'border-bottom:1px solid var(--border);padding:6px 8px;';
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
@@ -1709,7 +1709,7 @@ function _ensureBottomSheet() {
 #vp-bs-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,0)}
 #vp-bs-list .bs-item{display:flex;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-top:1px solid var(--border2);transition:background .12s}
 #vp-bs-list .bs-item:hover{background:var(--surface2)}
-#vp-bs-list .bs-item.now{background:var(--accent-bg,rgba(59,130,246,.08));border-left:3px solid var(--accent)}
+#vp-bs-list .bs-item.now{background:var(--gold-soft);border-left:3px solid var(--accent)}
 #vp-bs-list .bs-thumb{width:56px;height:32px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)}
 #vp-bs-list .bs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 #vp-bs-list .bs-info{flex:1;min-width:0}
@@ -3678,7 +3678,7 @@ function _chapListDialog() {
         <div style="position:relative">
           <img src="${im.preview}" style="width:62px;height:62px;object-fit:cover;border-radius:6px;border:1px solid var(--border,#444)">
           <button data-rm="${i}" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;border:none;
-                  background:var(--danger,#c84040);color:#fff;font-size:11px;line-height:1;cursor:pointer;font-family:inherit">×</button>
+                  background:var(--danger,#c84040);color:var(--on-accent,#fff);font-size:11px;line-height:1;cursor:pointer;font-family:inherit">×</button>
         </div>`).join('');
       thumbs.querySelectorAll('[data-rm]').forEach(b =>
         b.addEventListener('click', () => { images.splice(Number(b.dataset.rm), 1); paint(); }));
@@ -4883,7 +4883,7 @@ window.wkSubAudit = async function() {
     f.style.display = 'flex';
     f.innerHTML = `
       <button onclick="wkSubAuditFix()" style="flex:1;min-width:150px;font-size:11.5px;font-weight:700;padding:7px 10px;
-        border-radius:8px;border:1px solid var(--accent,#6c8cff);background:var(--accent,#6c8cff);color:#fff;cursor:pointer">
+        border-radius:8px;border:1px solid var(--accent,#6c8cff);background:var(--accent,#6c8cff);color:var(--on-accent,#fff);cursor:pointer">
         選んだものを直す</button>
       <button onclick="wkSubAuditTrash()" style="font-size:11.5px;padding:7px 10px;border-radius:8px;
         border:1px solid var(--border,#555);background:transparent;color:var(--text2,#bbb);cursor:pointer">
@@ -6171,13 +6171,13 @@ function _askSummaryOptions(canShot) {
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px';
     const pick = (val) => { try { document.body.removeChild(ov); } catch(e){} resolve(val); };
     const btn = (id,bg,bc,col,label) => `<button id="${id}" style="display:block;width:100%;padding:11px;margin-bottom:8px;border:1px solid ${bc};background:${bg};color:${col};border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">${label}</button>`;
-    ov.innerHTML = `<div style="background:#fff;border-radius:12px;padding:18px;max-width:300px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:18px;max-width:300px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3)">
       <div style="font-size:14px;font-weight:700;margin-bottom:4px">✨ AI要約</div>
-      <div style="font-size:12px;color:#666;margin-bottom:14px">各タイムスタンプのスクショをメモに入れますか？</div>
-      ${btn('_so-inline','#eafaf0','#90c0a0','#2a8050','📸 スクショあり（行頭インライン）')}
-      ${btn('_so-block','#eafaf0','#90c0a0','#2a8050','📸 スクショあり（大きめブロック）')}
-      ${btn('_so-none','#fff','#ccc','#555','要約のみ（スクショなし）')}
-      <button id="_so-cancel" style="display:block;width:100%;padding:8px;border:none;background:none;color:#999;font-size:12px;cursor:pointer">キャンセル</button>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">各タイムスタンプのスクショをメモに入れますか？</div>
+      ${btn('_so-inline','var(--green-soft)','var(--green)','var(--green)','📸 スクショあり（行頭インライン）')}
+      ${btn('_so-block','var(--green-soft)','var(--green)','var(--green)','📸 スクショあり（大きめブロック）')}
+      ${btn('_so-none','var(--surface)','var(--border)','var(--text2)','要約のみ（スクショなし）')}
+      <button id="_so-cancel" style="display:block;width:100%;padding:8px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer">キャンセル</button>
     </div>`;
     document.body.appendChild(ov);
     ov.querySelector('#_so-inline').onclick = () => pick({ shot:true, layout:'inline' });

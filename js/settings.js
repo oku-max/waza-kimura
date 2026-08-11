@@ -348,7 +348,7 @@ window.openTagEditModal = function(type) {
     const isCustom = item.source === 'user';
     html += `<div class="tag-modal-item" data-name="${_esc(item.name)}" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);${isCustom?'background:var(--surface2)':''}">
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600">${_esc(item.name)}${isCustom?'<span style="font-size:9px;font-weight:600;color:var(--blue);background:#e8eef4;padding:1px 6px;border-radius:8px;margin-left:6px">カスタム</span>':''}</div>
+        <div style="font-size:12px;font-weight:600">${_esc(item.name)}${isCustom?'<span style="font-size:9px;font-weight:600;color:var(--blue);background:var(--blue-soft,#e8eef4);padding:1px 6px;border-radius:8px;margin-left:6px">カスタム</span>':''}</div>
         ${item.en ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">${_esc(item.en)}</div>` : ''}
         ${hasDesc && item.desc ? `<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic">${_esc(item.desc)}</div>` : ''}
       </div>
@@ -1642,7 +1642,7 @@ export function renderAiSettings() {
           動画内の未分類タグを1つずつ確認し、正しい属性に分類 or 禁止リストに追加できます
         </div>
         <button onclick="window._tagSortMode()"
-          style="padding:10px 20px;border-radius:10px;border:2px solid var(--accent);background:var(--accent)11;
+          style="padding:10px 20px;border-radius:10px;border:2px solid var(--accent);background:var(--gold-soft);
                  color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
           🏷️ 仕分けを開始
         </button>

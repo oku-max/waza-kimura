@@ -196,9 +196,9 @@ function _nBviBmEditHTML(k, noteId, idx, bm, i) {
   const timeDisp = field === 'start' ? _nBviFmt(bm.a) : (hasEnd ? _nBviFmt(bm.b) : '——');
   const sp = e => `event.stopPropagation();${e}`;
   const adjBtn = s => `<button onclick="${sp(`window._nbviBmMicro('${k}','${noteId}',${idx},${i},${s})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">${s > 0 ? '+' : ''}${s}s</button>`;
-  const tabS = field === 'start' ? 'background:var(--accent,#2563eb);color:#fff;font-weight:600' : 'background:var(--surface2);color:var(--text2)';
-  const tabE = field === 'end'   ? 'background:var(--accent,#2563eb);color:#fff;font-weight:600' : 'background:var(--surface2);color:var(--text2)';
-  return `<div class="bm-item" style="display:block;padding:8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent,#2563eb);border-radius:4px;margin:2px 0">
+  const tabS = field === 'start' ? 'background:var(--accent,#2563eb);color:var(--on-accent,#fff);font-weight:600' : 'background:var(--surface2);color:var(--text2)';
+  const tabE = field === 'end'   ? 'background:var(--accent,#2563eb);color:var(--on-accent,#fff);font-weight:600' : 'background:var(--surface2);color:var(--text2)';
+  return `<div class="bm-item" style="display:block;padding:8px;background:var(--gold-soft);border-left:3px solid var(--accent,#2563eb);border-radius:4px;margin:2px 0">
     <input id="n-bvi-bm-lbl-in-${k}-${i}" type="text" value="${_esc(bm.label || '')}" placeholder="ブックマーク名"
       style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent,#2563eb);border-radius:6px;background:var(--surface);color:var(--text);margin-bottom:5px;box-sizing:border-box"
       onclick="${sp('')}" onmousedown="${sp('')}">
@@ -218,14 +218,14 @@ function _nBviBmEditHTML(k, noteId, idx, bm, i) {
           onclick="${sp('')}" onmousedown="${sp('')}">
         <div style="display:flex;gap:3px;flex-wrap:wrap">
           ${[-10,-5,-3,-1,1,3,5,10].map(s => adjBtn(s)).join('')}
-          <button onclick="${sp(`window._nbviBmCur('${k}','${noteId}',${idx},${i})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--accent,#2563eb);color:#fff;cursor:pointer">現在地</button>
+          <button onclick="${sp(`window._nbviBmCur('${k}','${noteId}',${idx},${i})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--accent,#2563eb);color:var(--on-accent,#fff);cursor:pointer">現在地</button>
         </div>
       </div>
     </div>
     <div style="display:flex;justify-content:space-between">
       <div style="display:flex;gap:5px">
         <button onclick="${sp(`window._nbviBmEditReset('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">↺ リセット</button>
-        <button onclick="${sp(`window._nbviDelBm('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--danger,#dc2626);cursor:pointer">🗑 削除</button>
+        <button onclick="${sp(`window._nbviDelBm('${k}','${noteId}',${idx},${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--danger,#c0392b);cursor:pointer">🗑 削除</button>
       </div>
       <div style="display:flex;gap:5px">
         <button onclick="${sp(`window._nbviBmEditClose('${k}')`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">閉じる</button>

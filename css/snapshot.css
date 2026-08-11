@@ -590,7 +590,7 @@ canvas.eraser-cursor {
   top: 10px;
   right: 12px;
   z-index: 10;
-  background: #2ecc71;
+  background: #1e8449;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -783,7 +783,7 @@ canvas.eraser-cursor {
 }
 
 .crop-btn.confirm {
-  background: #2ecc71;
+  background: #1e8449;
   color: #fff;
 }
 

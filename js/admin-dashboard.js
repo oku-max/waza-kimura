@@ -746,7 +746,7 @@ async function _renderFeedbackAdmin(targetEl) {
             <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${typeColor}22;color:${typeColor}">${_esc(typeLabel)}</span>
           </td>
           <td style="padding:7px 6px;white-space:nowrap">
-            <span style="font-size:10px;color:var(--text3);background:var(--surface3);padding:2px 7px;border-radius:10px">${_esc(pageLabel)}</span>
+            <span style="font-size:10px;color:var(--text2);background:var(--surface3);padding:2px 7px;border-radius:10px">${_esc(pageLabel)}</span>
           </td>
           <td style="padding:7px 6px;font-size:11px;color:var(--text3);white-space:nowrap;font-family:'DM Mono',monospace">${date}</td>
           <td style="padding:7px 6px;font-size:12px;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -909,7 +909,7 @@ function _renderTagMaster() {
   html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-bottom:20px">`;
   for (const c of CATS) {
     const tb = CAT_META[c.id]?.tb || 'NEU';
-    html += `<div style="border-radius:10px;border:1px solid #d0d6e8;padding:10px 12px;background:#fff">
+    html += `<div style="border-radius:10px;border:1px solid #d0d6e8;padding:10px 12px;background:#fff;color:#111">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
         <span style="font-weight:700;font-size:12px">${c.name}</span>
         ${badge(tb)}
@@ -924,7 +924,7 @@ function _renderTagMaster() {
   html += `<div style="font-size:13px;font-weight:700;margin-bottom:10px;color:#1a2038">Layer 3 — Position (${POS.length}固定)</div>`;
   html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-bottom:20px">`;
   for (const p of POS) {
-    html += `<div style="border-radius:8px;border:1px solid #d0d6e8;padding:8px 10px;background:#fff">
+    html += `<div style="border-radius:8px;border:1px solid #d0d6e8;padding:8px 10px;background:#fff;color:#111">
       <div style="font-weight:700;font-size:12px;color:#8840cc;margin-bottom:4px">${p.ja} <span style="font-size:10px;color:#9aa0b8;font-weight:400">${p.en}</span></div>
       <div style="display:flex;flex-wrap:wrap">${(p.aliases||[]).map(chip).join('')}</div>
     </div>`;

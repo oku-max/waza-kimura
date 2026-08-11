@@ -462,7 +462,7 @@ export function countContextual(key, val) {
 }
 export function cntBadge(n) {
   if (!n) return '';
-  return `<span style="font-size:9px;background:var(--surface3);color:var(--text3);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600">${n}</span>`;
+  return `<span style="font-size:9px;background:var(--surface3);color:var(--text2);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600">${n}</span>`;
 }
 
 // ── ソート ──

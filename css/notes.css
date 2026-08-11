@@ -21,7 +21,7 @@
   background: var(--surface);
   cursor: default;
 }
-.n-iv-hdr:hover { background: #fafafa; }
+.n-iv-hdr:hover { background: var(--surface2); }
 .n-iv-name {
   flex: 1;
   font-size: 13px;
@@ -70,7 +70,7 @@
   padding: 4px 10px;
   font-size: 9px;
   color: var(--text3, #aaa);
-  background: #f7f7f7;
+  background: var(--surface2);
   border-bottom: 1px solid var(--border2, #ebebeb);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, monospace;

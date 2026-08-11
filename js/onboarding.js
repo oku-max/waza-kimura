@@ -394,13 +394,13 @@ function _inject() {
         ${LIBRARY_STEPS.map((s, i) => `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--text,#ddd);">
             <span style="min-width:22px;height:22px;border-radius:50%;background:var(--accent,#e05a00);
-                         color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;
+                         color:var(--on-accent,#fff);font-size:11px;font-weight:800;display:flex;align-items:center;
                          justify-content:center;">${i + 1}</span>
             <span>${s.title}</span>
           </div>`).join('')}
       </div>
       <button id="ob-start-btn" style="width:100%;padding:12px;border-radius:8px;
-              background:var(--accent,#e05a00);color:#fff;font-size:15px;font-weight:800;
+              background:var(--accent,#e05a00);color:var(--on-accent,#fff);font-size:15px;font-weight:800;
               border:none;cursor:pointer;margin-bottom:10px;">ツアーをはじめる</button>
       <button id="ob-dismiss-btn" style="background:none;border:none;color:var(--text3,#666);
               font-size:13px;cursor:pointer;text-decoration:underline;">スキップして使い始める</button>
@@ -485,7 +485,7 @@ function _inject() {
                   border:1px solid var(--border,#444);color:var(--text3,#888);font-size:13px;
                   cursor:pointer;">スキップ</button>
           <button id="ob-next-btn" style="padding:6px 16px;border-radius:6px;
-                  background:var(--accent,#e05a00);border:none;color:#fff;font-size:13px;
+                  background:var(--accent,#e05a00);border:none;color:var(--on-accent,#fff);font-size:13px;
                   font-weight:700;cursor:pointer;">次へ →</button>
         </div>
       </div>

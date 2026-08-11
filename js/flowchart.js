@@ -46,7 +46,7 @@
     } else {
       div.innerHTML=`<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#111;padding:12px;box-sizing:border-box">
         <div style="color:#aaa;font-size:11px;text-align:center">再生にはGoogle認証が必要です</div>
-        <button style="padding:7px 16px;background:var(--accent,#2563eb);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit" id="fc-gd-auth-${nodeId}">Googleで認証して再生</button>
+        <button style="padding:7px 16px;background:var(--accent,#2563eb);color:var(--on-accent,#fff);border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit" id="fc-gd-auth-${nodeId}">Googleで認証して再生</button>
       </div>`;
       const btn=div.querySelector('#fc-gd-auth-'+nodeId);
       if(btn) btn.onclick=async(e)=>{
@@ -1189,15 +1189,15 @@
     const field=_editingBm?.field||'start';
     const curVal=field==='start'?(bm.a||0):(bm.b??bm.a??0);
     const hasEnd=bm.b!=null;
-    const S='flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);background:var(--accent,#2563eb);color:#fff';
+    const S='flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);background:var(--accent,#2563eb);color:var(--on-accent,#fff)';
     const U='flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;border-right:0.5px solid var(--border);color:var(--text2);background:var(--surface2)';
-    const E='flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;background:var(--accent,#2563eb);color:#fff';
+    const E='flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;cursor:pointer;background:var(--accent,#2563eb);color:var(--on-accent,#fff)';
     const F='flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;color:var(--text2);background:var(--surface2)';
     const tabS=field==='start'?S:U; const tabE=field==='end'?E:F;
     const timeDisp=field==='start'?_fmt(bm.a):(hasEnd?_fmt(bm.b):'——');
     const sp=e=>`event.stopPropagation();${e}`;
     const adjBtn=(s)=>`<button onclick="${sp(`window._fcBmEditMicro('${nid}',${i},${s})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">${s>0?'+':''}${s}s</button>`;
-    return `<div class="bm-item" style="display:block;padding:8px;background:var(--accent-bg,#fdf6e8);border-left:3px solid var(--accent,#2563eb);border-radius:4px;margin:2px 0">
+    return `<div class="bm-item" style="display:block;padding:8px;background:var(--gold-soft);border-left:3px solid var(--accent,#2563eb);border-radius:4px;margin:2px 0">
       <input id="fc-bm-lbl-${nid}-${i}" type="text" value="${_esc(bm.label||'')}" placeholder="ブックマーク名（空欄でも可）"
         style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent,#2563eb);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;box-sizing:border-box;margin-bottom:5px"
         onclick="${sp('')}" onmousedown="${sp('')}">
@@ -1218,14 +1218,14 @@
           <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
             <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px">微調整</span>
             ${[-10,-5,-3,-1,1,3,5,10].map(s=>adjBtn(s)).join('')}
-            <button onclick="${sp(`window._fcBmEditCurrent('${nid}',${i})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--accent,#2563eb);color:#fff;cursor:pointer;font-family:inherit">現在地</button>
+            <button onclick="${sp(`window._fcBmEditCurrent('${nid}',${i})`)}" style="font-size:9px;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:var(--accent,#2563eb);color:var(--on-accent,#fff);cursor:pointer;font-family:inherit">現在地</button>
           </div>
         </div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px">
         <div style="display:flex;gap:5px">
           <button onclick="${sp(`window._fcBmEditReset('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">↺ リセット</button>
-          <button onclick="${sp(`window._fcDelBm('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--danger,#dc2626);cursor:pointer;font-family:inherit">🗑 削除</button>
+          <button onclick="${sp(`window._fcDelBm('${nid}',${i})`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--danger,#c0392b);cursor:pointer;font-family:inherit">🗑 削除</button>
         </div>
         <div style="display:flex;gap:5px">
           <button onclick="${sp(`window._fcBmEditClose('${nid}')`)}" style="font-size:10px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit">閉じる</button>

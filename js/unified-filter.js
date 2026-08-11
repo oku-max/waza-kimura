@@ -192,7 +192,7 @@
 #uni-popup .uni-vid-row:hover{background:var(--surface2)}
 #uni-popup .uni-vid-row.on{background:rgba(107,63,212,.12);border-left:3px solid var(--accent)}
 #uni-popup .uni-vid-sel-hdr{display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;font-size:11px;color:var(--text2)}
-#uni-popup .uni-vid-thumb{width:56px;height:36px;background:var(--surface3);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(0,0,0,.25)}
+#uni-popup .uni-vid-thumb{width:56px;height:36px;background:var(--surface3);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text2)}
 #uni-popup .uni-vid-info{flex:1;min-width:0}
 #uni-popup .uni-vid-title{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #uni-popup .uni-vid-meta{font-size:10px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -220,7 +220,7 @@
 #uni-save-modal .usm-actions{display:flex;gap:8px;justify-content:flex-end}
 #uni-save-modal .usm-cancel{padding:7px 15px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
 #uni-save-modal .usm-ok{padding:7px 18px;border-radius:7px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
-#uni-save-modal .usm-ok:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed}
+#uni-save-modal .usm-ok:disabled{background:var(--surface3);color:var(--text2);cursor:not-allowed}
 /* スクロールバー常時表示 — style.css の ::-webkit-scrollbar{display:none} を上書き */
 #uni-popup .uni-col-body::-webkit-scrollbar{display:block;width:7px}
 #uni-popup .uni-col-body::-webkit-scrollbar-track{background:#dddde5}
