@@ -1712,3 +1712,9 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
   border-left:3px solid var(--accent); color:var(--text);
 }
 .memo-h:first-child{ margin-top:2px; }
+/* 小見出し（行全体が **…** だけの行）。大見出しより控えめに、本文よりは目立たせる。 */
+.memo-h2{
+  font-size:1.04em; font-weight:700; line-height:1.45;
+  margin:9px 0 2px; color:var(--text);
+}
+.memo-h + .memo-h2{ margin-top:4px; }
