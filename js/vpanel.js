@@ -6853,6 +6853,15 @@ window.vpAiSummary = async function(id, preset) {
 
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 要約中…'; btn.style.opacity = '0.6'; }
 
+  // 要約は動画そのものをGeminiに送るため、長い動画ほど待たされる。
+  // 「⏳ 要約中…」だけだと止まっているのか進んでいるのか分からず、実際どれだけ
+  // かかったのかも残らない。経過秒を出し、終わったら実測を結果に載せる。
+  const _t0ai = Date.now();
+  let _aiPhase = '要約中';
+  const _aiTick = btn ? setInterval(() => {
+    btn.textContent = `⏳ ${_aiPhase}… ${Math.round((Date.now() - _t0ai) / 1000)}秒`;
+  }, 1000) : null;
+
   window.wkAiBusyBegin();
   try {
     const idToken = await user.getIdToken();
@@ -6865,7 +6874,7 @@ window.vpAiSummary = async function(id, preset) {
     // 要約生成は一時的に失敗しやすい（Geminiのレート/タイムアウト）ので最大2回試行
     let data = null, lastErr = '';
     for (let attempt = 1; attempt <= 2; attempt++) {
-      if (btn) btn.textContent = attempt === 1 ? '⏳ 要約中…' : '⏳ 再試行中…';
+      _aiPhase = attempt === 1 ? '要約中' : '再試行中';
       try {
         const res = await fetch('/api/ai-summary', {
           method:  'POST',
@@ -6917,7 +6926,7 @@ window.vpAiSummary = async function(id, preset) {
           if (offscreen) { try { offscreen.pause(); offscreen.removeAttribute('src'); offscreen.load(); offscreen.remove(); } catch(e) {} }
         }
       }
-      if (btn) btn.textContent = '⏳ 整理中…';
+      _aiPhase = '整理中';
     }
 
     // メモHTML生成（スクショありならサムネ付き、なければ従来通り）
@@ -6958,8 +6967,13 @@ window.vpAiSummary = async function(id, preset) {
     } else {
       autoSaveVp(id);
     }
-    if (!silent) window.toast?.(shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました');
-    return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0, shots: shotCount };
+    const _sec = Math.round((Date.now() - _t0ai) / 1000);
+    if (!silent) window.toast?.(
+      (shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました')
+      + `（${_sec}秒）`);
+    console.log('[aiSummary]', { 秒: _sec, 動画: v.title, スクショ: shotCount,
+                                 コスト: data.costUsd, 文字数: (data.summary || '').length });
+    return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0, shots: shotCount, sec: _sec };
   } catch (e) {
     console.error('[aiSummary] 例外:', e);
     if (!silent) {
@@ -6968,6 +6982,7 @@ window.vpAiSummary = async function(id, preset) {
     }
     return { ok: false, error: (e?.message || String(e)) };
   } finally {
+    if (_aiTick) clearInterval(_aiTick);   // 成功・失敗・例外のどれでも必ず止める
     window.wkAiBusyEnd();
     if (btn) { btn.disabled = false; btn.textContent = origLabel || '✨ AI要約'; btn.style.opacity = '1'; }
   }

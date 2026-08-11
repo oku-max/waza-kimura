@@ -1530,6 +1530,11 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     "⏳ 書き起こし中… #秒": "⏳ Transcribing... #s",
+    "⏳ 要約中… #秒": "⏳ Summarizing... #s",
+    "⏳ 再試行中… #秒": "⏳ Retrying... #s",
+    "⏳ 整理中… #秒": "⏳ Organizing... #s",
+    "✨ AI要約をMemoに追記しました（#秒）": "✨ AI summary added to Memo (#s)",
+    "✨ 要約＋スクショ#枚を追記しました（#秒）": "✨ Summary + # screenshots added (#s)",
     "# 本 · #分": "# videos · # min",
     "#本 · #分": "# videos · # min",
     "#本 · #時間": "# videos · #h",
