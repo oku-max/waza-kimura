@@ -223,11 +223,11 @@
 #uni-save-modal .usm-ok:disabled{background:var(--surface3);color:var(--text2);cursor:not-allowed}
 /* スクロールバー常時表示 — style.css の ::-webkit-scrollbar{display:none} を上書き */
 #uni-popup .uni-col-body::-webkit-scrollbar{display:block;width:7px}
-#uni-popup .uni-col-body::-webkit-scrollbar-track{background:#dddde5}
+#uni-popup .uni-col-body::-webkit-scrollbar-track{background:var(--surface3)}
 #uni-popup .uni-col-body::-webkit-scrollbar-thumb{background:#9090a8;border-radius:4px}
 #uni-popup .uni-col-body::-webkit-scrollbar-thumb:hover{background:#6060a0}
 #uni-popup .uni-cols::-webkit-scrollbar{display:block;height:7px}
-#uni-popup .uni-cols::-webkit-scrollbar-track{background:#dddde5}
+#uni-popup .uni-cols::-webkit-scrollbar-track{background:var(--surface3)}
 #uni-popup .uni-cols::-webkit-scrollbar-thumb{background:#9090a8;border-radius:4px}
 #uni-popup .uni-cols::-webkit-scrollbar-thumb:hover{background:#6060a0}
 #uni-popup .uni-col-body{scrollbar-width:thin;scrollbar-color:#9090a8 #dddde5}

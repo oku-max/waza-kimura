@@ -493,7 +493,7 @@
 .yt-sr-pl-empty   { padding: 14px; text-align: center; font-size: 12px; color: var(--text3); }
 .yt-sr-all-btn {
   display: block; width: calc(100% - 20px); margin: 10px 10px 2px;
-  padding: 8px; background: var(--accent); color: #fff;
+  padding: 8px; background: var(--accent); color: var(--on-accent);
   border: none; border-radius: 7px; font-size: 13px; font-weight: 600;
   cursor: pointer; text-align: center;
 }
@@ -517,12 +517,12 @@
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   transition: all .12s;
 }
-.yt-sr-vi-add:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.yt-sr-vi-add:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .yt-sr-vi-add:disabled { opacity: .5; cursor: default; }
 .yt-sr-vi-done {
   width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-  background: var(--surface3); border: 1.5px solid #555;
-  color: #777; font-size: 12px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface3); border: 1.5px solid var(--border);
+  color: var(--text2); font-size: 12px; display: flex; align-items: center; justify-content: center;
 }
 .yt-sr-open-btn {
   margin-top: auto;

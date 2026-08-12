@@ -479,7 +479,7 @@ function _inject() {
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div id="ob-dots" style="display:flex;gap:5px;"></div>
         <div style="display:flex;gap:6px;">
-          <button id="ob-prev-btn" style="padding:6px 12px;border-radius:6px;background:#333;
+          <button id="ob-prev-btn" style="padding:6px 12px;border-radius:6px;background:var(--surface2);
                   border:none;color:var(--text2,#ccc);font-size:13px;cursor:pointer;">← 戻る</button>
           <button id="ob-skip-btn" style="padding:6px 12px;border-radius:6px;background:none;
                   border:1px solid var(--border,#444);color:var(--text3,#888);font-size:13px;
@@ -531,7 +531,7 @@ function _inject() {
     .vis-img-card { border-radius:8px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center; }
     .vis-img-paste { font-size:10px;color:var(--text3,#666);position:absolute;bottom:8px;right:10px; }
     .vis-col-wrap { display:flex;gap:0;padding:14px;width:100%;height:100%;align-items:stretch; }
-    .vis-col-left { flex:1;background:#0d0d0d;border:1px solid var(--border,#3a3a3a);border-radius:8px 0 0 8px;display:flex;flex-direction:column;overflow:hidden; }
+    .vis-col-left { flex:1;background:var(--bg);border:1px solid var(--border,#3a3a3a);border-radius:8px 0 0 8px;display:flex;flex-direction:column;overflow:hidden; }
     .vis-col-tag { font-size:9px;font-weight:700;padding:4px 8px;letter-spacing:.5px; }
     .vis-col-tag.video { color:var(--accent,#e05a00);background:rgba(212,160,23,.12); }
     .vis-col-tag.memo { color:var(--text3,#666);background:var(--surface2,#2a2a2a); }

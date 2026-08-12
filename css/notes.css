@@ -206,7 +206,7 @@
 .n-vl-play-btn {
   flex-shrink: 0;
   width: 28px; height: 28px; border-radius: 50%;
-  background: #4a9eff; color: #fff;
+  background: var(--blue); color: var(--on-accent);
   border: none; cursor: pointer; font-size: 11px;
   display: flex; align-items: center; justify-content: center;
   transition: background .15s;
@@ -492,7 +492,7 @@
 
 /* メモ展開エリア */
 .n-iv-memo-section {
-  background: #fafef5;
+  background: var(--green-soft);
   border-top: 1px solid var(--border2, #ebebeb);
   padding: 8px 10px 10px;
 }
@@ -821,7 +821,7 @@
   transition: all .15s;
 }
 .n-status-tab.active {
-  background: var(--accent); color: #fff; border-color: var(--accent);
+  background: var(--accent); color: var(--on-accent); border-color: var(--accent);
 }
 
 /* blocks */

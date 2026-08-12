@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.689</title>
+<title>WAZA KIMURA v52.690</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -5680,23 +5680,23 @@ async function submitFeedback() {
 }
 #vp-tut-tip {
   position: absolute; pointer-events: all; z-index: 3;
-  background: #fff; border: 1.5px solid var(--accent,#e05a00); border-radius: 12px;
+  background: var(--surface); border: 1.5px solid var(--accent,#e05a00); border-radius: 12px;
   padding: 18px 16px; width: 310px; max-width: calc(100vw - 20px);
   max-height: 50vh; overflow-y: auto;
-  color: #111; box-shadow: 0 8px 32px rgba(0,0,0,.25);
+  color: var(--text); box-shadow: 0 8px 32px rgba(0,0,0,.25);
   box-sizing: border-box;
 }
-.vp-tut-step  { font-size: 10px; font-weight: 700; color: #e05a00; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
-.vp-tut-title { font-size: 14px; font-weight: 800; color: #111; margin-bottom: 8px; }
-.vp-tut-desc  { font-size: 12px; color: #555; line-height: 1.65; margin-bottom: 14px; }
+.vp-tut-step  { font-size: 10px; font-weight: 700; color: var(--accent,#e05a00); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 6px; }
+.vp-tut-title { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.vp-tut-desc  { font-size: 12px; color: var(--text2); line-height: 1.65; margin-bottom: 14px; }
 .vp-tut-footer { display: flex; align-items: center; gap: 6px; }
 .vp-tut-dots   { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
-.vp-tut-dot    { width: 6px; height: 6px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
-.vp-tut-dot.on { background: #e05a00; }
-#vp-tut-prev { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1.5px solid #ddd; background: #f5f5f5; color: #555; font-family: inherit; white-space: nowrap; }
-#vp-tut-next { font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; border: none; background: #e05a00; color: #fff; font-family: inherit; white-space: nowrap; }
-.vp-tut-skip  { font-size: 10px; color: #aaa; cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
-.vp-tut-skip:hover { color: #555; }
+.vp-tut-dot    { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.vp-tut-dot.on { background: var(--accent,#e05a00); }
+#vp-tut-prev { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text2); font-family: inherit; white-space: nowrap; }
+#vp-tut-next { font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; border: none; background: var(--accent,#e05a00); color: var(--on-accent,#fff); font-family: inherit; white-space: nowrap; }
+.vp-tut-skip  { font-size: 10px; color: var(--text3); cursor: pointer; text-decoration: underline; margin-top: 10px; display: inline-block; }
+.vp-tut-skip:hover { color: var(--text2); }
 </style>
 <div id="vp-tut-overlay">
   <!-- SVG マスク: onboarding.js と同じパターン -->

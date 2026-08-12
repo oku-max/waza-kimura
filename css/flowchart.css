@@ -23,7 +23,7 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 #fc-overlay .fc-tb-title:focus{background:var(--surface2)}
 #fc-overlay .fc-tb-btn{padding:5px 12px;border-radius:5px;border:1px solid var(--border,#d0d0d0);background:var(--surface,#fff);color:var(--text,#111);font-size:12px;cursor:pointer;white-space:nowrap}
 #fc-overlay .fc-tb-btn:hover{background:var(--surface2)}
-#fc-overlay .fc-tb-btn.accent{background:var(--accent,#e05a00);border-color:var(--accent,#e05a00);color:#fff}
+#fc-overlay .fc-tb-btn.accent{background:var(--accent,#e05a00);border-color:var(--accent,#e05a00);color:var(--on-accent,#fff)}
 #fc-overlay .fc-tb-btn.accent:hover{opacity:.9}
 #fc-overlay .fc-tb-btn.placing{background:#fffbe6;border-color:#fbbf24;color:#92400e}
 #fc-overlay .fc-placing-badge{
@@ -147,7 +147,7 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 #fc-overlay .ab-micro-lbl{font-size:9px;color:#888;margin-right:2px;letter-spacing:.3px}
 #fc-overlay .ab-micro-btn{padding:3px 5px;border-radius:4px;border:1px solid #383838;background:#2e2e2e;color:#d0d0d0;font-size:10px;cursor:pointer;min-width:28px;text-align:center}
 #fc-overlay .ab-micro-btn:hover{border-color:#d4a843;color:#d4a843}
-#fc-overlay .ab-micro-btn.cur{background:var(--accent,#e05a00);border-color:var(--accent,#e05a00);color:#fff}
+#fc-overlay .ab-micro-btn.cur{background:var(--accent,#e05a00);border-color:var(--accent,#e05a00);color:var(--on-accent,#fff)}
 #fc-overlay .ab-save-row{display:flex;justify-content:flex-end;padding:0 10px 8px}
 #fc-overlay .ab-save-btn{padding:5px 16px;border-radius:6px;border:none;background:#d4a843;color:#1a1a1a;font-size:12px;font-weight:700;cursor:pointer}
 #fc-overlay .ab-save-btn:hover{opacity:.88}
@@ -172,8 +172,8 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 #fc-overlay .bm-del-btn{padding:2px 5px;border-radius:4px;border:1px solid #383838;background:none;color:#888;font-size:10px;cursor:pointer;flex-shrink:0}
 #fc-overlay .bm-del-btn:hover{border-color:#f87171;color:#f87171}
 #fc-overlay .vpanel-btns{display:flex;gap:0;border-top:1px solid #383838;border-radius:0 0 6px 6px;overflow:hidden}
-#fc-overlay .vpanel-btn{flex:1;padding:6px 4px;font-size:10px;font-weight:600;color:var(--accent,#e05a00);background:#1a1a1a;border:none;cursor:pointer;text-align:center}
-#fc-overlay .vpanel-btn:hover{background:#242424}
+#fc-overlay .vpanel-btn{flex:1;padding:6px 4px;font-size:10px;font-weight:600;color:var(--accent,#e05a00);background:var(--surface2);border:none;cursor:pointer;text-align:center}
+#fc-overlay .vpanel-btn:hover{background:var(--surface3)}
 #fc-overlay .vpanel-btn+.vpanel-btn{border-left:1px solid #383838}
 
 /* Resize handle */
@@ -191,7 +191,7 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
   width:22px;height:22px;border-radius:50%;
   background:var(--surface,#fff);border:2px solid var(--border,#d0d0d0);
   cursor:crosshair;z-index:5;display:flex;align-items:center;justify-content:center;
-  font-size:11px;color:var(--border,#d0d0d0);font-weight:700;
+  font-size:11px;color:var(--text2);font-weight:700;
   transition:all .15s;opacity:.5;
 }
 #fc-overlay .fc-node:hover .node-port{opacity:1;border-color:#888;color:#888}
@@ -244,9 +244,9 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 /* Context menu */
 #fc-ctx-menu{display:none;position:fixed;z-index:9600;background:var(--surface,#fff);border:1px solid var(--border,#d0d0d0);border-radius:8px;padding:5px;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.15)}
 #fc-overlay .fc-ctx-item{padding:7px 11px;border-radius:5px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:7px}
-#fc-overlay .fc-ctx-item:hover{background:#f5f5f5}
-#fc-overlay .fc-ctx-item.danger{color:#c00}
-#fc-overlay .fc-ctx-item.danger:hover{background:#fff0f0}
+#fc-overlay .fc-ctx-item:hover{background:var(--surface2)}
+#fc-overlay .fc-ctx-item.danger{color:var(--red)}
+#fc-overlay .fc-ctx-item.danger:hover{background:var(--red-soft)}
 #fc-overlay .fc-ctx-sep{height:1px;background:var(--border2,#ebebeb);margin:4px 0}
 
 /* Edge popup (Pattern A) */
@@ -258,13 +258,13 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 }
 #fc-edge-popup.open{display:flex}
 #fc-overlay .fc-ep-btn{padding:7px 11px;border-radius:5px;border:none;background:none;cursor:pointer;font-size:12px;text-align:left;display:flex;align-items:center;gap:7px}
-#fc-overlay .fc-ep-btn:hover{background:#f5f5f5}
-#fc-overlay .fc-ep-btn.danger{color:#c00}
-#fc-overlay .fc-ep-btn.danger:hover{background:#fff0f0}
+#fc-overlay .fc-ep-btn:hover{background:var(--surface2)}
+#fc-overlay .fc-ep-btn.danger{color:var(--red)}
+#fc-overlay .fc-ep-btn.danger:hover{background:var(--red-soft)}
 
 /* Label editor */
 #fc-label-editor{display:none;position:absolute;z-index:9300;pointer-events:all}
-#fc-label-input{border:1.5px solid var(--accent,#e05a00);border-radius:5px;padding:4px 10px;font-size:11px;outline:none;background:#fff;min-width:100px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+#fc-label-input{border:1.5px solid var(--accent,#e05a00);border-radius:5px;padding:4px 10px;font-size:11px;outline:none;background:var(--surface);color:var(--text);min-width:100px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.18)}
 
 /* Empty video node — add button */
 #fc-overlay .node-vid-setup{padding:10px;display:flex;flex-direction:column;gap:6px}
@@ -273,7 +273,7 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 #fc-overlay .fc-url-row{display:flex;gap:6px}
 #fc-overlay .fc-url-input{flex:1;padding:7px 10px;border:1px solid var(--border,#d0d0d0);border-radius:6px;font-size:12px;outline:none;background:var(--surface,#fff);color:var(--text,#111);min-width:0}
 #fc-overlay .fc-url-input:focus{border-color:var(--accent,#e05a00)}
-#fc-overlay .fc-url-ok-btn{padding:7px 12px;border-radius:6px;border:none;background:var(--accent,#e05a00);color:#fff;font-size:12px;cursor:pointer;flex-shrink:0}
+#fc-overlay .fc-url-ok-btn{padding:7px 12px;border-radius:6px;border:none;background:var(--accent,#e05a00);color:var(--on-accent,#fff);font-size:12px;cursor:pointer;flex-shrink:0}
 #fc-overlay .fc-url-ok-btn:hover{opacity:.88}
 #fc-overlay .fc-lib-btn{padding:7px 10px;border-radius:6px;border:1px solid var(--border,#d0d0d0);background:none;color:var(--text2,#555);font-size:11px;cursor:pointer;text-align:center}
 #fc-overlay .fc-lib-btn:hover{background:var(--surface2);border-color:#aaa}
@@ -283,7 +283,7 @@ body:has(#fc-overlay.open) #vp-bs-sheet{z-index:10003}
 #fc-overlay .bm-item-label.editing{background:#2e2e2e;color:#d0d0d0;white-space:normal;overflow:visible;text-overflow:clip;box-shadow:0 0 0 1px #d4a843}
 
 /* Hint */
-#fc-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);border:1px solid var(--border,#d0d0d0);color:var(--text3,#aaa);font-size:10px;padding:4px 14px;border-radius:16px;pointer-events:none;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.08);transition:opacity .2s}
+#fc-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border,#d0d0d0);color:var(--text2);font-size:10px;padding:4px 14px;border-radius:16px;pointer-events:none;white-space:nowrap;box-shadow:0 1px 6px rgba(0,0,0,.08);transition:opacity .2s}
 #fc-hint.hidden{opacity:0}
 
 /* ── Notes block preview card ── */
