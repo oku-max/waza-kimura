@@ -45,6 +45,10 @@ const CV_TEMPLATES = [
 ];
 const BLANK_TEMPLATE = { id:'blank', icon:'📄', label:'空白から始める', desc:'自分で列を追加', columns:[] };
 
+// 表示文言の翻訳。モジュール全体で使うのでトップレベルに置く
+// （関数内の局所定義にすると、そこから呼ばれる別関数で ReferenceError になる）
+const T = (k, fb) => (window.t ? window.t(k, fb) : fb);
+
 // ── 状態 ──
 let _views = [];
 let _curId = null;
@@ -380,7 +384,6 @@ window._cvRowSetView = function(id, vt) {
 };
 
 function _buildPickerHTML() {
-  const T = (k, fb) => (window.t ? window.t(k, fb) : fb);
   // ── マスター行（先頭） ──
   const masterActive = !_curId;
   const masterRow = `<div class="cv-picker-item${masterActive ? ' active' : ''}" onclick="window._cvClearSelection();window._closePicker()">
