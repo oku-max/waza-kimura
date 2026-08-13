@@ -1591,7 +1591,7 @@ export async function bulkAiRun(mode) {
     <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;cursor:pointer">
       <input type="checkbox" id="bulk-ai-skip" checked style="accent-color:var(--accent);width:15px;height:15px;margin-top:1px">
       <span style="font-size:11.5px;line-height:1.5">${isSub
-        ? 'すでに字幕があるものは飛ばす<div style="font-size:10.5px;color:var(--text3)">外すと既存の字幕を作り直して上書きします</div>'
+        ? 'すでにその言語の字幕があるものは飛ばす<div style="font-size:10.5px;color:var(--text3)">別の言語の字幕しか無いものは、書き起こしをやり直さず翻訳して作ります（音声認識の料金がかかりません）。外すと既存の字幕を作り直して上書きします</div>'
         : 'すでにAI要約があるものは飛ばす<div style="font-size:10.5px;color:var(--text3)">外すと同じ動画にもう一度要約を追記します</div>'}</span>
     </label>`;
 
