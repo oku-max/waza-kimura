@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.692</title>
+<title>WAZA KIMURA v52.693</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4030,7 +4030,20 @@ async function _wazaCollectLightData() {
     orgColVisibility: window.orgColVisibility || {},
     customViews: window._cvViews || [],          // カスタムビュー（設定docのデータ。従来は欠落していた）
     tagGroups: window.getTagGroups?.() || [],    // タググループ（同上）
-    notes: window._notesGetData ? { folders: window._notesGetData(), root: [] } : null,
+    filterColVis: window.filterColVis || {},     // フィルター列の表示設定
+    notes: window._notesGetData
+      ? { folders: window._notesGetData(), root: window._notesGetRoot?.() || [] }
+      : null,
+    // 起動時に開くリストの設定（data/cvStartup 相当）
+    cvStartup: window._startupCfg
+      ? { list: window._startupCfg.list, scope: window._startupCfg.scope,
+          lastView: window._cvLastViewShared || '' }
+      : null,
+    // タグの別名辞書と反転ルール（data/tag_master, data/tag_rules 相当）。
+    // 書き戻す経路がクライアントに無いので、復元はせず保管のみ。
+    tagMaster: (Array.isArray(window.CATEGORIES) ? window.CATEGORIES : [])
+      .reduce((m, c) => { if (c && c.id && c.aliases) m[c.id] = c.aliases; return m; }, {}),
+    tagRules: window.tagRules || null,
   };
 }
 
@@ -4085,10 +4098,14 @@ window.wazaImport = async function(input) {
   try { data = JSON.parse(text); } catch { toast('⚠️ JSONの読み込みに失敗しました'); return; }
   if (!data.videos) { toast('⚠️ バックアップファイルが正しくありません'); return; }
 
+  const _noteCnt = (data.notes?.folders || []).reduce((n, f) => n + (f?.notes?.length || 0), 0)
+                 + (data.notes?.root?.length || 0);
   const confirmed = confirm(
     `バックアップを復元しますか？\n\n` +
     `エクスポート日時: ${data.exportedAt || '不明'}\n` +
     `動画数: ${data.videos?.length || 0}本\n` +
+    `リスト: ${data.customViews?.length || 0}件\n` +
+    `ノート: ${_noteCnt}件\n` +
     `スナップ: ${data.snapshots?.length || 0}枚\n\n` +
     `⚠️ 現在のデータは上書きされます。`
   );
@@ -4101,6 +4118,8 @@ window.wazaImport = async function(input) {
     await window.saveUserData?.();
 
     // 設定を復元
+    // 各項目は「バックアップに中身がある時だけ」入れ替える。
+    // 欠けている項目で現在の値を空に潰さないこと（applyRemoteSettings 側も同じ方針）。
     if (data.tagSettings) { window.tagSettings = data.tagSettings; window.saveTagSettings?.(); }
     // savedSearches(保存した検索条件)は廃止したため復元しない
     if (data.filterPresets) { window.filterPresets = data.filterPresets; }
@@ -4108,8 +4127,34 @@ window.wazaImport = async function(input) {
     if (data.orgColVisibility) { window.orgColVisibility = data.orgColVisibility; }
     // カスタムビュー / タググループを復元（従来は復元されず欠落していた）
     if (Array.isArray(data.customViews)) { window._cvApplyLoadedViews?.(data.customViews); window._cvSave?.(); }
-    if (Array.isArray(data.tagGroups) && data.tagGroups.length) { window.applyRemoteSettings?.({ tagGroups: data.tagGroups }); }
+    // tagSettings / aiSettings / tagGroups / filterColVis はまとめてここで復元する。
+    // applyRemoteSettings は中身が空の項目を無視するので、渡し漏れより安全。
+    window.applyRemoteSettings?.(data);
     window.saveUserSettings?.();
+
+    // ノートを復元。
+    // 従来はエクスポートには入っていたのに復元されず、「戻したのにノートだけ無い」
+    // 状態になっていた。_notesLoadFromRemote は空なら何もしない・ローカルに未保存の
+    // 変更がある時もスキップするので、既存ノートを空で潰すことはない。
+    const nf = data.notes?.folders, nr = data.notes?.root;
+    if ((Array.isArray(nf) && nf.length) || (Array.isArray(nr) && nr.length)) {
+      window._notesLoadFromRemote?.(data.notes);
+      // 上で読み込めた時だけクラウドにも書き戻す（読み込めていないなら書かない）
+      if (window._notesGetData?.()?.length || window._notesGetRoot?.()?.length) {
+        await window._firebaseSaveNotes?.({
+          folders: window._notesGetData?.() || [],
+          root:    window._notesGetRoot?.() || [],
+        });
+      }
+    }
+
+    // 起動時に開くリストの設定
+    if (data.cvStartup && typeof data.cvStartup === 'object') {
+      window._applyCvStartup?.(data.cvStartup);
+      window.saveCvStartup?.(data.cvStartup);
+    }
+    // tagMaster / tagRules はクライアントから書き戻す経路が無いので復元しない。
+    // （バックアップJSONには入っているので、必要なら管理画面から手で戻せる）
 
     // フルバックアップのスナップショット復元
     if (data.snapshots?.length && window._firebaseCurrentUser?.() && window._firebaseDb) {
