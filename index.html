@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.691</title>
+<title>WAZA KIMURA v52.692</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2729,7 +2729,7 @@ window.wkUrlDiag = async function (url) {
   const id = m[1];
   const out = [(document.title || '') + '\nvideoId: ' + id];
   try {
-    const r = await fetch('/api/yt-videos?ids=' + id);
+    const r = await window.wkFetch('/api/yt-videos?ids=' + id);
     const t = await r.text();
     out.push('公式API (' + r.status + '):\n' + t.slice(0, 600));
   } catch (e) { out.push('公式API: 失敗 ' + e.message); }
@@ -2757,7 +2757,7 @@ async function _fillYtMeta(items) {
   for (let s = 0; s < ids.length; s += 50) {
     const chunk = ids.slice(s, s + 50);
     try {
-      const res = await fetch('/api/yt-videos?ids=' + encodeURIComponent(chunk.join(',')));
+      const res = await window.wkFetch('/api/yt-videos?ids=' + encodeURIComponent(chunk.join(',')));
       if (!res.ok) continue;
       const data = await res.json();
       if (data.error || !Array.isArray(data.items)) { console.warn('[yt-videos]', data.error); continue; }

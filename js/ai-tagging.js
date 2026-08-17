@@ -28,7 +28,7 @@ export async function fetchAiTags(video) {
     id: p.id, ja: p.ja, en: p.en || '', aliases: p.aliases || [],
   }));
 
-  const res = await fetch(AI_TAG_ENDPOINT, {
+  const res = await window.wkFetch(AI_TAG_ENDPOINT, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

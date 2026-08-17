@@ -986,7 +986,7 @@ window._requestAiGroupProposals = async () => {
   _renderTagsNewModal();
   try {
     const existingGroups = _tagGroups.map(g => ({ name: g.name }));
-    const res = await fetch('/api/ai-group', {
+    const res = await window.wkFetch('/api/ai-group', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ tags: uncTags, existingGroups }),
