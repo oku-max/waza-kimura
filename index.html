@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.693</title>
+<title>WAZA KIMURA v52.694</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1115,6 +1115,22 @@
 .cv-picker-arrow-btn:not(:disabled):hover { background:var(--surface3);color:var(--text) }
 .cv-picker-del-btn { border:none;background:transparent;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px;flex-shrink:0;transition:background .12s;line-height:1 }
 .cv-picker-del-btn:hover { background:rgba(224,96,96,.18) }
+/* ドラッグ&ドロップ並べ替え（マウス/タッチ共通・Pointer Events） */
+.cv-picker-item.cv-picker-edit-row { gap:6px }
+.cv-drag-handle { flex-shrink:0;width:24px;align-self:stretch;min-height:34px;display:flex;align-items:center;justify-content:center;
+  border-radius:6px;color:var(--text2);cursor:grab;user-select:none;-webkit-user-select:none;
+  touch-action:none;-webkit-touch-callout:none;transition:background .12s,color .12s }
+/* グリップ点（フォント依存を避けるためCSSで描画） */
+.cv-drag-handle::before { content:'';width:10px;height:16px;
+  background-image:radial-gradient(currentColor 1.1px, transparent 1.3px);
+  background-size:5px 5px;background-position:0 1px }
+.cv-drag-handle:hover { background:var(--surface2);color:var(--text2) }
+.cv-drag-handle:active { cursor:grabbing }
+.cv-sort-dragging { position:relative;z-index:30;background:var(--surface2)!important;border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:.96;cursor:grabbing }
+.cv-sort-dragging .cv-drag-handle { color:var(--accent) }
+body.cv-sorting { user-select:none;-webkit-user-select:none }
+body.cv-sorting .cv-picker-item:hover { background:transparent }
 .cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
 .cv-chip:hover { background:var(--surface3);color:var(--text) }
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
