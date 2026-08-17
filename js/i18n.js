@@ -198,6 +198,18 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // ── 空状態の案内（js/config.js の wkEmptyStateHTML / v52.694）──
+    'WAZA KIMURA へようこそ':'Welcome to WAZA KIMURA',
+    '散らかった柔術動画を、技・ポジションで整理して探せるようにするアプリです。':'An app that organizes your scattered BJJ videos by technique and position so you can actually find them.',
+    'まずログインしてください。ログインしないとデータがこの端末にしか残らず、タブを閉じると消えてしまいます。':'Please sign in first. Without signing in, your data stays only in this browser and disappears when you close the tab.',
+    'Googleでログイン':'Sign in with Google',
+    'できることを見る':'See what it does',
+    '最初の動画を追加しましょう':'Add your first video',
+    '1本入れるところから始まります。3つのやり方があります。':'It starts with one video. There are three ways to add one.',
+    '動画のURLを貼り付ける（YouTube・Vimeo・Google Drive）':'Paste a video URL (YouTube, Vimeo, Google Drive)',
+    'YouTubeのプレイリストからまとめて選ぶ':'Pick several from a YouTube playlist',
+    'アプリの中でYouTubeを検索して追加する':'Search YouTube inside the app and add from there',
+    '＋ 動画を追加':'+ Add video',
     // ── /api/* の上限・認証メッセージ（_worker.js が返す文言 v52.692）──
     // サーバーが返した文字列がそのままトーストに出るため、表示層で訳す必要がある。
     // 追加・変更するときは _worker.js の guard() 側の文言と必ず対で直すこと。

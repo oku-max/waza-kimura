@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<!--
+  ランディングページ（草案 v1 / 2026-08-13 作成）
+
+  役割は2つ:
+   1. 初めて来た人に「何のアプリか」を1画面で伝える
+   2. Google の OAuth 審査・YouTube API の増枠審査で、審査官が最初に見る画面になる
+      （どちらも「用途が具体的に説明されていること」を見る）
+
+  アプリ本体のJSに依存しない。アプリが壊れていてもこのページは出る。
+  ⚠️ スクリーンショットは未挿入。/screenshots/ に3枚置いて下の <img> を有効にすること。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<title>WAZA KIMURA — 柔術の動画を、技で探せるようにする</title>
+<meta name="description" content="散らかった柔術動画を、技・ポジションで整理して探せるようにするアプリ。YouTube・Vimeo・Google Drive の動画を一箇所で管理し、ブックマーク・A-Bループ・メモで繰り返し学べます。">
+<meta property="og:title" content="WAZA KIMURA">
+<meta property="og:description" content="散らかった柔術動画を、技・ポジションで整理して探せるようにするアプリ。">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="css/legal.css">
+<style>
+  .wl-hero{text-align:center;padding:48px 0 8px;}
+  .wl-logo{font-size:13px;letter-spacing:.18em;color:var(--text3);font-weight:700;margin-bottom:18px;}
+  .wl-hero h1{font-size:28px;line-height:1.45;margin:0 0 16px;}
+  .wl-sub{font-size:16px;color:var(--text2);line-height:1.8;margin:0 auto 28px;max-width:34em;}
+  .wl-cta{display:inline-block;background:var(--accent);color:var(--bg);text-decoration:none;
+          border-radius:10px;padding:13px 30px;font-size:15px;font-weight:700;}
+  .wl-cta:hover{opacity:.88;}
+  .wl-beta{margin-top:14px;font-size:13px;color:var(--text3);}
+  .wl-shots{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:40px 0;}
+  .wl-shot{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);}
+  .wl-shot img{width:100%;display:block;}
+  .wl-shot figcaption{font-size:12px;color:var(--text3);padding:8px 10px;border-top:1px solid var(--border);}
+  .wl-placeholder{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;
+                  color:var(--text3);font-size:12px;background:var(--surface2);text-align:center;padding:12px;}
+  .wl-feats{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:28px 0;}
+  .wl-feat h3{margin:0 0 6px;font-size:15px;}
+  .wl-feat p{margin:0;font-size:14px;color:var(--text2);line-height:1.8;}
+  .wl-steps{counter-reset:s;list-style:none;padding:0;margin:20px 0;}
+  .wl-steps li{counter-increment:s;position:relative;padding-left:38px;margin-bottom:16px;font-size:14px;line-height:1.8;}
+  .wl-steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;
+    border-radius:50%;background:var(--surface2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text2);}
+  @media(max-width:600px){ .wl-hero h1{font-size:22px;} .wl-sub{font-size:15px;} }
+</style>
+</head>
+<body>
+<div class="lg-wrap">
+
+  <div class="lg-head">
+    <span class="lg-brand">WAZA KIMURA</span>
+    <div class="lg-langs" role="tablist">
+      <button class="lg-lang" id="btn-ja" role="tab" aria-selected="true"  onclick="setLang('ja')">日本語</button>
+      <button class="lg-lang" id="btn-en" role="tab" aria-selected="false" onclick="setLang('en')">English</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ 日本語 ══════════════ -->
+  <section data-lang="ja" class="on">
+    <div class="wl-hero">
+      <div class="wl-logo">🥋 WAZA KIMURA</div>
+      <h1>散らかった柔術動画を、<br>技で探せるようにする。</h1>
+      <p class="wl-sub">
+        YouTube・Vimeo・Google Drive に散らばった教則を一箇所に集めて、
+        ポジションと技で絞り込めるようにするアプリです。
+        「あの動画どこだっけ」を無くします。
+      </p>
+      <a class="wl-cta" href="/">使ってみる</a>
+      <div class="wl-beta">無料・ベータ版 ／ Googleアカウントでログイン</div>
+    </div>
+
+    <div class="wl-shots">
+      <figure class="wl-shot">
+        <div class="wl-placeholder">スクリーンショット①<br>ライブラリ一覧</div>
+        <figcaption>技・ポジションで絞り込めるライブラリ</figcaption>
+      </figure>
+      <figure class="wl-shot">
+        <div class="wl-placeholder">スクリーンショット②<br>再生画面</div>
+        <figcaption>ブックマークとA-Bループで繰り返し見る</figcaption>
+      </figure>
+      <figure class="wl-shot">
+        <div class="wl-placeholder">スクリーンショット③<br>タグ・メモ</div>
+        <figcaption>気づきをその場でメモに残す</figcaption>
+      </figure>
+    </div>
+
+    <h2>なぜ作ったか</h2>
+    <p>
+      YouTube は「見つける」「消費する」ための設計で、「繰り返し学ぶ」ための設計ではありません。
+      柔術の教則を100本ブックマークしても、スパーで腕十字を取られた翌日に
+      「対処法の動画、どれだったか」を思い出せなければ意味がない。
+      WAZA KIMURA は、その1本にたどり着くためのものです。
+    </p>
+
+    <h2>できること</h2>
+    <div class="wl-feats">
+      <div class="wl-feat">
+        <h3>技・ポジションで絞り込む</h3>
+        <p>トップ／ボトム、ガード、パス、サブミッションなど、柔術の構造に沿ってタグ付けし、一瞬で絞り込めます。</p>
+      </div>
+      <div class="wl-feat">
+        <h3>ブックマークとA-Bループ</h3>
+        <p>「ここ」という場面に印を付けて、次回から一発で飛べます。区間ループで細かい動きを何度でも。</p>
+      </div>
+      <div class="wl-feat">
+        <h3>メモとスクリーンショット</h3>
+        <p>気づきを動画に紐づけて残せます。大事な場面は画像で切り出して、丸や矢印を書き込めます。</p>
+      </div>
+      <div class="wl-feat">
+        <h3>4つのソースを一箇所で</h3>
+        <p>YouTube・Vimeo・Google Drive・X の動画を、同じ画面で同じように扱えます。</p>
+      </div>
+      <div class="wl-feat">
+        <h3>星で「今日やること」</h3>
+        <p>練習したい動画に星を付けておけば、道場で開いた瞬間に一覧で出ます。</p>
+      </div>
+      <div class="wl-feat">
+        <h3>AIによるタグ付け</h3>
+        <p>タイトルから技とポジションを推定して候補を出します。採用するものだけ選べます。</p>
+      </div>
+    </div>
+
+    <h2>始め方</h2>
+    <ol class="wl-steps">
+      <li><b>Googleアカウントでログインする。</b>複数の端末で同じライブラリを使えるようになります。</li>
+      <li><b>動画を1本入れる。</b>URLを貼るか、YouTubeのプレイリストからまとめて選ぶか、アプリ内で検索して追加します。</li>
+      <li><b>タグを付けて、メモを書く。</b>ここが後で効いてきます。</li>
+    </ol>
+
+    <div class="lg-note">
+      <strong>動画そのものは保存していません。</strong>
+      WAZA KIMURA が持つのは、あなたが登録した動画の場所（URL）と、あなたが書いたメモ・タグだけです。
+      再生は YouTube 公式のプレーヤー、または、あなた自身の Google Drive の権限を通して行われます。
+    </div>
+
+    <div class="lg-note">
+      <strong>ベータ版です。</strong>
+      予告なく仕様が変わることがあります。データの消失もありえます。
+      詳しくは<a href="terms.html">利用規約</a>と<a href="privacy.html">プライバシーポリシー</a>をご確認ください。
+    </div>
+
+    <div style="text-align:center;margin:44px 0 0">
+      <a class="wl-cta" href="/">使ってみる</a>
+    </div>
+  </section>
+
+  <!-- ══════════════ English ══════════════ -->
+  <section data-lang="en">
+    <div class="wl-hero">
+      <div class="wl-logo">🥋 WAZA KIMURA</div>
+      <h1>Find the BJJ video you're<br>actually looking for.</h1>
+      <p class="wl-sub">
+        Bring the instructionals scattered across YouTube, Vimeo, and Google Drive into one place,
+        and filter them by position and technique. No more "which video was that again?"
+      </p>
+      <a class="wl-cta" href="/">Try it</a>
+      <div class="wl-beta">Free · Beta / Sign in with Google</div>
+    </div>
+
+    <div class="wl-shots">
+      <figure class="wl-shot">
+        <div class="wl-placeholder">Screenshot 1<br>Library</div>
+        <figcaption>A library you can filter by technique and position</figcaption>
+      </figure>
+      <figure class="wl-shot">
+        <div class="wl-placeholder">Screenshot 2<br>Player</div>
+        <figcaption>Bookmarks and A-B loop for repeated study</figcaption>
+      </figure>
+      <figure class="wl-shot">
+        <div class="wl-placeholder">Screenshot 3<br>Tags and notes</div>
+        <figcaption>Capture what you noticed, right there</figcaption>
+      </figure>
+    </div>
+
+    <h2>Why it exists</h2>
+    <p>
+      YouTube is built for discovering and consuming, not for studying something over and over.
+      You can bookmark a hundred instructionals, but if you can't find the armbar-defense one
+      the day after you got caught in sparring, none of it helped.
+      WAZA KIMURA exists to get you to that one video.
+    </p>
+
+    <h2>What it does</h2>
+    <div class="wl-feats">
+      <div class="wl-feat">
+        <h3>Filter by technique and position</h3>
+        <p>Tagged along the structure of BJJ — top/bottom, guard, passing, submissions — so you can narrow down instantly.</p>
+      </div>
+      <div class="wl-feat">
+        <h3>Bookmarks and A-B loop</h3>
+        <p>Mark the moment that matters and jump straight back to it. Loop a section as many times as you need.</p>
+      </div>
+      <div class="wl-feat">
+        <h3>Notes and screenshots</h3>
+        <p>Attach what you noticed to the video. Capture key frames and draw circles and arrows on them.</p>
+      </div>
+      <div class="wl-feat">
+        <h3>Four sources, one place</h3>
+        <p>YouTube, Vimeo, Google Drive, and X videos all behave the same way in the same screen.</p>
+      </div>
+      <div class="wl-feat">
+        <h3>Star what you'll drill today</h3>
+        <p>Star a few videos and they're waiting for you the moment you open the app at the gym.</p>
+      </div>
+      <div class="wl-feat">
+        <h3>AI tagging</h3>
+        <p>Suggests techniques and positions from the title. You pick which suggestions to keep.</p>
+      </div>
+    </div>
+
+    <h2>Getting started</h2>
+    <ol class="wl-steps">
+      <li><b>Sign in with Google.</b> Your library then follows you across devices.</li>
+      <li><b>Add one video.</b> Paste a URL, pull from a YouTube playlist, or search YouTube inside the app.</li>
+      <li><b>Tag it and write a note.</b> This is what pays off later.</li>
+    </ol>
+
+    <div class="lg-note">
+      <strong>We don't store the videos.</strong>
+      WAZA KIMURA keeps only the location (URL) of the videos you add, plus the notes and tags you write.
+      Playback happens through YouTube's official player or through your own Google Drive permissions.
+    </div>
+
+    <div class="lg-note">
+      <strong>This is a beta.</strong>
+      Things may change without notice, and data loss is possible.
+      See the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.
+    </div>
+
+    <div style="text-align:center;margin:44px 0 0">
+      <a class="wl-cta" href="/">Try it</a>
+    </div>
+  </section>
+
+  <div class="lg-foot">
+    <a href="/">アプリを開く / Open the app</a> ・
+    <a href="terms.html">利用規約 / Terms</a> ・
+    <a href="privacy.html">プライバシーポリシー / Privacy</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var mode = 'auto';
+  try { var s = JSON.parse(localStorage.getItem('wk_appearance') || '{}'); if (s.theme) mode = s.theme; } catch(e) {}
+  var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.body.classList.add('dark');
+})();
+
+function setLang(l){
+  document.querySelectorAll('[data-lang]').forEach(function(s){ s.classList.toggle('on', s.dataset.lang === l); });
+  document.getElementById('btn-ja').setAttribute('aria-selected', String(l === 'ja'));
+  document.getElementById('btn-en').setAttribute('aria-selected', String(l === 'en'));
+  document.documentElement.lang = l;
+  try { localStorage.setItem('wk_legal_lang', l); } catch(e) {}
+}
+(function(){
+  var q = new URLSearchParams(location.search).get('lang');
+  var saved = null;
+  try { saved = localStorage.getItem('wk_legal_lang'); } catch(e) {}
+  var l = q || saved || (navigator.language && navigator.language.startsWith('ja') ? 'ja' : 'en');
+  setLang(l === 'en' ? 'en' : 'ja');
+})();
+</script>
+</body>
+</html>

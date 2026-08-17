@@ -9,7 +9,11 @@ let _scrollObserver = null;
 export function renderCards(list, cid) {
   const c = document.getElementById(cid);
   if (!list.length) {
-    c.innerHTML = '<div class="empty"><div class="e">🔍</div><p>動画が見つかりませんでした</p></div>';
+    // 「1本も登録していない」と「絞り込みで0件」を分けて出す（v52.694）。
+    // 前者に「見つかりませんでした」と出しても、新規ユーザーには何の案内にもならない。
+    c.innerHTML = window.wkLibraryIsEmpty?.()
+      ? window.wkEmptyStateHTML()
+      : '<div class="empty"><div class="e">🔍</div><p>動画が見つかりませんでした</p></div>';
     _cleanupObserver();
     return;
   }

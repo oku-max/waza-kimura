@@ -1720,3 +1720,19 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
   margin:9px 0 2px; color:var(--text);
 }
 .memo-h + .memo-h2{ margin-top:4px; }
+
+/* ── 空状態の案内（v52.694）──────────────────────────────
+   動画を1本も登録していない人に出す。カードビュー・テーブルビュー共用。
+   絞り込み0件のときの .empty とは別物（あちらは従来どおり）。 */
+.wk-empty{max-width:420px;margin:0 auto;padding:48px 24px;text-align:center;color:var(--text);}
+.wk-empty-icon{font-size:40px;line-height:1;margin-bottom:14px;opacity:.85;}
+.wk-empty-title{font-size:17px;font-weight:700;margin-bottom:10px;}
+.wk-empty-lead{font-size:14px;color:var(--text2);margin:0 0 14px;line-height:1.7;}
+.wk-empty-note{font-size:13px;color:var(--text3);margin:0 0 18px;line-height:1.7;}
+.wk-empty-list{text-align:left;display:inline-block;margin:0 0 20px;padding-left:1.2em;
+  font-size:13px;color:var(--text2);line-height:1.9;}
+.wk-empty-btn{background:var(--accent);color:var(--on-accent);border:none;border-radius:10px;
+  padding:11px 22px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+.wk-empty-btn:hover{opacity:.88;}
+.wk-empty-sub{margin:16px 0 0;font-size:13px;}
+.wk-empty-sub a{color:var(--text3);}

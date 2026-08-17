@@ -16,6 +16,51 @@ window.normStatus = function (s) {
 const _STATUS_ORDER = { '未着手': 0, '理解': 1, '把握': 1, '練習中': 2, '習得中': 2, 'マスター': 3 };
 window.statusRank = function (s) { return _STATUS_ORDER[s] ?? 0; };
 
+// ═══ 空状態の案内（v52.694）═══════════════════════════════════
+//
+// 直したい問題:
+//   動画を1本も登録していない人にも「🔍 動画が見つかりませんでした」と出ていた。
+//   これは絞り込みの結果が0件のときの文言で、初めて開いた人には何の案内にもならない。
+//   新規ユーザーは、何もない画面に放り出される。
+//
+// 分けて出す:
+//   未ログイン        … まずログインしてもらう（しないとデータが端末内に閉じる）
+//   ログイン済み・0本 … 最初の1本を入れる導線
+//   絞り込みで0件     … 従来どおりの「見つかりませんでした」
+//
+// 文言は js/i18n.js の STATIC_AUTO に登録済み（英語モードでも表示される）。
+window.wkLibraryIsEmpty = function () {
+  return !(window.videos && window.videos.length);
+};
+
+window.wkEmptyStateHTML = function () {
+  const loggedIn = !!(window.firebase && window.firebase.auth && window.firebase.auth().currentUser);
+
+  if (!loggedIn) {
+    return `<div class="wk-empty">
+      <div class="wk-empty-icon">🥋</div>
+      <div class="wk-empty-title">WAZA KIMURA へようこそ</div>
+      <p class="wk-empty-lead">散らかった柔術動画を、技・ポジションで整理して探せるようにするアプリです。</p>
+      <p class="wk-empty-note">まずログインしてください。ログインしないとデータがこの端末にしか残らず、タブを閉じると消えてしまいます。</p>
+      <button class="wk-empty-btn" onclick="window._acctSignIn && window._acctSignIn()">Googleでログイン</button>
+      <p class="wk-empty-sub"><a href="welcome.html">できることを見る</a></p>
+    </div>`;
+  }
+
+  return `<div class="wk-empty">
+    <div class="wk-empty-icon">＋</div>
+    <div class="wk-empty-title">最初の動画を追加しましょう</div>
+    <p class="wk-empty-lead">1本入れるところから始まります。3つのやり方があります。</p>
+    <ul class="wk-empty-list">
+      <li>動画のURLを貼り付ける（YouTube・Vimeo・Google Drive）</li>
+      <li>YouTubeのプレイリストからまとめて選ぶ</li>
+      <li>アプリの中でYouTubeを検索して追加する</li>
+    </ul>
+    <button class="wk-empty-btn" onclick="window.openImportHub && window.openImportHub()">＋ 動画を追加</button>
+    <p class="wk-empty-sub"><a href="welcome.html">できることを見る</a></p>
+  </div>`;
+};
+
 // ═══ この端末の localStorage は誰のものか（v52.693）═══════════════
 //
 // ── 直したい問題 ──────────────────────────────────────────────

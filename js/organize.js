@@ -827,7 +827,14 @@ export function renderOrg() {
   const empty = document.getElementById('org-empty');
   const tableWrap = document.querySelector('.org-table-wrap');
   if (!displayList.length) {
-    if (empty) empty.style.display = '';
+    if (empty) {
+      // カードビューと同じ考え方。1本も無い人には案内を、
+      // 絞り込みで0件の人には従来の文言を出す（v52.694）。
+      empty.innerHTML = window.wkLibraryIsEmpty?.()
+        ? window.wkEmptyStateHTML()
+        : '<div style="font-size:28px;margin-bottom:8px">🔍</div><div>動画が見つかりませんでした</div>';
+      empty.style.display = '';
+    }
     if (tableWrap) tableWrap.style.display = 'none';
     window._cvAfterRender?.();
     return;
