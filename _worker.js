@@ -228,6 +228,55 @@ async function guard(request, env, opt, body) {
   return { auth };
 }
 
+// ── YouTube検索のキャッシュ ────────────────────────────────
+// 同じ語の検索を使い回して、100単位/回のクォータ消費を減らす。
+// Cloudflare の Cache API を使う（KV不要・無料・エッジごと）。
+//
+// YouTube の Developer Policies は「取得したデータは30日以内に更新か削除」
+// を求めている。6時間で切れるのでこれを満たす。
+//
+// キーは検索条件だけで作る。Authorization ヘッダーは含めないので、
+// 別の利用者でも同じ語なら同じ結果を返す（検索結果は元々公開情報）。
+const YT_CACHE_SEC = 6 * 60 * 60;
+
+function _ytCacheKey(request) {
+  const u  = new URL(request.url);
+  const sp = u.searchParams;
+  // 並び順が違うだけで別キーになるのを防ぐため、拾う値と順序を固定する
+  const k = new URLSearchParams();
+  for (const name of ['q', 'type', 'pageToken', 'maxResults', 'videoDuration']) {
+    const v = sp.get(name);
+    if (v) k.set(name, v);
+  }
+  return new Request(`${u.origin}/api/yt-search?${k.toString()}`, { method: 'GET' });
+}
+
+async function _cacheGet(key) {
+  try {
+    if (typeof caches === 'undefined' || !caches.default) return null;   // ローカル実行時
+    const hit = await caches.default.match(key);
+    if (!hit) return null;
+    const h = new Headers(hit.headers);
+    h.set('X-WK-Cache', 'hit');   // 効いているか外から見えるように
+    return new Response(hit.body, { status: hit.status, headers: h });
+  } catch (e) {
+    console.warn('[ytCache] 読み込み失敗:', e.message);
+    return null;
+  }
+}
+
+async function _cachePut(key, res) {
+  try {
+    if (typeof caches === 'undefined' || !caches.default) return;
+    if (!res.ok) return;                       // エラー応答は残さない
+    const h = new Headers(res.headers);
+    h.set('Cache-Control', `s-maxage=${YT_CACHE_SEC}`);
+    await caches.default.put(key, new Response(res.body, { status: res.status, headers: h }));
+  } catch (e) {
+    console.warn('[ytCache] 書き込み失敗:', e.message);
+  }
+}
+
 // ── /api/drive — Google Drive 動画プロキシ ───────────────
 // 認証を足していない理由: 呼び出しに利用者自身の Google アクセストークンが
 // 要る。他人のトークンでは他人のファイルは取れないので、当方のキーは減らない。
@@ -341,8 +390,19 @@ async function handleYtSearch(request, env) {
   const apiKey = env.YOUTUBE_API_KEY;
   if (!apiKey) return jsonRes({ error: 'YOUTUBE_API_KEY が未設定です' }, 500);
 
-  // search.list は 1回 100単位。下で contentDetails も取るので +2 見ておく。
-  // 無償枠10,000/日 = アプリ全体で1日98回しか検索できない計算になる。
+  // ① まず認証だけ見る（回数はまだ数えない）
+  const ga = await guard(request, env, { label: 'YouTube検索' });
+  if (ga.res) return ga.res;
+
+  // ② キャッシュを見る。当たればYouTubeを叩かないので、
+  //    クォータも個人の回数も消費しない。
+  //    無償枠10,000単位/日 ÷ search 1回100単位 = アプリ全体で1日98回しか
+  //    検索できないため、同じ語の重複を消すだけで実質の上限がかなり伸びる。
+  const ck = _ytCacheKey(request);
+  const cached = await _cacheGet(ck);
+  if (cached) return cached;
+
+  // ③ ここで初めて回数を数える。search.list 100単位 + contentDetails 2件で +2。
   const g = await guard(request, env, {
     bucket: 'ytSearch', limit: apiCfg(env).limits.ytSearch, label: 'YouTube検索', ytCost: 102,
   });
@@ -406,7 +466,9 @@ async function handleYtSearch(request, env) {
       }
     }
 
-    return jsonRes(data, 200, { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' });
+    const out = jsonRes(data, 200, { 'Cache-Control': `s-maxage=${YT_CACHE_SEC}` });
+    await _cachePut(ck, out.clone());   // 次の同じ検索はここで返せる（クォータ消費ゼロ）
+    return out;
   } catch (e) {
     return jsonRes({ error: '検索失敗: ' + e.message }, 500);
   }

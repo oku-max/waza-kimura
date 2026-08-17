@@ -35,6 +35,20 @@ globalThis.fetch = async (url, opts) => {
   return new Response('{}', { status: 200 });
 };
 
+// Cloudflare の Cache API のモック（本番は caches.default）
+function makeCache() {
+  const m = new Map();
+  return { _m: m,
+    async match(req) {
+      const v = m.get(req.url);
+      return v ? new Response(v.body, { status: v.status, headers: v.headers }) : undefined;
+    },
+    async put(req, res) {
+      m.set(req.url, { body: await res.text(), status: res.status, headers: new Headers(res.headers) });
+    } };
+}
+const useCache = (c) => { globalThis.caches = c ? { default: c } : undefined; };
+
 function makeKV() {
   const m = new Map();
   return { _m: m, async get(k){ return m.has(k) ? m.get(k) : null; }, async put(k,v){ m.set(k,v); } };
@@ -144,6 +158,51 @@ await t('KVが落ちても機能は止まらない（fail-open）', async () => 
   const brokenKV = { async get(){ throw new Error('KV down'); }, async put(){ throw new Error('KV down'); } };
   const env = { ...baseEnv(), QUOTA_KV: brokenKV, REQUIRE_AUTH: '1' };
   eq((await call(env, '/api/yt-search?q=a', { token: VALID })).status, 200, 'status');
+});
+
+origWarn('\n【キャッシュ】YouTube検索の使い回し');
+await t('同じ検索語の2回目はキャッシュから返る（YouTubeを叩かない）', async () => {
+  const c = makeCache(); useCache(c);
+  const env = { ...baseEnv(), REQUIRE_AUTH: '1' };
+  await call(env, '/api/yt-search?q=armbar', { token: VALID });
+  upstreamCalls = [];
+  const r = await call(env, '/api/yt-search?q=armbar', { token: VALID });
+  eq(r.status, 200, 'status');
+  eq(r.headers.get('X-WK-Cache'), 'hit', 'キャッシュ印');
+  const n = upstreamCalls.filter(u => u.includes('youtube/v3')).length;
+  eq(n, 0, 'YouTubeへの呼び出し回数');
+  useCache(null);
+});
+await t('キャッシュに当たると回数を消費しない', async () => {
+  const c = makeCache(); useCache(c);
+  const env = { ...baseEnv(), QUOTA_KV: makeKV(), REQUIRE_AUTH: '1', LIMIT_YT_SEARCH: '1' };
+  eq((await call(env, '/api/yt-search?q=kimura', { token: VALID })).status, 200, '1回目');
+  // 上限1回だが、同じ語ならキャッシュなので何度でも返る
+  for (let i = 0; i < 5; i++) {
+    eq((await call(env, '/api/yt-search?q=kimura', { token: VALID })).status, 200, `キャッシュ${i}`);
+  }
+  // 別の語は上限に当たる
+  eq((await call(env, '/api/yt-search?q=guard', { token: VALID })).status, 429, '別の語');
+  useCache(null);
+});
+await t('検索語が違えばキャッシュは共有されない', async () => {
+  const c = makeCache(); useCache(c);
+  const env = { ...baseEnv(), REQUIRE_AUTH: '1' };
+  await call(env, '/api/yt-search?q=aaa', { token: VALID });
+  const r = await call(env, '/api/yt-search?q=bbb', { token: VALID });
+  if (r.headers.get('X-WK-Cache') === 'hit') throw new Error('別の語なのに当たった');
+  useCache(null);
+});
+await t('未認証はキャッシュより先に弾かれる（REQUIRE_AUTH=1のとき）', async () => {
+  const c = makeCache(); useCache(c);
+  const env = { ...baseEnv(), REQUIRE_AUTH: '1' };
+  await call(env, '/api/yt-search?q=ccc', { token: VALID });
+  eq((await call(env, '/api/yt-search?q=ccc')).status, 401, 'status');
+  useCache(null);
+});
+await t('caches が無い環境でも落ちない（ローカル実行）', async () => {
+  useCache(null);
+  eq((await call({ ...baseEnv(), REQUIRE_AUTH: '1' }, '/api/yt-search?q=zzz', { token: VALID })).status, 200, 'status');
 });
 
 origWarn('\n【回帰】既存の経路が壊れていないこと');
