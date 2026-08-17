@@ -407,7 +407,8 @@ function _buildPickerHTML() {
     if (_cvPickerEditMode) {
       const canUp   = idx > 0;
       const canDown = idx < _views.length - 1;
-      return `<div class="cv-picker-item cv-picker-edit-row">
+      return `<div class="cv-picker-item cv-picker-edit-row" data-cv-sort="views" data-cv-id="${v.id}">
+        <div class="cv-drag-handle" title="${T('cv.dragSort','ドラッグして並べ替え')}"></div>
         <div class="cv-picker-arrows">
           <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',-1)" ${canUp ? '' : 'disabled'}>▲</button>
           <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',1)" ${canDown ? '' : 'disabled'}>▼</button>
@@ -615,7 +616,8 @@ function _buildTemplateManagerHTML() {
   const items = _cvUserTemplates.map((tpl, idx) => {
     const canUp   = idx > 0;
     const canDown = idx < _cvUserTemplates.length - 1;
-    return `<div class="cv-picker-item cv-picker-edit-row">
+    return `<div class="cv-picker-item cv-picker-edit-row" data-cv-sort="tpls" data-cv-id="${tpl.id}">
+      <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
       <div class="cv-picker-arrows">
         <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',-1)" ${canUp?'':'disabled'}>▲</button>
         <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',1)" ${canDown?'':'disabled'}>▼</button>
@@ -687,6 +689,158 @@ window._cvMoveTpl = function(id, dir) {
   const el = document.getElementById('cv-tpl-manager-overlay');
   if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
 };
+
+// ══ ドラッグ&ドロップ並べ替え（Pointer Events＝マウス/タッチ/ペン共通） ══
+// リスト（_views）とマイテンプレート（_cvUserTemplates）で共用。▲▼ボタンは従来通り残す。
+//
+// 【データ経路】_views を並べ替え → _save() → localStorage(wk_cv_views) ＋
+//   _cvSyncRemote()（プレイリスト個別ドキュメント）＋ saveUserSettings()（旧形式）→ Firestore → 全端末。
+//   したがって「同じ要素を並べ替えるだけ」であることを保証し、要素の増減が起きたら保存しない。
+//   ドラッグはDOMの並びを変えるだけで、確定時に _cvArrMove（splice抜き→splice挿し）で
+//   配列を並べ替える。削除・空化・要素の作り直しは一切行わない。
+
+// 配列内の要素を from→to へ移動。要素数が変わったら false（＝呼び出し側は保存しない）
+function _cvArrMove(arr, from, to) {
+  if (!Array.isArray(arr)) return false;
+  const n = arr.length;
+  if (n < 2) return false;
+  if (from < 0 || from >= n || to < 0 || to >= n || from === to) return false;
+  const [moved] = arr.splice(from, 1);
+  if (moved === undefined) return false;
+  arr.splice(to, 0, moved);
+  return arr.length === n;
+}
+
+const _CV_SORT_GROUPS = {
+  views: {
+    arr:  () => _views,
+    save: () => { _save(); _renderViewBar(); },
+    render: () => {
+      const el = document.getElementById('cv-picker-overlay');
+      if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+    }
+  },
+  tpls: {
+    arr:  () => _cvUserTemplates,
+    save: () => { _saveTemplates(); },
+    render: () => {
+      const el = document.getElementById('cv-tpl-manager-overlay');
+      if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
+    }
+  }
+};
+
+// DOM上の新しい位置を配列へ反映
+function _cvSortCommit(group, id, toIdx) {
+  const g = _CV_SORT_GROUPS[group];
+  if (!g) return;
+  const arr = g.arr();
+  const from = arr.findIndex(x => x && x.id === id);
+  if (from >= 0 && _cvArrMove(arr, from, toIdx)) g.save();
+  g.render(); // 位置が変わらなかった場合もDOMを正規の状態へ戻す
+}
+
+let _cvDrag = null;
+
+function _cvSortRows(container, group) {
+  return Array.from(container.querySelectorAll('[data-cv-sort="' + group + '"]'));
+}
+
+// 縦スクロールする最も近い祖先（ドラッグ中の自動スクロール用）
+function _cvScrollParent(el) {
+  let n = el;
+  while (n && n !== document.body) {
+    const ov = getComputedStyle(n).overflowY;
+    if ((ov === 'auto' || ov === 'scroll') && n.scrollHeight > n.clientHeight + 2) return n;
+    n = n.parentElement;
+  }
+  return null;
+}
+
+function _cvDragEnd(commit) {
+  const d = _cvDrag;
+  if (!d) return;
+  _cvDrag = null;
+  d.row.style.transform = '';
+  d.row.classList.remove('cv-sort-dragging');
+  document.body.classList.remove('cv-sorting');
+  if (!d.active) return;
+  const toIdx = _cvSortRows(d.container, d.group).indexOf(d.row);
+  if (commit && toIdx >= 0) _cvSortCommit(d.group, d.id, toIdx);
+  else _CV_SORT_GROUPS[d.group] && _CV_SORT_GROUPS[d.group].render();
+}
+
+document.addEventListener('pointerdown', function(e) {
+  if (_cvDrag) return;
+  if (e.button != null && e.button > 0) return; // 右クリック等は無視
+  const handle = e.target && e.target.closest ? e.target.closest('.cv-drag-handle') : null;
+  if (!handle) return;
+  const row = handle.closest('[data-cv-sort]');
+  if (!row) return;
+  const group = row.getAttribute('data-cv-sort');
+  const id    = row.getAttribute('data-cv-id');
+  const container = row.parentElement;
+  if (!_CV_SORT_GROUPS[group] || !id || !container) return;
+  if (_cvSortRows(container, group).length < 2) return;
+  _cvDrag = {
+    row, group, id, container,
+    pointerId: e.pointerId,
+    startY: e.clientY, baseY: e.clientY,
+    active: false,
+    scroller: _cvScrollParent(container)
+  };
+  e.preventDefault();
+}, true);
+
+document.addEventListener('pointermove', function(e) {
+  const d = _cvDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  if (!d.active) {
+    if (Math.abs(e.clientY - d.startY) < 5) return; // 誤タップでドラッグ開始しない
+    d.active = true;
+    d.row.classList.add('cv-sort-dragging');
+    document.body.classList.add('cv-sorting');
+  }
+  e.preventDefault();
+
+  // 端に近づいたら自動スクロール。スクロールした分だけ基準をずらし、
+  // ドラッグ中の行が指の下から逃げないようにする。
+  const sc = d.scroller;
+  if (sc) {
+    const r = sc.getBoundingClientRect();
+    const EDGE = 40;
+    const before = sc.scrollTop;
+    if (e.clientY < r.top + EDGE)         sc.scrollTop -= Math.min(20, (r.top + EDGE - e.clientY) / 2);
+    else if (e.clientY > r.bottom - EDGE) sc.scrollTop += Math.min(20, (e.clientY - (r.bottom - EDGE)) / 2);
+    d.baseY -= (sc.scrollTop - before);
+  }
+
+  const dy = e.clientY - d.baseY;
+  d.row.style.transform = 'translateY(' + dy + 'px)';
+
+  // 指/カーソルが重なった行と入れ替える（DOMを直接動かし、見た目は指の下に留める）
+  const layoutTop = d.row.getBoundingClientRect().top - dy; // transform を除いたレイアウト位置
+  const rows = _cvSortRows(d.container, d.group);
+  for (const r of rows) {
+    if (r === d.row) continue;
+    const rect = r.getBoundingClientRect();
+    if (e.clientY < rect.top || e.clientY > rect.bottom) continue;
+    const ref = (e.clientY > rect.top + rect.height / 2) ? r.nextSibling : r;
+    if (ref === d.row) break;
+    d.container.insertBefore(d.row, ref);
+    const newTop = d.row.getBoundingClientRect().top - dy;
+    d.baseY += (newTop - layoutTop);
+    d.row.style.transform = 'translateY(' + (e.clientY - d.baseY) + 'px)';
+    break;
+  }
+}, true);
+
+document.addEventListener('pointerup', function(e) {
+  if (_cvDrag && e.pointerId === _cvDrag.pointerId) _cvDragEnd(true);
+}, true);
+document.addEventListener('pointercancel', function(e) {
+  if (_cvDrag && e.pointerId === _cvDrag.pointerId) _cvDragEnd(false);
+}, true);
 
 // ── ビュー切替 ──
 function _showView(id) {
