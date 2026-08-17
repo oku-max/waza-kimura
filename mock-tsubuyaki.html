@@ -170,6 +170,16 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 .net-note{font-size:11.5px;color:var(--text3);line-height:1.6;margin:0 0 14px}
 .net-note.sub{margin:-4px 0 10px}
 
+/* 粒度ダイヤル */
+.dials{
+  display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;
+  padding:10px 12px;margin-bottom:12px;
+  border:1px solid var(--border);border-radius:7px;background:var(--surface2);
+}
+.dial{display:flex;align-items:center;gap:7px}
+.dial-l{font-size:10.5px;color:var(--text3);font-weight:700;white-space:nowrap}
+.dials .seg button{padding:4px 11px;font-size:11px}
+
 /* 出会いバー */
 .enc-bar{
   display:flex;flex-wrap:wrap;align-items:center;gap:7px;
@@ -598,16 +608,44 @@ function detectTags(text){
   return hits.filter(h => !hits.some(o =>
     o !== h && o.label.length > h.label.length && o.label.includes(h.label)));
 }
-/* ── ゆるい網 ──
-   直球（検出した語そのもの）と、広げた網（近い概念）を分けて返す。
-   どちらも「埋もれているもの」を先に出す。                       */
-function castNet(tags){
+/* ── サジェストの粒度（設定） ──
+   実装時は localStorage 'wk_sugg' ＋ Firestore settings に新規キーで保存。
+   既存の設定には触れない。                                            */
+const SUGG = { net:'mid', rank:'buried' };
+const NET_OPTS  = [
+  ['narrow','狭い','検出した語そのものだけ'],
+  ['mid',   'ふつう','近い概念まで広げる'],
+  ['wide',  '広い','そのまた隣まで広げる']
+];
+const RANK_OPTS = [
+  ['buried','埋もれ優先','見ていないもの・古いものを上に'],
+  ['half',  '半々',    'ほどよく混ぜる'],
+  ['rel',   '関連優先','ぴったりなものを上に']
+];
+// [関連度の重み, 埋もれ度の重み]。関連度は 0〜200、埋もれ度は 0〜136 のレンジ
+const RANK_W = { buried:[0.1,1], half:[0.55,0.7], rel:[1.5,0.15] };
+
+/* ── ゆるい網 ── */
+function castNet(tags, net){
+  net = net || SUGG.net;
   if (!tags.length) return { direct:[], wider:[], wideTags:[] };
-  const wideTags = [...new Set(tags.flatMap(t => NEAR[t] || []))].filter(t => !tags.includes(t));
-  const sortBuried = a => a.sort((x,y) => buried(y) - buried(x));
+
+  let wideTags = [];
+  if (net !== 'narrow'){
+    wideTags = [...new Set(tags.flatMap(t => NEAR[t] || []))];
+    if (net === 'wide')
+      wideTags = [...new Set([...wideTags, ...wideTags.flatMap(t => NEAR[t] || [])])];
+    wideTags = wideTags.filter(t => !tags.includes(t));
+  }
+
+  const [wRel, wBur] = RANK_W[SUGG.rank];
+  const rel = v => tags.filter(t => v[2].includes(t)).length * 100
+                 + wideTags.filter(t => v[2].includes(t)).length * 30;
+  const rank = a => a.sort((x,y) => (rel(y)*wRel + buried(y)*wBur) - (rel(x)*wRel + buried(x)*wBur));
+
   const direct = VIDEOS.filter(v => tags.some(t => v[2].includes(t)));
   const wider  = VIDEOS.filter(v => !direct.includes(v) && wideTags.some(t => v[2].includes(t)));
-  return { direct: sortBuried(direct), wider: sortBuried(wider), wideTags };
+  return { direct: rank(direct), wider: rank(wider), wideTags };
 }
 const relatedVideos = tags => { const n = castNet(tags); return [...n.direct, ...n.wider]; };
 
@@ -807,21 +845,49 @@ const relRow = v => `
     <span class="rel-d mono">${esc(v[1])}</span>
   </div>`;
 
+let relTags = [];
+
+const dial = (key, opts) => `
+  <div class="dial">
+    <span class="dial-l">${key === 'net' ? '網の広さ' : '並べ方'}</span>
+    <span class="seg">${opts.map(([v,nm,ds]) =>
+      `<button data-dial="${key}" data-val="${v}" title="${esc(ds)}"
+               aria-pressed="${SUGG[key] === v}">${esc(nm)}</button>`).join('')}</span>
+  </div>`;
+
 function showRelated(tags){
+  relTags = tags;
+  renderRelated();
+  openModal('mrel');
+}
+
+function renderRelated(){
+  const tags = relTags;
   const { direct, wider, wideTags } = castNet(tags);
   const total = direct.length + wider.length;
+  const rankDs = RANK_OPTS.find(o => o[0] === SUGG.rank)[2];
+
   $('#mrel-h').textContent = `関連動画 ${total}本`;
-  $('#mrel-bd').innerHTML = total ? `
-    <p class="net-note">埋もれているもの（未再生・追加が古い）を上に出しています。</p>
-    ${direct.length ? `
-      <p class="tpl-sec">直球　${tags.map(t => '#' + esc(t)).join(' ')}</p>
-      <div class="rel-list">${direct.map(relRow).join('')}</div>` : ''}
-    ${wider.length ? `
-      <p class="tpl-sec">網を広げて　${wideTags.map(t => '#' + esc(t)).join(' ')}</p>
-      <p class="net-note sub">ぴったりではないもの。ここから何か出てくるかもしれません。</p>
-      <div class="rel-list">${wider.map(relRow).join('')}</div>` : ''}`
-    : `<p class="tpl-lead">まだ該当する動画がありません。</p>`;
-  openModal('mrel');
+  $('#mrel-bd').innerHTML = `
+    <div class="dials">${dial('net', NET_OPTS)}${dial('rank', RANK_OPTS)}</div>
+    <p class="net-note">${esc(rankDs)}。ここで変えた値が、そのまま設定として残ります。</p>
+    ${total ? `
+      ${direct.length ? `
+        <p class="tpl-sec">直球　${tags.map(t => '#' + esc(t)).join(' ')}</p>
+        <div class="rel-list">${direct.map(relRow).join('')}</div>` : ''}
+      ${wider.length ? `
+        <p class="tpl-sec">網を広げて　${wideTags.map(t => '#' + esc(t)).join(' ')}</p>
+        <p class="net-note sub">ぴったりではないもの。ここから何か出てくるかもしれません。</p>
+        <div class="rel-list">${wider.map(relRow).join('')}</div>`
+      : (SUGG.net === 'narrow'
+          ? `<p class="net-note sub">網を「ふつう」以上にすると、近い動画も出てきます。</p>` : '')}`
+    : `<p class="tpl-lead">この条件では出てきませんでした。網を広げてみてください。</p>`}`;
+
+  $$('#mrel-bd [data-dial]').forEach(b => b.onclick = () => {
+    SUGG[b.dataset.dial] = b.dataset.val;
+    renderRelated();
+    renderDetect();
+  });
 }
 
 /* ── ランダム（出会い） ── */
