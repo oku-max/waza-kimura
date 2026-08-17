@@ -134,8 +134,47 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 .tplbtn{border:1px dashed var(--border);background:none;color:var(--text3);font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer}
 .tplbtn:hover{border-style:solid;color:var(--text2);background:var(--surface2)}
 .tplbtn.more{border-style:solid;border-color:var(--border2)}
-.cp-tags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:0 14px 11px}
-.cp-tags .tglabel{font-size:11px;color:var(--text3);margin-right:2px}
+/* 検出タグ表示 */
+.cp-det{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:0 14px 11px;min-height:0}
+.cp-det:empty{padding-bottom:4px}
+.det-lbl{font-size:10px;letter-spacing:.06em;color:var(--text3);font-weight:700;margin-right:1px}
+.det-idle{font-size:11px;color:var(--text3)}
+.det-chip{
+  display:inline-flex;align-items:center;gap:2px;font-size:11px;padding:3px 5px 3px 10px;
+  border-radius:20px;background:var(--gold-soft);color:var(--gold);
+  border:1px solid transparent;font-weight:700;
+}
+.det-chip.manual{background:var(--surface2);color:var(--text2);border-color:var(--border);font-weight:400}
+.det-x{border:0;background:none;cursor:pointer;color:inherit;opacity:.5;font-size:12px;line-height:1;padding:0 3px}
+.det-x:hover{opacity:1}
+.det-add{border:1px dashed var(--border);background:none;color:var(--text3);font-size:11px;padding:3px 9px;border-radius:20px;cursor:pointer}
+.det-add:hover{border-style:solid;color:var(--text2)}
+.det-vids{
+  margin-left:auto;font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;
+  background:var(--blue-soft);color:var(--blue);border:1px solid transparent;font-weight:700;
+}
+.det-vids:hover{text-decoration:underline}
+.tag-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
+
+/* 関連動画一覧 */
+.rel-list{display:flex;flex-direction:column}
+.rel-row{display:flex;align-items:center;gap:11px;padding:9px 2px;border-bottom:1px solid var(--border2)}
+.rel-th{
+  flex:0 0 54px;height:31px;border-radius:4px;
+  background:linear-gradient(135deg,var(--surface3),var(--surface2));
+}
+.rel-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.rel-t{font-size:12.5px;line-height:1.4}
+.rel-tags{display:flex;flex-wrap:wrap;gap:4px}
+.rel-d{flex:0 0 auto;font-size:11px;color:var(--text3)}
+
+/* セクション見出し */
+.sec-lbl{
+  font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;
+  color:var(--gold);padding:16px 0 6px;
+}
+.sec-lbl.plain{color:var(--text3);border-top:1px solid var(--border);margin-top:8px}
+.sec-lbl:first-child{padding-top:0}
 .tgchip{font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .tgchip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
 .cp-ft{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--border2);background:var(--surface2)}
@@ -160,11 +199,27 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 .resurf .rf-body{font-size:14px;line-height:1.6;margin-bottom:10px;white-space:pre-wrap}
 .resurf .rf-acts{display:flex;flex-wrap:wrap;gap:7px}
 
-.tw{display:flex;gap:13px;padding:14px 2px;border-bottom:1px solid var(--border2)}
-.tw.derived{margin-left:26px;border-left:2px solid var(--border2);padding-left:13px}
+.tw{display:flex;gap:13px;padding:14px 2px;border-bottom:1px solid var(--border2);border-radius:5px}
+.tw.starred{background:var(--gold-soft)}
 .tw-date{flex:0 0 62px;font-size:11px;color:var(--text3);padding-top:2px}
 .tw-main{flex:1;min-width:0}
-.tw-from{font-size:10.5px;color:var(--text3);margin-bottom:5px}
+.tw-from{
+  display:flex;align-items:baseline;gap:6px;max-width:100%;
+  font-size:10.5px;color:var(--text3);margin-bottom:6px;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:5px;
+  padding:5px 9px;text-align:left;
+}
+.tw-from:hover{border-color:var(--accent);color:var(--text2)}
+.tw-from .tf-d{font-weight:700;flex:0 0 auto}
+.tw-from .tf-b{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-style:italic;
+}
+.tw-from .tf-go{flex:0 0 auto}
+.tw.flash{animation:flash 1.4s ease-out}
+@keyframes flash{0%,35%{background:var(--gold-soft);box-shadow:0 0 0 3px var(--gold-soft)}100%{background:transparent;box-shadow:none}}
+.tw.starred.flash{animation:flash-s 1.4s ease-out}
+@keyframes flash-s{0%,35%{box-shadow:0 0 0 3px var(--gold-soft)}100%{box-shadow:none}}
 .tw-body{font-size:14px;line-height:1.65;white-space:pre-wrap;margin-bottom:8px}
 .tw-edit{width:100%;font-size:14px;line-height:1.65;padding:9px 11px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);resize:vertical;outline:none;margin-bottom:7px}
 .tw-editft{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -174,7 +229,8 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 .tw-vids{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--blue-soft);color:var(--blue);border:1px solid transparent;cursor:pointer}
 .tw-vids:hover{text-decoration:underline}
 .tw-note{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--green-soft);color:var(--green);border:1px solid transparent}
-.tw-kids{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--purple-soft);color:var(--purple);border:1px solid transparent}
+.tw-kids{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--purple-soft);color:var(--purple);border:1px solid transparent;cursor:pointer}
+.tw-kids:hover{text-decoration:underline}
 .tw-acts{flex:0 0 auto;display:flex;gap:1px;align-items:flex-start;padding-top:1px}
 .iconbtn{border:0;background:none;cursor:pointer;color:var(--text3);font-size:13px;padding:4px 6px;border-radius:5px;line-height:1}
 .iconbtn:hover{background:var(--surface2);color:var(--text)}
@@ -333,7 +389,7 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
   <div id="cp-quote"><span class="qh">ここから育てる</span><span id="cp-quote-body"></span></div>
   <textarea id="cp-text" placeholder="ふわっと思ったことを書く…"></textarea>
   <div class="cp-tpl" id="cp-tpl"></div>
-  <div class="cp-tags" id="cp-tags"><span class="tglabel">タグ（任意）</span></div>
+  <div class="cp-det" id="cp-det"></div>
   <div class="cp-ft">
     <span class="hint mono">⌘ + Enter</span>
     <button class="lnk" id="cp-all">すべて見る</button>
@@ -346,6 +402,22 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
   <div class="mcard" style="width:min(460px,100%)">
     <div class="mhd"><h2>つぶやきテンプレート</h2><button class="cp-x" data-close="mtpl">✕</button></div>
     <div class="mbd" id="mtpl-bd"></div>
+  </div>
+</div>
+
+<!-- タグを足す -->
+<div class="modal" id="mtag">
+  <div class="mcard" style="width:min(520px,100%)">
+    <div class="mhd"><h2>タグを足す・外す</h2><button class="cp-x" data-close="mtag">✕</button></div>
+    <div class="mbd" id="mtag-bd"></div>
+  </div>
+</div>
+
+<!-- 関連動画 -->
+<div class="modal" id="mrel">
+  <div class="mcard">
+    <div class="mhd"><h2 id="mrel-h">関連動画</h2><button class="cp-x" data-close="mrel">✕</button></div>
+    <div class="mbd" id="mrel-bd"></div>
   </div>
 </div>
 
@@ -393,17 +465,76 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 <script>
 'use strict';
 
+/* ── 動画（tags は実データの pos / cat / tb / #tags 相当） ── */
 const VIDEOS = [
-  ['デラヒーバから足の入れ替え → スイープの基本','デラヒーバ','スイープ','12:40'],
-  ['ニーカットパス 膝を割った後の上体','パスガード','ニーカット','18:05'],
-  ['シザースイープを潰す3つの対処','シザースイープ','ディフェンス','9:22'],
-  ['ガードリテンション 足の再挿入','リテンション','ガード','24:11'],
-  ['クローズドガード ショルダークランチ入門','クローズド','ショルダークランチ','15:38'],
-  ['デラヒーバ→ベリンボロの分岐','デラヒーバ','ベリンボロ','31:02'],
-  ['スタックパスの原理','パスガード','スタック','7:49'],
-  ['ヒップエスケープの質を上げる','リテンション','基礎','11:15']
+  ['デラヒーバから足の入れ替え → スイープの基本','12:40',['デラヒーバ','スイープ']],
+  ['デラヒーバ → ベリンボロの分岐','31:02',['デラヒーバ','ベリンボロ','バックテイク']],
+  ['デラヒーバ 崩しの原理','16:20',['デラヒーバ','コンセプト・原理']],
+  ['デラヒーバでフックを外されない','8:55',['デラヒーバ','ガードリテンション']],
+  ['ニーカットパス 膝を割った後の上体','18:05',['パスガード','ニーカット']],
+  ['スタックパスの原理','7:49',['パスガード','スタックパス','コンセプト・原理']],
+  ['トレアドール 基本と応用','22:30',['パスガード','トレアドール']],
+  ['レッグドラッグへの入り方','14:12',['パスガード','レッグドラッグ']],
+  ['パスガードの原則 — 相手の腰を殺す','19:44',['パスガード','コンセプト・原理']],
+  ['シザースイープを潰す3つの対処','9:22',['シザースイープ','パスガード']],
+  ['シザースイープ 決まる条件','11:08',['シザースイープ','スイープ','クローズドガード']],
+  ['ガードリテンション 足の再挿入','24:11',['ガードリテンション']],
+  ['ヒップエスケープの質を上げる','11:15',['ガードリテンション','コンセプト・原理']],
+  ['リテンションの原理 — 距離とフレーム','26:03',['ガードリテンション','コンセプト・原理']],
+  ['クローズドガード ショルダークランチ入門','15:38',['クローズドガード','ショルダークランチ']],
+  ['クローズドガードからの3つの連携','20:17',['クローズドガード','スイープ']],
+  ['クローズドガード 腰を切らせない','13:41',['クローズドガード','コンセプト・原理']],
+  ['バタフライスイープの基本','10:02',['スイープ','バタフライスイープ']],
+  ['三角絞めの角度','12:55',['フィニッシュ','三角絞め','クローズドガード']],
+  ['アームバー ディテール集','17:26',['フィニッシュ','アームバー']]
 ];
-const TAGS = ['デラヒーバ','パスガード','リテンション','クローズド','シザースイープ','柔術'];
+
+/* ── 語彙（js/tag-master.js の POSITIONS / CATEGORIES / TECHNIQUE_BUILTIN 相当）──
+   label に正規化され、terms のどれかが本文に含まれたら検出                  */
+const VOCAB = [
+  // ポジション
+  { label:'デラヒーバ',        kind:'pos',  terms:['デラヒーバ','デラヒーバガード','de la riva','dlr'] },
+  { label:'クローズドガード',  kind:'pos',  terms:['クローズドガード','クローズド','クロガ','フルガード','closed guard'] },
+  { label:'スパイダーガード',  kind:'pos',  terms:['スパイダーガード','スパイダー','spider guard'] },
+  { label:'ハーフガード',      kind:'pos',  terms:['ハーフガード','ハーフ','half guard'] },
+  { label:'マウント',          kind:'pos',  terms:['マウント','mount'] },
+  { label:'サイドコントロール',kind:'pos',  terms:['サイド','サイドコントロール','横四方','side control'] },
+  { label:'バック',            kind:'pos',  terms:['バック','背中','back control'] },
+  { label:'タートル',          kind:'pos',  terms:['タートル','亀','turtle'] },
+  // カテゴリ
+  { label:'パスガード',        kind:'cat',  terms:['パスガード','パス','guard pass','passing'] },
+  { label:'ガードリテンション',kind:'cat',  terms:['ガードリテンション','リテンション','ガードを維持','retention'] },
+  { label:'スイープ',          kind:'cat',  terms:['スイープ','返し','sweep'] },
+  { label:'フィニッシュ',      kind:'cat',  terms:['サブミッション','極め','フィニッシュ','submission'] },
+  { label:'バックテイク',      kind:'cat',  terms:['バックテイク','バックを取','back take'] },
+  { label:'エスケープ・ディフェンス', kind:'cat', terms:['エスケープ','逃げ','脱出','ディフェンス','escape'] },
+  { label:'テイクダウン',      kind:'cat',  terms:['テイクダウン','タックル','投げ','takedown'] },
+  { label:'コンセプト・原理',  kind:'cat',  terms:['原理','原則','コンセプト','concept','principle'] },
+  // 技
+  { label:'シザースイープ',    kind:'tech', terms:['シザースイープ','シザー','scissor sweep'] },
+  { label:'バタフライスイープ',kind:'tech', terms:['バタフライスイープ','バタフライ','butterfly'] },
+  { label:'ベリンボロ',        kind:'tech', terms:['ベリンボロ','berimbolo'] },
+  { label:'ニーカット',        kind:'tech', terms:['ニーカット','ニースライス','knee cut','knee slice'] },
+  { label:'トレアドール',      kind:'tech', terms:['トレアドール','トレアンド','toreando'] },
+  { label:'レッグドラッグ',    kind:'tech', terms:['レッグドラッグ','leg drag'] },
+  { label:'スタックパス',      kind:'tech', terms:['スタックパス','スタック','stack pass'] },
+  { label:'ショルダークランチ',kind:'tech', terms:['ショルダークランチ','shoulder crunch'] },
+  { label:'三角絞め',          kind:'tech', terms:['三角絞め','三角締め','三角','トライアングル','triangle'] },
+  { label:'アームバー',        kind:'tech', terms:['アームバー','腕十字','armbar'] },
+  { label:'キムラ',            kind:'tech', terms:['キムラ','kimura'] }
+];
+const KIND_JA = { pos:'ポジション', cat:'カテゴリ', tech:'技' };
+
+/* 本文から語彙を検出（長い語を優先し、包含する短い語は落とす） */
+function detectTags(text){
+  if (!text) return [];
+  const low = text.toLowerCase();
+  let hits = VOCAB.filter(v => v.terms.some(t => low.includes(t.toLowerCase())));
+  return hits.filter(h => !hits.some(o =>
+    o !== h && o.label.length > h.label.length && o.label.includes(h.label)));
+}
+const relatedVideos = tags =>
+  tags.length ? VIDEOS.filter(v => tags.some(t => v[2].includes(t))) : [];
 
 /* ── つぶやきテンプレート（プリセット＋自作） ──
    pinned: true のものがコンポーザに直接ボタンとして出る（最大3つ）        */
@@ -478,17 +609,20 @@ const BLOCK_INFO = {
   map:     ['連携図', 'map（フローチャート）ブロック', '技のつながりを図で置けます。']
 };
 
+/* tags は本文からの検出結果（起動時に detectTags で埋める）。
+   star:true のものはトップに固定される。 */
 let LOG = [
-  { id:1, d:'08/17', body:'シザースイープ食らいまくった。腰の位置が高いのかもしれない。', tags:['シザースイープ'], star:false, vids:3 },
-  { id:2, d:'08/16', body:'アンストッパブルスイープ気になる', tags:['柔術'], star:false, vids:2 },
-  { id:3, d:'08/14', body:'デラヒーバ、足の入れ替えが遅い。ここが全部の入口な気がする。', tags:['デラヒーバ'], star:true, vids:6 },
-  { id:4, d:'08/12', body:'入れ替えが遅いのは、フックを外すタイミングが遅いからかもしれない。', tags:['デラヒーバ'], star:false, vids:6, from:3 },
-  { id:5, d:'08/11', body:'クローズドの調子がいい。相手の腰が浮く瞬間が見えてきた。', tags:['クローズド'], star:false, vids:4 },
-  { id:6, d:'08/09', body:'パスは膝を割った後がわからん。上体が浮いて戻される。', tags:['パスガード'], star:false, vids:5 },
-  { id:7, d:'07/28', body:'ポジション別やシチュエーション別のプレイリストが作れると、すごくいいなと思った。', tags:[], star:true, vids:0, note:true },
-  { id:8, d:'07/17', body:'やっぱりデラヒーバのスイープできるようになりたい', tags:['デラヒーバ'], star:false, vids:6 },
-  { id:9, d:'07/13', body:'パスガードのコンビネーションの種類を増やしたい。\nあと、やっぱりガードを無効化する術をもっと身につけたいな。', tags:['パスガード'], star:false, vids:5 }
+  { id:1, d:'08/17', body:'シザースイープ食らいまくった。腰の位置が高いのかもしれない。', star:false },
+  { id:2, d:'08/16', body:'アンストッパブルスイープ気になる', star:false },
+  { id:3, d:'08/14', body:'デラヒーバ、足の入れ替えが遅い。ここが全部の入口な気がする。', star:true },
+  { id:4, d:'08/12', body:'デラヒーバの入れ替えが遅いのは、フックを外すタイミングが遅いからかもしれない。', star:false, from:3 },
+  { id:5, d:'08/11', body:'クローズドガードの調子がいい。相手の腰が浮く瞬間が見えてきた。', star:false },
+  { id:6, d:'08/09', body:'パスガードは膝を割った後がわからん。上体が浮いて戻される。', star:false },
+  { id:7, d:'07/28', body:'ポジション別やシチュエーション別のプレイリストが作れると、すごくいいなと思った。', star:true, note:true },
+  { id:8, d:'07/17', body:'やっぱりデラヒーバのスイープできるようになりたい', star:false },
+  { id:9, d:'07/13', body:'パスガードのコンビネーションの種類を増やしたい。\nあと、やっぱりガードリテンションをもっと身につけたいな。', star:false }
 ];
+LOG.forEach(t => { if (!t.tags) t.tags = detectTags(t.body).map(v => v.label); });
 let nextId = 10;
 
 const $  = s => document.querySelector(s);
@@ -536,19 +670,73 @@ $('#btn-theme').onclick = e => {
 
 /* ── コンポーザ ── */
 const composer = $('#composer'), scrim = $('#scrim'), txt = $('#cp-text');
-const picked = new Set();
 let deriveFrom = null;
+let removed = new Set();   // 検出されたが手で外したもの
+let added   = new Set();   // 手で足したもの
 
-TAGS.forEach(t => {
-  const b = document.createElement('button');
-  b.className = 'tgchip'; b.type = 'button'; b.textContent = '#' + t;
-  b.dataset.tag = t; b.setAttribute('aria-pressed','false');
-  b.onclick = () => {
-    picked.has(t) ? picked.delete(t) : picked.add(t);
-    b.setAttribute('aria-pressed', String(picked.has(t)));
-  };
-  $('#cp-tags').appendChild(b);
-});
+const liveTags = () => {
+  const auto = detectTags(txt.value).map(v => v.label).filter(l => !removed.has(l));
+  return [...new Set([...auto, ...added])];
+};
+
+/* 入力中の検出表示 */
+function renderDetect(){
+  const auto = detectTags(txt.value).filter(v => !removed.has(v.label));
+  const tags = liveTags();
+  const vids = relatedVideos(tags);
+  const el = $('#cp-det');
+
+  if (!tags.length){
+    el.innerHTML = txt.value.trim()
+      ? `<span class="det-idle">技やポジションの名前を書くと、関連動画が出ます</span>
+         <button class="det-add" id="det-add">＋ タグ</button>`
+      : '';
+  } else {
+    el.innerHTML =
+      `<span class="det-lbl">検出</span>` +
+      auto.map(v => `<span class="det-chip" title="${KIND_JA[v.kind]}">#${esc(v.label)}<button class="det-x" data-drop="${esc(v.label)}" aria-label="外す">×</button></span>`).join('') +
+      [...added].map(l => `<span class="det-chip manual">#${esc(l)}<button class="det-x" data-unadd="${esc(l)}" aria-label="外す">×</button></span>`).join('') +
+      `<button class="det-add" id="det-add">＋</button>` +
+      (vids.length ? `<button class="det-vids" id="det-vids">▸ 関連動画 ${vids.length}本</button>` : '');
+  }
+  $$('#cp-det [data-drop]').forEach(b => b.onclick = () => { removed.add(b.dataset.drop); renderDetect(); });
+  $$('#cp-det [data-unadd]').forEach(b => b.onclick = () => { added.delete(b.dataset.unadd); renderDetect(); });
+  const add = $('#det-add'); if (add) add.onclick = openTagAdd;
+  const dv  = $('#det-vids'); if (dv) dv.onclick = () => showRelated(liveTags());
+}
+
+function openTagAdd(){
+  const cur = new Set(liveTags());
+  const groups = ['pos','cat','tech'];
+  $('#mtag-bd').innerHTML = groups.map(g => `
+    <p class="tpl-sec">${KIND_JA[g]}</p>
+    <div class="tag-wrap">${VOCAB.filter(v => v.kind === g).map(v => `
+      <button class="tgchip" data-addtag="${esc(v.label)}" aria-pressed="${cur.has(v.label)}">#${esc(v.label)}</button>`).join('')}</div>`).join('');
+  openModal('mtag');
+  $$('[data-addtag]').forEach(b => b.onclick = () => {
+    const l = b.dataset.addtag;
+    if (cur.has(l)){ added.delete(l); removed.add(l); }
+    else { added.add(l); removed.delete(l); }
+    closeModal('mtag'); renderDetect();
+  });
+}
+
+function showRelated(tags){
+  const vids = relatedVideos(tags);
+  $('#mrel-h').textContent = `関連動画 ${vids.length}本 — ${tags.map(t => '#' + t).join(' ')}`;
+  $('#mrel-bd').innerHTML = vids.length
+    ? `<div class="rel-list">${vids.map(v => `
+        <div class="rel-row">
+          <span class="rel-th"></span>
+          <span class="rel-main">
+            <span class="rel-t">${esc(v[0])}</span>
+            <span class="rel-tags">${v[2].map(t => `<span class="tw-tag">#${esc(t)}</span>`).join('')}</span>
+          </span>
+          <span class="rel-d mono">${esc(v[1])}</span>
+        </div>`).join('')}</div>`
+    : `<p class="tpl-lead">まだ該当する動画がありません。</p>`;
+  openModal('mrel');
+}
 
 const tplPreview = b => b ? b.split('\n').filter(Boolean).join(' / ') : '本文なしで始める';
 
@@ -667,9 +855,9 @@ function closeComposer(){
   $('#cp-sub').textContent = '書き捨てでいい';
 }
 function resetComposer(){
-  txt.value = ''; picked.clear();
-  $$('#cp-tags .tgchip').forEach(c => c.setAttribute('aria-pressed','false'));
+  txt.value = ''; removed.clear(); added.clear();
   $('#cp-post').disabled = true;
+  renderDetect();
 }
 function openDerive(id){
   const t = byId(id); if (!t) return;
@@ -679,34 +867,31 @@ function openDerive(id){
   $('#cp-quote').classList.add('on');
   $('#cp-title').textContent = '⑂ ここから育てる';
   $('#cp-sub').textContent = 'タグは引き継がれます';
-  t.tags.forEach(tg => {
-    picked.add(tg);
-    const c = $(`#cp-tags .tgchip[data-tag="${CSS.escape(tg)}"]`);
-    if (c) c.setAttribute('aria-pressed','true');
-  });
+  t.tags.forEach(tg => added.add(tg));
+  renderDetect();
   openComposer();
 }
 
 $('#fab').onclick = () => { resetComposer(); openComposer(); };
 $('#cp-close').onclick = closeComposer;
 scrim.onclick = closeComposer;
-txt.oninput = () => { $('#cp-post').disabled = !txt.value.trim(); };
+txt.oninput = () => { $('#cp-post').disabled = !txt.value.trim(); renderDetect(); };
 txt.onkeydown = e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter'){ e.preventDefault(); post(); } };
 $('#cp-all').onclick = () => { closeComposer(); gotoLog(); };
 $('#cp-post').onclick = post;
 
 function post(){
   const body = txt.value.trim(); if (!body) return;
-  const tags = [...picked];
+  const tags = liveTags();
   const now = new Date();
   const d = String(now.getMonth()+1).padStart(2,'0') + '/' + String(now.getDate()).padStart(2,'0');
-  const rec = { id:nextId++, d, body, tags, star:false,
-                vids: tags.length ? 2 + (body.length % 5) : 0, fresh:true };
+  const rec = { id:nextId++, d, body, tags, star:false, fresh:true };
   if (deriveFrom) rec.from = deriveFrom;
   LOG.unshift(rec);
   const wasDerive = !!deriveFrom;
+  const n = relatedVideos(tags).length;
   resetComposer(); closeComposer(); renderLog();
-  toast(wasDerive ? '⑂ 育てました' : (tags.length ? `つぶやきました — 関連動画 ${rec.vids}本` : 'つぶやきました'));
+  toast(wasDerive ? '⑂ 育てました' : (n ? `つぶやきました — 関連動画 ${n}本` : 'つぶやきました'));
 }
 
 /* ── キーボード ── */
@@ -726,15 +911,26 @@ let editingId = null;
 
 function renderLog(){
   $('#log-count').textContent = LOG.length;
-  $('#log-list').innerHTML = LOG.map(t => {
+
+  // ★ を付けたものを上に固定（同順位は元の並び＝新しい順を維持）
+  const ordered = [...LOG].sort((a,b) => (b.star ? 1 : 0) - (a.star ? 1 : 0));
+  const pinned  = ordered.filter(t => t.star).length;
+
+  const row = t => {
     const parent = t.from ? byId(t.from) : null;
-    const kids = LOG.filter(x => x.from === t.id).length;
+    const kids = LOG.filter(x => x.from === t.id);
     const isEd = editingId === t.id;
+    const vids = relatedVideos(t.tags);
     return `
-    <div class="tw${t.fresh ? ' fresh' : ''}${t.from ? ' derived' : ''}">
+    <div class="tw${t.fresh ? ' fresh' : ''}${t.star ? ' starred' : ''}" data-row="${t.id}">
       <div class="tw-date mono">${esc(t.d)}</div>
       <div class="tw-main">
-        ${parent ? `<div class="tw-from">↳ ${esc(parent.d)} のつぶやきから育てた</div>` : ''}
+        ${parent ? `
+          <button class="tw-from" data-jump="${parent.id}" title="元のつぶやきへ">
+            ↳ <span class="tf-d">${esc(parent.d)}</span>
+            <span class="tf-b">${esc(parent.body.split('\n')[0])}</span>
+            <span class="tf-go">から育てた</span>
+          </button>` : ''}
         ${isEd ? `
           <textarea class="tw-edit" data-ed="${t.id}" rows="3">${esc(t.body)}</textarea>
           <div class="tw-editft">
@@ -745,25 +941,41 @@ function renderLog(){
         : `<div class="tw-body">${esc(t.body)}</div>`}
         <div class="tw-meta">
           ${t.tags.map(x => `<span class="tw-tag">#${esc(x)}</span>`).join('')}
-          ${t.vids ? `<button class="tw-vids">▸ 関連動画 ${t.vids}本</button>` : ''}
-          ${kids ? `<span class="tw-kids">⑂ ${kids}件に育った</span>` : ''}
+          ${vids.length ? `<button class="tw-vids" data-rel="${t.id}">▸ 関連動画 ${vids.length}本</button>` : ''}
+          ${kids.length ? `<button class="tw-kids" data-kids="${t.id}">⑂ ${kids.length}件に育った</button>` : ''}
           ${t.note ? `<span class="tw-note">📓 ノートにした</span>` : ''}
         </div>
       </div>
       <div class="tw-acts">
-        <button class="iconbtn${t.star ? ' on' : ''}" data-star="${t.id}" title="スター">${t.star ? '★' : '☆'}</button>
+        <button class="iconbtn${t.star ? ' on' : ''}" data-star="${t.id}"
+                title="${t.star ? '固定を外す' : '★ トップに固定'}">${t.star ? '★' : '☆'}</button>
         <button class="iconbtn" data-edit="${t.id}" title="編集">✎</button>
         <button class="iconbtn" data-derive="${t.id}" title="ここから育てる">⑂</button>
         <button class="iconbtn" data-promote="${t.id}" title="ノートにする">📓</button>
         <button class="iconbtn" data-del="${t.id}" title="削除">🗑</button>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  $('#log-list').innerHTML =
+    (pinned ? `<div class="sec-lbl">★ 固定 <span class="mono">${pinned}</span></div>` : '') +
+    ordered.slice(0, pinned).map(row).join('') +
+    (pinned ? `<div class="sec-lbl plain">すべて</div>` : '') +
+    ordered.slice(pinned).map(row).join('');
   LOG.forEach(t => delete t.fresh);
 
   $$('#log-list [data-star]').forEach(b => b.onclick = () => {
-    const t = byId(+b.dataset.star); t.star = !t.star; renderLog();
+    const t = byId(+b.dataset.star); t.star = !t.star;
+    renderLog();
+    toast(t.star ? '★ トップに固定しました' : '固定を外しました');
+    if (t.star) flashRow(t.id);
   });
+  $$('#log-list [data-jump]').forEach(b => b.onclick = () => flashRow(+b.dataset.jump, true));
+  $$('#log-list [data-kids]').forEach(b => b.onclick = () => {
+    const kid = LOG.find(x => x.from === +b.dataset.kids);
+    if (kid) flashRow(kid.id, true);
+  });
+  $$('#log-list [data-rel]').forEach(b => b.onclick = () => showRelated(byId(+b.dataset.rel).tags));
   $$('#log-list [data-edit]').forEach(b => b.onclick = () => {
     editingId = +b.dataset.edit; renderLog();
     const ta = $(`[data-ed="${editingId}"]`);
@@ -782,7 +994,16 @@ function renderLog(){
     LOG.forEach(t => { if (t.from === id) delete t.from; });
     renderLog(); renderResurf(); toast('削除しました');
   });
-  $$('#log-list .tw-vids').forEach(b => b.onclick = () => toast('（モック）該当動画に絞り込みます'));
+}
+
+/* 指定のつぶやきまでスクロールして光らせる */
+function flashRow(id, scroll){
+  const el = $(`[data-row="${id}"]`);
+  if (!el) return;
+  if (scroll) el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
 }
 
 function saveEdit(id){
@@ -862,7 +1083,7 @@ function openPromo(k){
   const related = t && tag
     ? LOG.filter(x => x.id !== t.id && x.tags.includes(tag))
     : [];
-  const vids = tag ? VIDEOS.filter(v => v[1] === tag || v[2] === tag) : VIDEOS.slice(0,3);
+  const vids = tag ? relatedVideos([tag]) : VIDEOS.slice(0,3);
 
   const secHTML = tpl.secs.map(([h, fill]) => {
     if (!h && fill === 'body')
