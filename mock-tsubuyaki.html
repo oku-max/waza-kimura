@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>つぶやき — 配置・入力の軽さ確認モック</title>
+<style>
+/* ══════════════════════════════════════════════════════
+   WAZA KIMURA — つぶやき モック
+   トークンは css/style.css の :root / body.dark をそのまま使用
+   ══════════════════════════════════════════════════════ */
+:root{
+  --bg:#f6f6f4; --surface:#fff; --surface2:#f1f1ef; --surface3:#e8e8e5;
+  --accent:#111; --on-accent:#fff;
+  --text:#111; --text2:#555; --text3:#70706c;
+  --border:#e0e0dc; --border2:#eaeae6;
+  --gold:#7a6200; --gold-soft:#fdf8e8;
+  --green:#2d6a4f; --green-soft:#edf5f1;
+  --blue:#1a3a5c; --blue-soft:#edf2f8;
+  --radius:8px;
+  --shadow:0 1px 4px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  --scrim:rgba(0,0,0,.18);
+}
+body.dark{
+  --bg:#1c1c1e; --surface:#2c2c2e; --surface2:#38383a; --surface3:#48484a;
+  --accent:#e5c47a; --on-accent:#1a1a1a;
+  --text:#e5e5e7; --text2:#ababab; --text3:#9a9aa0;
+  --border:#48484a; --border2:#3a3a3c;
+  --gold:#e5c47a; --gold-soft:#2e2a1e;
+  --green:#6bc490; --green-soft:#1e2e24;
+  --blue:#7ab8e0; --blue-soft:#1e2530;
+  --shadow:0 1px 4px rgba(0,0,0,.3);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.5);
+  --scrim:rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif;
+  background:var(--bg); color:var(--text); font-size:14px;
+  min-height:100vh; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+button{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ── モック操作バー（アプリ本体ではない） ── */
+#mockbar{
+  border-bottom:1px dashed var(--border);
+  background:var(--surface2);
+  padding:10px 16px;
+  display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+  font-size:11.5px; color:var(--text2);
+}
+#mockbar .mb-lbl{
+  font-size:10px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--text3); font-weight:700;
+}
+#mockbar .mb-grp{display:flex;align-items:center;gap:6px}
+#mockbar .mb-grp > span{color:var(--text3)}
+.seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{
+  border:0;background:none;padding:5px 10px;font-size:11.5px;cursor:pointer;
+  color:var(--text2);border-right:1px solid var(--border2);
+}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--surface2)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+
+/* ── アプリ外枠 ── */
+#app{max-width:1080px;margin:0 auto;padding:0 16px 120px}
+#apphdr{
+  display:flex;align-items:center;gap:10px;
+  padding:16px 0 10px;
+}
+#apphdr h1{margin:0;font-size:15px;font-weight:700;letter-spacing:.02em}
+#apphdr .cnt{
+  background:var(--accent);color:var(--on-accent);
+  font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+}
+#tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px}
+#tabs button{
+  border:0;background:none;padding:9px 14px;font-size:12px;font-weight:700;
+  color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;
+}
+#tabs button[aria-selected="true"]{color:var(--accent);border-color:var(--accent)}
+
+/* ── 動画グリッド（背景としての現実味用） ── */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.vcard{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow);
+}
+.vthumb{
+  aspect-ratio:16/9;position:relative;
+  background:linear-gradient(135deg,var(--surface3),var(--surface2));
+  display:flex;align-items:center;justify-content:center;
+}
+.vthumb::after{
+  content:'';width:0;height:0;
+  border-left:13px solid var(--text3);
+  border-top:8px solid transparent;border-bottom:8px solid transparent;
+  opacity:.5;
+}
+.vdur{
+  position:absolute;right:6px;bottom:6px;
+  background:rgba(0,0,0,.72);color:#fff;font-size:9.5px;
+  padding:1px 5px;border-radius:3px;
+}
+.vbody{padding:9px 10px 11px}
+.vtitle{font-size:12px;line-height:1.45;margin:0 0 6px;font-weight:500}
+.vtags{display:flex;flex-wrap:wrap;gap:4px}
+.vtag{
+  font-size:9.5px;padding:2px 7px;border-radius:20px;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border);
+}
+
+/* ── つぶやきショートカット（FAB） ── */
+#fab{
+  position:fixed;z-index:60;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:11px 17px;border-radius:24px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);
+  font-size:13px;font-weight:700;cursor:pointer;
+  box-shadow:var(--shadow-lg);
+  transition:transform .14s ease, box-shadow .14s ease;
+}
+#fab:hover{transform:translateY(-1px)}
+#fab:active{transform:translateY(0)}
+#fab .fabkey{
+  font-size:10px;color:var(--text3);border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;font-weight:400;
+}
+body[data-pos="br"] #fab{right:22px;bottom:22px}
+body[data-pos="bl"] #fab{left:22px;bottom:22px}
+body[data-pos="tr"] #fab{right:22px;top:78px}
+body[data-pos="tl"] #fab{left:22px;top:78px}
+body[data-pos="off"] #fab{display:none}
+
+/* ── コンポーザ ── */
+#scrim{position:fixed;inset:0;background:var(--scrim);z-index:70;display:none}
+#scrim.open{display:block}
+#composer{
+  position:fixed;z-index:80;width:min(460px,calc(100vw - 32px));
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;box-shadow:var(--shadow-lg);
+  display:none;flex-direction:column;overflow:hidden;
+}
+#composer.open{display:flex;animation:pop .16s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:none}}
+body[data-pos="br"] #composer,body[data-pos="off"] #composer{right:22px;bottom:22px}
+body[data-pos="bl"] #composer{left:22px;bottom:22px}
+body[data-pos="tr"] #composer{right:22px;top:78px}
+body[data-pos="tl"] #composer{left:22px;top:78px}
+@media (max-width:560px){
+  #composer{left:16px!important;right:16px!important;bottom:16px!important;top:auto!important}
+}
+.cp-hd{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 14px;border-bottom:1px solid var(--border2);background:var(--surface2);
+}
+.cp-hd h2{margin:0;font-size:12.5px;font-weight:700}
+.cp-hd .cp-sub{font-size:11px;color:var(--text3);flex:1}
+.cp-x{border:0;background:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.cp-x:hover{background:var(--border)}
+#cp-text{
+  width:100%;border:0;outline:none;resize:none;background:var(--surface);color:var(--text);
+  font-family:inherit;font-size:14.5px;line-height:1.65;padding:15px 14px 8px;min-height:96px;
+}
+#cp-text::placeholder{color:var(--text3)}
+.cp-tpl{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}
+.cp-tpl .tplbtn{
+  border:1px dashed var(--border);background:none;color:var(--text3);
+  font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;
+}
+.cp-tpl .tplbtn:hover{border-style:solid;color:var(--text2);background:var(--surface2)}
+.cp-tags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:0 14px 11px}
+.cp-tags .tglabel{font-size:11px;color:var(--text3);margin-right:2px}
+.tgchip{
+  font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border);
+}
+.tgchip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.cp-ft{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-top:1px solid var(--border2);background:var(--surface2);
+}
+.cp-ft .hint{font-size:10.5px;color:var(--text3);flex:1}
+.cp-ft .lnk{
+  background:none;border:0;font-size:11px;color:var(--text3);cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px;padding:4px;
+}
+.cp-ft .lnk:hover{color:var(--text)}
+.btn-post{
+  border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);
+  font-size:12.5px;font-weight:700;padding:7px 17px;border-radius:6px;cursor:pointer;
+}
+.btn-post[disabled]{opacity:.35;cursor:default}
+
+/* ── つぶやき一覧 ── */
+#view-log{display:none}
+#view-log.on{display:block}
+.log-hd{display:flex;align-items:baseline;gap:10px;margin:2px 0 14px}
+.log-hd h2{margin:0;font-size:14px;font-weight:700}
+.log-hd .sub{font-size:11.5px;color:var(--text3)}
+.log-hd .spacer{flex:1}
+
+.resurf{
+  border:1px solid var(--border);border-left:3px solid var(--gold);
+  background:var(--gold-soft);border-radius:var(--radius);
+  padding:13px 15px;margin-bottom:18px;
+}
+.resurf .rf-lbl{
+  font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--gold);font-weight:700;margin-bottom:7px;
+}
+.resurf .rf-body{font-size:14px;line-height:1.6;margin-bottom:10px}
+.resurf .rf-acts{display:flex;flex-wrap:wrap;gap:7px}
+
+.tw{
+  display:flex;gap:13px;padding:14px 2px;border-bottom:1px solid var(--border2);
+}
+.tw-date{
+  flex:0 0 62px;font-size:11px;color:var(--text3);padding-top:2px;
+}
+.tw-main{flex:1;min-width:0}
+.tw-body{font-size:14px;line-height:1.65;white-space:pre-wrap;margin-bottom:8px}
+.tw-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tw-tag{
+  font-size:10.5px;padding:2px 9px;border-radius:20px;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border);
+}
+.tw-vids{
+  font-size:10.5px;padding:2px 9px;border-radius:20px;
+  background:var(--blue-soft);color:var(--blue);border:1px solid transparent;
+  cursor:pointer;
+}
+.tw-vids:hover{text-decoration:underline}
+.tw-note{
+  font-size:10.5px;padding:2px 9px;border-radius:20px;
+  background:var(--green-soft);color:var(--green);border:1px solid transparent;
+}
+.tw-acts{flex:0 0 auto;display:flex;gap:2px;align-items:flex-start;padding-top:1px}
+.iconbtn{
+  border:0;background:none;cursor:pointer;color:var(--text3);
+  font-size:13px;padding:4px 6px;border-radius:5px;line-height:1;
+}
+.iconbtn:hover{background:var(--surface2);color:var(--text)}
+.iconbtn.on{color:var(--gold)}
+.tw.fresh{animation:fresh 1.1s ease-out}
+@keyframes fresh{from{background:var(--gold-soft)}to{background:transparent}}
+
+.ghost{
+  border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  font-size:11.5px;padding:5px 12px;border-radius:6px;cursor:pointer;
+}
+.ghost:hover{background:var(--surface2);color:var(--text)}
+
+/* ── 昇格プレビュー ── */
+#promo{
+  position:fixed;inset:0;z-index:90;display:none;
+  align-items:center;justify-content:center;padding:16px;
+  background:var(--scrim);
+}
+#promo.open{display:flex}
+.promo-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-lg);width:min(560px,100%);max-height:88vh;overflow:auto;
+}
+.promo-hd{padding:13px 16px;border-bottom:1px solid var(--border2);background:var(--surface2);display:flex;align-items:center;gap:8px}
+.promo-hd h2{margin:0;font-size:12.5px;font-weight:700;flex:1}
+.promo-bd{padding:16px}
+.nt-title{font-size:15px;font-weight:700;margin:0 0 4px;line-height:1.45}
+.nt-status{
+  display:inline-block;font-size:10.5px;padding:2px 9px;border-radius:20px;
+  background:var(--green-soft);color:var(--green);margin-bottom:16px;
+}
+.nt-sec{margin-bottom:16px}
+.nt-h{font-size:11px;font-weight:700;color:var(--text2);margin:0 0 6px;letter-spacing:.03em}
+.nt-fill{
+  font-size:13.5px;line-height:1.6;padding:9px 11px;
+  background:var(--gold-soft);border-left:2px solid var(--gold);border-radius:0 5px 5px 0;
+}
+.nt-fill.multi div{margin-bottom:5px}
+.nt-fill.multi div:last-child{margin-bottom:0}
+.nt-blk{
+  border:1px dashed var(--border);border-radius:6px;padding:11px 12px;
+  font-size:11.5px;color:var(--text3);background:var(--surface2);
+}
+.nt-blk strong{color:var(--text2);font-weight:700}
+.nt-vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:7px;margin-top:9px}
+.nt-v{
+  background:var(--surface);border:1px solid var(--border);border-radius:5px;
+  padding:6px 8px;font-size:10.5px;line-height:1.4;color:var(--text2);
+}
+.promo-ft{display:flex;gap:8px;justify-content:flex-end;padding:11px 16px;border-top:1px solid var(--border2);background:var(--surface2)}
+.note-anno{
+  font-size:11px;color:var(--text3);line-height:1.6;
+  border-top:1px dashed var(--border);padding-top:11px;margin-top:4px;
+}
+
+/* ── トースト ── */
+#toast{
+  position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(8px);
+  background:var(--text);color:var(--bg);font-size:12.5px;
+  padding:9px 18px;border-radius:20px;z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body data-pos="br">
+
+<!-- ══ モック操作（アプリ本体ではありません） ══ -->
+<div id="mockbar">
+  <span class="mb-lbl">モック操作</span>
+  <span class="mb-grp">
+    <span>ショートカットの位置</span>
+    <span class="seg" id="seg-pos">
+      <button data-pos="br" aria-pressed="true">右下</button>
+      <button data-pos="bl" aria-pressed="false">左下</button>
+      <button data-pos="tr" aria-pressed="false">右上</button>
+      <button data-pos="tl" aria-pressed="false">左上</button>
+      <button data-pos="off" aria-pressed="false">表示しない</button>
+    </span>
+  </span>
+  <span class="mb-grp">
+    <span class="seg">
+      <button id="btn-theme" aria-pressed="false">ダークで見る</button>
+    </span>
+  </span>
+  <span style="color:var(--text3)">「表示しない」でも <b class="mono">N</b> キーで開きます</span>
+</div>
+
+<div id="app">
+  <div id="apphdr">
+    <h1>WAZA KIMURA</h1>
+    <span class="cnt mono">512</span>
+  </div>
+
+  <div id="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-view="lib">□ Library</button>
+    <button role="tab" aria-selected="false" data-view="log">💬 つぶやき</button>
+    <button role="tab" aria-selected="false" data-view="lib">≡ Notes</button>
+    <button role="tab" aria-selected="false" data-view="lib">⚙ Settings</button>
+  </div>
+
+  <!-- ══ Library（背景としての現実味用） ══ -->
+  <div id="view-lib">
+    <div id="grid"></div>
+  </div>
+
+  <!-- ══ つぶやき一覧 ══ -->
+  <div id="view-log">
+    <div class="log-hd">
+      <h2>つぶやき</h2>
+      <span class="sub"><span class="mono" id="log-count">0</span> 件</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="btn-random">🎲 ランダムに1件</button>
+    </div>
+
+    <div class="resurf" id="resurf">
+      <div class="rf-lbl" id="rf-lbl">1ヶ月前の今日</div>
+      <div class="rf-body" id="rf-body"></div>
+      <div class="rf-acts">
+        <button class="ghost" id="rf-promote">📓 ノートにする</button>
+        <button class="ghost" id="rf-next">別のを見る</button>
+      </div>
+    </div>
+
+    <div id="log-list"></div>
+  </div>
+</div>
+
+<!-- ══ ショートカット ══ -->
+<button id="fab">💬 つぶやく <span class="fabkey mono">N</span></button>
+
+<div id="scrim"></div>
+
+<div id="composer" role="dialog" aria-label="つぶやきを書く">
+  <div class="cp-hd">
+    <h2>つぶやき</h2>
+    <span class="cp-sub">書き捨てでいい</span>
+    <button class="cp-x" id="cp-close" aria-label="閉じる">✕</button>
+  </div>
+  <textarea id="cp-text" placeholder="ふわっと思ったことを書く…"></textarea>
+  <div class="cp-tpl">
+    <button class="tplbtn" data-tpl="practice">練習後</button>
+    <button class="tplbtn" data-tpl="video">動画を見て</button>
+    <button class="tplbtn" data-tpl="idea">ふと</button>
+  </div>
+  <div class="cp-tags" id="cp-tags">
+    <span class="tglabel">タグ（任意）</span>
+  </div>
+  <div class="cp-ft">
+    <span class="hint mono">⌘ + Enter</span>
+    <button class="lnk" id="cp-all">すべて見る</button>
+    <button class="btn-post" id="cp-post" disabled>つぶやく</button>
+  </div>
+</div>
+
+<!-- ══ ノート昇格プレビュー ══ -->
+<div id="promo" role="dialog" aria-label="ノートにする">
+  <div class="promo-card">
+    <div class="promo-hd">
+      <h2>📓 ノートにする — 目標テンプレート</h2>
+      <button class="cp-x" id="promo-x" aria-label="閉じる">✕</button>
+    </div>
+    <div class="promo-bd" id="promo-bd"></div>
+    <div class="promo-ft">
+      <button class="ghost" id="promo-cancel">やめる</button>
+      <button class="btn-post" id="promo-ok">このノートを作る</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* ── 動画（背景用） ── */
+const VIDEOS = [
+  ['デラヒーバから足の入れ替え → スイープの基本','デラヒーバ','スイープ','12:40'],
+  ['ニーカットパス 膝を割った後の上体','パスガード','ニーカット','18:05'],
+  ['シザースイープを潰す3つの対処','シザースイープ','ディフェンス','9:22'],
+  ['ガードリテンション 足の再挿入','リテンション','ガード','24:11'],
+  ['クローズドガード ショルダークランチ入門','クローズド','ショルダークランチ','15:38'],
+  ['デラヒーバ→ベリンボロの分岐','デラヒーバ','ベリンボロ','31:02'],
+  ['スタックパスの原理','パスガード','スタック','7:49'],
+  ['ヒップエスケープの質を上げる','リテンション','基礎','11:15']
+];
+
+const TAGS = ['デラヒーバ','パスガード','リテンション','クローズド','シザースイープ','柔術'];
+
+const TEMPLATES = {
+  practice: '効いた：\n効かなかった：\n次に試す：',
+  video:    'この動画で気になったところ：\n次の練習で試すこと：',
+  idea:     ''
+};
+
+/* ── つぶやき（初期データ） ── */
+let LOG = [
+  { d:'08/17', body:'シザースイープ食らいまくった。腰の位置が高いのかもしれない。', tags:['シザースイープ'], star:false, vids:3 },
+  { d:'08/16', body:'アンストッパブルスイープ気になる', tags:['柔術'], star:false, vids:2 },
+  { d:'08/14', body:'デラヒーバ、足の入れ替えが遅い。ここが全部の入口な気がする。', tags:['デラヒーバ'], star:true, vids:6 },
+  { d:'08/11', body:'クローズドの調子がいい。相手の腰が浮く瞬間が見えてきた。', tags:['クローズド'], star:false, vids:4 },
+  { d:'08/09', body:'パスは膝を割った後がわからん。上体が浮いて戻される。', tags:['パスガード'], star:false, vids:5 },
+  { d:'07/28', body:'ポジション別やシチュエーション別のプレイリストが作れると、すごくいいなと思った。', tags:[], star:true, vids:0, note:true },
+  { d:'07/17', body:'やっぱりデラヒーバのスイープできるようになりたい', tags:['デラヒーバ'], star:false, vids:6 },
+  { d:'07/13', body:'パスガードのコンビネーションの種類を増やしたい。\nあと、やっぱりガードを無効化する術をもっと身につけたいな。', tags:['パスガード'], star:false, vids:5 }
+];
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ── 背景グリッド ── */
+$('#grid').innerHTML = VIDEOS.map(([t,a,b,dur]) => `
+  <div class="vcard">
+    <div class="vthumb"><span class="vdur mono">${dur}</span></div>
+    <div class="vbody">
+      <p class="vtitle">${esc(t)}</p>
+      <div class="vtags"><span class="vtag">${esc(a)}</span><span class="vtag">${esc(b)}</span></div>
+    </div>
+  </div>`).join('');
+
+/* ── タブ ── */
+$$('#tabs button').forEach(b => b.onclick = () => {
+  $$('#tabs button').forEach(x => x.setAttribute('aria-selected','false'));
+  b.setAttribute('aria-selected','true');
+  showView(b.dataset.view);
+});
+function showView(v){
+  $('#view-lib').style.display = v === 'lib' ? '' : 'none';
+  $('#view-log').classList.toggle('on', v === 'log');
+  window.scrollTo({top:0});
+}
+
+/* ── モック操作 ── */
+$$('#seg-pos button').forEach(b => b.onclick = () => {
+  $$('#seg-pos button').forEach(x => x.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true');
+  document.body.dataset.pos = b.dataset.pos;
+  if (b.dataset.pos === 'off') toast('N キーで開きます');
+});
+$('#btn-theme').onclick = e => {
+  const on = document.body.classList.toggle('dark');
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  e.currentTarget.textContent = on ? 'ライトで見る' : 'ダークで見る';
+};
+
+/* ── タグチップ ── */
+const picked = new Set();
+const tagWrap = $('#cp-tags');
+TAGS.forEach(t => {
+  const b = document.createElement('button');
+  b.className = 'tgchip'; b.type = 'button';
+  b.textContent = '#' + t;
+  b.setAttribute('aria-pressed','false');
+  b.onclick = () => {
+    if (picked.has(t)) picked.delete(t); else picked.add(t);
+    b.setAttribute('aria-pressed', String(picked.has(t)));
+  };
+  tagWrap.appendChild(b);
+});
+
+/* ── コンポーザ ── */
+const composer = $('#composer'), scrim = $('#scrim'), txt = $('#cp-text');
+function openComposer(){
+  composer.classList.add('open');
+  scrim.classList.add('open');
+  setTimeout(() => txt.focus(), 30);
+}
+function closeComposer(){
+  composer.classList.remove('open');
+  scrim.classList.remove('open');
+}
+function resetComposer(){
+  txt.value = '';
+  picked.clear();
+  $$('#cp-tags .tgchip').forEach(c => c.setAttribute('aria-pressed','false'));
+  $('#cp-post').disabled = true;
+}
+$('#fab').onclick = openComposer;
+$('#cp-close').onclick = closeComposer;
+scrim.onclick = closeComposer;
+txt.oninput = () => { $('#cp-post').disabled = !txt.value.trim(); };
+txt.onkeydown = e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); post(); }
+};
+$$('.tplbtn').forEach(b => b.onclick = () => {
+  txt.value = TEMPLATES[b.dataset.tpl];
+  txt.focus();
+  txt.setSelectionRange(txt.value.length, txt.value.length);
+  $('#cp-post').disabled = !txt.value.trim();
+});
+$('#cp-all').onclick = () => {
+  closeComposer();
+  $$('#tabs button').forEach(x => x.setAttribute('aria-selected','false'));
+  $$('#tabs button')[1].setAttribute('aria-selected','true');
+  showView('log');
+};
+$('#cp-post').onclick = post;
+
+function post(){
+  const body = txt.value.trim();
+  if (!body) return;
+  const tags = [...picked];
+  const vids = tags.length ? 2 + (body.length % 5) : 0;
+  const now = new Date();
+  const d = String(now.getMonth()+1).padStart(2,'0') + '/' + String(now.getDate()).padStart(2,'0');
+  LOG.unshift({ d, body, tags, star:false, vids, fresh:true });
+  resetComposer();
+  closeComposer();
+  renderLog();
+  toast(tags.length ? `つぶやきました — 関連動画 ${vids}本` : 'つぶやきました');
+}
+
+/* ── キーボード ── */
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (e.key === 'Escape'){ closeComposer(); $('#promo').classList.remove('open'); return; }
+  if (!typing && (e.key === 'n' || e.key === 'N')){ e.preventDefault(); openComposer(); }
+});
+
+/* ── 一覧 ── */
+function renderLog(){
+  $('#log-count').textContent = LOG.length;
+  $('#log-list').innerHTML = LOG.map((t,i) => `
+    <div class="tw${t.fresh ? ' fresh' : ''}">
+      <div class="tw-date mono">${esc(t.d)}</div>
+      <div class="tw-main">
+        <div class="tw-body">${esc(t.body)}</div>
+        <div class="tw-meta">
+          ${t.tags.map(x => `<span class="tw-tag">#${esc(x)}</span>`).join('')}
+          ${t.vids ? `<button class="tw-vids">▸ 関連動画 ${t.vids}本</button>` : ''}
+          ${t.note ? `<span class="tw-note">📓 ノートにした</span>` : ''}
+        </div>
+      </div>
+      <div class="tw-acts">
+        <button class="iconbtn${t.star ? ' on' : ''}" data-star="${i}" title="スター">${t.star ? '★' : '☆'}</button>
+        <button class="iconbtn" data-promote="${i}" title="ノートにする">📓</button>
+      </div>
+    </div>`).join('');
+  LOG.forEach(t => delete t.fresh);
+
+  $$('#log-list [data-star]').forEach(b => b.onclick = () => {
+    LOG[+b.dataset.star].star = !LOG[+b.dataset.star].star;
+    renderLog();
+  });
+  $$('#log-list [data-promote]').forEach(b => b.onclick = () => openPromo(+b.dataset.promote));
+  $$('#log-list .tw-vids').forEach(b => b.onclick = () => toast('（モック）該当動画に絞り込みます'));
+}
+
+/* ── 見返し ── */
+let rfIdx = 6; // 「1ヶ月前の今日」
+function renderResurf(label){
+  const t = LOG[rfIdx];
+  $('#rf-lbl').textContent = label || '1ヶ月前の今日';
+  $('#rf-body').textContent = t.body;
+}
+$('#rf-next').onclick = () => {
+  rfIdx = (rfIdx + 1) % LOG.length;
+  renderResurf('過去のつぶやき — ' + LOG[rfIdx].d);
+};
+$('#btn-random').onclick = () => {
+  rfIdx = Math.floor(Math.random() * LOG.length);
+  renderResurf('過去のつぶやき — ' + LOG[rfIdx].d);
+  $('#resurf').scrollIntoView({behavior:'smooth', block:'center'});
+};
+$('#rf-promote').onclick = () => openPromo(rfIdx);
+
+/* ── ノート昇格プレビュー ── */
+function openPromo(i){
+  const t = LOG[i];
+  const tag = t.tags[0] || null;
+  const related = tag ? LOG.filter((x,j) => j !== i && x.tags.includes(tag)) : [];
+  const vids = tag
+    ? VIDEOS.filter(v => v[1] === tag || v[2] === tag).slice(0,4)
+    : VIDEOS.slice(0,2);
+
+  $('#promo-bd').innerHTML = `
+    <p class="nt-title">${esc(t.body.split('\n')[0])}</p>
+    <span class="nt-status">学習中</span>
+
+    <div class="nt-sec">
+      <p class="nt-h">■ できるようになりたいこと</p>
+      <div class="nt-fill">${esc(t.body)}</div>
+    </div>
+
+    <div class="nt-sec">
+      <p class="nt-h">■ いま引っかかっているところ</p>
+      ${related.length
+        ? `<div class="nt-fill multi">${related.map(r => `<div>・${esc(r.body.replace(/\n/g,' '))}<span style="color:var(--text3);font-size:11px"> （${esc(r.d)}）</span></div>`).join('')}</div>`
+        : `<div class="nt-blk">同じタグのつぶやきがまだありません。空欄のままで大丈夫です。</div>`}
+    </div>
+
+    <div class="nt-sec">
+      <p class="nt-h">■ 関連動画　<span style="font-weight:400;color:var(--text3)">vidlist ブロック${tag ? `（条件：#${esc(tag)}）` : ''}</span></p>
+      <div class="nt-blk">
+        <strong>自動で並びます</strong> — 条件に合う動画が増えたら、このノートにも自動で増えます。
+        <div class="nt-vids">${vids.map(v => `<div class="nt-v">${esc(v[0])}</div>`).join('')}</div>
+      </div>
+    </div>
+
+    <div class="nt-sec">
+      <p class="nt-h">■ 進捗</p>
+      <div class="nt-blk"><strong>トラッカー</strong> — カスタムビューの tracker 列を埋め込み</div>
+    </div>
+
+    <p class="note-anno">
+      黄色の部分がつぶやきから引き継がれた中身です。テンプレートの枠だけが用意され、
+      あとは空欄のまま。埋めなくてもノートは成立します。
+    </p>`;
+  $('#promo').classList.add('open');
+}
+$('#promo-x').onclick = $('#promo-cancel').onclick = () => $('#promo').classList.remove('open');
+$('#promo').onclick = e => { if (e.target.id === 'promo') $('#promo').classList.remove('open'); };
+$('#promo-ok').onclick = () => {
+  $('#promo').classList.remove('open');
+  toast('📓 ノートを作りました（モック）');
+};
+
+/* ── トースト ── */
+let toastT;
+function toast(msg){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+renderLog();
+renderResurf();
+</script>
+</body>
+</html>
