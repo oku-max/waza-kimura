@@ -163,7 +163,7 @@ function _loadTemplates() {
 
 function _load() {
   try {
-    const raw = localStorage.getItem('wk_cv_views');
+    const raw = window.wkLsGet ? window.wkLsGet('wk_cv_views') : localStorage.getItem('wk_cv_views');
     if (raw) _views = JSON.parse(raw);
     _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
     _syncNextColId();
@@ -175,7 +175,7 @@ function _load() {
 
 function _save() {
   try {
-    localStorage.setItem('wk_cv_views', JSON.stringify(_views));
+    window.wkLsSet('wk_cv_views', JSON.stringify(_views));
   } catch(e) {}
   // 新形式: 変更されたプレイリストだけを個別ドキュメントへ同期（多端末クロバー＆1MiB上限対策）
   window._cvSyncRemote?.();

@@ -202,8 +202,14 @@ export function clearAll() {
 export let filterPresets = JSON.parse(localStorage.getItem('wk_filterPresets') || '[]');
 export let orgFilterPresets = filterPresets; // エイリアス（後方互換）
 
+// 別アカウントがこの端末で初めてログインしたとき（v52.693）。
+// メモリ上の値だけ空にする。localStorage は消さない。
+window._wkResetSyncedFilterPresets = function () {
+  filterPresets.length = 0;   // 参照を保ったまま空にする（orgFilterPresets エイリアスのため）
+};
+
 export function saveFilterPresets() {
-  localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
+  window.wkLsSet('wk_filterPresets', JSON.stringify(filterPresets));
   window.saveUserSettings?.();   // Firebaseにも保存
 }
 export function saveOrgFilterPresets() {
@@ -223,7 +229,7 @@ export function loadFilterPresetsFromRemote(arr) {
     if (!localNames.has(p.name)) { filterPresets.push(p); added = true; }
   });
   if (added) {
-    localStorage.setItem('wk_filterPresets', JSON.stringify(filterPresets));
+    window.wkLsSet('wk_filterPresets', JSON.stringify(filterPresets));
     window.saveUserSettings?.(); // Firebaseにも最新を保存
   }
   window.renderFilterPresets?.();
