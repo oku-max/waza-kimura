@@ -157,16 +157,32 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 .tag-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
 
 /* 関連動画一覧 */
-.rel-list{display:flex;flex-direction:column}
-.rel-row{display:flex;align-items:center;gap:11px;padding:9px 2px;border-bottom:1px solid var(--border2)}
-.rel-th{
-  flex:0 0 54px;height:31px;border-radius:4px;
-  background:linear-gradient(135deg,var(--surface3),var(--surface2));
-}
+.rel-list{display:flex;flex-direction:column;margin-bottom:18px}
+.rel-row{display:flex;align-items:center;gap:11px;padding:9px 8px;border-bottom:1px solid var(--border2);border-radius:5px}
+.rel-row.buried{background:var(--gold-soft)}
+.rel-th{flex:0 0 54px;height:31px;border-radius:4px;background:linear-gradient(135deg,var(--surface3),var(--surface2))}
 .rel-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .rel-t{font-size:12.5px;line-height:1.4}
 .rel-tags{display:flex;flex-wrap:wrap;gap:4px}
+.rel-meta{font-size:10px;color:var(--text3)}
+.rel-row.buried .rel-meta{color:var(--gold);font-weight:700}
 .rel-d{flex:0 0 auto;font-size:11px;color:var(--text3)}
+.net-note{font-size:11.5px;color:var(--text3);line-height:1.6;margin:0 0 14px}
+.net-note.sub{margin:-4px 0 10px}
+
+/* 出会いバー */
+.enc-bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:7px;
+  padding:11px 13px;margin-bottom:14px;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
+}
+.enc-lbl{font-size:11.5px;font-weight:700;color:var(--text2);margin-right:auto}
+
+/* ランダム1本 */
+.pick-card{border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface2)}
+.pick-th{aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,var(--surface3),var(--surface));margin-bottom:12px}
+.pick-t{font-size:15px;font-weight:700;line-height:1.5;margin:0 0 9px}
+.pick-meta{font-size:11px;color:var(--text3);margin:9px 0 0}
 
 /* セクション見出し */
 .sec-lbl{
@@ -352,7 +368,15 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
     <button role="tab" aria-selected="false" data-view="lib">⚙ Settings</button>
   </div>
 
-  <div id="view-lib"><div id="grid"></div></div>
+  <div id="view-lib">
+    <div class="enc-bar">
+      <span class="enc-lbl">埋もれた動画と出会う</span>
+      <button class="ghost" id="rnd-today">☀ 今日の1本</button>
+      <button class="ghost" id="rnd-buried">◇ 埋もれた1本</button>
+      <button class="ghost" id="rnd-any">🎲 ランダム</button>
+    </div>
+    <div id="grid"></div>
+  </div>
 
   <div id="view-log">
     <div class="log-hd">
@@ -402,6 +426,18 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
   <div class="mcard" style="width:min(460px,100%)">
     <div class="mhd"><h2>つぶやきテンプレート</h2><button class="cp-x" data-close="mtpl">✕</button></div>
     <div class="mbd" id="mtpl-bd"></div>
+  </div>
+</div>
+
+<!-- ランダム1本 -->
+<div class="modal" id="mpick1">
+  <div class="mcard" style="width:min(440px,100%)">
+    <div class="mhd"><h2 id="mpick1-h">ランダム</h2><button class="cp-x" data-close="mpick1">✕</button></div>
+    <div class="mbd" id="mpick1-bd"></div>
+    <div class="mft">
+      <button class="ghost" id="pick-again" style="margin-right:auto">🎲 もう1本</button>
+      <button class="btn-post" id="pick-play">▶︎ 見る</button>
+    </div>
   </div>
 </div>
 
@@ -465,29 +501,58 @@ body[data-pos="tl"] #composer{left:22px;top:78px}
 <script>
 'use strict';
 
-/* ── 動画（tags は実データの pos / cat / tb / #tags 相当） ── */
+/* ── 動画 ──
+   [ タイトル, 長さ, タグ, playCount, 追加からの月数 ]
+   playCount / addedAt は実データにある（js/vpanel.js が再生時に加算）ので
+   「埋もれ度」が計算できる                                            */
 const VIDEOS = [
-  ['デラヒーバから足の入れ替え → スイープの基本','12:40',['デラヒーバ','スイープ']],
-  ['デラヒーバ → ベリンボロの分岐','31:02',['デラヒーバ','ベリンボロ','バックテイク']],
-  ['デラヒーバ 崩しの原理','16:20',['デラヒーバ','コンセプト・原理']],
-  ['デラヒーバでフックを外されない','8:55',['デラヒーバ','ガードリテンション']],
-  ['ニーカットパス 膝を割った後の上体','18:05',['パスガード','ニーカット']],
-  ['スタックパスの原理','7:49',['パスガード','スタックパス','コンセプト・原理']],
-  ['トレアドール 基本と応用','22:30',['パスガード','トレアドール']],
-  ['レッグドラッグへの入り方','14:12',['パスガード','レッグドラッグ']],
-  ['パスガードの原則 — 相手の腰を殺す','19:44',['パスガード','コンセプト・原理']],
-  ['シザースイープを潰す3つの対処','9:22',['シザースイープ','パスガード']],
-  ['シザースイープ 決まる条件','11:08',['シザースイープ','スイープ','クローズドガード']],
-  ['ガードリテンション 足の再挿入','24:11',['ガードリテンション']],
-  ['ヒップエスケープの質を上げる','11:15',['ガードリテンション','コンセプト・原理']],
-  ['リテンションの原理 — 距離とフレーム','26:03',['ガードリテンション','コンセプト・原理']],
-  ['クローズドガード ショルダークランチ入門','15:38',['クローズドガード','ショルダークランチ']],
-  ['クローズドガードからの3つの連携','20:17',['クローズドガード','スイープ']],
-  ['クローズドガード 腰を切らせない','13:41',['クローズドガード','コンセプト・原理']],
-  ['バタフライスイープの基本','10:02',['スイープ','バタフライスイープ']],
-  ['三角絞めの角度','12:55',['フィニッシュ','三角絞め','クローズドガード']],
-  ['アームバー ディテール集','17:26',['フィニッシュ','アームバー']]
+  ['デラヒーバから足の入れ替え → スイープの基本','12:40',['デラヒーバ','スイープ'],4,3],
+  ['デラヒーバ → ベリンボロの分岐','31:02',['デラヒーバ','ベリンボロ','バックテイク'],0,19],
+  ['デラヒーバ 崩しの原理','16:20',['デラヒーバ','コンセプト・原理'],0,26],
+  ['デラヒーバでフックを外されない','8:55',['デラヒーバ','ガードリテンション'],1,11],
+  ['ニーカットパス 膝を割った後の上体','18:05',['パスガード','ニーカット'],7,2],
+  ['スタックパスの原理','7:49',['パスガード','スタックパス','コンセプト・原理'],0,22],
+  ['トレアドール 基本と応用','22:30',['パスガード','トレアドール'],2,8],
+  ['レッグドラッグへの入り方','14:12',['パスガード','レッグドラッグ'],0,15],
+  ['パスガードの原則 — 相手の腰を殺す','19:44',['パスガード','コンセプト・原理'],0,31],
+  ['シザースイープを潰す3つの対処','9:22',['シザースイープ','パスガード'],1,6],
+  ['シザースイープ 決まる条件','11:08',['シザースイープ','スイープ','クローズドガード'],0,24],
+  ['ガードリテンション 足の再挿入','24:11',['ガードリテンション'],3,5],
+  ['ヒップエスケープの質を上げる','11:15',['ガードリテンション','コンセプト・原理'],0,28],
+  ['リテンションの原理 — 距離とフレーム','26:03',['ガードリテンション','コンセプト・原理'],0,17],
+  ['クローズドガード ショルダークランチ入門','15:38',['クローズドガード','ショルダークランチ'],2,4],
+  ['クローズドガードからの3つの連携','20:17',['クローズドガード','スイープ'],0,20],
+  ['クローズドガード 腰を切らせない','13:41',['クローズドガード','コンセプト・原理'],0,33],
+  ['バタフライスイープの基本','10:02',['スイープ','バタフライスイープ'],1,9],
+  ['三角絞めの角度','12:55',['フィニッシュ','三角絞め','クローズドガード'],0,14],
+  ['アームバー ディテール集','17:26',['フィニッシュ','アームバー'],5,1],
+  ['オモプラッタ 入口の作り方','13:19',['フィニッシュ','クローズドガード'],0,29],
+  ['スイープが返らない理由 — 崩しの方向','21:07',['スイープ','コンセプト・原理'],0,35]
 ];
+
+/* 近い概念（ゆるい網を広げるための関連） */
+const NEAR = {
+  'シザースイープ':['スイープ','クローズドガード'],
+  'バタフライスイープ':['スイープ'],
+  'ベリンボロ':['バックテイク','デラヒーバ'],
+  'ニーカット':['パスガード'], 'トレアドール':['パスガード'],
+  'レッグドラッグ':['パスガード'], 'スタックパス':['パスガード'],
+  'ショルダークランチ':['クローズドガード'],
+  '三角絞め':['フィニッシュ','クローズドガード'],
+  'アームバー':['フィニッシュ'], 'キムラ':['フィニッシュ'],
+  'デラヒーバ':['スイープ','ガードリテンション'],
+  'クローズドガード':['スイープ','フィニッシュ'],
+  'パスガード':['コンセプト・原理','ガードリテンション'],
+  'ガードリテンション':['コンセプト・原理','パスガード'],
+  'スイープ':['クローズドガード','デラヒーバ'],
+  'バックテイク':['ベリンボロ']
+};
+
+/* 埋もれ度 — 再生されていない × 追加が古い ほど高い */
+const buried = v => (v[3] === 0 ? 100 : v[3] <= 1 ? 40 : 0) + Math.min(v[4], 36);
+const buriedLabel = v =>
+  (v[3] === 0 ? '◇ 未再生' : `▷ ${v[3]}回`) + ' · ' +
+  (v[4] >= 12 ? `${Math.floor(v[4]/12)}年${v[4]%12 ? (v[4]%12)+'ヶ月' : ''}前` : `${v[4]}ヶ月前`) + 'に追加';
 
 /* ── 語彙（js/tag-master.js の POSITIONS / CATEGORIES / TECHNIQUE_BUILTIN 相当）──
    label に正規化され、terms のどれかが本文に含まれたら検出                  */
@@ -533,8 +598,18 @@ function detectTags(text){
   return hits.filter(h => !hits.some(o =>
     o !== h && o.label.length > h.label.length && o.label.includes(h.label)));
 }
-const relatedVideos = tags =>
-  tags.length ? VIDEOS.filter(v => tags.some(t => v[2].includes(t))) : [];
+/* ── ゆるい網 ──
+   直球（検出した語そのもの）と、広げた網（近い概念）を分けて返す。
+   どちらも「埋もれているもの」を先に出す。                       */
+function castNet(tags){
+  if (!tags.length) return { direct:[], wider:[], wideTags:[] };
+  const wideTags = [...new Set(tags.flatMap(t => NEAR[t] || []))].filter(t => !tags.includes(t));
+  const sortBuried = a => a.sort((x,y) => buried(y) - buried(x));
+  const direct = VIDEOS.filter(v => tags.some(t => v[2].includes(t)));
+  const wider  = VIDEOS.filter(v => !direct.includes(v) && wideTags.some(t => v[2].includes(t)));
+  return { direct: sortBuried(direct), wider: sortBuried(wider), wideTags };
+}
+const relatedVideos = tags => { const n = castNet(tags); return [...n.direct, ...n.wider]; };
 
 /* ── つぶやきテンプレート（プリセット＋自作） ──
    pinned: true のものがコンポーザに直接ボタンとして出る（最大3つ）        */
@@ -631,12 +706,12 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 const byId = id => LOG.find(t => t.id === id);
 
 /* ── 背景グリッド ── */
-$('#grid').innerHTML = VIDEOS.map(([t,a,b,dur]) => `
+$('#grid').innerHTML = VIDEOS.map(v => `
   <div class="vcard">
-    <div class="vthumb"><span class="vdur mono">${dur}</span></div>
+    <div class="vthumb"><span class="vdur mono">${esc(v[1])}</span></div>
     <div class="vbody">
-      <p class="vtitle">${esc(t)}</p>
-      <div class="vtags"><span class="vtag">${esc(a)}</span><span class="vtag">${esc(b)}</span></div>
+      <p class="vtitle">${esc(v[0])}</p>
+      <div class="vtags">${v[2].slice(0,2).map(t => `<span class="vtag">${esc(t)}</span>`).join('')}</div>
     </div>
   </div>`).join('');
 
@@ -721,22 +796,71 @@ function openTagAdd(){
   });
 }
 
+const relRow = v => `
+  <div class="rel-row${v[3] === 0 ? ' buried' : ''}">
+    <span class="rel-th"></span>
+    <span class="rel-main">
+      <span class="rel-t">${esc(v[0])}</span>
+      <span class="rel-tags">${v[2].map(t => `<span class="tw-tag">#${esc(t)}</span>`).join('')}</span>
+      <span class="rel-meta">${esc(buriedLabel(v))}</span>
+    </span>
+    <span class="rel-d mono">${esc(v[1])}</span>
+  </div>`;
+
 function showRelated(tags){
-  const vids = relatedVideos(tags);
-  $('#mrel-h').textContent = `関連動画 ${vids.length}本 — ${tags.map(t => '#' + t).join(' ')}`;
-  $('#mrel-bd').innerHTML = vids.length
-    ? `<div class="rel-list">${vids.map(v => `
-        <div class="rel-row">
-          <span class="rel-th"></span>
-          <span class="rel-main">
-            <span class="rel-t">${esc(v[0])}</span>
-            <span class="rel-tags">${v[2].map(t => `<span class="tw-tag">#${esc(t)}</span>`).join('')}</span>
-          </span>
-          <span class="rel-d mono">${esc(v[1])}</span>
-        </div>`).join('')}</div>`
+  const { direct, wider, wideTags } = castNet(tags);
+  const total = direct.length + wider.length;
+  $('#mrel-h').textContent = `関連動画 ${total}本`;
+  $('#mrel-bd').innerHTML = total ? `
+    <p class="net-note">埋もれているもの（未再生・追加が古い）を上に出しています。</p>
+    ${direct.length ? `
+      <p class="tpl-sec">直球　${tags.map(t => '#' + esc(t)).join(' ')}</p>
+      <div class="rel-list">${direct.map(relRow).join('')}</div>` : ''}
+    ${wider.length ? `
+      <p class="tpl-sec">網を広げて　${wideTags.map(t => '#' + esc(t)).join(' ')}</p>
+      <p class="net-note sub">ぴったりではないもの。ここから何か出てくるかもしれません。</p>
+      <div class="rel-list">${wider.map(relRow).join('')}</div>` : ''}`
     : `<p class="tpl-lead">まだ該当する動画がありません。</p>`;
   openModal('mrel');
 }
+
+/* ── ランダム（出会い） ── */
+function pickRandom(mode){
+  let pool = VIDEOS;
+  if (mode === 'buried') pool = VIDEOS.filter(v => v[3] === 0);
+  if (mode === 'today'){
+    // 日替わりで固定（同じ日は同じ1本）
+    const d = new Date();
+    const seed = d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate();
+    return VIDEOS[seed % VIDEOS.length];
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function showPick(mode){
+  const v = pickRandom(mode);
+  const head = { any:'🎲 ランダムに1本', buried:'◇ 埋もれた1本', today:'☀ 今日の1本' }[mode];
+  const note = {
+    any:'全512本から。関係なくても構いません。',
+    buried:'まだ一度も再生していないものから。',
+    today:'日付で決まるので、今日はずっとこの1本です。'
+  }[mode];
+  $('#mpick1-h').textContent = head;
+  $('#mpick1-bd').innerHTML = `
+    <p class="net-note">${esc(note)}</p>
+    <div class="pick-card">
+      <div class="pick-th"></div>
+      <p class="pick-t">${esc(v[0])}</p>
+      <div class="rel-tags">${v[2].map(t => `<span class="tw-tag">#${esc(t)}</span>`).join('')}</div>
+      <p class="pick-meta"><span class="mono">${esc(v[1])}</span> · ${esc(buriedLabel(v))}</p>
+    </div>`;
+  $('#pick-again').onclick = () => showPick(mode);
+  $('#pick-again').style.display = mode === 'today' ? 'none' : '';
+  openModal('mpick1');
+}
+$('#rnd-any').onclick    = () => showPick('any');
+$('#rnd-buried').onclick = () => showPick('buried');
+$('#rnd-today').onclick  = () => showPick('today');
+$('#pick-play').onclick  = () => { closeModal('mpick1'); toast('（モック）再生します'); };
 
 const tplPreview = b => b ? b.split('\n').filter(Boolean).join(' / ') : '本文なしで始める';
 
