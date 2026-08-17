@@ -1,0 +1,59 @@
+/* 規約・ポリシー用の独立スタイル。
+   アプリ本体のJSに依存しない（アプリが壊れていても規約は読める必要があるため）。
+   色は css/style.css の :root / body.dark と同じ値を使う。 */
+:root{--bg:#f6f6f4;--surface:#fff;--surface2:#f1f1ef;--text:#111;--text2:#555;--text3:#70706c;
+      --border:#e0e0dc;--accent:#111;--blue:#1a3a5c;--blue-soft:#edf2f8;--gold-soft:#fdf8e8;--gold:#7a6200;}
+body.dark{--bg:#1c1c1e;--surface:#2c2c2e;--surface2:#38383a;--text:#e5e5e7;--text2:#ababab;--text3:#9a9aa0;
+      --border:#48484a;--accent:#e5c47a;--blue:#7ab8e0;--blue-soft:#1e2530;--gold-soft:#2e2a1e;--gold:#e5c47a;}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+     font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;
+     line-height:1.8;font-size:15px;-webkit-text-size-adjust:100%;}
+
+.lg-wrap{max-width:760px;margin:0 auto;padding:24px 20px 80px;}
+
+.lg-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+         padding-bottom:16px;margin-bottom:24px;border-bottom:1px solid var(--border);}
+.lg-back{color:var(--text2);text-decoration:none;font-size:14px;padding:6px 10px;border-radius:8px;
+         border:1px solid var(--border);background:var(--surface);}
+.lg-back:hover{background:var(--surface2);}
+.lg-brand{font-weight:700;letter-spacing:.04em;font-size:14px;color:var(--text2);}
+.lg-langs{margin-left:auto;display:flex;gap:6px;}
+.lg-lang{font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;
+         border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;}
+.lg-lang[aria-selected="true"]{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600;}
+
+h1{font-size:24px;line-height:1.4;margin:0 0 6px;}
+h2{font-size:17px;margin:36px 0 10px;padding-top:4px;}
+h3{font-size:15px;margin:22px 0 6px;color:var(--text2);}
+p,li{color:var(--text);}
+ul,ol{padding-left:1.4em;margin:10px 0;}
+li{margin:4px 0;}
+a{color:var(--blue);}
+small,.lg-meta{color:var(--text3);font-size:13px;}
+
+.lg-note{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);
+         border-radius:8px;padding:14px 16px;margin:18px 0;font-size:14px;}
+.lg-note strong{color:var(--text);}
+
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;display:block;overflow-x:auto;}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top;}
+th{background:var(--surface2);font-weight:600;white-space:nowrap;}
+
+.lg-toc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin:20px 0;}
+.lg-toc ol{margin:6px 0;}
+.lg-toc a{text-decoration:none;}
+.lg-toc a:hover{text-decoration:underline;}
+
+.lg-foot{margin-top:48px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:var(--text3);}
+.lg-foot a{color:var(--text2);}
+
+[data-lang]{display:none;}
+[data-lang].on{display:block;}
+
+@media(max-width:600px){
+  .lg-wrap{padding:16px 14px 60px;}
+  h1{font-size:20px;}
+  body{font-size:14px;}
+}
