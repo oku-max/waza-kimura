@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.694</title>
+<title>WAZA KIMURA v52.695</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -1131,6 +1131,9 @@
 .cv-sort-dragging .cv-drag-handle { color:var(--accent) }
 body.cv-sorting { user-select:none;-webkit-user-select:none }
 body.cv-sorting .cv-picker-item:hover { background:transparent }
+/* 列メニューの行（ドラッグ対象） */
+.cv-colmenu-row { display:flex;align-items:center;gap:4px;padding:2px 0 }
+.cv-colmenu-row.cv-sort-dragging { background:var(--surface2)!important;padding:2px 6px }
 .cv-chip { display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;transition:background .15s }
 .cv-chip:hover { background:var(--surface3);color:var(--text) }
 .cv-chip.active { border-color:var(--accent);color:var(--accent);background:rgba(74,144,217,.1) }
