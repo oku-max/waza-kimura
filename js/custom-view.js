@@ -691,54 +691,108 @@ window._cvMoveTpl = function(id, dir) {
 };
 
 // ══ ドラッグ&ドロップ並べ替え（Pointer Events＝マウス/タッチ/ペン共通） ══
-// リスト（_views）とマイテンプレート（_cvUserTemplates）で共用。▲▼ボタンは従来通り残す。
+// リスト（_views）／マイテンプレート（_cvUserTemplates）／列メニュー（unifiedOrder・
+// orgColOrder）で共用する汎用エンジン。▲▼ボタンは従来通り残す。
 //
-// 【データ経路】_views を並べ替え → _save() → localStorage(wk_cv_views) ＋
-//   _cvSyncRemote()（プレイリスト個別ドキュメント）＋ saveUserSettings()（旧形式）→ Firestore → 全端末。
-//   したがって「同じ要素を並べ替えるだけ」であることを保証し、要素の増減が起きたら保存しない。
-//   ドラッグはDOMの並びを変えるだけで、確定時に _cvArrMove（splice抜き→splice挿し）で
-//   配列を並べ替える。削除・空化・要素の作り直しは一切行わない。
+// 使い方: 行に data-cv-sort=グループ名 / data-cv-id=対象id を付け、
+//   中に <div class="cv-drag-handle"> を置く。グループは window._wkSortGroups へ登録する。
+//     ids()          … 現在の「並べ替え対象idの並び」（画面の描画順と一致すること）
+//     commit(newIds) … 新しい並びを実データへ反映して保存する
+//     render()       … 一覧/メニューを再描画（変更なし・中止時にも呼ばれる）
+//
+// 【安全設計 / CLAUDE.md ルール1】
+//   ここで扱う _views・orgColOrder は Firestore 同期対象（＝全端末に波及する）。
+//   ドラッグ中はDOMの並びを変えるだけで実データには触れない。指を離した時点で
+//   「DOM上のidの並び」と「ids() の並び」を突き合わせ、
+//     ・件数が同じ ・同じidの集合 ・id重複なし
+//   をすべて満たす＝純粋な並べ替えである場合に限り commit を呼ぶ。
+//   1つでも欠けたり増えたりしていたら保存せず、render() で正しい状態へ描き直す。
+//   削除・空化・要素の作り直しは一切行わない。
+window._wkSortGroups = window._wkSortGroups || {};
 
-// 配列内の要素を from→to へ移動。要素数が変わったら false（＝呼び出し側は保存しない）
-function _cvArrMove(arr, from, to) {
-  if (!Array.isArray(arr)) return false;
-  const n = arr.length;
-  if (n < 2) return false;
-  if (from < 0 || from >= n || to < 0 || to >= n || from === to) return false;
-  const [moved] = arr.splice(from, 1);
-  if (moved === undefined) return false;
-  arr.splice(to, 0, moved);
-  return arr.length === n;
+// 2つのid配列が「同じ集合の並べ替え」かどうか（重複なしも確認）
+function _cvIsPermutation(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || !a.length) return false;
+  if (b.some(x => typeof x !== 'string' || !x)) return false;
+  if (new Set(b).size !== b.length) return false;
+  return JSON.stringify(a.slice().sort()) === JSON.stringify(b.slice().sort());
 }
 
-const _CV_SORT_GROUPS = {
-  views: {
-    arr:  () => _views,
-    save: () => { _save(); _renderViewBar(); },
-    render: () => {
-      const el = document.getElementById('cv-picker-overlay');
-      if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
-    }
+// id の並びに合わせて配列（オブジェクトの配列）を並べ替える。
+// 1つでも対応する要素が見つからなければ何も変更せず false を返す。
+function _cvReorderInPlace(arr, newIds) {
+  if (!Array.isArray(arr) || !Array.isArray(newIds) || arr.length !== newIds.length) return false;
+  const byId = new Map();
+  arr.forEach(o => { if (o && o.id != null) byId.set(o.id, o); });
+  const next = [];
+  for (const id of newIds) {
+    const o = byId.get(id);
+    if (o === undefined) return false; // 途中で中止しても arr は無傷（next にしか触っていない）
+    next.push(o);
+  }
+  if (next.length !== arr.length) return false;
+  arr.splice(0, arr.length, ...next);
+  return true;
+}
+
+// 「表示中の列」の並びだけを、全体順(order)の該当スロットへ流し込む。
+// curVis→newVis が並べ替えでなければ何もしない。非表示列の位置は動かさないので、
+// order は必ず「元と同じ集合の並べ替え」になる（列が消えることはない）。
+// 列メニュー（統合／標準）の両方から使う。
+window._cvFillVisibleSlots = function(order, curVis, newVis) {
+  if (!Array.isArray(order)) return false;
+  if (!_cvIsPermutation(curVis, newVis)) return false;
+  const want = new Set(newVis);
+  const slots = [];
+  order.forEach((id, i) => { if (want.has(id)) slots.push(i); });
+  if (slots.length !== newVis.length) return false;
+  slots.forEach((pos, k) => { order[pos] = newVis[k]; });
+  return true;
+};
+
+window._wkSortGroups.views = {
+  ids: () => _views.map(v => v.id),
+  commit: (newIds) => {
+    if (!_cvReorderInPlace(_views, newIds)) return;
+    _save();
+    _renderViewBar();
   },
-  tpls: {
-    arr:  () => _cvUserTemplates,
-    save: () => { _saveTemplates(); },
-    render: () => {
-      const el = document.getElementById('cv-tpl-manager-overlay');
-      if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
-    }
+  render: () => {
+    const el = document.getElementById('cv-picker-overlay');
+    if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
   }
 };
 
-// DOM上の新しい位置を配列へ反映
-function _cvSortCommit(group, id, toIdx) {
-  const g = _CV_SORT_GROUPS[group];
-  if (!g) return;
-  const arr = g.arr();
-  const from = arr.findIndex(x => x && x.id === id);
-  if (from >= 0 && _cvArrMove(arr, from, toIdx)) g.save();
-  g.render(); // 位置が変わらなかった場合もDOMを正規の状態へ戻す
-}
+window._wkSortGroups.tpls = {
+  ids: () => _cvUserTemplates.map(t => t.id),
+  commit: (newIds) => {
+    if (!_cvReorderInPlace(_cvUserTemplates, newIds)) return;
+    _saveTemplates();
+  },
+  render: () => {
+    const el = document.getElementById('cv-tpl-manager-overlay');
+    if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
+  }
+};
+
+// 統合列メニュー（カスタムビュー表示中）の並べ替え
+window._wkSortGroups.unifiedcols = {
+  ids: () => _cvVisibleUnifiedIds() || [],
+  commit: (newVis) => {
+    if (!_curId) return;
+    const view = _views.find(v => v.id === _curId);
+    if (!view || !Array.isArray(view.unifiedOrder)) return;
+    if (!window._cvFillVisibleSlots(view.unifiedOrder, _cvVisibleUnifiedIds() || [], newVis)) return;
+    _syncStdColOrder(view);
+    _save();
+    _reorderAllCols(view);
+  },
+  render: () => {
+    const panel = document.getElementById('org-col-menu-panel');
+    // カスタムビューを抜けていた場合は標準メニューへ戻る（空にはしない）
+    if (panel) panel.innerHTML = window._buildOrgColMenuHTML?.() || window._cvGetUnifiedMenuHTML() || '';
+  }
+};
 
 let _cvDrag = null;
 
@@ -765,9 +819,15 @@ function _cvDragEnd(commit) {
   d.row.classList.remove('cv-sort-dragging');
   document.body.classList.remove('cv-sorting');
   if (!d.active) return;
-  const toIdx = _cvSortRows(d.container, d.group).indexOf(d.row);
-  if (commit && toIdx >= 0) _cvSortCommit(d.group, d.id, toIdx);
-  else _CV_SORT_GROUPS[d.group] && _CV_SORT_GROUPS[d.group].render();
+  const g = window._wkSortGroups[d.group];
+  if (!g) return;
+  if (commit) {
+    const cur = g.ids();
+    const now = _cvSortRows(d.container, d.group).map(r => r.getAttribute('data-cv-id'));
+    // 「同じ集合の並べ替え」かつ実際に順序が変わったときだけ保存する
+    if (_cvIsPermutation(cur, now) && JSON.stringify(cur) !== JSON.stringify(now)) g.commit(now);
+  }
+  g.render(); // 変更なし・中止・異常時も、正しい状態へ描き直す
 }
 
 document.addEventListener('pointerdown', function(e) {
@@ -780,7 +840,7 @@ document.addEventListener('pointerdown', function(e) {
   const group = row.getAttribute('data-cv-sort');
   const id    = row.getAttribute('data-cv-id');
   const container = row.parentElement;
-  if (!_CV_SORT_GROUPS[group] || !id || !container) return;
+  if (!window._wkSortGroups[group] || !id || !container) return;
   if (_cvSortRows(container, group).length < 2) return;
   _cvDrag = {
     row, group, id, container,
@@ -2901,6 +2961,21 @@ window.cvMoveCol = function(colId, dir) {
 // カスタムビュー中は標準列+カスタム列を一本のリストで表示
 window._cvGetColMenuSection = function() { return null; }; // 統合メニューで置き換え済み
 
+// 統合列メニューで「表示中」として並ぶ列のid（メニューの描画順＝ドラッグ対象の順）
+function _cvVisibleUnifiedIds() {
+  if (!_curId) return null;
+  const view = _views.find(v => v.id === _curId);
+  if (!view || !Array.isArray(view.unifiedOrder)) return null;
+  const stdVis = window.orgColVisibility || {};
+  return view.unifiedOrder.filter(id => {
+    if (_isCustomColId(id)) {
+      const col = (view.columns || []).find(c => c.id === id);
+      return col && !col.hidden;
+    }
+    return stdVis[id] !== false;
+  });
+}
+
 window._cvGetUnifiedMenuHTML = function() {
   if (!_curId) return null;
   const view = _views.find(v => v.id === _curId);
@@ -2911,13 +2986,7 @@ window._cvGetUnifiedMenuHTML = function() {
   const order  = view.unifiedOrder;
 
   // 表示中の列（DOM上に存在する列）
-  const visOrder = order.filter(id => {
-    if (_isCustomColId(id)) {
-      const col = view.columns.find(c => c.id === id);
-      return col && !col.hidden;
-    }
-    return stdVis[id] !== false;
-  });
+  const visOrder = _cvVisibleUnifiedIds() || [];
 
   // 非表示の列
   const hiddenIds = order.filter(id => {
@@ -2931,7 +3000,7 @@ window._cvGetUnifiedMenuHTML = function() {
   const _btnS = `background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center`;
   const _cbS  = `accent-color:var(--accent);width:14px;height:14px`;
 
-  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>';
+  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（ドラッグ / ↑↓で並替え）</div>';
 
   visOrder.forEach((id, i) => {
     const isCv   = _isCustomColId(id);
@@ -2940,7 +3009,8 @@ window._cvGetUnifiedMenuHTML = function() {
     const disUp  = i === 0 ? 'disabled' : '';
     const disDown= i === visOrder.length - 1 ? 'disabled' : '';
     html += `
-      <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+      <div class="cv-colmenu-row" data-cv-sort="unifiedcols" data-cv-id="${id}">
+        <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
         <button onclick="window._cvUnifiedMoveCol('${id}',-1)" style="${_btnS};opacity:${disUp?'.2':'1'}" ${disUp}>▲</button>
         <button onclick="window._cvUnifiedMoveCol('${id}',1)"  style="${_btnS};opacity:${disDown?'.2':'1'}" ${disDown}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
@@ -2957,8 +3027,8 @@ window._cvGetUnifiedMenuHTML = function() {
       const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
       const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
       html += `
-        <div style="display:flex;align-items:center;gap:4px;padding:2px 0;opacity:.5">
-          <span style="min-width:68px"></span>
+        <div class="cv-colmenu-row" style="opacity:.5">
+          <span style="min-width:96px"></span>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
             <input type="checkbox" onchange="window._cvUnifiedSetVis('${id}',this.checked)" style="${_cbS}">
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}${badge}</span>

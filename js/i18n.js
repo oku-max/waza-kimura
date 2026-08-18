@@ -1294,6 +1294,7 @@
     "茶帯": "Brown belt",
     "表示": "Display",
     "表示する列（↑↓で並替え）": "Visible columns (↑↓ to reorder)",
+    "表示する列（ドラッグ / ↑↓で並替え）": "Visible columns (drag or ↑↓ to reorder)",
     "表示を切り替える": "Toggle display",
     "表示・AI・再生・外観の設定": "Display, AI, playback and appearance settings",
     "表示名（任意）": "Display name (optional)",
