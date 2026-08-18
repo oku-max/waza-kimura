@@ -47,6 +47,8 @@ window._notesClear = function() {
 };
 
 window._notesGetData = () => _data;
+// フォルダに入っていないノート。バックアップで取りこぼさないように公開する
+window._notesGetRoot = () => _root;
 window._notesHasPendingSave = () => !!_saveFsTimer;
 
 window._notesLoadFromRemote = function(payload) {

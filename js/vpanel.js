@@ -2831,6 +2831,30 @@ function _subExisting(found, target) {
   return { exact, anySub: exact || list[0] || null };
 }
 
+// 言語コードを揃える。拡張子に言語が付いていない「動画名.srt」は原語版で、
+// 実際にはほぼ英語なので en と同じものとして扱う。
+function _subLangNorm(x) {
+  const s = String(x == null ? '' : x).toLowerCase();
+  const c = SUB_LANG_ALIAS[s] || s;
+  return c === '' ? 'en' : c;
+}
+
+// 「頼まれた言語の字幕がもうあるか」。
+// ここを「字幕が1つでもあるか」で判定すると、英語を作った後に日本語を頼んでも
+// 全部スキップされてしまう（実際にそうなっていた）。言語まで見て判断する。
+function _subHasLang(found, want) {
+  const w = _subLangNorm(want);
+  return (Array.isArray(found) ? found : []).some(f => _subLangNorm(f?.lang) === w);
+}
+
+// 翻訳元にできる字幕（頼まれた言語以外のもの）を1つ選ぶ。
+// 原語版（言語サフィックスなし）を優先する。
+function _subTranslateSrc(found, want) {
+  const w    = _subLangNorm(want);
+  const list = (Array.isArray(found) ? found : []).filter(f => f && _subLangNorm(f.lang) !== w);
+  return list.find(f => !f.lang) || list[0] || null;
+}
+
 // ── 生成中にページを離れると結果だけ失われる（課金は発生済み）ので確認する ──
 // 動画はすでにGeminiへ送信済みで、離脱すると結果を受け取れないまま費用だけかかる。
 // カウンタ方式にして、一括実行のように複数が重なっても正しく判定する。
@@ -3196,7 +3220,41 @@ async function _asrGenerateAndSave(ctx) {
   // 判定は再生時の字幕検出と同じ探し方にして、「プレイヤーで字幕が出る＝ある」と揃える。
   if (preset && preset.existing !== 'replace') {
     const already = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
-    if (already.length) return { ok: false, skipped: true, target: already[0].name };
+    const want0   = (subLang && subLang !== 'orig') ? subLang : '';
+
+    if (!want0) {
+      // 「原語のまま」は出来上がる言語が書き起こすまで分からない。
+      // 何かあれば作らない（従来どおり安全側）。
+      if (already.length) return { ok: false, skipped: true, target: already[0].name };
+
+    } else if (_subHasLang(already, want0)) {
+      // 頼まれた言語のものがもうある → 何もしない
+      return { ok: false, skipped: true, target: (already.find(f => _subLangNorm(f.lang) === _subLangNorm(want0)) || already[0]).name };
+
+    } else {
+      // 別の言語の字幕はあるが、頼まれた言語のものは無い。
+      // ASRは依頼した時点で課金されるので、使える字幕があるなら書き起こし直さず翻訳する。
+      const src = _subTranslateSrc(already, want0);
+      if (src) {
+        try {
+          setBtn('⏳ 既存の字幕を取得中…');
+          const res = await fetch(`/api/drive?fileId=${encodeURIComponent(src.id)}&token=${encodeURIComponent(gdToken)}`);
+          if (res.ok) {
+            const text = _gdSubDecode(await res.arrayBuffer());
+            if (_looksLikeSrt(text)) {
+              const r = await _retranslateFromSrt({
+                token: gdToken, videoFileId: fileId, srcName: src.name,
+                srcText: text, want: want0, setBtn });
+              _gdSubLookup.delete(fileId);
+              return { ok: true, cost: r.cost, target: r.target, translated: true, src: src.name };
+            }
+          }
+        } catch (e) {
+          // 取れない・壊れている・訳せない時は下の書き起こし経路へ落とす
+          console.warn('既存字幕からの翻訳に失敗、書き起こしに切り替えます:', e?.message || e);
+        }
+      }
+    }
   }
 
   // 1. 依頼する（すぐIDが返る。ここで待たされないので100秒制限に当たらない）
@@ -3395,8 +3453,15 @@ window.vpGenSubtitle = async function(id, preset) {
     const { exact, anySub } = _subExisting(found, target);
     if (anySub) {
       // 一括処理では既定で「作らない」。既存の字幕を黙って作り直さない安全側に倒す。
+      // ただし判定は言語まで見る。別言語の字幕があるだけでスキップすると、
+      // 英語を作った後に日本語を頼んでも全部飛ばされてしまう。
+      // 「原語のまま」(orig) は出来上がる言語が事前に分からないので従来どおり
+      // 「何かあれば作らない」に倒す。
+      const wantsAny = !subLang || subLang === 'orig';
       if (preset) {
-        if (preset.existing !== 'replace') { endBtn(); return { ok: false, skipped: true, target: anySub.name }; }
+        if (preset.existing !== 'replace' && (wantsAny || _subHasLang(found, subLang))) {
+          endBtn(); return { ok: false, skipped: true, target: anySub.name };
+        }
       } else {
         const msg = exact
           ? `「${target}」はすでにあります。\n上書きして作り直しますか？`

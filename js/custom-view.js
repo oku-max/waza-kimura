@@ -155,7 +155,11 @@ function _syncNextColId() {
 
 const _UTPL_KEY = 'wk_cv_user_tpls';
 function _saveTemplates() {
-  try { localStorage.setItem(_UTPL_KEY, JSON.stringify(_cvUserTemplates)); } catch(e) {}
+  // wkLsSet: 別アカウントがこの端末を使っているときは書かない（持ち主のテンプレを壊さない）。
+  // このキーはクラウドに同期されない端末ローカル専用。読み取りはモジュール読み込み時
+  // （ログイン前）に走るため守れていないが、その場合でも前の人のテンプレ名が表示に出るだけ。
+  try { window.wkLsSet ? window.wkLsSet(_UTPL_KEY, JSON.stringify(_cvUserTemplates))
+                      : localStorage.setItem(_UTPL_KEY, JSON.stringify(_cvUserTemplates)); } catch(e) {}
 }
 function _loadTemplates() {
   try { const r = localStorage.getItem(_UTPL_KEY); if (r) _cvUserTemplates = JSON.parse(r); } catch(e) {}
@@ -407,7 +411,8 @@ function _buildPickerHTML() {
     if (_cvPickerEditMode) {
       const canUp   = idx > 0;
       const canDown = idx < _views.length - 1;
-      return `<div class="cv-picker-item cv-picker-edit-row">
+      return `<div class="cv-picker-item cv-picker-edit-row" data-cv-sort="views" data-cv-id="${v.id}">
+        <div class="cv-drag-handle" title="${T('cv.dragSort','ドラッグして並べ替え')}"></div>
         <div class="cv-picker-arrows">
           <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',-1)" ${canUp ? '' : 'disabled'}>▲</button>
           <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveView('${v.id}',1)" ${canDown ? '' : 'disabled'}>▼</button>
@@ -615,7 +620,8 @@ function _buildTemplateManagerHTML() {
   const items = _cvUserTemplates.map((tpl, idx) => {
     const canUp   = idx > 0;
     const canDown = idx < _cvUserTemplates.length - 1;
-    return `<div class="cv-picker-item cv-picker-edit-row">
+    return `<div class="cv-picker-item cv-picker-edit-row" data-cv-sort="tpls" data-cv-id="${tpl.id}">
+      <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
       <div class="cv-picker-arrows">
         <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',-1)" ${canUp?'':'disabled'}>▲</button>
         <button class="cv-picker-arrow-btn" onclick="event.stopPropagation();window._cvMoveTpl('${tpl.id}',1)" ${canDown?'':'disabled'}>▼</button>
@@ -687,6 +693,218 @@ window._cvMoveTpl = function(id, dir) {
   const el = document.getElementById('cv-tpl-manager-overlay');
   if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
 };
+
+// ══ ドラッグ&ドロップ並べ替え（Pointer Events＝マウス/タッチ/ペン共通） ══
+// リスト（_views）／マイテンプレート（_cvUserTemplates）／列メニュー（unifiedOrder・
+// orgColOrder）で共用する汎用エンジン。▲▼ボタンは従来通り残す。
+//
+// 使い方: 行に data-cv-sort=グループ名 / data-cv-id=対象id を付け、
+//   中に <div class="cv-drag-handle"> を置く。グループは window._wkSortGroups へ登録する。
+//     ids()          … 現在の「並べ替え対象idの並び」（画面の描画順と一致すること）
+//     commit(newIds) … 新しい並びを実データへ反映して保存する
+//     render()       … 一覧/メニューを再描画（変更なし・中止時にも呼ばれる）
+//
+// 【安全設計 / CLAUDE.md ルール1】
+//   ここで扱う _views・orgColOrder は Firestore 同期対象（＝全端末に波及する）。
+//   ドラッグ中はDOMの並びを変えるだけで実データには触れない。指を離した時点で
+//   「DOM上のidの並び」と「ids() の並び」を突き合わせ、
+//     ・件数が同じ ・同じidの集合 ・id重複なし
+//   をすべて満たす＝純粋な並べ替えである場合に限り commit を呼ぶ。
+//   1つでも欠けたり増えたりしていたら保存せず、render() で正しい状態へ描き直す。
+//   削除・空化・要素の作り直しは一切行わない。
+window._wkSortGroups = window._wkSortGroups || {};
+
+// 2つのid配列が「同じ集合の並べ替え」かどうか（重複なしも確認）
+function _cvIsPermutation(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || !a.length) return false;
+  if (b.some(x => typeof x !== 'string' || !x)) return false;
+  if (new Set(b).size !== b.length) return false;
+  return JSON.stringify(a.slice().sort()) === JSON.stringify(b.slice().sort());
+}
+
+// id の並びに合わせて配列（オブジェクトの配列）を並べ替える。
+// 1つでも対応する要素が見つからなければ何も変更せず false を返す。
+function _cvReorderInPlace(arr, newIds) {
+  if (!Array.isArray(arr) || !Array.isArray(newIds) || arr.length !== newIds.length) return false;
+  const byId = new Map();
+  arr.forEach(o => { if (o && o.id != null) byId.set(o.id, o); });
+  const next = [];
+  for (const id of newIds) {
+    const o = byId.get(id);
+    if (o === undefined) return false; // 途中で中止しても arr は無傷（next にしか触っていない）
+    next.push(o);
+  }
+  if (next.length !== arr.length) return false;
+  arr.splice(0, arr.length, ...next);
+  return true;
+}
+
+// 「表示中の列」の並びだけを、全体順(order)の該当スロットへ流し込む。
+// curVis→newVis が並べ替えでなければ何もしない。非表示列の位置は動かさないので、
+// order は必ず「元と同じ集合の並べ替え」になる（列が消えることはない）。
+// 列メニュー（統合／標準）の両方から使う。
+window._cvFillVisibleSlots = function(order, curVis, newVis) {
+  if (!Array.isArray(order)) return false;
+  if (!_cvIsPermutation(curVis, newVis)) return false;
+  const want = new Set(newVis);
+  const slots = [];
+  order.forEach((id, i) => { if (want.has(id)) slots.push(i); });
+  if (slots.length !== newVis.length) return false;
+  slots.forEach((pos, k) => { order[pos] = newVis[k]; });
+  return true;
+};
+
+window._wkSortGroups.views = {
+  ids: () => _views.map(v => v.id),
+  commit: (newIds) => {
+    if (!_cvReorderInPlace(_views, newIds)) return;
+    _save();
+    _renderViewBar();
+  },
+  render: () => {
+    const el = document.getElementById('cv-picker-overlay');
+    if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+  }
+};
+
+window._wkSortGroups.tpls = {
+  ids: () => _cvUserTemplates.map(t => t.id),
+  commit: (newIds) => {
+    if (!_cvReorderInPlace(_cvUserTemplates, newIds)) return;
+    _saveTemplates();
+  },
+  render: () => {
+    const el = document.getElementById('cv-tpl-manager-overlay');
+    if (el && el.style.display !== 'none') el.innerHTML = _buildTemplateManagerHTML();
+  }
+};
+
+// 統合列メニュー（カスタムビュー表示中）の並べ替え
+window._wkSortGroups.unifiedcols = {
+  ids: () => _cvVisibleUnifiedIds() || [],
+  commit: (newVis) => {
+    if (!_curId) return;
+    const view = _views.find(v => v.id === _curId);
+    if (!view || !Array.isArray(view.unifiedOrder)) return;
+    if (!window._cvFillVisibleSlots(view.unifiedOrder, _cvVisibleUnifiedIds() || [], newVis)) return;
+    _syncStdColOrder(view);
+    _save();
+    _reorderAllCols(view);
+  },
+  render: () => {
+    const panel = document.getElementById('org-col-menu-panel');
+    // カスタムビューを抜けていた場合は標準メニューへ戻る（空にはしない）
+    if (panel) panel.innerHTML = window._buildOrgColMenuHTML?.() || window._cvGetUnifiedMenuHTML() || '';
+  }
+};
+
+let _cvDrag = null;
+
+function _cvSortRows(container, group) {
+  return Array.from(container.querySelectorAll('[data-cv-sort="' + group + '"]'));
+}
+
+// 縦スクロールする最も近い祖先（ドラッグ中の自動スクロール用）
+function _cvScrollParent(el) {
+  let n = el;
+  while (n && n !== document.body) {
+    const ov = getComputedStyle(n).overflowY;
+    if ((ov === 'auto' || ov === 'scroll') && n.scrollHeight > n.clientHeight + 2) return n;
+    n = n.parentElement;
+  }
+  return null;
+}
+
+function _cvDragEnd(commit) {
+  const d = _cvDrag;
+  if (!d) return;
+  _cvDrag = null;
+  d.row.style.transform = '';
+  d.row.classList.remove('cv-sort-dragging');
+  document.body.classList.remove('cv-sorting');
+  if (!d.active) return;
+  const g = window._wkSortGroups[d.group];
+  if (!g) return;
+  if (commit) {
+    const cur = g.ids();
+    const now = _cvSortRows(d.container, d.group).map(r => r.getAttribute('data-cv-id'));
+    // 「同じ集合の並べ替え」かつ実際に順序が変わったときだけ保存する
+    if (_cvIsPermutation(cur, now) && JSON.stringify(cur) !== JSON.stringify(now)) g.commit(now);
+  }
+  g.render(); // 変更なし・中止・異常時も、正しい状態へ描き直す
+}
+
+document.addEventListener('pointerdown', function(e) {
+  if (_cvDrag) return;
+  if (e.button != null && e.button > 0) return; // 右クリック等は無視
+  const handle = e.target && e.target.closest ? e.target.closest('.cv-drag-handle') : null;
+  if (!handle) return;
+  const row = handle.closest('[data-cv-sort]');
+  if (!row) return;
+  const group = row.getAttribute('data-cv-sort');
+  const id    = row.getAttribute('data-cv-id');
+  const container = row.parentElement;
+  if (!window._wkSortGroups[group] || !id || !container) return;
+  if (_cvSortRows(container, group).length < 2) return;
+  _cvDrag = {
+    row, group, id, container,
+    pointerId: e.pointerId,
+    startY: e.clientY, baseY: e.clientY,
+    active: false,
+    scroller: _cvScrollParent(container)
+  };
+  e.preventDefault();
+}, true);
+
+document.addEventListener('pointermove', function(e) {
+  const d = _cvDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  if (!d.active) {
+    if (Math.abs(e.clientY - d.startY) < 5) return; // 誤タップでドラッグ開始しない
+    d.active = true;
+    d.row.classList.add('cv-sort-dragging');
+    document.body.classList.add('cv-sorting');
+  }
+  e.preventDefault();
+
+  // 端に近づいたら自動スクロール。スクロールした分だけ基準をずらし、
+  // ドラッグ中の行が指の下から逃げないようにする。
+  const sc = d.scroller;
+  if (sc) {
+    const r = sc.getBoundingClientRect();
+    const EDGE = 40;
+    const before = sc.scrollTop;
+    if (e.clientY < r.top + EDGE)         sc.scrollTop -= Math.min(20, (r.top + EDGE - e.clientY) / 2);
+    else if (e.clientY > r.bottom - EDGE) sc.scrollTop += Math.min(20, (e.clientY - (r.bottom - EDGE)) / 2);
+    d.baseY -= (sc.scrollTop - before);
+  }
+
+  const dy = e.clientY - d.baseY;
+  d.row.style.transform = 'translateY(' + dy + 'px)';
+
+  // 指/カーソルが重なった行と入れ替える（DOMを直接動かし、見た目は指の下に留める）
+  const layoutTop = d.row.getBoundingClientRect().top - dy; // transform を除いたレイアウト位置
+  const rows = _cvSortRows(d.container, d.group);
+  for (const r of rows) {
+    if (r === d.row) continue;
+    const rect = r.getBoundingClientRect();
+    if (e.clientY < rect.top || e.clientY > rect.bottom) continue;
+    const ref = (e.clientY > rect.top + rect.height / 2) ? r.nextSibling : r;
+    if (ref === d.row) break;
+    d.container.insertBefore(d.row, ref);
+    const newTop = d.row.getBoundingClientRect().top - dy;
+    d.baseY += (newTop - layoutTop);
+    d.row.style.transform = 'translateY(' + (e.clientY - d.baseY) + 'px)';
+    break;
+  }
+}, true);
+
+document.addEventListener('pointerup', function(e) {
+  if (_cvDrag && e.pointerId === _cvDrag.pointerId) _cvDragEnd(true);
+}, true);
+document.addEventListener('pointercancel', function(e) {
+  if (_cvDrag && e.pointerId === _cvDrag.pointerId) _cvDragEnd(false);
+}, true);
 
 // ── ビュー切替 ──
 function _showView(id) {
@@ -2747,6 +2965,21 @@ window.cvMoveCol = function(colId, dir) {
 // カスタムビュー中は標準列+カスタム列を一本のリストで表示
 window._cvGetColMenuSection = function() { return null; }; // 統合メニューで置き換え済み
 
+// 統合列メニューで「表示中」として並ぶ列のid（メニューの描画順＝ドラッグ対象の順）
+function _cvVisibleUnifiedIds() {
+  if (!_curId) return null;
+  const view = _views.find(v => v.id === _curId);
+  if (!view || !Array.isArray(view.unifiedOrder)) return null;
+  const stdVis = window.orgColVisibility || {};
+  return view.unifiedOrder.filter(id => {
+    if (_isCustomColId(id)) {
+      const col = (view.columns || []).find(c => c.id === id);
+      return col && !col.hidden;
+    }
+    return stdVis[id] !== false;
+  });
+}
+
 window._cvGetUnifiedMenuHTML = function() {
   if (!_curId) return null;
   const view = _views.find(v => v.id === _curId);
@@ -2757,13 +2990,7 @@ window._cvGetUnifiedMenuHTML = function() {
   const order  = view.unifiedOrder;
 
   // 表示中の列（DOM上に存在する列）
-  const visOrder = order.filter(id => {
-    if (_isCustomColId(id)) {
-      const col = view.columns.find(c => c.id === id);
-      return col && !col.hidden;
-    }
-    return stdVis[id] !== false;
-  });
+  const visOrder = _cvVisibleUnifiedIds() || [];
 
   // 非表示の列
   const hiddenIds = order.filter(id => {
@@ -2777,7 +3004,7 @@ window._cvGetUnifiedMenuHTML = function() {
   const _btnS = `background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center`;
   const _cbS  = `accent-color:var(--accent);width:14px;height:14px`;
 
-  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>';
+  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（ドラッグ / ↑↓で並替え）</div>';
 
   visOrder.forEach((id, i) => {
     const isCv   = _isCustomColId(id);
@@ -2786,7 +3013,8 @@ window._cvGetUnifiedMenuHTML = function() {
     const disUp  = i === 0 ? 'disabled' : '';
     const disDown= i === visOrder.length - 1 ? 'disabled' : '';
     html += `
-      <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+      <div class="cv-colmenu-row" data-cv-sort="unifiedcols" data-cv-id="${id}">
+        <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
         <button onclick="window._cvUnifiedMoveCol('${id}',-1)" style="${_btnS};opacity:${disUp?'.2':'1'}" ${disUp}>▲</button>
         <button onclick="window._cvUnifiedMoveCol('${id}',1)"  style="${_btnS};opacity:${disDown?'.2':'1'}" ${disDown}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
@@ -2803,8 +3031,8 @@ window._cvGetUnifiedMenuHTML = function() {
       const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
       const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
       html += `
-        <div style="display:flex;align-items:center;gap:4px;padding:2px 0;opacity:.5">
-          <span style="min-width:68px"></span>
+        <div class="cv-colmenu-row" style="opacity:.5">
+          <span style="min-width:96px"></span>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1;min-width:0">
             <input type="checkbox" onchange="window._cvUnifiedSetVis('${id}',this.checked)" style="${_cbS}">
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(label)}${badge}</span>
