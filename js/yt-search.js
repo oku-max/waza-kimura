@@ -231,7 +231,7 @@ async function _callApi(q, type, pageToken) {
   if (pageToken) params.set('pageToken', pageToken);
   if (type === 'video' && _srDuration !== 'any') params.set('videoDuration', _srDuration);
 
-  const res  = await fetch('/api/yt-search?' + params);
+  const res  = await window.wkFetch('/api/yt-search?' + params);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `API error ${res.status}`);
   return data;
@@ -1320,7 +1320,7 @@ export async function ytSrTogglePl(plId) {
 
   body.innerHTML = '<div class="yt-sr-pl-loading">読み込み中…</div>';
   try {
-    const res  = await fetch(`/api/yt-playlist-items?playlistId=${encodeURIComponent(plId)}&maxResults=50`);
+    const res  = await window.wkFetch(`/api/yt-playlist-items?playlistId=${encodeURIComponent(plId)}&maxResults=50`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'API error');
 

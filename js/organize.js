@@ -14,6 +14,13 @@ export let orgPrRank = null, orgPrDate = null;
 const _ORG_DEFAULT_ORDER = ['fav', 'next', 'drill', 'tb', 'action', 'position', 'technique', 'counter', 'status', 'channel', 'playlist', 'addedAt', 'duration', 'memo'];
 const _ORG_DEFAULT_VIS   = {tb: true, action: true, position: true, technique: true, counter: true, status: true, channel: true, playlist: true, memo: true, addedAt: true, fav: true, next: true, drill: true, duration: true};
 const _ORG_DEFAULT_WIDTHS = {tb:'110px', action:'120px', position:'120px', technique:'120px', counter:'100px', status:'90px', channel:'110px', playlist:'120px', memo:'160px', addedAt:'90px', fav:'52px', next:'52px', duration:'64px'};
+// 別アカウントがこの端末で初めてログインしたとき（v52.693）。
+// 列の並び・表示を既定値に戻す。メモリ上だけで localStorage は消さない。
+window._wkResetSyncedOrgCols = function () {
+  window.orgColOrder      = [..._ORG_DEFAULT_ORDER];
+  window.orgColVisibility = {..._ORG_DEFAULT_VIS};
+};
+
 function _loadOrgColPrefs() {
   try {
     const o = localStorage.getItem('wk_orgColOrder');
@@ -30,8 +37,8 @@ function _loadOrgColPrefs() {
       // 古いバージョンフラグも削除
       try { localStorage.removeItem('orgcol_v2'); localStorage.removeItem('orgcol_v3'); } catch(e) {}
       try {
-        localStorage.setItem('wk_orgColOrder', JSON.stringify(order));
-        localStorage.setItem('wk_orgColVisibility', JSON.stringify(vis));
+        window.wkLsSet('wk_orgColOrder', JSON.stringify(order));
+        window.wkLsSet('wk_orgColVisibility', JSON.stringify(vis));
         localStorage.setItem(MIGRATE_VER, '1');
       } catch(e) {}
     }
@@ -39,7 +46,7 @@ function _loadOrgColPrefs() {
     if (order.includes('prio')) {
       order = order.filter(c => c !== 'prio');
       delete vis.prio;
-      try { localStorage.setItem('wk_orgColOrder', JSON.stringify(order)); } catch(e) {}
+      try { window.wkLsSet('wk_orgColOrder', JSON.stringify(order)); } catch(e) {}
     }
     return { order, vis, widths };
   } catch(e) { return { order: [..._ORG_DEFAULT_ORDER], vis: {..._ORG_DEFAULT_VIS}, widths: {..._ORG_DEFAULT_WIDTHS} }; }
@@ -49,8 +56,8 @@ export let orgColOrder = _orgPrefs.order;
 export let orgColVisibility = _orgPrefs.vis;
 function _saveOrgColPrefs() {
   try {
-    localStorage.setItem('wk_orgColOrder', JSON.stringify(orgColOrder));
-    localStorage.setItem('wk_orgColVisibility', JSON.stringify(orgColVisibility));
+    window.wkLsSet('wk_orgColOrder', JSON.stringify(orgColOrder));
+    window.wkLsSet('wk_orgColVisibility', JSON.stringify(orgColVisibility));
     localStorage.setItem('wk_orgColWidths', JSON.stringify(ORG_COL_WIDTHS));
   } catch(e) {}
   window.saveUserSettings?.();
@@ -820,7 +827,14 @@ export function renderOrg() {
   const empty = document.getElementById('org-empty');
   const tableWrap = document.querySelector('.org-table-wrap');
   if (!displayList.length) {
-    if (empty) empty.style.display = '';
+    if (empty) {
+      // カードビューと同じ考え方。1本も無い人には案内を、
+      // 絞り込みで0件の人には従来の文言を出す（v52.694）。
+      empty.innerHTML = window.wkLibraryIsEmpty?.()
+        ? window.wkEmptyStateHTML()
+        : '<div style="font-size:28px;margin-bottom:8px">🔍</div><div>動画が見つかりませんでした</div>';
+      empty.style.display = '';
+    }
     if (tableWrap) tableWrap.style.display = 'none';
     window._cvAfterRender?.();
     return;

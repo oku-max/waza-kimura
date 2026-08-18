@@ -54,7 +54,233 @@ async function handleApi(request, env, path) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 認証と利用回数の制限
+//
+// ── なぜ必要か ─────────────────────────────────────────────────
+//   /api/* のうち、当方のAPIキーで課金が発生するものが認証なしで
+//   叩ける状態だった。URLを知った第三者が無制限に呼べるため、
+//   利用者がゼロでも課金だけが発生しうる。
+//   YouTube に至っては課金ではなく「1日10,000単位」のハード上限で、
+//   使い切るとアプリ全体で検索が止まる（search 1回 = 100単位）。
+//
+// ── 段階的に入れる（既存の動作を壊さないため）─────────────────
+//   第1段階（いま）: トークンがあれば検証して回数を数える。
+//                     トークンが無いリクエストは今までどおり通す。
+//                     → クライアント側の対応漏れがあってもアプリは動く。
+//   第2段階（確認後）: Worker の環境変数に REQUIRE_AUTH=1 を設定する。
+//                     → 以降、未認証のリクエストは 401 で拒否される。
+//
+//   第2段階に進む前に、アプリを一通り操作して
+//   「[guard] 未認証」の警告がログに出ないことを確認すること。
+//
+// ── 回数の保存先 ───────────────────────────────────────────────
+//   Cloudflare KV（バインディング名 QUOTA_KV）を使う。
+//   ⚠️ まだ作成していないため、現状は未設定 = 回数制限は働かない（通す）。
+//   有効にする手順:
+//     1. wrangler kv namespace create QUOTA_KV
+//     2. wrangler.jsonc に kv_namespaces として id を追記
+//     3. デプロイ
+//   KV は結果整合なので、同時リクエストで上限を数回超えることがある。
+//   厳密な課金制御ではなく「暴走を止める」目的なので許容する。
+// ═══════════════════════════════════════════════════════════════════
+
+const _envNum = (v, d) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
+
+function apiCfg(env) {
+  return {
+    // 未認証を拒否するか。'1' で拒否。既定は通す（第1段階）
+    requireAuth: env.REQUIRE_AUTH === '1',
+    limits: {
+      ai:       _envNum(env.LIMIT_AI,        30),  // AIタグ提案・分類・翻訳
+      summary:  _envNum(env.LIMIT_SUMMARY,    5),  // AI要約・字幕生成・チャプター検出
+      asr:      _envNum(env.LIMIT_ASR,        5),  // 文字起こし（一番高い）
+      ytSearch: _envNum(env.LIMIT_YT_SEARCH, 10),  // YouTube検索（1回=100単位）
+      ytMeta:   _envNum(env.LIMIT_YT_META,  300),  // 動画/プレイリスト取得（1回=1単位）
+    },
+    // アプリ全体で1日に使ってよい YouTube クォータ単位。
+    // 無償枠は10,000。取りこぼし用に余裕を残す。
+    ytGlobalUnits: _envNum(env.YT_GLOBAL_UNITS, 9000),
+  };
+}
+
+// UTCの日付。KVキーの区切りに使う。
+// （YouTubeのクォータは太平洋時間リセットなので厳密には一致しないが、
+//   1日1回どこかでズレるだけで、上限を超えない方向には働く）
+const _utcDay = () => new Date().toISOString().slice(0, 10);
+
+// Firebase IDトークンの検証。
+// 署名をローカル検証する方が速いが、既に動いている Identity Toolkit の
+// lookup を流用する（実装が小さく、検証済みの経路を増やさない）。
+// 同じトークンの往復を減らすため、isolate のメモリに短時間だけ載せる。
+const _tokCache = new Map();
+async function verifyUser(request, env, body) {
+  const h = request.headers.get('Authorization') || '';
+  let idToken = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+  // 旧経路（ai-summary）は body.idToken で送ってくる。互換のため拾う。
+  if (!idToken && body && typeof body.idToken === 'string') idToken = body.idToken;
+  if (!idToken) return { ok: false, reason: 'missing' };
+
+  const hit = _tokCache.get(idToken);
+  if (hit && hit.exp > Date.now()) return { ok: true, uid: hit.uid, email: hit.email };
+
+  const key = env.FIREBASE_API_KEY || FIREBASE_WEB_API_KEY;
+  try {
+    const res  = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${key}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ idToken }),
+    });
+    const data = await res.json();
+    const u    = data.users?.[0];
+    if (!res.ok || !u?.localId) return { ok: false, reason: 'invalid' };
+
+    if (_tokCache.size > 500) _tokCache.clear();   // 上限を切って際限なく太らせない
+    _tokCache.set(idToken, { uid: u.localId, email: u.email || '', exp: Date.now() + 5 * 60 * 1000 });
+    return { ok: true, uid: u.localId, email: u.email || '' };
+  } catch (e) {
+    return { ok: false, reason: 'lookup-failed: ' + e.message };
+  }
+}
+
+// 1利用者あたりの1日の回数。KV未設定なら数えずに通す（警告だけ出す）。
+async function quota(env, uid, bucket, limit, cost = 1) {
+  const kv = env.QUOTA_KV;
+  if (!kv) return { ok: true, skipped: true };
+  const k = `q:${bucket}:${uid}:${_utcDay()}`;
+  try {
+    const used = Number(await kv.get(k)) || 0;
+    if (used + cost > limit) return { ok: false, used, limit };
+    // 36時間で自然に消える。日付が変われば別キーになるので掃除は不要。
+    await kv.put(k, String(used + cost), { expirationTtl: 60 * 60 * 36 });
+    return { ok: true, used: used + cost, limit };
+  } catch (e) {
+    // KVが落ちているときに機能まで止めない
+    console.warn('[quota] KV失敗、通過させます:', e.message);
+    return { ok: true, skipped: true };
+  }
+}
+
+// アプリ全体の YouTube クォータ単位。使い切ると全員が検索できなくなるので、
+// 個人の上限とは別に、全体でも数えて手前で止める。
+async function ytUnits(env, cost) {
+  const kv = env.QUOTA_KV;
+  if (!kv) return { ok: true, skipped: true };
+  const cap = apiCfg(env).ytGlobalUnits;
+  const k   = `q:ytglobal:${_utcDay()}`;
+  try {
+    const used = Number(await kv.get(k)) || 0;
+    if (used + cost > cap) return { ok: false, used, limit: cap };
+    await kv.put(k, String(used + cost), { expirationTtl: 60 * 60 * 36 });
+    return { ok: true, used: used + cost, limit: cap };
+  } catch (e) {
+    console.warn('[ytUnits] KV失敗、通過させます:', e.message);
+    return { ok: true, skipped: true };
+  }
+}
+
+// 各ハンドラの入口で呼ぶ。
+//   opt = { bucket, limit, cost, label, ownerOnly, ytCost }
+// 返り値に res があれば、それをそのまま返して処理を打ち切る。
+async function guard(request, env, opt, body) {
+  const cfg  = apiCfg(env);
+  const auth = await verifyUser(request, env, body);
+
+  if (!auth.ok) {
+    // ownerOnly の経路は「第1段階だから通す」をしてはいけない。
+    // 通すと既存のオーナー限定が外れてしまう（機能の後退）。
+    if (cfg.requireAuth || opt.ownerOnly) {
+      return { res: jsonRes(
+        { error: opt.ownerOnly ? 'unauthorized' : 'ログインが必要です', detail: auth.reason, needAuth: true },
+        opt.ownerOnly ? 403 : 401) };
+    }
+    // 第1段階: 通すが、必ず記録に残す。これが出なくなったら REQUIRE_AUTH=1 にできる。
+    console.warn(`[guard] 未認証を通過 (${opt.label || opt.bucket || '-'}): ${auth.reason}`);
+    return { auth: null };
+  }
+
+  if (opt.ownerOnly && auth.email !== OWNER_EMAIL) {
+    return { res: jsonRes({ error: 'forbidden' }, 403) };
+  }
+
+  if (opt.bucket) {
+    const q = await quota(env, auth.uid, opt.bucket, opt.limit, opt.cost || 1);
+    if (!q.ok) {
+      return { res: jsonRes({
+        error:  `本日の上限に達しました（${opt.label || opt.bucket}: 1日 ${q.limit} 回まで）`,
+        detail: '日付が変わると再び使えます。',
+        quota:  true, used: q.used, limit: q.limit,
+      }, 429) };
+    }
+  }
+
+  if (opt.ytCost) {
+    const g = await ytUnits(env, opt.ytCost);
+    if (!g.ok) {
+      return { res: jsonRes({
+        error:  'YouTube検索の1日の上限に達しました',
+        detail: 'アプリ全体で共有している上限です。日付が変わると再び使えます。',
+        quota:  true, global: true,
+      }, 429) };
+    }
+  }
+
+  return { auth };
+}
+
+// ── YouTube検索のキャッシュ ────────────────────────────────
+// 同じ語の検索を使い回して、100単位/回のクォータ消費を減らす。
+// Cloudflare の Cache API を使う（KV不要・無料・エッジごと）。
+//
+// YouTube の Developer Policies は「取得したデータは30日以内に更新か削除」
+// を求めている。6時間で切れるのでこれを満たす。
+//
+// キーは検索条件だけで作る。Authorization ヘッダーは含めないので、
+// 別の利用者でも同じ語なら同じ結果を返す（検索結果は元々公開情報）。
+const YT_CACHE_SEC = 6 * 60 * 60;
+
+function _ytCacheKey(request) {
+  const u  = new URL(request.url);
+  const sp = u.searchParams;
+  // 並び順が違うだけで別キーになるのを防ぐため、拾う値と順序を固定する
+  const k = new URLSearchParams();
+  for (const name of ['q', 'type', 'pageToken', 'maxResults', 'videoDuration']) {
+    const v = sp.get(name);
+    if (v) k.set(name, v);
+  }
+  return new Request(`${u.origin}/api/yt-search?${k.toString()}`, { method: 'GET' });
+}
+
+async function _cacheGet(key) {
+  try {
+    if (typeof caches === 'undefined' || !caches.default) return null;   // ローカル実行時
+    const hit = await caches.default.match(key);
+    if (!hit) return null;
+    const h = new Headers(hit.headers);
+    h.set('X-WK-Cache', 'hit');   // 効いているか外から見えるように
+    return new Response(hit.body, { status: hit.status, headers: h });
+  } catch (e) {
+    console.warn('[ytCache] 読み込み失敗:', e.message);
+    return null;
+  }
+}
+
+async function _cachePut(key, res) {
+  try {
+    if (typeof caches === 'undefined' || !caches.default) return;
+    if (!res.ok) return;                       // エラー応答は残さない
+    const h = new Headers(res.headers);
+    h.set('Cache-Control', `s-maxage=${YT_CACHE_SEC}`);
+    await caches.default.put(key, new Response(res.body, { status: res.status, headers: h }));
+  } catch (e) {
+    console.warn('[ytCache] 書き込み失敗:', e.message);
+  }
+}
+
 // ── /api/drive — Google Drive 動画プロキシ ───────────────
+// 認証を足していない理由: 呼び出しに利用者自身の Google アクセストークンが
+// 要る。他人のトークンでは他人のファイルは取れないので、当方のキーは減らない。
+// <video src> から呼ばれるため Authorization ヘッダーも付けられない。
 async function handleDrive(request) {
   const url    = new URL(request.url);
   const fileId = url.searchParams.get('fileId');
@@ -164,6 +390,24 @@ async function handleYtSearch(request, env) {
   const apiKey = env.YOUTUBE_API_KEY;
   if (!apiKey) return jsonRes({ error: 'YOUTUBE_API_KEY が未設定です' }, 500);
 
+  // ① まず認証だけ見る（回数はまだ数えない）
+  const ga = await guard(request, env, { label: 'YouTube検索' });
+  if (ga.res) return ga.res;
+
+  // ② キャッシュを見る。当たればYouTubeを叩かないので、
+  //    クォータも個人の回数も消費しない。
+  //    無償枠10,000単位/日 ÷ search 1回100単位 = アプリ全体で1日98回しか
+  //    検索できないため、同じ語の重複を消すだけで実質の上限がかなり伸びる。
+  const ck = _ytCacheKey(request);
+  const cached = await _cacheGet(ck);
+  if (cached) return cached;
+
+  // ③ ここで初めて回数を数える。search.list 100単位 + contentDetails 2件で +2。
+  const g = await guard(request, env, {
+    bucket: 'ytSearch', limit: apiCfg(env).limits.ytSearch, label: 'YouTube検索', ytCost: 102,
+  });
+  if (g.res) return g.res;
+
   const sp            = new URL(request.url).searchParams;
   const q             = sp.get('q');
   const type          = sp.get('type')          || 'video';
@@ -222,7 +466,9 @@ async function handleYtSearch(request, env) {
       }
     }
 
-    return jsonRes(data, 200, { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' });
+    const out = jsonRes(data, 200, { 'Cache-Control': `s-maxage=${YT_CACHE_SEC}` });
+    await _cachePut(ck, out.clone());   // 次の同じ検索はここで返せる（クォータ消費ゼロ）
+    return out;
   } catch (e) {
     return jsonRes({ error: '検索失敗: ' + e.message }, 500);
   }
@@ -233,6 +479,12 @@ async function handleYtPlaylistItems(request, env) {
   if (request.method !== 'GET') return jsonRes({ error: 'Method not allowed' }, 405);
   const apiKey = env.YOUTUBE_API_KEY;
   if (!apiKey) return jsonRes({ error: 'YOUTUBE_API_KEY 未設定' }, 500);
+
+  // playlistItems.list は 1回 1単位。検索と違って安いので上限は緩め。
+  const g = await guard(request, env, {
+    bucket: 'ytMeta', limit: apiCfg(env).limits.ytMeta, label: 'YouTube取得', ytCost: 1,
+  });
+  if (g.res) return g.res;
 
   const sp         = new URL(request.url).searchParams;
   const playlistId = sp.get('playlistId');
@@ -265,6 +517,12 @@ async function handleYtVideos(request, env) {
   if (request.method !== 'GET') return jsonRes({ error: 'Method not allowed' }, 405);
   const apiKey = env.YOUTUBE_API_KEY;
   if (!apiKey) return jsonRes({ error: 'YOUTUBE_API_KEY 未設定' }, 500);
+
+  // videos.list は 1回 1単位（50件まとめても1単位）。
+  const g = await guard(request, env, {
+    bucket: 'ytMeta', limit: apiCfg(env).limits.ytMeta, label: 'YouTube取得', ytCost: 1,
+  });
+  if (g.res) return g.res;
 
   const raw = new URL(request.url).searchParams.get('ids') || '';
   const ids = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 50);
@@ -300,7 +558,14 @@ async function handleAiGroup(request, env) {
   const apiKey = env.ANTHROPIC_API_KEY;
   if (!apiKey) return jsonRes({ error: 'API key not configured' }, 500);
 
-  const { tags, existingGroups } = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => ({}));
+
+  const gd = await guard(request, env, {
+    bucket: 'ai', limit: apiCfg(env).limits.ai, label: 'AI分類',
+  }, body);
+  if (gd.res) return gd.res;
+
+  const { tags, existingGroups } = body;
   if (!Array.isArray(tags) || !tags.length)           return jsonRes({ error: 'tags array is required' }, 400);
   if (!Array.isArray(existingGroups) || !existingGroups.length) return jsonRes({ error: 'existingGroups array is required' }, 400);
 
@@ -337,6 +602,12 @@ async function handleAiTag(request, env) {
   if (!apiKey) return jsonRes({ error: 'API key not configured' }, 500);
 
   const body = await request.json().catch(() => ({}));
+
+  const gd = await guard(request, env, {
+    bucket: 'ai', limit: apiCfg(env).limits.ai, label: 'AIタグ提案',
+  }, body);
+  if (gd.res) return gd.res;
+
   const { title, channel, playlist, chapters, tbValues, categories, positions,
           tagBlocklist, bjjRules, flexibility, model, feedbackExamples } = body;
   if (!title) return jsonRes({ error: 'title is required' }, 400);
@@ -415,28 +686,11 @@ ${rulesSection}${blockSection}
 // ── /api/ai-summary — Gemini 動画要約（オーナー限定）──────
 // POST { idToken, source:'youtube', ytId, title?, channel?, playlist? }
 // Returns: { summary }
+//
+// オーナー限定は維持している。一般公開するかどうかは未決（原価が一番高い経路）。
+// 開けるときは guard の ownerOnly を外し、limits.summary を効かせるだけでよい。
 const OWNER_EMAIL          = 'okujournal@gmail.com';
 const FIREBASE_WEB_API_KEY = 'AIzaSyC1VafF24ys4XdTZe7lqIDAZjSmOUqM6Lw'; // 公開Webキー（クライアント同梱済み）
-
-// Firebase IDトークンを Identity Toolkit で検証し、オーナーのメールか確認する
-async function verifyOwner(idToken, env) {
-  if (!idToken) return { ok: false, error: 'missing idToken' };
-  const key = env.FIREBASE_API_KEY || FIREBASE_WEB_API_KEY;
-  try {
-    const res  = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${key}`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ idToken }),
-    });
-    const data  = await res.json();
-    const email = data.users?.[0]?.email;
-    if (!res.ok || !email)     return { ok: false, error: 'invalid token' };
-    if (email !== OWNER_EMAIL) return { ok: false, error: 'forbidden' };
-    return { ok: true, email };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
-}
 
 async function handleAiSummary(request, env) {
   if (request.method === 'OPTIONS') return corsOk();
@@ -446,7 +700,7 @@ async function handleAiSummary(request, env) {
   if (!apiKey) return jsonRes({ error: 'GEMINI_API_KEY が未設定です（Cloudflare環境変数を確認）' }, 500);
 
   const body = await request.json().catch(() => ({}));
-  const { idToken, source, ytId, title, channel, playlist } = body;
+  const { source, ytId, title, channel, playlist } = body;   // idToken は guard が body から拾う
   // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON) | 'subtitle'(SRT字幕生成)
   //     | 'chapters'(チャプター検出JSON)
   const mode = ['desc','branch','subtitle','chapters'].includes(body.mode) ? body.mode : 'summary';
@@ -457,8 +711,10 @@ async function handleAiSummary(request, env) {
   // チャプター検出の指定（最短の長さ・最大件数）
   const chapOpts = (body.chapOpts && typeof body.chapOpts === 'object') ? body.chapOpts : {};
 
-  const auth = await verifyOwner(idToken, env);
-  if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
+  const gd = await guard(request, env, {
+    ownerOnly: true, bucket: 'summary', limit: apiCfg(env).limits.summary, label: 'AI要約',
+  }, body);
+  if (gd.res) return gd.res;
 
   const { gdFileId, accessToken: gdToken } = body;
 
@@ -1439,6 +1695,12 @@ async function handleAsrStart(request, env) {
 
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
+  // 文字起こしは音声時間あたりの課金で、この中では一番高い。上限を一番厳しくする。
+  const gd = await guard(request, env, {
+    bucket: 'asr', limit: apiCfg(env).limits.asr, label: '文字起こし',
+  }, body);
+  if (gd.res) return gd.res;
+
   const { fileId, token, langCode } = body || {};
   if (!fileId || !token) return jsonRes({ error: 'fileId と token が必要です' }, 400);
 
@@ -1468,6 +1730,9 @@ async function handleAsrStart(request, env) {
 // ② 待つ: 状態だけ返す。動画の長さも返るので、あとで見積りに使える。
 async function handleAsrStatus(request, env) {
   const bad = _aaiGuard(env); if (bad) return bad;
+  const gd = await guard(request, env, { label: '書き起こし確認' });
+  if (gd.res) return gd.res;
+
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return jsonRes({ error: 'id が必要です' }, 400);
 
@@ -1486,6 +1751,9 @@ async function handleAsrStatus(request, env) {
 // ③ SRTを取る: 1キューあたりの最大文字数は向こうに任せる（自前で折り返さない）
 async function handleAsrSrt(request, env) {
   const bad = _aaiGuard(env); if (bad) return bad;
+  const gd = await guard(request, env, { label: '字幕取得' });
+  if (gd.res) return gd.res;
+
   const q  = new URL(request.url).searchParams;
   const id = q.get('id');
   if (!id) return jsonRes({ error: 'id が必要です' }, 400);
@@ -1514,6 +1782,9 @@ async function handleAsrSrt(request, env) {
 // 時刻も AssemblyAI が単語単位で実測した文の開始・終了をそのまま使える。
 async function handleAsrSentences(request, env) {
   const bad = _aaiGuard(env); if (bad) return bad;
+  const gd = await guard(request, env, { label: '文取得' });
+  if (gd.res) return gd.res;
+
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return jsonRes({ error: 'id が必要です' }, 400);
 
@@ -1643,6 +1914,11 @@ async function handleTranslate(request, env) {
   if (request.method !== 'POST') return jsonRes({ error: 'POSTしてください' }, 405);
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: 'リクエストが不正です' }, 400); }
+
+  const gd = await guard(request, env, {
+    bucket: 'ai', limit: apiCfg(env).limits.ai, label: '翻訳',
+  }, body);
+  if (gd.res) return gd.res;
 
   // items: [{ text: 文, sec: その文の長さ(秒) }]
   const raw = Array.isArray(body?.items) ? body.items : [];

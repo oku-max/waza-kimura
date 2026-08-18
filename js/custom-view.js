@@ -155,7 +155,11 @@ function _syncNextColId() {
 
 const _UTPL_KEY = 'wk_cv_user_tpls';
 function _saveTemplates() {
-  try { localStorage.setItem(_UTPL_KEY, JSON.stringify(_cvUserTemplates)); } catch(e) {}
+  // wkLsSet: 別アカウントがこの端末を使っているときは書かない（持ち主のテンプレを壊さない）。
+  // このキーはクラウドに同期されない端末ローカル専用。読み取りはモジュール読み込み時
+  // （ログイン前）に走るため守れていないが、その場合でも前の人のテンプレ名が表示に出るだけ。
+  try { window.wkLsSet ? window.wkLsSet(_UTPL_KEY, JSON.stringify(_cvUserTemplates))
+                      : localStorage.setItem(_UTPL_KEY, JSON.stringify(_cvUserTemplates)); } catch(e) {}
 }
 function _loadTemplates() {
   try { const r = localStorage.getItem(_UTPL_KEY); if (r) _cvUserTemplates = JSON.parse(r); } catch(e) {}
@@ -163,7 +167,7 @@ function _loadTemplates() {
 
 function _load() {
   try {
-    const raw = localStorage.getItem('wk_cv_views');
+    const raw = window.wkLsGet ? window.wkLsGet('wk_cv_views') : localStorage.getItem('wk_cv_views');
     if (raw) _views = JSON.parse(raw);
     _views.forEach(v => { if (!v.rowData) v.rowData = {}; });
     _syncNextColId();
@@ -175,7 +179,7 @@ function _load() {
 
 function _save() {
   try {
-    localStorage.setItem('wk_cv_views', JSON.stringify(_views));
+    window.wkLsSet('wk_cv_views', JSON.stringify(_views));
   } catch(e) {}
   // 新形式: 変更されたプレイリストだけを個別ドキュメントへ同期（多端末クロバー＆1MiB上限対策）
   window._cvSyncRemote?.();

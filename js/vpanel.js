@@ -3046,7 +3046,7 @@ async function _translateItems(items, lang, opts, onProgress) {
   const runBatch = async (idxs) => {
     calls++;
     try {
-      const res = await fetch('/api/translate', {
+      const res = await window.wkFetch('/api/translate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: idxs.map(i => items[i]), lang, opts }),
       });
@@ -3259,7 +3259,7 @@ async function _asrGenerateAndSave(ctx) {
 
   // 1. 依頼する（すぐIDが返る。ここで待たされないので100秒制限に当たらない）
   setBtn('⏳ 依頼中…');
-  const startRes = await fetch('/api/asr-start', {
+  const startRes = await window.wkFetch('/api/asr-start', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fileId, token: gdToken, langCode: subLang === 'en' ? 'en' : null }),
   });
@@ -3272,7 +3272,7 @@ async function _asrGenerateAndSave(ctx) {
   let st = null;
   for (let i = 0; i < 720; i++) {
     await new Promise(r => setTimeout(r, 5000));
-    const sr = await fetch('/api/asr-status?id=' + encodeURIComponent(startD.id));
+    const sr = await window.wkFetch('/api/asr-status?id=' + encodeURIComponent(startD.id));
     st = await sr.json().catch(() => ({}));
     if (st.status === 'completed') break;
     if (st.status === 'error') throw new Error('書き起こしに失敗しました' + (st.error ? `（${st.error}）` : ''));
@@ -3286,7 +3286,7 @@ async function _asrGenerateAndSave(ctx) {
   const lang  = SUB_LANG_ALIAS[String(st.lang || '').toLowerCase()] || String(st.lang || '').slice(0, 2) || 'en';
   const chars = lang === 'ja' ? (o.maxCharsJa * (o.maxLines || 1)) : (o.maxCharsEn * (o.maxLines || 1));
   setBtn('⏳ 取得中…');
-  const srtRes = await fetch(`/api/asr-srt?id=${encodeURIComponent(startD.id)}&chars=${chars}`);
+  const srtRes = await window.wkFetch(`/api/asr-srt?id=${encodeURIComponent(startD.id)}&chars=${chars}`);
   const srt    = await srtRes.text();
   if (!srtRes.ok || !_looksLikeSrt(srt)) throw new Error('字幕を取得できませんでした');
 
@@ -3336,7 +3336,7 @@ async function _asrGenerateAndSave(ctx) {
     setBtn('⏳ 文を取得中…');
     let sents = [];
     try {
-      const sres = await fetch('/api/asr-sentences?id=' + encodeURIComponent(startD.id));
+      const sres = await window.wkFetch('/api/asr-sentences?id=' + encodeURIComponent(startD.id));
       const sd   = await sres.json().catch(() => ({}));
       if (sres.ok && Array.isArray(sd.sentences)) sents = sd.sentences;
     } catch (e) { /* 下で失敗として扱う */ }

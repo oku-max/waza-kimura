@@ -89,14 +89,45 @@ export let aiSettings = {
   techBlocklist:         [],
 };
 
+// ── 別アカウントがこの端末で初めてログインしたときに呼ばれる（v52.693）──
+// この端末の localStorage から読み込んだ「前の人の設定」がメモリに残ったまま
+// saveUserSettings が走ると、前の人の設定が新しい人のクラウドに書き込まれる。
+// それを防ぐため、クラウドを読む前に既定値へ戻す。
+//
+// ここで戻すのはメモリ上の値だけ。localStorage も Firestore も触らない。
+// 直後に loadUserSettings がクラウドの内容を上から適用するので、
+// その人のデータが既にあれば正しく復元される（新規なら既定値のまま）。
+window._wkResetSyncedSettings = function () {
+  tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
+  window.tagSettings = tagSettings;
+
+  aiSettings = {
+    enabled: true, defaultMode: 'add',
+    categories: { tb: true, action: true, position: true, tags: true },
+    autoTagOnImport: false, fetchChaptersOnImport: true, chapterGrain: 'normal',
+    bulkConfirm: true, newTagProposal: true, flexibility: 'standard',
+    autoAddToPresets: false, model: 'haiku', bjjRulesAutoAdd: false,
+    bjjRules: [...DEFAULT_BJJ_RULES], feedbackExamples: [], techBlocklist: [],
+  };
+  window.aiSettings = aiSettings;
+
+  _tagGroups = [];
+
+  filterColVis = { mark: true, status: true, rank: true };
+  window.filterColVis = filterColVis;
+
+  console.warn('[wkLs] 別アカウントのため、この端末に残っていた設定をメモリ上で初期化しました'
+             + '（localStorage は消していません）');
+};
+
 export function saveTagSettings() {
-  try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
+  try { window.wkLsSet('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
   applyTagLabels();
   window.saveUserSettings?.();
 }
 
 export function saveAiSettings() {
-  try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
+  try { window.wkLsSet('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
   window.saveUserSettings?.();
 }
 
@@ -140,21 +171,21 @@ export function applyRemoteSettings(data) {
   if (data.tagSettings && Array.isArray(data.tagSettings) && data.tagSettings.length) {
     tagSettings = data.tagSettings;
     _migrateTagSettings();
-    try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
+    try { window.wkLsSet('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
     window.tagSettings = tagSettings;
   }
   if (data.aiSettings && typeof data.aiSettings === 'object') {
     Object.assign(aiSettings, data.aiSettings);
-    try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
+    try { window.wkLsSet('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
     window.aiSettings = aiSettings;
   }
   if (Array.isArray(data.tagGroups) && data.tagGroups.length) {
     _tagGroups = data.tagGroups;
-    try { localStorage.setItem('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
+    try { window.wkLsSet('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
   }
   if (data.filterColVis && typeof data.filterColVis === 'object') {
     Object.assign(filterColVis, data.filterColVis);
-    try { localStorage.setItem('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
+    try { window.wkLsSet('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
     window.filterColVis = filterColVis;
     _renderFilterColSettings();
   }
@@ -487,7 +518,7 @@ function _loadTagGroups() {
   try { const a = localStorage.getItem('wk_tagAliases'); if (a) _tagAliasData = JSON.parse(a); } catch(e) { _tagAliasData = {}; }
 }
 function _saveTagGroups() {
-  try { localStorage.setItem('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
+  try { window.wkLsSet('wk_tagGroups', JSON.stringify(_tagGroups)); } catch(e) {}
   window.saveUserSettings?.();
 }
 function _saveTagAliases() {
@@ -986,7 +1017,7 @@ window._requestAiGroupProposals = async () => {
   _renderTagsNewModal();
   try {
     const existingGroups = _tagGroups.map(g => ({ name: g.name }));
-    const res = await fetch('/api/ai-group', {
+    const res = await window.wkFetch('/api/ai-group', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ tags: uncTags, existingGroups }),
@@ -2546,7 +2577,7 @@ export let filterColVis = { mark: true, status: true, rank: true };
 })();
 
 export function saveFilterColVis() {
-  try { localStorage.setItem('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
+  try { window.wkLsSet('wk_filterColVis', JSON.stringify(filterColVis)); } catch(e) {}
   window.filterColVis = filterColVis;
   window.saveUserSettings?.();
   // カードビューを即時再描画

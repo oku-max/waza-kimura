@@ -198,6 +198,28 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // ── 空状態の案内（js/config.js の wkEmptyStateHTML / v52.694）──
+    'WAZA KIMURA へようこそ':'Welcome to WAZA KIMURA',
+    '散らかった柔術動画を、技・ポジションで整理して探せるようにするアプリです。':'An app that organizes your scattered BJJ videos by technique and position so you can actually find them.',
+    'まずログインしてください。ログインしないとデータがこの端末にしか残らず、タブを閉じると消えてしまいます。':'Please sign in first. Without signing in, your data stays only in this browser and disappears when you close the tab.',
+    'Googleでログイン':'Sign in with Google',
+    'できることを見る':'See what it does',
+    '最初の動画を追加しましょう':'Add your first video',
+    '1本入れるところから始まります。3つのやり方があります。':'It starts with one video. There are three ways to add one.',
+    '動画のURLを貼り付ける（YouTube・Vimeo・Google Drive）':'Paste a video URL (YouTube, Vimeo, Google Drive)',
+    'YouTubeのプレイリストからまとめて選ぶ':'Pick several from a YouTube playlist',
+    'アプリの中でYouTubeを検索して追加する':'Search YouTube inside the app and add from there',
+    '＋ 動画を追加':'+ Add video',
+    // ── /api/* の上限・認証メッセージ（_worker.js が返す文言 v52.692）──
+    // サーバーが返した文字列がそのままトーストに出るため、表示層で訳す必要がある。
+    // 追加・変更するときは _worker.js の guard() 側の文言と必ず対で直すこと。
+    '日付が変わると再び使えます。':'It becomes available again after the date changes.',
+    'YouTube検索の1日の上限に達しました':'Daily YouTube search limit reached',
+    'アプリ全体で共有している上限です。日付が変わると再び使えます。':'This limit is shared across the whole app. It becomes available again after the date changes.',
+    // 上限メッセージに差し込まれる機能名（AUTO_PATTERNS から _autoMap で引く）
+    'AI分類':'AI grouping',
+    '文字起こし':'Transcription','書き起こし確認':'Transcription status','字幕取得':'Subtitle fetch','文取得':'Sentence fetch',
+    'YouTube取得':'YouTube fetch',
     // ── ステータス/優先度（データ値の表示） ──
     '未着手':'Not started','理解':'Understood','把握':'Understood','練習中':'Practicing','習得中':'Practicing','できる':'Mastered','マスター':'Master',
     '今すぐ':'Now','そのうち':'Later','保留':'On hold','未分類':'Uncategorized','未設定':'Not set','中立':'Neutral',
@@ -1693,6 +1715,13 @@
   };
 
   const AUTO_PATTERNS = [
+    // ── /api/* の上限メッセージ（_worker.js の guard）──
+    // 「本日の上限に達しました（AIタグ提案: 1日 30 回まで）」
+    // 機能名は静的辞書で引く。知らない名前なら訳さない（null）で他に任せる。
+    [/^本日の上限に達しました（(.+?): 1日 (\d+) 回まで）$/, (m, label, n) => {
+      const en = _autoMap.get(label);
+      return en != null ? `Daily limit reached (${en}: ${n} per day)` : null;
+    }],
     // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
     // 「検出元 · $0.003」。検出元は静的辞書で引き、金額はそのまま残す
     [/^(.+?) · (\$[\d.]+)$/, (m, head, cost) => {

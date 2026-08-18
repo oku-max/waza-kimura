@@ -1,0 +1,92 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════
+// WAZA KIMURA — Firestore セキュリティルール（案 v1 / 2026-08-13）
+//
+// ⚠️ このファイルはまだ本番に適用されていません。
+//    現在 Firebase コンソールに設定されているルールは未確認です。
+//    適用前に、必ず下記「適用手順」の 1〜3 を実行してください。
+//
+// ── なぜ必要か ────────────────────────────────────────────────
+//   ルールがリポジトリに無いと、サーバー側のユーザー分離をコードから
+//   検証できない（＝「たぶん大丈夫」としか言えない）。
+//   また、コンソールでの手編集は履歴が残らず事故の温床になる。
+//
+// ── 設計方針 ──────────────────────────────────────────────────
+//   1. 既定は全拒否。明示的に許可した経路だけ通す。
+//   2. users/{uid} 配下は、その uid 本人だけが読み書きできる。
+//   3. feedback は「書き込みは本人・読み取りは運営者のみ」。
+//      （uid とメールアドレスが入るため、read を開けると全員の
+//        メールアドレスが他の利用者から読める状態になる）
+//
+// ── 適用手順 ──────────────────────────────────────────────────
+//   1. Firebase コンソール → Firestore → ルール で「現在のルール」を
+//      コピーし、`firestore.rules.current-backup` として保存する。
+//   2. Firebase コンソールの「ルールプレイグラウンド」で、
+//      下記「検証チェックリスト」の各項目を確認する。
+//   3. 自分のアカウントでアプリを一通り操作し、権限エラーが出ないこと
+//      （動画の保存・ノート・プレイリスト・スナップショット・
+//        フィードバック送信・管理画面）を確認してから公開する。
+//
+// ── 検証チェックリスト ────────────────────────────────────────
+//   [ ] 自分の users/{自分のuid}/data/settings   → read/write できる
+//   [ ] 他人の users/{他人のuid}/data/settings   → read/write できない
+//   [ ] 未ログイン                               → 何も読めない
+//   [ ] feedback を認証済みユーザーが作成        → できる
+//   [ ] feedback を一般ユーザーが読む            → できない
+//   [ ] feedback を運営者が読む/更新/削除        → できる
+//   [ ] 上記以外のパス                           → 全部拒否される
+// ═══════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 本人確認：ログイン済みで、パスの uid が自分自身であること
+    function isSelf(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // 運営者（管理画面でフィードバックを読むために必要）
+    // メールは Google ログインのトークンに入る。検証済みであることも確認する。
+    function isOwner() {
+      return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email == 'okujournal@gmail.com';
+    }
+
+    // ── 利用者ごとのデータ ──────────────────────────────────
+    // users/{uid}/data/{docId}      … settings, videos, notes, cvStartup,
+    //                                  cv_index, cv_<id>, tag_master,
+    //                                  tag_rules, admin_config
+    // users/{uid}/snapshots/{snapId} … 静止画スナップショット
+    //
+    // 配下すべてを本人限定にする。将来サブコレクションが増えても
+    // 自動的に保護されるよう {document=**} で受ける。
+    match /users/{uid} {
+      allow read, write: if isSelf(uid);
+
+      match /{document=**} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // ── フィードバック ─────────────────────────────────────
+    // 書き込み: ログイン済みユーザーが、自分の uid を名乗る形でのみ作成できる。
+    //           （他人の uid を騙った投稿を防ぐ）
+    // 読み取り: 運営者のみ。一般ユーザーには開けない。
+    //           開けると全利用者のメールアドレスが誰でも読める状態になる。
+    match /feedback/{docId} {
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 10000;
+
+      allow read, update, delete: if isOwner();
+    }
+
+    // ── それ以外は全部拒否 ──────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

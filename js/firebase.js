@@ -40,6 +40,55 @@ auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   if (window.__pmark && !window.__perf?.auth) window.__pmark('auth');
   updateAuthUI(user);
+
+  // ── 別アカウントに切り替わったときの後始末（v52.693）─────────────
+  //
+  // 直したい問題:
+  //   ページを読み込み直さずに A→ログアウト→B とログインすると、
+  //   A のデータがメモリに残ったまま B のセッションが始まる。
+  //   - window.videos … loadUserData は「クラウドの内容をメモリに足す」実装なので
+  //     A の動画が消えない。その状態で保存が走ると B のクラウドに A の動画が入る。
+  //   - 設定・プレイリスト … localStorage 由来の A の値が残る（config.js の説明を参照）。
+  //
+  // ここでやること: メモリ上の状態だけを初期化する。
+  //   localStorage も Firestore も Storage も一切触らない（削除も上書きもしない）。
+  //   直後に loadUserData / loadUserSettings がクラウドから読み直すので、
+  //   B に既存データがあれば正しく復元される。新規なら空のまま。
+  //
+  // 保存事故が起きない根拠:
+  //   この時点で _videosReady = _settingsReady = false（上のブロックで落としてある）。
+  //   saveUserData も saveUserSettings も、このフラグが立つまで書き込みを拒否する。
+  //   フラグが立つのは、それぞれのクラウド読み込みが成功した後だけ。
+  //
+  // ログアウト時にはあえて消していない:
+  //   v52.541 は「ログアウト時に _views を空にした」ことが起点で全端末から
+  //   プレイリストが消えた。同じ形には近づけない。ログアウト後は保存経路が
+  //   currentUser の null チェックで止まるため、残っていても書き込まれることはない。
+  //   （共用端末でログアウト後も前の人の一覧が見える点は別途要検討）
+  const _userSwitched = _newUid && _prevUid && _newUid !== _prevUid;
+  if (_userSwitched) {
+    console.warn(`[auth] 別アカウントに切り替わりました。メモリ上の状態を初期化します（保存には触れません）`);
+    if (Array.isArray(window.videos)) window.videos.length = 0;
+    _videosLoadedAt = '';
+    _cvLastSynced = {};
+    _cvMigrated   = false;
+    try { window._cvApplyLoadedViews?.([]); } catch (e) { console.error('[auth] ビュー初期化に失敗', e); }
+  }
+
+  // この端末の localStorage が誰のものかを判定する。
+  // 印が無ければ今のuidで押す＝既存ユーザーの端末は今までどおりの挙動になる。
+  if (user) {
+    const _mine = window.wkLsClaim?.(user.uid);
+    if (_mine === false) {
+      // よそ者のセッション。この端末に残っている前の人の設定を既定値へ戻す。
+      // （メモリのみ。localStorage は読み書きしない＝持ち主のキャッシュは無傷）
+      try { window._wkResetSyncedSettings?.(); }      catch (e) { console.error('[wkLs] 設定の初期化に失敗', e); }
+      try { window._wkResetSyncedFilterPresets?.(); } catch (e) { console.error('[wkLs] プリセットの初期化に失敗', e); }
+      try { window._wkResetSyncedOrgCols?.(); }       catch (e) { console.error('[wkLs] 列設定の初期化に失敗', e); }
+      try { window._cvApplyLoadedViews?.([]); }       catch (e) { console.error('[wkLs] ビュー初期化に失敗', e); }
+    }
+  }
+
   if (user) {
     window._notesInitForUser?.();
     await loadUserData(user.uid);
@@ -565,7 +614,7 @@ async function _cvLoadAndMerge(uid, legacyArr) {
   let baseLocal = [];
   if (cloudEmpty) {
     baseLocal = window._cvViews || [];
-    if (!baseLocal.length) { try { baseLocal = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch (e) {} }
+    if (!baseLocal.length) { try { baseLocal = JSON.parse(window.wkLsGet?.('wk_cv_views') || '[]') || []; } catch (e) {} }
   }
 
   // マージ（優先度 低→高 で上書き）: local < legacy < perDoc。どの層のビューも失わない。
@@ -681,7 +730,7 @@ export async function loadUserSettings(uid) {
           else cleaned.push(r);
         }}
         window.orgColOrder = cleaned;
-        try { localStorage.setItem('wk_orgColOrder', JSON.stringify(cleaned)); } catch(e) {}
+        try { window.wkLsSet('wk_orgColOrder', JSON.stringify(cleaned)); } catch(e) {}
       }
       if (data.orgColVisibility && typeof data.orgColVisibility === 'object') {
         const vis = { ...data.orgColVisibility };
@@ -691,7 +740,7 @@ export async function loadUserSettings(uid) {
         if (vis.counter === undefined) vis.counter = true;
         if (vis.status === undefined) vis.status = true;
         window.orgColVisibility = { ...window.orgColVisibility, ...vis };
-        try { localStorage.setItem('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
+        try { window.wkLsSet('wk_orgColVisibility', JSON.stringify(window.orgColVisibility)); } catch(e) {}
       }
       // カスタムビュー: 新形式(プレイリスト単位ドキュメント)＋旧形式(customViews配列)を安全マージ。
       // 新経路で例外が出ても旧形式にフォールバックし、既存データを失わない（非破壊）。
@@ -719,7 +768,7 @@ export async function loadUserSettings(uid) {
         else {
           // クラウドが空。ローカルにビューが残っていれば自己修復（空→非空の一方向のみ）
           let localCV = window._cvViews || [];
-          if (!localCV.length) { try { localCV = JSON.parse(localStorage.getItem('wk_cv_views') || '[]') || []; } catch(e2) { localCV = []; } }
+          if (!localCV.length) { try { localCV = JSON.parse(window.wkLsGet?.('wk_cv_views') || '[]') || []; } catch(e2) { localCV = []; } }
           if (localCV.length) { window._cvApplyLoadedViews?.(localCV); window._cvSave?.(); }
         }
       }
