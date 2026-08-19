@@ -52,7 +52,7 @@ export function switchTab(t) {
   if (t === 'organize') { window._libViewMode = 'org'; t = 'home'; }
   // archiveタブはsettingsタブのサブタブとして統合
   if (t === 'archive') { window._pendingSettingsSub = 'archive'; t = 'settings'; }
-  ['home','community','archive','settings','admin','search','notes'].forEach(n => {
+  ['home','community','archive','settings','admin','search','notes','murmurs'].forEach(n => {
     const p  = document.getElementById(n + 'Tab');   if (p)  p.className  = 'tab-panel' + (t === n ? ' active' : '');
     const m  = document.getElementById('mnav-' + n); if (m)  m.className  = 'mn-i'      + (t === n ? ' active' : '');
     const tn = document.getElementById('tnav-' + n); if (tn) tn.className = 'tn-i'      + (t === n ? ' active' : '');
@@ -70,7 +70,7 @@ export function switchTab(t) {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = 'none';
       if (settingsC) settingsC.style.display = t === 'settings' ? '' : 'none';
-    } else if (t === 'search' || t === 'notes') {
+    } else if (t === 'search' || t === 'notes' || t === 'murmurs') {
       if (orgC) orgC.style.display = 'none';
       if (libC) libC.style.display = 'none';
       if (settingsC) settingsC.style.display = 'none';
@@ -95,6 +95,7 @@ export function switchTab(t) {
   if (t === 'admin')     window.renderAdminDashboard?.();
   if (t === 'search')   window.ytSrInit?.();
   if (t === 'notes')    window.renderNotes?.();
+  if (t === 'murmurs')  window.renderMurmurs?.();
   if (window.bulkMode) {
     if (t !== 'home') window.exitBulk?.();
   }
