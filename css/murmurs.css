@@ -6,7 +6,7 @@
   display:flex;align-items:center;justify-content:center;
   width:46px;height:46px;padding:0;border-radius:50%;
   border:1px solid var(--border);background:var(--surface);color:var(--text2);
-  font-family:inherit;font-size:17px;line-height:1;cursor:pointer;
+  font-family:inherit;font-size:22px;font-weight:300;line-height:1;cursor:pointer;
   box-shadow:var(--shadow-lg);transition:transform .14s ease,color .14s ease;
 }
 #mm-fab:hover{transform:translateY(-1px);color:var(--text)}
@@ -22,7 +22,7 @@ body:has(#vpanel.show) #mm-fab,
 body:has(#mm-composer.open) #mm-fab{display:none}
 @media (max-width:700px){
   body[data-mm-pos="br"] #mm-fab,body[data-mm-pos="bl"] #mm-fab{bottom:74px}
-  #mm-fab{width:42px;height:42px;font-size:16px}
+  #mm-fab{width:42px;height:42px;font-size:20px}
 }
 
 /* ── コンポーザ ── */
@@ -138,8 +138,24 @@ body[data-mm-pos="tl"] #mm-composer{left:22px;top:74px}
   resize:vertical;outline:none;margin-bottom:7px}
 .mm-edit-ft{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .mm-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.mm-tag{font-size:10.5px;padding:2px 9px;border-radius:20px;
-  background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.mm-tag{font-size:10.5px;padding:2px 9px;border-radius:20px;font-family:inherit;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border);cursor:pointer}
+.mm-tag:hover{border-color:var(--accent);color:var(--text)}
+.mm-tag.add{border-style:dashed;background:none;color:var(--text3)}
+
+/* 編集中のタグ */
+.mm-edit-tags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:9px}
+.mm-et-lbl{font-size:10px;letter-spacing:.06em;color:var(--text3);font-weight:700}
+.mm-et-none{font-size:11px;color:var(--text3)}
+.mm-et-chip{display:inline-flex;align-items:center;gap:2px;font-size:11px;
+  padding:3px 5px 3px 10px;border-radius:20px;font-weight:700;
+  background:var(--gold-soft);color:var(--gold);border:1px solid transparent}
+.mm-et-x{border:0;background:none;cursor:pointer;color:inherit;opacity:.55;
+  font-size:12px;line-height:1;padding:0 3px;font-family:inherit}
+.mm-et-x:hover{opacity:1}
+.mm-et-add{border:1px dashed var(--border);background:none;color:var(--text3);
+  font-family:inherit;font-size:11px;padding:3px 9px;border-radius:20px;cursor:pointer}
+.mm-et-add:hover{border-style:solid;color:var(--text2)}
 .mm-vids{font-size:10.5px;padding:2px 9px;border-radius:20px;cursor:pointer;font-family:inherit;
   background:var(--blue-soft);color:var(--blue);border:1px solid transparent}
 .mm-vids:hover{text-decoration:underline}

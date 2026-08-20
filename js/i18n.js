@@ -199,7 +199,7 @@
 
   const STATIC_AUTO = {
     // ── つぶやき（Murmurs）──
-    '書く':'Write','◷ 書く':'◷ Write','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
+    '書く':'Write','＋ 書く':'＋ Write','＋ 追加':'+ Add','タグを編集':'Edit tags','タグを付ける':'Add tags','＋ タグ':'+ Tag','なし':'None','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
     '書きました':'Written','元の記録へ':'Go to the original','ボタンの表示':'The button','テンプレート':'Templates',
     '書き捨てでいい':'Jot it down and forget it','ふわっと思ったことを書く…':'Write whatever comes to mind...',
     'すべて見る':'See all','…テンプレ一覧':'...All templates','検出':'Detected',

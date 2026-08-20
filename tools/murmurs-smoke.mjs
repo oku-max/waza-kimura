@@ -154,6 +154,35 @@ check('編集が反映される', bodies.some(b => b.includes('デラヒーバ')
 check('編集でタグを取り直す',
   (await page.locator('#mm-list .mm-tag').allTextContents()).some(t => t.includes('デラヒーバ')));
 
+// ── タグ編集 ──
+await page.locator('#mm-list [data-mm-edit]').first().click();
+await page.waitForTimeout(250);
+check('編集中にタグ欄が出る', await page.locator('#mm-edit-tags').count() === 1);
+const etBefore = await page.locator('#mm-edit-tags .mm-et-chip').count();
+check('既存のタグが編集欄に入る', etBefore >= 1, String(etBefore));
+const droppedTag = (await page.locator('#mm-edit-tags .mm-et-chip').first().textContent() || '').replace(/[#×]/g,'').trim();
+await page.locator('#mm-edit-tags [data-mm-etdrop]').first().click();
+await page.waitForTimeout(200);
+check('タグを外せる', await page.locator('#mm-edit-tags .mm-et-chip').count() === etBefore - 1);
+await page.locator('#mm-et-add').click();
+await page.waitForTimeout(250);
+await page.locator('[data-mm-addtag="パスガード"]').click();
+await page.waitForTimeout(250);
+check('タグを足せる',
+  (await page.locator('#mm-edit-tags .mm-et-chip').allTextContents()).some(t => t.includes('パスガード')));
+await page.locator('#mm-list [data-mm-save]').click();
+await page.waitForTimeout(300);
+const savedTags = await page.locator('#mm-list .mm-row').first().locator('.mm-tag').allTextContents();
+check('編集したタグが保存される', savedTags.some(t => t.includes('パスガード')), savedTags.join(','));
+check('外したタグは戻らない（その行のみ）', !savedTags.some(t => t.includes(droppedTag)), droppedTag + ' / ' + savedTags.join(','));
+
+// タグを直接押しても編集に入れる
+await page.locator('#mm-list .mm-tag').first().click();
+await page.waitForTimeout(250);
+check('タグを押すと編集に入る', await page.locator('#mm-edit-tags').count() === 1);
+await page.locator('#mm-list [data-mm-cancel]').click();
+await page.waitForTimeout(250);
+
 // ── ★ 固定 ──
 await page.locator('#mm-list [data-mm-star]').last().click();
 await page.waitForTimeout(300);

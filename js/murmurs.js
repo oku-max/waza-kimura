@@ -15,6 +15,8 @@ let _tpls  = [];     // 自作テンプレート
 let _ready = false;  // クラウドの状態を確実に把握できたか（把握前は保存しない）
 let _allowEmptySave = false; // ユーザーが明示的に全部消したときだけ空保存を許す
 let _editingId = null;
+let _editTags = new Set();   // 編集中のタグ（保存するとこれがそのまま入る）
+let _editDropped = new Set(); // 編集中に手で外したタグ（本文から再検出しても戻さない）
 let _deriveFrom = null;
 let _rmTags = new Set();   // 検出されたが手で外したタグ
 let _addTags = new Set();  // 手で足したタグ
@@ -241,7 +243,7 @@ function _ensureFab() {
   b.type = 'button';
   b.title = 'Journal に書く（N）';
   b.setAttribute('aria-label', 'Journal に書く');
-  b.textContent = '◷';   // ナビの Journal と同じ記号（カラー絵文字にならない字形）
+  b.textContent = '＋';   // 動作＝新しく書く。ASCII/全角記号なのでカラー絵文字にならない
   b.onclick = () => openComposer();
   document.body.appendChild(b);
   document.body.dataset.mmPos = localStorage.getItem(LS_POS) || 'br';
@@ -438,7 +440,7 @@ export function renderMurmurs() {
         <h2>Journal</h2>
         <span class="mm-sub"><span class="mm-num">${_data.length}</span> 件</span>
         <span class="mm-spacer"></span>
-        <button class="mm-ghost" id="mm-btn-new">◷ 書く</button>
+        <button class="mm-ghost" id="mm-btn-new">＋ 書く</button>
         <button class="mm-ghost" id="mm-btn-random">🎲 ランダムに1件</button>
         <button class="mm-ghost" id="mm-btn-tpl">⊞ テンプレート</button>
         <button class="mm-ghost" id="mm-btn-pos">⚙ 表示</button>
@@ -485,6 +487,7 @@ function _rowHTML(m) {
         </button>` : ''}
       ${isEd ? `
         <textarea class="mm-edit" data-mm-ed="${_esc(m.id)}" rows="4">${_esc(m.body)}</textarea>
+        <div class="mm-edit-tags" id="mm-edit-tags">${_editTagsHTML()}</div>
         <div class="mm-edit-ft">
           <span class="mm-hint">⌘ + Enter で保存 / Esc で取消</span>
           <button class="mm-ghost" data-mm-cancel="${_esc(m.id)}">やめる</button>
@@ -492,7 +495,10 @@ function _rowHTML(m) {
         </div>`
       : `<div class="mm-body">${_esc(m.body)}</div>`}
       <div class="mm-meta">
-        ${(m.tags || []).map(t => `<span class="mm-tag">#${_esc(t)}</span>`).join('')}
+        ${(m.tags || []).map(t =>
+          `<button class="mm-tag" data-mm-edittag="${_esc(m.id)}" title="タグを編集">#${_esc(t)}</button>`).join('')}
+        ${!(m.tags || []).length && !isEd
+          ? `<button class="mm-tag add" data-mm-edittag="${_esc(m.id)}" title="タグを付ける">＋ タグ</button>` : ''}
         ${vids.length ? `<button class="mm-vids" data-mm-rel="${_esc(m.id)}">▸ 関連動画 ${vids.length}本</button>` : ''}
         ${kids ? `<button class="mm-kids" data-mm-kids="${_esc(m.id)}">⑂ ${kids}件に育った</button>` : ''}
       </div>
@@ -515,15 +521,20 @@ function _bindRows() {
     window.toast?.(m.star ? '★ トップに固定しました' : '固定を外しました');
     if (m.star) _flashRow(m.id);
   });
-  $$m('#mm-list [data-mm-edit]').forEach(b => b.onclick = () => {
-    _editingId = b.dataset.mmEdit; renderMurmurs();
-    const ta = $m(`[data-mm-ed="${CSS.escape(_editingId)}"]`);
-    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-  });
+  $$m('#mm-list [data-mm-edit]').forEach(b => b.onclick = () => _startEdit(b.dataset.mmEdit));
+  $$m('#mm-list [data-mm-edittag]').forEach(b => b.onclick = () => _startEdit(b.dataset.mmEdittag, true));
   $$m('#mm-list [data-mm-save]').forEach(b => b.onclick = () => _saveEdit(b.dataset.mmSave));
   $$m('#mm-list [data-mm-cancel]').forEach(b => b.onclick = () => { _editingId = null; renderMurmurs(); });
-  $$m('#mm-list [data-mm-ed]').forEach(ta => ta.onkeydown = e => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); _saveEdit(ta.dataset.mmEd); }
+  _bindEditTags();
+  $$m('#mm-list [data-mm-ed]').forEach(ta => {
+    ta.onkeydown = e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); _saveEdit(ta.dataset.mmEd); }
+    };
+    ta.oninput = () => {
+      detectTags(ta.value).forEach(v => { if (!_editDropped.has(v.label)) _editTags.add(v.label); });
+      const box = $m('#mm-edit-tags');
+      if (box) { box.innerHTML = _editTagsHTML(); _bindEditTags(); }
+    };
   });
   $$m('#mm-list [data-mm-derive]').forEach(b => b.onclick = () => openComposer(b.dataset.mmDerive));
   $$m('#mm-list [data-mm-jump]').forEach(b => b.onclick = () => _flashRow(b.dataset.mmJump, true));
@@ -538,13 +549,43 @@ function _bindRows() {
   $$m('#mm-list [data-mm-del]').forEach(b => b.onclick = () => _del(b.dataset.mmDel));
 }
 
+function _startEdit(id, focusTags) {
+  const m = _data.find(x => x.id === id); if (!m) return;
+  _editingId = id;
+  _editTags = new Set(m.tags || []);
+  _editDropped = new Set();
+  renderMurmurs();
+  if (focusTags) { $m('#mm-edit-tags')?.scrollIntoView({ block:'center' }); return; }
+  const ta = $m(`[data-mm-ed="${CSS.escape(id)}"]`);
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+function _editTagsHTML() {
+  return `<span class="mm-et-lbl">タグ</span>` +
+    [..._editTags].map(t =>
+      `<span class="mm-et-chip">#${_esc(t)}<button class="mm-et-x" data-mm-etdrop="${_esc(t)}" aria-label="外す">×</button></span>`).join('') +
+    `<button class="mm-et-add" id="mm-et-add">＋ 追加</button>` +
+    (_editTags.size ? '' : `<span class="mm-et-none">なし</span>`);
+}
+
+function _bindEditTags() {
+  $$m('#mm-edit-tags [data-mm-etdrop]').forEach(b => b.onclick = () => {
+    const t = b.dataset.mmEtdrop;
+    _editTags.delete(t); _editDropped.add(t);
+    const box = $m('#mm-edit-tags');
+    if (box) { box.innerHTML = _editTagsHTML(); _bindEditTags(); }
+  });
+  const add = $m('#mm-et-add');
+  if (add) add.onclick = () => window._murmursOpenTagPicker('edit');
+}
+
 function _saveEdit(id) {
   const ta = $m(`[data-mm-ed="${CSS.escape(id)}"]`); if (!ta) return;
   const v = ta.value.trim();
   if (!v) { window.toast?.('本文が空です'); return; }
   const m = _data.find(x => x.id === id); if (!m) return;
   m.body = v;
-  m.tags = detectTags(v).map(x => x.label);
+  m.tags = [..._editTags];   // 画面に出ているタグがそのまま保存される
   m.updatedAt = Date.now();
   _editingId = null;
   _save(); renderMurmurs();
@@ -670,8 +711,9 @@ window._murmursShowRelated = function (tags) {
 };
 
 // ── タグを足す ──
-window._murmursOpenTagPicker = function () {
-  const cur = new Set(_liveTags());
+window._murmursOpenTagPicker = function (mode) {
+  const isEdit = mode === 'edit';
+  const cur = isEdit ? new Set(_editTags) : new Set(_liveTags());
   const kinds = [['pos','ポジション'],['cat','カテゴリ'],['tech','技'],['tag','#タグ']];
   const v = _getVocab();
   _openModal('タグを足す・外す',
@@ -684,10 +726,18 @@ window._murmursOpenTagPicker = function () {
     }).join(''));
   $$m('#mm-mbd [data-mm-addtag]').forEach(b => b.onclick = () => {
     const l = b.dataset.mmAddtag;
-    if (cur.has(l)) { _addTags.delete(l); _rmTags.add(l); }
-    else { _addTags.add(l); _rmTags.delete(l); }
-    window._murmursCloseModal();
-    _renderDetect();
+    if (isEdit) {
+      if (cur.has(l)) { _editTags.delete(l); _editDropped.add(l); }
+      else { _editTags.add(l); _editDropped.delete(l); }
+      window._murmursCloseModal();
+      const box = $m('#mm-edit-tags');
+      if (box) { box.innerHTML = _editTagsHTML(); _bindEditTags(); }
+    } else {
+      if (cur.has(l)) { _addTags.delete(l); _rmTags.add(l); }
+      else { _addTags.add(l); _rmTags.delete(l); }
+      window._murmursCloseModal();
+      _renderDetect();
+    }
   });
 };
 
