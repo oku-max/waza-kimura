@@ -9,6 +9,7 @@
   font-family:inherit;font-size:22px;font-weight:300;line-height:1;cursor:pointer;
   box-shadow:var(--shadow-lg);transition:transform .14s ease,color .14s ease;
 }
+#mm-fab svg{width:21px;height:21px;display:block}
 #mm-fab:hover{transform:translateY(-1px);color:var(--text)}
 #mm-fab:active{transform:translateY(0)}
 body[data-mm-pos="br"] #mm-fab{right:22px;bottom:22px}
@@ -19,8 +20,9 @@ body[data-mm-pos="off"] #mm-fab{display:none}
 /* ヘッダー右端: 浮かせず、アカウントボタンの左隣に並べる。
    .acct-btn が margin-left:auto を持っているため、ボタン側にも auto を付けると
    余白を取り合って中央に浮いてしまう。auto は ＋ 側だけに持たせる。 */
+body[data-mm-pos="header"] #mm-fab svg{width:17px;height:17px}
 body[data-mm-pos="header"] #mm-fab{
-  position:static;width:30px;height:30px;font-size:18px;
+  position:static;width:30px;height:30px;
   margin-left:auto;margin-right:8px;flex-shrink:0;
   box-shadow:none;background:var(--surface2);border-color:transparent;
 }
@@ -35,7 +37,8 @@ body:has(#fc-overlay.open) #mm-fab,
 body:has(#mm-composer.open) #mm-fab{display:none!important}
 @media (max-width:700px){
   body[data-mm-pos="br"] #mm-fab,body[data-mm-pos="bl"] #mm-fab{bottom:74px}
-  #mm-fab{width:42px;height:42px;font-size:20px}
+  #mm-fab{width:42px;height:42px}
+  #mm-fab svg{width:19px;height:19px}
 }
 
 /* ── コンポーザ ── */
@@ -121,6 +124,9 @@ body[data-mm-pos="tl"] #mm-composer{left:22px;top:74px}
 .mm-ghost{border:1px solid var(--border);background:var(--surface);color:var(--text2);
   font-family:inherit;font-size:11.5px;padding:5px 12px;border-radius:6px;cursor:pointer}
 .mm-ghost:hover{background:var(--surface2);color:var(--text)}
+.mm-ghost-ic{display:inline-flex;align-items:center;gap:5px}
+.mm-ghost-ic svg{width:14px;height:14px;flex-shrink:0}
+#vp-journal-btn svg{width:15px;height:15px;display:block}
 
 .mm-resurf{border:1px solid var(--border);border-left:3px solid var(--gold);
   background:var(--gold-soft);border-radius:var(--radius);padding:13px 15px;margin-bottom:18px}

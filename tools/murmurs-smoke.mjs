@@ -102,6 +102,9 @@ await page.waitForTimeout(300);
 check('一覧が描画される', await page.locator('#murmursTab .mm-wrap').count() === 1);
 check('空の案内が出る', await page.locator('#murmursTab .mm-empty').count() === 1);
 check('常駐ボタンが出る', await page.locator('#mm-fab').isVisible());
+check('記号が単色SVG（絵文字ではない）', await page.locator('#mm-fab svg').count() === 1);
+check('ボタンに文字ラベルが無い',
+  ((await page.locator('#mm-fab').textContent()) || '').trim() === '');
 
 // ── N キーで開く ──
 await page.locator('body').click({ position: { x: 550, y: 400 } });

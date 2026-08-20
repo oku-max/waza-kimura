@@ -1443,7 +1443,7 @@ export function openVPanel(id) {
         </div>
         <span id="vp-title-time" style="flex-shrink:0;font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;align-self:center"></span>
         <button id="vp-more-btn" onclick="vpTogMoreMenu(event,'${id}')" title="その他のアクション" style="${navBtn};font-size:14px;letter-spacing:-1px">•••</button>
-        <button id="vp-journal-btn" onclick="window.openMurmurComposer?.()" title="Journal に書く" style="${navBtn}">＋</button>
+        <button id="vp-journal-btn" onclick="window.openMurmurComposer?.()" title="Journal に書く" style="${navBtn};display:inline-flex;align-items:center;justify-content:center"><span style="width:15px;height:15px;display:block">${window._murmursIcon || '+'}</span></button>
         <button id="vp-tut-btn" onclick="window.vpStartTutorial?.()" title="使い方" style="${navBtn}">?</button>
       </div>
       <div id="vpanel-ctrl-row2" style="display:flex;align-items:center;gap:4px;padding:5px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">

@@ -254,6 +254,15 @@ function _fmtDate(ts) {
 }
 
 // ─────────────────────────────── UI: 常駐ボタン
+// 書くボタンの記号。絵文字だと環境で色付きになって他のUIから浮くため、
+// 単色の SVG にする。currentColor なので周りの文字色にそのまま従う。
+const ICON_JOURNAL =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+  '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/>' +
+  '<path d="M8 7h8M8 11h6"/></svg>';
+window._murmursIcon = ICON_JOURNAL;   // 動画パネル側からも同じ記号を使う
+
 // 書くボタンの置き場所
 //   off    … 出さない（N キーだけ）
 //   header … ヘッダー右端（アカウントボタンの隣）
@@ -270,7 +279,7 @@ function _ensureFab() {
     b.type = 'button';
     b.title = 'Journal に書く（N）';
     b.setAttribute('aria-label', 'Journal に書く');
-    b.textContent = '＋';   // 動作＝新しく書く。全角記号なのでカラー絵文字にならない
+    b.innerHTML = ICON_JOURNAL;
     b.onclick = () => openComposer();
   }
   _placeFab(window._murmursGetPos(), b);
@@ -488,7 +497,7 @@ export function renderMurmurs() {
         <h2>Journal</h2>
         <span class="mm-sub"><span class="mm-num">${_data.length}</span> 件</span>
         <span class="mm-spacer"></span>
-        <button class="mm-ghost" id="mm-btn-new">＋ 書く</button>
+        <button class="mm-ghost mm-ghost-ic" id="mm-btn-new">${ICON_JOURNAL}書く</button>
         <button class="mm-ghost" id="mm-btn-random">🎲 ランダムに1件</button>
         <button class="mm-ghost" id="mm-btn-tpl">⊞ テンプレート</button>
         <button class="mm-ghost" id="mm-btn-pos">⚙ 表示</button>
