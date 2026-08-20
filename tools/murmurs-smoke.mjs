@@ -111,6 +111,10 @@ await page.locator('body').click({ position: { x: 550, y: 400 } });
 await page.keyboard.press('n');
 await page.waitForTimeout(250);
 check('N キーでコンポーザが開く', await page.locator('#mm-composer.open').count() === 1);
+check('入力欄の案内文が「気になることをメモ」',
+  await page.locator('#mm-cp-text').getAttribute('placeholder') === '気になることをメモ');
+check('見出し脇に説明文を置かない',
+  ((await page.locator('#mm-cp-sub').textContent()) || '').trim() === '');
 
 // ── 本文からタグ検出＋関連動画 ──
 await page.locator('#mm-cp-text').fill('シザースイープ食らいまくった。腰が高いのかも');

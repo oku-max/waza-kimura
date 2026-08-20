@@ -1,6 +1,6 @@
 // ═══ WAZA KIMURA — Journal（Murmurs）v52.697 ═══
 //
-// ふわっと思ったことを5秒で残す。書き捨てでも、育ててもいい。
+// 気になったことをその場でメモする。あとから読み返したり、育てたりできる。
 //
 // ── データ経路（CLAUDE.md ルール1のため明記）──
 //  書き込み: Firestore users/{uid}/data/murmurs（新規doc・このファイルのみが触る）
@@ -314,11 +314,11 @@ function _ensureComposer() {
     <div id="mm-composer" role="dialog" aria-label="Journal に書く">
       <div class="mm-cp-hd">
         <h2 id="mm-cp-title">Journal</h2>
-        <span class="mm-cp-sub" id="mm-cp-sub">書き捨てでいい</span>
+        <span class="mm-cp-sub" id="mm-cp-sub"></span>
         <button class="mm-x" id="mm-cp-close" aria-label="閉じる">✕</button>
       </div>
       <div id="mm-cp-quote"><span class="mm-q-h">ここから育てる</span><span id="mm-cp-quote-body"></span></div>
-      <textarea id="mm-cp-text" placeholder="ふわっと思ったことを書く…"></textarea>
+      <textarea id="mm-cp-text" placeholder="気になることをメモ"></textarea>
       <div class="mm-cp-tpl" id="mm-cp-tpl"></div>
       <div class="mm-cp-det" id="mm-cp-det"></div>
       <div class="mm-cp-ft">
@@ -370,7 +370,7 @@ export function closeComposer() {
   _deriveFrom = null;
   const q = $m('#mm-cp-quote'); if (q) q.classList.remove('on');
   const t = $m('#mm-cp-title'); if (t) t.textContent = 'Journal';
-  const s = $m('#mm-cp-sub');   if (s) s.textContent = '書き捨てでいい';
+  const s = $m('#mm-cp-sub');   if (s) s.textContent = '';
 }
 
 function _resetComposer() {
@@ -512,7 +512,7 @@ export function renderMurmurs() {
           : `<div class="mm-empty">
                <p class="mm-empty-t">まだ何もありません</p>
                <p class="mm-empty-d">練習で気づいたこと、うまくいったこと、気になった技。<br>
-                  ひとことでいいので残しておくと、あとで読み返すのが面白くなります。</p>
+                  ひとことでも残しておくと、あとで読み返せます。</p>
                <button class="mm-btn-go" id="mm-empty-new">最初のひとことを書く</button>
              </div>`
       }</div>

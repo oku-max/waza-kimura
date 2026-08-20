@@ -201,7 +201,7 @@
     // ── つぶやき（Murmurs）──
     '書く':'Write','＋ 書く':'＋ Write','＋ 追加':'+ Add','タグを編集':'Edit tags','タグを付ける':'Add tags','＋ タグ':'+ Tag','なし':'None','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
     '書きました':'Written','元の記録へ':'Go to the original','書くボタンの置き場所':'Where the write button goes','ヘッダー右端':'Header, far right','出さない':'Hidden','完了':'Done','Journal に書く':'Write in Journal','テンプレート':'Templates',
-    '書き捨てでいい':'Jot it down and forget it','ふわっと思ったことを書く…':'Write whatever comes to mind...',
+    '気になることをメモ':'Note anything on your mind',
     'すべて見る':'See all','…テンプレ一覧':'...All templates','検出':'Detected',
     '技やポジションの名前を書くと、関連動画が出ます':'Write a technique or position name and related videos appear',
     '＋ タグ':'+ Tag','⑂ ここから育てる':'⑂ Grow from here','ここから育てる':'Grow from here',
@@ -212,7 +212,7 @@
     'トップに固定':'Pin to top','固定を外す':'Unpin','★ 固定':'★ Pinned','すべて':'All',
     'まだ何もありません':'Nothing here yet','最初のひとことを書く':'Write your first line',
     '練習で気づいたこと、うまくいったこと、気になった技。':'What you noticed in training, what worked, a technique that caught your eye.',
-    'ひとことでいいので残しておくと、あとで読み返すのが面白くなります。':'One line is enough — reading them back later is where it gets interesting.',
+    'ひとことでも残しておくと、あとで読み返せます。':'Even one line is worth keeping — you can read it back later.',
     '🎲 ランダムに1件':'🎲 Random one','⊞ テンプレート':'⊞ Templates','⚙ 表示':'⚙ Display',
     '元の場所へ':'Go to it','別のを見る':'Show another','つぶやきました':'Posted','⑂ 育てました':'⑂ Grown',
     'この名前がついた動画を全部出しています。まだ見ていないものが上です。':'Every video with this name. The ones you have not watched come first.',
