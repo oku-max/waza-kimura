@@ -16,13 +16,16 @@ body[data-mm-pos="bl"] #mm-fab{left:22px;bottom:22px}
 body[data-mm-pos="tr"] #mm-fab{right:22px;top:74px}
 body[data-mm-pos="tl"] #mm-fab{left:22px;top:74px}
 body[data-mm-pos="off"] #mm-fab{display:none}
-/* ヘッダー右端: 浮かせず、アカウントボタンと同じ大きさで並べる */
+/* ヘッダー右端: 浮かせず、アカウントボタンの左隣に並べる。
+   .acct-btn が margin-left:auto を持っているため、ボタン側にも auto を付けると
+   余白を取り合って中央に浮いてしまう。auto は ＋ 側だけに持たせる。 */
 body[data-mm-pos="header"] #mm-fab{
-  position:static;width:32px;height:32px;font-size:19px;
-  margin-left:auto;margin-right:6px;flex-shrink:0;
-  box-shadow:none;background:var(--surface2);
+  position:static;width:30px;height:30px;font-size:18px;
+  margin-left:auto;margin-right:8px;flex-shrink:0;
+  box-shadow:none;background:var(--surface2);border-color:transparent;
 }
-body[data-mm-pos="header"] #mm-fab:hover{transform:none;background:var(--border)}
+body[data-mm-pos="header"] #mm-fab:hover{transform:none;background:var(--border);color:var(--text)}
+body[data-mm-pos="header"] #acct-btn{margin-left:0}
 /* 他の全画面UIが出ているときは引っ込める。
    動画パネルは .vpanel.open（#vpanel.show ではない）。ここを間違えていたため
    再生中も浮かんだままで、操作の邪魔になっていた。 */
@@ -46,6 +49,7 @@ body.dark #mm-scrim{background:rgba(0,0,0,.5)}
 }
 #mm-composer.open{display:flex;animation:mm-pop .16s ease-out}
 @keyframes mm-pop{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:none}}
+body[data-mm-pos="header"] #mm-composer{right:16px;top:56px}
 body[data-mm-pos="br"] #mm-composer,body[data-mm-pos="off"] #mm-composer{right:22px;bottom:22px}
 body[data-mm-pos="bl"] #mm-composer{left:22px;bottom:22px}
 body[data-mm-pos="tr"] #mm-composer{right:22px;top:74px}

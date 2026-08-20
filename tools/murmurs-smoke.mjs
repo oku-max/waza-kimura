@@ -243,6 +243,33 @@ check('非表示でも N キーで開ける', await page.locator('#mm-composer.o
 await page.keyboard.press('Escape');
 await page.evaluate(() => window._murmursSetPos('br'));
 
+// ── どの置き場所でも入力欄が画面内に出ること ──
+// （header に位置指定が無く、開いてはいるが画面外にいた不具合を捕まえる）
+for (const pos of ['header','br','bl','tr','tl','off']) {
+  await page.evaluate(p => window._murmursSetPos(p), pos);
+  await page.evaluate(() => window.openMurmurComposer());
+  await page.waitForTimeout(200);
+  const box = await page.locator('#mm-composer').boundingBox();
+  const vp = page.viewportSize();
+  const onScreen = !!box && box.x >= 0 && box.y >= 0
+    && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1
+    && box.width > 100 && box.height > 100;
+  check(`入力欄が画面内に出る（${pos}）`, onScreen, box ? JSON.stringify(box) : 'なし');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(120);
+}
+
+// ── ヘッダー配置では右端に寄っていること ──
+await page.evaluate(() => window._murmursSetPos('header'));
+await page.waitForTimeout(200);
+const fabBox = await page.locator('#mm-fab').boundingBox();
+const acctBox = await page.locator('#acct-btn').boundingBox();
+check('ヘッダーではアカウントボタンの左隣に並ぶ',
+  !!fabBox && !!acctBox && acctBox.x > fabBox.x && (acctBox.x - (fabBox.x + fabBox.width)) < 24,
+  JSON.stringify({ fab: fabBox && Math.round(fabBox.x), acct: acctBox && Math.round(acctBox.x) }));
+check('ヘッダーでは右端側にいる',
+  !!fabBox && fabBox.x > page.viewportSize().width * 0.6, fabBox && String(Math.round(fabBox.x)));
+
 // ── 動画を見ているあいだは浮かべない ──
 await page.evaluate(() => window._murmursSetPos('br'));
 await page.waitForTimeout(200);
