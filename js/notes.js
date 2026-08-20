@@ -71,6 +71,17 @@ window._notesCreateNote = function(spec) {
   return note.id;
 };
 
+// ノートの中身をコピーで返す（テンプレート化などの読み取り用）。
+// 参照ではなくコピーなので、呼び出し側がいじってもノート本体は変わらない。
+window._notesGetNote = function(id) {
+  const r = _findNote(id);
+  if (!r) return null;
+  try { return JSON.parse(JSON.stringify(r.note)); } catch (e) { return null; }
+};
+
+// いま開いているノートのID
+window._notesActiveId = () => _activeId;
+
 // 作ったノートを開く
 window._notesOpenNote = function(id) {
   if (!_findNote(id)) return false;
@@ -355,6 +366,7 @@ window._notesCtxMenu = function(noteId, e) {
   menu.innerHTML = `
     <div class="n-ctx-item" onclick="window._notesRename('${noteId}')">✎ 名前変更</div>
     <div class="n-ctx-item" onclick="window._notesMoveNote('${noteId}')">📂 移動</div>
+    <div class="n-ctx-item" onclick="window._noteTplSaveFrom?.('${noteId}')">⊞ テンプレートにする</div>
     <div class="n-ctx-item n-ctx-danger" onclick="window._notesDelete('${noteId}')">🗑 削除</div>
   `;
 
