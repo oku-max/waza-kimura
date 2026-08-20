@@ -35,7 +35,10 @@ const IGNORE = /firebase|gstatic|googleapis|accounts\.google|gsi\/client|net::ER
 const HARNESS = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/murmurs.css">
 </head><body>
+<div class="topbar"><div class="tb-row-logo"><div class="tb-logo">WAZA KIMURA</div>
+  <button id="acct-btn">👤</button></div></div>
 <div class="tab-panel active" id="murmursTab"></div>
+<div class="vpanel" id="vpanel"><div class="vpanel-inner">video</div></div>
 <div id="toast"></div>
 <script src="/js/tag-master.js"><\/script>
 <script>
@@ -166,8 +169,25 @@ await page.waitForTimeout(200);
 check('タグを外せる', await page.locator('#mm-edit-tags .mm-et-chip').count() === etBefore - 1);
 await page.locator('#mm-et-add').click();
 await page.waitForTimeout(250);
-await page.locator('[data-mm-addtag="パスガード"]').click();
+check('タグ選択が層で分かれていない', await page.locator('#mm-mbd .mm-sec2').count() === 0);
+check('自由入力欄がある', await page.locator('#mm-tagq').count() === 1);
+check('件数が出る', await page.locator('#mm-tagrows .mm-chip-n').count() >= 1);
+// 自由入力: 辞書にも動画にも無い言葉を Enter で足せる
+await page.locator('#mm-tagq').fill('道場のあの人の癖');
+await page.waitForTimeout(200);
+check('新規タグの作成候補が出る', await page.locator('[data-mm-newtag]').count() === 1);
+await page.locator('#mm-tagq').press('Enter');
 await page.waitForTimeout(250);
+check('自由入力したタグが入る',
+  (await page.locator('#mm-edit-tags .mm-et-chip').allTextContents()).some(t => t.includes('道場のあの人の癖')));
+// 既存タグも選べる
+await page.locator('#mm-tagq').fill('パスガード');
+await page.waitForTimeout(200);
+await page.locator('[data-mm-addtag="パスガード"]').click();
+await page.waitForTimeout(200);
+await page.locator('#mm-tag-done').click();
+await page.waitForTimeout(250);
+check('完了でタグ選択が閉じる', await page.locator('#mm-modal.open').count() === 0);
 check('タグを足せる',
   (await page.locator('#mm-edit-tags .mm-et-chip').allTextContents()).some(t => t.includes('パスガード')));
 await page.locator('#mm-list [data-mm-save]').click();
@@ -209,15 +229,30 @@ check('テンプレが保存される',
 await page.keyboard.press('Escape');
 await page.locator('#mm-btn-pos').click();
 await page.waitForTimeout(250);
+await page.locator('[data-mm-pos-btn="header"]').click();
+await page.waitForTimeout(250);
+check('ヘッダー右端に移せる',
+  await page.evaluate(() => !!document.getElementById('mm-fab')?.closest('.tb-row-logo')));
 await page.locator('[data-mm-pos-btn="off"]').click();
 await page.waitForTimeout(250);
-check('「表示しない」でボタンが消える', !(await page.locator('#mm-fab').isVisible()));
+check('「出さない」でボタンが消える', !(await page.locator('#mm-fab').isVisible()));
 await page.keyboard.press('Escape');
 await page.keyboard.press('n');
 await page.waitForTimeout(250);
 check('非表示でも N キーで開ける', await page.locator('#mm-composer.open').count() === 1);
 await page.keyboard.press('Escape');
 await page.evaluate(() => window._murmursSetPos('br'));
+
+// ── 動画を見ているあいだは浮かべない ──
+await page.evaluate(() => window._murmursSetPos('br'));
+await page.waitForTimeout(200);
+check('通常は浮いている', await page.locator('#mm-fab').isVisible());
+await page.evaluate(() => document.getElementById('vpanel').classList.add('open'));
+await page.waitForTimeout(250);
+check('動画パネル表示中は浮かべない', !(await page.locator('#mm-fab').isVisible()));
+await page.evaluate(() => document.getElementById('vpanel').classList.remove('open'));
+await page.waitForTimeout(250);
+check('閉じたら戻る', await page.locator('#mm-fab').isVisible());
 
 // ══ データ安全性 ══════════════════════════════════════
 const saved = [];

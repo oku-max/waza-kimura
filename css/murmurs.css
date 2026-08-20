@@ -16,10 +16,20 @@ body[data-mm-pos="bl"] #mm-fab{left:22px;bottom:22px}
 body[data-mm-pos="tr"] #mm-fab{right:22px;top:74px}
 body[data-mm-pos="tl"] #mm-fab{left:22px;top:74px}
 body[data-mm-pos="off"] #mm-fab{display:none}
-/* 他の全画面UIが出ているときは引っ込める */
+/* ヘッダー右端: 浮かせず、アカウントボタンと同じ大きさで並べる */
+body[data-mm-pos="header"] #mm-fab{
+  position:static;width:32px;height:32px;font-size:19px;
+  margin-left:auto;margin-right:6px;flex-shrink:0;
+  box-shadow:none;background:var(--surface2);
+}
+body[data-mm-pos="header"] #mm-fab:hover{transform:none;background:var(--border)}
+/* 他の全画面UIが出ているときは引っ込める。
+   動画パネルは .vpanel.open（#vpanel.show ではない）。ここを間違えていたため
+   再生中も浮かんだままで、操作の邪魔になっていた。 */
+body:has(.vpanel.open) #mm-fab,
+body:has(#bulk-vpanel[style*="flex"]) #mm-fab,
 body:has(#fc-overlay.open) #mm-fab,
-body:has(#vpanel.show) #mm-fab,
-body:has(#mm-composer.open) #mm-fab{display:none}
+body:has(#mm-composer.open) #mm-fab{display:none!important}
 @media (max-width:700px){
   body[data-mm-pos="br"] #mm-fab,body[data-mm-pos="bl"] #mm-fab{bottom:74px}
   #mm-fab{width:42px;height:42px;font-size:20px}
@@ -201,6 +211,34 @@ body.dark #mm-modal{background:rgba(0,0,0,.5)}
   background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .mm-chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);
   border-color:var(--accent);font-weight:700}
+.mm-chip{display:inline-flex;align-items:center;gap:5px}
+
+/* 件数バッジ — その言葉の広さがひと目で分かるように */
+.mm-chip-n{
+  font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:9.5px;font-weight:400;opacity:.62;
+}
+.mm-det-chip.broad{background:var(--surface2);color:var(--text3);border-color:var(--border)}
+.mm-det-chip.broad .mm-chip-n{opacity:1;font-weight:700}
+
+/* 自由入力 */
+.mm-tagq{margin-bottom:6px;font-size:15px}
+.mm-newtag{
+  display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;
+  border:1px solid var(--accent);background:var(--surface);color:var(--text);
+  font-family:inherit;font-size:12.5px;font-weight:700;
+  padding:10px 12px;border-radius:7px;cursor:pointer;margin-bottom:12px;
+}
+.mm-newtag:hover{background:var(--surface2)}
+.mm-nt-note{font-size:10.5px;font-weight:400;color:var(--text3)}
+
+/* もっと見る */
+.mm-more{
+  display:block;width:100%;margin-top:10px;padding:10px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  font-family:inherit;font-size:12px;border-radius:7px;cursor:pointer;
+}
+.mm-more:hover{background:var(--surface2);color:var(--text)}
 
 /* 関連動画 */
 .mm-rel{display:flex;flex-direction:column;gap:2px}

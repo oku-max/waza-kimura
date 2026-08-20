@@ -159,7 +159,25 @@ function _buildVocab() {
   return out;
 }
 const _getVocab = () => (_vocab ||= _buildVocab());
-window._murmursResetVocab = () => { _vocab = null; };  // 動画やタグが増えたら呼ぶ
+
+// 画面に出すタグ一覧。層（ポジション/カテゴリ/技/#タグ）で分けず、
+// 「実際に動画に付いている語」を件数つきの1本のリストにする。
+// 手持ちが0本の語は出さない（辞書を見せても選ぶ意味がないため）。
+let _tagIdx = null;
+function _tagIndex() {
+  if (_tagIdx) return _tagIdx;
+  const count = new Map();
+  (window.videos || []).forEach(v => {
+    if (v.archived) return;
+    new Set(_videoTags(v)).forEach(t => { if (t) count.set(t, (count.get(t) || 0) + 1); });
+  });
+  _tagIdx = [...count.entries()]
+    .map(([label, n]) => ({ label, n }))
+    .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'ja'));
+  return _tagIdx;
+}
+const _tagCount = l => _tagIndex().find(x => x.label === l)?.n ?? 0;
+window._murmursResetVocab = () => { _vocab = null; _tagIdx = null; };  // 動画やタグが増えたら呼ぶ
 
 // 本文から語彙を検出。長い語を優先し、それに含まれる短い語は落とす
 // （「シザースイープ」を拾ったら「スイープ」は出さない）
@@ -236,25 +254,47 @@ function _fmtDate(ts) {
 }
 
 // ─────────────────────────────── UI: 常駐ボタン
+// 書くボタンの置き場所
+//   off    … 出さない（N キーだけ）
+//   header … ヘッダー右端（アカウントボタンの隣）
+//   br/bl/tr/tl … 画面の四隅に浮かせる
+const POS_OPTS = [
+  ['header','ヘッダー右端'],['br','右下'],['bl','左下'],
+  ['tr','右上'],['tl','左上'],['off','出さない']
+];
 function _ensureFab() {
-  if (document.getElementById('mm-fab')) return;
-  const b = document.createElement('button');
-  b.id = 'mm-fab';
-  b.type = 'button';
-  b.title = 'Journal に書く（N）';
-  b.setAttribute('aria-label', 'Journal に書く');
-  b.textContent = '＋';   // 動作＝新しく書く。ASCII/全角記号なのでカラー絵文字にならない
-  b.onclick = () => openComposer();
-  document.body.appendChild(b);
-  document.body.dataset.mmPos = localStorage.getItem(LS_POS) || 'br';
+  let b = document.getElementById('mm-fab');
+  if (!b) {
+    b = document.createElement('button');
+    b.id = 'mm-fab';
+    b.type = 'button';
+    b.title = 'Journal に書く（N）';
+    b.setAttribute('aria-label', 'Journal に書く');
+    b.textContent = '＋';   // 動作＝新しく書く。全角記号なのでカラー絵文字にならない
+    b.onclick = () => openComposer();
+  }
+  _placeFab(window._murmursGetPos(), b);
+}
+function _placeFab(pos, b) {
+  b = b || document.getElementById('mm-fab');
+  if (!b) return;
+  document.body.dataset.mmPos = pos;
+  const slot = document.querySelector('.tb-row-logo');
+  const parent = (pos === 'header' && slot) ? slot : document.body;
+  if (b.parentElement !== parent) parent.appendChild(b);
+  // ヘッダーではアカウントボタンの手前に置く
+  if (parent === slot) {
+    const acct = document.getElementById('acct-btn');
+    if (acct && acct.previousElementSibling !== b) slot.insertBefore(b, acct);
+  }
 }
 window._murmursSetPos = function (pos) {
-  document.body.dataset.mmPos = pos;
   try { localStorage.setItem(LS_POS, pos); } catch (e) {}
+  _placeFab(pos);
   $$m('[data-mm-pos-btn]').forEach(x =>
     x.setAttribute('aria-pressed', String(x.dataset.mmPosBtn === pos)));
 };
-window._murmursGetPos = () => localStorage.getItem(LS_POS) || 'br';
+window._murmursGetPos = () => localStorage.getItem(LS_POS) || 'header';
 
 // ─────────────────────────────── UI: コンポーザ
 function _ensureComposer() {
@@ -356,6 +396,14 @@ function _applyTpl(k) {
   _renderDetect();
 }
 
+// 検出チップ。本数を添えて「広い言葉かどうか」をその場で見せる
+function _detChip(label, manual) {
+  const n = _tagCount(label);
+  const broad = n > 200;
+  return `<span class="mm-det-chip${manual ? ' manual' : ''}${broad ? ' broad' : ''}"${
+    broad ? ' title="広い言葉です。外すか、もっと具体的な言葉に替えられます"' : ''}>#${_esc(label)}<span class="mm-chip-n">${n}</span><button class="mm-det-x" data-mm-${manual ? 'unadd' : 'drop'}="${_esc(label)}" aria-label="外す">×</button></span>`;
+}
+
 function _renderDetect() {
   const el = $m('#mm-cp-det'); if (!el) return;
   const txt = $m('#mm-cp-text');
@@ -371,8 +419,8 @@ function _renderDetect() {
   } else {
     el.innerHTML =
       `<span class="mm-det-lbl">検出</span>` +
-      auto.map(v => `<span class="mm-det-chip">#${_esc(v.label)}<button class="mm-det-x" data-mm-drop="${_esc(v.label)}" aria-label="外す">×</button></span>`).join('') +
-      [..._addTags].map(l => `<span class="mm-det-chip manual">#${_esc(l)}<button class="mm-det-x" data-mm-unadd="${_esc(l)}" aria-label="外す">×</button></span>`).join('') +
+      auto.map(v => _detChip(v.label, false)).join('') +
+      [..._addTags].map(l => _detChip(l, true)).join('') +
       `<button class="mm-det-add" id="mm-det-add">＋</button>` +
       (vids.length ? `<button class="mm-det-vids" id="mm-det-vids">▸ 関連動画 ${vids.length}本</button>` : '');
   }
@@ -563,7 +611,7 @@ function _startEdit(id, focusTags) {
 function _editTagsHTML() {
   return `<span class="mm-et-lbl">タグ</span>` +
     [..._editTags].map(t =>
-      `<span class="mm-et-chip">#${_esc(t)}<button class="mm-et-x" data-mm-etdrop="${_esc(t)}" aria-label="外す">×</button></span>`).join('') +
+      `<span class="mm-et-chip">#${_esc(t)}<span class="mm-chip-n">${_tagCount(t)}</span><button class="mm-et-x" data-mm-etdrop="${_esc(t)}" aria-label="外す">×</button></span>`).join('') +
     `<button class="mm-et-add" id="mm-et-add">＋ 追加</button>` +
     (_editTags.size ? '' : `<span class="mm-et-none">なし</span>`);
 }
@@ -687,20 +735,33 @@ function _openModal(title, bodyHTML, footHTML) {
 window._murmursCloseModal = () => $m('#mm-modal')?.classList.remove('open');
 
 // ── 関連動画 ──
+const REL_PAGE = 60;
+let _relShown = REL_PAGE, _relTags = [];
+
 window._murmursShowRelated = function (tags) {
+  _relTags = tags; _relShown = REL_PAGE;
+  _paintRelated();
+};
+
+function _paintRelated() {
+  const tags = _relTags;
   const vids = matchVideos(tags);
+  const shown = vids.slice(0, _relShown);
+  const rest = vids.length - shown.length;
   _openModal(
     `${tags.map(t => '#' + t).join(' ')} — ${vids.length}本`,
     vids.length
-      ? `<p class="mm-note">この名前がついた動画を全部出しています。まだ見ていないものが上です。</p>
-         <div class="mm-rel">${vids.map(v => `
+      ? `<p class="mm-note">この名前がついた動画です。まだ見ていないものが上です。${
+           vids.length > REL_PAGE ? '<br>多すぎるときは、もっと具体的な言葉のタグに替えると絞れます。' : ''}</p>
+         <div class="mm-rel">${shown.map(v => `
            <button class="mm-rel-row${(v.playCount || 0) === 0 ? ' buried' : ''}" data-mm-play="${_esc(v.id)}">
              <span class="mm-rel-th">${v.thumb ? `<img src="${_esc(v.thumb)}" alt="" loading="lazy">` : ''}</span>
              <span class="mm-rel-main">
                <span class="mm-rel-t">${_esc(v.title || '(タイトルなし)')}</span>
                <span class="mm-rel-m">${_esc(_buriedLabel(v))}</span>
              </span>
-           </button>`).join('')}</div>`
+           </button>`).join('')}</div>` +
+         (rest > 0 ? `<button class="mm-more" id="mm-rel-more">さらに見る（残り ${rest}本）</button>` : '')
       : `<p class="mm-note">この名前の動画はまだありません。</p>`
   );
   $$m('#mm-mbd [data-mm-play]').forEach(b => b.onclick = () => {
@@ -708,37 +769,72 @@ window._murmursShowRelated = function (tags) {
     closeComposer();
     window.openVPanel?.(b.dataset.mmPlay);
   });
-};
+  const more = $m('#mm-rel-more');
+  if (more) more.onclick = () => { _relShown += REL_PAGE; _paintRelated(); };
+}
 
 // ── タグを足す ──
 window._murmursOpenTagPicker = function (mode) {
   const isEdit = mode === 'edit';
-  const cur = isEdit ? new Set(_editTags) : new Set(_liveTags());
-  const kinds = [['pos','ポジション'],['cat','カテゴリ'],['tech','技'],['tag','#タグ']];
-  const v = _getVocab();
-  _openModal('タグを足す・外す',
-    kinds.map(([k, ja]) => {
-      const items = v.filter(x => x.kind === k);
-      if (!items.length) return '';
-      return `<p class="mm-sec2">${ja}</p>
-        <div class="mm-tagwrap">${items.map(x =>
-          `<button class="mm-chip" data-mm-addtag="${_esc(x.label)}" aria-pressed="${cur.has(x.label)}">#${_esc(x.label)}</button>`).join('')}</div>`;
-    }).join(''));
-  $$m('#mm-mbd [data-mm-addtag]').forEach(b => b.onclick = () => {
-    const l = b.dataset.mmAddtag;
+  const cur = () => new Set(isEdit ? _editTags : _liveTags());
+
+  const rows = q => {
+    const sel = cur();
+    const query = (q || '').trim().toLowerCase();
+    let list = _tagIndex();
+    if (query) list = list.filter(x => x.label.toLowerCase().includes(query));
+    const exact = query && _tagIndex().some(x => x.label.toLowerCase() === query);
+    const head = (query && !exact)
+      ? `<button class="mm-newtag" data-mm-newtag="${_esc(q.trim())}">
+           ＋「${_esc(q.trim())}」をタグにする
+           <span class="mm-nt-note">手持ちの動画にない言葉でも残せます</span>
+         </button>` : '';
+    if (!list.length && !head)
+      return `<p class="mm-note">動画に付いているタグがまだありません。上の欄に書けば、そのまま新しいタグにできます。</p>`;
+    return head + `<div class="mm-tagwrap">${list.slice(0, 300).map(x =>
+      `<button class="mm-chip" data-mm-addtag="${_esc(x.label)}" aria-pressed="${sel.has(x.label)}"
+       >#${_esc(x.label)}<span class="mm-chip-n">${x.n}</span></button>`).join('')}</div>` +
+      (list.length > 300 ? `<p class="mm-note-s">ほか ${list.length - 300} 件。絞り込んでください。</p>` : '');
+  };
+
+  _openModal('タグ',
+    `<input class="mm-fld mm-tagq" id="mm-tagq" type="text" autocomplete="off"
+            placeholder="書いて検索、そのまま新しいタグにもできます">
+     <p class="mm-note-s">数字はその言葉が付いている動画の本数です。多いものほど広い言葉になります。</p>
+     <div id="mm-tagrows">${rows('')}</div>`,
+    `<button class="mm-btn-go" id="mm-tag-done">完了</button>`);
+  $m('#mm-tag-done').onclick = () => window._murmursCloseModal();
+
+  const q = $m('#mm-tagq');
+  const repaint = () => { $m('#mm-tagrows').innerHTML = rows(q.value); bindRows(); };
+  const commit = label => {
+    const l = String(label).trim(); if (!l) return;
+    const sel = cur();
     if (isEdit) {
-      if (cur.has(l)) { _editTags.delete(l); _editDropped.add(l); }
+      if (sel.has(l)) { _editTags.delete(l); _editDropped.add(l); }
       else { _editTags.add(l); _editDropped.delete(l); }
-      window._murmursCloseModal();
       const box = $m('#mm-edit-tags');
       if (box) { box.innerHTML = _editTagsHTML(); _bindEditTags(); }
     } else {
-      if (cur.has(l)) { _addTags.delete(l); _rmTags.add(l); }
+      if (sel.has(l)) { _addTags.delete(l); _rmTags.add(l); }
       else { _addTags.add(l); _rmTags.delete(l); }
-      window._murmursCloseModal();
       _renderDetect();
     }
-  });
+  };
+  function bindRows() {
+    $$m('#mm-tagrows [data-mm-addtag]').forEach(b => b.onclick = () => { commit(b.dataset.mmAddtag); repaint(); });
+    const nt = $m('#mm-tagrows [data-mm-newtag]');
+    if (nt) nt.onclick = () => { commit(nt.dataset.mmNewtag); q.value = ''; repaint(); q.focus(); };
+  }
+  bindRows();
+  q.oninput = repaint;
+  q.onkeydown = e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const l = q.value.trim(); if (!l) return;
+    commit(l); q.value = ''; repaint(); q.focus();
+  };
+  setTimeout(() => q.focus(), 40);
 };
 
 // ── テンプレート一覧 ──
@@ -838,12 +934,12 @@ function _openTplEditor(src) {
 // ── 表示設定（この端末だけ）──
 window._murmursOpenPosSetting = function () {
   const cur = window._murmursGetPos();
-  const opts = [['br','右下'],['bl','左下'],['tr','右上'],['tl','左上'],['off','表示しない']];
-  _openModal('ボタンの表示',
-    `<p class="mm-note">画面に常駐する書くボタンの位置です。この端末だけの設定です。</p>
-     <div class="mm-tagwrap">${opts.map(([v, nm]) =>
+  _openModal('書くボタンの置き場所',
+    `<p class="mm-note">この端末だけの設定です。</p>
+     <div class="mm-tagwrap">${POS_OPTS.map(([v, nm]) =>
        `<button class="mm-chip" data-mm-pos-btn="${v}" aria-pressed="${cur === v}">${nm}</button>`).join('')}</div>
-     <p class="mm-note-s">「表示しない」にしても、N キーでいつでも開けます。</p>`);
+     <p class="mm-note-s">「出さない」にしても、N キーでいつでも開けます。<br>
+        動画を見ているあいだは、どの設定でも画面には浮かべず、動画パネルの ＋ から書きます。</p>`);
   $$m('#mm-mbd [data-mm-pos-btn]').forEach(b => b.onclick = () => {
     window._murmursSetPos(b.dataset.mmPosBtn);
     window.toast?.('表示を変えました');

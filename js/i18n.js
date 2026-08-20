@@ -200,7 +200,7 @@
   const STATIC_AUTO = {
     // ── つぶやき（Murmurs）──
     '書く':'Write','＋ 書く':'＋ Write','＋ 追加':'+ Add','タグを編集':'Edit tags','タグを付ける':'Add tags','＋ タグ':'+ Tag','なし':'None','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
-    '書きました':'Written','元の記録へ':'Go to the original','ボタンの表示':'The button','テンプレート':'Templates',
+    '書きました':'Written','元の記録へ':'Go to the original','書くボタンの置き場所':'Where the write button goes','ヘッダー右端':'Header, far right','出さない':'Hidden','完了':'Done','Journal に書く':'Write in Journal','テンプレート':'Templates',
     '書き捨てでいい':'Jot it down and forget it','ふわっと思ったことを書く…':'Write whatever comes to mind...',
     'すべて見る':'See all','…テンプレ一覧':'...All templates','検出':'Detected',
     '技やポジションの名前を書くと、関連動画が出ます':'Write a technique or position name and related videos appear',
@@ -217,7 +217,11 @@
     '元の場所へ':'Go to it','別のを見る':'Show another','つぶやきました':'Posted','⑂ 育てました':'⑂ Grown',
     'この名前がついた動画を全部出しています。まだ見ていないものが上です。':'Every video with this name. The ones you have not watched come first.',
     'この名前の動画はまだありません。':'No videos with this name yet.',
-    'タグを足す・外す':'Add or remove tags','技':'Technique','#タグ':'#Tags',
+    'タグ':'Tags','書いて検索、そのまま新しいタグにもできます':'Search, or type anything to make a new tag',
+    '数字はその言葉が付いている動画の本数です。多いものほど広い言葉になります。':'The number is how many videos carry that word. Bigger means broader.',
+    '手持ちの動画にない言葉でも残せます':'You can keep a word even if no video uses it',
+    '動画に付いているタグがまだありません。上の欄に書けば、そのまま新しいタグにできます。':'No tags on your videos yet. Type above to make one.',
+    '広い言葉です。外すか、もっと具体的な言葉に替えられます':'A broad word. Remove it, or pick something more specific.',
     'プリセット':'Presets','自分のテンプレート':'My templates',
     '＋ 新しく作る':'+ Create new','自作':'Custom','複製して編集':'Duplicate and edit',
     'ボタンから外す':'Remove from the buttons','ボタンに出す':'Show as a button',
