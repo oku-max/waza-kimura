@@ -51,6 +51,34 @@ window._notesGetData = () => _data;
 window._notesGetRoot = () => _root;
 window._notesHasPendingSave = () => !!_saveFsTimer;
 
+// ── テンプレートからノートを作る（js/note-templates.js から呼ばれる）──
+// 既存のノートには一切触らない。新しいノートを1つ足すだけ。
+// spec: { name, status, tags, blocks }
+window._notesCreateNote = function(spec) {
+  if (!spec || !spec.name) return null;
+  const note = {
+    id: _uid(),
+    name: String(spec.name).slice(0, 200),
+    status: spec.status || 'new',
+    tags: Array.isArray(spec.tags) ? spec.tags.slice() : [],
+    updatedAt: Date.now(),
+    blocks: Array.isArray(spec.blocks) ? JSON.parse(JSON.stringify(spec.blocks)) : []
+  };
+  _root.push(note);          // フォルダなしノートとして足す（既存の並びは変えない）
+  _save();
+  _renderSb();
+  _renderRecent();
+  return note.id;
+};
+
+// 作ったノートを開く
+window._notesOpenNote = function(id) {
+  if (!_findNote(id)) return false;
+  window.switchTab?.('notes');
+  setTimeout(() => { _activeId = id; _renderNote(id); _renderSb(); }, 60);
+  return true;
+};
+
 window._notesLoadFromRemote = function(payload) {
   // ローカルに未保存の変更がある間はリモートの上書きをスキップ（競合防止）
   if (_saveFsTimer) return;

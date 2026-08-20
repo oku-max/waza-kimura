@@ -200,7 +200,22 @@
   const STATIC_AUTO = {
     // ── つぶやき（Murmurs）──
     '書く':'Write','＋ 書く':'＋ Write','＋ 追加':'+ Add','タグを編集':'Edit tags','タグを付ける':'Add tags','＋ タグ':'+ Tag','なし':'None','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
-    '書きました':'Written','元の記録へ':'Go to the original','Journal の設定':'Journal settings','声をかける':'Nudge me','かける':'Yes','かけない':'No',
+    '書きました':'Written','元の記録へ':'Go to the original',// ── ノートのテンプレート ──
+    'どの形に育てますか':'What should it become?','新しいノート':'New note',
+    'このメモを元にノートを作ります。':'A note will be built from this memo.',
+    'メモから育てる':'Grow from a memo','まとめて計画する':'Plan it out',
+    '目標':'Goal','できるようになりたいこと1つ':'One thing you want to be able to do',
+    '対策シート':'Counter sheet','やられていることへの対処':'What keeps working on you',
+    '技の分解':'Break a move down','ひとつの技を細かく開く':'Open one move up in detail',
+    '育成計画':'Development plan','3〜6ヶ月のまとまり':'A three to six month block',
+    '練習日誌':'Training log','その日1日ぶん':'One day at a time',
+    '空白から':'From blank','自分で組み立てる':'Build it yourself',
+    'このノートを作る':'Create this note','← 選び直す':'← Pick another',
+    '空欄のままで大丈夫です':'Leaving it blank is fine',
+    '見出しだけ用意します。中身はあとから書けます。':'It sets up the headings. You fill them in later.',
+    '関連動画':'Related videos','参考になりそうな動画':'Videos that might help','この技の動画':'Videos of this move',
+    'ノートにする':'Make it a note','自動で並びます':'Fills in automatically',
+    'Journal の設定':'Journal settings','声をかける':'Nudge me','かける':'Yes','かけない':'No',
     '頻度':'How often','毎日':'Every day','2日おき':'Every 2 days','3日おき':'Every 3 days','週に1回':'Once a week',
     'この時刻より後に開いたとき':'When you open it after',
     '今日、気になったことはありますか':'Anything on your mind today?','今はいい':'Not now',

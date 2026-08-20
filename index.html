@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.705</title>
+<title>WAZA KIMURA v52.706</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -70,6 +70,7 @@
 <link rel="stylesheet" href="css/flowchart.css">
 <link rel="stylesheet" href="css/murmurs.css">
 <link rel="stylesheet" href="css/random-pick.css">
+<link rel="stylesheet" href="css/note-templates.css">
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -122,6 +123,8 @@
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderNotes } from './js/notes.js';
   window.renderNotes = renderNotes;
+  import { openTemplatePicker } from './js/note-templates.js';
+  window.openNoteTemplatePicker = openTemplatePicker;
   import { openRandom } from './js/random-pick.js';
   window.openRandomPick = openRandom;
   import { renderMurmurs, openComposer } from './js/murmurs.js';
@@ -2135,7 +2138,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <div class="notes-sidebar" id="notesSidebar">
       <div class="notes-sb-hdr">
         <span class="notes-sb-logo">≡ Notes</span>
-        <button class="notes-sb-new" onclick="window.notesNew?.()">＋ New</button>
+        <button class="notes-sb-new" onclick="window.openNoteTemplatePicker?.()">＋ New</button>
       </div>
       <div class="notes-sb-tree" id="notesSbTree"></div>
     </div>
@@ -4065,6 +4068,8 @@ async function _wazaCollectLightData() {
     notes: window._notesGetData
       ? { folders: window._notesGetData(), root: window._notesGetRoot?.() || [] }
       : null,
+    // ノートの自作テンプレート（localStorage 'wk_note_tpls' 相当）
+    noteTpls: window._noteTplsGet ? window._noteTplsGet() : null,
     // つぶやき（data/murmurs 相当）
     murmurs: window._murmursGetData
       ? { data: window._murmursGetData(), tpls: window._murmursGetTpls?.() || [] }
@@ -4182,6 +4187,9 @@ window.wazaImport = async function(input) {
         });
       }
     }
+
+    // ノートの自作テンプレート。空では潰さない（_noteTplsSet 側でも弾く）
+    if (Array.isArray(data.noteTpls) && data.noteTpls.length) window._noteTplsSet?.(data.noteTpls);
 
     // つぶやき。ノートと同じく、読み込めた時だけクラウドにも書き戻す
     const mm = data.murmurs?.data, mt = data.murmurs?.tpls;

@@ -666,6 +666,7 @@ function _rowHTML(m) {
               title="${m.star ? '固定を外す' : 'トップに固定'}">${m.star ? '★' : '☆'}</button>
       <button class="mm-ic" data-mm-edit="${_esc(m.id)}" title="編集">✎</button>
       <button class="mm-ic" data-mm-derive="${_esc(m.id)}" title="ここから育てる">⑂</button>
+      <button class="mm-ic" data-mm-note="${_esc(m.id)}" title="ノートにする">📓</button>
       <button class="mm-ic" data-mm-del="${_esc(m.id)}" title="削除">🗑</button>
     </div>
   </div>`;
@@ -695,6 +696,7 @@ function _bindRows() {
     };
   });
   $$m('#mm-list [data-mm-derive]').forEach(b => b.onclick = () => openComposer(b.dataset.mmDerive));
+  $$m('#mm-list [data-mm-note]').forEach(b => b.onclick = () => _toNote(b.dataset.mmNote));
   $$m('#mm-list [data-mm-jump]').forEach(b => b.onclick = () => _flashRow(b.dataset.mmJump, true));
   $$m('#mm-list [data-mm-kids]').forEach(b => b.onclick = () => {
     const kid = _data.find(x => x.from === b.dataset.mmKids);
@@ -776,6 +778,18 @@ function _flashRow(id, scroll) {
   el.classList.add('flash');
 }
 
+// メモをノートに育てる。同じタグの過去のメモも一緒に渡す。
+function _toNote(id) {
+  const m = _data.find(x => x.id === id); if (!m) return;
+  const tags = m.tags || [];
+  const related = tags.length
+    ? _data.filter(x => x.id !== id && (x.tags || []).some(t => tags.includes(t)))
+           .slice(0, 8).map(x => x.body)
+    : [];
+  if (!window.openNoteTemplatePicker) { window.toast?.('テンプレートを読み込めませんでした'); return; }
+  window.openNoteTemplatePicker({ body: m.body, tags, related });
+}
+
 // ─────────────────────────────── 見返し
 function _resurfPick() {
   if (!_data.length) return null;
@@ -803,6 +817,7 @@ function _resurfHTML() {
       <div class="mm-rf-body">${_esc(m.body)}</div>
       <div class="mm-rf-acts">
         <button class="mm-ghost" id="mm-rf-derive">⑂ ここから育てる</button>
+        <button class="mm-ghost" id="mm-rf-note">📓 ノートにする</button>
         <button class="mm-ghost" id="mm-rf-jump">元の場所へ</button>
         <button class="mm-ghost" id="mm-rf-next">別のを見る</button>
       </div>
@@ -810,6 +825,7 @@ function _resurfHTML() {
 }
 function _bindResurf() {
   const d = $m('#mm-rf-derive'); if (d) d.onclick = () => openComposer(_resurfId);
+  const nb = $m('#mm-rf-note'); if (nb) nb.onclick = () => _toNote(_resurfId);
   const j = $m('#mm-rf-jump');   if (j) j.onclick = () => _flashRow(_resurfId, true);
   const n = $m('#mm-rf-next');   if (n) n.onclick = _randomResurf;
 }
