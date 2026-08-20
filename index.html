@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.702</title>
+<title>WAZA KIMURA v52.703</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -69,6 +69,7 @@
 <link rel="stylesheet" href="css/notes.css">
 <link rel="stylesheet" href="css/flowchart.css">
 <link rel="stylesheet" href="css/murmurs.css">
+<link rel="stylesheet" href="css/random-pick.css">
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -121,6 +122,8 @@
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderNotes } from './js/notes.js';
   window.renderNotes = renderNotes;
+  import { openRandom } from './js/random-pick.js';
+  window.openRandomPick = openRandom;
   import { renderMurmurs, openComposer } from './js/murmurs.js';
   window.renderMurmurs = renderMurmurs;
   window.openMurmurComposer = openComposer;

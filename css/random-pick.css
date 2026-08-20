@@ -1,0 +1,86 @@
+/* ═══ WAZA KIMURA — ランダムに1本 v52.703 ═══ */
+
+#rnd-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;padding:0;border-radius:50%;
+  border:1px solid transparent;background:var(--surface2);color:var(--text2);
+  cursor:pointer;flex-shrink:0;margin-right:6px;
+  transition:background .14s,color .14s;
+}
+#rnd-btn svg{width:17px;height:17px;display:block}
+#rnd-btn:hover{background:var(--border);color:var(--text)}
+/* Journal ボタンがヘッダーに居ないときは、こちらが右端側に寄る */
+body:not([data-mm-pos="header"]) #rnd-btn{margin-left:auto}
+
+#rnd-modal{
+  position:fixed;inset:0;z-index:9800;display:none;
+  align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.2);
+}
+body.dark #rnd-modal{background:rgba(0,0,0,.5)}
+#rnd-modal.open{display:flex}
+.rnd-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-lg);width:min(440px,100%);max-height:86vh;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.rnd-hd{
+  padding:13px 16px;border-bottom:1px solid var(--border2);background:var(--surface2);
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.rnd-hd h2{margin:0;font-size:12.5px;font-weight:700;flex:1}
+.rnd-x{border:0;background:none;color:var(--text3);font-size:15px;cursor:pointer;
+  padding:2px 6px;border-radius:4px;line-height:1;font-family:inherit}
+.rnd-x:hover{background:var(--border);color:var(--text)}
+.rnd-bd{padding:16px;overflow:auto}
+.rnd-ft{display:flex;gap:8px;justify-content:flex-end;padding:11px 16px;
+  border-top:1px solid var(--border2);background:var(--surface2);flex-shrink:0}
+
+.rnd-range{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text2);
+  font-family:inherit;font-size:12px;padding:8px 11px;border-radius:7px;
+  cursor:pointer;margin-bottom:14px;
+}
+.rnd-range:hover{border-color:var(--accent);color:var(--text)}
+.rnd-range-l{font-size:10px;letter-spacing:.06em;color:var(--text3);font-weight:700}
+.rnd-range-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.rnd-range-n{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  font-size:11px;color:var(--text3);flex-shrink:0}
+
+.rnd-pick{border:1px solid var(--border);border-radius:9px;padding:12px;background:var(--surface2)}
+.rnd-th{aspect-ratio:16/9;border-radius:6px;overflow:hidden;margin-bottom:11px;
+  background:linear-gradient(135deg,var(--surface3),var(--surface))}
+.rnd-th img{width:100%;height:100%;object-fit:cover;display:block}
+.rnd-t{font-size:15px;font-weight:700;line-height:1.5;margin:0 0 7px}
+.rnd-m{font-size:11px;color:var(--text3);margin:0}
+.rnd-dur{font-family:'DM Mono',ui-monospace,monospace}
+.rnd-none{font-size:12.5px;color:var(--text3);line-height:1.7;margin:0;text-align:center;padding:24px 0}
+
+.rnd-ghost{border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  font-family:inherit;font-size:12px;padding:7px 14px;border-radius:6px;cursor:pointer}
+.rnd-ghost:hover{background:var(--surface2);color:var(--text)}
+.rnd-go{border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);
+  font-family:inherit;font-size:12.5px;font-weight:700;padding:7px 18px;border-radius:6px;cursor:pointer}
+
+.rnd-sec{font-size:10px;letter-spacing:.09em;color:var(--text3);font-weight:700;margin:0 0 8px}
+.rnd-opts{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.rnd-opt{
+  display:flex;flex-direction:column;gap:3px;text-align:left;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);
+  font-family:inherit;padding:9px 12px;border-radius:7px;cursor:pointer;
+}
+.rnd-opt:hover{background:var(--surface2)}
+.rnd-opt[aria-pressed="true"]{border-color:var(--accent);background:var(--surface2)}
+.rnd-opt-n{font-size:12.5px;font-weight:700}
+.rnd-opt-d{font-size:10.5px;color:var(--text3)}
+.rnd-opt[aria-pressed="true"] .rnd-opt-n::after{content:' ✓';color:var(--accent)}
+
+.rnd-q{width:100%;border:1px solid var(--border);border-radius:6px;background:var(--surface);
+  color:var(--text);font-family:inherit;font-size:14px;padding:8px 11px;
+  margin-bottom:10px;outline:none;box-sizing:border-box}
+.rnd-q:focus{border-color:var(--accent)}
+.rnd-tags{display:flex;flex-wrap:wrap;gap:5px}
+.rnd-chip{font-size:11.5px;padding:4px 11px;border-radius:20px;cursor:pointer;font-family:inherit;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.rnd-chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);
+  border-color:var(--accent);font-weight:700}

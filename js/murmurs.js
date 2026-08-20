@@ -296,6 +296,7 @@ function _placeFab(pos, b) {
     const acct = document.getElementById('acct-btn');
     if (acct && acct.previousElementSibling !== b) slot.insertBefore(b, acct);
   }
+  window._rndEnsureBtn?.();   // ランダムボタンを Journal ボタンの左に並べ直す
 }
 window._murmursSetPos = function (pos) {
   try { localStorage.setItem(LS_POS, pos); } catch (e) {}
