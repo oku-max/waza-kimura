@@ -199,7 +199,8 @@
 
   const STATIC_AUTO = {
     // ── つぶやき（Murmurs）──
-    'つぶやき':'Murmurs','つぶやく':'Post','💬 つぶやく':'💬 Murmur','つぶやく（N）':'Murmur (N)',
+    '書く':'Write','◷ 書く':'◷ Write','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
+    '書きました':'Written','元の記録へ':'Go to the original','ボタンの表示':'The button','テンプレート':'Templates',
     '書き捨てでいい':'Jot it down and forget it','ふわっと思ったことを書く…':'Write whatever comes to mind...',
     'すべて見る':'See all','…テンプレ一覧':'...All templates','検出':'Detected',
     '技やポジションの名前を書くと、関連動画が出ます':'Write a technique or position name and related videos appear',
@@ -217,7 +218,7 @@
     'この名前がついた動画を全部出しています。まだ見ていないものが上です。':'Every video with this name. The ones you have not watched come first.',
     'この名前の動画はまだありません。':'No videos with this name yet.',
     'タグを足す・外す':'Add or remove tags','技':'Technique','#タグ':'#Tags',
-    'つぶやきテンプレート':'Murmur templates','プリセット':'Presets','自分のテンプレート':'My templates',
+    'プリセット':'Presets','自分のテンプレート':'My templates',
     '＋ 新しく作る':'+ Create new','自作':'Custom','複製して編集':'Duplicate and edit',
     'ボタンから外す':'Remove from the buttons','ボタンに出す':'Show as a button',
     'テンプレートを編集':'Edit template','新しいテンプレート':'New template','本文':'Body',
@@ -225,12 +226,12 @@
     '押したときに本文へ入る文字です。質問を並べるだけで十分。':'This text is inserted when you press it. A few questions is plenty.',
     '押すと本文に入ります。埋めなくても投稿できます。':'Pressing one inserts it. You can post without filling it in.',
     '名前を入れてください':'Enter a name','更新しました':'Updated','テンプレートを作りました':'Template created',
-    'つぶやきボタンの表示':'The murmur button','右下':'Bottom right','左下':'Bottom left',
+    '右下':'Bottom right','左下':'Bottom left',
     '右上':'Top right','左上':'Top left','表示しない':'Hidden','表示を変えました':'Display updated',
-    '画面に常駐する「つぶやく」ボタンの位置です。この端末だけの設定です。':'Where the always-visible murmur button sits. This device only.',
+    '画面に常駐する書くボタンの位置です。この端末だけの設定です。':'Where the always-visible write button sits. This device only.',
     '◇ 未再生':'◇ Not played','今月追加':'Added this month',
     '「表示しない」にしても、N キーでいつでも開けます。':'Even when hidden, the N key always opens it.',
-    '⚠️ つぶやきの保存に失敗しました: ':'⚠️ Failed to save the murmur: ',
+    '⚠️ Journal の保存に失敗しました: ':'⚠️ Failed to save the journal entry: ',
     '今日の練習したこと':'Today\u2019s training','今日の記録':'Today\u2019s note','動画を見て':'From a video',
     '課題':'Sticking point','試したい':'Want to try','うまくいった':'Worked well',
     // ── ステータス/優先度（データ値の表示） ──
@@ -1566,7 +1567,7 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     "▸ 関連動画 #本": "▸ # related videos",
-    "つぶやきました — 関連動画 #本": "Posted — # related videos",
+    "書きました — 関連動画 #本": "Written — # related videos",
     "⑂ #件に育った": "⑂ grew into #",
     "ボタンは#つまで。どれかの ★ を外してください": "Up to # buttons. Unstar one first",
     "★ を付けたものが入力欄のボタンになります（#つまで）": "Starred ones become buttons in the composer (up to #)",

@@ -1,16 +1,16 @@
-/* ═══ WAZA KIMURA — つぶやき（Murmurs）v52.694 ═══ */
+/* ═══ WAZA KIMURA — Journal（Murmurs）v52.697 ═══ */
 
 /* ── 常駐ボタン ── */
 #mm-fab{
-  position:fixed;z-index:9500;display:inline-flex;align-items:center;gap:7px;
-  padding:11px 17px;border-radius:24px;
-  border:1px solid var(--border);background:var(--surface);color:var(--text);
-  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
-  box-shadow:var(--shadow-lg);transition:transform .14s ease;
+  position:fixed;z-index:9500;
+  display:flex;align-items:center;justify-content:center;
+  width:46px;height:46px;padding:0;border-radius:50%;
+  border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  font-family:inherit;font-size:17px;line-height:1;cursor:pointer;
+  box-shadow:var(--shadow-lg);transition:transform .14s ease,color .14s ease;
 }
-#mm-fab:hover{transform:translateY(-1px)}
+#mm-fab:hover{transform:translateY(-1px);color:var(--text)}
 #mm-fab:active{transform:translateY(0)}
-#mm-fab .mm-fab-ic{font-size:14px;line-height:1}
 body[data-mm-pos="br"] #mm-fab{right:22px;bottom:22px}
 body[data-mm-pos="bl"] #mm-fab{left:22px;bottom:22px}
 body[data-mm-pos="tr"] #mm-fab{right:22px;top:74px}
@@ -22,8 +22,7 @@ body:has(#vpanel.show) #mm-fab,
 body:has(#mm-composer.open) #mm-fab{display:none}
 @media (max-width:700px){
   body[data-mm-pos="br"] #mm-fab,body[data-mm-pos="bl"] #mm-fab{bottom:74px}
-  #mm-fab{padding:10px 14px;font-size:12px}
-  #mm-fab .mm-fab-lbl{display:none}
+  #mm-fab{width:42px;height:42px;font-size:16px}
 }
 
 /* ── コンポーザ ── */

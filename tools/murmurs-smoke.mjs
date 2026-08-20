@@ -1,4 +1,4 @@
-// つぶやき機能を実ブラウザで触って、壊れていないかを見る。
+// Journal（つぶやき）機能を実ブラウザで触って、壊れていないかを見る。
 //
 // 特に確認したいのは「データが安全な結果になるか」（CLAUDE.md ルール1）:
 //   - クラウド未確定のうちは保存しない
@@ -248,7 +248,7 @@ const failed = checks.filter(c => !c.ok).length;
 console.log('');
 console.log(failed || unexpected.length
   ? `✗ 失敗 ${failed}件 / エラー ${unexpected.length}件`
-  : `✓ つぶやきスモークテスト通過（${checks.length}項目）`);
+  : `✓ Journal スモークテスト通過（${checks.length}項目）`);
 
 await browser.close();
 srv.close();

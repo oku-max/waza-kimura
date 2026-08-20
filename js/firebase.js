@@ -134,7 +134,7 @@ async function loadNotes(uid) {
   }, e => console.error('notes onSnapshot:', e));
 }
 
-// ═══ つぶやき（Murmurs）══════════════════════════════════════
+// ═══ Journal（Murmurs）══════════════════════════════════════
 // 新規 doc: users/{uid}/data/murmurs。他の doc には一切触らない。
 window._firebaseSaveMurmurs = async function(payload) {
   if (!currentUser) { console.warn('[murmurs] save skipped: not logged in'); return; }
@@ -151,7 +151,7 @@ window._firebaseSaveMurmurs = async function(payload) {
     console.log('[murmurs] saved', data.length, 'murmurs,', tpls.length, 'templates');
   } catch(e) {
     console.error('[murmurs] save error:', e);
-    showToast('⚠️ つぶやきの保存に失敗しました: ' + e.message, 5000);
+    showToast('⚠️ Journal の保存に失敗しました: ' + e.message, 5000);
   }
 };
 

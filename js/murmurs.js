@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — つぶやき（Murmurs）v52.694 ═══
+// ═══ WAZA KIMURA — Journal（Murmurs）v52.697 ═══
 //
 // ふわっと思ったことを5秒で残す。書き捨てでも、育ててもいい。
 //
@@ -10,7 +10,7 @@
 //  既存の videos / notes / settings / カスタムビュー / タグマスターには一切書き込まない。
 
 // ─────────────────────────────── state
-let _data  = [];     // つぶやき配列（新しい順）
+let _data  = [];     // 記録の配列（新しい順）
 let _tpls  = [];     // 自作テンプレート
 let _ready = false;  // クラウドの状態を確実に把握できたか（把握前は保存しない）
 let _allowEmptySave = false; // ユーザーが明示的に全部消したときだけ空保存を許す
@@ -239,8 +239,9 @@ function _ensureFab() {
   const b = document.createElement('button');
   b.id = 'mm-fab';
   b.type = 'button';
-  b.title = 'つぶやく（N）';
-  b.innerHTML = '<span class="mm-fab-ic">💬</span><span class="mm-fab-lbl">つぶやく</span>';
+  b.title = 'Journal に書く（N）';
+  b.setAttribute('aria-label', 'Journal に書く');
+  b.textContent = '◷';   // ナビの Journal と同じ記号（カラー絵文字にならない字形）
   b.onclick = () => openComposer();
   document.body.appendChild(b);
   document.body.dataset.mmPos = localStorage.getItem(LS_POS) || 'br';
@@ -259,9 +260,9 @@ function _ensureComposer() {
   const wrap = document.createElement('div');
   wrap.innerHTML = `
     <div id="mm-scrim"></div>
-    <div id="mm-composer" role="dialog" aria-label="つぶやきを書く">
+    <div id="mm-composer" role="dialog" aria-label="Journal に書く">
       <div class="mm-cp-hd">
-        <h2 id="mm-cp-title">つぶやき</h2>
+        <h2 id="mm-cp-title">Journal</h2>
         <span class="mm-cp-sub" id="mm-cp-sub">書き捨てでいい</span>
         <button class="mm-x" id="mm-cp-close" aria-label="閉じる">✕</button>
       </div>
@@ -272,7 +273,7 @@ function _ensureComposer() {
       <div class="mm-cp-ft">
         <span class="mm-hint">⌘ + Enter</span>
         <button class="mm-lnk" id="mm-cp-all">すべて見る</button>
-        <button class="mm-btn-go" id="mm-cp-post" disabled>つぶやく</button>
+        <button class="mm-btn-go" id="mm-cp-post" disabled>書く</button>
       </div>
     </div>`;
   while (wrap.firstElementChild) document.body.appendChild(wrap.firstElementChild);
@@ -317,7 +318,7 @@ export function closeComposer() {
   $m('#mm-scrim')?.classList.remove('open');
   _deriveFrom = null;
   const q = $m('#mm-cp-quote'); if (q) q.classList.remove('on');
-  const t = $m('#mm-cp-title'); if (t) t.textContent = 'つぶやき';
+  const t = $m('#mm-cp-title'); if (t) t.textContent = 'Journal';
   const s = $m('#mm-cp-sub');   if (s) s.textContent = '書き捨てでいい';
 }
 
@@ -399,7 +400,7 @@ function _post() {
   renderMurmurs();
   const n = matchVideos(tags).length;
   window.toast?.(wasDerive ? '⑂ 育てました'
-                : (n ? `つぶやきました — 関連動画 ${n}本` : 'つぶやきました'));
+                : (n ? `書きました — 関連動画 ${n}本` : '書きました'));
 }
 
 // ─────────────────────────────── キーボード
@@ -434,10 +435,10 @@ export function renderMurmurs() {
   root.innerHTML = `
     <div class="mm-wrap">
       <div class="mm-hd">
-        <h2>つぶやき</h2>
+        <h2>Journal</h2>
         <span class="mm-sub"><span class="mm-num">${_data.length}</span> 件</span>
         <span class="mm-spacer"></span>
-        <button class="mm-ghost" id="mm-btn-new">💬 つぶやく</button>
+        <button class="mm-ghost" id="mm-btn-new">◷ 書く</button>
         <button class="mm-ghost" id="mm-btn-random">🎲 ランダムに1件</button>
         <button class="mm-ghost" id="mm-btn-tpl">⊞ テンプレート</button>
         <button class="mm-ghost" id="mm-btn-pos">⚙ 表示</button>
@@ -477,7 +478,7 @@ function _rowHTML(m) {
     <div class="mm-date">${_esc(_fmtDate(m.ts))}</div>
     <div class="mm-main">
       ${parent ? `
-        <button class="mm-from" data-mm-jump="${_esc(parent.id)}" title="元のつぶやきへ">
+        <button class="mm-from" data-mm-jump="${_esc(parent.id)}" title="元の記録へ">
           ↳ <span class="mm-f-d">${_esc(_fmtDate(parent.ts))}</span>
           <span class="mm-f-b">${_esc(String(parent.body).split('\n')[0])}</span>
           <span class="mm-f-g">から育てた</span>
@@ -626,7 +627,7 @@ function _ensureModal() {
   const d = document.createElement('div');
   d.id = 'mm-modal';
   d.innerHTML = `
-    <div class="mm-mcard" role="dialog" aria-label="つぶやき">
+    <div class="mm-mcard" role="dialog" aria-label="Journal">
       <div class="mm-mhd"><h2 id="mm-mh"></h2><button class="mm-x" id="mm-mx" aria-label="閉じる">✕</button></div>
       <div class="mm-mbd" id="mm-mbd"></div>
       <div class="mm-mft" id="mm-mft"></div>
@@ -709,7 +710,7 @@ window._murmursOpenTplList = function () {
     </div>`;
   const presets = _allTpls().filter(t => t.preset);
   const mine    = _allTpls().filter(t => !t.preset);
-  _openModal('つぶやきテンプレート',
+  _openModal('テンプレート',
     `<p class="mm-note">押すと本文に入ります。埋めなくても投稿できます。<br>
        <span class="mm-note-s">★ を付けたものが入力欄のボタンになります（${PIN_MAX}つまで）</span></p>
      <p class="mm-sec2">プリセット</p>
@@ -788,8 +789,8 @@ function _openTplEditor(src) {
 window._murmursOpenPosSetting = function () {
   const cur = window._murmursGetPos();
   const opts = [['br','右下'],['bl','左下'],['tr','右上'],['tl','左上'],['off','表示しない']];
-  _openModal('つぶやきボタンの表示',
-    `<p class="mm-note">画面に常駐する「つぶやく」ボタンの位置です。この端末だけの設定です。</p>
+  _openModal('ボタンの表示',
+    `<p class="mm-note">画面に常駐する書くボタンの位置です。この端末だけの設定です。</p>
      <div class="mm-tagwrap">${opts.map(([v, nm]) =>
        `<button class="mm-chip" data-mm-pos-btn="${v}" aria-pressed="${cur === v}">${nm}</button>`).join('')}</div>
      <p class="mm-note-s">「表示しない」にしても、N キーでいつでも開けます。</p>`);
