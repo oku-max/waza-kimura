@@ -13,14 +13,15 @@ const LS_CFG = 'wk_rndCfg';
 const SCOPES = [
   ['all',     'すべて',           'アーカイブ以外の全部から'],
   ['unplayed','まだ見ていない',   '一度も再生していないものだけ'],
-  ['old',     'しばらく見ていない','半年以上再生していないもの'],
+  ['old',     'しばらく見ていない','一度見たきり間が空いているもの'],
   ['view',    'いま画面に出ている','絞り込み中のリストから'],
   ['fav',     'お気に入り',       '⭐ を付けたものから'],
   ['next',    'Next',             '🎯 Next に入れたものから'],
   ['drill',   'Drill',            '🟣 Drill に入れたものから']
 ];
 
-const _cfg = { scope: 'unplayed', tag: '' };
+const _cfg = { scope: 'unplayed', tag: '', oldDays: 180 };
+const OLD_DAYS = [[90,'3ヶ月'],[180,'半年'],[365,'1年'],[730,'2年']];
 try {
   const raw = localStorage.getItem(LS_CFG);
   if (raw) Object.assign(_cfg, JSON.parse(raw));
@@ -43,10 +44,12 @@ const ICON_DICE =
 
 const _tagsOf = v => [...(v.pos || []), ...(v.cat || []), ...(v.tb || []), ...(v.tags || [])];
 
-// 最終再生からの日数（記録が無ければ追加日で代用）
+// 最終再生からの日数。実データの項目は lastPlayed（Date.now() の数値・
+// js/vpanel.js が再生時に入れる）。一度も再生していないものは対象外にして、
+// 「まだ見ていない」と役割が重ならないようにする。
 function _daysSincePlay(v) {
-  const t = Date.parse(v.lastPlayedAt || '') || Date.parse(v.addedAt || '');
-  if (!t) return Infinity;
+  const t = Number(v.lastPlayed) || 0;
+  if (!t) return null;                       // 再生記録なし
   return (Date.now() - t) / 86400000;
 }
 
@@ -57,7 +60,11 @@ export function pool() {
   let list = base.filter(v => v && !v.archived);
   switch (_cfg.scope) {
     case 'unplayed': list = list.filter(v => !(v.playCount > 0) && !v.watched); break;
-    case 'old':      list = list.filter(v => _daysSincePlay(v) > 180); break;
+    case 'old': {
+      const d = _cfg.oldDays || 180;
+      list = list.filter(v => { const n = _daysSincePlay(v); return n !== null && n > d; });
+      break;
+    }
     case 'fav':      list = list.filter(v => v.fav); break;
     case 'next':     list = list.filter(v => v.next); break;
     case 'drill':    list = list.filter(v => v.drill); break;
@@ -134,7 +141,15 @@ function _meta(v) {
     when = mo >= 12 ? `${Math.floor(mo/12)}年${mo%12 ? (mo%12)+'ヶ月' : ''}前に追加`
          : mo >= 1  ? `${mo}ヶ月前に追加` : '今月追加';
   }
-  return (pc === 0 ? '◇ 未再生' : `▷ ${pc}回`) + (when ? ' · ' + when : '');
+  const lp = Number(v.lastPlayed) || 0;
+  let last = '';
+  if (lp) {
+    const d = Math.floor((Date.now() - lp) / 86400000);
+    last = d >= 365 ? ` · 最後に見たのは${Math.floor(d/365)}年前`
+         : d >= 30  ? ` · 最後に見たのは${Math.floor(d/30)}ヶ月前`
+         : d >= 1   ? ` · 最後に見たのは${d}日前` : ' · 今日見た';
+  }
+  return (pc === 0 ? '◇ 未再生' : `▷ ${pc}回`) + (when ? ' · ' + when : '') + last;
 }
 
 export function openRandom() {
@@ -147,7 +162,9 @@ function _render() {
   const list = pool();
   const v = _pick();
   const scopeName = SCOPES.find(s => s[0] === _cfg.scope)?.[1] || 'すべて';
-  const range = `${_esc(scopeName)}${_cfg.tag ? ` · #${_esc(_cfg.tag)}` : ''}`;
+  const oldNm = OLD_DAYS.find(o => o[0] === (_cfg.oldDays || 180))?.[1] || '半年';
+  const range = `${_esc(scopeName)}${_cfg.scope === 'old' ? `（${_esc(oldNm)}以上）` : ''}`
+              + `${_cfg.tag ? ` · #${_esc(_cfg.tag)}` : ''}`;
 
   $r('#rnd-h').textContent = 'ランダムに1本';
   $r('#rnd-bd').innerHTML = `
@@ -189,6 +206,11 @@ function _openCfg() {
         <span class="rnd-opt-n">${_esc(nm)}</span>
         <span class="rnd-opt-d">${_esc(ds)}</span>
       </button>`).join('')}</div>
+    <div id="rnd-olddays" class="rnd-sub${_cfg.scope === 'old' ? ' on' : ''}">
+      <p class="rnd-sec">どれくらい空いたら</p>
+      <div class="rnd-tags">${OLD_DAYS.map(([d, nm]) =>
+        `<button class="rnd-chip" data-rnd-old="${d}" aria-pressed="${(_cfg.oldDays||180) === d}">${nm}以上</button>`).join('')}</div>
+    </div>
     <p class="rnd-sec">タグでさらに絞る（任意）</p>
     <input class="rnd-q" id="rnd-tagq" type="text" autocomplete="off" placeholder="タグを探す">
     <div class="rnd-tags" id="rnd-tags"></div>`;
@@ -211,6 +233,12 @@ function _openCfg() {
     _cfg.scope = b.dataset.rndScope; _saveCfg();
     $$r('#rnd-bd [data-rnd-scope]').forEach(x =>
       x.setAttribute('aria-pressed', String(x.dataset.rndScope === _cfg.scope)));
+    $r('#rnd-olddays').classList.toggle('on', _cfg.scope === 'old');
+  });
+  $$r('#rnd-bd [data-rnd-old]').forEach(b => b.onclick = () => {
+    _cfg.oldDays = Number(b.dataset.rndOld); _saveCfg();
+    $$r('#rnd-bd [data-rnd-old]').forEach(x =>
+      x.setAttribute('aria-pressed', String(Number(x.dataset.rndOld) === _cfg.oldDays)));
   });
   $r('#rnd-tagq').oninput = e => paintTags(e.target.value);
   $r('#rnd-cfg-done').onclick = _render;

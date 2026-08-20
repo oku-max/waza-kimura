@@ -84,3 +84,6 @@ body.dark #rnd-modal{background:rgba(0,0,0,.5)}
   background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .rnd-chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);
   border-color:var(--accent);font-weight:700}
+
+.rnd-sub{display:none}
+.rnd-sub.on{display:block;margin-bottom:18px}

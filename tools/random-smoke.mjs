@@ -51,13 +51,16 @@ await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000
 const old = new Date(Date.now() - 400 * 86400000).toISOString();
 const recent = new Date(Date.now() - 10 * 86400000).toISOString();
 await page.evaluate(([old, recent]) => {
+  const D = n => Date.now() - n * 86400000;
   window.videos = [
+    // lastPlayed は数値（js/vpanel.js が Date.now() を入れる）
     { id:'a', title:'未再生・古い', pos:['デラヒーバ'], cat:[], tb:[], tags:[], playCount:0, addedAt:old },
     { id:'b', title:'未再生・新しい', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:0, addedAt:recent },
-    { id:'c', title:'再生済み・古い', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:5, addedAt:old, lastPlayedAt:old },
-    { id:'d', title:'再生済み・最近', pos:[], cat:[], tb:[], tags:[], playCount:2, addedAt:recent, lastPlayedAt:recent, fav:true },
+    { id:'c', title:'400日前に見たきり', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:5, addedAt:old, lastPlayed:D(400) },
+    { id:'d', title:'最近見た', pos:[], cat:[], tb:[], tags:[], playCount:2, addedAt:recent, lastPlayed:D(10), fav:true },
     { id:'e', title:'アーカイブ済み', pos:[], cat:[], tb:[], tags:[], playCount:0, addedAt:old, archived:true },
-    { id:'f', title:'Drill', pos:[], cat:[], tb:[], tags:[], playCount:1, addedAt:recent, lastPlayedAt:recent, drill:true }
+    { id:'f', title:'Drill', pos:[], cat:[], tb:[], tags:[], playCount:1, addedAt:recent, lastPlayed:D(10), drill:true },
+    { id:'g', title:'120日前に見たきり', pos:[], cat:[], tb:[], tags:[], playCount:1, addedAt:old, lastPlayed:D(120) }
   ];
   window.filteredVideos = window.videos.filter(v => v.id === 'b' || v.id === 'c');
 }, [old, recent]);
@@ -81,12 +84,32 @@ check('開く', await page.locator('#rnd-modal.open').count() === 1);
 check('1本出る', await page.locator('.rnd-pick').count() === 1);
 
 await setScope('all');
-check('すべて＝アーカイブを除く5本', await page.evaluate(() => window.__pool().length) === 5,
+check('すべて＝アーカイブを除く6本', await page.evaluate(() => window.__pool().length) === 6,
   String(await page.evaluate(() => window.__pool().length)));
 await setScope('unplayed');
 check('まだ見ていない＝2本', await page.evaluate(() => window.__pool().length) === 2);
 await setScope('old');
-check('しばらく見ていない＝2本', await page.evaluate(() => window.__pool().length) === 2);
+// 未再生（a,b）は「まだ見ていない」の担当なので、こちらには入れない。
+// 半年以上あいているのは c（400日）だけ。g（120日）と d/f（10日）は入らない。
+check('しばらく見ていない・半年＝1本（未再生は含めない）',
+  await page.evaluate(() => window.__pool().length) === 1,
+  String(await page.evaluate(() => window.__pool().length)));
+// 期間を3ヶ月に変えると g も入る
+await page.locator('#rnd-range').click();
+await page.waitForTimeout(200);
+check('期間の選択肢が出る', await page.locator('#rnd-olddays.on').count() === 1);
+await page.locator('[data-rnd-old="90"]').click();
+await page.locator('#rnd-cfg-done').click();
+await page.waitForTimeout(200);
+check('3ヶ月に変えると2本', await page.evaluate(() => window.__pool().length) === 2,
+  String(await page.evaluate(() => window.__pool().length)));
+check('範囲に期間が出る',
+  ((await page.locator('.rnd-range-v').textContent()) || '').includes('3ヶ月'));
+await page.locator('#rnd-range').click();
+await page.waitForTimeout(150);
+await page.locator('[data-rnd-old="180"]').click();
+await page.locator('#rnd-cfg-done').click();
+await page.waitForTimeout(150);
 await setScope('view');
 check('いま画面に出ている＝2本', await page.evaluate(() => window.__pool().length) === 2);
 await setScope('fav');
@@ -103,7 +126,8 @@ await page.waitForTimeout(200);
 await page.locator('[data-rnd-tag="パスガード"]').click();
 await page.locator('#rnd-cfg-done').click();
 await page.waitForTimeout(250);
-check('タグで絞れる', await page.evaluate(() => window.__pool().length) === 2);
+check('タグで絞れる', await page.evaluate(() => window.__pool().length) === 2,
+  String(await page.evaluate(() => window.__pool().length)));
 check('範囲が画面に出る',
   ((await page.locator('.rnd-range-v').textContent()) || '').includes('パスガード'));
 
