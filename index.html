@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.695</title>
+<title>WAZA KIMURA v52.696</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -68,6 +68,7 @@
 <link rel="stylesheet" href="css/search.css">
 <link rel="stylesheet" href="css/notes.css">
 <link rel="stylesheet" href="css/flowchart.css">
+<link rel="stylesheet" href="css/murmurs.css">
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -120,6 +121,9 @@
   import { toast, toastUndo, scr, switchTab } from './js/ui.js';
   import { renderNotes } from './js/notes.js';
   window.renderNotes = renderNotes;
+  import { renderMurmurs, openComposer } from './js/murmurs.js';
+  window.renderMurmurs = renderMurmurs;
+  window.openMurmurComposer = openComposer;
   import { renderCards, cardHTML } from './js/cards.js';
   import {
     tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
@@ -1272,6 +1276,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
       <div class="tn-i active" id="tnav-home" onclick="switchTab('home')">□ Library</div>
       <div class="tn-i" id="tnav-search" onclick="switchTab('search')">○ Search</div>
       <div class="tn-i" id="tnav-notes" onclick="switchTab('notes')">≡ Notes</div>
+      <div class="tn-i" id="tnav-murmurs" onclick="switchTab('murmurs')">💬 つぶやき</div>
       <div class="tn-i" id="tnav-settings" onclick="switchTab('settings')">⚙ Settings</div>
       <div class="tn-i" id="tnav-admin" onclick="switchTab('admin')" style="display:none">🔒 Admin</div>
       <div class="tn-i" id="tnav-community" onclick="switchTab('community')" style="display:none">◎ Community</div>
@@ -1335,6 +1340,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <div class="fs-nav-i active" id="fnav-home" onclick="switchTab('home')"><span>□</span> Library</div>
     <div class="fs-nav-i" id="fnav-search" onclick="switchTab('search')"><span>○</span> Search</div>
     <div class="fs-nav-i" id="fnav-notes" onclick="switchTab('notes')"><span>≡</span> Notes</div>
+    <div class="fs-nav-i" id="fnav-murmurs" onclick="switchTab('murmurs')"><span>💬</span> つぶやき</div>
     <div class="fs-nav-i" id="fnav-settings" onclick="switchTab('settings')"><span>⚙</span> Settings</div>
     <div class="fs-nav-i" id="fnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span> Admin</div>
     <div class="fs-nav-i" id="fnav-community" onclick="switchTab('community')" style="display:none"><span>◎</span> Community</div>
@@ -2118,6 +2124,8 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 </div>
 
 <!-- Notes tab -->
+<div class="tab-panel" id="murmursTab"></div>
+
 <div class="tab-panel" id="notesTab">
   <div class="notes-app">
     <div class="notes-sb-overlay" id="notesSbOverlay" onclick="window._notesCloseSb?.()"></div>
@@ -2402,6 +2410,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
   <div class="mn-i active" id="mnav-home" onclick="switchTab('home')"><span>□</span>Library</div>
   <div class="mn-i" id="mnav-search" onclick="switchTab('search')"><span>○</span>Search</div>
   <div class="mn-i" id="mnav-notes" onclick="switchTab('notes')"><span>≡</span>Notes</div>
+  <div class="mn-i" id="mnav-murmurs" onclick="switchTab('murmurs')"><span>💬</span>つぶやき</div>
   <div class="mn-i" id="mnav-settings" onclick="switchTab('settings')"><span>⚙</span>Settings</div>
   <div class="mn-i" id="mnav-admin" onclick="switchTab('admin')" style="display:none"><span>🔒</span>Admin</div>
   <div class="mn-i" id="mnav-community" onclick="switchTab('community')" style="display:none"><span>◎</span>Community</div>
@@ -4053,6 +4062,10 @@ async function _wazaCollectLightData() {
     notes: window._notesGetData
       ? { folders: window._notesGetData(), root: window._notesGetRoot?.() || [] }
       : null,
+    // つぶやき（data/murmurs 相当）
+    murmurs: window._murmursGetData
+      ? { data: window._murmursGetData(), tpls: window._murmursGetTpls?.() || [] }
+      : null,
     // 起動時に開くリストの設定（data/cvStartup 相当）
     cvStartup: window._startupCfg
       ? { list: window._startupCfg.list, scope: window._startupCfg.scope,
@@ -4163,6 +4176,18 @@ window.wazaImport = async function(input) {
         await window._firebaseSaveNotes?.({
           folders: window._notesGetData?.() || [],
           root:    window._notesGetRoot?.() || [],
+        });
+      }
+    }
+
+    // つぶやき。ノートと同じく、読み込めた時だけクラウドにも書き戻す
+    const mm = data.murmurs?.data, mt = data.murmurs?.tpls;
+    if ((Array.isArray(mm) && mm.length) || (Array.isArray(mt) && mt.length)) {
+      window._murmursLoadFromRemote?.({ data: mm || [], tpls: mt || [] });
+      if (window._murmursGetData?.()?.length || window._murmursGetTpls?.()?.length) {
+        await window._firebaseSaveMurmurs?.({
+          data: window._murmursGetData?.() || [],
+          tpls: window._murmursGetTpls?.() || [],
         });
       }
     }

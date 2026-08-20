@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>つぶやき — 育てる・テンプレート確認モック</title>
+<style>
+/* ══════════════════════════════════════════════════════
+   WAZA KIMURA — つぶやき モック v2
+   トークンは css/style.css の :root / body.dark をそのまま使用
+   ══════════════════════════════════════════════════════ */
+:root{
+  --bg:#f6f6f4; --surface:#fff; --surface2:#f1f1ef; --surface3:#e8e8e5;
+  --accent:#111; --on-accent:#fff;
+  --text:#111; --text2:#555; --text3:#70706c;
+  --border:#e0e0dc; --border2:#eaeae6;
+  --gold:#7a6200; --gold-soft:#fdf8e8;
+  --green:#2d6a4f; --green-soft:#edf5f1;
+  --blue:#1a3a5c; --blue-soft:#edf2f8;
+  --purple:#3a3a7a; --purple-soft:#f0f0f8;
+  --radius:8px;
+  --shadow:0 1px 4px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  --scrim:rgba(0,0,0,.18);
+}
+body.dark{
+  --bg:#1c1c1e; --surface:#2c2c2e; --surface2:#38383a; --surface3:#48484a;
+  --accent:#e5c47a; --on-accent:#1a1a1a;
+  --text:#e5e5e7; --text2:#ababab; --text3:#9a9aa0;
+  --border:#48484a; --border2:#3a3a3c;
+  --gold:#e5c47a; --gold-soft:#2e2a1e;
+  --green:#6bc490; --green-soft:#1e2e24;
+  --blue:#7ab8e0; --blue-soft:#1e2530;
+  --purple:#a090d0; --purple-soft:#28253a;
+  --shadow:0 1px 4px rgba(0,0,0,.3);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.5);
+  --scrim:rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans','Noto Sans JP',sans-serif;
+  background:var(--bg); color:var(--text); font-size:14px;
+  min-height:100vh; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'DM Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+button,textarea{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ── モック操作バー ── */
+#mockbar{
+  border-bottom:1px dashed var(--border); background:var(--surface2);
+  padding:10px 16px; display:flex; flex-wrap:wrap; align-items:center; gap:14px;
+  font-size:11.5px; color:var(--text2);
+}
+#mockbar .mb-lbl{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);font-weight:700}
+#mockbar .mb-grp{display:flex;align-items:center;gap:6px}
+#mockbar .mb-grp > span{color:var(--text3)}
+.seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:5px 10px;font-size:11.5px;cursor:pointer;color:var(--text2);border-right:1px solid var(--border2)}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--surface2)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+
+/* ── アプリ外枠 ── */
+#app{max-width:1080px;margin:0 auto;padding:0 16px 130px}
+#apphdr{display:flex;align-items:center;gap:10px;padding:16px 0 10px}
+#apphdr h1{margin:0;font-size:15px;font-weight:700;letter-spacing:.02em}
+#apphdr .cnt{background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+#tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px}
+#tabs button{border:0;background:none;padding:9px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px}
+#tabs button[aria-selected="true"]{color:var(--accent);border-color:var(--accent)}
+
+/* ── 動画グリッド（背景） ── */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.vcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.vthumb{aspect-ratio:16/9;position:relative;background:linear-gradient(135deg,var(--surface3),var(--surface2));display:flex;align-items:center;justify-content:center}
+.vthumb::after{content:'';width:0;height:0;border-left:13px solid var(--text3);border-top:8px solid transparent;border-bottom:8px solid transparent;opacity:.5}
+.vdur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.72);color:#fff;font-size:9.5px;padding:1px 5px;border-radius:3px}
+.vbody{padding:9px 10px 11px}
+.vtitle{font-size:12px;line-height:1.45;margin:0 0 6px;font-weight:500}
+.vtags{display:flex;flex-wrap:wrap;gap:4px}
+.vtag{font-size:9.5px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+
+/* ── ショートカット ── */
+#fab{
+  position:fixed;z-index:60;display:inline-flex;align-items:center;gap:7px;
+  padding:11px 17px;border-radius:24px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;
+  box-shadow:var(--shadow-lg);transition:transform .14s ease;
+}
+#fab:hover{transform:translateY(-1px)}
+#fab .fabkey{font-size:10px;color:var(--text3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-weight:400}
+body[data-pos="br"] #fab{right:22px;bottom:22px}
+body[data-pos="bl"] #fab{left:22px;bottom:22px}
+body[data-pos="tr"] #fab{right:22px;top:78px}
+body[data-pos="tl"] #fab{left:22px;top:78px}
+body[data-pos="off"] #fab{display:none}
+
+/* ── コンポーザ ── */
+#scrim{position:fixed;inset:0;background:var(--scrim);z-index:70;display:none}
+#scrim.open{display:block}
+#composer{
+  position:fixed;z-index:80;width:min(470px,calc(100vw - 32px));
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-lg);display:none;flex-direction:column;overflow:hidden;
+}
+#composer.open{display:flex;animation:pop .16s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:none}}
+body[data-pos="br"] #composer,body[data-pos="off"] #composer{right:22px;bottom:22px}
+body[data-pos="bl"] #composer{left:22px;bottom:22px}
+body[data-pos="tr"] #composer{right:22px;top:78px}
+body[data-pos="tl"] #composer{left:22px;top:78px}
+@media (max-width:560px){#composer{left:16px!important;right:16px!important;bottom:16px!important;top:auto!important}}
+.cp-hd{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border2);background:var(--surface2)}
+.cp-hd h2{margin:0;font-size:12.5px;font-weight:700}
+.cp-hd .cp-sub{font-size:11px;color:var(--text3);flex:1}
+.cp-x{border:0;background:none;color:var(--text3);font-size:15px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.cp-x:hover{background:var(--border)}
+#cp-quote{
+  display:none;margin:12px 14px 0;padding:8px 11px;
+  border-left:2px solid var(--border);background:var(--surface2);
+  font-size:12px;line-height:1.55;color:var(--text2);border-radius:0 5px 5px 0;
+}
+#cp-quote.on{display:block}
+#cp-quote .qh{font-size:10px;color:var(--text3);display:block;margin-bottom:3px}
+#cp-text{
+  width:100%;border:0;outline:none;resize:none;background:var(--surface);color:var(--text);
+  font-size:14.5px;line-height:1.65;padding:15px 14px 8px;min-height:96px;
+}
+#cp-text::placeholder{color:var(--text3)}
+.cp-tpl{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;align-items:center}
+.tplbtn{border:1px dashed var(--border);background:none;color:var(--text3);font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer}
+.tplbtn:hover{border-style:solid;color:var(--text2);background:var(--surface2)}
+.tplbtn.more{border-style:solid;border-color:var(--border2)}
+/* 検出タグ表示 */
+.cp-det{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:0 14px 11px;min-height:0}
+.cp-det:empty{padding-bottom:4px}
+.det-lbl{font-size:10px;letter-spacing:.06em;color:var(--text3);font-weight:700;margin-right:1px}
+.det-idle{font-size:11px;color:var(--text3)}
+.det-chip{
+  display:inline-flex;align-items:center;gap:2px;font-size:11px;padding:3px 5px 3px 10px;
+  border-radius:20px;background:var(--gold-soft);color:var(--gold);
+  border:1px solid transparent;font-weight:700;
+}
+.det-chip.manual{background:var(--surface2);color:var(--text2);border-color:var(--border);font-weight:400}
+.det-x{border:0;background:none;cursor:pointer;color:inherit;opacity:.5;font-size:12px;line-height:1;padding:0 3px}
+.det-x:hover{opacity:1}
+.det-add{border:1px dashed var(--border);background:none;color:var(--text3);font-size:11px;padding:3px 9px;border-radius:20px;cursor:pointer}
+.det-add:hover{border-style:solid;color:var(--text2)}
+.det-vids{
+  margin-left:auto;font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;
+  background:var(--blue-soft);color:var(--blue);border:1px solid transparent;font-weight:700;
+}
+.det-vids:hover{text-decoration:underline}
+.tag-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
+
+/* 関連動画一覧 */
+.rel-list{display:flex;flex-direction:column;margin-bottom:18px}
+.rel-row{display:flex;align-items:center;gap:11px;padding:9px 8px;border-bottom:1px solid var(--border2);border-radius:5px}
+.rel-row.buried{background:var(--gold-soft)}
+.rel-th{flex:0 0 54px;height:31px;border-radius:4px;background:linear-gradient(135deg,var(--surface3),var(--surface2))}
+.rel-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.rel-t{font-size:12.5px;line-height:1.4}
+.rel-tags{display:flex;flex-wrap:wrap;gap:4px}
+.rel-meta{font-size:10px;color:var(--text3)}
+.rel-row.buried .rel-meta{color:var(--gold);font-weight:700}
+.rel-d{flex:0 0 auto;font-size:11px;color:var(--text3)}
+.net-note{font-size:11.5px;color:var(--text3);line-height:1.6;margin:0 0 14px}
+.net-note.sub{margin:-4px 0 10px}
+
+/* 出会いバー */
+.enc-bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:7px;
+  padding:11px 13px;margin-bottom:14px;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);
+}
+.enc-lbl{font-size:11.5px;font-weight:700;color:var(--text2);margin-right:auto}
+
+/* ランダム1本 */
+.pick-card{border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface2)}
+.pick-th{aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,var(--surface3),var(--surface));margin-bottom:12px}
+.pick-t{font-size:15px;font-weight:700;line-height:1.5;margin:0 0 9px}
+.pick-meta{font-size:11px;color:var(--text3);margin:9px 0 0}
+
+/* セクション見出し */
+.sec-lbl{
+  font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;
+  color:var(--gold);padding:16px 0 6px;
+}
+.sec-lbl.plain{color:var(--text3);border-top:1px solid var(--border);margin-top:8px}
+.sec-lbl:first-child{padding-top:0}
+.tgchip{font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.tgchip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.cp-ft{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--border2);background:var(--surface2)}
+.cp-ft .hint{font-size:10.5px;color:var(--text3);flex:1}
+.lnk{background:none;border:0;font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:4px}
+.lnk:hover{color:var(--text)}
+.btn-post{border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);font-size:12.5px;font-weight:700;padding:7px 17px;border-radius:6px;cursor:pointer}
+.btn-post[disabled]{opacity:.35;cursor:default}
+
+/* ── つぶやき一覧 ── */
+#view-log{display:none}
+#view-log.on{display:block}
+.log-hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin:2px 0 14px}
+.log-hd h2{margin:0;font-size:14px;font-weight:700}
+.log-hd .sub{font-size:11.5px;color:var(--text3)}
+.log-hd .spacer{flex:1}
+.ghost{border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11.5px;padding:5px 12px;border-radius:6px;cursor:pointer}
+.ghost:hover{background:var(--surface2);color:var(--text)}
+
+.resurf{border:1px solid var(--border);border-left:3px solid var(--gold);background:var(--gold-soft);border-radius:var(--radius);padding:13px 15px;margin-bottom:18px}
+.resurf .rf-lbl{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:7px}
+.resurf .rf-body{font-size:14px;line-height:1.6;margin-bottom:10px;white-space:pre-wrap}
+.resurf .rf-acts{display:flex;flex-wrap:wrap;gap:7px}
+
+.tw{display:flex;gap:13px;padding:14px 2px;border-bottom:1px solid var(--border2);border-radius:5px}
+.tw.starred{background:var(--gold-soft)}
+.tw-date{flex:0 0 62px;font-size:11px;color:var(--text3);padding-top:2px}
+.tw-main{flex:1;min-width:0}
+.tw-from{
+  display:flex;align-items:baseline;gap:6px;max-width:100%;
+  font-size:10.5px;color:var(--text3);margin-bottom:6px;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:5px;
+  padding:5px 9px;text-align:left;
+}
+.tw-from:hover{border-color:var(--accent);color:var(--text2)}
+.tw-from .tf-d{font-weight:700;flex:0 0 auto}
+.tw-from .tf-b{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-style:italic;
+}
+.tw-from .tf-go{flex:0 0 auto}
+.tw.flash{animation:flash 1.4s ease-out}
+@keyframes flash{0%,35%{background:var(--gold-soft);box-shadow:0 0 0 3px var(--gold-soft)}100%{background:transparent;box-shadow:none}}
+.tw.starred.flash{animation:flash-s 1.4s ease-out}
+@keyframes flash-s{0%,35%{box-shadow:0 0 0 3px var(--gold-soft)}100%{box-shadow:none}}
+.tw-body{font-size:14px;line-height:1.65;white-space:pre-wrap;margin-bottom:8px}
+.tw-edit{width:100%;font-size:14px;line-height:1.65;padding:9px 11px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);resize:vertical;outline:none;margin-bottom:7px}
+.tw-editft{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tw-editft .hint{font-size:10.5px;color:var(--text3);flex:1}
+.tw-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tw-tag{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.tw-vids{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--blue-soft);color:var(--blue);border:1px solid transparent;cursor:pointer}
+.tw-vids:hover{text-decoration:underline}
+.tw-note{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--green-soft);color:var(--green);border:1px solid transparent}
+.tw-kids{font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--purple-soft);color:var(--purple);border:1px solid transparent;cursor:pointer}
+.tw-kids:hover{text-decoration:underline}
+.tw-acts{flex:0 0 auto;display:flex;gap:1px;align-items:flex-start;padding-top:1px}
+.iconbtn{border:0;background:none;cursor:pointer;color:var(--text3);font-size:13px;padding:4px 6px;border-radius:5px;line-height:1}
+.iconbtn:hover{background:var(--surface2);color:var(--text)}
+.iconbtn.on{color:var(--gold)}
+.tw.fresh{animation:fresh 1.1s ease-out}
+@keyframes fresh{from{background:var(--gold-soft)}to{background:transparent}}
+
+/* ── モーダル共通 ── */
+.modal{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:16px;background:var(--scrim)}
+.modal.open{display:flex}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);width:min(620px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.mhd{padding:13px 16px;border-bottom:1px solid var(--border2);background:var(--surface2);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.mhd h2{margin:0;font-size:12.5px;font-weight:700;flex:1}
+.mbd{padding:16px;overflow:auto}
+.mft{display:flex;gap:8px;justify-content:flex-end;padding:11px 16px;border-top:1px solid var(--border2);background:var(--surface2);flex-shrink:0}
+
+/* ── テンプレート選択 ── */
+.tpl-lead{font-size:12px;color:var(--text2);line-height:1.6;margin:0 0 14px}
+.tpl-lead .q{display:block;margin-top:7px;padding:8px 11px;background:var(--surface2);border-left:2px solid var(--border);border-radius:0 5px 5px 0;color:var(--text);white-space:pre-wrap}
+.tpl-sec{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);font-weight:700;margin:0 0 8px}
+.tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:9px;margin-bottom:18px}
+.tpl-card{
+  text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:12px 13px;cursor:pointer;transition:border-color .12s,background .12s;
+}
+.tpl-card:hover{border-color:var(--accent);background:var(--surface2)}
+.tpl-card .tc-ic{font-size:17px;display:block;margin-bottom:6px;line-height:1}
+.tpl-card .tc-nm{font-size:12.5px;font-weight:700;display:block;margin-bottom:4px}
+.tpl-card .tc-ds{font-size:10.5px;color:var(--text3);line-height:1.5;display:block}
+.tpl-card.dashed{border-style:dashed;background:none}
+.tpl-card.dashed:hover{border-style:solid}
+
+/* テンプレ一覧（行型） */
+.tpl-list{display:flex;flex-direction:column;gap:7px;margin-bottom:18px}
+.tpl-list .tpl-card{padding:0;cursor:default}
+.tpl-card.as-row{display:flex;align-items:center;gap:6px}
+.tpl-card.as-row:hover{border-color:var(--border);background:var(--surface)}
+.tc-hit{
+  flex:1;min-width:0;text-align:left;background:none;border:0;cursor:pointer;
+  padding:11px 4px 11px 13px;border-radius:8px 0 0 8px;
+}
+.tc-hit:hover{background:var(--surface2)}
+.tpl-list .tc-nm{font-size:12.5px;font-weight:700;display:block;margin-bottom:3px}
+.tpl-list .tc-ds{
+  font-size:10.5px;color:var(--text3);line-height:1.5;display:block;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.tc-badge{
+  font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:20px;
+  background:var(--purple-soft);color:var(--purple);vertical-align:1px;
+}
+.tc-acts{display:flex;gap:1px;padding-right:8px;flex-shrink:0}
+.tpl-list .tpl-card.dashed{padding:12px 13px;cursor:pointer}
+.tpl-list .tpl-card.dashed:hover{border-color:var(--accent);background:var(--surface2)}
+
+/* 入力フィールド */
+.fld-l{display:block;font-size:11px;font-weight:700;color:var(--text2);margin:0 0 5px}
+.fld{
+  width:100%;border:1px solid var(--border);border-radius:6px;background:var(--surface);
+  color:var(--text);font-size:13.5px;line-height:1.6;padding:9px 11px;
+  margin-bottom:14px;outline:none;resize:vertical;
+}
+.fld:focus{border-color:var(--accent)}
+.fld-h{font-size:11px;color:var(--text3);line-height:1.6;margin:0}
+
+/* ── ノートプレビュー ── */
+.nt-title{font-size:15px;font-weight:700;margin:0 0 5px;line-height:1.45}
+.nt-status{display:inline-block;font-size:10.5px;padding:2px 9px;border-radius:20px;background:var(--green-soft);color:var(--green);margin-bottom:16px}
+.nt-sec{margin-bottom:15px}
+.nt-h{font-size:11.5px;font-weight:700;color:var(--text2);margin:0 0 6px;letter-spacing:.02em}
+.nt-fill{font-size:13.5px;line-height:1.6;padding:9px 11px;background:var(--gold-soft);border-left:2px solid var(--gold);border-radius:0 5px 5px 0;white-space:pre-wrap}
+.nt-fill.multi div{margin-bottom:5px}
+.nt-fill.multi div:last-child{margin-bottom:0}
+.nt-empty{font-size:12px;color:var(--text3);padding:9px 11px;border:1px dashed var(--border);border-radius:5px;background:var(--surface2)}
+.nt-blk{border:1px dashed var(--border);border-radius:6px;padding:11px 12px;font-size:11.5px;color:var(--text3);background:var(--surface2)}
+.nt-blk strong{color:var(--text2);font-weight:700}
+.nt-vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:7px;margin-top:9px}
+.nt-v{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:10.5px;line-height:1.4;color:var(--text2)}
+.note-anno{font-size:11px;color:var(--text3);line-height:1.6;border-top:1px dashed var(--border);padding-top:11px;margin:4px 0 0}
+.note-anno b{color:var(--text2)}
+
+/* ── トースト ── */
+#toast{
+  position:fixed;left:50%;bottom:88px;transform:translateX(-50%) translateY(8px);
+  background:var(--text);color:var(--bg);font-size:12.5px;padding:9px 18px;border-radius:20px;
+  z-index:120;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body data-pos="br">
+
+<div id="mockbar">
+  <span class="mb-lbl">モック操作</span>
+  <span class="mb-grp">
+    <span>ショートカットの位置</span>
+    <span class="seg" id="seg-pos">
+      <button data-pos="br" aria-pressed="true">右下</button>
+      <button data-pos="bl" aria-pressed="false">左下</button>
+      <button data-pos="tr" aria-pressed="false">右上</button>
+      <button data-pos="tl" aria-pressed="false">左上</button>
+      <button data-pos="off" aria-pressed="false">表示しない</button>
+    </span>
+  </span>
+  <span class="seg"><button id="btn-theme" aria-pressed="false">ダークで見る</button></span>
+  <span style="color:var(--text3)">「表示しない」でも <b class="mono">N</b> キーで開きます</span>
+</div>
+
+<div id="app">
+  <div id="apphdr">
+    <h1>WAZA KIMURA</h1>
+    <span class="cnt mono">512</span>
+  </div>
+
+  <div id="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-view="lib">□ Library</button>
+    <button role="tab" aria-selected="false" data-view="log">💬 つぶやき</button>
+    <button role="tab" aria-selected="false" data-view="lib">≡ Notes</button>
+    <button role="tab" aria-selected="false" data-view="lib">⚙ Settings</button>
+  </div>
+
+  <div id="view-lib">
+    <div class="enc-bar">
+      <span class="enc-lbl">埋もれた動画と出会う</span>
+      <button class="ghost" id="rnd-today">☀ 今日の1本</button>
+      <button class="ghost" id="rnd-buried">◇ 埋もれた1本</button>
+      <button class="ghost" id="rnd-any">🎲 ランダム</button>
+    </div>
+    <div id="grid"></div>
+  </div>
+
+  <div id="view-log">
+    <div class="log-hd">
+      <h2>つぶやき</h2>
+      <span class="sub"><span class="mono" id="log-count">0</span> 件</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="btn-tplbrowse">📓 テンプレート一覧</button>
+      <button class="ghost" id="btn-random">🎲 ランダムに1件</button>
+    </div>
+
+    <div class="resurf">
+      <div class="rf-lbl" id="rf-lbl">1ヶ月前の今日</div>
+      <div class="rf-body" id="rf-body"></div>
+      <div class="rf-acts">
+        <button class="ghost" id="rf-derive">⑂ ここから育てる</button>
+        <button class="ghost" id="rf-promote">📓 ノートにする</button>
+        <button class="ghost" id="rf-next">別のを見る</button>
+      </div>
+    </div>
+
+    <div id="log-list"></div>
+  </div>
+</div>
+
+<button id="fab">💬 つぶやく <span class="fabkey mono">N</span></button>
+<div id="scrim"></div>
+
+<div id="composer" role="dialog" aria-label="つぶやきを書く">
+  <div class="cp-hd">
+    <h2 id="cp-title">つぶやき</h2>
+    <span class="cp-sub" id="cp-sub">書き捨てでいい</span>
+    <button class="cp-x" id="cp-close" aria-label="閉じる">✕</button>
+  </div>
+  <div id="cp-quote"><span class="qh">ここから育てる</span><span id="cp-quote-body"></span></div>
+  <textarea id="cp-text" placeholder="ふわっと思ったことを書く…"></textarea>
+  <div class="cp-tpl" id="cp-tpl"></div>
+  <div class="cp-det" id="cp-det"></div>
+  <div class="cp-ft">
+    <span class="hint mono">⌘ + Enter</span>
+    <button class="lnk" id="cp-all">すべて見る</button>
+    <button class="btn-post" id="cp-post" disabled>つぶやく</button>
+  </div>
+</div>
+
+<!-- つぶやきテンプレ ピッカー -->
+<div class="modal" id="mtpl">
+  <div class="mcard" style="width:min(460px,100%)">
+    <div class="mhd"><h2>つぶやきテンプレート</h2><button class="cp-x" data-close="mtpl">✕</button></div>
+    <div class="mbd" id="mtpl-bd"></div>
+  </div>
+</div>
+
+<!-- ランダム1本 -->
+<div class="modal" id="mpick1">
+  <div class="mcard" style="width:min(440px,100%)">
+    <div class="mhd"><h2 id="mpick1-h">ランダム</h2><button class="cp-x" data-close="mpick1">✕</button></div>
+    <div class="mbd" id="mpick1-bd"></div>
+    <div class="mft">
+      <button class="ghost" id="pick-again" style="margin-right:auto">🎲 もう1本</button>
+      <button class="btn-post" id="pick-play">▶︎ 見る</button>
+    </div>
+  </div>
+</div>
+
+<!-- タグを足す -->
+<div class="modal" id="mtag">
+  <div class="mcard" style="width:min(520px,100%)">
+    <div class="mhd"><h2>タグを足す・外す</h2><button class="cp-x" data-close="mtag">✕</button></div>
+    <div class="mbd" id="mtag-bd"></div>
+  </div>
+</div>
+
+<!-- 関連動画 -->
+<div class="modal" id="mrel">
+  <div class="mcard">
+    <div class="mhd"><h2 id="mrel-h">関連動画</h2><button class="cp-x" data-close="mrel">✕</button></div>
+    <div class="mbd" id="mrel-bd"></div>
+  </div>
+</div>
+
+<!-- つぶやきテンプレ エディタ -->
+<div class="modal" id="mtpledit">
+  <div class="mcard" style="width:min(460px,100%)">
+    <div class="mhd"><h2 id="med-h">新しいテンプレート</h2><button class="cp-x" data-close="mtpledit">✕</button></div>
+    <div class="mbd">
+      <label class="fld-l" for="med-nm">名前</label>
+      <input class="fld" id="med-nm" type="text" placeholder="例：今日の練習したこと">
+      <label class="fld-l" for="med-body">本文</label>
+      <textarea class="fld" id="med-body" rows="6" placeholder="効いた：&#10;効かなかった：&#10;次に試す："></textarea>
+      <p class="fld-h">押したときに本文へ入る文字です。質問を並べるだけで十分。空行や記号も自由に使えます。</p>
+    </div>
+    <div class="mft">
+      <button class="ghost" id="med-del" style="margin-right:auto">削除</button>
+      <button class="ghost" id="med-cancel">やめる</button>
+      <button class="btn-post" id="med-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ノートテンプレ 選択 -->
+<div class="modal" id="mpick">
+  <div class="mcard">
+    <div class="mhd"><h2>どのテンプレートで育てますか</h2><button class="cp-x" data-close="mpick">✕</button></div>
+    <div class="mbd" id="mpick-bd"></div>
+  </div>
+</div>
+
+<!-- ノート プレビュー -->
+<div class="modal" id="mpromo">
+  <div class="mcard">
+    <div class="mhd"><h2 id="mpromo-h">ノートにする</h2><button class="cp-x" data-close="mpromo">✕</button></div>
+    <div class="mbd" id="mpromo-bd"></div>
+    <div class="mft">
+      <button class="ghost" id="promo-back">← テンプレートを選び直す</button>
+      <button class="btn-post" id="promo-ok">このノートを作る</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* ── 動画 ──
+   [ タイトル, 長さ, タグ, playCount, 追加からの月数 ]
+   playCount / addedAt は実データにある（js/vpanel.js が再生時に加算）ので
+   「埋もれ度」が計算できる                                            */
+const VIDEOS = [
+  ['デラヒーバから足の入れ替え → スイープの基本','12:40',['デラヒーバ','スイープ'],4,3],
+  ['デラヒーバ → ベリンボロの分岐','31:02',['デラヒーバ','ベリンボロ','バックテイク'],0,19],
+  ['デラヒーバ 崩しの原理','16:20',['デラヒーバ','コンセプト・原理'],0,26],
+  ['デラヒーバでフックを外されない','8:55',['デラヒーバ','ガードリテンション'],1,11],
+  ['ニーカットパス 膝を割った後の上体','18:05',['パスガード','ニーカット'],7,2],
+  ['スタックパスの原理','7:49',['パスガード','スタックパス','コンセプト・原理'],0,22],
+  ['トレアドール 基本と応用','22:30',['パスガード','トレアドール'],2,8],
+  ['レッグドラッグへの入り方','14:12',['パスガード','レッグドラッグ'],0,15],
+  ['パスガードの原則 — 相手の腰を殺す','19:44',['パスガード','コンセプト・原理'],0,31],
+  ['シザースイープを潰す3つの対処','9:22',['シザースイープ','パスガード'],1,6],
+  ['シザースイープ 決まる条件','11:08',['シザースイープ','スイープ','クローズドガード'],0,24],
+  ['ガードリテンション 足の再挿入','24:11',['ガードリテンション'],3,5],
+  ['ヒップエスケープの質を上げる','11:15',['ガードリテンション','コンセプト・原理'],0,28],
+  ['リテンションの原理 — 距離とフレーム','26:03',['ガードリテンション','コンセプト・原理'],0,17],
+  ['クローズドガード ショルダークランチ入門','15:38',['クローズドガード','ショルダークランチ'],2,4],
+  ['クローズドガードからの3つの連携','20:17',['クローズドガード','スイープ'],0,20],
+  ['クローズドガード 腰を切らせない','13:41',['クローズドガード','コンセプト・原理'],0,33],
+  ['バタフライスイープの基本','10:02',['スイープ','バタフライスイープ'],1,9],
+  ['三角絞めの角度','12:55',['フィニッシュ','三角絞め','クローズドガード'],0,14],
+  ['アームバー ディテール集','17:26',['フィニッシュ','アームバー'],5,1],
+  ['オモプラッタ 入口の作り方','13:19',['フィニッシュ','クローズドガード'],0,29],
+  ['スイープが返らない理由 — 崩しの方向','21:07',['スイープ','コンセプト・原理'],0,35],
+  // タグは付いていないが、タイトルに名前がある。これも拾う
+  ['シザースイープ対策 — 膝でブロックする','10:44',['パスガード'],0,27],
+  ['デラヒーバ返し 立ち際の潰し方','12:03',['パスガード'],0,21]
+];
+
+/* 埋もれ度 — 再生されていない × 追加が古い ほど高い */
+const buried = v => (v[3] === 0 ? 100 : v[3] <= 1 ? 40 : 0) + Math.min(v[4], 36);
+const buriedLabel = v =>
+  (v[3] === 0 ? '◇ 未再生' : `▷ ${v[3]}回`) + ' · ' +
+  (v[4] >= 12 ? `${Math.floor(v[4]/12)}年${v[4]%12 ? (v[4]%12)+'ヶ月' : ''}前` : `${v[4]}ヶ月前`) + 'に追加';
+
+/* ── 語彙（js/tag-master.js の POSITIONS / CATEGORIES / TECHNIQUE_BUILTIN 相当）──
+   label に正規化され、terms のどれかが本文に含まれたら検出                  */
+const VOCAB = [
+  // ポジション
+  { label:'デラヒーバ',        kind:'pos',  terms:['デラヒーバ','デラヒーバガード','de la riva','dlr'] },
+  { label:'クローズドガード',  kind:'pos',  terms:['クローズドガード','クローズド','クロガ','フルガード','closed guard'] },
+  { label:'スパイダーガード',  kind:'pos',  terms:['スパイダーガード','スパイダー','spider guard'] },
+  { label:'ハーフガード',      kind:'pos',  terms:['ハーフガード','ハーフ','half guard'] },
+  { label:'マウント',          kind:'pos',  terms:['マウント','mount'] },
+  { label:'サイドコントロール',kind:'pos',  terms:['サイド','サイドコントロール','横四方','side control'] },
+  { label:'バック',            kind:'pos',  terms:['バック','背中','back control'] },
+  { label:'タートル',          kind:'pos',  terms:['タートル','亀','turtle'] },
+  // カテゴリ
+  { label:'パスガード',        kind:'cat',  terms:['パスガード','パス','guard pass','passing'] },
+  { label:'ガードリテンション',kind:'cat',  terms:['ガードリテンション','リテンション','ガードを維持','retention'] },
+  { label:'スイープ',          kind:'cat',  terms:['スイープ','返し','sweep'] },
+  { label:'フィニッシュ',      kind:'cat',  terms:['サブミッション','極め','フィニッシュ','submission'] },
+  { label:'バックテイク',      kind:'cat',  terms:['バックテイク','バックを取','back take'] },
+  { label:'エスケープ・ディフェンス', kind:'cat', terms:['エスケープ','逃げ','脱出','ディフェンス','escape'] },
+  { label:'テイクダウン',      kind:'cat',  terms:['テイクダウン','タックル','投げ','takedown'] },
+  { label:'コンセプト・原理',  kind:'cat',  terms:['原理','原則','コンセプト','concept','principle'] },
+  // 技
+  { label:'シザースイープ',    kind:'tech', terms:['シザースイープ','シザー','scissor sweep'] },
+  { label:'バタフライスイープ',kind:'tech', terms:['バタフライスイープ','バタフライ','butterfly'] },
+  { label:'ベリンボロ',        kind:'tech', terms:['ベリンボロ','berimbolo'] },
+  { label:'ニーカット',        kind:'tech', terms:['ニーカット','ニースライス','knee cut','knee slice'] },
+  { label:'トレアドール',      kind:'tech', terms:['トレアドール','トレアンド','toreando'] },
+  { label:'レッグドラッグ',    kind:'tech', terms:['レッグドラッグ','leg drag'] },
+  { label:'スタックパス',      kind:'tech', terms:['スタックパス','スタック','stack pass'] },
+  { label:'ショルダークランチ',kind:'tech', terms:['ショルダークランチ','shoulder crunch'] },
+  { label:'三角絞め',          kind:'tech', terms:['三角絞め','三角締め','三角','トライアングル','triangle'] },
+  { label:'アームバー',        kind:'tech', terms:['アームバー','腕十字','armbar'] },
+  { label:'キムラ',            kind:'tech', terms:['キムラ','kimura'] }
+];
+const KIND_JA = { pos:'ポジション', cat:'カテゴリ', tech:'技' };
+
+/* 本文から語彙を検出（長い語を優先し、包含する短い語は落とす） */
+function detectTags(text){
+  if (!text) return [];
+  const low = text.toLowerCase();
+  let hits = VOCAB.filter(v => v.terms.some(t => low.includes(t.toLowerCase())));
+  return hits.filter(h => !hits.some(o =>
+    o !== h && o.label.length > h.label.length && o.label.includes(h.label)));
+}
+/* ── サジェスト ──
+   その名前がついた動画を全部出す。それだけ。
+   攻めか守りか、といった中身での選り分けはしない。
+   タグに付いていなくても、タイトルにその名前があれば拾う。      */
+function matchVideos(tags){
+  if (!tags.length) return [];
+  const terms = tags.flatMap(t => {
+    const v = VOCAB.find(x => x.label === t);
+    return v ? v.terms : [t];
+  }).map(s => s.toLowerCase());
+
+  return VIDEOS
+    .filter(v => tags.some(t => v[2].includes(t))
+              || terms.some(s => v[0].toLowerCase().includes(s)))
+    // 埋もれているもの（未再生・追加が古い）から先に見せる
+    .sort((a,b) => buried(b) - buried(a));
+}
+const relatedVideos = matchVideos;
+
+/* ── つぶやきテンプレート（プリセット＋自作） ──
+   pinned: true のものがコンポーザに直接ボタンとして出る（最大3つ）        */
+let MTPL = [
+  { k:'blank',    nm:'なし（空欄）',       pinned:false, preset:true, body:'' },
+  { k:'practice', nm:'今日の練習したこと', pinned:true,  preset:true,
+    body:'やったこと：\n効いた：\n効かなかった：\n次に試す：' },
+  { k:'daily',    nm:'今日の記録',         pinned:true,  preset:true,
+    body:'今日どうだった：\n覚えておきたいこと：' },
+  { k:'video',    nm:'動画を見て',         pinned:true,  preset:true,
+    body:'気になったところ：\n次の練習で試すこと：' },
+  { k:'problem',  nm:'課題',               pinned:false, preset:true,
+    body:'うまくいかないこと：\n原因かもしれないこと：' },
+  { k:'try',      nm:'試したい',           pinned:false, preset:true,
+    body:'試したいこと：\nどの場面で：' },
+  { k:'win',      nm:'うまくいった',       pinned:false, preset:true,
+    body:'うまくいったこと：\nなぜ効いたと思うか：' }
+];
+let mtplSeq = 1;
+const PIN_MAX = 3;
+
+/* ── ノートテンプレート ──
+   sections: [見出し, 埋め方]
+   fill: 'body'=つぶやき本文 / 'related'=同タグの過去つぶやき / null=空欄
+   blocks: vidlist / tracker / map                                    */
+const NTPL = [
+  { k:'goal', ic:'🎯', nm:'目標', ds:'できるようになりたいこと1つ',
+    grp:'つぶやきから育てる',
+    secs:[['できるようになりたいこと','body'],
+          ['いま引っかかっているところ','related'],
+          ['試すこと',null]],
+    blocks:['vidlist','tracker'] },
+
+  { k:'counter', ic:'⚔️', nm:'対策シート', ds:'やられていることへの対処',
+    grp:'つぶやきから育てる',
+    secs:[['やられていること','body'],
+          ['なぜ効かれるのか（推測）','related'],
+          ['対処の候補',null],
+          ['試した結果（追記していく）',null]],
+    blocks:['vidlist'] },
+
+  { k:'break', ic:'🔬', nm:'技の分解', ds:'1つの技を細かく開く',
+    grp:'つぶやきから育てる',
+    secs:[['この技について','body'],
+          ['入口（どこから入るか）',null],
+          ['効く条件',null],
+          ['よくある失敗','related'],
+          ['連携（成功したら／防がれたら）',null]],
+    blocks:['vidlist','map'] },
+
+  { k:'plan', ic:'🗺', nm:'育成計画', ds:'3〜6ヶ月のまとまり',
+    grp:'まとめて計画する',
+    secs:[['この期間で一番伸ばしたいこと','body'],
+          ['取り組むテーマ','related'],
+          ['ここに近づいたら「できた」と思える',null],
+          ['見直す日',null]],
+    blocks:['vidlist','tracker'] },
+
+  { k:'diary', ic:'📅', nm:'練習日誌', ds:'その日1日ぶん',
+    grp:'まとめて計画する',
+    secs:[['効いた','body'],['効かなかった',null],['次に試す',null]],
+    blocks:[] },
+
+  { k:'blank', ic:'📄', nm:'空白から', ds:'自分で組み立てる',
+    grp:'まとめて計画する',
+    secs:[['','body']], blocks:[] }
+];
+
+const BLOCK_INFO = {
+  vidlist: ['関連動画', 'vidlist ブロック', '条件に合う動画が自動で並びます。動画が増えたらノートにも自動で増えます。'],
+  tracker: ['進捗', 'カスタムビューの tracker 列', '手で1マスずつ埋めていく形。判定はしません。'],
+  map:     ['連携図', 'map（フローチャート）ブロック', '技のつながりを図で置けます。']
+};
+
+/* tags は本文からの検出結果（起動時に detectTags で埋める）。
+   star:true のものはトップに固定される。 */
+let LOG = [
+  { id:1, d:'08/17', body:'シザースイープ食らいまくった。腰の位置が高いのかもしれない。', star:false },
+  { id:2, d:'08/16', body:'アンストッパブルスイープ気になる', star:false },
+  { id:3, d:'08/14', body:'デラヒーバ、足の入れ替えが遅い。ここが全部の入口な気がする。', star:true },
+  { id:4, d:'08/12', body:'デラヒーバの入れ替えが遅いのは、フックを外すタイミングが遅いからかもしれない。', star:false, from:3 },
+  { id:5, d:'08/11', body:'クローズドガードの調子がいい。相手の腰が浮く瞬間が見えてきた。', star:false },
+  { id:6, d:'08/09', body:'パスガードは膝を割った後がわからん。上体が浮いて戻される。', star:false },
+  { id:7, d:'07/28', body:'ポジション別やシチュエーション別のプレイリストが作れると、すごくいいなと思った。', star:true, note:true },
+  { id:8, d:'07/17', body:'やっぱりデラヒーバのスイープできるようになりたい', star:false },
+  { id:9, d:'07/13', body:'パスガードのコンビネーションの種類を増やしたい。\nあと、やっぱりガードリテンションをもっと身につけたいな。', star:false }
+];
+LOG.forEach(t => { if (!t.tags) t.tags = detectTags(t.body).map(v => v.label); });
+let nextId = 10;
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId = id => LOG.find(t => t.id === id);
+
+/* ── 背景グリッド ── */
+$('#grid').innerHTML = VIDEOS.map(v => `
+  <div class="vcard">
+    <div class="vthumb"><span class="vdur mono">${esc(v[1])}</span></div>
+    <div class="vbody">
+      <p class="vtitle">${esc(v[0])}</p>
+      <div class="vtags">${v[2].slice(0,2).map(t => `<span class="vtag">${esc(t)}</span>`).join('')}</div>
+    </div>
+  </div>`).join('');
+
+/* ── タブ / モック操作 ── */
+$$('#tabs button').forEach(b => b.onclick = () => {
+  $$('#tabs button').forEach(x => x.setAttribute('aria-selected','false'));
+  b.setAttribute('aria-selected','true');
+  showView(b.dataset.view);
+});
+function showView(v){
+  $('#view-lib').style.display = v === 'lib' ? '' : 'none';
+  $('#view-log').classList.toggle('on', v === 'log');
+  window.scrollTo({top:0});
+}
+function gotoLog(){
+  $$('#tabs button').forEach(x => x.setAttribute('aria-selected','false'));
+  $$('#tabs button')[1].setAttribute('aria-selected','true');
+  showView('log');
+}
+$$('#seg-pos button').forEach(b => b.onclick = () => {
+  $$('#seg-pos button').forEach(x => x.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true');
+  document.body.dataset.pos = b.dataset.pos;
+  if (b.dataset.pos === 'off') toast('N キーで開きます');
+});
+$('#btn-theme').onclick = e => {
+  const on = document.body.classList.toggle('dark');
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  e.currentTarget.textContent = on ? 'ライトで見る' : 'ダークで見る';
+};
+
+/* ── コンポーザ ── */
+const composer = $('#composer'), scrim = $('#scrim'), txt = $('#cp-text');
+let deriveFrom = null;
+let removed = new Set();   // 検出されたが手で外したもの
+let added   = new Set();   // 手で足したもの
+
+const liveTags = () => {
+  const auto = detectTags(txt.value).map(v => v.label).filter(l => !removed.has(l));
+  return [...new Set([...auto, ...added])];
+};
+
+/* 入力中の検出表示 */
+function renderDetect(){
+  const auto = detectTags(txt.value).filter(v => !removed.has(v.label));
+  const tags = liveTags();
+  const vids = relatedVideos(tags);
+  const el = $('#cp-det');
+
+  if (!tags.length){
+    el.innerHTML = txt.value.trim()
+      ? `<span class="det-idle">技やポジションの名前を書くと、関連動画が出ます</span>
+         <button class="det-add" id="det-add">＋ タグ</button>`
+      : '';
+  } else {
+    el.innerHTML =
+      `<span class="det-lbl">検出</span>` +
+      auto.map(v => `<span class="det-chip" title="${KIND_JA[v.kind]}">#${esc(v.label)}<button class="det-x" data-drop="${esc(v.label)}" aria-label="外す">×</button></span>`).join('') +
+      [...added].map(l => `<span class="det-chip manual">#${esc(l)}<button class="det-x" data-unadd="${esc(l)}" aria-label="外す">×</button></span>`).join('') +
+      `<button class="det-add" id="det-add">＋</button>` +
+      (vids.length ? `<button class="det-vids" id="det-vids">▸ 関連動画 ${vids.length}本</button>` : '');
+  }
+  $$('#cp-det [data-drop]').forEach(b => b.onclick = () => { removed.add(b.dataset.drop); renderDetect(); });
+  $$('#cp-det [data-unadd]').forEach(b => b.onclick = () => { added.delete(b.dataset.unadd); renderDetect(); });
+  const add = $('#det-add'); if (add) add.onclick = openTagAdd;
+  const dv  = $('#det-vids'); if (dv) dv.onclick = () => showRelated(liveTags());
+}
+
+function openTagAdd(){
+  const cur = new Set(liveTags());
+  const groups = ['pos','cat','tech'];
+  $('#mtag-bd').innerHTML = groups.map(g => `
+    <p class="tpl-sec">${KIND_JA[g]}</p>
+    <div class="tag-wrap">${VOCAB.filter(v => v.kind === g).map(v => `
+      <button class="tgchip" data-addtag="${esc(v.label)}" aria-pressed="${cur.has(v.label)}">#${esc(v.label)}</button>`).join('')}</div>`).join('');
+  openModal('mtag');
+  $$('[data-addtag]').forEach(b => b.onclick = () => {
+    const l = b.dataset.addtag;
+    if (cur.has(l)){ added.delete(l); removed.add(l); }
+    else { added.add(l); removed.delete(l); }
+    closeModal('mtag'); renderDetect();
+  });
+}
+
+const relRow = v => `
+  <div class="rel-row${v[3] === 0 ? ' buried' : ''}">
+    <span class="rel-th"></span>
+    <span class="rel-main">
+      <span class="rel-t">${esc(v[0])}</span>
+      <span class="rel-tags">${v[2].map(t => `<span class="tw-tag">#${esc(t)}</span>`).join('')}</span>
+      <span class="rel-meta">${esc(buriedLabel(v))}</span>
+    </span>
+    <span class="rel-d mono">${esc(v[1])}</span>
+  </div>`;
+
+function showRelated(tags){
+  const vids = matchVideos(tags);
+  $('#mrel-h').textContent = `${tags.map(t => '#' + t).join(' ')} — ${vids.length}本`;
+  $('#mrel-bd').innerHTML = vids.length ? `
+    <p class="net-note">この名前がついた動画を全部出しています。まだ見ていないものが上です。</p>
+    <div class="rel-list">${vids.map(relRow).join('')}</div>`
+    : `<p class="tpl-lead">この名前の動画はまだありません。</p>`;
+  openModal('mrel');
+}
+
+/* ── ランダム（出会い） ── */
+function pickRandom(mode){
+  let pool = VIDEOS;
+  if (mode === 'buried') pool = VIDEOS.filter(v => v[3] === 0);
+  if (mode === 'today'){
+    // 日替わりで固定（同じ日は同じ1本）
+    const d = new Date();
+    const seed = d.getFullYear() * 372 + d.getMonth() * 31 + d.getDate();
+    return VIDEOS[seed % VIDEOS.length];
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function showPick(mode){
+  const v = pickRandom(mode);
+  const head = { any:'🎲 ランダムに1本', buried:'◇ 埋もれた1本', today:'☀ 今日の1本' }[mode];
+  const note = {
+    any:'全512本から。関係なくても構いません。',
+    buried:'まだ一度も再生していないものから。',
+    today:'日付で決まるので、今日はずっとこの1本です。'
+  }[mode];
+  $('#mpick1-h').textContent = head;
+  $('#mpick1-bd').innerHTML = `
+    <p class="net-note">${esc(note)}</p>
+    <div class="pick-card">
+      <div class="pick-th"></div>
+      <p class="pick-t">${esc(v[0])}</p>
+      <div class="rel-tags">${v[2].map(t => `<span class="tw-tag">#${esc(t)}</span>`).join('')}</div>
+      <p class="pick-meta"><span class="mono">${esc(v[1])}</span> · ${esc(buriedLabel(v))}</p>
+    </div>`;
+  $('#pick-again').onclick = () => showPick(mode);
+  $('#pick-again').style.display = mode === 'today' ? 'none' : '';
+  openModal('mpick1');
+}
+$('#rnd-any').onclick    = () => showPick('any');
+$('#rnd-buried').onclick = () => showPick('buried');
+$('#rnd-today').onclick  = () => showPick('today');
+$('#pick-play').onclick  = () => { closeModal('mpick1'); toast('（モック）再生します'); };
+
+const tplPreview = b => b ? b.split('\n').filter(Boolean).join(' / ') : '本文なしで始める';
+
+function renderQuickTpl(){
+  const pins = MTPL.filter(t => t.pinned).slice(0, PIN_MAX);
+  $('#cp-tpl').innerHTML =
+    pins.map(t => `<button class="tplbtn" data-mtpl="${t.k}">${esc(t.nm)}</button>`).join('') +
+    `<button class="tplbtn more" id="tpl-more">…テンプレ一覧</button>`;
+  $$('[data-mtpl]').forEach(b => b.onclick = () => applyMtpl(b.dataset.mtpl));
+  $('#tpl-more').onclick = openMtplPicker;
+}
+
+function applyMtpl(k){
+  const t = MTPL.find(x => x.k === k); if (!t) return;
+  txt.value = t.body;
+  txt.focus();
+  txt.setSelectionRange(txt.value.length, txt.value.length);
+  $('#cp-post').disabled = !txt.value.trim();
+}
+
+function openMtplPicker(){
+  const card = t => `
+    <div class="tpl-card as-row">
+      <button class="tc-hit" data-pick-mtpl="${t.k}">
+        <span class="tc-nm">${esc(t.nm)}${t.preset ? '' : ' <span class="tc-badge">自作</span>'}</span>
+        <span class="tc-ds">${esc(tplPreview(t.body))}</span>
+      </button>
+      <span class="tc-acts">
+        <button class="iconbtn${t.pinned ? ' on' : ''}" data-pin="${t.k}"
+                title="${t.pinned ? 'ボタンから外す' : 'ボタンに出す'}">${t.pinned ? '★' : '☆'}</button>
+        ${t.preset
+          ? `<button class="iconbtn" data-dup="${t.k}" title="複製して編集">⧉</button>`
+          : `<button class="iconbtn" data-edt="${t.k}" title="編集">✎</button>
+             <button class="iconbtn" data-rmt="${t.k}" title="削除">🗑</button>`}
+      </span>
+    </div>`;
+
+  const presets = MTPL.filter(t => t.preset), mine = MTPL.filter(t => !t.preset);
+  $('#mtpl-bd').innerHTML =
+    `<p class="tpl-lead">押すと本文に入ります。埋めなくても投稿できます。
+       <br><span style="color:var(--text3);font-size:11px">★ を付けたものが入力欄のボタンになります（${PIN_MAX}つまで）</span></p>
+     <p class="tpl-sec">プリセット</p>
+     <div class="tpl-list">${presets.map(card).join('')}</div>
+     <p class="tpl-sec">自分のテンプレート</p>
+     <div class="tpl-list">${mine.length ? mine.map(card).join('') : ''}
+       <button class="tpl-card dashed" id="mtpl-new">
+         <span class="tc-nm">＋ 新しく作る</span>
+         <span class="tc-ds">よく書く形を登録しておける</span>
+       </button>
+     </div>`;
+  openModal('mtpl');
+
+  $$('[data-pick-mtpl]').forEach(b => b.onclick = () => { applyMtpl(b.dataset.pickMtpl); closeModal('mtpl'); });
+  $$('[data-pin]').forEach(b => b.onclick = () => {
+    const t = MTPL.find(x => x.k === b.dataset.pin);
+    if (!t.pinned && MTPL.filter(x => x.pinned).length >= PIN_MAX){
+      toast(`ボタンは${PIN_MAX}つまで。どれかの ★ を外してください`); return;
+    }
+    t.pinned = !t.pinned;
+    renderQuickTpl(); openMtplPicker();
+  });
+  $$('[data-dup]').forEach(b => b.onclick = () => {
+    const s = MTPL.find(x => x.k === b.dataset.dup);
+    openMtplEditor({ nm: s.nm + ' のコピー', body: s.body });
+  });
+  $$('[data-edt]').forEach(b => b.onclick = () => openMtplEditor(MTPL.find(x => x.k === b.dataset.edt)));
+  $$('[data-rmt]').forEach(b => b.onclick = () => {
+    MTPL = MTPL.filter(x => x.k !== b.dataset.rmt);
+    renderQuickTpl(); openMtplPicker(); toast('削除しました');
+  });
+  $('#mtpl-new').onclick = () => openMtplEditor({ nm:'', body: txt.value.trim() });
+}
+
+/* ── つぶやきテンプレ エディタ ── */
+let mtplEditing = null;
+function openMtplEditor(src){
+  mtplEditing = src && src.k ? src : null;
+  $('#med-h').textContent = mtplEditing ? 'テンプレートを編集' : '新しいテンプレート';
+  $('#med-nm').value   = src.nm || '';
+  $('#med-body').value = src.body || '';
+  $('#med-del').style.display = mtplEditing ? '' : 'none';
+  openModal('mtpledit');
+  setTimeout(() => $('#med-nm').focus(), 30);
+}
+$('#med-save').onclick = () => {
+  const nm = $('#med-nm').value.trim(), body = $('#med-body').value;
+  if (!nm){ toast('名前を入れてください'); $('#med-nm').focus(); return; }
+  if (mtplEditing){
+    mtplEditing.nm = nm; mtplEditing.body = body;
+  } else {
+    MTPL.push({ k:'u' + (mtplSeq++), nm, body, pinned:false, preset:false });
+  }
+  closeModal('mtpledit');
+  renderQuickTpl(); openMtplPicker();
+  toast(mtplEditing ? '更新しました' : 'テンプレートを作りました');
+};
+$('#med-del').onclick = () => {
+  if (!mtplEditing) return;
+  MTPL = MTPL.filter(x => x.k !== mtplEditing.k);
+  closeModal('mtpledit');
+  renderQuickTpl(); openMtplPicker(); toast('削除しました');
+};
+$('#med-cancel').onclick = () => closeModal('mtpledit');
+
+renderQuickTpl();
+
+function openComposer(){
+  composer.classList.add('open'); scrim.classList.add('open');
+  setTimeout(() => txt.focus(), 30);
+}
+function closeComposer(){
+  composer.classList.remove('open'); scrim.classList.remove('open');
+  deriveFrom = null;
+  $('#cp-quote').classList.remove('on');
+  $('#cp-title').textContent = 'つぶやき';
+  $('#cp-sub').textContent = '書き捨てでいい';
+}
+function resetComposer(){
+  txt.value = ''; removed.clear(); added.clear();
+  $('#cp-post').disabled = true;
+  renderDetect();
+}
+function openDerive(id){
+  const t = byId(id); if (!t) return;
+  resetComposer();
+  deriveFrom = id;
+  $('#cp-quote-body').textContent = t.body;
+  $('#cp-quote').classList.add('on');
+  $('#cp-title').textContent = '⑂ ここから育てる';
+  $('#cp-sub').textContent = 'タグは引き継がれます';
+  t.tags.forEach(tg => added.add(tg));
+  renderDetect();
+  openComposer();
+}
+
+$('#fab').onclick = () => { resetComposer(); openComposer(); };
+$('#cp-close').onclick = closeComposer;
+scrim.onclick = closeComposer;
+txt.oninput = () => { $('#cp-post').disabled = !txt.value.trim(); renderDetect(); };
+txt.onkeydown = e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter'){ e.preventDefault(); post(); } };
+$('#cp-all').onclick = () => { closeComposer(); gotoLog(); };
+$('#cp-post').onclick = post;
+
+function post(){
+  const body = txt.value.trim(); if (!body) return;
+  const tags = liveTags();
+  const now = new Date();
+  const d = String(now.getMonth()+1).padStart(2,'0') + '/' + String(now.getDate()).padStart(2,'0');
+  const rec = { id:nextId++, d, body, tags, star:false, fresh:true };
+  if (deriveFrom) rec.from = deriveFrom;
+  LOG.unshift(rec);
+  const wasDerive = !!deriveFrom;
+  const n = relatedVideos(tags).length;
+  resetComposer(); closeComposer(); renderLog();
+  toast(wasDerive ? '⑂ 育てました' : (n ? `つぶやきました — 関連動画 ${n}本` : 'つぶやきました'));
+}
+
+/* ── キーボード ── */
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (e.key === 'Escape'){
+    closeComposer();
+    $$('.modal.open').forEach(m => m.classList.remove('open'));
+    if (editingId != null){ editingId = null; renderLog(); }
+    return;
+  }
+  if (!typing && (e.key === 'n' || e.key === 'N')){ e.preventDefault(); resetComposer(); openComposer(); }
+});
+
+/* ── 一覧 ── */
+let editingId = null;
+
+function renderLog(){
+  $('#log-count').textContent = LOG.length;
+
+  // ★ を付けたものを上に固定（同順位は元の並び＝新しい順を維持）
+  const ordered = [...LOG].sort((a,b) => (b.star ? 1 : 0) - (a.star ? 1 : 0));
+  const pinned  = ordered.filter(t => t.star).length;
+
+  const row = t => {
+    const parent = t.from ? byId(t.from) : null;
+    const kids = LOG.filter(x => x.from === t.id);
+    const isEd = editingId === t.id;
+    const vids = relatedVideos(t.tags);
+    return `
+    <div class="tw${t.fresh ? ' fresh' : ''}${t.star ? ' starred' : ''}" data-row="${t.id}">
+      <div class="tw-date mono">${esc(t.d)}</div>
+      <div class="tw-main">
+        ${parent ? `
+          <button class="tw-from" data-jump="${parent.id}" title="元のつぶやきへ">
+            ↳ <span class="tf-d">${esc(parent.d)}</span>
+            <span class="tf-b">${esc(parent.body.split('\n')[0])}</span>
+            <span class="tf-go">から育てた</span>
+          </button>` : ''}
+        ${isEd ? `
+          <textarea class="tw-edit" data-ed="${t.id}" rows="3">${esc(t.body)}</textarea>
+          <div class="tw-editft">
+            <span class="hint mono">⌘ + Enter で保存 / Esc で取消</span>
+            <button class="ghost" data-cancel="${t.id}">やめる</button>
+            <button class="btn-post" data-save="${t.id}">保存</button>
+          </div>`
+        : `<div class="tw-body">${esc(t.body)}</div>`}
+        <div class="tw-meta">
+          ${t.tags.map(x => `<span class="tw-tag">#${esc(x)}</span>`).join('')}
+          ${vids.length ? `<button class="tw-vids" data-rel="${t.id}">▸ 関連動画 ${vids.length}本</button>` : ''}
+          ${kids.length ? `<button class="tw-kids" data-kids="${t.id}">⑂ ${kids.length}件に育った</button>` : ''}
+          ${t.note ? `<span class="tw-note">📓 ノートにした</span>` : ''}
+        </div>
+      </div>
+      <div class="tw-acts">
+        <button class="iconbtn${t.star ? ' on' : ''}" data-star="${t.id}"
+                title="${t.star ? '固定を外す' : '★ トップに固定'}">${t.star ? '★' : '☆'}</button>
+        <button class="iconbtn" data-edit="${t.id}" title="編集">✎</button>
+        <button class="iconbtn" data-derive="${t.id}" title="ここから育てる">⑂</button>
+        <button class="iconbtn" data-promote="${t.id}" title="ノートにする">📓</button>
+        <button class="iconbtn" data-del="${t.id}" title="削除">🗑</button>
+      </div>
+    </div>`;
+  };
+
+  $('#log-list').innerHTML =
+    (pinned ? `<div class="sec-lbl">★ 固定 <span class="mono">${pinned}</span></div>` : '') +
+    ordered.slice(0, pinned).map(row).join('') +
+    (pinned ? `<div class="sec-lbl plain">すべて</div>` : '') +
+    ordered.slice(pinned).map(row).join('');
+  LOG.forEach(t => delete t.fresh);
+
+  $$('#log-list [data-star]').forEach(b => b.onclick = () => {
+    const t = byId(+b.dataset.star); t.star = !t.star;
+    renderLog();
+    toast(t.star ? '★ トップに固定しました' : '固定を外しました');
+    if (t.star) flashRow(t.id);
+  });
+  $$('#log-list [data-jump]').forEach(b => b.onclick = () => flashRow(+b.dataset.jump, true));
+  $$('#log-list [data-kids]').forEach(b => b.onclick = () => {
+    const kid = LOG.find(x => x.from === +b.dataset.kids);
+    if (kid) flashRow(kid.id, true);
+  });
+  $$('#log-list [data-rel]').forEach(b => b.onclick = () => showRelated(byId(+b.dataset.rel).tags));
+  $$('#log-list [data-edit]').forEach(b => b.onclick = () => {
+    editingId = +b.dataset.edit; renderLog();
+    const ta = $(`[data-ed="${editingId}"]`);
+    if (ta){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  });
+  $$('#log-list [data-save]').forEach(b => b.onclick = () => saveEdit(+b.dataset.save));
+  $$('#log-list [data-cancel]').forEach(b => b.onclick = () => { editingId = null; renderLog(); });
+  $$('#log-list [data-ed]').forEach(ta => ta.onkeydown = e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter'){ e.preventDefault(); saveEdit(+ta.dataset.ed); }
+  });
+  $$('#log-list [data-derive]').forEach(b => b.onclick = () => openDerive(+b.dataset.derive));
+  $$('#log-list [data-promote]').forEach(b => b.onclick = () => openPicker(+b.dataset.promote));
+  $$('#log-list [data-del]').forEach(b => b.onclick = () => {
+    const id = +b.dataset.del;
+    LOG = LOG.filter(t => t.id !== id);
+    LOG.forEach(t => { if (t.from === id) delete t.from; });
+    renderLog(); renderResurf(); toast('削除しました');
+  });
+}
+
+/* 指定のつぶやきまでスクロールして光らせる */
+function flashRow(id, scroll){
+  const el = $(`[data-row="${id}"]`);
+  if (!el) return;
+  if (scroll) el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function saveEdit(id){
+  const ta = $(`[data-ed="${id}"]`); if (!ta) return;
+  const v = ta.value.trim();
+  if (!v){ toast('本文が空です'); return; }
+  byId(id).body = v;
+  editingId = null;
+  renderLog(); renderResurf(rfLabel);
+  toast('保存しました');
+}
+
+/* ── 見返し ── */
+let rfIdx = 7, rfLabel = '1ヶ月前の今日';
+function renderResurf(label){
+  if (!LOG.length) return;
+  rfIdx = Math.min(rfIdx, LOG.length - 1);
+  rfLabel = label || rfLabel;
+  $('#rf-lbl').textContent = rfLabel;
+  $('#rf-body').textContent = LOG[rfIdx].body;
+}
+$('#rf-next').onclick = () => {
+  rfIdx = (rfIdx + 1) % LOG.length;
+  renderResurf('過去のつぶやき — ' + LOG[rfIdx].d);
+};
+$('#btn-random').onclick = () => {
+  rfIdx = Math.floor(Math.random() * LOG.length);
+  renderResurf('過去のつぶやき — ' + LOG[rfIdx].d);
+};
+$('#rf-derive').onclick  = () => openDerive(LOG[rfIdx].id);
+$('#rf-promote').onclick = () => openPicker(LOG[rfIdx].id);
+
+/* ── モーダル ── */
+function openModal(id){ $('#'+id).classList.add('open'); }
+function closeModal(id){ $('#'+id).classList.remove('open'); }
+$$('[data-close]').forEach(b => b.onclick = () => closeModal(b.dataset.close));
+$$('.modal').forEach(m => m.onclick = e => { if (e.target === m) m.classList.remove('open'); });
+
+/* ── テンプレート選択 ── */
+let promoId = null;
+
+function openPicker(id){
+  promoId = id;
+  const t = id != null ? byId(id) : null;
+  const groups = [...new Set(NTPL.map(x => x.grp))];
+  $('#mpick-bd').innerHTML =
+    (t ? `<p class="tpl-lead">このつぶやきを、どの形に育てますか。<span class="q">${esc(t.body)}</span></p>`
+       : `<p class="tpl-lead">テンプレートから新しいノートを作ります。</p>`) +
+    groups.map(g => `
+      <p class="tpl-sec">${esc(g)}</p>
+      <div class="tpl-grid">${NTPL.filter(x => x.grp === g).map(x => `
+        <button class="tpl-card" data-ntpl="${x.k}">
+          <span class="tc-ic">${x.ic}</span>
+          <span class="tc-nm">${esc(x.nm)}</span>
+          <span class="tc-ds">${esc(x.ds)}</span>
+        </button>`).join('')}</div>`).join('') +
+    `<p class="tpl-sec">自分のテンプレート</p>
+     <div class="tpl-grid">
+       <button class="tpl-card dashed" data-usertpl="1">
+         <span class="tc-ic">＋</span>
+         <span class="tc-nm">ノートから登録</span>
+         <span class="tc-ds">作ったノートをそのまま型にできる</span>
+       </button>
+     </div>`;
+  openModal('mpick');
+  $$('[data-ntpl]').forEach(b => b.onclick = () => { closeModal('mpick'); openPromo(b.dataset.ntpl); });
+  $('[data-usertpl]').onclick = () => toast('（モック）カスタムビューと同じ「テンプレートとして保存」の仕組み');
+}
+$('#btn-tplbrowse').onclick = () => openPicker(null);
+$('#promo-back').onclick = () => { closeModal('mpromo'); openPicker(promoId); };
+
+/* ── ノートプレビュー ── */
+function openPromo(k){
+  const tpl = NTPL.find(x => x.k === k);
+  const t = promoId != null ? byId(promoId) : null;
+  const tag = t && t.tags[0] || null;
+  const related = t && tag
+    ? LOG.filter(x => x.id !== t.id && x.tags.includes(tag))
+    : [];
+  const vids = tag ? relatedVideos([tag]) : VIDEOS.slice(0,3);
+
+  const secHTML = tpl.secs.map(([h, fill]) => {
+    if (!h && fill === 'body')
+      return `<div class="nt-sec">${t ? `<div class="nt-fill">${esc(t.body)}</div>` : `<div class="nt-empty">白紙</div>`}</div>`;
+    let inner;
+    if (fill === 'body' && t)          inner = `<div class="nt-fill">${esc(t.body)}</div>`;
+    else if (fill === 'related' && related.length)
+      inner = `<div class="nt-fill multi">${related.map(r =>
+        `<div>・${esc(r.body.replace(/\n/g,' '))}<span style="color:var(--text3);font-size:11px"> （${esc(r.d)}）</span></div>`).join('')}</div>`;
+    else inner = `<div class="nt-empty">空欄のままで大丈夫です</div>`;
+    return `<div class="nt-sec"><p class="nt-h">■ ${esc(h)}</p>${inner}</div>`;
+  }).join('');
+
+  const blkHTML = tpl.blocks.map(b => {
+    const [nm, bn, ds] = BLOCK_INFO[b];
+    const cond = (b === 'vidlist' && tag) ? `（条件：#${esc(tag)}）` : '';
+    return `<div class="nt-sec">
+      <p class="nt-h">■ ${esc(nm)}　<span style="font-weight:400;color:var(--text3)">${esc(bn)}${cond}</span></p>
+      <div class="nt-blk"><strong>${esc(ds)}</strong>
+        ${b === 'vidlist' ? `<div class="nt-vids">${vids.slice(0,4).map(v => `<div class="nt-v">${esc(v[0])}</div>`).join('')}</div>` : ''}
+      </div></div>`;
+  }).join('');
+
+  const title = t ? t.body.split('\n')[0] : '（ノート名を入力）';
+  $('#mpromo-h').textContent = `${tpl.ic} ${tpl.nm} — プレビュー`;
+  $('#mpromo-bd').innerHTML = `
+    <p class="nt-title">${esc(title)}</p>
+    <span class="nt-status">学習中</span>
+    ${secHTML}${blkHTML}
+    <p class="note-anno">
+      <b>黄色</b>がつぶやきから引き継がれた中身、<b>グレー</b>は空欄。埋めなくてもノートは成立します。
+      ${tag ? `関連動画は <b>#${esc(tag)}</b> の条件で自動更新されます。` : ''}
+    </p>`;
+  openModal('mpromo');
+}
+$('#promo-ok').onclick = () => {
+  closeModal('mpromo');
+  if (promoId != null){ const t = byId(promoId); if (t) t.note = true; renderLog(); }
+  toast('📓 ノートを作りました（モック）');
+};
+
+/* ── トースト ── */
+let toastT;
+function toast(msg){
+  const el = $('#toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+renderLog();
+renderResurf();
+</script>
+</body>
+</html>

@@ -30,6 +30,7 @@ auth.onAuthStateChanged(async (user) => {
   if (_notesUnsubscribe)  { _notesUnsubscribe();  _notesUnsubscribe  = null; }
   if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
   if (_cvUnsubscribe)     { _cvUnsubscribe();     _cvUnsubscribe     = null; }
+  if (_murmursUnsubscribe) { _murmursUnsubscribe(); _murmursUnsubscribe = null; }
 
   // ユーザーが実際に変わった/ログアウトしたときだけ保存を一旦ロック。
   // （同一ユーザーのトークン更新では再ロード中も保存ロックの警告を出さない）
@@ -42,15 +43,18 @@ auth.onAuthStateChanged(async (user) => {
   updateAuthUI(user);
   if (user) {
     window._notesInitForUser?.();
+    window._murmursInitForUser?.();
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     await loadUserSettings(user.uid);
     _cvWatch(user.uid);               // 他端末のカスタムビュー変更を拾う（読むだけ）
     await loadNotes(user.uid);
+    await loadMurmurs(user.uid);
     await loadTagMasterAliases(user.uid);
     await loadTagRules(user.uid);
   } else {
     window._notesClear?.();
+    window._murmursClear?.();
   }
 });
 
@@ -85,6 +89,7 @@ function _unpackNested(v) {
 }
 
 let _notesUnsubscribe = null;
+let _murmursUnsubscribe = null;
 let _videosUnsubscribe = null;
 let _videosLoadedAt = '';
 // ── 保存ガード用フラグ（v52.558）──
@@ -127,6 +132,57 @@ async function loadNotes(uid) {
       root: snapData.root ? _unpackNested(snapData.root) : []
     });
   }, e => console.error('notes onSnapshot:', e));
+}
+
+// ═══ つぶやき（Murmurs）══════════════════════════════════════
+// 新規 doc: users/{uid}/data/murmurs。他の doc には一切触らない。
+window._firebaseSaveMurmurs = async function(payload) {
+  if (!currentUser) { console.warn('[murmurs] save skipped: not logged in'); return; }
+  const data = Array.isArray(payload?.data) ? payload.data : [];
+  const tpls = Array.isArray(payload?.tpls) ? payload.tpls : [];
+  try {
+    const uid = currentUser.uid;
+    await db.collection('users').doc(uid).collection('data').doc('murmurs').set({
+      data: JSON.parse(JSON.stringify(data)),
+      tpls: JSON.parse(JSON.stringify(tpls)),
+      updatedAt: new Date().toISOString(),
+      savedBy: _sessionId
+    });
+    console.log('[murmurs] saved', data.length, 'murmurs,', tpls.length, 'templates');
+  } catch(e) {
+    console.error('[murmurs] save error:', e);
+    showToast('⚠️ つぶやきの保存に失敗しました: ' + e.message, 5000);
+  }
+};
+
+async function loadMurmurs(uid) {
+  if (_murmursUnsubscribe) { _murmursUnsubscribe(); _murmursUnsubscribe = null; }
+  const docRef = db.collection('users').doc(uid).collection('data').doc('murmurs');
+
+  // 初回は get() で「クラウドにまだ無い」ことを確定させる。
+  // 確定するまで murmurs 側は保存しない（空でクラウドを上書きしないため）。
+  try {
+    const snap = await docRef.get();
+    if (currentUser?.uid !== uid) return;
+    if (snap.exists) {
+      const d = snap.data();
+      window._murmursLoadFromRemote?.({ data: d?.data || [], tpls: d?.tpls || [] });
+    } else {
+      window._murmursMarkReady?.();   // クラウドに無いと確定 → ローカル分を上げてよい
+    }
+  } catch(e) {
+    // 読めなかったときは _ready を立てない＝保存もしない（部分データでの上書き防止）
+    console.error('[murmurs] initial load failed:', e);
+    return;
+  }
+
+  _murmursUnsubscribe = docRef.onSnapshot(snap => {
+    if (currentUser?.uid !== uid) return;   // 別ユーザーに切り替わっていたら無視
+    if (!snap.exists) return;
+    const d = snap.data();
+    if (d?.savedBy === _sessionId) return;  // 自分が書いたものは読み返さない
+    window._murmursLoadFromRemote?.({ data: d?.data || [], tpls: d?.tpls || [] });
+  }, e => console.error('murmurs onSnapshot:', e));
 }
 
 // 手動同期：ヘッダーの同期ボタンから呼ばれる
