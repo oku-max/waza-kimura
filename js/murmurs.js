@@ -25,6 +25,7 @@ let _resurfId = null;
 const LS_DATA = 'wk_murmurs';
 const LS_TPLS = 'wk_murmur_tpls';
 const LS_POS  = 'wk_murmur_pos';   // 端末ごとの見た目設定（クラウド同期しない）
+const LS_REM  = 'wk_murmur_remind'; // 端末ごとのリマインド設定（クラウド同期しない）
 
 const PRESET_TPLS = [
   { k:'p_practice', nm:'今日の練習したこと', preset:true, pinned:true,
@@ -115,11 +116,13 @@ window._murmursLoadFromRemote = function (payload) {
   _ready = true;
   _saveLocal();
   renderMurmurs();
+  setTimeout(() => window._murmursMaybeRemind?.(), 1200);
 };
 
 // クラウドにまだ doc が無い（初回利用）と確定したときに呼ばれる
 window._murmursMarkReady = function () {
   _ready = true;
+  setTimeout(() => window._murmursMaybeRemind?.(), 1200);
   // ローカルにだけ中身があるなら、それをクラウドへ上げる
   if (_data.length) _save();
 };
@@ -251,6 +254,103 @@ function _fmtDate(ts) {
   const sameYear = d.getFullYear() === now.getFullYear();
   const md = `${d.getMonth() + 1}/${d.getDate()}`;
   return sameYear ? md : `${String(d.getFullYear()).slice(2)}/${md}`;
+}
+
+// ─────────────────────────────── リマインド（アプリ内のみ）
+// 通知APIは使わない。アプリを開いたときに、条件が揃っていれば上部に1本出すだけ。
+//   ・設定がON
+//   ・指定した時刻を過ぎている
+//   ・今日まだ書いていない
+//   ・今日まだ出していない（「今はいい」を押したらその日は出さない）
+const REM_DEFAULT = { on: true, hour: 19, everyDays: 1, lastShown: '', lastSnoozed: '' };
+const _rem = { ...REM_DEFAULT };
+try { Object.assign(_rem, JSON.parse(localStorage.getItem(LS_REM) || '{}')); } catch (e) {}
+function _saveRem() { try { localStorage.setItem(LS_REM, JSON.stringify(_rem)); } catch (e) {} }
+window._murmursGetRemind = () => ({ ..._rem });
+// 他のタブで設定を変えた場合や、外から設定したい場合の入口。
+// localStorage を直接書いても読み込み済みの _rem には届かないため。
+window._murmursSetRemind = function (o) {
+  Object.assign(_rem, o || {});
+  _saveRem();
+  return { ..._rem };
+};
+window.addEventListener('storage', e => {
+  if (e.key !== LS_REM || !e.newValue) return;
+  try { Object.assign(_rem, JSON.parse(e.newValue)); } catch (err) {}
+});
+
+const _today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+const _wroteToday = () => _data.some(m => {
+  const t = new Date(m.ts);
+  const n = new Date();
+  return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate();
+});
+
+function _remDue() {
+  if (!_rem.on) return false;
+  const today = _today();
+  if (_rem.lastShown === today || _rem.lastSnoozed === today) return false;
+  if (new Date().getHours() < (_rem.hour ?? 19)) return false;
+  if (_wroteToday()) return false;
+  // 「◯日おき」: 前回出した日から間隔が空いているか
+  const every = Math.max(1, _rem.everyDays || 1);
+  if (every > 1 && _rem.lastShown) {
+    const prev = new Date(_rem.lastShown);
+    if (!isNaN(prev) && (Date.now() - prev.getTime()) / 86400000 < every) return false;
+  }
+  return true;
+}
+
+window._murmursMaybeRemind = function () {
+  if (!_remDue()) return;
+  const el = document.getElementById('mm-remind');
+  if (el) return;                       // すでに出ている
+  _rem.lastShown = _today(); _saveRem();
+
+  const past = _data.length ? _data[Math.floor(Math.random() * _data.length)] : null;
+  const bar = document.createElement('div');
+  bar.id = 'mm-remind';
+  bar.innerHTML = `
+    <div class="mm-rm-main">
+      <p class="mm-rm-q">今日、気になったことはありますか</p>
+      ${past ? `<button class="mm-rm-past" id="mm-rm-past">
+          <span class="mm-rm-past-l">${_esc(_agoLabel(past.ts))}のあなた</span>
+          <span class="mm-rm-past-b">${_esc(String(past.body).split('\n')[0])}</span>
+        </button>` : ''}
+    </div>
+    <div class="mm-rm-acts">
+      <button class="mm-rm-ghost" id="mm-rm-later">今はいい</button>
+      <button class="mm-rm-go" id="mm-rm-write">書く</button>
+    </div>
+    <button class="mm-rm-x" id="mm-rm-close" aria-label="閉じる">✕</button>`;
+  const host = document.querySelector('.topbar');
+  if (host && host.parentElement) host.parentElement.insertBefore(bar, host.nextSibling);
+  else document.body.appendChild(bar);
+
+  const close = () => bar.remove();
+  document.getElementById('mm-rm-close').onclick = close;
+  document.getElementById('mm-rm-later').onclick = () => {
+    _rem.lastSnoozed = _today(); _saveRem(); close();
+  };
+  document.getElementById('mm-rm-write').onclick = () => { close(); openComposer(); };
+  const pb = document.getElementById('mm-rm-past');
+  if (pb && past) pb.onclick = () => {
+    close();
+    _resurfId = past.id;
+    window.switchTab?.('murmurs');
+    setTimeout(() => _flashRow(past.id, true), 200);
+  };
+};
+
+function _agoLabel(ts) {
+  const days = Math.floor((Date.now() - Date.parse(ts)) / 86400000);
+  if (days >= 365) return `${Math.floor(days / 365)}年前`;
+  if (days >= 30)  return `${Math.floor(days / 30)}ヶ月前`;
+  if (days >= 1)   return `${days}日前`;
+  return '今日';
 }
 
 // ─────────────────────────────── UI: 常駐ボタン
@@ -501,7 +601,7 @@ export function renderMurmurs() {
         <button class="mm-ghost mm-ghost-ic" id="mm-btn-new">${ICON_JOURNAL}書く</button>
         <button class="mm-ghost" id="mm-btn-random">🎲 ランダムに1件</button>
         <button class="mm-ghost" id="mm-btn-tpl">⊞ テンプレート</button>
-        <button class="mm-ghost" id="mm-btn-pos">⚙ 表示</button>
+        <button class="mm-ghost" id="mm-btn-pos">⚙ 設定</button>
       </div>
       ${_data.length ? _resurfHTML() : ''}
       <div id="mm-list">${
@@ -944,12 +1044,47 @@ function _openTplEditor(src) {
 // ── 表示設定（この端末だけ）──
 window._murmursOpenPosSetting = function () {
   const cur = window._murmursGetPos();
-  _openModal('書くボタンの置き場所',
-    `<p class="mm-note">この端末だけの設定です。</p>
+  const hours = [7, 12, 17, 19, 21, 23];
+  const spans = [[1, '毎日'], [2, '2日おき'], [3, '3日おき'], [7, '週に1回']];
+  _openModal('Journal の設定',
+    `<p class="mm-sec2">書くボタンの置き場所</p>
      <div class="mm-tagwrap">${POS_OPTS.map(([v, nm]) =>
        `<button class="mm-chip" data-mm-pos-btn="${v}" aria-pressed="${cur === v}">${nm}</button>`).join('')}</div>
-     <p class="mm-note-s">「出さない」にしても、N キーでいつでも開けます。<br>
-        動画を見ているあいだは、どの設定でも画面には浮かべず、動画パネルの ＋ から書きます。</p>`);
+     <p class="mm-note-s" style="margin-bottom:20px">「出さない」にしても、N キーでいつでも開けます。<br>
+        動画を見ているあいだは、どの設定でも画面には浮かべず、動画パネルの ＋ から書きます。</p>
+
+     <p class="mm-sec2">声をかける</p>
+     <div class="mm-tagwrap">
+       <button class="mm-chip" data-mm-rem-on="1" aria-pressed="${_rem.on}">かける</button>
+       <button class="mm-chip" data-mm-rem-on="0" aria-pressed="${!_rem.on}">かけない</button>
+     </div>
+     <div id="mm-rem-detail" class="mm-sub${_rem.on ? ' on' : ''}">
+       <p class="mm-sec2">頻度</p>
+       <div class="mm-tagwrap">${spans.map(([d, nm]) =>
+         `<button class="mm-chip" data-mm-rem-every="${d}" aria-pressed="${(_rem.everyDays||1) === d}">${nm}</button>`).join('')}</div>
+       <p class="mm-sec2">この時刻より後に開いたとき</p>
+       <div class="mm-tagwrap">${hours.map(h =>
+         `<button class="mm-chip" data-mm-rem-hour="${h}" aria-pressed="${(_rem.hour ?? 19) === h}">${h}時</button>`).join('')}</div>
+     </div>
+     <p class="mm-note-s">アプリを開いたときに画面の上へ1本出るだけです。通知は使いません。<br>
+        その日にもう書いていれば出ません。「今はいい」を押すとその日は出ません。</p>`);
+
+  $$m('#mm-mbd [data-mm-rem-on]').forEach(b => b.onclick = () => {
+    _rem.on = b.dataset.mmRemOn === '1'; _saveRem();
+    $$m('#mm-mbd [data-mm-rem-on]').forEach(x =>
+      x.setAttribute('aria-pressed', String((x.dataset.mmRemOn === '1') === _rem.on)));
+    $m('#mm-rem-detail').classList.toggle('on', _rem.on);
+  });
+  $$m('#mm-mbd [data-mm-rem-every]').forEach(b => b.onclick = () => {
+    _rem.everyDays = Number(b.dataset.mmRemEvery); _saveRem();
+    $$m('#mm-mbd [data-mm-rem-every]').forEach(x =>
+      x.setAttribute('aria-pressed', String(Number(x.dataset.mmRemEvery) === _rem.everyDays)));
+  });
+  $$m('#mm-mbd [data-mm-rem-hour]').forEach(b => b.onclick = () => {
+    _rem.hour = Number(b.dataset.mmRemHour); _saveRem();
+    $$m('#mm-mbd [data-mm-rem-hour]').forEach(x =>
+      x.setAttribute('aria-pressed', String(Number(x.dataset.mmRemHour) === _rem.hour)));
+  });
   $$m('#mm-mbd [data-mm-pos-btn]').forEach(b => b.onclick = () => {
     window._murmursSetPos(b.dataset.mmPosBtn);
     window.toast?.('表示を変えました');

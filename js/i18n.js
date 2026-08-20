@@ -200,7 +200,13 @@
   const STATIC_AUTO = {
     // ── つぶやき（Murmurs）──
     '書く':'Write','＋ 書く':'＋ Write','＋ 追加':'+ Add','タグを編集':'Edit tags','タグを付ける':'Add tags','＋ タグ':'+ Tag','なし':'None','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
-    '書きました':'Written','元の記録へ':'Go to the original','書くボタンの置き場所':'Where the write button goes','ヘッダー右端':'Header, far right','出さない':'Hidden','完了':'Done','Journal に書く':'Write in Journal','テンプレート':'Templates',
+    '書きました':'Written','元の記録へ':'Go to the original','Journal の設定':'Journal settings','声をかける':'Nudge me','かける':'Yes','かけない':'No',
+    '頻度':'How often','毎日':'Every day','2日おき':'Every 2 days','3日おき':'Every 3 days','週に1回':'Once a week',
+    'この時刻より後に開いたとき':'When you open it after',
+    '今日、気になったことはありますか':'Anything on your mind today?','今はいい':'Not now',
+    'アプリを開いたときに画面の上へ1本出るだけです。通知は使いません。':'It just shows one bar at the top when you open the app. No push notifications.',
+    'その日にもう書いていれば出ません。「今はいい」を押すとその日は出ません。':'It stays away if you already wrote today, or once you press Not now.',
+    '書くボタンの置き場所':'Where the write button goes','ヘッダー右端':'Header, far right','出さない':'Hidden','完了':'Done','Journal に書く':'Write in Journal','テンプレート':'Templates',
     '気になることをメモ':'Note anything on your mind',
     // ── ランダムに1本 ──
     'ランダムに1本':'One at random','ランダムの範囲':'What to pick from','どこから選ぶか':'Where to pick from',
@@ -1588,6 +1594,7 @@
     "ボタンは#つまで。どれかの ★ を外してください": "Up to # buttons. Unstar one first",
     "★ を付けたものが入力欄のボタンになります（#つまで）": "Starred ones become buttons in the composer (up to #)",
     "▷ #回": "▷ # plays",
+    "#時": "#:00",
     "#ヶ月前に追加": "Added # months ago",
     "#年前に追加": "Added # years ago",
     "#年#ヶ月前に追加": "Added #y #mo ago",

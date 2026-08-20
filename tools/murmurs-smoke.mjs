@@ -288,6 +288,78 @@ await page.evaluate(() => document.getElementById('vpanel').classList.remove('op
 await page.waitForTimeout(250);
 check('閉じたら戻る', await page.locator('#mm-fab').isVisible());
 
+// ── 声をかける（アプリ内リマインド）──
+const remSet = async o => page.evaluate(o => window._murmursSetRemind(o), o);
+// このテストではすでに今日ぶんを何件も書いているので、
+// 「今日まだ書いていない」条件を満たすために日付を昨日にずらす
+const ageMurmurs = async () => page.evaluate(() => {
+  const y = new Date(Date.now() - 86400000).toISOString();
+  window._murmursGetData().forEach(m => { m.ts = y; });
+});
+const remShow = async () => {
+  await page.evaluate(() => document.getElementById('mm-remind')?.remove());
+  await page.evaluate(() => window._murmursMaybeRemind());
+  await page.waitForTimeout(150);
+  return await page.locator('#mm-remind').count() === 1;
+};
+
+// 時刻より前は出ない
+await remSet({ on:true, hour:23, everyDays:1, lastShown:'', lastSnoozed:'' });
+const h = await page.evaluate(() => new Date().getHours());
+if (h < 23) check('指定時刻より前は出ない', !(await remShow()));
+
+// 条件が揃えば出る
+await ageMurmurs();
+await remSet({ on:true, hour:0, everyDays:1, lastShown:'', lastSnoozed:'' });
+check('条件が揃えば出る', await remShow());
+check('過去のメモを添える', await page.locator('#mm-rm-past').count() === 1);
+
+// 「今はいい」でその日は出ない
+await page.locator('#mm-rm-later').click();
+await page.waitForTimeout(150);
+check('「今はいい」で消える', await page.locator('#mm-remind').count() === 0);
+check('その日はもう出ない', !(await remShow()));
+
+// 「書く」で入力欄が開く
+await ageMurmurs();
+await remSet({ on:true, hour:0, everyDays:1, lastShown:'', lastSnoozed:'' });
+await remShow();
+await page.locator('#mm-rm-write').click();
+await page.waitForTimeout(250);
+check('「書く」で入力欄が開く', await page.locator('#mm-composer.open').count() === 1);
+check('バーは消える', await page.locator('#mm-remind').count() === 0);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(150);
+
+// その日に書いていれば出ない
+await ageMurmurs();
+await page.evaluate(() => window.openMurmurComposer());
+await page.locator('#mm-cp-text').fill('今日ぶんのメモ');
+await page.locator('#mm-cp-post').click();
+await page.waitForTimeout(300);
+await remSet({ on:true, hour:0, everyDays:1, lastShown:'', lastSnoozed:'' });
+check('その日に書いていれば出ない', !(await remShow()));
+
+// OFF なら出ない
+await remSet({ on:false, hour:0, everyDays:1, lastShown:'', lastSnoozed:'' });
+check('かけない設定なら出ない', !(await remShow()));
+
+// 設定画面から切り替えられる
+await page.locator('#mm-btn-pos').click();
+await page.waitForTimeout(250);
+check('設定に「声をかける」がある', await page.locator('[data-mm-rem-on]').count() === 2);
+await page.locator('[data-mm-rem-on="1"]').click();
+await page.waitForTimeout(200);
+check('ONにすると頻度と時刻が出る', await page.locator('#mm-rem-detail.on').count() === 1);
+await page.locator('[data-mm-rem-hour="7"]').click();
+await page.waitForTimeout(150);
+check('時刻が保存される', (await page.evaluate(() => window._murmursGetRemind())).hour === 7);
+await page.locator('[data-mm-rem-every="7"]').click();
+await page.waitForTimeout(150);
+check('頻度が保存される', (await page.evaluate(() => window._murmursGetRemind())).everyDays === 7);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(150);
+
 // ══ データ安全性 ══════════════════════════════════════
 const saved = [];
 await page.evaluate(() => {

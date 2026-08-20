@@ -290,3 +290,42 @@ body.dark #mm-modal{background:rgba(0,0,0,.5)}
   color:var(--text);font-family:inherit;font-size:14px;line-height:1.6;padding:9px 11px;
   margin-bottom:14px;outline:none;resize:vertical;box-sizing:border-box}
 .mm-fld:focus{border-color:var(--accent)}
+
+/* ── 声をかける（アプリ内リマインド）── */
+#mm-remind{
+  display:flex;align-items:center;gap:12px;position:relative;
+  margin:0 auto;max-width:1080px;padding:11px 40px 11px 14px;
+  border:1px solid var(--border);border-left:3px solid var(--gold);
+  background:var(--gold-soft);border-radius:var(--radius);
+  animation:mm-rm-in .22s ease-out;
+}
+@keyframes mm-rm-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.mm-rm-main{flex:1;min-width:0}
+.mm-rm-q{margin:0;font-size:13px;font-weight:700;color:var(--text)}
+.mm-rm-past{
+  display:flex;align-items:baseline;gap:7px;margin-top:6px;max-width:100%;width:100%;
+  border:0;background:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;
+}
+.mm-rm-past:hover .mm-rm-past-b{text-decoration:underline}
+.mm-rm-past-l{font-size:10px;color:var(--gold);font-weight:700;flex-shrink:0}
+.mm-rm-past-b{
+  flex:1;min-width:0;font-size:11.5px;color:var(--text2);font-style:italic;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.mm-rm-acts{display:flex;gap:7px;flex-shrink:0}
+.mm-rm-ghost{border:1px solid var(--border);background:var(--surface);color:var(--text2);
+  font-family:inherit;font-size:11.5px;padding:5px 12px;border-radius:6px;cursor:pointer}
+.mm-rm-ghost:hover{background:var(--surface2);color:var(--text)}
+.mm-rm-go{border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);
+  font-family:inherit;font-size:11.5px;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer}
+.mm-rm-x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--text3);
+  font-size:13px;cursor:pointer;padding:2px 5px;border-radius:4px;line-height:1;font-family:inherit}
+.mm-rm-x:hover{background:var(--border);color:var(--text)}
+@media (max-width:640px){
+  #mm-remind{flex-direction:column;align-items:stretch;gap:9px;margin:0 12px;padding:11px 32px 11px 12px}
+  .mm-rm-acts{justify-content:flex-end}
+}
+
+/* 設定の折りたたみ */
+.mm-sub{display:none}
+.mm-sub.on{display:block}
