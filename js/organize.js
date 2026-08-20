@@ -1292,14 +1292,11 @@ export function orgTogSelAll(cb) {
 }
 
 // ─── 列メニュー ───
-function _buildOrgColMenuHTML() {
-  // カスタムビュー統合メニューフック（標準+カスタム列を混在表示）
-  const unified = window._cvGetUnifiedMenuHTML?.();
-  if (unified != null) return unified;
-
+// 列メニューに並ぶ標準列（フィルタ設定で丸ごと隠れている列は出さない）
+function _orgMenuCols() {
   const _fcv3 = window.filterColVis || {};
   const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
-  const _fcvVisible = col => {
+  return orgColOrder.filter(col => {
     if (_fcv3.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv3.status === false && col === 'status') return false;
     if (_fcv3.rank   === false && col === 'counter') return false;
@@ -1308,11 +1305,19 @@ function _buildOrgColMenuHTML() {
     if (col === 'position'  && !_tsVis3('pos'))  return false;
     if (col === 'technique' && !_tsVis3('tags')) return false;
     return true;
-  };
-  const _visibleOrgCols = orgColOrder.filter(_fcvVisible);
-  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（↑↓で並替え）</div>' +
+  });
+}
+
+function _buildOrgColMenuHTML() {
+  // カスタムビュー統合メニューフック（標準+カスタム列を混在表示）
+  const unified = window._cvGetUnifiedMenuHTML?.();
+  if (unified != null) return unified;
+
+  const _visibleOrgCols = _orgMenuCols();
+  let html = '<div style="font-size:10px;font-weight:800;color:var(--text3);margin-bottom:8px;letter-spacing:.5px">表示する列（ドラッグ / ↑↓で並替え）</div>' +
     _visibleOrgCols.map((col, i) => `
-      <div style="display:flex;align-items:center;gap:4px;padding:2px 0">
+      <div class="cv-colmenu-row" data-cv-sort="orgcols" data-cv-id="${col}">
+        <div class="cv-drag-handle" title="ドラッグして並べ替え"></div>
         <button onclick="orgMoveCol('${col}',-1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===0?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===0?'disabled':''}>▲</button>
         <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===_visibleOrgCols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===_visibleOrgCols.length-1?'disabled':''}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
@@ -1364,6 +1369,30 @@ function _reorderOrgCellsInPlace() {
     });
   });
 }
+
+// ── 列メニューのドラッグ&ドロップ並べ替え（エンジンは custom-view.js） ──
+// 【データ経路】orgColOrder → _saveOrgColPrefs() → localStorage(wk_orgColOrder)
+//   ＋ saveUserSettings() → Firestore → 全端末。
+// 安全側の作り: メニューに並ぶ列（_orgMenuCols）の位置にだけ新しい並びを流し込む。
+//   フィルタ設定で隠れている列の位置は動かさないので、orgColOrder は必ず
+//   「元と同じ集合の並べ替え」になる。件数やidが合わなければ何も書き換えない。
+//   （エンジン側でも「同じ集合の並べ替え」でなければ commit を呼ばない）
+window._wkSortGroups = window._wkSortGroups || {};
+window._wkSortGroups.orgcols = {
+  ids: () => _orgMenuCols(),
+  commit: (newVis) => {
+    // 並べ替えでなければ書き換えない（ヘルパー未読込なら undefined ＝ 何もしない）
+    if (!window._cvFillVisibleSlots?.(orgColOrder, _orgMenuCols(), newVis)) return;
+    _saveOrgColPrefs();
+    syncOrgColHeaders();
+    _reorderOrgCellsInPlace();
+    window._cvAfterRender?.();
+  },
+  render: () => {
+    const panel = document.getElementById('org-col-menu-panel');
+    if (panel) panel.innerHTML = _buildOrgColMenuHTML();
+  }
+};
 
 export function orgMoveCol(col, dir) {
   if (window.orgMoveColOverride?.(col, dir)) return;
