@@ -152,6 +152,17 @@ function _meta(v) {
   return (pc === 0 ? '◇ 未再生' : `▷ ${pc}回`) + (when ? ' · ' + when : '') + last;
 }
 
+// どこから来た動画か（チャンネル名・プレイリスト名）
+function _srcHTML(v) {
+  const ch = v.channel || v.ch || '';
+  const pl = v.pl || '';
+  if (!ch && !pl) return '';
+  return `<p class="rnd-src">${
+    ch ? `<span class="rnd-ch">${_esc(ch)}</span>` : ''}${
+    ch && pl ? '<span class="rnd-sep">·</span>' : ''}${
+    pl ? `<span class="rnd-pl">${_esc(pl)}</span>` : ''}</p>`;
+}
+
 export function openRandom() {
   _ensureModal();
   _render();
@@ -177,6 +188,7 @@ function _render() {
       <div class="rnd-pick">
         <div class="rnd-th">${v.thumb ? `<img src="${_esc(v.thumb)}" alt="" loading="lazy">` : ''}</div>
         <p class="rnd-t">${_esc(v.title || '(タイトルなし)')}</p>
+        ${_srcHTML(v)}
         <p class="rnd-m">${v.duration ? `<span class="rnd-dur">${_esc(_fmtDur(v.duration))}</span> · ` : ''}${_esc(_meta(v))}</p>
       </div>`
     : `<p class="rnd-none">この範囲に動画がありません。範囲を変えてください。</p>`}`;

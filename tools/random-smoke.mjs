@@ -54,7 +54,8 @@ await page.evaluate(([old, recent]) => {
   const D = n => Date.now() - n * 86400000;
   window.videos = [
     // lastPlayed は数値（js/vpanel.js が Date.now() を入れる）
-    { id:'a', title:'未再生・古い', pos:['デラヒーバ'], cat:[], tb:[], tags:[], playCount:0, addedAt:old },
+    { id:'a', title:'未再生・古い', pos:['デラヒーバ'], cat:[], tb:[], tags:[], playCount:0, addedAt:old,
+      channel:'新・柔術日記Channel', pl:'デラヒーバ入門' },
     { id:'b', title:'未再生・新しい', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:0, addedAt:recent },
     { id:'c', title:'400日前に見たきり', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:5, addedAt:old, lastPlayed:D(400) },
     { id:'d', title:'最近見た', pos:[], cat:[], tb:[], tags:[], playCount:2, addedAt:recent, lastPlayed:D(10), fav:true },
@@ -82,6 +83,28 @@ await page.locator('#rnd-btn').click();
 await page.waitForTimeout(300);
 check('開く', await page.locator('#rnd-modal.open').count() === 1);
 check('1本出る', await page.locator('.rnd-pick').count() === 1);
+
+// チャンネル名とプレイリスト名
+await page.locator('#rnd-range').click();
+await page.waitForTimeout(200);
+await page.locator('[data-rnd-scope="all"]').click();
+await page.locator('#rnd-tagq').fill('デラヒーバ');
+await page.waitForTimeout(150);
+await page.locator('[data-rnd-tag="デラヒーバ"]').click();
+await page.locator('#rnd-cfg-done').click();
+await page.waitForTimeout(250);
+check('チャンネル名が出る',
+  ((await page.locator('.rnd-ch').textContent()) || '') === '新・柔術日記Channel');
+check('プレイリスト名が出る',
+  ((await page.locator('.rnd-pl').textContent()) || '') === 'デラヒーバ入門');
+// 無いものでは出さない
+await page.locator('#rnd-range').click();
+await page.waitForTimeout(150);
+await page.locator('[data-rnd-tag=""]').click();
+await page.locator('[data-rnd-scope="fav"]').click();
+await page.locator('#rnd-cfg-done').click();
+await page.waitForTimeout(250);
+check('チャンネル名が無ければ出さない', await page.locator('.rnd-src').count() === 0);
 
 await setScope('all');
 check('すべて＝アーカイブを除く6本', await page.evaluate(() => window.__pool().length) === 6,
