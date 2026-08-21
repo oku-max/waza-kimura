@@ -224,6 +224,17 @@ export function matchVideos(tags) {
     .sort((a, b) => _buried(b) - _buried(a));
 }
 
+// どこから来た動画か。連番タイトルだけでは何の教則か分からないため。
+function _srcLine(v) {
+  const ch = v.channel || v.ch || '';
+  const pl = v.pl || '';
+  if (!ch && !pl) return '';
+  return `<span class="mm-rel-src">${
+    ch ? `<span class="mm-rel-ch">${_esc(ch)}</span>` : ''}${
+    ch && pl ? '<span class="mm-rel-sep">·</span>' : ''}${
+    pl ? `<span class="mm-rel-pl">${_esc(pl)}</span>` : ''}</span>`;
+}
+
 function _buriedLabel(v) {
   const pc = v.playCount || 0;
   const t = Date.parse(v.addedAt || '');
@@ -884,6 +895,7 @@ function _paintRelated() {
              <span class="mm-rel-th">${v.thumb ? `<img src="${_esc(v.thumb)}" alt="" loading="lazy">` : ''}</span>
              <span class="mm-rel-main">
                <span class="mm-rel-t">${_esc(v.title || '(タイトルなし)')}</span>
+               ${_srcLine(v)}
                <span class="mm-rel-m">${_esc(_buriedLabel(v))}</span>
              </span>
            </button>`).join('')}</div>` +

@@ -85,7 +85,8 @@ await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000
 // 動画を撒く（サジェスト検証用）
 await page.evaluate(() => {
   window.videos = [
-    { id:'v1', title:'シザースイープを潰す3つの対処', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:1, addedAt:'2026-02-01T00:00:00.000Z' },
+    { id:'v1', title:'シザースイープを潰す3つの対処', pos:[], cat:['パスガード'], tb:[], tags:[], playCount:1, addedAt:'2026-02-01T00:00:00.000Z',
+      channel:'新・柔術日記Channel', pl:'パス対策シリーズ' },
     { id:'v2', title:'決まる条件', pos:['クローズドガード'], cat:['スイープ'], tb:[], tags:['シザースイープ'], playCount:0, addedAt:'2024-08-01T00:00:00.000Z' },
     { id:'v3', title:'デラヒーバ 崩しの原理', pos:['デラヒーバ'], cat:[], tb:[], tags:[], playCount:0, addedAt:'2024-01-01T00:00:00.000Z' },
     { id:'v4', title:'アームバー ディテール集', pos:[], cat:['フィニッシュ'], tb:[], tags:[], playCount:9, addedAt:'2026-07-01T00:00:00.000Z' },
@@ -131,6 +132,13 @@ await page.locator('#mm-det-vids').click();
 await page.waitForTimeout(250);
 const relTitles = await page.locator('#mm-mbd .mm-rel-t').allTextContents();
 check('未再生のものが先頭に来る', relTitles[0] === '決まる条件', relTitles.join(' / '));
+check('関連動画にチャンネル名が出る',
+  (await page.locator('#mm-mbd .mm-rel-ch').allTextContents()).includes('新・柔術日記Channel'));
+check('関連動画にプレイリスト名が出る',
+  (await page.locator('#mm-mbd .mm-rel-pl').allTextContents()).includes('パス対策シリーズ'));
+check('無い動画では出さない',
+  await page.locator('#mm-mbd .mm-rel-src').count() === 1,
+  String(await page.locator('#mm-mbd .mm-rel-src').count()));
 await page.locator('#mm-mx').click();
 await page.waitForTimeout(200);
 
