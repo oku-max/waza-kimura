@@ -25,6 +25,46 @@ let _vmCurTime = 0;
 let _vmDuration = 0;
 // 再生速度（連続再生時に引き継ぎ）
 let _vpPlaybackRate = 1;
+const VP_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
+function _vpRateLabel(r) {
+  const n = Math.round((Number(r) || 1) * 100) / 100;
+  return (n === 1 ? '1' : String(n)) + '×';
+}
+// 現在の再生速度を実プレイヤーから取得（取れなければキャッシュ値）
+function _vpGetRate() {
+  try {
+    if (_ytPlayer && _ytPlayerReady && typeof _ytPlayer.getPlaybackRate === 'function') {
+      const r = _ytPlayer.getPlaybackRate();
+      if (isFinite(r) && r > 0) return r;
+    }
+  } catch(e) {}
+  if (_gdVideoEl && isFinite(_gdVideoEl.playbackRate) && _gdVideoEl.playbackRate > 0) return _gdVideoEl.playbackRate;
+  return (isFinite(_vpPlaybackRate) && _vpPlaybackRate > 0) ? _vpPlaybackRate : 1;
+}
+// 再生速度を変更（現在のプレイヤーへ適用し、次の動画にも引き継ぐ）
+window.vpSetRate = function(rate) {
+  let r = Number(rate);
+  if (!isFinite(r) || r <= 0) r = 1;
+  r = Math.max(0.25, Math.min(2, r));
+  try {
+    if (_ytPlayer && _ytPlayerReady && typeof _ytPlayer.setPlaybackRate === 'function') {
+      // YouTube は端末ごとに選べる速度が決まっているので、一番近い値に寄せる
+      let target = r;
+      try {
+        const avail = _ytPlayer.getAvailablePlaybackRates?.();
+        if (Array.isArray(avail) && avail.length) {
+          target = avail.reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a), avail[0]);
+        }
+      } catch(e) {}
+      _ytPlayer.setPlaybackRate(target);
+      r = target;
+    }
+  } catch(e) {}
+  if (_gdVideoEl) { try { _gdVideoEl.playbackRate = r; } catch(e) {} }
+  if (_vmPlayer)  { try { _vmPlayer.setPlaybackRate(r)?.catch?.(() => {}); } catch(e) {} }
+  _vpPlaybackRate = r;
+  return r;
+};
 function _loadVimeoApi() {
   return new Promise((resolve) => {
     if (window.Vimeo && window.Vimeo.Player) return resolve();
@@ -7814,6 +7854,36 @@ window.vpTogMoreMenu = function(e, id) {
     animItem(lpi);
   };
   menu.appendChild(lpi);
+
+  // ── 再生速度（X の埋め込みは速度を制御できないので出さない）──
+  if (_vpCurrentPlat !== 'x') {
+    const speedSvg = mkSvg('<path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6V4z"/><path d="M13 3h6v2h-6zM11.3 12.7a1.6 1.6 0 1 0 2.2-2.3l4.1-4.5-3.2 5.2a1.6 1.6 0 0 1-3.1 1.6z"/>');
+    const spi = _menuItem(speedSvg, '再生速度', _vpRateLabel(_vpGetRate()));
+    spi.style.cursor = 'default';
+    const spiSub  = spi.querySelector('.vp-smenu-sub');
+    const chipBox = document.createElement('div');
+    chipBox.className = 'vp-rate-chips';
+    const syncChips = () => {
+      const cur = _vpGetRate();
+      chipBox.querySelectorAll('.vp-rate-chip').forEach(c => {
+        c.classList.toggle('on', Math.abs(parseFloat(c.dataset.rate) - cur) < 0.001);
+      });
+      spiSub.textContent = _vpRateLabel(cur);
+      spi.classList.toggle('vp-smenu-on', Math.abs(cur - 1) > 0.001);
+    };
+    VP_RATES.forEach(r => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vp-rate-chip';
+      b.dataset.rate = String(r);
+      b.textContent = _vpRateLabel(r);
+      b.onclick = (ev) => { ev.stopPropagation(); window.vpSetRate(r); syncChips(); animItem(spi); };
+      chipBox.appendChild(b);
+    });
+    spi.querySelector('.vp-smenu-texts').appendChild(chipBox);
+    syncChips();
+    menu.appendChild(spi);
+  }
 
   addDivider();
 

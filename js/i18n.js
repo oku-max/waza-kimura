@@ -525,6 +525,7 @@
     // ── Vパネル ループ/メニュー（実機フィードバック対応） ──
     '開始':'Start','終了':'End','微調整':'Fine-tune','現在地':'Now','クリア':'Clear',
     'リピート':'Repeat','シャッフル':'Shuffle','リバース':'Mirror','オン':'On','オフ':'Off',
+    '再生速度':'Speed',
     '区間ループ中':'Looping section','表示中':'Shown',
     '⭐ お気に入りに追加':'⭐ Added to favorites','お気に入りを解除':'Unfavorited',
     // ── メモ書式ボタンのヘルプ ──
