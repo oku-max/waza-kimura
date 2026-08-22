@@ -221,6 +221,8 @@
     '見出しだけ用意します。中身はあとから書けます。':'It sets up the headings. You fill them in later.',
     '関連動画':'Related videos','参考になりそうな動画':'Videos that might help','この技の動画':'Videos of this move',
     'ノートにする':'Make it a note','自動で並びます':'Fills in automatically',
+    '並び替えを記憶しました':'Sort order remembered',
+    '⚠️ 並び替えを記憶できませんでした（この端末の保存領域が一杯です）':'⚠️ Could not remember the sort order (this device is out of storage)',
     'Journal の設定':'Journal settings','声をかける':'Nudge me','かける':'Yes','かけない':'No',
     '頻度':'How often','毎日':'Every day','2日おき':'Every 2 days','3日おき':'Every 3 days','週に1回':'Once a week',
     'この時刻より後に開いたとき':'When you open it after',

@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.710</title>
+<title>WAZA KIMURA v52.711</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -728,33 +728,59 @@
     _restoreFromURL();
   });
 
-  // ── ソート設定 永続化 (localStorage) ──
+  // ── ソート設定 永続化 (localStorage / この端末のみ) ──
+  // 保存に失敗しても並び替え自体は必ず効かせる。
+  // 以前は setItem を裸で呼んでいたため、保存領域が一杯だと例外で止まり、
+  // 後続の AF() まで実行されず「選んでも何も起きない」状態になり得た。
+  let _sortSaveWarned = false;
+  function _saveSortPref(k, v) {
+    try { localStorage.setItem(k, v); return true; }
+    catch (e) {
+      console.warn('[sort] 保存できませんでした:', e);
+      if (!_sortSaveWarned) {
+        _sortSaveWarned = true;
+        window.toast?.('⚠️ 並び替えを記憶できませんでした（この端末の保存領域が一杯です）', 5000);
+      }
+      return false;
+    }
+  }
   window._setSortKey = function(key) {
     window.sortKey = key;
-    localStorage.setItem('wk_sortKey', key);
     const sk   = document.getElementById('sort-key');
     const skpc = document.getElementById('sort-key-pc');
     if (sk)   sk.value   = key;
     if (skpc) skpc.value = key;
+    if (_saveSortPref('wk_sortKey', key)) window.toast?.('並び替えを記憶しました', 1600);
     window.AF?.();
   };
   window._toggleSortDir = function() {
     window.sortAsc = !(window.sortAsc !== false);
-    localStorage.setItem('wk_sortAsc', window.sortAsc);
     document.querySelectorAll('.sort-dir-btn').forEach(b => b.textContent = window.sortAsc ? '↑' : '↓');
+    if (_saveSortPref('wk_sortAsc', String(window.sortAsc))) window.toast?.('並び替えを記憶しました', 1600);
     window.AF?.();
   };
   // 初期復元（モジュールスクリプトはDOM解析後に実行）
   (function _restoreSortPrefs() {
-    const k = localStorage.getItem('wk_sortKey') || 'addedAt';
-    const a = localStorage.getItem('wk_sortAsc');
+    let k = 'addedAt', a = null;
+    try {
+      k = localStorage.getItem('wk_sortKey') || 'addedAt';
+      a = localStorage.getItem('wk_sortAsc');
+    } catch (e) { console.warn('[sort] 読み込めませんでした:', e); }
     window.sortKey = k;
     window.sortAsc = a === null ? false : a === 'true';
-    const sk   = document.getElementById('sort-key');
-    const skpc = document.getElementById('sort-key-pc');
-    if (sk)   sk.value   = k;
-    if (skpc) skpc.value = k;
-    document.querySelectorAll('.sort-dir-btn').forEach(b => b.textContent = window.sortAsc ? '↑' : '↓');
+    window._sortRestored = { k, a };   // 設定画面から確認できるように残す
+    const apply = () => {
+      const sk   = document.getElementById('sort-key');
+      const skpc = document.getElementById('sort-key-pc');
+      if (sk)   sk.value   = k;
+      if (skpc) skpc.value = k;
+      document.querySelectorAll('.sort-dir-btn').forEach(b => b.textContent = window.sortAsc ? '↑' : '↓');
+    };
+    apply();
+    // 起動後にツールバーが作り直される経路があっても選択が戻るように、
+    // 描画が落ち着いた頃にもう一度だけ当てる
+    setTimeout(apply, 800);
+    setTimeout(apply, 2500);
   })();
 </script>
 
