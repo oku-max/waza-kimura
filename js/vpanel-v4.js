@@ -116,14 +116,54 @@
   };
 
   // ── Position カスタム DD ──
-  window.vpV4OpenPosDd = function (id) {
-    const dd = document.getElementById('vp-v4-pos-dd-' + id);
-    if (!dd) return;
-    if (dd.style.display !== 'none' && dd.style.display !== '') {
-      dd.style.display = 'none'; return;
+  // ── ドロップダウンを開く共通処理 ──
+  // これまでは dd が見つからないときも、vpanel.js の _vpOpenDd が未定義のときも
+  // 黙って何も起きなかった。「押しても反応がない」と区別が付かないので、
+  //  (1) _vpOpenDd が無ければ最低限の体裁で自前で開く（動く方を優先）
+  //  (2) dd 自体が見つからないときだけ理由を出す
+  function _vpV4Open(ddId, kind) {
+    const dd = document.getElementById(ddId);
+    if (!dd) {
+      console.warn('[vpanel-v4] dropdown not found:', ddId);
+      window.toast?.(`${kind}の一覧を開けませんでした（${ddId}）`, 3000);
+      return null;
     }
-    // vpanel.js の _vpOpenDd を共用（window._vpOpenDd として公開済み）
-    window._vpOpenDd?.(dd);
+    if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return null; }
+    if (typeof window._vpOpenDd === 'function') { window._vpOpenDd(dd); return dd; }
+    // フォールバック: _vpOpenDd が読み込まれていない場合でも開けるようにする
+    console.warn('[vpanel-v4] _vpOpenDd is unavailable — using fallback');
+    const wrap = dd.closest('.vp-dd-wrap');
+    dd.style.position = 'fixed';
+    dd.style.top = '50%';
+    dd.style.transform = 'translateY(-50%)';
+    dd.style.right = (wrap ? Math.max(8, window.innerWidth - wrap.getBoundingClientRect().right) : 12) + 'px';
+    dd.style.left = 'auto';
+    dd.style.width = 'min(360px, 92vw)';
+    dd.style.maxHeight = Math.min(window.innerHeight * 0.585, 600) + 'px';
+    dd.style.zIndex = '500';
+    dd.style.display = 'flex';
+    dd.style.flexDirection = 'column';
+    dd.style.overflow = 'hidden';
+    if (!dd.querySelector('.vp-dd-x')) {
+      const x = document.createElement('button');
+      x.className = 'vp-dd-x';
+      x.textContent = '✕';
+      x.style.cssText = 'position:absolute;top:7px;right:8px;background:none;border:none;' +
+        'color:var(--text3);font-size:14px;line-height:1;cursor:pointer;padding:3px 5px;' +
+        'border-radius:4px;z-index:1;font-family:inherit';
+      x.onclick = ev => { ev.stopPropagation(); dd.style.display = 'none'; };
+      dd.appendChild(x);
+      const si = dd.querySelector('.vp-dd-search');
+      if (si) si.style.paddingRight = '34px';
+    }
+    const list = dd.querySelector('.vp-dd-list');
+    if (list) { list.style.flex = '1'; list.style.minHeight = '0'; list.style.maxHeight = 'none'; list.style.overflowY = 'auto'; }
+    return dd;
+  }
+
+  window.vpV4OpenPosDd = function (id) {
+    const dd = _vpV4Open('vp-v4-pos-dd-' + id, 'ポジション');
+    if (!dd) return;
     _vpV4RenderPosDd(id, '');
     const inp = dd.querySelector('.vp-dd-search');
     if (inp) { inp.value = ''; inp.focus(); }
@@ -179,12 +219,8 @@
 
   // DD を開く（チップタップ時。キーボードは開かない）
   window.vpV4OpenTagDd = function (id) {
-    const dd = document.getElementById('vp-v4-tag-dd-' + id);
+    const dd = _vpV4Open('vp-v4-tag-dd-' + id, 'テクニック');
     if (!dd) return;
-    if (dd.style.display !== 'none' && dd.style.display !== '') {
-      dd.style.display = 'none'; return;
-    }
-    window._vpOpenDd?.(dd);
     _vpV4RenderTagList(id, '');
     // search input には自動 focus しない（モバイルキーボード誤起動防止）
   };
