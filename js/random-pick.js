@@ -15,7 +15,7 @@ const SCOPES = [
   ['unplayed','まだ見ていない',   '一度も再生していないものだけ'],
   ['old',     'しばらく見ていない','一度見たきり間が空いているもの'],
   ['view',    'いま画面に出ている','絞り込み中のリストから'],
-  ['pl',      'プレイリスト',     '📋 選んだプレイリストから'],
+  ['pl',      'プレイリスト',     '📋 選んだプレイリストから'],  // 説明はその場で選択中の名前に差し替える
   ['fav',     'お気に入り',       '⭐ を付けたものから'],
   ['next',    'Next',             '🎯 Next に入れたものから'],
   ['drill',   'Drill',            '🟣 Drill に入れたものから']
@@ -47,6 +47,12 @@ const _tagsOf = v => [...(v.pos || []), ...(v.cat || []), ...(v.tb || []), ...(v
 
 // プレイリスト名（既存データの v.pl をそのまま読むだけ。書き込みはしない）
 const _plOf = v => String(v && v.pl || '').trim();
+
+// 絞り込み側で最近選んだプレイリスト（js/filter-overlay.js が持つキーを読むだけ）
+function _recentPls() {
+  try { return JSON.parse(localStorage.getItem('wk_recent_filter_pl') || '[]'); }
+  catch (e) { return []; }
+}
 
 // アーカイブ以外の動画から、プレイリスト名と本数を集める
 function _playlists() {
@@ -233,25 +239,22 @@ function _openCfg() {
   const tags = new Set();
   (window.videos || []).forEach(x => { if (!x.archived) _tagsOf(x).forEach(t => t && tags.add(t)); });
   const tagList = [...tags].sort((a, b) => a.localeCompare(b, 'ja'));
-  const plList = _playlists();
 
   $r('#rnd-h').textContent = 'ランダムの範囲';
   $r('#rnd-bd').innerHTML = `
     <p class="rnd-sec">どこから選ぶか</p>
-    <div class="rnd-opts">${SCOPES.map(([v, nm, ds]) => `
-      <button class="rnd-opt" data-rnd-scope="${v}" aria-pressed="${_cfg.scope === v}">
+    <div class="rnd-opts">${SCOPES.map(([v, nm, ds]) => {
+      const isPl = v === 'pl';
+      const desc = isPl ? (_cfg.pl ? `📋 ${_cfg.pl}` : '📋 選んでください') : ds;
+      return `
+      <button class="rnd-opt${isPl ? ' rnd-opt-nav' : ''}" data-rnd-scope="${v}" aria-pressed="${_cfg.scope === v}">
         <span class="rnd-opt-n">${_esc(nm)}</span>
-        <span class="rnd-opt-d">${_esc(ds)}</span>
-      </button>`).join('')}</div>
+        <span class="rnd-opt-d">${_esc(desc)}</span>
+      </button>`; }).join('')}</div>
     <div id="rnd-olddays" class="rnd-sub${_cfg.scope === 'old' ? ' on' : ''}">
       <p class="rnd-sec">どれくらい空いたら</p>
       <div class="rnd-tags">${OLD_DAYS.map(([d, nm]) =>
         `<button class="rnd-chip" data-rnd-old="${d}" aria-pressed="${(_cfg.oldDays||180) === d}">${nm}以上</button>`).join('')}</div>
-    </div>
-    <div id="rnd-plbox" class="rnd-sub${_cfg.scope === 'pl' ? ' on' : ''}">
-      <p class="rnd-sec">どのプレイリストから</p>
-      ${plList.length > 8 ? `<input class="rnd-q" id="rnd-plq" type="text" autocomplete="off" placeholder="プレイリストを探す">` : ''}
-      <div class="rnd-tags" id="rnd-pls"></div>
     </div>
     <p class="rnd-sec">タグでさらに絞る（任意）</p>
     <input class="rnd-q" id="rnd-tagq" type="text" autocomplete="off" placeholder="タグを探す">
@@ -271,42 +274,65 @@ function _openCfg() {
   };
   paintTags('');
 
-  const paintPls = q => {
-    const query = (q || '').trim().toLowerCase();
-    const list = query ? plList.filter(p => p.name.toLowerCase().includes(query)) : plList;
-    $r('#rnd-pls').innerHTML = list.length
-      ? list.slice(0, 300).map(p =>
-          `<button class="rnd-chip" data-rnd-pl="${_esc(p.name)}" aria-pressed="${_cfg.pl === p.name}">${
-            _esc(p.name)}<span class="rnd-chip-n">${p.n}</span></button>`).join('')
-      : `<p class="rnd-hint">${plList.length ? '見つかりません' : 'プレイリストがありません'}</p>`;
-    $$r('#rnd-pls [data-rnd-pl]').forEach(b => b.onclick = () => {
-      _cfg.pl = b.dataset.rndPl;
-      // プレイリストを選んだらその範囲に切り替える（選んだのに反映されない、を防ぐ）
-      _cfg.scope = 'pl';
-      _saveCfg();
-      $$r('#rnd-bd [data-rnd-scope]').forEach(x =>
-        x.setAttribute('aria-pressed', String(x.dataset.rndScope === _cfg.scope)));
-      $r('#rnd-olddays').classList.remove('on');
-      paintPls($r('#rnd-plq')?.value);
-    });
-  };
-  paintPls('');
-
   $$r('#rnd-bd [data-rnd-scope]').forEach(b => b.onclick = () => {
+    // プレイリストは数が多いので、その場ではなく専用の選択画面を開く
+    if (b.dataset.rndScope === 'pl') { _openPlPicker(); return; }
     _cfg.scope = b.dataset.rndScope; _saveCfg();
     $$r('#rnd-bd [data-rnd-scope]').forEach(x =>
       x.setAttribute('aria-pressed', String(x.dataset.rndScope === _cfg.scope)));
     $r('#rnd-olddays').classList.toggle('on', _cfg.scope === 'old');
-    $r('#rnd-plbox').classList.toggle('on', _cfg.scope === 'pl');
   });
   $$r('#rnd-bd [data-rnd-old]').forEach(b => b.onclick = () => {
     _cfg.oldDays = Number(b.dataset.rndOld); _saveCfg();
     $$r('#rnd-bd [data-rnd-old]').forEach(x =>
       x.setAttribute('aria-pressed', String(Number(x.dataset.rndOld) === _cfg.oldDays)));
   });
-  const plq = $r('#rnd-plq'); if (plq) plq.oninput = e => paintPls(e.target.value);
   $r('#rnd-tagq').oninput = e => paintTags(e.target.value);
   $r('#rnd-cfg-done').onclick = _render;
+}
+
+// ── プレイリストを選ぶ（専用画面：一覧が長くても探しやすいように縦一列＋検索）──
+function _openPlPicker() {
+  const plList  = _playlists();
+  const recents = _recentPls().filter(nm => plList.some(p => p.name === nm)).slice(0, 8);
+
+  $r('#rnd-h').textContent = 'プレイリストを選ぶ';
+  $r('#rnd-bd').innerHTML = `
+    <div class="rnd-plq-wrap">
+      <input class="rnd-q" id="rnd-plq" type="text" autocomplete="off"
+             placeholder="プレイリストを探す" value="">
+    </div>
+    <div id="rnd-pls"></div>`;
+  $r('#rnd-ft').innerHTML = `<button class="rnd-ghost" id="rnd-pl-back">← 範囲にもどる</button>`;
+
+  const row = p => `
+    <button class="rnd-pl-row" data-rnd-pl="${_esc(p.name)}" aria-pressed="${_cfg.pl === p.name}">
+      <span class="rnd-pl-nm">${_esc(p.name)}</span>
+      <span class="rnd-pl-n">${p.n}</span>
+    </button>`;
+
+  const paint = q => {
+    const query = (q || '').trim().toLowerCase();
+    const hit = query ? plList.filter(p => p.name.toLowerCase().includes(query)) : plList;
+    const box = $r('#rnd-pls');
+    if (!plList.length) { box.innerHTML = `<p class="rnd-hint">プレイリストがありません</p>`; return; }
+    if (!hit.length)    { box.innerHTML = `<p class="rnd-hint">見つかりません</p>`; return; }
+    const recentHTML = (!query && recents.length)
+      ? `<p class="rnd-sec">最近選んだプレイリスト</p><div class="rnd-pl-list">${
+          recents.map(nm => row(plList.find(p => p.name === nm))).join('')}</div>
+         <p class="rnd-sec">すべてのプレイリスト</p>`
+      : '';
+    box.innerHTML = recentHTML + `<div class="rnd-pl-list">${hit.map(row).join('')}</div>`;
+    $$r('#rnd-pls [data-rnd-pl]').forEach(b => b.onclick = () => {
+      _cfg.pl = b.dataset.rndPl;
+      _cfg.scope = 'pl';   // 選んだ時点で範囲もプレイリストにする
+      _saveCfg();
+      _openCfg();          // 範囲画面に戻る（選んだ内容が反映された状態）
+    });
+  };
+  paint('');
+  $r('#rnd-plq').oninput = e => paint(e.target.value);
+  $r('#rnd-pl-back').onclick = _openCfg;
 }
 
 window.openRandomPick = openRandom;
