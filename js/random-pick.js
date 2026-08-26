@@ -15,12 +15,13 @@ const SCOPES = [
   ['unplayed','まだ見ていない',   '一度も再生していないものだけ'],
   ['old',     'しばらく見ていない','一度見たきり間が空いているもの'],
   ['view',    'いま画面に出ている','絞り込み中のリストから'],
+  ['pl',      'プレイリスト',     '📋 選んだプレイリストから'],
   ['fav',     'お気に入り',       '⭐ を付けたものから'],
   ['next',    'Next',             '🎯 Next に入れたものから'],
   ['drill',   'Drill',            '🟣 Drill に入れたものから']
 ];
 
-const _cfg = { scope: 'unplayed', tag: '', oldDays: 180 };
+const _cfg = { scope: 'unplayed', tag: '', oldDays: 180, pl: '' };
 const OLD_DAYS = [[90,'3ヶ月'],[180,'半年'],[365,'1年'],[730,'2年']];
 try {
   const raw = localStorage.getItem(LS_CFG);
@@ -43,6 +44,23 @@ const ICON_DICE =
   '<circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>';
 
 const _tagsOf = v => [...(v.pos || []), ...(v.cat || []), ...(v.tb || []), ...(v.tags || [])];
+
+// プレイリスト名（既存データの v.pl をそのまま読むだけ。書き込みはしない）
+const _plOf = v => String(v && v.pl || '').trim();
+
+// アーカイブ以外の動画から、プレイリスト名と本数を集める
+function _playlists() {
+  const m = new Map();
+  (window.videos || []).forEach(v => {
+    if (!v || v.archived) return;
+    const nm = _plOf(v);
+    if (!nm) return;
+    m.set(nm, (m.get(nm) || 0) + 1);
+  });
+  return [...m.entries()]
+    .map(([name, n]) => ({ name, n }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+}
 
 // 最終再生からの日数。実データの項目は lastPlayed（Date.now() の数値・
 // js/vpanel.js が再生時に入れる）。一度も再生していないものは対象外にして、
@@ -68,6 +86,7 @@ export function pool() {
     case 'fav':      list = list.filter(v => v.fav); break;
     case 'next':     list = list.filter(v => v.next); break;
     case 'drill':    list = list.filter(v => v.drill); break;
+    case 'pl':       list = _cfg.pl ? list.filter(v => _plOf(v) === _cfg.pl) : []; break;
   }
   if (_cfg.tag) list = list.filter(v => _tagsOf(v).includes(_cfg.tag));
   return list;
@@ -174,8 +193,10 @@ function _render() {
   const v = _pick();
   const scopeName = SCOPES.find(s => s[0] === _cfg.scope)?.[1] || 'すべて';
   const oldNm = OLD_DAYS.find(o => o[0] === (_cfg.oldDays || 180))?.[1] || '半年';
-  const range = `${_esc(scopeName)}${_cfg.scope === 'old' ? `（${_esc(oldNm)}以上）` : ''}`
-              + `${_cfg.tag ? ` · #${_esc(_cfg.tag)}` : ''}`;
+  const scopeLabel = (_cfg.scope === 'pl')
+    ? (_cfg.pl ? `${_esc(scopeName)} · ${_esc(_cfg.pl)}` : 'プレイリスト（未選択）')
+    : `${_esc(scopeName)}${_cfg.scope === 'old' ? `（${_esc(oldNm)}以上）` : ''}`;
+  const range = scopeLabel + `${_cfg.tag ? ` · #${_esc(_cfg.tag)}` : ''}`;
 
   $r('#rnd-h').textContent = 'ランダムに1本';
   $r('#rnd-bd').innerHTML = `
@@ -191,7 +212,10 @@ function _render() {
         ${_srcHTML(v)}
         <p class="rnd-m">${v.duration ? `<span class="rnd-dur">${_esc(_fmtDur(v.duration))}</span> · ` : ''}${_esc(_meta(v))}</p>
       </div>`
-    : `<p class="rnd-none">この範囲に動画がありません。範囲を変えてください。</p>`}`;
+    : `<p class="rnd-none">${
+        _cfg.scope === 'pl' && !_cfg.pl ? 'プレイリストを選んでください。'
+      : _cfg.scope === 'pl'             ? 'このプレイリストに動画がありません。別のプレイリストを選んでください。'
+      : 'この範囲に動画がありません。範囲を変えてください。'}</p>`}`;
 
   $r('#rnd-ft').innerHTML = v
     ? `<button class="rnd-ghost" id="rnd-again">引き直す</button>
@@ -209,6 +233,7 @@ function _openCfg() {
   const tags = new Set();
   (window.videos || []).forEach(x => { if (!x.archived) _tagsOf(x).forEach(t => t && tags.add(t)); });
   const tagList = [...tags].sort((a, b) => a.localeCompare(b, 'ja'));
+  const plList = _playlists();
 
   $r('#rnd-h').textContent = 'ランダムの範囲';
   $r('#rnd-bd').innerHTML = `
@@ -222,6 +247,11 @@ function _openCfg() {
       <p class="rnd-sec">どれくらい空いたら</p>
       <div class="rnd-tags">${OLD_DAYS.map(([d, nm]) =>
         `<button class="rnd-chip" data-rnd-old="${d}" aria-pressed="${(_cfg.oldDays||180) === d}">${nm}以上</button>`).join('')}</div>
+    </div>
+    <div id="rnd-plbox" class="rnd-sub${_cfg.scope === 'pl' ? ' on' : ''}">
+      <p class="rnd-sec">どのプレイリストから</p>
+      ${plList.length > 8 ? `<input class="rnd-q" id="rnd-plq" type="text" autocomplete="off" placeholder="プレイリストを探す">` : ''}
+      <div class="rnd-tags" id="rnd-pls"></div>
     </div>
     <p class="rnd-sec">タグでさらに絞る（任意）</p>
     <input class="rnd-q" id="rnd-tagq" type="text" autocomplete="off" placeholder="タグを探す">
@@ -241,17 +271,40 @@ function _openCfg() {
   };
   paintTags('');
 
+  const paintPls = q => {
+    const query = (q || '').trim().toLowerCase();
+    const list = query ? plList.filter(p => p.name.toLowerCase().includes(query)) : plList;
+    $r('#rnd-pls').innerHTML = list.length
+      ? list.slice(0, 300).map(p =>
+          `<button class="rnd-chip" data-rnd-pl="${_esc(p.name)}" aria-pressed="${_cfg.pl === p.name}">${
+            _esc(p.name)}<span class="rnd-chip-n">${p.n}</span></button>`).join('')
+      : `<p class="rnd-hint">${plList.length ? '見つかりません' : 'プレイリストがありません'}</p>`;
+    $$r('#rnd-pls [data-rnd-pl]').forEach(b => b.onclick = () => {
+      _cfg.pl = b.dataset.rndPl;
+      // プレイリストを選んだらその範囲に切り替える（選んだのに反映されない、を防ぐ）
+      _cfg.scope = 'pl';
+      _saveCfg();
+      $$r('#rnd-bd [data-rnd-scope]').forEach(x =>
+        x.setAttribute('aria-pressed', String(x.dataset.rndScope === _cfg.scope)));
+      $r('#rnd-olddays').classList.remove('on');
+      paintPls($r('#rnd-plq')?.value);
+    });
+  };
+  paintPls('');
+
   $$r('#rnd-bd [data-rnd-scope]').forEach(b => b.onclick = () => {
     _cfg.scope = b.dataset.rndScope; _saveCfg();
     $$r('#rnd-bd [data-rnd-scope]').forEach(x =>
       x.setAttribute('aria-pressed', String(x.dataset.rndScope === _cfg.scope)));
     $r('#rnd-olddays').classList.toggle('on', _cfg.scope === 'old');
+    $r('#rnd-plbox').classList.toggle('on', _cfg.scope === 'pl');
   });
   $$r('#rnd-bd [data-rnd-old]').forEach(b => b.onclick = () => {
     _cfg.oldDays = Number(b.dataset.rndOld); _saveCfg();
     $$r('#rnd-bd [data-rnd-old]').forEach(x =>
       x.setAttribute('aria-pressed', String(Number(x.dataset.rndOld) === _cfg.oldDays)));
   });
+  const plq = $r('#rnd-plq'); if (plq) plq.oninput = e => paintPls(e.target.value);
   $r('#rnd-tagq').oninput = e => paintTags(e.target.value);
   $r('#rnd-cfg-done').onclick = _render;
 }
