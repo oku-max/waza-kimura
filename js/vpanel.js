@@ -290,9 +290,35 @@ function _seekTo(sec) {
 // 秒数を mm:ss 形式に変換
 function _formatTime(sec) {
   if (sec == null || isNaN(sec)) return '?:??';
-  const m = Math.floor(sec / 60);
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  return m + ':' + String(s).padStart(2, '0');
+  // 1時間以上の動画は h:mm:ss（旧実装は 75:30 のように分だけで出していた）
+  return h
+    ? h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
+    : m + ':' + String(s).padStart(2, '0');
+}
+
+// 動画の長さ（秒）。再生中のプレイヤーから取り、取れなければ動画データの duration。
+// YouTube だけを見ていたため、GDrive/Vimeo や未再生だと長さ不明のまま
+// スライダーが 10分（600秒）で頭打ちになっていた。
+function _getDurationSec(id) {
+  try { const d = window._srYtGetDuration?.(); if (d > 0) return Math.floor(d); } catch(e) {}
+  if (_gdVideoEl && isFinite(_gdVideoEl.duration) && _gdVideoEl.duration > 0) return Math.floor(_gdVideoEl.duration);
+  if (_vmDuration > 0) return Math.floor(_vmDuration);
+  try { const d = _ytPlayer?.getDuration?.(); if (d > 0) return Math.floor(d); } catch(e) {}
+  const v = (window.videos || []).find(x => x.id === id);
+  const d2 = Number(v?.duration) || 0;
+  return d2 > 0 ? Math.floor(d2) : 0;
+}
+
+// スライダーの上限。長さが分かればその値、分からなければ 1時間 + 現在値の余裕。
+// いずれにせよ「今の値より手前で頭打ち」にはしない。
+function _slMaxFor(id, curVal) {
+  const dur = _getDurationSec(id);
+  const cur = Math.ceil(Number(curVal) || 0);
+  return dur > 0 ? Math.max(dur, cur) : Math.max(3600, cur + 600);
 }
 
 // ── タイトルバー時間表示 ──
@@ -446,6 +472,15 @@ function _loopSVG() {
 // ── ループセクションのアクティブフィールド（'start'|'end'）
 let _abActiveField = 'start';
 
+// ループエディタの時間表示（入力欄）。旧 div 版が残っていても動くようにしておく。
+const _abDur = () => _getDurationSec(window.openVPanelId);
+function _abSetDisp(sec) {
+  const inp = document.getElementById('vp-ab-time-in');
+  if (inp) { inp.value = _formatTime(Math.floor(sec)); return; }
+  const disp = document.getElementById('vp-ab-time-disp');
+  if (disp) disp.textContent = _formatTime(Math.floor(sec));
+}
+
 function _loopSectionHTML() {
   // 既定では非表示。三点リーダーメニューの「ループ再生」を押した時だけ表示する。
   // ループ動作中（_ab.loop）は OFF 操作を残すため常に表示。
@@ -513,10 +548,14 @@ function _loopSectionHTML() {
       <div id="vp-ab-editor" class="ab-editor">
         <div style="display:flex;border-bottom:0.5px solid var(--border);">${tabStart}${tabEnd}</div>
         <div style="padding:8px 10px;">
-          <div id="vp-ab-time-disp" class="ab-time-disp">${_formatTime(Math.floor(curVal))}</div>
-          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-ab-sl-dur">—</span></div>
-          <input type="range" id="vp-ab-sl" min="0" max="600" value="${Math.floor(curVal)}" step="1"
-            style="width:75%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
+          <input type="text" id="vp-ab-time-in" class="ab-time-disp vp-time-in" inputmode="numeric" autocomplete="off"
+            value="${_formatTime(Math.floor(curVal))}" placeholder="0:00"
+            title="直接入力できます（例: 1:23:45 / 12:34 / 90）"
+            onfocus="this.select()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-ab-sl-dur">${_abDur() ? _formatTime(_abDur()) : '—'}</span></div>
+          <input type="range" id="vp-ab-sl" min="0" max="${_slMaxFor(window.openVPanelId, curVal)}" value="${Math.floor(curVal)}" step="1"
+            style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;box-sizing:border-box;">
           <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
             <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
             ${adjBtns}
@@ -579,15 +618,13 @@ function _abCloseQuickPanel() {
 function _abBindLoopSlider() {
   const sl = document.getElementById('vp-ab-sl');
   if (!sl) return;
-  // 総秒数をmaxにセット
-  try {
-    const dur = _ytPlayer?.getDuration?.();
-    if (dur && dur > 0) {
-      sl.max = Math.floor(dur);
-      const durEl = document.getElementById('vp-ab-sl-dur');
-      if (durEl) durEl.textContent = _formatTime(Math.floor(dur));
-    }
-  } catch(e) {}
+  // 総秒数をmaxにセット（YouTube以外・未再生でも動画データの長さから拾う）
+  const dur = _abDur();
+  if (dur > 0) {
+    sl.max = Math.max(dur, parseInt(sl.value, 10) || 0);
+    const durEl = document.getElementById('vp-ab-sl-dur');
+    if (durEl) durEl.textContent = _formatTime(dur);
+  }
 
   function applyVal(v) {
     const max = parseInt(sl.max) || 600;
@@ -596,14 +633,25 @@ function _abBindLoopSlider() {
     // 即時確定
     if (_abActiveField === 'start') _ab.a = v;
     else _ab.b = v;
-    // 表示更新
-    const disp = document.getElementById('vp-ab-time-disp');
-    if (disp) disp.textContent = _formatTime(Math.floor(v));
+    _abSetDisp(v);
     // ヘッダーチップも更新
     _abUpdateChips();
   }
   sl.addEventListener('input',  () => applyVal(parseInt(sl.value)));
   sl.addEventListener('change', () => applyVal(parseInt(sl.value)));
+
+  // 直接入力（1:23:45 / 12:34 / 90）。スライダーの上限より後ろでも受け付ける。
+  const inp = document.getElementById('vp-ab-time-in');
+  if (inp) inp.addEventListener('change', () => {
+    const sec = _parseBmTime(inp.value);
+    if (sec == null) {
+      window.toast?.('正しい時間を入力してください（例: 1:30 または 90）');
+      _abSetDisp(_abActiveField === 'start' ? (_ab.a ?? 0) : (_ab.b ?? _ab.a ?? 0));
+      return;
+    }
+    if (sec > (parseInt(sl.max) || 0)) sl.max = sec;   // 長さ不明でも入力値まで伸ばす
+    applyVal(sec);
+  });
 }
 
 // ヘッダーチップ（開始/終了ボタン）のテキスト更新
@@ -653,12 +701,12 @@ export function vpAbToggleExpand() {
 export function vpAbAdjField(delta) {
   const cur = _abActiveField === 'start' ? (_ab.a ?? 0) : (_ab.b ?? _ab.a ?? 0);
   const sl = document.getElementById('vp-ab-sl');
-  const max = sl ? parseInt(sl.max) || 600 : 600;
-  const nv = Math.max(0, Math.min(max, cur + delta));
+  const dur = _abDur();
+  // 長さが分かっていればそこまで。分からなければ頭打ちにしない。
+  const nv = dur > 0 ? Math.max(0, Math.min(dur, cur + delta)) : Math.max(0, cur + delta);
   if (_abActiveField === 'start') _ab.a = nv; else _ab.b = nv;
-  const disp = document.getElementById('vp-ab-time-disp');
-  if (disp) disp.textContent = _formatTime(Math.floor(nv));
-  if (sl) sl.value = nv;
+  _abSetDisp(nv);
+  if (sl) { if (nv > (parseInt(sl.max) || 0)) sl.max = nv; sl.value = nv; }
   _abUpdateChips();
 }
 
@@ -667,10 +715,9 @@ export function vpAbSetCurrentField() {
   const cur = _getCurrentTime();
   if (cur == null) { window.toast?.('動画を再生してください'); return; }
   if (_abActiveField === 'start') _ab.a = cur; else _ab.b = cur;
-  const disp = document.getElementById('vp-ab-time-disp');
-  if (disp) disp.textContent = _formatTime(Math.floor(cur));
+  _abSetDisp(cur);
   const sl = document.getElementById('vp-ab-sl');
-  if (sl) sl.value = cur;
+  if (sl) { if (cur > (parseInt(sl.max) || 0)) sl.max = cur; sl.value = cur; }
   _abUpdateChips();
 }
 
@@ -813,6 +860,8 @@ function _bookmarkListHTML(id) {
 
     // タブ式統合エディタ（ループ再生と同じUI）
     const curVal = startActive ? bm.time : (hasEnd ? bm.endTime : bm.time);
+    const slDur  = _getDurationSec(id);
+    const slMax  = _slMaxFor(id, curVal);
     const adjBtnsStart = [-10,-5,-3,-1,1,3,5,10].map(d =>
       `<button onclick="vpAdjustBmField('${id}',${i},'start',${d})" style="${_adjBtnStyle()}">${d>0?'+':''}${d}s</button>`
     ).join('');
@@ -841,14 +890,19 @@ function _bookmarkListHTML(id) {
             <div onclick="vpBmActivateField('${id}',${i},'end')" style="${tabStyleEnd}">⏹ 終了</div>
           </div>
           <div style="padding:8px 10px;">
-            <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;">
-              ${startActive ? _formatTime(bm.time) : (hasEnd ? _formatTime(bm.endTime) : '——')}
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-bm-sl-dur-${id}-${i}">—</span></div>
+            <input type="text" class="vp-time-in" inputmode="numeric" autocomplete="off"
+              id="${startActive ? `vp-bm-time-inp-${id}-${i}` : `vp-bm-end-inp-${id}-${i}`}"
+              value="${startActive ? _formatTime(bm.time) : (hasEnd ? _formatTime(bm.endTime) : '')}"
+              placeholder="0:00"
+              title="直接入力できます（例: 1:23:45 / 12:34 / 90）"
+              onfocus="this.select()"
+              onchange="vpSetBmTimeFromInput('${id}',${i},'${startActive?'start':'end'}')"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px;"><span>0:00</span><span id="vp-bm-sl-dur-${id}-${i}">${slDur ? _formatTime(slDur) : '—'}</span></div>
             <input type="range" class="vp-bm-sl" id="vp-sl-${startActive?'start':'end'}-${id}-${i}"
               data-vid="${id}" data-idx="${i}" data-field="${startActive?'start':'end'}"
-              min="0" max="600" value="${curVal}" step="1"
-              style="width:75%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;">
+              min="0" max="${slMax}" value="${curVal}" step="1"
+              style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px;box-sizing:border-box;">
             <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
               <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px;">微調整</span>
               ${startActive ? adjBtnsStart : adjBtnsEnd}
@@ -1041,14 +1095,18 @@ export function vpTogBmTimeEditor(id, idx) {
 
 // パース補助: "m:ss" or "ss" → 秒数
 function _parseBmTime(val) {
-  val = val.trim();
+  val = String(val ?? '').trim();
   if (!val) return null;
   if (val.includes(':')) {
-    const parts = val.split(':');
-    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    // 1:15:30（時:分:秒）と 12:34（分:秒）の両方を受ける
+    const parts = val.split(':').map(x => parseInt(x, 10));
+    if (parts.some(x => isNaN(x) || x < 0)) return null;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return null;
   }
-  const n = parseInt(val);
-  return isNaN(n) ? null : n;
+  const n = parseInt(val, 10);
+  return isNaN(n) || n < 0 ? null : n;
 }
 
 // アクティブフィールド管理（start / end）
@@ -1208,13 +1266,14 @@ function _refreshBmList(id, flashIdx) {
     const _savedScroll = _scrollWrap ? _scrollWrap.scrollTop : 0;
     el.innerHTML = _bookmarkListHTML(id);
     if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
-    // スライダーのmax値をプレイヤーから取得
-    try {
-      const dur = _ytPlayer?.getDuration?.();
-      if (dur && dur > 0) {
-        el.querySelectorAll('.vp-bm-sl').forEach(sl => { sl.max = Math.floor(dur); });
-      }
-    } catch(e) {}
+    // スライダーのmax値（長さが分かったら反映。分からなければ描画時の余裕値のまま）
+    const dur = _getDurationSec(id);
+    if (dur > 0) {
+      el.querySelectorAll('.vp-bm-sl').forEach(sl => {
+        sl.max = Math.max(dur, parseInt(sl.value, 10) || 0);
+      });
+      el.querySelectorAll('[id^="vp-bm-sl-dur-"]').forEach(d => { d.textContent = _formatTime(dur); });
+    }
     // スライダーのイベントをバインド
     el.querySelectorAll('.vp-bm-sl').forEach(sl => {
       sl.addEventListener('input', _onBmSliderInput);
@@ -1260,9 +1319,9 @@ function _onBmSliderInput(e) {
   // data-bm-idx行の中のDM Mono 20px要素を探す
   const row = sl.closest('[data-bm-idx]');
   if (row) {
-    // 新UIの時間表示（font-size:20px のDM Mono div）
-    const timeDisp = row.querySelector('div[style*="font-size:20px"]');
-    if (timeDisp) timeDisp.textContent = _formatTime(val);
+    // 時間の入力欄（直接入力もできる表示）
+    const timeIn = row.querySelector('.vp-time-in');
+    if (timeIn) timeIn.value = _formatTime(val);
     // 旧UI対応（念のため）
     const oldDisp = document.getElementById(`vp-tf-disp-${field}-${vid}-${idx}`);
     if (oldDisp) oldDisp.textContent = _formatTime(val);

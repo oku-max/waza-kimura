@@ -464,6 +464,12 @@ function _srGetCurrentTime() {
   try { return Math.floor(_srYtPlayer.getCurrentTime()); } catch(e) { return null; }
 }
 
+// 動画の長さ（秒）。vpanel 側のスライダー上限に使う。
+function _srGetDuration() {
+  if (!_srYtPlayer || !_srYtReady) return 0;
+  try { const d = _srYtPlayer.getDuration(); return d > 0 ? Math.floor(d) : 0; } catch(e) { return 0; }
+}
+
 function _srSeekTo(sec) {
   if (!_srYtPlayer || !_srYtReady) return;
   try { _srYtPlayer.seekTo(sec, true); } catch(e) {}
@@ -702,6 +708,7 @@ export function ytSrOpenVPanel(idx) {
   window._vpLoopVisible       = false; // ループ再生UIは既定で非表示
   window._srVpListAction      = () => window.ytSrOpenResultsList?.();
   window._srYtGetCurrentTime  = _srGetCurrentTime;
+  window._srYtGetDuration     = _srGetDuration;
   window._srYtSeekTo          = _srSeekTo;
   window.openVPanelId         = _srOpenLibId;
 
@@ -863,6 +870,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
   window._vpLoopVisible      = false; // ループ再生UIは既定で非表示
   window._srVpListAction     = () => window.ytSrOpenPlListSheet?.(plId, vidIdx);
   window._srYtGetCurrentTime = _srGetCurrentTime;
+  window._srYtGetDuration    = _srGetDuration;
   window._srYtSeekTo         = _srSeekTo;
   window.openVPanelId        = _srOpenLibId;
 
@@ -1061,6 +1069,7 @@ export function ytSrCloseVPanel() {
   window._srVpOpen           = false;
   window._srVpListAction     = null;
   window._srYtGetCurrentTime = null;
+  window._srYtGetDuration    = null;
   window._srYtSeekTo         = null;
   if (window.openVPanelId === _srOpenLibId) window.openVPanelId = null;
   _srOpenLibId = null;

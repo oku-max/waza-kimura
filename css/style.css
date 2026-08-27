@@ -1588,6 +1588,16 @@ body.dark .ab-skip-plus{color:#f5b86e;border-color:#5c3a10;background:#3a2010}
 .ab-tab--inactive{font-weight:500;color:var(--text2);background:var(--surface2)}
 .ab-adj-btn{font-size:10px;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit}
 .ab-time-disp{font-family:"DM Mono",monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px}
+/* 時間の直接入力（ループ/ブックマークの大きな時間表示。スライダーだけだと
+   1時間超の動画で目的の秒に届かないため、そのまま打てるようにしてある） */
+.vp-time-in{display:block;width:100%;box-sizing:border-box;
+  font-family:"DM Mono",monospace;font-size:20px;font-weight:500;color:var(--text);
+  text-align:center;margin:2px 0 6px;padding:2px 4px;
+  background:transparent;border:none;border-bottom:1px dashed var(--border);
+  border-radius:0;outline:none}
+.vp-time-in:hover{border-bottom-color:var(--text3)}
+.vp-time-in:focus{border-bottom:1px solid var(--accent)}
+.vp-time-in::placeholder{color:var(--text3);opacity:.6}
 .ab-current-btn{font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);font-weight:600;cursor:pointer;font-family:inherit}
 .ab-save-btn{font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-weight:700;cursor:pointer}
 .ab-clear-btn{font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer}
