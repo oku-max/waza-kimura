@@ -25,7 +25,7 @@ const SCOPES = [
   ['drill',   'Drill',            '🟣 Drill に入れたものから']
 ];
 
-const _cfg = { scope: 'unplayed', tag: '', oldDays: 180, pls: [], cvId: '' };
+const _cfg = { scope: 'unplayed', oldDays: 180, pls: [], cvId: '' };
 const OLD_DAYS = [[90,'3ヶ月'],[180,'半年'],[365,'1年'],[730,'2年']];
 try {
   const raw = localStorage.getItem(LS_CFG);
@@ -49,8 +49,6 @@ const ICON_DICE =
   '<circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/>' +
   '<circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/>' +
   '<circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>';
-
-const _tagsOf = v => [...(v.pos || []), ...(v.cat || []), ...(v.tb || []), ...(v.tags || [])];
 
 // プレイリスト名（既存データの v.pl をそのまま読むだけ。書き込みはしない）
 const _plOf = v => String(v && v.pl || '').trim();
@@ -94,7 +92,6 @@ export function pool() {
       break;
     }
   }
-  if (_cfg.tag) list = list.filter(v => _tagsOf(v).includes(_cfg.tag));
   return list;
 }
 
@@ -206,7 +203,7 @@ function _render() {
     : _cfg.scope === 'cv' ? (_cvName(_cfg.cvId) ? `${_esc(scopeName)} · ${_esc(_cvName(_cfg.cvId))}`
                                                 : 'カスタムリスト（未選択）')
     : `${_esc(scopeName)}${_cfg.scope === 'old' ? `（${_esc(oldNm)}以上）` : ''}`;
-  const range = scopeLabel + `${_cfg.tag ? ` · #${_esc(_cfg.tag)}` : ''}`;
+  const range = scopeLabel;
 
   $r('#rnd-h').textContent = 'ランダムに1本';
   $r('#rnd-bd').innerHTML = `
@@ -242,10 +239,6 @@ function _render() {
 
 // ── 範囲の設定 ──
 function _openCfg() {
-  const tags = new Set();
-  (window.videos || []).forEach(x => { if (!x.archived) _tagsOf(x).forEach(t => t && tags.add(t)); });
-  const tagList = [...tags].sort((a, b) => a.localeCompare(b, 'ja'));
-
   $r('#rnd-h').textContent = 'ランダムの範囲';
   $r('#rnd-bd').innerHTML = `
     <p class="rnd-sec">どこから選ぶか</p>
@@ -265,24 +258,8 @@ function _openCfg() {
       <p class="rnd-sec">どれくらい空いたら</p>
       <div class="rnd-tags">${OLD_DAYS.map(([d, nm]) =>
         `<button class="rnd-chip" data-rnd-old="${d}" aria-pressed="${(_cfg.oldDays||180) === d}">${nm}以上</button>`).join('')}</div>
-    </div>
-    <p class="rnd-sec">タグでさらに絞る（任意）</p>
-    <input class="rnd-q" id="rnd-tagq" type="text" autocomplete="off" placeholder="タグを探す">
-    <div class="rnd-tags" id="rnd-tags"></div>`;
+    </div>`;
   $r('#rnd-ft').innerHTML = `<button class="rnd-go" id="rnd-cfg-done">この範囲にする</button>`;
-
-  const paintTags = q => {
-    const query = (q || '').trim().toLowerCase();
-    const list = query ? tagList.filter(t => t.toLowerCase().includes(query)) : tagList;
-    $r('#rnd-tags').innerHTML =
-      `<button class="rnd-chip" data-rnd-tag="" aria-pressed="${!_cfg.tag}">指定なし</button>` +
-      list.slice(0, 200).map(t =>
-        `<button class="rnd-chip" data-rnd-tag="${_esc(t)}" aria-pressed="${_cfg.tag === t}">#${_esc(t)}</button>`).join('');
-    $$r('#rnd-tags [data-rnd-tag]').forEach(b => b.onclick = () => {
-      _cfg.tag = b.dataset.rndTag; _saveCfg(); paintTags($r('#rnd-tagq').value);
-    });
-  };
-  paintTags('');
 
   $$r('#rnd-bd [data-rnd-scope]').forEach(b => b.onclick = () => {
     // プレイリスト／カスタムリストは数が多いので、専用の選択画面を開く
@@ -298,7 +275,6 @@ function _openCfg() {
     $$r('#rnd-bd [data-rnd-old]').forEach(x =>
       x.setAttribute('aria-pressed', String(Number(x.dataset.rndOld) === _cfg.oldDays)));
   });
-  $r('#rnd-tagq').oninput = e => paintTags(e.target.value);
   $r('#rnd-cfg-done').onclick = _render;
 }
 
