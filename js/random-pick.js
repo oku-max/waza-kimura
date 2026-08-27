@@ -4,7 +4,10 @@
 //
 // ── データ経路（CLAUDE.md ルール1のため明記）──
 //  書き込み: localStorage 'wk_rndCfg'（新規キー・この端末の設定のみ）
-//  読み取り: window.videos / window.filteredVideos（読むだけ）
+//           プレイリスト選択は既存のピッカー(buildSbPickerInline)をそのまま使うため、
+//           そのピッカーが持つ「最近選んだ項目」(wk_recent_filter_pl・端末ローカル・
+//           追記のみ) が絞り込み側と同じように更新される。
+//  読み取り: window.videos / window.filteredVideos / window._cvResolveVideos（読むだけ）
 //  既存のデータには一切書き込まない。再生は既存の openVPanel に渡すだけ。
 
 const LS_CFG = 'wk_rndCfg';
@@ -15,18 +18,22 @@ const SCOPES = [
   ['unplayed','まだ見ていない',   '一度も再生していないものだけ'],
   ['old',     'しばらく見ていない','一度見たきり間が空いているもの'],
   ['view',    'いま画面に出ている','絞り込み中のリストから'],
-  ['pl',      'プレイリスト',     '📋 選んだプレイリストから'],  // 説明はその場で選択中の名前に差し替える
+  ['pl',      'プレイリスト',     '📋 選んだプレイリストから'],  // 説明は選択中の名前に差し替える
+  ['cv',      'カスタムリスト',   '📑 自分で作ったリストから'],  // 同上
   ['fav',     'お気に入り',       '⭐ を付けたものから'],
   ['next',    'Next',             '🎯 Next に入れたものから'],
   ['drill',   'Drill',            '🟣 Drill に入れたものから']
 ];
 
-const _cfg = { scope: 'unplayed', tag: '', oldDays: 180, pl: '' };
+const _cfg = { scope: 'unplayed', tag: '', oldDays: 180, pls: [], cvId: '' };
 const OLD_DAYS = [[90,'3ヶ月'],[180,'半年'],[365,'1年'],[730,'2年']];
 try {
   const raw = localStorage.getItem(LS_CFG);
   if (raw) Object.assign(_cfg, JSON.parse(raw));
 } catch (e) {}
+// 旧形式（pl: 単一名）の設定を引き継ぐ。消さずに読むだけ。
+if (!Array.isArray(_cfg.pls)) _cfg.pls = [];
+if (!_cfg.pls.length && typeof _cfg.pl === 'string' && _cfg.pl) _cfg.pls = [_cfg.pl];
 function _saveCfg() {
   try { localStorage.setItem(LS_CFG, JSON.stringify(_cfg)); } catch (e) {}
 }
@@ -48,25 +55,9 @@ const _tagsOf = v => [...(v.pos || []), ...(v.cat || []), ...(v.tb || []), ...(v
 // プレイリスト名（既存データの v.pl をそのまま読むだけ。書き込みはしない）
 const _plOf = v => String(v && v.pl || '').trim();
 
-// 絞り込み側で最近選んだプレイリスト（js/filter-overlay.js が持つキーを読むだけ）
-function _recentPls() {
-  try { return JSON.parse(localStorage.getItem('wk_recent_filter_pl') || '[]'); }
-  catch (e) { return []; }
-}
-
-// アーカイブ以外の動画から、プレイリスト名と本数を集める
-function _playlists() {
-  const m = new Map();
-  (window.videos || []).forEach(v => {
-    if (!v || v.archived) return;
-    const nm = _plOf(v);
-    if (!nm) return;
-    m.set(nm, (m.get(nm) || 0) + 1);
-  });
-  return [...m.entries()]
-    .map(([name, n]) => ({ name, n }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-}
+// カスタムリスト（js/custom-view.js が読み取り専用で出している一覧・中身）
+const _cvLists = () => (window._cvListSummaries?.() || []);
+const _cvName  = id => _cvLists().find(x => x.id === id)?.label || '';
 
 // 最終再生からの日数。実データの項目は lastPlayed（Date.now() の数値・
 // js/vpanel.js が再生時に入れる）。一度も再生していないものは対象外にして、
@@ -92,7 +83,16 @@ export function pool() {
     case 'fav':      list = list.filter(v => v.fav); break;
     case 'next':     list = list.filter(v => v.next); break;
     case 'drill':    list = list.filter(v => v.drill); break;
-    case 'pl':       list = _cfg.pl ? list.filter(v => _plOf(v) === _cfg.pl) : []; break;
+    case 'pl': {
+      const set = new Set(_cfg.pls || []);
+      list = set.size ? list.filter(v => set.has(_plOf(v))) : [];
+      break;
+    }
+    case 'cv': {
+      const vids = _cfg.cvId ? window._cvResolveVideos?.(_cfg.cvId) : null;
+      list = (vids || []).filter(v => v && !v.archived);
+      break;
+    }
   }
   if (_cfg.tag) list = list.filter(v => _tagsOf(v).includes(_cfg.tag));
   return list;
@@ -199,8 +199,12 @@ function _render() {
   const v = _pick();
   const scopeName = SCOPES.find(s => s[0] === _cfg.scope)?.[1] || 'すべて';
   const oldNm = OLD_DAYS.find(o => o[0] === (_cfg.oldDays || 180))?.[1] || '半年';
-  const scopeLabel = (_cfg.scope === 'pl')
-    ? (_cfg.pl ? `${_esc(scopeName)} · ${_esc(_cfg.pl)}` : 'プレイリスト（未選択）')
+  const pls = _cfg.pls || [];
+  const plLabel = pls.length > 1 ? `${_esc(pls[0])} +${pls.length - 1}` : _esc(pls[0] || '');
+  const scopeLabel =
+      _cfg.scope === 'pl' ? (pls.length ? `${_esc(scopeName)} · ${plLabel}` : 'プレイリスト（未選択）')
+    : _cfg.scope === 'cv' ? (_cvName(_cfg.cvId) ? `${_esc(scopeName)} · ${_esc(_cvName(_cfg.cvId))}`
+                                                : 'カスタムリスト（未選択）')
     : `${_esc(scopeName)}${_cfg.scope === 'old' ? `（${_esc(oldNm)}以上）` : ''}`;
   const range = scopeLabel + `${_cfg.tag ? ` · #${_esc(_cfg.tag)}` : ''}`;
 
@@ -219,8 +223,10 @@ function _render() {
         <p class="rnd-m">${v.duration ? `<span class="rnd-dur">${_esc(_fmtDur(v.duration))}</span> · ` : ''}${_esc(_meta(v))}</p>
       </div>`
     : `<p class="rnd-none">${
-        _cfg.scope === 'pl' && !_cfg.pl ? 'プレイリストを選んでください。'
-      : _cfg.scope === 'pl'             ? 'このプレイリストに動画がありません。別のプレイリストを選んでください。'
+        _cfg.scope === 'pl' && !pls.length ? 'プレイリストを選んでください。'
+      : _cfg.scope === 'pl'                ? 'このプレイリストに動画がありません。別のプレイリストを選んでください。'
+      : _cfg.scope === 'cv' && !_cfg.cvId  ? 'カスタムリストを選んでください。'
+      : _cfg.scope === 'cv'                ? 'このカスタムリストに動画がありません。別のリストを選んでください。'
       : 'この範囲に動画がありません。範囲を変えてください。'}</p>`}`;
 
   $r('#rnd-ft').innerHTML = v
@@ -244,10 +250,14 @@ function _openCfg() {
   $r('#rnd-bd').innerHTML = `
     <p class="rnd-sec">どこから選ぶか</p>
     <div class="rnd-opts">${SCOPES.map(([v, nm, ds]) => {
-      const isPl = v === 'pl';
-      const desc = isPl ? (_cfg.pl ? `📋 ${_cfg.pl}` : '📋 選んでください') : ds;
+      const isNav = v === 'pl' || v === 'cv';
+      const pls   = _cfg.pls || [];
+      const desc =
+          v === 'pl' ? (pls.length ? `📋 ${pls.join('、')}` : '📋 選んでください')
+        : v === 'cv' ? (_cvName(_cfg.cvId) ? `📑 ${_cvName(_cfg.cvId)}` : '📑 選んでください')
+        : ds;
       return `
-      <button class="rnd-opt${isPl ? ' rnd-opt-nav' : ''}" data-rnd-scope="${v}" aria-pressed="${_cfg.scope === v}">
+      <button class="rnd-opt${isNav ? ' rnd-opt-nav' : ''}" data-rnd-scope="${v}" aria-pressed="${_cfg.scope === v}">
         <span class="rnd-opt-n">${_esc(nm)}</span>
         <span class="rnd-opt-d">${_esc(desc)}</span>
       </button>`; }).join('')}</div>
@@ -275,8 +285,9 @@ function _openCfg() {
   paintTags('');
 
   $$r('#rnd-bd [data-rnd-scope]').forEach(b => b.onclick = () => {
-    // プレイリストは数が多いので、その場ではなく専用の選択画面を開く
+    // プレイリスト／カスタムリストは数が多いので、専用の選択画面を開く
     if (b.dataset.rndScope === 'pl') { _openPlPicker(); return; }
+    if (b.dataset.rndScope === 'cv') { _openCvPicker(); return; }
     _cfg.scope = b.dataset.rndScope; _saveCfg();
     $$r('#rnd-bd [data-rnd-scope]').forEach(x =>
       x.setAttribute('aria-pressed', String(x.dataset.rndScope === _cfg.scope)));
@@ -291,48 +302,73 @@ function _openCfg() {
   $r('#rnd-cfg-done').onclick = _render;
 }
 
-// ── プレイリストを選ぶ（専用画面：一覧が長くても探しやすいように縦一列＋検索）──
+// ── プレイリストを選ぶ ──
+// 絞り込み（サイドバー/整理画面）で使っているピッカーをそのまま使う。
+// buildSbPickerInline は ctx 名で filter/af の置き場所を切り替えられるので、
+// ランダム用の置き場所を window._sbExtCtx.rnd に用意して渡すだけ。
+// → 検索・🕐最近・ABC/あいうえお順・件数順・「N本」表示すべて既存のまま。
+const _plCtx = { playlist: new Set() };
+
 function _openPlPicker() {
-  const plList  = _playlists();
-  const recents = _recentPls().filter(nm => plList.some(p => p.name === nm)).slice(0, 8);
+  _plCtx.playlist = new Set(_cfg.pls || []);
+  window._sbExtCtx = window._sbExtCtx || {};
+  window._sbExtCtx.rnd = {
+    f: _plCtx,
+    af: () => {                       // ピッカーで選択が変わるたびに呼ばれる
+      _cfg.pls = [..._plCtx.playlist];
+      if (_cfg.pls.length) _cfg.scope = 'pl';
+      _saveCfg();
+      _plFoot();
+    }
+  };
 
   $r('#rnd-h').textContent = 'プレイリストを選ぶ';
-  $r('#rnd-bd').innerHTML = `
-    <div class="rnd-plq-wrap">
-      <input class="rnd-q" id="rnd-plq" type="text" autocomplete="off"
-             placeholder="プレイリストを探す" value="">
-    </div>
-    <div id="rnd-pls"></div>`;
-  $r('#rnd-ft').innerHTML = `<button class="rnd-ghost" id="rnd-pl-back">← 範囲にもどる</button>`;
+  $r('#rnd-bd').innerHTML = `<div id="rnd-plpick" class="rnd-pickhost"></div>`;
+  $r('#rnd-ft').innerHTML = `
+    <span class="rnd-ft-note" id="rnd-pl-note"></span>
+    <button class="rnd-go" id="rnd-pl-done">決定</button>`;
+  window.buildSbPickerInline?.('rnd-plpick', 'playlist', 'rnd');
+  if (!$r('#rnd-plpick')?.children.length) {
+    $r('#rnd-plpick').innerHTML = `<p class="rnd-hint">プレイリストがありません</p>`;
+  }
+  _plFoot();
+  $r('#rnd-pl-done').onclick = _openCfg;
+}
 
-  const row = p => `
-    <button class="rnd-pl-row" data-rnd-pl="${_esc(p.name)}" aria-pressed="${_cfg.pl === p.name}">
-      <span class="rnd-pl-nm">${_esc(p.name)}</span>
-      <span class="rnd-pl-n">${p.n}</span>
-    </button>`;
+function _plFoot() {
+  const el = $r('#rnd-pl-note');
+  if (!el) return;
+  const n = (_cfg.pls || []).length;
+  el.textContent = n ? `${n}件選択中` : '選ばれていません';
+}
 
-  const paint = q => {
-    const query = (q || '').trim().toLowerCase();
-    const hit = query ? plList.filter(p => p.name.toLowerCase().includes(query)) : plList;
-    const box = $r('#rnd-pls');
-    if (!plList.length) { box.innerHTML = `<p class="rnd-hint">プレイリストがありません</p>`; return; }
-    if (!hit.length)    { box.innerHTML = `<p class="rnd-hint">見つかりません</p>`; return; }
-    const recentHTML = (!query && recents.length)
-      ? `<p class="rnd-sec">最近選んだプレイリスト</p><div class="rnd-pl-list">${
-          recents.map(nm => row(plList.find(p => p.name === nm))).join('')}</div>
-         <p class="rnd-sec">すべてのプレイリスト</p>`
-      : '';
-    box.innerHTML = recentHTML + `<div class="rnd-pl-list">${hit.map(row).join('')}</div>`;
-    $$r('#rnd-pls [data-rnd-pl]').forEach(b => b.onclick = () => {
-      _cfg.pl = b.dataset.rndPl;
-      _cfg.scope = 'pl';   // 選んだ時点で範囲もプレイリストにする
-      _saveCfg();
-      _openCfg();          // 範囲画面に戻る（選んだ内容が反映された状態）
-    });
-  };
-  paint('');
-  $r('#rnd-plq').oninput = e => paint(e.target.value);
-  $r('#rnd-pl-back').onclick = _openCfg;
+// ── カスタムリストを選ぶ ──
+// 一覧と中身は js/custom-view.js が出している読み取り専用の入口を使い、
+// 行の見た目もリスト選択モーダルと同じ cv-picker-* をそのまま使う。
+function _openCvPicker() {
+  const lists = _cvLists();
+
+  $r('#rnd-h').textContent = 'カスタムリストを選ぶ';
+  $r('#rnd-bd').innerHTML = lists.length
+    ? `<div class="rnd-pickhost">${lists.map(v => `
+        <div class="cv-picker-item${_cfg.cvId === v.id ? ' active' : ''}" data-rnd-cv="${_esc(v.id)}">
+          <span class="cv-picker-icon">${v.saveMode === 'dynamic' ? '🔄' : '📌'}</span>
+          <span class="cv-picker-info">
+            <span class="cv-picker-name">${_esc(v.label)}</span>
+            <span class="cv-picker-meta">${v.saveMode === 'dynamic' ? '条件で自動選択' : '手動選択'} · ${v.count}本</span>
+          </span>
+          <span class="cv-picker-check">${_cfg.cvId === v.id ? '✓' : ''}</span>
+        </div>`).join('')}</div>`
+    : `<p class="rnd-hint">カスタムリストがありません</p>`;
+  $r('#rnd-ft').innerHTML = `<button class="rnd-ghost" id="rnd-cv-back">← 範囲にもどる</button>`;
+
+  $$r('#rnd-bd [data-rnd-cv]').forEach(el => el.onclick = () => {
+    _cfg.cvId  = el.dataset.rndCv;
+    _cfg.scope = 'cv';        // 選んだ時点で範囲もカスタムリストにする
+    _saveCfg();
+    _openCfg();               // 範囲画面へ戻る
+  });
+  $r('#rnd-cv-back').onclick = _openCfg;
 }
 
 window.openRandomPick = openRandom;

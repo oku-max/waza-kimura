@@ -97,23 +97,19 @@ body.dark #rnd-modal{background:rgba(0,0,0,.5)}
 .rnd-opt-nav{position:relative;padding-right:26px}
 .rnd-opt-nav::after{content:'›';position:absolute;right:12px;top:50%;transform:translateY(-50%);
   font-size:17px;line-height:1;color:var(--text3)}
-.rnd-plq-wrap{position:sticky;top:-16px;z-index:2;background:var(--surface);
-  padding-top:16px;margin:-16px 0 0}
-.rnd-plq-wrap .rnd-q{margin-bottom:12px}
-.rnd-pl-list{display:flex;flex-direction:column;
-  border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px}
-.rnd-pl-row{display:flex;align-items:center;gap:10px;width:100%;min-height:46px;
-  text-align:left;border:0;border-bottom:1px solid var(--border2);
-  background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;
-  padding:11px 13px;cursor:pointer}
-.rnd-pl-row:last-child{border-bottom:0}
-.rnd-pl-row:hover{background:var(--surface2)}
-.rnd-pl-nm{flex:1;min-width:0;line-height:1.4;overflow-wrap:anywhere}
-.rnd-pl-n{flex-shrink:0;font-size:11px;color:var(--text3);
-  font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.rnd-pl-row[aria-pressed="true"]{background:var(--surface2)}
-.rnd-pl-row[aria-pressed="true"] .rnd-pl-nm{color:var(--accent);font-weight:700}
-.rnd-pl-row[aria-pressed="true"] .rnd-pl-nm::after{content:' ✓'}
+/* 既存ピッカー（vp-dd-* / cv-picker-*）をこのモーダルに置いたときだけ、
+   指で押しやすい高さと折り返しにする。見た目の作りは既存のまま。 */
+.rnd-pickhost{border:1px solid var(--border);border-radius:9px;overflow:hidden;
+  background:var(--surface)}
+.rnd-pickhost .vp-dd-item{padding:11px 13px;font-size:12.5px;gap:10px;
+  align-items:flex-start;line-height:1.4;border-bottom:1px solid var(--border2)}
+.rnd-pickhost .vp-dd-item:last-child{border-bottom:0}
+.rnd-pickhost .vp-dd-search{padding:11px 12px;font-size:14px}
+.rnd-pickhost .vp-dd-cnt{margin-left:auto;padding-top:1px}
+.rnd-pickhost .vp-dd-item.selected::after{margin-left:4px}
+.rnd-pickhost .cv-picker-item{border-bottom:1px solid var(--border2);padding:11px 13px}
+.rnd-pickhost .cv-picker-item:last-child{border-bottom:0}
+.rnd-ft-note{flex:1;font-size:11px;color:var(--text3);align-self:center;text-align:left}
 
 .rnd-sub{display:none}
 .rnd-sub.on{display:block;margin-bottom:18px}

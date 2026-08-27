@@ -1027,14 +1027,17 @@ function _addRecentFilter(filterKey, val) {
   localStorage.setItem(key, JSON.stringify(updated));
 }
 
-// コンテキスト（lib / org）からfilter/af取得
+// コンテキスト（lib / org / 外部登録）から filter/af 取得。
+// 外部（ランダムに1本など）はこのピッカーをそのまま使い回せるように、
+// window._sbExtCtx['<名前>'] = { f, af } を登録して ctx 名を渡す。
+// f はここで読み書きされる Set 入りオブジェクト、af は選択が変わった直後の後処理。
 function _getSbCtx(containerId) {
-  const el = document.getElementById(containerId);
-  const isOrg = el?.dataset.sbCtx === 'org';
-  return {
-    f:  isOrg ? (window.orgFilters || {}) : (window.filters || {}),
-    af: isOrg ? () => window.renderOrg?.() : () => window.AF?.()
-  };
+  const el  = document.getElementById(containerId);
+  const ctx = el?.dataset.sbCtx;
+  if (ctx === 'org') return { f: window.orgFilters || {}, af: () => window.renderOrg?.() };
+  const ext = ctx && window._sbExtCtx?.[ctx];
+  if (ext) return { f: ext.f || {}, af: ext.af || (() => {}) };
+  return { f: window.filters || {}, af: () => window.AF?.() };
 }
 
 // 指定キー以外の全フィルターを適用した動画セットを返す（ファセット検索用）

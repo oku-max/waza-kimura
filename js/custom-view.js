@@ -1370,6 +1370,23 @@ function _cvPickerCountLabel(v) {
   return `${list.length}${T('cv.count','本')}` + (window._wkTotalDurLabel?.(list) || '');
 }
 
+// ── 外部からカスタムリストを読むための入口（読み取り専用）──
+// ランダムに1本など、リストの中身だけ欲しい所が _views の形に依存しないで済むように。
+// ここでは _views にも動画データにも一切書き込まない。
+window._cvListSummaries = () => _views.map(v => ({
+  id: v.id,
+  label: v.label,
+  saveMode: v.saveMode === 'dynamic' ? 'dynamic' : 'static',
+  count: (window._cvResolveVideos(v.id) || []).length
+}));
+window._cvResolveVideos = (viewId) => {
+  const v = _views.find(x => x.id === viewId);
+  if (!v) return null;
+  if (v.saveMode === 'dynamic') return _dynamicList(v) || [];
+  const byId = _cvVideoById(window.videos || []);
+  return (v.videoIds || []).map(id => byId.get(id)).filter(Boolean);
+};
+
 // id→動画 の対応表。ピッカーは行ごとに引くので、videos が変わらない限り使い回す。
 let _cvByIdCache = null, _cvByIdSrc = null;
 function _cvVideoById(all) {
