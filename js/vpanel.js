@@ -3865,8 +3865,20 @@ function _askChapterSource(anchorEl, subCount) {
                 color:var(--text,#eee);font-family:inherit;font-size:12px;font-weight:600;cursor:${disabled ? 'default' : 'pointer'};opacity:${disabled ? '.45' : '1'}">
          ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${sub}</div>
        </button>`;
-    menu.innerHTML =
-      item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
+    // 細かさは検出しないと変えられなかったので、ここで先に選べるようにする。
+    // 貼り付け（list）は表のとおりに区切るので効かない。選ぶと自動で灰色になる。
+    let grain = _chapGrainKey();
+    const grainRow = `
+      <div id="vp-chapgen-grain" style="padding:6px 10px 8px;border-bottom:1px solid var(--border2,#3a3a3a);margin-bottom:4px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3,#999);margin-bottom:5px">細かさ</div>
+        <div style="display:flex;gap:4px">
+          ${CHAP_GRAIN_KEYS.map(k => `<button class="vp-chapgen-g" data-g="${k}"
+            style="flex:1;padding:5px 4px;border-radius:6px;border:1.5px solid var(--border);font-family:inherit;
+                   font-size:11px;font-weight:700;cursor:pointer">${CHAP_GRAINS[k].label}</button>`).join('')}
+        </div>
+      </div>`;
+    menu.innerHTML = grainRow
+      + item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
       + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
@@ -3881,11 +3893,25 @@ function _askChapterSource(anchorEl, subCount) {
     };
     const onOut = e => { if (!menu.contains(e.target)) done(null); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    // 細かさの選択状態を塗り分ける。「貼り付け」を選ぶ時は無関係なので薄くする
+    const paintGrain = () => {
+      menu.querySelectorAll('.vp-chapgen-g').forEach(b => {
+        const on = b.dataset.g === grain;
+        b.style.background  = on ? 'var(--accent)' : 'var(--surface2)';
+        b.style.color       = on ? 'var(--on-accent)' : 'var(--text2)';
+        b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+      });
+    };
+    paintGrain();
+    menu.querySelectorAll('.vp-chapgen-g').forEach(b => {
+      b.addEventListener('click', e => { e.stopPropagation(); grain = b.dataset.g; paintGrain(); });
+    });
+
     menu.querySelectorAll('.vp-chapgen-item').forEach(b => {
       if (b.disabled) return;
       b.addEventListener('mouseenter', () => { b.style.background = 'var(--surface2,#333)'; });
       b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; });
-      b.addEventListener('click', () => done(b.dataset.via));
+      b.addEventListener('click', () => done({ via: b.dataset.via, grain }));
     });
     setTimeout(() => {
       document.addEventListener('mousedown', onOut, true);
@@ -3963,7 +3989,7 @@ function _chapReviewDialog(chaps, info) {
         <div style="flex:1;overflow-y:auto;padding:4px 14px 8px;min-height:60px">${rows}</div>
         <div style="padding:8px 14px;border-top:0.5px solid var(--border,#444);display:flex;flex-direction:column;gap:6px">
           <label style="display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text2,#bbb);cursor:pointer">
-            <input type="checkbox" id="vp-chap-end" checked style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
+            <input type="checkbox" id="vp-chap-end" style="accent-color:var(--accent);margin-top:1px;flex-shrink:0">
             <span>終了時間を入れる（次の開始まで）<div style="font-size:10px;color:var(--text3,#999)">1チャプターが区間になり、そのままループ再生できます</div></span>
           </label>
           ${autoCount ? `
@@ -4103,7 +4129,11 @@ window.vpGenChapters = async function(id, preset) {
     setBtn('⏳ 確認中…');
     const subs = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
     endBtn();
-    const via = preset ? (preset.via || (subs.length ? 'sub' : 'video')) : await _askChapterSource(btn, subs.length);
+    // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
+    const pick = preset ? { via: preset.via || (subs.length ? 'sub' : 'video'), grain: preset.grain }
+                        : await _askChapterSource(btn, subs.length);
+    if (!pick) return { ok: false, skipped: true };
+    const via = pick.via;
     if (!via) return { ok: false, skipped: true };
 
     // 一覧は先に貼り付けてもらう（キャンセルなら通信もしない）
@@ -4146,7 +4176,8 @@ window.vpGenChapters = async function(id, preset) {
 
     // 粒度は設定を既定にし、確認ダイアログで変えられたらその粒度で検出し直す。
     // 表から作る場合は表のとおりに区切るので粒度は使わない。
-    let grainKey = _chapGrainKey(preset?.grain);
+    // メニューで選ばれた細かさを初期値にする（未指定なら設定画面の既定）
+    let grainKey = _chapGrainKey(pick.grain);
     let totalCost = 0;
 
     for (;;) {
@@ -4213,7 +4244,7 @@ window.vpGenChapters = async function(id, preset) {
       const autoCount = (v.bookmarks || []).filter(b => b.auto === 'chapter').length;
       const note = noteSrc + (totalCost ? ` · $${totalCost.toFixed(3)}` : '');
       const sel = preset
-        ? { chaps, withEnd: preset.withEnd !== false, replaceAuto: !!preset.replaceAuto }
+        ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto }
         : await _chapReviewDialog(chaps, {
             note, autoCount, warn,
             grain: grainKey, canRedo: via !== 'list',
