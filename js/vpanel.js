@@ -2671,6 +2671,41 @@ function _gdSubNorm(s) {
   return String(s).toLowerCase().replace(/[\s　_.\-]+/g, '');
 }
 
+// 「動画名.ja.srt」の末尾から言語を切り離して、本体名と言語に分ける。
+// 先に言語を外しておかないと、動画名との突き合わせで邪魔になる。
+// 言語らしくないもの（"部分2" など）は外さない＝本体名の一部として扱う。
+function _gdSubStem(nameNoExt) {
+  const m = /\.([A-Za-z]{2,3}(?:-[A-Za-z]{2,4})?)$/.exec(nameNoExt);
+  if (m) {
+    const code = SUB_LANG_ALIAS[m[1].toLowerCase()] || m[1].toLowerCase();
+    return { stem: nameNoExt.slice(0, m.index), lang: code };
+  }
+  return { stem: nameNoExt, lang: '' };
+}
+
+// 字幕ファイルがこの動画のものか判定する。
+// 動画をあとからリネームすると、動画名のほうが字幕名より長くなる。
+// 「字幕名が動画名で始まるか」だけを見ていると、その瞬間に字幕が行方不明になる
+// （実際に起きた: 動画を「Closed Guard 04」→「Closed Guard 04　トップロック…」に
+//  変えたら Closed Guard 04.ja.srt が見つからなくなった）。
+// どちらが長くても、片方がもう片方の先頭に一致すれば同じ動画のものとみなす。
+const _SUB_TAIL_MAX = 12;   // 動画名の後ろに許す余分な文字数
+const _SUB_STEM_MIN = 6;    // 逆向き一致で要求する字幕名の最低長（短すぎる名前の誤爆を防ぐ）
+function _gdSubMatch(nstem, nbase) {
+  if (!nstem || !nbase) return null;
+  if (nstem === nbase) return { rem: '' };
+  // 字幕名のほうが長い: 動画名 + 余分（言語や連番）
+  if (nstem.startsWith(nbase)) {
+    const rem = nstem.slice(nbase.length);
+    return rem.length <= _SUB_TAIL_MAX ? { rem } : null;
+  }
+  // 動画名のほうが長い: 動画をリネームした後
+  if (nbase.startsWith(nstem)) {
+    return nstem.length >= _SUB_STEM_MIN ? { rem: '' } : null;
+  }
+  return null;
+}
+
 // 動画名を取り除いた「残り」から言語を判定する（残りが無ければ言語指定なし）
 function _gdSubLabelOf(rem) {
   if (!rem) return { lang: '', label: '字幕' };
@@ -2694,12 +2729,12 @@ async function _gdFindSubtitleFiles(fileId, token) {
       const list  = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
       for (const f of (list?.files || [])) {
         if (!GD_SUB_EXT_RE.test(f.name)) continue;
-        const nname = _gdSubNorm(f.name.replace(GD_SUB_EXT_RE, ''));
-        if (!nname.startsWith(nbase)) continue;
-        const rem = nname.slice(nbase.length);
-        // 残りが長い＝別動画の字幕を誤って拾っている可能性が高いので除外
-        if (rem.length > 12) continue;
-        found.push({ id: f.id, name: f.name, ...(_gdSubLabelOf(rem)) });
+        const { stem, lang } = _gdSubStem(f.name.replace(GD_SUB_EXT_RE, ''));
+        const hit = _gdSubMatch(_gdSubNorm(stem), nbase);
+        if (!hit) continue;
+        // 言語は末尾の .ja / .en から取る。無ければ残り文字から推測する（従来どおり）
+        const info = lang ? _gdSubLabelOf(lang) : _gdSubLabelOf(hit.rem);
+        found.push({ id: f.id, name: f.name, ...info });
       }
       // 日本語 → 言語指定なし → その他 の順に並べる
       const rank = x => x.lang === 'ja' ? 0 : x.lang === '' ? 1 : 2;
@@ -2766,11 +2801,11 @@ window.wkSubDiag = async function() {
   const hit = [], miss = [];
   for (const f of (list?.files || [])) {
     if (!GD_SUB_EXT_RE.test(f.name)) continue;               // そもそも字幕拡張子でない
-    const nname = _gdSubNorm(f.name.replace(GD_SUB_EXT_RE, ''));
-    if (!nname.startsWith(nbase)) { miss.push([f.name, '動画名で始まっていない']); continue; }
-    const rem = nname.slice(nbase.length);
-    if (rem.length > 12)          { miss.push([f.name, `動画名の後ろが長すぎる(${rem})`]); continue; }
-    hit.push([f.name, _gdSubLabelOf(rem).label]);
+    const { stem, lang } = _gdSubStem(f.name.replace(GD_SUB_EXT_RE, ''));
+    const nstem = _gdSubNorm(stem);
+    const m = _gdSubMatch(nstem, nbase);
+    if (!m) { miss.push([f.name, `名前が動画と一致しない（字幕:${nstem} / 動画:${nbase}）`]); continue; }
+    hit.push([f.name, (lang ? _gdSubLabelOf(lang) : _gdSubLabelOf(m.rem)).label]);
   }
   out(`字幕として採用: ${hit.length}件`); hit.forEach(([n, l]) => out('   ✓', n, `(${l})`));
   if (miss.length) { out(`除外した字幕ファイル: ${miss.length}件`); miss.forEach(([n, r]) => out('   ✗', n, '—', r)); }
