@@ -2616,6 +2616,23 @@ let   _gdSubBlobUrls  = [];             // 生成した blob URL（解放用）
 let   _gdSubTracks    = [];             // 現在の動画の字幕 [{label, track}]
 let   _gdSubIndex     = -1;             // 表示中のインデックス（-1 = OFF）
 
+// 内部都合の _gdSubSelect(-1) が 'off' を焼き付けてしまう不具合があり、
+// 一度踏むと以後すべての動画で字幕が出なくなっていた（端末ごとに1つの設定のため）。
+// 原因は直したが、すでに焼き付いた端末は消さないと直らないので1回だけ解除する。
+// 消すのは表示の好みだけ。動画・ノート等のデータには触れない。
+// 意図してオフにしていた人は、もう一度CCを押せば今度は正しく覚える。
+const GD_SUB_OFF_FIX_KEY = 'wk_subOffFix_v1';
+(function _gdSubClearStuckOff() {
+  try {
+    if (localStorage.getItem(GD_SUB_OFF_FIX_KEY)) return;
+    localStorage.setItem(GD_SUB_OFF_FIX_KEY, '1');
+    if (localStorage.getItem(GD_SUB_LANG_KEY) === 'off') {
+      localStorage.removeItem(GD_SUB_LANG_KEY);
+      console.log('[字幕] 端末に残っていた「字幕オフ」を解除しました（v52.720）');
+    }
+  } catch(e) {}
+})();
+
 // 保存されている選択（ラベル or 'off'）。未設定なら旧キーから移行
 function _gdSubPref() {
   try {
@@ -2710,6 +2727,11 @@ window.wkSubDiag = async function() {
   const fileId = _gdFileId;
   out('動画fileId:', fileId || '(動画を再生していません)');
   if (!fileId) return '動画を再生してから実行してください';
+
+  const pref = _gdSubPref();
+  out('この端末の字幕設定:', pref === 'off' ? "★'off'（これだと全動画で出ません）"
+    : pref ? `'${pref}' を優先` : '未設定（自動で先頭を選ぶ）');
+  out('選択中インデックス:', _gdSubIndex, _gdSubIndex < 0 ? '★OFF' : '');
 
   const token = window.getDriveTokenIfAvailable?.();
   out('Driveトークン:', token ? `あり(${String(token).length}文字)` : '★なし');
@@ -2854,7 +2876,12 @@ async function _gdAttachSubtitle(video, fileId, token) {
 }
 
 // idx番目だけを表示。-1 で全OFF
-function _gdSubSelect(idx) {
+// persist: この選択を「次からもこれ」として端末に覚えるか。
+//   覚える設定は動画ごとではなく端末ごとに1つしかない。つまり一度でも 'off' を
+//   書くと、以後すべての動画で字幕が出なくなる。だから覚えるのは
+//   CCボタンを押した時だけにする。トラックの作り直しや削除など内部都合で
+//   呼ばれた時にうっかり 'off' を焼き付けない（実際に焼き付く経路があった）。
+function _gdSubSelect(idx, persist) {
   _gdSubIndex = idx;
   _gdSubTracks.forEach((t, i) => {
     const tt = t.track.track;   // HTMLTrackElement.track → TextTrack
@@ -2862,7 +2889,10 @@ function _gdSubSelect(idx) {
     // 'hidden' はキューは有効で描画されないので、表示は _gdSubRenderCues が行う。
     if (tt) tt.mode = (i === idx) ? 'hidden' : 'disabled';
   });
-  _gdSubSetPref(idx < 0 ? 'off' : (_gdSubTracks[idx]?.label || ''));
+  // トラックが1つも無い状態の -1 は「ユーザーが消した」ではなく単に未読込なので覚えない
+  if (persist && _gdSubTracks.length) {
+    _gdSubSetPref(idx < 0 ? 'off' : (_gdSubTracks[idx]?.label || ''));
+  }
   _gdSubBindCueRender();
   _gdSubLastHtml = '';        // 切替時は必ず描き直す
   _gdSubRenderCues();
@@ -2969,7 +2999,7 @@ function _gdSubMountButton(container) {
     if (lpFired) { lpFired = false; return; }   // 長押しでパネルを開いた直後は切替しない
     // OFF → 1つ目 → 2つ目 → … → OFF と巡回
     const next = _gdSubIndex + 1 >= _gdSubTracks.length ? -1 : _gdSubIndex + 1;
-    _gdSubSelect(next);
+    _gdSubSelect(next, true);   // 押した時だけ覚える
   });
   // 右クリック/長押しは環境差が出るので、常に見える ⚙ を主導線にする
   const gear = document.createElement('button');
