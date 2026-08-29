@@ -2611,6 +2611,7 @@ const GD_SUB_OLD_KEY  = 'wk_gdSubOn';   // v52.602 の ON/OFF キー（移行用
 const GD_SUB_EXT_RE   = /\.(srt|vtt)$/i;
 const GD_SUB_MAX      = 6;              // 1動画あたり取得する字幕ファイルの上限
 const _gdSubLookup    = new Map();      // 動画fileId -> 候補配列（セッション内キャッシュ）
+let   _gdSubLastError = '';             // 直近の探索エラー（wkSubDiag で見る）
 let   _gdSubBlobUrls  = [];             // 生成した blob URL（解放用）
 let   _gdSubTracks    = [];             // 現在の動画の字幕 [{label, track}]
 let   _gdSubIndex     = -1;             // 表示中のインデックス（-1 = OFF）
@@ -2665,6 +2666,7 @@ function _gdSubLabelOf(rem) {
 async function _gdFindSubtitleFiles(fileId, token) {
   if (_gdSubLookup.has(fileId)) return _gdSubLookup.get(fileId);
   let found = [];
+  let failed = false;   // 通信に失敗したのか、探した結果ゼロなのかを区別する
   try {
     const meta   = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, token);
     const parent = meta?.parents?.[0];
@@ -2688,11 +2690,84 @@ async function _gdFindSubtitleFiles(fileId, token) {
       found = found.slice(0, GD_SUB_MAX);
     }
   } catch(e) {
-    console.warn('subtitle lookup failed:', e?.message || e);
+    failed = true;
+    _gdSubLastError = e?.message || String(e);
+    console.warn('subtitle lookup failed:', _gdSubLastError);
   }
-  _gdSubLookup.set(fileId, found);
+  // 失敗したものを「字幕なし」として覚えない。
+  // 覚えてしまうと、トークン切れや一時的な通信エラーが起きた瞬間から
+  // その動画はリロードするまで永久に字幕が出なくなる（原因も見えない）。
+  if (!failed) _gdSubLookup.set(fileId, found);
   return found;
 }
+
+// ── 字幕が出ない時に、どこで止まっているかを見るための診断 ──
+// 「字幕が出ない」には、トークン切れ・フォルダが読めない・名前が合わない・
+// 本文が取れない・トラックは出来ているが表示していない、と原因が何段もある。
+// 推測で潰さないで済むように、各段の実際の値を出す。コンソールで wkSubDiag()。
+window.wkSubDiag = async function() {
+  const out = (...a) => console.log('[字幕診断]', ...a);
+  const fileId = _gdFileId;
+  out('動画fileId:', fileId || '(動画を再生していません)');
+  if (!fileId) return '動画を再生してから実行してください';
+
+  const token = window.getDriveTokenIfAvailable?.();
+  out('Driveトークン:', token ? `あり(${String(token).length}文字)` : '★なし');
+  if (!token) return 'Driveトークンがありません。動画を一度再生し直してください';
+
+  out('キャッシュ:', _gdSubLookup.has(fileId)
+    ? `あり（${_gdSubLookup.get(fileId).length}件）` : 'なし（今から探します）');
+  if (_gdSubLastError) out('直近の探索エラー:', _gdSubLastError);
+
+  // 1) 動画そのものが読めるか
+  let meta = null;
+  try {
+    meta = await _driveApiGet(`files/${encodeURIComponent(fileId)}?fields=name,parents`, token);
+    out('動画ファイル名:', meta?.name, '/ 親フォルダ:', meta?.parents?.[0] || '★取得できず');
+  } catch (e) { out('★動画の情報が取れません:', e?.message || e); return '動画の情報が取れません'; }
+
+  const parent = meta?.parents?.[0];
+  const base   = String(meta?.name || '').replace(/\.[^.]+$/, '');
+  if (!parent) return '親フォルダが取れません（共有ドライブの権限かもしれません）';
+
+  // 2) 同じフォルダの中身が読めるか
+  let list = null;
+  try {
+    const q = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false`;
+    list = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=1000`, token);
+    out('同フォルダのファイル数:', (list?.files || []).length);
+  } catch (e) { out('★フォルダが読めません:', e?.message || e); return 'フォルダが読めません'; }
+
+  // 3) どれが字幕として拾われ、どれがなぜ落ちたか
+  const nbase = _gdSubNorm(base);
+  out('動画名の正規化:', nbase);
+  const hit = [], miss = [];
+  for (const f of (list?.files || [])) {
+    if (!GD_SUB_EXT_RE.test(f.name)) continue;               // そもそも字幕拡張子でない
+    const nname = _gdSubNorm(f.name.replace(GD_SUB_EXT_RE, ''));
+    if (!nname.startsWith(nbase)) { miss.push([f.name, '動画名で始まっていない']); continue; }
+    const rem = nname.slice(nbase.length);
+    if (rem.length > 12)          { miss.push([f.name, `動画名の後ろが長すぎる(${rem})`]); continue; }
+    hit.push([f.name, _gdSubLabelOf(rem).label]);
+  }
+  out(`字幕として採用: ${hit.length}件`); hit.forEach(([n, l]) => out('   ✓', n, `(${l})`));
+  if (miss.length) { out(`除外した字幕ファイル: ${miss.length}件`); miss.forEach(([n, r]) => out('   ✗', n, '—', r)); }
+  if (!hit.length) return '同じフォルダに、この動画名で始まる字幕ファイルがありません';
+
+  // 4) 本文が実際に取れるか（プロキシ経由）
+  const first = (list.files || []).find(f => f.name === hit[0][0]);
+  try {
+    const res  = await fetch(`/api/drive?fileId=${encodeURIComponent(first.id)}&token=${encodeURIComponent(token)}`);
+    const text = res.ok ? _gdSubDecode(await res.arrayBuffer()) : '';
+    out('本文の取得:', res.ok ? `OK (${text.length}文字)` : `★HTTP ${res.status}`);
+    if (res.ok) out('字幕として読める形式か:', _looksLikeSrt(text) ? 'はい' : '★いいえ（中身が壊れています）');
+  } catch (e) { out('★本文が取れません:', e?.message || e); }
+
+  // 5) いま画面に付いているトラックの状態
+  out('トラック数:', _gdSubTracks.length, '/ 選択中:', _gdSubIndex);
+  _gdSubTracks.forEach((t, i) => out(`   [${i}]`, t?.cand?.name, 'mode=' + (t?.track?.track?.mode || '?')));
+  return '診断おわり（上の [字幕診断] の行を見せてください）';
+};
 
 // UTF-8（BOM有無）優先、化けたら Shift_JIS を試す（Windows製SRTはCP932のことがある）
 function _gdSubDecode(buf) {
