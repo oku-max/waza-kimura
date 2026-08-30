@@ -1625,9 +1625,6 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
-    '短めに区切る（#秒以上・最大#個）':'Shorter segments (min #s, up to #)',
-    'ほどよく区切る（#秒以上・最大#個）':'Balanced segments (min #s, up to #)',
-    '大きく区切る（#秒以上・最大#個）':'Larger segments (min #s, up to #)',
     "▸ 関連動画 #本": "▸ # related videos",
     "書きました — 関連動画 #本": "Written — # related videos",
     "#件選択中": "# selected",
@@ -1807,7 +1804,27 @@
     "#本に追加": "Added to # videos","#本から除去": "Removed from # videos",
   };
 
+  // 「1時間6分」「54分」を英語表記へ。訳せない形はそのまま返す
+  const _wkDurEn = (d) => String(d)
+    .replace(/^(\d+)時間(\d+)分$/, '$1h $2m')
+    .replace(/^(\d+)時間$/, '$1h')
+    .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── チャプターの細かさ（語 + 最短の長さ + この動画での上限個数）──
+    // 「短めに区切る（1つ25秒以上） · この動画なら最大12個」のような合成文。
+    // 語と長さと個数がそれぞれ変わるので、まとめて1つの正規表現で受ける。
+    [/^(短めに|ほどよく|大きく)区切る（1つ(.+?)以上）(?: · この動画なら最大(\d+)個)?$/,
+      (m, word, span, cap) => {
+        const W = { '短めに': 'Shorter segments', 'ほどよく': 'Balanced segments', '大きく': 'Larger segments' }[word];
+        const sp = String(span)
+          .replace(/^(\d+)分(\d+)秒$/, '$1m$2s').replace(/^(\d+)分$/, '$1 min').replace(/^(\d+)秒$/, '$1s');
+        return `${W} (min ${sp} each)` + (cap ? ` · up to ${cap} in this video` : '');
+      }],
+    // 尺の「54分」「1時間6分」も英語にする（括弧の中だけ残ると混ざる）
+    [/^この動画の字幕から検出します(?:（(.+?)）)?$/,
+      (m, d) => "Detected from this video\u2019s subtitles" + (d ? ` (${_wkDurEn(d)})` : '')],
+    [/^AIが動画を視聴して検出します(?:（(.+?)）)?$/,
+      (m, d) => 'The AI watches the video to detect them' + (d ? ` (${_wkDurEn(d)})` : '')],
     // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
     // 「検出元 · $0.003」。検出元は静的辞書で引き、金額はそのまま残す
     [/^(.+?) · (\$[\d.]+)$/, (m, head, cost) => {

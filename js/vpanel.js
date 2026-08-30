@@ -3965,25 +3965,37 @@ function _chapImgToBase64(file) {
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
 // 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
 // resolve は 'fine' | 'normal' | 'coarse' / キャンセルは null
-function _chapGrainDialog(via) {
+function _chapGrainDialog(via, duration) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-grain-bg')?.remove();
     const cur = _chapGrainKey();
+    // 実際に作れる数は動画の長さで決まる。maxCount は安全弁にすぎないので、
+    // 尺と無関係に「最大◯個」とだけ書くと、短い動画では嘘になる
+    // （5分の動画に「最大60個」など）。長さが分かる時はそちらから上限を出す。
+    const dur = Number(duration) || 0;
+    const capOf = g => (dur > 0 ? Math.max(1, Math.min(g.maxCount, Math.floor(dur / g.minSec))) : g.maxCount);
+    // 尺も切り上げない（54分33秒を「55分」と書かない）
+    const durLabel = dur > 0
+      ? (dur >= 3600 ? `${Math.floor(dur / 3600)}時間${Math.floor((dur % 3600) / 60)}分` : `${Math.floor(dur / 60)}分`)
+      : '';
     const bg = document.createElement('div');
     bg.id = 'vp-chap-grain-bg';
     bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
-    const desc = {
-      fine:   `短めに区切る（${CHAP_GRAINS.fine.minSec}秒以上・最大${CHAP_GRAINS.fine.maxCount}個）`,
-      normal: `ほどよく区切る（${CHAP_GRAINS.normal.minSec}秒以上・最大${CHAP_GRAINS.normal.maxCount}個）`,
-      coarse: `大きく区切る（${CHAP_GRAINS.coarse.minSec}秒以上・最大${CHAP_GRAINS.coarse.maxCount}個）`,
+    const word = { fine: '短めに区切る', normal: 'ほどよく区切る', coarse: '大きく区切る' };
+    // 150秒を「3分」と丸めると嘘になる。割り切れる時だけ分で書く。
+    const secLabel = s => s < 60 ? `${s}秒`
+      : (s % 60 === 0 ? `${s / 60}分` : `${Math.floor(s / 60)}分${s % 60}秒`);
+    const desc = k => {
+      const g = CHAP_GRAINS[k];
+      return `${word[k]}（1つ${secLabel(g.minSec)}以上）` + (dur > 0 ? ` · この動画なら最大${capOf(g)}個` : '');
     };
     bg.innerHTML = `
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
           <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの細かさ</div>
-          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
-            via === 'sub' ? 'この動画の字幕から検出します' : 'AIが動画を視聴して検出します'}</div>
+          <div id="vp-chap-grain-sub" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
+            via === 'sub' ? `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}` : `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
         </div>
         <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
           ${CHAP_GRAIN_KEYS.map(k => `
@@ -3993,7 +4005,7 @@ function _chapGrainDialog(via) {
                      background:${k === cur ? 'var(--gold-soft)' : 'transparent'};">
               <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}${
                 k === cur ? '<span style="font-size:9.5px;font-weight:600;color:var(--text3,#999);margin-left:6px">前回と同じ</span>' : ''}</div>
-              <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc[k]}</div>
+              <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc(k)}</div>
             </button>`).join('')}
         </div>
         <div style="padding:2px 14px 12px;display:flex;justify-content:flex-end">
@@ -4429,9 +4441,12 @@ window.vpGenChapters = async function(id, preset) {
     const input = via === 'list' ? (preset?.input || await _chapListDialog()) : null;
     if (via === 'list' && !input) return { ok: false, skipped: true };
 
+    // 細かさの説明は動画の長さで変わるので、先に尺を出しておく
+    const duration = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
+
     let pickedGrain = preset?.grain;
     if (!preset && via !== 'list') {
-      pickedGrain = await _chapGrainDialog(via);
+      pickedGrain = await _chapGrainDialog(via, duration);
       if (!pickedGrain) return { ok: false, skipped: true };
     }
 
@@ -4439,7 +4454,6 @@ window.vpGenChapters = async function(id, preset) {
     setBtn('⏳ 検出中…');
     const idToken   = await user.getIdToken();
     const ctxFields = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
-    const duration  = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
 
     // 字幕の文字起こしは「字幕から検出」と「表の位置合わせ」の両方で使う
     let cues = [], transcript = '', clipped = false;
