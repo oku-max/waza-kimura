@@ -3961,6 +3961,57 @@ function _chapImgToBase64(file) {
 }
 
 // テキスト貼り付け＋画像貼り付けの入力ダイアログ。resolve は {text, images} / キャンセルは null
+// 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
+// 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
+// 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
+// resolve は 'fine' | 'normal' | 'coarse' / キャンセルは null
+function _chapGrainDialog(via) {
+  return new Promise(resolve => {
+    document.getElementById('vp-chap-grain-bg')?.remove();
+    const cur = _chapGrainKey();
+    const bg = document.createElement('div');
+    bg.id = 'vp-chap-grain-bg';
+    bg.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    const desc = {
+      fine:   `短めに区切る（${CHAP_GRAINS.fine.minSec}秒以上・最大${CHAP_GRAINS.fine.maxCount}個）`,
+      normal: `ほどよく区切る（${CHAP_GRAINS.normal.minSec}秒以上・最大${CHAP_GRAINS.normal.maxCount}個）`,
+      coarse: `大きく区切る（${CHAP_GRAINS.coarse.minSec}秒以上・最大${CHAP_GRAINS.coarse.maxCount}個）`,
+    };
+    bg.innerHTML = `
+      <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
+                  width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの細かさ</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
+            via === 'sub' ? 'この動画の字幕から検出します' : 'AIが動画を視聴して検出します'}</div>
+        </div>
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
+          ${CHAP_GRAIN_KEYS.map(k => `
+            <button class="vp-chap-grain-opt" data-g="${k}"
+              style="display:block;width:100%;text-align:left;padding:10px 12px;border-radius:9px;cursor:pointer;font-family:inherit;
+                     border:1.5px solid ${k === cur ? 'var(--accent)' : 'var(--border)'};
+                     background:${k === cur ? 'var(--gold-soft)' : 'transparent'};">
+              <div style="font-size:12.5px;font-weight:700;color:var(--text,#eee)">${CHAP_GRAINS[k].label}${
+                k === cur ? '<span style="font-size:9.5px;font-weight:600;color:var(--text3,#999);margin-left:6px">前回と同じ</span>' : ''}</div>
+              <div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${desc[k]}</div>
+            </button>`).join('')}
+        </div>
+        <div style="padding:2px 14px 12px;display:flex;justify-content:flex-end">
+          <button id="vp-chap-grain-cancel" style="${_adjBtnStyle()};padding:6px 12px;font-size:11.5px">キャンセル</button>
+        </div>
+      </div>`;
+    document.body.appendChild(bg);
+
+    const done = v => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    bg.querySelectorAll('.vp-chap-grain-opt').forEach(b =>
+      b.addEventListener('click', () => done(b.dataset.g)));
+    bg.querySelector('#vp-chap-grain-cancel').addEventListener('click', () => done(null));
+    bg.addEventListener('click', e => { if (e.target === bg) done(null); });
+    document.addEventListener('keydown', onKey, true);
+  });
+}
+
 function _chapListDialog() {
   return new Promise(resolve => {
     document.getElementById('vp-chap-in-bg')?.remove();
@@ -4126,23 +4177,10 @@ function _askChapterSource(anchorEl, subCount) {
                 color:var(--text,#eee);font-family:inherit;font-size:12px;font-weight:600;cursor:${disabled ? 'default' : 'pointer'};opacity:${disabled ? '.45' : '1'}">
          ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${sub}</div>
        </button>`;
-    // 細かさは「AIに検出させる」時だけの設定で、貼り付けには効かない。
-    // 全体の見出しとして上に置くと、貼り付けにも効くように見えてしまうので、
-    // 検出する2つの直前に、そこに属するものとして置く。
-    let grain = _chapGrainKey();
-    const grainRow = `
-      <div id="vp-chapgen-grain" style="padding:9px 10px 8px;margin-top:4px;border-top:1px solid var(--border2,#3a3a3a)">
-        <div style="font-size:11px;font-weight:700;color:var(--text,#eee);margin-bottom:2px">AIに検出させる</div>
-        <div style="font-size:10px;color:var(--text3,#999);margin-bottom:6px">チャプターの細かさ</div>
-        <div style="display:flex;gap:4px">
-          ${CHAP_GRAIN_KEYS.map(k => `<button class="vp-chapgen-g" data-g="${k}"
-            style="flex:1;padding:5px 4px;border-radius:6px;border:1.5px solid var(--border);font-family:inherit;
-                   font-size:11px;font-weight:700;cursor:pointer">${CHAP_GRAINS[k].label}</button>`).join('')}
-        </div>
-      </div>`;
+    // ここは「どこから作るか」を選ぶだけ。細かさは検出を選んだ後に次の画面で聞く
+    // （貼り付けには効かない設定を同じ画面に並べると分かりにくいため）。
     menu.innerHTML =
       item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
-      + grainRow
       + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
@@ -4157,25 +4195,11 @@ function _askChapterSource(anchorEl, subCount) {
     };
     const onOut = e => { if (!menu.contains(e.target)) done(null); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
-    // 細かさの選択状態を塗り分ける。「貼り付け」を選ぶ時は無関係なので薄くする
-    const paintGrain = () => {
-      menu.querySelectorAll('.vp-chapgen-g').forEach(b => {
-        const on = b.dataset.g === grain;
-        b.style.background  = on ? 'var(--accent)' : 'var(--surface2)';
-        b.style.color       = on ? 'var(--on-accent)' : 'var(--text2)';
-        b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-      });
-    };
-    paintGrain();
-    menu.querySelectorAll('.vp-chapgen-g').forEach(b => {
-      b.addEventListener('click', e => { e.stopPropagation(); grain = b.dataset.g; paintGrain(); });
-    });
-
     menu.querySelectorAll('.vp-chapgen-item').forEach(b => {
       if (b.disabled) return;
       b.addEventListener('mouseenter', () => { b.style.background = 'var(--surface2,#333)'; });
       b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; });
-      b.addEventListener('click', () => done({ via: b.dataset.via, grain }));
+      b.addEventListener('click', () => done(b.dataset.via));
     });
     setTimeout(() => {
       document.addEventListener('mousedown', onOut, true);
@@ -4394,15 +4418,22 @@ window.vpGenChapters = async function(id, preset) {
     const subs = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
-    const pick = preset ? { via: preset.via || (subs.length ? 'sub' : 'video'), grain: preset.grain }
-                        : await _askChapterSource(btn, subs.length);
-    if (!pick) return { ok: false, skipped: true };
-    const via = pick.via;
+    const via = preset ? (preset.via || (subs.length ? 'sub' : 'video'))
+                       : await _askChapterSource(btn, subs.length);
     if (!via) return { ok: false, skipped: true };
 
-    // 一覧は先に貼り付けてもらう（キャンセルなら通信もしない）
+    // 2枚目。どこから作るかによって聞くことが違う。
+    //   貼り付け  → 一覧を入れてもらう
+    //   字幕/動画 → 細かさを選んでもらう
+    // どちらもキャンセルなら通信もしない。
     const input = via === 'list' ? (preset?.input || await _chapListDialog()) : null;
     if (via === 'list' && !input) return { ok: false, skipped: true };
+
+    let pickedGrain = preset?.grain;
+    if (!preset && via !== 'list') {
+      pickedGrain = await _chapGrainDialog(via);
+      if (!pickedGrain) return { ok: false, skipped: true };
+    }
 
     // 2. 検出
     setBtn('⏳ 検出中…');
@@ -4441,7 +4472,7 @@ window.vpGenChapters = async function(id, preset) {
     // 粒度は設定を既定にし、確認ダイアログで変えられたらその粒度で検出し直す。
     // 表から作る場合は表のとおりに区切るので粒度は使わない。
     // メニューで選ばれた細かさを初期値にする（未指定なら設定画面の既定）
-    let grainKey = _chapGrainKey(pick.grain);
+    let grainKey = _chapGrainKey(pickedGrain);
     let totalCost = 0;
 
     for (;;) {
