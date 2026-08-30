@@ -4105,20 +4105,23 @@ function _askChapterSource(anchorEl, subCount) {
                 color:var(--text,#eee);font-family:inherit;font-size:12px;font-weight:600;cursor:${disabled ? 'default' : 'pointer'};opacity:${disabled ? '.45' : '1'}">
          ${label}<div style="font-size:10px;font-weight:400;color:var(--text3,#999);margin-top:2px">${sub}</div>
        </button>`;
-    // 細かさは検出しないと変えられなかったので、ここで先に選べるようにする。
-    // 貼り付け（list）は表のとおりに区切るので効かない。選ぶと自動で灰色になる。
+    // 細かさは「AIに検出させる」時だけの設定で、貼り付けには効かない。
+    // 全体の見出しとして上に置くと、貼り付けにも効くように見えてしまうので、
+    // 検出する2つの直前に、そこに属するものとして置く。
     let grain = _chapGrainKey();
     const grainRow = `
-      <div id="vp-chapgen-grain" style="padding:6px 10px 8px;border-bottom:1px solid var(--border2,#3a3a3a);margin-bottom:4px">
-        <div style="font-size:10px;font-weight:700;color:var(--text3,#999);margin-bottom:5px">細かさ</div>
+      <div id="vp-chapgen-grain" style="padding:9px 10px 8px;margin-top:4px;border-top:1px solid var(--border2,#3a3a3a)">
+        <div style="font-size:11px;font-weight:700;color:var(--text,#eee);margin-bottom:2px">AIに検出させる</div>
+        <div style="font-size:10px;color:var(--text3,#999);margin-bottom:6px">チャプターの細かさ</div>
         <div style="display:flex;gap:4px">
           ${CHAP_GRAIN_KEYS.map(k => `<button class="vp-chapgen-g" data-g="${k}"
             style="flex:1;padding:5px 4px;border-radius:6px;border:1.5px solid var(--border);font-family:inherit;
                    font-size:11px;font-weight:700;cursor:pointer">${CHAP_GRAINS[k].label}</button>`).join('')}
         </div>
       </div>`;
-    menu.innerHTML = grainRow
-      + item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
+    menu.innerHTML =
+      item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
+      + grainRow
       + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
