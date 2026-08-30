@@ -880,8 +880,9 @@ function _bookmarkListHTML(id) {
       <div style="padding:8px 0 2px">
         <input id="vp-bm-lbl-${id}-${i}" type="text" value="${(bm.label||'').replace(/"/g,'&quot;')}" placeholder="ブックマーク名（空欄でも可）"
           style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0;box-sizing:border-box;margin-bottom:5px;">
-        <input id="vp-bm-note-${id}-${i}" type="text" value="${(bm.note||'').replace(/"/g,'&quot;')}" placeholder="コメント（空欄でも可）"
-          style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0;box-sizing:border-box;margin-bottom:8px;">
+        <textarea id="vp-bm-note-${id}-${i}" rows="${_vpNoteRows(bm.note)}" placeholder="コメント（空欄でも可）"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+          style="width:100%;font-size:11px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;min-width:0;box-sizing:border-box;margin-bottom:8px;line-height:1.5;resize:vertical;">${_vpEsc(bm.note || '')}</textarea>
 
         <!-- タブ式エディタ -->
         <div style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;background:var(--surface);">
@@ -938,10 +939,25 @@ function _bookmarkListHTML(id) {
         <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
         <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
-      ${bm.note && !isExpanded ? `<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">💬 ${bm.note}</div>` : ''}
+      ${bm.note && !isExpanded ? `<div class="vp-bm-note" title="押すと全文" onclick="event.stopPropagation();this.classList.toggle('open')">💬 ${_vpEsc(bm.note)}</div>` : ''}
       ${editorHTML}
     </div>`;
   }).join('');
+}
+
+// HTMLに埋めるときのエスケープ。ブックマークのコメントはユーザーの文章なので
+// < や & がそのまま入りうる（従来は素で埋めていて表示が崩れる可能性があった）。
+function _vpEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+}
+
+// コメント欄の初期の高さ。長い文章が1行に押し込まれて読めなかったので、
+// 中身の量からだいたいの行数を決める（入力中は oninput で伸びる）。
+function _vpNoteRows(note) {
+  const s = String(note || '');
+  if (!s) return 2;
+  const lines = s.split('\n').length + Math.floor(s.length / 30);
+  return Math.min(8, Math.max(2, lines));
 }
 
 function _adjBtnStyle(bg, color) {
@@ -1810,6 +1826,11 @@ function _ensureBottomSheet() {
 #vp-bs-list .bs-item{display:flex;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-top:1px solid var(--border2);transition:background .12s}
 #vp-bs-list .bs-item:hover{background:var(--surface2)}
 #vp-bs-list .bs-item.now{background:var(--gold-soft);border-left:3px solid var(--accent)}
+/* ブックマークのコメント。1行で切り捨てていて全文を読む手段が無かった。
+   既定は2行までにして、押したら全文を出す（もう一度押すと畳む）。 */
+.vp-bm-note{font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;line-height:1.5;
+  cursor:pointer;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
+.vp-bm-note.open{-webkit-line-clamp:unset;display:block;}
 #vp-bs-list .bs-thumb{width:56px;height:32px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)}
 #vp-bs-list .bs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 #vp-bs-list .bs-info{flex:1;min-width:0}
