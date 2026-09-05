@@ -1,4 +1,4 @@
-// ═══ WAZA KIMURA — Journal（Murmurs）v52.697 ═══
+// ═══ WAZA KIMURA — Journal（Murmurs）v52.726 ═══
 //
 // 気になったことをその場でメモする。あとから読み返したり、育てたりできる。
 //
@@ -99,6 +99,7 @@ window._murmursInitForUser = function () {
 // ログアウト時。ここで保存を起こしてはいけない（v52.541 の教訓）
 window._murmursClear = function () {
   clearTimeout(_saveTimer); _saveTimer = null;   // 残留タイマーを先に殺す
+  clearTimeout(_remTimer);  _remTimer = null;    // 声かけの見張りも止める
   _ready = false; _allowEmptySave = false;
   _data = []; _tpls = [];
   _editingId = null;
@@ -110,19 +111,19 @@ window._murmursLoadFromRemote = function (payload) {
   const data = Array.isArray(payload?.data) ? payload.data : [];
   const tpls = Array.isArray(payload?.tpls) ? payload.tpls : [];
   // リモートが空でローカルに中身があるときは採用しない（消失防止）
-  if (!data.length && _data.length) { _ready = true; return; }
+  if (!data.length && _data.length) { _ready = true; _armLater(); return; }
   _data = data;
   _tpls = tpls;
   _ready = true;
   _saveLocal();
   renderMurmurs();
-  setTimeout(() => window._murmursMaybeRemind?.(), 1200);
+  _armLater();
 };
 
 // クラウドにまだ doc が無い（初回利用）と確定したときに呼ばれる
 window._murmursMarkReady = function () {
   _ready = true;
-  setTimeout(() => window._murmursMaybeRemind?.(), 1200);
+  _armLater();
   // ローカルにだけ中身があるなら、それをクラウドへ上げる
   if (_data.length) _save();
 };
@@ -283,11 +284,13 @@ window._murmursGetRemind = () => ({ ..._rem });
 window._murmursSetRemind = function (o) {
   Object.assign(_rem, o || {});
   _saveRem();
+  _armRemind(false);
   return { ..._rem };
 };
 window.addEventListener('storage', e => {
   if (e.key !== LS_REM || !e.newValue) return;
   try { Object.assign(_rem, JSON.parse(e.newValue)); } catch (err) {}
+  _armRemind(false);
 });
 
 const _today = () => {
@@ -302,6 +305,9 @@ const _wroteToday = () => _data.some(m => {
 
 function _remDue() {
   if (!_rem.on) return false;
+  // クラウドを読み込めていない間は判定しない。
+  // 他の端末で今日書いた分がまだ手元に無く、「まだ書いていない」と誤判定するため。
+  if (!_ready) return false;
   const today = _today();
   if (_rem.lastShown === today || _rem.lastSnoozed === today) return false;
   if (new Date().getHours() < (_rem.hour ?? 19)) return false;
@@ -315,10 +321,42 @@ function _remDue() {
   return true;
 }
 
+// 開いた瞬間に1回見るだけでは足りない。
+//   ・指定時刻より前に開いて、そのまま開きっぱなし（PWA・タブ）
+//   ・スリープや別アプリから戻ってきた
+// のどちらでも取りこぼしていたので、時計とタブの復帰の両方で見直す。
+// 見張りが何度回っても、実際に出すかどうかは _remDue() が決める（1日1回のまま）。
+let _remTimer = null;
+
+function _msUntilRemHour() {
+  const now = new Date();
+  const t = new Date(now);
+  t.setHours(_rem.hour ?? 19, 0, 5, 0);
+  if (t <= now) t.setDate(t.getDate() + 1);   // 過ぎていたら次の日の同じ時刻
+  return t.getTime() - now.getTime();
+}
+
+// showNow=false … 設定を変えた直後など、その場では出さずに見張りだけ張り直す
+function _armRemind(showNow = true) {
+  clearTimeout(_remTimer); _remTimer = null;
+  if (showNow) window._murmursMaybeRemind();
+  if (!_rem.on) return;
+  // 端末がスリープするとタイマーは平気でずれるので、長くても30分ごとに起きて条件を見直す。
+  const wait = Math.max(30000, Math.min(_msUntilRemHour(), 1800000));
+  _remTimer = setTimeout(() => { _remTimer = null; _armRemind(true); }, wait);
+}
+const _armLater = () => setTimeout(() => _armRemind(true), 1200);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _armRemind(true);
+});
+
 window._murmursMaybeRemind = function () {
   if (!_remDue()) return;
   const el = document.getElementById('mm-remind');
   if (el) return;                       // すでに出ている
+  // 書いている最中に横から声をかけない（次の見張りで出し直す）
+  if (document.querySelector('#mm-composer.open')) return;
   _rem.lastShown = _today(); _saveRem();
 
   const past = _data.length ? _data[Math.floor(Math.random() * _data.length)] : null;
@@ -1098,18 +1136,18 @@ window._murmursOpenPosSetting = function () {
         その日にもう書いていれば出ません。「今はいい」を押すとその日は出ません。</p>`);
 
   $$m('#mm-mbd [data-mm-rem-on]').forEach(b => b.onclick = () => {
-    _rem.on = b.dataset.mmRemOn === '1'; _saveRem();
+    _rem.on = b.dataset.mmRemOn === '1'; _saveRem(); _armRemind(false);
     $$m('#mm-mbd [data-mm-rem-on]').forEach(x =>
       x.setAttribute('aria-pressed', String((x.dataset.mmRemOn === '1') === _rem.on)));
     $m('#mm-rem-detail').classList.toggle('on', _rem.on);
   });
   $$m('#mm-mbd [data-mm-rem-every]').forEach(b => b.onclick = () => {
-    _rem.everyDays = Number(b.dataset.mmRemEvery); _saveRem();
+    _rem.everyDays = Number(b.dataset.mmRemEvery); _saveRem(); _armRemind(false);
     $$m('#mm-mbd [data-mm-rem-every]').forEach(x =>
       x.setAttribute('aria-pressed', String(Number(x.dataset.mmRemEvery) === _rem.everyDays)));
   });
   $$m('#mm-mbd [data-mm-rem-hour]').forEach(b => b.onclick = () => {
-    _rem.hour = Number(b.dataset.mmRemHour); _saveRem();
+    _rem.hour = Number(b.dataset.mmRemHour); _saveRem(); _armRemind(false);
     $$m('#mm-mbd [data-mm-rem-hour]').forEach(x =>
       x.setAttribute('aria-pressed', String(Number(x.dataset.mmRemHour) === _rem.hour)));
   });
