@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.725</title>
+<title>WAZA KIMURA v52.726</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -182,7 +182,7 @@
   import './js/admin-dashboard.js';
   import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput, changeHwBgType, changeHwBgColor } from './js/snapshot-editor.js';
   import {
-    initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken,
+    initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken, getDriveAuthError,
     switchImportTab,
     gdOpenBrowser, gdBrowserEnter, gdUp, gdBrowserJump,
     gdClearPick, gdToggleDrawer, gdToggleOpts, gdOptsSummary, gdRenderDrawer, gdStripTouched, gdDoImport,
@@ -247,6 +247,7 @@
   window.ensureDriveToken        = ensureDriveToken;
   window.getDriveTokenIfAvailable = getDriveTokenIfAvailable;
   window.clearDriveToken         = clearDriveToken;
+  window.getDriveAuthError       = getDriveAuthError;
   window.switchImportTab         = switchImportTab;
   window.gdOpenBrowser           = gdOpenBrowser;
   window.gdBrowserEnter          = gdBrowserEnter;
