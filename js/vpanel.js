@@ -5542,9 +5542,12 @@ function _showGDriveAuthUI(container, fileId, onAuth) {
       <button id="gd-auth-play-btn" style="padding:10px 28px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
         Googleで認証して再生
       </button>
+      <div id="gd-auth-msg" style="color:var(--red,#f66);font-size:11px;text-align:center;line-height:1.7;max-width:360px"></div>
     </div>`;
   const btn = container.querySelector('#gd-auth-play-btn');
+  const msg = container.querySelector('#gd-auth-msg');
   if (btn) btn.onclick = async () => {
+    if (msg) msg.textContent = '';
     btn.textContent = '認証中...';
     btn.disabled = true;
     const token = await window.ensureDriveToken?.();
@@ -5553,8 +5556,10 @@ function _showGDriveAuthUI(container, fileId, onAuth) {
       _createGDriveVideoEl(container, fileId, token);
       return;
     }
+    // 失敗の理由を必ず画面に出す。出さないと「押しても何も起きない」ようにしか見えない
     btn.textContent = '認証に失敗しました。再試行';
     btn.disabled = false;
+    if (msg) msg.textContent = window.getDriveAuthError?.() || '';
   };
 }
 window._showGDriveAuthUI = _showGDriveAuthUI;
@@ -5569,9 +5574,12 @@ function _onGDriveVideoError(container, fileId) {
       <button id="gd-retry-btn" style="padding:10px 28px;background:var(--accent);color:var(--on-accent);border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">再認証して再生</button>
       <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank"
          style="color:var(--text2);font-size:11px;text-decoration:underline">Driveで開く</a>
+      <div id="gd-auth-msg" style="color:var(--red,#f66);font-size:11px;text-align:center;line-height:1.7;max-width:360px"></div>
     </div>`;
   const btn = container.querySelector('#gd-retry-btn');
+  const msg = container.querySelector('#gd-auth-msg');
   if (btn) btn.onclick = async () => {
+    if (msg) msg.textContent = '';
     btn.textContent = '認証中...';
     btn.disabled = true;
     window.clearDriveToken?.();
@@ -5579,6 +5587,7 @@ function _onGDriveVideoError(container, fileId) {
     if (token) { _createGDriveVideoEl(container, fileId, token); return; }
     btn.textContent = '認証に失敗しました。再試行';
     btn.disabled = false;
+    if (msg) msg.textContent = window.getDriveAuthError?.() || '';
   };
 }
 

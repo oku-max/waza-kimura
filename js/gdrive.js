@@ -16,6 +16,7 @@ const CLIENT_ID  = '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleuse
 let _token        = null;
 let _scannedTree  = null;
 let _refreshTimer = null;
+let _lastAuthError = '';   // 直近の認証失敗の理由（画面に出すため保持する）
 
 // ── トークンキャッシュ（localStorage: ブラウザ再起動後も有効、TTL内のみ使用）──
 function _loadCachedToken() {
@@ -28,6 +29,7 @@ function _loadCachedToken() {
 
 function _saveToken(token) {
   _token = token;
+  _lastAuthError = '';
   try {
     sessionStorage.removeItem('gd_token'); // 旧キャッシュ削除
     localStorage.setItem(CACHE_KEY, JSON.stringify({ token, ts: Date.now() }));
@@ -71,14 +73,38 @@ function _silentRefresh() {
 
 // ── 認証（Firebase Google Provider経由 — waza-kimura.firebaseapp.com リダイレクトを使用）──
 // GISのinitTokenClientはJS origins設定が必要だがFirebaseは不要なのでこちらを採用
+//
+// ポップアップがGoogle側のエラー画面（401など）で止まると signInWithPopup は
+// 成功も失敗も返さない。決着させないと呼び出し側は「認証中...」のまま永久に待ち、
+// 画面には理由が何も出ないため、アプリの不具合と区別がつかなくなる。
+// そこで必ず時間切れで決着させ、失敗の理由を _lastAuthError に残して画面に出す。
+const AUTH_TIMEOUT = 2 * 60 * 1000;   // アカウント選択と同意にかかる時間を見込んだ上限
+
+export function getDriveAuthError() { return _lastAuthError; }
+
 export function initDriveAuth(forceConsent = false) {
   return new Promise((resolve) => {
     const fbAuth = window.firebase?.auth?.();
     if (!fbAuth) {
+      _lastAuthError = 'Firebaseが初期化されていません。ページを再読み込みしてください';
       window.toast?.('Firebase未初期化');
       resolve(false);
       return;
     }
+    _lastAuthError = '';
+
+    let done = false;
+    const finish = (ok, reason) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (reason !== undefined) _lastAuthError = reason;
+      resolve(ok);
+    };
+    const timer = setTimeout(() => {
+      finish(false, '認証ウィンドウが応答しませんでした。ウィンドウにGoogleのエラーが出ている場合は、ブラウザのCookie（google.com）を削除するか、別のブラウザで開いてみてください');
+    }, AUTH_TIMEOUT);
+
     const provider = new window.firebase.auth.GoogleAuthProvider();
     provider.addScope(GD_SCOPE);
     // 常にconsentを要求してdrive.readonlyスコープを確実に付与させる
@@ -96,23 +122,34 @@ export function initDriveAuth(forceConsent = false) {
           fetchMissingGdDurations();
           fetchMissingGdThumbnails();
           window.loadGdriveCardThumbs?.();
-          resolve(true);
+          // 時間切れの後で完了した場合。呼び出し側はもう諦めているので、使えることだけ伝える
+          if (done) { window.toast?.('✅ Drive認証が完了しました。もう一度お試しください'); return; }
+          finish(true, '');
         } else if (!forceConsent) {
-          // トークンなし → consent強制で再試行
-          initDriveAuth(true).then(resolve);
+          // トークンなし → consent強制で再試行（以降は再試行側のタイマーが見る）
+          clearTimeout(timer);
+          initDriveAuth(true).then(ok => finish(ok));
         } else {
           window.toast?.('Drive認証に失敗しました（トークン取得不可）');
-          resolve(false);
+          finish(false, 'Driveへのアクセスが許可されませんでした。認証画面でDriveへのアクセスにチェックを入れてください');
         }
       })
       .catch(e => {
+        console.error('Drive auth error:', e);
         if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
-          resolve(false);
+          finish(false, '');   // 自分で閉じた＝キャンセル。エラーとして見せない
           return;
         }
-        console.error('Drive auth error:', e);
+        if (e.code === 'auth/popup-blocked') {
+          finish(false, 'ブラウザにポップアップをブロックされました。このサイトのポップアップを許可してから、もう一度お試しください');
+          return;
+        }
+        if (e.code === 'auth/unauthorized-domain') {
+          finish(false, 'このドメインからの認証が許可されていません（Firebaseの設定）');
+          return;
+        }
         window.toast?.('Drive認証エラー: ' + (e.message || e.code || ''));
-        resolve(false);
+        finish(false, 'Google側で認証が拒否されました。詳しい内容はブラウザのコンソールに出ています');
       });
   });
 }

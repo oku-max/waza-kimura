@@ -47,14 +47,18 @@
       div.innerHTML=`<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#111;padding:12px;box-sizing:border-box">
         <div style="color:#aaa;font-size:11px;text-align:center">再生にはGoogle認証が必要です</div>
         <button style="padding:7px 16px;background:var(--accent,#2563eb);color:var(--on-accent,#fff);border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit" id="fc-gd-auth-${nodeId}">Googleで認証して再生</button>
+        <div id="fc-gd-auth-msg-${nodeId}" style="color:var(--red,#f66);font-size:10px;text-align:center;line-height:1.6"></div>
       </div>`;
       const btn=div.querySelector('#fc-gd-auth-'+nodeId);
+      const msg=div.querySelector('#fc-gd-auth-msg-'+nodeId);
       if(btn) btn.onclick=async(e)=>{
         e.stopPropagation();
+        if(msg) msg.textContent='';
         btn.textContent='認証中…'; btn.disabled=true;
         const t=await window.ensureDriveToken?.().catch(()=>null);
         if(t){ _createGDriveVideo(nodeId, gdId, div, t); }
-        else{ btn.textContent='認証に失敗しました。再試行'; btn.disabled=false; }
+        else{ btn.textContent='認証に失敗しました。再試行'; btn.disabled=false;
+              if(msg) msg.textContent=window.getDriveAuthError?.()||''; }
       };
     }
   }
