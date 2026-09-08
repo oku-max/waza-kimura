@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.726</title>
+<title>WAZA KIMURA v52.727</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -180,6 +180,7 @@
   } from './js/yt-search.js';
   import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
+  import { initPlayhead } from './js/playhead.js';
   import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput, changeHwBgType, changeHwBgColor } from './js/snapshot-editor.js';
   import {
     initDriveAuth, ensureDriveToken, getDriveTokenIfAvailable, clearDriveToken, getDriveAuthError,
@@ -248,6 +249,8 @@
   window.getDriveTokenIfAvailable = getDriveTokenIfAvailable;
   window.clearDriveToken         = clearDriveToken;
   window.getDriveAuthError       = getDriveAuthError;
+  // 再生位置の記憶（続きから再生）。認証状態は独自に購読するのでここでは起動だけ
+  initPlayhead();
   window.switchImportTab         = switchImportTab;
   window.gdOpenBrowser           = gdOpenBrowser;
   window.gdBrowserEnter          = gdBrowserEnter;
@@ -1913,6 +1916,16 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="setting-autoplay" onchange="saveSettings()" checked>
+          <span class="settings-toggle-slider"></span>
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">前回の続きから再生</div>
+          <div style="font-size:11px;color:var(--text3)">途中でやめた動画を次に開いたとき、その位置から再生します。位置はログイン中のアカウントに保存され、他の端末でも続きから見られます</div>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="setting-resume" onchange="phSetEnabled(this.checked)" checked>
           <span class="settings-toggle-slider"></span>
         </label>
       </div>
