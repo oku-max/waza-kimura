@@ -19,6 +19,10 @@ let _gdSeekTimer = null;            // seekデバウンスタイマー
 let _gdStallTimer = null;           // waiting状態スタック回復タイマー
 let _gdSubUiHideTimer = null;       // 右上CC/⚙の自動非表示タイマー
 let _gdSubUiUnbind = null;          // 右上CC/⚙の表示トリガー解除（蓄積防止用）
+// 再生位置の記録対象（いまプレイヤーに載っている動画のID）。
+// window.openVPanelId は切替時に新しいIDへ先に差し替わるため、それを使うと
+// 「前の動画の位置を次の動画のIDで記録する」取り違えが起きる。
+let _phCurrentId = null;
 // Vimeo Player API
 let _vmPlayer  = null;
 let _vmCurTime = 0;
@@ -325,14 +329,29 @@ function _slMaxFor(id, curVal) {
 let _timeDisplayTimer = null;
 let _mirrorProgressTimer = null;
 
+// ── 再生位置の記録（続きから再生）──
+// 再生中の500msティックに相乗りする。ここでは端末内に控えるだけで、
+// クラウドへの書き込みは playhead 側が間引く（再生中は最大1分に1回）。
+function _recordPlayhead(flush) {
+  const id = _phCurrentId;
+  if (!id) return;
+  const t = _getCurrentTime();
+  if (t == null) return;
+  window.phRecord?.(id, t, _getDurationSec(id));
+  // flush=true は即時。false のときも playhead 側が間引いて最大1分に1回だけ実際に書く
+  // （長時間の再生中にタブが落ちても、直前1分ぶんまでしか失わない）
+  window.phFlush?.(flush);
+}
+
 function _startTimeDisplay() {
   _stopTimeDisplay();
-  _timeDisplayTimer = setInterval(_updateTimeDisplay, 500);
+  _timeDisplayTimer = setInterval(() => { _updateTimeDisplay(); _recordPlayhead(); }, 500);
   _updateTimeDisplay();
 }
 
 function _stopTimeDisplay() {
   if (_timeDisplayTimer) { clearInterval(_timeDisplayTimer); _timeDisplayTimer = null; }
+  _recordPlayhead();   // 一時停止・終了の位置を取りこぼさない
 }
 
 function _updateTimeDisplay() {
@@ -368,6 +387,7 @@ function _updateTimeDisplay() {
 // ── 動画終了時ハンドラ ──
 function _vpHandleEnded() {
   _stopTimeDisplay(); _updateTimeDisplay();
+  window.phClear?.(_phCurrentId);   // 見終わった → 次に開くときは最初から
   if (_vpRepeat === 'one') {
     // 1本ループ: 先頭にシークして再生
     if (_gdVideoEl) { _gdVideoEl.currentTime = 0; _gdVideoEl.play().catch(()=>{}); }
@@ -1455,6 +1475,9 @@ export function vpNav(dir) {
 }
 
 export function openVPanel(id) {
+  // 直前まで見ていた動画の再生位置を確定させてから切り替える（プレイヤーを壊す前に）
+  _recordPlayhead(true);
+  _phCurrentId = null;   // 片付け中のpause等でIDを取り違えないよう、いったん外す
   const menu = document.getElementById('org-col-menu');
   if (menu) menu.remove();
   // Notesタブで再生中のインライン動画があれば一時停止
@@ -1495,6 +1518,12 @@ export function openVPanel(id) {
     history.pushState({ vpanel: id }, '');
   }
   window.openVPanelId = id;
+  // 続きから再生する位置（0 なら最初から）。設定OFF・冒頭すぎ・見終わりでは 0 になる。
+  // 記録後に動画が差し替わって短くなっている場合に備え、既知の長さでクランプする
+  // （長さを超えた位置を YouTube の start に渡すと再生が始まらないため）。
+  const _phRaw = window.phGetResume?.(id) || 0;
+  const _phDur = Number(v.duration) || 0;
+  const resumeAt = (_phRaw > 0 && (!_phDur || _phRaw <= _phDur - 10)) ? _phRaw : 0;
   _snapshotTags(v);  // AI動画のタグ状態をスナップショット（フィードバック検出用）
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
@@ -1579,6 +1608,9 @@ export function openVPanel(id) {
 
 
 
+  // ここから先のプレイヤーはこの動画のもの＝再生位置の記録対象
+  _phCurrentId = (plat === 'x') ? null : id;
+
   // プレイヤー初期化（panel hidden — API 未ロード時は非同期で後から初期化される）
   if (plat === 'yt') {
     const ytId = _extractYtId(emb);
@@ -1587,15 +1619,15 @@ export function openVPanel(id) {
         // プレイヤー再利用: loadVideoById は autoplay が保証される
         try {
           if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1) _ytPlayer.setPlaybackRate(_vpPlaybackRate);
-          _ytPlayer.loadVideoById(ytId, 0);
+          _ytPlayer.loadVideoById(ytId, resumeAt);
           _startTimeDisplay();
         } catch(e) {
           // 失敗時は通常フロー（新規作成）にフォールバック
           if (iframeContainer) iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
-          _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+          _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {}, resumeAt > 0 ? { start: resumeAt } : {});
         }
       } else {
-        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {});
+        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {}, resumeAt > 0 ? { start: resumeAt } : {});
       }
     }
   } else if (plat === 'x') {
@@ -1623,14 +1655,23 @@ export function openVPanel(id) {
           _vmPlayer.on('timeupdate', (data) => { _vmCurTime = data.seconds || 0; });
           _vmPlayer.on('playbackratechange', (data) => { _vpPlaybackRate = data.playbackRate || 1; });
           _vmPlayer.on('ended', () => { _vpHandleEnded(); });
+          let _vmResumed = false;
           _vmPlayer.on('loaded', () => {
             _vmPlayer.getDuration().then(d => { _vmDuration = d || 0; }).catch(()=>{});
             if (_vpPlaybackRate !== 1) _vmPlayer.setPlaybackRate(_vpPlaybackRate).catch(()=>{});
+            if (resumeAt > 0 && !_vmResumed) {
+              _vmResumed = true;
+              _vmPlayer.setCurrentTime(resumeAt).catch(()=>{});
+            }
           });
           _startTimeDisplay();
         } catch(e) { console.warn('Vimeo player init error', e); }
       });
     }
+  }
+
+  if (resumeAt > 0 && plat !== 'x') {
+    window.toastUndo?.('▶ 前回の続き ' + _formatTime(resumeAt) + ' から', () => _seekTo(0), '⏮ 最初から');
   }
 
   // UI 全て同期レンダリング（panel hidden のまま — 1回の reflow に集約）
@@ -2012,6 +2053,8 @@ window.vpToggleMirror = function () {
 
 export function closeVPanel() {
   try {
+    _recordPlayhead(true);   // 閉じる位置を確定させてクラウドへ送る
+    _phCurrentId = null;
     // ボトムシートを閉じる
     window.vpCloseNextList?.();
     _ab.loop = false; clearInterval(_ab.timer); _ab.timer = null; _ab.a = null; _ab.b = null;
@@ -2151,6 +2194,13 @@ function _createGDriveVideoEl(container, fileId, token) {
     }
   };
   container.addEventListener('click', _gdContainerClick);
+  // 続きから再生: 長さが分かった時点で位置を合わせる（再生開始前なので巻き戻りが見えない）
+  video.addEventListener('loadedmetadata', () => {
+    const at = window.phGetResume?.(_phCurrentId) || 0;
+    if (at > 0 && isFinite(video.duration) && at < video.duration - 5) {
+      try { video.currentTime = at; } catch(e) {}
+    }
+  }, { once: true });
   video.addEventListener('ratechange', () => { _vpPlaybackRate = video.playbackRate || 1; });
   video.addEventListener('play',  () => {
     if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1 && video.playbackRate !== _vpPlaybackRate) video.playbackRate = _vpPlaybackRate;

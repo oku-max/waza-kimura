@@ -24,13 +24,14 @@ export function toast(msg, duration = 2200) {
 }
 
 // 取り消しボタン付きトースト
-export function toastUndo(msg, undoFn) {
+// label は省略時 '↩ 取り消し'。用途によって「⏮ 最初から」等に差し替えられる。
+export function toastUndo(msg, undoFn, label) {
   const t = document.getElementById('toast');
   clearTimeout(t._tid);
   t.innerHTML = '';
   t.appendChild(document.createTextNode(msg));
   const btn = document.createElement('button');
-  btn.textContent = '↩ 取り消し';
+  btn.textContent = label || '↩ 取り消し';
   btn.className = 'toast-undo-btn';
   btn.onclick = () => { clearTimeout(t._tid); t.classList.remove('show'); undoFn(); };
   t.appendChild(btn);

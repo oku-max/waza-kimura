@@ -838,6 +838,12 @@
     "Driveで開く": "Open in Drive",
     "Drive認証に失敗しました（トークン取得不可）": "Drive authorization failed (could not get token)",
     "Driveへのアクセスが許可されませんでした。認証画面でDriveへのアクセスにチェックを入れてください": "Access to Drive was not granted. Tick the Drive access box on the consent screen.",
+    "前回の続きから再生": "Resume where you left off",
+    "途中でやめた動画を次に開いたとき、その位置から再生します。位置はログイン中のアカウントに保存され、他の端末でも続きから見られます": "Reopening a video you stopped partway starts it from that point. The position is saved to the account you are signed in to, so you can carry on from another device.",
+    "続きから再生をオンにしました": "Resume where you left off is now on",
+    "続きから再生をオフにしました": "Resume where you left off is now off",
+    "⚠️ 設定を他の端末に同期できませんでした": "⚠️ The setting could not be synced to your other devices",
+    "⏮ 最初から": "⏮ From the start",
     "Firebaseが初期化されていません。ページを再読み込みしてください": "Firebase is not initialized. Please reload the page.",
     "Google側で認証が拒否されました。詳しい内容はブラウザのコンソールに出ています": "Google rejected the authorization. The details are in the browser console.",
     "✅ Drive認証が完了しました。もう一度お試しください": "✅ Drive authorization completed. Please try again.",
@@ -1632,6 +1638,8 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    "▶ 前回の続き #:# から": "▶ Resuming from #:#",
+    "▶ 前回の続き #:#:# から": "▶ Resuming from #:#:#",
     "▸ 関連動画 #本": "▸ # related videos",
     "書きました — 関連動画 #本": "Written — # related videos",
     "#件選択中": "# selected",
