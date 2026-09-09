@@ -188,6 +188,20 @@ export function initPlayhead() {
   });
 }
 
+// ── 状態を目で見るための helper（コンソールで wkPlayhead() ）──
+// 「効いていない」と「そもそも記録が無い」を切り分けるために用意する。
+window.wkPlayhead = function() {
+  const ids = Object.keys(_pos);
+  const recent = ids.map(id => ({ 動画ID: id, 位置秒: _pos[id]?.t, 記録時刻: _pos[id]?.at }))
+                    .sort((a, b) => String(b.記録時刻).localeCompare(String(a.記録時刻)))
+                    .slice(0, 15);
+  console.log('続きから再生:', _enabled ? 'ON' : 'OFF',
+              '/ ログイン:', _uid ? '済' : '未',
+              '/ 記録件数:', ids.length, '/ 未送信:', _dirty.size);
+  console.table(recent);
+  return { enabled: _enabled, uid: _uid, count: ids.length, dirty: _dirty.size, recent };
+};
+
 window.phRecord     = phRecord;
 window.phGetResume  = phGetResume;
 window.phClear      = phClear;

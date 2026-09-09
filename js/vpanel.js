@@ -251,6 +251,15 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
   }
 }
 
+// YouTube: playerVars.start が効かなかったときに位置を合わせ直す（onReady から呼ぶ）
+function _ytResumeFallback(at) {
+  if (!(at > 0) || !_ytPlayer || !_ytPlayerReady) return;
+  try {
+    const cur = _ytPlayer.getCurrentTime?.() ?? 0;
+    if (cur < at - 5) _ytPlayer.seekTo(at, true);
+  } catch(e) {}
+}
+
 // 現在の再生位置（秒）を取得
 function _getCurrentTime() {
   // Search VP が開いている場合は SR プレイヤーを優先
@@ -338,6 +347,7 @@ function _recordPlayhead(flush) {
   const t = _getCurrentTime();
   if (t == null) return;
   window.phRecord?.(id, t, _getDurationSec(id));
+  if (flush) console.log('[playhead] 記録:', id, t + '秒 /', _getDurationSec(id) + '秒');
   // flush=true は即時。false のときも playhead 側が間引いて最大1分に1回だけ実際に書く
   // （長時間の再生中にタブが落ちても、直前1分ぶんまでしか失わない）
   window.phFlush?.(flush);
@@ -1524,6 +1534,8 @@ export function openVPanel(id) {
   const _phRaw = window.phGetResume?.(id) || 0;
   const _phDur = Number(v.duration) || 0;
   const resumeAt = (_phRaw > 0 && (!_phDur || _phRaw <= _phDur - 10)) ? _phRaw : 0;
+  console.log('[playhead] 開く:', id, '記録=' + _phRaw + '秒', '長さ=' + _phDur + '秒', '→',
+              resumeAt > 0 ? resumeAt + '秒から再開' : '最初から');
   _snapshotTags(v);  // AI動画のタグ状態をスナップショット（フィードバック検出用）
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
@@ -1624,10 +1636,10 @@ export function openVPanel(id) {
         } catch(e) {
           // 失敗時は通常フロー（新規作成）にフォールバック
           if (iframeContainer) iframeContainer.innerHTML = '<div id="vpanel-yt-player"></div>';
-          _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {}, resumeAt > 0 ? { start: resumeAt } : {});
+          _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => _ytResumeFallback(resumeAt), resumeAt > 0 ? { start: resumeAt } : {});
         }
       } else {
-        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => {}, resumeAt > 0 ? { start: resumeAt } : {});
+        _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => _ytResumeFallback(resumeAt), resumeAt > 0 ? { start: resumeAt } : {});
       }
     }
   } else if (plat === 'x') {
@@ -2162,7 +2174,13 @@ function _playGDriveVideo(container, fileId) {
 }
 
 function _createGDriveVideoEl(container, fileId, token) {
-  const src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`;
+  // 続きから再生の位置。メディアフラグメント(#t=)で「再生が始まる前に」開始位置を決める。
+  // loadedmetadata後に currentTime を代入するだけだと、初期ダウンロードが走っている最中の
+  // seek になり /api/drive 経由では無視されることがある（_seekTo が pause してから seek
+  // しているのと同じ事情）。#t= ならブラウザが最初からその位置を要求するので確実。
+  const resumeAt = window.phGetResume?.(_phCurrentId) || 0;
+  const src = `/api/drive?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`
+            + (resumeAt > 0 ? `#t=${resumeAt}` : '');
   const video = document.createElement('video');
   video.src         = src;
   video.controls    = true;
@@ -2194,13 +2212,21 @@ function _createGDriveVideoEl(container, fileId, token) {
     }
   };
   container.addEventListener('click', _gdContainerClick);
-  // 続きから再生: 長さが分かった時点で位置を合わせる（再生開始前なので巻き戻りが見えない）
-  video.addEventListener('loadedmetadata', () => {
-    const at = window.phGetResume?.(_phCurrentId) || 0;
-    if (at > 0 && isFinite(video.duration) && at < video.duration - 5) {
-      try { video.currentTime = at; } catch(e) {}
-    }
-  }, { once: true });
+  // #t= が効かなかったときの保険。ダウンロードを止めてから位置を合わせる（_seekTo と同じ手順）
+  let _resumeSettled = false;
+  const _applyResume = () => {
+    if (_resumeSettled || !(resumeAt > 0)) return;
+    if (!isFinite(video.duration) || video.duration <= 0) return;   // まだ長さが分からない
+    _resumeSettled = true;
+    if (resumeAt >= video.duration - 5) return;                     // 終わり際なら何もしない
+    if (Math.abs(video.currentTime - resumeAt) < 2) return;         // #t= が効いている
+    const wasPlaying = !video.paused;
+    if (wasPlaying) video.pause();
+    try { video.currentTime = resumeAt; } catch(e) {}
+    if (wasPlaying) video.play().catch(() => {});
+  };
+  video.addEventListener('loadedmetadata', _applyResume);
+  video.addEventListener('canplay',        _applyResume);
   video.addEventListener('ratechange', () => { _vpPlaybackRate = video.playbackRate || 1; });
   video.addEventListener('play',  () => {
     if (isFinite(_vpPlaybackRate) && _vpPlaybackRate !== 1 && video.playbackRate !== _vpPlaybackRate) video.playbackRate = _vpPlaybackRate;
