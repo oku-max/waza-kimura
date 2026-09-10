@@ -853,6 +853,7 @@
     "Drive認証に失敗しました（トークン取得不可）": "Drive authorization failed (could not get token)",
     "Driveへのアクセスが許可されませんでした。認証画面でDriveへのアクセスにチェックを入れてください": "Access to Drive was not granted. Tick the Drive access box on the consent screen.",
     "前回の続きから再生": "Resume where you left off",
+    "目次": "Contents",
     "途中でやめた動画を次に開いたとき、その位置から再生します。位置はログイン中のアカウントに保存され、他の端末でも続きから見られます": "Reopening a video you stopped partway starts it from that point. The position is saved to the account you are signed in to, so you can carry on from another device.",
     "続きから再生をオンにしました": "Resume where you left off is now on",
     "続きから再生をオフにしました": "Resume where you left off is now off",

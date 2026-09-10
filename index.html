@@ -1313,6 +1313,27 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 .cv-btn-cancel:hover { background:var(--surface3) }
 .cv-btn-primary { padding:9px 18px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:inherit }
 .cv-btn-primary:hover { opacity:.85 }
+
+/* ═══ 設定ページ: 目次カラム ═══ */
+.set-layout{display:flex;align-items:flex-start;justify-content:center;gap:28px;padding:16px 14px 80px;}
+.set-body{flex:1;min-width:0;max-width:640px;}
+.set-toc{width:186px;flex-shrink:0;position:sticky;top:66px;max-height:calc(100vh - 84px);overflow-y:auto;
+  border-right:1px solid var(--border);padding-right:10px;}
+.set-toc-h{font-size:10px;font-weight:800;letter-spacing:.8px;color:var(--text3);text-transform:uppercase;
+  padding:0 8px 8px;}
+.set-toc-i{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);padding:7px 9px;
+  border-radius:8px;cursor:pointer;line-height:1.35;transition:background .12s,color .12s;}
+.set-toc-i span{width:14px;flex-shrink:0;text-align:center;font-size:11px;}
+.set-toc-i:hover{background:var(--surface2);color:var(--text);}
+.set-toc-i.on{background:var(--surface2);color:var(--text);font-weight:700;}
+/* 見出しがサブタブバーの下に隠れないように */
+#settings-main-content [id^="sec-"]{scroll-margin-top:70px;}
+/* 狭い画面では目次を出さない（従来どおり1カラム） */
+@media (max-width:900px){
+  .set-toc{display:none;}
+  .set-layout{gap:0;padding:16px 14px 80px;}
+  .set-body{margin:0 auto;}
+}
 </style>
 <script src="js/flowchart.js"></script>
 </head>
@@ -1872,7 +1893,20 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 
   <!-- 設定コンテンツ -->
   <div id="settings-main-content">
-  <div style="max-width:640px;margin:0 auto;padding:16px 14px 80px;">
+  <div class="set-layout">
+  <!-- 左カラム: 目次（節が増えたので一覧から飛べるようにする。スクロールで現在位置を追う） -->
+  <nav class="set-toc" id="set-toc">
+    <div class="set-toc-h">目次</div>
+    <div class="set-toc-i" data-sec="sec-language"   onclick="scrollToSetting('sec-language')"><span>🌐</span> 言語</div>
+    <div class="set-toc-i" data-sec="sec-tag"        onclick="scrollToSetting('sec-tag')"><span>🏷</span> タグ表示設定</div>
+    <div class="set-toc-i" data-sec="sec-filter"     onclick="scrollToSetting('sec-filter')"><span>⛃</span> フィルター設定</div>
+    <div class="set-toc-i" data-sec="sec-ai"         onclick="scrollToSetting('sec-ai')"><span>🤖</span> AI取込設定</div>
+    <div class="set-toc-i" data-sec="sec-play"       onclick="scrollToSetting('sec-play')"><span>▶</span> 再生設定</div>
+    <div class="set-toc-i" data-sec="sec-sub"        onclick="scrollToSetting('sec-sub')"><span>💬</span> 字幕設定</div>
+    <div class="set-toc-i" data-sec="sec-appearance" onclick="scrollToSetting('sec-appearance')"><span>🎨</span> 外観設定</div>
+    <div class="set-toc-i" data-sec="sec-backup"     onclick="scrollToSetting('sec-backup')"><span>💾</span> バックアップ / 復元</div>
+  </nav>
+  <div class="set-body">
 
     <!-- ヘッダー -->
     <div style="font-size:16px;font-weight:800;margin-bottom:4px">Settings</div>
@@ -2027,7 +2061,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     </div>
 
     <!-- ═══ バックアップ ═══ -->
-    <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase" data-i18n="set.backup">バックアップ / 復元</div>
+    <div id="sec-backup" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase" data-i18n="set.backup">バックアップ / 復元</div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;">
       <div>
         <div style="font-size:12px;font-weight:600;margin-bottom:3px">軽量バックアップ</div>
@@ -2049,7 +2083,8 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
       </div>
     </div>
 
-  </div>
+  </div><!-- /.set-body -->
+  </div><!-- /.set-layout -->
   </div><!-- /settings-main-content -->
 
   <!-- アーカイブコンテンツ（設定内） -->
@@ -4091,6 +4126,33 @@ function loadSettings() {
   } catch(e) {}
 }
 loadSettings();
+
+// ── 設定の目次: いま見ている節をハイライトする ──
+// タブパネル・main-area・window のどれがスクロールしていても拾えるよう、captureで受ける。
+function _setTocSpy() {
+  const toc = document.getElementById('set-toc');
+  if (!toc) return;
+  const items = Array.from(toc.querySelectorAll('.set-toc-i'));
+  if (!items.length) return;
+  let raf = 0;
+  const upd = () => {
+    raf = 0;
+    if (!document.getElementById('settingsTab')?.classList.contains('active')) return;
+    if (!toc.offsetParent) return;   // 狭い画面で非表示
+    let cur = items[0];
+    for (const it of items) {
+      const el = document.getElementById(it.dataset.sec);
+      if (el && el.getBoundingClientRect().top <= 140) cur = it;
+    }
+    items.forEach(i => i.classList.toggle('on', i === cur));
+  };
+  const sched = () => { if (!raf) raf = requestAnimationFrame(upd); };
+  document.addEventListener('scroll', sched, true);
+  window.addEventListener('resize', sched);
+  window._setTocSpyUpdate = sched;
+  sched();
+}
+_setTocSpy();
 
 // ── 管理モード ──
 // ══════════════════════════════════════════════════════════════
