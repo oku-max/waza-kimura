@@ -26,6 +26,28 @@ const LS_DATA = 'wk_murmurs';
 const LS_TPLS = 'wk_murmur_tpls';
 const LS_POS  = 'wk_murmur_pos';   // 端末ごとの見た目設定（クラウド同期しない）
 const LS_REM  = 'wk_murmur_remind'; // 端末ごとのリマインド設定（クラウド同期しない）
+const LS_VIEW = 'wk_murmur_view';  // 端末ごとの一覧の見せ方（クラウド同期しない）
+
+// 一覧の見せ方。端末ローカルのみ。_data には一切触れない。
+const _view = { mode: 'list', sort: 'desc' };
+try {
+  const v = JSON.parse(localStorage.getItem(LS_VIEW) || '{}');
+  if (v.mode === 'list' || v.mode === 'sheet') _view.mode = v.mode;
+  if (v.sort === 'asc' || v.sort === 'desc') _view.sort = v.sort;
+} catch (e) {}
+function _saveView() { try { localStorage.setItem(LS_VIEW, JSON.stringify(_view)); } catch (e) {} }
+
+// 絞り込み。画面だけの状態で、保存もクラウド同期もしない（開くたびに全件から始まる）。
+const _flt = { q: '', tag: '', from: '', to: '', star: false };
+let _fltOpen = false;
+const _fltNarrow = () => !!(_flt.q || _flt.tag || _flt.from || _flt.to);   // ★のみ を除いた絞り込み数
+const _fltCount = () => [_flt.q, _flt.tag, _flt.from, _flt.to].filter(Boolean).length;
+const _fltActive = () => _fltNarrow() || _flt.star;
+
+// 上の入力欄（つぶやく）の状態
+let _draft = '';
+const _iAdd = new Set();   // 手で足したタグ
+const _iRm  = new Set();   // 検出されたが手で外したタグ
 
 const PRESET_TPLS = [
   { k:'p_practice', nm:'今日の練習したこと', preset:true, pinned:true,
@@ -265,6 +287,14 @@ function _fmtDate(ts) {
   const sameYear = d.getFullYear() === now.getFullYear();
   const md = `${d.getMonth() + 1}/${d.getDate()}`;
   return sameYear ? md : `${String(d.getFullYear()).slice(2)}/${md}`;
+}
+
+// シート表示用。何年の何時だったかまで出す。
+function _fmtDateTime(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // ─────────────────────────────── リマインド（アプリ内のみ）
@@ -518,11 +548,11 @@ function _applyTpl(k) {
 }
 
 // 検出チップ。本数を添えて「広い言葉かどうか」をその場で見せる
-function _detChip(label, manual) {
+function _detChip(label, manual, pfx) {
   const n = _tagCount(label);
   const broad = n > 200;
   return `<span class="mm-det-chip${manual ? ' manual' : ''}${broad ? ' broad' : ''}"${
-    broad ? ' title="広い言葉です。外すか、もっと具体的な言葉に替えられます"' : ''}>#${_esc(label)}<span class="mm-chip-n">${n}</span><button class="mm-det-x" data-mm-${manual ? 'unadd' : 'drop'}="${_esc(label)}" aria-label="外す">×</button></span>`;
+    broad ? ' title="広い言葉です。外すか、もっと具体的な言葉に替えられます"' : ''}>#${_esc(label)}<span class="mm-chip-n">${n}</span><button class="mm-det-x" data-mm-${pfx || ''}${manual ? 'unadd' : 'drop'}="${_esc(label)}" aria-label="外す">×</button></span>`;
 }
 
 function _renderDetect() {
@@ -551,21 +581,27 @@ function _renderDetect() {
   const dv = $m('#mm-det-vids'); if (dv) dv.onclick = () => window._murmursShowRelated(_liveTags());
 }
 
-function _post() {
-  const txt = $m('#mm-cp-text');
-  const body = (txt ? txt.value : '').trim();
-  if (!body) return;
-  const tags = _liveTags();
+// 追加はここ1本に集約する。_data の先頭に足すだけで、既存の要素は書き換えない。
+function _commit(body, tags, from) {
   const rec = {
     id: _uid(),
     ts: new Date().toISOString(),
     body, tags, star: false,
     updatedAt: Date.now()
   };
-  if (_deriveFrom) rec.from = _deriveFrom;
-  const wasDerive = !!_deriveFrom;
+  if (from) rec.from = from;
   _data.unshift(rec);
   _save();
+  return rec;
+}
+
+function _post() {
+  const txt = $m('#mm-cp-text');
+  const body = (txt ? txt.value : '').trim();
+  if (!body) return;
+  const tags = _liveTags();
+  const wasDerive = !!_deriveFrom;
+  _commit(body, tags, _deriveFrom);
   _resetComposer();
   closeComposer();
   renderMurmurs();
@@ -595,58 +631,325 @@ document.addEventListener('keydown', e => {
 });
 
 // ─────────────────────────────── 一覧
+//
+// 見せ方は2つ。どちらも同じ絞り込み結果を出す。
+//   リスト … 1件ずつ縦に読む
+//   シート … 表にして日時・タグを並べて見る
+// ★ は「トップに固定」ではなく、ただの印。並びは変えず、★のみ ボタンで絞って見る。
+// 絞り込みも見せ方も画面だけの状態で、_data には一切書き込まない。
+
+function _tagOptions() {
+  const c = new Map();
+  _data.forEach(m => new Set(m.tags || []).forEach(t => { if (t) c.set(t, (c.get(t) || 0) + 1); }));
+  return [...c.entries()].map(([label, n]) => ({ label, n }))
+    .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'ja'));
+}
+
+// 絞り込み。_data は読むだけ。並べ替えも複製の上で行う（元配列はそのまま保存されるため触らない）。
+function _filtered() {
+  let list = _data.slice();
+  if (_flt.star) list = list.filter(m => m.star);
+  if (_flt.tag)  list = list.filter(m => (m.tags || []).includes(_flt.tag));
+  if (_flt.q) {
+    const q = _flt.q.trim().toLowerCase();
+    list = list.filter(m => String(m.body || '').toLowerCase().includes(q)
+                         || (m.tags || []).some(t => String(t).toLowerCase().includes(q)));
+  }
+  if (_flt.from) {
+    const t = new Date(_flt.from + 'T00:00:00').getTime();
+    if (!isNaN(t)) list = list.filter(m => (Date.parse(m.ts) || 0) >= t);
+  }
+  if (_flt.to) {
+    const t = new Date(_flt.to + 'T23:59:59.999').getTime();
+    if (!isNaN(t)) list = list.filter(m => (Date.parse(m.ts) || 0) <= t);
+  }
+  const dir = _view.sort === 'asc' ? 1 : -1;
+  return list.sort((a, b) => ((Date.parse(a.ts) || 0) - (Date.parse(b.ts) || 0)) * dir);
+}
+
 export function renderMurmurs() {
   _ensureFab(); _ensureComposer(); _ensureModal();
   const root = document.getElementById('murmursTab');
   if (!root) return;
 
-  const ordered = [..._data].sort((a, b) => (b.star ? 1 : 0) - (a.star ? 1 : 0));
-  const pinned = ordered.filter(m => m.star).length;
+  if (_fltNarrow()) _fltOpen = true;   // 絞り込み中なら条件を見せたまま描き直す
 
   root.innerHTML = `
     <div class="mm-wrap">
       <div class="mm-hd">
         <h2>Journal</h2>
-        <span class="mm-sub"><span class="mm-num">${_data.length}</span> 件</span>
+        <span class="mm-hd-sub">ふわっと思ったことをすぐ記録</span>
         <span class="mm-spacer"></span>
-        <button class="mm-ghost mm-ghost-ic" id="mm-btn-new">${ICON_JOURNAL}書く</button>
         <button class="mm-ghost" id="mm-btn-random">🎲 ランダムに1件</button>
         <button class="mm-ghost" id="mm-btn-tpl">⊞ テンプレート</button>
         <button class="mm-ghost" id="mm-btn-pos">⚙ 設定</button>
       </div>
+      ${_inlineHTML()}
+      ${_toolbarHTML()}
       ${_data.length ? _resurfHTML() : ''}
-      <div id="mm-list">${
-        _data.length
-          ? (pinned ? `<div class="mm-sec">★ 固定 <span class="mm-num">${pinned}</span></div>` : '') +
-            ordered.slice(0, pinned).map(_rowHTML).join('') +
-            (pinned ? `<div class="mm-sec plain">すべて</div>` : '') +
-            ordered.slice(pinned).map(_rowHTML).join('')
-          : `<div class="mm-empty">
-               <p class="mm-empty-t">まだ何もありません</p>
-               <p class="mm-empty-d">練習で気づいたこと、うまくいったこと、気になった技。<br>
-                  ひとことでも残しておくと、あとで読み返せます。</p>
-               <button class="mm-btn-go" id="mm-empty-new">最初のひとことを書く</button>
-             </div>`
-      }</div>
+      <div id="mm-list"></div>
     </div>`;
 
-  $m('#mm-btn-new').onclick = () => openComposer();
   $m('#mm-btn-random').onclick = _randomResurf;
   $m('#mm-btn-tpl').onclick = () => window._murmursOpenTplList();
   $m('#mm-btn-pos').onclick = () => window._murmursOpenPosSetting();
-  const en = $m('#mm-empty-new'); if (en) en.onclick = () => openComposer();
-  _bindRows();
+  _bindInline();
+  _bindToolbar();
   _bindResurf();
+  _paintList();
 }
 
+// ── その場で書く欄 ──
+function _inlineHTML() {
+  return `
+    <div class="mm-in">
+      <textarea id="mm-in-text" rows="3" placeholder="ふわっと思ったことを書く…"></textarea>
+      <div class="mm-in-ft">
+        <button class="mm-in-tag" id="mm-in-tag" title="タグを付ける">＋ タグ</button>
+        <span class="mm-in-det" id="mm-in-det"></span>
+        <span class="mm-spacer"></span>
+        <span class="mm-hint">⌘ + Enter</span>
+        <button class="mm-btn-go" id="mm-in-post" disabled>つぶやく</button>
+      </div>
+    </div>`;
+}
+
+function _bindInline() {
+  const ta = $m('#mm-in-text'); if (!ta) return;
+  ta.value = _draft;                       // 描き直しをまたいでも書きかけを失わない
+  const sync = () => { const b = $m('#mm-in-post'); if (b) b.disabled = !ta.value.trim(); };
+  sync();
+  ta.addEventListener('input', () => { _draft = ta.value; sync(); _renderInlineDet(); });
+  ta.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); _postInline(); }
+  });
+  $m('#mm-in-post').onclick = _postInline;
+  $m('#mm-in-tag').onclick = () => window._murmursOpenTagPicker('inline');
+  _renderInlineDet();
+}
+
+function _iLiveTags() {
+  const auto = detectTags(_draft).map(v => v.label).filter(l => !_iRm.has(l));
+  return [...new Set([...auto, ..._iAdd])];
+}
+
+function _renderInlineDet() {
+  const el = $m('#mm-in-det'); if (!el) return;
+  const auto = detectTags(_draft).filter(v => !_iRm.has(v.label));
+  el.innerHTML = auto.map(v => _detChip(v.label, false, 'i')).join('')
+               + [..._iAdd].map(l => _detChip(l, true, 'i')).join('');
+  $$m('#mm-in-det [data-mm-idrop]').forEach(b => b.onclick = () => { _iRm.add(b.dataset.mmIdrop); _renderInlineDet(); });
+  $$m('#mm-in-det [data-mm-iunadd]').forEach(b => b.onclick = () => { _iAdd.delete(b.dataset.mmIunadd); _renderInlineDet(); });
+}
+
+function _postInline() {
+  const ta = $m('#mm-in-text');
+  const body = (ta ? ta.value : _draft).trim();
+  if (!body) return;
+  const tags = _iLiveTags();
+  _commit(body, tags, null);
+  _draft = ''; _iAdd.clear(); _iRm.clear();
+  renderMurmurs();
+  const n = matchVideos(tags).length;
+  window.toast?.(n ? `つぶやきました — 関連動画 ${n}本` : 'つぶやきました');
+  setTimeout(() => $m('#mm-in-text')?.focus(), 30);
+}
+
+function _applyTplInline(k) {
+  const t = _allTpls().find(x => x.k === k); if (!t) return;
+  _draft = t.body;
+  const ta = $m('#mm-in-text');
+  if (ta) {
+    ta.value = _draft;
+    const b = $m('#mm-in-post'); if (b) b.disabled = !_draft.trim();
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+  _renderInlineDet();
+}
+
+// ── 見せ方と絞り込みのバー ──
+function _toolbarHTML() {
+  const opts = _tagOptions();
+  const n = _fltCount();
+  return `
+  <div class="mm-bar">
+    <span class="mm-bar-cnt"><span class="mm-num" id="mm-cnt">${_data.length}</span> 件</span>
+    <div class="mm-seg">
+      <button type="button" data-mm-view="list" aria-pressed="${_view.mode === 'list'}">☰ リスト</button>
+      <button type="button" data-mm-view="sheet" aria-pressed="${_view.mode === 'sheet'}">⊞ シート</button>
+    </div>
+    <span class="mm-spacer"></span>
+    <button class="mm-ghost mm-fbtn" id="mm-f-star" aria-pressed="${_flt.star}"
+            title="★ を付けたものだけ出す">★のみ</button>
+    <button class="mm-ghost mm-fbtn" id="mm-f-toggle" aria-pressed="${_fltOpen}"
+            title="本文・タグ・期間で絞り込む">⌕ 絞り込み<span class="mm-fbadge" id="mm-fbadge"${n ? '' : ' hidden'}>${n}</span></button>
+  </div>
+  <div class="mm-fbar${_fltOpen ? ' on' : ''}" id="mm-fbar">
+    <input type="search" class="mm-f-in mm-f-q" id="mm-f-q" autocomplete="off"
+           placeholder="本文・タグで絞り込み…" value="${_esc(_flt.q)}">
+    <select class="mm-f-sel" id="mm-f-tag" title="タグで絞り込む">
+      <option value="">すべてのタグ</option>
+      ${opts.map(o => `<option value="${_esc(o.label)}"${o.label === _flt.tag ? ' selected' : ''}>#${_esc(o.label)}</option>`).join('')}
+    </select>
+    <span class="mm-f-range">
+      <input type="date" class="mm-f-in mm-f-date" id="mm-f-from" value="${_esc(_flt.from)}" title="この日から">
+      <span class="mm-f-tilde">〜</span>
+      <input type="date" class="mm-f-in mm-f-date" id="mm-f-to" value="${_esc(_flt.to)}" title="この日まで">
+    </span>
+    <button class="mm-ghost" id="mm-f-clear">クリア</button>
+  </div>`;
+}
+
+function _bindToolbar() {
+  $$m('.mm-bar [data-mm-view]').forEach(b => b.onclick = () => {
+    if (_view.mode === b.dataset.mmView) return;
+    _view.mode = b.dataset.mmView; _saveView();
+    $$m('.mm-bar [data-mm-view]').forEach(x =>
+      x.setAttribute('aria-pressed', String(x.dataset.mmView === _view.mode)));
+    _editingId = null;
+    _paintList();
+  });
+  const st = $m('#mm-f-star');
+  if (st) st.onclick = () => {
+    _flt.star = !_flt.star;
+    st.setAttribute('aria-pressed', String(_flt.star));
+    _paintList();
+  };
+  const tg = $m('#mm-f-toggle');
+  if (tg) tg.onclick = () => {
+    _fltOpen = !_fltOpen;
+    tg.setAttribute('aria-pressed', String(_fltOpen));
+    $m('#mm-fbar')?.classList.toggle('on', _fltOpen);
+    if (_fltOpen) setTimeout(() => $m('#mm-f-q')?.focus(), 20);
+  };
+  const q = $m('#mm-f-q');
+  if (q) {
+    let tm = null;
+    q.oninput = () => {
+      _flt.q = q.value;
+      clearTimeout(tm);
+      tm = setTimeout(() => { _syncFltUI(); _paintList(); }, 140);
+    };
+  }
+  const tag = $m('#mm-f-tag');
+  if (tag) tag.onchange = () => { _flt.tag = tag.value; _syncFltUI(); _paintList(); };
+  const fr = $m('#mm-f-from'), to = $m('#mm-f-to');
+  if (fr) fr.onchange = () => { _flt.from = fr.value; _syncFltUI(); _paintList(); };
+  if (to) to.onchange = () => { _flt.to   = to.value; _syncFltUI(); _paintList(); };
+  const cl = $m('#mm-f-clear');
+  if (cl) cl.onclick = _clearFilters;
+}
+
+function _clearFilters() {
+  _flt.q = ''; _flt.tag = ''; _flt.from = ''; _flt.to = ''; _flt.star = false;
+  ['#mm-f-q', '#mm-f-tag', '#mm-f-from', '#mm-f-to'].forEach(s => { const el = $m(s); if (el) el.value = ''; });
+  $m('#mm-f-star')?.setAttribute('aria-pressed', 'false');
+  _syncFltUI(); _paintList();
+}
+
+function _syncFltUI() {
+  const b = $m('#mm-fbadge');
+  if (!b) return;
+  const n = _fltCount();
+  b.textContent = String(n);
+  b.hidden = !n;
+}
+
+// ── 一覧の中身だけを描き直す（上の入力欄と絞り込み欄はそのまま）──
+function _paintList() {
+  const el = document.getElementById('mm-list'); if (!el) return;
+  const list = _filtered();
+
+  const cnt = document.getElementById('mm-cnt');
+  if (cnt) cnt.textContent = _fltActive() ? `${list.length} / ${_data.length}` : String(_data.length);
+  const rf = document.querySelector('.mm-resurf');
+  if (rf) rf.hidden = _fltActive();      // 絞り込み中は見返しを引っ込める
+  document.querySelector('.mm-wrap')?.classList.toggle('wide', _view.mode === 'sheet');
+
+  if (!_data.length) {
+    el.innerHTML = `
+      <div class="mm-empty">
+        <p class="mm-empty-t">まだ何もありません</p>
+        <p class="mm-empty-d">練習で気づいたこと、うまくいったこと、気になった技。<br>
+           ひとことでも残しておくと、あとで読み返せます。</p>
+        <button class="mm-btn-go" id="mm-empty-new">最初のひとことを書く</button>
+      </div>`;
+    const en = $m('#mm-empty-new');
+    if (en) en.onclick = () => $m('#mm-in-text')?.focus();
+    return;
+  }
+
+  if (!list.length) {
+    el.innerHTML = `
+      <div class="mm-empty">
+        <p class="mm-empty-t">この条件に合うものがありません</p>
+        <p class="mm-empty-d">絞り込みを外すと、${_data.length}件すべてが出ます。</p>
+        <button class="mm-btn-go" id="mm-none-clear">絞り込みをクリア</button>
+      </div>`;
+    $m('#mm-none-clear').onclick = _clearFilters;
+    return;
+  }
+
+  el.innerHTML = _view.mode === 'sheet' ? _sheetHTML(list) : list.map(_rowHTML).join('');
+  _bindRows();
+  const so = $m('#mm-th-sort');
+  if (so) so.onclick = () => {
+    _view.sort = _view.sort === 'asc' ? 'desc' : 'asc';
+    _saveView(); _paintList();
+  };
+}
+
+// ── 行の部品（リストとシートで共通）──
+function _editHTML(m) {
+  return `
+    <textarea class="mm-edit" data-mm-ed="${_esc(m.id)}" rows="4">${_esc(m.body)}</textarea>
+    <div class="mm-edit-tags" id="mm-edit-tags">${_editTagsHTML()}</div>
+    <div class="mm-edit-ft">
+      <span class="mm-hint">⌘ + Enter で保存 / Esc で取消</span>
+      <button class="mm-ghost" data-mm-cancel="${_esc(m.id)}">やめる</button>
+      <button class="mm-btn-go" data-mm-save="${_esc(m.id)}">保存</button>
+    </div>`;
+}
+
+function _starHTML(m) {
+  return `<button class="mm-ic mm-ic-star${m.star ? ' on' : ''}" data-mm-star="${_esc(m.id)}"
+    title="${m.star ? '★ を外す' : '★ を付ける'}">${m.star ? '★' : '☆'}</button>`;
+}
+
+function _actsHTML(m, withStar) {
+  return (withStar ? _starHTML(m) : '') + `
+    <button class="mm-ic" data-mm-edit="${_esc(m.id)}" title="編集">✎</button>
+    <button class="mm-ic" data-mm-derive="${_esc(m.id)}" title="ここから育てる">⑂</button>
+    <button class="mm-ic" data-mm-note="${_esc(m.id)}" title="ノートにする">📓</button>
+    <button class="mm-ic" data-mm-del="${_esc(m.id)}" title="削除">🗑</button>`;
+}
+
+function _tagChipsHTML(m, isEd, allowAdd) {
+  const tags = m.tags || [];
+  if (tags.length) {
+    return tags.map(t =>
+      `<button class="mm-tag" data-mm-edittag="${_esc(m.id)}" title="タグを編集">#${_esc(t)}</button>`).join('');
+  }
+  return (isEd || !allowAdd) ? ''
+    : `<button class="mm-tag add" data-mm-edittag="${_esc(m.id)}" title="タグを付ける">＋ タグ</button>`;
+}
+
+function _linksHTML(m) {
+  const kids = _data.filter(x => x.from === m.id).length;
+  const vids = matchVideos(m.tags || []);
+  return (vids.length ? `<button class="mm-vids" data-mm-rel="${_esc(m.id)}">▸ 関連動画 ${vids.length}本</button>` : '')
+       + (kids ? `<button class="mm-kids" data-mm-kids="${_esc(m.id)}">⑂ ${kids}件に育った</button>` : '');
+}
+
+// ── リスト表示 ──
 function _rowHTML(m) {
   const parent = m.from ? _data.find(x => x.id === m.from) : null;
-  const kids = _data.filter(x => x.from === m.id).length;
   const isEd = _editingId === m.id;
-  const vids = matchVideos(m.tags || []);
+  const meta = _tagChipsHTML(m, isEd, false) + _linksHTML(m);
   return `
   <div class="mm-row${m.star ? ' starred' : ''}" data-mm-row="${_esc(m.id)}">
-    <div class="mm-date">${_esc(_fmtDate(m.ts))}</div>
+    ${_starHTML(m)}
     <div class="mm-main">
       ${parent ? `
         <button class="mm-from" data-mm-jump="${_esc(parent.id)}" title="元の記録へ">
@@ -654,47 +957,64 @@ function _rowHTML(m) {
           <span class="mm-f-b">${_esc(String(parent.body).split('\n')[0])}</span>
           <span class="mm-f-g">から育てた</span>
         </button>` : ''}
-      ${isEd ? `
-        <textarea class="mm-edit" data-mm-ed="${_esc(m.id)}" rows="4">${_esc(m.body)}</textarea>
-        <div class="mm-edit-tags" id="mm-edit-tags">${_editTagsHTML()}</div>
-        <div class="mm-edit-ft">
-          <span class="mm-hint">⌘ + Enter で保存 / Esc で取消</span>
-          <button class="mm-ghost" data-mm-cancel="${_esc(m.id)}">やめる</button>
-          <button class="mm-btn-go" data-mm-save="${_esc(m.id)}">保存</button>
-        </div>`
-      : `<div class="mm-body">${_esc(m.body)}</div>`}
-      <div class="mm-meta">
-        ${(m.tags || []).map(t =>
-          `<button class="mm-tag" data-mm-edittag="${_esc(m.id)}" title="タグを編集">#${_esc(t)}</button>`).join('')}
-        ${!(m.tags || []).length && !isEd
-          ? `<button class="mm-tag add" data-mm-edittag="${_esc(m.id)}" title="タグを付ける">＋ タグ</button>` : ''}
-        ${vids.length ? `<button class="mm-vids" data-mm-rel="${_esc(m.id)}">▸ 関連動画 ${vids.length}本</button>` : ''}
-        ${kids ? `<button class="mm-kids" data-mm-kids="${_esc(m.id)}">⑂ ${kids}件に育った</button>` : ''}
-      </div>
+      ${isEd ? _editHTML(m) : `<div class="mm-body">${_esc(m.body)}</div>`}
+      ${meta ? `<div class="mm-meta">${meta}</div>` : ''}
     </div>
-    <div class="mm-acts">
-      <button class="mm-ic${m.star ? ' on' : ''}" data-mm-star="${_esc(m.id)}"
-              title="${m.star ? '固定を外す' : 'トップに固定'}">${m.star ? '★' : '☆'}</button>
-      <button class="mm-ic" data-mm-edit="${_esc(m.id)}" title="編集">✎</button>
-      <button class="mm-ic" data-mm-derive="${_esc(m.id)}" title="ここから育てる">⑂</button>
-      <button class="mm-ic" data-mm-note="${_esc(m.id)}" title="ノートにする">📓</button>
-      <button class="mm-ic" data-mm-del="${_esc(m.id)}" title="削除">🗑</button>
-    </div>
+    <div class="mm-acts">${_actsHTML(m, false)}</div>
+    <div class="mm-date">${_esc(_fmtDate(m.ts))}</div>
   </div>`;
+}
+
+// ── シート（表）表示 ──
+function _sheetHTML(list) {
+  const asc = _view.sort === 'asc';
+  return `
+  <div class="mm-sheet-wrap">
+    <table class="mm-sheet">
+      <thead>
+        <tr>
+          <th class="mm-th-b">つぶやき</th>
+          <th class="mm-th-d">
+            <button class="mm-th-sort" id="mm-th-sort" title="${asc ? '新しい順にする' : '古い順にする'}"
+              >つぶやいた日時 <span class="mm-th-ar">${asc ? '▲' : '▼'}</span></button>
+          </th>
+          <th class="mm-th-t">タグ</th>
+          <th class="mm-th-a">操作</th>
+        </tr>
+      </thead>
+      <tbody>${list.map(_cellsHTML).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function _cellsHTML(m) {
+  const isEd = _editingId === m.id;
+  const links = _linksHTML(m);
+  return `
+  <tr class="mm-tr${m.star ? ' starred' : ''}" data-mm-row="${_esc(m.id)}">
+    <td class="mm-td-b">
+      ${isEd ? _editHTML(m) : `<div class="mm-td-txt">${_esc(m.body)}</div>`}
+      ${links ? `<div class="mm-td-sub">${links}</div>` : ''}
+    </td>
+    <td class="mm-td-d">${_esc(_fmtDateTime(m.ts))}</td>
+    <td class="mm-td-t"><div class="mm-td-tags">${_tagChipsHTML(m, isEd, true)}</div></td>
+    <td class="mm-td-a"><div class="mm-acts mm-acts-sh">${_actsHTML(m, true)}</div></td>
+  </tr>`;
 }
 
 function _bindRows() {
   $$m('#mm-list [data-mm-star]').forEach(b => b.onclick = () => {
     const m = _data.find(x => x.id === b.dataset.mmStar); if (!m) return;
     m.star = !m.star; m.updatedAt = Date.now();
-    _save(); renderMurmurs();
-    window.toast?.(m.star ? '★ トップに固定しました' : '固定を外しました');
-    if (m.star) _flashRow(m.id);
+    _save();
+    window.toast?.(m.star ? '★ を付けました' : '★ を外しました');
+    _paintList();                       // 並びは変えない。見たいときは ★のみ で絞る。
+    if (m.star && !_flt.star) _flashRow(m.id);
   });
   $$m('#mm-list [data-mm-edit]').forEach(b => b.onclick = () => _startEdit(b.dataset.mmEdit));
   $$m('#mm-list [data-mm-edittag]').forEach(b => b.onclick = () => _startEdit(b.dataset.mmEdittag, true));
   $$m('#mm-list [data-mm-save]').forEach(b => b.onclick = () => _saveEdit(b.dataset.mmSave));
-  $$m('#mm-list [data-mm-cancel]').forEach(b => b.onclick = () => { _editingId = null; renderMurmurs(); });
+  $$m('#mm-list [data-mm-cancel]').forEach(b => b.onclick = () => { _editingId = null; _paintList(); });
   _bindEditTags();
   $$m('#mm-list [data-mm-ed]').forEach(ta => {
     ta.onkeydown = e => {
@@ -708,10 +1028,10 @@ function _bindRows() {
   });
   $$m('#mm-list [data-mm-derive]').forEach(b => b.onclick = () => openComposer(b.dataset.mmDerive));
   $$m('#mm-list [data-mm-note]').forEach(b => b.onclick = () => _toNote(b.dataset.mmNote));
-  $$m('#mm-list [data-mm-jump]').forEach(b => b.onclick = () => _flashRow(b.dataset.mmJump, true));
+  $$m('#mm-list [data-mm-jump]').forEach(b => b.onclick = () => _jumpTo(b.dataset.mmJump));
   $$m('#mm-list [data-mm-kids]').forEach(b => b.onclick = () => {
     const kid = _data.find(x => x.from === b.dataset.mmKids);
-    if (kid) _flashRow(kid.id, true);
+    if (kid) _jumpTo(kid.id);
   });
   $$m('#mm-list [data-mm-rel]').forEach(b => b.onclick = () => {
     const m = _data.find(x => x.id === b.dataset.mmRel);
@@ -720,12 +1040,18 @@ function _bindRows() {
   $$m('#mm-list [data-mm-del]').forEach(b => b.onclick = () => _del(b.dataset.mmDel));
 }
 
+// 絞り込みで隠れている行へ飛ぼうとしたら、先に絞り込みを外してから飛ぶ。
+function _jumpTo(id) {
+  if (!$m(`[data-mm-row="${CSS.escape(id)}"]`) && _fltActive()) _clearFilters();
+  _flashRow(id, true);
+}
+
 function _startEdit(id, focusTags) {
   const m = _data.find(x => x.id === id); if (!m) return;
   _editingId = id;
   _editTags = new Set(m.tags || []);
   _editDropped = new Set();
-  renderMurmurs();
+  _paintList();
   if (focusTags) { $m('#mm-edit-tags')?.scrollIntoView({ block:'center' }); return; }
   const ta = $m(`[data-mm-ed="${CSS.escape(id)}"]`);
   if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
@@ -914,7 +1240,8 @@ function _paintRelated() {
 // ── タグを足す ──
 window._murmursOpenTagPicker = function (mode) {
   const isEdit = mode === 'edit';
-  const cur = () => new Set(isEdit ? _editTags : _liveTags());
+  const isInline = mode === 'inline';
+  const cur = () => new Set(isEdit ? _editTags : isInline ? _iLiveTags() : _liveTags());
 
   const rows = q => {
     const sel = cur();
@@ -953,6 +1280,10 @@ window._murmursOpenTagPicker = function (mode) {
       else { _editTags.add(l); _editDropped.delete(l); }
       const box = $m('#mm-edit-tags');
       if (box) { box.innerHTML = _editTagsHTML(); _bindEditTags(); }
+    } else if (isInline) {
+      if (sel.has(l)) { _iAdd.delete(l); _iRm.add(l); }
+      else { _iAdd.add(l); _iRm.delete(l); }
+      _renderInlineDet();
     } else {
       if (sel.has(l)) { _addTags.delete(l); _rmTags.add(l); }
       else { _addTags.add(l); _rmTags.delete(l); }
@@ -1006,6 +1337,8 @@ window._murmursOpenTplList = function () {
 
   $$m('#mm-mbd [data-mm-pick]').forEach(b => b.onclick = () => {
     window._murmursCloseModal();
+    const inline = $m('#mm-in-text');
+    if (inline && inline.offsetParent !== null) { _applyTplInline(b.dataset.mmPick); return; }
     if (!$m('#mm-composer')?.classList.contains('open')) openComposer();
     setTimeout(() => _applyTpl(b.dataset.mmPick), 40);
   });
@@ -1086,7 +1419,7 @@ window._murmursOpenPosSetting = function () {
        <button class="mm-chip" data-mm-rem-on="1" aria-pressed="${_rem.on}">かける</button>
        <button class="mm-chip" data-mm-rem-on="0" aria-pressed="${!_rem.on}">かけない</button>
      </div>
-     <div id="mm-rem-detail" class="mm-sub${_rem.on ? ' on' : ''}">
+     <div id="mm-rem-detail" class="mm-fold${_rem.on ? ' on' : ''}">
        <p class="mm-sec2">頻度</p>
        <div class="mm-tagwrap">${spans.map(([d, nm]) =>
          `<button class="mm-chip" data-mm-rem-every="${d}" aria-pressed="${(_rem.everyDays||1) === d}">${nm}</button>`).join('')}</div>
