@@ -768,6 +768,19 @@ function _applyTplInline(k) {
   _renderInlineDet();
 }
 
+// シートの列見出しは、上のヘッダーに隠れない位置で止める。
+// ヘッダーの高さは画面幅（1行/2行）で変わるため実測して CSS 変数に入れる。
+function _syncStickyTop() {
+  const tb = document.querySelector('.topbar');
+  const h = tb ? Math.round(tb.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--mm-stick', h + 'px');
+}
+let _stickTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_stickTimer);
+  _stickTimer = setTimeout(_syncStickyTop, 120);
+});
+
 // ── 見せ方と絞り込みのバー ──
 function _toolbarHTML() {
   const opts = _tagOptions();
@@ -891,6 +904,7 @@ function _paintList() {
     return;
   }
 
+  if (_view.mode === 'sheet') _syncStickyTop();
   el.innerHTML = _view.mode === 'sheet' ? _sheetHTML(list) : list.map(_rowHTML).join('');
   _bindRows();
   const so = $m('#mm-th-sort');
