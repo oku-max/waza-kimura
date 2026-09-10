@@ -199,6 +199,20 @@
 
   const STATIC_AUTO = {
     // ── つぶやき（Murmurs）──
+    'ふわっと思ったことをすぐ記録':'Catch a thought the moment it lands',
+    'ふわっと思ったことを書く…':'Write whatever just crossed your mind...',
+    'つぶやく':'Post','⌘ + Enter':'⌘ + Enter',
+    '☰ リスト':'☰ List','⊞ シート':'⊞ Sheet','リスト':'List','シート':'Sheet',
+    '★のみ':'Starred only','★ を付けたものだけ出す':'Show only the starred ones',
+    '⌕ 絞り込み':'⌕ Filter','本文・タグ・期間で絞り込む':'Filter by text, tag or date',
+    '本文・タグで絞り込み…':'Filter by text or tag...','すべてのタグ':'All tags',
+    'タグで絞り込む':'Filter by tag','この日から':'From this day','この日まで':'Until this day',
+    'クリア':'Clear','絞り込みをクリア':'Clear the filter',
+    'この条件に合うものがありません':'Nothing matches these conditions',
+    'つぶやき':'Journal','つぶやいた日時':'Written at','操作':'Actions',
+    '新しい順にする':'Newest first','古い順にする':'Oldest first',
+    '★ を付ける':'Add a star','★ を外す':'Remove the star',
+    '★ を付けました':'★ Starred','★ を外しました':'Star removed',
     '書く':'Write','＋ 書く':'＋ Write','＋ 追加':'+ Add','タグを編集':'Edit tags','タグを付ける':'Add tags','＋ タグ':'+ Tag','なし':'None','Journal に書く':'Write in Journal','Journal に書く（N）':'Write in Journal (N)',
     '書きました':'Written','元の記録へ':'Go to the original',// ── ノートのテンプレート ──
     'どの形に育てますか':'What should it become?','新しいノート':'New note',
@@ -1643,6 +1657,8 @@
     "▶ 前回の続き #:#:# から": "▶ Resuming from #:#:#",
     "▸ 関連動画 #本": "▸ # related videos",
     "書きました — 関連動画 #本": "Written — # related videos",
+    "つぶやきました — 関連動画 #本": "Posted — # related videos",
+    "絞り込みを外すと、#件すべてが出ます。": "Clear the filter to see all # of them.",
     "#件選択中": "# selected",
     "手動選択 · #本": "Manual · #",
     "条件で自動選択 · #本": "Auto by conditions · #",
@@ -2064,6 +2080,14 @@
     return false;
   }
 
+  // 属性（placeholder/title）はコードが書いた文言で、ユーザーデータではない。
+  // textarea の中身は訳さないが、その placeholder は訳してよい。
+  function _skipAttrs(el) {
+    if (!el) return true;
+    if (el.closest && el.closest('[contenteditable], script, style')) return true;
+    return false;
+  }
+
   function _translateTextNode(node) {
     const v = node.nodeValue;
     if (!v || !_JA_RE.test(v)) return;
@@ -2078,7 +2102,7 @@
   }
 
   function _translateAttrs(el) {
-    if (_skipNode(el)) return;
+    if (_skipAttrs(el)) return;
     for (const attr of ['placeholder', 'title']) {
       const v = el.getAttribute && el.getAttribute(attr);
       if (v && _JA_RE.test(v)) {
