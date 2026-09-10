@@ -255,6 +255,9 @@ function _initYTPlayer(containerId, ytId, autoplay, onReady, extraVars = {}) {
 function _ytResumeFallback(at) {
   if (!(at > 0) || !_ytPlayer || !_ytPlayerReady) return;
   try {
+    const dur = _ytPlayer.getDuration?.() ?? 0;
+    // 記録が実際の尺を超えていたら先頭へ（start は既に適用されているので戻す必要がある）
+    if (dur > 0 && at >= dur - 5) { _ytPlayer.seekTo(0, true); return; }
     const cur = _ytPlayer.getCurrentTime?.() ?? 0;
     if (cur < at - 5) _ytPlayer.seekTo(at, true);
   } catch(e) {}
@@ -2218,11 +2221,15 @@ function _createGDriveVideoEl(container, fileId, token) {
     if (_resumeSettled || !(resumeAt > 0)) return;
     if (!isFinite(video.duration) || video.duration <= 0) return;   // まだ長さが分からない
     _resumeSettled = true;
-    if (resumeAt >= video.duration - 5) return;                     // 終わり際なら何もしない
-    if (Math.abs(video.currentTime - resumeAt) < 2) return;         // #t= が効いている
+    // 目標位置へ合わせる。終わり際だった場合は先頭に戻す:
+    // 長さが分からないまま記録された位置（phRecord は dur 不明だとそのまま残す）が
+    // 実際の尺を超えていることがあり、#t= はブラウザ側で先に適用されてしまうため、
+    // 「何もしない」では末尾に飛んだままになる。実測の尺が分かったここで戻す。
+    const target = (resumeAt >= video.duration - 5) ? 0 : resumeAt;
+    if (Math.abs(video.currentTime - target) < 2) return;           // すでに目標位置
     const wasPlaying = !video.paused;
     if (wasPlaying) video.pause();
-    try { video.currentTime = resumeAt; } catch(e) {}
+    try { video.currentTime = target; } catch(e) {}
     if (wasPlaying) video.play().catch(() => {});
   };
   video.addEventListener('loadedmetadata', _applyResume);
