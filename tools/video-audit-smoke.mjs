@@ -130,6 +130,25 @@ const warn = await page.evaluate(() => {
 });
 check('減少の警告が出る', /1950/.test(warn) && /1887/.test(warn), warn.slice(0, 200));
 
+// 一覧から消えた動画（リスト・ノート・再生位置に ID だけ残っているもの）を見つけられるか
+const miss = await page.evaluate(() => {
+  window.videos = [{ id: 'yt-aaa', title: 'ある動画' }];
+  window._cvViews = [{ id: 'v1', label: 'マイリスト', videoIds: ['yt-aaa', 'yt-bbb'] }];
+  window._notesGetData = () => ([{ notes: [{ name: 'ノートA', blocks: [
+    { type: 'video', videoId: 'yt-ccc', title: '消えた動画C' },
+    { type: 'col', cols: [[{ type: 'video', videoId: 'yt-ddd', title: '消えた動画D' }]] },
+  ] }] }]);
+  window._notesGetRoot = () => [];
+  localStorage.setItem('wk_playhead', JSON.stringify({ enabled: true, pos: { 'yt-eee': { t: 30, at: '2026-09-01' } } }));
+  const found = window.wkFindMissingVideos();
+  return { ids: found.map(f => f.id).sort(), titles: found.filter(f => f.title).map(f => f.title).sort() };
+});
+check('消えた動画のIDを集められる',
+  JSON.stringify(miss.ids) === JSON.stringify(['yt-bbb', 'yt-ccc', 'yt-ddd', 'yt-eee']), JSON.stringify(miss));
+check('ノートに残ったタイトルを拾える',
+  JSON.stringify(miss.titles) === JSON.stringify(['消えた動画C', '消えた動画D']), JSON.stringify(miss));
+check('一覧にある動画は消えた扱いにしない', !miss.ids.includes('yt-aaa'), JSON.stringify(miss));
+
 await page.waitForTimeout(300);
 await browser.close();
 srv.close();

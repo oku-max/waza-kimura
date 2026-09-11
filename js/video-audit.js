@@ -62,6 +62,114 @@
     return { total, archived, active, scoped, shown, filtered, scopeName: window._cvActiveViewName || '' };
   };
 
+  // ── 「参照だけ残っている動画」をさがす ──────────────────────
+  // 動画一覧から消えても、カスタムリストの videoIds・ノートの動画ブロック・
+  // 続きから再生の記録には ID が残る。それを突き合わせれば「何が消えたか」が分かる。
+  // 読むだけ。ここでは何も足さない・消さない。
+  function _collectRefs() {
+    const refs = new Map();   // id -> { id, title, from:Set }
+    const add = (id, title, from) => {
+      if (!id || typeof id !== 'string') return;
+      const e = refs.get(id) || { id, title: '', from: new Set() };
+      if (!e.title && title) e.title = String(title);
+      e.from.add(from);
+      refs.set(id, e);
+    };
+
+    // カスタムリスト（手動選択のみ ID を持つ）
+    try {
+      for (const v of (window._cvViews || [])) {
+        for (const id of (v?.videoIds || [])) add(id, '', 'リスト: ' + (v.label || v.id));
+      }
+    } catch (e) {}
+
+    // ノートの動画ブロック（タイトルも一緒に残っている）
+    try {
+      const walk = (blocks, noteName) => {
+        for (const b of (blocks || [])) {
+          if (!b) continue;
+          if (b.type === 'video' && b.videoId) add(b.videoId, b.title, 'ノート: ' + noteName);
+          else if (b.type === 'col' && Array.isArray(b.cols)) {
+            for (const slot of b.cols) walk(slot, noteName);
+          }
+        }
+      };
+      const notes = [];
+      for (const f of (window._notesGetData?.() || [])) for (const n of (f?.notes || [])) notes.push(n);
+      for (const n of (window._notesGetRoot?.() || [])) notes.push(n);
+      for (const n of notes) walk(n?.blocks, n?.name || '（無題）');
+    } catch (e) {}
+
+    // 続きから再生の記録（この端末）
+    try {
+      const ph = JSON.parse(localStorage.getItem('wk_playhead') || 'null');
+      for (const id of Object.keys(ph?.pos || {})) add(id, '', '続きから再生の記録');
+    } catch (e) {}
+
+    return refs;
+  }
+
+  window.wkFindMissingVideos = function () {
+    const have = new Set((window.videos || []).map(v => v && v.id));
+    const out = [];
+    for (const e of _collectRefs().values()) {
+      if (have.has(e.id)) continue;
+      out.push({ id: e.id, title: e.title, from: [...e.from].slice(0, 3) });
+    }
+    out.sort((a, b) => (b.title ? 1 : 0) - (a.title ? 1 : 0));
+    return out;
+  };
+
+  // ── 消えた動画を一覧に戻す ────────────────────────────────
+  // YouTube の動画は ID からタイトル・チャンネル・サムネを取り直せる。
+  // 既にある動画には一切触らず、無いものを足すだけ（＝非破壊）。
+  // メモやタグまでは戻らないので、そのことも画面に出す。
+  window.wkRestoreMissingVideos = async function (list) {
+    const have = new Set((window.videos || []).map(v => v && v.id));
+    const miss = (list || window.wkFindMissingVideos()).filter(m => !have.has(m.id));
+    if (!miss.length) { window.showToast?.('戻せる動画はありませんでした'); return { added: 0 }; }
+
+    const meta = {};
+    const ytIds = miss.filter(m => /^yt-[A-Za-z0-9_-]{5,}$/.test(m.id)).map(m => m.id.slice(3));
+    for (let i = 0; i < ytIds.length; i += 50) {
+      try {
+        const res = await fetch('/api/yt-videos?ids=' + encodeURIComponent(ytIds.slice(i, i + 50).join(',')));
+        if (!res.ok) continue;
+        const data = await res.json();
+        for (const v of (data.items || [])) meta['yt-' + v.id] = v;
+      } catch (e) { console.warn('[restore] yt-videos', e); }
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    let added = 0, noTitle = 0;
+    for (const m of miss) {
+      const md    = meta[m.id] || {};
+      const title = md.title || m.title || '';
+      if (!title) noTitle++;
+      const ytId  = m.id.startsWith('yt-') ? m.id.slice(3) : '';
+      const tt = (window.autoTagFromTitle && title) ? window.autoTagFromTitle(title) : { tb: [], cat: [], pos: [], tags: [] };
+      (window.videos = window.videos || []).push({
+        id: m.id, ytId: ytId || undefined,
+        pt: ytId ? 'youtube' : (m.id.startsWith('gd-') ? 'gdrive' : ''),
+        title: title || ('（タイトル不明）' + m.id),
+        src: ytId ? 'youtube' : '',
+        url: ytId ? ('https://www.youtube.com/watch?v=' + ytId) : '',
+        thumb: md.thumb || (ytId ? `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg` : ''),
+        ch: md.channel || '', channel: md.channel || '', pl: '',
+        addedAt: today, duration: md.duration || 0,
+        watched: false, fav: false, status: '未着手',
+        prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
+        tbLocked: false, tb: tt.tb, cat: tt.cat, pos: tt.pos, tags: tt.tags,
+      });
+      added++;
+    }
+    window.AF?.();
+    window.renderOrg?.();
+    await window.saveUserData?.();
+    window.showToast?.(`✅ ${added}本を一覧に戻しました${noTitle ? `（うち${noTitle}本はタイトル不明）` : ''}`, 6000);
+    return { added, noTitle };
+  };
+
   const _esc = s => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const _fmt = iso => {
@@ -94,6 +202,24 @@
     if (s.archived)  rows += _row('アーカイブ済み（消えていません）', s.archived + ' 本', '設定＞アーカイブ');
     rows += _row('データにある全部の本数', s.total + ' 本', window._firebaseCurrentUser?.() ? 'ログイン中' : '未ログイン');
 
+    // 一覧から消えたのに、リスト・ノート・再生位置に ID だけ残っているもの
+    let missing = [];
+    try { missing = window.wkFindMissingVideos(); } catch (e) {}
+    let missBlock = '';
+    if (missing.length) {
+      const head = missing.slice(0, 20).map(m => `<div style="display:flex;gap:8px;padding:3px 0;font-size:12px;color:var(--text2,#bbb)">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(m.title || m.id)}</span>
+        <span style="color:var(--text3,#999);white-space:nowrap">${_esc((m.from && m.from[0]) || '')}</span>
+      </div>`).join('');
+      missBlock = `
+        <div style="font-size:13px;font-weight:700;margin:14px 0 4px">一覧から消えた動画</div>
+        <div style="font-size:12px;color:var(--text3,#999);margin-bottom:6px">リスト・ノート・再生位置の記録には残っているのに、動画一覧に無いものです。</div>
+        ${_row('見つかった件数', missing.length + ' 本', missing.length > 20 ? '先頭20件を表示' : '')}
+        ${head}
+        <button type="button" id="wk-va-restore" style="width:100%;margin-top:10px;padding:10px;border-radius:9px;border:none;background:var(--accent,#6b3fd4);color:var(--on-accent,#fff);font-size:13px;font-weight:700;cursor:pointer">この${missing.length}本を一覧に戻す</button>
+        <div style="font-size:11px;color:var(--text3,#999);margin-top:6px">タイトル・チャンネル・サムネは取り直せますが、メモやタグ・ブックマークまでは戻りません。</div>`;
+    }
+
     let hist = '';
     if (log.length) {
       hist = log.map(e => `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;color:var(--text2,#bbb)">
@@ -116,6 +242,7 @@
         </div>
         <div style="font-size:12px;color:var(--text3,#999);margin-bottom:8px">画面の本数は絞り込んだ結果です。減ったように見えるときは、ここでどこに行ったか確認できます。</div>
         ${rows}
+        ${missBlock}
         <div style="font-size:13px;font-weight:700;margin:14px 0 4px">読み込み・保存の記録（この端末）</div>
         ${hist}
         <div style="display:flex;gap:8px;margin-top:14px">
@@ -128,6 +255,20 @@
     ov.addEventListener('click', e => { if (e.target === ov) close(); });
     ov.querySelector('#wk-va-x').onclick = close;
     ov.querySelector('#wk-va-arch').onclick = () => { close(); window.switchTab?.('archive'); };
+    const restoreBtn = ov.querySelector('#wk-va-restore');
+    if (restoreBtn) restoreBtn.onclick = async () => {
+      if (!window._firebaseCurrentUser?.()) { window.showToast?.('⚠️ ログインしてから実行してください', 5000); return; }
+      if (!window.confirm(`${missing.length}本を動画一覧に戻します。\n\n既にある動画には触りません（足すだけ）。\nメモ・タグ・ブックマークまでは戻りません。\n\n実行しますか？`)) return;
+      restoreBtn.disabled = true;
+      restoreBtn.textContent = '戻しています…';
+      try { await window.wkRestoreMissingVideos(missing); close(); }
+      catch (e) {
+        console.error('[restore]', e);
+        restoreBtn.disabled = false;
+        restoreBtn.textContent = 'もう一度試す';
+        window.showToast?.('⚠️ 復元に失敗しました: ' + (e?.message || e), 6000);
+      }
+    };
     ov.querySelector('#wk-va-clear').onclick = () => {
       close();
       // 既存の解除経路だけを呼ぶ（ここで状態を直接いじらない）

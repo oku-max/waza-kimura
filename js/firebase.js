@@ -21,6 +21,15 @@ db.settings({ experimentalForceLongPolling: true });
 export let currentUser = null;
 let _durFetchDone = false; // duration補完は初回ロード1回だけ
 
+// ── 本数が減る保存への歯止め ───────────────────────────────
+// videos.json は1ファイルを上書きする方式なので、減った状態で保存した瞬間に
+// 差分は復元できなくなる。「クラウドにある本数」を覚えておき、ユーザーが承知して
+// 減らした分（明示削除・バックアップ復元）を超えて減っていたら確認してから書く。
+let _videosCloudCount = 0;  // クラウド側の本数（読込時・保存成功時に更新）
+let _deleteIntent     = 0;  // ユーザーが承知のうえ減らした本数
+// 明示的に減らす経路はここで申告する（申告の無い減少は事故として扱う）
+window._wkDeleteIntent = function(n) { _deleteIntent += Math.max(0, Number(n) || 0); };
+
 window._currentUserUid = () => currentUser?.uid;
 
 auth.onAuthStateChanged(async (user) => {
@@ -357,7 +366,9 @@ export async function loadUserData(uid) {
   // ここでは何も書き換えない・消さない。気づかないうちに減っていた、を無くすための観測。
   if (loaded || storageKnown) {
     try {
-      const drop = window.wkLogVideoCount?.((window.videos || []).length, '読込');
+      _videosCloudCount = (window.videos || []).length;
+      _deleteIntent = 0;
+      const drop = window.wkLogVideoCount?.(_videosCloudCount, '読込');
       if (drop) {
         console.warn('[loadUserData] 前回より本数が減っています:', drop.prev, '→', drop.now);
         window.wkVideoCountWarn?.(drop);
@@ -410,15 +421,36 @@ export async function saveUserData() {
       if (metaErr.code !== 'storage/object-not-found') console.warn('[saveUserData] メタデータ取得失敗:', metaErr.message);
     }
 
+    const videos = (window.videos || []).filter(v => !v._srTemp);
+
+    // ── 本数が大きく減る保存は、承知のうえかを確認してから書く ──
+    // 申告済みの削除ぶん（+2本は編集中のゆらぎ）を超える減少だけを止める。
+    // 中止した場合はクラウドのデータをそのまま残す（＝何も壊さない）。
+    const _shrink = _videosCloudCount - videos.length;
+    if (_videosCloudCount > 0 && _shrink > _deleteIntent + 2) {
+      const ok = window.confirm(
+        `⚠️ 動画が ${_videosCloudCount}本 → ${videos.length}本 に減っています（${_shrink}本 減）。\n\n` +
+        `このまま保存すると、減った ${_shrink}本 は元に戻せません。\n` +
+        `心当たりが無ければ「キャンセル」を押し、ページを更新してから確認してください。\n\n` +
+        `それでも保存しますか？`
+      );
+      if (!ok) {
+        console.warn('[saveUserData] 本数の減少により保存を中止:', _videosCloudCount, '→', videos.length);
+        showToast('🛑 保存を中止しました（クラウドのデータはそのままです）', 6000);
+        return false;
+      }
+    }
+
     const updatedAt = new Date().toISOString();
     _videosLoadedAt = updatedAt;
-    const videos = (window.videos || []).filter(v => !v._srTemp);
     const blob = new Blob([JSON.stringify({ videos, updatedAt, savedBy: _sessionId })], { type: 'application/json' });
     await ref.put(blob, {
       contentType: 'application/json',
       cacheControl: 'no-cache, max-age=0',
       customMetadata: { updatedAt }, // 競合チェック用タイムスタンプをメタデータにも保存
     });
+    _videosCloudCount = videos.length;
+    _deleteIntent = 0;
     try { window.wkLogVideoCount?.(videos.length, '保存'); } catch (e) {}
     showToast('💾 保存', 1500);
     return true;

@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.731</title>
+<title>WAZA KIMURA v52.732</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2581,7 +2581,7 @@ function _updateArchBulkBar(){
 function archTogSel(id,cb){if(cb.checked)archSelIds.add(id);else archSelIds.delete(id);_updateArchBulkBar();}
 function archTogSelAll(cb){const arc=videos.filter(v=>v.archived);if(cb.checked)arc.forEach(v=>archSelIds.add(v.id));else archSelIds.clear();renderArch();}
 function bulkRestoreArch(){const ids=[...archSelIds];if(!ids.length)return;ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=false;});archSelIds.clear();renderArch();window.AF?.();toast(`↩ ${ids.length}本を復元しました`);}
-function bulkDeleteArch(){const ids=[...archSelIds];if(!ids.length)return;showConf('🗑 一括削除',`選択した${ids.length}本を完全に削除しますか？`,()=>{videos=videos.filter(v=>!ids.includes(v.id));window.videos=videos;archSelIds.clear();renderArch();window.AF?.();window.saveUserData?.();toast(`削除しました（${ids.length}本）`);});}
+function bulkDeleteArch(){const ids=[...archSelIds];if(!ids.length)return;showConf('🗑 一括削除',`選択した${ids.length}本を完全に削除しますか？`,()=>{window._wkDeleteIntent?.(ids.length);videos=videos.filter(v=>!ids.includes(v.id));window.videos=videos;archSelIds.clear();renderArch();window.AF?.();window.saveUserData?.();toast(`削除しました（${ids.length}本）`);});}
 function renderArch(){
   const arc=videos.filter(v=>v.archived);
   document.getElementById('arc').textContent=`${arc.length}本`;
@@ -2595,7 +2595,7 @@ function renderArch(){
   _updateArchBulkBar();
 }
 function restore(id){const v=videos.find(v=>v.id===id);if(v){v.archived=false;archSelIds.delete(id);renderArch();window.AF?.();toast('↩ 復元しました');}}
-function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{videos=videos.filter(v=>v.id!==id);window.videos=videos;archSelIds.delete(id);renderArch();window.AF?.();window.saveUserData?.();toast('削除しました');});}
+function delV(id){showConf('🗑 削除','この動画を完全に削除しますか？',()=>{window._wkDeleteIntent?.(1);videos=videos.filter(v=>v.id!==id);window.videos=videos;archSelIds.delete(id);renderArch();window.AF?.();window.saveUserData?.();toast('削除しました');});}
 
 function togBelt(b,el){beltF.has(b)?beltF.delete(b):beltF.add(b);el.classList.toggle('sel');renderComm();}
 function togCSt(s,el){cStF.has(s)?cStF.delete(s):cStF.add(s);el.classList.toggle('active');renderComm();}
@@ -4270,6 +4270,9 @@ window.wazaImport = async function(input) {
   try {
     toast('⏳ 復元中…');
     // 動画データを復元
+    // 復元は「今より少ない本数になる」ことが普通にあるので、保存側の減少ガードに申告する
+    // （ユーザーは直前のダイアログで本数を見たうえで承知している）
+    window._wkDeleteIntent?.(Math.max(0, (window.videos || []).length - (data.videos || []).length));
     window.videos = data.videos;
     await window.saveUserData?.();
 
