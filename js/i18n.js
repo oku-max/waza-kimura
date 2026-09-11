@@ -198,6 +198,26 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // ── 動画の本数の内訳（video-audit）──
+    '動画の本数の内訳':'Where your videos are',
+    '本数の内訳を見る':'See the breakdown',
+    '画面の本数は絞り込んだ結果です。減ったように見えるときは、ここでどこに行ったか確認できます。':'The number on screen is the filtered result. If it looks like videos vanished, check here where they went.',
+    '画面に出ている本数':'Showing now',
+    '絞り込み・検索で隠れている':'Hidden by filters / search',
+    '絞り込みを解除すると出ます':'Clear the filter to see them',
+    'いま開いているリストの範囲外':'Outside the open list',
+    'リストを閉じると出ます':'Close the list to see them',
+    'アーカイブ済み（消えていません）':'Archived (not deleted)',
+    '設定＞アーカイブ':'Settings > Archive',
+    'データにある全部の本数':'Total in your data',
+    'ログイン中':'Signed in','未ログイン':'Not signed in',
+    '読み込み・保存の記録（この端末）':'Load / save history (this device)',
+    'まだ記録がありません（次に読み込んだ時から残ります）':'No records yet (starts from the next load)',
+    'アーカイブを見る':'View archive',
+    '絞り込みを解除':'Clear filters',
+    '読込':'Load','保存':'Save',
+    '内訳を見る':'See breakdown',
+    '保存する前に内訳を確認してください。':'Check the breakdown before saving.',
     // ── つぶやき（Murmurs）──
     'ふわっと思ったことをすぐ記録':'Catch a thought the moment it lands',
     'ふわっと思ったことを書く…':'Write whatever just crossed your mind...',
@@ -1653,6 +1673,9 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    "／非表示 #本 ⓘ": "/ # hidden \u24d8",
+    "⚠️ 読み込んだ動画が前回より#本少ないです（#本 → #本）": "\u26a0\ufe0f # fewer videos loaded than last time (# \u2192 #)",
+    "# 本": "# videos",
     "▶ 前回の続き #:# から": "▶ Resuming from #:#",
     "▶ 前回の続き #:#:# から": "▶ Resuming from #:#:#",
     "▸ 関連動画 #本": "▸ # related videos",
