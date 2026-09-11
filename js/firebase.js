@@ -27,6 +27,9 @@ let _durFetchDone = false; // duration補完は初回ロード1回だけ
 // 減らした分（明示削除・バックアップ復元）を超えて減っていたら確認してから書く。
 let _videosCloudCount = 0;  // クラウド側の本数（読込時・保存成功時に更新）
 let _deleteIntent     = 0;  // ユーザーが承知のうえ減らした本数
+// いま手元の動画データがどこから来たか。'storage' 以外のときに Storage のファイルを
+// 上書きしてはいけない（読んでいないファイルを潰すことになる）。
+let _videosSource = 'none'; // 'storage' | 'firestore-legacy' | 'none'
 // 明示的に減らす経路はここで申告する（申告の無い減少は事故として扱う）
 window._wkDeleteIntent = function(n) { _deleteIntent += Math.max(0, Number(n) || 0); };
 
@@ -315,37 +318,53 @@ export async function loadUserData(uid) {
 
   let loaded = false;
   let needsSave = false;
-  let storageKnown = false; // Storageの状態を確実に把握できた（ファイル読込成功 or 不在を確認）
+  let storageKnown = false;  // Storageの状態を確実に把握できた（中身を最後まで読めた or 不在を確認）
+  let storageAbsent = false; // ファイルが「存在しない」と確認できた（＝上書きする相手がいない）
+  _videosSource = 'none';
   // 1. Firebase Storage を優先
   try {
     const url = await storage.ref(`users/${uid}/videos.json`).getDownloadURL();
     // ブラウザ/CDNキャッシュを避けて常に最新を取得（保存直後の別端末反映のため）
     const resp = await fetch(url, { cache: 'no-store' });
     if (resp.ok) {
-      storageKnown = true; // ファイルを読み込めた（中身が空でも状態は確定）
+      // 本文を最後まで読み切ってから「把握できた」とする。
+      // ここを resp.ok の時点で true にしていたため、通信が途中で切れて JSON が壊れると
+      // 「動画0本の状態で保存ロックだけ解除」になっていた。
       const json = await resp.json();
+      storageKnown = true;
       if (json.videos?.length) {
         needsSave = await _applyVideosData(json.videos);
         _videosLoadedAt = json.updatedAt || '';
+        _videosSource = 'storage';
         loaded = true;
+      } else {
+        storageAbsent = true; // ファイルはあるが中身が空 = 新規/空ユーザーと同じ扱い
+        _videosSource = 'storage';
       }
     }
   } catch (e) {
     if (e.code === 'storage/object-not-found') {
-      storageKnown = true; // ファイル不在を確認 = 新規/空ユーザー（状態は確定）
+      storageKnown = true; storageAbsent = true; // ファイル不在を確認 = 新規/空ユーザー（状態は確定）
     } else {
       console.warn('[loadUserData] Storage:', e.message); // 実際の読込失敗 → 状態未確定
     }
   }
 
   // 2. Firestore にフォールバック（旧データの自動移行）
-  if (!loaded) {
+  //
+  // ⚠️ ここは「Storageにファイルが無いと確認できたとき」だけに限る。
+  //    data/videos は Storage 移行前の古いスナップショットで、移行後は誰も書いていない。
+  //    以前は Storage の読み込みが通信エラーで失敗しただけでもここへ落ちて、その古い
+  //    スナップショットを読み → needsSave で即 Storage に書き戻していた。つまり一度の
+  //    通信失敗で、移行後に追加した動画（アーカイブ済みも含む）が丸ごと消える経路だった。
+  if (!loaded && storageAbsent) {
     try {
       const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
       const data = snap.data();
       if (snap.exists && data?.videos?.length) {
         needsSave = await _applyVideosData(data.videos);
         _videosLoadedAt = data.updatedAt || '';
+        _videosSource = 'firestore-legacy';
         loaded = true;
         needsSave = true;
         console.log('[migration] Firestore → Storage移行を開始');
@@ -353,6 +372,9 @@ export async function loadUserData(uid) {
     } catch (e) {
       console.error('[loadUserData] Firestore:', e);
     }
+  } else if (!loaded && !storageAbsent) {
+    console.warn('[loadUserData] Storageを読めませんでした。古いFirestoreデータでの上書きを避けるため、何も読み込みません');
+    showToast('⚠️ データを読み込めませんでした。通信を確認してページを更新してください（保存は止めています）', 8000);
   }
 
   // 保存ロック解除の判定: クラウド状態を確実に把握できたときだけ保存を許可する。
@@ -407,18 +429,36 @@ export async function saveUserData() {
     const uid = currentUser.uid;
     const ref = storage.ref(`users/${uid}/videos.json`);
 
-    // ── 競合チェック: サーバー上のタイムスタンプが自分がロードした時より新しければ上書きしない ──
+    // ── 上書きしてよいかの確認 ──
+    // 原則: 「いま自分が読んだファイル」以外は絶対に上書きしない。
+    //   (a) サーバーの状態を確認できない（getMetadata が not-found 以外で失敗）→ 保存しない
+    //   (b) ファイルはあるのに、手元のデータが Storage 由来でない → 保存しない
+    //       （通信失敗時に古い Firestore スナップショットで潰す事故がこれ）
+    //   (c) サーバーのタイムスタンプが自分のロード時より新しい → 保存しない（他端末の更新）
+    let serverExists = false;
     try {
       const meta = await ref.getMetadata();
+      serverExists = true;
       const serverUpdatedAt = meta.customMetadata?.updatedAt || '';
+      if (_videosSource !== 'storage') {
+        console.warn('[saveUserData] 手元のデータがStorage由来でないため保存を中止:', _videosSource);
+        showToast('🛑 読み込めていないデータを上書きしそうになったため保存を止めました。ページを更新してください', 8000);
+        return false;
+      }
       if (serverUpdatedAt && _videosLoadedAt && serverUpdatedAt > _videosLoadedAt) {
         console.warn('[saveUserData] 競合検出 — サーバー:', serverUpdatedAt, '自分がロードした時刻:', _videosLoadedAt);
         showToast('⚠️ 別の端末で更新されています。ページを更新してから再操作してください', 7000);
         return false;
       }
     } catch (metaErr) {
-      // ファイルが存在しない場合は無視して保存続行
-      if (metaErr.code !== 'storage/object-not-found') console.warn('[saveUserData] メタデータ取得失敗:', metaErr.message);
+      if (metaErr.code === 'storage/object-not-found') {
+        serverExists = false;   // ファイルが無い＝潰す相手がいないので新規作成してよい
+      } else {
+        // サーバーの状態が分からないまま書くと、古い内容で潰す可能性がある
+        console.warn('[saveUserData] メタデータ取得失敗のため保存を中止:', metaErr.message);
+        showToast('⚠️ サーバーの状態を確認できないため保存を見送りました。通信を確認してください', 7000);
+        return false;
+      }
     }
 
     const videos = (window.videos || []).filter(v => !v._srTemp);
@@ -449,6 +489,8 @@ export async function saveUserData() {
       cacheControl: 'no-cache, max-age=0',
       customMetadata: { updatedAt }, // 競合チェック用タイムスタンプをメタデータにも保存
     });
+    // 書き終えた内容＝いま手元の内容なので、この時点で「Storage由来」になる
+    _videosSource = 'storage';
     _videosCloudCount = videos.length;
     _deleteIntent = 0;
     try { window.wkLogVideoCount?.(videos.length, '保存'); } catch (e) {}
@@ -460,6 +502,97 @@ export async function saveUserData() {
     return false;
   }
 }
+
+// ═══ 動画データの出どころを調べる（読むだけ・何も書かない）═══════════════════
+// 「2500本あったのに1897本になった」ような事故の原因を、推測ではなく事実で確かめる。
+//   - いま Storage にある videos.json … 本数・保存時刻・保存した端末
+//   - 移行前の古い Firestore data/videos … 本数・その中身が今の一覧と一致するか
+//   - 手元のデータの addedAt … どの日付で追加が途切れているか
+// 古いスナップショットで上書きされていたなら、「Firestoreの中身＝いまのStorageの中身」
+// になり、addedAt もその日付でぴたりと途切れる。
+window.wkDataForensics = async function () {
+  const out = { now: {}, storage: {}, firestore: {}, verdict: '' };
+  const mem = (window.videos || []);
+  out.now.count = mem.length;
+  const dates = mem.map(v => String(v?.addedAt || '')).filter(Boolean).sort();
+  out.now.addedAtMax = dates[dates.length - 1] || '';
+  out.now.addedAtMin = dates[0] || '';
+  const byMonth = {};
+  for (const d of dates) { const m = d.slice(0, 7); byMonth[m] = (byMonth[m] || 0) + 1; }
+  out.now.byMonth = Object.entries(byMonth).sort().slice(-8);
+  out.now.source  = _videosSource;
+
+  if (!currentUser) { out.verdict = '未ログイン'; return out; }
+  const uid = currentUser.uid;
+
+  try {
+    const ref  = storage.ref(`users/${uid}/videos.json`);
+    const meta = await ref.getMetadata();
+    out.storage.size      = meta.size;
+    out.storage.updated   = meta.customMetadata?.updatedAt || meta.updated || '';
+    const resp = await fetch(await ref.getDownloadURL(), { cache: 'no-store' });
+    const json = await resp.json();
+    out.storage.count   = (json.videos || []).length;
+    out.storage.savedBy = json.savedBy || '';
+    out.storage.ids     = new Set((json.videos || []).map(v => v && v.id));
+  } catch (e) { out.storage.error = e?.code || e?.message || String(e); }
+
+  try {
+    const snap = await db.collection('users').doc(uid).collection('data').doc('videos').get();
+    const d = snap.exists ? (snap.data() || {}) : null;
+    if (!d) out.firestore.exists = false;
+    else {
+      out.firestore.exists  = true;
+      out.firestore.count   = (d.videos || []).length;
+      out.firestore.updated = d.updatedAt || '(なし)';
+      const fsIds = new Set((d.videos || []).map(v => v && v.id));
+      out.firestore.ids = fsIds;
+      if (out.storage.ids) {
+        let both = 0;
+        for (const id of fsIds) if (out.storage.ids.has(id)) both++;
+        out.firestore.sameAsStorage = (fsIds.size === out.storage.ids.size && both === fsIds.size);
+        out.firestore.overlap = both;
+      }
+    }
+  } catch (e) { out.firestore.error = e?.code || e?.message || String(e); }
+
+  if (out.firestore.sameAsStorage) {
+    out.verdict = '確定: いまStorageにあるデータは、移行前の古いFirestoreスナップショットと同一。'
+                + '通信失敗時のフォールバックが古い内容で上書きした事故。';
+  } else if (out.firestore.exists && out.firestore.count > out.storage.count) {
+    out.verdict = `古いFirestore側の方が ${out.firestore.count - out.storage.count}本 多い。`
+                + 'そちらから拾える動画がある。';
+  } else if (out.storage.error) {
+    out.verdict = 'Storageを読めなかった（' + out.storage.error + '）。通信を確認して再実行。';
+  } else {
+    out.verdict = 'Storageと古いFirestoreの中身は別物。上書き以外の原因を追う必要がある。';
+  }
+  // Set はログに出ないので数だけ残す
+  out.storage.ids = out.storage.ids ? out.storage.ids.size : 0;
+  out.firestore.ids = out.firestore.ids ? out.firestore.ids.size : 0;
+  console.log('[wkDataForensics]', JSON.stringify(out, null, 2));
+  return out;
+};
+
+// ── 移行前の古い Firestore スナップショットから、いま無い動画だけを戻す ──
+// 足すだけ。今ある動画には一切触れない（同じIDがあればそちらを優先して何もしない）。
+// 古い方にしか残っていない動画は、メモ・タグ・ブックマークごと戻る。
+window.wkRestoreFromLegacyFirestore = async function () {
+  if (!currentUser) { showToast('⚠️ ログインしてから実行してください', 5000); return { added: 0 }; }
+  const snap = await db.collection('users').doc(currentUser.uid).collection('data').doc('videos').get();
+  const old  = snap.exists ? (snap.data()?.videos || []) : [];
+  if (!old.length) { showToast('古いデータは見つかりませんでした', 5000); return { added: 0 }; }
+  const have = new Set((window.videos || []).map(v => v && v.id));
+  const miss = old.filter(v => v && v.id && !have.has(v.id));
+  if (!miss.length) { showToast(`古いデータ（${old.length}本）に、いま無い動画はありませんでした`, 6000); return { added: 0 }; }
+  if (!window.confirm(`古いデータにしか無い動画 ${miss.length}本 を一覧に戻します。\n\n今ある動画には触れません（足すだけ）。\nメモ・タグ・ブックマークもそのまま戻ります。\n\n実行しますか？`)) return { added: 0 };
+  window.videos = (window.videos || []).concat(miss);
+  window.AF?.();
+  window.renderOrg?.();
+  const ok = await saveUserData();
+  showToast(ok ? `✅ ${miss.length}本を戻しました` : '⚠️ 保存に失敗しました。もう一度お試しください', 7000);
+  return { added: miss.length, saved: ok };
+};
 
 // ═══ カスタムビュー: プレイリスト単位の別ドキュメント同期 ═══════════════════════
 // 背景: 全カスタムプレイリストを settings ドキュメント1件の customViews 配列に .set() で
