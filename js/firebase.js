@@ -352,6 +352,19 @@ export async function loadUserData(uid) {
   //   - それ以外（ネットワーク/権限エラーで未確定） → ロックのまま（空上書き防止）
   if (loaded || storageKnown) _videosReady = true;
 
+  // ── 本数の記録（この端末の localStorage のみ・表示専用）──
+  // クラウドの状態を確定できたときだけ記録する。前回より大きく減っていたら警告を出す。
+  // ここでは何も書き換えない・消さない。気づかないうちに減っていた、を無くすための観測。
+  if (loaded || storageKnown) {
+    try {
+      const drop = window.wkLogVideoCount?.((window.videos || []).length, '読込');
+      if (drop) {
+        console.warn('[loadUserData] 前回より本数が減っています:', drop.prev, '→', drop.now);
+        window.wkVideoCountWarn?.(drop);
+      }
+    } catch (e) {}
+  }
+
   if (!loaded) return;
 
   if (needsSave) await saveUserData();
@@ -406,6 +419,7 @@ export async function saveUserData() {
       cacheControl: 'no-cache, max-age=0',
       customMetadata: { updatedAt }, // 競合チェック用タイムスタンプをメタデータにも保存
     });
+    try { window.wkLogVideoCount?.(videos.length, '保存'); } catch (e) {}
     showToast('💾 保存', 1500);
     return true;
   } catch (e) {
