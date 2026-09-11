@@ -1185,6 +1185,8 @@ export function bulkDo(type){
   else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('📦 '+ids.length+'本をアーカイブ', bulkUndo);}
   else if(type==='delete'){
     window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', async () => {
+      // ユーザーが承知のうえで減らす分は保存側のガードに申告する（二重確認を避ける）
+      window._wkDeleteIntent?.(ids.length);
       window.videos = (window.videos||[]).filter(v => !ids.includes(v.id));
       window.selIds?.clear();
       closeBulkVPanel();
