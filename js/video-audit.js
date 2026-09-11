@@ -54,9 +54,14 @@
     const active   = total - archived;
     const scopeSet = window._cvVideoIds || window._cvCardVideoIds || null;
     const scoped   = scopeSet ? vids.filter(v => v && !v.archived && !scopeSet.has(v.id)).length : 0;
+    // 「画面に出ている本数」は表示中のビューで数える。
+    // シート(org)は orgFilt、カード/リストは AF が作った _vpFilteredList。
     let shown = null;
     try {
-      if (typeof window.orgFilt === 'function') shown = window.orgFilt(vids).length;
+      const isOrg = window._libViewMode === 'org';
+      if (!isOrg && Array.isArray(window._vpFilteredList)) shown = window._vpFilteredList.length;
+      else if (typeof window.orgFilt === 'function')        shown = window.orgFilt(vids).length;
+      else if (Array.isArray(window._vpFilteredList))       shown = window._vpFilteredList.length;
     } catch (e) {}
     const filtered = (shown == null) ? null : Math.max(0, active - scoped - shown);
     return { total, archived, active, scoped, shown, filtered, scopeName: window._cvActiveViewName || '' };
