@@ -48,7 +48,10 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, ha
 // ── 最小ページ（本物の organize.js / video-audit.js を読む）──
 const BARE = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>va</title></head><body>
 <div class="org-count-bar"><span id="oc"></span></div>
+<span id="rc"></span>
+<div id="cardList"></div>
 <input id="si-org" type="text">
+<input id="si" type="text">
 <select id="org-sort-sel"><option value="added-desc">added-desc</option></select>
 <div id="org-empty" style="display:none"></div>
 <div class="org-table-wrap"><table class="org-table"><thead><tr><th>Title</th></tr></thead><tbody id="orgList"></tbody></table></div>
@@ -60,9 +63,17 @@ const BARE = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>
   window.AF = () => {};
   window.debounceSave = () => {};
   window.wkFmtDur = s => '';
+  // カード表示側(AF)が呼ぶもの。描画自体はこのテストの対象ではないので素通しにする。
+  window.renderCards = () => {};
+  window.filters = { tb:new Set(), action:new Set(), position:new Set(), playlist:new Set(),
+    status:new Set(), tags:new Set(), platform:new Set(), channel:new Set(), prio:new Set() };
 <\/script>
 <script src="/js/video-audit.js"><\/script>
 <script type="module" src="/js/organize.js"><\/script>
+<script type="module">
+  import { AF } from '/js/filter.js';
+  window.AF = AF;
+<\/script>
 </body></html>`;
 await ctx.route(new RegExp(`^http://localhost:${PORT}/__bare$`), r =>
   r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: BARE }));
@@ -98,6 +109,24 @@ check('アーカイブ本数', stats.s.archived === 7, JSON.stringify(stats.s));
 check('画面に出ている本数', stats.s.shown === 20, JSON.stringify(stats.s));
 check('絞り込みで隠れている本数', stats.s.filtered === 73, JSON.stringify(stats.s));
 check('カウンタに非表示の件数が出る', /非表示\s*80本/.test(stats.ocText.replace(/\s+/g,' ')), stats.ocText);
+
+// カード表示の件数（#rc）もタップで内訳が開けるか
+const card = await page.evaluate(() => {
+  const si = document.getElementById('si-org'); if (si) si.value = '';
+  const si2 = document.getElementById('si');    if (si2) si2.value = '';
+  window._libViewMode = 'card';
+  try { window.AF(); } catch (e) { return { throw: String(e) }; }
+  const rc = document.getElementById('rc');
+  const before = !!document.getElementById('wk-va-ov');
+  rc?.click();
+  const ov = document.getElementById('wk-va-ov');
+  const shown = window.wkVideoStats().shown;
+  if (ov) ov.remove();
+  return { text: rc ? rc.textContent : '', opened: !before && !!ov, shown };
+});
+check('カード表示の件数が出る', /93\s*本\s*表示中/.test(card.text || ''), JSON.stringify(card).slice(0, 200));
+check('カード表示の件数タップで内訳が開く', card.opened === true, JSON.stringify(card).slice(0, 200));
+check('カード表示でも表示中の本数を数えられる', card.shown === 93, JSON.stringify(card).slice(0, 200));
 
 // 内訳ダイアログが開いて、数字が入っているか
 const dlg = await page.evaluate(() => {

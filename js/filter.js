@@ -505,7 +505,25 @@ export function AF() {
   window._vpFilteredList = f;
   window.renderCards(f, 'cardList');
   const total = (window.videos||[]).filter(v => !v.archived).length;
-  const rc = document.getElementById('rc'); if (rc) rc.textContent = f.length + ' 本 表示中';
+  // 件数はタップで内訳（絞り込み・アーカイブ・クラウドの中身）を開けるようにする。
+  // 表記は従来どおりのテキストノードのまま残し、非表示ぶんは別spanで添える（i18nのテンプレ訳を壊さない）。
+  const rc = document.getElementById('rc');
+  if (rc) {
+    const hidden = Math.max(0, (window.videos || []).length - f.length);
+    rc.textContent = '';
+    rc.style.cursor = 'pointer';
+    rc.title = '本数の内訳を見る';
+    const main = document.createElement('span');
+    main.textContent = f.length + ' 本 表示中';
+    rc.appendChild(main);
+    if (hidden > 0) {
+      const sub = document.createElement('span');
+      sub.style.cssText = 'margin-left:6px;color:var(--text3);opacity:.85';
+      sub.textContent = `／非表示 ${hidden}本 ⓘ`;
+      rc.appendChild(sub);
+    }
+    rc.onclick = () => window.wkVideoAuditOpen?.();
+  }
   const rct = document.getElementById('rc-topbar');
   if (rct) {
     const siEl = document.getElementById('si-lib-pc') || document.getElementById('si');
