@@ -1078,8 +1078,9 @@ function _bookmarkSectionHTML(id) {
   const bmBtnStyle = hasAB
     ? 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600;'
     : 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
-  // 自動チャプターはDrive動画のみ（Geminiに動画/字幕を読ませる経路がDrive前提のため）
-  const isGd = ((window.videos||[]).find(v => v.id === id)?.pt) === 'gdrive';
+  // 自動チャプターは Drive動画 と YouTube動画（字幕／動画をAIに読ませられるもの）
+  const _cv = (window.videos||[]).find(v => v.id === id);
+  const isGd = _cv?.pt === 'gdrive' || (_cv?.pt === 'youtube' && !!_cv?.ytId);
   const chapBtn = isGd
     ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
          style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">📑 自動チャプター</button>`
@@ -1567,6 +1568,7 @@ export function openVPanel(id) {
   if (_gdContainerClick && _gdResetContainer) { _gdResetContainer.removeEventListener('click', _gdContainerClick); }
   _gdContainerClick = null;
   _gdSubUiUnbind?.();
+  _ytSubDetach();          // YouTube字幕のオーバーレイと描画ループも止める
   _gdResetContainer?.querySelector('#vp-sub-ui')?.remove();
   _gdResetContainer?.querySelector('#vp-sub-overlay')?.remove();
   _gdSubRevoke();
@@ -1644,6 +1646,8 @@ export function openVPanel(id) {
       } else {
         _initYTPlayer('vpanel-yt-player', ytId, autoplay, () => _ytResumeFallback(resumeAt), resumeAt > 0 ? { start: resumeAt } : {});
       }
+      // この動画の字幕があれば読み込んで重ねる（無ければ何も起きない）
+      _ytSubAttach(ytId);
     }
   } else if (plat === 'x') {
     if (iframeContainer) {
@@ -1726,9 +1730,9 @@ export function openVPanel(id) {
       ? `<button id="vp-aibranch-btn-${vid}" onclick="vpAiBranch('${vid}')" title="分岐データを抽出しMemoに追記（プロトタイプ）"
            style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🌳 分岐</button>`
       : '';
-    // 字幕生成はDrive動画のみ（生成したSRTを動画と同じDriveフォルダに保存する方式のため）
-    const _subGenBtn = (_isOwner && vd?.pt === 'gdrive')
-      ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしし、字幕(SRT)をDriveの同じフォルダに保存します"
+    // 字幕生成: Driveは同じフォルダにSRTを保存、YouTubeは字幕ドキュメントに保存
+    const _subGenBtn = (_isOwner && (vd?.pt === 'gdrive' || (vd?.pt === 'youtube' && vd?.ytId)))
+      ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
            style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
       : '';
     const _escD = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2085,6 +2089,7 @@ export function closeVPanel() {
     if (_gdContainerClick && _gdCloseContainer) { _gdCloseContainer.removeEventListener('click', _gdContainerClick); }
     _gdContainerClick = null;
     _gdSubUiUnbind?.();
+    _ytSubDetach();          // YouTube字幕のオーバーレイと描画ループも止める
     _gdCloseContainer?.querySelector('#vp-sub-ui')?.remove();
     _gdCloseContainer?.querySelector('#vp-sub-overlay')?.remove();
     _gdSubRevoke();
@@ -3159,6 +3164,449 @@ function _gdSubMountButton(container) {
   _gdSubUiPoke();
 }
 
+// ═══ YouTube動画の字幕 ═══════════════════════════════════════════
+// Drive動画と違い、YouTubeには「動画と同じフォルダに置いたSRT」も、音声だけを
+// 取り出してASRに掛ける手段も無い（再生はYouTubeのiframeの中で起きる）。そこで:
+//   生成 … Gemini に YouTube の URL を渡して書き起こさせる（Driveの「AIに見せる」
+//          方式と同じ経路。長尺では時刻がズレることがあるのも同じ）
+//   保存 … Firestore の users/<uid>/data/ytsub_<ytId>（1動画＝1ドキュメント）
+//   表示 … iframe の上に自前のオーバーレイを重ね、YT.Player の再生位置で描く
+//
+// 【データ設計と安全方針】
+//  - videos ドキュメント（全動画が1つの塊で入る）には絶対に書かない。字幕は1本で
+//    数万文字あり、そこへ入れると保存のたび全体が膨らんで Firestore の1MB上限に
+//    近づく＝全動画の保存が丸ごと落ちる事故になりうる。だから動画1本ごとに
+//    独立したドキュメントへ分ける（プレイヤー位置 data/playback と同じ考え方）。
+//  - 書き込みは常に { merge:true } で tracks.<言語> のキーだけを触る。他の言語も
+//    他端末が作った字幕も消さない。字幕を削除する経路はそもそも作らない。
+//  - 空・壊れたSRTは保存しない（_looksLikeSrt を通らないものは書き込み前に弾く）。
+//  - 読み込みに失敗しても「字幕が出ない」だけ。既存データには一切触れない。
+const YT_SUB_PREFIX   = 'ytsub_';
+const YT_SUB_PREF_KEY = 'wk_ytSubLang';   // 'off' | 'ja' | 'orig'（端末ローカルのみ・同期しない）
+const _ytSubDocs = new Map();             // ytId -> ドキュメントの中身 | null（読んだが無い）
+
+function _ytSubRef(ytId) {
+  const uid = window._firebaseCurrentUser?.()?.uid;
+  if (!uid || !ytId || !window.firebase?.firestore) return null;
+  try {
+    return window.firebase.firestore()
+      .collection('users').doc(uid).collection('data').doc(YT_SUB_PREFIX + ytId);
+  } catch (e) { return null; }
+}
+
+async function _ytSubFetch(ytId, force) {
+  if (!ytId) return null;
+  if (!force && _ytSubDocs.has(ytId)) return _ytSubDocs.get(ytId);
+  const ref = _ytSubRef(ytId);
+  if (!ref) return null;
+  try {
+    const snap = await ref.get();
+    const d = snap.exists ? (snap.data() || null) : null;
+    _ytSubDocs.set(ytId, d);
+    return d;
+  } catch (e) {
+    // 失敗を「字幕なし」として覚えない（覚えるとリロードするまで永久に出なくなる）
+    console.warn('[ytsub] 読込に失敗:', e?.message || e);
+    return null;
+  }
+}
+
+// 保存。tracks.<言語> のキーだけを足す／差し替える。他は触らない。
+// Firestoreの1ドキュメントは1MBまで。2時間の教則でも日本語字幕は150KB程度なので
+// 通常は当たらないが、当たると保存が丸ごと失敗するので手前で分かる形で止める。
+const YT_SUB_MAX_CHARS = 700000;
+
+async function _ytSubStore(ytId, lang, srt, meta) {
+  if (!_looksLikeSrt(srt)) throw new Error('字幕として成立していないため保存を中止しました');
+  if (srt.length > YT_SUB_MAX_CHARS) throw new Error('字幕が大きすぎて保存できません');
+  const ref = _ytSubRef(ytId);
+  if (!ref) throw new Error('ログインが必要です');
+  const entry = { srt, chars: srt.length, updatedAt: new Date().toISOString(), ...(meta || {}) };
+  await ref.set({ ytId, tracks: { [lang]: entry }, updatedAt: entry.updatedAt }, { merge: true });
+  const cur = _ytSubDocs.get(ytId) || {};
+  _ytSubDocs.set(ytId, { ...cur, ytId, tracks: { ...(cur.tracks || {}), [lang]: entry } });
+  return entry;
+}
+
+const _ytSubLangLabel = (lang, e) =>
+  lang === 'orig' ? (e?.srcLang ? _langLabel(e.srcLang) : '原語') : _langLabel(lang);
+
+// ドキュメント → 表示・利用できる字幕の一覧（日本語を先頭に）
+function _ytSubList(doc) {
+  const tr = (doc && doc.tracks && typeof doc.tracks === 'object') ? doc.tracks : {};
+  return Object.entries(tr)
+    .filter(([, e]) => e && typeof e.srt === 'string' && _looksLikeSrt(e.srt))
+    .map(([lang, e]) => ({ lang, label: _ytSubLangLabel(lang, e), srt: e.srt,
+                           via: e.via || '', updatedAt: e.updatedAt || '' }))
+    .sort((a, b) => (b.lang === 'ja') - (a.lang === 'ja'));
+}
+
+// ── 表示（iframeの上に重ねる）────────────────────────────────
+// YouTubeのプレイヤーはiframeの中なので <track> は使えない。再生位置を
+// YT.Player から読み、いま出すべきキューを自分で選んで描く。
+// 整形（折り返し・最短/最長表示・位置）はDrive字幕と同じ _reflowVtt を通すので、
+// 設定画面の見た目の設定がそのまま効く。
+let _ytSubId       = null;   // いま字幕を載せているYouTube動画のID
+let _ytSubTracks   = [];     // [{lang,label,srt,rawVtt,cues}]
+let _ytSubIndex    = -1;
+let _ytSubRaf      = null;
+let _ytSubLastTick = 0;
+let _ytSubLastHtml = '';
+let _ytSubToken    = 0;      // 非同期の取得が古くなったかの判定用
+let _ytSubHostEl   = null;   // オーバーレイを置いている器（毎フレーム探し直さない）
+
+function _ytSubPref() { try { return localStorage.getItem(YT_SUB_PREF_KEY) || ''; } catch (e) { return ''; } }
+// 覚えるのはCCボタンを押した時だけ。内部都合の付け外しで 'off' を焼き付けない
+// （Drive字幕で実際にそれが起きて、全動画で字幕が出なくなったことがある）。
+function _ytSubSetPref(v) { try { localStorage.setItem(YT_SUB_PREF_KEY, v); } catch (e) {} }
+
+// オーバーレイを置く器。スマホとPCでプレイヤーの入れ物が違ううえ、
+// YT.Player は指定した div を iframe に置き換えるので、その親を使う。
+function _ytSubHost() {
+  if (_ytSubHostEl && _ytSubHostEl.isConnected) return _ytSubHostEl;
+  const el = _vpPlayerEl();
+  if (!el) return null;
+  // YT.Player は指定した div を iframe に置き換えるので、その親を器として使う
+  _ytSubHostEl = (el.tagName === 'IFRAME') ? el.parentElement : el;
+  return _ytSubHostEl || null;
+}
+
+function _ytSubDetach() {
+  _ytSubToken++;
+  if (_ytSubRaf) { cancelAnimationFrame(_ytSubRaf); _ytSubRaf = null; }
+  for (const id of ['vp-sub-overlay', 'vp-sub-ui']) {
+    document.querySelectorAll('#' + id).forEach(el => {
+      // Drive再生中のものは触らない（YouTubeとDriveが同時に動くことはないが、
+      // 切替の途中で両方がDOMに居る瞬間はありうる）
+      if (_gdContainer && _gdContainer.contains(el)) return;
+      el.remove();
+    });
+  }
+  _ytSubId = null; _ytSubTracks = []; _ytSubIndex = -1;
+  _ytSubLastHtml = null; _ytSubHostEl = null;
+}
+
+// 設定変更・タイミング補正のあとに整形だけやり直す（取得はし直さない）
+function _ytSubReflowTracks() {
+  const o   = subOpts();
+  const off = _subOffsetGet(_ytSubId);
+  for (const t of _ytSubTracks) t.cues = _parseVtt(_reflowVtt(t.rawVtt, o, off));
+}
+
+async function _ytSubAttach(ytId) {
+  try { await _ytSubAttachInner(ytId); }
+  // 字幕は「あれば嬉しい」もの。ここで転んでも再生そのものは止めない。
+  catch (e) { console.warn('[ytsub] 表示の準備に失敗:', e?.message || e); }
+}
+
+async function _ytSubAttachInner(ytId) {
+  _ytSubDetach();
+  const my = ++_ytSubToken;
+  if (!ytId) return;
+  const doc  = await _ytSubFetch(ytId);
+  if (my !== _ytSubToken) return;               // その間に別の動画へ移った
+  const list = _ytSubList(doc);
+  if (!list.length) return;
+  // パネルが開ききる前だとプレイヤーの器が測れない（幅0）。一度だけ待って取り直す。
+  _ytSubHostEl = null;
+  let host = _ytSubHost();
+  if (!host) {
+    await new Promise(r => setTimeout(r, 400));
+    if (my !== _ytSubToken) return;
+    host = _ytSubHost();
+  }
+  if (!host) return;
+
+  _ytSubId = ytId;
+  _ytSubTracks = list.map(t => ({ ...t, rawVtt: _srtToVtt(t.srt), cues: [] }));
+  _ytSubReflowTracks();
+
+  const pref = _ytSubPref();
+  let idx = pref === 'off' ? -1 : _ytSubTracks.findIndex(t => t.lang === pref);
+  if (pref !== 'off' && idx < 0) idx = 0;
+  _ytSubIndex = idx;
+
+  _ytSubMountButton(host);
+  _ytSubStartLoop();
+}
+
+// 生成直後など、いま開いている動画の字幕を読み直して載せ直す
+async function _ytSubRefreshNow(ytId) {
+  if (!ytId) return;
+  await _ytSubFetch(ytId, true);
+  await _ytSubAttach(ytId);
+}
+
+function _ytSubOverlayEl(create) {
+  const host = _ytSubHost();
+  if (!host) return null;
+  let el = host.querySelector('#vp-sub-overlay');
+  if (!el && create) {
+    // div にすると `#vpanel-iframe-container > div` の !important 指定に
+    // 巻き込まれて全画面に広がるので span を使う
+    el = document.createElement('span');
+    el.id = 'vp-sub-overlay';
+    host.appendChild(el);
+  }
+  return el;
+}
+
+// いまの再生位置に対応するキュー（無ければ null）
+function _ytSubCueAt(cues, t) {
+  let lo = 0, hi = cues.length - 1, idx = -1;
+  while (lo <= hi) {
+    const m = (lo + hi) >> 1;
+    if (cues[m].start <= t) { idx = m; lo = m + 1; } else hi = m - 1;
+  }
+  if (idx < 0) return null;
+  const c = cues[idx];
+  return (t <= c.end) ? c : null;
+}
+
+function _ytSubPaint(text) {
+  const want = String(text || '');
+  // 出すものが無いのに器だけ作らない（字幕OFFのときに空のspanを置かない）
+  const el = _ytSubOverlayEl(!!want);
+  if (!el) return;
+  const o     = subOpts();
+  const scale = _gdSubClamp(o.fontScale, 0.3, 3, SUB_OPTS_DEFAULT.fontScale);
+  const bg    = _gdSubClamp(o.bgOpacity, 0, 1, SUB_OPTS_DEFAULT.bgOpacity);
+  const h  = _ytSubHost()?.clientHeight || 0;
+  const px = Math.max(9, Math.round((h > 0 ? h * 0.052 : 14) * scale));
+  // YouTubeのコントロールバーと重ならないよう、Drive字幕より少し上に置く
+  el.style.cssText = 'position:absolute;left:0;right:0;z-index:4;pointer-events:none;'
+    + (o.position === 'top' ? 'top:5%;' : 'bottom:12%;')
+    + 'display:flex;flex-direction:column;align-items:center;gap:2px;'
+    + 'padding:0 4%;box-sizing:border-box;text-align:center;'
+    + `font-size:${px}px;line-height:1.35;`;
+
+  const esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const html = want.split('\n').filter(l => l.trim()).map(l =>
+    `<span style="display:inline-block;background:rgba(0,0,0,${bg});color:#fff;`
+    + `padding:0 .3em;border-radius:2px;text-shadow:0 1px 2px rgba(0,0,0,.85);`
+    + `white-space:pre-wrap">${esc(l)}</span>`).join('');
+  if (html !== _ytSubLastHtml) { el.innerHTML = html; _ytSubLastHtml = html; }
+}
+
+function _ytSubTick() {
+  _ytSubRaf = requestAnimationFrame(_ytSubTick);
+  const now = performance.now();
+  if (now - _ytSubLastTick < 100) return;       // 1秒に10回で十分（字幕の粒度は秒）
+  _ytSubLastTick = now;
+  if (!_ytSubTracks.length) return;
+  const t = _ytSubTracks[_ytSubIndex];
+  if (_ytSubIndex < 0 || !t || !t.cues.length) { _ytSubPaint(''); return; }
+  let sec = NaN;
+  try { sec = Number(_ytPlayer?.getCurrentTime?.()); } catch (e) {}
+  if (!Number.isFinite(sec)) return;
+  const cue = _ytSubCueAt(t.cues, sec);
+  _ytSubPaint(cue ? cue.text : '');
+}
+
+function _ytSubStartLoop() {
+  if (_ytSubRaf) cancelAnimationFrame(_ytSubRaf);
+  _ytSubLastTick = 0;
+  _ytSubRaf = requestAnimationFrame(_ytSubTick);
+}
+
+function _ytSubSelect(idx, persist) {
+  _ytSubIndex = idx;
+  if (persist && _ytSubTracks.length) _ytSubSetPref(idx < 0 ? 'off' : (_ytSubTracks[idx]?.lang || ''));
+  // null にして「前回と同じだから描き直さない」判定を必ず外す。
+  // '' を入れると、消したいのに「前回も空」とみなされて前の字幕が残る。
+  _ytSubLastHtml = null;
+  _ytSubPaint('');
+  _ytSubPaintButton();
+}
+
+function _ytSubPaintButton() {
+  const btn = document.getElementById('vp-sub-btn');
+  if (!btn || !_ytSubTracks.length) return;
+  const on  = _ytSubIndex >= 0;
+  const cur = _ytSubTracks[_ytSubIndex];
+  btn.textContent = (on && _ytSubTracks.length > 1) ? `CC ${cur?.label || ''}` : 'CC';
+  // 映像の上に重なるためテーマ変数は使わない（ライトモードで読めなくなる）
+  btn.style.background  = on ? 'rgba(255,255,255,.92)' : 'rgba(0,0,0,.6)';
+  btn.style.color       = on ? '#111'                  : 'rgba(255,255,255,.85)';
+  btn.style.borderColor = on ? '#fff'                  : 'rgba(255,255,255,.5)';
+  btn.title = _ytSubTracks.length > 1
+    ? `字幕を切替（${_ytSubTracks.map(t => t.label).join(' / ')}）`
+    : `字幕: ${cur?.label || _ytSubTracks[0]?.label || ''}`;
+}
+
+function _ytSubMountButton(host) {
+  if (!host) return;
+  host.querySelector('#vp-sub-ui')?.remove();
+  const wrap = document.createElement('span');
+  wrap.id = 'vp-sub-ui';
+  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
+    + 'opacity:1;transition:opacity .25s ease';
+  const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
+    + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
+
+  const btn = document.createElement('button');
+  btn.id = 'vp-sub-btn'; btn.type = 'button';
+  btn.style.cssText = baseBtn;
+  btn.addEventListener('pointerdown', e => { e.stopPropagation(); });
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    // OFF → 1つ目 → 2つ目 → … → OFF と巡回
+    const next = _ytSubIndex + 1 >= _ytSubTracks.length ? -1 : _ytSubIndex + 1;
+    _ytSubSelect(next, true);   // 押した時だけ覚える
+  });
+
+  const gear = document.createElement('button');
+  gear.id = 'vp-sub-gear'; gear.type = 'button';
+  gear.textContent = '⚙';
+  gear.title = '字幕の調整';
+  gear.style.cssText = baseBtn + ';background:rgba(0,0,0,.6);color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.5)';
+  gear.addEventListener('pointerdown', e => { e.stopPropagation(); });
+  gear.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); _gdSubOpenPanel(gear); });
+
+  wrap.appendChild(btn); wrap.appendChild(gear);
+  host.appendChild(wrap);
+  _ytSubPaintButton();
+  // Drive字幕のように「触っている間だけ出す」ことはできない。プレイヤーがiframeの
+  // 中なので、その上でのマウス移動やタップはこちらのページに届かず、一度隠すと
+  // 二度と出せなくなる。そこでYouTubeでは出しっぱなしにし、
+  // スクショの時だけ _captureScreenFrame が一時的に隠す。
+}
+
+// 設定・補正の変更を反映（Drive側の _gdSubReapply と対になるもの）
+function _ytSubReapply() {
+  if (!_ytSubTracks.length) return;
+  _ytSubReflowTracks();
+  _ytSubLastHtml = null;   // 次のtickで必ず描き直す
+  _ytSubLastTick = 0;
+}
+
+// いま字幕を表示している再生位置キー（Driveなら fileId、YouTubeなら ytId）。
+// タイミング補正はこのキーごとに端末内へ持つ。
+function _subCurKey() { return _gdFileId || _ytSubId || null; }
+function _subReapplyAll() { _gdSubReapply(); _ytSubReapply(); }
+
+// ── SRTを訳し直す（時刻は元のまま）────────────────────────────
+// 書き起こしをやり直さずに言語だけ変える共通部分。Drive（_retranslateFromSrt）と
+// YouTubeの両方から使う。時刻は元の字幕のものをそのまま使うので、
+// 翻訳がどう転んでもタイミングは壊れない。
+async function _translateSrtText(srcText, want, setBtn) {
+  const o    = subOpts();
+  const cues = _parseVtt(_srtToVtt(srcText));
+  if (!cues.length) throw new Error('字幕を読み取れませんでした');
+  const groups = _sentencesFromCues(cues);
+  const cap    = (want === 'ja' || want === 'zh' || want === 'ko')
+    ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
+
+  const tr = await _translateItems(
+    groups.map(g => ({
+      text: g.text,
+      sec:  cues[g.idx[g.idx.length - 1]].end - cues[g.idx[0]].start,
+    })),
+    want, _subGenPayload(), (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
+  if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
+
+  const outCues = [];
+  groups.forEach((g, k) => {
+    if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
+  });
+  if (!outCues.length) throw new Error('翻訳できませんでした');
+  const srt = _srtJoin(outCues.map(c => ({
+    tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
+    text: c.text,
+  })));
+  // 最後の砦: 字幕として成立していないものは保存に回さない
+  if (!_looksLikeSrt(srt)) throw new Error('作った字幕が壊れています（保存を中止しました）');
+  return { srt, cost: tr.cost, cues: outCues.length, missing: tr.missing.length, error: tr.error };
+}
+
+// ── YouTube動画の字幕を作る ──────────────────────────────────
+// 入り口は Drive と同じ vpGenSubtitle。作り方だけがここ。
+//   1) 同じ言語の字幕がすでにあるなら、作り直すか必ず確認する（黙って壊さない）
+//   2) 別の言語の字幕があるなら、それを訳すだけで済ませられる（安いうえ時刻が正確）
+//   3) どちらも無ければ Gemini に動画を読ませて書き起こす
+async function _ytGenSubtitle(v, preset, btn, silent, t0) {
+  const ytId   = v.ytId;
+  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
+  if (!subLang) return { ok: false, skipped: true };
+
+  const user = window._firebaseCurrentUser?.();
+  if (!user) throw new Error('ログインが必要です');
+
+  setBtn('⏳ 確認中…');
+  // 生成してから保存できないと分かるのが最悪（課金だけして成果物が消える）。
+  // 先に同じ場所へ小さく書いて、保存できることを確かめておく。
+  // 書くのは目印だけで、既存の字幕（tracks）には触れない。
+  const ref = _ytSubRef(ytId);
+  if (!ref) throw new Error('ログインが必要です');
+  try {
+    await ref.set({ ytId, checkedAt: new Date().toISOString() }, { merge: true });
+  } catch (e) {
+    throw new Error('字幕の保存先に書き込めませんでした（' + (e?.message || e) + '）。生成は行っていません');
+  }
+
+  const have  = _ytSubList(await _ytSubFetch(ytId, true));
+  const same  = have.find(t => t.lang === subLang);
+  const other = have.find(t => t.lang !== subLang);
+
+  if (same) {
+    if (preset) { if (preset.existing !== 'replace') return { ok: false, skipped: true, target: same.label }; }
+    else if (!confirm(`この動画にはすでに${same.label}の字幕があります。\n作り直しますか？`)) {
+      return { ok: false, skipped: true, target: same.label };
+    }
+  }
+
+  const idToken = await user.getIdToken();
+  let srt = '', cost = 0, via = 'gemini', note = '';
+
+  // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
+  const canTranslate = !same && other && subLang !== 'orig';
+  if (canTranslate && (preset ? preset.translate !== false
+        : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）`))) {
+    setBtn('⏳ 翻訳中…');
+    const r = await _translateSrtText(other.srt, subLang, setBtn);
+    srt = r.srt; cost = r.cost; via = 'translate:' + other.lang;
+    if (r.missing) note = `（${r.missing}行は訳せず原文のまま）`;
+  } else {
+    // 動画をGeminiに読ませて書き起こす
+    setBtn('⏳ 生成中…');
+    const res = await fetch('/api/ai-summary', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idToken, mode: 'subtitle', subLang, subOpts: _subGenPayload(), source: 'youtube',
+        ytId, durationSec: Number(v.duration) || 0,
+        title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok || !d.summary) {
+      throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
+    }
+    srt = _cleanSrt(d.summary);
+    if (!_looksLikeSrt(srt)) throw new Error('SRT形式で返ってきませんでした。もう一度お試しください');
+    cost = Number(d.costUsd) || 0;
+    if (d.usage) console.log('[ytsub] tokens:', d.usage, '/ 概算 $', d.costUsd, '/', d.diag || '');
+  }
+
+  setBtn('⏳ 保存中…');
+  await _ytSubStore(ytId, subLang, srt, { via, srcLang: subLang === 'orig' ? '' : subLang });
+  // 新しい字幕に古いズレ補正を持ち越さない（端末内の値だけ・他端末には波及しない）
+  _subOffsetSet(ytId, 0);
+
+  const costStr = cost ? ` · $${cost.toFixed(3)}` : '';
+  if (!silent) {
+    window.toast?.(`✅ 字幕を作成しました（${_langLabel(subLang) || subLang}${costStr}）`);
+    _subGenShowResult(v.id, true,
+      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
+  }
+  // 再生中ならその場で載せ直す（ここで転んでも保存は済んでいるので成功として返す）
+  if (window.openVPanelId === v.id || window.openPlayer === v.id) {
+    try { await _ytSubRefreshNow(ytId); }
+    catch (e) { console.warn('[ytsub] 表示の更新に失敗:', e?.message || e); }
+  }
+  return { ok: true, target: _ytSubLangLabel(subLang), cost };
+}
+
 // ── 字幕の自動生成（Gemini でSRTを作り、動画と同じDriveフォルダに保存）──
 // 生成本体は既存の /api/ai-summary（mode:'subtitle'）を再利用する。
 // 保存先は動画と同じフォルダの「動画名.ja.srt」/「動画名.srt」で、
@@ -3756,10 +4204,34 @@ window.vpGenSubtitle = async function(id, preset) {
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
 
   const v = (window.videos || []).find(x => x.id === id);
-  if (!v || v.pt !== 'gdrive') return fail('Google Drive の動画のみ対応しています');
+  const isYt = !!(v && v.pt === 'youtube' && v.ytId);
+  if (!v || (v.pt !== 'gdrive' && !isYt)) return fail('YouTube または Google Drive の動画のみ対応しています');
 
   const user = window._firebaseCurrentUser?.();
   if (!user) return fail('ログインが必要です');
+
+  // YouTubeは保存先も作り方も違うので、専用の経路に分ける（Drive経路には触れない）
+  if (isYt) {
+    const ytBtn = preset ? null : document.getElementById('vp-subgen-' + id);
+    const ytOrig = ytBtn ? ytBtn.textContent : '';
+    const _t0y = Date.now();
+    window.wkAiBusyBegin();
+    try {
+      return await _ytGenSubtitle(v, preset, ytBtn, silent, _t0y);
+    } catch (e) {
+      console.warn('[ytsub] 生成失敗:', e);
+      if (!silent) {
+        window.toast?.('⚠️ 字幕の生成に失敗: ' + (e?.message || e), 9000);
+        _subGenShowResult(id, false, '字幕の生成に失敗: ' + (e?.message || e)
+          + ' / ' + Math.round((Date.now() - _t0y) / 1000) + '秒経過');
+      }
+      return { ok: false, error: (e?.message || String(e)) };
+    } finally {
+      window.wkAiBusyEnd();
+      if (ytBtn) { ytBtn.disabled = false; ytBtn.style.opacity = ''; ytBtn.textContent = ytOrig; }
+    }
+  }
+
   const gdToken = window.getDriveTokenIfAvailable?.();
   if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
@@ -4494,14 +4966,17 @@ window.vpGenChapters = async function(id, preset) {
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
 
   const v = (window.videos || []).find(x => x.id === id);
-  if (!v || v.pt !== 'gdrive') return fail('Google Drive の動画のみ対応しています');
+  const isYt = !!(v && v.pt === 'youtube' && v.ytId);
+  const isGd = !!(v && v.pt === 'gdrive');
+  if (!v || (!isGd && !isYt)) return fail('YouTube または Google Drive の動画のみ対応しています');
 
   const user = window._firebaseCurrentUser?.();
   if (!user) return fail('ログインが必要です');
-  const gdToken = window.getDriveTokenIfAvailable?.();
-  if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
+  // Driveの認証が要るのはDrive動画だけ（YouTubeは字幕もURLもDriveを経由しない）
+  const gdToken = isGd ? window.getDriveTokenIfAvailable?.() : null;
+  if (isGd && !gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
-  const fileId = (v.id || '').replace(/^gd-/, '');
+  const fileId = isGd ? (v.id || '').replace(/^gd-/, '') : '';
   const btn  = preset ? null : document.getElementById('vp-chapgen-' + id);
   const orig = btn ? btn.textContent : '';
   const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
@@ -4510,7 +4985,10 @@ window.vpGenChapters = async function(id, preset) {
   try {
     // 1. 字幕があるか先に調べて、入り口を選ばせる
     setBtn('⏳ 確認中…');
-    const subs = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+    // 字幕の在りか: Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント
+    const subs = isGd
+      ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
+      : _ytSubList(await _ytSubFetch(v.ytId, true));
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
     const via = preset ? (preset.via || (subs.length ? 'sub' : 'video'))
@@ -4525,7 +5003,13 @@ window.vpGenChapters = async function(id, preset) {
     if (via === 'list' && !input) return { ok: false, skipped: true };
 
     // 細かさの説明は動画の長さで変わるので、先に尺を出しておく
-    const duration = Number(v.duration) || (_gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
+    let duration = Number(v.duration) || (isGd && _gdFileId === fileId ? Number(_gdVideoEl?.duration) || 0 : 0);
+    if (!duration && isYt) { try { duration = Number(_ytPlayer?.getDuration?.()) || 0; } catch (e) {} }
+
+    // 動画そのものをAIに読ませる時の宛先。Driveはファイル、YouTubeはURLを渡す。
+    const videoSrc = isGd
+      ? { source: 'gdrive', gdFileId: fileId, accessToken: gdToken }
+      : { source: 'youtube', ytId: v.ytId, durationSec: duration || 0 };
 
     let pickedGrain = preset?.grain;
     if (!preset && via !== 'list') {
@@ -4542,7 +5026,9 @@ window.vpGenChapters = async function(id, preset) {
     let cues = [], transcript = '', clipped = false;
     const loadTranscript = async () => {
       if (transcript) return transcript;
-      const tr = _vttToTranscript(await _chapGetVtt(fileId, gdToken, subs), CHAP_TR_MAX);
+      const vtt = isGd ? await _chapGetVtt(fileId, gdToken, subs)
+                       : (subs[0]?.srt ? _srtToVtt(subs[0].srt) : '');
+      const tr = _vttToTranscript(vtt, CHAP_TR_MAX);
       cues = tr.cues; clipped = tr.clipped; transcript = tr.text;
       return transcript;
     };
@@ -4592,8 +5078,7 @@ window.vpGenChapters = async function(id, preset) {
           const useSub = subs.length > 0 && !!(await loadTranscript());
           const r2 = useSub
             ? await post({ idToken, mode: 'chapters', source: 'transcript', transcript, chapOpts, ...ctxFields })
-            : await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
-                           accessToken: gdToken, chapOpts, ...ctxFields });
+            : await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts, ...ctxFields });
           cost += Number(r2.d.costUsd) || 0;
           const merged = _chapMergeAligned(conv.titles, r2.parsed?.items);
           chaps   = useSub ? _snapChapters(merged.chaps, cues) : merged.chaps;
@@ -4621,8 +5106,7 @@ window.vpGenChapters = async function(id, preset) {
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
 
       } else {
-        const r = await post({ idToken, mode: 'chapters', source: 'gdrive', gdFileId: fileId,
-                               accessToken: gdToken, chapOpts: freeOpts, ...ctxFields });
+        const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
         chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
         noteSrc = '動画から検出';
@@ -4706,24 +5190,25 @@ window.wkSubOptSet = function(key, value) {
   _subOptsSave(o);
   _gdSubRenderCues();
   // 生成設定(gen*)は次回の生成にだけ効くので整形はやり直さない
-  if (!/^gen/.test(key)) _gdSubReapply();
+  if (!/^gen/.test(key)) _subReapplyAll();
   window.wkSubOptsRender();
 };
 
 window.wkSubOptsReset = function() {
   try { localStorage.removeItem(SUB_OPTS_KEY); } catch(e) {}
   _gdSubRenderCues();
-  _gdSubReapply();
+  _subReapplyAll();
   window.wkSubOptsRender();
   window.toast?.('字幕設定を既定値に戻しました');
 };
 
 // 動画ごとのタイミング補正
 window.wkSubOffsetNudge = function(delta) {
-  if (!_gdFileId) return;
-  const next = Math.round((_subOffsetGet(_gdFileId) + delta) * 10) / 10;
-  _subOffsetSet(_gdFileId, next);
-  _gdSubReapply();
+  const key = _subCurKey();
+  if (!key) return;
+  const next = Math.round((_subOffsetGet(key) + delta) * 10) / 10;
+  _subOffsetSet(key, next);
+  _subReapplyAll();
   window.wkSubOptsRender();
 };
 
@@ -4752,14 +5237,18 @@ function _subRange(key, cur, min, max, step, fmt) {
 // 実際に当たっているCSSと、字幕が表示状態かをそのまま出す。
 function _subCueDiag() {
   const o  = subOpts();
-  const el = _gdContainer && _gdContainer.querySelector('#vp-sub-overlay');
+  // Drive（<video>＋track）と YouTube（自前オーバーレイ）で見るところが違う
+  const yt = !_gdVideoEl && _ytSubTracks.length > 0;
+  const el = yt ? (_ytSubHost() && _ytSubHost().querySelector('#vp-sub-overlay'))
+                : (_gdContainer && _gdContainer.querySelector('#vp-sub-overlay'));
   const tt = _gdVideoEl && _gdVideoEl.textTracks;
   let active = 0, total = 0;
-  if (tt) { total = tt.length; for (let i = 0; i < tt.length; i++) if (tt[i].mode !== 'disabled') active++; }
+  if (yt) { total = _ytSubTracks.length; active = _ytSubIndex >= 0 ? 1 : 0; }
+  else if (tt) { total = tt.length; for (let i = 0; i < tt.length; i++) if (tt[i].mode !== 'disabled') active++; }
   return `<div style="font-size:9.5px;color:var(--text3);line-height:1.7;font-family:'DM Mono',monospace;
       background:var(--surface2);border-radius:6px;padding:5px 7px">
       設定値 背景 ${_gdSubClamp(o.bgOpacity, 0, 1, 0.72)} ／ 文字 ${_gdSubClamp(o.fontScale, 0.3, 3, 1)}倍<br>
-      表示欄 ${el ? el.childElementCount : 0}行 ／ 動画 ${_gdVideoEl ? 'あり' : 'なし'}<br>
+      表示欄 ${el ? el.childElementCount : 0}行 ／ 動画 ${yt ? 'YouTube' : (_gdVideoEl ? 'あり' : 'なし')}<br>
       字幕トラック ${total}本（有効 ${active}本）
     </div>`;
 }
@@ -4809,7 +5298,18 @@ function _subOptsHTML(scope) {
           </div>`).join('')
         + `<div style="font-size:10.5px;color:var(--text3)">動画本体は削除されません。Driveのゴミ箱から元に戻せます。</div>`;
     }
-    const off = _subOffsetGet(_gdFileId);
+    // YouTube動画の字幕（ファイルではなく字幕ドキュメントに入っている）
+    if (!_gdSubTracks.length && _ytSubTracks.length) {
+      html += sec('この動画の字幕')
+        + _ytSubTracks.map(t => `<div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11.5px;font-weight:600">${t.label}</div>
+              <div style="font-size:10px;color:var(--text3)">${t.via === 'gemini' ? 'AIが動画から作成' : (String(t.via || '').startsWith('translate') ? '既存の字幕から翻訳' : '')}${t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : ''}</div>
+            </div>
+          </div>`).join('')
+        + `<div style="font-size:10.5px;color:var(--text3)">作り直すときは「💬 字幕生成」を押してください</div>`;
+    }
+    const off = _subOffsetGet(_subCurKey());
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -4848,10 +5348,11 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">字幕が音より早いならマイナス、遅いならプラス</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${btn('リセット', 'wkSubOffsetReset()')}
-          ${off ? btn('💾 この補正をDriveに保存', 'wkSubBakeOffset()') : ''}
-          ${btn('🔄 読み直す', 'wkSubReload()')}
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${_gdSubTracks.length && off ? btn('💾 この補正をDriveに保存', 'wkSubBakeOffset()') : ''}
+          ${_gdSubTracks.length ? btn('🔄 読み直す', 'wkSubReload()') : ''}
+        </div>`
+      // ここから下はDriveのファイルを直接いじる操作なので、Drive動画のときだけ出す
+      + (_gdSubTracks.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">
           <button id="vp-sub-retr" onclick="wkSubRetranslate()"
             style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);
                    background:transparent;color:var(--text2);cursor:pointer">🌐 翻訳だけやり直す</button>
@@ -4862,13 +5363,14 @@ function _subOptsHTML(scope) {
         </div>
         <div style="font-size:10.5px;color:var(--text3)">
           補正はこの端末だけに残ります。他の端末にも反映するにはDriveに保存してください
-        </div>`;
+        </div>` : `<div style="font-size:10.5px;color:var(--text3)">補正はこの端末だけに残ります</div>`);
   }
 
   if (scope === 'full') {
     html += sec('生成の設定（変更すると再生成が必要 ＝ コストがかかります）')
       + _subRow('エンジン', '音声認識は時刻を音から実測するのでズレません。AIに見せる方式は長尺で時刻が壊れます',
-                _subSeg('genEngine', o.genEngine, [['asr','音声認識'],['gemini','AIに見せる']]))
+                _subSeg('genEngine', o.genEngine, [['asr','音声認識'],['gemini','AIに見せる']])
+                + `<div style="font-size:10.5px;color:var(--text3);margin-top:4px">YouTubeの動画は音声だけを取り出せないため、この設定にかかわらず「AIに見せる」方式になります</div>`)
       + _subRow('出力言語', '「原語のまま」は話されている言語で文字起こし', _subSeg('genLang', o.genLang, langChoices))
       + _subRow('文体', '', _subSeg('genStyle', o.genStyle, [['desu','ですます調'],['dearu','である調']]))
       + _subRow('起こし方', '意訳のほうが字幕としては読みやすい', _subSeg('genVerbatim', o.genVerbatim, [['natural','意訳して短く'],['verbatim','逐語']]))
@@ -4937,7 +5439,7 @@ window.wkSubAutoFix = function() {
   const sh = _gdSubSuggestOffset();
   if (sh == null) { window.toast?.('自動で直せるズレは見つかりませんでした'); return; }
   _subOffsetSet(_gdFileId, sh);
-  _gdSubReapply();
+  _subReapplyAll();
   window.wkSubOptsRender();
   window.toast?.(`⏱ ${sh}秒ずらしました`);
 };
@@ -4945,24 +5447,33 @@ window.wkSubAutoFix = function() {
 // いま画面に出ている字幕を、いまの再生位置に合わせる。
 // 一定量ズレている場合はこれ1回で合う。
 window.wkSubSyncNow = function() {
+  // いま出ているキューの開始時刻と、いまの再生位置。DriveとYouTubeで取り方が違う。
+  let start = null, now = NaN;
   const t  = _gdSubTracks[_gdSubIndex];
   const tt = t && t.track && t.track.track;
-  const now = Number(_gdVideoEl?.currentTime);
-  if (!tt || !Number.isFinite(now)) { window.toast?.('動画を再生してから押してください'); return; }
-  const cues = tt.activeCues;
-  if (!cues || !cues.length) { window.toast?.('いま表示されている字幕がありません'); return; }
+  if (tt) {
+    now = Number(_gdVideoEl?.currentTime);
+    const cues = tt.activeCues;
+    if (cues && cues.length) start = cues[0].startTime;
+  } else if (_ytSubIndex >= 0 && _ytSubTracks[_ytSubIndex]) {
+    try { now = Number(_ytPlayer?.getCurrentTime?.()); } catch (e) {}
+    const cue = Number.isFinite(now) ? _ytSubCueAt(_ytSubTracks[_ytSubIndex].cues, now) : null;
+    if (cue) start = cue.start;
+  }
+  if (!Number.isFinite(now)) { window.toast?.('動画を再生してから押してください'); return; }
+  if (start == null) { window.toast?.('いま表示されている字幕がありません'); return; }
   // 表示中のキューの開始が、いまの再生位置に来るようにずらす
-  const delta = now - cues[0].startTime;
-  const next  = Math.round((_subOffsetGet(_gdFileId) + delta) * 10) / 10;
-  _subOffsetSet(_gdFileId, next);
-  _gdSubReapply();
+  const key   = _subCurKey();
+  const next  = Math.round((_subOffsetGet(key) + (now - start)) * 10) / 10;
+  _subOffsetSet(key, next);
+  _subReapplyAll();
   window.wkSubOptsRender();
   window.toast?.(`⏱ 現在位置に合わせました（${next > 0 ? '+' : ''}${next.toFixed(1)}秒）`);
 };
 
 window.wkSubOffsetReset = function() {
-  _subOffsetSet(_gdFileId, 0);
-  _gdSubReapply();
+  _subOffsetSet(_subCurKey(), 0);
+  _subReapplyAll();
   window.wkSubOptsRender();
   window.toast?.('タイミング補正をリセットしました');
 };
@@ -5025,47 +5536,22 @@ function _sentencesFromCues(cues) {
 // 訳し方・文字数・言語を変えたいだけなら、既にある原語の字幕を使い回せば
 // 翻訳代（42分で $0.05 程度）だけで済む。書き起こし代 $0.105 を毎回払わない。
 async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want, setBtn }) {
-  const o    = subOpts();
-  const cues = _parseVtt(_srtToVtt(srcText));
-  if (!cues.length) throw new Error('字幕を読み取れませんでした');
-
   const meta   = await _driveApiGet(`files/${encodeURIComponent(videoFileId)}?fields=parents`, token);
   const parent = meta?.parents?.[0];
   if (!parent) throw new Error('保存先フォルダを取得できませんでした');
 
-  const groups = _sentencesFromCues(cues);
   const base   = String(srcName || '').replace(/\.[a-z-]{2,5}\.srt$/i, '').replace(/\.srt$/i, '');
   const target = _subFileName(base, want);
-  const cap    = (want === 'ja' || want === 'zh' || want === 'ko')
-    ? o.maxCharsJa * (o.maxLines || 1) : o.maxCharsEn * (o.maxLines || 1);
 
-  const tr = await _translateItems(
-    groups.map(g => ({
-      text: g.text,
-      sec:  cues[g.idx[g.idx.length - 1]].end - cues[g.idx[0]].start,
-    })),
-    want, _subGenPayload(), (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
-  if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
-
-  // 訳した文を、その文にまたがる字幕へ割り振る。時刻は実測値のまま。
-  const outCues = [];
-  groups.forEach((g, k) => {
-    if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
-  });
-  if (!outCues.length) throw new Error('翻訳できませんでした');
-  const srt = _srtJoin(outCues.map(c => ({
-    tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
-    text: c.text,
-  })));
-  // 最後の砦: 字幕として成立していないものは既存ファイルの上に絶対に書かない
-  if (!_looksLikeSrt(srt)) throw new Error('作った字幕が壊れています（保存を中止しました）');
+  // 訳す部分は YouTube 側と共通（時刻は元の字幕のまま動かさない）
+  const r = await _translateSrtText(srcText, want, setBtn);
 
   setBtn?.('⏳ 保存中…');
   const q   = `'${parent.replace(/'/g, "\\'")}' in parents and trashed=false and name='${target.replace(/'/g, "\\'")}'`;
   const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
-  await _driveUploadText(token, { name: target, parentId: parent, text: srt, existingId: dup?.files?.[0]?.id });
+  await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id });
   _gdSubLookup.delete(videoFileId);
-  return { target, cost: tr.cost, cues: outCues.length, missing: tr.missing.length };
+  return { target, cost: r.cost, cues: r.cues, missing: r.missing };
 }
 
 // Driveのゴミ箱へ移す。完全削除（files.delete）ではなく trashed:true にする。
@@ -6946,12 +7432,23 @@ async function _captureScreenFrame() {
   const playerEl = _vpPlayerEl();
   const playerRect = playerEl?.getBoundingClientRect();
 
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: { frameRate: 1, displaySurface: 'browser' },
-    audio: false,
-    selfBrowserSurface: 'include',
-    preferCurrentTab: true
-  });
+  // 字幕のCC/⚙ボタンは操作用の飾りなので写り込ませない（字幕そのものは残す）
+  const subUi = document.getElementById('vp-sub-ui');
+  const subUiDisp = subUi ? subUi.style.display : null;
+  if (subUi) subUi.style.display = 'none';
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 1, displaySurface: 'browser' },
+      audio: false,
+      selfBrowserSurface: 'include',
+      preferCurrentTab: true
+    });
+  } catch (e) {
+    if (subUi) subUi.style.display = subUiDisp || '';   // 共有をキャンセルした時に隠したままにしない
+    throw e;
+  }
   try {
     const video = document.createElement('video');
     video.srcObject = stream;
@@ -6997,6 +7494,7 @@ async function _captureScreenFrame() {
     return { fullBlob, thumbDataUrl };
   } finally {
     stream.getTracks().forEach(t => t.stop());
+    if (subUi) subUi.style.display = subUiDisp || '';
   }
 }
 
@@ -7681,6 +8179,10 @@ export function _openPanel(id, emb, ext, plat) {
   const autoplayEl = document.getElementById('setting-autoplay');
   const autoplay = autoplayEl ? autoplayEl.checked : true;
 
+  // 前の動画の字幕（オーバーレイと描画ループ）を必ず落としてから作り直す。
+  // 残したままだと、次の動画の上に前の字幕を描き続ける。
+  _ytSubDetach();
+
   // まずは動画領域とヘッダーだけ最小構築 → プレイヤー起動を最優先
   panel.innerHTML = `
     <div class="vp-panel-resizer" id="vpResizer"></div>
@@ -7708,6 +8210,7 @@ export function _openPanel(id, emb, ext, plat) {
     const ytId = _extractYtId(emb);
     if (ytId) {
       _initYTPlayer('vp-panel-yt-player', ytId, autoplay, () => {});
+      _ytSubAttach(ytId);   // 字幕があれば重ねる
     }
   } else if (plat === 'x') {
     const host = document.getElementById('vp-panel-yt-player');
@@ -7745,8 +8248,8 @@ export function _openPanel(id, emb, ext, plat) {
         <div class="vp-memo-stickyhead">
           <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
             ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
-            : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && v?.pt === 'gdrive')
-            ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしし、字幕(SRT)をDriveの同じフォルダに保存します" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
+            : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || (v?.pt === 'youtube' && v?.ytId)))
+            ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>
           ${_memoToolbarHTML(id)}
         </div>
@@ -7808,6 +8311,7 @@ export function _closePanelOutside() {
 export function closePanel() {
   document.removeEventListener('click', _closePanelOutside);
   try {
+    _ytSubDetach();
     // YTプレイヤーを停止
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
