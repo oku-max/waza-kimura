@@ -245,6 +245,10 @@
         ${missBlock}
         <div style="font-size:13px;font-weight:700;margin:14px 0 4px">読み込み・保存の記録（この端末）</div>
         ${hist}
+        <div style="font-size:13px;font-weight:700;margin:14px 0 4px">減った原因を調べる</div>
+        <div style="font-size:12px;color:var(--text3,#999);margin-bottom:6px">クラウドにある本数と、移行前の古いデータの本数を読み比べます（読むだけ）。</div>
+        <button type="button" id="wk-va-forensics" style="width:100%;padding:10px;border-radius:9px;border:1.5px solid var(--border,#3a3a3a);background:var(--surface2,#2c2c2c);color:var(--text,#eee);font-size:13px;cursor:pointer">クラウドの中身を調べる</button>
+        <div id="wk-va-fx" style="font-size:12px;color:var(--text2,#bbb);margin-top:8px;white-space:pre-wrap;word-break:break-all"></div>
         <div style="display:flex;gap:8px;margin-top:14px">
           <button type="button" id="wk-va-arch" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--border,#3a3a3a);background:var(--surface2,#2c2c2c);color:var(--text,#eee);font-size:13px;cursor:pointer">アーカイブを見る</button>
           <button type="button" id="wk-va-clear" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--border,#3a3a3a);background:var(--surface2,#2c2c2c);color:var(--text,#eee);font-size:13px;cursor:pointer">絞り込みを解除</button>
@@ -255,6 +259,49 @@
     ov.addEventListener('click', e => { if (e.target === ov) close(); });
     ov.querySelector('#wk-va-x').onclick = close;
     ov.querySelector('#wk-va-arch').onclick = () => { close(); window.switchTab?.('archive'); };
+
+    const fxBtn = ov.querySelector('#wk-va-forensics');
+    const fxOut = ov.querySelector('#wk-va-fx');
+    if (fxBtn) fxBtn.onclick = async () => {
+      fxBtn.disabled = true; fxBtn.textContent = '調べています…';
+      try {
+        const r = await window.wkDataForensics();
+        const lines = [];
+        lines.push(`いま画面のデータ: ${r.now.count}本（出どころ: ${r.now.source}）`);
+        if (r.now.addedAtMax) lines.push(`追加日の範囲: ${r.now.addedAtMin} 〜 ${r.now.addedAtMax}`);
+        if (r.now.byMonth?.length) lines.push('月別: ' + r.now.byMonth.map(([m, n]) => `${m}:${n}`).join(' / '));
+        lines.push(r.storage.error
+          ? `クラウド(Storage): 読めません（${r.storage.error}）`
+          : `クラウド(Storage): ${r.storage.count}本 / 最終保存 ${r.storage.updated || '不明'}`);
+        lines.push(r.firestore.error ? `古いデータ(Firestore): 読めません（${r.firestore.error}）`
+          : r.firestore.exists ? `古いデータ(Firestore): ${r.firestore.count}本 / ${r.firestore.updated}`
+          : '古いデータ(Firestore): ありません');
+        if (r.firestore.exists && r.storage.count != null) {
+          lines.push(r.firestore.sameAsStorage
+            ? '→ 中身は完全に一致（古いスナップショットで上書きされた証拠）'
+            : `→ 古い方と一致するのは ${r.firestore.overlap}本`);
+        }
+        lines.push('');
+        lines.push('判定: ' + r.verdict);
+        fxOut.textContent = lines.join('\n');
+        // 古い方にしか無い動画があるなら、その場で戻せるようにする
+        if (r.firestore.exists && !r.firestore.sameAsStorage) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = '古いデータから、いま無い動画だけを戻す';
+          b.style.cssText = 'width:100%;margin-top:10px;padding:10px;border-radius:9px;border:none;background:var(--accent,#6b3fd4);color:var(--on-accent,#fff);font-size:13px;font-weight:700;cursor:pointer';
+          b.onclick = async () => {
+            b.disabled = true; b.textContent = '戻しています…';
+            try { await window.wkRestoreFromLegacyFirestore(); close(); }
+            catch (e) { b.disabled = false; b.textContent = 'もう一度試す'; window.showToast?.('⚠️ ' + (e?.message || e), 6000); }
+          };
+          fxOut.appendChild(b);
+        }
+      } catch (e) {
+        fxOut.textContent = '調べられませんでした: ' + (e?.message || e);
+      }
+      fxBtn.disabled = false; fxBtn.textContent = 'もう一度調べる';
+    };
     const restoreBtn = ov.querySelector('#wk-va-restore');
     if (restoreBtn) restoreBtn.onclick = async () => {
       if (!window._firebaseCurrentUser?.()) { window.showToast?.('⚠️ ログインしてから実行してください', 5000); return; }
