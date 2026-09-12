@@ -3265,8 +3265,9 @@ let _ytSubLastCc   = 0;      // 純正字幕の状態を最後に確かめた時
 let _ytSubLastHtml = '';
 let _ytSubToken    = 0;      // 非同期の取得が古くなったかの判定用
 let _ytSubHostEl   = null;   // オーバーレイを置いている器（毎フレーム探し直さない）
-let _ytCcTimers    = [];     // 純正トラックを探すタイマー
-let _ytCcAskedLoad = false;  // loadModule を一度試したか
+let _ytCcMod       = '';     // 純正字幕で実際に反応したモジュール名（'captions' | 'cc'）
+let _ytCcFound     = false;  // 純正トラックの一覧を取れたか（空＝字幕無しも「取れた」）
+let _ytCcTries     = 0;      // 純正トラックを探した回数
 
 // 端末に覚えている選択。v52.735 では 'ja' / 'orig' だったので 'gen:' を補う。
 function _ytSubPref() {
@@ -3283,14 +3284,7 @@ function _ytSubSetPref(v) { try { localStorage.setItem(YT_SUB_PREF_KEY, v); } ca
 // 公式ドキュメントに載っていないAPIなので、取れなければ「純正は候補に出ない」
 // だけで済むように、どの関数も失敗しても投げない作りにする。
 const YT_CC_MODULES = ['captions', 'cc'];   // HTML5プレイヤーは 'captions'、旧いものは 'cc'
-
-function _ytCcModule() {
-  try {
-    const loaded = _ytPlayer?.getOptions?.();
-    if (Array.isArray(loaded)) for (const m of YT_CC_MODULES) if (loaded.includes(m)) return m;
-  } catch (e) {}
-  return null;
-}
+const YT_CC_MAX_TRIES = 40;                 // 2秒ごと＝約80秒まで探し続ける
 
 // 「English (auto-generated)」のような長い名前はボタンに収まらないので詰める
 function _ytCcName(t) {
@@ -3300,30 +3294,39 @@ function _ytCcName(t) {
   return (name || '字幕') + (auto ? '(自動)' : '');
 }
 
-// 純正トラックの一覧を取り直す。取れたら true（字幕モジュール未読込なら false）
+// 純正トラックの一覧を取りに行く。取れたら true。
+// getOptions() に 'captions' が並ぶのを待ってはいけない（実機では空のまま返ることがあり、
+// それを条件にすると getOption を一度も呼ばずに終わる＝純正が永久に候補に出ない）。
+// モジュール名を決め打ちせず、返事があった方を採用する。
 function _ytCcRead() {
-  const mod = _ytCcModule();
-  if (!mod) return false;
-  let list = null;
-  try { list = _ytPlayer.getOption(mod, 'tracklist'); } catch (e) {}
-  if (!Array.isArray(list)) return false;
-  _ytCcTracks = list
-    .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: 'YT ' + _ytCcName(t), raw: t }))
-    .filter(t => t.code);
-  return true;
+  const mods = _ytCcMod ? [_ytCcMod] : YT_CC_MODULES;
+  for (const m of mods) {
+    let list = null;
+    try { list = _ytPlayer?.getOption?.(m, 'tracklist'); } catch (e) {}
+    if (!Array.isArray(list)) continue;
+    _ytCcMod = m;
+    _ytCcTracks = list
+      .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: 'YT ' + _ytCcName(t), raw: t }))
+      .filter(t => t.code);
+    return true;   // 空配列＝この動画に純正字幕が無い。これも「分かった」ので探すのをやめる
+  }
+  return false;
+}
+
+// 字幕モジュールを読ませる（再生が始まるまで用意されないことがある）
+function _ytCcLoadModules() {
+  for (const m of YT_CC_MODULES) { try { _ytPlayer?.loadModule?.(m); } catch (e) {} }
 }
 
 function _ytCcCurCode() {
-  const mod = _ytCcModule();
-  if (!mod) return '';
-  try { const t = _ytPlayer.getOption(mod, 'track'); return String(t?.languageCode || ''); }
+  if (!_ytCcMod) return '';
+  try { const t = _ytPlayer?.getOption?.(_ytCcMod, 'track'); return String(t?.languageCode || ''); }
   catch (e) { return ''; }
 }
 
 function _ytCcSet(track) {
-  const mod = _ytCcModule();
-  if (!mod) return false;
-  try { _ytPlayer.setOption(mod, 'track', track || {}); return true; } catch (e) { return false; }
+  if (!_ytCcMod) return false;
+  try { _ytPlayer.setOption(_ytCcMod, 'track', track || {}); return true; } catch (e) { return false; }
 }
 
 // 選択どおりに純正字幕を合わせる。生成字幕を出している間は純正を必ず切る
@@ -3337,35 +3340,45 @@ function _ytSubEnforceCc() {
   }
 }
 
-// 純正トラックは字幕モジュールが読み込まれるまで一覧に出てこない。
-// 何度か見に行き、増えたらボタンと⚙の一覧を描き直す。
-function _ytCcClearTimers() { for (const t of _ytCcTimers) clearTimeout(t); _ytCcTimers = []; }
-
-function _ytCcProbe() {
-  _ytCcClearTimers();
-  const my = _ytSubToken;
-  [300, 1200, 3000, 6000, 12000].forEach((ms, i) => _ytCcTimers.push(setTimeout(() => {
-    if (my !== _ytSubToken) return;
-    const before = _ytCcTracks.length;
-    const got = _ytCcRead();
-    // 一覧が取れない＝字幕モジュールが未読込。一度だけ読ませてみる
-    // （読ませると純正字幕が出ることがあるので、直後に必ず選択を反映させる）
-    if (!got && !_ytCcAskedLoad && i >= 1) {
-      _ytCcAskedLoad = true;
-      try { _ytPlayer?.loadModule?.('captions'); } catch (e) {}
-      _ytCcRead();   // 読み込めたらその場で候補に入れる（次の回まで待たせない）
-    }
-    // 覚えている選択が純正で、それが今回見つかったなら復元する
-    // （ユーザーがこの動画で選び直していない場合だけ）
-    const pref = _ytSubPref();
-    if (!_ytSubPicked && pref.startsWith('yt:') && _ytSubSel !== pref
-        && _ytSubSources().some(s => s.key === pref)) {
-      _ytSubSel = pref;
-    }
-    _ytSubEnforceCc();
-    if (_ytCcTracks.length !== before) { _ytSubPaintButton(); window.wkSubOptsRender?.(); }
-  }, ms)));
+// 純正トラックは、モジュールが用意されるまで（多くは再生が始まるまで）取れない。
+// タイマーで数回だけ見るのでは足りなかったので、描画ループの見張り（2秒ごと）から
+// 見つかるまで呼び続ける。見つかったらボタンと⚙の一覧を描き直す。
+function _ytCcSeek() {
+  if (_ytCcFound || _ytCcTries >= YT_CC_MAX_TRIES) return;
+  _ytCcTries++;
+  if (_ytCcTries === 1 || _ytCcTries === 3 || _ytCcTries === 8) _ytCcLoadModules();
+  if (!_ytCcRead()) return;
+  _ytCcFound = true;
+  // 覚えている選択が純正で、それが今回見つかったなら復元する
+  // （ユーザーがこの動画で選び直していない場合だけ）
+  const pref = _ytSubPref();
+  if (!_ytSubPicked && pref.startsWith('yt:') && _ytSubSources().some(s => s.key === pref)) {
+    _ytSubSel = pref;
+  }
+  _ytSubPaintButton();
+  window.wkSubOptsRender?.();
+  console.log('[ytsub] YouTube側の字幕:', _ytCcTracks.length + '件',
+              _ytCcTracks.map(t => t.code).join(',') || '(なし)', '/ モジュール:', _ytCcMod);
 }
+
+// 純正字幕が候補に出ない時に、どこで止まっているかを見るための診断
+window.wkYtCcDiag = function() {
+  const out = (...a) => console.log('[YT字幕診断]', ...a);
+  const safe = (fn) => { try { return fn(); } catch (e) { return '例外: ' + (e?.message || e); } };
+  out('プレイヤー:', _ytPlayer ? 'あり' : '★なし', '/ 再生位置:', safe(() => _ytPlayer?.getCurrentTime?.()));
+  out('getOptions():', JSON.stringify(safe(() => _ytPlayer?.getOptions?.())));
+  for (const m of YT_CC_MODULES) {
+    const l = safe(() => _ytPlayer?.getOption?.(m, 'tracklist'));
+    out(`getOption('${m}','tracklist'):`, Array.isArray(l)
+      ? l.length + '件 ' + JSON.stringify(l.map(t => t.languageCode || t.vss_id))
+      : JSON.stringify(l));
+    out(`getOption('${m}','track'):`, JSON.stringify(safe(() => _ytPlayer?.getOption?.(m, 'track'))));
+  }
+  out('採用モジュール:', _ytCcMod || '★未特定', '/ 探した回数:', _ytCcTries, '/ 見つかった:', _ytCcFound);
+  out('候補:', _ytSubSources().map(s => s.key).join(', ') || 'なし', '/ 選択:', _ytSubSel);
+  out('再生を始めてから、もう一度 wkYtCcDiag() を実行すると変わることがあります');
+  return '診断おわり（上の [YT字幕診断] の行を見せてください）';
+};
 
 // ── 字幕の候補（生成＋純正）と選択 ──────────────────────────
 function _ytSubSources() {
@@ -3410,7 +3423,6 @@ function _ytSubHost() {
 
 function _ytSubDetach() {
   _ytSubToken++;
-  _ytCcClearTimers();
   if (_ytSubRaf) { cancelAnimationFrame(_ytSubRaf); _ytSubRaf = null; }
   for (const id of ['vp-sub-overlay', 'vp-sub-ui']) {
     document.querySelectorAll('#' + id).forEach(el => {
@@ -3421,7 +3433,8 @@ function _ytSubDetach() {
     });
   }
   _ytSubId = null; _ytSubTracks = []; _ytCcTracks = [];
-  _ytSubSel = 'off'; _ytSubPicked = false; _ytCcAskedLoad = false;
+  _ytSubSel = 'off'; _ytSubPicked = false;
+  _ytCcMod = ''; _ytCcFound = false; _ytCcTries = 0;
   _ytSubLastHtml = null; _ytSubHostEl = null;
 }
 
@@ -3472,8 +3485,7 @@ async function _ytSubAttachInner(ytId) {
 
   _ytSubMountButton(host);
   _ytSubEnforceCc();
-  _ytSubStartLoop();
-  _ytCcProbe();
+  _ytSubStartLoop();   // 純正トラックの探索もこのループの中で続ける
 }
 
 // 生成直後など、いま開いている動画の字幕を読み直して載せ直す
@@ -3542,7 +3554,11 @@ function _ytSubTick() {
 
   // YouTube側が勝手に字幕を出し直すことがある（動画の切替・ユーザー設定）ので、
   // ときどき見張って選択どおりに戻す。読むだけなら安いので2秒に1回。
-  if (now - _ytSubLastCc > 2000) { _ytSubLastCc = now; _ytSubEnforceCc(); }
+  if (now - _ytSubLastCc > 2000) {
+    _ytSubLastCc = now;
+    _ytCcSeek();          // 純正トラックが見つかるまで探し続ける
+    _ytSubEnforceCc();
+  }
 
   const cur = _ytSubCur();
   if (!cur || cur.kind !== 'gen' || !cur.track.cues.length) { _ytSubPaint(''); return; }
@@ -3579,7 +3595,9 @@ function _ytSubMountButton(host) {
   host.querySelector('#vp-sub-ui')?.remove();
   const wrap = document.createElement('span');
   wrap.id = 'vp-sub-ui';
-  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
+  // 一時停止するとYouTube自身のボタン（ミュート/CC/設定/拡大）が右上に並ぶので、
+  // 同じ場所に置くと重なって押せない。1段下げてその列を避ける。
+  wrap.style.cssText = 'position:absolute;top:46px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
     + 'opacity:1;transition:opacity .25s ease';
   const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
     + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
@@ -5459,7 +5477,11 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">CCボタンを押しても同じ順で切り替わります。出るのは常に1つだけです</div>`
         + (_ytCcTracks.length
             ? `<div style="font-size:10.5px;color:var(--text3)">YouTubeの字幕はプレイヤー内部で表示されるため、下の見た目・ズレの設定は効きません</div>`
-            : `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕は、再生を始めると候補に出てくることがあります</div>`)
+            : _ytCcFound
+            ? `<div style="font-size:10.5px;color:var(--text3)">この動画にはYouTube側の字幕がありません</div>`
+            : _ytCcTries >= YT_CC_MAX_TRIES
+            ? `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を取得できませんでした（コンソールで wkYtCcDiag() を実行すると原因が出ます）</div>`
+            : `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を探しています（再生を始めると出てくることがあります）</div>`)
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
