@@ -2626,20 +2626,6 @@ function _gdSubRenderCues() {
     + 'padding:0 4%;box-sizing:border-box;text-align:center;'
     + `font-size:${px}px;line-height:1.35;`;
 
-  // 全画面の間だけ track を 'showing' にしてブラウザに描かせている（_gdSubFsSync）。
-  // 全画面を抜けたイベントを取り逃がすと 'showing' のまま残り、ブラウザ内蔵の字幕と
-  // 自前のオーバーレイが二重に出る。全画面でないと分かった時点で戻す。
-  {
-    const fsEl = document.fullscreenElement || document.webkitFullscreenElement || null;
-    const videoFs = !!(_gdVideoEl && (_gdVideoEl.webkitDisplayingFullscreen || fsEl === _gdVideoEl));
-    if (!videoFs) {
-      for (const t2 of _gdSubTracks) {
-        const tt2 = t2.track && t2.track.track;
-        if (tt2 && tt2.mode === 'showing') tt2.mode = 'hidden';
-      }
-    }
-  }
-
   const t  = _gdSubTracks[_gdSubIndex];
   const tt = t && t.track && t.track.track;
   let html = '';
@@ -2656,11 +2642,6 @@ function _gdSubRenderCues() {
       + `white-space:pre-wrap">${esc(l)}</span>`).join('');
   }
   if (html !== _gdSubLastHtml) { el.innerHTML = html; _gdSubLastHtml = html; }
-  // 出すものが無い時は、同じコンテナに余分な器が残っていないかも見る。
-  // プレイヤーを作り直すと器が二重にできることがあり、片方に字幕が焼き付いたまま残る。
-  if (!html && _gdContainer) {
-    _gdContainer.querySelectorAll('#vp-sub-overlay').forEach(n => { if (n !== el) n.remove(); });
-  }
 }
 
 // 選択中のトラックの cuechange を監視する
