@@ -2149,7 +2149,7 @@ function _vpUpdateOrientation() {
 }
 
 window.addEventListener('resize', () => {
-  if (_gdSubTracks.length) { _gdSubLastHtml = ''; _gdSubRenderCues(); }
+  if (_gdSubTracks.length) { _gdSubLastHtml = null; _gdSubRenderCues(); }
   const panel = document.getElementById('vpanel');
   if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
 });
@@ -2583,7 +2583,12 @@ function _reflowVtt(vtt, o, offset) {
 // 文字サイズ・背景の濃さが効かない環境がある（実際に効かなかった）。
 // track は mode='hidden' にしてキューだけ生かし、描画は自分で行う。
 let _gdSubCueHandler = null;   // cuechange ハンドラ（解除用）
-let _gdSubLastHtml   = '';     // 無駄な再描画を避けるための直前の内容
+// 直前に描いた内容。無駄な再描画を避けるためだけに持つ。
+// null は「まだ描いていない／次は必ず描き直す」。空文字は「字幕なしを描いた」状態で、
+// 意味が違う。ここを '' で初期化＆リセットしていたため、字幕をOFFにすると
+//   リセット('') → 今回描くべき内容('') → 同じなので描き換えない
+// となり、最後に出ていた字幕が画面に残り続けていた。
+let _gdSubLastHtml   = null;
 
 function _gdSubOverlayEl(create) {
   const host = _gdContainer;
@@ -2621,6 +2626,20 @@ function _gdSubRenderCues() {
     + 'padding:0 4%;box-sizing:border-box;text-align:center;'
     + `font-size:${px}px;line-height:1.35;`;
 
+  // 全画面の間だけ track を 'showing' にしてブラウザに描かせている（_gdSubFsSync）。
+  // 全画面を抜けたイベントを取り逃がすと 'showing' のまま残り、ブラウザ内蔵の字幕と
+  // 自前のオーバーレイが二重に出る。全画面でないと分かった時点で戻す。
+  {
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement || null;
+    const videoFs = !!(_gdVideoEl && (_gdVideoEl.webkitDisplayingFullscreen || fsEl === _gdVideoEl));
+    if (!videoFs) {
+      for (const t2 of _gdSubTracks) {
+        const tt2 = t2.track && t2.track.track;
+        if (tt2 && tt2.mode === 'showing') tt2.mode = 'hidden';
+      }
+    }
+  }
+
   const t  = _gdSubTracks[_gdSubIndex];
   const tt = t && t.track && t.track.track;
   let html = '';
@@ -2637,6 +2656,11 @@ function _gdSubRenderCues() {
       + `white-space:pre-wrap">${esc(l)}</span>`).join('');
   }
   if (html !== _gdSubLastHtml) { el.innerHTML = html; _gdSubLastHtml = html; }
+  // 出すものが無い時は、同じコンテナに余分な器が残っていないかも見る。
+  // プレイヤーを作り直すと器が二重にできることがあり、片方に字幕が焼き付いたまま残る。
+  if (!html && _gdContainer) {
+    _gdContainer.querySelectorAll('#vp-sub-overlay').forEach(n => { if (n !== el) n.remove(); });
+  }
 }
 
 // 選択中のトラックの cuechange を監視する
@@ -2758,7 +2782,7 @@ function _gdSubRevoke() {
   _gdSubBlobUrls = [];
   _gdSubTracks   = [];
   _gdSubIndex    = -1;
-  _gdSubLastHtml = '';
+  _gdSubLastHtml = null;
 }
 
 async function _driveApiGet(path, token) {
@@ -3032,7 +3056,7 @@ function _gdSubSelect(idx, persist) {
     _gdSubSetPref(idx < 0 ? 'off' : (_gdSubTracks[idx]?.label || ''));
   }
   _gdSubBindCueRender();
-  _gdSubLastHtml = '';        // 切替時は必ず描き直す
+  _gdSubLastHtml = null;      // 切替時は必ず描き直す（OFFで消すためにも null にする）
   _gdSubRenderCues();
   _gdSubPaintButton();
 }
@@ -3256,7 +3280,7 @@ let _ytSubPicked   = false;  // この動画でユーザーが自分で選び直
 let _ytSubRaf      = null;
 let _ytSubLastTick = 0;
 let _ytSubLastCc   = 0;      // 純正字幕の状態を最後に確かめた時刻
-let _ytSubLastHtml = '';
+let _ytSubLastHtml = null;   // null =「まだ描いていない／次は必ず描き直す」。'' は「字幕なしを描いた」
 let _ytSubToken    = 0;      // 非同期の取得が古くなったかの判定用
 let _ytSubHostEl   = null;   // オーバーレイを置いている器（毎フレーム探し直さない）
 let _ytCcMod       = '';     // 純正字幕で実際に反応したモジュール名（'captions' | 'cc'）
