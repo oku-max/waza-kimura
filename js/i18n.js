@@ -1619,6 +1619,12 @@
     "📑 自動チャプター": "📑 Auto chapters",
     "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
     "字幕から検出": "Detect from subtitles",
+    // 字幕がまだ無いときは、押すと字幕を作ってからそのまま検出へ進む（1クリック）
+    "字幕が無いので先に作ります（時間とコストがかかります）":
+      "No subtitles yet, so they are created first (this takes time and costs)",
+    "⏳ 字幕を作成中…": "\u23f3 Creating subtitles...",
+    "字幕を作成して検出": "Subtitles created, then detected",
+    "作った字幕を読み取れませんでした": "Could not read the subtitles that were created",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
     "チャプター一覧を貼り付け": "Paste a chapter list",
     "チャプター名と時間をコピペする（最も正確）": "Copy and paste the names and times (most accurate)",
@@ -1906,6 +1912,8 @@
       (m, d) => "Detected from this video\u2019s subtitles" + (d ? ` (${_wkDurEn(d)})` : '')],
     [/^AIが動画を視聴して検出します(?:（(.+?)）)?$/,
       (m, d) => 'The AI watches the video to detect them' + (d ? ` (${_wkDurEn(d)})` : '')],
+    [/^先に字幕を作ってから検出します(?:（(.+?)）)?$/,
+      (m, d) => 'Subtitles are created first, then chapters detected' + (d ? ` (${_wkDurEn(d)})` : '')],
     // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
     // 「検出元 · $0.003」。検出元は静的辞書で引き、金額はそのまま残す
     [/^(.+?) · (\$[\d.]+)$/, (m, head, cost) => {
