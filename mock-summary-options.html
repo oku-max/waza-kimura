@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI要約オプション モック</title>
+<style>
+:root {
+  --bg:#0f0f1a; --bg2:#141414; --bg3:#1a1a1a; --bg4:#1e1e1e;
+  --border:#2a2a2a; --border2:#252525;
+  --text:#eeeeee; --text2:#bbbbbb; --text3:#888888; --text4:#555555;
+  --accent:#f0c040; --accent-bg:#1a1a0a; --accent-bd:#3a3a10;
+  --blue:#7ab4ff; --blue-bg:#101828; --blue-bd:#1a2a4a;
+  --green:#4aff4a; --green-bg:#0a1a0a; --green-bd:#1a3a1a;
+  --purple:#c0a0ff; --purple-bg:#16101f;
+  --phone-bg:#141414; --thumb-bg:linear-gradient(135deg,#1a2a4a 0%,#0a1a2a 100%);
+  --shadow:0 4px 20px #0008;
+}
+[data-theme="light"] {
+  --bg:#f0f0f5; --bg2:#ffffff; --bg3:#f5f5f8; --bg4:#ebebef;
+  --border:#d8d8e0; --border2:#e0e0e8;
+  --text:#111111; --text2:#333333; --text3:#666666; --text4:#999999;
+  --accent:#c08000; --accent-bg:#fffbe6; --accent-bd:#f0c040;
+  --blue:#1a6adf; --blue-bg:#e8f0ff; --blue-bd:#a0c0ff;
+  --green:#1a8a1a; --green-bg:#e6ffe6; --green-bd:#a8e0a8;
+  --purple:#7040c0; --purple-bg:#f4f0ff;
+  --phone-bg:#ffffff; --thumb-bg:linear-gradient(135deg,#b0c8e8 0%,#8aaece 100%);
+  --shadow:0 4px 20px #0001;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,'Helvetica Neue',sans-serif;
+  padding:20px 16px 60px; transition:background .25s,color .25s;
+}
+h1 { text-align:center; font-size:17px; letter-spacing:.04em; margin-bottom:4px; }
+.page-sub { text-align:center; font-size:12px; color:var(--text3); margin-bottom:18px; line-height:1.7; }
+.bar { display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+.seg { display:flex; background:var(--bg4); border:1px solid var(--border); border-radius:22px; padding:3px; gap:2px; }
+.seg span {
+  font-size:12px; font-weight:600; padding:5px 14px; border-radius:18px;
+  color:var(--text3); cursor:pointer; user-select:none; transition:all .18s;
+}
+.seg span.on { background:var(--bg2); color:var(--text); box-shadow:var(--shadow); }
+.wrap { max-width:400px; margin:0 auto; }
+
+/* ── 疑似Vパネル ── */
+.phone { background:var(--phone-bg); border:1.5px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
+.player { background:var(--thumb-bg); height:150px; display:flex; align-items:center; justify-content:center; position:relative; }
+.play-btn {
+  width:52px; height:52px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(255,255,255,.28); color:#fff; font-size:20px;
+}
+.ptime { position:absolute; right:8px; bottom:8px; font-size:11px; color:#fff; background:#0009; padding:2px 7px; border-radius:6px; font-variant-numeric:tabular-nums; }
+.seekwrap { padding:8px 12px 4px; }
+input[type=range] { width:100%; accent-color:var(--accent); }
+.vp-body { padding:10px 12px 14px; }
+.vp-title { font-size:13px; font-weight:700; line-height:1.5; }
+.vp-meta { font-size:11px; color:var(--text3); margin-top:3px; }
+.aidesc {
+  margin-top:8px; padding:6px 9px; border-radius:8px; background:var(--bg3);
+  font-size:11.5px; line-height:1.55; color:var(--text2);
+}
+.memo-head { display:flex; align-items:center; gap:6px; margin-top:12px; flex-wrap:wrap; }
+.vp-lbl { font-size:11px; font-weight:700; color:var(--text3); letter-spacing:.06em; }
+.sum-btn {
+  font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer;
+  border:1px solid var(--accent); background:transparent; color:var(--accent); font-weight:700;
+}
+.sum-btn:disabled { opacity:.6; cursor:default; }
+.memo {
+  margin-top:6px; min-height:120px; max-height:340px; overflow-y:auto;
+  border:1px solid var(--border); border-radius:8px; padding:9px 10px;
+  font-size:11.5px; line-height:1.75; color:var(--text2); background:var(--bg2);
+}
+.memo .sumhead { font-size:11px; font-weight:700; color:var(--purple); margin-bottom:5px; }
+.memo .h { font-weight:700; color:var(--text); display:block; margin:7px 0 2px; }
+.memo .ts { color:var(--blue); font-weight:700; }
+.memo .shot {
+  display:inline-block; width:42px; height:26px; border-radius:3px; vertical-align:middle;
+  margin-right:5px; background:var(--thumb-bg); border:1px solid var(--border);
+}
+.memo .empty { color:var(--text4); }
+
+/* ── シート ── */
+.ov { position:fixed; inset:0; z-index:99; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
+.sheet { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:16px; width:100%; max-width:330px; box-shadow:0 10px 40px #0007; max-height:92vh; overflow-y:auto; }
+.sheet h2 { font-size:14px; margin-bottom:12px; }
+.grp-lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--text4); margin:14px 0 6px; }
+.opt {
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  padding:10px 11px; margin-bottom:7px; border-radius:9px; cursor:pointer;
+  border:1px solid var(--border); background:var(--bg3); color:var(--text);
+}
+.opt.on { border-color:var(--accent); background:var(--accent-bg); }
+.opt .ic { font-size:16px; }
+.opt .tx { display:block; font-size:12.5px; font-weight:700; }
+.opt .sub { display:block; font-size:10.5px; color:var(--text3); font-weight:400; margin-top:2px; line-height:1.5; }
+.pill { display:flex; gap:6px; }
+.pill button {
+  flex:1; padding:8px 4px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700;
+  border:1px solid var(--border); background:var(--bg3); color:var(--text2);
+}
+.pill button.on { border-color:var(--accent); background:var(--accent-bg); color:var(--accent); }
+.hint { font-size:10.5px; color:var(--text3); margin-top:6px; line-height:1.6; }
+.range-box { border:1px solid var(--border); border-radius:9px; padding:10px; background:var(--bg3); }
+.range-now { font-size:11px; color:var(--text3); margin-bottom:8px; font-variant-numeric:tabular-nums; }
+.range-btns { display:flex; gap:6px; }
+.range-btns button {
+  flex:1; padding:8px 4px; font-size:11.5px; font-weight:700; border-radius:8px; cursor:pointer;
+  border:1px solid var(--blue-bd); background:var(--blue-bg); color:var(--blue);
+}
+.range-val { margin-top:8px; font-size:12px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+.range-val .bad { color:#ff7a7a; font-weight:400; font-size:11px; }
+.range-clear { background:none; border:none; color:var(--text4); font-size:10.5px; cursor:pointer; margin-top:4px; padding:0; }
+.go {
+  width:100%; margin-top:16px; padding:12px; border-radius:9px; cursor:pointer;
+  font-size:13px; font-weight:700; border:1px solid var(--green-bd);
+  background:var(--green-bg); color:var(--green);
+}
+.go:disabled { opacity:.4; cursor:default; }
+.cancel { width:100%; margin-top:6px; padding:8px; background:none; border:none; color:var(--text4); font-size:12px; cursor:pointer; }
+.confirm { max-width:290px; }
+.confirm p { font-size:12px; line-height:1.75; color:var(--text2); margin-bottom:6px; }
+.confirm .quote { font-size:11px; color:var(--text3); background:var(--bg3); border-radius:7px; padding:7px 9px; margin:8px 0 14px; line-height:1.6; }
+.confirm .danger { border-color:#7a3030; background:#2a1212; color:#ff9a9a; }
+[data-theme="light"] .confirm .danger { border-color:#e0a0a0; background:#fff0f0; color:#c02020; }
+
+/* ── 送信ペイロード ── */
+.payload { margin-top:18px; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.payload-h { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--text4); padding:8px 11px; background:var(--bg3); }
+.payload pre { padding:11px; font-size:10.5px; line-height:1.65; color:var(--text2); overflow-x:auto; font-family:ui-monospace,Menlo,monospace; }
+.note { max-width:400px; margin:20px auto 0; font-size:11px; color:var(--text3); line-height:1.85; }
+.note b { color:var(--text2); }
+.toast {
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+  background:#000d; color:#fff; font-size:12px; padding:9px 15px; border-radius:20px;
+  z-index:200; max-width:88vw; text-align:center; line-height:1.5;
+}
+</style>
+</head>
+<body>
+
+<h1>✨ AI要約 — 種類と粒度を選ぶ</h1>
+<div class="page-sub">実際に動くモック。▶で再生位置を進めて「範囲を指定」も試せます。</div>
+
+<div class="bar">
+  <div class="seg" id="seg-theme">
+    <span data-t="dark" class="on">ダーク</span><span data-t="light">ライト</span>
+  </div>
+  <div class="seg" id="seg-plat">
+    <span data-p="gdrive" class="on">GDrive</span><span data-p="youtube">YouTube</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="phone">
+    <div class="player">
+      <button class="play-btn" id="play">▶</button>
+      <div class="ptime" id="ptime">0:00 / 24:10</div>
+    </div>
+    <div class="seekwrap"><input type="range" id="seek" min="0" max="1450" value="0"></div>
+    <div class="vp-body">
+      <div class="vp-title">Closed Guard Armbar — セットアップと3つの防御への対応</div>
+      <div class="vp-meta" id="vp-meta">Google Drive ・ 24:10</div>
+      <div class="aidesc" id="aidesc">💬 <span id="aidesc-txt"></span></div>
+      <div class="memo-head">
+        <span class="vp-lbl">Memo</span>
+        <button class="sum-btn" id="sumbtn">✨ AI要約</button>
+      </div>
+      <div class="memo" id="memo"><span class="empty">（メモは空です）</span></div>
+    </div>
+  </div>
+
+  <div class="payload">
+    <div class="payload-h">送信されるリクエスト（設計確認用・モックでは送信しません）</div>
+    <pre id="payload">まだ実行していません</pre>
+  </div>
+</div>
+
+<div class="note">
+  <b>仕様メモ</b><br>
+  ・一言は <code>v.aiDesc</code> に保存（カードにも出る）。既存があれば上書き確認。<br>
+  ・粒度は言葉ではなく数値でプロンプトへ渡す（細かめ=30秒間隔目安 / 普通=今の要約 / ざっくり=チャプター相当）。<br>
+  ・範囲指定は Gemini に該当区間だけ送るので、速く・安く済む。<br>
+  ・スクショは GDrive のみ（YouTube では選択肢を出さない）。あり=行頭インライン固定。<br>
+  ・選んだ設定は次回の初期値として記憶する（新規キーへの書き込みのみ）。
+</div>
+
+<script>
+/* ───────── データ ───────── */
+const DUR = 1450;
+const STEPS = [
+  [30,'クローズドガードで相手を引き込み、両足首をクロスして締める'],
+  [65,'相手の右袖をピストルグリップで掴み、親指側を巻き込む'],
+  [100,'反対の手で襟を掴み、肘を体に寄せて相手の姿勢を崩す'],
+  [140,'相手の重心が前に出た瞬間を待つ（自分から引きすぎない）'],
+  [180,'足を解いてヒップを45度スライドさせ、アングルを作る'],
+  [215,'左足を相手の腰に当て、押しながら体を横に回す'],
+  [250,'右手で相手の手首を引き寄せ、脇の下にロックする'],
+  [290,'頭側の足を相手の肩越しに振り上げる'],
+  [330,'振り上げた足のかかとを相手の背中に落とす'],
+  [370,'両膝を締め、相手の腕を胸の中心に固定する'],
+  [410,'ヒップを上げながら相手の親指を上に向ける'],
+  [450,'ゆっくり反らせてタップを取る'],
+  [500,'【防御1】相手が手を組んで防いだ場合'],
+  [545,'組んだ腕に自分の脛を差し込み、テコで外す'],
+  [590,'外れない時は足を持ち替え、腕十字から三角へ移行'],
+  [640,'【防御2】相手が立って抜こうとした場合'],
+  [690,'相手の帯を掴み、体を起こして追随する'],
+  [740,'立ち切られたら腕を離し、オモプラッタへ切り替える'],
+  [800,'【防御3】相手が肩を回してエスケープしてきた場合'],
+  [860,'肩を回された瞬間、足をクロスして胴を締める'],
+  [920,'そのまま回り込んでバックテイク'],
+  [980,'締め直してリアネイキッドチョークへ'],
+  [1050,'ドリル：アングル作りだけを20本繰り返す'],
+  [1120,'よくあるミス：足を振り上げる前にグリップを離してしまう'],
+  [1200,'よくあるミス：ヒップを上げず腕だけで反らせようとする'],
+  [1280,'よくあるミス：アングルが浅く、相手が正面に残っている'],
+  [1360,'まとめ：状況→グリップ→アングル→固定→反らせる の順で確認'],
+  [1420,'質疑：膝の締めが緩む人へのアドバイス'],
+];
+const SECTIONS = [
+  [0,   'セットアップ','クローズドガードで足をクロスして締め、袖と襟のグリップを作るまで'],
+  [180, 'アングル作り','足を解いてヒップをスライドさせ、45度のアングルを取って腕を抜き出す'],
+  [330, '腕十字の固め方','両膝を締めて腕を胸に固定し、ヒップを上げて反らせる'],
+  [500, '相手の防御への対応','手を組む／立つ／肩を回す の3分岐（三角・オモプラッタ・バックテイク）'],
+  [1050,'ドリルとよくあるミス','アングル作りの反復と、グリップ・ヒップ・アングルの3つのミス'],
+];
+const SITU = [
+  '開始はクローズドガード（自分が下、相手は膝立ちで正面）',
+  'グリップは自分の右手が相手の右袖、左手が襟。相手は自分の腰と帯を押さえている',
+  '相手の体重は前がかり。姿勢を立て直そうとした瞬間が仕掛けのきっかけ',
+];
+const LEVEL_HINT = {
+  fine:   '30秒間隔の目安。動画に沿って細かく、ほぼ全ステップを書き出す',
+  normal: '今の要約と同じ密度。手順とディテールを読みやすくまとめる',
+  coarse: 'チャプター相当（2〜5分ごと）。章ごとに見出し＋数行だけ',
+};
+const LEVEL_JA = { fine:'細かめ', normal:'普通', coarse:'ざっくり' };
+
+/* ───────── 状態 ───────── */
+const PREF_KEY = 'wk_mock_sumOpts';
+let S = { type:'full', level:'normal', shot:false };
+try { S = Object.assign(S, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch(e) {}
+let plat = 'gdrive';
+let cur = 0, playing = false, timer = null;
+let rFrom = null, rTo = null;
+let aiDesc = 'クローズドガードからの腕十字。基本形のみで、防御への対応は扱っていない。';
+
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+
+/* ───────── プレイヤー ───────── */
+function paintTime() {
+  $('ptime').textContent = fmt(cur) + ' / ' + fmt(DUR);
+  $('seek').value = cur;
+  const now = $('range-now'); if (now) now.textContent = '現在の再生位置: ' + fmt(cur);
+}
+$('play').onclick = () => {
+  playing = !playing;
+  $('play').textContent = playing ? '⏸' : '▶';
+  clearInterval(timer);
+  if (playing) timer = setInterval(() => {
+    cur = Math.min(DUR, cur + 5); paintTime();
+    if (cur >= DUR) { playing = false; $('play').textContent = '▶'; clearInterval(timer); }
+  }, 100);
+};
+$('seek').oninput = (e) => { cur = Number(e.target.value); paintTime(); };
+
+/* ───────── プラットフォーム / テーマ ───────── */
+$('seg-theme').onclick = (e) => {
+  const t = e.target.dataset.t; if (!t) return;
+  document.documentElement.dataset.theme = t;
+  [...$('seg-theme').children].forEach(c => c.classList.toggle('on', c.dataset.t === t));
+};
+$('seg-plat').onclick = (e) => {
+  const p = e.target.dataset.p; if (!p) return;
+  plat = p;
+  [...$('seg-plat').children].forEach(c => c.classList.toggle('on', c.dataset.p === p));
+  $('vp-meta').textContent = (p === 'gdrive' ? 'Google Drive' : 'YouTube') + ' ・ 24:10';
+  const sheet = $('sheet-ov'); if (sheet) renderSheet();
+};
+
+/* ───────── トースト ───────── */
+function toast(msg, ms) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms || 2600);
+}
+
+/* ───────── シート ───────── */
+$('sumbtn').onclick = openSheet;
+
+function openSheet() {
+  rFrom = rTo = null;
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.id = 'sheet-ov';
+  ov.onclick = (e) => { if (e.target === ov) closeSheet(); };
+  document.body.appendChild(ov);
+  renderSheet();
+}
+function closeSheet() { const ov = $('sheet-ov'); if (ov) ov.remove(); }
+
+function renderSheet() {
+  const ov = $('sheet-ov'); if (!ov) return;
+  const canShot = (plat === 'gdrive');
+  const isDesc  = (S.type === 'desc');
+  const needRange = (S.type === 'range');
+  const rangeOk = !needRange || (rFrom != null && rTo != null && rTo > rFrom);
+
+  const opt = (type, ic, tx, sub) =>
+    `<button class="opt ${S.type===type?'on':''}" data-type="${type}">
+       <span class="ic">${ic}</span><span><span class="tx">${tx}</span><span class="sub">${sub}</span></span>
+     </button>`;
+
+  const pill = (key, val, label) =>
+    `<button class="${S[key]===val?'on':''}" data-k="${key}" data-v="${val}">${label}</button>`;
+
+  const goLabel = isDesc ? '💬 一言を生成'
+    : needRange ? (rangeOk ? `✂️ ${fmt(rFrom)}–${fmt(rTo)} を要約` : '✂️ 範囲を指定してください')
+    : '📝 全体を要約';
+
+  ov.innerHTML = `<div class="sheet">
+    <h2>✨ AI要約</h2>
+    <div class="grp-lbl">種類</div>
+    ${opt('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。カードにも表示される')}
+    ${opt('full','📝','全体を要約','今までの要約。メモの先頭に追記される')}
+    ${opt('range','✂️','範囲を指定して要約','見ている区間だけ。速く・安く済む')}
+
+    ${isDesc ? '' : `
+      <div class="grp-lbl">粒度</div>
+      <div class="pill">${pill('level','fine','細かめ')}${pill('level','normal','普通')}${pill('level','coarse','ざっくり')}</div>
+      <div class="hint">${LEVEL_HINT[S.level]}</div>`}
+
+    ${needRange ? `
+      <div class="grp-lbl">範囲</div>
+      <div class="range-box">
+        <div class="range-now" id="range-now">現在の再生位置: ${fmt(cur)}</div>
+        <div class="range-btns">
+          <button data-mark="from">⬅️ ここから</button>
+          <button data-mark="to">ここまで ➡️</button>
+        </div>
+        <div class="range-val">
+          ${rFrom != null || rTo != null
+            ? `${rFrom != null ? fmt(rFrom) : '—'} 〜 ${rTo != null ? fmt(rTo) : '—'}
+               ${(rFrom != null && rTo != null && rTo <= rFrom) ? '<span class="bad">（「ここまで」が「ここから」より後になるように）</span>' : ''}`
+            : '<span class="bad">未指定</span>'}
+        </div>
+        ${(rFrom != null || rTo != null) ? '<button class="range-clear" data-mark="clear">クリア</button>' : ''}
+      </div>` : ''}
+
+    ${(isDesc || !canShot) ? '' : `
+      <div class="grp-lbl">スクショ</div>
+      <div class="pill">${pill('shot',false,'なし')}${pill('shot',true,'あり')}</div>
+      <div class="hint">ありにすると各タイムスタンプの静止画を行頭に入れる（GDriveのみ）</div>`}
+
+    <button class="go" id="go" ${rangeOk ? '' : 'disabled'}>${goLabel}</button>
+    <button class="cancel" id="sheet-cancel">キャンセル</button>
+  </div>`;
+
+  ov.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { S.type = b.dataset.type; savePref(); renderSheet(); });
+  ov.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+    S[b.dataset.k] = (b.dataset.v === 'true') ? true : (b.dataset.v === 'false' ? false : b.dataset.v);
+    savePref(); renderSheet();
+  });
+  ov.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => {
+    const m = b.dataset.mark;
+    if (m === 'from') rFrom = cur;
+    else if (m === 'to') rTo = cur;
+    else { rFrom = rTo = null; }
+    renderSheet();
+  });
+  $('sheet-cancel').onclick = closeSheet;
+  $('go').onclick = onGo;
+}
+
+function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify(S)); } catch(e) {} }
+
+/* ───────── 実行 ───────── */
+function onGo() {
+  if (S.type === 'desc' && aiDesc) { askOverwrite(); return; }
+  run();
+}
+
+function askOverwrite() {
+  const ov = document.createElement('div');
+  ov.className = 'ov'; ov.style.zIndex = 120;
+  ov.innerHTML = `<div class="sheet confirm">
+    <h2>💬 一言解説を上書きしますか？</h2>
+    <p>この動画にはすでに一言解説があります。生成すると新しい文で置き換わります。</p>
+    <div class="quote">${aiDesc}</div>
+    <button class="go danger" id="ow-yes">上書きして生成</button>
+    <button class="cancel" id="ow-no">やめる</button>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#ow-yes').onclick = () => { ov.remove(); run(); };
+  ov.querySelector('#ow-no').onclick  = () => ov.remove();
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+}
+
+function run() {
+  const type = S.type, level = S.level, shot = S.shot && plat === 'gdrive' && type !== 'desc';
+  const from = (type === 'range') ? rFrom : null, to = (type === 'range') ? rTo : null;
+  closeSheet();
+  showPayload(type, level, shot, from, to);
+
+  const btn = $('sumbtn');
+  btn.disabled = true;
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    btn.textContent = `⏳ ${type === 'desc' ? '生成' : '要約'}中… ${Math.round((Date.now()-t0)/1000)}秒`;
+  }, 250);
+  btn.textContent = '⏳ 要約中… 0秒';
+
+  setTimeout(() => {
+    clearInterval(tick);
+    btn.disabled = false; btn.textContent = '✨ AI要約';
+    if (type === 'desc') {
+      aiDesc = 'クローズドガードで姿勢を崩し、45度のアングルを作って腕十字。相手が手を組む／立つ／肩を回す の3パターンへの対応まで解説。';
+      paintDesc();
+      toast('💬 一言解説を生成しました（2秒）');
+    } else {
+      prependMemo(buildSummary(level, shot, from, to));
+      toast((shot ? '✨ 要約＋スクショを追記しました' : '✨ AI要約をMemoに追記しました') + '（2秒）');
+    }
+  }, 2000);
+}
+
+function paintDesc() {
+  $('aidesc-txt').textContent = aiDesc;
+  $('aidesc').style.display = aiDesc ? '' : 'none';
+}
+
+/* ───────── 要約テキスト生成（粒度・範囲を反映） ───────── */
+function buildSummary(level, shot, from, to) {
+  const inR = (s) => (from == null || (s >= from && s <= to));
+  const sc = () => shot ? '<span class="shot"></span>' : '';
+  const ts = (s) => `<span class="ts">[${fmt(s)}]</span> `;
+  const stamp = new Date().toISOString().slice(0,10);
+  const head = (from != null)
+    ? `── ✨ AI要約 [${fmt(from)}–${fmt(to)}] ${LEVEL_JA[level]} (${stamp}) ──`
+    : `── ✨ AI要約 ${LEVEL_JA[level]} (${stamp}) ──`;
+
+  let html = `<div class="sumhead">${head}</div>`;
+
+  if (level === 'coarse') {
+    const secs = SECTIONS.filter(s => inR(s[0]));
+    html += `<span class="h">◾️一言まとめ</span>`;
+    html += `${from != null ? `${fmt(from)}〜${fmt(to)} の区間では、` : ''}クローズドガードからの腕十字を、セットアップから相手の防御への対応まで扱う。<br>`;
+    html += `<span class="h">◾️シチュエーション（状況設定）</span>`;
+    html += `- ${SITU[0]}<br>`;
+    html += `<span class="h">◾️章ごとの要点</span>`;
+    html += (secs.length ? secs : SECTIONS.slice(0,1)).map(s =>
+      `- ${sc()}${ts(s[0])}<b>${s[1]}</b>：${s[2]}`).join('<br>');
+    return html;
+  }
+
+  const every = (level === 'fine') ? 1 : 2;
+  const items = STEPS.filter((s,i) => inR(s[0]) && i % every === 0);
+  const list = items.length ? items : STEPS.slice(0,3);
+
+  html += `<span class="h">◾️一言まとめ</span>`;
+  html += `${from != null ? `${fmt(from)}〜${fmt(to)} の区間。` : ''}クローズドガードから姿勢を崩し、アングルを作って腕十字を決めるまでの手順と、相手の防御3パターンへの対応。<br>`;
+  html += `<span class="h">◾️シチュエーション（状況設定）</span>`;
+  html += SITU.map(s => `- ${s}`).join('<br>');
+  html += `<span class="h">◾️手順とディテール</span>`;
+  html += list.map(s => `- ${sc()}${ts(s[0])}${s[1]}`).join('<br>');
+  if (level === 'fine') {
+    html += `<span class="h">◾️ありがちなミス・注意点</span>`;
+    html += `- ${sc()}${ts(1120)}足を振り上げる前にグリップを離してしまう<br>`;
+    html += `- ${sc()}${ts(1200)}ヒップを上げず腕だけで反らせようとする`;
+  }
+  return html;
+}
+
+function prependMemo(html) {
+  const el = $('memo');
+  const prev = el.querySelector('.empty') ? '' : el.innerHTML.trim();
+  el.innerHTML = prev ? `${html}<br><br>${prev}` : html;
+  el.scrollTop = 0;
+}
+
+/* ───────── 送信ペイロード表示 ───────── */
+function showPayload(type, level, shot, from, to) {
+  const body = { idToken:'…', mode: (type === 'desc' ? 'desc' : 'summary'),
+                 source: plat === 'gdrive' ? 'gdrive' : 'youtube' };
+  if (plat === 'gdrive') { body.gdFileId = '1AbC…'; body.accessToken = '…'; }
+  else { body.ytId = 'dQw4w9WgXcQ'; }
+  body.title = 'Closed Guard Armbar — セットアップと3つの防御への対応';
+  if (type !== 'desc') {
+    body.sumOpts = { level, tsGapSec: level === 'fine' ? 30 : level === 'normal' ? 75 : 240,
+                     perMin: level === 'fine' ? 1.5 : level === 'normal' ? 0.7 : 0.25 };
+  }
+  if (from != null) body.range = { startSec: from, endSec: to };
+  const cost = (type === 'desc') ? 0.01
+    : (from != null ? (0.06 * (to - from) / DUR + 0.01) : 0.06) * (level === 'fine' ? 1.3 : level === 'coarse' ? 0.8 : 1);
+  $('payload').textContent =
+    'POST /api/ai-summary\n' + JSON.stringify(body, null, 2) +
+    '\n\n// クライアント側: スクショ ' + (shot ? 'あり（行頭インライン）' : 'なし') +
+    '\n// 概算コスト: $' + cost.toFixed(3) + (from != null ? '（区間だけ送るので全体より安い）' : '');
+}
+
+/* ───────── 初期描画 ───────── */
+paintTime(); paintDesc();
+</script>
+</body>
+</html>
