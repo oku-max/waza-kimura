@@ -1722,14 +1722,8 @@ export function openVPanel(id) {
       ? `<button id="vp-snap-now-btn-${vid}" onclick="vpMemoSnapNow('${vid}')" title="現在のフレームをスクショしてメモに挿入"
            style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">📸</button>`
       : '';
-    const _descBtn = _canSummarize
-      ? `<button id="vp-aidesc-btn-${vid}" onclick="vpAiDesc('${vid}')" title="AIが動画を見て一言解説を生成（カードにも表示）"
-           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 一言</button>`
-      : '';
-    const _branchBtn = _canSummarize
-      ? `<button id="vp-aibranch-btn-${vid}" onclick="vpAiBranch('${vid}')" title="分岐データを抽出しMemoに追記（プロトタイプ）"
-           style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🌳 分岐</button>`
-      : '';
+    // 「💬 一言」「🌳 分岐」のボタンは廃止（v52.735）。
+    // すでに生成済みの一言解説（v.aiDesc）は、カードとこのパネルにそのまま出し続ける。
     // 字幕生成: Driveは同じフォルダにSRTを保存、YouTubeは字幕ドキュメントに保存
     const _subGenBtn = (_isOwner && (vd?.pt === 'gdrive' || (vd?.pt === 'youtube' && vd?.ytId)))
       ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
@@ -1741,7 +1735,7 @@ export function openVPanel(id) {
       + _descLine
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}${_descBtn}${_branchBtn}${_subGenBtn}</span>
+            <span class="vp-lbl">Memo${_sumBtn}${_ytShotBtn}${_snapBtn}${_subGenBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
@@ -2155,7 +2149,7 @@ function _vpUpdateOrientation() {
 }
 
 window.addEventListener('resize', () => {
-  if (_gdSubTracks.length) { _gdSubLastHtml = ''; _gdSubRenderCues(); }
+  if (_gdSubTracks.length) { _gdSubLastHtml = null; _gdSubRenderCues(); }
   const panel = document.getElementById('vpanel');
   if (panel && panel.classList.contains('open')) _vpUpdateOrientation();
 });
@@ -2589,7 +2583,12 @@ function _reflowVtt(vtt, o, offset) {
 // 文字サイズ・背景の濃さが効かない環境がある（実際に効かなかった）。
 // track は mode='hidden' にしてキューだけ生かし、描画は自分で行う。
 let _gdSubCueHandler = null;   // cuechange ハンドラ（解除用）
-let _gdSubLastHtml   = '';     // 無駄な再描画を避けるための直前の内容
+// 直前に描いた内容。無駄な再描画を避けるためだけに持つ。
+// null は「まだ描いていない／次は必ず描き直す」。空文字は「字幕なしを描いた」状態で、
+// 意味が違う。ここを '' で初期化＆リセットしていたため、字幕をOFFにすると
+//   リセット('') → 今回描くべき内容('') → 同じなので描き換えない
+// となり、最後に出ていた字幕が画面に残り続けていた。
+let _gdSubLastHtml   = null;
 
 function _gdSubOverlayEl(create) {
   const host = _gdContainer;
@@ -2764,7 +2763,7 @@ function _gdSubRevoke() {
   _gdSubBlobUrls = [];
   _gdSubTracks   = [];
   _gdSubIndex    = -1;
-  _gdSubLastHtml = '';
+  _gdSubLastHtml = null;
 }
 
 async function _driveApiGet(path, token) {
@@ -3038,7 +3037,7 @@ function _gdSubSelect(idx, persist) {
     _gdSubSetPref(idx < 0 ? 'off' : (_gdSubTracks[idx]?.label || ''));
   }
   _gdSubBindCueRender();
-  _gdSubLastHtml = '';        // 切替時は必ず描き直す
+  _gdSubLastHtml = null;      // 切替時は必ず描き直す（OFFで消すためにも null にする）
   _gdSubRenderCues();
   _gdSubPaintButton();
 }
@@ -3262,11 +3261,12 @@ let _ytSubPicked   = false;  // この動画でユーザーが自分で選び直
 let _ytSubRaf      = null;
 let _ytSubLastTick = 0;
 let _ytSubLastCc   = 0;      // 純正字幕の状態を最後に確かめた時刻
-let _ytSubLastHtml = '';
+let _ytSubLastHtml = null;   // null =「まだ描いていない／次は必ず描き直す」。'' は「字幕なしを描いた」
 let _ytSubToken    = 0;      // 非同期の取得が古くなったかの判定用
 let _ytSubHostEl   = null;   // オーバーレイを置いている器（毎フレーム探し直さない）
-let _ytCcTimers    = [];     // 純正トラックを探すタイマー
-let _ytCcAskedLoad = false;  // loadModule を一度試したか
+let _ytCcMod       = '';     // 純正字幕で実際に反応したモジュール名（'captions' | 'cc'）
+let _ytCcFound     = false;  // 純正トラックの一覧を取れたか（空＝字幕無しも「取れた」）
+let _ytCcTries     = 0;      // 純正トラックを探した回数
 
 // 端末に覚えている選択。v52.735 では 'ja' / 'orig' だったので 'gen:' を補う。
 function _ytSubPref() {
@@ -3283,14 +3283,7 @@ function _ytSubSetPref(v) { try { localStorage.setItem(YT_SUB_PREF_KEY, v); } ca
 // 公式ドキュメントに載っていないAPIなので、取れなければ「純正は候補に出ない」
 // だけで済むように、どの関数も失敗しても投げない作りにする。
 const YT_CC_MODULES = ['captions', 'cc'];   // HTML5プレイヤーは 'captions'、旧いものは 'cc'
-
-function _ytCcModule() {
-  try {
-    const loaded = _ytPlayer?.getOptions?.();
-    if (Array.isArray(loaded)) for (const m of YT_CC_MODULES) if (loaded.includes(m)) return m;
-  } catch (e) {}
-  return null;
-}
+const YT_CC_MAX_TRIES = 40;                 // 2秒ごと＝約80秒まで探し続ける
 
 // 「English (auto-generated)」のような長い名前はボタンに収まらないので詰める
 function _ytCcName(t) {
@@ -3300,30 +3293,39 @@ function _ytCcName(t) {
   return (name || '字幕') + (auto ? '(自動)' : '');
 }
 
-// 純正トラックの一覧を取り直す。取れたら true（字幕モジュール未読込なら false）
+// 純正トラックの一覧を取りに行く。取れたら true。
+// getOptions() に 'captions' が並ぶのを待ってはいけない（実機では空のまま返ることがあり、
+// それを条件にすると getOption を一度も呼ばずに終わる＝純正が永久に候補に出ない）。
+// モジュール名を決め打ちせず、返事があった方を採用する。
 function _ytCcRead() {
-  const mod = _ytCcModule();
-  if (!mod) return false;
-  let list = null;
-  try { list = _ytPlayer.getOption(mod, 'tracklist'); } catch (e) {}
-  if (!Array.isArray(list)) return false;
-  _ytCcTracks = list
-    .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: 'YT ' + _ytCcName(t), raw: t }))
-    .filter(t => t.code);
-  return true;
+  const mods = _ytCcMod ? [_ytCcMod] : YT_CC_MODULES;
+  for (const m of mods) {
+    let list = null;
+    try { list = _ytPlayer?.getOption?.(m, 'tracklist'); } catch (e) {}
+    if (!Array.isArray(list)) continue;
+    _ytCcMod = m;
+    _ytCcTracks = list
+      .map(t => ({ code: String(t.languageCode || t.vss_id || ''), label: 'YT ' + _ytCcName(t), raw: t }))
+      .filter(t => t.code);
+    return true;   // 空配列＝この動画に純正字幕が無い。これも「分かった」ので探すのをやめる
+  }
+  return false;
+}
+
+// 字幕モジュールを読ませる（再生が始まるまで用意されないことがある）
+function _ytCcLoadModules() {
+  for (const m of YT_CC_MODULES) { try { _ytPlayer?.loadModule?.(m); } catch (e) {} }
 }
 
 function _ytCcCurCode() {
-  const mod = _ytCcModule();
-  if (!mod) return '';
-  try { const t = _ytPlayer.getOption(mod, 'track'); return String(t?.languageCode || ''); }
+  if (!_ytCcMod) return '';
+  try { const t = _ytPlayer?.getOption?.(_ytCcMod, 'track'); return String(t?.languageCode || ''); }
   catch (e) { return ''; }
 }
 
 function _ytCcSet(track) {
-  const mod = _ytCcModule();
-  if (!mod) return false;
-  try { _ytPlayer.setOption(mod, 'track', track || {}); return true; } catch (e) { return false; }
+  if (!_ytCcMod) return false;
+  try { _ytPlayer.setOption(_ytCcMod, 'track', track || {}); return true; } catch (e) { return false; }
 }
 
 // 選択どおりに純正字幕を合わせる。生成字幕を出している間は純正を必ず切る
@@ -3337,35 +3339,45 @@ function _ytSubEnforceCc() {
   }
 }
 
-// 純正トラックは字幕モジュールが読み込まれるまで一覧に出てこない。
-// 何度か見に行き、増えたらボタンと⚙の一覧を描き直す。
-function _ytCcClearTimers() { for (const t of _ytCcTimers) clearTimeout(t); _ytCcTimers = []; }
-
-function _ytCcProbe() {
-  _ytCcClearTimers();
-  const my = _ytSubToken;
-  [300, 1200, 3000, 6000, 12000].forEach((ms, i) => _ytCcTimers.push(setTimeout(() => {
-    if (my !== _ytSubToken) return;
-    const before = _ytCcTracks.length;
-    const got = _ytCcRead();
-    // 一覧が取れない＝字幕モジュールが未読込。一度だけ読ませてみる
-    // （読ませると純正字幕が出ることがあるので、直後に必ず選択を反映させる）
-    if (!got && !_ytCcAskedLoad && i >= 1) {
-      _ytCcAskedLoad = true;
-      try { _ytPlayer?.loadModule?.('captions'); } catch (e) {}
-      _ytCcRead();   // 読み込めたらその場で候補に入れる（次の回まで待たせない）
-    }
-    // 覚えている選択が純正で、それが今回見つかったなら復元する
-    // （ユーザーがこの動画で選び直していない場合だけ）
-    const pref = _ytSubPref();
-    if (!_ytSubPicked && pref.startsWith('yt:') && _ytSubSel !== pref
-        && _ytSubSources().some(s => s.key === pref)) {
-      _ytSubSel = pref;
-    }
-    _ytSubEnforceCc();
-    if (_ytCcTracks.length !== before) { _ytSubPaintButton(); window.wkSubOptsRender?.(); }
-  }, ms)));
+// 純正トラックは、モジュールが用意されるまで（多くは再生が始まるまで）取れない。
+// タイマーで数回だけ見るのでは足りなかったので、描画ループの見張り（2秒ごと）から
+// 見つかるまで呼び続ける。見つかったらボタンと⚙の一覧を描き直す。
+function _ytCcSeek() {
+  if (_ytCcFound || _ytCcTries >= YT_CC_MAX_TRIES) return;
+  _ytCcTries++;
+  if (_ytCcTries === 1 || _ytCcTries === 3 || _ytCcTries === 8) _ytCcLoadModules();
+  if (!_ytCcRead()) return;
+  _ytCcFound = true;
+  // 覚えている選択が純正で、それが今回見つかったなら復元する
+  // （ユーザーがこの動画で選び直していない場合だけ）
+  const pref = _ytSubPref();
+  if (!_ytSubPicked && pref.startsWith('yt:') && _ytSubSources().some(s => s.key === pref)) {
+    _ytSubSel = pref;
+  }
+  _ytSubPaintButton();
+  window.wkSubOptsRender?.();
+  console.log('[ytsub] YouTube側の字幕:', _ytCcTracks.length + '件',
+              _ytCcTracks.map(t => t.code).join(',') || '(なし)', '/ モジュール:', _ytCcMod);
 }
+
+// 純正字幕が候補に出ない時に、どこで止まっているかを見るための診断
+window.wkYtCcDiag = function() {
+  const out = (...a) => console.log('[YT字幕診断]', ...a);
+  const safe = (fn) => { try { return fn(); } catch (e) { return '例外: ' + (e?.message || e); } };
+  out('プレイヤー:', _ytPlayer ? 'あり' : '★なし', '/ 再生位置:', safe(() => _ytPlayer?.getCurrentTime?.()));
+  out('getOptions():', JSON.stringify(safe(() => _ytPlayer?.getOptions?.())));
+  for (const m of YT_CC_MODULES) {
+    const l = safe(() => _ytPlayer?.getOption?.(m, 'tracklist'));
+    out(`getOption('${m}','tracklist'):`, Array.isArray(l)
+      ? l.length + '件 ' + JSON.stringify(l.map(t => t.languageCode || t.vss_id))
+      : JSON.stringify(l));
+    out(`getOption('${m}','track'):`, JSON.stringify(safe(() => _ytPlayer?.getOption?.(m, 'track'))));
+  }
+  out('採用モジュール:', _ytCcMod || '★未特定', '/ 探した回数:', _ytCcTries, '/ 見つかった:', _ytCcFound);
+  out('候補:', _ytSubSources().map(s => s.key).join(', ') || 'なし', '/ 選択:', _ytSubSel);
+  out('再生を始めてから、もう一度 wkYtCcDiag() を実行すると変わることがあります');
+  return '診断おわり（上の [YT字幕診断] の行を見せてください）';
+};
 
 // ── 字幕の候補（生成＋純正）と選択 ──────────────────────────
 function _ytSubSources() {
@@ -3410,7 +3422,6 @@ function _ytSubHost() {
 
 function _ytSubDetach() {
   _ytSubToken++;
-  _ytCcClearTimers();
   if (_ytSubRaf) { cancelAnimationFrame(_ytSubRaf); _ytSubRaf = null; }
   for (const id of ['vp-sub-overlay', 'vp-sub-ui']) {
     document.querySelectorAll('#' + id).forEach(el => {
@@ -3421,7 +3432,8 @@ function _ytSubDetach() {
     });
   }
   _ytSubId = null; _ytSubTracks = []; _ytCcTracks = [];
-  _ytSubSel = 'off'; _ytSubPicked = false; _ytCcAskedLoad = false;
+  _ytSubSel = 'off'; _ytSubPicked = false;
+  _ytCcMod = ''; _ytCcFound = false; _ytCcTries = 0;
   _ytSubLastHtml = null; _ytSubHostEl = null;
 }
 
@@ -3472,8 +3484,7 @@ async function _ytSubAttachInner(ytId) {
 
   _ytSubMountButton(host);
   _ytSubEnforceCc();
-  _ytSubStartLoop();
-  _ytCcProbe();
+  _ytSubStartLoop();   // 純正トラックの探索もこのループの中で続ける
 }
 
 // 生成直後など、いま開いている動画の字幕を読み直して載せ直す
@@ -3542,7 +3553,11 @@ function _ytSubTick() {
 
   // YouTube側が勝手に字幕を出し直すことがある（動画の切替・ユーザー設定）ので、
   // ときどき見張って選択どおりに戻す。読むだけなら安いので2秒に1回。
-  if (now - _ytSubLastCc > 2000) { _ytSubLastCc = now; _ytSubEnforceCc(); }
+  if (now - _ytSubLastCc > 2000) {
+    _ytSubLastCc = now;
+    _ytCcSeek();          // 純正トラックが見つかるまで探し続ける
+    _ytSubEnforceCc();
+  }
 
   const cur = _ytSubCur();
   if (!cur || cur.kind !== 'gen' || !cur.track.cues.length) { _ytSubPaint(''); return; }
@@ -3579,7 +3594,9 @@ function _ytSubMountButton(host) {
   host.querySelector('#vp-sub-ui')?.remove();
   const wrap = document.createElement('span');
   wrap.id = 'vp-sub-ui';
-  wrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
+  // 一時停止するとYouTube自身のボタン（ミュート/CC/設定/拡大）が右上に並ぶので、
+  // 同じ場所に置くと重なって押せない。1段下げてその列を避ける。
+  wrap.style.cssText = 'position:absolute;top:46px;right:8px;z-index:5;display:flex;gap:6px;align-items:center;'
     + 'opacity:1;transition:opacity .25s ease';
   const baseBtn = 'padding:3px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:700;'
     + 'line-height:1.6;cursor:pointer;border:1.5px solid;box-shadow:0 1px 6px rgba(0,0,0,.4)';
@@ -3661,7 +3678,10 @@ async function _translateSrtText(srcText, want, setBtn) {
 //   3) どちらも無ければ Gemini に動画を読ませて書き起こす
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const ytId   = v.ytId;
-  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const setBtn = txt => {
+    if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; }
+    preset?.onProgress?.(txt);
+  };
   const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
   if (!subLang) return { ok: false, skipped: true };
 
@@ -3739,7 +3759,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     try { await _ytSubRefreshNow(ytId); }
     catch (e) { console.warn('[ytsub] 表示の更新に失敗:', e?.message || e); }
   }
-  return { ok: true, target: _ytSubLangLabel(subLang), cost };
+  return { ok: true, target: _ytSubLangLabel(subLang), cost, srt, lang: subLang };
 }
 
 // ── 字幕の自動生成（Gemini でSRTを作り、動画と同じDriveフォルダに保存）──
@@ -4173,7 +4193,7 @@ async function _asrGenerateAndSave(ctx) {
                 token: gdToken, videoFileId: fileId, srcName: src.name,
                 srcText: text, want: want0, setBtn });
               _gdSubLookup.delete(fileId);
-              return { ok: true, cost: r.cost, target: r.target, translated: true, src: src.name };
+              return { ok: true, cost: r.cost, target: r.target, translated: true, src: src.name, srt: r.srt };
             }
           }
         } catch (e) {
@@ -4253,6 +4273,9 @@ async function _asrGenerateAndSave(ctx) {
   // 5. 要求された言語が音声の言語と違うなら翻訳する。
   //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
   let trTarget = null, trCost = 0, trMissing = 0, trErr = null, trFailed = false;
+  // 保存できた本文。Driveは作った直後に検索へ出てこないことがあるので、
+  // 「いま作った字幕をすぐ使いたい」呼び出し元（自動チャプター）へそのまま返す。
+  let outSrt = srt;
   if (translating) {
     // 時刻は「実測の字幕(SRT)」の細かさのまま使い、翻訳だけ「文」単位で行う。
     //   ・字幕1枚ずつ訳させる → 語順が逆なので断片が文にならず、モデルが次の
@@ -4305,7 +4328,7 @@ async function _asrGenerateAndSave(ctx) {
         trTarget = _subFileName(base, want);
         setBtn('⏳ 保存中…');
         const r2 = await saveOne(trTarget, want, trSrt, true);
-        if (r2.skipped) trTarget = null;
+        if (r2.skipped) trTarget = null; else outSrt = trSrt;
       }
     }
   }
@@ -4331,7 +4354,7 @@ async function _asrGenerateAndSave(ctx) {
     _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
     _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
   }
-  return { ok: true, target: trTarget || target, cost };
+  return { ok: true, target: trTarget || target, cost, srt: outSrt, lang: trTarget ? want : lang };
 }
 
 window.vpGenSubtitle = async function(id, preset) {
@@ -4376,7 +4399,12 @@ window.vpGenSubtitle = async function(id, preset) {
 
   const fileId = (v.id || '').replace(/^gd-/, '');
   const orig   = btn ? btn.textContent : '';
-  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  // 押されたボタンが無い（preset で呼ばれた）時も、呼び出し元が進捗を出せるように渡す。
+  // 音声認識は長いと数十分かかるので、無言で待たせると固まったようにしか見えない。
+  const setBtn = txt => {
+    if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; }
+    preset?.onProgress?.(txt);
+  };
   const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
 
   const _t0 = Date.now();
@@ -4460,7 +4488,7 @@ window.vpGenSubtitle = async function(id, preset) {
       _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
       _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
     }
-    return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
+    return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0, srt, lang: subLang };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
     if (!silent) {
@@ -4479,6 +4507,8 @@ window.vpGenSubtitle = async function(id, preset) {
 // 検出の入り口は2つ:
 //   sub   … Driveにある字幕(SRT/VTT)の文字起こしだけをAIに渡す。動画を送らないので速く安い。
 //           おまけに検出時刻を字幕キューの頭にスナップできるので、発話の途中で切れない。
+//           字幕がまだ無い動画でも選べる。その時は先に字幕を作ってからそのまま検出へ進む
+//           （「字幕生成 → もう一度チャプターのメニューを開く」を押させない）。
 //   video … 字幕が無い動画向け。字幕生成と同じ経路で動画本体をGeminiに読ませる（遅い・高い）。
 // 書き込みは必ず確認ダイアログを通す。既存のブックマークは消さず追加のみ（データ保護）。
 const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（'ふつう'の値）
@@ -4650,15 +4680,27 @@ function _chapImgToBase64(file) {
   });
 }
 
+const _chapEsc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
 // テキスト貼り付け＋画像貼り付けの入力ダイアログ。resolve は {text, images} / キャンセルは null
 // 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
 // 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
-// resolve は 'fine' | 'normal' | 'coarse' / キャンセルは null
-function _chapGrainDialog(via, duration) {
+//
+// 字幕は「どれを使うか／どれを作るか」で結果がまるごと変わるので、ここで必ず選べるようにする。
+// 黙って先頭の字幕を使うと、英語の字幕しか読まれていないのに理由が画面に出ない。
+//   subPick = { mode:'use'|'make', options:[{value,label,hint}], value } / 選ぶ必要が無ければ null
+// resolve は { grain:'fine'|'normal'|'coarse', sub:選んだvalue } / キャンセルは null
+function _chapGrainDialog(via, duration, subPick) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-grain-bg')?.remove();
     const cur = _chapGrainKey();
+    const pick = subPick && subPick.options?.length ? subPick : null;
+    let subVal = pick ? (pick.value ?? pick.options[0].value) : null;
+    // 「これから作る」を選んでいるか。説明文が変わるので選び直すたびに見直す。
+    const isMake = () => String(subVal || '').startsWith('make:');
+    const needSub = isMake();
     // 実際に作れる数は動画の長さで決まる。maxCount は安全弁にすぎないので、
     // 尺と無関係に「最大◯個」とだけ書くと、短い動画では嘘になる
     // （5分の動画に「最大60個」など）。長さが分かる時はそちらから上限を出す。
@@ -4683,10 +4725,28 @@ function _chapGrainDialog(via, duration) {
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの細かさ</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">${pick ? '📑 自動チャプター' : 'チャプターの細かさ'}</div>
           <div id="vp-chap-grain-sub" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
-            via === 'sub' ? `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}` : `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
+            via !== 'sub' ? `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`
+            : needSub     ? `先に字幕を作ってから検出します${durLabel ? `（${durLabel}）` : ""}`
+                          : `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
         </div>
+        ${pick ? `
+        <div style="padding:10px 14px 2px">
+          <div id="vp-chap-sub-head" style="font-size:11px;font-weight:700;color:var(--text2,#bbb);margin-bottom:6px">${
+            needSub ? '作る字幕' : '使う字幕'}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${pick.options.map((o, i) => `
+              <button class="vp-chap-sub-opt" data-i="${i}" title="${_chapEsc(o.hint || o.label)}"
+                style="padding:6px 11px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;
+                       border:1.5px solid var(--border);background:transparent;color:var(--text,#eee)">${_chapEsc(o.label)}</button>`).join('')}
+          </div>
+          <div id="vp-chap-sub-note" style="font-size:10px;color:var(--text3,#999);margin-top:5px">${
+            needSub ? '作った字幕は保存されるので、次からはそのまま使えます'
+                    : 'この字幕の文字起こしだけを読んで区切りを探します'}</div>
+        </div>
+        <div style="height:1px;background:var(--border,#444);margin:10px 14px 0;opacity:.6"></div>
+        <div style="padding:8px 14px 0;font-size:11px;font-weight:700;color:var(--text2,#bbb)">区切りの細かさ</div>` : ''}
         <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
           ${CHAP_GRAIN_KEYS.map(k => `
             <button class="vp-chap-grain-opt" data-g="${k}"
@@ -4706,8 +4766,36 @@ function _chapGrainDialog(via, duration) {
 
     const done = v => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+
+    // 字幕のチップは選ぶだけ（閉じない）。決定は下の細かさのボタン。
+    const chips = Array.from(bg.querySelectorAll('.vp-chap-sub-opt'));
+    const subNote = bg.querySelector('#vp-chap-sub-note');
+    const subHead = bg.querySelector('#vp-chap-sub-head');
+    const headSub = bg.querySelector('#vp-chap-grain-sub');
+    const paintChips = () => {
+      chips.forEach((b, i) => {
+        const on = pick.options[i].value === subVal;
+        b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+        b.style.background  = on ? 'var(--gold-soft)' : 'transparent';
+      });
+      // 「使う」と「作る」では、この後に起きることも待ち時間も違う。選ぶたびに書き換える。
+      const mk = isMake();
+      if (subHead) subHead.textContent = mk ? '作る字幕' : '使う字幕';
+      if (subNote) subNote.textContent = mk
+        ? '作った字幕は保存されるので、次からはそのまま使えます'
+        : 'この字幕の文字起こしだけを読んで区切りを探します';
+      if (headSub) headSub.textContent = (mk ? '先に字幕を作ってから検出します' : 'この動画の字幕から検出します')
+        + (durLabel ? `（${durLabel}）` : '');
+      // 英語表示は i18n の MutationObserver が textContent の差し替えを拾って訳す
+    };
+    chips.forEach((b, i) => b.addEventListener('click', () => {
+      subVal = pick.options[i].value;
+      paintChips();
+    }));
+    if (chips.length) paintChips();
+
     bg.querySelectorAll('.vp-chap-grain-opt').forEach(b =>
-      b.addEventListener('click', () => done(b.dataset.g)));
+      b.addEventListener('click', () => done({ grain: b.dataset.g, sub: subVal })));
     bg.querySelector('#vp-chap-grain-cancel').addEventListener('click', () => done(null));
     bg.addEventListener('click', e => { if (e.target === bg) done(null); });
     document.addEventListener('keydown', onKey, true);
@@ -4883,7 +4971,9 @@ function _askChapterSource(anchorEl, subCount) {
     // （貼り付けには効かない設定を同じ画面に並べると分かりにくいため）。
     menu.innerHTML =
       item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
-      + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
+      + item('sub', '字幕から検出',
+             subCount ? 'どの字幕を使うかは次の画面で選べます（速い・安い）'
+                      : '字幕が無いので先に作ります（時間とコストがかかります）', false)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
     _fitPopup(menu, anchorEl);
@@ -4956,6 +5046,7 @@ function _chapReviewDialog(chaps, info) {
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
           <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📑 自動チャプター</div>
           <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${_escAttr(info?.note || '')}</div>
+          ${info?.subLine ? `<div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${_escAttr(info.subLine)}</div>` : ''}
           ${info?.warn ? `<div style="font-size:10.5px;color:var(--accent);margin-top:2px">⚠ ${_escAttr(info.warn)}</div>` : ''}
         </div>
         ${info?.canRedo ? `
@@ -5083,12 +5174,15 @@ function _applyChapters(id, sel, duration) {
 }
 
 // この動画の字幕本文（VTT）を1つ取る。再生中でメモリにあればそれを使う。
-async function _chapGetVtt(fileId, gdToken, subs) {
+// pickId を渡した時は必ずその字幕を読む。選んでもらった以上、
+// 再生中にたまたま出ている別言語のトラックで代用しない（英語で検出されて理由が分からなくなる）。
+async function _chapGetVtt(fileId, gdToken, subs, pickId) {
+  const cand = (pickId && (subs || []).find(x => x.id === pickId)) || subs?.[0];
   if (_gdFileId === fileId && _gdSubTracks.length) {
-    const t = _gdSubTracks[_gdSubIndex >= 0 ? _gdSubIndex : 0] || _gdSubTracks[0];
+    const t = cand ? _gdSubTracks.find(x => x.id === cand.id)
+                   : (_gdSubTracks[_gdSubIndex >= 0 ? _gdSubIndex : 0] || _gdSubTracks[0]);
     if (t?.rawVtt) return t.rawVtt;
   }
-  const cand = subs?.[0];
   if (!cand) return '';
   // 動画本体と同じ同一オリジンプロキシ経由で取る（CORS・認証の追加対応が不要）
   const res = await fetch(`/api/drive?fileId=${encodeURIComponent(cand.id)}&token=${encodeURIComponent(gdToken)}`);
@@ -5121,7 +5215,7 @@ window.vpGenChapters = async function(id, preset) {
     // 1. 字幕があるか先に調べて、入り口を選ばせる
     setBtn('⏳ 確認中…');
     // 字幕の在りか: Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント
-    const subs = isGd
+    let subs = isGd
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
       : _ytSubList(await _ytSubFetch(v.ytId, true));
     endBtn();
@@ -5146,10 +5240,84 @@ window.vpGenChapters = async function(id, preset) {
       ? { source: 'gdrive', gdFileId: fileId, accessToken: gdToken }
       : { source: 'youtube', ytId: v.ytId, durationSec: duration || 0 };
 
-    let pickedGrain = preset?.grain;
+    // 字幕がまだ無いのに「字幕から検出」を選べる（下で先に字幕を作る）
+    const needSubGen = via === 'sub' && !subs.length && !preset;
+
+    // 字幕は「どれを使うか／どれを作るか」で結果がまるごと変わる。
+    // 黙って先頭（並び順の都合で英語のことがある）を使うと、なぜ英語で検出されたのかが
+    // 画面のどこにも出ない。必ず選ばせて、選んだものだけを読む。
+    //   'use:<id|lang>'  … すでにある字幕を使う
+    //   'make:<lang>'    … その言語の字幕をここで作ってから検出する
+    // 英語の字幕しか無い動画で日本語が欲しい、も「作る」側の選択肢として並べる。
+    const subPick = via !== 'sub' ? null : (() => {
+      const opts = subs.map(t => ({
+        value: 'use:' + (t.id || t.lang),
+        label: t.label || t.name || t.lang || '字幕',
+        hint:  t.name || '',
+      }));
+      const have = new Set(subs.map(t => _subLangNorm(t.lang || '')));
+      for (const [code, label] of _subGenLangChoices()) {
+        // 'orig' は出来上がる言語が事前に分からないので、字幕が1つでもあると
+        // vpGenSubtitle 側が安全のため作らずに抜ける。押せても何も起きないので出さない。
+        if (code === 'orig' && subs.length) continue;
+        if (code !== 'orig' && have.has(_subLangNorm(code))) continue;   // 同じ言語が既にある
+        opts.push({ value: 'make:' + code,
+                    label: code === 'orig' ? '＋ 原語のまま作る' : `＋ ${label}で作る`,
+                    hint: '字幕を作ってから検出します（時間とコストがかかります）' });
+      }
+      const want = 'make:' + (subOpts().genLang || 'ja');
+      return { mode: subs.length ? 'use' : 'make',
+               value: subs.length ? opts[0].value : (opts.some(o => o.value === want) ? want : opts[0].value),
+               options: opts };
+    })();
+
+    let pickedGrain = preset?.grain, pickedSub = preset?.sub ?? null;
     if (!preset && via !== 'list') {
-      pickedGrain = await _chapGrainDialog(via, duration);
-      if (!pickedGrain) return { ok: false, skipped: true };
+      const got = await _chapGrainDialog(via, duration, subPick);
+      if (!got) return { ok: false, skipped: true };
+      pickedGrain = got.grain;
+      pickedSub   = got.sub;
+    }
+    // Driveは字幕ファイルのid、YouTubeは言語コードが 'use:' の中身
+    const selSub  = String(pickedSub || '');
+    const makeLang = selSub.startsWith('make:') ? selSub.slice(5) : (needSubGen ? (subOpts().genLang || 'ja') : '');
+    const pickId   = selSub.startsWith('use:')  ? selSub.slice(4) : null;
+    // 確認画面に出す「何の字幕を読んだか」。英語の字幕で検出されても理由が追える。
+    const subUsedLine = () => {
+      if (via !== 'sub') return '';
+      if (makeLang) {
+        const lg = madeLang || makeLang;
+        return '作った字幕: ' + (SUB_LANGS[lg] || (lg === 'orig' ? '原語のまま' : String(lg).toUpperCase()));
+      }
+      const t = (pickId && subs.find(x => (x.id || x.lang) === pickId)) || subs[0];
+      return t ? '使った字幕: ' + (t.label || t.name || t.lang) : '';
+    };
+
+    // 1.5 「作る」を選ばれた時は、ここで字幕を作ってから検出へ進む。
+    // ボタンを押し直させない（作り終えてからもう一度メニューを開かせるのは手間なだけ）。
+    // 言語は上のダイアログで選ばれたものを使う。
+    // 既存の字幕には触れない: existing:'skip' なので、同じ言語の字幕が万一この間に
+    // 現れても作り直さず飛ばす（非空→上書きを起こさない）。
+    // 一括実行(preset)は従来どおり字幕が無ければ video へ倒すので、ここには入らない。
+    let freshSrt = '', subGenCost = 0, madeLang = '';
+    if (makeLang) {
+      setBtn('⏳ 字幕を作成中…');
+      const g = await window.vpGenSubtitle(id, {
+        subLang: makeLang,
+        existing: 'skip',
+        onProgress: setBtn,   // 字幕側の「⏳ 書き起こし中… 120秒」等をこのボタンに出す
+      });
+      // 失敗・中止は vpGenSubtitle 側がトーストと結果表示で知らせている（二重に出さない）
+      if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
+      freshSrt   = g.srt || '';
+      subGenCost = Number(g.cost) || 0;
+      madeLang   = g.lang || makeLang;   // 翻訳に失敗して原語版だけ残ることがある
+      // 作った字幕を検出の元にする。Driveは作成直後の検索に出てこないことがあるので、
+      // 一覧に現れなくても本文（freshSrt）は手元にある → それをそのまま使う。
+      subs = isGd ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
+                  : _ytSubList(await _ytSubFetch(v.ytId, true));
+      if (!subs.length && !freshSrt) throw new Error('作った字幕を読み取れませんでした');
+      endBtn();
     }
 
     // 2. 検出
@@ -5161,8 +5329,10 @@ window.vpGenChapters = async function(id, preset) {
     let cues = [], transcript = '', clipped = false;
     const loadTranscript = async () => {
       if (transcript) return transcript;
-      const vtt = isGd ? await _chapGetVtt(fileId, gdToken, subs)
-                       : (subs[0]?.srt ? _srtToVtt(subs[0].srt) : '');
+      const picked = pickId ? (subs.find(x => (x.id || x.lang) === pickId) || subs[0]) : subs[0];
+      const vtt = freshSrt ? _srtToVtt(freshSrt)
+                : isGd     ? await _chapGetVtt(fileId, gdToken, subs, picked?.id)
+                           : (picked?.srt ? _srtToVtt(picked.srt) : '');
       const tr = _vttToTranscript(vtt, CHAP_TR_MAX);
       cues = tr.cues; clipped = tr.clipped; transcript = tr.text;
       return transcript;
@@ -5191,7 +5361,7 @@ window.vpGenChapters = async function(id, preset) {
     // 表から作る場合は表のとおりに区切るので粒度は使わない。
     // メニューで選ばれた細かさを初期値にする（未指定なら設定画面の既定）
     let grainKey = _chapGrainKey(pickedGrain);
-    let totalCost = 0;
+    let totalCost = subGenCost;
 
     for (;;) {
       const grain    = _chapGrain(grainKey);
@@ -5210,7 +5380,7 @@ window.vpGenChapters = async function(id, preset) {
           // 2b. 表に時刻が無い → 章立てを正解として、位置だけを字幕（無ければ動画）から探す
           setBtn('⏳ 位置合わせ中…');
           const chapOpts = { titles: conv.titles };
-          const useSub = subs.length > 0 && !!(await loadTranscript());
+          const useSub = (subs.length > 0 || !!freshSrt) && !!(await loadTranscript());
           const r2 = useSub
             ? await post({ idToken, mode: 'chapters', source: 'transcript', transcript, chapOpts, ...ctxFields })
             : await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts, ...ctxFields });
@@ -5231,13 +5401,13 @@ window.vpGenChapters = async function(id, preset) {
         chaps = _normalizeChapters(chaps, { duration, minSec: 0, maxCount: 200 });
 
       } else if (via === 'sub') {
-        if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
+        if (!subs.length && !freshSrt) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
         if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
         const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
         chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }), cues);
-        noteSrc = '字幕から検出';
+        noteSrc = freshSrt ? '字幕を作成して検出' : '字幕から検出';
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
 
       } else {
@@ -5257,7 +5427,7 @@ window.vpGenChapters = async function(id, preset) {
       const sel = preset
         ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto }
         : await _chapReviewDialog(chaps, {
-            note, autoCount, warn,
+            note, autoCount, warn, subLine: subUsedLine(),
             grain: grainKey, canRedo: via !== 'list',
           });
       if (!sel) return { ok: false, skipped: true };
@@ -5459,7 +5629,11 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">CCボタンを押しても同じ順で切り替わります。出るのは常に1つだけです</div>`
         + (_ytCcTracks.length
             ? `<div style="font-size:10.5px;color:var(--text3)">YouTubeの字幕はプレイヤー内部で表示されるため、下の見た目・ズレの設定は効きません</div>`
-            : `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕は、再生を始めると候補に出てくることがあります</div>`)
+            : _ytCcFound
+            ? `<div style="font-size:10.5px;color:var(--text3)">この動画にはYouTube側の字幕がありません</div>`
+            : _ytCcTries >= YT_CC_MAX_TRIES
+            ? `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を取得できませんでした（コンソールで wkYtCcDiag() を実行すると原因が出ます）</div>`
+            : `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を探しています（再生を始めると出てくることがあります）</div>`)
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
@@ -5708,7 +5882,7 @@ async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want,
   const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
   await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id });
   _gdSubLookup.delete(videoFileId);
-  return { target, cost: r.cost, cues: r.cues, missing: r.missing };
+  return { target, cost: r.cost, cues: r.cues, missing: r.missing, srt: r.srt };
 }
 
 // Driveのゴミ箱へ移す。完全削除（files.delete）ではなく trashed:true にする。
@@ -7849,147 +8023,6 @@ function _vpCollectTsText(text) {
   return tsText;
 }
 
-// ── AI呼び出し共通ヘルパー（desc/branch 用。summaryは既存フローのまま）──
-// 成功: 生成テキストを返す / 失敗: null（トースト表示済み）
-async function _vpAiVideoCall(id, mode, btn, busyLabel) {
-  const v = (window.videos||[]).find(v => v.id===id);
-  if (!v) return null;
-  const isYT = v.pt === 'youtube' && v.ytId;
-  const isGD = v.pt === 'gdrive';
-  if (!isYT && !isGD) { window.toast?.('YouTube または Google Drive の動画のみ対応しています'); return null; }
-  const user = window._firebaseCurrentUser?.();
-  if (!user) { window.toast?.('ログインが必要です'); return null; }
-  let gdAccessToken = null;
-  if (isGD) {
-    gdAccessToken = window.getDriveTokenIfAvailable?.();
-    if (!gdAccessToken) { window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。'); return null; }
-  }
-  const origLabel = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = busyLabel; btn.style.opacity = '0.6'; }
-  try {
-    const idToken = await user.getIdToken();
-    const reqBody = isYT
-      ? { idToken, mode, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
-      : { idToken, mode, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
-    let lastErr = '';
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const res = await fetch('/api/ai-summary', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reqBody),
-        });
-        const d = await res.json().catch(() => ({}));
-        if (res.ok && d.summary) return d.summary;
-        lastErr = (d.error || ('HTTP ' + res.status)) + (d.detail ? ` (${d.detail})` : '');
-      } catch (e) { lastErr = e.message; }
-      if (attempt < 2) await new Promise(r => setTimeout(r, 1800));
-    }
-    window.toast?.('⚠️ AI処理に失敗: ' + (lastErr || '原因不明'), 8000);
-    return null;
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = origLabel; btn.style.opacity = ''; }
-  }
-}
-
-// 保存（一時障害に備えて1回リトライ）
-async function _vpAiSave() {
-  if (!window.saveUserData) return true;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    let ok = false;
-    try { ok = await window.saveUserData(); } catch(e) { ok = false; }
-    if (ok) return true;
-    if (attempt < 2) await new Promise(r => setTimeout(r, 1200));
-  }
-  window.toast?.('⚠️ 保存に失敗しました。通信環境を確認してください', 7000);
-  return false;
-}
-
-// ── AI一言解説（動画を開く前に内容が分かる1〜2文。カード・パネルに表示）──
-window.vpAiDesc = async function(id) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const btn = document.getElementById('vp-aidesc-btn-' + id);
-  const text = await _vpAiVideoCall(id, 'desc', btn, '⏳ 生成中…');
-  if (!text) return;
-  v.aiDesc = text.replace(/\s*\n\s*/g, ' ').trim();
-  const line = document.getElementById('vp-aidesc-' + id);
-  const txt  = document.getElementById('vp-aidesc-txt-' + id);
-  if (txt) txt.textContent = v.aiDesc;
-  if (line) line.style.display = '';
-  await _vpAiSave();
-  window.AF?.(); // カードの一言解説を即時反映
-  window.toast?.('💬 一言解説を生成しました');
-};
-
-// ── AI分岐抽出（状況×相手の反応×技 → v.aiBranches に保存＋Memoにアウトライン追記）──
-// 要約と同じく、GDrive動画では各分岐のタイムスタンプの写真も自動で埋め込む。
-window.vpAiBranch = async function(id) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const isGD = v.pt === 'gdrive';
-  const btn = document.getElementById('vp-aibranch-btn-' + id);
-
-  // 写真の有無・レイアウトを先に確認（GDriveのみ撮影可）
-  const opts = await _askSummaryOptions(isGD);
-  if (!opts) return; // キャンセル
-
-  const raw = await _vpAiVideoCall(id, 'branch', btn, '⏳ 抽出中…');
-  if (!raw) return;
-  let items = null;
-  try {
-    const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
-    items = Array.isArray(parsed?.items) ? parsed.items : (Array.isArray(parsed) ? parsed : null);
-  } catch(e) { console.warn('[aiBranch] JSON parse失敗:', e, raw.slice(0, 300)); }
-  if (!items || !items.length) { window.toast?.('⚠️ 分岐データの解析に失敗しました', 6000); return; }
-
-  // 動画ごとの構造化データとして保存（将来のマップ合成の素材。追記のみで安全）
-  v.aiBranches = { items, at: new Date().toISOString().slice(0, 10) };
-
-  // Memo用アウトライン（situationごとにグループ化。[M:SS]はts-link化される）
-  const bySit = new Map();
-  for (const it of items) {
-    const sit = (it.situation || 'その他').trim();
-    if (!bySit.has(sit)) bySit.set(sit, []);
-    bySit.get(sit).push(it);
-  }
-  const lines = [`── 🌳 分岐（相手の状態→こちらの技） (${new Date().toISOString().slice(0,10)}) ──`];
-  for (const [sit, arr] of bySit) {
-    lines.push(`◾️${sit}`);
-    for (const it of arr) {
-      const ts   = it.timestamp ? `[${it.timestamp}] ` : '';
-      const trig = (it.trigger || it.condition || '基本').trim();   // 分岐＝相手の状態（旧condition互換）
-      const resp = (it.response || it.technique || '').trim();       // こちらの技（旧technique互換）
-      // 手順は分岐に含めない方針。detailが来ても長い手順段落は載せない（短ければ括弧で付す）。
-      const det  = (it.detail || '').trim();
-      const shortDet = (det && det.length <= 24) ? `（${det}）` : '';
-      lines.push(`- ${ts}相手：**${trig}** → ${resp}${shortDet}`);
-    }
-  }
-  const outline = lines.join('\n');
-
-  // 写真撮影（opts.shot かつ GDrive）→ 要約と同じサムネ埋め込み描画
-  let shotMap = {};
-  if (opts.shot && isGD && _gdVideoEl) {
-    const tsText = _vpCollectTsText(outline);
-    const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
-    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
-    shotMap = await _vpCaptureGdShots(id, secs, tsText, btn);
-    if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = '🌳 分岐'; }
-  }
-  const html = Object.keys(shotMap).length
-    ? _summaryToHtmlWithShots(outline, shotMap, opts.layout)
-    : _memoToHtml(outline);
-  const memoEl = document.getElementById('vp-memo-' + id);
-  if (memoEl) {
-    const cur = memoEl.innerHTML.trim();
-    memoEl.innerHTML = cur ? `${html}<br><br>${cur}` : html;
-    _bindTsLinks(memoEl);
-    v.memo = memoEl.innerHTML.trim();
-  } else {
-    const cur = (v.memo || '').trim();
-    v.memo = cur ? `${html}<br><br>${cur}` : html;
-  }
-  await _vpAiSave();
-  window.toast?.(`🌳 分岐を${items.length}件抽出しました`);
-};
 
 // ── AI要約（Gemini / YouTube・Google Drive・オーナー限定）──
 // preset を渡すと対話なしで実行する（一括処理用）。preset = { shot:false, silent:true }
