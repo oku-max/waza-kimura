@@ -571,8 +571,8 @@ function flattenTree(tree, stripSuffix) {
 
 // ── UI: タブ切り替え ──
 export function switchImportTab(tab) {
-  const tabs = ['yt', 'gd', 'url'];
-  const bodies = { yt: 'yt-import-body', gd: 'gd-import-body', url: 'url-import-body' };
+  const tabs = ['yt', 'gd', 'url', 'up'];
+  const bodies = { yt: 'yt-import-body', gd: 'gd-import-body', url: 'url-import-body', up: 'up-import-body' };
   tabs.forEach(t => {
     const body = document.getElementById(bodies[t]);
     if (body) body.style.display = t === tab ? '' : 'none';
@@ -584,6 +584,8 @@ export function switchImportTab(tab) {
     }
   });
   if (tab === 'gd') gdOpenBrowser();
+  // 端末アップロードのタブ。gd-upload.js が window に生やす（読み込み前でも落ちないように任意呼び出し）
+  if (tab === 'up') window.gduOpen?.();
   // YouTubeタブ選択時のみ認証→プレイリスト取得
   if (tab === 'yt') {
     const body = document.getElementById('yt-import-body');
