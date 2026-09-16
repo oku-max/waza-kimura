@@ -1185,6 +1185,8 @@ export function bulkDo(type){
   else if(type==='archive'){ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.archived=true;});window.AF?.();window.debounceSave?.();window.toastUndo?.('📦 '+ids.length+'本をアーカイブ', bulkUndo);}
   else if(type==='delete'){
     window.showConf?.('🗑 完全削除', ids.length+'本の動画を完全に削除します。この操作は元に戻せません。', async () => {
+      // ユーザーが承知のうえで減らす分は保存側のガードに申告する（二重確認を避ける）
+      window._wkDeleteIntent?.(ids.length);
       window.videos = (window.videos||[]).filter(v => !ids.includes(v.id));
       window.selIds?.clear();
       closeBulkVPanel();
@@ -1511,9 +1513,8 @@ Object.defineProperty(window, '_bulkPlMode', {
 let _bulkAiAbort = false;
 
 function _bulkAiEligible(mode, vids) {
-  return vids.filter(v => mode === 'subtitle'
-    ? v.pt === 'gdrive'
-    : (v.pt === 'gdrive' || (v.pt === 'youtube' && v.ytId)));
+  // 字幕もYouTubeに対応した（Driveは同じフォルダのSRT、YouTubeは字幕ドキュメントへ保存）
+  return vids.filter(v => v.pt === 'gdrive' || (v.pt === 'youtube' && v.ytId));
 }
 
 function _bulkAiHasSummary(v) { return /── ✨ AI要約/.test(String(v.memo || '')); }
@@ -1544,12 +1545,11 @@ export async function bulkAiRun(mode) {
   const cands = _bulkAiEligible(mode, all);
 
   if (!cands.length) {
-    window.toast?.(isSub
-      ? 'Google Drive の動画が選択されていません'
-      : 'YouTube または Google Drive の動画が選択されていません');
+    window.toast?.('YouTube または Google Drive の動画が選択されていません');
     return;
   }
-  if (isSub && !window.getDriveTokenIfAvailable?.()) {
+  // Driveの認証が要るのはDrive動画があるときだけ（YouTubeはDriveを経由しない）
+  if (isSub && cands.some(v => v.pt === 'gdrive') && !window.getDriveTokenIfAvailable?.()) {
     window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。');
     return;
   }

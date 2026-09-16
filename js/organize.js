@@ -777,7 +777,25 @@ export function renderOrg() {
 
   const totalCount = list.length;
   const oc = document.getElementById('oc');
-  if (oc) oc.textContent = totalCount + ' 本' + _orgTotalDurLabel(list);
+  if (oc) {
+    // 本数の表記は従来どおり（i18nのテンプレ訳がそのまま効くよう、テキストノードを分けて持つ）。
+    // そのうえで「絞り込み・アーカイブで画面に出ていない本数」を隣に添える。
+    // 画面の数字だけ見て「動画が減った」と誤解しないための表示で、データには触れない。
+    const hidden = Math.max(0, (videos.length || 0) - totalCount);
+    oc.textContent = '';
+    oc.style.cursor = 'pointer';
+    oc.title = '本数の内訳を見る';
+    const main = document.createElement('span');
+    main.textContent = totalCount + ' 本' + _orgTotalDurLabel(list);
+    oc.appendChild(main);
+    if (hidden > 0) {
+      const sub = document.createElement('span');
+      sub.style.cssText = 'margin-left:6px;color:var(--text3);opacity:.85';
+      sub.textContent = `／非表示 ${hidden}本 ⓘ`;
+      oc.appendChild(sub);
+    }
+    oc.onclick = () => window.wkVideoAuditOpen?.();
+  }
 
   // ソート
   const sortSel = document.getElementById('org-sort-sel');

@@ -480,7 +480,9 @@ async function handleAiSummary(request, env) {
     if (!ytId || !/^[\w-]{6,20}$/.test(ytId)) {
       return jsonRes({ error: 'ytId が不正です' }, 400);
     }
-    return _streamJson(() => _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts));
+    // 動画の長さは字幕・チャプターの検証（欠損や打ち切りの判定）に使う。
+    // 分からない場合は 0 のまま＝長さに依存する検証だけが働かない。
+    return _streamJson(() => _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts, Number(body.durationSec) || 0));
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
@@ -1155,17 +1157,29 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
                     outTok: r.usage?.candidatesTokenCount || 0 }] };
 }
 
-// ── YouTube 要約/一言解説/分岐抽出 ─────────────────────────
-async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts) {
+// ── YouTube 要約/一言解説/分岐抽出/字幕/チャプター ─────────
+// Gemini は YouTube の URL をそのまま動画として受け取れる。Drive のように
+// ファイルを中継アップロードする必要がないだけで、生成そのものは同じなので、
+// 字幕とチャプターは Drive と同じ関数（検証・整形つき）を通す。
+// ここを素の _geminiGenerate のままにすると、Drive 側で積み上げた
+// 「前半が丸ごと欠けたSRTを弾く」「途中で切れた生成を保存させない」といった
+// 安全確認が YouTube だけ素通りしてしまう。
+async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts, durationSec) {
   const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
-  const prompt   = _promptFor(mode, _ctxStr(title, channel, playlist), subLang, subOpts, chapOpts);
+  const filePart = { fileData: { fileUri: videoUrl } };
+  const ctx      = _ctxStr(title, channel, playlist);
   try {
-    const result = await _geminiGenerate(env, [
-      { fileData: { fileUri: videoUrl } },
-      { text: prompt },
-    ], _genOptsFor(mode));
+    const result = mode === 'subtitle'
+      ? await _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec)
+      : mode === 'chapters'
+      ? await _generateChapters(env, filePart, ctx, chapOpts, durationSec)
+      : await _geminiGenerate(env, [
+          filePart,
+          { text: _promptFor(mode, ctx, subLang, subOpts, chapOpts) },
+        ], _genOptsFor(mode));
     if (result.error) return jsonRes(result, 502);
-    return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd });
+    return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd,
+                     via: 'video', durationSec: Number(durationSec) || 0, diag: result.diag });
   } catch (e) {
     return jsonRes({ error: e.message }, 500);
   }
