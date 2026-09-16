@@ -1625,6 +1625,19 @@
     "⏳ 字幕を作成中…": "\u23f3 Creating subtitles...",
     "字幕を作成して検出": "Subtitles created, then detected",
     "作った字幕を読み取れませんでした": "Could not read the subtitles that were created",
+    // どの字幕を使う／作るかの選択（黙って先頭を使わない）
+    "どの字幕を使うかは次の画面で選べます（速い・安い）":
+      "Pick which subtitles to use on the next screen (fast and cheap)",
+    "使う字幕": "Subtitles to use",
+    "作る字幕": "Subtitles to create",
+    "区切りの細かさ": "Segment size",
+    "この字幕の文字起こしだけを読んで区切りを探します":
+      "Only this subtitle\u2019s transcript is read to find the breaks",
+    "作った字幕は保存されるので、次からはそのまま使えます":
+      "The subtitles are saved, so next time they can be used as they are",
+    "＋ 原語のまま作る": "+ Create in the original language",
+    "字幕を作ってから検出します（時間とコストがかかります）":
+      "Subtitles are created first, then chapters detected (this takes time and costs)",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
     "チャプター一覧を貼り付け": "Paste a chapter list",
     "チャプター名と時間をコピペする（最も正確）": "Copy and paste the names and times (most accurate)",
@@ -1914,6 +1927,11 @@
       (m, d) => 'The AI watches the video to detect them' + (d ? ` (${_wkDurEn(d)})` : '')],
     [/^先に字幕を作ってから検出します(?:（(.+?)）)?$/,
       (m, d) => 'Subtitles are created first, then chapters detected' + (d ? ` (${_wkDurEn(d)})` : '')],
+    // 「＋ 日本語で作る」。言語名は静的辞書で引く（日本語/English はそのまま残す）
+    [/^＋ (.+?)で作る$/, (m, lang) => `+ Create in ${_autoMap.get(lang) || lang}`],
+    // 確認画面の「使った字幕: 日本語」「作った字幕: 原語のまま」
+    [/^使った字幕: (.+)$/, (m, d) => `Subtitles used: ${_autoMap.get(d) || d}`],
+    [/^作った字幕: (.+)$/, (m, d) => `Subtitles created: ${_autoMap.get(d) || d}`],
     // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
     // 「検出元 · $0.003」。検出元は静的辞書で引き、金額はそのまま残す
     [/^(.+?) · (\$[\d.]+)$/, (m, head, cost) => {
