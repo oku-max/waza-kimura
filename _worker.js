@@ -1049,17 +1049,19 @@ const SRT_IDX_LINE  = /^\s*(\d{1,5})\s*$/;
 const SRT_TC_STRICT = /^\s*\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3}\s*-->/;
 function _srtUnreadableTc(text, cueCount) {
   const lines = _srtFixMs(text).replace(/\r\n?/g, '\n').split('\n');
-  let maxIdx = 0, sample = '';
+  let maxIdx = 0, lastIdx = 0, sample = '', firstBadIdx = 0;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(SRT_IDX_LINE);
-    if (m) { const n = Number(m[1]); if (n > maxIdx) maxIdx = n; continue; }
-    // 読めなかった時刻らしき行を、報告用に1つだけ拾う
+    if (m) { lastIdx = Number(m[1]); if (lastIdx > maxIdx) maxIdx = lastIdx; continue; }
+    // 読めなかった時刻らしき行を1つだけ拾い、その直前の通し番号も残す。
+    // 「何番目から崩れたか」が分かれば、次に起きた時に推測しないで済む。
     if (!sample && /-+>|ー>|→/.test(lines[i]) && !SRT_TC_STRICT.test(lines[i])) {
       sample = lines[i].trim().slice(0, 60);
+      firstBadIdx = lastIdx;
     }
   }
   const cues = Number(cueCount) || 0;
-  return { maxIdx, cues, lost: Math.max(0, maxIdx - cues), sample };
+  return { maxIdx, cues, lost: Math.max(0, maxIdx - cues), sample, firstBadIdx };
 }
 
 function _srtCues(text) {
@@ -1192,7 +1194,9 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   if (tc.lost > Math.max(3, tc.maxIdx * 0.1)) {
     return { error: '字幕の時刻を読み取れませんでした',
              detail: `AIは${tc.maxIdx}枚書いていますが、読み取れたのは${tc.cues}枚です`
-               + `（${tc.lost}枚が読めない書式）${tc.sample ? `。例: ${tc.sample}` : ''}。`
+               + `（${tc.lost}枚が読めない書式）`
+               + `${tc.firstBadIdx ? `。${tc.firstBadIdx}枚目から崩れています` : ''}`
+               + `${tc.sample ? `。例: ${tc.sample}` : ''}。`
                + `そのまま保存すると、その時刻から先が本文に化けて字幕が途中で終わります。`
                + `保存していません。もう一度生成してください` };
   }
@@ -1200,7 +1204,7 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   const bad = _validateSrt(fixed, dur);
   if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
   return { summary: fixed, usage: r.usage, costUsd: r.costUsd,
-           diag: [{ sec, cues: cues.length, idx: tc.maxIdx, lost: tc.lost,
+           diag: [{ sec, cues: cues.length, idx: tc.maxIdx, lost: tc.lost, badFrom: tc.firstBadIdx,
                     first: first === Infinity ? null : Math.round(first),
                     last: Math.round(last), fin: r.finish || (r.cut ? 'CUT' : ''),
                     outTok: r.usage?.candidatesTokenCount || 0 }] };
