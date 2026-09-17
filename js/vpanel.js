@@ -4556,11 +4556,30 @@ const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字�
 // 下限と上限だけではモデルは何個に分ければよいか分からず、細かめを選んでも
 // 10分の動画に2個しか作らなかった。1つあたりの目安の長さ(typSec)を併せて渡し、
 // サーバー側で「この動画なら◯〜◯個」という目安に直す。
+// maxSec は「1チャプターがこれより長くなったら分け直す」上限。
+// 下限(minSec)しか無かったため、下限だけ守って 0:00/0:30/0:59/4:01 のように
+// 3分間まるごと区切りの無い結果になっていた（5分の動画で実際に発生）。
 const CHAP_GRAINS = {
-  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, typSec: 60,  label: '細かめ' },
-  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, typSec: 150, label: 'ふつう' },
-  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, typSec: 420, label: '大きめ' },
+  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, typSec: 60,  maxSec: 150, label: '細かめ' },
+  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, typSec: 150, maxSec: 360, label: 'ふつう' },
+  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, typSec: 420, maxSec: 900, label: '大きめ' },
 };
+
+// 空きすぎた区間を数える。1回の検出では、長い反復デモが丸ごと1チャプターに
+// 潰れるのを避けられない。残った穴はその区間だけを見せ直して埋める。
+const CHAP_GAPFILL_MAX   = 3;   // 埋め直す区間の数の上限（コストの歯止め）
+const CHAP_GAPFILL_LINES = 5;   // これ未満の発話しか無い区間は、埋める材料が無い
+
+function _chapGaps(chaps, duration, maxSec) {
+  const dur = Number(duration) || 0;
+  const out = [];
+  for (let i = 0; i < chaps.length; i++) {
+    const from = chaps[i].time;
+    const to   = (i + 1 < chaps.length) ? chaps[i + 1].time : dur;
+    if (to > from && to - from > maxSec) out.push({ from, to, span: to - from });
+  }
+  return out.sort((a, b) => b.span - a.span);
+}
 const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
 
 function _chapGrainKey(k) {
@@ -4613,7 +4632,14 @@ function _vttToTranscript(vtt, maxChars) {
   // ここで切ると後半のチャプターが出なくなるので、切ったことを呼び出し側へ伝える
   const clipped = text.length > maxChars;
   if (clipped) text = text.slice(0, maxChars);
-  return { text, cues, clipped };
+  return { text, cues, clipped, lines };
+}
+
+// 文字起こしのうち、ある区間に入る発話だけを取り出す。
+// 「区切りが無いのは発話が無いからか、モデルが見落としたからか」を分けるのにも使う。
+function _trSlice(lines, from, to) {
+  const rows = (lines || []).filter(l => l.start >= from && l.start < to);
+  return { count: rows.length, text: rows.map(l => `[${_chapFmt(l.start)}] ${l.text}`).join('\n') };
 }
 
 // AIの返しを掃除する。時刻順に並べ、近すぎる区切り・動画の終わり際は落とす。
@@ -5370,7 +5396,7 @@ window.vpGenChapters = async function(id, preset) {
     const ctxFields = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
 
     // 字幕の文字起こしは「字幕から検出」と「表の位置合わせ」の両方で使う
-    let cues = [], transcript = '', clipped = false;
+    let cues = [], transcript = '', clipped = false, trLines = [];
     const loadTranscript = async () => {
       if (transcript) return transcript;
       const picked = pickId ? (subs.find(x => (x.id || x.lang) === pickId) || subs[0]) : subs[0];
@@ -5378,7 +5404,12 @@ window.vpGenChapters = async function(id, preset) {
                 : isGd     ? await _chapGetVtt(fileId, gdToken, subs, picked?.id)
                            : (picked?.srt ? _srtToVtt(picked.srt) : '');
       const tr = _vttToTranscript(vtt, CHAP_TR_MAX);
-      cues = tr.cues; clipped = tr.clipped; transcript = tr.text;
+      cues = tr.cues; clipped = tr.clipped; transcript = tr.text; trLines = tr.lines || [];
+      // 何を根拠に検出したのかを残す。「区切りが無い」の原因が
+      // 発話の無さなのかモデルの見落ちなのか、推測しないで分かるようにする。
+      console.log('[chapters] 文字起こし:', { 発話行: trLines.length, 文字数: transcript.length,
+        先頭: trLines[0] ? _chapFmt(trLines[0].start) : '-',
+        末尾: trLines.length ? _chapFmt(trLines[trLines.length - 1].start) : '-', clipped });
       return transcript;
     };
 
@@ -5410,7 +5441,8 @@ window.vpGenChapters = async function(id, preset) {
     for (;;) {
       const grain    = _chapGrain(grainKey);
       const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen,
-                         typSec: grain.typSec, grain: grainKey, durationSec: Math.round(duration) || 0 };
+                         typSec: grain.typSec, maxSec: grain.maxSec,
+                         grain: grainKey, durationSec: Math.round(duration) || 0 };
       let chaps = [], cost = 0, noteSrc = '', warn = '';
 
       if (via === 'list') {
@@ -5451,9 +5483,42 @@ window.vpGenChapters = async function(id, preset) {
         const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }), cues);
+        const norm = its => _normalizeChapters(its, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
+        chaps = norm(r.parsed?.items);
+        console.log('[chapters] 1回目:', chaps.map(c => _chapFmt(c.time) + ' ' + c.label));
+
+        // 空きすぎた区間を、その区間だけ見せ直して埋める。
+        // 1回で全体を見せると、長い反復デモやドリルが丸ごと1チャプターに潰れる
+        // （5分の動画で 0:59→4:01 の3分間が空いた。字幕はその間も続いていた）。
+        // 発話がほとんど無い区間は埋める材料が無いので、投げずに理由として残す。
+        const dry = [];
+        for (const g of _chapGaps(chaps, duration, grain.maxSec).slice(0, CHAP_GAPFILL_MAX)) {
+          const part = _trSlice(trLines, g.from, g.to);
+          console.log('[chapters] 空き区間:', _chapFmt(g.from) + '〜' + _chapFmt(g.to), '発話', part.count, '行');
+          if (part.count < CHAP_GAPFILL_LINES) { dry.push(g); continue; }
+          setBtn('⏳ 区切りを探し直し中…');
+          const rg = await post({ idToken, mode: 'chapters', source: 'transcript', transcript: part.text,
+                                  chapOpts: { ...freeOpts, fromSec: g.from, toSec: g.to }, ...ctxFields });
+          cost += Number(rg.d.costUsd) || 0;
+          // 区間の内側だけを採る。端は既にある区切りと同じものなので入れない。
+          const add = norm(rg.parsed?.items)
+            .filter(c => c.time > g.from + grain.minSec && c.time < g.to - grain.minSec);
+          console.log('[chapters] 埋め直し:', add.map(c => _chapFmt(c.time) + ' ' + c.label));
+          if (add.length) chaps = norm(chaps.concat(add));
+        }
+        chaps   = _snapChapters(chaps, cues);
         noteSrc = freshSrt ? '字幕を作成して検出' : '字幕から検出';
+
+        // 残った穴は黙って渡さない。理由（発話が無い／見つからない）まで書く。
+        const left = _chapGaps(chaps, duration, grain.maxSec);
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
+        else if (left.length) {
+          const g = left[0];
+          const isDry = dry.some(d => d.from === g.from) || _trSlice(trLines, g.from, g.to).count < CHAP_GAPFILL_LINES;
+          warn = `${_chapFmt(g.from)}〜${_chapFmt(g.to)} に区切りがありません`
+               + (isDry ? '（この間は発話がほとんど無く、字幕からは区切れません）'
+                        : '（字幕は続いていますが、話の切り替わりが見つかりませんでした）');
+        }
 
       } else {
         const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });

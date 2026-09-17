@@ -1661,6 +1661,11 @@
     "使う字幕": "Subtitles to use",
     "作る字幕": "Subtitles to create",
     "区切りの細かさ": "Segment size",
+    "⏳ 区切りを探し直し中…": "\u23f3 Looking for more breaks...",
+    "この間は発話がほとんど無く、字幕からは区切れません":
+      "there is almost no speech here, so subtitles cannot split it",
+    "字幕は続いていますが、話の切り替わりが見つかりませんでした":
+      "the subtitles continue, but no topic change was found",
     "この字幕の文字起こしだけを読んで区切りを探します":
       "Only this subtitle\u2019s transcript is read to find the breaks",
     "作った字幕は保存されるので、次からはそのまま使えます":
@@ -1970,6 +1975,9 @@
       (m, d) => 'Subtitles are created first, then chapters detected' + (d ? ` (${_wkDurEn(d)})` : '')],
     // 「＋ 日本語で作る」。言語名は静的辞書で引く（日本語/English はそのまま残す）
     [/^＋ (.+?)で作る$/, (m, lang) => `+ Create in ${_autoMap.get(lang) || lang}`],
+    // 「⚠ 0:59〜4:01 に区切りがありません（理由）」。理由は静的辞書で引く
+    [/^(⚠\s*)?((?:\d+:)?\d+:\d{2})〜((?:\d+:)?\d+:\d{2}) に区切りがありません（(.+)）$/,
+      (m, pre, a, b, why) => `${pre || ''}No chapter break between ${a} and ${b} (${_autoMap.get(why) || why})`],
     // 確認画面の「使った字幕: 日本語」「作った字幕: 原語のまま」
     [/^使った字幕: (.+)$/, (m, d) => `Subtitles used: ${_autoMap.get(d) || d}`],
     [/^作った字幕: (.+)$/, (m, d) => `Subtitles created: ${_autoMap.get(d) || d}`],
