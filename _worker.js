@@ -609,6 +609,27 @@ const CHAP_MIN_SEC   = 45;      // これより短い区切りは作らせない
 const CHAP_MAX_COUNT = 40;      // 件数の上限（既定）
 const CHAP_TRANSCRIPT_MAX = 400000;  // 送られてくる字幕テキストの上限（文字）
 
+// 「何分の動画か」を知らせる。分からなければ字幕の最後の時刻から出す
+// （字幕は [M:SS] 付きで渡しているので、末尾がほぼ動画の長さになる）。
+function _chapDurationOf(o, transcript) {
+  const given = Math.max(0, Number(o?.durationSec) || 0);
+  if (given) return given;
+  const t = String(transcript || '');
+  let last = 0, m;
+  const re = /\[(?:(\d{1,3}):)?(\d{1,3}):(\d{2})\]/g;
+  while ((m = re.exec(t))) {
+    const sec = (Number(m[1] || 0) * 3600) + (Number(m[2]) * 60) + Number(m[3]);
+    if (sec > last) last = sec;
+  }
+  return last;
+}
+
+function _chapHMS(sec) {
+  const s = Math.max(0, Math.round(sec));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h}時間${m}分` : `${m}分${s % 60}秒`;
+}
+
 function _aiChaptersPrompt(ctx, chapOpts, transcript) {
   const o = chapOpts || {};
   const minSec = Math.max(10, Math.min(600, Number(o.minSec) || CHAP_MIN_SEC));
@@ -628,11 +649,45 @@ function _aiChaptersPrompt(ctx, chapOpts, transcript) {
 ${transcript}`
     : 'この動画を最初から最後まで視聴し、話題が切り替わる点を判定してください。';
 
+  // ── 細かさを実際に効かせる ──────────────────────────────
+  // minSec と maxCount は下限と上限にすぎず、「何個に分けるか」を何も伝えていなかった。
+  // そのうえ全粒度で「迷ったら細かく刻まず、大きなまとまりで捉える」と書いていたため、
+  // 「細かめ」を選んでも10分の動画に2個しか作らない、という結果になっていた。
+  // 尺から出した目安の個数と、粒度ごとの倒し方をはっきり書く。
+  const grain = o.grain === 'fine' ? 'fine' : o.grain === 'coarse' ? 'coarse' : 'normal';
+  const dur   = _chapDurationOf(o, transcript);
+  const typ   = Math.max(minSec, Number(o.typSec) || minSec * 2.4);
+  let aim = '';
+  if (dur > 0) {
+    // 目安は必ず上限(maxCount)の内側に収める。収めないと2時間の動画で
+    // 「72〜73個」など、同じ厳守欄に書いた上限と矛盾した指示になる。
+    const t  = Math.max(2, Math.min(maxCount, Math.round(dur / typ)));
+    const lo = Math.max(2, Math.min(maxCount - 1, Math.round(t * 0.6)));
+    const hi = Math.max(lo + 1, Math.min(maxCount, Math.round(t * 1.6)));
+    const typLabel = typ >= 60 ? `${Math.round(typ / 6) / 10}分` : `${Math.round(typ)}秒`;
+    aim = `
+【この動画の長さ】${_chapHMS(dur)}
+`
+        + `【分ける数の目安】${lo}〜${hi}個。1チャプター ${typLabel} 前後が目安です。`
+        // 目安自体が2〜3個の時に「1〜2個は誤り」と書いても窮屈なだけなので、
+        // はっきり細かく分けるべき時にだけ念を押す。
+        + (lo >= 4 ? `${lo}個を大きく下回る数しか作らないのは、この設定では誤りです。` : '')
+        + `
+`;
+  }
+  const tie = {
+    fine:   '迷ったら分ける側に倒す。1本のテクニックしか扱っていない動画でも、'
+          + '説明の段階が変わる所（入り方／グリップの作り／崩し／仕上げ／よくある失敗と対処／'
+          + 'バリエーション／ドリル／スパー実演）はそれぞれ別のチャプターにしてよい。',
+    normal: '迷ったら大きなまとまりで捉える。',
+    coarse: '大きなまとまりだけを拾う。細かい話題の切り替わりは前のチャプターに含める。',
+  }[grain];
+
   return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
 1本の長い教則動画に複数のテクニック／トピックが連続して収録されています。その区切り（チャプター）を検出してJSONで出力してください。
 ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
 ${source}
-
+${aim}
 【チャプターの単位】ひとつのテクニック・トピックのまとまりを1チャプターとします。導入の挨拶、コンセプト解説、ドリル、スパー実演、まとめ なども、それぞれ独立した1チャプターとして扱ってよい。
 【区切ってよい点】扱うテクニックが変わる／ポジションや状況設定が変わる／解説から実演やスパーに移る、など話の内容が実際に切り替わる点。
 【区切ってはいけない点】カメラの切り替わり、言い直し、同じ技の説明の続き、繰り返しのデモ。これらは前のチャプターに含めること。
@@ -649,7 +704,8 @@ ${source}
 - 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
 - start は時刻の早い順に並べ、同じ時刻を2回出さない
 - 各チャプターは${minSec}秒以上の長さにする（それより細かい切り替わりは前のチャプターに含める）
-- チャプターは最大${maxCount}件まで。迷ったら細かく刻まず、大きなまとまりで捉える
+- チャプターは最大${maxCount}件まで
+- ${tie}
 - 実際に動画（字幕）に無い内容を推測で足さない
 
 {"items":[{"start":"M:SS または H:MM:SS","title":"短い日本語のタイトル","summary":"1文の補足（省略可）"}]}`;

@@ -3659,7 +3659,7 @@ async function _translateSrtText(srcText, want, setBtn) {
 
   const outCues = [];
   groups.forEach((g, k) => {
-    if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
+    outCues.push(..._recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap));
   });
   if (!outCues.length) throw new Error('翻訳できませんでした');
   const srt = _srtJoin(outCues.map(c => ({
@@ -4058,6 +4058,34 @@ async function _translateItems(items, lang, opts, onProgress) {
 const RECUE_MIN_CHARS = 9;    // これ未満の枚を作らない
 const RECUE_AIM_SEC   = 3.5;  // だいたいこの秒数に1枚
 
+// 字幕が音声の終わりまで届いているか。届いていなければ {end,total} を返す。
+// 60秒以上余っているものだけを「途中で終わっている」とみなす
+// （最後が無音・エンドロールで字幕が無いのは普通なので、そこで騒がない）。
+const SUB_TAIL_GAP_SEC = 60;
+function _subTailGap(srt, totalSec) {
+  const total = Number(totalSec) || 0;
+  if (!total || !srt) return null;
+  try {
+    const cues = _parseVtt(_srtToVtt(srt));
+    if (!cues.length) return null;
+    const end = cues[cues.length - 1].end;
+    return (total - end >= SUB_TAIL_GAP_SEC) ? { end, total } : null;
+  } catch (e) { return null; }
+}
+
+// 訳せなかった文は「落とす」のではなく「原文のまま残す」。
+//
+// 落としていたため、翻訳が後半でまとめて失敗すると字幕がその時刻から先だけ
+// 丸ごと消え、「動画の途中から字幕が出てこない」状態になっていた。
+// しかも表示していたのは「◯行は訳せず原文のまま」で、実際には消しているのに
+// 残していると伝えていたので、欠けたことに気づきようがなかった。
+// 時刻は実測値のままなので、原文が混じっても位置はずれない。
+// 「訳せた分だけ差し替える」が安全側（非空→空にしない）。
+function _recueOrKeep(line, cues, cap) {
+  if (line) return _recueSentence(line, cues, cap);
+  return cues.map(c => ({ start: c.start, end: c.end, text: c.text }));
+}
+
 function _recueSentence(text, cues, cap) {
   const t = String(text || '').trim();
   if (!t || !cues.length) return [];
@@ -4318,7 +4346,7 @@ async function _asrGenerateAndSave(ctx) {
         // 訳した文を、その文にまたがる字幕へ割り振る。時刻は実測値のまま。
         const outCues = [];
         groups.forEach((g, k) => {
-          if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
+          outCues.push(..._recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap));
         });
         trMissing = tr.missing.length;
         const trSrt = _srtJoin(outCues.map(c => ({
@@ -4340,9 +4368,13 @@ async function _asrGenerateAndSave(ctx) {
   const min  = st.sec ? Math.round(st.sec / 60) : 0;
   const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
   const names = trTarget ? `${target} + ${trTarget}` : target;
-  const note = trFailed        ? `（翻訳に失敗したため原語版のみ: ${trErr}）`
+  // 出来た字幕が動画の途中で終わっていたら必ず言う。
+  // 見終わってから「後半だけ字幕が無い」と気づくのでは遅い（実際にそうなった）。
+  const short = _subTailGap(outSrt, st.sec);
+  const note = (short ? `（⚠ 字幕が ${_chapFmt(short.end)} で終わっています／音声は ${_chapFmt(short.total)}）` : '')
+             + (trFailed        ? `（翻訳に失敗したため原語版のみ: ${trErr}）`
              : trTarget && trMissing ? `（${trMissing}行は訳せず原文のまま${trErr ? ': ' + trErr : ''}）`
-             : trErr             ? `（翻訳の一部が失敗: ${trErr}）` : '';
+             : trErr             ? `（翻訳の一部が失敗: ${trErr}）` : '');
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${names}）`);
     _subGenShowResult(id, true,
@@ -4516,14 +4548,18 @@ const CHAP_MAX_COUNT = 40;    // 検出件数の上限（'ふつう'の値）
 const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
 const CHAP_LABEL_MAX = 300;   // チャプター名の上限（暴走した返しへの歯止め。実在の名前は届かない長さ）
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
+const CHAP_HEAD_SEC  = 10;    // 1つ目がこの秒数以内なら 0:00 にそろえる
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
 
 // 検出の粒度。設定画面で選んだものを既定にし、確認ダイアログからその場でも変えられる。
-// minSec は「これより短い区切りは作らない」、maxCount は件数の上限。
+// minSec は「これより短い区切りは作らない」下限、maxCount は件数の上限。
+// 下限と上限だけではモデルは何個に分ければよいか分からず、細かめを選んでも
+// 10分の動画に2個しか作らなかった。1つあたりの目安の長さ(typSec)を併せて渡し、
+// サーバー側で「この動画なら◯〜◯個」という目安に直す。
 const CHAP_GRAINS = {
-  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, label: '細かめ' },
-  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, label: 'ふつう' },
-  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, label: '大きめ' },
+  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, typSec: 60,  label: '細かめ' },
+  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, typSec: 150, label: 'ふつう' },
+  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, typSec: 420, label: '大きめ' },
 };
 const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
 
@@ -4643,6 +4679,14 @@ function _snapChapters(chaps, cues) {
     if (best && Math.abs(best.start - c.time) <= CHAP_SNAP_SEC) c.time = Math.round(best.start);
   }
   chaps.sort((a, b) => a.time - b.time);
+  return _chapHeadToZero(chaps);
+}
+
+// 1つ目が冒頭付近なら 0:00 にそろえる。最初の発話が 0:01 だからといって
+// 1つ目を 0:01 から始める意味は無く、頭の数秒がどのチャプターにも入らなくなる。
+// 貼り付けた一覧には掛けない（ユーザーが書いた時刻はそのまま正とする）。
+function _chapHeadToZero(chaps) {
+  if (chaps?.length && chaps[0].time > 0 && chaps[0].time <= CHAP_HEAD_SEC) chaps[0].time = 0;
   return chaps;
 }
 
@@ -5365,7 +5409,8 @@ window.vpGenChapters = async function(id, preset) {
 
     for (;;) {
       const grain    = _chapGrain(grainKey);
-      const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen };
+      const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen,
+                         typSec: grain.typSec, grain: grainKey, durationSec: Math.round(duration) || 0 };
       let chaps = [], cost = 0, noteSrc = '', warn = '';
 
       if (via === 'list') {
@@ -5413,7 +5458,7 @@ window.vpGenChapters = async function(id, preset) {
       } else {
         const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
+        chaps   = _chapHeadToZero(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }));
         noteSrc = '動画から検出';
       }
 
