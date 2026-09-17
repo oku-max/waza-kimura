@@ -699,6 +699,82 @@ function _renderRun(registered) {
 }
 
 // ════════════════════════════════════════════════════════════
+// チャンネル名 / プレイリスト名を既存から選ぶ
+// ════════════════════════════════════════════════════════════
+const DD = {
+  ch: { input: 'gdu-channel',  dd: 'gdu-ch-dd', search: 'gdu-ch-search', list: 'gdu-ch-ddlist',
+        empty: 'チャンネルなし',
+        // 他の画面と同じ読み方に揃える。v.channel だけ見ると、アプリ内で
+        // チャンネルを変えた動画（v.ch しか入っていない）が候補に出ない。
+        pick: (v) => v.ch || v.channel },
+  pl: { input: 'gdu-playlist', dd: 'gdu-pl-dd', search: 'gdu-pl-search', list: 'gdu-pl-ddlist',
+        empty: 'プレイリストなし',
+        pick: (v) => v.pl },
+};
+
+export function gduDdOpen(kind) {
+  const c = DD[kind];
+  if (!c) return;
+  // もう片方が開いていたら閉じる（重なって読めなくなる）
+  for (const k of Object.keys(DD)) if (k !== kind) { const o = _el(DD[k].dd); if (o) o.style.display = 'none'; }
+  const dd = _el(c.dd);
+  if (!dd) return;
+  if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+  gduDdFilter(kind, '');
+  dd.style.display = 'block';
+  // 設定欄は下の方にあるので、開いても画面外だと「押しても何も起きない」に見える。
+  // scrollIntoView は最小限しか動かないことがあるので、自分ではみ出し分を送る。
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const sc = dd.closest('.gdu-scroll');
+    if (sc) {
+      const over = dd.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom;
+      if (over > 0) sc.scrollTop += over + 8;
+    } else {
+      dd.scrollIntoView({ block: 'nearest' });
+    }
+    // タッチ端末では検索欄にフォーカスしない。キーボードが出て候補が隠れる。
+    if (!window.matchMedia?.('(pointer: coarse)').matches) _el(c.search)?.focus();
+  }));
+}
+
+export function gduDdFilter(kind, q) {
+  const c = DD[kind];
+  const listEl = c && _el(c.list);
+  if (!listEl) return;
+  const counts = {};
+  for (const v of (window.videos || [])) {
+    const name = c.pick(v);
+    if (name) counts[name] = (counts[name] || 0) + 1;
+  }
+  const ql = String(q || '').trim().toLowerCase();
+  const names = Object.keys(counts)
+    .filter(n => !ql || n.toLowerCase().includes(ql))
+    .sort((a, b) => a.localeCompare(b, 'ja'));
+
+  listEl.innerHTML = names.length
+    // 名前に引用符などが入っていても壊れないよう、onclick に値を埋め込まず data 属性で渡す
+    ? names.map(n => `<div class="vp-dd-item" data-v="${_esc(n)}">${_esc(n)}<span class="vp-dd-cnt">${counts[n]}本</span></div>`).join('')
+    : `<div style="padding:8px 12px;font-size:11px;color:var(--text3)">${c.empty}</div>`;
+
+  if (!listEl.dataset.bound) {
+    listEl.dataset.bound = '1';
+    listEl.addEventListener('click', (e) => {
+      const row = e.target.closest('.vp-dd-item');
+      if (row) gduDdSelect(kind, row.dataset.v);
+    });
+  }
+}
+
+export function gduDdSelect(kind, val) {
+  const c = DD[kind];
+  if (!c) return;
+  const inp = _el(c.input);
+  if (inp) inp.value = val;
+  const dd = _el(c.dd);
+  if (dd) dd.style.display = 'none';
+}
+
+// ════════════════════════════════════════════════════════════
 // window 公開（HTMLのonclickから呼ぶ）
 // ════════════════════════════════════════════════════════════
 window.gduOpen         = gduOpen;
@@ -716,3 +792,6 @@ window.gduNewFolder    = gduNewFolder;
 window.gduStart        = gduStart;
 window.gduAbort        = gduAbort;
 window.gduBackToSetup  = gduBackToSetup;
+window.gduDdOpen       = gduDdOpen;
+window.gduDdFilter     = gduDdFilter;
+window.gduDdSelect     = gduDdSelect;

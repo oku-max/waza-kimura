@@ -372,7 +372,9 @@
     'サイズは目安です。元の動画はそのまま端末に残ります':'Sizes are estimates. The original stays on your device.',
     'このブラウザは動画の変換に対応していないため、そのままアップロードします（iPhoneはiOS 26以降で対応）':'This browser cannot convert video, so files are uploaded as-is (iPhone needs iOS 26 or later).',
     'チャンネル名・プレイリスト名':'Channel & playlist',
-    'チャンネル名（空欄でも登録できます）':'Channel (can be empty)','プレイリスト名（空欄でプレイリストなし）':'Playlist (empty = none)',
+    '空欄でも登録できます':'Can be left empty',
+    'チャンネルなし':'No channels yet','プレイリストなし':'No playlists yet',
+    'プレイリスト名で検索...':'Search playlists...',
     'アップロードして登録':'Upload and add',
     'このフォルダに保存':'Save to this folder','＋ 新規':'+ New','← 上へ':'← Up','マイドライブ':'My Drive',
     '読み込み中...':'Loading...','この中にフォルダはありません':'No folders here','フォルダ一覧を取得できませんでした':'Could not load the folder list',
@@ -1749,6 +1751,7 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     "#本をアップロードして登録": "Upload and add #",
+    "#本": "#",
     "変換中 #%": "Converting #%",
     "アップロード中 #%": "Uploading #%",
     "元 約#KB": "Original approx. #KB",

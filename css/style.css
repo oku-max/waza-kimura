@@ -1733,6 +1733,10 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
 #gdu-run>div:first-child,#gdu-runsum{flex-shrink:0}
 /* .gdp-list の min-height:34vh は画面が低いとはみ出すので、ここでは外す */
 #gdu-fp-list{min-height:0}
+/* 既存の候補リストは絶対配置にしない。スクロール領域の中で絶対配置にすると
+   はみ出した分に追いつけず、下の候補を選べなくなる（スマホで顕著）。 */
+#gdu-ch-dd,#gdu-pl-dd{position:static}
+#gdu-ch-dd .vp-dd-list,#gdu-pl-dd .vp-dd-list{max-height:min(240px,var(--zvh-30,30vh))}
 
 /* AI要約の大見出し（◾️の行）。本文の箇条書きと同じ見た目だと区別がつかないため、
    一回り大きく・太く・上に余白を取り、左に色の線を引く。メモ欄の中で使う。 */
