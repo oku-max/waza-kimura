@@ -3763,7 +3763,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   }
 
   const idToken = await user.getIdToken();
-  let srt = '', cost = 0, via = 'gemini', note = '';
+  let srt = '', cost = 0, via = 'gemini', note = '', diagNote = '';
 
   // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
   const canTranslate = !same && other && subLang !== 'orig';
@@ -3813,6 +3813,13 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     if (!_looksLikeSrt(srt)) throw new Error('SRT形式で返ってきませんでした。もう一度お試しください');
     cost = Number(d.costUsd) || 0;
     if (d.usage) console.log('[ytsub] tokens:', d.usage, '/ 概算 $', d.costUsd, '/', d.diag || '');
+    // サーバーが既に返している数字を、コンソールを開かなくても見えるようにする。
+    // AIが書いた枚数と、その最後の時刻。保存された字幕がこれより手前で終わって
+    // いたら「書かれたのに捨てられた」、ここ自体が手前なら「書かれていない」。
+    // 処理には一切影響しない。表示だけ。
+    const dg = Array.isArray(d.diag) ? d.diag[d.diag.length - 1] : null;
+    if (dg) diagNote = ` / AIの出力 ${dg.cues ?? '?'}枚・最後 ${_chapFmt(dg.last || 0)}`
+      + `・終了理由 ${dg.fin || '-'}・出力${dg.outTok ?? '?'}トークン`;
   }
 
   setBtn('⏳ 保存中…');
@@ -3824,7 +3831,8 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${_langLabel(subLang) || subLang}${costStr}）`);
     _subGenShowResult(v.id, true,
-      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
+      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}${diagNote}`
+      + (srt ? ` / 保存した字幕は ${_chapFmt(_srtLastEnd(srt))} まで` : ''));
   }
   // 再生中ならその場で載せ直す（ここで転んでも保存は済んでいるので成功として返す）
   if (window.openVPanelId === v.id || window.openPlayer === v.id) {
