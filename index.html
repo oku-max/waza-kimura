@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.747</title>
+<title>WAZA KIMURA v52.748</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4918,10 +4918,36 @@ document.addEventListener('click', function(e) {
             <span class="gdp-optsum">任意</span>
           </button>
           <div class="gdp-optsbody" id="gdu-optsbody" style="display:none">
-            <input id="gdu-channel" type="text" placeholder="チャンネル名（空欄でも登録できます）"
-              style="width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
-            <input id="gdu-playlist" type="text" placeholder="プレイリスト名（空欄でプレイリストなし）"
-              style="width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">チャンネル名</div>
+              <div style="position:relative">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input id="gdu-channel" type="text" placeholder="空欄でも登録できます"
+                    style="flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+                  <div class="vp-dd-trigger" onclick="gduDdOpen('ch')" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
+                </div>
+                <div class="vp-dd" id="gdu-ch-dd" style="display:none;margin-top:6px">
+                  <input class="vp-dd-search" id="gdu-ch-search" placeholder="チャンネル名で検索..."
+                    oninput="gduDdFilter('ch',this.value)">
+                  <div class="vp-dd-list" id="gdu-ch-ddlist"></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">プレイリスト名</div>
+              <div style="position:relative">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input id="gdu-playlist" type="text" placeholder="空欄でプレイリストなし"
+                    style="flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit">
+                  <div class="vp-dd-trigger" onclick="gduDdOpen('pl')" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
+                </div>
+                <div class="vp-dd" id="gdu-pl-dd" style="display:none;margin-top:6px">
+                  <input class="vp-dd-search" id="gdu-pl-search" placeholder="プレイリスト名で検索..."
+                    oninput="gduDdFilter('pl',this.value)">
+                  <div class="vp-dd-list" id="gdu-pl-ddlist"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

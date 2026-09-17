@@ -161,7 +161,13 @@ await page.waitForFunction(() => window.__ready === true && typeof window.gduOpe
 ok('モジュールが読み込まれる');
 
 await page.evaluate(() => {
-  window.videos = [];
+  // ピッカーの候補元。v.ch しか無い動画も混ぜる（v.channel だけ見ると落ちる経路）
+  window.videos = [
+    { id:'x1', pt:'gdrive', ch:'Triforce',  pl:'ガードパス' },
+    { id:'x2', pt:'gdrive', channel:'Triforce', pl:'ガードパス' },
+    { id:'x3', pt:'gdrive', ch:'Danaher "DLR"', pl:'バックテイク' },
+  ];
+  window.__seeded = window.videos.length;
   window.__saved = 0;
   window.saveUserData = async () => { window.__saved++; return true; };
   window.AF = () => {};
@@ -294,6 +300,47 @@ check(layout.btnVisible, '実行ボタンが画面内にある（下端で切れ
   `bottom=${layout.btnBottom} / viewport=${layout.viewportH}`);
 if (layout.overflows) check(layout.scrolled, '中身がはみ出したときに実際にスクロールできる');
 
+// ── 既存のチャンネル名／プレイリスト名を選べること ──
+for (const [kind, inputId, ddId, listId, want] of [
+  ['ch', 'gdu-channel',  'gdu-ch-dd', 'gdu-ch-ddlist', 'Triforce'],
+  ['pl', 'gdu-playlist', 'gdu-pl-dd', 'gdu-pl-ddlist', 'ガードパス'],
+]) {
+  await page.evaluate((k) => window.gduDdOpen(k), kind);
+  await page.waitForTimeout(250);
+  check(await page.isVisible('#' + ddId), `${kind}: 既存の一覧が開く`);
+  // スクロール領域からはみ出したままだと、下の候補を選べない
+  const clip = await page.evaluate((id) => {
+    const d = document.getElementById(id).getBoundingClientRect();
+    const sc = document.querySelector('.gdu-scroll').getBoundingClientRect();
+    return { over: Math.round(d.bottom - sc.bottom), h: Math.round(d.height) };
+  }, ddId);
+  check(clip.over <= 1, `${kind}: 一覧が見切れず全部見える`, `はみ出し ${clip.over}px / 高さ ${clip.h}px`);
+  const rows = await page.locator(`#${listId} .vp-dd-item`).count();
+  check(rows === 2, `${kind}: 候補が重複なしで出る`, `rows=${rows}`);
+  // 「Triforce 2本」— v.ch と v.channel の両方を数えられているか
+  const txt = await page.textContent('#' + listId);
+  check(txt.includes(want), `${kind}: 既存の名前が出る`, txt?.slice(0, 60));
+  if (kind === 'ch') check(/Triforce\s*2本/.test(txt), 'ch: v.ch と v.channel を両方数える', txt?.slice(0, 60));
+
+  await page.locator(`#${listId} .vp-dd-item`).first().click();
+  await page.waitForTimeout(200);
+  const val = await page.inputValue('#' + inputId);
+  check(!!val, `${kind}: 選ぶと入力欄に入る`, val);
+  check(!(await page.isVisible('#' + ddId)), `${kind}: 選ぶと閉じる`);
+}
+// 引用符を含む名前でも壊れないこと（onclick に値を埋め込んでいると壊れる）
+await page.evaluate(() => window.gduDdOpen('ch'));
+await page.waitForTimeout(200);
+await page.fill('#gdu-ch-search', 'Danaher');
+await page.waitForTimeout(200);
+await page.locator('#gdu-ch-ddlist .vp-dd-item').first().click();
+await page.waitForTimeout(200);
+check(await page.inputValue('#gdu-channel') === 'Danaher "DLR"', '引用符入りの名前も選べる',
+  await page.inputValue('#gdu-channel'));
+// 取り込み本体の検査に影響しないよう、入力は空に戻す
+await page.evaluate(() => { document.getElementById('gdu-channel').value = '';
+                            document.getElementById('gdu-playlist').value = ''; });
+
 // 保存先フォルダの選択画面と進捗画面でも、下のボタンに届くこと
 for (const [stage, fn, btnId, label] of [
   ['fp',  () => window.gduOpenFolder(),  'gdu-fp-choose', 'フォルダ選択画面'],
@@ -321,8 +368,9 @@ await page.waitForFunction(() => /登録しました/.test(document.getElementBy
 const sum = (await page.textContent('#gdu-runsum'))?.trim();
 check(sum === '1本を登録しました', '1本が登録される', sum);
 
-const reg = await page.evaluate(() => ({ n: window.videos.length, v: window.videos[0], saved: window.__saved }));
-check(reg.n === 1,                     'videos に1件だけ追加される', `n=${reg.n}`);
+const reg = await page.evaluate(() => ({ n: window.videos.length, seeded: window.__seeded,
+  v: window.videos[window.videos.length - 1], saved: window.__saved }));
+check(reg.n === reg.seeded + 1,        'videos に1件だけ追加される', `n=${reg.n} (種 ${reg.seeded})`);
 check(reg.v?.id === 'gd-FAKE_FILE_ID', 'idが gd-<fileId> になる', reg.v?.id);
 check(reg.v?.pt === 'gdrive',          'pt が gdrive になる', reg.v?.pt);
 check(reg.v?.duration > 0,             '再生時間が入る', String(reg.v?.duration));
