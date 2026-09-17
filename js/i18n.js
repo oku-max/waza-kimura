@@ -1651,30 +1651,6 @@
     "📑 自動チャプター": "📑 Auto chapters",
     "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
     "字幕から検出": "Detect from subtitles",
-    // 字幕がまだ無いときは、押すと字幕を作ってからそのまま検出へ進む（1クリック）
-    "字幕が無いので先に作ります（時間とコストがかかります）":
-      "No subtitles yet, so they are created first (this takes time and costs)",
-    "⏳ 字幕を作成中…": "\u23f3 Creating subtitles...",
-    "字幕を作成して検出": "Subtitles created, then detected",
-    "作った字幕を読み取れませんでした": "Could not read the subtitles that were created",
-    // どの字幕を使う／作るかの選択（黙って先頭を使わない）
-    "どの字幕を使うかは次の画面で選べます（速い・安い）":
-      "Pick which subtitles to use on the next screen (fast and cheap)",
-    "使う字幕": "Subtitles to use",
-    "作る字幕": "Subtitles to create",
-    "区切りの細かさ": "Segment size",
-    "⏳ 区切りを探し直し中…": "\u23f3 Looking for more breaks...",
-    "この間は発話がほとんど無く、字幕からは区切れません":
-      "there is almost no speech here, so subtitles cannot split it",
-    "字幕は続いていますが、話の切り替わりが見つかりませんでした":
-      "the subtitles continue, but no topic change was found",
-    "この字幕の文字起こしだけを読んで区切りを探します":
-      "Only this subtitle\u2019s transcript is read to find the breaks",
-    "作った字幕は保存されるので、次からはそのまま使えます":
-      "The subtitles are saved, so next time they can be used as they are",
-    "＋ 原語のまま作る": "+ Create in the original language",
-    "字幕を作ってから検出します（時間とコストがかかります）":
-      "Subtitles are created first, then chapters detected (this takes time and costs)",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
     "チャプター一覧を貼り付け": "Paste a chapter list",
     "チャプター名と時間をコピペする（最も正確）": "Copy and paste the names and times (most accurate)",
@@ -1974,16 +1950,6 @@
       (m, d) => "Detected from this video\u2019s subtitles" + (d ? ` (${_wkDurEn(d)})` : '')],
     [/^AIが動画を視聴して検出します(?:（(.+?)）)?$/,
       (m, d) => 'The AI watches the video to detect them' + (d ? ` (${_wkDurEn(d)})` : '')],
-    [/^先に字幕を作ってから検出します(?:（(.+?)）)?$/,
-      (m, d) => 'Subtitles are created first, then chapters detected' + (d ? ` (${_wkDurEn(d)})` : '')],
-    // 「＋ 日本語で作る」。言語名は静的辞書で引く（日本語/English はそのまま残す）
-    [/^＋ (.+?)で作る$/, (m, lang) => `+ Create in ${_autoMap.get(lang) || lang}`],
-    // 「⚠ 0:59〜4:01 に区切りがありません（理由）」。理由は静的辞書で引く
-    [/^(⚠\s*)?((?:\d+:)?\d+:\d{2})〜((?:\d+:)?\d+:\d{2}) に区切りがありません（(.+)）$/,
-      (m, pre, a, b, why) => `${pre || ''}No chapter break between ${a} and ${b} (${_autoMap.get(why) || why})`],
-    // 確認画面の「使った字幕: 日本語」「作った字幕: 原語のまま」
-    [/^使った字幕: (.+)$/, (m, d) => `Subtitles used: ${_autoMap.get(d) || d}`],
-    [/^作った字幕: (.+)$/, (m, d) => `Subtitles created: ${_autoMap.get(d) || d}`],
     // ── 自動チャプター（後ろの広いパターンに食われないよう先に置く）──
     // 「検出元 · $0.003」。検出元は静的辞書で引き、金額はそのまま残す
     [/^(.+?) · (\$[\d.]+)$/, (m, head, cost) => {

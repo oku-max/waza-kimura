@@ -2371,11 +2371,6 @@ function _parseVtt(vtt) {
     if (!(end > start)) continue;   // 壊れた時間のキューは捨てる
     cues.push({ start, end, text });
   }
-  // 必ず時刻順にして返す。
-  // 描画は二分探索（_ytSubCueAt）でいまのキューを探すので、1枚でも順序が
-  // 崩れていると探索が外れて null になり、字幕が「選ばれているのに出ない」。
-  // 元ファイルの順序が崩れていても、教材付属の字幕でも、ここで揃えておく。
-  cues.sort((a, b) => a.start - b.start || a.end - b.end);
   return cues;
 }
 
@@ -2973,20 +2968,7 @@ function _gdSubRefineLabel(cand, vtt) {
   else if (/[A-Za-z]{3,}/.test(body))  { cand.lang = 'en'; cand.label = SUB_LANGS.en; }
 }
 
-// 字幕を保存したら、再生中の動画には必ず載せ直す。
-// 既存の英語字幕から日本語を作る経路（_retranslateFromSrt）だけ載せ直しが無く、
-// Driveには出来ているのに画面に出ないままだった。want はいま作った言語コード。
-function _gdSubReload(fileId, token, want) {
-  _gdSubLookup.delete(fileId);
-  if (!_gdVideoEl || _gdFileId !== fileId || !token) return;
-  document.getElementById('vp-sub-ui')?.remove();
-  _gdSubRevoke();
-  _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
-  _gdAttachSubtitle(_gdVideoEl, fileId, token, want);
-}
-
-// want: いま作った字幕の言語コード（'ja' 等）。渡すとそれを選んだ状態で載せる。
-async function _gdAttachSubtitle(video, fileId, token, want) {
+async function _gdAttachSubtitle(video, fileId, token) {
   const cands = await _gdFindSubtitleFiles(fileId, token);
   if (!cands.length) return;
   if (_gdVideoEl !== video || !video.isConnected) return;   // 待っている間に別動画へ切替済み
@@ -3021,29 +3003,16 @@ async function _gdAttachSubtitle(video, fileId, token, want) {
     track.src     = url;
     video.appendChild(track);
     // rawVtt を持っておくと、設定変更時に取得し直さず整形だけやり直せる
-    _gdSubTracks.push({ id: item.cand.id, label: item.cand.label, name: item.cand.name,
-                        lang: item.cand.lang || '', track, rawVtt: item.vtt, url });
+    _gdSubTracks.push({ id: item.cand.id, label: item.cand.label, name: item.cand.name, track, rawVtt: item.vtt, url });
   }
   _gdSubRenderCues();
   if (!_gdSubTracks.length) return;
   _gdSubBindFullscreen(video);   // 全画面の出入りを拾えるようにする
 
-  // いま作った字幕(want)があるならそれを選ぶ。
-  // 端末の記憶は「前に見ていたもの」なので、'off' や English が入っていると、
-  // 日本語字幕を作った直後でも出てこない（作ったのに出ない、の原因のひとつ）。
-  // 作った本人の意思のほうが新しいので、記憶より優先し、記憶も更新する。
-  let idx = -1;
-  if (want) {
-    const w = _subLangNorm(String(want));
-    idx = _gdSubTracks.findIndex(t => (t.lang && _subLangNorm(t.lang) === w) || t.label === want);
-    if (idx >= 0) _gdSubSetPref(_gdSubTracks[idx].label);
-  }
-  // 見つからなければ従来どおり: 前回選んだ字幕を復元。無ければ先頭（＝日本語優先の並び順）
-  if (idx < 0) {
-    const pref = _gdSubPref();
-    idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
-    if (pref !== 'off' && idx < 0) idx = 0;
-  }
+  // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
+  const pref = _gdSubPref();
+  let idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
+  if (pref !== 'off' && idx < 0) idx = 0;
   // track追加直後は textTracks が未反映のことがあるため次tickでモードを確定させる
   setTimeout(() => _gdSubSelect(idx), 0);
   _gdSubMountButton(video.parentElement);
@@ -3688,12 +3657,11 @@ async function _translateSrtText(srcText, want, setBtn) {
     want, _subGenPayload(), (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
   if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
 
-  let outCues = [];
+  const outCues = [];
   groups.forEach((g, k) => {
-    outCues.push(..._recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap));
+    if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
   });
   if (!outCues.length) throw new Error('翻訳できませんでした');
-  outCues = _srtOrder(outCues);
   const srt = _srtJoin(outCues.map(c => ({
     tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
     text: c.text,
@@ -3710,11 +3678,8 @@ async function _translateSrtText(srcText, want, setBtn) {
 //   3) どちらも無ければ Gemini に動画を読ませて書き起こす
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const ytId   = v.ytId;
-  const setBtn = txt => {
-    if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; }
-    preset?.onProgress?.(txt);
-  };
-  const subLang = preset?.subLang || await _askSubtitleLang(btn);
+  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
+  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
   if (!subLang) return { ok: false, skipped: true };
 
   const user = window._firebaseCurrentUser?.();
@@ -3737,7 +3702,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const other = have.find(t => t.lang !== subLang);
 
   if (same) {
-    if (_subBulk(preset)) { if (preset.existing !== 'replace') return { ok: false, skipped: true, target: same.label }; }
+    if (preset) { if (preset.existing !== 'replace') return { ok: false, skipped: true, target: same.label }; }
     else if (!confirm(`この動画にはすでに${same.label}の字幕があります。\n作り直しますか？`)) {
       return { ok: false, skipped: true, target: same.label };
     }
@@ -3748,7 +3713,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
 
   // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
   const canTranslate = !same && other && subLang !== 'orig';
-  if (canTranslate && (_subBulk(preset) ? preset.translate !== false
+  if (canTranslate && (preset ? preset.translate !== false
         : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）`))) {
     setBtn('⏳ 翻訳中…');
     const r = await _translateSrtText(other.srt, subLang, setBtn);
@@ -3781,21 +3746,17 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   _subOffsetSet(ytId, 0);
 
   const costStr = cost ? ` · $${cost.toFixed(3)}` : '';
-  // 動画の手前で終わっている字幕を「完成品」として黙って渡さない。
-  // 尺はサーバーの返しを優先する（動画の実尺で測っているため）。
-  const shortY = _subTailGap(srt, Number(v.duration) || 0);
-  const noteY  = (shortY ? `（⚠ 字幕が ${_chapFmt(shortY.end)} で終わっています／動画は ${_chapFmt(shortY.total)}）` : '') + note;
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${_langLabel(subLang) || subLang}${costStr}）`);
     _subGenShowResult(v.id, true,
-      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${noteY}`);
+      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
   }
   // 再生中ならその場で載せ直す（ここで転んでも保存は済んでいるので成功として返す）
   if (window.openVPanelId === v.id || window.openPlayer === v.id) {
     try { await _ytSubRefreshNow(ytId); }
     catch (e) { console.warn('[ytsub] 表示の更新に失敗:', e?.message || e); }
   }
-  return { ok: true, target: _ytSubLangLabel(subLang), cost, srt, lang: subLang };
+  return { ok: true, target: _ytSubLangLabel(subLang), cost };
 }
 
 // ── 字幕の自動生成（Gemini でSRTを作り、動画と同じDriveフォルダに保存）──
@@ -4094,42 +4055,6 @@ async function _translateItems(items, lang, opts, onProgress) {
 const RECUE_MIN_CHARS = 9;    // これ未満の枚を作らない
 const RECUE_AIM_SEC   = 3.5;  // だいたいこの秒数に1枚
 
-// 字幕が音声の終わりまで届いているか。届いていなければ {end,total} を返す。
-// 60秒以上余っているものだけを「途中で終わっている」とみなす
-// （最後が無音・エンドロールで字幕が無いのは普通なので、そこで騒がない）。
-const SUB_TAIL_GAP_SEC = 60;
-function _subTailGap(srt, totalSec) {
-  const total = Number(totalSec) || 0;
-  if (!total || !srt) return null;
-  try {
-    const cues = _parseVtt(_srtToVtt(srt));
-    if (!cues.length) return null;
-    const end = cues[cues.length - 1].end;
-    return (total - end >= SUB_TAIL_GAP_SEC) ? { end, total } : null;
-  } catch (e) { return null; }
-}
-
-// 書き出す前に時刻順へ並べ直す。
-// 訳は「文」単位で行い、文と字幕の対応付け（_groupCuesBySentence）は
-// 文の時刻範囲が重なると前後する。並びが崩れたSRTを保存すると、
-// 描画側の二分探索が外れて字幕が出なくなる（実際に出なくなった）。
-function _srtOrder(cues) {
-  return cues.slice().sort((a, b) => a.start - b.start || a.end - b.end);
-}
-
-// 訳せなかった文は「落とす」のではなく「原文のまま残す」。
-//
-// 落としていたため、翻訳が後半でまとめて失敗すると字幕がその時刻から先だけ
-// 丸ごと消え、「動画の途中から字幕が出てこない」状態になっていた。
-// しかも表示していたのは「◯行は訳せず原文のまま」で、実際には消しているのに
-// 残していると伝えていたので、欠けたことに気づきようがなかった。
-// 時刻は実測値のままなので、原文が混じっても位置はずれない。
-// 「訳せた分だけ差し替える」が安全側（非空→空にしない）。
-function _recueOrKeep(line, cues, cap) {
-  if (line) return _recueSentence(line, cues, cap);
-  return cues.map(c => ({ start: c.start, end: c.end, text: c.text }));
-}
-
 function _recueSentence(text, cues, cap) {
   const t = String(text || '').trim();
   if (!t || !cues.length) return [];
@@ -4237,7 +4162,7 @@ async function _asrGenerateAndSave(ctx) {
   // ASRは依頼した時点で課金されるので、保存時の重複チェックでは遅い
   // （作り直さないつもりでも毎回書き起こし代がかかってしまう）。
   // 判定は再生時の字幕検出と同じ探し方にして、「プレイヤーで字幕が出る＝ある」と揃える。
-  if (_subBulk(preset) && preset.existing !== 'replace') {
+  if (preset && preset.existing !== 'replace') {
     const already = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
     const want0   = (subLang && subLang !== 'orig') ? subLang : '';
 
@@ -4264,9 +4189,8 @@ async function _asrGenerateAndSave(ctx) {
               const r = await _retranslateFromSrt({
                 token: gdToken, videoFileId: fileId, srcName: src.name,
                 srcText: text, want: want0, setBtn });
-              _gdSubReload(fileId, gdToken, want0);
-              return { ok: true, cost: r.cost, target: r.target, translated: true,
-                       src: src.name, srt: r.srt, lang: want0 };
+              _gdSubLookup.delete(fileId);
+              return { ok: true, cost: r.cost, target: r.target, translated: true, src: src.name };
             }
           }
         } catch (e) {
@@ -4326,7 +4250,7 @@ async function _asrGenerateAndSave(ctx) {
     if (ex) {
       // 一括で「作り直す」を選んでいるならおまけ側も更新する。
       // そうでなければ、おまけは黙って残す（確認を出さない）。
-      if (_subBulk(preset)) { if (preset.existing !== 'replace') return { skipped: true }; }
+      if (preset)      { if (preset.existing !== 'replace') return { skipped: true }; }
       else if (!ask)   { return { kept: true }; }
       else if (!confirm(`「${name}」（${_langLabel(lg)}の字幕）はすでにあります。\n上書きして作り直しますか？`)) {
         return { skipped: true };
@@ -4346,9 +4270,6 @@ async function _asrGenerateAndSave(ctx) {
   // 5. 要求された言語が音声の言語と違うなら翻訳する。
   //    渡すのは本文だけ。タイムコードはここに残るので、翻訳がどう転んでも時刻は壊れない。
   let trTarget = null, trCost = 0, trMissing = 0, trErr = null, trFailed = false;
-  // 保存できた本文。Driveは作った直後に検索へ出てこないことがあるので、
-  // 「いま作った字幕をすぐ使いたい」呼び出し元（自動チャプター）へそのまま返す。
-  let outSrt = srt;
   if (translating) {
     // 時刻は「実測の字幕(SRT)」の細かさのまま使い、翻訳だけ「文」単位で行う。
     //   ・字幕1枚ずつ訳させる → 語順が逆なので断片が文にならず、モデルが次の
@@ -4389,8 +4310,10 @@ async function _asrGenerateAndSave(ctx) {
         trErr = trErr || '翻訳できませんでした';
       } else {
         // 訳した文を、その文にまたがる字幕へ割り振る。時刻は実測値のまま。
-        const outCues = _srtOrder(groups.flatMap((g, k) =>
-          _recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap)));
+        const outCues = [];
+        groups.forEach((g, k) => {
+          if (tr.lines[k]) outCues.push(..._recueSentence(tr.lines[k], g.idx.map(i => cues[i]), cap));
+        });
         trMissing = tr.missing.length;
         const trSrt = _srtJoin(outCues.map(c => ({
           tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
@@ -4399,45 +4322,34 @@ async function _asrGenerateAndSave(ctx) {
         trTarget = _subFileName(base, want);
         setBtn('⏳ 保存中…');
         const r2 = await saveOne(trTarget, want, trSrt, true);
-        if (r2.skipped) trTarget = null; else outSrt = trSrt;
+        if (r2.skipped) trTarget = null;
       }
     }
   }
 
+  _gdSubLookup.delete(fileId);
   // 前の字幕に合わせた補正は、新しい字幕には無意味どころか有害。
   // 端末内(localStorage)だけの値で、他端末やFirestoreには波及しない。
   _subOffsetSet(fileId, 0);
   const min  = st.sec ? Math.round(st.sec / 60) : 0;
   const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
   const names = trTarget ? `${target} + ${trTarget}` : target;
-  // 出来た字幕が動画の途中で終わっていたら必ず言う。
-  // 見終わってから「後半だけ字幕が無い」と気づくのでは遅い（実際にそうなった）。
-  const short = _subTailGap(outSrt, st.sec);
-  const note = (short ? `（⚠ 字幕が ${_chapFmt(short.end)} で終わっています／音声は ${_chapFmt(short.total)}）` : '')
-             + (trFailed        ? `（翻訳に失敗したため原語版のみ: ${trErr}）`
+  const note = trFailed        ? `（翻訳に失敗したため原語版のみ: ${trErr}）`
              : trTarget && trMissing ? `（${trMissing}行は訳せず原文のまま${trErr ? ': ' + trErr : ''}）`
-             : trErr             ? `（翻訳の一部が失敗: ${trErr}）` : '');
+             : trErr             ? `（翻訳の一部が失敗: ${trErr}）` : '';
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${names}）`);
     _subGenShowResult(id, true,
       `字幕を作成しました: ${names} / 音声${min}分 · $${cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
   }
-  _gdSubReload(fileId, gdToken, trTarget ? want : lang);
-  return { ok: true, target: trTarget || target, cost, srt: outSrt, lang: trTarget ? want : lang };
+  if (_gdVideoEl && _gdFileId === fileId) {
+    document.getElementById('vp-sub-ui')?.remove();
+    _gdSubRevoke();
+    _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
+    _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
+  }
+  return { ok: true, target: trTarget || target, cost };
 }
-
-// preset は「一括処理(bulk)の契約」で、確認ダイアログを出さない・既存があれば
-// 飛ばす・既存の別言語から翻訳で済ませる、といった一括専用の振る舞いを持つ。
-//
-// 自動チャプターから字幕を作る時にこれへ相乗りさせたのが誤りだった。
-// 言語を聞かないだけのつもりが、確認ダイアログも、書き起こしをやり直すか
-// 既存を訳すかの選択も、まとめて一括用の挙動に差し替わっていた。
-// ユーザーがボタンを押した時と同じ結果にならないなら、それは別の機能である。
-//
-// preset.interactive=true は「ボタンを押した時とまったく同じ経路。
-// ただし言語だけは既に答えてある」を意味する。以後 _subBulk() が真の時だけ
-// 一括専用の振る舞いに入る。
-function _subBulk(preset) { return !!preset && !preset.interactive; }
 
 window.vpGenSubtitle = async function(id, preset) {
   const silent = !!(preset && preset.silent);
@@ -4452,7 +4364,7 @@ window.vpGenSubtitle = async function(id, preset) {
 
   // YouTubeは保存先も作り方も違うので、専用の経路に分ける（Drive経路には触れない）
   if (isYt) {
-    const ytBtn = _subBulk(preset) ? null : document.getElementById('vp-subgen-' + id);
+    const ytBtn = preset ? null : document.getElementById('vp-subgen-' + id);
     const ytOrig = ytBtn ? ytBtn.textContent : '';
     const _t0y = Date.now();
     window.wkAiBusyBegin();
@@ -4475,19 +4387,13 @@ window.vpGenSubtitle = async function(id, preset) {
   const gdToken = window.getDriveTokenIfAvailable?.();
   if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
-  const btn = _subBulk(preset) ? null : document.getElementById('vp-subgen-' + id);
-  // 言語は preset で先に答えてあれば聞かない。それ以外は押した時と同じ。
-  const subLang = preset?.subLang || await _askSubtitleLang(btn);
+  const btn = preset ? null : document.getElementById('vp-subgen-' + id);
+  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
   if (!subLang) return { ok: false, skipped: true };
 
   const fileId = (v.id || '').replace(/^gd-/, '');
   const orig   = btn ? btn.textContent : '';
-  // 押されたボタンが無い（preset で呼ばれた）時も、呼び出し元が進捗を出せるように渡す。
-  // 音声認識は長いと数十分かかるので、無言で待たせると固まったようにしか見えない。
-  const setBtn = txt => {
-    if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; }
-    preset?.onProgress?.(txt);
-  };
+  const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
   const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.textContent = orig; } };
 
   const _t0 = Date.now();
@@ -4520,7 +4426,7 @@ window.vpGenSubtitle = async function(id, preset) {
       // 「原語のまま」(orig) は出来上がる言語が事前に分からないので従来どおり
       // 「何かあれば作らない」に倒す。
       const wantsAny = !subLang || subLang === 'orig';
-      if (_subBulk(preset)) {
+      if (preset) {
         if (preset.existing !== 'replace' && (wantsAny || _subHasLang(found, subLang))) {
           endBtn(); return { ok: false, skipped: true, target: anySub.name };
         }
@@ -4559,15 +4465,19 @@ window.vpGenSubtitle = async function(id, preset) {
     // 同名があればその中身だけ差し替える。別名の字幕しか無い場合は新規作成（既存には触れない）
     await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id });
 
-    // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す（作った字幕を選んだ状態で）
-    _gdSubReload(fileId, gdToken, subLang === 'orig' ? '' : subLang);
+    // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
+    _gdSubLookup.delete(fileId);
     if (!silent) {
-      const shortG = _subTailGap(srt, Number(d.durationSec) || Number(v.duration) || 0);
-      const noteG  = shortG ? `（⚠ 字幕が ${_chapFmt(shortG.end)} で終わっています／動画は ${_chapFmt(shortG.total)}）` : '';
       window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
-      _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒${noteG}`);
+      _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒`);
     }
-    return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0, srt, lang: subLang };
+    if (_gdVideoEl && _gdFileId === fileId) {
+      document.getElementById('vp-sub-ui')?.remove();
+      _gdSubRevoke();
+      _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
+      _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
+    }
+    return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
     if (!silent) {
@@ -4586,8 +4496,6 @@ window.vpGenSubtitle = async function(id, preset) {
 // 検出の入り口は2つ:
 //   sub   … Driveにある字幕(SRT/VTT)の文字起こしだけをAIに渡す。動画を送らないので速く安い。
 //           おまけに検出時刻を字幕キューの頭にスナップできるので、発話の途中で切れない。
-//           字幕がまだ無い動画でも選べる。その時は先に字幕を作ってからそのまま検出へ進む
-//           （「字幕生成 → もう一度チャプターのメニューを開く」を押させない）。
 //   video … 字幕が無い動画向け。字幕生成と同じ経路で動画本体をGeminiに読ませる（遅い・高い）。
 // 書き込みは必ず確認ダイアログを通す。既存のブックマークは消さず追加のみ（データ保護）。
 const CHAP_MIN_SEC   = 45;    // これより短い間隔の区切りは落とす（'ふつう'の値）
@@ -4595,38 +4503,15 @@ const CHAP_MAX_COUNT = 40;    // 検出件数の上限（'ふつう'の値）
 const CHAP_DUP_SEC   = 20;    // 既存の自動チャプターとこれ以内なら重複として足さない
 const CHAP_LABEL_MAX = 300;   // チャプター名の上限（暴走した返しへの歯止め。実在の名前は届かない長さ）
 const CHAP_SNAP_SEC  = 12;    // 字幕キュー頭へスナップする最大のズレ
-const CHAP_HEAD_SEC  = 10;    // 1つ目がこの秒数以内なら 0:00 にそろえる
 const CHAP_TR_MAX    = 400000; // AIへ渡す文字起こしの上限（文字）
 
 // 検出の粒度。設定画面で選んだものを既定にし、確認ダイアログからその場でも変えられる。
-// minSec は「これより短い区切りは作らない」下限、maxCount は件数の上限。
-// 下限と上限だけではモデルは何個に分ければよいか分からず、細かめを選んでも
-// 10分の動画に2個しか作らなかった。1つあたりの目安の長さ(typSec)を併せて渡し、
-// サーバー側で「この動画なら◯〜◯個」という目安に直す。
-// maxSec は「1チャプターがこれより長くなったら分け直す」上限。
-// 下限(minSec)しか無かったため、下限だけ守って 0:00/0:30/0:59/4:01 のように
-// 3分間まるごと区切りの無い結果になっていた（5分の動画で実際に発生）。
+// minSec は「これより短い区切りは作らない」、maxCount は件数の上限。
 const CHAP_GRAINS = {
-  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, typSec: 60,  maxSec: 150, label: '細かめ' },
-  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, typSec: 150, maxSec: 360, label: 'ふつう' },
-  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, typSec: 420, maxSec: 900, label: '大きめ' },
+  fine:   { minSec: 25,             maxCount: 60,             titleLen: 18, label: '細かめ' },
+  normal: { minSec: CHAP_MIN_SEC,   maxCount: CHAP_MAX_COUNT, titleLen: 18, label: 'ふつう' },
+  coarse: { minSec: 150,            maxCount: 20,             titleLen: 20, label: '大きめ' },
 };
-
-// 空きすぎた区間を数える。1回の検出では、長い反復デモが丸ごと1チャプターに
-// 潰れるのを避けられない。残った穴はその区間だけを見せ直して埋める。
-const CHAP_GAPFILL_MAX   = 3;   // 埋め直す区間の数の上限（コストの歯止め）
-const CHAP_GAPFILL_LINES = 5;   // これ未満の発話しか無い区間は、埋める材料が無い
-
-function _chapGaps(chaps, duration, maxSec) {
-  const dur = Number(duration) || 0;
-  const out = [];
-  for (let i = 0; i < chaps.length; i++) {
-    const from = chaps[i].time;
-    const to   = (i + 1 < chaps.length) ? chaps[i + 1].time : dur;
-    if (to > from && to - from > maxSec) out.push({ from, to, span: to - from });
-  }
-  return out.sort((a, b) => b.span - a.span);
-}
 const CHAP_GRAIN_KEYS = ['fine', 'normal', 'coarse'];
 
 function _chapGrainKey(k) {
@@ -4679,14 +4564,7 @@ function _vttToTranscript(vtt, maxChars) {
   // ここで切ると後半のチャプターが出なくなるので、切ったことを呼び出し側へ伝える
   const clipped = text.length > maxChars;
   if (clipped) text = text.slice(0, maxChars);
-  return { text, cues, clipped, lines };
-}
-
-// 文字起こしのうち、ある区間に入る発話だけを取り出す。
-// 「区切りが無いのは発話が無いからか、モデルが見落としたからか」を分けるのにも使う。
-function _trSlice(lines, from, to) {
-  const rows = (lines || []).filter(l => l.start >= from && l.start < to);
-  return { count: rows.length, text: rows.map(l => `[${_chapFmt(l.start)}] ${l.text}`).join('\n') };
+  return { text, cues, clipped };
 }
 
 // AIの返しを掃除する。時刻順に並べ、近すぎる区切り・動画の終わり際は落とす。
@@ -4752,14 +4630,6 @@ function _snapChapters(chaps, cues) {
     if (best && Math.abs(best.start - c.time) <= CHAP_SNAP_SEC) c.time = Math.round(best.start);
   }
   chaps.sort((a, b) => a.time - b.time);
-  return _chapHeadToZero(chaps);
-}
-
-// 1つ目が冒頭付近なら 0:00 にそろえる。最初の発話が 0:01 だからといって
-// 1つ目を 0:01 から始める意味は無く、頭の数秒がどのチャプターにも入らなくなる。
-// 貼り付けた一覧には掛けない（ユーザーが書いた時刻はそのまま正とする）。
-function _chapHeadToZero(chaps) {
-  if (chaps?.length && chaps[0].time > 0 && chaps[0].time <= CHAP_HEAD_SEC) chaps[0].time = 0;
   return chaps;
 }
 
@@ -4797,27 +4667,15 @@ function _chapImgToBase64(file) {
   });
 }
 
-const _chapEsc = s => String(s ?? '').replace(/[&<>"]/g,
-  c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
-
 // テキスト貼り付け＋画像貼り付けの入力ダイアログ。resolve は {text, images} / キャンセルは null
 // 「字幕から検出」「動画から検出」を選んだ後に出す2枚目。
 // 貼り付けを選んだ時に一覧の入力画面が出るのと同じ位置づけ。
 // 細かさは検出にしか効かないので、1枚目に混ぜず、ここで初めて聞く。
-//
-// 字幕は「どれを使うか／どれを作るか」で結果がまるごと変わるので、ここで必ず選べるようにする。
-// 黙って先頭の字幕を使うと、英語の字幕しか読まれていないのに理由が画面に出ない。
-//   subPick = { mode:'use'|'make', options:[{value,label,hint}], value } / 選ぶ必要が無ければ null
-// resolve は { grain:'fine'|'normal'|'coarse', sub:選んだvalue } / キャンセルは null
-function _chapGrainDialog(via, duration, subPick) {
+// resolve は 'fine' | 'normal' | 'coarse' / キャンセルは null
+function _chapGrainDialog(via, duration) {
   return new Promise(resolve => {
     document.getElementById('vp-chap-grain-bg')?.remove();
     const cur = _chapGrainKey();
-    const pick = subPick && subPick.options?.length ? subPick : null;
-    let subVal = pick ? (pick.value ?? pick.options[0].value) : null;
-    // 「これから作る」を選んでいるか。説明文が変わるので選び直すたびに見直す。
-    const isMake = () => String(subVal || '').startsWith('make:');
-    const needSub = isMake();
     // 実際に作れる数は動画の長さで決まる。maxCount は安全弁にすぎないので、
     // 尺と無関係に「最大◯個」とだけ書くと、短い動画では嘘になる
     // （5分の動画に「最大60個」など）。長さが分かる時はそちらから上限を出す。
@@ -4842,28 +4700,10 @@ function _chapGrainDialog(via, duration, subPick) {
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:380px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">${pick ? '📑 自動チャプター' : 'チャプターの細かさ'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">チャプターの細かさ</div>
           <div id="vp-chap-grain-sub" style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${
-            via !== 'sub' ? `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`
-            : needSub     ? `先に字幕を作ってから検出します${durLabel ? `（${durLabel}）` : ""}`
-                          : `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
+            via === 'sub' ? `この動画の字幕から検出します${durLabel ? `（${durLabel}）` : ""}` : `AIが動画を視聴して検出します${durLabel ? `（${durLabel}）` : ""}`}</div>
         </div>
-        ${pick ? `
-        <div style="padding:10px 14px 2px">
-          <div id="vp-chap-sub-head" style="font-size:11px;font-weight:700;color:var(--text2,#bbb);margin-bottom:6px">${
-            needSub ? '作る字幕' : '使う字幕'}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${pick.options.map((o, i) => `
-              <button class="vp-chap-sub-opt" data-i="${i}" title="${_chapEsc(o.hint || o.label)}"
-                style="padding:6px 11px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;
-                       border:1.5px solid var(--border);background:transparent;color:var(--text,#eee)">${_chapEsc(o.label)}</button>`).join('')}
-          </div>
-          <div id="vp-chap-sub-note" style="font-size:10px;color:var(--text3,#999);margin-top:5px">${
-            needSub ? '作った字幕は保存されるので、次からはそのまま使えます'
-                    : 'この字幕の文字起こしだけを読んで区切りを探します'}</div>
-        </div>
-        <div style="height:1px;background:var(--border,#444);margin:10px 14px 0;opacity:.6"></div>
-        <div style="padding:8px 14px 0;font-size:11px;font-weight:700;color:var(--text2,#bbb)">区切りの細かさ</div>` : ''}
         <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
           ${CHAP_GRAIN_KEYS.map(k => `
             <button class="vp-chap-grain-opt" data-g="${k}"
@@ -4883,36 +4723,8 @@ function _chapGrainDialog(via, duration, subPick) {
 
     const done = v => { bg.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
-
-    // 字幕のチップは選ぶだけ（閉じない）。決定は下の細かさのボタン。
-    const chips = Array.from(bg.querySelectorAll('.vp-chap-sub-opt'));
-    const subNote = bg.querySelector('#vp-chap-sub-note');
-    const subHead = bg.querySelector('#vp-chap-sub-head');
-    const headSub = bg.querySelector('#vp-chap-grain-sub');
-    const paintChips = () => {
-      chips.forEach((b, i) => {
-        const on = pick.options[i].value === subVal;
-        b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-        b.style.background  = on ? 'var(--gold-soft)' : 'transparent';
-      });
-      // 「使う」と「作る」では、この後に起きることも待ち時間も違う。選ぶたびに書き換える。
-      const mk = isMake();
-      if (subHead) subHead.textContent = mk ? '作る字幕' : '使う字幕';
-      if (subNote) subNote.textContent = mk
-        ? '作った字幕は保存されるので、次からはそのまま使えます'
-        : 'この字幕の文字起こしだけを読んで区切りを探します';
-      if (headSub) headSub.textContent = (mk ? '先に字幕を作ってから検出します' : 'この動画の字幕から検出します')
-        + (durLabel ? `（${durLabel}）` : '');
-      // 英語表示は i18n の MutationObserver が textContent の差し替えを拾って訳す
-    };
-    chips.forEach((b, i) => b.addEventListener('click', () => {
-      subVal = pick.options[i].value;
-      paintChips();
-    }));
-    if (chips.length) paintChips();
-
     bg.querySelectorAll('.vp-chap-grain-opt').forEach(b =>
-      b.addEventListener('click', () => done({ grain: b.dataset.g, sub: subVal })));
+      b.addEventListener('click', () => done(b.dataset.g)));
     bg.querySelector('#vp-chap-grain-cancel').addEventListener('click', () => done(null));
     bg.addEventListener('click', e => { if (e.target === bg) done(null); });
     document.addEventListener('keydown', onKey, true);
@@ -5088,9 +4900,7 @@ function _askChapterSource(anchorEl, subCount) {
     // （貼り付けには効かない設定を同じ画面に並べると分かりにくいため）。
     menu.innerHTML =
       item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
-      + item('sub', '字幕から検出',
-             subCount ? 'どの字幕を使うかは次の画面で選べます（速い・安い）'
-                      : '字幕が無いので先に作ります（時間とコストがかかります）', false)
+      + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
     _fitPopup(menu, anchorEl);
@@ -5163,7 +4973,6 @@ function _chapReviewDialog(chaps, info) {
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
           <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📑 自動チャプター</div>
           <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">${_escAttr(info?.note || '')}</div>
-          ${info?.subLine ? `<div style="font-size:10.5px;color:var(--text3,#999);margin-top:2px">${_escAttr(info.subLine)}</div>` : ''}
           ${info?.warn ? `<div style="font-size:10.5px;color:var(--accent);margin-top:2px">⚠ ${_escAttr(info.warn)}</div>` : ''}
         </div>
         ${info?.canRedo ? `
@@ -5291,15 +5100,12 @@ function _applyChapters(id, sel, duration) {
 }
 
 // この動画の字幕本文（VTT）を1つ取る。再生中でメモリにあればそれを使う。
-// pickId を渡した時は必ずその字幕を読む。選んでもらった以上、
-// 再生中にたまたま出ている別言語のトラックで代用しない（英語で検出されて理由が分からなくなる）。
-async function _chapGetVtt(fileId, gdToken, subs, pickId) {
-  const cand = (pickId && (subs || []).find(x => x.id === pickId)) || subs?.[0];
+async function _chapGetVtt(fileId, gdToken, subs) {
   if (_gdFileId === fileId && _gdSubTracks.length) {
-    const t = cand ? _gdSubTracks.find(x => x.id === cand.id)
-                   : (_gdSubTracks[_gdSubIndex >= 0 ? _gdSubIndex : 0] || _gdSubTracks[0]);
+    const t = _gdSubTracks[_gdSubIndex >= 0 ? _gdSubIndex : 0] || _gdSubTracks[0];
     if (t?.rawVtt) return t.rawVtt;
   }
+  const cand = subs?.[0];
   if (!cand) return '';
   // 動画本体と同じ同一オリジンプロキシ経由で取る（CORS・認証の追加対応が不要）
   const res = await fetch(`/api/drive?fileId=${encodeURIComponent(cand.id)}&token=${encodeURIComponent(gdToken)}`);
@@ -5332,7 +5138,7 @@ window.vpGenChapters = async function(id, preset) {
     // 1. 字幕があるか先に調べて、入り口を選ばせる
     setBtn('⏳ 確認中…');
     // 字幕の在りか: Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント
-    let subs = isGd
+    const subs = isGd
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
       : _ytSubList(await _ytSubFetch(v.ytId, true));
     endBtn();
@@ -5357,86 +5163,10 @@ window.vpGenChapters = async function(id, preset) {
       ? { source: 'gdrive', gdFileId: fileId, accessToken: gdToken }
       : { source: 'youtube', ytId: v.ytId, durationSec: duration || 0 };
 
-    // 字幕がまだ無いのに「字幕から検出」を選べる（下で先に字幕を作る）
-    const needSubGen = via === 'sub' && !subs.length && !preset;
-
-    // 字幕は「どれを使うか／どれを作るか」で結果がまるごと変わる。
-    // 黙って先頭（並び順の都合で英語のことがある）を使うと、なぜ英語で検出されたのかが
-    // 画面のどこにも出ない。必ず選ばせて、選んだものだけを読む。
-    //   'use:<id|lang>'  … すでにある字幕を使う
-    //   'make:<lang>'    … その言語の字幕をここで作ってから検出する
-    // 英語の字幕しか無い動画で日本語が欲しい、も「作る」側の選択肢として並べる。
-    const subPick = via !== 'sub' ? null : (() => {
-      const opts = subs.map(t => ({
-        value: 'use:' + (t.id || t.lang),
-        label: t.label || t.name || t.lang || '字幕',
-        hint:  t.name || '',
-      }));
-      const have = new Set(subs.map(t => _subLangNorm(t.lang || '')));
-      for (const [code, label] of _subGenLangChoices()) {
-        // 'orig' は出来上がる言語が事前に分からないので、字幕が1つでもあると
-        // vpGenSubtitle 側が安全のため作らずに抜ける。押せても何も起きないので出さない。
-        if (code === 'orig' && subs.length) continue;
-        if (code !== 'orig' && have.has(_subLangNorm(code))) continue;   // 同じ言語が既にある
-        opts.push({ value: 'make:' + code,
-                    label: code === 'orig' ? '＋ 原語のまま作る' : `＋ ${label}で作る`,
-                    hint: '字幕を作ってから検出します（時間とコストがかかります）' });
-      }
-      const want = 'make:' + (subOpts().genLang || 'ja');
-      return { mode: subs.length ? 'use' : 'make',
-               value: subs.length ? opts[0].value : (opts.some(o => o.value === want) ? want : opts[0].value),
-               options: opts };
-    })();
-
-    let pickedGrain = preset?.grain, pickedSub = preset?.sub ?? null;
+    let pickedGrain = preset?.grain;
     if (!preset && via !== 'list') {
-      const got = await _chapGrainDialog(via, duration, subPick);
-      if (!got) return { ok: false, skipped: true };
-      pickedGrain = got.grain;
-      pickedSub   = got.sub;
-    }
-    // Driveは字幕ファイルのid、YouTubeは言語コードが 'use:' の中身
-    const selSub  = String(pickedSub || '');
-    const makeLang = selSub.startsWith('make:') ? selSub.slice(5) : (needSubGen ? (subOpts().genLang || 'ja') : '');
-    const pickId   = selSub.startsWith('use:')  ? selSub.slice(4) : null;
-    // 確認画面に出す「何の字幕を読んだか」。英語の字幕で検出されても理由が追える。
-    const subUsedLine = () => {
-      if (via !== 'sub') return '';
-      if (makeLang) {
-        const lg = madeLang || makeLang;
-        return '作った字幕: ' + (SUB_LANGS[lg] || (lg === 'orig' ? '原語のまま' : String(lg).toUpperCase()));
-      }
-      const t = (pickId && subs.find(x => (x.id || x.lang) === pickId)) || subs[0];
-      return t ? '使った字幕: ' + (t.label || t.name || t.lang) : '';
-    };
-
-    // 1.5 「作る」を選ばれた時は、ここで字幕を作ってから検出へ進む。
-    // ボタンを押し直させない（作り終えてからもう一度メニューを開かせるのは手間なだけ）。
-    // 言語は上のダイアログで選ばれたものを使う。
-    // 既存の字幕には触れない: existing:'skip' なので、同じ言語の字幕が万一この間に
-    // 現れても作り直さず飛ばす（非空→上書きを起こさない）。
-    // 一括実行(preset)は従来どおり字幕が無ければ video へ倒すので、ここには入らない。
-    let freshSrt = '', subGenCost = 0, madeLang = '';
-    if (makeLang) {
-      setBtn('⏳ 字幕を作成中…');
-      // 字幕生成の挙動は 💬字幕生成 を押した時とまったく同じにする。
-      // 違うのは「言語を既に選んである」ことだけ（上のダイアログで聞いた）。
-      const g = await window.vpGenSubtitle(id, {
-        interactive: true,
-        subLang: makeLang,
-        onProgress: setBtn,   // 字幕側の「⏳ 書き起こし中… 120秒」等をこのボタンに出す
-      });
-      // 失敗・中止は vpGenSubtitle 側がトーストと結果表示で知らせている（二重に出さない）
-      if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
-      freshSrt   = g.srt || '';
-      subGenCost = Number(g.cost) || 0;
-      madeLang   = g.lang || makeLang;   // 翻訳に失敗して原語版だけ残ることがある
-      // 作った字幕を検出の元にする。Driveは作成直後の検索に出てこないことがあるので、
-      // 一覧に現れなくても本文（freshSrt）は手元にある → それをそのまま使う。
-      subs = isGd ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
-                  : _ytSubList(await _ytSubFetch(v.ytId, true));
-      if (!subs.length && !freshSrt) throw new Error('作った字幕を読み取れませんでした');
-      endBtn();
+      pickedGrain = await _chapGrainDialog(via, duration);
+      if (!pickedGrain) return { ok: false, skipped: true };
     }
 
     // 2. 検出
@@ -5445,20 +5175,13 @@ window.vpGenChapters = async function(id, preset) {
     const ctxFields = { title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '' };
 
     // 字幕の文字起こしは「字幕から検出」と「表の位置合わせ」の両方で使う
-    let cues = [], transcript = '', clipped = false, trLines = [];
+    let cues = [], transcript = '', clipped = false;
     const loadTranscript = async () => {
       if (transcript) return transcript;
-      const picked = pickId ? (subs.find(x => (x.id || x.lang) === pickId) || subs[0]) : subs[0];
-      const vtt = freshSrt ? _srtToVtt(freshSrt)
-                : isGd     ? await _chapGetVtt(fileId, gdToken, subs, picked?.id)
-                           : (picked?.srt ? _srtToVtt(picked.srt) : '');
+      const vtt = isGd ? await _chapGetVtt(fileId, gdToken, subs)
+                       : (subs[0]?.srt ? _srtToVtt(subs[0].srt) : '');
       const tr = _vttToTranscript(vtt, CHAP_TR_MAX);
-      cues = tr.cues; clipped = tr.clipped; transcript = tr.text; trLines = tr.lines || [];
-      // 何を根拠に検出したのかを残す。「区切りが無い」の原因が
-      // 発話の無さなのかモデルの見落ちなのか、推測しないで分かるようにする。
-      console.log('[chapters] 文字起こし:', { 発話行: trLines.length, 文字数: transcript.length,
-        先頭: trLines[0] ? _chapFmt(trLines[0].start) : '-',
-        末尾: trLines.length ? _chapFmt(trLines[trLines.length - 1].start) : '-', clipped });
+      cues = tr.cues; clipped = tr.clipped; transcript = tr.text;
       return transcript;
     };
 
@@ -5485,13 +5208,11 @@ window.vpGenChapters = async function(id, preset) {
     // 表から作る場合は表のとおりに区切るので粒度は使わない。
     // メニューで選ばれた細かさを初期値にする（未指定なら設定画面の既定）
     let grainKey = _chapGrainKey(pickedGrain);
-    let totalCost = subGenCost;
+    let totalCost = 0;
 
     for (;;) {
       const grain    = _chapGrain(grainKey);
-      const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen,
-                         typSec: grain.typSec, maxSec: grain.maxSec,
-                         grain: grainKey, durationSec: Math.round(duration) || 0 };
+      const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen };
       let chaps = [], cost = 0, noteSrc = '', warn = '';
 
       if (via === 'list') {
@@ -5506,7 +5227,7 @@ window.vpGenChapters = async function(id, preset) {
           // 2b. 表に時刻が無い → 章立てを正解として、位置だけを字幕（無ければ動画）から探す
           setBtn('⏳ 位置合わせ中…');
           const chapOpts = { titles: conv.titles };
-          const useSub = (subs.length > 0 || !!freshSrt) && !!(await loadTranscript());
+          const useSub = subs.length > 0 && !!(await loadTranscript());
           const r2 = useSub
             ? await post({ idToken, mode: 'chapters', source: 'transcript', transcript, chapOpts, ...ctxFields })
             : await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts, ...ctxFields });
@@ -5527,52 +5248,19 @@ window.vpGenChapters = async function(id, preset) {
         chaps = _normalizeChapters(chaps, { duration, minSec: 0, maxCount: 200 });
 
       } else if (via === 'sub') {
-        if (!subs.length && !freshSrt) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
+        if (!subs.length) throw new Error('字幕が見つかりません。先に「💬 字幕生成」で字幕を作ってください');
         if (!(await loadTranscript())) throw new Error('字幕を読み取れませんでした。先に「💬 字幕生成」で字幕を作ってください');
         const r = await post({ idToken, mode: 'chapters', source: 'transcript', transcript,
                                chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        const norm = its => _normalizeChapters(its, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
-        chaps = norm(r.parsed?.items);
-        console.log('[chapters] 1回目:', chaps.map(c => _chapFmt(c.time) + ' ' + c.label));
-
-        // 空きすぎた区間を、その区間だけ見せ直して埋める。
-        // 1回で全体を見せると、長い反復デモやドリルが丸ごと1チャプターに潰れる
-        // （5分の動画で 0:59→4:01 の3分間が空いた。字幕はその間も続いていた）。
-        // 発話がほとんど無い区間は埋める材料が無いので、投げずに理由として残す。
-        const dry = [];
-        for (const g of _chapGaps(chaps, duration, grain.maxSec).slice(0, CHAP_GAPFILL_MAX)) {
-          const part = _trSlice(trLines, g.from, g.to);
-          console.log('[chapters] 空き区間:', _chapFmt(g.from) + '〜' + _chapFmt(g.to), '発話', part.count, '行');
-          if (part.count < CHAP_GAPFILL_LINES) { dry.push(g); continue; }
-          setBtn('⏳ 区切りを探し直し中…');
-          const rg = await post({ idToken, mode: 'chapters', source: 'transcript', transcript: part.text,
-                                  chapOpts: { ...freeOpts, fromSec: g.from, toSec: g.to }, ...ctxFields });
-          cost += Number(rg.d.costUsd) || 0;
-          // 区間の内側だけを採る。端は既にある区切りと同じものなので入れない。
-          const add = norm(rg.parsed?.items)
-            .filter(c => c.time > g.from + grain.minSec && c.time < g.to - grain.minSec);
-          console.log('[chapters] 埋め直し:', add.map(c => _chapFmt(c.time) + ' ' + c.label));
-          if (add.length) chaps = norm(chaps.concat(add));
-        }
-        chaps   = _snapChapters(chaps, cues);
-        noteSrc = freshSrt ? '字幕を作成して検出' : '字幕から検出';
-
-        // 残った穴は黙って渡さない。理由（発話が無い／見つからない）まで書く。
-        const left = _chapGaps(chaps, duration, grain.maxSec);
+        chaps   = _snapChapters(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }), cues);
+        noteSrc = '字幕から検出';
         if (clipped || r.d.clipped) warn = '字幕が長いため後半は読み取れていません';
-        else if (left.length) {
-          const g = left[0];
-          const isDry = dry.some(d => d.from === g.from) || _trSlice(trLines, g.from, g.to).count < CHAP_GAPFILL_LINES;
-          warn = `${_chapFmt(g.from)}〜${_chapFmt(g.to)} に区切りがありません`
-               + (isDry ? '（この間は発話がほとんど無く、字幕からは区切れません）'
-                        : '（字幕は続いていますが、話の切り替わりが見つかりませんでした）');
-        }
 
       } else {
         const r = await post({ idToken, mode: 'chapters', ...videoSrc, chapOpts: freeOpts, ...ctxFields });
         cost += Number(r.d.costUsd) || 0;
-        chaps   = _chapHeadToZero(_normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount }));
+        chaps   = _normalizeChapters(r.parsed?.items, { duration, minSec: grain.minSec, maxCount: grain.maxCount });
         noteSrc = '動画から検出';
       }
 
@@ -5586,7 +5274,7 @@ window.vpGenChapters = async function(id, preset) {
       const sel = preset
         ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto }
         : await _chapReviewDialog(chaps, {
-            note, autoCount, warn, subLine: subUsedLine(),
+            note, autoCount, warn,
             grain: grainKey, canRedo: via !== 'list',
           });
       if (!sel) return { ok: false, skipped: true };
@@ -6041,7 +5729,7 @@ async function _retranslateFromSrt({ token, videoFileId, srcName, srcText, want,
   const dup = await _driveApiGet(`files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=5`, token);
   await _driveUploadText(token, { name: target, parentId: parent, text: r.srt, existingId: dup?.files?.[0]?.id });
   _gdSubLookup.delete(videoFileId);
-  return { target, cost: r.cost, cues: r.cues, missing: r.missing, srt: r.srt };
+  return { target, cost: r.cost, cues: r.cues, missing: r.missing };
 }
 
 // Driveのゴミ箱へ移す。完全削除（files.delete）ではなく trashed:true にする。

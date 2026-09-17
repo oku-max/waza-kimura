@@ -609,34 +609,6 @@ const CHAP_MIN_SEC   = 45;      // これより短い区切りは作らせない
 const CHAP_MAX_COUNT = 40;      // 件数の上限（既定）
 const CHAP_TRANSCRIPT_MAX = 400000;  // 送られてくる字幕テキストの上限（文字）
 
-// 「何分の動画か」を知らせる。分からなければ字幕の最後の時刻から出す
-// （字幕は [M:SS] 付きで渡しているので、末尾がほぼ動画の長さになる）。
-function _chapDurationOf(o, transcript) {
-  const given = Math.max(0, Number(o?.durationSec) || 0);
-  if (given) return given;
-  const t = String(transcript || '');
-  let last = 0, m;
-  const re = /\[(?:(\d{1,3}):)?(\d{1,3}):(\d{2})\]/g;
-  while ((m = re.exec(t))) {
-    const sec = (Number(m[1] || 0) * 3600) + (Number(m[2]) * 60) + Number(m[3]);
-    if (sec > last) last = sec;
-  }
-  return last;
-}
-
-function _chapMS(sec) {
-  const s = Math.max(0, Math.round(sec));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
-  const z = n => String(n).padStart(2, '0');
-  return h ? `${h}:${z(m)}:${z(ss)}` : `${m}:${z(ss)}`;
-}
-
-function _chapHMS(sec) {
-  const s = Math.max(0, Math.round(sec));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-  return h ? `${h}時間${m}分` : `${m}分${s % 60}秒`;
-}
-
 function _aiChaptersPrompt(ctx, chapOpts, transcript) {
   const o = chapOpts || {};
   const minSec = Math.max(10, Math.min(600, Number(o.minSec) || CHAP_MIN_SEC));
@@ -656,78 +628,16 @@ function _aiChaptersPrompt(ctx, chapOpts, transcript) {
 ${transcript}`
     : 'この動画を最初から最後まで視聴し、話題が切り替わる点を判定してください。';
 
-  // ── 細かさを実際に効かせる ──────────────────────────────
-  // minSec と maxCount は下限と上限にすぎず、「何個に分けるか」を何も伝えていなかった。
-  // そのうえ全粒度で「迷ったら細かく刻まず、大きなまとまりで捉える」と書いていたため、
-  // 「細かめ」を選んでも10分の動画に2個しか作らない、という結果になっていた。
-  // 尺から出した目安の個数と、粒度ごとの倒し方をはっきり書く。
-  const grain = o.grain === 'fine' ? 'fine' : o.grain === 'coarse' ? 'coarse' : 'normal';
-  const typ   = Math.max(minSec, Number(o.typSec) || minSec * 2.4);
-  // 区間だけをやり直す時は、目安の個数もその区間の長さから出す
-  // （全体の尺で出すと「3分の穴に7〜18個」という無茶な指示になる）。
-  const rFrom  = Math.max(0, Number(o.fromSec) || 0);
-  const rTo    = Math.max(0, Number(o.toSec)   || 0);
-  const ranged = rTo > rFrom;
-  const dur    = ranged ? (rTo - rFrom) : _chapDurationOf(o, transcript);
-  let aim = '';
-  if (dur > 0) {
-    // 目安は必ず上限(maxCount)の内側に収める。収めないと2時間の動画で
-    // 「72〜73個」など、同じ厳守欄に書いた上限と矛盾した指示になる。
-    const t  = Math.max(2, Math.min(maxCount, Math.round(dur / typ)));
-    const lo = Math.max(2, Math.min(maxCount - 1, Math.round(t * 0.6)));
-    const hi = Math.max(lo + 1, Math.min(maxCount, Math.round(t * 1.6)));
-    const typLabel = typ >= 60 ? `${Math.round(typ / 6) / 10}分` : `${Math.round(typ)}秒`;
-    aim = `
-${ranged ? '【この区間の長さ】' : '【この動画の長さ】'}${_chapHMS(dur)}
-`
-        + `【分ける数の目安】${lo}〜${hi}個。1チャプター ${typLabel} 前後が目安です。`
-        // 目安自体が2〜3個の時に「1〜2個は誤り」と書いても窮屈なだけなので、
-        // はっきり細かく分けるべき時にだけ念を押す。
-        + (lo >= 4 ? `${lo}個を大きく下回る数しか作らないのは、この設定では誤りです。` : '')
-        + `
-`;
-  }
-  const tie = {
-    fine:   '迷ったら分ける側に倒す。1本のテクニックしか扱っていない動画でも、'
-          + '説明の段階が変わる所（入り方／グリップの作り／崩し／仕上げ／よくある失敗と対処／'
-          + 'バリエーション／ドリル／スパー実演）はそれぞれ別のチャプターにしてよい。',
-    normal: '迷ったら大きなまとまりで捉える。',
-    coarse: '大きなまとまりだけを拾う。細かい話題の切り替わりは前のチャプターに含める。',
-  }[grain];
-
-  // 1チャプターの上限。これが無かったため、下限(minSec)だけを守って
-  // 「0:00 / 0:30 / 0:59 / 4:01」のように3分間まるごと空く結果になっていた。
-  const maxSec = Math.max(minSec * 2, Math.min(3600, Number(o.maxSec) || typ * 2.5));
-  const capLine = `1チャプターが${_chapHMS(maxSec)}より長くならないようにする。`
-    + `長くなるなら、その中で話が進む所（動作の段落・別の注意点・失敗例・繰り返しの入り直し）を見つけて必ず分ける。`
-    + `字幕が続いているのに数分ぶん区切りが無いのは誤りです。`;
-
-  // 「繰り返しのデモは前のチャプターに含める」は粒度と無関係に書いていたため、
-  // 教則の大半を占める反復デモが丸ごと1チャプターに潰れていた。
-  // 細かめのときは、その反復こそ分ける対象にする。
-  const nosplit = grain === 'fine'
-    ? 'カメラの切り替わり、言い直し、同じ文の途中。これらは前のチャプターに含めること。'
-      + 'ただし、同じ技を繰り返し実演・ドリルしている長い区間は、回や狙いの切り替わりで分けてよい。'
-    : 'カメラの切り替わり、言い直し、同じ技の説明の続き、繰り返しのデモ。これらは前のチャプターに含めること。';
-
-  // 区間だけをやり直す時（本編の検出で空きすぎた所を埋め直す）は、
-  // 0:00 から始めさせる指示と衝突するので、その指示を外して区間を明示する。
-  const headLine = ranged
-    ? `【対象の区間】${_chapMS(rFrom)} から ${_chapMS(rTo)} までの間だけを見てください。`
-      + `この区間の中に隠れている話の切り替わりを返します。`
-      + `${_chapMS(rFrom)} ちょうど（およびその前）の区切りは既に分かっているので返さないこと。`
-    : '【最初のチャプター】動画の冒頭（0:00 付近）から必ず1つ目を始めること。';
-
   return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
 1本の長い教則動画に複数のテクニック／トピックが連続して収録されています。その区切り（チャプター）を検出してJSONで出力してください。
 ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
 ${source}
-${aim}
+
 【チャプターの単位】ひとつのテクニック・トピックのまとまりを1チャプターとします。導入の挨拶、コンセプト解説、ドリル、スパー実演、まとめ なども、それぞれ独立した1チャプターとして扱ってよい。
 【区切ってよい点】扱うテクニックが変わる／ポジションや状況設定が変わる／解説から実演やスパーに移る、など話の内容が実際に切り替わる点。
-【区切ってはいけない点】${nosplit}
+【区切ってはいけない点】カメラの切り替わり、言い直し、同じ技の説明の続き、繰り返しのデモ。これらは前のチャプターに含めること。
 【start】そのチャプターの話が始まる時刻。「次は〜をやります」のような予告から始まる場合はその予告を含めた時刻にする。動画の先頭を 0:00 として数える。
-${headLine}
+【最初のチャプター】動画の冒頭（0:00 付近）から必ず1つ目を始めること。
 【title】そのチャプターの中身が分かる短い日本語のタイトル。${titleLen}文字程度まで。
   - 通し番号（「1.」「第1章」等）や記号で飾らない。内容だけを書く
   - 柔術用語（ガード, スイープ, パスガード, マウント, バックテイク, ラペラ 等）はカタカナで表記する
@@ -739,9 +649,7 @@ ${headLine}
 - 出力は次のJSONのみ。前置き・解説・コードフェンスは書かない
 - start は時刻の早い順に並べ、同じ時刻を2回出さない
 - 各チャプターは${minSec}秒以上の長さにする（それより細かい切り替わりは前のチャプターに含める）
-- ${capLine}
-- チャプターは最大${maxCount}件まで
-- ${tie}
+- チャプターは最大${maxCount}件まで。迷ったら細かく刻まず、大きなまとまりで捉える
 - 実際に動画（字幕）に無い内容を推測で足さない
 
 {"items":[{"start":"M:SS または H:MM:SS","title":"短い日本語のタイトル","summary":"1文の補足（省略可）"}]}`;
@@ -1207,18 +1115,12 @@ function _validateSrt(srt, durationSec) {
 // 二重内容のファイルを$0.365で生成したため廃止した。長尺の成立条件は分割ではなく:
 //  - 転送: 応答を最初の1バイトから流す（645秒のリクエスト完走を本番で確認済み）
 //  - 入力量: media_resolution LOW（フレーム258→66トークン）で60分でも約35万トークン
-// 字幕が動画のどこまで届いていれば「完走」とみなすか。
-// 保存の可否は変えない（元のまま）。届いていない時に、そのことを
-// 画面に必ず出すためだけに使う。
-const SUB_TAIL_OK = 0.85;
-
 async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec) {
   const dur = Number(durationSec) || 0;
   const t0 = Date.now();
   const r = await _geminiGenerate(env,
     [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], _genOptsFor('subtitle'));
   if (r.error) return r;
-  const usage = r.usage, costUsd = r.costUsd;
   const sec = Math.round((Date.now() - t0) / 1000);
 
   const cues = _srtCues(r.summary);
@@ -1239,8 +1141,8 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   //   ② 最後のキューが動画のかなり手前で終わっている
   // ①だけなら通す＝取りこぼしても壊さない側に倒す。短尺(10分未満)は対象外。
   const last = repaired.reduce((m, c) => Math.max(m, c.start), 0);
-  const mmss = (x) => `${Math.floor(x / 60)}分${String(Math.floor(x % 60)).padStart(2, '0')}秒`;
   if (dur >= 600 && (r.cut || r.finish === 'MAX_TOKENS') && last < dur * 0.6) {
+    const mmss = (s) => `${Math.floor(s / 60)}分${String(Math.floor(s % 60)).padStart(2, '0')}秒`;
     return { error: '字幕の生成が途中で切れました',
              detail: `${mmss(dur)}の動画に対して字幕が${mmss(last)}までしかありません`
                + `（${r.finish === 'MAX_TOKENS' ? '出力が上限に達しました' : r.cut}）。`
@@ -1249,14 +1151,10 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   const fixed = _cuesToSrt(_cleanupCues(cues, dur));
   const bad = _validateSrt(fixed, dur);
   if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
-  // 保存するものは元と同じ。加えて「どこまで届いたか」を返すだけにする。
-  // 黙って完成品として渡さないための報告であって、判定は変えていない。
-  return { summary: fixed, usage, costUsd,
-           tailSec: Math.round(last), durationSec: Math.round(dur),
-           short: dur > 0 && last < dur * SUB_TAIL_OK ? { last: Math.round(last), dur: Math.round(dur) } : null,
+  return { summary: fixed, usage: r.usage, costUsd: r.costUsd,
            diag: [{ sec, cues: cues.length, first: first === Infinity ? null : Math.round(first),
                     last: Math.round(last), fin: r.finish || (r.cut ? 'CUT' : ''),
-                    outTok: usage?.candidatesTokenCount || 0 }] };
+                    outTok: r.usage?.candidatesTokenCount || 0 }] };
 }
 
 // ── YouTube 要約/一言解説/分岐抽出/字幕/チャプター ─────────
@@ -1281,8 +1179,7 @@ async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subL
         ], _genOptsFor(mode));
     if (result.error) return jsonRes(result, 502);
     return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd,
-                     via: 'video', durationSec: Number(durationSec) || 0,
-                     tailSec: result.tailSec, short: result.short, diag: result.diag });
+                     via: 'video', durationSec: Number(durationSec) || 0, diag: result.diag });
   } catch (e) {
     return jsonRes({ error: e.message }, 500);
   }
@@ -1404,7 +1301,6 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
   return jsonRes({
     summary: result.summary, usage: result.usage, costUsd: result.costUsd,
     segments: result.segments || 1, via: 'video', durationSec, diag: result.diag,
-    tailSec: result.tailSec, short: result.short,
   });
 }
 
