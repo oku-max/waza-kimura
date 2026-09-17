@@ -3781,10 +3781,14 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   _subOffsetSet(ytId, 0);
 
   const costStr = cost ? ` · $${cost.toFixed(3)}` : '';
+  // 動画の手前で終わっている字幕を「完成品」として黙って渡さない。
+  // 尺はサーバーの返しを優先する（動画の実尺で測っているため）。
+  const shortY = _subTailGap(srt, Number(v.duration) || 0);
+  const noteY  = (shortY ? `（⚠ 字幕が ${_chapFmt(shortY.end)} で終わっています／動画は ${_chapFmt(shortY.total)}）` : '') + note;
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${_langLabel(subLang) || subLang}${costStr}）`);
     _subGenShowResult(v.id, true,
-      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
+      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${noteY}`);
   }
   // 再生中ならその場で載せ直す（ここで転んでも保存は済んでいるので成功として返す）
   if (window.openVPanelId === v.id || window.openPlayer === v.id) {
@@ -4544,8 +4548,10 @@ window.vpGenSubtitle = async function(id, preset) {
     // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す（作った字幕を選んだ状態で）
     _gdSubReload(fileId, gdToken, subLang === 'orig' ? '' : subLang);
     if (!silent) {
+      const shortG = _subTailGap(srt, Number(d.durationSec) || Number(v.duration) || 0);
+      const noteG  = shortG ? `（⚠ 字幕が ${_chapFmt(shortG.end)} で終わっています／動画は ${_chapFmt(shortG.total)}）` : '';
       window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
-      _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒`);
+      _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒${noteG}`);
     }
     return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0, srt, lang: subLang };
   } catch (e) {
