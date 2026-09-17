@@ -3788,11 +3788,20 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         idToken, mode: 'subtitle', subLang, subOpts: _subGenPayload(), source: 'youtube',
-        // 尺はサーバー側の検証（前半欠け・途中打ち切り・範囲外キューの除去）に使う。
-        // v.duration は取り込み経路によっては入っていないことがあり、0 を渡すと
-        // それらの検証がまるごと無効になる。再生中なら実際の尺が player から取れる。
-        // （vpGenChapters は既に同じ手当てをしている。こちらだけ抜けていた）
-        ytId, durationSec: _ytDurationOf(v),
+        // 【変更禁止】ここは v.duration をそのまま渡す。0 でよい。
+        //
+        // v52.751 で「0 だと検証が働かないから」と実測値を送るように変えたところ、
+        // 字幕が途中で切れるようになった。サーバーの _cleanupCues は
+        //   c.start < durationSec + 5
+        // でキューを捨てる。Gemini は長尺で時刻が破綻する（この経路の既知の性質で、
+        // _worker.js にも明記されている）ため、後半のキューが尺を超えた時刻を持ち、
+        // 実測値を渡した瞬間にそれらが丸ごと削除される。
+        // 実測: 200枚のうち 107枚まで減り、10:43 の動画で3分ほどで字幕が終わった。
+        // 0 を渡している限り上限は Infinity になり、書かれたものは全部残る。
+        //
+        // 検証を効かせたいなら、まず時刻の破綻そのものを直すこと。
+        // 破綻したキューを黙って捨てるのは、ユーザーから見れば「字幕が切れる」だけ。
+        ytId, durationSec: Number(v.duration) || 0,
         title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
       }),
     });
