@@ -1651,6 +1651,7 @@
     "📑 自動チャプター": "📑 Auto chapters",
     "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
     "字幕から検出": "Detect from subtitles",
+    "対象の字幕が見つかりません": "Could not find that subtitle",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
     "チャプター一覧を貼り付け": "Paste a chapter list",
     "チャプター名と時間をコピペする（最も正確）": "Copy and paste the names and times (most accurate)",
@@ -2022,6 +2023,9 @@
     [/^⚠️ 字幕の生成に失敗: (.+)$/, '⚠️ Subtitle generation failed: $1'],
     [/^🗑 字幕をゴミ箱に移動しました（(.+)）$/, '🗑 Subtitles moved to trash ($1)'],
     [/^⚠️ 字幕の削除に失敗: (.+)$/, '⚠️ Failed to delete subtitles: $1'],
+    // 「🗑 日本語を削除」「🗑 「日本語」の字幕を削除しました」
+    [/^🗑 (.+?)を削除$/, (m, d) => `🗑 Delete ${_autoMap.get(d) || d}`],
+    [/^🗑 「(.+?)」の字幕を削除しました$/, (m, d) => `🗑 Deleted the ${_autoMap.get(d) || d} subtitles`],
     [/^(\d+)枚目$/, 'Cue $1'],
     [/^字幕が(\d+)分以降にしかありません（動画全体を処理できていない可能性）。保存していません$/,
       'Subtitles only exist after minute $1 (the whole video may not have been processed). Nothing was saved'],

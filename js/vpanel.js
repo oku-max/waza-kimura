@@ -3215,6 +3215,47 @@ async function _ytSubFetch(ytId, force) {
 // 通常は当たらないが、当たると保存が丸ごと失敗するので手前で分かる形で止める。
 const YT_SUB_MAX_CHARS = 700000;
 
+// 保存済みのYouTube字幕を1言語だけ消す。
+//
+// Driveの字幕には「🗑 ゴミ箱へ」があるのに、YouTube側だけ削除経路が無かった。
+// そのため一度おかしな字幕が保存されると、二度と取り除けない。さらに
+// 「💬 字幕生成」で別の言語を頼むと、そのおかしな字幕を元に翻訳する経路
+// （canTranslate）に入るので、作り直しても同じ欠けた内容が再生産され続ける。
+// 消せるようにして初めて作り直しが意味を持つ。
+//
+// データの扱い: 消すのは tracks.<言語> の1キーだけ。ドキュメントごと消さない。
+// 他の言語・他端末の字幕には触れない。呼ぶのは⚙の一覧のボタンだけで、
+// 言語名を出した確認を必ず通す。
+async function _ytSubDelete(ytId, lang) {
+  const ref = _ytSubRef(ytId);
+  if (!ref) throw new Error('ログインが必要です');
+  const FV = window.firebase?.firestore?.FieldValue;
+  if (!FV) throw new Error('削除に対応していません');
+  await ref.set({ tracks: { [lang]: FV.delete() }, updatedAt: new Date().toISOString() }, { merge: true });
+  // 手元のキャッシュからも外す（消えたのに一覧へ出続けないように）
+  const cur = _ytSubDocs.get(ytId);
+  if (cur && cur.tracks) {
+    const tracks = { ...cur.tracks };
+    delete tracks[lang];
+    _ytSubDocs.set(ytId, { ...cur, tracks });
+  }
+}
+
+window.wkYtSubDelete = async function(lang) {
+  const ytId = _ytSubId;
+  const t = _ytSubTracks.find(x => x.lang === lang);
+  if (!ytId || !t) { window.toast?.('対象の字幕が見つかりません'); return; }
+  if (!confirm(`この動画の「${t.label}」の字幕を削除します。\n\nこの動画のこの言語だけを消します（他の言語・他の動画には影響しません）。\n元に戻せません。作り直すには「💬 字幕生成」を押してください。`)) return;
+  try {
+    await _ytSubDelete(ytId, lang);
+    window.toast?.(`🗑 「${t.label}」の字幕を削除しました`);
+    await _ytSubRefreshNow(ytId);
+    window.wkSubOptsRender?.();
+  } catch (e) {
+    window.toast?.('⚠️ 字幕の削除に失敗: ' + (e?.message || e));
+  }
+};
+
 async function _ytSubStore(ytId, lang, srt, meta) {
   if (!_looksLikeSrt(srt)) throw new Error('字幕として成立していないため保存を中止しました');
   if (srt.length > YT_SUB_MAX_CHARS) throw new Error('字幕が大きすぎて保存できません');
@@ -3671,6 +3712,12 @@ async function _translateSrtText(srcText, want, setBtn) {
   return { srt, cost: tr.cost, cues: outCues.length, missing: tr.missing.length, error: tr.error };
 }
 
+// この字幕が何分までしか無いか（最後のキューの終わり）。読めなければ 0。
+function _srtLastEnd(srt) {
+  try { const c = _parseVtt(_srtToVtt(srt)); return c.length ? c[c.length - 1].end : 0; }
+  catch (e) { return 0; }
+}
+
 // この動画の尺。保存済みの値が無ければ、再生中のプレイヤーから実測値を取る。
 function _ytDurationOf(v) {
   const saved = Number(v?.duration) || 0;
@@ -3720,8 +3767,16 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
 
   // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
   const canTranslate = !same && other && subLang !== 'orig';
+  // 元になる字幕が動画の途中までしか無いなら、訳しても同じところで終わる。
+  // それを知らずに「安い方」を選べてしまうと、作り直しても直らない。必ず見せる。
+  const _dur    = _ytDurationOf(v);
+  const _oEnd   = other ? _srtLastEnd(other.srt) : 0;
+  const _shortWarn = (_dur && _oEnd && _oEnd < _dur * 0.9)
+    ? `\n\n※その字幕は ${_chapFmt(_oEnd)} までしかありません（動画は ${_chapFmt(_dur)}）。`
+      + `翻訳しても同じところで終わります。最後まで欲しい場合は［キャンセル］を選んでください。`
+    : '';
   if (canTranslate && (preset ? preset.translate !== false
-        : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）`))) {
+        : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）${_shortWarn}`))) {
     setBtn('⏳ 翻訳中…');
     const r = await _translateSrtText(other.srt, subLang, setBtn);
     srt = r.srt; cost = r.cost; via = 'translate:' + other.lang;
@@ -5483,6 +5538,13 @@ function _subOptsHTML(scope) {
       html += sec('字幕（この動画）')
         + row('off', '字幕なし', '')
         + _ytSubTracks.map(t => row('gen:' + t.lang, t.label, genNote(t))).join('')
+        + (_ytSubTracks.length
+            ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
+                `<button type="button" onclick="wkYtSubDelete('${_escAttr(t.lang)}')"
+                   style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--red,#ef4444);
+                          background:transparent;color:var(--red,#ef4444);font-family:inherit;
+                          font-size:11px;font-weight:600;cursor:pointer">🗑 ${_escAttr(t.label)}を削除</button>`).join('')}</div>`
+            : '')
         + _ytCcTracks.map(t => row('yt:' + t.code, t.label, 'YouTubeの字幕')).join('')
         + `<div style="font-size:10.5px;color:var(--text3)">CCボタンを押しても同じ順で切り替わります。出るのは常に1つだけです</div>`
         + (_ytCcTracks.length
