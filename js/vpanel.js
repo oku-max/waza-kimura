@@ -2350,7 +2350,7 @@ function _sec2tc(s) {
 const VTT_TC_RE = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
 
 function _parseVtt(vtt) {
-  const lines = String(vtt).replace(/\r\n?/g, '\n').split('\n');
+  const lines = _srtFixMs(vtt).replace(/\r\n?/g, '\n').split('\n');
   const marks = [];
   for (let i = 0; i < lines.length; i++) if (VTT_TC_RE.test(lines[i])) marks.push(i);
 
@@ -2952,7 +2952,7 @@ function _gdSubDecode(buf) {
 
 // SRT → WebVTT（ブラウザは WebVTT しか解釈しない）
 function _srtToVtt(text) {
-  let t = String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  let t = _srtFixMs(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   if (/^WEBVTT/.test(t.trimStart())) return t;          // すでにVTTならそのまま
   t = t.replace(/(\d{1,2}:\d{2}(?::\d{2})?),(\d{1,3})/g, '$1.$2');   // 00:00:01,500 → 00:00:01.500
   // 時間桁が無い mm:ss.mmm 形式には 00: を補う（VTTはどちらも可だが揃えておく）
@@ -3846,8 +3846,18 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
 // 生成本体は既存の /api/ai-summary（mode:'subtitle'）を再利用する。
 // 保存先は動画と同じフォルダの「動画名.ja.srt」/「動画名.srt」で、
 // 上書きになる場合は必ず確認を取る（既存の字幕を黙って壊さない）。
+// AIが時刻を「05:41:292」のようにミリ秒までコロンで区切って返すことがある。
+// SRT/VTT の規定は「,」か「.」なので、この行は時刻として読めず、そのまま本文に
+// 混ざる。実際に画面へ「55 05:41:292 --> 05:55:762」が字幕として表示された。
+// しかも先頭の数分だけ正しい書式で返ってくるため、そこまでは普通に出て、
+// 書式が変わった時点から「字幕が切れた」ように見える。
+// 末尾3桁はミリ秒なので、読む前にカンマへ直す。HH:MM:SS（ミリ秒なし）と
+// 取り違えないよう、ちょうど3桁の時だけ直す。
+const SRT_MS_COLON = /(\d{1,3}:\d{2}(?::\d{2})?):(\d{3})(?!\d)/g;
+function _srtFixMs(text) { return String(text ?? '').replace(SRT_MS_COLON, '$1,$2'); }
+
 function _looksLikeSrt(t) {
-  return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(String(t || ''));
+  return /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(_srtFixMs(t));
 }
 
 // 見つかった字幕から「上書き対象（同名）」と「そもそも字幕があるか」を決める。
@@ -3898,7 +3908,7 @@ window.addEventListener('beforeunload', (e) => {
 
 // モデルがコードフェンスや前置きを付けてきた場合に本文だけ取り出す
 function _cleanSrt(t) {
-  let s = String(t || '').replace(/\r\n?/g, '\n').trim();
+  let s = _srtFixMs(t).replace(/\r\n?/g, '\n').trim();
   s = s.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
   const i = s.search(/(^|\n)\d+\n\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/);
   if (i > 0) s = s.slice(i).trim();

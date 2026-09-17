@@ -1015,6 +1015,16 @@ function _srtTime(sec) {
   const z = (n, w) => String(n).padStart(w, '0');
   return `${z(h,2)}:${z(m,2)}:${z(ss,2)},${z(ms,3)}`;
 }
+// AIが時刻を「05:41:292」のようにミリ秒までコロンで区切って返すことがある。
+// SRT/VTT の規定は「,」か「.」なので、この行は時刻として読めず、そのまま本文に
+// 混ざる。実際に画面へ「55 05:41:292 --> 05:55:762」が字幕として表示された。
+// しかも先頭の数分だけ正しい書式で返ってくるため、そこまでは普通に出て、
+// 書式が変わった時点から「字幕が切れた」ように見える。
+// 末尾3桁はミリ秒なので、読む前にカンマへ直す。HH:MM:SS（ミリ秒なし）と
+// 取り違えないよう、ちょうど3桁の時だけ直す。
+const SRT_MS_COLON = /(\d{1,3}:\d{2}(?::\d{2})?):(\d{3})(?!\d)/g;
+function _srtFixMs(text) { return String(text ?? '').replace(SRT_MS_COLON, '$1,$2'); }
+
 function _srtSec(tc) {
   const m = String(tc).match(/(\d{1,3}):(\d{2})(?::(\d{2}))?[.,](\d{1,3})/);
   if (!m) return 0;
@@ -1025,7 +1035,7 @@ function _srtSec(tc) {
 }
 // 空行区切りに依存せず、タイムコード行を目印にキューを取り出す
 function _srtCues(text) {
-  const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+  const lines = _srtFixMs(text).replace(/\r\n?/g, '\n').split('\n');
   const TC = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
   const marks = [];
   for (let i = 0; i < lines.length; i++) if (TC.test(lines[i])) marks.push(i);
