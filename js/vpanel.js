@@ -4993,7 +4993,9 @@ function _askChapterSource(anchorEl, subCount) {
     // （貼り付けには効かない設定を同じ画面に並べると分かりにくいため）。
     menu.innerHTML =
       item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
-      + item('sub', '字幕から検出', subCount ? 'この動画の字幕を使います（速い・安い）' : '字幕が見つかりません', !subCount)
+      + item('sub', '字幕から検出',
+             subCount ? 'この動画の字幕を使います（速い・安い）'
+                      : '字幕が無いので、先に「💬 字幕生成」を実行してから検出します', false)
       + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
     document.body.appendChild(menu);
     _fitPopup(menu, anchorEl);
@@ -5231,14 +5233,34 @@ window.vpGenChapters = async function(id, preset) {
     // 1. 字幕があるか先に調べて、入り口を選ばせる
     setBtn('⏳ 確認中…');
     // 字幕の在りか: Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント
-    const subs = isGd
+    const findSubs = async () => isGd
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
       : _ytSubList(await _ytSubFetch(v.ytId, true));
+    let subs = await findSubs();
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
     const via = preset ? (preset.via || (subs.length ? 'sub' : 'video'))
                        : await _askChapterSource(btn, subs.length);
     if (!via) return { ok: false, skipped: true };
+
+    // 1.5 字幕が無いまま「字幕から検出」を選んだら、ここで字幕を作ってから検出へ進む。
+    //
+    // 【変更禁止】vpGenSubtitle は引数なしで呼ぶこと。
+    // 以前ここで preset を渡したところ、preset は一括処理(bulk)の契約なので、
+    // 言語メニューも確認ダイアログも「既存の別言語から翻訳で済ませる」判断も
+    // まとめて一括用の挙動に差し替わり、「💬 字幕生成」を押した時と違う結果に
+    // なった。そこから連鎖して字幕そのものを壊した。
+    // 引数なし＝ボタンを押したのと完全に同じ処理。ここは薄い入口に徹する。
+    // 一括実行(preset)は従来どおり字幕が無ければ video へ倒すので、ここには来ない。
+    if (via === 'sub' && !subs.length && !preset) {
+      setBtn('⏳ 字幕を作成中…');
+      const g = await window.vpGenSubtitle(id);
+      endBtn();
+      // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
+      if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
+      subs = await findSubs();
+      if (!subs.length) return fail('作った字幕が見つかりませんでした');
+    }
 
     // 2枚目。どこから作るかによって聞くことが違う。
     //   貼り付け  → 一覧を入れてもらう
