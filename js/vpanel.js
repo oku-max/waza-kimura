@@ -3671,6 +3671,13 @@ async function _translateSrtText(srcText, want, setBtn) {
   return { srt, cost: tr.cost, cues: outCues.length, missing: tr.missing.length, error: tr.error };
 }
 
+// この動画の尺。保存済みの値が無ければ、再生中のプレイヤーから実測値を取る。
+function _ytDurationOf(v) {
+  const saved = Number(v?.duration) || 0;
+  if (saved) return saved;
+  try { return Math.round(Number(_ytPlayer?.getDuration?.()) || 0); } catch (e) { return 0; }
+}
+
 // ── YouTube動画の字幕を作る ──────────────────────────────────
 // 入り口は Drive と同じ vpGenSubtitle。作り方だけがここ。
 //   1) 同じ言語の字幕がすでにあるなら、作り直すか必ず確認する（黙って壊さない）
@@ -3726,7 +3733,11 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         idToken, mode: 'subtitle', subLang, subOpts: _subGenPayload(), source: 'youtube',
-        ytId, durationSec: Number(v.duration) || 0,
+        // 尺はサーバー側の検証（前半欠け・途中打ち切り・範囲外キューの除去）に使う。
+        // v.duration は取り込み経路によっては入っていないことがあり、0 を渡すと
+        // それらの検証がまるごと無効になる。再生中なら実際の尺が player から取れる。
+        // （vpGenChapters は既に同じ手当てをしている。こちらだけ抜けていた）
+        ytId, durationSec: _ytDurationOf(v),
         title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
       }),
     });
