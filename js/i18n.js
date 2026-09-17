@@ -1656,7 +1656,8 @@
     "字幕が無いので、先に「💬 字幕生成」を実行してから検出します":
       "No subtitles yet, so \u201c\ud83d\udcac Subtitles\u201d runs first, then detection",
     "⏳ 字幕を作成中…": "\u23f3 Creating subtitles...",
-    "作った字幕が見つかりませんでした": "Could not find the subtitles that were created",
+    "字幕は作成できました。一覧にまだ出てこないので、もう一度「自動チャプター」を押してください":
+      "The subtitles were created but are not listed yet \u2014 press \u201cAuto chapters\u201d again",
     "対象の字幕が見つかりません": "Could not find that subtitle",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
     "チャプター一覧を貼り付け": "Paste a chapter list",

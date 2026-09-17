@@ -5258,8 +5258,11 @@ window.vpGenChapters = async function(id, preset) {
       endBtn();
       // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
       if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
+      // Driveは作った直後の検索に出てこないことがあるので、空なら一度だけ待って引き直す。
+      // それでも出なければ「失敗」ではない。字幕は保存できているので、そう伝える。
       subs = await findSubs();
-      if (!subs.length) return fail('作った字幕が見つかりませんでした');
+      if (!subs.length) { await new Promise(r => setTimeout(r, 1500)); subs = await findSubs(); }
+      if (!subs.length) return fail('字幕は作成できました。一覧にまだ出てこないので、もう一度「自動チャプター」を押してください');
     }
 
     // 2枚目。どこから作るかによって聞くことが違う。
