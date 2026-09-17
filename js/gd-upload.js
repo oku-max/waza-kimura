@@ -130,8 +130,25 @@ function _showStage(stage) {
 }
 
 export function gduPick() {
-  if (_running) return;
-  _el('gdu-file-input')?.click();
+  if (_running) {
+    window.toast?.('⚠️ 取り込み中です。中止してからもう一度選んでください');
+    return;
+  }
+  let inp = _el('gdu-file-input');
+  if (!inp) { window.toast?.('⚠️ ファイル選択を開けませんでした。ページを更新してください'); return; }
+  // 前回の選択が途中で中断されると（Googleフォトの準備を止めたときなど）、
+  // ブラウザが「選択中」のまま固まって .click() を無視することがある。
+  // 要素ごと作り直すとその状態が切れる。onchange は属性なので複製に引き継がれる。
+  const fresh = inp.cloneNode(true);
+  fresh.value = '';
+  inp.replaceWith(fresh);
+  inp = fresh;
+  try {
+    inp.click();
+  } catch (e) {
+    console.error('[gdu] file input click failed', e);
+    window.toast?.('⚠️ ファイル選択を開けませんでした。ページを更新してください');
+  }
 }
 
 export async function gduFilesChosen(inputEl) {
@@ -543,13 +560,31 @@ export async function gduStart() {
   _items.forEach(it => { it.phase = 'wait'; it.prog = 0; it.fileId = ''; });
   _renderRun();
 
+  // ここから先で何が起きても必ず _running を解除する。
+  // 解除し損ねると、全ボタンが _running を見ているため画面ごと操作不能になる。
+  let registered = 0;
+  let fatal = '';
+  try {
+    registered = await _runImport();
+  } catch (e) {
+    fatal = String(e?.message || e).slice(0, 160);
+    console.error('[gdu] 取り込みが中断されました', e);
+  } finally {
+    _running = false;
+    _curConv = null;
+    _curXhr  = null;
+  }
+  _renderRun(registered, fatal);
+}
+
+// 実処理。例外は呼び出し側の finally で受けるので、ここでは投げっぱなしでよい。
+async function _runImport() {
   const token = await ensureDriveToken();
   if (!token) {
-    _running = false;
     window.toast?.('⚠️ Googleドライブに接続できませんでした');
     _showStage('setup');
     _render();
-    return;
+    return 0;
   }
 
   const channel  = (_el('gdu-channel')?.value  || '').trim();
@@ -627,16 +662,23 @@ export async function gduStart() {
     // サムネはGoogle側の生成待ちなので、少し置いてから既存の補完処理に拾わせる
     setTimeout(() => { window.fetchMissingGdThumbnails?.(); }, 20000);
   }
-
-  _running = false;
-  _renderRun(registered);
+  return registered;
 }
 
 export async function gduAbort() {
   _abort = true;
+  window.toast?.('中止しています...');
   try { await _curConv?.cancel(); } catch (e) {}
   try { _curXhr?.abort(); } catch (e) {}
-  window.toast?.('中止しています...');
+  // 変換やアップロードが応答しないことがある。待ち続けると進捗画面から出られず
+  // 全ボタンが無効なままになるので、少し待って必ず操作できる状態に戻す。
+  setTimeout(() => {
+    if (!_running) return;
+    _running = false;
+    _curConv = null;
+    _curXhr  = null;
+    _renderRun(0, '中止しました');
+  }, 3000);
 }
 
 export function gduBackToSetup() {
@@ -655,7 +697,7 @@ function _tick(item, p) {
   _renderRun();
 }
 
-function _renderRun(registered) {
+function _renderRun(registered, fatal) {
   const box = _el('gdu-runlist');
   if (box) {
     box.innerHTML = _items.map(it => {
@@ -689,6 +731,9 @@ function _renderRun(registered) {
   if (sum) {
     if (_running) {
       sum.textContent = '変換とアップロードの間はこの画面を開いたままにしてください';
+    } else if (fatal) {
+      // 原因を画面に出す。出さないと「押しても何も起きない」としか分からない。
+      sum.textContent = `取り込みを中断しました: ${fatal}`;
     } else if (registered != null) {
       const failed = _items.filter(it => it.phase === 'error').length;
       sum.textContent = failed

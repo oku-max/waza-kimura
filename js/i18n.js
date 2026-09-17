@@ -384,6 +384,8 @@
     '新しいフォルダの名前':'Name for the new folder','📁 フォルダを作成しました':'📁 Folder created',
     '⚠️ フォルダを作成できませんでした':'⚠️ Could not create the folder',
     '⚠️ Googleドライブに接続できませんでした':'⚠️ Could not connect to Google Drive',
+    '⚠️ 取り込み中です。中止してからもう一度選んでください':'⚠️ An import is running. Stop it before choosing again.',
+    '⚠️ ファイル選択を開けませんでした。ページを更新してください':'⚠️ Could not open the file picker. Please reload the page.',
     '⚠️ データの読み込みが終わっていません。少し待ってからお試しください':'⚠️ Your data is still loading. Please try again in a moment.',
     '⚠️ Driveには保存されましたが、ライブラリへの保存は見送られました。ページを更新してください':'⚠️ Saved to Drive, but adding to your library was skipped. Please reload the page.',
     '変換に非対応の形式のためそのまま':'Format cannot be converted — uploaded as-is',
@@ -1936,6 +1938,8 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // 端末アップロードの中断理由（理由の文言は状況次第なのでそのまま残す）
+    [/^取り込みを中断しました: (.+)$/, (m, why) => `Import stopped: ${why}`],
     // ── チャプターの細かさ（語 + 最短の長さ + この動画での上限個数）──
     // 「短めに区切る（1つ25秒以上） · この動画なら最大12個」のような合成文。
     // 語と長さと個数がそれぞれ変わるので、まとめて1つの正規表現で受ける。
