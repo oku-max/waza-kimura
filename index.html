@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.744</title>
+<title>WAZA KIMURA v52.745</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4739,19 +4739,19 @@ document.addEventListener('click', function(e) {
     <!-- タブ切り替え -->
     <div style="display:flex;gap:6px;margin-bottom:14px">
       <button id="tab-yt" onclick="switchImportTab('yt')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--accent);font-size:11.5px;font-weight:700;cursor:pointer;background:var(--accent);color:var(--bg)">
+        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--accent);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--accent);color:var(--bg)">
         ▶ YouTube
       </button>
       <button id="tab-gd" onclick="switchImportTab('gd')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11.5px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
+        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
         📁 Drive
       </button>
       <button id="tab-url" onclick="switchImportTab('url')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11.5px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
+        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
         🔗 URL
       </button>
       <button id="tab-up" onclick="switchImportTab('up')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11.5px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
+        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
         📤 端末から
       </button>
     </div>
@@ -4880,7 +4880,8 @@ document.addEventListener('click', function(e) {
     <!-- 端末の動画をDriveへアップロードして取り込む UI -->
     <div id="up-import-body" style="display:none">
       <!-- ① 設定 -->
-      <div id="gdu-setup" style="display:flex;flex-direction:column;max-height:var(--zvh-70,70vh)">
+      <div id="gdu-setup" style="flex-direction:column">
+        <div class="gdu-scroll">
         <div style="font-size:15px;font-weight:800;margin-bottom:4px">📤 端末の動画を取り込む</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
           Googleフォトやカメラロールの動画を選んで、Googleドライブに保存してから登録します。<br>
@@ -4891,7 +4892,7 @@ document.addEventListener('click', function(e) {
         <input id="gdu-file-input" type="file" accept="video/*" multiple style="display:none"
           onchange="gduFilesChosen(this)">
 
-        <div id="gdu-list" class="gdp-list" style="min-height:14vh;max-height:26vh;border:1px solid var(--border2);border-radius:10px"></div>
+        <div id="gdu-list" class="gdp-list" style="border:1px solid var(--border2);border-radius:10px"></div>
 
         <!-- 保存先 -->
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
@@ -4924,6 +4925,7 @@ document.addEventListener('click', function(e) {
           </div>
         </div>
 
+        </div><!-- /gdu-scroll -->
         <div class="gdp-foot">
           <button class="btn-sub" style="flex:0 0 34%;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
           <button class="btn-save" style="flex:1" id="gdu-start" onclick="gduStart()" disabled>アップロードして登録</button>
@@ -4931,7 +4933,7 @@ document.addEventListener('click', function(e) {
       </div>
 
       <!-- ② 保存先フォルダの選択 -->
-      <div id="gdu-folderpick" style="display:none;flex-direction:column;max-height:var(--zvh-70,70vh)">
+      <div id="gdu-folderpick" style="display:none;flex-direction:column">
         <div class="gdp-head">
           <button id="gdu-fp-up" class="gdp-up" onclick="gduFolderUp()">← 上へ</button>
           <div id="gdu-fp-crumbs" class="gdp-crumbs"></div>
@@ -4945,7 +4947,7 @@ document.addEventListener('click', function(e) {
       </div>
 
       <!-- ③ 実行中・結果 -->
-      <div id="gdu-run" style="display:none;flex-direction:column;max-height:var(--zvh-70,70vh)">
+      <div id="gdu-run" style="display:none;flex-direction:column">
         <div style="font-size:15px;font-weight:800;margin-bottom:4px">📤 取り込み中</div>
         <div id="gdu-runsum" style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.6"></div>
         <div id="gdu-runlist" class="gdp-list" style="border:1px solid var(--border2);border-radius:10px"></div>

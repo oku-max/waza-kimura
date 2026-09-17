@@ -45,11 +45,41 @@ if (si < 0 || ei < 0) {
 }
 const bodyHtml = indexHtml.slice(si, ei + END.length).replace('style="display:none"', '');
 
+// タブ行も実物から切り出す。ここまで含めないと、シートの高さ配分が実機と変わって
+// 「下のボタンに届かない」類のレイアウト崩れを取り逃がす（v52.743の不具合がそれ）。
+// sheet-handle は他のシートにもあるので、必ず取り込みオーバーレイの中から探す
+const TS = '<div class="sheet-handle"></div>';
+const TE = '<!-- YouTube UI -->';
+const ovi = indexHtml.indexOf('id="yt-import-ov"');
+const ti = ovi < 0 ? -1 : indexHtml.indexOf(TS, ovi);
+const tj = ti  < 0 ? -1 : indexHtml.indexOf(TE, ti);
+if (ti < 0 || tj < 0) {
+  console.error('✗ index.html からタブ行を切り出せませんでした（目印が変わった可能性）');
+  process.exit(1);
+}
+const headHtml = indexHtml.slice(ti, tj);
+// 目印がずれて別の場所を拾っていないか。div の開閉が合わない＝拾い間違い。
+for (const [name, frag] of [['タブ行', headHtml], ['本体', bodyHtml]]) {
+  const open = (frag.match(/<div[\s>]/g) || []).length;
+  const close = (frag.match(/<\/div>/g) || []).length;
+  if (open !== close || frag.length > 20000) {
+    console.error(`✗ index.html から${name}を正しく切り出せませんでした（div ${open}/${close}, ${frag.length}文字）`);
+    process.exit(1);
+  }
+}
+
+// 実機と同じ入れ物に入れる。#yt-import-ov .sheet は overflow:hidden なので、
+// タブ側が自前でスクロール領域を持っていないと操作不能になる。
 const HARNESS = `<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="/css/style.css">
-<body>${bodyHtml}
+<body>
+<div class="overlay open" id="yt-import-ov">
+  <div class="sheet">${headHtml}${bodyHtml}</div>
+</div>
 <script type="module">
   window.toast = (m) => { (window.__toasts ||= []).push(m); };
+  window.switchImportTab = () => {};
   import('/js/gd-upload.js').then(() => { window.__ready = true; });
 </script></body>`;
 
@@ -238,6 +268,48 @@ await page.setInputFiles('#gdu-file-input', tmp);
 await page.waitForTimeout(800);
 const rows = await page.locator('#gdu-list .gdp-row').count();
 check(rows === 1, '同じファイルは二重に選ばれない', `rows=${rows}`);
+
+// ── レイアウト（スマホ幅で操作しきれるか）──
+// 中身が縦に伸びた状態で、実行ボタンに届くか・スクロールできるかを見る。
+// v52.743 はここが崩れて「途中で進めない・スクロールも効かない」状態だった。
+await page.evaluate(() => document.getElementById('gdu-optshd').click());   // 任意欄を開いて縦を伸ばす
+await page.waitForTimeout(200);
+const layout = await page.evaluate(() => {
+  const btn = document.getElementById('gdu-start').getBoundingClientRect();
+  const sc  = document.querySelector('.gdu-scroll');
+  const before = sc ? sc.scrollTop : -1;
+  if (sc) sc.scrollTop = 9999;
+  return {
+    btnVisible: btn.height > 0 && btn.top >= 0 && btn.bottom <= innerHeight,
+    btnBottom: Math.round(btn.bottom), viewportH: innerHeight,
+    hasScroller: !!sc,
+    overflowY: sc ? getComputedStyle(sc).overflowY : null,
+    overflows: sc ? sc.scrollHeight > sc.clientHeight + 1 : false,
+    scrolled: sc ? sc.scrollTop > before : false,
+  };
+});
+check(layout.hasScroller, 'スクロール領域がある');
+check(layout.overflowY === 'auto', 'スクロール領域が auto になっている', String(layout.overflowY));
+check(layout.btnVisible, '実行ボタンが画面内にある（下端で切れない）',
+  `bottom=${layout.btnBottom} / viewport=${layout.viewportH}`);
+if (layout.overflows) check(layout.scrolled, '中身がはみ出したときに実際にスクロールできる');
+
+// 保存先フォルダの選択画面と進捗画面でも、下のボタンに届くこと
+for (const [stage, fn, btnId, label] of [
+  ['fp',  () => window.gduOpenFolder(),  'gdu-fp-choose', 'フォルダ選択画面'],
+  ['run', () => { document.getElementById('gdu-folderpick').style.display = 'none';
+                  document.getElementById('gdu-run').style.display = 'flex'; }, 'gdu-abort', '進捗画面'],
+]) {
+  await page.evaluate(fn);
+  await page.waitForTimeout(500);
+  const v = await page.evaluate((id) => { const b = document.getElementById(id).getBoundingClientRect();
+    return { ok: b.height > 0 && b.top >= 0 && b.bottom <= innerHeight, bottom: Math.round(b.bottom), vh: innerHeight }; }, btnId);
+  check(v.ok, `${label}のボタンが画面内にある`, `bottom=${v.bottom} / viewport=${v.vh}`);
+}
+// 設定画面に戻してから続ける
+await page.evaluate(() => { document.getElementById('gdu-run').style.display = 'none';
+                            document.getElementById('gdu-setup').style.display = 'flex'; });
+await page.waitForTimeout(200);
 
 // ── 軽量プリセットで通しで実行 ──
 await page.evaluate(() => window.gduSetQ('low'));
