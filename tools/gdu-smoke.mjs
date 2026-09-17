@@ -111,7 +111,8 @@ const srv = http.createServer((q, r) => {
 });
 await new Promise(r => srv.listen(PORT, r));
 
-const IGNORE = /net::ERR|Failed to load resource/i;
+// テスト用の失敗 … 復帰の検査でわざと起こしているエラー（console に出るのが正しい）
+const IGNORE = /net::ERR|Failed to load resource|テスト用の失敗/i;
 
 const exe = process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const browser = await chromium.launch(fs.existsSync(exe) ? { executablePath: exe } : {});
@@ -146,6 +147,8 @@ await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), async (route) => 
   return route.abort();
 });
 const page = await ctx.newPage();
+// gduPick を呼ぶ検査があるので、ファイル選択ダイアログは即座に閉じる
+page.on('filechooser', (fc) => { fc.setFiles([]).catch(() => {}); });
 const errors = [];
 page.on('pageerror', e => { const m = String(e); if (!IGNORE.test(m)) errors.push('pageerror: ' + m); });
 page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) errors.push('console: ' + m.text()); });
@@ -458,6 +461,41 @@ await page.evaluate(() => window.gduBackToSetup());
 await page.waitForTimeout(200);
 check(await page.isVisible('#gdu-setup'), '実行後に設定画面へ戻れる');
 check((await page.textContent('#gdu-list'))?.includes('まだ動画を選んでいません'), '成功したファイルは一覧から消える');
+
+// ── 途中で失敗しても操作不能にならないこと ──
+// 以前は _running を解除し損ねる経路があり、一度こけると全ボタンが永久に無反応になった。
+await page.setInputFiles('#gdu-file-input', tmp);
+await page.waitForTimeout(1500);
+await page.evaluate(() => {
+  // 同じ fileId は二重登録しない作りなので、先の登録を外さないと registered が 0 になり
+  // saveUserData まで到達しない（＝失敗経路を踏めない）
+  window.videos = window.videos.filter(v => v.id !== 'gd-FAKE_FILE_ID');
+  window.saveUserData = async () => { throw new Error('テスト用の失敗'); };
+});
+await page.evaluate(() => window.gduStart());
+await page.waitForFunction(() => /中断しました/.test(document.getElementById('gdu-runsum')?.textContent || ''),
+  null, { timeout: 180000 });
+const fatalTxt = (await page.textContent('#gdu-runsum'))?.trim();
+check(/^取り込みを中断しました: /.test(fatalTxt || ''), '失敗した理由が画面に出る', fatalTxt);
+
+// _running が解除されていれば、これらは全部効く（解除漏れだと無反応になる）
+await page.evaluate(() => window.gduBackToSetup());
+await page.waitForTimeout(300);
+check(await page.isVisible('#gdu-setup'), '失敗後でも設定画面に戻れる');
+await page.evaluate(() => window.gduSetQ('hi'));
+await page.waitForTimeout(200);
+const qChecked = await page.locator('#gdu-quality input[value="hi"]').isChecked();
+check(qChecked, '失敗後でも画質を変えられる');
+await page.evaluate(() => window.gduPick());
+await page.waitForTimeout(300);
+check(await page.locator('#gdu-file-input').count() === 1, '失敗後でもファイル選択を開き直せる');
+
+// 中止は、変換もアップロードも動いていなくても必ず操作可能な状態へ戻す
+await page.evaluate(() => { document.getElementById('gdu-run').style.display = 'flex'; window.gduAbort(); });
+await page.waitForTimeout(3600);
+await page.evaluate(() => window.gduBackToSetup());
+await page.waitForTimeout(300);
+check(await page.isVisible('#gdu-setup'), '中止したあとも設定画面に戻れる');
 
 try { fs.unlinkSync(tmp); } catch {}
 await browser.close();
