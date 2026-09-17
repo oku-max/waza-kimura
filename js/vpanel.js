@@ -2371,6 +2371,11 @@ function _parseVtt(vtt) {
     if (!(end > start)) continue;   // 壊れた時間のキューは捨てる
     cues.push({ start, end, text });
   }
+  // 必ず時刻順にして返す。
+  // 描画は二分探索（_ytSubCueAt）でいまのキューを探すので、1枚でも順序が
+  // 崩れていると探索が外れて null になり、字幕が「選ばれているのに出ない」。
+  // 元ファイルの順序が崩れていても、教材付属の字幕でも、ここで揃えておく。
+  cues.sort((a, b) => a.start - b.start || a.end - b.end);
   return cues;
 }
 
@@ -2968,7 +2973,20 @@ function _gdSubRefineLabel(cand, vtt) {
   else if (/[A-Za-z]{3,}/.test(body))  { cand.lang = 'en'; cand.label = SUB_LANGS.en; }
 }
 
-async function _gdAttachSubtitle(video, fileId, token) {
+// 字幕を保存したら、再生中の動画には必ず載せ直す。
+// 既存の英語字幕から日本語を作る経路（_retranslateFromSrt）だけ載せ直しが無く、
+// Driveには出来ているのに画面に出ないままだった。want はいま作った言語コード。
+function _gdSubReload(fileId, token, want) {
+  _gdSubLookup.delete(fileId);
+  if (!_gdVideoEl || _gdFileId !== fileId || !token) return;
+  document.getElementById('vp-sub-ui')?.remove();
+  _gdSubRevoke();
+  _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
+  _gdAttachSubtitle(_gdVideoEl, fileId, token, want);
+}
+
+// want: いま作った字幕の言語コード（'ja' 等）。渡すとそれを選んだ状態で載せる。
+async function _gdAttachSubtitle(video, fileId, token, want) {
   const cands = await _gdFindSubtitleFiles(fileId, token);
   if (!cands.length) return;
   if (_gdVideoEl !== video || !video.isConnected) return;   // 待っている間に別動画へ切替済み
@@ -3003,16 +3021,29 @@ async function _gdAttachSubtitle(video, fileId, token) {
     track.src     = url;
     video.appendChild(track);
     // rawVtt を持っておくと、設定変更時に取得し直さず整形だけやり直せる
-    _gdSubTracks.push({ id: item.cand.id, label: item.cand.label, name: item.cand.name, track, rawVtt: item.vtt, url });
+    _gdSubTracks.push({ id: item.cand.id, label: item.cand.label, name: item.cand.name,
+                        lang: item.cand.lang || '', track, rawVtt: item.vtt, url });
   }
   _gdSubRenderCues();
   if (!_gdSubTracks.length) return;
   _gdSubBindFullscreen(video);   // 全画面の出入りを拾えるようにする
 
-  // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
-  const pref = _gdSubPref();
-  let idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
-  if (pref !== 'off' && idx < 0) idx = 0;
+  // いま作った字幕(want)があるならそれを選ぶ。
+  // 端末の記憶は「前に見ていたもの」なので、'off' や English が入っていると、
+  // 日本語字幕を作った直後でも出てこない（作ったのに出ない、の原因のひとつ）。
+  // 作った本人の意思のほうが新しいので、記憶より優先し、記憶も更新する。
+  let idx = -1;
+  if (want) {
+    const w = _subLangNorm(String(want));
+    idx = _gdSubTracks.findIndex(t => (t.lang && _subLangNorm(t.lang) === w) || t.label === want);
+    if (idx >= 0) _gdSubSetPref(_gdSubTracks[idx].label);
+  }
+  // 見つからなければ従来どおり: 前回選んだ字幕を復元。無ければ先頭（＝日本語優先の並び順）
+  if (idx < 0) {
+    const pref = _gdSubPref();
+    idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
+    if (pref !== 'off' && idx < 0) idx = 0;
+  }
   // track追加直後は textTracks が未反映のことがあるため次tickでモードを確定させる
   setTimeout(() => _gdSubSelect(idx), 0);
   _gdSubMountButton(video.parentElement);
@@ -3657,11 +3688,12 @@ async function _translateSrtText(srcText, want, setBtn) {
     want, _subGenPayload(), (d, n, label) => setBtn?.(`⏳ ${label}… ${d}/${n}`));
   if (tr.missing.length >= groups.length) throw new Error(tr.error || '翻訳できませんでした');
 
-  const outCues = [];
+  let outCues = [];
   groups.forEach((g, k) => {
     outCues.push(..._recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap));
   });
   if (!outCues.length) throw new Error('翻訳できませんでした');
+  outCues = _srtOrder(outCues);
   const srt = _srtJoin(outCues.map(c => ({
     tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
     text: c.text,
@@ -4073,6 +4105,14 @@ function _subTailGap(srt, totalSec) {
   } catch (e) { return null; }
 }
 
+// 書き出す前に時刻順へ並べ直す。
+// 訳は「文」単位で行い、文と字幕の対応付け（_groupCuesBySentence）は
+// 文の時刻範囲が重なると前後する。並びが崩れたSRTを保存すると、
+// 描画側の二分探索が外れて字幕が出なくなる（実際に出なくなった）。
+function _srtOrder(cues) {
+  return cues.slice().sort((a, b) => a.start - b.start || a.end - b.end);
+}
+
 // 訳せなかった文は「落とす」のではなく「原文のまま残す」。
 //
 // 落としていたため、翻訳が後半でまとめて失敗すると字幕がその時刻から先だけ
@@ -4220,8 +4260,9 @@ async function _asrGenerateAndSave(ctx) {
               const r = await _retranslateFromSrt({
                 token: gdToken, videoFileId: fileId, srcName: src.name,
                 srcText: text, want: want0, setBtn });
-              _gdSubLookup.delete(fileId);
-              return { ok: true, cost: r.cost, target: r.target, translated: true, src: src.name, srt: r.srt };
+              _gdSubReload(fileId, gdToken, want0);
+              return { ok: true, cost: r.cost, target: r.target, translated: true,
+                       src: src.name, srt: r.srt, lang: want0 };
             }
           }
         } catch (e) {
@@ -4344,10 +4385,8 @@ async function _asrGenerateAndSave(ctx) {
         trErr = trErr || '翻訳できませんでした';
       } else {
         // 訳した文を、その文にまたがる字幕へ割り振る。時刻は実測値のまま。
-        const outCues = [];
-        groups.forEach((g, k) => {
-          outCues.push(..._recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap));
-        });
+        const outCues = _srtOrder(groups.flatMap((g, k) =>
+          _recueOrKeep(tr.lines[k], g.idx.map(i => cues[i]), cap)));
         trMissing = tr.missing.length;
         const trSrt = _srtJoin(outCues.map(c => ({
           tc: `${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}`,
@@ -4361,7 +4400,6 @@ async function _asrGenerateAndSave(ctx) {
     }
   }
 
-  _gdSubLookup.delete(fileId);
   // 前の字幕に合わせた補正は、新しい字幕には無意味どころか有害。
   // 端末内(localStorage)だけの値で、他端末やFirestoreには波及しない。
   _subOffsetSet(fileId, 0);
@@ -4380,12 +4418,7 @@ async function _asrGenerateAndSave(ctx) {
     _subGenShowResult(id, true,
       `字幕を作成しました: ${names} / 音声${min}分 · $${cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
   }
-  if (_gdVideoEl && _gdFileId === fileId) {
-    document.getElementById('vp-sub-ui')?.remove();
-    _gdSubRevoke();
-    _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
-    _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
-  }
+  _gdSubReload(fileId, gdToken, trTarget ? want : lang);
   return { ok: true, target: trTarget || target, cost, srt: outSrt, lang: trTarget ? want : lang };
 }
 
@@ -4508,17 +4541,11 @@ window.vpGenSubtitle = async function(id, preset) {
     // 同名があればその中身だけ差し替える。別名の字幕しか無い場合は新規作成（既存には触れない）
     await _driveUploadText(gdToken, { name: target, parentId: parent, text: srt, existingId: exact?.id });
 
-    // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す
-    _gdSubLookup.delete(fileId);
+    // 4. 検出キャッシュを捨てて、再生中ならその場で載せ直す（作った字幕を選んだ状態で）
+    _gdSubReload(fileId, gdToken, subLang === 'orig' ? '' : subLang);
     if (!silent) {
       window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
       _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒`);
-    }
-    if (_gdVideoEl && _gdFileId === fileId) {
-      document.getElementById('vp-sub-ui')?.remove();
-      _gdSubRevoke();
-      _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
-      _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
     }
     return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0, srt, lang: subLang };
   } catch (e) {
