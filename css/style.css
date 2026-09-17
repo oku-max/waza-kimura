@@ -1716,6 +1716,24 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
 .gdp-foot{display:flex;gap:8px;padding-top:12px}
 @media (prefers-reduced-motion: reduce){.gdp-tw{transition:none}}
 
+/* ═══ 端末アップロード取り込み（📤 端末から）═══
+   #yt-import-ov .sheet は overflow:hidden で、シート自体はスクロールしない。
+   各タブが自前でスクロール領域を持つ約束になっている。
+   このタブは中身が縦に長いので、持たせないと下端のボタンに到達できず
+   「途中で進めない・スクロールも効かない」状態になる（v52.743の不具合）。 */
+#up-import-body{display:flex;flex-direction:column;flex:1;min-height:0}
+#gdu-setup,#gdu-folderpick,#gdu-run{flex:1;min-height:0}
+.gdu-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;overscroll-behavior:contain}
+#up-import-body .gdp-head,
+#up-import-body .gdp-foot{flex-shrink:0}
+/* 選んだファイルの一覧は外側と二重スクロールにしない（スマホで挟まって操作しづらい）*/
+#gdu-list{flex:none;min-height:70px;max-height:none;overflow:visible}
+#gdu-runlist{flex:1;min-height:0;overflow-y:auto}
+#gdu-run>div:first-child,#gdu-runsum{flex-shrink:0}
+/* .gdp-list の min-height:34vh は画面が低いとはみ出すので、ここでは外す */
+#gdu-fp-list{min-height:0}
+
 /* AI要約の大見出し（◾️の行）。本文の箇条書きと同じ見た目だと区別がつかないため、
    一回り大きく・太く・上に余白を取り、左に色の線を引く。メモ欄の中で使う。 */
 .memo-h{
