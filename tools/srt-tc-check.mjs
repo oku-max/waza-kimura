@@ -69,5 +69,39 @@ for (const [file, fns] of targets) {
   }
 }
 
-console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 崩れた時刻の書式でも読める（字幕が途中で本文に化ける経路なし）');
+// ── 3. 書式が「別の壊れ方」をした時に、黙って保存されないこと ──
+// 今回の書式を直しただけでは、次に違う崩れ方をした時にまた素通りする。
+// 通し番号と読み取れたキュー数の食い違いで、崩れ方に依らず捕まえる。
+const cst2 = (n) => (wsrc.match(new RegExp(`^const ${n}\\s*=\\s*.*$`, 'm')) || [])[0];
+const need = ['SRT_MS_COLON', 'SRT_IDX_LINE', 'SRT_TC_STRICT'].map(cst2);
+const fns  = ['_srtFixMs', '_srtSec', '_srtCues', '_srtUnreadableTc'].map(n => grab(wsrc, n));
+if (need.some(x => !x) || fns.some(x => !x)) {
+  fail('_worker.js に _srtUnreadableTc 一式が無い（崩れ方に依らない検知が消えている）');
+} else {
+  const g = await import('data:text/javascript;base64,' + Buffer.from(
+    [...need, ...fns, 'export {_srtUnreadableTc,_srtCues};'].join('\n')).toString('base64'));
+  const good = s => `00:${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')},000`
+                  + ` --> 00:${String(Math.floor((s+3)/60)).padStart(2,'0')}:${String((s+3)%60).padStart(2,'0')},000`;
+  const head = Array.from({length:30},(_,i)=>`${i+1}\n${good(i*3)}\n本文${i}\n`).join('\n');
+  const tail = (f) => Array.from({length:30},(_,i)=>`${i+31}\n${f(i+30)}\n本文${i+30}\n`).join('\n');
+  const stop = (srt) => { const c = g._srtCues(srt).length; const r = g._srtUnreadableTc(srt, c);
+                          return r.lost > Math.max(3, r.maxIdx * 0.1); };
+  const whole = head + tail(i => good(i*3));
+  stop(whole) ? fail('まともなSRTを止めてしまう（誤検知）') : ok('まともなSRTは通す');
+  for (const [label, f] of [
+    ['矢印が全角',        (i) => good(i*3).replace('-->', 'ー>')],
+    ['秒が1桁',           (i) => `00:0${i%6}:${i%10},00 --> 00:0${i%6}:${(i%10)+1},00`],
+    ['時刻行が消える',     ()  => '（時刻なし）'],
+  ]) {
+    stop(head + tail(f)) ? ok(`別の崩れ方（${label}）でも保存を止める`)
+                         : fail(`別の崩れ方（${label}）が素通りする`);
+  }
+  const fixedNow = head + tail(i => `${String(Math.floor(i*3/60)).padStart(2,'0')}:`
+    + `${String((i*3)%60).padStart(2,'0')}:${String(i).padStart(3,'0')} --> `
+    + `${String(Math.floor((i*3+3)/60)).padStart(2,'0')}:${String((i*3+3)%60).padStart(2,'0')}:000`);
+  stop(fixedNow) ? fail('今回の書式（MM:SS:mmm）を止めてしまう。読めるようにしたのだから通すべき')
+                 : ok('今回の書式（MM:SS:mmm）は読めるので通す');
+}
+
+console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 崩れた時刻は読める／別の崩れ方は黙って保存されない');
 process.exit(ng ? 1 : 0);

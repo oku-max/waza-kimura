@@ -1034,6 +1034,34 @@ function _srtSec(tc) {
     : Number(m[1]) * 60 + Number(m[2]) + ms / 1000;
 }
 // 空行区切りに依存せず、タイムコード行を目印にキューを取り出す
+// 「時刻の行らしいが、こちらの規定では読めない行」を数える。
+//
+// 今回の不具合は、AIが途中から MM:SS:mmm で書いたのを1行も読めず、
+// それらが本文に化けたことだった。書式を直す対応だけでは、次に別の崩れ方
+// （--> が全角、秒が1桁、ピリオドが2つ 等）をした時にまた黙って通る。
+// 「読めない時刻行が多い＝出力を読み取れていない」を、崩れ方に依らず捕まえる。
+// 基準は「通し番号」にする。時刻の行そのものを当てにすると、矢印が全角になった
+// ような崩れ方を検知できない（時刻行として数えられないので、減ったことにも
+// 気づけない）。SRTは1キューにつき通し番号が1つ必ず付くので、
+//   最後の通し番号 ≫ 読み取れたキュー数
+// なら、その差のぶんが本文に化けている。崩れ方の種類に依らない。
+const SRT_IDX_LINE  = /^\s*(\d{1,5})\s*$/;
+const SRT_TC_STRICT = /^\s*\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3}\s*-->/;
+function _srtUnreadableTc(text, cueCount) {
+  const lines = _srtFixMs(text).replace(/\r\n?/g, '\n').split('\n');
+  let maxIdx = 0, sample = '';
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(SRT_IDX_LINE);
+    if (m) { const n = Number(m[1]); if (n > maxIdx) maxIdx = n; continue; }
+    // 読めなかった時刻らしき行を、報告用に1つだけ拾う
+    if (!sample && /-+>|ー>|→/.test(lines[i]) && !SRT_TC_STRICT.test(lines[i])) {
+      sample = lines[i].trim().slice(0, 60);
+    }
+  }
+  const cues = Number(cueCount) || 0;
+  return { maxIdx, cues, lost: Math.max(0, maxIdx - cues), sample };
+}
+
 function _srtCues(text) {
   const lines = _srtFixMs(text).replace(/\r\n?/g, '\n').split('\n');
   const TC = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
@@ -1158,11 +1186,22 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
                + `（${r.finish === 'MAX_TOKENS' ? '出力が上限に達しました' : r.cut}）。`
                + `途中までのものは保存していません。もう一度生成してください` };
   }
+  // 読めない時刻行が混ざっていないか。混ざっていれば、その行から先は本文に
+  // 化けている＝字幕が途中で終わる。黙って保存せず、実物の行を添えて返す。
+  const tc = _srtUnreadableTc(r.summary, cues.length);
+  if (tc.lost > Math.max(3, tc.maxIdx * 0.1)) {
+    return { error: '字幕の時刻を読み取れませんでした',
+             detail: `AIは${tc.maxIdx}枚書いていますが、読み取れたのは${tc.cues}枚です`
+               + `（${tc.lost}枚が読めない書式）${tc.sample ? `。例: ${tc.sample}` : ''}。`
+               + `そのまま保存すると、その時刻から先が本文に化けて字幕が途中で終わります。`
+               + `保存していません。もう一度生成してください` };
+  }
   const fixed = _cuesToSrt(_cleanupCues(cues, dur));
   const bad = _validateSrt(fixed, dur);
   if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
   return { summary: fixed, usage: r.usage, costUsd: r.costUsd,
-           diag: [{ sec, cues: cues.length, first: first === Infinity ? null : Math.round(first),
+           diag: [{ sec, cues: cues.length, idx: tc.maxIdx, lost: tc.lost,
+                    first: first === Infinity ? null : Math.round(first),
                     last: Math.round(last), fin: r.finish || (r.cut ? 'CUT' : ''),
                     outTok: r.usage?.candidatesTokenCount || 0 }] };
 }
