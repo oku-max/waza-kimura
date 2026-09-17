@@ -546,10 +546,8 @@ function _genOptsFor(mode) {
 // 字幕生成: 動画の音声をSRT形式に文字起こし（必要なら指定言語へ翻訳）
 const SUB_LANG_NAMES = { ja:'日本語' };
 
-// fromSec を渡すと「その時刻以降だけ」を書き起こさせる（途中で止まった分の続き）。
-function _aiSubtitlePrompt(ctx, subLang, subOpts, fromSec) {
+function _aiSubtitlePrompt(ctx, subLang, subOpts) {
   const o = subOpts || {};
-  const from = Math.max(0, Number(fromSec) || 0);
   const langName = SUB_LANG_NAMES[subLang] || null;
   const rules = [];
 
@@ -581,14 +579,7 @@ function _aiSubtitlePrompt(ctx, subLang, subOpts, fromSec) {
   // 代わりに「表示側では直せないもの」＝キューの区切り方（時間の粒度）だけを指定する。
   const perCue = Math.max(20, (Number(o.maxChars) || 20) * (Number(o.maxLines) || 2));
 
-  // 続きを頼むときは「最初から」と矛盾するので、書き出しから差し替える。
-  const head = from > 0
-    ? `この動画のうち ${_chapMS(from)} 以降の音声を、最後まで文字起こしし、SRT形式の字幕を作成してください。
-前回 ${_chapMS(from)} までは作成済みです。${_chapMS(from)} より前の字幕は1件も出力しないでください。
-タイムコードは動画の先頭を 00:00:00,000 とした実際の時刻で書きます（${_chapMS(from)} から数え直さない）。`
-    : 'この動画の音声を最初から最後まで文字起こしし、SRT形式の字幕を作成してください。';
-
-  return `${head}
+  return `この動画の音声を最初から最後まで文字起こしし、SRT形式の字幕を作成してください。
 ${ctx ? '\n【動画情報】\n' + ctx + '\n' : ''}
 【厳守】
 - 出力はSRT本文のみ。前置き・解説・コードフェンスは一切書かない
@@ -1216,56 +1207,21 @@ function _validateSrt(srt, durationSec) {
 // 二重内容のファイルを$0.365で生成したため廃止した。長尺の成立条件は分割ではなく:
 //  - 転送: 応答を最初の1バイトから流す（645秒のリクエスト完走を本番で確認済み）
 //  - 入力量: media_resolution LOW（フレーム258→66トークン）で60分でも約35万トークン
-// 生成が動画の途中で止まったと見なす境目。
-// 「何割を覆っているか」ではなく「最後のキューがどこで終わっているか」で見る。
-// 発話が全体に散っている教則は覆う割合が低くても正常だが、最後のキューが
-// 動画のかなり手前で終わっているのは、話が終わったのではなく生成が止まっている。
-const SUB_TAIL_OK   = 0.85;  // 尺のこの割合まで届いていれば完走とみなす
-const SUB_MIN_DUR   = 300;   // 5分未満は続きを頼まない（誤検知のほうが痛い）
-const SUB_CONT_MAX  = 2;     // 続きを頼む回数の上限（コストの歯止め）
-const SUB_CONT_GAIN = 30;    // 1回で最低これだけ伸びないと打ち切る（無駄打ちを防ぐ）
+// 字幕が動画のどこまで届いていれば「完走」とみなすか。
+// 保存の可否は変えない（元のまま）。届いていない時に、そのことを
+// 画面に必ず出すためだけに使う。
+const SUB_TAIL_OK = 0.85;
 
 async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec) {
   const dur = Number(durationSec) || 0;
   const t0 = Date.now();
-  const opts = _genOptsFor('subtitle');
-
-  let r = await _geminiGenerate(env, [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], opts);
+  const r = await _geminiGenerate(env,
+    [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts) }], _genOptsFor('subtitle'));
   if (r.error) return r;
-  let cues = _srtCues(r.summary);
-  let usage = r.usage, costUsd = Number(r.costUsd) || 0;
-  const diag = [];
-  const lastOf = cs => cs.reduce((m, c) => Math.max(m, c.end || c.start), 0);
-
-  // ── 途中で止まっていたら、そこから続きを頼んで繋ぐ ──
-  // Gemini は長尺で「もう書き終えた」と判断して finishReason=STOP のまま
-  // 途中で止めることがある。以前は cut / MAX_TOKENS の時しか止まったと
-  // みなしていなかったので、14分の動画に3分ぶんしか無い字幕がそのまま
-  // 「完成品」として保存されていた（実際にそうなった）。
-  // 打ち切りの理由を問わず、届いていなければ続きを取りに行く。
-  if (dur >= SUB_MIN_DUR && cues.length) {
-    for (let i = 0; i < SUB_CONT_MAX; i++) {
-      const last = lastOf(cues);
-      if (last >= dur * SUB_TAIL_OK) break;
-      diag.push({ cont: i + 1, from: Math.round(last), goal: Math.round(dur) });
-      const rc = await _geminiGenerate(env,
-        [filePart, { text: _aiSubtitlePrompt(ctx, subLang, subOpts, last) }], opts);
-      if (rc.error) break;                       // 続きが取れなくても、取れている分は活かす
-      costUsd += Number(rc.costUsd) || 0;
-      // 実測トークンも足す。1回目の値だけを出すと、実際の課金と合わない数字が残る
-      if (rc.usage) {
-        usage = usage ? Object.fromEntries(
-          [...new Set([...Object.keys(usage), ...Object.keys(rc.usage)])]
-            .map(k => [k, (Number(usage[k]) || 0) + (Number(rc.usage[k]) || 0)])) : rc.usage;
-      }
-      // 前回より後ろのキューだけを採る（重複と巻き戻りを入れない）
-      const add = _srtCues(rc.summary).filter(c => c.start >= last - 1);
-      if (!add.length || lastOf(add) - last < SUB_CONT_GAIN) break;
-      cues = cues.concat(add).sort((a, b) => a.start - b.start || a.end - b.end);
-    }
-  }
-
+  const usage = r.usage, costUsd = r.costUsd;
   const sec = Math.round((Date.now() - t0) / 1000);
+
+  const cues = _srtCues(r.summary);
   if (!cues.length) {
     return { error: '字幕の生成結果が不正です', detail: '字幕が1件も取れませんでした（作り直してください）' };
   }
@@ -1277,9 +1233,12 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
     return { error: '字幕の生成結果が不正です',
              detail: `字幕が${Math.floor(first / 60)}分以降にしかありません（動画全体を処理できていない可能性）。保存していません` };
   }
-  // 応答そのものが途中で切れているものは保存させない（続きも取れなかった場合）。
-  // ここは「答えが届いていない」ので、作り直す以外に手が無い。
-  const last = repaired.reduce((m, c) => Math.max(m, c.end || c.start), 0);
+  // 生成が途中で終わったのに「完成品」として保存させない。
+  // 判定は2条件そろったときだけ（誤検知で正常な字幕を弾いた過去があるため）:
+  //   ① 応答が最後まで届いていない（finishReasonなし／読み取り例外／MAX_TOKENS）
+  //   ② 最後のキューが動画のかなり手前で終わっている
+  // ①だけなら通す＝取りこぼしても壊さない側に倒す。短尺(10分未満)は対象外。
+  const last = repaired.reduce((m, c) => Math.max(m, c.start), 0);
   const mmss = (x) => `${Math.floor(x / 60)}分${String(Math.floor(x % 60)).padStart(2, '0')}秒`;
   if (dur >= 600 && (r.cut || r.finish === 'MAX_TOKENS') && last < dur * 0.6) {
     return { error: '字幕の生成が途中で切れました',
@@ -1290,13 +1249,12 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   const fixed = _cuesToSrt(_cleanupCues(cues, dur));
   const bad = _validateSrt(fixed, dur);
   if (bad) return { error: '字幕の生成結果が不正です', detail: bad + '（作り直してください）' };
-  // 届いた範囲を必ず返す。ここまで来たものは保存する（払った分を捨てない）が、
-  // 動画の手前で終わっているなら、そのことをクライアントが必ず表示できるようにする。
-  // 黙って「完成品」として渡すのをやめるのが要点。
+  // 保存するものは元と同じ。加えて「どこまで届いたか」を返すだけにする。
+  // 黙って完成品として渡さないための報告であって、判定は変えていない。
   return { summary: fixed, usage, costUsd,
            tailSec: Math.round(last), durationSec: Math.round(dur),
            short: dur > 0 && last < dur * SUB_TAIL_OK ? { last: Math.round(last), dur: Math.round(dur) } : null,
-           diag: [...diag, { sec, cues: cues.length, first: first === Infinity ? null : Math.round(first),
+           diag: [{ sec, cues: cues.length, first: first === Infinity ? null : Math.round(first),
                     last: Math.round(last), fin: r.finish || (r.cut ? 'CUT' : ''),
                     outTok: usage?.candidatesTokenCount || 0 }] };
 }

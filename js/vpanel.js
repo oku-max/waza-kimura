@@ -3714,7 +3714,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; }
     preset?.onProgress?.(txt);
   };
-  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
+  const subLang = preset?.subLang || await _askSubtitleLang(btn);
   if (!subLang) return { ok: false, skipped: true };
 
   const user = window._firebaseCurrentUser?.();
@@ -3737,7 +3737,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const other = have.find(t => t.lang !== subLang);
 
   if (same) {
-    if (preset) { if (preset.existing !== 'replace') return { ok: false, skipped: true, target: same.label }; }
+    if (_subBulk(preset)) { if (preset.existing !== 'replace') return { ok: false, skipped: true, target: same.label }; }
     else if (!confirm(`この動画にはすでに${same.label}の字幕があります。\n作り直しますか？`)) {
       return { ok: false, skipped: true, target: same.label };
     }
@@ -3748,7 +3748,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
 
   // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
   const canTranslate = !same && other && subLang !== 'orig';
-  if (canTranslate && (preset ? preset.translate !== false
+  if (canTranslate && (_subBulk(preset) ? preset.translate !== false
         : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）`))) {
     setBtn('⏳ 翻訳中…');
     const r = await _translateSrtText(other.srt, subLang, setBtn);
@@ -4237,7 +4237,7 @@ async function _asrGenerateAndSave(ctx) {
   // ASRは依頼した時点で課金されるので、保存時の重複チェックでは遅い
   // （作り直さないつもりでも毎回書き起こし代がかかってしまう）。
   // 判定は再生時の字幕検出と同じ探し方にして、「プレイヤーで字幕が出る＝ある」と揃える。
-  if (preset && preset.existing !== 'replace') {
+  if (_subBulk(preset) && preset.existing !== 'replace') {
     const already = await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
     const want0   = (subLang && subLang !== 'orig') ? subLang : '';
 
@@ -4326,7 +4326,7 @@ async function _asrGenerateAndSave(ctx) {
     if (ex) {
       // 一括で「作り直す」を選んでいるならおまけ側も更新する。
       // そうでなければ、おまけは黙って残す（確認を出さない）。
-      if (preset)      { if (preset.existing !== 'replace') return { skipped: true }; }
+      if (_subBulk(preset)) { if (preset.existing !== 'replace') return { skipped: true }; }
       else if (!ask)   { return { kept: true }; }
       else if (!confirm(`「${name}」（${_langLabel(lg)}の字幕）はすでにあります。\n上書きして作り直しますか？`)) {
         return { skipped: true };
@@ -4426,6 +4426,19 @@ async function _asrGenerateAndSave(ctx) {
   return { ok: true, target: trTarget || target, cost, srt: outSrt, lang: trTarget ? want : lang };
 }
 
+// preset は「一括処理(bulk)の契約」で、確認ダイアログを出さない・既存があれば
+// 飛ばす・既存の別言語から翻訳で済ませる、といった一括専用の振る舞いを持つ。
+//
+// 自動チャプターから字幕を作る時にこれへ相乗りさせたのが誤りだった。
+// 言語を聞かないだけのつもりが、確認ダイアログも、書き起こしをやり直すか
+// 既存を訳すかの選択も、まとめて一括用の挙動に差し替わっていた。
+// ユーザーがボタンを押した時と同じ結果にならないなら、それは別の機能である。
+//
+// preset.interactive=true は「ボタンを押した時とまったく同じ経路。
+// ただし言語だけは既に答えてある」を意味する。以後 _subBulk() が真の時だけ
+// 一括専用の振る舞いに入る。
+function _subBulk(preset) { return !!preset && !preset.interactive; }
+
 window.vpGenSubtitle = async function(id, preset) {
   const silent = !!(preset && preset.silent);
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
@@ -4439,7 +4452,7 @@ window.vpGenSubtitle = async function(id, preset) {
 
   // YouTubeは保存先も作り方も違うので、専用の経路に分ける（Drive経路には触れない）
   if (isYt) {
-    const ytBtn = preset ? null : document.getElementById('vp-subgen-' + id);
+    const ytBtn = _subBulk(preset) ? null : document.getElementById('vp-subgen-' + id);
     const ytOrig = ytBtn ? ytBtn.textContent : '';
     const _t0y = Date.now();
     window.wkAiBusyBegin();
@@ -4462,8 +4475,9 @@ window.vpGenSubtitle = async function(id, preset) {
   const gdToken = window.getDriveTokenIfAvailable?.();
   if (!gdToken) return fail('Google Drive の認証が必要です。動画を一度再生してください。');
 
-  const btn = preset ? null : document.getElementById('vp-subgen-' + id);
-  const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
+  const btn = _subBulk(preset) ? null : document.getElementById('vp-subgen-' + id);
+  // 言語は preset で先に答えてあれば聞かない。それ以外は押した時と同じ。
+  const subLang = preset?.subLang || await _askSubtitleLang(btn);
   if (!subLang) return { ok: false, skipped: true };
 
   const fileId = (v.id || '').replace(/^gd-/, '');
@@ -4506,7 +4520,7 @@ window.vpGenSubtitle = async function(id, preset) {
       // 「原語のまま」(orig) は出来上がる言語が事前に分からないので従来どおり
       // 「何かあれば作らない」に倒す。
       const wantsAny = !subLang || subLang === 'orig';
-      if (preset) {
+      if (_subBulk(preset)) {
         if (preset.existing !== 'replace' && (wantsAny || _subHasLang(found, subLang))) {
           endBtn(); return { ok: false, skipped: true, target: anySub.name };
         }
@@ -5405,9 +5419,11 @@ window.vpGenChapters = async function(id, preset) {
     let freshSrt = '', subGenCost = 0, madeLang = '';
     if (makeLang) {
       setBtn('⏳ 字幕を作成中…');
+      // 字幕生成の挙動は 💬字幕生成 を押した時とまったく同じにする。
+      // 違うのは「言語を既に選んである」ことだけ（上のダイアログで聞いた）。
       const g = await window.vpGenSubtitle(id, {
+        interactive: true,
         subLang: makeLang,
-        existing: 'skip',
         onProgress: setBtn,   // 字幕側の「⏳ 書き起こし中… 120秒」等をこのボタンに出す
       });
       // 失敗・中止は vpGenSubtitle 側がトーストと結果表示で知らせている（二重に出さない）
