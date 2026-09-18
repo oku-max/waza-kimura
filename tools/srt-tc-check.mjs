@@ -137,6 +137,19 @@ if (need4.some(x => !x) || fns4.some(x => !x)) {
   kept.length === n
     ? ok(`途中から分表記に変わっても全部残る（${kept.length}/${n}枚）`)
     : fail(`途中から分表記に変わると ${n - kept.length}枚 落ちる（${kept.length}/${n}枚しか残らない）`);
+  // 読み直しが「動画の別の場所」へ紛れ込ませないこと。
+  // Geminiは長尺で時刻そのものを壊す（YouTube URL経由の既知の不具合）。
+  // 壊れた大きな時刻まで 分:秒 として読み直すと、後半のキューが前半に混ざり、
+  // 「消える」代わりに「見当違いの場所に出る」に化ける。前へ戻る読み直しは採らない。
+  let back = '', bn = 0;
+  for (let t = 0; t < 2000; t += 10) { bn++; back += `${bn}\n${good(t)} --> ${good(t+8)}\n順${bn}\n\n`; }
+  bn++; back += `${bn}\n02:30:00,000 --> 02:30:08,000\n壊れた行\n\n`;   // 読み直すと150秒＝前半へ戻る
+  const bk = g._srtCues(back, DUR);
+  const late = bk[bk.length - 1];
+  (bk.length === bn - 1 || (late && late.start > 1900))
+    ? ok('前へ戻る読み直しは採らない（後半のキューが前半に紛れ込まない）')
+    : fail(`壊れた時刻が ${Math.round(late?.start)}秒 に紛れ込んだ（前半へ混ざる）`);
+
   // 尺を渡さないと落ちる＝この検査が症状を再現できていることの裏取り
   const kept0 = g._cleanupCues(g._srtCues(srt, 0), DUR);
   kept0.length < n

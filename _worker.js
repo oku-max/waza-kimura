@@ -1041,7 +1041,17 @@ function _srtFixMs(text) { return String(text ?? '').replace(SRT_MS_COLON, '$1,$
 //
 // プロンプトで MM:SS を指定してもモデルが守るとは限らないので、読む側でも吸収する。
 // 時間として読んで収まるならそのまま。収まらず、分:秒 として読めば収まる時だけ読み直す。
-function _srtSecFit(tc, durationSec) {
+//
+// prevSec: 直前に採用した時刻。読み直した結果がそれより前に戻るなら採らない。
+//   読み直しは「時間として読むと尺を超える」時にしか働かないが、Geminiは長尺で
+//   時刻そのものを壊すことがある（YouTube URL経由の既知の不具合。下記の出典）。
+//   壊れた大きな時刻まで 分:秒 として読み直すと、動画のまるで別の場所に収まる
+//   小さな値になり、_cleanupCues の並べ替えで順序ごと入れ替わる。
+//   つまり「捨てられて消える」代わりに「見当違いの場所に出る」に化ける。
+//   前へ戻る読み直しは救済ではなく破壊なので、元の値のまま（＝範囲外として
+//   捨てられる）にする。本来の 67:50 のような連続した崩れは単調に増えるので
+//   この条件に引っかからない。
+function _srtSecFit(tc, durationSec, prevSec) {
   const v = _srtSec(tc);
   const dur = Number(durationSec) || 0;
   if (!dur || v <= dur + 5) return v;
@@ -1049,7 +1059,9 @@ function _srtSecFit(tc, durationSec) {
   if (!m || m[3] == null) return v;                 // もともと 分:秒 表記なら直しようがない
   const ms  = Number((m[4] + '00').slice(0, 3)) / 1000;
   const alt = Number(m[1]) * 60 + Number(m[2]) + ms;
-  return alt <= dur + 5 ? alt : v;
+  if (alt > dur + 5) return v;
+  if (Number.isFinite(prevSec) && prevSec >= 0 && alt < prevSec) return v;
+  return alt;
 }
 
 function _srtSec(tc) {
@@ -1097,6 +1109,7 @@ function _srtCues(text, durationSec) {
   const marks = [];
   for (let i = 0; i < lines.length; i++) if (TC.test(lines[i])) marks.push(i);
   const cues = [];
+  let prev = -1;                                    // 直前に採用した開始時刻（読み直しの暴走止め）
   for (let k = 0; k < marks.length; k++) {
     const m = lines[marks[k]].match(TC);
     const body = lines.slice(marks[k] + 1, k + 1 < marks.length ? marks[k + 1] : lines.length);
@@ -1105,9 +1118,11 @@ function _srtCues(text, durationSec) {
     while (body.length && body[body.length - 1].trim() === '') body.pop();
     const t = body.join('\n').trim();
     if (!t) continue;
-    const start = _srtSecFit(m[1], durationSec), end = _srtSecFit(m[2], durationSec);
+    const start = _srtSecFit(m[1], durationSec, prev);
+    const end   = _srtSecFit(m[2], durationSec, start);
     if (!(end > start)) continue;
     cues.push({ start, end, text: t });
+    prev = start;
   }
   return cues;
 }

@@ -3277,6 +3277,24 @@ window.wkYtSubDelete = async function(lang) {
   }
 };
 
+// 生成した字幕そのものを手元に取り出す（読むだけ・何も書き換えない）。
+//
+// 「後半だけズレる」のような症状は、画面を見ても原因が分からない。
+// 保存されたSRTの時刻そのものを見れば、どこから・どれだけ狂ったかが1手で分かる。
+// これまで YouTube の生成字幕は Firestore の中にしか無く、取り出す手段が無かった。
+window.wkYtSubSave = function(lang) {
+  const t = _ytSubTracks.find(x => x.lang === lang);
+  if (!t || !t.srt) { window.toast?.('対象の字幕が見つかりません'); return; }
+  const v = (window.videos || []).find(x => x.ytId === _ytSubId);
+  const base = String(v?.title || _ytSubId || 'subtitle').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([t.srt], { type: 'text/plain;charset=utf-8' }));
+  a.download = `${base}.${lang}.srt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  window.toast?.('⬇ 字幕ファイルを保存しました');
+};
+
 async function _ytSubStore(ytId, lang, srt, meta) {
   if (!_looksLikeSrt(srt)) throw new Error('字幕として成立していないため保存を中止しました');
   if (srt.length > YT_SUB_MAX_CHARS) throw new Error('字幕が大きすぎて保存できません');
@@ -5615,6 +5633,11 @@ function _subOptsHTML(scope) {
         + _ytSubTracks.map(t => row('gen:' + t.lang, t.label, genNote(t))).join('')
         + (_ytSubTracks.length
             ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
+                `<button type="button" onclick="wkYtSubSave('${_escAttr(t.lang)}')"
+                   style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--border);
+                          background:transparent;color:var(--text2);font-family:inherit;
+                          font-size:11px;font-weight:600;cursor:pointer">⬇ ${_escAttr(t.label)}を保存</button>`).join('')}</div>`
+              + `<div style="display:flex;gap:6px;flex-wrap:wrap">${_ytSubTracks.map(t =>
                 `<button type="button" onclick="wkYtSubDelete('${_escAttr(t.lang)}')"
                    style="padding:4px 9px;border-radius:7px;border:1.5px solid var(--red,#ef4444);
                           background:transparent;color:var(--red,#ef4444);font-family:inherit;
