@@ -2968,7 +2968,8 @@ function _gdSubRefineLabel(cand, vtt) {
   else if (/[A-Za-z]{3,}/.test(body))  { cand.lang = 'en'; cand.label = SUB_LANGS.en; }
 }
 
-async function _gdAttachSubtitle(video, fileId, token) {
+// want: いま作ったばかりの字幕ファイル名。渡すとそれを選んだ状態で載せる。
+async function _gdAttachSubtitle(video, fileId, token, want) {
   const cands = await _gdFindSubtitleFiles(fileId, token);
   if (!cands.length) return;
   if (_gdVideoEl !== video || !video.isConnected) return;   // 待っている間に別動画へ切替済み
@@ -3009,13 +3010,33 @@ async function _gdAttachSubtitle(video, fileId, token) {
   if (!_gdSubTracks.length) return;
   _gdSubBindFullscreen(video);   // 全画面の出入りを拾えるようにする
 
-  // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
-  const pref = _gdSubPref();
-  let idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
-  if (pref !== 'off' && idx < 0) idx = 0;
+  // いま作った字幕(want)があるならそれを選ぶ。
+  // 端末の記憶は「前に見ていたもの」で、'off' や別の言語が入っていることがある。
+  // その場合、字幕を作った直後でも何も出ないまま終わる（作ったのに出ない、の原因）。
+  // 作った本人の意思のほうが新しいので、記憶より優先し、記憶も更新する。
+  // 記憶に書くのは実在するラベルだけ。ここから 'off' を焼き付けることはない。
+  let idx = want ? _gdSubTracks.findIndex(t => t.name === want) : -1;
+  if (idx >= 0) {
+    _gdSubSetPref(_gdSubTracks[idx].label || '');
+  } else {
+    // 前回選んだ字幕を復元。見つからなければ先頭（＝日本語優先の並び順）
+    const pref = _gdSubPref();
+    idx = pref === 'off' ? -1 : _gdSubTracks.findIndex(t => t.label === pref);
+    if (pref !== 'off' && idx < 0) idx = 0;
+  }
   // track追加直後は textTracks が未反映のことがあるため次tickでモードを確定させる
   setTimeout(() => _gdSubSelect(idx), 0);
   _gdSubMountButton(video.parentElement);
+}
+
+// 再生中の動画に字幕を載せ直す（生成直後など）。
+// want は「いま作ったファイル名」。渡すとそれを選んだ状態で出す。
+async function _gdSubReload(fileId, token, want) {
+  if (!_gdVideoEl || _gdFileId !== fileId) return;
+  document.getElementById('vp-sub-ui')?.remove();
+  _gdSubRevoke();
+  _gdVideoEl.querySelectorAll('track').forEach(el => el.remove());
+  await _gdAttachSubtitle(_gdVideoEl, fileId, token, want);
 }
 
 // idx番目だけを表示。-1 で全OFF
@@ -3485,13 +3506,14 @@ function _ytSubReflowTracks() {
   for (const t of _ytSubTracks) t.cues = _parseVtt(_reflowVtt(t.rawVtt, o, off));
 }
 
-async function _ytSubAttach(ytId) {
-  try { await _ytSubAttachInner(ytId); }
+// want: いま作った字幕の言語コード。渡すとそれを選んだ状態で載せる。
+async function _ytSubAttach(ytId, want) {
+  try { await _ytSubAttachInner(ytId, want); }
   // 字幕は「あれば嬉しい」もの。ここで転んでも再生そのものは止めない。
   catch (e) { console.warn('[ytsub] 表示の準備に失敗:', e?.message || e); }
 }
 
-async function _ytSubAttachInner(ytId) {
+async function _ytSubAttachInner(ytId, want) {
   _ytSubDetach();
   const my = ++_ytSubToken;
   if (!ytId) return;
@@ -3520,8 +3542,19 @@ async function _ytSubAttachInner(ytId) {
   // 別の言語が出て、数秒後に切り替わる、というチラつきを作らない）。
   const pref = _ytSubPref();
   const srcs = _ytSubSources();
-  _ytSubSel = (pref === 'off' || (pref.startsWith('yt:') && !srcs.some(s => s.key === pref))) ? 'off'
-            : (srcs.some(s => s.key === pref) ? pref : (srcs[0]?.key || 'off'));
+  // いま作った字幕(want)があるならそれを選ぶ。
+  // 端末の記憶は「前に見ていたもの」で、'off' や別の言語が入っていることがある。
+  // その場合、字幕を作った直後でも何も出ないまま終わる（作ったのに出ない、の原因）。
+  // 作った本人の意思のほうが新しいので、記憶より優先し、記憶も更新する。
+  // Drive側は v52.752 で同じ手当てをしている。こちらだけ抜けていた。
+  const wantKey = want ? 'gen:' + want : '';
+  if (wantKey && srcs.some(s => s.key === wantKey)) {
+    _ytSubSel = wantKey;
+    _ytSubSetPref(wantKey);
+  } else {
+    _ytSubSel = (pref === 'off' || (pref.startsWith('yt:') && !srcs.some(s => s.key === pref))) ? 'off'
+              : (srcs.some(s => s.key === pref) ? pref : (srcs[0]?.key || 'off'));
+  }
 
   _ytSubMountButton(host);
   _ytSubEnforceCc();
@@ -3529,10 +3562,10 @@ async function _ytSubAttachInner(ytId) {
 }
 
 // 生成直後など、いま開いている動画の字幕を読み直して載せ直す
-async function _ytSubRefreshNow(ytId) {
+async function _ytSubRefreshNow(ytId, want) {
   if (!ytId) return;
   await _ytSubFetch(ytId, true);
-  await _ytSubAttach(ytId);
+  await _ytSubAttach(ytId, want);
 }
 
 function _ytSubOverlayEl(create) {
@@ -3836,7 +3869,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   }
   // 再生中ならその場で載せ直す（ここで転んでも保存は済んでいるので成功として返す）
   if (window.openVPanelId === v.id || window.openPlayer === v.id) {
-    try { await _ytSubRefreshNow(ytId); }
+    try { await _ytSubRefreshNow(ytId, subLang); }
     catch (e) { console.warn('[ytsub] 表示の更新に失敗:', e?.message || e); }
   }
   return { ok: true, target: _ytSubLangLabel(subLang), cost };
@@ -4435,12 +4468,7 @@ async function _asrGenerateAndSave(ctx) {
     _subGenShowResult(id, true,
       `字幕を作成しました: ${names} / 音声${min}分 · $${cost.toFixed(3)} / ${Math.round((Date.now() - t0) / 1000)}秒${note}`);
   }
-  if (_gdVideoEl && _gdFileId === fileId) {
-    document.getElementById('vp-sub-ui')?.remove();
-    _gdSubRevoke();
-    _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
-    _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
-  }
+  await _gdSubReload(fileId, gdToken, trTarget || target);
   return { ok: true, target: trTarget || target, cost };
 }
 
@@ -4564,12 +4592,7 @@ window.vpGenSubtitle = async function(id, preset) {
       window.toast?.(`✅ 字幕を作成しました（${target}${costStr}）`);
       _subGenShowResult(id, true, `字幕を作成しました: ${target}${costStr} / ${Math.round((Date.now() - _t0) / 1000)}秒`);
     }
-    if (_gdVideoEl && _gdFileId === fileId) {
-      document.getElementById('vp-sub-ui')?.remove();
-      _gdSubRevoke();
-      _gdVideoEl.querySelectorAll('track').forEach(t => t.remove());
-      _gdAttachSubtitle(_gdVideoEl, fileId, gdToken);
-    }
+    await _gdSubReload(fileId, gdToken, target);
     return { ok: true, target, cost: typeof d.costUsd === 'number' ? d.costUsd : 0 };
   } catch (e) {
     console.warn('[subtitle] 生成失敗:', e);
@@ -6259,11 +6282,8 @@ window.wkSubReload = async function() {
   const token = window.getDriveTokenIfAvailable?.();
   if (!_gdVideoEl || !_gdFileId || !token) { window.toast?.('動画を再生してから押してください'); return; }
   _gdSubLookup.delete(_gdFileId);
-  document.getElementById('vp-sub-ui')?.remove();
   _gdContainer?.querySelector('#vp-sub-overlay')?.remove();
-  _gdSubRevoke();
-  _gdVideoEl.querySelectorAll('track').forEach(el => el.remove());
-  await _gdAttachSubtitle(_gdVideoEl, _gdFileId, token);
+  await _gdSubReload(_gdFileId, token);
   window.wkSubOptsRender();
   window.toast?.('🔄 字幕を読み直しました');
 };
