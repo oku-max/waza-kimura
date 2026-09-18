@@ -1,0 +1,100 @@
+#!/usr/bin/env node
+// ═══ 進むほど増えるズレの補正（区間アンカー）の検査 ═══
+// 使い方: node tools/sub-drift-check.mjs
+//
+// なぜ要るか:
+//   AIに動画を見せて作った字幕は、時刻を音から測っていない。実測した1本では
+//   キューの96%が隙間ゼロで前のキューに直結し、開始のミリ秒の95%が000だった。
+//   AIは「もっともらしい長さ」を並べているだけで、実演中の無音を飲み込む。
+//   1:07:57 の動画なのに字幕は 1:00:55 で終わっていた。
+//   ズレは一定ではないので平行移動では直らない。点を置いて区間ごとに伸ばす。
+//
+//   この写像が壊れると、字幕の順序が入れ替わる・時刻が負になる・補正なしの
+//   動画まで動く、という形で全部の動画に波及する。だから機械で確かめる。
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const src  = fs.readFileSync(path.join(ROOT, 'js/vpanel.js'), 'utf8');
+let ng = 0;
+const ok   = (m) => console.log('  ✓', m);
+const fail = (m) => { ng++; console.log('  ✗', m); };
+
+const grab = (name) => {
+  const i = src.search(new RegExp(`function ${name}\\(`));
+  if (i < 0) return null;
+  let d = 0;
+  for (let k = src.indexOf('{', i); k < src.length; k++) {
+    if (src[k] === '{') d++;
+    else if (src[k] === '}') { d--; if (!d) return src.slice(i, k + 1); }
+  }
+  return null;
+};
+const cst = (n) => (src.match(new RegExp(`^const ${n}\\s*=.*$`, 'm')) || [null])[0];
+
+const need = [cst('SUB_SLOPE_MIN')];
+const fns  = ['_subLineMap'].map(grab);
+if (need.some(x => !x) || fns.some(x => !x)) {
+  fail('_subLineMap 一式が js/vpanel.js に無い');
+} else {
+  const g = await import('data:text/javascript;base64,' + Buffer.from(
+    [...need, ...fns, 'export {_subLineMap};'].join('\n')).toString('base64'));
+
+  // 1) 点が無ければ何も変わらない（補正していない動画に触らない）
+  const id = g._subLineMap([]);
+  [0, 1.5, 100, 4000].every(t => Math.abs(id(t) - t) < 1e-9)
+    ? ok('点が無ければ時刻は変わらない')
+    : fail('点が無いのに時刻が動く（補正していない動画まで動く）');
+
+  // 2) 置いた点はその通りに来る
+  const m2 = g._subLineMap([[1800, 2000], [3600, 4000]]);
+  (Math.abs(m2(1800) - 2000) < 0.01 && Math.abs(m2(3600) - 4000) < 0.01)
+    ? ok('置いた点はその位置に来る')
+    : fail(`置いた点に来ない（${m2(1800).toFixed(1)} / ${m2(3600).toFixed(1)}）`);
+
+  // 3) 1点だけなら一定倍率（先も同じ傾きで伸びる）
+  const m1 = g._subLineMap([[3655, 4077]]);
+  const k = 4077 / 3655;
+  (Math.abs(m1(1000) - 1000 * k) < 0.01 && Math.abs(m1(5000) - 5000 * k) < 0.01)
+    ? ok('1点なら全体が一定倍率で伸びる')
+    : fail('1点のとき倍率が一定にならない');
+
+  // 4) 単調に増える（順序が入れ替わらない）＋ 先頭は0のまま
+  let mono = true, prev = -1;
+  for (let t = 0; t <= 5000; t += 1) { const v = m2(t); if (v < prev) mono = false; prev = v; }
+  (mono && Math.abs(m2(0)) < 1e-9)
+    ? ok('時刻は単調に増える／先頭は0のまま')
+    : fail('時刻が前後する（字幕の順序が入れ替わる）');
+
+  // 5) でたらめな点でも傾きが暴走しない
+  const mBad = g._subLineMap([[10, 3000]]);
+  (mBad(4000) - mBad(0)) / 4000 <= 5.0001
+    ? ok('おかしな点を置いても傾きは頭打ちになる')
+    : fail('傾きが暴走する');
+
+  // 6) 逆写像で元に戻る（「いま出ている字幕」から本来の時刻を割り出す時に使う。
+  //     ここがずれると、押すたびにアンカーが少しずつ間違った場所に置かれる）
+  const a  = [[1800, 2008], [3655, 4070]];
+  const fw = g._subLineMap(a);
+  const iv = g._subLineMap(a.map(p => [p[1], p[0]]));
+  [300, 1800, 2500, 3655, 4500].every(t => Math.abs(iv(fw(t)) - t) < 0.01)
+    ? ok('逆写像で元の時刻に戻る')
+    : fail('逆写像で元に戻らない（押すたびに点がずれる）');
+
+  // 7) 実測したファイルの形（1:00:55 で終わる字幕を 1:07:57 の動画に合わせる）
+  const m = g._subLineMap([[1800, 2008], [3655, 4070]]);
+  const at = (t) => Math.round(m(t));
+  (at(3655) === 4070 && at(1800) === 2008 && at(900) > 900 && at(900) < 1100)
+    ? ok(`実測の形に合う（字幕30:00 → 実際 ${Math.floor(at(1800)/60)}:${String(at(1800)%60).padStart(2,'0')}）`)
+    : fail('実測の形に合わない');
+}
+
+// 補正が表示だけに留まっていること（ファイル本体に書かない）
+const save = grab('_subAnchorSave');
+save && /localStorage\.setItem\(SUB_ANCHOR_KEY/.test(save) && !/firestore|_driveUpload|ref\.set/.test(save)
+  ? ok('補正の保存先は端末のlocalStorageだけ（Drive/Firestoreに書かない）')
+  : fail('補正がこの端末の外へ書かれている');
+
+console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 進むほど増えるズレの補正は、順序を壊さず表示だけに掛かる');
+process.exit(ng ? 1 : 0);
