@@ -584,22 +584,27 @@ ${ctx ? '\n【動画情報】\n' + ctx + '\n' : ''}
 【厳守】
 - 出力はSRT本文のみ。前置き・解説・コードフェンスは一切書かない
 - 通し番号は1から連番
-- タイムコードは HH:MM:SS,mmm --> HH:MM:SS,mmm 形式（カンマ区切り・ゼロ埋め）
+- タイムコードは MM:SS,mmm --> MM:SS,mmm 形式（分:秒,ミリ秒。時間の桁は付けない）
+  1時間を超えても分で数え続ける（例: 59:59 の次は 60:00、67:50、105:30）
 - 実際の発話タイミングに正確に合わせる
 - 1つの字幕は1〜6秒を目安に、文や句の切れ目で区切る（長い説明は複数の字幕に分ける）
 - 1つの字幕は${perCue}文字程度まで。超えるなら発話タイミングに沿って別の字幕に分ける
 - 字幕テキスト内では改行しない。1つの字幕の本文は1行で書く（折り返しは表示側で行う）
 - ただしSRTの体裁は厳守する。各字幕は「通し番号 / タイムコード / 本文」の3行で書き、
   字幕と字幕の間には必ず空行を1行入れる（空行を省略しない）
-- タイムコードは動画の先頭を 00:00:00,000 として数える（01:00:00 から始めない）
+- タイムコードは動画の先頭を 00:00,000 として数える（途中から始めない）
 - 無音・発話の無い区間には字幕を作らない
 - 「1、2、3…」とレップ（回数）を数えているだけの区間は書き起こさない
 ${rules.map(r => '- ' + r).join('\n')}
 
 出力例:
 1
-00:00:02,400 --> 00:00:05,120
-クローズドガードから始めます`;
+00:02,400 --> 00:05,120
+クローズドガードから始めます
+
+2
+67:50,000 --> 67:53,500
+1時間を超えても分で数え続けます`;
 }
 
 // ── チャプター検出 ────────────────────────────────────────
@@ -1025,6 +1030,28 @@ function _srtTime(sec) {
 const SRT_MS_COLON = /(\d{1,3}:\d{2}(?::\d{2})?):(\d{3})(?!\d)/g;
 function _srtFixMs(text) { return String(text ?? '').replace(SRT_MS_COLON, '$1,$2'); }
 
+// 動画の長さに収まる読み方を採る。
+//
+// Geminiは公式ドキュメントのとおり 1時間を超えても分で数える（59:59 の次が 60:00）。
+// こちらが SRT の HH:MM:SS,mmm を要求すると、モデルは MM:SS に桁を足した
+// 「67:50:00,000」のような形を出す。これを時間として読むと 67時間50分になり、
+// 動画の長さを超えるので _cleanupCues に捨てられ、そこから先の字幕が消える。
+// 実測: 1時間7分57秒の動画で、最大の開始時刻が 244200秒(67.8時間) になっていた。
+// 67:50 を「67分50秒 = 4070秒」と読めば動画の末尾とぴったり合う。
+//
+// プロンプトで MM:SS を指定してもモデルが守るとは限らないので、読む側でも吸収する。
+// 時間として読んで収まるならそのまま。収まらず、分:秒 として読めば収まる時だけ読み直す。
+function _srtSecFit(tc, durationSec) {
+  const v = _srtSec(tc);
+  const dur = Number(durationSec) || 0;
+  if (!dur || v <= dur + 5) return v;
+  const m = String(tc).match(/(\d{1,3}):(\d{2})(?::(\d{2}))?[.,](\d{1,3})/);
+  if (!m || m[3] == null) return v;                 // もともと 分:秒 表記なら直しようがない
+  const ms  = Number((m[4] + '00').slice(0, 3)) / 1000;
+  const alt = Number(m[1]) * 60 + Number(m[2]) + ms;
+  return alt <= dur + 5 ? alt : v;
+}
+
 function _srtSec(tc) {
   const m = String(tc).match(/(\d{1,3}):(\d{2})(?::(\d{2}))?[.,](\d{1,3})/);
   if (!m) return 0;
@@ -1064,7 +1091,7 @@ function _srtUnreadableTc(text, cueCount) {
   return { maxIdx, cues, lost: Math.max(0, maxIdx - cues), sample, firstBadIdx };
 }
 
-function _srtCues(text) {
+function _srtCues(text, durationSec) {
   const lines = _srtFixMs(text).replace(/\r\n?/g, '\n').split('\n');
   const TC = /^\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})\s*-->\s*(\d{1,3}:\d{2}(?::\d{2})?[.,]\d{1,3})/;
   const marks = [];
@@ -1078,7 +1105,7 @@ function _srtCues(text) {
     while (body.length && body[body.length - 1].trim() === '') body.pop();
     const t = body.join('\n').trim();
     if (!t) continue;
-    const start = _srtSec(m[1]), end = _srtSec(m[2]);
+    const start = _srtSecFit(m[1], durationSec), end = _srtSecFit(m[2], durationSec);
     if (!(end > start)) continue;
     cues.push({ start, end, text: t });
   }
@@ -1137,8 +1164,8 @@ function _cuesToSrt(cues) {
 // おかしいまま返すとユーザーが「壊れた字幕」を保存してしまうので、
 // ここで止めて理由を返す。
 function _validateSrt(srt, durationSec) {
-  const cues = _srtCues(srt);
   const dur = Number(durationSec) || 0;
+  const cues = _srtCues(srt, dur);
   if (!cues.length) return '字幕が1件も取れませんでした';
   if (dur > 0) {
     const outside = cues.filter(c => c.start > dur + 5).length;
@@ -1163,7 +1190,7 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
   if (r.error) return r;
   const sec = Math.round((Date.now() - t0) / 1000);
 
-  const cues = _srtCues(r.summary);
+  const cues = _srtCues(r.summary, dur);
   if (!cues.length) {
     return { error: '字幕の生成結果が不正です', detail: '字幕が1件も取れませんでした（作り直してください）' };
   }

@@ -74,7 +74,7 @@ for (const [file, fns] of targets) {
 // 通し番号と読み取れたキュー数の食い違いで、崩れ方に依らず捕まえる。
 const cst2 = (n) => (wsrc.match(new RegExp(`^const ${n}\\s*=\\s*.*$`, 'm')) || [])[0];
 const need = ['SRT_MS_COLON', 'SRT_IDX_LINE', 'SRT_TC_STRICT'].map(cst2);
-const fns  = ['_srtFixMs', '_srtSec', '_srtCues', '_srtUnreadableTc'].map(n => grab(wsrc, n));
+const fns  = ['_srtFixMs', '_srtSec', '_srtSecFit', '_srtCues', '_srtUnreadableTc'].map(n => grab(wsrc, n));
 if (need.some(x => !x) || fns.some(x => !x)) {
   fail('_worker.js に _srtUnreadableTc 一式が無い（崩れ方に依らない検知が消えている）');
 } else {
@@ -103,5 +103,46 @@ if (need.some(x => !x) || fns.some(x => !x)) {
                  : ok('今回の書式（MM:SS:mmm）は読めるので通す');
 }
 
-console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 崩れた時刻は読める／別の崩れ方は黙って保存されない');
+// ── 4. 1時間超を「分」で数えた時刻を、時間として読んで捨てないこと ──
+// Geminiは公式ドキュメントのとおり 1時間を超えても分で数える（59:59 の次が 60:00）。
+// SRTの HH:MM:SS を要求すると「67:50:00,000」のような形が返り、時間として読むと
+// 67時間50分になって動画の長さを超え、そこから先の字幕が丸ごと捨てられる。
+// 実測: 1:07:57 の動画で 29分あたりから字幕が消えた。
+const need4 = ['SRT_MS_COLON'].map(cst2);
+const fns4  = ['_srtFixMs', '_srtSec', '_srtSecFit', '_srtTime', '_srtCues', '_cleanupCues', '_repairOffset']
+  .map(n => grab(wsrc, n));
+if (need4.some(x => !x) || fns4.some(x => !x)) {
+  fail('_worker.js に _srtSecFit 一式が無い（1時間超の時刻を捨てる状態に戻っている）');
+} else {
+  const g = await import('data:text/javascript;base64,' + Buffer.from(
+    [...need4, ...fns4, 'export {_srtSec,_srtSecFit,_srtCues,_cleanupCues};'].join('\n')).toString('base64'));
+  const DUR = 4077;   // 1:07:57
+  const cases = [
+    ['67:50:00,000',  4070, '1時間超を分で数えた時刻を読み直す'],
+    ['29:30:00,000',  1770, '29分台も同じく読み直す'],
+    ['01:07:50,000',  4070, '正しい HH:MM:SS は変えない'],
+    ['67:50,000',     4070, 'もともと 分:秒 の表記は変えない'],
+    ['00:02,400',        2, '短い時刻を壊さない'],
+  ];
+  for (const [tc, want, label] of cases) {
+    const got = Math.round(g._srtSecFit(tc, DUR));
+    got === want ? ok(label) : fail(`${label}: ${tc} → ${got}秒（期待 ${want}秒）`);
+  }
+  // SRT全体で、途中から書式が変わっても最後まで残ること
+  let srt = '', n = 0;
+  const good = (s) => `00:${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')},000`;
+  const hyb  = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}:00,000`;
+  for (let t = 0; t < 4070; t += 10) { n++; const f = t < 1740 ? good : hyb; srt += `${n}\n${f(t)} --> ${f(t+8)}\n本文${n}\n\n`; }
+  const kept = g._cleanupCues(g._srtCues(srt, DUR), DUR);
+  kept.length === n
+    ? ok(`途中から分表記に変わっても全部残る（${kept.length}/${n}枚）`)
+    : fail(`途中から分表記に変わると ${n - kept.length}枚 落ちる（${kept.length}/${n}枚しか残らない）`);
+  // 尺を渡さないと落ちる＝この検査が症状を再現できていることの裏取り
+  const kept0 = g._cleanupCues(g._srtCues(srt, 0), DUR);
+  kept0.length < n
+    ? ok(`尺を渡さなければ ${n - kept0.length}枚 落ちる（だから尺を渡して読み直す）`)
+    : fail('この検査自体が症状を再現できていない（テストの前提が壊れた）');
+}
+
+console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 崩れた時刻は読める／1時間超も落ちない／別の崩れ方は黙って保存されない');
 process.exit(ng ? 1 : 0);
