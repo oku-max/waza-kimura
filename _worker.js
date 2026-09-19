@@ -1675,9 +1675,14 @@ async function _ytCapsFromTracks(tracks, lang, diag, how) {
   if (!pick || !pick.baseUrl) { diag.push(how + ':トラック無し'); return null; }
   const url = String(pick.baseUrl).replace(/\\u0026/g, '&') + '&fmt=json3';
   try {
-    const r = await fetch(url, { headers: { 'User-Agent': YT_UA_WEB } });
+    const r = await fetch(url, { headers: {
+      'User-Agent': YT_UA_WEB, 'Accept-Language': 'en-US,en;q=0.9',
+      'Referer': 'https://www.youtube.com/', 'Origin': 'https://www.youtube.com',
+    } });
     const t = await r.text();
-    if (!r.ok || !t.trim()) { diag.push(`${how}:本文が空(HTTP ${r.status})`); return null; }
+    // PoTokenで弾かれると「200なのに空」で返る。それを他の失敗と区別して残す。
+    if (r.ok && !t.trim()) { diag.push(`${how}:200だが空(PoToken待ちの典型)`); return null; }
+    if (!r.ok) { diag.push(`${how}:本文HTTP ${r.status}`); return null; }
     const cues = _ytJson3Cues(JSON.parse(t));
     if (!cues.length) { diag.push(how + ':キュー0件'); return null; }
     diag.push(`${how}:OK ${cues.length}件`);
@@ -1688,40 +1693,107 @@ async function _ytCapsFromTracks(tracks, lang, diag, how) {
   }
 }
 
-// A. InnerTube の player
+// A. InnerTube の player。
+// クライアントの名乗り方で通ったり弾かれたりするので、数種類を順に試す。
+// 実測(v52.775): ANDROIDだけを名乗って HTTP 400。拒否ではなくリクエストが不正だった。
+// 欲しいのは字幕トラックの一覧だけで、映像の配信URLは要らない。
+// 字幕の一覧は、配信URLが取れないクライアントでも返ってくることが多い。
+const YT_IT_CLIENTS = [
+  { key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', name: 'web',
+    ua: YT_UA_WEB, num: '1',
+    client: { clientName: 'WEB', clientVersion: '2.20260101.00.00', hl: 'en', gl: 'US' } },
+  { key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', name: 'tv-embed',
+    ua: YT_UA_WEB, num: '85',
+    client: { clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER', clientVersion: '2.0',
+              clientScreen: 'EMBED', hl: 'en', gl: 'US' },
+    thirdParty: { embedUrl: 'https://www.youtube.com' } },
+  { key: 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', name: 'mweb',
+    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    num: '2', client: { clientName: 'MWEB', clientVersion: '2.20260101.00.00', hl: 'en', gl: 'US' } },
+  { key: 'AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc', name: 'ios',
+    ua: 'com.google.ios.youtube/19.09.3 (iPhone16,2; U; CPU iOS 17_5 like Mac OS X)', num: '5',
+    client: { clientName: 'IOS', clientVersion: '19.09.3', deviceModel: 'iPhone16,2', hl: 'en', gl: 'US' } },
+  { key: 'AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w', name: 'android',
+    ua: YT_UA_AND, num: '3',
+    client: { clientName: 'ANDROID', clientVersion: '19.09.37', androidSdkVersion: 30, hl: 'en', gl: 'US' } },
+];
+
 async function _ytCapsInnertube(ytId, lang, diag) {
-  try {
-    const r = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${YT_IT_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': YT_UA_AND },
-      body: JSON.stringify({ videoId: ytId, context: { client: {
-        clientName: 'ANDROID', clientVersion: '19.09.37', androidSdkVersion: 30, hl: 'en', gl: 'US' } } }),
-    });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) { diag.push(`innertube:HTTP ${r.status}`); return null; }
-    const tracks = d?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-    return await _ytCapsFromTracks(tracks, lang, diag, 'innertube');
-  } catch (e) {
-    diag.push('innertube:' + String(e?.message || e).slice(0, 60));
-    return null;
+  for (const c of YT_IT_CLIENTS) {
+    try {
+      const r = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${c.key}&prettyPrint=false`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': c.ua,
+          'Origin': 'https://www.youtube.com',
+          'Referer': 'https://www.youtube.com/',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'X-YouTube-Client-Name': c.num,
+          'X-YouTube-Client-Version': c.client.clientVersion,
+        },
+        body: JSON.stringify({
+          videoId: ytId,
+          context: { client: c.client, ...(c.thirdParty ? { thirdParty: c.thirdParty } : {}) },
+          contentCheckOk: true, racyCheckOk: true,
+        }),
+      });
+      if (!r.ok) {
+        const t = await r.text().catch(() => '');
+        diag.push(`it/${c.name}:HTTP ${r.status}${t ? ' ' + t.slice(0, 80).replace(/\s+/g, ' ') : ''}`);
+        continue;
+      }
+      const d = await r.json().catch(() => ({}));
+      const tracks = d?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (!Array.isArray(tracks) || !tracks.length) {
+        const st = d?.playabilityStatus?.status || '-';
+        diag.push(`it/${c.name}:字幕一覧なし(状態 ${st})`);
+        continue;
+      }
+      const got = await _ytCapsFromTracks(tracks, lang, diag, 'it/' + c.name);
+      if (got) return got;
+    } catch (e) {
+      diag.push(`it/${c.name}:` + String(e?.message || e).slice(0, 50));
+    }
   }
+  return null;
 }
 
-// B. 視聴ページに埋まっている ytInitialPlayerResponse
+// B. 視聴ページ / 埋め込みページに埋まっている playerResponse
+// 実測(v52.775): captionTracks が見つからなかった。同意ページ等が返っている可能性があるので
+// 同意クッキーを付け、埋め込みページも試し、何が返ってきたかを diag に残す。
 async function _ytCapsWatchPage(ytId, lang, diag) {
-  try {
-    const r = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}&hl=en&bpctr=9999999999`,
-                          { headers: { 'User-Agent': YT_UA_WEB, 'Accept-Language': 'en-US,en;q=0.9' } });
-    if (!r.ok) { diag.push(`watch:HTTP ${r.status}`); return null; }
-    const html = await r.text();
-    const m = html.match(/"captionTracks":(\[.*?\])/s);
-    if (!m) { diag.push('watch:captionTracksが無い'); return null; }
-    const tracks = JSON.parse(m[1].replace(/\\u0026/g, '&'));
-    return await _ytCapsFromTracks(tracks, lang, diag, 'watch');
-  } catch (e) {
-    diag.push('watch:' + String(e?.message || e).slice(0, 60));
-    return null;
+  const pages = [
+    ['watch', `https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}&hl=en&bpctr=9999999999&has_verified=1`],
+    ['embed', `https://www.youtube.com/embed/${encodeURIComponent(ytId)}?hl=en`],
+  ];
+  for (const [name, url] of pages) {
+    try {
+      const r = await fetch(url, { headers: {
+        'User-Agent': YT_UA_WEB,
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cookie': 'CONSENT=YES+cb; SOCS=CAI',
+      } });
+      if (!r.ok) { diag.push(`${name}:HTTP ${r.status}`); continue; }
+      const html = await r.text();
+      const m = html.match(/"captionTracks":(\[.*?\])/s);
+      if (!m) {
+        // 何が返ってきたのかを一言だけ残す。次に推測しないで済むように。
+        const what = /consent\.youtube\.com|CONSENT/i.test(html) ? '同意ページ'
+                   : /captcha|unusual traffic/i.test(html)         ? 'ボット判定'
+                   : /ytInitialPlayerResponse/.test(html)          ? 'playerResponseはあるが字幕なし'
+                   : 'playerResponseが無い';
+        diag.push(`${name}:captionTracksが無い(${what}・${Math.round(html.length / 1024)}KB)`);
+        continue;
+      }
+      const tracks = JSON.parse(m[1].replace(/\\u0026/g, '&'));
+      const got = await _ytCapsFromTracks(tracks, lang, diag, name);
+      if (got) return got;
+    } catch (e) {
+      diag.push(`${name}:` + String(e?.message || e).slice(0, 50));
+    }
   }
+  return null;
 }
 
 async function _ytCapsFree(ytId, lang, diag) {
