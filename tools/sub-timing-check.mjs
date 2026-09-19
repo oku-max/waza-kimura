@@ -47,15 +47,36 @@ const store = src.slice(src.indexOf('async function _ytSubStore'), src.indexOf('
   ? ok('保存する字幕に補正用の項目を持たせない')
   : fail('字幕に補正用の項目が残っている');
 
-// 4. 時刻がAIの推測であることを画面に出していること。
+// 4. YouTube側の字幕（時刻が正確）を先に試すこと。
+//    AIに動画を見せて作った時刻は後から直せない。直す方法は「最初から正しい時刻を得る」だけ。
+const wsrc = fs.readFileSync(path.join(ROOT, '_worker.js'), 'utf8');
+/case '\/api\/yt-transcript'/.test(wsrc) && /function handleYtTranscript/.test(wsrc)
+  ? ok('YouTube側の字幕を取る経路がサーバーにある')
+  : fail('YouTube側の字幕を取る経路が無い');
+const gen = src.slice(src.indexOf('async function _ytGenSubtitle'), src.indexOf('setBtn(\'⏳ 保存中…\')'));
+gen.indexOf('_ytFetchTranscript(') >= 0 && gen.indexOf('_ytFetchTranscript(') < gen.indexOf("source: 'youtube'")
+  ? ok('Geminiに動画を見せる前に、YouTube側の字幕を試す')
+  : fail('YouTube側の字幕より先にGeminiへ行っている（直せない時刻を先に作る）');
+/時刻は向こうの値をそのまま使う/.test(wsrc)
+  ? ok('取れた時刻はそのまま使う（丸めも詰め直しもしない）')
+  : fail('取れた時刻に手を入れている');
+/_translateSrtText\(yt\.srt/.test(src)
+  ? ok('本文だけ訳す（時刻は既存の「翻訳だけやり直す」と同じく動かさない）')
+  : fail('YouTubeの字幕を訳すときに時刻を作り直している');
+
+// 5. 時刻がAIの推測であることを画面に出していること。
 //    黙って出すと、読んだ人はその時刻を信じる。信じられる時刻ではない。
 const notice = 'この字幕の時刻はAIの推測です。実際の発話位置とは合いません';
 src.includes(notice)
   ? ok('時刻がAIの推測であることを⚙に出す')
   : fail('時刻がAIの推測であることを画面に出していない');
-/Googleドライブに置いて字幕を作ってください/.test(src)
-  ? ok('正確な時刻が要るときの道（Drive＝音声認識）を示す')
+/YouTube側にも字幕が無い動画は、Googleドライブに置けば/.test(src)
+  ? ok('正確な時刻が要るときの道を示す')
   : fail('正確に直す道を示していない');
+// 出所で断り書きを出し分けること（YouTubeの字幕から作ったものに「AIの推測」と出さない）
+/const fromYt = !!gen && String\(gen\.via \|\| ''\)\.startsWith\('yt:'\);/.test(src)
+  ? ok('時刻の出所で断り書きを出し分ける')
+  : fail('出所に関係なく同じ断り書きを出している');
 
 console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 直せないものを直せるふりをしていない／時刻の出所を画面に出している');
 process.exit(ng ? 1 : 0);

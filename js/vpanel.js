@@ -3781,6 +3781,18 @@ function _ytDurationOf(v) {
 //   1) 同じ言語の字幕がすでにあるなら、作り直すか必ず確認する（黙って壊さない）
 //   2) 別の言語の字幕があるなら、それを訳すだけで済ませられる（安いうえ時刻が正確）
 //   3) どちらも無ければ Gemini に動画を読ませて書き起こす
+// YouTube自身が持っている字幕を、時刻ごと取ってくる（サーバー経由）。
+// 取れなければ null を返すだけ。呼び出し側は従来どおりGeminiへ進む。
+async function _ytFetchTranscript(idToken, ytId, subLang) {
+  const res = await fetch('/api/yt-transcript', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, ytId, lang: subLang === 'orig' ? '' : subLang }),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok || !d.srt) return { error: (d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : '') };
+  return d;
+}
+
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const ytId   = v.ytId;
   const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
@@ -3826,7 +3838,31 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     ? `\n\n※その字幕は ${_chapFmt(_oEnd)} までしかありません（動画は ${_chapFmt(_dur)}）。`
       + `翻訳しても同じところで終わります。最後まで欲しい場合は［キャンセル］を選んでください。`
     : '';
-  if (canTranslate && (preset ? preset.translate !== false
+  // ── YouTube側の字幕（時刻が正確）から作る ─────────────────────
+  // ここが本命。AIに動画を見せて作った時刻は、実演中の無音を飲み込むので後半ほどズレ、
+  // 後から直すこともできない（無音の位置も長さもバラバラなため）。
+  // YouTube自身が持っている字幕は時刻が音に対して正確なので、それを土台にする。
+  // 本文だけ訳し、時刻は1ミリ秒も動かさない（既存の「翻訳だけやり直す」と同じ考え方）。
+  if (!srt) {
+    setBtn('⏳ YouTubeの字幕を確認中…');
+    const yt = await _ytFetchTranscript(idToken, ytId, subLang).catch(e => ({ error: e?.message || String(e) }));
+    if (yt && yt.srt) {
+      const same = subLang !== 'orig' && yt.lang && yt.lang.slice(0, 2) === subLang;
+      if (same) {
+        srt = yt.srt; via = 'yt:' + yt.lang;
+      } else {
+        setBtn('⏳ 翻訳中…');
+        const r = await _translateSrtText(yt.srt, subLang, setBtn);
+        srt = r.srt; cost = r.cost; via = 'yt:' + (yt.lang || '?') + '+translate';
+        if (r.missing) note = `（${r.missing}行は訳せず原文のまま）`;
+      }
+      diagNote = ` / YouTubeの字幕(${yt.lang || '?'})から作成 · ${yt.cues}枚 · 最後 ${_chapFmt(yt.lastSec || 0)}`;
+    } else if (yt && yt.error && !silent) {
+      console.log('[ytsub] YouTubeの字幕は使えませんでした:', yt.error);
+    }
+  }
+
+  if (!srt && canTranslate && (preset ? preset.translate !== false
         : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）${_shortWarn}`))) {
     setBtn('⏳ 翻訳中…');
     const r = await _translateSrtText(other.srt, subLang, setBtn);
@@ -5625,7 +5661,8 @@ function _subOptsHTML(scope) {
             ${note ? `<span style="display:block;font-size:10px;color:var(--text3)">${note}</span>` : ''}
           </span></button>`;
       };
-      const genNote = (t) => (t.via === 'gemini' ? 'AIが動画から作成'
+      const genNote = (t) => (String(t.via || '').startsWith('yt:') ? 'YouTubeの字幕から作成（時刻が正確）'
+                            : t.via === 'gemini' ? 'AIが動画から作成（時刻はAIの推測）'
                             : String(t.via || '').startsWith('translate') ? '既存の字幕から翻訳' : '生成字幕')
                           + (t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : '');
       html += sec('字幕（この動画）')
@@ -5658,6 +5695,8 @@ function _subOptsHTML(scope) {
     // YouTubeの生成字幕は時刻がAIの推測。そのことを必ず画面に出す。
     // Drive動画は音声認識で時刻を音から実測しているので、この断り書きは出さない。
     const gen = _ytSubCur()?.kind === 'gen' ? _ytSubCur().track : null;
+    // YouTube側の字幕から作ったものは時刻が正確。断り書きの対象はAIが時刻を書いたものだけ。
+    const fromYt = !!gen && String(gen.via || '').startsWith('yt:');
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -5687,15 +5726,21 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その声が始まった瞬間に押すと合います
         </div>
-        ${gen ? `<div style="background:rgba(239,68,68,.10);border:1.5px solid var(--red,#ef4444);
+        ${gen && fromYt ? `<div style="background:rgba(34,197,94,.10);border:1.5px solid var(--green,#22c55e);
+                       border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.65">
+            <b>この字幕の時刻はYouTubeの字幕から取っています</b>
+            <div style="color:var(--text3);margin-top:4px">音に対して正確です。進むほどズレることはありません</div>
+            <div style="color:var(--text3);margin-top:4px">${_wkVer()}</div>
+          </div>` : ''}
+        ${gen && !fromYt ? `<div style="background:rgba(239,68,68,.10);border:1.5px solid var(--red,#ef4444);
                        border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.65">
             <b>この字幕の時刻はAIの推測です。実際の発話位置とは合いません</b>
             <div style="color:var(--text3);margin-top:4px">YouTubeの動画は音声を取り出せないため、AIに動画を見せて作っています</div>
             <div style="color:var(--text3)">AIは時刻を音から測っておらず、実演中の無音を飲み込むので、進むほどズレが大きくなります</div>
             <div style="color:var(--text3)">無音の長さも位置もバラバラなので、全体をずらしても伸ばしても直りません</div>
             <div style="color:var(--text3)">本文は正確です。読み物としてはそのまま使えます</div>
-            <div style="color:var(--text3);margin-top:4px">時刻まで正確な字幕が要るときは、その動画をGoogleドライブに置いて字幕を作ってください</div>
-            <div style="color:var(--text3)">そちらは音声認識で時刻を音から実測するのでズレません</div>
+            <div style="color:var(--text3);margin-top:4px">「💬 字幕生成」で作り直すと、YouTube側の字幕があればそちらの時刻で作り直します</div>
+            <div style="color:var(--text3)">YouTube側にも字幕が無い動画は、Googleドライブに置けば音声から時刻を実測できます</div>
             <div style="color:var(--text3);margin-top:4px">${_wkVer()}</div>
           </div>` : ''}
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">

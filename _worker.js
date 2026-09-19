@@ -47,6 +47,7 @@ async function handleApi(request, env, path) {
       case '/api/asr-srt':     return await handleAsrSrt(request, env);
       case '/api/asr-sentences': return await handleAsrSentences(request, env);
       case '/api/translate':   return await handleTranslate(request, env);
+      case '/api/yt-transcript': return await handleYtTranscript(request, env);
       default:                 return new Response('Not found', { status: 404 });
     }
   } catch (e) {
@@ -1608,6 +1609,119 @@ async function handleAsrSrt(request, env) {
     return jsonRes({ error: '字幕を取得できませんでした', detail: _httpErrText(res.status) }, 502);
   }
   return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}
+
+// ── /api/yt-transcript — YouTube側の字幕を、時刻ごと取ってくる ──────────
+//
+// なぜ要るか:
+//   YouTube動画の字幕をAI（Gemini）に動画を見せて作らせると、時刻が使い物にならない。
+//   AIは時刻を音から測っておらず、実演中の無音を飲み込むので、進むほどズレが大きくなる。
+//   実測: 1:07:58 の動画で、どこで起きたか分からない無音が315秒ぶん散っていた。
+//   無音の位置も長さもバラバラなので、後からずらしても伸ばしても直らない。
+//
+//   直す方法は1つだけ: 最初から正しい時刻を手に入れること。
+//   YouTube自身が持っている字幕（自動生成を含む）は、時刻が音に対して正確。
+//   ただしブラウザからもWorkerからも直接は取れない:
+//     ・2025年から timedtext に PoToken（BotGuardが発行する証明）が必要
+//     ・URLは ei / expire / signature 付きでセッションに束縛される
+//     ・データセンターIPは弾かれる
+//   そこを肩代わりする業者のAPIを1本呼ぶ。返ってくるのは text と offset(ミリ秒)。
+//
+// 取れた時刻はそのまま使い、本文だけ翻訳する（既存の「翻訳だけやり直す」と同じ考え方）。
+// だから翻訳がどう転んでもタイミングは壊れない。
+const SUPADATA = 'https://api.supadata.ai/v1';
+
+async function handleYtTranscript(request, env) {
+  if (request.method === 'OPTIONS') return corsOk();
+  if (request.method !== 'POST')    return jsonRes({ error: 'POSTしてください' }, 405);
+  if (!env.SUPADATA_API_KEY) {
+    return jsonRes({ error: 'YouTubeの字幕取得サービスが未設定です',
+                     detail: 'SUPADATA_API_KEY が Worker に設定されていません' }, 500);
+  }
+  const body = await request.json().catch(() => ({}));
+  const auth = await verifyOwner(body.idToken, env);
+  if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
+
+  const ytId = String(body.ytId || '').trim();
+  if (!/^[A-Za-z0-9_-]{6,20}$/.test(ytId)) return jsonRes({ error: 'ytId が不正です' }, 400);
+  // lang は「この言語の字幕があれば優先」。無ければ向こうが既定の言語を返す。
+  const lang = /^[a-z]{2}(-[A-Za-z]{2,4})?$/.test(String(body.lang || '')) ? body.lang : '';
+
+  const head = { 'x-api-key': env.SUPADATA_API_KEY };
+  const u = new URL(SUPADATA + '/youtube/transcript');
+  u.searchParams.set('videoId', ytId);
+  u.searchParams.set('text', 'false');          // 時刻付きで欲しいので必ず false
+  if (lang) u.searchParams.set('lang', lang);
+
+  let res, data;
+  try {
+    res  = await fetch(u.toString(), { headers: head });
+    data = await res.json().catch(() => ({}));
+  } catch (e) {
+    return jsonRes({ error: 'YouTubeの字幕を取得できませんでした', detail: String(e?.message || e) }, 502);
+  }
+
+  // 長い動画は202でジョブIDが返る。ここで待ち切る（Workerは応答を流し続けられる）。
+  if (res.status === 202 && data.jobId) {
+    const out = await _ytTrPoll(env, data.jobId);
+    if (out.error) return jsonRes(out, 502);
+    data = out;
+  } else if (!res.ok) {
+    return jsonRes({ error: 'YouTubeの字幕を取得できませんでした',
+                     detail: data.message || data.error || ('HTTP ' + res.status) }, res.status === 404 ? 404 : 502);
+  }
+
+  const cues = _ytTrCues(data);
+  if (!cues.length) {
+    return jsonRes({ error: 'この動画にはYouTube側の字幕がありません',
+                     detail: 'YouTubeが字幕を持っていない動画では、この方法は使えません' }, 404);
+  }
+  return jsonRes({
+    srt:  _cuesToSrt(cues),
+    lang: String(data.lang || ''),
+    availableLangs: Array.isArray(data.availableLangs) ? data.availableLangs : [],
+    cues: cues.length,
+    lastSec: Math.round(cues[cues.length - 1].end),
+  });
+}
+
+// 202 のときのジョブ待ち。3秒おき、最大4分。
+async function _ytTrPoll(env, jobId) {
+  const head = { 'x-api-key': env.SUPADATA_API_KEY };
+  for (let i = 0; i < 80; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    let r2, d2;
+    try {
+      r2 = await fetch(`${SUPADATA}/transcript/${encodeURIComponent(jobId)}`, { headers: head });
+      d2 = await r2.json().catch(() => ({}));
+    } catch (e) { continue; }
+    const st = String(d2.status || '');
+    if (st === 'completed' || d2.content) return d2;
+    if (st === 'failed') return { error: 'YouTubeの字幕の取得に失敗しました', detail: d2.error || '' };
+  }
+  return { error: 'YouTubeの字幕の取得が時間内に終わりませんでした' };
+}
+
+// {text, offset(ms), duration(ms)} の配列 → こちらのキュー（秒）
+// 時刻は向こうの値をそのまま使う。丸めも詰め直しもしない（それが唯一の価値なので）。
+function _ytTrCues(data) {
+  const arr = Array.isArray(data?.content) ? data.content : [];
+  const out = [];
+  for (const c of arr) {
+    const text = String(c?.text ?? '').replace(/\s+/g, ' ').trim();
+    const off  = Number(c?.offset);
+    const dur  = Number(c?.duration);
+    if (!text || !Number.isFinite(off) || off < 0) continue;
+    const start = off / 1000;
+    const end   = start + (Number.isFinite(dur) && dur > 0 ? dur / 1000 : 2);
+    out.push({ start, end, text });
+  }
+  out.sort((a, b) => a.start - b.start);
+  // 重なりだけ整える（隣と食い合うと表示がちらつく）。長さは向こうの値を尊重する。
+  for (let i = 0; i < out.length - 1; i++) {
+    if (out[i].end > out[i + 1].start) out[i].end = Math.max(out[i].start + 0.2, out[i + 1].start);
+  }
+  return out;
 }
 
 // ── /api/asr-sentences — 文単位の書き起こし（翻訳用）─────────────
