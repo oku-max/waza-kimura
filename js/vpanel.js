@@ -2330,89 +2330,6 @@ function _subOffsetSet(fileId, sec) {
   try { localStorage.setItem(SUB_OFFSET_KEY, JSON.stringify(all)); } catch(e) {}
 }
 
-// ── ズレが進むほど大きくなる場合の補正（区間アンカー）────────────
-//
-// なぜ平行移動では足りないか:
-//   AIに動画を見せて作った字幕（YouTube動画は必ずこの方式になる）は、時刻を
-//   音から測っていない。実測した1本を調べたところ、キューの96%が隙間ゼロで
-//   前のキューの終わりに直結し、開始のミリ秒の95%が000だった。つまりAIは
-//   「もっともらしい長さ」を並べているだけで、実演中の無音を飲み込んでいる。
-//   その結果、1:07:57 の動画なのに字幕は 1:00:55 で終わり、後半ほど早く出る。
-//   ズレは一定ではないので、1点の平行移動（_subOffsets）では直らない。
-//
-// 直し方: 「この台詞は本当はここ」という点をいくつか置き、点と点の間を
-//   直線で結んで時刻を引き伸ばす。2点なら一定倍率、3点以上なら区間ごと。
-//
-// 置き場所: 字幕そのものと同じ場所（Firestore の ytsub_<ytId> の tracks.<言語>.anchors）。
-//   端末ローカルには置かない。端末ごとに見え方が変わると、どの端末で合わせたかを
-//   覚えていないと使えない道具になる。点は字幕に付いて回るのが正しい。
-//   元のSRTには触れないので、点を消せばいつでも元の時刻に戻る。
-//
-// 対象: AIに動画を見せて作った字幕（＝YouTube動画の生成字幕）だけ。
-//   Drive動画は音声認識で時刻を音から実測しているのでこのズレ方をしない。
-const SUB_SLOPE_MIN = 0.2, SUB_SLOPE_MAX = 5;   // 目一杯おかしな傾きは採らない
-
-// [[字幕の時刻, 実際の時刻], ...] を時刻順・単調増加だけに正規化する。
-// どこから来た値でも（他端末・古い端末ローカル）ここを必ず通す。
-function _subAnchorNorm(raw) {
-  if (!Array.isArray(raw)) return [];
-  const list = raw
-    // 保存の形は {t, r} のオブジェクト。Firestoreは配列の中に配列を置けないため
-    // （[[3655,4077]] は書き込みごと弾かれる）。[t,r] の組も読めるようにしておく。
-    .map(p => Array.isArray(p) ? [Number(p[0]), Number(p[1])]
-            : (p && typeof p === 'object') ? [Number(p.t), Number(p.r)] : null)
-    .filter(p => p && Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[0] > 0 && p[1] > 0)
-    .sort((a, b) => a[0] - b[0]);
-  // 時刻が前後したまま持つと写像が折り返し、字幕の順序が入れ替わる
-  const out = [];
-  for (const p of list) if (!out.length || (p[0] > out[out.length - 1][0] && p[1] > out[out.length - 1][1])) out.push(p);
-  return out;
-}
-// 点を1つ足した列を返す（保存はしない）。同じあたりを押し直したら置き換える。
-function _subAnchorWith(list, t, r) {
-  if (!(t > 0) || !(r > 0)) return _subAnchorNorm(list);
-  return _subAnchorNorm([...(_subAnchorNorm(list).filter(p => Math.abs(p[0] - t) > 1)),
-                         [Math.round(t * 10) / 10, Math.round(r * 10) / 10]]);
-}
-
-// 点の列から折れ線の写像を作る。points は [字幕の時刻, 実際の時刻] の昇順。
-// 先頭は (0,0)＝動画の頭は合っている、として扱う。
-// 最後の点より先は、直前の区間と同じ傾きで伸ばす。
-function _subLineMap(points) {
-  const src = [[0, 0], ...points];
-  // 傾きは安全域に丸める。丸めたぶん行き先も積み上げ直す。
-  // 丸めた傾きと元の行き先を混ぜると、点の手前と先で値が飛んで
-  // 字幕が一瞬で何分もワープする（実際にそうなっていた）。
-  const pts = [[0, 0]];
-  const seg = [];
-  for (let i = 1; i < src.length; i++) {
-    const dt = src[i][0] - src[i - 1][0];
-    const k  = dt > 0
-      ? Math.min(SUB_SLOPE_MAX, Math.max(SUB_SLOPE_MIN, (src[i][1] - src[i - 1][1]) / dt))
-      : 1;
-    seg.push(k);
-    pts.push([src[i][0], pts[i - 1][1] + dt * k]);
-  }
-  return (t) => {
-    if (!(t > 0)) return t;
-    for (let i = 0; i < pts.length - 1; i++) {
-      if (t <= pts[i + 1][0]) return pts[i][1] + (t - pts[i][0]) * seg[i];
-    }
-    const last = pts[pts.length - 1];
-    return last[1] + (t - last[0]) * (seg.length ? seg[seg.length - 1] : 1);
-  };
-}
-// 点が無いときは null を返す（＝これまでと完全に同じ経路を通す）
-function _subDriftOf(list) {
-  const a = _subAnchorNorm(list);
-  return a.length ? _subLineMap(a) : null;
-}
-// 逆写像。画面に出ている時刻から、字幕に保存されている本来の時刻へ戻す。
-function _subDriftInvOf(list) {
-  const a = _subAnchorNorm(list);
-  return a.length ? _subLineMap(a.map(p => [p[1], p[0]])) : null;
-}
-
 // ── WebVTT の解析・整形・再構築 ──────────────────────────
 function _tc2sec(tc) {
   const p = String(tc).trim().split(':').map(x => parseFloat(x));
@@ -2633,9 +2550,7 @@ function _serializeVtt(cues, position) {
 }
 
 // 元のVTTを設定どおりに作り直す。元ファイルには触らない。
-// map: 時刻の写し方（区間アンカーの折れ線）。渡さなければ何もしない＝従来どおり。
-//      平行移動(offset)より先に掛ける。offset は「全体をもう少しずらす」ための足し算のまま。
-function _reflowVtt(vtt, o, offset, map) {
+function _reflowVtt(vtt, o, offset) {
   let cues = _parseVtt(vtt);
   if (!cues.length) return vtt;
 
@@ -2656,9 +2571,6 @@ function _reflowVtt(vtt, o, offset, map) {
     if (!(gap < 1) && end - out[i].start > o.maxDur) end = out[i].start + o.maxDur;
     if (end - out[i].start < o.minDur) end = Math.min(out[i].start + o.minDur, nextStart);
     out[i].end = Math.max(end, out[i].start + 0.2);
-  }
-  if (map) {
-    for (const c of out) { const a = map(c.start), b = map(c.end); c.start = a; c.end = Math.max(b, a + 0.2); }
   }
   if (offset) {
     for (const c of out) { c.start = Math.max(0, c.start + offset); c.end = Math.max(0.2, c.end + offset); }
@@ -3388,52 +3300,11 @@ async function _ytSubStore(ytId, lang, srt, meta) {
   if (srt.length > YT_SUB_MAX_CHARS) throw new Error('字幕が大きすぎて保存できません');
   const ref = _ytSubRef(ytId);
   if (!ref) throw new Error('ログインが必要です');
-  // 古い字幕に合わせた点は新しい字幕では歪みにしかならない。
-  // merge:true は入れ子のマップを残すので、明示的に消さないと前の点が生き残る。
-  const entry = { srt, chars: srt.length, updatedAt: new Date().toISOString(), anchors: null, ...(meta || {}) };
+  const entry = { srt, chars: srt.length, updatedAt: new Date().toISOString(), ...(meta || {}) };
   await ref.set({ ytId, tracks: { [lang]: entry }, updatedAt: entry.updatedAt }, { merge: true });
   const cur = _ytSubDocs.get(ytId) || {};
   _ytSubDocs.set(ytId, { ...cur, ytId, tracks: { ...(cur.tracks || {}), [lang]: entry } });
   return entry;
-}
-
-// ── 進むほど増えるズレの点を、字幕と同じ場所に置く ──────────────
-//
-// 端末ローカルに置くと、合わせた端末でしか直らない。どの端末で合わせたかを
-// 覚えていないと使えない道具になるので、点は字幕に付いて回るようにする。
-//
-// データの扱い: 書くのは tracks.<言語>.anchors だけ。merge で足すので
-// srt 本体・他の言語・他の動画・他のキーには一切触れない。
-// 元のSRTを書き換えないので、点を消せばいつでも元の時刻に戻る。
-// 点は字幕側だけを見る。
-// v52.764〜765 は端末(localStorage)に点を置いていて、それを引き継いで読んでいた。
-// あの頃のUIでは押し方が分からないまま①②をほぼ同時に押せてしまい、
-// 「ほぼ動かさない点」が端末に残る。すると
-//   ・表示はまったく変わらない（点はあるが恒等写像に近い）
-//   ・なのに「点がある」扱いなので1クリックのボタンが出なくなる
-// となり、画面からは何も分からないまま直せなくなる。実際にそうなっていた。
-// 見えない場所の状態が表示を変える作りをやめる。古いキーはもう読まない。
-function _ytAnchorsOf(t) {
-  return t ? _subAnchorNorm(t.anchors) : [];
-}
-async function _ytSubAnchorSave(ytId, lang, list) {
-  const ref = _ytSubRef(ytId);
-  if (!ref) throw new Error('ログインが必要です');
-  const arr = _subAnchorNorm(list);
-  // 【変更禁止】保存する形は {t, r} のオブジェクトの配列。
-  // Firestoreは配列の要素に配列を置けない（Nested arrays are not supported）。
-  // [[3655,4077]] で書いていた頃は set() ごと弾かれ、押しても補正が1つも入らなかった。
-  const wire = arr.map(p => ({ t: p[0], r: p[1] }));
-  await ref.set({ tracks: { [lang]: { anchors: wire.length ? wire : null } },
-                  updatedAt: new Date().toISOString() }, { merge: true });
-  // 手元のキャッシュと表示中のトラックにも反映（読み直さずにその場で効かせる）
-  const cur = _ytSubDocs.get(ytId);
-  if (cur && cur.tracks && cur.tracks[lang]) {
-    _ytSubDocs.set(ytId, { ...cur, tracks: { ...cur.tracks, [lang]: { ...cur.tracks[lang], anchors: wire.length ? wire : null } } });
-  }
-  const t = _ytSubTracks.find(x => x.lang === lang);
-  if (t) t.anchors = wire.length ? wire : null;
-  return arr;
 }
 
 const _ytSubLangLabel = (lang, e) =>
@@ -3445,8 +3316,7 @@ function _ytSubList(doc) {
   return Object.entries(tr)
     .filter(([, e]) => e && typeof e.srt === 'string' && _looksLikeSrt(e.srt))
     .map(([lang, e]) => ({ lang, label: _ytSubLangLabel(lang, e), srt: e.srt,
-                           via: e.via || '', updatedAt: e.updatedAt || '',
-                           anchors: Array.isArray(e.anchors) ? e.anchors : null }))
+                           via: e.via || '', updatedAt: e.updatedAt || '' }))
     .sort((a, b) => (b.lang === 'ja') - (a.lang === 'ja'));
 }
 
@@ -3651,8 +3521,7 @@ function _ytSubDetach() {
 function _ytSubReflowTracks() {
   const o   = subOpts();
   const off = _subOffsetGet(_ytSubId);
-  // 点は字幕ごとに持つ。言語が違えば時刻も別物なので、まとめて1つにはできない。
-  for (const t of _ytSubTracks) t.cues = _parseVtt(_reflowVtt(t.rawVtt, o, off, _subDriftOf(_ytAnchorsOf(t))));
+  for (const t of _ytSubTracks) t.cues = _parseVtt(_reflowVtt(t.rawVtt, o, off));
 }
 
 // want: いま作った字幕の言語コード。渡すとそれを選んだ状態で載せる。
@@ -5786,14 +5655,9 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
-    // 進むほど増えるズレの補正はYouTubeの生成字幕だけの話。
-    // Drive動画は音声認識で時刻を音から実測しているのでこのズレ方をしない。
+    // YouTubeの生成字幕は時刻がAIの推測。そのことを必ず画面に出す。
+    // Drive動画は音声認識で時刻を音から実測しているので、この断り書きは出さない。
     const gen = _ytSubCur()?.kind === 'gen' ? _ytSubCur().track : null;
-    const anc = gen ? _ytAnchorsOf(gen) : [];
-    const mk  = (gen && _subMark && _subMark.ytId === _ytSubId && _subMark.lang === gen.lang) ? _subMark : null;
-    // 覚えた台詞は字幕の本文＝ユーザーのデータ。そのまま流し込まない（訳さない・壊さない）
-    const escT = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
-    const tail = gen ? _ytDriftTail(gen) : null;
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -5823,41 +5687,17 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その声が始まった瞬間に押すと合います
         </div>
-        ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す</div>
-        <div style="font-size:10.5px;color:var(--text3);line-height:1.6">
-          ${_subDriftErr ? `<span style="color:var(--red,#ef4444);font-weight:700">保存できませんでした: ${escT(_subDriftErr)}</span><br>` : ''}いま掛かっている補正: ${anc.length
-            ? `${anc.length}点 / 字幕の ${_chapFmt(anc[anc.length-1][0])} を ${_chapFmt(anc[anc.length-1][1])} に移動（全体 ×${(anc[anc.length-1][1] / Math.max(1, anc[anc.length-1][0])).toFixed(3)}）`
-            : 'なし'}<br>${_wkVer()}
-        </div>
-        <div style="font-size:10.5px;color:var(--text3);line-height:1.6">終盤のズレ。動かすとその場で字幕が動きます。声が始まる瞬間と重なるまで動かしてください</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="range" id="vp-sub-tail" min="-600" max="900" step="5" value="${tail == null ? 0 : tail}"
-            oninput="document.getElementById('vp-sub-tail-v').textContent=wkSubTailLabel(this.value);wkSubDriftSlide(this.value,false)"
-            onchange="wkSubDriftSlide(this.value,true)"
-            style="flex:1;accent-color:var(--accent,#6c8cff);min-width:110px;touch-action:none">
-          <span id="vp-sub-tail-v" style="flex-shrink:0;min-width:58px;text-align:right;font-family:'DM Mono',monospace;
-                font-size:12px;font-weight:700;color:${tail ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${_subTailLabel(tail || 0)}</span>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          ${[-30, -5, 5, 30].map(d => btn(`${d > 0 ? '+' : ''}${d}s`, `wkSubTailNudge(${d})`)).join('')}
-          ${anc.length ? btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)') : ''}
-        </div>
-        ${tail == null && anc.length ? `<div style="font-size:10.5px;color:var(--text3)">手で置いた${anc.length}点が入っています。つまみを動かすとその点は置き換わります</div>` : ''}
-        <details><summary style="font-size:10.5px;color:var(--text3);cursor:pointer">まだ合わないときは手で合わせる</summary>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:6px">先に上の1クリックで合わせてから使ってください。大きくズレたままだと、どの声がその字幕なのか分かりません</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
-          ${btn('① この字幕を覚える', 'wkSubDriftMark()', mk ? 'var(--border)' : 'var(--accent,#6c8cff)')}
-          ${btn('② ここで聞こえた', 'wkSubDriftHere()', mk ? 'var(--accent,#6c8cff)' : 'var(--border)')}
-        </div>
-        ${mk ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
-                       border-radius:8px;padding:7px 9px;font-size:11px;line-height:1.55;margin-top:6px">
-            覚えた字幕: 「${escT(mk.text)}」<br>
-            <span style="color:var(--text3)">この字幕の声が始まるところまで進めて、始まった瞬間に②を押してください</span>
-          </div>`
-          : `<div style="font-size:10.5px;color:var(--text3);margin-top:6px">ズレている字幕が画面に出ている状態で①を押し、その字幕の声が始まるところまで進めて②を押します</div>`}
-        <div style="font-size:10.5px;color:var(--text3)">①②を1組として、2組で全体が伸び、3組以上で区間ごとに合います</div>
-        </details>
-        <div style="font-size:10.5px;color:var(--text3)">合わせた結果は字幕と一緒に保存されるので、どの端末でも同じように出ます</div>` : ''}
+        ${gen ? `<div style="background:rgba(239,68,68,.10);border:1.5px solid var(--red,#ef4444);
+                       border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.65">
+            <b>この字幕の時刻はAIの推測です。実際の発話位置とは合いません</b>
+            <div style="color:var(--text3);margin-top:4px">YouTubeの動画は音声を取り出せないため、AIに動画を見せて作っています</div>
+            <div style="color:var(--text3)">AIは時刻を音から測っておらず、実演中の無音を飲み込むので、進むほどズレが大きくなります</div>
+            <div style="color:var(--text3)">無音の長さも位置もバラバラなので、全体をずらしても伸ばしても直りません</div>
+            <div style="color:var(--text3)">本文は正確です。読み物としてはそのまま使えます</div>
+            <div style="color:var(--text3);margin-top:4px">時刻まで正確な字幕が要るときは、その動画をGoogleドライブに置いて字幕を作ってください</div>
+            <div style="color:var(--text3)">そちらは音声認識で時刻を音から実測するのでズレません</div>
+            <div style="color:var(--text3);margin-top:4px">${_wkVer()}</div>
+          </div>` : ''}
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
           ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
           <span style="min-width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;
@@ -5977,150 +5817,12 @@ window.wkSubSyncNow = function() {
   window.toast?.(`⏱ 現在位置に合わせました（${next > 0 ? '+' : ''}${next.toFixed(1)}秒）`);
 };
 
-// ズレが進むほど大きくなる字幕を、押した地点ごとに合わせる。
-// wkSubSyncNow（全体を平行移動）とは別物。こちらは「この台詞は本当はここ」という
-// 点を足していき、点と点の間を直線で結んで時刻を引き伸ばす。
-//
-// 【なぜ2段階なのか】
-// 1回押しにすると「いま出ている字幕を、いまの再生位置に合わせる」になる。
-// これはズレが数秒のときしか使えない。7分ズレていると、画面に出ている台詞が
-// 実際に聞こえるのは7分先で、そこまで進んだ時には画面の字幕はとっくに別物に
-// なっている。つまり「聞こえた瞬間に押す」が物理的に不可能になる。
-// だから「①この字幕を覚える」→「進める」→「②ここで聞こえた」に分ける。
-// ①で覚えるのは字幕の側、②で記録するのは再生位置の側。どれだけズレていても押せる。
-//
-// 対象はYouTubeの生成字幕だけ。Drive動画は音声認識で時刻を音から実測しているので
-// このズレ方をしない。点は字幕と同じ場所に保存するので、どの端末でも同じに出る。
-let _subMark = null;   // ①で覚えた字幕 { ytId, lang, t（字幕本来の時刻）, text }
-
-// 終盤のズレを、動かしながら合わせる。
-//
-// 【やってはいけないこと】「字幕の最後 = 動画の最後」として自動で伸ばす。
-// v52.768〜770 でそれをやって外した。教則動画は末尾に無音（実演だけ・エンドカード）が
-// 数分あるのが普通で、この前提だとそのぶん丸ごと伸ばしすぎる。
-// 実際、1:07:58 の動画で最後の約5分が無音だった。動画の長さは手がかりにならない。
-//
-// 自動で決められる材料は無い:
-//   ・YouTube側の字幕の時刻は取得できない（2025年からPoTokenが必要・署名はセッション束縛）
-//   ・Geminiは時刻を音から測っていない（それがこのズレの原因そのもの）
-//   ・iframeの中の音声はブラウザから触れない
-// だから最後は人が合わせるしかない。せめて「動かせば即座に画面が動く」形にして、
-// 英語が分からなくても、声が始まる瞬間と字幕が重なるまで動かせばよいようにする。
-//
-// つまみが決めるのは伸ばす量だけ（＝最後のキューを何秒うしろへ送るか）。
-// 全体がその割合で伸びる。先頭は動かさない。
-function _ytDriftTail(t) {
-  const a = _ytAnchorsOf(t);
-  if (a.length !== 1) return null;                  // 手で置いた複数点はつまみでは表せない
-  const end = _srtLastEnd(t.srt);
-  return end > 0 ? Math.round(a[0][1] - a[0][0]) : null;
-}
-
-let _subDriftErr = '';   // 直近の保存失敗。トーストは消えるので⚙に残す
-
 // いま動いている版。PWAのキャッシュで古いままの端末があるため、
 // 「直したのに変わらない」がキャッシュなのか不具合なのかを画面で切り分けられるようにする。
 function _wkVer() {
   const m = String(document.title || '').match(/v\d+\.\d+/);
   return m ? m[0] : '';
 }
-
-// つまみの数字。＋は「字幕を後ろへ送る」。分:秒で出す（秒だけだと大きさが掴めない）
-function _subTailLabel(v) {
-  const n = Math.round(Number(v) || 0);
-  if (!n) return '0秒';
-  const a = Math.abs(n), m = Math.floor(a / 60), ss = a % 60;
-  return (n < 0 ? '−' : '+') + (m ? `${m}分${ss ? ss + '秒' : ''}` : `${ss}秒`);
-}
-window.wkSubTailLabel = _subTailLabel;
-
-// ±ボタン。つまみでは届かない細かさを詰める
-window.wkSubTailNudge = function(d) {
-  const el = document.getElementById('vp-sub-tail');
-  if (!el) return;
-  el.value = String(Math.max(-600, Math.min(900, (Number(el.value) || 0) + d)));
-  window.wkSubDriftSlide(el.value, true);
-};
-
-// save=false は画面だけ動かす（つまみを動かしている最中）。離した時だけ保存する。
-window.wkSubDriftSlide = async function(v, save) {
-  const cur = _ytSubCur();
-  if (!cur || cur.kind !== 'gen') return;
-  const t   = cur.track;
-  const end = _srtLastEnd(t.srt);
-  if (!(end > 0)) return;
-  const sec  = Math.round(Number(v) || 0);
-  const list = sec ? [[end, Math.max(1, end + sec)]] : [];
-  t.anchors = list.map(p => ({ t: p[0], r: p[1] }));   // 先に画面を動かす
-  _ytSubReapply();
-  if (!save) return;
-  _subDriftErr = '';
-  try { await _ytSubAnchorSave(_ytSubId, t.lang, list); }
-  catch (e) { _subDriftErr = String(e?.message || e); }
-  window.wkSubOptsRender();
-};
-
-window.wkSubDriftMark = function() {
-  const cur = _ytSubCur();
-  if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
-  const p = _subHere();
-  if (p.err) { window.toast?.(p.err); return; }
-  const t   = cur.track;
-  const off = _subOffsetGet(_ytSubId);
-  // 画面に出ている時刻には、すでに折れ線と平行移動が掛かっている。
-  // 点は「字幕に保存されている本来の時刻」で持つので、掛かっている分を戻して覚える。
-  const inv = _subDriftInvOf(_ytAnchorsOf(t));
-  const src = inv ? inv(p.start - off) : (p.start - off);
-  _subMark = { ytId: _ytSubId, lang: t.lang, t: src,
-               text: String(p.text || '').replace(/\s+/g, ' ').trim().slice(0, 30) };
-  window.wkSubOptsRender();
-  window.toast?.('① 覚えました。この字幕の声が始まるところまで進めて②を押してください');
-};
-
-window.wkSubDriftHere = async function() {
-  const cur = _ytSubCur();
-  if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
-  const t = cur.track;
-  if (!_subMark || _subMark.ytId !== _ytSubId || _subMark.lang !== t.lang) {
-    window.toast?.('先に①でズレている字幕を覚えさせてください'); return;
-  }
-  const now = _subNowSec();
-  if (!Number.isFinite(now)) { window.toast?.('動画を再生してから押してください'); return; }
-  const off  = _subOffsetGet(_ytSubId);
-  const list = _subAnchorWith(_ytAnchorsOf(t), _subMark.t, now - off);
-  if (!list.length) { window.toast?.('ここでは合わせられません（動画の先頭すぎます）'); return; }
-  _subDriftErr = '';
-  try {
-    await _ytSubAnchorSave(_ytSubId, t.lang, list);
-  } catch (e) {
-    _subDriftErr = String(e?.message || e);
-    window.toast?.('⚠️ 保存に失敗: ' + _subDriftErr, 9000);
-    window.wkSubOptsRender();
-    return;
-  }
-  _subMark = null;
-  _ytSubReapply();
-  window.wkSubOptsRender();
-  window.toast?.(`⏱ ${list.length}点で合わせています`);
-};
-
-window.wkSubDriftReset = async function() {
-  const cur = _ytSubCur();
-  if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
-  _subMark = null;
-  _subDriftErr = '';
-  try {
-    await _ytSubAnchorSave(_ytSubId, cur.track.lang, []);
-  } catch (e) {
-    _subDriftErr = String(e?.message || e);
-    window.toast?.('⚠️ 保存に失敗: ' + _subDriftErr, 9000);
-    window.wkSubOptsRender();
-    return;
-  }
-  _ytSubReapply();
-  window.wkSubOptsRender();
-  window.toast?.('進むほど増えるズレの補正を消しました');
-};
 
 // いま出ているキューの開始時刻と、いまの再生位置を取る。DriveとYouTubeで取り方が違う。
 function _subHere() {
