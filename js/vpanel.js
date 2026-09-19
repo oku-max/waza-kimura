@@ -5792,10 +5792,12 @@ function _subOptsHTML(scope) {
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${btn('⏱ 進むほど増えるズレを直す', 'wkSubDriftHere()', 'var(--accent,#6c8cff)')}
           ${anc.length ? `<span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent,#6c8cff)">${anc.length}点</span>` : ''}
+          ${anc.length ? btn('💾 この補正を字幕に保存', 'wkSubDriftBake()') : ''}
           ${anc.length ? btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)') : ''}
         </div>
         <div style="font-size:10.5px;color:var(--text3)">先に進むほどズレが大きくなる字幕用です。ズレている場所で台詞が聞こえた瞬間に押してください</div>
         <div style="font-size:10.5px;color:var(--text3)">2回押すと全体が伸び、3回以上押すと区間ごとに合います</div>
+        <div style="font-size:10.5px;color:var(--text3)">合わせた結果はこの端末にしか残りません。他の端末にも反映するには字幕に保存してください</div>
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
           ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
           <span style="min-width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;
@@ -5996,6 +5998,77 @@ window.wkSubBakeOffset = async function() {
   _gdSubReapply();
   window.wkSubOptsRender();
   window.toast?.('💾 補正をDriveのファイルに保存しました');
+};
+
+// 進むほど増えるズレの補正を、字幕そのものに書き込む。
+//
+// なぜ要るか: 補正は端末ローカル(localStorage)にしか無いので、
+// 同じ動画を別の端末で開くと元のままズレて出る。この app は複数端末で
+// 使うものなので、合わせた結果は字幕と一緒に持ち歩けないと意味がない。
+// 書き込む先は字幕そのもの（Driveの.srt / Firestoreのytsub_*）。
+// 本文は1文字も変えない。時刻だけを、置いた点どおりに写す。
+window.wkSubDriftBake = async function() {
+  const key = _subCurKey();
+  const anc = _subAnchorGet(key);
+  if (!anc.length) { window.toast?.('補正がかかっていません'); return; }
+  const map = _subLineMap(anc);
+  // rawVtt（＝保存されている時刻そのもの）に写像を掛けてSRTを作る
+  const bake = (rawVtt) => {
+    const cues = _parseVtt(rawVtt).map(c => {
+      const a = map(c.start), b = map(c.end);
+      return { ...c, start: Math.max(0, a), end: Math.max(a + 0.2, b) };
+    });
+    if (!cues.length) return null;
+    return cues.map((c, i) =>
+      `${i + 1}\n${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}\n${c.text}`).join('\n\n') + '\n';
+  };
+  const warn = `\n\n保存されている時刻を書き換えます（本文は変わりません）。\n`
+             + `元の時刻に戻すには字幕を作り直す必要があるので、\n`
+             + `残しておきたい場合は先に「⬇ 保存」でファイルに落としてください。`;
+
+  // ── YouTube: Firestore の字幕を差し替える（全端末に反映される）──
+  const yt = _ytSubCur();
+  if (yt && yt.kind === 'gen') {
+    const t = yt.track, ytId = _ytSubId;
+    const srt = bake(t.rawVtt);
+    if (!srt) { window.toast?.('字幕を読み取れませんでした'); return; }
+    if (!confirm(`「${t.label}」の時刻を、置いた${anc.length}点に合わせて保存しますか？${warn}`)) return;
+    try {
+      // via / srcLang などの付帯情報は元のまま持ち越す（srt だけを差し替える）
+      const cur = _ytSubDocs.get(ytId)?.tracks?.[t.lang] || {};
+      const { srt: _drop, chars: _drop2, updatedAt: _drop3, ...meta } = cur;
+      await _ytSubStore(ytId, t.lang, srt, meta);
+    } catch (e) {
+      window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+      return;
+    }
+    t.srt = srt; t.rawVtt = _srtToVtt(srt);
+    _subAnchorSave(key, []);          // 字幕側が正しくなったので端末側の点は不要
+    _ytSubReapply();
+    window.wkSubOptsRender();
+    window.toast?.('💾 補正を字幕に保存しました（他の端末にも反映されます）');
+    return;
+  }
+
+  // ── Drive: .srt ファイルを差し替える ──
+  const t = _gdSubTracks[_gdSubIndex];
+  if (!t || !t.id) { window.toast?.('対象の字幕ファイルが特定できませんでした'); return; }
+  const token = window.getDriveTokenIfAvailable?.();
+  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
+  const srt = bake(t.rawVtt);
+  if (!srt) { window.toast?.('字幕を読み取れませんでした'); return; }
+  if (!confirm(`「${t.name}」の時刻を、置いた${anc.length}点に合わせて保存しますか？${warn}`)) return;
+  try {
+    await _driveUploadText(token, { name: t.name, text: srt, existingId: t.id });
+  } catch (e) {
+    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    return;
+  }
+  t.rawVtt = _srtToVtt(srt);
+  _subAnchorSave(key, []);
+  _gdSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.('💾 補正を字幕に保存しました（他の端末にも反映されます）');
 };
 
 // Driveから読み直す（他の端末で直した場合など）

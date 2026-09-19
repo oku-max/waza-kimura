@@ -22,7 +22,7 @@ const ok   = (m) => console.log('  ✓', m);
 const fail = (m) => { ng++; console.log('  ✗', m); };
 
 const grab = (name) => {
-  const i = src.search(new RegExp(`function ${name}\\(`));
+  const i = src.search(new RegExp(`(?:window\\.)?${name}\\s*=\\s*(?:async )?function\\(|(?:async )?function ${name}\\(`));
   if (i < 0) return null;
   let d = 0;
   for (let k = src.indexOf('{', i); k < src.length; k++) {
@@ -90,11 +90,31 @@ if (need.some(x => !x) || fns.some(x => !x)) {
     : fail('実測の形に合わない');
 }
 
-// 補正が表示だけに留まっていること（ファイル本体に書かない）
+// 点を置くだけでは、字幕そのものには何も書かないこと
 const save = grab('_subAnchorSave');
 save && /localStorage\.setItem\(SUB_ANCHOR_KEY/.test(save) && !/firestore|_driveUpload|ref\.set/.test(save)
-  ? ok('補正の保存先は端末のlocalStorageだけ（Drive/Firestoreに書かない）')
-  : fail('補正がこの端末の外へ書かれている');
+  ? ok('点を置くだけなら字幕には書き込まない（端末のlocalStorageだけ）')
+  : fail('点を置いただけで字幕が書き換わる');
+
+// 「字幕に保存」は、本文を変えず・確認を取り・保存後は端末側の点を消すこと。
+// 点を残したまま保存すると、次に開いたときに補正が二重に掛かる。
+const bake = grab('wkSubDriftBake');
+if (!bake) fail('wkSubDriftBake が無い（補正がこの端末から出られない）');
+else {
+  /confirm\(/.test(bake)
+    ? ok('字幕への保存は確認を取る')
+    : fail('確認なしで字幕を書き換える');
+  /_subAnchorSave\(key, \[\]\)/.test(bake)
+    ? ok('保存したら端末側の点を消す（二重に掛からない）')
+    : fail('保存後も点が残る（次に開くと補正が二重に掛かる）');
+  // キューは丸ごと引き継ぎ(...c)、start/end だけを入れ替える。本文には代入しない。
+  /\{ \.\.\.c, start:/.test(bake) && !/\.text\s*=/.test(bake)
+    ? ok('本文には触れず時刻だけを写す')
+    : fail('本文を書き換えている可能性がある');
+  /_ytSubStore\(/.test(bake) && /_driveUploadText\(/.test(bake)
+    ? ok('YouTube(Firestore)とDrive(.srt)の両方に保存できる')
+    : fail('片方の経路でしか保存できない');
+}
 
 console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 進むほど増えるズレの補正は、順序を壊さず表示だけに掛かる');
 process.exit(ng ? 1 : 0);
