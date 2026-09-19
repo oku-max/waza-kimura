@@ -1629,15 +1629,111 @@ async function handleAsrSrt(request, env) {
 //
 // 取れた時刻はそのまま使い、本文だけ翻訳する（既存の「翻訳だけやり直す」と同じ考え方）。
 // だから翻訳がどう転んでもタイミングは壊れない。
+// ── まず無料で、YouTubeから直接取りにいく ───────────────────────
+//
+// 2025年から timedtext は PoToken（BotGuardの証明）を要求し、URLは署名付きで
+// セッションに束縛され、データセンターIPは弾かれる、と言われている。
+// ただし「必ず失敗する」とは限らない（動画・地域・経路で差が出る）。
+// 無料なので必ず先に試す。ダメだった理由は diag に残して、次に推測しないで済むようにする。
+//
+// 取りに行く先は2つ:
+//   A. InnerTube の player（Androidクライアントを名乗る）… PoTokenを迂回できる場合がある
+//   B. 視聴ページのHTMLに埋まっている ytInitialPlayerResponse
+// どちらも captionTracks[].baseUrl が取れれば、そこに &fmt=json3 を付けて本文と時刻を取る。
+const YT_UA_WEB = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const YT_UA_AND = 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip';
+const YT_IT_KEY = 'AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w';   // 公開のInnerTubeキー
+
+// captionTracks から欲しい1本を選ぶ。lang 指定があればそれ、無ければ先頭（＝元の言語）。
+function _ytPickCap(tracks, lang) {
+  if (!Array.isArray(tracks) || !tracks.length) return null;
+  const base = String(lang || '').slice(0, 2);
+  return (base && tracks.find(t => String(t.languageCode || '').slice(0, 2) === base)) || tracks[0];
+}
+
+// json3 → キュー（秒）。時刻は向こうの値をそのまま使う。
+function _ytJson3Cues(j) {
+  const ev = Array.isArray(j?.events) ? j.events : [];
+  const out = [];
+  for (const e of ev) {
+    const segs = Array.isArray(e?.segs) ? e.segs : [];
+    const text = segs.map(x => String(x?.utf8 ?? '')).join('').replace(/\s+/g, ' ').trim();
+    const st   = Number(e?.tStartMs);
+    if (!text || text === '\n' || !Number.isFinite(st)) continue;
+    const dur = Number(e?.dDurationMs);
+    out.push({ start: st / 1000, end: st / 1000 + (Number.isFinite(dur) && dur > 0 ? dur / 1000 : 2), text });
+  }
+  out.sort((a, b) => a.start - b.start);
+  for (let i = 0; i < out.length - 1; i++) {
+    if (out[i].end > out[i + 1].start) out[i].end = Math.max(out[i].start + 0.2, out[i + 1].start);
+  }
+  return out;
+}
+
+async function _ytCapsFromTracks(tracks, lang, diag, how) {
+  const pick = _ytPickCap(tracks, lang);
+  if (!pick || !pick.baseUrl) { diag.push(how + ':トラック無し'); return null; }
+  const url = String(pick.baseUrl).replace(/\\u0026/g, '&') + '&fmt=json3';
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': YT_UA_WEB } });
+    const t = await r.text();
+    if (!r.ok || !t.trim()) { diag.push(`${how}:本文が空(HTTP ${r.status})`); return null; }
+    const cues = _ytJson3Cues(JSON.parse(t));
+    if (!cues.length) { diag.push(how + ':キュー0件'); return null; }
+    diag.push(`${how}:OK ${cues.length}件`);
+    return { cues, lang: String(pick.languageCode || ''), how };
+  } catch (e) {
+    diag.push(`${how}:${String(e?.message || e).slice(0, 60)}`);
+    return null;
+  }
+}
+
+// A. InnerTube の player
+async function _ytCapsInnertube(ytId, lang, diag) {
+  try {
+    const r = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${YT_IT_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': YT_UA_AND },
+      body: JSON.stringify({ videoId: ytId, context: { client: {
+        clientName: 'ANDROID', clientVersion: '19.09.37', androidSdkVersion: 30, hl: 'en', gl: 'US' } } }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { diag.push(`innertube:HTTP ${r.status}`); return null; }
+    const tracks = d?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    return await _ytCapsFromTracks(tracks, lang, diag, 'innertube');
+  } catch (e) {
+    diag.push('innertube:' + String(e?.message || e).slice(0, 60));
+    return null;
+  }
+}
+
+// B. 視聴ページに埋まっている ytInitialPlayerResponse
+async function _ytCapsWatchPage(ytId, lang, diag) {
+  try {
+    const r = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(ytId)}&hl=en&bpctr=9999999999`,
+                          { headers: { 'User-Agent': YT_UA_WEB, 'Accept-Language': 'en-US,en;q=0.9' } });
+    if (!r.ok) { diag.push(`watch:HTTP ${r.status}`); return null; }
+    const html = await r.text();
+    const m = html.match(/"captionTracks":(\[.*?\])/s);
+    if (!m) { diag.push('watch:captionTracksが無い'); return null; }
+    const tracks = JSON.parse(m[1].replace(/\\u0026/g, '&'));
+    return await _ytCapsFromTracks(tracks, lang, diag, 'watch');
+  } catch (e) {
+    diag.push('watch:' + String(e?.message || e).slice(0, 60));
+    return null;
+  }
+}
+
+async function _ytCapsFree(ytId, lang, diag) {
+  return (await _ytCapsInnertube(ytId, lang, diag))
+      || (await _ytCapsWatchPage(ytId, lang, diag));
+}
+
 const SUPADATA = 'https://api.supadata.ai/v1';
 
 async function handleYtTranscript(request, env) {
   if (request.method === 'OPTIONS') return corsOk();
   if (request.method !== 'POST')    return jsonRes({ error: 'POSTしてください' }, 405);
-  if (!env.SUPADATA_API_KEY) {
-    return jsonRes({ error: 'YouTubeの字幕取得サービスが未設定です',
-                     detail: 'SUPADATA_API_KEY が Worker に設定されていません' }, 500);
-  }
   const body = await request.json().catch(() => ({}));
   const auth = await verifyOwner(body.idToken, env);
   if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
@@ -1646,6 +1742,22 @@ async function handleYtTranscript(request, env) {
   if (!/^[A-Za-z0-9_-]{6,20}$/.test(ytId)) return jsonRes({ error: 'ytId が不正です' }, 400);
   // lang は「この言語の字幕があれば優先」。無ければ向こうが既定の言語を返す。
   const lang = /^[a-z]{2}(-[A-Za-z]{2,4})?$/.test(String(body.lang || '')) ? body.lang : '';
+
+  // ① 無料の直接取得を先に試す（成功すれば費用ゼロ・業者に何も渡さない）
+  const diag = [];
+  const free = await _ytCapsFree(ytId, lang, diag);
+  if (free) {
+    return jsonRes({
+      srt: _cuesToSrt(free.cues), lang: free.lang, availableLangs: [],
+      cues: free.cues.length, lastSec: Math.round(free.cues[free.cues.length - 1].end),
+      src: free.how, diag,
+    });
+  }
+  // ② 直接取れなければ業者のAPI。キーが無ければここで終わり（呼び出し側はGeminiへ落ちる）
+  if (!env.SUPADATA_API_KEY) {
+    return jsonRes({ error: 'YouTubeの字幕を直接取得できませんでした',
+                     detail: 'SUPADATA_API_KEY も未設定です', diag }, 404);
+  }
 
   const head = { 'x-api-key': env.SUPADATA_API_KEY };
   const u = new URL(SUPADATA + '/youtube/transcript');
@@ -1658,7 +1770,7 @@ async function handleYtTranscript(request, env) {
     res  = await fetch(u.toString(), { headers: head });
     data = await res.json().catch(() => ({}));
   } catch (e) {
-    return jsonRes({ error: 'YouTubeの字幕を取得できませんでした', detail: String(e?.message || e) }, 502);
+    return jsonRes({ error: 'YouTubeの字幕を取得できませんでした', detail: String(e?.message || e), diag }, 502);
   }
 
   // 長い動画は202でジョブIDが返る。ここで待ち切る（Workerは応答を流し続けられる）。
@@ -1668,13 +1780,13 @@ async function handleYtTranscript(request, env) {
     data = out;
   } else if (!res.ok) {
     return jsonRes({ error: 'YouTubeの字幕を取得できませんでした',
-                     detail: data.message || data.error || ('HTTP ' + res.status) }, res.status === 404 ? 404 : 502);
+                     detail: data.message || data.error || ('HTTP ' + res.status), diag }, res.status === 404 ? 404 : 502);
   }
 
   const cues = _ytTrCues(data);
   if (!cues.length) {
     return jsonRes({ error: 'この動画にはYouTube側の字幕がありません',
-                     detail: 'YouTubeが字幕を持っていない動画では、この方法は使えません' }, 404);
+                     detail: 'YouTubeが字幕を持っていない動画では、この方法は使えません', diag }, 404);
   }
   return jsonRes({
     srt:  _cuesToSrt(cues),
@@ -1682,6 +1794,7 @@ async function handleYtTranscript(request, env) {
     availableLangs: Array.isArray(data.availableLangs) ? data.availableLangs : [],
     cues: cues.length,
     lastSec: Math.round(cues[cues.length - 1].end),
+    src: 'supadata', diag,
   });
 }
 

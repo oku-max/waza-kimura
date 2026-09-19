@@ -53,6 +53,17 @@ const wsrc = fs.readFileSync(path.join(ROOT, '_worker.js'), 'utf8');
 /case '\/api\/yt-transcript'/.test(wsrc) && /function handleYtTranscript/.test(wsrc)
   ? ok('YouTube側の字幕を取る経路がサーバーにある')
   : fail('YouTube側の字幕を取る経路が無い');
+// 無料の直接取得を必ず先に試すこと。成功すれば費用ゼロで、業者に何も渡さずに済む。
+const h = wsrc.slice(wsrc.indexOf('async function handleYtTranscript'), wsrc.indexOf('async function _ytTrPoll'));
+h.indexOf('_ytCapsFree(') >= 0 && h.indexOf('_ytCapsFree(') < h.indexOf('SUPADATA_API_KEY')
+  ? ok('無料の直接取得を、業者のAPIより先に試す')
+  : fail('先に業者のAPIを呼んでいる（無料で済む場合に課金する）');
+/diag\.push/.test(wsrc)
+  ? ok('どこで失敗したかを残す（次に推測しないで済むように）')
+  : fail('失敗の理由を残していない');
+/ytErrNote/.test(src)
+  ? ok('失敗した理由を結果パネルに出す（黙ってGeminiに落ちない）')
+  : fail('失敗が画面に出ないままGeminiへ落ちる');
 const gen = src.slice(src.indexOf('async function _ytGenSubtitle'), src.indexOf('setBtn(\'⏳ 保存中…\')'));
 gen.indexOf('_ytFetchTranscript(') >= 0 && gen.indexOf('_ytFetchTranscript(') < gen.indexOf("source: 'youtube'")
   ? ok('Geminiに動画を見せる前に、YouTube側の字幕を試す')

@@ -3789,7 +3789,11 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
     body: JSON.stringify({ idToken, ytId, lang: subLang === 'orig' ? '' : subLang }),
   });
   const d = await res.json().catch(() => ({}));
-  if (!res.ok || !d.srt) return { error: (d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : '') };
+  // 取れても取れなくても、どこまで行けたかを必ず残す。
+  // 「たぶんPoTokenで弾かれた」を次も推測しないで済むように、実際の理由を見る。
+  if (Array.isArray(d.diag) && d.diag.length) console.log('[ytsub] YouTube側の字幕:', d.src || '-', d.diag.join(' / '));
+  if (!res.ok || !d.srt) return { error: (d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''),
+                                  diag: Array.isArray(d.diag) ? d.diag.join(' / ') : '' };
   return d;
 }
 
@@ -3826,7 +3830,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   }
 
   const idToken = await user.getIdToken();
-  let srt = '', cost = 0, via = 'gemini', note = '', diagNote = '';
+  let srt = '', cost = 0, via = 'gemini', note = '', diagNote = '', ytErrNote = '';
 
   // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
   const canTranslate = !same && other && subLang !== 'orig';
@@ -3856,9 +3860,13 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
         srt = r.srt; cost = r.cost; via = 'yt:' + (yt.lang || '?') + '+translate';
         if (r.missing) note = `（${r.missing}行は訳せず原文のまま）`;
       }
-      diagNote = ` / YouTubeの字幕(${yt.lang || '?'})から作成 · ${yt.cues}枚 · 最後 ${_chapFmt(yt.lastSec || 0)}`;
-    } else if (yt && yt.error && !silent) {
-      console.log('[ytsub] YouTubeの字幕は使えませんでした:', yt.error);
+      diagNote = ` / YouTubeの字幕(${yt.lang || '?'})から作成 · ${yt.cues}枚 · 最後 ${_chapFmt(yt.lastSec || 0)}`
+               + (yt.src ? ` · 取得元 ${yt.src}` : '');
+    } else if (yt && yt.error) {
+      // 失敗したことと理由を結果パネルに出す。黙ってGeminiに落ちると、
+      // なぜ時刻がズレたままなのかが誰にも分からない。
+      ytErrNote = ` / YouTubeの字幕は使えませんでした: ${yt.error}${yt.diag ? `［${yt.diag}］` : ''}`;
+      console.log('[ytsub] YouTubeの字幕は使えませんでした:', yt.error, yt.diag || '');
     }
   }
 
@@ -3921,7 +3929,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   if (!silent) {
     window.toast?.(`✅ 字幕を作成しました（${_langLabel(subLang) || subLang}${costStr}）`);
     _subGenShowResult(v.id, true,
-      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}${diagNote}`
+      `字幕を作成しました: ${_ytSubLangLabel(subLang)}${costStr} / ${Math.round((Date.now() - t0) / 1000)}秒${note}${diagNote}${ytErrNote}`
       + (srt ? ` / 保存した字幕は ${_chapFmt(_srtLastEnd(srt))} まで` : ''));
   }
   // 再生中ならその場で載せ直す（ここで転んでも保存は済んでいるので成功として返す）
