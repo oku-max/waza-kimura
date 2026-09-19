@@ -5799,6 +5799,7 @@ function _subOptsHTML(scope) {
     const mk  = (gen && _subMark && _subMark.ytId === _ytSubId && _subMark.lang === gen.lang) ? _subMark : null;
     // 覚えた台詞は字幕の本文＝ユーザーのデータ。そのまま流し込まない（訳さない・壊さない）
     const escT = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+    const plan = gen ? _ytDriftAutoPlan() : null;
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -5829,18 +5830,26 @@ function _subOptsHTML(scope) {
           字幕が出ている状態で、その台詞が聞こえた瞬間に押すと合います
         </div>
         ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す${anc.length ? `（いま${anc.length}点）` : ''}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${plan ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
+                       border-radius:8px;padding:8px 10px;display:flex;align-items:center;
+                       justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11px;line-height:1.55">この字幕は動画より ${_chapFmt(plan.gap)} 早く終わっています（後半ほどズレます）</span>
+            ${btn('⏱ 動画の長さに合わせる', 'wkSubDriftAuto()', 'var(--accent,#6c8cff)')}
+          </div>` : ''}
+        ${anc.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)')}</div>` : ''}
+        <details><summary style="font-size:10.5px;color:var(--text3);cursor:pointer">まだ合わないときは手で合わせる</summary>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
           ${btn('① この字幕を覚える', 'wkSubDriftMark()', mk ? 'var(--border)' : 'var(--accent,#6c8cff)')}
           ${btn('② ここで聞こえた', 'wkSubDriftHere()', mk ? 'var(--accent,#6c8cff)' : 'var(--border)')}
-          ${anc.length ? btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)') : ''}
         </div>
         ${mk ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
-                       border-radius:8px;padding:7px 9px;font-size:11px;line-height:1.55">
+                       border-radius:8px;padding:7px 9px;font-size:11px;line-height:1.55;margin-top:6px">
             覚えた字幕: 「${escT(mk.text)}」<br>
             <span style="color:var(--text3)">この台詞が実際に聞こえるところまで進めて、聞こえた瞬間に②を押してください</span>
           </div>`
-          : `<div style="font-size:10.5px;color:var(--text3)">ズレている字幕が画面に出ている状態で①を押し、その台詞が実際に聞こえるところまで進めて②を押します</div>`}
+          : `<div style="font-size:10.5px;color:var(--text3);margin-top:6px">ズレている字幕が画面に出ている状態で①を押し、その台詞が実際に聞こえるところまで進めて②を押します</div>`}
         <div style="font-size:10.5px;color:var(--text3)">①②を1組として、2組で全体が伸び、3組以上で区間ごとに合います</div>
+        </details>
         <div style="font-size:10.5px;color:var(--text3)">合わせた結果は字幕と一緒に保存されるので、どの端末でも同じように出ます</div>` : ''}
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
           ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
@@ -5976,6 +5985,52 @@ window.wkSubSyncNow = function() {
 // 対象はYouTubeの生成字幕だけ。Drive動画は音声認識で時刻を音から実測しているので
 // このズレ方をしない。点は字幕と同じ場所に保存するので、どの端末でも同じに出る。
 let _subMark = null;   // ①で覚えた字幕 { ytId, lang, t（字幕本来の時刻）, text }
+
+// 1クリックで合わせる。
+//
+// 手で点を置くのは、どれだけ丁寧に作っても面倒な作業でしかない。
+// ただ1つだけ、聞かなくても分かる手がかりがある: 動画の長さ。
+// AIは無音を飲み込むので、出来上がった字幕は必ず動画より短く終わる。
+// 実測では 1:07:57 の動画に対して字幕は 1:00:55 で終わっていた（7分ぶん足りない）。
+// 「字幕の最後 = 動画の最後」として1点置けば、全体が一定倍率で伸びる。
+//
+// 動画の末尾が無音（実演だけ・エンドカード）だと伸ばしすぎになるので、
+// 押す前に実際の数字を出して確かめてもらう。合わなければ①②で詰められる。
+function _ytDriftAutoPlan() {
+  const cur = _ytSubCur();
+  if (!cur || cur.kind !== 'gen') return null;
+  const t = cur.track;
+  if (_ytAnchorsOf(t).length) return null;              // すでに合わせてあるなら出さない
+  const v = (window.videos || []).find(x => x.ytId === _ytSubId);
+  const dur = _ytDurationOf(v);
+  const end = _srtLastEnd(t.srt);
+  if (!(dur > 0) || !(end > 0)) return null;
+  const gap = dur - end;
+  // 少しの差は普通（最後が無音で終わる動画はいくらでもある）。
+  // 「明らかに足りない」ときだけ出す。
+  if (gap < 60 || gap < dur * 0.05) return null;
+  return { track: t, end, dur, gap };
+}
+
+window.wkSubDriftAuto = async function() {
+  const plan = _ytDriftAutoPlan();
+  if (!plan) { window.toast?.('この字幕は動画の長さとほぼ合っています'); return; }
+  const { track: t, end, dur, gap } = plan;
+  if (!confirm(`字幕の最後（${_chapFmt(end)}）を、動画の最後（${_chapFmt(dur)}）に合わせます。\n\n`
+             + `${_chapFmt(gap)}ぶん足りていないので、全体をその割合で伸ばします。\n`
+             + `字幕そのものは書き換えないので、いつでも元に戻せます。`)) return;
+  try {
+    // 末尾ぴったりに置くと最後のキューが尺の外へ出ることがあるので少しだけ内側に置く
+    await _ytSubAnchorSave(_ytSubId, t.lang, [[end, Math.max(end + 1, dur - 1)]]);
+  } catch (e) {
+    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    return;
+  }
+  _subMark = null;
+  _ytSubReapply();
+  window.wkSubOptsRender();
+  window.toast?.('⏱ 動画の長さに合わせました');
+};
 
 window.wkSubDriftMark = function() {
   const cur = _ytSubCur();
