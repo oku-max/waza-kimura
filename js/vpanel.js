@@ -5352,28 +5352,6 @@ window.vpGenChapters = async function(id, preset) {
                        : await _askChapterSource(btn, subs.length);
     if (!via) return { ok: false, skipped: true };
 
-    // 1.5 字幕が無いまま「字幕から検出」を選んだら、ここで字幕を作ってから検出へ進む。
-    //
-    // 【変更禁止】vpGenSubtitle は引数なしで呼ぶこと。
-    // 以前ここで preset を渡したところ、preset は一括処理(bulk)の契約なので、
-    // 言語メニューも確認ダイアログも「既存の別言語から翻訳で済ませる」判断も
-    // まとめて一括用の挙動に差し替わり、「💬 字幕生成」を押した時と違う結果に
-    // なった。そこから連鎖して字幕そのものを壊した。
-    // 引数なし＝ボタンを押したのと完全に同じ処理。ここは薄い入口に徹する。
-    // 一括実行(preset)は従来どおり字幕が無ければ video へ倒すので、ここには来ない。
-    if (via === 'sub' && !subs.length && !preset) {
-      setBtn('⏳ 字幕を作成中…');
-      const g = await window.vpGenSubtitle(id);
-      endBtn();
-      // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
-      if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
-      // Driveは作った直後の検索に出てこないことがあるので、空なら一度だけ待って引き直す。
-      // それでも出なければ「失敗」ではない。字幕は保存できているので、そう伝える。
-      subs = await findSubs();
-      if (!subs.length) { await new Promise(r => setTimeout(r, 1500)); subs = await findSubs(); }
-      if (!subs.length) return fail('字幕は作成できました。一覧にまだ出てこないので、もう一度「自動チャプター」を押してください');
-    }
-
     // 2枚目。どこから作るかによって聞くことが違う。
     //   貼り付け  → 一覧を入れてもらう
     //   字幕/動画 → 細かさを選んでもらう
@@ -5394,6 +5372,35 @@ window.vpGenChapters = async function(id, preset) {
     if (!preset && via !== 'list') {
       pickedGrain = await _chapGrainDialog(via, duration);
       if (!pickedGrain) return { ok: false, skipped: true };
+    }
+
+    // 字幕が無いまま「字幕から検出」を選んだら、ここで字幕を作ってから検出へ進む。
+    //
+    // 【変更禁止1】vpGenSubtitle は引数なしで呼ぶこと。
+    // 以前ここで preset を渡したところ、preset は一括処理(bulk)の契約なので、
+    // 言語メニューも確認ダイアログも「既存の別言語から翻訳で済ませる」判断も
+    // まとめて一括用の挙動に差し替わり、「💬 字幕生成」を押した時と違う結果に
+    // なった。そこから連鎖して字幕そのものを壊した。
+    // 引数なし＝ボタンを押したのと完全に同じ処理。ここは薄い入口に徹する。
+    // 一括実行(preset)は従来どおり字幕が無ければ video へ倒すので、ここには来ない。
+    //
+    // 【変更禁止2】この位置（＝聞くことを全部聞き終えたあと）から動かさないこと。
+    // 以前は「元／細かさ」を聞く前にここで字幕を作っていた。すると
+    //   源を選ぶ → 数分待つ → やっと細かさを聞かれる
+    // となり、待たされた先でまた操作を求められる。しかも細かさでキャンセルすると、
+    // 作った字幕の料金だけ払って何も残らない。
+    // 質問は全部先、長い処理は全部あとにする。
+    if (via === 'sub' && !subs.length && !preset) {
+      setBtn('⏳ 字幕を作成中…');
+      const g = await window.vpGenSubtitle(id);
+      endBtn();
+      // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
+      if (!g || !g.ok) return { ok: false, skipped: !!g?.skipped, error: g?.error };
+      // Driveは作った直後の検索に出てこないことがあるので、空なら一度だけ待って引き直す。
+      // それでも出なければ「失敗」ではない。字幕は保存できているので、そう伝える。
+      subs = await findSubs();
+      if (!subs.length) { await new Promise(r => setTimeout(r, 1500)); subs = await findSubs(); }
+      if (!subs.length) return fail('字幕は作成できました。一覧にまだ出てこないので、もう一度「自動チャプター」を押してください');
     }
 
     // 2. 検出

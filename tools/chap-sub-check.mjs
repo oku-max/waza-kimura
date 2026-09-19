@@ -48,6 +48,27 @@ else {
   }
 }
 
+// ── 1.5 聞くことは全部先、長い処理は全部あと ──
+// 以前は「元／細かさ」を聞く前に字幕を作っていた。すると
+//   源を選ぶ → 数分待つ → やっと細かさを聞かれる
+// となり、待たされた先でまた操作を求められる。
+// しかも細かさでキャンセルすると、作った字幕の料金だけ払って何も残らない。
+{
+  const body = grab('vpGenChapters');
+  if (!body) fail('vpGenChapters が見つからない');
+  else {
+    const iSrc   = body.indexOf('_askChapterSource(');
+    const iGrain = body.indexOf('_chapGrainDialog(');
+    const iGen   = body.indexOf('vpGenSubtitle(');
+    [['元を選ぶ', iSrc], ['細かさを選ぶ', iGrain], ['字幕を作る', iGen]]
+      .every(([, i]) => i >= 0)
+      ? (iSrc < iGrain && iGrain < iGen
+          ? ok('聞くこと（元→細かさ）を全部終えてから字幕を作る')
+          : fail('字幕の生成が、細かさを聞く前に走る（待たせた先でまた操作を求めることになる）'))
+      : fail('vpGenChapters の中に必要な呼び出しが見当たらない');
+  }
+}
+
 // ── 2. 依存は一方向であること ──
 // 字幕生成の本体を過去のコミットと比較する検査も考えたが、字幕側の正当な修正
 // （書式の正規化など）でも落ちてしまい、意味のある信号にならない。
