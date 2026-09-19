@@ -5723,8 +5723,12 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">CCボタンを押しても同じ順で切り替わります。出るのは常に1つだけです</div>`
         + (_ytCcTracks.length
             ? `<div style="font-size:10.5px;color:var(--text3)">YouTubeの字幕はプレイヤー内部で表示されるため、下の見た目・ズレの設定は効きません</div>`
+            // プレイヤーが「無い」と言っても、実際にはYouTubeの字幕から字幕を作れている
+            // ことがある（一覧を返すAPIはあてにならない）。作れている以上この案内は嘘なので出さない。
             : _ytCcFound
-            ? `<div style="font-size:10.5px;color:var(--text3)">この動画にはYouTube側の字幕がありません</div>`
+            ? (_ytSubTracks.some(t => String(t.via || '').startsWith('yt:'))
+                ? ''
+                : `<div style="font-size:10.5px;color:var(--text3)">この動画にはYouTube側の字幕がありません</div>`)
             : _ytCcTries >= YT_CC_MAX_TRIES
             ? `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を取得できませんでした（コンソールで wkYtCcDiag() を実行すると原因が出ます）</div>`
             // 探している最中は何も出さない。ユーザーに求めることが無い実況を並べても、
@@ -5770,12 +5774,6 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その声が始まった瞬間に押すと合います
         </div>
-        ${gen && fromYt ? `<div style="background:rgba(34,197,94,.10);border:1.5px solid var(--green,#22c55e);
-                       border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.65">
-            <b>この字幕の時刻はYouTubeの字幕から取っています</b>
-            <div style="color:var(--text3);margin-top:4px">音に対して正確です。進むほどズレることはありません</div>
-            <div style="color:var(--text3);margin-top:4px">${_wkVer()}</div>
-          </div>` : ''}
         ${gen && !fromYt ? `<div style="background:rgba(239,68,68,.10);border:1.5px solid var(--red,#ef4444);
                        border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.65">
             <b>この字幕の時刻はAIの推測です。実際の発話位置とは合いません</b>
@@ -5813,14 +5811,27 @@ function _subOptsHTML(scope) {
           補正はこの端末だけに残ります。他の端末にも反映するにはDriveに保存してください
         </div>` : `<div style="font-size:10.5px;color:var(--text3)">補正はこの端末だけに残ります</div>`);
 
-    // 時刻が正確な字幕で、補正も掛かっていないなら、畳んで見出しだけにする。
-    // 出番の無い操作を並べておくと「何か直さないといけないのか」と思わせてしまう。
-    const foldOff = fromYt && !off;
-    html += foldOff
-      ? `<details><summary style="font-size:11px;font-weight:700;cursor:pointer;padding:2px 0">ズレを直す（この動画のみ）</summary>
-           <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">${offBody}</div>
-         </details>`
-      : sec('ズレを直す（この動画のみ）') + offBody;
+    // 時刻が正確な字幕（YouTubeの字幕から作ったもの）では、この欄は丸ごと出さない。
+    // 畳んで見出しだけ残す案もやったが、それでも視界に入ると
+    // 「何か直さないといけないのか」と思わせる。出番が無いなら出さない。
+    //
+    // 例外は1つだけ: すでに補正が掛かっているとき。
+    // 掛かっているのに隠すと、正しい時刻の字幕にズレが足され続けているのに気づけない。
+    // その時は消すためのボタンだけ出す（±やリセットの一式は出さない）。
+    if (fromYt) {
+      if (off) {
+        html += sec('ズレを直す（この動画のみ）')
+          + `<div style="background:rgba(239,68,68,.12);border:1.5px solid var(--red,#ef4444);
+                         border-radius:8px;padding:8px 10px;display:flex;align-items:center;
+                         justify-content:space-between;gap:8px;flex-wrap:wrap">
+               <span style="font-size:11.5px;font-weight:700;line-height:1.5">
+                 ⚠ この動画には ${off > 0 ? '+' : ''}${off.toFixed(1)}秒 のタイミング補正が掛かっています</span>
+               ${btn('補正を消す', 'wkSubOffsetReset()', 'var(--red,#ef4444)')}
+             </div>`;
+      }
+    } else {
+      html += sec('ズレを直す（この動画のみ）') + offBody;
+    }
   }
 
   if (scope === 'full') {
