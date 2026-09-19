@@ -2036,6 +2036,10 @@
     [/^🗑 (.+?)を削除$/, (m, d) => `🗑 Delete ${_autoMap.get(d) || d}`],
     // 「⬇ 日本語を保存」（生成字幕のSRTを手元に取り出すボタン）
     [/^⬇ (.+?)を保存$/, (m, d) => `⬇ Save ${_autoMap.get(d) || d}`],
+    // 「いま掛かっている補正: なし」「…: 2点 / 字幕の 1:00:55 を 1:07:57 に移動（全体 ×1.116）」
+    [/^いま掛かっている補正: なし$/, 'Correction in effect: none'],
+    [/^いま掛かっている補正: (\d+)点 \/ 字幕の (.+?) を (.+?) に移動（全体 ×(.+?)）$/,
+     'Correction in effect: $1 point(s) — subtitle $2 moved to $3 (whole track ×$4)'],
     // 「この字幕は動画より 7:02 早く終わっています（後半ほどズレます）」
     [/^この字幕は動画より (.+?) 早く終わっています（後半ほどズレます）$/,
      'This subtitle ends $1 before the video does (it drifts more as it goes on)'],

@@ -2350,7 +2350,6 @@ function _subOffsetSet(fileId, sec) {
 //
 // 対象: AIに動画を見せて作った字幕（＝YouTube動画の生成字幕）だけ。
 //   Drive動画は音声認識で時刻を音から実測しているのでこのズレ方をしない。
-const SUB_ANCHOR_KEY = 'wk_subAnchors';   // v52.764 で端末に置いていた分の引き継ぎ用（読むだけ）
 const SUB_SLOPE_MIN = 0.2, SUB_SLOPE_MAX = 5;   // 目一杯おかしな傾きは採らない
 
 // [[字幕の時刻, 実際の時刻], ...] を時刻順・単調増加だけに正規化する。
@@ -2365,22 +2364,6 @@ function _subAnchorNorm(raw) {
   const out = [];
   for (const p of list) if (!out.length || (p[0] > out[out.length - 1][0] && p[1] > out[out.length - 1][1])) out.push(p);
   return out;
-}
-// v52.764 で端末に置いた点の引き継ぎ。字幕側に点が無いときだけ使う。
-// 読むだけで、押した時点で字幕側へ移る（_ytSubAnchorSave が端末側を消す）。
-function _subAnchorLegacy(key) {
-  if (!key) return [];
-  try { return _subAnchorNorm(JSON.parse(localStorage.getItem(SUB_ANCHOR_KEY) || '{}')[key]); }
-  catch(e) { return []; }
-}
-function _subAnchorLegacyDrop(key) {
-  if (!key) return;
-  try {
-    const all = JSON.parse(localStorage.getItem(SUB_ANCHOR_KEY) || '{}');
-    if (!all || typeof all !== 'object' || !(key in all)) return;
-    delete all[key];
-    localStorage.setItem(SUB_ANCHOR_KEY, JSON.stringify(all));
-  } catch(e) {}
 }
 // 点を1つ足した列を返す（保存はしない）。同じあたりを押し直したら置き換える。
 function _subAnchorWith(list, t, r) {
@@ -3419,11 +3402,16 @@ async function _ytSubStore(ytId, lang, srt, meta) {
 // データの扱い: 書くのは tracks.<言語>.anchors だけ。merge で足すので
 // srt 本体・他の言語・他の動画・他のキーには一切触れない。
 // 元のSRTを書き換えないので、点を消せばいつでも元の時刻に戻る。
+// 点は字幕側だけを見る。
+// v52.764〜765 は端末(localStorage)に点を置いていて、それを引き継いで読んでいた。
+// あの頃のUIでは押し方が分からないまま①②をほぼ同時に押せてしまい、
+// 「ほぼ動かさない点」が端末に残る。すると
+//   ・表示はまったく変わらない（点はあるが恒等写像に近い）
+//   ・なのに「点がある」扱いなので1クリックのボタンが出なくなる
+// となり、画面からは何も分からないまま直せなくなる。実際にそうなっていた。
+// 見えない場所の状態が表示を変える作りをやめる。古いキーはもう読まない。
 function _ytAnchorsOf(t) {
-  if (!t) return [];
-  // 字幕側に点があればそれ。無ければ v52.764 で端末に置いた分を引き継ぐ。
-  const own = _subAnchorNorm(t.anchors);
-  return own.length ? own : _subAnchorLegacy(_ytSubId);
+  return t ? _subAnchorNorm(t.anchors) : [];
 }
 async function _ytSubAnchorSave(ytId, lang, list) {
   const ref = _ytSubRef(ytId);
@@ -3438,7 +3426,6 @@ async function _ytSubAnchorSave(ytId, lang, list) {
   }
   const t = _ytSubTracks.find(x => x.lang === lang);
   if (t) t.anchors = arr.length ? arr : null;
-  _subAnchorLegacyDrop(ytId);   // 字幕側へ移したので端末に残っていた分は用済み
   return arr;
 }
 
@@ -5829,7 +5816,12 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その声が始まった瞬間に押すと合います
         </div>
-        ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す${anc.length ? `（いま${anc.length}点）` : ''}</div>
+        ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す</div>
+        <div style="font-size:10.5px;color:var(--text3);line-height:1.6">
+          いま掛かっている補正: ${anc.length
+            ? `${anc.length}点 / 字幕の ${_chapFmt(anc[anc.length-1][0])} を ${_chapFmt(anc[anc.length-1][1])} に移動（全体 ×${(anc[anc.length-1][1] / Math.max(1, anc[anc.length-1][0])).toFixed(3)}）`
+            : 'なし'}<br>${_wkVer()}
+        </div>
         ${plan ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
                        border-radius:8px;padding:8px 10px;display:flex;align-items:center;
                        justify-content:space-between;gap:8px;flex-wrap:wrap">
@@ -5997,11 +5989,21 @@ let _subMark = null;   // ①で覚えた字幕 { ytId, lang, t（字幕本来�
 //
 // 動画の末尾が無音（実演だけ・エンドカード）だと伸ばしすぎになるので、
 // 押す前に実際の数字を出して確かめてもらう。合わなければ①②で詰められる。
+// 【変更禁止】点がすでにあってもこのボタンは出し続けること。
+// 「合わせてあるなら出さない」にしていたせいで、効いていない点が1つあるだけで
+// ボタンが消え、画面からは理由が分からないまま直せなくなった。
+// 押せば置き換わる（確認を出す）。出さない条件は「差が小さい」だけにする。
+// いま動いている版。PWAのキャッシュで古いままの端末があるため、
+// 「直したのに変わらない」がキャッシュなのか不具合なのかを画面で切り分けられるようにする。
+function _wkVer() {
+  const m = String(document.title || '').match(/v\d+\.\d+/);
+  return m ? m[0] : '';
+}
+
 function _ytDriftAutoPlan() {
   const cur = _ytSubCur();
   if (!cur || cur.kind !== 'gen') return null;
   const t = cur.track;
-  if (_ytAnchorsOf(t).length) return null;              // すでに合わせてあるなら出さない
   const v = (window.videos || []).find(x => x.ytId === _ytSubId);
   const dur = _ytDurationOf(v);
   const end = _srtLastEnd(t.srt);
@@ -6010,7 +6012,7 @@ function _ytDriftAutoPlan() {
   // 少しの差は普通（最後が無音で終わる動画はいくらでもある）。
   // 「明らかに足りない」ときだけ出す。
   if (gap < 60 || gap < dur * 0.05) return null;
-  return { track: t, end, dur, gap };
+  return { track: t, end, dur, gap, had: _ytAnchorsOf(t).length };
 }
 
 window.wkSubDriftAuto = async function() {
@@ -6019,6 +6021,7 @@ window.wkSubDriftAuto = async function() {
   const { track: t, end, dur, gap } = plan;
   if (!confirm(`字幕の最後（${_chapFmt(end)}）を、動画の最後（${_chapFmt(dur)}）に合わせます。\n\n`
              + `${_chapFmt(gap)}ぶん足りていないので、全体をその割合で伸ばします。\n`
+             + (plan.had ? `いま入っている${plan.had}点は置き換わります。\n` : '')
              + `字幕そのものは書き換えないので、いつでも元に戻せます。`)) return;
   try {
     // 末尾ぴったりに置くと最後のキューが尺の外へ出ることがあるので少しだけ内側に置く
