@@ -3868,7 +3868,10 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     const r = await _translateSrtText(other.srt, subLang, setBtn);
     srt = r.srt; cost = r.cost; via = 'translate:' + other.lang;
     if (r.missing) note = `（${r.missing}行は訳せず原文のまま）`;
-  } else {
+  } else if (!srt) {
+    // 【変更禁止】この !srt を外さないこと。
+    // 上でYouTube側の字幕から srt を作れていても、ここが素の else だと
+    // そのままGeminiに落ちて、正確な時刻を捨てたうえで課金される。
     // 動画をGeminiに読ませて書き起こす
     setBtn('⏳ 生成中…');
     const res = await fetch('/api/ai-summary', {

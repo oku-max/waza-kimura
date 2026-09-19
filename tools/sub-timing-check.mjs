@@ -60,6 +60,11 @@ gen.indexOf('_ytFetchTranscript(') >= 0 && gen.indexOf('_ytFetchTranscript(') < 
 /時刻は向こうの値をそのまま使う/.test(wsrc)
   ? ok('取れた時刻はそのまま使う（丸めも詰め直しもしない）')
   : fail('取れた時刻に手を入れている');
+// YouTube側で取れたら、そこで終わること。
+// 素の else にすると、正確な時刻を作った直後にGeminiが走って上書きし、課金もされる。
+/\} else if \(!srt\) \{/.test(gen)
+  ? ok('YouTube側で取れたらGeminiへ落ちない（時刻を捨てて課金しない）')
+  : fail('YouTube側で取れてもGeminiが走る（正確な時刻を捨てて課金する）');
 /_translateSrtText\(yt\.srt/.test(src)
   ? ok('本文だけ訳す（時刻は既存の「翻訳だけやり直す」と同じく動かさない）')
   : fail('YouTubeの字幕を訳すときに時刻を作り直している');
