@@ -207,6 +207,20 @@ check(/空き\s*12/.test(quotaTxt || ''), '空きの残量が出る', quotaTxt?.
 check(/あなた自身のGoogleドライブ/.test(quotaTxt || ''), '自分のDriveだと明示する');
 check((await page.locator('#gdu-quota div').count()) > 0, '容量バーが描かれる');
 
+// ── 入口が2つあること ──
+// カメラロール側は accept="video/*"（写真アプリの画面）、ファイル側は accept なし
+// （ファイル一覧の画面）。どちらが開くかはOSの判断なので、指定だけを見る。
+check(await page.locator('button[onclick*="gduPick(\'media\')"]').count() === 1, 'カメラロールの入口がある');
+check(await page.locator('button[onclick*="gduPick(\'files\')"]').count() === 1, 'ファイルの入口がある');
+await page.evaluate(() => window.gduPick('media'));
+await page.waitForTimeout(250);
+check(await page.getAttribute('#gdu-file-input', 'accept') === 'video/*',
+  'カメラロール側はメディアとして開く', String(await page.getAttribute('#gdu-file-input', 'accept')));
+await page.evaluate(() => window.gduPick('files'));
+await page.waitForTimeout(250);
+check((await page.getAttribute('#gdu-file-input', 'accept')) === null,
+  'ファイル側は種類を絞らずに開く', String(await page.getAttribute('#gdu-file-input', 'accept')));
+
 // ── フォルダピッカー ──
 await page.evaluate(() => window.gduOpenFolder());
 await page.waitForTimeout(800);
@@ -235,6 +249,17 @@ check(!(await page.isDisabled('#gdu-start')), '保存先とファイルが揃う
 await page.setInputFiles('#gdu-file-input', tmp);
 await page.waitForTimeout(600);
 check(await page.locator('#gdu-list .gdp-row').count() === 1, '同じファイルは二重に選ばれない');
+
+// 動画でないものは一覧に入れない
+const notVideo = path.join(os.tmpdir(), 'wk-gdu-note.txt');
+fs.writeFileSync(notVideo, 'これは動画ではありません');
+await page.evaluate(() => { window.__toasts = []; });
+await page.setInputFiles('#gdu-file-input', notVideo);
+await page.waitForTimeout(600);
+check(await page.locator('#gdu-list .gdp-row').count() === 1, '動画でないファイルは一覧に入らない');
+check(/動画ではないので外しました/.test((await page.evaluate(() => (window.__toasts||[]).join('|')))),
+  '外した理由を伝える');
+try { fs.unlinkSync(notVideo); } catch {}
 
 // ── スマホ幅で操作しきれること ──
 await page.evaluate(() => document.getElementById('gdu-optshd').click());   // 任意欄を開いて縦を伸ばす
@@ -371,7 +396,7 @@ check(/^取り込みを中断しました: /.test((await page.textContent('#gdu-
 await page.evaluate(() => window.gduBackToSetup());
 await page.waitForTimeout(300);
 check(await page.isVisible('#gdu-setup'), '失敗後でも設定画面に戻れる');
-await page.evaluate(() => window.gduPick());
+await page.evaluate(() => window.gduPick('files'));
 await page.waitForTimeout(300);
 check(await page.locator('#gdu-file-input').count() === 1, '失敗後でもファイル選択を開き直せる');
 

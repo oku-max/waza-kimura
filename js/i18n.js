@@ -364,7 +364,8 @@
     '📤 端末の動画を取り込む':'📤 Upload a video from this device',
     'スマホやPCの動画を選んで、ご自身のGoogleドライブにコピーしてから登録します。':'Pick a video from your phone or computer; it is copied to your own Google Drive and then added.',
     '画質はそのまま。元の動画は端末に残ります。':'Quality is unchanged. The original stays on your device.',
-    '🎬 動画ファイルを選ぶ':'🎬 Choose video files',
+    '📷 カメラロールから選ぶ':'📷 Choose from camera roll',
+    '📁 ファイルから選ぶ':'📁 Choose from files',
     'まだ動画を選んでいません':'No videos chosen yet',
     '保存先':'Save to','未選択':'Not chosen','📁 フォルダを選ぶ':'📁 Choose folder',
     '今回ふえる分':'Added this time','空き容量を確認しています...':'Checking free space...',
@@ -1977,6 +1978,8 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // 動画でないファイルを外したときの案内（ファイル名が入る）
+    [/^⚠️ 動画ではないので外しました: (.+)$/, (m, names) => `⚠️ Skipped (not video): ${names}`],
     // 空きが足りないときの不足分（単位が状況で変わるのでパターンで受ける）
     [/^空きが (.+?) 足りません。ファイルを減らすか、Googleドライブを整理してください。$/,
       (m, n) => `Not enough space by ${n}. Remove some files or clear space in Google Drive.`],

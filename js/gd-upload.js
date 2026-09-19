@@ -8,8 +8,11 @@
    → 取り込み時に実体を Drive にコピーしてしまえば、あとは既存の
      gdrive 動画（pt:'gdrive' / id:'gd-<fileId>'）と完全に同じ扱いになる。
 
-   スマホの選択画面からは Googleフォト／カメラロールの動画がそのまま選べるので、
-   Photos 専用の連携は要らない。<input type="file" accept="video/*"> で足りる。
+   入口は「カメラロールから」と「ファイルから」の2つに分けてある。
+   accept="video/*" と書くと Android は写真アプリ中心の画面を出す。そこからだと
+   端末に実体が無い古い動画は Googleフォト がクラウドから落とそうとして失敗する。
+   accept を外すとファイル一覧の画面になり、端末のファイルを直接渡せる。
+   どちらが開くかは OS の判断なので、賭けずにユーザーに選ばせる。
 
    端末側での画質変換はしない。元のファイルをそのままコピーする。
    代わりに、Driveがどれだけ増えるか・空きが足りるかを押す前に出す。
@@ -58,7 +61,12 @@ function _hhmm(sec) {
   return h ? `${h}:${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`
            : `${m}:${String(r).padStart(2,'0')}`;
 }
-function _stripExt(name) { return String(name || '').replace(/\.(mp4|mov|m4v|avi|mkv|webm|wmv|flv|mpg|mpeg|3gp|ogv|ts|m2ts)$/i, ''); }
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|avi|mkv|webm|wmv|flv|mpg|mpeg|3gp|ogv|ts|m2ts)$/i;
+function _stripExt(name) { return String(name || '').replace(VIDEO_EXT_RE, ''); }
+// ファイル一覧からは何でも選べてしまう。種類が空で来る端末があるので拡張子でも見る。
+function _isVideo(f) {
+  return String(f?.type || '').startsWith('video/') || VIDEO_EXT_RE.test(f?.name || '');
+}
 function _el(id) { return document.getElementById(id); }
 
 // ════════════════════════════════════════════════════════════
@@ -85,7 +93,8 @@ function _showStage(stage) {
   }
 }
 
-export function gduPick() {
+// kind: 'media' … 写真アプリの画面（カメラロール）/ 'files' … ファイル一覧の画面
+export function gduPick(kind) {
   if (_running) {
     window.toast?.('⚠️ 取り込み中です。中止してからもう一度選んでください');
     return;
@@ -97,6 +106,9 @@ export function gduPick() {
   // 要素ごと作り直すとその状態が切れる。onchange は属性なので複製に引き継がれる。
   const fresh = inp.cloneNode(true);
   fresh.value = '';
+  // accept が「メディア」だと写真アプリの画面になる。外すとファイル一覧の画面になる。
+  if (kind === 'files') fresh.removeAttribute('accept');
+  else                  fresh.setAttribute('accept', 'video/*');
   inp.replaceWith(fresh);
   inp = fresh;
   try {
@@ -112,13 +124,18 @@ export async function gduFilesChosen(inputEl) {
   inputEl.value = '';                     // 同じファイルを選び直せるように毎回クリア
   if (!files.length) return;
 
+  const skipped = [];
   for (const f of files) {
+    if (!_isVideo(f)) { skipped.push(f.name); continue; }
     // 同じ名前＋同じサイズは二重選択とみなす（連打での二重アップロードを防ぐ）
     if (_items.some(it => it.file.name === f.name && it.size === f.size)) continue;
     _items.push({
       file: f, title: _stripExt(f.name), size: f.size,
       duration: 0, phase: 'wait', prog: 0, note: '', fileId: '',
     });
+  }
+  if (skipped.length) {
+    window.toast?.(`⚠️ 動画ではないので外しました: ${skipped.slice(0, 3).join(' / ')}`, 6000);
   }
   _render();
 

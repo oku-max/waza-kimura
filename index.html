@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.781</title>
+<title>WAZA KIMURA v52.782</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4892,7 +4892,9 @@ document.addEventListener('click', function(e) {
           画質はそのまま。元の動画は端末に残ります。
         </div>
 
-        <button class="btn-save" style="width:100%;margin-bottom:8px" onclick="gduPick()">🎬 動画ファイルを選ぶ</button>
+        <button class="btn-save" style="width:100%;margin-bottom:6px" onclick="gduPick('media')">📷 カメラロールから選ぶ</button>
+        <button class="btn-save" style="width:100%;margin-bottom:8px;background:var(--surface2);color:var(--text)"
+          onclick="gduPick('files')">📁 ファイルから選ぶ</button>
         <input id="gdu-file-input" type="file" accept="video/*" multiple style="display:none"
           onchange="gduFilesChosen(this)">
 
