@@ -57,7 +57,6 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 .vp-body { padding:10px 12px 14px; }
 .vp-title { font-size:13px; font-weight:700; line-height:1.5; }
 .vp-meta { font-size:11px; color:var(--text3); margin-top:3px; }
-.aidesc { margin-top:8px; padding:6px 9px; border-radius:8px; background:var(--bg3); font-size:11.5px; line-height:1.55; color:var(--text2); }
 .memo-head { display:flex; align-items:center; gap:6px; margin-top:12px; flex-wrap:wrap; }
 .vp-lbl { font-size:11px; font-weight:700; color:var(--text3); letter-spacing:.06em; }
 .sum-btn { font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; border:1px solid var(--accent); background:transparent; color:var(--accent); font-weight:700; }
@@ -136,7 +135,7 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 <body>
 
 <h1>✨ AI要約 — 種類と粒度を選ぶ</h1>
-<div class="page-sub">範囲指定は既存の「ループ再生」の区間をそのまま使います。</div>
+<div class="page-sub">区間の指定は、ループ再生と同じ操作（開始/終了・微調整・現在地）です。</div>
 
 <div class="bar">
   <div class="seg" id="seg-theme"><span data-t="dark" class="on">ダーク</span><span data-t="light">ライト</span></div>
@@ -155,7 +154,6 @@ input[type=range] { width:100%; accent-color:var(--accent); }
     <div class="vp-body">
       <div class="vp-title">Closed Guard Armbar — セットアップと3つの防御への対応</div>
       <div class="vp-meta" id="vp-meta">Google Drive ・ 24:10</div>
-      <div class="aidesc" id="aidesc">💬 <span id="aidesc-txt"></span></div>
       <div class="memo-head">
         <span class="vp-lbl">Memo</span>
         <button class="sum-btn" id="sumbtn">✨ AI要約</button>
@@ -172,11 +170,11 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 
 <div class="note">
   <b>仕様メモ</b><br>
-  ・一言もメモ欄に追記する（他の要約と同じ。既存のメモは消さない）。カードの💬行は今まで通りそのまま。<br>
-  ・範囲は既存の<b>ループ再生</b>の区間（開始→終了）をそのまま使う。専用の範囲UIは作らない。<br>
-  ・区間が未設定なら、要約シートからループ設定を開いて決めてもらう。<br>
+  ・要約はメモ欄の<b>いちばん下に追加</b>する。既存のメモは上書きしない。<br>
+  ・一言もメモ欄に追加（他の要約と同じ扱い）。<br>
+  ・区間の指定UIは、ループ再生と同じ操作（▶開始／⏹終了タブ・スライダー・微調整±1/3/5/10秒・現在地）。<br>
   ・粒度は言葉ではなく数値でプロンプトへ渡す（細かめ=30秒間隔目安 / 普通=今の要約 / ざっくり=チャプター相当）。<br>
-  ・スクショは GDrive のみ（YouTube では選択肢を出さない）。あり=行頭インライン固定。
+  ・スクショは GDrive のみ（YouTube では選択肢を出さない）。あり=行頭インライン固定。<br>
 </div>
 
 <script>
@@ -239,6 +237,9 @@ let plat = 'gdrive';
 let cur = 0, playing = false, timer = null;
 /* ループ再生（アプリの _ab と同じ持ち方） */
 const L = { a:null, b:null, loop:false, expanded:false, field:'start' };
+/* 要約の指定区間（ループ再生と同じ操作。値はループとは別に持つ） */
+const R = { a:null, b:null, field:'start' };
+const hasR = () => R.a != null && R.b != null && R.b > R.a;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (s) => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
@@ -353,7 +354,15 @@ function bindLoop() {
     const base = L.field === 'start' ? (L.a ?? cur) : (L.b ?? L.a ?? cur);
     setField(base + Number(el.dataset.adj));
   });
-  const sl = $('ab-sl'); if (sl) sl.oninput = (e) => setField(Number(e.target.value));
+  const sl = $('ab-sl');
+  if (sl) sl.oninput = (e) => {
+    const v = Math.max(0, Math.min(DUR, Number(e.target.value)));
+    if (L.field === 'start') L.a = v; else L.b = v;
+    const inp2 = $('ab-in'); if (inp2) inp2.value = fmt(v);
+    const btns = area.querySelectorAll('.ab-time');
+    if (btns[0]) btns[0].textContent = `開始: ${L.a != null ? fmt(L.a) : '--:--'}`;
+    if (btns[1]) btns[1].textContent = `終了: ${L.b != null ? fmt(L.b) : '--:--'}`;
+  };
   const inp = $('ab-in');
   // blur 経由で change が来ると、描画し直しの途中で入力欄が消えて例外になる。
   // 一拍遅らせてから描き直す。
@@ -400,33 +409,29 @@ function renderSheet() {
   const canShot = (plat === 'gdrive');
   const isDesc  = (S.type === 'desc');
   const needRange = (S.type === 'range');
-  const ok = !needRange || hasRange();
+  const ok = !needRange || hasR();
 
   const opt = (type, ic, tx, sub, dim) =>
     `<button class="opt ${S.type===type?'on':''} ${dim?'off':''}" data-type="${type}">
        <span class="ic">${ic}</span><span><span class="tx">${tx}</span><span class="sub">${sub}</span></span></button>`;
   const pill = (k, v, label) => `<button class="${S[k]===v?'on':''}" data-k="${k}" data-v="${v}">${label}</button>`;
 
-  const rangeSub = hasRange()
-    ? `いまのループ区間 <b>${fmt(L.a)} → ${fmt(L.b)}</b> を要約`
-    : 'ループ区間が未設定です';
+  const rangeSub = hasR()
+    ? `<b>${fmt(R.a)} → ${fmt(R.b)}</b> の区間だけを要約`
+    : '開始と終了を指定して、その区間だけ要約';
 
   const goLabel = isDesc ? '💬 一言をメモに書く'
-    : needRange ? (hasRange() ? `🔁 ${fmt(L.a)}–${fmt(L.b)} を要約` : '🔁 ループ区間を決めてください')
+    : needRange ? (hasR() ? `✂️ ${fmt(R.a)}–${fmt(R.b)} を要約` : '✂️ 開始と終了を指定してください')
     : '📝 全体を要約';
 
   ov.innerHTML = `<div class="sheet">
     <h2>✨ AI要約</h2>
     <div class="grp-lbl">種類</div>
-    ${opt('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。メモの先頭に追記')}
-    ${opt('full','📝','全体を要約','今までの要約。メモの先頭に追記')}
-    ${opt('range','🔁','ループ区間を要約', rangeSub, !hasRange())}
+    ${opt('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。メモの下に追加')}
+    ${opt('full','📝','全体を要約','今までの要約。メモの下に追加')}
+    ${opt('range','✂️','指定区間を要約', rangeSub)}
 
-    ${(needRange && !hasRange()) ? `
-      <div class="needloop">
-        <p>範囲は「ループ再生」で決めた区間をそのまま使います。<br>先に区間を設定してください。</p>
-        <button id="open-loop">🔁 ループ再生を開く</button>
-      </div>` : ''}
+    ${needRange ? rangeEditorHTML() : ''}
 
     ${isDesc ? '' : `
       <div class="grp-lbl">粒度</div>
@@ -447,14 +452,82 @@ function renderSheet() {
     S[b.dataset.k] = (b.dataset.v === 'true') ? true : (b.dataset.v === 'false' ? false : b.dataset.v);
     savePref(); renderSheet();
   });
-  const ol = $('open-loop');
-  if (ol) ol.onclick = () => {
-    closeSheet(); L.expanded = true; renderLoop();
-    $('loop-area').scrollIntoView({ block:'center' });
-    toast('区間を決めて「✔ 保存」したら、もう一度 ✨AI要約 を押してください', 4200);
-  };
+  bindRangeEditor(ov);
   $('sheet-cancel').onclick = closeSheet;
   $('go').onclick = run;
+}
+/* ───────── 指定区間エディタ（操作はループ再生と同じ）───────── */
+function rangeEditorHTML() {
+  const aL = R.a != null ? fmt(R.a) : '--:--';
+  const bL = R.b != null ? fmt(R.b) : '--:--';
+  const conflict = R.a != null && R.b != null && R.a >= R.b;
+  const isStart = R.field === 'start';
+  const val = isStart ? (R.a ?? cur) : (R.b ?? R.a ?? cur);
+  const adj = [-10,-5,-3,-1,1,3,5,10].map(d =>
+    `<button class="ab-adj-btn" data-radj="${d}">${d>0?'+':''}${d}s</button>`).join('');
+  return `<div class="grp-lbl">区間</div>
+    <div class="ab-editor-body" style="border-radius:9px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <button id="r-btn-start" class="ab-time ab-time--${R.a!=null?'set':'unset'}" data-rfield="start">開始: ${aL}</button>
+        <span style="font-size:10px;color:var(--accent)">↔</span>
+        <button id="r-btn-end" class="ab-time ab-time--${conflict?'error':(R.b!=null?'set':'unset')}" data-rfield="end">終了: ${bL}</button>
+        <span style="flex:1"></span>
+        <button class="ab-clear-btn" data-ract="clear">✕ クリア</button>
+      </div>
+      <div class="ab-editor">
+        <div style="display:flex;border-bottom:.5px solid var(--border)">
+          <div class="ab-tab ab-tab--${isStart?'active':'inactive'}" data-rfield="start">▶ 開始</div>
+          <div class="ab-tab ab-tab--${!isStart?'active':'inactive'}" data-rfield="end">⏹ 終了</div>
+        </div>
+        <div style="padding:8px 10px">
+          <input type="text" id="r-in" class="ab-time-disp" value="${fmt(val)}" inputmode="numeric">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px"><span>0:00</span><span>${fmt(DUR)}</span></div>
+          <input type="range" id="r-sl" min="0" max="${DUR}" value="${Math.floor(val)}" step="1" style="height:4px;margin-bottom:6px">
+          <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px">微調整</span>
+            ${adj}
+            <button class="ab-current-btn" data-ract="now">現在地</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ドラッグ中に作り直すとつまみを離してしまうので、値の表示だけ差し替える
+function paintRange() {
+  const aL = R.a != null ? fmt(R.a) : '--:--';
+  const bL = R.b != null ? fmt(R.b) : '--:--';
+  const conflict = R.a != null && R.b != null && R.a >= R.b;
+  const bs = $('r-btn-start'), be = $('r-btn-end'), inp = $('r-in'), go = $('go');
+  if (bs) { bs.textContent = `開始: ${aL}`; bs.className = `ab-time ab-time--${R.a!=null?'set':'unset'}`; }
+  if (be) { be.textContent = `終了: ${bL}`; be.className = `ab-time ab-time--${conflict?'error':(R.b!=null?'set':'unset')}`; }
+  if (inp) inp.value = fmt(R.field === 'start' ? (R.a ?? 0) : (R.b ?? 0));
+  if (go) { go.disabled = !hasR(); go.textContent = hasR() ? `✂️ ${fmt(R.a)}–${fmt(R.b)} を要約` : '✂️ 開始と終了を指定してください'; }
+}
+
+function setR(v) {
+  v = Math.max(0, Math.min(DUR, Math.round(v)));
+  if (R.field === 'start') R.a = v; else R.b = v;
+  paintRange();
+}
+
+function bindRangeEditor(ov) {
+  ov.querySelectorAll('[data-rfield]').forEach(el => el.onclick = () => { R.field = el.dataset.rfield; renderSheet(); });
+  ov.querySelectorAll('[data-radj]').forEach(el => el.onclick = () => {
+    const base = R.field === 'start' ? (R.a ?? cur) : (R.b ?? R.a ?? cur);
+    setR(base + Number(el.dataset.radj));
+  });
+  ov.querySelectorAll('[data-ract]').forEach(el => el.onclick = () => {
+    if (el.dataset.ract === 'clear') { R.a = R.b = null; renderSheet(); }
+    else setR(cur);
+  });
+  const sl = $('r-sl');
+  if (sl) { sl.oninput = (e) => setR(Number(e.target.value)); }
+  const inp = $('r-in');
+  if (inp) inp.onchange = () => {
+    const v = parseTime(inp.value);
+    setTimeout(() => { if (v != null) setR(v); else paintRange(); }, 0);
+  };
 }
 function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify(S)); } catch(e) {} }
 
@@ -462,8 +535,8 @@ function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify(S)); }
 function run() {
   const type = S.type, level = S.level;
   const shot = S.shot && plat === 'gdrive' && type !== 'desc';
-  const from = (type === 'range' && hasRange()) ? L.a : null;
-  const to   = (type === 'range' && hasRange()) ? L.b : null;
+  const from = (type === 'range' && hasR()) ? R.a : null;
+  const to   = (type === 'range' && hasR()) ? R.b : null;
   closeSheet();
   showPayload(type, level, shot, from, to);
 
@@ -478,9 +551,9 @@ function run() {
   setTimeout(() => {
     clearInterval(tick);
     btn.disabled = false; btn.textContent = '✨ AI要約';
-    prependMemo(type === 'desc' ? buildDesc() : buildSummary(level, shot, from, to));
-    toast(type === 'desc' ? '💬 一言をメモに追記しました（2秒）'
-      : (shot ? '✨ 要約＋スクショを追記しました' : '✨ AI要約をMemoに追記しました') + '（2秒）');
+    appendMemo(type === 'desc' ? buildDesc() : buildSummary(level, shot, from, to));
+    toast(type === 'desc' ? '💬 一言をメモに追加しました（2秒）'
+      : (shot ? '✨ 要約＋スクショを追加しました' : '✨ AI要約をMemoに追加しました') + '（2秒）');
   }, 2000);
 }
 
@@ -497,7 +570,7 @@ function buildSummary(level, shot, from, to) {
   const ts = (s) => `<span class="ts">[${fmt(s)}]</span> `;
   const stamp = new Date().toISOString().slice(0,10);
   const head = (from != null)
-    ? `── ✨ AI要約 🔁[${fmt(from)}–${fmt(to)}] ${LEVEL_JA[level]} (${stamp}) ──`
+    ? `── ✨ AI要約 [${fmt(from)}–${fmt(to)}] ${LEVEL_JA[level]} (${stamp}) ──`
     : `── ✨ AI要約 ${LEVEL_JA[level]} (${stamp}) ──`;
   let html = `<div class="sumhead">${head}</div>`;
 
@@ -530,11 +603,12 @@ function buildSummary(level, shot, from, to) {
   return html;
 }
 
-function prependMemo(html) {
+// 既存のメモは触らず、下に追加する（上書きしない）
+function appendMemo(html) {
   const el = $('memo');
   const prev = el.querySelector('.empty') ? '' : el.innerHTML.trim();
-  el.innerHTML = prev ? `${html}<br><br>${prev}` : html;
-  el.scrollTop = 0;
+  el.innerHTML = prev ? `${prev}<br><br>${html}` : html;
+  el.scrollTop = el.scrollHeight;
 }
 
 /* ───────── 送信ペイロード ───────── */
@@ -553,14 +627,13 @@ function showPayload(type, level, shot, from, to) {
     : (from != null ? (0.06 * (to - from) / DUR + 0.01) : 0.06) * (level === 'fine' ? 1.3 : level === 'coarse' ? 0.8 : 1);
   $('payload').textContent =
     'POST /api/ai-summary\n' + JSON.stringify(body, null, 2)
-    + '\n\n// 書き込み先: メモ欄の先頭に追記（一言も同じ）'
+    + '\n\n// 書き込み先: メモ欄のいちばん下に追加（既存のメモは上書きしない）'
     + '\n// スクショ: ' + (shot ? 'あり（行頭インライン）' : 'なし')
-    + (from != null ? '\n// range はループ再生の区間（_ab.a / _ab.b）をそのまま使用' : '')
+    + (from != null ? '\n// range は要約シートで指定した区間（操作はループ再生と同じUI）' : '')
     + '\n// 概算コスト: $' + cost.toFixed(3);
 }
 
 /* ───────── 初期描画 ───────── */
-$('aidesc-txt').textContent = 'クローズドガードからの腕十字。基本形のみで、防御への対応は扱っていない。';
 renderLoop(); paintTime();
 </script>
 </body>
