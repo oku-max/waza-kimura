@@ -5796,6 +5796,9 @@ function _subOptsHTML(scope) {
     // Drive動画は音声認識で時刻を音から実測しているのでこのズレ方をしない。
     const gen = _ytSubCur()?.kind === 'gen' ? _ytSubCur().track : null;
     const anc = gen ? _ytAnchorsOf(gen) : [];
+    const mk  = (gen && _subMark && _subMark.ytId === _ytSubId && _subMark.lang === gen.lang) ? _subMark : null;
+    // 覚えた台詞は字幕の本文＝ユーザーのデータ。そのまま流し込まない（訳さない・壊さない）
+    const escT = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -5825,13 +5828,19 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その台詞が聞こえた瞬間に押すと合います
         </div>
-        ${gen ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          ${btn('⏱ 進むほど増えるズレを直す', 'wkSubDriftHere()', 'var(--accent,#6c8cff)')}
-          ${anc.length ? `<span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent,#6c8cff)">${anc.length}点</span>` : ''}
+        ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す${anc.length ? `（いま${anc.length}点）` : ''}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${btn('① この字幕を覚える', 'wkSubDriftMark()', mk ? 'var(--border)' : 'var(--accent,#6c8cff)')}
+          ${btn('② ここで聞こえた', 'wkSubDriftHere()', mk ? 'var(--accent,#6c8cff)' : 'var(--border)')}
           ${anc.length ? btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)') : ''}
         </div>
-        <div style="font-size:10.5px;color:var(--text3)">先に進むほどズレが大きくなる字幕用です。ズレている場所で台詞が聞こえた瞬間に押してください</div>
-        <div style="font-size:10.5px;color:var(--text3)">2回押すと全体が伸び、3回以上押すと区間ごとに合います</div>
+        ${mk ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
+                       border-radius:8px;padding:7px 9px;font-size:11px;line-height:1.55">
+            覚えた字幕: 「${escT(mk.text)}」<br>
+            <span style="color:var(--text3)">この台詞が実際に聞こえるところまで進めて、聞こえた瞬間に②を押してください</span>
+          </div>`
+          : `<div style="font-size:10.5px;color:var(--text3)">ズレている字幕が画面に出ている状態で①を押し、その台詞が実際に聞こえるところまで進めて②を押します</div>`}
+        <div style="font-size:10.5px;color:var(--text3)">①②を1組として、2組で全体が伸び、3組以上で区間ごとに合います</div>
         <div style="font-size:10.5px;color:var(--text3)">合わせた結果は字幕と一緒に保存されるので、どの端末でも同じように出ます</div>` : ''}
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
           ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
@@ -5955,23 +5964,47 @@ window.wkSubSyncNow = function() {
 // ズレが進むほど大きくなる字幕を、押した地点ごとに合わせる。
 // wkSubSyncNow（全体を平行移動）とは別物。こちらは「この台詞は本当はここ」という
 // 点を足していき、点と点の間を直線で結んで時刻を引き伸ばす。
-// 2回押せば一定倍率、3回以上押せば区間ごとに合う。
+//
+// 【なぜ2段階なのか】
+// 1回押しにすると「いま出ている字幕を、いまの再生位置に合わせる」になる。
+// これはズレが数秒のときしか使えない。7分ズレていると、画面に出ている台詞が
+// 実際に聞こえるのは7分先で、そこまで進んだ時には画面の字幕はとっくに別物に
+// なっている。つまり「聞こえた瞬間に押す」が物理的に不可能になる。
+// だから「①この字幕を覚える」→「進める」→「②ここで聞こえた」に分ける。
+// ①で覚えるのは字幕の側、②で記録するのは再生位置の側。どれだけズレていても押せる。
 //
 // 対象はYouTubeの生成字幕だけ。Drive動画は音声認識で時刻を音から実測しているので
 // このズレ方をしない。点は字幕と同じ場所に保存するので、どの端末でも同じに出る。
-window.wkSubDriftHere = async function() {
+let _subMark = null;   // ①で覚えた字幕 { ytId, lang, t（字幕本来の時刻）, text }
+
+window.wkSubDriftMark = function() {
   const cur = _ytSubCur();
   if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
   const p = _subHere();
   if (p.err) { window.toast?.(p.err); return; }
-  const t    = cur.track;
-  const off  = _subOffsetGet(_ytSubId);
-  const have = _ytAnchorsOf(t);
+  const t   = cur.track;
+  const off = _subOffsetGet(_ytSubId);
   // 画面に出ている時刻には、すでに折れ線と平行移動が掛かっている。
-  // 点は「字幕に保存されている本来の時刻」で持つので、掛かっている分を戻してから記録する。
-  const inv  = _subDriftInvOf(have);
-  const src  = inv ? inv(p.start - off) : (p.start - off);
-  const list = _subAnchorWith(have, src, p.now - off);
+  // 点は「字幕に保存されている本来の時刻」で持つので、掛かっている分を戻して覚える。
+  const inv = _subDriftInvOf(_ytAnchorsOf(t));
+  const src = inv ? inv(p.start - off) : (p.start - off);
+  _subMark = { ytId: _ytSubId, lang: t.lang, t: src,
+               text: String(p.text || '').replace(/\s+/g, ' ').trim().slice(0, 30) };
+  window.wkSubOptsRender();
+  window.toast?.('① 覚えました。この台詞が聞こえるところまで進めて②を押してください');
+};
+
+window.wkSubDriftHere = async function() {
+  const cur = _ytSubCur();
+  if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
+  const t = cur.track;
+  if (!_subMark || _subMark.ytId !== _ytSubId || _subMark.lang !== t.lang) {
+    window.toast?.('先に①でズレている字幕を覚えさせてください'); return;
+  }
+  const now = _subNowSec();
+  if (!Number.isFinite(now)) { window.toast?.('動画を再生してから押してください'); return; }
+  const off  = _subOffsetGet(_ytSubId);
+  const list = _subAnchorWith(_ytAnchorsOf(t), _subMark.t, now - off);
   if (!list.length) { window.toast?.('ここでは合わせられません（動画の先頭すぎます）'); return; }
   try {
     await _ytSubAnchorSave(_ytSubId, t.lang, list);
@@ -5979,6 +6012,7 @@ window.wkSubDriftHere = async function() {
     window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
     return;
   }
+  _subMark = null;
   _ytSubReapply();
   window.wkSubOptsRender();
   window.toast?.(`⏱ ${list.length}点で合わせています`);
@@ -5987,6 +6021,7 @@ window.wkSubDriftHere = async function() {
 window.wkSubDriftReset = async function() {
   const cur = _ytSubCur();
   if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
+  _subMark = null;
   try {
     await _ytSubAnchorSave(_ytSubId, cur.track.lang, []);
   } catch (e) {
@@ -6000,7 +6035,7 @@ window.wkSubDriftReset = async function() {
 
 // いま出ているキューの開始時刻と、いまの再生位置を取る。DriveとYouTubeで取り方が違う。
 function _subHere() {
-  let start = null, now = NaN;
+  let start = null, now = NaN, text = '';
   const t  = _gdSubTracks[_gdSubIndex];
   const tt = t && t.track && t.track.track;
   if (tt) {
@@ -6010,12 +6045,18 @@ function _subHere() {
   } else if (_ytSubCur()?.kind === 'gen') {
     try { now = Number(_ytPlayer?.getCurrentTime?.()); } catch (e) {}
     const cue = Number.isFinite(now) ? _ytSubCueAt(_ytSubCur().track.cues, now) : null;
-    if (cue) start = cue.start;
+    if (cue) { start = cue.start; text = cue.text || ''; }
   }
   if (_ytSubCur()?.kind === 'yt') return { err: 'YouTubeの字幕はこちらでは調整できません（生成字幕に切り替えてください）' };
   if (!Number.isFinite(now)) return { err: '動画を再生してから押してください' };
   if (start == null)         return { err: 'いま表示されている字幕がありません' };
-  return { start, now };
+  return { start, now, text };
+}
+
+// 再生位置だけを取る（②では字幕が出ている必要がない）
+function _subNowSec() {
+  if (_gdVideoEl && _gdSubTracks.length) return Number(_gdVideoEl.currentTime);
+  try { return Number(_ytPlayer?.getCurrentTime?.()); } catch (e) { return NaN; }
 }
 
 window.wkSubOffsetReset = function() {
