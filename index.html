@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.777</title>
+<title>WAZA KIMURA v52.778</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2825,7 +2825,11 @@ function _parseVideoUrl(line) {
   if (ytpl) return _attach({ id: 'yt-pl-' + ytpl[1], pt: 'youtube', url: line, isPlaylist: true, plId: ytpl[1] });
   // YouTube: 各種URL形式
   const yt = line.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if (yt) return _attach({ id: yt[1], pt: 'youtube', url: line });
+  // 【必ず ytId も入れること】ここで ytId を省いていたため、貼り付けで追加した動画は
+  // AI要約・字幕生成・自動チャプターのボタンが出なかった（2026-09-19）。
+  // 検索やプレイリスト取り込みの経路（js/youtube.js / js/yt-search.js）は両方入れている。
+  // 読む側は _vYtId() で id からも拾えるようにしたが、入り口でも揃えておく。
+  if (yt) return _attach({ id: yt[1], ytId: yt[1], pt: 'youtube', url: line });
   // Vimeo（プライベート動画のhash対応: vimeo.com/123456/abcdef）
   const vm = line.match(/vimeo\.com\/(\d+)(?:\/([a-f0-9]+))?/);
   if (vm) return _attach({ id: vm[1], pt: 'vimeo', url: line, vmHash: vm[2] || null });

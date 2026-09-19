@@ -999,9 +999,33 @@ function _adjBtnStyle(bg, color) {
   return `padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:${bg};color:${color};font-size:10px;font-weight:600;cursor:pointer;font-family:inherit`;
 }
 
+// ── この動画のYouTube動画ID ──────────────────────────────────
+//
+// 【必ずここを通すこと】v.ytId を直接読まない。
+//
+// 追加のしかたによって、保存される中身が違う:
+//   ・YouTube検索／プレイリスト取り込み → id と ytId の両方が入る
+//   ・URLを貼って追加（CSV取り込み含む）→ id だけ。ytId は入らない
+// 動画IDそのものはどちらも持っているのに、v.ytId だけを見ていたせいで、
+// 貼り付けで追加した動画では AI要約・字幕生成・自動チャプターのボタンが
+// まるごと消えていた（2026-09-19 発覚）。ノートや整理の機能は昔から
+// v.ytId || v.id の形で代用していて、AI系の3つだけが取り残されていた。
+//
+// 11文字の形に合うものだけを返す。プレイリスト（yt-pl-…）や、
+// Drive等のIDを誤って動画IDとして扱わないため。
+const YT_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+function _vYtId(v) {
+  if (!v || v.isPlaylist) return '';
+  if (v.ytId && YT_ID_RE.test(v.ytId)) return v.ytId;
+  if (String(v.pt || '') !== 'youtube') return '';
+  const id = String(v.id || '').replace(/^yt-/, '');
+  return YT_ID_RE.test(id) ? id : '';
+}
+window._wkVYtId = _vYtId;   // 他のファイルからも同じ判定を使えるように
+
 function _chapterSectionHTML(id) {
   const v = (window.videos||[]).find(v => v.id === id);
-  const isYt = !!(v?.ytId);
+  const isYt = !!_vYtId(v);
   if (!v?.ytChapters?.length) {
     if (!isYt) return '';
     return `
@@ -1033,7 +1057,7 @@ async function _doFetchChapters(id, token) {
   const btn = document.querySelector(`#vp-chapters-${id} button`);
   if (btn) { btn.textContent = '取得中...'; btn.disabled = true; }
   try {
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${v.ytId}&maxResults=1`;
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${_vYtId(v)}&maxResults=1`;
     const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
     const data = await res.json();
     if (data.error) { window.toast?.('⚠️ 取得エラー: ' + data.error.message); if (btn) { btn.textContent = '再取得'; btn.disabled = false; } return; }
@@ -1049,7 +1073,7 @@ async function _doFetchChapters(id, token) {
 
 export function vpRefetchChapters(id) {
   const v = (window.videos||[]).find(v => v.id === id);
-  if (!v?.ytId) return;
+  if (!_vYtId(v)) return;
   if (window._ytToken) {
     _doFetchChapters(id, window._ytToken);
     return;
@@ -1080,7 +1104,7 @@ function _bookmarkSectionHTML(id) {
     : 'font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;';
   // 自動チャプターは Drive動画 と YouTube動画（字幕／動画をAIに読ませられるもの）
   const _cv = (window.videos||[]).find(v => v.id === id);
-  const isGd = _cv?.pt === 'gdrive' || (_cv?.pt === 'youtube' && !!_cv?.ytId);
+  const isGd = _cv?.pt === 'gdrive' || !!_vYtId(_cv);
   const chapBtn = isGd
     ? `<button onclick="vpGenChapters('${id}')" id="vp-chapgen-${id}" title="AIが動画を読み取ってチャプターごとにブックマークを作ります"
          style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">📑 自動チャプター</button>`
@@ -1509,7 +1533,7 @@ export function openVPanel(id) {
     const isYT = v.pt === 'youtube';
     const isGD = v.pt === 'gdrive';
     const isX  = v.pt === 'x';
-    const ytId = v.ytId || (isYT ? v.id : '');
+    const ytId = _vYtId(v) || (isYT ? v.id : '');
     const gdId = isGD ? (v.id || '').replace('gd-', '') : '';
     const vmId = (!isYT && !isGD && !isX) ? (v.id || '').replace('yt-', '') : '';
     const xId  = isX ? (v.xTweetId || (v.id || '').replace('x-', '')) : '';
@@ -1706,10 +1730,7 @@ export function openVPanel(id) {
     const vid = window.openVPanelId || id;
     const vd = (window.videos||[]).find(vx => vx.id === vid);
     const _isOwner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
-    const _canSummarize = _isOwner && (
-      (vd?.pt === 'youtube' && vd?.ytId) ||
-      (vd?.pt === 'gdrive')
-    );
+    const _canSummarize = _isOwner && (!!_vYtId(vd) || vd?.pt === 'gdrive');
     const _sumBtn = _canSummarize
       ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追記"
            style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
@@ -1725,7 +1746,7 @@ export function openVPanel(id) {
     // 「💬 一言」「🌳 分岐」のボタンは廃止（v52.735）。
     // すでに生成済みの一言解説（v.aiDesc）は、カードとこのパネルにそのまま出し続ける。
     // 字幕生成: Driveは同じフォルダにSRTを保存、YouTubeは字幕ドキュメントに保存
-    const _subGenBtn = (_isOwner && (vd?.pt === 'gdrive' || (vd?.pt === 'youtube' && vd?.ytId)))
+    const _subGenBtn = (_isOwner && (vd?.pt === 'gdrive' || !!_vYtId(vd)))
       ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
            style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
       : '';
@@ -3285,7 +3306,7 @@ window.wkYtSubDelete = async function(lang) {
 window.wkYtSubSave = function(lang) {
   const t = _ytSubTracks.find(x => x.lang === lang);
   if (!t || !t.srt) { window.toast?.('対象の字幕が見つかりません'); return; }
-  const v = (window.videos || []).find(x => x.ytId === _ytSubId);
+  const v = (window.videos || []).find(x => _vYtId(x) === _ytSubId);
   const base = String(v?.title || _ytSubId || 'subtitle').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([t.srt], { type: 'text/plain;charset=utf-8' }));
@@ -3798,7 +3819,7 @@ async function _ytFetchTranscript(idToken, ytId, subLang) {
 }
 
 async function _ytGenSubtitle(v, preset, btn, silent, t0) {
-  const ytId   = v.ytId;
+  const ytId   = _vYtId(v);
   const setBtn = txt => { if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = txt; } };
   const subLang = preset ? preset.subLang : await _askSubtitleLang(btn);
   if (!subLang) return { ok: false, skipped: true };
@@ -4542,7 +4563,7 @@ window.vpGenSubtitle = async function(id, preset) {
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
 
   const v = (window.videos || []).find(x => x.id === id);
-  const isYt = !!(v && v.pt === 'youtube' && v.ytId);
+  const isYt = !!_vYtId(v);
   if (!v || (v.pt !== 'gdrive' && !isYt)) return fail('YouTube または Google Drive の動画のみ対応しています');
 
   const user = window._firebaseCurrentUser?.();
@@ -5301,7 +5322,7 @@ window.vpGenChapters = async function(id, preset) {
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
 
   const v = (window.videos || []).find(x => x.id === id);
-  const isYt = !!(v && v.pt === 'youtube' && v.ytId);
+  const isYt = !!_vYtId(v);
   const isGd = !!(v && v.pt === 'gdrive');
   if (!v || (!isGd && !isYt)) return fail('YouTube または Google Drive の動画のみ対応しています');
 
@@ -5323,7 +5344,7 @@ window.vpGenChapters = async function(id, preset) {
     // 字幕の在りか: Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント
     const findSubs = async () => isGd
       ? await _gdFindSubtitleFiles(fileId, gdToken).catch(() => [])
-      : _ytSubList(await _ytSubFetch(v.ytId, true));
+      : _ytSubList(await _ytSubFetch(_vYtId(v), true));
     let subs = await findSubs();
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
@@ -5367,7 +5388,7 @@ window.vpGenChapters = async function(id, preset) {
     // 動画そのものをAIに読ませる時の宛先。Driveはファイル、YouTubeはURLを渡す。
     const videoSrc = isGd
       ? { source: 'gdrive', gdFileId: fileId, accessToken: gdToken }
-      : { source: 'youtube', ytId: v.ytId, durationSec: duration || 0 };
+      : { source: 'youtube', ytId: _vYtId(v), durationSec: duration || 0 };
 
     let pickedGrain = preset?.grain;
     if (!preset && via !== 'list') {
@@ -8135,7 +8156,7 @@ window.vpAiSummary = async function(id, preset) {
   const v = (window.videos||[]).find(v => v.id===id);
   if (!v) return fail('動画が見つかりません');
 
-  const isYT = v.pt === 'youtube' && v.ytId;
+  const isYT = !!_vYtId(v);
   const isGD = v.pt === 'gdrive';
   if (!isYT && !isGD) return fail('YouTube または Google Drive の動画のみ対応しています');
 
@@ -8174,7 +8195,7 @@ window.vpAiSummary = async function(id, preset) {
 
     // リクエストボディを platform 別に構築
     const reqBody = isYT
-      ? { idToken, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
+      ? { idToken, source: 'youtube', ytId: _vYtId(v), title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
       : { idToken, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
 
     // 要約生成は一時的に失敗しやすい（Geminiのレート/タイムアウト）ので最大2回試行
@@ -8297,7 +8318,7 @@ window.vpAiSummary = async function(id, preset) {
 // ── YouTube AI要約 + getDisplayMediaスクショ ──
 window.vpAiSummaryWithShot = async function(id) {
   const v = (window.videos||[]).find(v => v.id===id);
-  if (!v || v.pt !== 'youtube' || !v.ytId) { window.toast?.('YouTube動画のみ対応です'); return; }
+  if (!_vYtId(v)) { window.toast?.('YouTube動画のみ対応です'); return; }
   const user = window._firebaseCurrentUser?.();
   if (!user) { window.toast?.('ログインが必要です'); return; }
 
@@ -8311,7 +8332,7 @@ window.vpAiSummaryWithShot = async function(id) {
     const res = await fetch('/api/ai-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken, source: 'youtube', ytId: v.ytId, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
+      body: JSON.stringify({ idToken, source: 'youtube', ytId: _vYtId(v), title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.summary) {
@@ -8537,9 +8558,9 @@ export function _openPanel(id, emb, ext, plat) {
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
-          <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'youtube' && v?.ytId || v?.pt === 'gdrive'))
+          <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (!!_vYtId(v) || v?.pt === 'gdrive'))
             ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
-            : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || (v?.pt === 'youtube' && v?.ytId)))
+            : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
             ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>
           ${_memoToolbarHTML(id)}
