@@ -5827,7 +5827,7 @@ function _subOptsHTML(scope) {
           ${btn('⏱ いまのセリフに合わせる', 'wkSubSyncNow()', 'var(--accent,#6c8cff)')}
         </div>
         <div style="font-size:10.5px;color:var(--text3)">
-          字幕が出ている状態で、その台詞が聞こえた瞬間に押すと合います
+          字幕が出ている状態で、その声が始まった瞬間に押すと合います
         </div>
         ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す${anc.length ? `（いま${anc.length}点）` : ''}</div>
         ${plan ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
@@ -5838,6 +5838,7 @@ function _subOptsHTML(scope) {
           </div>` : ''}
         ${anc.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)')}</div>` : ''}
         <details><summary style="font-size:10.5px;color:var(--text3);cursor:pointer">まだ合わないときは手で合わせる</summary>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:6px">先に上の1クリックで合わせてから使ってください。大きくズレたままだと、どの声がその字幕なのか分かりません</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
           ${btn('① この字幕を覚える', 'wkSubDriftMark()', mk ? 'var(--border)' : 'var(--accent,#6c8cff)')}
           ${btn('② ここで聞こえた', 'wkSubDriftHere()', mk ? 'var(--accent,#6c8cff)' : 'var(--border)')}
@@ -5845,9 +5846,9 @@ function _subOptsHTML(scope) {
         ${mk ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
                        border-radius:8px;padding:7px 9px;font-size:11px;line-height:1.55;margin-top:6px">
             覚えた字幕: 「${escT(mk.text)}」<br>
-            <span style="color:var(--text3)">この台詞が実際に聞こえるところまで進めて、聞こえた瞬間に②を押してください</span>
+            <span style="color:var(--text3)">この字幕の声が始まるところまで進めて、始まった瞬間に②を押してください</span>
           </div>`
-          : `<div style="font-size:10.5px;color:var(--text3);margin-top:6px">ズレている字幕が画面に出ている状態で①を押し、その台詞が実際に聞こえるところまで進めて②を押します</div>`}
+          : `<div style="font-size:10.5px;color:var(--text3);margin-top:6px">ズレている字幕が画面に出ている状態で①を押し、その字幕の声が始まるところまで進めて②を押します</div>`}
         <div style="font-size:10.5px;color:var(--text3)">①②を1組として、2組で全体が伸び、3組以上で区間ごとに合います</div>
         </details>
         <div style="font-size:10.5px;color:var(--text3)">合わせた結果は字幕と一緒に保存されるので、どの端末でも同じように出ます</div>` : ''}
@@ -6046,7 +6047,7 @@ window.wkSubDriftMark = function() {
   _subMark = { ytId: _ytSubId, lang: t.lang, t: src,
                text: String(p.text || '').replace(/\s+/g, ' ').trim().slice(0, 30) };
   window.wkSubOptsRender();
-  window.toast?.('① 覚えました。この台詞が聞こえるところまで進めて②を押してください');
+  window.toast?.('① 覚えました。この字幕の声が始まるところまで進めて②を押してください');
 };
 
 window.wkSubDriftHere = async function() {
