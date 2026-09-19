@@ -81,6 +81,7 @@ const HARNESS = `<!doctype html><meta charset="utf-8">
 
 let uploadedBytes = 0;
 let usedResumable = false;
+let driveName     = '';   // 再開可能アップロードの開始時に送ったメタデータの name
 let quotaMode     = 'ok';   // ok | full | nolimit | fail
 
 const srv = http.createServer((q, r) => {
@@ -147,6 +148,7 @@ await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), async (route) => 
   }
   // 再開可能アップロードの開始
   if (url.startsWith('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable')) {
+    try { driveName = JSON.parse(route.request().postData() || '{}').name || ''; } catch {}
     return route.fulfill({ status: 200,
       headers: { ...CORS, location: `http://localhost:${PORT}/__fake_session`, 'content-type': 'application/json' },
       body: '{}' });
@@ -241,7 +243,7 @@ fs.writeFileSync(tmp, srcBuf);
 
 await page.setInputFiles('#gdu-file-input', tmp);
 await page.waitForTimeout(1200);
-check((await page.textContent('#gdu-list'))?.includes('wk-gdu-test'), '選んだファイルが一覧に出る');
+check((await page.inputValue('#gdu-list input.gdu-nm'))?.includes('wk-gdu-test'), '選んだファイルが一覧に出る');
 check(/\+1\.2MB/.test(await page.textContent('#gdu-quota') || ''), 'ふえる分が出る',
   (await page.textContent('#gdu-quota'))?.slice(0, 60));
 check(!(await page.isDisabled('#gdu-start')), '保存先とファイルが揃うと実行できる');
@@ -260,6 +262,26 @@ check(await page.locator('#gdu-list .gdp-row').count() === 1, '動画でない�
 check(/動画ではないので外しました/.test((await page.evaluate(() => (window.__toasts||[]).join('|')))),
   '外した理由を伝える');
 try { fs.unlinkSync(notVideo); } catch {}
+
+// ── 名前をその場で直せること ──
+check(await page.locator('#gdu-list input.gdu-nm').count() === 1, 'タイトルは入力欄になっている');
+check(await page.isVisible('#gdu-namehint'), '直せることを画面で伝える');
+check(await page.inputValue('#gdu-list input.gdu-nm') === 'wk-gdu-test',
+  '拡張子を外した名前が最初から入っている', await page.inputValue('#gdu-list input.gdu-nm'));
+await page.fill('#gdu-list input.gdu-nm', '6/12 スパー 3R目');
+await page.waitForTimeout(150);
+// 一覧が描き直されても、打った名前が飛ばないこと。
+// （尺は選んだ後から入ってきて描き直しが走るので、ここで消えると名前が打てない）
+await page.setInputFiles('#gdu-file-input', tmp);   // 重複なので行数は変わらない＝描き直しの経路
+await page.waitForTimeout(600);
+check(await page.inputValue('#gdu-list input.gdu-nm') === '6/12 スパー 3R目',
+  '描き直しても打った名前が残る', await page.inputValue('#gdu-list input.gdu-nm'));
+
+// 崩れは数字では見えない。見たいときは GDU_SHOT=<出力先.png> を付けて走らせる。
+if (process.env.GDU_SHOT) {
+  await page.screenshot({ path: process.env.GDU_SHOT, fullPage: true });
+  console.log('  （画面を書き出しました: ' + process.env.GDU_SHOT + '）');
+}
 
 // ── スマホ幅で操作しきれること ──
 await page.evaluate(() => document.getElementById('gdu-optshd').click());   // 任意欄を開いて縦を伸ばす
@@ -329,6 +351,9 @@ check(reg.n === reg.seeded + 1,        'videos に1件だけ追加される', `n
 check(reg.v?.id === 'gd-FAKE_FILE_ID', 'idが gd-<fileId> になる', reg.v?.id);
 check(reg.v?.pt === 'gdrive',          'pt が gdrive になる', reg.v?.pt);
 check(reg.v?.archived === false && reg.v?.status === '未着手', '既定値が入る');
+check(reg.v?.title === '6/12 スパー 3R目', '直した名前がライブラリのタイトルになる', reg.v?.title);
+check(driveName === '6/12 スパー 3R目.mp4', '直した名前がDrive上のファイル名にもなる（拡張子は残す）', driveName);
+check(reg.v?.pl === 'テストフォルダ', 'プレイリスト名が空欄なら保存先フォルダ名が入る', reg.v?.pl);
 check(reg.saved === 1,                 '保存が1回だけ呼ばれる', String(reg.saved));
 check(usedResumable,                   '再開可能アップロードのセッションURLを使う');
 console.log(`  （元 ${srcBuf.length}B → アップロード ${uploadedBytes}B）`);

@@ -1755,3 +1755,11 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
   margin:9px 0 2px; color:var(--text);
 }
 .memo-h + .memo-h2{ margin-top:4px; }
+
+/* 端末アップロード: 一覧のタイトルは、その場で直せる入力欄。
+   触れると直せると分かるように、普段から薄い枠を見せておく。 */
+.gdp-row input.gdu-nm{
+  min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:7px;
+  padding:7px 8px;font:inherit;font-size:12.5px;color:var(--text);
+}
+.gdp-row input.gdu-nm:focus{outline:none;border-color:var(--accent)}
