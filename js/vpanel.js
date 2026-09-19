@@ -5727,7 +5727,9 @@ function _subOptsHTML(scope) {
             ? `<div style="font-size:10.5px;color:var(--text3)">この動画にはYouTube側の字幕がありません</div>`
             : _ytCcTries >= YT_CC_MAX_TRIES
             ? `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を取得できませんでした（コンソールで wkYtCcDiag() を実行すると原因が出ます）</div>`
-            : `<div style="font-size:10.5px;color:var(--text3)">YouTube側の字幕を探しています（再生を始めると出てくることがあります）</div>`)
+            // 探している最中は何も出さない。ユーザーに求めることが無い実況を並べても、
+            // 自前の字幕が出ている横で「探しています」と言い続けるだけで混乱のもとになる。
+            : '')
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
@@ -5742,7 +5744,10 @@ function _subOptsHTML(scope) {
                font-size:11px;font-weight:600;cursor:pointer">${label}</button>`;
     const sug = _gdSubSuggestOffset();
 
-    html += sec('ズレを直す（この動画のみ）')
+    // ズレ補正の中身。時刻が正確な字幕（YouTubeの字幕から作ったもの）では出番が無いので、
+    // 見出しだけ残して畳む。消さないのは、AIが時刻を書いた字幕（赤い枠）では今も要るから。
+    // 補正が掛かっている時は畳まない（掛かっていることは必ず見えていないといけない）。
+    const offBody = ''
       // 補正が残っていると、正しい時刻の字幕にもそれが足され続ける。
       // 黙って適用せず、掛かっていることを必ず見せる。
       + (off
@@ -5807,6 +5812,15 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           補正はこの端末だけに残ります。他の端末にも反映するにはDriveに保存してください
         </div>` : `<div style="font-size:10.5px;color:var(--text3)">補正はこの端末だけに残ります</div>`);
+
+    // 時刻が正確な字幕で、補正も掛かっていないなら、畳んで見出しだけにする。
+    // 出番の無い操作を並べておくと「何か直さないといけないのか」と思わせてしまう。
+    const foldOff = fromYt && !off;
+    html += foldOff
+      ? `<details><summary style="font-size:11px;font-weight:700;cursor:pointer;padding:2px 0">ズレを直す（この動画のみ）</summary>
+           <div style="display:flex;flex-direction:column;gap:7px;margin-top:7px">${offBody}</div>
+         </details>`
+      : sec('ズレを直す（この動画のみ）') + offBody;
   }
 
   if (scope === 'full') {
