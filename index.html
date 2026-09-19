@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.780</title>
+<title>WAZA KIMURA v52.781</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4888,8 +4888,8 @@ document.addEventListener('click', function(e) {
         <div class="gdu-scroll">
         <div style="font-size:15px;font-weight:800;margin-bottom:4px">📤 端末の動画を取り込む</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
-          Googleフォトやカメラロールの動画を選んで、Googleドライブに保存してから登録します。<br>
-          Googleフォトのリンクは時間で切れるため、実体をドライブにコピーします。
+          スマホやPCの動画を選んで、ご自身のGoogleドライブにコピーしてから登録します。<br>
+          画質はそのまま。元の動画は端末に残ります。
         </div>
 
         <button class="btn-save" style="width:100%;margin-bottom:8px" onclick="gduPick()">🎬 動画ファイルを選ぶ</button>
@@ -4905,14 +4905,9 @@ document.addEventListener('click', function(e) {
           <button class="gdp-up" onclick="gduOpenFolder()">📁 フォルダを選ぶ</button>
         </div>
 
-        <!-- 画質 -->
-        <div class="gdp-opts" style="margin-top:10px">
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px 2px">
-            <span style="font-size:12px;font-weight:700;color:var(--text2)">アップロードする画質</span>
-            <span id="gdu-qsum" style="margin-left:auto;font-size:11px;color:var(--text3)"></span>
-          </div>
-          <div id="gdu-quality" style="padding:0 12px 10px"></div>
-        </div>
+        <!-- Driveがどれだけ増えるか -->
+        <div id="gdu-quota" class="gdp-opts"
+          style="margin-top:10px;padding:12px 14px;display:flex;flex-direction:column;gap:9px"></div>
 
         <!-- 任意項目 -->
         <div class="gdp-opts" style="margin-top:8px">
