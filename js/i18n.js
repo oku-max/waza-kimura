@@ -362,15 +362,15 @@
     // ── 取り込み（端末の動画をDriveへアップロード）──
     '📤 端末から':'📤 Upload','📁 Drive':'📁 Drive','🔗 URL':'🔗 URL',
     '📤 端末の動画を取り込む':'📤 Upload a video from this device',
-    'Googleフォトやカメラロールの動画を選んで、Googleドライブに保存してから登録します。':'Pick a video from Google Photos or your camera roll; it is saved to Google Drive and then added.',
-    'Googleフォトのリンクは時間で切れるため、実体をドライブにコピーします。':'Google Photos links expire, so the file itself is copied to Drive.',
+    'スマホやPCの動画を選んで、ご自身のGoogleドライブにコピーしてから登録します。':'Pick a video from your phone or computer; it is copied to your own Google Drive and then added.',
+    '画質はそのまま。元の動画は端末に残ります。':'Quality is unchanged. The original stays on your device.',
     '🎬 動画ファイルを選ぶ':'🎬 Choose video files',
     'まだ動画を選んでいません':'No videos chosen yet',
     '保存先':'Save to','未選択':'Not chosen','📁 フォルダを選ぶ':'📁 Choose folder',
-    'アップロードする画質':'Upload quality',
-    'そのまま（変換しない）':'Original (no conversion)','高画質 1080p':'High 1080p','標準 720p':'Standard 720p','軽量 480p':'Light 480p',
-    'サイズは目安です。元の動画はそのまま端末に残ります':'Sizes are estimates. The original stays on your device.',
-    'このブラウザは動画の変換に対応していないため、そのままアップロードします（iPhoneはiOS 26以降で対応）':'This browser cannot convert video, so files are uploaded as-is (iPhone needs iOS 26 or later).',
+    '今回ふえる分':'Added this time','空き容量を確認しています...':'Checking free space...',
+    'Googleドライブの空き容量を確認できませんでした。取り込みは続けられますが、空きが足りないと途中で失敗することがあります。':'Could not check your Google Drive free space. You can still import, but it may fail partway if space runs out.',
+    '保存先はあなた自身のGoogleドライブです。いつでもご自身で削除できます。':'Files go to your own Google Drive. You can delete them yourself at any time.',
+    '空きが足りません':'Not enough space',
     'チャンネル名・プレイリスト名':'Channel & playlist',
     '空欄でも登録できます':'Can be left empty',
     'チャンネルなし':'No channels yet','プレイリストなし':'No playlists yet',
@@ -379,7 +379,7 @@
     'このフォルダに保存':'Save to this folder','＋ 新規':'+ New','← 上へ':'← Up','マイドライブ':'My Drive',
     '読み込み中...':'Loading...','この中にフォルダはありません':'No folders here','フォルダ一覧を取得できませんでした':'Could not load the folder list',
     '📤 取り込み中':'📤 Importing','中止する':'Stop','中止しています...':'Stopping...','中止しました':'Stopped',
-    '変換とアップロードの間はこの画面を開いたままにしてください':'Keep this screen open while converting and uploading',
+    'アップロードの間はこの画面を開いたままにしてください':'Keep this screen open while uploading',
     '待機中':'Waiting','完了':'Done','失敗':'Failed',
     '新しいフォルダの名前':'Name for the new folder','📁 フォルダを作成しました':'📁 Folder created',
     '⚠️ フォルダを作成できませんでした':'⚠️ Could not create the folder',
@@ -388,9 +388,6 @@
     '⚠️ ファイル選択を開けませんでした。ページを更新してください':'⚠️ Could not open the file picker. Please reload the page.',
     '⚠️ データの読み込みが終わっていません。少し待ってからお試しください':'⚠️ Your data is still loading. Please try again in a moment.',
     '⚠️ Driveには保存されましたが、ライブラリへの保存は見送られました。ページを更新してください':'⚠️ Saved to Drive, but adding to your library was skipped. Please reload the page.',
-    '変換に非対応の形式のためそのまま':'Format cannot be converted — uploaded as-is',
-    '音声を変換できないためそのまま':'Audio cannot be converted — uploaded as-is',
-    '元の方が小さいためそのまま':'Original is smaller — uploaded as-is',
     'アップロード結果にファイルIDがありません':'The upload response had no file ID',
     '応答を解釈できませんでした':'Could not read the response','ネットワークエラー':'Network error',
     // ── 取り込み（共通/YouTube/GDrive/URL） ──
@@ -1758,8 +1755,15 @@
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
     "#本をアップロードして登録": "Upload and add #",
+    "使用中 #KB": "#KB used",
+    "使用中 #MB": "#MB used",
+    "使用中 #GB": "#GB used",
+    "空き #GB / #GB": "#GB free of #GB",
+    "空き #MB / #GB": "#MB free of #GB",
+    "Googleドライブ 使用中 #GB（上限なし）": "Google Drive: #GB used (no limit)",
+    "取り込むと残りが #GB になります。": "After importing, #GB will remain.",
+    "取り込むと残りが #MB になります。": "After importing, #MB will remain.",
     "#本": "#",
-    "変換中 #%": "Converting #%",
     "アップロード中 #%": "Uploading #%",
     "元 約#KB": "Original approx. #KB",
     "元 約#MB": "Original approx. #MB",
@@ -1973,6 +1977,9 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // 空きが足りないときの不足分（単位が状況で変わるのでパターンで受ける）
+    [/^空きが (.+?) 足りません。ファイルを減らすか、Googleドライブを整理してください。$/,
+      (m, n) => `Not enough space by ${n}. Remove some files or clear space in Google Drive.`],
     // 端末アップロードの中断理由（理由の文言は状況次第なのでそのまま残す）
     [/^取り込みを中断しました: (.+)$/, (m, why) => `Import stopped: ${why}`],
     // ── チャプターの細かさ（語 + 最短の長さ + この動画での上限個数）──

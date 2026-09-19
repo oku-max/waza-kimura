@@ -11,39 +11,28 @@
    スマホの選択画面からは Googleフォト／カメラロールの動画がそのまま選べるので、
    Photos 専用の連携は要らない。<input type="file" accept="video/*"> で足りる。
 
+   端末側での画質変換はしない。元のファイルをそのままコピーする。
+   代わりに、Driveがどれだけ増えるか・空きが足りるかを押す前に出す。
+
    ── データ層への影響 ──
    ・window.videos に push するだけ。既存要素の書き換え・削除は一切しない。
    ・同じ id が既にあれば push しない（重複登録の防止）。
    ・保存は既存の saveUserData() を通す（未読込時の上書き防止ガードはそちらが持つ）。
-   ・localStorage は wk_gdu_quality（画質プリセットの記憶）のみ。他キーには触らない。
+   ・localStorage には一切書かない。
    ・Drive 側は「新規ファイルの作成」だけ。既存ファイルの更新・削除はしない。
    ══════════════════════════════════════════════════════════════════════ */
 
 import { ensureDriveToken } from './gdrive.js';
 
 const GD_FOLDER_MIME = 'application/vnd.google-apps.folder';
-const Q_KEY = 'wk_gdu_quality';
-
-// 画質プリセット。short = 短辺の上限px（0なら変換しない）、vb = 映像ビットレート(bps)
-const PRESETS = {
-  orig: { label: 'そのまま（変換しない）', short: 0,    vb: 0 },
-  hi:   { label: '高画質 1080p',           short: 1080, vb: 4_000_000 },
-  std:  { label: '標準 720p',              short: 720,  vb: 2_000_000 },
-  low:  { label: '軽量 480p',              short: 480,  vb: 1_000_000 },
-};
-const AUDIO_BPS = 128_000;
-const MAX_FPS   = 30;
 
 // ── 状態 ──
 let _items   = [];          // { file, title, size, duration, phase, prog, note, fileId }
 let _dest    = null;        // { id, name } アップロード先フォルダ（毎回選ぶ）
-let _quality = 'std';
 let _running = false;
 let _abort   = false;
-let _curConv = null;        // 実行中の Conversion（中止用）
 let _curXhr  = null;        // 実行中のアップロード（中止用）
-let _mb      = null;        // mediabunny モジュール（遅延読込）
-let _canEnc  = null;        // 変換できる環境か（null=未判定）
+let _quota   = null;        // { limit, usage } / { failed:true } / null=未取得
 
 // フォルダピッカーの状態
 let _fpStack = [];
@@ -69,41 +58,8 @@ function _hhmm(sec) {
   return h ? `${h}:${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`
            : `${m}:${String(r).padStart(2,'0')}`;
 }
-function _even(n) { return Math.max(2, Math.round(n / 2) * 2); }
 function _stripExt(name) { return String(name || '').replace(/\.(mp4|mov|m4v|avi|mkv|webm|wmv|flv|mpg|mpeg|3gp|ogv|ts|m2ts)$/i, ''); }
 function _el(id) { return document.getElementById(id); }
-
-// 変換後サイズの見積り。実際は素材次第で上下するので「目安」として出す。
-function _estimate(item, qkey) {
-  const p = PRESETS[qkey];
-  if (!p || !p.vb) return item.size;
-  if (!item.duration) return 0;                 // 尺が取れないと見積れない
-  const est = (p.vb + AUDIO_BPS) * item.duration / 8;
-  return Math.min(est, item.size);              // 元より大きくなるなら元のまま扱い
-}
-
-// ════════════════════════════════════════════════════════════
-// mediabunny（変換エンジン）の遅延読込
-// ════════════════════════════════════════════════════════════
-async function _loadMB() {
-  if (_mb) return _mb;
-  _mb = await import('./vendor/mediabunny.min.js');
-  return _mb;
-}
-
-// この端末で H.264 に変換できるか。できないなら圧縮UIを出さない（押せるのに失敗するのが一番困る）
-async function _checkEncodable() {
-  if (_canEnc !== null) return _canEnc;
-  if (typeof window.VideoEncoder === 'undefined') { _canEnc = false; return false; }
-  try {
-    const MB = await _loadMB();
-    _canEnc = await MB.canEncodeVideo('avc', { width: 1280, height: 720 });
-  } catch (e) {
-    console.warn('[gdu] encode check failed', e);
-    _canEnc = false;
-  }
-  return _canEnc;
-}
 
 // ════════════════════════════════════════════════════════════
 // 画面
@@ -114,11 +70,11 @@ export async function gduOpen() {
   _abort = false;
   _items = [];
   _dest  = null;
-  try { const q = localStorage.getItem(Q_KEY); if (q && PRESETS[q]) _quality = q; } catch (e) {}
+  _quota = null;
   _showStage('setup');
   _render();
-  // 変換可否は非同期に判定して、決まってから画質欄を描き直す
-  _checkEncodable().then(() => _renderQuality());
+  // 空き容量は認証が要るので、取れてから描き直す
+  _loadQuota();
 }
 
 function _showStage(stage) {
@@ -193,17 +149,10 @@ export function gduRemove(idx) {
   _render();
 }
 
-export function gduSetQ(key) {
-  if (_running || !PRESETS[key]) return;
-  _quality = key;
-  try { localStorage.setItem(Q_KEY, key); } catch (e) {}
-  _render();
-}
-
 function _render() {
   _renderList();
   _renderDest();
-  _renderQuality();
+  _renderQuota();
   _renderFoot();
 }
 
@@ -215,10 +164,7 @@ function _renderList() {
     return;
   }
   box.innerHTML = _items.map((it, i) => {
-    const est = _estimate(it, _quality);
-    const shrink = (_quality !== 'orig' && est && est < it.size)
-      ? ` → <span style="color:var(--green);font-weight:700">${_mb2(est)}</span>` : '';
-    const meta = `${_mb2(it.size)}${shrink}${it.duration ? ' ・ ' + _hhmm(it.duration) : ''}`;
+    const meta = `${_mb2(it.size)}${it.duration ? ' ・ ' + _hhmm(it.duration) : ''}`;
     return `<div class="gdp-row" style="cursor:default">
       <span class="ico">🎬</span>
       <span class="nm" title="${_esc(it.file.name)}">${_esc(it.title)}</span>
@@ -235,36 +181,97 @@ function _renderDest() {
   el.style.color = _dest ? 'var(--text)' : 'var(--text3)';
 }
 
-function _renderQuality() {
-  const box = _el('gdu-quality');
+// ── Driveの空き容量 ──────────────────────────────────────
+// 知らないうちに容量が増えていた、が起きないように、押す前に出す。
+// 取れなくても取り込みは止めない（分かっていないことを正直に出すだけ）。
+async function _loadQuota() {
+  try {
+    const token = await ensureDriveToken();
+    if (!token) { _quota = { failed: true }; _renderQuota(); return; }
+    const data = await _driveGet(
+      'https://www.googleapis.com/drive/v3/about?fields=storageQuota', token);
+    const q = data?.storageQuota || {};
+    _quota = { limit: q.limit != null ? Number(q.limit) : null, usage: Number(q.usage) || 0 };
+  } catch (e) {
+    console.warn('[gdu] quota', e);
+    _quota = { failed: true };
+  }
+  _renderQuota();
+}
+
+// 今回ふえる分。変換しないので、選んだファイルの合計そのまま。
+function _addBytes() { return _items.reduce((n, it) => n + (it.size || 0), 0); }
+
+// 空きが足りないか。容量が分からないときは false（止める根拠がない）。
+function _noRoom() {
+  if (!_quota || _quota.failed || _quota.limit == null) return false;
+  return _addBytes() > _quota.limit - _quota.usage;
+}
+
+function _renderQuota() {
+  const box = _el('gdu-quota');
   if (!box) return;
-  const total = _items.reduce((s, it) => s + it.size, 0);
-  const rows = Object.entries(PRESETS).map(([k, p]) => {
-    const disabled = (k !== 'orig' && _canEnc === false);
-    const sum = _items.reduce((s, it) => s + (_estimate(it, k) || it.size), 0);
-    const hint = _items.length ? `合計 約${_mb2(sum)}` : '';
-    return `<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;cursor:${disabled?'default':'pointer'};opacity:${disabled?.4:1}">
-      <input type="radio" name="gdu-q" value="${k}" ${_quality===k?'checked':''} ${disabled?'disabled':''}
-        onchange="gduSetQ('${k}')" style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
-      <span style="flex:1;font-size:12.5px;color:var(--text)">${_esc(p.label)}</span>
-      <span style="font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums">${hint}</span>
-    </label>`;
-  }).join('');
-  const warn = _canEnc === false
-    ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">このブラウザは動画の変換に対応していないため、そのままアップロードします（iPhoneはiOS 26以降で対応）</div>`
-    : `<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">サイズは目安です。元の動画はそのまま端末に残ります</div>`;
-  box.innerHTML = rows + warn;
-  const t = _el('gdu-qsum');
-  if (t) t.textContent = _items.length ? `元 約${_mb2(total)}` : '';
+  const add = _addBytes();
+
+  const head = !_items.length ? '' :
+    `<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+       <span style="font-size:11px;font-weight:700;color:var(--text2)">今回ふえる分</span>
+       <span style="font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums">+${_mb2(add)}</span>
+     </div>`;
+
+  const own = `<div style="font-size:10.5px;color:var(--text3);line-height:1.55">
+      保存先はあなた自身のGoogleドライブです。いつでもご自身で削除できます。</div>`;
+
+  if (!_quota) {
+    box.innerHTML = head + `<div style="font-size:11px;color:var(--text3)">空き容量を確認しています...</div>` + own;
+    return;
+  }
+  if (_quota.failed) {
+    box.innerHTML = head
+      + `<div style="font-size:11px;color:var(--text3);line-height:1.55">Googleドライブの空き容量を確認できませんでした。取り込みは続けられますが、空きが足りないと途中で失敗することがあります。</div>`
+      + own;
+    return;
+  }
+  if (_quota.limit == null) {
+    box.innerHTML = head
+      + `<div style="font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums">Googleドライブ 使用中 ${_mb2(_quota.usage)}（上限なし）</div>`
+      + own;
+    return;
+  }
+
+  const free  = _quota.limit - _quota.usage;
+  const over  = add > free;
+  const usedW = Math.min(100, _quota.usage / _quota.limit * 100);
+  // 増える分が少量でも見えるように、最低限の幅は確保する
+  const addW  = Math.min(100 - usedW, add > 0 ? Math.max(add / _quota.limit * 100, 1.5) : 0);
+  const addBg = over ? 'var(--red)' : 'var(--green)';
+
+  let msg = '';
+  if (over) {
+    msg = `<div style="font-size:11.5px;font-weight:700;color:var(--red);line-height:1.5">空きが ${_mb2(add - free)} 足りません。ファイルを減らすか、Googleドライブを整理してください。</div>`;
+  } else if (add > 0 && (free - add) / _quota.limit < 0.1) {
+    msg = `<div style="font-size:11.5px;font-weight:700;color:var(--gold);line-height:1.5">取り込むと残りが ${_mb2(free - add)} になります。</div>`;
+  }
+
+  box.innerHTML = head
+    + `<div style="height:10px;border-radius:6px;overflow:hidden;background:var(--surface3);display:flex">
+         <div style="width:${usedW.toFixed(2)}%;background:var(--text3)"></div>
+         <div style="width:${addW.toFixed(2)}%;background:${addBg}"></div>
+       </div>`
+    + `<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums">
+         <span>使用中 ${_mb2(_quota.usage)}</span>
+         <span>空き ${_mb2(free)} / ${_mb2(_quota.limit)}</span>
+       </div>`
+    + msg + own;
 }
 
 function _renderFoot() {
   const btn = _el('gdu-start');
   if (!btn) return;
-  const ok = _items.length > 0 && !!_dest && !_running;
-  btn.disabled = !ok;
-  btn.textContent = _items.length
-    ? `${_items.length}本をアップロードして登録`
+  const noRoom = _noRoom();
+  btn.disabled = !(_items.length > 0 && !!_dest && !_running) || noRoom;
+  btn.textContent = noRoom ? '空きが足りません'
+    : _items.length ? `${_items.length}本をアップロードして登録`
     : 'アップロードして登録';
 }
 
@@ -334,6 +341,7 @@ export function gduChooseFolder() {
   _dest = { id: _fpId, name: _fpName };
   _showStage('setup');
   _render();
+  if (!_quota) _loadQuota();
 }
 
 export async function gduNewFolder() {
@@ -386,92 +394,6 @@ async function _fpRender() {
   }
 }
 
-// ════════════════════════════════════════════════════════════
-// 変換
-// ════════════════════════════════════════════════════════════
-// 変換できない／しない場合は null を返し、呼び出し側は元のファイルをそのまま上げる。
-// 「圧縮に失敗したから取り込めません」ではなく「圧縮せずに取り込む」の方が安全側。
-async function _transcode(item, onProgress) {
-  const preset = PRESETS[_quality];
-  if (!preset || !preset.vb) return null;
-  if (!(await _checkEncodable())) return null;
-
-  const MB = await _loadMB();
-  const input = new MB.Input({ source: new MB.BlobSource(item.file), formats: MB.ALL_FORMATS });
-
-  const vt = await input.getPrimaryVideoTrack();
-  if (!vt) return null;
-  // iPhoneのHEVCなど、この端末でデコードできない素材がある。その場合は変換をあきらめる。
-  if (!(await vt.canDecode())) { item.note = '変換に非対応の形式のためそのまま'; return null; }
-
-  const dw = await vt.getDisplayWidth();
-  const dh = await vt.getDisplayHeight();
-  const short = Math.min(dw, dh);
-  const scale = (short > preset.short) ? preset.short / short : 1;
-
-  const videoOpts = {
-    codec: 'avc',
-    quality: new MB.Quality({ bitrate: preset.vb }),
-    forceTranscode: true,
-  };
-  if (scale < 1) {
-    videoOpts.width  = _even(dw * scale);
-    videoOpts.height = _even(dh * scale);
-    videoOpts.fit    = 'fill';   // 縦横比は自前で合わせてあるので letterbox は出ない
-  }
-  // 60fpsは30fpsに落とす。同じビットレートならコマあたりの画質が上がる。
-  try {
-    const m = await vt.computeFrameRateMetrics();
-    if (m?.bestGuessFrameRate > MAX_FPS + 1) videoOpts.frameRate = MAX_FPS;
-  } catch (e) { /* 取れなくても致命的ではない */ }
-
-  const hadAudio = !!(await input.getPrimaryAudioTrack());
-
-  const output = new MB.Output({
-    format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }),
-    target: new MB.BufferTarget(),
-  });
-
-  const conv = await MB.Conversion.init({
-    input, output,
-    video: videoOpts,
-    audio: { codec: 'aac', quality: new MB.Quality({ bitrate: AUDIO_BPS }) },
-    showWarnings: false,
-  });
-
-  if (!conv.isValid) {
-    await conv.cancel().catch(() => {});
-    item.note = '変換に非対応の形式のためそのまま';
-    return null;
-  }
-  // 音声が落ちる構成なら変換しない。字幕生成が音声に依存しているので、
-  // 黙って音を捨てるくらいなら容量を取る方がまし。
-  if (hadAudio && !conv.utilizedTracks.some(t => t.isAudioTrack?.() || t.type === 'audio')) {
-    await conv.cancel().catch(() => {});
-    item.note = '音声を変換できないためそのまま';
-    return null;
-  }
-
-  conv.onProgress = (p) => onProgress(Math.max(0, Math.min(1, p)));
-  _curConv = conv;
-  try {
-    await conv.execute();
-  } finally {
-    _curConv = null;
-  }
-  if (_abort) return null;
-
-  const buf = output.target.buffer;
-  if (!buf) return null;
-  const blob = new Blob([buf], { type: 'video/mp4' });
-  // 変換した結果の方が大きいなら意味がない（既に十分小さい素材）
-  if (blob.size >= item.size) { item.note = '元の方が小さいためそのまま'; return null; }
-  return blob;
-}
-
-// ════════════════════════════════════════════════════════════
-// アップロード
-// ════════════════════════════════════════════════════════════
 function _xhrPut(url, blob, mime, headers, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -571,7 +493,6 @@ export async function gduStart() {
     console.error('[gdu] 取り込みが中断されました', e);
   } finally {
     _running = false;
-    _curConv = null;
     _curXhr  = null;
   }
   _renderRun(registered, fatal);
@@ -594,20 +515,9 @@ async function _runImport() {
   for (const it of _items) {
     if (_abort) { it.phase = 'wait'; it.note = '中止しました'; continue; }
     try {
-      // ── 変換 ──
-      let blob = null;
-      if (PRESETS[_quality].vb) {
-        it.phase = 'conv'; it.prog = 0; _renderRun();
-        blob = await _transcode(it, (p) => _tick(it, p));
-      }
-      if (_abort) { it.phase = 'error'; it.note = '中止しました'; _renderRun(); break; }
-      if (!blob) blob = it.file;
-
-      // ── アップロード ──
+      // 変換はしない。元のファイルをそのまま上げる。
       it.phase = 'up'; it.prog = 0; _renderRun();
-      const name = _stripExt(it.file.name) + '.mp4';
-      const res  = await _upload(blob, blob === it.file ? it.file.name : name, _dest.id, token,
-        (p) => _tick(it, p));
+      const res  = await _upload(it.file, it.file.name, _dest.id, token, (p) => _tick(it, p));
       if (!res?.id) throw new Error('アップロード結果にファイルIDがありません');
 
       it.fileId = res.id;
@@ -668,14 +578,12 @@ async function _runImport() {
 export async function gduAbort() {
   _abort = true;
   window.toast?.('中止しています...');
-  try { await _curConv?.cancel(); } catch (e) {}
   try { _curXhr?.abort(); } catch (e) {}
-  // 変換やアップロードが応答しないことがある。待ち続けると進捗画面から出られず
+  // アップロードが応答しないことがある。待ち続けると進捗画面から出られず
   // 全ボタンが無効なままになるので、少し待って必ず操作できる状態に戻す。
   setTimeout(() => {
     if (!_running) return;
     _running = false;
-    _curConv = null;
     _curXhr  = null;
     _renderRun(0, '中止しました');
   }, 3000);
@@ -703,11 +611,10 @@ function _renderRun(registered, fatal) {
     box.innerHTML = _items.map(it => {
       const pct = Math.round((it.prog || 0) * 100);
       let label = '待機中', color = 'var(--text3)';
-      if (it.phase === 'conv')  { label = `変換中 ${pct}%`;       color = 'var(--accent)'; }
       if (it.phase === 'up')    { label = `アップロード中 ${pct}%`; color = 'var(--accent)'; }
       if (it.phase === 'done')  { label = '完了';                 color = 'var(--green)'; }
       if (it.phase === 'error') { label = '失敗';                 color = 'var(--red, #c33)'; }
-      const bar = (it.phase === 'conv' || it.phase === 'up')
+      const bar = (it.phase === 'up')
         ? `<div style="height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-top:4px">
              <div style="height:100%;width:${pct}%;background:var(--accent);transition:width .2s"></div>
            </div>` : '';
@@ -730,7 +637,7 @@ function _renderRun(registered, fatal) {
   const sum = _el('gdu-runsum');
   if (sum) {
     if (_running) {
-      sum.textContent = '変換とアップロードの間はこの画面を開いたままにしてください';
+      sum.textContent = 'アップロードの間はこの画面を開いたままにしてください';
     } else if (fatal) {
       // 原因を画面に出す。出さないと「押しても何も起きない」としか分からない。
       sum.textContent = `取り込みを中断しました: ${fatal}`;
@@ -826,7 +733,6 @@ window.gduOpen         = gduOpen;
 window.gduPick         = gduPick;
 window.gduFilesChosen  = gduFilesChosen;
 window.gduRemove       = gduRemove;
-window.gduSetQ         = gduSetQ;
 window.gduOpenFolder   = gduOpenFolder;
 window.gduCancelFolder = gduCancelFolder;
 window.gduFolderEnter  = gduFolderEnter;

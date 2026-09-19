@@ -1725,6 +1725,9 @@ body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-
 #gdu-setup,#gdu-folderpick,#gdu-run{flex:1;min-height:0}
 .gdu-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   display:flex;flex-direction:column;overscroll-behavior:contain}
+/* .btn-save は flex:2 を持つので、放っておくと余った縦空間を吸って異様に伸びる。
+   スクロール領域の中身は内容ぶんの高さで並べる。 */
+.gdu-scroll>*{flex:none}
 #up-import-body .gdp-head,
 #up-import-body .gdp-foot{flex-shrink:0}
 /* 選んだファイルの一覧は外側と二重スクロールにしない（スマホで挟まって操作しづらい）*/
