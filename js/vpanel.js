@@ -2357,7 +2357,10 @@ const SUB_SLOPE_MIN = 0.2, SUB_SLOPE_MAX = 5;   // 目一杯おかしな傾き�
 function _subAnchorNorm(raw) {
   if (!Array.isArray(raw)) return [];
   const list = raw
-    .map(p => Array.isArray(p) ? [Number(p[0]), Number(p[1])] : null)
+    // 保存の形は {t, r} のオブジェクト。Firestoreは配列の中に配列を置けないため
+    // （[[3655,4077]] は書き込みごと弾かれる）。[t,r] の組も読めるようにしておく。
+    .map(p => Array.isArray(p) ? [Number(p[0]), Number(p[1])]
+            : (p && typeof p === 'object') ? [Number(p.t), Number(p.r)] : null)
     .filter(p => p && Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[0] > 0 && p[1] > 0)
     .sort((a, b) => a[0] - b[0]);
   // 時刻が前後したまま持つと写像が折り返し、字幕の順序が入れ替わる
@@ -3417,15 +3420,19 @@ async function _ytSubAnchorSave(ytId, lang, list) {
   const ref = _ytSubRef(ytId);
   if (!ref) throw new Error('ログインが必要です');
   const arr = _subAnchorNorm(list);
-  await ref.set({ tracks: { [lang]: { anchors: arr.length ? arr : null } },
+  // 【変更禁止】保存する形は {t, r} のオブジェクトの配列。
+  // Firestoreは配列の要素に配列を置けない（Nested arrays are not supported）。
+  // [[3655,4077]] で書いていた頃は set() ごと弾かれ、押しても補正が1つも入らなかった。
+  const wire = arr.map(p => ({ t: p[0], r: p[1] }));
+  await ref.set({ tracks: { [lang]: { anchors: wire.length ? wire : null } },
                   updatedAt: new Date().toISOString() }, { merge: true });
   // 手元のキャッシュと表示中のトラックにも反映（読み直さずにその場で効かせる）
   const cur = _ytSubDocs.get(ytId);
   if (cur && cur.tracks && cur.tracks[lang]) {
-    _ytSubDocs.set(ytId, { ...cur, tracks: { ...cur.tracks, [lang]: { ...cur.tracks[lang], anchors: arr.length ? arr : null } } });
+    _ytSubDocs.set(ytId, { ...cur, tracks: { ...cur.tracks, [lang]: { ...cur.tracks[lang], anchors: wire.length ? wire : null } } });
   }
   const t = _ytSubTracks.find(x => x.lang === lang);
-  if (t) t.anchors = arr.length ? arr : null;
+  if (t) t.anchors = wire.length ? wire : null;
   return arr;
 }
 
@@ -5786,7 +5793,7 @@ function _subOptsHTML(scope) {
     const mk  = (gen && _subMark && _subMark.ytId === _ytSubId && _subMark.lang === gen.lang) ? _subMark : null;
     // 覚えた台詞は字幕の本文＝ユーザーのデータ。そのまま流し込まない（訳さない・壊さない）
     const escT = x => String(x).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
-    const plan = gen ? _ytDriftAutoPlan() : null;
+    const tail = gen ? _ytDriftTail(gen) : null;
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -5818,17 +5825,24 @@ function _subOptsHTML(scope) {
         </div>
         ${gen ? `<div style="font-size:11px;font-weight:700;line-height:1.5">進むほど増えるズレを直す</div>
         <div style="font-size:10.5px;color:var(--text3);line-height:1.6">
-          いま掛かっている補正: ${anc.length
+          ${_subDriftErr ? `<span style="color:var(--red,#ef4444);font-weight:700">保存できませんでした: ${escT(_subDriftErr)}</span><br>` : ''}いま掛かっている補正: ${anc.length
             ? `${anc.length}点 / 字幕の ${_chapFmt(anc[anc.length-1][0])} を ${_chapFmt(anc[anc.length-1][1])} に移動（全体 ×${(anc[anc.length-1][1] / Math.max(1, anc[anc.length-1][0])).toFixed(3)}）`
             : 'なし'}<br>${_wkVer()}
         </div>
-        ${plan ? `<div style="background:rgba(108,140,255,.10);border:1.5px solid var(--accent,#6c8cff);
-                       border-radius:8px;padding:8px 10px;display:flex;align-items:center;
-                       justify-content:space-between;gap:8px;flex-wrap:wrap">
-            <span style="font-size:11px;line-height:1.55">この字幕は動画より ${_chapFmt(plan.gap)} 早く終わっています（後半ほどズレます）</span>
-            ${btn('⏱ 動画の長さに合わせる', 'wkSubDriftAuto()', 'var(--accent,#6c8cff)')}
-          </div>` : ''}
-        ${anc.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)')}</div>` : ''}
+        <div style="font-size:10.5px;color:var(--text3);line-height:1.6">終盤のズレ。動かすとその場で字幕が動きます。声が始まる瞬間と重なるまで動かしてください</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="vp-sub-tail" min="-600" max="900" step="5" value="${tail == null ? 0 : tail}"
+            oninput="document.getElementById('vp-sub-tail-v').textContent=wkSubTailLabel(this.value);wkSubDriftSlide(this.value,false)"
+            onchange="wkSubDriftSlide(this.value,true)"
+            style="flex:1;accent-color:var(--accent,#6c8cff);min-width:110px;touch-action:none">
+          <span id="vp-sub-tail-v" style="flex-shrink:0;min-width:58px;text-align:right;font-family:'DM Mono',monospace;
+                font-size:12px;font-weight:700;color:${tail ? 'var(--accent,#6c8cff)' : 'var(--text3)'}">${_subTailLabel(tail || 0)}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${[-30, -5, 5, 30].map(d => btn(`${d > 0 ? '+' : ''}${d}s`, `wkSubTailNudge(${d})`)).join('')}
+          ${anc.length ? btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)') : ''}
+        </div>
+        ${tail == null && anc.length ? `<div style="font-size:10.5px;color:var(--text3)">手で置いた${anc.length}点が入っています。つまみを動かすとその点は置き換わります</div>` : ''}
         <details><summary style="font-size:10.5px;color:var(--text3);cursor:pointer">まだ合わないときは手で合わせる</summary>
         <div style="font-size:10.5px;color:var(--text3);margin-top:6px">先に上の1クリックで合わせてから使ってください。大きくズレたままだと、どの声がその字幕なのか分かりません</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
@@ -5979,20 +5993,31 @@ window.wkSubSyncNow = function() {
 // このズレ方をしない。点は字幕と同じ場所に保存するので、どの端末でも同じに出る。
 let _subMark = null;   // ①で覚えた字幕 { ytId, lang, t（字幕本来の時刻）, text }
 
-// 1クリックで合わせる。
+// 終盤のズレを、動かしながら合わせる。
 //
-// 手で点を置くのは、どれだけ丁寧に作っても面倒な作業でしかない。
-// ただ1つだけ、聞かなくても分かる手がかりがある: 動画の長さ。
-// AIは無音を飲み込むので、出来上がった字幕は必ず動画より短く終わる。
-// 実測では 1:07:57 の動画に対して字幕は 1:00:55 で終わっていた（7分ぶん足りない）。
-// 「字幕の最後 = 動画の最後」として1点置けば、全体が一定倍率で伸びる。
+// 【やってはいけないこと】「字幕の最後 = 動画の最後」として自動で伸ばす。
+// v52.768〜770 でそれをやって外した。教則動画は末尾に無音（実演だけ・エンドカード）が
+// 数分あるのが普通で、この前提だとそのぶん丸ごと伸ばしすぎる。
+// 実際、1:07:58 の動画で最後の約5分が無音だった。動画の長さは手がかりにならない。
 //
-// 動画の末尾が無音（実演だけ・エンドカード）だと伸ばしすぎになるので、
-// 押す前に実際の数字を出して確かめてもらう。合わなければ①②で詰められる。
-// 【変更禁止】点がすでにあってもこのボタンは出し続けること。
-// 「合わせてあるなら出さない」にしていたせいで、効いていない点が1つあるだけで
-// ボタンが消え、画面からは理由が分からないまま直せなくなった。
-// 押せば置き換わる（確認を出す）。出さない条件は「差が小さい」だけにする。
+// 自動で決められる材料は無い:
+//   ・YouTube側の字幕の時刻は取得できない（2025年からPoTokenが必要・署名はセッション束縛）
+//   ・Geminiは時刻を音から測っていない（それがこのズレの原因そのもの）
+//   ・iframeの中の音声はブラウザから触れない
+// だから最後は人が合わせるしかない。せめて「動かせば即座に画面が動く」形にして、
+// 英語が分からなくても、声が始まる瞬間と字幕が重なるまで動かせばよいようにする。
+//
+// つまみが決めるのは伸ばす量だけ（＝最後のキューを何秒うしろへ送るか）。
+// 全体がその割合で伸びる。先頭は動かさない。
+function _ytDriftTail(t) {
+  const a = _ytAnchorsOf(t);
+  if (a.length !== 1) return null;                  // 手で置いた複数点はつまみでは表せない
+  const end = _srtLastEnd(t.srt);
+  return end > 0 ? Math.round(a[0][1] - a[0][0]) : null;
+}
+
+let _subDriftErr = '';   // 直近の保存失敗。トーストは消えるので⚙に残す
+
 // いま動いている版。PWAのキャッシュで古いままの端末があるため、
 // 「直したのに変わらない」がキャッシュなのか不具合なのかを画面で切り分けられるようにする。
 function _wkVer() {
@@ -6000,40 +6025,39 @@ function _wkVer() {
   return m ? m[0] : '';
 }
 
-function _ytDriftAutoPlan() {
-  const cur = _ytSubCur();
-  if (!cur || cur.kind !== 'gen') return null;
-  const t = cur.track;
-  const v = (window.videos || []).find(x => x.ytId === _ytSubId);
-  const dur = _ytDurationOf(v);
-  const end = _srtLastEnd(t.srt);
-  if (!(dur > 0) || !(end > 0)) return null;
-  const gap = dur - end;
-  // 少しの差は普通（最後が無音で終わる動画はいくらでもある）。
-  // 「明らかに足りない」ときだけ出す。
-  if (gap < 60 || gap < dur * 0.05) return null;
-  return { track: t, end, dur, gap, had: _ytAnchorsOf(t).length };
+// つまみの数字。＋は「字幕を後ろへ送る」。分:秒で出す（秒だけだと大きさが掴めない）
+function _subTailLabel(v) {
+  const n = Math.round(Number(v) || 0);
+  if (!n) return '0秒';
+  const a = Math.abs(n), m = Math.floor(a / 60), ss = a % 60;
+  return (n < 0 ? '−' : '+') + (m ? `${m}分${ss ? ss + '秒' : ''}` : `${ss}秒`);
 }
+window.wkSubTailLabel = _subTailLabel;
 
-window.wkSubDriftAuto = async function() {
-  const plan = _ytDriftAutoPlan();
-  if (!plan) { window.toast?.('この字幕は動画の長さとほぼ合っています'); return; }
-  const { track: t, end, dur, gap } = plan;
-  if (!confirm(`字幕の最後（${_chapFmt(end)}）を、動画の最後（${_chapFmt(dur)}）に合わせます。\n\n`
-             + `${_chapFmt(gap)}ぶん足りていないので、全体をその割合で伸ばします。\n`
-             + (plan.had ? `いま入っている${plan.had}点は置き換わります。\n` : '')
-             + `字幕そのものは書き換えないので、いつでも元に戻せます。`)) return;
-  try {
-    // 末尾ぴったりに置くと最後のキューが尺の外へ出ることがあるので少しだけ内側に置く
-    await _ytSubAnchorSave(_ytSubId, t.lang, [[end, Math.max(end + 1, dur - 1)]]);
-  } catch (e) {
-    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
-    return;
-  }
-  _subMark = null;
+// ±ボタン。つまみでは届かない細かさを詰める
+window.wkSubTailNudge = function(d) {
+  const el = document.getElementById('vp-sub-tail');
+  if (!el) return;
+  el.value = String(Math.max(-600, Math.min(900, (Number(el.value) || 0) + d)));
+  window.wkSubDriftSlide(el.value, true);
+};
+
+// save=false は画面だけ動かす（つまみを動かしている最中）。離した時だけ保存する。
+window.wkSubDriftSlide = async function(v, save) {
+  const cur = _ytSubCur();
+  if (!cur || cur.kind !== 'gen') return;
+  const t   = cur.track;
+  const end = _srtLastEnd(t.srt);
+  if (!(end > 0)) return;
+  const sec  = Math.round(Number(v) || 0);
+  const list = sec ? [[end, Math.max(1, end + sec)]] : [];
+  t.anchors = list.map(p => ({ t: p[0], r: p[1] }));   // 先に画面を動かす
   _ytSubReapply();
+  if (!save) return;
+  _subDriftErr = '';
+  try { await _ytSubAnchorSave(_ytSubId, t.lang, list); }
+  catch (e) { _subDriftErr = String(e?.message || e); }
   window.wkSubOptsRender();
-  window.toast?.('⏱ 動画の長さに合わせました');
 };
 
 window.wkSubDriftMark = function() {
@@ -6065,10 +6089,13 @@ window.wkSubDriftHere = async function() {
   const off  = _subOffsetGet(_ytSubId);
   const list = _subAnchorWith(_ytAnchorsOf(t), _subMark.t, now - off);
   if (!list.length) { window.toast?.('ここでは合わせられません（動画の先頭すぎます）'); return; }
+  _subDriftErr = '';
   try {
     await _ytSubAnchorSave(_ytSubId, t.lang, list);
   } catch (e) {
-    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    _subDriftErr = String(e?.message || e);
+    window.toast?.('⚠️ 保存に失敗: ' + _subDriftErr, 9000);
+    window.wkSubOptsRender();
     return;
   }
   _subMark = null;
@@ -6081,10 +6108,13 @@ window.wkSubDriftReset = async function() {
   const cur = _ytSubCur();
   if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
   _subMark = null;
+  _subDriftErr = '';
   try {
     await _ytSubAnchorSave(_ytSubId, cur.track.lang, []);
   } catch (e) {
-    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    _subDriftErr = String(e?.message || e);
+    window.toast?.('⚠️ 保存に失敗: ' + _subDriftErr, 9000);
+    window.wkSubOptsRender();
     return;
   }
   _ytSubReapply();

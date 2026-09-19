@@ -34,12 +34,23 @@ const grab = (name) => {
 const cst = (n) => (src.match(new RegExp(`^const ${n}\\s*=.*$`, 'm')) || [null])[0];
 
 const need = [cst('SUB_SLOPE_MIN')];
-const fns  = ['_subLineMap'].map(grab);
+const fns  = ['_subLineMap', '_subAnchorNorm'].map(grab);
 if (need.some(x => !x) || fns.some(x => !x)) {
   fail('_subLineMap 一式が js/vpanel.js に無い');
 } else {
   const g = await import('data:text/javascript;base64,' + Buffer.from(
-    [...need, ...fns, 'export {_subLineMap};'].join('\n')).toString('base64'));
+    [...need, ...fns, 'export {_subLineMap,_subAnchorNorm};'].join('\n')).toString('base64'));
+
+  // 0) 保存の形（{t,r}）と、古い [t,r] の組のどちらも読めること
+  const nrm = g._subAnchorNorm;
+  if (!nrm) fail('_subAnchorNorm を取り出せない');
+  else {
+    const a1 = nrm([{ t: 3655, r: 4077 }]);
+    const a2 = nrm([[3655, 4077]]);
+    (a1.length === 1 && a1[0][0] === 3655 && a1[0][1] === 4077 && JSON.stringify(a1) === JSON.stringify(a2))
+      ? ok('{t,r} でも [t,r] でも同じに読める')
+      : fail('保存の形を読み戻せない');
+  }
 
   // 1) 点が無ければ何も変わらない（補正していない動画に触らない）
   const id = g._subLineMap([]);
@@ -90,28 +101,25 @@ if (need.some(x => !x) || fns.some(x => !x)) {
     : fail('実測の形に合わない');
 }
 
-// 1クリックで合わせられること。
-// 手で点を置く作業は、どれだけ丁寧に作っても面倒な作業でしかない。
-// 動画の長さは聞かなくても分かる手がかりなので、まずそれ1つで合わせられること。
-const auto = grab('wkSubDriftAuto');
-const plan = grab('_ytDriftAutoPlan');
-if (!auto || !plan) fail('1クリックで合わせる経路が無い（毎回手で点を置くことになる）');
+// 「字幕の最後 = 動画の最後」で自動に伸ばさないこと。
+// v52.768〜770 でそれをやって外した。教則動画は末尾に無音（実演だけ・エンドカード）が
+// 数分あるのが普通で、この前提だとそのぶん丸ごと伸ばしすぎる。
+// 実測: 1:07:58 の動画で最後の約5分が無音だった。動画の長さは手がかりにならない。
+!/_ytDurationOf\(/.test(src.slice(src.indexOf('function _ytDriftTail'), src.indexOf('window.wkSubDriftMark')))
+  ? ok('動画の長さから自動で伸ばす経路は無い（末尾が無音の動画で伸ばしすぎる）')
+  : fail('動画の長さを根拠に伸ばしている（末尾が無音だと外れる）');
+
+// 動かしたらその場で画面が動くこと。英語が分からなくても、
+// 声が始まる瞬間と重なるまで動かせば合わせられる形にしておく。
+const slide = grab('wkSubDriftSlide');
+if (!slide) fail('終盤のズレを動かせる経路が無い');
 else {
-  /_srtLastEnd\(/.test(plan) && /_ytDurationOf\(/.test(plan)
-    ? ok('字幕の最後と動画の長さから、足りない分を出す')
-    : fail('足りない分の出し方が字幕と動画の長さに基づいていない');
-  // 点があってもボタンは出し続けること。
-  // 「合わせてあるなら出さない」にしていたせいで、効いていない点が1つ残っているだけで
-  // ボタンが消え、画面からは理由が分からないまま直せなくなった（実際に起きた）。
-  !/_ytAnchorsOf\(t\)\.length\) return null/.test(plan)
-    ? ok('点がすでにあってもボタンは出る（押せば置き換わる）')
-    : fail('点が1つでもあるとボタンが消える（直す手段が画面から無くなる）');
-  /gap < 60 \|\| gap < dur \* 0\.05/.test(plan)
-    ? ok('少しの差では出さない（末尾が無音で終わる動画は普通にある）')
-    : fail('わずかな差でも出る');
-  /confirm\(/.test(auto)
-    ? ok('押す前に実際の数字を見せて確かめる')
-    : fail('確認なしで補正が掛かる');
+  /_ytSubReapply\(\)/.test(slide) && /if \(!save\) return;/.test(slide)
+    ? ok('動かしている間は画面だけ動く（離した時に保存する）')
+    : fail('動かしても画面がすぐ動かない、または毎回保存してしまう');
+  /_srtLastEnd\(t\.srt\)/.test(slide)
+    ? ok('伸ばす量は「最後のキューを何秒うしろへ送るか」で決まる')
+    : fail('伸ばす量の決め方が字幕の最後に基づいていない');
 }
 
 // 合わせる操作が2段階であること。
@@ -144,6 +152,16 @@ else {
   /\{ merge: true \}/.test(save) && !/srt/.test(save)
     ? ok('書くのは点だけ。字幕本体(srt)には触れない')
     : fail('点の保存で字幕本体に触れている');
+  // Firestoreは配列の要素に配列を置けない（Nested arrays are not supported）。
+  // [[3655,4077]] で書いていた頃は set() ごと弾かれ、押しても補正が1つも入らなかった。
+  /\{ t: p\[0\], r: p\[1\] \}/.test(save) && /anchors: wire/.test(save)
+    ? ok('保存の形は{t,r}のオブジェクト（Firestoreは配列の中に配列を置けない）')
+    : fail('点を配列の配列で保存している（Firestoreが書き込みごと弾く）');
+  // 失敗はトーストだけだと消えてしまい「押したのに何も起きない」に見える
+  // 失敗はトーストだけだと消えてしまい「押したのに何も起きない」に見える
+  /_subDriftErr = String/.test((grab('wkSubDriftSlide') || '') + (grab('wkSubDriftHere') || ''))
+    ? ok('保存に失敗したら画面に残す')
+    : fail('保存の失敗が画面に残らない');
 }
 
 // 作り直したら古い点を必ず外すこと。
