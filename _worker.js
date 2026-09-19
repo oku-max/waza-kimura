@@ -1815,9 +1815,18 @@ async function handleYtTranscript(request, env) {
   // lang は「この言語の字幕があれば優先」。無ければ向こうが既定の言語を返す。
   const lang = /^[a-z]{2}(-[A-Za-z]{2,4})?$/.test(String(body.lang || '')) ? body.lang : '';
 
-  // ① 無料の直接取得を先に試す（成功すれば費用ゼロ・業者に何も渡さない）
+  // ① 無料の直接取得。
+  // 【実測で確定・2026-09-19】Workerから直接は取れない。5通りのクライアントと
+  // 視聴/埋め込みページを試して全滅した:
+  //   it/web:LOGIN_REQUIRED / it/mweb:LOGIN_REQUIRED / it/tv-embed:ERROR
+  //   it/ios・it/android:HTTP 400 Precondition check failed
+  //   watch:HTTP 429 / embed:同意ページ(142KB)
+  // LOGIN_REQUIRED と 429 と同意ページが同時に出るのは、データセンターのIPを
+  // 拒否しているときの形。PoTokenの壁より手前で止まっている。名乗り方を変えても直らない。
+  // したがってキーがあるなら試すだけ無駄（毎回7回のリクエストと十数秒を捨てる）。
+  // キーが無い場合だけ、望みは薄いが試す（他の環境なら通る可能性は残る）。
   const diag = [];
-  const free = await _ytCapsFree(ytId, lang, diag);
+  const free = env.SUPADATA_API_KEY ? null : await _ytCapsFree(ytId, lang, diag);
   if (free) {
     return jsonRes({
       srt: _cuesToSrt(free.cues), lang: free.lang, availableLangs: [],

@@ -55,9 +55,12 @@ const wsrc = fs.readFileSync(path.join(ROOT, '_worker.js'), 'utf8');
   : fail('YouTube側の字幕を取る経路が無い');
 // 無料の直接取得を必ず先に試すこと。成功すれば費用ゼロで、業者に何も渡さずに済む。
 const h = wsrc.slice(wsrc.indexOf('async function handleYtTranscript'), wsrc.indexOf('async function _ytTrPoll'));
-h.indexOf('_ytCapsFree(') >= 0 && h.indexOf('_ytCapsFree(') < h.indexOf('SUPADATA_API_KEY')
-  ? ok('無料の直接取得を、業者のAPIより先に試す')
-  : fail('先に業者のAPIを呼んでいる（無料で済む場合に課金する）');
+// 無料の直接取得は、キーが無いときだけ。
+// 実測でWorkerのIPは拒否されると分かっている（LOGIN_REQUIRED / 429 / 同意ページ）。
+// キーがあるのに毎回試すと、7回のリクエストと十数秒を毎回捨てることになる。
+/env\.SUPADATA_API_KEY \? null : await _ytCapsFree\(/.test(h)
+  ? ok('キーがあるときは無駄な直接取得をしない')
+  : fail('キーがあっても毎回、取れないと分かっている経路を叩いている');
 /diag\.push/.test(wsrc)
   ? ok('どこで失敗したかを残す（次に推測しないで済むように）')
   : fail('失敗の理由を残していない');
