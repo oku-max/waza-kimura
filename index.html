@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.783</title>
+<title>WAZA KIMURA v52.784</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -189,7 +189,7 @@
     gdOpenBrowser, gdBrowserEnter, gdUp, gdBrowserJump,
     gdClearPick, gdToggleDrawer, gdToggleOpts, gdOptsSummary, gdRenderDrawer, gdStripTouched, gdDoImport,
     gdRenderFileList, gdUpdateCount, gdImport,
-    renameGdFile, gdChDdOpen, gdChDdFilter, gdChSelect, gdFavToggle,
+    renameGdFile, gdFavToggle,
     fetchMissingGdThumbnails
   } from './js/gdrive.js';
   // 端末の動画をDriveへアップロードして取り込む（window に自分で生やす）
@@ -271,9 +271,6 @@
   window.gdFavToggle             = gdFavToggle;
   window.gdImport                = gdImport;
   window.renameGdFile            = renameGdFile;
-  window.gdChDdOpen              = gdChDdOpen;
-  window.gdChDdFilter            = gdChDdFilter;
-  window.gdChSelect              = gdChSelect;
   window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
   // data
   window.debounceSave            = debounceSave;
@@ -4839,12 +4836,12 @@ document.addEventListener('click', function(e) {
                 <div style="display:flex;gap:6px;align-items:center">
                   <input id="gd-channel" type="text" placeholder="例: Triforce（空欄でも登録できます）"
                     style="flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
-                    oninput="gdChDdFilter(this.value);gdOptsSummary()">
-                  <div class="vp-dd-trigger" onclick="gdChDdOpen()" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
+                    oninput="gduDdFilter('gdch',this.value);gdOptsSummary()">
+                  <div class="vp-dd-trigger" onclick="gduDdOpen('gdch')" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
                 </div>
                 <div class="vp-dd" id="gd-ch-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:2px">
                   <input class="vp-dd-search" id="gd-ch-search" placeholder="チャンネル名で検索..."
-                    oninput="gdChDdFilter(this.value)">
+                    oninput="gduDdFilter('gdch',this.value)">
                   <div class="vp-dd-list" id="gd-ch-ddlist"></div>
                 </div>
               </div>
@@ -4854,9 +4851,19 @@ document.addEventListener('click', function(e) {
                 <span style="font-size:11px;color:var(--text3)">プレイリスト名</span>
                 <span style="font-size:9px;font-weight:700;color:var(--green);background:var(--green-soft);border:1px solid var(--green);border-radius:10px;padding:1px 6px">フォルダ名から自動入力</span>
               </div>
-              <input id="gd-playlist" type="text" placeholder="空欄でプレイリストなし"
-                style="width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
-                oninput="gdOptsSummary()">
+              <div style="position:relative">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input id="gd-playlist" type="text" placeholder="空欄でプレイリストなし"
+                    style="flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
+                    oninput="gduDdFilter('gdpl',this.value);gdOptsSummary()">
+                  <div class="vp-dd-trigger" onclick="gduDdOpen('gdpl')" style="white-space:nowrap;padding:6px 10px">▼ 既存</div>
+                </div>
+                <div class="vp-dd" id="gd-pl-dd" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:2px">
+                  <input class="vp-dd-search" id="gd-pl-search" placeholder="プレイリスト名で検索..."
+                    oninput="gduDdFilter('gdpl',this.value)">
+                  <div class="vp-dd-list" id="gd-pl-ddlist"></div>
+                </div>
+              </div>
               <div style="font-size:10px;color:var(--text3);margin-top:3px">編集可・空欄でプレイリストなし</div>
             </div>
             <div>

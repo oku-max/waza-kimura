@@ -712,6 +712,16 @@ const DD = {
   pl: { input: 'gdu-playlist', dd: 'gdu-pl-dd', search: 'gdu-pl-search', list: 'gdu-pl-ddlist',
         empty: 'プレイリストなし',
         pick: (v) => v.pl },
+  // Drive取り込みタブも同じ仕掛けを使う。別々に書いていたせいで、
+  // 引用符入りの名前で壊れる直しが片方にしか当たっていなかった。
+  gdch: { input: 'gd-channel',  dd: 'gd-ch-dd', search: 'gd-ch-search', list: 'gd-ch-ddlist',
+          empty: 'チャンネルなし',
+          pick: (v) => v.ch || v.channel,
+          after: () => window.gdOptsSummary?.() },
+  gdpl: { input: 'gd-playlist', dd: 'gd-pl-dd', search: 'gd-pl-search', list: 'gd-pl-ddlist',
+          empty: 'プレイリストなし',
+          pick: (v) => v.pl,
+          after: () => window.gdOptsSummary?.() },
 };
 
 export function gduDdOpen(kind) {
@@ -774,6 +784,7 @@ export function gduDdSelect(kind, val) {
   if (inp) inp.value = val;
   const dd = _el(c.dd);
   if (dd) dd.style.display = 'none';
+  c.after?.();
 }
 
 // ════════════════════════════════════════════════════════════

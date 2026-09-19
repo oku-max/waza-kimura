@@ -56,8 +56,30 @@ if (ti < 0 || tj < 0) {
 }
 const headHtml = indexHtml.slice(ti, tj);
 
+// Drive取り込みタブの任意欄。「▼ 既存」の中身は端末アップロードと同じ仕掛けを
+// 使っているので、片方だけ直して片方が壊れる事故をここで止める。
+// 終わりの目印が無いので div を数えて閉じまで取る。
+function sliceDiv(html, from) {
+  if (from < 0) return '';
+  let i = from, depth = 0;
+  const re = /<div[\s>]|<\/div>/g;
+  re.lastIndex = from;
+  let m;
+  while ((m = re.exec(html))) {
+    depth += m[0] === '</div>' ? -1 : 1;
+    if (depth === 0) return html.slice(from, m.index + m[0].length);
+  }
+  return '';
+}
+const gdOptsHtml = sliceDiv(indexHtml, indexHtml.indexOf('<div class="gdp-optsbody" id="gd-optsbody"'))
+  .replace('style="display:none"', '');
+if (!gdOptsHtml) {
+  console.error('✗ index.html から gd-optsbody を切り出せませんでした（目印が変わった可能性）');
+  process.exit(1);
+}
+
 // 目印がずれて別の場所を拾っていないか。div の開閉が合わない＝拾い間違い。
-for (const [name, frag] of [['タブ行', headHtml], ['本体', bodyHtml]]) {
+for (const [name, frag] of [['タブ行', headHtml], ['本体', bodyHtml], ['Drive任意欄', gdOptsHtml]]) {
   const open  = (frag.match(/<div[\s>]/g) || []).length;
   const close = (frag.match(/<\/div>/g) || []).length;
   if (open !== close || frag.length > 20000) {
@@ -73,9 +95,14 @@ const HARNESS = `<!doctype html><meta charset="utf-8">
 <div class="overlay open" id="yt-import-ov">
   <div class="sheet">${headHtml}${bodyHtml}</div>
 </div>
+<!-- 取り込みオーバーレイは画面全体を覆うので、その上に出さないとクリックが届かない。
+     実アプリでは同じシートの中の別タブなので、重なりの都合はここだけの話。 -->
+<div id="gd-import-body" style="position:relative;z-index:99999;padding:12px;background:var(--bg)">${gdOptsHtml}</div>
 <script type="module">
   window.toast = (m) => { (window.__toasts ||= []).push(m); };
   window.switchImportTab = () => {};
+  window.gdOptsSummary   = () => {};
+  window.gdStripTouched  = () => {};
   import('/js/gd-upload.js').then(() => { window.__ready = true; });
 </script></body>`;
 
@@ -326,6 +353,34 @@ for (const [kind, inputId, ddId, listId, want] of [
   check(!!(await page.inputValue('#' + inputId)), `${kind}: 選ぶと入力欄に入る`);
   check(!(await page.isVisible('#' + ddId)), `${kind}: 選ぶと閉じる`);
 }
+// Drive取り込みタブの「▼ 既存」も、同じ仕掛けから同じ候補が出ること。
+// ここが別実装だったせいで、プレイリスト側には「▼ 既存」自体が無かった。
+for (const [kind, inputId, ddId, listId, want] of [
+  ['gdch', 'gd-channel',  'gd-ch-dd', 'gd-ch-ddlist', 'Triforce'],
+  ['gdpl', 'gd-playlist', 'gd-pl-dd', 'gd-pl-ddlist', 'ガードパス'],
+]) {
+  check(await page.locator(`[onclick="gduDdOpen('${kind}')"]`).count() === 1,
+    `Drive: ${kind} に「▼ 既存」がある`);
+  await page.evaluate((k) => window.gduDdOpen(k), kind);
+  await page.waitForTimeout(250);
+  check(await page.isVisible('#' + ddId), `Drive: ${kind} の一覧が開く`);
+  const txt = await page.textContent('#' + listId);
+  check(txt.includes(want), `Drive: ${kind} に既存の名前が出る`, txt?.slice(0, 60));
+  await page.locator(`#${listId} .vp-dd-item`).first().click();
+  await page.waitForTimeout(200);
+  check(!!(await page.inputValue('#' + inputId)), `Drive: ${kind} は選ぶと入力欄に入る`);
+  check(!(await page.isVisible('#' + ddId)), `Drive: ${kind} は選ぶと閉じる`);
+}
+// 引用符入りの名前は、Drive側でも壊れないこと（以前はこちらだけ直っていなかった）
+await page.evaluate(() => window.gduDdOpen('gdch'));
+await page.waitForTimeout(200);
+await page.fill('#gd-ch-search', 'Danaher');
+await page.waitForTimeout(200);
+await page.locator('#gd-ch-ddlist .vp-dd-item').first().click();
+await page.waitForTimeout(200);
+check(await page.inputValue('#gd-channel') === 'Danaher "DLR"',
+  'Drive: 引用符入りの名前も選べる', await page.inputValue('#gd-channel'));
+
 // 引用符を含む名前でも壊れないこと（onclick に値を埋め込んでいると壊れる）
 await page.evaluate(() => window.gduDdOpen('ch'));
 await page.waitForTimeout(250);
