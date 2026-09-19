@@ -2343,18 +2343,19 @@ function _subOffsetSet(fileId, sec) {
 // 直し方: 「この台詞は本当はここ」という点をいくつか置き、点と点の間を
 //   直線で結んで時刻を引き伸ばす。2点なら一定倍率、3点以上なら区間ごと。
 //
-// データの扱い: 端末ローカル(localStorage)のみ。表示のときに時刻を写すだけで、
-//   字幕ファイル本体（Drive / Firestore）には一切書かない。
-const SUB_ANCHOR_KEY = 'wk_subAnchors';
+// 置き場所: 字幕そのものと同じ場所（Firestore の ytsub_<ytId> の tracks.<言語>.anchors）。
+//   端末ローカルには置かない。端末ごとに見え方が変わると、どの端末で合わせたかを
+//   覚えていないと使えない道具になる。点は字幕に付いて回るのが正しい。
+//   元のSRTには触れないので、点を消せばいつでも元の時刻に戻る。
+//
+// 対象: AIに動画を見せて作った字幕（＝YouTube動画の生成字幕）だけ。
+//   Drive動画は音声認識で時刻を音から実測しているのでこのズレ方をしない。
+const SUB_ANCHOR_KEY = 'wk_subAnchors';   // v52.764 で端末に置いていた分の引き継ぎ用（読むだけ）
 const SUB_SLOPE_MIN = 0.2, SUB_SLOPE_MAX = 5;   // 目一杯おかしな傾きは採らない
 
-function _subAnchors() {
-  try { const v = JSON.parse(localStorage.getItem(SUB_ANCHOR_KEY) || '{}'); return (v && typeof v === 'object') ? v : {}; }
-  catch(e) { return {}; }
-}
-// [[字幕の時刻, 実際の時刻], ...] を時刻順・単調増加だけに正規化して返す
-function _subAnchorGet(key) {
-  const raw = key ? _subAnchors()[key] : null;
+// [[字幕の時刻, 実際の時刻], ...] を時刻順・単調増加だけに正規化する。
+// どこから来た値でも（他端末・古い端末ローカル）ここを必ず通す。
+function _subAnchorNorm(raw) {
   if (!Array.isArray(raw)) return [];
   const list = raw
     .map(p => Array.isArray(p) ? [Number(p[0]), Number(p[1])] : null)
@@ -2365,25 +2366,27 @@ function _subAnchorGet(key) {
   for (const p of list) if (!out.length || (p[0] > out[out.length - 1][0] && p[1] > out[out.length - 1][1])) out.push(p);
   return out;
 }
-function _subAnchorSave(key, list) {
-  if (!key) return;
-  const all = _subAnchors();
-  if (!list || !list.length) delete all[key];
-  else all[key] = list.map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
-  const keys = Object.keys(all);
-  if (keys.length > 300) for (const k of keys.slice(0, keys.length - 300)) delete all[k];
-  try { localStorage.setItem(SUB_ANCHOR_KEY, JSON.stringify(all)); } catch(e) {}
+// v52.764 で端末に置いた点の引き継ぎ。字幕側に点が無いときだけ使う。
+// 読むだけで、押した時点で字幕側へ移る（_ytSubAnchorSave が端末側を消す）。
+function _subAnchorLegacy(key) {
+  if (!key) return [];
+  try { return _subAnchorNorm(JSON.parse(localStorage.getItem(SUB_ANCHOR_KEY) || '{}')[key]); }
+  catch(e) { return []; }
 }
-function _subAnchorAdd(key, t, r) {
-  if (!key || !(t > 0) || !(r > 0)) return [];
-  // 同じあたりを押し直したら置き換える（増やし続けない）
-  const list = _subAnchorGet(key).filter(p => Math.abs(p[0] - t) > 1);
-  list.push([t, r]);
-  list.sort((a, b) => a[0] - b[0]);
-  const out = [];
-  for (const p of list) if (!out.length || (p[0] > out[out.length - 1][0] && p[1] > out[out.length - 1][1])) out.push(p);
-  _subAnchorSave(key, out);
-  return out;
+function _subAnchorLegacyDrop(key) {
+  if (!key) return;
+  try {
+    const all = JSON.parse(localStorage.getItem(SUB_ANCHOR_KEY) || '{}');
+    if (!all || typeof all !== 'object' || !(key in all)) return;
+    delete all[key];
+    localStorage.setItem(SUB_ANCHOR_KEY, JSON.stringify(all));
+  } catch(e) {}
+}
+// 点を1つ足した列を返す（保存はしない）。同じあたりを押し直したら置き換える。
+function _subAnchorWith(list, t, r) {
+  if (!(t > 0) || !(r > 0)) return _subAnchorNorm(list);
+  return _subAnchorNorm([...(_subAnchorNorm(list).filter(p => Math.abs(p[0] - t) > 1)),
+                         [Math.round(t * 10) / 10, Math.round(r * 10) / 10]]);
 }
 
 // 点の列から折れ線の写像を作る。points は [字幕の時刻, 実際の時刻] の昇順。
@@ -2413,14 +2416,14 @@ function _subLineMap(points) {
     return last[1] + (t - last[0]) * (seg.length ? seg[seg.length - 1] : 1);
   };
 }
-// 補正なしのときは null を返す（＝これまでと完全に同じ経路を通す）
-function _subDriftFn(key) {
-  const a = _subAnchorGet(key);
+// 点が無いときは null を返す（＝これまでと完全に同じ経路を通す）
+function _subDriftOf(list) {
+  const a = _subAnchorNorm(list);
   return a.length ? _subLineMap(a) : null;
 }
-// 逆写像。画面に出ている時刻から、字幕ファイル本来の時刻へ戻す。
-function _subDriftInv(key) {
-  const a = _subAnchorGet(key);
+// 逆写像。画面に出ている時刻から、字幕に保存されている本来の時刻へ戻す。
+function _subDriftInvOf(list) {
+  const a = _subAnchorNorm(list);
   return a.length ? _subLineMap(a.map(p => [p[1], p[0]])) : null;
 }
 
@@ -3092,10 +3095,9 @@ async function _gdAttachSubtitle(video, fileId, token, want) {
   _gdSubRevoke();
   const opts   = subOpts();
   const offset = _subOffsetGet(fileId);
-  const drift  = _subDriftFn(fileId);
   for (const item of loaded) {
     if (!item) continue;
-    const url = URL.createObjectURL(new Blob([_reflowVtt(item.vtt, opts, offset, drift)], { type: 'text/vtt' }));
+    const url = URL.createObjectURL(new Blob([_reflowVtt(item.vtt, opts, offset)], { type: 'text/vtt' }));
     _gdSubBlobUrls.push(url);
     const track = document.createElement('track');
     track.kind    = 'subtitles';
@@ -3400,11 +3402,44 @@ async function _ytSubStore(ytId, lang, srt, meta) {
   if (srt.length > YT_SUB_MAX_CHARS) throw new Error('字幕が大きすぎて保存できません');
   const ref = _ytSubRef(ytId);
   if (!ref) throw new Error('ログインが必要です');
-  const entry = { srt, chars: srt.length, updatedAt: new Date().toISOString(), ...(meta || {}) };
+  // 古い字幕に合わせた点は新しい字幕では歪みにしかならない。
+  // merge:true は入れ子のマップを残すので、明示的に消さないと前の点が生き残る。
+  const entry = { srt, chars: srt.length, updatedAt: new Date().toISOString(), anchors: null, ...(meta || {}) };
   await ref.set({ ytId, tracks: { [lang]: entry }, updatedAt: entry.updatedAt }, { merge: true });
   const cur = _ytSubDocs.get(ytId) || {};
   _ytSubDocs.set(ytId, { ...cur, ytId, tracks: { ...(cur.tracks || {}), [lang]: entry } });
   return entry;
+}
+
+// ── 進むほど増えるズレの点を、字幕と同じ場所に置く ──────────────
+//
+// 端末ローカルに置くと、合わせた端末でしか直らない。どの端末で合わせたかを
+// 覚えていないと使えない道具になるので、点は字幕に付いて回るようにする。
+//
+// データの扱い: 書くのは tracks.<言語>.anchors だけ。merge で足すので
+// srt 本体・他の言語・他の動画・他のキーには一切触れない。
+// 元のSRTを書き換えないので、点を消せばいつでも元の時刻に戻る。
+function _ytAnchorsOf(t) {
+  if (!t) return [];
+  // 字幕側に点があればそれ。無ければ v52.764 で端末に置いた分を引き継ぐ。
+  const own = _subAnchorNorm(t.anchors);
+  return own.length ? own : _subAnchorLegacy(_ytSubId);
+}
+async function _ytSubAnchorSave(ytId, lang, list) {
+  const ref = _ytSubRef(ytId);
+  if (!ref) throw new Error('ログインが必要です');
+  const arr = _subAnchorNorm(list);
+  await ref.set({ tracks: { [lang]: { anchors: arr.length ? arr : null } },
+                  updatedAt: new Date().toISOString() }, { merge: true });
+  // 手元のキャッシュと表示中のトラックにも反映（読み直さずにその場で効かせる）
+  const cur = _ytSubDocs.get(ytId);
+  if (cur && cur.tracks && cur.tracks[lang]) {
+    _ytSubDocs.set(ytId, { ...cur, tracks: { ...cur.tracks, [lang]: { ...cur.tracks[lang], anchors: arr.length ? arr : null } } });
+  }
+  const t = _ytSubTracks.find(x => x.lang === lang);
+  if (t) t.anchors = arr.length ? arr : null;
+  _subAnchorLegacyDrop(ytId);   // 字幕側へ移したので端末に残っていた分は用済み
+  return arr;
 }
 
 const _ytSubLangLabel = (lang, e) =>
@@ -3416,7 +3451,8 @@ function _ytSubList(doc) {
   return Object.entries(tr)
     .filter(([, e]) => e && typeof e.srt === 'string' && _looksLikeSrt(e.srt))
     .map(([lang, e]) => ({ lang, label: _ytSubLangLabel(lang, e), srt: e.srt,
-                           via: e.via || '', updatedAt: e.updatedAt || '' }))
+                           via: e.via || '', updatedAt: e.updatedAt || '',
+                           anchors: Array.isArray(e.anchors) ? e.anchors : null }))
     .sort((a, b) => (b.lang === 'ja') - (a.lang === 'ja'));
 }
 
@@ -3621,8 +3657,8 @@ function _ytSubDetach() {
 function _ytSubReflowTracks() {
   const o   = subOpts();
   const off = _subOffsetGet(_ytSubId);
-  const drift = _subDriftFn(_ytSubId);
-  for (const t of _ytSubTracks) t.cues = _parseVtt(_reflowVtt(t.rawVtt, o, off, drift));
+  // 点は字幕ごとに持つ。言語が違えば時刻も別物なので、まとめて1つにはできない。
+  for (const t of _ytSubTracks) t.cues = _parseVtt(_reflowVtt(t.rawVtt, o, off, _subDriftOf(_ytAnchorsOf(t))));
 }
 
 // want: いま作った字幕の言語コード。渡すとそれを選んだ状態で載せる。
@@ -3978,7 +4014,6 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   await _ytSubStore(ytId, subLang, srt, { via, srcLang: subLang === 'orig' ? '' : subLang });
   // 新しい字幕に古いズレ補正を持ち越さない（端末内の値だけ・他端末には波及しない）
   _subOffsetSet(ytId, 0);
-  _subAnchorSave(ytId, []);        // 古い字幕に合わせた点は新しい字幕では歪みにしかならない
 
   const costStr = cost ? ` · $${cost.toFixed(3)}` : '';
   if (!silent) {
@@ -4577,7 +4612,6 @@ async function _asrGenerateAndSave(ctx) {
   // 前の字幕に合わせた補正は、新しい字幕には無意味どころか有害。
   // 端末内(localStorage)だけの値で、他端末やFirestoreには波及しない。
   _subOffsetSet(fileId, 0);
-  _subAnchorSave(fileId, []);      // 古い字幕に合わせた点は新しい字幕では歪みにしかならない
   const min  = st.sec ? Math.round(st.sec / 60) : 0;
   const cost = (st.sec ? (st.sec / 60) * 0.0025 : 0) + trCost;
   const names = trTarget ? `${target} + ${trTarget}` : target;
@@ -5571,7 +5605,6 @@ function _gdSubReapply() {
   const video  = _gdVideoEl;
   const opts   = subOpts();
   const offset = _subOffsetGet(_gdFileId);
-  const drift  = _subDriftFn(_gdFileId);
   const idx    = _gdSubIndex;
   const prev   = _gdSubTracks;
 
@@ -5583,7 +5616,7 @@ function _gdSubReapply() {
 
   for (const t of prev) {
     if (!t.rawVtt) continue;
-    const url = URL.createObjectURL(new Blob([_reflowVtt(t.rawVtt, opts, offset, drift)], { type: 'text/vtt' }));
+    const url = URL.createObjectURL(new Blob([_reflowVtt(t.rawVtt, opts, offset)], { type: 'text/vtt' }));
     _gdSubBlobUrls.push(url);
     const track = document.createElement('track');
     track.kind    = 'subtitles';
@@ -5759,7 +5792,10 @@ function _subOptsHTML(scope) {
         + `<div style="font-size:10.5px;color:var(--text3)">生成字幕を作り直すときは「💬 字幕生成」を押してください</div>`;
     }
     const off = _subOffsetGet(_subCurKey());
-    const anc = _subAnchorGet(_subCurKey());
+    // 進むほど増えるズレの補正はYouTubeの生成字幕だけの話。
+    // Drive動画は音声認識で時刻を音から実測しているのでこのズレ方をしない。
+    const gen = _ytSubCur()?.kind === 'gen' ? _ytSubCur().track : null;
+    const anc = gen ? _ytAnchorsOf(gen) : [];
     const btn = (label, fn, style) => `<button type="button" onclick="${fn}"
         style="padding:5px 10px;border-radius:7px;border:1.5px solid ${style || 'var(--border)'};
                background:transparent;color:${style || 'var(--text2)'};font-family:inherit;
@@ -5789,15 +5825,14 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その台詞が聞こえた瞬間に押すと合います
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${gen ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${btn('⏱ 進むほど増えるズレを直す', 'wkSubDriftHere()', 'var(--accent,#6c8cff)')}
           ${anc.length ? `<span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent,#6c8cff)">${anc.length}点</span>` : ''}
-          ${anc.length ? btn('💾 この補正を字幕に保存', 'wkSubDriftBake()') : ''}
           ${anc.length ? btn('この補正を消す', 'wkSubDriftReset()', 'var(--red,#ef4444)') : ''}
         </div>
         <div style="font-size:10.5px;color:var(--text3)">先に進むほどズレが大きくなる字幕用です。ズレている場所で台詞が聞こえた瞬間に押してください</div>
         <div style="font-size:10.5px;color:var(--text3)">2回押すと全体が伸び、3回以上押すと区間ごとに合います</div>
-        <div style="font-size:10.5px;color:var(--text3)">合わせた結果はこの端末にしか残りません。他の端末にも反映するには字幕に保存してください</div>
+        <div style="font-size:10.5px;color:var(--text3)">合わせた結果は字幕と一緒に保存されるので、どの端末でも同じように出ます</div>` : ''}
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
           ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
           <span style="min-width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;
@@ -5921,25 +5956,44 @@ window.wkSubSyncNow = function() {
 // wkSubSyncNow（全体を平行移動）とは別物。こちらは「この台詞は本当はここ」という
 // 点を足していき、点と点の間を直線で結んで時刻を引き伸ばす。
 // 2回押せば一定倍率、3回以上押せば区間ごとに合う。
-window.wkSubDriftHere = function() {
+//
+// 対象はYouTubeの生成字幕だけ。Drive動画は音声認識で時刻を音から実測しているので
+// このズレ方をしない。点は字幕と同じ場所に保存するので、どの端末でも同じに出る。
+window.wkSubDriftHere = async function() {
+  const cur = _ytSubCur();
+  if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
   const p = _subHere();
   if (p.err) { window.toast?.(p.err); return; }
-  const key = _subCurKey();
-  const off = _subOffsetGet(key);
+  const t    = cur.track;
+  const off  = _subOffsetGet(_ytSubId);
+  const have = _ytAnchorsOf(t);
   // 画面に出ている時刻には、すでに折れ線と平行移動が掛かっている。
-  // アンカーは「字幕ファイル本来の時刻」で持つので、掛かっている分を戻してから記録する。
-  const inv = _subDriftInv(key);
-  const src = inv ? inv(p.start - off) : (p.start - off);
-  const list = _subAnchorAdd(key, src, p.now - off);
+  // 点は「字幕に保存されている本来の時刻」で持つので、掛かっている分を戻してから記録する。
+  const inv  = _subDriftInvOf(have);
+  const src  = inv ? inv(p.start - off) : (p.start - off);
+  const list = _subAnchorWith(have, src, p.now - off);
   if (!list.length) { window.toast?.('ここでは合わせられません（動画の先頭すぎます）'); return; }
-  _subReapplyAll();
+  try {
+    await _ytSubAnchorSave(_ytSubId, t.lang, list);
+  } catch (e) {
+    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    return;
+  }
+  _ytSubReapply();
   window.wkSubOptsRender();
   window.toast?.(`⏱ ${list.length}点で合わせています`);
 };
 
-window.wkSubDriftReset = function() {
-  _subAnchorSave(_subCurKey(), []);
-  _subReapplyAll();
+window.wkSubDriftReset = async function() {
+  const cur = _ytSubCur();
+  if (!cur || cur.kind !== 'gen') { window.toast?.('YouTubeの生成字幕に切り替えてから押してください'); return; }
+  try {
+    await _ytSubAnchorSave(_ytSubId, cur.track.lang, []);
+  } catch (e) {
+    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
+    return;
+  }
+  _ytSubReapply();
   window.wkSubOptsRender();
   window.toast?.('進むほど増えるズレの補正を消しました');
 };
@@ -5998,77 +6052,6 @@ window.wkSubBakeOffset = async function() {
   _gdSubReapply();
   window.wkSubOptsRender();
   window.toast?.('💾 補正をDriveのファイルに保存しました');
-};
-
-// 進むほど増えるズレの補正を、字幕そのものに書き込む。
-//
-// なぜ要るか: 補正は端末ローカル(localStorage)にしか無いので、
-// 同じ動画を別の端末で開くと元のままズレて出る。この app は複数端末で
-// 使うものなので、合わせた結果は字幕と一緒に持ち歩けないと意味がない。
-// 書き込む先は字幕そのもの（Driveの.srt / Firestoreのytsub_*）。
-// 本文は1文字も変えない。時刻だけを、置いた点どおりに写す。
-window.wkSubDriftBake = async function() {
-  const key = _subCurKey();
-  const anc = _subAnchorGet(key);
-  if (!anc.length) { window.toast?.('補正がかかっていません'); return; }
-  const map = _subLineMap(anc);
-  // rawVtt（＝保存されている時刻そのもの）に写像を掛けてSRTを作る
-  const bake = (rawVtt) => {
-    const cues = _parseVtt(rawVtt).map(c => {
-      const a = map(c.start), b = map(c.end);
-      return { ...c, start: Math.max(0, a), end: Math.max(a + 0.2, b) };
-    });
-    if (!cues.length) return null;
-    return cues.map((c, i) =>
-      `${i + 1}\n${_sec2tc(c.start).replace('.', ',')} --> ${_sec2tc(c.end).replace('.', ',')}\n${c.text}`).join('\n\n') + '\n';
-  };
-  const warn = `\n\n保存されている時刻を書き換えます（本文は変わりません）。\n`
-             + `元の時刻に戻すには字幕を作り直す必要があるので、\n`
-             + `残しておきたい場合は先に「⬇ 保存」でファイルに落としてください。`;
-
-  // ── YouTube: Firestore の字幕を差し替える（全端末に反映される）──
-  const yt = _ytSubCur();
-  if (yt && yt.kind === 'gen') {
-    const t = yt.track, ytId = _ytSubId;
-    const srt = bake(t.rawVtt);
-    if (!srt) { window.toast?.('字幕を読み取れませんでした'); return; }
-    if (!confirm(`「${t.label}」の時刻を、置いた${anc.length}点に合わせて保存しますか？${warn}`)) return;
-    try {
-      // via / srcLang などの付帯情報は元のまま持ち越す（srt だけを差し替える）
-      const cur = _ytSubDocs.get(ytId)?.tracks?.[t.lang] || {};
-      const { srt: _drop, chars: _drop2, updatedAt: _drop3, ...meta } = cur;
-      await _ytSubStore(ytId, t.lang, srt, meta);
-    } catch (e) {
-      window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
-      return;
-    }
-    t.srt = srt; t.rawVtt = _srtToVtt(srt);
-    _subAnchorSave(key, []);          // 字幕側が正しくなったので端末側の点は不要
-    _ytSubReapply();
-    window.wkSubOptsRender();
-    window.toast?.('💾 補正を字幕に保存しました（他の端末にも反映されます）');
-    return;
-  }
-
-  // ── Drive: .srt ファイルを差し替える ──
-  const t = _gdSubTracks[_gdSubIndex];
-  if (!t || !t.id) { window.toast?.('対象の字幕ファイルが特定できませんでした'); return; }
-  const token = window.getDriveTokenIfAvailable?.();
-  if (!token) { window.toast?.('Google Drive の認証が必要です'); return; }
-  const srt = bake(t.rawVtt);
-  if (!srt) { window.toast?.('字幕を読み取れませんでした'); return; }
-  if (!confirm(`「${t.name}」の時刻を、置いた${anc.length}点に合わせて保存しますか？${warn}`)) return;
-  try {
-    await _driveUploadText(token, { name: t.name, text: srt, existingId: t.id });
-  } catch (e) {
-    window.toast?.('⚠️ 保存に失敗: ' + (e?.message || e));
-    return;
-  }
-  t.rawVtt = _srtToVtt(srt);
-  _subAnchorSave(key, []);
-  _gdSubReapply();
-  window.wkSubOptsRender();
-  window.toast?.('💾 補正を字幕に保存しました（他の端末にも反映されます）');
 };
 
 // Driveから読み直す（他の端末で直した場合など）

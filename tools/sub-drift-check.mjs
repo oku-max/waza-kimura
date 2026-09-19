@@ -90,31 +90,32 @@ if (need.some(x => !x) || fns.some(x => !x)) {
     : fail('実測の形に合わない');
 }
 
-// 点を置くだけでは、字幕そのものには何も書かないこと
-const save = grab('_subAnchorSave');
-save && /localStorage\.setItem\(SUB_ANCHOR_KEY/.test(save) && !/firestore|_driveUpload|ref\.set/.test(save)
-  ? ok('点を置くだけなら字幕には書き込まない（端末のlocalStorageだけ）')
-  : fail('点を置いただけで字幕が書き換わる');
-
-// 「字幕に保存」は、本文を変えず・確認を取り・保存後は端末側の点を消すこと。
-// 点を残したまま保存すると、次に開いたときに補正が二重に掛かる。
-const bake = grab('wkSubDriftBake');
-if (!bake) fail('wkSubDriftBake が無い（補正がこの端末から出られない）');
+// 点の置き場所が「字幕と同じ場所」であること。
+// 端末ローカルに置くと、合わせた端末でしか直らない（v52.764 がそうだった）。
+const save = grab('_ytSubAnchorSave');
+if (!save) fail('_ytSubAnchorSave が無い（点が端末から出られない）');
 else {
-  /confirm\(/.test(bake)
-    ? ok('字幕への保存は確認を取る')
-    : fail('確認なしで字幕を書き換える');
-  /_subAnchorSave\(key, \[\]\)/.test(bake)
-    ? ok('保存したら端末側の点を消す（二重に掛からない）')
-    : fail('保存後も点が残る（次に開くと補正が二重に掛かる）');
-  // キューは丸ごと引き継ぎ(...c)、start/end だけを入れ替える。本文には代入しない。
-  /\{ \.\.\.c, start:/.test(bake) && !/\.text\s*=/.test(bake)
-    ? ok('本文には触れず時刻だけを写す')
-    : fail('本文を書き換えている可能性がある');
-  /_ytSubStore\(/.test(bake) && /_driveUploadText\(/.test(bake)
-    ? ok('YouTube(Firestore)とDrive(.srt)の両方に保存できる')
-    : fail('片方の経路でしか保存できない');
+  /tracks:\s*\{\s*\[lang\]:\s*\{\s*anchors:/.test(save)
+    ? ok('点は字幕と同じ場所(tracks.<言語>.anchors)に保存する')
+    : fail('点の保存先が字幕と同じ場所ではない');
+  /\{ merge: true \}/.test(save) && !/srt/.test(save)
+    ? ok('書くのは点だけ。字幕本体(srt)には触れない')
+    : fail('点の保存で字幕本体に触れている');
 }
+
+// 作り直したら古い点を必ず外すこと。
+// merge:true は入れ子のマップを残すので、明示的に消さないと前の点が生き残り、
+// 新しい字幕に古いズレ補正が掛かる。
+const store = grab('_ytSubStore');
+store && /anchors: null/.test(store)
+  ? ok('字幕を作り直したら古い点は外れる')
+  : fail('作り直しても古い点が残る（新しい字幕に前の補正が掛かる）');
+
+// 端末ローカルに残っていた分は読むだけで、書き足さないこと
+const legacy = grab('_subAnchorLegacy');
+legacy && !/setItem/.test(legacy)
+  ? ok('端末に残っていた点は読むだけ（新たに端末へは書かない）')
+  : fail('まだ端末ローカルへ書いている');
 
 console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ 進むほど増えるズレの補正は、順序を壊さず表示だけに掛かる');
 process.exit(ng ? 1 : 0);
