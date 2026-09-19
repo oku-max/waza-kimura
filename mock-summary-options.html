@@ -7,23 +7,25 @@
 <style>
 :root {
   --bg:#0f0f1a; --bg2:#141414; --bg3:#1a1a1a; --bg4:#1e1e1e;
+  --surface:#141414; --surface2:#1a1a1a;
   --border:#2a2a2a; --border2:#252525;
   --text:#eeeeee; --text2:#bbbbbb; --text3:#888888; --text4:#555555;
-  --accent:#f0c040; --accent-bg:#1a1a0a; --accent-bd:#3a3a10;
+  --accent:#f0c040; --on-accent:#1a1a0a; --accent-bg:#1a1a0a; --accent-bd:#3a3a10;
   --blue:#7ab4ff; --blue-bg:#101828; --blue-bd:#1a2a4a;
   --green:#4aff4a; --green-bg:#0a1a0a; --green-bd:#1a3a1a;
-  --purple:#c0a0ff; --purple-bg:#16101f;
+  --red:#ff7a7a; --purple:#c0a0ff;
   --phone-bg:#141414; --thumb-bg:linear-gradient(135deg,#1a2a4a 0%,#0a1a2a 100%);
   --shadow:0 4px 20px #0008;
 }
 [data-theme="light"] {
   --bg:#f0f0f5; --bg2:#ffffff; --bg3:#f5f5f8; --bg4:#ebebef;
+  --surface:#ffffff; --surface2:#f5f5f8;
   --border:#d8d8e0; --border2:#e0e0e8;
   --text:#111111; --text2:#333333; --text3:#666666; --text4:#999999;
-  --accent:#c08000; --accent-bg:#fffbe6; --accent-bd:#f0c040;
+  --accent:#c08000; --on-accent:#ffffff; --accent-bg:#fffbe6; --accent-bd:#f0c040;
   --blue:#1a6adf; --blue-bg:#e8f0ff; --blue-bd:#a0c0ff;
   --green:#1a8a1a; --green-bg:#e6ffe6; --green-bd:#a8e0a8;
-  --purple:#7040c0; --purple-bg:#f4f0ff;
+  --red:#c84040; --purple:#7040c0;
   --phone-bg:#ffffff; --thumb-bg:linear-gradient(135deg,#b0c8e8 0%,#8aaece 100%);
   --shadow:0 4px 20px #0001;
 }
@@ -47,26 +49,18 @@ h1 { text-align:center; font-size:17px; letter-spacing:.04em; margin-bottom:4px;
 /* ── 疑似Vパネル ── */
 .phone { background:var(--phone-bg); border:1.5px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
 .player { background:var(--thumb-bg); height:150px; display:flex; align-items:center; justify-content:center; position:relative; }
-.play-btn {
-  width:52px; height:52px; border-radius:50%; border:none; cursor:pointer;
-  background:rgba(255,255,255,.28); color:#fff; font-size:20px;
-}
+.play-btn { width:52px; height:52px; border-radius:50%; border:none; cursor:pointer; background:rgba(255,255,255,.28); color:#fff; font-size:20px; }
 .ptime { position:absolute; right:8px; bottom:8px; font-size:11px; color:#fff; background:#0009; padding:2px 7px; border-radius:6px; font-variant-numeric:tabular-nums; }
-.seekwrap { padding:8px 12px 4px; }
+.loopmark { position:absolute; left:8px; bottom:8px; font-size:10px; color:#fff; background:#0009; padding:2px 7px; border-radius:6px; }
+.seekwrap { padding:8px 12px 6px; }
 input[type=range] { width:100%; accent-color:var(--accent); }
 .vp-body { padding:10px 12px 14px; }
 .vp-title { font-size:13px; font-weight:700; line-height:1.5; }
 .vp-meta { font-size:11px; color:var(--text3); margin-top:3px; }
-.aidesc {
-  margin-top:8px; padding:6px 9px; border-radius:8px; background:var(--bg3);
-  font-size:11.5px; line-height:1.55; color:var(--text2);
-}
+.aidesc { margin-top:8px; padding:6px 9px; border-radius:8px; background:var(--bg3); font-size:11.5px; line-height:1.55; color:var(--text2); }
 .memo-head { display:flex; align-items:center; gap:6px; margin-top:12px; flex-wrap:wrap; }
 .vp-lbl { font-size:11px; font-weight:700; color:var(--text3); letter-spacing:.06em; }
-.sum-btn {
-  font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer;
-  border:1px solid var(--accent); background:transparent; color:var(--accent); font-weight:700;
-}
+.sum-btn { font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; border:1px solid var(--accent); background:transparent; color:var(--accent); font-weight:700; }
 .sum-btn:disabled { opacity:.6; cursor:default; }
 .memo {
   margin-top:6px; min-height:120px; max-height:340px; overflow-y:auto;
@@ -76,11 +70,32 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 .memo .sumhead { font-size:11px; font-weight:700; color:var(--purple); margin-bottom:5px; }
 .memo .h { font-weight:700; color:var(--text); display:block; margin:7px 0 2px; }
 .memo .ts { color:var(--blue); font-weight:700; }
-.memo .shot {
-  display:inline-block; width:42px; height:26px; border-radius:3px; vertical-align:middle;
-  margin-right:5px; background:var(--thumb-bg); border:1px solid var(--border);
-}
+.memo .shot { display:inline-block; width:42px; height:26px; border-radius:3px; vertical-align:middle; margin-right:5px; background:var(--thumb-bg); border:1px solid var(--border); }
 .memo .empty { color:var(--text4); }
+
+/* ── ループ再生（アプリ本体の style.css からそのまま流用）── */
+.ab-section{border-top:2px solid var(--border);border-bottom:2px solid var(--border)}
+.ab-collapse-row{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--surface2)}
+.ab-status-on{font-size:10px;padding:1px 8px;border-radius:10px;background:var(--accent);color:var(--on-accent);font-weight:600;white-space:nowrap;cursor:pointer}
+.ab-status-text{font-size:10px;color:var(--text3)}
+.ab-toggle-btn{font-size:10px;padding:2px 8px;border-radius:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ab-toggle-btn--on{border:1px solid var(--accent);background:var(--accent);color:var(--on-accent)}
+.ab-toggle-btn--off{border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.ab-expand-btn{font-size:10px;padding:2px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:auto}
+.ab-editor-body{padding:8px 12px 10px;background:var(--surface2)}
+.ab-time{font-family:ui-monospace,Menlo,monospace;font-size:13px;padding:3px 9px;border-radius:6px;white-space:nowrap;flex-shrink:0;cursor:pointer;transition:all .15s}
+.ab-time--set{border:1.5px solid var(--accent);background:var(--surface);color:var(--accent)}
+.ab-time--unset{border:1px solid var(--border);background:var(--surface2);color:var(--text2)}
+.ab-time--error{border:1.5px solid var(--red);background:var(--surface);color:var(--red)}
+.ab-editor{border:1.5px solid var(--accent);border-radius:8px;overflow:hidden;background:var(--surface)}
+.ab-tab{flex:1;text-align:center;font-size:11px;padding:6px 4px;cursor:pointer;border-right:.5px solid var(--border)}
+.ab-tab--active{font-weight:600;background:var(--accent);color:var(--on-accent)}
+.ab-tab--inactive{font-weight:500;color:var(--text2);background:var(--surface2)}
+.ab-time-disp{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:500;color:var(--text);text-align:center;margin:2px 0 6px;width:100%;border:none;background:transparent;outline:none}
+.ab-adj-btn{font-size:10px;padding:3px 6px;border:.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--accent);cursor:pointer;font-family:inherit}
+.ab-current-btn{font-size:10px;padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:var(--on-accent);font-weight:600;cursor:pointer;font-family:inherit}
+.ab-save-btn{font-size:11px;padding:5px 16px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-weight:700;cursor:pointer}
+.ab-clear-btn{font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer}
 
 /* ── シート ── */
 .ov { position:fixed; inset:0; z-index:99; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
@@ -93,38 +108,21 @@ input[type=range] { width:100%; accent-color:var(--accent); }
   border:1px solid var(--border); background:var(--bg3); color:var(--text);
 }
 .opt.on { border-color:var(--accent); background:var(--accent-bg); }
+.opt.off { opacity:.55; }
 .opt .ic { font-size:16px; }
 .opt .tx { display:block; font-size:12.5px; font-weight:700; }
 .opt .sub { display:block; font-size:10.5px; color:var(--text3); font-weight:400; margin-top:2px; line-height:1.5; }
+.opt .sub b { color:var(--accent); font-family:ui-monospace,Menlo,monospace; }
 .pill { display:flex; gap:6px; }
-.pill button {
-  flex:1; padding:8px 4px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700;
-  border:1px solid var(--border); background:var(--bg3); color:var(--text2);
-}
+.pill button { flex:1; padding:8px 4px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700; border:1px solid var(--border); background:var(--bg3); color:var(--text2); }
 .pill button.on { border-color:var(--accent); background:var(--accent-bg); color:var(--accent); }
 .hint { font-size:10.5px; color:var(--text3); margin-top:6px; line-height:1.6; }
-.range-box { border:1px solid var(--border); border-radius:9px; padding:10px; background:var(--bg3); }
-.range-now { font-size:11px; color:var(--text3); margin-bottom:8px; font-variant-numeric:tabular-nums; }
-.range-btns { display:flex; gap:6px; }
-.range-btns button {
-  flex:1; padding:8px 4px; font-size:11.5px; font-weight:700; border-radius:8px; cursor:pointer;
-  border:1px solid var(--blue-bd); background:var(--blue-bg); color:var(--blue);
-}
-.range-val { margin-top:8px; font-size:12px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
-.range-val .bad { color:#ff7a7a; font-weight:400; font-size:11px; }
-.range-clear { background:none; border:none; color:var(--text4); font-size:10.5px; cursor:pointer; margin-top:4px; padding:0; }
-.go {
-  width:100%; margin-top:16px; padding:12px; border-radius:9px; cursor:pointer;
-  font-size:13px; font-weight:700; border:1px solid var(--green-bd);
-  background:var(--green-bg); color:var(--green);
-}
+.needloop { border:1px dashed var(--border); border-radius:9px; padding:11px; background:var(--bg3); text-align:center; }
+.needloop p { font-size:11px; color:var(--text3); line-height:1.7; margin-bottom:9px; }
+.needloop button { width:100%; padding:9px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700; border:1px solid var(--accent); background:var(--accent-bg); color:var(--accent); }
+.go { width:100%; margin-top:16px; padding:12px; border-radius:9px; cursor:pointer; font-size:13px; font-weight:700; border:1px solid var(--green-bd); background:var(--green-bg); color:var(--green); }
 .go:disabled { opacity:.4; cursor:default; }
 .cancel { width:100%; margin-top:6px; padding:8px; background:none; border:none; color:var(--text4); font-size:12px; cursor:pointer; }
-.confirm { max-width:290px; }
-.confirm p { font-size:12px; line-height:1.75; color:var(--text2); margin-bottom:6px; }
-.confirm .quote { font-size:11px; color:var(--text3); background:var(--bg3); border-radius:7px; padding:7px 9px; margin:8px 0 14px; line-height:1.6; }
-.confirm .danger { border-color:#7a3030; background:#2a1212; color:#ff9a9a; }
-[data-theme="light"] .confirm .danger { border-color:#e0a0a0; background:#fff0f0; color:#c02020; }
 
 /* ── 送信ペイロード ── */
 .payload { margin-top:18px; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
@@ -132,25 +130,17 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 .payload pre { padding:11px; font-size:10.5px; line-height:1.65; color:var(--text2); overflow-x:auto; font-family:ui-monospace,Menlo,monospace; }
 .note { max-width:400px; margin:20px auto 0; font-size:11px; color:var(--text3); line-height:1.85; }
 .note b { color:var(--text2); }
-.toast {
-  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
-  background:#000d; color:#fff; font-size:12px; padding:9px 15px; border-radius:20px;
-  z-index:200; max-width:88vw; text-align:center; line-height:1.5;
-}
+.toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#000d; color:#fff; font-size:12px; padding:9px 15px; border-radius:20px; z-index:200; max-width:88vw; text-align:center; line-height:1.5; }
 </style>
 </head>
 <body>
 
 <h1>✨ AI要約 — 種類と粒度を選ぶ</h1>
-<div class="page-sub">実際に動くモック。▶で再生位置を進めて「範囲を指定」も試せます。</div>
+<div class="page-sub">範囲指定は既存の「ループ再生」の区間をそのまま使います。</div>
 
 <div class="bar">
-  <div class="seg" id="seg-theme">
-    <span data-t="dark" class="on">ダーク</span><span data-t="light">ライト</span>
-  </div>
-  <div class="seg" id="seg-plat">
-    <span data-p="gdrive" class="on">GDrive</span><span data-p="youtube">YouTube</span>
-  </div>
+  <div class="seg" id="seg-theme"><span data-t="dark" class="on">ダーク</span><span data-t="light">ライト</span></div>
+  <div class="seg" id="seg-plat"><span data-p="gdrive" class="on">GDrive</span><span data-p="youtube">YouTube</span></div>
 </div>
 
 <div class="wrap">
@@ -158,8 +148,10 @@ input[type=range] { width:100%; accent-color:var(--accent); }
     <div class="player">
       <button class="play-btn" id="play">▶</button>
       <div class="ptime" id="ptime">0:00 / 24:10</div>
+      <div class="loopmark" id="loopmark" style="display:none">🔁</div>
     </div>
     <div class="seekwrap"><input type="range" id="seek" min="0" max="1450" value="0"></div>
+    <div id="loop-area"></div>
     <div class="vp-body">
       <div class="vp-title">Closed Guard Armbar — セットアップと3つの防御への対応</div>
       <div class="vp-meta" id="vp-meta">Google Drive ・ 24:10</div>
@@ -180,11 +172,11 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 
 <div class="note">
   <b>仕様メモ</b><br>
-  ・一言は <code>v.aiDesc</code> に保存（カードにも出る）。既存があれば上書き確認。<br>
+  ・一言もメモ欄に追記する（他の要約と同じ。既存のメモは消さない）。カードの💬行は今まで通りそのまま。<br>
+  ・範囲は既存の<b>ループ再生</b>の区間（開始→終了）をそのまま使う。専用の範囲UIは作らない。<br>
+  ・区間が未設定なら、要約シートからループ設定を開いて決めてもらう。<br>
   ・粒度は言葉ではなく数値でプロンプトへ渡す（細かめ=30秒間隔目安 / 普通=今の要約 / ざっくり=チャプター相当）。<br>
-  ・範囲指定は Gemini に該当区間だけ送るので、速く・安く済む。<br>
-  ・スクショは GDrive のみ（YouTube では選択肢を出さない）。あり=行頭インライン固定。<br>
-  ・選んだ設定は次回の初期値として記憶する（新規キーへの書き込みのみ）。
+  ・スクショは GDrive のみ（YouTube では選択肢を出さない）。あり=行頭インライン固定。
 </div>
 
 <script>
@@ -245,30 +237,133 @@ let S = { type:'full', level:'normal', shot:false };
 try { S = Object.assign(S, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch(e) {}
 let plat = 'gdrive';
 let cur = 0, playing = false, timer = null;
-let rFrom = null, rTo = null;
-let aiDesc = 'クローズドガードからの腕十字。基本形のみで、防御への対応は扱っていない。';
+/* ループ再生（アプリの _ab と同じ持ち方） */
+const L = { a:null, b:null, loop:false, expanded:false, field:'start' };
 
 const $ = (id) => document.getElementById(id);
 const fmt = (s) => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+const parseTime = (t) => {
+  const p = String(t).trim().split(':').map(Number);
+  if (p.some(isNaN)) return null;
+  return p.length === 3 ? p[0]*3600+p[1]*60+p[2] : p.length === 2 ? p[0]*60+p[1] : p[0];
+};
+const hasRange = () => L.a != null && L.b != null && L.b > L.a;
 
 /* ───────── プレイヤー ───────── */
 function paintTime() {
   $('ptime').textContent = fmt(cur) + ' / ' + fmt(DUR);
   $('seek').value = cur;
-  const now = $('range-now'); if (now) now.textContent = '現在の再生位置: ' + fmt(cur);
+  $('loopmark').style.display = L.loop ? '' : 'none';
+  if (L.loop) $('loopmark').textContent = `🔁 ${fmt(L.a)} → ${fmt(L.b)}`;
 }
 $('play').onclick = () => {
   playing = !playing;
   $('play').textContent = playing ? '⏸' : '▶';
   clearInterval(timer);
   if (playing) timer = setInterval(() => {
-    cur = Math.min(DUR, cur + 5); paintTime();
+    cur = Math.min(DUR, cur + 5);
+    if (L.loop && hasRange() && cur >= L.b) cur = L.a;   // ループ動作
+    paintTime();
     if (cur >= DUR) { playing = false; $('play').textContent = '▶'; clearInterval(timer); }
   }, 100);
 };
 $('seek').oninput = (e) => { cur = Number(e.target.value); paintTime(); };
 
-/* ───────── プラットフォーム / テーマ ───────── */
+/* ───────── ループ再生セクション ───────── */
+function renderLoop() {
+  const aL = L.a != null ? fmt(L.a) : '--:--';
+  const bL = L.b != null ? fmt(L.b) : '--:--';
+  const conflict = L.a != null && L.b != null && L.a >= L.b;
+  const icon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+  const status = L.loop
+    ? `<span class="ab-status-on" data-act="toggle">🔁 ON &nbsp;${aL} → ${bL} ✕</span>`
+    : (L.a != null || L.b != null)
+      ? `<span class="ab-status-text">${aL} → ${bL}</span>`
+      : '<span class="ab-status-text">未設定</span>';
+  const toggle = (L.a != null && L.b != null)
+    ? `<button class="ab-toggle-btn ab-toggle-btn--${L.loop?'on':'off'}" data-act="toggle">${L.loop?'OFF':'ON'}</button>` : '';
+  const row = `<div class="ab-collapse-row">
+      <span class="vp-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:0">${icon}ループ再生</span>
+      ${status}${toggle}
+      <button class="ab-expand-btn" data-act="expand">${L.expanded ? '∧ 閉じる' : (L.loop ? '編集 ∨' : '設定する ∨')}</button>
+    </div>`;
+
+  if (!L.expanded) { $('loop-area').innerHTML = `<div class="ab-section">${row}</div>`; bindLoop(); return; }
+
+  const isStart = L.field === 'start';
+  const val = isStart ? (L.a ?? 0) : (L.b ?? L.a ?? 0);
+  const adj = [-10,-5,-3,-1,1,3,5,10].map(d =>
+    `<button class="ab-adj-btn" data-adj="${d}">${d>0?'+':''}${d}s</button>`).join('');
+  $('loop-area').innerHTML = `<div class="ab-section">${row}
+    <div class="ab-editor-body">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <button class="ab-time ab-time--${L.a!=null?'set':'unset'}" data-field="start">開始: ${aL}</button>
+        <span style="font-size:10px;color:var(--accent)">↔</span>
+        <button class="ab-time ab-time--${conflict?'error':(L.b!=null?'set':'unset')}" data-field="end">終了: ${bL}</button>
+        <span style="flex:1"></span>
+        <button class="ab-clear-btn" data-act="clear">✕ クリア</button>
+      </div>
+      <div class="ab-editor">
+        <div style="display:flex;border-bottom:.5px solid var(--border)">
+          <div class="ab-tab ab-tab--${isStart?'active':'inactive'}" data-field="start">▶ 開始</div>
+          <div class="ab-tab ab-tab--${!isStart?'active':'inactive'}" data-field="end">⏹ 終了</div>
+        </div>
+        <div style="padding:8px 10px">
+          <input type="text" id="ab-in" class="ab-time-disp" value="${fmt(val)}" inputmode="numeric">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px"><span>0:00</span><span>${fmt(DUR)}</span></div>
+          <input type="range" id="ab-sl" min="0" max="${DUR}" value="${Math.floor(val)}" step="1" style="height:4px;margin-bottom:6px">
+          <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px">微調整</span>
+            ${adj}
+            <button class="ab-current-btn" data-act="now">現在地</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="ab-save-btn" data-act="save">✔ 保存</button>
+      </div>
+    </div></div>`;
+  bindLoop();
+}
+
+function setField(v) {
+  v = Math.max(0, Math.min(DUR, Math.round(v)));
+  if (L.field === 'start') L.a = v; else L.b = v;
+  renderLoop();
+}
+function bindLoop() {
+  const area = $('loop-area');
+  area.querySelectorAll('[data-act]').forEach(el => el.onclick = () => {
+    const a = el.dataset.act;
+    if (a === 'expand') L.expanded = !L.expanded;
+    else if (a === 'toggle') {
+      if (L.loop) { L.loop = false; toast('🔁 ループを解除しました'); }
+      else if (hasRange()) { L.loop = true; cur = L.a; toast('🔁 ループを開始しました'); }
+    }
+    else if (a === 'clear') { L.a = L.b = null; L.loop = false; }
+    else if (a === 'now') setField(cur);
+    else if (a === 'save') {
+      if (!hasRange()) { toast('開始と終了を正しく設定してください'); return; }
+      L.loop = true; L.expanded = false; cur = L.a; toast('🔁 ループを開始しました');
+    }
+    renderLoop(); paintTime();
+  });
+  area.querySelectorAll('[data-field]').forEach(el => el.onclick = () => { L.field = el.dataset.field; renderLoop(); });
+  area.querySelectorAll('[data-adj]').forEach(el => el.onclick = () => {
+    const base = L.field === 'start' ? (L.a ?? cur) : (L.b ?? L.a ?? cur);
+    setField(base + Number(el.dataset.adj));
+  });
+  const sl = $('ab-sl'); if (sl) sl.oninput = (e) => setField(Number(e.target.value));
+  const inp = $('ab-in');
+  // blur 経由で change が来ると、描画し直しの途中で入力欄が消えて例外になる。
+  // 一拍遅らせてから描き直す。
+  if (inp) inp.onchange = () => {
+    const v = parseTime(inp.value);
+    setTimeout(() => { if (v != null) setField(v); else renderLoop(); }, 0);
+  };
+}
+
+/* ───────── テーマ / プラットフォーム ───────── */
 $('seg-theme').onclick = (e) => {
   const t = e.target.dataset.t; if (!t) return;
   document.documentElement.dataset.theme = t;
@@ -279,10 +374,9 @@ $('seg-plat').onclick = (e) => {
   plat = p;
   [...$('seg-plat').children].forEach(c => c.classList.toggle('on', c.dataset.p === p));
   $('vp-meta').textContent = (p === 'gdrive' ? 'Google Drive' : 'YouTube') + ' ・ 24:10';
-  const sheet = $('sheet-ov'); if (sheet) renderSheet();
+  if ($('sheet-ov')) renderSheet();
 };
 
-/* ───────── トースト ───────── */
 function toast(msg, ms) {
   const t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
@@ -290,11 +384,9 @@ function toast(msg, ms) {
   setTimeout(() => t.remove(), ms || 2600);
 }
 
-/* ───────── シート ───────── */
+/* ───────── 要約シート ───────── */
 $('sumbtn').onclick = openSheet;
-
 function openSheet() {
-  rFrom = rTo = null;
   const ov = document.createElement('div');
   ov.className = 'ov'; ov.id = 'sheet-ov';
   ov.onclick = (e) => { if (e.target === ov) closeSheet(); };
@@ -308,55 +400,45 @@ function renderSheet() {
   const canShot = (plat === 'gdrive');
   const isDesc  = (S.type === 'desc');
   const needRange = (S.type === 'range');
-  const rangeOk = !needRange || (rFrom != null && rTo != null && rTo > rFrom);
+  const ok = !needRange || hasRange();
 
-  const opt = (type, ic, tx, sub) =>
-    `<button class="opt ${S.type===type?'on':''}" data-type="${type}">
-       <span class="ic">${ic}</span><span><span class="tx">${tx}</span><span class="sub">${sub}</span></span>
-     </button>`;
+  const opt = (type, ic, tx, sub, dim) =>
+    `<button class="opt ${S.type===type?'on':''} ${dim?'off':''}" data-type="${type}">
+       <span class="ic">${ic}</span><span><span class="tx">${tx}</span><span class="sub">${sub}</span></span></button>`;
+  const pill = (k, v, label) => `<button class="${S[k]===v?'on':''}" data-k="${k}" data-v="${v}">${label}</button>`;
 
-  const pill = (key, val, label) =>
-    `<button class="${S[key]===val?'on':''}" data-k="${key}" data-v="${val}">${label}</button>`;
+  const rangeSub = hasRange()
+    ? `いまのループ区間 <b>${fmt(L.a)} → ${fmt(L.b)}</b> を要約`
+    : 'ループ区間が未設定です';
 
-  const goLabel = isDesc ? '💬 一言を生成'
-    : needRange ? (rangeOk ? `✂️ ${fmt(rFrom)}–${fmt(rTo)} を要約` : '✂️ 範囲を指定してください')
+  const goLabel = isDesc ? '💬 一言をメモに書く'
+    : needRange ? (hasRange() ? `🔁 ${fmt(L.a)}–${fmt(L.b)} を要約` : '🔁 ループ区間を決めてください')
     : '📝 全体を要約';
 
   ov.innerHTML = `<div class="sheet">
     <h2>✨ AI要約</h2>
     <div class="grp-lbl">種類</div>
-    ${opt('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。カードにも表示される')}
-    ${opt('full','📝','全体を要約','今までの要約。メモの先頭に追記される')}
-    ${opt('range','✂️','範囲を指定して要約','見ている区間だけ。速く・安く済む')}
+    ${opt('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。メモの先頭に追記')}
+    ${opt('full','📝','全体を要約','今までの要約。メモの先頭に追記')}
+    ${opt('range','🔁','ループ区間を要約', rangeSub, !hasRange())}
+
+    ${(needRange && !hasRange()) ? `
+      <div class="needloop">
+        <p>範囲は「ループ再生」で決めた区間をそのまま使います。<br>先に区間を設定してください。</p>
+        <button id="open-loop">🔁 ループ再生を開く</button>
+      </div>` : ''}
 
     ${isDesc ? '' : `
       <div class="grp-lbl">粒度</div>
       <div class="pill">${pill('level','fine','細かめ')}${pill('level','normal','普通')}${pill('level','coarse','ざっくり')}</div>
       <div class="hint">${LEVEL_HINT[S.level]}</div>`}
 
-    ${needRange ? `
-      <div class="grp-lbl">範囲</div>
-      <div class="range-box">
-        <div class="range-now" id="range-now">現在の再生位置: ${fmt(cur)}</div>
-        <div class="range-btns">
-          <button data-mark="from">⬅️ ここから</button>
-          <button data-mark="to">ここまで ➡️</button>
-        </div>
-        <div class="range-val">
-          ${rFrom != null || rTo != null
-            ? `${rFrom != null ? fmt(rFrom) : '—'} 〜 ${rTo != null ? fmt(rTo) : '—'}
-               ${(rFrom != null && rTo != null && rTo <= rFrom) ? '<span class="bad">（「ここまで」が「ここから」より後になるように）</span>' : ''}`
-            : '<span class="bad">未指定</span>'}
-        </div>
-        ${(rFrom != null || rTo != null) ? '<button class="range-clear" data-mark="clear">クリア</button>' : ''}
-      </div>` : ''}
-
     ${(isDesc || !canShot) ? '' : `
       <div class="grp-lbl">スクショ</div>
       <div class="pill">${pill('shot',false,'なし')}${pill('shot',true,'あり')}</div>
       <div class="hint">ありにすると各タイムスタンプの静止画を行頭に入れる（GDriveのみ）</div>`}
 
-    <button class="go" id="go" ${rangeOk ? '' : 'disabled'}>${goLabel}</button>
+    <button class="go" id="go" ${ok ? '' : 'disabled'}>${goLabel}</button>
     <button class="cancel" id="sheet-cancel">キャンセル</button>
   </div>`;
 
@@ -365,93 +447,67 @@ function renderSheet() {
     S[b.dataset.k] = (b.dataset.v === 'true') ? true : (b.dataset.v === 'false' ? false : b.dataset.v);
     savePref(); renderSheet();
   });
-  ov.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => {
-    const m = b.dataset.mark;
-    if (m === 'from') rFrom = cur;
-    else if (m === 'to') rTo = cur;
-    else { rFrom = rTo = null; }
-    renderSheet();
-  });
+  const ol = $('open-loop');
+  if (ol) ol.onclick = () => {
+    closeSheet(); L.expanded = true; renderLoop();
+    $('loop-area').scrollIntoView({ block:'center' });
+    toast('区間を決めて「✔ 保存」したら、もう一度 ✨AI要約 を押してください', 4200);
+  };
   $('sheet-cancel').onclick = closeSheet;
-  $('go').onclick = onGo;
+  $('go').onclick = run;
 }
-
 function savePref() { try { localStorage.setItem(PREF_KEY, JSON.stringify(S)); } catch(e) {} }
 
 /* ───────── 実行 ───────── */
-function onGo() {
-  if (S.type === 'desc' && aiDesc) { askOverwrite(); return; }
-  run();
-}
-
-function askOverwrite() {
-  const ov = document.createElement('div');
-  ov.className = 'ov'; ov.style.zIndex = 120;
-  ov.innerHTML = `<div class="sheet confirm">
-    <h2>💬 一言解説を上書きしますか？</h2>
-    <p>この動画にはすでに一言解説があります。生成すると新しい文で置き換わります。</p>
-    <div class="quote">${aiDesc}</div>
-    <button class="go danger" id="ow-yes">上書きして生成</button>
-    <button class="cancel" id="ow-no">やめる</button>
-  </div>`;
-  document.body.appendChild(ov);
-  ov.querySelector('#ow-yes').onclick = () => { ov.remove(); run(); };
-  ov.querySelector('#ow-no').onclick  = () => ov.remove();
-  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
-}
-
 function run() {
-  const type = S.type, level = S.level, shot = S.shot && plat === 'gdrive' && type !== 'desc';
-  const from = (type === 'range') ? rFrom : null, to = (type === 'range') ? rTo : null;
+  const type = S.type, level = S.level;
+  const shot = S.shot && plat === 'gdrive' && type !== 'desc';
+  const from = (type === 'range' && hasRange()) ? L.a : null;
+  const to   = (type === 'range' && hasRange()) ? L.b : null;
   closeSheet();
   showPayload(type, level, shot, from, to);
 
   const btn = $('sumbtn');
   btn.disabled = true;
   const t0 = Date.now();
+  btn.textContent = '⏳ 要約中… 0秒';
   const tick = setInterval(() => {
     btn.textContent = `⏳ ${type === 'desc' ? '生成' : '要約'}中… ${Math.round((Date.now()-t0)/1000)}秒`;
   }, 250);
-  btn.textContent = '⏳ 要約中… 0秒';
 
   setTimeout(() => {
     clearInterval(tick);
     btn.disabled = false; btn.textContent = '✨ AI要約';
-    if (type === 'desc') {
-      aiDesc = 'クローズドガードで姿勢を崩し、45度のアングルを作って腕十字。相手が手を組む／立つ／肩を回す の3パターンへの対応まで解説。';
-      paintDesc();
-      toast('💬 一言解説を生成しました（2秒）');
-    } else {
-      prependMemo(buildSummary(level, shot, from, to));
-      toast((shot ? '✨ 要約＋スクショを追記しました' : '✨ AI要約をMemoに追記しました') + '（2秒）');
-    }
+    prependMemo(type === 'desc' ? buildDesc() : buildSummary(level, shot, from, to));
+    toast(type === 'desc' ? '💬 一言をメモに追記しました（2秒）'
+      : (shot ? '✨ 要約＋スクショを追記しました' : '✨ AI要約をMemoに追記しました') + '（2秒）');
   }, 2000);
 }
 
-function paintDesc() {
-  $('aidesc-txt').textContent = aiDesc;
-  $('aidesc').style.display = aiDesc ? '' : 'none';
+/* ───────── 生成テキスト ───────── */
+function buildDesc() {
+  const stamp = new Date().toISOString().slice(0,10);
+  return `<div class="sumhead">── 💬 AI一言 (${stamp}) ──</div>`
+    + 'クローズドガードで姿勢を崩し、45度のアングルを作って腕十字。相手が手を組む／立つ／肩を回す の3パターンへの対応まで解説。';
 }
 
-/* ───────── 要約テキスト生成（粒度・範囲を反映） ───────── */
 function buildSummary(level, shot, from, to) {
   const inR = (s) => (from == null || (s >= from && s <= to));
   const sc = () => shot ? '<span class="shot"></span>' : '';
   const ts = (s) => `<span class="ts">[${fmt(s)}]</span> `;
   const stamp = new Date().toISOString().slice(0,10);
   const head = (from != null)
-    ? `── ✨ AI要約 [${fmt(from)}–${fmt(to)}] ${LEVEL_JA[level]} (${stamp}) ──`
+    ? `── ✨ AI要約 🔁[${fmt(from)}–${fmt(to)}] ${LEVEL_JA[level]} (${stamp}) ──`
     : `── ✨ AI要約 ${LEVEL_JA[level]} (${stamp}) ──`;
-
   let html = `<div class="sumhead">${head}</div>`;
 
   if (level === 'coarse') {
     const secs = SECTIONS.filter(s => inR(s[0]));
-    html += `<span class="h">◾️一言まとめ</span>`;
+    html += '<span class="h">◾️一言まとめ</span>';
     html += `${from != null ? `${fmt(from)}〜${fmt(to)} の区間では、` : ''}クローズドガードからの腕十字を、セットアップから相手の防御への対応まで扱う。<br>`;
-    html += `<span class="h">◾️シチュエーション（状況設定）</span>`;
+    html += '<span class="h">◾️シチュエーション（状況設定）</span>';
     html += `- ${SITU[0]}<br>`;
-    html += `<span class="h">◾️章ごとの要点</span>`;
+    html += '<span class="h">◾️章ごとの要点</span>';
     html += (secs.length ? secs : SECTIONS.slice(0,1)).map(s =>
       `- ${sc()}${ts(s[0])}<b>${s[1]}</b>：${s[2]}`).join('<br>');
     return html;
@@ -460,15 +516,14 @@ function buildSummary(level, shot, from, to) {
   const every = (level === 'fine') ? 1 : 2;
   const items = STEPS.filter((s,i) => inR(s[0]) && i % every === 0);
   const list = items.length ? items : STEPS.slice(0,3);
-
-  html += `<span class="h">◾️一言まとめ</span>`;
+  html += '<span class="h">◾️一言まとめ</span>';
   html += `${from != null ? `${fmt(from)}〜${fmt(to)} の区間。` : ''}クローズドガードから姿勢を崩し、アングルを作って腕十字を決めるまでの手順と、相手の防御3パターンへの対応。<br>`;
-  html += `<span class="h">◾️シチュエーション（状況設定）</span>`;
+  html += '<span class="h">◾️シチュエーション（状況設定）</span>';
   html += SITU.map(s => `- ${s}`).join('<br>');
-  html += `<span class="h">◾️手順とディテール</span>`;
+  html += '<span class="h">◾️手順とディテール</span>';
   html += list.map(s => `- ${sc()}${ts(s[0])}${s[1]}`).join('<br>');
   if (level === 'fine') {
-    html += `<span class="h">◾️ありがちなミス・注意点</span>`;
+    html += '<span class="h">◾️ありがちなミス・注意点</span>';
     html += `- ${sc()}${ts(1120)}足を振り上げる前にグリップを離してしまう<br>`;
     html += `- ${sc()}${ts(1200)}ヒップを上げず腕だけで反らせようとする`;
   }
@@ -482,9 +537,9 @@ function prependMemo(html) {
   el.scrollTop = 0;
 }
 
-/* ───────── 送信ペイロード表示 ───────── */
+/* ───────── 送信ペイロード ───────── */
 function showPayload(type, level, shot, from, to) {
-  const body = { idToken:'…', mode: (type === 'desc' ? 'desc' : 'summary'),
+  const body = { idToken:'…', mode:(type === 'desc' ? 'desc' : 'summary'),
                  source: plat === 'gdrive' ? 'gdrive' : 'youtube' };
   if (plat === 'gdrive') { body.gdFileId = '1AbC…'; body.accessToken = '…'; }
   else { body.ytId = 'dQw4w9WgXcQ'; }
@@ -497,13 +552,16 @@ function showPayload(type, level, shot, from, to) {
   const cost = (type === 'desc') ? 0.01
     : (from != null ? (0.06 * (to - from) / DUR + 0.01) : 0.06) * (level === 'fine' ? 1.3 : level === 'coarse' ? 0.8 : 1);
   $('payload').textContent =
-    'POST /api/ai-summary\n' + JSON.stringify(body, null, 2) +
-    '\n\n// クライアント側: スクショ ' + (shot ? 'あり（行頭インライン）' : 'なし') +
-    '\n// 概算コスト: $' + cost.toFixed(3) + (from != null ? '（区間だけ送るので全体より安い）' : '');
+    'POST /api/ai-summary\n' + JSON.stringify(body, null, 2)
+    + '\n\n// 書き込み先: メモ欄の先頭に追記（一言も同じ）'
+    + '\n// スクショ: ' + (shot ? 'あり（行頭インライン）' : 'なし')
+    + (from != null ? '\n// range はループ再生の区間（_ab.a / _ab.b）をそのまま使用' : '')
+    + '\n// 概算コスト: $' + cost.toFixed(3);
 }
 
 /* ───────── 初期描画 ───────── */
-paintTime(); paintDesc();
+$('aidesc-txt').textContent = 'クローズドガードからの腕十字。基本形のみで、防御への対応は扱っていない。';
+renderLoop(); paintTime();
 </script>
 </body>
 </html>
