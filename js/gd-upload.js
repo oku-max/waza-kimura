@@ -63,6 +63,14 @@ function _hhmm(sec) {
 }
 const VIDEO_EXT_RE = /\.(mp4|mov|m4v|avi|mkv|webm|wmv|flv|mpg|mpeg|3gp|ogv|ts|m2ts)$/i;
 function _stripExt(name) { return String(name || '').replace(VIDEO_EXT_RE, ''); }
+function _ext(name) { const m = String(name || '').match(VIDEO_EXT_RE); return m ? m[0] : ''; }
+// 画面で直した名前を、ライブラリのタイトルにもDrive上のファイル名にも使う。
+// 直した名前が空なら元のファイル名に戻す（名前が消えた動画を作らない）。
+function _nameOf(it) {
+  const t = String(it.title || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 120);
+  return t || _stripExt(it.file.name);
+}
+function _driveName(it) { return _nameOf(it) + _ext(it.file.name); }
 // ファイル一覧からは何でも選べてしまう。種類が空で来る端末があるので拡張子でも見る。
 function _isVideo(f) {
   return String(f?.type || '').startsWith('video/') || VIDEO_EXT_RE.test(f?.name || '');
@@ -176,19 +184,43 @@ function _render() {
 function _renderList() {
   const box = _el('gdu-list');
   if (!box) return;
+  const hint = _el('gdu-namehint');
+  if (hint) hint.style.display = _items.length ? '' : 'none';
   if (!_items.length) {
     box.innerHTML = `<div class="gdp-empty">まだ動画を選んでいません</div>`;
     return;
   }
+  // 尺は選んだ後から入ってくる。そのたびに作り直すと、名前を打っている途中で
+  // 入力欄が作り直されて文字が飛ぶ。行数が同じなら中身だけ書き換える。
+  const rows = box.querySelectorAll('.gdp-row');
+  if (rows.length === _items.length) {
+    _items.forEach((it, i) => {
+      const m = rows[i].querySelector('.meta');
+      if (m) m.textContent = _metaOf(it);
+    });
+    return;
+  }
   box.innerHTML = _items.map((it, i) => {
-    const meta = `${_mb2(it.size)}${it.duration ? ' ・ ' + _hhmm(it.duration) : ''}`;
     return `<div class="gdp-row" style="cursor:default">
       <span class="ico">🎬</span>
-      <span class="nm" title="${_esc(it.file.name)}">${_esc(it.title)}</span>
-      <span class="meta">${meta}</span>
+      <input class="nm gdu-nm" type="text" value="${_esc(it.title)}"
+             title="${_esc(it.file.name)}" aria-label="動画のタイトル"
+             oninput="gduRename(${i}, this)">
+      <span class="meta">${_metaOf(it)}</span>
       <button class="gdp-x" onclick="gduRemove(${i})" aria-label="削除">×</button>
     </div>`;
   }).join('');
+}
+
+function _metaOf(it) {
+  return `${_mb2(it.size)}${it.duration ? ' ・ ' + _hhmm(it.duration) : ''}`;
+}
+
+// 名前を直す。中身を持っているのは _items なので、描き直しても消えない。
+export function gduRename(idx, el) {
+  const it = _items[idx];
+  if (!it || _running) return;
+  it.title = String(el?.value || '');
 }
 
 function _renderDest() {
@@ -526,7 +558,8 @@ async function _runImport() {
   }
 
   const channel  = (_el('gdu-channel')?.value  || '').trim();
-  const playlist = (_el('gdu-playlist')?.value || '').trim();
+  // 空欄なら保存先フォルダ名。Drive取り込みも「フォルダ名＝プレイリスト」で揃えている。
+  const playlist = (_el('gdu-playlist')?.value || '').trim() || (_dest?.name || '');
 
   const added = [];
   for (const it of _items) {
@@ -534,7 +567,7 @@ async function _runImport() {
     try {
       // 変換はしない。元のファイルをそのまま上げる。
       it.phase = 'up'; it.prog = 0; _renderRun();
-      const res  = await _upload(it.file, it.file.name, _dest.id, token, (p) => _tick(it, p));
+      const res  = await _upload(it.file, _driveName(it), _dest.id, token, (p) => _tick(it, p));
       if (!res?.id) throw new Error('アップロード結果にファイルIDがありません');
 
       it.fileId = res.id;
@@ -557,7 +590,7 @@ async function _runImport() {
   for (const it of added) {
     const newId = 'gd-' + it.fileId;
     if (window.videos.some(v => v.id === newId)) continue;
-    const title = it.title || _stripExt(it.file.name);
+    const title = _nameOf(it);
     window.videos.push({
       id:       newId,
       pt:       'gdrive',
@@ -639,7 +672,7 @@ function _renderRun(registered, fatal) {
         ? `<div style="font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.4">${_esc(it.note)}</div>` : '';
       return `<div style="padding:8px 4px;border-bottom:1px solid var(--border2)">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="flex:1;font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(it.title)}</span>
+          <span style="flex:1;font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(_nameOf(it))}</span>
           <span style="font-size:11px;font-weight:700;color:${color};flex-shrink:0">${label}</span>
         </div>${bar}${note}
       </div>`;
@@ -750,6 +783,7 @@ window.gduOpen         = gduOpen;
 window.gduPick         = gduPick;
 window.gduFilesChosen  = gduFilesChosen;
 window.gduRemove       = gduRemove;
+window.gduRename       = gduRename;
 window.gduOpenFolder   = gduOpenFolder;
 window.gduCancelFolder = gduCancelFolder;
 window.gduFolderEnter  = gduFolderEnter;
