@@ -5709,7 +5709,7 @@ function _subOptsHTML(scope) {
             ${note ? `<span style="display:block;font-size:10px;color:var(--text3)">${note}</span>` : ''}
           </span></button>`;
       };
-      const genNote = (t) => (String(t.via || '').startsWith('yt:') ? 'YouTubeの字幕から作成（時刻が正確）'
+      const genNote = (t) => (String(t.via || '').startsWith('yt:') ? 'YouTubeの字幕から作成'
                             : t.via === 'gemini' ? 'AIが動画から作成（時刻はAIの推測）'
                             : String(t.via || '').startsWith('translate') ? '既存の字幕から翻訳' : '生成字幕')
                           + (t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : '');
