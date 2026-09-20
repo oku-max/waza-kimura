@@ -1732,7 +1732,7 @@ export function openVPanel(id) {
     const _isOwner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
     const _canSummarize = _isOwner && (!!_vYtId(vd) || vd?.pt === 'gdrive');
     const _sumBtn = _canSummarize
-      ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追加"
+      ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画の字幕からAIで要約しMemoに追加"
            style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
       : '';
     const _ytShotBtn = (_canSummarize && vd?.pt === 'youtube' && navigator.mediaDevices?.getDisplayMedia)
@@ -4119,11 +4119,14 @@ function _subGenPayload() {
 window.wkEstimateAiCost = function(seconds, mode) {
   const sec = Number(seconds) || 0;
   if (sec <= 0) return null;                       // 尺不明。呼び出し側で「不明」と表示する
-  // 字幕は低解像度（66トークン/秒）で送る仕様。要約は既定解像度（258）のまま
-  const vidTok = mode === 'subtitle' ? 66 : 258;
-  const inUsd = sec * ((vidTok * 0.30) + (32 * 1.00)) / 1e6;
-  // 字幕は尺に比例して出力が伸びる。要約はほぼ一定＋思考トークン。
-  const outUsd = mode === 'subtitle' ? sec * 11 * 2.50 / 1e6 : (900 + 2048) * 2.50 / 1e6;
+  if (mode !== 'subtitle') {
+    // 要約は字幕テキストから作る（動画は送らない）。日本語字幕はおおむね
+    // 700トークン/分（番号と時刻込み）。出力は本文＋思考でほぼ一定。
+    return (sec / 60) * 700 * 0.30 / 1e6 + (900 + 2048) * 2.50 / 1e6;
+  }
+  // 字幕生成だけは動画を送る（低解像度 66トークン/秒）。出力は尺に比例して伸びる。
+  const inUsd  = sec * ((66 * 0.30) + (32 * 1.00)) / 1e6;
+  const outUsd = sec * 11 * 2.50 / 1e6;
   return inUsd + outUsd;
 };
 
@@ -7645,6 +7648,105 @@ async function _captureGdFrame(sec, videoEl) {
   } catch(e) { console.warn('[captureGdFrame]', e); return null; }
 }
 
+// ── 要約の素材は字幕テキスト（動画そのものは送らない）────────────
+// 動画をGeminiに送る方式は廃止した（2026-09-20）。理由:
+//  ・コスト: 映像は約15,500トークン/分、字幕は約700トークン/分。60分で$0.40 vs $0.02
+//  ・時刻: 映像から書かせた時刻は音から測っていないのでズレるし、後から直せない
+//          （CLAUDE.md の実測）。字幕の時刻は正確なので、要約に付く [M:SS] も信用できる
+//  ・YouTubeはどのみちスクショを撮れないので、映像を送って得るものが小さい
+// 字幕が無い動画は要約できない。その場合は「先に字幕を作る」ことを画面で伝える。
+const SUM_TR_MAX = 400000;   // AIへ渡す文字起こしの上限（チャプターと同じ）
+
+// この動画の字幕の在りか。Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント。
+// チャプター検出と同じ探し方をする（見る場所を1つにまとめる）。
+async function _findSubsFor(v, gdToken) {
+  if (!v) return [];
+  if (v.pt === 'gdrive') {
+    const fileId = (v.id || '').replace(/^gd-/, '');
+    return await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+  }
+  const ytId = _vYtId(v);
+  if (!ytId) return [];
+  return _ytSubList(await _ytSubFetch(ytId, true));
+}
+
+// 字幕本文 → 行頭に [M:SS] が付いた文字起こし
+async function _transcriptFor(v, gdToken, subs) {
+  const vtt = (v?.pt === 'gdrive')
+    ? await _chapGetVtt((v.id || '').replace(/^gd-/, ''), gdToken, subs)
+    : (subs?.[0]?.srt ? _srtToVtt(subs[0].srt) : '');
+  return _vttToTranscript(vtt, SUM_TR_MAX);
+}
+
+// 指定区間ぶんだけ切り出す。時刻表記は元のまま残すので、要約に出る時刻もそのまま使える。
+function _transcriptSlice(text, startSec, endSec) {
+  const out = [];
+  for (const line of String(text || '').split('\n')) {
+    const m = line.match(/^\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/);
+    if (!m) continue;
+    const sec = m[3] != null ? (+m[1]*3600 + +m[2]*60 + +m[3]) : (+m[1]*60 + +m[2]);
+    if (sec >= startSec && sec <= endSec) out.push(line);
+  }
+  return out.join('\n');
+}
+
+// 字幕が無いときの案内。要約は字幕から作るので、ここで作るかどうかを聞く。
+// 戻り値: 'gen'（字幕を作る） / null（やめる）
+function _askNeedSubtitle() {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.id = 'vp-nosub-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    const fin = (val) => { try { document.body.removeChild(ov); } catch(e) {} resolve(val); };
+    ov.onclick = (e) => { if (e.target === ov) fin(null); };
+    ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:16px;
+        max-width:320px;width:100%;box-shadow:var(--shadow-lg)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">✨ AI要約</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:4px">要約は字幕から作ります。</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px">この動画にはまだ字幕がありません。先に字幕を作ってください。</div>
+      <button id="vp-nosub-gen" style="width:100%;padding:11px;border-radius:9px;cursor:pointer;
+        font-size:13px;font-weight:700;font-family:inherit;border:1px solid var(--green);
+        background:var(--green-soft);color:var(--green)">💬 字幕を作る</button>
+      <button id="vp-nosub-cancel" style="width:100%;margin-top:6px;padding:8px;background:none;border:none;
+        color:var(--text3);font-size:12px;font-family:inherit;cursor:pointer">やめる</button>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#vp-nosub-gen').onclick    = () => fin('gen');
+    ov.querySelector('#vp-nosub-cancel').onclick = () => fin(null);
+  });
+}
+
+// 要約の素材（文字起こし）を用意する。無ければ作るかどうかを聞く。
+// 字幕づくりは window.vpGenSubtitle(id) を引数なしで呼ぶ＝「💬 字幕生成」を押したのと同じ。
+// 戻り値: { text, cues } / { skipped:true } / { error }
+async function _ensureTranscript(v, id, gdToken, o) {
+  const opt = o || {};
+  const setBtn = opt.setBtn || (() => {});
+  setBtn('⏳ 字幕を確認中…');
+  let subs = await _findSubsFor(v, gdToken).catch(() => []);
+
+  if (!subs.length) {
+    // 一括処理では聞けないので、字幕が無いものは飛ばす
+    if (opt.silent) return { skipped: true, error: '字幕がありません（先に字幕を作ってください）' };
+    if (await _askNeedSubtitle() !== 'gen') return { skipped: true };
+    setBtn('⏳ 字幕を作成中…');
+    const g = await window.vpGenSubtitle?.(id);
+    // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
+    if (!g || !g.ok) return { skipped: !!g?.skipped, error: g?.error };
+    // 作った直後は一覧に出てこないことがあるので、空なら一度だけ待って引き直す
+    subs = await _findSubsFor(v, gdToken).catch(() => []);
+    if (!subs.length) { await new Promise(r => setTimeout(r, 1500)); subs = await _findSubsFor(v, gdToken).catch(() => []); }
+    if (!subs.length) return { error: '字幕は作成できました。一覧にまだ出てこないので、もう一度「✨ AI要約」を押してください' };
+  }
+
+  setBtn('⏳ 字幕を読み込み中…');
+  let tr;
+  try { tr = await _transcriptFor(v, gdToken, subs); }
+  catch (e) { console.warn('[aiSummary] 字幕の取得に失敗', e); return { error: '字幕の取得に失敗しました' }; }
+  if (!tr || !tr.text) return { error: '字幕の中身を読み取れませんでした' };
+  return { text: tr.text, cues: tr.cues, clipped: tr.clipped };
+}
+
 // ── AI要約オプション（種類・粒度・区間・スクショ）──
 // 前回の選択を憶えておく。書き込むのは新規キー wk_sumOpts だけで、他のキーは触らない。
 const SUM_OPTS_KEY = 'wk_sumOpts';
@@ -7753,7 +7855,8 @@ function _askSummaryOptions(canShot, id) {
       const canGo = o.type !== 'range' || hasR();
       ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:16px;
           max-width:330px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px">✨ AI要約</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:2px">✨ AI要約</div>
+        <div style="font-size:10.5px;color:var(--text3);line-height:1.6">この動画の字幕から作ります</div>
         ${grp('種類')}
         ${optBtn('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。メモの下に追加')}
         ${optBtn('full','📝','全体を要約','動画ぜんぶを要約。メモの下に追加')}
@@ -8404,8 +8507,20 @@ window.vpAiSummary = async function(id, preset) {
   const btn = preset ? null : document.getElementById('vp-aisum-' + id);
   const memoEl = document.getElementById('vp-memo-' + id);
   const origLabel = btn ? btn.textContent : '';
+  const setBtn = (txt) => { if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = txt; } };
+  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel || '✨ AI要約'; } };
 
-  // 種類・粒度・区間・スクショを先に選んでもらう（スクショはGDriveのみ）
+  // 素材の字幕を先に用意する。無ければ「先に字幕を作る」ことを伝える。
+  // 長い処理（字幕づくり）に入る前にここで止まるので、選択肢を聞く前に確認する。
+  const tr = await _ensureTranscript(v, id, gdAccessToken, { silent, setBtn });
+  endBtn();
+  if (!tr.text) {
+    if (tr.skipped && !tr.error) return { ok: false, skipped: true };
+    if (tr.skipped) return { ok: false, skipped: true, error: tr.error };
+    return fail(tr.error || '字幕を用意できませんでした');
+  }
+
+  // 種類・粒度・区間・スクショを選んでもらう（スクショはGDriveのみ）
   const opts = preset || await _askSummaryOptions(isGD, id);
   if (!opts) return { ok: false, skipped: true }; // キャンセル
 
@@ -8431,13 +8546,19 @@ window.vpAiSummary = async function(id, preset) {
   try {
     const idToken = await user.getIdToken();
 
-    // リクエストボディを platform 別に構築
-    const reqBody = isYT
-      ? { idToken, source: 'youtube', ytId: _vYtId(v), title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
-      : { idToken, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
+    // 素材は字幕テキスト。区間指定のときは、その区間の行だけを切り出して送る
+    // （送る量が減るぶん安く、時刻は字幕のものなのでそのまま正しい）。
+    const trText = sumRange ? _transcriptSlice(tr.text, sumRange.startSec, sumRange.endSec) : tr.text;
+    if (!trText.trim()) return fail('指定した区間に字幕がありません。区間を変えてください');
+
+    const reqBody = {
+      idToken, source: 'transcript', transcript: trText,
+      title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'',
+    };
     // 一言は mode:'desc'。粒度と区間は要約のときだけ送る。
     if (isDesc) reqBody.mode = 'desc';
     else {
+      reqBody.mode = 'summary';
       reqBody.sumOpts = { level: sumLevel };
       if (sumRange) reqBody.range = sumRange;
     }
@@ -8573,16 +8694,25 @@ window.vpAiSummaryWithShot = async function(id) {
   if (!user) { window.toast?.('ログインが必要です'); return; }
 
   const btn = document.getElementById('vp-aisum-shot-' + id);
+  const origShotLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; btn.style.opacity = '0.6'; }
 
   try {
-    // 1. AI要約テキスト生成
+    // 1. AI要約テキスト生成（素材は字幕。動画そのものは送らない）
+    const tr = await _ensureTranscript(v, id, null, {
+      setBtn: (t) => { if (btn) btn.textContent = t; },
+    });
+    if (!tr.text) {
+      if (tr.error && !tr.skipped) window.toast?.('⚠️ ' + tr.error, 8000);
+      return;
+    }
     if (btn) btn.textContent = '⏳ 要約中…';
     const idToken = await user.getIdToken();
     const res = await fetch('/api/ai-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken, source: 'youtube', ytId: _vYtId(v), title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
+      body: JSON.stringify({ idToken, source: 'transcript', mode: 'summary', transcript: tr.text,
+                             title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.summary) {
@@ -8690,7 +8820,7 @@ window.vpAiSummaryWithShot = async function(id) {
       try { alert('⚠️ AI要約エラー: ' + ((e && e.message) || e)); } catch(_) {}
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '✨📸'; btn.style.opacity = '1'; }
+    if (btn) { btn.disabled = false; btn.textContent = origShotLabel || '✨📸'; btn.style.opacity = '1'; }
   }
 };
 
@@ -8811,7 +8941,7 @@ export function _openPanel(id, emb, ext, plat) {
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
           <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (!!_vYtId(v) || v?.pt === 'gdrive'))
-            ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追加" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
+            ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画の字幕からAIで要約しMemoに追加" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
             : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
             ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>

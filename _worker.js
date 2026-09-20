@@ -469,8 +469,18 @@ async function handleAiSummary(request, env) {
 
   // 字幕テキストからチャプターを推定する経路。動画本体を送らないので速く安い。
   if (source === 'transcript') {
-    if (mode !== 'chapters') return jsonRes({ error: 'source:transcript は mode:chapters のみ対応しています' }, 400);
-    return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
+    if (mode === 'chapters') return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
+    if (mode === 'summary' || mode === 'desc') {
+      return _streamJson(() => _aiSummaryFromTranscript(env, body.transcript, title, channel, playlist,
+                                                        mode, sumOpts, range, Number(body.durationSec) || 0));
+    }
+    return jsonRes({ error: 'source:transcript は mode:chapters / summary / desc に対応しています' }, 400);
+  }
+
+  // 要約と一言は字幕テキストからのみ作る（2026-09-20）。動画を送る経路は廃止した。
+  // 映像は字幕の20倍以上のコストがかかるうえ、映像から書かせた時刻はズレて直せない。
+  if (mode === 'summary' || mode === 'desc') {
+    return jsonRes({ error: '要約は字幕から作ります', detail: '先に字幕を作ってから要約してください（source:transcript のみ対応）' }, 400);
   }
 
   // 貼り付けられたチャプター一覧（テキスト／スクショ画像）を読み取る経路。
@@ -487,13 +497,13 @@ async function handleAiSummary(request, env) {
     }
     // 動画の長さは字幕・チャプターの検証（欠損や打ち切りの判定）に使う。
     // 分からない場合は 0 のまま＝長さに依存する検証だけが働かない。
-    return _streamJson(() => _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts, Number(body.durationSec) || 0, sumOpts, range));
+    return _streamJson(() => _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts, Number(body.durationSec) || 0));
   }
   if (source === 'gdrive') {
     if (!gdFileId || !gdToken) {
       return jsonRes({ error: 'gdFileId と accessToken が必要です' }, 400);
     }
-    return _streamJson(() => _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts, sumOpts, range));
+    return _streamJson(() => _aiSummaryGdrive(env, gdFileId, gdToken, title, channel, playlist, mode, subLang, subOpts, chapOpts));
   }
   return jsonRes({ error: 'source は youtube / gdrive / transcript を指定してください' }, 400);
 }
@@ -529,13 +539,33 @@ function _streamJson(run) {
   return new Response(readable, { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
+// ── 字幕テキストから要約/一言を作る ────────────────────────
+// 動画本体は送らない。時刻は字幕のものなので、要約に出る [M:SS] もそのまま正しい。
+const SUM_TRANSCRIPT_MAX = 400000;   // 送られてくる字幕テキストの上限（文字）
+
+async function _aiSummaryFromTranscript(env, transcript, title, channel, playlist, mode, sumOpts, range, durationSec) {
+  const text = String(transcript || '').trim();
+  if (!text) return jsonRes({ error: '字幕テキストが空です', detail: '先に字幕を作ってください' }, 400);
+  const clipped = text.length > SUM_TRANSCRIPT_MAX;
+  const body = clipped ? text.slice(0, SUM_TRANSCRIPT_MAX) : text;
+
+  const ctx = _ctxStr(title, channel, playlist);
+  const prompt = mode === 'desc'
+    ? _aiDescPrompt(ctx, body)
+    : _aiPrompt(ctx, sumOpts, range, durationSec, body);
+  const result = await _geminiGenerate(env, [{ text: prompt }], _genOptsFor(mode));
+  if (result.error) return jsonRes(result, 502);
+  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd,
+                   via: 'transcript', clipped });
+}
+
 // ── モード別プロンプト選択 ──────────────────────────────────
-function _promptFor(mode, ctx, subLang, subOpts, chapOpts, sumOpts, range, durationSec) {
-  if (mode === 'desc')     return _aiDescPrompt(ctx);
-  if (mode === 'branch')   return _aiBranchPrompt(ctx);
+// 動画を送る経路のプロンプト（字幕生成・チャプター検出・分岐抽出）。
+// 要約と一言は字幕テキストから作るので、ここは通らない。
+function _promptFor(mode, ctx, subLang, subOpts, chapOpts) {
   if (mode === 'subtitle') return _aiSubtitlePrompt(ctx, subLang, subOpts);
   if (mode === 'chapters') return _aiChaptersPrompt(ctx, chapOpts, null);
-  return _aiPrompt(ctx, sumOpts, range, durationSec);
+  return _aiBranchPrompt(ctx);   // 残るは branch のみ（summary / desc は字幕から作る）
 }
 
 // ── 要約する区間 ──────────────────────────────────────────
@@ -554,34 +584,6 @@ const _mmss = (sec) => {
   return h ? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`
            : `${m}:${String(x).padStart(2,'0')}`;
 };
-
-// 動画パートに区間を付ける（Gemini は fileData に videoMetadata で開始/終了を指定できる）。
-// 区間ぶんしか送らないので、待ち時間もコストもその比率まで下がる。
-function _withRange(filePart, range) {
-  if (!range) return filePart;
-  return { ...filePart, videoMetadata: { startOffset: `${range.startSec}s`, endOffset: `${range.endSec}s` } };
-}
-
-// 区間だけを送ると、モデルが区間の先頭を 0:00 として時刻を書くことがある。
-// 「どの時刻も区間の長さに収まる」かつ「どれも区間の開始より手前」のときだけ、
-// 開始位置ぶんを足して元動画の時刻に直す（正しく返ってきたものには触らない）。
-function _fixClipTimestamps(text, range) {
-  if (!text || !range || range.startSec <= 0) return text;
-  const re = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
-  const secs = [];
-  let m;
-  while ((m = re.exec(text))) {
-    secs.push(m[3] != null ? (+m[1]*3600 + +m[2]*60 + +m[3]) : (+m[1]*60 + +m[2]));
-  }
-  if (!secs.length) return text;
-  const len = range.endSec - range.startSec;
-  const max = Math.max(...secs);
-  if (!(max < range.startSec && max <= len + 5)) return text;   // 正しい時刻で返ってきている
-  return text.replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (all, a, b, c) => {
-    const sec = (c != null ? (+a*3600 + +b*60 + +c) : (+a*60 + +b)) + range.startSec;
-    return `[${_mmss(sec)}]`;
-  });
-}
 
 // 生成オプション（mode別）。字幕は本文が長いので出力枠を大きく取り、思考は切って全部本文に回す。
 function _genOptsFor(mode) {
@@ -860,10 +862,18 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
 }
 
 // 一言解説: 動画を開く前に内容が分かる1〜2文（サムネ下・タイトル横に表示する想定）
-function _aiDescPrompt(ctx) {
+function _aiDescPrompt(ctx, transcript) {
+  const src = transcript
+    ? `以下はこの動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
+これだけを根拠に書いてください（映像は見ていないので、字幕に無いことを推測で足さない）。
+
+【字幕】
+${transcript}
+`
+    : '';
   return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
-この動画を視聴し、「動画を開く前に中身が分かる一言解説」を日本語で1〜2文だけ書いてください。
-${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
+この動画の「開く前に中身が分かる一言解説」を日本語で1〜2文だけ書いてください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}${src}
 【必ず含める】どのポジション/状況か・自分はトップかボトムか・相手のどんな動きや反応に対して・何（技/コンセプト/対策）を教える動画か。
 例:「デラヒーバ（ボトム）で相手が膝を切ってパスに来た時の、足の組み替えによるリテンションとバックテイクへの分岐を解説。」
 【禁止】前置き・記号・改行・箇条書き・タイトルの繰り返し。プレーンテキスト1〜2文のみを出力すること。`;
@@ -913,7 +923,7 @@ function _densityLine(level, effSec) {
   return `【粒度（普通）】「手順とディテール」は全体で${n}項目前後にまとめること。タイムスタンプは${d.gap}秒以上あけること。`;
 }
 
-function _aiPrompt(ctx, sumOpts, range, durationSec) {
+function _aiPrompt(ctx, sumOpts, range, durationSec, transcript) {
   const level = ['fine','normal','coarse'].includes(sumOpts && sumOpts.level) ? sumOpts.level : 'normal';
   const effSec = range ? (range.endSec - range.startSec) : (Number(durationSec) || 0);
   const rangeLine = range
@@ -921,9 +931,18 @@ function _aiPrompt(ctx, sumOpts, range, durationSec) {
       + `その外のことは書かないこと。タイムスタンプは元の動画の時刻（${_mmss(range.startSec)}〜${_mmss(range.endSec)} の範囲の値）で書くこと。`
       + `区間の先頭を 0:00 として数えないこと。\n`
     : '';
+  const src = transcript
+    ? `\n以下はこの動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
+これだけを根拠に要約してください。映像は見ていないので、字幕に書かれていないことを推測で足さないこと。
+話し手が「ここ」「こう」のように指示語で済ませていて中身が分からない部分は、分かるところまでで止め、想像で補わないこと。
+
+【字幕】
+${transcript}
+`
+    : '';
   return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
-この動画を視聴し、練習メモとして使える日本語の要約を作成してください。
-${ctx ? `\n【動画情報】\n${ctx}\n` : ''}${rangeLine}
+この動画の字幕を読み、練習メモとして使える日本語の要約を作成してください。
+${ctx ? `\n【動画情報】\n${ctx}\n` : ''}${src}${rangeLine}
 ${_densityLine(level, effSec)}
 
 【最重要・シチュエーション（状況設定）】柔術では「自分と相手が今どういう状況にいるか」という前提が技の成否を左右します。相手の反応次第でやれることが変わるため、教則動画もほぼ必ずこの状況説明から始まります。要約でも必ず冒頭に、しかも細かく状況を書き出してください。具体的には次を漏れなく含めること:
@@ -942,8 +961,7 @@ ${_densityLine(level, effSec)}
 
 【手順とディテール】ステップを順番に並べ、そのステップで効く細部・コツ・力の向き・角度・グリップの詳細は、そのステップの中で続けて書くこと（別の見出しに分けない）。どのステップにも紐づかない全体的なコツだけ、末尾に独立した項目として置いてよい。
 【記号ルール】大見出しは ◾️ を使うこと。**見出しの行には「- 」を付けないこと**（大見出し ◾️ の行も、**…** だけの小見出しの行も。見出しと箇条書きが同じ見た目になり区別できなくなる）。小見出しや特に強調したい語句は **強調したい語** のように ** で囲んでよい（アプリ側で太字表示される）。ただし Markdownの見出し記号 # は使わないこと。箇条書きは行頭に「- 」を付けること。
-【タイムスタンプ】手順とディテール・注意点の各項目には、その内容が画面で最もはっきり示されている瞬間の時間を [M:SS] 形式で「- 」の直後に付けること（例: - [1:23] ...）。タイムスタンプは静止画のサムネイルとして使うため、技・体勢・グリップがはっきり映り、解説と一致する瞬間を選ぶこと。各項目のタイムスタンプは互いに数秒以上ずらし、同じ場面を繰り返し指さないこと。特定できない項目は省略可。
-【最重要・タイムスタンプの取り方】解説者がその動作を口で言い始めた瞬間ではなく、その動作が実際に映像で実演・完成している瞬間を選ぶこと。教則では「先に言葉で説明 → 数秒後に実演」という順序が大半で、言及した時点ではまだ一つ前の体勢が画面に映っていることが多い。そのため、各項目のタイムスタンプはその動作が実演されて画面に出てから（解説より数秒後ろ寄り）の時間を選び、サムネイルが必ずその項目の内容と一致するようにすること。迷ったら早めではなく遅め（実演が映ってから）を選ぶこと。
+【タイムスタンプ】手順とディテール・注意点の各項目には、その内容を話している字幕行の時刻を [M:SS] 形式で「- 」の直後に付けること（例: - [1:23] ...）。字幕に書かれている時刻をそのまま使い、自分で秒数を足し引きしないこと。各項目のタイムスタンプは互いに数秒以上ずらし、同じ場面を繰り返し指さないこと。特定できない項目は省略可。
 専門用語はBJJで一般的な表記を使い、冗長な前置きは書かないこと。`;
 }
 
@@ -1342,23 +1360,20 @@ async function _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationS
 // ここを素の _geminiGenerate のままにすると、Drive 側で積み上げた
 // 「前半が丸ごと欠けたSRTを弾く」「途中で切れた生成を保存させない」といった
 // 安全確認が YouTube だけ素通りしてしまう。
-async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts, durationSec, sumOpts, range) {
+async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subLang, subOpts, chapOpts, durationSec) {
   const videoUrl = `https://www.youtube.com/watch?v=${ytId}`;
   const filePart = { fileData: { fileUri: videoUrl } };
   const ctx      = _ctxStr(title, channel, playlist);
-  // 区間指定は要約のときだけ（字幕・チャプターは全体が前提）
-  const useRange = mode === 'summary' ? range : null;
   try {
     const result = mode === 'subtitle'
       ? await _generateSubtitle(env, filePart, ctx, subLang, subOpts, durationSec)
       : mode === 'chapters'
       ? await _generateChapters(env, filePart, ctx, chapOpts, durationSec)
       : await _geminiGenerate(env, [
-          _withRange(filePart, useRange),
-          { text: _promptFor(mode, ctx, subLang, subOpts, chapOpts, sumOpts, useRange, durationSec) },
+          filePart,
+          { text: _promptFor(mode, ctx, subLang, subOpts, chapOpts) },
         ], _genOptsFor(mode));
     if (result.error) return jsonRes(result, 502);
-    if (useRange && result.summary) result.summary = _fixClipTimestamps(result.summary, useRange);
     return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd,
                      via: 'video', durationSec: Number(durationSec) || 0, diag: result.diag });
   } catch (e) {
@@ -1367,7 +1382,7 @@ async function _aiSummaryYoutube(env, ytId, title, channel, playlist, mode, subL
 }
 
 // ── Google Drive 要約（Drive→Gemini Files APIストリーミング中継）──
-async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode, subLang, subOpts, chapOpts, sumOpts, range) {
+async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, playlist, mode, subLang, subOpts, chapOpts) {
   const apiKey = env.GEMINI_API_KEY;
 
   // 1. Drive ファイルメタデータ取得
@@ -1465,7 +1480,6 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
 
   // 5. 生成（mode: summary/desc/branch）
   const ctx = _ctxStr(title, channel, playlist);
-  const useRange = mode === 'summary' ? range : null;   // 区間指定は要約のときだけ
   let result;
   try {
     result = mode === 'subtitle'
@@ -1473,14 +1487,13 @@ async function _aiSummaryGdrive(env, gdFileId, accessToken, title, channel, play
       : mode === 'chapters'
       ? await _generateChapters(env, { fileData: { mimeType, fileUri } }, ctx, chapOpts, durationSec)
       : await _geminiGenerate(env, [
-          _withRange({ fileData: { mimeType, fileUri } }, useRange),
-          { text: _promptFor(mode, ctx, subLang, subOpts, chapOpts, sumOpts, useRange, durationSec) },
+          { fileData: { mimeType, fileUri } },
+          { text: _promptFor(mode, ctx, subLang, subOpts, chapOpts) },
         ], _genOptsFor(mode));
   } finally {
     _deleteGeminiFile(apiKey, geminiName); // 6. Gemini ファイル削除（課金回避）
   }
   if (result.error) return jsonRes(result, 502);
-  if (useRange && result.summary) result.summary = _fixClipTimestamps(result.summary, useRange);
   return jsonRes({
     summary: result.summary, usage: result.usage, costUsd: result.costUsd,
     segments: result.segments || 1, via: 'video', durationSec, diag: result.diag,

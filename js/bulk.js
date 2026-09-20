@@ -1585,6 +1585,9 @@ export async function bulkAiRun(mode) {
         入れると各動画を読み込んで撮影するため時間がかかります${
           cands.some(v => v.pt !== 'gdrive') ? '。YouTubeの動画は撮影できないので要約のみになります' : ''}
       </div>
+    </div>
+    <div style="font-size:10.5px;color:var(--text3);margin-top:10px;line-height:1.6">
+      要約は字幕から作ります。字幕が無い動画は飛ばします（先に「💬 字幕生成」で字幕を作ってください）
     </div>` : '';
 
   const skipRow = `
