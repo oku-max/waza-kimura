@@ -625,6 +625,9 @@ async function _runImport() {
   return registered;
 }
 
+// パネルを閉じても裏で走り続ける。閉じる側がそれを伝えられるように外に出す。
+export function gduIsRunning() { return _running; }
+
 export async function gduAbort() {
   _abort = true;
   window.toast?.('中止しています...');
@@ -804,6 +807,7 @@ window.gduChooseFolder = gduChooseFolder;
 window.gduNewFolder    = gduNewFolder;
 window.gduStart        = gduStart;
 window.gduAbort        = gduAbort;
+window.gduIsRunning    = gduIsRunning;
 window.gduBackToSetup  = gduBackToSetup;
 window.gduDdOpen       = gduDdOpen;
 window.gduDdFilter     = gduDdFilter;

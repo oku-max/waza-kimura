@@ -1211,6 +1211,31 @@ export async function fetchMissingGdThumbnails() {
 }
 window.fetchMissingGdThumbnails = fetchMissingGdThumbnails;
 
+// ── 取込ハブの出口 ──────────────────────────────────────
+// シートは画面をほぼ覆う（margin 12px）ので、外側を押して閉じる余白がほとんど無い。
+// 小さい端末では各タブ下部のキャンセルも画面外に出てしまい、逃げ場が無くなる。
+// 出口は1か所にまとめる（× / 外側 / Escape / 各タブのキャンセル）。
+export function closeImportHub() {
+  const ov = document.getElementById('yt-import-ov');
+  if (!ov || !ov.classList.contains('open')) return;
+  ov.classList.remove('open');
+  // 端末アップロードは閉じても裏で続く。黙って消えると止まったと思われる。
+  if (window.gduIsRunning?.()) {
+    window.toast?.('取り込みは続いています。もう一度開くと進み具合が見られます', 6000);
+  }
+}
+window.closeImportHub = closeImportHub;
+
+// Escape でも出られる。開いている絞り込みがあればそちらを先に閉じる。
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const ov = document.getElementById('yt-import-ov');
+  if (!ov || !ov.classList.contains('open')) return;
+  const dd = [...ov.querySelectorAll('.vp-dd')].find(d => d.style.display !== 'none');
+  if (dd) { dd.style.display = 'none'; return; }
+  closeImportHub();
+});
+
 // ── Google Drive ファイルのタイトルを変更 ──
 export async function renameGdFile(fileId, newName) {
   const token = await ensureDriveToken();
