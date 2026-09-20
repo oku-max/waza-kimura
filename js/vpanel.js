@@ -7892,14 +7892,22 @@ async function _captureScreenFrame() {
 }
 
 window.vpMemoSnapNow = async function(id) {
+  // 「押しても何も起きない」と言われたときに、どこで止まったかが分かるようにする。
+  // 黙って return する枝を残さない（無言の終了が一番たちが悪い）。
+  const _v0 = (window.videos||[]).find(x => x.id === id);
+  console.log('[snapNow] 押された', {
+    id, 位置: _getCurrentTime(), メモ欄: !!document.getElementById('vp-memo-' + id),
+    種別: _v0?.pt, GDrive動画要素: !!_gdVideoEl,
+    画面共有API: !!navigator.mediaDevices?.getDisplayMedia, 保存先: !!window.snapAddBlob,
+  });
   const sec = _getCurrentTime();
   if (sec == null) { window.toast?.('動画を再生してからスクショしてください'); return; }
   const btn = document.getElementById(`vp-snap-now-btn-${id}`);
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
-    const v = (window.videos||[]).find(x => x.id === id);
+    const v = _v0;
     const memoEl = document.getElementById('vp-memo-' + id);
-    if (!memoEl) return;
+    if (!memoEl) { window.toast?.('メモ欄が見つかりませんでした（パネルを開き直してください）'); return; }
     const label = _fmtSec(sec);
     const tsHtml = _tsLinkHtml(sec, label);
 
@@ -7910,6 +7918,8 @@ window.vpMemoSnapNow = async function(id) {
     } else if (navigator.mediaDevices?.getDisplayMedia) {
       window.toast?.('「このタブ」または「このウィンドウ」を選択してください');
       cap = await _captureScreenFrame();
+    } else {
+      console.warn('[snapNow] この端末には画面共有API（getDisplayMedia）がない');
     }
 
     if (cap?.fullBlob && window.snapAddBlob) {
@@ -7929,7 +7939,9 @@ window.vpMemoSnapNow = async function(id) {
       document.execCommand('insertHTML', false, `<span>${tsHtml}&nbsp;</span>`);
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
-      window.toast?.('📍 タイムスタンプを挿入しました（スクショ非対応環境）');
+      window.toast?.(navigator.mediaDevices?.getDisplayMedia
+        ? '📍 タイムスタンプを挿入しました（画面を撮れませんでした）'
+        : '📍 タイムスタンプを挿入しました（この端末は画面キャプチャに対応していません）', 6000);
     }
   } catch(e) {
     if (e.name === 'NotAllowedError') {
