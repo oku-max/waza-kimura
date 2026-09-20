@@ -87,9 +87,13 @@ const ytBody = src.slice(src.indexOf('async function _ytGenSubtitle'),
 !/source: 'youtube'[\s\S]*mode: 'subtitle'|mode: 'subtitle'[\s\S]{0,400}source: 'youtube'/.test(ytBody)
   ? ok('YouTube動画を Gemini に見せて字幕を作る経路は無い')
   : fail('YouTube動画をGeminiに見せて字幕を作っている（必ずズレる字幕を金を払って作ることになる）');
-/YouTube側に字幕が無いため作れません/.test(src)
-  ? ok('作れないときは作らず、その理由とDriveの道を伝える')
+/YouTube側に字幕が無いため、字幕を作れません/.test(src)
+  ? ok('作れないときは作らず、理由を伝える')
   : fail('作れないときの案内が無い');
+// YouTube動画をDriveに置くには落とすしかない。規約違反を勧める案内を復活させない。
+!/Googleドライブに置け/.test(src)
+  ? ok('YouTube動画をDriveに置くよう勧めていない')
+  : fail('YouTube動画をDriveに置くよう勧めている（落とすしかなく、規約違反を促す）');
 
 // 5. 時刻が正確な字幕では、ズレ補正の欄を出さないこと。
 //    出番の無い操作を並べると「何か直さないといけないのか」と思わせる。

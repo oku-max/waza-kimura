@@ -3906,7 +3906,9 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   // YouTube動画で時刻が音に紐づくのは、YouTube自身の字幕を土台にする作り方だけ。
   // （Drive動画は音声を取り出せるので音声認識で実測できる。あちらは別の話。）
   if (!srt) {
-    throw new Error('この動画はYouTube側に字幕が無いため作れません。Googleドライブに置けば、音声から時刻を実測して字幕を作れます');
+    // 【変更禁止】ここでDriveに置くよう案内しないこと。
+    // YouTube動画をDriveに移すには落とすしかなく、規約違反を勧めることになる。
+    throw new Error('この動画はYouTube側に字幕が無いため、字幕を作れません');
   }
 
   setBtn('⏳ 保存中…');
