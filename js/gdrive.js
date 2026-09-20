@@ -1230,46 +1230,7 @@ export async function renameGdFile(fileId, newName) {
   return res.json();
 }
 
-// ── GDrive チャンネル選択DD ──
-export function gdChDdOpen() {
-  const dd = document.getElementById('gd-ch-dd');
-  if (!dd) return;
-  const isOpen = dd.style.display !== 'none';
-  if (isOpen) { dd.style.display = 'none'; return; }
-  gdChDdFilter('');
-  dd.style.display = 'block';
-  // 設定欄は画面の下端にあるため、開いても見えない位置に出ることがある。
-  // 「押しても何も起きない」に見えるので、開いたら必ず見える所まで送る。
-  requestAnimationFrame(() => {
-    dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    document.getElementById('gd-ch-search')?.focus();
-  });
-}
-
-export function gdChDdFilter(q) {
-  const listEl = document.getElementById('gd-ch-ddlist');
-  if (!listEl) return;
-  const chMap = {};
-  // 他の画面と同じ読み方に揃える。v.channel だけを見ていると、
-  // アプリ内でチャンネルを変えた動画（v.ch しか入っていない）が候補に出ず、
-  // 「▼ 既存」を押しても『チャンネルなし』になり、押しても効かないように見える。
-  (window.videos||[]).forEach(v => {
-    const c = v.ch || v.channel;
-    if (c) chMap[c] = (chMap[c]||0) + 1;
-  });
-  const channels = Object.keys(chMap).sort((a,b) => a.localeCompare(b, 'ja'));
-  const ql = (q||'').trim().toLowerCase();
-  const filtered = ql ? channels.filter(c => c.toLowerCase().includes(ql)) : channels;
-  listEl.innerHTML = filtered.map(c =>
-    `<div class="vp-dd-item" onclick="gdChSelect('${c.replace(/'/g,"\\'")}')">
-      ${c}<span class="vp-dd-cnt">${chMap[c]}本</span>
-    </div>`
-  ).join('') || '<div style="padding:8px 12px;font-size:11px;color:var(--text3)">チャンネルなし</div>';
-}
-
-export function gdChSelect(val) {
-  const inp = document.getElementById('gd-channel');
-  if (inp) inp.value = val;
-  const dd = document.getElementById('gd-ch-dd');
-  if (dd) dd.style.display = 'none';
-}
+// ── GDrive のチャンネル名／プレイリスト名の「▼ 既存」──
+// 中身は gd-upload.js の DD に一本化した（'gdch' / 'gdpl'）。
+// 同じ仕掛けを2か所に書いていたせいで、引用符入りの名前で壊れる直しが
+// 片方にしか当たっていなかった。index.html からは gduDdOpen/gduDdFilter を直接呼ぶ。

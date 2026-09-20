@@ -1732,7 +1732,7 @@ export function openVPanel(id) {
     const _isOwner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
     const _canSummarize = _isOwner && (!!_vYtId(vd) || vd?.pt === 'gdrive');
     const _sumBtn = _canSummarize
-      ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画をAIで要約しMemoに追記"
+      ? `<button id="vp-aisum-${vid}" onclick="vpAiSummary('${vid}')" title="この動画の字幕からAIで要約しMemoに追加"
            style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
       : '';
     const _ytShotBtn = (_canSummarize && vd?.pt === 'youtube' && navigator.mediaDevices?.getDisplayMedia)
@@ -4087,11 +4087,14 @@ function _subGenPayload() {
 window.wkEstimateAiCost = function(seconds, mode) {
   const sec = Number(seconds) || 0;
   if (sec <= 0) return null;                       // 尺不明。呼び出し側で「不明」と表示する
-  // 字幕は低解像度（66トークン/秒）で送る仕様。要約は既定解像度（258）のまま
-  const vidTok = mode === 'subtitle' ? 66 : 258;
-  const inUsd = sec * ((vidTok * 0.30) + (32 * 1.00)) / 1e6;
-  // 字幕は尺に比例して出力が伸びる。要約はほぼ一定＋思考トークン。
-  const outUsd = mode === 'subtitle' ? sec * 11 * 2.50 / 1e6 : (900 + 2048) * 2.50 / 1e6;
+  if (mode !== 'subtitle') {
+    // 要約は字幕テキストから作る（動画は送らない）。日本語字幕はおおむね
+    // 700トークン/分（番号と時刻込み）。出力は本文＋思考でほぼ一定。
+    return (sec / 60) * 700 * 0.30 / 1e6 + (900 + 2048) * 2.50 / 1e6;
+  }
+  // 字幕生成だけは動画を送る（低解像度 66トークン/秒）。出力は尺に比例して伸びる。
+  const inUsd  = sec * ((66 * 0.30) + (32 * 1.00)) / 1e6;
+  const outUsd = sec * 11 * 2.50 / 1e6;
   return inUsd + outUsd;
 };
 
@@ -5681,7 +5684,7 @@ function _subOptsHTML(scope) {
             ${note ? `<span style="display:block;font-size:10px;color:var(--text3)">${note}</span>` : ''}
           </span></button>`;
       };
-      const genNote = (t) => (String(t.via || '').startsWith('yt:') ? 'YouTubeの字幕から作成（時刻が正確）'
+      const genNote = (t) => (String(t.via || '').startsWith('yt:') ? 'YouTubeの字幕から作成'
                             : t.via === 'gemini' ? 'AIが動画から作成（時刻はAIの推測）'
                             : String(t.via || '').startsWith('translate') ? '既存の字幕から翻訳' : '生成字幕')
                           + (t.updatedAt ? ' · ' + String(t.updatedAt).slice(0, 10) : '');
@@ -7602,30 +7605,312 @@ async function _captureGdFrame(sec, videoEl) {
   } catch(e) { console.warn('[captureGdFrame]', e); return null; }
 }
 
-// ── AI要約オプションダイアログ（スクショ有無 + レイアウト） ──
-// canShot=false（YouTube等）なら即「スクショなし」を返す
-function _askSummaryOptions(canShot) {
+// ── 要約の素材は字幕テキスト（動画そのものは送らない）────────────
+// 動画をGeminiに送る方式は廃止した（2026-09-20）。理由:
+//  ・コスト: 映像は約15,500トークン/分、字幕は約700トークン/分。60分で$0.40 vs $0.02
+//  ・時刻: 映像から書かせた時刻は音から測っていないのでズレるし、後から直せない
+//          （CLAUDE.md の実測）。字幕の時刻は正確なので、要約に付く [M:SS] も信用できる
+//  ・YouTubeはどのみちスクショを撮れないので、映像を送って得るものが小さい
+// 字幕が無い動画は要約できない。その場合は「先に字幕を作る」ことを画面で伝える。
+const SUM_TR_MAX = 400000;   // AIへ渡す文字起こしの上限（チャプターと同じ）
+
+// この動画の字幕の在りか。Driveは動画と同じフォルダのSRT、YouTubeは字幕ドキュメント。
+// チャプター検出と同じ探し方をする（見る場所を1つにまとめる）。
+async function _findSubsFor(v, gdToken) {
+  if (!v) return [];
+  if (v.pt === 'gdrive') {
+    const fileId = (v.id || '').replace(/^gd-/, '');
+    return await _gdFindSubtitleFiles(fileId, gdToken).catch(() => []);
+  }
+  const ytId = _vYtId(v);
+  if (!ytId) return [];
+  return _ytSubList(await _ytSubFetch(ytId, true));
+}
+
+// 字幕本文 → 行頭に [M:SS] が付いた文字起こし
+async function _transcriptFor(v, gdToken, subs) {
+  const vtt = (v?.pt === 'gdrive')
+    ? await _chapGetVtt((v.id || '').replace(/^gd-/, ''), gdToken, subs)
+    : (subs?.[0]?.srt ? _srtToVtt(subs[0].srt) : '');
+  return _vttToTranscript(vtt, SUM_TR_MAX);
+}
+
+// 指定区間ぶんだけ切り出す。時刻表記は元のまま残すので、要約に出る時刻もそのまま使える。
+function _transcriptSlice(text, startSec, endSec) {
+  const out = [];
+  for (const line of String(text || '').split('\n')) {
+    const m = line.match(/^\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/);
+    if (!m) continue;
+    const sec = m[3] != null ? (+m[1]*3600 + +m[2]*60 + +m[3]) : (+m[1]*60 + +m[2]);
+    if (sec >= startSec && sec <= endSec) out.push(line);
+  }
+  return out.join('\n');
+}
+
+// 字幕が無いときの案内。要約は字幕から作るので、ここで作るかどうかを聞く。
+// 戻り値: 'gen'（字幕を作る） / null（やめる）
+function _askNeedSubtitle() {
   return new Promise(resolve => {
-    if (!canShot) { resolve({ shot:false }); return; }
     const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px';
-    const pick = (val) => { try { document.body.removeChild(ov); } catch(e){} resolve(val); };
-    const btn = (id,bg,bc,col,label) => `<button id="${id}" style="display:block;width:100%;padding:11px;margin-bottom:8px;border:1px solid ${bc};background:${bg};color:${col};border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">${label}</button>`;
-    ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:18px;max-width:300px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3)">
-      <div style="font-size:14px;font-weight:700;margin-bottom:4px">✨ AI要約</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">各タイムスタンプのスクショをメモに入れますか？</div>
-      ${btn('_so-inline','var(--green-soft)','var(--green)','var(--green)','📸 スクショあり（行頭インライン）')}
-      ${btn('_so-block','var(--green-soft)','var(--green)','var(--green)','📸 スクショあり（大きめブロック）')}
-      ${btn('_so-none','var(--surface)','var(--border)','var(--text2)','要約のみ（スクショなし）')}
-      <button id="_so-cancel" style="display:block;width:100%;padding:8px;border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer">キャンセル</button>
+    ov.id = 'vp-nosub-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    const fin = (val) => { try { document.body.removeChild(ov); } catch(e) {} resolve(val); };
+    ov.onclick = (e) => { if (e.target === ov) fin(null); };
+    ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:16px;
+        max-width:320px;width:100%;box-shadow:var(--shadow-lg)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">✨ AI要約</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:4px">要約は字幕から作ります。</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px">この動画にはまだ字幕がありません。先に字幕を作ってください。</div>
+      <button id="vp-nosub-gen" style="width:100%;padding:11px;border-radius:9px;cursor:pointer;
+        font-size:13px;font-weight:700;font-family:inherit;border:1px solid var(--green);
+        background:var(--green-soft);color:var(--green)">💬 字幕を作る</button>
+      <button id="vp-nosub-cancel" style="width:100%;margin-top:6px;padding:8px;background:none;border:none;
+        color:var(--text3);font-size:12px;font-family:inherit;cursor:pointer">やめる</button>
     </div>`;
     document.body.appendChild(ov);
-    ov.querySelector('#_so-inline').onclick = () => pick({ shot:true, layout:'inline' });
-    ov.querySelector('#_so-block').onclick  = () => pick({ shot:true, layout:'block' });
-    ov.querySelector('#_so-none').onclick   = () => pick({ shot:false });
-    ov.querySelector('#_so-cancel').onclick = () => pick(null);
-    ov.onclick = (e) => { if (e.target === ov) pick(null); };
+    ov.querySelector('#vp-nosub-gen').onclick    = () => fin('gen');
+    ov.querySelector('#vp-nosub-cancel').onclick = () => fin(null);
   });
+}
+
+// 要約の素材（文字起こし）を用意する。無ければ作るかどうかを聞く。
+// 字幕づくりは window.vpGenSubtitle(id) を引数なしで呼ぶ＝「💬 字幕生成」を押したのと同じ。
+// 戻り値: { text, cues } / { skipped:true } / { error }
+async function _ensureTranscript(v, id, gdToken, o) {
+  const opt = o || {};
+  const setBtn = opt.setBtn || (() => {});
+  setBtn('⏳ 字幕を確認中…');
+  let subs = await _findSubsFor(v, gdToken).catch(() => []);
+
+  if (!subs.length) {
+    // 一括処理では聞けないので、字幕が無いものは飛ばす
+    if (opt.silent) return { skipped: true, error: '字幕がありません（先に字幕を作ってください）' };
+    if (await _askNeedSubtitle() !== 'gen') return { skipped: true };
+    setBtn('⏳ 字幕を作成中…');
+    const g = await window.vpGenSubtitle?.(id);
+    // 中止・失敗の知らせは vpGenSubtitle 側が出している（二重に出さない）
+    if (!g || !g.ok) return { skipped: !!g?.skipped, error: g?.error };
+    // 作った直後は一覧に出てこないことがあるので、空なら一度だけ待って引き直す
+    subs = await _findSubsFor(v, gdToken).catch(() => []);
+    if (!subs.length) { await new Promise(r => setTimeout(r, 1500)); subs = await _findSubsFor(v, gdToken).catch(() => []); }
+    if (!subs.length) return { error: '字幕は作成できました。一覧にまだ出てこないので、もう一度「✨ AI要約」を押してください' };
+  }
+
+  setBtn('⏳ 字幕を読み込み中…');
+  let tr;
+  try { tr = await _transcriptFor(v, gdToken, subs); }
+  catch (e) { console.warn('[aiSummary] 字幕の取得に失敗', e); return { error: '字幕の取得に失敗しました' }; }
+  if (!tr || !tr.text) return { error: '字幕の中身を読み取れませんでした' };
+  return { text: tr.text, cues: tr.cues, clipped: tr.clipped };
+}
+
+// ── AI要約オプション（種類・粒度・区間・スクショ）──
+// 前回の選択を憶えておく。書き込むのは新規キー wk_sumOpts だけで、他のキーは触らない。
+const SUM_OPTS_KEY = 'wk_sumOpts';
+const SUM_OPTS_DEFAULT = { type: 'full', level: 'normal', shot: false };
+function sumOpts() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SUM_OPTS_KEY) || '{}');
+    return { ...SUM_OPTS_DEFAULT, ...(raw && typeof raw === 'object' ? raw : {}) };
+  } catch(e) { return { ...SUM_OPTS_DEFAULT }; }
+}
+function _sumOptsSave(o) {
+  try {
+    localStorage.setItem(SUM_OPTS_KEY, JSON.stringify({ type: o.type, level: o.level, shot: !!o.shot }));
+  } catch(e) {}
+}
+
+// 要約の指定区間。ループ再生（_ab）とは別に持つので、ここを触ってもループ設定は変わらない。
+const _sumRange = { a: null, b: null, field: 'start' };
+
+const SUM_LEVEL_LABEL = { fine: '細かめ', normal: '普通', coarse: 'ざっくり' };
+const SUM_LEVEL_HINT = {
+  fine:   '30秒間隔の目安。動画に沿って細かく書き出す',
+  normal: '今までの要約と同じ密度',
+  coarse: 'チャプター相当（2〜5分ごと）。章ごとに見出し＋数行',
+};
+
+// canShot=false（YouTube等）ならスクショの選択肢は出さない。
+// 戻り値: { type:'desc'|'full'|'range', level, shot, layout, range:{startSec,endSec}|null } / キャンセルは null
+function _askSummaryOptions(canShot, id) {
+  return new Promise(resolve => {
+    const o = sumOpts();
+    _sumRange.a = null; _sumRange.b = null; _sumRange.field = 'start';
+
+    const ov = document.createElement('div');
+    ov.id = 'vp-sum-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+    const fin = (val) => { try { document.body.removeChild(ov); } catch(e) {} resolve(val); };
+    ov.onclick = (e) => { if (e.target === ov) fin(null); };
+    document.body.appendChild(ov);
+
+    const hasR = () => _sumRange.a != null && _sumRange.b != null && _sumRange.b > _sumRange.a;
+    const nowSec = () => _getCurrentTime() ?? 0;
+
+    const grp = (t) => `<div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);margin:14px 0 6px">${t}</div>`;
+    const optBtn = (type, ic, tx, sub) =>
+      `<button data-sumtype="${type}" style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+         padding:10px 11px;margin-bottom:7px;border-radius:9px;cursor:pointer;font-family:inherit;
+         border:${o.type === type ? '1.5px solid var(--accent)' : '1px solid var(--border)'};
+         background:var(--surface2);color:var(--text)">
+        <span style="font-size:16px">${ic}</span>
+        <span><span style="display:block;font-size:12.5px;font-weight:700">${tx}</span>
+          <span style="display:block;font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.5">${sub}</span></span>
+      </button>`;
+    const pill = (key, val, label) =>
+      `<button data-sumkey="${key}" data-sumval="${val}" style="flex:1;padding:8px 4px;border-radius:8px;cursor:pointer;
+         font-size:12px;font-weight:700;font-family:inherit;
+         border:${String(o[key]) === String(val) ? '1.5px solid var(--accent)' : '1px solid var(--border)'};
+         background:var(--surface2);color:${String(o[key]) === String(val) ? 'var(--text)' : 'var(--text3)'}">${label}</button>`;
+
+    // 区間エディタ（操作はループ再生と同じ: 開始/終了タブ・スライダー・微調整・現在地）
+    const rangeHTML = () => {
+      const aL = _sumRange.a != null ? _formatTime(_sumRange.a) : '--:--';
+      const bL = _sumRange.b != null ? _formatTime(_sumRange.b) : '--:--';
+      const conflict = _sumRange.a != null && _sumRange.b != null && _sumRange.a >= _sumRange.b;
+      const isStart = _sumRange.field === 'start';
+      const val = isStart ? (_sumRange.a ?? nowSec()) : (_sumRange.b ?? _sumRange.a ?? nowSec());
+      const dur = _getDurationSec(id);
+      const adj = [-10,-5,-3,-1,1,3,5,10].map(d =>
+        `<button class="ab-adj-btn" data-sumadj="${d}">${d > 0 ? '+' : ''}${d}s</button>`).join('');
+      return grp('区間') + `<div class="ab-editor-body" style="border:1px solid var(--border);border-radius:9px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <button class="ab-time ab-time--${_sumRange.a != null ? 'set' : 'unset'}" data-sumfield="start">開始: ${aL}</button>
+          <span style="font-size:10px;color:var(--accent)">↔</span>
+          <button class="ab-time ab-time--${conflict ? 'error' : (_sumRange.b != null ? 'set' : 'unset')}" data-sumfield="end">終了: ${bL}</button>
+          <span style="flex:1"></span>
+          <button class="ab-clear-btn" data-sumact="clear" style="white-space:nowrap">✕ クリア</button>
+        </div>
+        <div class="ab-editor">
+          <div style="display:flex;border-bottom:.5px solid var(--border)">
+            <div class="ab-tab ab-tab--${isStart ? 'active' : 'inactive'}" data-sumfield="start">▶ 開始</div>
+            <div class="ab-tab ab-tab--${!isStart ? 'active' : 'inactive'}" data-sumfield="end">⏹ 終了</div>
+          </div>
+          <div style="padding:8px 10px">
+            <input type="text" id="vp-sum-time-in" class="ab-time-disp vp-time-in" inputmode="numeric" autocomplete="off"
+              value="${_formatTime(val)}" onfocus="this.select()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:3px">
+              <span>0:00</span><span>${dur ? _formatTime(dur) : '—'}</span></div>
+            <input type="range" id="vp-sum-sl" min="0" max="${_slMaxFor(id, val)}" value="${Math.floor(val)}" step="1"
+              style="width:100%;height:4px;cursor:pointer;display:block;accent-color:var(--accent);outline:none;touch-action:none;margin-bottom:6px">
+            <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:9px;color:var(--text3);width:100%;margin-bottom:2px">微調整</span>
+              ${adj}
+              <button class="ab-current-btn" data-sumact="now">現在地</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    const goLabel = () => o.type === 'desc' ? '💬 一言をメモに書く'
+      : o.type === 'range' ? (hasR() ? `✂️ ${_formatTime(_sumRange.a)}–${_formatTime(_sumRange.b)} を要約` : '✂️ 開始と終了を指定してください')
+      : '📝 全体を要約';
+
+    const render = () => {
+      const canGo = o.type !== 'range' || hasR();
+      ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:16px;
+          max-width:330px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg)">
+        <div style="font-size:14px;font-weight:700;margin-bottom:2px">✨ AI要約</div>
+        <div style="font-size:10.5px;color:var(--text3);line-height:1.6">この動画の字幕から作ります</div>
+        ${grp('種類')}
+        ${optBtn('desc','💬','一言だけ','1〜2文でこの動画の中身を説明。メモの下に追加')}
+        ${optBtn('full','📝','全体を要約','動画ぜんぶを要約。メモの下に追加')}
+        ${optBtn('range','✂️','指定区間を要約','開始と終了を指定して、その区間だけ要約')}
+        ${o.type === 'range' ? rangeHTML() : ''}
+        ${o.type === 'desc' ? '' : grp('粒度') +
+          `<div style="display:flex;gap:6px">${pill('level','fine','細かめ')}${pill('level','normal','普通')}${pill('level','coarse','ざっくり')}</div>
+           <div style="font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.6">${SUM_LEVEL_HINT[o.level] || ''}</div>`}
+        ${(o.type === 'desc' || !canShot) ? '' : grp('スクショ') +
+          `<div style="display:flex;gap:6px">${pill('shot',false,'なし')}${pill('shot',true,'あり')}</div>
+           <div style="font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.6">ありにすると各タイムスタンプの静止画を行頭に入れます</div>`}
+        <button id="vp-sum-go" ${canGo ? '' : 'disabled'} style="width:100%;margin-top:16px;padding:12px;border-radius:9px;
+          font-size:13px;font-weight:700;font-family:inherit;cursor:${canGo ? 'pointer' : 'default'};
+          border:1px solid var(--green);background:var(--green-soft);color:var(--green);opacity:${canGo ? 1 : .45}">${goLabel()}</button>
+        <button id="vp-sum-cancel" style="width:100%;margin-top:6px;padding:8px;background:none;border:none;
+          color:var(--text3);font-size:12px;font-family:inherit;cursor:pointer">キャンセル</button>
+      </div>`;
+      bind();
+    };
+
+    // ドラッグ中に作り直すとつまみを離してしまうので、表示だけ差し替える
+    const paintRange = () => {
+      const aL = _sumRange.a != null ? _formatTime(_sumRange.a) : '--:--';
+      const bL = _sumRange.b != null ? _formatTime(_sumRange.b) : '--:--';
+      const conflict = _sumRange.a != null && _sumRange.b != null && _sumRange.a >= _sumRange.b;
+      const btns = ov.querySelectorAll('[data-sumfield].ab-time');
+      if (btns[0]) { btns[0].textContent = `開始: ${aL}`; btns[0].className = `ab-time ab-time--${_sumRange.a != null ? 'set' : 'unset'}`; }
+      if (btns[1]) { btns[1].textContent = `終了: ${bL}`; btns[1].className = `ab-time ab-time--${conflict ? 'error' : (_sumRange.b != null ? 'set' : 'unset')}`; }
+      const inp = ov.querySelector('#vp-sum-time-in');
+      if (inp) inp.value = _formatTime(_sumRange.field === 'start' ? (_sumRange.a ?? 0) : (_sumRange.b ?? 0));
+      const go = ov.querySelector('#vp-sum-go');
+      if (go) {
+        const canGo = hasR();
+        go.disabled = !canGo;
+        go.style.opacity = canGo ? 1 : .45;
+        go.style.cursor = canGo ? 'pointer' : 'default';
+        go.textContent = goLabel();
+      }
+    };
+    const setR = (v) => {
+      const max = _slMaxFor(id, v);
+      v = Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+      if (_sumRange.field === 'start') _sumRange.a = v; else _sumRange.b = v;
+      paintRange();
+    };
+
+    const bind = () => {
+      ov.querySelectorAll('[data-sumtype]').forEach(el => el.onclick = () => { o.type = el.dataset.sumtype; _sumOptsSave(o); render(); });
+      ov.querySelectorAll('[data-sumkey]').forEach(el => el.onclick = () => {
+        const v = el.dataset.sumval;
+        o[el.dataset.sumkey] = (v === 'true') ? true : (v === 'false' ? false : v);
+        _sumOptsSave(o); render();
+      });
+      ov.querySelectorAll('[data-sumfield]').forEach(el => el.onclick = () => { _sumRange.field = el.dataset.sumfield; render(); });
+      ov.querySelectorAll('[data-sumadj]').forEach(el => el.onclick = () => {
+        const base = _sumRange.field === 'start' ? (_sumRange.a ?? nowSec()) : (_sumRange.b ?? _sumRange.a ?? nowSec());
+        setR(base + Number(el.dataset.sumadj));
+      });
+      ov.querySelectorAll('[data-sumact]').forEach(el => el.onclick = () => {
+        if (el.dataset.sumact === 'clear') { _sumRange.a = null; _sumRange.b = null; render(); }
+        else setR(nowSec());
+      });
+      const sl = ov.querySelector('#vp-sum-sl');
+      if (sl) sl.oninput = (e) => setR(e.target.value);
+      const inp = ov.querySelector('#vp-sum-time-in');
+      // blur 経由で change が来ると、描き直しの途中で入力欄が消えて例外になる。一拍遅らせる。
+      if (inp) inp.onchange = () => {
+        const v = _parseTimeInput(inp.value);
+        setTimeout(() => { if (v != null) setR(v); else paintRange(); }, 0);
+      };
+      const cancel = ov.querySelector('#vp-sum-cancel');
+      if (cancel) cancel.onclick = () => fin(null);
+      const go = ov.querySelector('#vp-sum-go');
+      if (go) go.onclick = () => {
+        if (o.type === 'range' && !hasR()) return;
+        _sumOptsSave(o);
+        fin({
+          type:  o.type,
+          level: o.type === 'desc' ? null : o.level,
+          shot:  (o.type !== 'desc' && canShot && !!o.shot),
+          layout: 'inline',
+          range: o.type === 'range' ? { startSec: _sumRange.a, endSec: _sumRange.b } : null,
+        });
+      };
+    };
+
+    render();
+  });
+}
+
+// 「1:23:45 / 12:34 / 90」を秒に。読めなければ null。
+function _parseTimeInput(t) {
+  const parts = String(t == null ? '' : t).trim().split(':').map(s => Number(s));
+  if (!parts.length || parts.some(n => isNaN(n))) return null;
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return parts[0];
 }
 
 // メモ欄を初期化（HTML流し込み + リンクbind）
@@ -8152,6 +8437,8 @@ function _vpCollectTsText(text) {
 
 // ── AI要約（Gemini / YouTube・Google Drive・オーナー限定）──
 // preset を渡すと対話なしで実行する（一括処理用）。preset = { shot:false, silent:true }
+//   preset に type / level が無ければ「全体を普通の粒度で」＝従来どおりの動作。
+// 生成結果は既存のメモを消さずに「いちばん下」へ追加する。
 // 戻り値: { ok, skipped, error, cost }
 window.vpAiSummary = async function(id, preset) {
   const silent = !!(preset && preset.silent);
@@ -8177,18 +8464,37 @@ window.vpAiSummary = async function(id, preset) {
   const btn = preset ? null : document.getElementById('vp-aisum-' + id);
   const memoEl = document.getElementById('vp-memo-' + id);
   const origLabel = btn ? btn.textContent : '';
+  const setBtn = (txt) => { if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = txt; } };
+  const endBtn = () => { if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = origLabel || '✨ AI要約'; } };
 
-  // スクショオプションを先に確認（GDriveのみ撮影可。YouTubeはダイアログ無しで要約のみ）
-  const opts = preset || await _askSummaryOptions(isGD);
+  // 素材の字幕を先に用意する。無ければ「先に字幕を作る」ことを伝える。
+  // 長い処理（字幕づくり）に入る前にここで止まるので、選択肢を聞く前に確認する。
+  const tr = await _ensureTranscript(v, id, gdAccessToken, { silent, setBtn });
+  endBtn();
+  if (!tr.text) {
+    if (tr.skipped && !tr.error) return { ok: false, skipped: true };
+    if (tr.skipped) return { ok: false, skipped: true, error: tr.error };
+    return fail(tr.error || '字幕を用意できませんでした');
+  }
+
+  // 種類・粒度・区間・スクショを選んでもらう（スクショはGDriveのみ）
+  const opts = preset || await _askSummaryOptions(isGD, id);
   if (!opts) return { ok: false, skipped: true }; // キャンセル
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 要約中…'; btn.style.opacity = '0.6'; }
+  const sumType  = opts.type || 'full';                       // 'desc' | 'full' | 'range'
+  const isDesc   = sumType === 'desc';
+  const sumLevel = isDesc ? null : (opts.level || 'normal');
+  const sumRange = (sumType === 'range' && opts.range && opts.range.endSec > opts.range.startSec)
+    ? { startSec: Math.max(0, Math.round(opts.range.startSec)), endSec: Math.round(opts.range.endSec) }
+    : null;
+
+  if (btn) { btn.disabled = true; btn.textContent = isDesc ? '⏳ 生成中…' : '⏳ 要約中…'; btn.style.opacity = '0.6'; }
 
   // 要約は動画そのものをGeminiに送るため、長い動画ほど待たされる。
   // 「⏳ 要約中…」だけだと止まっているのか進んでいるのか分からず、実際どれだけ
   // かかったのかも残らない。経過秒を出し、終わったら実測を結果に載せる。
   const _t0ai = Date.now();
-  let _aiPhase = '要約中';
+  let _aiPhase = isDesc ? '生成中' : '要約中';
   const _aiTick = btn ? setInterval(() => {
     btn.textContent = `⏳ ${_aiPhase}… ${Math.round((Date.now() - _t0ai) / 1000)}秒`;
   }, 1000) : null;
@@ -8197,15 +8503,29 @@ window.vpAiSummary = async function(id, preset) {
   try {
     const idToken = await user.getIdToken();
 
-    // リクエストボディを platform 別に構築
-    const reqBody = isYT
-      ? { idToken, source: 'youtube', ytId: _vYtId(v), title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }
-      : { idToken, source: 'gdrive', gdFileId: (v.id||'').replace(/^gd-/,''), accessToken: gdAccessToken, title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' };
+    // 素材は字幕テキスト。区間指定のときは、その区間の行だけを切り出して送る
+    // （送る量が減るぶん安く、時刻は字幕のものなのでそのまま正しい）。
+    const trText = sumRange ? _transcriptSlice(tr.text, sumRange.startSec, sumRange.endSec) : tr.text;
+    if (!trText.trim()) return fail('指定した区間に字幕がありません。区間を変えてください');
+
+    const reqBody = {
+      idToken, source: 'transcript', transcript: trText,
+      title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'',
+    };
+    // 一言は mode:'desc'。粒度と区間は要約のときだけ送る。
+    if (isDesc) reqBody.mode = 'desc';
+    else {
+      reqBody.mode = 'summary';
+      reqBody.sumOpts = { level: sumLevel };
+      if (sumRange) reqBody.range = sumRange;
+    }
+    const _durSec = _getDurationSec(id);
+    if (_durSec > 0) reqBody.durationSec = _durSec;
 
     // 要約生成は一時的に失敗しやすい（Geminiのレート/タイムアウト）ので最大2回試行
     let data = null, lastErr = '';
     for (let attempt = 1; attempt <= 2; attempt++) {
-      _aiPhase = attempt === 1 ? '要約中' : '再試行中';
+      _aiPhase = attempt === 1 ? (isDesc ? '生成中' : '要約中') : '再試行中';
       try {
         const res = await fetch('/api/ai-summary', {
           method:  'POST',
@@ -8237,7 +8557,7 @@ window.vpAiSummary = async function(id, preset) {
 
     // スクショ撮影（opts.shot かつ GDrive動画）— 分岐抽出と共通のヘルパーを使用
     let shotMap = {};
-    if (opts.shot && isGD) {
+    if (opts.shot && isGD && !isDesc) {
       const tsText = _vpCollectTsText(data.summary);
       const secs = Object.keys(tsText).map(Number).sort((a,b)=>a-b);
       if (secs.length) {
@@ -8262,21 +8582,31 @@ window.vpAiSummary = async function(id, preset) {
 
     // メモHTML生成（スクショありならサムネ付き、なければ従来通り）
     const stamp = new Date().toISOString().slice(0, 10);
-    const header = `── ✨ AI要約 (${stamp}) ──`;
+    const header = isDesc
+      ? `── 💬 AI一言 (${stamp}) ──`
+      : `── ✨ AI要約 ${sumRange ? `[${_formatTime(sumRange.startSec)}–${_formatTime(sumRange.endSec)}] ` : ''}${SUM_LEVEL_LABEL[sumLevel] || ''} (${stamp}) ──`;
     const shotCount = Object.keys(shotMap).length;
+    // 生成が途中で切れていたら、そのことをメモにも残す。
+    // 黙って保存すると、文の途中で終わったメモが「そういう要約」として残ってしまう。
+    const cutMark = data.truncated
+      ? `\n⚠️ ここで切れています（${data.truncReason || '応答が最後まで届きませんでした'}）。もう一度実行するか、区間を分けて要約してください`
+      : '';
+    const bodyText = isDesc
+      ? String(data.summary).replace(/\s*\n\s*/g, ' ').trim()
+      : (data.summary + cutMark);
     const summaryHtml = shotCount
-      ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(data.summary, shotMap, opts.layout)
-      : _memoToHtml(`${header}\n${data.summary}`);
+      ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(bodyText, shotMap, opts.layout)
+      : _memoToHtml(`${header}\n${bodyText}`);
 
-    // 既存メモを壊さず先頭に追記（メモ欄はcontenteditable）
+    // 既存メモは触らず、いちばん下に追加する（上書きしない）
     if (memoEl) {
       const curHtml = memoEl.innerHTML.trim();
-      memoEl.innerHTML = curHtml ? `${summaryHtml}<br><br>${curHtml}` : summaryHtml;
+      memoEl.innerHTML = curHtml ? `${curHtml}<br><br>${summaryHtml}` : summaryHtml;
       _bindTsLinks(memoEl);
       v.memo = memoEl.innerHTML.trim();
     } else {
       const curHtml = (v.memo || '').trim();
-      v.memo = curHtml ? `${summaryHtml}<br><br>${curHtml}` : summaryHtml;
+      v.memo = curHtml ? `${curHtml}<br><br>${summaryHtml}` : summaryHtml;
     }
 
     // debounce経由ではなく直接保存（AI要約は明示的アクション）。
@@ -8299,9 +8629,16 @@ window.vpAiSummary = async function(id, preset) {
       autoSaveVp(id);
     }
     const _sec = Math.round((Date.now() - _t0ai) / 1000);
-    if (!silent) window.toast?.(
-      (shotCount ? `✨ 要約＋スクショ${shotCount}枚を追記しました` : '✨ AI要約をMemoに追記しました')
-      + `（${_sec}秒）`);
+    if (!silent) {
+      if (data.truncated) {
+        window.toast?.('⚠️ 要約が途中で切れました。追加はしましたが、続きはありません（もう一度実行するか、区間を分けてください）', 9000);
+      } else {
+        window.toast?.(
+          (isDesc ? '💬 一言をMemoに追加しました'
+            : shotCount ? `✨ 要約＋スクショ${shotCount}枚を追加しました` : '✨ AI要約をMemoに追加しました')
+          + `（${_sec}秒）`);
+      }
+    }
     console.log('[aiSummary]', { 秒: _sec, 動画: v.title, スクショ: shotCount,
                                  コスト: data.costUsd, 文字数: (data.summary || '').length });
     return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0, shots: shotCount, sec: _sec };
@@ -8327,16 +8664,25 @@ window.vpAiSummaryWithShot = async function(id) {
   if (!user) { window.toast?.('ログインが必要です'); return; }
 
   const btn = document.getElementById('vp-aisum-shot-' + id);
+  const origShotLabel = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; btn.style.opacity = '0.6'; }
 
   try {
-    // 1. AI要約テキスト生成
+    // 1. AI要約テキスト生成（素材は字幕。動画そのものは送らない）
+    const tr = await _ensureTranscript(v, id, null, {
+      setBtn: (t) => { if (btn) btn.textContent = t; },
+    });
+    if (!tr.text) {
+      if (tr.error && !tr.skipped) window.toast?.('⚠️ ' + tr.error, 8000);
+      return;
+    }
     if (btn) btn.textContent = '⏳ 要約中…';
     const idToken = await user.getIdToken();
     const res = await fetch('/api/ai-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken, source: 'youtube', ytId: _vYtId(v), title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
+      body: JSON.stringify({ idToken, source: 'transcript', mode: 'summary', transcript: tr.text,
+                             title: v.title||'', channel: v.ch||v.channel||'', playlist: v.pl||'' }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.summary) {
@@ -8424,16 +8770,18 @@ window.vpAiSummaryWithShot = async function(id) {
     const memoEl = document.getElementById('vp-memo-' + id);
     if (memoEl) {
       const cur = memoEl.innerHTML.trim();
-      memoEl.innerHTML = cur ? `${summaryHtml}<br><br>${cur}` : summaryHtml;
+      memoEl.innerHTML = cur ? `${cur}<br><br>${summaryHtml}` : summaryHtml;
       _bindTsLinks(memoEl);
       v.memo = memoEl.innerHTML.trim();
     } else {
-      v.memo = summaryHtml;
+      // メモ欄が画面に無くても、既存のメモを消してはいけない（下に足すだけ）
+      const cur = (v.memo || '').trim();
+      v.memo = cur ? `${cur}<br><br>${summaryHtml}` : summaryHtml;
     }
     const snapSec = document.getElementById('vp-snap-section-' + id);
     if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
     autoSaveVp(id);
-    window.toast?.(`✨ 要約＋スクショ${shotCount}枚を追記しました`);
+    window.toast?.(`✨ 要約＋スクショ${shotCount}枚を追加しました`);
   } catch(e) {
     if (e.name === 'NotAllowedError') window.toast?.('キャンセルしました');
     else {
@@ -8442,7 +8790,7 @@ window.vpAiSummaryWithShot = async function(id) {
       try { alert('⚠️ AI要約エラー: ' + ((e && e.message) || e)); } catch(_) {}
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '✨📸'; btn.style.opacity = '1'; }
+    if (btn) { btn.disabled = false; btn.textContent = origShotLabel || '✨📸'; btn.style.opacity = '1'; }
   }
 };
 
@@ -8563,7 +8911,7 @@ export function _openPanel(id, emb, ext, plat) {
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
           <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (!!_vYtId(v) || v?.pt === 'gdrive'))
-            ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画をAIで要約しMemoに追記" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
+            ? `<button id="vp-aisum-${id}" onclick="vpAiSummary('${id}')" title="この動画の字幕からAIで要約しMemoに追加" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--accent,#6c8cff);background:transparent;color:var(--accent,#6c8cff);cursor:pointer;vertical-align:middle">✨ AI要約</button>`
             : ''}${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
             ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>
