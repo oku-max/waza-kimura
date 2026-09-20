@@ -5661,8 +5661,17 @@ function _subOptsHTML(scope) {
         font-size:10.5px;line-height:1.6;color:var(--text3);margin-bottom:2px">
       <b style="color:var(--text2)">これは WAZA KIMURA が作った字幕の設定です</b>
       <div>YouTube自体の字幕の設定ではありません</div>
-    </div>`
-    + sec('一度に出す量')
+    </div>`;
+
+  // 【並び順】この動画のこと → 見た目 → 量と時間、の順に出す。
+  // 開いて最初にやりたいのは「どの字幕を出すか」で、次が「読めるか（見た目）」。
+  // 文字数や表示時間は詰めの設定なので後ろでいい。
+  // 下の2つは端末ごとの共通設定（全動画に効く）なので、この動画のことより後ろに置く。
+  const look = sec('見た目')
+    + _subRow('文字サイズ', '', _subRange('fontScale', o.fontScale, 0.6, 2, 0.05, '倍'))
+    + _subRow('背景の濃さ', '0で背景なし', _subRange('bgOpacity', o.bgOpacity, 0, 1, 0.02, ''))
+    + _subRow('表示位置', '', _subSeg('position', o.position, [['bottom','画面下'],['top','画面上']]));
+  const amount = sec('一度に出す量')
     + _subRow('1行の最大文字数（日本語）', '長いほど1行に詰め込む', _subRange('maxCharsJa', o.maxCharsJa, 8, 40, 1, '字'))
     + _subRow('1行の最大文字数（英語）', '', _subRange('maxCharsEn', o.maxCharsEn, 20, 80, 1, '字'))
     + _subRow('最大行数', '超えたぶんは時間を分けて次の字幕に送る', _subSeg('maxLines', o.maxLines, [[1,'1行'],[2,'2行'],[3,'3行']]))
@@ -5671,12 +5680,7 @@ function _subOptsHTML(scope) {
     + sec('表示時間')
     + _subRow('最短表示', '一瞬で消えるのを防ぐ', _subRange('minDur', o.minDur, 0.4, 3, 0.1, '秒'))
     + _subRow('最長表示', '出しっぱなしを防ぐ', _subRange('maxDur', o.maxDur, 2, 15, 0.5, '秒'))
-    + _subRow('短い字幕をまとめる', '細切れの字幕を隣とくっつけて読みやすくする', _subSeg('mergeShort', o.mergeShort, [[true,'まとめる'],[false,'そのまま']]))
-    + sec('見た目')
-    + _subRow('文字サイズ', '', _subRange('fontScale', o.fontScale, 0.6, 2, 0.05, '倍'))
-    + _subRow('背景の濃さ', '0で背景なし', _subRange('bgOpacity', o.bgOpacity, 0, 1, 0.02, ''))
-    + _subRow('表示位置', '', _subSeg('position', o.position, [['bottom','画面下'],['top','画面上']]))
-    + _subCueDiag();
+    + _subRow('短い字幕をまとめる', '細切れの字幕を隣とくっつけて読みやすくする', _subSeg('mergeShort', o.mergeShort, [[true,'まとめる'],[false,'そのまま']]));
 
   if (scope === 'player') {
     if (_gdSubTracks.length) {
@@ -5842,6 +5846,8 @@ function _subOptsHTML(scope) {
       html += sec('ズレを直す（この動画のみ）') + offBody;
     }
   }
+
+  html += look + amount + _subCueDiag();
 
   if (scope === 'full') {
     html += sec('生成の設定（変更すると再生成が必要 ＝ コストがかかります）')
