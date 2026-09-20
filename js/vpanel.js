@@ -8629,7 +8629,14 @@ window.vpAiSummary = async function(id, preset) {
       ? `── 💬 AI一言 (${stamp}) ──`
       : `── ✨ AI要約 ${sumRange ? `[${_formatTime(sumRange.startSec)}–${_formatTime(sumRange.endSec)}] ` : ''}${SUM_LEVEL_LABEL[sumLevel] || ''} (${stamp}) ──`;
     const shotCount = Object.keys(shotMap).length;
-    const bodyText = isDesc ? String(data.summary).replace(/\s*\n\s*/g, ' ').trim() : data.summary;
+    // 生成が途中で切れていたら、そのことをメモにも残す。
+    // 黙って保存すると、文の途中で終わったメモが「そういう要約」として残ってしまう。
+    const cutMark = data.truncated
+      ? `\n⚠️ ここで切れています（${data.truncReason || '応答が最後まで届きませんでした'}）。もう一度実行するか、区間を分けて要約してください`
+      : '';
+    const bodyText = isDesc
+      ? String(data.summary).replace(/\s*\n\s*/g, ' ').trim()
+      : (data.summary + cutMark);
     const summaryHtml = shotCount
       ? `<div style="font-size:11px;color:#7040c0;font-weight:700;margin-bottom:4px">${header}</div>` + _summaryToHtmlWithShots(bodyText, shotMap, opts.layout)
       : _memoToHtml(`${header}\n${bodyText}`);
@@ -8665,10 +8672,16 @@ window.vpAiSummary = async function(id, preset) {
       autoSaveVp(id);
     }
     const _sec = Math.round((Date.now() - _t0ai) / 1000);
-    if (!silent) window.toast?.(
-      (isDesc ? '💬 一言をMemoに追加しました'
-        : shotCount ? `✨ 要約＋スクショ${shotCount}枚を追加しました` : '✨ AI要約をMemoに追加しました')
-      + `（${_sec}秒）`);
+    if (!silent) {
+      if (data.truncated) {
+        window.toast?.('⚠️ 要約が途中で切れました。追加はしましたが、続きはありません（もう一度実行するか、区間を分けてください）', 9000);
+      } else {
+        window.toast?.(
+          (isDesc ? '💬 一言をMemoに追加しました'
+            : shotCount ? `✨ 要約＋スクショ${shotCount}枚を追加しました` : '✨ AI要約をMemoに追加しました')
+          + `（${_sec}秒）`);
+      }
+    }
     console.log('[aiSummary]', { 秒: _sec, 動画: v.title, スクショ: shotCount,
                                  コスト: data.costUsd, 文字数: (data.summary || '').length });
     return { ok: true, cost: typeof data.costUsd === 'number' ? data.costUsd : 0, shots: shotCount, sec: _sec };

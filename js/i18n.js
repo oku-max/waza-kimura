@@ -577,6 +577,7 @@
     "⏳ 要約中…": "⏳ Summarizing…",
     // 要約は字幕から作る（動画を送る経路は廃止）
     "この動画の字幕から作ります": "Built from this video\u2019s subtitles",
+    "⚠️ 要約が途中で切れました。追加はしましたが、続きはありません（もう一度実行するか、区間を分けてください）": "⚠️ The summary was cut off. What arrived was added, but there is no continuation (run it again, or summarize in sections)",
     "要約は字幕から作ります。字幕が無い動画は飛ばします（先に「💬 字幕生成」で字幕を作ってください）": "Summaries are built from subtitles. Videos without subtitles are skipped (create them first with \u201c\ud83d\udcac Subtitles\u201d)",
     "要約は字幕から作ります。": "Summaries are built from subtitles.",
     "この動画にはまだ字幕がありません。先に字幕を作ってください。": "This video has no subtitles yet. Create them first.",

@@ -555,8 +555,13 @@ async function _aiSummaryFromTranscript(env, transcript, title, channel, playlis
     : _aiPrompt(ctx, sumOpts, range, durationSec, body);
   const result = await _geminiGenerate(env, [{ text: prompt }], _genOptsFor(mode));
   if (result.error) return jsonRes(result, 502);
+  // 生成が途中で切れることがある（出力上限・応答の打ち切り）。黙って保存すると、
+  // 文の途中で終わったメモが「そういう要約」として残ってしまう。切れたことを伝える。
+  const truncated = !!(result.cut || result.finish === 'MAX_TOKENS');
+  const truncReason = result.finish === 'MAX_TOKENS' ? '出力が上限に達しました'
+                    : result.cut ? result.cut : '';
   return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd,
-                   via: 'transcript', clipped });
+                   via: 'transcript', clipped, truncated, truncReason });
 }
 
 // ── モード別プロンプト選択 ──────────────────────────────────
@@ -592,6 +597,9 @@ function _genOptsFor(mode) {
   // チャプターは出力そのものは短いが「どこで話題が変わるか」の判断に思考を使わせたい。
   // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
   if (mode === 'chapters') return { json: true, maxOutputTokens: 16384, thinkingBudget: 4096, temperature: 0.2, what: 'チャプター' };
+  // 要約は既定(8192)だと「細かめ」で足りず、途中で切れた本文がそのまま保存されていた。
+  // 2.5系は思考トークンも maxOutputTokens を食うので、思考ぶんを上乗せした枠を取る。
+  if (mode === 'summary') return { maxOutputTokens: 16384, thinkingBudget: 2048, what: '要約' };
   return {};
 }
 
