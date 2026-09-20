@@ -7469,22 +7469,36 @@ function _memoToHtml(memo) {
 }
 
 // メモ内の ts-link / snap-ref にクリックハンドラを再付与
+// contenteditable の中にある「押すための要素」（タイムスタンプ・画像）を、
+// 入力欄にフォーカスを渡さずに押せるようにする。
+//   ・PC   : mousedown を止めれば caret が移らない＝フォーカスされない
+//   ・iOS  : タップでキーボードが出てしまうので、押した直後に blur して引っ込める
+// touchstart は止めない（止めると click 自体が発火しなくなる端末がある）。
+function _tapWithoutFocus(el, handler) {
+  el.addEventListener('mousedown', (e) => e.preventDefault());
+  el.onclick = (e) => {
+    e.preventDefault();
+    const host = el.closest('[contenteditable="true"]');
+    if (host && document.activeElement === host) { try { host.blur(); } catch(_) {} }
+    handler(e);
+  };
+}
+
 function _bindTsLinks(container) {
   if (!container) return;
   container.querySelectorAll('a.ts-link').forEach(el => {
     const sec = parseInt(el.dataset.sec);
     if (isNaN(sec)) return;
     el.contentEditable = 'false';
-    el.onclick = (e) => { e.preventDefault(); _seekTo(sec); };
+    _tapWithoutFocus(el, () => _seekTo(sec));
   });
   // スナップショットサムネ → クリックで既存ライトボックス（フル画質）
   container.querySelectorAll('img.snap-ref').forEach(el => {
     el.contentEditable = 'false';
     const snapId = el.dataset.snapId;
-    el.onclick = (e) => {
-      e.preventDefault();
+    _tapWithoutFocus(el, () => {
       if (snapId && window.snapOpenLightboxById) window.snapOpenLightboxById(snapId);
-    };
+    });
   });
 }
 
@@ -7686,7 +7700,7 @@ window.vpMemoHelp = function(e) {
     { ic: '<b style="color:#e53935">T</b>',                      label: '文字色',         sub: '文字の色を変える' },
     { ic: '<b style="background:#fff176;color:#555;padding:0 3px;border-radius:2px">M</b>', label: '蛍光ペン', sub: '文字に蛍光ペン（ハイライト）を引く' },
     { ic: '✕',                                                   label: '書式リセット',   sub: '選択範囲の書式をすべて消す' },
-    { ic: '⏱',                                                  label: 'タイムスタンプ', sub: '今の再生位置を挿入。タップで頭出し（Memoの見出し行にあります）' },
+    { ic: '⏱',                                                  label: 'タイムスタンプ', sub: 'ボタンを押したときの時間に移動できるリンクをメモに挿入' },
     { ic: '🗑',                                                  label: 'メモを全て削除', sub: 'このメモの内容をすべて消す（確認あり）' },
   ];
 
@@ -7788,7 +7802,8 @@ window._vpMemoToolbarHTML = (id) => _memoToolbarHTML(id);
 // メモHTML（ts-link に onclick をインライン付与。bind不要で動く静的版）
 window._vpMemoToHtmlStatic = function(memo) {
   if (!memo) return '';
-  const inj = sec => ` onclick="event.preventDefault();window.vpSeek&&window.vpSeek(null,${sec})"`;
+  const inj = sec => ` onmousedown="event.preventDefault()"`
+    + ` onclick="event.preventDefault();this.closest('[contenteditable=&quot;true&quot;]')?.blur();window.vpSeek&&window.vpSeek(null,${sec})"`;
   if (/<(a|b|i|u|br|div|span|strong|em|p)\b[^>]*>/i.test(memo)) {
     // 保存済みリッチHTML: data-sec を持つ ts-link に onclick を補う
     return memo.replace(/<a class="ts-link"([^>]*?)data-sec="(\d+)"([^>]*)>/g,

@@ -2843,7 +2843,7 @@ window._notesVidTogMemo = function(noteId, idx) {
   if (btn) btn.classList.toggle('open', willOpen);
   if (willOpen) {
     _ivPopulateMemo(noteId, idx);
-    setTimeout(() => document.getElementById(`n-iv-memo-ta-${noteId}-${idx}`)?.focus(), 50);
+    // 開いた瞬間の自動フォーカスはしない（iOSでキーボードが立ち上がるため）
   }
 };
 
@@ -3537,7 +3537,7 @@ window._notesColVidMenu = function(noteId, colIdx, slot, bIdx, btnEl) {
     sec.style.display = willOpen ? 'block' : 'none';
     if (willOpen) {
       _ivPopulateMemo(noteId, colKey);
-      setTimeout(() => document.getElementById(`n-iv-memo-ta-${noteId}-${colKey}`)?.focus(), 50);
+      // 開いた瞬間の自動フォーカスはしない（iOSでキーボードが立ち上がるため）
     }
   };
   items[2].onclick = () => {
