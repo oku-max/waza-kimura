@@ -87,9 +87,16 @@ const ytBody = src.slice(src.indexOf('async function _ytGenSubtitle'),
 !/source: 'youtube'[\s\S]*mode: 'subtitle'|mode: 'subtitle'[\s\S]{0,400}source: 'youtube'/.test(ytBody)
   ? ok('YouTube動画を Gemini に見せて字幕を作る経路は無い')
   : fail('YouTube動画をGeminiに見せて字幕を作っている（必ずズレる字幕を金を払って作ることになる）');
-/YouTube側に字幕が無いため、字幕を作れません/.test(src)
-  ? ok('作れないときは作らず、理由を伝える')
-  : fail('作れないときの案内が無い');
+// 作れなかった理由を決め打ちで書かないこと。
+// 「字幕が無い」と言い切っていたが、無料枠切れ・通信エラー・キー未設定でも同じ文が出て、
+// 字幕はあるのにこちらが取れていないだけなのに嘘になっていた。
+/throw new Error\('字幕を作れませんでした: ' \+ \(ytFailWhy \|\|/.test(src)
+  ? ok('作れないときは、サーバーが返した理由をそのまま伝える')
+  : fail('作れない理由を決め打ちで書いている（嘘になる）');
+// 翻訳するかを聞いて「いいえ」だったのは失敗ではない
+/\} else if \(!srt && canTranslate\) \{[\s\S]{0,400}?return \{ ok: false, skipped: true \};/.test(src)
+  ? ok('翻訳を断ったときはエラーにせず中止として返す')
+  : fail('中止したのに失敗として扱っている');
 // YouTube動画をDriveに置くには落とすしかない。規約違反を勧める案内を復活させない。
 !/Googleドライブに置け/.test(src)
   ? ok('YouTube動画をDriveに置くよう勧めていない')

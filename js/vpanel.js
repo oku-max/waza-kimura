@@ -3851,7 +3851,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   }
 
   const idToken = await user.getIdToken();
-  let srt = '', cost = 0, via = 'gemini', note = '', diagNote = '', ytErrNote = '';
+  let srt = '', cost = 0, via = 'gemini', note = '', diagNote = '', ytErrNote = '', ytFailWhy = '';
 
   // 既にある字幕から訳す（書き起こしをやり直さない＝安い・時刻は元のまま）
   const canTranslate = !same && other && subLang !== 'orig';
@@ -3884,9 +3884,11 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
       diagNote = ` / YouTubeの字幕(${yt.lang || '?'})から作成 · ${yt.cues}枚 · 最後 ${_chapFmt(yt.lastSec || 0)}`
                + (yt.src ? ` · 取得元 ${yt.src}` : '');
     } else if (yt && yt.error) {
-      // 失敗したことと理由を結果パネルに出す。黙ってGeminiに落ちると、
-      // なぜ時刻がズレたままなのかが誰にも分からない。
+      // 失敗したことと理由を結果パネルに出す。
       ytErrNote = ` / YouTubeの字幕は使えませんでした: ${yt.error}${yt.diag ? `［${yt.diag}］` : ''}`;
+      // 作れなかった時に「字幕が無い」と言い切らないよう、実際の理由を持っておく。
+      // 無料枠切れ・通信エラー・キー未設定でも「無い」と出ていた（嘘になっていた）。
+      ytFailWhy = yt.error;
       console.log('[ytsub] YouTubeの字幕は使えませんでした:', yt.error, yt.diag || '');
     }
   }
@@ -3897,6 +3899,10 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
     const r = await _translateSrtText(other.srt, subLang, setBtn);
     srt = r.srt; cost = r.cost; via = 'translate:' + other.lang;
     if (r.missing) note = `（${r.missing}行は訳せず原文のまま）`;
+  } else if (!srt && canTranslate) {
+    // 翻訳するかを聞いて「いいえ」だった場合。失敗ではなく、あなたが中止しただけ。
+    // ここでエラーを出すと、中止したのに「作れませんでした」と怒られることになる。
+    return { ok: false, skipped: true };
   }
 
   // 【変更禁止】YouTube動画で、動画をAIに見せて字幕を作る経路は置かないこと。
@@ -3908,7 +3914,12 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   if (!srt) {
     // 【変更禁止】ここでDriveに置くよう案内しないこと。
     // YouTube動画をDriveに移すには落とすしかなく、規約違反を勧めることになる。
-    throw new Error('この動画はYouTube側に字幕が無いため、字幕を作れません');
+    //
+    // 【変更禁止】理由を決め打ちで書かないこと。
+    // 「字幕が無い」と言い切っていたが、実際には無料枠切れ・通信エラー・キー未設定でも
+    // 同じ文が出ていた。字幕はあるのにこちらが取れていないだけで、嘘になっていた。
+    // 理由はサーバーが返したものをそのまま出す。
+    throw new Error('字幕を作れませんでした: ' + (ytFailWhy || 'この動画にはYouTube側の字幕がありません'));
   }
 
   setBtn('⏳ 保存中…');
