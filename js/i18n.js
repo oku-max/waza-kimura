@@ -364,6 +364,8 @@
     '📤 端末の動画を取り込む':'📤 Upload a video from this device',
     'スマホやPCの動画を選んで、ご自身のGoogleドライブにコピーしてから登録します。':'Pick a video from your phone or computer; it is copied to your own Google Drive and then added.',
     '画質はそのまま。元の動画は端末に残ります。':'Quality is unchanged. The original stays on your device.',
+    // '動画を追加' / '閉じる' は上の共通辞書にすでにある
+    '取り込みは続いています。もう一度開くと進み具合が見られます':'The import is still running. Open this again to see its progress.',
     '📷 カメラロールから選ぶ':'📷 Choose from camera roll',
     '📁 ファイルから選ぶ':'📁 Choose from files',
     'まだ動画を選んでいません':'No videos chosen yet',

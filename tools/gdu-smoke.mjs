@@ -97,11 +97,13 @@ const HARNESS = `<!doctype html><meta charset="utf-8">
 </div>
 <!-- 取り込みオーバーレイは画面全体を覆うので、その上に出さないとクリックが届かない。
      実アプリでは同じシートの中の別タブなので、重なりの都合はここだけの話。 -->
-<div id="gd-import-body" style="position:relative;z-index:99999;padding:12px;background:var(--bg)">${gdOptsHtml}</div>
+<div id="gd-import-body" style="display:none;position:relative;z-index:99999;padding:12px;background:var(--bg)">${gdOptsHtml}</div>
 <script type="module">
   window.toast = (m) => { (window.__toasts ||= []).push(m); };
   window.switchImportTab = () => {};
   window.gdOptsSummary   = () => {};
+  // 「閉じる」は本物を使う（index.html が window に出しているのと同じもの）
+  import('/js/gdrive.js').then(m => { window.closeImportHub = m.closeImportHub; });
   window.gdStripTouched  = () => {};
   import('/js/gd-upload.js').then(() => { window.__ready = true; });
 </script></body>`;
@@ -304,8 +306,63 @@ await page.waitForTimeout(600);
 check(await page.inputValue('#gdu-list input.gdu-nm') === '6/12 スパー 3R目',
   '描き直しても打った名前が残る', await page.inputValue('#gdu-list input.gdu-nm'));
 
+// ── 小さい端末でも逃げ場があること ──
+// シートは画面をほぼ覆うので外側を押す余地が無く、各タブ下部のキャンセルも
+// 画面外に出る。常に見えている出口が1つも無いと、パネルから出られなくなる。
+await page.setViewportSize({ width: 320, height: 568 });   // いちばん小さいiPhone
+await page.waitForTimeout(250);
+const esc = await page.evaluate(() => {
+  const b = document.querySelector('.sheet-x');
+  if (!b) return { ok: false };
+  const r = b.getBoundingClientRect();
+  return { ok: true, inView: r.top >= 0 && r.bottom <= innerHeight && r.right <= innerWidth && r.left >= 0,
+           w: Math.round(r.width), h: Math.round(r.height), bottom: Math.round(r.bottom), vh: innerHeight };
+});
+check(esc.ok, '小さい端末でも「閉じる」がある');
+check(esc.inView, '「閉じる」が画面内にある', `bottom=${esc.bottom} / vh=${esc.vh}`);
+check(esc.w >= 32 && esc.h >= 32, '「閉じる」が指で押せる大きさ', `${esc.w}x${esc.h}`);
+
+const tabs = await page.evaluate(() => [...document.querySelectorAll('[id^="tab-"]')].map(b => {
+  const r = b.getBoundingClientRect();
+  return { id: b.id, ok: r.left >= -1 && r.right <= innerWidth + 1 && r.width > 0 };
+}));
+check(tabs.length === 4 && tabs.every(t => t.ok), '小さい端末でも4つのタブが全部押せる',
+  tabs.filter(t => !t.ok).map(t => t.id).join(',') || 'ok');
+
+await page.click('.sheet-x');
+await page.waitForTimeout(200);
+check(!(await page.evaluate(() => document.getElementById('yt-import-ov').classList.contains('open'))),
+  '「閉じる」でパネルから出られる');
+
+// Escape でも出られる
+await page.evaluate(() => document.getElementById('yt-import-ov').classList.add('open'));
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+check(!(await page.evaluate(() => document.getElementById('yt-import-ov').classList.contains('open'))),
+  'Escape でもパネルから出られる');
+
+// 絞り込みが開いているときは、まず絞り込みだけ閉じる（いきなり全部消えない）
+await page.evaluate(() => document.getElementById('yt-import-ov').classList.add('open'));
+await page.evaluate(() => window.gduDdOpen('ch'));
+await page.waitForTimeout(200);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+check(await page.evaluate(() => !document.getElementById('yt-import-ov').classList.contains('open')) === false,
+  'Escape 1回目はパネルを閉じない（絞り込みを閉じる）');
+check(!(await page.isVisible('#gdu-ch-dd')), 'Escape で絞り込みが閉じる');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+check(!(await page.evaluate(() => document.getElementById('yt-import-ov').classList.contains('open'))),
+  'Escape 2回目でパネルから出られる');
+
+await page.evaluate(() => document.getElementById('yt-import-ov').classList.add('open'));
+await page.setViewportSize({ width: 390, height: 780 });
+await page.waitForTimeout(250);
+
 // 崩れは数字では見えない。見たいときは GDU_SHOT=<出力先.png> を付けて走らせる。
 if (process.env.GDU_SHOT) {
+  await page.setViewportSize({ width: Number(process.env.GDU_W) || 390, height: Number(process.env.GDU_H) || 780 });
+  await page.waitForTimeout(250);
   await page.screenshot({ path: process.env.GDU_SHOT, fullPage: true });
   console.log('  （画面を書き出しました: ' + process.env.GDU_SHOT + '）');
 }
@@ -354,6 +411,9 @@ for (const [kind, inputId, ddId, listId, want] of [
   check(!(await page.isVisible('#' + ddId)), `${kind}: 選ぶと閉じる`);
 }
 // Drive取り込みタブの「▼ 既存」も、同じ仕掛けから同じ候補が出ること。
+// （この検証ページでは取り込みオーバーレイと重なるので、見る間だけ出す）
+await page.evaluate(() => { document.getElementById('gd-import-body').style.display = 'block'; });
+await page.waitForTimeout(150);
 // ここが別実装だったせいで、プレイリスト側には「▼ 既存」自体が無かった。
 for (const [kind, inputId, ddId, listId, want] of [
   ['gdch', 'gd-channel',  'gd-ch-dd', 'gd-ch-ddlist', 'Triforce'],
@@ -380,6 +440,7 @@ await page.locator('#gd-ch-ddlist .vp-dd-item').first().click();
 await page.waitForTimeout(200);
 check(await page.inputValue('#gd-channel') === 'Danaher "DLR"',
   'Drive: 引用符入りの名前も選べる', await page.inputValue('#gd-channel'));
+await page.evaluate(() => { document.getElementById('gd-import-body').style.display = 'none'; });
 
 // 引用符を含む名前でも壊れないこと（onclick に値を埋め込んでいると壊れる）
 await page.evaluate(() => window.gduDdOpen('ch'));

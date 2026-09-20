@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.784</title>
+<title>WAZA KIMURA v52.785</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -4734,25 +4734,33 @@ document.addEventListener('click', function(e) {
 </div>
 
 <!-- YouTube / Google Drive Import Overlay -->
-<div class="overlay" id="yt-import-ov" onclick="this.classList.remove('open')">
+<div class="overlay" id="yt-import-ov" onclick="closeImportHub()">
   <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-85,85vh);width:100%;max-width:560px">
     <div class="sheet-handle"></div>
+    <!-- 逃げ場。シートは画面をほぼ覆うので、外側を押して閉じる余白が無い。
+         小さい端末では下のキャンセルも画面外にあるため、常に見える出口を上に置く。 -->
+    <div style="flex:none;display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="flex:1;min-width:0;font-size:13px;font-weight:800;color:var(--text)">動画を追加</span>
+      <button class="sheet-x" onclick="closeImportHub()" aria-label="閉じる" title="閉じる">✕</button>
+    </div>
     <!-- タブ切り替え -->
-    <div style="display:flex;gap:6px;margin-bottom:14px">
+    <!-- 320px 幅の端末では4つ横並びに入らず、最後のタブが画面外に出て押せなくなる。
+         入らなくなったら折り返す（入る幅では今までどおり1行）。 -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
       <button id="tab-yt" onclick="switchImportTab('yt')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--accent);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--accent);color:var(--bg)">
+        style="flex:1;min-width:70px;padding:7px;border-radius:8px;border:1.5px solid var(--accent);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--accent);color:var(--bg)">
         ▶ YouTube
       </button>
       <button id="tab-gd" onclick="switchImportTab('gd')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
+        style="flex:1;min-width:70px;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
         📁 Drive
       </button>
       <button id="tab-url" onclick="switchImportTab('url')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
+        style="flex:1;min-width:70px;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
         🔗 URL
       </button>
       <button id="tab-up" onclick="switchImportTab('up')"
-        style="flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
+        style="flex:1;min-width:70px;padding:7px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;white-space:nowrap;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text2)">
         📤 端末から
       </button>
     </div>
@@ -4776,7 +4784,7 @@ document.addEventListener('click', function(e) {
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button id="yt-import-ok" class="btn-save" style="flex:1;min-width:120px">次へ →</button>
         <button id="yt-import-bulk-new" class="btn-save" style="flex:1;min-width:160px" onclick="ytImportUnimportedFromChecked()">📥 未取込を一括取込</button>
-        <button class="btn-sub" style="width:auto;flex:1;min-width:90px;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+        <button class="btn-sub" style="width:auto;flex:1;min-width:90px;margin-top:0" onclick="closeImportHub()">キャンセル</button>
       </div>
     </div>
     <!-- Stage 2: Video select -->
@@ -4798,7 +4806,7 @@ document.addEventListener('click', function(e) {
       <div id="ytTagMount" style="margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;">
         <button id="yt-video-ok" class="btn-save" style="flex:1">取り込む ✓</button>
-        <button class="btn-sub" style="width:auto;flex:1;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+        <button class="btn-sub" style="width:auto;flex:1;margin-top:0" onclick="closeImportHub()">キャンセル</button>
       </div>
     </div>
     </div><!-- /yt-import-body -->
@@ -4878,7 +4886,7 @@ document.addEventListener('click', function(e) {
         </div>
 
         <div class="gdp-foot">
-          <button class="btn-sub" style="flex:0 0 34%;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+          <button class="btn-sub" style="flex:0 0 34%;width:auto;margin-top:0" onclick="closeImportHub()">キャンセル</button>
           <button class="btn-save" style="flex:1" id="gd-import-btn" onclick="gdDoImport()" disabled>取り込む</button>
         </div>
       </div>
@@ -4963,7 +4971,7 @@ document.addEventListener('click', function(e) {
 
         </div><!-- /gdu-scroll -->
         <div class="gdp-foot">
-          <button class="btn-sub" style="flex:0 0 34%;width:auto;margin-top:0" onclick="document.getElementById('yt-import-ov').classList.remove('open')">キャンセル</button>
+          <button class="btn-sub" style="flex:0 0 34%;width:auto;margin-top:0" onclick="closeImportHub()">キャンセル</button>
           <button class="btn-save" style="flex:1" id="gdu-start" onclick="gduStart()" disabled>アップロードして登録</button>
         </div>
       </div>
