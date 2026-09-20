@@ -7850,9 +7850,16 @@ async function _captureScreenFrame() {
       video.onloadedmetadata = () => video.play().then(res).catch(rej);
       setTimeout(rej, 5000);
     });
+    // メタデータが来ても、最初のフレームが届くまで videoWidth は 0 のことがある。
+    // 0 のまま撮ると 0×0 のキャンバスになり、toBlob が null を返して
+    // 「タイムスタンプだけ入って終わり」に見える。実寸が入るまで待つ。
+    for (let i = 0; i < 20 && !(video.videoWidth > 0 && video.videoHeight > 0); i++) {
+      await new Promise(r => setTimeout(r, 100));
+    }
     await new Promise(r => setTimeout(r, 120));
 
     const capW = video.videoWidth, capH = video.videoHeight;
+    if (!capW || !capH) { console.warn('[snapNow] 画面の映像が 0×0 のまま届かなかった'); return null; }
     const fc = document.createElement('canvas');
     fc.width = capW; fc.height = capH;
     fc.getContext('2d').drawImage(video, 0, 0);
@@ -7864,17 +7871,24 @@ async function _captureScreenFrame() {
     // 動画プレイヤー領域をクロップ
     let srcCanvas = fc;
     if (playerRect && playerRect.width > 10 && playerRect.height > 10) {
-      const sx = Math.round(playerRect.left * scaleX);
-      const sy = Math.round(playerRect.top  * scaleY);
+      const sx = Math.max(0, Math.round(playerRect.left * scaleX));
+      const sy = Math.max(0, Math.round(playerRect.top  * scaleY));
       const sw = Math.round(playerRect.width  * scaleX);
       const sh = Math.round(playerRect.height * scaleY);
-      const cc = document.createElement('canvas');
-      cc.width = sw; cc.height = sh;
-      cc.getContext('2d').drawImage(fc, sx, sy, sw, sh, 0, 0, sw, sh);
-      srcCanvas = cc;
+      // 切り出し範囲が画面からはみ出していたら、クロップせず画面全体を使う
+      // （0サイズのキャンバスになると toBlob が null を返して無言で失敗する）
+      if (sw > 0 && sh > 0 && sx + sw <= capW + 2 && sy + sh <= capH + 2) {
+        const cc = document.createElement('canvas');
+        cc.width = sw; cc.height = sh;
+        cc.getContext('2d').drawImage(fc, sx, sy, sw, sh, 0, 0, sw, sh);
+        srcCanvas = cc;
+      } else {
+        console.warn('[snapNow] プレイヤーの位置が画面の外。切り出さずに全体を撮る', { sx, sy, sw, sh, capW, capH });
+      }
     }
 
     const fullBlob = await new Promise(r => srcCanvas.toBlob(r, 'image/jpeg', 0.9));
+    if (!fullBlob) console.warn('[snapNow] 画像の書き出しに失敗（toBlob が null）', { w: srcCanvas.width, h: srcCanvas.height });
 
     // サムネ（幅320px以内に縮小）
     const tc = document.createElement('canvas');
@@ -7939,9 +7953,11 @@ window.vpMemoSnapNow = async function(id) {
       document.execCommand('insertHTML', false, `<span>${tsHtml}&nbsp;</span>`);
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
-      window.toast?.(navigator.mediaDevices?.getDisplayMedia
-        ? '📍 タイムスタンプを挿入しました（画面を撮れませんでした）'
-        : '📍 タイムスタンプを挿入しました（この端末は画面キャプチャに対応していません）', 6000);
+      window.toast?.(!navigator.mediaDevices?.getDisplayMedia
+        ? '📍 タイムスタンプを挿入しました（この端末は画面キャプチャに対応していません）'
+        : !window.snapAddBlob
+        ? '📍 タイムスタンプを挿入しました（スナップショットの保存先が使えません）'
+        : '📍 タイムスタンプを挿入しました（画面を撮れませんでした。コンソールの [snapNow] を見てください）', 7000);
     }
   } catch(e) {
     if (e.name === 'NotAllowedError') {
