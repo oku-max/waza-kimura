@@ -4513,7 +4513,8 @@ function cardShowMemo(id) {
   // ts-linkにクリックハンドラを付与
   window._bindTsLinks?.(ta);
   document.getElementById('card-memo-ov').classList.add('open');
-  setTimeout(() => ta.focus(), 80);
+  // 開いた瞬間に自動でフォーカスしない。iOSでキーボードが立ち上がって
+  // 読むだけのときに邪魔になる（書きたい人はメモ欄をタップすれば入る）。
 }
 function cardSaveMemo() {
   var ta = document.getElementById('card-memo-ta');
