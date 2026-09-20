@@ -1733,6 +1733,10 @@ export function openVPanel(id) {
     // AI要約（一言・全体・区間）は廃止した（2026-09-20）。メモはユーザーが書く。
     // 動画の中身を把握する手段は、自動チャプター（目次）と字幕が担う。
     // すでにメモに書き込まれた要約テキストはユーザーのデータなので、そのまま残る。
+    // ⏱ = いまの再生位置だけを入れる。撮影を伴わないので、どの端末でも必ず使える。
+    // （📸 は画面キャプチャが要る＝スマホでは撮れない。役割を分けて並べる）
+    const _tsBtn = `<button id="vp-ts-btn-${vid}" onclick="vpMemoInsertTs('${vid}')" title="いまの再生位置をメモに入れる"
+           style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button>`;
     const _snapBtn = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
       ? `<button id="vp-snap-now-btn-${vid}" onclick="vpMemoSnapNow('${vid}')" title="現在のフレームをスクショしてメモに挿入"
            style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">📸</button>`
@@ -1745,7 +1749,7 @@ export function openVPanel(id) {
     bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
-            <span class="vp-lbl">Memo${_snapBtn}${_subGenBtn}</span>
+            <span class="vp-lbl">Memo${_tsBtn}${_snapBtn}${_subGenBtn}</span>
             ${_memoToolbarHTML(vid)}
           </div>
           <div class="vp-memo" id="vp-memo-${vid}" contenteditable="true"
@@ -7652,9 +7656,6 @@ function _memoToolbarHTML(id) {
       <button onmousedown="event.preventDefault()" onclick="vpMemoResetColor('${id}')"
         class="vp-memo-tb-btn" title="すべての書式をリセット" style="font-size:10px;color:var(--text3)">✕</button>
       <span class="vp-memo-tb-sep"></span>
-      <button onmousedown="event.preventDefault()" onclick="vpMemoInsertTs('${id}')"
-        class="vp-memo-tb-btn" title="タイムスタンプ" style="border-color:#a8c0f0;color:#2050c0;font-weight:700">📍</button>
-      <span class="vp-memo-tb-sep"></span>
       <button onmousedown="event.preventDefault()" onclick="vpMemoClear('${id}')"
         class="vp-memo-tb-btn" title="メモを全て削除"
         style="border-color:#f0a8a8;color:#c02020">🗑</button>
@@ -7685,7 +7686,7 @@ window.vpMemoHelp = function(e) {
     { ic: '<b style="color:#e53935">T</b>',                      label: '文字色',         sub: '文字の色を変える' },
     { ic: '<b style="background:#fff176;color:#555;padding:0 3px;border-radius:2px">M</b>', label: '蛍光ペン', sub: '文字に蛍光ペン（ハイライト）を引く' },
     { ic: '✕',                                                   label: '書式リセット',   sub: '選択範囲の書式をすべて消す' },
-    { ic: '📍',                                                  label: 'タイムスタンプ', sub: '今の再生位置を [分:秒] で挿入。タップで頭出し' },
+    { ic: '⏱',                                                  label: 'タイムスタンプ', sub: '今の再生位置を挿入。タップで頭出し（Memoの見出し行にあります）' },
     { ic: '🗑',                                                  label: 'メモを全て削除', sub: 'このメモの内容をすべて消す（確認あり）' },
   ];
 
@@ -8181,7 +8182,7 @@ export function _openPanel(id, emb, ext, plat) {
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
-          <span class="vp-lbl">Memo${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
+          <span class="vp-lbl">Memo<button id="vp-ts-btn-${id}" onclick="vpMemoInsertTs('${id}')" title="いまの再生位置をメモに入れる" style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button>${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
             ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>
           ${_memoToolbarHTML(id)}

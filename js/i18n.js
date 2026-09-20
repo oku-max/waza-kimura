@@ -626,6 +626,8 @@
     "📍 タイムスタンプを挿入しました（スクショ非対応環境）": "📍 Timestamp inserted (screenshots unsupported here)",
     "📦 アーカイブしました": "📦 Archived",
     "📸 スクショをメモに追加しました": "📸 Screenshot added to memo",
+    "いまの再生位置をメモに入れる": "Insert the current playback position into the memo",
+    "今の再生位置を挿入。タップで頭出し（Memoの見出し行にあります）": "Inserts the current position. Tap it to jump there (it sits on the Memo header row)",
     "メモ欄が見つかりませんでした（パネルを開き直してください）": "The memo field was not found (reopen the panel)",
     "📍 タイムスタンプを挿入しました（画面を撮れませんでした。コンソールの [snapNow] を見てください）": "📍 Timestamp inserted (the screen could not be captured — see [snapNow] in the console)",
     "📍 タイムスタンプを挿入しました（スナップショットの保存先が使えません）": "📍 Timestamp inserted (the snapshot store is unavailable)",
