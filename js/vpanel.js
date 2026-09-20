@@ -3861,7 +3861,7 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   const _oEnd   = other ? _srtLastEnd(other.srt) : 0;
   const _shortWarn = (_dur && _oEnd && _oEnd < _dur * 0.9)
     ? `\n\n※その字幕は ${_chapFmt(_oEnd)} までしかありません（動画は ${_chapFmt(_dur)}）。`
-      + `翻訳しても同じところで終わります。最後まで欲しい場合は［キャンセル］を選んでください。`
+      + `翻訳しても同じところで終わります。`
     : '';
   // ── YouTube側の字幕（時刻が正確）から作る ─────────────────────
   // ここが本命。AIに動画を見せて作った時刻は、実演中の無音を飲み込むので後半ほどズレ、
@@ -3892,53 +3892,22 @@ async function _ytGenSubtitle(v, preset, btn, silent, t0) {
   }
 
   if (!srt && canTranslate && (preset ? preset.translate !== false
-        : confirm(`この動画には${other.label}の字幕があります。\n\n[OK] それを翻訳して${_langLabel(subLang)}字幕を作る（安い・時刻はそのまま）\n[キャンセル] 動画から新しく作り直す（時間とコストがかかります）${_shortWarn}`))) {
+        : confirm(`この動画には${other.label}の字幕があります。\n\nそれを翻訳して${_langLabel(subLang)}字幕を作りますか？（安い・時刻はそのまま）${_shortWarn}`))) {
     setBtn('⏳ 翻訳中…');
     const r = await _translateSrtText(other.srt, subLang, setBtn);
     srt = r.srt; cost = r.cost; via = 'translate:' + other.lang;
     if (r.missing) note = `（${r.missing}行は訳せず原文のまま）`;
-  } else if (!srt) {
-    // 【変更禁止】この !srt を外さないこと。
-    // 上でYouTube側の字幕から srt を作れていても、ここが素の else だと
-    // そのままGeminiに落ちて、正確な時刻を捨てたうえで課金される。
-    // 動画をGeminiに読ませて書き起こす
-    setBtn('⏳ 生成中…');
-    const res = await fetch('/api/ai-summary', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        idToken, mode: 'subtitle', subLang, subOpts: _subGenPayload(), source: 'youtube',
-        // 【変更禁止】ここは v.duration をそのまま渡す。0 でよい。
-        //
-        // v52.751 で「0 だと検証が働かないから」と実測値を送るように変えたところ、
-        // 字幕が途中で切れるようになった。サーバーの _cleanupCues は
-        //   c.start < durationSec + 5
-        // でキューを捨てる。Gemini は長尺で時刻が破綻する（この経路の既知の性質で、
-        // _worker.js にも明記されている）ため、後半のキューが尺を超えた時刻を持ち、
-        // 実測値を渡した瞬間にそれらが丸ごと削除される。
-        // 実測: 200枚のうち 107枚まで減り、10:43 の動画で3分ほどで字幕が終わった。
-        // 0 を渡している限り上限は Infinity になり、書かれたものは全部残る。
-        //
-        // 検証を効かせたいなら、まず時刻の破綻そのものを直すこと。
-        // 破綻したキューを黙って捨てるのは、ユーザーから見れば「字幕が切れる」だけ。
-        ytId, durationSec: Number(v.duration) || 0,
-        title: v.title || '', channel: v.ch || v.channel || '', playlist: v.pl || '',
-      }),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok || !d.summary) {
-      throw new Error((d.error || ('HTTP ' + res.status)) + (d.detail ? `（${d.detail}）` : ''));
-    }
-    srt = _cleanSrt(d.summary);
-    if (!_looksLikeSrt(srt)) throw new Error('SRT形式で返ってきませんでした。もう一度お試しください');
-    cost = Number(d.costUsd) || 0;
-    if (d.usage) console.log('[ytsub] tokens:', d.usage, '/ 概算 $', d.costUsd, '/', d.diag || '');
-    // サーバーが既に返している数字を、コンソールを開かなくても見えるようにする。
-    // AIが書いた枚数と、その最後の時刻。保存された字幕がこれより手前で終わって
-    // いたら「書かれたのに捨てられた」、ここ自体が手前なら「書かれていない」。
-    // 処理には一切影響しない。表示だけ。
-    const dg = Array.isArray(d.diag) ? d.diag[d.diag.length - 1] : null;
-    if (dg) diagNote = ` / AIの出力 ${dg.cues ?? '?'}枚・最後 ${_chapFmt(dg.last || 0)}`
-      + `・終了理由 ${dg.fin || '-'}・出力${dg.outTok ?? '?'}トークン`;
+  }
+
+  // 【変更禁止】YouTube動画で、動画をAIに見せて字幕を作る経路は置かないこと。
+  // AIは時刻を音から測らないので、出来上がる字幕は必ず後半ほどズレる。
+  // しかも後から直せない（飲み込まれる無音の位置も長さもバラバラなため）。
+  // 読めない時刻の字幕を金を払って作るくらいなら、作らないほうがいい。
+  // YouTube動画で時刻が音に紐づくのは、YouTube自身の字幕を土台にする作り方だけ。
+  // （Drive動画は音声を取り出せるので音声認識で実測できる。あちらは別の話。）
+  if (!srt) {
+    throw new Error('この動画はYouTube側に字幕が無いため作れません。'
+      + 'Googleドライブに置けば、音声から時刻を実測して字幕を作れます');
   }
 
   setBtn('⏳ 保存中…');

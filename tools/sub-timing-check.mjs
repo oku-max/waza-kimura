@@ -68,20 +68,28 @@ const h = wsrc.slice(wsrc.indexOf('async function handleYtTranscript'), wsrc.ind
   ? ok('失敗した理由を結果パネルに出す（黙ってGeminiに落ちない）')
   : fail('失敗が画面に出ないままGeminiへ落ちる');
 const gen = src.slice(src.indexOf('async function _ytGenSubtitle'), src.indexOf('setBtn(\'⏳ 保存中…\')'));
-gen.indexOf('_ytFetchTranscript(') >= 0 && gen.indexOf('_ytFetchTranscript(') < gen.indexOf("source: 'youtube'")
-  ? ok('Geminiに動画を見せる前に、YouTube側の字幕を試す')
-  : fail('YouTube側の字幕より先にGeminiへ行っている（直せない時刻を先に作る）');
+gen.includes('_ytFetchTranscript(')
+  ? ok('YouTube側の字幕を土台にしている')
+  : fail('YouTube側の字幕を使っていない');
 /時刻は向こうの値をそのまま使う/.test(wsrc)
   ? ok('取れた時刻はそのまま使う（丸めも詰め直しもしない）')
   : fail('取れた時刻に手を入れている');
-// YouTube側で取れたら、そこで終わること。
-// 素の else にすると、正確な時刻を作った直後にGeminiが走って上書きし、課金もされる。
-/\} else if \(!srt\) \{/.test(gen)
-  ? ok('YouTube側で取れたらGeminiへ落ちない（時刻を捨てて課金しない）')
-  : fail('YouTube側で取れてもGeminiが走る（正確な時刻を捨てて課金する）');
 /_translateSrtText\(yt\.srt/.test(src)
   ? ok('本文だけ訳す（時刻は既存の「翻訳だけやり直す」と同じく動かさない）')
   : fail('YouTubeの字幕を訳すときに時刻を作り直している');
+
+// 4.5 YouTube動画では、動画をAIに見せて字幕を作らないこと。
+// AIは時刻を音から測らないので、出来上がる字幕は必ず後半ほどズレ、後から直せない。
+// 読めない時刻の字幕を金を払って作るくらいなら、作らないほうがいい。
+// （Drive動画は音声を取り出せるので音声認識で実測できる。あちらは対象外。）
+const ytBody = src.slice(src.indexOf('async function _ytGenSubtitle'),
+                         src.indexOf("await _ytSubStore(ytId, subLang, srt,"));
+!/source: 'youtube'[\s\S]*mode: 'subtitle'|mode: 'subtitle'[\s\S]{0,400}source: 'youtube'/.test(ytBody)
+  ? ok('YouTube動画を Gemini に見せて字幕を作る経路は無い')
+  : fail('YouTube動画をGeminiに見せて字幕を作っている（必ずズレる字幕を金を払って作ることになる）');
+/YouTube側に字幕が無いため作れません/.test(src)
+  ? ok('作れないときは作らず、その理由とDriveの道を伝える')
+  : fail('作れないときの案内が無い');
 
 // 5. 時刻が正確な字幕では、ズレ補正の欄を出さないこと。
 //    出番の無い操作を並べると「何か直さないといけないのか」と思わせる。
