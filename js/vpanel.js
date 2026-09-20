@@ -1737,10 +1737,10 @@ export function openVPanel(id) {
     // （📸 は画面キャプチャが要る＝スマホでは撮れない。役割を分けて並べる）
     const _tsBtn = `<button id="vp-ts-btn-${vid}" onclick="vpMemoInsertTs('${vid}')" title="いまの再生位置をメモに入れる"
            style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button>`;
-    const _snapBtn = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com'
-      ? `<button id="vp-snap-now-btn-${vid}" onclick="vpMemoSnapNow('${vid}')" title="現在のフレームをスクショしてメモに挿入"
-           style="margin-left:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">📸</button>`
-      : '';
+    // 🖼 = 画像をメモに入れる入口。押すと「いまの画面を撮る／端末の画像から選ぶ」を選ばせる。
+    // 撮影は端末によってできないので、入口は1つにして中で塞ぐ。
+    const _snapBtn = `<button id="vp-img-btn-${vid}" onclick="vpMemoInsertImage('${vid}')" title="画像をメモに入れる"
+           style="margin-left:6px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🖼</button>`;
     // 字幕生成: Driveは同じフォルダにSRTを保存、YouTubeは字幕ドキュメントに保存
     const _subGenBtn = (_isOwner && (vd?.pt === 'gdrive' || !!_vYtId(vd)))
       ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
@@ -7675,7 +7675,7 @@ window.vpMemoHelp = function(e) {
   const btn = (e && e.currentTarget) || null;
 
   const items = [
-    { ic: '📷',                                                  label: 'スナップショット', sub: '今の動画フレームを撮影してメモ・写真に追加する' },
+    { ic: '🖼',                                                  label: '画像を入れる',   sub: 'いまの画面を撮る／端末の画像から選ぶ。メモには小さく入り、タップで拡大' },
     { ic: '<span style="font-size:15px">↶</span>',              label: '元に戻す',       sub: '直前の編集を取り消す' },
     { ic: '<span style="font-size:15px">↷</span>',              label: 'やり直し',       sub: '取り消した編集をやり直す' },
     { ic: '<b>B</b>',                                            label: '太字',          sub: '選択した文字を太字にする' },
@@ -7906,6 +7906,131 @@ async function _captureScreenFrame() {
   }
 }
 
+// ── 画像をメモに入れる（🖼）─────────────────────────────────
+// 入口を1つにして、中で2つに分ける:
+//   1. いまの画面を撮る … 画面キャプチャが要る。スマホには API が無いので押せない
+//   2. 端末の画像から選ぶ … どの端末でも使える（スマホはスクショを選ぶ）
+// メモに入る画像はインライン（小さいサムネ）だけ。タップでフル画質が開く。
+// 大きい画像はスマホで邪魔になるので、大きいブロック表示はやめた（2026-09-20）。
+
+// この端末・この動画で「いまの画面」を撮れるか
+function _canShootNow(v) {
+  if (v?.pt === 'gdrive' && _gdVideoEl) return true;          // 同一オリジンの<video>から直接
+  return !!navigator.mediaDevices?.getDisplayMedia;            // それ以外は画面共有が要る
+}
+
+// 選んだ画像ファイル → 保存用（最大1280px）と、メモ用サムネ（最大320px）
+async function _imageFileToShot(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error('画像を読み込めませんでした'));
+      im.src = url;
+    });
+    const draw = (maxPx, quality) => {
+      const s = Math.min(1, maxPx / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width  = Math.max(1, Math.round(img.naturalWidth  * s));
+      c.height = Math.max(1, Math.round(img.naturalHeight * s));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return { canvas: c, quality };
+    };
+    const full = draw(1280, 0.85);
+    const fullBlob = await new Promise(r => full.canvas.toBlob(r, 'image/jpeg', full.quality));
+    const thumb = draw(320, 0.7);
+    return { fullBlob, thumbDataUrl: thumb.canvas.toDataURL('image/jpeg', thumb.quality) };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// 端末の画像を1枚選ばせる。選ばなければ null。
+function _pickImageFile() {
+  return new Promise(resolve => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.style.cssText = 'position:fixed;left:-9999px;top:0';
+    document.body.appendChild(inp);
+    let done = false;
+    const fin = (f) => { if (done) return; done = true; try { inp.remove(); } catch(e) {} resolve(f); };
+    inp.onchange = () => fin(inp.files && inp.files[0] ? inp.files[0] : null);
+    // キャンセルは change が来ないブラウザがあるので、復帰時に一度だけ見る
+    window.addEventListener('focus', () => setTimeout(() => fin(null), 1500), { once: true });
+    inp.click();
+  });
+}
+
+// 入口。どちらにするか選ばせる。
+window.vpMemoInsertImage = function(id) {
+  const v = (window.videos || []).find(x => x.id === id);
+  const canShoot = _canShootNow(v);
+  const ov = document.createElement('div');
+  ov.id = 'vp-img-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  const close = () => { try { document.body.removeChild(ov); } catch(e) {} };
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+  const btnCss = (on) => `display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:11px 12px;margin-bottom:8px;`
+    + `border-radius:9px;font-family:inherit;border:1px solid var(--border);background:var(--surface2);color:var(--text);`
+    + (on ? 'cursor:pointer' : 'opacity:.45;cursor:default');
+  ov.innerHTML = `<div style="background:var(--surface);color:var(--text);border-radius:12px;padding:16px;max-width:320px;width:100%;box-shadow:var(--shadow-lg)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px">🖼 画像をメモに入れる</div>
+      <button id="vp-img-shot" ${canShoot ? '' : 'disabled'} style="${btnCss(canShoot)}">
+        <span style="font-size:16px">📸</span>
+        <span><span style="display:block;font-size:12.5px;font-weight:700">いまの画面を撮る</span>
+          <span style="display:block;font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.5">${
+            canShoot ? '再生中のフレームをそのまま入れる' : 'この端末では画面を撮れません（スマホは非対応）'}</span></span>
+      </button>
+      <button id="vp-img-pick" style="${btnCss(true)}">
+        <span style="font-size:16px">🖼</span>
+        <span><span style="display:block;font-size:12.5px;font-weight:700">端末の画像から選ぶ</span>
+          <span style="display:block;font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.5">スマホで撮ったスクリーンショットもここから</span></span>
+      </button>
+      <button id="vp-img-cancel" style="width:100%;margin-top:4px;padding:8px;background:none;border:none;color:var(--text3);font-size:12px;font-family:inherit;cursor:pointer">キャンセル</button>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#vp-img-cancel').onclick = close;
+  const shotBtn = ov.querySelector('#vp-img-shot');
+  if (canShoot) shotBtn.onclick = () => { close(); window.vpMemoSnapNow(id); };   // 押したのと同じ処理を呼ぶ
+  ov.querySelector('#vp-img-pick').onclick = () => { close(); _insertLocalImage(id); };
+};
+
+// 端末の画像をメモに入れる。再生位置が分かるならタイムスタンプも一緒に付ける。
+async function _insertLocalImage(id) {
+  const memoEl = document.getElementById('vp-memo-' + id);
+  if (!memoEl) { window.toast?.('メモ欄が見つかりませんでした（パネルを開き直してください）'); return; }
+  const file = await _pickImageFile();
+  if (!file) return;                                   // 選ばなかった
+  if (!file.type.startsWith('image/')) { window.toast?.('画像ファイルを選んでください'); return; }
+
+  const btn = document.getElementById('vp-img-btn-' + id);
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const shot = await _imageFileToShot(file);
+    if (!shot.fullBlob) { window.toast?.('画像を読み込めませんでした'); return; }
+    if (!window.snapAddBlob) { window.toast?.('スナップショットの保存先が使えません'); return; }
+    const sec = _getCurrentTime();
+    const snapId = await window.snapAddBlob(id, shot.fullBlob, sec ?? null, '');
+    const tsHtml = sec == null ? '' : _tsLinkHtml(sec, _fmtSec(sec)) + '&nbsp;';
+    memoEl.focus();
+    document.execCommand('insertHTML', false,
+      `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', shot.thumbDataUrl, 'inline')}</div>`);
+    _bindTsLinks(memoEl);
+    vpSaveMemo(id);
+    const snapSec = document.getElementById('vp-snap-section-' + id);
+    if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
+    window.toast?.('🖼 画像をメモに入れました');
+  } catch (e) {
+    console.error('[insertImage]', e);
+    window.toast?.('⚠️ 画像を入れられませんでした');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig || '🖼'; }
+  }
+}
+
 window.vpMemoSnapNow = async function(id) {
   // 「押しても何も起きない」と言われたときに、どこで止まったかが分かるようにする。
   // 黙って return する枝を残さない（無言の終了が一番たちが悪い）。
@@ -7917,7 +8042,7 @@ window.vpMemoSnapNow = async function(id) {
   });
   const sec = _getCurrentTime();
   if (sec == null) { window.toast?.('動画を再生してからスクショしてください'); return; }
-  const btn = document.getElementById(`vp-snap-now-btn-${id}`);
+  const btn = document.getElementById(`vp-img-btn-${id}`);
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
     const v = _v0;
@@ -7939,7 +8064,7 @@ window.vpMemoSnapNow = async function(id) {
 
     if (cap?.fullBlob && window.snapAddBlob) {
       const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
-      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'block');
+      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
       const rowHtml = `<div style="margin:4px 0">${tsHtml}&nbsp;${thumbHtml}</div>`;
       memoEl.focus();
       document.execCommand('insertHTML', false, rowHtml);
@@ -7968,7 +8093,7 @@ window.vpMemoSnapNow = async function(id) {
       window.toast?.('⚠️ キャプチャに失敗しました');
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '📸'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🖼'; }
   }
 };
 
@@ -8182,7 +8307,7 @@ export function _openPanel(id, emb, ext, plat) {
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
-          <span class="vp-lbl">Memo<button id="vp-ts-btn-${id}" onclick="vpMemoInsertTs('${id}')" title="いまの再生位置をメモに入れる" style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button>${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
+          <span class="vp-lbl">Memo<button id="vp-ts-btn-${id}" onclick="vpMemoInsertTs('${id}')" title="いまの再生位置をメモに入れる" style="margin-left:8px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid #a8c0f0;background:transparent;color:#2050c0;font-weight:700;cursor:pointer;vertical-align:middle">⏱</button><button id="vp-img-btn-${id}" onclick="vpMemoInsertImage('${id}')" title="画像をメモに入れる" style="margin-left:6px;font-size:12px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">🖼</button>${(window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com' && (v?.pt === 'gdrive' || !!_vYtId(v)))
             ? `<button id="vp-subgen-${id}" onclick="vpGenSubtitle('${id}')" title="AIが音声を文字起こしして字幕を作ります" style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
             : ''}</span>
           ${_memoToolbarHTML(id)}
