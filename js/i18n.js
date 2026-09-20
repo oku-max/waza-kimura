@@ -1075,6 +1075,7 @@
     "⚠️ 同期エラー:": "⚠️ Sync error:",
     "⚠️ 未ログイン: データを保存できませんでした": "⚠️ Not signed in: could not save data",
     "⚠️ 認証エラー:": "⚠️ Auth error:",
+    "認証エラー:": "Auth error:",
     "⚠️ 送信に失敗しました:": "⚠️ Failed to send:",
     "✅ データを読み込みました": "✅ Data loaded",
     "✅ フィードバックありがとうございます！": "✅ Thanks for your feedback!",
@@ -1715,18 +1716,26 @@
     "📑 自動チャプター": "📑 Auto chapters",
     "AIが動画を読み取ってチャプターごとにブックマークを作ります": "The AI reads the video and creates one bookmark per chapter",
     "字幕から検出": "Detect from subtitles",
+    "AI が字幕から内容を判断してチャプターを作成。字幕がない場合は先に「字幕生成」を実行。":
+      "The AI reads the subtitles and builds the chapters. With no subtitles, \u201cSubtitles\u201d runs first.",
     "字幕が無いので、先に「💬 字幕生成」を実行してから検出します":
       "No subtitles yet, so \u201c\ud83d\udcac Subtitles\u201d runs first, then detection",
+    // YouTubeに埋め込まれたチャプター（旧「📑 チャプター」欄の「再取得」）
+    "YouTubeのチャプターを取得": "Get the YouTube chapters",
+    "動画に付いているチャプターをそのまま取り込む（無料・最も正確）":
+      "Imports the chapters that come with the video (free, most accurate)",
+    "YouTubeのチャプター": "YouTube chapters",
+    "この動画にはYouTubeのチャプターがありません": "This video has no YouTube chapters",
     "⏳ 字幕を作成中…": "\u23f3 Creating subtitles...",
     "字幕は作成できました。一覧にまだ出てこないので、もう一度「自動チャプター」を押してください":
       "The subtitles were created but are not listed yet \u2014 press \u201cAuto chapters\u201d again",
     "対象の字幕が見つかりません": "Could not find that subtitle",
     // 公式チャプター表（商品ページの目次を貼り付けて章立てを確定させる）
-    "チャプター一覧を貼り付け": "Paste a chapter list",
-    "チャプター名と時間をコピペする（最も正確）": "Copy and paste the names and times (most accurate)",
-    "📋 チャプター一覧を貼り付け": "📋 Paste a chapter list",
-    "チャプター名と時間をそのまま貼り付けてください。文字でも画像でも構いません":
-      "Paste the chapter names and times as-is. Text or a screenshot both work",
+    "自分で一括入力": "Enter them yourself",
+    "チャプター名と時間をまとめて貼り付け・手入力する": "Paste or type the names and times in one go",
+    "📋 自分で一括入力": "📋 Enter them yourself",
+    "チャプター名と時間をまとめて入れてください。貼り付けでも手入力でも、スクショでも構いません":
+      "Enter the chapter names and times in one go \u2014 pasted, typed or from a screenshot",
     "例:\n0:00 イントロ\n2:30 クローズドガード\n15:42 ヒップバンプスイープ":
       "e.g.\n0:00 Intro\n2:30 Closed Guard\n15:42 Hip Bump Sweep",
     "🖼 スクショを貼り付け / ドロップ": "🖼 Paste or drop a screenshot",
@@ -1736,9 +1745,9 @@
     "貼り付けた内容からチャプターを読み取れませんでした": "Could not find any chapters in what you pasted",
     "チャプター名のテキストか画像が必要です": "Chapter names as text or an image are required",
     "⏳ 位置合わせ中…": "⏳ Locating...",
-    "貼り付けた一覧": "Pasted list",
-    "貼り付けた一覧 ＋ 字幕で位置合わせ": "Pasted list + located via subtitles",
-    "貼り付けた一覧 ＋ 動画で位置合わせ": "Pasted list + located via video",
+    "貼り付けた一覧": "Entered list",
+    "貼り付けた一覧 ＋ 字幕で位置合わせ": "Entered list + located via subtitles",
+    "貼り付けた一覧 ＋ 動画で位置合わせ": "Entered list + located via video",
     // 検出の粒度
     "取込済": "Imported",
     // ── Drive取り込みピッカー（エクスプローラー風）──
@@ -1761,7 +1770,7 @@
     "Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか":
       "How finely “📑 Auto chapters” splits a Google Drive video",
     "貼り付けた一覧から作る時は、その通りに区切るのでこの設定は使いません":
-      "Not used when building from a pasted list — that follows the list exactly",
+      "Not used when building from a list you entered — that follows the list exactly",
     "刻みすぎ・粗すぎる時は粒度を変えて検出し直せます":
       "Too many or too few? Pick another granularity to detect again",
     "細かめ": "Finer",
@@ -2050,6 +2059,7 @@
     [/^⚠️ チャプターの検出に失敗: (.+)$/,
       (m, d) => `⚠️ Chapter detection failed: ${_autoMap.get(d) || d}`],
     [/^字幕の取得に失敗 \((\d+)\)$/, 'Failed to fetch the subtitles ($1)'],
+    [/^YouTubeの取得に失敗 \((\d+)\)$/, 'Failed to fetch from YouTube ($1)'],
     [/^(\d+)\s*本$/, '$1 videos'],
     [/^(\d+)\s*件$/, '$1 items'],
     [/^(\d+)\s*枚$/, '$1 shots'],

@@ -559,13 +559,6 @@ function _srLockedSectionsHTML(isYt) {
   const btnS = 'width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:700;color:var(--text2);padding:0;font-family:inherit';
   const btnP = 'width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);font-size:13px;font-weight:700;color:var(--on-accent);padding:0;font-family:inherit';
 
-  // チャプター（YouTube動画のみ）
-  const chapterHTML = isYt ? `
-    <div class="vp-row">
-      <span class="vp-lbl">📑 チャプター</span>
-      <button disabled style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:default;font-family:inherit;opacity:.6">再取得</button>
-    </div>` : '';
-
   // ブックマーク
   const bookmarkHTML = `
     <div class="vp-row">
@@ -624,7 +617,7 @@ function _srLockedSectionsHTML(isYt) {
     </div>`;
 
   return {
-    bm:     `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`,
+    bm:     `<div id="yt-sr-vp-bm-area">${bookmarkHTML}${memoHTML}</div>`,
     drawer: `<div id="yt-sr-vp-edit-area">${counterHTML}</div>`
   };
 }
@@ -787,7 +780,6 @@ export function ytSrOpenVPanel(idx) {
 
     // BM エリア + ドロワー（libEntry は常にセット済み: 実エントリ or tempEntry）
     const bmId         = libEntry.id;
-    const chapterHTML  = window._vpChapterSectionHTML?.(bmId)  || '';
     const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
     const memoHTML = `<div class="vp-row" style="margin-top:8px">
       <span class="vp-lbl">Memo</span>
@@ -797,7 +789,7 @@ export function ytSrOpenVPanel(idx) {
         oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${bmId}'),800)">${window._vpMemoToHtmlStatic?.(libEntry.memo||'') || _esc(libEntry.memo || '')}</div>
     </div>
     <div id="vp-snap-section-${bmId}"></div>`;
-    const bmAreaHTML = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
+    const bmAreaHTML = `<div id="yt-sr-vp-bm-area">${bookmarkHTML}${memoHTML}</div>`;
     const drawerHTML = `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`;
 
     // YouTube 動画情報（全動画共通）
@@ -927,7 +919,6 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
   if (scroll) {
     const abHTML      = window._vpLoopSectionHTML?.() || '';
     const bmId        = libEntry.id;
-    const chapterHTML = window._vpChapterSectionHTML?.(bmId) || '';
     const bookmarkHTML = window._vpBookmarkSectionHTML?.(bmId) || '';
     const memoHTML = `<div class="vp-row" style="margin-top:8px">
       <span class="vp-lbl">Memo</span>
@@ -937,7 +928,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
         oninput="clearTimeout(this._t);this._t=setTimeout(()=>vpSaveMemo('${bmId}'),800)">${window._vpMemoToHtmlStatic?.(libEntry.memo||'') || _esc(libEntry.memo || '')}</div>
     </div>
     <div id="vp-snap-section-${bmId}"></div>`;
-    const bmAreaHTML  = `<div id="yt-sr-vp-bm-area">${chapterHTML}${bookmarkHTML}${memoHTML}</div>`;
+    const bmAreaHTML  = `<div id="yt-sr-vp-bm-area">${bookmarkHTML}${memoHTML}</div>`;
     const drawerHTML  = `<div id="yt-sr-vp-edit-area">${window.buildDrawerHTML?.(bmId) || ''}</div>`;
     const infoHTML    = `<div class="yt-sr-vp-info-section">
       <div class="yt-sr-vp-info-ttl">${_esc(title)}</div>

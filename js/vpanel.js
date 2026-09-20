@@ -1023,77 +1023,15 @@ function _vYtId(v) {
 }
 window._wkVYtId = _vYtId;   // 他のファイルからも同じ判定を使えるように
 
-function _chapterSectionHTML(id) {
-  const v = (window.videos||[]).find(v => v.id === id);
-  const isYt = !!_vYtId(v);
-  if (!v?.ytChapters?.length) {
-    if (!isYt) return '';
-    return `
-    <div class="vp-row" id="vp-chapters-${id}">
-      <span class="vp-lbl">📑 チャプター</span>
-      <button onclick="vpRefetchChapters('${id}')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer">再取得</button>
-    </div>`;
-  }
-  const items = v.ytChapters.map(ch => {
-    const tot = ch.t, h = Math.floor(tot/3600), m = Math.floor((tot%3600)/60), s = tot%60;
-    const time = h > 0
-      ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-      : `${m}:${String(s).padStart(2,'0')}`;
-    return `<div onclick="vpChapterClick(${ch.t})" style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-      <span style="font-size:11px;font-weight:600;color:var(--accent);font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0">${time}</span>
-      <span style="font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ch.label}</span>
-    </div>`;
-  }).join('');
-  return `
-    <div class="vp-row" id="vp-chapters-${id}">
-      <span class="vp-lbl" style="margin-bottom:4px">📑 チャプター</span>
-      <div style="width:100%;max-height:180px;overflow-y:auto">${items}</div>
-    </div>`;
-}
-
-async function _doFetchChapters(id, token) {
-  const v = (window.videos||[]).find(v => v.id === id);
-  if (!v) return;
-  const btn = document.querySelector(`#vp-chapters-${id} button`);
-  if (btn) { btn.textContent = '取得中...'; btn.disabled = true; }
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${_vYtId(v)}&maxResults=1`;
-    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-    const data = await res.json();
-    if (data.error) { window.toast?.('⚠️ 取得エラー: ' + data.error.message); if (btn) { btn.textContent = '再取得'; btn.disabled = false; } return; }
-    const desc = data.items?.[0]?.snippet?.description || '';
-    const chapters = window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
-    v.ytChapters = chapters;
-    await window.saveUserData?.();
-    const sec = document.getElementById(`vp-chapters-${id}`);
-    if (sec) sec.outerHTML = _chapterSectionHTML(id);
-    window.toast?.(chapters.length ? `📑 ${chapters.length}件のチャプターを取得しました` : 'チャプターが見つかりませんでした');
-  } catch(e) { window.toast?.('⚠️ 取得エラー: ' + e.message); if (btn) { btn.textContent = '再取得'; btn.disabled = false; } }
-}
-
-export function vpRefetchChapters(id) {
-  const v = (window.videos||[]).find(v => v.id === id);
-  if (!_vYtId(v)) return;
-  if (window._ytToken) {
-    _doFetchChapters(id, window._ytToken);
-    return;
-  }
-  // トークンがない場合は認証してから実行
-  const tc = google.accounts.oauth2.initTokenClient({
-    client_id: '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com',
-    scope: 'https://www.googleapis.com/auth/youtube.readonly',
-    callback: async (resp) => {
-      if (resp.error) { window.toast?.('⚠️ 認証エラー: ' + resp.error); return; }
-      window._ytToken = resp.access_token;
-      await _doFetchChapters(id, resp.access_token);
-    }
-  });
-  tc.requestAccessToken();
-}
-window.vpRefetchChapters = vpRefetchChapters;
-
-export function vpChapterClick(sec) { _seekTo(sec); }
-window.vpChapterClick = vpChapterClick;
+// ── 📑 チャプター欄は廃止（2026-09-20）──────────────────────
+// YouTubeに埋め込まれたチャプターを並べて「再取得」できる専用の欄があったが、
+// 出てくるものは「時刻＋名前の一覧」で、すぐ下のブックマークとまったく同じ形だった。
+// 同じものが同じ画面に2つ並ぶので、置き場をブックマークに一本化した。
+// 取得の入口は「📑 自動チャプター」→「YouTubeのチャプターを取得」に移した
+// （_ytFetchEmbeddedChapters）。確認ダイアログを通ってブックマークに入る。
+//
+// v.ytChapters のデータ自体は残す。ノート（notes.js）とAIタグ付け（ai-tagging.js）が
+// 読んでいるので、表示をやめるだけで消さない。
 
 function _bookmarkSectionHTML(id) {
   const hasAB = _ab.a != null && _ab.b != null && _ab.loop;
@@ -1746,7 +1684,7 @@ export function openVPanel(id) {
       ? `<button id="vp-subgen-${vid}" onclick="vpGenSubtitle('${vid}')" title="AIが音声を文字起こしして字幕を作ります"
            style="margin-left:4px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;vertical-align:middle">💬 字幕生成</button>`
       : '';
-    bmContainer.innerHTML = _chapterSectionHTML(vid) + _bookmarkSectionHTML(vid)
+    bmContainer.innerHTML = _bookmarkSectionHTML(vid)
       + `<div class="vp-row" id="vp-memo-row-${vid}" style="margin-top:8px">
           <div class="vp-memo-stickyhead">
             <span class="vp-lbl">Memo${_tsBtn}${_snapBtn}${_subGenBtn}</span>
@@ -4912,8 +4850,8 @@ function _chapListDialog() {
       <div style="background:var(--surface,#222);border:1.5px solid var(--border,#444);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);
                   width:100%;max-width:460px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px 8px;border-bottom:0.5px solid var(--border,#444)">
-          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📋 チャプター一覧を貼り付け</div>
-          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">チャプター名と時間をそのまま貼り付けてください。文字でも画像でも構いません</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text,#eee)">📋 自分で一括入力</div>
+          <div style="font-size:10.5px;color:var(--text3,#999);margin-top:3px">チャプター名と時間をまとめて入れてください。貼り付けでも手入力でも、スクショでも構いません</div>
         </div>
         <div style="flex:1;overflow-y:auto;padding:10px 14px">
           <textarea id="vp-chap-in-text" placeholder="例:\n0:00 イントロ\n2:30 クローズドガード\n15:42 ヒップバンプスイープ"
@@ -5054,13 +4992,21 @@ function _chapMergeAligned(titles, aligned) {
 }
 
 // 検出の入り口を選ぶ小メニュー。選択で resolve、外クリック/Escで null
-function _askChapterSource(anchorEl, subCount) {
+//
+// 入口は3つ。上から「正確で安いもの」の順に並べる:
+//   yt   … YouTubeに埋め込まれたチャプター（説明文のタイムスタンプ）をそのまま取る。
+//          AIを通さないので無料・一瞬・名前も時刻も公式のまま。YouTube動画のときだけ出す。
+//   sub  … 字幕の文字起こしをAIに読ませる。
+//   list … 自分で一括入力（コピペ・スクショ）。
+// 「動画から検出」はメニューから外した（2026-09-20）。遅くて高いうえ、
+// 時刻がAIの推測になるため、上の3つで足りる。一括処理の経路だけは残してある。
+function _askChapterSource(anchorEl, hasYt) {
   return new Promise(resolve => {
     document.getElementById('vp-chapgen-menu')?.remove();
     const menu = document.createElement('div');
     menu.id = 'vp-chapgen-menu';
     menu.style.cssText = 'position:fixed;z-index:10000;background:var(--surface,#222);border:1.5px solid var(--border,#444);'
-      + 'border-radius:10px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35);min-width:230px;top:0;left:0;visibility:hidden';
+      + 'border-radius:10px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35);min-width:260px;max-width:300px;top:0;left:0;visibility:hidden';
     const item = (val, label, sub, disabled) =>
       `<button class="vp-chapgen-item" data-via="${val}" ${disabled ? 'disabled' : ''}
          style="display:block;width:100%;text-align:left;padding:8px 10px;border:none;border-radius:7px;background:transparent;
@@ -5070,11 +5016,11 @@ function _askChapterSource(anchorEl, subCount) {
     // ここは「どこから作るか」を選ぶだけ。細かさは検出を選んだ後に次の画面で聞く
     // （貼り付けには効かない設定を同じ画面に並べると分かりにくいため）。
     menu.innerHTML =
-      item('list', 'チャプター一覧を貼り付け', 'チャプター名と時間をコピペする（最も正確）', false)
+      (hasYt ? item('yt', 'YouTubeのチャプターを取得',
+                    '動画に付いているチャプターをそのまま取り込む（無料・最も正確）', false) : '')
       + item('sub', '字幕から検出',
-             subCount ? 'この動画の字幕を使います（速い・安い）'
-                      : '字幕が無いので、先に「💬 字幕生成」を実行してから検出します', false)
-      + item('video', '動画から検出', 'AIが動画を視聴します（時間とコストがかかります）', false);
+             'AI が字幕から内容を判断してチャプターを作成。字幕がない場合は先に「字幕生成」を実行。', false)
+      + item('list', '自分で一括入力', 'チャプター名と時間をまとめて貼り付け・手入力する', false);
     document.body.appendChild(menu);
     _fitPopup(menu, anchorEl);
     menu.style.visibility = '';
@@ -5286,6 +5232,43 @@ async function _chapGetVtt(fileId, gdToken, subs) {
   return _srtToVtt(_gdSubDecode(await res.arrayBuffer()));
 }
 
+// ── YouTubeに埋め込まれたチャプターを取る ──────────────────
+// 説明文のタイムスタンプがYouTubeのチャプターの正体なので、説明文を取って読む。
+// AIを通さないので無料・一瞬。時刻も名前も投稿者が書いたそのままで、推測が入らない。
+// 以前は再生パネルの「📑 チャプター」欄にあった「再取得」がこれ。
+function _ytReadonlyToken() {
+  if (window._ytToken) return Promise.resolve(window._ytToken);
+  return new Promise((resolve, reject) => {
+    try {
+      google.accounts.oauth2.initTokenClient({
+        client_id: '502684957551-bal1rfuj3vanhu1j6p452bsvc6gmcp7u.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/youtube.readonly',
+        callback: resp => {
+          if (resp.error) return reject(new Error('認証エラー: ' + resp.error));
+          window._ytToken = resp.access_token;
+          resolve(resp.access_token);
+        },
+      }).requestAccessToken();
+    } catch (e) { reject(e); }
+  });
+}
+
+async function _ytFetchEmbeddedChapters(ytId, retried) {
+  const token = await _ytReadonlyToken();
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${encodeURIComponent(ytId)}&maxResults=1`;
+  const res  = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  // 保存していたトークンが切れていることがある。一度だけ取り直してやり直す
+  if (res.status === 401 && !retried) {
+    window._ytToken = null;
+    return _ytFetchEmbeddedChapters(ytId, true);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (data.error) throw new Error(data.error.message || `YouTubeの取得に失敗 (${res.status})`);
+  if (!res.ok)    throw new Error(`YouTubeの取得に失敗 (${res.status})`);
+  const desc = data.items?.[0]?.snippet?.description || '';
+  return window.parseYtTimestamps ? window.parseYtTimestamps(desc) : [];
+}
+
 window.vpGenChapters = async function(id, preset) {
   const silent = !!(preset && preset.silent);
   const fail = (msg) => { if (!silent) window.toast?.(msg); return { ok: false, error: msg }; };
@@ -5318,7 +5301,7 @@ window.vpGenChapters = async function(id, preset) {
     endBtn();
     // メニューは { via, grain } を返す。一括実行(preset)の時は聞かない。
     const via = preset ? (preset.via || (subs.length ? 'sub' : 'video'))
-                       : await _askChapterSource(btn, subs.length);
+                       : await _askChapterSource(btn, isYt);
     if (!via) return { ok: false, skipped: true };
 
     // 2枚目。どこから作るかによって聞くことが違う。
@@ -5337,8 +5320,9 @@ window.vpGenChapters = async function(id, preset) {
       ? { source: 'gdrive', gdFileId: fileId, accessToken: gdToken }
       : { source: 'youtube', ytId: _vYtId(v), durationSec: duration || 0 };
 
+    // 粒度が要るのは「検出」だけ。yt（公式の区切り）と list（入力どおり）は聞かない
     let pickedGrain = preset?.grain;
-    if (!preset && via !== 'list') {
+    if (!preset && via !== 'list' && via !== 'yt') {
       pickedGrain = await _chapGrainDialog(via, duration);
       if (!pickedGrain) return { ok: false, skipped: true };
     }
@@ -5418,7 +5402,21 @@ window.vpGenChapters = async function(id, preset) {
       const freeOpts = { minSec: grain.minSec, maxCount: grain.maxCount, titleLen: grain.titleLen };
       let chaps = [], cost = 0, noteSrc = '', warn = '';
 
-      if (via === 'list') {
+      if (via === 'yt') {
+        // 2a-0. YouTubeに埋め込まれたチャプターをそのまま取り込む。AIも課金も通らない。
+        setBtn('⏳ 取得中…');
+        const fetched = await _ytFetchEmbeddedChapters(_vYtId(v));
+        if (!fetched.length) return fail('この動画にはYouTubeのチャプターがありません');
+        // 【データ】取れた時だけ書く。空で上書きすると、他の端末にある一覧まで消える
+        v.ytChapters = fetched;
+        window.debounceSave?.();
+        // 公式の区切りは短い章も正解なので間引かない（貼り付けた一覧と同じ扱い）
+        chaps   = _normalizeChapters(fetched.map(c => ({ time: c.t, label: c.label })),
+                                     { duration, minSec: 0, maxCount: 200 });
+        noteSrc = 'YouTubeのチャプター';
+        if (!chaps.length) return fail('この動画にはYouTubeのチャプターがありません');
+
+      } else if (via === 'list') {
         // 2a. 表を読む（動画も字幕も送らない）
         const r1 = await post({ idToken, mode: 'chapters', source: 'chapterlist',
                                 listText: input.text, listImages: input.images });
@@ -5478,7 +5476,7 @@ window.vpGenChapters = async function(id, preset) {
         ? { chaps, withEnd: !!preset.withEnd, replaceAuto: !!preset.replaceAuto }
         : await _chapReviewDialog(chaps, {
             note, autoCount, warn,
-            grain: grainKey, canRedo: via !== 'list',
+            grain: grainKey, canRedo: via !== 'list' && via !== 'yt',
           });
       if (!sel) return { ok: false, skipped: true };
       if (sel.redo) { grainKey = _chapGrainKey(sel.grain); setBtn('⏳ 検出中…'); continue; }
@@ -8303,7 +8301,6 @@ export function _openPanel(id, emb, ext, plat) {
     const body = document.getElementById('vp-panel-body-' + id);
     if (!body) return;
     body.innerHTML = `
-      ${_chapterSectionHTML(id)}
       ${_bookmarkSectionHTML(id)}
       <div class="vp-row" style="margin-top:8px;padding:0 2px">
         <div class="vp-memo-stickyhead">
@@ -8547,7 +8544,6 @@ let _openVPanelId = null;
 // ── Search VP 統合: プライベート関数を window に公開 ──
 window._vpLoopSectionHTML      = () => _loopSectionHTML();
 window._vpBookmarkSectionHTML  = (id) => _bookmarkSectionHTML(id);
-window._vpChapterSectionHTML   = (id) => _chapterSectionHTML(id);
 
 // ── チャンネル/プレイリスト → ライブラリジャンプ ──
 window.vpJumpToChannel = function(id) {
