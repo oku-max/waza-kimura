@@ -202,17 +202,12 @@ export function buildBulkDrawerHTML() {
   // AI一括実行（オーナー限定・Geminiを使うため）
   const _owner = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
   const _gdCount = selVids.filter(v => v.pt === 'gdrive').length;
-  const _sumCount = selVids.filter(v => v.pt === 'gdrive' || (v.pt === 'youtube' && v.ytId)).length;
-  const _aiBulkSec = _owner ? `<div style="padding:8px 0 4px;display:flex;gap:8px">
-      <button onclick="bulkAiRun('subtitle')" ${_gdCount ? '' : 'disabled'}
-        style="flex:1;padding:9px;border-radius:9px;border:1px dashed var(--border);background:var(--surface2);
+  // 一括で走らせるのは字幕生成だけ。AI要約は廃止した（2026-09-20）。
+  const _aiBulkSec = _owner ? `<div style="padding:8px 0 4px">
+      <button onclick="bulkAiRun()" ${_gdCount ? '' : 'disabled'}
+        style="width:100%;padding:9px;border-radius:9px;border:1px dashed var(--border);background:var(--surface2);
                color:var(--text2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;${_gdCount ? '' : 'opacity:.4;cursor:default'}">
         💬 字幕を一括生成${_gdCount ? `（${_gdCount}本）` : ''}
-      </button>
-      <button onclick="bulkAiRun('summary')" ${_sumCount ? '' : 'disabled'}
-        style="flex:1;padding:9px;border-radius:9px;border:1px dashed var(--border);background:var(--surface2);
-               color:var(--text2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;${_sumCount ? '' : 'opacity:.4;cursor:default'}">
-        ✨ AI要約を一括${_sumCount ? `（${_sumCount}本）` : ''}
       </button>
     </div>` : '';
 
@@ -1512,12 +1507,10 @@ Object.defineProperty(window, '_bulkPlMode', {
 // 実行中はいつでも中断できるようにする。
 let _bulkAiAbort = false;
 
-function _bulkAiEligible(mode, vids) {
+function _bulkAiEligible(vids) {
   // 字幕もYouTubeに対応した（Driveは同じフォルダのSRT、YouTubeは字幕ドキュメントへ保存）
   return vids.filter(v => v.pt === 'gdrive' || (v.pt === 'youtube' && v.ytId));
 }
-
-function _bulkAiHasSummary(v) { return /── ✨ AI要約/.test(String(v.memo || '')); }
 
 function _bulkAiFmtUsd(n) { return n == null ? '—' : '$' + (n < 0.01 ? n.toFixed(4) : n.toFixed(2)); }
 
@@ -1537,19 +1530,18 @@ function _bulkAiOverlay(html) {
 }
 function _bulkAiClose() { document.getElementById('bulk-ai-ov')?.remove(); }
 
-export async function bulkAiRun(mode) {
-  const isSub = mode === 'subtitle';
-  const label = isSub ? '字幕生成' : 'AI要約';
+export async function bulkAiRun() {
+  const label = '字幕生成';
   const all   = [...(window.selIds || new Set())]
     .map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
-  const cands = _bulkAiEligible(mode, all);
+  const cands = _bulkAiEligible(all);
 
   if (!cands.length) {
     window.toast?.('YouTube または Google Drive の動画が選択されていません');
     return;
   }
   // Driveの認証が要るのはDrive動画があるときだけ（YouTubeはDriveを経由しない）
-  if (isSub && cands.some(v => v.pt === 'gdrive') && !window.getDriveTokenIfAvailable?.()) {
+  if (cands.some(v => v.pt === 'gdrive') && !window.getDriveTokenIfAvailable?.()) {
     window.toast?.('Google Drive の認証が必要です。動画を一度再生してください。');
     return;
   }
@@ -1560,46 +1552,25 @@ export async function bulkAiRun(mode) {
   // 尺が分かっている動画から1本あたりの平均を出し、不明ぶんも同じ尺とみなして概算する
   const avgSec  = known.length ? totalSec / known.length : 0;
   const estSec  = avgSec ? totalSec + avgSec * (cands.length - known.length) : 0;
-  const est     = estSec ? window.wkEstimateAiCost?.(estSec, mode) : null;
+  const est     = estSec ? window.wkEstimateAiCost?.(estSec) : null;
 
-  const langRow = isSub ? `
+  const langRow = `
     <div style="margin-top:12px">
       <div style="font-size:11.5px;font-weight:700;margin-bottom:5px">出力言語</div>
       <select id="bulk-ai-lang" style="width:100%;padding:7px 9px;border-radius:8px;border:1.5px solid var(--border);
         background:var(--surface);color:var(--text);font-family:inherit;font-size:12px">
         <option value="ja">日本語</option><option value="orig">原語のまま</option>
       </select>
-    </div>` : '';
-
-  // スクショはDrive動画からしか撮れない（YouTubeは動画データに触れないため）
-  const shotRow = !isSub ? `
-    <div style="margin-top:12px">
-      <div style="font-size:11.5px;font-weight:700;margin-bottom:5px">タイムスタンプのスクショ</div>
-      <select id="bulk-ai-shot" style="width:100%;padding:7px 9px;border-radius:8px;border:1.5px solid var(--border);
-        background:var(--surface);color:var(--text);font-family:inherit;font-size:12px">
-        <option value="none">入れない（要約のみ）</option>
-        <option value="inline">入れる（行頭インライン）</option>
-        <option value="block">入れる（大きめブロック）</option>
-      </select>
-      <div style="font-size:10.5px;color:var(--text3);margin-top:4px">
-        入れると各動画を読み込んで撮影するため時間がかかります${
-          cands.some(v => v.pt !== 'gdrive') ? '。YouTubeの動画は撮影できないので要約のみになります' : ''}
-      </div>
-    </div>
-    <div style="font-size:10.5px;color:var(--text3);margin-top:10px;line-height:1.6">
-      要約は字幕から作ります。字幕が無い動画は飛ばします（先に「💬 字幕生成」で字幕を作ってください）
-    </div>` : '';
+    </div>`;
 
   const skipRow = `
     <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;cursor:pointer">
       <input type="checkbox" id="bulk-ai-skip" checked style="accent-color:var(--accent);width:15px;height:15px;margin-top:1px">
-      <span style="font-size:11.5px;line-height:1.5">${isSub
-        ? 'すでにその言語の字幕があるものは飛ばす<div style="font-size:10.5px;color:var(--text3)">別の言語の字幕しか無いものは、書き起こしをやり直さず翻訳して作ります（音声認識の料金がかかりません）。外すと既存の字幕を作り直して上書きします</div>'
-        : 'すでにAI要約があるものは飛ばす<div style="font-size:10.5px;color:var(--text3)">外すと同じ動画にもう一度要約を追記します</div>'}</span>
+      <span style="font-size:11.5px;line-height:1.5">すでにその言語の字幕があるものは飛ばす<div style="font-size:10.5px;color:var(--text3)">別の言語の字幕しか無いものは、書き起こしをやり直さず翻訳して作ります（音声認識の料金がかかりません）。外すと既存の字幕を作り直して上書きします</div></span>
     </label>`;
 
   _bulkAiOverlay(`
-    <div style="font-size:14px;font-weight:800;margin-bottom:4px">${isSub ? '💬' : '✨'} ${label}を一括実行</div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">💬 ${label}を一括実行</div>
     <div style="font-size:11.5px;color:var(--text3);line-height:1.6;margin-bottom:10px">
       1本ずつ順番に処理します。時間がかかるので画面はこのままにしてください。<br>途中でいつでも中止できます。
     </div>
@@ -1609,28 +1580,25 @@ export async function bulkAiRun(mode) {
         known.length < cands.length ? `<span style="color:var(--text3)">（${cands.length - known.length}本は尺不明のため平均で概算）</span>` : ''}</div>
       <div>概算コスト: <b>${_bulkAiFmtUsd(est)}</b><span style="color:var(--text3)"> ※実測は処理後に出ます</span></div>
     </div>
-    ${langRow}${shotRow}${skipRow}
+    ${langRow}${skipRow}
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button onclick="_bulkAiCloseBtn()" style="padding:7px 16px;border-radius:8px;border:1.5px solid var(--border);
         background:transparent;color:var(--text2);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">キャンセル</button>
-      <button onclick="_bulkAiStart('${mode}')" style="padding:7px 18px;border-radius:8px;border:1.5px solid var(--accent);
+      <button onclick="_bulkAiStart()" style="padding:7px 18px;border-radius:8px;border:1.5px solid var(--accent);
         background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">開始する</button>
     </div>`);
 }
 
 window._bulkAiCloseBtn = () => _bulkAiClose();
 
-window._bulkAiStart = async function(mode) {
-  const isSub    = mode === 'subtitle';
-  const label    = isSub ? '字幕生成' : 'AI要約';
-  const subLang  = isSub ? (document.getElementById('bulk-ai-lang')?.value || 'ja') : null;
-  const shotSel  = isSub ? 'none' : (document.getElementById('bulk-ai-shot')?.value || 'none');
+window._bulkAiStart = async function() {
+  const label    = '字幕生成';
+  const subLang  = document.getElementById('bulk-ai-lang')?.value || 'ja';
   const skipDone = document.getElementById('bulk-ai-skip')?.checked !== false;
 
   const all   = [...(window.selIds || new Set())]
     .map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
-  let targets = _bulkAiEligible(mode, all);
-  if (!isSub && skipDone) targets = targets.filter(v => !_bulkAiHasSummary(v));
+  const targets = _bulkAiEligible(all);
   // 字幕の既存判定はDrive上のファイルを見ないと分からないので、
   // vpGenSubtitle 側の existing 指定に委ねる（skip なら課金前に抜ける）。
 
@@ -1638,12 +1606,12 @@ window._bulkAiStart = async function(mode) {
 
   _bulkAiAbort = false;
   window.wkAiBusyBegin?.();   // 実行中はページ離脱を警告する（動画と動画の間も含めて）
-  let done = 0, ok = 0, skip = 0, ng = 0, cost = 0, shots = 0;
+  let done = 0, ok = 0, skip = 0, ng = 0, cost = 0;
   const errors = [];
 
   const paint = (curTitle) => {
     _bulkAiOverlay(`
-      <div style="font-size:14px;font-weight:800;margin-bottom:8px">${isSub ? '💬' : '✨'} ${label}を実行中</div>
+      <div style="font-size:14px;font-weight:800;margin-bottom:8px">💬 ${label}を実行中</div>
       <div style="font-size:12px;margin-bottom:6px"><b>${done}</b> / ${targets.length} 本</div>
       <div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:10px">
         <div style="height:100%;width:${Math.round(done / targets.length * 100)}%;background:var(--accent);transition:width .3s"></div>
@@ -1653,7 +1621,7 @@ window._bulkAiStart = async function(mode) {
       </div>
       <div style="font-size:11.5px;line-height:1.8;margin-top:8px">
         完了 ${ok} ／ スキップ ${skip} ／ 失敗 ${ng}<br>
-        ${shots ? `スクショ ${shots}枚<br>` : ''}実測コスト: <b>${_bulkAiFmtUsd(cost)}</b>
+        実測コスト: <b>${_bulkAiFmtUsd(cost)}</b>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:14px">
         <button onclick="_bulkAiCancel()" style="padding:7px 16px;border-radius:8px;border:1.5px solid var(--red,#ef4444);
@@ -1668,18 +1636,12 @@ window._bulkAiStart = async function(mode) {
     paint(v.title || v.id);
     let r = null;
     try {
-      r = isSub
-        ? await window.vpGenSubtitle?.(v.id, { subLang, silent: true, existing: skipDone ? 'skip' : 'replace' })
-        : await window.vpAiSummary?.(v.id, {
-            shot: shotSel !== 'none',
-            layout: shotSel === 'block' ? 'block' : 'inline',
-            silent: true,
-          });
+      r = await window.vpGenSubtitle?.(v.id, { subLang, silent: true, existing: skipDone ? 'skip' : 'replace' });
     } catch (e) {
       r = { ok: false, error: e?.message || String(e) };
     }
     done++;
-    if (r?.ok)           { ok++; cost += Number(r.cost) || 0; shots += Number(r.shots) || 0; }
+    if (r?.ok)           { ok++; cost += Number(r.cost) || 0; }
     else if (r?.skipped) { skip++; }
     else                 { ng++; errors.push(`${v.title || v.id}: ${r?.error || '不明なエラー'}`); }
     paint(v.title || v.id);
@@ -1695,7 +1657,6 @@ window._bulkAiStart = async function(mode) {
       <div>完了: <b>${ok}本</b></div>
       <div>スキップ: ${skip}本</div>
       <div>失敗: ${ng}本</div>
-      ${shots ? `<div>スクショ: ${shots}枚</div>` : ''}
       <div>実測コスト: <b>${_bulkAiFmtUsd(cost)}</b></div>
     </div>
     ${errors.length ? `<div style="margin-top:10px">

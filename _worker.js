@@ -448,19 +448,15 @@ async function handleAiSummary(request, env) {
 
   const body = await request.json().catch(() => ({}));
   const { idToken, source, ytId, title, channel, playlist } = body;
-  // mode: 'summary'(既定) | 'desc'(一言解説) | 'branch'(分岐抽出JSON) | 'subtitle'(SRT字幕生成)
-  //     | 'chapters'(チャプター検出JSON)
-  const mode = ['desc','branch','subtitle','chapters'].includes(body.mode) ? body.mode : 'summary';
+  // mode: 'subtitle'(SRT字幕生成・既定) | 'chapters'(チャプター検出JSON) | 'branch'(分岐抽出JSON)
+  // AI要約（summary / desc）は廃止した（2026-09-20）。メモはユーザーが書く。
+  const mode = ['branch','chapters'].includes(body.mode) ? body.mode : 'subtitle';
   // subtitle時の出力言語: 'ja'(日本語に翻訳・既定) | 'orig'(話されている言語のまま)
   const subLang = body.subLang === 'orig' ? 'orig' : 'ja';
   // 生成の細かい指定（文体・逐語/意訳・用語・フィラー・画面内文字・字幕の量）
   const subOpts = (body.subOpts && typeof body.subOpts === 'object') ? body.subOpts : {};
   // チャプター検出の指定（最短の長さ・最大件数）
   const chapOpts = (body.chapOpts && typeof body.chapOpts === 'object') ? body.chapOpts : {};
-  // 要約の粒度（'fine' | 'normal' | 'coarse'）。未指定は従来どおり normal。
-  const sumOpts = (body.sumOpts && typeof body.sumOpts === 'object') ? body.sumOpts : {};
-  // 要約する区間。指定があればその区間だけを Gemini に送る（速く・安くなる）
-  const range = _parseRange(body.range);
 
   const auth = await verifyOwner(idToken, env);
   if (!auth.ok) return jsonRes({ error: 'unauthorized', detail: auth.error }, 403);
@@ -469,18 +465,8 @@ async function handleAiSummary(request, env) {
 
   // 字幕テキストからチャプターを推定する経路。動画本体を送らないので速く安い。
   if (source === 'transcript') {
-    if (mode === 'chapters') return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
-    if (mode === 'summary' || mode === 'desc') {
-      return _streamJson(() => _aiSummaryFromTranscript(env, body.transcript, title, channel, playlist,
-                                                        mode, sumOpts, range, Number(body.durationSec) || 0));
-    }
-    return jsonRes({ error: 'source:transcript は mode:chapters / summary / desc に対応しています' }, 400);
-  }
-
-  // 要約と一言は字幕テキストからのみ作る（2026-09-20）。動画を送る経路は廃止した。
-  // 映像は字幕の20倍以上のコストがかかるうえ、映像から書かせた時刻はズレて直せない。
-  if (mode === 'summary' || mode === 'desc') {
-    return jsonRes({ error: '要約は字幕から作ります', detail: '先に字幕を作ってから要約してください（source:transcript のみ対応）' }, 400);
+    if (mode !== 'chapters') return jsonRes({ error: 'source:transcript は mode:chapters のみ対応しています' }, 400);
+    return _aiChaptersFromTranscript(env, body.transcript, title, channel, playlist, chapOpts);
   }
 
   // 貼り付けられたチャプター一覧（テキスト／スクショ画像）を読み取る経路。
@@ -539,31 +525,6 @@ function _streamJson(run) {
   return new Response(readable, { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
-// ── 字幕テキストから要約/一言を作る ────────────────────────
-// 動画本体は送らない。時刻は字幕のものなので、要約に出る [M:SS] もそのまま正しい。
-const SUM_TRANSCRIPT_MAX = 400000;   // 送られてくる字幕テキストの上限（文字）
-
-async function _aiSummaryFromTranscript(env, transcript, title, channel, playlist, mode, sumOpts, range, durationSec) {
-  const text = String(transcript || '').trim();
-  if (!text) return jsonRes({ error: '字幕テキストが空です', detail: '先に字幕を作ってください' }, 400);
-  const clipped = text.length > SUM_TRANSCRIPT_MAX;
-  const body = clipped ? text.slice(0, SUM_TRANSCRIPT_MAX) : text;
-
-  const ctx = _ctxStr(title, channel, playlist);
-  const prompt = mode === 'desc'
-    ? _aiDescPrompt(ctx, body)
-    : _aiPrompt(ctx, sumOpts, range, durationSec, body);
-  const result = await _geminiGenerate(env, [{ text: prompt }], _genOptsFor(mode));
-  if (result.error) return jsonRes(result, 502);
-  // 生成が途中で切れることがある（出力上限・応答の打ち切り）。黙って保存すると、
-  // 文の途中で終わったメモが「そういう要約」として残ってしまう。切れたことを伝える。
-  const truncated = !!(result.cut || result.finish === 'MAX_TOKENS');
-  const truncReason = result.finish === 'MAX_TOKENS' ? '出力が上限に達しました'
-                    : result.cut ? result.cut : '';
-  return jsonRes({ summary: result.summary, usage: result.usage, costUsd: result.costUsd,
-                   via: 'transcript', clipped, truncated, truncReason });
-}
-
 // ── モード別プロンプト選択 ──────────────────────────────────
 // 動画を送る経路のプロンプト（字幕生成・チャプター検出・分岐抽出）。
 // 要約と一言は字幕テキストから作るので、ここは通らない。
@@ -572,23 +533,6 @@ function _promptFor(mode, ctx, subLang, subOpts, chapOpts) {
   if (mode === 'chapters') return _aiChaptersPrompt(ctx, chapOpts, null);
   return _aiBranchPrompt(ctx);   // 残るは branch のみ（summary / desc は字幕から作る）
 }
-
-// ── 要約する区間 ──────────────────────────────────────────
-// { startSec, endSec } を検証して返す。おかしければ null（＝全体）。
-function _parseRange(r) {
-  if (!r || typeof r !== 'object') return null;
-  const a = Math.max(0, Math.floor(Number(r.startSec)));
-  const b = Math.floor(Number(r.endSec));
-  if (!isFinite(a) || !isFinite(b) || !(b > a)) return null;
-  return { startSec: a, endSec: b };
-}
-
-const _mmss = (sec) => {
-  const s = Math.max(0, Math.floor(Number(sec) || 0));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
-  return h ? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`
-           : `${m}:${String(x).padStart(2,'0')}`;
-};
 
 // 生成オプション（mode別）。字幕は本文が長いので出力枠を大きく取り、思考は切って全部本文に回す。
 function _genOptsFor(mode) {
@@ -869,24 +813,6 @@ async function _aiChaptersFromTranscript(env, transcript, title, channel, playli
   });
 }
 
-// 一言解説: 動画を開く前に内容が分かる1〜2文（サムネ下・タイトル横に表示する想定）
-function _aiDescPrompt(ctx, transcript) {
-  const src = transcript
-    ? `以下はこの動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
-これだけを根拠に書いてください（映像は見ていないので、字幕に無いことを推測で足さない）。
-
-【字幕】
-${transcript}
-`
-    : '';
-  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
-この動画の「開く前に中身が分かる一言解説」を日本語で1〜2文だけ書いてください。
-${ctx ? `\n【動画情報】\n${ctx}\n` : ''}${src}
-【必ず含める】どのポジション/状況か・自分はトップかボトムか・相手のどんな動きや反応に対して・何（技/コンセプト/対策）を教える動画か。
-例:「デラヒーバ（ボトム）で相手が膝を切ってパスに来た時の、足の組み替えによるリテンションとバックテイクへの分岐を解説。」
-【禁止】前置き・記号・改行・箇条書き・タイトルの繰り返し。プレーンテキスト1〜2文のみを出力すること。`;
-}
-
 // 分岐抽出: 「シチュエーション → 相手の反応(＝分岐/発生ポイント) → こちらの対応」を構造化JSONで返す。
 // 分岐マップの素材。分岐＝相手のリアクションによって、こちらができることが切り替わる点。
 function _aiBranchPrompt(ctx) {
@@ -907,72 +833,6 @@ ${ctx ? `\n【動画情報】\n${ctx}\n` : ''}
 }
 
 // ── 共通プロンプト生成 ──────────────────────────────────────
-// 粒度: 1分あたり何項目・タイムスタンプの間隔をどれくらいにするか。
-// 「細かめ/普通/ざっくり」という言葉だけではモデルが守らないので、数で指示する。
-const SUM_DENSITY = {
-  fine:   { perMin: 1.5, gap: 30,  min: 8, max: 60 },
-  normal: { perMin: 0.7, gap: 75,  min: 5, max: 30 },
-  coarse: { perMin: 0.25, gap: 240, min: 4, max: 15 },
-};
-
-function _densityLine(level, effSec) {
-  const d = SUM_DENSITY[level] || SUM_DENSITY.normal;
-  if (level === 'coarse') {
-    const n = effSec > 0 ? Math.min(d.max, Math.max(d.min, Math.round(effSec / 60 * d.perMin))) : 10;
-    return `【粒度（ざっくり）】話題のまとまり（チャプター）ごとにまとめ、「手順とディテール」は全体で${n}項目前後に収めること。`
-      + `1項目は1〜2行で、細かい動作はその中に要約して書く。タイムスタンプは${d.gap}秒以上あけること。`;
-  }
-  if (level === 'fine') {
-    const n = effSec > 0 ? Math.min(d.max, Math.max(d.min, Math.round(effSec / 60 * d.perMin))) : 30;
-    return `【粒度（細かめ）】「手順とディテール」は細かく分けて書き、全体で${n}項目前後（多くても${d.max}項目）にすること。`
-      + `目安として${d.gap}秒ごとに1項目。実演されている動作を省略せず順に拾うこと。`;
-  }
-  const n = effSec > 0 ? Math.min(d.max, Math.max(d.min, Math.round(effSec / 60 * d.perMin))) : 15;
-  return `【粒度（普通）】「手順とディテール」は全体で${n}項目前後にまとめること。タイムスタンプは${d.gap}秒以上あけること。`;
-}
-
-function _aiPrompt(ctx, sumOpts, range, durationSec, transcript) {
-  const level = ['fine','normal','coarse'].includes(sumOpts && sumOpts.level) ? sumOpts.level : 'normal';
-  const effSec = range ? (range.endSec - range.startSec) : (Number(durationSec) || 0);
-  const rangeLine = range
-    ? `\n【対象区間】この動画の ${_mmss(range.startSec)} から ${_mmss(range.endSec)} までだけを対象にしてください。`
-      + `その外のことは書かないこと。タイムスタンプは元の動画の時刻（${_mmss(range.startSec)}〜${_mmss(range.endSec)} の範囲の値）で書くこと。`
-      + `区間の先頭を 0:00 として数えないこと。\n`
-    : '';
-  const src = transcript
-    ? `\n以下はこの動画の字幕（発話の文字起こし）です。各行の先頭 [M:SS] はその発話が始まる時刻です。
-これだけを根拠に要約してください。映像は見ていないので、字幕に書かれていないことを推測で足さないこと。
-話し手が「ここ」「こう」のように指示語で済ませていて中身が分からない部分は、分かるところまでで止め、想像で補わないこと。
-
-【字幕】
-${transcript}
-`
-    : '';
-  return `あなたはブラジリアン柔術(BJJ)に精通したアシスタントです。
-この動画の字幕を読み、練習メモとして使える日本語の要約を作成してください。
-${ctx ? `\n【動画情報】\n${ctx}\n` : ''}${src}${rangeLine}
-${_densityLine(level, effSec)}
-
-【最重要・シチュエーション（状況設定）】柔術では「自分と相手が今どういう状況にいるか」という前提が技の成否を左右します。相手の反応次第でやれることが変わるため、教則動画もほぼ必ずこの状況説明から始まります。要約でも必ず冒頭に、しかも細かく状況を書き出してください。具体的には次を漏れなく含めること:
-- 開始ポジション（例: クローズドガード、ハーフ、サイド、マウント、バックなど）と、自分・相手それぞれが上か下か・どちらを向いているか
-- グリップ／コントロール（どこを誰がどう掴んでいるか、足・腕・襟・袖・帯のからみ）
-- 体重・プレッシャーの掛かり方、重心、姿勢
-- この技を仕掛ける「きっかけ・条件」（相手のどんな動き・反応・防御に対して使うのか）
-- 相手の予想される反応と、それに応じた分岐（こう来たらこの技、別の反応なら別の対応）
-状況が動画中で変化する場合は、その変化も時系列で記述すること。
-【出力フォーマット】該当しない項目は省略可。ただし「シチュエーション（状況設定）」は必須で省略不可。箇条書き中心で。
-◾️一言まとめ（1〜2文）
-◾️シチュエーション（状況設定）※必須・上記【最重要】の観点で細かく
-◾️扱う技術・ポジション
-◾️手順とディテール（ステップ順）
-◾️ありがちなミス・注意点
-
-【手順とディテール】ステップを順番に並べ、そのステップで効く細部・コツ・力の向き・角度・グリップの詳細は、そのステップの中で続けて書くこと（別の見出しに分けない）。どのステップにも紐づかない全体的なコツだけ、末尾に独立した項目として置いてよい。
-【記号ルール】大見出しは ◾️ を使うこと。**見出しの行には「- 」を付けないこと**（大見出し ◾️ の行も、**…** だけの小見出しの行も。見出しと箇条書きが同じ見た目になり区別できなくなる）。小見出しや特に強調したい語句は **強調したい語** のように ** で囲んでよい（アプリ側で太字表示される）。ただし Markdownの見出し記号 # は使わないこと。箇条書きは行頭に「- 」を付けること。
-【タイムスタンプ】手順とディテール・注意点の各項目には、その内容を話している字幕行の時刻を [M:SS] 形式で「- 」の直後に付けること（例: - [1:23] ...）。字幕に書かれている時刻をそのまま使い、自分で秒数を足し引きしないこと。各項目のタイムスタンプは互いに数秒以上ずらし、同じ場面を繰り返し指さないこと。特定できない項目は省略可。
-専門用語はBJJで一般的な表記を使い、冗長な前置きは書かないこと。`;
-}
-
 function _ctxStr(title, channel, playlist) {
   return [
     title    ? `タイトル: ${title}`        : null,

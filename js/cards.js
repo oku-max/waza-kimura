@@ -131,8 +131,9 @@ export function cardHTML(v) {
   const chName = v.channel ? `<div class="card-ch">${v.channel}</div>` : '';
   const plName = v.pl ? `<div class="card-pl">📋 ${v.pl}</div>` : '';
   const cardMeta = (chName || plName) ? `<div class="card-meta">${chName}${plName}</div>` : '';
-  // AI一言解説（動画を開く前に内容が分かる1〜2文）
-  const aiDescLine = v.aiDesc ? `<div class="card-aidesc">💬 ${_esc(v.aiDesc)}</div>` : '';
+  // 旧「💬 一言解説」の表示は廃止（2026-09-20）。AI要約をやめたので更新されない。
+  // データ（v.aiDesc）は消していないので、出したくなれば1行で戻せる。
+  const aiDescLine = '';
   // カウンターバッジ (B案: 下段インライン)
   const _pc = v.practice || 0;
   const _ago = v.lastPracticed ? (window.vpCntFormatAgo?.( v.lastPracticed) || '') : '';
