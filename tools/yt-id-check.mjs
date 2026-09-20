@@ -8,6 +8,7 @@
 //     ・URLを貼って追加（CSV取り込み含む）→ id だけ
 //   2026-09-19、AI要約・字幕生成・自動チャプターの3つだけが v.ytId を直接見ていたため、
 //   貼り付けで追加した動画ではボタンがまるごと消えていた。
+//   （AI要約は2026-09-20に廃止したので、見張る対象は字幕生成とチャプターの2つ）
 //   動画IDは id に入っていて情報は揃っているのに、見る場所が1つずれていただけ。
 //   ノートや整理の機能は昔から v.ytId || v.id で代用していて、AI系だけ取り残されていた。
 //
@@ -54,7 +55,6 @@ raw.length === 0
 //    片方だけ直すと「要約は出るのに字幕は出ない」のような分かりにくい形になる。
 const gates = [
   ['自動チャプター', /const isGd = _cv\?\.pt === 'gdrive' \|\| !!_vYtId\(_cv\)/],
-  ['AI要約',        /_canSummarize = _isOwner && \(!!_vYtId\(vd\) \|\| vd\?\.pt === 'gdrive'\)/],
   ['字幕生成',      /_subGenBtn = \(_isOwner && \(vd\?\.pt === 'gdrive' \|\| !!_vYtId\(vd\)\)\)/],
 ];
 for (const [name, re] of gates) {
@@ -62,5 +62,5 @@ for (const [name, re] of gates) {
               : fail(`${name}のボタンが別の判定を使っている`);
 }
 
-console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ すべてのYouTube動画で、要約・字幕・チャプターが使える形になっている');
+console.log(ng ? `\n✗ 失敗 ${ng}件` : '\n✓ すべてのYouTube動画で、字幕・チャプターが使える形になっている');
 process.exit(ng ? 1 : 0);
