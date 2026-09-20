@@ -5790,17 +5790,6 @@ function _subOptsHTML(scope) {
         <div style="font-size:10.5px;color:var(--text3)">
           字幕が出ている状態で、その声が始まった瞬間に押すと合います
         </div>
-        ${gen && !fromYt ? `<div style="background:rgba(239,68,68,.10);border:1.5px solid var(--red,#ef4444);
-                       border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.65">
-            <b>この字幕の時刻はAIの推測です。実際の発話位置とは合いません</b>
-            <div style="color:var(--text3);margin-top:4px">YouTubeの動画は音声を取り出せないため、AIに動画を見せて作っています</div>
-            <div style="color:var(--text3)">AIは時刻を音から測っておらず、実演中の無音を飲み込むので、進むほどズレが大きくなります</div>
-            <div style="color:var(--text3)">無音の長さも位置もバラバラなので、全体をずらしても伸ばしても直りません</div>
-            <div style="color:var(--text3)">本文は正確です。読み物としてはそのまま使えます</div>
-            <div style="color:var(--text3);margin-top:4px">「💬 字幕生成」で作り直すと、YouTube側の字幕があればそちらの時刻で作り直します</div>
-            <div style="color:var(--text3)">YouTube側にも字幕が無い動画は、Googleドライブに置けば音声から時刻を実測できます</div>
-            <div style="color:var(--text3);margin-top:4px">${_wkVer()}</div>
-          </div>` : ''}
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
           ${[-60, -10, -1, -0.1].map(d => btn(`${d}s`, `wkSubOffsetNudge(${d})`)).join('')}
           <span style="min-width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;
