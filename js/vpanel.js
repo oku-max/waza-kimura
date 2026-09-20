@@ -5653,7 +5653,16 @@ function _subOptsHTML(scope) {
   const sec = t => `<div style="font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.06em;margin-top:4px">${t}</div>`;
   const langChoices = [['ja','日本語'],['orig','原語のまま']];
 
-  let html = sec('一度に出す量')
+  // パネルの一番上に置く断り書き。
+  // ここの設定が効くのは WAZA KIMURA が作った字幕だけで、YouTube純正の字幕
+  // （プレイヤーの中で描かれる）には一切効かない。同じ画面に両方の字幕が
+  // 並んでいるので、書いておかないと「設定したのに変わらない」になる。
+  let html = `<div style="background:var(--surface2);border-radius:8px;padding:7px 9px;
+        font-size:10.5px;line-height:1.6;color:var(--text3);margin-bottom:2px">
+      <b style="color:var(--text2)">これは WAZA KIMURA が作った字幕の設定です</b>
+      <div>YouTube自体の字幕の設定ではありません</div>
+    </div>`
+    + sec('一度に出す量')
     + _subRow('1行の最大文字数（日本語）', '長いほど1行に詰め込む', _subRange('maxCharsJa', o.maxCharsJa, 8, 40, 1, '字'))
     + _subRow('1行の最大文字数（英語）', '', _subRange('maxCharsEn', o.maxCharsEn, 20, 80, 1, '字'))
     + _subRow('最大行数', '超えたぶんは時間を分けて次の字幕に送る', _subSeg('maxLines', o.maxLines, [[1,'1行'],[2,'2行'],[3,'3行']]))
