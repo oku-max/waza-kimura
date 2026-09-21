@@ -7482,6 +7482,14 @@ function _tapWithoutFocus(el, handler) {
   };
 }
 
+// 挿入のあと、入力欄からフォーカスを外す。
+// 挿入そのものには focus が要る（caret の位置に入れるため）が、そのままだと
+// iOS でキーボードが立ち上がる。押した人は「入れたい」だけで「書きたい」とは
+// 限らないので、入れ終わったら手を離す。書きたければメモをタップすればよい。
+function _blurMemo(el) {
+  try { if (el && document.activeElement === el) el.blur(); } catch(_) {}
+}
+
 function _bindTsLinks(container) {
   if (!container) return;
   container.querySelectorAll('a.ts-link').forEach(el => {
@@ -8033,6 +8041,7 @@ async function _insertLocalImage(id) {
       `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', shot.thumbDataUrl, 'inline')}</div>`);
     _bindTsLinks(memoEl);
     vpSaveMemo(id);
+    _blurMemo(memoEl);
     const snapSec = document.getElementById('vp-snap-section-' + id);
     if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
     window.toast?.('🖼 画像をメモに入れました');
@@ -8083,6 +8092,7 @@ window.vpMemoSnapNow = async function(id) {
       document.execCommand('insertHTML', false, rowHtml);
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
+      _blurMemo(memoEl);
       const snapSec = document.getElementById('vp-snap-section-' + id);
       if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
       window.toast?.('📸 スクショをメモに追加しました');
@@ -8092,6 +8102,7 @@ window.vpMemoSnapNow = async function(id) {
       document.execCommand('insertHTML', false, `<span>${tsHtml}&nbsp;</span>`);
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
+      _blurMemo(memoEl);
       window.toast?.(!navigator.mediaDevices?.getDisplayMedia
         ? '📍 タイムスタンプを挿入しました（この端末は画面キャプチャに対応していません）'
         : !window.snapAddBlob
@@ -8177,6 +8188,7 @@ window.vpMemoInsertTs = function(id) {
     el.appendChild(document.createTextNode(' '));
   }
   vpSaveMemo(id);
+  _blurMemo(el);
 };
 
 // GDrive動画から指定秒のフレームを撮影しスナップショット登録。shotMap{sec:{snapId,thumbDataUrl}}を返す。
