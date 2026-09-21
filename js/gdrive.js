@@ -1142,9 +1142,6 @@ export async function gdImport() {
   await window.saveUserData?.();
   window.toast?.(`✅ ${added}本の動画を追加しました`);
 
-  if (window.aiSettings?.autoTagOnImport && newIds.length) {
-    window.autoTagNewVideos?.(newIds);
-  }
 
   // サムネイルをバックグラウンドでFirebase Storageにアップロード
   if (thumbJobs.length) {

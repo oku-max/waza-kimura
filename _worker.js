@@ -37,7 +37,6 @@ async function handleApi(request, env, path) {
       case '/api/yt-playlist-items': return await handleYtPlaylistItems(request, env);
       case '/api/yt-videos':        return await handleYtVideos(request, env);
       case '/api/ai-group':         return await handleAiGroup(request, env);
-      case '/api/ai-tag':      return await handleAiTag(request, env);
       case '/api/ai-summary':  return await handleAiSummary(request, env);
       case '/api/vimeo-proxy': return await handleVimeoProxy(request);
       // 字幕をASR（AssemblyAI）で作る経路。Geminiの字幕生成とは別系統で、既存には触らない。
@@ -326,92 +325,6 @@ async function handleAiGroup(request, env) {
   }
 }
 
-// ── /api/ai-tag — AI 4層タグ提案 ─────────────────────────
-const MODEL_MAP     = { haiku: 'claude-haiku-4-5-20251001', sonnet: 'claude-sonnet-4-5-20250514' };
-const DEFAULT_TB    = ['トップ', 'ボトム', 'スタンディング'];
-
-async function handleAiTag(request, env) {
-  if (request.method === 'OPTIONS') return corsOk();
-  if (request.method !== 'POST')    return jsonRes({ error: 'Method not allowed' }, 405);
-
-  const apiKey = env.ANTHROPIC_API_KEY;
-  if (!apiKey) return jsonRes({ error: 'API key not configured' }, 500);
-
-  const body = await request.json().catch(() => ({}));
-  const { title, channel, playlist, chapters, tbValues, categories, positions,
-          tagBlocklist, bjjRules, flexibility, model, feedbackExamples } = body;
-  if (!title) return jsonRes({ error: 'title is required' }, 400);
-
-  const blockSet     = new Set(Array.isArray(tagBlocklist) ? tagBlocklist : []);
-  const systemPrompt = buildAiTagPrompt({ tbValues, categories, positions, bjjRules, tagBlocklist, flexibility });
-  const modelId      = MODEL_MAP[model] || MODEL_MAP.haiku;
-
-  const userMsg = [
-    `タイトル:${title}`,
-    channel  ? `チャンネル:${channel}`   : null,
-    playlist ? `プレイリスト:${playlist}` : null,
-    chapters?.length ? `チャプター:${chapters.join(' / ')}` : null,
-  ].filter(Boolean).join('\n');
-
-  const messages = [];
-  if (Array.isArray(feedbackExamples)) {
-    for (const ex of feedbackExamples.slice(-15)) {
-      if (!ex.title || !ex.tags) continue;
-      const exUser = [`タイトル:${ex.title}`,
-        ex.channel  ? `チャンネル:${ex.channel}` : null,
-        ex.playlist ? `プレイリスト:${ex.playlist}` : null,
-      ].filter(Boolean).join('\n');
-      messages.push({ role: 'user', content: exUser });
-      messages.push({ role: 'assistant', content: JSON.stringify(ex.tags) });
-    }
-  }
-  messages.push({ role: 'user', content: userMsg });
-
-  try {
-    const res = await anthropicCall(apiKey, modelId, 400, systemPrompt, messages);
-    if (!res.ok) return jsonRes({ error: 'AI API error', detail: await res.text() }, 502);
-
-    const data       = await res.json();
-    const text       = data.content?.[0]?.text || '{}';
-    const parsed     = safeJson(text);
-    const tbAllowed  = new Set(tbValues || DEFAULT_TB);
-    const catAllowed = new Set((categories || []).map(c => c.name));
-    const posAllowed = new Set((positions  || []).map(p => p.ja));
-    const safeArr    = (arr, allowed) => (Array.isArray(arr) ? arr : [])
-      .filter(v => typeof v === 'string' && allowed.has(v) && !blockSet.has(v));
-    const safeFree   = (arr) => (Array.isArray(arr) ? arr : [])
-      .filter(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 40 && !blockSet.has(v));
-
-    return jsonRes({
-      tb:   safeArr(parsed.tb,  tbAllowed),
-      cat:  safeArr(parsed.cat, catAllowed),
-      pos:  safeArr(parsed.pos, posAllowed),
-      tags: safeFree(parsed.tags),
-    });
-  } catch (e) {
-    return jsonRes({ error: e.message }, 500);
-  }
-}
-
-function buildAiTagPrompt({ tbValues, categories, positions, bjjRules, tagBlocklist, flexibility }) {
-  const tbList      = (tbValues || DEFAULT_TB).join(' / ');
-  const catSection  = (categories || []).map(c => `- ${c.name}: ${c.desc || ''}${c.aliases?.length ? `  別名: ${c.aliases.join(', ')}` : ''}`).join('\n');
-  const posSection  = (positions  || []).map(p => `- ${p.ja} (${p.en || ''}${p.aliases?.length ? ' / ' + p.aliases.join(', ') : ''})`).join('\n');
-  const flexNote    = ({ strict: '- カテゴリー・ポジションは必ず上記リストの正式名のみ。', standard: '- カテゴリー・ポジションは上記リストの正式名のみ。曖昧なら空配列。', flexible: '- 正式名を優先。新ポジションが明確な場合のみ#タグへ。' })[flexibility || 'standard'];
-  const rulesSection = bjjRules?.length ? `\n【BJJ判定ルール】\n${bjjRules.map((r,i) => `${i+1}. ${r}`).join('\n')}\n` : '';
-  const blockSection = tagBlocklist?.length ? `\n【禁止リスト】\n${tagBlocklist.join(' / ')}\n` : '';
-  return `あなたはBJJ専門のタグ付けアシスタントです。動画タイトル等を分析し4層タグ体系でJSONを返してください。
-
-【Layer 1: TB】${tbList}
-【Layer 2: Category】\n${catSection}
-【Layer 3: Position】\n${posSection}
-${rulesSection}${blockSection}
-ルール: ${flexNote}
-- tags は技名・固有名など自由欄（30文字以内）
-- JSONのみ返す
-
-返却形式: {"tb":[],"cat":[],"pos":[],"tags":[]}`;
-}
 
 // ── /api/ai-summary — Gemini 動画要約（オーナー限定）──────
 // POST { idToken, source:'youtube', ytId, title?, channel?, playlist? }

@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.805</title>
+<title>WAZA KIMURA v52.806</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -137,7 +137,7 @@
     tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
-    renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
+    applyTagVisibility, applyTagLabels, applyRemoteSettings,
     tagGroups, tagLabel, tagLabelShort, tagVisible, tagPresets,
     applyTagTemplate,
     toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance,
@@ -182,7 +182,6 @@
     ytSrSkip, ytSrOpenInLibrary, ytSrOpenResultsList, ytSrCloseResultsList,
     ytSrTogglePl, ytSrAddPlVideo, ytSrAddAllPl
   } from './js/yt-search.js';
-  import './js/ai-tagging.js';
   import './js/admin-dashboard.js';
   import { initPlayhead } from './js/playhead.js';
   import { initSnapshotSection, addSnapshotImages, handleSnapshotPaste, cleanupSnapshots, triggerSnapFileInput, changeHwBgType, changeHwBgColor } from './js/snapshot-editor.js';
@@ -415,7 +414,6 @@
   window.addTagPreset            = addTagPreset;
   window.removeTagPreset         = removeTagPreset;
   window.renderTagVisibilityBtns = renderTagVisibilityBtns;
-  window.renderAiSettings        = renderAiSettings;
   window.applyTagVisibility      = applyTagVisibility;
   window.applyTagLabels          = applyTagLabels;
   // タググループ名の取り出しはこの4つだけを使う（画面側でグループ名を直書きしない）

@@ -588,9 +588,6 @@ export async function ytImportUnimportedFromChecked() {
   btn.disabled = false; if (okBtn) okBtn.disabled = false;
   btn.textContent = '📥 未取込を一括取込';
   showToast(`✅ ${toAdd.length}本の未取込動画を追加しました`);
-  if (window.aiSettings?.autoTagOnImport && newIds.length > 0) {
-    window.autoTagNewVideos?.(newIds);
-  }
 }
 window.ytImportUnimportedFromChecked = ytImportUnimportedFromChecked;
 
@@ -757,8 +754,4 @@ export async function ytImportCheckedVideos() {
   await saveUserData();
   showToast(`✅ ${added}本の動画を追加しました`);
 
-  // 自動AIタグ付け
-  if (window.aiSettings?.autoTagOnImport && newIds.length > 0) {
-    window.autoTagNewVideos?.(newIds);
-  }
 }

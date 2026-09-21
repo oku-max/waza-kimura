@@ -198,6 +198,14 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 禁止リスト（AIタグ廃止でタグ設定側に移設・Notion 項目01/13）
+    'ここにある値は「選択肢に無い値」の一覧に出てきません。動画のタグは消していません。':
+      'These never appear in the "not in the options" list. Your videos keep their tags.',
+    '禁止リストをすべて解除しました': 'Cleared the blocklist',
+    '禁止を解除': 'Un-block',
+    'すべて解除': 'Clear all',
+    'まだ何もありません': 'Nothing here yet',
+    '動画のタグは消えません。': 'Your videos keep their tags.',
     // タググループのテンプレート（Notion 項目04）
     'テンプレートから入れる': 'Add from a template',
     'テンプレートを選んでください': 'Pick a template first',
@@ -1817,6 +1825,9 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // 禁止リスト（Notion 項目01/13）
+    '🚫 禁止リスト（#件）': '🚫 Blocklist (#)',
+    '禁止リストの #件 をすべて解除します。': 'This clears all # entries from the blocklist.',
     // タグ設定「選択肢に無い値」まわり（Notion 項目11）
     '選択肢に無い値 #件（動画が使用中）': 'Not in the options — # in use by videos',
     '禁止リストに追加（#つのグループすべてから削除）': 'Add to the blocklist (removes it from all # groups)',
@@ -2044,6 +2055,8 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── 禁止リストの解除（タグ名が入る・Notion 項目01/13）──
+    [/^「(.+?)」の禁止を解除しました$/, (m, tag) => `Un-blocked "${tag}"`],
     // ── タググループのテンプレート適用の結果（テンプレ名が入る・Notion 項目04）──
     [/^「(.+?)」から (\d+)件 を追加（重複 (\d+)件 は飛ばしました）$/,
       (m, name, add, dup) => `Added ${add} from "${name}" (skipped ${dup} already there)`],

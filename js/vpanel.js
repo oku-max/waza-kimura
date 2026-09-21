@@ -1030,8 +1030,9 @@ window._wkVYtId = _vYtId;   // 他のファイルからも同じ判定を使え�
 // 取得の入口は「📑 自動チャプター」→「YouTubeのチャプターを取得」に移した
 // （_ytFetchEmbeddedChapters）。確認ダイアログを通ってブックマークに入る。
 //
-// v.ytChapters のデータ自体は残す。ノート（notes.js）とAIタグ付け（ai-tagging.js）が
-// 読んでいるので、表示をやめるだけで消さない。
+// v.ytChapters のデータ自体は残す。ノート（notes.js）が読んでいるので、
+// 表示をやめるだけで消さない。
+// （AIタグ付けも読んでいたが v52.806 で廃止。Notion「タグシステム再考」項目01）
 
 function _bookmarkSectionHTML(id) {
   const hasAB = _ab.a != null && _ab.b != null && _ab.loop;
@@ -6704,13 +6705,6 @@ export function buildDrawerHTML(id) {
                background:transparent;color:var(--accent);font-size:12px;
                font-weight:700;cursor:pointer">
         📓 Notes に追加
-      </button>
-      <button id="vp-ai-tag-btn"
-        onclick="window.onAiTagBtn?.('${id}')"
-        style="flex:1;padding:8px;border-radius:8px;border:1px dashed var(--border);
-               background:transparent;color:var(--accent);font-size:12px;
-               font-weight:700;cursor:pointer">
-        🤖 AIタグ提案
       </button>
     </div>
     <div style="padding:6px 0 0;display:flex;gap:8px">

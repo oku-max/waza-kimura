@@ -215,15 +215,7 @@ export function buildBulkDrawerHTML() {
 
   return markSec + (_showStatus ? progSec : '') + srcSec + tagSec
   + _aiBulkSec
-  + `<div style="padding:8px 0 4px">
-      <button class="bvp-ai-btn" onclick="onBulkAiTagBtn(this)"
-        style="width:100%;padding:10px;border-radius:10px;border:1px dashed var(--border);
-               background:var(--surface2);color:var(--accent);font-size:13px;
-               font-weight:700;cursor:pointer;letter-spacing:.3px">
-        🤖 AIタグ提案
-      </button>
-    </div>
-    <div style="padding:4px 0;display:flex;gap:8px">
+  + `<div style="padding:4px 0;display:flex;gap:8px">
       <button onclick="bulkDo('archive')"
         style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--purple,#8b5cf6);
                background:transparent;color:var(--purple,#8b5cf6);font-size:12px;
@@ -445,16 +437,6 @@ function _bvpRefreshChips(key, field, selVids) {
   ).join('');
 }
 
-// ── 一括AIタグ提案（1件ずつ個別分析） ──
-export async function onBulkAiTagBtn(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 分析中...'; }
-  const selIds = [...(window.selIds||new Set())];
-  await window.autoTagNewVideos?.(selIds);
-  if (btn) { btn.disabled = false; btn.textContent = '🤖 AIタグ提案'; }
-  // パネルを再描画して新しいタグを表示
-  const body = document.getElementById('bulk-vpanel-body');
-  if (body) body.innerHTML = buildBulkDrawerHTML();
-}
 
 // ── BVP操作関数 ──
 
@@ -1464,7 +1446,6 @@ window.bvpDdKey = bvpDdKey;
 window.bvpDdAddNew = bvpDdAddNew;
 window.bvpDdToggle = bvpDdToggle;
 window.bvpChipRm = bvpChipRm;
-window.onBulkAiTagBtn = onBulkAiTagBtn;
 window.enterBulk = enterBulk;
 window.bulkSnapshot = bulkSnapshot;
 window.BULK_PICKER_OPTS_BASE = BULK_PICKER_OPTS_BASE;

@@ -28,11 +28,14 @@ if (!diff.trim()) { console.log('✓ 変更なし'); process.exit(0); }
 // 関数の中のローカル変数（const off = ... など）まで拾うと誤検出だらけになり、
 // 狼少年の検査は無いより悪い。この規約のコードでは共有ヘルパーは _ で始まるか、
 // function 宣言か、window への代入のいずれか。
+// export を付けた宣言も拾う。
+// （2026-09-21、export function tagPresets を丸ごと消しても検査が黙っていた。
+//   このアプリのモジュールは export 付きの関数が主役なので、そこが素通りでは意味がない）
 const DECL = [
-  [/^(?:async\s+)?function\s*\*?\s*(\w+)\s*\(/, true],   // function x() … 常に対象
-  [/^class\s+(\w+)/,                                true],
-  [/^window\.(\w+)\s*=/,                           true],
-  [/^(?:const|let|var)\s+(\w+)\s*[=;]/,            false],  // const x = … _ 始まりのみ
+  [/^(?:export\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*\(/, true],   // function x() … 常に対象
+  [/^(?:export\s+)?class\s+(\w+)/,                                 true],
+  [/^window\.(\w+)\s*=/,                                           true],
+  [/^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*[=;]/,             false],  // const x = … _ 始まりのみ
 ];
 const declOf = (line) => {
   const t = line.trim();
@@ -58,6 +61,25 @@ for (const line of diff.split('\n')) {
 // 移動しただけ（消して同じ名前を足した）なら問題なし
 for (const n of added) removed.delete(n);
 if (!removed.size) { console.log('✓ 消えた宣言なし'); process.exit(0); }
+
+// 同じ名前の宣言が他にもあり、そちらは触っていない場合がある。
+// 差分だけを見ていると「消えた」と誤検出するので、いまのソースに宣言が
+// 残っているかを確かめて落とす。
+// （2026-09-21、同名のローカル const を1つ消しただけで、モジュール直下の
+//   function _esc が健在なのに警告が出た。狼少年にしないための追加。）
+{
+  const all = sh(`git ls-files '*.js' '*.html'`).trim().split('\n').filter(Boolean)
+    .map(f => sh(`cat ${JSON.stringify(f)}`)).join('\n');
+  for (const name of [...removed.keys()]) {
+    const still = new RegExp(
+      `(?:^|\\n)\\s*(?:export\\s+)?(?:async\\s+)?(?:function\\s*\\*?\\s*${name}\\s*\\(`
+      + `|class\\s+${name}\\b`
+      + `|(?:const|let|var)\\s+${name}\\s*[=;]`
+      + `|window\\.${name}\\s*=)`);
+    if (still.test(all)) removed.delete(name);
+  }
+}
+if (!removed.size) { console.log('✓ 消えた宣言なし（同名の宣言が残っているものを除く）'); process.exit(0); }
 
 // 消えた名前が、いまのソースでまだ使われていないか
 const files = sh(`git ls-files '*.js' '*.html'`).trim().split('\n').filter(Boolean);

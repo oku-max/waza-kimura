@@ -1184,9 +1184,6 @@ export async function ytSrAddToLibrary() {
     showToast('⚠️ 保存に失敗しました: ' + e.message);
   }
 
-  if (window.aiSettings?.autoTagOnImport) {
-    window.autoTagNewVideos?.([libId]);
-  }
 
   // 追加後: VP が開いている場合 → CTA を登録済み表示に更新（VP は閉じない）
   const isVPanelOpen = document.getElementById('yt-sr-vp-overlay')?.classList.contains('open');

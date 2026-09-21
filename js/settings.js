@@ -93,83 +93,18 @@ function _seedTagPresets() {
 
 export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
 
-// ── aiSettings ──
-const DEFAULT_BJJ_RULES = [
-  // ══ 最重要：推論指示 ══
-  'タイトルに直接書かれていなくても、BJJの専門知識から因果関係を推論してタグを判定せよ',
-  '例: "Berimbolo" → スイープ系の技でバックテイクに繋がる → cat:スイープ + cat:バックテイク・バックアタック',
-  '例: "Knee Cut Pass" → トップからのパスガード → TB:トップ, cat:パスガード',
-  '例: "Collar Sleeve to Omoplata" → ボトムのオープンガードからサブミッション → TB:ボトム, cat:フィニッシュ, pos:片襟片袖',
-  // ── TB (トップ/ボトム/スタンディング) 判定 ──
-  'ガード全般（クローズド、ハーフ、オープン、バタフライ、デラヒーバ等）を使う側 → TB=ボトム',
-  'パスガード（ガードパス / pass / knee cut / torreando 等）はガードを越える側 → TB=トップ',
-  'スイープ（sweep）はボトムから仕掛ける技 → TB=ボトム',
-  'エスケープ（マウントエスケープ、サイドエスケープ等）は不利側 → TB=ボトム',
-  'バックテイク・バックアタックの攻め側 → TB=トップ',
-  'バックからのエスケープ（背中を取られた側の脱出） → TB=ボトム',
-  'テイクダウン（takedown, single leg, double leg, 投げ技） → TB=スタンディング',
-  'コントロール（マウント、サイドコントロール、ニーオンベリー等でのキープ・圧力） → TB=トップ',
-  // ── カテゴリ判定（正式名のみ使用） ──
-  'サブミッション（絞め・関節技）の仕掛け → cat=フィニッシュ',
-  'サブミッションのディフェンス・脱出・不利ポジションからの逃げ → cat=エスケープ・ディフェンス',
-  'スイープ（相手をひっくり返す技） → cat=スイープ',
-  'パスガード（ガードを越える技） → cat=パスガード',
-  'ガードリテンション（ガードを維持する技術・フレーム・ポジション回復） → cat=ガードリテンション',
-  'テイクダウン（standing→ground） → cat=テイクダウン',
-  'トップポジションの維持・圧力・キープ → cat=コントロール／プレッシャー',
-  'バックを取る技・バックからの攻撃（チョーク含む） → cat=バックテイク・バックアタック',
-  'ガードを取る動作・特定ガードへのエントリー → cat=ガード構築・エントリー',
-  '原理・コンセプト・ドリル・理論解説 → cat=コンセプト・原理',
-  // ── ポジション判定（正式名のみ使用） ──
-  'closed guard / クローズドガード → pos=クローズドガード',
-  'half guard / ハーフガード / underhook half → pos=ハーフガード',
-  'deep half / ディープハーフ → pos=ディープハーフ',
-  'butterfly guard / バタフライ → pos=バタフライガード',
-  'X guard / エックスガード → pos=Xガード',
-  'single leg X / SLX → pos=SLX',
-  'De La Riva / DLR / デラヒーバ → pos=デラヒーバ',
-  'Reverse De La Riva / RDLR → pos=リバースデラヒーバ',
-  'spider guard / スパイダー → pos=スパイダーガード',
-  'lasso guard / ラッソー → pos=ラッソーガード',
-  'collar sleeve / 片襟片袖 → pos=片襟片袖',
-  'K guard / Kガード → pos=Kガード',
-  'worm guard / ワームガード / squid guard / gubber guard → pos=ラペルガード（ラペル系は全てラペルガードに統合）',
-  'lapel guard / ラペルガード → pos=ラペルガード',
-  'Z guard / knee shield / ニーシールド → pos=ニーシールド',
-  '50/50 / fifty-fifty → pos=50/50',
-  'saddle / 411 / honey hole / inside sankaku / ashi garami → pos=サドル',
-  'turtle / 亀 → pos=タートル',
-  'inverted guard / インバーテッド / tornado guard → pos=インバーテッド',
-  'standing / スタンディング / 立ち技 → pos=スタンディング',
-  '70/30 guard / 70/30ガード → pos=70/30ガード',
-  'sit-up guard / sitting guard / シッティングガード → pos=シッティングガード',
-  'single leg guard / シングルレッグガード → pos=シングルレッグガード（SLXとは別）',
-  'cross guard / クロスガード → pos=クロスガード',
-  'reverse half guard / リバースハーフ → pos=リバースハーフガード',
-  'open guard / オープンガード → pos=オープンガード',
-  'octopus guard / オクトパスガード → pos=オクトパスガード',
-  // ── 複合判定 ──
-  'タイトルに複数の技が含まれる場合、すべてのタグを配列に含める',
-  'レッグロック系（ヒールフック、ニーバー、トーホールド等）→ cat=フィニッシュ、posは50/50 or サドル を検討',
-  'ベリンボロ（berimbolo）→ cat=スイープ + cat=バックテイク・バックアタック, tags=ベリンボロ',
-  'マウント・サイドコントロール・ニーオンベリー等のトップポジション名が出たら → それ自体はポジション名だがPOSITIONSリストにないので tags に入れる',
-];
 
+// AIタグ判定は v52.806 で廃止（Notion 項目01/13）。
+// 残っているのはチャプター関連と禁止リストだけ。
+//   fetchChaptersOnImport / chapterGrain … チャプター機能のもの。タグとは無関係
+//   techBlocklist … 「この値は二度と候補に出さない」。タグ仕分け・重複整理・
+//                    「選択肢に無い値」の🚫が使っているので残す（AI専用ではない）
+// 廃止したキー（enabled / defaultMode / categories / autoTagOnImport / newTagProposal /
+// flexibility / model / bjjRules / feedbackExamples 等）は、ここから消すだけにする。
+// 保存済みの値は消さない（読まなくなるだけ。データを消す変更にしない）。
 export let aiSettings = {
-  enabled:               true,
-  defaultMode:           'add',
-  categories:            { tb: true, action: true, position: true, tags: true },
-  autoTagOnImport:       false,
   fetchChaptersOnImport: true,
   chapterGrain:          'normal',   // 自動チャプターの粒度 'fine' | 'normal' | 'coarse'
-  bulkConfirm:           true,
-  newTagProposal:        true,
-  flexibility:           'standard',
-  autoAddToPresets:      false,
-  model:                 'haiku',
-  bjjRulesAutoAdd:       false,
-  bjjRules:              [...DEFAULT_BJJ_RULES],
-  feedbackExamples:      [],
   techBlocklist:         [],
 };
 
@@ -203,16 +138,10 @@ export function loadTagSettings() {
     if (a) {
       const p = JSON.parse(a);
       if (p && typeof p === 'object') {
-        const cats = p.categories;
         Object.assign(aiSettings, p);
-        if (cats && typeof cats === 'object') aiSettings.categories = { ...aiSettings.categories, ...cats };
       }
     }
   } catch(e) {}
-  // マイグレーション: 新フィールドが未保存の場合デフォルト値を補完
-  if (!aiSettings.model) aiSettings.model = 'haiku';
-  if (!Array.isArray(aiSettings.bjjRules)) aiSettings.bjjRules = [...DEFAULT_BJJ_RULES];
-  if (!Array.isArray(aiSettings.feedbackExamples)) aiSettings.feedbackExamples = [];
   if (!Array.isArray(aiSettings.techBlocklist)) aiSettings.techBlocklist = [];
   // 選択肢の種入れ（空→埋めるだけ。既存の選択肢は触らない）
   if (_seedTagPresets()) {
@@ -1281,46 +1210,34 @@ window._adoptAllAiSuggestions = () => {
 };
 
 // ═══ AI取込設定（簡素化） ═══
+// 取り込み・チャプターの設定。
+// AIタグ判定は v52.806 で廃止したので（Notion 項目01/13）、ここはチャプター関連だけ。
+// 以前は全体が「AIタグ機能」のトグルで囲われていて、タグを切るとチャプター設定まで
+// 操作できなくなっていた。その囲いも外した。
 function _renderAiImportSettings() {
   const el = document.getElementById('ai-settings-section'); if (!el) return;
   const s = aiSettings;
-  const _esc = v => String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  const toggleHtml = (prop, label, desc, extra='') => `
+  const toggleHtml = (prop, label, desc) => `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:600;margin-bottom:2px">${label}</div>
         ${desc?`<div style="font-size:11px;color:var(--text3)">${desc}</div>`:''}
       </div>
       <label class="settings-toggle">
-        <input type="checkbox" ${s[prop]?'checked':''} onchange="aiSettings.${prop}=this.checked;saveAiSettings();_renderAiImportSettings()" ${extra}>
+        <input type="checkbox" ${s[prop]?'checked':''} onchange="aiSettings.${prop}=this.checked;saveAiSettings();_renderAiImportSettings()">
         <span class="settings-toggle-slider"></span>
       </label>
     </div>`;
 
-  const chipHtml = (key, label) => {
-    const on = s.categories?.[key];
-    return `<span onclick="aiSettings.categories.${key}=!aiSettings.categories.${key};saveAiSettings();_renderAiImportSettings()"
-      style="padding:5px 12px;border-radius:20px;border:1.5px solid ${on?'var(--accent)':'var(--border)'};font-size:11px;font-weight:600;cursor:pointer;
-      background:${on?'var(--accent)':'var(--surface2)'};color:${on?'#fff':'var(--text2)'}">${label}</span>`;
-  };
-
   el.innerHTML = `
-    ${toggleHtml('enabled', 'AIタグ機能', 'タイトルからカテゴリ・ポジションを自動判定')}
-    <div style="opacity:${s.enabled?1:.4};pointer-events:${s.enabled?'auto':'none'};margin-top:14px;display:flex;flex-direction:column;gap:14px">
-      <div>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">自動判定するタグ</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${chipHtml('tb',tagLabel('tb'))}${chipHtml('action',tagLabel('cat'))}${chipHtml('position',tagLabel('pos'))}${chipHtml('tags',tagLabel('tags'))}
-        </div>
-      </div>
-      ${toggleHtml('autoTagOnImport', '取込時に自動AI分析', 'YouTube取り込み後に自動でタグ付け')}
+    <div style="display:flex;flex-direction:column;gap:14px">
       ${toggleHtml('fetchChaptersOnImport', 'チャプター取得', 'YouTubeの説明文からタイムスタンプを解析')}
       <div>
         <div style="font-size:12px;font-weight:600;margin-bottom:2px">自動チャプターの粒度</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Drive動画の「📑 自動チャプター」でどれくらい細かく区切るか</div>
         <div style="display:flex;gap:6px">
-          ${[['fine','細かめ','1本の技ごと'],['normal','ふつう','標準'],['coarse','大きめ','章のかたまりで']].map(([v,label,desc]) => `
+          ${[['fine','細かめ','1本の技ごと'],['normal','ふつう','標準'],['coarse','大きめ','章のかたまりで']].map(([v,label,desc])=>`
             <button onclick="aiSettings.chapterGrain='${v}';saveAiSettings();_renderAiImportSettings()"
               style="flex:1;padding:6px 4px;border-radius:8px;border:1.5px solid ${s.chapterGrain===v?'var(--accent)':'var(--border)'};
                      font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;
@@ -1328,7 +1245,7 @@ function _renderAiImportSettings() {
               ${label}<div style="font-size:9.5px;font-weight:400;opacity:.85;margin-top:1px">${desc}</div>
             </button>`).join('')}
         </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:5px">貼り付けた一覧から作る時は、その通りに区切るのでこの設定は使いません</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:5px">貼り付けた一覧から作る時は、その通りに区切ります</div>
       </div>
     </div>`;
 }
@@ -1388,6 +1305,68 @@ export function renderTagSettingsList() {
     el.appendChild(card);
     renderTagPresets(i);
   });
+  _renderBlocklistSection(el);
+}
+
+// 禁止リスト（この値は二度と候補に出さない）。
+// 以前はAI設定画面にあったが、AIタグ廃止でその画面ごと消えた（Notion 項目01/13）。
+// リスト自体はタグ仕分け・重複整理・「選択肢に無い値」の🚫が使い続けるので、
+// 確認して解除できる場所をタグ設定側に残す。
+function _renderBlocklistSection(parent) {
+  const list = aiSettings.techBlocklist || [];
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;';
+  const head = document.createElement('div');
+  head.style.cssText = 'font-size:12px;font-weight:700;margin-bottom:2px';
+  head.textContent = `🚫 禁止リスト（${list.length}件）`;
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:11px;color:var(--text3);margin-bottom:8px';
+  desc.textContent = 'ここにある値は「選択肢に無い値」の一覧に出てきません。動画のタグは消していません。';
+  card.appendChild(head); card.appendChild(desc);
+
+  if (!list.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:11px;color:var(--text3)';
+    empty.textContent = 'まだ何もありません';
+    card.appendChild(empty);
+    parent.appendChild(card);
+    return;
+  }
+
+  const chips = document.createElement('div');
+  chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px';
+  [...list].sort((a, b) => a.localeCompare(b, 'ja')).forEach(function(t) {
+    const chip = document.createElement('span');
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--text2);';
+    const lbl = document.createElement('span');
+    lbl.textContent = t;
+    const rel = document.createElement('span');
+    rel.textContent = '×';
+    rel.title = '禁止を解除';
+    rel.style.cssText = 'cursor:pointer;color:var(--text3);font-size:11px;';
+    rel.onclick = function() {
+      const i = aiSettings.techBlocklist.indexOf(t);
+      if (i >= 0) { aiSettings.techBlocklist.splice(i, 1); saveAiSettings(); }
+      renderTagSettingsList();
+      window.toast?.(`「${t}」の禁止を解除しました`);
+    };
+    chip.appendChild(lbl); chip.appendChild(rel);
+    chips.appendChild(chip);
+  });
+  card.appendChild(chips);
+
+  const clr = document.createElement('button');
+  clr.textContent = 'すべて解除';
+  clr.style.cssText = 'padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
+  clr.onclick = function() {
+    if (!window.confirm(`禁止リストの ${list.length}件 をすべて解除します。\n動画のタグは消えません。\n\n続けますか？`)) return;
+    aiSettings.techBlocklist = [];
+    saveAiSettings();
+    renderTagSettingsList();
+    window.toast?.('禁止リストをすべて解除しました');
+  };
+  card.appendChild(clr);
+  parent.appendChild(card);
 }
 
 export function renderTagPresets(i) {
@@ -1599,383 +1578,6 @@ export function renderTagVisibilityBtns() {
   });
 }
 
-// ── AI設定UI ──
-export function renderAiSettings() {
-  const el = document.getElementById('ai-settings-section'); if (!el) return;
-  const s = aiSettings;
-  // フィルター列の見出し。キー名(action/position)とグループキー(cat/pos)の対応に注意。
-  const catLabels = { tb: tagLabel('tb'), action: tagLabel('cat'), position: tagLabel('pos'), tags: tagLabel('tags') };
-  const row = (label, desc, checkbox) =>
-    `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <div style="font-size:12px;font-weight:600;margin-bottom:2px">${label}</div>
-        ${desc ? `<div style="font-size:11px;color:var(--text3)">${desc}</div>` : ''}
-      </div>
-      ${checkbox}
-    </div>`;
-  const toggle = (prop, extra='') =>
-    `<label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-      <input type="checkbox" ${s[prop]?'checked':''} onchange="aiSettings.${prop}=this.checked;saveAiSettings();renderAiSettings()" style="accent-color:var(--accent);width:14px;height:14px"${extra}> 有効
-    </label>`;
-
-  el.innerHTML = `
-    ${row('AIタグ機能', '🤖 AIタグ提案ボタンの有効/無効', toggle('enabled'))}
-    <div style="opacity:${s.enabled?1:.4};pointer-events:${s.enabled?'auto':'none'}">
-
-      <!-- デフォルト適用モード -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px">デフォルト適用モード</div>
-        <div style="display:flex;gap:8px">
-          ${['add','overwrite'].map(v => `
-            <button onclick="aiSettings.defaultMode='${v}';saveAiSettings();renderAiSettings()"
-              style="padding:6px 18px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;
-                ${s.defaultMode===v?'background:var(--accent);color:var(--on-accent);border:none':'background:var(--surface2);color:var(--text);border:1.5px solid var(--border)'}">
-              ${{add:'＋ 追加',overwrite:'上書き'}[v]}
-            </button>`).join('')}
-        </div>
-      </div>
-
-      <!-- 提案するカテゴリ -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px">提案するカテゴリ</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${Object.entries(catLabels).map(([key, label]) => `
-            <label style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;
-              border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600">
-              <input type="checkbox" ${s.categories[key]?'checked':''}
-                onchange="aiSettings.categories['${key}']=this.checked;saveAiSettings()"
-                style="accent-color:var(--accent);width:13px;height:13px"> ${label}
-            </label>`).join('')}
-        </div>
-      </div>
-
-      <!-- 提案の柔軟度 -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:600;margin-bottom:8px">提案の柔軟度</div>
-        <div style="display:flex;gap:6px">
-          ${['strict','standard','flexible'].map(v => `
-            <button onclick="aiSettings.flexibility='${v}';saveAiSettings();renderAiSettings()"
-              style="flex:1;padding:5px;border-radius:8px;border:1.5px solid var(--border);font-size:11px;cursor:pointer;font-family:inherit;
-                background:${s.flexibility===v?'var(--accent)':'var(--surface2)'};
-                color:${s.flexibility===v?'#fff':'var(--text2)'}">
-              ${{strict:'がちがち',standard:'標準',flexible:'柔軟'}[v]}
-            </button>`).join('')}
-        </div>
-      </div>
-
-      <!-- YouTube取り込み時にチャプター取得 -->
-      ${row('YouTube取り込み時にチャプターを取得', '動画説明文からタイムスタンプを解析してチャプター一覧を保存します', toggle('fetchChaptersOnImport'))}
-
-      <!-- YouTube取り込み時に自動AI分析 -->
-      ${row('YouTube取り込み時に自動AI分析', '取り込んだ動画にAIが自動でタグを追加します', toggle('autoTagOnImport'))}
-
-      <!-- 新規タグ提案を許可 -->
-      ${row('新規タグ提案を許可', 'プリセット外の新しいタグをAIが提案できます',
-        `<label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" ${s.newTagProposal?'checked':''} onchange="aiSettings.newTagProposal=this.checked;saveAiSettings();renderAiSettings()" style="accent-color:var(--accent);width:14px;height:14px"> 有効
-        </label>`)}
-
-      ${s.newTagProposal ? row('承認時に自動でプリセットへ追加', '新規提案タグを承認した際にプリセットへ自動登録します', toggle('autoAddToPresets')) : ''}
-
-      <!-- BJJ判定ルール自動追加 -->
-      ${row('BJJ判定ルールの自動追加', 'AIタグ適用時に新しいパターンをBJJ判定ルールへ自動追加します', toggle('bjjRulesAutoAdd'))}
-
-      <!-- 一括適用前の確認ダイアログ -->
-      ${row('一括適用前の確認ダイアログ', '「○本に適用しますか？」の確認を表示します', toggle('bulkConfirm'))}
-
-      <!-- D: AIモデル選択 -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:12px;font-weight:600;margin-bottom:4px">AIモデル</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Sonnetは高精度ですが1回あたり約3倍のコストがかかります（約0.3円/回 vs 0.1円/回）</div>
-        <div style="display:flex;gap:6px">
-          ${['haiku','sonnet'].map(v => `
-            <button onclick="aiSettings.model='${v}';saveAiSettings();renderAiSettings()"
-              style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;
-                background:${s.model===v?'var(--accent)':'var(--surface2)'};
-                color:${s.model===v?'#fff':'var(--text2)'}">
-              ${{haiku:'⚡ Haiku（高速・低コスト）',sonnet:'🧠 Sonnet（高精度）'}[v]}
-            </button>`).join('')}
-        </div>
-      </div>
-
-      <!-- C: BJJ判定ルール -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <details id="bjj-rules-details">
-          <summary style="font-size:12px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
-            <span style="transition:transform .2s" id="bjj-rules-arrow">▶</span>
-            BJJ判定ルール（${(s.bjjRules||[]).length}件）
-            <span style="font-size:10px;color:var(--text3);font-weight:400">— AIが従う推論ルールを確認・編集</span>
-          </summary>
-          <div style="margin-top:10px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-              AIはこのルールリストに従ってタグを判定します。追加・編集・削除が可能です。
-            </div>
-            <div id="bjj-rules-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-              ${(s.bjjRules||[]).map((r, i) => `
-                <div style="display:flex;align-items:flex-start;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px;font-size:11px;line-height:1.5">
-                  <span style="color:var(--text3);font-weight:700;min-width:20px">${i+1}.</span>
-                  <span id="bjj-rule-text-${i}" contenteditable="true"
-                    onblur="window._bjjRuleEdit(${i},this.textContent)"
-                    style="flex:1;color:var(--text);outline:none">${r}</span>
-                  <button onclick="window._bjjRuleRemove(${i})"
-                    style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0"
-                    title="削除">✕</button>
-                </div>`).join('')}
-            </div>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input id="bjj-rule-new" placeholder="新しいルールを追加..."
-                style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
-                       padding:6px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
-                onkeydown="if(event.key==='Enter')window._bjjRuleAdd()">
-              <button onclick="window._bjjRuleAdd()"
-                style="padding:6px 14px;border-radius:6px;border:none;background:var(--accent);
-                       color:var(--on-accent);font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">＋ 追加</button>
-            </div>
-            <div style="margin-top:8px;display:flex;gap:6px">
-              <button onclick="window._bjjRulesReset()"
-                style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
-                       color:var(--text3);font-size:11px;cursor:pointer;font-family:inherit">デフォルトに戻す</button>
-            </div>
-          </div>
-        </details>
-      </div>
-
-      <!-- E: フィードバック学習 -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-size:12px;font-weight:600">学習データ（自動蓄積）</div>
-            <div style="font-size:11px;color:var(--text3)">タグ適用時の結果をAIが次回以降の判定に活用します（最大10件）</div>
-          </div>
-          <div style="font-size:13px;font-weight:700;color:var(--accent)">${(s.feedbackExamples||[]).length}件</div>
-        </div>
-        ${(s.feedbackExamples||[]).length ? `
-          <div style="margin-top:8px;display:flex;gap:6px">
-            <button onclick="if(confirm('学習データをすべて削除しますか？')){aiSettings.feedbackExamples=[];saveAiSettings();renderAiSettings()}"
-              style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
-                     color:var(--text3);font-size:11px;cursor:pointer;font-family:inherit">クリア</button>
-          </div>` : ''}
-      </div>
-
-      <!-- 禁止リスト -->
-      <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <details id="blocklist-details">
-          <summary style="font-size:12px;font-weight:600;cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
-            <span style="transition:transform .2s" id="blocklist-arrow">▶</span>
-            🚫 禁止リスト（${(s.techBlocklist||[]).length}件）
-            <span style="font-size:10px;color:var(--text3);font-weight:400">— AIが生成しないタグ</span>
-          </summary>
-          <div style="margin-top:10px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-              ここに登録されたタグはAIが提案しなくなります。仕分けモードや整理ツールから追加できます。
-            </div>
-            <div id="blocklist-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
-              ${(s.techBlocklist||[]).length ? [...(s.techBlocklist||[])].sort((a, b) => a.localeCompare(b, 'ja')).map(t => {
-                const idx = (s.techBlocklist||[]).indexOf(t);
-                return `<span style="display:inline-flex;align-items:center;gap:0;padding:0;border-radius:12px;
-                  background:#ef444411;border:1.5px solid #ef4444;font-size:11px;color:#ef4444;overflow:hidden">
-                  <span onclick="window._blocklistMoveTo(${idx})"
-                    style="cursor:pointer;padding:4px 6px;background:#3b82f6;color:#fff;font-size:10px;font-weight:700;
-                           display:inline-flex;align-items:center" title="属性に移動">↩</span>
-                  <span style="padding:3px 4px 3px 8px">${t}</span>
-                  <span onclick="aiSettings.techBlocklist.splice(${idx},1);saveAiSettings();renderAiSettings()"
-                    style="cursor:pointer;font-size:11px;padding:3px 6px 3px 2px" title="禁止解除">✕</span>
-                </span>`;
-              }).join('') : '<span style="font-size:11px;color:var(--text3)">なし</span>'}
-            </div>
-            <div style="display:flex;gap:6px;align-items:center">
-              <input id="blocklist-new" placeholder="タグ名を入力..."
-                style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
-                       padding:6px 10px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
-                onkeydown="if(event.key==='Enter')window._blocklistAdd()">
-              <button onclick="window._blocklistAdd()"
-                style="padding:6px 14px;border-radius:6px;border:none;background:#ef4444;
-                       color:#fff;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">🚫 追加</button>
-            </div>
-            ${(s.techBlocklist||[]).length ? `
-              <div style="margin-top:8px">
-                <button onclick="if(confirm('禁止リストをすべてクリアしますか？')){aiSettings.techBlocklist=[];saveAiSettings();renderAiSettings()}"
-                  style="padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
-                         color:var(--text3);font-size:11px;cursor:pointer;font-family:inherit">すべてクリア</button>
-              </div>` : ''}
-          </div>
-        </details>
-      </div>
-
-      <!-- タグ仕分けモード -->
-      <div style="padding:10px 0">
-        <div style="font-size:12px;font-weight:600;margin-bottom:4px">🏷️ タグ仕分けモード</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-          動画内の未分類タグを1つずつ確認し、正しい属性に分類 or 禁止リストに追加できます
-        </div>
-        <button onclick="window._tagSortMode()"
-          style="padding:10px 20px;border-radius:10px;border:2px solid var(--accent);background:var(--gold-soft);
-                 color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
-          🏷️ 仕分けを開始
-        </button>
-      </div>
-
-    </div>`;
-
-  // details toggle でアロー回転
-  requestAnimationFrame(() => {
-    [['bjj-rules-details','bjj-rules-arrow'],['blocklist-details','blocklist-arrow']].forEach(([detId,arrId]) => {
-      const det = document.getElementById(detId);
-      const arr = document.getElementById(arrId);
-      if (det && arr) {
-        det.addEventListener('toggle', () => { arr.style.transform = det.open ? 'rotate(90deg)' : ''; });
-        if (det.open) arr.style.transform = 'rotate(90deg)';
-      }
-    });
-  });
-}
-
-// ── 禁止リスト操作 ──
-window._blocklistAdd = function() {
-  const inp = document.getElementById('blocklist-new');
-  if (!inp) return;
-  const val = inp.value.trim();
-  if (!val) return;
-  if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
-  if (!aiSettings.techBlocklist.includes(val)) {
-    aiSettings.techBlocklist.push(val);
-    saveAiSettings();
-    renderAiSettings();
-    requestAnimationFrame(() => {
-      const det = document.getElementById('blocklist-details');
-      if (det) det.open = true;
-    });
-    window.toast?.(`🚫 "${val}" を禁止リストに追加`);
-  }
-  inp.value = '';
-};
-
-// 禁止リスト → 属性に移動（ポップアップで属性選択）
-window._blocklistMoveTo = function(idx) {
-  const tag = aiSettings.techBlocklist?.[idx];
-  if (!tag) return;
-
-  // 既存ポップアップを消す
-  document.getElementById('blocklist-move-popup')?.remove();
-
-  const popup = document.createElement('div');
-  popup.id = 'blocklist-move-popup';
-  popup.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)';
-
-  const card = document.createElement('div');
-  card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:260px;max-width:360px';
-  card.innerHTML = `
-    <div style="font-size:14px;font-weight:800;margin-bottom:4px">↩ 「${tag}」を移動</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:14px">禁止リストから外し、選択した属性の候補に追加します</div>
-    <div style="display:flex;flex-direction:column;gap:6px" id="blocklist-move-btns"></div>
-    <button onclick="document.getElementById('blocklist-move-popup').remove()"
-      style="margin-top:12px;width:100%;padding:8px;border-radius:8px;border:1.5px solid var(--border);
-             background:var(--surface2);color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit">キャンセル</button>`;
-  popup.appendChild(card);
-  document.body.appendChild(popup);
-  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
-
-  const btnContainer = card.querySelector('#blocklist-move-btns');
-  const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
-  tagSettings.forEach((ts, ti) => {
-    const c = colors[ti % colors.length];
-    const btn = document.createElement('button');
-    btn.textContent = ts.label;
-    btn.style.cssText = `padding:10px;border-radius:8px;border:2px solid ${c};background:${c}11;
-      color:${c};font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left`;
-    btn.onclick = () => {
-      // 禁止リストから削除
-      aiSettings.techBlocklist.splice(idx, 1);
-      // 属性プリセットに追加
-      if (!ts.presets.includes(tag)) ts.presets.push(tag);
-      saveAiSettings();
-      saveTagSettings();
-      popup.remove();
-      renderAiSettings();
-      renderTagSettingsList();
-      requestAnimationFrame(() => {
-        const det = document.getElementById('blocklist-details');
-        if (det) det.open = true;
-      });
-      window.toast?.(`↩ 「${tag}」を ${ts.label} に移動`);
-    };
-    btnContainer.appendChild(btn);
-  });
-
-  // 「禁止解除のみ」ボタン
-  const releaseBtn = document.createElement('button');
-  releaseBtn.textContent = '禁止解除のみ（属性に追加しない）';
-  releaseBtn.style.cssText = 'padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit;text-align:left';
-  releaseBtn.onclick = () => {
-    aiSettings.techBlocklist.splice(idx, 1);
-    saveAiSettings();
-    popup.remove();
-    renderAiSettings();
-    requestAnimationFrame(() => {
-      const det = document.getElementById('blocklist-details');
-      if (det) det.open = true;
-    });
-    window.toast?.(`✅ 「${tag}」の禁止を解除`);
-  };
-  btnContainer.appendChild(releaseBtn);
-};
-
-export function setAiDefaultMode(mode) {
-  aiSettings.defaultMode = mode;
-  saveAiSettings();
-  renderAiSettings();
-}
-
-// ── BJJルール操作 ──
-window._bjjRuleAdd = function() {
-  const inp = document.getElementById('bjj-rule-new');
-  if (!inp) return;
-  const val = inp.value.trim();
-  if (!val) return;
-  if (!aiSettings.bjjRules) aiSettings.bjjRules = [];
-  aiSettings.bjjRules.push(val);
-  saveAiSettings();
-  renderAiSettings();
-  // 追加後 details を開いた状態に復元
-  requestAnimationFrame(() => {
-    const det = document.getElementById('bjj-rules-details');
-    if (det) det.open = true;
-  });
-};
-
-window._bjjRuleRemove = function(i) {
-  if (!aiSettings.bjjRules) return;
-  aiSettings.bjjRules.splice(i, 1);
-  saveAiSettings();
-  renderAiSettings();
-  requestAnimationFrame(() => {
-    const det = document.getElementById('bjj-rules-details');
-    if (det) det.open = true;
-  });
-};
-
-window._bjjRuleEdit = function(i, text) {
-  if (!aiSettings.bjjRules) return;
-  const trimmed = text.trim();
-  if (!trimmed) {
-    // 空にした場合は削除
-    aiSettings.bjjRules.splice(i, 1);
-  } else {
-    aiSettings.bjjRules[i] = trimmed;
-  }
-  saveAiSettings();
-};
-
-window._bjjRulesReset = function() {
-  if (!confirm('BJJ判定ルールをデフォルトに戻しますか？カスタマイズした内容は失われます。')) return;
-  aiSettings.bjjRules = [...DEFAULT_BJJ_RULES];
-  saveAiSettings();
-  renderAiSettings();
-  requestAnimationFrame(() => {
-    const det = document.getElementById('bjj-rules-details');
-    if (det) det.open = true;
-  });
-};
 
 // ════════════════════════════════════════════════════════
 // テクニック整理ツール
