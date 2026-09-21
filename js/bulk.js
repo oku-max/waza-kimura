@@ -132,9 +132,10 @@ export function buildBulkDrawerHTML() {
   </div>`;
 
   // ── タグ section (VPanel v4 と同じ構造) ──
-  const TB = window.TB_VALUES || [];
-  const CATS = window.CATEGORIES || [];
-  const POSS = window.POSITIONS || [];
+  // 選択肢はユーザーのもの（tagPresets）。辞書は英語表記の引き当てにしか使わない。
+  const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || []));
+  const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name: n }));
+  const POSS = _posOpts();
   const allTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
 
   // 共通タグ = 全選択動画が持つタグ
@@ -248,6 +249,15 @@ export function buildBulkDrawerHTML() {
 
 // ── BVP ドロップダウン制御（VPanelと同じ動的レンダリング） ──
 
+
+// ポジションの選択肢。中身はユーザーのもの(tagPresets)、英語表記だけ辞書から引く。
+// （検索で p.en を見る箇所があるので en を必ず持たせる）
+function _posOpts() {
+  const dict = new Map((window.POSITIONS || []).map(p => [p.ja, p.en || '']));
+  const names = window.tagPresets ? window.tagPresets('pos') : [...dict.keys()];
+  return names.map(n => ({ ja: n, en: dict.get(n) || '' }));
+}
+
 function _bvpGetAllOpts(key) {
   const ts = window.tagSettings || [];
   const presets = ts.find(t => t.key === key)?.presets || [];
@@ -277,10 +287,10 @@ function _bvpRenderPosDd(q) {
   const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
   const commonPos = [...new Set(selVids.flatMap(v => v.pos || []))].filter(p => selVids.every(v => (v.pos || []).includes(p)));
-  const POSS = window.POSITIONS || [];
+  const POSS = _posOpts();
   const ql = q.trim().toLowerCase();
   const filtered = ql
-    ? POSS.filter(p => !commonPos.includes(p.ja) && (p.ja.includes(ql) || p.en.toLowerCase().includes(ql)))
+    ? POSS.filter(p => !commonPos.includes(p.ja) && (p.ja.includes(ql) || (p.en || '').toLowerCase().includes(ql)))
     : POSS.filter(p => !commonPos.includes(p.ja));
   list.innerHTML = filtered.length
     ? filtered.map(p =>
@@ -734,7 +744,7 @@ export function bvpAddTech() {
 
 export function bvpPosSuggest(inp) {
   const q = inp.value.trim().toLowerCase();
-  const POS_BASE = (window.POSITIONS || []).map(p => p.ja).filter(Boolean);
+  const POS_BASE = (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).filter(Boolean);
   const videos = window.videos || [];
   const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
   const sug = document.getElementById('bvp-pos-sug');
@@ -882,11 +892,11 @@ const BULK_PICKER_OPTS_BASE = {
 export function getBulkPickerOpts(type) {
   const _mk = arr => arr.map(x => ({ val:x, label:x }));
   if (type === 'prog') return _mk(window.STATUS_CANON || []);
-  if (type === 'tb')   return _mk(window.TB_VALUES || []);
-  if (type === 'cat')  return _mk((window.CATEGORIES || []).map(c => c.name).filter(Boolean));
+  if (type === 'tb')   return _mk((window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])));
+  if (type === 'cat')  return _mk((window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).filter(Boolean));
   if (type === 'pos') {
     // 正典(window.POSITIONS)＋ライブラリ既存データを統合
-    const base = (window.POSITIONS || []).map(p => p.ja).filter(Boolean);
+    const base = (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).filter(Boolean);
     const videos = window.videos || [];
     const all = [...new Set([...base, ...videos.flatMap(v=>v.pos||[])])].sort((a,b)=>a.localeCompare(b,'ja'));
     return _mk(all);
@@ -1348,7 +1358,7 @@ export function bulkChipToggle(type, val, el) {
 
 // Position行を動的生成
 export function buildBbPosRow() {
-  const POS_BASE = (window.POSITIONS || []).map(p => p.ja).filter(Boolean);
+  const POS_BASE = (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).filter(Boolean);
   const videos = window.videos || [];
   const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
   const panel = document.getElementById('bb-panel-pos');

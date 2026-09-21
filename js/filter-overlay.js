@@ -332,9 +332,9 @@ export function fovDdOpen(rowId) {
 export function fovDdFilter(rowId, filterKey, q) {
   const vids = window.videos || [];
   let items = [];
-  if (filterKey === 'tb') items = window.TB_VALUES || [];
-  else if (filterKey === 'action') items = (window.CATEGORIES || []).map(c => c.name);
-  else if (filterKey === 'position') items = [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort();
+  if (filterKey === 'tb') items = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || []));
+  else if (filterKey === 'action') items = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name));
+  else if (filterKey === 'position') items = [...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), ...vids.flatMap(v => v.pos||[])])].sort();
   else if (filterKey === 'tags') items = [...new Set(vids.flatMap(v => v.tags||[]))].sort();
   _fovDdRenderList(rowId, filterKey, items, q);
 }
@@ -441,9 +441,9 @@ export function buildFovRows(isOrg=false) {
 
   // 検索欄の案内文もユーザーが付けたグループ名で出す
   const _phLabel = k => (window.tagLabel ? window.tagLabel(k) : k) + '検索...';
-  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES || [], _phLabel('tb'), isOrg);
-  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), _phLabel('cat'), isOrg);
-  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort(), _phLabel('pos'), isOrg);
+  buildFovDdRow(`${p}-srow-tb`,   'tb',       (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])), _phLabel('tb'), isOrg);
+  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)), _phLabel('cat'), isOrg);
+  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), ...vids.flatMap(v => v.pos||[])])].sort(), _phLabel('pos'), isOrg);
   buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), _phLabel('tags'), isOrg);
   buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
@@ -531,7 +531,7 @@ export function clearFovField(fieldKey) {
 // ── フィルターピッカー（サイドバー：Position/Playlist/Technique/Channel）──
 const FS_PICKER_FIELDS = {
   pos:  { label:'Position',  filterKey:'position', getAll: () =>
-    [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...(window.videos||[]).flatMap(v => v.pos||[])])].sort()
+    [...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), ...(window.videos||[]).flatMap(v => v.pos||[])])].sort()
   },
   pl:   { label:'Playlist',  filterKey:'playlist', getAll: () => [...new Set((window.videos||[]).map(v => v.pl).filter(Boolean))].sort() },
   tags: { label:'Technique', filterKey:'tags',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
@@ -825,9 +825,9 @@ function _sbPopupRender(key, ctx='lib') {
   const vids = window.videos || [];
   if (key === 'ch')        buildSbPickerInline(cId, 'channel', ctx);
   else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
-  else if (key === 'tb')   buildSbTagInline(cId, 'tb', window.TB_VALUES || [], ctx);
-  else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.CATEGORIES||[]).map(c=>c.name), ctx);
-  else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
+  else if (key === 'tb')   buildSbTagInline(cId, 'tb', (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])), ctx);
+  else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)), ctx);
+  else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
   else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 

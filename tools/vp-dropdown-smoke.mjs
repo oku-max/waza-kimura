@@ -69,7 +69,9 @@ ck('有れば本来の処理を使う', await pg.evaluate(()=>window.__called)==
 // dd が無いケース
 await pg.evaluate(()=>window.vpV4OpenTagDd('NOPE'));
 await pg.waitForTimeout(150);
-ck('見つからないときは理由を出す',
-  (await pg.evaluate(()=>window.__toasts||[])).some(t=>String(t).includes('テクニック')));
+// 理由に出る名前は「ユーザーが付けたグループ名」。固定文字列ではない（Notion 項目03/05）。
+const _tagsLabel = await pg.evaluate(()=>window.tagLabel?window.tagLabel('tags'):'tags');
+ck('見つからないときは理由を出す（グループ名つき）',
+  (await pg.evaluate(()=>window.__toasts||[])).some(t=>String(t).includes(_tagsLabel)));
 console.log(fail?`\n✗ 失敗 ${fail}件`:'\n✓ 通過');
 await b.close(); srv.close(); process.exit(fail?1:0);

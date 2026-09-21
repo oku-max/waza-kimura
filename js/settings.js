@@ -40,6 +40,57 @@ export function tagVisible(key) {
   return t ? t.visible !== false : true;
 }
 
+// そのグループの選択肢。中身もユーザーのもの。画面は window.CATEGORIES 等を直接見ない。
+export function tagPresets(key) {
+  const t = tagSettings.find(x => x.key === key);
+  if (!t) return [];
+  if (!Array.isArray(t.presets)) t.presets = [];
+  return t.presets;
+}
+
+// 選択肢の追加/削除。表示は tagPresets() を見るので、編集は必ずここを通す。
+// （辞書 waza_tag_dict / waza_positions は別物。あちらは英語表記・別名を持つ検索用。）
+function _presetAdd(key, name) {
+  if (!name) return;
+  const t = tagSettings.find(x => x.key === key);
+  if (!t) return;
+  if (!Array.isArray(t.presets)) t.presets = [];
+  if (!t.presets.includes(name)) { t.presets.push(name); saveTagSettings(); }
+}
+function _presetRemove(key, name) {
+  if (!name) return;
+  const t = tagSettings.find(x => x.key === key);
+  if (!t || !Array.isArray(t.presets)) return;
+  const next = t.presets.filter(p => p !== name);
+  if (next.length !== t.presets.length) { t.presets = next; saveTagSettings(); }
+}
+
+// 初回だけ、サンプル（tag-master.js の一覧）を選択肢の種として入れる。
+// ・空 → 埋める、しかやらない。既にある選択肢は絶対に触らない
+// ・一度種を入れたら seeded を立て、以後は入れない
+//   （ユーザーが全部消して「空のまま」にしたいときに、勝手に復活させないため）
+function _sampleFor(key) {
+  if (key === 'tb')  return (window.TB_VALUES || []).slice();
+  if (key === 'cat') return (window.CATEGORIES || []).map(c => c.name).filter(Boolean);
+  if (key === 'pos') return (window.POSITIONS  || []).map(p => p.ja).filter(Boolean);
+  return [];
+}
+function _seedTagPresets() {
+  let changed = false;
+  for (const key of _TAG_KEYS) {
+    const t = tagSettings.find(x => x.key === key);
+    if (!t || t.seeded) continue;
+    if (!Array.isArray(t.presets)) t.presets = [];
+    if (t.presets.length === 0) {
+      const sample = _sampleFor(key);
+      if (sample.length) { t.presets = sample; changed = true; }
+    }
+    t.seeded = true;
+    changed = true;
+  }
+  return changed;
+}
+
 export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
 
 // ── aiSettings ──
@@ -163,6 +214,10 @@ export function loadTagSettings() {
   if (!Array.isArray(aiSettings.bjjRules)) aiSettings.bjjRules = [...DEFAULT_BJJ_RULES];
   if (!Array.isArray(aiSettings.feedbackExamples)) aiSettings.feedbackExamples = [];
   if (!Array.isArray(aiSettings.techBlocklist)) aiSettings.techBlocklist = [];
+  // 選択肢の種入れ（空→埋めるだけ。既存の選択肢は触らない）
+  if (_seedTagPresets()) {
+    try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
+  }
   window.tagSettings = tagSettings;
   window.aiSettings  = aiSettings;
 }
@@ -435,6 +490,7 @@ window._addTagFromModal = function(type) {
       try { localStorage.setItem('waza_tag_dict', JSON.stringify(cats)); } catch(e) {}
     }
     _syncWindowCats();
+    _presetAdd('cat', val);
   } else if (type === 'pos') {
     const positions = _getSettingsPositions();
     if (!positions.find(p => (p.names?.ja) === val)) {
@@ -443,6 +499,7 @@ window._addTagFromModal = function(type) {
       try { localStorage.setItem('waza_positions', JSON.stringify(positions)); } catch(e) {}
     }
     _syncWindowPositions();
+    _presetAdd('pos', val);
   } else if (type === 'tags') {
     const ts = tagSettings.find(t => t.key === 'tags');
     if (ts && !ts.presets.includes(val)) {
@@ -467,14 +524,18 @@ window._deleteTagFromModal = function(type, idOrName) {
     }
   } else if (type === 'cat') {
     const cats = _getSettingsCategory();
+    const gone = cats.find(c => (c.id || c.names?.ja || c.name) === idOrName);
     const filtered = cats.filter(c => (c.id || c.names?.ja || c.name) !== idOrName);
     try { localStorage.setItem('waza_tag_dict', JSON.stringify(filtered)); } catch(e) {}
     _syncWindowCats();
+    _presetRemove('cat', gone ? (gone.names?.ja || gone.name) : idOrName);
   } else if (type === 'pos') {
     const positions = _getSettingsPositions();
+    const goneP = positions.find(p => (p.id || p.names?.ja) === idOrName);
     const filtered = positions.filter(p => (p.id || p.names?.ja) !== idOrName);
     try { localStorage.setItem('waza_positions', JSON.stringify(filtered)); } catch(e) {}
     _syncWindowPositions();
+    _presetRemove('pos', goneP ? goneP.names?.ja : idOrName);
   } else if (type === 'tags') {
     const ts = tagSettings.find(t => t.key === 'tags');
     if (ts) {

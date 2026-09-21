@@ -28,8 +28,9 @@
     if (!Array.isArray(v.pos))  v.pos  = [];
     if (!Array.isArray(v.tags)) v.tags = [];
 
-    const TB = window.TB_VALUES || [];
-    const CATS = window.CATEGORIES || [];
+    // 選択肢はユーザーのもの（tagPresets）
+    const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || []));
+    const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name: n }));
     // TB row (3固定 + 🔒)
     const tbRow = TB.map(t => {
       const on = v.tb.includes(t);
@@ -180,8 +181,10 @@
     const v = _findV(id);
     const selected = v?.pos || [];
     // window.POSITIONS（tag-master.js → 単一の真実）＋ 動画データ合算
-    const masterPoss = window.POSITIONS || [];
-    const masterNames = new Set(masterPoss.map(p => p.ja));
+    const _posDict = new Map((window.POSITIONS || []).map(p => [p.ja, p.en || '']));
+    const _posNames = window.tagPresets ? window.tagPresets('pos') : [..._posDict.keys()];
+    const masterPoss = _posNames.map(n => ({ ja: n, en: _posDict.get(n) || '' }));
+    const masterNames = new Set(_posNames);
     const extraNames = [...new Set((window.videos||[]).flatMap(v2 => v2.pos||[]))]
       .filter(n => !masterNames.has(n)).sort();
     const allPoss = [...masterPoss, ...extraNames.map(n => ({ ja: n, en: '' }))];

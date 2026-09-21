@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.802</title>
+<title>WAZA KIMURA v52.803</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -137,7 +137,7 @@
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
     renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
-    tagGroups, tagLabel, tagLabelShort, tagVisible,
+    tagGroups, tagLabel, tagLabelShort, tagVisible, tagPresets,
     toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance,
     filterColVis, saveFilterColVis
   } from './js/settings.js';
@@ -421,6 +421,7 @@
   window.tagLabel                = tagLabel;
   window.tagLabelShort           = tagLabelShort;
   window.tagVisible              = tagVisible;
+  window.tagPresets              = tagPresets;
   window.toggleTheme             = toggleTheme;
   window.setTheme                = setTheme;
   window.setFontScale            = setFontScale;
@@ -3427,8 +3428,8 @@ function itagRenderFields() {
   const lblTb = v => window.tTb ? window.tTb(v) : v;     // 表示は翻訳、値(value)は日本語のまま
   const lblCat = v => window.tCat ? window.tCat(v) : v;
   const lblPos = v => window.tPos ? window.tPos(v) : v;
-  const TB = window.TB_VALUES || ['トップ', 'ボトム', 'スタンディング'];
-  const CATS = (window.CATEGORIES || []).map(x => x.name);
+  const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || ['トップ','ボトム','スタンディング']));
+  const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(x => x.name));
   const tbRow = TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="itagTog('tb','${esc(v)}',this)">${lblTb(v)}</span>`).join('');
   const catRow = CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="itagTog('cat','${esc(v)}',this)">${lblCat(v)}</span>`).join('');
   const posChips = t.pos.map(p => `<span class="vp-chip on-pos" style="cursor:pointer" onclick="itagRmChip('pos','${esc(p)}')">${lblPos(p)} ×</span>`).join('');
@@ -3471,8 +3472,11 @@ function itagFilterPosDd(q) { itagRenderPosDd(q); }
 function itagRenderPosDd(q) {
   const list = document.getElementById('utag-pos-list'); if (!list) return;
   const sel = itagCurrent().pos || [];
-  const master = window.POSITIONS || [];
-  const masterNames = new Set(master.map(p => p.ja));
+  // 選択肢はユーザーのもの。英語表記は辞書(tag-master.js)から引くだけで、一覧の中身は決めない。
+  const dict = new Map((window.POSITIONS || []).map(p => [p.ja, p.en || '']));
+  const names = window.tagPresets ? window.tagPresets('pos') : [...dict.keys()];
+  const master = names.map(n => ({ ja: n, en: dict.get(n) || '' }));
+  const masterNames = new Set(names);
   const extra = [...new Set((window.videos || []).flatMap(v => v.pos || []))].filter(n => !masterNames.has(n)).sort();
   const all = [...master, ...extra.map(n => ({ ja: n, en: '' }))];
   const ql = q.trim().toLowerCase();
@@ -3678,7 +3682,7 @@ function renderPos(){
   const q=document.getElementById('pos-s').value.trim();
   const ql=q.toLowerCase();
   // 既存タグ = POSITIONS + 動画に付いているposタグを合わせて重複排除・ソート
-  const allPos=[...new Set([...(window.POSITIONS||[]).map(p=>p.ja),...videos.flatMap(v=>v.pos||[])])].sort();
+  const allPos=[...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)),...videos.flatMap(v=>v.pos||[])])].sort();
   const matched=allPos.filter(p=>!ql||p.toLowerCase().includes(ql));
   let html=matched.map(p=>{const n=countContextual('position',p);return`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}${cntBadge(n)}</div>`;}).join('');
   // ヒットなし or 完全一致なし → 新規追加ボタン
@@ -3803,8 +3807,8 @@ function buildStatRow(id){
 }
 // ─── Build all sliders ───
 function buildAllSliders() {
-  buildSrow('srow-tb',  window.TB_VALUES||['トップ','ボトム','スタンディング'],  'tb',       false);
-  buildSrow('srow-ac',  (window.CATEGORIES||[]).map(c=>c.name),  'action',   true);
+  buildSrow('srow-tb',  (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),  'tb',       false);
+  buildSrow('srow-ac',  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),  'action',   true);
   buildPosSrow();
   buildPlSrow();
   buildTechSrow();
@@ -3826,8 +3830,8 @@ function buildAllSliders() {
 const _openEdit = openEdit;
 openEdit = function(id) {
   _openEdit(id);
-  rebuildEditGrid('dAct', (window.CATEGORIES||[]).map(c=>c.name),  'cat', 'sel-act');
-  rebuildEditGrid('dPos', (window.POSITIONS||[]).map(p=>p.ja), 'pos',    'sel-pos');
+  rebuildEditGrid('dAct', (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),  'cat', 'sel-act');
+  rebuildEditGrid('dPos', (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), 'pos',    'sel-pos');
 };
 
 function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
@@ -3858,7 +3862,7 @@ function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
     inp.value = '';
     rebuildEditGrid(gridId, tagList, dTagKey, selCls);
     // also refresh the filter slider
-    if (dTagKey === 'cat') buildSrow('srow-ac',  (window.CATEGORIES||[]).map(c=>c.name),  'action',   true);
+    if (dTagKey === 'cat') buildSrow('srow-ac',  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),  'action',   true);
     if (dTagKey === 'pos')    buildPosSrow();
     toast('タグを追加: ' + v);
   });
@@ -3867,8 +3871,8 @@ function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
 
 
 function buildMirrorRows(){
-  buildSrow('msrow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);
-  buildSrow('msrow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',false);
+  buildSrow('msrow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);
+  buildSrow('msrow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',false);
   buildMirrorPosSrow();
   // Series mirror — picker style
   const mpl=document.getElementById('msrow-pl');
@@ -3908,11 +3912,11 @@ function buildMirrorRows(){
 function buildFsTbSrow(){
   const row=document.getElementById('fs-srow-tb');if(!row)return;
   row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.tb.size===0,function(){filters.tb.clear();buildFsTbSrow();buildSrow('srow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);window.AF?.();}));
+  row.appendChild(mkChip('すべて',filters.tb.size===0,function(){filters.tb.clear();buildFsTbSrow();buildSrow('srow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);window.AF?.();}));
   [...filters.tb].forEach(function(t){
     const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
     el.textContent=t+' ×';
-    el.onclick=function(){filters.tb.delete(t);buildFsTbSrow();buildSrow('srow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);window.AF?.();};
+    el.onclick=function(){filters.tb.delete(t);buildFsTbSrow();buildSrow('srow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);window.AF?.();};
     row.appendChild(el);
   });
   const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
@@ -3921,22 +3925,22 @@ function buildFsTbSrow(){
 function buildFsAcSrow(){
   const row=document.getElementById('fs-srow-ac');if(!row)return;
   row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.action.size===0,function(){filters.action.clear();buildFsAcSrow();buildSrow('srow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',true);window.AF?.();}));
+  row.appendChild(mkChip('すべて',filters.action.size===0,function(){filters.action.clear();buildFsAcSrow();buildSrow('srow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',true);window.AF?.();}));
   [...filters.action].forEach(function(a){
     const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
     el.textContent=a+' ×';
-    el.onclick=function(){filters.action.delete(a);buildFsAcSrow();buildSrow('srow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',true);window.AF?.();};
+    el.onclick=function(){filters.action.delete(a);buildFsAcSrow();buildSrow('srow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',true);window.AF?.();};
     row.appendChild(el);
   });
   const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
   btn.textContent='＋ 選ぶ';btn.onclick=openAcPicker;row.appendChild(btn);
 }
 function openTbPicker(){document.getElementById('tb-picker-s').value='';renderTbPicker();document.getElementById('tbPickerOv').classList.add('open');}
-function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();const _TB=window.TB_VALUES||['トップ','ボトム','スタンディング'];document.getElementById('tbPickerR').innerHTML=_TB.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
-function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',window.TB_VALUES||['トップ','ボトム','スタンディング'],'tb',false);window.AF?.();}
+function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();const _TB=(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング']));document.getElementById('tbPickerR').innerHTML=_TB.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
+function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);window.AF?.();}
 function openAcPicker(){document.getElementById('ac-picker-s').value='';renderAcPicker();document.getElementById('acPickerOv').classList.add('open');}
-function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();const _AC=(window.CATEGORIES||[]).map(c=>c.name);document.getElementById('acPickerR').innerHTML=_AC.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('action',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
-function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',(window.CATEGORIES||[]).map(c=>c.name),'action',true);window.AF?.();}
+function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();const _AC=(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name));document.getElementById('acPickerR').innerHTML=_AC.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('action',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
+function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',true);window.AF?.();}
 
 // ─── Filter sidebar builders ───
 function buildFsPosSrow(){
