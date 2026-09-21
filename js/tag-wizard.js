@@ -3,26 +3,8 @@
 (function () {
 'use strict';
 
-// ── チャンネルプロファイル（学習補完）──
-function _updateChannelProfile(channel, finalTags) {
-  if (!channel) return;
-  try {
-    var profiles = JSON.parse(localStorage.getItem('wk_ch_profiles') || '{}');
-    if (!profiles[channel]) profiles[channel] = {};
-    var all = [].concat(finalTags.tb ? [finalTags.tb] : [], finalTags.pos||[], finalTags.cat||[], finalTags.tech||[]);
-    all.forEach(function(tag){ profiles[channel][tag] = (profiles[channel][tag]||0) + 1; });
-    localStorage.setItem('wk_ch_profiles', JSON.stringify(profiles));
-  } catch(e) {}
-}
-
-function _getChannelSuggest(channel, n) {
-  if (!channel) return [];
-  try {
-    var profiles = JSON.parse(localStorage.getItem('wk_ch_profiles') || '{}');
-    var chData = profiles[channel] || {};
-    return Object.keys(chData).sort(function(a,b){ return chData[b]-chData[a]; }).slice(0, n||5);
-  } catch(e) { return []; }
-}
+// チャンネルプロファイル学習（wk_ch_profiles）は v52.807 で廃止。
+// Notion「タグシステム再考」項目14。保存済みの wk_ch_profiles は消さない（読まなくなるだけ）。
 
 // ── スキップ済みルール管理 ──
 function _saveSkippedRule(rule) {
@@ -42,127 +24,13 @@ function _isRuleSkipped(rule) {
 // ── 組み込みルール定義（TB判定の文脈パターン）──
 // Admin「ルール」タブに反映・編集可能。source='ビルトイン' / id='_b_xxx' で識別。
 // グループ名はユーザーが付けたもの。ここに直接書かない。
+// グループ名はユーザーが付けたもの。ここに直接書かない。
 function _twLabel(k){
   var v = window.tagLabel ? window.tagLabel(k) : k;
   return String(v).replace(/[&<>"]/g, function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});
 }
 
-var _BUILTIN_RULES = [
-  // ── TB: トップシグナル（ガードを攻略・崩す視点のキーワード）──
-  { id:'_b_dominate', condition:'dominate', field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Dominate [guard] → トップ（ガードを制圧する側）' },
-  { id:'_b_passing',  condition:'passing',  field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Passing [guard] → トップ（パスガード側）' },
-  { id:'_b_beat',     condition:'beat',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Beat [guard] → トップ（ガードを攻略する側）' },
-  { id:'_b_攻略',     condition:'攻略',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'攻略 → トップ（ガードを崩す視点）' },
-  { id:'_b_突破',     condition:'突破',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'突破 → トップ（突破する側）' },
-  { id:'_b_制圧',     condition:'制圧',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'制圧 → トップ（制圧する側）' },
-  { id:'_b_崩し',     condition:'崩し',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'崩し → トップ（ガードを崩す側）' },
-  { id:'_b_対策',     condition:'対策',     field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'対策 → トップ（ガード対策 = パス側）' },
-  // ── TB: ボトムシグナル（ガードをプレーする・使う視点のキーワード）──
-  { id:'_b_playing',    condition:'playing',    field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'Playing [guard] → ボトム（ガードプレイヤー側）' },
-  { id:'_b_using',      condition:'using',      field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'Using [guard] → ボトム（ガードを使う側）' },
-  { id:'_b_ガード構築',  condition:'ガード構築',  field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'ガード構築 → ボトム（ガードを張る側）' },
-  { id:'_b_ガードから',  condition:'ガードから',  field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'ガードから〜 → ボトム（ガードから仕掛ける側）' },
-  { id:'_b_ガードプレイ', condition:'ガードプレイ', field:'tb', action:'add', value:'ボトム', enabled:true, source:'ビルトイン', desc:'ガードプレイ → ボトム' },
 
-  // ── Category: エスケープ・ディフェンス ──
-  { id:'_b_cat_escape',    condition:'escape',    field:'cat', action:'add', value:'エスケープ・ディフェンス', enabled:true, source:'ビルトイン', desc:'escape → エスケープ・ディフェンス' },
-  { id:'_b_cat_defense',   condition:'defense',   field:'cat', action:'add', value:'エスケープ・ディフェンス', enabled:true, source:'ビルトイン', desc:'defense → エスケープ・ディフェンス' },
-  { id:'_b_cat_エスケープ', condition:'エスケープ', field:'cat', action:'add', value:'エスケープ・ディフェンス', enabled:true, source:'ビルトイン', desc:'エスケープ → エスケープ・ディフェンス' },
-  { id:'_b_cat_ディフェンス',condition:'ディフェンス',field:'cat',action:'add', value:'エスケープ・ディフェンス', enabled:true, source:'ビルトイン', desc:'ディフェンス → エスケープ・ディフェンス' },
-  { id:'_b_cat_脱出',       condition:'脱出',       field:'cat', action:'add', value:'エスケープ・ディフェンス', enabled:true, source:'ビルトイン', desc:'脱出 → エスケープ・ディフェンス' },
-  { id:'_b_cat_サバイバル',  condition:'サバイバル',  field:'cat', action:'add', value:'エスケープ・ディフェンス', enabled:true, source:'ビルトイン', desc:'サバイバル → エスケープ・ディフェンス' },
-
-  // ── Category: ガード構築・エントリー ──
-  { id:'_b_cat_エントリー',  condition:'エントリー',  field:'cat', action:'add', value:'ガード構築・エントリー', enabled:true, source:'ビルトイン', desc:'エントリー → ガード構築・エントリー' },
-  { id:'_b_cat_引き込み',    condition:'引き込み',    field:'cat', action:'add', value:'ガード構築・エントリー', enabled:true, source:'ビルトイン', desc:'引き込み → ガード構築・エントリー' },
-  { id:'_b_cat_セットアップ', condition:'セットアップ', field:'cat', action:'add', value:'ガード構築・エントリー', enabled:true, source:'ビルトイン', desc:'セットアップ → ガード構築・エントリー' },
-  { id:'_b_cat_入り方',      condition:'入り方',      field:'cat', action:'add', value:'ガード構築・エントリー', enabled:true, source:'ビルトイン', desc:'入り方 → ガード構築・エントリー' },
-
-  // ── Category: ガードリテンション ──
-  { id:'_b_cat_リテンション', condition:'リテンション', field:'cat', action:'add', value:'ガードリテンション', enabled:true, source:'ビルトイン', desc:'リテンション → ガードリテンション' },
-  { id:'_b_cat_retention',   condition:'retention',   field:'cat', action:'add', value:'ガードリテンション', enabled:true, source:'ビルトイン', desc:'retention → ガードリテンション' },
-  { id:'_b_cat_reguard',     condition:'reguard',     field:'cat', action:'add', value:'ガードリテンション', enabled:true, source:'ビルトイン', desc:'reguard → ガードリテンション' },
-  { id:'_b_cat_リガード',     condition:'リガード',     field:'cat', action:'add', value:'ガードリテンション', enabled:true, source:'ビルトイン', desc:'リガード → ガードリテンション' },
-
-  // ── Category: コントロール／プレッシャー ──
-  { id:'_b_cat_control',     condition:'control',     field:'cat', action:'add', value:'コントロール／プレッシャー', enabled:true, source:'ビルトイン', desc:'control → コントロール／プレッシャー' },
-  { id:'_b_cat_pressure',    condition:'pressure',    field:'cat', action:'add', value:'コントロール／プレッシャー', enabled:true, source:'ビルトイン', desc:'pressure → コントロール／プレッシャー' },
-  { id:'_b_cat_コントロール', condition:'コントロール', field:'cat', action:'add', value:'コントロール／プレッシャー', enabled:true, source:'ビルトイン', desc:'コントロール → コントロール／プレッシャー' },
-  { id:'_b_cat_プレッシャー', condition:'プレッシャー', field:'cat', action:'add', value:'コントロール／プレッシャー', enabled:true, source:'ビルトイン', desc:'プレッシャー → コントロール／プレッシャー' },
-  { id:'_b_cat_抑え込み',    condition:'抑え込み',    field:'cat', action:'add', value:'コントロール／プレッシャー', enabled:true, source:'ビルトイン', desc:'抑え込み → コントロール／プレッシャー' },
-
-  // ── Category: コンセプト・原理 ──
-  { id:'_b_cat_concept',      condition:'concept',      field:'cat', action:'add', value:'コンセプト・原理', enabled:true, source:'ビルトイン', desc:'concept → コンセプト・原理' },
-  { id:'_b_cat_コンセプト',   condition:'コンセプト',   field:'cat', action:'add', value:'コンセプト・原理', enabled:true, source:'ビルトイン', desc:'コンセプト → コンセプト・原理' },
-  { id:'_b_cat_理論',         condition:'理論',         field:'cat', action:'add', value:'コンセプト・原理', enabled:true, source:'ビルトイン', desc:'理論 → コンセプト・原理' },
-  { id:'_b_cat_theory',       condition:'theory',       field:'cat', action:'add', value:'コンセプト・原理', enabled:true, source:'ビルトイン', desc:'theory → コンセプト・原理' },
-  { id:'_b_cat_原理',         condition:'原理',         field:'cat', action:'add', value:'コンセプト・原理', enabled:true, source:'ビルトイン', desc:'原理 → コンセプト・原理' },
-  { id:'_b_cat_fundamentals', condition:'fundamentals', field:'cat', action:'add', value:'コンセプト・原理', enabled:true, source:'ビルトイン', desc:'fundamentals → コンセプト・原理' },
-
-  // ── Category: スイープ ──
-  { id:'_b_cat_sweep',   condition:'sweep',   field:'cat', action:'add', value:'スイープ', enabled:true, source:'ビルトイン', desc:'sweep → スイープ' },
-  { id:'_b_cat_スイープ', condition:'スイープ', field:'cat', action:'add', value:'スイープ', enabled:true, source:'ビルトイン', desc:'スイープ → スイープ' },
-  { id:'_b_cat_切り返し', condition:'切り返し', field:'cat', action:'add', value:'スイープ', enabled:true, source:'ビルトイン', desc:'切り返し → スイープ' },
-
-  // ── Category: テイクダウン ──
-  { id:'_b_cat_takedown',  condition:'takedown',  field:'cat', action:'add', value:'テイクダウン', enabled:true, source:'ビルトイン', desc:'takedown → テイクダウン' },
-  { id:'_b_cat_テイクダウン',condition:'テイクダウン',field:'cat',action:'add', value:'テイクダウン', enabled:true, source:'ビルトイン', desc:'テイクダウン → テイクダウン' },
-  { id:'_b_cat_タックル',   condition:'タックル',   field:'cat', action:'add', value:'テイクダウン', enabled:true, source:'ビルトイン', desc:'タックル → テイクダウン' },
-  { id:'_b_cat_wrestling',  condition:'wrestling',  field:'cat', action:'add', value:'テイクダウン', enabled:true, source:'ビルトイン', desc:'wrestling → テイクダウン' },
-  { id:'_b_cat_レスリング',  condition:'レスリング',  field:'cat', action:'add', value:'テイクダウン', enabled:true, source:'ビルトイン', desc:'レスリング → テイクダウン' },
-  { id:'_b_cat_投げ',       condition:'投げ',       field:'cat', action:'add', value:'テイクダウン', enabled:true, source:'ビルトイン', desc:'投げ → テイクダウン' },
-
-  // ── Category: バックテイク・バックアタック ──
-  { id:'_b_cat_back_take',    condition:'back take',    field:'cat', action:'add', value:'バックテイク・バックアタック', enabled:true, source:'ビルトイン', desc:'back take → バックテイク・バックアタック' },
-  { id:'_b_cat_back_attack',  condition:'back attack',  field:'cat', action:'add', value:'バックテイク・バックアタック', enabled:true, source:'ビルトイン', desc:'back attack → バックテイク・バックアタック' },
-  { id:'_b_cat_バックテイク',  condition:'バックテイク',  field:'cat', action:'add', value:'バックテイク・バックアタック', enabled:true, source:'ビルトイン', desc:'バックテイク → バックテイク・バックアタック' },
-  { id:'_b_cat_バックアタック',condition:'バックアタック',field:'cat', action:'add', value:'バックテイク・バックアタック', enabled:true, source:'ビルトイン', desc:'バックアタック → バックテイク・バックアタック' },
-
-  // ── Category: パスガード ──
-  { id:'_b_cat_guard_pass', condition:'guard pass', field:'cat', action:'add', value:'パスガード', enabled:true, source:'ビルトイン', desc:'guard pass → パスガード' },
-  { id:'_b_cat_passing',    condition:'passing',    field:'cat', action:'add', value:'パスガード', enabled:true, source:'ビルトイン', desc:'passing → パスガード' },
-  { id:'_b_cat_パスガード',  condition:'パスガード',  field:'cat', action:'add', value:'パスガード', enabled:true, source:'ビルトイン', desc:'パスガード → パスガード' },
-  { id:'_b_cat_ニーカット',  condition:'ニーカット',  field:'cat', action:'add', value:'パスガード', enabled:true, source:'ビルトイン', desc:'ニーカット → パスガード' },
-  { id:'_b_cat_torreando',  condition:'torreando',  field:'cat', action:'add', value:'パスガード', enabled:true, source:'ビルトイン', desc:'torreando → パスガード' },
-
-  // ── Category: フィニッシュ ──
-  { id:'_b_cat_submission',  condition:'submission',  field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'submission → フィニッシュ' },
-  { id:'_b_cat_フィニッシュ', condition:'フィニッシュ', field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'フィニッシュ → フィニッシュ' },
-  { id:'_b_cat_サブミッション',condition:'サブミッション',field:'cat',action:'add',value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'サブミッション → フィニッシュ' },
-  { id:'_b_cat_チョーク',    condition:'チョーク',    field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'チョーク → フィニッシュ' },
-  { id:'_b_cat_choke',      condition:'choke',      field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'choke → フィニッシュ' },
-  { id:'_b_cat_armbar',     condition:'armbar',     field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'armbar → フィニッシュ' },
-  { id:'_b_cat_腕十字',     condition:'腕十字',     field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'腕十字 → フィニッシュ' },
-  { id:'_b_cat_キムラ',     condition:'キムラ',     field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'キムラ → フィニッシュ' },
-  { id:'_b_cat_三角',       condition:'三角',       field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'三角 → フィニッシュ（三角絞め）' },
-  { id:'_b_cat_triangle',   condition:'triangle',   field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'triangle → フィニッシュ' },
-  { id:'_b_cat_ギロチン',   condition:'ギロチン',   field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'ギロチン → フィニッシュ' },
-  { id:'_b_cat_guillotine', condition:'guillotine', field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'guillotine → フィニッシュ' },
-  { id:'_b_cat_ヒールフック', condition:'ヒールフック', field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'ヒールフック → フィニッシュ' },
-  { id:'_b_cat_heel_hook',  condition:'heel hook',  field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'heel hook → フィニッシュ' },
-  { id:'_b_cat_ニーバー',   condition:'ニーバー',   field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'ニーバー → フィニッシュ' },
-  { id:'_b_cat_knee_bar',   condition:'knee bar',   field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'knee bar → フィニッシュ' },
-  { id:'_b_cat_オモプラッタ', condition:'オモプラッタ', field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'オモプラッタ → フィニッシュ' },
-  { id:'_b_cat_足関節',     condition:'足関節',     field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'足関節 → フィニッシュ' },
-  { id:'_b_cat_関節技',     condition:'関節技',     field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'関節技 → フィニッシュ' },
-  { id:'_b_cat_絞め',       condition:'絞め',       field:'cat', action:'add', value:'フィニッシュ', enabled:true, source:'ビルトイン', desc:'絞め → フィニッシュ' },
-];
-
-// ── ビルトインルールを localStorage に追加（未登録分のみ、ユーザー変更済みは上書きしない）──
-function _seedBuiltinRules() {
-  try {
-    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
-    var changed = false;
-    _BUILTIN_RULES.forEach(function(br) {
-      var exists = rules.some(function(r) { return r.id === br.id; });
-      if (!exists) {
-        rules.push(Object.assign({}, br, { created: Date.now() }));
-        changed = true;
-      }
-    });
-    if (changed) localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
-  } catch(e) {}
-}
 
 // ── 帰納エンジン ──
 var _history = [];
@@ -290,12 +158,6 @@ function _suggest(title, channel, pl, memo) {
     });
   } catch(e) {}
 
-  // チャンネル学習で補完
-  _getChannelSuggest(channel, 5).forEach(function(tag) {
-    var inCat = (window.CATEGORIES||[]).some(function(c){ return c.name === tag; });
-    if (inCat && cats.indexOf(tag) < 0) cats.push(tag);
-  });
-
   var _result = { tb: tb, pos: posList, cat: cats, tech: tBase.tags||[] };
   return _applyRules(_result, title, pl, memo);
 }
@@ -307,7 +169,14 @@ function _suggest(title, channel, pl, memo) {
 // Phase 4: default              — 全フェーズ後も空なら補完
 function _applyRules(result, title, pl, memo) {
   try {
-    var rules    = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
+    // ビルトイン判定ルール（dominate→トップ 等のキーワード推測）は v52.807 で廃止。
+    // Notion「タグシステム再考」項目14。
+    // 既に localStorage に撒かれている分は消さない（ユーザーが編集している場合があるため）。
+    // 消さずに、適用だけやめる。ユーザー自身が作ったルールはこれまで通り効く。
+    var rules    = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]')
+      .filter(function(r){
+        return !(String(r && r.id || '').indexOf('_b_') === 0 || (r && r.source) === 'ビルトイン');
+      });
     var tLower   = (title || '').toLowerCase();
     var plLower  = (pl    || '').toLowerCase();
     var memLower = (memo  || '').toLowerCase();
@@ -848,7 +717,6 @@ function _confirm() {
   var title   = v.title || v.name || '';
   var channel = v.ch || v.channel || '';
   _record(title, channel, _autoTags, final);
-  _updateChannelProfile(channel, final);
 
   var rule = _induceRule();
   // スキップ済みのルールは表示しない
@@ -898,8 +766,6 @@ function _open() {
     _domInited = false;
   }
   _ensureDOM();
-  // ビルトインルールを localStorage に追加（未登録分のみ）
-  _seedBuiltinRules();
   // admin-dashboard で更新された POSITIONS/CATEGORIES を確実に反映する
   if (window.syncPositionsFromStorage) window.syncPositionsFromStorage();
   if (window.syncCatsFromStorage)      window.syncCatsFromStorage();
