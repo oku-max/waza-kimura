@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.810</title>
+<title>WAZA KIMURA v52.811</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -140,6 +140,7 @@
     applyTagVisibility, applyTagLabels, applyRemoteSettings,
     tagGroups, tagLabel, tagLabelShort, tagVisible, tagPresets,
     applyTagTemplate,
+    renameTagGroup,
     toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance,
     filterColVis, saveFilterColVis
   } from './js/settings.js';
@@ -423,6 +424,7 @@
   window.tagVisible              = tagVisible;
   window.tagPresets              = tagPresets;
   window.applyTagTemplate        = applyTagTemplate;
+  window.renameTagGroup          = renameTagGroup;
   window.toggleTheme             = toggleTheme;
   window.setTheme                = setTheme;
   window.setFontScale            = setFontScale;
@@ -1934,6 +1936,8 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <!-- ═══ タグ表示設定 ═══ -->
     <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="set.tag">タグ表示設定</div>
     <div id="tag-display-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
+    <!-- 候補値・テンプレート・選択肢に無い値・禁止リスト・一括削除 -->
+    <div id="tag-settings-list" style="margin-top:10px"></div>
 
     <!-- タグ編集モーダル -->
     <div id="tag-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)closeTagEditModal()">

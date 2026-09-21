@@ -239,6 +239,8 @@ function _renderTagDisplaySettings() {
   const tagsTs = tagSettings.find(t => t.key === 'tags');
   const tagsCount = tagsTs ? tagsTs.presets.length : 0;
 
+  // グループ名はユーザーが付けるもの（Notion 項目03）。読み取り専用の文字ではなく
+  // その場で書き換えられる入力欄にする。data-user-text は「訳すな」の印（項目10）。
   const makeRow = (key, label, count) => `
     <div style="display:flex;align-items:center;gap:12px">
       <label class="settings-toggle">
@@ -247,14 +249,35 @@ function _renderTagDisplaySettings() {
         <span class="settings-toggle-slider"></span>
       </label>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600">${_esc(label)}</div>
+        <input value="${_esc(label)}" data-user-text="1" aria-label="グループ名"
+          style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
+                 padding:4px 8px;font-size:12px;font-weight:600;color:var(--text);font-family:inherit"
+          onchange="renameTagGroup('${key}', this.value)">
         <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${count} 項目</div>
       </div>
       <button onclick="openTagEditModal('${key}')"
         style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
     </div>`;
 
-  el.innerHTML = makeRow('tb', tagLabel('tb'), tbCount) + makeRow('cat', tagLabel('cat'), cats.length) + makeRow('pos', tagLabel('pos'), positions.length) + makeRow('tags', tagLabel('tags'), tagsCount);
+  // 件数はユーザーの選択肢（tagPresets）に合わせる。辞書の件数ではない。
+  el.innerHTML = _TAG_KEYS.map(x => makeRow(x, tagLabel(x), tagPresets(x).length)).join('');
+  // 候補値・テンプレート・選択肢に無い値・禁止リスト・一括削除は
+  // 別の器（#tag-settings-list）に描く（項目04/11/12）
+  renderTagSettingsList();
+}
+
+// グループ名の変更。空にはできない（空だと画面から見出しが消えて操作できなくなる）。
+export function renameTagGroup(key, name) {
+  const t = tagSettings.find(x => x.key === key);
+  if (!t) return;
+  const v = String(name == null ? '' : name).trim();
+  if (!v) { window.toast?.('名前は空にできません'); _renderTagDisplaySettings(); return; }
+  if (v === t.label) return;
+  t.label = v;
+  saveTagSettings();
+  applyTagLabels();
+  _renderTagDisplaySettings();
+  window.toast?.(`グループ名を「${v}」にしました`);
 }
 
 // ── タグデータ取得ヘルパー ──
@@ -349,7 +372,7 @@ window.openTagEditModal = function(type) {
 
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border2);flex-shrink:0">
-      <div style="font-size:14px;font-weight:800">${_esc(title)}</div>
+      <div style="font-size:14px;font-weight:800" data-user-text="1">${_esc(title)}</div>
       <button onclick="closeTagEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
     </div>`;
 
@@ -1259,15 +1282,7 @@ export function renderTagSettingsList() {
     const card = document.createElement('div');
     card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;';
     card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);min-width:44px">属性${i+1}</div>
-        <input id="ts-label-${i}" value="${tag.label}" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:5px 9px;font-size:13px;font-weight:700;color:var(--text);outline:none;font-family:inherit"
-          onchange="tagSettings[${i}].label=this.value;saveTagSettings()">
-        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer">
-          <input type="checkbox" ${tag.visible?'checked':''} onchange="tagSettings[${i}].visible=this.checked;saveTagSettings();applyTagVisibility();renderTagVisibilityBtns()">
-          表示
-        </label>
-      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px" data-user-text="1">${_esc(tag.label)}</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:7px">候補値</div>
       <div id="ts-presets-${i}" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">

@@ -198,6 +198,9 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // タググループの名前変更（Notion 項目03）
+    '名前は空にできません': 'The name cannot be empty',
+    'グループ名': 'Group name',
     // 管理画面のタブ（テンプレートの中身を育てる場所・Notion 項目15）
     'テンプレ: 動作の種類': 'Template: Action types',
     'テンプレ: ポジション': 'Template: Positions',
@@ -2071,6 +2074,8 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── タググループの名前を変えたとき（名前が入る・Notion 項目03）──
+    [/^グループ名を「(.+?)」にしました$/, (m, name) => `Renamed the group to "${name}"`],
     // ── タグの一括削除（グループ名と本数が入る・Notion 項目12）──
     [/^「(.+?)」を動画 (\d+)本 から外します。$/,
       (m, names, n) => `Removing "${names}" from ${n} video${n === '1' ? '' : 's'}.`],
