@@ -198,6 +198,12 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // タグ設定「選択肢に無い値」まわり（Notion 項目11）
+    '＋で選択肢に戻す / 🗑で動画から削除': '+ to restore as an option / 🗑 to remove from videos',
+    'この操作は取り消せません。全デバイスに反映されます。': 'This cannot be undone. It applies to all your devices.',
+    '続けますか？': 'Continue?',
+    '選択肢に戻す': 'Restore as an option',
+    '動画から削除': 'Remove from videos',
     // ── 動画の本数の内訳（video-audit）──
     '動画の本数の内訳':'Where your videos are',
     '一覧から消えた動画':'Videos missing from the list',
@@ -1805,6 +1811,10 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // タグ設定「選択肢に無い値」まわり（Notion 項目11）
+    '選択肢に無い値 #件（動画が使用中）': 'Not in the options — # in use by videos',
+    '禁止リストに追加（#つのグループすべてから削除）': 'Add to the blocklist (removes it from all # groups)',
+    '🗑 「#」を動画 #件 から削除しました': '🗑 Removed "#" from # videos',
     "#本をアップロードして登録": "Upload and add #",
     "使用中 #KB": "#KB used",
     "使用中 #MB": "#MB used",
@@ -2028,6 +2038,10 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── タグ設定「選択肢に無い値」の結果トースト（タグ名が入る・Notion 項目11）──
+    [/^🗑 「(.+?)」を動画 (\d+)件 から削除しました$/,
+      (m, tag, n) => `🗑 Removed "${tag}" from ${n} video${n === '1' ? '' : 's'}`],
+    [/^🚫 「(.+?)」を禁止リストに追加$/, (m, tag) => `🚫 Added "${tag}" to the blocklist`],
     // 動画でないファイルを外したときの案内（ファイル名が入る）
     [/^⚠️ 動画ではないので外しました: (.+)$/, (m, names) => `⚠️ Skipped (not video): ${names}`],
     // 空きが足りないときの不足分（単位が状況で変わるのでパターンで受ける）

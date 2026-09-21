@@ -1413,15 +1413,25 @@ export function renderTagPresets(i) {
   const blocked = new Set(aiSettings.techBlocklist || []);
   const fromLibrary = [...new Set((window.videos||[]).flatMap(v => v[key]||[]))].filter(t => !existing.has(t) && !blocked.has(t)).sort((a, b) => a.localeCompare(b, 'ja'));
   if (!fromLibrary.length) return;
+  // ── 選択肢に無いが、動画が使っている値 ──────────────────
+  // 選択肢から消しても動画のタグは消さない方針（Notion 項目11・案B）。
+  // 代わりにここに出して、戻すか消すかをユーザーが見て決める。
+  const _cnt = t => (window.videos || []).filter(v => (v[key] || []).includes(t)).length;
   const sep = document.createElement('div');
   sep.style.cssText = 'width:100%;margin:8px 0 5px;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;';
-  sep.textContent = 'ライブラリ内の既存データ（タップで候補に追加）';
+  sep.textContent = `選択肢に無い値 ${fromLibrary.length}件（動画が使用中）`;
   el.appendChild(sep);
+  const note = document.createElement('div');
+  note.style.cssText = 'width:100%;margin:0 0 6px;font-size:10px;color:var(--text3);font-weight:400;';
+  note.textContent = '＋で選択肢に戻す / 🗑で動画から削除';
+  el.appendChild(note);
   fromLibrary.forEach(function(t) {
+    const n = _cnt(t);
     const chip = document.createElement('span');
-    chip.style.cssText = 'display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border-radius:12px;background:var(--surface);border:1.5px dashed var(--border);font-size:11px;color:var(--text3);';
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border-radius:12px;background:var(--surface2);border:1px dashed var(--border);font-size:11px;color:var(--text2);';
     const addBtn = document.createElement('span');
-    addBtn.textContent = '＋ ' + t;
+    addBtn.textContent = '＋ ' + t + ' (' + n + ')';
+    addBtn.title = '選択肢に戻す';
     addBtn.style.cssText = 'cursor:pointer;';
     addBtn.onclick = function() {
       if (!tagSettings[i].presets.includes(t)) {
@@ -1430,20 +1440,46 @@ export function renderTagPresets(i) {
         renderTagPresets(i);
       }
     };
+    // 動画から削除。取り消せないので、必ず件数を見せてから確認する。
+    const delBtn = document.createElement('span');
+    delBtn.textContent = '🗑';
+    delBtn.title = '動画から削除';
+    delBtn.style.cssText = 'cursor:pointer;font-size:10px;padding:2px 4px;border-radius:8px;margin-left:2px;opacity:.5;';
+    delBtn.onmouseenter = function() { delBtn.style.opacity = '1'; };
+    delBtn.onmouseleave = function() { delBtn.style.opacity = '.5'; };
+    delBtn.onclick = function(e) {
+      e.stopPropagation();
+      const msg = '「' + t + '」を動画 ' + n + '件 から削除します。\n'
+                + 'この操作は取り消せません。全デバイスに反映されます。\n\n続けますか？';
+      if (!window.confirm(msg)) return;
+      let hit = 0;
+      (window.videos || []).forEach(function(v) {
+        if (v[key]?.length && v[key].includes(t)) { v[key] = v[key].filter(x => x !== t); hit++; }
+      });
+      window.debounceSave?.();
+      renderTagPresets(i);
+      window.toast?.('🗑 「' + t + '」を動画 ' + hit + '件 から削除しました');
+    };
+    // 禁止リスト。こちらは「二度と候補に出さない」＋全項目から削除なので、より強い確認を出す。
     const blockBtn = document.createElement('span');
     blockBtn.textContent = '🚫';
-    blockBtn.title = '禁止リストに追加';
+    blockBtn.title = '禁止リストに追加（4つのグループすべてから削除）';
     blockBtn.style.cssText = 'cursor:pointer;font-size:10px;padding:2px 4px;border-radius:8px;margin-left:2px;opacity:.5;';
     blockBtn.onmouseenter = function() { blockBtn.style.opacity = '1'; };
     blockBtn.onmouseleave = function() { blockBtn.style.opacity = '.5'; };
     blockBtn.onclick = function(e) {
       e.stopPropagation();
+      const nAll = (window.videos || []).filter(v =>
+        ['tb','cat','pos','tags'].some(f => (v[f] || []).includes(t))).length;
+      const msg = '「' + t + '」を禁止リストに追加します。\n'
+                + '4つのグループすべてから消えます（対象の動画 ' + nAll + '件）。\n'
+                + 'この操作は取り消せません。全デバイスに反映されます。\n\n続けますか？';
+      if (!window.confirm(msg)) return;
       if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
       if (!aiSettings.techBlocklist.includes(t)) {
         aiSettings.techBlocklist.push(t);
         saveAiSettings();
       }
-      // 動画からも削除
       (window.videos || []).forEach(function(v) {
         ['tb','cat','pos','tags'].forEach(function(f) {
           if (v[f]?.length) v[f] = v[f].filter(x => x !== t);
@@ -1454,6 +1490,7 @@ export function renderTagPresets(i) {
       window.toast?.('🚫 「' + t + '」を禁止リストに追加');
     };
     chip.appendChild(addBtn);
+    chip.appendChild(delBtn);
     chip.appendChild(blockBtn);
     el.appendChild(chip);
   });
