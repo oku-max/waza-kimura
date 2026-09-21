@@ -12,20 +12,41 @@
 (function () {
   'use strict';
 
-  // 出典が tag-master.js の辞書にあるものは、そこから読む（同じ一覧を二重に持たない）。
-  // 読むのは値だけで、辞書そのものは検索用として別に残る（項目02）。
+  // どこから中身を読むか（Notion 項目15）
+  //
+  //   テンプレの中身  … admin-dashboard で育てる（waza_positions / waza_tag_dict）
+  //   検索辞書        … tag-master.js の POSITIONS / CATEGORIES（項目02・別物）
+  //
+  // この2つは同じ27ポジションから始まっているが、役割もスキーマも違う。
+  //   テンプレ側: { id, names:{ja,en}, group, aliases:{ja,en} }
+  //   辞書側:     { id, ja, en, aliases:[] }
+  // テンプレは「ユーザーが選択肢に入れる見本」なので、育てる場所である
+  // テンプレ側を先に読む。まだ何も育てていなければ辞書の名前で代用する。
+  // 辞書そのものは検索用として手を触れない。
+  function _fromStore(key, pick) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || !arr.length) return null;
+      const names = arr.map(pick).filter(Boolean);
+      return names.length ? names : null;
+    } catch (e) { return null; }
+  }
   const TEMPLATES = [
     {
       id: 'pos',
       name: 'ポジション',
       desc: 'クローズド、デラヒーバ、ハーフ…',
-      values: () => (window.POSITIONS || []).map(p => p.ja).filter(Boolean)
+      values: () => _fromStore('waza_positions', p => p && p.names && p.names.ja)
+                  || (window.POSITIONS || []).map(p => p.ja).filter(Boolean)
     },
     {
       id: 'cat',
       name: '動作の種類',
       desc: 'パスガード、スイープ、フィニッシュ…',
-      values: () => (window.CATEGORIES || []).map(c => c.name).filter(Boolean)
+      values: () => _fromStore('waza_tag_dict', c => c && ((c.names && c.names.ja) || c.name))
+                  || (window.CATEGORIES || []).map(c => c.name).filter(Boolean)
     },
     {
       id: 'tb',

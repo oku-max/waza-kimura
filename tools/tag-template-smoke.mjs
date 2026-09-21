@@ -83,5 +83,37 @@ const merge = await pg.evaluate(()=>{
 ck('既にある選択肢が消えない', merge.presets.includes('ユーザーが作った値') && merge.presets.includes('クローズドガード'));
 ck(`テンプレートの中身が足される (${merge.added}件)`, merge.added === 3);
 
+// ── 7. テンプレの中身は admin で育てた側を読むこと（Notion 項目15）──
+//   テンプレの中身  … admin-dashboard が育てる（waza_positions / waza_tag_dict）
+//   検索辞書        … tag-master.js の POSITIONS / CATEGORIES（項目02・別物）
+//   ここを取り違えると、admin で編集してもテンプレに反映されない／
+//   逆にテンプレを触ると検索辞書が壊れる。
+const grown = await pg.evaluate(() => {
+  localStorage.setItem('waza_positions', JSON.stringify([
+    { id:'p1', names:{ ja:'テスト用ポジション', en:'T' }, group:'guard', aliases:{ ja:[], en:[] } }]));
+  localStorage.setItem('waza_tag_dict', JSON.stringify([
+    { id:'c1', names:{ ja:'テスト用カテゴリ', en:'T' }, desc:'', aliases:{ ja:[], en:[] }, source:'user' }]));
+  const t = Object.fromEntries(window.tagTemplates().map(x => [x.id, x.values]));
+  return { pos:t.pos, cat:t.cat, dictPos:(window.POSITIONS||[]).length,
+           alias: window.aliasNamesFor ? window.aliasNamesFor('デラヒーバ').length : 0 };
+});
+ck('admin で育てた中身がテンプレに出る（ポジション）',
+   JSON.stringify(grown.pos) === JSON.stringify(['テスト用ポジション']));
+ck('admin で育てた中身がテンプレに出る（動作の種類）',
+   JSON.stringify(grown.cat) === JSON.stringify(['テスト用カテゴリ']));
+ck('テンプレを書き換えても検索辞書は無傷（27件）', grown.dictPos === 27);
+ck('日英ブリッジも生きている', grown.alias > 1);
+
+// 壊れた保存データでも落ちず、辞書で代用に戻ること
+const broken = await pg.evaluate(() => {
+  localStorage.setItem('waza_positions', 'こわれてる');
+  localStorage.removeItem('waza_tag_dict');
+  try {
+    const t = Object.fromEntries(window.tagTemplates().map(x => [x.id, x.values]));
+    return { pos:t.pos.length, cat:t.cat.length };
+  } catch (e) { return { err:String(e) }; }
+});
+ck('保存データが壊れていても落ちず辞書で代用', !broken.err && broken.pos === 27 && broken.cat === 10);
+
 console.log(fail?`\n✗ 失敗 ${fail}件`:'\n✓ 通過');
 await b.close(); srv.close(); process.exit(fail?1:0);

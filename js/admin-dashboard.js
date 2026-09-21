@@ -201,6 +201,9 @@ function _saveCategory(dict) {
   _pushToFirestore('tag_dict', dict);
 }
 
+// ここで編集するのは「テンプレートの中身」であって、検索辞書ではない（Notion 項目15）。
+// 検索辞書は tag-master.js の POSITIONS / CATEGORIES で、別名は Alias Builder から足す（項目02/16）。
+const _tplNote = (what) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.6"><b>ここは「${what}」テンプレートの中身です。</b><br>ユーザーが設定画面で「テンプレートから入れる」を押したとき、ここにある項目が選択肢にコピーされます。既にコピーされたものは、ここを直しても変わりません（コピーなので）。<br>検索用の日英辞書はこれとは別物です。別名を足すのは Alias Builder の方です。</div>`;
 function _renderCategories() {
   const el = document.getElementById('admin-categories-content');
   if (!el) return;
@@ -220,6 +223,7 @@ function _renderCategories() {
   (window.CATEGORIES || []).forEach(c => { catRules[c.name] = c.aliases || []; });
 
   el.innerHTML = `
+    ${_tplNote('動作の種類')}
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)">${dict.length}</span>
@@ -476,6 +480,7 @@ function _renderPositions() {
   const filtered = _posFilterGroup ? positions.filter(p => p.group === _posFilterGroup) : positions;
 
   el.innerHTML = `
+    ${_tplNote('ポジション')}
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px">
         <span style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)">${positions.length}</span>

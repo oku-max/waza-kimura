@@ -198,6 +198,9 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 管理画面のタブ（テンプレートの中身を育てる場所・Notion 項目15）
+    'テンプレ: 動作の種類': 'Template: Action types',
+    'テンプレ: ポジション': 'Template: Positions',
     // タグの一括削除（Notion 項目12）
     '🗑 タグの一括削除': '🗑 Bulk-remove tags',
     '選んだグループのタグを、全部の動画から外します。取り消せます。':
