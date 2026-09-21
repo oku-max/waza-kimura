@@ -218,12 +218,43 @@ check('タグを押すと編集に入る', await page.locator('#mm-edit-tags').c
 await page.locator('#mm-list [data-mm-cancel]').click();
 await page.waitForTimeout(250);
 
-// ── ★ 固定 ──
+// ── ★（印を付ける）──
+// 仕様が途中で変わっている。★は「トップに固定」ではなく「ただの印」で、
+// 並びは変えず、見たいときは「★のみ」で絞る（murmurs.js:638 のコメント）。
+// この検査は前の仕様（セクションが出る／先頭に来る）のまま残っていて、
+// 変更後ずっと失敗していた。いまの仕様を確かめる形に直した。
+const orderBefore = await page.locator('#mm-list .mm-row').evaluateAll(
+  els => els.map(e => e.getAttribute('data-mm-row')));
 await page.locator('#mm-list [data-mm-star]').last().click();
 await page.waitForTimeout(300);
-check('★ セクションが出る', await page.locator('#mm-list .mm-sec').count() === 2);
-const firstCls = await page.locator('#mm-list .mm-row').first().getAttribute('class');
-check('★ が先頭に来る', /\bstarred\b/.test(firstCls || ''), firstCls);
+
+const starredIds = await page.locator('#mm-list .mm-row.starred').evaluateAll(
+  els => els.map(e => e.getAttribute('data-mm-row')));
+check('★ を付けた行に印が付く', starredIds.length === 1, starredIds.join(','));
+check('★ を付けたのは最後の行', starredIds[0] === orderBefore[orderBefore.length - 1],
+  starredIds[0] + ' / 期待 ' + orderBefore[orderBefore.length - 1]);
+
+const orderAfter = await page.locator('#mm-list .mm-row').evaluateAll(
+  els => els.map(e => e.getAttribute('data-mm-row')));
+check('★ を付けても並びは変わらない',
+  JSON.stringify(orderAfter) === JSON.stringify(orderBefore),
+  orderAfter.join(',') + ' / 前 ' + orderBefore.join(','));
+
+// 「★のみ」で絞れること
+await page.locator('#mm-f-star').click();
+await page.waitForTimeout(300);
+const onlyStar = await page.locator('#mm-list .mm-row').evaluateAll(
+  els => els.map(e => e.getAttribute('data-mm-row')));
+check('「★のみ」で★の行だけになる',
+  onlyStar.length === 1 && onlyStar[0] === starredIds[0], onlyStar.join(','));
+
+// 絞り込みを解除して元に戻す（この後の検査に影響させない）
+await page.locator('#mm-f-star').click();
+await page.waitForTimeout(300);
+const restored = await page.locator('#mm-list .mm-row').evaluateAll(
+  els => els.map(e => e.getAttribute('data-mm-row')));
+check('絞り込みを外すと全部戻る',
+  JSON.stringify(restored) === JSON.stringify(orderBefore), restored.join(','));
 
 // ── テンプレート ──
 await page.keyboard.press('Escape');

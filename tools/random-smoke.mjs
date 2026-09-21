@@ -84,27 +84,35 @@ await page.waitForTimeout(300);
 check('開く', await page.locator('#rnd-modal.open').count() === 1);
 check('1本出る', await page.locator('.rnd-pick').count() === 1);
 
-// チャンネル名とプレイリスト名
-await page.locator('#rnd-range').click();
-await page.waitForTimeout(200);
-await page.locator('[data-rnd-scope="all"]').click();
-await page.locator('#rnd-tagq').fill('デラヒーバ');
-await page.waitForTimeout(150);
-await page.locator('[data-rnd-tag="デラヒーバ"]').click();
-await page.locator('#rnd-cfg-done').click();
-await page.waitForTimeout(250);
+// ── チャンネル名とプレイリスト名 ──
+// 以前はタグ絞り込みで対象を1本に固定していたが、タグの欄は v52.716
+// 「ランダムに1本: タグ絞り込みをやめる」で廃止された。検査だけが取り残されて
+// ずっと失敗していた。対象の固定は動画データ側で行う形に直す（見たいのは
+// 「引いた動画にチャンネル名・プレイリスト名があれば出る」ことなので、
+// どう1本に絞ったかは本質ではない）。
+const _allVideos = await page.evaluate(() => {
+  window.__saveVideos = window.videos;
+  return window.videos.map(v => v.id);
+});
+
+// チャンネル名とプレイリスト名を持つ a だけにして引く
+await page.evaluate(() => { window.videos = window.__saveVideos.filter(v => v.id === 'a'); });
+await setScope('all');
 check('チャンネル名が出る',
   ((await page.locator('.rnd-ch').textContent()) || '') === '新・柔術日記Channel');
 check('プレイリスト名が出る',
   ((await page.locator('.rnd-pl').textContent()) || '') === 'デラヒーバ入門');
-// 無いものでは出さない
-await page.locator('#rnd-range').click();
-await page.waitForTimeout(150);
-await page.locator('[data-rnd-tag=""]').click();
-await page.locator('[data-rnd-scope="fav"]').click();
-await page.locator('#rnd-cfg-done').click();
-await page.waitForTimeout(250);
+
+// 持っていない b だけにして引く → 出どころの行ごと出ない
+await page.evaluate(() => { window.videos = window.__saveVideos.filter(v => v.id === 'b'); });
+await setScope('all');
 check('チャンネル名が無ければ出さない', await page.locator('.rnd-src').count() === 0);
+
+// 元に戻す（この後の件数の検査に影響させない）
+await page.evaluate(() => { window.videos = window.__saveVideos; });
+check('動画データを元に戻した',
+  (await page.evaluate(() => window.videos.length)) === _allVideos.length,
+  String(await page.evaluate(() => window.videos.length)) + ' / 期待 ' + _allVideos.length);
 
 await setScope('all');
 check('すべて＝アーカイブを除く6本', await page.evaluate(() => window.__pool().length) === 6,
@@ -140,19 +148,26 @@ check('お気に入り＝1本', await page.evaluate(() => window.__pool().length
 await setScope('drill');
 check('Drill＝1本', await page.evaluate(() => window.__pool().length) === 1);
 
-// タグで絞る
+// ── 範囲はタグではなく「どこから選ぶか」だけ ──
+// タグの欄は v52.716「ランダムに1本: タグ絞り込みをやめる」で廃止した。
+// 以前ここはタグで b・c の2本に絞っていたので、同じ2本になる「いま画面に出ている」
+// （filteredVideos = b, c）に置き換える。後ろの検査はこの2本を前提にしている。
 await page.locator('#rnd-range').click();
 await page.waitForTimeout(200);
-await page.locator('[data-rnd-scope="all"]').click();
-await page.locator('#rnd-tagq').fill('パスガード');
-await page.waitForTimeout(200);
-await page.locator('[data-rnd-tag="パスガード"]').click();
+check('範囲にタグの欄が無い',
+  (await page.locator('#rnd-tagq').count()) === 0
+  && (await page.locator('[data-rnd-tag]').count()) === 0,
+  'tagq=' + (await page.locator('#rnd-tagq').count())
+  + ' tag=' + (await page.locator('[data-rnd-tag]').count()));
+await page.locator('[data-rnd-scope="view"]').click();
 await page.locator('#rnd-cfg-done').click();
 await page.waitForTimeout(250);
-check('タグで絞れる', await page.evaluate(() => window.__pool().length) === 2,
+check('いま画面に出ているで2本に絞れる',
+  await page.evaluate(() => window.__pool().length) === 2,
   String(await page.evaluate(() => window.__pool().length)));
 check('範囲が画面に出る',
-  ((await page.locator('.rnd-range-v').textContent()) || '').includes('パスガード'));
+  ((await page.locator('.rnd-range-v').textContent()) || '').includes('いま画面に出ている'),
+  await page.locator('.rnd-range-v').textContent().catch(() => ''));
 
 // 引き直し・再生
 await page.locator('#rnd-again').click();
@@ -163,21 +178,26 @@ await page.waitForTimeout(250);
 check('見るで再生に渡す', ['b','c'].includes(await page.evaluate(() => window.__played)));
 check('再生で閉じる', await page.locator('#rnd-modal.open').count() === 0);
 
-// 該当なし
+// ── 該当なし ──
+// 以前は「お気に入り」×タグ(パスガード)の掛け合わせで0件にしていた。
+// タグの欄が廃止された今、お気に入りは1本あるので0件にならない。
+// シードに1本も無い「Next」を使う。
 await page.locator('#rnd-btn').click();
 await page.waitForTimeout(200);
 await page.locator('#rnd-range').click();
 await page.waitForTimeout(200);
-await page.locator('[data-rnd-scope="fav"]').click();
+await page.locator('[data-rnd-scope="next"]').click();
 await page.locator('#rnd-cfg-done').click();
 await page.waitForTimeout(250);
-check('該当なしでも落ちずに案内を出す', await page.locator('.rnd-none').count() === 1);
+check('該当なしでも落ちずに案内を出す', await page.locator('.rnd-none').count() === 1,
+  '件数 ' + await page.evaluate(() => window.__pool().length));
 
 // 設定が残る
 await page.reload({ waitUntil:'domcontentloaded' });
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 15000 });
 check('設定がこの端末に残る',
-  (await page.evaluate(() => window._rndGetCfg())).scope === 'fav');
+  (await page.evaluate(() => window._rndGetCfg())).scope === 'next',
+  (await page.evaluate(() => window._rndGetCfg())).scope);
 check('動画のデータに書き込まない',
   await page.evaluate(() => !localStorage.getItem('wk_cv_views') && !localStorage.getItem('waza_videos')));
 
