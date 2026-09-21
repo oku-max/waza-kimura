@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.804</title>
+<title>WAZA KIMURA v52.805</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -83,6 +83,7 @@
 <script src="js/config.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/tag-master.js"></script>
+<script src="js/tag-templates.js"></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/tag-master-ui.js" defer></script>
 <script src="js/sidebar-v4.js" defer></script>
@@ -138,6 +139,7 @@
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
     renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
     tagGroups, tagLabel, tagLabelShort, tagVisible, tagPresets,
+    applyTagTemplate,
     toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance,
     filterColVis, saveFilterColVis
   } from './js/settings.js';
@@ -422,6 +424,7 @@
   window.tagLabelShort           = tagLabelShort;
   window.tagVisible              = tagVisible;
   window.tagPresets              = tagPresets;
+  window.applyTagTemplate        = applyTagTemplate;
   window.toggleTheme             = toggleTheme;
   window.setTheme                = setTheme;
   window.setFontScale            = setFontScale;

@@ -46,7 +46,10 @@ const BANNED = ['トップ/ボトム/スタンディング', 'トップ/ボト�
 // 単独で現れたらアウトの語（他の意味でも使うので、クォートで囲まれた文字列だけを見る）
 const BANNED_QUOTED = ['カテゴリ', 'ポジション', 'テクニック', 'TOP/BOTTOM'];
 // 除外: 辞書そのもの / 翻訳表 / ノートのカテゴリ（別物） / AI分類器（項目01で消える）
-const SKIP = new Set(['js/i18n.js', 'js/tag-master.js', 'js/notes.js', 'js/ai-tagging.js', 'js/admin-dashboard.js']);
+// tag-templates.js はテンプレート名の一覧（見本の名前）であって、画面が出すグループ名ではない。
+// グループ名はユーザーが付けるもの、テンプレ名は「ポジション入れますか」の見本の名前で、別物。
+const SKIP = new Set(['js/i18n.js', 'js/tag-master.js', 'js/notes.js', 'js/ai-tagging.js',
+                      'js/admin-dashboard.js', 'js/tag-templates.js']);
 const TARGETS = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f).concat(['index.html']);
 
 let hits = [];
@@ -80,6 +83,18 @@ const tm = read('js/tag-master.js');
 /aliasNamesFor/.test(read('js/organize.js'))
   ? ok('検索が aliasNamesFor() を呼んでいる')
   : fail('organize.js が aliasNamesFor() を呼んでいない（辞書が検索に効かない）');
+
+// ── 3b. テンプレートが消えていないこと（項目04の保険）────────
+const tt = read('js/tag-templates.js');
+/function tagTemplates\(/.test(tt) && /window\.tagTemplates\s*=/.test(tt)
+  ? ok('テンプレート tagTemplates() が残って公開されている')
+  : fail('tagTemplates() が消えている（テンプレートから選択肢を入れられなくなる）');
+/\.slice\(\)/.test(tt)
+  ? ok('テンプレートはコピーで渡している')
+  : fail('tag-templates.js に slice() が無い（参照渡しだとユーザー操作でテンプレが削れる）');
+/applyTagTemplate/.test(settings)
+  ? ok('設定画面がテンプレートを適用できる')
+  : fail('applyTagTemplate() が settings.js から消えている');
 
 // ── 4. ユーザーが付けた名前を翻訳しないこと（項目10）──────────
 /\[data-user-text\]/.test(read('js/i18n.js'))

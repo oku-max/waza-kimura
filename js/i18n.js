@@ -198,6 +198,12 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // タググループのテンプレート（Notion 項目04）
+    'テンプレートから入れる': 'Add from a template',
+    'テンプレートを選んでください': 'Pick a template first',
+    'テンプレートが見つかりません': 'Template not found',
+    '入れる': 'Add',
+    '選ぶ...': 'Choose...',
     // タグ設定「選択肢に無い値」まわり（Notion 項目11）
     '＋で選択肢に戻す / 🗑で動画から削除': '+ to restore as an option / 🗑 to remove from videos',
     'この操作は取り消せません。全デバイスに反映されます。': 'This cannot be undone. It applies to all your devices.',
@@ -2038,6 +2044,11 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── タググループのテンプレート適用の結果（テンプレ名が入る・Notion 項目04）──
+    [/^「(.+?)」から (\d+)件 を追加（重複 (\d+)件 は飛ばしました）$/,
+      (m, name, add, dup) => `Added ${add} from "${name}" (skipped ${dup} already there)`],
+    [/^「(.+?)」の (\d+)件 はすべて登録済みでした$/,
+      (m, name, n) => `All ${n} from "${name}" were already there`],
     // ── タグ設定「選択肢に無い値」の結果トースト（タグ名が入る・Notion 項目11）──
     [/^🗑 「(.+?)」を動画 (\d+)件 から削除しました$/,
       (m, tag, n) => `🗑 Removed "${tag}" from ${n} video${n === '1' ? '' : 's'}`],

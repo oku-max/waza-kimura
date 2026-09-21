@@ -1353,6 +1353,15 @@ export function renderTagSettingsList() {
       </div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:7px">候補値</div>
       <div id="ts-presets-${i}" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--text3)">テンプレートから入れる</span>
+        <select id="ts-tpl-${i}" style="flex:1;min-width:120px;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;color:var(--text);font-family:inherit">
+          <option value="">選ぶ...</option>
+          ${(window.tagTemplates ? window.tagTemplates() : []).map(t =>
+            `<option value="${t.id}">${t.name}（${t.values.length}件）</option>`).join('')}
+        </select>
+        <button onclick="applyTagTemplate(${i})" style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">入れる</button>
+      </div>
       <div style="display:flex;gap:6px">
         <input id="ts-new-${i}" placeholder="候補を追加..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
           onkeydown="if(event.key==='Enter')addTagPreset(${i})">
@@ -1527,6 +1536,32 @@ export function renameTagPreset(i, pi, oldVal, newVal) {
   renderTagPresets(i);
   if (count > 0) { window.toast(`✅ "${oldVal}" → "${newVal}" に変更（${count}本の動画に反映）`); window.AF?.(); }
   else { window.toast(`✅ "${oldVal}" → "${newVal}" に変更`); }
+}
+
+// テンプレートの中身を、そのグループの選択肢に「コピーとして」足す。
+// 足すだけ。既にある選択肢は消さないし、上書きもしない（データ安全ルールと同じ向き）。
+export function applyTagTemplate(i) {
+  const sel = document.getElementById('ts-tpl-' + i);
+  const id = sel ? sel.value : '';
+  if (!id) { window.toast?.('テンプレートを選んでください'); return; }
+  const tpl = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!tpl) { window.toast?.('テンプレートが見つかりません'); return; }
+  const ts = tagSettings[i];
+  if (!Array.isArray(ts.presets)) ts.presets = [];
+  let added = 0, skipped = 0;
+  tpl.values.forEach(function(v) {
+    if (!v) return;
+    if (ts.presets.includes(v)) { skipped++; return; }
+    ts.presets.push(v);          // 文字列のコピー。テンプレ側の配列とは繋がらない
+    added++;
+  });
+  ts.seeded = true;              // 以後サンプルの種入れは走らせない
+  if (added) saveTagSettings();
+  renderTagPresets(i);
+  if (sel) sel.value = '';
+  window.toast?.(added
+    ? `「${tpl.name}」から ${added}件 を追加（重複 ${skipped}件 は飛ばしました）`
+    : `「${tpl.name}」の ${skipped}件 はすべて登録済みでした`);
 }
 
 export function addTagPreset(i) {
