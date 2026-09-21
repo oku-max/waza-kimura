@@ -76,7 +76,7 @@
 
     root.innerHTML = `
       <div class="tm-card">
-        <div class="tm-h">トップ/ボトム/スタンディング <span class="tm-pill">起点・3値固定</span></div>
+        <div class="tm-h"><span data-user-text="1">${window.tagLabel ? window.tagLabel('tb') : 'tb'}</span> <span class="tm-pill">起点・3値固定</span></div>
         <div class="tm-tb-grid">
           <div class="tm-tb tm-top"><div class="tm-tb-t">トップ</div><div class="tm-tb-n">${countTB('トップ')}本</div></div>
           <div class="tm-tb tm-bot"><div class="tm-tb-t">ボトム</div><div class="tm-tb-n">${countTB('ボトム')}本</div></div>

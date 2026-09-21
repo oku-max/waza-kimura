@@ -71,7 +71,7 @@ export function buildOrgTblSortOptions() {
   const opts = [
     {key:'title', label:'タイトル'},
     ...orgColOrder.filter(col => orgColVisibility[col] !== false && _ORG_SORTABLE.has(col))
-                  .map(col => ({key:col, label:ORG_COL_LABELS[col]}))
+                  .map(col => ({key:col, label:orgColLabel(col)}))
   ];
   sel.innerHTML = opts.map(o => `<option value="${o.key}">${o.label}</option>`).join('');
   if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
@@ -80,7 +80,16 @@ export function buildOrgTblSortOptions() {
 window.buildOrgTblSortOptions = buildOrgTblSortOptions;
 window.orgTblSortKey = function(val) { orgSortCol = val || null; orgSortAsc = true; _syncOrgTblSortUI(); renderOrg(); };
 window.orgTblTogDir  = function() { orgSortAsc = !orgSortAsc; _syncOrgTblSortUI(); renderOrg(); };
-export const ORG_COL_LABELS = {tb:'トップ/ボトム/スタンディング', action:'カテゴリ', position:'ポジション', technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'};
+// タグ列(4グループ)の見出しはユーザーが付けた名前。ここに直接書かない。
+// 列キー(tb/action/position/technique)とグループキー(tb/cat/pos/tags)は別物なので対応表を持つ。
+const _ORG_TAG_COL_KEY = { tb:'tb', action:'cat', position:'pos', technique:'tags' };
+export const ORG_COL_LABELS = {counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'};
+// 列見出しの取り出しは必ずこの関数を通す
+export function orgColLabel(col) {
+  const k = _ORG_TAG_COL_KEY[col];
+  if (k) return window.tagLabel ? window.tagLabel(k) : col;
+  return ORG_COL_LABELS[col] || col;
+}
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
 export let orgSortCol = null, orgSortAsc = true;
 let _orgFixedLefts = {chk:0, thumb:40, ch:116, title:246};
@@ -1030,7 +1039,7 @@ export function syncOrgColHeaders() {
     sortIndicator.textContent = orgSortCol === col ? (orgSortAsc ? '▲' : '▼') : '⇅';
     if (orgSortCol === col) sortIndicator.style.opacity = '1';
     const labelSpan = document.createElement('span');
-    labelSpan.textContent = ORG_COL_LABELS[col] || col;
+    labelSpan.textContent = orgColLabel(col);
     th.textContent = '';
     th.appendChild(labelSpan);
     th.appendChild(sortIndicator);
@@ -1340,7 +1349,7 @@ function _buildOrgColMenuHTML() {
         <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===_visibleOrgCols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===_visibleOrgCols.length-1?'disabled':''}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
           <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
-          ${ORG_COL_LABELS[col]||col}
+          ${orgColLabel(col)}
         </label>
       </div>`).join('');
   const cvSection = window._cvGetColMenuSection?.();
@@ -2388,6 +2397,7 @@ window.openOrgColFilter  = openOrgColFilter;
 window.closeOrgColFilter = closeOrgColFilter;
 window.bulkRenamePl      = bulkRenamePl;
 window.ORG_COL_LABELS = ORG_COL_LABELS;
+window.orgColLabel    = orgColLabel;
 window.ORG_COL_WIDTHS = ORG_COL_WIDTHS;
 
 // ═══ アドバンスドサーチ ═══

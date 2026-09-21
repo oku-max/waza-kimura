@@ -3,12 +3,14 @@
 'use strict';
 
 // ── 定数 ──
+// タグ列(4グループ)の見出しはユーザーが付けた名前なのでここに書かない。
+// organize.js の orgColLabel() に集約してある。
 const ORG_COL_LABELS = {
-  tb:'トップ/ボトム/スタン', action:'カテゴリ', position:'ポジション',
-  technique:'テクニック', counter:'カウント', status:'習得', channel:'チャンネル',
+  counter:'カウント', status:'習得', channel:'チャンネル',
   playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日',
   fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'
 };
+const _cvColLabel = id => (window.orgColLabel ? window.orgColLabel(id) : (ORG_COL_LABELS[id] || id));
 const CV_COL_DEFAULT = ['fav','next','drill','tb','action','position','technique','counter','status','channel','playlist','addedAt','duration','memo'];
 
 const SEL_COLORS = [
@@ -3021,7 +3023,7 @@ window._cvGetUnifiedMenuHTML = function() {
 
   visOrder.forEach((id, i) => {
     const isCv   = _isCustomColId(id);
-    const label  = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
+    const label  = isCv ? (view.columns.find(c => c.id === id)?.label || id) : _cvColLabel(id);
     const badge  = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
     const disUp  = i === 0 ? 'disabled' : '';
     const disDown= i === visOrder.length - 1 ? 'disabled' : '';
@@ -3041,7 +3043,7 @@ window._cvGetUnifiedMenuHTML = function() {
     html += '<div style="height:1px;background:var(--border);margin:8px 0"></div>';
     hiddenIds.forEach(id => {
       const isCv  = _isCustomColId(id);
-      const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : (ORG_COL_LABELS[id] || id);
+      const label = isCv ? (view.columns.find(c => c.id === id)?.label || id) : _cvColLabel(id);
       const badge = isCv ? `<span style="font-size:8px;background:var(--accent);color:var(--on-accent);padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;opacity:.9">カスタム</span>` : '';
       html += `
         <div class="cv-colmenu-row" style="opacity:.5">

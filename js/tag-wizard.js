@@ -41,6 +41,12 @@ function _isRuleSkipped(rule) {
 
 // ── 組み込みルール定義（TB判定の文脈パターン）──
 // Admin「ルール」タブに反映・編集可能。source='ビルトイン' / id='_b_xxx' で識別。
+// グループ名はユーザーが付けたもの。ここに直接書かない。
+function _twLabel(k){
+  var v = window.tagLabel ? window.tagLabel(k) : k;
+  return String(v).replace(/[&<>"]/g, function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});
+}
+
 var _BUILTIN_RULES = [
   // ── TB: トップシグナル（ガードを攻略・崩す視点のキーワード）──
   { id:'_b_dominate', condition:'dominate', field:'tb', action:'add', value:'トップ', enabled:true, source:'ビルトイン', desc:'Dominate [guard] → トップ（ガードを制圧する側）' },
@@ -478,22 +484,22 @@ function _ensureDOM() {
         '<iframe id="tw-iframe" src="" allow="autoplay" allowfullscreen style="display:none;width:100%;aspect-ratio:16/9;border:none;border-radius:8px"></iframe>',
         // TB
         '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">トップ/ボトム</div>',
+          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('tb') + '</div>',
           '<div id="tw-tb-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
         '</div>',
         // ポジション
         '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">ポジション</div>',
+          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('pos') + '</div>',
           '<div id="tw-pos-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
         '</div>',
         // カテゴリ
         '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">カテゴリ</div>',
+          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('cat') + '</div>',
           '<div id="tw-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
         '</div>',
         // タグ（プルダウン + 自由入力）
         '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">#タグ</div>',
+          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('tags') + '</div>',
           '<div id="tw-tech-selected" style="display:flex;flex-wrap:wrap;gap:6px;min-height:4px;margin-bottom:8px"></div>',
           '<select id="tw-tech-select"><option value="">— 既存タグから選択 —</option></select>',
           '<div style="display:flex;gap:6px;margin-top:8px">',

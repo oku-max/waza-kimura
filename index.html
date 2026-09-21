@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.800</title>
+<title>WAZA KIMURA v52.801</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -137,6 +137,7 @@
     renderSettings, renderTagSettingsList, renderTagPresets, startRenamePreset,
     renameTagPreset, addTagPreset, removeTagPreset, renderTagVisibilityBtns,
     renderAiSettings, applyTagVisibility, applyTagLabels, applyRemoteSettings,
+    tagGroups, tagLabel, tagLabelShort, tagVisible,
     toggleTheme, setTheme, setFontScale, adjustFontScale, getAppearanceSettings, applyRemoteAppearance,
     filterColVis, saveFilterColVis
   } from './js/settings.js';
@@ -415,6 +416,11 @@
   window.renderAiSettings        = renderAiSettings;
   window.applyTagVisibility      = applyTagVisibility;
   window.applyTagLabels          = applyTagLabels;
+  // タググループ名の取り出しはこの4つだけを使う（画面側でグループ名を直書きしない）
+  window.tagGroups               = tagGroups;
+  window.tagLabel                = tagLabel;
+  window.tagLabelShort           = tagLabelShort;
+  window.tagVisible              = tagVisible;
   window.toggleTheme             = toggleTheme;
   window.setTheme                = setTheme;
   window.setFontScale            = setFontScale;
@@ -3413,6 +3419,11 @@ function itagRenderFields() {
   const t = itagCurrent();
   const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
   const T = (k, fb) => window.t ? window.t(k, fb) : fb;
+  // タググループ名はユーザーが付けたもの。翻訳せずそのまま出す。
+  const _vpTagLabel = k => {
+    const v = window.tagLabel ? window.tagLabel(k) : k;
+    return String(v).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  };
   const lblTb = v => window.tTb ? window.tTb(v) : v;     // 表示は翻訳、値(value)は日本語のまま
   const lblCat = v => window.tCat ? window.tCat(v) : v;
   const lblPos = v => window.tPos ? window.tPos(v) : v;
@@ -3426,10 +3437,10 @@ function itagRenderFields() {
   const tagPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenTagDd()">${T('itag.add.tech','＋ テクニック')}</span><div class="vp-dd" id="utag-tag-dd" style="display:none"><input class="vp-dd-search" id="utag-tag-inp" placeholder="${T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）')}" oninput="itagTagFilter(this.value)" onkeydown="itagTagKey(event,this)"><div class="vp-dd-list" id="utag-tag-sug"></div></div></div>`;
   c.innerHTML = `<div class="fsec">
     <div class="fsec-title">${T('itag.section.tags','タグ')}</div>
-    <div class="vp-row"><span class="vp-lbl">${T('itag.row.tb','トップ/ボトム/スタンディング')}</span><div class="vp-chips">${tbRow}</div></div>
-    <div class="vp-row"><span class="vp-lbl">${T('itag.row.cat','カテゴリ')}</span><div class="vp-chips">${catRow}</div></div>
-    <div class="vp-row"><span class="vp-lbl">${T('itag.row.pos','ポジション')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>
-    <div class="vp-row"><span class="vp-lbl">${T('itag.row.tech','テクニック')}</span><div class="vp-chips">${tagChips}${tagPicker}</div></div>
+    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('tb')}</span><div class="vp-chips">${tbRow}</div></div>
+    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('cat')}</span><div class="vp-chips">${catRow}</div></div>
+    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('pos')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>
+    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('tags')}</span><div class="vp-chips">${tagChips}${tagPicker}</div></div>
   </div>`;
 }
 function itagTog(layer, val, el) {

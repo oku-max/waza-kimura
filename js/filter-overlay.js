@@ -439,10 +439,12 @@ export function buildFovRows(isOrg=false) {
     });
   }
 
-  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES || [], 'トップ/ボトム/スタンディング検索...', isOrg);
-  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), 'カテゴリ検索...', isOrg);
-  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort(), 'ポジション検索...', isOrg);
-  buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), 'テクニック検索...', isOrg);
+  // 検索欄の案内文もユーザーが付けたグループ名で出す
+  const _phLabel = k => (window.tagLabel ? window.tagLabel(k) : k) + '検索...';
+  buildFovDdRow(`${p}-srow-tb`,   'tb',       window.TB_VALUES || [], _phLabel('tb'), isOrg);
+  buildFovDdRow(`${p}-srow-cat`,  'action',   (window.CATEGORIES||[]).map(c=>c.name), _phLabel('cat'), isOrg);
+  buildFovDdRow(`${p}-srow-pos`,  'position', [...new Set([...(window.POSITIONS||[]).map(p=>p.ja), ...vids.flatMap(v => v.pos||[])])].sort(), _phLabel('pos'), isOrg);
+  buildFovDdRow(`${p}-srow-tags`, 'tags',     [...new Set(vids.flatMap(v => v.tags||[]))].sort(), _phLabel('tags'), isOrg);
   buildFovPickerDdRow(`${p}-srow-pl`, 'playlist', 'プレイリストを選ぶ', isOrg);
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
@@ -829,7 +831,10 @@ function _sbPopupRender(key, ctx='lib') {
   else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
 }
 
-const _SB_POPUP_LABELS = { ch:'チャンネル', pl:'プレイリスト', tb:'トップ/ボトム/スタンディング', cat:'カテゴリ', pos:'ポジション', tags:'テクニック' };
+// チャンネル/プレイリストはシステムの言葉。tb/cat/pos/tags はユーザーが付けた名前なので tagLabel() から引く。
+const _SB_POPUP_LABELS = { ch:'チャンネル', pl:'プレイリスト' };
+const _sbPopupLabel = key =>
+  _SB_POPUP_LABELS[key] || (window.tagLabel ? window.tagLabel(key) : key);
 
 export function openSbPopup(key, triggerEl, ctx='lib') {
   const popup = document.getElementById('sb-filter-popup');
@@ -841,7 +846,7 @@ export function openSbPopup(key, triggerEl, ctx='lib') {
   popup.dataset.activeKey = key;
   popup.dataset.activeCtx = ctx;
   const titleEl = document.getElementById('sb-popup-title');
-  if (titleEl) titleEl.textContent = _SB_POPUP_LABELS[key] || key;
+  if (titleEl) { titleEl.textContent = _sbPopupLabel(key); titleEl.setAttribute('data-user-text','1'); }
   _sbPopupRender(key, ctx);
 
   // サイドバーの右端の右隣に配置 (タグポップアップと同じ高さに揃える)

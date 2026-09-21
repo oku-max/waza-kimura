@@ -780,21 +780,21 @@
         name:n, cnt: tbCtx.filter(v => (v.tb||[]).includes(n)).length, sel: !!f[tkTb]?.has(n)
       }));
 
-      const catLabel = isOrg ? 'Action' : 'カテゴリ';
+      const catLabel = window.tagLabel ? window.tagLabel('cat') : 'cat';
       const catSrc   = (window.CATEGORIES || []).map(c => c.name);
       const catCtx = _ctxVideos('cat');
       const catItems = catSrc.map(n => ({
         name:n, cnt: catCtx.filter(v => (v.cat||[]).includes(n)).length, sel: !!f[tkCat]?.has(n)
       }));
 
-      const posLabel = isOrg ? 'Position' : 'ポジション';
+      const posLabel = window.tagLabel ? window.tagLabel('pos') : 'pos';
       const posSrc   = (window.POSITIONS || []).map(p => p.ja);
       const posCtx = _ctxVideos('pos');
       const posItems = posSrc.map(n => ({
         name:n, cnt: posCtx.filter(v => (v.pos||[]).includes(n)).length, sel: !!f[tkPos]?.has(n)
       }));
 
-      const tagsLabel = isOrg ? 'Technique' : 'テクニック';
+      const tagsLabel = window.tagLabel ? window.tagLabel('tags') : 'tags';
       const tagsSrc   = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
       const tagsCtx = _ctxVideos('tags');
       const tagItems = tagsSrc.map(n => ({

@@ -12,6 +12,11 @@
   const _lCat = v => (window.tCat ? window.tCat(v) : v);
   const _lPos = v => (window.tPos ? window.tPos(v) : v);
   function _findV(id) { return (window.videos || []).find(v => v.id === id); }
+  // タググループ名はユーザーが付けたもの。翻訳せずそのまま出す。
+  function _v4TagLabel(k) {
+    const v = window.tagLabel ? window.tagLabel(k) : k;
+    return String(v).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  }
   function _tagVis(key) { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; }
 
   // ── HTML ビルダー (vpanel.js から呼ばれる) ──
@@ -73,10 +78,10 @@
     const showPos  = _tagVis('pos');
     const showTags = _tagVis('tags');
     if (!showTb && !showCat && !showPos && !showTags) return '';
-    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.tb','トップ/ボトム/スタンディング')}</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
-    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.cat','カテゴリ')}</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
-    const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.pos','ポジション')}</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
-    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl">${_T('itag.row.tech','テクニック')}</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
+    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('tb')}</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
+    const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('cat')}</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
+    const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('pos')}</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
+    const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('tags')}</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
     return `
     <div id="vp-tag-fsec-${id}" class="fsec">
       <div class="fsec-title">${_T('vp.tags','タグ')}</div>
@@ -162,7 +167,7 @@
   }
 
   window.vpV4OpenPosDd = function (id) {
-    const dd = _vpV4Open('vp-v4-pos-dd-' + id, 'ポジション');
+    const dd = _vpV4Open('vp-v4-pos-dd-' + id, window.tagLabel ? window.tagLabel('pos') : 'pos');
     if (!dd) return;
     _vpV4RenderPosDd(id, '');
     const inp = dd.querySelector('.vp-dd-search');
@@ -219,7 +224,7 @@
 
   // DD を開く（チップタップ時。キーボードは開かない）
   window.vpV4OpenTagDd = function (id) {
-    const dd = _vpV4Open('vp-v4-tag-dd-' + id, 'テクニック');
+    const dd = _vpV4Open('vp-v4-tag-dd-' + id, window.tagLabel ? window.tagLabel('tags') : 'tags');
     if (!dd) return;
     _vpV4RenderTagList(id, '');
     // search input には自動 focus しない（モバイルキーボード誤起動防止）

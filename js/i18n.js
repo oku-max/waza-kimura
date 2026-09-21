@@ -2308,9 +2308,11 @@
     return null;
   }
 
+  // [data-user-text] は「ユーザーが付けた名前」。タググループ名などがこれ。
+  // ユーザーデータは訳さない（メモ・動画タイトルと同じ扱い）。
   function _skipNode(el) {
     if (!el) return true;
-    if (el.closest && el.closest('[contenteditable], script, style, textarea')) return true;
+    if (el.closest && el.closest('[contenteditable], script, style, textarea, [data-user-text]')) return true;
     return false;
   }
 
@@ -2318,7 +2320,7 @@
   // textarea の中身は訳さないが、その placeholder は訳してよい。
   function _skipAttrs(el) {
     if (!el) return true;
-    if (el.closest && el.closest('[contenteditable], script, style')) return true;
+    if (el.closest && el.closest('[contenteditable], script, style, [data-user-text]')) return true;
     return false;
   }
 

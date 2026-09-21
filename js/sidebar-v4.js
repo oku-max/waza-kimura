@@ -126,25 +126,25 @@
   <div class="v4-tabs" id="v4-tabs"></div>
   <div class="v4-cols" id="v4-cols-track">
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>トップ/ボトム/スタンディング</span>
+      <div class="v4-col-hdr"><span class="v4-col-name" data-tag-key="tb" data-user-text="1"></span>
         <select onchange="v4SetSort('tb',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-tb"></div>
     </div>
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>カテゴリ</span>
+      <div class="v4-col-hdr"><span class="v4-col-name" data-tag-key="cat" data-user-text="1"></span>
         <select onchange="v4SetSort('cat',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-cat"></div>
     </div>
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>ポジション</span>
+      <div class="v4-col-hdr"><span class="v4-col-name" data-tag-key="pos" data-user-text="1"></span>
         <select onchange="v4SetSort('pos',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-pos"></div>
     </div>
     <div class="v4-col">
-      <div class="v4-col-hdr"><span>テクニック</span>
+      <div class="v4-col-hdr"><span class="v4-col-name" data-tag-key="tags" data-user-text="1"></span>
         <select onchange="v4SetSort('tags',this.value)"><option value="abc">あいうえ順</option><option value="cnt">件数順</option></select>
       </div>
       <div class="v4-col-body" id="v4-col-tags"></div>
@@ -166,12 +166,11 @@
   const _sort = { tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
   let _q = '';
   let _activeTab = 0;
-  const _COLS = [
-    { key:'tb',   label:'トップ/ボトム/スタンディング', short:'T/B' },
-    { key:'cat',  label:'カテゴリ',        short:'カテゴリ' },
-    { key:'pos',  label:'ポジション',      short:'ポジション' },
-    { key:'tags', label:'テクニック',      short:'テクニック' }
-  ];
+  // グループ名はユーザーが付けたもの。ここに直接書かず tagLabel() から引く。
+  const _COL_KEYS = ['tb', 'cat', 'pos', 'tags'];
+  const _colLabel = k => (window.tagLabel ? window.tagLabel(k) : k);
+  const _colShort = k => (window.tagLabelShort ? window.tagLabelShort(k) : k);
+  const _cols = () => _COL_KEYS.map(k => ({ key:k, label:_colLabel(k), short:_colShort(k) }));
 
   function _esc(s){return String(s==null?'':s).replace(/[&<>"'\\]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'\\\\'}[c]));}
 
@@ -188,9 +187,9 @@
     // Tabs
     if (tabsEl) {
       const selSizes = { tb:f.tbNew.size, cat:f.cat.size, pos:f.posNew.size, tags:f.tags.size };
-      tabsEl.innerHTML = _COLS.map((c,i) => {
+      tabsEl.innerHTML = _cols().map((c,i) => {
         const n = selSizes[c.key];
-        return `<div class="v4-tab${i===_activeTab?' on':''}" data-i="${i}">${c.short}${n?`<span class="v4-bdg">${n}</span>`:''}</div>`;
+        return `<div class="v4-tab${i===_activeTab?' on':''}" data-i="${i}" title="${_esc(c.label)}" data-user-text="1">${_esc(c.short)}${n?`<span class="v4-bdg">${n}</span>`:''}</div>`;
       }).join('');
       tabsEl.querySelectorAll('.v4-tab').forEach(t => t.onclick = () => {
         _activeTab = +t.dataset.i;
@@ -208,7 +207,7 @@
         pos:  (window.POSITIONS  || []).map(p => ({ name:p.ja,   cnt:_cnt('posNew', p.ja), sel:f.posNew.has(p.ja) })),
         tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:f.tags.has(t) }))
       };
-      trackEl.innerHTML = _COLS.map(c => {
+      trackEl.innerHTML = _cols().map(c => {
         let arr = lists[c.key].slice();
         // ゼロ件（非該当）項目を非表示。ただし選択済みは常に残す（解除可能にするため）
         arr = arr.filter(r => r.sel || r.cnt > 0);
@@ -219,7 +218,7 @@
           `<div class="v4-row${r.sel?' on':''}${r.cnt===0&&!r.sel?' zero':''}" data-k="${c.key}" data-n="${_esc(r.name)}"><span>${_esc(r.name)}</span><span class="v4-cnt">${r.cnt}本</span></div>`
         ).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
         return `<div class="v4-col" data-k="${c.key}">
-          <div class="v4-col-hdr"><span>${c.label}</span>
+          <div class="v4-col-hdr"><span data-user-text="1">${_esc(c.label)}</span>
             <select data-sort="${c.key}">
               <option value="abc"${_sort[c.key]==='abc'?' selected':''}>あいうえ順</option>
               <option value="cnt"${_sort[c.key]==='cnt'?' selected':''}>件数順</option>
@@ -297,7 +296,7 @@
       t = setTimeout(() => {
         const cw = track.children[0]?.offsetWidth || 1;
         const i = Math.round(track.scrollLeft / cw);
-        if (i !== _activeTab && i >= 0 && i < _COLS.length) {
+        if (i !== _activeTab && i >= 0 && i < _COL_KEYS.length) {
           _activeTab = i;
           document.querySelectorAll('#v4-tabs .v4-tab').forEach((t,idx) => t.classList.toggle('on', idx === _activeTab));
         }

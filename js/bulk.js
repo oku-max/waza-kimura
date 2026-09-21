@@ -190,10 +190,11 @@ export function buildBulkDrawerHTML() {
   const _showCat  = _tsVis('cat');
   const _showPos  = _tsVis('pos');
   const _showTagsF = _tsVis('tags');
-  const _tbRowEl   = _showTb   ? `<div class="vp-row"><span class="vp-lbl">トップ/ボトム/スタンディング</span><div class="vp-chips">${tbRow}</div></div>` : '';
-  const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl">カテゴリ</span><div class="vp-chips">${catRow}</div></div>` : '';
-  const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl">ポジション</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
-  const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl">テクニック</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
+  const _L = k => _e(window.tagLabel ? window.tagLabel(k) : k);
+  const _tbRowEl   = _showTb   ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('tb')}</span><div class="vp-chips">${tbRow}</div></div>` : '';
+  const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('cat')}</span><div class="vp-chips">${catRow}</div></div>` : '';
+  const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('pos')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
+  const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('tags')}</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
   const tagSec = (_showTb || _showCat || _showPos || _showTagsF) ? `<div class="fsec">
     <div class="fsec-title">タグ</div>
     ${_tbRowEl}${_catRowEl}${_posRowEl}${_tagsRowEl}

@@ -1,11 +1,44 @@
 ﻿// ═══ WAZA KIMURA — タグ設定 ═══
 
+// タググループは 4 つ固定。名前も中身もユーザーが自由に決める。
+// ここにある label はあくまで「まだ何も決めていない人の初期値」で、意味を持たせない。
+// 既存ユーザーは localStorage 'wk_tagSettings' の値が優先されるので、この定数を変えても影響しない。
 const DEFAULT_TAG_SETTINGS = [
-  { key:'tb',   label:'トップ/ボトム/スタンディング', visible:true,  presets:['トップ','ボトム','スタンディング'] },
-  { key:'cat',  label:'カテゴリ',   visible:true,  presets:[] },  // CATEGORIES から自動取得
-  { key:'pos',  label:'ポジション',   visible:true,  presets:[] },  // POSITIONS から自動取得
-  { key:'tags', label:'テクニック',  visible:true,  presets:[] },
+  { key:'tb',   label:'タグ1', visible:true,  presets:['トップ','ボトム','スタンディング'] },
+  { key:'cat',  label:'タグ2', visible:true,  presets:[] },
+  { key:'pos',  label:'タグ3', visible:true,  presets:[] },
+  { key:'tags', label:'タグ4', visible:true,  presets:[] },
 ];
+
+// グループ名の取り出しはこの 3 つに集約する。画面側が 'カテゴリ' 等を直接書かない。
+// 直接フィールドを読む場所を増やさない（CLAUDE.md: 同じものを指す値が2つあるなら読む場所を1つにする）。
+const _TAG_KEYS = ['tb', 'cat', 'pos', 'tags'];
+const _TAG_FALLBACK = { tb:'タグ1', cat:'タグ2', pos:'タグ3', tags:'タグ4' };
+
+// 4 つのグループを定義順で返す。画面はこれを回して描く。
+export function tagGroups() {
+  return _TAG_KEYS.map(k => tagSettings.find(t => t.key === k)).filter(Boolean);
+}
+
+// ユーザーが付けた名前。未設定なら初期値。
+export function tagLabel(key) {
+  const t = tagSettings.find(x => x.key === key);
+  const l = t && t.label != null ? String(t.label).trim() : '';
+  return l || _TAG_FALLBACK[key] || String(key);
+}
+
+// 狭い場所（サイドバーのタブ等）用。正式名は title 属性で出す前提で切り詰める。
+export function tagLabelShort(key, max) {
+  const l = tagLabel(key);
+  const n = max || 6;
+  return l.length > n ? l.slice(0, n) + '…' : l;
+}
+
+// そのグループを画面に出すか（既存の visible をそのまま使う）。
+export function tagVisible(key) {
+  const t = tagSettings.find(x => x.key === key);
+  return t ? t.visible !== false : true;
+}
 
 export let tagSettings = DEFAULT_TAG_SETTINGS.map(d => ({ ...d, presets: [...d.presets] }));
 
@@ -237,7 +270,7 @@ function _renderTagDisplaySettings() {
         style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
     </div>`;
 
-  el.innerHTML = makeRow('tb', 'TBS', tbCount) + makeRow('cat', 'カテゴリ', cats.length) + makeRow('pos', 'ポジション', positions.length) + makeRow('tags', 'テクニック', tagsCount);
+  el.innerHTML = makeRow('tb', tagLabel('tb'), tbCount) + makeRow('cat', tagLabel('cat'), cats.length) + makeRow('pos', tagLabel('pos'), positions.length) + makeRow('tags', tagLabel('tags'), tagsCount);
 }
 
 // ── タグデータ取得ヘルパー ──
@@ -275,12 +308,12 @@ window.openTagEditModal = function(type) {
   let title = '', items = [], placeholder = '', hasSearch = false, hasDesc = false;
 
   if (type === 'tb') {
-    title = 'TBS';
+    title = tagLabel('tb');
     const ts = tagSettings.find(t => t.key === 'tb');
     items = (ts?.presets || ['トップ','ボトム','スタンディング']).map((p,i) => ({ name: p, en: '', source: 'system', idx: i }));
     placeholder = '新しい項目を追加...';
   } else if (type === 'cat') {
-    title = 'カテゴリ';
+    title = tagLabel('cat');
     hasSearch = true; hasDesc = true;
     const cats = _getSettingsCategory();
     // desc from tag-master.js CATEGORIES (stored in code) — fallback to empty
@@ -310,7 +343,7 @@ window.openTagEditModal = function(type) {
     });
     placeholder = '新しいカテゴリを追加...';
   } else if (type === 'pos') {
-    title = 'ポジション';
+    title = tagLabel('pos');
     hasSearch = true;
     const positions = _getSettingsPositions();
     items = positions.map(p => ({
@@ -1217,7 +1250,7 @@ function _renderAiImportSettings() {
       <div>
         <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">自動判定するタグ</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${chipHtml('tb','TBS')}${chipHtml('action','カテゴリ')}${chipHtml('position','ポジション')}${chipHtml('tags','テクニック')}
+          ${chipHtml('tb',tagLabel('tb'))}${chipHtml('action',tagLabel('cat'))}${chipHtml('position',tagLabel('pos'))}${chipHtml('tags',tagLabel('tags'))}
         </div>
       </div>
       ${toggleHtml('autoTagOnImport', '取込時に自動AI分析', 'YouTube取り込み後に自動でタグ付け')}
@@ -1437,7 +1470,8 @@ export function renderTagVisibilityBtns() {
 export function renderAiSettings() {
   const el = document.getElementById('ai-settings-section'); if (!el) return;
   const s = aiSettings;
-  const catLabels = { tb: 'トップ/ボトム/スタンディング', action: 'カテゴリ', position: 'ポジション', tags: 'テクニック' };
+  // フィルター列の見出し。キー名(action/position)とグループキー(cat/pos)の対応に注意。
+  const catLabels = { tb: tagLabel('tb'), action: tagLabel('cat'), position: tagLabel('pos'), tags: tagLabel('tags') };
   const row = (label, desc, checkbox) =>
     `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
       <div>
