@@ -198,6 +198,19 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // タグの一括削除（Notion 項目12）
+    '🗑 タグの一括削除': '🗑 Bulk-remove tags',
+    '選んだグループのタグを、全部の動画から外します。取り消せます。':
+      'Removes the chosen groups\u2019 tags from every video. You can undo it.',
+    'バックアップを書き出してから削除': 'Back up, then remove',
+    '消すグループを選んでください': 'Pick at least one group',
+    '対象の動画がありません': 'No videos to change',
+    '自分で付けたタグ': 'your own tags',
+    'まずバックアップのファイルを書き出します。': 'A backup file will be saved first.',
+    'バックアップを書き出しました。': 'The backup has been saved.',
+    'バックアップを書き出せないため中止します。': 'Stopped: a backup cannot be saved.',
+    'バックアップに失敗したので中止しました。': 'Stopped: the backup failed.',
+    '全デバイスに反映されます。続けますか？': 'This applies to all your devices. Continue?',
     // 禁止リスト（AIタグ廃止でタグ設定側に移設・Notion 項目01/13）
     'ここにある値は「選択肢に無い値」の一覧に出てきません。動画のタグは消していません。':
       'These never appear in the "not in the options" list. Your videos keep their tags.',
@@ -2055,6 +2068,11 @@
     .replace(/^(\d+)時間$/, '$1h')
     .replace(/^(\d+)分$/, '$1 min');
   const AUTO_PATTERNS = [
+    // ── タグの一括削除（グループ名と本数が入る・Notion 項目12）──
+    [/^「(.+?)」を動画 (\d+)本 から外します。$/,
+      (m, names, n) => `Removing "${names}" from ${n} video${n === '1' ? '' : 's'}.`],
+    [/^🗑 (\d+)本から (\d+)件 のタグを外しました$/,
+      (m, vids, tags) => `🗑 Removed ${tags} tag${tags === '1' ? '' : 's'} from ${vids} video${vids === '1' ? '' : 's'}`],
     // ── 禁止リストの解除（タグ名が入る・Notion 項目01/13）──
     [/^「(.+?)」の禁止を解除しました$/, (m, tag) => `Un-blocked "${tag}"`],
     // ── タググループのテンプレート適用の結果（テンプレ名が入る・Notion 項目04）──

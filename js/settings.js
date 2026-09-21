@@ -1305,7 +1305,112 @@ export function renderTagSettingsList() {
     el.appendChild(card);
     renderTagPresets(i);
   });
+  _renderBulkTagDeleteSection(el);
   _renderBlocklistSection(el);
+}
+
+// タグの一括削除（Notion 項目12）。
+// AI自動タグ付けは廃止したが、既に動画に付いた値は残る。それを消すかどうかは
+// ユーザーが決めること。システムが勝手に空にする経路は作らない（CLAUDE.md ルール1）。
+//
+// 安全のための決まり:
+//   ・どのグループを消すか選ばせる。グループ名はユーザーが付けたものを使う
+//   ・自分で付けた自由タグ（tags）は既定で外す
+//   ・対象の本数を見せて確認する
+//   ・実行前に必ずバックアップを書き出す
+//   ・実行後も toastUndo で取り消せるようにする
+function _renderBulkTagDeleteSection(parent) {
+  const videos = window.videos || [];
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;';
+
+  const head = document.createElement('div');
+  head.style.cssText = 'font-size:12px;font-weight:700;margin-bottom:2px';
+  head.textContent = '🗑 タグの一括削除';
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:11px;color:var(--text3);margin-bottom:8px';
+  desc.textContent = '選んだグループのタグを、全部の動画から外します。取り消せます。';
+  card.appendChild(head); card.appendChild(desc);
+
+  const rows = document.createElement('div');
+  rows.style.cssText = 'display:flex;flex-direction:column;gap:5px;margin-bottom:8px';
+  _TAG_KEYS.forEach(function(key) {
+    const n = videos.filter(v => (v[key] || []).length).length;
+    const lab = document.createElement('label');
+    lab.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);cursor:pointer;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.key = key;
+    cb.disabled = n === 0;
+    // tags は自分で付けた自由タグなので既定で外す
+    cb.checked = false;
+    const nm = document.createElement('span');
+    nm.setAttribute('data-user-text', '1');
+    nm.textContent = tagLabel(key);
+    const cnt = document.createElement('span');
+    cnt.style.cssText = 'color:var(--text3)';
+    cnt.textContent = `（${n}本）`;
+    lab.appendChild(cb); lab.appendChild(nm); lab.appendChild(cnt);
+    if (key === 'tags') {
+      const note = document.createElement('span');
+      note.style.cssText = 'color:var(--text3);font-size:10px';
+      note.textContent = '自分で付けたタグ';
+      lab.appendChild(note);
+    }
+    rows.appendChild(lab);
+  });
+  card.appendChild(rows);
+
+  const btn = document.createElement('button');
+  btn.textContent = 'バックアップを書き出してから削除';
+  btn.style.cssText = 'padding:5px 14px;border-radius:6px;border:1.5px solid #ef4444;background:var(--surface);color:#ef4444;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit';
+  btn.onclick = function() { _bulkTagDelete(rows); };
+  card.appendChild(btn);
+  parent.appendChild(card);
+}
+
+async function _bulkTagDelete(rows) {
+  const keys = [...rows.querySelectorAll('input[type=checkbox]')]
+    .filter(cb => cb.checked).map(cb => cb.dataset.key);
+  if (!keys.length) { window.toast?.('消すグループを選んでください'); return; }
+
+  const videos = window.videos || [];
+  const hit = videos.filter(v => keys.some(k => (v[k] || []).length));
+  if (!hit.length) { window.toast?.('対象の動画がありません'); return; }
+  const names = keys.map(k => tagLabel(k)).join('・');
+
+  // 1) まずバックアップ。書き出せなければ削除しない。
+  if (typeof window.wazaExportLight !== 'function') {
+    window.alert('バックアップを書き出せないため中止します。');
+    return;
+  }
+  if (!window.confirm(`「${names}」を動画 ${hit.length}本 から外します。\n\n`
+    + 'まずバックアップのファイルを書き出します。\n続けますか？')) return;
+  try { await window.wazaExportLight(); }
+  catch (e) { window.alert('バックアップに失敗したので中止しました。\n' + e); return; }
+
+  // 2) バックアップを取ったうえで、もう一度確認する
+  if (!window.confirm(`バックアップを書き出しました。\n\n`
+    + `「${names}」を動画 ${hit.length}本 から外します。\n`
+    + '全デバイスに反映されます。続けますか？')) return;
+
+  // 3) 取り消せるように、消す前の値を控える
+  const undo = hit.map(v => ({ v, before: Object.fromEntries(keys.map(k => [k, [...(v[k] || [])]])) }));
+  let removed = 0;
+  hit.forEach(function(v) {
+    keys.forEach(function(k) { removed += (v[k] || []).length; v[k] = []; });
+  });
+  window.debounceSave?.();
+  window.AF?.();
+  renderTagSettingsList();
+  window.toastUndo
+    ? window.toastUndo(`🗑 ${hit.length}本から ${removed}件 のタグを外しました`, function() {
+        undo.forEach(({ v, before }) => { Object.keys(before).forEach(k => { v[k] = before[k]; }); });
+        window.debounceSave?.();
+        window.AF?.();
+        renderTagSettingsList();
+      })
+    : window.toast?.(`🗑 ${hit.length}本から ${removed}件 のタグを外しました`);
 }
 
 // 禁止リスト（この値は二度と候補に出さない）。

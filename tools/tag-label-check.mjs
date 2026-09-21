@@ -96,6 +96,19 @@ const tt = read('js/tag-templates.js');
   ? ok('設定画面がテンプレートを適用できる')
   : fail('applyTagTemplate() が settings.js から消えている');
 
+// ── 3c. 辞書を育てる経路が残っていること（項目16）────────────
+// alias-builder は検索辞書（日英ブリッジ）に別名を足す唯一の経路。
+// 承認制なので推測が混ざらない。タグ体系の自由化とは無関係に生き残る。
+if (fs.existsSync(path.join(ROOT, 'alias-builder.html'))) {
+  ok('alias-builder.html が残っている（辞書を育てる唯一の経路）');
+  const ab = read('alias-builder.html');
+  /ai-tag|ai-tagging|aiSettings|bjjRules/.test(ab)
+    ? fail('alias-builder.html が廃止したAIタグの部品を参照している')
+    : ok('alias-builder は廃止したAIタグに依存していない');
+} else {
+  fail('alias-builder.html が消えている（別名を追加する手段が無くなる）');
+}
+
 // ── 4. ユーザーが付けた名前を翻訳しないこと（項目10）──────────
 /\[data-user-text\]/.test(read('js/i18n.js'))
   ? ok('i18n がユーザーの付けた名前を翻訳対象から外している')
