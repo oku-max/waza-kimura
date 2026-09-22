@@ -6,60 +6,18 @@
 // チャンネルプロファイル学習（wk_ch_profiles）は v52.807 で廃止。
 // Notion「タグシステム再考」項目14。保存済みの wk_ch_profiles は消さない（読まなくなるだけ）。
 
-// ── スキップ済みルール管理 ──
-function _saveSkippedRule(rule) {
-  try {
-    var list = JSON.parse(localStorage.getItem('wk_tw_skipped_rules') || '[]');
-    var key  = rule.keyword + '|||' + rule.tag;
-    if (!list.includes(key)) { list.push(key); localStorage.setItem('wk_tw_skipped_rules', JSON.stringify(list)); }
-  } catch(e) {}
-}
-function _isRuleSkipped(rule) {
-  try {
-    var list = JSON.parse(localStorage.getItem('wk_tw_skipped_rules') || '[]');
-    return list.includes(rule.keyword + '|||' + rule.tag);
-  } catch(e) { return false; }
-}
+// 帰納学習（_history / _record / _induceRule / _acceptRule / wk_tw_skipped_rules）と
+// ルール適用エンジン（waza_ai_rules）は v52.815 で廃止。
+// 「このキーワードが入っていたらこのタグ」を覚えて次から勝手に付ける仕組みで、
+// オーナーが不要と判断したキーワード推定そのものだった。
+// 保存済みの wk_tw_skipped_rules / waza_ai_rules は消さない（読まなくなるだけ）。
 
-// ── 組み込みルール定義（TB判定の文脈パターン）──
-// Admin「ルール」タブに反映・編集可能。source='ビルトイン' / id='_b_xxx' で識別。
-// グループ名はユーザーが付けたもの。ここに直接書かない。
-// グループ名はユーザーが付けたもの。ここに直接書かない。
 function _twLabel(k){
   var v = window.tagLabel ? window.tagLabel(k) : k;
   return String(v).replace(/[&<>"]/g, function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});
 }
 
 
-
-// ── 帰納エンジン ──
-var _history = [];
-
-function _record(title, channel, auto, final) {
-  _history.push({title:title, channel:channel, auto:auto, final:final});
-}
-
-function _induceRule() {
-  var corrections = _history.filter(function(h) {
-    var autoAll  = [].concat(h.auto.tb?[h.auto.tb]:[], h.auto.pos||[], h.auto.cat||[], h.auto.tech||[]);
-    var finalAll = [].concat(h.final.tb?[h.final.tb]:[], h.final.pos||[], h.final.cat||[], h.final.tech||[]);
-    return finalAll.some(function(t){ return autoAll.indexOf(t) < 0; });
-  });
-  if (corrections.length < 2) return null;
-  var cooc = {};
-  corrections.forEach(function(h) {
-    var autoAll  = [].concat(h.auto.tb?[h.auto.tb]:[], h.auto.pos||[], h.auto.cat||[], h.auto.tech||[]);
-    var finalAll = [].concat(h.final.tb?[h.final.tb]:[], h.final.pos||[], h.final.cat||[], h.final.tech||[]);
-    var added = finalAll.filter(function(t){ return autoAll.indexOf(t)<0; });
-    var words = (h.title||'').toLowerCase().replace(/[^\w\s]/g,' ').split(/\s+/).filter(function(w){ return w.length>3; });
-    words.forEach(function(w){ added.forEach(function(tag){ var k=w+'|||'+tag; cooc[k]=(cooc[k]||0)+1; }); });
-  });
-  var best=null, bestCount=1;
-  Object.keys(cooc).forEach(function(k){ if(cooc[k]>bestCount){ bestCount=cooc[k]; best=k; } });
-  if (!best) return null;
-  var parts = best.split('|||');
-  return {keyword:parts[0], tag:parts[1]};
-}
 
 // ── プラットフォーム別 embed 情報取得（vpanel.js と完全一致のロジック）──
 function _getEmbedInfo(v) {
@@ -81,128 +39,8 @@ function _getEmbedInfo(v) {
   return { embedUrl:embedUrl, thumb:thumb, canPlay:!!embedUrl };
 }
 
-// ── 提案エンジン（v52.814 で推測をやめた。残るのはユーザー自作ルールだけ）──
-function _suggest(title, channel, pl, memo) {
-  // v52.814: こちらからのキーワード推測は全部やめた。
-  //   ・autoTagFromTitle（廃止済み）
-  //   ・window.POSITIONS / waza_positions / waza_tag_dict への部分一致
-  // どれも「タイトルに “パス” が入っていたら パスガード」の類で、当たらない。
-  // オーナーの言葉:「キーワード推定は不完全だから不要」。
-  //
-  // 残すのはユーザーが自分で書いたルール（_applyRules）だけ。
-  // あれはこちらの推測ではなく、本人が明示したルールなので別物。
-  var _result = { tb: null, pos: [], cat: [], tech: [] };
-  return _applyRules(_result, title, pl, memo);
-}
-
-// ── ルール適用エンジン（waza_ai_rules を読んで提案結果に上乗せ）──
-// Phase 1: keyword / and / not  — タイトルマッチング
-// Phase 2: pos_implies          — タグ値からの継承
-// Phase 3: conflict             — 競合する値を削除
-// Phase 4: default              — 全フェーズ後も空なら補完
-function _applyRules(result, title, pl, memo) {
-  try {
-    // ビルトイン判定ルール（dominate→トップ 等のキーワード推測）は v52.807 で廃止。
-    // Notion「タグシステム再考」項目14。
-    // 既に localStorage に撒かれている分は消さない（ユーザーが編集している場合があるため）。
-    // 消さずに、適用だけやめる。ユーザー自身が作ったルールはこれまで通り効く。
-    var rules    = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]')
-      .filter(function(r){
-        return !(String(r && r.id || '').indexOf('_b_') === 0 || (r && r.source) === 'ビルトイン');
-      });
-    var tLower   = (title || '').toLowerCase();
-    var plLower  = (pl    || '').toLowerCase();
-    var memLower = (memo  || '').toLowerCase();
-
-    function _matches(str) {
-      var s = (str || '').toLowerCase();
-      return tLower.indexOf(s) >= 0 || plLower.indexOf(s) >= 0 || memLower.indexOf(s) >= 0;
-    }
-    function _applyFA(field, action, value) {
-      if (field === 'tb') {
-        if      (action === 'add'     && !result.tb) result.tb = value;
-        else if (action === 'replace')               result.tb = value;
-      } else if (field === 'pos') {
-        if (!result.pos) result.pos = [];
-        if      (action === 'add'     && result.pos.indexOf(value) < 0) result.pos.push(value);
-        else if (action === 'replace') result.pos = [value];
-        else if (action === 'remove')  result.pos = result.pos.filter(function(p){ return p !== value; });
-      } else if (field === 'cat') {
-        if (!result.cat) result.cat = [];
-        if      (action === 'add'     && result.cat.indexOf(value) < 0) result.cat.push(value);
-        else if (action === 'replace') result.cat = [value];
-        else if (action === 'remove')  result.cat = result.cat.filter(function(c){ return c !== value; });
-      } else if (field === 'tags') {
-        if (!result.tech) result.tech = [];
-        if      (action === 'add'     && result.tech.indexOf(value) < 0) result.tech.push(value);
-        else if (action === 'remove')  result.tech = result.tech.filter(function(v){ return v !== value; });
-      }
-    }
-    function _hasVal(field, value) {
-      if (field === 'tb')   return result.tb === value;
-      if (field === 'pos')  return (result.pos  || []).indexOf(value) >= 0;
-      if (field === 'cat')  return (result.cat  || []).indexOf(value) >= 0;
-      if (field === 'tags') return (result.tech || []).indexOf(value) >= 0;
-      return false;
-    }
-
-    // Phase 1: keyword / and / not
-    rules.forEach(function(r) {
-      if (!r.enabled) return;
-      var t = r.type || 'keyword';
-      if (t === 'keyword') {
-        if (!r.condition || !_matches(r.condition)) return;
-        _applyFA(r.field, r.action, r.value);
-      } else if (t === 'and') {
-        if (!r.condition_a || !r.condition_b) return;
-        if (!_matches(r.condition_a) || !_matches(r.condition_b)) return;
-        _applyFA(r.field, r.action, r.value);
-      } else if (t === 'not') {
-        if (!r.condition || !_matches(r.condition)) return;
-        if (r.not_condition && _matches(r.not_condition)) return;
-        _applyFA(r.field, r.action, r.value);
-      }
-    });
-
-    // Phase 2: pos_implies (derive from already-set tag values)
-    rules.forEach(function(r) {
-      if (!r.enabled || r.type !== 'pos_implies') return;
-      if (!r.if_value || !r.then_value) return;
-      if (!_hasVal(r.if_field, r.if_value)) return;
-      _applyFA(r.then_field, 'add', r.then_value);
-    });
-
-    // Phase 3: conflict (remove contradicting values)
-    rules.forEach(function(r) {
-      if (!r.enabled || r.type !== 'conflict') return;
-      if (!r.if_value || !r.then_remove) return;
-      if (!_hasVal(r.field, r.if_value)) return;
-      var f = r.field;
-      if (f === 'tb' && result.tb === r.then_remove)   result.tb  = null;
-      else if (f === 'pos')  result.pos  = (result.pos  || []).filter(function(v){ return v !== r.then_remove; });
-      else if (f === 'cat')  result.cat  = (result.cat  || []).filter(function(v){ return v !== r.then_remove; });
-      else if (f === 'tags') result.tech = (result.tech || []).filter(function(v){ return v !== r.then_remove; });
-    });
-
-    // Phase 4: default (fallback for empty fields)
-    rules.forEach(function(r) {
-      if (!r.enabled || r.type !== 'default') return;
-      if (!r.value) return;
-      var f = r.field;
-      var empty = f === 'tb' ? !result.tb
-                : f === 'pos'  ? !(result.pos  && result.pos.length)
-                : f === 'cat'  ? !(result.cat  && result.cat.length)
-                : f === 'tags' ? !(result.tech && result.tech.length)
-                : false;
-      if (empty) _applyFA(f, 'add', r.value);
-    });
-
-  } catch(e) {}
-  return result;
-}
-
 // ── キュー管理 ──
-var _queue=[], _qIdx=0, _autoTags=null, _pendingRule=null, _previewOpen=false;
+var _queue=[], _qIdx=0, _autoTags=null, _previewOpen=false;
 
 function _hasData(v) {
   return (v.tb&&v.tb.length) || (v.pos&&v.pos.length) || (v.cat&&v.cat.length) || (v.tags&&v.tags.length);
@@ -319,15 +157,6 @@ function _ensureDOM() {
           '<div style="font-weight:700;margin-bottom:4px;color:var(--text2,#555)">変更内容</div>',
           '<div id="tw-delta-content" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
         '</div>',
-        // 帰納ルール提案
-        '<div id="tw-induct-box" style="display:none;background:rgba(0,0,0,.04);border:1.5px solid var(--accent,#111);border-radius:10px;padding:10px 12px;font-size:12px">',
-          '<div style="font-weight:700;color:var(--accent,#111);margin-bottom:6px">💡 学習ルール提案</div>',
-          '<div id="tw-induct-text" style="color:var(--text2,#555);margin-bottom:8px"></div>',
-          '<div style="display:flex;gap:8px">',
-            '<button id="tw-btn-accept-rule" style="padding:5px 14px;border-radius:20px;background:var(--accent,#111);border:none;color:var(--on-accent,#fff);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">採用する</button>',
-            '<button id="tw-btn-skip-rule"   style="padding:5px 14px;border-radius:20px;background:none;border:1.5px solid var(--border,#e0e0dc);color:var(--text3,#999);font-size:12px;cursor:pointer;font-family:inherit">スキップ</button>',
-          '</div>',
-        '</div>',
       '</div>',
       // フッター
       '<div style="display:flex;gap:8px;padding:10px 16px 14px;border-top:1px solid var(--border,#e0e0dc);flex-shrink:0">',
@@ -346,11 +175,6 @@ function _ensureDOM() {
   document.getElementById('tw-tech-input').addEventListener('keydown', function(e){ if(e.key==='Enter') _addTechFromInput(); });
   document.getElementById('tw-tech-select').addEventListener('change', function(){ _addTechFromSelect(this); });
   document.getElementById('tw-play-btn').addEventListener('click', _togglePreview);
-  document.getElementById('tw-btn-accept-rule').addEventListener('click', _acceptRule);
-  document.getElementById('tw-btn-skip-rule').addEventListener('click', function() {
-    if (_pendingRule) _saveSkippedRule(_pendingRule);
-    _next();
-  });
 }
 
 // ── タグピル追加 ──
@@ -454,7 +278,7 @@ function _loadItem() {
 
   // ── 自動提案（タイトル＋プレイリスト＋チャンネル＋メモ）──
   // memo: ユーザーが前回書いたヒントをルールマッチングに活用
-  _autoTags = _suggest(title, channel, pl, memo);
+  _autoTags = { tb: null, pos: [], cat: [], tech: [] };   // 推測しない（v52.815）
 
   // ヒント表示
   var hintArr = [];
@@ -534,10 +358,8 @@ function _loadItem() {
   var memoEl = document.getElementById('tw-memo');
   if (memoEl) memoEl.value = v.memo || '';
 
-  var deltaBox  = document.getElementById('tw-delta-box');
-  var inductBox = document.getElementById('tw-induct-box');
-  if (deltaBox)  deltaBox.style.display  = 'none';
-  if (inductBox) inductBox.style.display = 'none';
+  var deltaBox = document.getElementById('tw-delta-box');
+  if (deltaBox) deltaBox.style.display = 'none';
 
   _updateProgress();
 }
@@ -647,46 +469,6 @@ function _confirm() {
   if (window.saveUserData) window.saveUserData();
   if (window.AF) window.AF();
 
-  var title   = v.title || v.name || '';
-  var channel = v.ch || v.channel || '';
-  _record(title, channel, _autoTags, final);
-
-  var rule = _induceRule();
-  // スキップ済みのルールは表示しない
-  if (rule && _isRuleSkipped(rule)) rule = null;
-  if (rule) {
-    _pendingRule = rule;
-    var inductBox  = document.getElementById('tw-induct-box');
-    var inductText = document.getElementById('tw-induct-text');
-    if (inductText) inductText.textContent = '"'+rule.keyword+'" というキーワードが含まれる動画には "'+rule.tag+'" タグが頻繁に追加されています。';
-    if (inductBox)  inductBox.style.display = 'block';
-    return;
-  }
-  _next();
-}
-
-// ── ルール採用（waza_ai_rules に保存 → 即座に _applyRules() で効く）──
-function _acceptRule() {
-  if (!_pendingRule) { _next(); return; }
-  try {
-    var rules = JSON.parse(localStorage.getItem('waza_ai_rules') || '[]');
-    var tbVals = window.TB_VALUES || [];
-    var field = _pendingRule.field
-              || (tbVals.indexOf(_pendingRule.tag) >= 0 ? 'tb'
-                : (window.POSITIONS||[]).some(function(p){ return p.ja === _pendingRule.tag; }) ? 'pos'
-                : 'cat');
-    rules.push({
-      condition: _pendingRule.keyword,
-      field: field,
-      action: 'add',
-      value: _pendingRule.tag,
-      enabled: true,
-      created: Date.now(),
-      source: _pendingRule.source || '帰納学習'
-    });
-    localStorage.setItem('waza_ai_rules', JSON.stringify(rules));
-  } catch(e) {}
-  if (window.toast) window.toast('"' + _pendingRule.keyword + '" ルールを追加しました');
   _next();
 }
 
@@ -704,7 +486,6 @@ function _open() {
   if (window.syncCatsFromStorage)      window.syncCatsFromStorage();
   _queue = _buildQueue();
   _qIdx = 0;
-  _pendingRule = null;
   var ov = document.getElementById('tw-overlay');
   if (ov) { ov.style.display='flex'; ov.style.alignItems='center'; ov.style.justifyContent='center'; }
   _loadItem();
@@ -720,9 +501,6 @@ function _close() {
 
 function _next() {
   _qIdx++;
-  _pendingRule = null;
-  var inductBox = document.getElementById('tw-induct-box');
-  if (inductBox) inductBox.style.display = 'none';
   _loadItem();
 }
 

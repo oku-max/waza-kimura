@@ -938,7 +938,7 @@ function _renderTagMaster() {
 
   // ── Layer 4: Tags ──
   html += `<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:#1a2038">Layer 4 — #Tag（自由記入）</div>`;
-  html += `<div style="font-size:11px;color:#7a85a0;background:#f4f6fa;border-radius:8px;padding:10px 14px">サイドバー非表示・AI自動抽出はデフォルト OFF。ドリル・その他などはここに格納。</div>`;
+  html += `<div style="font-size:11px;color:#7a85a0;background:#f4f6fa;border-radius:8px;padding:10px 14px">サイドバー非表示。タグは自分で付ける（自動抽出は廃止）。ドリル・その他などはここに格納。</div>`;
 
   el.innerHTML = html;
 }

@@ -36,6 +36,10 @@ const GONE = [
   ['retagAllFromTitle', '既存動画への一括推定タグ付け'],
   ['_detectCatFromText','テキストからカテゴリを当てる関数'],
   ['REVERSAL_TRIGGERS', 'TB判定の反転トリガー'],
+  // v52.815: ウィザードの帰納学習とルール適用も廃止
+  ['_induceRule',       '修正からキーワードルールを作る帰納学習'],
+  ['_applyRules',       '保存したキーワードルールの適用'],
+  ['waza_ai_rules',     'キーワードルールの保存先'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'alias-builder.html', 'tag-master-view.html', 'dev-server.js']);
@@ -99,6 +103,22 @@ for (const fn of ['findPosition', 'findCategory', 'aliasNamesFor', 'matchPositio
 /aliasNamesFor/.test(read('js/organize.js'))
   ? ok('検索が辞書を使っている')
   : fail('organize.js が辞書を使っていない');
+
+// ── 5. 無い機能について語っていないこと ────────────
+console.log('\n── 画面の説明文が現実と合っているか ──');
+const LIES = ['AI自動抽出', 'AIがタグを推定', 'AIにおまかせ', 'AI自動判定'];
+const UI = ['index.html', 'tag-master-view.html', 'alias-builder.html',
+            'js/admin-dashboard.js', 'js/settings.js', 'js/tag-wizard.js', 'js/i18n.js'];
+let lies = [];
+for (const f of UI) {
+  if (!fs.existsSync(path.join(ROOT, f))) continue;
+  strip(read(f)).split('\n').forEach((l, i) => {
+    for (const w of LIES) if (l.includes(w)) lies.push(`${f}:${i + 1}  ${w}`);
+  });
+}
+lies.length === 0
+  ? ok('★ 無くなった機能について語っている文言が無い')
+  : fail(`もう無い機能の説明が ${lies.length}件 残っている → ${lies.slice(0, 5).join(' / ')}`);
 
 console.log(ng === 0 ? '\n✅ タグを推測していない: 問題なし' : `\n❌ 失敗 ${ng} 件`);
 process.exit(ng === 0 ? 0 : 1);

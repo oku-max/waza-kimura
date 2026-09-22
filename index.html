@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.814</title>
+<title>WAZA KIMURA v52.815</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3271,7 +3271,7 @@ function addUrls() {
   let added = 0;
   parsed.forEach(p => {
     if ((window.videos||[]).some(v => v.id === p.id)) return;
-    // ── 追加時のタグ付け（共通: 自動判別 / 手動 / なし）──
+    // ── 追加時のタグ付け（取り込み画面で選んだもの。既定はタグなし）──
     const tg = window.itagGetTagsFor(p.id, p.title || '', manualPl || p.pl || '', manualCh || p.ch || '');
     const vid = {
       id: p.id, pt: p.pt, title: p.title || (p.pt + '動画'),
