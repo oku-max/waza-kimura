@@ -160,6 +160,9 @@ export function applyRemoteSettings(data) {
     try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
     window.tagSettings = tagSettings;
   }
+  // タグのテンプレート。形の合うものだけ入れる。null（＝クラウドにまだ無い）は
+  // 何もしない＝こちらのローカルを空で上書きしない。
+  if (data.tagTemplates) window.applyRemoteTagTemplates?.(data.tagTemplates);
   if (data.aiSettings && typeof data.aiSettings === 'object') {
     Object.assign(aiSettings, data.aiSettings);
     try { localStorage.setItem('wk_aiSettings', JSON.stringify(aiSettings)); } catch(e) {}
@@ -221,64 +224,50 @@ function _syncTagPresetsFromVideos() {
   }
 }
 
-// ═══ タグ表示設定（v5: 3行 + モーダル） ═══
+// ═══ タグ設定（案A: 4行 + モーダル）═══
+// 設定画面はグループ4行と整理メニューだけ。名前の変更も選択肢の編集も
+// 行をタップして開くモーダルの中で完結する（Notion 項目03/04/11/12）。
 function _renderTagDisplaySettings() {
   const el = document.getElementById('tag-display-settings'); if (!el) return;
-  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  const tbTs  = tagSettings.find(t => t.key === 'tb');
-  const catTs = tagSettings.find(t => t.key === 'cat');
-  const posTs = tagSettings.find(t => t.key === 'pos');
-
-  // TB: presets from tagSettings
-  const tbCount = tbTs ? tbTs.presets.length : 3;
-  // Cat/Pos: from admin-dashboard storage or defaults
-  const cats = _getSettingsCategory();
-  const positions = _getSettingsPositions();
-  // Tags: from tagSettings
-  const tagsTs = tagSettings.find(t => t.key === 'tags');
-  const tagsCount = tagsTs ? tagsTs.presets.length : 0;
-
-  // グループ名はユーザーが付けるもの（Notion 項目03）。読み取り専用の文字ではなく
-  // その場で書き換えられる入力欄にする。data-user-text は「訳すな」の印（項目10）。
-  const makeRow = (key, label, count) => `
-    <div style="display:flex;align-items:center;gap:12px">
-      <label class="settings-toggle">
-        <input type="checkbox" ${tagSettings.find(t=>t.key===key)?.visible?'checked':''}
-          onchange="tagSettings.find(t=>t.key==='${key}').visible=this.checked;saveTagSettings();applyTagVisibility()">
+  const row = (key) => {
+    const g = tagSettings.find(t => t.key === key);
+    const n = tagPresets(key).length;
+    const on = g ? g.visible !== false : true;
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--border2)">
+      <label class="settings-toggle" style="flex-shrink:0">
+        <input type="checkbox" ${on?'checked':''} aria-label="表示の切り替え"
+          onchange="tagSettings.find(t=>t.key==='${key}').visible=this.checked;saveTagSettings();applyTagVisibility();_renderTagDisplaySettings()">
         <span class="settings-toggle-slider"></span>
       </label>
-      <div style="flex:1;min-width:0">
-        <input value="${_esc(label)}" data-user-text="1" aria-label="グループ名"
-          style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;
-                 padding:4px 8px;font-size:12px;font-weight:600;color:var(--text);font-family:inherit"
-          onchange="renameTagGroup('${key}', this.value)">
-        <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${count} 項目</div>
-      </div>
       <button onclick="openTagEditModal('${key}')"
-        style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;font-weight:600;padding:5px 12px;border-radius:16px;cursor:pointer;font-family:inherit;white-space:nowrap">編集</button>
+        style="flex:1;min-width:0;background:none;border:none;text-align:left;padding:10px 0;cursor:pointer;color:inherit;font-family:inherit">
+        <div data-user-text="1" style="font-size:14px;font-weight:600;color:${on?'var(--text)':'var(--text3)'}">${_esc(tagLabel(key))}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">${n}個${on?'':'・表示していない'}</div>
+      </button>
+      <button onclick="openTagEditModal('${key}')" aria-label="開く"
+        style="background:none;border:none;color:var(--text3);font-size:17px;padding:10px 4px;cursor:pointer;font-family:inherit">›</button>
     </div>`;
+  };
 
-  // 件数はユーザーの選択肢（tagPresets）に合わせる。辞書の件数ではない。
-  el.innerHTML = _TAG_KEYS.map(x => makeRow(x, tagLabel(x), tagPresets(x).length)).join('');
-  // 候補値・テンプレート・選択肢に無い値・禁止リスト・一括削除は
-  // 別の器（#tag-settings-list）に描く（項目04/11/12）
-  renderTagSettingsList();
-}
+  const menu = (label, onclick, danger) => `
+    <button onclick="${onclick}"
+      style="width:100%;display:flex;align-items:center;gap:8px;background:none;border:none;border-bottom:1px solid var(--border2);
+             padding:14px 0;cursor:pointer;font-family:inherit;text-align:left">
+      <span style="flex:1;font-size:13px;color:${danger?'#ef4444':'var(--text)'}">${label}</span>
+      <span style="color:${danger?'#ef4444':'var(--text3)'};font-size:15px">›</span>
+    </button>`;
 
-// グループ名の変更。空にはできない（空だと画面から見出しが消えて操作できなくなる）。
-export function renameTagGroup(key, name) {
-  const t = tagSettings.find(x => x.key === key);
-  if (!t) return;
-  const v = String(name == null ? '' : name).trim();
-  if (!v) { window.toast?.('名前は空にできません'); _renderTagDisplaySettings(); return; }
-  if (v === t.label) return;
-  t.label = v;
-  saveTagSettings();
-  applyTagLabels();
-  _renderTagDisplaySettings();
-  window.toast?.(`グループ名を「${v}」にしました`);
+  const blocked = (aiSettings.techBlocklist || []).length;
+  el.innerHTML = _TAG_KEYS.map(row).join('')
+    + `<div style="font-size:11px;color:var(--text3);margin:14px 0 4px">まとめて整理する</div>`
+    + menu('重複しているタグを整理', "window._techCleanup(3)")
+    + menu('タグを仕分ける', "window._tagSortMode()")
+    + menu(`禁止リスト <span style="color:var(--text3)">${blocked}件</span>`, "window._openBlocklist()")
+    + menu('タグを一括削除', "window._openBulkTagDelete()", true);
 }
+window._renderTagDisplaySettings = _renderTagDisplaySettings;
 
 // ── タグデータ取得ヘルパー ──
 // admin-dashboard.js の DEFAULT_TAG_DICT / DEFAULT_POSITIONS をフォールバックに使う
@@ -304,115 +293,489 @@ function _getSettingsPositions() {
 }
 
 // ═══ タグ編集モーダル ═══
-window.openTagEditModal = function(type) {
-  const overlay = document.getElementById('tag-edit-overlay');
-  const modal = document.getElementById('tag-edit-modal');
-  if (!overlay || !modal) return;
-  overlay.style.display = 'flex';
-
-  const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  let title = '', items = [], placeholder = '', hasSearch = false, hasDesc = false;
-
-  if (type === 'tb') {
-    title = tagLabel('tb');
-    const ts = tagSettings.find(t => t.key === 'tb');
-    items = (ts?.presets || ['トップ','ボトム','スタンディング']).map((p,i) => ({ name: p, en: '', source: 'system', idx: i }));
-    placeholder = '新しい項目を追加...';
-  } else if (type === 'cat') {
-    title = tagLabel('cat');
-    hasSearch = true; hasDesc = true;
-    const cats = _getSettingsCategory();
-    // desc from tag-master.js CATEGORIES (stored in code) — fallback to empty
-    const descMap = {
-      'エスケープ・ディフェンス':'不利ポジションからの脱出と防御',
-      'ガード構築・エントリー':'ガードを取る・特定ガードの入り口',
-      'ガードリテンション':'足を取られないボトムの守り',
-      'コントロール／プレッシャー':'トップポジションの維持・押さえ',
-      'コンセプト・原理':'技ではない原則的な学び',
-      'スイープ':'ボトムから相手をひっくり返す動作',
-      'テイクダウン':'立ちから相手を倒す動作（投げ技含む）',
-      'バックテイク・バックアタック':'バックを取る／バックからの攻撃',
-      'パスガード':'相手のガードを越えてトップを取る動作',
-      'フィニッシュ':'チョーク・関節技など相手を極めにいく動作',
-    };
-    items = cats.map(c => ({
-      name: c.names?.ja || c.name || '',
-      en: c.names?.en || '',
-      desc: c.desc || descMap[c.names?.ja || c.name] || '',
-      source: c.source || 'system',
-      id: c.id
-    }));
-    // sort あいうえお
-    items.sort((a,b) => {
-      if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
-      return a.name.localeCompare(b.name, 'ja');
+// ── タググループのモーダル（案A の主役）──
+// 名前・選択肢・テンプレート・選択肢に無い値を、この1枚で完結させる。
+// 英語表記や説明は辞書（tag-master.js）から引くだけで、一覧の中身は
+// ユーザーの選択肢（tagPresets）が決める（Notion 項目03/15）。
+function _tagDictInfo(key) {
+  const m = new Map();
+  if (key === 'pos') {
+    _getSettingsPositions().forEach(p => {
+      const ja = p.names?.ja; if (ja) m.set(ja, { en: p.names?.en || '', desc: '' });
     });
-    placeholder = '新しいカテゴリを追加...';
-  } else if (type === 'pos') {
-    title = tagLabel('pos');
-    hasSearch = true;
-    const positions = _getSettingsPositions();
-    items = positions.map(p => ({
-      name: p.names?.ja || '',
-      en: p.names?.en || '',
-      source: p.source || 'system',
-      id: p.id
-    }));
-    // sort: 数字→英字→あいうえお、カスタム末尾
-    items.sort((a,b) => {
-      if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
-      return a.name.localeCompare(b.name, 'ja');
+  } else if (key === 'cat') {
+    _getSettingsCategory().forEach(c => {
+      const ja = c.names?.ja || c.name; if (ja) m.set(ja, { en: c.names?.en || '', desc: c.desc || '' });
     });
-    placeholder = '新しいポジションを追加...';
-  } else if (type === 'tags') {
-    _openTagsNewModal();
-    return;
   }
+  return m;
+}
+
+// 畳んだ状態を覚えておく。モーダルは丸ごと描き直すのでモジュール側に持つ。
+let _tmOpen = { opts: false, tpl: false, ghost: false };
+let _tmQuery = '';
+let _tmTplShow = null;   // 中身を開いているテンプレートの id
+let _tmPicks   = [];     // そのテンプレートから入れると選んだ値
+let _tmEditId  = null;   // テンプレートそのものを編集中の id（あるとモーダルが編集画面になる）
+
+// モーダルの一時状態を初期に戻す（データには触らない）
+function _tmReset() {
+  _tmOpen = { opts: false, tpl: false, ghost: false };
+  _tmQuery = ''; _tmTplShow = null; _tmPicks = []; _tmEditId = null;
+}
+
+window.openTagEditModal = function(key) {
+  const overlay = document.getElementById('tag-edit-overlay');
+  const modal   = document.getElementById('tag-edit-modal');
+  if (!overlay || !modal) return;
+  if (_TAG_KEYS.indexOf(key) < 0) return;
+  overlay.style.display = 'flex';
+  // 別のグループを開いたら、前のグループでの開閉・選択は持ち越さない
+  if (key !== _tagModalKey) _tmReset();
+  _tagModalKey = key;
+
+  // テンプレートを編集しているあいだは、同じ器が編集画面になる（‹ で戻る）
+  if (_tmEditId) { _renderTplEditor(modal, _tmEditId); return; }
+
+  const info    = _tagDictInfo(key);
+  const opts    = tagPresets(key);
+  const videos  = window.videos || [];
+  const blocked = new Set(aiSettings.techBlocklist || []);
+  const have    = new Set(opts);
+  const ghosts  = [...new Set(videos.flatMap(v => v[key] || []))]
+    .filter(t => t && !have.has(t) && !blocked.has(t))
+    .map(t => ({ name: t, n: videos.filter(v => (v[key] || []).includes(t)).length }))
+    .sort((a, b) => b.n - a.n);
+  const tpls = (window.tagTemplates ? window.tagTemplates() : []);
+  // まだ一度も編集していなければ、テンプレート名はこちらが用意した見本なので訳してよい。
+  // 一度でも編集したら、その名前はユーザーのもの＝訳さない（CLAUDE.md の i18n ルール）。
+  const _tplUserOwned = !!(window.getTagTemplatesRaw && window.getTagTemplatesRaw());
+
+  // 絞り込みは打つたびに描き直さない（入力欄からフォーカスが飛ぶため）。
+  // 全行を出しておいて、_tmFilter が表示を出し入れする。
+  const q = (_tmQuery || '').toLowerCase();
+  const sorted = [...opts].sort((a, b) => a.localeCompare(b, 'ja'));
+  const hitCount = sorted.filter(o => !q || o.toLowerCase().includes(q)).length;
+
+  // 畳んだ見出し。選択肢が58個あっても、開くまでは1行で済む。
+  const head = (label, count, openKey) => {
+    const on = _tmOpen[openKey];
+    return `<button onclick="_tmToggle('${openKey}')"
+      style="width:100%;box-sizing:border-box;display:flex;align-items:center;gap:8px;background:var(--surface2);
+             border:1.5px solid ${on?'var(--accent)':'var(--border)'};border-radius:8px;padding:12px;cursor:pointer;
+             text-align:left;font-family:inherit">
+      <span style="flex:1;font-size:14px;color:var(--text)">${label}</span>
+      ${count != null ? `<span style="font-size:13px;color:var(--text3)">${count}</span>` : ''}
+      <span style="font-size:12px;color:var(--accent)">${on ? '▲' : '▼'}</span>
+    </button>`;
+  };
 
   let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border2);flex-shrink:0">
-      <div style="font-size:14px;font-weight:800" data-user-text="1">${_esc(title)}</div>
-      <button onclick="closeTagEditModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:2px 6px">✕</button>
-    </div>`;
+    <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div data-user-text="1" style="flex:1;min-width:0;font-size:15px;font-weight:800">${_esc(tagLabel(key))}</div>
+      <button onclick="closeTagEditModal()" aria-label="閉じる"
+        style="background:none;border:none;font-size:19px;cursor:pointer;color:var(--text3);padding:6px 8px;font-family:inherit">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:14px;display:flex;flex-direction:column;gap:14px">
 
-  if (hasSearch) {
-    html += `<div style="padding:0 18px;border-bottom:1px solid var(--border2)">
-      <input id="tag-modal-search" placeholder="検索..." oninput="_filterTagModal()"
-        style="width:100%;background:none;border:none;outline:none;padding:10px 0;font-size:12px;color:var(--text);font-family:inherit">
+      <div>
+        <label for="tm-name" style="display:block;font-size:11px;color:var(--text3);margin-bottom:6px">このグループの名前</label>
+        <input id="tm-name" value="${_esc(tagLabel(key))}" data-user-text="1"
+          onchange="renameTagGroup('${key}', this.value); openTagEditModal('${key}')"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;
+                 padding:11px 10px;font-size:15px;color:var(--text);font-family:inherit">
+      </div>
+
+      <div>${head('選択肢', opts.length + '個', 'opts')}`;
+
+  if (_tmOpen.opts) {
+    html += `<div style="margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <input id="tm-q" value="${_esc(_tmQuery)}" placeholder="絞り込み..." oninput="_tmFilter(this.value)"
+        style="width:100%;box-sizing:border-box;background:var(--surface2);border:none;border-bottom:1px solid var(--border);
+               padding:11px 12px;font-size:13px;color:var(--text);font-family:inherit">
+      <div style="max-height:240px;overflow-y:auto;background:var(--surface)">`;
+    sorted.forEach(o => {
+      const en  = info.get(o)?.en || '';
+      const hit = !q || o.toLowerCase().includes(q);
+      html += `<div data-tm-opt="${_esc(o)}" style="display:flex;align-items:center;gap:8px;padding:0 4px 0 12px;
+                 border-bottom:1px solid var(--border2);${hit ? '' : 'display:none'}">
+        <span style="flex:1;min-width:0;font-size:13px;padding:12px 0" title="${_esc(en)}">${_esc(o)}</span>
+        <button onclick="_tagModalRemove('${key}','${_esc(o)}')" aria-label="削除"
+          style="background:none;border:none;color:var(--text3);font-size:16px;padding:12px 10px;cursor:pointer;font-family:inherit">×</button>
+      </div>`;
+    });
+    html += `<div id="tm-none" style="padding:16px 12px;font-size:12px;color:var(--text3);${hitCount ? 'display:none' : ''}">${opts.length ? '見つかりません' : 'まだありません'}</div>`;
+    html += `</div>
+      <div style="display:flex;gap:7px;padding:10px;background:var(--surface2);border-top:1px solid var(--border)">
+        <input id="tm-add" placeholder="選択肢を追加..." onkeydown="if(event.key==='Enter')_tagModalAdd('${key}')"
+          style="flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;
+                 padding:10px;font-size:13px;color:var(--text);font-family:inherit">
+        <button onclick="_tagModalAdd('${key}')"
+          style="padding:10px 16px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);
+                 font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
+      </div>
     </div>`;
   }
-
-  html += `<div id="tag-modal-list" style="overflow-y:auto;flex:1;padding:0">`;
-  items.forEach((item, i) => {
-    const isCustom = item.source === 'user';
-    html += `<div class="tag-modal-item" data-name="${_esc(item.name)}" style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border2);${isCustom?'background:var(--surface2)':''}">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600">${_esc(item.name)}${isCustom?'<span style="font-size:9px;font-weight:600;color:var(--blue);background:var(--blue-soft,#e8eef4);padding:1px 6px;border-radius:8px;margin-left:6px">カスタム</span>':''}</div>
-        ${item.en ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">${_esc(item.en)}</div>` : ''}
-        ${hasDesc && item.desc ? `<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic">${_esc(item.desc)}</div>` : ''}
-      </div>
-      <button onclick="_deleteTagFromModal('${type}','${_esc(item.id||item.name)}')" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 10px;border-radius:12px;cursor:pointer;font-family:inherit;flex-shrink:0">削除</button>
-    </div>`;
-  });
   html += `</div>`;
 
-  html += `<div style="padding:10px 18px;border-top:1px solid var(--border);flex-shrink:0">
-    <div style="font-size:10px;color:var(--text3);line-height:1.5;margin-bottom:8px">※ ユーザーが追加した項目はAI自動判定の対象外です。手動でのタグ付けを推奨します。</div>
-    <div style="display:flex;gap:8px">
-      <input id="tag-modal-add-input" placeholder="${_esc(placeholder)}"
-        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;outline:none">
-      <button onclick="_addTagFromModal('${type}')"
-        style="background:var(--accent);color:var(--on-accent);border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">追加</button>
-    </div>
-  </div>`;
+  // ── テンプレートから追加 ──
+  // 中身を見ずに押させない。開くと中身が全部出て、入れるものだけを選ぶ。
+  // すでに選択肢にある値は「済」で選べない（押しても重複しない）。
+  html += `<div>${head('テンプレートから追加', null, 'tpl')}`;
+  if (_tmOpen.tpl) {
+    html += `<div style="margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden">`;
+    tpls.forEach(t => {
+      const shown = _tmTplShow === t.id;
+      const dup   = t.values.filter(v => have.has(v)).length;
+      html += `<div style="background:var(--surface);border-bottom:1px solid var(--border2)">
+        <div style="display:flex;align-items:center;gap:2px;padding:0 4px 0 12px">
+          <button onclick="_tmTplPeek('${t.id}')"
+            style="flex:1;min-width:0;background:none;border:none;text-align:left;padding:11px 0;cursor:pointer;color:inherit;font-family:inherit">
+            <div ${_tplUserOwned ? 'data-user-text="1"' : ''} style="font-size:13px;color:var(--text)">${_esc(t.name)}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${t.values.length}個${dup ? `・${dup}個はすでにある` : ''}</div>
+          </button>
+          <button onclick="_tmTplPeek('${t.id}')" aria-label="中身を見る"
+            style="background:none;border:none;color:var(--accent);font-size:12px;padding:12px 8px;cursor:pointer;font-family:inherit">${shown ? '▲' : '▼'}</button>
+          <button onclick="_tmTplEdit('${t.id}')" aria-label="このテンプレートを編集"
+            style="background:none;border:none;color:var(--text3);font-size:14px;padding:12px 8px;cursor:pointer;font-family:inherit">✎</button>
+        </div>`;
+      if (shown) {
+        html += `<div style="padding:0 12px 12px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px">入れるものをタップで選べます</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+        t.values.forEach((v, i) => {
+          const has = have.has(v);
+          const on  = !has && _tmPicks.includes(v);
+          html += `<button onclick="_tmPickVal('${t.id}',${i})" ${has ? 'disabled' : ''}
+            style="padding:7px 11px;border-radius:15px;font-family:inherit;font-size:12px;cursor:${has ? 'default' : 'pointer'};
+                   border:1px solid ${has ? 'var(--border2)' : (on ? 'var(--accent)' : 'var(--border)')};
+                   background:${on ? 'var(--accent)' : 'transparent'};
+                   color:${has ? 'var(--text3)' : (on ? 'var(--on-accent)' : 'var(--text)')}">${has ? '済 ' : (on ? '✓ ' : '')}${_esc(v)}</button>`;
+        });
+        html += `</div>
+          <button onclick="_tmTplApply('${key}','${t.id}')" ${_tmPicks.length ? '' : 'disabled'}
+            style="margin-top:12px;width:100%;box-sizing:border-box;padding:11px;border-radius:8px;border:none;font-family:inherit;
+                   font-size:13px;font-weight:700;cursor:${_tmPicks.length ? 'pointer' : 'default'};
+                   background:${_tmPicks.length ? 'var(--accent)' : 'var(--surface2)'};
+                   color:${_tmPicks.length ? 'var(--on-accent)' : 'var(--text3)'}">${
+            _tmPicks.length ? `選んだ${_tmPicks.length}個を追加` : '入れるものを選んでください'}</button>
+        </div>`;
+      }
+      html += `</div>`;
+    });
+    html += `<button onclick="_tmTplNew()"
+      style="width:100%;box-sizing:border-box;background:var(--surface2);border:none;padding:12px;cursor:pointer;
+             text-align:left;font-size:13px;color:var(--accent);font-family:inherit">＋ テンプレートを作る</button>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
 
+  if (ghosts.length) {
+    html += `<div>${head('選択肢に無い値', ghosts.length + '件', 'ghost')}`;
+    if (_tmOpen.ghost) {
+      html += `<div style="margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <div style="padding:9px 12px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)">
+          ＋で選択肢に戻す / 🗑で動画から削除</div>
+        <div style="max-height:200px;overflow-y:auto;background:var(--surface)">`;
+      ghosts.forEach(g => {
+        html += `<div style="display:flex;align-items:center;gap:4px;padding:0 4px 0 12px;border-bottom:1px solid var(--border2)">
+          <span style="flex:1;min-width:0;font-size:13px;color:var(--text2);padding:11px 0">${_esc(g.name)}</span>
+          <span style="font-size:11px;color:var(--text3)">${g.n}本</span>
+          <button onclick="_tagModalGhostKeep('${key}','${_esc(g.name)}')" aria-label="選択肢に戻す"
+            style="background:none;border:none;color:var(--accent);font-size:16px;padding:11px 8px;cursor:pointer;font-family:inherit">＋</button>
+          <button onclick="_tagModalGhostDrop('${key}','${_esc(g.name)}',${g.n})" aria-label="動画から削除"
+            style="background:none;border:none;color:#ef4444;font-size:13px;padding:11px 8px;cursor:pointer;font-family:inherit">🗑</button>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
   modal.innerHTML = html;
+};
+
+// 開閉と絞り込み。絞り込みは打つたびに描き直すと入力欄から
+// フォーカスが飛ぶので、行の出し入れだけをその場でやる。
+window._tmToggle = function(k) {
+  _tmOpen[k] = !_tmOpen[k];
+  if (k === 'opts' && !_tmOpen.opts) _tmQuery = '';
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+window._tmFilter = function(v) {
+  _tmQuery = v || '';
+  const q = _tmQuery.toLowerCase();
+  const host = document.getElementById('tag-edit-modal');
+  if (!host) return;
+  let hit = 0;
+  host.querySelectorAll('[data-tm-opt]').forEach(el => {
+    const ok = !q || el.dataset.tmOpt.toLowerCase().includes(q);
+    el.style.display = ok ? 'flex' : 'none';
+    if (ok) hit++;
+  });
+  const none = document.getElementById('tm-none');
+  if (none) none.style.display = hit ? 'none' : '';
+};
+
+let _tagModalKey = null;
+
+// 選択肢の追加・削除の実体。
+// 選択肢の正は tagSettings.presets（項目03）。辞書側（waza_tag_dict / waza_positions）は
+// 英語表記や別名を持つ検索用で別物だが、名前がずれると混乱するので同じ名前を足し引きする。
+function _addTagFromModalValue(key, v) {
+  const ts = tagSettings.find(x => x.key === key);
+  if (!ts) return;
+  if (!Array.isArray(ts.presets)) ts.presets = [];
+  if (!ts.presets.includes(v)) { ts.presets.push(v); ts.seeded = true; saveTagSettings(); }
+  if (key === 'cat') {
+    const cats = _getSettingsCategory();
+    if (!cats.find(c => (c.names?.ja || c.name) === v)) {
+      cats.push({ id: 'u_cat_' + Date.now(), names: { ja: v, en: '' }, desc: '', aliases: { ja: [], en: [] }, source: 'user' });
+      try { localStorage.setItem('waza_tag_dict', JSON.stringify(cats)); } catch(e) {}
+      _syncWindowCats();
+    }
+  } else if (key === 'pos') {
+    const ps = _getSettingsPositions();
+    if (!ps.find(p => p.names?.ja === v)) {
+      ps.push({ id: 'u_pos_' + Date.now(), names: { ja: v, en: '' }, group: 'other', aliases: { ja: [], en: [] }, source: 'user' });
+      try { localStorage.setItem('waza_positions', JSON.stringify(ps)); } catch(e) {}
+      _syncWindowPositions();
+    }
+  }
+}
+
+function _removeTagFromModalValue(key, name) {
+  const ts = tagSettings.find(x => x.key === key);
+  if (ts && Array.isArray(ts.presets)) {
+    const next = ts.presets.filter(p => p !== name);
+    if (next.length !== ts.presets.length) { ts.presets = next; saveTagSettings(); }
+  }
+  if (key === 'cat') {
+    const cats = _getSettingsCategory().filter(c => (c.names?.ja || c.name) !== name);
+    try { localStorage.setItem('waza_tag_dict', JSON.stringify(cats)); } catch(e) {}
+    _syncWindowCats();
+  } else if (key === 'pos') {
+    const ps = _getSettingsPositions().filter(p => p.names?.ja !== name);
+    try { localStorage.setItem('waza_positions', JSON.stringify(ps)); } catch(e) {}
+    _syncWindowPositions();
+  }
+}
+
+// グループ名の変更。空にはできない（空だと見出しが消えて操作できなくなる）。
+export function renameTagGroup(key, name) {
+  const t = tagSettings.find(x => x.key === key);
+  if (!t) return;
+  const v = String(name == null ? '' : name).trim();
+  if (!v) { window.toast?.('名前は空にできません'); return; }
+  if (v === t.label) return;
+  t.label = v;
+  saveTagSettings();
+  applyTagLabels();
+  _renderTagDisplaySettings();
+  window.toast?.(`グループ名を「${v}」にしました`);
+}
+
+// 整理メニュー。同じモーダルの器を使い回す。
+function _openPanel(title, fill) {
+  const overlay = document.getElementById('tag-edit-overlay');
+  const modal   = document.getElementById('tag-edit-modal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex';
+  modal.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="flex:1;font-size:15px;font-weight:800">${title}</div>
+      <button onclick="closeTagEditModal()" aria-label="閉じる"
+        style="background:none;border:none;font-size:19px;cursor:pointer;color:var(--text3);padding:6px 8px;font-family:inherit">✕</button>
+    </div>
+    <div id="tag-panel-body" style="overflow-y:auto;flex:1;padding:16px"></div>`;
+  const body = document.getElementById('tag-panel-body');
+  if (body) fill(body);
+}
+window._openBlocklist     = () => _openPanel('🚫 禁止リスト', _renderBlocklistSection);
+window._openBulkTagDelete = () => _openPanel('🗑 タグの一括削除', _renderBulkTagDeleteSection);
+
+
+
+// 選択肢を足す。辞書側（cat/pos）にも同じ名前で足して食い違わせない。
+window._tagModalAdd = function(key) {
+  const inp = document.getElementById('tm-add');
+  const v = (inp?.value || '').trim();
+  if (!v) return;
+  if (tagPresets(key).includes(v)) { window.toast?.('すでにあります'); return; }
+  _addTagFromModalValue(key, v);
+  openTagEditModal(key);
+};
+
+window._tagModalRemove = function(key, name) {
+  _removeTagFromModalValue(key, name);
+  openTagEditModal(key);
+};
+
+// ═══ テンプレートから追加 ═══
+// 中身を見てから、入れるものを選んで足す。押しただけで丸ごと入ることはない。
+
+// 中身を開く／閉じる。開いた時点で「まだ無い値」だけを選んだ状態にしておく。
+window._tmTplPeek = function(id) {
+  if (_tmTplShow === id) { _tmTplShow = null; _tmPicks = []; }
+  else {
+    const t = window.tagTemplate ? window.tagTemplate(id) : null;
+    const have = new Set(tagPresets(_tagModalKey));
+    _tmTplShow = id;
+    _tmPicks = t ? t.values.filter(v => !have.has(v)) : [];
+  }
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+
+// 値をタップで選ぶ／外す。すでに選択肢にある値は選べない（重複させない）。
+window._tmPickVal = function(id, i) {
+  const t = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!t) return;
+  const v = t.values[i];
+  if (!v) return;
+  if (tagPresets(_tagModalKey).includes(v)) return;   // 済は触らせない
+  _tmPicks = _tmPicks.includes(v) ? _tmPicks.filter(x => x !== v) : _tmPicks.concat([v]);
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+
+// 選んだぶんだけ足す。既存の選択肢は1つも消さない（足すだけ）。
+window._tmTplApply = function(key, id) {
+  const t = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!t || !_tmPicks.length) return;
+  const ts = tagSettings.find(x => x.key === key);
+  if (!ts) return;
+  if (!Array.isArray(ts.presets)) ts.presets = [];
+  const picks = _tmPicks.slice();
+  let added = 0;
+  picks.forEach(v => {
+    if (!v || ts.presets.includes(v)) return;   // 念のためもう一度重複を見る
+    ts.presets.push(v); added++;
+  });
+  if (added) { ts.seeded = true; saveTagSettings(); }
+  _tmTplShow = null; _tmPicks = [];
+  openTagEditModal(key);
+  _renderTagDisplaySettings();
+  window.toast?.(`「${t.name}」から ${added}件 を追加しました`);
+};
+
+// ═══ テンプレートそのものを編集 ═══
+// 同じモーダルの器が編集画面になる。‹ で元のグループへ戻る。
+function _renderTplEditor(modal, id) {
+  const t = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!t) { _tmEditId = null; return; }
+  let html = `
+    <div style="display:flex;align-items:center;gap:4px;padding:13px 14px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button onclick="_tmTplBack()" aria-label="戻る"
+        style="background:none;border:none;color:var(--accent);font-size:20px;padding:6px 8px;cursor:pointer;font-family:inherit">‹</button>
+      <div style="flex:1;font-size:15px;font-weight:800">テンプレートを編集</div>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:14px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label for="tm-tpl-name" style="display:block;font-size:11px;color:var(--text3);margin-bottom:6px">テンプレートの名前</label>
+        <input id="tm-tpl-name" value="${_esc(t.name)}" data-user-text="1"
+          onchange="_tmTplRename('${t.id}', this.value)"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;
+                 padding:11px 10px;font-size:15px;color:var(--text);font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">中身 ${t.values.length}個</div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <div style="max-height:300px;overflow-y:auto;background:var(--surface)">`;
+  t.values.forEach((v, i) => {
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:0 4px 0 12px;border-bottom:1px solid var(--border2)">
+      <span style="flex:1;min-width:0;font-size:13px;padding:12px 0">${_esc(v)}</span>
+      <button onclick="_tmTplDelVal('${t.id}',${i})" aria-label="削除"
+        style="background:none;border:none;color:var(--text3);font-size:16px;padding:12px 10px;cursor:pointer;font-family:inherit">×</button>
+    </div>`;
+  });
+  if (!t.values.length) html += `<div style="padding:16px 12px;font-size:12px;color:var(--text3)">まだありません</div>`;
+  html += `</div>
+          <div style="display:flex;gap:7px;padding:10px;background:var(--surface2);border-top:1px solid var(--border)">
+            <input id="tm-tpl-add" placeholder="中身を追加..." onkeydown="if(event.key==='Enter')_tmTplAddVal('${t.id}')"
+              style="flex:1;min-width:0;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;
+                     padding:10px;font-size:13px;color:var(--text);font-family:inherit">
+            <button onclick="_tmTplAddVal('${t.id}')"
+              style="padding:10px 16px;border-radius:8px;border:none;background:var(--accent);color:var(--on-accent);
+                     font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">追加</button>
+          </div>
+        </div>
+      </div>
+      <button onclick="_tmTplDelete('${t.id}')"
+        style="align-self:flex-start;padding:9px 14px;border-radius:8px;border:1px solid #ef4444;background:none;
+               color:#ef4444;font-size:12px;cursor:pointer;font-family:inherit">このテンプレートを削除</button>
+    </div>`;
+  modal.innerHTML = html;
+}
+
+window._tmTplEdit = function(id) { _tmEditId = id; if (_tagModalKey) openTagEditModal(_tagModalKey); };
+window._tmTplBack = function() { _tmEditId = null; _tmTplShow = null; _tmPicks = []; if (_tagModalKey) openTagEditModal(_tagModalKey); };
+
+window._tmTplNew = function() {
+  if (!window.tagTemplateCreate) return;
+  _tmEditId = window.tagTemplateCreate('新しいテンプレート');
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+
+window._tmTplRename = function(id, name) {
+  const v = String(name == null ? '' : name).trim();
+  if (!v) { window.toast?.('名前は空にできません'); }
+  else if (window.tagTemplateRename?.(id, v)) window.toast?.(`テンプレート名を「${v}」にしました`);
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+
+window._tmTplAddVal = function(id) {
+  const t = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!t) return;
+  const v = (document.getElementById('tm-tpl-add')?.value || '').trim();
+  if (!v) return;
+  if (t.values.includes(v)) { window.toast?.('すでにあります'); return; }
+  window.tagTemplateSetValues?.(id, t.values.concat([v]));
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+
+window._tmTplDelVal = function(id, i) {
+  const t = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!t || !t.values[i]) return;
+  window.tagTemplateSetValues?.(id, t.values.filter((x, k) => k !== i));
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+};
+
+// テンプレートを消しても、すでに選択肢に入れたものは残る（見本を消すだけ）。
+window._tmTplDelete = function(id) {
+  const t = window.tagTemplate ? window.tagTemplate(id) : null;
+  if (!t) return;
+  if (!window.confirm(`テンプレート「${t.name}」を削除します。\n`
+    + 'すでに選択肢に入れたものは消えません。\n\n続けますか？')) return;
+  window.tagTemplateDelete?.(id);
+  _tmEditId = null; _tmTplShow = null; _tmPicks = [];
+  if (_tagModalKey) openTagEditModal(_tagModalKey);
+  window.toast?.(`テンプレート「${t.name}」を削除しました`);
+};
+
+window._tagModalGhostKeep = function(key, name) {
+  _addTagFromModalValue(key, name);
+  openTagEditModal(key);
+};
+
+// 動画から消す。取り消せないので件数を見せて確認する（Notion 項目11）。
+window._tagModalGhostDrop = function(key, name, n) {
+  if (!window.confirm(`「${name}」を動画 ${n}件 から削除します。\n`
+    + 'この操作は取り消せません。全デバイスに反映されます。\n\n続けますか？')) return;
+  let hit = 0;
+  (window.videos || []).forEach(v => {
+    if (v[key]?.length && v[key].includes(name)) { v[key] = v[key].filter(x => x !== name); hit++; }
+  });
+  window.debounceSave?.();
+  window.AF?.();
+  openTagEditModal(key);
+  window.toast?.(`🗑 「${name}」を動画 ${hit}件 から削除しました`);
 };
 
 window.closeTagEditModal = function() {
   const overlay = document.getElementById('tag-edit-overlay');
   if (overlay) overlay.style.display = 'none';
+  _tmReset();
+  _tagModalKey = null;
 };
 
 window._filterTagModal = function() {
@@ -1275,53 +1638,10 @@ function _renderAiImportSettings() {
 // expose for inline onchange
 window._renderAiImportSettings = _renderAiImportSettings;
 
+// 案A では選択肢の編集はモーダルの中だけ。この関数は呼び出し元が多いので、
+// 設定画面を描き直す入口として残す（中身の重複表示は v52.812 で廃止）。
 export function renderTagSettingsList() {
-  const el = document.getElementById('tag-settings-list'); if (!el) return;
-  el.innerHTML = '';
-  tagSettings.forEach(function(tag, i) {
-    const card = document.createElement('div');
-    card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;';
-    card.innerHTML = `
-      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px" data-user-text="1">${_esc(tag.label)}</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:7px">候補値</div>
-      <div id="ts-presets-${i}" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <span style="font-size:11px;color:var(--text3)">テンプレートから入れる</span>
-        <select id="ts-tpl-${i}" style="flex:1;min-width:120px;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;color:var(--text);font-family:inherit">
-          <option value="">選ぶ...</option>
-          ${(window.tagTemplates ? window.tagTemplates() : []).map(t =>
-            `<option value="${t.id}">${t.name}（${t.values.length}件）</option>`).join('')}
-        </select>
-        <button onclick="applyTagTemplate(${i})" style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">入れる</button>
-      </div>
-      <div style="display:flex;gap:6px">
-        <input id="ts-new-${i}" placeholder="候補を追加..." style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);outline:none;font-family:inherit"
-          onkeydown="if(event.key==='Enter')addTagPreset(${i})">
-        <button onclick="addTagPreset(${i})" style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:var(--on-accent);font-size:12px;cursor:pointer">＋</button>
-      </div>
-      ${tag.key === 'tags' ? `
-        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
-          <button onclick="window._techCleanup(${i})"
-            style="padding:5px 14px;border-radius:6px;border:1.5px solid var(--accent);background:var(--surface);
-                   color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
-            🔧 重複整理
-          </button>
-          <button onclick="window._techBulkDelete(${i})"
-            style="padding:5px 14px;border-radius:6px;border:1.5px solid var(--border);background:var(--surface2);
-                   color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
-            🗑️ 一括削除モード
-          </button>
-          <button onclick="window._tagSortMode()"
-            style="padding:5px 14px;border-radius:6px;border:1.5px solid #f59e0b;background:#f59e0b11;
-                   color:#f59e0b;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">
-            🏷️ タグ仕分け
-          </button>
-        </div>` : ''}`;
-    el.appendChild(card);
-    renderTagPresets(i);
-  });
-  _renderBulkTagDeleteSection(el);
-  _renderBlocklistSection(el);
+  _renderTagDisplaySettings();
 }
 
 // タグの一括削除（Notion 項目12）。
@@ -1489,196 +1809,11 @@ function _renderBlocklistSection(parent) {
   parent.appendChild(card);
 }
 
-export function renderTagPresets(i) {
-  const el = document.getElementById('ts-presets-' + i); if (!el) return;
-  el.innerHTML = '';
-  if (tagSettings[i].presets.length) {
-    // ソート済みインデックスで表示（内部配列は変更しない）
-    const sorted = tagSettings[i].presets.map((p, pi) => ({ p, pi })).sort((a, b) => a.p.localeCompare(b.p, 'ja'));
-    sorted.forEach(function({ p, pi }) {
-      const chip = document.createElement('span');
-      chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:var(--surface2);border:1.5px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;';
-      chip.title = 'クリックで名前を変更';
-      const lbl = document.createElement('span');
-      lbl.textContent = p;
-      lbl.onclick = function() { startRenamePreset(i, pi, chip, lbl, p); };
-      const del = document.createElement('span');
-      del.textContent = '×';
-      del.style.cssText = 'cursor:pointer;color:var(--text3);font-size:11px;margin-left:2px;';
-      del.onclick = function(e) { e.stopPropagation(); removeTagPreset(i, pi); };
-      chip.appendChild(lbl);
-      chip.appendChild(del);
-      el.appendChild(chip);
-    });
-  } else {
-    const empty = document.createElement('span');
-    empty.style.cssText = 'font-size:11px;color:var(--text3);';
-    empty.textContent = '候補なし（自由入力のみ）';
-    el.appendChild(empty);
-  }
-  const key = tagSettings[i].key;
-  const existing = new Set(tagSettings[i].presets);
-  const blocked = new Set(aiSettings.techBlocklist || []);
-  const fromLibrary = [...new Set((window.videos||[]).flatMap(v => v[key]||[]))].filter(t => !existing.has(t) && !blocked.has(t)).sort((a, b) => a.localeCompare(b, 'ja'));
-  if (!fromLibrary.length) return;
-  // ── 選択肢に無いが、動画が使っている値 ──────────────────
-  // 選択肢から消しても動画のタグは消さない方針（Notion 項目11・案B）。
-  // 代わりにここに出して、戻すか消すかをユーザーが見て決める。
-  const _cnt = t => (window.videos || []).filter(v => (v[key] || []).includes(t)).length;
-  const sep = document.createElement('div');
-  sep.style.cssText = 'width:100%;margin:8px 0 5px;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;';
-  sep.textContent = `選択肢に無い値 ${fromLibrary.length}件（動画が使用中）`;
-  el.appendChild(sep);
-  const note = document.createElement('div');
-  note.style.cssText = 'width:100%;margin:0 0 6px;font-size:10px;color:var(--text3);font-weight:400;';
-  note.textContent = '＋で選択肢に戻す / 🗑で動画から削除';
-  el.appendChild(note);
-  fromLibrary.forEach(function(t) {
-    const n = _cnt(t);
-    const chip = document.createElement('span');
-    chip.style.cssText = 'display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border-radius:12px;background:var(--surface2);border:1px dashed var(--border);font-size:11px;color:var(--text2);';
-    const addBtn = document.createElement('span');
-    addBtn.textContent = '＋ ' + t + ' (' + n + ')';
-    addBtn.title = '選択肢に戻す';
-    addBtn.style.cssText = 'cursor:pointer;';
-    addBtn.onclick = function() {
-      if (!tagSettings[i].presets.includes(t)) {
-        tagSettings[i].presets.push(t);
-        saveTagSettings();
-        renderTagPresets(i);
-      }
-    };
-    // 動画から削除。取り消せないので、必ず件数を見せてから確認する。
-    const delBtn = document.createElement('span');
-    delBtn.textContent = '🗑';
-    delBtn.title = '動画から削除';
-    delBtn.style.cssText = 'cursor:pointer;font-size:10px;padding:2px 4px;border-radius:8px;margin-left:2px;opacity:.5;';
-    delBtn.onmouseenter = function() { delBtn.style.opacity = '1'; };
-    delBtn.onmouseleave = function() { delBtn.style.opacity = '.5'; };
-    delBtn.onclick = function(e) {
-      e.stopPropagation();
-      const msg = '「' + t + '」を動画 ' + n + '件 から削除します。\n'
-                + 'この操作は取り消せません。全デバイスに反映されます。\n\n続けますか？';
-      if (!window.confirm(msg)) return;
-      let hit = 0;
-      (window.videos || []).forEach(function(v) {
-        if (v[key]?.length && v[key].includes(t)) { v[key] = v[key].filter(x => x !== t); hit++; }
-      });
-      window.debounceSave?.();
-      renderTagPresets(i);
-      window.toast?.('🗑 「' + t + '」を動画 ' + hit + '件 から削除しました');
-    };
-    // 禁止リスト。こちらは「二度と候補に出さない」＋全項目から削除なので、より強い確認を出す。
-    const blockBtn = document.createElement('span');
-    blockBtn.textContent = '🚫';
-    blockBtn.title = '禁止リストに追加（4つのグループすべてから削除）';
-    blockBtn.style.cssText = 'cursor:pointer;font-size:10px;padding:2px 4px;border-radius:8px;margin-left:2px;opacity:.5;';
-    blockBtn.onmouseenter = function() { blockBtn.style.opacity = '1'; };
-    blockBtn.onmouseleave = function() { blockBtn.style.opacity = '.5'; };
-    blockBtn.onclick = function(e) {
-      e.stopPropagation();
-      const nAll = (window.videos || []).filter(v =>
-        ['tb','cat','pos','tags'].some(f => (v[f] || []).includes(t))).length;
-      const msg = '「' + t + '」を禁止リストに追加します。\n'
-                + '4つのグループすべてから消えます（対象の動画 ' + nAll + '件）。\n'
-                + 'この操作は取り消せません。全デバイスに反映されます。\n\n続けますか？';
-      if (!window.confirm(msg)) return;
-      if (!aiSettings.techBlocklist) aiSettings.techBlocklist = [];
-      if (!aiSettings.techBlocklist.includes(t)) {
-        aiSettings.techBlocklist.push(t);
-        saveAiSettings();
-      }
-      (window.videos || []).forEach(function(v) {
-        ['tb','cat','pos','tags'].forEach(function(f) {
-          if (v[f]?.length) v[f] = v[f].filter(x => x !== t);
-        });
-      });
-      window.debounceSave?.();
-      renderTagPresets(i);
-      window.toast?.('🚫 「' + t + '」を禁止リストに追加');
-    };
-    chip.appendChild(addBtn);
-    chip.appendChild(delBtn);
-    chip.appendChild(blockBtn);
-    el.appendChild(chip);
-  });
-}
 
-export function startRenamePreset(i, pi, chip, lbl, oldVal) {
-  const inp = document.createElement('input');
-  inp.value = oldVal;
-  inp.style.cssText = 'width:80px;background:var(--surface);border:1.5px solid var(--accent);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--text);outline:none;font-family:inherit;';
-  chip.replaceChild(inp, lbl);
-  inp.focus(); inp.select();
-  function commit() {
-    const newVal = inp.value.trim();
-    if (newVal && newVal !== oldVal) { renameTagPreset(i, pi, oldVal, newVal); }
-    else { renderTagPresets(i); }
-  }
-  inp.addEventListener('blur', commit);
-  inp.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { inp.blur(); }
-    if (e.key === 'Escape') { inp.removeEventListener('blur', commit); renderTagPresets(i); }
-  });
-}
 
-export function renameTagPreset(i, pi, oldVal, newVal) {
-  tagSettings[i].presets[pi] = newVal;
-  saveTagSettings();
-  const field = tagSettings[i].key;
-  let count = 0;
-  (window.videos||[]).forEach(function(v) {
-    const arr = v[field] || [];
-    const idx = arr.indexOf(oldVal);
-    if (idx !== -1) { arr[idx] = newVal; count++; }
-  });
-  renderTagPresets(i);
-  if (count > 0) { window.toast(`✅ "${oldVal}" → "${newVal}" に変更（${count}本の動画に反映）`); window.AF?.(); }
-  else { window.toast(`✅ "${oldVal}" → "${newVal}" に変更`); }
-}
 
-// テンプレートの中身を、そのグループの選択肢に「コピーとして」足す。
-// 足すだけ。既にある選択肢は消さないし、上書きもしない（データ安全ルールと同じ向き）。
-export function applyTagTemplate(i) {
-  const sel = document.getElementById('ts-tpl-' + i);
-  const id = sel ? sel.value : '';
-  if (!id) { window.toast?.('テンプレートを選んでください'); return; }
-  const tpl = window.tagTemplate ? window.tagTemplate(id) : null;
-  if (!tpl) { window.toast?.('テンプレートが見つかりません'); return; }
-  const ts = tagSettings[i];
-  if (!Array.isArray(ts.presets)) ts.presets = [];
-  let added = 0, skipped = 0;
-  tpl.values.forEach(function(v) {
-    if (!v) return;
-    if (ts.presets.includes(v)) { skipped++; return; }
-    ts.presets.push(v);          // 文字列のコピー。テンプレ側の配列とは繋がらない
-    added++;
-  });
-  ts.seeded = true;              // 以後サンプルの種入れは走らせない
-  if (added) saveTagSettings();
-  renderTagPresets(i);
-  if (sel) sel.value = '';
-  window.toast?.(added
-    ? `「${tpl.name}」から ${added}件 を追加（重複 ${skipped}件 は飛ばしました）`
-    : `「${tpl.name}」の ${skipped}件 はすべて登録済みでした`);
-}
 
-export function addTagPreset(i) {
-  const inp = document.getElementById('ts-new-' + i); if (!inp) return;
-  const val = inp.value.trim(); if (!val) return;
-  if (!tagSettings[i].presets.includes(val)) {
-    tagSettings[i].presets.push(val);
-    saveTagSettings();
-    renderTagPresets(i);
-  }
-  inp.value = '';
-}
 
-export function removeTagPreset(i, pi) {
-  tagSettings[i].presets.splice(pi, 1);
-  saveTagSettings();
-  renderTagPresets(i);
-}
 
 export function renderTagVisibilityBtns() {
   const el = document.getElementById('tag-visibility-btns'); if (!el) return;

@@ -841,6 +841,12 @@ export async function saveUserSettings() {
     filterColVis:      window.filterColVis      || {},
     // appearance はデバイスごと（localStorage管理）のため Firebase に保存しない
     tagGroups:         window.getTagGroups?.()  || [],
+    // タグのテンプレート。まだ一度も編集していない端末は null を書く（見本しか
+    // 持っていない端末が、他の端末で育てたテンプレートを消さないため）。
+    // ログイン直後に loadUserSettings → applyRemoteTagTemplates でローカルへ
+    // 取り込んでから保存が解禁される(_settingsReady)ので、ここが null になるのは
+    // 「クラウドにも無い」ときだけ。
+    tagTemplates:      window.getTagTemplatesRaw?.() || null,
     customViews:       window._cvViews         || [],
     updatedAt: new Date().toISOString()
   };

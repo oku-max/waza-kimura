@@ -92,9 +92,20 @@ const tt = read('js/tag-templates.js');
 /\.slice\(\)/.test(tt)
   ? ok('テンプレートはコピーで渡している')
   : fail('tag-templates.js に slice() が無い（参照渡しだとユーザー操作でテンプレが削れる）');
-/applyTagTemplate/.test(settings)
+// v52.812（案A）で、テンプレートは「押したら丸ごと入る」のをやめた。
+// 中身を見せて、入れるものを選ばせてから足す（_tmTplApply）。
+/_tmTplApply/.test(settings)
   ? ok('設定画面がテンプレートを適用できる')
-  : fail('applyTagTemplate() が settings.js から消えている');
+  : fail('_tmTplApply() が settings.js から消えている（テンプレートから選択肢を入れられない）');
+/_tmPickVal/.test(settings) && /_tmTplPeek/.test(settings)
+  ? ok('★ テンプレートは中身を見て選んでから入れる')
+  : fail('中身を見る(_tmTplPeek)／選ぶ(_tmPickVal)が無い。中身を見ずに丸ごと入る作りに戻っている');
+/function tagTemplateRename\(/.test(tt) && /function tagTemplateDelete\(/.test(tt) && /function tagTemplateCreate\(/.test(tt)
+  ? ok('★ テンプレートそのものを編集できる（名前・削除・新規）')
+  : fail('tag-templates.js に編集の入口が無い');
+/function getTagTemplatesRaw\(/.test(tt) && /function applyRemoteTagTemplates\(/.test(tt)
+  ? ok('編集したテンプレートがクラウドと行き来する')
+  : fail('テンプレートの同期口（getTagTemplatesRaw / applyRemoteTagTemplates）が無い');
 
 // ── 3c. 辞書を育てる経路が残っていること（項目16）────────────
 // alias-builder は検索辞書（日英ブリッジ）に別名を足す唯一の経路。

@@ -201,6 +201,40 @@
     // タググループの名前変更（Notion 項目03）
     '名前は空にできません': 'The name cannot be empty',
     'グループ名': 'Group name',
+    // ── タグ設定 案A（v52.812）: 4行＋モーダル ──
+    'このグループの名前': "This group's name",
+    '選択肢': 'Options',
+    '選択肢を追加...': 'Add an option…',
+    '絞り込み...': 'Filter…',
+    '見つかりません': 'No matches',
+    'まだありません': 'Nothing here yet',
+    'すでにあります': 'It is already there',
+    'まとめて整理する': 'Tidy up in bulk',
+    '重複しているタグを整理': 'Merge duplicate tags',
+    'タグを仕分ける': 'Sort tags into groups',
+    '禁止リスト': 'Blocklist',
+    'タグを一括削除': 'Bulk-remove tags',
+    '選択肢に無い値': 'Values not in the options',
+    '＋で選択肢に戻す / 🗑で動画から削除': 'Use ＋ to put it back in the options, 🗑 to remove it from videos',
+    // ── テンプレート（中身を見て選んでから入れる・編集もできる）──
+    'テンプレートから追加': 'Add from a template',
+    '入れるものをタップで選べます': 'Tap to choose what to add',
+    '入れるものを選んでください': 'Choose what to add',
+    '＋ テンプレートを作る': '＋ Create a template',
+    'テンプレートを編集': 'Edit template',
+    'テンプレートの名前': 'Template name',
+    'このテンプレートを削除': 'Delete this template',
+    '中身を追加...': 'Add an item…',
+    '新しいテンプレート': 'New template',
+    '名前のないテンプレート': 'Untitled template',
+    '上下': 'Top / bottom',
+    '動作の種類': 'Action type',
+    '練習ステータス': 'Practice status',
+    'クローズド、デラヒーバ、ハーフ…': 'Closed, De La Riva, Half…',
+    'パスガード、スイープ、フィニッシュ…': 'Pass, Sweep, Finish…',
+    'トップ / ボトム / スタンディング': 'Top / Bottom / Standing',
+    '自由に作っていいことの見本': 'An example of one you can make yourself',
+    '試合で使う': 'Use in competition',
     // 管理画面のタブ（テンプレートの中身を育てる場所・Notion 項目15）
     'テンプレ: 動作の種類': 'Template: Action types',
     'テンプレ: ポジション': 'Template: Positions',
@@ -1844,6 +1878,15 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // ── タグ設定 案A（v52.812）──
+    '#個': '#',
+    '#件': '#',
+    '#本': '#',
+    '#個・表示していない': '# · hidden',
+    '#個・#個はすでにある': '# · # already there',
+    '選んだ#個を追加': 'Add the # selected',
+    '中身 #個': '# items',
+    '（#本）': '(#)',
     // 禁止リスト（Notion 項目01/13）
     '🚫 禁止リスト（#件）': '🚫 Blocklist (#)',
     '禁止リストの #件 をすべて解除します。': 'This clears all # entries from the blocklist.',
@@ -2083,6 +2126,11 @@
       (m, vids, tags) => `🗑 Removed ${tags} tag${tags === '1' ? '' : 's'} from ${vids} video${vids === '1' ? '' : 's'}`],
     // ── 禁止リストの解除（タグ名が入る・Notion 項目01/13）──
     [/^「(.+?)」の禁止を解除しました$/, (m, tag) => `Un-blocked "${tag}"`],
+    // ── テンプレートから追加／テンプレートの編集（テンプレ名が入る・v52.812）──
+    [/^「(.+?)」から (\d+)件 を追加しました$/,
+      (m, name, n) => `Added ${n} from "${name}"`],
+    [/^テンプレート名を「(.+?)」にしました$/, (m, name) => `Renamed the template to "${name}"`],
+    [/^テンプレート「(.+?)」を削除しました$/, (m, name) => `Deleted the template "${name}"`],
     // ── タググループのテンプレート適用の結果（テンプレ名が入る・Notion 項目04）──
     [/^「(.+?)」から (\d+)件 を追加（重複 (\d+)件 は飛ばしました）$/,
       (m, name, add, dup) => `Added ${add} from "${name}" (skipped ${dup} already there)`],

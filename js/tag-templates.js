@@ -62,8 +62,63 @@
     }
   ];
 
+  // ── ユーザーが編集したテンプレート ──
+  //
+  // 上の TEMPLATES は「まだ何も触っていない人に出す見本」。
+  // 一度でも編集したら、その時点の中身をユーザーのものとして固めて
+  // ここに持つ（_materialize）。以後 TEMPLATES は二度と出てこない。
+  //
+  // 「まだ触っていない」と「全部消した」を区別するために、入れ物は
+  // 配列ではなく { seeded:true, list:[...] } にしてある。キーが有れば
+  // list が空でもユーザーの意思なので、見本を勝手に復活させない
+  // （タググループの種入れ tag-seed-check と同じ考え方）。
+  const LS_KEY = 'wk_tagTemplates';
+
+  function _loadUser() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;                       // まだ触っていない
+      const p = JSON.parse(raw);
+      if (p && Array.isArray(p.list)) return p.list; // 空配列も尊重する
+    } catch (e) {}
+    return null;
+  }
+
+  function _clean(list) {
+    const seen = new Set();
+    return (Array.isArray(list) ? list : []).map(t => {
+      if (!t || typeof t !== 'object') return null;
+      // id は onclick 属性に入るので、英数字と _ - だけに限る。
+      // 壊れた値・クォートの混じった値が来ても、そこから先へ渡さない。
+      let id = String(t.id || '').trim().replace(/[^A-Za-z0-9_-]/g, '');
+      if (!id || seen.has(id)) id = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+      seen.add(id);
+      const vals = [];
+      (Array.isArray(t.values) ? t.values : []).forEach(v => {
+        const s = String(v == null ? '' : v).trim();
+        if (s && vals.indexOf(s) < 0) vals.push(s);
+      });
+      return { id, name: String(t.name || '').trim() || '名前のないテンプレート', desc: String(t.desc || ''), values: vals };
+    }).filter(Boolean);
+  }
+
+  function _saveUser(list) {
+    const cleaned = _clean(list);
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ seeded: true, list: cleaned })); } catch (e) {}
+    window.saveUserSettings?.();   // 他の端末にも届ける
+    return cleaned;
+  }
+
+  // 見本のままでは編集できないので、最初の編集で見本のコピーを固める。
+  function _materialize() {
+    const u = _loadUser();
+    return u ? _clean(u) : tagTemplates();
+  }
+
   // テンプレート一覧（表示用）。values は毎回新しい配列を返す。
   function tagTemplates() {
+    const u = _loadUser();
+    if (u) return _clean(u);
     return TEMPLATES.map(t => ({
       id: t.id,
       name: t.name,
@@ -77,6 +132,69 @@
     return tagTemplates().find(t => t.id === id) || null;
   }
 
-  window.tagTemplates = tagTemplates;
-  window.tagTemplate  = tagTemplate;
+  // ── 編集 ──
+  // どれも「いまの一覧を固めて、1か所だけ変えて、書き戻す」。
+  // 他のテンプレートには触らない。
+  function tagTemplateRename(id, name) {
+    const v = String(name == null ? '' : name).trim();
+    if (!v) return false;                       // 空の名前にはしない
+    const list = _materialize();
+    const t = list.find(x => x.id === id);
+    if (!t || t.name === v) return false;
+    t.name = v;
+    _saveUser(list);
+    return true;
+  }
+
+  function tagTemplateSetValues(id, values) {
+    const list = _materialize();
+    const t = list.find(x => x.id === id);
+    if (!t) return false;
+    t.values = Array.isArray(values) ? values.slice() : [];
+    _saveUser(list);
+    return true;
+  }
+
+  function tagTemplateDelete(id) {
+    const list = _materialize();
+    const next = list.filter(x => x.id !== id);
+    if (next.length === list.length) return false;
+    _saveUser(next);
+    return true;
+  }
+
+  // 新しく作る。作った id を返す（そのまま編集画面を開くため）。
+  function tagTemplateCreate(name) {
+    const list = _materialize();
+    const id = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+    list.push({ id, name: String(name || '').trim() || '新しいテンプレート', desc: '', values: [] });
+    _saveUser(list);
+    return id;
+  }
+
+  // ── クラウド同期 ──
+  // 保存する中身。まだ触っていなければ null を返し、firebase 側は
+  // 何も書かない（見本しか無い端末が、他の端末の編集を消さないため）。
+  function getTagTemplatesRaw() {
+    const u = _loadUser();
+    return u ? { seeded: true, list: _clean(u) } : null;
+  }
+
+  // クラウドから受け取る。形が合っているものだけ入れる。
+  // null / 壊れた値は「クラウドにまだ無い」とみなして何もしない
+  // （こちらのローカルを空で上書きしない）。
+  function applyRemoteTagTemplates(obj) {
+    if (!obj || !Array.isArray(obj.list)) return false;
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ seeded: true, list: _clean(obj.list) })); } catch (e) {}
+    return true;
+  }
+
+  window.tagTemplates            = tagTemplates;
+  window.tagTemplate             = tagTemplate;
+  window.tagTemplateRename       = tagTemplateRename;
+  window.tagTemplateSetValues    = tagTemplateSetValues;
+  window.tagTemplateDelete       = tagTemplateDelete;
+  window.tagTemplateCreate       = tagTemplateCreate;
+  window.getTagTemplatesRaw      = getTagTemplatesRaw;
+  window.applyRemoteTagTemplates = applyRemoteTagTemplates;
 })();

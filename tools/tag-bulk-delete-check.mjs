@@ -19,8 +19,25 @@ let chromium;
 for (const c of ['playwright', path.join(execSync('npm root -g',{encoding:'utf8'}).trim(),'playwright','index.mjs')]) {
   try { chromium=(await import(c)).chromium; break; } catch {} }
 const ROOT='/home/user/waza-kimura', PORT=8188;
+// 一括削除は案A（v52.812）でモーダルの中に移った。器は index.html から
+// そのまま切り出す — 検査用に自分で <div> を作らない（CLAUDE.md「作ったのに画面に出ていない」）。
+const idx = fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+const grab = (id) => {
+  const i = idx.indexOf(`id="${id}"`);
+  if (i < 0) throw new Error('index.html に #' + id + ' が無い');
+  const s0 = idx.lastIndexOf('<div', i);
+  let d = 0, j = s0;
+  while (j < idx.length) {
+    if (idx.startsWith('<div', j)) d++;
+    else if (idx.startsWith('</div>', j)) { d--; if (!d) return idx.slice(s0, j+6); }
+    j++;
+  }
+  throw new Error('閉じタグが見つからない: ' + id);
+};
 const HTML=`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
-<div id="tag-settings-list"></div><div id="ai-settings-section"></div>
+${grab('tag-display-settings')}
+${grab('tag-edit-overlay')}
+<div id="ai-settings-section"></div>
 <script>
  window.__log=[]; window.toast=(m)=>window.__log.push(['toast',m]);
  window.toastUndo=(m,fn)=>{window.__log.push(['toastUndo',m]); window.__undo=fn;};
@@ -37,7 +54,8 @@ const HTML=`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
 <script src="/js/tag-master.js"><\/script><script src="/js/tag-templates.js"><\/script>
 <script type="module">
  import * as S from '/js/settings.js';
- ['tagLabel','tagPresets','renderTagSettingsList'].forEach(n=>window[n]=S[n]);
+ ['tagLabel','tagPresets','renderTagSettingsList','saveTagSettings','applyTagLabels'].forEach(n=>{ if(S[n]) window[n]=S[n]; });
+ window.aiSettings=S.aiSettings;
  window.tagSettings=S.tagSettings; window.__ready=true;
 <\/script></body></html>`;
 const srv=http.createServer((q,r)=>{let p=decodeURIComponent(q.url.split('?')[0]);
@@ -53,12 +71,13 @@ const pg=await ctx.newPage();
 const errs=[]; pg.on('pageerror',e=>errs.push(String(e).split('\n')[0]));
 await pg.goto(`http://localhost:${PORT}/`,{waitUntil:'domcontentloaded'});
 await pg.waitForFunction(()=>window.__ready===true).catch(()=>{});
-await pg.evaluate(()=>window.renderTagSettingsList());
+await pg.evaluate(()=>window._openBulkTagDelete());
 let fail=0; const ck=(n,ok,d)=>{console.log((ok?'  ✓ ':'  ✗ ')+n+(d&&!ok?'  → '+String(d).slice(0,220):'')); if(!ok)fail++;};
 ck('エラーなし', errs.length===0, errs.join('|'));
 
 const ui=await pg.evaluate(()=>{
-  const h=document.getElementById('tag-settings-list');
+  window._openBulkTagDelete();
+  const h=document.getElementById('tag-edit-modal');
   const cbs=[...h.querySelectorAll('input[type=checkbox][data-key]')];
   return { section:/タグの一括削除/.test(h.textContent), n:cbs.length,
            keys:cbs.map(c=>c.dataset.key), checked:cbs.map(c=>c.checked),
@@ -76,7 +95,8 @@ ck('件数が出る', /（2本）/.test(ui.labels[1]||''), JSON.stringify(ui.lab
 
 console.log('\n── 何も選ばずに押す ──');
 const none=await pg.evaluate(async()=>{ window.__log=[];
-  const h=document.getElementById('tag-settings-list');
+  window._openBulkTagDelete();
+  const h=document.getElementById('tag-edit-modal');
   [...h.querySelectorAll('button')].find(b=>/バックアップを書き出してから削除/.test(b.textContent)).click();
   await new Promise(r=>setTimeout(r,120));
   return { log:window.__log, exported:window.__exported, videos:JSON.stringify(window.videos) };
@@ -87,7 +107,8 @@ ck('バックアップも走らない', none.exported===0, String(none.exported)
 console.log('\n── 確認で「いいえ」を押す ──');
 await pg.evaluate(()=>{ window.__confirmCalls=[]; window.confirm=(m)=>{window.__confirmCalls.push(m); return false;}; });
 const cancel=await pg.evaluate(async()=>{ window.__log=[];
-  const h=document.getElementById('tag-settings-list');
+  window._openBulkTagDelete();
+  const h=document.getElementById('tag-edit-modal');
   h.querySelector('input[data-key="cat"]').checked=true;
   [...h.querySelectorAll('button')].find(b=>/バックアップを書き出してから削除/.test(b.textContent)).click();
   await new Promise(r=>setTimeout(r,150));
@@ -101,7 +122,8 @@ ck('確認文にユーザーの名前が出る', /タグ2/.test(cancel.confirms[
 console.log('\n── 承認して実行 ──');
 await pg.evaluate(()=>{ window.__confirmCalls=[]; window.confirm=(m)=>{window.__confirmCalls.push(m); return true;}; });
 const run=await pg.evaluate(async()=>{ window.__log=[];
-  const h=document.getElementById('tag-settings-list');
+  window._openBulkTagDelete();
+  const h=document.getElementById('tag-edit-modal');
   h.querySelector('input[data-key="cat"]').checked=true;
   [...h.querySelectorAll('button')].find(b=>/バックアップを書き出してから削除/.test(b.textContent)).click();
   await new Promise(r=>setTimeout(r,350));
