@@ -69,6 +69,9 @@ function _presetRemove(key, name) {
 // ・空 → 埋める、しかやらない。既にある選択肢は絶対に触らない
 // ・一度種を入れたら seeded を立て、以後は入れない
 //   （ユーザーが全部消して「空のまま」にしたいときに、勝手に復活させないため）
+// 種の出どころを持つグループ。tags（自由タグ）には見本が無いのが正しい。
+// 「出どころが無い」と「出どころがまだ読めていない」を取り違えないために分けてある。
+const _SEEDABLE = new Set(['tb', 'cat', 'pos']);
 function _sampleFor(key) {
   if (key === 'tb')  return (window.TB_VALUES || []).slice();
   if (key === 'cat') return (window.CATEGORIES || []).map(c => c.name).filter(Boolean);
@@ -81,9 +84,12 @@ function _seedTagPresets() {
     const t = tagSettings.find(x => x.key === key);
     if (!t || t.seeded) continue;
     if (!Array.isArray(t.presets)) t.presets = [];
-    if (t.presets.length === 0) {
+    if (t.presets.length === 0 && _SEEDABLE.has(key)) {
       const sample = _sampleFor(key);
-      if (sample.length) { t.presets = sample; changed = true; }
+      // 出どころ（tag-master.js の一覧）がまだ読めていないだけなら、印を付けずに次回へ回す。
+      // ここで seeded を立ててしまうと、二度と種が入らず選択肢が永久に空になる（v52.813）。
+      if (!sample.length) continue;
+      t.presets = sample;
     }
     t.seeded = true;
     changed = true;
@@ -157,6 +163,14 @@ export function applyRemoteSettings(data) {
   if (data.tagSettings && Array.isArray(data.tagSettings) && data.tagSettings.length) {
     tagSettings = data.tagSettings;
     _migrateTagSettings();
+    // v52.803 より前に保存された設定には cat / pos の選択肢が入っていない。
+    // 当時の画面は辞書（CATEGORIES / POSITIONS）を直接読んでいたので、
+    // presets に何も溜まっていなかった。ここで種を入れないと、ログインした
+    // 瞬間に空のクラウド設定で上書きされ、選択肢が消えたように見える（v52.813）。
+    //
+    // 足すだけ・空のグループだけ・seeded の印があるものには触らない。
+    // ＝ユーザーが意図して空にしたグループは空のまま（tag-seed-check）。
+    _seedTagPresets();
     try { localStorage.setItem('wk_tagSettings', JSON.stringify(tagSettings)); } catch(e) {}
     window.tagSettings = tagSettings;
   }

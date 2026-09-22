@@ -12,6 +12,7 @@
 //     A. まっさら          → 種が入る
 //     B. ユーザーが育てた後 → そのまま。空にしたグループが勝手に復活しない
 //     C. 旧バージョンから   → 名前も既存の値も保たれ、空だったところだけ埋まる
+//     D. ログインでクラウドの設定が降ってきた → 同じことがそこでも起きる
 //
 //   Bの「空にしたグループが復活しない」が一番大事。seeded を立てて再実行を止めている。
 import http from 'http'; import fs from 'fs'; import path from 'path';
@@ -36,7 +37,7 @@ const exe='/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const b=await chromium.launch(fs.existsSync(exe)?{executablePath:exe}:{});
 let fail=0; const ck=(n,ok,d)=>{console.log((ok?'  ✓ ':'  ✗ ')+n+(d&&!ok?'  → '+String(d).slice(0,240):'')); if(!ok)fail++;};
 
-async function boot(stored) {
+async function boot(stored, remote) {
   const ctx=await b.newContext(); ctx.setDefaultTimeout(8000);
   await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`),r=>r.abort());
   if (stored) await ctx.addInitScript(v=>localStorage.setItem('wk_tagSettings',v), JSON.stringify(stored));
@@ -44,6 +45,8 @@ async function boot(stored) {
   const errs=[]; pg.on('pageerror',e=>errs.push(String(e).split('\n')[0]));
   await pg.goto(`http://localhost:${PORT}/`,{waitUntil:'domcontentloaded'});
   await pg.waitForFunction(()=>window.__ready===true).catch(()=>{});
+  // remote を渡したら「ログインしてクラウドの設定が降ってきた」状態を再現する
+  if (remote) await pg.evaluate(r=>window.S.applyRemoteSettings({tagSettings:r}), remote);
   const out=await pg.evaluate(()=>({
     presets:['tb','cat','pos','tags'].map(k=>window.tagPresets(k)),
     seeded:window.tagSettings.map(t=>!!t.seeded),
@@ -85,6 +88,36 @@ ck('旧ユーザーのグループ名が保たれる', JSON.stringify(c.saved.ma
 ck('空だった cat/pos に種が入る', c.presets[1].length===10&&c.presets[2].length===27, JSON.stringify(c.presets.map(p=>p.length)));
 ck('既にあった tags の値は残る', c.presets[3].includes('アームバー'), JSON.stringify(c.presets[3]));
 ck('既にあった tb の値も残る', JSON.stringify(c.presets[0])===JSON.stringify(['トップ','ボトム','スタンディング']), JSON.stringify(c.presets[0]));
+
+console.log('\n── D. ログインでクラウドの旧設定が降ってくる（v52.813 の回帰）──');
+// v52.803 より前は cat/pos の選択肢を保存していなかった（画面が辞書を直接読んでいた）。
+// その設定がクラウドから降ってくると、起動時に入れた種ごと空で上書きされ、
+// 取り込み画面のカテゴリ欄が丸ごと消えた。実際にオーナーの画面で起きた。
+const remoteOld=[
+  {key:'tb',label:'TOP/BOTTOM',visible:true,presets:['トップ','ボトム','スタンディング']},
+  {key:'cat',label:'CATEGORY',visible:true,presets:[]},
+  {key:'pos',label:'POSITION',visible:true,presets:[]},
+  {key:'tags',label:'テクニック',visible:true,presets:[]},
+];
+const d=await boot(null, remoteOld);
+ck('エラーなし', d.errs.length===0, d.errs.join('|'));
+ck('★ クラウドの旧設定でも cat の選択肢が空にならない', d.presets[1].length===10, JSON.stringify(d.presets[1].length));
+ck('★ pos も空にならない', d.presets[2].length===27, JSON.stringify(d.presets[2].length));
+ck('クラウド側のグループ名は尊重される', JSON.stringify(d.saved.map(t=>t.label))===JSON.stringify(['TOP/BOTTOM','CATEGORY','POSITION','テクニック']), JSON.stringify(d.saved.map(t=>t.label)));
+ck('クラウドに入っていた tb の値はそのまま', JSON.stringify(d.presets[0])===JSON.stringify(['トップ','ボトム','スタンディング']), JSON.stringify(d.presets[0]));
+
+console.log('\n── E. クラウド側で「意図して空にした」グループは空のまま ──');
+const remoteEmptied=[
+  {key:'tb',label:'TB',visible:true,presets:['立ち'],seeded:true},
+  {key:'cat',label:'CAT',visible:true,presets:[],seeded:true},
+  {key:'pos',label:'POS',visible:true,presets:['デラヒーバ'],seeded:true},
+  {key:'tags',label:'TAG',visible:true,presets:[],seeded:true},
+];
+const e=await boot(null, remoteEmptied);
+ck('エラーなし', e.errs.length===0, e.errs.join('|'));
+ck('★ 意図して空にした cat が勝手に復活しない', e.presets[1].length===0, JSON.stringify(e.presets[1]));
+ck('★ 意図して空にした tags も復活しない', e.presets[3].length===0, JSON.stringify(e.presets[3]));
+ck('育てた値はそのまま', JSON.stringify(e.presets[0])===JSON.stringify(['立ち'])&&JSON.stringify(e.presets[2])===JSON.stringify(['デラヒーバ']), JSON.stringify(e.presets));
 
 console.log(fail?`\n✗ 問題 ${fail}件`:'\n✓ 問題なし');
 await b.close(); srv.close(); process.exit(fail?1:0);

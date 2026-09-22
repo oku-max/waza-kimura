@@ -65,6 +65,7 @@
     'itag.ai.hint':             { ja: 'タイトル・チャンネル名からAIがタグを推定します。', en: 'Tags are estimated from the title and channel name.' },
     'itag.ai.warn':             { ja: 'AIの判定は正確でない場合があります。あとからいつでも修正できます。', en: 'Auto-detection may not be accurate. You can fix it anytime later.' },
     'itag.none.hint':           { ja: 'タグを付けずに追加します。あとからいつでもタグ付けできます。', en: 'Added without tags. You can tag them anytime later.' },
+    'itag.noopts':              { ja: '選択肢がありません（設定 → タグ から追加できます）', en: 'No options yet (add them in Settings → Tags)' },
     'itag.target.all':          { ja: '📌 全ての動画に同じタグを適用', en: '📌 Apply the same tags to all videos' },
     'itag.section.tags':        { ja: 'タグ', en: 'Tags' },
     'itag.row.tb':              { ja: 'トップ/ボトム/スタンディング', en: 'Top / Bottom / Standing' },

@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.812</title>
+<title>WAZA KIMURA v52.813</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3425,8 +3425,15 @@ function itagRenderFields() {
   const lblPos = v => window.tPos ? window.tPos(v) : v;
   const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || ['トップ','ボトム','スタンディング']));
   const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(x => x.name));
-  const tbRow = TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="itagTog('tb','${esc(v)}',this)">${lblTb(v)}</span>`).join('');
-  const catRow = CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="itagTog('cat','${esc(v)}',this)">${lblCat(v)}</span>`).join('');
+  // 選択肢が1つも無いときに行が黙って空になると「選べなくなった」ようにしか見えない。
+  // 空なら理由と行き先を出す（CLAUDE.md: 直せないもの・無いものは、そう書く）。
+  const emptyNote = `<span style="font-size:11px;color:var(--text3)">${T('itag.noopts','選択肢がありません（設定 → タグ から追加できます）')}</span>`;
+  const tbRow = TB.length
+    ? TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="itagTog('tb','${esc(v)}',this)">${lblTb(v)}</span>`).join('')
+    : emptyNote;
+  const catRow = CATS.length
+    ? CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="itagTog('cat','${esc(v)}',this)">${lblCat(v)}</span>`).join('')
+    : emptyNote;
   const posChips = t.pos.map(p => `<span class="vp-chip on-pos" style="cursor:pointer" onclick="itagRmChip('pos','${esc(p)}')">${lblPos(p)} ×</span>`).join('');
   const posPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenPosDd()">${T('itag.add.pos','＋ ポジション')}</span><div class="vp-dd" id="utag-pos-dd" style="display:none"><input class="vp-dd-search" placeholder="${T('itag.dd.filter','絞り込み...')}" oninput="itagFilterPosDd(this.value)" onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}"><div class="vp-dd-list" id="utag-pos-list"></div></div></div>`;
   const tagChips = t.tags.map(x => `<span class="vp-chip on-tags" style="cursor:pointer" onclick="itagRmChip('tags','${esc(x)}')">${x} ×</span>`).join('');
