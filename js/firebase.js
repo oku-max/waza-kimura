@@ -302,9 +302,9 @@ async function _applyVideosData(saved) {
     // 旧表記が保存データに残っていれば正準値へ書き換え（status未設定のものは触らない）
     if (v.status === '把握' || v.status === '習得中') v.status = window.normStatus(v.status);
   });
-  // 管理者アカウントは自動バッチ再タグ付けをスキップ（手動操作時のみ実行）
-  const _isAdminUser = window._firebaseCurrentUser?.()?.email === 'okujournal@gmail.com';
-  if (!_isAdminUser && window.retagAllFromTitle && window.videos) window.retagAllFromTitle();
+  // v52.814: ログインのたびに走っていた一括再タグ付け（retagAllFromTitle）を廃止。
+  // タイトルからのキーワード推定で、ユーザーの動画に勝手にタグを書き込んでいた。
+  // 既に付いているタグはそのまま残る（消さない）。以後タグを足すのはユーザーだけ。
   const _oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   let migratedAddedAt = 0;
   (window.videos || []).forEach(v => { if (!v.addedAt) { v.addedAt = _oneMonthAgo; migratedAddedAt++; } });

@@ -1129,14 +1129,7 @@ export async function ytSrAddToLibrary() {
     tempEntry.thumb   = thumb;
     tempEntry.ch      = channel;
     tempEntry.channel = channel;
-    // autoTag が未適用ならタイトルから補完
-    if (window.autoTagFromTitle && !tempEntry.tb?.length && !tempEntry.cat?.length) {
-      const t = window.autoTagFromTitle(title);
-      tempEntry.tb   = t.tb   || [];
-      tempEntry.cat  = t.cat  || [];
-      tempEntry.pos  = t.pos  || [];
-      tempEntry.tags = t.tags || [];
-    }
+    // タグは推測しない（v52.814）。付けるならユーザーが自分で選ぶ。
   } else {
     // フォールバック: tempEntry が見つからない場合は新規作成
     const newEntry = {
@@ -1164,11 +1157,7 @@ export async function ytSrAddToLibrary() {
       memo:     '',
       ai:       '',
       tbLocked: false,
-      tb: [], cat: [], pos: [], tags: [],
-      ...(window.autoTagFromTitle ? (() => {
-        const t = window.autoTagFromTitle(title);
-        return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags };
-      })() : {})
+      tb: [], cat: [], pos: [], tags: []   // タグは推測しない（v52.814）
     };
     window.videos.push(newEntry);
   }
@@ -1374,8 +1363,7 @@ export async function ytSrAddPlVideo(videoId, title, ch, thumb) {
         duration: 0, ytChapters: [], watched: false,
         fav: false, status: '未着手', prio: 'そのうち',
         shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
-        tb: [], cat: [], pos: [], tags: [],
-        ...(window.autoTagFromTitle ? (() => { const t = window.autoTagFromTitle(title); return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags }; })() : {}),
+        tb: [], cat: [], pos: [], tags: [],   // タグは推測しない（v52.814）
       };
       window.videos.push(entry);
     }
@@ -1416,8 +1404,7 @@ export async function ytSrAddAllPl(plId) {
         duration: 0, ytChapters: [], watched: false,
         fav: false, status: '未着手', prio: 'そのうち',
         shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
-        tb: [], cat: [], pos: [], tags: [],
-        ...(window.autoTagFromTitle ? (() => { const t = window.autoTagFromTitle(v.title); return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags }; })() : {}),
+        tb: [], cat: [], pos: [], tags: [],   // タグは推測しない（v52.814）
       });
     }
     _addedSet.add(v.videoId);

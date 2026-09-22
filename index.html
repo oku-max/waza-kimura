@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.813</title>
+<title>WAZA KIMURA v52.814</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2637,19 +2637,8 @@ function addCT(t){if(t&&!dTags.tags.has(t)){dTags.tags.add(t);document.getElemen
 function techKD(e){if(e.key==='Enter'){const q=document.getElementById('techSrch').value.trim();if(q)addCT(q);}}
 function renderST(){document.getElementById('selTechs').innerHTML=[...dTags.tags].map(t=>`<div class="tech-chip" onclick="rmT('${t}')">${t} <span>×</span></div>`).join('');}
 function rmT(t){dTags.tags.delete(t);filterTechs();renderST();}
-// autoTagFromTitle は tag-master.js で定義（window.autoTagFromTitle）
-
-function runAI(){const v=videos.find(v=>v.id===editId);if(!v)return;const btn=document.getElementById('aiBtn');btn.textContent='⏳...';btn.disabled=true;setTimeout(()=>{
-  const aiResult = autoTagFromTitle(v.title);
-  aiResult.tags.forEach(t=>dTags.tags.add(t));
-  aiResult.tb.forEach(t=>dTags.tb.add(t));
-  aiResult.cat.forEach(t=>dTags.cat.add(t));
-  aiResult.pos.forEach(t=>dTags.pos.add(t));
-  renderST();filterTechs();syncUI(v);
-  btn.textContent='✨ AI自動';btn.disabled=false;
-  const total=aiResult.tags.length+aiResult.tb.length+aiResult.cat.length+aiResult.pos.length;
-  toast(`✨ ${total}件のタグを自動設定`);
-},600);}
+// 「✨ AI自動」ボタン（runAI）は v52.814 で廃止。キーワード推定そのものを消したため。
+// ボタンは index.html に既に無く、呼び出し元も無かった。
 function saveEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.fav=dFav;v.watched=dWatch;v.prio=dPrio||v.prio;v.status=dStat||v.status;v.shared=dShare;v.tb=[...dTags.tb];v.cat=[...dTags.cat];const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};v.pos=[...dTags.pos].map(p=>pm[p]||p);v.tags=[...dTags.tags];v.memo=document.getElementById('dMemo').value.trim();closeOv('editOv');window.AF?.();toast('💾 保存しました');}
 function archEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.archived=true;closeOv('editOv');window.AF?.();toastUndo('📦 アーカイブ',()=>{v.archived=false;window.AF?.();});}
 function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');window.AF?.();toast('除外しました');});}
@@ -3302,17 +3291,18 @@ function addUrls() {
   window.AF?.();
   // 即時保存（debounceではなく）
   if (window.saveUserData) { window.saveUserData().catch(e => console.error('save error', e)); }
-  const tagMsg = itagMode === 'ai' ? '（AIが自動タグ付け・後で確認できます）'
-               : itagMode === 'manual' ? '（手動タグ付き）' : '';
+  const tagMsg = itagMode === 'manual' ? '（タグ付き）' : '';
   toast(`✅ ${added}件をライブラリに追加しました${tagMsg}`);
 }
 
 // ════ 取り込み共通: タグの付け方ピッカー（URL / Google Drive / YouTube 共用）════
 //   単一の可動ルート(_itagRoot)を各モーダルにマウントして使う。
-//   mode: ai(autoTagFromTitle) / manual(手動) / none(空)
+//   mode: manual(自分で選ぶ) / none(タグなし)
+//   v52.814 で ai（キーワード推定）を廃止。既定は none＝何も付けない。
+//   推測で付けたタグは、付いていないより始末が悪い（Notion 項目01）。
 //   perVideo: true=動画ごと個別上書き可（URL等少数）/ false=全件一括（PL・フォルダ等多数）
 //   タグ編集UIは Vパネル (vpanel-v4.js) と同一の .vp-chip / .vp-dd を流用。
-let itagMode = 'ai';
+let itagMode = 'none';
 let itagTarget = '';
 let itagBatch = { tb: [], cat: [], pos: [], tags: [] };
 let itagOverrides = {};
@@ -3331,13 +3321,8 @@ function _itagBuildRoot() {
   root.innerHTML = `
     <div class="form-label">${window.t?.('itag.howto','🏷 タグの付け方')}</div>
     <div id="utagSeg">
-      <button type="button" data-mode="ai" class="on" onclick="itagSetMode('ai')">${window.t?.('itag.mode.ai','🤖 自動判別')}<span>${window.t?.('itag.mode.ai.sub','AIにおまかせ')}</span></button>
+      <button type="button" data-mode="none" class="on" onclick="itagSetMode('none')">${window.t?.('itag.mode.none','🚫 タグなし')}<span>${window.t?.('itag.mode.none.sub','あとで整理')}</span></button>
       <button type="button" data-mode="manual" onclick="itagSetMode('manual')">${window.t?.('itag.mode.manual','✋ 自分で選ぶ')}<span>${window.t?.('itag.mode.manual.sub','いま手動で')}</span></button>
-      <button type="button" data-mode="none" onclick="itagSetMode('none')">${window.t?.('itag.mode.none','🚫 タグなし')}<span>${window.t?.('itag.mode.none.sub','あとで整理')}</span></button>
-    </div>
-    <div id="utagAiHint" class="utag-hint">
-      ${window.t?.('itag.ai.hint','タイトル・チャンネル名からAIがタグを推定します。')}
-      <div class="utag-warn"><span>⚠️</span><span>${window.t?.('itag.ai.warn','AIの判定は正確でない場合があります。あとからいつでも修正できます。')}</span></div>
     </div>
     <div id="utagNoneHint" class="utag-hint" style="display:none">${window.t?.('itag.none.hint','タグを付けずに追加します。あとからいつでもタグ付けできます。')}</div>
     <div id="utagPicker" style="display:none">
@@ -3355,31 +3340,27 @@ window.itagMount = function (containerId, opts) {
   host.appendChild(_itagBuildRoot());
   itagItems = opts.items || [];
   itagPerVideo = opts.perVideo === true && itagItems.length > 0;
-  itagMode = 'ai'; itagTarget = '';
+  itagMode = 'none'; itagTarget = '';
   itagBatch = { tb: [], cat: [], pos: [], tags: [] };
   itagOverrides = {};
   itagBuildTargetSelect();
-  itagSetMode('ai');
+  itagSetMode('none');
 };
 
-// 追加時に各動画へ与えるタグを返す（モード別）。未マウントでも安全（既定=AI自動）。
+// 追加時に各動画へ与えるタグを返す（モード別）。未マウントでも安全（既定=タグなし）。
 window.itagGetTagsFor = function (id, title, pl, ch) {
   if (itagMode === 'manual') {
     const o = (itagPerVideo && itagOverrides[id]) ? itagOverrides[id] : itagBatch;
     return { tb: [...o.tb], cat: [...o.cat], pos: [...o.pos], tags: [...o.tags] };
   }
-  if (itagMode === 'ai') {
-    return window.autoTagFromTitle ? window.autoTagFromTitle(title || '', pl || '', ch || '') : { tb: [], cat: [], pos: [], tags: [] };
-  }
-  return { tb: [], cat: [], pos: [], tags: [] };
+  return { tb: [], cat: [], pos: [], tags: [] };   // タグなし。推測はしない（v52.814）
 };
 window.itagModeGet = function () { return itagMode; };
 
 function itagSetMode(m) {
   itagMode = m;
   document.querySelectorAll('#utagSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
-  const ai = document.getElementById('utagAiHint'), no = document.getElementById('utagNoneHint'), pk = document.getElementById('utagPicker');
-  if (ai) ai.style.display = m === 'ai' ? 'block' : 'none';
+  const no = document.getElementById('utagNoneHint'), pk = document.getElementById('utagPicker');
   if (no) no.style.display = m === 'none' ? 'block' : 'none';
   if (pk) pk.style.display = m === 'manual' ? 'block' : 'none';
   if (m === 'manual') itagRenderFields();

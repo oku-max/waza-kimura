@@ -605,9 +605,10 @@ async function _runImport() {
       isQR:     false,
       duration: it.duration || 0,
       tbLocked: false,
+      // 取り込み画面で選んだタグ。選んでいなければ空（推測しない・v52.814）
       ...(window.itagGetTagsFor
         ? window.itagGetTagsFor(newId, title, playlist, channel)
-        : (window.autoTagFromTitle ? window.autoTagFromTitle(title) : { tb: [], cat: [], pos: [], tags: [] })),
+        : { tb: [], cat: [], pos: [], tags: [] }),
     });
     registered++;
   }

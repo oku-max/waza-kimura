@@ -1,5 +1,5 @@
 // ═══ WAZA KIMURA — タグ付けウィザード v52.441 ═══
-// データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS / window.autoTagFromTitle)
+// データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS)
 (function () {
 'use strict';
 
@@ -81,84 +81,17 @@ function _getEmbedInfo(v) {
   return { embedUrl:embedUrl, thumb:thumb, canPlay:!!embedUrl };
 }
 
-// ── 提案エンジン（タイトル＋プレイリスト＋チャンネルの3シグナルを統合）──
-// 優先度: タイトル > プレイリスト > チャンネル学習
-// 設計方針: プレイリスト = 文脈の器、タイトル = 器の中の精度向上
-//   例) PL「デラヒーバ講座」→ pos=デラヒーバ, tb=ボトム が基底
-//       + タイトルに「パス」→ tb=トップ に上書き
-//       + タイトルに「スイープ」→ cat=スイープ を追加
-// memo: ユーザーが書いたメモ（アルゴリズムへのヒント）も4番目のシグナルとして統合
+// ── 提案エンジン（v52.814 で推測をやめた。残るのはユーザー自作ルールだけ）──
 function _suggest(title, channel, pl, memo) {
-  var atf = window.autoTagFromTitle;
-  // タイトルとプレイリストをそれぞれ解析
-  var tBase  = atf ? atf(title || '') : {tb:[],cat:[],pos:[],tags:[]};
-  var plBase = atf ? atf(pl    || '') : {tb:[],cat:[],pos:[],tags:[]};
-
-  // ── TB: タイトル優先、なければプレイリストから補完 ──
-  var tbArr = (tBase.tb && tBase.tb.length) ? tBase.tb : (plBase.tb || []);
-  var tb    = tbArr.length ? tbArr[0] : null;
-
-  // ── Pos: タイトル + プレイリストの union ──
-  var posList = (tBase.pos || []).slice();
-  (plBase.pos || []).forEach(function(p) { if (posList.indexOf(p) < 0) posList.push(p); });
-
-  // ── window.POSITIONS でさらに追加マッチング（タイトル・プレイリスト両方） ──
-  var tLower  = (title || '').toLowerCase();
-  var plLower = (pl    || '').toLowerCase();
-  (window.POSITIONS || []).forEach(function(p) {
-    if (!p.ja || posList.indexOf(p.ja) >= 0) return;
-    var keys = [p.ja, p.en].concat(p.aliases || []).filter(Boolean);
-    var hit  = keys.some(function(k) {
-      if (!k || k.length < 2) return false;
-      var kl = k.toLowerCase();
-      return tLower.indexOf(kl) >= 0 || plLower.indexOf(kl) >= 0;
-    });
-    if (hit) posList.push(p.ja);
-  });
-
-  // ── Admin管理ポジション（waza_positions）でさらに追加マッチング ──
-  // window.POSITIONS はハードコード定数。Admin で追加したエイリアスはここで反映。
-  try {
-    var userPos = JSON.parse(localStorage.getItem('waza_positions') || '[]');
-    userPos.forEach(function(p) {
-      if (!p.names || !p.names.ja || posList.indexOf(p.names.ja) >= 0) return;
-      var keys = [p.names.ja, p.names.en || '']
-        .concat((p.aliases && p.aliases.ja) ? p.aliases.ja : [])
-        .concat((p.aliases && p.aliases.en) ? p.aliases.en : [])
-        .filter(Boolean);
-      var hit = keys.some(function(k) {
-        if (!k || k.length < 2) return false;
-        var kl = k.toLowerCase();
-        return tLower.indexOf(kl) >= 0 || plLower.indexOf(kl) >= 0;
-      });
-      if (hit) posList.push(p.names.ja);
-    });
-  } catch(e) {}
-
-  // ── Cat: タイトル + プレイリストの union ──
-  var cats = (tBase.cat || []).slice();
-  (plBase.cat || []).forEach(function(c) { if (cats.indexOf(c) < 0) cats.push(c); });
-
-  // ── Admin管理カテゴリ（waza_tag_dict）でさらに追加マッチング ──
-  // window.CATEGORIES はハードコード定数。Admin で追加したエイリアスはここで反映。
-  try {
-    var userCats = JSON.parse(localStorage.getItem('waza_tag_dict') || '[]');
-    userCats.forEach(function(c) {
-      if (!c.names || !c.names.ja || cats.indexOf(c.names.ja) >= 0) return;
-      var keys = [c.names.ja, c.names.en || '']
-        .concat((c.aliases && c.aliases.ja) ? c.aliases.ja : [])
-        .concat((c.aliases && c.aliases.en) ? c.aliases.en : [])
-        .filter(Boolean);
-      var hit = keys.some(function(k) {
-        if (!k || k.length < 2) return false;
-        var kl = k.toLowerCase();
-        return tLower.indexOf(kl) >= 0 || plLower.indexOf(kl) >= 0;
-      });
-      if (hit) cats.push(c.names.ja);
-    });
-  } catch(e) {}
-
-  var _result = { tb: tb, pos: posList, cat: cats, tech: tBase.tags||[] };
+  // v52.814: こちらからのキーワード推測は全部やめた。
+  //   ・autoTagFromTitle（廃止済み）
+  //   ・window.POSITIONS / waza_positions / waza_tag_dict への部分一致
+  // どれも「タイトルに “パス” が入っていたら パスガード」の類で、当たらない。
+  // オーナーの言葉:「キーワード推定は不完全だから不要」。
+  //
+  // 残すのはユーザーが自分で書いたルール（_applyRules）だけ。
+  // あれはこちらの推測ではなく、本人が明示したルールなので別物。
+  var _result = { tb: null, pos: [], cat: [], tech: [] };
   return _applyRules(_result, title, pl, memo);
 }
 

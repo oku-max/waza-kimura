@@ -579,7 +579,7 @@ export async function ytImportUnimportedFromChecked() {
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       tbLocked: false,
-      ...(() => { const tt = window.autoTagFromTitle ? window.autoTagFromTitle(t.title) : {tb:[],cat:[],pos:[],tags:[]}; return { tb: tt.tb, cat: tt.cat, pos: tt.pos, tags: tt.tags }; })()
+      tb: [], cat: [], pos: [], tags: []   // タグは推測しない（v52.814）
     });
   });
   if (window.AF) window.AF();
@@ -742,9 +742,10 @@ export async function ytImportCheckedVideos() {
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       tbLocked: false,
       ...(() => {
+        // 取り込み画面で選んだタグ。選んでいなければ空（推測しない・v52.814）
         const t = window.itagGetTagsFor
           ? window.itagGetTagsFor(newId, cb.dataset.title, cb.dataset.pl, cb.dataset.channel)
-          : (window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : {tb:[],cat:[],pos:[],tags:[]});
+          : {tb:[],cat:[],pos:[],tags:[]};
         return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags };
       })()
     });

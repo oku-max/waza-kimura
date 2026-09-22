@@ -528,151 +528,19 @@ const TECHNIQUE_BUILTIN = [
 ];
 window.TECHNIQUE_BUILTIN = TECHNIQUE_BUILTIN;
 
-// ── カテゴリ検出ロジック (1テキストに対して実行) ────
-// text: タイトル / プレイリスト名 / チャンネル名 いずれでも可
-// 複数カテゴリに同時ヒット可（TB と違い排他でない）
-// ユーザー承認エイリアス + 組み込みBJJ語彙の両方で判定する
-function _detectCatFromText(text) {
-  if (!text) return [];
-  const tNorm = _norm(text);
-  const rawLower = _rawLower(text);
-  const found = [];
-  for (const c of CATEGORIES) {
-    const keys = [c.name, ...(c.aliases || []), ...(CATEGORY_BUILTIN_TERMS[c.id] || [])];
-    if (keys.some(k => _termHit(k, rawLower, tNorm))) {
-      if (!found.includes(c.name)) found.push(c.name);
-    }
-  }
-  return found;
-}
-window._detectCatFromText = _detectCatFromText;
-
-function autoTagFromTitle(title, pl = '', channel = '') {
-  const result = { tb: [], cat: [], pos: [], tags: [] };
-  if (!title) return result;
-
-  const tNorm = _norm(title);
-
-  // ── 反転トリガー判定（REVERSAL_TRIGGERS + ユーザー設定の negationWords）──
-  const userTagRules  = window.tagRules || {};
-  const negWords      = [...REVERSAL_TRIGGERS, ...(userTagRules.negationWords || [])];
-  const hasNegation   = negWords.some(w => w && tNorm.includes(_norm(w)));
-  const catInverse    = userTagRules.categoryInverse || {};
-
-  // ── TB 判定: タイトル → プレイリスト → チャンネルの順でフォールバック ──
-  result.tb = _detectTbFromText(title);
-  if (!result.tb.length && pl)      result.tb = _detectTbFromText(pl);
-  if (!result.tb.length && channel) result.tb = _detectTbFromText(channel);
-
-  const rawLower = _rawLower(title);
-
-  // ── Category 判定: ユーザー承認エイリアス + 組み込みBJJ語彙 ──
-  result.cat = _detectCatFromText(title);
-
-  // ── テクニック判定: 組み込み辞書（#タグ付与 + カテゴリ含意） ──
-  for (const tech of TECHNIQUE_BUILTIN) {
-    if (tech.terms.some(t => _termHit(t, rawLower, tNorm))) {
-      if (!result.tags.includes(tech.ja)) result.tags.push(tech.ja);
-      const c = CATEGORIES.find(c => c.id === tech.cat);
-      if (c && !result.cat.includes(c.name)) result.cat.push(c.name);
-    }
-  }
-  // ── ユーザーが既に使っているテクニック名にもマッチ（表記の自動適応） ──
-  const userVocab = new Set([
-    ...((window.videos || []).flatMap(v => v.tags || [])),
-    ...((window.getTagGroups?.() || []).flatMap(g => g.techNames || [])),
-  ]);
-  for (const name of userVocab) {
-    if (name && !result.tags.includes(name) && _termHit(name, rawLower, tNorm)) result.tags.push(name);
-  }
-
-  // ── 反転ルール適用: 否定語が含まれていた場合、カテゴリを反転先に切り替え ──
-  if (hasNegation && Object.keys(catInverse).length > 0) {
-    result.cat = result.cat.map(catName => catInverse[catName] || catName);
-    // 重複除去
-    result.cat = [...new Set(result.cat)];
-  }
-
-  // ── 防御文脈のフォールバック ──
-  // 「〜の対処 / 掴まれた時 / 掛けられない」等は否定語として検出済みなのに、
-  // 対応するカテゴリ語彙が無いため今まで結果が完全に空になっていた。
-  // 他に手掛かりが無いときだけエスケープ・ディフェンスを補う（既に何か付いていれば触らない）。
-  if (hasNegation && !result.cat.length) {
-    const esc = CATEGORIES.find(c => c.id === 'escape');
-    if (esc) result.cat.push(esc.name);   // tb は '中立' なので TB を汚さない
-  }
-
-  // ── Category → TB 推論 ──
-  for (const catName of result.cat) {
-    const cat = CATEGORIES.find(c => c.name === catName);
-    if (cat?.tb && cat.tb !== '中立' && !result.tb.includes(cat.tb)) {
-      result.tb.push(cat.tb);
-    }
-  }
-
-  // ── Position 判定 (タイトルのみ; PLからのpos推測は誤検知リスクが高い) ──
-  for (const p of POSITIONS) {
-    const keys = [p.ja, p.en, ...(p.aliases || [])];
-    if (keys.some(k => _termHit(k, rawLower, tNorm))) {
-      if (!result.pos.includes(p.ja)) result.pos.push(p.ja);
-    }
-  }
-
-  // テイクダウン文脈の 'single leg' はタックルでありガードではない
-  if (result.cat.includes('テイクダウン') && !/guard|ガード/i.test(title)) {
-    result.pos = result.pos.filter(p => p !== 'シングルレッグガード');
-  }
-
-  return result;
-}
-
-// ─── 既存動画の一括タイトルタグ付け ──────────────
-// 未タグの動画にタイトルからルールベースタグを付与する (上書きはしない)
-function retagAllFromTitle() {
-  const videos = window.videos || [];
-  let updated = 0;
-  for (const v of videos) {
-    if (!v.title) continue;
-    // タイトル → プレイリスト → チャンネルの順でフォールバック
-    const tags = autoTagFromTitle(v.title, v.pl || '', v.channel || '');
-    if (!tags) continue;
-    let changed = false;
-    // TB: 空の場合のみ追加
-    if ((!v.tb || !v.tb.length) && tags.tb && tags.tb.length) {
-      v.tb = tags.tb; changed = true;
-    }
-    // Cat: 空の場合のみ追加
-    if ((!v.cat || !v.cat.length) && tags.cat && tags.cat.length) {
-      v.cat = tags.cat; changed = true;
-    }
-    // Pos: 空の場合のみ追加
-    if ((!v.pos || !v.pos.length) && tags.pos && tags.pos.length) {
-      v.pos = tags.pos; changed = true;
-    }
-    // #Tag: 空の場合のみ追加（組み込み技名辞書 + ユーザー語彙から）
-    if ((!v.tags || !v.tags.length) && tags.tags && tags.tags.length) {
-      v.tags = tags.tags; changed = true;
-    }
-    // tbLocked 確保
-    if (!('tbLocked' in v)) { v.tbLocked = false; changed = true; }
-    if (changed) updated++;
-  }
-  if (updated > 0) {
-    window.debounceSave?.();
-    window.AF?.();
-  }
-  console.log(`[retagAll] ${updated}/${videos.length} videos updated from title`);
-  if (updated > 0) window.toast?.(`🏷 ${updated}本のタグをタイトルから補完しました`);
-  return updated;
-}
-
-// ─── Tier 1c: 反転トリガー ────────────────────────
-// トップ／ボトムが競合したとき、このワードが含まれていたら判定を反転する
-// ユーザーが tb-tuner.html の UI から追加・削除できる
-const REVERSAL_TRIGGERS = [
-  '対策','防ぐ','防御','守る','止める','対処','防止',
-  'カウンター','ディフェンス','defense','counter',
-];
+// ─── キーワード推定は廃止（v52.814・Notion 項目01）───────
+// タイトルやプレイリスト名から tb/cat/pos/tags を当てる仕組み
+// （autoTagFromTitle / retagAllFromTitle / _detectCatFromText /
+//   REVERSAL_TRIGGERS / tag_rules の否定語・反転マッピング）は、
+// 当たらないものを当たったように見せるだけだったので全部消した。
+// オーナーの言葉:「キーワード推定は不完全だから不要」。
+//
+// ここから下に残っているのは**検索辞書**（Notion 項目02）。別物。
+//   findPosition / findCategory / aliasNamesFor / matchPosition /
+//   matchCategory … 「デラヒーバ」で英語タイトルを当てるための橋。
+//   動画に1つもタグが無くても効く。消さない（tag-label-check が見張る）。
+//
+// タグは、ユーザーが選ぶ。推測しない。
 
 // ─── exports ──────────────────────────────────────
 // Firestore からエイリアスをロード後に呼ぶ — インデックスを再構築する
@@ -681,7 +549,6 @@ window.rebuildCategoryIndex = function() { CATEGORY_INDEX = _buildCategoryIndex(
 window.TB_VALUES          = TB_VALUES;
 window.CATEGORIES         = CATEGORIES;
 window.POSITIONS          = POSITIONS;
-window.REVERSAL_TRIGGERS  = REVERSAL_TRIGGERS;
 window._normTag           = _norm;
 window._rawLowerTag       = _rawLower;
 window._termHitTag        = _termHit;
@@ -692,8 +559,6 @@ window.matchPosition      = matchPosition;
 window.matchCategory      = matchCategory;
 window.migrateVideo       = migrateVideo;
 window.migrateAllVideos   = migrateAll;
-window.autoTagFromTitle   = autoTagFromTitle;
-window.retagAllFromTitle  = retagAllFromTitle;
 
 // 旧スキーマ互換ブリッジは削除済み (v50)
 // 全ての参照は新4層スキーマ (tb/cat/pos/tags) に統一

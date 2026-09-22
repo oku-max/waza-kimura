@@ -1126,9 +1126,10 @@ export async function gdImport() {
       isQR:     cb.dataset.isqr === 'true',
       duration: parseInt(cb.dataset.duration) || 0,
       tbLocked: false,
+      // 取り込み画面で選んだタグ。選んでいなければ空（推測しない・v52.814）
       ...(window.itagGetTagsFor
         ? window.itagGetTagsFor(newId, cb.dataset.title, cb.dataset.folder || playlist, channel)
-        : (window.autoTagFromTitle ? window.autoTagFromTitle(cb.dataset.title) : { tb: [], cat: [], pos: [], tags: [] })),
+        : { tb: [], cat: [], pos: [], tags: [] }),
     };
     window.videos.push(v);
     newIds.push(newId);

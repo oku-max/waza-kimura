@@ -152,7 +152,8 @@
       const title = md.title || m.title || '';
       if (!title) noTitle++;
       const ytId  = m.id.startsWith('yt-') ? m.id.slice(3) : '';
-      const tt = (window.autoTagFromTitle && title) ? window.autoTagFromTitle(title) : { tb: [], cat: [], pos: [], tags: [] };
+      // 復元する動画にタグは推測で付けない（v52.814）。元のタグは戻らない旨は下の確認文に出る。
+      const tt = { tb: [], cat: [], pos: [], tags: [] };
       (window.videos = window.videos || []).push({
         id: m.id, ytId: ytId || undefined,
         pt: ytId ? 'youtube' : (m.id.startsWith('gd-') ? 'gdrive' : ''),

@@ -95,60 +95,7 @@ function aliasList() {
   });
 }
 
-// ─── REVERSAL_TRIGGERS 操作 ──────────────────────────────────
-
-function findReversalRange(content) {
-  const marker = 'const REVERSAL_TRIGGERS = [';
-  const start  = content.indexOf(marker);
-  if (start === -1) return null;
-  const arrStart = start + marker.length;
-  const arrEnd   = content.indexOf('];', arrStart);
-  if (arrEnd === -1) return null;
-  return { start: arrStart, end: arrEnd };
-}
-
-function parseReversalTriggers(block) {
-  const result = [];
-  const re = /'([^'\\]*)'/g;
-  let m;
-  while ((m = re.exec(block)) !== null) result.push(m[1]);
-  return result;
-}
-
-function formatReversalTriggers(triggers) {
-  if (!triggers.length) return '\n';
-  return '\n  ' + triggers.map(t => `'${t}'`).join(',') + ',\n';
-}
-
-function reversalList() {
-  const content = fs.readFileSync(TAG_MASTER, 'utf8');
-  const range   = findReversalRange(content);
-  return range ? parseReversalTriggers(content.substring(range.start, range.end)) : [];
-}
-
-function reversalAdd(trigger) {
-  const content  = fs.readFileSync(TAG_MASTER, 'utf8');
-  const range    = findReversalRange(content);
-  if (!range) return { ok: false, error: 'REVERSAL_TRIGGERS not found' };
-  const current  = parseReversalTriggers(content.substring(range.start, range.end));
-  if (current.includes(trigger)) return { ok: true, already: true };
-  current.push(trigger);
-  const next = content.substring(0, range.start) + formatReversalTriggers(current) + content.substring(range.end);
-  fs.writeFileSync(TAG_MASTER, next, 'utf8');
-  return { ok: true, added: true };
-}
-
-function reversalRemove(trigger) {
-  const content  = fs.readFileSync(TAG_MASTER, 'utf8');
-  const range    = findReversalRange(content);
-  if (!range) return { ok: false, error: 'REVERSAL_TRIGGERS not found' };
-  const current  = parseReversalTriggers(content.substring(range.start, range.end));
-  const filtered = current.filter(t => t !== trigger);
-  if (filtered.length === current.length) return { ok: true, notfound: true };
-  const next = content.substring(0, range.start) + formatReversalTriggers(filtered) + content.substring(range.end);
-  fs.writeFileSync(TAG_MASTER, next, 'utf8');
-  return { ok: true, removed: true };
-}
+// REVERSAL_TRIGGERS の編集APIは v52.814 で廃止（キーワード推定そのものを消したため）。
 
 // ─── HTTP server ─────────────────────────────────────────────
 
@@ -190,25 +137,6 @@ http.createServer(async (req, res) => {
     const body = await readBody(req);
     if (!body.catId || !body.alias) return json(res, { ok: false, error: 'catId and alias required' }, 400);
     return json(res, aliasRemove(body.catId, body.alias));
-  }
-
-  // GET /api/reversal-triggers → 現在のトリガーリスト
-  if (pathname === '/api/reversal-triggers' && req.method === 'GET') {
-    return json(res, reversalList());
-  }
-
-  // POST /api/reversal-trigger/add { trigger }
-  if (pathname === '/api/reversal-trigger/add' && req.method === 'POST') {
-    const body = await readBody(req);
-    if (!body.trigger) return json(res, { ok: false, error: 'trigger required' }, 400);
-    return json(res, reversalAdd(body.trigger));
-  }
-
-  // POST /api/reversal-trigger/remove { trigger }
-  if (pathname === '/api/reversal-trigger/remove' && req.method === 'POST') {
-    const body = await readBody(req);
-    if (!body.trigger) return json(res, { ok: false, error: 'trigger required' }, 400);
-    return json(res, reversalRemove(body.trigger));
   }
 
   // Static files
