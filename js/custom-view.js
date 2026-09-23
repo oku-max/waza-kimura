@@ -2695,22 +2695,28 @@ window._cvBulkAdd = function(ids) {
 };
 window._cvApply = function() {
   if (_editingViewId) {
-    const view = _views.find(v => v.id === _editingViewId);
-    if (view) { view.saveMode = 'static'; view.videoIds = [..._cvSelectedIds]; view.filterConditions = null; _save(); _renderTable(view); _renderViewBar(); }
+    // 先に編集画面を閉じて、開く前の絞り込みに戻してから保存・表示する（v52.817）。
+    // 逆順だと、保存後の表示切替（_renderTable→_showView）が編集中の一時的な絞り込みを
+    // 「そのリストの絞り込み」として記憶してしまい、閉じた後もライブラリに残っていた。
+    const viewId = _editingViewId;
     _editingViewId = null;
     window.uniCloseForCv?.();
+    const view = _views.find(v => v.id === viewId);
+    if (view) { view.saveMode = 'static'; view.videoIds = [..._cvSelectedIds]; view.filterConditions = null; _save(); _renderTable(view); _renderViewBar(); }
   } else {
     window.uniCloseForCv?.();
     _goStep3(null, [..._cvSelectedIds], 'static');
   }
 };
 window._cvSaveDynamic = function() {
-  const fc = _getCurrentFilterConditions();
+  const fc = _getCurrentFilterConditions();   // 閉じる前に、編集画面の条件を読み取っておく
   if (_editingViewId) {
-    const view = _views.find(v => v.id === _editingViewId);
-    if (view) { view.saveMode = 'dynamic'; view.filterConditions = fc; view.videoIds = null; _save(); _renderTable(view); _renderViewBar(); }
+    // 先に閉じてから保存・表示する（理由は _cvApply と同じ・v52.817）
+    const viewId = _editingViewId;
     _editingViewId = null;
     window.uniCloseForCv?.();
+    const view = _views.find(v => v.id === viewId);
+    if (view) { view.saveMode = 'dynamic'; view.filterConditions = fc; view.videoIds = null; _save(); _renderTable(view); _renderViewBar(); }
   } else {
     window.uniCloseForCv?.();
     _goStep3(fc, null, 'dynamic');
@@ -2886,11 +2892,17 @@ window.cvOpenConditionEditor = function(viewId) {
   window.favOnly = false; window.nextOnly = false; window.drillOnly = false;
   window.unwOnly = false; window.watchedOnly = false; window.bmOnly = false; window.memoOnly = false;
   if (view.saveMode === 'dynamic' && view.filterConditions) {
-    // 条件モード: 保存済み条件を正しいキー（action/position）で復元
+    // 条件モード: 保存済み条件を、編集画面（統合フィルター・ライブラリ文脈）が
+    // 実際に読むキー tbNew / cat / posNew に戻す（v52.817）。
+    // 以前は旧キー tb / action / position に戻していたため、上下・カテゴリ・ポジションの
+    // 条件が編集画面で選択状態に見えず、そのグループのチップを1つ押すと
+    // 見えていなかった古い条件が黙って置き換わっていた（Notion 確認事項01）。
+    // 保存側 _getCurrentFilterConditions は新キー優先・旧キーへフォールバックなので変えない。
+    ['tbNew', 'cat', 'posNew'].forEach(k => { if (!(f[k] instanceof Set)) f[k] = new Set(); });
     const fc = view.filterConditions;
-    if (f.tb)       (fc.tb  ||[]).forEach(x => f.tb.add(x));
-    if (f.action)   (fc.cat ||[]).forEach(x => f.action.add(x));
-    if (f.position) (fc.pos ||[]).forEach(x => f.position.add(x));
+    (fc.tb  ||[]).forEach(x => f.tbNew.add(x));
+    (fc.cat ||[]).forEach(x => f.cat.add(x));
+    (fc.pos ||[]).forEach(x => f.posNew.add(x));
     if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
     if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
     if (f.tags)     (fc.tech||[]).forEach(x => f.tags.add(x));
