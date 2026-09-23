@@ -425,6 +425,13 @@ function _buildPickerHTML() {
       </div>`;
     }
 
+    // 条件のうち、どの動画にも付いていない値（タグを消した・統合した後に残ったもの）
+    const dead = _cvDeadValues(v);
+    const deadHtml = dead.length
+      ? `<span class="cv-picker-dead" style="display:block;font-size:11px;color:#d97706;margin-top:2px">`
+        + `<span>⚠ 該当する動画が無い条件</span>: `
+        + `<span>${dead.map(d => _esc(d.value)).join('、')}</span></span>`
+      : '';
     return `<div class="cv-picker-item${isActive ? ' active' : ''}" onclick="window._cvPickerSelect('${v.id}')">
       <span class="cv-picker-icon">${icon}</span>
       <span class="cv-picker-info">
@@ -433,6 +440,7 @@ function _buildPickerHTML() {
           <button class="cv-picker-rename-btn" onclick="event.stopPropagation();window._cvRenameView('${v.id}')" title="名前を変更">✏️</button>
         </span>
         <span class="cv-picker-meta">${modeLbl} · ${cnt}</span>
+        ${deadHtml}
       </span>
       <span class="cv-picker-check">${isActive ? '✓' : ''}</span>
       ${_rowDispHTML(v.id, _viewTypeOf(v.id))}
@@ -1418,6 +1426,25 @@ function _applyConditions(fc, all) {
     return true;
   });
 }
+
+// 条件に入っているタグの値のうち、今どの動画にも付いていないもの（Notion 確認事項04）。
+// タグを消したり統合したりすると、条件リストは黙って0本になる。せめて見えるようにする。
+// 表示だけに使う。条件そのものは書き換えない（データ層に触れない）。
+// 動画がまだ読み込めていないときは判断しない（無いと嘘をつかない）。
+const _CV_TAG_FIELDS = [['tb', 'tb'], ['cat', 'cat'], ['pos', 'pos'], ['tech', 'tags']];  // 条件のキー → 動画のフィールド
+function _cvDeadValues(v) {
+  if (!v || v.saveMode !== 'dynamic' || !v.filterConditions) return [];
+  const all = window.videos || [];
+  if (!all.length) return [];
+  const fc = v.filterConditions, out = [];
+  for (const [ck, vk] of _CV_TAG_FIELDS) {
+    (fc[ck] || []).forEach(val => {
+      if (!all.some(x => (x[vk] || []).includes(val))) out.push({ key: vk, value: val });
+    });
+  }
+  return out;
+}
+window._cvDeadConditionValues = (viewId) => _cvDeadValues(_views.find(x => x.id === viewId));
 
 function _condSummary(fc) {
   if (!fc) return '';

@@ -290,9 +290,12 @@
     arr = arr.filter(r => r.sel || r.cnt > 0);
     const sortMode = (opts.sortable !== false) ? (_sort[listKey] || 'abc') : null;
 
+    // r.warn … 選択中なのに「どの動画にも無い」「選択肢に無い」値の印（タグ列だけが付ける）
     const _mkRow = r =>
       `<div class="uni-row${r.sel ? ' on' : ''}" onclick="uniToggle('${opts.filterKey}','${_esc(r.name).replace(/'/g,'&#39;')}')">` +
-      `<span>${_esc(r.name)}</span><span class="uni-cnt">${r.cnt}</span></div>`;
+      `<span>${_esc(r.name)}</span>` +
+      (r.warn ? `<span class="uni-warn" style="font-size:10px;color:#d97706;margin-left:6px;margin-right:auto;white-space:nowrap">⚠ ${_esc(r.warn)}</span>` : '') +
+      `<span class="uni-cnt">${r.cnt}</span></div>`;
 
     let rows;
     if (sortMode === 'grp') {
@@ -772,34 +775,40 @@
 
     else {
       // tag — lib: tbNew/cat/posNew/tags, org: tb/action/position/tags
-      const TB  = window.TB_VALUES || [];
       const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
 
-      const tbCtx = _ctxVideos('tb');
-      const tbItems = TB.map(n => ({
-        name:n, cnt: tbCtx.filter(v => (v.tb||[]).includes(n)).length, sel: !!f[tkTb]?.has(n)
-      }));
+      // 候補はユーザーの選択肢（tagPresets）から作る。サイドバーと同じ（Notion 確認事項03・v52.818）。
+      // 「タグがいつでも正」。以前は検索辞書（TB_VALUES / CATEGORIES / POSITIONS）から作っていたので、
+      // テンプレートから入れた値が出ず、上下は選択肢を変えても固定の3つのままだった。
+      // 今選択されている値は、選択肢から消えていても必ず出す（見えない条件を作らない）。
+      // その値がどの動画にも無ければ「該当する動画なし」、選択肢に無ければ「選択肢に無い」と印を付ける。
+      const _allVids = window.videos || [];
+      const _opts = (key, fallback) => (window.tagPresets ? window.tagPresets(key) : fallback()).slice();
+      const _mkItems = (field, fk, src, ctx) => {
+        const sel = f[fk] || new Set();
+        const names = src.slice();
+        [...sel].forEach(n => { if (!names.includes(n)) names.push(n); });
+        const inOpt = new Set(src);
+        return names.map(n => {
+          const it = { name: n, cnt: ctx.filter(v => (v[field] || []).includes(n)).length, sel: sel.has(n) };
+          if (it.sel && _allVids.length && !_allVids.some(v => (v[field] || []).includes(n))) it.warn = '該当する動画なし';
+          else if (it.sel && !inOpt.has(n)) it.warn = '選択肢に無い';
+          return it;
+        });
+      };
+
+      const tbItems  = _mkItems('tb',  tkTb,  _opts('tb',  () => window.TB_VALUES || []), _ctxVideos('tb'));
 
       const catLabel = window.tagLabel ? window.tagLabel('cat') : 'cat';
-      const catSrc   = (window.CATEGORIES || []).map(c => c.name);
-      const catCtx = _ctxVideos('cat');
-      const catItems = catSrc.map(n => ({
-        name:n, cnt: catCtx.filter(v => (v.cat||[]).includes(n)).length, sel: !!f[tkCat]?.has(n)
-      }));
+      const catItems = _mkItems('cat', tkCat, _opts('cat', () => (window.CATEGORIES || []).map(c => c.name)), _ctxVideos('cat'));
 
       const posLabel = window.tagLabel ? window.tagLabel('pos') : 'pos';
-      const posSrc   = (window.POSITIONS || []).map(p => p.ja);
-      const posCtx = _ctxVideos('pos');
-      const posItems = posSrc.map(n => ({
-        name:n, cnt: posCtx.filter(v => (v.pos||[]).includes(n)).length, sel: !!f[tkPos]?.has(n)
-      }));
+      const posItems = _mkItems('pos', tkPos, _opts('pos', () => (window.POSITIONS || []).map(p => p.ja)), _ctxVideos('pos'));
 
+      // 4つ目（自由タグ）は選択肢を持たない。動画に付いている値がそのまま候補（サイドバーと同じ）。
       const tagsLabel = window.tagLabel ? window.tagLabel('tags') : 'tags';
-      const tagsSrc   = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
-      const tagsCtx = _ctxVideos('tags');
-      const tagItems = tagsSrc.map(n => ({
-        name:n, cnt: tagsCtx.filter(v => (v.tags||[]).includes(n)).length, sel: !!f[tkTags]?.has(n)
-      }));
+      const tagsSrc   = [...new Set(_allVids.filter(v => !v.archived).flatMap(v => v.tags || []))].filter(Boolean).sort();
+      const tagItems  = _mkItems('tags', tkTags, tagsSrc, _ctxVideos('tags'));
 
       const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
       const tagCols = [

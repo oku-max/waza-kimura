@@ -33,7 +33,10 @@ const ctx = await b.newContext({ viewport: { width: 1200, height: 850 }, locale:
 await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), r => r.abort());
 const COND = { tb:['ボトム'], pos:['デラヒーバ'], cat:['スイープ'], tech:['アームバー'] };
 const VIEW = [{ id:'_t1', label:'テスト条件', saveMode:'dynamic', icon:'🔄', columns:[], rowData:{},
-  filterConditions: COND, searchQuery:'' }];
+  filterConditions: COND, searchQuery:'' },
+  // 03/04 用: 「消えた値」はどの動画にも無い。「外した値」は動画にはあるが選択肢に無い
+  { id:'_t2', label:'消えたタグを含む条件', saveMode:'dynamic', icon:'🔄', columns:[], rowData:{},
+  filterConditions: { pos:['消えた値','外した値','デラヒーバ'] }, searchQuery:'' }];
 await ctx.addInitScript(v => { localStorage.setItem('wk_cv_views', JSON.stringify(v)); localStorage.setItem('wk_lang','ja'); }, VIEW);
 const pg = await ctx.newPage();
 const errs = [];
@@ -97,6 +100,60 @@ const r5 = await pg.evaluate(async () => {
   const f = window.filters; return { posNew: [...(f.posNew||[])], cat: [...(f.cat||[])], tbNew: [...(f.tbNew||[])], tags: [...(f.tags||[])] };
 });
 ck('★ ライブラリ全体に戻っても、編集した条件が混ざっていない', !r5.posNew.length && !r5.cat.length && !r5.tbNew.length && !r5.tags.length, JSON.stringify(r5));
+
+console.log('\n── 03 候補はユーザーの選択肢から作る（タグがいつでも正）──');
+// この起動方法では Firebase が読めず、設定モジュール（tagPresets を配る側）が動かない。
+// 選択肢を配る関数だけをここで用意する。描画先の器は本物の index.html のまま。
+const r6 = await pg.evaluate(async () => {
+  window.videos = [
+    // 上下の候補は他の条件（ポジション）で絞った後の件数で出るので、条件に合う v1・v4 に上下を持たせる。
+    // v3 はテスト条件(_t1)の値（ボトム・ラッソー）を持たせ、_t1 に ⚠ が出ないようにする。
+    { id:'v1', title:'A', tb:['寝'],     pos:['デラヒーバ'],        cat:['スイープ'], tags:['アームバー'] },
+    { id:'v2', title:'B', tb:[],         pos:['テンプレ値'],        cat:[],          tags:[] },
+    { id:'v3', title:'C', tb:['ボトム'], pos:['サイド','ラッソー'], cat:[],          tags:[] },
+    { id:'v4', title:'D', tb:['立ち'],   pos:['外した値'],          cat:[],          tags:[] } ];
+  const OPTS = { tb:['立ち','寝'], cat:['スイープ'], pos:['デラヒーバ','テンプレ値','ラッソー'], tags:[] };
+  window.tagPresets = k => (OPTS[k] || []).slice();
+  window.uniCloseForCv?.();
+  window.cvOpenConditionEditor('_t2'); await new Promise(r => setTimeout(r, 400));
+  window.uniSetTab?.('tag'); await new Promise(r => setTimeout(r, 400));
+  const rows = [...document.querySelectorAll('#uni-popup .uni-row')].map(e => ({
+    name: e.querySelector('span')?.textContent.trim(), on: e.classList.contains('on'),
+    warn: e.querySelector('.uni-warn')?.textContent.trim() || '' }));
+  window.uniCloseForCv?.(); await new Promise(r => setTimeout(r, 200));
+  return rows;
+});
+const row = n => r6.find(x => x.name === n);
+ck('★ テンプレートから入れた値（辞書に無い）が候補に出る', !!row('テンプレ値'), JSON.stringify(r6.map(x=>x.name)));
+ck('★ 上下は自分の選択肢（立ち・寝）が出る', !!row('立ち') && !!row('寝'), JSON.stringify(r6.map(x=>x.name)));
+ck('★ 辞書にあっても選択肢に無い値は出ない（サイド・ボトム・スタンディング）', !row('サイド') && !row('ボトム') && !row('スタンディング'), JSON.stringify(r6.map(x=>x.name)));
+
+console.log('\n── 04 条件に残った、どの動画にも無い値 ──');
+ck('★ どの動画にも無い値も、選択中として見える', row('消えた値')?.on === true, JSON.stringify(row('消えた値')));
+ck('★ その値に「該当する動画なし」の印', /該当する動画なし/.test(row('消えた値')?.warn || ''), JSON.stringify(row('消えた値')));
+ck('★ 選択肢から外した値も見えて「選択肢に無い」の印', row('外した値')?.on === true && /選択肢に無い/.test(row('外した値')?.warn || ''), JSON.stringify(row('外した値')));
+ck('ふつうの値には印が付かない', row('デラヒーバ')?.on === true && !row('デラヒーバ')?.warn, JSON.stringify(row('デラヒーバ')));
+const r7 = await pg.evaluate(async () => {
+  const dead = window._cvDeadConditionValues('_t2');
+  window.cvOpenViewPicker?.(); await new Promise(r => setTimeout(r, 300));
+  const txt = [...document.querySelectorAll('.cv-picker-dead')].map(e => e.textContent.trim());
+  window._closePicker?.();
+  return { dead, txt };
+});
+ck('判定は「どの動画にも無い値」だけを返す', JSON.stringify(r7.dead) === JSON.stringify([{key:'pos',value:'消えた値'}]), JSON.stringify(r7.dead));
+ck('★ リストの一覧にも ⚠ が出る', r7.txt.some(t => /該当する動画が無い条件/.test(t) && /消えた値/.test(t)), JSON.stringify(r7.txt));
+ck('問題の無いリストには出ない', r7.txt.length === 1, JSON.stringify(r7.txt));
+
+console.log('\n── 印の付いた値を外して保存できる ──');
+const r8 = await pg.evaluate(async () => {
+  window.cvOpenConditionEditor('_t2'); await new Promise(r => setTimeout(r, 400));
+  window.uniToggle('posNew', '消えた値'); await new Promise(r => setTimeout(r, 200));
+  window._cvSaveDynamic(); await new Promise(r => setTimeout(r, 300));
+  const v = JSON.parse(localStorage.getItem('wk_cv_views') || '[]').find(x => x.id === '_t2');
+  return v && v.filterConditions;
+});
+ck('★ 消えた値だけが外れ、他の条件は残る', JSON.stringify(r8?.pos) === JSON.stringify(['外した値','デラヒーバ']), JSON.stringify(r8));
+ck('外した後は ⚠ が消える', (await pg.evaluate(() => window._cvDeadConditionValues('_t2'))).length === 0);
 
 console.log('\n── 最後までのエラー ──');
 errs.length ? errs.forEach(e => { console.log('  ✗ ' + e); fail++; }) : console.log('  ✓ なし');

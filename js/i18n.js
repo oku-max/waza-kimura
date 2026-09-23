@@ -232,6 +232,10 @@
     'トップ / ボトム / スタンディング': 'Top / Bottom / Standing',
     '自由に作っていいことの見本': 'An example of one you can make yourself',
     '試合で使う': 'Use in competition',
+    // ── 条件リストに残った、どの動画にも無い値の印（v52.818・Notion 確認事項03/04）──
+    '該当する動画なし': 'no matching videos',
+    '選択肢に無い': 'not in your options',
+    '該当する動画が無い条件': 'Conditions with no matching videos',
     // 管理画面のタブ（テンプレートの中身を育てる場所・Notion 項目15）
     'テンプレ: 動作の種類': 'Template: Action types',
     'テンプレ: ポジション': 'Template: Positions',
