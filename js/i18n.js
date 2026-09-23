@@ -236,6 +236,15 @@
     '該当する動画なし': 'no matching videos',
     '選択肢に無い': 'not in your options',
     '該当する動画が無い条件': 'Conditions with no matching videos',
+    // ── タグを消す・統合する・仕分けるとき、条件に使っているリストを知らせる（v52.819・Notion 確認事項02）──
+    '別のグループへ移すと、これらのリストに出てくる動画が減ります（0本になることもあります）。': 'Moving to another group will reduce the videos these lists show (possibly to 0).',
+    'リストの条件は書き換えません。あとで各リストの「編集」で直してください（⚠ が付きます）。': 'List conditions are not rewritten. Fix them later via each list\'s "Edit" (they will show ⚠).',
+    '消すと、これらのリストに出てくる動画が減ります（0本になることもあります）。': 'Deleting will reduce the videos these lists show (possibly to 0).',
+    'リストの条件は書き換えません（⚠ が付きます）。': 'List conditions are not rewritten (they will show ⚠).',
+    'リストの条件も、統合先の名前に書き換えますか？': 'Also rewrite the list conditions to the merged name?',
+    '［OK］書き換える … リストは今までどおりの動画を拾う': '[OK] Rewrite … the lists keep showing the same videos',
+    '［キャンセル］書き換えない … リストに ⚠ が付き、出てくる動画が減る': '[Cancel] Don\'t rewrite … the lists show ⚠ and fewer videos',
+    '（どちらを選んでも、タグの統合そのものは行います）': '(Either way, the tags themselves will be merged)',
     // 管理画面のタブ（テンプレートの中身を育てる場所・Notion 項目15）
     'テンプレ: 動作の種類': 'Template: Action types',
     'テンプレ: ポジション': 'Template: Positions',
@@ -2106,6 +2115,11 @@
     "✅ #本のGDrive動画の長さを取得しました#": "✅ Got durations for # Drive videos",
     "# | # | #本公開 | フォロワー#": "# | # | # public | # followers",
     "#本に追加": "Added to # videos","#本から除去": "Removed from # videos",
+    // ── タグの影響を受けるカスタムリスト（v52.819・Notion 確認事項02）──
+    ', リスト#個の条件を書き換え': ', rewrote conditions in # lists',
+    '#件のタグを消します。': 'Deleting # tags.',
+    '#件を分類し、#件を禁止リストへ入れます。': 'Sorting #, blocking #.',
+    'ほか#個': 'and # more',
   };
 
   // 「1時間6分」「54分」を英語表記へ。訳せない形はそのまま返す
@@ -2128,6 +2142,11 @@
       (m, name, n) => `Added ${n} from "${name}"`],
     [/^テンプレート名を「(.+?)」にしました$/, (m, name) => `Renamed the template to "${name}"`],
     [/^テンプレート「(.+?)」を削除しました$/, (m, name) => `Deleted the template "${name}"`],
+    // ── タグを条件に使っているカスタムリスト（リスト名が入る・v52.819・Notion 確認事項02）──
+    [/^⚠ カスタムリスト (\d+)個 が、この値を条件に使っています: (.+)$/,
+      (m, n, names) => `⚠ ${n} custom list${n === '1' ? '' : 's'} use${n === '1' ? 's' : ''} this value as a condition: ${names}`],
+    [/^統合するタグを、カスタムリスト (\d+)個 が条件に使っています: (.+)$/,
+      (m, n, names) => `${n} custom list${n === '1' ? '' : 's'} use${n === '1' ? 's' : ''} the tags being merged as conditions: ${names}`],
     // ── タググループのテンプレート適用の結果（テンプレ名が入る・Notion 項目04）──
     [/^「(.+?)」から (\d+)件 を追加（重複 (\d+)件 は飛ばしました）$/,
       (m, name, add, dup) => `Added ${add} from "${name}" (skipped ${dup} already there)`],

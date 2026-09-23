@@ -773,8 +773,10 @@ window._tagModalGhostKeep = function(key, name) {
 
 // 動画から消す。取り消せないので件数を見せて確認する（Notion 項目11）。
 window._tagModalGhostDrop = function(key, name, n) {
+  // この値を条件に使っているカスタムリストがあれば、確認文で知らせる（Notion 確認事項02）
+  const cvNote = window._cvTagUsageNote?.([name], [key], 'delete') || '';
   if (!window.confirm(`「${name}」を動画 ${n}件 から削除します。\n`
-    + 'この操作は取り消せません。全デバイスに反映されます。\n\n続けますか？')) return;
+    + 'この操作は取り消せません。全デバイスに反映されます。' + cvNote + '\n\n続けますか？')) return;
   let hit = 0;
   (window.videos || []).forEach(v => {
     if (v[key]?.length && v[key].includes(name)) { v[key] = v[key].filter(x => x !== name); hit++; }
@@ -1733,7 +1735,9 @@ async function _bulkTagDelete(rows) {
     window.alert('バックアップを書き出せないため中止します。');
     return;
   }
-  if (!window.confirm(`「${names}」を動画 ${hit.length}本 から外します。\n\n`
+  // このグループに条件を持つカスタムリストがあれば知らせる（Notion 確認事項02）
+  const cvNote = window._cvTagUsageNote?.(null, keys, 'delete') || '';
+  if (!window.confirm(`「${names}」を動画 ${hit.length}本 から外します。` + cvNote + '\n\n'
     + 'まずバックアップのファイルを書き出します。\n続けますか？')) return;
   try { await window.wazaExportLight(); }
   catch (e) { window.alert('バックアップに失敗したので中止しました。\n' + e); return; }
@@ -2084,6 +2088,25 @@ function _applyTechCleanup(tagIdx, analysis) {
     return;
   }
 
+  // ── 条件リストへの影響（Notion 確認事項02）──
+  // 統合で名前が変わるタグ／消えるタグを条件に使っているカスタムリストがあれば、実行前に聞く。
+  // どのリストも使っていなければ、今までどおり何も聞かない。
+  const _cvField = tagSettings[tagIdx]?.key || 'tags';
+  const _renamed = Object.keys(renameMap);
+  const _deleted = [...toRemove].filter(t => !renameMap[t]);
+  const _cvRenameLists = _renamed.length ? (window._cvListsUsingTags?.(_renamed, [_cvField]) || []) : [];
+  let _cvRewrite = false;
+  if (_cvRenameLists.length) {
+    const nm = _cvRenameLists.slice(0, 5).map(l => `「${l.label}」`).join('、') + (_cvRenameLists.length > 5 ? ` ほか${_cvRenameLists.length - 5}個` : '');
+    _cvRewrite = window.confirm(`統合するタグを、カスタムリスト ${_cvRenameLists.length}個 が条件に使っています: ${nm}\n\n`
+      + 'リストの条件も、統合先の名前に書き換えますか？\n\n'
+      + '［OK］書き換える … リストは今までどおりの動画を拾う\n'
+      + '［キャンセル］書き換えない … リストに ⚠ が付き、出てくる動画が減る\n\n'
+      + '（どちらを選んでも、タグの統合そのものは行います）');
+  }
+  const _cvDelNote = _deleted.length ? (window._cvTagUsageNote?.(_deleted, [_cvField], 'delete') || '') : '';
+  if (_cvDelNote && !window.confirm(`${_deleted.length}件のタグを消します。` + _cvDelNote + '\n\n続けますか？')) return;
+
   // プリセットから削除
   tagSettings[tagIdx].presets = presets.filter(t => !toRemove.has(t));
 
@@ -2117,10 +2140,14 @@ function _applyTechCleanup(tagIdx, analysis) {
   saveTagSettings();
   window.debounceSave?.();
 
+  // 選んだ場合だけ、条件リストの中の名前も統合先に付け替える（置き換えるだけ。空にはしない）
+  const _cvRewritten = _cvRewrite ? (window._cvRewriteTagInConditions?.(renameMap, _cvField) || 0) : 0;
+
   modal.remove();
   renderTagSettingsList();
   const blockNote = blockedTags.length ? `, ${blockedTags.length}件禁止リスト追加` : '';
-  window.toast?.(`🔧 ${toRemove.size}件削除, ${renameCount}件リネーム（${removeCount}箇所の動画タグを更新${blockNote}）`);
+  const cvNote = _cvRewritten ? `, リスト${_cvRewritten}個の条件を書き換え` : '';
+  window.toast?.(`🔧 ${toRemove.size}件削除, ${renameCount}件リネーム（${removeCount}箇所の動画タグを更新${blockNote}${cvNote}）`);
 }
 
 // ── 一括削除モード ──
@@ -2419,6 +2446,20 @@ window._tagSortMode = function() {
     sheet.innerHTML = summaryHtml;
 
     document.getElementById('sort-apply-btn').onclick = () => {
+      // ── 条件リストへの影響（Notion 確認事項02）──
+      // 仕分けは値を別のグループへ移す。移す「元」のグループでその値を条件にしているリストは、
+      // 動画が減る（移す先のグループで条件にしているリストは影響なし）。禁止リストへ入れる値は消える。
+      // どのリストも影響を受けなければ、今までどおり何も聞かない。
+      const _mv = new Map();
+      assigned.forEach(r => {
+        const from = ['tb', 'cat', 'pos', 'tags'].filter(f => f !== r.targetKey);
+        (window._cvListsUsingTags?.([r.tag], from) || []).forEach(l => _mv.set(l.id, l));
+      });
+      const _mvNote  = window._cvUsageNoteFromLists?.([..._mv.values()], 'move') || '';
+      const _blkNote = blocked.length ? (window._cvTagUsageNote?.(blocked.map(r => r.tag), null, 'delete') || '') : '';
+      if ((_mvNote || _blkNote) && !window.confirm(`${assigned.length}件を分類し、${blocked.length}件を禁止リストへ入れます。`
+          + _mvNote + _blkNote + '\n\n続けますか？')) return;
+
       // 分類を適用: プリセットに追加
       assigned.forEach(r => {
         if (!tagSettings[r.targetIdx].presets.includes(r.tag)) {
