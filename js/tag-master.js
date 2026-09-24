@@ -13,7 +13,10 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 // ════════════════════════════════════════════════════
 // name    : 表示名
 // desc    : カテゴリの定義（何を指すか）
-// aliases : タイトル・PL名・チャンネル名からの自動検出キーワード（検索にも使用）
+// aliases : 分類用の語彙。**検索には使わない**（v52.821。技名がカテゴリに化けて棚の6割に
+//           当たっていたため）。terms も同じで、入れてよいのは**その名前の直訳と形違いだけ**。
+//           別の言い方（reversal / throw / guard recovery / submission 等）は入れない。
+//           検査 search-dict-check ⑦ が、増えたら赤くする。
 //
 // カテゴリ定義:
 //   エスケープ・ディフェンス = 不利ポジションから逃げる・守る動作
@@ -33,15 +36,15 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 //         英語タイトルの動画を日本語で検索したときに拾うために使う。
 const CATEGORIES = [
   { id: 'escape',    name: 'エスケープ・ディフェンス',     tb: '中立',           desc: '不利ポジションからの脱出と防御',             aliases: [], terms: ['escape','escapes','defense','defence'] },
-  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [], terms: ['guard entry','entry','entries'] },
-  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [], terms: ['guard retention','retention','guard recovery'] },
+  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [], terms: ['guard entry','guard entries'] },
+  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [], terms: ['guard retention','retention'] },
   { id: 'control',   name: 'コントロール／プレッシャー',   tb: '中立',           desc: 'トップポジションの維持・押さえ',             aliases: [], terms: ['control','pressure'] },
-  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [], terms: ['concept','concepts','principle','principles','theory'] },
-  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [], terms: ['sweep','sweeps','reversal'] },
-  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [], terms: ['takedown','takedowns','throw','throws'] },
-  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [], terms: ['back take','back attack','back control','taking the back'] },
-  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [], terms: ['guard pass','passing','pass','passes'] },
-  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [], terms: ['submission','submissions','finish','finishing'] },
+  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [], terms: ['concept','concepts','principle','principles'] },
+  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [], terms: ['sweep','sweeps'] },
+  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [], terms: ['takedown','takedowns'] },
+  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [], terms: ['back take','back attack'] },
+  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [], terms: ['guard pass','guard passing'] },
+  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [], terms: ['finish','finishing'] },
 ];
 
 // ─── Layer 3: Position (27 fixed) ────────────────────

@@ -193,5 +193,48 @@ console.log('■ ⑥ ポジションの別名に「別のポジション／技�
     : fail(`「ロックダウン」→ ${got3.join(',') || '(0件)'}（期待: ロックダウンの動画だけ）`);
 }
 
+// ⑦ カテゴリが返す語は「その名前の直訳と形違い」だけであること
+// 2026-09-24、aliases を切った後も terms に別の言い方が残っていた。
+//   パスガード → pass / passes / passing（"pass" が入っている動画が全部出る）
+//   スイープ → reversal / テイクダウン → throw / フィニッシュ → submission
+//   バックテイク → back control / taking the back
+// 「そのカテゴリを指しうる言葉」ではなく「その名前の別言語表記」だけを置く。
+// ここは増えたら赤くする（増やすときは、それが本当に名前の訳かを人が見て決める）。
+console.log('■ ⑦ カテゴリが返す語が、名前の直訳だけであること');
+{
+  const EXPECT = {
+    'escape':    ['escape','escapes','defense','defence'],
+    'entry':     ['guard entry','guard entries'],
+    'retention': ['guard retention','retention'],
+    'control':   ['control','pressure'],
+    'concept':   ['concept','concepts','principle','principles'],
+    'sweep':     ['sweep','sweeps'],
+    'takedown':  ['takedown','takedowns'],
+    'back':      ['back take','back attack'],
+    'pass':      ['guard pass','guard passing'],
+    'finish':    ['finish','finishing'],
+  };
+  let bad = 0;
+  for (const c of CATS) {
+    const want = EXPECT[c.id];
+    if (!want) { fail(`カテゴリ ${c.id} が検査に無い（足したなら、その語が名前の訳か確かめて検査に書く）`); bad++; continue; }
+    const got = (c.terms || []).map(String);
+    if (got.join('|') !== want.join('|')) {
+      fail(`カテゴリ「${c.name}」が返す語が変わった: ${got.join(' / ')}（想定: ${want.join(' / ')}）`);
+      bad++;
+    }
+  }
+  if (!bad) ok(`10カテゴリとも、名前の訳と形違いだけ（別の言い方は入っていない）`);
+
+  const V4 = [
+    { id:'パスガードの動画', title:'ガードパスの基本',        tags:[], pos:[], cat:['パスガード'], memo:'' },
+    { id:'関係ない pass',   title:'Pass the Bar Exam',       tags:[], pos:[], cat:[], memo:'' },
+  ];
+  const got4 = V4.filter(v => q._matchQuery(v, q._parseQuery('パスガード'), null)).map(v => v.id);
+  got4.includes('関係ない pass')
+    ? fail(`「パスガード」が "pass" だけの動画まで拾う → ${got4.join(',')}`)
+    : ok('「パスガード」で、"pass" が入っているだけの動画は拾わない');
+}
+
 console.log(ng ? `\n✗ ${ng} 件の問題` : '\n✓ 全部通過');
 process.exit(ng ? 1 : 0);
