@@ -78,6 +78,8 @@ for (const f of files) {
   // 検索用データで、画面には出ない。未訳として数えると本物のUI文言が埋もれるので外す。
   if (f === 'js/tag-master.js') {
     src = src.replace(/(aliases):\s*\[[^\]]*\]/g, '$1: []');
+    // 半角カナ→全角カナの変換テーブル（_HK_* / _FK_*）は文字の対応表で、画面には出ない
+    src = src.replace(/^const _(HK|FK)_[A-Z] = '[^']*';$/gm, '');
     src = src.slice(0, src.indexOf('const SEARCH_DICT = [')) + src.slice(src.indexOf('window.SEARCH_DICT'));
   }
   let m;

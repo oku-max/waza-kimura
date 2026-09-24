@@ -90,9 +90,28 @@ const POSITIONS = [
 //   ・長音 (ー)
 //   ・区切り記号 (空白・- _ / ・)
 //   ・末尾「ガード」「Guard」
+// 半角カナ → 全角カナ（ｽｲｰﾌﾟ ＝ スイープ）。濁点・半濁点の合字も1文字に直す。
+const _HK_D = 'ｶﾞｷﾞｸﾞｹﾞｺﾞｻﾞｼﾞｽﾞｾﾞｿﾞﾀﾞﾁﾞﾂﾞﾃﾞﾄﾞﾊﾞﾋﾞﾌﾞﾍﾞﾎﾞﾊﾟﾋﾟﾌﾟﾍﾟﾎﾟｳﾞ';
+const _FK_D = 'ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポヴ';
+const _HK_S = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝｧｨｩｪｫｯｬｭｮｰ･';
+const _FK_S = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンァィゥェォッャュョー・';
+function _hankakuKana(v) {
+  if (!/[\uFF61-\uFF9F]/.test(v)) return v;
+  let out = '';
+  for (let i = 0; i < v.length; i++) {
+    const two = v.substr(i, 2);
+    const d = _HK_D.indexOf(two);
+    if (d >= 0 && d % 2 === 0) { out += _FK_D[d / 2]; i++; continue; }
+    const k = _HK_S.indexOf(v[i]);
+    out += (k >= 0) ? _FK_S[k] : v[i];
+  }
+  return out;
+}
+window._hankakuKanaTag = _hankakuKana;
+
 function _norm(s) {
   if (s == null) return '';
-  let v = String(s);
+  let v = _hankakuKana(String(s));
   // 全角英数 → 半角
   v = v.replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
   // カタカナ → ひらがな
@@ -111,7 +130,7 @@ function _norm(s) {
 
 // ── 全角→半角＋小文字化（ASCII語の単語境界マッチ用） ──
 function _rawLower(s) {
-  return String(s == null ? '' : s)
+  return _hankakuKana(String(s == null ? '' : s))
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
     .toLowerCase();
 }
@@ -128,7 +147,8 @@ function _termHit(term, rawLower, tNorm) {
     const esc = core
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       .replace(/[\s\-_]+/g, '[\\s\\-_]+');
-    return new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').test(rawLower);
+    // 末尾の複数形（s / es）は同じ語として扱う。'heel hook' で "Heel Hooks"、'guillotine' で "guillotines" に当てるため。
+    return new RegExp('(^|[^a-z0-9])' + esc + '(?:e?s)?($|[^a-z0-9])').test(rawLower);
   }
   const n = _norm(term);
   return n.length >= 2 && tNorm.includes(n);

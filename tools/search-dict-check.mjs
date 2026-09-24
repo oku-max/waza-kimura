@@ -174,5 +174,31 @@ console.log('■ ⑥ 実物の検索で確かめる');
   }
 }
 
+// ⑦ 書き方の揺れは、辞書に並べるのではなく正規化で吸収していること
+// 「Heel Hooks」に当てるために辞書へ 'heel hooks' と書き足すのはキリがない。
+// 検索語とタイトルの両方を同じ形に揃えて突き合わせる（v52.826）。
+console.log('■ ⑦ 書き方の揺れが、辞書に書き足さなくても効くこと');
+{
+  const hit = (word, title) => !!q._matchQuery({ title, tags:[], pos:[], cat:[], memo:'' }, q._parseQuery(word), null);
+  const cases = [
+    ['デラヒーバ', 'ＤＬＲの入り方',        '全角の英字'],
+    ['デラヒーバ', 'delariva pass',         '区切り無し'],
+    ['デラヒーバ', 'De-La-Riva Sweep',      'ハイフン区切り'],
+    ['ﾃﾞﾗﾋｰﾊﾞ',   'デラヒーバの基本',       '半角カナで検索'],
+    ['スイープ',   'ｽｲｰﾌﾟの基本',           '半角カナの本文'],
+    ['ヒールフック','Heel Hooks 101',        '英語の複数形'],
+    ['ギロチン',   'guillotines',           '英語の複数形'],
+    ['でらひーば', 'デラヒーバの基本',       'ひらがなで検索'],
+  ];
+  const ngList = cases.filter(([w, t]) => !hit(w, t));
+  ngList.length
+    ? ngList.forEach(([w, t, why]) => fail(`「${w}」→「${t}」が当たらない（${why}）`))
+    : ok(`${cases.length} 通りの書き方の揺れが、辞書に書き足さずに当たる`);
+  // 広げすぎていないこと（単語境界は保つ）
+  hit('pass', 'compass drills')
+    ? fail('"pass" が "compass" に当たっている（単語の区切りが効いていない）')
+    : ok('"pass" は "compass" に当たらない（単語の区切りは保っている）');
+}
+
 console.log(ng ? `\n✗ ${ng} 件の問題` : '\n✓ 全部通過');
 process.exit(ng ? 1 : 0);
