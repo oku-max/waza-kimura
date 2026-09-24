@@ -148,7 +148,11 @@ const POSITION_INDEX = _buildPositionIndex();
 function _buildCategoryIndex() {
   const idx = new Map();
   for (const c of CATEGORIES) {
-    const keys = [c.id, c.name, ...(c.aliases || []), ...(c.terms || [])];
+    // aliases（ユーザー/AIが登録した「この語はこのカテゴリに入る」の分類キーワード）は
+    // 索引に入れない。入れると「ロングステップ」のような技名がカテゴリ「パスガード」に化け、
+    // そのカテゴリの別名全部(117語)に展開されて棚の6割に当たっていた（v52.821 で実測）。
+    // 索引に置くのは、そのカテゴリ自身の名前と、その日英表記(terms)だけ。
+    const keys = [c.id, c.name, ...(c.terms || [])];
     for (const k of keys) {
       const n = _norm(k);
       if (n && !idx.has(n)) idx.set(n, c);
@@ -185,7 +189,9 @@ function aliasNamesFor(q) {
   const p = POSITION_INDEX.get(n);
   if (p) return [p.ja, p.en, ...(p.aliases || [])].filter(Boolean);
   const c = CATEGORY_INDEX.get(n);
-  if (c) return [c.name, ...(c.aliases || []), ...(c.terms || [])].filter(Boolean);
+  // カテゴリは「そのカテゴリ名の日英表記」だけを返す。aliases（分類キーワード＝
+  // そのカテゴリに属する別々の技の名前）へは広げない。関連で拾わないための線。
+  if (c) return [c.name, ...(c.terms || [])].filter(Boolean);
   if (!_TECHNIQUE_INDEX) _TECHNIQUE_INDEX = _buildTechniqueIndex();
   const t = _TECHNIQUE_INDEX.get(n);
   if (t) return [t.ja, ...(t.terms || [])].filter(Boolean);

@@ -438,7 +438,9 @@ export function _matchQueryField(v, text, exact, fields) {
   if (window.findCategory) {
     for (const c of (v.cat || [])) {
       const def = window.findCategory(c);
-      if (def) aliasKeys.push(def.id, def.name, ...(def.aliases || []));
+      // aliases は分類キーワードなので使わない（別の技の名前で、そのカテゴリの動画が
+      // 全部当たってしまう）。ポジションの aliases は同じ場所の別表記なので使ってよい。
+      if (def) aliasKeys.push(def.id, def.name);
     }
   }
   if (!aliasKeys.length) return false;

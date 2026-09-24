@@ -134,5 +134,34 @@ expect('肩固め',         ['肩固め']);
 expect('スマッシュパス', ['スマッシュパス']);
 expect('デラヒーバ',     ['デラヒーバ']);
 
+// ⑤ 分類キーワード（カテゴリの別名）で検索が広がらないこと
+// 2026-09-24、オーナーの棚で「ロングステップ」が 2824本中 1725本に当たった。
+// Firestore から読み込まれたカテゴリ「パスガード」の別名117語に化け、その中の
+// pass / smash / drag / stack / cut のような広い語が当たっていた。
+// 別名は「この語はこのカテゴリに入る」という分類用の表で、同義語ではない。
+// ログイン後に非同期で読み込まれるため、間に合う前は22件・後は1725件と結果が変わっていた。
+console.log('■ ⑤ カテゴリの分類キーワードで検索が広がらないこと');
+{
+  const cat = (window.CATEGORIES || []).find(c => c.id === 'pass');
+  if (!cat) fail('カテゴリ pass が見つからない');
+  else {
+    cat.aliases = ['ロングステップ', 'スマッシュパス', 'smash', 'drag', 'stack', 'cut', 'パス'];
+    window.rebuildCategoryIndex?.();
+    const names = aliasNamesFor('ロングステップ') || [];
+    const leaked = names.filter(n => ['smash', 'drag', 'stack', 'cut', 'パス', 'スマッシュパス'].includes(String(n)));
+    leaked.length
+      ? fail(`別名に登録した技名で検索すると、カテゴリの別名(${leaked.join(' / ')})まで広がる`)
+      : ok('別名に技名を登録しても、その語はカテゴリに化けない');
+    const V2 = [
+      { id:'語が入っている', title:'ロングステップパスのやり方', tags:[], pos:[], cat:['パスガード'], memo:'' },
+      { id:'同じカテゴリの別の技', title:'Smash Pass Basics', tags:[], pos:[], cat:['パスガード'], memo:'' },
+    ];
+    const got = V2.filter(v => q._matchQuery(v, q._parseQuery('ロングステップ'), null)).map(v => v.id);
+    (got.length === 1 && got[0] === '語が入っている')
+      ? ok('「ロングステップ」で、同じカテゴリの別の技は出ない')
+      : fail(`「ロングステップ」→ ${got.join(',') || '(0件)'}（期待: 語が入っているものだけ）`);
+  }
+}
+
 console.log(ng ? `\n✗ ${ng} 件の問題` : '\n✓ 全部通過');
 process.exit(ng ? 1 : 0);
