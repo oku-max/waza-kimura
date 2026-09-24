@@ -76,19 +76,16 @@ console.log('■ ③ 語の持ち主が1行に決まること');
 // ── ④ 効かない語・広すぎる語を置いていないこと ──
 console.log('■ ④ 引いても効かない語・広すぎる語が無いこと');
 {
-  // カテゴリ名の行は、名前そのものが広い（「スイープ」「コントロール」）。
-  // だから広さでは判定できない。中身を固定して、増えたら赤くする。
-  const CAT_ROWS = {
-    'エスケープ・ディフェンス':   ['escape','escapes','defense','defence'],
-    'ガード構築・エントリー':     ['guard entry','guard entries'],
-    'ガードリテンション':         ['guard retention','retention'],
-    'コントロール／プレッシャー': ['control','pressure'],
-    'コンセプト・原理':           ['concept','concepts','principle','principles'],
-    'スイープ':                   ['sweep','sweeps'],
-    'テイクダウン':               ['takedown','takedowns'],
-    'バックテイク・バックアタック': ['back take','back attack'],
-    'パスガード':                 ['guard pass','guard passing'],
-    'フィニッシュ':               ['finish','finishing'],
+  // 「スイープ」「エスケープ」のように、語そのものが広いが実在する言葉がある。
+  // これは広さでは判定できないので、その行だけ中身を固定して、増えたら赤くする。
+  // （タグ体系のカテゴリ一覧とは関係ない。辞書はタグの層から独立している）
+  const BROAD_OK = {
+    'スイープ':           ['sweep','sweeps'],
+    'テイクダウン':       ['takedown','takedowns'],
+    'エスケープ':         ['escape','escapes'],
+    'サブミッション':     ['submission','submissions','サブミ'],
+    'ガードリテンション': ['guard retention','retention','リテンション'],
+    'パスガード':         ['guard pass','guard passing','ガードパス'],
   };
   const TOO_BROAD = ['pass','passing','guard','sweep','choke','submission','escape','defense','control',
                      'pressure','position','takedown','throw','finish','concept','entry','retention',
@@ -100,29 +97,44 @@ console.log('■ ④ 引いても効かない語・広すぎる語が無いこ�
     if (rest.length === 0)     { fail(`「${head}」の行に別表記が無い（辞書に置く意味がない）`); bad++; }
     if (!row.some(x => /^[\x20-\x7E]+$/.test(x))) { fail(`「${head}」の行に英字表記が無い（別言語に届かない）`); bad++; }
 
-    if (CAT_ROWS[head]) {   // カテゴリ名の行: 中身が変わっていないか
+    if (BROAD_OK[head]) {   // 広いが実在する言葉: 中身が変わっていないか
       catSeen++;
-      if (rest.join('|') !== CAT_ROWS[head].join('|')) {
-        fail(`カテゴリ「${head}」の行が変わった: ${rest.join(' / ')}（想定: ${CAT_ROWS[head].join(' / ')}）`);
+      if (rest.join('|') !== BROAD_OK[head].join('|')) {
+        fail(`「${head}」の行が変わった: ${rest.join(' / ')}（想定: ${BROAD_OK[head].join(' / ')}）`);
         bad++;
       }
-      continue;             // 名前自体が広いので、下の「広すぎる語」判定はしない
+      continue;             // 語自体が広いので、下の「広すぎる語」判定はしない
     }
     for (const w of rest) {
       if (TOO_BROAD.includes(String(w).toLowerCase().trim())) { fail(`「${head}」に広すぎる語「${w}」`); bad++; }
     }
   }
-  if (catSeen !== Object.keys(CAT_ROWS).length) { fail(`カテゴリ名の行が ${catSeen}/${Object.keys(CAT_ROWS).length} しかない`); bad++; }
+  if (catSeen !== Object.keys(BROAD_OK).length) { fail(`広い言葉の行が ${catSeen}/${Object.keys(BROAD_OK).length} しかない（消したなら検査も直す）`); bad++; }
   if (!bad) ok('代表表記が引けること・英字表記があること・広すぎる語が無いこと、すべて満たしている');
 }
 
-// ── ⑤ タグの層の名前が、全部この1枚に載っていること ──
-console.log('■ ⑤ 画面に出るタグの名前が、検索辞書に載っていること');
+// ── ⑤ 核になる語が、ちゃんと引けること ──
+// 辞書はタグ体系と独立（タグはユーザーが自由に作るものになった）。
+// だから「画面の選択肢と一致しているか」ではなく「BJJの言葉として引けるか」を見る。
+console.log('■ ⑤ 核になる語が引けること');
 {
-  let miss = 0;
-  for (const p of POS)  if (p.ja !== 'その他' && !aliasNamesFor(p.ja).length) { fail(`ポジション「${p.ja}」が検索辞書に無い（英語タイトルに届かない）`); miss++; }
-  for (const c of CATS) if (!aliasNamesFor(c.name).length) { fail(`カテゴリ「${c.name}」が検索辞書に無い`); miss++; }
-  if (!miss) ok(`ポジション${POS.length - 1}件・カテゴリ${CATS.length}件とも辞書にある`);
+  const CORE = ['デラヒーバ','リバースデラヒーバ','ハーフガード','クローズドガード','バタフライガード',
+                'スパイダーガード','ラッソーガード','Xガード','SLX','サドル','タートル',
+                'マウント','サイドコントロール','バックコントロール','ニーオンベリー',
+                'パスガード','ニーカット','レッグドラッグ','トレアドール','ロングステップ',
+                'スイープ','シザースイープ','ベリンボロ','アームバー','三角絞め','キムラ',
+                'ギロチン','リアネイキドチョーク','ヒールフック','ニーバー','アンクルロック',
+                'エスケープ','ヒップエスケープ','引き込み','シングルレッグタックル','ダブルレッグ','内股'];
+  const miss = CORE.filter(w => !aliasNamesFor(w).length);
+  miss.length ? fail(`核になる語が引けない: ${miss.join(' / ')}`)
+              : ok(`核になる語 ${CORE.length} 語すべて引ける`);
+  // 日→英・英→日が両方向で効くこと
+  const both = [['デラヒーバ','de la riva'], ['ニーカット','knee cut'], ['三角絞め','triangle choke'], ['引き込み','guard pull']];
+  const ngBoth = both.filter(([ja,en]) =>
+    !aliasNamesFor(ja).some(x => String(x).toLowerCase() === en) ||
+    !aliasNamesFor(en).some(x => x === ja));
+  ngBoth.length ? fail(`日英が片道になっている: ${ngBoth.map(x => x[0]).join(' / ')}`)
+                : ok('日→英・英→日の両方向で引ける');
 }
 
 // ── ⑥ 実際の検索が、関連へ広がらないこと ──
