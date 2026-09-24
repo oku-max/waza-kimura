@@ -423,41 +423,10 @@ export function _matchQueryField(v, text, exact, fields) {
     }
   }
 
-  // ── 日英ブリッジ (デラヒーバ ↔ De La Riva ↔ DLR / Closed Guard ↔ クローズドガード 等) ──
-  // データは常に日本語で保存されるため、英語UIのユーザーが英語や別名で検索したとき、
-  // この動画が持つポジション/カテゴリーの全表記(日本語名・英語名・別名)へ橋渡しする。
-  const norm = window._normTag;
-  if (!fTech || !norm) return false;
-  const aliasKeys = [];
-  if (window.findPosition) {
-    for (const p of (v.pos || [])) {
-      const def = window.findPosition(p);
-      if (def) aliasKeys.push(def.id, def.ja, def.en, ...(def.aliases || []));
-    }
-  }
-  if (window.findCategory) {
-    for (const c of (v.cat || [])) {
-      const def = window.findCategory(c);
-      // aliases は分類キーワードなので使わない（別の技の名前で、そのカテゴリの動画が
-      // 全部当たってしまう）。ポジションの aliases は同じ場所の別表記なので使ってよい。
-      if (def) aliasKeys.push(def.id, def.name);
-    }
-  }
-  if (!aliasKeys.length) return false;
-
-  // 英語(ASCII): 生テキストの「単語境界一致」。以前は _norm 後の部分一致だったため
-  //   ① _norm が末尾 "guard" を落とし、"closed guard" 等 "◯◯ guard" の検索が全滅していた
-  //   ② "la" が "lasso" を巻き込むなど別タグへ誤爆していた
-  // 単語境界一致なら "guard" は "Closed Guard" の guard に当たり、"la" は "lasso" に当たらず、
-  // "de la riva" のような複数語も各語が素直にヒットする。
-  if (/^[\x20-\x7E]+$/.test(text) && window._termHitTag && window._rawLowerTag) {
-    const rawBlob = aliasKeys.map(window._rawLowerTag).join(' ');
-    return window._termHitTag(text, rawBlob, '');
-  }
-  // 日本語: 正規化して「完全一致」。"スマッシュ" が別タグ "スマッシュパス" を巻き込む誤爆を防ぐ
-  // (_norm が末尾 がーど を落とすので "デラヒバ"↔"デラヒーバ" 等の表記ゆれは一致する)。
-  const nText = norm(text);
-  return !!nText && aliasKeys.some(k => norm(k) === nText);
+  // 検索語の側は上で SEARCH_DICT により別表記へ展開済み。動画が持つタグを
+  // 別の表（ポジション別名・カテゴリ別名）で展開し直す経路は v52.824 で廃止した。
+  // 表が複数あると、1か所直しても隣に同じ誤爆が残るため（実際に3回続いた）。
+  return false;
 }
 
 export function _matchFieldSpecific(v, field, values) {

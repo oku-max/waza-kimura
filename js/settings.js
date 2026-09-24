@@ -2669,14 +2669,11 @@ function _syncWindowCats() {
     if (stored) {
       const cats = JSON.parse(stored);
       if (Array.isArray(cats) && cats.length) {
-        // terms（カテゴリ名の日英表記。検索の日英ブリッジが読む）は保存形式に無いので、
-        // 組み込み定義から id で拾い直す。落とすと「パスガード」で英語タイトルに届かなくなる。
-        const _builtin = new Map((window.CATEGORIES || []).map(c => [c.id, c.terms || []]));
+        // カテゴリ名の日英表記は SEARCH_DICT（検索辞書の1枚）が持つので、ここでは扱わない。
         window.CATEGORIES = cats.map(c => ({
           id:      c.id || '',
           name:    c.names?.ja || c.name || '',
           desc:    c.desc || '',
-          terms:   _builtin.get(c.id || '') || [],
           aliases: [
             ...(Array.isArray(c.aliases?.ja) ? c.aliases.ja : []),
             ...(Array.isArray(c.aliases?.en) ? c.aliases.en : []),

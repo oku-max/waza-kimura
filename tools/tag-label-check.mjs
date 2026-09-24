@@ -71,7 +71,7 @@ hits.length === 0
 
 // ── 3. 検索辞書が消えていないこと（項目02の保険）────────────
 const tm = read('js/tag-master.js');
-[['POSITIONS', 'ポジション辞書'], ['CATEGORIES', 'カテゴリ辞書'], ['TECHNIQUE_BUILTIN', '技名辞書']]
+[['POSITIONS', 'ポジション辞書'], ['CATEGORIES', 'カテゴリ辞書'], ['SEARCH_DICT', '検索辞書']]
   .forEach(([name, what]) => {
     new RegExp(`const ${name}\\s*=\\s*\\[`).test(tm)
       ? ok(`${what}（${name}）が残っている`)

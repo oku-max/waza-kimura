@@ -90,7 +90,7 @@ JSON.stringify(uniq) === JSON.stringify(['manual', 'none'])
 console.log('\n── 検索辞書は別物。消えていないか ──');
 const tm = read('js/tag-master.js');
 for (const [name, what] of [['POSITIONS', 'ポジション辞書'], ['CATEGORIES', 'カテゴリ辞書'],
-                            ['TECHNIQUE_BUILTIN', '技名辞書']]) {
+                            ['SEARCH_DICT', '検索辞書']]) {
   new RegExp(`const ${name}\\s*=\\s*\\[`).test(tm)
     ? ok(`${what}（${name}）が残っている`)
     : fail(`${what} を巻き込んで消している`);

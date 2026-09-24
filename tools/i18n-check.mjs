@@ -28,26 +28,23 @@ globalThis.document = {
   querySelectorAll: () => [],
   body: null,
 };
-// タグ分類マスタ（POSITIONS / TECHNIQUE_BUILTIN）をソースから正規表現で注入
+// タグ分類マスタ（POSITIONS）と検索辞書（SEARCH_DICT）をソースから注入
 function extractPositions(src) {
   const out = [];
   const re = /ja:\s*'([^']+)'\s*,\s*en:\s*'([^']*)'/g;
   let m; while ((m = re.exec(src))) out.push({ ja: m[1], en: m[2] });
   return out;
 }
-function extractTechniques(src) {
-  const out = [];
-  const re = /\{\s*ja:\s*'([^']+)'\s*,\s*terms:\s*\[([^\]]*)\]/g;
-  let m;
-  while ((m = re.exec(src))) {
-    const terms = [...m[2].matchAll(/'([^']*)'|"([^"]*)"/g)].map(x => x[1] ?? x[2]);
-    out.push({ ja: m[1], terms });
-  }
-  return out;
+// 検索辞書（SEARCH_DICT）は1行＝同じものの別表記。i18n はこの1枚から訳を作る。
+function extractSearchDict(src) {
+  const body = src.slice(src.indexOf('const SEARCH_DICT = ['), src.indexOf('window.SEARCH_DICT'));
+  return body.split('\n')
+    .filter(l => /^\s*\[/.test(l))
+    .map(l => [...l.matchAll(/'([^']*)'|"([^"]*)"/g)].map(x => x[1] ?? x[2]));
 }
 const tagMasterSrc = fs.readFileSync(path.join(ROOT, 'js/tag-master.js'), 'utf8');
 globalThis.POSITIONS = extractPositions(tagMasterSrc);
-globalThis.TECHNIQUE_BUILTIN = extractTechniques(tagMasterSrc);
+globalThis.SEARCH_DICT = extractSearchDict(tagMasterSrc);
 
 const i18nSrc = fs.readFileSync(path.join(ROOT, 'js/i18n.js'), 'utf8');
 new Function(i18nSrc)();
@@ -77,7 +74,12 @@ for (const f of files) {
   // 検索辞書（js/tag-master.js）の terms / aliases は「同じものの別の言い方」を並べた
   // 検索用データで、画面には出ない（画面に出るのは見出しの ja / name / en の方）。
   // ここを未訳として数えると、本当に訳し忘れたUI文言が埋もれるので中身を空にして読む。
-  if (f === 'js/tag-master.js') src = src.replace(/(terms|aliases):\s*\[[^\]]*\]/g, '$1: []');
+  // 検索辞書（SEARCH_DICT）の行と、タグの層の別名は「同じものの別の言い方」を並べた
+  // 検索用データで、画面には出ない。未訳として数えると本物のUI文言が埋もれるので外す。
+  if (f === 'js/tag-master.js') {
+    src = src.replace(/(aliases):\s*\[[^\]]*\]/g, '$1: []');
+    src = src.slice(0, src.indexOf('const SEARCH_DICT = [')) + src.slice(src.indexOf('window.SEARCH_DICT'));
+  }
   let m;
   while ((m = litRe.exec(src))) {
     const raw = (m[1] ?? m[2] ?? m[3]).replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"');

@@ -2401,9 +2401,12 @@
     _autoMap.clear();
     for (const [ja, en] of Object.entries(STATIC_AUTO)) _autoMap.set(ja, en);
     (window.POSITIONS || []).forEach(p => { if (p.ja && p.en && p.ja !== p.en) _autoMap.set(p.ja, p.en); });
-    (window.TECHNIQUE_BUILTIN || []).forEach(tq => {
-      const en = (tq.terms || []).find(x => !/[぀-ヿ一-鿿]/.test(x));
-      if (tq.ja && en) _autoMap.set(tq.ja, en.replace(/\b[a-z]/g, c => c.toUpperCase()));
+    // 表示の訳も検索辞書（SEARCH_DICT）の1枚から引く。1行＝同じもので、
+    // 1列目が日本語の代表表記、最初の英字表記がその英語名。
+    (window.SEARCH_DICT || []).forEach(row => {
+      const ja = row[0];
+      const en = row.slice(1).find(x => !/[぀-ヿ一-鿿]/.test(x));
+      if (ja && en && /[぀-ヿ一-鿿]/.test(ja)) _autoMap.set(ja, en.replace(/\b[a-z]/g, c => c.toUpperCase()));
     });
     for (const [ja, en] of Object.entries(CAT_EN)) _autoMap.set(ja, en);
     for (const [ja, en] of Object.entries(TB_EN)) _autoMap.set(ja, en);
