@@ -55,26 +55,26 @@ const POSITIONS = [
   { id: 'slx',       ja: 'SLX',                  en: 'Single Leg X',        aliases: ['シングルレッグX','シングルレッグXガード','Single X','single leg x guard'] },
   { id: 'xguard',    ja: 'Xガード',              en: 'X Guard',             aliases: ['X-Guard','エックスガード'] },
   // ── あいうえお順 ──
-  { id: 'inverted',  ja: 'インバーテッド',       en: 'Inverted Guard',      aliases: ['Inverted','トルネードガード','Tornado Guard','Tornado'] },
+  { id: 'inverted',  ja: 'インバーテッド',       en: 'Inverted Guard',      aliases: ['Inverted','トルネードガード','Tornado Guard'] },
   { id: 'open',      ja: 'オープンガード',       en: 'Open Guard',          aliases: ['open guard','手ぶらガード','no grip guard'] },
   { id: 'octopus',   ja: 'オクトパスガード',     en: 'Octopus Guard',       aliases: ['Octopus','octopus guard'] },
   { id: 'collar',    ja: '片襟片袖',             en: 'Collar Sleeve',       aliases: ['Collar Sleeve Guard','カラースリーブ','collar and sleeve'] },
   { id: 'closed',    ja: 'クローズドガード',     en: 'Closed Guard',        aliases: ['Closed','クロガ','フルガード','full guard'] },
   { id: 'cross',     ja: 'クロスガード',         en: 'Cross Guard',         aliases: ['cross guard'] },
-  { id: 'saddle',    ja: 'サドル',               en: 'Saddle',              aliases: ['411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole','ashi garami'] },
+  { id: 'saddle',    ja: 'サドル',               en: 'Saddle',              aliases: ['411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole'] },
   { id: 'situp',     ja: 'シッティングガード',   en: 'Sit-Up Guard',        aliases: ['シットアップガード','sit up guard','sitting guard','seated guard'] },
   { id: 'slguard',   ja: 'シングルレッグガード', en: 'Single Leg Guard',    aliases: ['single leg guard'] },
   { id: 'standing',  ja: 'スタンディング',       en: 'Standing',            aliases: ['Stand Up','立ち','立ち技'] },
-  { id: 'spider',    ja: 'スパイダーガード',     en: 'Spider Guard',        aliases: ['Spider','スパイダ','インバーテッドスパイダー','inverted spider'] },
+  { id: 'spider',    ja: 'スパイダーガード',     en: 'Spider Guard',        aliases: ['Spider','スパイダ'] },
   { id: 'other',     ja: 'その他',               en: 'Other',               aliases: [] },
   { id: 'turtle',    ja: 'タートル',             en: 'Turtle',              aliases: ['Turtle Position','亀'] },
   { id: 'deephalf',  ja: 'ディープハーフ',       en: 'Deep Half Guard',     aliases: ['Deep Half Guard','Deep Half','ディープ'] },
   { id: 'dlr',       ja: 'デラヒーバ',           en: 'De La Riva',          aliases: ['DLR','De La Riva Guard','デラヒバ'] },
   { id: 'kneeshield',ja: 'ニーシールド',         en: 'Knee Shield',         aliases: ['Z Guard','Z-Guard','Zガード'] },
-  { id: 'half',      ja: 'ハーフガード',         en: 'Half Guard',          aliases: ['Half','ハーフ','脇差し','アンダーフックハーフ','ロックダウン','シングルレッグハーフ','underhook half','lockdown','single leg half'] },
-  { id: 'butterfly', ja: 'バタフライガード',     en: 'Butterfly Guard',     aliases: ['Butterfly','バタフラ','ハーフバタフライ','half butterfly'] },
-  { id: 'lasso',     ja: 'ラッソーガード',       en: 'Lasso Guard',         aliases: ['Lasso','ラッソ','シャローラッソー','shallow lasso'] },
-  { id: 'lapel',     ja: 'ラペルガード',         en: 'Lapel Guard',         aliases: ['Lapel','ワームガード','Worm Guard','Worm','スクイッドガード','Squid Guard','Squid','グッバーガード','Gubber Guard','Gubber','ラペル系'] },
+  { id: 'half',      ja: 'ハーフガード',         en: 'Half Guard',          aliases: ['Half','ハーフ'] },
+  { id: 'butterfly', ja: 'バタフライガード',     en: 'Butterfly Guard',     aliases: ['Butterfly','バタフラ'] },
+  { id: 'lasso',     ja: 'ラッソーガード',       en: 'Lasso Guard',         aliases: ['Lasso','ラッソ'] },
+  { id: 'lapel',     ja: 'ラペルガード',         en: 'Lapel Guard',         aliases: ['Lapel'] },
   { id: 'rdlr',      ja: 'リバースデラヒーバ',   en: 'Reverse De La Riva',  aliases: ['RDLR','Reverse DLR','リバデラ'] },
   { id: 'revhalf',   ja: 'リバースハーフガード', en: 'Reverse Half Guard',  aliases: ['リバースハーフ','reverse half','reverse half guard'] },
 ];
@@ -622,6 +622,20 @@ const TECHNIQUE_BUILTIN = [
   // ── ガード（POSITIONS に無いもの） ──
   { ja: 'ラバーガード',          terms: ['rubber guard','ラバーガード'] },
   { ja: 'デラヒーバX',           terms: ['de la riva x','デラヒーバX','デラエックス'] },
+
+  // ── ポジションの別名から外した下位ポジション（v52.822）──
+  // 「ロックダウン」で検索して親の「ハーフガード」の動画が全部出るのは検討違いなので、
+  // 別名から外し、それぞれを自分の見出しにした。自分の名前（と英語表記）でだけ引ける。
+  { ja: 'ロックダウン',          terms: ['lockdown','lock down','ロックダウン'] },
+  { ja: 'アンダーフックハーフ',  terms: ['underhook half','アンダーフックハーフ','脇差し'] },
+  { ja: 'シングルレッグハーフ',  terms: ['single leg half','シングルレッグハーフ'] },
+  { ja: 'ハーフバタフライ',      terms: ['half butterfly','ハーフバタフライ'] },
+  { ja: 'シャローラッソー',      terms: ['shallow lasso','シャローラッソー'] },
+  { ja: 'インバーテッドスパイダー', terms: ['inverted spider','インバーテッドスパイダー'] },
+  { ja: 'ワームガード',          terms: ['worm guard','ワームガード'] },
+  { ja: 'スクイッドガード',      terms: ['squid guard','スクイッドガード'] },
+  { ja: 'グッバーガード',        terms: ['gubber guard','グッバーガード'] },
+  { ja: 'アシガラミ',            terms: ['ashi garami','ashigarami','アシガラミ','足絡み'] },
 ];
 window.TECHNIQUE_BUILTIN = TECHNIQUE_BUILTIN;
 

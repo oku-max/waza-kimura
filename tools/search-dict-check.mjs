@@ -163,5 +163,35 @@ console.log('■ ⑤ カテゴリの分類キーワードで検索が広がら�
   }
 }
 
+// ⑥ ポジションの別名も「同じ場所の別の書き方」だけであること
+// 2026-09-24、「カテゴリは分類表だがポジションの別名は別表記だから安全」と書いたが、確かめたら
+// 混ざっていた。ハーフガードの別名に ロックダウン / アンダーフックハーフ / シングルレッグハーフ、
+// ラペルガードの別名に ワームガード / スクイッドガード / グッバーガード が入っていて、
+// 「ロックダウン」で検索すると親のハーフガードの動画が全部出ていた。
+// 下位ポジションはそれぞれ自分の見出しに移した。別名へ戻ってきたらここで赤くする。
+console.log('■ ⑥ ポジションの別名に「別のポジション／技」が混ざっていないこと');
+{
+  const techHead = new Set(TECH.map(t => norm(t.ja)));
+  const posHead  = new Map(POS.map(p => [norm(p.ja), p.ja]));
+  let mixed = 0;
+  for (const p of POS) {
+    for (const al of (p.aliases || [])) {
+      const n = norm(al);
+      if (techHead.has(n))              { fail(`ポジション「${p.ja}」の別名「${al}」は技名の見出しでもある（親の動画が全部出る）`); mixed++; }
+      else if (posHead.has(n) && posHead.get(n) !== p.ja) { fail(`ポジション「${p.ja}」の別名「${al}」は別のポジション「${posHead.get(n)}」`); mixed++; }
+    }
+  }
+  if (!mixed) ok('ポジションの別名は、その場所自身の書き方だけ');
+
+  const V3 = [
+    { id:'ロックダウンの動画', title:'ロックダウンの使い方',  tags:[], pos:['ハーフガード'], cat:[], memo:'' },
+    { id:'ただのハーフ',       title:'ハーフガードの基本',    tags:[], pos:['ハーフガード'], cat:[], memo:'' },
+  ];
+  const got3 = V3.filter(v => q._matchQuery(v, q._parseQuery('ロックダウン'), null)).map(v => v.id);
+  (got3.length === 1 && got3[0] === 'ロックダウンの動画')
+    ? ok('「ロックダウン」で、親のハーフガードの動画は出ない')
+    : fail(`「ロックダウン」→ ${got3.join(',') || '(0件)'}（期待: ロックダウンの動画だけ）`);
+}
+
 console.log(ng ? `\n✗ ${ng} 件の問題` : '\n✓ 全部通過');
 process.exit(ng ? 1 : 0);
