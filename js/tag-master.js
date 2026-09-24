@@ -481,19 +481,22 @@ const CATEGORY_BUILTIN_TERMS = {
   finish:    ['submission','submissions','finish','finishing','choke','chokes','strangle','strangles','サブミッション','フィニッシュ','絞め','絞め技','関節技','極め','チョーク'],
 };
 
-// ── 組み込みBJJテクニック辞書（#タグ自動抽出 + カテゴリ含意） ──
-// ja: 付与する #タグ名 / terms: 検出語（EN/JA） / cat: 含意カテゴリ(id)
+// ── 組み込みBJJテクニック辞書 ＝ 検索の日英ブリッジ辞書 ──
+// 用途はもう1つだけ: 検索語 → 同じ技の別表記（aliasNamesFor）。
+// v52.814 でキーワード推定を全部消したので、ここは「タグを当てる辞書」ではなく
+// 「同じものを指す言い方の一覧」になった。cat は残っているが誰も読んでいない。
+// ja: 見出し（日本語の代表表記） / terms: 同義語・別表記（EN/JA）
 const TECHNIQUE_BUILTIN = [
   { ja: 'アームバー',          terms: ['armbar','arm bar','juji gatame','腕十字','アームバー'], cat: 'finish' },
   { ja: '三角絞め',            terms: ['triangle choke','triangle','三角絞め','三角締め','トライアングル'], cat: 'finish' },
-  { ja: 'キムラ',              terms: ['kimura','キムラ'], cat: 'finish' },
+  { ja: 'キムラ',              terms: ['kimura','キムラ','腕緘','腕がらみ'], cat: 'finish' },
   { ja: 'アメリカーナ',        terms: ['americana','アメリカーナ'], cat: 'finish' },
   { ja: 'ギロチン',            terms: ['guillotine','ギロチン'], cat: 'finish' },
-  { ja: 'リアネイキドチョーク', terms: ['rear naked choke','rnc','裸絞め','裸絞','リアネイキド'], cat: 'finish' },
+  { ja: 'リアネイキドチョーク', terms: ['rear naked choke','rnc','mata leao','裸絞め','裸絞','リアネイキド','マタレオン'], cat: 'finish' },
   { ja: 'ヒールフック',        terms: ['heel hook','heelhook','ヒールフック'], cat: 'finish' },
   { ja: 'ニーバー',            terms: ['kneebar','knee bar','ニーバー','膝十字'], cat: 'finish' },
   { ja: 'トーホールド',        terms: ['toe hold','toehold','トーホールド'], cat: 'finish' },
-  { ja: 'アンクルロック',      terms: ['ankle lock','straight ankle','footlock','foot lock','アンクルロック','フットロック'], cat: 'finish' },
+  { ja: 'アンクルロック',      terms: ['ankle lock','straight ankle','footlock','foot lock','achilles lock','アンクルロック','フットロック','アキレス腱固め'], cat: 'finish' },
   { ja: 'ダース',              terms: ["darce","d'arce","ダース"], cat: 'finish' },
   { ja: 'アナコンダ',          terms: ['anaconda','アナコンダ'], cat: 'finish' },
   { ja: 'ノースサウスチョーク', terms: ['north south choke','ノースサウスチョーク'], cat: 'finish' },
@@ -510,7 +513,7 @@ const TECHNIQUE_BUILTIN = [
   { ja: 'アームドラッグ',      terms: ['arm drag','armdrag','アームドラッグ'], cat: 'back' },
   { ja: 'レッグドラッグ',      terms: ['leg drag','legdrag','レッグドラッグ'], cat: 'pass' },
   { ja: 'トレアドール',        terms: ['toreando','torreando','toreada','bullfighter pass','トレアンド','トレアドール'], cat: 'pass' },
-  { ja: 'ニーカット',          terms: ['knee cut','knee slice','knee slide','ニーカット','ニースライス'], cat: 'pass' },
+  { ja: 'ニーカット',          terms: ['knee cut','knee slice','knee slide','knee through','cross knee','cross knee pass','ニーカット','ニースライス','ニースルー','クロスニー'], cat: 'pass' },
   { ja: 'サンパウロパス',      terms: ['sao paulo pass','sao paulo','サンパウロパス'], cat: 'pass' },
   { ja: 'ボディロックパス',    terms: ['body lock pass','bodylock pass','ボディロックパス'], cat: 'pass' },
   { ja: 'スタックパス',        terms: ['stack pass','スタックパス'], cat: 'pass' },
@@ -518,13 +521,101 @@ const TECHNIQUE_BUILTIN = [
   { ja: 'シザースイープ',      terms: ['scissor sweep','シザースイープ'], cat: 'sweep' },
   { ja: 'ヒップバンプスイープ', terms: ['hip bump','ヒップバンプ'], cat: 'sweep' },
   { ja: 'フラワースイープ',    terms: ['flower sweep','pendulum sweep','フラワースイープ','ペンデュラムスイープ'], cat: 'sweep' },
-  { ja: 'バタフライスイープ',  terms: ['butterfly sweep','バタフライスイープ'], cat: 'sweep' },
-  { ja: 'シングルレッグ',      terms: ['single leg takedown','シングルレッグタックル'], cat: 'takedown' },
+  { ja: 'バタフライスイープ',  terms: ['butterfly sweep','elevator sweep','バタフライスイープ','エレベータースイープ'], cat: 'sweep' },
+  { ja: 'シングルレッグタックル', terms: ['single leg takedown','single leg tackle','片足タックル','シングルレッグタックル'], cat: 'takedown' },  // 見出しを『シングルレッグ』から変えた: _norm が『シングルレッグガード』(ポジション)と同じキーに潰し、
+                                //   ポジションが先に引かれるので技名として一度も読まれていなかった（v52.815 で発見）
   { ja: 'ダブルレッグ',        terms: ['double leg takedown','ダブルレッグ','両足タックル'], cat: 'takedown' },
   { ja: '内股',                terms: ['uchi mata','uchimata','内股'], cat: 'takedown' },
   { ja: '背負投',              terms: ['seoi nage','seoinage','背負投','背負い投げ'], cat: 'takedown' },
   { ja: 'アンクルピック',      terms: ['ankle pick','アンクルピック'], cat: 'takedown' },
   { ja: 'スナップダウン',      terms: ['snap down','snapdown','スナップダウン'], cat: 'takedown' },
+
+  // ═══ ここから下は検索のための同義語だけ（v52.815 で追加）═══
+  // 規則（tools/search-dict-check.mjs が機械で見張る）:
+  //   ・見出し(ja)と terms は「同じ技の、別の言い方」だけを並べる。
+  //   ・関連技・同カテゴリの別技・上位概念は絶対に入れない。
+  //     「ロングステップ」で検索して「デラヒーバ」や「スマッシュパス」が出るのは検討違い。
+  //   ・cat（カテゴリ含意）は付けない。関連へ広がる芽を持たせないため。
+  //   ・広い一語（pass / guard / sweep / choke 等）は単独では入れない。
+
+  // ── パスガード ──
+  { ja: 'ロングステップ',        terms: ['long step','long step pass','longstep','ロングステップ','ロングステップパス'] },
+  { ja: 'スマッシュパス',        terms: ['smash pass','smash','スマッシュ','スマッシュパス'] },
+  { ja: 'ダブルアンダーパス',    terms: ['double under','double unders','double under pass','ダブルアンダー','ダブルアンダーパス'] },
+  { ja: 'ヘッドクォーター',      terms: ['headquarters','head quarters','ヘッドクォーター','ヘッドクォーターズ','ヘッドクオーター'] },
+  { ja: 'バックステップ',        terms: ['back step','backstep','バックステップ'] },
+  { ja: 'Xパス',                 terms: ['x pass','x-pass','エックスパス','Xパス'] },
+  { ja: 'レッグウィーブ',        terms: ['leg weave','leg weave pass','レッグウィーブ'] },
+  { ja: 'フォールディングパス',  terms: ['folding pass','フォールディングパス'] },
+  { ja: 'ニーオンベリー',        terms: ['knee on belly','knee ride','kneeride','ニーオンベリー','ニーオンザベリー'] },
+
+  // ── スイープ ──
+  { ja: 'トルネードスイープ',    terms: ['tornado sweep','トルネードスイープ'] },
+  { ja: 'オーバーヘッドスイープ', terms: ['overhead sweep','balloon sweep','オーバーヘッドスイープ','バルーンスイープ'] },
+  { ja: 'マッスルスイープ',      terms: ['muscle sweep','マッスルスイープ'] },
+  { ja: 'ジョンウェインスイープ', terms: ['john wayne sweep','ジョンウェインスイープ','ジョンワインスイープ'] },
+  { ja: 'トライポッドスイープ',  terms: ['tripod sweep','トライポッドスイープ'] },
+  { ja: 'シックルスイープ',      terms: ['sickle sweep','シックルスイープ'] },
+  { ja: 'リバースベリンボロ',    terms: ['reverse berimbolo','リバースベリンボロ'] },
+
+  // ── 上のポジション / バック ──
+  { ja: 'マウント',              terms: ['mount','full mount','マウント','マウントポジション','縦四方固め'] },
+  { ja: 'サイドコントロール',    terms: ['side control','side mount','サイドコントロール','サイドポジション','横四方固め'] },
+  { ja: 'バックコントロール',    terms: ['back control','back mount','rear mount','バックコントロール','バックマウント'] },
+  { ja: 'ノースサウス',          terms: ['north south','north-south','ノースサウス','ノースサウスポジション'] },
+  { ja: '袈裟固め',              terms: ['kesa gatame','kesagatame','scarf hold','袈裟固め','ケサガタメ'] },
+  { ja: 'クロスフェイス',        terms: ['cross face','crossface','クロスフェイス'] },
+  { ja: 'クルシフィックス',      terms: ['crucifix','クルシフィックス'] },
+  { ja: 'ボディトライアングル',  terms: ['body triangle','ボディトライアングル'] },
+  { ja: 'リアトライアングル',    terms: ['rear triangle','back triangle','リアトライアングル','バックトライアングル'] },
+  { ja: 'ショートチョーク',      terms: ['short choke','ショートチョーク'] },
+
+  // ── 極め ──
+  { ja: '肩固め',                terms: ['kata gatame','katagatame','arm triangle','head and arm choke','肩固め','アームトライアングル'] },
+  { ja: 'ベースボールチョーク',  terms: ['baseball choke','baseball bat choke','ベースボールチョーク','ベースボールバットチョーク'] },
+  { ja: 'リストロック',          terms: ['wrist lock','wristlock','リストロック','手首関節'] },
+  { ja: 'バイセップスライサー',  terms: ['bicep slicer','biceps slicer','bicep crush','バイセップスライサー','バイセップススライサー'] },
+  { ja: 'カーフスライサー',      terms: ['calf slicer','calf crush','カーフスライサー','カーフクラッシュ'] },
+  { ja: 'ゴゴプラッタ',          terms: ['gogoplata','ゴゴプラッタ'] },
+  { ja: 'インサイドヒールフック', terms: ['inside heel hook','inside heelhook','インサイドヒールフック','インサイドヒール'] },
+  { ja: 'アウトサイドヒールフック', terms: ['outside heel hook','outside heelhook','アウトサイドヒールフック','アウトサイドヒール'] },
+  { ja: 'エスティマロック',      terms: ['estima lock','estima','エスティマロック'] },
+  { ja: 'ジャパニーズネクタイ',  terms: ['japanese necktie','ジャパニーズネクタイ'] },
+  { ja: 'ペルビアンネクタイ',    terms: ['peruvian necktie','ペルビアンネクタイ'] },
+  { ja: 'アームインギロチン',    terms: ['arm in guillotine','arm-in guillotine','アームインギロチン'] },
+  { ja: 'ブラボーチョーク',      terms: ['bravo choke','ブラボーチョーク'] },
+  { ja: 'ラペルチョーク',        terms: ['lapel choke','ラペルチョーク'] },
+  { ja: 'サイドトライアングル',  terms: ['side triangle','サイドトライアングル'] },
+
+  // ── 守り / エスケープ ──
+  { ja: 'エルボーエスケープ',    terms: ['elbow escape','knee elbow escape','エルボーエスケープ','エルボーニーエスケープ'] },
+  { ja: 'ブリッジアンドロール',  terms: ['bridge and roll','upa','ブリッジアンドロール','ブリッジ＆ロール','ウパ'] },
+  { ja: 'グランビーロール',      terms: ['granby roll','granby','グランビーロール','グランビー'] },
+  { ja: 'ヒップエスケープ',      terms: ['hip escape','shrimping','shrimp escape','ヒップエスケープ'] },
+  { ja: 'テクニカルスタンドアップ', terms: ['technical stand up','technical standup','テクニカルスタンドアップ','テクニカルリフト'] },
+  { ja: 'ヒッチハイカーエスケープ', terms: ['hitchhiker escape','ヒッチハイカーエスケープ'] },
+  { ja: 'スプロール',            terms: ['sprawl','スプロール'] },
+  { ja: 'グリップブレイク',      terms: ['grip break','grip breaking','グリップブレイク'] },
+
+  // ── 立ち技 / 入り口 ──
+  { ja: '引き込み',              terms: ['guard pull','pull guard','pulling guard','引き込み','プルガード'] },
+  { ja: 'スクランブル',          terms: ['scramble','スクランブル'] },
+  { ja: 'ダックアンダー',        terms: ['duck under','duckunder','ダックアンダー'] },
+  { ja: 'ロシアンタイ',          terms: ['russian tie','two on one','ロシアンタイ'] },
+  { ja: 'スープレックス',        terms: ['suplex','スープレックス'] },
+  { ja: '肩車',                  terms: ['kata guruma','fireman carry',"fireman's carry",'肩車','ファイヤーマンズキャリー'] },
+  { ja: '大外刈り',              terms: ['osoto gari','osotogari','大外刈り','大外刈'] },
+  { ja: '巴投げ',                terms: ['tomoe nage','tomoenage','巴投げ','巴投'] },
+  { ja: '払腰',                  terms: ['harai goshi','haraigoshi','払腰','払い腰'] },
+  { ja: '体落',                  terms: ['tai otoshi','taiotoshi','体落','体落とし'] },
+  { ja: '一本背負い',            terms: ['ippon seoi nage','ippon seoinage','一本背負い','一本背負'] },
+  { ja: 'カラードラッグ',        terms: ['collar drag','カラードラッグ','襟ドラッグ'] },
+  { ja: 'アンダーフック',        terms: ['underhook','under hook','アンダーフック'] },
+  { ja: 'オーバーフック',        terms: ['overhook','over hook','オーバーフック'] },
+
+  // ── ガード（POSITIONS に無いもの） ──
+  { ja: 'ラバーガード',          terms: ['rubber guard','ラバーガード'] },
+  { ja: 'デラヒーバX',           terms: ['de la riva x','デラヒーバX','デラエックス'] },
 ];
 window.TECHNIQUE_BUILTIN = TECHNIQUE_BUILTIN;
 

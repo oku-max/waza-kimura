@@ -195,6 +195,11 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 検索辞書の見出し改名で訳が外れた分（v52.815）。
+    // 技名は本来 TECHNIQUE_BUILTIN から自動で訳されるが、この2つは辞書の見出しではなく
+    // 種入れプリセット／管理画面の別表記なので、固定文として持つ。
+    'シングルレッグ': 'Single Leg',
+    'シングルレッグX': 'Single Leg X',
     // タググループの名前変更（Notion 項目03）
     '名前は空にできません': 'The name cannot be empty',
     'グループ名': 'Group name',

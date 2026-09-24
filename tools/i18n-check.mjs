@@ -73,7 +73,11 @@ const files = ['index.html', ...fs.readdirSync(path.join(ROOT, 'js')).filter(f =
 const phrases = new Map(); // phrase -> first file
 for (const f of files) {
   if (f === 'js/i18n.js') continue; // 辞書自身は対象外
-  const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+  let src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+  // 検索辞書（js/tag-master.js）の terms / aliases は「同じものの別の言い方」を並べた
+  // 検索用データで、画面には出ない（画面に出るのは見出しの ja / name / en の方）。
+  // ここを未訳として数えると、本当に訳し忘れたUI文言が埋もれるので中身を空にして読む。
+  if (f === 'js/tag-master.js') src = src.replace(/(terms|aliases):\s*\[[^\]]*\]/g, '$1: []');
   let m;
   while ((m = litRe.exec(src))) {
     const raw = (m[1] ?? m[2] ?? m[3]).replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"');
