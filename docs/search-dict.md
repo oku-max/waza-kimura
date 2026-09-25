@@ -1,6 +1,6 @@
 # WAZA KIMURA 検索辞書
 
-v52.826 時点。検索が引く表はこれ1枚だけです（`js/tag-master.js` の `SEARCH_DICT`）。
+検索が引く表はこれ1枚だけです（`js/tag-master.js` の `SEARCH_DICT`）。
 
 **全 164 行（書き方は延べ 577 通り）**
 

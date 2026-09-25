@@ -4,6 +4,8 @@
 //         node tools/search-dict-md.mjs --check … 中身が辞書と合っているかだけ見る
 //
 // なぜ要るか: 辞書はコードの中にあって、オーナーが読む場所が無かった。
+// バージョン番号は入れない。入れると、辞書と関係ないバージョン更新のたびに
+// 「古い」と赤くなり、赤が当たり前になって本当の古さを見逃すため。
 // 手で書いた一覧は必ず古くなって嘘になるので、辞書から作り直せるようにして、
 // search-dict-check が「古いままか」を見張る。
 import fs from 'node:fs';
@@ -16,7 +18,6 @@ const OUT  = path.join(ROOT, 'docs/search-dict.md');
 export function buildMarkdown() {
   const src  = fs.readFileSync(path.join(ROOT, 'js/tag-master.js'), 'utf8');
   const body = src.slice(src.indexOf('const SEARCH_DICT = ['), src.indexOf('window.SEARCH_DICT'));
-  const ver  = (fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').match(/WAZA KIMURA (v[\d.]+)/) || [,'?'])[1];
   const rowRe = /^\s*\[(.*)\],\s*$/;
   const secRe = /^\s*\/\/ ── (.+?) ──/;
   let n = 0, words = 0;
@@ -38,7 +39,7 @@ export function buildMarkdown() {
   flush();
   return [
     '# WAZA KIMURA 検索辞書', '',
-    `${ver} 時点。検索が引く表はこれ1枚だけです（\`js/tag-master.js\` の \`SEARCH_DICT\`）。`, '',
+    '検索が引く表はこれ1枚だけです（`js/tag-master.js` の `SEARCH_DICT`）。', '',
     `**全 ${n} 行（書き方は延べ ${words} 通り）**`, '',
     '- **1行＝同じもの。** 先頭が代表表記、その後ろは同じものの別の書き方（日本語・英語・略称）',
     '- 打った語がこの行のどれかに一致すると、**同じ行の全部の書き方で**タイトル・チャンネル・プレイリスト・タグ・メモを探します',
