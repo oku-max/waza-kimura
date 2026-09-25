@@ -197,6 +197,8 @@
   const STATIC_AUTO = {
     // 管理画面「検索辞書」（v52.828）
     '🔍 検索辞書': '🔍 Search dictionary',
+    '🔍 検索辞書（オーナーのみ）': '🔍 Search dictionary (owner only)',
+    '検索が「同じもの」として扱う言葉の一覧。見るだけです': 'The words search treats as the same thing. Read-only',
     '辞書の中を絞り込む…': 'Filter the dictionary...',
     '検索が引く表はこれ1枚だけです。': 'This is the only table search looks at.',
     '1行＝同じもの': '1 row = 1 thing',

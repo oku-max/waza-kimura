@@ -951,9 +951,10 @@ function _renderTagMaster() {
 const _sdEsc = s => String(s == null ? '' : s)
   .replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 
-function _renderSearchDict() {
-  const el = document.getElementById('admin-p-searchdict');
+function _renderSearchDict(targetId = 'admin-p-searchdict') {
+  const el = document.getElementById(targetId);
   if (!el) return;
+  const p = targetId === 'admin-p-searchdict' ? 'sd' : 'sd2';   // 2か所に出しても id がぶつからないように
   const rows = window.SEARCH_DICT || [];
   const words = rows.reduce((n, r) => n + r.length, 0);
   el.innerHTML = `
@@ -964,24 +965,24 @@ function _renderSearchDict() {
       全角/半角・カタカナ/ひらがな・長音・区切り・英語の複数形は、辞書に書かなくても吸収されます。
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-      <input id="sd-q" type="text" placeholder="辞書の中を絞り込む…" oninput="window._sdFilter(this.value)"
+      <input id="${p}-q" type="text" placeholder="辞書の中を絞り込む…" oninput="window._sdFilter(this.value,'${p}')"
              style="flex:1;padding:7px 10px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
-      <span id="sd-count" style="font-size:11px;color:var(--text3);white-space:nowrap">${rows.length} 行 / ${words} 語</span>
+      <span id="${p}-count" style="font-size:11px;color:var(--text3);white-space:nowrap">${rows.length} 行 / ${words} 語</span>
     </div>
-    <div id="sd-list" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>`;
-  _sdDraw('');
+    <div id="${p}-list" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:420px;overflow-y:auto"></div>`;
+  _sdDraw('', p);
 }
+window._renderSearchDictInto = _renderSearchDict;
 
-function _sdDraw(q) {
-  const list = document.getElementById('sd-list');
+function _sdDraw(q, p = 'sd') {
+  const list = document.getElementById(p + '-list');
   if (!list) return;
   const norm = window._normTag || (x => String(x || '').toLowerCase());
   const nq   = norm(q || '');
-  const rows = (window.SEARCH_DICT || [])
-    .map((r, i) => ({ i: i + 1, r }))
-    .filter(({ r }) => !nq || r.some(w => norm(w).includes(nq)));
-  const cnt = document.getElementById('sd-count');
-  if (cnt) cnt.textContent = nq ? `${rows.length} 行が一致` : `${(window.SEARCH_DICT || []).length} 行 / ${(window.SEARCH_DICT || []).reduce((n, r) => n + r.length, 0)} 語`;
+  const all  = window.SEARCH_DICT || [];
+  const rows = all.map((r, i) => ({ i: i + 1, r })).filter(({ r }) => !nq || r.some(w => norm(w).includes(nq)));
+  const cnt = document.getElementById(p + '-count');
+  if (cnt) cnt.textContent = nq ? `${rows.length} 行が一致` : `${all.length} 行 / ${all.reduce((n, r) => n + r.length, 0)} 語`;
   list.innerHTML = rows.length
     ? rows.map(({ i, r }) => `
         <div style="display:flex;gap:10px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;align-items:baseline">

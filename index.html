@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.829</title>
+<title>WAZA KIMURA v52.830</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2041,6 +2041,11 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         </select>
       </div>
       <div id="owner-only-settings" style="display:none">
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:2px">🔍 検索辞書（オーナーのみ）</div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:8px">検索が「同じもの」として扱う言葉の一覧。見るだけです</div>
+          <div id="owner-search-dict"></div>
+        </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
           <div>
             <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
@@ -4392,6 +4397,8 @@ function initOwnerSettings() {
   const isOwner = email === _OWNER_EMAIL;
   const el = document.getElementById('owner-only-settings');
   if (el) el.style.display = isOwner ? '' : 'none';
+  // 検索辞書はオーナーなら「管理モード」のトグルに関係なく設定画面に出す
+  if (isOwner) window._renderSearchDictInto?.('owner-search-dict');
   if (!isOwner) {
     // 非オーナーはAdminタブを強制非表示
     ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
