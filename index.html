@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.830</title>
+<title>WAZA KIMURA v52.831</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2041,11 +2041,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         </select>
       </div>
       <div id="owner-only-settings" style="display:none">
-        <div style="margin-bottom:14px">
-          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:2px">🔍 検索辞書（オーナーのみ）</div>
-          <div style="font-size:10px;color:var(--text3);margin-bottom:8px">検索が「同じもの」として扱う言葉の一覧。見るだけです</div>
-          <div id="owner-search-dict"></div>
-        </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
           <div>
             <div style="font-size:11px;font-weight:600;color:var(--text3)">◎ Community タブ</div>
@@ -4359,20 +4354,15 @@ window.wazaImport = async function(input) {
   }
 };
 
+// 管理モードのトグルが担当するのは「検証ドット・精度バッジ」だけ（v52.831）。
+// Admin タブの出し入れは initOwnerSettings()（オーナーかどうか）に一本化した。
+// 以前はこのトグルが両方を同時に制御していて、オーナーなのに Admin タブが
+// 出ない状態になっていた（別用途の経路への相乗り）。
 function toggleAdminMode(on) {
   document.body.classList.toggle('admin-mode', on);
   localStorage.setItem('waza_admin_mode', on ? '1' : '');
   const desc = document.getElementById('admin-mode-desc');
   if (desc) desc.style.display = on ? 'block' : 'none';
-  // Admin タブボタンの表示切替
-  ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = on ? '' : 'none';
-  });
-  // Adminモード OFF で Admin タブを見ている場合は home に戻す
-  if (!on && document.getElementById('adminTab')?.classList.contains('active')) {
-    window.switchTab?.('home');
-  }
 }
 function initAdminMode() {
   const on = localStorage.getItem('waza_admin_mode') === '1';
@@ -4382,10 +4372,6 @@ function initAdminMode() {
     document.body.classList.add('admin-mode');
     const desc = document.getElementById('admin-mode-desc');
     if (desc) desc.style.display = 'block';
-    ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = '';
-    });
   }
 }
 initAdminMode();
@@ -4397,8 +4383,6 @@ function initOwnerSettings() {
   const isOwner = email === _OWNER_EMAIL;
   const el = document.getElementById('owner-only-settings');
   if (el) el.style.display = isOwner ? '' : 'none';
-  // 検索辞書はオーナーなら「管理モード」のトグルに関係なく設定画面に出す
-  if (isOwner) window._renderSearchDictInto?.('owner-search-dict');
   if (!isOwner) {
     // 非オーナーはAdminタブを強制非表示
     ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
@@ -4406,12 +4390,12 @@ function initOwnerSettings() {
       if (el) el.style.display = 'none';
     });
   } else {
-    // オーナー確認後: localStorage の admin_mode 設定を再適用
-    // (initAdminMode() は認証前に走るため、その後この関数で上書きされて消える問題を修正)
-    const adminOn = localStorage.getItem('waza_admin_mode') === '1';
+    // オーナーなら Admin タブは常に出す（v52.831）。
+    // 以前は「管理モード」トグルにも連動していたため、オーナーでもトグルがオフだと
+    // Admin タブに入れなかった。トグルの担当は検証ドット・精度バッジだけにした。
     ['tnav-admin','fnav-admin','mnav-admin'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.style.display = adminOn ? '' : 'none';
+      if (el) el.style.display = '';
     });
   }
 }
