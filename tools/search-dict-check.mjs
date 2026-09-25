@@ -200,5 +200,18 @@ console.log('■ ⑦ 書き方の揺れが、辞書に書き足さなくても�
     : ok('"pass" は "compass" に当たらない（単語の区切りは保っている）');
 }
 
+// ⑧ 読める一覧（docs/search-dict.md）が古くなっていないこと
+// 辞書はコードの中にあるので、オーナーが読む場所として一覧を置いている。
+// 手で書いた説明は必ず古くなって嘘になるため、辞書から作り直せる形にして、ここで見張る。
+console.log('■ ⑧ 読める一覧が辞書と合っていること');
+{
+  const { buildMarkdown } = await import(path.join(ROOT, 'tools/search-dict-md.mjs'));
+  const out = path.join(ROOT, 'docs/search-dict.md');
+  const cur = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+  cur === buildMarkdown()
+    ? ok('docs/search-dict.md は辞書と合っている')
+    : fail('docs/search-dict.md が古い（node tools/search-dict-md.mjs で作り直す）');
+}
+
 console.log(ng ? `\n✗ ${ng} 件の問題` : '\n✓ 全部通過');
 process.exit(ng ? 1 : 0);
