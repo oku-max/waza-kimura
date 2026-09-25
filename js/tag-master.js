@@ -13,7 +13,10 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 // ════════════════════════════════════════════════════
 // name    : 表示名
 // desc    : カテゴリの定義（何を指すか）
-// aliases : タイトル・PL名・チャンネル名からの自動検出キーワード（検索にも使用）
+// aliases : 分類用の語彙。**検索には使わない**（v52.821。技名がカテゴリに化けて棚の6割に
+//           当たっていたため）。terms も同じで、入れてよいのは**その名前の直訳と形違いだけ**。
+//           別の言い方（reversal / throw / guard recovery / submission 等）は入れない。
+//           検査 search-dict-check ⑦ が、増えたら赤くする。
 //
 // カテゴリ定義:
 //   エスケープ・ディフェンス = 不利ポジションから逃げる・守る動作
@@ -32,16 +35,16 @@ const TB_VALUES = ['トップ', 'ボトム', 'スタンディング'];
 // terms : 検索用の英語表記（コード定数。Firestore の別名同期は aliases のみ上書きするため消えない）
 //         英語タイトルの動画を日本語で検索したときに拾うために使う。
 const CATEGORIES = [
-  { id: 'escape',    name: 'エスケープ・ディフェンス',     tb: '中立',           desc: '不利ポジションからの脱出と防御',             aliases: [], terms: ['escape','escapes','defense','defence'] },
-  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [], terms: ['guard entry','entry','entries'] },
-  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [], terms: ['guard retention','retention','guard recovery'] },
-  { id: 'control',   name: 'コントロール／プレッシャー',   tb: '中立',           desc: 'トップポジションの維持・押さえ',             aliases: [], terms: ['control','pressure'] },
-  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [], terms: ['concept','concepts','principle','principles','theory'] },
-  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [], terms: ['sweep','sweeps','reversal'] },
-  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [], terms: ['takedown','takedowns','throw','throws'] },
-  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [], terms: ['back take','back attack','back control','taking the back'] },
-  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [], terms: ['guard pass','passing','pass','passes'] },
-  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [], terms: ['submission','submissions','finish','finishing'] },
+  { id: 'escape',    name: 'エスケープ・ディフェンス',     tb: '中立',           desc: '不利ポジションからの脱出と防御',             aliases: [] },
+  { id: 'entry',     name: 'ガード構築・エントリー',       tb: 'ボトム',         desc: 'ガードを取る・特定ガードの入り口',           aliases: [] },
+  { id: 'retention', name: 'ガードリテンション',           tb: 'ボトム',         desc: '足を取られないボトムの守り',                 aliases: [] },
+  { id: 'control',   name: 'コントロール／プレッシャー',   tb: '中立',           desc: 'トップポジションの維持・押さえ',             aliases: [] },
+  { id: 'concept',   name: 'コンセプト・原理',             tb: '中立',           desc: '技ではない原則的な学び',                     aliases: [] },
+  { id: 'sweep',     name: 'スイープ',                     tb: 'ボトム',         desc: 'ボトムから相手をひっくり返す動作',           aliases: [] },
+  { id: 'takedown',  name: 'テイクダウン',                 tb: 'スタンディング', desc: '立ちから相手を倒す動作（投げ技含む）',       aliases: [] },
+  { id: 'back',      name: 'バックテイク・バックアタック', tb: '中立',           desc: 'バックを取る／バックからの攻撃',             aliases: [] },
+  { id: 'pass',      name: 'パスガード',                   tb: 'トップ',         desc: '相手のガードを越えてトップを取る動作',       aliases: [] },
+  { id: 'finish',    name: 'フィニッシュ',                 tb: '中立',           desc: 'チョーク・関節技など相手を極めにいく動作',   aliases: [] },
 ];
 
 // ─── Layer 3: Position (27 fixed) ────────────────────
@@ -55,26 +58,26 @@ const POSITIONS = [
   { id: 'slx',       ja: 'SLX',                  en: 'Single Leg X',        aliases: ['シングルレッグX','シングルレッグXガード','Single X','single leg x guard'] },
   { id: 'xguard',    ja: 'Xガード',              en: 'X Guard',             aliases: ['X-Guard','エックスガード'] },
   // ── あいうえお順 ──
-  { id: 'inverted',  ja: 'インバーテッド',       en: 'Inverted Guard',      aliases: ['Inverted','トルネードガード','Tornado Guard','Tornado'] },
+  { id: 'inverted',  ja: 'インバーテッド',       en: 'Inverted Guard',      aliases: ['Inverted','トルネードガード','Tornado Guard'] },
   { id: 'open',      ja: 'オープンガード',       en: 'Open Guard',          aliases: ['open guard','手ぶらガード','no grip guard'] },
   { id: 'octopus',   ja: 'オクトパスガード',     en: 'Octopus Guard',       aliases: ['Octopus','octopus guard'] },
   { id: 'collar',    ja: '片襟片袖',             en: 'Collar Sleeve',       aliases: ['Collar Sleeve Guard','カラースリーブ','collar and sleeve'] },
   { id: 'closed',    ja: 'クローズドガード',     en: 'Closed Guard',        aliases: ['Closed','クロガ','フルガード','full guard'] },
   { id: 'cross',     ja: 'クロスガード',         en: 'Cross Guard',         aliases: ['cross guard'] },
-  { id: 'saddle',    ja: 'サドル',               en: 'Saddle',              aliases: ['411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole','ashi garami'] },
+  { id: 'saddle',    ja: 'サドル',               en: 'Saddle',              aliases: ['411','4-11','Inside Sankaku','インサイドサンカク','Honey Hole'] },
   { id: 'situp',     ja: 'シッティングガード',   en: 'Sit-Up Guard',        aliases: ['シットアップガード','sit up guard','sitting guard','seated guard'] },
   { id: 'slguard',   ja: 'シングルレッグガード', en: 'Single Leg Guard',    aliases: ['single leg guard'] },
   { id: 'standing',  ja: 'スタンディング',       en: 'Standing',            aliases: ['Stand Up','立ち','立ち技'] },
-  { id: 'spider',    ja: 'スパイダーガード',     en: 'Spider Guard',        aliases: ['Spider','スパイダ','インバーテッドスパイダー','inverted spider'] },
+  { id: 'spider',    ja: 'スパイダーガード',     en: 'Spider Guard',        aliases: ['Spider','スパイダ'] },
   { id: 'other',     ja: 'その他',               en: 'Other',               aliases: [] },
   { id: 'turtle',    ja: 'タートル',             en: 'Turtle',              aliases: ['Turtle Position','亀'] },
   { id: 'deephalf',  ja: 'ディープハーフ',       en: 'Deep Half Guard',     aliases: ['Deep Half Guard','Deep Half','ディープ'] },
   { id: 'dlr',       ja: 'デラヒーバ',           en: 'De La Riva',          aliases: ['DLR','De La Riva Guard','デラヒバ'] },
   { id: 'kneeshield',ja: 'ニーシールド',         en: 'Knee Shield',         aliases: ['Z Guard','Z-Guard','Zガード'] },
-  { id: 'half',      ja: 'ハーフガード',         en: 'Half Guard',          aliases: ['Half','ハーフ','脇差し','アンダーフックハーフ','ロックダウン','シングルレッグハーフ','underhook half','lockdown','single leg half'] },
-  { id: 'butterfly', ja: 'バタフライガード',     en: 'Butterfly Guard',     aliases: ['Butterfly','バタフラ','ハーフバタフライ','half butterfly'] },
-  { id: 'lasso',     ja: 'ラッソーガード',       en: 'Lasso Guard',         aliases: ['Lasso','ラッソ','シャローラッソー','shallow lasso'] },
-  { id: 'lapel',     ja: 'ラペルガード',         en: 'Lapel Guard',         aliases: ['Lapel','ワームガード','Worm Guard','Worm','スクイッドガード','Squid Guard','Squid','グッバーガード','Gubber Guard','Gubber','ラペル系'] },
+  { id: 'half',      ja: 'ハーフガード',         en: 'Half Guard',          aliases: ['Half','ハーフ'] },
+  { id: 'butterfly', ja: 'バタフライガード',     en: 'Butterfly Guard',     aliases: ['Butterfly','バタフラ'] },
+  { id: 'lasso',     ja: 'ラッソーガード',       en: 'Lasso Guard',         aliases: ['Lasso','ラッソ'] },
+  { id: 'lapel',     ja: 'ラペルガード',         en: 'Lapel Guard',         aliases: ['Lapel'] },
   { id: 'rdlr',      ja: 'リバースデラヒーバ',   en: 'Reverse De La Riva',  aliases: ['RDLR','Reverse DLR','リバデラ'] },
   { id: 'revhalf',   ja: 'リバースハーフガード', en: 'Reverse Half Guard',  aliases: ['リバースハーフ','reverse half','reverse half guard'] },
 ];
@@ -87,9 +90,28 @@ const POSITIONS = [
 //   ・長音 (ー)
 //   ・区切り記号 (空白・- _ / ・)
 //   ・末尾「ガード」「Guard」
+// 半角カナ → 全角カナ（ｽｲｰﾌﾟ ＝ スイープ）。濁点・半濁点の合字も1文字に直す。
+const _HK_D = 'ｶﾞｷﾞｸﾞｹﾞｺﾞｻﾞｼﾞｽﾞｾﾞｿﾞﾀﾞﾁﾞﾂﾞﾃﾞﾄﾞﾊﾞﾋﾞﾌﾞﾍﾞﾎﾞﾊﾟﾋﾟﾌﾟﾍﾟﾎﾟｳﾞ';
+const _FK_D = 'ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポヴ';
+const _HK_S = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝｧｨｩｪｫｯｬｭｮｰ･';
+const _FK_S = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンァィゥェォッャュョー・';
+function _hankakuKana(v) {
+  if (!/[\uFF61-\uFF9F]/.test(v)) return v;
+  let out = '';
+  for (let i = 0; i < v.length; i++) {
+    const two = v.substr(i, 2);
+    const d = _HK_D.indexOf(two);
+    if (d >= 0 && d % 2 === 0) { out += _FK_D[d / 2]; i++; continue; }
+    const k = _HK_S.indexOf(v[i]);
+    out += (k >= 0) ? _FK_S[k] : v[i];
+  }
+  return out;
+}
+window._hankakuKanaTag = _hankakuKana;
+
 function _norm(s) {
   if (s == null) return '';
-  let v = String(s);
+  let v = _hankakuKana(String(s));
   // 全角英数 → 半角
   v = v.replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
   // カタカナ → ひらがな
@@ -108,7 +130,7 @@ function _norm(s) {
 
 // ── 全角→半角＋小文字化（ASCII語の単語境界マッチ用） ──
 function _rawLower(s) {
-  return String(s == null ? '' : s)
+  return _hankakuKana(String(s == null ? '' : s))
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
     .toLowerCase();
 }
@@ -125,7 +147,8 @@ function _termHit(term, rawLower, tNorm) {
     const esc = core
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       .replace(/[\s\-_]+/g, '[\\s\\-_]+');
-    return new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').test(rawLower);
+    // 末尾の複数形（s / es）は同じ語として扱う。'heel hook' で "Heel Hooks"、'guillotine' で "guillotines" に当てるため。
+    return new RegExp('(^|[^a-z0-9])' + esc + '(?:e?s)?($|[^a-z0-9])').test(rawLower);
   }
   const n = _norm(term);
   return n.length >= 2 && tNorm.includes(n);
@@ -148,7 +171,11 @@ const POSITION_INDEX = _buildPositionIndex();
 function _buildCategoryIndex() {
   const idx = new Map();
   for (const c of CATEGORIES) {
-    const keys = [c.id, c.name, ...(c.aliases || []), ...(c.terms || [])];
+    // aliases（ユーザー/AIが登録した「この語はこのカテゴリに入る」の分類キーワード）は
+    // 索引に入れない。入れると「ロングステップ」のような技名がカテゴリ「パスガード」に化け、
+    // そのカテゴリの別名全部(117語)に展開されて棚の6割に当たっていた（v52.821 で実測）。
+    // 索引に置くのは、そのカテゴリ自身の名前と、その日英表記(terms)だけ。
+    const keys = [c.id, c.name];
     for (const k of keys) {
       const n = _norm(k);
       if (n && !idx.has(n)) idx.set(n, c);
@@ -158,38 +185,34 @@ function _buildCategoryIndex() {
 }
 let CATEGORY_INDEX = _buildCategoryIndex();
 
-// 技名(日英)の索引。TECHNIQUE_BUILTIN は { ja, terms:[英語/別表記] } を持つ
-function _buildTechniqueIndex() {
+// ── 検索辞書を引く索引（表は1枚だけ。SEARCH_DICT）──
+let _SEARCH_INDEX = null;
+function _buildSearchIndex() {
   const idx = new Map();
-  for (const t of (typeof TECHNIQUE_BUILTIN !== 'undefined' ? TECHNIQUE_BUILTIN : [])) {
-    for (const k of [t.ja, ...(t.terms || [])]) {
-      const n = _norm(k);
-      if (n && n.length >= 2 && !idx.has(n)) idx.set(n, t);
+  for (const row of SEARCH_DICT) {
+    for (const w of row) {
+      const n = _norm(w);
+      if (n && n.length >= 2 && !idx.has(n)) idx.set(n, row);
     }
   }
   return idx;
 }
+window.rebuildSearchIndex = function() { _SEARCH_INDEX = null; };
 
-// 任意の語からポジション/カテゴリーを引く (検索ヒット判定用)
+// 任意の語からポジション/カテゴリーを引く（タグの層の話。検索はここを見ない）
 function findPosition(q) { return POSITION_INDEX.get(_norm(q)) || null; }
 function findCategory(q) { return CATEGORY_INDEX.get(_norm(q)) || null; }
 
-// ── 検索語 → 同義語(日英)一覧 ────────────────────────
-// 「デラヒーバ」→ ['デラヒーバ','De La Riva','DLR',...] / 「knee slice」→ ['ニーカット','knee cut',...]
-// 用途: 動画タイトルは英語、検索語は日本語（またはその逆）という普通の状況で、
-//       タイトル本文まで届かせる。索引は正規化後の「完全一致」引きなので誤爆しにくい。
-let _TECHNIQUE_INDEX = null;
+// ── 検索語 → 同じものの別の書き方（これが検索辞書の唯一の入口）──
+// 「デラヒーバ」→ ['デラヒーバ','De La Riva','DLR','デラヒバ',…]
+// 引くのは SEARCH_DICT だけ。ポジション/カテゴリの別名やユーザーの分類キーワードは見ない。
+// （2026-09-24、そこを見ていたせいで「ロングステップ」が棚の6割に当たっていた）
 function aliasNamesFor(q) {
   const n = _norm(q);
   if (!n) return [];
-  const p = POSITION_INDEX.get(n);
-  if (p) return [p.ja, p.en, ...(p.aliases || [])].filter(Boolean);
-  const c = CATEGORY_INDEX.get(n);
-  if (c) return [c.name, ...(c.aliases || []), ...(c.terms || [])].filter(Boolean);
-  if (!_TECHNIQUE_INDEX) _TECHNIQUE_INDEX = _buildTechniqueIndex();
-  const t = _TECHNIQUE_INDEX.get(n);
-  if (t) return [t.ja, ...(t.terms || [])].filter(Boolean);
-  return [];
+  if (!_SEARCH_INDEX) _SEARCH_INDEX = _buildSearchIndex();
+  const row = _SEARCH_INDEX.get(n);
+  return row ? row.slice() : [];
 }
 
 // 任意の語が任意のポジション/カテゴリーにマッチするか
@@ -467,66 +490,201 @@ window._detectTbFromText = _detectTbFromText;
 
 // ── 組み込みBJJ語彙（カテゴリ判定用） ────────────────
 // ※ CATEGORIES.aliases（Alias Builder でユーザーが承認した語）とは別系統の内蔵辞書。
-//   ユーザー承認エイリアスの仕組みには触れない。ここはアプリ標準のBJJ文脈知識（EN/JA）。
-const CATEGORY_BUILTIN_TERMS = {
-  escape:    ['escape','escapes','escaping','defense','defence','defending','survival','エスケープ','ディフェンス','脱出','防御'],
-  entry:     ['entry','entries','guard pull','pull guard','pulling guard','エントリー','引き込み','入り方'],
-  retention: ['retention','retain','guard recovery','recover guard','リテンション','ガードリカバリー'],
-  control:   ['pressure','pinning','maintaining mount','maintaining side','プレッシャー','抑え込み','コントロール'],
-  concept:   ['concept','concepts','principle','principles','theory','mindset','コンセプト','原理','原則','理論','考え方'],
-  sweep:     ['sweep','sweeps','sweeping','swept','スイープ'],
-  takedown:  ['takedown','takedowns','take down','wrestling','judo','throw','throws','double leg','ankle pick','snap down','テイクダウン','タックル','投げ技'],
-  back:      ['back take','back takes','backtake','taking the back','take the back','back attack','back control','back mount','バックテイク','バックアタック','バックコントロール','バック奪取'],
-  pass:      ['pass','passes','passing','guard pass','パス','パスガード','ガードパス'],
-  finish:    ['submission','submissions','finish','finishing','choke','chokes','strangle','strangles','サブミッション','フィニッシュ','絞め','絞め技','関節技','極め','チョーク'],
-};
 
-// ── 組み込みBJJテクニック辞書（#タグ自動抽出 + カテゴリ含意） ──
-// ja: 付与する #タグ名 / terms: 検出語（EN/JA） / cat: 含意カテゴリ(id)
-const TECHNIQUE_BUILTIN = [
-  { ja: 'アームバー',          terms: ['armbar','arm bar','juji gatame','腕十字','アームバー'], cat: 'finish' },
-  { ja: '三角絞め',            terms: ['triangle choke','triangle','三角絞め','三角締め','トライアングル'], cat: 'finish' },
-  { ja: 'キムラ',              terms: ['kimura','キムラ'], cat: 'finish' },
-  { ja: 'アメリカーナ',        terms: ['americana','アメリカーナ'], cat: 'finish' },
-  { ja: 'ギロチン',            terms: ['guillotine','ギロチン'], cat: 'finish' },
-  { ja: 'リアネイキドチョーク', terms: ['rear naked choke','rnc','裸絞め','裸絞','リアネイキド'], cat: 'finish' },
-  { ja: 'ヒールフック',        terms: ['heel hook','heelhook','ヒールフック'], cat: 'finish' },
-  { ja: 'ニーバー',            terms: ['kneebar','knee bar','ニーバー','膝十字'], cat: 'finish' },
-  { ja: 'トーホールド',        terms: ['toe hold','toehold','トーホールド'], cat: 'finish' },
-  { ja: 'アンクルロック',      terms: ['ankle lock','straight ankle','footlock','foot lock','アンクルロック','フットロック'], cat: 'finish' },
-  { ja: 'ダース',              terms: ["darce","d'arce","ダース"], cat: 'finish' },
-  { ja: 'アナコンダ',          terms: ['anaconda','アナコンダ'], cat: 'finish' },
-  { ja: 'ノースサウスチョーク', terms: ['north south choke','ノースサウスチョーク'], cat: 'finish' },
-  { ja: 'エゼキエル',          terms: ['ezekiel','ezequiel','エゼキエル','袖車'], cat: 'finish' },
-  { ja: 'ボーアンドアロー',    terms: ['bow and arrow','ボーアンドアロー','弓矢絞め'], cat: 'finish' },
-  { ja: 'クロスチョーク',      terms: ['cross choke','cross collar choke','クロスチョーク','十字絞め'], cat: 'finish' },
-  { ja: 'ループチョーク',      terms: ['loop choke','ループチョーク'], cat: 'finish' },
-  { ja: 'ペーパーカッター',    terms: ['paper cutter','ペーパーカッター'], cat: 'finish' },
-  { ja: 'オモプラッタ',        terms: ['omoplata','オモプラッタ','オモプラータ'], cat: 'finish' },
-  { ja: 'ツイスター',          terms: ['twister','ツイスター'], cat: 'finish' },
-  { ja: 'ベリンボロ',          terms: ['berimbolo','ベリンボロ'], cat: 'back' },
-  { ja: 'クラブライド',        terms: ['crab ride','クラブライド'], cat: 'back' },
-  { ja: 'キスオブザドラゴン',  terms: ['kiss of the dragon','キスオブザドラゴン'], cat: 'back' },
-  { ja: 'アームドラッグ',      terms: ['arm drag','armdrag','アームドラッグ'], cat: 'back' },
-  { ja: 'レッグドラッグ',      terms: ['leg drag','legdrag','レッグドラッグ'], cat: 'pass' },
-  { ja: 'トレアドール',        terms: ['toreando','torreando','toreada','bullfighter pass','トレアンド','トレアドール'], cat: 'pass' },
-  { ja: 'ニーカット',          terms: ['knee cut','knee slice','knee slide','ニーカット','ニースライス'], cat: 'pass' },
-  { ja: 'サンパウロパス',      terms: ['sao paulo pass','sao paulo','サンパウロパス'], cat: 'pass' },
-  { ja: 'ボディロックパス',    terms: ['body lock pass','bodylock pass','ボディロックパス'], cat: 'pass' },
-  { ja: 'スタックパス',        terms: ['stack pass','スタックパス'], cat: 'pass' },
-  { ja: 'オーバーアンダー',    terms: ['over under pass','over-under pass','オーバーアンダーパス'], cat: 'pass' },
-  { ja: 'シザースイープ',      terms: ['scissor sweep','シザースイープ'], cat: 'sweep' },
-  { ja: 'ヒップバンプスイープ', terms: ['hip bump','ヒップバンプ'], cat: 'sweep' },
-  { ja: 'フラワースイープ',    terms: ['flower sweep','pendulum sweep','フラワースイープ','ペンデュラムスイープ'], cat: 'sweep' },
-  { ja: 'バタフライスイープ',  terms: ['butterfly sweep','バタフライスイープ'], cat: 'sweep' },
-  { ja: 'シングルレッグ',      terms: ['single leg takedown','シングルレッグタックル'], cat: 'takedown' },
-  { ja: 'ダブルレッグ',        terms: ['double leg takedown','ダブルレッグ','両足タックル'], cat: 'takedown' },
-  { ja: '内股',                terms: ['uchi mata','uchimata','内股'], cat: 'takedown' },
-  { ja: '背負投',              terms: ['seoi nage','seoinage','背負投','背負い投げ'], cat: 'takedown' },
-  { ja: 'アンクルピック',      terms: ['ankle pick','アンクルピック'], cat: 'takedown' },
-  { ja: 'スナップダウン',      terms: ['snap down','snapdown','スナップダウン'], cat: 'takedown' },
+// ══ 検索辞書（これ1枚だけ）══════════════════════════════
+// 1行 ＝ 同じもの。1列目が代表表記で、2列目以降はその別の書き方（日本語・英語・略称）。
+// 用途は1つだけ: 検索語を、同じものの別の書き方へ広げて本文を探す。
+//
+// **タグ体系とは独立**。タグはユーザーが自由に作るものになったので、この辞書は
+// 「画面に出る選択肢の一覧」ではなく「BJJでそう呼ばれている言葉の一覧」である。
+// ポジション/カテゴリの表（POSITIONS / CATEGORIES）はタグの層の話で、検索は見ない。
+//
+// 入れてよいもの : 表記の揺れ（デラヒーバ／デラヒバ）と、同じものの別言語（De La Riva／DLR）
+// 入れてはいけないもの:
+//   ・別の技（ハーフガードの行に「ロックダウン」を入れると、ロックダウンで親が全部出る）
+//   ・上位/下位・「〜系」（パスガードの行に「スマッシュパス」）
+//   ・分類のキーワード（そのカテゴリを指しうる言葉。pass / smash / drag …）
+//   ・広い一語（pass / guard / sweep / choke …）
+//   ・タグ体系のラベル（「コンセプト・原理」「コントロール／プレッシャー」等。技の名前ではない）
+//
+// 足すときは行を1本足す。ポジションやカテゴリの別名欄には足さない。
+// 検査: node tools/search-dict-check.mjs
+const SEARCH_DICT = [
+  // ── ガード（下のポジション） ──
+  ['クローズドガード','closed guard','closed','クロガ','フルガード','full guard'],
+  ['オープンガード','open guard','オープン'],
+  ['ハーフガード','half guard','half','ハーフ'],
+  ['ディープハーフ','deep half guard','deep half','ディープ'],
+  ['リバースハーフガード','reverse half guard','reverse half','リバースハーフ'],
+  ['ハーフバタフライ','half butterfly','ハーフバタフライガード'],
+  ['ニーシールド','knee shield','z guard','z-guard','Zガード','ニーシールドハーフ'],
+  ['ロックダウン','lockdown','lock down'],
+  ['アンダーフックハーフ','underhook half','脇差し'],
+  ['シングルレッグハーフ','single leg half'],
+  ['バタフライガード','butterfly guard','butterfly','バタフラ'],
+  ['デラヒーバ','de la riva','dlr','de la riva guard','デラヒバ','デラヒーバガード'],
+  ['リバースデラヒーバ','reverse de la riva','rdlr','reverse dlr','リバデラ'],
+  ['デラヒーバX','de la riva x','dlx','デラエックス'],
+  ['Xガード','x guard','x-guard','エックスガード'],
+  ['SLX','single leg x','シングルレッグX','シングルレッグXガード','single x','ワンレッグX'],
+  ['Kガード','k guard','k-guard','ケーガード'],
+  ['50/50','50-50','5050','フィフティフィフティ','fifty fifty'],
+  ['スパイダーガード','spider guard','spider','スパイダ'],
+  ['インバーテッドスパイダー','inverted spider'],
+  ['ラッソーガード','lasso guard','lasso','ラッソ'],
+  ['シャローラッソー','shallow lasso'],
+  ['片襟片袖','collar sleeve','collar and sleeve','collar sleeve guard','カラースリーブ'],
+  ['ラペルガード','lapel guard','lapel','ラペル'],
+  ['ワームガード','worm guard'],
+  ['スクイッドガード','squid guard'],
+  ['グッバーガード','gubber guard'],
+  ['ラバーガード','rubber guard'],
+  ['ミッションコントロール','mission control'],
+  ['シッティングガード','seated guard','sitting guard','sit up guard','シットアップガード'],
+  ['シングルレッグガード','single leg guard'],
+  ['インバーテッド','inverted guard','inverted','トルネードガード','tornado guard'],
+  ['オクトパスガード','octopus guard','octopus'],
+  ['クォーターガード','quarter guard'],
+  ['タートル','turtle','turtle position','亀','亀ポジション'],
+  // ── 上のポジション・コントロール ──
+  ['マウント','mount','full mount','マウントポジション','縦四方固め'],
+  ['サイドコントロール','side control','side mount','サイドポジション','横四方固め'],
+  ['ノースサウス','north south','north-south','ノースサウスポジション'],
+  ['袈裟固め','kesa gatame','kesagatame','scarf hold','ケサガタメ'],
+  ['ニーオンベリー','knee on belly','knee ride','kneeride','ニーオンザベリー','膝乗り'],
+  ['バックコントロール','back control','back mount','rear mount','バックマウント'],
+  ['ボディトライアングル','body triangle'],
+  ['クルシフィックス','crucifix'],
+  ['フロントヘッドロック','front headlock','front head lock'],
+  ['クロスフェイス','cross face','crossface'],
+  ['アンダーフック','underhook','under hook'],
+  ['オーバーフック','overhook','over hook'],
+  ['ヘッドクォーター','headquarters','head quarters','ヘッドクォーターズ','ヘッドクオーター'],
+  // ── パスガード ──
+  ['パスガード','guard pass','guard passing','ガードパス'],
+  ['ニーカット','knee cut','knee slice','knee slide','knee through','cross knee','cross knee pass','ニースライス','ニースルー','クロスニー'],
+  ['レッグドラッグ','leg drag','legdrag'],
+  ['トレアドール','toreando','torreando','toreada','bullfighter pass','トレアンド','ブルファイターパス'],
+  ['ロングステップ','long step','long step pass','longstep','ロングステップパス'],
+  ['スマッシュパス','smash pass','スマッシュ'],
+  ['スタックパス','stack pass','スタック'],
+  ['ダブルアンダーパス','double under pass','double unders','ダブルアンダー'],
+  ['オーバーアンダー','over under pass','over-under pass','オーバーアンダーパス'],
+  ['ボディロックパス','body lock pass','bodylock pass'],
+  ['サンパウロパス','sao paulo pass','sao paulo'],
+  ['Xパス','x pass','x-pass','エックスパス'],
+  ['レッグウィーブ','leg weave','leg weave pass'],
+  ['フォールディングパス','folding pass'],
+  ['バックステップ','back step','backstep'],
+  ['フロートパス','float pass','floating pass','フローティングパス'],
+  // ── スイープ・リバーサル ──
+  ['スイープ','sweep','sweeps'],
+  ['シザースイープ','scissor sweep'],
+  ['ヒップバンプスイープ','hip bump','ヒップバンプ'],
+  ['フラワースイープ','flower sweep','pendulum sweep','ペンデュラムスイープ'],
+  ['バタフライスイープ','butterfly sweep','elevator sweep','エレベータースイープ'],
+  ['トルネードスイープ','tornado sweep'],
+  ['オーバーヘッドスイープ','overhead sweep','balloon sweep','バルーンスイープ'],
+  ['マッスルスイープ','muscle sweep'],
+  ['ジョンウェインスイープ','john wayne sweep','ジョンワインスイープ'],
+  ['トライポッドスイープ','tripod sweep'],
+  ['シックルスイープ','sickle sweep'],
+  ['ウェイタースイープ','waiter sweep'],
+  ['ベリンボロ','berimbolo'],
+  ['リバースベリンボロ','reverse berimbolo'],
+  ['クラブライド','crab ride'],
+  ['キスオブザドラゴン','kiss of the dragon'],
+  // ── 極め（絞め・関節） ──
+  ['サブミッション','submission','submissions','サブミ'],
+  ['アームバー','armbar','arm bar','juji gatame','腕十字'],
+  ['三角絞め','triangle choke','triangle','三角締め','トライアングル'],
+  ['リアトライアングル','rear triangle','back triangle','バックトライアングル'],
+  ['サイドトライアングル','side triangle'],
+  ['モノプラッタ','monoplata'],
+  ['オモプラッタ','omoplata','オモプラータ'],
+  ['キムラ','kimura','腕緘','腕がらみ'],
+  ['アメリカーナ','americana'],
+  ['肩固め','kata gatame','katagatame','arm triangle','head and arm choke','アームトライアングル'],
+  ['ギロチン','guillotine'],
+  ['アームインギロチン','arm in guillotine','arm-in guillotine'],
+  ['ブラボーチョーク','bravo choke'],
+  ['ダース','darce',"d'arce"],
+  ['アナコンダ','anaconda'],
+  ['ジャパニーズネクタイ','japanese necktie'],
+  ['ペルビアンネクタイ','peruvian necktie'],
+  ['リアネイキドチョーク','rear naked choke','rnc','mata leao','裸絞め','裸絞','リアネイキド','マタレオン'],
+  ['ボーアンドアロー','bow and arrow','弓矢絞め'],
+  ['クロスチョーク','cross choke','cross collar choke','十字絞め'],
+  ['ループチョーク','loop choke'],
+  ['エゼキエル','ezekiel','ezequiel','袖車'],
+  ['ベースボールチョーク','baseball choke','baseball bat choke','ベースボールバットチョーク'],
+  ['ペーパーカッター','paper cutter'],
+  ['ノースサウスチョーク','north south choke'],
+  ['ショートチョーク','short choke'],
+  ['ラペルチョーク','lapel choke'],
+  ['ゴゴプラッタ','gogoplata'],
+  ['ツイスター','twister'],
+  ['ネッククランク','neck crank','ネックロック'],
+  ['リストロック','wrist lock','wristlock','手首関節'],
+  ['バイセップスライサー','bicep slicer','biceps slicer','bicep crush','バイセップススライサー'],
+  ['カーフスライサー','calf slicer','calf crush','カーフクラッシュ'],
+  ['バナナスプリット','banana split'],
+  ['エレクトリックチェア','electric chair'],
+  // ── レッグロック（足関節） ──
+  ['レッグロック','leg lock','leglock','足関節','アシカン'],
+  ['ヒールフック','heel hook','heelhook'],
+  ['インサイドヒールフック','inside heel hook','inside heelhook','インサイドヒール'],
+  ['アウトサイドヒールフック','outside heel hook','outside heelhook','アウトサイドヒール'],
+  ['ニーバー','kneebar','knee bar','膝十字'],
+  ['トーホールド','toe hold','toehold'],
+  ['アンクルロック','ankle lock','straight ankle','footlock','foot lock','achilles lock','フットロック','アキレス腱固め'],
+  ['エスティマロック','estima lock','estima'],
+  ['サドル','saddle','411','4-11','inside sankaku','インサイドサンカク','honey hole','ハニーホール'],
+  ['アシガラミ','ashi garami','ashigarami','足絡み'],
+  // ── エスケープ・ディフェンス ──
+  ['エスケープ','escape','escapes'],
+  ['エルボーエスケープ','elbow escape','knee elbow escape','エルボーニーエスケープ'],
+  ['ヒップエスケープ','hip escape','shrimping','shrimp escape'],
+  ['ブリッジアンドロール','bridge and roll','upa','ブリッジ＆ロール','ウパ'],
+  ['グランビーロール','granby roll','granby','グランビー'],
+  ['ヒッチハイカーエスケープ','hitchhiker escape'],
+  ['テクニカルスタンドアップ','technical stand up','technical standup','テクニカルリフト'],
+  ['ガードリテンション','guard retention','retention','リテンション'],
+  ['ガードリカバリー','guard recovery'],
+  ['フレーム','frame','framing','フレーミング'],
+  ['スプロール','sprawl'],
+  // ── テイクダウン・立ち技 ──
+  ['テイクダウン','takedown','takedowns'],
+  ['スタンディング','standing','stand up','立ち技'],
+  ['引き込み','guard pull','pull guard','pulling guard','プルガード'],
+  ['シングルレッグタックル','single leg takedown','single leg tackle','片足タックル'],
+  ['ダブルレッグ','double leg takedown','両足タックル'],
+  ['ハイクラッチ','high crotch'],
+  ['ニーピック','knee pick'],
+  ['アンクルピック','ankle pick'],
+  ['アームドラッグ','arm drag','armdrag'],
+  ['カラードラッグ','collar drag','襟ドラッグ'],
+  ['スナップダウン','snap down','snapdown'],
+  ['ダックアンダー','duck under','duckunder'],
+  ['ロシアンタイ','russian tie','two on one'],
+  ['スープレックス','suplex'],
+  ['内股','uchi mata','uchimata'],
+  ['大外刈り','osoto gari','osotogari','大外刈'],
+  ['大内刈り','ouchi gari','ouchigari','大内刈'],
+  ['小内刈り','kouchi gari','kouchigari','小内刈'],
+  ['背負投','seoi nage','seoinage','背負い投げ'],
+  ['一本背負い','ippon seoi nage','ippon seoinage','一本背負'],
+  ['巴投げ','tomoe nage','tomoenage','巴投'],
+  ['払腰','harai goshi','haraigoshi','払い腰'],
+  ['体落','tai otoshi','taiotoshi','体落とし'],
+  ['肩車','kata guruma','fireman carry',"fireman's carry",'ファイヤーマンズキャリー'],
+  // ── そのほかよく使う言葉 ──
+  ['バックテイク','back take','taking the back','バックを取る'],
+  ['スクランブル','scramble'],
+  ['グリップブレイク','grip break','grip breaking','グリップブレイキング'],
+  ['ノーギ','no gi','nogi','no-gi','ノーギー'],
 ];
-window.TECHNIQUE_BUILTIN = TECHNIQUE_BUILTIN;
+window.SEARCH_DICT = SEARCH_DICT;
 
 // ─── キーワード推定は廃止（v52.814・Notion 項目01）───────
 // タイトルやプレイリスト名から tb/cat/pos/tags を当てる仕組み

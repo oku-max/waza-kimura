@@ -168,12 +168,8 @@ function _buildVocab() {
     const set = new Set([label, ...(terms || [])].filter(Boolean).map(s => String(s).toLowerCase()));
     if (label) out.push({ label, kind, terms: [...set] });
   };
-  (window.POSITIONS || []).forEach(p => {
-    if (p.ja === 'その他') return;
-    push(p.ja, 'pos', [p.en, ...(p.aliases || [])]);
-  });
-  (window.CATEGORIES || []).forEach(c => push(c.name, 'cat', [...(c.aliases || []), ...(c.terms || [])]));
-  (window.TECHNIQUE_BUILTIN || []).forEach(t => push(t.ja, 'tech', t.terms));
+  // 語彙も検索辞書（SEARCH_DICT）の1枚から作る（v52.824。表を増やさない）
+  (window.SEARCH_DICT || []).forEach(row => push(row[0], 'tech', row.slice(1)));
   // ユーザーが動画に付けた #タグも語彙に入れる
   const seen = new Set(out.map(v => v.label));
   (window.videos || []).forEach(v => {

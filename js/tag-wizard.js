@@ -1,5 +1,5 @@
 // ═══ WAZA KIMURA — タグ付けウィザード v52.441 ═══
-// データソース: ユーザーの選択肢（window.tagPresets）。組み込みの一覧は読まない（v52.820）
+// データソース: ユーザーの選択肢（window.tagPresets）。組み込みの一覧は読まない（v52.827）
 (function () {
 'use strict';
 
@@ -302,7 +302,7 @@ function _loadItem() {
   if (elThumb)   { elThumb.src = _info.thumb || ''; elThumb.style.display = _info.thumb ? 'block' : 'none'; }
   if (elPlayBtn) elPlayBtn.style.display = _info.canPlay ? 'flex' : 'none';
 
-  // 候補はユーザーの選択肢（tagPresets）から。組み込みの一覧は読まない（v52.820）。
+  // 候補はユーザーの選択肢（tagPresets）から。組み込みの一覧は読まない（v52.827）。
   // 選択肢に無いのに動画に付いている値は、消さずに先頭に出す（押さなければそのまま残る）。
   function _twPresets(key) { return (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice(); }
 

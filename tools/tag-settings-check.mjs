@@ -51,7 +51,7 @@ ${grab('tag-edit-overlay')}
 <\/script>
 <script src="/js/tag-master.js"><\/script><script src="/js/tag-templates.js"><\/script>
 <script>
- // v52.820 から種入れは組み込みの一覧を入れない（タグはユーザー定義がすべて）。
+ // v52.827 から種入れは組み込みの一覧を入れない（タグはユーザー定義がすべて）。
  // この検査はモーダルの動きを見るものなので、「すでに選択肢を持っているユーザー」を用意する
  // （中身は、v52.813 までに種が入ったオーナーと同じ状態）。
  localStorage.setItem('wk_tagSettings', JSON.stringify([

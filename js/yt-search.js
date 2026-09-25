@@ -1053,6 +1053,19 @@ export function ytSrCloseResultsList() {
 
 export function ytSrCloseVPanel() {
   ytSrCloseResultsList();
+
+  // 右列（ブックマーク・メモ）は実VPanelと同じIDで作っている（#vp-bm-list-<id>, #vp-memo-<id> 等）。
+  // 閉じても残しておくと、このオーバーレイは #vpanel より前にあるので、同じ動画を
+  // ライブラリで開いたときに getElementById が見えない方を掴み、
+  // 「ブックマークの編集ボタンが効かない」「メモが見えない方から読まれて保存される」になる。
+  // 消す前に、打ちかけのメモ（800ms の保存待ち）を確定させる。
+  // _t は oninput でしか付かない＝入力が無ければ何も書かない（触っていないメモを保存し直さない）。
+  const srScroll = document.getElementById('yt-sr-vp-scroll');
+  if (srScroll) {
+    const memoEl = _srOpenLibId ? srScroll.querySelector('#vp-memo-' + CSS.escape(_srOpenLibId)) : null;
+    if (memoEl && memoEl._t) { clearTimeout(memoEl._t); memoEl._t = null; window.vpSaveMemo?.(_srOpenLibId); }
+  }
+
   _srRemoveTempEntry();  // 未登録動画の一時エントリを除去
   document.getElementById('yt-sr-vp-overlay')?.classList.remove('open');
 
@@ -1075,6 +1088,8 @@ export function ytSrCloseVPanel() {
   // 左列をクリア（動画停止）
   const left = document.getElementById('yt-sr-vp-left');
   if (left) left.innerHTML = '';
+  // 右列も空にする（上のコメント参照。残すと実VPanelと同じIDが2つになる）
+  if (srScroll) srScroll.innerHTML = '';
   document.querySelector('.yt-sr-vp-inner')?.classList.remove('is-portrait');
   _srOpenItem   = null;
   _srCurrentIdx = -1;

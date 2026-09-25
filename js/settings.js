@@ -2,7 +2,7 @@
 
 // タググループは 4 つ固定。名前も中身もユーザーが自由に決める。
 // ここにある label はあくまで「まだ何も決めていない人の初期値」で、意味を持たせない。
-// 選択肢は全部空から始める。組み込みの値は入れない（v52.820・タグはユーザー定義がすべて）。
+// 選択肢は全部空から始める。組み込みの値は入れない（v52.827・タグはユーザー定義がすべて）。
 // 既存ユーザーは localStorage 'wk_tagSettings' の値が優先されるので、この定数を変えても影響しない。
 const DEFAULT_TAG_SETTINGS = [
   { key:'tb',   label:'タグ1', visible:true,  presets:[] },
@@ -68,7 +68,7 @@ function _presetRemove(key, name) {
 }
 
 // 初回だけ、そのユーザーが自分の動画に付けてきた値を選択肢に入れる。
-// 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は入れない（v52.820・タグはユーザー定義がすべて）。
+// 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は入れない（v52.827・タグはユーザー定義がすべて）。
 // 以前は組み込みの一覧を入れていた。v52.803 より前の設定には cat / pos の選択肢が保存されていないので、
 // 何も入れないと、ログインした瞬間に今まで使っていた値が選べなくなる（v52.813 の「カテゴリ選べない」）。
 // その人の動画に付いている値＝その人が決めた値なので、それだけを戻す。
@@ -2678,6 +2678,7 @@ function _syncWindowCats() {
     if (stored) {
       const cats = JSON.parse(stored);
       if (Array.isArray(cats) && cats.length) {
+        // カテゴリ名の日英表記は SEARCH_DICT（検索辞書の1枚）が持つので、ここでは扱わない。
         window.CATEGORIES = cats.map(c => ({
           id:      c.id || '',
           name:    c.names?.ja || c.name || '',

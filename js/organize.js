@@ -373,89 +373,99 @@ export function _matchQuery(v, parsed, fields) {
   return true;
 }
 
+// ── 動画1本ぶんの「照合用テキスト」をキャッシュする ──
+// 打鍵のたびに2,800本×5項目を正規化し直すと重いので、元の文字列が変わったときだけ作り直す。
+// 動画オブジェクト自体には何も書き込まない（保存経路に乗せないため WeakMap を使う）。
+const _textCache = new WeakMap();
+function _videoText(v) {
+  const rawLower = window._rawLowerTag || (x => String(x || '').toLowerCase());
+  const norm     = window._normTag     || (x => String(x || '').toLowerCase());
+  const src = {
+    title: v.title || '',
+    ch:    v.channel || v.ch || '',
+    pl:    v.pl || '',
+    memo:  v.memo || '',
+    tags:  [...(v.tb || []), ...(v.cat || []), ...(v.pos || []), ...(v.tags || [])].join(' / '),
+  };
+  const got = _textCache.get(v);
+  if (got && got.src.title === src.title && got.src.ch === src.ch && got.src.pl === src.pl
+          && got.src.memo === src.memo && got.src.tags === src.tags) return got;
+  const made = { src };
+  for (const k of ['title', 'ch', 'pl', 'memo', 'tags']) {
+    made[k] = { raw: rawLower(src[k]), norm: norm(src[k]) };
+  }
+  // 項目を絞らない検索（ふだんの検索）は、5項目を1本にまとめた方を見る。
+  // 1語につき5回照合していたのを1回にするため（2,800本だと体感が変わる）。
+  const joined = [src.title, src.ch, src.pl, src.tags, src.memo].join(' / ');
+  made.all = { raw: rawLower(joined), norm: norm(joined) };
+  _textCache.set(v, made);
+  return made;
+}
+window._wkVideoText = _videoText;
+
+// ── 1つの語が、1つの項目に入っているか ──
+// 英語: 生テキストの単語境界（"pass" が "compass" に当たらない）＋末尾の複数形は同じ語とみなす。
+// 日本語: 正規化して部分一致（全角/半角・カタカナ/ひらがな・長音・中黒の違いを吸収）。
+//   → 「ｽｲｰﾌﾟ」で「スイープ」、「ＤＬＲ」で「DLR」、「Heel Hook」で「Heel Hooks」に当たる。
+//   辞書に書き方を並べて増やすのではなく、両側を同じ形に揃えて突き合わせる。
+// 語ごとの正規表現は作り直さない（2,800本×打鍵で作ると重い）
+const _reCache = new Map();
+function _termRe(core) {
+  let re = _reCache.get(core);
+  if (re !== undefined) return re;
+  const bare = core.replace(/[\s\-_]+/g, '');
+  if (!bare) { re = null; }
+  else {
+    const q   = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const esc = q(core).replace(/[\s\-_]+/g, '[\\s\\-_]+');
+    // 区切り無しで書かれた本文にも当てる（"de la riva" ↔ "delariva"）
+    const alt = (bare === core) ? esc : (esc + '|' + q(bare));
+    // 1文字("k","x")は複数形を許さない（"ks" のような偶然に当たらないように）
+    const tail = bare.length === 1 ? '' : '(?:e?s)?';
+    re = new RegExp('(^|[^a-z0-9])(?:' + alt + ')' + tail + '($|[^a-z0-9])');
+  }
+  if (_reCache.size > 400) _reCache.clear();
+  _reCache.set(core, re);
+  return re;
+}
+
+function _hitField(text, f) {
+  if (!text || !f) return false;
+  const t = String(text);
+  if (/^[\x20-\x7E]+$/.test(t)) {
+    const re = _termRe(t.toLowerCase().trim());
+    return !!re && re.test(f.raw);
+  }
+  const n = (window._normTag || (x => x))(t);
+  return !!n && f.norm.includes(n);
+}
+
 export function _matchQueryField(v, text, exact, fields) {
   // fields: アドバンスドサーチで指定された検索対象 (null=全部)
-  const fTitle = !fields || fields.title;
-  const fCh    = !fields || fields.ch;
-  const fPl    = !fields || fields.pl;
-  const fTech  = !fields || fields.tags;
-  const fMemo  = !fields || fields.memo;
-  const title = (v.title||'').toLowerCase();
-  const ch    = (v.channel||v.ch||'').toLowerCase();
-  const pl    = (v.pl||'').toLowerCase();
-  // 「タグ」フィールドは 4層タグ(tb/cat/pos/tags)
-  const tagWords = [
-    ...(v.tb   || []),
-    ...(v.cat  || []),
-    ...(v.pos  || []),
-    ...(v.tags || [])
-  ].map(t => String(t).toLowerCase());
-  const memo  = (v.memo||'').toLowerCase();
-  // ASCII 1文字 ("k","x" 等) だけは部分一致にしない。"k" が "keenan"/"knee"/"kimura" の中に
-  // 当たって大量誤爆するため、単語の区切りで照合する（"Kガード" の k には当たる）。
-  const oneChar = /^[a-z0-9]$/.test(text);
-  const reOne   = oneChar ? new RegExp('(^|[^a-z0-9])' + text + '($|[^a-z0-9])') : null;
-  const hit     = s => oneChar ? reOne.test(s) : s.includes(text);
-  if ((fTitle && hit(title)) || (fCh && hit(ch))
-      || (fPl && hit(pl)) || (fTech && tagWords.some(hit))
-      || (fMemo && hit(memo))) return true;
+  const T = _videoText(v);
+  let use;
+  if (!fields) use = [T.all];   // ふだんの検索: まとめた1本だけ見る
+  else {
+    use = [];
+    if (fields.title) use.push(T.title);
+    if (fields.ch)    use.push(T.ch);
+    if (fields.pl)    use.push(T.pl);
+    if (fields.tags)  use.push(T.tags);
+    if (fields.memo)  use.push(T.memo);
+  }
 
-  // ── 検索語の日英展開 → タイトル等の本文を探す ──
-  // 動画タイトルは英語(英語チャンネルからの取り込み)、検索語は日本語という組み合わせが普通に起きる。
-  // 検索語が既知のポジション/カテゴリー/技名なら、その全表記でタイトル・チャンネル・メモも探す。
-  // 例:「デラヒーバ」→ "De La Riva Guard Sweep" /「ニースライス」→ "Knee Slice" (逆方向も同じ)
+  if (use.some(f => _hitField(text, f))) return true;
+
+  // ── 検索語 → 同じものの別の書き方（SEARCH_DICT の1枚だけを引く）──
+  // 動画タイトルは英語、検索語は日本語（またはその逆）が普通に起きるため、
+  // 打った語と同じものを指す書き方でも本文を探す。関連や分類へは広げない。
   const names = window.aliasNamesFor ? window.aliasNamesFor(text) : null;
   if (names && names.length) {
-    const parts = [];
-    if (fTitle) parts.push(title);
-    if (fCh)    parts.push(ch);
-    if (fPl)    parts.push(pl);
-    if (fTech)  parts.push(...tagWords);
-    if (fMemo)  parts.push(memo);
-    const blob = parts.join(' / ');
     for (const nm of names) {
-      const s = String(nm).toLowerCase();
-      if (!s) continue;
-      // 英語は単語境界（"pass" が "compass" に当たらない）、日本語は素直に部分一致
-      if (/^[\x20-\x7E]+$/.test(s)) {
-        if (window._termHitTag && window._termHitTag(s, blob, '')) return true;
-      } else if (blob.includes(s)) return true;
+      if (nm && nm !== text && use.some(f => _hitField(nm, f))) return true;
     }
   }
-
-  // ── 日英ブリッジ (デラヒーバ ↔ De La Riva ↔ DLR / Closed Guard ↔ クローズドガード 等) ──
-  // データは常に日本語で保存されるため、英語UIのユーザーが英語や別名で検索したとき、
-  // この動画が持つポジション/カテゴリーの全表記(日本語名・英語名・別名)へ橋渡しする。
-  const norm = window._normTag;
-  if (!fTech || !norm) return false;
-  const aliasKeys = [];
-  if (window.findPosition) {
-    for (const p of (v.pos || [])) {
-      const def = window.findPosition(p);
-      if (def) aliasKeys.push(def.id, def.ja, def.en, ...(def.aliases || []));
-    }
-  }
-  if (window.findCategory) {
-    for (const c of (v.cat || [])) {
-      const def = window.findCategory(c);
-      if (def) aliasKeys.push(def.id, def.name, ...(def.aliases || []));
-    }
-  }
-  if (!aliasKeys.length) return false;
-
-  // 英語(ASCII): 生テキストの「単語境界一致」。以前は _norm 後の部分一致だったため
-  //   ① _norm が末尾 "guard" を落とし、"closed guard" 等 "◯◯ guard" の検索が全滅していた
-  //   ② "la" が "lasso" を巻き込むなど別タグへ誤爆していた
-  // 単語境界一致なら "guard" は "Closed Guard" の guard に当たり、"la" は "lasso" に当たらず、
-  // "de la riva" のような複数語も各語が素直にヒットする。
-  if (/^[\x20-\x7E]+$/.test(text) && window._termHitTag && window._rawLowerTag) {
-    const rawBlob = aliasKeys.map(window._rawLowerTag).join(' ');
-    return window._termHitTag(text, rawBlob, '');
-  }
-  // 日本語: 正規化して「完全一致」。"スマッシュ" が別タグ "スマッシュパス" を巻き込む誤爆を防ぐ
-  // (_norm が末尾 がーど を落とすので "デラヒバ"↔"デラヒーバ" 等の表記ゆれは一致する)。
-  const nText = norm(text);
-  return !!nText && aliasKeys.some(k => norm(k) === nText);
+  return false;
 }
 
 export function _matchFieldSpecific(v, field, values) {
@@ -1555,7 +1565,7 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return
 
 // ═══ Inline cell editing ═══
 
-// タグの候補はユーザーの選択肢（tagPresets）から。組み込みの一覧（TB_VALUES 等）は読まない（v52.820）。
+// タグの候補はユーザーの選択肢（tagPresets）から。組み込みの一覧（TB_VALUES 等）は読まない（v52.827）。
 // その動画に付いているのに選択肢に無い値は、_openTagPicker が先頭に足すので外せる。
 const _orgPresets = key => (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice();
 const _INLINE_COLS = {

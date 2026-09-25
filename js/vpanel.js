@@ -6874,7 +6874,7 @@ const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
 
 // 候補 = ユーザーの選択肢 ＋ 実際に動画に付いている値。
 // 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は混ぜない。混ぜていたので、
-// 選択肢から消した値が候補に戻ってきていた（v52.820・タグはユーザー定義がすべて）。
+// 選択肢から消した値が候補に戻ってきていた（v52.827・タグはユーザー定義がすべて）。
 // 一括編集（bulk.js の _bvpGetAllOpts）と同じ形。
 export function vpGetAllOpts(type) {
   const ts = window.tagSettings || [];

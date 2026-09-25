@@ -195,6 +195,11 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 検索辞書の見出し改名で訳が外れた分（v52.815）。
+    // 技名は本来 TECHNIQUE_BUILTIN から自動で訳されるが、この2つは辞書の見出しではなく
+    // 種入れプリセット／管理画面の別表記なので、固定文として持つ。
+    'シングルレッグ': 'Single Leg',
+    'シングルレッグX': 'Single Leg X',
     // タググループの名前変更（Notion 項目03）
     '名前は空にできません': 'The name cannot be empty',
     'グループ名': 'Group name',
@@ -2396,9 +2401,12 @@
     _autoMap.clear();
     for (const [ja, en] of Object.entries(STATIC_AUTO)) _autoMap.set(ja, en);
     (window.POSITIONS || []).forEach(p => { if (p.ja && p.en && p.ja !== p.en) _autoMap.set(p.ja, p.en); });
-    (window.TECHNIQUE_BUILTIN || []).forEach(tq => {
-      const en = (tq.terms || []).find(x => !/[぀-ヿ一-鿿]/.test(x));
-      if (tq.ja && en) _autoMap.set(tq.ja, en.replace(/\b[a-z]/g, c => c.toUpperCase()));
+    // 表示の訳も検索辞書（SEARCH_DICT）の1枚から引く。1行＝同じもので、
+    // 1列目が日本語の代表表記、最初の英字表記がその英語名。
+    (window.SEARCH_DICT || []).forEach(row => {
+      const ja = row[0];
+      const en = row.slice(1).find(x => !/[぀-ヿ一-鿿]/.test(x));
+      if (ja && en && /[぀-ヿ一-鿿]/.test(ja)) _autoMap.set(ja, en.replace(/\b[a-z]/g, c => c.toUpperCase()));
     });
     for (const [ja, en] of Object.entries(CAT_EN)) _autoMap.set(ja, en);
     for (const [ja, en] of Object.entries(TB_EN)) _autoMap.set(ja, en);

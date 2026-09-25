@@ -116,7 +116,7 @@ export function cardHTML(v) {
   const _esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   // タグ1 も付いている値をそのまま出す。以前は組み込みの3つ（トップ/ボトム/スタンディング）以外を
-  // 黙って隠していたので、ユーザーが自分で足した値がカードに出なかった（v52.820）。
+  // 黙って隠していたので、ユーザーが自分で足した値がカードに出なかった（v52.827）。
   const newTb   = _tsV('tb')   && Array.isArray(v.tb)   ? v.tb   : [];
   const newCat  = _tsV('cat')  && Array.isArray(v.cat)  ? v.cat  : [];
   const newPos  = _tsV('pos')  && Array.isArray(v.pos)  ? v.pos  : [];
