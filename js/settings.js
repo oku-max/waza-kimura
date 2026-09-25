@@ -2,9 +2,10 @@
 
 // タググループは 4 つ固定。名前も中身もユーザーが自由に決める。
 // ここにある label はあくまで「まだ何も決めていない人の初期値」で、意味を持たせない。
+// 選択肢は全部空から始める。組み込みの値は入れない（v52.827・タグはユーザー定義がすべて）。
 // 既存ユーザーは localStorage 'wk_tagSettings' の値が優先されるので、この定数を変えても影響しない。
 const DEFAULT_TAG_SETTINGS = [
-  { key:'tb',   label:'タグ1', visible:true,  presets:['トップ','ボトム','スタンディング'] },
+  { key:'tb',   label:'タグ1', visible:true,  presets:[] },
   { key:'cat',  label:'タグ2', visible:true,  presets:[] },
   { key:'pos',  label:'タグ3', visible:true,  presets:[] },
   { key:'tags', label:'タグ4', visible:true,  presets:[] },
@@ -55,28 +56,32 @@ function _presetAdd(key, name) {
   const t = tagSettings.find(x => x.key === key);
   if (!t) return;
   if (!Array.isArray(t.presets)) t.presets = [];
-  if (!t.presets.includes(name)) { t.presets.push(name); saveTagSettings(); }
+  if (!t.presets.includes(name)) { t.presets.push(name); t.seeded = true; saveTagSettings(); }
 }
 function _presetRemove(key, name) {
   if (!name) return;
   const t = tagSettings.find(x => x.key === key);
   if (!t || !Array.isArray(t.presets)) return;
   const next = t.presets.filter(p => p !== name);
-  if (next.length !== t.presets.length) { t.presets = next; saveTagSettings(); }
+  // 自分で触ったグループには以後いっさい種を入れない（全部消して空にしても復活させない）
+  if (next.length !== t.presets.length) { t.presets = next; t.seeded = true; saveTagSettings(); }
 }
 
-// 初回だけ、サンプル（tag-master.js の一覧）を選択肢の種として入れる。
+// 初回だけ、そのユーザーが自分の動画に付けてきた値を選択肢に入れる。
+// 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は入れない（v52.827・タグはユーザー定義がすべて）。
+// 以前は組み込みの一覧を入れていた。v52.803 より前の設定には cat / pos の選択肢が保存されていないので、
+// 何も入れないと、ログインした瞬間に今まで使っていた値が選べなくなる（v52.813 の「カテゴリ選べない」）。
+// その人の動画に付いている値＝その人が決めた値なので、それだけを戻す。
 // ・空 → 埋める、しかやらない。既にある選択肢は絶対に触らない
-// ・一度種を入れたら seeded を立て、以後は入れない
+// ・一度入れたら（または自分で触ったら）seeded を立て、以後は入れない
 //   （ユーザーが全部消して「空のまま」にしたいときに、勝手に復活させないため）
-// 種の出どころを持つグループ。tags（自由タグ）には見本が無いのが正しい。
-// 「出どころが無い」と「出どころがまだ読めていない」を取り違えないために分けてある。
+// tags（自由タグ）は _syncTagPresetsFromVideos が受け持つ。
 const _SEEDABLE = new Set(['tb', 'cat', 'pos']);
 function _sampleFor(key) {
-  if (key === 'tb')  return (window.TB_VALUES || []).slice();
-  if (key === 'cat') return (window.CATEGORIES || []).map(c => c.name).filter(Boolean);
-  if (key === 'pos') return (window.POSITIONS  || []).map(p => p.ja).filter(Boolean);
-  return [];
+  if (!_SEEDABLE.has(key)) return [];
+  const set = new Set();
+  (window.videos || []).forEach(v => { (Array.isArray(v?.[key]) ? v[key] : []).forEach(x => { if (x) set.add(x); }); });
+  return [...set].sort((a, b) => String(a).localeCompare(String(b), 'ja'));
 }
 function _seedTagPresets() {
   let changed = false;
@@ -86,8 +91,9 @@ function _seedTagPresets() {
     if (!Array.isArray(t.presets)) t.presets = [];
     if (t.presets.length === 0 && _SEEDABLE.has(key)) {
       const sample = _sampleFor(key);
-      // 出どころ（tag-master.js の一覧）がまだ読めていないだけなら、印を付けずに次回へ回す。
-      // ここで seeded を立ててしまうと、二度と種が入らず選択肢が永久に空になる（v52.813）。
+      // 動画がまだ読めていない／まだ1本もタグが無いなら、印を付けずに次回へ回す。
+      // ここで seeded を立ててしまうと、動画を読んだ後に二度と入らない（v52.813）。
+      // 何も無いなら空のまま＝組み込みの値で埋めることはしない。
       if (!sample.length) continue;
       t.presets = sample;
     }
@@ -167,6 +173,7 @@ export function applyRemoteSettings(data) {
     // 当時の画面は辞書（CATEGORIES / POSITIONS）を直接読んでいたので、
     // presets に何も溜まっていなかった。ここで種を入れないと、ログインした
     // 瞬間に空のクラウド設定で上書きされ、選択肢が消えたように見える（v52.813）。
+    // 種はその人の動画に付いている値（loadUserData が先に済んでいる）。
     //
     // 足すだけ・空のグループだけ・seeded の印があるものには触らない。
     // ＝ユーザーが意図して空にしたグループは空のまま（tag-seed-check）。
@@ -217,6 +224,8 @@ export function applyTagVisibility() {
 export function renderSettings() {
   // #Tag の presets が空なら動画データから自動収集
   _syncTagPresetsFromVideos();
+  // 起動時に動画がまだ無くて種が入らなかったグループを、ここで入れる（空→埋めるだけ）
+  if (_seedTagPresets()) saveTagSettings();
   _renderTagDisplaySettings();
   _renderFilterColSettings();
   _renderAiImportSettings();

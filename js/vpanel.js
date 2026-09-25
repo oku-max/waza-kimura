@@ -6870,24 +6870,17 @@ export function vpRemovePosEl(el) {
 }
 
 // ── タグドロップダウン ──
-// 選択肢はハードコードせず、必ず正典(tag-master.js → window.*)から取得する。
 const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
 
-// 正典(tag-master.js → window.POSITIONS/CATEGORIES/TB_VALUES)から選択肢を取得。
-// テーブルビュー等と同じソースを見ることで、編集パネルの選択肢が食い違わないようにする。
-function _vpCanonicalOpts(type) {
-  if (type === 'pos') return (window.POSITIONS  || []).map(p => p.ja).filter(Boolean);
-  if (type === 'cat') return (window.CATEGORIES || []).map(c => c.name).filter(Boolean);
-  if (type === 'tb')  return [...(window.TB_VALUES || [])];
-  return []; // tags は固定の正典なし（動画データ・設定から収集）
-}
-
+// 候補 = ユーザーの選択肢 ＋ 実際に動画に付いている値。
+// 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は混ぜない。混ぜていたので、
+// 選択肢から消した値が候補に戻ってきていた（v52.827・タグはユーザー定義がすべて）。
+// 一括編集（bulk.js の _bvpGetAllOpts）と同じ形。
 export function vpGetAllOpts(type) {
   const ts = window.tagSettings || [];
   const fromSettings = ts.find(t => t.key === type)?.presets || [];
-  const base = _vpCanonicalOpts(type);
   const fromVideos = (window.videos || []).flatMap(v => v[type] || []);
-  return [...new Set([...base, ...fromSettings, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
+  return [...new Set([...fromSettings, ...fromVideos])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ja'));
 }
 
 export function vpTogDd(id, type) {

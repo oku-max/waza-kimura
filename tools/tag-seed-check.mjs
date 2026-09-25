@@ -3,13 +3,15 @@
 //
 // なぜ要るか:
 //   v52.803 で、タググループの選択肢をユーザーのもの（tagSettings.presets）にした。
-//   空のままだと何を入れればいいか分からないので、初回だけサンプルを種として入れる。
+//   v52.827 から、種はそのユーザーが自分の動画に付けてきた値だけ。組み込みの一覧
+//   （TB_VALUES / CATEGORIES / POSITIONS）は入れない（タグはユーザー定義がすべて）。
+//   動画にも何も無ければ空のまま始まる。
 //   ここは CLAUDE.md のルール1（非空→空の上書き禁止）に真正面からぶつかる場所で、
 //   間違えるとユーザーが育てた選択肢やグループ名が起動のたびに書き換わる。
 //
 //   静的な読みでは確かめられない。実際に localStorage を用意して起動し、
 //   3つの経路で「消えない・勝手に復活しない」ことを見る:
-//     A. まっさら          → 種が入る
+//     A. まっさら          → 空のまま（組み込みの値が入らない）／動画があればその値だけ入る
 //     B. ユーザーが育てた後 → そのまま。空にしたグループが勝手に復活しない
 //     C. 旧バージョンから   → 名前も既存の値も保たれ、空だったところだけ埋まる
 //     D. ログインでクラウドの設定が降ってきた → 同じことがそこでも起きる
@@ -22,7 +24,7 @@ for (const c of ['playwright', path.join(execSync('npm root -g',{encoding:'utf8'
   try { chromium=(await import(c)).chromium; break; } catch {} }
 const ROOT='/home/user/waza-kimura', PORT=8182;
 const HTML=`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
-<script>window.toast=()=>{};window.saveUserSettings=()=>{};window.videos=[];<\/script>
+<script>window.toast=()=>{};window.saveUserSettings=()=>{};window.videos=window.__videos||[];<\/script>
 <script src="/js/tag-master.js"><\/script>
 <script type="module">
  import * as S from '/js/settings.js';
@@ -37,9 +39,18 @@ const exe='/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const b=await chromium.launch(fs.existsSync(exe)?{executablePath:exe}:{});
 let fail=0; const ck=(n,ok,d)=>{console.log((ok?'  ✓ ':'  ✗ ')+n+(d&&!ok?'  → '+String(d).slice(0,240):'')); if(!ok)fail++;};
 
-async function boot(stored, remote) {
+// 組み込みの一覧（tag-master.js）の値。これが1つでも選択肢に紛れたら赤。
+const DICT_ONLY=['トップ','ボトム','スタンディング','ガードリテンション','マウント'];
+const leaked=ps=>ps.flat().filter(x=>DICT_ONLY.includes(x));
+// このユーザーが自分で付けてきた値
+const MY_VIDEOS=[
+  {id:'a',tb:['立ち'],cat:['パス'],pos:['デラヒーバ'],tags:['技A']},
+  {id:'b',tb:['寝'],cat:['スイープ','パス'],pos:[],tags:[]},
+];
+async function boot(stored, remote, videos) {
   const ctx=await b.newContext(); ctx.setDefaultTimeout(8000);
   await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`),r=>r.abort());
+  if (videos) await ctx.addInitScript(v=>{window.__videos=v;}, videos);
   if (stored) await ctx.addInitScript(v=>localStorage.setItem('wk_tagSettings',v), JSON.stringify(stored));
   const pg=await ctx.newPage();
   const errs=[]; pg.on('pageerror',e=>errs.push(String(e).split('\n')[0]));
@@ -55,12 +66,18 @@ async function boot(stored, remote) {
   await ctx.close(); out.errs=errs; return out;
 }
 
-console.log('── A. まっさらな状態（初回）──');
+console.log('── A. まっさらな状態（初回・動画なし）──');
 const a=await boot(null);
 ck('エラーなし', a.errs.length===0, a.errs.join('|'));
-ck(`種入れされる tb=${a.presets[0].length} cat=${a.presets[1].length} pos=${a.presets[2].length}`,
-   a.presets[0].length===3&&a.presets[1].length===10&&a.presets[2].length===27, JSON.stringify(a.presets.map(p=>p.length)));
-ck('seeded が保存される', a.seeded.every(Boolean)&&a.saved&&a.saved.every(t=>t.seeded===true), JSON.stringify(a.seeded));
+ck('★ 選択肢は全部空（組み込みの値が入らない）', a.presets.every(p=>p.length===0), JSON.stringify(a.presets));
+ck('動画がまだ無いので印は付けない（後で動画を読んだら入る）', a.seeded.slice(0,3).every(x=>!x), JSON.stringify(a.seeded));
+
+console.log('\n── A2. まっさら・自分の動画がある ──');
+const a2=await boot(null, null, MY_VIDEOS);
+ck('エラーなし', a2.errs.length===0, a2.errs.join('|'));
+ck('★ 自分の動画に付いている値だけが入る', JSON.stringify(a2.presets.slice(0,3))===JSON.stringify([['寝','立ち'],['スイープ','パス'],['デラヒーバ']]), JSON.stringify(a2.presets));
+ck('★ 組み込みの値は1つも入らない', leaked(a2.presets).length===0, JSON.stringify(leaked(a2.presets)));
+ck('seeded が保存される', a2.saved&&a2.saved.filter(t=>['tb','cat','pos'].includes(t.key)).every(t=>t.seeded===true), JSON.stringify(a2.seeded));
 
 console.log('\n── B. ユーザーが自分の選択肢を持っている（seeded済み）──');
 const userStored=[
@@ -82,10 +99,11 @@ const oldStored=[
   {key:'pos',label:'ポジション',visible:true,presets:[]},
   {key:'tags',label:'テクニック',visible:true,presets:['アームバー']},
 ];
-const c=await boot(oldStored);
+const c=await boot(oldStored, null, MY_VIDEOS);
 ck('エラーなし', c.errs.length===0, c.errs.join('|'));
 ck('旧ユーザーのグループ名が保たれる', JSON.stringify(c.saved.map(t=>t.label))===JSON.stringify(['トップ/ボトム/スタンディング','カテゴリ','ポジション','テクニック']), JSON.stringify(c.saved.map(t=>t.label)));
-ck('空だった cat/pos に種が入る', c.presets[1].length===10&&c.presets[2].length===27, JSON.stringify(c.presets.map(p=>p.length)));
+ck('空だった cat/pos に、自分の動画の値が入る', JSON.stringify(c.presets[1])===JSON.stringify(['スイープ','パス'])&&JSON.stringify(c.presets[2])===JSON.stringify(['デラヒーバ']), JSON.stringify(c.presets));
+ck('★ 組み込みの cat/pos の値は入らない', leaked([c.presets[1],c.presets[2]]).length===0, JSON.stringify(leaked([c.presets[1],c.presets[2]])));
 ck('既にあった tags の値は残る', c.presets[3].includes('アームバー'), JSON.stringify(c.presets[3]));
 ck('既にあった tb の値も残る', JSON.stringify(c.presets[0])===JSON.stringify(['トップ','ボトム','スタンディング']), JSON.stringify(c.presets[0]));
 
@@ -99,10 +117,11 @@ const remoteOld=[
   {key:'pos',label:'POSITION',visible:true,presets:[]},
   {key:'tags',label:'テクニック',visible:true,presets:[]},
 ];
-const d=await boot(null, remoteOld);
+const d=await boot(null, remoteOld, MY_VIDEOS);
 ck('エラーなし', d.errs.length===0, d.errs.join('|'));
-ck('★ クラウドの旧設定でも cat の選択肢が空にならない', d.presets[1].length===10, JSON.stringify(d.presets[1].length));
-ck('★ pos も空にならない', d.presets[2].length===27, JSON.stringify(d.presets[2].length));
+ck('★ クラウドの旧設定でも cat の選択肢が空にならない（自分の動画の値）', JSON.stringify(d.presets[1])===JSON.stringify(['スイープ','パス']), JSON.stringify(d.presets[1]));
+ck('★ pos も空にならない（自分の動画の値）', JSON.stringify(d.presets[2])===JSON.stringify(['デラヒーバ']), JSON.stringify(d.presets[2]));
+ck('★ 組み込みの cat/pos の値は入らない', leaked([d.presets[1],d.presets[2]]).length===0, JSON.stringify(leaked([d.presets[1],d.presets[2]])));
 ck('クラウド側のグループ名は尊重される', JSON.stringify(d.saved.map(t=>t.label))===JSON.stringify(['TOP/BOTTOM','CATEGORY','POSITION','テクニック']), JSON.stringify(d.saved.map(t=>t.label)));
 ck('クラウドに入っていた tb の値はそのまま', JSON.stringify(d.presets[0])===JSON.stringify(['トップ','ボトム','スタンディング']), JSON.stringify(d.presets[0]));
 
@@ -113,7 +132,7 @@ const remoteEmptied=[
   {key:'pos',label:'POS',visible:true,presets:['デラヒーバ'],seeded:true},
   {key:'tags',label:'TAG',visible:true,presets:[],seeded:true},
 ];
-const e=await boot(null, remoteEmptied);
+const e=await boot(null, remoteEmptied, MY_VIDEOS);
 ck('エラーなし', e.errs.length===0, e.errs.join('|'));
 ck('★ 意図して空にした cat が勝手に復活しない', e.presets[1].length===0, JSON.stringify(e.presets[1]));
 ck('★ 意図して空にした tags も復活しない', e.presets[3].length===0, JSON.stringify(e.presets[3]));

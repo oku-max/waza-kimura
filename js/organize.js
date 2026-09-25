@@ -676,7 +676,7 @@ export function openOrgPos(){document.getElementById('org-pos-s').value='';rende
 
 export function renderOrgPos(){
   const q=document.getElementById('org-pos-s').value.toLowerCase();
-  const POS_BASE=(window.POSITIONS || []).map(p => p.ja).filter(Boolean);
+  const POS_BASE=(window.tagPresets ? window.tagPresets('pos') : []).filter(Boolean);
   const videos = window.videos || [];
   const all=[...new Set([...POS_BASE,...videos.flatMap(v=>v.pos||[])])].sort();
   const matched=all.filter(p=>!q||p.toLowerCase().includes(q));
@@ -1565,10 +1565,13 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return
 
 // ═══ Inline cell editing ═══
 
+// タグの候補はユーザーの選択肢（tagPresets）から。組み込みの一覧（TB_VALUES 等）は読まない（v52.827）。
+// その動画に付いているのに選択肢に無い値は、_openTagPicker が先頭に足すので外せる。
+const _orgPresets = key => (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice();
 const _INLINE_COLS = {
-  tb:        { field: 'tb',   type: 'tags', opts: () => window.TB_VALUES || [] },
-  action:    { field: 'cat',  type: 'tags', opts: () => (window.CATEGORIES || []).map(c => c.name) },
-  position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([...(window.POSITIONS || []).map(p => p.ja), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
+  tb:        { field: 'tb',   type: 'tags', opts: () => _orgPresets('tb') },
+  action:    { field: 'cat',  type: 'tags', opts: () => _orgPresets('cat') },
+  position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([..._orgPresets('pos'), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
   technique: { field: 'tags', type: 'tags', opts: () => [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort(), allowNew: true },
   memo:      { field: 'memo', type: 'text' },
   status:    { field: 'status', type: 'radio', opts: () => window.STATUS_CANON || [] },
