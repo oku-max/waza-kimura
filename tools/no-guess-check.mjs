@@ -40,6 +40,12 @@ const GONE = [
   ['_induceRule',       '修正からキーワードルールを作る帰納学習'],
   ['_applyRules',       '保存したキーワードルールの適用'],
   ['waza_ai_rules',     'キーワードルールの保存先'],
+  // v52.828: 「重複しているタグを整理」も廃止。名前の部分一致で重複とみなし、
+  // 組み込みのキーワード一覧で「これはポジション名だから別のグループへ」と当てていた
+  ['_analyzeTechTags',     '名前の部分一致・キーワードでタグを判定する整理ツール'],
+  ['_POS_KEYWORDS',        '誤分類検出のポジション語一覧'],
+  ['_AC_KEYWORDS',         '誤分類検出のアクション語一覧'],
+  ['_LEGIT_TECH_PATTERNS', '誤分類検出の除外語一覧'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'alias-builder.html', 'tag-master-view.html', 'dev-server.js']);
