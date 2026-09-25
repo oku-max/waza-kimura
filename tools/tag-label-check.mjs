@@ -107,18 +107,19 @@ const tt = read('js/tag-templates.js');
   ? ok('編集したテンプレートがクラウドと行き来する')
   : fail('テンプレートの同期口（getTagTemplatesRaw / applyRemoteTagTemplates）が無い');
 
-// ── 3c. 辞書を育てる経路が残っていること（項目16）────────────
-// alias-builder は検索辞書（日英ブリッジ）に別名を足す唯一の経路。
-// 承認制なので推測が混ざらない。タグ体系の自由化とは無関係に生き残る。
-if (fs.existsSync(path.join(ROOT, 'alias-builder.html'))) {
-  ok('alias-builder.html が残っている（辞書を育てる唯一の経路）');
-  const ab = read('alias-builder.html');
-  /ai-tag|ai-tagging|aiSettings|bjjRules/.test(ab)
-    ? fail('alias-builder.html が廃止したAIタグの部品を参照している')
-    : ok('alias-builder は廃止したAIタグに依存していない');
-} else {
-  fail('alias-builder.html が消えている（別名を追加する手段が無くなる）');
-}
+// ── 3c. 検索辞書を育てる経路（項目16）────────────────────────
+// 2026-09-25 までは alias-builder.html が「別名を足す唯一の経路」だった。
+// だが別名（tag_master.aliases）は v52.821 で検索から切り離され、
+// タグ候補も v52.828 でユーザーの選択肢から作るようになり、誰も読まなくなった。
+// いま辞書を育てる場所は js/tag-master.js の SEARCH_DICT に行を足すこと。
+// Aliasビルダーは v52.832 で画面ごと削除した（検査もここで直す）。
+const tmSrc = read('js/tag-master.js');
+/const SEARCH_DICT = \[/.test(tmSrc)
+  ? ok('検索辞書 SEARCH_DICT が残っている（辞書を育てる場所）')
+  : fail('SEARCH_DICT が消えている');
+fs.existsSync(path.join(ROOT, 'alias-builder.html'))
+  ? fail('alias-builder.html が復活している（別名は検索に使わない。SEARCH_DICT に行を足す）')
+  : ok('Aliasビルダーは消えたまま（別名で検索が広がる経路が戻っていない）');
 
 // ── 4. ユーザーが付けた名前を翻訳しないこと（項目10）──────────
 /\[data-user-text\]/.test(read('js/i18n.js'))

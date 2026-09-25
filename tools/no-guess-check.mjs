@@ -48,7 +48,7 @@ const GONE = [
   ['_LEGIT_TECH_PATTERNS', '誤分類検出の除外語一覧'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
-  .concat(['index.html', 'alias-builder.html', 'tag-master-view.html', 'dev-server.js']);
+  .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除
 for (const [name, what] of GONE) {
   const hits = [];
   for (const f of SRC) {
@@ -113,8 +113,7 @@ for (const fn of ['findPosition', 'findCategory', 'aliasNamesFor', 'matchPositio
 // ── 5. 無い機能について語っていないこと ────────────
 console.log('\n── 画面の説明文が現実と合っているか ──');
 const LIES = ['AI自動抽出', 'AIがタグを推定', 'AIにおまかせ', 'AI自動判定'];
-const UI = ['index.html', 'tag-master-view.html', 'alias-builder.html',
-            'js/admin-dashboard.js', 'js/settings.js', 'js/tag-wizard.js', 'js/i18n.js'];
+const UI = ['index.html', 'js/admin-dashboard.js', 'js/settings.js', 'js/tag-wizard.js', 'js/i18n.js'];
 let lies = [];
 for (const f of UI) {
   if (!fs.existsSync(path.join(ROOT, f))) continue;

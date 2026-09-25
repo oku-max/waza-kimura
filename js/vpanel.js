@@ -90,72 +90,9 @@ let _vpShuffle = false;
 let _vpCurrentPlat = null; // 現在再生中のプラットフォーム（YT→YT再利用判定用）
 
 // ── フィードバックキャプチャ（AI修正検出） ──
-let _vpTagSnapshot = null;  // { id, tb, cat, pos, tags } — openVPanel時にAI動画のタグをスナップショット
-
-function _snapshotTags(v) {
-  if (!v || !v.ai) return;  // AI未タグ動画はスキップ
-  _vpTagSnapshot = {
-    id:   v.id,
-    ts:   Date.now(),
-    tb:   [...(v.tb   || [])],
-    cat:  [...(v.cat  || [])],
-    pos:  [...(v.pos  || [])],
-    tags: [...(v.tags || [])]
-  };
-}
-
-function _captureTagFeedback(id) {
-  if (!_vpTagSnapshot || _vpTagSnapshot.id !== id) return;
-  const v = (window.videos || []).find(v => v.id === id);
-  if (!v || !v.ai) return;
-
-  const snap = _vpTagSnapshot;
-  const cur = {
-    tb:   [...(v.tb   || [])],
-    cat:  [...(v.cat  || [])],
-    pos:  [...(v.pos  || [])],
-    tags: [...(v.tags || [])]
-  };
-
-  // 差分を検出
-  const diff = {};
-  let hasDiff = false;
-  for (const key of ['tb', 'cat', 'pos', 'tags']) {
-    const added   = cur[key].filter(x => !snap[key].includes(x));
-    const removed = snap[key].filter(x => !cur[key].includes(x));
-    if (added.length || removed.length) {
-      diff[key] = {};
-      if (added.length)   diff[key].added   = added;
-      if (removed.length) diff[key].removed = removed;
-      hasDiff = true;
-    }
-  }
-  if (!hasDiff) return;
-
-  // localStorage に FIFO 保存 (最大50件)
-  const FEEDBACK_KEY = 'waza_tag_feedback';
-  const MAX_ENTRIES  = 50;
-  let entries = [];
-  try { entries = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]'); } catch(e) { entries = []; }
-  entries.push({
-    id:    v.id,
-    title: v.title || '',
-    ts:    Date.now(),
-    ai:    v.ai || '',
-    snap,
-    cur,
-    diff
-  });
-  if (entries.length > MAX_ENTRIES) entries = entries.slice(-MAX_ENTRIES);
-  try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(entries)); } catch(e) {}
-
-  // スナップショットを更新（同セッション内で再度変更した場合は新しいベースラインから検出）
-  _vpTagSnapshot = { id: v.id, ts: Date.now(), tb: cur.tb, cat: cur.cat, pos: cur.pos, tags: cur.tags };
-}
-
-function _clearTagSnapshot() {
-  _vpTagSnapshot = null;
-}
+// タグ修正差分の記録（Admin「修正履歴」用）は v52.832 で廃止した。
+// 記録は v.ai が付いた動画だけが対象で、AIタグ付けの廃止（v52.806/814）以降は
+// ほぼ発火しなくなっていた。見る画面も消したので、書き込み経路ごと消す。
 
 // ── Escape キーで全 DD を閉じる（VPanel / SR VP 共通） ──
 // SR VP では iframe が focus を奪うため Escape が届かない場合があるが、
@@ -1503,7 +1440,6 @@ export function openVPanel(id) {
   const resumeAt = (_phRaw > 0 && (!_phDur || _phRaw <= _phDur - 10)) ? _phRaw : 0;
   console.log('[playhead] 開く:', id, '記録=' + _phRaw + '秒', '長さ=' + _phDur + '秒', '→',
               resumeAt > 0 ? resumeAt + '秒から再開' : '最初から');
-  _snapshotTags(v);  // AI動画のタグ状態をスナップショット（フィードバック検出用）
   v.lastPlayed = Date.now();
   v.playCount = (v.playCount || 0) + 1;
   window.debounceSave?.();
@@ -2046,7 +1982,6 @@ export function closeVPanel() {
     if (window.openVPanelId) {
       try { vpSave(window.openVPanelId); } catch(e) {}
     }
-    _clearTagSnapshot();  // フィードバックスナップショットをクリア
     if (window.cleanupSnapshots) { try { window.cleanupSnapshots(); } catch(e) {} }
     if (_ytPlayer) {
       try { _ytPlayer.destroy(); } catch(e) {}
@@ -8204,7 +8139,6 @@ async function _makeOffscreenGdVideo(fileId, token) {
 }
 
 export function autoSaveVp(id) {
-  _captureTagFeedback(id);  // AI修正差分を検出・記録
   window.debounceSave?.();
   const ind = document.getElementById('vp-autosave-' + id);
   if (ind) {
@@ -8240,7 +8174,6 @@ export function _openPanel(id, emb, ext, plat) {
 
   panelId = id;
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  _snapshotTags(v);  // AI動画のタグ状態をスナップショット（フィードバック検出用）
   let panel = document.getElementById('vp-panel');
   if (!panel) {
     panel = document.createElement('div');
@@ -8386,7 +8319,6 @@ export function closePanel() {
     if (_ytPlayer && _ytPlayerReady) {
       try { _ytPlayer.stopVideo(); } catch(e) {}
     }
-    _clearTagSnapshot();  // フィードバックスナップショットをクリア
     if (window.cleanupSnapshots) { try { window.cleanupSnapshots(); } catch(e) {} }
     const panel = document.getElementById('vp-panel');
     if (panel) { panel.classList.remove('show'); }

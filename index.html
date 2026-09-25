@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.831</title>
+<title>WAZA KIMURA v52.832</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2113,42 +2113,19 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <!-- Admin sub-tabs -->
     <div style="border-bottom:1px solid var(--border);margin-bottom:16px;display:flex;align-items:stretch">
       <div id="admin-sub-tabs" style="display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex:1;min-width:0">
-        <div class="admin-stab active" onclick="switchAdminSub('corrections')" data-sub="corrections" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">修正履歴</div>
-        <div class="admin-stab" onclick="switchAdminSub('categories')" data-sub="categories" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">テンプレ: 動作の種類</div>
-        <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">テンプレ: ポジション</div>
         <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
-        <div class="admin-stab" onclick="switchAdminSub('tagmaster')" data-sub="tagmaster" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🗂 タグ全体図</div>
-        <div class="admin-stab" onclick="switchAdminSub('searchdict')" data-sub="searchdict" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🔍 検索辞書</div>
-        <div class="admin-stab" onclick="switchAdminSub('aliasbuilder')" data-sub="aliasbuilder" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🔧 管理</div>
+        <div class="admin-stab active" onclick="switchAdminSub('searchdict')" data-sub="searchdict" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;border-bottom:2.5px solid var(--accent);white-space:nowrap">🔍 検索辞書</div>
       </div>
       <div style="flex-shrink:0;display:flex;align-items:center;padding:0 8px;border-left:1px solid var(--border)">
         <button onclick="window._twOpen?.()" style="padding:5px 12px;border-radius:20px;background:var(--accent);color:var(--on-accent);border:none;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">🏷</button>
       </div>
     </div>
 
-    <!-- B: 修正履歴パネル -->
-    <div id="admin-p-corrections" style="display:none">
-      <div id="admin-corrections-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
-    </div>
-
-    <!-- カテゴリパネル -->
-    <div id="admin-p-categories" style="display:none">
-      <div id="admin-categories-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
-    </div>
-
-    <!-- ポジション管理パネル -->
-    <div id="admin-p-positions" style="display:none">
-      <div id="admin-positions-content" style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">読み込み中...</div>
-    </div>
 
     <!-- フィードバック閲覧パネル -->
     <div id="admin-p-feedback" style="display:none"></div>
-<!-- タグ全体図パネル -->
-    <div id="admin-p-tagmaster" style="display:none"></div>
     <div id="admin-p-searchdict" style="display:none"></div>
   </div>
-  <!-- Aliasビルダーパネル（全幅表示のため720px制限コンテナの外に配置） -->
-  <div id="admin-p-aliasbuilder" style="display:none"></div>
 </div>
 
 <!-- SEARCH TAブ -->
