@@ -50,6 +50,16 @@ ${grab('tag-edit-overlay')}
   {id:'v2',title:'B',tb:[],cat:[],pos:['幽霊ポジション'],tags:[]}];
 <\/script>
 <script src="/js/tag-master.js"><\/script><script src="/js/tag-templates.js"><\/script>
+<script>
+ // v52.820 から種入れは組み込みの一覧を入れない（タグはユーザー定義がすべて）。
+ // この検査はモーダルの動きを見るものなので、「すでに選択肢を持っているユーザー」を用意する
+ // （中身は、v52.813 までに種が入ったオーナーと同じ状態）。
+ localStorage.setItem('wk_tagSettings', JSON.stringify([
+  {key:'tb',label:'タグ1',visible:true,seeded:true,presets:['トップ','ボトム','スタンディング']},
+  {key:'cat',label:'タグ2',visible:true,seeded:true,presets:(window.CATEGORIES||[]).map(c=>c.name)},
+  {key:'pos',label:'タグ3',visible:true,seeded:true,presets:(window.POSITIONS||[]).map(p=>p.ja)},
+  {key:'tags',label:'タグ4',visible:true,presets:[]}]));
+<\/script>
 <script type="module">
  import * as S from '/js/settings.js';
  ['tagLabel','tagPresets','renderTagSettingsList','renameTagGroup','applyTagVisibility','applyTagLabels','saveTagSettings'].forEach(n=>{ if(S[n]) window[n]=S[n]; });

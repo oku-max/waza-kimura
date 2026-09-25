@@ -1,5 +1,5 @@
 // ═══ WAZA KIMURA — タグ付けウィザード v52.441 ═══
-// データソース: tag-master.js (window.TB_VALUES / window.CATEGORIES / window.POSITIONS)
+// データソース: ユーザーの選択肢（window.tagPresets）。組み込みの一覧は読まない（v52.820）
 (function () {
 'use strict';
 
@@ -302,9 +302,14 @@ function _loadItem() {
   if (elThumb)   { elThumb.src = _info.thumb || ''; elThumb.style.display = _info.thumb ? 'block' : 'none'; }
   if (elPlayBtn) elPlayBtn.style.display = _info.canPlay ? 'flex' : 'none';
 
-  // TB chips（window.TB_VALUES を使用 / 既存 v.tb を事前選択）
-  var tbValues    = window.TB_VALUES || [];
+  // 候補はユーザーの選択肢（tagPresets）から。組み込みの一覧は読まない（v52.820）。
+  // 選択肢に無いのに動画に付いている値は、消さずに先頭に出す（押さなければそのまま残る）。
+  function _twPresets(key) { return (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice(); }
+
+  // TB chips（既存 v.tb を事前選択）
+  var tbValues    = _twPresets('tb');
   var existingTb  = (v.tb && v.tb.length) ? v.tb[0] : null;
+  if (existingTb && tbValues.indexOf(existingTb) < 0) tbValues.unshift(existingTb);
   var tbContainer = document.getElementById('tw-tb-chips');
   if (tbContainer) {
     tbContainer.innerHTML = '';
@@ -315,14 +320,14 @@ function _loadItem() {
     });
   }
 
-  // ポジション chips（window.POSITIONS を使用 / 既存 v.pos を事前選択）
-  var allPos      = (window.POSITIONS||[]).map(function(p){ return p.ja; });
+  // ポジション chips（既存 v.pos を事前選択）
+  var allPos      = _twPresets('pos');
   var existingPos = v.pos || [];
   var autoPos     = (_autoTags.pos||[]).filter(function(p){ return existingPos.indexOf(p)<0; });
   _fillChipsWithExisting('tw-pos-chips', allPos, existingPos, autoPos);
 
-  // カテゴリ chips（window.CATEGORIES を使用 / 既存 v.cat を事前選択）
-  var allCat      = (window.CATEGORIES||[]).map(function(c){ return c.name; });
+  // カテゴリ chips（既存 v.cat を事前選択）
+  var allCat      = _twPresets('cat');
   var existingCat = v.cat || [];
   var autoCat     = (_autoTags.cat||[]).filter(function(c){ return existingCat.indexOf(c)<0; });
   _fillChipsWithExisting('tw-cat-chips', allCat, existingCat, autoCat);
