@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.827</title>
+<title>WAZA KIMURA v52.828</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2118,6 +2118,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
         <div class="admin-stab" onclick="switchAdminSub('positions')" data-sub="positions" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">テンプレ: ポジション</div>
         <div class="admin-stab" onclick="switchAdminSub('feedback')" data-sub="feedback" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">💬 FB</div>
         <div class="admin-stab" onclick="switchAdminSub('tagmaster')" data-sub="tagmaster" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🗂 タグ全体図</div>
+        <div class="admin-stab" onclick="switchAdminSub('searchdict')" data-sub="searchdict" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🔍 検索辞書</div>
         <div class="admin-stab" onclick="switchAdminSub('aliasbuilder')" data-sub="aliasbuilder" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap">🔧 管理</div>
       </div>
       <div style="flex-shrink:0;display:flex;align-items:center;padding:0 8px;border-left:1px solid var(--border)">
@@ -2144,6 +2145,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     <div id="admin-p-feedback" style="display:none"></div>
 <!-- タグ全体図パネル -->
     <div id="admin-p-tagmaster" style="display:none"></div>
+    <div id="admin-p-searchdict" style="display:none"></div>
   </div>
   <!-- Aliasビルダーパネル（全幅表示のため720px制限コンテナの外に配置） -->
   <div id="admin-p-aliasbuilder" style="display:none"></div>

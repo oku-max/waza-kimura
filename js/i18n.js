@@ -195,6 +195,21 @@
   const _JA_RE = /[぀-ヿ一-鿿]/;
 
   const STATIC_AUTO = {
+    // 管理画面「検索辞書」（v52.828）
+    '🔍 検索辞書': '🔍 Search dictionary',
+    '辞書の中を絞り込む…': 'Filter the dictionary...',
+    '検索が引く表はこれ1枚だけです。': 'This is the only table search looks at.',
+    '1行＝同じもの': '1 row = 1 thing',
+    'で、左が代表表記、右がその別の書き方。': ' — the left is the main spelling, the right is the other ways to write it.',
+    '打った語がどれかに一致すると、': 'When what you type matches one of them, ',
+    '同じ行の全部の書き方で': 'every spelling on that row',
+    'タイトル・チャンネル・プレイリスト・タグ・メモを探します。': ' is searched across title, channel, playlist, tags and memo.',
+    '別の技や分類のキーワードは入れていません（「ロングステップ」でデラヒーバは出ません）。':
+      'No other techniques or classification keywords are included (searching Long Step never returns De La Riva).',
+    '全角/半角・カタカナ/ひらがな・長音・区切り・英語の複数形は、辞書に書かなくても吸収されます。':
+      'Full/half width, katakana/hiragana, long vowels, separators and English plurals are absorbed without being listed.',
+    'その語は辞書にありません（打った文字がそのまま入っている動画は、辞書に無くても出ます）':
+      'That word is not in the dictionary (videos containing the exact text still show up without it).',
     // 検索辞書の見出し改名で訳が外れた分（v52.815）。
     // 技名は本来 TECHNIQUE_BUILTIN から自動で訳されるが、この2つは辞書の見出しではなく
     // 種入れプリセット／管理画面の別表記なので、固定文として持つ。
@@ -1889,6 +1904,9 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // ── 管理画面「検索辞書」（v52.828）──
+    '# 行 / # 語': '# rows / # words',
+    '# 行が一致': '# rows match',
     // ── タグ設定 案A（v52.812）──
     '#個': '#',
     '#件': '#',

@@ -4,7 +4,7 @@ const FEEDBACK_KEY   = 'waza_tag_feedback';
 const TAGDICT_KEY    = 'waza_tag_dict';
 const POSITIONS_KEY  = 'waza_positions';
 
-const ALL_SUBS = ['corrections','categories','positions','feedback','tagmaster','aliasbuilder'];
+const ALL_SUBS = ['corrections','categories','positions','feedback','tagmaster','searchdict','aliasbuilder'];
 
 // ── Admin sub-tab switching ──
 export function switchAdminSub(sub) {
@@ -26,6 +26,7 @@ export function switchAdminSub(sub) {
   if (sub === 'positions')    _renderPositions();
   if (sub === 'feedback')     _renderFeedbackAdmin();
   if (sub === 'tagmaster')    _renderTagMaster();
+  if (sub === 'searchdict')   _renderSearchDict();
   if (sub === 'aliasbuilder') _renderIframe('admin-p-aliasbuilder', '/alias-builder.html?v=6');
 }
 window.switchAdminSub = switchAdminSub;
@@ -942,3 +943,52 @@ function _renderTagMaster() {
 
   el.innerHTML = html;
 }
+
+// ── 検索辞書（見るだけ） ───────────────────────────
+// 検索が引く表は SEARCH_DICT の1枚だけ。ここはその中身をそのまま出す窓で、
+// 書き換えはしない（辞書を変えるのはコード側。docs/search-dict.md も同じ中身）。
+// この画面用のエスケープ（_esc は別の関数の中のローカル変数なのでここからは見えない）
+const _sdEsc = s => String(s == null ? '' : s)
+  .replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+function _renderSearchDict() {
+  const el = document.getElementById('admin-p-searchdict');
+  if (!el) return;
+  const rows = window.SEARCH_DICT || [];
+  const words = rows.reduce((n, r) => n + r.length, 0);
+  el.innerHTML = `
+    <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
+      検索が引く表はこれ1枚だけです。<b>1行＝同じもの</b>で、左が代表表記、右がその別の書き方。<br>
+      打った語がどれかに一致すると、<b>同じ行の全部の書き方で</b>タイトル・チャンネル・プレイリスト・タグ・メモを探します。<br>
+      別の技や分類のキーワードは入れていません（「ロングステップ」でデラヒーバは出ません）。<br>
+      全角/半角・カタカナ/ひらがな・長音・区切り・英語の複数形は、辞書に書かなくても吸収されます。
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input id="sd-q" type="text" placeholder="辞書の中を絞り込む…" oninput="window._sdFilter(this.value)"
+             style="flex:1;padding:7px 10px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">
+      <span id="sd-count" style="font-size:11px;color:var(--text3);white-space:nowrap">${rows.length} 行 / ${words} 語</span>
+    </div>
+    <div id="sd-list" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>`;
+  _sdDraw('');
+}
+
+function _sdDraw(q) {
+  const list = document.getElementById('sd-list');
+  if (!list) return;
+  const norm = window._normTag || (x => String(x || '').toLowerCase());
+  const nq   = norm(q || '');
+  const rows = (window.SEARCH_DICT || [])
+    .map((r, i) => ({ i: i + 1, r }))
+    .filter(({ r }) => !nq || r.some(w => norm(w).includes(nq)));
+  const cnt = document.getElementById('sd-count');
+  if (cnt) cnt.textContent = nq ? `${rows.length} 行が一致` : `${(window.SEARCH_DICT || []).length} 行 / ${(window.SEARCH_DICT || []).reduce((n, r) => n + r.length, 0)} 語`;
+  list.innerHTML = rows.length
+    ? rows.map(({ i, r }) => `
+        <div style="display:flex;gap:10px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;align-items:baseline">
+          <span style="color:var(--text3);font-size:10px;min-width:28px;text-align:right;font-family:'DM Mono',monospace">${i}</span>
+          <b style="min-width:150px;color:var(--text)">${_sdEsc(r[0])}</b>
+          <span style="color:var(--text2)">${r.slice(1).map(_sdEsc).join(' / ')}</span>
+        </div>`).join('')
+    : '<div style="padding:14px;font-size:12px;color:var(--text3);text-align:center">その語は辞書にありません（打った文字がそのまま入っている動画は、辞書に無くても出ます）</div>';
+}
+window._sdFilter = _sdDraw;
