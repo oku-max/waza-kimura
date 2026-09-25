@@ -16,7 +16,8 @@
 //     ・テンプレートは「中身を見ずに押させない」。開くと中身が出て、
 //       入れるものを選んでから足す。済（既にある値）は選べない。
 //     ・テンプレートそのものを編集できる（名前・中身・削除・新規）
-//     ・整理メニューから禁止リストと一括削除が開く
+//     ・整理メニューは一括削除だけ（重複整理・仕分け・禁止リストは v52.828 で廃止）
+//     ・禁止リストに入っていた値も「選択肢に無い値」に出る／保存済みの禁止リストは消さない
 import http from 'http'; import fs from 'fs'; import path from 'path';
 const { execSync } = await import('child_process');
 let chromium;
@@ -54,6 +55,8 @@ ${grab('tag-edit-overlay')}
  // v52.827 から種入れは組み込みの一覧を入れない（タグはユーザー定義がすべて）。
  // この検査はモーダルの動きを見るものなので、「すでに選択肢を持っているユーザー」を用意する
  // （中身は、v52.813 までに種が入ったオーナーと同じ状態）。
+ // 旧「禁止リスト」に入っている値。廃止後は隠さない（選択肢に無い値に出る）し、保存済みの中身も消さない。
+ localStorage.setItem('wk_aiSettings', JSON.stringify({ techBlocklist:['幽霊ポジション'] }));
  localStorage.setItem('wk_tagSettings', JSON.stringify([
   {key:'tb',label:'タグ1',visible:true,seeded:true,presets:['トップ','ボトム','スタンディング']},
   {key:'cat',label:'タグ2',visible:true,seeded:true,presets:(window.CATEGORIES||[]).map(c=>c.name)},
@@ -93,7 +96,8 @@ const list=await pg.evaluate(()=>{
 });
 ck('グループ4行（開くボタンは行あたり2つ）', list.rows===8, JSON.stringify(list.rows));
 ck('トグルが4つ', list.toggles===4, String(list.toggles));
-ck('整理メニューが出る', /まとめて整理する/.test(list.txt)&&/禁止リスト/.test(list.txt)&&/一括削除/.test(list.txt), list.txt.slice(0,120));
+ck('整理メニューが出る（一括削除だけ）', /まとめて整理する/.test(list.txt)&&/一括削除/.test(list.txt), list.txt.slice(0,160));
+ck('★ 重複整理・仕分け・禁止リストが無い', !/重複しているタグを整理|タグを仕分ける|禁止リスト/.test(list.txt), list.txt.slice(0,200));
 ck('★ 下に重複カードが無い', !/候補値/.test(list.txt), list.txt.slice(0,200));
 
 console.log('\n── モーダルを開く（既定では畳まれている）──');
@@ -148,7 +152,7 @@ const gh=await pg.evaluate(async()=>{
   const md=document.getElementById('tag-edit-modal');
   return { keep: md.querySelectorAll('button[onclick^="_tagModalGhostKeep"]').length, txt: md.textContent };
 });
-ck('★ 開くと選択肢に無い値が出る', gh.keep===1 && /幽霊ポジション/.test(gh.txt), gh.txt.slice(0,200));
+ck('★ 開くと選択肢に無い値が出る（旧禁止リストに入っていた値も隠さない）', gh.keep===1 && /幽霊ポジション/.test(gh.txt), gh.txt.slice(0,200));
 
 console.log('\n── 触ってみる ──');
 const act=await pg.evaluate(async()=>{
@@ -325,12 +329,13 @@ console.log('\n── 整理メニュー ──');
 const pn=await pg.evaluate(async()=>{
   window._openBulkTagDelete(); await new Promise(r=>setTimeout(r,150));
   const a=document.getElementById('tag-edit-modal').textContent;
-  window._openBlocklist(); await new Promise(r=>setTimeout(r,150));
-  const b=document.getElementById('tag-edit-modal').textContent;
-  return { bulk:/一括削除/.test(a)&&/バックアップ/.test(a), block:/禁止リスト/.test(b) };
+  return { bulk:/一括削除/.test(a)&&/バックアップ/.test(a),
+           gone:[typeof window._openBlocklist, typeof window._techCleanup, typeof window._tagSortMode],
+           kept:(window.aiSettings.techBlocklist||[]).slice() };
 });
 ck('一括削除パネルが開く', pn.bulk===true, JSON.stringify(pn));
-ck('禁止リストパネルが開く', pn.block===true, JSON.stringify(pn));
+ck('★ 重複整理・仕分け・禁止リストの入口が無い', pn.gone.every(t=>t==='undefined'), JSON.stringify(pn.gone));
+ck('★ 保存済みの禁止リストの中身は消していない', JSON.stringify(pn.kept)==='["幽霊ポジション"]', JSON.stringify(pn.kept));
 
 console.log('\n── 最後までのエラー ──');
 errs.length ? errs.forEach(e=>{console.log('  ✗ '+e); fail++;}) : console.log('  ✓ なし');

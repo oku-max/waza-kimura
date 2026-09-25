@@ -1,12 +1,13 @@
-// ═══ タグを消す・統合するとき、条件リストへの影響を知らせているかの検査 ═══
+// ═══ タグを消すとき、条件リストへの影響を知らせているかの検査 ═══
 // 使い方: node tools/tag-cv-impact-check.mjs
 //
 // なぜ要るか（Notion 確認事項02・2026-09-23）:
 //   カスタムリスト（条件）はタグの名前そのものを保存している。タグを動画から消す・
 //   統合で名前を付け替えると、リストの条件は変わらないまま、リストが黙って0本になっていた。
-//   タグを変える操作（動画から削除・一括削除・重複整理＝統合・仕分け）は、
-//   そのタグを条件に使っているリストがあれば、実行前に知らせる。
-//   統合のときだけは、条件も統合先の名前に書き換えるかを選ばせる。
+//   タグを消す操作（動画から削除・一括削除）は、そのタグを条件に使っているリストがあれば、
+//   実行前に知らせる。リストの条件は書き換えない。
+//   v52.828: 重複整理（統合）と仕分けは画面ごと廃止した。条件を書き換える経路
+//   （_cvRewriteTagInConditions）も一緒に消えている＝リストの条件を書き換える道はもう無い。
 //
 //   前半: 本物の index.html で、custom-view.js の関数そのものを確かめる
 //   後半: 設定画面（settings.js）が、確認文に知らせを入れているか・選択を守るかを確かめる
@@ -37,7 +38,6 @@ ${grab('tag-edit-overlay')}
  window._cvListsUsingTags=(names,fields)=>{ window.__cvCalls.push(['lists',names,fields]); return window.__cvLists; };
  window._cvUsageNoteFromLists=(lists,kind)=> lists&&lists.length ? '\\n\\n[CVNOTE:'+kind+':'+lists.length+']' : '';
  window._cvTagUsageNote=(names,fields,kind)=>{ window.__cvCalls.push(['note',names,fields,kind]); return window._cvUsageNoteFromLists(window.__cvLists,kind); };
- window._cvRewriteTagInConditions=(map,field)=>{ window.__cvCalls.push(['rewrite',map,field]); return window.__cvLists.length; };
 <\/script>
 <script src="/js/tag-master.js"><\/script><script src="/js/tag-templates.js"><\/script>
 <script type="module">
@@ -77,7 +77,7 @@ let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') 
     grp:  window._cvListsUsingTags(null, ['cat']).map(l => l.id),
     none: window._cvTagUsageNote(['使われていない値'], ['pos'], 'delete'),
     some: window._cvTagUsageNote(['デラヒーバ'], ['pos'], 'delete'),
-    move: window._cvTagUsageNote(['デラヒーバ'], ['pos'], 'move') }));
+    rewrite: typeof window._cvRewriteTagInConditions }));
   ck('★ そのタグを使っているリストだけが返る（L1・L2）', JSON.stringify(a.pos) === '["L1","L2"]', JSON.stringify(a.pos));
   ck('グループが違えば別物（技の条件には無い）', a.tags.length === 0, JSON.stringify(a.tags));
   ck('グループごと消すとき用（名前を指定しない）', JSON.stringify(a.grp) === '["L2"]', JSON.stringify(a.grp));
@@ -85,24 +85,8 @@ let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') 
   ck('★ どのリストも使っていなければ、知らせは空（確認文は今までどおり）', a.none === '', JSON.stringify(a.none));
   ck('★ 使っていれば、数とリスト名が出る', /カスタムリスト 2個/.test(a.some) && /デラヒーバ系/.test(a.some) && /スイープ/.test(a.some), a.some);
   ck('消すときは「条件は書き換えない」と明記', /書き換えません/.test(a.some), a.some);
-  ck('仕分けのときは「あとで各リストの編集で直す」', /編集/.test(a.move), a.move);
 
-  console.log('\n── 前半: 統合のとき、条件の名前を付け替える ──');
-  const r = await pg.evaluate(() => {
-    const n1 = window._cvRewriteTagInConditions({ 'キムラ':'キムラロック' }, 'tags');
-    const n2 = window._cvRewriteTagInConditions({ 'ラッソー':'デラヒーバ' }, 'pos');   // 付け替え先が既にある
-    const n3 = window._cvRewriteTagInConditions({ 'アームバー':'' }, 'tags');           // 空になるような付け替え
-    const saved = JSON.parse(localStorage.getItem('wk_cv_views') || '[]');
-    const get = id => saved.find(v => v.id === id);
-    return { n1, n2, n3, L1: get('L1'), L2: get('L2'), L3: get('L3'), L4: get('L4') };
-  });
-  ck('★ 統合先の名前に付け替わる', JSON.stringify(r.L1.filterConditions.tech) === '["キムラロック"]', JSON.stringify(r.L1.filterConditions));
-  ck('書き換えたリストの数を返す', r.n1 === 1, String(r.n1));
-  ck('★ 付け替え先が既にあれば1つにまとまる（空にはならない）', JSON.stringify(r.L1.filterConditions.pos) === '["デラヒーバ"]', JSON.stringify(r.L1.filterConditions.pos));
-  ck('★ 空になるような付け替えはしない（非空→空の上書き禁止）', r.n3 === 0 && JSON.stringify(r.L4.filterConditions.tech) === '["アームバー"]', JSON.stringify([r.n3, r.L4.filterConditions]));
-  ck('関係ないリストは1文字も変わらない', JSON.stringify(r.L2.filterConditions) === JSON.stringify({ pos:['デラヒーバ'], cat:['スイープ'] }), JSON.stringify(r.L2.filterConditions));
-  ck('手動リストは触らない', JSON.stringify(r.L3.videoIds) === '["v1"]' && !r.L3.filterConditions, JSON.stringify(r.L3));
-  ck('書き換えは保存される（端末に残る）', r.L1.filterConditions.tech[0] === 'キムラロック');
+  ck('★ リストの条件を書き換える関数はもう無い（統合の廃止と一緒に消した）', a.rewrite === 'undefined', a.rewrite);
   errs.length ? errs.forEach(e => { console.log('  ✗ ' + e); fail++; }) : console.log('  ✓ 前半 エラーなし');
   await ctx.close();
 }
@@ -133,40 +117,13 @@ let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') 
   ck('★ キャンセルすれば動画のタグは1つも消えない', g.afterCancel === JSON.stringify([{ id:'v1', pos:['幽霊'] }, { id:'v2', pos:['幽霊','デラヒーバ'] }]), g.afterCancel);
   ck('使っていなければ、確認文は今までどおり', !/CVNOTE/.test(g.msg2) && /動画 2件 から削除/.test(g.msg2), g.msg2);
 
-  console.log('\n── 後半: 重複整理（統合）──');
-  const run = (lists, answers) => pg.evaluate(async ({ lists, answers }) => {
-    const ts = window.tagSettings.find(t => t.key === 'tags');
-    ts.presets = ['キムラ', 'キムラロック'];
-    window.videos = [{ id:'v1', tags:['キムラロック'] }, { id:'v2', tags:['キムラロック'] }, { id:'v3', tags:['キムラ'] }];
-    window.__cvLists = lists; window.__cvCalls = [];
-    const msgs = []; let i = 0;
-    window.confirm = m => { msgs.push(m); return answers[i++] ?? true; };
-    window._techCleanup(3); await new Promise(r => setTimeout(r, 150));
-    document.getElementById('tech-cleanup-apply').click(); await new Promise(r => setTimeout(r, 150));
-    return { msgs, calls: window.__cvCalls.filter(c => c[0] === 'rewrite'),
-             tags: window.videos.map(v => v.tags), toast: window.__log[window.__log.length - 1] };
-  }, { lists, answers });
-  const L = [{ id:'L1', label:'キムラ集', hits:['キムラ'] }];
-  const m0 = await run([], []);
-  ck('★ どのリストも使っていなければ、何も聞かずに統合する（今までどおり）', m0.msgs.length === 0 && m0.calls.length === 0, JSON.stringify(m0.msgs));
-  ck('統合そのものは行われる', JSON.stringify(m0.tags) === '[["キムラロック"],["キムラロック"],["キムラロック"]]', JSON.stringify(m0.tags));
-  const m1 = await run(L, [true]);
-  ck('★ 使っていれば「条件も書き換えますか」と聞く', m1.msgs.length === 1 && /書き換えますか/.test(m1.msgs[0]) && /キムラ集/.test(m1.msgs[0]), JSON.stringify(m1.msgs));
-  ck('★［OK］なら条件を統合先の名前に書き換える', m1.calls.length === 1 && JSON.stringify(m1.calls[0][1]) === '{"キムラ":"キムラロック"}' && m1.calls[0][2] === 'tags', JSON.stringify(m1.calls));
-  ck('書き換えたことをトーストで知らせる', /条件を書き換え/.test(m1.toast || ''), m1.toast);
-  const m2 = await run(L, [false]);
-  ck('★［キャンセル］なら条件は書き換えない', m2.calls.length === 0, JSON.stringify(m2.calls));
-  ck('★ それでもタグの統合そのものは行う（説明どおり）', JSON.stringify(m2.tags) === '[["キムラロック"],["キムラロック"],["キムラロック"]]', JSON.stringify(m2.tags));
-
-  console.log('\n── 後半: 一括削除・仕分けにも配線されているか（静的）──');
+  console.log('\n── 後半: 一括削除にも配線されているか（静的）──');
   const src = fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8');
   const body = (start) => { const i = src.indexOf(start); return i < 0 ? '' : src.slice(i, i + 4000); };
   const bulk = body('async function _bulkTagDelete');
   ck('一括削除: 最初の確認文に知らせを入れている', /_cvTagUsageNote\?\.\(null, keys, 'delete'\)/.test(bulk) && bulk.indexOf('_cvTagUsageNote') < bulk.indexOf('wazaExportLight()'), '');
-  const sort = body("document.getElementById('sort-apply-btn').onclick");
-  ck('仕分け: 移す元のグループだけを調べている', /filter\(f => f !== r\.targetKey\)/.test(sort) && /_cvListsUsingTags/.test(sort), '');
-  ck('仕分け: 影響があるときは、書き換える前に確認して、キャンセルなら何もしない', /if \(\(_mvNote \|\| _blkNote\) && !window\.confirm\(/.test(sort) && sort.indexOf('!window.confirm(') < sort.indexOf('presets.push(r.tag)'), '');
-  ck('仕分けは条件を書き換えない（AND/OR が変わるため）', !/_cvRewriteTagInConditions/.test(sort), '');
+  ck('重複整理・仕分けは無い（統合でリストの条件を書き換える経路が残っていない）',
+     !/_techCleanup|_tagSortMode|sort-apply-btn|_cvRewriteTagInConditions/.test(src), '');
 
   errs.length ? errs.forEach(e => { console.log('  ✗ ' + e); fail++; }) : console.log('  ✓ 後半 エラーなし');
   await ctx.close();

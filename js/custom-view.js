@@ -1446,7 +1446,8 @@ function _cvDeadValues(v) {
 }
 window._cvDeadConditionValues = (viewId) => _cvDeadValues(_views.find(x => x.id === viewId));
 
-// ═══ タグを消す・統合する・仕分けるときの、条件リストへの影響（Notion 確認事項02）═══
+// ═══ タグを消すときの、条件リストへの影響（Notion 確認事項02）═══
+// 統合（重複整理）・仕分けは v52.828 で廃止。条件を書き換える経路もそれと一緒に消した。
 // 条件リストはタグの名前そのものを保存しているので、タグ側を変えても条件は変わらず、
 // リストが黙って0本になっていた。タグを変える操作は、実行前にここで影響を調べて知らせる。
 //   field … 動画のフィールド名 'tb' | 'cat' | 'pos' | 'tags'（条件のキーは tags だけ tech）
@@ -1464,40 +1465,15 @@ window._cvListsUsingTags = function(names, fields) {
 };
 
 // 確認ダイアログに足す一文。どのリストも使っていなければ空文字（ダイアログは今までどおり）。
-// kind: 'delete'（消す）| 'move'（仕分けで別グループへ移す）
+// kind: 'delete'（消す）
 window._cvTagUsageNote = function(names, fields, kind) {
   return window._cvUsageNoteFromLists(window._cvListsUsingTags(names, fields), kind);
 };
-// 調べ方が操作ごとに違うとき（仕分けはタグごとに「移す元」のグループが違う）用に、文面だけを作る
 window._cvUsageNoteFromLists = function(lists, kind) {
   if (!lists || !lists.length) return '';
   const nm = lists.slice(0, 5).map(l => `「${l.label}」`).join('、') + (lists.length > 5 ? ` ほか${lists.length - 5}個` : '');
-  const tail = kind === 'move'
-    ? '別のグループへ移すと、これらのリストに出てくる動画が減ります（0本になることもあります）。\nリストの条件は書き換えません。あとで各リストの「編集」で直してください（⚠ が付きます）。'
-    : '消すと、これらのリストに出てくる動画が減ります（0本になることもあります）。\nリストの条件は書き換えません（⚠ が付きます）。';
+  const tail = '消すと、これらのリストに出てくる動画が減ります（0本になることもあります）。\nリストの条件は書き換えません（⚠ が付きます）。';
   return `\n\n⚠ カスタムリスト ${lists.length}個 が、この値を条件に使っています: ${nm}\n${tail}`;
-};
-
-// 統合（名前の付け替え）のとき、条件の中の名前も同じように付け替える。
-// map: { 旧名: 新名 }。同じグループの中だけで置き換える（グループをまたぐ移動はしない）。
-// 置き換えるだけで、条件の配列を短くしても空にはしない（非空→空の上書きをしない）。
-// 書いたリストの数を返す。書くのは変わったリストだけ（_save → クラウドは変わった文書だけ）。
-window._cvRewriteTagInConditions = function(map, field) {
-  const ck = _CV_FIELD_TO_CK[field];
-  if (!ck || !map) return 0;
-  let changed = 0;
-  _views.forEach(v => {
-    if (v.saveMode !== 'dynamic' || !v.filterConditions) return;
-    const src = v.filterConditions[ck];
-    if (!Array.isArray(src) || !src.some(x => Object.prototype.hasOwnProperty.call(map, x))) return;
-    const next = [];
-    src.forEach(x => { const y = Object.prototype.hasOwnProperty.call(map, x) ? map[x] : x; if (y && !next.includes(y)) next.push(y); });
-    if (!next.length) return;                        // 念のため: 空にするくらいなら触らない
-    v.filterConditions[ck] = next;
-    changed++;
-  });
-  if (changed) _save();
-  return changed;
 };
 
 function _condSummary(fc) {
