@@ -14,7 +14,7 @@
   let _q = '';
   const _queries = { state: '', src: '', tag: '', video: '' }; // タブごとに検索ワードを記憶
   let _ctx = 'lib'; // 'lib' or 'org'
-  const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'grp' };
+  const _sort = { ch:'cnt', pl:'cnt', tb:'abc', cat:'abc', pos:'abc', tags:'abc' };
   let _vcSort = 'addedAt'; let _vcSortAsc = false;
   let _autoScrolled = false;
   let _noteMode = null; // null = 通常, noteId = ノートに追加モード
@@ -298,36 +298,17 @@
       `<span class="uni-cnt">${r.cnt}</span></div>`;
 
     let rows;
-    if (sortMode === 'grp') {
-      // グループ別表示 (案B)
-      const _groups = window.getTagGroups ? window.getTagGroups() : [];
-      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
-      const parts   = [];
-      _groups.forEach(g => {
-        const members = arr.filter(r => (g.techNames || []).includes(r.name));
-        if (!members.length) return;
-        parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
-        members.forEach(r => parts.push(_mkRow(r)));
-      });
-      const unc = arr.filter(r => !_inGrp.has(r.name));
-      if (unc.length) {
-        parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
-        unc.forEach(r => parts.push(_mkRow(r)));
-      }
-      rows = parts.length ? parts.join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
-    } else {
-      if (sortMode === 'recent') {
-        const _rfKey = listKey === 'ch' ? 'wk_recent_filter_ch' : listKey === 'pl' ? 'wk_recent_filter_pl' : null;
-        const _rec = _rfKey ? (() => { try { return JSON.parse(localStorage.getItem(_rfKey) || '[]'); } catch(e) { return []; } })() : [];
-        arr.sort((a,b) => { const ai=_rec.indexOf(a.name), bi=_rec.indexOf(b.name); return (ai<0?9999:ai)-(bi<0?9999:bi); });
-      } else if (sortMode === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
-      else if (sortMode === 'cnt') arr.sort((a,b) => b.cnt - a.cnt);
-      rows = arr.length ? arr.map(_mkRow).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
-    }
+    // 「グループ別」（旧テクニックの見出し）は v52.833 で廃止
+    if (sortMode === 'recent') {
+      const _rfKey = listKey === 'ch' ? 'wk_recent_filter_ch' : listKey === 'pl' ? 'wk_recent_filter_pl' : null;
+      const _rec = _rfKey ? (() => { try { return JSON.parse(localStorage.getItem(_rfKey) || '[]'); } catch(e) { return []; } })() : [];
+      arr.sort((a,b) => { const ai=_rec.indexOf(a.name), bi=_rec.indexOf(b.name); return (ai<0?9999:ai)-(bi<0?9999:bi); });
+    } else if (sortMode === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
+    else if (sortMode === 'cnt') arr.sort((a,b) => b.cnt - a.cnt);
+    rows = arr.length ? arr.map(_mkRow).join('') : '<div style="padding:14px;color:var(--text3);font-size:11px">該当なし</div>';
 
     const sortSel = opts.sortable === false ? '' :
       `<select onchange="uniSetSort('${listKey}',this.value)">` +
-      (listKey === 'tags' ? `<option value="grp"${sortMode==='grp'?' selected':''}>グループ別</option>` : '') +
       ((listKey === 'ch' || listKey === 'pl') ? `<option value="recent"${sortMode==='recent'?' selected':''}>最近</option>` : '') +
       `<option value="abc"${sortMode==='abc'?' selected':''}>名前順</option>` +
       `<option value="cnt"${sortMode==='cnt'?' selected':''}>件数順</option>` +

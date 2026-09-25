@@ -244,26 +244,9 @@
     const filtered = ql ? all.filter(t => t.toLowerCase().includes(ql)) : all;
     const _mkItem = t =>
       `<div class="vp-dd-item" onmousedown="vpV4TagPick('${id}','${_esc(t).replace(/'/g,"&#39;")}')">${_esc(t)}</div>`;
-    if (ql) {
-      list.innerHTML = filtered.map(_mkItem).join('') ||
-        `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${_T('itag.dd.none','候補なし')}</div>`;
-    } else {
-      const _groups = window.getTagGroups ? window.getTagGroups() : [];
-      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
-      const parts   = [];
-      _groups.forEach(g => {
-        const members = filtered.filter(t => (g.techNames || []).includes(t));
-        if (!members.length) return;
-        parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
-        members.forEach(t => parts.push(_mkItem(t)));
-      });
-      const unc = filtered.filter(t => !_inGrp.has(t));
-      if (unc.length) {
-        parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc(_T('itag.dd.ungrouped','未グループ'))}</div>`);
-        unc.forEach(t => parts.push(_mkItem(t)));
-      }
-      list.innerHTML = parts.length ? parts.join('') : '';
-    }
+    // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
+    list.innerHTML = filtered.map(_mkItem).join('') ||
+      (ql ? `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${_T('itag.dd.none','候補なし')}</div>` : '');
   }
 
   // search input の oninput ハンドラ

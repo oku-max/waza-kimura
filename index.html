@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.832</title>
+<title>WAZA KIMURA v52.833</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -3478,21 +3478,8 @@ function itagRenderTagList(q) {
     const f = all.filter(t => t.toLowerCase().includes(ql));
     list.innerHTML = f.map(mk).join('') || `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.tech.none','候補なし（Enterで新規追加）')}</div>`;
   } else {
-    const groups = window.getTagGroups ? window.getTagGroups() : [];
-    const inGrp = new Set(groups.flatMap(g => g.techNames || []));
-    const parts = [];
-    groups.forEach(g => {
-      const m = all.filter(t => (g.techNames || []).includes(t));
-      if (!m.length) return;
-      parts.push(`<div class="tag-grp-hdr">${g.name}</div>`);
-      m.forEach(t => parts.push(mk(t)));
-    });
-    const unc = all.filter(t => !inGrp.has(t));
-    if (unc.length) {
-      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${window.t?.('itag.dd.ungrouped','未グループ')}</div>`);
-      unc.forEach(t => parts.push(mk(t)));
-    }
-    list.innerHTML = parts.length ? parts.join('') : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.empty','既存テクニックなし（入力して新規追加）')}</div>`;
+    // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
+    list.innerHTML = all.length ? all.map(mk).join('') : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.empty','既存テクニックなし（入力して新規追加）')}</div>`;
   }
 }
 function itagTagPick(val) {

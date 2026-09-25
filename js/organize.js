@@ -1820,31 +1820,8 @@ function _openTagPicker(v, cfg, col, td) {
       lbl.appendChild(sp);
       listEl.appendChild(lbl);
     };
-    if (!ql && cfg.field === 'tags') {
-      // グループ別表示 (案B)
-      const _groups = window.getTagGroups ? window.getTagGroups() : [];
-      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
-      _groups.forEach(g => {
-        const members = filtered.filter(o => (g.techNames || []).includes(o));
-        if (!members.length) return;
-        const hdr = document.createElement('div');
-        hdr.className = 'tag-grp-hdr';
-        hdr.textContent = g.name;
-        listEl.appendChild(hdr);
-        members.forEach(_appendOpt);
-      });
-      const unc = filtered.filter(o => !_inGrp.has(o));
-      if (unc.length) {
-        const hdr = document.createElement('div');
-        hdr.className = 'tag-grp-hdr';
-        hdr.style.fontStyle = 'italic';
-        hdr.textContent = '未グループ';
-        listEl.appendChild(hdr);
-        unc.forEach(_appendOpt);
-      }
-    } else {
-      filtered.forEach(_appendOpt);
-    }
+    // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
+    filtered.forEach(_appendOpt);
     // 新規追加ボタン（technique + 検索テキストが既存にない場合）
     if (cfg.allowNew && ql && !fullOpts.some(o => o.toLowerCase() === ql)) {
       const addBtn = document.createElement('div');
@@ -2257,30 +2234,7 @@ export function openOrgColFilter(col, thEl) {
           lbl.appendChild(cb); lbl.appendChild(txt); lbl.appendChild(cntEl);
           listEl.appendChild(lbl);
         };
-        // タグ列（technique）かつ未検索時: グループ別表示
-        if (!ql && col === 'technique') {
-          const _groups = window.getTagGroups ? window.getTagGroups() : [];
-          const _inGrp = new Set(_groups.flatMap(g => g.techNames || []));
-          _groups.forEach(g => {
-            const members = filtered.filter(v => (g.techNames || []).includes(v));
-            if (!members.length) return;
-            const hdr = document.createElement('div');
-            hdr.className = 'tag-grp-hdr';
-            hdr.textContent = g.name;
-            listEl.appendChild(hdr);
-            members.forEach(_appendItem);
-          });
-          const unc = filtered.filter(v => !_inGrp.has(v));
-          if (unc.length) {
-            const hdr = document.createElement('div');
-            hdr.className = 'tag-grp-hdr';
-            hdr.style.fontStyle = 'italic';
-            hdr.textContent = '未グループ';
-            listEl.appendChild(hdr);
-            unc.forEach(_appendItem);
-          }
-          return;
-        }
+        // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
         filtered.forEach(_appendItem);
       };
 

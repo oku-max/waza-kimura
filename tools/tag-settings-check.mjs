@@ -65,7 +65,7 @@ ${grab('tag-edit-overlay')}
 <\/script>
 <script type="module">
  import * as S from '/js/settings.js';
- ['tagLabel','tagPresets','renderTagSettingsList','renameTagGroup','applyTagVisibility','applyTagLabels','saveTagSettings'].forEach(n=>{ if(S[n]) window[n]=S[n]; });
+ ['tagLabel','tagPresets','renderTagSettingsList','renameTagGroup','applyTagVisibility','applyTagLabels','saveTagSettings','applyRemoteSettings'].forEach(n=>{ if(S[n]) window[n]=S[n]; });
  window.tagSettings=S.tagSettings; window.aiSettings=S.aiSettings;
  window.renderTagSettingsList(); window.__ready=true;
 <\/script></body></html>`;
@@ -336,6 +336,18 @@ const pn=await pg.evaluate(async()=>{
 ck('一括削除パネルが開く', pn.bulk===true, JSON.stringify(pn));
 ck('★ 重複整理・仕分け・禁止リストの入口が無い', pn.gone.every(t=>t==='undefined'), JSON.stringify(pn.gone));
 ck('★ 保存済みの禁止リストの中身は消していない', JSON.stringify(pn.kept)==='["幽霊ポジション"]', JSON.stringify(pn.kept));
+
+console.log('\n── 旧テクニックの見出し（v52.833 で廃止・中身は保存に載せ続ける）──');
+const tg=await pg.evaluate(()=>{
+  const G=[{id:'g1',name:'ガード系',techNames:['デラヒーバ','ラッソー']}];
+  window.applyRemoteSettings({ tagGroups: G });
+  const a=JSON.stringify(window.getTagGroups());
+  window.applyRemoteSettings({ tagGroups: [] });            // 空が降ってきても
+  const b=JSON.stringify(window.getTagGroups());
+  return { a, b, want: JSON.stringify(G) };
+});
+ck('★ クラウドの見出しをそのまま保存に載せる（消さない）', tg.a===tg.want, tg.a);
+ck('★ 空が降ってきても、持っている見出しを空で上書きしない', tg.b===tg.want, tg.b);
 
 console.log('\n── 最後までのエラー ──');
 errs.length ? errs.forEach(e=>{console.log('  ✗ '+e); fail++;}) : console.log('  ✓ なし');

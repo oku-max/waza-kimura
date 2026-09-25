@@ -1653,9 +1653,6 @@ body.bulk-mode #org-table-wrap { margin-top: 0; }
 .org-count-bar { flex-shrink: 0; }
 
 /* ── タググループ区切り行 (案B: VPanel / 一括編集 / オーガナイズ / フィルターオーバービュー) ── */
-.tag-grp-hdr{padding:7px 14px 5px;font-size:12px;font-weight:400;letter-spacing:.1px;text-align:center;color:var(--purple);background:var(--purple-soft);border-top:1px solid rgba(58,58,122,.15);border-left:3px solid rgba(58,58,122,.40);pointer-events:none;user-select:none;}
-.tag-grp-hdr:first-child{border-top:none}
-body.dark .tag-grp-hdr{color:var(--gold);background:var(--gold-soft);border-top-color:rgba(229,196,122,.20);border-left-color:rgba(229,196,122,.55);}
 
 /* ═══ Drive取り込みピッカー（エクスプローラー風・1画面完結）═══ */
 #gd-picker{display:flex;flex-direction:column;max-height:var(--zvh-70,70vh)}
