@@ -339,11 +339,13 @@ function _remapOldCatNames(videos) {
     delete v.ac;
     delete v.tech;
     if (!Array.isArray(v.cat) || !v.cat.length) continue;
+    // 旧名（アタック→フィニッシュ 等）だけ付け替え、それ以外はそのまま残す。
+    // 以前は組み込みの CATEGORIES に無い値を捨てていたので、ユーザーが自分で足した
+    // カテゴリの値が、読み込みのたびに動画から消えていた（v52.843・タグはユーザー定義がすべて）。
     const newCat = new Set();
     for (const c of v.cat) {
-      const mapped = _AC_TO_CAT[c];
-      if (mapped) newCat.add(mapped);
-      else if (CATEGORIES.some(cat => cat.name === c)) newCat.add(c);
+      if (!c) continue;
+      newCat.add(_AC_TO_CAT[c] || c);
     }
     v.cat = Array.from(newCat);
   }
