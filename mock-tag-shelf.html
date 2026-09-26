@@ -177,18 +177,11 @@ function viewSettings(){
     var g = S.groups[id];
     h += '<div class="row"><span class="num">タグ' + (k+1) + '</span><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><div class="btns"><button class="pill ghostpill" ' + on(function(){ openGroup(id); }) + '>編集</button><button class="pill" ' + on(change) + '>変更</button></div></div>';
   });
-  h += '</div><div class="note" style="margin-top:6px">［編集］で名前・選択肢・検索の対象などを直し、［変更］でそのタグに使うグループを入れ替えます。</div>';
-  var un = unusedIds();
-  if (un.length) {
-    h += '<div class="cap">使っていないグループ</div><div class="card">';
-    un.forEach(function(id){
-      var g = S.groups[id];
-      h += '<div class="row"><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn" style="color:#c7c7cc">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><button class="pill ghostpill" ' + on(function(){ openGroup(id); }) + '>編集</button></div>';
-    });
-    h += '</div><div class="note" style="margin-top:6px">使っていないグループのタグも、動画には付いたまま残っています。使うときは、上のタグの［変更］から選びます。</div>';
-  }
+  h += '</div><div class="note" style="margin-top:6px">［編集］で名前・選択肢・検索の対象などを直し、［変更］でそのタグに使うタググループを入れ替えます。</div>';
   h += '<button class="big" ' + on(function(){ set({ sheet:{ kind:'reset' } }); }) + '><span>初期設定に戻す</span><span style="color:var(--sub)">›</span></button>';
-  h += '<div class="note">「まとめて整理する」と「フィルター設定」は無くなります。マークと習得はタグのグループに、カウントは「列を追加」の種類の1つになります。</div></div>';
+  var un = unusedIds();
+  h += '<button class="big" style="margin-top:10px" ' + on(function(){ set({ sheet:{ kind:'unused' } }); }) + '><span>未使用のタググループ</span><span style="color:var(--sub);margin-right:8px">' + un.length + '</span><span style="color:var(--sub)">›</span></button>';
+  h += '<div class="note">「まとめて整理する」と「フィルター設定」は無くなります。マークと習得はタググループに、カウントは「列を追加」の種類の1つになります。</div></div>';
   return h + viewGroup() + viewSheet();
 }
 
@@ -199,7 +192,7 @@ function viewGroup(){
   var close = function(){ set({ open:null, confirmDel:false }); };
   var h = '<div class="ov" ' + on(function(e){ if (e.target.classList.contains('ov')) close(); }) + '><div class="sheet">';
   h += '<div class="sh-h">' + (k >= 0 ? '<span class="num">タグ' + (k+1) + '</span>' : '<span class="num off">未使用</span>') + '<div class="sh-t">' + esc(g.name) + ' を編集</div><button class="x" aria-label="閉じる" ' + on(close) + '>✕</button></div><div class="sh-b">';
-  h += '<div><label class="lbl" for="gname">グループ名</label><input id="gname" class="inp" value="' + esc(g.name) + '" data-rename="1"></div>';
+  h += '<div><label class="lbl" for="gname">タググループ名</label><input id="gname" class="inp" value="' + esc(g.name) + '" data-rename="1"></div>';
   h += '<div><button class="acc' + (S.optsOpen?' on':'') + '" ' + on(function(){ set({ optsOpen:!S.optsOpen }); }) + '><span class="grow">選択肢</span><span class="c">' + g.opts.length + '個</span><span class="car">' + (S.optsOpen?'▲':'▼') + '</span></button>';
   if (S.optsOpen) {
     h += '<div class="box"><div class="list">';
@@ -228,10 +221,10 @@ function viewGroup(){
     h += '</div>';
   }
   h += '</div>';
-  h += '<button class="acc" ' + on(function(){ g.search = !g.search; render(); }) + '><span class="grow"><span style="display:block">検索の対象にする</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">' + (g.search ? 'このグループのタグも、ワード検索の対象になります' : 'ワード検索の対象外です（絞り込みには使えます）') + '</span></span>' + sw(g.search) + '</button>';
+  h += '<button class="acc" ' + on(function(){ g.search = !g.search; render(); }) + '><span class="grow"><span style="display:block">検索の対象にする</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">' + (g.search ? 'このタググループのタグも、ワード検索の対象になります' : 'ワード検索の対象外です（絞り込みには使えます）') + '</span></span>' + sw(g.search) + '</button>';
   h += '<div class="sep">';
-  if (!S.confirmDel) h += '<button class="danger" ' + on(function(){ set({ confirmDel:true }); }) + '>このグループを削除</button>';
-  else h += '<div class="confirm"><p>「' + esc(g.name) + '」を削除します。このグループのタグは、付いているすべての動画から外れます。' + (k >= 0 ? 'タグ' + (k+1) + 'は未設定になります。' : '') + '先にバックアップを保存します。<br>タグを残しておきたい場合は、削除せずに［変更］で別のグループに変えてください。</p><div class="two"><button class="btn-plain" ' + on(function(){ set({ confirmDel:false }); }) + '>キャンセル</button><button class="btn-red" ' + on(function(){ delete S.groups[id]; set({ boxes: S.boxes.map(function(x){ return x === id ? null : x; }), open:null, confirmDel:false }); }) + '>削除する</button></div></div>';
+  if (!S.confirmDel) h += '<button class="danger" ' + on(function(){ set({ confirmDel:true }); }) + '>このタググループを削除</button>';
+  else h += '<div class="confirm"><p>「' + esc(g.name) + '」を削除します。このタググループのタグは、付いているすべての動画から外れます。' + (k >= 0 ? 'タグ' + (k+1) + 'は未設定になります。' : '') + '先にバックアップを保存します。<br>タグを残しておきたい場合は、削除せずに［変更］で別のタググループに変えてください。</p><div class="two"><button class="btn-plain" ' + on(function(){ set({ confirmDel:false }); }) + '>キャンセル</button><button class="btn-red" ' + on(function(){ delete S.groups[id]; set({ boxes: S.boxes.map(function(x){ return x === id ? null : x; }), open:null, confirmDel:false }); }) + '>削除する</button></div></div>';
   h += '</div></div></div></div>';
   return h;
 }
@@ -244,19 +237,24 @@ function viewSheet(){
   var sh = S.sheet;
   if (sh.kind === 'change') {
     var k = sh.box, cur = S.boxes[k];
-    title = 'タグ' + (k+1) + ' に使うグループ';
-    text = cur ? '今は「' + esc(S.groups[cur].name) + '」です。変えても、付けたタグは消えません（使っていないグループに移ります）。' : '使うグループを選んでください。';
+    title = 'タグ' + (k+1) + ' に使うタググループ';
+    text = cur ? '今は「' + esc(S.groups[cur].name) + '」です。変えても、付けたタグは消えません（未使用のタググループに移ります）。' : '使うタググループを選んでください。';
     if (cur) items.push({ label:S.groups[cur].name, sub:'使用中', cur:true, go:close });
     unusedIds().forEach(function(id){ items.push({ label:S.groups[id].name, sub:S.groups[id].opts.length + '個', go:function(){ var b = S.boxes.slice(); b[k] = id; set({ boxes:b, sheet:null }); } }); });
     S.boxes.forEach(function(id, j){ if (id && j !== k) items.push({ label:S.groups[id].name, sub:'タグ' + (j+1) + 'と入れ替える', go:function(){ var b = S.boxes.slice(); b[j] = b[k]; b[k] = id; set({ boxes:b, sheet:null }); } }); });
-    items.push({ label:'＋ 新しいグループを作る', gold:true, go:function(){
-      var nid = 'new' + (S.seq++); S.groups[nid] = { name:'新しいグループ', opts:[], search:true };
+    items.push({ label:'＋ 新しいタググループを作る', gold:true, go:function(){
+      var nid = 'new' + (S.seq++); S.groups[nid] = { name:'新しいタググループ', opts:[], search:true };
       var b = S.boxes.slice(); b[k] = nid; S.boxes = b; S.sheet = null; openGroup(nid); S.tplOpen = true; render();
     } });
     if (cur) items.push({ label:'未設定にする', sub:'', go:function(){ var b = S.boxes.slice(); b[k] = null; set({ boxes:b, sheet:null }); } });
+  } else if (sh.kind === 'unused') {
+    title = '未使用のタググループ';
+    text = 'タグ1〜4 に使っていないタググループです。付けたタグは動画に残っています。使うときは、タグの［変更］から選びます。';
+    unusedIds().forEach(function(id){ items.push({ label:S.groups[id].name, sub:subOf(S.groups[id]) + '　編集 ›', go:function(){ openGroup(id); } }); });
+    if (!unusedIds().length) text += '<br>今はありません。';
   } else if (sh.kind === 'reset') {
     title = '初期設定に戻す';
-    text = 'タグ1 トップ/ボトム・タグ2 ポジション・タグ3 マーク・タグ4 未設定、にします。今使っているほかのグループは「使っていないグループ」に移ります。<b style="color:var(--text)">付けたタグは消えません。</b>';
+    text = 'タグ1 トップ/ボトム・タグ2 ポジション・タグ3 マーク・タグ4 未設定、にします。今使っているほかのタググループは「未使用のタググループ」に移ります。<b style="color:var(--text)">付けたタグは消えません。</b>';
     items.push({ label:'初期設定に戻す', gold:true, go:function(){
       var DEF = { tb:['トップ/ボトム', 0, true], pos:['ポジション', 1, true], mark:['マーク', 2, false] };
       Object.keys(DEF).forEach(function(key){
@@ -269,7 +267,7 @@ function viewSheet(){
   }
   var h = '<div class="ov" ' + on(function(e){ if (e.target.classList.contains('ov')) close(); }) + '><div class="sheet"><div class="sh-h"><div class="sh-t">' + esc(title) + '</div><button class="x" aria-label="閉じる" ' + on(close) + '>✕</button></div><div class="sh-b"><div class="p">' + text + '</div>';
   items.forEach(function(it){ h += '<button class="pick' + (it.cur ? ' curpick' : '') + '" ' + on(it.go) + '><span class="grow" style="color:' + (it.gold ? 'var(--gold)' : 'var(--text)') + '">' + (it.cur ? '✓ ' : '') + esc(it.label) + '</span><small>' + esc(it.sub||'') + '</small></button>'; });
-  h += '<button class="btn-plain" style="padding:12px;border-radius:9px;font-size:14px" ' + on(close) + '>キャンセル</button></div></div></div>';
+  h += '<button class="btn-plain" style="padding:12px;border-radius:9px;font-size:14px" ' + on(close) + '>' + (sh.kind === 'unused' ? '閉じる' : 'キャンセル') + '</button></div></div></div>';
   return h;
 }
 
@@ -282,9 +280,9 @@ function viewVideo(){
     h += '<div class="vr"><span class="l">タグ' + (k+1) + ' ' + esc(g.name) + '</span><div class="cs">' + (c.length ? c.map(function(x){ return '<span class="vc">' + esc(x) + '</span>'; }).join('') : '<span style="color:var(--dim);font-size:13px;padding-top:5px">—</span>') + '</div></div>';
   });
   var hd = unusedIds();
-  if (hd.length) h += '<div class="note">' + (V.cleared ? '使っていないグループのタグも外しました。' : '使っていないグループ（' + hd.map(function(id){ return esc(S.groups[id].name); }).join('・') + '）のタグは画面に出ていませんが、付いたままです。') + '</div>';
+  if (hd.length) h += '<div class="note">' + (V.cleared ? '未使用のタググループのタグも外しました。' : '未使用のタググループ（' + hd.map(function(id){ return esc(S.groups[id].name); }).join('・') + '）のタグは画面に出ていませんが、付いたままです。') + '</div>';
   if (!V.asking) h += '<button class="ghost" style="margin-top:14px" ' + on(function(){ V.asking = true; render(); }) + '>この動画のタグをすべてクリア</button>';
-  else h += '<div class="confirm" style="margin-top:14px"><p>この動画に付いているタグを、使っていないグループの分も含めて、すべて外します。ほかの動画は変わりません。</p><div class="two"><button class="btn-plain" ' + on(function(){ V.asking = false; render(); }) + '>キャンセル</button><button class="btn-red" ' + on(function(){ V.asking = false; V.cleared = true; V.toast = true; render(); }) + '>すべて外す</button></div></div>';
+  else h += '<div class="confirm" style="margin-top:14px"><p>この動画に付いているタグを、未使用のタググループの分も含めて、すべて外します。ほかの動画は変わりません。</p><div class="two"><button class="btn-plain" ' + on(function(){ V.asking = false; render(); }) + '>キャンセル</button><button class="btn-red" ' + on(function(){ V.asking = false; V.cleared = true; V.toast = true; render(); }) + '>すべて外す</button></div></div>';
   h += '</div>';
   if (V.toast) h += '<div class="toast"><span>タグをすべて外しました</span><button ' + on(function(){ V.cleared = false; V.toast = false; render(); }) + '>元に戻す</button></div>';
   return h;
