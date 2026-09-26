@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MOCK — タグ設定（タグ編集つき）</title>
+<title>MOCK — タグ設定（1画面）</title>
 <!--
   見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
   この端末に保存されているタグ設定（wk_tagSettings）を「読むだけ」して、グループ名と選択肢を本物に近づける。
@@ -112,6 +112,25 @@ button{cursor:pointer}
 .sel{width:100%;background:var(--field);border:1.5px solid var(--bd);border-radius:9px;padding:11px 10px;font-size:14px;color:var(--text)}
 .dup{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 .pill.redpill{border-color:var(--red);color:var(--red)}
+
+.grow-row{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;border-bottom:1px solid var(--line);padding:14px 0;text-align:left}
+.gname{font-size:16px;font-weight:600}
+.gsub{font-size:12px;color:var(--sub);flex:1}
+.panel{padding:12px 0 16px;border-bottom:1px solid var(--line)}
+.two2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.optwrap{display:flex;flex-wrap:wrap;gap:6px}
+.opt{display:inline-flex;align-items:center;gap:2px;background:var(--field);border-radius:14px;padding:4px 4px 4px 11px;font-size:13px}
+.opt button{background:none;border:none;color:var(--sub);font-size:14px;padding:2px 6px}
+.issue{border:1px solid rgba(229,196,122,.4);border-radius:9px;padding:4px 10px}
+.irow{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+.irow:last-child{border-bottom:none}
+.irow span{flex:1;min-width:140px}.irow small{color:var(--sub);font-size:12px}
+.mini{padding:7px 11px;border-radius:8px;border:1px solid var(--bd);background:none;font-size:12px}
+.mini.red{border-color:var(--red);color:var(--red)}
+.ops{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.capbtn{background:none;border:none;display:flex;width:100%;justify-content:space-between;padding:0 2px;font-family:inherit;cursor:pointer}
+.foot{margin-top:18px}
+.linkbtn{background:none;border:1px solid var(--bd);border-radius:10px;padding:12px 14px;font-size:14px;width:100%;text-align:left}
 </style>
 </head>
 <body>
@@ -197,7 +216,7 @@ function label(id){ var k = S.boxes.indexOf(id); return (k >= 0 ? 'タグ' + (k+
 function set(p){ Object.assign(S, p); render(); }
 function sw(onv){ return '<span class="sw' + (onv?' on':'') + '"><i></i></span>'; }
 function subOf(g){ return g.opts.length + '個' + (g.search ? '' : '・検索の対象外'); }
-function openGroup(id){ set({ open:id, sheet:null, optsOpen:false, confirmDel:false, draft:'', addNote:'' }); }
+function openGroup(id){ set({ exp:id, unOpen: S.boxes.indexOf(id) < 0 ? true : S.unOpen, sheet:null, confirmDel:false, draft:'', addNote:'' }); }
 function dupes(){
   var m = {};
   allIds().forEach(function(id){ S.groups[id].opts.forEach(function(v){ (m[v] = m[v] || []).push(id); }); });
@@ -207,152 +226,96 @@ function ghostCount(){ return allIds().reduce(function(n, id){ return n + S.grou
 function missingDefaults(key){ var g = S.groups[key]; return g ? DEF[key].vals.filter(function(v){ return g.opts.indexOf(v) < 0; }) : DEF[key].vals.slice(); }
 function edIssues(){ return dupes().length + ghostCount(); }
 
+function issuesOf(id){
+  var g = S.groups[id];
+  var du = dupes().filter(function(d){ return d.ids.indexOf(id) >= 0; });
+  return { ghosts:g.ghosts, dupes:du, n:g.ghosts.length + du.length };
+}
+function toggleExp(key){ set({ exp: S.exp === key ? null : key, draft:'', addNote:'', confirmDel:false }); }
+
+// ── 1画面: タグ1〜4 と未使用のタググループを同じ形の行で並べ、押すとその場で開く ──
 function viewSettings(){
   var h = '<div class="wrap"><div class="h">タグ設定</div>';
-  h += '<div class="cap">タグ（4つまで使えます）</div><div class="card">';
+  h += '<div class="cap">使用中のタグ</div><div class="card">';
   S.boxes.forEach(function(id, k){
-    var change = function(){ set({ sheet:{ kind:'change', box:k } }); };
+    var key = id || ('slot' + k), open = S.exp === key;
     if (!id) {
-      h += '<div class="row"><span class="num off">タグ' + (k+1) + '</span><button class="rbtn" ' + on(change) + '><div class="rn" style="color:var(--sub);font-weight:400">未設定</div></button><button class="pill" ' + on(change) + '>設定する</button></div>';
+      h += '<button class="grow-row" ' + on(function(){ toggleExp(key); }) + '><span class="num off">タグ' + (k+1) + '</span><span class="gname" style="color:var(--sub);font-weight:400;flex:1">未設定</span><span class="car">' + (open?'▲':'▼') + '</span></button>';
+      if (open) h += '<div class="panel">' + slotPicker(k) + '</div>';
       return;
     }
-    var g = S.groups[id];
-    h += '<div class="row"><span class="num">タグ' + (k+1) + '</span><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><div class="btns"><button class="pill ghostpill" ' + on(function(){ openGroup(id); }) + '>編集</button><button class="pill" ' + on(change) + '>変更</button></div></div>';
+    h += groupRow(id, k, open);
   });
-  h += '</div><div class="note" style="margin-top:6px">［編集］で名前・選択肢・検索の対象などを直し、［変更］でそのタグに使うタググループを入れ替えます。</div>';
-  var iss = edIssues();
-  h += '<button class="big" ' + on(function(){ set({ ed:true, edSec:null }); }) + '><span>タグ編集<small style="display:block;color:var(--sub);font-size:12px;margin-top:3px">マージ・コピー・初期値に戻す・重なりやずれの確認</small></span>' + (iss ? '<span class="badge">要確認 ' + iss + '</span>' : '') + '<span style="color:var(--sub);margin-left:8px">›</span></button>';
-  h += '<button class="big" style="margin-top:10px" ' + on(function(){ set({ sheet:{ kind:'reset' } }); }) + '><span>初期設定に戻す</span><span style="color:var(--sub)">›</span></button>';
+  h += '</div>';
   var un = unusedIds();
-  h += '<button class="big" style="margin-top:10px" ' + on(function(){ set({ sheet:{ kind:'unused' } }); }) + '><span>未使用のタググループ</span><span style="color:var(--sub);margin-right:8px">' + un.length + '</span><span style="color:var(--sub)">›</span></button>';
-  h += '<div class="note">「テンプレートから追加」は無くなります。初期のタググループ（トップ/ボトム・ポジション・マーク・習得）がいつもあるので、そこからコピーします。今のテンプレートは「未使用のタググループ」に残ります。<br>「まとめて整理する」と「フィルター設定」も無くなります。本数は見本の数字です。</div></div>';
-  return h + viewGroup() + viewEditor() + viewSheet() + viewToast();
+  h += '<button class="cap capbtn" ' + on(function(){ set({ unOpen: !S.unOpen }); }) + '><span>未使用のタググループ（' + un.length + '）</span><span class="car">' + (S.unOpen?'▲':'▼') + '</span></button>';
+  if (S.unOpen) {
+    h += '<div class="card">';
+    if (!un.length) h += '<div class="rs" style="padding:14px 0">ありません</div>';
+    un.forEach(function(id){ h += groupRow(id, -1, S.exp === id); });
+    h += '</div><div class="note" style="margin-top:6px">付けたタグは動画に残っています。使うときは、開いて「使う場所」を選びます。</div>';
+  }
+  h += '<div class="foot"><button class="linkbtn" ' + on(function(){ set({ sheet:{ kind:'reset' } }); }) + '>初期設定に戻す</button></div>';
+  h += '<div class="note">「テンプレートから追加」「まとめて整理する」「フィルター設定」は無くなります。今のテンプレートは未使用のタググループに残ります。本数は見本の数字です。</div></div>';
+  return h + viewSheet() + viewToast();
 }
 
-// ── タググループの編集（名前・選択肢・検索の対象・削除）──
-function viewGroup(){
-  if (!S.open || !S.groups[S.open]) return '';
-  var id = S.open, g = S.groups[id], k = S.boxes.indexOf(id);
-  var close = function(){ set({ open:null, confirmDel:false, addNote:'' }); };
-  var h = '<div class="ov" ' + on(function(e){ if (e.target.classList.contains('ov')) close(); }) + '><div class="sheet">';
-  h += '<div class="sh-h">' + (k >= 0 ? '<span class="num">タグ' + (k+1) + '</span>' : '<span class="num off">未使用</span>') + '<div class="sh-t">' + esc(g.name) + ' を編集</div><button class="x" aria-label="閉じる" ' + on(close) + '>✕</button></div><div class="sh-b">';
-  h += '<div><label class="lbl" for="gname">タググループ名</label><input id="gname" class="inp" value="' + esc(g.name) + '" data-rename="1"></div>';
-  h += '<div><button class="acc' + (S.optsOpen?' on':'') + '" ' + on(function(){ set({ optsOpen:!S.optsOpen, addNote:'' }); }) + '><span class="grow">選択肢</span><span class="c">' + g.opts.length + '個</span><span class="car">' + (S.optsOpen?'▲':'▼') + '</span></button>';
-  if (S.optsOpen) {
-    h += '<div class="box"><div class="list">';
-    g.opts.forEach(function(o){
-      var n = cnt(id, o);
-      h += '<div class="li"><span>' + esc(o) + '</span><small style="color:var(--sub);font-size:12px">' + n + '本</small><button aria-label="選択肢から外す" ' + on(function(){ set({ sheet:{ kind:'rmopt', id:id, v:o, n:n } }); }) + '>×</button></div>';
-    });
-    if (!g.opts.length) h += '<div class="li"><span style="color:var(--sub)">まだありません</span></div>';
-    h += '</div><div class="addrow"><input id="draft" placeholder="選択肢を追加..." aria-label="選択肢を追加" value="' + esc(S.draft) + '"><button class="gold" ' + on(function(){
-      var v = (document.getElementById('draft').value||'').trim(); if (!v || g.opts.indexOf(v) >= 0) return;
-      var other = allIds().filter(function(x){ return x !== id && S.groups[x].opts.indexOf(v) >= 0; });
-      g.opts.push(v); S.draft = '';
-      S.addNote = other.length ? '「' + v + '」は ' + other.map(label).join('・') + ' にもあります。別のタグとして追加しました（タグ編集でまとめられます）。' : '';
-      render();
-    }) + '>追加</button></div>';
-    if (S.addNote) h += '<div class="warn">' + esc(S.addNote) + '</div>';
-    h += '</div>';
-  }
-  h += '</div>';
-  if (g.ghosts.length) h += '<button class="acc" ' + on(function(){ set({ open:null, ed:true, edSec:'ghost' }); }) + '><span class="grow"><span style="display:block">選択肢に無いタグ ' + g.ghosts.length + '個</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">動画に付いているのに選択肢に無いタグです。タグ編集で確認します</span></span><span class="car">›</span></button>';
-  h += '<button class="acc" ' + on(function(){ g.search = !g.search; render(); }) + '><span class="grow"><span style="display:block">検索の対象にする</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">' + (g.search ? 'このタググループのタグも、ワード検索の対象になります' : 'ワード検索の対象外です（絞り込みには使えます）') + '</span></span>' + sw(g.search) + '</button>';
-  h += '<div class="sep">';
-  if (!S.confirmDel) h += '<button class="danger" ' + on(function(){ set({ confirmDel:true }); }) + '>このタググループを削除</button>';
-  else h += '<div class="confirm"><p>「' + esc(g.name) + '」を削除します。このタググループのタグは、付いているすべての動画から外れます。' + (k >= 0 ? 'タグ' + (k+1) + 'は未設定になります。' : '') + '先にバックアップを保存します。<br>タグを残しておきたい場合は、削除せずに［変更］で別のタググループに変えてください。</p><div class="two"><button class="btn-plain" ' + on(function(){ set({ confirmDel:false }); }) + '>キャンセル</button><button class="btn-red" ' + on(function(){ var sn = snap(); var nm = g.name; delete S.groups[id]; S.boxes = S.boxes.map(function(x){ return x === id ? null : x; }); toast('「' + nm + '」を削除しました', sn); set({ open:null, confirmDel:false }); }) + '>削除する</button></div></div>';
-  h += '</div></div></div></div>';
+function groupRow(id, k, open){
+  var g = S.groups[id], iss = issuesOf(id);
+  var h = '<button class="grow-row" ' + on(function(){ toggleExp(id); }) + '>' + (k >= 0 ? '<span class="num">タグ' + (k+1) + '</span>' : '<span class="num off">未使用</span>') + '<span class="gname">' + esc(g.name) + '</span><span class="gsub">' + g.opts.length + '個' + (g.search ? '' : '・検索の対象外') + '</span>' + (iss.n ? '<span class="badge">要確認 ' + iss.n + '</span>' : '') + '<span class="car">' + (open?'▲':'▼') + '</span></button>';
+  if (open) h += '<div class="panel">' + groupPanel(id, k) + '</div>';
   return h;
 }
 
-// ── タグ編集（たまに使う大きめの操作）──
-function sec(key, title, sub, body){
-  var open = S.edSec === key;
-  return '<div class="secbox"><button class="acc' + (open?' on':'') + '" ' + on(function(){ set({ edSec: open ? null : key }); }) + '><span class="grow"><span style="display:block">' + title + '</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">' + sub + '</span></span><span class="car">' + (open?'▲':'▼') + '</span></button>' + (open ? '<div class="secin">' + body() + '</div>' : '') + '</div>';
+// 未設定のタグ: 使うタググループを選ぶ
+function slotPicker(k){
+  var h = '<div class="p">タグ' + (k+1) + 'に使うタググループを選んでください。</div><div class="chips" style="padding:8px 0 0">';
+  unusedIds().forEach(function(id){ h += '<button class="chip" ' + on(function(){ var b = S.boxes.slice(); b[k] = id; set({ boxes:b, exp:id }); }) + '>' + esc(S.groups[id].name) + '</button>'; });
+  h += '<button class="chip" style="border-color:var(--gold);color:var(--gold)" ' + on(function(){ var nid = 'new' + (S.seq++); S.groups[nid] = { name:'新しいタググループ', opts:[], search:true, ghosts:[] }; var b = S.boxes.slice(); b[k] = nid; set({ boxes:b, exp:nid }); }) + '>＋ 新しく作る</button></div>';
+  return h;
 }
-function selectOf(key, ph, exclude){
-  var h = '<select class="sel" data-sel="' + key + '"><option value="">' + ph + '</option>';
-  allIds().forEach(function(id){ if (id === exclude) return; h += '<option value="' + id + '"' + (S[key] === id ? ' selected' : '') + '>' + esc(label(id)) + '</option>'; });
-  return h + '</select>';
-}
-function viewEditor(){
-  if (!S.ed) return '';
-  var close = function(){ set({ ed:false }); };
-  var h = '<div class="ov" ' + on(function(e){ if (e.target.classList.contains('ov')) close(); }) + '><div class="sheet"><div class="sh-h"><div class="sh-t">タグ編集</div><button class="x" aria-label="閉じる" ' + on(close) + '>✕</button></div><div class="sh-b">';
-  // 1. マージ
-  h += sec('merge', 'タググループをマージ', '2つのタググループを1つにまとめる。動画のタグも移ります', function(){
-    var b = '<div class="p">まとめる元</div>' + selectOf('mFrom', '選んでください', null) + '<div class="p" style="margin-top:8px">まとめ先</div>' + selectOf('mTo', '選んでください', S.mFrom);
-    if (S.mFrom && S.mTo && S.groups[S.mFrom] && S.groups[S.mTo]) {
-      var A = S.groups[S.mFrom], B = S.groups[S.mTo];
-      var same = A.opts.filter(function(v){ return B.opts.indexOf(v) >= 0; });
-      var nA = A.opts.reduce(function(n, v){ return n + cnt(S.mFrom, v); }, 0);
-      b += '<div class="confirm" style="margin-top:10px;border-color:var(--gold)"><p style="color:var(--text)">「' + esc(A.name) + '」の選択肢' + A.opts.length + '個と、動画に付いているタグ（延べ' + nA + '本）を「' + esc(B.name) + '」に移します。' + (same.length ? '同じ名前の' + same.length + '個（' + same.map(esc).join('・') + '）は1つにまとめます。' : '') + '「' + esc(A.name) + '」は無くなります' + (S.boxes.indexOf(S.mFrom) >= 0 ? '（' + 'タグ' + (S.boxes.indexOf(S.mFrom)+1) + 'は未設定になります）' : '') + '。先にバックアップを保存します。</p><button class="btn-gold" style="padding:11px;border-radius:9px" ' + on(function(){
-        var sn = snap(), from = S.mFrom, to = S.mTo, nmA = A.name, nmB = B.name;
-        A.opts.forEach(function(v){ if (B.opts.indexOf(v) < 0) B.opts.push(v); });
-        A.ghosts.forEach(function(gh){ if (!B.ghosts.some(function(x){ return x[0] === gh[0]; })) B.ghosts.push(gh); });
-        delete S.groups[from]; S.boxes = S.boxes.map(function(x){ return x === from ? null : x; });
-        toast('「' + nmA + '」を「' + nmB + '」にマージしました', sn);
-        set({ mFrom:'', mTo:'' });
-      }) + '>マージする</button></div>';
-    }
-    return b;
-  });
-  // 2. コピー
-  h += sec('copy', '選択肢をコピー', 'ほかのタググループの選択肢を写す。動画のタグには触りません', function(){
-    var b = '<div class="p">コピー元</div>' + selectOf('cFrom', '選んでください', null) + '<div class="p" style="margin-top:8px">コピー先</div>' + selectOf('cTo', '選んでください', S.cFrom);
-    if (S.cFrom && S.cTo && S.groups[S.cFrom] && S.groups[S.cTo]) {
-      var F = S.groups[S.cFrom], T = S.groups[S.cTo];
-      b += '<div class="p" style="margin-top:10px">写すものを選んでください</div><div class="chips" style="padding:0">';
-      F.opts.forEach(function(v){
-        var hs = T.opts.indexOf(v) >= 0, pk = S.cPicks.indexOf(v) >= 0;
-        b += '<button class="chip' + (hs?' has':(pk?' on':'')) + '" ' + on(function(){ if (hs) return; S.cPicks = pk ? S.cPicks.filter(function(x){ return x !== v; }) : S.cPicks.concat([v]); render(); }) + '>' + (hs?'追加済み ':(pk?'✓ ':'')) + esc(v) + '</button>';
-      });
-      var left = F.opts.filter(function(v){ return T.opts.indexOf(v) < 0; });
-      b += '</div><div class="two" style="margin-top:10px"><button class="btn-plain" ' + on(function(){ S.cPicks = left.slice(); render(); }) + '>すべて選ぶ</button><button class="' + (S.cPicks.length ? 'btn-gold' : 'btn-plain') + '" ' + on(function(){
-        if (!S.cPicks.length) return; var sn = snap(), n = S.cPicks.length;
-        S.cPicks.forEach(function(v){ if (T.opts.indexOf(v) < 0) T.opts.push(v); });
-        toast(n + '個を「' + T.name + '」にコピーしました', sn); set({ cPicks:[] });
-      }) + '>' + (S.cPicks.length ? '選んだ' + S.cPicks.length + '個をコピー' : 'コピーするものを選んでください') + '</button></div>';
-    }
-    return b;
-  });
-  // 3. 初期値に戻す
-  h += sec('def', '初期のタググループを初期値に戻す', 'トップ/ボトム・ポジション・マーク・習得。自分で足した選択肢は残ります', function(){
-    var b = '';
-    Object.keys(DEF).forEach(function(key){
-      var g = S.groups[key], miss = missingDefaults(key), nameOff = g && g.name !== DEF[key].name;
-      var state = !g ? '削除されています' : (miss.length || nameOff ? (nameOff ? '名前「' + esc(g.name) + '」' : '') + (nameOff && miss.length ? '・' : '') + (miss.length ? '足りない初期値 ' + miss.length + '個' : '') : '初期値のままです');
-      b += '<div class="li" style="padding:4px 4px 4px 12px"><span><span style="display:block">' + esc(DEF[key].name) + '</span><small style="color:var(--sub);font-size:12px">' + state + '</small></span>' + ((!g || miss.length || nameOff) ? '<button class="pill" style="font-size:12px" ' + on(function(){ set({ sheet:{ kind:'defone', key:key } }); }) + '>' + (g ? '戻す' : '作り直す') + '</button>' : '') + '</div>';
+
+// 開いたタググループの中身。ここですべて済む
+function groupPanel(id, k){
+  var g = S.groups[id], iss = issuesOf(id);
+  var h = '';
+  // 名前と使う場所
+  h += '<div class="two2"><div><label class="lbl" for="gname">タググループ名</label><input id="gname" class="inp" value="' + esc(g.name) + '" data-rename="' + id + '"></div>';
+  h += '<div><label class="lbl" for="gslot">使う場所</label><select id="gslot" class="sel" data-slotof="' + id + '">';
+  h += '<option value="-1"' + (k < 0 ? ' selected' : '') + '>未使用</option>';
+  S.boxes.forEach(function(x, j){ h += '<option value="' + j + '"' + (j === k ? ' selected' : '') + '>タグ' + (j+1) + (x && x !== id ? '（' + esc(S.groups[x].name) + 'と入れ替え）' : '') + '</option>'; });
+  h += '</select></div></div>';
+  // 選択肢（チップで一覧）
+  h += '<div class="lbl" style="margin-top:12px">選択肢 ' + g.opts.length + '個<span style="float:right;color:var(--dim)">×で外す</span></div><div class="optwrap">';
+  g.opts.forEach(function(o){ h += '<span class="opt">' + esc(o) + '<button aria-label="' + esc(o) + 'を外す" ' + on(function(){ set({ sheet:{ kind:'rmopt', id:id, v:o, n:cnt(id, o) } }); }) + '>×</button></span>'; });
+  if (!g.opts.length) h += '<span style="color:var(--sub);font-size:13px">まだありません</span>';
+  h += '</div><div class="addrow" style="border:1px solid var(--bd);border-radius:9px;margin-top:8px"><input id="draft" placeholder="選択肢を追加..." aria-label="選択肢を追加" value="' + esc(S.draft) + '"><button class="gold" ' + on(function(){
+    var v = (document.getElementById('draft').value||'').trim(); if (!v || g.opts.indexOf(v) >= 0) return;
+    var other = allIds().filter(function(x){ return x !== id && S.groups[x].opts.indexOf(v) >= 0; });
+    g.opts.push(v); S.draft = '';
+    S.addNote = other.length ? '「' + v + '」は ' + other.map(label).join('・') + ' にもあります。別のタグとして追加しました。' : '';
+    render();
+  }) + '>追加</button></div>';
+  if (S.addNote) h += '<div class="warn" style="border-radius:8px;margin-top:6px">' + esc(S.addNote) + '</div>';
+  // 要確認（このタググループに関係するものだけ）
+  if (iss.n) {
+    h += '<div class="lbl" style="margin-top:12px;color:var(--gold)">要確認</div><div class="issue">';
+    iss.ghosts.forEach(function(gh){
+      h += '<div class="irow"><span><b>' + esc(gh[0]) + '</b> <small>選択肢に無いタグ・' + gh[1] + '本</small></span><button class="mini" ' + on(function(){ var sn = snap(); g.opts.push(gh[0]); g.ghosts = g.ghosts.filter(function(x){ return x !== gh; }); toast('「' + gh[0] + '」を選択肢に入れました', sn); render(); }) + '>選択肢に入れる</button><button class="mini red" ' + on(function(){ var sn = snap(); g.ghosts = g.ghosts.filter(function(x){ return x !== gh; }); toast('「' + gh[0] + '」を' + gh[1] + '本の動画から外しました', sn); render(); }) + '>動画から外す</button></div>';
     });
-    return b;
-  });
-  // 4. 同じ名前
-  var du = dupes();
-  h += sec('dupe', '別のタググループにもある名前' + (du.length ? ' <span class="badge">' + du.length + '</span>' : ''), '同じ名前でも別のタグです。1つに寄せられます', function(){
-    if (!du.length) return '<div class="p">ありません</div>';
-    var b = '';
-    du.forEach(function(d){
-      b += '<div class="dup"><div><b>' + esc(d.v) + '</b>　<small style="color:var(--sub)">' + d.ids.map(function(id){ return esc(label(id)) + '（' + cnt(id, d.v) + '本）'; }).join('・') + '</small></div><div class="chips" style="padding:6px 0 0">';
-      d.ids.forEach(function(keep){ b += '<button class="chip" ' + on(function(){ set({ sheet:{ kind:'dupe', v:d.v, keep:keep, ids:d.ids } }); }) + '>' + esc(S.groups[keep].name) + ' に寄せる</button>'; });
-      b += '</div></div>';
+    iss.dupes.forEach(function(d){
+      var others = d.ids.filter(function(x){ return x !== id; });
+      h += '<div class="irow"><span><b>' + esc(d.v) + '</b> <small>' + others.map(function(x){ return esc(S.groups[x].name); }).join('・') + ' にもある</small></span><button class="mini" ' + on(function(){ set({ sheet:{ kind:'dupe', v:d.v, keep:id, ids:d.ids } }); }) + '>ここに寄せる</button></div>';
     });
-    return b;
-  });
-  // 5. 選択肢に無いタグ
-  var gc = ghostCount();
-  h += sec('ghost', '選択肢に無いタグ' + (gc ? ' <span class="badge">' + gc + '</span>' : ''), '動画に付いているのに、そのタググループの選択肢に無いタグ', function(){
-    if (!gc) return '<div class="p">ありません</div>';
-    var b = '';
-    allIds().forEach(function(id){
-      var g = S.groups[id]; if (!g.ghosts.length) return;
-      b += '<div class="p" style="margin-top:6px">' + esc(label(id)) + '</div>';
-      g.ghosts.forEach(function(gh){
-        b += '<div class="li" style="padding:2px 4px 2px 12px"><span>' + esc(gh[0]) + ' <small style="color:var(--sub);font-size:12px">' + gh[1] + '本</small></span><button class="pill" style="font-size:12px;padding:6px 9px" ' + on(function(){ var sn = snap(); g.opts.push(gh[0]); g.ghosts = g.ghosts.filter(function(x){ return x !== gh; }); toast('「' + gh[0] + '」を選択肢に入れました', sn); render(); }) + '>選択肢に入れる</button><button class="pill redpill" style="font-size:12px;padding:6px 9px;margin-left:4px" ' + on(function(){ var sn = snap(); g.ghosts = g.ghosts.filter(function(x){ return x !== gh; }); toast('「' + gh[0] + '」を' + gh[1] + '本の動画から外しました', sn); render(); }) + '>動画から外す</button></div>';
-      });
-    });
-    return b;
-  });
-  h += '</div></div></div>';
+    h += '</div>';
+  }
+  // 検索の対象
+  h += '<button class="acc" style="margin-top:12px" ' + on(function(){ g.search = !g.search; render(); }) + '><span class="grow"><span style="display:block">検索の対象にする</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">' + (g.search ? 'このタググループのタグも、ワード検索の対象になります' : 'ワード検索の対象外です（絞り込みには使えます）') + '</span></span>' + sw(g.search) + '</button>';
+  // そのほかの操作（1列にまとめる）
+  h += '<div class="ops"><button class="mini" ' + on(function(){ set({ sheet:{ kind:'copy', to:id, from:'' }, cPicks:[] }); }) + '>ほかから選択肢をコピー</button><button class="mini" ' + on(function(){ set({ sheet:{ kind:'merge', from:id, to:'' } }); }) + '>ほかにマージ</button>';
+  if (g.def) h += '<button class="mini" ' + on(function(){ set({ sheet:{ kind:'defone', key:g.def } }); }) + '>初期値に戻す</button>';
+  h += '<button class="mini red" ' + on(function(){ set({ confirmDel:true }); }) + '>削除</button></div>';
+  if (S.confirmDel) h += '<div class="confirm" style="margin-top:8px"><p>「' + esc(g.name) + '」を削除します。このタググループのタグは、付いているすべての動画から外れます。' + (k >= 0 ? 'タグ' + (k+1) + 'は未設定になります。' : '') + '先にバックアップを保存します。タグを残したいときは、削除せずに「使う場所」を未使用にしてください。</p><div class="two"><button class="btn-plain" ' + on(function(){ set({ confirmDel:false }); }) + '>キャンセル</button><button class="btn-red" ' + on(function(){ var sn = snap(); var nm = g.name; delete S.groups[id]; S.boxes = S.boxes.map(function(x){ return x === id ? null : x; }); toast('「' + nm + '」を削除しました', sn); set({ exp:null, confirmDel:false }); }) + '>削除する</button></div></div>';
   return h;
 }
 
@@ -361,7 +324,7 @@ function viewSheet(){
   var close = function(){ set({ sheet:null }); };
   var title = '', text = '', items = [];
   var sh = S.sheet;
-  if (sh.kind === 'change') {
+  if (false) {
     var k = sh.box, cur = S.boxes[k];
     title = 'タグ' + (k+1) + ' に使うタググループ';
     text = cur ? '今は「' + esc(S.groups[cur].name) + '」です。変えても、付けたタグは消えません（未使用のタググループに移ります）。' : '使うタググループを選んでください。';
@@ -373,6 +336,35 @@ function viewSheet(){
       var b = S.boxes.slice(); b[k] = nid; S.boxes = b; S.sheet = null; openGroup(nid); S.optsOpen = true; render();
     } });
     if (cur) items.push({ label:'未設定にする', sub:'', go:function(){ var b = S.boxes.slice(); b[k] = null; set({ boxes:b, sheet:null }); } });
+  } else if (sh.kind === 'copy') {
+    var T = S.groups[sh.to];
+    title = '「' + T.name + '」に選択肢をコピー';
+    if (!sh.from) {
+      text = 'どのタググループからコピーしますか？ 動画のタグには触りません。';
+      allIds().forEach(function(id){ if (id !== sh.to) items.push({ label:label(id), sub:S.groups[id].opts.length + '個', go:function(){ S.sheet = { kind:'copy', to:sh.to, from:id }; S.cPicks = S.groups[id].opts.filter(function(v){ return T.opts.indexOf(v) < 0; }); render(); } }); });
+    } else {
+      var F = S.groups[sh.from];
+      text = '「' + esc(F.name) + '」の選択肢から、写すものを選んでください。<div class="chips" style="padding:8px 0 0">' + F.opts.map(function(v){ var hs = T.opts.indexOf(v) >= 0, pk = S.cPicks.indexOf(v) >= 0; return '<button class="chip' + (hs?' has':(pk?' on':'')) + '" ' + on(function(){ if (hs) return; S.cPicks = pk ? S.cPicks.filter(function(x){ return x !== v; }) : S.cPicks.concat([v]); render(); }) + '>' + (hs?'追加済み ':(pk?'✓ ':'')) + esc(v) + '</button>'; }).join('') + '</div>';
+      if (S.cPicks.length) items.push({ label:'選んだ' + S.cPicks.length + '個をコピー', gold:true, go:function(){ var sn = snap(), n = S.cPicks.length; S.cPicks.forEach(function(v){ if (T.opts.indexOf(v) < 0) T.opts.push(v); }); toast(n + '個を「' + T.name + '」にコピーしました', sn); set({ sheet:null, cPicks:[] }); } });
+    }
+  } else if (sh.kind === 'merge') {
+    var A = S.groups[sh.from];
+    title = '「' + A.name + '」をマージ';
+    if (!sh.to) {
+      text = 'どのタググループにまとめますか？';
+      allIds().forEach(function(id){ if (id !== sh.from) items.push({ label:label(id), sub:S.groups[id].opts.length + '個', go:function(){ set({ sheet:{ kind:'merge', from:sh.from, to:id } }); } }); });
+    } else {
+      var B = S.groups[sh.to], same = A.opts.filter(function(v){ return B.opts.indexOf(v) >= 0; });
+      var nA = A.opts.reduce(function(n, v){ return n + cnt(sh.from, v); }, 0), ka = S.boxes.indexOf(sh.from);
+      text = '「' + esc(A.name) + '」の選択肢' + A.opts.length + '個と、動画に付いているタグ（延べ' + nA + '本）を「' + esc(B.name) + '」に移します。' + (same.length ? '同じ名前の' + same.length + '個（' + same.map(esc).join('・') + '）は1つにまとめます。' : '') + '「' + esc(A.name) + '」は無くなります' + (ka >= 0 ? '（タグ' + (ka+1) + 'は未設定になります）' : '') + '。先にバックアップを保存します。';
+      items.push({ label:'マージする', gold:true, go:function(){
+        var sn = snap(), nmA = A.name, nmB = B.name, to = sh.to, from = sh.from;
+        A.opts.forEach(function(v){ if (B.opts.indexOf(v) < 0) B.opts.push(v); });
+        A.ghosts.forEach(function(gh){ if (!B.ghosts.some(function(x){ return x[0] === gh[0]; })) B.ghosts.push(gh); });
+        delete S.groups[from]; S.boxes = S.boxes.map(function(x){ return x === from ? null : x; });
+        toast('「' + nmA + '」を「' + nmB + '」にマージしました', sn); set({ sheet:null, exp:to });
+      } });
+    }
   } else if (sh.kind === 'unused') {
     title = '未使用のタググループ';
     text = 'タグ1〜4 に使っていないタググループです。付けたタグは動画に残っています。使うときは、タグの［変更］から選びます。';
@@ -462,8 +454,14 @@ document.addEventListener('click', function(e){
   if (fn) fn(e);
 });
 document.addEventListener('change', function(e){
+  if (e.target.dataset && e.target.dataset.slotof) {
+    var id = e.target.dataset.slotof, j = +e.target.value, b = S.boxes.slice(), from = b.indexOf(id);
+    if (j < 0) { if (from >= 0) b[from] = null; }
+    else { var prev = b[j]; b[j] = id; if (from >= 0) b[from] = (prev && prev !== id) ? prev : null; }
+    S.boxes = b; render(); return;
+  }
   if (e.target.dataset && e.target.dataset.sel) { S[e.target.dataset.sel] = e.target.value; if (e.target.dataset.sel === 'mFrom' && S.mTo === S.mFrom) S.mTo = ''; if (e.target.dataset.sel === 'cFrom' && S.cTo === S.cFrom) S.cTo = ''; if (e.target.dataset.sel.charAt(0) === 'c') S.cPicks = []; render(); return; }
-  if (e.target.dataset && e.target.dataset.rename && S.open) { var v = e.target.value.trim(); if (v) S.groups[S.open].name = v; render(); }
+  if (e.target.dataset && e.target.dataset.rename) { var v = e.target.value.trim(), gid = e.target.dataset.rename; if (v && S.groups[gid]) S.groups[gid].name = v; render(); }
 });
 document.addEventListener('input', function(e){ if (e.target.id === 'draft') S.draft = e.target.value; });
 render();
