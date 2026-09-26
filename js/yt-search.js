@@ -11,7 +11,11 @@ let _srMode       = 'video';       // 'video' | 'playlist'
 let _srDuration   = 'any';         // 'any' | 'short' | 'medium' | 'long'（後方互換、UIからは廃止）
 let _srNextToken  = '';            // YouTube nextPageToken
 let _srLoading    = false;
-let _srItems      = [];            // 現在表示中の結果
+let _srItems      = [];            // 取得した結果（YouTubeが返した順＝関連度順。並べ替えない）
+// 画面に出している順。カード・＋・次へ・結果リストの番号 i は、すべてこの配列の番号。
+// 以前は番号をこちらで作り、引くのは _srItems だったので、並べ替えた後に押すと
+// 別の動画が開き、＋では押していない動画がライブラリに入っていた。番号で引くときは必ず _srView。
+let _srView       = [];
 let _srSortKey    = 'relevance';   // 'relevance' | 'publishedAt' | 'duration'
 let _srSortDir    = 'desc';        // 'desc' | 'asc'
 let _srOpenItem   = null;          // VPanelで開いている検索結果
@@ -72,7 +76,7 @@ let _srInitDone = false;
 export function ytSrInit() {
   _addedSet.clear();
   (window.videos || []).forEach(v => { if (v.ytId) _addedSet.add(v.ytId); });
-  if (_srItems.length > 0) _renderCards(_srItems);
+  if (_srItems.length > 0) _renderCards(_sortedItems());
   _loadHistory();
   _renderHistory();
   // ソートドロップダウンをページ外クリックで閉じる（1回だけ登録）
@@ -357,13 +361,15 @@ function _formatDuration(iso) {
 
 function _sortedItems() {
   const items = [..._srItems];
+  _srView = items;   // 以下の sort はこの配列をその場で並べ替える
   if (_srSortKey === 'relevance') return items; // YouTubeのアルゴリズム順をそのまま使用
   const dir = _srSortDir === 'desc' ? -1 : 1;
   if (_srSortKey === 'publishedAt') {
     items.sort((a, b) => {
       const da = a.snippet?.publishedAt || '';
       const db = b.snippet?.publishedAt || '';
-      return da < db ? dir : da > db ? -dir : 0;
+      // dir は desc=-1。(a−b)*dir と同じ向きにする（以前は符号が逆で、↓新しい順が古い順になっていた）
+      return da < db ? -dir : da > db ? dir : 0;
     });
   } else if (_srSortKey === 'duration') {
     items.sort((a, b) => {
@@ -528,8 +534,8 @@ function _srSkipBtnsHTML() {
 
 // 検索結果リストHTML（動画下部のサイドリスト）
 function _srResultsListHTML(currentIdx) {
-  if (!_srItems.length) return '';
-  const items = _srItems.map((item, i) => {
+  if (!_srView.length) return '';
+  const items = _srView.map((item, i) => {
     const s     = item.snippet || {};
     const ytId  = item.id?.videoId || item.id?.playlistId || '';
     const thumb = s.thumbnails?.default?.url || '';
@@ -635,7 +641,7 @@ function _srRemoveTempEntry() {
 // VPANEL OPEN / CLOSE
 // ────────────────────────────────────────
 export function ytSrOpenVPanel(idx) {
-  const item = _srItems[idx];
+  const item = _srView[idx];
   if (!item) return;
   ytSrCloseResultsList();  // ☰ ボトムシートを閉じる
   _srOpenItem   = item;
@@ -742,7 +748,7 @@ export function ytSrOpenVPanel(idx) {
         <button onclick="window.ytSrSkip(60)" class="ab-skip-btn ab-skip-plus">1m<span class="ab-skip-arrow">▶</span></button>
         <div class="ab-skip-sep"></div>
         ` : ''}
-        <button onclick="window.ytSrOpenVPanel(${idx + 1})" class="ab-skip-btn" ${idx >= _srItems.length - 1 ? 'disabled' : ''} title="次の結果">⏭</button>
+        <button onclick="window.ytSrOpenVPanel(${idx + 1})" class="ab-skip-btn" ${idx >= _srView.length - 1 ? 'disabled' : ''} title="次の結果">⏭</button>
       </div>
     `;
 
@@ -1236,7 +1242,10 @@ export async function ytSrLoadMore() {
 // クイック追加（サムネイルの＋ボタン）
 export async function ytSrQuickAdd(ytId, idx) {
   if (!currentUser) { showToast('⚠️ 先にGoogleでログインしてください'); return; }
-  const item = _srItems[idx];
+  // 番号は表示順。念のため押したカードの動画IDと突き合わせ、違えばIDで引き直す（別の動画を入れない）
+  let item = _srView[idx];
+  if (item && ytId && (item.id?.videoId || item.id?.playlistId) !== ytId) item = null;
+  if (!item && ytId) item = _srView.find(it => (it.id?.videoId || it.id?.playlistId) === ytId);
   if (!item) return;
   const prev = _srOpenItem;
   _srOpenItem = item;
