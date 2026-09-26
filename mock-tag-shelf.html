@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOCK — タグ設定（しまう・戻す）</title>
+<!--
+  見本の画面。本物のデータには一切書き込まない（localStorage も Firestore も触らない）。
+  この端末に保存されているタグ設定（wk_tagSettings）を「読むだけ」して、グループ名と選択肢を本物に近づける。
+  触った結果はこのページの中だけで、閉じれば消える。
+-->
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1c1c1e;--card:#2c2c2e;--field:#38383a;--bd:#48484a;--line:#3a3a3c;--text:#e5e5e7;--sub:#9a9aa0;--dim:#6e6e73;--gold:#e5c47a;--red:#ff8080}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:'DM Sans','Hiragino Sans','Noto Sans JP',-apple-system,sans-serif;max-width:640px;margin:0 auto;min-height:100vh;padding-bottom:40px}
+button,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.banner{background:#3a2f12;color:#f3dc9f;font-size:12px;line-height:1.6;padding:10px 16px}
+.tabs{display:flex;gap:6px;padding:12px 16px 4px;position:sticky;top:0;background:var(--bg);z-index:5}
+.tab{flex:1;padding:9px 6px;border-radius:9px;border:1px solid var(--bd);background:none;font-size:12px;color:var(--sub)}
+.tab.on{border-color:var(--gold);color:var(--gold);font-weight:700}
+.wrap{padding:12px 16px}
+.h{font-size:20px;font-weight:700;margin:6px 0 2px}
+.cap{font-size:12px;color:var(--sub);margin:18px 2px 6px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:0 14px}
+.row{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.num{font-size:11px;font-weight:700;color:#1a1a1a;background:var(--gold);border-radius:6px;padding:3px 7px;flex-shrink:0}
+.num.off{background:var(--dim)}
+.rbtn{flex:1;min-width:0;background:none;border:none;text-align:left;padding:14px 0}
+.rn{font-size:16px;font-weight:600}
+.rs{font-size:12px;color:var(--sub);margin-top:2px}
+.chev{background:none;border:none;color:var(--sub);font-size:18px;padding:14px 4px}
+.pill{padding:8px 13px;border-radius:9px;border:1px solid var(--gold);background:none;color:var(--gold);font-size:13px;font-weight:700;flex-shrink:0}
+.big{width:100%;display:flex;align-items:center;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:15px 14px;text-align:left;font-size:14px;margin-top:18px}
+.big span:first-child{flex:1}
+.note{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:48px 12px 20px;overflow-y:auto}
+.sheet{width:100%;max-width:560px;background:var(--card);border:1px solid var(--bd);border-radius:16px;overflow:hidden}
+.sh-h{display:flex;align-items:center;gap:8px;padding:14px;border-bottom:1px solid var(--line)}
+.sh-t{flex:1;font-size:16px;font-weight:700}
+.x{background:none;border:none;color:var(--sub);font-size:20px;padding:4px 8px}
+.sh-b{padding:14px;display:flex;flex-direction:column;gap:12px}
+.lbl{font-size:12px;color:var(--sub);margin-bottom:6px;display:block}
+.inp{width:100%;background:var(--field);border:1.5px solid var(--bd);border-radius:9px;padding:12px 10px;font-size:15px}
+.acc{width:100%;display:flex;align-items:center;gap:8px;background:var(--field);border:1.5px solid var(--bd);border-radius:9px;padding:13px 12px;text-align:left;font-size:14px}
+.acc.on{border-color:var(--gold)}
+.acc .grow{flex:1}
+.acc .c{font-size:13px;color:var(--sub)}
+.acc .car{font-size:12px;color:var(--gold)}
+.box{margin-top:8px;border:1px solid var(--bd);border-radius:9px;overflow:hidden}
+.list{max-height:240px;overflow-y:auto}
+.li{display:flex;align-items:center;gap:8px;padding:0 4px 0 12px;border-bottom:1px solid var(--line)}
+.li span{flex:1;font-size:14px;padding:12px 0}
+.li button{background:none;border:none;color:var(--sub);font-size:16px;padding:12px 10px}
+.addrow{display:flex;gap:7px;padding:10px;background:var(--field);border-top:1px solid var(--bd)}
+.addrow input{flex:1;min-width:0;background:var(--card);border:1.5px solid var(--bd);border-radius:9px;padding:10px;font-size:14px}
+.gold{padding:10px 16px;border-radius:9px;border:none;background:var(--gold);color:#1a1a1a;font-size:13px;font-weight:700}
+.tp{border-bottom:1px solid var(--line)}
+.tp-h{width:100%;display:flex;align-items:center;background:none;border:none;text-align:left;padding:12px}
+.tp-h .grow{flex:1}
+.tp-h .n{display:block;font-size:14px}
+.tp-h .s{display:block;font-size:12px;color:var(--sub);margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px}
+.chip{padding:7px 12px;border-radius:16px;border:1px solid #5a5a5c;background:none;font-size:13px}
+.chip.on{background:var(--gold);border-color:var(--gold);color:#1a1a1a}
+.chip.has{border-color:var(--line);color:var(--dim);cursor:default}
+.apply{margin:12px;width:calc(100% - 24px);padding:11px;border-radius:9px;border:none;font-size:13px;font-weight:700;background:var(--line);color:var(--dim)}
+.apply.ok{background:var(--gold);color:#1a1a1a}
+.sw{width:48px;height:28px;border-radius:14px;background:var(--bd);display:flex;align-items:center;justify-content:flex-start;flex-shrink:0}
+.sw.on{background:var(--gold);justify-content:flex-end}
+.sw i{width:22px;height:22px;border-radius:11px;background:#fff;margin:0 3px;display:block}
+.sep{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.ghost{padding:12px;border-radius:9px;border:1px solid var(--bd);background:none;font-size:14px;text-align:left}
+.ghost small{color:var(--sub);font-size:12px}
+.danger{padding:12px;border-radius:9px;border:1px solid var(--red);background:none;color:var(--red);font-size:14px;text-align:left}
+.confirm{border:1px solid var(--red);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.confirm p{font-size:13px;color:#ffb3b3;line-height:1.6}
+.two{display:flex;gap:8px}
+.two button{flex:1;padding:11px;border-radius:9px;font-size:14px}
+.btn-plain{border:1px solid var(--bd);background:none}
+.btn-red{border:none;background:var(--red);color:#1a1a1a;font-weight:700}
+.btn-gold{border:none;background:var(--gold);color:#1a1a1a;font-weight:700}
+.pick{width:100%;display:flex;align-items:center;gap:8px;background:var(--field);border:1.5px solid var(--bd);border-radius:9px;padding:13px 12px;text-align:left;font-size:14px}
+.pick .grow{flex:1}.pick small{color:var(--sub);font-size:12px}
+.p{font-size:13px;color:var(--sub);line-height:1.7}
+.vid{height:190px;background:#111;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px}
+.vr{display:flex;gap:10px;align-items:flex-start;margin-top:10px}
+.vr .l{font-size:12px;color:var(--sub);width:96px;flex-shrink:0;padding-top:6px}
+.vr .cs{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.vc{padding:5px 11px;border-radius:14px;background:var(--field);font-size:13px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;width:calc(100% - 32px);max-width:560px;background:var(--field);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;z-index:30}
+.toast span{flex:1;font-size:14px}
+.toast button{background:none;border:none;color:var(--gold);font-weight:700;font-size:14px;padding:6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ct{display:flex;align-items:center;gap:8px;padding:13px 10px;border-radius:10px;border:1.5px solid var(--bd);background:var(--field);font-size:14px;text-align:left}
+.ct.on{border-color:var(--gold);background:rgba(229,196,122,.12)}
+.ct .ic{width:22px;text-align:center;color:var(--sub)}
+.ct .grow{flex:1}
+.new{font-size:10px;color:#1a1a1a;background:var(--gold);border-radius:4px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="banner">見本の画面です。ここで触っても、本物のタグや動画は何も変わりません（閉じれば元どおり）。グループ名と選択肢は、この端末に保存されているあなたの設定を読んで出しています。</div>
+<div class="tabs">
+  <button class="tab" data-tab="set">タグ設定</button>
+  <button class="tab" data-tab="vid">動画のタグをクリア</button>
+  <button class="tab" data-tab="col">列を追加</button>
+</div>
+<div id="app"></div>
+
+<script>
+(function(){
+'use strict';
+// ── この端末のタグ設定を「読むだけ」。書き込みはしない ──
+function readSettings(){
+  try { var p = JSON.parse(localStorage.getItem('wk_tagSettings') || 'null'); return Array.isArray(p) ? p : null; }
+  catch(e){ return null; }
+}
+var real = readSettings();
+var FALL = {
+  tb:{name:'TOP/BOTTOM', opts:['トップ','ボトム','スタンディング']},
+  cat:{name:'Category', opts:['エスケープ・ディフェンス','コンセプト・原理','パスガード','スイープ','フィニッシュ']},
+  pos:{name:'Position', opts:['クローズドガード','デラヒーバ','ハーフガード','スパイダー','ラッソー']},
+  tags:{name:'テクニック', opts:['アームバー','キムラ','三角絞め','ベリンボロ']}
+};
+function fromReal(key){
+  var t = real && real.find(function(x){ return x && x.key === key; });
+  if (!t) return { name: FALL[key].name, opts: FALL[key].opts.slice() };
+  return { name: (t.label && String(t.label).trim()) || FALL[key].name, opts: Array.isArray(t.presets) ? t.presets.slice() : [] };
+}
+function grp(key, extra){ var g = fromReal(key); return Object.assign({ name:g.name, opts:g.opts, search:true }, extra||{}); }
+
+var S = {
+  tab: 'set',
+  slots: ['tb','cat','pos','tags'],
+  groups: {
+    tb: grp('tb'), cat: grp('cat'), pos: grp('pos'), tags: grp('tags'),
+    mark: { name:'マーク', opts:['⭐ お気に入り','🎯 Next','🟣 ドリル'], search:false, note:'いまの ★・Next・ドリル を書き写したもの' },
+    prog: { name:'習得', opts:['未着手','理解','練習中','マスター'], search:false, note:'いまの習得度を書き写したもの' }
+  },
+  tpls: [
+    { name:'トップ/ボトム', vals:['トップ','ボトム','スタンディング'] },
+    { name:'ポジション', vals:['クローズドガード','デラヒーバ','ハーフガード','スパイダー','ラッソー','バタフライ','Xガード','マウント','サイド','バック'] },
+    { name:'マーク', vals:['⭐ お気に入り','🎯 Next','🟣 ドリル'] },
+    { name:'習得', vals:['未着手','理解','練習中','マスター'] }
+  ],
+  open:null, sheet:null, optsOpen:false, tplOpen:false, tplShow:null, picks:[], confirmDel:false, draft:'', seq:1,
+  vid:{ cleared:false, asking:false },
+  col:'count'
+};
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
+var app = document.getElementById('app');
+var H = {}; var hid = 0;
+function on(fn){ var k = 'h' + (hid++); H[k] = fn; return 'data-h="' + k + '"'; }
+function shelfIds(){ return Object.keys(S.groups).filter(function(id){ return S.slots.indexOf(id) < 0; }); }
+function set(p){ Object.assign(S, p); render(); }
+
+function viewSettings(){
+  var h = '<div class="wrap"><div class="h">タグ設定</div>';
+  h += '<div class="cap">使用中（4つまで）</div><div class="card">';
+  S.slots.forEach(function(id, k){
+    if (!id) {
+      h += '<div class="row"><span class="num off">タグ' + (k+1) + '</span><button class="rbtn" ' + on(function(){ set({ sheet:{kind:'empty', slot:k} }); }) + '><div class="rn" style="color:var(--sub)">（空き）</div><div class="rs">タップで入れる</div></button><button class="chev" aria-label="入れる" ' + on(function(){ set({ sheet:{kind:'empty', slot:k} }); }) + '>＋</button></div>';
+      return;
+    }
+    var g = S.groups[id];
+    var open = function(){ set({ open:id, optsOpen:false, tplOpen:false, tplShow:null, picks:[], confirmDel:false, draft:'' }); };
+    h += '<div class="row"><span class="num">タグ' + (k+1) + '</span><button class="rbtn" ' + on(open) + '><div class="rn">' + esc(g.name) + '</div><div class="rs">' + g.opts.length + '個・' + (g.search ? '検索で当てる' : '検索では当てない') + '</div></button><button class="chev" aria-label="開く" ' + on(open) + '>›</button></div>';
+  });
+  h += '</div>';
+  var sh = shelfIds();
+  h += '<div class="cap">しまってあるグループ（付けたタグはそのまま残っています）</div><div class="card">';
+  if (!sh.length) h += '<div class="row"><div class="rs" style="padding:14px 0">ありません</div></div>';
+  sh.forEach(function(id){
+    var g = S.groups[id];
+    var restore = function(){
+      var e = S.slots.indexOf(null);
+      if (e >= 0) { var s = S.slots.slice(); s[e] = id; set({ slots:s }); }
+      else set({ sheet:{ kind:'swap', id:id } });
+    };
+    h += '<div class="row"><div class="rbtn" style="cursor:default"><div class="rn" style="color:#c7c7cc">' + esc(g.name) + '</div><div class="rs">' + g.opts.length + '個' + (g.note ? '・' + esc(g.note) : '') + '</div></div><button class="pill" ' + on(restore) + '>戻す</button></div>';
+  });
+  h += '</div>';
+  h += '<button class="big" ' + on(function(){ set({ sheet:{ kind:'reset' } }); }) + '><span>初期設定に戻す</span><span style="color:var(--sub)">›</span></button>';
+  h += '<div class="note">「まとめて整理する（タグを一括削除）」と「フィルター設定（マーク・習得・カウント）」は無くなります。<br>マーク・習得はタグのグループになり、カウントは「列を追加」の種類の1つになります。</div></div>';
+  return h + viewGroup() + viewSheet();
+}
+
+function viewGroup(){
+  if (!S.open) return '';
+  var id = S.open, g = S.groups[id], slot = S.slots.indexOf(id);
+  var close = function(){ set({ open:null, confirmDel:false }); };
+  var h = '<div class="ov" ' + on(function(e){ if (e.target.classList.contains('ov')) close(); }) + '><div class="sheet">';
+  h += '<div class="sh-h"><span class="num">タグ' + (slot+1) + '</span><div class="sh-t">' + esc(g.name) + '</div><button class="x" aria-label="閉じる" ' + on(close) + '>✕</button></div><div class="sh-b">';
+  h += '<div><label class="lbl" for="gname">このグループの名前</label><input id="gname" class="inp" value="' + esc(g.name) + '" data-rename="1"></div>';
+  // 選択肢
+  h += '<div><button class="acc' + (S.optsOpen?' on':'') + '" ' + on(function(){ set({ optsOpen:!S.optsOpen }); }) + '><span class="grow">選択肢</span><span class="c">' + g.opts.length + '個</span><span class="car">' + (S.optsOpen?'▲':'▼') + '</span></button>';
+  if (S.optsOpen) {
+    h += '<div class="box"><div class="list">';
+    g.opts.forEach(function(o){ h += '<div class="li"><span>' + esc(o) + '</span><button aria-label="選択肢から外す" ' + on(function(){ g.opts = g.opts.filter(function(x){ return x !== o; }); render(); }) + '>×</button></div>'; });
+    if (!g.opts.length) h += '<div class="li"><span style="color:var(--sub)">まだありません</span></div>';
+    h += '</div><div class="addrow"><input id="draft" placeholder="選択肢を追加..." aria-label="選択肢を追加" value="' + esc(S.draft) + '"><button class="gold" ' + on(function(){ var v = (document.getElementById('draft').value||'').trim(); if (v && g.opts.indexOf(v) < 0) g.opts.push(v); S.draft=''; render(); }) + '>追加</button></div></div>';
+  }
+  h += '</div>';
+  // テンプレート
+  h += '<div><button class="acc' + (S.tplOpen?' on':'') + '" ' + on(function(){ set({ tplOpen:!S.tplOpen, tplShow:null, picks:[] }); }) + '><span class="grow">テンプレートから追加</span><span class="car">' + (S.tplOpen?'▲':'▼') + '</span></button>';
+  if (S.tplOpen) {
+    h += '<div class="box">';
+    S.tpls.forEach(function(t, k){
+      var shown = S.tplShow === k, picks = shown ? S.picks : [];
+      var have = t.vals.filter(function(v){ return g.opts.indexOf(v) >= 0; }).length;
+      h += '<div class="tp"><button class="tp-h" ' + on(function(){ set({ tplShow: shown ? null : k, picks: shown ? [] : t.vals.filter(function(v){ return g.opts.indexOf(v) < 0; }) }); }) + '><span class="grow"><span class="n">' + esc(t.name) + '</span><span class="s">' + t.vals.length + '個' + (have ? '・' + have + '個はすでにある' : '') + '</span></span><span class="car" style="color:var(--gold)">' + (shown?'▲':'▼') + '</span></button>';
+      if (shown) {
+        h += '<div class="chips">';
+        t.vals.forEach(function(v){
+          var hs = g.opts.indexOf(v) >= 0, pk = picks.indexOf(v) >= 0;
+          h += '<button class="chip' + (hs?' has':(pk?' on':'')) + '" ' + on(function(){ if (hs) return; S.picks = pk ? picks.filter(function(x){ return x !== v; }) : picks.concat([v]); render(); }) + '>' + (hs?'済 ':(pk?'✓ ':'')) + esc(v) + '</button>';
+        });
+        h += '</div><button class="apply' + (picks.length?' ok':'') + '" ' + on(function(){ if (!picks.length) return; picks.forEach(function(v){ if (g.opts.indexOf(v) < 0) g.opts.push(v); }); set({ tplShow:null, picks:[] }); }) + '>' + (picks.length ? '選んだ' + picks.length + '個を追加' : (have === t.vals.length ? 'すべて入っています' : '入れるものを選んでください')) + '</button>';
+      }
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  // 検索
+  h += '<button class="acc" ' + on(function(){ g.search = !g.search; render(); }) + '><span class="grow"><span style="display:block">ワード検索で当てる</span><span style="display:block;font-size:12px;color:var(--sub);margin-top:2px">' + (g.search ? 'このグループのタグで、ワード検索に当たる' : 'ワード検索では当てない（絞り込みでは使える）') + '</span></span><span class="sw' + (g.search?' on':'') + '"><i></i></span></button>';
+  // しまう・削除
+  h += '<div class="sep"><button class="ghost" ' + on(function(){ var s = S.slots.slice(); s[slot] = null; set({ slots:s, open:null }); }) + '>しまう <small>— 付けたタグは残り、あとで戻せる</small></button>';
+  if (!S.confirmDel) h += '<button class="danger" ' + on(function(){ set({ confirmDel:true }); }) + '>このグループを削除</button>';
+  else h += '<div class="confirm"><p>「' + esc(g.name) + '」を削除します。このグループのタグが、付いている動画すべてから外れます。先にバックアップを書き出します。<br>しまうだけなら、上の「しまう」を使ってください。</p><div class="two"><button class="btn-plain" ' + on(function(){ set({ confirmDel:false }); }) + '>やめる</button><button class="btn-red" ' + on(function(){ delete S.groups[id]; set({ slots: S.slots.map(function(x){ return x === id ? null : x; }), open:null, confirmDel:false }); }) + '>削除する</button></div></div>';
+  h += '</div></div></div></div>';
+  return h;
+}
+
+function viewSheet(){
+  if (!S.sheet) return '';
+  var close = function(){ set({ sheet:null }); };
+  var title = '', text = '', items = [];
+  if (S.sheet.kind === 'swap') {
+    var id = S.sheet.id;
+    title = '「' + S.groups[id].name + '」を戻す';
+    text = '使用中が4つ埋まっています。どれと入れ替えますか？ 入れ替えたグループは「しまってある」に移り、付けたタグはそのまま残ります。';
+    S.slots.forEach(function(sid, k){ items.push({ label:'タグ' + (k+1) + '　' + S.groups[sid].name, go:function(){ var s = S.slots.slice(); s[k] = id; set({ slots:s, sheet:null }); } }); });
+  } else if (S.sheet.kind === 'empty') {
+    var k = S.sheet.slot;
+    title = 'タグ' + (k+1) + ' に入れる';
+    text = 'しまってあるグループを戻すか、新しく作ります。';
+    shelfIds().forEach(function(id){ items.push({ label:S.groups[id].name, sub:S.groups[id].opts.length + '個', go:function(){ var s = S.slots.slice(); s[k] = id; set({ slots:s, sheet:null }); } }); });
+    items.push({ label:'＋ 新しいグループを作る', gold:true, go:function(){ var nid = 'new' + (S.seq++); S.groups[nid] = { name:'新しいグループ', opts:[], search:true }; var s = S.slots.slice(); s[k] = nid; set({ slots:s, sheet:null, open:nid, optsOpen:false, tplOpen:true, tplShow:null, picks:[], confirmDel:false }); } });
+  } else if (S.sheet.kind === 'reset') {
+    title = '初期設定に戻す';
+    text = '使用中を「タグ1 トップ/ボトム・タグ2 ポジション・タグ3 マーク・タグ4 空き」にします。いま使用中のほかのグループは「しまってある」に移ります。<b style="color:var(--text)">付けたタグは何も消えません。</b>';
+    items.push({ label:'初期設定に戻す', gold:true, go:function(){
+      S.groups.tb.name = 'トップ/ボトム'; S.groups.pos.name = 'ポジション';
+      if (!S.groups.mark) S.groups.mark = { name:'マーク', opts:['⭐ お気に入り','🎯 Next','🟣 ドリル'], search:false };
+      S.groups.mark.name = 'マーク';
+      set({ slots:['tb','pos','mark',null], sheet:null });
+    } });
+  }
+  var h = '<div class="ov" ' + on(function(e){ if (e.target.classList.contains('ov')) close(); }) + '><div class="sheet"><div class="sh-h"><div class="sh-t">' + esc(title) + '</div><button class="x" aria-label="閉じる" ' + on(close) + '>✕</button></div><div class="sh-b"><div class="p">' + text + '</div>';
+  items.forEach(function(it){ h += '<button class="pick" ' + on(it.go) + '><span class="grow" style="color:' + (it.gold ? 'var(--gold)' : 'var(--text)') + '">' + esc(it.label) + '</span><small>' + esc(it.sub||'') + '</small></button>'; });
+  h += '<button class="btn-plain" style="padding:12px;border-radius:9px;font-size:14px" ' + on(close) + '>やめる</button></div></div></div>';
+  return h;
+}
+
+function viewVideo(){
+  var V = S.vid;
+  var rows = S.slots.map(function(id, k){
+    if (!id) return { l:'タグ' + (k+1) + '（空き）', c:[] };
+    var g = S.groups[id];
+    return { l:'タグ' + (k+1) + ' ' + g.name, c: V.cleared ? [] : g.opts.slice(0, id === 'tags' ? 1 : 1) };
+  });
+  var h = '<div class="wrap"><div class="vid">[動画]</div><div class="h" style="font-size:17px;margin-top:12px">03.ダブルアンダー・ニーカット</div>';
+  rows.forEach(function(r){ h += '<div class="vr"><span class="l">' + esc(r.l) + '</span><div class="cs">' + (r.c.length ? r.c.map(function(c){ return '<span class="vc">' + esc(c) + '</span>'; }).join('') : '<span style="color:var(--dim);font-size:13px;padding-top:5px">—</span>') + '</div></div>'; });
+  var hiddenN = shelfIds().length;
+  h += '<div class="note">' + (V.cleared ? 'しまってあるグループのタグもクリアしました。' : 'しまってあるグループ（' + shelfIds().map(function(id){ return esc(S.groups[id].name); }).join('・') + '）のタグは画面に出ていませんが、残っています。') + '</div>';
+  if (!V.asking) h += '<button class="ghost" style="margin-top:14px" ' + on(function(){ V.asking = true; render(); }) + '>この動画のタグをすべてクリア</button>';
+  else h += '<div class="confirm" style="margin-top:14px"><p>この動画に付いているタグを、使用中・しまってある、すべてのグループから外します。ほかの動画には触りません。</p><div class="two"><button class="btn-plain" ' + on(function(){ V.asking = false; render(); }) + '>やめる</button><button class="btn-red" ' + on(function(){ V.asking = false; V.cleared = true; V.toast = true; render(); }) + '>クリアする</button></div></div>';
+  h += '</div>';
+  if (V.toast) h += '<div class="toast"><span>タグをクリアしました</span><button ' + on(function(){ V.cleared = false; V.toast = false; render(); }) + '>元に戻す</button></div>';
+  return h;
+}
+
+function viewCol(){
+  var T = [['checkbox','☐','チェックボックス'],['select','▾','セレクト'],['multi','≡','マルチセレクト'],['tracker','●','トラッカー'],['text','T','テキスト'],['num','#','数値'],['bar','%','進捗バー'],['rate','★','評価'],['count','+1','カウント',1]];
+  var h = '<div class="wrap"><div class="sheet" style="padding:18px"><div class="h" style="margin:0 0 14px">列を追加</div><div class="grid">';
+  T.forEach(function(t){ h += '<button class="ct' + (S.col === t[0] ? ' on' : '') + '" ' + on(function(){ set({ col:t[0] }); }) + '><span class="ic">' + t[1] + '</span><span class="grow">' + t[2] + '</span>' + (t[3] ? '<span class="new">新</span>' : '') + '</button>'; });
+  h += '</div><div class="note" style="min-height:40px">' + (S.col === 'count' ? 'タップで練習回数を＋1。最後に数えた日も出ます。今までの練習回数はそのまま引き継ぎます（どのリストに足しても同じ回数）。' : '') + '</div>';
+  h += '<div class="two" style="margin-top:12px"><button class="btn-plain">キャンセル</button><button class="btn-gold">追加する</button></div></div></div>';
+  return h;
+}
+
+function render(){
+  H = {}; hid = 0;
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab === S.tab); });
+  app.innerHTML = S.tab === 'set' ? viewSettings() : (S.tab === 'vid' ? viewVideo() : viewCol());
+}
+document.addEventListener('click', function(e){
+  var t = e.target.closest('.tab');
+  if (t) { set({ tab:t.dataset.tab, open:null, sheet:null }); return; }
+  var el = e.target.closest('[data-h]');
+  if (!el) return;
+  // オーバーレイは背景そのものを押したときだけ閉じる
+  if (el.classList.contains('ov') && e.target !== el) return;
+  var fn = H[el.getAttribute('data-h')];
+  if (fn) fn(e);
+});
+document.addEventListener('change', function(e){
+  if (e.target.dataset && e.target.dataset.rename && S.open) { var v = e.target.value.trim(); if (v) S.groups[S.open].name = v; render(); }
+});
+document.addEventListener('input', function(e){ if (e.target.id === 'draft') S.draft = e.target.value; });
+render();
+})();
+</script>
+</body>
+</html>
