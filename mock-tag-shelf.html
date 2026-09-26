@@ -33,7 +33,8 @@ button{cursor:pointer}
 .rs{font-size:12px;color:var(--sub);margin-top:2px}
 .chev{background:none;border:none;color:var(--sub);font-size:18px;padding:14px 4px}
 .swb{background:none;border:none;padding:10px 0;flex-shrink:0}
-.ghostpill{border-color:var(--bd);color:var(--text);font-weight:400}
+.pill.ghostpill{border-color:var(--bd);color:var(--text);font-weight:400}
+.btns{display:flex;gap:6px;flex-shrink:0}
 .curpick{border-color:var(--gold)}
 .pill{padding:8px 13px;border-radius:9px;border:1px solid var(--gold);background:none;color:var(--gold);font-size:13px;font-weight:700;flex-shrink:0}
 .big{width:100%;display:flex;align-items:center;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:15px 14px;text-align:left;font-size:14px;margin-top:18px}
@@ -174,15 +175,15 @@ function viewSettings(){
       return;
     }
     var g = S.groups[id];
-    h += '<div class="row"><span class="num">タグ' + (k+1) + '</span><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><button class="pill ghostpill" ' + on(change) + '>変更</button></div>';
+    h += '<div class="row"><span class="num">タグ' + (k+1) + '</span><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><div class="btns"><button class="pill ghostpill" ' + on(function(){ openGroup(id); }) + '>編集</button><button class="pill" ' + on(change) + '>変更</button></div></div>';
   });
-  h += '</div><div class="note" style="margin-top:6px">名前を押すと中身を編集、［変更］で使うグループを入れ替えます。</div>';
+  h += '</div><div class="note" style="margin-top:6px">［編集］で名前・選択肢・検索の対象などを直し、［変更］でそのタグに使うグループを入れ替えます。</div>';
   var un = unusedIds();
   if (un.length) {
     h += '<div class="cap">使っていないグループ</div><div class="card">';
     un.forEach(function(id){
       var g = S.groups[id];
-      h += '<div class="row"><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn" style="color:#c7c7cc">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><button class="chev" aria-label="編集" ' + on(function(){ openGroup(id); }) + '>›</button></div>';
+      h += '<div class="row"><button class="rbtn" ' + on(function(){ openGroup(id); }) + '><div class="rn" style="color:#c7c7cc">' + esc(g.name) + '</div><div class="rs">' + subOf(g) + '</div></button><button class="pill ghostpill" ' + on(function(){ openGroup(id); }) + '>編集</button></div>';
     });
     h += '</div><div class="note" style="margin-top:6px">使っていないグループのタグも、動画には付いたまま残っています。使うときは、上のタグの［変更］から選びます。</div>';
   }
