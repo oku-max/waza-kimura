@@ -71,8 +71,7 @@ export function _restoreFromURL() {
   }
   // Restore search text
   const q = p.get('q') || '';
-  const si = document.getElementById('si'); if (si) si.value = q;
-  const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = q;
+  window.wkSetSearchWord?.(q);   // 検索語は1か所から配る（js/search-word.js）
   // Sync UI chips to match restored state
   _syncChipsToState();
   window.syncFilterOvRows?.();
@@ -107,7 +106,7 @@ export function _syncChipsToState() {
   }
   // Search clear button
   const siClear = document.getElementById('si-clear');
-  if (siClear) siClear.style.display = (document.getElementById('si-lib-pc') || document.getElementById('si'))?.value ? 'flex' : 'none';
+  if (siClear) siClear.style.display = (window.wkSearchWord?.()) ? 'flex' : 'none';
 }
 
 // popstate は index.html の一元バックボタンハンドラに統合済み
@@ -199,8 +198,7 @@ export function clearAll() {
   window.favOnly = false; window.nextOnly = false; window.drillOnly = false; window.unwOnly = false; window.watchedOnly = false;
   window.bmOnly = false; window.memoOnly = false; window.imgOnly = false;
   window.prRank = null; window.prDate = null;
-  const si = document.getElementById('si'); if (si) si.value = '';
-  const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = '';
+  window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（半分だけ残さない）
   window.syncFilterOvRows?.();
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
   window.buildSidebarFovRows?.();
@@ -441,9 +439,7 @@ export function countContextual(key, val, ctx = 'lib') {
     return n;
   }
   const f    = window.filters || {};
-  const siEl   = document.getElementById('si');
-  const siPcEl = document.getElementById('si-lib-pc');
-  const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();
+  const raw = window.wkSearchWord ? window.wkSearchWord() : '';
   const parsed = _parseQuery(raw);
   const _tagOk = TF ? TF.compile(f, 'lib', { except: gid }) : () => true;
   return vids.filter(v => {
@@ -533,8 +529,7 @@ export function AF() {
   }
   const rct = document.getElementById('rc-topbar');
   if (rct) {
-    const siEl = document.getElementById('si-lib-pc') || document.getElementById('si');
-    const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || (siEl && siEl.value.trim());
+    const hasFilter = Object.values(window.filters).some(s => s.size > 0) || window.favOnly || window.unwOnly || window.watchedOnly || !!(window.wkSearchWord?.());
     rct.textContent = f.length + ' 件';
     rct.style.display = hasFilter ? 'inline' : 'none';
   }

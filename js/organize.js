@@ -324,8 +324,7 @@ export function clearOrgFilters() {
   orgFavOnly = false; orgNextOnly = false; orgDrillOnly = false; orgUnwOnly = false; orgWatchedOnly = false; orgBmOnly = false; orgMemoOnly = false; orgImgOnly = false;
   orgMemoSearch = ''; orgChannelSearch = ''; orgPlaylistSearch = '';
   orgPrRank = null; orgPrDate = null;
-  const si = document.getElementById('si-org'); if(si) si.value = '';
-  const siPc = document.getElementById('si-org-pc'); if(siPc) siPc.value = '';
+  window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（半分だけ残さない）
   syncOrgFilterOvRows();
   document.querySelectorAll('[id^="org-fs-"]').forEach(el => el.classList.remove('active'));
   window.refreshOpenSbAccordions?.('org');
@@ -2406,15 +2405,7 @@ export function clearAdvSearch() {
   });
   const memoEl = document.getElementById('adv-f-memo'); if (memoEl) memoEl.checked = false;
   _advSearch = null;
-  const siPc = document.getElementById('si-org-pc');
-  const siMob = document.getElementById('si-org');
-  if (siPc) siPc.value = '';
-  if (siMob) siMob.value = '';
-  // Library側もクリア
-  const siLib = document.getElementById('si-lib-pc');
-  const siLibMob = document.getElementById('si');
-  if (siLib) siLib.value = '';
-  if (siLibMob) siLibMob.value = '';
+  window.wkSetSearchWord?.('');   // 4つの入力欄をまとめて空にする（js/search-word.js）
   window._cvApplySearch?.(''); // カスタムビューの検索もクリア
   renderOrg();
   window.AF?.();
@@ -2437,8 +2428,5 @@ window._matchQuery        = _matchQuery;
 // フィルターリセット用: _advSearch と si-org-pc をクリア（renderOrg/AF は呼ばない）
 window._clearOrgSearchForReset = function() {
   _advSearch = null;
-  const siOrgPc = document.getElementById('si-org-pc');
-  if (siOrgPc) siOrgPc.value = '';
-  const siOrg = document.getElementById('si-org');
-  if (siOrg) siOrg.value = '';
+  window.wkSetSearchWord?.('', { silent: true });   // 4つの入力欄をまとめて空にする
 };

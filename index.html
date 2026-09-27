@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.865</title>
+<title>WAZA KIMURA v52.866</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -330,14 +330,12 @@
     const orgActbar = document.getElementById('organize-actionbar');
     const libC     = document.getElementById('fs-library-content');
     const orgC     = document.getElementById('fs-organize-content');
-    const libSi    = document.getElementById('si-lib-pc');
-    const orgSi    = document.getElementById('si-org');
 
     if (mode === 'card') {
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
       _syncLibFilters('org');
-      if (orgSi && libSi) libSi.value = orgSi.value;
+      window.wkSetSearchWord?.(window.wkSearchWord?.() || '');   // 検索語を4つの欄にそろえる
       _transferLibBulk('card');
       if (cardHost)   cardHost.style.display   = '';
       if (orgHost)    orgHost.style.display    = 'none';
@@ -351,7 +349,7 @@
       if (!window._cvInternalNav) window._cvOnViewChange?.();
       window._cvInternalNav = false;
       _syncLibFilters('lib');
-      if (libSi && orgSi) orgSi.value = libSi.value;
+      window.wkSetSearchWord?.(window.wkSearchWord?.() || '');   // 検索語を4つの欄にそろえる
       _transferLibBulk('org');
       if (cardHost)   cardHost.style.display   = 'none';
       if (orgHost)    orgHost.style.display    = '';
@@ -466,12 +464,7 @@
     // （カードにだけ効いてテーブルに効かない不整合の根本原因）。
     if (window._libViewMode === 'org' && !window._cvVideoIds && !window._cvCardVideoIds) {
       _syncLibFilters('lib'); // lib 状態 → org 状態へコピー（切替時 _libView と同じ橋渡し）
-      const _libSi = document.getElementById('si-lib-pc');
-      if (_libSi) {
-        const _v = _libSi.value;
-        const _o1 = document.getElementById('si-org');    if (_o1) _o1.value = _v;
-        const _o2 = document.getElementById('si-org-pc'); if (_o2) _o2.value = _v;
-      }
+      window.wkSetSearchWord?.(window.wkSearchWord?.() || '');   // 検索語を4つの欄にそろえる
       window.renderOrg?.();
     }
     // .cardクラスを持つ要素のみ対象（子要素の誤ヒットを防ぐ）
@@ -1517,7 +1510,7 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
               <div class="lib-sb-search">
                 <span style="color:var(--text3)">🔍</span>
                 <input id="si-lib-pc" type="text" placeholder="Search..." oninput="window.wkSetSearchWord?.(this.value,{silent:true});if(window._cvIsTableView?.())window._cvApplySearch?.(this.value);else window.AF?.();var _c=document.getElementById('si-clear');if(_c)_c.style.display=this.value?'inline':'none'" style="flex:1">
-                <button id="si-clear" onclick="document.getElementById('si-lib-pc').value='';window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
+                <button id="si-clear" onclick="window.wkSetSearchWord?.('');window._cvIsTableView?.()?window._cvApplySearch?.(''):window.AF?.();this.style.display='none'" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 3px;border-radius:4px;flex-shrink:0">✕</button>
               </div>
               <button id="adv-search-btn-lib-mob" onclick="toggleAdvSearch()" style="margin-top:6px;width:100%;padding:6px 12px;text-align:center;border:1.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit" data-i18n="sb.advSearch">詳細検索</button>
             </div>

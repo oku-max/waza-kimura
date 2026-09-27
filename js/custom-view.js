@@ -943,13 +943,13 @@ function _showView(id) {
     };
     const siOrg = document.getElementById('si-org');
     if (siOrg) {
-      siOrg.oninput = () => { _cvSrchQ = siOrg.value; _cvUpdateSearch(view); };
+      // 打った語は4つの入力欄すべてに配る（ここだけに入れるとカードに届かない）
+      siOrg.oninput = () => { _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord(siOrg.value, { silent: true }) : siOrg.value; _cvUpdateSearch(view); };
     }
     if (window._libViewMode === 'org') {
       _cvUpdateSearch(view);
     } else {
-      _cvSrchQ = '';
-      if (siOrg) siOrg.value = '';
+      _cvSrchQ = window.wkSearchWord ? window.wkSearchWord() : '';   // 打った語は残す
       window._cvInternalNav = true;
       window._libView?.('org');
     }
@@ -3215,7 +3215,9 @@ document.addEventListener('click', e => {
 // index.html の _libView(mode==='card') から直接呼ばれる
 window._cvOnViewChange = function() {
   _curId = null;
-  _cvSrchQ = '';
+  // 検索語は消さない。カード⇔テーブルの切替でもここを通るため、
+  // 消すとユーザーが打った語が黙って消える（v52.866）。リストの状態だけを畳む。
+  _cvSrchQ = window.wkSearchWord ? window.wkSearchWord() : '';
   window._cvVideoIds = null;
   window._cvCardVideoIds = null;
   window._cvAfterRender = null;
@@ -3238,7 +3240,7 @@ window._cvOnViewChange = function() {
     _cvSavedOrgSavePrefs = null;
   }
   const siOrg = document.getElementById('si-org');
-  if (siOrg) { siOrg.value = ''; siOrg.oninput = () => window.renderOrg?.(); }
+  if (siOrg) siOrg.oninput = () => { window.wkSetSearchWord?.(siOrg.value, { silent: true }); window.renderOrg?.(); };
   _renderViewBar();
 };
 
@@ -3301,15 +3303,7 @@ window._cvApplySearch = function(q) {
 
 // フィルターリセット時にカスタムビュー状態もクリア（clearAll から呼ばれる）
 window._cvClearFilters = function() {
-  _cvSrchQ = '';
-  const siOrg = document.getElementById('si-org');
-  if (siOrg) siOrg.value = '';
-  const siOrgPc = document.getElementById('si-org-pc'); // orgFilt の fallback 先も必ずクリア
-  if (siOrgPc) siOrgPc.value = '';
-  const siLibPc = document.getElementById('si-lib-pc');
-  if (siLibPc) siLibPc.value = '';
-  const siClear = document.getElementById('si-clear');
-  if (siClear) siClear.style.display = 'none';
+  _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord('', { silent: true }) : '';
   if (_curId && filterState[_curId]) {
     Object.keys(filterState[_curId]).forEach(k => delete filterState[_curId][k]);
   }

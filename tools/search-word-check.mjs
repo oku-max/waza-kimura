@@ -48,6 +48,17 @@ console.log('■ ① 検索語を読む場所が js/search-word.js の1か所で
     });
   }
   ck('絞り込みが入力欄から直接 value を読んでいない', bad.length === 0, bad.join('\n      → '));
+  // 書く側も1か所。片方の欄にだけ入れる／片方だけ空にすると、また食い違う。
+  const wbad = [];
+  for (const f of ['js/filter.js', 'js/organize.js', 'js/custom-view.js', 'js/filter-overlay.js', 'js/unified-filter.js', 'index.html']) {
+    read(f).split('\n').forEach((ln, i) => {
+      if (/getElementById\(\s*['"](?:si|si-lib-pc|si-org|si-org-pc)['"]\s*\)/.test(ln) && /\.value\s*=[^=]/.test(ln))
+        wbad.push(`${f}:${i + 1} ${ln.trim().slice(0, 90)}`);
+      if (/\b(?:siOrg|siPc|siLib|siMob|siLibMob|siOrgPc|siLibPc|libSi|orgSi|_o1|_o2)\.value\s*=[^=]/.test(ln))
+        wbad.push(`${f}:${i + 1} ${ln.trim().slice(0, 90)}`);
+    });
+  }
+  ck('検索欄に直接 value を書き込んでいない（書くのも1か所）', wbad.length === 0, wbad.join('\n      → '));
   ck('js/search-word.js がある', fs.existsSync(path.join(ROOT, 'js/search-word.js')));
   ck('index.html が読み込んでいる', /src="js\/search-word\.js"/.test(read('index.html')));
   ck('filt が wkSearchWord を使う',   /wkSearchWord/.test(read('js/filter.js')));
@@ -81,6 +92,10 @@ const browser = await chromium.launch(fs.existsSync(exe) ? { executablePath: exe
 const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
 await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), r => r.abort());
 await ctx.addInitScript(STUB);
+// カード型のカスタムリスト（3本が範囲・うち2本が Quick）
+await ctx.addInitScript(v => localStorage.setItem('wk_cv_views', JSON.stringify(v)),
+  [{ id:'_swc', label:'検査用リスト', saveMode:'manual', icon:'📁', viewType:'card',
+     videoIds:['q1','q2','n1'], columns:[], rowData:{} }]);
 const page = await ctx.newPage();
 await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(2500);
@@ -130,6 +145,35 @@ for (const r of res) {
   if (r.card === 'skip') { ck(r.how, true); continue; }
   ck(`${r.how} → カード ${r.card}本 / テーブル ${r.table}本`, r.card === r.table,
      'カードとテーブルで結果が違う（読む場所が分かれている）');
+}
+
+// ── ③ リストを開いて打った語が、カード⇔テーブルの切替で消えないこと ──
+// カード⇔テーブルの切替は _cvOnViewChange を通る。そこが検索語まで消していたため、
+// 「打った直後は効くのに、テーブルに切り替えると全部出る／戻すと条件が消えている」になっていた。
+console.log('■ ③ リストを開いて打った語が、ビューの切替で消えないこと');
+const e2e = await page.evaluate(async () => {
+  const wait = () => new Promise(r => setTimeout(r, 150));
+  const log = [];
+  const snap = (step) => log.push({
+    step,
+    word: window.wkSearchWord?.() || '',
+    card: (() => { try { return window.filt(window.videos).length; } catch (e) { return 'err'; } })(),
+    table: (() => { try { return window.orgFilt(window.videos).length; } catch (e) { return 'err'; } })(),
+  });
+  window._cvOpen?.('_swc') ?? window._cvSelectView?.('_swc');
+  await wait();
+  const box = document.getElementById('si-lib-pc');
+  box.value = '-quick';
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+  await wait(); snap('リストで -quick と打つ');
+  window._libView?.('org');  await wait(); snap('テーブルに切替');
+  window._libView?.('card'); await wait(); snap('カードに戻す');
+  return log;
+});
+for (const r of e2e) {
+  ck(`${r.step} → 語「${r.word}」/ カード ${r.card}本 / テーブル ${r.table}本`,
+     r.word === '-quick' && r.card === r.table,
+     r.word !== '-quick' ? '切替で検索語が消えている' : 'カードとテーブルで結果が違う');
 }
 
 await browser.close();

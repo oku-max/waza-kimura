@@ -43,8 +43,8 @@
   function _mainQMatcher() {
     const isOrg = _ctx === 'org';
     const raw = isOrg
-      ? (document.getElementById('si-org-pc')?.value || document.getElementById('si-org')?.value || '')
-      : (document.getElementById('si-lib-pc')?.value || document.getElementById('si')?.value || '');
+      ? (window.wkSearchWord ? window.wkSearchWord() : '')
+      : (window.wkSearchWord ? window.wkSearchWord() : '');
     const q = raw.trim();
     if (!q) return () => true;
     if (window._parseQuery && window._matchQuery) {
@@ -897,7 +897,7 @@
       inp.placeholder = _phMap[t] || '🔍 検索...';
       // タイトルタブ: まだ入力がなければメイン検索バーの値を引き継ぐ
       if (t === 'video' && !_queries[t]) {
-        const mainQ = (document.getElementById('si-lib-pc')?.value || document.getElementById('si')?.value || '').trim();
+        const mainQ = window.wkSearchWord ? window.wkSearchWord() : '';
         _queries[t] = mainQ.toLowerCase();
       }
       inp.value = _queries[t] || '';

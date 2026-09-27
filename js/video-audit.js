@@ -207,7 +207,7 @@
     { k: 'memo',  ja: 'メモ',           get: v => v.memo || '' },
   ];
   window.wkSearchWhy = function () {
-    const el  = document.getElementById('si-lib-pc') || document.getElementById('si');
+    const el  = document.getElementById('si-lib-pc') || document.getElementById('si');   // 表示用
     const raw = (el && el.value || '').trim();
     if (!raw || !window._parseQuery || !window._matchQuery) return null;
     const parsed = window._parseQuery(raw);

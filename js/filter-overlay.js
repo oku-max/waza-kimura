@@ -493,8 +493,7 @@ export function applySavedSearch(idx) {
   window.favOnly = s.favOnly; window.unwOnly = s.unwOnly; window.watchedOnly = s.watchedOnly || false;
   const f = window.filters || {};
   Object.entries(s.filters||{}).forEach(([k,v]) => { if (f[k]) { f[k].clear(); v.forEach(x => f[k].add(x)); } });
-  const si   = document.getElementById('si');        if (si)   si.value   = s.query || '';
-  const siPc = document.getElementById('si-lib-pc'); if (siPc) siPc.value = s.query || '';
+  window.wkSetSearchWord?.(s.query || '');   // 検索語は1か所から配る
   window.syncFilterOvRows?.();
   _syncChipsToState();
   window.buildSidebarFovRows?.();
@@ -510,8 +509,7 @@ export function applySavedSearchToOrg(idx) {
   Object.entries(s.filters||{}).forEach(([k,v]) => { if (f[k]) { f[k].clear(); v.forEach(x => f[k].add(x)); } });
   if (s.favOnly  !== undefined) window.orgFavOnly  = s.favOnly;
   if (s.unwOnly  !== undefined) window.orgUnwOnly  = s.unwOnly;
-  const si   = document.getElementById('si-org');    if (si)   si.value   = s.query || '';
-  const siPc = document.getElementById('si-org-pc'); if (siPc) siPc.value = s.query || '';
+  window.wkSetSearchWord?.(s.query || '');   // 検索語は1か所から配る
   window.renderOrg?.();
   window.syncOrgFilterOvRows?.();
   renderSavedSearches();
@@ -567,7 +565,7 @@ export function commitEditSavedSearch() {
     unwOnly:     window.unwOnly     || false,
     watchedOnly: window.watchedOnly || false,
     filters: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v]])),
-    query: document.getElementById('si')?.value || document.getElementById('si-lib-pc')?.value || '',
+    query: window.wkSearchWord ? window.wkSearchWord() : '',
   };
   savedSearches[_editingIdx] = { name: ss.name, state, createdAt: Date.now() };
   _persistSavedSearches();
