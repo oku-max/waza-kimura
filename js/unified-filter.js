@@ -119,12 +119,6 @@
     });
   }
 
-  function _collectTags() {
-    const s = new Set();
-    _getCvBase().forEach(v => (v.tags || []).forEach(t => t && s.add(t)));
-    return [...s].sort((a,b) => a.localeCompare(b,'ja'));
-  }
-
   // ── DOM 注入 ──
   function _inject() {
     if (document.getElementById('uni-popup')) return;
@@ -1110,41 +1104,6 @@
     _render();
   };
   window.uniSyncBadges = function () { _syncSidebarBadges(_badges()); };
-
-  // ── 保存した検索条件: 件数 (filt() と同ロジック) ──
-  function _countSavedSearch(ss) {
-    if (!ss?.state) return 0;
-    const s = ss.state, sf = s.filters || {};
-    const q = (s.query || '').trim().toLowerCase();
-    return (window.videos || []).filter(v => {
-      if (v.archived) return false;
-      if (s.favOnly     && !v.fav)     return false;
-      if (s.unwOnly     && v.watched)  return false;
-      if (s.watchedOnly && !v.watched) return false;
-      if (sf.platform?.length && !sf.platform.includes(v.pt))                              return false;
-      if (sf.channel?.length  && !sf.channel.includes(v.channel || v.ch))                  return false;
-      if (sf.playlist?.length && !sf.playlist.includes(v.pl))                              return false;
-      if (sf.prio?.length     && !sf.prio.includes(v.prio))                                return false;
-      if (sf.status?.length   && !sf.status.includes(v.status))                            return false;
-      // sidebar-v4 は tbNew/cat/posNew を使用。古い保存条件は tb/action/position のため両方チェック
-      const _tb  = sf.tbNew  || sf.tb       || [];
-      const _cat = sf.cat    || sf.action   || [];
-      const _pos = sf.posNew || sf.position || [];
-      if (_tb.length  && !(v.tb  ||[]).some(t => _tb.includes(t)))  return false;
-      if (_cat.length && !(v.cat ||[]).some(c => _cat.includes(c))) return false;
-      if (_pos.length && !(v.pos ||[]).some(p => _pos.includes(p))) return false;
-      if (sf.tags?.length && !(v.tags||[]).some(t => sf.tags.includes(t))) return false;
-      if (q) {
-        const hay = [
-          v.title || '', v.channel || v.ch || '', v.pl || '',
-          ...(v.tb||[]), ...(v.cat||[]), ...(v.pos||[]), ...(v.tags||[]),
-          v.memo || ''
-        ].join('\n').toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    }).length;
-  }
 
   // ── 保存した検索条件: UI操作 ──
   function _closeSSMenus() {

@@ -398,22 +398,6 @@ export function syncFilterOvRows(isOrg=false) {
   const imgEl  = document.getElementById(`${p}-chip-img`);     if(imgEl)  imgEl.classList.toggle('active',  (isOrg ? window.orgImgOnly      : window.imgOnly)||false);
 }
 
-// ── カウントヘルパー ──
-export function countForFilter(key, val) {
-  try {
-    const vids = window.videos || [];
-    if (key === 'tb')       return vids.filter(v => !v.archived && (v.tb||[]).includes(val)).length;
-    if (key === 'action')   return vids.filter(v => !v.archived && (v.cat||[]).includes(val)).length;
-    if (key === 'position') return vids.filter(v => !v.archived && (v.pos||[]).includes(val)).length;
-    if (key === 'tags')     return vids.filter(v => !v.archived && (v.tags||[]).includes(val)).length;
-    if (key === 'playlist') return vids.filter(v => !v.archived && v.pl === val).length;
-    if (key === 'channel')  return vids.filter(v => !v.archived && v.ch === val).length;
-    if (key === 'status')   return vids.filter(v => !v.archived && v.status === val).length;
-    if (key === 'prio')     return vids.filter(v => !v.archived && v.prio === val).length;
-  } catch(e) { return 0; }
-  return 0;
-}
-
 // ── 行ビルダー（フィルターオーバーレイ内）── isOrg=true でオーガナイズ用にも使用可
 export function buildFovRows(isOrg=false) {
   const p    = isOrg ? 'org-fov' : 'fov';
@@ -449,59 +433,6 @@ export function buildFovRows(isOrg=false) {
   buildFovPickerDdRow(`${p}-srow-ch`, 'channel',  'チャンネルを選ぶ', isOrg);
 }
 
-export function buildFovHscroll(rowId, tags, filterKey, allChipId) {
-  const row     = document.getElementById(rowId); if (!row) return;
-  const allChip = document.getElementById(allChipId);
-  const filters = window.filters || {};
-  row.innerHTML = '';
-  tags.forEach(tag => {
-    const cnt = window.countContextual
-      ? window.countContextual(filterKey, tag)
-      : ((window.videos||[]).filter(v => !v.archived && (filterKey==='tb' ? (v.tb||[]).includes(tag) : (v.cat||[]).includes(tag))).length);
-    const el = document.createElement('div');
-    el.className = 'chip' + (filters[filterKey]?.has(tag) ? ' active' : '');
-    el.style.flexShrink = '0';
-    el.textContent = tag + (cnt ? ' ' + cnt : '');
-    el.onclick = () => {
-      filters[filterKey]?.has(tag) ? filters[filterKey].delete(tag) : filters[filterKey]?.add(tag);
-      el.classList.toggle('active', filters[filterKey]?.has(tag));
-      if (allChip) allChip.classList.toggle('inactive', filters[filterKey]?.size > 0);
-      window.AF?.();
-    };
-    row.appendChild(el);
-  });
-  if (allChip) allChip.classList.toggle('inactive', filters[filterKey]?.size > 0);
-}
-
-export function buildFovPickerRow(rowId, filterKey, allChipId, getAll) {
-  const row     = document.getElementById(rowId); if (!row) return;
-  const allChip = document.getElementById(allChipId);
-  const filters = window.filters || {};
-  row.innerHTML = '';
-  const allItems = getAll();
-  allItems.forEach(val => {
-    const cnt = window.countContextual
-      ? window.countContextual(filterKey, val)
-      : ((window.videos||[]).filter(v => !v.archived && (
-          filterKey==='playlist' ? v.pl===val :
-          filterKey==='channel'  ? v.ch===val :
-          filterKey==='tags'     ? (v.tags||[]).includes(val) :
-          (v.pos||[]).includes(val))).length);
-    const el = document.createElement('div');
-    el.className = 'chip' + (filters[filterKey]?.has(val) ? ' active' : '');
-    el.style.flexShrink = '0';
-    el.textContent = val + (cnt ? ' ' + cnt : '');
-    el.onclick = () => {
-      filters[filterKey]?.has(val) ? filters[filterKey].delete(val) : filters[filterKey]?.add(val);
-      el.classList.toggle('active', filters[filterKey]?.has(val));
-      if (allChip) allChip.classList.toggle('inactive', filters[filterKey]?.size > 0);
-      window.AF?.();
-    };
-    row.appendChild(el);
-  });
-  if (allChip) allChip.classList.toggle('inactive', filters[filterKey]?.size > 0);
-}
-
 // ── 状態同期 ──
 export function syncFovChips() {
   const f = window.filters || {};
@@ -516,92 +447,8 @@ export function syncFovChips() {
   });
 }
 
-export function clearFovField(fieldKey) {
-  const f = window.filters || {};
-  const keyMap = {tb:'tb', action:'action', pos:'position', playlist:'playlist', tags:'tags', ch:'channel'};
-  const allMap = {tb:'fov-all-tb', action:'fov-all-cat', pos:'fov-all-pos', playlist:'fov-all-pl', tags:'fov-all-tags', ch:'fov-all-ch'};
-  const rowMap = {tb:'fov-srow-tb', action:'fov-srow-cat', pos:'fov-srow-pos', playlist:'fov-srow-pl', tags:'fov-srow-tags', ch:'fov-srow-ch'};
-  const fk = keyMap[fieldKey];
-  if (fk && f[fk]) f[fk].clear();
-  const allChip = document.getElementById(allMap[fieldKey]); if (allChip) allChip.classList.remove('inactive');
-  const row = document.getElementById(rowMap[fieldKey]); if (row) row.querySelectorAll('.chip').forEach(el => el.classList.remove('active'));
-  window.AF?.();
-}
-
-// ── フィルターピッカー（サイドバー：Position/Playlist/Technique/Channel）──
-const FS_PICKER_FIELDS = {
-  pos:  { label:'Position',  filterKey:'position', getAll: () =>
-    [...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), ...(window.videos||[]).flatMap(v => v.pos||[])])].sort()
-  },
-  pl:   { label:'Playlist',  filterKey:'playlist', getAll: () => [...new Set((window.videos||[]).map(v => v.pl).filter(Boolean))].sort() },
-  tags: { label:'Technique', filterKey:'tags',     getAll: () => [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort() },
-  ch:   { label:'Channel',   filterKey:'channel',  getAll: () => [...new Set((window.videos||[]).map(v => v.ch).filter(Boolean))].sort() },
-};
-
-export function toggleFsPicker(type) {
-  const panel = document.getElementById('fs-picker-' + type); if (!panel) return;
-  const isOpen = panel.classList.contains('open');
-  document.querySelectorAll('.fs-picker-panel.open').forEach(p => p.classList.remove('open'));
-  if (!isOpen) { populateFsPicker(type); panel.classList.add('open'); }
-}
-
-export function populateFsPicker(type) {
-  const panel = document.getElementById('fs-picker-' + type);
-  const field = FS_PICKER_FIELDS[type];
-  if (!panel || !field) return;
-  const all     = field.getAll();
-  const key     = field.filterKey;
-  const filters = window.filters || {};
-  const sel     = filters[key] || new Set();
-  panel.innerHTML = all.map(v => {
-    const isSel = sel.has(v);
-    return `<span class="fs-picker-chip${isSel?' sel':''}" onmousedown="event.preventDefault();fsPick('${type}','${v.replace(/'/g,"\\'")}'  ,this)">${v}</span>`;
-  }).join('');
-}
-
-export function fsPick(type, val, el) {
-  const field   = FS_PICKER_FIELDS[type]; if (!field) return;
-  const key     = field.filterKey;
-  const filters = window.filters || {};
-  if (!filters[key]) filters[key] = new Set();
-  const isSel = filters[key].has(val);
-  if (isSel) { filters[key].delete(val); el.classList.remove('sel'); }
-  else        { filters[key].add(val);    el.classList.add('sel'); }
-  const allChip = document.getElementById('fs-all-' + type);
-  if (allChip) allChip.classList.toggle('active', filters[key].size === 0);
-  renderFsSelTags(type);
-  window.AF?.();
-}
-
-export function renderFsSelTags(type) {
-  const field   = FS_PICKER_FIELDS[type]; if (!field) return;
-  const key     = field.filterKey;
-  const filters = window.filters || {};
-  const container = document.getElementById('fs-sel-' + type); if (!container) return;
-  const sel = filters[key] || new Set();
-  container.innerHTML = [...sel].map(v =>
-    `<span class="fs-sel-tag" onclick="fsPick('${type}','${v.replace(/'/g,"\\'")}',document.querySelector('.fs-picker-chip[data-val=\\"${v.replace(/"/g,'&quot;')}\\"]')||{classList:{has:()=>true,remove:()=>{},add:()=>{}},dataset:{}})">${v} ×</span>`
-  ).join('');
-}
-
-export function clearFsField(fieldKey) {
-  const filters    = window.filters || {};
-  const filterKeys = { tb:'tb', action:'action', pos:'position', playlist:'playlist', tags:'tags', ch:'channel' };
-  const pickerTypes = { tb:null, action:null, pos:'pos', playlist:'pl', tags:'tags', ch:'ch' };
-  if (filters[filterKeys[fieldKey]]) filters[filterKeys[fieldKey]].clear();
-  document.querySelectorAll(`[onclick*="togF('${fieldKey}"]`).forEach(el => el.classList.remove('active'));
-  const allChip = document.getElementById('fs-all-' + fieldKey); if (allChip) allChip.classList.add('active');
-  const pType = pickerTypes[fieldKey];
-  if (pType) { renderFsSelTags(pType); populateFsPicker(pType); }
-  window.AF?.();
-}
-
-// ピッカー外クリックで閉じる
-document.addEventListener('mousedown', function(e) {
-  if (!e.target.closest('.fs-picker-panel') && !e.target.closest('[id$="-picker-btn"]')) {
-    document.querySelectorAll('.fs-picker-panel.open').forEach(p => p.classList.remove('open'));
-  }
-}, true);
+// 旧・サイドバーのフィルターピッカー（toggleFsPicker / fsPick / clearFsField ほか）は v52.846 で削除。
+// 器（fs-picker-* / fs-sel-* / fs-all-*）が画面に無く、呼び出し元も無かった。
 
 // ── 保存した検索条件（廃止・カスタムビューに統合 v52.594）──
 // 機能を撤去。端末ローカルの旧データも削除し、以降は空配列で固定・永続化しない。
@@ -816,140 +663,13 @@ export function toggleAcc(key) {
   }
 }
 
-// ── サイドバー フィルターポップアップ ──
-function _sbPopupRender(key, ctx='lib') {
-  const cId = 'sb-popup-inner';
-  const body = document.getElementById('sb-popup-body');
-  if (!body) return;
-  body.innerHTML = `<div id="${cId}"></div>`;
-  const vids = window.videos || [];
-  if (key === 'ch')        buildSbPickerInline(cId, 'channel', ctx);
-  else if (key === 'pl')   buildSbPickerInline(cId, 'playlist', ctx);
-  else if (key === 'tb')   buildSbTagInline(cId, 'tb', (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])), ctx);
-  else if (key === 'cat')  buildSbTagInline(cId, 'action', (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)), ctx);
-  else if (key === 'pos')  buildSbTagInline(cId, 'position', [...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), ...vids.flatMap(v => v.pos||[])])].sort(), ctx);
-  else if (key === 'tags') buildSbTagInline(cId, 'tags', [...new Set(vids.flatMap(v => v.tags||[]))].sort(), ctx);
-}
-
-// チャンネル/プレイリストはシステムの言葉。tb/cat/pos/tags はユーザーが付けた名前なので tagLabel() から引く。
-const _SB_POPUP_LABELS = { ch:'チャンネル', pl:'プレイリスト' };
-const _sbPopupLabel = key =>
-  _SB_POPUP_LABELS[key] || (window.tagLabel ? window.tagLabel(key) : key);
-
-export function openSbPopup(key, triggerEl, ctx='lib') {
-  const popup = document.getElementById('sb-filter-popup');
-  if (!popup) return;
-  // 同じキー＆同じctxなら閉じる
-  if (popup.dataset.activeKey === key && popup.dataset.activeCtx === ctx && popup.style.display !== 'none') {
-    closeSbPopup(); return;
-  }
-  popup.dataset.activeKey = key;
-  popup.dataset.activeCtx = ctx;
-  const titleEl = document.getElementById('sb-popup-title');
-  if (titleEl) { titleEl.textContent = _sbPopupLabel(key); titleEl.setAttribute('data-user-text','1'); }
-  _sbPopupRender(key, ctx);
-
-  // サイドバーの右端の右隣に配置 (タグポップアップと同じ高さに揃える)
-  const sidebar = document.getElementById('filterSidebar');
-  const sRect = sidebar ? sidebar.getBoundingClientRect() : { right: 224 };
-
-  const POPUP_H = Math.min(640, window.innerHeight - 60);
-  popup.style.display = 'flex';
-  popup.style.flexDirection = 'column';
-  popup.style.left   = (sRect.right + 4) + 'px';
-  popup.style.right  = 'auto';
-  popup.style.width  = '320px';
-  popup.style.top    = Math.max(12, (window.innerHeight - POPUP_H) / 2) + 'px';
-  popup.style.bottom = 'auto';
-  popup.style.height = POPUP_H + 'px';
-  popup.style.overflow = 'hidden';
-
-  // body をフレックスで残りスペースいっぱいに
-  const popupBody = document.getElementById('sb-popup-body');
-  if (popupBody) {
-    popupBody.style.maxHeight = 'none';
-    popupBody.style.flex = '1';
-    popupBody.style.minHeight = '0';
-    popupBody.style.overflowY = 'auto';
-  }
-
-  // アロー更新（lib/orgそれぞれのプレフィックスで更新）
-  const prefix = ctx === 'org' ? 'org-fs-acc-arr-' : 'fs-acc-arr-';
-  document.querySelectorAll('.fs-acc-arrow').forEach(a => a.classList.remove('open'));
-  const arr = document.getElementById(prefix + key);
-  if (arr) arr.classList.add('open');
-}
-
-export function closeSbPopup() {
-  const popup = document.getElementById('sb-filter-popup');
-  if (popup) { popup.style.display = 'none'; popup.dataset.activeKey = ''; popup.dataset.activeCtx = ''; }
-  document.querySelectorAll('.fs-acc-arrow').forEach(a => a.classList.remove('open'));
-}
-
-// クリック外で閉じる
-document.addEventListener('click', e => {
-  const popup = document.getElementById('sb-filter-popup');
-  if (!popup || popup.style.display === 'none') return;
-  if (!popup.contains(e.target) && !e.target.closest('.fs-acc-hdr')) closeSbPopup();
-}, true);
-
-export function renderAccChips(type) {
-  const container = document.getElementById('fs-acc-' + type + '-chips'); if (!container) return;
-  const searchEl  = document.getElementById('acc-' + type + '-search');
-  const q         = searchEl ? searchEl.value.toLowerCase() : '';
-  const vids      = window.videos || [];
-  const filters   = window.filters || {};
-
-  let items, filterKey, countFn;
-  if (type === 'pl') {
-    items = [...new Set(vids.map(v => v.pl).filter(Boolean))].sort();
-    filterKey = 'playlist';
-    countFn = v => window.countContextual ? window.countContextual('playlist', v) : vids.filter(x => !x.archived && x.pl === v).length;
-  } else {
-    items = [...new Set(vids.map(v => v.ch).filter(Boolean))].sort();
-    filterKey = 'channel';
-    countFn = v => window.countContextual ? window.countContextual('channel', v) : vids.filter(x => !x.archived && x.ch === v).length;
-  }
-
-  const filtered = q ? items.filter(v => v.toLowerCase().includes(q)) : items;
-  container.innerHTML = '';
-  if (!filtered.length) {
-    container.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:4px 0">項目がありません</div>';
-    return;
-  }
-
-  filtered.forEach(val => {
-    const cnt   = countFn(val);
-    const isSel = (filters[filterKey] || new Set()).has(val);
-    const el    = document.createElement('div');
-    el.className = 'chip' + (isSel ? ' active' : '');
-    el.style.cssText = 'font-size:10.5px;cursor:pointer;';
-    el.textContent = val + (cnt ? ' ' + cnt : '');
-    el.onclick = () => {
-      if (!filters[filterKey]) filters[filterKey] = new Set();
-      isSel ? filters[filterKey].delete(val) : filters[filterKey].add(val);
-      renderAccChips(type); window.AF?.();
-    };
-    container.appendChild(el);
-  });
-}
-
-export function filterAccChips(type) { renderAccChips(type); }
+// 旧・サイドバーのタグ/チャンネルのポップアップ（openSbPopup / #sb-filter-popup）は v52.846 で削除。
+// 開くボタン（fs-acc-tb/cat/pos/tags）が display:none のまま、表示する経路が無かった。
 
 export function showFsBulkBtn(show) {
   // 常時表示のため何もしない
 }
 
-// ── サイドバー タグフィルターチップ ──
-function _buildSbTagChips(elId, filterKey, items) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  const f = window.filters || {};
-  el.innerHTML = items.map(v => {
-    const safe = v.replace(/'/g, "\\'");
-    return `<div class="chip${f[filterKey]?.has(v) ? ' active' : ''}" style="font-size:10.5px" onclick="togF('${filterKey}','${safe}',this)">${v}</div>`;
-  }).join('');
-}
 
 export function buildSidebarFovRows() {
   const f = window.filters || {};
@@ -1015,8 +735,7 @@ export function renderRecentSidebar() {
   });
 }
 
-// ── サイドバー インライン ピッカー (Channel / Playlist / タグ) ──
-const _sbTagItems  = {};
+// ── サイドバー インライン ピッカー (Channel / Playlist) ──
 
 // ── 最近選んだフィルター項目（localStorage 永続化、最大15件）──
 const _RF_STORE = { channel: 'wk_recent_filter_ch', playlist: 'wk_recent_filter_pl' };
@@ -1201,74 +920,8 @@ export function fovPickerTab3(rowId, tab) {
   });
 }
 
-// ── サイドバー インライン タグリスト (TB / Action / Position / Technique) ──
-// タグフィールド名（v のキー）とfilterKeyの対応
-const _TAG_FIELD = { tb:'tb', action:'cat', position:'pos', tags:'tags' };
-
-function _sbTagRenderList(containerId, filterKey, items, q) {
-  const listEl = document.getElementById(containerId + '-list');
-  if (!listEl) return;
-  const { f } = _getSbCtx(containerId);
-
-  // 他のフィルターを適用した動画セットから、このキーに存在する値のSetを作る
-  const ctxVids = _sbContextVideos(filterKey, f);
-  const field   = _TAG_FIELD[filterKey];
-  const validSet = new Set();
-  ctxVids.forEach(v => (v[field]||[]).forEach(t => validSet.add(t)));
-  // 選択済み項目は文脈外でも表示（解除できるように）
-  const selected = f[filterKey] || new Set();
-
-  const ql = q.toLowerCase();
-  const visible = items.filter(v =>
-    (validSet.has(v) || selected.has(v)) && (!ql || v.toLowerCase().includes(ql))
-  );
-
-  if (!visible.length) {
-    listEl.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:8px 12px">項目がありません</div>';
-    return;
-  }
-  listEl.innerHTML = visible.map(v => {
-    const sel = selected.has(v);
-    const cnt = ctxVids.filter(vid => (vid[field]||[]).includes(v)).length;
-    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="sbTagInlineToggle('${containerId}','${filterKey}','${v.replace(/'/g,"\\'")}')">${v}<span class="vp-dd-cnt">${cnt}本</span></div>`;
-  }).join('');
-}
-
-export function buildSbTagInline(containerId, filterKey, items, ctx='lib') {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.dataset.sbCtx = ctx;
-  _sbTagItems[containerId] = { filterKey, items };
-  el.innerHTML = `
-    <input class="vp-dd-search" id="${containerId}-search" placeholder="検索..."
-      oninput="sbTagInlineFilter('${containerId}','${filterKey}',this.value)">
-    <div id="${containerId}-list"></div>`;
-  _sbTagRenderList(containerId, filterKey, items, '');
-}
-
-export function sbTagInlineFilter(containerId, filterKey, q) {
-  const stored = _sbTagItems[containerId];
-  if (stored) _sbTagRenderList(containerId, stored.filterKey, stored.items, q);
-}
-
-export function sbTagInlineToggle(containerId, filterKey, val) {
-  const { f, af } = _getSbCtx(containerId);
-  if (!f[filterKey]) f[filterKey] = new Set();
-  f[filterKey].has(val) ? f[filterKey].delete(val) : f[filterKey].add(val);
-  const stored = _sbTagItems[containerId];
-  if (!stored) return;
-  const q = document.getElementById(containerId + '-search')?.value || '';
-  _sbTagRenderList(containerId, filterKey, stored.items, q);
-  af();
-}
-
-// フィルタークリア後に開いているポップアップを再描画（ctx照合）
+// フィルタークリア後に、開いているサイドバーの項目を再描画（ctx照合）
 export function refreshOpenSbAccordions(ctx='lib') {
-  const popup = document.getElementById('sb-filter-popup');
-  if (popup && popup.style.display !== 'none'
-      && popup.dataset.activeKey && popup.dataset.activeCtx === ctx) {
-    _sbPopupRender(popup.dataset.activeKey, ctx);
-  }
   if (ctx === 'lib' && document.getElementById('fs-acc-body-src')?.style.display !== 'none') buildSidebarFovRows();
   if (ctx === 'org' && document.getElementById('org-fs-acc-body-src')?.style.display !== 'none') buildOrgSbSrcChips();
 }

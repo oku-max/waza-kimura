@@ -192,7 +192,6 @@ export function clearAll() {
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
   window.buildSidebarFovRows?.();
   window.refreshOpenSbAccordions?.();
-  window.renderTFC?.();
   window._clearOrgSearchForReset?.(); // _advSearch + si-org-pc + si-org をクリア
   window._cvClearFilters?.();         // カスタムビューの _cvSrchQ・列フィルターもリセット
   window.AF?.();
@@ -405,17 +404,6 @@ export function filt(list) {
   });
 }
 
-// ── カウントヘルパー ──
-export function countByField(field, val) {
-  return (window.videos||[]).filter(v => !v.archived && (v[field]||[]).includes(val)).length;
-}
-export function countByPl(pl) {
-  return (window.videos||[]).filter(v => !v.archived && v.pl === pl).length;
-}
-export function countByCh(ch) {
-  return (window.videos||[]).filter(v => !v.archived && (v.channel || v.ch) === ch).length;
-}
-
 // ── コンテキスト件数：現在のフィルター状態を考慮した件数 ──
 // key以外のアクティブなフィルターを適用した上で、そのkeyにvalを追加したときの件数を返す
 export function countContextual(key, val) {
@@ -535,98 +523,8 @@ export function AF() {
   const fhb = document.getElementById('fov-hit-badge'); if (fhb) fhb.textContent = f.length + ' 件';
   const tc = document.getElementById('totalCount'); if (tc) tc.textContent = total + ' videos';
   const sc = document.getElementById('snav-cnt'); if (sc) sc.textContent = total;
-  window.buildSrcRow?.('srow-src');
-  window.buildPrioRow?.('srow-prio');
-  window.buildStatRow?.('srow-stat');
-  window.buildPlSrow?.();
-  window.buildTechSrow?.();
-  window.buildFsTbSrow?.();
-  window.buildFsAcSrow?.();
-  window.buildFsPlSrow?.();
-  window.buildFsTechSrow?.();
-  window.buildFsPosSrow?.();
-  renderTFC();
   if (window.bulkMode) window.updBulk?.();
   updateResetBtn();
   _syncURL();
 }
 
-export function updatePLC() { window.buildPlSrow?.(); }
-
-export function renderTFC() {
-  const el = document.getElementById('techFC');
-  if (el) el.innerHTML = [...window.filters.tags].map(t => `<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');
-}
-export function rmTF(t) { window.filters.tags.delete(t); renderTFC(); window.AF?.(); }
-
-export function openTF() {
-  document.getElementById('tfs').value = '';
-  renderTF();
-  document.getElementById('tfOv').classList.add('open');
-}
-
-export function renderTF() {
-  const q = document.getElementById('tfs').value.trim();
-  const ql = q.toLowerCase();
-  const allTech = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
-  const matched = allTech.filter(t => !ql || t.toLowerCase().includes(ql));
-  const container = document.getElementById('tfR');
-  container.innerHTML = '';
-  matched.forEach(t => {
-    const el = document.createElement('div');
-    el.className = 'tech-pill' + (window.filters.tags.has(t) ? ' active' : '');
-    const n = countContextual('tags', t);
-    el.innerHTML = t + cntBadge(n);
-    el.addEventListener('click', function() {
-      window.filters.tags.has(t) ? window.filters.tags.delete(t) : window.filters.tags.add(t);
-      el.classList.toggle('active');
-      window.buildTechSrow?.(); window.buildFsTechSrow?.();
-      try { window.buildFovRows?.(); } catch(e) {}
-      renderTFC(); window.AF?.();
-    });
-    container.appendChild(el);
-  });
-  if (q && !allTech.some(t => t.toLowerCase() === ql)) {
-    const el = document.createElement('div');
-    el.className = 'tech-pill';
-    el.style.cssText = 'border-style:dashed;color:var(--accent)';
-    el.textContent = '＋ 「' + q + '」を追加';
-    el.onclick = function() {
-      window.filters.tags.add(q);
-      window.buildTechSrow?.(); window.buildFsTechSrow?.();
-      try { window.buildFovRows?.(); } catch(e) {}
-      renderTFC(); window.AF?.();
-      document.getElementById('tfs').value = ''; renderTF();
-      window.closeOv?.('tfOv');
-    };
-    container.appendChild(el);
-  }
-  if (!matched.length && !q) container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px">タグなし</div>';
-}
-
-export function openPL() {
-  document.getElementById('pls').value = '';
-  renderPL();
-  document.getElementById('plOv').classList.add('open');
-}
-
-export function renderPL() {
-  const q = document.getElementById('pls').value.toLowerCase();
-  const pls = [...new Set((window.videos||[]).filter(v => !v.archived).map(v => v.pl))];
-  const container = document.getElementById('plR');
-  const filtered = pls.filter(p => !q || p.toLowerCase().includes(q));
-  if (!filtered.length) { container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>'; return; }
-  container.innerHTML = '';
-  filtered.forEach(p => {
-    const el = document.createElement('div');
-    el.className = 'tech-pill' + (window.filters.playlist.has(p) ? ' active' : '');
-    const n = countContextual('playlist', p);
-    el.innerHTML = p + cntBadge(n);
-    el.addEventListener('click', function() {
-      window.filters.playlist.has(p) ? window.filters.playlist.delete(p) : window.filters.playlist.add(p);
-      el.classList.toggle('active');
-      window.buildPlSrow?.(); try { window.buildFovRows?.(); } catch(e) {} window.AF?.();
-    });
-    container.appendChild(el);
-  });
-}

@@ -1639,7 +1639,6 @@ export function openVPanel(id) {
   }
 
   editArea.innerHTML = buildDrawerHTML(id);
-  _bindDrawerEvents(editArea, id);
 
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -6579,13 +6578,7 @@ export function togVpDrawer(id) {
     drawer.innerHTML = buildDrawerHTML(id);
     drawer.classList.add('show');
     if (editBtn) editBtn.classList.add('open');
-    _bindDrawerEvents(drawer, id);
   }
-}
-
-function _bindDrawerEvents(container, id) {
-  container.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { vpRemoveTechEl(this); }; });
-  container.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { vpRemovePosEl(this);  }; });
 }
 
 export function buildDrawerHTML(id) {
@@ -6672,54 +6665,6 @@ export function buildDrawerHTML(id) {
   `;
 }
 
-// ── VP edit functions ──
-export function vpSet(id, field, val, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v[field] = val;
-  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  autoSaveVp(id);
-}
-
-export function vpTog(id, field, val, el, cls) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const arr = v[field] || [];
-  if (arr.includes(val)) { v[field] = arr.filter(x => x!==val); el.classList.remove(cls); }
-  else { v[field] = [...arr, val]; el.classList.add(cls); }
-  autoSaveVp(id);
-}
-
-export function vpAddTechVal(id, val) {
-  if (!val) return;
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  if ((v.tags||[]).includes(val)) return;
-  v.tags = [...(v.tags||[]), val];
-  const container = document.getElementById('vp-tags-' + id);
-  if (!container) return;
-  const chip = document.createElement('span');
-  chip.className = 'vp-chip on-tags vp-tags-rm';
-  chip.textContent = val + ' ×';
-  chip.dataset.id = id; chip.dataset.val = val;
-  chip.onclick = function(){ vpRemoveTechEl(this); };
-  container.appendChild(chip);
-  autoSaveVp(id);
-}
-
-export function vpAddPosVal(id, val) {
-  if (!val) return;
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  if ((v.pos||[]).includes(val)) return;
-  v.pos = [...(v.pos||[]), val];
-  const container = document.getElementById('vp-pos-' + id);
-  if (!container) return;
-  const chip = document.createElement('span');
-  chip.className = 'vp-chip on-pos vp-pos-rm';
-  chip.textContent = val + ' ×';
-  chip.dataset.id = id; chip.dataset.val = val;
-  chip.onclick = function(){ vpRemovePosEl(this); };
-  container.appendChild(chip);
-}
-
 // ── Playlist operations ──
 let _vpPlOp = null;
 
@@ -6793,103 +6738,6 @@ export function vpRemoveFromPl(id) {
 export function updateVpPlBadge(id, newPl) {
   const badge = document.getElementById('vp-pl-badge-' + id);
   if (badge) badge.textContent = newPl;
-}
-
-export function vpRemovePosEl(el) {
-  const id  = el.dataset.id;
-  const val = el.dataset.val;
-  const v   = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.pos = (v.pos||[]).filter(p => p!==val);
-  el.remove();
-  autoSaveVp(id);
-}
-
-// ── タグドロップダウン ──
-const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
-
-// 候補 = ユーザーの選択肢 ＋ 実際に動画に付いている値。
-// 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は混ぜない。混ぜていたので、
-// 選択肢から消した値が候補に戻ってきていた（v52.827・タグはユーザー定義がすべて）。
-// 一括編集（bulk.js の _bvpGetAllOpts）と同じ形。
-export function vpGetAllOpts(type) {
-  const ts = window.tagSettings || [];
-  const fromSettings = ts.find(t => t.key === type)?.presets || [];
-  const fromVideos = (window.videos || []).flatMap(v => v[type] || []);
-  return [...new Set([...fromSettings, ...fromVideos])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ja'));
-}
-
-export function vpTogDd(id, type) {
-  document.querySelectorAll('.vp-dd').forEach(d => {
-    if (!d.id.includes('-'+type+'-') || !d.id.includes(id)) d.style.display = 'none';
-  });
-  const dd = document.getElementById('vp-dd-'+type+'-'+id);
-  if (!dd) return;
-  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
-  if (isOpen) { dd.style.display = 'none'; return; }
-  _vpOpenDd(dd);
-  const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; }
-  vpRenderDdList(id, type, '');
-}
-
-export function vpRenderDdList(id, type, q) {
-  const list  = document.getElementById('vp-dd-list-'+type+'-'+id);
-  if (!list) return;
-  const v       = (window.videos||[]).find(v => v.id===id);
-  const field   = VP_FIELD_MAP[type];
-  const current = v ? (v[field]||[]) : [];
-  const all     = vpGetAllOpts(type);
-  const ql      = q.toLowerCase();
-  const filtered = all.filter(opt => !ql || opt.toLowerCase().includes(ql));
-  const isNew   = q.trim() && !all.some(o => o.toLowerCase() === ql);
-  list.innerHTML = filtered.map(opt => {
-    const sel = current.includes(opt);
-    return `<div class="vp-dd-item${sel?' selected':''}" onclick="vpDdSelect('${id}','${type}','${opt.replace(/'/g,"\\'")}',this)">${opt}</div>`;
-  }).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpDdAddNew('${id}','${type}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
-}
-
-export function vpDdFilter(id, type, q) { vpRenderDdList(id, type, q); }
-
-export function vpDdKey(id, type, e, inp) {
-  if (e.key === 'Enter') {
-    const q = inp.value.trim();
-    if (!q) return;
-    vpDdAddNew(id, type, q);
-  } else if (e.key === 'Escape') {
-    const dd = document.getElementById('vp-dd-'+type+'-'+id);
-    if (dd) dd.style.display = 'none';
-  }
-}
-
-export function vpDdSelect(id, type, val, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field = VP_FIELD_MAP[type];
-  const arr   = v[field] || [];
-  if (arr.includes(val)) {
-    v[field] = arr.filter(x => x !== val);
-    el.classList.remove('selected');
-  } else {
-    v[field] = [...arr, val];
-    el.classList.add('selected');
-  }
-  vpRefreshChips(id, type);
-  window.debounceSave?.();
-}
-
-export function vpDdAddNew(id, type, val) {
-  if (!val.trim()) return;
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field = VP_FIELD_MAP[type];
-  if (!(v[field]||[]).includes(val)) {
-    v[field] = [...(v[field]||[]), val];
-    const opts = VP_TAG_OPTS[type];
-    if (opts && !opts.includes(val)) opts.push(val);
-  }
-  vpRefreshChips(id, type);
-  const dd = document.getElementById('vp-dd-'+type+'-'+id);
-  if (dd) dd.style.display = 'none';
-  window.debounceSave?.();
-  window.toast('＋ 「'+val+'」を追加');
 }
 
 // ── Channel 単一値ドロップダウン ──
@@ -7224,29 +7072,6 @@ export async function vpSaveTitle(id) {
   }
 }
 
-export function vpRefreshChips(id, type) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field  = VP_FIELD_MAP[type];
-  const clsMap = { tb:'on-tb', cat:'on-cat', pos:'on-pos', tags:'on-tags' };
-  const container = document.getElementById('vp-'+type+'-'+id);
-  if (!container) return;
-  container.innerHTML = (v[field]||[]).map(val =>
-    `<span class="vp-chip ${clsMap[type]}" onclick="vpRemoveTag('${id}','${type}','${val.replace(/'/g,"\\'")}',this)">${val} ×</span>`
-  ).join('');
-  const ddInp = document.querySelector('#vp-dd-'+type+'-'+id+' .vp-dd-search');
-  vpRenderDdList(id, type, ddInp ? ddInp.value : '');
-}
-
-export function vpRemoveTag(id, type, val, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field = VP_FIELD_MAP[type];
-  v[field] = (v[field]||[]).filter(x => x !== val);
-  el.remove();
-  const ddInp = document.querySelector('#vp-dd-'+type+'-'+id+' .vp-dd-search');
-  vpRenderDdList(id, type, ddInp ? ddInp.value : '');
-  window.debounceSave?.();
-}
-
 document.addEventListener('click', function(e) {
   // 各DDごとに「そのDDのwrap内クリックか」を個別判定（グローバル .vp-dd-wrap チェックは誤り）
   document.querySelectorAll('.vp-dd').forEach(d => {
@@ -7254,20 +7079,9 @@ document.addEventListener('click', function(e) {
     if (d.contains(e.target)) return;                    // DD内クリック → 閉じない
     const wrap = d.closest('.vp-dd-wrap');
     if (wrap && wrap.contains(e.target)) return;         // 同じwrap内クリック → 閉じない
-    const m = d.id.match(/^vp-dd-(\w+)-(.+)$/);
-    if (m) vpRefreshChips(m[2], m[1]);
     d.style.display = 'none';
   });
 });
-
-export function vpRemoveTechEl(el) {
-  const id  = el.dataset.id;
-  const val = el.dataset.val;
-  const v   = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.tags = (v.tags||[]).filter(t => t!==val);
-  el.remove();
-  autoSaveVp(id);
-}
 
 export function vpTogWatch(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
@@ -8597,7 +8411,6 @@ window.vpJumpToChannel = function(id) {
     const f = window.filters;
     if (f) { f.channel.clear(); f.channel.add(name); }
     if (window.orgFilters) { window.orgFilters.channel.clear(); window.orgFilters.channel.add(name); }
-    window.buildChSrow?.(); window.buildFsChSrow?.();
     window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };
@@ -8614,7 +8427,6 @@ window.vpJumpToPlaylist = function(id) {
     const f = window.filters;
     if (f) { f.playlist.clear(); f.playlist.add(name); }
     if (window.orgFilters) { window.orgFilters.playlist.clear(); window.orgFilters.playlist.add(name); }
-    window.buildPlSrow?.(); window.buildFsPlSrow?.();
     window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };

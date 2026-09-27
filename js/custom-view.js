@@ -279,27 +279,6 @@ function _restoreLastViewOnce() {
   } catch(e) { console.error('restore last view:', e); }
 }
 
-// ── 標準列セル値 ──
-function _stdCell(v, col) {
-  const dash = '<span style="color:var(--text3)">—</span>';
-  switch(col) {
-    case 'tb':        return _esc((v.tb||[]).join('/')) || dash;
-    case 'action':    return _esc((v.cat||[]).join('/')) || dash;
-    case 'position':  return _esc((v.pos||[]).join('/')) || dash;
-    case 'technique': return _esc((v.tags||[]).join('/')) || dash;
-    case 'counter':   return dash;
-    case 'status':    return v.status ? _esc(v.status) : dash;
-    case 'channel':   return _esc(v.channel||v.ch||'') || dash;
-    case 'playlist':  return _esc(v.pl||'') || dash;
-    case 'memo':      { const m = v.memo || ''; return m ? `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:160px" title="${_esc(m)}">${_esc(m)}</span>` : dash; }
-    case 'addedAt':   return v.addedAt ? _esc(String(v.addedAt).slice(0,10)) : dash;
-    case 'duration':  { const s = typeof v.duration === 'number' ? v.duration : parseInt(v.duration)||0; if (!s) return dash; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
-    case 'fav':       return v.fav ? '⭐' : '<span style="color:var(--text3)">☆</span>';
-    case 'next':      return v.next ? '🎯' : '';
-    default: return '';
-  }
-}
-
 // ── ビューバー描画 ──
 function _renderViewBar() {
   // サイドバー「リスト」ボタンに現在選択中のリスト名を表示
@@ -1475,18 +1454,6 @@ window._cvUsageNoteFromLists = function(lists, kind) {
   const tail = '消すと、これらのリストに出てくる動画が減ります（0本になることもあります）。\nリストの条件は書き換えません（⚠ が付きます）。';
   return `\n\n⚠ カスタムリスト ${lists.length}個 が、この値を条件に使っています: ${nm}\n${tail}`;
 };
-
-function _condSummary(fc) {
-  if (!fc) return '';
-  const parts = [];
-  if ((fc.tb  ||[]).length) parts.push(fc.tb.join('/'));
-  if ((fc.cat ||[]).length) parts.push(fc.cat.join('/'));
-  if ((fc.pos ||[]).length) parts.push(fc.pos.join('/'));
-  if ((fc.ch  ||[]).length) parts.push(fc.ch.join('/'));
-  if ((fc.tech||[]).length) parts.push(fc.tech.join('/'));
-  if ((fc.pl  ||[]).length) parts.push(fc.pl.join('/'));
-  return parts.length ? parts.join(' · ') : '条件なし（全件）';
-}
 
 // ── セルレンダリング ──
 function _renderCell(td, col, val, view) {

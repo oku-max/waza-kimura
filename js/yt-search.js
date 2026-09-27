@@ -816,13 +816,6 @@ export function ytSrOpenVPanel(idx) {
       ${infoHTML}
     `;
 
-    // ドロワーのタグ削除ハンドラをバインド
-    const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
-    if (editArea) {
-      editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
-      editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
-    }
-
     // スナップショットセクション初期化（tempEntryは除外: Firebase Storage 孤立を防ぐ）
     if (!libEntry._srTemp && window.initSnapshotSection) {
       window.initSnapshotSection(bmId, document.getElementById('vp-snap-section-' + bmId));
@@ -941,11 +934,6 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
       <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer" class="yt-sr-vp-yt-link">▶ YouTubeで開く</a>
     </div>`;
     scroll.innerHTML = `<div id="yt-sr-vp-ab-area">${abHTML}</div>${bmAreaHTML}${drawerHTML}${infoHTML}`;
-    const editArea = scroll.querySelector('#yt-sr-vp-edit-area');
-    if (editArea) {
-      editArea.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { window.vpRemoveTechEl?.(this); }; });
-      editArea.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { window.vpRemovePosEl?.(this);  }; });
-    }
   }
 
   document.getElementById('yt-sr-vp-overlay')?.classList.add('open');

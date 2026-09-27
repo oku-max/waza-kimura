@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.845</title>
+<title>WAZA KIMURA v52.846</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -85,7 +85,6 @@
 <script src="js/tag-master.js"></script>
 <script src="js/tag-templates.js"></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
-<script src="js/tag-master-ui.js" defer></script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
 <script src="js/custom-view.js?v=52.397" defer></script>
@@ -148,8 +147,8 @@
     saveFilterPreset, saveOrgFilterPreset, loadFilterPreset, deleteFilterPreset,
     renderOrgFilterPresets, loadOrgFilterPreset, deleteOrgFilterPreset,
     renderFilterPresets, resetFilters, updateResetBtn, loadFilterPresetsFromRemote,
-    filt, countByField, countByPl, countByCh, cntBadge, countContextual,
-    AF, sortVideos, updatePLC, renderTFC, rmTF, openTF, renderTF, openPL, renderPL,
+    filt, cntBadge, countContextual,
+    AF, sortVideos,
     _syncURL, _restoreFromURL
   } from './js/filter.js';
   import {
@@ -162,10 +161,7 @@
     vpTogBmTimeEditor, vpAdjustBmTime, vpSetBmTimeToCurrent, vpSetBmTimeFromInput,
     vpAdjustBmField, vpSetBmFieldToCurrent, vpSetBmEndFromStart, vpClearBmEnd, vpSetActiveBmField,
     togVpDrawer, buildDrawerHTML,
-    vpSet, vpTog, vpAddTechVal, vpAddPosVal,
     openVpPlaylistOp, vpPlOvConfirm, vpPlOvConfirmNew, vpRemoveFromPl, updateVpPlBadge,
-    vpRemovePosEl, vpGetAllOpts, vpTogDd, vpRenderDdList, vpDdFilter, vpDdKey,
-    vpDdSelect, vpDdAddNew, vpRefreshChips, vpRemoveTag, vpRemoveTechEl,
     vpTogWatch, vpTogFav, vpTogNext, vpTogDrill, vpSetShare, vpSaveMemo, autoSaveVp, vpSave,
     vpTogChannelDd, vpRenderChannelDdList, vpSetChannel,
     vpTogPlNameDd, vpRenderPlNameDdList, vpSetPlName,
@@ -198,19 +194,15 @@
   import {
     mkChip, toggleSidebar, syncSidebarChipStates,
     openFilterOverlay, toggleFilterOverlay, closeFilterOverlay,
-    syncFilterOvRows, countForFilter,
+    syncFilterOvRows,
     buildFovRows, buildFovDdRow, fovDdOpen, fovDdFilter, fovDdToggleItem, fovDdRemove, fovFilterClear,
     buildFovPickerDdRow, fovPickerDdOpen, fovPickerDdToggle, fovPickerDdFilter, fovPickerDdTab, fovPickerTab3,
-    buildFovHscroll, buildFovPickerRow,
-    syncFovChips, clearFovField,
-    toggleFsPicker, populateFsPicker, fsPick, renderFsSelTags, clearFsField,
+    syncFovChips,
     saveCurrentSearch, saveCurrentSearchFromInput, applySavedSearch, applySavedSearchToOrg, deleteSavedSearch, renameSavedSearch, editSavedSearch, renderSavedSearches, loadSavedSearchesFromRemote,
-    toggleAcc, renderAccChips, filterAccChips, showFsBulkBtn,
+    toggleAcc, showFsBulkBtn,
     buildSidebarFovRows, trackRecentView, renderRecentSidebar,
     buildSbPickerInline, sbPickerInlineFilter, sbPickerInlineToggle, sbPickerInlineTabSwitch,
-    buildSbTagInline, sbTagInlineFilter, sbTagInlineToggle,
-    refreshOpenSbAccordions, buildOrgSbSrcChips,
-    openSbPopup, closeSbPopup
+    refreshOpenSbAccordions, buildOrgSbSrcChips
   } from './js/filter-overlay.js';
   window.__pmark&&window.__pmark('mod_done');
 
@@ -455,9 +447,6 @@
   window.resetFilters          = resetFilters;
   window.updateResetBtn        = updateResetBtn;
   window.filt                  = filt;
-  window.countByField          = countByField;
-  window.countByPl             = countByPl;
-  window.countByCh             = countByCh;
   window.cntBadge              = cntBadge;
   window.AF                    = AF;
   // AF実行後にDOMのカード順からfilteredVideosを更新
@@ -502,13 +491,6 @@
     }
   };
   window.sortVideos             = sortVideos;
-  window.updatePLC             = updatePLC;
-  window.renderTFC             = renderTFC;
-  window.rmTF                  = rmTF;
-  window.openTF                = openTF;
-  window.renderTF              = renderTF;
-  window.openPL                = openPL;
-  window.renderPL              = renderPL;
   window.countContextual       = countContextual;
   // filter-overlay
   window.mkChip                = mkChip;
@@ -518,7 +500,6 @@
   window.toggleFilterOverlay   = toggleFilterOverlay;
   window.closeFilterOverlay    = closeFilterOverlay;
   window.syncFilterOvRows      = syncFilterOvRows;
-  window.countForFilter        = countForFilter;
   window.buildFovRows          = buildFovRows;
   window.buildFovDdRow         = buildFovDdRow;
   window.buildFovPickerDdRow   = buildFovPickerDdRow;
@@ -532,15 +513,7 @@
   window.fovDdToggleItem       = fovDdToggleItem;
   window.fovDdRemove           = fovDdRemove;
   window.fovFilterClear        = fovFilterClear;
-  window.buildFovHscroll       = buildFovHscroll;
-  window.buildFovPickerRow     = buildFovPickerRow;
   window.syncFovChips          = syncFovChips;
-  window.clearFovField         = clearFovField;
-  window.toggleFsPicker        = toggleFsPicker;
-  window.populateFsPicker      = populateFsPicker;
-  window.fsPick                = fsPick;
-  window.renderFsSelTags       = renderFsSelTags;
-  window.clearFsField          = clearFsField;
   window.saveCurrentSearch          = saveCurrentSearch;
   window.saveCurrentSearchFromInput = saveCurrentSearchFromInput;
   window.applySavedSearch      = applySavedSearch;
@@ -551,8 +524,6 @@
   window.renderSavedSearches        = renderSavedSearches;
   window.loadSavedSearchesFromRemote = loadSavedSearchesFromRemote;
   window.toggleAcc             = toggleAcc;
-  window.renderAccChips        = renderAccChips;
-  window.filterAccChips        = filterAccChips;
   window.showFsBulkBtn         = showFsBulkBtn;
   window.buildSidebarFovRows       = buildSidebarFovRows;
   window.trackRecentView           = trackRecentView;
@@ -561,13 +532,8 @@
   window.sbPickerInlineFilter      = sbPickerInlineFilter;
   window.sbPickerInlineToggle      = sbPickerInlineToggle;
   window.sbPickerInlineTabSwitch   = sbPickerInlineTabSwitch;
-  window.buildSbTagInline          = buildSbTagInline;
-  window.sbTagInlineFilter         = sbTagInlineFilter;
-  window.sbTagInlineToggle         = sbTagInlineToggle;
   window.refreshOpenSbAccordions   = refreshOpenSbAccordions;
   window.buildOrgSbSrcChips        = buildOrgSbSrcChips;
-  window.openSbPopup               = openSbPopup;
-  window.closeSbPopup              = closeSbPopup;
   setTimeout(renderSavedSearches, 500);
   setTimeout(() => { window.buildSidebarFovRows?.(); window.renderRecentSidebar?.(); }, 800);
   // vpanel — wrap openVPanel to track recently viewed
@@ -583,26 +549,11 @@
   window._closePlayer          = _closePlayer;
   window.togVpDrawer           = togVpDrawer;
   window.buildDrawerHTML       = buildDrawerHTML;
-  window.vpSet                 = vpSet;
-  window.vpTog                 = vpTog;
-  window.vpAddTechVal          = vpAddTechVal;
-  window.vpAddPosVal           = vpAddPosVal;
   window.openVpPlaylistOp      = openVpPlaylistOp;
   window.vpPlOvConfirm         = vpPlOvConfirm;
   window.vpPlOvConfirmNew      = vpPlOvConfirmNew;
   window.vpRemoveFromPl        = vpRemoveFromPl;
   window.updateVpPlBadge       = updateVpPlBadge;
-  window.vpRemovePosEl         = vpRemovePosEl;
-  window.vpGetAllOpts          = vpGetAllOpts;
-  window.vpTogDd               = vpTogDd;
-  window.vpRenderDdList        = vpRenderDdList;
-  window.vpDdFilter            = vpDdFilter;
-  window.vpDdKey               = vpDdKey;
-  window.vpDdSelect            = vpDdSelect;
-  window.vpDdAddNew            = vpDdAddNew;
-  window.vpRefreshChips        = vpRefreshChips;
-  window.vpRemoveTag           = vpRemoveTag;
-  window.vpRemoveTechEl        = vpRemoveTechEl;
   window.vpTogWatch            = vpTogWatch;
   window.vpTogFav              = vpTogFav;
   window.vpTogNext             = vpTogNext;
@@ -1494,33 +1445,9 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
           <span>タグ <span id="org-uni-tag-badge" style="display:none;background:rgba(107,63,212,.1);color:var(--accent);font-size:10px;padding:1px 8px;border-radius:10px;margin-left:4px;font-weight:700">0</span></span>        </div>
       </div>
 
-      <!-- Top / Bottom -->
-      <div class="fs-acc-sec" id="org-fs-acc-tb" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('tb', this, 'org')">
-          <span>Top / Bottom</span><span class="fs-acc-arrow" id="org-fs-acc-arr-tb">▶</span>
-        </div>
-      </div>
 
-      <!-- Action -->
-      <div class="fs-acc-sec" id="org-fs-acc-cat" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('cat', this, 'org')">
-          <span>Action</span><span class="fs-acc-arrow" id="org-fs-acc-arr-cat">▶</span>
-        </div>
-      </div>
 
-      <!-- Position -->
-      <div class="fs-acc-sec" id="org-fs-acc-pos" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('pos', this, 'org')">
-          <span>Position</span><span class="fs-acc-arrow" id="org-fs-acc-arr-pos">▶</span>
-        </div>
-      </div>
 
-      <!-- Technique -->
-      <div class="fs-acc-sec" id="org-fs-acc-tags" style="display:none">
-        <div class="fs-acc-hdr" onclick="openSbPopup('tags', this, 'org')">
-          <span>Technique</span><span class="fs-acc-arrow" id="org-fs-acc-arr-tags">▶</span>
-        </div>
-      </div>
 
       <!-- 「保存した検索条件」はカスタムビューに統合したため撤去（v52.594） -->
 
@@ -1545,13 +1472,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 </aside>
 
 <!-- サイドバー フィルターポップアップ -->
-<div id="sb-filter-popup" style="display:none;position:fixed;z-index:10001;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.45);overflow:hidden;width:320px">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface2)">
-    <span id="sb-popup-title" style="font-size:12px;font-weight:700;color:var(--text)"></span>
-    <span onclick="closeSbPopup()" style="cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:2px 4px" title="閉じる">✕</span>
-  </div>
-  <div id="sb-popup-body" style="max-height:min(554px,calc(var(--zvh-100,100vh) - 120px));overflow-y:auto"></div>
-</div>
 
 <div class="main-area">
 
@@ -1615,18 +1535,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
           </div>
         </div>
         <span id="fs-v4-btn-badge" style="display:none"></span>
-        <div class="fs-acc-sec" id="fs-acc-tb" style="display:none">
-          <div class="fs-acc-hdr" onclick="openSbPopup('tb', this)"><span>Top / Bottom</span><span class="fs-acc-arrow" id="fs-acc-arr-tb">▶</span></div>
-        </div>
-        <div class="fs-acc-sec" id="fs-acc-cat" style="display:none">
-          <div class="fs-acc-hdr" onclick="openSbPopup('cat', this)"><span>Action</span><span class="fs-acc-arrow" id="fs-acc-arr-cat">▶</span></div>
-        </div>
-        <div class="fs-acc-sec" id="fs-acc-pos" style="display:none">
-          <div class="fs-acc-hdr" onclick="openSbPopup('pos', this)"><span>Position</span><span class="fs-acc-arrow" id="fs-acc-arr-pos">▶</span></div>
-        </div>
-        <div class="fs-acc-sec" id="fs-acc-tags" style="display:none">
-          <div class="fs-acc-hdr" onclick="openSbPopup('tags', this)"><span>Technique</span><span class="fs-acc-arrow" id="fs-acc-arr-tags">▶</span></div>
-        </div>
         <!-- 「保存した検索条件」はカスタムビューに統合したため撤去（v52.594） -->
         <div class="fs-acc-sec" id="fs-acc-recent">
           <div class="fs-acc-hdr" onclick="toggleAcc('recent')" style="padding-left:26px">
@@ -2250,128 +2158,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 </div>
 
 <!-- BULK BAR（選択のみ・編集はVPanelへ） -->
-<div class="bulk-bar" id="bulkBar">
-  <div style="display:flex;align-items:center;gap:6px;">
-    <span id="bulkTit" style="font-size:11px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace;min-width:60px">0本選択</span>
-    <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="selAll()">全選択</button>
-    <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="selNone()">解除</button>
-    <button class="bbt" id="bulk-edit-vpanel-btn" style="--bc:var(--accent);--tc:#fff;margin-left:8px;opacity:.4;pointer-events:none" onclick="openBulkVPanel()">✎ 一括編集する</button>
-    <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2);margin-left:auto" onclick="bulkUndo()">↩ 取消</button>
-    <button class="bbt" style="--bc:var(--surface3);--tc:var(--text2)" onclick="exitBulk()">✕ 終了</button>
-  </div>
-  <div style="display:none"><!-- legacy scroll (unused) -->
-  <div class="bulk-scroll">
-
-    <!-- Status -->
-    <div class="bgrp">
-      <span class="bgrp-lbl">Status</span>
-      <div class="bgrp-row" id="bb-status-row">
-        <button class="bbt bb-chip" data-bulk-type="status" data-val="watched"    onclick="bulkChipDo('watched'   )">👁 視聴済み</button>
-        <button class="bbt bb-chip" data-bulk-type="status" data-val="unwatched"  onclick="bulkChipDo('unwatched' )">👁 未視聴</button>
-        <button class="bbt bb-chip" data-bulk-type="status" data-val="fav-add"    onclick="bulkChipDo('fav-add'   )">★ Fav</button>
-        <button class="bbt bb-chip" data-bulk-type="status" data-val="fav-remove" onclick="bulkChipDo('fav-remove')">☆ Fav解除</button>
-      </div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Priority -->
-    <div class="bgrp">
-      <span class="bgrp-lbl">Priority</span>
-      <div class="bgrp-row" id="bb-prio-row">
-        <button class="bbt bb-chip bb-single" data-bulk-type="prio" data-val="今すぐ"   onclick="bulkChipSingle('prio','今すぐ'  ,this)">今すぐ</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prio" data-val="そのうち" onclick="bulkChipSingle('prio','そのうち',this)">そのうち</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prio" data-val="保留"     onclick="bulkChipSingle('prio','保留'    ,this)">保留</button>
-      </div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Progress -->
-    <div class="bgrp">
-      <span class="bgrp-lbl">Progress</span>
-      <div class="bgrp-row" id="bb-prog-row">
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="未着手"   onclick="bulkChipSingle('prog','未着手'  ,this)">1.📋 未着手</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="理解"     onclick="bulkChipSingle('prog','理解'    ,this)">2.📖 理解</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="練習中"   onclick="bulkChipSingle('prog','練習中'  ,this)">3.🔄 練習中</button>
-        <button class="bbt bb-chip bb-single" data-bulk-type="prog" data-val="マスター" onclick="bulkChipSingle('prog','マスター',this)">4.⭐ マスター</button>
-      </div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- トップ/ボトム/スタンディング (コンパクト2列) -->
-    <div class="bgrp bb-bgrp-tb">
-      <span class="bgrp-lbl" data-tag-key="tb">TOP/BOTTOM</span>
-      <div class="bgrp-2col" id="bb-tb-row">
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="トップ"        onclick="bulkChipToggle('tb','トップ'       ,this)">トップ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="ボトム"        onclick="bulkChipToggle('tb','ボトム'       ,this)">ボトム</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="バック"        onclick="bulkChipToggle('tb','バック'       ,this)">バック</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="スタンディング" onclick="bulkChipToggle('tb','スタンディング',this)">スタ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="ハーフ"        onclick="bulkChipToggle('tb','ハーフ'       ,this)">ハーフ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="tb" data-val="ドリル"        onclick="bulkChipToggle('tb','ドリル'       ,this)">ドリル</button>
-      </div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Action (コンパクト2列) -->
-    <div class="bgrp bb-bgrp-cat">
-      <span class="bgrp-lbl" data-tag-key="cat">Action</span>
-      <div class="bgrp-2col" id="bb-cat-row">
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="アタック"    onclick="bulkChipToggle('cat','アタック'   ,this)">アタック</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="スイープ"    onclick="bulkChipToggle('cat','スイープ'   ,this)">スイープ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="パスガード"  onclick="bulkChipToggle('cat','パスガード' ,this)">パスG</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="エスケープ・ディフェンス" onclick="bulkChipToggle('cat','エスケープ・ディフェンス',this)">エスケ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="リテンション" onclick="bulkChipToggle('cat','リテンション',this)">リテ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="コントロール" onclick="bulkChipToggle('cat','コントロール',this)">コント</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="テイクダウン" onclick="bulkChipToggle('cat','テイクダウン',this)">TD</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="フィニッシュ" onclick="bulkChipToggle('cat','フィニッシュ',this)">フィニ</button>
-        <button class="bbt bb-chip bb-toggle" data-bulk-type="cat" data-val="ドリル"       onclick="bulkChipToggle('cat','ドリル'      ,this)">ドリル</button>
-      </div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Position (ポップアップグリッド) -->
-    <div class="bgrp bb-bgrp-pos" style="position:relative">
-      <span class="bgrp-lbl" data-tag-key="pos">Position</span>
-      <div class="bgrp-row">
-        <button class="bbt" id="bb-pos-trigger" onclick="toggleBbPanel('pos')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-pos-count" style="font-weight:700;color:var(--accent)"></span></button>
-        <div id="bb-pos-preview" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
-      </div>
-      <div class="bb-panel" id="bb-panel-pos"></div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Technique (ポップアップグリッド) -->
-    <div class="bgrp bb-bgrp-tags" style="position:relative">
-      <span class="bgrp-lbl" data-tag-key="tags">Technique</span>
-      <div class="bgrp-row">
-        <button class="bbt" id="bb-tags-trigger" onclick="toggleBbPanel('tags')" style="--bc:var(--surface2);--tc:var(--text2)">＋ 選択 <span id="bb-tags-count" style="font-weight:700;color:var(--accent)"></span></button>
-        <div id="bb-tags-preview" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
-      </div>
-      <div class="bb-panel" id="bb-panel-tags"></div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Playlist -->
-    <div class="bgrp">
-      <span class="bgrp-lbl">Playlist</span>
-      <div class="bgrp-row">
-        <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="openBulkPlOp('move')">↪ 移動</button>
-        <button class="bbt" style="--bc:var(--surface2);--tc:var(--text2)" onclick="openBulkPlOp('copy')">⧉ コピー</button>
-        <button class="bbt" style="--bc:var(--surface2);--tc:var(--accent)" onclick="bulkPlRemove()">✕ 削除</button>
-      </div>
-    </div>
-    <div class="bsep"></div>
-
-    <!-- Other -->
-    <div class="bgrp">
-      <span class="bgrp-lbl">Other</span>
-      <div class="bgrp-row">
-        <button class="bbt" style="--bc:var(--purple-soft);--tc:var(--purple)" onclick="bulkDo('archive')">📦 Archive</button>
-      </div>
-    </div>
-
-  </div><!-- /bulk-scroll legacy -->
-  </div><!-- /display:none legacy wrapper -->
-</div><!-- /bulkBar -->
 
 
 <!-- BULK VPANEL（一括編集シート） -->
@@ -2390,57 +2176,6 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
 
 
 <!-- urlOv は yt-import-ov 内の url-import-body に統合 -->
-
-<!-- TECH FILTER -->
-<div class="overlay" id="tfOv" onclick="closeOv('tfOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">🥋 テクニックフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="tfs" placeholder="テクニック名で絞り込み..." oninput="renderTF()"></div>
-  <div class="tech-results" id="tfR" style="max-height:180px"></div>
-  <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('tfOv')">完了</button>
- </div>
-</div>
-
-<div class="overlay" id="plOv" onclick="closeOv('plOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 プレイリストフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="pls" placeholder="プレイリスト名で絞り込み..." oninput="renderPL()"></div>
-  <div class="tech-results" id="plR" style="max-height:180px"></div>
-  <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('plOv')">完了</button>
- </div>
-</div>
-
-<div class="overlay" id="tbPickerOv" onclick="closeOv('tbPickerOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">🔝 トップ/ボトム フィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="tb-picker-s" placeholder="絞り込み..." oninput="renderTbPicker()"></div>
-  <div class="tech-results" id="tbPickerR" style="max-height:180px"></div>
-  <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('tbPickerOv')">完了</button>
- </div>
-</div>
-
-<div class="overlay" id="acPickerOv" onclick="closeOv('acPickerOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">⚡ Action フィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="ac-picker-s" placeholder="絞り込み..." oninput="renderAcPicker()"></div>
-  <div class="tech-results" id="acPickerR" style="max-height:180px"></div>
-  <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('acPickerOv')">完了</button>
- </div>
-</div>
-
-<div class="overlay" id="posOv" onclick="closeOv('posOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📍 ポジションフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="pos-s" placeholder="ポジション名で絞り込み..." oninput="renderPos()"></div>
-  <div class="tech-results" id="posR" style="max-height:180px"></div>
-  <button class="btn-save" style="width:100%;margin-top:12px" onclick="closeOv('posOv')">完了</button>
- </div>
-</div>
 
 <!-- IMPORT -->
 <div class="overlay" id="impOv" onclick="closeOv('impOv')">
@@ -2511,7 +2246,7 @@ const plVids={};
 
 let filters={prio:new Set(),tb:new Set(),action:new Set(),position:new Set(),playlist:new Set(),status:new Set(),tags:new Set(),platform:new Set(),channel:new Set(),videoIds:new Set()};
 let favOnly=false,unwOnly=false,watchedOnly=false,bulkMode=false,bulkCtx='home';
-let selIds=new Set(),openPlayer=null,editId=null;
+let selIds=new Set(),openPlayer=null;
 // ES Module側からアクセスできるようwindowに公開
 window.filters=filters; window.favOnly=false; window.unwOnly=false; window.watchedOnly=false;
 window.bulkMode=false; window.bulkCtx='home'; window.selIds=selIds;
@@ -2522,10 +2257,7 @@ Object.defineProperty(window,'watchedOnly',{get:()=>watchedOnly,set:v=>{watchedO
 Object.defineProperty(window,'bulkMode',{get:()=>bulkMode,set:v=>{bulkMode=v;}});
 Object.defineProperty(window,'bulkCtx',{get:()=>bulkCtx,set:v=>{bulkCtx=v;}});
 Object.defineProperty(window,'selIds',{get:()=>selIds,set:v=>{selIds=v;}});
-Object.defineProperty(window,'editId',{get:()=>editId,set:v=>{editId=v;}});
 Object.defineProperty(window,'openPlayer',{get:()=>openPlayer,set:v=>{openPlayer=v;}});
-let dTags={tb:new Set(),cat:new Set(),pos:new Set(),tags:new Set()};
-let dFav=false,dWatch=false,dPrio='',dStat='',dShare=0;
 let orgView='all',urlPrio='保留',urlDet=null;
 let beltF=new Set(),cStF=new Set();
 let impPl='',impSel=new Set();
@@ -2591,37 +2323,7 @@ function renderComm(){
 function togFollow(uid,el){const u=CUSERS.find(u=>u.id===uid);if(!u)return;u.following=!u.following;el.className='follow-btn'+(u.following?' on':'');el.textContent=u.following?'フォロー中':'フォロー';toast(u.following?`${u.name} をフォローしました`:`${u.name} のフォローを解除`);}
 function saveComm(vid,pt,title){if((window.videos||[]).some(v=>v.id===vid)){toast('すでにライブラリにあります');return;}window.videos.push({id:vid,pt,title,ch:'',pl:'コミュニティから保存',tb:[],cat:[],pos:[],tags:[],prio:'保留',fav:false,memo:'',watched:false,status:'未着手',archived:false,shared:0,ai:''});window.AF?.();window.saveUserData?.();toast('✅ ライブラリに保存しました');}
 
-function openEdit(id){const v=videos.find(v=>v.id===id);if(!v)return;editId=id;document.getElementById('editSub').textContent=v.title;dFav=v.fav;dWatch=v.watched;dPrio=v.prio;dStat=v.status;dShare=v.shared||0;dTags={tb:new Set(v.tb),cat:new Set(v.cat),pos:new Set(v.pos),tags:new Set(v.tags)};syncUI(v);document.getElementById('editOv').classList.add('open');}
-function syncUI(v){
-  const ft=document.getElementById('favTog'),ftx=document.getElementById('favTxt');ft.className='fav-toggle'+(dFav?' on':'');ftx.textContent=dFav?'お気に入り登録中 ⭐':'お気に入りに追加';
-  setShare(dShare);
-  const wo=document.getElementById('watchOpt');wo.textContent=dWatch?'✅ 視聴済み（タップで戻す）':'👁 未視聴（タップで視聴済みに）';wo.className='prio-opt'+(dWatch?' sl2':' sl3');
-  document.querySelectorAll('.prio-opt:not(#watchOpt)').forEach(el=>{el.className='prio-opt';const t=el.textContent.includes('今すぐ')?'今すぐ':el.textContent.includes('そのうち')?'そのうち':'保留';if(t===dPrio)el.classList.add(t==='今すぐ'?'sl1':t==='そのうち'?'sl2':'sl3');});
-  document.querySelectorAll('.status-opt').forEach(el=>{el.className='status-opt';const t=el.textContent.includes('未着手')?'未着手':el.textContent.includes('理解')?'理解':el.textContent.includes('練習中')?'練習中':'マスター';if(t===dStat)el.classList.add(t==='未着手'?'ss0':t==='理解'?'ss1':t==='練習中'?'ss2':'ss3');});
-  document.querySelectorAll('#dTb .tag-opt').forEach(el=>{const val=el.textContent.trim();el.className='tag-opt'+(dTags.tb.has(val)?' sel-tb':'');});
-  document.querySelectorAll('#dAct .tag-opt').forEach(el=>{const val=el.textContent.trim();el.className='tag-opt'+(dTags.cat.has(val)?' sel-act':'');});
-  const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};
-  document.querySelectorAll('#dPos .tag-opt').forEach(el=>{const l=el.textContent.trim(),f=pm[l]||l;el.className='tag-opt'+((dTags.pos.has(f)||dTags.pos.has(l))?' sel-pos':'');});
-  document.getElementById('dMemo').value=v.memo||'';document.getElementById('techSrch').value='';filterTechs();renderST();
-}
-function dFavF(){dFav=!dFav;const ft=document.getElementById('favTog'),ftx=document.getElementById('favTxt');ft.className='fav-toggle'+(dFav?' on':'');ftx.textContent=dFav?'お気に入り登録中 ⭐':'お気に入りに追加';}
-function dWatchF(){dWatch=!dWatch;const wo=document.getElementById('watchOpt');wo.textContent=dWatch?'✅ 視聴済み（タップで戻す）':'👁 未視聴（タップで視聴済みに）';wo.className='prio-opt'+(dWatch?' sl2':' sl3');}
-function dPrioF(p,el){dPrio=p;document.querySelectorAll('.prio-opt:not(#watchOpt)').forEach(e=>e.className='prio-opt');el.classList.add(p==='今すぐ'?'sl1':p==='そのうち'?'sl2':'sl3');}
-function dStatF(s,el){dStat=s;document.querySelectorAll('.status-opt').forEach(e=>e.className='status-opt');el.classList.add(s==='未着手'?'ss0':s==='理解'?'ss1':s==='練習中'?'ss2':'ss3');}
-function dTag(type,val,el){const set=dTags[type],cls=type==='tb'?'sel-tb':type==='cat'?'sel-act':'sel-pos';set.has(val)?(set.delete(val),el.className='tag-opt'):(set.add(val),el.className='tag-opt '+cls);}
-function setShare(n){dShare=n;[0,1,2].forEach(i=>{const el=document.getElementById(`sh${i}`);if(el)el.classList.toggle('sel',i===n);});}
-function filterTechs(){const q=document.getElementById('techSrch').value.toLowerCase().trim();const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();const fil=q?all.filter(t=>t.toLowerCase().includes(q)):all;const add=q&&!all.some(t=>t===q);document.getElementById('techRes').innerHTML=(add?`<div class="tech-pill" onclick="addCT('${q}')">＋「${q}」を追加</div>`:'')+fil.slice(0,32).map(t=>`<div class="tech-pill ${dTags.tags.has(t)?'active':''}" onclick="togTech('${t}',this)">${t}</div>`).join('');}
-function togTech(t,el){dTags.tags.has(t)?(dTags.tags.delete(t),el.classList.remove('active')):(dTags.tags.add(t),el.classList.add('active'));renderST();}
-function addCT(t){if(t&&!dTags.tags.has(t)){dTags.tags.add(t);document.getElementById('techSrch').value='';filterTechs();renderST();}}
-function techKD(e){if(e.key==='Enter'){const q=document.getElementById('techSrch').value.trim();if(q)addCT(q);}}
-function renderST(){document.getElementById('selTechs').innerHTML=[...dTags.tags].map(t=>`<div class="tech-chip" onclick="rmT('${t}')">${t} <span>×</span></div>`).join('');}
-function rmT(t){dTags.tags.delete(t);filterTechs();renderST();}
-// 「✨ AI自動」ボタン（runAI）は v52.814 で廃止。キーワード推定そのものを消したため。
-// ボタンは index.html に既に無く、呼び出し元も無かった。
-function saveEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.fav=dFav;v.watched=dWatch;v.prio=dPrio||v.prio;v.status=dStat||v.status;v.shared=dShare;v.tb=[...dTags.tb];v.cat=[...dTags.cat];const pm={'クローズド':'クローズドガード','ハーフ':'ハーフガード','サイド':'サイドコントロール','オープン':'オープンガード','バタフライ':'バタフライガード','デラヒーバ':'デラヒーバガード'};v.pos=[...dTags.pos].map(p=>pm[p]||p);v.tags=[...dTags.tags];v.memo=document.getElementById('dMemo').value.trim();closeOv('editOv');window.AF?.();toast('💾 保存しました');}
-function archEdit(){const v=videos.find(v=>v.id===editId);if(!v)return;v.archived=true;closeOv('editOv');window.AF?.();toastUndo('📦 アーカイブ',()=>{v.archived=false;window.AF?.();});}
-function rmPl(){const v=videos.find(v=>v.id===editId);showConf('📋 PL除外',`「${v?.title}」をプレイリストから除外しますか？\nYouTube/Vimeo側のプレイリストにも反映されます。`,()=>{if(v)v.pl='（除外済）';closeOv('editOv');window.AF?.();toast('除外しました');});}
-function delEdit(){const v=videos.find(v=>v.id===editId);showConf('🗑 削除',`「${v?.title}」を削除しますか？`,()=>{videos=videos.filter(v=>v.id!==editId);closeOv('editOv');window.AF?.();toast('削除しました');});}
+// 旧・動画の編集シート（openEdit〜delEdit, #editOv）は v52.846 で削除。画面が無く、呼び出し元も無かった。編集は動画パネルで行う。
 
 // 取込ハブを開く（認証不要、URL入力タブがデフォルト）
 function openImportHub() {
@@ -3513,9 +3215,6 @@ function goS3(){document.getElementById('is2').style.display='none';document.get
 
 function closeOv(id){
   document.getElementById(id).classList.remove('open');
-  // フィルターパネルから開いたピッカーを閉じたら戻る
-  const filterPickers = ['posOv','plOv','tfOv','tbPickerOv','acPickerOv'];
-  if(filterPickers.includes(id)){ openFilterOverlay(); }
 }
 function showConf(t,tx,cb){const el=document.getElementById('confOv');el.style.zIndex='99999';document.body.appendChild(el);document.getElementById('confT').textContent=t;document.getElementById('confTx').textContent=tx;el.classList.add('open');document.getElementById('confYes').onclick=()=>{closeConf();cb&&cb();};}
 function closeConf(){document.getElementById('confOv').classList.remove('open');}
@@ -3526,473 +3225,9 @@ function closeConf(){document.getElementById('confOv').classList.remove('open');
 
 // scr → js/ui.js に移動
 
-// ─── Build a scrollable chip row ───
-// filterKey: key in `filters` object  |  addable: show text input at end
-function buildSrow(rowId, tagList, filterKey, addable, filterObj, renderFn) {
-  // filterObj: 使用するfiltersオブジェクト（省略時はLibraryのfilters）
-  // renderFn: 再描画関数（省略時はAF）
-  var fobj = filterObj || filters;
-  var rfn = renderFn || window.AF || function(){};
-  const row = document.getElementById(rowId);
-  if (!row) return;
-  row.innerHTML = '';
-
-  // "すべて" chip
-  const allEl = mkChip('すべて', fobj[filterKey].size === 0, function() {
-    fobj[filterKey].clear();
-    buildSrow(rowId, tagList, filterKey, addable, fobj, rfn);
-    rfn();
-  });
-  row.appendChild(allEl);
-
-  // filterKey → videoフィールドのマッピング（本数バッジ用）
-  const fieldMap = {'tb':'tb','action':'cat','position':'pos','tags':'tags'};
-  const countField = fieldMap[filterKey];
-
-  tagList.forEach(function(tag) {
-    const el = mkChip(tag, fobj[filterKey].has(tag), function() {
-      fobj[filterKey].has(tag) ? fobj[filterKey].delete(tag) : fobj[filterKey].add(tag);
-      buildSrow(rowId, tagList, filterKey, addable, fobj, rfn);
-      rfn();
-    });
-    // 本数バッジ
-    if (countField) {
-      const n = countByField(countField, tag);
-      if (n > 0) {
-        const badge = document.createElement('span');
-        badge.style.cssText = 'font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';
-        badge.textContent = n;
-        el.appendChild(badge);
-      }
-    }
-    row.appendChild(el);
-  });
-
-  if (addable) {
-    const inp = document.createElement('input');
-    inp.className = 'add-tag-inp';
-    inp.placeholder = '＋ 追加...';
-    inp.addEventListener('keydown', function(e) {
-      if (e.key !== 'Enter') return;
-      const v = inp.value.trim();
-      if (v && !tagList.includes(v)) {
-        tagList.push(v);
-        inp.value = '';
-        buildSrow(rowId, tagList, filterKey, addable, fobj, rfn);
-        toast('タグを追加: ' + v);
-      } else {
-        inp.value = '';
-      }
-    });
-    row.appendChild(inp);
-  }
-}
-
-// ─── Playlist slider (built from video data) ───
-function buildPosSrow() {
-  const row = document.getElementById('srow-pos');
-  if (!row) return;
-  row.innerHTML = '';
-  row.appendChild(mkChip('すべて', filters.position.size === 0, function() {
-    filters.position.clear(); buildPosSrow(); window.AF?.();
-  }));
-  [...filters.position].forEach(function(p) {
-    const el = document.createElement('div');
-    el.className = 'chip active'; el.style.flexShrink = '0';
-    el.textContent = p + ' ×';
-    el.onclick = function() { filters.position.delete(p); buildPosSrow(); window.AF?.(); };
-    row.appendChild(el);
-  });
-  const btn = document.createElement('div');
-  btn.className = 'chip'; btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-  btn.textContent = '＋ ポジションを選ぶ'; btn.onclick = openPos;
-  row.appendChild(btn);
-}
-function buildMirrorPosSrow() {
-  const row = document.getElementById('msrow-pos'); if (!row) return;
-  row.innerHTML = '';
-  row.appendChild(mkChip('すべて', filters.position.size === 0, function() {
-    filters.position.clear(); buildPosSrow(); buildMirrorPosSrow(); window.AF?.();
-  }));
-  [...filters.position].forEach(function(p) {
-    const el = document.createElement('div');
-    el.className = 'chip active'; el.style.flexShrink = '0';
-    el.textContent = p + ' ×';
-    el.onclick = function() { filters.position.delete(p); buildPosSrow(); buildMirrorPosSrow(); window.AF?.(); };
-    row.appendChild(el);
-  });
-  const btn = document.createElement('div');
-  btn.className = 'chip'; btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-  btn.textContent = '＋ ポジションを選ぶ'; btn.onclick = openPos;
-  row.appendChild(btn);
-}
-function openPos(){document.getElementById('pos-s').value='';renderPos();document.getElementById('posOv').classList.add('open');}
-function renderPos(){
-  const q=document.getElementById('pos-s').value.trim();
-  const ql=q.toLowerCase();
-  // 既存タグ = POSITIONS + 動画に付いているposタグを合わせて重複排除・ソート
-  const allPos=[...new Set([...(window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)),...videos.flatMap(v=>v.pos||[])])].sort();
-  const matched=allPos.filter(p=>!ql||p.toLowerCase().includes(ql));
-  let html=matched.map(p=>{const n=countContextual('position',p);return`<div class="tech-pill ${filters.position.has(p)?'active':''}" onclick="togPos('${p.replace(/'/g,"\\'")}',this)">${p}${cntBadge(n)}</div>`;}).join('');
-  // ヒットなし or 完全一致なし → 新規追加ボタン
-  if(q && !allPos.some(p=>p.toLowerCase()===ql)){
-    html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewPos('${q.replace(/'/g,"\\'")}')">＋ 「${q}」を追加</div>`;
-  }
-  document.getElementById('posR').innerHTML=html||'<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>';
-}
-function addNewPos(val){
-  if(!val.trim())return;
-  togF('position',val,{classList:{add:()=>{},remove:()=>{},toggle:()=>{},has:()=>false}});
-  filters.position.add(val);
-  buildPosSrow();buildMirrorPosSrow();try{buildFovRows();}catch(e){}window.AF?.();
-  document.getElementById('pos-s').value='';
-  renderPos();
-  closeOv('posOv');
-}
-function togPos(p,el){filters.position.has(p)?filters.position.delete(p):filters.position.add(p);el.classList.toggle('active');buildPosSrow();buildMirrorPosSrow();try{buildFovRows();}catch(e){}window.AF?.();}
-
-function buildPlSrow() {
-  const row = document.getElementById('srow-pl');
-  if (!row) return;
-  row.innerHTML = '';
-  // すべて chip
-  row.appendChild(mkChip('すべて', filters.playlist.size === 0, function() {
-    filters.playlist.clear(); buildPlSrow(); window.AF?.();
-  }));
-  // Selected series as removable × chips
-  [...filters.playlist].forEach(function(pl) {
-    const el = document.createElement('div');
-    el.className = 'chip active';
-    el.style.flexShrink = '0';
-    el.textContent = pl + ' ×';
-    el.onclick = function() { filters.playlist.delete(pl); buildPlSrow(); window.AF?.(); };
-    row.appendChild(el);
-  });
-  // Picker button
-  const btn = document.createElement('div');
-  btn.className = 'chip';
-  btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-  btn.textContent = '＋ プレイリストを選ぶ';
-  btn.onclick = openPL;
-  row.appendChild(btn);
-}
-
-// ─── Technique slider ───
-function buildTechSrow() {
-  const row = document.getElementById('srow-tech');
-  if (!row) return;
-  row.innerHTML = '';
-
-  const allEl = mkChip('すべて', filters.tags.size === 0, function() {
-    filters.tags.clear();
-    buildTechSrow();
-    window.AF?.();
-  });
-  row.appendChild(allEl);
-
-  [...filters.tags].forEach(function(t) {
-    const el = document.createElement('div');
-    el.className = 'chip active';
-    el.style.cssText = 'flex-shrink:0';
-    el.textContent = t + ' ×';
-    el.onclick = function() {
-      filters.tags.delete(t);
-      buildTechSrow();
-      window.AF?.();
-    };
-    row.appendChild(el);
-  });
-
-  const btn = document.createElement('div');
-  btn.className = 'chip';
-  btn.style.cssText = 'border-style:dashed;flex-shrink:0';
-  btn.textContent = '＋ テクニックを選ぶ';
-  btn.onclick = openTF;
-  row.appendChild(btn);
-  // also rebuild mirror
-  const mr=document.getElementById('msrow-tech');if(mr)buildMirrorRows();
-}
-
-// ─── mkChip moved to filter-overlay.js ───
-
-// ─── Source row ───
-function buildSrcRow(id){
-  const row=document.getElementById(id);if(!row)return;
-  row.innerHTML='';
-  [{label:'YouTube',fn:()=>togPlat('youtube'),active:filters.platform.has('youtube'),cls:'c-yt'},
-   {label:'Vimeo',  fn:()=>togPlat('vimeo'),  active:filters.platform.has('vimeo'),  cls:'c-vm'},
-   {label:'★ Fav', fn:()=>togFav(),           active:favOnly,                        cls:'c-fav'},
-   {label:'Unseen', fn:()=>togUnw(),           active:unwOnly,                        cls:'c-unw'},
-  ].forEach(function(item){
-    const el=document.createElement('div');
-    el.className='chip '+item.cls+(item.active?' active':'');
-    el.style.flexShrink='0';
-    el.textContent=item.label;
-    el.onclick=item.fn;
-    row.appendChild(el);
-  });
-}
-// ─── Priority row ───
-function buildPrioRow(id){
-  const row=document.getElementById(id);if(!row)return;
-  row.innerHTML='';
-  ['今すぐ','そのうち','保留'].forEach(function(v){
-    const n=window.countContextual?window.countContextual('prio',v):videos.filter(x=>!x.archived&&x.prio===v).length;
-    const el=mkChip(v,filters.prio.has(v),function(){filters.prio.has(v)?filters.prio.delete(v):filters.prio.add(v);buildPrioRow(id);window.AF?.();});
-    if(n>0){const b=document.createElement('span');b.style.cssText='font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';b.textContent=n;el.appendChild(b);}
-    row.appendChild(el);
-  });
-}
-// ─── Status row ───
-function buildStatRow(id){
-  const row=document.getElementById(id);if(!row)return;
-  row.innerHTML='';
-  ['未着手','理解','練習中','マスター'].forEach(function(v){
-    const n=window.countContextual?window.countContextual('status',v):videos.filter(x=>!x.archived&&x.status===v).length;
-    const el=mkChip(v,filters.status.has(v),function(){filters.status.has(v)?filters.status.delete(v):filters.status.add(v);buildStatRow(id);window.AF?.();});
-    if(n>0){const b=document.createElement('span');b.style.cssText='font-size:9px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 5px;margin-left:4px;font-weight:600;pointer-events:none';b.textContent=n;el.appendChild(b);}
-    row.appendChild(el);
-  });
-}
-// ─── Build all sliders ───
-function buildAllSliders() {
-  buildSrow('srow-tb',  (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),  'tb',       false);
-  buildSrow('srow-ac',  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),  'action',   true);
-  buildPosSrow();
-  buildPlSrow();
-  buildTechSrow();
-  // filter sidebar rows
-  buildFsTbSrow();
-  buildFsAcSrow();
-  buildFsPosSrow();
-  buildFsPlSrow();
-  buildFsTechSrow();
-  buildChSrow();
-  buildFsChSrow();
-}
-
-
-
-
-
-// ─── Edit sheet: rebuild action/pos grids with current lists + add input ───
-const _openEdit = openEdit;
-openEdit = function(id) {
-  _openEdit(id);
-  rebuildEditGrid('dAct', (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),  'cat', 'sel-act');
-  rebuildEditGrid('dPos', (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS||[]).map(p=>p.ja)), 'pos',    'sel-pos');
-};
-
-function rebuildEditGrid(gridId, tagList, dTagKey, selCls) {
-  const grid = document.getElementById(gridId);
-  if (!grid) return;
-  grid.innerHTML = '';
-  tagList.forEach(function(tag) {
-    const el = document.createElement('div');
-    el.className = 'tag-opt' + (dTags[dTagKey].has(tag) ? ' ' + selCls : '');
-    el.textContent = tag;
-    el.onclick = function() {
-      if (dTags[dTagKey].has(tag)) { dTags[dTagKey].delete(tag); el.className = 'tag-opt'; }
-      else                          { dTags[dTagKey].add(tag);    el.className = 'tag-opt ' + selCls; }
-    };
-    grid.appendChild(el);
-  });
-  // add-tag input
-  const inp = document.createElement('input');
-  inp.className = 'add-tag-inp';
-  inp.placeholder = '＋ 新規追加';
-  inp.style.width = '88px';
-  inp.addEventListener('keydown', function(e) {
-    if (e.key !== 'Enter') return;
-    const v = inp.value.trim();
-    if (!v) return;
-    if (!tagList.includes(v)) tagList.push(v);
-    dTags[dTagKey].add(v);
-    inp.value = '';
-    rebuildEditGrid(gridId, tagList, dTagKey, selCls);
-    // also refresh the filter slider
-    if (dTagKey === 'cat') buildSrow('srow-ac',  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),  'action',   true);
-    if (dTagKey === 'pos')    buildPosSrow();
-    toast('タグを追加: ' + v);
-  });
-  grid.appendChild(inp);
-}
-
-
-function buildMirrorRows(){
-  buildSrow('msrow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);
-  buildSrow('msrow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',false);
-  buildMirrorPosSrow();
-  // Series mirror — picker style
-  const mpl=document.getElementById('msrow-pl');
-  if(mpl){
-    mpl.innerHTML='';
-    mpl.appendChild(mkChip('すべて',filters.playlist.size===0,()=>{filters.playlist.clear();buildPlSrow();buildMirrorRows();window.AF?.();}));
-    [...filters.playlist].forEach(pl=>{
-      const el=document.createElement('div');
-      el.className='chip active'; el.textContent=pl+' ×';
-      el.onclick=()=>{filters.playlist.delete(pl);buildPlSrow();buildMirrorRows();window.AF?.();};
-      mpl.appendChild(el);
-    });
-    const btn=document.createElement('div');
-    btn.className='chip'; btn.style.borderStyle='dashed';
-    btn.textContent='＋ プレイリストを選ぶ'; btn.onclick=openPL;
-    mpl.appendChild(btn);
-  }
-  // Technique mirror: selected as chips + picker button
-  const mtech=document.getElementById('msrow-tech');
-  if(mtech){
-    mtech.innerHTML='';
-    mtech.appendChild(mkChip('すべて',filters.tags.size===0,()=>{filters.tags.clear();buildTechSrow();buildMirrorRows();window.AF?.();}));
-    [...filters.tags].forEach(t=>{
-      const el=document.createElement('div');
-      el.className='chip active'; el.style.flexShrink='0'; el.textContent=t+' ×';
-      el.onclick=()=>{filters.tags.delete(t);buildTechSrow();buildMirrorRows();window.AF?.();};
-      mtech.appendChild(el);
-    });
-    const btn=document.createElement('div');
-    btn.className='chip'; btn.style.borderStyle='dashed';
-    btn.textContent='＋ Technique'; btn.onclick=openTF;
-    mtech.appendChild(btn);
-  }
-}
-
-// ─── TB/Action picker for filter sidebar ───
-function buildFsTbSrow(){
-  const row=document.getElementById('fs-srow-tb');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.tb.size===0,function(){filters.tb.clear();buildFsTbSrow();buildSrow('srow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);window.AF?.();}));
-  [...filters.tb].forEach(function(t){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=t+' ×';
-    el.onclick=function(){filters.tb.delete(t);buildFsTbSrow();buildSrow('srow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);window.AF?.();};
-    row.appendChild(el);
-  });
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ 選ぶ';btn.onclick=openTbPicker;row.appendChild(btn);
-}
-function buildFsAcSrow(){
-  const row=document.getElementById('fs-srow-ac');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.action.size===0,function(){filters.action.clear();buildFsAcSrow();buildSrow('srow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',true);window.AF?.();}));
-  [...filters.action].forEach(function(a){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=a+' ×';
-    el.onclick=function(){filters.action.delete(a);buildFsAcSrow();buildSrow('srow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',true);window.AF?.();};
-    row.appendChild(el);
-  });
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ 選ぶ';btn.onclick=openAcPicker;row.appendChild(btn);
-}
-function openTbPicker(){document.getElementById('tb-picker-s').value='';renderTbPicker();document.getElementById('tbPickerOv').classList.add('open');}
-function renderTbPicker(){const q=document.getElementById('tb-picker-s').value.toLowerCase();const _TB=(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング']));document.getElementById('tbPickerR').innerHTML=_TB.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('tb',t);return`<div class="tech-pill ${filters.tb.has(t)?'active':''}" onclick="togTbPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
-function togTbPicker(t,el){filters.tb.has(t)?filters.tb.delete(t):filters.tb.add(t);el.classList.toggle('active');buildFsTbSrow();buildSrow('srow-tb',(window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES||['トップ','ボトム','スタンディング'])),'tb',false);window.AF?.();}
-function openAcPicker(){document.getElementById('ac-picker-s').value='';renderAcPicker();document.getElementById('acPickerOv').classList.add('open');}
-function renderAcPicker(){const q=document.getElementById('ac-picker-s').value.toLowerCase();const _AC=(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name));document.getElementById('acPickerR').innerHTML=_AC.filter(t=>!q||t.toLowerCase().includes(q)).map(t=>{const n=countContextual('action',t);return`<div class="tech-pill ${filters.action.has(t)?'active':''}" onclick="togAcPicker('${t}',this)">${t}${cntBadge(n)}</div>`;}).join('');}
-function togAcPicker(t,el){filters.action.has(t)?filters.action.delete(t):filters.action.add(t);el.classList.toggle('active');buildFsAcSrow();buildSrow('srow-ac',(window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES||[]).map(c=>c.name)),'action',true);window.AF?.();}
-
-// ─── Filter sidebar builders ───
-function buildFsPosSrow(){
-  const row=document.getElementById('fs-srow-pos');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.position.size===0,function(){filters.position.clear();buildPosSrow();buildFsPosSrow();window.AF?.();}));
-  [...filters.position].forEach(function(p){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=p+' ×';el.onclick=function(){filters.position.delete(p);buildPosSrow();buildFsPosSrow();window.AF?.();};row.appendChild(el);
-  });
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ 選ぶ';btn.onclick=openPos;row.appendChild(btn);
-}
-function buildFsPlSrow(){
-  const row=document.getElementById('fs-srow-pl');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.playlist.size===0,function(){filters.playlist.clear();buildPlSrow();buildFsPlSrow();window.AF?.();}));
-  [...filters.playlist].forEach(function(p){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=p+' ×';el.onclick=function(){filters.playlist.delete(p);buildPlSrow();buildFsPlSrow();window.AF?.();};row.appendChild(el);
-  });
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ 選ぶ';btn.onclick=openPL;row.appendChild(btn);
-}
-function buildChSrow(){
-  const row=document.getElementById('srow-ch');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.channel.size===0,function(){filters.channel.clear();buildChSrow();buildFsChSrow();window.AF?.();}));
-  [...filters.channel].forEach(function(c){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=c+' ×';el.onclick=function(){filters.channel.delete(c);buildChSrow();buildFsChSrow();window.AF?.();};row.appendChild(el);
-  });
-  // Picker button
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ チャンネルを選ぶ';btn.onclick=openChPicker;row.appendChild(btn);
-}
-function buildFsChSrow(){
-  const row=document.getElementById('fs-srow-ch');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.channel.size===0,function(){filters.channel.clear();buildChSrow();buildFsChSrow();window.AF?.();}));
-  [...filters.channel].forEach(function(c){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=c+' ×';el.onclick=function(){filters.channel.delete(c);buildChSrow();buildFsChSrow();window.AF?.();};row.appendChild(el);
-  });
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ 選ぶ';btn.onclick=openChPicker;row.appendChild(btn);
-}
-function openChPicker(){
-  const q='';
-  const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
-  // Reuse pos overlay
-  document.getElementById('pos-s').value='';
-  const posOv=document.getElementById('posOv');
-  posOv.querySelector('[style*="font-size:14px"]').textContent='📺 チャンネルフィルター';
-  document.getElementById('pos-s').placeholder='チャンネル名で絞り込み...';
-  const posInp=document.getElementById('pos-s');
-  posInp.placeholder='チャンネル名で検索...';
-  posInp.value='';
-  posInp.oninput=function(){renderChPicker(this.value);};
-  renderChPicker('');
-  posOv.querySelector('.btn-save').onclick=()=>{
-    posOv.classList.remove('open');
-    // restore pos picker
-    posOv.querySelector('[style*="font-size:14px"]').textContent='📍 ポジションフィルター';
-    document.getElementById('pos-s').placeholder='ポジション名で絞り込み...';
-    const posInp2=document.getElementById('pos-s');
-  posInp2.placeholder='ポジション名で検索...';
-  posInp2.value='';
-  posInp2.oninput=function(){renderPos();};
-    openFilterOverlay();
-  };
-  posOv.classList.add('open');
-}
-function renderChPicker(q){
-  const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
-  const ql=(q||'').toLowerCase();
-  const matched=channels.filter(c=>!ql||c.toLowerCase().includes(ql));
-  let html=matched.map(c=>{const n=countByCh(c);return`<div class="tech-pill ${filters.channel.has(c)?'active':''}" onclick="togCh('${c.replace(/'/g,"\\'")}',this)">${c}${cntBadge(n)}</div>`;}).join('');
-  // ヒットなし or 完全一致なし → 新規追加ボタン
-  if(q && !channels.some(c=>c.toLowerCase()===ql)){
-    html+=`<div class="tech-pill" style="border-style:dashed;color:var(--accent)" onclick="addNewChFilter('${q.replace(/'/g,"\\'")}')">＋ 「${q}」で検索</div>`;
-  }
-  document.getElementById('posR').innerHTML=html||'<div style="font-size:11px;color:var(--text3);padding:8px">チャンネルなし</div>';
-}
-function addNewChFilter(val){
-  if(!val.trim())return;
-  filters.channel.add(val);
-  buildChSrow();buildFsChSrow();try{buildFovRows();}catch(e){}window.AF?.();
-  closeOv('posOv');
-}
-function togCh(c,el){filters.channel.has(c)?filters.channel.delete(c):filters.channel.add(c);el.classList.toggle('active');buildChSrow();buildFsChSrow();try{buildFovRows();}catch(e){}window.AF?.();}
-function buildFsTechSrow(){
-  const row=document.getElementById('fs-srow-tech');if(!row)return;
-  row.innerHTML='';
-  row.appendChild(mkChip('すべて',filters.tags.size===0,function(){filters.tags.clear();buildTechSrow();buildFsTechSrow();window.AF?.();}));
-  [...filters.tags].forEach(function(t){
-    const el=document.createElement('div');el.className='chip active';el.style.flexShrink='0';
-    el.textContent=t+' ×';el.onclick=function(){filters.tags.delete(t);buildTechSrow();buildFsTechSrow();window.AF?.();};row.appendChild(el);
-  });
-  const btn=document.createElement('div');btn.className='chip';btn.style.cssText='border-style:dashed;flex-shrink:0';
-  btn.textContent='＋ 選ぶ';btn.onclick=openTF;row.appendChild(btn);
-}
-
+// 旧・フィルターのスライダー行（buildSrow / buildAllSliders / buildMirrorRows / buildFs*Srow と、
+// そこからだけ開くピッカー tfOv・plOv・tbPickerOv・acPickerOv・posOv）は v52.846 で削除。
+// 描画先（srow-* / fs-srow-* / msrow-*）が画面に1つも無く、呼んでも黙って抜けていた。
 
 function updateFovChipBadges() {
   // Fav / Unseen / 視聴済み
@@ -4054,12 +3289,6 @@ function updateFovChipBadges() {
 
 
 
-// ── bb-panelの外クリックで閉じる
-document.addEventListener('mousedown', function(e){
-  if (!e.target.closest('.bb-panel') && !e.target.closest('[id$="-trigger"]')) {
-    document.querySelectorAll('.bb-panel.open').forEach(p => p.classList.remove('open'));
-  }
-}, true);
 
 // ─── INIT ───
 window.videos = videos;
@@ -4404,8 +3633,6 @@ window.switchSettingsSub = function(sub) {
   if (isArch) window.renderArch?.();
 };
 
-buildAllSliders();
-buildMirrorRows();
 
 // カードアクション関数
 function cardCyclePrio(id, el) {
@@ -5209,40 +4436,6 @@ document.addEventListener('click', function(e) {
       <button class="btn-sub" style="width:100%" onclick="clearOrgFilters()">× Reset</button>
     </div>
   </div>
-</div>
-
-<!-- ═══ ORGANIZE専用ピッカーオーバーレイ ═══ -->
-<div class="overlay" id="orgPosOv" onclick="closeOrgOv('orgPosOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📍 ポジションフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="org-pos-s" placeholder="ポジション名で絞り込み..." oninput="renderOrgPos()"></div>
-  <div class="tech-results" id="orgPosR"></div>
- </div>
-</div>
-<div class="overlay" id="orgPLOv" onclick="closeOrgOv('orgPLOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📋 プレイリストフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="org-pl-s" placeholder="プレイリスト名で絞り込み..." oninput="renderOrgPL()"></div>
-  <div class="tech-results" id="orgPLR"></div>
- </div>
-</div>
-<div class="overlay" id="orgTFOv" onclick="closeOrgOv('orgTFOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">🥋 テクニックフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="org-tf-s" placeholder="テクニック名で絞り込み..." oninput="renderOrgTF()"></div>
-  <div class="tech-results" id="orgTFR"></div>
- </div>
-</div>
-<div class="overlay" id="orgChOv" onclick="closeOrgOv('orgChOv')">
- <div class="sheet" onclick="event.stopPropagation()" style="max-height:var(--zvh-55,55vh)">
-  <div class="sheet-handle"></div>
-  <div style="font-size:14px;font-weight:800;margin-bottom:10px">📺 チャンネルフィルター</div>
-  <div class="tech-search"><span>🔍</span><input type="text" id="org-ch-s" placeholder="チャンネル名で絞り込み..." oninput="renderOrgChPicker(this.value)"></div>
-  <div class="tech-results" id="orgChR"></div>
- </div>
 </div>
 
 <div id="filter-overlay">

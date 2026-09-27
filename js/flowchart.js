@@ -152,13 +152,6 @@
   }
 
   // ── Library ───────────────────────────────────────────────────
-  function _getLib(){
-    return (window.videos||[]).map(v=>({
-      id: v.id, vid: v.id, title: v.title||v.id,
-      cat: v.position||v.cat||'',
-      bookmarks: _mapLibBms(v.bookmarks||[])
-    }));
-  }
   function _mapLibBms(bms){
     // VPanel format: {time, endTime?, label, note} → flowchart format: {a, b?, label}
     return bms.map(b=>{

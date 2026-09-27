@@ -607,10 +607,6 @@ export function syncOrgFilterOvRows() {
   window.syncFilterOvRows?.(true);
 }
 
-// buildOrgSrow → buildSrow(汎用版)に統一
-export function buildOrgSrow(rowId, tagList, filterKey, addable) {
-  window.buildSrow?.(rowId, tagList, filterKey, addable, orgFilters, renderOrg);
-}
 
 // mkOrgChip → mkChip に統一
 export function mkOrgChip(label, isActive, onClick) { return window.mkChip?.(label, isActive, onClick); }
@@ -669,76 +665,6 @@ export function renderOrgAccChips(type) {
 }
 
 export function filterOrgAccChips(type) { renderOrgAccChips(type); }
-
-// ═══ Organize用ピッカー（Libraryのピッカーと独立）═══
-
-export function openOrgPos(){document.getElementById('org-pos-s').value='';renderOrgPos();document.getElementById('orgPosOv').classList.add('open');}
-
-export function renderOrgPos(){
-  const q=document.getElementById('org-pos-s').value.toLowerCase();
-  const POS_BASE=(window.tagPresets ? window.tagPresets('pos') : []).filter(Boolean);
-  const videos = window.videos || [];
-  const all=[...new Set([...POS_BASE,...videos.flatMap(v=>v.pos||[])])].sort();
-  const matched=all.filter(p=>!q||p.toLowerCase().includes(q));
-  document.getElementById('orgPosR').innerHTML=matched.map(p=>{
-    const n=window.countByField?.('pos',p);
-    return`<div class="tech-pill ${orgFilters.position.has(p)?'active':''}" onclick="togOrgPos('${p.replace(/'/g,"\'")}',this)">${p}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgPos(p,el){orgFilters.position.has(p)?orgFilters.position.delete(p):orgFilters.position.add(p);el.classList.toggle('active');renderOrg();}
-
-export function openOrgPL(){document.getElementById('org-pl-s').value='';renderOrgPL();document.getElementById('orgPLOv').classList.add('open');}
-
-export function renderOrgPL(){
-  const q=document.getElementById('org-pl-s').value.toLowerCase();
-  const videos = window.videos || [];
-  const pls=[...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))];
-  const filtered=pls.filter(p=>!q||p.toLowerCase().includes(q));
-  document.getElementById('orgPLR').innerHTML=filtered.map(p=>{
-    const n=window.countByPl?.(p);
-    return`<div class="tech-pill ${orgFilters.playlist.has(p)?'active':''}" onclick="togOrgPL('${p.replace(/'/g,"\'")}',this)">${p}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgPL(p,el){orgFilters.playlist.has(p)?orgFilters.playlist.delete(p):orgFilters.playlist.add(p);el.classList.toggle('active');renderOrg();}
-
-export function openOrgTF(){document.getElementById('org-tf-s').value='';renderOrgTF();document.getElementById('orgTFOv').classList.add('open');}
-
-export function renderOrgTF(){
-  const q=document.getElementById('org-tf-s').value.toLowerCase();
-  const videos = window.videos || [];
-  const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();
-  const matched=all.filter(t=>!q||t.toLowerCase().includes(q));
-  document.getElementById('orgTFR').innerHTML=matched.map(t=>{
-    const n=window.countByField?.('tags',t);
-    return`<div class="tech-pill ${orgFilters.tags.has(t)?'active':''}" onclick="togOrgTech('${t.replace(/'/g,"\'")}',this)">${t}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgTech(t,el){orgFilters.tags.has(t)?orgFilters.tags.delete(t):orgFilters.tags.add(t);el.classList.toggle('active');renderOrg();}
-
-export function openOrgChPicker(){
-  document.getElementById('org-ch-s').value='';renderOrgChPicker('');document.getElementById('orgChOv').classList.add('open');
-}
-
-export function renderOrgChPicker(q){
-  const videos = window.videos || [];
-  const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
-  const ql=(q||'').toLowerCase();
-  const matched=channels.filter(c=>!ql||c.toLowerCase().includes(ql));
-  document.getElementById('orgChR').innerHTML=matched.map(c=>{
-    const n=window.countByCh?.(c);
-    return`<div class="tech-pill ${orgFilters.channel.has(c)?'active':''}" onclick="togOrgCh('${c.replace(/'/g,"\'")}',this)">${c}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgCh(c,el){orgFilters.channel.has(c)?orgFilters.channel.delete(c):orgFilters.channel.add(c);el.classList.toggle('active');renderOrg();}
-
-export function closeOrgOv(id){
-  document.getElementById(id).classList.remove('open');
-  openOrgFilterOverlay();
-}
 
 // ═══ Layout / height ═══
 
@@ -2324,25 +2250,11 @@ window.orgFilt = orgFilt;
 window.openOrgFilterOverlay = openOrgFilterOverlay;
 window.closeOrgFilterOverlay = closeOrgFilterOverlay;
 window.syncOrgFilterOvRows = syncOrgFilterOvRows;
-window.buildOrgSrow = buildOrgSrow;
 window.mkOrgChip = mkOrgChip;
 window.showOrgFsBulkBtn = showOrgFsBulkBtn;
 window.toggleOrgAcc = toggleOrgAcc;
 window.renderOrgAccChips = renderOrgAccChips;
 window.filterOrgAccChips = filterOrgAccChips;
-window.openOrgPos = openOrgPos;
-window.renderOrgPos = renderOrgPos;
-window.togOrgPos = togOrgPos;
-window.openOrgPL = openOrgPL;
-window.renderOrgPL = renderOrgPL;
-window.togOrgPL = togOrgPL;
-window.openOrgTF = openOrgTF;
-window.renderOrgTF = renderOrgTF;
-window.togOrgTech = togOrgTech;
-window.openOrgChPicker = openOrgChPicker;
-window.renderOrgChPicker = renderOrgChPicker;
-window.togOrgCh = togOrgCh;
-window.closeOrgOv = closeOrgOv;
 window.adjustOrgTableHeight = adjustOrgTableHeight;
 window.renderOrg = renderOrg;
 window.syncOrgColHeaders = syncOrgColHeaders;

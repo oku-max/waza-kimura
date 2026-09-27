@@ -403,7 +403,6 @@ export async function loadUserData(uid) {
   if (needsSave) await saveUserData();
 
   if (window.AF) window.AF();
-  if (window.renderTagMasterUI) window.renderTagMasterUI();
   showToast('✅ データを読み込みました');
   if (!_durFetchDone) {
     _durFetchDone = true;
