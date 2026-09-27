@@ -186,6 +186,23 @@
   const _g = id => _reg.groups.find(g => g.id === id) || null;
   function _editable() { _ensure(); return !_readOnly; }
 
+  // 好み（一覧と一緒にクラウドへ。無ければ既定）。
+  //   unusedCondApply … 未使用のタググループの条件も、カスタムリストで効かせるか（既定 true＝今までどおり）
+  // 既定のままの人には何も書かない（読み込みのたびに書き込みを起こさない）。前の版のアプリは知らない項目をそのまま持ち回る
+  const PREF_DEFAULTS = { unusedCondApply: true };
+  function pref(name) {
+    _ensure();
+    const p = _reg.prefs && typeof _reg.prefs === 'object' ? _reg.prefs : {};
+    return Object.prototype.hasOwnProperty.call(p, name) ? p[name] : PREF_DEFAULTS[name];
+  }
+  function setPref(name, val) {
+    if (!_editable() || !Object.prototype.hasOwnProperty.call(PREF_DEFAULTS, name)) return false;
+    if (pref(name) === val) return false;
+    if (!_reg.prefs || typeof _reg.prefs !== 'object' || Array.isArray(_reg.prefs)) _reg.prefs = {};
+    _reg.prefs[name] = val;
+    return _commit();
+  }
+
   // 使う場所を変える。k = 0〜3（タグ1〜4）、-1 = 未使用。
   // 入れた枠に別のグループがいたら、入れ替える（元の枠へ。元が未使用なら、そちらが未使用になる）。
   function setSlot(id, k) {
@@ -347,7 +364,7 @@
     groups, group, slots, slotInfo, valuesOf, allTagValues, optionLabel, searchIds, searchText, searchTagText, raw,
     strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
-    setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote,
+    setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
     _valid, _fresh, LS_KEY,
   };
 })();
