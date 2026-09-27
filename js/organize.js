@@ -450,7 +450,9 @@ export function _matchQueryField(v, text, exact, fields) {
     if (fields.title) use.push(T.title);
     if (fields.ch)    use.push(T.ch);
     if (fields.pl)    use.push(T.pl);
-    if (fields.tags)  use.push(T.tags);
+    // 詳細検索のチェック欄は「tech」という名前で渡してくる（保存済みの詳細検索もそう）。
+    // 以前は tags しか見ておらず、「タグ」にチェックしても外しても、タグを一切探していなかった。
+    if (fields.tags || fields.tech) use.push(T.tags);
     if (fields.memo)  use.push(T.memo);
   }
 
@@ -491,6 +493,12 @@ export function orgFilt(list) {
   const parsed = _parseQuery(raw);
   const adv = _advSearch;
   const advFields = adv?.fields || null;
+  // タグの条件は tag-filter.js で1回だけ組み立てる（「(空白)」＝そのグループに何も付いていない動画も選べる）。
+  // 古い呼び名に入っている分は先に今の呼び名へ寄せる（列フィルター等が今の呼び名を直接読むので、見えない条件を残さない）
+  window.tagFilter?.normalize(orgFilters, 'org');
+  const _tagOk = window.tagFilter
+    ? window.tagFilter.compile(orgFilters, 'org', { allowBlank: true })
+    : () => true;
   return list.filter(v => {
     if (v.archived) return false;
     if (orgFavOnly     && !v.fav) return false;
@@ -528,10 +536,7 @@ export function orgFilt(list) {
       if (!orgFilters.counter.has(cVal)) return false;
     }
     if (orgFilters.status.size) { const _sn=window.normStatus(v.status); if(!orgFilters.status.has(_sn)) return false; }
-    if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
-    if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
-    if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
-    if (orgFilters.tags.size && !_matchFilt(orgFilters.tags, v.tags||[])) return false;
+    if (!_tagOk(v)) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
     // 練習ランク / 最終練習日
     if (orgPrRank != null && window.vpCntRank) {

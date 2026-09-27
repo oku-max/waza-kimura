@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.850</title>
+<title>WAZA KIMURA v52.852</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -85,6 +85,7 @@
 <script src="js/tag-master.js"></script>
 <script src="js/tag-templates.js"></script>
 <script src="js/tag-registry.js"></script>
+<script src="js/tag-filter.js"></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
@@ -286,10 +287,9 @@
   function _syncLibFilters(from) {
     // 同名でコピーするキー
     const SAME  = ['channel','playlist','status','platform'];
-    // ライブラリ側キー ↔ オーガナイズ側キー が異なるもの [libKey, orgKey]
-    // lib は tbNew/cat/posNew/tags、org は tb/action/position/tags を使う。
-    // ここを同名コピーしていたためタグ(ポジション等)がビュー間で消えていた。
-    const MAP   = [['tbNew','tb'],['cat','action'],['posNew','position'],['tags','tags']];
+    // タグは呼び名が lib（tbNew/cat/posNew/tags）と org（tb/action/position/tags）で違う。
+    // 読み替えは tag-filter.js だけが持つ（ここを同名コピーしていた頃はタグがビュー間で消えていた）。
+    const TF = window.tagFilter;
     const PAIRS = [['favOnly','orgFavOnly'],['nextOnly','orgNextOnly'],['drillOnly','orgDrillOnly'],
                    ['unwOnly','orgUnwOnly'],['watchedOnly','orgWatchedOnly'],['bmOnly','orgBmOnly'],
                    ['memoOnly','orgMemoOnly'],['imgOnly','orgImgOnly'],['prRank','orgPrRank'],['prDate','orgPrDate']];
@@ -297,11 +297,11 @@
     const of = window.orgFilters || {};
     if (from === 'lib') {
       SAME.forEach(k => { of[k] = f[k] ? new Set(f[k]) : new Set(); });
-      MAP.forEach(([lk,ok]) => { of[ok] = f[lk] ? new Set(f[lk]) : new Set(); });
+      TF?.fromPlain(f, of, 'lib', 'org');
       PAIRS.forEach(([lk,ok]) => { window[ok] = window[lk]; });
     } else {
       SAME.forEach(k => { f[k] = of[k] ? new Set(of[k]) : new Set(); });
-      MAP.forEach(([lk,ok]) => { f[lk] = of[ok] ? new Set(of[ok]) : new Set(); });
+      TF?.fromPlain(of, f, 'org', 'lib');
       PAIRS.forEach(([lk,ok]) => { window[lk] = window[ok]; });
     }
   }

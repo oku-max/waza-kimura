@@ -102,16 +102,29 @@ function _getCtx(rowId) {
   const isOrg = el?.dataset.ctx === 'org' || rowId.startsWith('org-');
   return {
     f: isOrg ? (window.orgFilters||{}) : (window.filters||{}),
+    isOrg,
     af() { isOrg ? window.renderOrg?.() : window.AF?.(); }
   };
 }
 
+// タグの行は古い呼び名（tb/action/position/tags）で呼ばれる。読み書きは tag-filter.js で読み替える
+// （ここで直接 f['tb'] を触ると、絞り込み本体が見ている呼び名とずれて選択が黙って無視されていた）。
+function _tagGid(key) { return window.tagFilter?.gidForKey(key, 'org') || null; }
+function _fSel(f, key, isOrg) {
+  const g = _tagGid(key);
+  return g ? window.tagFilter.selected(f, g, isOrg ? 'org' : 'lib') : (f[key] || new Set());
+}
+function _fSet(f, key, isOrg) {
+  const g = _tagGid(key);
+  return g ? window.tagFilter.setFor(f, g, isOrg ? 'org' : 'lib') : f[key];
+}
+
 // ── フィルターDD ヘルパー ──
 function _fovDdUpdateChips(rowId, filterKey) {
-  const { f } = _getCtx(rowId);
+  const { f, isOrg } = _getCtx(rowId);
   const chipsEl = document.getElementById(rowId + '-chips');
   if (!chipsEl) return;
-  const selected = [...(f[filterKey]||[])];
+  const selected = [..._fSel(f, filterKey, isOrg)];
   const allActive = !selected.length;
   let html = `<div class="chip${allActive?' active':''}" style="flex-shrink:0" onclick="fovFilterClear('${rowId}','${filterKey}')">すべて</div>`;
   selected.forEach(v => {
@@ -142,12 +155,14 @@ export function buildFovDdRow(rowId, filterKey, items, placeholder, isOrg=false)
 function _fovDdRenderList(rowId, filterKey, items, q) {
   const listEl = document.getElementById(rowId + '-ddlist');
   if (!listEl) return;
-  const { f } = _getCtx(rowId);
+  const { f, isOrg } = _getCtx(rowId);
   const ql = q.toLowerCase();
   const filtered = ql ? items.filter(v => v.toLowerCase().includes(ql)) : items;
+  const sels = _fSel(f, filterKey, isOrg);
   listEl.innerHTML = filtered.map(v => {
-    const cnt = window.countContextual ? window.countContextual(filterKey, v) : 0;
-    const sel = f[filterKey]?.has(v);
+    // 整理の表の行はライブラリではなく整理の表の条件で数える
+    const cnt = window.countContextual ? window.countContextual(filterKey, v, isOrg ? 'org' : 'lib') : 0;
+    const sel = sels.has(v);
     return `<div class="vp-dd-item${sel?' selected':''}" onclick="fovDdToggleItem('${rowId}','${filterKey}','${v.replace(/'/g,"\\'")}',this)">${v}${cnt ? `<span class="vp-dd-cnt">${cnt}</span>` : ''}</div>`;
   }).join('');
 }
@@ -340,12 +355,13 @@ export function fovDdFilter(rowId, filterKey, q) {
 }
 
 export function fovDdToggleItem(rowId, filterKey, val, el) {
-  const { f, af } = _getCtx(rowId);
-  if (f[filterKey]?.has(val)) {
-    f[filterKey].delete(val);
+  const { f, af, isOrg } = _getCtx(rowId);
+  const set = _fSet(f, filterKey, isOrg);
+  if (set?.has(val)) {
+    set.delete(val);
     el?.classList.remove('selected');
   } else {
-    f[filterKey]?.add(val);
+    set?.add(val);
     el?.classList.add('selected');
   }
   _fovDdUpdateChips(rowId, filterKey);
@@ -353,8 +369,8 @@ export function fovDdToggleItem(rowId, filterKey, val, el) {
 }
 
 export function fovDdRemove(rowId, filterKey, val) {
-  const { f, af } = _getCtx(rowId);
-  f[filterKey]?.delete(val);
+  const { f, af, isOrg } = _getCtx(rowId);
+  _fSet(f, filterKey, isOrg)?.delete(val);
   _fovDdUpdateChips(rowId, filterKey);
   const listEl = document.getElementById(rowId + '-ddlist');
   if (listEl) {
@@ -366,8 +382,8 @@ export function fovDdRemove(rowId, filterKey, val) {
 }
 
 export function fovFilterClear(rowId, filterKey) {
-  const { f, af } = _getCtx(rowId);
-  f[filterKey]?.clear();
+  const { f, af, isOrg } = _getCtx(rowId);
+  _fSet(f, filterKey, isOrg)?.clear();
   _fovDdUpdateChips(rowId, filterKey);
   document.querySelectorAll(`#${rowId}-ddlist .vp-dd-item`).forEach(el => el.classList.remove('selected'));
   af();
@@ -766,18 +782,16 @@ function _getSbCtx(containerId) {
 
 // 指定キー以外の全フィルターを適用した動画セットを返す（ファセット検索用）
 function _sbContextVideos(filterKey, f) {
+  // タグの条件は tag-filter.js で1回だけ組み立てる（filterKey がタグの呼び名ならそのグループだけ外す）
+  const _tagOk = window.tagFilter
+    ? window.tagFilter.compile(f || {}, 'lib', { except: window.tagFilter.gidForKey(filterKey, 'org') })
+    : () => true;
   return (window.videos || []).filter(v => {
     if (v.archived) return false;
     if (filterKey !== 'platform'  && f?.platform?.size  && !f.platform.has(v.pt || v.src || 'youtube'))                   return false;
     if (filterKey !== 'channel'   && f?.channel?.size   && !f.channel.has(v.channel || v.ch))                             return false;
     if (filterKey !== 'playlist'  && f?.playlist?.size  && !f.playlist.has(v.pl))                                         return false;
-    const _fTb  = (f?.tbNew?.size  ? f.tbNew  : f?.tb);
-    const _fCat = (f?.cat?.size    ? f.cat    : f?.action);
-    const _fPos = (f?.posNew?.size ? f.posNew : f?.position);
-    if (filterKey !== 'tb'        && _fTb?.size        && !(v.tb  ||[]).some(t => _fTb.has(t)))                          return false;
-    if (filterKey !== 'action'    && _fCat?.size       && !(v.cat ||[]).some(a => _fCat.has(a)))                         return false;
-    if (filterKey !== 'position'  && _fPos?.size       && !(v.pos ||[]).some(p => _fPos.has(p)))                         return false;
-    if (filterKey !== 'tags'      && f?.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))                        return false;
+    if (!_tagOk(v)) return false;
     if (filterKey !== 'prio'      && f?.prio?.size      && !f.prio.has(v.prio))                                           return false;
     if (filterKey !== 'status'    && f?.status?.size    && !f.status.has(v.status))                                       return false;
     // org固有フィルター（Library側では該当Setが空なので無影響）
@@ -822,8 +836,10 @@ function _sbPickerRenderList(containerId, filterKey, q) {
   selected.forEach(v => { if (!(v in countMap)) countMap[v] = 0; });
   const allItems = Object.keys(countMap).sort((a, b) => a.localeCompare(b, 'ja'));
 
-  const hasOtherFilter = ['platform','channel','playlist','tb','action','position','tags']
-    .some(k => k !== filterKey && f?.[k]?.size > 0);
+  // 件数を出すときに効いている条件（_sbContextVideos と同じもの）がほかにあるか。
+  // タグはどの呼び名で入っていても数える（以前は古い呼び名だけ見ていて、絞っているのに「全チャンネル」と出ていた）
+  const hasOtherFilter = ['platform','channel','playlist','prio','status','fav','next','counter','memo','addedAtFilter','durationFilter']
+    .some(k => k !== filterKey && f?.[k]?.size > 0) || !!window.tagFilter?.hasAny(f, 'lib');
   const secLabel = filterKey === 'channel'
     ? (hasOtherFilter ? `絞り込み結果のチャンネル (${allItems.length}件)` : '全チャンネル')
     : (hasOtherFilter ? `絞り込み結果のプレイリスト (${allItems.length}件)` : '全プレイリスト');

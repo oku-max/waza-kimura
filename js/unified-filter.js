@@ -29,22 +29,33 @@
     }[c]));
   }
 
-  // ── メイン検索バーのテキストに動画がマッチするか（全単語AND） ──
-  function _matchMainQ(v) {
+  // タグの呼び名は tag-filter.js で読み替える（lib: tbNew/cat/posNew/tags、org: tb/action/position/tags）
+  const _TF   = () => window.tagFilter;
+  const _sch  = () => (_ctx === 'org' ? 'org' : 'lib');
+  const _gidC = col => _TF().gidOfField(col);                        // 列（tb/cat/pos/tags）→ グループID
+  const _tk   = col => _TF().keyFor(_gidC(col), _sch());           // その場所で書く呼び名
+  const _tsel = (f, col) => _TF().selected(f, _gidC(col), _sch());  // どの呼び名で入っていても読む
+
+  // ── メイン検索バーの語に当たるかを判定する関数（ライブラリ・整理の表と同じ本物の検索を使う）──
+  // 以前はタイトル・チャンネル・プレイリスト・タグ4だけを素の部分一致で見ていたので、
+  // タグ1〜3やメモにだけある語・「-除外」「"完全一致"」で、このパネルの件数と実際の結果が食い違っていた。
+  // 検索語は1回だけ読む（動画ごとに画面の入力欄を読みに行かない）。
+  function _mainQMatcher() {
     const isOrg = _ctx === 'org';
     const raw = isOrg
       ? (document.getElementById('si-org-pc')?.value || document.getElementById('si-org')?.value || '')
       : (document.getElementById('si-lib-pc')?.value || document.getElementById('si')?.value || '');
-    const q = raw.trim().toLowerCase();
-    if (!q) return true;
-    const words = q.split(/\s+/).filter(Boolean);
-    const hay = [
-      (v.title || '').toLowerCase(),
-      (v.channel || v.ch || '').toLowerCase(),
-      (v.pl || '').toLowerCase(),
-      ...(v.tags || []).map(t => t.toLowerCase()),
-    ].join(' ');
-    return words.every(w => hay.includes(w));
+    const q = raw.trim();
+    if (!q) return () => true;
+    if (window._parseQuery && window._matchQuery) {
+      const parsed = window._parseQuery(q);
+      return v => window._matchQuery(v, parsed, null);
+    }
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    return v => {
+      const hay = [v.title || '', v.channel || v.ch || '', v.pl || ''].join(' ').toLowerCase();
+      return words.every(w => hay.includes(w));
+    };
   }
 
   // CV選択中（非選択モード）の場合はCVの動画のみをベースにする
@@ -69,16 +80,14 @@
     const img   = isOrg ? window.orgImgOnly     : window.imgOnly;
     const next  = isOrg ? window.orgNextOnly    : window.nextOnly;
     const drill = isOrg ? window.orgDrillOnly   : window.drillOnly;
-    // tag filter keys: lib uses tbNew/cat/posNew/tags, org uses tb/action/position/tags
-    const tkTb   = isOrg ? 'tb'       : 'tbNew';
-    const tkCat  = isOrg ? 'action'   : 'cat';
-    const tkPos  = isOrg ? 'position' : 'posNew';
-    const tkTags = isOrg ? 'tags'     : 'tags';
+    // タグの条件は1回だけ組み立てる。excludeKey がタグの列（tb/cat/pos/tags）ならそのグループだけ外す
+    const _tagOk = _TF().compile(f, _sch(), { except: ['tb','cat','pos','tags'].includes(excludeKey) ? _gidC(excludeKey) : null });
+    const _mq = _mainQMatcher();
     // タイトルタブの検索クエリ — 他タブのファセット計算にも適用して双方向連動させる
     const _vidTabQ = _queries['video'];
     return _getCvBase().filter(v => {
       if (v.archived) return false;
-      if (!_matchMainQ(v)) return false;
+      if (!_mq(v)) return false;
       if (_vidTabQ) {
         const hay = [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ');
         if (!hay.includes(_vidTabQ)) return false;
@@ -96,10 +105,7 @@
       if (excludeKey !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                       return false;
       if (excludeKey !== 'status'   && f.status?.size   && !f.status.has(v.status))                     return false;
       if (excludeKey !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                         return false;
-      if (excludeKey !== 'tb'   && f[tkTb]?.size   && !(v.tb  ||[]).some(t => f[tkTb].has(t)))         return false;
-      if (excludeKey !== 'cat'  && f[tkCat]?.size  && !(v.cat||[]).some(c => f[tkCat].has(c))) return false;
-      if (excludeKey !== 'pos'  && f[tkPos]?.size  && !(v.pos ||[]).some(p => f[tkPos].has(p)))        return false;
-      if (excludeKey !== 'tags'     && f[tkTags]?.size    && !(v.tags||[]).some(t => f[tkTags].has(t))) return false;
+      if (!_tagOk(v)) return false;
       if (excludeKey !== 'videoIds' && f.videoIds?.size   && !f.videoIds.has(v.id)) return false;
       const prRank = isOrg ? window.orgPrRank : window.prRank;
       const prDate = isOrg ? window.orgPrDate : window.prDate;
@@ -324,7 +330,8 @@
            (isOrg ? window.orgImgOnly  : window.imgOnly)  ||
            (isOrg ? window.orgPrRank   : window.prRank) != null ||
            !!(isOrg ? window.orgPrDate : window.prDate)  ||
-           ['platform','channel','playlist','status','tbNew','cat','posNew','tags','tb','action','position','videoIds'].some(k => f[k]?.size > 0);
+           ['platform','channel','playlist','status','videoIds'].some(k => f[k]?.size > 0) ||
+           _TF().hasAny(f, _sch());
   }
 
   // ── 該当動画カラム ──
@@ -467,8 +474,7 @@
       + ((isOrg ? window.orgPrRank : window.prRank) != null ? 1 : 0)
       + ((isOrg ? window.orgPrDate : window.prDate) ? 1 : 0);
     const srcN = (f.platform?.size || 0) + (f.channel?.size || 0) + (f.playlist?.size || 0);
-    const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
-    const tagN = (f[tkTb]?.size || 0) + (f[tkCat]?.size || 0) + (f[tkPos]?.size || 0) + (f[tkTags]?.size || 0);
+    const tagN = _TF().groups().reduce((n, g) => n + _TF().selected(f, g.id, isOrg ? 'org' : 'lib').size, 0);
     const vidN = f.videoIds?.size || 0;
     return { state: stateN, src: srcN, tag: tagN, video: vidN };
   }
@@ -749,8 +755,8 @@
     }
 
     else {
-      // tag — lib: tbNew/cat/posNew/tags, org: tb/action/position/tags
-      const tkTb = isOrg ? 'tb' : 'tbNew', tkCat = isOrg ? 'action' : 'cat', tkPos = isOrg ? 'position' : 'posNew', tkTags = isOrg ? 'tags' : 'tags';
+      // tag — 書く呼び名は tag-filter.js が決める（lib: tbNew/cat/posNew/tags、org: tb/action/position/tags）
+      const tkTb = _tk('tb'), tkCat = _tk('cat'), tkPos = _tk('pos'), tkTags = _tk('tags');
 
       // 候補はユーザーの選択肢（tagPresets）から作る。サイドバーと同じ（Notion 確認事項03・v52.818）。
       // 「タグがいつでも正」。以前は検索辞書（TB_VALUES / CATEGORIES / POSITIONS）から作っていたので、
@@ -760,7 +766,7 @@
       const _allVids = window.videos || [];
       const _opts = (key, fallback) => (window.tagPresets ? window.tagPresets(key) : fallback()).slice();
       const _mkItems = (field, fk, src, ctx) => {
-        const sel = f[fk] || new Set();
+        const sel = _tsel(f, field);   // どの呼び名で入っていても選択として見せる（見えない条件を作らない）
         const names = src.slice();
         [...sel].forEach(n => { if (!names.includes(n)) names.push(n); });
         const inOpt = new Set(src);
@@ -822,14 +828,10 @@
       const map = { week:'今週',month:'今月',quarter:'3ヶ月以内',stale:'それ以前',never:'未カウント' };
       pills.push(['@prD', map[_prD] || _prD]);
     }
-    const tkTbP = isOrg ? 'tb' : 'tbNew', tkCatP = isOrg ? 'action' : 'cat', tkPosP = isOrg ? 'position' : 'posNew', tkTagsP = isOrg ? 'tags' : 'tags';
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
-    [...(f[tkTbP]||[])].forEach(v => pills.push([tkTbP, v]));
-    [...(f[tkCatP]||[])].forEach(v => pills.push([tkCatP, v]));
-    [...(f[tkPosP]||[])].forEach(v => pills.push([tkPosP, v]));
-    [...(f[tkTagsP]||[])].forEach(v => pills.push([tkTagsP, v]));
+    ['tb','cat','pos','tags'].forEach(col => [..._tsel(f, col)].forEach(v => pills.push([_tk(col), v])));
     [...(f.videoIds||[])].forEach(id => {
       const vid = (window.videos||[]).find(v => v.id === id);
       const lbl = vid?.title ? (vid.title.length > 25 ? vid.title.slice(0, 25) + '…' : vid.title) : id;
@@ -979,6 +981,10 @@
         }
       });
     }
+    // タグはどの呼び名で保存されていても、それぞれの場所の呼び名で入れる。
+    // 同じ名前で写すだけだと、ライブラリの tbNew/cat/posNew が整理の表（tb/action/position）に届かなかった。
+    _TF().fromPlain(snap, f, 'lib', 'lib');
+    if (of) _TF().fromPlain(snap, of, 'lib', 'org');
     // boolean/スカラー系は snap に無ければ既定値へ確実にリセットする。
     window.favOnly     = !!snap._favOnly;
     window.unwOnly     = !!snap._unwOnly;
@@ -1088,9 +1094,10 @@
       else       { window.prDate    = (window.prDate    === val) ? null : val; }
       refresh(); _render(); return;
     }
-    // Set系
-    if (!f[key]) f[key] = new Set();
-    f[key].has(val) ? f[key].delete(val) : f[key].add(val);
+    // Set系（タグの呼び名なら、古い呼び名に入っていた分も寄せてから切り替える）
+    const _g = _TF().gidForKey(key, _sch());
+    const set = _g ? _TF().setFor(f, _g, _sch()) : (f[key] || (f[key] = new Set()));
+    set.has(val) ? set.delete(val) : set.add(val);
     refresh();
     _render();
   };

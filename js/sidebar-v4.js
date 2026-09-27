@@ -15,22 +15,20 @@
     return true;
   }
 
+  // タグの選択の読み書きは tag-filter.js で読み替える（このパネルの列は tb/cat/pos/tags）
+  const _TF = () => window.tagFilter;
+  const _gid = col => _TF().gidOfField(col);
+  const _selOf = col => _TF().selected(window.filters || {}, _gid(col), 'lib');
+  const _COL_OF_KEY = { tbNew: 'tb', cat: 'cat', posNew: 'pos', tags: 'tags' };
+
   // ── 件数カウント (全レイヤーAND、自身含む) ──
+  // 1回の描画で何百回も呼ばれるので、判定関数は描画ごとに1回だけ作る（_renderInto の先頭で捨てる）
+  let _okCache = null;
   function _cnt(key, val) {
-    const vs = window.videos || [];
-    const f  = window.filters || {};
-    return vs.filter(v => {
-      if (v.archived) return false;
-      if (f.tbNew?.size  && !(v.tb  || []).some(t => f.tbNew.has(t)))  return false;
-      if (f.cat?.size    && !(v.cat || []).some(c => f.cat.has(c)))    return false;
-      if (f.posNew?.size && !(v.pos || []).some(p => f.posNew.has(p))) return false;
-      if (f.tags?.size   && !(v.tags || []).some(t => f.tags.has(t)))  return false;
-      if (key === 'tbNew')  return (v.tb   || []).includes(val);
-      if (key === 'cat')    return (v.cat  || []).includes(val);
-      if (key === 'posNew') return (v.pos  || []).includes(val);
-      if (key === 'tags')   return (v.tags || []).includes(val);
-      return false;
-    }).length;
+    const col = _COL_OF_KEY[key]; if (!col) return 0;
+    const ok = _okCache || (_okCache = _TF().compile(window.filters || {}, 'lib'));
+    const gid = _gid(col);
+    return (window.videos || []).filter(v => !v.archived && ok(v) && _TF().valuesOf(v, gid).includes(val)).length;
   }
 
   // ── 全動画から #タグ一覧を集約 ──
@@ -45,18 +43,8 @@
 
   // ── 全レイヤーAND最終ヒット数 ──
   function _totalHit() {
-    const vs = window.videos || [];
-    const f  = window.filters || {};
-    const hasTb = f.tbNew?.size, hasCat = f.cat?.size, hasPos = f.posNew?.size, hasTags = f.tags?.size;
-    if (!hasTb && !hasCat && !hasPos && !hasTags) return vs.filter(v => !v.archived).length;
-    return vs.filter(v => {
-      if (v.archived) return false;
-      if (hasTb   && !(v.tb   || []).some(t => f.tbNew.has(t)))  return false;
-      if (hasCat  && !(v.cat  || []).some(c => f.cat.has(c)))    return false;
-      if (hasPos  && !(v.pos  || []).some(p => f.posNew.has(p))) return false;
-      if (hasTags && !(v.tags || []).some(t => f.tags.has(t)))   return false;
-      return true;
-    }).length;
+    const ok = _TF().compile(window.filters || {}, 'lib');
+    return (window.videos || []).filter(v => !v.archived && ok(v)).length;
   }
 
   // ── ポップアップ DOM 注入 (アプリテーマ準拠) ──
@@ -177,6 +165,7 @@
   // ── 共通レンダラ (popup と inline 両方で使用) ──
   function _renderInto(prefix) {
     if (!_ensureFilters()) return;
+    _okCache = null;   // 選択が変わっているかもしれないので作り直す
     const f = window.filters;
     const tabsEl  = document.getElementById(prefix + 'tabs');
     const trackEl = document.getElementById(prefix + 'cols-track');
@@ -186,7 +175,7 @@
 
     // Tabs
     if (tabsEl) {
-      const selSizes = { tb:f.tbNew.size, cat:f.cat.size, pos:f.posNew.size, tags:f.tags.size };
+      const selSizes = { tb:_selOf('tb').size, cat:_selOf('cat').size, pos:_selOf('pos').size, tags:_selOf('tags').size };
       tabsEl.innerHTML = _cols().map((c,i) => {
         const n = selSizes[c.key];
         return `<div class="v4-tab${i===_activeTab?' on':''}" data-i="${i}" title="${_esc(c.label)}" data-user-text="1">${_esc(c.short)}${n?`<span class="v4-bdg">${n}</span>`:''}</div>`;
@@ -202,10 +191,10 @@
     // Carousel cols
     if (trackEl) {
       const lists = {
-        tb:   (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])).map(t => ({ name:t, cnt:_cnt('tbNew', t), sel:f.tbNew.has(t) })),
-        cat:  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name:n, cnt:_cnt('cat', n), sel:f.cat.has(n) })),
-        pos:  (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).map(n => ({ name:n, cnt:_cnt('posNew', n), sel:f.posNew.has(n) })),
-        tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:f.tags.has(t) }))
+        tb:   (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])).map(t => ({ name:t, cnt:_cnt('tbNew', t), sel:_selOf('tb').has(t) })),
+        cat:  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name:n, cnt:_cnt('cat', n), sel:_selOf('cat').has(n) })),
+        pos:  (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).map(n => ({ name:n, cnt:_cnt('posNew', n), sel:_selOf('pos').has(n) })),
+        tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:_selOf('tags').has(t) }))
       };
       trackEl.innerHTML = _cols().map(c => {
         let arr = lists[c.key].slice();
@@ -237,7 +226,7 @@
 
     // Pills
     if (pillsEl) {
-      const all = [...[...f.tbNew].map(n=>['tb',n]), ...[...f.cat].map(n=>['cat',n]), ...[...f.posNew].map(n=>['pos',n]), ...[...f.tags].map(n=>['tags',n])];
+      const all = ['tb','cat','pos','tags'].flatMap(k => [..._selOf(k)].map(n => [k, n]));
       if (!all.length) pillsEl.innerHTML = '<span style="color:var(--text3);font-size:11px">なし</span>';
       else pillsEl.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(n)}</span>`).join('');
     }
@@ -250,7 +239,7 @@
     // Badge (sidebar + mobile filter overlay)
     if (!_ensureFilters()) return;
     const f = window.filters;
-    const selCount = f.tbNew.size + f.cat.size + f.posNew.size + f.tags.size;
+    const selCount = ['tb','cat','pos','tags'].reduce((n, k) => n + _selOf(k).size, 0);
     ['fs-v4-btn-badge','fov-v4-badge'].forEach(id => {
       const b = document.getElementById(id);
       if (!b) return;
@@ -264,19 +253,15 @@
   // ── グローバル公開ハンドラ ──
   window.v4Toggle = function (key, name) {
     _ensureFilters();
-    const map = { tb:'tbNew', cat:'cat', pos:'posNew', tags:'tags' };
-    const k = map[key]; if (!k) return;
-    const s = window.filters[k];
+    if (!['tb','cat','pos','tags'].includes(key)) return;
+    const s = _TF().setFor(window.filters, _gid(key), 'lib');
     s.has(name) ? s.delete(name) : s.add(name);
     _renderPopup();
     window.AF?.();
   };
   window.v4Clear = function () {
     _ensureFilters();
-    window.filters.tbNew.clear();
-    window.filters.cat.clear();
-    window.filters.posNew.clear();
-    window.filters.tags.clear();
+    _TF().clear(window.filters, 'lib');
     _renderPopup();
     window.AF?.();
   };
@@ -316,30 +301,14 @@
     const pp = document.getElementById('v4-popup'); if (pp) pp.classList.remove('open');
   }
 
-  // ── AF ラップ (既存ロジック維持: 新キーで追加絞り込み) ──
+  // ── AF ラップ: 絞り込みの後にこのパネルを描き直す ──
+  // 以前はここでタグの条件でもう一度絞ってカードを描き直していたが、本体（filt）が
+  // 同じ条件で絞るようになったので二度手間だった（カードを2回描き、件数の内訳も消していた）。
   function _wrapAF() {
     if (window._v4AFPatched || !window.AF) return;
     const origAF = window.AF;
     window.AF = function () {
       origAF.apply(this, arguments);
-      const f = window.filters || {};
-      const hasTb = f.tbNew?.size, hasCat = f.cat?.size, hasPos = f.posNew?.size, hasTags = f.tags?.size;
-      if (hasTb || hasCat || hasPos || hasTags) {
-        const base = window._vpFilteredList || [];
-        const filtered = base.filter(v => {
-          if (hasTb   && !(Array.isArray(v.tb)  && v.tb.some(t  => f.tbNew.has(t))))   return false;
-          if (hasCat  && !(Array.isArray(v.cat) && v.cat.some(c => f.cat.has(c))))     return false;
-          if (hasPos  && !(Array.isArray(v.pos) && v.pos.some(p => f.posNew.has(p))))  return false;
-          if (hasTags && !(Array.isArray(v.tags)&& v.tags.some(t => f.tags.has(t))))   return false;
-          return true;
-        });
-        window._vpFilteredList = filtered;
-        window.renderCards?.(filtered, 'cardList');
-        const rc = document.getElementById('rc'); if (rc) rc.textContent = filtered.length + ' 本 表示中';
-        const rct = document.getElementById('rc-topbar'); if (rct) { rct.textContent = filtered.length + ' 件'; rct.style.display = 'inline'; }
-        const fhn = document.getElementById('fov-hit-num'); if (fhn) fhn.textContent = filtered.length;
-        const fhb = document.getElementById('fov-hit-badge'); if (fhb) fhb.textContent = filtered.length + ' 件';
-      }
       _renderPopup();
     };
     window._v4AFPatched = true;

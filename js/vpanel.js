@@ -8318,15 +8318,22 @@ export function vpTagReset(id) {
   popup.id = 'vp-tag-reset-popup';
   popup.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)';
 
-  const ts = window.tagSettings || [];
   const fields = ['tb','cat','pos','tags'];
+  const _label = f => (window.tagLabel ? window.tagLabel(f) : f.toUpperCase());
+  // 変えた後は、パネルのタグ欄・カード・表を描き直す。
+  // 以前は存在しない vpRefreshChips を呼んでいて、リセットしても取り消しても表示が古いままだった。
+  const _refresh = () => {
+    window.vpV4Rerender?.(id);
+    window.AF?.();
+    if (window._libViewMode === 'org') window.renderOrg?.();
+  };
   const card = document.createElement('div');
   card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:260px;max-width:360px';
 
   const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
   let btnsHtml = '';
   fields.forEach((f, fi) => {
-    const label = ts.find(t => t.key === f)?.label || f.toUpperCase();
+    const label = _label(f);
     const count = (v[f]||[]).length;
     if (!count) return;
     const c = colors[fi % colors.length];
@@ -8360,14 +8367,14 @@ export function vpTagReset(id) {
   card.querySelectorAll('button[data-field]').forEach(btn => {
     btn.onclick = () => {
       const field = btn.dataset.field;
-      const label = ts.find(t => t.key === field)?.label || field;
+      const label = _label(field);
       const count = (v[field]||[]).length;
       const backup = [...(v[field]||[])];
       v[field] = [];
       autoSaveVp(id);
-      window.vpRefreshChips?.(id, field);
+      _refresh();
       popup.remove();
-      window.toastUndo?.(`🔄 ${label}をリセット（${count}件）`, () => { v[field] = backup; autoSaveVp(id); window.vpRefreshChips?.(id, field); });
+      window.toastUndo?.(`🔄 ${label}をリセット（${count}件）`, () => { v[field] = backup; autoSaveVp(id); _refresh(); });
     };
   });
 
@@ -8378,9 +8385,9 @@ export function vpTagReset(id) {
     const total = fields.reduce((s, f) => s + (v[f]||[]).length, 0);
     fields.forEach(f => { v[f] = []; });
     autoSaveVp(id);
-    fields.forEach(f => window.vpRefreshChips?.(id, f));
+    _refresh();
     popup.remove();
-    window.toastUndo?.(`🔄 全タグをリセット（${total}件）`, () => { fields.forEach(f => { v[f] = backup[f]; }); autoSaveVp(id); fields.forEach(f => window.vpRefreshChips?.(id, f)); });
+    window.toastUndo?.(`🔄 全タグをリセット（${total}件）`, () => { fields.forEach(f => { v[f] = backup[f]; }); autoSaveVp(id); _refresh(); });
   };
 }
 window.vpTagReset = vpTagReset;

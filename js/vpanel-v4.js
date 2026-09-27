@@ -280,6 +280,12 @@
     window.AF?.();
   };
 
+  // タグ欄を丸ごと描き直す（外から呼ぶ入口。タグリセット等、パネルの外でデータを変えた後に使う）
+  window.vpV4Rerender = function (id) {
+    const sec = document.getElementById(`vp-tag-fsec-${id}`);
+    if (sec) sec.outerHTML = window.vpV4SectionHTML(id);
+  };
+
   function _rerenderRow(id, kind) {
     const host = document.getElementById(`vp-v4-${kind}-${id}`);
     if (!host) return;

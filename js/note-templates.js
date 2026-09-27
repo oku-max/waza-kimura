@@ -21,7 +21,9 @@ const h2   = t => ({ type:'h2',   content:t });
 const text = t => ({ type:'text', content:t || '' });
 const vidlist = (name, tags) => ({
   type:'vidlist', name: name || '関連動画',
-  mode:'filter', filter: tags && tags.length ? { tags: tags.slice() } : {},
+  // anyTag: メモのタグは タグ1〜4 のどこに付いた値でもよい（notes.js の _vlIsAnyTag）。
+  // tags はそのまま残す（古いタブはこれをタグ4として読む＝今までどおり）。
+  mode:'filter', filter: tags && tags.length ? { tags: tags.slice(), anyTag: true } : {},
   max:20, sort:{ key:'addedAt', asc:false }
 });
 
@@ -102,7 +104,7 @@ export function buildNote(tpl, src) {
     tpl.rawBlocks.forEach(b => {
       if (b.type === 'vidlist') {
         blocks.push({ ...JSON.parse(JSON.stringify(b)),
-          filter: tpl.vidFilter || (src?.tags?.length ? { tags: src.tags.slice() } : {}) });
+          filter: tpl.vidFilter || (src?.tags?.length ? { tags: src.tags.slice(), anyTag: true } : {}) });
         return;
       }
       if (!filledFirst && b.type === 'text' && src?.body && !b.content) {
