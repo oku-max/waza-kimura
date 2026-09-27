@@ -98,10 +98,8 @@ function _saveCurrentFilterSnapshot() {
   const key = _curId || 'master';
   const snap = window._uniSnapshotFilters(); // window.filters + boolean + titleQ
   // そのリストの検索ワードも記憶（カード/テーブルの検索を1つにまとめる）
-  snap._search = (document.getElementById('si-lib-pc')?.value
-    || document.getElementById('si-org-pc')?.value
-    || document.getElementById('si-org')?.value
-    || _cvSrchQ || window._uniVideoQ || '');
+  snap._search = (window.wkSearchWord ? window.wkSearchWord() : '')
+    || _cvSrchQ || window._uniVideoQ || '';
   _viewFilterSnapshots[key] = snap;
   // カスタムビューの検索ワードは view オブジェクトにも永続保存し、リロード/再訪時にも復元する
   // （master には保存先の view が無いのでスキップ）。
@@ -1261,7 +1259,8 @@ function _getViewVideos(view) {
 }
 
 function _cvUpdateSearch(view) {
-  const rawQ = _cvSrchQ || '';
+  // 検索語は1か所から読む（js/search-word.js）。カードと同じ語を見る。
+  const rawQ = window.wkSearchWord ? window.wkSearchWord() : (_cvSrchQ || '');
   const videos = _getViewVideos(view);
   let filtered;
   const parse = window._parseQuery;
@@ -2759,9 +2758,7 @@ window._cvSaveDynamic = function() {
 // ウィザードに依存せず、名前を尋ねて動的ビューを直接作成する。
 window._cvCreateFromCurrentFilter = function() {
   const fc = _getCurrentFilterConditions();
-  const q = (document.getElementById('si-lib-pc')?.value
-    || document.getElementById('si-org')?.value
-    || document.getElementById('si')?.value || '').trim();
+  const q = window.wkSearchWord ? window.wkSearchWord() : '';   // 検索語は1か所から（js/search-word.js）
   if (!Object.keys(fc).length && !q) {
     window.toast?.('絞り込み条件が設定されていません');
     return;
@@ -3292,12 +3289,12 @@ window._cvIsTableView = function() {
 };
 
 // ワード検索をカスタムビューに反映（si-lib-pc oninput から呼ばれる）
+// 語だけを受け取る（描き直さない）。js/search-word.js から配られる
+window._cvSetSearchQ = function(q) { _cvSrchQ = String(q == null ? '' : q).trim(); };
+
 window._cvApplySearch = function(q) {
-  _cvSrchQ = q || '';
-  const siOrg = document.getElementById('si-org');
-  if (siOrg) siOrg.value = _cvSrchQ;
-  const siOrgPc = document.getElementById('si-org-pc'); // orgFilt の fallback 先も同期
-  if (siOrgPc) siOrgPc.value = _cvSrchQ;
+  // 入力欄すべてに同じ語を配る（カードとテーブルで違う語を持たない）
+  _cvSrchQ = window.wkSetSearchWord ? window.wkSetSearchWord(q, { silent: true }) : (q || '');
   const view = _views.find(v => v.id === _curId);
   if (view) _cvUpdateSearch(view);
 };

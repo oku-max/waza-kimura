@@ -542,9 +542,8 @@ let _advSearch = null; // { include, exclude, fields, durMin, durMax, dateFrom, 
 
 export function orgFilt(list) {
   if (window._cvVideoIds) list = list.filter(v => window._cvVideoIds.has(v.id));
-  const siEl = document.getElementById('si-org');
-  const siPcEl = document.getElementById('si-org-pc');
-  const raw = ((siEl?siEl.value:'') || (siPcEl?siPcEl.value:'')).trim();
+  // 検索語は1か所から読む（js/search-word.js）。カードと同じ語を見る。
+  const raw = window.wkSearchWord ? window.wkSearchWord() : '';
   const parsed = _parseQuery(raw);
   const adv = _advSearch;
   const advFields = adv?.fields || null;
@@ -2375,11 +2374,8 @@ export function applyAdvSearch() {
   let q = '';
   if (inc) q += inc;
   if (exc) exc.split(/\s+/).forEach(w => { if (w) q += ' -' + w; });
-  // 検索ボックスに設定
-  const siPc = document.getElementById('si-org-pc');
-  const siMob = document.getElementById('si-org');
-  if (siPc) siPc.value = q.trim();
-  if (siMob) siMob.value = q.trim();
+  // 検索ボックスに設定（全部の入力欄とカスタムリストの表に同じ語を配る）
+  window.wkSetSearchWord?.(q.trim());
 
   // アドバンスド条件を設定
   _advSearch = {
@@ -2394,12 +2390,7 @@ export function applyAdvSearch() {
 
   toggleAdvSearch();
   renderOrg();
-  // Library タブにも検索ワードを反映
-  const siLib = document.getElementById('si-lib-pc');
-  const siLibMob = document.getElementById('si');
-  if (siLib) siLib.value = q.trim();
-  if (siLibMob) siLibMob.value = q.trim();
-  window._cvApplySearch?.(q.trim()); // カスタムビューのテーブルにも反映
+  window._cvApplySearch?.(q.trim()); // カスタムビューのテーブルにも反映（描き直しもここ）
   window.AF?.();
 }
 

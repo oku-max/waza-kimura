@@ -68,6 +68,7 @@ const BARE = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>
   window.filters = { tb:new Set(), action:new Set(), position:new Set(), playlist:new Set(),
     status:new Set(), tags:new Set(), platform:new Set(), channel:new Set(), prio:new Set() };
 <\/script>
+<script src="/js/search-word.js"><\/script>
 <script src="/js/video-audit.js"><\/script>
 <script type="module" src="/js/organize.js"><\/script>
 <script type="module">

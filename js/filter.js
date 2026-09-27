@@ -39,7 +39,7 @@ export function _syncURL() {
     if (window[key]) p.set(param, '1');
   }
   // Search text
-  const q = (document.getElementById('si')?.value || document.getElementById('si-lib-pc')?.value || '').trim();
+  const q = window.wkSearchWord ? window.wkSearchWord() : '';   // 検索語は1か所から（js/search-word.js）
   if (q) p.set('q', q);
   const qs = p.toString();
   const url = location.pathname + (qs ? '?' + qs : '');
@@ -365,9 +365,9 @@ export function updateResetBtn() {
 export function filt(list) {
   // カード型カスタムビュー: IDでプールを絞るが、その後の全フィルターは通常通り適用
   if (window._cvCardVideoIds) list = list.filter(v => window._cvCardVideoIds.has(v.id));
-  const siEl   = document.getElementById('si');
-  const siPcEl = document.getElementById('si-lib-pc');
-  const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();
+  // 検索語は1か所から読む（js/search-word.js）。ビューごとに別の入力欄を見ると、
+  // 同じ語で「テーブルには出るのにカードは0本」になる。
+  const raw = window.wkSearchWord ? window.wkSearchWord() : '';
   const parsed = _parseQuery(raw);
   // タグの条件は tag-filter.js で1回だけ組み立てる（どの呼び名で入っていても同じグループとして読む）。
   // 古い呼び名に入っている分は先に今の呼び名へ寄せる（今の呼び名を直接読む箇所に、見えない条件を残さない）

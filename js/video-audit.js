@@ -195,6 +195,50 @@
     </div>`;
   }
 
+  // ── ワード検索が何本消したか、どの項目に当たって消したか（読むだけ）──
+  // 「タイトルには入っていないのに全部消えた」の答えは、たいてい他の4項目にある。
+  // ふだんの検索は タイトル/チャンネル/プレイリスト/タグ/メモ をつないだ1本を見るため、
+  // プレイリスト名に語があれば、そのリストの動画が全部消える。推測せずに画面に出す。
+  const _F = [
+    { k: 'title', ja: 'タイトル',       get: v => v.title || '' },
+    { k: 'ch',    ja: 'チャンネル名',   get: v => v.channel || v.ch || '' },
+    { k: 'pl',    ja: 'プレイリスト名', get: v => v.pl || '' },
+    { k: 'tags',  ja: 'タグ',           get: v => '' },
+    { k: 'memo',  ja: 'メモ',           get: v => v.memo || '' },
+  ];
+  window.wkSearchWhy = function () {
+    const el  = document.getElementById('si-lib-pc') || document.getElementById('si');
+    const raw = (el && el.value || '').trim();
+    if (!raw || !window._parseQuery || !window._matchQuery) return null;
+    const parsed = window._parseQuery(raw);
+    if (!parsed.excludes.length && !parsed.includes.length && !parsed.phrase) return null;
+    const scope = window._cvVideoIds || window._cvCardVideoIds || null;
+    const pool  = (window.videos || []).filter(v => v && !v.archived && (!scope || scope.has(v.id)));
+    const gone  = pool.filter(v => !window._matchQuery(v, parsed, null));
+    if (!gone.length) return { raw, pool: pool.length, gone: 0, reasons: [] };
+    // 除外語ごとに、どの項目に当たったかを数える
+    const byWord = [];
+    for (const w of parsed.excludes) {
+      const counts = {}; const ex = {};
+      for (const v of gone) {
+        for (const f of _F) {
+          let hitF = false;
+          try { hitF = !!window._matchQueryField(v, w, false, { [f.k]: true }); } catch (e) {}
+          if (!hitF) continue;
+          counts[f.k] = (counts[f.k] || 0) + 1;
+          if (!ex[f.k]) ex[f.k] = { title: v.title || v.id, where: f.get(v) };
+        }
+      }
+      const rows = _F.filter(f => counts[f.k]).map(f => ({ ja: f.ja, n: counts[f.k], ex: ex[f.k] }))
+                     .sort((a, b) => b.n - a.n);
+      byWord.push({ word: '-' + w, kind: 'exclude', rows });
+    }
+    for (const inc of parsed.includes) {
+      byWord.push({ word: inc.text, kind: 'include', rows: [], n: gone.length });
+    }
+    return { raw, pool: pool.length, gone: gone.length, reasons: byWord };
+  };
+
   // ── 内訳ダイアログ ───────────────────────────────────
   window.wkVideoAuditOpen = function () {
     const s   = window.wkVideoStats();
@@ -207,6 +251,37 @@
     if (s.scoped)    rows += _row('いま開いているリストの範囲外', s.scoped + ' 本', s.scopeName || 'リストを閉じると出ます');
     if (s.archived)  rows += _row('アーカイブ済み（消えていません）', s.archived + ' 本', '設定＞アーカイブ');
     rows += _row('データにある全部の本数', s.total + ' 本', window._firebaseCurrentUser?.() ? 'ログイン中' : '未ログイン');
+
+    // ワード検索が何本消したか・どの項目に当たったか
+    let whyBlock = '';
+    try {
+      const why = window.wkSearchWhy();
+      if (why && why.gone) {
+        let inner = '';
+        for (const r of why.reasons) {
+          if (r.kind === 'include') {
+            inner += `<div style="margin:8px 0 2px;font-weight:600">「${_esc(r.word)}」がどこにも無い</div>`
+                  +  `<div style="color:var(--text3);font-size:12px">${r.n} 本</div>`;
+            continue;
+          }
+          inner += `<div style="margin:8px 0 2px;font-weight:600">「${_esc(r.word)}」が当たった項目</div>`;
+          if (!r.rows.length) { inner += `<div style="color:var(--text3);font-size:12px">（当たった項目なし）</div>`; continue; }
+          for (const x of r.rows) {
+            inner += `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px">`
+                  +  `<span>${_esc(x.ja)}に含む</span><span style="font-weight:600">${x.n} 本</span></div>`;
+            if (x.ex) inner += `<div style="color:var(--text3);font-size:11px;padding:0 0 4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">例: ${_esc(x.ex.title)}${x.ex.where ? '　→ ' + _esc(String(x.ex.where).slice(0, 60)) : ''}</div>`;
+          }
+        }
+        whyBlock = `
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-weight:700;margin-bottom:4px">検索で消えている理由</div>
+          <div style="color:var(--text3);font-size:12px;margin-bottom:6px">
+            いまの検索は「${_esc(why.raw)}」。ふだんの検索はタイトルだけでなく、チャンネル名・プレイリスト名・タグ・メモも見ます。
+          </div>
+          ${inner}
+        </div>`;
+      }
+    } catch (e) {}
 
     // 一覧から消えたのに、リスト・ノート・再生位置に ID だけ残っているもの
     let missing = [];
@@ -248,6 +323,7 @@
         </div>
         <div style="font-size:12px;color:var(--text3,#999);margin-bottom:8px">画面の本数は絞り込んだ結果です。減ったように見えるときは、ここでどこに行ったか確認できます。</div>
         ${rows}
+        ${whyBlock}
         ${missBlock}
         <div style="font-size:13px;font-weight:700;margin:14px 0 4px">読み込み・保存の記録（この端末）</div>
         ${hist}
