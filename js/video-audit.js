@@ -252,33 +252,41 @@
     if (s.archived)  rows += _row('アーカイブ済み（消えていません）', s.archived + ' 本', '設定＞アーカイブ');
     rows += _row('データにある全部の本数', s.total + ' 本', window._firebaseCurrentUser?.() ? 'ログイン中' : '未ログイン');
 
-    // ワード検索が何本消したか・どの項目に当たったか
+    // どの条件が何本消しているか（js/filter.js の wkWhyHidden。filt() と同じ判定・同じ順番）
     let whyBlock = '';
     try {
-      const why = window.wkSearchWhy();
-      if (why && why.gone) {
+      const w = window.wkWhyHidden?.();
+      if (w && w.rows && w.rows.length) {
         let inner = '';
-        for (const r of why.reasons) {
-          if (r.kind === 'include') {
-            inner += `<div style="margin:8px 0 2px;font-weight:600">「${_esc(r.word)}」がどこにも無い</div>`
-                  +  `<div style="color:var(--text3);font-size:12px">${r.n} 本</div>`;
-            continue;
-          }
-          inner += `<div style="margin:8px 0 2px;font-weight:600">「${_esc(r.word)}」が当たった項目</div>`;
-          if (!r.rows.length) { inner += `<div style="color:var(--text3);font-size:12px">（当たった項目なし）</div>`; continue; }
-          for (const x of r.rows) {
-            inner += `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px">`
-                  +  `<span>${_esc(x.ja)}に含む</span><span style="font-weight:600">${x.n} 本</span></div>`;
-            if (x.ex) inner += `<div style="color:var(--text3);font-size:11px;padding:0 0 4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">例: ${_esc(x.ex.title)}${x.ex.where ? '　→ ' + _esc(String(x.ex.where).slice(0, 60)) : ''}</div>`;
-          }
+        for (const r of w.rows) {
+          inner += `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:13px;border-bottom:1px solid var(--border)">`
+                +  `<span>${_esc(r.name)}</span><span style="font-weight:700;white-space:nowrap">${r.n} 本</span></div>`;
+          if (r.ex && r.ex.length) inner += `<div style="color:var(--text3);font-size:11px;padding:2px 0 4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">例: ${_esc(r.ex.join(' / '))}</div>`;
         }
+        // ワード検索が犯人なら、どの項目に当たったかまで出す
+        let sub = '';
+        try {
+          const why = window.wkSearchWhy?.();
+          if (why && why.gone && why.reasons?.length) {
+            for (const rr of why.reasons) {
+              if (rr.kind === 'include' || !rr.rows?.length) continue;
+              sub += `<div style="margin:8px 0 2px;font-weight:600;font-size:12px">「${_esc(rr.word)}」が当たった項目</div>`;
+              for (const x of rr.rows) {
+                sub += `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;font-size:12px">`
+                    +  `<span>${_esc(x.ja)}に含む</span><span style="font-weight:600">${x.n} 本</span></div>`;
+                if (x.ex) sub += `<div style="color:var(--text3);font-size:11px;padding:0 0 4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">例: ${_esc(x.ex.title)}${x.ex.where ? '　→ ' + _esc(String(x.ex.where).slice(0, 60)) : ''}</div>`;
+              }
+            }
+          }
+        } catch (e) {}
         whyBlock = `
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
-          <div style="font-weight:700;margin-bottom:4px">検索で消えている理由</div>
+          <div style="font-weight:700;margin-bottom:4px">どの条件が消しているか</div>
           <div style="color:var(--text3);font-size:12px;margin-bottom:6px">
-            いまの検索は「${_esc(why.raw)}」。ふだんの検索はタイトルだけでなく、チャンネル名・プレイリスト名・タグ・メモも見ます。
+            いまの範囲 ${w.scope} 本のうち、${w.shown} 本が出ています。1本につき最初に外した条件を1つ数えています。${w.word ? '検索語は「' + _esc(w.word) + '」。' : '検索語は入っていません。'}
           </div>
           ${inner}
+          ${sub}
         </div>`;
       }
     } catch (e) {}

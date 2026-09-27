@@ -371,45 +371,84 @@ export function filt(list) {
   // 古い呼び名に入っている分は先に今の呼び名へ寄せる（今の呼び名を直接読む箇所に、見えない条件を残さない）
   window.tagFilter?.normalize(window.filters, 'lib');
   const _tagOk = window.tagFilter ? window.tagFilter.compile(window.filters, 'lib') : () => true;
-  return list.filter(v => {
-    if (v.archived) return false;
-    if (window.favOnly   && !v.fav)   return false;
-    if (window.nextOnly  && !v.next)  return false;
-    if (window.drillOnly && !v.drill) return false;
-    if (window.unwOnly  && v.watched) return false;
-    if (window.watchedOnly && !v.watched) return false;
-    if (window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) return false;
-    if (window.memoOnly && !v.memo) return false;
-    if (window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) return false;
-    // 進捗ランク (自動導出) フィルター
-    if (window.prRank != null && window.vpCntRank) {
-      if (String(window.vpCntRank(v.practice).lv) !== String(window.prRank)) return false;
-    }
-    if (window.prDate) {
-      const lp = v.lastPracticed || 0;
-      const now = Date.now();
-      const days = lp ? (now - lp) / 86400000 : Infinity;
-      if (window.prDate === 'week'  && !(lp && days <= 7))  return false;
-      if (window.prDate === 'month' && !(lp && days <= 30)) return false;
-      if (window.prDate === 'stale' && !(lp && days > 30))  return false;
-      if (window.prDate === 'never' && lp)                  return false;
-    }
-    if (window.filters.platform.size && !window.filters.platform.has(v.pt)) return false;
-    // ── 検索演算子 (-除外 / "完全一致" / field:値 / フレーズ) ──
-    if (!_matchQuery(v, parsed, null)) return false;
-    if (window.filters.playlist.size && !window.filters.playlist.has(v.pl)) return false;
-    if (window.filters.prio.size && !window.filters.prio.has(v.prio)) return false;
-    if (window.filters.status.size && !window.filters.status.has(v.status)) return false;
-    if (!_tagOk(v)) return false;
-    if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
-    if (window.filters.videoIds?.size && !window.filters.videoIds.has(v.id)) return false;
-    if (window._uniVideoQ) {
-      const hay = [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ');
-      if (!hay.includes(window._uniVideoQ)) return false;
-    }
-    return true;
-  });
+  const conds = _libConds(parsed, _tagOk);
+  return list.filter(v => conds.every(c => c.ok(v)));
 }
+
+// ── 絞り込みの条件を「名前つきの並び」で持つ ──
+// filt() と「なぜ消えたか」の説明が、同じ並びの同じ判定を使う（片方だけ古くならないように）。
+// 順番と判定の中身は、1つ前の filt() と同じ。
+function _libConds(parsed, tagOk) {
+  const F = () => window.filters;
+  return [
+    { name: 'アーカイブ済み',         ok: v => !v.archived },
+    { name: '⭐ お気に入りだけ',       ok: v => !(window.favOnly   && !v.fav) },
+    { name: '🎯 Next だけ',            ok: v => !(window.nextOnly  && !v.next) },
+    { name: 'ドリルだけ',              ok: v => !(window.drillOnly && !v.drill) },
+    { name: '未視聴だけ',              ok: v => !(window.unwOnly   && v.watched) },
+    { name: '視聴済みだけ',            ok: v => !(window.watchedOnly && !v.watched) },
+    { name: 'ブックマークがあるものだけ', ok: v => !(window.bmOnly && !(v.bookmarks && v.bookmarks.length > 0)) },
+    { name: 'メモがあるものだけ',      ok: v => !(window.memoOnly && !v.memo) },
+    { name: '画像があるものだけ',      ok: v => !(window.imgOnly && !(v.snapshots && v.snapshots.length > 0)) },
+    { name: '進捗ランク', ok: v => {
+        if (window.prRank == null || !window.vpCntRank) return true;
+        return String(window.vpCntRank(v.practice).lv) === String(window.prRank);
+      } },
+    { name: '練習した時期', ok: v => {
+        if (!window.prDate) return true;
+        const lp = v.lastPracticed || 0;
+        const days = lp ? (Date.now() - lp) / 86400000 : Infinity;
+        if (window.prDate === 'week')  return !!(lp && days <= 7);
+        if (window.prDate === 'month') return !!(lp && days <= 30);
+        if (window.prDate === 'stale') return !!(lp && days > 30);
+        if (window.prDate === 'never') return !lp;
+        return true;
+      } },
+    { name: 'ソース（YouTube/Drive等）', ok: v => !(F().platform.size && !F().platform.has(v.pt)) },
+    { name: 'ワード検索',              ok: v => _matchQuery(v, parsed, null) },
+    { name: 'プレイリスト',            ok: v => !(F().playlist.size && !F().playlist.has(v.pl)) },
+    { name: '優先度',                  ok: v => !(F().prio.size && !F().prio.has(v.prio)) },
+    { name: '習得（未着手/理解/…）',   ok: v => !(F().status.size && !F().status.has(v.status)) },
+    { name: 'タグ',                    ok: v => tagOk(v) },
+    { name: 'チャンネル',              ok: v => !(F().channel.size && !F().channel.has(v.channel || v.ch)) },
+    { name: '動画の指定',              ok: v => !(F().videoIds?.size && !F().videoIds.has(v.id)) },
+    { name: '絞り込み画面の検索', ok: v => {
+        if (!window._uniVideoQ) return true;
+        return [(v.title||'').toLowerCase(), (v.channel||v.ch||'').toLowerCase()].join(' ').includes(window._uniVideoQ);
+      } },
+  ];
+}
+
+// ── どの条件が何本消しているか（読むだけ。内訳ダイアログが使う）──
+// 推測しないで済むように、画面がそのまま名前で答える。
+// 1本につき「最初に外した条件」を1つ数える（filt() と同じ順番）。
+window.wkWhyHidden = function () {
+  const all = window.videos || [];
+  let list = all;
+  if (window._cvCardVideoIds) list = list.filter(v => window._cvCardVideoIds.has(v.id));
+  else if (window._cvVideoIds) list = list.filter(v => window._cvVideoIds.has(v.id));
+  const raw = window.wkSearchWord ? window.wkSearchWord() : '';
+  const parsed = _parseQuery(raw);
+  window.tagFilter?.normalize(window.filters, 'lib');
+  const tagOk = window.tagFilter ? window.tagFilter.compile(window.filters, 'lib') : () => true;
+  const conds = _libConds(parsed, tagOk);
+  const cnt = new Map();
+  let shown = 0;
+  for (const v of list) {
+    const c = conds.find(x => !x.ok(v));
+    if (!c) { shown++; continue; }
+    const e = cnt.get(c.name) || { name: c.name, n: 0, ex: [] };
+    e.n++;
+    if (e.ex.length < 2) e.ex.push(v.title || v.id);
+    cnt.set(c.name, e);
+  }
+  return {
+    word: raw,
+    scope: list.length,
+    shown,
+    rows: [...cnt.values()].sort((a, b) => b.n - a.n),
+  };
+};
 
 // ── コンテキスト件数：現在のフィルター状態を考慮した件数 ──
 // key以外のアクティブなフィルターを適用した上で、そのkeyにvalを追加したときの件数を返す
