@@ -137,5 +137,23 @@ ck('7 メモから作ったノートの動画リスト: タグ1〜4のどれで�
 ck('ノートの動画リストの「未視聴」: 存在しない v.unw を見ない', !/v\.unw\b/.test(code['js/notes.js']));
 ck('tag-filter.js は index.html で一覧（tag-registry.js）の後に読まれる', read('index.html').indexOf('js/tag-registry.js') < read('index.html').indexOf('js/tag-filter.js'));
 
+console.log('── ⑥ 検索の対象（段階2b）──');
+{
+  const ids = R.searchIds();
+  ck('既定では今の4つ（と旧テンプレートのグループ）が検索の対象・マークと習得は対象外',
+    ['f_tb', 'f_cat', 'f_pos', 'f_tags'].every(i => ids.includes(i)) && !ids.includes('mark') && !ids.includes('status'), J(ids));
+  const v = { tb: ['トップ'], cat: ['パスガード'], pos: [], tags: ['キムラ'], fav: true };
+  ck('検索の文字は今の保存場所から読む', J(R.searchText(v, 'f_cat')) === J(['パスガード']));
+  ck('マークは値ではなく表示名で探せる（対象にしたとき用）', J(R.searchText(v, 'mark')) === J(['⭐ お気に入り']));
+  const raw = R.raw(); raw.groups.find(g => g.id === 'f_cat').search = false; R.applyRemote(raw);
+  ck('「検索の対象にしない」にしたグループは外れる', !R.searchIds().includes('f_cat') && R.searchIds().includes('f_tb'));
+  const org = code['js/organize.js'];
+  ck('ワード検索の本文のタグは、検索の対象のグループだけから作る', /R\.searchTagText\(v\)/.test(org) && /tags:\s*_searchTagText\(v\)/.test(org));
+  ck('searchTagText と searchIds/searchText の結果が同じ（速い方が別の答えを出さない）',
+    [v, { tb: [], cat: ['x'], pos: ['p'], tags: [], tg: { t_menu: ['A'] }, status: '理解', next: true }].every(x =>
+      R.searchTagText(x) === R.searchIds().flatMap(id => R.searchText(x, id)).join(' / ')));
+  ck('ワード検索の本文にタグ1〜4を直接並べていない', !/tags:\s*\[\.\.\.\(v\.tb/.test(org));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');
 process.exit(fail ? 1 : 0);

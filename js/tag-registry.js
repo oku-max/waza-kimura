@@ -32,6 +32,7 @@
   const _en = () => { try { return window.WK_LANG && window.WK_LANG() === 'en'; } catch (e) { return false; } };
 
   let _reg = null;        // いまの一覧（保存する形）
+  let _searchCache = null; // 検索の対象のグループ（一覧が変わったら捨てる）
   let _readOnly = false;  // 自分より新しい形の一覧を受け取ったら、書き換えない
 
   // ── 形の検査。合わないものは受け取らない（壊れた値で上書きしない）──
@@ -105,7 +106,7 @@
       r.migratedTemplates.push(tid);
       changed = true;
     });
-    if (changed) _cache();
+    if (changed) { _searchCache = null; _cache(); }
     return changed;
   }
 
@@ -131,6 +132,7 @@
   // クラウドの一覧を受け取る。形が合わなければ何もしない（false）。
   // null は「クラウドにまだ無い」: この端末の控えは別の人のものかもしれないので使わず、まっさらから作る。
   function applyRemote(r) {
+    _searchCache = null;
     if (r == null) {
       _reg = _fresh();
       _readOnly = false;
@@ -197,8 +199,33 @@
     return Array.isArray(m) ? m.slice() : [];
   }
 
+  // ワード検索の対象にするグループのID（並びは一覧の順）。検索は動画1本×打鍵ごとに呼ぶので、
+  // 名前や選択肢は組み立てずに、保存している形から直接読む（軽くしておく）。
+  function searchIds() {
+    _ensure();
+    return _reg.groups.filter(g => g.search !== false).map(g => g.id);
+  }
+  // 検索用の文字（マークは値ではなく表示名で探せるように）
+  function searchText(v, id) {
+    const g = _reg.groups.find(x => x.id === id);
+    return valuesOf(v, id).map(x => optionLabel(g, x));
+  }
+  // 動画1本の、検索の対象のタグをすべてつないだ文字。検索のたびに全動画で呼ばれるので、
+  // 対象のグループは覚えておき（一覧が変わったときだけ作り直す）、値は保存場所から直接読む。
+  function searchTagText(v) {
+    if (!_searchCache) { _ensure(); _searchCache = _reg.groups.filter(g => g.search !== false); }
+    const out = [];
+    for (const g of _searchCache) {
+      if (FIELD_STORES.includes(g.store)) { const a = v[g.store]; if (Array.isArray(a)) for (const x of a) out.push(x); }
+      else if (g.store === 'mark') { for (const o of MARK_OPTS) if (v[o.value]) out.push(_en() ? o.en : o.ja); }
+      else if (g.store === 'status') { if (v.status) out.push(v.status); }
+      else { const m = v.tg && typeof v.tg === 'object' ? v.tg[g.id] : null; if (Array.isArray(m)) for (const x of m) out.push(x); }
+    }
+    return out.join(' / ');
+  }
+
   window.tagRegistry = {
-    groups, group, slots, valuesOf, optionLabel, raw, isReadOnly, reconcile, applyRemote,
+    groups, group, slots, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,
   };
 })();

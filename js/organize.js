@@ -377,6 +377,11 @@ export function _matchQuery(v, parsed, fields) {
 // 打鍵のたびに2,800本×5項目を正規化し直すと重いので、元の文字列が変わったときだけ作り直す。
 // 動画オブジェクト自体には何も書き込まない（保存経路に乗せないため WeakMap を使う）。
 const _textCache = new WeakMap();
+function _searchTagText(v) {
+  const R = window.tagRegistry;
+  if (!R) return [...(v.tb || []), ...(v.cat || []), ...(v.pos || []), ...(v.tags || [])].join(' / ');
+  return R.searchTagText(v);
+}
 function _videoText(v) {
   const rawLower = window._rawLowerTag || (x => String(x || '').toLowerCase());
   const norm     = window._normTag     || (x => String(x || '').toLowerCase());
@@ -385,7 +390,8 @@ function _videoText(v) {
     ch:    v.channel || v.ch || '',
     pl:    v.pl || '',
     memo:  v.memo || '',
-    tags:  [...(v.tb || []), ...(v.cat || []), ...(v.pos || []), ...(v.tags || [])].join(' / '),
+    // タグは「検索の対象にする」グループのものだけ（段階2b。一覧の search）。今の4つは既定で対象
+    tags:  _searchTagText(v),
   };
   const got = _textCache.get(v);
   if (got && got.src.title === src.title && got.src.ch === src.ch && got.src.pl === src.pl
