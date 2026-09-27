@@ -1372,6 +1372,34 @@ body.dark .ts-link:hover{background:#27323f;}
   outline: none;
 }
 .tab-srch input::placeholder { color: var(--text3); }
+
+/* ── 検索欄が白く抜けるのを防ぐ（2026-09-27）──
+   ブラウザの自動入力（autofill）は、こちらの指定を無視して
+   背景を白・文字を黒で塗る。このアプリは暗い画面なので、
+   検索欄だけが紙のように白く残っていた。
+   背景色は直接は上書きできないので、内側に影を敷いて同じ色で埋める。 */
+.tab-srch input:-webkit-autofill,
+.tab-srch input:-webkit-autofill:hover,
+.tab-srch input:-webkit-autofill:focus,
+.tab-srch input:-webkit-autofill:active,
+.lib-sb-search input:-webkit-autofill,
+.lib-sb-search input:-webkit-autofill:hover,
+.lib-sb-search input:-webkit-autofill:focus,
+.lib-sb-search input:-webkit-autofill:active,
+#si:-webkit-autofill, #si-lib-pc:-webkit-autofill,
+#si-org:-webkit-autofill, #si-org-pc:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface2) inset;
+          box-shadow: 0 0 0 1000px var(--surface2) inset;
+  caret-color: var(--text);
+  /* 自動入力の背景は時間差で塗られる。実質止まるまで遅らせる */
+  transition: background-color 9999s ease-out 0s;
+}
+/* 選んだ文字が白地に白にならないように */
+.tab-srch input::selection,
+.lib-sb-search input::selection { background: var(--accent, #4a7dff); color: #fff; }
+.tab-srch input::-webkit-selection,
+.lib-sb-search input::-webkit-selection { background: var(--accent, #4a7dff); color: #fff; }
 .tab-bar-btn {
   padding: 5px 10px;
   border-radius: 6px;
