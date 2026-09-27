@@ -196,25 +196,18 @@ console.log('■ ⑦ 書き方の揺れが、辞書に書き足さなくても�
   ngList.length
     ? ngList.forEach(([w, t, why]) => fail(`「${w}」→「${t}」が当たらない（${why}）`))
     : ok(`${cases.length} 通りの書き方の揺れが、辞書に書き足さずに当たる`);
-  // 打った語は「含む」で素直に当たること（v52.856 で戻した）
+  // 英語は「含む」で素直に当たること（v52.826 より前と同じ・v52.860 で戻した）
   // 番号付きのタイトル（「02-Quick1.」「30-Quick5.」）に当たらなくなっていた。
   const plain = [
     ['quick', '30-Quick5. ハーフガードの基本'],
     ['quick', '02-Quick1. パスガード'],
     ['step',  'Longstep2.mp4'],
+    ['ヒールフック', 'Heel Hooks 101'],
   ];
   const plainNg = plain.filter(([w, t]) => !hit(w, t));
   plainNg.length
-    ? plainNg.forEach(([w, t]) => fail(`打った語「${w}」が「${t}」に当たらない（番号付きのタイトル）`))
-    : ok(`打った語は「含む」で素直に当たる（${plain.length} 通り・番号が直後に来ても当たる）`);
-
-  // 辞書が広げた語だけは単語の区切りを保つこと（辞書が勝手に広がらない）
-  hit('ハーフガード', 'Halfway house drills')
-    ? fail('辞書の "half" が "halfway" に当たっている（辞書側の単語の区切りが効いていない）')
-    : ok('辞書の "half" は "halfway" に当たらない（辞書側の単語の区切りは保っている）');
-  hit('ハーフガード', 'Half5 guard passing')
-    ? ok('辞書の語でも、直後の数字は区切りとして扱う')
-    : fail('辞書の "half" が "Half5" に当たらない（数字が区切りになっていない）');
+    ? plainNg.forEach(([w, t]) => fail(`「${w}」が「${t}」に当たらない`))
+    : ok(`英語は「含む」で素直に当たる（${plain.length} 通り・番号が直後に来ても当たる）`);
 }
 
 // ⑧ 読める一覧（docs/search-dict.md）が古くなっていないこと

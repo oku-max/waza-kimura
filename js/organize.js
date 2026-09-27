@@ -433,56 +433,35 @@ window._wkVideoText = _videoText;
 // 日本語: 正規化して部分一致（全角/半角・カタカナ/ひらがな・長音・中黒の違いを吸収）。
 //   → 「ｽｲｰﾌﾟ」で「スイープ」、「ＤＬＲ」で「DLR」、「Heel Hook」で「Heel Hooks」に当たる。
 //   辞書に書き方を並べて増やすのではなく、両側を同じ形に揃えて突き合わせる。
-// 語ごとの正規表現は作り直さない（2,800本×打鍵で作ると重い）
+// 1文字の語だけ正規表現を使う（"k" が "ks" に当たらないように）。作り直さない（打鍵ごとに重い）
 const _reCache = new Map();
-function _termRe(core) {
+function _oneCharRe(core) {
   let re = _reCache.get(core);
   if (re !== undefined) return re;
-  const bare = core.replace(/[\s\-_]+/g, '');
-  if (!bare) { re = null; }
-  else {
-    const q   = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const esc = q(core).replace(/[\s\-_]+/g, '[\\s\\-_]+');
-    // 区切り無しで書かれた本文にも当てる（"de la riva" ↔ "delariva"）
-    const alt = (bare === core) ? esc : (esc + '|' + q(bare));
-    // 1文字("k","x")は複数形を許さない（"ks" のような偶然に当たらないように）
-    const tail = bare.length === 1 ? '' : '(?:e?s)?';
-    // 語の端が英字なら、隣の数字は区切りとして扱う（v52.856）。
-    //   オーナーのタイトルは「02-Quick1.」「30-Quick5.」のように語の直後に番号が付く。
-    //   端が数字の語（"50/50" 等）は数字を区切りに含めない（"150/500" に当たらないように）。
-    const lead = /^[a-z]/.test(bare) ? '[^a-z]'  : '[^a-z0-9]';
-    const tailB = /[a-z]$/.test(bare) ? '[^a-z]' : '[^a-z0-9]';
-    re = new RegExp('(^|' + lead + ')(?:' + alt + ')' + tail + '($|' + tailB + ')');
-  }
+  re = new RegExp('(^|[^a-z0-9])' + core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])');
   if (_reCache.size > 400) _reCache.clear();
   _reCache.set(core, re);
   return re;
 }
 
-// fromDict: 辞書が広げた別表記のときだけ true。
-// 打った語は「含む」で素直に照合する（v52.856）。
-//   v52.826 で英語を一律「単語の区切りで一致」にしたら、オーナーのタイトル
+// 英語は「含む」で素直に照合する（v52.826 より前と同じ）。
+//   v52.826 で一律「単語の区切りで一致」にしたら、オーナーのタイトル
 //   「02-Quick1.」「30-Quick5.」のように語の直後に数字が来るものに当たらなくなり、
-//   quick の除外が 2,823本中1本も効かなくなっていた（それ以前は素直な includes だった）。
-//   単語の区切りが要るのは「辞書が勝手に広げた語」の側（pass が compass に当たらない）。
-//   打った語は本人が打ったものなので、広げずにそのまま探す。
-function _hitField(text, f, fromDict) {
+//   quick の除外が 2,823本中1本も効かなくなっていた（v52.860 で元に戻した）。
+function _hitField(text, f) {
   if (!text || !f) return false;
   const t = String(text);
   if (/^[\x20-\x7E]+$/.test(t)) {
     const core = t.toLowerCase().trim();
     const bare = core.replace(/[\s\-_]+/g, '');
     if (!bare) return false;
-    if (!fromDict && bare.length > 1) {
-      // 生テキストにそのまま入っているか、記号や空白を落とした形で入っているか
-      // （"de la riva" が "delariva" にも当たる）
-      if (f.raw.includes(core)) return true;
-      const n = (window._normTag || (x => x))(core);
-      return !!n && f.norm.includes(n);
-    }
-    // 1文字("k","x")と、辞書が広げた語は単語の区切りで照合する
-    const re = _termRe(core);
-    return !!re && re.test(f.raw);
+    // 1文字("k","x")だけは単語の区切りで照合する（昔からこうだった）
+    if (bare.length === 1) return _oneCharRe(core).test(f.raw);
+    if (f.raw.includes(core)) return true;
+    // 区切り無しで書かれた本文にも当てる（"de la riva" ↔ "delariva"）
+    if (bare !== core && f.raw.includes(bare)) return true;
+    const n = (window._normTag || (x => x))(core);
+    return !!n && f.norm.includes(n);
   }
   const n = (window._normTag || (x => x))(t);
   return !!n && f.norm.includes(n);
@@ -512,7 +491,7 @@ export function _matchQueryField(v, text, exact, fields) {
   const names = window.aliasNamesFor ? window.aliasNamesFor(text) : null;
   if (names && names.length) {
     for (const nm of names) {
-      if (nm && nm !== text && use.some(f => _hitField(nm, f, true))) return true;
+      if (nm && nm !== text && use.some(f => _hitField(nm, f))) return true;
     }
   }
   return false;
