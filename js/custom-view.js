@@ -101,12 +101,12 @@ function _saveCurrentFilterSnapshot() {
   // _uniVideoQ（統合フィルターの「動画を探す」欄）は別物なので混ぜない
   snap._search = (window.wkSearchWord ? window.wkSearchWord() : '') || _cvSrchQ || '';
   _viewFilterSnapshots[key] = snap;
-  // カスタムビューの検索ワードは view オブジェクトにも永続保存し、リロード/再訪時にも復元する
-  // （master には保存先の view が無いのでスキップ）。
-  if (_curId) {
-    const v = _views.find(x => x.id === _curId);
-    if (v && v.searchQuery !== snap._search) { v.searchQuery = snap._search; _cvPersistSoon(); }
-  }
+  // 打った語は、そのセッションの中だけで覚える（上の _viewFilterSnapshots）。
+  // リストの持ち物（view.searchQuery）としては保存しない（v52.872）。
+  // 一度テストで打った「-quick」がリストに焼き付き、リロードのたびに復活して
+  // 「何度直しても0本のまま」になっていた。検索は一時的な操作であって、
+  // 手で選んだリストの中身の定義ではない。
+  // 保存済みの searchQuery は消さない（読まなくなるだけ）。
 }
 
 function _restoreFilterSnapshot(key) {
@@ -114,7 +114,10 @@ function _restoreFilterSnapshot(key) {
   // 検索ワードの復元: セッション内スナップショットを優先（直近のクリア操作も尊重）、
   // 無ければ view に永続保存した searchQuery を復元（リロード後の再訪でワードを呼び戻す）。
   const view = _views.find(v => v.id === key);
-  const q = (snap && typeof snap._search === 'string') ? snap._search : ((view && view.searchQuery) || '');
+  // 条件で作ったリスト（dynamic）は、語もそのリストの定義の一部なので戻す。
+  // 手で選んだリスト（manual）は、語は一時的な操作でしかないので戻さない（v52.872）。
+  const _defQ = (view && view.saveMode === 'dynamic') ? (view.searchQuery || '') : '';
+  const q = (snap && typeof snap._search === 'string') ? snap._search : _defQ;
   // ワードは _uniRestoreFilters より先に確定する。_uniRestoreFilters は AF→_cvUpdateSearch を
   // 誘発することがあり、その時点で _cvSrchQ が未設定(空)だと searchQuery を空で上書きしてしまうため。
   _cvSrchQ = q;
@@ -1293,7 +1296,7 @@ function _cvUpdateSearch(view) {
   window._cvVideoIds = new Set(filtered.map(v => v.id));
   window._vpFilteredList = filtered.length ? filtered : null;
   // 検索ワードを view に永続化（変更時のみ・デバウンス保存）。開いた直後は復元値と一致し保存不要。
-  if (view && view.searchQuery !== rawQ) { view.searchQuery = rawQ; _cvPersistSoon(); }
+  // 打った語はリストに焼き付けない（v52.872）。保存済みのものは消さない。
   window.renderOrg?.();
 }
 
