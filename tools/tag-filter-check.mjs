@@ -155,5 +155,20 @@ console.log('── ⑥ 検索の対象（段階2b）──');
   ck('ワード検索の本文にタグ1〜4を直接並べていない', !/tags:\s*\[\.\.\.\(v\.tb/.test(org));
 }
 
+console.log('── ⑦ 選択肢の見せ方（段階2c）──');
+{
+  ck('境目は一覧の1か所（8個まで並べる・9個からプルダウン）', R.CHIP_MAX === 8 && R.displayMode(8) === 'chips' && R.displayMode(9) === 'dropdown');
+  const vp = code['js/vpanel-v4.js'], bk = code['js/bulk.js'];
+  ck('動画パネルとまとめて編集が同じ境目を読む', /_R\(\)\.displayMode\(g\.options\.length\)/.test(vp) && /_TGR\.displayMode\(g\.options\.length\)/.test(bk));
+  ck('どちらも タグ1〜4の枠（slots）から並べる', /R\.slots\(\)/.test(vp) && /_TGR\.slots\(\)/.test(bk));
+  ck('タグのチップは値を onclick の文字列に埋め込まない（\x27 を含む値でボタンが壊れていた）', !/onclick="(vpV4|bvpTag)[A-Za-z]*\([^"]*\$\{/.test(vp + bk));
+  // まとめて編集の「タグリセット」（bulkTagReset）は別の機能。入口を合わせるのは段階4
+  const apply = bk.slice(bk.indexOf('function _bvpApply'), bk.indexOf('export function bvpTagChip'));
+  ck('書き込みの入口は1つ（まとめて編集の付け外しも wkSetTagValue を使う）', /window\.wkSetTagValue = function/.test(vp) && /window\.wkSetTagValue\(v, gid, val, on\)/.test(apply) && !/\.push\(|\.splice\(|\.filter\(/.test(apply.replace(/sel\.forEach/, '')));
+  ck('新しい値を打ち込めるのはタグ4だけ（今までどおり。選択肢へ自動で足すのは段階4）', /_allowNew = g => g\.store === 'tags'/.test(vp) && /g\.store !== 'tags'\) return;/.test(bk));
+  ck('まとめて編集の取り消しに新しいグループの値（v.tg）も入る', /s\.tg = JSON\.parse\(JSON\.stringify\(v\.tg\)\)/.test(bk) && /!\('tg' in s\)/.test(bk));
+  ck('古いグループ別の部品が戻っていない', !/vpV4ToggleTb|vpV4ToggleCat|vpV4OpenPosDd|vpV4OpenTagDd|bvpToggleV4|bvpOpenPosDd|bvpOpenTagDd/.test(vp + bk));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');
 process.exit(fail ? 1 : 0);

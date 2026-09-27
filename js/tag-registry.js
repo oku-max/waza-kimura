@@ -224,8 +224,14 @@
     return out.join(' / ');
   }
 
+  // 選択肢の見せ方（段階2c）: この数までは並べて押す。超えたらプルダウンから選ぶ。
+  // 境目はここだけに置く（動画パネル・まとめて編集が同じ数を読む）。
+  const CHIP_MAX = 8;
+  function displayMode(optionCount) { return optionCount <= CHIP_MAX ? 'chips' : 'dropdown'; }
+
   window.tagRegistry = {
-    groups, group, slots, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw, isReadOnly, reconcile, applyRemote,
+    groups, group, slots, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
+    CHIP_MAX, displayMode, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,
   };
 })();

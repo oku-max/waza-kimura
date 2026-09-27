@@ -21,8 +21,9 @@ const HTML = `<!DOCTYPE html><html><body><script>
  window.selIds=new Set(['a','b']);
  window.tagSettings=['tb','cat','pos','tags'].map(k=>({key:k,visible:true,presets:[]}));
  window.tagLabel=k=>({tb:'タグ1<b>',cat:'タグ2',pos:'タグ3',tags:'タグ4'})[k];
+ window.tagPresets=k=>[];
  window.normStatus=s=>s||'未着手'; window.STATUS_CANON=['未着手','理解','練習中','マスター'];
-<\/script><script type="module">
+<\/script><script src="/js/tag-registry.js"><\/script><script type="module">
  import * as B from '/js/bulk.js';
  try { const h=B.buildBulkDrawerHTML(); window.__r={ok:true,len:h.length,esc:h.includes('タグ1&lt;b&gt;')}; }
  catch(e){ window.__r={ok:false,err:String(e)}; }

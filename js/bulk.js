@@ -131,74 +131,31 @@ export function buildBulkDrawerHTML() {
     </div>
   </div>`;
 
-  // ── タグ section (VPanel v4 と同じ構造) ──
-  // 選択肢はユーザーのもの（tagPresets）。辞書は英語表記の引き当てにしか使わない。
-  const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || []));
-  const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name: n }));
-  const POSS = _posOpts();
-  const allTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
-
-  // 共通タグ = 全選択動画が持つタグ
-  const commonTb = TB.filter(t => selVids.every(v=>(v.tb||[]).includes(t)));
-  const commonCat = (CATS.map(c=>c.name)||[]).filter(c => selVids.every(v=>(v.cat||[]).includes(c)));
-  const commonPos = [...new Set(selVids.flatMap(v=>v.pos||[]))].filter(p => selVids.every(v=>(v.pos||[]).includes(p)));
-  const commonTags = allTags.filter(t => selVids.every(v=>(v.tags||[]).includes(t)));
-
-  // TB row (トグルチップ)
-  const tbRow = TB.map(t => {
-    const on = commonTb.includes(t);
-    return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="bvpToggleV4('tb','${t}',this)">${t}</span>`;
-  }).join('');
-
-  // Category row (トグルチップ)
-  const catRow = CATS.map(c => {
-    const on = commonCat.includes(c.name);
-    return `<span class="vp-chip${on?' on-cat':''}" style="cursor:pointer" title="${_esc(c.desc||'')}" onclick="bvpToggleV4('cat','${_esc(c.name)}',this)">${_esc(c.name)}</span>`;
-  }).join('');
-
-  // Position row (選択中チップ + カスタムDD)
-  const posChips = commonPos.map(p =>
-    `<span class="vp-chip on-pos" style="cursor:pointer" onclick="bvpRemoveV4('pos','${_esc(p)}',this)">${_esc(p)} ×</span>`
-  ).join('');
-  const posPicker = `
-    <div class="vp-dd-wrap" style="display:inline-block;position:relative">
-      <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="bvpOpenPosDd()">＋ ポジション</span>
-      <div class="vp-dd" id="bvp-pos-dd" style="display:none">
-        <input class="vp-dd-search" placeholder="絞り込み..."
-          oninput="bvpFilterPosDd(this.value)"
-          onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}">
-        <div class="vp-dd-list" id="bvp-pos-list"></div>
-      </div>
-    </div>`;
-
-  // #タグ row (選択中チップ + カスタムDD)
-  const tagChips = commonTags.map(t =>
-    `<span class="vp-chip on-tags" style="cursor:pointer" onclick="bvpRemoveV4('tags','${_esc(t)}',this)">${_esc(t)} ×</span>`
-  ).join('');
-  const tagInput = `
-    <div class="vp-dd-wrap" style="display:inline-block;position:relative">
-      <span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="bvpOpenTagDd()">＋ テクニック</span>
-      <div class="vp-dd" id="bvp-tag-dd" style="display:none">
-        <input class="vp-dd-search" id="bvp-tag-inp" placeholder="テクニック検索・新規追加（Enterで追加）"
-          oninput="bvpTagFilter(this.value)"
-          onkeydown="bvpTagKey(event,this)">
-        <div class="vp-dd-list" id="bvp-tag-sug"></div>
-      </div>
-    </div>`;
-
-  const _tsVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
-  const _showTb   = _tsVis('tb');
-  const _showCat  = _tsVis('cat');
-  const _showPos  = _tsVis('pos');
-  const _showTagsF = _tsVis('tags');
-  const _L = k => _esc(window.tagLabel ? window.tagLabel(k) : k);
-  const _tbRowEl   = _showTb   ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('tb')}</span><div class="vp-chips">${tbRow}</div></div>` : '';
-  const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('cat')}</span><div class="vp-chips">${catRow}</div></div>` : '';
-  const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('pos')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
-  const _tagsRowEl = _showTagsF ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('tags')}</span><div class="vp-chips">${tagChips}${tagInput}</div></div>` : '';
-  const tagSec = (_showTb || _showCat || _showPos || _showTagsF) ? `<div class="fsec">
+  // ── タグ section（動画パネルと同じ作り・段階2c）──
+  // タグ1〜4の枠のグループを並べ、選択肢の数で見せ方を決める（少なければ並べて押す、多ければプルダウン）。
+  // 「付いている」＝選んだ動画のすべてに付いている値。押すと、全部に付いていれば全部から外し、そうでなければ全部に付ける。
+  // 値は onclick の文字列に埋め込まず data 属性で渡す（' を含む値でボタンが壊れていた）。
+  const _TGR = window.tagRegistry;
+  const _TGS = _TGR ? _TGR.slots().filter(g => g && (['tb','cat','pos','tags'].includes(g.store) || g.store === 'map'))
+    .filter(g => { if (g.store === 'map') return true; const s = (window.tagSettings || []).find(t => t.key === g.store); return s ? s.visible !== false : true; }) : [];
+  const _ONC = { tb:'on-tb', cat:'on-cat', pos:'on-pos', tags:'on-tags' };
+  const _tagRow = g => {
+    const cls = _ONC[g.store] || 'on-tags';
+    const common = [...new Set(selVids.flatMap(v => _TGR.valuesOf(v, g.id)))].filter(t => selVids.every(v => _TGR.valuesOf(v, g.id).includes(t)));
+    const da = t => `data-gid="${_esc(g.id)}"` + (t != null ? ` data-val="${_esc(t)}"` : '');
+    let inner;
+    if (_TGR.displayMode(g.options.length) === 'chips') {
+      const shown = g.options.concat(common.filter(t => !g.options.includes(t)));
+      inner = shown.map(t => `<span class="vp-chip${common.includes(t) ? ' ' + cls : ''}" style="cursor:pointer" ${da(t)} onclick="bvpTagChip(this)">${_esc(t)}</span>`).join('');
+      if (g.store === 'tags') inner += _bvpDdHTML(g, da);
+    } else {
+      inner = common.map(t => `<span class="vp-chip ${cls}" style="cursor:pointer" ${da(t)} onclick="bvpTagRemove(this)">${_esc(t)} ×</span>`).join('') + _bvpDdHTML(g, da);
+    }
+    return `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_esc(g.name)}</span><div class="vp-chips">${inner}</div></div>`;
+  };
+  const tagSec = _TGS.length ? `<div class="fsec">
     <div class="fsec-title">タグ</div>
-    ${_tbRowEl}${_catRowEl}${_posRowEl}${_tagsRowEl}
+    ${_TGS.map(_tagRow).join('')}
   </div>` : '';
 
   // AI一括実行（オーナー限定・Geminiを使うため）
@@ -242,14 +199,6 @@ export function buildBulkDrawerHTML() {
 // ── BVP ドロップダウン制御（VPanelと同じ動的レンダリング） ──
 
 
-// ポジションの選択肢。中身はユーザーのもの(tagPresets)、英語表記だけ辞書から引く。
-// （検索で p.en を見る箇所があるので en を必ず持たせる）
-function _posOpts() {
-  const dict = new Map((window.POSITIONS || []).map(p => [p.ja, p.en || '']));
-  const names = window.tagPresets ? window.tagPresets('pos') : [...dict.keys()];
-  return names.map(n => ({ ja: n, en: dict.get(n) || '' }));
-}
-
 export function bvpTogDd(key) {
   window.wkDdToggle(document.getElementById('bvp-dd-' + key), {
     focus: true,
@@ -260,70 +209,75 @@ export function bvpTogDd(key) {
   });
 }
 
-// ── ポジション カスタムDD ──
-export function bvpOpenPosDd() {
-  window.wkDdToggle(document.getElementById('bvp-pos-dd'), { focus: true, after: () => _bvpRenderPosDd('') });
+// ── タグのプルダウン（グループ共通・段階2c）──
+function _bvpEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _bvpDdHTML(g, da) {
+  const ph = g.store === 'tags' ? 'テクニック検索・新規追加（Enterで追加）' : '絞り込み...';
+  return `
+    <div class="vp-dd-wrap" style="display:inline-block;position:relative">
+      <span class="vp-chip" style="border-style:dashed;cursor:pointer" ${da()} onclick="bvpTagOpenDd(this)" data-user-text="1">＋ ${_bvpEsc(g.name)}</span>
+      <div class="vp-dd" id="bvp-dd-g-${_bvpEsc(g.id)}" style="display:none">
+        <input class="vp-dd-search" placeholder="${ph}" ${da()} oninput="bvpTagDdFilter(this)" onkeydown="bvpTagDdKey(event,this)">
+        <div class="vp-dd-list" id="bvp-ddlist-g-${_bvpEsc(g.id)}"></div>
+      </div>
+    </div>`;
 }
-
-function _bvpRenderPosDd(q) {
-  const list = document.getElementById('bvp-pos-list');
+function _bvpSel() { return [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean); }
+function _bvpRenderDd(g, q) {
+  const list = document.getElementById('bvp-ddlist-g-' + g.id);
   if (!list) return;
-  const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
-  const commonPos = [...new Set(selVids.flatMap(v => v.pos || []))].filter(p => selVids.every(v => (v.pos || []).includes(p)));
-  const POSS = _posOpts();
+  const R = window.tagRegistry, sel = _bvpSel();
+  const common = new Set([...new Set(sel.flatMap(v => R.valuesOf(v, g.id)))].filter(t => sel.every(v => R.valuesOf(v, g.id).includes(t))));
+  // 候補 = 選択肢 ＋ ほかの動画に付いている値（動画パネルと同じ）
+  const seen = new Set(g.options), extra = new Set();
+  (window.videos || []).forEach(x => R.valuesOf(x, g.id).forEach(t => { if (!seen.has(t)) extra.add(t); }));
+  const cands = g.options.concat([...extra].sort((a, b) => String(a).localeCompare(String(b), 'ja')));
+  const posDict = g.store === 'pos' ? new Map((window.POSITIONS || []).map(p => [p.ja, p.en || ''])) : null;
   const ql = q.trim().toLowerCase();
-  const filtered = ql
-    ? POSS.filter(p => !commonPos.includes(p.ja) && (p.ja.includes(ql) || (p.en || '').toLowerCase().includes(ql)))
-    : POSS.filter(p => !commonPos.includes(p.ja));
-  list.innerHTML = filtered.length
-    ? filtered.map(p =>
-        `<div class="vp-dd-item" onmousedown="bvpPickPos('${_esc(p.ja)}')">${_esc(p.ja)}<span class="vp-dd-cnt">${_esc(p.en)}</span></div>`
-      ).join('')
+  const items = cands.filter(t => !common.has(t)).filter(t => !ql || String(t).toLowerCase().includes(ql) || (posDict && (posDict.get(t) || '').toLowerCase().includes(ql)));
+  list.innerHTML = items.length
+    ? items.map(t => `<div class="vp-dd-item" data-gid="${_bvpEsc(g.id)}" data-val="${_bvpEsc(t)}" onmousedown="bvpTagDdPick(this)">${_bvpEsc(t)}${posDict && posDict.get(t) ? `<span class="vp-dd-cnt">${_bvpEsc(posDict.get(t))}</span>` : ''}</div>`).join('')
     : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
 }
-
-export function bvpFilterPosDd(q) { _bvpRenderPosDd(q); }
-
-export function bvpPickPos(val) {
+export function bvpTagOpenDd(el) {
+  const g = window.tagRegistry?.group(el.dataset.gid); if (!g) return;
+  // タグ4はスマホでキーボードが勝手に開かないよう focus しない（今までどおり）
+  window.wkDdToggle(document.getElementById('bvp-dd-g-' + g.id), { focus: g.store !== 'tags', clear: g.store !== 'tags', after: () => _bvpRenderDd(g, '') });
+}
+export function bvpTagDdFilter(inp) {
+  const g = window.tagRegistry?.group(inp.dataset.gid); if (g) _bvpRenderDd(g, inp.value);
+}
+// 選んだ動画すべてに、値を付ける／外す（書き込みは動画パネルと同じ入口 wkSetTagValue）
+function _bvpApply(gid, val, on) {
+  const sel = _bvpSel();
+  if (!sel.length || val == null || val === '') return;
   bulkSnapshot();
-  const ids = [...(window.selIds || new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => {
-    const v = videos.find(v => v.id === id);
-    if (v) { if (!Array.isArray(v.pos)) v.pos = []; if (!v.pos.includes(val)) v.pos.push(val); }
-  });
+  sel.forEach(v => window.wkSetTagValue(v, gid, val, on));
   const body = document.getElementById('bulk-vpanel-body');
   if (body) body.innerHTML = buildBulkDrawerHTML();
-  window.toastUndo?.((window.selIds || new Set()).size + '本に「' + val + '」を追加', bulkUndo);
+  window.toastUndo?.(sel.length + '本' + (on ? 'に「' : 'から「') + val + (on ? '」を追加' : '」を削除'), bulkUndo);
   window.AF?.(); if (window.bulkCtx === 'organize') window.renderOrg?.(); window.debounceSave?.();
 }
-
-// ── #タグ カスタムDD ──
-export function bvpOpenTagDd() {
-  // focus/clearなし（モバイルキーボード誤起動防止＋既存挙動の保持）
-  window.wkDdToggle(document.getElementById('bvp-tag-dd'), { clear: false, after: () => _bvpRenderTagList('') });
+export function bvpTagChip(el) {
+  const gid = el.dataset.gid, val = el.dataset.val, R = window.tagRegistry;
+  const sel = _bvpSel();
+  const allHave = sel.length && sel.every(v => R.valuesOf(v, gid).includes(val));
+  _bvpApply(gid, val, !allHave);
 }
-
-export function bvpTagFilter(q) { _bvpRenderTagList(q); }
-
-function _bvpRenderTagList(q) {
-  const sug = document.getElementById('bvp-tag-sug');
-  if (!sug) return;
-  const _esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
-  const allTags = [...new Set((window.videos || []).flatMap(v => v.tags || []))].sort((a, b) => a.localeCompare(b, 'ja'));
-  const alreadyCommon = allTags.filter(t => selVids.every(v => (v.tags || []).includes(t)));
-  const available = allTags.filter(t => !alreadyCommon.includes(t));
-  const ql = q.trim().toLowerCase();
-  const filtered = ql ? available.filter(t => t.toLowerCase().includes(ql)) : available;
-  const _mkItem = t =>
-    `<div class="vp-dd-item" onmousedown="bvpTagPick('${_esc(t).replace(/'/g, "&#39;")}')">${_esc(t)}</div>`;
-  // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
-  sug.innerHTML = filtered.map(_mkItem).join('') ||
-    (ql ? `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>` : '');
+export function bvpTagRemove(el) { _bvpApply(el.dataset.gid, el.dataset.val, false); }
+export function bvpTagDdPick(el) {
+  const dd = document.getElementById('bvp-dd-g-' + el.dataset.gid); if (dd) dd.style.display = 'none';
+  _bvpApply(el.dataset.gid, el.dataset.val, true);
 }
-
+export function bvpTagDdKey(ev, inp) {
+  const g = window.tagRegistry?.group(inp.dataset.gid); if (!g) return;
+  if (ev.key === 'Escape') { const dd = document.getElementById('bvp-dd-g-' + g.id); if (dd) dd.style.display = 'none'; return; }
+  if (ev.key !== 'Enter' || g.store !== 'tags') return;   // 打ち込めるのはタグ4だけ（今までどおり）
+  ev.preventDefault();
+  const val = inp.value.trim(); if (!val) return;
+  inp.value = '';
+  _bvpApply(g.id, val, true);
+}
 
 // ── BVP操作関数 ──
 
@@ -418,61 +372,6 @@ export function bvpResetCounter() {
 }
 
 // ── 一括 V4タグ操作 (VPanel v4と同じ構造) ──
-export function bvpToggleV4(field, val, el) {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  const vids=ids.map(id=>videos.find(v=>v.id===id)).filter(Boolean);
-  const allHave = vids.every(v=>(v[field]||[]).includes(val));
-  vids.forEach(v => {
-    if(!Array.isArray(v[field])) v[field]=[];
-    if(allHave) { v[field] = v[field].filter(t=>t!==val); }
-    else { if(!v[field].includes(val)) v[field].push(val); }
-  });
-  const onCls = {tb:'on-tb',cat:'on-cat',pos:'on-pos',tags:'on-tags'}[field]||'';
-  if(el) el.classList.toggle(onCls, !allHave);
-  window.toastUndo?.((window.selIds||new Set()).size+'本の'+val+'を'+(allHave?'解除':'追加'), bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpRemoveV4(field, val, el) {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v[field]=(v[field]||[]).filter(t=>t!==val); });
-  // VPanel再構築
-  const body = document.getElementById('bulk-vpanel-body');
-  if(body) body.innerHTML = buildBulkDrawerHTML();
-  window.toastUndo?.((window.selIds||new Set()).size+'本から'+val+'を削除', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpTagPick(val) {
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v){ if(!Array.isArray(v.tags))v.tags=[]; if(!v.tags.includes(val))v.tags.push(val); }});
-  const body = document.getElementById('bulk-vpanel-body');
-  if(body) body.innerHTML = buildBulkDrawerHTML();
-  window.toastUndo?.((window.selIds||new Set()).size+'本に#'+val+'を追加', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpTagKey(ev, inp) {
-  if(ev.key==='Escape'){ const dd=document.getElementById('bvp-tag-dd'); if(dd)dd.style.display='none'; return; }
-  if(ev.key!=='Enter') return;
-  ev.preventDefault();
-  const val = inp.value.trim(); if(!val) return;
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v){ if(!Array.isArray(v.tags))v.tags=[]; if(!v.tags.includes(val))v.tags.push(val); }});
-  inp.value = '';
-  const body = document.getElementById('bulk-vpanel-body');
-  if(body) body.innerHTML = buildBulkDrawerHTML();
-  window.toastUndo?.((window.selIds||new Set()).size+'本に#'+val+'を追加', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
 
 
 function _bvpRenderList(field, inpId, sugId, setFn) {
@@ -582,7 +481,12 @@ export function enterBulk(ctx='home', preserveSel=false){
 
 export function bulkSnapshot(){
   const videos = window.videos || [];
-  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],pl:v.pl,channel:v.channel,archived:v.archived})));
+  // 新しいタググループの値（v.tg）は、持っている動画だけ写す（全動画に項目を書き足さない）
+  (window.bulkUndoStack||[]).push(videos.map(v=>{
+    const s={id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],pl:v.pl,channel:v.channel,archived:v.archived};
+    if (v.tg && typeof v.tg === 'object') s.tg = JSON.parse(JSON.stringify(v.tg));
+    return s;
+  }));
 }
 
 // ─── Bulk Picker ───
@@ -593,7 +497,12 @@ export function bulkUndo(){
   if(!(window.bulkUndoStack||[]).length){ window.toast?.('元に戻す履歴がありません'); return; }
   const snap=window.bulkUndoStack.pop();
   const videos = window.videos || [];
-  snap.forEach(s=>{ const v=videos.find(v=>v.id===s.id); if(v)Object.assign(v,s); });
+  snap.forEach(s=>{
+    const v=videos.find(v=>v.id===s.id); if(!v) return;
+    Object.assign(v,s);
+    // 控えの時点で新しいタググループの値が無かった動画は、操作で足された分を空に戻す（項目は消さない）
+    if (!('tg' in s) && v.tg && typeof v.tg === 'object') v.tg = {};
+  });
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.();
   window.toast?.('↩ 元に戻しました');
   window.debounceSave?.();
@@ -938,10 +847,6 @@ window.bvpToggleFav = bvpToggleFav;
 window.bvpToggleNext = bvpToggleNext;
 window.bvpBumpCounter = bvpBumpCounter;
 window.bvpResetCounter = bvpResetCounter;
-window.bvpToggleV4 = bvpToggleV4;
-window.bvpRemoveV4 = bvpRemoveV4;
-window.bvpTagPick = bvpTagPick;
-window.bvpTagKey = bvpTagKey;
 window.bvpChSuggest = bvpChSuggest;
 window.bvpSetChannel = bvpSetChannel;
 window.bvpPlSuggest = bvpPlSuggest;
@@ -949,6 +854,12 @@ window.bvpSetPlaylist = bvpSetPlaylist;
 window.bvpPickChannel = bvpPickChannel;
 window.bvpPickPlaylist = bvpPickPlaylist;
 window.bvpTogDd = bvpTogDd;
+window.bvpTagChip = bvpTagChip;
+window.bvpTagRemove = bvpTagRemove;
+window.bvpTagOpenDd = bvpTagOpenDd;
+window.bvpTagDdFilter = bvpTagDdFilter;
+window.bvpTagDdPick = bvpTagDdPick;
+window.bvpTagDdKey = bvpTagDdKey;
 window.enterBulk = enterBulk;
 window.bulkSnapshot = bulkSnapshot;
 window.bulkUndo = bulkUndo;
@@ -968,11 +879,6 @@ window.bulkPlConfirmNew = bulkPlConfirmNew;
 window.bulkPlRemove = bulkPlRemove;
 window.resetVpPlModal = resetVpPlModal;
 window.bulkDo = bulkDo;
-window.bvpOpenPosDd = bvpOpenPosDd;
-window.bvpFilterPosDd = bvpFilterPosDd;
-window.bvpPickPos = bvpPickPos;
-window.bvpOpenTagDd = bvpOpenTagDd;
-window.bvpTagFilter = bvpTagFilter;
 Object.defineProperty(window, 'activeBulkPicker', {
   get() { return activeBulkPicker; },
   set(v) { activeBulkPicker = v; },
