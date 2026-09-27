@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.848</title>
+<title>WAZA KIMURA v52.849</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -84,6 +84,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/tag-master.js"></script>
 <script src="js/tag-templates.js"></script>
+<script src="js/tag-registry.js"></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
@@ -3377,6 +3378,8 @@ async function _wazaCollectLightData() {
     customViews: window._cvViews || [],          // カスタムビュー（設定docのデータ。従来は欠落していた）
     tagGroups: window.getTagGroups?.() || [],    // タググループ（同上）
     filterColVis: window.filterColVis || {},     // フィルター列の表示設定
+    tagTemplates: window.getTagTemplatesRaw?.() || null,  // タグのテンプレート（編集したことがある時だけ中身がある。従来は欠落していた）
+    tagRegistry: window.tagRegistry?.raw?.() || null,     // タググループの一覧（タグ1〜4の中身・未使用のタググループ）
     notes: window._notesGetData
       ? { folders: window._notesGetData(), root: window._notesGetRoot?.() || [] }
       : null,
@@ -3484,8 +3487,14 @@ window.wazaImport = async function(input) {
     if (Array.isArray(data.customViews)) { window._cvApplyLoadedViews?.(data.customViews); window._cvSave?.(); }
     // tagSettings / aiSettings / tagGroups / filterColVis はまとめてここで復元する。
     // applyRemoteSettings は中身が空の項目を無視するので、渡し漏れより安全。
-    window.applyRemoteSettings?.(data);
+    window.applyRemoteSettings?.(data);   // data.tagTemplates もここで戻る
     window.saveUserSettings?.();
+    // タググループの一覧。入っていない古いバックアップなら、今の一覧をそのまま残す。
+    // 形が合わないものは受け取らない（applyRemote が false を返す）。
+    if (data.tagRegistry && window.tagRegistry?.applyRemote(data.tagRegistry)) {
+      window.tagRegistry.reconcile(window.getTagTemplatesRaw?.() || null);
+      window.saveTagRegistry?.();
+    }
 
     // ノートを復元。
     // 従来はエクスポートには入っていたのに復元されず、「戻したのにノートだけ無い」

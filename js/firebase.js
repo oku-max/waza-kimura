@@ -49,6 +49,8 @@ auth.onAuthStateChanged(async (user) => {
   if (_newUid !== _prevUid) {
     _videosReady = false;
     _settingsReady = false;
+    _regReady = false;
+    _regWriteBlocked = false;
   }
   currentUser = user;
   if (window.__pmark && !window.__perf?.auth) window.__pmark('auth');
@@ -59,6 +61,7 @@ auth.onAuthStateChanged(async (user) => {
     await loadUserData(user.uid);
     await loadCvStartup(user.uid);   // 起動設定(list/scope/共有直近ビュー)を settings より先に読む
     await loadUserSettings(user.uid);
+    await loadTagRegistry(user.uid);  // 設定（テンプレート含む）を読んだ後でないと、旧テンプレートを移せない
     _cvWatch(user.uid);               // 他端末のカスタムビュー変更を拾う（読むだけ）
     await loadNotes(user.uid);
     await loadMurmurs(user.uid);
@@ -969,6 +972,52 @@ export async function loadUserSettings(uid) {
     // これ以降の saveUserSettings を許可する。読込が throw した場合は false のまま＝保存ロック。
     _settingsReady = true;
   } catch (e) { console.error('loadUserSettings:', e); }
+}
+
+// ═══ タググループの一覧（段階1）══════════════════════════════
+// 新規 doc: users/{uid}/data/tagRegistry。settings doc には入れない
+// （settings は古いタブも丸ごと .set で書くので、知らない項目は消されてしまう）。
+// 書くのは「クラウドにまだ無いと確定したとき」と「足すもの（旧テンプレート等）が出たとき」だけ。
+// 読めなかったら書かない。書けなかったら（ルールで拒否など）このセッションでは以後書かずに1回知らせる。
+let _regReady = false;
+let _regWriteBlocked = false;
+const _regRef = (uid) => db.collection('users').doc(uid).collection('data').doc('tagRegistry');
+
+export async function saveTagRegistry() {
+  if (!currentUser || !_regReady || _regWriteBlocked) return false;
+  const reg = window.tagRegistry?.raw?.();
+  if (!reg || !window.tagRegistry._valid(reg)) return false;   // 自分より新しい形・壊れた形は書かない
+  try {
+    await _regRef(currentUser.uid).set({ reg: JSON.parse(JSON.stringify(reg)), updatedAt: new Date().toISOString(), savedBy: _sessionId });
+    return true;
+  } catch (e) {
+    _regWriteBlocked = true;
+    console.error('[tagRegistry] save error:', e);
+    showToast('⚠️ タググループの一覧をクラウドに保存できませんでした（この端末の表示には影響ありません）', 6000);
+    return false;
+  }
+}
+window.saveTagRegistry = saveTagRegistry;
+
+export async function loadTagRegistry(uid) {
+  if (!window.tagRegistry) return;
+  if (!_settingsReady) return;   // 設定を読めていない＝テンプレートの状態が分からない。作らない・書かない
+  let snap;
+  try { snap = await _regRef(uid).get(); }
+  catch (e) { console.error('[tagRegistry] load failed:', e); return; }   // 読めない＝書かない
+  if (currentUser?.uid !== uid) return;
+  const exists = snap.exists;
+  if (exists) {
+    if (!window.tagRegistry.applyRemote(snap.data()?.reg)) {
+      console.warn('[tagRegistry] cloud copy has an unknown shape — left untouched');
+      return;   // 読めない形のものを上書きしない
+    }
+  } else {
+    window.tagRegistry.applyRemote(null);
+  }
+  _regReady = true;
+  const added = window.tagRegistry.reconcile(window.getTagTemplatesRaw?.() || null);
+  if (!exists || added) saveTagRegistry();   // 待たない（後のノート等の読み込みを遅らせない）。失敗は中で扱う
 }
 
 // テスト期間中の汚染データ消去用（ブラウザコンソールから実行）

@@ -506,7 +506,7 @@
     // ── 設定 ──
     'AI取込設定':'AI import','再生設定':'Playback','外観設定':'Appearance','タグ表示設定':'Tag display','フィルター設定':'Filters','軽量バックアップ':'Light backup','フルバックアップ':'Full backup','インポート（復元）':'Import (restore)','📥 エクスポート':'📥 Export','📥 フルエクスポート':'📥 Full export','📤 インポート':'📤 Import','バックアップJSONを読み込んでデータを復元します（現在のデータは上書きされます）':'Restore data from a backup JSON (current data will be overwritten)','言語':'Language','自動（端末設定）':'Auto (device)','表示言語。データは変更されません。':'Display language. Your data is not changed.',
     // ── 通知/トースト（固定文） ──
-    '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語',
+    '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語','⚠️ タググループの一覧をクラウドに保存できませんでした（この端末の表示には影響ありません）':'⚠️ Could not save the tag group list to the cloud (nothing changes on this device)',
     'ソース・チャンネル・プレイリスト':'Source / Channel / Playlist',
     // ── 機械抽出ラウンド2 ──
     "（AIが自動タグ付け・後で確認できます）": "(AI auto-tags; you can review later)",
