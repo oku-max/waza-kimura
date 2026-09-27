@@ -95,7 +95,10 @@ await ctx.addInitScript(STUB);
 // カード型のカスタムリスト（3本が範囲・うち2本が Quick）
 await ctx.addInitScript(v => localStorage.setItem('wk_cv_views', JSON.stringify(v)),
   [{ id:'_swc', label:'検査用リスト', saveMode:'manual', icon:'📁', viewType:'card',
-     videoIds:['q1','q2','n1'], columns:[], rowData:{} }]);
+     videoIds:['q1','q2','n1'], columns:[], rowData:{} },
+   // リロード後の復元を再現するリスト（前回打った語が保存されている）
+   { id:'_swq', label:'語が保存されたリスト', saveMode:'manual', icon:'📁', viewType:'card',
+     videoIds:['q1','q2','n1'], searchQuery:'-quick', columns:[], rowData:{} }]);
 const page = await ctx.newPage();
 await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(2500);
@@ -110,11 +113,11 @@ const res = await page.evaluate(() => {
   const IDS = ['si', 'si-lib-pc', 'si-org', 'si-org-pc'];
   const clear = () => IDS.forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   const out = [];
+  const ids = f => { try { return f(window.videos).map(v => v.id).sort(); } catch (e) { return ['err:' + e.message]; } };
   const measure = (how) => {
-    let card = null, table = null;
-    try { card  = window.filt(window.videos).length;    } catch (e) { card  = 'err:' + e.message; }
-    try { table = window.orgFilt(window.videos).length; } catch (e) { table = 'err:' + e.message; }
-    out.push({ how, card, table });
+    const c = ids(window.filt), t = ids(window.orgFilt);
+    out.push({ how, card: c.length, table: t.length,
+               onlyTable: t.filter(x => !c.includes(x)), onlyCard: c.filter(x => !t.includes(x)) });
   };
   // 4通りの入れ方（どの入力欄に入っても、両方が同じに読むこと）
   for (const id of IDS) {
@@ -143,8 +146,9 @@ for (const r of res) {
     continue;
   }
   if (r.card === 'skip') { ck(r.how, true); continue; }
-  ck(`${r.how} → カード ${r.card}本 / テーブル ${r.table}本`, r.card === r.table,
-     'カードとテーブルで結果が違う（読む場所が分かれている）');
+  const d = [r.onlyTable?.length ? 'テーブルだけに出る: ' + r.onlyTable.join(',') : '',
+             r.onlyCard?.length  ? 'カードだけに出る: '   + r.onlyCard.join(',')  : ''].filter(Boolean).join(' / ');
+  ck(`${r.how} → カード ${r.card}本 / テーブル ${r.table}本`, !d, d);
 }
 
 // ── ③ リストを開いて打った語が、カード⇔テーブルの切替で消えないこと ──
@@ -154,12 +158,12 @@ console.log('■ ③ リストを開いて打った語が、ビューの切替�
 const e2e = await page.evaluate(async () => {
   const wait = () => new Promise(r => setTimeout(r, 150));
   const log = [];
-  const snap = (step) => log.push({
-    step,
-    word: window.wkSearchWord?.() || '',
-    card: (() => { try { return window.filt(window.videos).length; } catch (e) { return 'err'; } })(),
-    table: (() => { try { return window.orgFilt(window.videos).length; } catch (e) { return 'err'; } })(),
-  });
+  const ids = f => { try { return f(window.videos).map(v => v.id).sort(); } catch (e) { return ['err']; } };
+  const snap = (step) => {
+    const c = ids(window.filt), t = ids(window.orgFilt);
+    log.push({ step, word: window.wkSearchWord?.() || '', card: c.length, table: t.length,
+               onlyTable: t.filter(x => !c.includes(x)), onlyCard: c.filter(x => !t.includes(x)) });
+  };
   window._cvOpen?.('_swc') ?? window._cvSelectView?.('_swc');
   await wait();
   const box = document.getElementById('si-lib-pc');
@@ -171,10 +175,46 @@ const e2e = await page.evaluate(async () => {
   return log;
 });
 for (const r of e2e) {
+  const d = [r.onlyTable?.length ? 'テーブルだけに出る: ' + r.onlyTable.join(',') : '',
+             r.onlyCard?.length  ? 'カードだけに出る: '   + r.onlyCard.join(',')  : ''].filter(Boolean).join(' / ');
   ck(`${r.step} → 語「${r.word}」/ カード ${r.card}本 / テーブル ${r.table}本`,
-     r.word === '-quick' && r.card === r.table,
-     r.word !== '-quick' ? '切替で検索語が消えている' : 'カードとテーブルで結果が違う');
+     r.word === '-quick' && !d,
+     r.word !== '-quick' ? '切替で検索語が消えている' : d);
 }
+
+// ── ④ 保存された検索語を復元して開いても、カードとテーブルが同じになること ──
+// リストは検索語を保存する（view.searchQuery）。復元のとき window._uniVideoQ にも
+// 同じ語を入れていた。_uniVideoQ は統合フィルターの「動画を探す」欄の別物で、
+// 判定は「タイトル＋チャンネル名にその文字がそのまま含まれるか」だけ。演算子を解釈しない。
+// そのため「-quick」を復元すると **どの動画にも当たらず全部消え**、しかも見ているのは
+// カード表示だけなので「テーブルには出るのにカードは0本」になっていた。
+// 保存された語はリロード後も復元されるので、ハードリロードしても 0本 のままだった。
+console.log('■ ④ 保存された語を復元して開いても、カードとテーブルが同じになること');
+const restored = await page.evaluate(async () => {
+  const wait = () => new Promise(r => setTimeout(r, 250));
+  window._cvClearSelection?.();
+  await wait();
+  window._cvPickerSelect?.('_swq', true);
+  await wait();
+  return {
+    word: window.wkSearchWord?.() || '',
+    uni: window._uniVideoQ || '',
+    card:  (() => { try { return window.filt(window.videos).map(v => v.id).sort(); }    catch (e) { return ['err']; } })(),
+    table: (() => { try { return window.orgFilt(window.videos).map(v => v.id).sort(); } catch (e) { return ['err']; } })(),
+  };
+});
+{
+  const onlyT = restored.table.filter(x => !restored.card.includes(x));
+  const onlyC = restored.card.filter(x => !restored.table.includes(x));
+  const d = [onlyT.length ? 'テーブルだけに出る: ' + onlyT.join(',') : '',
+             onlyC.length ? 'カードだけに出る: '   + onlyC.join(',')  : ''].filter(Boolean).join(' / ');
+  ck(`保存された「-quick」を復元 → 語「${restored.word}」/ カード ${restored.card.length}本 / テーブル ${restored.table.length}本`,
+     restored.word === '-quick' && !d && restored.card.length > 0,
+     restored.word !== '-quick' ? '検索語が復元されていない'
+     : restored.card.length === 0 ? '全部消えている（演算子が文字列として照合されている）' : d);
+}
+ck('検索語を _uniVideoQ（別物の絞り込み）に入れていない', restored.uni === '',
+   `_uniVideoQ = "${restored.uni}"。ここは演算子を解釈しないので、-除外 を入れると全部消える`);
 
 await browser.close();
 srv.close();

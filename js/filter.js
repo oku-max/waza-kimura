@@ -362,7 +362,9 @@ export function updateResetBtn() {
 // ── フィルタリング本体 ──
 export function filt(list) {
   // カード型カスタムビュー: IDでプールを絞るが、その後の全フィルターは通常通り適用
-  if (window._cvCardVideoIds) list = list.filter(v => window._cvCardVideoIds.has(v.id));
+  // 開いているリストの範囲は1か所から読む（js/custom-view.js の wkListScope）
+  const _scope = window.wkListScope ? window.wkListScope() : (window._cvCardVideoIds || null);
+  if (_scope) list = list.filter(v => _scope.has(v.id));
   // 検索語は1か所から読む（js/search-word.js）。ビューごとに別の入力欄を見ると、
   // 同じ語で「テーブルには出るのにカードは0本」になる。
   const raw = window.wkSearchWord ? window.wkSearchWord() : '';
@@ -425,8 +427,8 @@ function _libConds(parsed, tagOk) {
 window.wkWhyHidden = function () {
   const all = window.videos || [];
   let list = all;
-  if (window._cvCardVideoIds) list = list.filter(v => window._cvCardVideoIds.has(v.id));
-  else if (window._cvVideoIds) list = list.filter(v => window._cvVideoIds.has(v.id));
+  const sc = window.wkListScope ? window.wkListScope() : null;
+  if (sc) list = list.filter(v => sc.has(v.id));
   const raw = window.wkSearchWord ? window.wkSearchWord() : '';
   const parsed = _parseQuery(raw);
   window.tagFilter?.normalize(window.filters, 'lib');
