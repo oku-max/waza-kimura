@@ -43,6 +43,7 @@ auth.onAuthStateChanged(async (user) => {
   if (_videosUnsubscribe) { _videosUnsubscribe(); _videosUnsubscribe = null; }
   if (_cvUnsubscribe)     { _cvUnsubscribe();     _cvUnsubscribe     = null; }
   if (_murmursUnsubscribe) { _murmursUnsubscribe(); _murmursUnsubscribe = null; }
+  if (_regUnsubscribe)     { _regUnsubscribe();     _regUnsubscribe     = null; }
 
   // ユーザーが実際に変わった/ログアウトしたときだけ保存を一旦ロック。
   // （同一ユーザーのトークン更新では再ロード中も保存ロックの警告を出さない）
@@ -981,6 +982,8 @@ export async function loadUserSettings(uid) {
 // 読めなかったら書かない。書けなかったら（ルールで拒否など）このセッションでは以後書かずに1回知らせる。
 let _regReady = false;
 let _regWriteBlocked = false;
+let _regUnsubscribe = null;
+let _regLastWrite = '';   // この端末が最後に書いた updatedAt。これ以前の通知（書く前の古い中身）は受け取らない
 const _regRef = (uid) => db.collection('users').doc(uid).collection('data').doc('tagRegistry');
 
 export async function saveTagRegistry() {
@@ -988,7 +991,9 @@ export async function saveTagRegistry() {
   const reg = window.tagRegistry?.raw?.();
   if (!reg || !window.tagRegistry._valid(reg)) return false;   // 自分より新しい形・壊れた形は書かない
   try {
-    await _regRef(currentUser.uid).set({ reg: JSON.parse(JSON.stringify(reg)), updatedAt: new Date().toISOString(), savedBy: _sessionId });
+    const updatedAt = new Date().toISOString();
+    _regLastWrite = updatedAt;
+    await _regRef(currentUser.uid).set({ reg: JSON.parse(JSON.stringify(reg)), updatedAt, savedBy: _sessionId });
     return true;
   } catch (e) {
     _regWriteBlocked = true;
@@ -1018,6 +1023,19 @@ export async function loadTagRegistry(uid) {
   _regReady = true;
   const added = window.tagRegistry.reconcile(window.getTagTemplatesRaw?.() || null);
   if (!exists || added) saveTagRegistry();   // 待たない（後のノート等の読み込みを遅らせない）。失敗は中で扱う
+
+  // 他の端末での変更を受け取る（段階3a。一覧を画面で編集できるようになるため）。読むだけ。
+  // 受け取らないもの: 自分が書いたもの／まだ送信中のもの／この端末が最後に書いたより古いもの
+  // （書いた直後に、書く前の中身の通知が遅れて届くと、足したばかりのものが消えて見えるため）。
+  if (_regUnsubscribe) { _regUnsubscribe(); _regUnsubscribe = null; }
+  _regUnsubscribe = _regRef(uid).onSnapshot(snap => {
+    if (currentUser?.uid !== uid) return;
+    if (!snap.exists || snap.metadata?.hasPendingWrites) return;
+    const d = snap.data();
+    if (!d || d.savedBy === _sessionId) return;
+    if (_regLastWrite && String(d.updatedAt || '') <= _regLastWrite) return;
+    if (window.tagRegistry.applyRemote(d.reg)) window.AF?.();
+  }, e => console.error('[tagRegistry] onSnapshot:', e));
 }
 
 // テスト期間中の汚染データ消去用（ブラウザコンソールから実行）

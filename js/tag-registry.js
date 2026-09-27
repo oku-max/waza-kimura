@@ -143,7 +143,77 @@
     _reg = _clone(r);
     _readOnly = r.v > VERSION;
     _cache();
+    try { window.dispatchEvent(new CustomEvent('wk-tagreg')); } catch (e) {}
     return true;
+  }
+
+  // ── 編集（段階3a）──
+  // どれも一覧そのもの（どの枠に何が入っているか・名前・選択肢・検索の対象）だけを変える。
+  // 動画には触らない（動画を書き換える操作は段階4で、先にバックアップと取り消しを付けてから）。
+  // 今の4つ（tb/cat/pos/tags）の名前と選択肢は tagSettings が正なので、ここでは変えない（settings.js 側）。
+  // 変えたら端末の控えに書き、クラウドへ送り（saveTagRegistry）、画面に知らせる（wk-tagreg）。
+  function _commit() {
+    _searchCache = null;
+    _cache();
+    try { window.saveTagRegistry?.(); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent('wk-tagreg')); } catch (e) {}
+    return true;
+  }
+  const _g = id => _reg.groups.find(g => g.id === id) || null;
+  function _editable() { _ensure(); return !_readOnly; }
+
+  // 使う場所を変える。k = 0〜3（タグ1〜4）、-1 = 未使用。
+  // 入れた枠に別のグループがいたら、入れ替える（元の枠へ。元が未使用なら、そちらが未使用になる）。
+  function setSlot(id, k) {
+    if (!_editable() || !_g(id)) return false;
+    const b = _reg.slots.slice(), from = b.indexOf(id);
+    if (k < 0 || k > 3) { if (from < 0) return false; b[from] = null; }
+    else {
+      if (from === k) return false;
+      const prev = b[k];
+      b[k] = id;
+      if (from >= 0) b[from] = (prev && prev !== id) ? prev : null;
+    }
+    _reg.slots = b;
+    return _commit();
+  }
+  function setSearch(id, on) {
+    const g = _editable() && _g(id); if (!g) return false;
+    if ((g.search !== false) === !!on) return false;
+    g.search = !!on;
+    return _commit();
+  }
+  // 名前（今の4つは tagSettings、ここでは マーク・習得・新しいグループだけ）。空の名前にはしない
+  function setName(id, name) {
+    const g = _editable() && _g(id); if (!g || FIELD_STORES.includes(g.store)) return false;
+    const v = String(name == null ? '' : name).trim(); if (!v || v === g.name) return false;
+    g.name = v;
+    return _commit();
+  }
+  // 選択肢（新しいグループだけ。今の4つは tagSettings、マーク・習得は固定）
+  function addOption(id, val) {
+    const g = _editable() && _g(id); if (!g || g.store !== 'map') return false;
+    const v = String(val == null ? '' : val).trim(); if (!v) return false;
+    g.opts = _strs(g.opts); if (g.opts.includes(v)) return false;
+    g.opts.push(v);
+    return _commit();
+  }
+  function removeOption(id, val) {
+    const g = _editable() && _g(id); if (!g || g.store !== 'map') return false;
+    const before = _strs(g.opts), after = before.filter(x => x !== val);
+    if (after.length === before.length) return false;
+    g.opts = after;
+    return _commit();
+  }
+  // 新しいタググループを作る。k を渡せばその枠に入れる（いた方は未使用へ）。作った ID を返す
+  function createGroup(name, k) {
+    if (!_editable()) return null;
+    const base = String(name == null ? '' : name).trim() || (_en() ? 'New tag group' : '新しいタググループ');
+    let id; do { id = 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); } while (_g(id));
+    _reg.groups.push({ id, store: 'map', name: base, opts: [], search: true });
+    if (k >= 0 && k <= 3) _reg.slots[k] = id;
+    _commit();
+    return id;
   }
 
   // 保存する中身（クラウド・バックアップ用）。自分より新しい形なら書かないよう null を返す。
@@ -238,7 +308,8 @@
 
   window.tagRegistry = {
     groups, group, slots, slotInfo, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
-    CHIP_MAX, displayMode, isReadOnly, reconcile, applyRemote,
+    CHIP_MAX, displayMode,
+    setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,
   };
 })();
