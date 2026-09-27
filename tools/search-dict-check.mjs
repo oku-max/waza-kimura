@@ -27,7 +27,7 @@ const { SEARCH_DICT: DICT, POSITIONS: POS, CATEGORIES: CATS, _normTag: norm, ali
 const tmSrc  = fs.readFileSync(path.join(ROOT, 'js/tag-master.js'), 'utf8');
 const orgSrc = fs.readFileSync(path.join(ROOT, 'js/organize.js'), 'utf8');
 const q = new Function('window',
-  orgSrc.slice(orgSrc.indexOf('export function _parseQuery'), orgSrc.indexOf('// アドバンスドサーチ状態'))
+  orgSrc.slice(orgSrc.indexOf('// 記号の揺れ'), orgSrc.indexOf('// アドバンスドサーチ状態'))
         .replace(/^export /gm, '') + '\nreturn { _parseQuery, _matchQuery };')(window);
 
 // ── ① 検索が引く表は1枚だけ ──
@@ -211,6 +211,30 @@ console.log('■ ⑧ 読める一覧が辞書と合っていること');
   cur === buildMarkdown()
     ? ok('docs/search-dict.md は辞書と合っている')
     : fail('docs/search-dict.md が古い（node tools/search-dict-md.mjs で作り直す）');
+}
+
+// ⑨ 演算子の記号の揺れ（日本語入力のまま打っても効くこと）
+// 2026-09-27、オーナーから「除外検索消しただろ」。演算子もコードも残っていたが、
+// 全角マイナス「－」で打つと除外にならず0件になっていた（日本語入力のままだとこうなる）。
+// さらに v52.826 の正規化で語頭の長音が消えるようになり、「ー」で打つと
+// 除外したい語が逆に出ていた。語頭の記号だけ半角に揃えて直した（v52.833）。
+console.log('■ ⑨ 除外・完全一致・field: が、全角で打っても効くこと');
+{
+  const V = [
+    { id:'デラヒーバ', title:'デラヒーバスイープ', tags:[], pos:[], cat:[], memo:'' },
+    { id:'ハーフ',     title:'ハーフガードスイープ', tags:[], pos:[], cat:[], memo:'' },
+  ];
+  const ids = w => V.filter(v => q._matchQuery(v, q._parseQuery(w), null)).map(v => v.id).join(',');
+  const minus = [['半角 -','-'], ['全角 －','\uFF0D'], ['ハイフン ‐','\u2010'], ['長音 ー','\u30FC'], ['半角カナ長音 ｰ','\uFF70']];
+  const bad = minus.filter(([, ch]) => ids('スイープ ' + ch + 'デラヒーバ') !== 'ハーフ');
+  bad.length ? bad.forEach(([n]) => fail(`${n} で除外が効かない`))
+             : ok(`${minus.length} 通りのマイナス記号すべてで除外が効く`);
+  ids('title：ハーフ') === 'ハーフ' ? ok('全角コロンの title： が効く') : fail('全角コロンの title： が効かない');
+  ids('\u201Cデラヒーバスイープ\u201D') === 'デラヒーバ' ? ok('全角引用符の完全一致が効く') : fail('全角引用符の完全一致が効かない');
+  // 語の中の長音は今までどおり（マイナス扱いにしていない）
+  ids('デラヒーバ') === 'デラヒーバ' && ids('ハーフガード') === 'ハーフ'
+    ? ok('語の中の長音は今までどおり（デラヒーバ / ハーフガードが引ける）')
+    : fail('語の中の長音が壊れている');
 }
 
 console.log(ng ? `\n✗ ${ng} 件の問題` : '\n✓ 全部通過');

@@ -313,9 +313,28 @@ function _matchFilt(filterSet, values) {
 
 // ── 検索演算子パーサー ──
 // 対応: -除外  "完全一致"  title:xxx  ch:xxx  pl:xxx  tech:xxx  memo:xxx
-export function _parseQuery(raw) {
+// 記号の揺れ（v52.833）。日本語入力のまま打つと記号が全角になり、
+// 除外や完全一致が黙って効かなくなっていた（「スイープ －デラヒーバ」で0件）。
+// 語そのものは触らず、演算子として使う記号だけ半角に揃える。
+//   ・マイナス: 全角／各種ハイフン（U+FF0D 2010 2011 2013 2014 2212）と長音「ー」「ｰ」を
+//     **語頭のときだけ** - に直す。語頭の長音で始まる日本語は無いので、打ち間違いとみなす。
+//     （v52.826 の正規化で語頭のーが消えるようになり、除外したい語が逆に出ていた）
+//   ・引用符: 全角 ＂ ” “ 「 」 を " に
+//   ・コロン: 全角 ： を : に（title：デラヒーバ が効くように）
+const _OPS_MINUS = /^[\uFF0D\u2010\u2011\u2013\u2014\u2212\u30FC\uFF70]/;
+function _normOps(raw) {
+  return String(raw)
+    .replace(/[\uFF02\u201C\u201D\u300C\u300D]/g, '"')
+    .replace(/\uFF1A/g, ':')
+    .split(/(\s+)/)
+    .map(tok => (tok.length > 1 && _OPS_MINUS.test(tok)) ? '-' + tok.slice(1) : tok)
+    .join('');
+}
+
+export function _parseQuery(rawInput) {
   const result = { includes: [], excludes: [], fields: {} };
-  if (!raw) return result;
+  if (!rawInput) return result;
+  const raw = _normOps(rawInput);
   // フィールド指定: title:xxx ch:xxx pl:xxx tech:xxx memo:xxx
   const fieldRe = /\b(title|ch|pl|tech|memo):(\S+)/gi;
   let cleaned = raw.replace(fieldRe, (_, f, val) => {
