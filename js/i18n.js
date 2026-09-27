@@ -120,7 +120,7 @@
     'url.add':           { ja: '＋ ライブラリに追加', en: '+ Add to library' },
     // 設定
     'set.subtitle':      { ja: '表示・AI・再生・外観の設定', en: 'Display, AI, playback and appearance' },
-    'set.tag':           { ja: 'タグ表示設定', en: 'Tag display' },
+    'set.tag':           { ja: 'タグ設定', en: 'Tags' },
     'set.filter':        { ja: 'フィルター設定', en: 'Filters' },
     'set.ai':            { ja: 'AI取込設定', en: 'AI import' },
     'set.playback':      { ja: '再生設定', en: 'Playback' },
@@ -506,7 +506,7 @@
     // ── 設定 ──
     'AI取込設定':'AI import','再生設定':'Playback','外観設定':'Appearance','タグ表示設定':'Tag display','フィルター設定':'Filters','軽量バックアップ':'Light backup','フルバックアップ':'Full backup','インポート（復元）':'Import (restore)','📥 エクスポート':'📥 Export','📥 フルエクスポート':'📥 Full export','📤 インポート':'📤 Import','バックアップJSONを読み込んでデータを復元します（現在のデータは上書きされます）':'Restore data from a backup JSON (current data will be overwritten)','言語':'Language','自動（端末設定）':'Auto (device)','表示言語。データは変更されません。':'Display language. Your data is not changed.',
     // ── 通知/トースト（固定文） ──
-    '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語','⚠️ タググループの一覧をクラウドに保存できませんでした（この端末の表示には影響ありません）':'⚠️ Could not save the tag group list to the cloud (nothing changes on this device)',
+    '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語','この一覧は新しい版のアプリで保存されています。この端末では変更できません。':"This list was saved by a newer version of the app and cannot be changed on this device.",'使用中のタグ':"Tags in use",'ありません':"None",'付けたタグは動画に残っています。使うときは、開いて「使う場所」を選びます。':"Tags you added stay on the videos. To use a group again, open it and choose “Where to use”.",'未使用':"Unused",'・検索の対象外':" · not searched",'・非表示中':" · hidden",'タググループ名':"Tag group name",'使う場所':"Where to use",'このタググループは表示していません（今までの「表示しない」）。':"This tag group is hidden (the old “hide” setting).",'表示する':"Show",'×で外す':"× to remove",'マークと習得の選択肢は固定です（★・Next のボタンや習得の表示と結びついているため）。':"Marks and Progress have fixed options (they are tied to the ★ / Next buttons and the progress display).",'ほかのタググループにも同じ名前があります。別のタグとして追加しました。':"Another tag group has the same name. It was added as a separate tag.",'選択肢から外します。付いている動画のタグはそのまま残り、「要確認」に出ます。':"Removes it from the options. Tags already on videos stay, and appear under “Needs review”.",'外す':"Remove",'要確認':"Needs review",'選択肢に入れる':"Add to options",'ほかのタググループにもある:':"Also in:",'検索の対象にする':"Include in word search",'このタググループのタグも、ワード検索の対象になります':"Tags in this group are included in word search",'ワード検索の対象外です（絞り込みには使えます）':"Not included in word search (still usable for filtering)",'ほかから選択肢をコピー':"Copy options from another group",'初期値に戻す':"Restore defaults",'どのタググループからコピーしますか？ 動画のタグには触りません。':"Which tag group do you want to copy from? Video tags are not changed.",'写すものを選んでください。':"Select the options to copy.",'追加済み':"Already added",'選択肢に入れました':"Added to options",'初期値に戻しました':"Defaults restored",'タグ設定':"Tags",'⚠️ タググループの一覧をクラウドに保存できませんでした（この端末の表示には影響ありません）':'⚠️ Could not save the tag group list to the cloud (nothing changes on this device)',
     'ソース・チャンネル・プレイリスト':'Source / Channel / Playlist',
     // ── 機械抽出ラウンド2 ──
     "（AIが自動タグ付け・後で確認できます）": "(AI auto-tags; you can review later)",
@@ -1904,6 +1904,18 @@
 
   // 数値テンプレート辞書（数字列を # に正規化したキー → # 入り英文）
   const TEMPLATE_AUTO = {
+    // タグ設定の画面（段階3b）
+    "未使用のタググループ（#）": "Unused tag groups (#)",
+    "要確認 #": "Review #",
+    "タグ#": "Tag #",
+    "タグ#に使うタググループを選んでください。": "Choose a tag group for Tag #.",
+    "選択肢 #個": "Options: #",
+    "（#本に付いています）": "(on # videos)",
+    "選択肢に無いタグ・#本": "Not in options · # videos",
+    "選んだ#個をコピー": "Copy # selected",
+    "#個をコピーしました": "Copied #",
+    "タグ#〜#に入れられるのは、次の更新からです。": "It can be placed in Tag #–# from the next update.",
+
     // ── 管理画面「検索辞書」（v52.828）──
     '# 行 / # 語': '# rows / # words',
     '# 行が一致': '# rows match',

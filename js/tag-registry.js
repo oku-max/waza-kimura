@@ -43,6 +43,11 @@
     { value: 'next',  ja: '🎯 Next',       en: '🎯 Next' },
     { value: 'drill', ja: '🟣 ドリル',     en: '🟣 Drill' },
   ];
+  // 初期のタググループ（「初期値に戻す」「初期設定に戻す」の基準。オーナー 2026-09-26 のモック）
+  const DEFAULTS = {
+    tb:  { ja: 'トップ/ボトム', en: 'Top/Bottom', vals: ['トップ', 'ボトム', 'スタンディング'] },
+    pos: { ja: 'ポジション',    en: 'Position',   vals: ['クローズドガード', 'デラヒーバ', 'ハーフガード', 'スパイダー', 'ラッソー', 'バタフライ', 'Xガード', 'マウント', 'サイド', 'バック'] },
+  };
   const DEFAULT_NAMES = {
     mark:   { ja: 'マーク', en: 'Marks' },
     status: { ja: '習得',   en: 'Progress' },
@@ -327,7 +332,7 @@
   window.tagRegistry = {
     groups, group, slots, slotInfo, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
     fieldOfStore, readField,
-    CHIP_MAX, displayMode,
+    CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
     setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,
   };
