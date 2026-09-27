@@ -194,5 +194,19 @@ console.log('── ⑨ 整理の表・カスタムリストの表も枠から�
   ck('タグの値はエスケープして描く', !/org-tag-chip">\$\{t\}/.test(org));
 }
 
+console.log('── ⑩ タグ付けウィザード・取り込みのタグも枠から（段階3c-2）──');
+{
+  const tw = fs.readFileSync(path.join(ROOT, 'js/tag-wizard.js'), 'utf8');
+  const idx = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const it = idx.slice(idx.indexOf("let itagMode = 'none';"), idx.indexOf('// 旧API互換'));
+  ck('ウィザードは枠のグループを並べる（4つの区画を決め打ちしない）', /R\.slots\(\)/.test(tw) && !/tw-tb-chips|tw-pos-chips|tw-cat-chips/.test(tw));
+  ck('ウィザードの確定は変えた値だけ・書き込みは wkSetTagValue', /window\.wkSetTagValue\(v, g\.id, val, on\)/.test(tw) && !/v\.(tb|pos|cat|tags)\s*=\s*final/.test(tw));
+  ck('取り込みのタグの欄は枠のグループを並べる', /R\.slots\(\)/.test(it) && !/_vpTagLabel\('tb'\)/.test(it));
+  ck('取り込みの値は onclick の文字列に埋め込まない（\x27 を含む値で壊れていた）', !/onclick="itag\w*\([^"]*\$\{/.test(it));
+  ck('新しいグループの値は tg[ID] で渡し、URL・YouTube の追加でも落とさない',
+    /\(out\.tg \|\| \(out\.tg = \{\}\)\)\[gid\]/.test(it) && /\.\.\.\(tg\.tg \? \{ tg: tg\.tg \} : \{\}\)/.test(idx)
+    && /\.\.\.\(t\.tg \? \{ tg: t\.tg \} : \{\}\)/.test(fs.readFileSync(path.join(ROOT, 'js/youtube.js'), 'utf8')));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');
 process.exit(fail ? 1 : 0);

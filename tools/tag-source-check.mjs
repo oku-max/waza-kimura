@@ -43,8 +43,8 @@ ck('自分で触ったグループには以後種を入れない（_presetAdd / 
 
 console.log('\n── 動画に付いている値を黙って落とさない ──');
 const tw = code('js/tag-wizard.js');
-ck('ウィザード: 選択肢に無いタグ1 の値も出す', /tbValues\.indexOf\(existingTb\)\s*<\s*0\)\s*tbValues\.unshift\(existingTb\)/.test(tw));
-ck('ウィザード: 選択肢に無いタグ2/3 の値も出す（_fillChipsWithExisting の extra）', /var extra = existArr\.filter/.test(tw));
+ck('ウィザード: 選択肢に無いのに付いている値も先頭に出す（どのグループでも。_cands の extra）', /var extra = cur\.filter\(function\(x\)\{ return opts\.indexOf\(x\) < 0; \}\);/.test(tw) && /return extra\.concat\(opts\)/.test(tw));
+ck('ウィザード: 確定は変えた値だけを書く（配列を丸ごと置き換えない）', !/v\.(tb|pos|cat|tags)\s*=\s*final/.test(tw) && /_write\(v, g, t, false\)/.test(tw));
 ck('整理の表: 選択肢に無い値も先頭に出す', /const extra = current\.filter\(t => !allOpts\.includes\(t\)\)/.test(code('js/organize.js')));
 ck('動画カード: タグ1 を組み込みの3つで絞らない', !/v\.tb\.filter\(/.test(code('js/cards.js')));
 

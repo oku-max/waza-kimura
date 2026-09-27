@@ -126,8 +126,9 @@ for (const fn of ['findPosition', 'findCategory', 'aliasNamesFor', 'matchPositio
 
 // ── 5. 無い機能について語っていないこと ────────────
 console.log('\n── 画面の説明文が現実と合っているか ──');
-const LIES = ['AI自動抽出', 'AIがタグを推定', 'AIにおまかせ', 'AI自動判定'];
-const UI = ['index.html', 'js/admin-dashboard.js', 'js/settings.js', 'js/tag-wizard.js', 'js/i18n.js'];
+// v52.864: タグ付けウィザードに「自動提案」の凡例と「検出:」の欄が残っていた（推測は v52.815 で廃止）
+const LIES = ['AI自動抽出', 'AIがタグを推定', 'AIにおまかせ', 'AI自動判定', '自動提案', "'検出: '"];
+const UI = ['index.html', 'js/admin-dashboard.js', 'js/settings.js', 'js/tag-wizard.js', 'js/i18n.js', 'js/tutorial.js'];
 let lies = [];
 for (const f of UI) {
   if (!fs.existsSync(path.join(ROOT, f))) continue;
