@@ -47,7 +47,8 @@ console.log('■ ① 動画を書く側は、どこも v.tb / v.pos の名前で
   const mig = read('js/tag-master.js');
   const body = mig.slice(mig.indexOf('function migrateVideo'), mig.indexOf('function migrateAll'));
   ck('読み込みのたびの変換（migrateVideo）が v.tb / v.pos を扱い、tbNew / posNew を知らない', /v\.tb\b/.test(body) && /v\.pos\b/.test(body) && !/tbNew|posNew/.test(body));
-  ck('タグ付けウィザードは v.tb / v.pos に書く', /v\.tb\s*=/.test(read('js/tag-wizard.js')) && /v\.pos\s*=/.test(read('js/tag-wizard.js')));
+  ck('取り込み（URLから追加）は tb / pos の名前で新しい動画を作る', /tb: tg\.tb \|\| \[\]/.test(read('index.html')) && /pos: tg\.pos \|\| \[\]/.test(read('index.html')));
+  ck('タグ付けウィザードは動画パネルと同じ入口（wkSetTagValue）で書く', /window\.wkSetTagValue\(v, g\.id, val, on\)/.test(read('js/tag-wizard.js')));
   const bad = [];
   for (const f of fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f).concat(['index.html'])) {
     strip(read(f)).split('\n').forEach((l, i) => { if (/\bv\.(tbNew|posNew)\s*=|\bv\.(tbNew|posNew)\.push/.test(l)) bad.push(`${f}:${i + 1}`); });

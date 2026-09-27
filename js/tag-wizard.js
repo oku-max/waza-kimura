@@ -12,10 +12,6 @@
 // オーナーが不要と判断したキーワード推定そのものだった。
 // 保存済みの wk_tw_skipped_rules / waza_ai_rules は消さない（読まなくなるだけ）。
 
-function _twLabel(k){
-  var v = window.tagLabel ? window.tagLabel(k) : k;
-  return String(v).replace(/[&<>"]/g, function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});
-}
 
 
 
@@ -40,9 +36,11 @@ function _getEmbedInfo(v) {
 }
 
 // ── キュー管理 ──
-var _queue=[], _qIdx=0, _autoTags=null, _previewOpen=false;
+var _queue=[], _qIdx=0, _previewOpen=false;
 
 function _hasData(v) {
+  var TF = window.tagFilter, R = window.tagRegistry;
+  if (TF && R) return TF.groups().some(function(g){ return R.valuesOf(v, g.id).length > 0; });
   return (v.tb&&v.tb.length) || (v.pos&&v.pos.length) || (v.cat&&v.cat.length) || (v.tags&&v.tags.length);
 }
 function _buildQueue() {
@@ -71,12 +69,15 @@ function _ensureDOM() {
     '  background:var(--surface2,#f1f1ef);color:var(--text3,#999);transition:all .12s;user-select:none;}',
     '.tw-chip:hover{border-color:var(--accent,#111);color:var(--accent,#111);}',
     '.tw-chip.tw-active{background:var(--accent,#111);border-color:var(--accent,#111);color:var(--on-accent,#fff);}',
-    '.tw-chip.tw-auto{border-color:#f4a26188;}',
-    '.tw-chip.tw-active.tw-auto{background:#f4a261;border-color:#f4a261;color:#1a0800;}',
-    '#tw-tech-select{width:100%;padding:7px 10px;border-radius:10px;',
+    '.tw-glbl{font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;letter-spacing:.05em}',
+    '.tw-chips{display:flex;flex-wrap:wrap;gap:6px}',
+    '.tw-sel{width:100%;padding:7px 10px;border-radius:10px;margin-top:8px;',
     '  border:1.5px solid var(--border,#e0e0dc);background:var(--surface2,#f1f1ef);',
     '  color:var(--text,#111);font-size:12px;outline:none;font-family:inherit;cursor:pointer;}',
-    '#tw-tech-select:focus{border-color:var(--accent,#111);}',
+    '.tw-sel:focus{border-color:var(--accent,#111);}',
+    '.tw-in{flex:1;padding:5px 10px;border-radius:20px;border:1.5px solid var(--border,#e0e0dc);background:var(--surface2,#f1f1ef);color:var(--text,#111);font-size:12px;outline:none;font-family:inherit}',
+    '.tw-add{padding:5px 12px;border-radius:20px;background:var(--surface2,#f1f1ef);border:1.5px solid var(--border,#e0e0dc);color:var(--text3,#999);font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit}',
+    '.tw-empty{font-size:11px;color:var(--text3,#999)}',
   ].join('\n');
   document.head.appendChild(style);
 
@@ -97,11 +98,6 @@ function _ensureDOM() {
       '</div>',
       // 本体
       '<div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">',
-        // 凡例
-        '<div style="display:flex;gap:12px;font-size:11px;color:var(--text3,#999)">',
-          '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f4a261;margin-right:4px;vertical-align:middle"></span>自動提案</span>',
-          '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent,#111);margin-right:4px;vertical-align:middle"></span>手動選択</span>',
-        '</div>',
         // 動画情報
         '<div style="display:flex;gap:10px;align-items:flex-start">',
           '<div id="tw-thumb-wrap" style="flex-shrink:0;position:relative;border-radius:8px;overflow:hidden;width:120px;height:68px;background:var(--surface2,#f1f1ef);cursor:default">',
@@ -117,36 +113,12 @@ function _ensureDOM() {
             '</div>',
             '<div id="tw-pl" style="display:none;font-size:10px;color:var(--text3,#999);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>',
             '<div id="tw-title" style="font-size:13px;font-weight:700;color:var(--text,#111);line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"></div>',
-            '<div id="tw-hint" style="margin-top:5px;font-size:11px;color:var(--text3,#999)"></div>',
           '</div>',
         '</div>',
         // iframe
         '<iframe id="tw-iframe" src="" allow="autoplay" allowfullscreen style="display:none;width:100%;aspect-ratio:16/9;border:none;border-radius:8px"></iframe>',
-        // TB
-        '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('tb') + '</div>',
-          '<div id="tw-tb-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
-        '</div>',
-        // ポジション
-        '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('pos') + '</div>',
-          '<div id="tw-pos-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
-        '</div>',
-        // カテゴリ
-        '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('cat') + '</div>',
-          '<div id="tw-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>',
-        '</div>',
-        // タグ（プルダウン + 自由入力）
-        '<div>',
-          '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em" data-user-text="1">' + _twLabel('tags') + '</div>',
-          '<div id="tw-tech-selected" style="display:flex;flex-wrap:wrap;gap:6px;min-height:4px;margin-bottom:8px"></div>',
-          '<select id="tw-tech-select"><option value="">— 既存タグから選択 —</option></select>',
-          '<div style="display:flex;gap:6px;margin-top:8px">',
-            '<input id="tw-tech-input" type="text" placeholder="新しいタグを入力..." style="flex:1;padding:5px 10px;border-radius:20px;border:1.5px solid var(--border,#e0e0dc);background:var(--surface2,#f1f1ef);color:var(--text,#111);font-size:12px;outline:none;font-family:inherit">',
-            '<button id="tw-btn-add-tech" style="padding:5px 12px;border-radius:20px;background:var(--surface2,#f1f1ef);border:1.5px solid var(--border,#e0e0dc);color:var(--text3,#999);font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit">追加</button>',
-          '</div>',
-        '</div>',
+        // タグ（タグ1〜4の枠のグループ。中身は _loadItem で並べる）
+        '<div id="tw-groups" style="display:flex;flex-direction:column;gap:12px"></div>',
         // メモ（自由入力）
         '<div>',
           '<div style="font-size:11px;font-weight:700;color:var(--text3,#999);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">メモ</div>',
@@ -171,94 +143,82 @@ function _ensureDOM() {
   document.getElementById('tw-btn-close').addEventListener('click', _close);
   document.getElementById('tw-btn-skip').addEventListener('click', _next);
   document.getElementById('tw-btn-confirm').addEventListener('click', _confirm);
-  document.getElementById('tw-btn-add-tech').addEventListener('click', _addTechFromInput);
-  document.getElementById('tw-tech-input').addEventListener('keydown', function(e){ if(e.key==='Enter') _addTechFromInput(); });
-  document.getElementById('tw-tech-select').addEventListener('change', function(){ _addTechFromSelect(this); });
+  var gbox = document.getElementById('tw-groups');
+  gbox.addEventListener('click', _onGroupsClick);
+  gbox.addEventListener('change', _onGroupsChange);
+  gbox.addEventListener('keydown', function(e){ if (e.key === 'Enter' && e.target.classList.contains('tw-in')) { e.preventDefault(); _addFromInput(e.target.dataset.gid); } });
   document.getElementById('tw-play-btn').addEventListener('click', _togglePreview);
 }
 
-// ── タグピル追加 ──
-function _addTechPill(val, isAuto) {
-  var container = document.getElementById('tw-tech-selected');
-  if (!container || !val) return;
-  var exists = Array.from(container.querySelectorAll('[data-val]')).some(function(p){ return p.dataset.val === val; });
-  if (exists) return;
-  var pill = document.createElement('span');
-  pill.dataset.val = val;
-  pill.className = 'tw-chip tw-active' + (isAuto ? ' tw-auto' : '');
-  pill.style.cssText = 'display:inline-flex;align-items:center;gap:3px;padding-right:7px';
-  pill.appendChild(document.createTextNode(val));
-  var rm = document.createElement('span');
-  rm.textContent = '×';
-  rm.style.cssText = 'margin-left:2px;opacity:.5;cursor:pointer;font-size:11px;font-weight:700;line-height:1';
-  rm.addEventListener('click', function(e){ e.stopPropagation(); container.removeChild(pill); _updateDelta(); });
-  pill.appendChild(rm);
-  container.appendChild(pill);
-  _updateDelta();
+// ── タグの欄（段階3c-2）──
+// タグ1〜4の枠に入っているグループを並べる（新しいタググループも出る）。マーク・習得は別の画面にある（段階5）。
+// 候補はユーザーの選択肢。選択肢に無いのに動画に付いている値は、消さずに先頭に出す（押さなければそのまま残る）。
+// 確定したとき、**変えた値だけ**を動画パネルと同じ入口（wkSetTagValue）で付け外しする。
+// 以前は配列を丸ごと置き換えていた（タグ1は1つに絞られ、テクニックは × で外しても残った）。
+var _FIELDS = ['tb', 'cat', 'pos', 'tags'];
+var _orig = {}, _sel = {};   // グループID → 値の配列（読み込んだ時点／今の選択）
+function _R() { return window.tagRegistry; }
+function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function _tagVis(key) { var ts = window.tagSettings || []; var s = ts.filter(function(t){ return t.key === key; })[0]; return s ? s.visible !== false : true; }
+function _twGroups() {
+  var R = _R(); if (!R) return [];
+  return R.slots().filter(function(g){ return g && (_FIELDS.indexOf(g.store) >= 0 || g.store === 'map'); })
+    .filter(function(g){ return _FIELDS.indexOf(g.store) < 0 || _tagVis(g.store); });
 }
-
-function _addTechFromInput() {
-  var input = document.getElementById('tw-tech-input');
-  if (!input) return;
-  var val = input.value.trim();
-  if (!val) return;
-  _addTechPill(val, false);
-  input.value = '';
+function _vals(v, g) { return _R().valuesOf(v, g.id).slice(); }
+function _allowNew(g) { return g.store === 'tags'; }
+// 候補: 選択肢（＋テクニックはほかの動画に付いている値）。今付いている値で選択肢に無いものは先頭
+function _cands(g, cur) {
+  var opts = (g.options || []).filter(Boolean).slice();
+  if (_allowNew(g)) (window.videos || []).forEach(function(x){ _R().valuesOf(x, g.id).forEach(function(t){ if (t && opts.indexOf(t) < 0) opts.push(t); }); });
+  var extra = cur.filter(function(x){ return opts.indexOf(x) < 0; });
+  return extra.concat(opts);
 }
-
-function _addTechFromSelect(sel) {
-  var val = sel.value; sel.value = '';
-  if (val) _addTechPill(val, false);
-}
-
-// ── チップ生成 ──
-function _makeChip(val, isAuto, isActive, isSingle) {
-  var chip = document.createElement('div');
-  chip.className = 'tw-chip' + (isActive ? ' tw-active' : '') + (isAuto ? ' tw-auto' : '');
-  chip.dataset.val = val;
-  chip.textContent = val;
-  chip.addEventListener('click', function(){
-    if (isSingle) {
-      Array.from(chip.parentNode.querySelectorAll('.tw-chip')).forEach(function(c){ c.classList.remove('tw-active'); });
-      chip.classList.add('tw-active');
+function _renderGroups() {
+  var box = document.getElementById('tw-groups'); if (!box) return;
+  var gs = _twGroups();
+  if (!gs.length) { box.innerHTML = '<div class="tw-empty">タグ1〜4に使うタググループがありません（タグ設定で選べます）</div>'; return; }
+  box.innerHTML = gs.map(function(g){
+    var sel = _sel[g.id] || [];
+    var h = '<div><div class="tw-glbl" data-user-text="1">' + _esc(g.name) + '</div>';
+    if (_allowNew(g)) {
+      h += '<div class="tw-chips">' + sel.map(function(t){
+        return '<span class="tw-chip tw-active" data-gid="' + _esc(g.id) + '" data-val="' + _esc(t) + '" data-act="rm" style="display:inline-flex;align-items:center;gap:3px;padding-right:7px">' + _esc(t) + '<span style="margin-left:2px;opacity:.5;font-size:11px;font-weight:700">×</span></span>';
+      }).join('') + '</div>';
+      var rest = _cands(g, sel).filter(function(t){ return sel.indexOf(t) < 0; }).sort(function(a, b){ return String(a).localeCompare(String(b), 'ja'); });
+      h += '<select class="tw-sel" data-gid="' + _esc(g.id) + '"><option value="">— 既存タグから選択 —</option>' + rest.map(function(t){ return '<option value="' + _esc(t) + '">' + _esc(t) + '</option>'; }).join('') + '</select>';
+      h += '<div style="display:flex;gap:6px;margin-top:8px"><input class="tw-in" data-gid="' + _esc(g.id) + '" type="text" placeholder="新しいタグを入力..."><button class="tw-add" data-act="add" data-gid="' + _esc(g.id) + '">追加</button></div>';
     } else {
-      chip.classList.toggle('tw-active');
+      var c = _cands(g, sel);
+      h += c.length
+        ? '<div class="tw-chips">' + c.map(function(t){ return '<span class="tw-chip' + (sel.indexOf(t) >= 0 ? ' tw-active' : '') + '" data-gid="' + _esc(g.id) + '" data-val="' + _esc(t) + '" data-act="tog">' + _esc(t) + '</span>'; }).join('') + '</div>'
+        : '<div class="tw-empty">選択肢がありません（タグ設定で足せます）</div>';
     }
-    _updateDelta();
-  });
-  return chip;
+    return h + '</div>';
+  }).join('');
 }
-
-function _fillChips(containerId, all, autoVals) {
-  var container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = '';
-  var autoArr = autoVals.filter(function(v){ return v; });
-  var rest = all.filter(function(v){ return autoArr.indexOf(v) < 0; });
-  autoArr.concat(rest).forEach(function(val){
-    container.appendChild(_makeChip(val, autoArr.indexOf(val)>=0, autoArr.indexOf(val)>=0, false));
-  });
+function _toggle(gid, val, on) {
+  var a = _sel[gid] || (_sel[gid] = []);
+  var i = a.indexOf(val);
+  if (on && i < 0) a.push(val);
+  if (!on && i >= 0) a.splice(i, 1);
+  _renderGroups(); _updateDelta();
 }
-
-// 既存タグ（青/アクセント）＋自動提案（オレンジ）を事前選択してチップを描画
-function _fillChipsWithExisting(containerId, all, existingVals, autoVals) {
-  var container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = '';
-  var existArr = (existingVals||[]).filter(function(v){ return v; });
-  var autoArr  = (autoVals||[]).filter(function(v){ return v; });
-  // 一覧に存在しない既存タグも先頭に追加（管理外タグ対応）
-  var extra = existArr.filter(function(v){ return all.indexOf(v)<0; });
-  var ordered = extra.concat(
-    all.filter(function(v){ return existArr.indexOf(v)>=0; }),  // 既存（リスト内）
-    autoArr.filter(function(v){ return all.indexOf(v)>=0; }),   // 自動提案（リスト内）
-    all.filter(function(v){ return existArr.indexOf(v)<0 && autoArr.indexOf(v)<0; }) // 残り
-  );
-  ordered.forEach(function(val){
-    var isAuto   = autoArr.indexOf(val)>=0;
-    var isActive = existArr.indexOf(val)>=0 || isAuto;
-    container.appendChild(_makeChip(val, isAuto, isActive, false));
-  });
+function _onGroupsClick(e) {
+  var el = e.target.closest('[data-act]'); if (!el) return;
+  var gid = el.dataset.gid, act = el.dataset.act;
+  if (act === 'tog') _toggle(gid, el.dataset.val, (_sel[gid] || []).indexOf(el.dataset.val) < 0);
+  else if (act === 'rm') _toggle(gid, el.dataset.val, false);
+  else if (act === 'add') _addFromInput(gid);
+}
+function _onGroupsChange(e) {
+  var s = e.target; if (!s.classList.contains('tw-sel') || !s.value) return;
+  _toggle(s.dataset.gid, s.value, true);
+}
+function _addFromInput(gid) {
+  var inp = document.querySelector('#tw-groups .tw-in[data-gid="' + (window.CSS && CSS.escape ? CSS.escape(gid) : gid) + '"]');
+  var val = inp ? inp.value.trim() : '';
+  if (val) _toggle(gid, val, true);
 }
 
 // ── アイテム読み込み ──
@@ -276,25 +236,13 @@ function _loadItem() {
   var fr = document.getElementById('tw-iframe');
   if (fr) { fr.src = ''; fr.style.display = 'none'; }
 
-  // ── 自動提案（タイトル＋プレイリスト＋チャンネル＋メモ）──
-  // memo: ユーザーが前回書いたヒントをルールマッチングに活用
-  _autoTags = { tb: null, pos: [], cat: [], tech: [] };   // 推測しない（v52.815）
-
-  // ヒント表示
-  var hintArr = [];
-  if (_autoTags.tb)                        hintArr.push('TB: ' + _autoTags.tb);
-  if (_autoTags.pos && _autoTags.pos.length) hintArr.push(_autoTags.pos.join(', '));
-  if (_autoTags.cat && _autoTags.cat.length) hintArr.push(_autoTags.cat.join(', '));
-
   // テキスト更新
   var elTitle = document.getElementById('tw-title');
   var elCh    = document.getElementById('tw-ch');
   var elPl    = document.getElementById('tw-pl');
-  var elHint  = document.getElementById('tw-hint');
   if (elTitle) elTitle.textContent = title;
   if (elCh)    elCh.textContent    = channel || '（不明）';
   if (elPl)  { elPl.textContent = pl ? '📋 ' + pl : ''; elPl.style.display = pl ? 'block' : 'none'; }
-  if (elHint)  elHint.textContent  = hintArr.length ? '検出: ' + hintArr.join(' / ') : '';
 
   // サムネイル・再生ボタン
   var elThumb   = document.getElementById('tw-thumb');
@@ -302,63 +250,10 @@ function _loadItem() {
   if (elThumb)   { elThumb.src = _info.thumb || ''; elThumb.style.display = _info.thumb ? 'block' : 'none'; }
   if (elPlayBtn) elPlayBtn.style.display = _info.canPlay ? 'flex' : 'none';
 
-  // 候補はユーザーの選択肢（tagPresets）から。組み込みの一覧は読まない（v52.827）。
-  // 選択肢に無いのに動画に付いている値は、消さずに先頭に出す（押さなければそのまま残る）。
-  function _twPresets(key) { return (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice(); }
-
-  // TB chips（既存 v.tb を事前選択）
-  var tbValues    = _twPresets('tb');
-  var existingTb  = (v.tb && v.tb.length) ? v.tb[0] : null;
-  if (existingTb && tbValues.indexOf(existingTb) < 0) tbValues.unshift(existingTb);
-  var tbContainer = document.getElementById('tw-tb-chips');
-  if (tbContainer) {
-    tbContainer.innerHTML = '';
-    tbValues.forEach(function(tb){
-      var isExisting = tb === existingTb;
-      var isAuto     = !isExisting && _autoTags.tb === tb;
-      tbContainer.appendChild(_makeChip(tb, isAuto, isExisting || isAuto, true));
-    });
-  }
-
-  // ポジション chips（既存 v.pos を事前選択）
-  var allPos      = _twPresets('pos');
-  var existingPos = v.pos || [];
-  var autoPos     = (_autoTags.pos||[]).filter(function(p){ return existingPos.indexOf(p)<0; });
-  _fillChipsWithExisting('tw-pos-chips', allPos, existingPos, autoPos);
-
-  // カテゴリ chips（既存 v.cat を事前選択）
-  var allCat      = _twPresets('cat');
-  var existingCat = v.cat || [];
-  var autoCat     = (_autoTags.cat||[]).filter(function(c){ return existingCat.indexOf(c)<0; });
-  _fillChipsWithExisting('tw-cat-chips', allCat, existingCat, autoCat);
-
-  // #タグ プルダウン（既存動画の tags から収集）
-  var existingTags = [];
-  try {
-    var tagSet = {};
-    (window.videos||[]).forEach(function(v2){ (v2.tags||[]).forEach(function(t){ if(t) tagSet[t]=true; }); });
-    existingTags = Object.keys(tagSet).sort();
-  } catch(e) {}
-  var techSelect = document.getElementById('tw-tech-select');
-  if (techSelect) {
-    techSelect.innerHTML = '<option value="">— 既存タグから選択 —</option>';
-    existingTags.forEach(function(t){
-      var opt = document.createElement('option');
-      opt.value = t; opt.textContent = t;
-      techSelect.appendChild(opt);
-    });
-    techSelect.value = '';
-  }
-
-  // 選択済みタグピルをリセット・自動提案をセット
-  var techSel = document.getElementById('tw-tech-selected');
-  if (techSel) techSel.innerHTML = '';
-  (_autoTags.tech || []).forEach(function(t){ _addTechPill(t, true); });
-  // 現在の v.tags も既選として表示（既存タグがある場合）
-  (v.tags || []).forEach(function(t){ _addTechPill(t, false); });
-
-  var techInput = document.getElementById('tw-tech-input');
-  if (techInput) techInput.value = '';
+  // タグ: 今付いている値を控えてから並べる（確定のとき、変えた分だけを書く）
+  _orig = {}; _sel = {};
+  _twGroups().forEach(function(g){ _orig[g.id] = _vals(v, g); _sel[g.id] = _orig[g.id].slice(); });
+  _renderGroups();
 
   var memoEl = document.getElementById('tw-memo');
   if (memoEl) memoEl.value = v.memo || '';
@@ -386,25 +281,14 @@ function _togglePreview() {
 function _updateDelta() {
   var deltaBox     = document.getElementById('tw-delta-box');
   var deltaContent = document.getElementById('tw-delta-content');
-  if (!deltaBox || !deltaContent || !_autoTags) return;
+  if (!deltaBox || !deltaContent) return;
 
   var removedItems=[], addedItems=[];
-  [{id:'tw-tb-chips',  auto:_autoTags.tb?[_autoTags.tb]:[]},
-   {id:'tw-pos-chips', auto:_autoTags.pos||[]},
-   {id:'tw-cat-chips', auto:_autoTags.cat||[]}].forEach(function(g){
-    var el = document.getElementById(g.id);
-    if (!el) return;
-    var activeSet = Array.from(el.querySelectorAll('.tw-chip.tw-active')).map(function(c){ return c.dataset.val; });
-    g.auto.forEach(function(t){ if(activeSet.indexOf(t)<0) removedItems.push(t); });
-    activeSet.forEach(function(t){ if(g.auto.indexOf(t)<0) addedItems.push(t); });
+  Object.keys(_sel).forEach(function(gid){
+    var o = _orig[gid] || [], s = _sel[gid] || [];
+    o.forEach(function(t){ if (s.indexOf(t) < 0) removedItems.push(t); });
+    s.forEach(function(t){ if (o.indexOf(t) < 0) addedItems.push(t); });
   });
-  var techSel = document.getElementById('tw-tech-selected');
-  if (techSel) {
-    var autoTech   = _autoTags.tech||[];
-    var activeTech = Array.from(techSel.querySelectorAll('[data-val]')).map(function(p){ return p.dataset.val; });
-    autoTech.forEach(function(t)  { if(activeTech.indexOf(t)<0) removedItems.push(t); });
-    activeTech.forEach(function(t){ if(autoTech.indexOf(t)<0)   addedItems.push(t); });
-  }
 
   if (!removedItems.length && !addedItems.length) { deltaBox.style.display='none'; return; }
   deltaBox.style.display = 'block';
@@ -449,24 +333,13 @@ function _confirm() {
   var v = _queue[_qIdx];
   if (!v) return;
 
-  var tbContainer = document.getElementById('tw-tb-chips');
-  var activeChip  = tbContainer ? tbContainer.querySelector('.tw-chip.tw-active') : null;
-  var finalTb     = activeChip ? activeChip.dataset.val : null;
-
-  function _getActive(id) {
-    var el = document.getElementById(id);
-    return el ? Array.from(el.querySelectorAll('.tw-chip.tw-active')).map(function(c){ return c.dataset.val; }) : [];
-  }
-  var finalPos  = _getActive('tw-pos-chips');
-  var finalCat  = _getActive('tw-cat-chips');
-  var techSel   = document.getElementById('tw-tech-selected');
-  var finalTech = techSel ? Array.from(techSel.querySelectorAll('[data-val]')).map(function(p){ return p.dataset.val; }) : [];
-  var final     = {tb:finalTb, pos:finalPos, cat:finalCat, tech:finalTech};
-
-  v.tb       = finalTb ? [finalTb] : (v.tb||[]);
-  v.pos      = finalPos;
-  v.cat      = finalCat;
-  v.tags     = finalTech.length ? Array.from(new Set((v.tags||[]).concat(finalTech))) : (v.tags||[]);
+  // 読み込んだときのグループで書く（開いている間に枠が変わっても、見ていた欄のとおりに）
+  Object.keys(_sel).forEach(function(gid){
+    var g = _R() && _R().group(gid); if (!g) return;
+    var o = _orig[gid] || [], s = _sel[gid] || [];
+    o.forEach(function(t){ if (s.indexOf(t) < 0) _write(v, g, t, false); });
+    s.forEach(function(t){ if (o.indexOf(t) < 0) _write(v, g, t, true); });
+  });
   var memoEl = document.getElementById('tw-memo');
   if (memoEl) { var m = memoEl.value.trim(); if (m) v.memo = m; else delete v.memo; }
   v.verified = Date.now();
@@ -475,6 +348,17 @@ function _confirm() {
   if (window.AF) window.AF();
 
   _next();
+}
+
+function _write(v, g, val, on) {
+  if (window.wkSetTagValue) return window.wkSetTagValue(v, g.id, val, on);
+  // vpanel-v4.js が無いときの控え（今の4つだけ。新しいグループは書かない）
+  if (_FIELDS.indexOf(g.store) < 0) return false;
+  if (!Array.isArray(v[g.store])) v[g.store] = [];
+  var i = v[g.store].indexOf(val);
+  if (on && i < 0) v[g.store].push(val);
+  if (!on && i >= 0) v[g.store].splice(i, 1);
+  return true;
 }
 
 // ── open / close / next ──

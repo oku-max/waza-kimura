@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.863</title>
+<title>WAZA KIMURA v52.864</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -2954,6 +2954,7 @@ function addUrls() {
       id: p.id, pt: p.pt, title: p.title || (p.pt + '動画'),
       ch: manualCh || p.ch || '', pl: manualPl || p.pl || '未分類',
       tb: tg.tb || [], cat: tg.cat || [], pos: tg.pos || [], tags: tg.tags || [],
+      ...(tg.tg ? { tg: tg.tg } : {}),
       prio: urlPrio, fav: false, memo: '', watched: false,
       status: '未着手', archived: false, shared: 0, ai: ''
     };
@@ -2981,11 +2982,13 @@ function addUrls() {
 //   タグ編集UIは Vパネル (vpanel-v4.js) と同一の .vp-chip / .vp-dd を流用。
 let itagMode = 'none';
 let itagTarget = '';
-let itagBatch = { tb: [], cat: [], pos: [], tags: [] };
+// 選んだタグ: グループID → 値の配列（タグ1〜4の枠のグループ。段階3c-2）
+let itagBatch = {};
 let itagOverrides = {};
 let itagItems = [];
 let itagPerVideo = false;
 let _itagRoot = null;
+const _ITAG_FIELDS = ['tb', 'cat', 'pos', 'tags'];
 
 function _itagBuildRoot() {
   // 単一要素を使い回す（ID重複回避）。言語変更を反映するため innerHTML は毎回現在の言語で再構築。
@@ -3018,19 +3021,27 @@ window.itagMount = function (containerId, opts) {
   itagItems = opts.items || [];
   itagPerVideo = opts.perVideo === true && itagItems.length > 0;
   itagMode = 'none'; itagTarget = '';
-  itagBatch = { tb: [], cat: [], pos: [], tags: [] };
+  itagBatch = {};
   itagOverrides = {};
   itagBuildTargetSelect();
   itagSetMode('none');
 };
 
 // 追加時に各動画へ与えるタグを返す（モード別）。未マウントでも安全（既定=タグなし）。
+//   今の4つは tb/cat/pos/tags、新しいタググループは tg[グループID]（値があるときだけ tg を付ける）
 window.itagGetTagsFor = function (id, title, pl, ch) {
-  if (itagMode === 'manual') {
-    const o = (itagPerVideo && itagOverrides[id]) ? itagOverrides[id] : itagBatch;
-    return { tb: [...o.tb], cat: [...o.cat], pos: [...o.pos], tags: [...o.tags] };
-  }
-  return { tb: [], cat: [], pos: [], tags: [] };   // タグなし。推測はしない（v52.814）
+  const out = { tb: [], cat: [], pos: [], tags: [] };   // タグなし。推測はしない（v52.814）
+  if (itagMode !== 'manual') return out;
+  const o = (itagPerVideo && itagOverrides[id] && _itagCount(itagOverrides[id])) ? itagOverrides[id] : itagBatch;
+  const R = window.tagRegistry;
+  Object.keys(o).forEach(gid => {
+    const vals = (o[gid] || []).filter(Boolean); if (!vals.length) return;
+    const g = R ? R.group(gid) : { store: gid.replace(/^f_/, '') };
+    if (!g) return;
+    if (_ITAG_FIELDS.includes(g.store)) out[g.store] = [...new Set([...out[g.store], ...vals])];
+    else if (g.store === 'map') (out.tg || (out.tg = {}))[gid] = [...new Set(vals)];
+  });
+  return out;
 };
 window.itagModeGet = function () { return itagMode; };
 
@@ -3059,58 +3070,77 @@ function itagBuildTargetSelect() {
   sel.value = itagTarget;
 }
 function itagSetTarget(id) { itagTarget = id; itagRenderFields(); }
-function _itagCount(o) { return (o.tb.length + o.cat.length + o.pos.length + o.tags.length); }
+function _itagCount(o) { return Object.keys(o || {}).reduce((n, k) => n + ((o[k] || []).length), 0); }
 function itagCurrent() {
   if (!itagPerVideo || !itagTarget) return itagBatch;
-  if (!itagOverrides[itagTarget]) itagOverrides[itagTarget] = { tb: [], cat: [], pos: [], tags: [] };
+  if (!itagOverrides[itagTarget]) itagOverrides[itagTarget] = {};
   return itagOverrides[itagTarget];
 }
+const _itagArr = gid => { const t = itagCurrent(); return t[gid] || (t[gid] = []); };
 
 // ── タグ編集UI（Vパネル vpanel-v4.js と同一の .vp-chip / .vp-dd）──
+// タグ1〜4の枠に入っているグループを並べる（段階3c-2。新しいタググループも出る。マーク・習得は段階5）。
+// 見せ方は動画パネルと同じ: 選択肢が少なければ並べて押す、多ければプルダウン。新しい値を打ち込めるのはテクニック（tags）だけ。
+// 値は onclick の文字列に埋め込まず data 属性で渡す（' を含む値でボタンが壊れていた）。
+function _itagGroups() {
+  const R = window.tagRegistry; if (!R) return [];
+  const vis = k => { const s = (window.tagSettings || []).find(t => t.key === k); return s ? s.visible !== false : true; };
+  return R.slots().filter(g => g && (_ITAG_FIELDS.includes(g.store) || g.store === 'map'))
+    .filter(g => g.store === 'map' || vis(g.store));
+}
+const _itagEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// 表示は翻訳、値(data-val)は日本語のまま
+function _itagLbl(g, v) {
+  if (g.store === 'tb')  return window.tTb  ? window.tTb(v)  : v;
+  if (g.store === 'cat') return window.tCat ? window.tCat(v) : v;
+  if (g.store === 'pos') return window.tPos ? window.tPos(v) : v;
+  return v;
+}
+const _itagCls = g => ({ tb: 'on-tb', cat: 'on-cat', pos: 'on-pos', tags: 'on-tags' }[g.store] || 'on-tags');
+// プルダウンの候補: 選択肢（上下・カテゴリ以外は、ほかの動画に付いている値も）
+function _itagCands(g) {
+  const R = window.tagRegistry;
+  const opts = (g.options || []).filter(Boolean).slice();
+  if (g.store !== 'tb' && g.store !== 'cat') {
+    const seen = new Set(opts), extra = new Set();
+    (window.videos || []).forEach(v => R.valuesOf(v, g.id).forEach(t => { if (t && !seen.has(t)) extra.add(t); }));
+    return opts.concat([...extra].sort((a, b) => String(a).localeCompare(String(b), 'ja')));
+  }
+  return opts;
+}
 function itagRenderFields() {
   const c = document.getElementById('utagFields');
   if (!c) return;
-  const t = itagCurrent();
-  const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
   const T = (k, fb) => window.t ? window.t(k, fb) : fb;
-  // タググループ名はユーザーが付けたもの。翻訳せずそのまま出す。
-  const _vpTagLabel = k => {
-    const v = window.tagLabel ? window.tagLabel(k) : k;
-    return String(v).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-  };
-  const lblTb = v => window.tTb ? window.tTb(v) : v;     // 表示は翻訳、値(value)は日本語のまま
-  const lblCat = v => window.tCat ? window.tCat(v) : v;
-  const lblPos = v => window.tPos ? window.tPos(v) : v;
-  const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || ['トップ','ボトム','スタンディング']));
-  const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(x => x.name));
+  const R = window.tagRegistry;
   // 選択肢が1つも無いときに行が黙って空になると「選べなくなった」ようにしか見えない。
   // 空なら理由と行き先を出す（CLAUDE.md: 直せないもの・無いものは、そう書く）。
   const emptyNote = `<span style="font-size:11px;color:var(--text3)">${T('itag.noopts','選択肢がありません（設定 → タグ から追加できます）')}</span>`;
-  const tbRow = TB.length
-    ? TB.map(v => `<span class="vp-chip${t.tb.includes(v) ? ' on-tb' : ''}" style="cursor:pointer" onclick="itagTog('tb','${esc(v)}',this)">${lblTb(v)}</span>`).join('')
-    : emptyNote;
-  const catRow = CATS.length
-    ? CATS.map(v => `<span class="vp-chip${t.cat.includes(v) ? ' on-cat' : ''}" style="cursor:pointer" onclick="itagTog('cat','${esc(v)}',this)">${lblCat(v)}</span>`).join('')
-    : emptyNote;
-  const posChips = t.pos.map(p => `<span class="vp-chip on-pos" style="cursor:pointer" onclick="itagRmChip('pos','${esc(p)}')">${lblPos(p)} ×</span>`).join('');
-  const posPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenPosDd()">${T('itag.add.pos','＋ ポジション')}</span><div class="vp-dd" id="utag-pos-dd" style="display:none"><input class="vp-dd-search" placeholder="${T('itag.dd.filter','絞り込み...')}" oninput="itagFilterPosDd(this.value)" onkeydown="if(event.key==='Escape'){this.closest('.vp-dd').style.display='none'}"><div class="vp-dd-list" id="utag-pos-list"></div></div></div>`;
-  const tagChips = t.tags.map(x => `<span class="vp-chip on-tags" style="cursor:pointer" onclick="itagRmChip('tags','${esc(x)}')">${x} ×</span>`).join('');
-  const tagPicker = `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" onclick="itagOpenTagDd()">${T('itag.add.tech','＋ テクニック')}</span><div class="vp-dd" id="utag-tag-dd" style="display:none"><input class="vp-dd-search" id="utag-tag-inp" placeholder="${T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）')}" oninput="itagTagFilter(this.value)" onkeydown="itagTagKey(event,this)"><div class="vp-dd-list" id="utag-tag-sug"></div></div></div>`;
+  const rows = _itagGroups().map(g => {
+    const sel = _itagArr(g.id), cls = _itagCls(g), da = v => `data-gid="${_itagEsc(g.id)}"` + (v != null ? ` data-val="${_itagEsc(v)}"` : '');
+    const allowNew = g.store === 'tags';
+    let inner;
+    if (!allowNew && R.displayMode((g.options || []).length) === 'chips') {
+      const shown = (g.options || []).concat(sel.filter(v => !(g.options || []).includes(v)));
+      inner = shown.length
+        ? shown.map(v => `<span class="vp-chip${sel.includes(v) ? ' ' + cls : ''}" style="cursor:pointer" ${da(v)} onclick="itagChip(this)">${_itagEsc(_itagLbl(g, v))}</span>`).join('')
+        : emptyNote;
+    } else {
+      const ph = allowNew ? T('itag.dd.tech','テクニック検索・新規追加（Enterで追加）') : T('itag.dd.filter','絞り込み...');
+      inner = sel.map(v => `<span class="vp-chip ${cls}" style="cursor:pointer" ${da(v)} onclick="itagChip(this)">${_itagEsc(_itagLbl(g, v))} ×</span>`).join('')
+        + `<div class="vp-dd-wrap" style="display:inline-block;position:relative"><span class="vp-chip" style="border-style:dashed;cursor:pointer" ${da()} onclick="itagOpenDd(this)">＋</span>`
+        + `<div class="vp-dd" style="display:none"><input class="vp-dd-search" ${da()} placeholder="${_itagEsc(ph)}" oninput="itagDdFilter(this)" onkeydown="itagDdKey(event,this)"><div class="vp-dd-list"></div></div></div>`;
+    }
+    return `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_itagEsc(g.name)}</span><div class="vp-chips">${inner}</div></div>`;
+  }).join('');
   c.innerHTML = `<div class="fsec">
     <div class="fsec-title">${T('itag.section.tags','タグ')}</div>
-    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('tb')}</span><div class="vp-chips">${tbRow}</div></div>
-    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('cat')}</span><div class="vp-chips">${catRow}</div></div>
-    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('pos')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>
-    <div class="vp-row"><span class="vp-lbl" data-user-text="1">${_vpTagLabel('tags')}</span><div class="vp-chips">${tagChips}${tagPicker}</div></div>
+    ${rows}
   </div>`;
 }
-function itagTog(layer, val, el) {
-  const t = itagCurrent(); const a = t[layer];
-  const i = a.indexOf(val); if (i >= 0) a.splice(i, 1); else a.push(val);
-  if (el) el.classList.toggle('on-' + layer);
-}
-function itagRmChip(layer, val) {
-  const t = itagCurrent(); t[layer] = t[layer].filter(x => x !== val);
+function itagChip(el) {
+  const a = _itagArr(el.dataset.gid), v = el.dataset.val;
+  const i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v);
   itagRenderFields();
 }
 function _itagDdOpen(dd) {
@@ -3120,78 +3150,38 @@ function _itagDdOpen(dd) {
   dd.style.width = 'min(360px,92vw)'; dd.style.maxHeight = '58vh'; dd.style.zIndex = '500';
   dd.style.display = 'flex'; dd.style.flexDirection = 'column'; dd.style.overflow = 'hidden';
 }
-// ── ポジション ドロップダウン ──
-function itagOpenPosDd() {
-  const dd = document.getElementById('utag-pos-dd'); if (!dd) return;
+function itagOpenDd(el) {
+  const dd = el.parentNode.querySelector('.vp-dd'); if (!dd) return;
   if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
   _itagDdOpen(dd);
-  itagRenderPosDd('');
-  const inp = dd.querySelector('.vp-dd-search'); if (inp) { inp.value = ''; inp.focus(); }
+  const inp = dd.querySelector('.vp-dd-search'); if (inp) { inp.value = ''; _itagDdList(inp); inp.focus(); }
 }
-function itagFilterPosDd(q) { itagRenderPosDd(q); }
-function itagRenderPosDd(q) {
-  const list = document.getElementById('utag-pos-list'); if (!list) return;
-  const sel = itagCurrent().pos || [];
-  // 選択肢はユーザーのもの。英語表記は辞書(tag-master.js)から引くだけで、一覧の中身は決めない。
-  const dict = new Map((window.POSITIONS || []).map(p => [p.ja, p.en || '']));
-  const names = window.tagPresets ? window.tagPresets('pos') : [...dict.keys()];
-  const master = names.map(n => ({ ja: n, en: dict.get(n) || '' }));
-  const masterNames = new Set(names);
-  const extra = [...new Set((window.videos || []).flatMap(v => v.pos || []))].filter(n => !masterNames.has(n)).sort();
-  const all = [...master, ...extra.map(n => ({ ja: n, en: '' }))];
-  const ql = q.trim().toLowerCase();
-  const filtered = ql
-    ? all.filter(p => !sel.includes(p.ja) && (p.ja.toLowerCase().includes(ql) || (p.en || '').toLowerCase().includes(ql)))
-    : all.filter(p => !sel.includes(p.ja));
-  const en = window.WK_LANG && window.WK_LANG() === 'en';
-  list.innerHTML = filtered.length
-    ? filtered.map(p => {
-        const main = en && p.en ? p.en : p.ja;          // 表示は言語に応じて、値は p.ja
-        const sub = en ? (p.ja !== main ? p.ja : '') : (p.en || '');
-        return `<div class="vp-dd-item" onmousedown="itagPosPick('${p.ja.replace(/'/g, "\\'")}')">${main}${sub ? `<span class="vp-dd-cnt">${sub}</span>` : ''}</div>`;
-      }).join('')
-    : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.none','候補なし')}</div>`;
+function _itagDdList(inp) {
+  const R = window.tagRegistry, g = R && R.group(inp.dataset.gid); if (!g) return;
+  const list = inp.parentNode.querySelector('.vp-dd-list'); if (!list) return;
+  const sel = _itagArr(g.id), ql = inp.value.trim().toLowerCase();
+  const all = _itagCands(g).filter(v => !sel.includes(v))
+    .filter(v => !ql || String(v).toLowerCase().includes(ql) || String(_itagLbl(g, v)).toLowerCase().includes(ql));
+  const none = g.store === 'tags' ? (window.t?.('itag.dd.tech.none','候補なし（Enterで新規追加）')) : (window.t?.('itag.dd.none','候補なし'));
+  list.innerHTML = all.length
+    ? all.map(v => `<div class="vp-dd-item" data-gid="${_itagEsc(g.id)}" data-val="${_itagEsc(v)}" onmousedown="itagDdPick(this)">${_itagEsc(_itagLbl(g, v))}</div>`).join('')
+    : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${none}</div>`;
 }
-function itagPosPick(val) {
-  const t = itagCurrent(); if (!t.pos.includes(val)) t.pos.push(val);
-  const dd = document.getElementById('utag-pos-dd'); if (dd) dd.style.display = 'none';
+function itagDdFilter(inp) { _itagDdList(inp); }
+function itagDdPick(el) {
+  const a = _itagArr(el.dataset.gid); if (!a.includes(el.dataset.val)) a.push(el.dataset.val);
   itagRenderFields();
 }
-// ── テクニック ドロップダウン（グループ表示＋Enterで新規）──
-function itagOpenTagDd() {
-  const dd = document.getElementById('utag-tag-dd'); if (!dd) return;
-  if (dd.style.display !== 'none' && dd.style.display !== '') { dd.style.display = 'none'; return; }
-  _itagDdOpen(dd);
-  itagRenderTagList('');
-}
-function itagTagFilter(q) { itagRenderTagList(q); }
-function itagRenderTagList(q) {
-  const list = document.getElementById('utag-tag-sug'); if (!list) return;
-  const existing = itagCurrent().tags || [];
-  const all = [...new Set((window.videos || []).flatMap(v => v.tags || []))]
-    .sort((a, b) => a.localeCompare(b, 'ja')).filter(t => !existing.includes(t));
-  const ql = q.trim().toLowerCase();
-  const mk = t => `<div class="vp-dd-item" onmousedown="itagTagPick('${t.replace(/'/g, "&#39;")}')">${t}</div>`;
-  if (ql) {
-    const f = all.filter(t => t.toLowerCase().includes(ql));
-    list.innerHTML = f.map(mk).join('') || `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.tech.none','候補なし（Enterで新規追加）')}</div>`;
-  } else {
-    // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
-    list.innerHTML = all.length ? all.map(mk).join('') : `<div style="padding:10px 12px;color:var(--text3);font-size:11px">${window.t?.('itag.dd.empty','既存テクニックなし（入力して新規追加）')}</div>`;
-  }
-}
-function itagTagPick(val) {
-  const t = itagCurrent(); if (!t.tags.includes(val)) t.tags.push(val);
-  const dd = document.getElementById('utag-tag-dd'); if (dd) dd.style.display = 'none';
-  itagRenderFields();
-}
-function itagTagKey(ev, inp) {
-  if (ev.key === 'Escape') { const dd = document.getElementById('utag-tag-dd'); if (dd) dd.style.display = 'none'; return; }
+function itagDdKey(ev, inp) {
+  if (ev.key === 'Escape') { inp.closest('.vp-dd').style.display = 'none'; return; }
   if (ev.key !== 'Enter') return;
   ev.preventDefault();
+  const R = window.tagRegistry, g = R && R.group(inp.dataset.gid); if (!g) return;
   const val = inp.value.trim(); if (!val) return;
-  const t = itagCurrent(); if (!t.tags.includes(val)) t.tags.push(val);
-  inp.value = '';
+  // 新しい値を打ち込めるのはテクニックだけ。ほかは候補にあるものだけ（今までどおり）
+  const ok = g.store === 'tags' ? val : _itagCands(g).find(v => v === val || String(_itagLbl(g, v)) === val);
+  if (!ok) return;
+  const a = _itagArr(g.id); if (!a.includes(ok)) a.push(ok);
   itagRenderFields();
 }
 

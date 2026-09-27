@@ -744,7 +744,7 @@ export async function ytImportCheckedVideos() {
         const t = window.itagGetTagsFor
           ? window.itagGetTagsFor(newId, cb.dataset.title, cb.dataset.pl, cb.dataset.channel)
           : {tb:[],cat:[],pos:[],tags:[]};
-        return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags };
+        return { tb: t.tb, cat: t.cat, pos: t.pos, tags: t.tags, ...(t.tg ? { tg: t.tg } : {}) };
       })()
     });
     added++;
