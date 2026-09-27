@@ -41,11 +41,12 @@
   function _setVal(v, g, val, on) {
     let arr;
     if (FIELDS.includes(g.store)) {
-      // 保存場所の名前と動画の項目名は違う（tb→tbNew / pos→posNew）。取り違えると
-      // 付けたタグがカードにも表にも絞り込みにも出ない。取り出しは tagRegistry に集約する。
-      const f = _R()?.fieldOfStore ? _R().fieldOfStore(g.store) : g.store;
-      if (!Array.isArray(v[f])) v[f] = [];
-      arr = v[f];
+      // 書くのは v.tb / v.cat / v.pos / v.tags（ほかの画面・検索・ウィザードが読む名前）
+      if (!Array.isArray(v[g.store])) v[g.store] = [];
+      arr = v[g.store];
+      // v52.861〜862 が間違えて書いた先（v.tbNew / v.posNew）からも外す（読むときは両方を見るので）
+      const sf = _R()?.strayFieldOf?.(g.store);
+      if (!on && sf && Array.isArray(v[sf])) { const j = v[sf].indexOf(val); if (j >= 0) v[sf].splice(j, 1); }
     } else {
       if (!v.tg || typeof v.tg !== 'object' || Array.isArray(v.tg)) v.tg = {};
       if (!Array.isArray(v.tg[g.id])) v.tg[g.id] = [];

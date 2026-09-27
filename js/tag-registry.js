@@ -19,18 +19,19 @@
   const LS_KEY = 'wk_tagRegistry';
   const VERSION = 1;
   const FIELD_STORES = ['tb', 'cat', 'pos', 'tags'];
-  // 保存場所の名前（tb/cat/pos/tags）と、動画に実際に入っている項目名は同じではない
-  // （tb → v.tbNew ／ pos → v.posNew）。対応表は js/tag-filter.js の FIELD_KEYS だけが持つ。
-  // ここに同じ表を書くと、片方だけ直したときに黙って0本になる。
-  function fieldOfStore(store) {
-    const TF = window.tagFilter;
-    return TF && TF.videoFieldOf ? TF.videoFieldOf(store) : store;
-  }
-  // 動画からその保存場所の値を読む。昔の名前（v.tb / v.pos）に入っている分も拾う（消さない・書き戻さない）
+  // 動画のタグは v.tb / v.cat / v.pos / v.tags に入っている（保存場所の名前＝動画の項目名）。
+  // 読み込みのたびの変換（tag-master.js migrateVideo）・タグ付けウィザード・取り込みもこの名前で書く。
+  // tbNew / posNew はライブラリの絞り込み（window.filters）の呼び名で、動画の項目名ではない。
+  // v52.861〜862 はこれを取り違え、動画パネルで付けたタグ1・ポジションを v.tbNew / v.posNew に書いていた
+  // （その間、元から付いていた値はパネルで外せなかった）。その分も読むときに拾う（消さない・書き戻さない）。
+  // 外すときは両方から外す（vpanel-v4.js）。
+  const STRAY_FIELD = { tb: 'tbNew', pos: 'posNew' };
+  const strayFieldOf = store => STRAY_FIELD[store] || null;
   function readField(v, store) {
     const out = [];
     const seen = new Set();
-    for (const k of [fieldOfStore(store), store]) {
+    for (const k of [store, strayFieldOf(store)]) {
+      if (!k) continue;
       const a = v && v[k];
       if (!Array.isArray(a)) continue;
       for (const x of a) { if (x != null && x !== '' && !seen.has(x)) { seen.add(x); out.push(x); } }
@@ -331,7 +332,7 @@
 
   window.tagRegistry = {
     groups, group, slots, slotInfo, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
-    fieldOfStore, readField,
+    strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
     setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,

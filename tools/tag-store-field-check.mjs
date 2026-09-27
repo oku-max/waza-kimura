@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-// ═══ 保存場所の名前と、動画の項目名の取り違えを見張る検査 ═══
+// ═══ 動画のタグの項目名を取り違えていないかの検査 ═══
 // 使い方: node tools/tag-store-field-check.mjs
 //
 // なぜ必要か（2026-09-27）:
-// タググループの「保存場所」は tb / cat / pos / tags と呼ぶが、動画に実際に入っている
-// 項目名は tbNew / cat / posNew / tags で、tb と pos だけ名前が違う。
-// js/tag-registry.js の valuesOf が v[g.store]（= v.tb / v.pos）を読んでいたため:
-//   ・タグ1（トップ/ボトム）やポジションで絞り込むと **必ず0本**（値が読めないので全部外れる）
-//   ・動画パネルで付けたタグ1・ポジションが v.tb / v.pos に書かれ、カード・表・絞り込みの
-//     どこからも読まれない（付けたのに消えたように見える）
-// CLAUDE.md「同じものを指す値が2つあるなら、読む場所を1つにする」そのもの。
-// 取り出し・書き込みは tagRegistry.fieldOfStore / readField に集約し、ここで固定する。
+//   動画のタグは v.tb / v.cat / v.pos / v.tags に入っている。読み込みのたびの変換
+//   （tag-master.js migrateVideo）・タグ付けウィザード・取り込み・カード（段階2より前）も全部この名前。
+//   一方 tbNew / posNew は**ライブラリの絞り込みの状態（window.filters）の呼び名**で、動画の項目名ではない。
+//   v52.861 はこの2つを取り違え、「動画の項目名は tbNew / posNew」として
+//     ・動画パネルで付けたタグ1・ポジションを v.tbNew / v.posNew に書き
+//     ・元から v.tb / v.pos にある値は、パネルで押しても外れなくなった
+//   （本番 v52.861〜862）。v52.863 で書き込み先を v.tb / v.pos に戻した。
+//   その間に v.tbNew / v.posNew に入った値は、読むときに拾い（消さない・書き戻さない）、外すときは両方から外す。
+//   CLAUDE.md「同じものを指す値が2つあるなら、読む場所を1つにする」。
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -23,85 +24,79 @@ const ck = (name, ok, detail) => {
   console.log((ok ? '  ✓ ' : '  ✗ ') + name + (!ok && detail !== undefined ? '\n      → ' + detail : ''));
   if (!ok) fail++;
 };
+// コメントは見ない
+const strip = src => src.split('\n').filter(l => { const t = l.trim(); return !(t.startsWith('//') || t.startsWith('*')); }).join('\n');
 
 const win = {
   localStorage: { _s: {}, getItem(k) { return this._s[k] ?? null; }, setItem(k, v) { this._s[k] = String(v); } },
   tagSettings: ['tb', 'cat', 'pos', 'tags'].map(k => ({ key: k, label: k, visible: true, presets: [] })),
   STATUS_CANON: ['未着手', '理解', '練習中', 'マスター'],
-  WK_LANG: () => 'ja',
+  WK_LANG: () => 'ja', addEventListener() {}, dispatchEvent() {}, CustomEvent: function () {},
 };
 win.window = win;
 win.tagLabel = k => k; win.tagPresets = () => [];
 vm.createContext(win);
 vm.runInContext(read('js/tag-registry.js'), win);
 vm.runInContext(read('js/tag-filter.js'), win);
+vm.runInContext(read('js/vpanel-v4.js'), win);
 const R = win.tagRegistry, TF = win.tagFilter;
+const gid = s => TF.gidOfField(s);
 
-// 今の形で保存されている動画（タグ1は tbNew・ポジションは posNew）
-const V = { id:'v1', title:'02-Quick1.', tbNew:['トップ'], cat:['フィニッシュ'], posNew:['マウント'], tags:['ギロチン'] };
-
-console.log('■ ① 保存場所の名前 → 動画の項目名');
-ck('tb → tbNew',   R.fieldOfStore('tb')   === 'tbNew',  R.fieldOfStore('tb'));
-ck('pos → posNew', R.fieldOfStore('pos')  === 'posNew', R.fieldOfStore('pos'));
-ck('cat はそのまま',  R.fieldOfStore('cat')  === 'cat');
-ck('tags はそのまま', R.fieldOfStore('tags') === 'tags');
-
-console.log('■ ② valuesOf が、今の形の動画から値を読めること');
-for (const [store, want] of [['tb','トップ'],['cat','フィニッシュ'],['pos','マウント'],['tags','ギロチン']]) {
-  const gid = TF.gidOfField(store);
-  const got = R.valuesOf(V, gid);
-  ck(`${store} → ${want}`, got.includes(want), `${store}: ${JSON.stringify(got)}（0件ならその絞り込みは必ず0本になる）`);
-}
-
-console.log('■ ③ 絞り込みが当たること（これが落ちると画面が「0本」になる）');
-for (const [libKey, val] of [['tbNew','トップ'],['cat','フィニッシュ'],['posNew','マウント'],['tags','ギロチン']]) {
-  const f = {}; f[libKey] = new Set([val]);
-  ck(`${libKey}=${val} で当たる`, TF.compile(f, 'lib')(V), 'この条件で全動画が外れる');
-}
-
-console.log('■ ④ ワード検索の本文に、タグ1・ポジションの値が入ること');
-const txt = R.searchTagText(V);
-ck('タグ1・ポジションが検索の本文に入る', txt.includes('トップ') && txt.includes('マウント'), txt);
-
-console.log('■ ⑤ 昔の名前（v.tb / v.pos）に入っている分も読む（消さない・書き戻さない）');
-const OLD = { id:'v2', tb:['ボトム'], pos:['ハーフガード'] };
-ck('v.tb の値も読める',  R.valuesOf(OLD, TF.gidOfField('tb')).includes('ボトム'));
-ck('v.pos の値も読める', R.valuesOf(OLD, TF.gidOfField('pos')).includes('ハーフガード'));
-const BOTH = { id:'v3', tbNew:['トップ'], tb:['ボトム'] };
-const both = R.valuesOf(BOTH, TF.gidOfField('tb'));
-ck('両方あれば両方読む（どちらも捨てない）', both.includes('トップ') && both.includes('ボトム'), JSON.stringify(both));
-ck('読むだけで動画を書き換えない', JSON.stringify(OLD) === JSON.stringify({ id:'v2', tb:['ボトム'], pos:['ハーフガード'] }), JSON.stringify(OLD));
-
-console.log('■ ⑥ 書き込みも、動画の項目名へ書くこと（js/vpanel-v4.js）');
+console.log('■ ① 動画を書く側は、どこも v.tb / v.pos の名前で書いている（根拠）');
 {
-  const src = read('js/vpanel-v4.js');
-  ck('v[g.store] に直接書いていない', !/Array\.isArray\(v\[g\.store\]\)/.test(src),
-     'v[g.store] に書くと v.tb / v.pos に入り、どの画面からも読まれない');
-  ck('fieldOfStore を通している', /fieldOfStore/.test(src));
+  const mig = read('js/tag-master.js');
+  const body = mig.slice(mig.indexOf('function migrateVideo'), mig.indexOf('function migrateAll'));
+  ck('読み込みのたびの変換（migrateVideo）が v.tb / v.pos を扱い、tbNew / posNew を知らない', /v\.tb\b/.test(body) && /v\.pos\b/.test(body) && !/tbNew|posNew/.test(body));
+  ck('タグ付けウィザードは v.tb / v.pos に書く', /v\.tb\s*=/.test(read('js/tag-wizard.js')) && /v\.pos\s*=/.test(read('js/tag-wizard.js')));
+  const bad = [];
+  for (const f of fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f).concat(['index.html'])) {
+    strip(read(f)).split('\n').forEach((l, i) => { if (/\bv\.(tbNew|posNew)\s*=|\bv\.(tbNew|posNew)\.push/.test(l)) bad.push(`${f}:${i + 1}`); });
+  }
+  ck('どこも動画に v.tbNew / v.posNew を書かない', bad.length === 0, bad.join(' / '));
 }
 
-console.log('■ ⑦ 動画の項目を、保存場所の名前で直接読んでいるところが無いこと');
+console.log('■ ② 読む: v.tb / v.pos から読める。絞り込みの呼び名 tbNew / posNew で当たる');
+const V = { id: 'v1', tb: ['トップ'], cat: ['フィニッシュ'], pos: ['マウント'], tags: ['ギロチン'] };
+for (const [store, want] of [['tb', 'トップ'], ['cat', 'フィニッシュ'], ['pos', 'マウント'], ['tags', 'ギロチン']])
+  ck(`${store} → ${want}`, R.valuesOf(V, gid(store)).includes(want), JSON.stringify(R.valuesOf(V, gid(store))));
+for (const [libKey, val] of [['tbNew', 'トップ'], ['cat', 'フィニッシュ'], ['posNew', 'マウント'], ['tags', 'ギロチン']]) {
+  const f = {}; f[libKey] = new Set([val]);
+  ck(`絞り込み ${libKey}=${val} で当たる（0本にならない）`, TF.compile(f, 'lib')(V));
+}
+ck('ワード検索の本文にタグ1・ポジションが入る', /トップ/.test(R.searchTagText(V)) && /マウント/.test(R.searchTagText(V)));
+
+console.log('■ ③ v52.861〜862 が v.tbNew / v.posNew に書いた値も読む（消さない・書き戻さない）');
+{
+  const B = { id: 'v3', tb: ['ボトム'], tbNew: ['トップ'], pos: [], posNew: ['マウント'] };
+  const snap = JSON.stringify(B);
+  const t = R.valuesOf(B, gid('tb')), p = R.valuesOf(B, gid('pos'));
+  ck('両方あれば両方読む', t.includes('トップ') && t.includes('ボトム') && p.includes('マウント'), JSON.stringify([t, p]));
+  ck('読むだけで動画を書き換えない', JSON.stringify(B) === snap);
+}
+
+console.log('■ ④ 書く: 動画パネル（wkSetTagValue）は v.tb / v.pos に書き、外すときは両方から外す');
+{
+  const A = { id: 'a', tb: ['ボトム'], pos: [] };
+  win.wkSetTagValue(A, gid('tb'), 'トップ', true);
+  win.wkSetTagValue(A, gid('pos'), 'マウント', true);
+  ck('付けると v.tb / v.pos に入る（v.tbNew / v.posNew を作らない）', A.tb.includes('トップ') && A.pos.includes('マウント') && !('tbNew' in A) && !('posNew' in A), JSON.stringify(A));
+  win.wkSetTagValue(A, gid('tb'), 'ボトム', false);
+  ck('元から付いていた値をパネルで外せる（v52.861〜862 では外れなかった）', !A.tb.includes('ボトム') && !R.valuesOf(A, gid('tb')).includes('ボトム'), JSON.stringify(A));
+  const S = { id: 's', tb: [], tbNew: ['トップ'] };
+  win.wkSetTagValue(S, gid('tb'), 'トップ', false);
+  ck('間違えて v.tbNew に入った値も外せる', !R.valuesOf(S, gid('tb')).includes('トップ'), JSON.stringify(S));
+  const K = { id: 'k', tb: ['トップ'], tbNew: ['ボトム'], cat: ['X'] };
+  win.wkSetTagValue(K, gid('tb'), 'トップ', false);
+  ck('外すのはその値だけ（ほかの値・ほかのグループは無傷）', JSON.stringify(K) === JSON.stringify({ id: 'k', tb: [], tbNew: ['ボトム'], cat: ['X'] }), JSON.stringify(K));
+}
+
+console.log('■ ⑤ 絞り込みの呼び名を、動画の項目名として使っていない');
 {
   const bad = [];
-  for (const f of ['js/cards.js', 'js/tag-registry.js', 'js/vpanel-v4.js', 'js/tag-filter.js']) {
-    read(f).split('\n').forEach((ln, i) => {
-      if (/\bv\[\s*(?:g|s)\.store\s*\]/.test(ln)) bad.push(`${f}:${i + 1} ${ln.trim().slice(0, 80)}`);
-    });
+  for (const f of ['js/tag-registry.js', 'js/tag-filter.js', 'js/vpanel-v4.js', 'js/cards.js', 'js/bulk.js', 'js/organize.js']) {
+    strip(read(f)).split('\n').forEach((l, i) => { if (/videoFieldOf|fieldOfStore/.test(l)) bad.push(`${f}:${i + 1}`); });
   }
-  ck('v[g.store] / v[s.store] で直接読んでいない', bad.length === 0, bad.join('\n      → '));
-}
-
-console.log('■ ⑧ 対応表が1枚だけであること（js/tag-filter.js の FIELD_KEYS）');
-{
-  const dup = [];
-  for (const f of ['js/tag-registry.js', 'js/cards.js', 'js/vpanel-v4.js', 'js/filter.js', 'js/organize.js', 'js/unified-filter.js']) {
-    read(f).split('\n').forEach((ln, i) => {
-      if (/tb\s*:\s*['"]tbNew['"]|pos\s*:\s*['"]posNew['"]/.test(ln)) dup.push(`${f}:${i + 1} ${ln.trim().slice(0, 80)}`);
-    });
-  }
-  ck('同じ対応表を他所に書いていない', dup.length === 0, dup.join('\n      → '));
-  ck('tag-registry は tag-filter に聞いている', /videoFieldOf/.test(read('js/tag-registry.js')));
-  ck('tag-filter が対応表を持っている', /function videoFieldOf/.test(read('js/tag-filter.js')));
+  ck('「絞り込みの呼び名 → 動画の項目名」の読み替えが無い', bad.length === 0, bad.join(' / '));
 }
 
 console.log(fail ? `\n✗ ${fail} 件` : '\n✓ 全部通過');
