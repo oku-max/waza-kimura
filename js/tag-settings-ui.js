@@ -67,6 +67,11 @@
       if (!un.length) h += `<div class="ts-empty">${_t('ありません')}</div>`;
       un.forEach(g => { h += _row(g, -1, all); });
       h += `</div><div class="ts-note">${_t('付けたタグは動画に残っています。使うときは、開いて「使う場所」を選びます。')}</div>`;
+      const on = R().pref('unusedCondApply') !== false;
+      h += `<button class="ts-acc ts-mt" data-act="unusedcond"${ro ? ' disabled' : ''}><span class="ts-grow">`
+        + `<span class="ts-block">${_t('未使用のタググループの条件も、カスタムリストで効かせる')}</span>`
+        + `<span class="ts-block ts-small">${_t(on ? 'カスタムリストの条件にあれば、未使用でも絞り込みに使います' : '未使用のタググループの条件は、カスタムリストで無視します（条件は消しません）')}</span></span>`
+        + `<span class="ts-sw${on ? ' on' : ''}"><span></span></span></button>`;
     }
     el.innerHTML = h;
   }
@@ -254,6 +259,7 @@
       case 'addopt': return _addFromInput(gid);
       case 'keep': if (g) _addOpt(g, el.dataset.v); window.toast?.(_t('選択肢に入れました')); return _after();
       case 'search': if (g) R().setSearch(gid, !g.search); return _after();
+      case 'unusedcond': R().setPref('unusedCondApply', R().pref('unusedCondApply') === false); if (window._libViewMode === 'org') window.renderOrg?.(); return _after();
       case 'copy': S.copy = { to: gid, from: '', picks: [] }; return render();
       case 'copyfrom': { const F = _group(gid), T = _group(S.copy.to); S.copy.from = gid; S.copy.picks = F && T ? F.options.filter(v => !T.options.includes(v)) : []; return render(); }
       case 'copypick': { const v = el.dataset.v, p = S.copy.picks; S.copy.picks = p.includes(v) ? p.filter(x => x !== v) : p.concat([v]); return render(); }

@@ -124,11 +124,13 @@
   // すべてのタグの絞り込みに当たるかを判定する関数を作る（グループ同士は AND、グループの中は OR）。
   // 選択は作るときに1回だけ読む（動画ごとに組み立て直さない。3,000本×打鍵で重くなるため）。
   // except: 件数を数えるとき、そのグループだけ外す
+  // opts.except … 見ないグループ（ID 1つ、または ID の配列）
   function compile(obj, scheme, opts) {
-    const except = opts && opts.except;
+    const ex = opts && opts.except;
+    const skip = new Set(ex == null ? [] : Array.isArray(ex) ? ex : [ex]);
     const allowBlank = !!(opts && opts.allowBlank);
     const active = groups()
-      .filter(g => g.id !== except)
+      .filter(g => !skip.has(g.id))
       .map(g => ({ id: g.id, sel: selected(obj, g.id, scheme) }))
       .filter(x => x.sel.size);
     if (!active.length) return () => true;

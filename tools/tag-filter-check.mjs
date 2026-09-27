@@ -118,7 +118,7 @@ for (const [f, re] of [
   ['js/filter.js', /window\.tagFilter\.compile\(window\.filters, 'lib'\)/],
   ['js/organize.js', /window\.tagFilter\.compile\(orgFilters, 'org', \{ allowBlank: true \}\)/],
   ['js/unified-filter.js', /_TF\(\)\.compile\(f, _sch\(\)/],
-  ['js/custom-view.js', /window\.tagFilter\.compile\(fc, 'fc'\)/],
+  ['js/custom-view.js', /window\.tagFilter\.compile\(fc, 'fc'(, \{ except: _skip \})?\)/],
   ['js/filter-overlay.js', /window\.tagFilter\.compile\(f \|\| \{\}, 'lib'/],
   ['js/sidebar-v4.js', /_TF\(\)\.compile\(window\.filters \|\| \{\}, 'lib'\)/],
   ['js/notes.js', /TF\.compile\(filter, 'lib'\)/],
@@ -231,6 +231,17 @@ console.log('── ⑫ マーク・習得も枠に入れられる（段階5）�
   ck('習得は今の習得のボタンと同じ処理（1本に1つ・外す操作は無い）', /if \(on && v\.status !== val\) \{ if \(window\.vpSetStatus\) window\.vpSetStatus\(v\.id, val\)/.test(vp));
   ck('絞り込みの列は今までと同じ仕組み（@fav/@next/@drill・status）で絞る', /key: '@' \+ k/.test(uf) && /filterKey: 'status'/.test(uf));
   ck('マーク・習得は、名前の変更・削除・まとめる の対象にしない（tag-ops.js）', /const _editable = g => !!g && \(FIELDS\.includes\(g\.store\) \|\| g\.store === 'map'\)/.test(rd('js/tag-ops.js')));
+}
+
+console.log('── ⑬ 未使用のタググループの条件（設定で選べる）──');
+{
+  const cv = fs.readFileSync(path.join(ROOT, 'js/custom-view.js'), 'utf8');
+  ck('既定は今までどおり効かせる（何も書かなくても true）', R.pref('unusedCondApply') === true);
+  const V = { id: 'x', tb: ['トップ'], pos: [] };
+  const f = { tb: ['トップ'], pos: ['ハーフ'] };
+  ck('compile は見ないグループを配列で受ける', TF.compile(f, 'fc')(V) === false && TF.compile(f, 'fc', { except: [TF.gidOfField('pos')] })(V) === true);
+  ck('★ カスタムリストは設定がオフのときだけ未使用のグループの条件を見ない・条件は書き換えない',
+    /_R\.pref\('unusedCondApply'\) === false\) \? _R\.groups\(\)\.filter\(g => g\.slot < 0\)/.test(cv) && /compile\(fc, 'fc', \{ except: _skip \}\)/.test(cv));
 }
 
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');

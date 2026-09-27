@@ -1399,7 +1399,10 @@ function _cvVideoById(all) {
 
 function _applyConditions(fc, all) {
   // 条件のタグは tb/cat/pos/tech（保存済みの条件の形のまま）。読み替えは tag-filter.js
-  const _tagOk = (fc && window.tagFilter) ? window.tagFilter.compile(fc, 'fc') : () => true;
+  // 未使用のタググループの条件を効かせない設定なら、その条件は見ない（条件そのものは書き換えない・消さない）
+  const _R = window.tagRegistry;
+  const _skip = (_R && _R.pref && _R.pref('unusedCondApply') === false) ? _R.groups().filter(g => g.slot < 0).map(g => g.id) : [];
+  const _tagOk = (fc && window.tagFilter) ? window.tagFilter.compile(fc, 'fc', { except: _skip }) : () => true;
   return all.filter(v => {
     if (!fc) return true;
     if (!_tagOk(v)) return false;
