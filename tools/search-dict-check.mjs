@@ -177,6 +177,8 @@ console.log('■ ⑥ 実物の検索で確かめる');
 // ⑦ 書き方の揺れは、辞書に並べるのではなく正規化で吸収していること
 // 「Heel Hooks」に当てるために辞書へ 'heel hooks' と書き足すのはキリがない。
 // 検索語とタイトルの両方を同じ形に揃えて突き合わせる（v52.826）。
+// ただし「単語の区切りで一致」は打った語には掛けない（v52.856）。
+// 打った語は素直な「含む」。区切りが要るのは辞書が広げた語の側だけ。
 console.log('■ ⑦ 書き方の揺れが、辞書に書き足さなくても効くこと');
 {
   const hit = (word, title) => !!q._matchQuery({ title, tags:[], pos:[], cat:[], memo:'' }, q._parseQuery(word), null);
@@ -194,10 +196,25 @@ console.log('■ ⑦ 書き方の揺れが、辞書に書き足さなくても�
   ngList.length
     ? ngList.forEach(([w, t, why]) => fail(`「${w}」→「${t}」が当たらない（${why}）`))
     : ok(`${cases.length} 通りの書き方の揺れが、辞書に書き足さずに当たる`);
-  // 広げすぎていないこと（単語境界は保つ）
-  hit('pass', 'compass drills')
-    ? fail('"pass" が "compass" に当たっている（単語の区切りが効いていない）')
-    : ok('"pass" は "compass" に当たらない（単語の区切りは保っている）');
+  // 打った語は「含む」で素直に当たること（v52.856 で戻した）
+  // 番号付きのタイトル（「02-Quick1.」「30-Quick5.」）に当たらなくなっていた。
+  const plain = [
+    ['quick', '30-Quick5. ハーフガードの基本'],
+    ['quick', '02-Quick1. パスガード'],
+    ['step',  'Longstep2.mp4'],
+  ];
+  const plainNg = plain.filter(([w, t]) => !hit(w, t));
+  plainNg.length
+    ? plainNg.forEach(([w, t]) => fail(`打った語「${w}」が「${t}」に当たらない（番号付きのタイトル）`))
+    : ok(`打った語は「含む」で素直に当たる（${plain.length} 通り・番号が直後に来ても当たる）`);
+
+  // 辞書が広げた語だけは単語の区切りを保つこと（辞書が勝手に広がらない）
+  hit('ハーフガード', 'Halfway house drills')
+    ? fail('辞書の "half" が "halfway" に当たっている（辞書側の単語の区切りが効いていない）')
+    : ok('辞書の "half" は "halfway" に当たらない（辞書側の単語の区切りは保っている）');
+  hit('ハーフガード', 'Half5 guard passing')
+    ? ok('辞書の語でも、直後の数字は区切りとして扱う')
+    : fail('辞書の "half" が "Half5" に当たらない（数字が区切りになっていない）');
 }
 
 // ⑧ 読める一覧（docs/search-dict.md）が古くなっていないこと
