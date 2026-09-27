@@ -227,6 +227,7 @@ SRTの `HH:MM:SS,mmm` ではない／構造化出力(responseSchema)で形を強
 - `smoke` / `sub-off-check` / `vp-dropdown-smoke` / `note-tpl-smoke` / `video-audit-smoke` … 画面の基本動作
 - `videos-overwrite-smoke` / `backup-check` … データを壊さないこと
 - `i18n-check` … 未訳の洗い出し
+- `i18n-loop-check` … 英語表示の自動翻訳が同じ文字を書き続けて固まらないこと（v52.846 まで、訳しても同じ「日本語」を書き戻す→変更通知→また書く、を無限に繰り返し、英語表示のページが読み込み直後から固まっていた）
 - `srt-tc-check` … 字幕の時刻書式が崩れても読めること／別の崩れ方は黙って保存しないこと
 - `chap-sub-check` … 自動チャプターが字幕生成を「押したのと同じ」に呼んでいること
 - `sub-show-check` … 作った字幕が、その場で選ばれた状態で表示されること

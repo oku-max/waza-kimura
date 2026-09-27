@@ -2477,16 +2477,22 @@
     return false;
   }
 
+  // 同じ値を書き戻さない（v52.847）。nodeValue は同じ値を入れても「変わった」と通知が来るので、
+  // 訳が元と同じもの（'日本語'→'日本語' など）を書くと、その通知をまた訳して…と無限に回り、
+  // 英語表示のページが固まっていた。自分が書いた直後の値への通知も訳し直さない。
   function _translateTextNode(node) {
     const v = node.nodeValue;
     if (!v || !_JA_RE.test(v)) return;
+    if (node.__wkLast != null && node.__wkLast === v) return;
     if (_skipNode(node.parentElement)) return;
     const t = v.trim();
     if (!t) return;
     const en = _translatePhrase(t);
-    if (en != null) {
+    if (en != null && en !== t) {
       if (node.__wkOrig == null) node.__wkOrig = v;
-      node.nodeValue = v.replace(t, en);
+      const out = v.replace(t, en);
+      node.__wkLast = out;
+      node.nodeValue = out;
     }
   }
 
@@ -2524,7 +2530,7 @@
     const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
     let n;
     while ((n = tw.nextNode())) {
-      if (n.nodeType === 3 && n.__wkOrig != null) { n.nodeValue = n.__wkOrig; n.__wkOrig = null; }
+      if (n.nodeType === 3 && n.__wkOrig != null) { n.nodeValue = n.__wkOrig; n.__wkOrig = null; n.__wkLast = null; }
       else if (n.nodeType === 1 && n.__wkOrigAttr) {
         for (const [a, v] of Object.entries(n.__wkOrigAttr)) n.setAttribute(a, v);
         n.__wkOrigAttr = null;
