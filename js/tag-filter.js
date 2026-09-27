@@ -50,6 +50,15 @@
     return g && FIELDS.includes(g.store) ? g.store : null;
   }
 
+  // 保存場所（tb/cat/pos/tags）→ 動画に実際に入っている項目名。
+  // FIELD_KEYS の lib がそれ（tb→tbNew / pos→posNew、cat と tags はそのまま）。
+  // ここを取り違えると「タグ1・ポジションで絞り込むと0本」「パネルで付けたタグが
+  // カードにも表にも出ない」が起きる。対応表はこの1枚だけ。他所に同じ表を書かない。
+  function videoFieldOf(store) {
+    const k = FIELD_KEYS[store];
+    return k ? k.lib : store;
+  }
+
   // その場所で書くときの呼び名
   function keyFor(gid, scheme) {
     const f = fieldOf(gid);
@@ -169,7 +178,7 @@
 
   window.tagFilter = {
     FIELD_KEYS, FIELDS, SCHEMES,
-    groups, gidOfField, fieldOf, keyFor, gidForKey,
+    groups, gidOfField, fieldOf, keyFor, gidForKey, videoFieldOf,
     selected, setFor, normalize, compile, match, hasAny, valuesOf, toPlain, fromPlain, clear,
   };
 })();

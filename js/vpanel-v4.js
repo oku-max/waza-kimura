@@ -41,8 +41,11 @@
   function _setVal(v, g, val, on) {
     let arr;
     if (FIELDS.includes(g.store)) {
-      if (!Array.isArray(v[g.store])) v[g.store] = [];
-      arr = v[g.store];
+      // 保存場所の名前と動画の項目名は違う（tb→tbNew / pos→posNew）。取り違えると
+      // 付けたタグがカードにも表にも絞り込みにも出ない。取り出しは tagRegistry に集約する。
+      const f = _R()?.fieldOfStore ? _R().fieldOfStore(g.store) : g.store;
+      if (!Array.isArray(v[f])) v[f] = [];
+      arr = v[f];
     } else {
       if (!v.tg || typeof v.tg !== 'object' || Array.isArray(v.tg)) v.tg = {};
       if (!Array.isArray(v.tg[g.id])) v.tg[g.id] = [];

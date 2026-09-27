@@ -131,7 +131,8 @@ export function cardHTML(v) {
   const _badgeHtml = _slotInfo.map(s => {
     if (!s || !_BADGE[s.store]) return '';          // 空の枠・マーク・習得（別の表示がある）は出さない
     if (s.store !== 'map' && !_tsV(s.store)) return '';
-    let vals = _R ? _R.valuesOf(v, s.id) : (Array.isArray(v[s.store]) ? v[s.store] : []);
+    const _f = window.tagFilter?.videoFieldOf?.(s.store) || s.store;   // 対応表は tag-filter.js の1枚だけ
+    let vals = _R ? _R.valuesOf(v, s.id) : (Array.isArray(v[_f]) ? v[_f] : []);
     if (s.store === 'tags') vals = vals.slice(0, 8);
     return vals.map(_BADGE[s.store]).join('');
   }).join('');

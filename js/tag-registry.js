@@ -19,6 +19,24 @@
   const LS_KEY = 'wk_tagRegistry';
   const VERSION = 1;
   const FIELD_STORES = ['tb', 'cat', 'pos', 'tags'];
+  // 保存場所の名前（tb/cat/pos/tags）と、動画に実際に入っている項目名は同じではない
+  // （tb → v.tbNew ／ pos → v.posNew）。対応表は js/tag-filter.js の FIELD_KEYS だけが持つ。
+  // ここに同じ表を書くと、片方だけ直したときに黙って0本になる。
+  function fieldOfStore(store) {
+    const TF = window.tagFilter;
+    return TF && TF.videoFieldOf ? TF.videoFieldOf(store) : store;
+  }
+  // 動画からその保存場所の値を読む。昔の名前（v.tb / v.pos）に入っている分も拾う（消さない・書き戻さない）
+  function readField(v, store) {
+    const out = [];
+    const seen = new Set();
+    for (const k of [fieldOfStore(store), store]) {
+      const a = v && v[k];
+      if (!Array.isArray(a)) continue;
+      for (const x of a) { if (x != null && x !== '' && !seen.has(x)) { seen.add(x); out.push(x); } }
+    }
+    return out;
+  }
   // マークの選択肢。値は動画の項目名、表示は絵文字つき
   const MARK_OPTS = [
     { value: 'fav',   ja: '⭐ お気に入り', en: '⭐ Favorite' },
@@ -262,7 +280,7 @@
     _ensure();
     const g = _reg.groups.find(x => x.id === id);
     if (!g || !v) return [];
-    if (FIELD_STORES.includes(g.store)) return Array.isArray(v[g.store]) ? v[g.store].slice() : [];
+    if (FIELD_STORES.includes(g.store)) return readField(v, g.store);
     if (g.store === 'mark') return MARK_OPTS.filter(o => !!v[o.value]).map(o => o.value);
     if (g.store === 'status') return v.status ? [v.status] : [];
     const m = v.tg && typeof v.tg === 'object' ? v.tg[g.id] : null;
@@ -293,7 +311,7 @@
     if (!_searchCache) { _ensure(); _searchCache = _reg.groups.filter(g => g.search !== false); }
     const out = [];
     for (const g of _searchCache) {
-      if (FIELD_STORES.includes(g.store)) { const a = v[g.store]; if (Array.isArray(a)) for (const x of a) out.push(x); }
+      if (FIELD_STORES.includes(g.store)) { for (const x of readField(v, g.store)) out.push(x); }
       else if (g.store === 'mark') { for (const o of MARK_OPTS) if (v[o.value]) out.push(_en() ? o.en : o.ja); }
       else if (g.store === 'status') { if (v.status) out.push(v.status); }
       else { const m = v.tg && typeof v.tg === 'object' ? v.tg[g.id] : null; if (Array.isArray(m)) for (const x of m) out.push(x); }
@@ -308,6 +326,7 @@
 
   window.tagRegistry = {
     groups, group, slots, slotInfo, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
+    fieldOfStore, readField,
     CHIP_MAX, displayMode,
     setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,
