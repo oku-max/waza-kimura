@@ -1449,6 +1449,17 @@ window._cvListsUsingTags = function(names, fields) {
   }).filter(Boolean);
 };
 
+// グループID で聞く版（新しいタググループも。段階4 の js/tag-ops.js が使う）。条件は読むだけ
+window._cvListsUsingGroupValues = function(names, gids) {
+  const TF = window.tagFilter; if (!TF) return [];
+  const set = names ? new Set(names) : null;
+  return _views.filter(v => v.saveMode === 'dynamic' && v.filterConditions).map(v => {
+    const hits = [];
+    (gids || []).forEach(gid => TF.selected(v.filterConditions, gid, 'fc').forEach(x => { if (!set || set.has(x)) hits.push(x); }));
+    return hits.length ? { id: v.id, label: v.label, hits: [...new Set(hits)] } : null;
+  }).filter(Boolean);
+};
+
 // 確認ダイアログに足す一文。どのリストも使っていなければ空文字（ダイアログは今までどおり）。
 // kind: 'delete'（消す）
 window._cvTagUsageNote = function(names, fields, kind) {

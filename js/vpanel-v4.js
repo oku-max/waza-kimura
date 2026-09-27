@@ -61,8 +61,19 @@
     const g = _group(gid);
     if (!v || !g || val == null || val === '') return false;
     _setVal(v, g, String(val), !!on);
+    if (on) _autoAddOption(g, String(val), v);
     return true;
   };
+  // 新しく打ち込んだ値は、選択肢にも足す（段階4）。
+  // 「新しい」＝選択肢に無く、ほかのどの動画にも付いていない値。
+  // 選択肢に無いのにほかの動画に付いている値（設定の「要確認」に出るもの）は、勝手に足さない（設定で決める）。
+  function _autoAddOption(g, val, v) {
+    if (!(FIELDS.includes(g.store) || g.store === 'map')) return;
+    if ((g.options || []).includes(val)) return;
+    if ((window.videos || []).some(x => x !== v && _R().valuesOf(x, g.id).includes(val))) return;
+    if (FIELDS.includes(g.store)) window.tagOptAdd?.(g.store, val);
+    else _R().addOption(g.id, val);
+  }
 
   // プルダウンの候補 = 選択肢 ＋ ほかの動画に付いている値（今までのタグ3・4と同じ）
   function _candidates(g) {

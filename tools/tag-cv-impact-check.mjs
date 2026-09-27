@@ -67,17 +67,19 @@ let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') 
 }
 
 // ═══ 後半: 動画からタグを消す経路（静的）═══
-// v52.860（段階3b）: 設定画面の「選択肢に無い値を動画から削除」と「タグの一括削除」は、旧画面と一緒に廃止した。
-// 段階4で「動画からも外す」「削除」「マージ」を作り直すとき、先にバックアップと取り消しを付け、
-// 確認文にこの知らせ（_cvTagUsageNote）を入れる。その時にこの後半を書き直す。
+// v52.860（段階3b）で旧画面の「動画から削除」「一括削除」を廃止し、
+// 段階4（v52.866）で js/tag-ops.js に作り直した（先にバックアップ・取り消し・この知らせつき）。
 {
-  console.log('\n── 後半: 消えた経路が戻っていない・条件を書き換える道が無い ──');
+  console.log('\n── 後半: 動画のタグを変える操作は、必ず知らせてから・条件は書き換えない ──');
   const src = fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8').replace(/\/\/.*$/gm, '');
-  ck('設定画面に「動画から削除」「一括削除」が残っていない（段階4で作り直す）', !/_tagModalGhostDrop|_bulkTagDelete|_openBulkTagDelete/.test(src));
+  ck('旧画面の「動画から削除」「一括削除」は戻っていない（tag-ops.js に1本化）', !/_tagModalGhostDrop|_bulkTagDelete|_openBulkTagDelete/.test(src));
   ck('重複整理・仕分けは無い（統合でリストの条件を書き換える経路が残っていない）',
      !/_techCleanup|_tagSortMode|sort-apply-btn|_cvRewriteTagInConditions/.test(src), '');
   const cv = fs.readFileSync(path.join(ROOT, 'js/custom-view.js'), 'utf8');
-  ck('知らせを作る関数は残っている（段階4で使う）', /window\._cvTagUsageNote = function/.test(cv) && /window\._cvListsUsingTags = function/.test(cv));
+  const ops = fs.readFileSync(path.join(ROOT, 'js/tag-ops.js'), 'utf8');
+  ck('知らせを作る関数がある（グループID版は新しいタググループも見る）', /window\._cvListsUsingGroupValues = function/.test(cv) && /window\._cvListsUsingTags = function/.test(cv));
+  ck('★ 動画のタグを変える操作は、実行前にその値を使うリストを調べて確かめに出す', /window\._cvListsUsingGroupValues\(op\.cvNames, gids\)/.test(ops) && /この値を条件に使っているカスタムリスト/.test(ops));
+  ck('★ tag-ops.js はリストの条件を書き換えない（_views にも wk_cv_views にも触らない）', !/_views|wk_cv_views|filterConditions/.test(ops.replace(/\/\/.*$/gm, '')));
 }
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ 問題なし');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);

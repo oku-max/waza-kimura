@@ -19,7 +19,7 @@
   const _vis = g => { if (!_isField(g)) return true; const t = (window.tagSettings || []).find(x => x.key === g.store); return t ? t.visible !== false : true; };
 
   // 画面の状態（保存しない）
-  const S = { exp: null, unOpen: false, confirm: null, copy: null, addNote: null };
+  const S = { exp: null, unOpen: false, confirm: null, copy: null, addNote: null, edit: null };
 
   // ── 集計 ──
   // 要確認: 選択肢に無いのに動画に付いている値（件数つき）と、ほかのグループにもある名前
@@ -46,6 +46,9 @@
     const ro = R().isReadOnly();
     let h = '';
     if (ro) h += `<div class="ts-warn">${_t('この一覧は新しい版のアプリで保存されています。この端末では変更できません。')}</div>`;
+    // 動画のタグを変えた直前の操作（js/tag-ops.js）。あとからでも戻せる
+    const last = window.wkTagOps && window.wkTagOps.lastUndo();
+    if (last && !ro) h += `<div class="ts-warn">${_t('直前の操作:')} <span data-user-text="1">${_esc(last.title)}</span> <button class="ts-mini" data-act="undo">${_t('元に戻す')}</button></div>`;
     h += `<div class="ts-cap">${_t('使用中のタグ')}</div><div class="ts-card">`;
     slots.forEach((g, k) => {
       if (!g) {
@@ -118,10 +121,11 @@
     }
 
     // 選択肢
-    h += `<div class="ts-lbl ts-mt">${_t('選択肢 ' + g.options.length + '個')}${_fixed(g) ? '' : `<span class="ts-right">${_t('×で外す')}</span>`}</div><div class="ts-optwrap">`;
+    h += `<div class="ts-lbl ts-mt">${_t('選択肢 ' + g.options.length + '個')}${_fixed(g) ? '' : `<span class="ts-right">${_t('名前を押すと変更・×で外す')}</span>`}</div><div class="ts-optwrap">`;
     g.options.forEach(o => {
       const lbl = R().optionLabel(g, o);
-      h += `<span class="ts-opt"><span data-user-text="1">${_esc(lbl)}</span>`
+      h += `<span class="ts-opt">` + (_fixed(g) || ro ? `<span data-user-text="1">${_esc(lbl)}</span>`
+          : `<button class="ts-optname" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(o)}" data-user-text="1">${_esc(lbl)}</button>`)
         + (_fixed(g) || ro ? '' : `<button aria-label="×" data-act="rmopt" data-gid="${_esc(g.id)}" data-v="${_esc(o)}">×</button>`)
         + `</span>`;
     });
@@ -136,12 +140,23 @@
     if (S.addNote && S.addNote.gid === g.id) {
       h += `<div class="ts-warn">${_t('ほかのタググループにも同じ名前があります。別のタグとして追加しました。')} <b data-user-text="1">${_esc(S.addNote.v)}</b> → <span data-user-text="1">${_esc(S.addNote.in.join('・'))}</span></div>`;
     }
+    if (S.edit && S.edit.gid === g.id) {
+      const e = S.edit;
+      h += `<div class="ts-confirm"><div><b data-user-text="1">${_esc(e.v)}</b> <span>${_t('（' + e.n + '本に付いています）')}</span></div>`
+        + `<p>${_t('新しい名前を入れてください。選択肢にある名前にすると、その値にまとめます。付いている動画の値も変わります。')}</p>`
+        + `<div class="ts-addrow"><input id="ts-edit-${_esc(g.id)}" value="${_esc(e.v)}" data-user-text="1" data-key="edit" data-gid="${_esc(g.id)}" list="ts-edit-dl-${_esc(g.id)}" aria-label="${_t('新しい名前')}">`
+        + `<datalist id="ts-edit-dl-${_esc(g.id)}">${g.options.filter(x => x !== e.v).map(x => `<option value="${_esc(x)}">`).join('')}</datalist></div>`
+        + `<div class="ts-two"><button class="ts-plain" data-act="editcancel">${_t('キャンセル')}</button>`
+        + `<button class="ts-gold" data-act="editok" data-gid="${_esc(g.id)}">${_t('変更する')}</button></div></div>`;
+    }
     if (S.confirm && S.confirm.gid === g.id) {
       const c = S.confirm;
       h += `<div class="ts-confirm"><div><b data-user-text="1">${_esc(c.v)}</b> <span>${_t('（' + c.n + '本に付いています）')}</span></div>`
         + `<p>${_t('選択肢から外します。付いている動画のタグはそのまま残り、「要確認」に出ます。')}</p>`
         + `<div class="ts-two"><button class="ts-plain" data-act="cancel">${_t('キャンセル')}</button>`
-        + `<button class="ts-red" data-act="rmoptok" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('外す')}</button></div></div>`;
+        + `<button class="ts-red" data-act="rmoptok" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('外す')}</button></div>`
+        + (c.n ? `<button class="ts-redline" data-act="rmall" data-gid="${_esc(g.id)}" data-v="${_esc(c.v)}">${_t('動画からも外す（' + c.n + '本）')}</button>` : '')
+        + `</div>`;
     }
 
     // 要確認
@@ -149,10 +164,13 @@
       h += `<div class="ts-lbl ts-mt ts-goldtxt">${_t('要確認')}</div><div class="ts-issue">`;
       iss.ghosts.forEach(([v, n]) => {
         h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(v)}</b> <small>${_t('選択肢に無いタグ・' + n + '本')}</small></span>`
-          + (ro ? '' : `<button class="ts-mini" data-act="keep" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('選択肢に入れる')}</button>`) + `</div>`;
+          + (ro ? '' : `<span class="ts-btns"><button class="ts-mini" data-act="keep" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('選択肢に入れる')}</button>`
+            + `<button class="ts-mini" data-act="edit" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('まとめる')}</button>`
+            + `<button class="ts-mini ts-danger" data-act="rmghost" data-gid="${_esc(g.id)}" data-v="${_esc(v)}">${_t('動画から外す')}</button></span>`) + `</div>`;
       });
       iss.dupes.forEach(d => {
-        h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(d.v)}</b> <small>${_t('ほかのタググループにもある:')} <span data-user-text="1">${_esc(d.in.map(x => x.name).join('・'))}</span></small></span></div>`;
+        h += `<div class="ts-irow"><span><b data-user-text="1">${_esc(d.v)}</b> <small>${_t('ほかのタググループにもある:')} <span data-user-text="1">${_esc(d.in.map(x => x.name).join('・'))}</span></small></span>`
+          + (ro ? '' : `<button class="ts-mini" data-act="pull" data-gid="${_esc(g.id)}" data-v="${_esc(d.v)}" data-from="${_esc(d.in.map(x => x.id).join(','))}">${_t('ここに寄せる')}</button>`) + `</div>`;
       });
       h += `</div>`;
     }
@@ -214,11 +232,13 @@
   }
   function _countOn(g, v) { return (window.videos || []).filter(x => !x.archived && R().valuesOf(x, g.id).includes(v)).length; }
   function _after() { render(); window.AF?.(); }
+  // 操作が済んだら（キャンセルでも）開いていた確認を閉じて描き直す
+  function _op(p) { if (!p || !p.then) return; p.then(done => { if (done) { S.confirm = null; S.edit = null; } render(); }); }
 
   function _act(a, el) {
     const gid = el.dataset.gid, g = gid ? _group(gid) : null;
     switch (a) {
-      case 'exp': S.exp = S.exp === el.dataset.key ? null : el.dataset.key; S.confirm = null; S.copy = null; S.addNote = null; return render();
+      case 'exp': S.exp = S.exp === el.dataset.key ? null : el.dataset.key; S.confirm = null; S.copy = null; S.addNote = null; S.edit = null; return render();
       case 'unopen': S.unOpen = !S.unOpen; return render();
       case 'fillslot': R().setSlot(gid, +el.dataset.k); if (g && _isField(g)) window.tagSetVisible?.(g.store, true); S.exp = gid; return _after();
       case 'newgroup': { const id = R().createGroup('', +el.dataset.k); if (id) S.exp = id; return _after(); }
@@ -226,6 +246,14 @@
       case 'rmopt': S.confirm = { gid, v: el.dataset.v, n: g ? _countOn(g, el.dataset.v) : 0 }; return render();
       case 'cancel': S.confirm = null; return render();
       case 'rmoptok': if (g) _removeOpt(g, el.dataset.v); S.confirm = null; return _after();
+      // ── 動画のタグを変える操作（段階4。確かめ・バックアップ・取り消しは js/tag-ops.js が持つ）──
+      case 'rmall': return _op(window.wkTagOps?.removeEverywhere(gid, el.dataset.v));
+      case 'rmghost': return _op(window.wkTagOps?.removeGhost(gid, el.dataset.v));
+      case 'pull': return _op(window.wkTagOps?.pullHere(gid, el.dataset.v, (el.dataset.from || '').split(',').filter(Boolean)));
+      case 'edit': S.edit = { gid, v: el.dataset.v, n: g ? _countOn(g, el.dataset.v) : 0 }; S.confirm = null; render(); { const i = document.getElementById('ts-edit-' + gid); if (i) { i.focus(); i.select(); } } return;
+      case 'editcancel': S.edit = null; return render();
+      case 'editok': { const i = document.getElementById('ts-edit-' + gid); return _op(window.wkTagOps?.renameValue(gid, S.edit && S.edit.v, i ? i.value : '')); }
+      case 'undo': window.wkTagOps?.undo(); return _after();
       case 'addopt': return _addFromInput(gid);
       case 'keep': if (g) _addOpt(g, el.dataset.v); window.toast?.(_t('選択肢に入れました')); return _after();
       case 'search': if (g) R().setSearch(gid, !g.search); return _after();
@@ -294,6 +322,7 @@
     el.addEventListener('keydown', e => {
       const t = e.target;
       if (t.dataset.key === 'add' && e.key === 'Enter') { e.preventDefault(); _addFromInput(t.dataset.gid); }
+      if (t.dataset.key === 'edit' && e.key === 'Enter') { e.preventDefault(); _op(window.wkTagOps?.renameValue(t.dataset.gid, S.edit && S.edit.v, t.value)); }
     });
     if (!document.getElementById('ts-style')) {
       const st = document.createElement('style'); st.id = 'ts-style'; st.textContent = CSS;
@@ -335,6 +364,10 @@
 #tag-display-settings .ts-goldtxt{color:#b7791f}
 #tag-display-settings .ts-mini{padding:7px 11px;border-radius:8px;border:1px solid var(--border);background:none;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit}
 #tag-display-settings .ts-plain{padding:10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-family:inherit}
+#tag-display-settings .ts-redline{width:100%;margin-top:8px;padding:9px;border-radius:8px;border:1.5px solid #ef4444;background:transparent;color:#ef4444;font-weight:700;cursor:pointer;font-family:inherit}
+#tag-display-settings .ts-optname{background:none;border:none;padding:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+#tag-display-settings .ts-btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+#tag-display-settings .ts-danger{color:#ef4444;border-color:#ef444466}
 #tag-display-settings .ts-red{padding:10px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-weight:700;cursor:pointer;font-family:inherit}
 #tag-display-settings .ts-confirm{margin-top:10px;border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 #tag-display-settings .ts-confirm p{margin:0;font-size:12px;color:var(--text2);line-height:1.6}

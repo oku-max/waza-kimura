@@ -131,7 +131,8 @@ const uf = code['js/unified-filter.js'];
 ck('2 統合フィルターの検索語: 本物の検索（_matchQuery）で判定する', /window\._matchQuery\(v, parsed, null\)/.test(uf) && !/\.\.\.\(v\.tags \|\| \[\]\)\.map\(t => t\.toLowerCase\(\)\)/.test(uf));
 ck('3 URL: タグ1〜3の選択も URL に残る（tag-filter.js の呼び名で書く）', /_TF\.selected\(window\.filters, g\.id, 'lib'\)/.test(filterJs));
 ck('4 整理の表の件数: 整理の表の条件で数える', /countContextual\(filterKey, v, isOrg \? 'org' : 'lib'\)/.test(code['js/filter-overlay.js']) && /ctx === 'org' && window\.orgFilt/.test(filterJs));
-ck('5 タグリセット: 存在しない vpRefreshChips を呼ばず、タグ欄を描き直す', !/vpRefreshChips\s*\?*\.?\(/.test(code['js/vpanel.js']) && /window\.vpV4Rerender\?\.\(id\)/.test(code['js/vpanel.js']) && /window\.vpV4Rerender\s*=/.test(code['js/vpanel-v4.js']));
+// 段階4 からタグリセットは js/tag-ops.js（動画パネル・まとめて編集と共通）。描き直しもそこで行う
+ck('5 タグリセット: 存在しない vpRefreshChips を呼ばず、タグ欄を描き直す', !/vpRefreshChips\s*\?*\.?\(/.test(code['js/vpanel.js']) && /window\.vpV4Rerender\?\.\(window\.openVPanelId\)/.test(fs.readFileSync(path.join(ROOT, 'js/tag-ops.js'), 'utf8')) && /window\.vpV4Rerender\s*=/.test(code['js/vpanel-v4.js']));
 ck('6 「ほかに絞り込み中か」: どの呼び名のタグも数える', /window\.tagFilter\?\.hasAny\(f, 'lib'\)/.test(code['js/filter-overlay.js']) && !/\['platform','channel','playlist','tb','action','position','tags'\]/.test(code['js/filter-overlay.js']));
 ck('7 メモから作ったノートの動画リスト: タグ1〜4のどれでも探す（anyTag）', /anyTag: true/.test(code['js/note-templates.js']) && /function _vlIsAnyTag/.test(code['js/notes.js']));
 ck('ノートの動画リストの「未視聴」: 存在しない v.unw を見ない', !/v\.unw\b/.test(code['js/notes.js']));
@@ -162,7 +163,7 @@ console.log('── ⑦ 選択肢の見せ方（段階2c）──');
   ck('動画パネルとまとめて編集が同じ境目を読む', /_R\(\)\.displayMode\(g\.options\.length\)/.test(vp) && /_TGR\.displayMode\(g\.options\.length\)/.test(bk));
   ck('どちらも タグ1〜4の枠（slots）から並べる', /R\.slots\(\)/.test(vp) && /_TGR\.slots\(\)/.test(bk));
   ck('タグのチップは値を onclick の文字列に埋め込まない（\x27 を含む値でボタンが壊れていた）', !/onclick="(vpV4|bvpTag)[A-Za-z]*\([^"]*\$\{/.test(vp + bk));
-  // まとめて編集の「タグリセット」（bulkTagReset）は別の機能。入口を合わせるのは段階4
+  // まとめて編集の「タグリセット」（bulkTagReset）は別の機能。段階4 で js/tag-ops.js に移した（tag-ops-check が見る）
   const apply = bk.slice(bk.indexOf('function _bvpApply'), bk.indexOf('export function bvpTagChip'));
   ck('書き込みの入口は1つ（まとめて編集の付け外しも wkSetTagValue を使う）', /window\.wkSetTagValue = function/.test(vp) && /window\.wkSetTagValue\(v, gid, val, on\)/.test(apply) && !/\.push\(|\.splice\(|\.filter\(/.test(apply.replace(/sel\.forEach/, '')));
   ck('新しい値を打ち込めるのはタグ4だけ（今までどおり。選択肢へ自動で足すのは段階4）', /_allowNew = g => g\.store === 'tags'/.test(vp) && /g\.store !== 'tags'\) return;/.test(bk));

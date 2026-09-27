@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.866</title>
+<title>WAZA KIMURA v52.867</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -87,6 +87,7 @@
 <script src="js/tag-registry.js"></script>
 <script src="js/tag-filter.js"></script>
 <script src="js/search-word.js"></script>
+<script src="js/tag-ops.js" defer></script>
 <script src="js/tag-settings-ui.js" defer></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/sidebar-v4.js" defer></script>
@@ -3388,9 +3389,11 @@ window.wazaExportLight = async function() {
     const date = new Date().toISOString().slice(0,10);
     _wazaDownloadJson({ ...data, type: 'light' }, `waza-backup-light-${date}.json`);
     toast('✅ 軽量バックアップを保存しました');
+    return true;    // タグをまとめて変える操作（js/tag-ops.js）は、保存できたときだけ先へ進む
   } catch(e) {
     toast('⚠️ エクスポート失敗: ' + e.message);
     console.error('[export]', e);
+    return false;
   }
 };
 
