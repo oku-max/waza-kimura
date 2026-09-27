@@ -50,6 +50,16 @@ const GONE = [
   ['vpV4ToggleLock',  'タグ1のロック切り替え'],
   ['toggleTbLock',    'カードのタグ1ロック切り替え（定義が無く、押すとエラーだった）'],
   ['tbLocked',        'タグ1のロックの印'],
+  // v52.860: 旧タグ設定（4行＋モーダル）を新しい画面に置き換え。
+  // 一括削除は動画からタグを消す経路なので、段階4で「取り消し・事前バックアップ」付きで作り直すまで戻さない
+  ['_openBulkTagDelete',          '旧タグ設定の一括削除（段階4で作り直す）'],
+  ['_bulkTagDelete',              '旧タグ設定の一括削除の実行'],
+  ['_renderBulkTagDeleteSection', '旧タグ設定の一括削除の画面'],
+  ['openTagEditModal',            '旧タグ設定のモーダル'],
+  ['_tmTplApply',                 '旧タグ設定のテンプレート適用'],
+  ['_tagModalGhostDrop',          '旧タグ設定の「選択肢に無い値」を動画から外す'],
+  ['renderTagVisibilityBtns',     '旧タグ設定の表示切り替えボタン'],
+  ['tag-edit-overlay',            '旧タグ設定のモーダルの器'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除

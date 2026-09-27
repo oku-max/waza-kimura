@@ -15,7 +15,7 @@
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
-<title>WAZA KIMURA v52.859</title>
+<title>WAZA KIMURA v52.861</title>
 <script>
 // ── パフォーマンス計測（?perf=1 のときだけ表示） ──
 (function(){
@@ -86,6 +86,7 @@
 <script src="js/tag-templates.js"></script>
 <script src="js/tag-registry.js"></script>
 <script src="js/tag-filter.js"></script>
+<script src="js/tag-settings-ui.js" defer></script>
 <script>window.__pmark&&window.__pmark('cfg');</script>
 <script src="js/sidebar-v4.js" defer></script>
 <script src="js/unified-filter.js" defer></script>
@@ -136,7 +137,7 @@
   import { renderCards, cardHTML } from './js/cards.js';
   import {
     tagSettings, aiSettings, saveTagSettings, saveAiSettings, loadTagSettings,
-    renderSettings, renderTagSettingsList, renderTagVisibilityBtns,
+    renderSettings, renderTagSettingsList,
     applyTagVisibility, applyTagLabels, applyRemoteSettings,
     tagGroups, tagLabel, tagLabelShort, tagVisible, tagPresets,
     renameTagGroup,
@@ -400,7 +401,6 @@
   window.loadTagSettings         = loadTagSettings;
   window.renderSettings          = renderSettings;
   window.renderTagSettingsList   = renderTagSettingsList;
-  window.renderTagVisibilityBtns = renderTagVisibilityBtns;
   window.applyTagVisibility      = applyTagVisibility;
   window.applyTagLabels          = applyTagLabels;
   // タググループ名の取り出しはこの4つだけを使う（画面側でグループ名を直書きしない）
@@ -1835,13 +1835,8 @@ body.cv-sorting .cv-picker-item:hover { background:transparent }
     </div>
 
     <!-- ═══ タグ表示設定 ═══ -->
-    <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="set.tag">タグ表示設定</div>
+    <div id="sec-tag" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase" data-i18n="set.tag">タグ設定</div>
     <div id="tag-display-settings" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;"></div>
-
-    <!-- タグ編集モーダル -->
-    <div id="tag-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)closeTagEditModal()">
-      <div id="tag-edit-modal" style="background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:var(--zvh-80,80vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.15)"></div>
-    </div>
 
     <!-- ═══ フィルター設定 ═══ -->
     <div id="sec-filter" style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.05em;margin:24px 0 10px;text-transform:uppercase" data-i18n="set.filter">フィルター設定</div>

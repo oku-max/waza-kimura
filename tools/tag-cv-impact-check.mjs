@@ -10,9 +10,7 @@
 //   （_cvRewriteTagInConditions）も一緒に消えている＝リストの条件を書き換える道はもう無い。
 //
 //   前半: 本物の index.html で、custom-view.js の関数そのものを確かめる
-//   後半: 設定画面（settings.js）が、確認文に知らせを入れているか・選択を守るかを確かめる
-//         （この起動では custom-view.js と設定モジュールを同時に動かせないので、
-//           後半は custom-view 側の関数を記録係に差し替えて、呼ばれ方を見る）
+//   後半: 動画からタグを消す経路（v52.860 で旧画面と一緒に廃止。段階4で作り直すときに書き直す）
 import http from 'http'; import fs from 'fs'; import path from 'path';
 import { fileURLToPath } from 'url';
 setTimeout(() => { console.log('⏱ 打ち切り'); process.exit(3); }, 120000).unref?.();
@@ -23,31 +21,8 @@ for (const c of ['playwright', path.join(execSync('npm root -g',{encoding:'utf8'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8251;
 const idx = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const grab = (id) => { const i = idx.indexOf(`id="${id}"`); if (i < 0) throw new Error('index.html に #' + id + ' が無い');
-  const s0 = idx.lastIndexOf('<div', i); let d = 0, j = s0;
-  while (j < idx.length) { if (idx.startsWith('<div', j)) d++; else if (idx.startsWith('</div>', j)) { d--; if (!d) return idx.slice(s0, j + 6); } j++; }
-  throw new Error('閉じタグが見つからない: ' + id); };
-const SETTINGS_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
-${grab('tag-display-settings')}
-${grab('tag-edit-overlay')}
-<script>
- window.__log=[]; window.toast=(m)=>window.__log.push(m);
- window.saveUserSettings=()=>{}; window.debounceSave=()=>{}; window.AF=()=>{};
- window.__cvCalls=[];
- window.__cvLists=[];                      // _cvListsUsingTags が返すリスト（テストごとに差し替える）
- window._cvListsUsingTags=(names,fields)=>{ window.__cvCalls.push(['lists',names,fields]); return window.__cvLists; };
- window._cvUsageNoteFromLists=(lists,kind)=> lists&&lists.length ? '\\n\\n[CVNOTE:'+kind+':'+lists.length+']' : '';
- window._cvTagUsageNote=(names,fields,kind)=>{ window.__cvCalls.push(['note',names,fields,kind]); return window._cvUsageNoteFromLists(window.__cvLists,kind); };
-<\/script>
-<script src="/js/tag-master.js"><\/script><script src="/js/tag-templates.js"><\/script>
-<script type="module">
- import * as S from '/js/settings.js';
- ['tagLabel','tagPresets','renderTagSettingsList','saveTagSettings','applyTagLabels'].forEach(n=>{ if(S[n]) window[n]=S[n]; });
- window.tagSettings=S.tagSettings; window.aiSettings=S.aiSettings; window.__ready=true;
-<\/script></body></html>`;
 const MIME = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'};
 const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split('?')[0]);
-  if (p === '/settings') { r.writeHead(200, {'Content-Type':'text/html'}); return r.end(SETTINGS_HTML); }
   if (p === '/') p = '/index.html';
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); return r.end(''); }
   r.writeHead(200, {'Content-Type': MIME[path.extname(f)] || 'application/octet-stream'}); r.end(fs.readFileSync(f)); });
@@ -91,42 +66,18 @@ let fail = 0; const ck = (n, ok, d) => { console.log((ok ? '  ✓ ' : '  ✗ ') 
   await ctx.close();
 }
 
-// ═══ 後半: 設定画面が知らせを入れているか ═══
+// ═══ 後半: 動画からタグを消す経路（静的）═══
+// v52.860（段階3b）: 設定画面の「選択肢に無い値を動画から削除」と「タグの一括削除」は、旧画面と一緒に廃止した。
+// 段階4で「動画からも外す」「削除」「マージ」を作り直すとき、先にバックアップと取り消しを付け、
+// 確認文にこの知らせ（_cvTagUsageNote）を入れる。その時にこの後半を書き直す。
 {
-  const ctx = await b.newContext();
-  await ctx.route(new RegExp(`^https?://(?!localhost:${PORT})`), r => r.abort());
-  const pg = await ctx.newPage();
-  const errs = []; pg.on('pageerror', e => errs.push(String(e).split('\n')[0]));
-  await pg.goto(`http://localhost:${PORT}/settings`, { waitUntil: 'domcontentloaded' });
-  await pg.waitForFunction(() => window.__ready === true).catch(() => {});
-  await pg.waitForTimeout(300);
-
-  console.log('\n── 後半: 動画から削除（🗑）──');
-  const g = await pg.evaluate(async () => {
-    window.videos = [{ id:'v1', pos:['幽霊'] }, { id:'v2', pos:['幽霊','デラヒーバ'] }];
-    window.__cvLists = [{ id:'L1', label:'デラヒーバ系', hits:['幽霊'] }];
-    let msg = ''; window.confirm = m => { msg = m; return false; };            // キャンセル
-    window._tagModalGhostDrop('pos', '幽霊', 2);
-    const afterCancel = JSON.stringify(window.videos);
-    window.__cvLists = [];                                                     // どのリストも使っていない
-    let msg2 = ''; window.confirm = m => { msg2 = m; return false; };
-    window._tagModalGhostDrop('pos', '幽霊', 2);
-    return { msg, msg2, afterCancel };
-  });
-  ck('★ 確認文に「リストが使っている」知らせが入る', /\[CVNOTE:delete:1\]/.test(g.msg), g.msg);
-  ck('★ キャンセルすれば動画のタグは1つも消えない', g.afterCancel === JSON.stringify([{ id:'v1', pos:['幽霊'] }, { id:'v2', pos:['幽霊','デラヒーバ'] }]), g.afterCancel);
-  ck('使っていなければ、確認文は今までどおり', !/CVNOTE/.test(g.msg2) && /動画 2件 から削除/.test(g.msg2), g.msg2);
-
-  console.log('\n── 後半: 一括削除にも配線されているか（静的）──');
-  const src = fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8');
-  const body = (start) => { const i = src.indexOf(start); return i < 0 ? '' : src.slice(i, i + 4000); };
-  const bulk = body('async function _bulkTagDelete');
-  ck('一括削除: 最初の確認文に知らせを入れている', /_cvTagUsageNote\?\.\(null, keys, 'delete'\)/.test(bulk) && bulk.indexOf('_cvTagUsageNote') < bulk.indexOf('wazaExportLight()'), '');
+  console.log('\n── 後半: 消えた経路が戻っていない・条件を書き換える道が無い ──');
+  const src = fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8').replace(/\/\/.*$/gm, '');
+  ck('設定画面に「動画から削除」「一括削除」が残っていない（段階4で作り直す）', !/_tagModalGhostDrop|_bulkTagDelete|_openBulkTagDelete/.test(src));
   ck('重複整理・仕分けは無い（統合でリストの条件を書き換える経路が残っていない）',
      !/_techCleanup|_tagSortMode|sort-apply-btn|_cvRewriteTagInConditions/.test(src), '');
-
-  errs.length ? errs.forEach(e => { console.log('  ✗ ' + e); fail++; }) : console.log('  ✓ 後半 エラーなし');
-  await ctx.close();
+  const cv = fs.readFileSync(path.join(ROOT, 'js/custom-view.js'), 'utf8');
+  ck('知らせを作る関数は残っている（段階4で使う）', /window\._cvTagUsageNote = function/.test(cv) && /window\._cvListsUsingTags = function/.test(cv));
 }
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ 問題なし');
 await b.close(); srv.close(); process.exit(fail ? 1 : 0);

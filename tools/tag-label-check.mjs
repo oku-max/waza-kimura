@@ -48,8 +48,10 @@ const BANNED_QUOTED = ['カテゴリ', 'ポジション', 'テクニック', 'TO
 // 除外: 辞書そのもの / 翻訳表 / ノートのカテゴリ（別物） / AI分類器（項目01で消える）
 // tag-templates.js はテンプレート名の一覧（見本の名前）であって、画面が出すグループ名ではない。
 // グループ名はユーザーが付けるもの、テンプレ名は「ポジション入れますか」の見本の名前で、別物。
+// tag-registry.js の DEFAULTS は「初期値に戻す」の基準（初期のタググループの名前）で、
+// 画面が決め打ちで出す名前ではない（ふだんの表示は tagLabel()／グループの名前から引く）。
 const SKIP = new Set(['js/i18n.js', 'js/tag-master.js', 'js/notes.js', 'js/ai-tagging.js',
-                      'js/admin-dashboard.js', 'js/tag-templates.js']);
+                      'js/admin-dashboard.js', 'js/tag-templates.js', 'js/tag-registry.js']);
 const TARGETS = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f).concat(['index.html']);
 
 let hits = [];
@@ -92,14 +94,12 @@ const tt = read('js/tag-templates.js');
 /\.slice\(\)/.test(tt)
   ? ok('テンプレートはコピーで渡している')
   : fail('tag-templates.js に slice() が無い（参照渡しだとユーザー操作でテンプレが削れる）');
-// v52.812（案A）で、テンプレートは「押したら丸ごと入る」のをやめた。
-// 中身を見せて、入れるものを選ばせてから足す（_tmTplApply）。
-/_tmTplApply/.test(settings)
-  ? ok('設定画面がテンプレートを適用できる')
-  : fail('_tmTplApply() が settings.js から消えている（テンプレートから選択肢を入れられない）');
-/_tmPickVal/.test(settings) && /_tmTplPeek/.test(settings)
-  ? ok('★ テンプレートは中身を見て選んでから入れる')
-  : fail('中身を見る(_tmTplPeek)／選ぶ(_tmPickVal)が無い。中身を見ずに丸ごと入る作りに戻っている');
+// v52.860（段階3b）: テンプレートの画面（中身を見て選んで入れる・編集する）は廃止した（オーナー判断）。
+// 保存済みのテンプレートは一覧（tag-registry.js）が未使用のタググループに移す。
+// その代わりの「ほかから選択肢をコピー」は新しいタグ設定の画面（tag-settings-check が見る）。
+!/_tmTplApply|_tmPickVal|_tmTplPeek|openTagEditModal/.test(settings)
+  ? ok('旧テンプレートの画面が戻っていない（v52.860 で廃止）')
+  : fail('settings.js に旧テンプレートの画面が残っている');
 /function tagTemplateRename\(/.test(tt) && /function tagTemplateDelete\(/.test(tt) && /function tagTemplateCreate\(/.test(tt)
   ? ok('★ テンプレートそのものを編集できる（名前・削除・新規）')
   : fail('tag-templates.js に編集の入口が無い');
