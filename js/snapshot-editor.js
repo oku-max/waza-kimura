@@ -1686,6 +1686,16 @@ async function addSnapshotBlob(videoId, blob, time = null, memo = '') {
 // 現在開いているVPanelのスナップショットに blob を追加し、スナップショットIDを返す
 // memo: ライトボックスの「この画像のメモ」欄に表示される説明（AI要約のタイムスタンプ解説）
 window.snapAddBlob = function(videoId, blob, time = null, memo = '') { return addSnapshotBlob(videoId, blob, time, memo); };
+// メモ欄の画像の行に書いた説明を、そのスナップショットのメモへ写す（変わった時だけ）
+window.snapSetMemo = function(id, text) {
+  const s = snapshots.find(x => x.id === id);
+  if (!s || (s.memo || '') === text) return false;
+  s.memo = text;
+  syncVideoRefs();
+  const lbMemo = getLbMemo();
+  if (lbMemo && snapshots[lbIdx] === s && document.activeElement !== lbMemo) lbMemo.value = text;
+  return true;
+};
 // メモ内サムネのクリック等から、スナップショットIDでライトボックスを開く
 window.snapOpenLightboxById = function(id) {
   const idx = snapshots.findIndex(s => s.id === id);
@@ -2120,6 +2130,8 @@ function bindLightboxEvents() {
       if (snapshots[lbIdx]) {
         snapshots[lbIdx].memo = lbMemo.value;
         syncVideoRefs();
+        // メモ欄の同じ画像の行へも写す（vpanel 側。行が無ければ何もしない）
+        window._onSnapMemoEdit?.(currentVideoId, snapshots[lbIdx].id, lbMemo.value);
       }
     });
   }

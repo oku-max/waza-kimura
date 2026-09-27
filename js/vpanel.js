@@ -7321,8 +7321,9 @@ export function vpSaveMemo(id) {
   if (!el) return;
   if (el.isContentEditable) {
     const html = el.innerHTML.trim();
-    // テキストもタイムスタンプも無ければ空に正規化（<br>だけ等を残さない）
-    v.memo = (el.textContent.trim() === '' && !/ts-link/.test(html)) ? '' : html;
+    // テキストもタイムスタンプも画像も無ければ空に正規化（<br>だけ等を残さない）
+    // 画像だけのメモ（再生位置が取れない時に貼った等）を空で上書きしない
+    v.memo = (el.textContent.trim() === '' && !/ts-link|snap-ref/.test(html)) ? '' : html;
   } else {
     v.memo = el.value.trim(); // textarea（yt-search 等）
   }
@@ -7439,6 +7440,47 @@ function _thumbHtml(snapId, sec, dataUrl, layout) {
   return `<img class="snap-ref" contenteditable="false" data-snap-id="${snapId}" data-sec="${sec}" src="${dataUrl}" style="${base};height:34px;width:56px;object-fit:cover;flex-shrink:0;margin-top:1px">`;
 }
 
+// ── 画像の行: ▶時刻 ＋ サムネ ＋ その画像のメモ ──
+// 行の「メモ」（.snap-cap）に書いた文は、同じ画像のスナップショットのメモ（拡大表示の下の欄）へ
+// そのまま写す。拡大表示の側で直した文もこちらへ写す。同じ絵の説明を2回書かせないため。
+// 写すのは「その欄を書き換えた時」だけ。開いた時・保存した時に一括で合わせることはしない
+// （別の端末で書いた方を、こちらの古い方で上書きしないため）。
+const _CAP_ZW = '\u200B';   // 空の欄にカーソルを置くための目印。写す時は取り除く
+function _shotRowHtml(snapId, sec, thumbDataUrl) {
+  const tsHtml = sec == null ? '' : _tsLinkHtml(sec, _fmtSec(sec)) + '&nbsp;';
+  return `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', thumbDataUrl, 'inline')}&nbsp;`
+    + `<span class="snap-cap" data-snap-id="${snapId}">${_CAP_ZW}</span></div>`;
+}
+function _capText(cap) {
+  return (cap?.innerText ?? cap?.textContent ?? '').replace(/\u200B/g, '').replace(/\n+$/, '');
+}
+// 入れた行のメモ欄にカーソルを置く（そのまま説明を打てる）
+function _focusShotCap(memoEl, snapId) {
+  const cap = memoEl.querySelector(`.snap-cap[data-snap-id="${snapId}"]`);
+  if (!cap) return;
+  memoEl.focus();
+  const r = document.createRange();
+  r.selectNodeContents(cap); r.collapse(false);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+}
+// メモ欄の入力 → いま書いている行のメモだけをスナップショットへ写す
+function _mirrorCapFromMemo(el) {
+  const sel = window.getSelection();
+  const node = sel && sel.anchorNode;
+  const cap = (node && (node.nodeType === 1 ? node : node.parentElement))?.closest?.('.snap-cap[data-snap-id]');
+  if (!cap || !el.contains(cap)) return;
+  window.snapSetMemo?.(cap.dataset.snapId, _capText(cap));
+}
+// 拡大表示でスナップショットのメモを直した → 開いているメモの同じ画像の欄へ写す
+window._onSnapMemoEdit = function(videoId, snapId, text) {
+  const el = document.getElementById('vp-memo-' + videoId);
+  if (!el || !el.isContentEditable) return;
+  const cap = el.querySelector(`.snap-cap[data-snap-id="${snapId}"]`);
+  if (!cap || _capText(cap) === text) return;       // この画像の欄が無ければ何もしない（勝手に足さない）
+  cap.textContent = text || _CAP_ZW;
+  vpSaveMemo(videoId);
+};
+
 // ── Google Drive 動画の指定秒をキャプチャ ──
 // 同一オリジン（/api/drive プロキシ）配信なので canvas キャプチャ可能
 // 返り値: { fullBlob（スナップショット用・高画質）, thumbDataUrl（メモ埋め込み用・小型） }
@@ -7517,7 +7559,47 @@ function _initMemoEditor(id, memo) {
   if (!el) return;
   try { el.innerHTML = _memoToHtml(memo||''); _bindTsLinks(el); }
   catch(e) { console.warn('[memoInit]', e); el.textContent = memo||''; }
+  _bindMemoImagePaste(el, id);
 }
+
+// ── メモ欄に画像を直接貼る／落とす ──
+// コピーした画像（PCのスクショ・スマホで長押し→コピー）を、🖼 から選んだのと同じ形で
+// メモに入れる（スナップショットに保存＋小さいサムネ）。
+// ここで止めないと、document の貼り付け受け口（snapshot-editor）がスナップショット欄にだけ入れてしまい、
+// メモには何も入らない。文字が一緒に入っている貼り付けは、これまでどおり文字として貼る。
+function _clipImageFiles(dt) {
+  if (!dt) return [];
+  const files = [];
+  for (const it of Array.from(dt.items || [])) {
+    if (it.kind === 'file' && it.type?.startsWith('image/')) { const f = it.getAsFile(); if (f) files.push(f); }
+  }
+  if (!files.length) for (const f of Array.from(dt.files || [])) if (f.type?.startsWith('image/')) files.push(f);
+  return files;
+}
+function _bindMemoImagePaste(el, id) {
+  if (el._imgPasteBound) return;
+  el._imgPasteBound = true;
+  const take = (e, dt) => {
+    const files = _clipImageFiles(dt);
+    if (!files.length) return false;
+    if (e.type === 'paste' && (dt.getData?.('text/plain') || '').trim()) return false;   // 文字の貼り付けは文字として
+    e.preventDefault();
+    e.stopPropagation();                     // スナップショット欄だけに入るのを止める
+    const sel = window.getSelection();
+    const range = (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).startContainer))
+      ? sel.getRangeAt(0).cloneRange() : null;
+    _insertImageFilesToMemo(id, files.slice(0, MEMO_PASTE_MAX), { range });
+    if (files.length > MEMO_PASTE_MAX) window.toast?.(`画像は一度に${MEMO_PASTE_MAX}枚までです`);
+    return true;
+  };
+  el.addEventListener('paste', e => take(e, e.clipboardData));
+  el.addEventListener('dragover', e => {
+    if (Array.from(e.dataTransfer?.types || []).includes('Files')) e.preventDefault();
+  });
+  el.addEventListener('drop', e => take(e, e.dataTransfer));
+  el.addEventListener('input', () => _mirrorCapFromMemo(el));
+}
+const MEMO_PASTE_MAX = 5;
 
 // メモ欄ツールバー（書式 + 現在位置タイムスタンプ挿入）
 const _MEMO_COLORS_TEXT = ['#e53935','#f57c00','#f1c40f','#388e3c','#1976d2','#7b1fa2','#e91e63'];
@@ -7617,7 +7699,7 @@ window.vpMemoHelp = function(e) {
   const btn = (e && e.currentTarget) || null;
 
   const items = [
-    { ic: '🖼',                                                  label: '画像を入れる',   sub: 'いまの画面を撮る／端末の画像から選ぶ。メモには小さく入り、タップで拡大' },
+    { ic: '🖼',                                                  label: '画像を入れる',   sub: 'いまの画面を撮る／端末の画像から選ぶ。コピーした画像はメモに直接貼り付けてもOK。メモには小さく入り、タップで拡大' },
     { ic: '<span style="font-size:15px">↶</span>',              label: '元に戻す',       sub: '直前の編集を取り消す' },
     { ic: '<span style="font-size:15px">↷</span>',              label: 'やり直し',       sub: '取り消した編集をやり直す' },
     { ic: '<b>B</b>',                                            label: '太字',          sub: '選択した文字を太字にする' },
@@ -7947,23 +8029,37 @@ async function _insertLocalImage(id) {
   const file = await _pickImageFile();
   if (!file) return;                                   // 選ばなかった
   if (!file.type.startsWith('image/')) { window.toast?.('画像ファイルを選んでください'); return; }
+  await _insertImageFilesToMemo(id, [file], {});
+}
 
+// 画像ファイルをメモに入れる（🖼 から選んだ時・貼り付け・ドロップの共通）。
+// opts.range    … 入れる位置（貼り付けた時のカーソル）。縮小を待つ間に動いても元の位置に入れる
+async function _insertImageFilesToMemo(id, files, opts = {}) {
+  const memoEl = document.getElementById('vp-memo-' + id);
+  if (!memoEl) { window.toast?.('メモ欄が見つかりませんでした（パネルを開き直してください）'); return; }
+  if (!window.snapAddBlob) { window.toast?.('スナップショットの保存先が使えません'); return; }
   const btn = document.getElementById('vp-img-btn-' + id);
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
-    const shot = await _imageFileToShot(file);
-    if (!shot.fullBlob) { window.toast?.('画像を読み込めませんでした'); return; }
-    if (!window.snapAddBlob) { window.toast?.('スナップショットの保存先が使えません'); return; }
     const sec = _getCurrentTime();
-    const snapId = await window.snapAddBlob(id, shot.fullBlob, sec ?? null, '');
-    const tsHtml = sec == null ? '' : _tsLinkHtml(sec, _fmtSec(sec)) + '&nbsp;';
+    const rows = [];
+    for (const file of files) {
+      const shot = await _imageFileToShot(file);
+      if (!shot.fullBlob) { window.toast?.('画像を読み込めませんでした'); continue; }
+      const snapId = await window.snapAddBlob(id, shot.fullBlob, sec ?? null, '');
+      rows.push({ snapId, html: _shotRowHtml(snapId, sec, shot.thumbDataUrl) });
+    }
+    if (!rows.length) return;
     memoEl.focus();
-    document.execCommand('insertHTML', false,
-      `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', shot.thumbDataUrl, 'inline')}</div>`);
+    if (opts.range && memoEl.contains(opts.range.startContainer)) {
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(opts.range);
+    }
+    document.execCommand('insertHTML', false, rows.map(r => r.html).join(''));
     _bindTsLinks(memoEl);
     vpSaveMemo(id);
-    _blurMemo(memoEl);
+    _focusShotCap(memoEl, rows[0].snapId);        // すぐ説明を書けるように、最初の画像のメモ欄へ
     const snapSec = document.getElementById('vp-snap-section-' + id);
     if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
     window.toast?.('🖼 画像をメモに入れました');
@@ -8008,13 +8104,11 @@ window.vpMemoSnapNow = async function(id) {
 
     if (cap?.fullBlob && window.snapAddBlob) {
       const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
-      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
-      const rowHtml = `<div style="margin:4px 0">${tsHtml}&nbsp;${thumbHtml}</div>`;
       memoEl.focus();
-      document.execCommand('insertHTML', false, rowHtml);
+      document.execCommand('insertHTML', false, _shotRowHtml(snapId, sec, cap.thumbDataUrl));
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
-      _blurMemo(memoEl);
+      _focusShotCap(memoEl, snapId);
       const snapSec = document.getElementById('vp-snap-section-' + id);
       if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
       window.toast?.('📸 スクショをメモに追加しました');

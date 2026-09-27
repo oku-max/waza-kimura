@@ -745,7 +745,7 @@
     "🖼 画像をメモに入れました": "🖼 Image added to the memo",
     "⚠️ 画像を入れられませんでした": "⚠️ The image could not be added",
     "画像を入れる": "Add an image",
-    "いまの画面を撮る／端末の画像から選ぶ。メモには小さく入り、タップで拡大": "Capture the screen, or choose an image from this device. It goes in small; tap to enlarge",
+    "いまの画面を撮る／端末の画像から選ぶ。コピーした画像はメモに直接貼り付けてもOK。メモには小さく入り、タップで拡大": "Capture the screen, choose an image from this device, or paste a copied image straight into the memo. It goes in small; tap to enlarge",
     "いまの再生位置をメモに入れる": "Insert the current playback position into the memo",
     "ボタンを押したときの時間に移動できるリンクをメモに挿入": "Inserts a link into the memo that jumps to the time you pressed the button",
     "メモ欄が見つかりませんでした（パネルを開き直してください）": "The memo field was not found (reopen the panel)",
@@ -2004,6 +2004,7 @@
     "一度に翻訳できるのは#行までです": "Only # lines can be translated at a time",
     "✔ ブックマークに追加（#件）": "✔ Add # to bookmarks",
     "画像は#枚までです": "Up to # images",
+    "画像は一度に#枚までです": "Up to # images at a time",
     "#件は位置が特定できなかったため除きました": "# could not be located, so they were left out",
     "#件は時刻が読み取れなかったため除きました": "# had no readable time, so they were left out",
     "#件は動画の長さを超えるため除きました（別の巻の目次かもしれません）":
