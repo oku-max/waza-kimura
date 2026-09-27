@@ -199,6 +199,13 @@
     return Array.isArray(m) ? m.slice() : [];
   }
 
+  // 枠（タグ1〜4）に入っているグループの ID と保存場所だけ（名前・選択肢は組み立てない）。
+  // カードのように何千回も呼ぶ所で使う。空の枠は null。
+  function slotInfo() {
+    _ensure();
+    return _reg.slots.map(id => { const g = id && _reg.groups.find(x => x.id === id); return g ? { id: g.id, store: g.store } : null; });
+  }
+
   // ワード検索の対象にするグループのID（並びは一覧の順）。検索は動画1本×打鍵ごとに呼ぶので、
   // 名前や選択肢は組み立てずに、保存している形から直接読む（軽くしておく）。
   function searchIds() {
@@ -230,7 +237,7 @@
   function displayMode(optionCount) { return optionCount <= CHIP_MAX ? 'chips' : 'dropdown'; }
 
   window.tagRegistry = {
-    groups, group, slots, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
+    groups, group, slots, slotInfo, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
     CHIP_MAX, displayMode, isReadOnly, reconcile, applyRemote,
     _valid, _fresh, LS_KEY,
   };

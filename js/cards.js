@@ -117,16 +117,27 @@ export function cardHTML(v) {
   const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   // タグ1 も付いている値をそのまま出す。以前は組み込みの3つ（トップ/ボトム/スタンディング）以外を
   // 黙って隠していたので、ユーザーが自分で足した値がカードに出なかった（v52.827）。
-  const newTb   = _tsV('tb')   && Array.isArray(v.tb)   ? v.tb   : [];
-  const newCat  = _tsV('cat')  && Array.isArray(v.cat)  ? v.cat  : [];
-  const newPos  = _tsV('pos')  && Array.isArray(v.pos)  ? v.pos  : [];
-  const newTags = _tsV('tags') && Array.isArray(v.tags) ? v.tags : [];
-  const v4badges = (newTb.length || newCat.length || newPos.length || newTags.length) ? `
+  // タグ1〜4の枠の順に並べる（段階2d。枠を入れ替えるとカードも付いてくる）。
+  // 見た目は保存場所ごと（今の4つは今までどおり。新しいタググループは #なしの淡い色）。
+  const _BADGE = {
+    tb:   t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(140,80,255,.14);color:var(--text);font-weight:700">${_esc(t)}</span>`,
+    cat:  t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,160,255,.14);color:var(--text)">📂${_esc(t)}</span>`,
+    pos:  t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,200,140,.14);color:var(--text)">📍${_esc(t)}</span>`,
+    tags: t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(255,200,80,.14);color:var(--text2)">#${_esc(t)}</span>`,
+    map:  t => `<span style="padding:2px 7px;border-radius:10px;background:var(--surface2);color:var(--text2)">${_esc(t)}</span>`,
+  };
+  const _R = window.tagRegistry;
+  const _slotInfo = _R ? _R.slotInfo() : ['tb','cat','pos','tags'].map(f => ({ id: 'f_' + f, store: f }));
+  const _badgeHtml = _slotInfo.map(s => {
+    if (!s || !_BADGE[s.store]) return '';          // 空の枠・マーク・習得（別の表示がある）は出さない
+    if (s.store !== 'map' && !_tsV(s.store)) return '';
+    let vals = _R ? _R.valuesOf(v, s.id) : (Array.isArray(v[s.store]) ? v[s.store] : []);
+    if (s.store === 'tags') vals = vals.slice(0, 8);
+    return vals.map(_BADGE[s.store]).join('');
+  }).join('');
+  const v4badges = _badgeHtml ? `
     <div class="v4-badges" style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 4px;font-size:10px;border-top:1px solid var(--border)">
-      ${newTb.map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(140,80,255,.14);color:var(--text);font-weight:700">${_esc(t)}</span>`).join('')}
-      ${newCat.map(c => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,160,255,.14);color:var(--text)">📂${_esc(c)}</span>`).join('')}
-      ${newPos.map(p => `<span style="padding:2px 7px;border-radius:10px;background:rgba(80,200,140,.14);color:var(--text)">📍${_esc(p)}</span>`).join('')}
-      ${newTags.slice(0,8).map(t => `<span style="padding:2px 7px;border-radius:10px;background:rgba(255,200,80,.14);color:var(--text2)">#${_esc(t)}</span>`).join('')}
+      ${_badgeHtml}
     </div>` : '';
   const chName = v.channel ? `<div class="card-ch">${v.channel}</div>` : '';
   const plName = v.pl ? `<div class="card-pl">📋 ${v.pl}</div>` : '';

@@ -170,5 +170,16 @@ console.log('── ⑦ 選択肢の見せ方（段階2c）──');
   ck('古いグループ別の部品が戻っていない', !/vpV4ToggleTb|vpV4ToggleCat|vpV4OpenPosDd|vpV4OpenTagDd|bvpToggleV4|bvpOpenPosDd|bvpOpenTagDd/.test(vp + bk));
 }
 
+console.log('── ⑧ 表示も枠から（段階2d）──');
+{
+  const cards = code['js/cards.js'], sb = code['js/sidebar-v4.js'], uf = code['js/unified-filter.js'];
+  ck('カードのタグは枠の順（slotInfo）', /_R\.slotInfo\(\)/.test(cards) && !/newTb\.map|newCat\.map|newPos\.map/.test(cards));
+  ck('サイドバーの列は枠から', /R\.slots\(\)/.test(sb) && !/_COL_KEYS/.test(sb));
+  ck('統合フィルターのタグの列は枠から・見出しは付けた名前（T/B の決め打ちが無い）', /_R \? _R\.slots\(\) : \[\]/.test(uf) && !/_colHtml\('T\/B'/.test(uf));
+  ck('統合フィルターの行・選択中は値を onclick の文字列に埋め込まない', /onclick="uniToggleEl\(this\)"/.test(uf) && !/uniToggle\('\$\{opts\.filterKey\}'/.test(uf) && !/uniToggle\('\$\{k\}'/.test(uf));
+  ck('選択中の表示は、枠に無いグループの選択も出す（見えない条件にしない）', /_TF\(\)\.groups\(\)\.forEach\(g => \[\.\.\._TF\(\)\.selected\(f, g\.id, _sch\(\)\)\]/.test(uf));
+  ck('一覧に slotInfo（名前・選択肢を組み立てない軽い読み出し）', typeof R.slotInfo === 'function' && J(R.slotInfo().map(x => x && x.store)) === J(['tb', 'cat', 'pos', 'tags']));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');
 process.exit(fail ? 1 : 0);

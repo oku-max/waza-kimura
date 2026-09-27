@@ -17,15 +17,15 @@
 
   // タグの選択の読み書きは tag-filter.js で読み替える（このパネルの列は tb/cat/pos/tags）
   const _TF = () => window.tagFilter;
-  const _gid = col => _TF().gidOfField(col);
+  // 列の key: 今の4つは保存場所（tb/cat/pos/tags）、新しいタググループはグループID
+  const _FIELDS = ['tb', 'cat', 'pos', 'tags'];
+  const _gid = col => (_FIELDS.includes(col) ? _TF().gidOfField(col) : col);
   const _selOf = col => _TF().selected(window.filters || {}, _gid(col), 'lib');
-  const _COL_OF_KEY = { tbNew: 'tb', cat: 'cat', posNew: 'pos', tags: 'tags' };
 
   // ── 件数カウント (全レイヤーAND、自身含む) ──
   // 1回の描画で何百回も呼ばれるので、判定関数は描画ごとに1回だけ作る（_renderInto の先頭で捨てる）
   let _okCache = null;
-  function _cnt(key, val) {
-    const col = _COL_OF_KEY[key]; if (!col) return 0;
+  function _cnt(col, val) {
     const ok = _okCache || (_okCache = _TF().compile(window.filters || {}, 'lib'));
     const gid = _gid(col);
     return (window.videos || []).filter(v => !v.archived && ok(v) && _TF().valuesOf(v, gid).includes(val)).length;
@@ -151,14 +151,22 @@
   }
 
   // ── 状態 ──
-  const _sort = { tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };
+  const _sort = { tb:'abc', cat:'abc', pos:'abc', tags:'cnt' };   // 新しいタググループは 'abc'
   let _q = '';
   let _activeTab = 0;
   // グループ名はユーザーが付けたもの。ここに直接書かず tagLabel() から引く。
-  const _COL_KEYS = ['tb', 'cat', 'pos', 'tags'];
   const _colLabel = k => (window.tagLabel ? window.tagLabel(k) : k);
   const _colShort = k => (window.tagLabelShort ? window.tagLabelShort(k) : k);
-  const _cols = () => _COL_KEYS.map(k => ({ key:k, label:_colLabel(k), short:_colShort(k) }));
+  // 列 = タグ1〜4の枠に入っているグループ（段階2d。枠を入れ替えると列も付いてくる）。
+  // マーク・習得は今までどおり別の絞り込み（段階5で合わせる）。
+  const _cols = () => {
+    const R = window.tagRegistry;
+    const gs = R ? R.slots().filter(g => g && (_FIELDS.includes(g.store) || g.store === 'map'))
+                 : _FIELDS.map(f => ({ id: 'f_' + f, store: f, options: [] }));
+    return gs.map(g => _FIELDS.includes(g.store)
+      ? { key: g.store, gid: g.id, g, label: _colLabel(g.store), short: _colShort(g.store) }
+      : { key: g.id,    gid: g.id, g, label: g.name, short: g.name });
+  };
 
   function _esc(s){return String(s==null?'':s).replace(/[&<>"'\\]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','\\':'\\\\'}[c]));}
 
@@ -175,7 +183,7 @@
 
     // Tabs
     if (tabsEl) {
-      const selSizes = { tb:_selOf('tb').size, cat:_selOf('cat').size, pos:_selOf('pos').size, tags:_selOf('tags').size };
+      const selSizes = {}; _cols().forEach(c => { selSizes[c.key] = _selOf(c.key).size; });
       tabsEl.innerHTML = _cols().map((c,i) => {
         const n = selSizes[c.key];
         return `<div class="v4-tab${i===_activeTab?' on':''}" data-i="${i}" title="${_esc(c.label)}" data-user-text="1">${_esc(c.short)}${n?`<span class="v4-bdg">${n}</span>`:''}</div>`;
@@ -190,18 +198,18 @@
 
     // Carousel cols
     if (trackEl) {
-      const lists = {
-        tb:   (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])).map(t => ({ name:t, cnt:_cnt('tbNew', t), sel:_selOf('tb').has(t) })),
-        cat:  (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name:n, cnt:_cnt('cat', n), sel:_selOf('cat').has(n) })),
-        pos:  (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).map(n => ({ name:n, cnt:_cnt('posNew', n), sel:_selOf('pos').has(n) })),
-        tags: _collectTags().map(t => ({ name:t, cnt:_cnt('tags', t), sel:_selOf('tags').has(t) }))
-      };
+      // 候補: タグ4は動画に付いている値、ほかは選択肢（今までどおり）
+      const lists = {};
+      _cols().forEach(c => {
+        const src = c.g.store === 'tags' ? _collectTags() : (c.g.options || []);
+        lists[c.key] = src.map(n => ({ name:n, cnt:_cnt(c.key, n), sel:_selOf(c.key).has(n) }));
+      });
       trackEl.innerHTML = _cols().map(c => {
         let arr = lists[c.key].slice();
         // ゼロ件（非該当）項目を非表示。ただし選択済みは常に残す（解除可能にするため）
         arr = arr.filter(r => r.sel || r.cnt > 0);
         if (_q) arr = arr.filter(r => r.name.toLowerCase().includes(_q));
-        if (_sort[c.key] === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
+        if ((_sort[c.key] || 'abc') === 'abc') arr.sort((a,b) => a.name.localeCompare(b.name,'ja'));
         else arr.sort((a,b) => b.cnt - a.cnt);
         const rows = arr.length ? arr.map(r =>
           `<div class="v4-row${r.sel?' on':''}${r.cnt===0&&!r.sel?' zero':''}" data-k="${c.key}" data-n="${_esc(r.name)}"><span>${_esc(r.name)}</span><span class="v4-cnt">${r.cnt}本</span></div>`
@@ -226,7 +234,7 @@
 
     // Pills
     if (pillsEl) {
-      const all = ['tb','cat','pos','tags'].flatMap(k => [..._selOf(k)].map(n => [k, n]));
+      const all = _cols().flatMap(c => [..._selOf(c.key)].map(n => [c.key, n]));
       if (!all.length) pillsEl.innerHTML = '<span style="color:var(--text3);font-size:11px">なし</span>';
       else pillsEl.innerHTML = all.map(([k,n]) => `<span class="v4-pill" onclick="v4Toggle('${k}','${_esc(n)}')">${_esc(n)}</span>`).join('');
     }
@@ -239,7 +247,7 @@
     // Badge (sidebar + mobile filter overlay)
     if (!_ensureFilters()) return;
     const f = window.filters;
-    const selCount = ['tb','cat','pos','tags'].reduce((n, k) => n + _selOf(k).size, 0);
+    const selCount = _cols().reduce((n, c) => n + _selOf(c.key).size, 0);
     ['fs-v4-btn-badge','fov-v4-badge'].forEach(id => {
       const b = document.getElementById(id);
       if (!b) return;
@@ -253,7 +261,7 @@
   // ── グローバル公開ハンドラ ──
   window.v4Toggle = function (key, name) {
     _ensureFilters();
-    if (!['tb','cat','pos','tags'].includes(key)) return;
+    if (!_cols().some(c => c.key === key)) return;
     const s = _TF().setFor(window.filters, _gid(key), 'lib');
     s.has(name) ? s.delete(name) : s.add(name);
     _renderPopup();
@@ -281,7 +289,7 @@
       t = setTimeout(() => {
         const cw = track.children[0]?.offsetWidth || 1;
         const i = Math.round(track.scrollLeft / cw);
-        if (i !== _activeTab && i >= 0 && i < _COL_KEYS.length) {
+        if (i !== _activeTab && i >= 0 && i < _cols().length) {
           _activeTab = i;
           document.querySelectorAll('#v4-tabs .v4-tab').forEach((t,idx) => t.classList.toggle('on', idx === _activeTab));
         }
