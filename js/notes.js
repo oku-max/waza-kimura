@@ -3020,10 +3020,12 @@ function _vlGetFilterFields(filter) {
     pl:       Array.isArray(filter.playlist) ? filter.playlist : arr(filter.pl),
     status:   Array.isArray(filter.status)   ? filter.status   : arr(filter.status),
     channel:  Array.isArray(filter.channel)  ? filter.channel  : arr(filter.channel),
-    tb:       filter.tbNew  || filter.tb       || [],
-    cat:      filter.cat   || filter.action   || [],
-    pos:      filter.posNew || filter.position || filter.pos || [],
-    tags:     filter.tags     || [],
+    // タグはどの呼び名で入っていても合わせて読む（tag-filter.js）。
+    // 以前は「tbNew || tb」で、空の tbNew（空配列も真）が中身のある tb を隠していた。
+    tb:       _vlTagSel(filter, 'tb'),
+    cat:      _vlTagSel(filter, 'cat'),
+    pos:      _vlTagSel(filter, 'pos'),
+    tags:     _vlTagSel(filter, 'tags'),
     prio:     filter.prio     || [],
     platform: filter.platform || [],
     favOnly:     !!filter._favOnly,
@@ -3033,6 +3035,25 @@ function _vlGetFilterFields(filter) {
   };
 }
 
+// 読み替えは tag-filter.js だけが持つ（index.html の head で必ず先に読まれる）
+function _vlTagSel(filter, col) {
+  const TF = window.tagFilter;
+  return [...TF.selected(filter || {}, TF.gidOfField(col), 'lib')];
+}
+
+// メモから作ったノートの動画リスト（note-templates.js）は、メモのタグを { tags:[...] } で渡してくる。
+// メモのタグはタグ1〜4のどこに付いている値でもよいので、「どのグループでもよい」として探す。
+// 以前はタグ4だけを見ていて、ポジション等に付いている値だと0本になっていた
+// （メモ側の「関連動画 N本」は全グループで数えるので、食い違っていた）。
+// 目印: anyTag:true（新しく作るもの）か、中身が tags だけ（それより前に作られたもの）。
+// 絞り込みの状態を保存したもの（スナップショット）は他の項目も必ず持つので、ここには当たらない。
+function _vlIsAnyTag(filter) {
+  if (!filter) return false;
+  if (filter.anyTag === true) return true;
+  const ks = Object.keys(filter);
+  return ks.length === 1 && ks[0] === 'tags';
+}
+
 // ── 動画リスト: フィルタロジック ──
 function _filterVidList(filter) {
   const f = _vlGetFilterFields(filter);
@@ -3040,14 +3061,26 @@ function _filterVidList(filter) {
   if (f.pl.length)       vs = vs.filter(v => f.pl.includes(v.pl));
   if (f.status.length)   vs = vs.filter(v => f.status.includes(v.status || '未着手'));
   if (f.channel.length)  vs = vs.filter(v => f.channel.includes(v.channel || v.ch));
-  if (f.tb.length)       vs = vs.filter(v => f.tb.some(t => (v.tb || []).includes(t)));
-  if (f.cat.length)      vs = vs.filter(v => f.cat.some(c => (v.cat || []).includes(c)));
-  if (f.pos.length)      vs = vs.filter(v => f.pos.some(p => (v.pos || []).includes(p)));
-  if (f.tags.length)     vs = vs.filter(v => f.tags.some(t => (v.tags || []).includes(t)));
+  const TF = window.tagFilter;
+  if (_vlIsAnyTag(filter)) {
+    const want = new Set(f.tags);
+    if (want.size) vs = vs.filter(v => TF
+      ? TF.groups().some(g => TF.valuesOf(v, g.id).some(x => want.has(x)))
+      : ['tb', 'cat', 'pos', 'tags'].some(k => (v[k] || []).some(x => want.has(x))));
+  } else if (TF) {
+    const ok = TF.compile(filter, 'lib');
+    vs = vs.filter(ok);
+  } else {
+    if (f.tb.length)   vs = vs.filter(v => f.tb.some(t => (v.tb || []).includes(t)));
+    if (f.cat.length)  vs = vs.filter(v => f.cat.some(c => (v.cat || []).includes(c)));
+    if (f.pos.length)  vs = vs.filter(v => f.pos.some(p => (v.pos || []).includes(p)));
+    if (f.tags.length) vs = vs.filter(v => f.tags.some(t => (v.tags || []).includes(t)));
+  }
   if (f.prio.length)     vs = vs.filter(v => f.prio.includes(v.prio));
   if (f.platform.length) vs = vs.filter(v => f.platform.includes(v.pt || v.platform));
   if (f.favOnly)         vs = vs.filter(v => v.fav);
-  if (f.unwOnly)         vs = vs.filter(v => v.unw);
+  // 未視聴 = 視聴済みでないもの（以前は存在しない v.unw を見ていて、未視聴の条件で0本になっていた）
+  if (f.unwOnly)         vs = vs.filter(v => !v.watched);
   if (f.watchedOnly)     vs = vs.filter(v => v.watched);
   if (f.titleQ) {
     const q = f.titleQ.toLowerCase();
@@ -3247,15 +3280,16 @@ window._notesVlEdit = function(noteId, path) {
   const arr = v => v == null ? [] : (Array.isArray(v) ? v : [v]);
   const snap = {
     prio:     f.prio     || [],
-    tb:       f.tbNew    || f.tb       || [],
-    tbNew:    f.tbNew    || f.tb       || [],
-    action:   f.cat      || f.action   || [],
-    cat:      f.cat      || f.action   || [],
-    position: f.posNew   || f.position || f.pos || [],
-    posNew:   f.posNew   || f.position || f.pos || [],
+    // タグはどの呼び名で入っていても合わせて読む（空の配列が中身のある方を隠さない）
+    tb:       _vlTagSel(f, 'tb'),
+    tbNew:    _vlTagSel(f, 'tb'),
+    action:   _vlTagSel(f, 'cat'),
+    cat:      _vlTagSel(f, 'cat'),
+    position: _vlTagSel(f, 'pos'),
+    posNew:   _vlTagSel(f, 'pos'),
     playlist: Array.isArray(f.playlist) ? f.playlist : arr(f.pl),
     status:   Array.isArray(f.status)   ? f.status   : arr(f.status),
-    tags:     f.tags     || [],
+    tags:     _vlTagSel(f, 'tags'),
     platform: f.platform || [],
     channel:  Array.isArray(f.channel)  ? f.channel  : arr(f.channel),
     _favOnly:     !!f._favOnly,

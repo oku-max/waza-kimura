@@ -48,5 +48,19 @@ ck('ウィザード: 選択肢に無いタグ2/3 の値も出す（_fillChipsWit
 ck('整理の表: 選択肢に無い値も先頭に出す', /const extra = current\.filter\(t => !allOpts\.includes\(t\)\)/.test(code('js/organize.js')));
 ck('動画カード: タグ1 を組み込みの3つで絞らない', !/v\.tb\.filter\(/.test(code('js/cards.js')));
 
+console.log('\n── 旧テクニックの見出し（tagGroups）は v52.833 で廃止 ──');
+// 候補を「ガード系」などの見出しで区切って並べていた。見出しを作る画面は開けなくなっていた。
+const RENDER = ['js/unified-filter.js', 'js/organize.js', 'js/vpanel-v4.js', 'js/bulk.js', 'index.html'];
+for (const f of RENDER) {
+  const c = code(f);
+  ck(`${f} が見出しで区切って並べていない`, !/getTagGroups\(\)|tag-grp-hdr/.test(c));
+}
+ck('旧 #Tag モーダル（見出しを作る画面）が無い', !/_openTagsNewModal|_renderTagsNewModal/.test(st));
+// 保存済みの見出しは消さない: 設定docは丸ごと .set で保存するので、getTagGroups が空を返すと
+// クラウドの見出しが全デバイスから消える。読み込んだものをそのまま返し、保存に載せ続ける。
+ck('★ getTagGroups は読み込んだ見出しをそのまま返す（空で上書きしない）', /window\.getTagGroups = \(\) => _tagGroups;/.test(st) && /_tagGroups = data\.tagGroups;/.test(st));
+ck('★ 設定の保存に見出しを載せ続けている（firebase.js）', /tagGroups:\s*window\.getTagGroups\?\.\(\)/.test(code('js/firebase.js')));
+ck('★ バックアップにも載せ続けている（index.html）', /tagGroups: window\.getTagGroups\?\.\(\)/.test(code('index.html')));
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ 問題なし');
 process.exit(fail ? 1 : 0);

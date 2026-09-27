@@ -191,7 +191,7 @@ export function buildBulkDrawerHTML() {
   const _showCat  = _tsVis('cat');
   const _showPos  = _tsVis('pos');
   const _showTagsF = _tsVis('tags');
-  const _L = k => _e(window.tagLabel ? window.tagLabel(k) : k);
+  const _L = k => _esc(window.tagLabel ? window.tagLabel(k) : k);
   const _tbRowEl   = _showTb   ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('tb')}</span><div class="vp-chips">${tbRow}</div></div>` : '';
   const _catRowEl  = _showCat  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('cat')}</span><div class="vp-chips">${catRow}</div></div>` : '';
   const _posRowEl  = _showPos  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_L('pos')}</span><div class="vp-chips">${posChips}${posPicker}</div></div>` : '';
@@ -250,20 +250,12 @@ function _posOpts() {
   return names.map(n => ({ ja: n, en: dict.get(n) || '' }));
 }
 
-function _bvpGetAllOpts(key) {
-  const ts = window.tagSettings || [];
-  const presets = ts.find(t => t.key === key)?.presets || [];
-  const fromVideos = (window.videos || []).flatMap(v => v[key] || []);
-  return [...new Set([...presets, ...fromVideos])].sort((a, b) => a.localeCompare(b, 'ja'));
-}
-
 export function bvpTogDd(key) {
   window.wkDdToggle(document.getElementById('bvp-dd-' + key), {
     focus: true,
     after: inp => {
       if (key === 'ch') bvpChSuggest(inp);
       else if (key === 'pl') bvpPlSuggest(inp);
-      else bvpRenderDdList(key, '');
     },
   });
 }
@@ -327,114 +319,9 @@ function _bvpRenderTagList(q) {
   const filtered = ql ? available.filter(t => t.toLowerCase().includes(ql)) : available;
   const _mkItem = t =>
     `<div class="vp-dd-item" onmousedown="bvpTagPick('${_esc(t).replace(/'/g, "&#39;")}')">${_esc(t)}</div>`;
-  if (ql) {
-    sug.innerHTML = filtered.map(_mkItem).join('') ||
-      `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>`;
-  } else {
-    const _groups = window.getTagGroups ? window.getTagGroups() : [];
-    const _inGrp = new Set(_groups.flatMap(g => g.techNames || []));
-    const parts = [];
-    _groups.forEach(g => {
-      const members = filtered.filter(t => (g.techNames || []).includes(t));
-      if (!members.length) return;
-      parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
-      members.forEach(t => parts.push(_mkItem(t)));
-    });
-    const unc = filtered.filter(t => !_inGrp.has(t));
-    if (unc.length) {
-      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
-      unc.forEach(t => parts.push(_mkItem(t)));
-    }
-    sug.innerHTML = parts.length ? parts.join('') : '';
-  }
-}
-
-export function bvpRenderDdList(key, q) {
-  const list = document.getElementById('bvp-dd-list-' + key);
-  if (!list) return;
-  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
-  const common = (arr) => arr.filter(x => selVids.every(v => (v[key] || []).includes(x)));
-  const all = _bvpGetAllOpts(key);
-  const current = common(all);
-  const ql = q.toLowerCase();
-  const filtered = all.filter(opt => !ql || opt.toLowerCase().includes(ql));
-  const isNew = q.trim() && !all.some(o => o.toLowerCase() === ql);
-  list.innerHTML = filtered.map(opt => {
-    const sel = current.includes(opt);
-    return `<div class="vp-dd-item${sel ? ' selected' : ''}" onclick="bvpDdToggle('${key}','${opt.replace(/'/g, "\\'")}',this)">${opt}</div>`;
-  }).join('') + (isNew ? `<div class="vp-dd-new" onclick="bvpDdAddNew('${key}','${q.trim().replace(/'/g, "\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
-}
-
-export function bvpDdKey(key, e, inp) {
-  if (e.key === 'Enter') {
-    const q = inp.value.trim();
-    if (!q) return;
-    bvpDdAddNew(key, q);
-  } else if (e.key === 'Escape') {
-    const dd = document.getElementById('bvp-dd-' + key);
-    if (dd) dd.style.display = 'none';
-  }
-}
-
-export function bvpDdAddNew(key, val) {
-  if (!val.trim()) return;
-  const selVids = [...(window.selIds || new Set())].map(id => (window.videos || []).find(v => v.id === id)).filter(Boolean);
-  if (!selVids.length) return;
-  bulkSnapshot();
-  selVids.forEach(v => {
-    if (!v[key]) v[key] = [];
-    if (!v[key].includes(val)) v[key].push(val);
-  });
-  _bvpRefreshChips(key, key, selVids);
-  bvpRenderDdList(key, '');
-  const inp = document.querySelector('#bvp-dd-' + key + ' .vp-dd-search');
-  if (inp) inp.value = '';
-  window.toastUndo?.((window.selIds || new Set()).size + '本に「' + val + '」を追加', bulkUndo);
-  window.AF?.(); if (window.bulkCtx === 'organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpDdFilter(key, q) { bvpRenderDdList(key, q); }
-
-export function bvpDdToggle(key, val, el) {
-  const fieldMap = {tb:'tb', cat:'cat', pos:'pos', tags:'tags'};
-  const field = fieldMap[key]; if (!field) return;
-  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
-  if (!selVids.length) return;
-  bulkSnapshot();
-  const isSelected = el?.classList.contains('selected');
-  selVids.forEach(v => {
-    if (!v[field]) v[field] = [];
-    if (isSelected) { v[field] = v[field].filter(t => t !== val); }
-    else if (!v[field].includes(val)) { v[field].push(val); }
-  });
-  if (el) el.classList.toggle('selected', !isSelected);
-  _bvpRefreshChips(key, field, selVids);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpChipRm(key, val) {
-  const fieldMap = {tb:'tb', cat:'cat', pos:'pos', tags:'tags'};
-  const field = fieldMap[key]; if (!field) return;
-  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
-  bulkSnapshot();
-  selVids.forEach(v => { if (v[field]) v[field] = v[field].filter(t => t !== val); });
-  _bvpRefreshChips(key, field, selVids);
-  // ドロップダウンのselectedも外す
-  document.querySelectorAll(`#bvp-dd-list-${key} .vp-dd-item`).forEach(item => {
-    if (item.textContent === val) item.classList.remove('selected');
-  });
-  window.toastUndo?.((window.selIds||new Set()).size+'本から「'+val+'」を削除', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-function _bvpRefreshChips(key, field, selVids) {
-  const onCls = {tb:'on-tb',cat:'on-cat',pos:'on-pos',tags:'on-tags'}[key];
-  const common = selVids.length ? (selVids[0][field]||[]).filter(v => selVids.every(sv=>(sv[field]||[]).includes(v))) : [];
-  const chipsEl = document.getElementById('bvp-' + key);
-  if (!chipsEl) return;
-  chipsEl.innerHTML = common.map(v =>
-    `<span class="vp-chip ${onCls}" onclick="bvpChipRm('${key}','${v.replace(/'/g,"\\'")}',this)" style="cursor:pointer">${v} ×</span>`
-  ).join('');
+  // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
+  sug.innerHTML = filtered.map(_mkItem).join('') ||
+    (ql ? `<div style="padding:10px 12px;color:var(--text3);font-size:11px">候補なし</div>` : '');
 }
 
 
@@ -452,22 +339,6 @@ export function bvpSet(field, val, el) {
   document.querySelectorAll('#'+rowId+' .chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   window.toastUndo?.((window.selIds||new Set()).size+'本に「'+val+'」を設定', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpToggle(field, val, el, onClass) {
-  bulkSnapshot();
-  const isOn = el.classList.contains(onClass);
-  const ids = [...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => {
-    const v=videos.find(v=>v.id===id); if(!v) return;
-    const arr = v[field]||[];
-    if(isOn) v[field]=arr.filter(x=>x!==val);
-    else if(!arr.includes(val)) v[field]=[...arr,val];
-  });
-  el.classList.toggle(onClass, !isOn);
-  window.toastUndo?.((isOn?'削除: ':'追加: ')+'「'+val+'」 → '+(window.selIds||new Set()).size+'本', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
@@ -564,20 +435,6 @@ export function bvpToggleV4(field, val, el) {
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
 }
 
-export function bvpAddV4(field, sel) {
-  const val = sel.value; if(!val) return;
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v){ if(!Array.isArray(v[field]))v[field]=[]; if(!v[field].includes(val))v[field].push(val); }});
-  sel.value = '';
-  // VPanel再構築
-  const body = document.getElementById('bulk-vpanel-body');
-  if(body) body.innerHTML = buildBulkDrawerHTML();
-  window.toastUndo?.((window.selIds||new Set()).size+'本に'+val+'を追加', bulkUndo);
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
 export function bvpRemoveV4(field, val, el) {
   bulkSnapshot();
   const ids=[...(window.selIds||new Set())];
@@ -588,44 +445,6 @@ export function bvpRemoveV4(field, val, el) {
   if(body) body.innerHTML = buildBulkDrawerHTML();
   window.toastUndo?.((window.selIds||new Set()).size+'本から'+val+'を削除', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpTagSuggest(inp) {
-  const sug = document.getElementById('bvp-tag-sug');
-  if(!sug) return;
-  const q = (inp.value||'').trim().toLowerCase();
-  const selVids = [...(window.selIds||new Set())].map(id=>(window.videos||[]).find(v=>v.id===id)).filter(Boolean);
-  // ライブラリ全体のタグを表示（全選択動画が既に持つタグのみ除外）
-  const allTags = [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort((a,b)=>a.localeCompare(b,'ja'));
-  const alreadyCommon = allTags.filter(t => selVids.every(v=>(v.tags||[]).includes(t)));
-  const available = allTags.filter(t => !alreadyCommon.includes(t));
-  const filtered = q ? available.filter(t=>t.toLowerCase().includes(q)) : available;
-  if(!filtered.length){ sug.style.display='none'; return; }
-  sug.style.display='block';
-  const _esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const _mkItem = t =>
-    `<div class="vp-dd-item" style="padding:6px 10px;cursor:pointer;font-size:11px" onmousedown="bvpTagPick('${_esc(t).replace(/'/g,"&#39;")}')">#${_esc(t)}</div>`;
-  if (q) {
-    // 検索中: フラット表示（既存動作）
-    sug.innerHTML = filtered.map(_mkItem).join('');
-  } else {
-    // 未検索: グループ別表示 (案B)
-    const _groups = window.getTagGroups ? window.getTagGroups() : [];
-    const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
-    const parts   = [];
-    _groups.forEach(g => {
-      const members = filtered.filter(t => (g.techNames || []).includes(t));
-      if (!members.length) return;
-      parts.push(`<div class="tag-grp-hdr">${_esc(g.name)}</div>`);
-      members.forEach(t => parts.push(_mkItem(t)));
-    });
-    const unc = filtered.filter(t => !_inGrp.has(t));
-    if (unc.length) {
-      parts.push(`<div class="tag-grp-hdr" style="font-style:italic">${_esc('未グループ')}</div>`);
-      unc.forEach(t => parts.push(_mkItem(t)));
-    }
-    sug.innerHTML = parts.join('');
-  }
 }
 
 export function bvpTagPick(val) {
@@ -653,101 +472,6 @@ export function bvpTagKey(ev, inp) {
   if(body) body.innerHTML = buildBulkDrawerHTML();
   window.toastUndo?.((window.selIds||new Set()).size+'本に#'+val+'を追加', bulkUndo);
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpRemoveTag(field, el) {
-  bulkSnapshot();
-  const val = el.dataset.val;
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  ids.forEach(id => {
-    const v=videos.find(v=>v.id===id); if(!v) return;
-    v[field]=(v[field]||[]).filter(x=>x!==val);
-  });
-  el.remove();
-  window.toast?.((window.selIds||new Set()).size+'本から「'+val+'」を削除');
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpAddPos() {
-  const inp = document.getElementById('bvp-pos-inp');
-  if (!inp) return;
-  const val = inp.value.trim();
-  if (!val) return;
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  let added=0;
-  ids.forEach(id => {
-    const v=videos.find(v=>v.id===id); if(!v) return;
-    if(!(v.pos||[]).includes(val)){v.pos=[...(v.pos||[]),val];added++;}
-  });
-  // チップ追加
-  const row = document.getElementById('bvp-pos');
-  if(row) {
-    const chip = document.createElement('span');
-    chip.className='vp-chip on-pos vp-pos-rm'; chip.dataset.val=val;
-    chip.textContent=val+' ×';
-    chip.onclick=function(){bvpRemoveTag('pos',this);};
-    row.appendChild(chip);
-  }
-  inp.value='';
-  const sug=document.getElementById('bvp-pos-sug'); if(sug) sug.innerHTML='';
-  window.toast?.(added+'本に「'+val+'」を追加');
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpAddTech() {
-  const inp = document.getElementById('bvp-tags-inp');
-  if (!inp) return;
-  const val = inp.value.trim();
-  if (!val) return;
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  let added=0;
-  ids.forEach(id => {
-    const v=videos.find(v=>v.id===id); if(!v) return;
-    if(!(v.tags||[]).includes(val)){v.tags=[...(v.tags||[]),val];added++;}
-  });
-  const row = document.getElementById('bvp-tags');
-  if(row) {
-    const chip = document.createElement('span');
-    chip.className='vp-chip on-tags vp-tags-rm'; chip.dataset.val=val;
-    chip.textContent=val+' ×';
-    chip.onclick=function(){bvpRemoveTag('tags',this);};
-    row.appendChild(chip);
-  }
-  inp.value='';
-  const sug=document.getElementById('bvp-tags-sug'); if(sug) sug.innerHTML='';
-  window.toast?.(added+'本に「'+val+'」を追加');
-  window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.(); window.debounceSave?.();
-}
-
-export function bvpPosSuggest(inp) {
-  const q = inp.value.trim().toLowerCase();
-  const POS_BASE = (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).filter(Boolean);
-  const videos = window.videos || [];
-  const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
-  const sug = document.getElementById('bvp-pos-sug');
-  if (!sug) return;
-  const matches = q ? all.filter(p=>p.toLowerCase().includes(q)) : all;
-  // mousedownを使うことでinputのblurより先にクリック処理を走らせる
-  sug.innerHTML = matches.slice(0,16).map(p =>
-    `<span class="vp-tags-sug-chip" onmousedown="event.preventDefault();document.getElementById('bvp-pos-inp').value='${p.replace(/'/g,"\'")}';bvpAddPos()">${p}</span>`
-  ).join('');
-}
-
-export function bvpTechSuggest(inp) {
-  const q = inp.value.trim().toLowerCase();
-  const videos = window.videos || [];
-  const all = [...new Set(videos.flatMap(v=>v.tags||[]))].sort();
-  const sug = document.getElementById('bvp-tags-sug');
-  if (!sug) return;
-  const matches = q ? all.filter(t=>t.toLowerCase().includes(q)) : all;
-  sug.innerHTML = matches.slice(0,16).map(t =>
-    `<span class="vp-tags-sug-chip" onmousedown="event.preventDefault();document.getElementById('bvp-tags-inp').value='${t.replace(/'/g,"\'")}';bvpAddTech()">${t}</span>`
-  ).join('');
 }
 
 
@@ -853,39 +577,15 @@ export function enterBulk(ctx='home', preserveSel=false){
   } else {
     window.AF?.();
   }
-  buildBbPosRow();
-  buildBbTechRow();
   updBulk();
 }
 
 export function bulkSnapshot(){
   const videos = window.videos || [];
-  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],tbLocked:!!v.tbLocked,pl:v.pl,channel:v.channel,archived:v.archived})));
+  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],pl:v.pl,channel:v.channel,archived:v.archived})));
 }
 
 // ─── Bulk Picker ───
-// status(一括アクション種別) と prio(優先度) は分類タグではないためここに定義。
-// 習得度/TB/カテゴリ/ポジションはハードコードせず正典(tag-master.js/config.js)から生成する。
-const BULK_PICKER_OPTS_BASE = {
-  status: [{val:'watched',label:'視聴済み'},{val:'unwatched',label:'未視聴'},{val:'fav-add',label:'Fav 追加'},{val:'fav-remove',label:'Fav 解除'}],
-  prio: [{val:'今すぐ',label:'今すぐ'},{val:'そのうち',label:'そのうち'},{val:'保留',label:'保留'}],
-};
-
-export function getBulkPickerOpts(type) {
-  const _mk = arr => arr.map(x => ({ val:x, label:x }));
-  if (type === 'prog') return _mk(window.STATUS_CANON || []);
-  if (type === 'tb')   return _mk((window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || [])));
-  if (type === 'cat')  return _mk((window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).filter(Boolean));
-  if (type === 'pos') {
-    // 正典(window.POSITIONS)＋ライブラリ既存データを統合
-    const base = (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).filter(Boolean);
-    const videos = window.videos || [];
-    const all = [...new Set([...base, ...videos.flatMap(v=>v.pos||[])])].sort((a,b)=>a.localeCompare(b,'ja'));
-    return _mk(all);
-  }
-  return BULK_PICKER_OPTS_BASE[type] || [];
-}
-
 let activeBulkPicker = null;
 let _bulkPlMode = null; // 'move' or 'copy'
 
@@ -895,29 +595,12 @@ export function bulkUndo(){
   const videos = window.videos || [];
   snap.forEach(s=>{ const v=videos.find(v=>v.id===s.id); if(v)Object.assign(v,s); });
   window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.();
-  resetBulkPickers();
   window.toast?.('↩ 元に戻しました');
   window.debounceSave?.();
 }
 
-export function resetBulkPickers(){
-  document.querySelectorAll('#bulkBar .bb-chip').forEach(b => {
-    b.classList.remove('bb-on','bb-on-tb','bb-on-cat','bb-on-pos','bb-on-tags');
-  });
-  // ポップアップパネル内チップもリセット
-  document.querySelectorAll('.bb-panel-chip').forEach(b => b.classList.remove('bb-on'));
-  document.querySelectorAll('.bb-panel.open').forEach(p => p.classList.remove('open'));
-  // プレビュー/カウントをリセット
-  ['pos','tags'].forEach(type => {
-    const prev = document.getElementById('bb-' + type + '-preview');
-    const cnt  = document.getElementById('bb-' + type + '-count');
-    if (prev) prev.innerHTML = '';
-    if (cnt)  cnt.textContent = '';
-  });
-}
-
 export function exitBulk(){
-  window.bulkMode=false; (window.selIds||new Set()).clear(); resetBulkPickers();
+  window.bulkMode=false; (window.selIds||new Set()).clear();
   document.body.classList.remove('bulk-mode');
   // ── Inline Transform: ツールバーを復元 ──
   document.querySelectorAll('.bulk-transform').forEach(el => {
@@ -1006,15 +689,7 @@ export function updBulk(){
   document.querySelectorAll('.bulk-inline-edit').forEach(el => {
     if(cnt > 0) el.classList.add('has-sel'); else el.classList.remove('has-sel');
   });
-  // レガシー bulkTit も更新（互換性）
-  const bt = document.getElementById('bulkTit'); if(bt) bt.textContent = label;
   // bulk-sel-btnはテーブルビューのorg-bulk-sel-btnと同様、一括モード時に変更しない
-  // レガシー bulk-edit-vpanel-btn も更新（互換性）
-  const editBtn=document.getElementById('bulk-edit-vpanel-btn');
-  if(editBtn){
-    editBtn.style.opacity=cnt>0?'1':'0.4';
-    editBtn.style.pointerEvents=cnt>0?'auto':'none';
-  }
   // 整理タブ行のハイライト更新
   if(window.bulkCtx==='organize'){document.querySelectorAll('[id^="org-row-"]').forEach(tr=>{const id=tr.id.replace('org-row-','');tr.style.background=(window.selIds||new Set()).has(id)?'var(--surface2)':'';}); }
 }
@@ -1059,16 +734,6 @@ export function bulkSetProg(val){
   const videos = window.videos || [];
   ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(v)v.status=val;});
   window.AF?.(); window.toast?.('✅ '+ids.length+'本 → Progress: '+val);
-}
-
-export function bulkTogTag(field,val){
-  bulkSnapshot();
-  const ids=[...(window.selIds||new Set())];
-  const videos = window.videos || [];
-  let added=0,removed=0;
-  ids.forEach(id=>{const v=videos.find(v=>v.id===id);if(!v)return;const arr=v[field]||[];if(arr.includes(val)){v[field]=arr.filter(x=>x!==val);removed++;}else{v[field]=[...arr,val];added++;}});
-  window.toast?.((added?'＋'+added+'本に追加 ':'')+( removed?'−'+removed+'本から除去 ':'')+val);
-  window.AF?.();
 }
 
 // ═══ BULK PLAYLIST OPERATIONS ═══
@@ -1263,176 +928,20 @@ window.bulkTagReset = function() {
   };
 };
 
-// ── 整理タブ ──
-// 判断ステータス管理（videoオブジェクトのjudge フィールドを使用）
-// judge: undefined/'pending' = 未判断, 'watch' = 見る, 'skip' = 見ない, 'later' = 後で
-
-// ─── Bulk Bar Chip functions (from index.html) ───
-
-export function bulkChipDo(val) {
-  try {
-    if(!(window.selIds||new Set()).size) { window.toast?.('動画を選択してください'); return; }
-    bulkSnapshot();
-    // 同グループの他チップのon状態をリセット
-    document.querySelectorAll('#bb-status-row .bb-chip').forEach(b => b.classList.remove('bb-on'));
-    // クリックされたチップをon
-    const btn = document.querySelector(`#bb-status-row .bb-chip[data-val="${val}"]`);
-    if (btn) btn.classList.add('bb-on');
-    bulkDo(val);
-  } catch(e) { console.error('bulkChipDo error:', e); }
-}
-
-// 単一選択（Priority/Progress: 選択したものだけon）
-export function bulkChipSingle(type, val, el) {
-  try {
-    if(!(window.selIds||new Set()).size) { window.toast?.('動画を選択してください'); return; }
-    bulkSnapshot();
-    const rowId = type === 'prio' ? 'bb-prio-row' : 'bb-prog-row';
-    // 同グループリセット
-    document.querySelectorAll(`#${rowId} .bb-chip`).forEach(b => b.classList.remove('bb-on'));
-    el.classList.add('bb-on');
-    const ids = [...(window.selIds||new Set())];
-    const videos = window.videos || [];
-    if (type === 'prio') {
-      ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.prio=val; });
-      window.toast?.('✅ '+ids.length+'本 → Priority: '+val);
-      window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.();
-    } else if (type === 'prog') {
-      ids.forEach(id => { const v=videos.find(v=>v.id===id); if(v) v.status=val; });
-      window.toast?.('✅ '+ids.length+'本 → Progress: '+val);
-      window.AF?.();
-    }
-    window.debounceSave?.();
-  } catch(e) { console.error('bulkChipSingle error:', e); }
-}
-
-// トグル選択（T/B, Action, Position, Technique: 複数選択可、押すと追加、もう一度で削除）
-export function bulkChipToggle(type, val, el) {
-  try {
-    if(!(window.selIds||new Set()).size) { window.toast?.('動画を選択してください'); return; }
-    bulkSnapshot();
-    const field = type === 'tb' ? 'tb' : type === 'cat' ? 'cat' : type === 'pos' ? 'pos' : 'tags';
-    const isOn = el.classList.contains('bb-on');
-    const onClass = 'bb-on-' + (field === 'tb' ? 'tb' : field === 'cat' ? 'cat' : field === 'pos' ? 'pos' : 'tags');
-    const ids = [...(window.selIds||new Set())];
-    const videos = window.videos || [];
-    let added = 0, removed = 0;
-    ids.forEach(id => {
-      const v = videos.find(v=>v.id===id); if(!v) return;
-      const arr = v[field] || [];
-      if (isOn) {
-        v[field] = arr.filter(x => x !== val); removed++;
-      } else {
-        if (!arr.includes(val)) { v[field] = [...arr, val]; added++; }
-      }
-    });
-    if (isOn) {
-      el.classList.remove('bb-on', onClass);
-    } else {
-      el.classList.add('bb-on', onClass);
-    }
-    const msg = isOn ? `−${removed} 本から "${val}" を削除` : `＋${added} 本に "${val}" を追加`;
-    window.toast?.(msg);
-    window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.();
-    window.debounceSave?.();
-  } catch(e) { console.error('bulkChipToggle error:', e); }
-}
-
-// Position行を動的生成
-export function buildBbPosRow() {
-  const POS_BASE = (window.tagPresets ? window.tagPresets('pos') : (window.POSITIONS || []).map(p => p.ja)).filter(Boolean);
-  const videos = window.videos || [];
-  const all = [...new Set([...POS_BASE, ...videos.flatMap(v=>v.pos||[])])].sort();
-  const panel = document.getElementById('bb-panel-pos');
-  if (!panel) return;
-  panel.innerHTML = all.map(p =>
-    `<button class="bb-panel-chip" data-bulk-type="pos" data-val="${p}" onclick="bulkPanelToggle('pos','${p}',this)">${p}</button>`
-  ).join('');
-  updateBbPanelPreview('pos');
-}
-
-export function buildBbTechRow() {
-  const videos = window.videos || [];
-  const all = [...new Set(videos.flatMap(v=>v.tags||[]))].sort();
-  const panel = document.getElementById('bb-panel-tags');
-  if (!panel) return;
-  if (!all.length) {
-    panel.innerHTML = '<span style="font-size:10px;color:var(--text3)">テクニックタグがありません</span>';
-    return;
-  }
-  panel.innerHTML = all.map(t =>
-    `<button class="bb-panel-chip" data-bulk-type="tags" data-val="${t}" onclick="bulkPanelToggle('tags','${t}',this)">${t}</button>`
-  ).join('');
-  updateBbPanelPreview('tags');
-}
-
-export function toggleBbPanel(type) {
-  const panel = document.getElementById('bb-panel-' + type);
-  if (!panel) return;
-  const isOpen = panel.classList.contains('open');
-  document.querySelectorAll('.bb-panel.open').forEach(p => p.classList.remove('open'));
-  if (!isOpen) panel.classList.add('open');
-}
-
-export function bulkPanelToggle(type, val, el) {
-  try {
-    if(!(window.selIds||new Set()).size) { window.toast?.('動画を選択してください'); return; }
-    bulkSnapshot();
-    const field = type === 'pos' ? 'pos' : 'tags';
-    const isOn = el.classList.contains('bb-on');
-    const ids = [...(window.selIds||new Set())];
-    const videos = window.videos || [];
-    let added = 0, removed = 0;
-    ids.forEach(id => {
-      const v = videos.find(v=>v.id===id); if(!v) return;
-      const arr = v[field] || [];
-      if (isOn) { v[field] = arr.filter(x => x !== val); removed++; }
-      else { if (!arr.includes(val)) { v[field] = [...arr, val]; added++; } }
-    });
-    el.classList.toggle('bb-on', !isOn);
-    const msg = (added ? `＋${added}本 ` : '') + (removed ? `−${removed}本 ` : '') + `"${val}"`;
-    window.toast?.(msg);
-    updateBbPanelPreview(type);
-    window.AF?.(); if(window.bulkCtx==='organize') window.renderOrg?.();
-    window.debounceSave?.();
-  } catch(e) { console.error('bulkPanelToggle:', e); }
-}
-
-export function updateBbPanelPreview(type) {
-  const preview = document.getElementById('bb-' + type + '-preview');
-  const countEl = document.getElementById('bb-' + type + '-count');
-  const panel = document.getElementById('bb-panel-' + type);
-  if (!panel) return;
-  const onChips = panel.querySelectorAll('.bb-panel-chip.bb-on');
-  const vals = [...onChips].map(c => c.dataset.val);
-  if (preview) preview.innerHTML = vals.map(v =>
-    `<span style="font-size:10px;padding:2px 6px;background:var(--accent);color:var(--on-accent);border-radius:4px;">${v}</span>`
-  ).join('');
-  if (countEl) countEl.textContent = vals.length ? vals.length + '個選択' : '';
-}
-
 // ─── Window registrations ───
 window.openBulkVPanel = openBulkVPanel;
 window.closeBulkVPanel = closeBulkVPanel;
 window.buildBulkDrawerHTML = buildBulkDrawerHTML;
 window.bvpSet = bvpSet;
-window.bvpToggle = bvpToggle;
 window.bvpToggleWatch = bvpToggleWatch;
 window.bvpToggleFav = bvpToggleFav;
 window.bvpToggleNext = bvpToggleNext;
 window.bvpBumpCounter = bvpBumpCounter;
 window.bvpResetCounter = bvpResetCounter;
 window.bvpToggleV4 = bvpToggleV4;
-window.bvpAddV4 = bvpAddV4;
 window.bvpRemoveV4 = bvpRemoveV4;
-window.bvpTagSuggest = bvpTagSuggest;
 window.bvpTagPick = bvpTagPick;
 window.bvpTagKey = bvpTagKey;
-window.bvpRemoveTag = bvpRemoveTag;
-window.bvpAddPos = bvpAddPos;
-window.bvpAddTech = bvpAddTech;
-window.bvpPosSuggest = bvpPosSuggest;
-window.bvpTechSuggest = bvpTechSuggest;
 window.bvpChSuggest = bvpChSuggest;
 window.bvpSetChannel = bvpSetChannel;
 window.bvpPlSuggest = bvpPlSuggest;
@@ -1440,18 +949,9 @@ window.bvpSetPlaylist = bvpSetPlaylist;
 window.bvpPickChannel = bvpPickChannel;
 window.bvpPickPlaylist = bvpPickPlaylist;
 window.bvpTogDd = bvpTogDd;
-window.bvpDdFilter = bvpDdFilter;
-window.bvpRenderDdList = bvpRenderDdList;
-window.bvpDdKey = bvpDdKey;
-window.bvpDdAddNew = bvpDdAddNew;
-window.bvpDdToggle = bvpDdToggle;
-window.bvpChipRm = bvpChipRm;
 window.enterBulk = enterBulk;
 window.bulkSnapshot = bulkSnapshot;
-window.BULK_PICKER_OPTS_BASE = BULK_PICKER_OPTS_BASE;
-window.getBulkPickerOpts = getBulkPickerOpts;
 window.bulkUndo = bulkUndo;
-window.resetBulkPickers = resetBulkPickers;
 window.exitBulk = exitBulk;
 window.togSel = togSel;
 window.orgRowClick = orgRowClick;
@@ -1462,26 +962,17 @@ window.selAll = selAll;
 window.selNone = selNone;
 window.bulkSetPrio = bulkSetPrio;
 window.bulkSetProg = bulkSetProg;
-window.bulkTogTag = bulkTogTag;
 window.openBulkPlOp = openBulkPlOp;
 window.bulkPlConfirm = bulkPlConfirm;
 window.bulkPlConfirmNew = bulkPlConfirmNew;
 window.bulkPlRemove = bulkPlRemove;
 window.resetVpPlModal = resetVpPlModal;
 window.bulkDo = bulkDo;
-window.bulkChipDo = bulkChipDo;
-window.bulkChipSingle = bulkChipSingle;
-window.bulkChipToggle = bulkChipToggle;
-window.buildBbPosRow = buildBbPosRow;
-window.buildBbTechRow = buildBbTechRow;
 window.bvpOpenPosDd = bvpOpenPosDd;
 window.bvpFilterPosDd = bvpFilterPosDd;
 window.bvpPickPos = bvpPickPos;
 window.bvpOpenTagDd = bvpOpenTagDd;
 window.bvpTagFilter = bvpTagFilter;
-window.toggleBbPanel = toggleBbPanel;
-window.bulkPanelToggle = bulkPanelToggle;
-window.updateBbPanelPreview = updateBbPanelPreview;
 Object.defineProperty(window, 'activeBulkPicker', {
   get() { return activeBulkPicker; },
   set(v) { activeBulkPicker = v; },

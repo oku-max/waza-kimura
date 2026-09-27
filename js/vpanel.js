@@ -802,6 +802,47 @@ function _getBookmarks(id) {
   return v.bookmarks || [];
 }
 
+// ── ブックマークの説明（note）の開閉 ──
+// 説明は既定で閉じ、題名の横の ⌄ で開く。見出しの1つのボタンで全部を開く／閉じる。
+// 開いているかどうかは画面の中だけで持つ（保存しない。動画のデータには書かない）。
+// 行の番号は並べ替え・削除でずれるので、時刻と題名で見分ける。
+function _bmNoteKey(bm) { return `${bm.time}|${bm.label || ''}`; }
+function _bmNoteOpenSet(id) {
+  const all = (window._vpBmNoteOpen ||= {});
+  return (all[id] ||= new Set());
+}
+// 見出しのボタン: 閉じている説明が1つでもあれば「全部表示」、全部開いていれば「全部隠す」。
+// 説明のあるブックマークが無ければ出さない。
+function _bmNoteAllState(id) {
+  const withNote = _getBookmarks(id).filter(b => b.note);
+  const open = _bmNoteOpenSet(id);
+  return { any: withNote.length > 0, allOpen: withNote.length > 0 && withNote.every(b => open.has(_bmNoteKey(b))) };
+}
+function _bmNoteAllBtnHTML(id) {
+  const st = _bmNoteAllState(id);
+  return `<button data-bm-alltog="${id}" onclick="vpBmNoteAll('${id}')" ${st.any ? '' : 'hidden'}
+    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">${st.allOpen ? '説明を全部隠す' : '説明を全部表示'}</button>`;
+}
+function _bmNoteAllSync(id) {
+  const st = _bmNoteAllState(id);
+  document.querySelectorAll(`[data-bm-alltog="${id}"]`).forEach(b => {
+    b.hidden = !st.any;
+    b.textContent = st.allOpen ? '説明を全部隠す' : '説明を全部表示';
+  });
+}
+window.vpBmNoteToggle = function(id, i) {
+  const bm = _getBookmarks(id)[i]; if (!bm) return;
+  const set = _bmNoteOpenSet(id), k = _bmNoteKey(bm);
+  set.has(k) ? set.delete(k) : set.add(k);
+  _refreshBmList(id);
+};
+window.vpBmNoteAll = function(id) {
+  const set = _bmNoteOpenSet(id);
+  if (_bmNoteAllState(id).allOpen) set.clear();
+  else _getBookmarks(id).forEach(b => { if (b.note) set.add(_bmNoteKey(b)); });
+  _refreshBmList(id);
+};
+
 function _bookmarkListHTML(id) {
   const bms = _getBookmarks(id);
   if (!bms.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
@@ -812,6 +853,7 @@ function _bookmarkListHTML(id) {
       ? `${_formatTime(bm.time)} → ${_formatTime(bm.endTime)}`
       : _formatTime(bm.time);
     const isExpanded = window._vpBmExpanded?.[id] === i;
+    const noteOpen = _bmNoteOpenSet(id).has(_bmNoteKey(bm));
 
     // ±ボタン（field付き）
     const fineButtons = (field) => [-10,-5,-3,-1,1,3,5,10].map(d =>
@@ -906,10 +948,12 @@ function _bookmarkListHTML(id) {
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
-        <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
+        <span style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
+        ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
+        <span style="flex:1"></span>
         <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
-      ${bm.note && !isExpanded ? `<div class="vp-bm-note" title="押すと全文" onclick="event.stopPropagation();this.classList.toggle('open')">💬 ${_vpEsc(bm.note)}</div>` : ''}
+      ${bm.note && !isExpanded && noteOpen ? `<div class="vp-bm-note">${_vpEsc(bm.note)}</div>` : ''}
       ${editorHTML}
     </div>`;
   }).join('');
@@ -990,6 +1034,7 @@ function _bookmarkSectionHTML(id) {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;margin-bottom:4px;flex-wrap:wrap">
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
+          ${_bmNoteAllBtnHTML(id)}
           ${chapBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
@@ -1215,6 +1260,7 @@ function _refreshBmList(id, flashIdx) {
     const _scrollWrap = document.getElementById('vpanel-edit-wrap');
     const _savedScroll = _scrollWrap ? _scrollWrap.scrollTop : 0;
     el.innerHTML = _bookmarkListHTML(id);
+    _bmNoteAllSync(id);
     if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
     // スライダーのmax値（長さが分かったら反映。分からなければ描画時の余裕値のまま）
     const dur = _getDurationSec(id);
@@ -1639,7 +1685,6 @@ export function openVPanel(id) {
   }
 
   editArea.innerHTML = buildDrawerHTML(id);
-  _bindDrawerEvents(editArea, id);
 
   panel.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1769,11 +1814,6 @@ function _ensureBottomSheet() {
 #vp-bs-list .bs-item{display:flex;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-top:1px solid var(--border2);transition:background .12s}
 #vp-bs-list .bs-item:hover{background:var(--surface2)}
 #vp-bs-list .bs-item.now{background:var(--gold-soft);border-left:3px solid var(--accent)}
-/* ブックマークのコメント。1行で切り捨てていて全文を読む手段が無かった。
-   既定は2行までにして、押したら全文を出す（もう一度押すと畳む）。 */
-.vp-bm-note{font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;line-height:1.5;
-  cursor:pointer;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
-.vp-bm-note.open{-webkit-line-clamp:unset;display:block;}
 #vp-bs-list .bs-thumb{width:56px;height:32px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)}
 #vp-bs-list .bs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 #vp-bs-list .bs-info{flex:1;min-width:0}
@@ -6579,13 +6619,7 @@ export function togVpDrawer(id) {
     drawer.innerHTML = buildDrawerHTML(id);
     drawer.classList.add('show');
     if (editBtn) editBtn.classList.add('open');
-    _bindDrawerEvents(drawer, id);
   }
-}
-
-function _bindDrawerEvents(container, id) {
-  container.querySelectorAll('.vp-tags-rm').forEach(el => { el.onclick = function() { vpRemoveTechEl(this); }; });
-  container.querySelectorAll('.vp-pos-rm').forEach(el  => { el.onclick = function() { vpRemovePosEl(this);  }; });
 }
 
 export function buildDrawerHTML(id) {
@@ -6672,54 +6706,6 @@ export function buildDrawerHTML(id) {
   `;
 }
 
-// ── VP edit functions ──
-export function vpSet(id, field, val, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v[field] = val;
-  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  autoSaveVp(id);
-}
-
-export function vpTog(id, field, val, el, cls) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const arr = v[field] || [];
-  if (arr.includes(val)) { v[field] = arr.filter(x => x!==val); el.classList.remove(cls); }
-  else { v[field] = [...arr, val]; el.classList.add(cls); }
-  autoSaveVp(id);
-}
-
-export function vpAddTechVal(id, val) {
-  if (!val) return;
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  if ((v.tags||[]).includes(val)) return;
-  v.tags = [...(v.tags||[]), val];
-  const container = document.getElementById('vp-tags-' + id);
-  if (!container) return;
-  const chip = document.createElement('span');
-  chip.className = 'vp-chip on-tags vp-tags-rm';
-  chip.textContent = val + ' ×';
-  chip.dataset.id = id; chip.dataset.val = val;
-  chip.onclick = function(){ vpRemoveTechEl(this); };
-  container.appendChild(chip);
-  autoSaveVp(id);
-}
-
-export function vpAddPosVal(id, val) {
-  if (!val) return;
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  if ((v.pos||[]).includes(val)) return;
-  v.pos = [...(v.pos||[]), val];
-  const container = document.getElementById('vp-pos-' + id);
-  if (!container) return;
-  const chip = document.createElement('span');
-  chip.className = 'vp-chip on-pos vp-pos-rm';
-  chip.textContent = val + ' ×';
-  chip.dataset.id = id; chip.dataset.val = val;
-  chip.onclick = function(){ vpRemovePosEl(this); };
-  container.appendChild(chip);
-}
-
 // ── Playlist operations ──
 let _vpPlOp = null;
 
@@ -6793,103 +6779,6 @@ export function vpRemoveFromPl(id) {
 export function updateVpPlBadge(id, newPl) {
   const badge = document.getElementById('vp-pl-badge-' + id);
   if (badge) badge.textContent = newPl;
-}
-
-export function vpRemovePosEl(el) {
-  const id  = el.dataset.id;
-  const val = el.dataset.val;
-  const v   = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.pos = (v.pos||[]).filter(p => p!==val);
-  el.remove();
-  autoSaveVp(id);
-}
-
-// ── タグドロップダウン ──
-const VP_FIELD_MAP = { tb:'tb', cat:'cat', pos:'pos', tags:'tags' };
-
-// 候補 = ユーザーの選択肢 ＋ 実際に動画に付いている値。
-// 組み込みの一覧（TB_VALUES / CATEGORIES / POSITIONS）は混ぜない。混ぜていたので、
-// 選択肢から消した値が候補に戻ってきていた（v52.827・タグはユーザー定義がすべて）。
-// 一括編集（bulk.js の _bvpGetAllOpts）と同じ形。
-export function vpGetAllOpts(type) {
-  const ts = window.tagSettings || [];
-  const fromSettings = ts.find(t => t.key === type)?.presets || [];
-  const fromVideos = (window.videos || []).flatMap(v => v[type] || []);
-  return [...new Set([...fromSettings, ...fromVideos])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ja'));
-}
-
-export function vpTogDd(id, type) {
-  document.querySelectorAll('.vp-dd').forEach(d => {
-    if (!d.id.includes('-'+type+'-') || !d.id.includes(id)) d.style.display = 'none';
-  });
-  const dd = document.getElementById('vp-dd-'+type+'-'+id);
-  if (!dd) return;
-  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
-  if (isOpen) { dd.style.display = 'none'; return; }
-  _vpOpenDd(dd);
-  const inp = dd.querySelector('.vp-dd-search');
-  if (inp) { inp.value = ''; }
-  vpRenderDdList(id, type, '');
-}
-
-export function vpRenderDdList(id, type, q) {
-  const list  = document.getElementById('vp-dd-list-'+type+'-'+id);
-  if (!list) return;
-  const v       = (window.videos||[]).find(v => v.id===id);
-  const field   = VP_FIELD_MAP[type];
-  const current = v ? (v[field]||[]) : [];
-  const all     = vpGetAllOpts(type);
-  const ql      = q.toLowerCase();
-  const filtered = all.filter(opt => !ql || opt.toLowerCase().includes(ql));
-  const isNew   = q.trim() && !all.some(o => o.toLowerCase() === ql);
-  list.innerHTML = filtered.map(opt => {
-    const sel = current.includes(opt);
-    return `<div class="vp-dd-item${sel?' selected':''}" onclick="vpDdSelect('${id}','${type}','${opt.replace(/'/g,"\\'")}',this)">${opt}</div>`;
-  }).join('') + (isNew ? `<div class="vp-dd-new" onclick="vpDdAddNew('${id}','${type}','${q.trim().replace(/'/g,"\\'")}')">＋「${q.trim()}」を新規追加</div>` : '');
-}
-
-export function vpDdFilter(id, type, q) { vpRenderDdList(id, type, q); }
-
-export function vpDdKey(id, type, e, inp) {
-  if (e.key === 'Enter') {
-    const q = inp.value.trim();
-    if (!q) return;
-    vpDdAddNew(id, type, q);
-  } else if (e.key === 'Escape') {
-    const dd = document.getElementById('vp-dd-'+type+'-'+id);
-    if (dd) dd.style.display = 'none';
-  }
-}
-
-export function vpDdSelect(id, type, val, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field = VP_FIELD_MAP[type];
-  const arr   = v[field] || [];
-  if (arr.includes(val)) {
-    v[field] = arr.filter(x => x !== val);
-    el.classList.remove('selected');
-  } else {
-    v[field] = [...arr, val];
-    el.classList.add('selected');
-  }
-  vpRefreshChips(id, type);
-  window.debounceSave?.();
-}
-
-export function vpDdAddNew(id, type, val) {
-  if (!val.trim()) return;
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field = VP_FIELD_MAP[type];
-  if (!(v[field]||[]).includes(val)) {
-    v[field] = [...(v[field]||[]), val];
-    const opts = VP_TAG_OPTS[type];
-    if (opts && !opts.includes(val)) opts.push(val);
-  }
-  vpRefreshChips(id, type);
-  const dd = document.getElementById('vp-dd-'+type+'-'+id);
-  if (dd) dd.style.display = 'none';
-  window.debounceSave?.();
-  window.toast('＋ 「'+val+'」を追加');
 }
 
 // ── Channel 単一値ドロップダウン ──
@@ -7224,29 +7113,6 @@ export async function vpSaveTitle(id) {
   }
 }
 
-export function vpRefreshChips(id, type) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field  = VP_FIELD_MAP[type];
-  const clsMap = { tb:'on-tb', cat:'on-cat', pos:'on-pos', tags:'on-tags' };
-  const container = document.getElementById('vp-'+type+'-'+id);
-  if (!container) return;
-  container.innerHTML = (v[field]||[]).map(val =>
-    `<span class="vp-chip ${clsMap[type]}" onclick="vpRemoveTag('${id}','${type}','${val.replace(/'/g,"\\'")}',this)">${val} ×</span>`
-  ).join('');
-  const ddInp = document.querySelector('#vp-dd-'+type+'-'+id+' .vp-dd-search');
-  vpRenderDdList(id, type, ddInp ? ddInp.value : '');
-}
-
-export function vpRemoveTag(id, type, val, el) {
-  const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  const field = VP_FIELD_MAP[type];
-  v[field] = (v[field]||[]).filter(x => x !== val);
-  el.remove();
-  const ddInp = document.querySelector('#vp-dd-'+type+'-'+id+' .vp-dd-search');
-  vpRenderDdList(id, type, ddInp ? ddInp.value : '');
-  window.debounceSave?.();
-}
-
 document.addEventListener('click', function(e) {
   // 各DDごとに「そのDDのwrap内クリックか」を個別判定（グローバル .vp-dd-wrap チェックは誤り）
   document.querySelectorAll('.vp-dd').forEach(d => {
@@ -7254,20 +7120,9 @@ document.addEventListener('click', function(e) {
     if (d.contains(e.target)) return;                    // DD内クリック → 閉じない
     const wrap = d.closest('.vp-dd-wrap');
     if (wrap && wrap.contains(e.target)) return;         // 同じwrap内クリック → 閉じない
-    const m = d.id.match(/^vp-dd-(\w+)-(.+)$/);
-    if (m) vpRefreshChips(m[2], m[1]);
     d.style.display = 'none';
   });
 });
-
-export function vpRemoveTechEl(el) {
-  const id  = el.dataset.id;
-  const val = el.dataset.val;
-  const v   = (window.videos||[]).find(v => v.id===id); if (!v) return;
-  v.tags = (v.tags||[]).filter(t => t!==val);
-  el.remove();
-  autoSaveVp(id);
-}
 
 export function vpTogWatch(id, el) {
   const v = (window.videos||[]).find(v => v.id===id); if (!v) return;
@@ -7321,8 +7176,9 @@ export function vpSaveMemo(id) {
   if (!el) return;
   if (el.isContentEditable) {
     const html = el.innerHTML.trim();
-    // テキストもタイムスタンプも無ければ空に正規化（<br>だけ等を残さない）
-    v.memo = (el.textContent.trim() === '' && !/ts-link/.test(html)) ? '' : html;
+    // テキストもタイムスタンプも画像も無ければ空に正規化（<br>だけ等を残さない）
+    // 画像だけのメモ（再生位置が取れない時に貼った等）を空で上書きしない
+    v.memo = (el.textContent.trim() === '' && !/ts-link|snap-ref/.test(html)) ? '' : html;
   } else {
     v.memo = el.value.trim(); // textarea（yt-search 等）
   }
@@ -7439,6 +7295,47 @@ function _thumbHtml(snapId, sec, dataUrl, layout) {
   return `<img class="snap-ref" contenteditable="false" data-snap-id="${snapId}" data-sec="${sec}" src="${dataUrl}" style="${base};height:34px;width:56px;object-fit:cover;flex-shrink:0;margin-top:1px">`;
 }
 
+// ── 画像の行: ▶時刻 ＋ サムネ ＋ その画像のメモ ──
+// 行の「メモ」（.snap-cap）に書いた文は、同じ画像のスナップショットのメモ（拡大表示の下の欄）へ
+// そのまま写す。拡大表示の側で直した文もこちらへ写す。同じ絵の説明を2回書かせないため。
+// 写すのは「その欄を書き換えた時」だけ。開いた時・保存した時に一括で合わせることはしない
+// （別の端末で書いた方を、こちらの古い方で上書きしないため）。
+const _CAP_ZW = '\u200B';   // 空の欄にカーソルを置くための目印。写す時は取り除く
+function _shotRowHtml(snapId, sec, thumbDataUrl) {
+  const tsHtml = sec == null ? '' : _tsLinkHtml(sec, _fmtSec(sec)) + '&nbsp;';
+  return `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', thumbDataUrl, 'inline')}&nbsp;`
+    + `<span class="snap-cap" data-snap-id="${snapId}">${_CAP_ZW}</span></div>`;
+}
+function _capText(cap) {
+  return (cap?.innerText ?? cap?.textContent ?? '').replace(/\u200B/g, '').replace(/\n+$/, '');
+}
+// 入れた行のメモ欄にカーソルを置く（そのまま説明を打てる）
+function _focusShotCap(memoEl, snapId) {
+  const cap = memoEl.querySelector(`.snap-cap[data-snap-id="${snapId}"]`);
+  if (!cap) return;
+  memoEl.focus();
+  const r = document.createRange();
+  r.selectNodeContents(cap); r.collapse(false);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+}
+// メモ欄の入力 → いま書いている行のメモだけをスナップショットへ写す
+function _mirrorCapFromMemo(el) {
+  const sel = window.getSelection();
+  const node = sel && sel.anchorNode;
+  const cap = (node && (node.nodeType === 1 ? node : node.parentElement))?.closest?.('.snap-cap[data-snap-id]');
+  if (!cap || !el.contains(cap)) return;
+  window.snapSetMemo?.(cap.dataset.snapId, _capText(cap));
+}
+// 拡大表示でスナップショットのメモを直した → 開いているメモの同じ画像の欄へ写す
+window._onSnapMemoEdit = function(videoId, snapId, text) {
+  const el = document.getElementById('vp-memo-' + videoId);
+  if (!el || !el.isContentEditable) return;
+  const cap = el.querySelector(`.snap-cap[data-snap-id="${snapId}"]`);
+  if (!cap || _capText(cap) === text) return;       // この画像の欄が無ければ何もしない（勝手に足さない）
+  cap.textContent = text || _CAP_ZW;
+  vpSaveMemo(videoId);
+};
+
 // ── Google Drive 動画の指定秒をキャプチャ ──
 // 同一オリジン（/api/drive プロキシ）配信なので canvas キャプチャ可能
 // 返り値: { fullBlob（スナップショット用・高画質）, thumbDataUrl（メモ埋め込み用・小型） }
@@ -7517,7 +7414,47 @@ function _initMemoEditor(id, memo) {
   if (!el) return;
   try { el.innerHTML = _memoToHtml(memo||''); _bindTsLinks(el); }
   catch(e) { console.warn('[memoInit]', e); el.textContent = memo||''; }
+  _bindMemoImagePaste(el, id);
 }
+
+// ── メモ欄に画像を直接貼る／落とす ──
+// コピーした画像（PCのスクショ・スマホで長押し→コピー）を、🖼 から選んだのと同じ形で
+// メモに入れる（スナップショットに保存＋小さいサムネ）。
+// ここで止めないと、document の貼り付け受け口（snapshot-editor）がスナップショット欄にだけ入れてしまい、
+// メモには何も入らない。文字が一緒に入っている貼り付けは、これまでどおり文字として貼る。
+function _clipImageFiles(dt) {
+  if (!dt) return [];
+  const files = [];
+  for (const it of Array.from(dt.items || [])) {
+    if (it.kind === 'file' && it.type?.startsWith('image/')) { const f = it.getAsFile(); if (f) files.push(f); }
+  }
+  if (!files.length) for (const f of Array.from(dt.files || [])) if (f.type?.startsWith('image/')) files.push(f);
+  return files;
+}
+function _bindMemoImagePaste(el, id) {
+  if (el._imgPasteBound) return;
+  el._imgPasteBound = true;
+  const take = (e, dt) => {
+    const files = _clipImageFiles(dt);
+    if (!files.length) return false;
+    if (e.type === 'paste' && (dt.getData?.('text/plain') || '').trim()) return false;   // 文字の貼り付けは文字として
+    e.preventDefault();
+    e.stopPropagation();                     // スナップショット欄だけに入るのを止める
+    const sel = window.getSelection();
+    const range = (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).startContainer))
+      ? sel.getRangeAt(0).cloneRange() : null;
+    _insertImageFilesToMemo(id, files.slice(0, MEMO_PASTE_MAX), { range });
+    if (files.length > MEMO_PASTE_MAX) window.toast?.(`画像は一度に${MEMO_PASTE_MAX}枚までです`);
+    return true;
+  };
+  el.addEventListener('paste', e => take(e, e.clipboardData));
+  el.addEventListener('dragover', e => {
+    if (Array.from(e.dataTransfer?.types || []).includes('Files')) e.preventDefault();
+  });
+  el.addEventListener('drop', e => take(e, e.dataTransfer));
+  el.addEventListener('input', () => _mirrorCapFromMemo(el));
+}
+const MEMO_PASTE_MAX = 5;
 
 // メモ欄ツールバー（書式 + 現在位置タイムスタンプ挿入）
 const _MEMO_COLORS_TEXT = ['#e53935','#f57c00','#f1c40f','#388e3c','#1976d2','#7b1fa2','#e91e63'];
@@ -7617,7 +7554,7 @@ window.vpMemoHelp = function(e) {
   const btn = (e && e.currentTarget) || null;
 
   const items = [
-    { ic: '🖼',                                                  label: '画像を入れる',   sub: 'いまの画面を撮る／端末の画像から選ぶ。メモには小さく入り、タップで拡大' },
+    { ic: '🖼',                                                  label: '画像を入れる',   sub: 'いまの画面を撮る／端末の画像から選ぶ。コピーした画像はメモに直接貼り付けてもOK。メモには小さく入り、タップで拡大' },
     { ic: '<span style="font-size:15px">↶</span>',              label: '元に戻す',       sub: '直前の編集を取り消す' },
     { ic: '<span style="font-size:15px">↷</span>',              label: 'やり直し',       sub: '取り消した編集をやり直す' },
     { ic: '<b>B</b>',                                            label: '太字',          sub: '選択した文字を太字にする' },
@@ -7947,23 +7884,37 @@ async function _insertLocalImage(id) {
   const file = await _pickImageFile();
   if (!file) return;                                   // 選ばなかった
   if (!file.type.startsWith('image/')) { window.toast?.('画像ファイルを選んでください'); return; }
+  await _insertImageFilesToMemo(id, [file], {});
+}
 
+// 画像ファイルをメモに入れる（🖼 から選んだ時・貼り付け・ドロップの共通）。
+// opts.range    … 入れる位置（貼り付けた時のカーソル）。縮小を待つ間に動いても元の位置に入れる
+async function _insertImageFilesToMemo(id, files, opts = {}) {
+  const memoEl = document.getElementById('vp-memo-' + id);
+  if (!memoEl) { window.toast?.('メモ欄が見つかりませんでした（パネルを開き直してください）'); return; }
+  if (!window.snapAddBlob) { window.toast?.('スナップショットの保存先が使えません'); return; }
   const btn = document.getElementById('vp-img-btn-' + id);
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
-    const shot = await _imageFileToShot(file);
-    if (!shot.fullBlob) { window.toast?.('画像を読み込めませんでした'); return; }
-    if (!window.snapAddBlob) { window.toast?.('スナップショットの保存先が使えません'); return; }
     const sec = _getCurrentTime();
-    const snapId = await window.snapAddBlob(id, shot.fullBlob, sec ?? null, '');
-    const tsHtml = sec == null ? '' : _tsLinkHtml(sec, _fmtSec(sec)) + '&nbsp;';
+    const rows = [];
+    for (const file of files) {
+      const shot = await _imageFileToShot(file);
+      if (!shot.fullBlob) { window.toast?.('画像を読み込めませんでした'); continue; }
+      const snapId = await window.snapAddBlob(id, shot.fullBlob, sec ?? null, '');
+      rows.push({ snapId, html: _shotRowHtml(snapId, sec, shot.thumbDataUrl) });
+    }
+    if (!rows.length) return;
     memoEl.focus();
-    document.execCommand('insertHTML', false,
-      `<div style="margin:4px 0">${tsHtml}${_thumbHtml(snapId, sec ?? '', shot.thumbDataUrl, 'inline')}</div>`);
+    if (opts.range && memoEl.contains(opts.range.startContainer)) {
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(opts.range);
+    }
+    document.execCommand('insertHTML', false, rows.map(r => r.html).join(''));
     _bindTsLinks(memoEl);
     vpSaveMemo(id);
-    _blurMemo(memoEl);
+    _focusShotCap(memoEl, rows[0].snapId);        // すぐ説明を書けるように、最初の画像のメモ欄へ
     const snapSec = document.getElementById('vp-snap-section-' + id);
     if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
     window.toast?.('🖼 画像をメモに入れました');
@@ -8008,13 +7959,11 @@ window.vpMemoSnapNow = async function(id) {
 
     if (cap?.fullBlob && window.snapAddBlob) {
       const snapId = await window.snapAddBlob(id, cap.fullBlob, sec, '');
-      const thumbHtml = _thumbHtml(snapId, sec, cap.thumbDataUrl, 'inline');
-      const rowHtml = `<div style="margin:4px 0">${tsHtml}&nbsp;${thumbHtml}</div>`;
       memoEl.focus();
-      document.execCommand('insertHTML', false, rowHtml);
+      document.execCommand('insertHTML', false, _shotRowHtml(snapId, sec, cap.thumbDataUrl));
       _bindTsLinks(memoEl);
       vpSaveMemo(id);
-      _blurMemo(memoEl);
+      _focusShotCap(memoEl, snapId);
       const snapSec = document.getElementById('vp-snap-section-' + id);
       if (snapSec && window.initSnapshotSection) window.initSnapshotSection(id, snapSec);
       window.toast?.('📸 スクショをメモに追加しました');
@@ -8369,15 +8318,22 @@ export function vpTagReset(id) {
   popup.id = 'vp-tag-reset-popup';
   popup.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)';
 
-  const ts = window.tagSettings || [];
   const fields = ['tb','cat','pos','tags'];
+  const _label = f => (window.tagLabel ? window.tagLabel(f) : f.toUpperCase());
+  // 変えた後は、パネルのタグ欄・カード・表を描き直す。
+  // 以前は存在しない vpRefreshChips を呼んでいて、リセットしても取り消しても表示が古いままだった。
+  const _refresh = () => {
+    window.vpV4Rerender?.(id);
+    window.AF?.();
+    if (window._libViewMode === 'org') window.renderOrg?.();
+  };
   const card = document.createElement('div');
   card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.2);min-width:260px;max-width:360px';
 
   const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'];
   let btnsHtml = '';
   fields.forEach((f, fi) => {
-    const label = ts.find(t => t.key === f)?.label || f.toUpperCase();
+    const label = _label(f);
     const count = (v[f]||[]).length;
     if (!count) return;
     const c = colors[fi % colors.length];
@@ -8411,14 +8367,14 @@ export function vpTagReset(id) {
   card.querySelectorAll('button[data-field]').forEach(btn => {
     btn.onclick = () => {
       const field = btn.dataset.field;
-      const label = ts.find(t => t.key === field)?.label || field;
+      const label = _label(field);
       const count = (v[field]||[]).length;
       const backup = [...(v[field]||[])];
       v[field] = [];
       autoSaveVp(id);
-      window.vpRefreshChips?.(id, field);
+      _refresh();
       popup.remove();
-      window.toastUndo?.(`🔄 ${label}をリセット（${count}件）`, () => { v[field] = backup; autoSaveVp(id); window.vpRefreshChips?.(id, field); });
+      window.toastUndo?.(`🔄 ${label}をリセット（${count}件）`, () => { v[field] = backup; autoSaveVp(id); _refresh(); });
     };
   });
 
@@ -8429,9 +8385,9 @@ export function vpTagReset(id) {
     const total = fields.reduce((s, f) => s + (v[f]||[]).length, 0);
     fields.forEach(f => { v[f] = []; });
     autoSaveVp(id);
-    fields.forEach(f => window.vpRefreshChips?.(id, f));
+    _refresh();
     popup.remove();
-    window.toastUndo?.(`🔄 全タグをリセット（${total}件）`, () => { fields.forEach(f => { v[f] = backup[f]; }); autoSaveVp(id); fields.forEach(f => window.vpRefreshChips?.(id, f)); });
+    window.toastUndo?.(`🔄 全タグをリセット（${total}件）`, () => { fields.forEach(f => { v[f] = backup[f]; }); autoSaveVp(id); _refresh(); });
   };
 }
 window.vpTagReset = vpTagReset;
@@ -8503,7 +8459,6 @@ window.vpJumpToChannel = function(id) {
     const f = window.filters;
     if (f) { f.channel.clear(); f.channel.add(name); }
     if (window.orgFilters) { window.orgFilters.channel.clear(); window.orgFilters.channel.add(name); }
-    window.buildChSrow?.(); window.buildFsChSrow?.();
     window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };
@@ -8520,7 +8475,6 @@ window.vpJumpToPlaylist = function(id) {
     const f = window.filters;
     if (f) { f.playlist.clear(); f.playlist.add(name); }
     if (window.orgFilters) { window.orgFilters.playlist.clear(); window.orgFilters.playlist.add(name); }
-    window.buildPlSrow?.(); window.buildFsPlSrow?.();
     window._libViewMode === 'org' ? window.renderOrg?.() : window.AF?.();
   });
 };

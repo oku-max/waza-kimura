@@ -108,8 +108,6 @@
     'cv.count':          { ja: '本', en: ' videos' },
     // Vパネル タグ編集
     'vp.tags':           { ja: 'タグ', en: 'Tags' },
-    'vp.locked':         { ja: '🔒 ロック中', en: '🔒 Locked' },
-    'vp.unlocked':       { ja: '🔓 自動', en: '🔓 Auto' },
     // URL取込
     'url.title':         { ja: '🔗 URLから動画を追加', en: '🔗 Add videos from URLs' },
     'url.desc':          { ja: 'YouTube・Vimeo・Google Drive・XのURLを貼り付け（複数行OK）', en: 'Paste YouTube / Vimeo / Google Drive / X URLs (multiple lines OK)' },
@@ -508,7 +506,7 @@
     // ── 設定 ──
     'AI取込設定':'AI import','再生設定':'Playback','外観設定':'Appearance','タグ表示設定':'Tag display','フィルター設定':'Filters','軽量バックアップ':'Light backup','フルバックアップ':'Full backup','インポート（復元）':'Import (restore)','📥 エクスポート':'📥 Export','📥 フルエクスポート':'📥 Full export','📤 インポート':'📤 Import','バックアップJSONを読み込んでデータを復元します（現在のデータは上書きされます）':'Restore data from a backup JSON (current data will be overwritten)','言語':'Language','自動（端末設定）':'Auto (device)','表示言語。データは変更されません。':'Display language. Your data is not changed.',
     // ── 通知/トースト（固定文） ──
-    '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語',
+    '✅ ライブラリに保存しました':'✅ Saved to library','📥 エクスポート中…':'📥 Exporting...','✅ 軽量バックアップを保存しました':'✅ Light backup saved','⏳ 復元中…':'⏳ Restoring...','✨ AI要約をMemoに追記しました':'✨ AI summary added to Memo','キャンセルしました':'Cancelled','ログインが必要です':'Sign-in required','言語: 日本語':'Language: 日本語','⚠️ タググループの一覧をクラウドに保存できませんでした（この端末の表示には影響ありません）':'⚠️ Could not save the tag group list to the cloud (nothing changes on this device)',
     'ソース・チャンネル・プレイリスト':'Source / Channel / Playlist',
     // ── 機械抽出ラウンド2 ──
     "（AIが自動タグ付け・後で確認できます）": "(AI auto-tags; you can review later)",
@@ -546,7 +544,6 @@
     "元に戻す履歴がありません": "Nothing to undo",
     "選択した動画を別のプレイリストにコピーします": "Copies the selected videos to another playlist",
     "選択した動画を移動先プレイリストに移動します": "Moves the selected videos to the target playlist",
-    "クリックでTBロック切替": "Click to toggle TB lock",
     "今日": "Today",
     "昨日": "Yesterday",
     "📝 列名を変更": "📝 Rename column",
@@ -673,8 +670,6 @@
     "未カウント": "Not counted",
     "検索条件を設定後「💾 保存」で追加": "Set conditions, then “💾 Save” to add",
     "該当動画": "Matching videos",
-    "🔒 TB をロックしました": "🔒 TB locked",
-    "🔓 TB ロック解除": "🔓 TB unlocked",
     "（動画が長い・非公開・年齢制限などで処理できない場合があります）": "(May fail for long, private or age-restricted videos)",
     "「このタブ」または「このウィンドウ」を選択してください": "Choose “This tab” or “This window”",
     "「このタブ」を選択してください（OKしてから撮影が始まります）": "Choose “This tab” (capture starts after OK)",
@@ -734,6 +729,10 @@
     "📦 アーカイブしました": "📦 Archived",
     "📸 スクショをメモに追加しました": "📸 Screenshot added to memo",
     "🖼 画像をメモに入れる": "🖼 Add an image to the memo",
+    "説明を全部表示": "Show all notes",
+    "説明を全部隠す": "Hide all notes",
+    "説明を表示": "Show note",
+    "説明を隠す": "Hide note",
     "画像をメモに入れる": "Add an image to the memo",
     "いまの画面を撮る": "Capture the screen now",
     "再生中のフレームをそのまま入れる": "Inserts the frame playing right now",
@@ -745,7 +744,7 @@
     "🖼 画像をメモに入れました": "🖼 Image added to the memo",
     "⚠️ 画像を入れられませんでした": "⚠️ The image could not be added",
     "画像を入れる": "Add an image",
-    "いまの画面を撮る／端末の画像から選ぶ。メモには小さく入り、タップで拡大": "Capture the screen, or choose an image from this device. It goes in small; tap to enlarge",
+    "いまの画面を撮る／端末の画像から選ぶ。コピーした画像はメモに直接貼り付けてもOK。メモには小さく入り、タップで拡大": "Capture the screen, choose an image from this device, or paste a copied image straight into the memo. It goes in small; tap to enlarge",
     "いまの再生位置をメモに入れる": "Insert the current playback position into the memo",
     "ボタンを押したときの時間に移動できるリンクをメモに挿入": "Inserts a link into the memo that jumps to the time you pressed the button",
     "メモ欄が見つかりませんでした（パネルを開き直してください）": "The memo field was not found (reopen the panel)",
@@ -1790,7 +1789,6 @@
     "🔍 解析する": "🔍 Analyze",
     "🔒 TB を手動ロックしました": "🔒 TB manually locked",
     "🔒 オーナーのみ閲覧できます": "🔒 Only the owner can view this",
-    "🔒 ロック中": "🔒 Locked",
     "🔒 動画カードで TB を手動変更すると AI 再解析時に上書きされません": "🔒 If you change TB manually on a card, AI re-analysis won't overwrite it",
     "🔓 TB ロックを解除しました": "🔓 TB unlocked",
     "🔗 URLから動画を追加": "🔗 Add videos from URLs",
@@ -2004,6 +2002,7 @@
     "一度に翻訳できるのは#行までです": "Only # lines can be translated at a time",
     "✔ ブックマークに追加（#件）": "✔ Add # to bookmarks",
     "画像は#枚までです": "Up to # images",
+    "画像は一度に#枚までです": "Up to # images at a time",
     "#件は位置が特定できなかったため除きました": "# could not be located, so they were left out",
     "#件は時刻が読み取れなかったため除きました": "# had no readable time, so they were left out",
     "#件は動画の長さを超えるため除きました（別の巻の目次かもしれません）":
@@ -2482,16 +2481,22 @@
     return false;
   }
 
+  // 同じ値を書き戻さない（v52.847）。nodeValue は同じ値を入れても「変わった」と通知が来るので、
+  // 訳が元と同じもの（'日本語'→'日本語' など）を書くと、その通知をまた訳して…と無限に回り、
+  // 英語表示のページが固まっていた。自分が書いた直後の値への通知も訳し直さない。
   function _translateTextNode(node) {
     const v = node.nodeValue;
     if (!v || !_JA_RE.test(v)) return;
+    if (node.__wkLast != null && node.__wkLast === v) return;
     if (_skipNode(node.parentElement)) return;
     const t = v.trim();
     if (!t) return;
     const en = _translatePhrase(t);
-    if (en != null) {
+    if (en != null && en !== t) {
       if (node.__wkOrig == null) node.__wkOrig = v;
-      node.nodeValue = v.replace(t, en);
+      const out = v.replace(t, en);
+      node.__wkLast = out;
+      node.nodeValue = out;
     }
   }
 
@@ -2529,7 +2534,7 @@
     const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
     let n;
     while ((n = tw.nextNode())) {
-      if (n.nodeType === 3 && n.__wkOrig != null) { n.nodeValue = n.__wkOrig; n.__wkOrig = null; }
+      if (n.nodeType === 3 && n.__wkOrig != null) { n.nodeValue = n.__wkOrig; n.__wkOrig = null; n.__wkLast = null; }
       else if (n.nodeType === 1 && n.__wkOrigAttr) {
         for (const [a, v] of Object.entries(n.__wkOrigAttr)) n.setAttribute(a, v);
         n.__wkOrigAttr = null;

@@ -279,27 +279,6 @@ function _restoreLastViewOnce() {
   } catch(e) { console.error('restore last view:', e); }
 }
 
-// ── 標準列セル値 ──
-function _stdCell(v, col) {
-  const dash = '<span style="color:var(--text3)">—</span>';
-  switch(col) {
-    case 'tb':        return _esc((v.tb||[]).join('/')) || dash;
-    case 'action':    return _esc((v.cat||[]).join('/')) || dash;
-    case 'position':  return _esc((v.pos||[]).join('/')) || dash;
-    case 'technique': return _esc((v.tags||[]).join('/')) || dash;
-    case 'counter':   return dash;
-    case 'status':    return v.status ? _esc(v.status) : dash;
-    case 'channel':   return _esc(v.channel||v.ch||'') || dash;
-    case 'playlist':  return _esc(v.pl||'') || dash;
-    case 'memo':      { const m = v.memo || ''; return m ? `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:160px" title="${_esc(m)}">${_esc(m)}</span>` : dash; }
-    case 'addedAt':   return v.addedAt ? _esc(String(v.addedAt).slice(0,10)) : dash;
-    case 'duration':  { const s = typeof v.duration === 'number' ? v.duration : parseInt(v.duration)||0; if (!s) return dash; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
-    case 'fav':       return v.fav ? '⭐' : '<span style="color:var(--text3)">☆</span>';
-    case 'next':      return v.next ? '🎯' : '';
-    default: return '';
-  }
-}
-
 // ── ビューバー描画 ──
 function _renderViewBar() {
   // サイドバー「リスト」ボタンに現在選択中のリスト名を表示
@@ -1306,6 +1285,8 @@ function _cvUpdateSearch(view) {
 function _cvApplyGlobalFilters(list) {
   const f = window.filters;
   if (!f) return list;
+  // タグの条件は tag-filter.js で1回だけ組み立てる（どの呼び名で入っていても同じグループとして読む）
+  const _tagOk = window.tagFilter ? window.tagFilter.compile(f, 'lib') : () => true;
   return list.filter(v => {
     if (window.favOnly    && !v.fav)                                    return false;
     if (window.nextOnly   && !v.next)                                   return false;
@@ -1319,15 +1300,7 @@ function _cvApplyGlobalFilters(list) {
     if (f.playlist?.size  && !f.playlist.has(v.pl))                    return false;
     if (f.prio?.size      && !f.prio.has(v.prio))                      return false;
     if (f.status?.size    && !f.status.has(v.status))                  return false;
-    // 現行キー tbNew/cat/posNew（sidebar-v4・統合フィルタ）を優先し、旧キー tb/action/position は後方互換。
-    // org の orgFilters には新キーが無いため自動で旧キーへフォールバックし、両コンテキストで正しく動く。
-    const _fTb  = (f.tbNew?.size  ? f.tbNew  : f.tb);
-    const _fCat = (f.cat?.size    ? f.cat    : f.action);
-    const _fPos = (f.posNew?.size ? f.posNew : f.position);
-    if (_fTb?.size  && !(v.tb  ||[]).some(t => _fTb.has(t)))  return false;
-    if (_fCat?.size && !(v.cat ||[]).some(a => _fCat.has(a))) return false;
-    if (_fPos?.size && !(v.pos ||[]).some(p => _fPos.has(p))) return false;
-    if (f.tags?.size      && !(v.tags||[]).some(t => f.tags.has(t)))   return false;
+    if (!_tagOk(v)) return false;
     if (f.channel?.size   && !f.channel.has(v.channel || v.ch))        return false;
     return true;
   });
@@ -1407,13 +1380,12 @@ function _cvVideoById(all) {
 }
 
 function _applyConditions(fc, all) {
+  // 条件のタグは tb/cat/pos/tech（保存済みの条件の形のまま）。読み替えは tag-filter.js
+  const _tagOk = (fc && window.tagFilter) ? window.tagFilter.compile(fc, 'fc') : () => true;
   return all.filter(v => {
     if (!fc) return true;
-    if (fc.tb   && fc.tb.length   && !(v.tb   ||[]).some(x => fc.tb.includes(x)))   return false;
-    if (fc.cat  && fc.cat.length  && !(v.cat  ||[]).some(x => fc.cat.includes(x)))  return false;
-    if (fc.pos  && fc.pos.length  && !(v.pos  ||[]).some(x => fc.pos.includes(x)))  return false;
+    if (!_tagOk(v)) return false;
     if (fc.ch   && fc.ch.length   && !fc.ch.includes(v.channel||v.ch||'')           ) return false;
-    if (fc.tech && fc.tech.length && !(v.tags ||[]).some(x => fc.tech.includes(x))) return false;
     if (fc.pl   && fc.pl.length   && !fc.pl.includes(v.pl||''))                      return false;
     // boolean系（マスターのフィルタ filt() と同じ判定）
     if (fc.favOnly     && !v.fav)   return false;
@@ -1437,6 +1409,15 @@ function _cvDeadValues(v) {
   const all = window.videos || [];
   if (!all.length) return [];
   const fc = v.filterConditions, out = [];
+  const TF = window.tagFilter;
+  if (TF) {
+    TF.groups().forEach(g => {
+      TF.selected(fc, g.id, 'fc').forEach(val => {
+        if (!all.some(x => TF.valuesOf(x, g.id).includes(val))) out.push({ key: TF.fieldOf(g.id) || g.id, value: val });
+      });
+    });
+    return out;
+  }
   for (const [ck, vk] of _CV_TAG_FIELDS) {
     (fc[ck] || []).forEach(val => {
       if (!all.some(x => (x[vk] || []).includes(val))) out.push({ key: vk, value: val });
@@ -1459,7 +1440,12 @@ window._cvListsUsingTags = function(names, fields) {
   const fs = fields || ['tb', 'cat', 'pos', 'tags'];
   return _views.filter(v => v.saveMode === 'dynamic' && v.filterConditions).map(v => {
     const hits = [];
-    fs.forEach(f => (v.filterConditions[_CV_FIELD_TO_CK[f]] || []).forEach(x => { if (!set || set.has(x)) hits.push(x); }));
+    fs.forEach(f => {
+      const vals = window.tagFilter
+        ? window.tagFilter.selected(v.filterConditions, window.tagFilter.gidOfField(f), 'fc')
+        : (v.filterConditions[_CV_FIELD_TO_CK[f]] || []);
+      vals.forEach(x => { if (!set || set.has(x)) hits.push(x); });
+    });
     return hits.length ? { id: v.id, label: v.label, hits: [...new Set(hits)] } : null;
   }).filter(Boolean);
 };
@@ -1475,18 +1461,6 @@ window._cvUsageNoteFromLists = function(lists, kind) {
   const tail = '消すと、これらのリストに出てくる動画が減ります（0本になることもあります）。\nリストの条件は書き換えません（⚠ が付きます）。';
   return `\n\n⚠ カスタムリスト ${lists.length}個 が、この値を条件に使っています: ${nm}\n${tail}`;
 };
-
-function _condSummary(fc) {
-  if (!fc) return '';
-  const parts = [];
-  if ((fc.tb  ||[]).length) parts.push(fc.tb.join('/'));
-  if ((fc.cat ||[]).length) parts.push(fc.cat.join('/'));
-  if ((fc.pos ||[]).length) parts.push(fc.pos.join('/'));
-  if ((fc.ch  ||[]).length) parts.push(fc.ch.join('/'));
-  if ((fc.tech||[]).length) parts.push(fc.tech.join('/'));
-  if ((fc.pl  ||[]).length) parts.push(fc.pl.join('/'));
-  return parts.length ? parts.join(' · ') : '条件なし（全件）';
-}
 
 // ── セルレンダリング ──
 function _renderCell(td, col, val, view) {
@@ -2816,16 +2790,11 @@ window._cvCreateFromCurrentFilter = function() {
 
 function _getCurrentFilterConditions() {
   const f = window.filters || {};
-  const fc = {};
-  const _fTb  = (f.tbNew?.size  ? f.tbNew  : f.tb);
-  const _fCat = (f.cat?.size    ? f.cat    : f.action);
-  const _fPos = (f.posNew?.size ? f.posNew : f.position);
-  if (_fTb?.size)  fc.tb  = [..._fTb];
-  if (_fCat?.size) fc.cat = [..._fCat];
-  if (_fPos?.size) fc.pos = [..._fPos];
+  // タグは条件の形（tb/cat/pos/tech。新しいタググループはグループID）で書く。読み替えは tag-filter.js。
+  // 古い呼び名に入っている分も落とさない（以前は新しい呼び名が空のときだけ古い方を見ていた）。
+  const fc = window.tagFilter ? window.tagFilter.toPlain(f, 'lib', 'fc') : {};
   if (f.channel  && f.channel.size)   fc.ch   = [...f.channel];
   if (f.playlist && f.playlist.size)  fc.pl   = [...f.playlist];
-  if (f.tags     && f.tags.size)      fc.tech = [...f.tags];
   // boolean系フラグ（true のものだけ保存）
   if (window.favOnly)     fc.favOnly = true;
   if (window.nextOnly)    fc.nextOnly = true;
@@ -2955,14 +2924,11 @@ window.cvOpenConditionEditor = function(viewId) {
     // 条件が編集画面で選択状態に見えず、そのグループのチップを1つ押すと
     // 見えていなかった古い条件が黙って置き換わっていた（Notion 確認事項01）。
     // 保存側 _getCurrentFilterConditions は新キー優先・旧キーへフォールバックなので変えない。
-    ['tbNew', 'cat', 'posNew'].forEach(k => { if (!(f[k] instanceof Set)) f[k] = new Set(); });
     const fc = view.filterConditions;
-    (fc.tb  ||[]).forEach(x => f.tbNew.add(x));
-    (fc.cat ||[]).forEach(x => f.cat.add(x));
-    (fc.pos ||[]).forEach(x => f.posNew.add(x));
+    // タグ: 条件の形（tb/cat/pos/tech・グループID）から、編集画面が読む呼び名へ（読み替えは tag-filter.js）
+    window.tagFilter?.fromPlain(fc, f, 'fc', 'lib');
     if (f.channel)  (fc.ch  ||[]).forEach(x => f.channel.add(x));
     if (f.playlist) (fc.pl  ||[]).forEach(x => f.playlist.add(x));
-    if (f.tags)     (fc.tech||[]).forEach(x => f.tags.add(x));
     // boolean系を復元（ドリル等の条件が保存・抽出されるように）
     window.favOnly     = !!fc.favOnly;
     window.nextOnly    = !!fc.nextOnly;

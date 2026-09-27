@@ -2,9 +2,10 @@
 import { _parseQuery, _matchQuery } from './organize.js';
 
 // ── URL ↔ フィルター状態の同期 ──
+// タグ（tb/ac/pos/tech）は tag-filter.js が受け持つ。ここに書くとタグ1〜3の選択が URL に残らなかった
+// （新しい呼び名 tbNew/cat/posNew を見ていなかったため）。
 const _URL_SET_KEYS = {
-  pl: 'playlist', ch: 'channel', pt: 'platform', tb: 'tb',
-  ac: 'action', pos: 'position', tech: 'tags', prio: 'prio', st: 'status'
+  pl: 'playlist', ch: 'channel', pt: 'platform', prio: 'prio', st: 'status'
 };
 const _URL_BOOL_KEYS = { fav: 'favOnly', nxt: 'nextOnly', unw: 'unwOnly', wat: 'watchedOnly', bm: 'bmOnly', memo: 'memoOnly', img: 'imgOnly' };
 
@@ -27,6 +28,12 @@ export function _syncURL() {
     const s = window.filters[key];
     if (s && s.size) p.set(param, [...s].map(v => encodeURIComponent(v)).join(','));
   }
+  // タグ: どの呼び名で選ばれていても、URL の呼び名で書く
+  const _TF = window.tagFilter;
+  if (_TF) _TF.groups().forEach(g => {
+    const s = _TF.selected(window.filters, g.id, 'lib');
+    if (s.size) p.set(_TF.keyFor(g.id, 'url'), [...s].map(v => encodeURIComponent(v)).join(','));
+  });
   // Boolean flags
   for (const [param, key] of Object.entries(_URL_BOOL_KEYS)) {
     if (window[key]) p.set(param, '1');
@@ -51,6 +58,12 @@ export function _restoreFromURL() {
   for (const [param, key] of Object.entries(_URL_SET_KEYS)) {
     const raw = p.get(param);
     if (raw) raw.split(',').forEach(v => window.filters[key].add(decodeURIComponent(v)));
+  }
+  // タグ: URL の呼び名から、ライブラリの呼び名（絞り込み本体が見ている方）へ入れる
+  const _TF = window.tagFilter;
+  if (_TF) for (const [param, raw] of p.entries()) {
+    const gid = _TF.gidForKey(param, 'url');
+    if (gid && raw) raw.split(',').forEach(v => _TF.setFor(window.filters, gid, 'lib').add(decodeURIComponent(v)));
   }
   // Restore booleans
   for (const [param, key] of Object.entries(_URL_BOOL_KEYS)) {
@@ -192,7 +205,6 @@ export function clearAll() {
   document.querySelectorAll('[id^="fs-chip-"],[id^="chip-"],[id^="m-chip-"]').forEach(el => el.classList.remove('active'));
   window.buildSidebarFovRows?.();
   window.refreshOpenSbAccordions?.();
-  window.renderTFC?.();
   window._clearOrgSearchForReset?.(); // _advSearch + si-org-pc + si-org をクリア
   window._cvClearFilters?.();         // カスタムビューの _cvSrchQ・列フィルターもリセット
   window.AF?.();
@@ -266,6 +278,7 @@ export function loadFilterPreset(idx) {
   Object.keys(window.filters).forEach(k => window.filters[k].clear());
   const fs = p.filters || {};
   Object.keys(fs).forEach(k => { if (window.filters[k]) fs[k].forEach(v => window.filters[k].add(v)); });
+  window.tagFilter?.fromPlain(fs, window.filters, 'lib', 'lib');   // タグはどの呼び名で保存されていても入れる
   window.favOnly    = p.favOnly    || false;
   window.unwOnly    = p.unwOnly    || false;
   window.watchedOnly = p.watchedOnly || false;
@@ -292,6 +305,8 @@ export function loadOrgFilterPreset(idx) {
   Object.keys(window.orgFilters).forEach(k => window.orgFilters[k].clear());
   const fs = p.filters || {};
   Object.keys(fs).forEach(k => { if (window.orgFilters[k]) fs[k].forEach(v => window.orgFilters[k].add(v)); });
+  // タグはどの呼び名で保存されていても整理の表の呼び名で入れる（同じ名前で写すだけだと tbNew/cat/posNew が落ちていた）
+  window.tagFilter?.fromPlain(fs, window.orgFilters, 'lib', 'org');
   window.orgFavOnly = p.favOnly || false;
   window.orgUnwOnly = p.unwOnly || false;
   window.syncOrgFilterOvRows?.();
@@ -321,10 +336,7 @@ export function renderFilterPresets() {
         if (fs.playlist && fs.playlist.length && !fs.playlist.includes(v.pl)) return false;
         if (fs.prio && fs.prio.length && !fs.prio.includes(v.prio)) return false;
         if (fs.status && fs.status.length && !fs.status.includes(v.status)) return false;
-        if (fs.tb && fs.tb.length && !(v.tb||[]).some(t => fs.tb.includes(t))) return false;
-        if (fs.action && fs.action.length && !(v.cat||[]).some(a => fs.action.includes(a))) return false;
-        if (fs.position && fs.position.length && !(v.pos||[]).some(x => fs.position.includes(x))) return false;
-        if (fs.tags && fs.tags.length && !(v.tags||[]).some(t => fs.tags.includes(t))) return false;
+        if (window.tagFilter && !window.tagFilter.match(v, fs, 'lib')) return false;
         if (fs.channel && fs.channel.length && !fs.channel.includes(v.channel || v.ch)) return false;
         return true;
       }).length;
@@ -357,6 +369,10 @@ export function filt(list) {
   const siPcEl = document.getElementById('si-lib-pc');
   const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();
   const parsed = _parseQuery(raw);
+  // タグの条件は tag-filter.js で1回だけ組み立てる（どの呼び名で入っていても同じグループとして読む）。
+  // 古い呼び名に入っている分は先に今の呼び名へ寄せる（今の呼び名を直接読む箇所に、見えない条件を残さない）
+  window.tagFilter?.normalize(window.filters, 'lib');
+  const _tagOk = window.tagFilter ? window.tagFilter.compile(window.filters, 'lib') : () => true;
   return list.filter(v => {
     if (v.archived) return false;
     if (window.favOnly   && !v.fav)   return false;
@@ -386,15 +402,7 @@ export function filt(list) {
     if (window.filters.playlist.size && !window.filters.playlist.has(v.pl)) return false;
     if (window.filters.prio.size && !window.filters.prio.has(v.prio)) return false;
     if (window.filters.status.size && !window.filters.status.has(v.status)) return false;
-    // 現行キーは tbNew / cat / posNew（sidebar-v4・統合フィルタが使用）。
-    // 旧キー tb / action / position は後方互換フォールバック（古い保存条件など）。
-    const _fTb  = (window.filters.tbNew?.size  ? window.filters.tbNew  : window.filters.tb);
-    const _fCat = (window.filters.cat?.size    ? window.filters.cat    : window.filters.action);
-    const _fPos = (window.filters.posNew?.size ? window.filters.posNew : window.filters.position);
-    if (_fTb?.size  && !(v.tb ||[]).some(t => _fTb.has(t)))  return false;
-    if (_fCat?.size && !(v.cat||[]).some(a => _fCat.has(a))) return false;
-    if (_fPos?.size && !(v.pos||[]).some(p => _fPos.has(p))) return false;
-    if (window.filters.tags.size && !(v.tags||[]).some(t => window.filters.tags.has(t))) return false;
+    if (!_tagOk(v)) return false;
     if (window.filters.channel.size && !window.filters.channel.has(v.channel || v.ch)) return false;
     if (window.filters.videoIds?.size && !window.filters.videoIds.has(v.id)) return false;
     if (window._uniVideoQ) {
@@ -405,26 +413,39 @@ export function filt(list) {
   });
 }
 
-// ── カウントヘルパー ──
-export function countByField(field, val) {
-  return (window.videos||[]).filter(v => !v.archived && (v[field]||[]).includes(val)).length;
-}
-export function countByPl(pl) {
-  return (window.videos||[]).filter(v => !v.archived && v.pl === pl).length;
-}
-export function countByCh(ch) {
-  return (window.videos||[]).filter(v => !v.archived && (v.channel || v.ch) === ch).length;
-}
-
 // ── コンテキスト件数：現在のフィルター状態を考慮した件数 ──
 // key以外のアクティブなフィルターを適用した上で、そのkeyにvalを追加したときの件数を返す
-export function countContextual(key, val) {
+export function countContextual(key, val, ctx = 'lib') {
   const vids = window.videos || [];
+  const TF = window.tagFilter;
+  const gid = TF ? TF.gidForKey(key, 'org') : null;   // タグの呼び名なら、そのグループ
+  const has = v => {
+    if (gid) return TF.valuesOf(v, gid).includes(val);
+    if (key === 'playlist') return v.pl === val;
+    if (key === 'channel')  return (v.channel || v.ch) === val;
+    if (key === 'status')   return v.status === val;
+    if (key === 'prio')     return v.prio === val;
+    if (key === 'platform') return v.pt === val;
+    return false;
+  };
+  // 整理の表: 表そのものの絞り込み（orgFilt）から、この項目の条件だけを外して数える。
+  // 以前はここでもライブラリの条件を読んでいて、整理の表の件数が合わなかった。
+  if (ctx === 'org' && window.orgFilt && window.orgFilters) {
+    const of = window.orgFilters;
+    const saved = {};
+    const keys = gid ? TF.FIELD_KEYS[TF.fieldOf(gid)]?.alias.concat(TF.keyFor(gid, 'org')) || [TF.keyFor(gid, 'org')] : [key];
+    keys.forEach(k => { if (of[k] instanceof Set) { saved[k] = new Set(of[k]); of[k].clear(); } });
+    let n = 0;
+    try { n = window.orgFilt(vids).filter(has).length; }
+    finally { Object.entries(saved).forEach(([k, s]) => { of[k].clear(); s.forEach(x => of[k].add(x)); }); }
+    return n;
+  }
   const f    = window.filters || {};
   const siEl   = document.getElementById('si');
   const siPcEl = document.getElementById('si-lib-pc');
   const raw = ((siEl ? siEl.value : '') || (siPcEl ? siPcEl.value : '')).trim();
   const parsed = _parseQuery(raw);
+  const _tagOk = TF ? TF.compile(f, 'lib', { except: gid }) : () => true;
   return vids.filter(v => {
     if (v.archived) return false;
     if (window.favOnly     && !v.fav)                                    return false;
@@ -440,24 +461,10 @@ export function countContextual(key, val) {
     if (key !== 'playlist' && f.playlist?.size && !f.playlist.has(v.pl))                      return false;
     if (key !== 'prio'     && f.prio?.size     && !f.prio.has(v.prio))                        return false;
     if (key !== 'status'   && f.status?.size   && !f.status.has(v.status))                    return false;
-    const _fTb  = (f.tbNew?.size  ? f.tbNew  : f.tb);
-    const _fCat = (f.cat?.size    ? f.cat    : f.action);
-    const _fPos = (f.posNew?.size ? f.posNew : f.position);
-    if (key !== 'tb'       && _fTb?.size  && !(v.tb||[]).some(t => _fTb.has(t)))   return false;
-    if (key !== 'action'   && _fCat?.size && !(v.cat||[]).some(a => _fCat.has(a))) return false;
-    if (key !== 'position' && _fPos?.size && !(v.pos||[]).some(p => _fPos.has(p))) return false;
-    if (key !== 'tags'     && f.tags?.size     && !(v.tags||[]).some(t => f.tags.has(t)))    return false;
+    if (!_tagOk(v)) return false;
     if (key !== 'channel'  && f.channel?.size  && !f.channel.has(v.channel || v.ch))           return false;
     // このvalが該当するか
-    if (key === 'tb')       return (v.tb||[]).includes(val);
-    if (key === 'action')   return (v.cat||[]).includes(val);
-    if (key === 'position') return (v.pos||[]).includes(val);
-    if (key === 'tags')     return (v.tags||[]).includes(val);
-    if (key === 'playlist') return v.pl === val;
-    if (key === 'channel')  return (v.channel || v.ch) === val;
-    if (key === 'status')   return v.status === val;
-    if (key === 'prio')     return v.prio === val;
-    return false;
+    return has(v);
   }).length;
 }
 export function cntBadge(n) {
@@ -535,98 +542,8 @@ export function AF() {
   const fhb = document.getElementById('fov-hit-badge'); if (fhb) fhb.textContent = f.length + ' 件';
   const tc = document.getElementById('totalCount'); if (tc) tc.textContent = total + ' videos';
   const sc = document.getElementById('snav-cnt'); if (sc) sc.textContent = total;
-  window.buildSrcRow?.('srow-src');
-  window.buildPrioRow?.('srow-prio');
-  window.buildStatRow?.('srow-stat');
-  window.buildPlSrow?.();
-  window.buildTechSrow?.();
-  window.buildFsTbSrow?.();
-  window.buildFsAcSrow?.();
-  window.buildFsPlSrow?.();
-  window.buildFsTechSrow?.();
-  window.buildFsPosSrow?.();
-  renderTFC();
   if (window.bulkMode) window.updBulk?.();
   updateResetBtn();
   _syncURL();
 }
 
-export function updatePLC() { window.buildPlSrow?.(); }
-
-export function renderTFC() {
-  const el = document.getElementById('techFC');
-  if (el) el.innerHTML = [...window.filters.tags].map(t => `<div class="chip active" style="flex-shrink:0" onclick="rmTF('${t}')">${t} ×</div>`).join('');
-}
-export function rmTF(t) { window.filters.tags.delete(t); renderTFC(); window.AF?.(); }
-
-export function openTF() {
-  document.getElementById('tfs').value = '';
-  renderTF();
-  document.getElementById('tfOv').classList.add('open');
-}
-
-export function renderTF() {
-  const q = document.getElementById('tfs').value.trim();
-  const ql = q.toLowerCase();
-  const allTech = [...new Set((window.videos||[]).flatMap(v => v.tags||[]))].sort();
-  const matched = allTech.filter(t => !ql || t.toLowerCase().includes(ql));
-  const container = document.getElementById('tfR');
-  container.innerHTML = '';
-  matched.forEach(t => {
-    const el = document.createElement('div');
-    el.className = 'tech-pill' + (window.filters.tags.has(t) ? ' active' : '');
-    const n = countContextual('tags', t);
-    el.innerHTML = t + cntBadge(n);
-    el.addEventListener('click', function() {
-      window.filters.tags.has(t) ? window.filters.tags.delete(t) : window.filters.tags.add(t);
-      el.classList.toggle('active');
-      window.buildTechSrow?.(); window.buildFsTechSrow?.();
-      try { window.buildFovRows?.(); } catch(e) {}
-      renderTFC(); window.AF?.();
-    });
-    container.appendChild(el);
-  });
-  if (q && !allTech.some(t => t.toLowerCase() === ql)) {
-    const el = document.createElement('div');
-    el.className = 'tech-pill';
-    el.style.cssText = 'border-style:dashed;color:var(--accent)';
-    el.textContent = '＋ 「' + q + '」を追加';
-    el.onclick = function() {
-      window.filters.tags.add(q);
-      window.buildTechSrow?.(); window.buildFsTechSrow?.();
-      try { window.buildFovRows?.(); } catch(e) {}
-      renderTFC(); window.AF?.();
-      document.getElementById('tfs').value = ''; renderTF();
-      window.closeOv?.('tfOv');
-    };
-    container.appendChild(el);
-  }
-  if (!matched.length && !q) container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px">タグなし</div>';
-}
-
-export function openPL() {
-  document.getElementById('pls').value = '';
-  renderPL();
-  document.getElementById('plOv').classList.add('open');
-}
-
-export function renderPL() {
-  const q = document.getElementById('pls').value.toLowerCase();
-  const pls = [...new Set((window.videos||[]).filter(v => !v.archived).map(v => v.pl))];
-  const container = document.getElementById('plR');
-  const filtered = pls.filter(p => !q || p.toLowerCase().includes(q));
-  if (!filtered.length) { container.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:8px">該当なし</div>'; return; }
-  container.innerHTML = '';
-  filtered.forEach(p => {
-    const el = document.createElement('div');
-    el.className = 'tech-pill' + (window.filters.playlist.has(p) ? ' active' : '');
-    const n = countContextual('playlist', p);
-    el.innerHTML = p + cntBadge(n);
-    el.addEventListener('click', function() {
-      window.filters.playlist.has(p) ? window.filters.playlist.delete(p) : window.filters.playlist.add(p);
-      el.classList.toggle('active');
-      window.buildPlSrow?.(); try { window.buildFovRows?.(); } catch(e) {} window.AF?.();
-    });
-    container.appendChild(el);
-  });
-}

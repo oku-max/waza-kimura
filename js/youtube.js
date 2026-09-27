@@ -578,7 +578,6 @@ export async function ytImportUnimportedFromChecked() {
       ytChapters: t.timestamps || [],
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
-      tbLocked: false,
       tb: [], cat: [], pos: [], tags: []   // タグは推測しない（v52.814）
     });
   });
@@ -740,7 +739,6 @@ export async function ytImportCheckedVideos() {
       ytChapters: vidTimestampMap[vid] || [],
       watched: false, fav: false, status: '未着手',
       prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
-      tbLocked: false,
       ...(() => {
         // 取り込み画面で選んだタグ。選んでいなければ空（推測しない・v52.814）
         const t = window.itagGetTagsFor

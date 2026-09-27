@@ -396,6 +396,11 @@ export function _matchQuery(v, parsed, fields) {
 // 打鍵のたびに2,800本×5項目を正規化し直すと重いので、元の文字列が変わったときだけ作り直す。
 // 動画オブジェクト自体には何も書き込まない（保存経路に乗せないため WeakMap を使う）。
 const _textCache = new WeakMap();
+function _searchTagText(v) {
+  const R = window.tagRegistry;
+  if (!R) return [...(v.tb || []), ...(v.cat || []), ...(v.pos || []), ...(v.tags || [])].join(' / ');
+  return R.searchTagText(v);
+}
 function _videoText(v) {
   const rawLower = window._rawLowerTag || (x => String(x || '').toLowerCase());
   const norm     = window._normTag     || (x => String(x || '').toLowerCase());
@@ -404,7 +409,8 @@ function _videoText(v) {
     ch:    v.channel || v.ch || '',
     pl:    v.pl || '',
     memo:  v.memo || '',
-    tags:  [...(v.tb || []), ...(v.cat || []), ...(v.pos || []), ...(v.tags || [])].join(' / '),
+    // タグは「検索の対象にする」グループのものだけ（段階2b。一覧の search）。今の4つは既定で対象
+    tags:  _searchTagText(v),
   };
   const got = _textCache.get(v);
   if (got && got.src.title === src.title && got.src.ch === src.ch && got.src.pl === src.pl
@@ -469,7 +475,9 @@ export function _matchQueryField(v, text, exact, fields) {
     if (fields.title) use.push(T.title);
     if (fields.ch)    use.push(T.ch);
     if (fields.pl)    use.push(T.pl);
-    if (fields.tags)  use.push(T.tags);
+    // 詳細検索のチェック欄は「tech」という名前で渡してくる（保存済みの詳細検索もそう）。
+    // 以前は tags しか見ておらず、「タグ」にチェックしても外しても、タグを一切探していなかった。
+    if (fields.tags || fields.tech) use.push(T.tags);
     if (fields.memo)  use.push(T.memo);
   }
 
@@ -510,6 +518,12 @@ export function orgFilt(list) {
   const parsed = _parseQuery(raw);
   const adv = _advSearch;
   const advFields = adv?.fields || null;
+  // タグの条件は tag-filter.js で1回だけ組み立てる（「(空白)」＝そのグループに何も付いていない動画も選べる）。
+  // 古い呼び名に入っている分は先に今の呼び名へ寄せる（列フィルター等が今の呼び名を直接読むので、見えない条件を残さない）
+  window.tagFilter?.normalize(orgFilters, 'org');
+  const _tagOk = window.tagFilter
+    ? window.tagFilter.compile(orgFilters, 'org', { allowBlank: true })
+    : () => true;
   return list.filter(v => {
     if (v.archived) return false;
     if (orgFavOnly     && !v.fav) return false;
@@ -547,10 +561,7 @@ export function orgFilt(list) {
       if (!orgFilters.counter.has(cVal)) return false;
     }
     if (orgFilters.status.size) { const _sn=window.normStatus(v.status); if(!orgFilters.status.has(_sn)) return false; }
-    if (orgFilters.tb.size && !_matchFilt(orgFilters.tb, v.tb||[])) return false;
-    if (orgFilters.action.size && !_matchFilt(orgFilters.action, v.cat||[])) return false;
-    if (orgFilters.position.size && !_matchFilt(orgFilters.position, v.pos||[])) return false;
-    if (orgFilters.tags.size && !_matchFilt(orgFilters.tags, v.tags||[])) return false;
+    if (!_tagOk(v)) return false;
     if (orgFilters.channel.size && !_matchFilt(orgFilters.channel, (v.channel||v.ch) ? [v.channel||v.ch] : [])) return false;
     // 練習ランク / 最終練習日
     if (orgPrRank != null && window.vpCntRank) {
@@ -626,10 +637,6 @@ export function syncOrgFilterOvRows() {
   window.syncFilterOvRows?.(true);
 }
 
-// buildOrgSrow → buildSrow(汎用版)に統一
-export function buildOrgSrow(rowId, tagList, filterKey, addable) {
-  window.buildSrow?.(rowId, tagList, filterKey, addable, orgFilters, renderOrg);
-}
 
 // mkOrgChip → mkChip に統一
 export function mkOrgChip(label, isActive, onClick) { return window.mkChip?.(label, isActive, onClick); }
@@ -688,76 +695,6 @@ export function renderOrgAccChips(type) {
 }
 
 export function filterOrgAccChips(type) { renderOrgAccChips(type); }
-
-// ═══ Organize用ピッカー（Libraryのピッカーと独立）═══
-
-export function openOrgPos(){document.getElementById('org-pos-s').value='';renderOrgPos();document.getElementById('orgPosOv').classList.add('open');}
-
-export function renderOrgPos(){
-  const q=document.getElementById('org-pos-s').value.toLowerCase();
-  const POS_BASE=(window.tagPresets ? window.tagPresets('pos') : []).filter(Boolean);
-  const videos = window.videos || [];
-  const all=[...new Set([...POS_BASE,...videos.flatMap(v=>v.pos||[])])].sort();
-  const matched=all.filter(p=>!q||p.toLowerCase().includes(q));
-  document.getElementById('orgPosR').innerHTML=matched.map(p=>{
-    const n=window.countByField?.('pos',p);
-    return`<div class="tech-pill ${orgFilters.position.has(p)?'active':''}" onclick="togOrgPos('${p.replace(/'/g,"\'")}',this)">${p}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgPos(p,el){orgFilters.position.has(p)?orgFilters.position.delete(p):orgFilters.position.add(p);el.classList.toggle('active');renderOrg();}
-
-export function openOrgPL(){document.getElementById('org-pl-s').value='';renderOrgPL();document.getElementById('orgPLOv').classList.add('open');}
-
-export function renderOrgPL(){
-  const q=document.getElementById('org-pl-s').value.toLowerCase();
-  const videos = window.videos || [];
-  const pls=[...new Set(videos.filter(v=>!v.archived).map(v=>v.pl))];
-  const filtered=pls.filter(p=>!q||p.toLowerCase().includes(q));
-  document.getElementById('orgPLR').innerHTML=filtered.map(p=>{
-    const n=window.countByPl?.(p);
-    return`<div class="tech-pill ${orgFilters.playlist.has(p)?'active':''}" onclick="togOrgPL('${p.replace(/'/g,"\'")}',this)">${p}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgPL(p,el){orgFilters.playlist.has(p)?orgFilters.playlist.delete(p):orgFilters.playlist.add(p);el.classList.toggle('active');renderOrg();}
-
-export function openOrgTF(){document.getElementById('org-tf-s').value='';renderOrgTF();document.getElementById('orgTFOv').classList.add('open');}
-
-export function renderOrgTF(){
-  const q=document.getElementById('org-tf-s').value.toLowerCase();
-  const videos = window.videos || [];
-  const all=[...new Set(videos.flatMap(v=>v.tags||[]))].sort();
-  const matched=all.filter(t=>!q||t.toLowerCase().includes(q));
-  document.getElementById('orgTFR').innerHTML=matched.map(t=>{
-    const n=window.countByField?.('tags',t);
-    return`<div class="tech-pill ${orgFilters.tags.has(t)?'active':''}" onclick="togOrgTech('${t.replace(/'/g,"\'")}',this)">${t}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgTech(t,el){orgFilters.tags.has(t)?orgFilters.tags.delete(t):orgFilters.tags.add(t);el.classList.toggle('active');renderOrg();}
-
-export function openOrgChPicker(){
-  document.getElementById('org-ch-s').value='';renderOrgChPicker('');document.getElementById('orgChOv').classList.add('open');
-}
-
-export function renderOrgChPicker(q){
-  const videos = window.videos || [];
-  const channels=[...new Set(videos.filter(v=>!v.archived&&v.ch).map(v=>v.ch))].sort();
-  const ql=(q||'').toLowerCase();
-  const matched=channels.filter(c=>!ql||c.toLowerCase().includes(ql));
-  document.getElementById('orgChR').innerHTML=matched.map(c=>{
-    const n=window.countByCh?.(c);
-    return`<div class="tech-pill ${orgFilters.channel.has(c)?'active':''}" onclick="togOrgCh('${c.replace(/'/g,"\'")}',this)">${c}${window.cntBadge?.(n)}</div>`;
-  }).join('');
-}
-
-export function togOrgCh(c,el){orgFilters.channel.has(c)?orgFilters.channel.delete(c):orgFilters.channel.add(c);el.classList.toggle('active');renderOrg();}
-
-export function closeOrgOv(id){
-  document.getElementById(id).classList.remove('open');
-  openOrgFilterOverlay();
-}
 
 // ═══ Layout / height ═══
 
@@ -1839,31 +1776,8 @@ function _openTagPicker(v, cfg, col, td) {
       lbl.appendChild(sp);
       listEl.appendChild(lbl);
     };
-    if (!ql && cfg.field === 'tags') {
-      // グループ別表示 (案B)
-      const _groups = window.getTagGroups ? window.getTagGroups() : [];
-      const _inGrp  = new Set(_groups.flatMap(g => g.techNames || []));
-      _groups.forEach(g => {
-        const members = filtered.filter(o => (g.techNames || []).includes(o));
-        if (!members.length) return;
-        const hdr = document.createElement('div');
-        hdr.className = 'tag-grp-hdr';
-        hdr.textContent = g.name;
-        listEl.appendChild(hdr);
-        members.forEach(_appendOpt);
-      });
-      const unc = filtered.filter(o => !_inGrp.has(o));
-      if (unc.length) {
-        const hdr = document.createElement('div');
-        hdr.className = 'tag-grp-hdr';
-        hdr.style.fontStyle = 'italic';
-        hdr.textContent = '未グループ';
-        listEl.appendChild(hdr);
-        unc.forEach(_appendOpt);
-      }
-    } else {
-      filtered.forEach(_appendOpt);
-    }
+    // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
+    filtered.forEach(_appendOpt);
     // 新規追加ボタン（technique + 検索テキストが既存にない場合）
     if (cfg.allowNew && ql && !fullOpts.some(o => o.toLowerCase() === ql)) {
       const addBtn = document.createElement('div');
@@ -2276,30 +2190,7 @@ export function openOrgColFilter(col, thEl) {
           lbl.appendChild(cb); lbl.appendChild(txt); lbl.appendChild(cntEl);
           listEl.appendChild(lbl);
         };
-        // タグ列（technique）かつ未検索時: グループ別表示
-        if (!ql && col === 'technique') {
-          const _groups = window.getTagGroups ? window.getTagGroups() : [];
-          const _inGrp = new Set(_groups.flatMap(g => g.techNames || []));
-          _groups.forEach(g => {
-            const members = filtered.filter(v => (g.techNames || []).includes(v));
-            if (!members.length) return;
-            const hdr = document.createElement('div');
-            hdr.className = 'tag-grp-hdr';
-            hdr.textContent = g.name;
-            listEl.appendChild(hdr);
-            members.forEach(_appendItem);
-          });
-          const unc = filtered.filter(v => !_inGrp.has(v));
-          if (unc.length) {
-            const hdr = document.createElement('div');
-            hdr.className = 'tag-grp-hdr';
-            hdr.style.fontStyle = 'italic';
-            hdr.textContent = '未グループ';
-            listEl.appendChild(hdr);
-            unc.forEach(_appendItem);
-          }
-          return;
-        }
+        // （旧テクニックの見出しは v52.833 で廃止。見出しで区切らずに並べる）
         filtered.forEach(_appendItem);
       };
 
@@ -2389,25 +2280,11 @@ window.orgFilt = orgFilt;
 window.openOrgFilterOverlay = openOrgFilterOverlay;
 window.closeOrgFilterOverlay = closeOrgFilterOverlay;
 window.syncOrgFilterOvRows = syncOrgFilterOvRows;
-window.buildOrgSrow = buildOrgSrow;
 window.mkOrgChip = mkOrgChip;
 window.showOrgFsBulkBtn = showOrgFsBulkBtn;
 window.toggleOrgAcc = toggleOrgAcc;
 window.renderOrgAccChips = renderOrgAccChips;
 window.filterOrgAccChips = filterOrgAccChips;
-window.openOrgPos = openOrgPos;
-window.renderOrgPos = renderOrgPos;
-window.togOrgPos = togOrgPos;
-window.openOrgPL = openOrgPL;
-window.renderOrgPL = renderOrgPL;
-window.togOrgPL = togOrgPL;
-window.openOrgTF = openOrgTF;
-window.renderOrgTF = renderOrgTF;
-window.togOrgTech = togOrgTech;
-window.openOrgChPicker = openOrgChPicker;
-window.renderOrgChPicker = renderOrgChPicker;
-window.togOrgCh = togOrgCh;
-window.closeOrgOv = closeOrgOv;
 window.adjustOrgTableHeight = adjustOrgTableHeight;
 window.renderOrg = renderOrg;
 window.syncOrgColHeaders = syncOrgColHeaders;

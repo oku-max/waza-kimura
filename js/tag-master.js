@@ -230,7 +230,7 @@ function matchCategory(q, c) {
 }
 
 // ─── 既存データのマイグレーション ────────────────
-// 既存 v: { tb:[], ac:[], pos:[], tech:[] } → 新 v: { tb:[], cat:[], pos:[], tags:[], tbLocked:false }
+// 既存 v: { tb:[], ac:[], pos:[], tech:[] } → 新 v: { tb:[], cat:[], pos:[], tags:[] }
 //
 // TB の変換ルール:
 //   トップ → トップ
@@ -264,12 +264,23 @@ const _AC_TO_CAT = {
 
 function migrateVideo(v) {
   if (!v || typeof v !== 'object') return v;
-  // 既に新形式のフィールドが1つでもあれば、残りを補完してスキップ（上書き防止）
-  if (Array.isArray(v.cat) || Array.isArray(v.tags) || 'tbLocked' in v) {
+  // 旧形式（ac / tech を持つ）だけを変換する。それ以外は今の形式として、足りない配列を補うだけ。
+  // 以前は「cat・tags・tbLocked のどれも無い」ものを旧形式とみなし、下の変換でタグ1を
+  // トップ/ボトム/スタンディングの3つに絞っていた。タグ1のロック（tbLocked）を v52.845 で廃止し、
+  // 新しい動画に tbLocked を書かなくなったので、判定を旧フィールドの有無だけにした
+  // （今の形式の動画を誤って旧形式として変換し、ユーザーの値を落とさないため）。
+  const isOld = Array.isArray(v.ac) || Array.isArray(v.tech);
+  if (!isOld) {
+    if (!Array.isArray(v.tb))   v.tb   = [];
+    if (!Array.isArray(v.cat))  v.cat  = [];
+    if (!Array.isArray(v.pos))  v.pos  = [];
+    if (!Array.isArray(v.tags)) v.tags = [];
+    return v;
+  }
+  // 旧形式でも、今の形式のフィールドがすでにあれば上書きしない（旧フィールドだけ落とす）
+  if (Array.isArray(v.cat) || Array.isArray(v.tags)) {
     if (!Array.isArray(v.cat))  v.cat  = [];
     if (!Array.isArray(v.tags)) v.tags = [];
-    if (!('tbLocked' in v))     v.tbLocked = false;
-    // 旧フィールドが残っていれば必ず削除
     delete v.ac;
     delete v.tech;
     return v;
@@ -316,7 +327,6 @@ function migrateVideo(v) {
     cat:      Array.from(newCat),
     pos:      Array.from(newPos),
     tags:     Array.from(newTags),
-    tbLocked: false,
   };
   // 旧フィールドを削除（Firebaseに残っている場合のクリーンアップ）
   delete result.ac;
@@ -339,11 +349,13 @@ function _remapOldCatNames(videos) {
     delete v.ac;
     delete v.tech;
     if (!Array.isArray(v.cat) || !v.cat.length) continue;
+    // 旧名（アタック→フィニッシュ 等）だけ付け替え、それ以外はそのまま残す。
+    // 以前は組み込みの CATEGORIES に無い値を捨てていたので、ユーザーが自分で足した
+    // カテゴリの値が、読み込みのたびに動画から消えていた（v52.843・タグはユーザー定義がすべて）。
     const newCat = new Set();
     for (const c of v.cat) {
-      const mapped = _AC_TO_CAT[c];
-      if (mapped) newCat.add(mapped);
-      else if (CATEGORIES.some(cat => cat.name === c)) newCat.add(c);
+      if (!c) continue;
+      newCat.add(_AC_TO_CAT[c] || c);
     }
     v.cat = Array.from(newCat);
   }
