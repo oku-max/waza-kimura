@@ -1,6 +1,6 @@
 // ═══ WAZA KIMURA — VPanel 4層タグ編集 (新スキーマ) ═══
 // vpanel.js が呼び出す HTML ビルダー + チップ操作ハンドラ。
-// 新フィールド v.tb / v.cat / v.pos / v.tags / v.tbLocked を直接編集。
+// 新フィールド v.tb / v.cat / v.pos / v.tags を直接編集。
 // 旧 vp-tb/ac/pos/tech 系とは独立。
 
 (function () {
@@ -31,12 +31,11 @@
     // 選択肢はユーザーのもの（tagPresets）
     const TB = (window.tagPresets ? window.tagPresets('tb') : (window.TB_VALUES || []));
     const CATS = (window.tagPresets ? window.tagPresets('cat') : (window.CATEGORIES || []).map(c => c.name)).map(n => ({ name: n }));
-    // TB row (3固定 + 🔒)
+    // タグ1 の行（v52.845: ロックは廃止。守る相手の自動判定がもう無い）
     const tbRow = TB.map(t => {
       const on = v.tb.includes(t);
       return `<span class="vp-chip${on?' on-tb':''}" style="cursor:pointer" onclick="vpV4ToggleTb('${id}','${t}',this)">${_lTb(t)}</span>`;
     }).join('');
-    const lockBtn = `<span class="vp-chip" style="cursor:pointer;background:${v.tbLocked?'rgba(255,180,0,.2)':'var(--surface2)'};color:${v.tbLocked?'#c80':'var(--text3)'}" onclick="vpV4ToggleLock('${id}',this)" title="ロック中はAI再解析でTBが上書きされません">${v.tbLocked?_T('vp.locked','🔒 ロック中'):_T('vp.unlocked','🔓 自動')}</span>`;
 
     // Category row (10固定 multi-select)
     const catRow = CATS.map(c => {
@@ -79,7 +78,7 @@
     const showPos  = _tagVis('pos');
     const showTags = _tagVis('tags');
     if (!showTb && !showCat && !showPos && !showTags) return '';
-    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('tb')}</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}${lockBtn}</div></div>` : '';
+    const tbRowHtml   = showTb   ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('tb')}</span><div class="vp-chips" id="vp-v4-tb-${id}">${tbRow}</div></div>` : '';
     const catRowHtml  = showCat  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('cat')}</span><div class="vp-chips" id="vp-v4-cat-${id}">${catRow}</div></div>` : '';
     const posRowHtml  = showPos  ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('pos')}</span><div class="vp-chips" id="vp-v4-pos-${id}">${posChips}${posPicker}</div></div>` : '';
     const tagsRowHtml = showTags ? `<div class="vp-row"><span class="vp-lbl" data-user-text="1">${_v4TagLabel('tags')}</span><div class="vp-chips" id="vp-v4-tags-${id}">${tagChips}${tagInput}</div></div>` : '';
@@ -99,15 +98,6 @@
     else        { v.tb.push(t);     el.classList.add('on-tb'); }
     _save(id);
     window.AF?.();
-  };
-  window.vpV4ToggleLock = function (id, el) {
-    const v = _findV(id); if (!v) return;
-    v.tbLocked = !v.tbLocked;
-    el.style.background = v.tbLocked ? 'rgba(255,180,0,.2)' : 'var(--surface2)';
-    el.style.color      = v.tbLocked ? '#c80' : 'var(--text3)';
-    el.textContent      = v.tbLocked ? '🔒 ロック中' : '🔓 自動';
-    _save(id);
-    window.toast?.(v.tbLocked ? '🔒 TB をロックしました' : '🔓 TB ロック解除');
   };
 
   // ── Category トグル ──

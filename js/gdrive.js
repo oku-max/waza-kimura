@@ -1125,7 +1125,6 @@ export async function gdImport() {
       prio:     'そのうち', shared: 0, archived: false, memo: '', ai: '',
       isQR:     cb.dataset.isqr === 'true',
       duration: parseInt(cb.dataset.duration) || 0,
-      tbLocked: false,
       // 取り込み画面で選んだタグ。選んでいなければ空（推測しない・v52.814）
       ...(window.itagGetTagsFor
         ? window.itagGetTagsFor(newId, cb.dataset.title, cb.dataset.folder || playlist, channel)

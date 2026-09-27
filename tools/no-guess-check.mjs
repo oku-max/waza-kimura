@@ -46,6 +46,10 @@ const GONE = [
   ['_POS_KEYWORDS',        '誤分類検出のポジション語一覧'],
   ['_AC_KEYWORDS',         '誤分類検出のアクション語一覧'],
   ['_LEGIT_TECH_PATTERNS', '誤分類検出の除外語一覧'],
+  // v52.845: タグ1のロック。自動判定（AI・キーワード）に上書きさせないための物で、守る相手がもう無い
+  ['vpV4ToggleLock',  'タグ1のロック切り替え'],
+  ['toggleTbLock',    'カードのタグ1ロック切り替え（定義が無く、押すとエラーだった）'],
+  ['tbLocked',        'タグ1のロックの印'],
 ];
 const SRC = fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => 'js/' + f)
   .concat(['index.html', 'dev-server.js']);   // alias-builder / tag-master-view は v52.832 で削除
