@@ -824,7 +824,7 @@ export function enterBulk(ctx='home', preserveSel=false){
 
 export function bulkSnapshot(){
   const videos = window.videos || [];
-  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],tbLocked:!!v.tbLocked,pl:v.pl,channel:v.channel,archived:v.archived})));
+  (window.bulkUndoStack||[]).push(videos.map(v=>({id:v.id,prio:v.prio,status:v.status,watched:v.watched,fav:v.fav,tb:[...(v.tb||[])],cat:[...(v.cat||[])],pos:[...(v.pos||[])],tags:[...(v.tags||[])],pl:v.pl,channel:v.channel,archived:v.archived})));
 }
 
 // ─── Bulk Picker ───

@@ -165,7 +165,7 @@
         addedAt: today, duration: md.duration || 0,
         watched: false, fav: false, status: '未着手',
         prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
-        tbLocked: false, tb: tt.tb, cat: tt.cat, pos: tt.pos, tags: tt.tags,
+        tb: tt.tb, cat: tt.cat, pos: tt.pos, tags: tt.tags,
       });
       added++;
     }

@@ -108,8 +108,6 @@
     'cv.count':          { ja: '本', en: ' videos' },
     // Vパネル タグ編集
     'vp.tags':           { ja: 'タグ', en: 'Tags' },
-    'vp.locked':         { ja: '🔒 ロック中', en: '🔒 Locked' },
-    'vp.unlocked':       { ja: '🔓 自動', en: '🔓 Auto' },
     // URL取込
     'url.title':         { ja: '🔗 URLから動画を追加', en: '🔗 Add videos from URLs' },
     'url.desc':          { ja: 'YouTube・Vimeo・Google Drive・XのURLを貼り付け（複数行OK）', en: 'Paste YouTube / Vimeo / Google Drive / X URLs (multiple lines OK)' },
@@ -546,7 +544,6 @@
     "元に戻す履歴がありません": "Nothing to undo",
     "選択した動画を別のプレイリストにコピーします": "Copies the selected videos to another playlist",
     "選択した動画を移動先プレイリストに移動します": "Moves the selected videos to the target playlist",
-    "クリックでTBロック切替": "Click to toggle TB lock",
     "今日": "Today",
     "昨日": "Yesterday",
     "📝 列名を変更": "📝 Rename column",
@@ -673,8 +670,6 @@
     "未カウント": "Not counted",
     "検索条件を設定後「💾 保存」で追加": "Set conditions, then “💾 Save” to add",
     "該当動画": "Matching videos",
-    "🔒 TB をロックしました": "🔒 TB locked",
-    "🔓 TB ロック解除": "🔓 TB unlocked",
     "（動画が長い・非公開・年齢制限などで処理できない場合があります）": "(May fail for long, private or age-restricted videos)",
     "「このタブ」または「このウィンドウ」を選択してください": "Choose “This tab” or “This window”",
     "「このタブ」を選択してください（OKしてから撮影が始まります）": "Choose “This tab” (capture starts after OK)",
@@ -1790,7 +1785,6 @@
     "🔍 解析する": "🔍 Analyze",
     "🔒 TB を手動ロックしました": "🔒 TB manually locked",
     "🔒 オーナーのみ閲覧できます": "🔒 Only the owner can view this",
-    "🔒 ロック中": "🔒 Locked",
     "🔒 動画カードで TB を手動変更すると AI 再解析時に上書きされません": "🔒 If you change TB manually on a card, AI re-analysis won't overwrite it",
     "🔓 TB ロックを解除しました": "🔓 TB unlocked",
     "🔗 URLから動画を追加": "🔗 Add videos from URLs",

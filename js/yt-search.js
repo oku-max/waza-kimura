@@ -692,7 +692,6 @@ export function ytSrOpenVPanel(idx) {
       archived:   false,
       memo:       '',
       ai:         '',
-      tbLocked:   false,
       tb: [], cat: [], pos: [], tags: [],
     };
     window.videos = window.videos || [];
@@ -855,7 +854,7 @@ export function ytSrOpenPlVPanel(plId, vidIdx) {
       title, src: 'youtube', url: `https://www.youtube.com/watch?v=${videoId}`,
       thumb, ch, channel: ch, pl: '', addedAt: new Date().toISOString().slice(0, 10),
       duration: 0, ytChapters: [], watched: false, fav: false, status: '未着手',
-      prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
+      prio: 'そのうち', shared: 0, archived: false, memo: '', ai: '',
       tb: [], cat: [], pos: [], tags: [],
     };
     window.videos = window.videos || [];
@@ -1177,7 +1176,6 @@ export async function ytSrAddToLibrary() {
       archived: false,
       memo:     '',
       ai:       '',
-      tbLocked: false,
       tb: [], cat: [], pos: [], tags: []   // タグは推測しない（v52.814）
     };
     window.videos.push(newEntry);
@@ -1386,7 +1384,7 @@ export async function ytSrAddPlVideo(videoId, title, ch, thumb) {
         addedAt: new Date().toISOString().slice(0, 10),
         duration: 0, ytChapters: [], watched: false,
         fav: false, status: '未着手', prio: 'そのうち',
-        shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
+        shared: 0, archived: false, memo: '', ai: '',
         tb: [], cat: [], pos: [], tags: [],   // タグは推測しない（v52.814）
       };
       window.videos.push(entry);
@@ -1427,7 +1425,7 @@ export async function ytSrAddAllPl(plId) {
         addedAt: new Date().toISOString().slice(0, 10),
         duration: 0, ytChapters: [], watched: false,
         fav: false, status: '未着手', prio: 'そのうち',
-        shared: 0, archived: false, memo: '', ai: '', tbLocked: false,
+        shared: 0, archived: false, memo: '', ai: '',
         tb: [], cat: [], pos: [], tags: [],   // タグは推測しない（v52.814）
       });
     }
