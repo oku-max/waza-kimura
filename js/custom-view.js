@@ -98,8 +98,8 @@ function _saveCurrentFilterSnapshot() {
   const key = _curId || 'master';
   const snap = window._uniSnapshotFilters(); // window.filters + boolean + titleQ
   // そのリストの検索ワードも記憶（カード/テーブルの検索を1つにまとめる）
-  snap._search = (window.wkSearchWord ? window.wkSearchWord() : '')
-    || _cvSrchQ || window._uniVideoQ || '';
+  // _uniVideoQ（統合フィルターの「動画を探す」欄）は別物なので混ぜない
+  snap._search = (window.wkSearchWord ? window.wkSearchWord() : '') || _cvSrchQ || '';
   _viewFilterSnapshots[key] = snap;
   // カスタムビューの検索ワードは view オブジェクトにも永続保存し、リロード/再訪時にも復元する
   // （master には保存先の view が無いのでスキップ）。
@@ -118,8 +118,15 @@ function _restoreFilterSnapshot(key) {
   // ワードは _uniRestoreFilters より先に確定する。_uniRestoreFilters は AF→_cvUpdateSearch を
   // 誘発することがあり、その時点で _cvSrchQ が未設定(空)だと searchQuery を空で上書きしてしまうため。
   _cvSrchQ = q;
-  window._uniVideoQ = q;
-  ['si-lib-pc','si-org','si-org-pc','si'].forEach(id => { const el = document.getElementById(id); if (el) el.value = q; });
+  // ここで window._uniVideoQ に入れてはいけない（v52.871）。
+  // _uniVideoQ は統合フィルターの「動画を探す」欄の別物で、判定は
+  //   タイトル＋チャンネル名に、打った文字がそのまま含まれるか
+  // だけ。演算子を解釈しないので、「-quick」を入れると **どの動画にも当たらず全部消える**。
+  // しかも見ているのはカード表示（filt）だけなので、「テーブルには出るのにカードは0本」になる。
+  // リストに保存された検索語はリロード後も復元されるため、一度この形になると
+  // ハードリロードしても 0本 のままだった。
+  window.wkSetSearchWord ? window.wkSetSearchWord(q, { silent: true })
+                         : ['si-lib-pc','si-org','si-org-pc','si'].forEach(id => { const el = document.getElementById(id); if (el) el.value = q; });
   // window.filters + boolean + titleQ を復元（記憶が無ければ空＝完全クリア）。
   // 条件ビューの filterConditions は window.filters に入れない（絞り込みは
   // _getViewVideos→_applyConditions→_cvVideoIds で行う。入れると次リストへ漏れる）。
@@ -470,6 +477,15 @@ window._cvRenameView = function(id) {
   _renderViewBar();
   const el = document.getElementById('cv-picker-overlay');
   if (el && el.style.display !== 'none') el.innerHTML = _buildPickerHTML();
+};
+
+// ── 開いているリストの範囲は1か所から読む（v52.871）──
+// 範囲を指す変数は2つある: カード型は _cvCardVideoIds、表型は _cvVideoIds。
+// filt() は _cvCardVideoIds だけ、orgFilt() は _cvVideoIds だけを見ていたので、
+// カード型のリストを開いてテーブルに切り替えると **リストに入っていない動画まで出ていた**。
+// どちらか入っている方を返す（両方 null なら範囲なし＝全部）。
+window.wkListScope = function () {
+  return window._cvVideoIds || window._cvCardVideoIds || null;
 };
 
 window._cvPickerSelect = function(id, fromNote) {

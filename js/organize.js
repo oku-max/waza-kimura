@@ -540,7 +540,11 @@ export function _matchFieldSpecific(v, field, values) {
 let _advSearch = null; // { include, exclude, fields, durMin, durMax, dateFrom, dateTo, source, status }
 
 export function orgFilt(list) {
-  if (window._cvVideoIds) list = list.filter(v => window._cvVideoIds.has(v.id));
+  // 開いているリストの範囲は1か所から読む（js/custom-view.js の wkListScope）。
+  // ここが _cvVideoIds だけを見ていたため、カード型のリストを開くと
+  // テーブルにリスト外の動画まで出ていた。
+  const _scope = window.wkListScope ? window.wkListScope() : (window._cvVideoIds || null);
+  if (_scope) list = list.filter(v => _scope.has(v.id));
   // 検索語は1か所から読む（js/search-word.js）。カードと同じ語を見る。
   const raw = window.wkSearchWord ? window.wkSearchWord() : '';
   const parsed = _parseQuery(raw);
