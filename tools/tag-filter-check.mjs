@@ -208,5 +208,19 @@ console.log('── ⑩ タグ付けウィザード・取り込みのタグも�
     && /\.\.\.\(t\.tg \? \{ tg: t\.tg \} : \{\}\)/.test(fs.readFileSync(path.join(ROOT, 'js/youtube.js'), 'utf8')));
 }
 
+console.log('── ⑪ 残りの場所（段階3c-3）──');
+{
+  const rd = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const notes = rd('js/notes.js'), uf = rd('js/unified-filter.js');
+  const edit = notes.slice(notes.indexOf('window._notesVlEdit'), notes.indexOf('window._notesVlSaveFilter'));
+  ck('★ ノートの動画リストを編集で開くとき、新しいグループの条件も渡す（渡さないと保存で消える）', /snap\[g\.id\] = \[\.\.\._TF\.selected\(f, g\.id, 'lib'\)\]/.test(edit));
+  ck('ノートの動画リストの条件の要約に、新しいグループの条件も出す', /_vlSummary[\s\S]{0,900}g\.store === 'map'/.test(notes));
+  ck('統合フィルターのタグのタブは、枠に新しいグループだけでも出る', /_R0\.slots\(\)\.some\(g => g && \(g\.store === 'map'/.test(uf));
+  ck('Journal の候補・動画パネルの検索メニューは allTagValues（新しいグループも入る）',
+    /tagRegistry\.allTagValues\(v\)/.test(rd('js/murmurs.js')) && /tagRegistry\.allTagValues\(v\)/.test(rd('js/vpanel.js')) && typeof R.allTagValues === 'function');
+  const A = { id: 'x', tb: ['T'], tags: ['K', 'T'], tg: { zz: ['M'] } };
+  ck('allTagValues は重複を1つにし、マーク・習得を含めない', J(R.allTagValues(Object.assign({ fav: true, status: '理解' }, A))) === J(['T', 'K']));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');
 process.exit(fail ? 1 : 0);

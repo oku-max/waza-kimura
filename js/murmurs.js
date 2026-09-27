@@ -212,7 +212,9 @@ export function detectTags(text) {
 
 // ─────────────────────────────── サジェスト
 // その名前がついた動画を全部出す。攻め／守りといった中身での選り分けはしない。
+// タグは今の4つ＋新しいタググループ（tag-registry.js の allTagValues。読む場所を1つにする）
 function _videoTags(v) {
+  if (window.tagRegistry && window.tagRegistry.allTagValues) return window.tagRegistry.allTagValues(v);
   return [...(v.pos || []), ...(v.cat || []), ...(v.tb || []), ...(v.tags || [])];
 }
 // 埋もれ度 — 再生していない × 追加が古い ほど高い

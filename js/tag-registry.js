@@ -325,13 +325,26 @@
     return out.join(' / ');
   }
 
+  // 動画1本に付いているタグの値すべて（今の4つ＋新しいタググループ。マーク・習得は含めない）。
+  // 「その名前が付いた動画」を探す画面（Journal の候補・動画パネルの検索メニュー）が使う。重複は1つにする
+  function allTagValues(v) {
+    _ensure();
+    const out = [], seen = new Set();
+    const add = x => { if (x != null && x !== '' && !seen.has(x)) { seen.add(x); out.push(x); } };
+    for (const g of _reg.groups) {
+      if (FIELD_STORES.includes(g.store)) readField(v, g.store).forEach(add);
+      else if (g.store === 'map') { const m = v && v.tg && typeof v.tg === 'object' ? v.tg[g.id] : null; if (Array.isArray(m)) m.forEach(add); }
+    }
+    return out;
+  }
+
   // 選択肢の見せ方（段階2c）: この数までは並べて押す。超えたらプルダウンから選ぶ。
   // 境目はここだけに置く（動画パネル・まとめて編集が同じ数を読む）。
   const CHIP_MAX = 8;
   function displayMode(optionCount) { return optionCount <= CHIP_MAX ? 'chips' : 'dropdown'; }
 
   window.tagRegistry = {
-    groups, group, slots, slotInfo, valuesOf, optionLabel, searchIds, searchText, searchTagText, raw,
+    groups, group, slots, slotInfo, valuesOf, allTagValues, optionLabel, searchIds, searchText, searchTagText, raw,
     strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
     setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote,

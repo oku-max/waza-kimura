@@ -3097,6 +3097,11 @@ function _vlSummary(filter) {
   if (f.tb.length)      parts.push(f.tb.join('/'));
   if (f.cat.length)     parts.push(f.cat.join('/'));
   if (f.pos.length)     parts.push(f.pos.join('/'));
+  // 新しいタググループの条件も出す（見えない条件にしない）
+  const _TF = window.tagFilter;
+  if (_TF && !_vlIsAnyTag(filter)) _TF.groups().filter(g => g.store === 'map').forEach(g => {
+    const a = [..._TF.selected(filter || {}, g.id, 'lib')]; if (a.length) parts.push(a.join('/'));
+  });
   if (f.tags.length)    parts.push('#' + f.tags.join(' #'));
   if (f.pl.length)      parts.push('PL:' + f.pl.join(','));
   if (f.status.length)  parts.push(f.status.join(','));
@@ -3299,6 +3304,9 @@ window._notesVlEdit = function(noteId, path) {
     _prDate:      f._prDate ?? null,
     titleQ:       f.titleQ || ''
   };
+  // 新しいタググループの条件（キーはグループID）も渡す。渡さないと、編集して保存したときに消える
+  const _TF = window.tagFilter;
+  if (_TF) _TF.groups().filter(g => g.store === 'map').forEach(g => { snap[g.id] = [..._TF.selected(f, g.id, 'lib')]; });
   window.uniOpenForVlBlock(noteId, String(path), snap);
 };
 

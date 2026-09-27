@@ -489,7 +489,11 @@
     const tabsEl = document.getElementById('uni-tabs');
     const bd = _badges();
     const _tsTabVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
-    const _tagTabVisible = _tsTabVis('tb') || _tsTabVis('cat') || _tsTabVis('pos') || _tsTabVis('tags');
+    // タグのタブは、枠に出すグループが1つでもあれば出す（新しいタググループだけでも出す）
+    const _R0 = window.tagRegistry;
+    const _tagTabVisible = _R0
+      ? _R0.slots().some(g => g && (g.store === 'map' || (['tb', 'cat', 'pos', 'tags'].includes(g.store) && _tsTabVis(g.store))))
+      : (_tsTabVis('tb') || _tsTabVis('cat') || _tsTabVis('pos') || _tsTabVis('tags'));
     const _visibleMain = MAIN.filter(m => m.k !== 'tag' || _tagTabVisible);
     tabsEl.innerHTML = _visibleMain.map(m =>
       `<div class="uni-tab${_tab===m.k?' on':''}" onclick="uniSetTab('${m.k}')">${m.label}${bd[m.k]?`<span class="uni-bdg">${bd[m.k]}</span>`:''}</div>`

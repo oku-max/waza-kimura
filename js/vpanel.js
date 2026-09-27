@@ -8493,7 +8493,8 @@ window.vpTogSearchMenu = function(e, id) {
   const btn = document.getElementById('vp-search-btn') || document.getElementById('vp-more-btn');
   if (!btn) return;
 
-  const tags = [...new Set([...(v.tb||[]), ...(v.cat||[]), ...(v.pos||[]), ...(v.tags||[])])].filter(Boolean);
+  const tags = window.tagRegistry?.allTagValues ? window.tagRegistry.allTagValues(v)
+    : [...new Set([...(v.tb||[]), ...(v.cat||[]), ...(v.pos||[]), ...(v.tags||[])])].filter(Boolean);
   const channel = v.channel || '';
 
   // ── メニュー要素を構築 ──
