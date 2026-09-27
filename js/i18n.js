@@ -2356,6 +2356,8 @@
     [/^↪ (\d+)本を「(.+)」に移動しました$/, '↪ Moved $1 videos to “$2”'],
     [/^⧉ (\d+)本を「(.+)」にコピーしました$/, '⧉ Copied $1 videos to “$2”'],
     [/^＋(\d+) 本に "(.+)" を追加$/, '+ Added “$2” to $1 videos'],
+    [/^(\d+)本に「(.+)」を追加$/, 'Added “$2” to $1 videos'],
+    [/^(\d+)本から「(.+)」を削除$/, 'Removed “$2” from $1 videos'],
     [/^−(\d+) 本から "(.+)" を削除$/, '− Removed “$2” from $1 videos'],
     [/^(\d+)本のチャンネルを「(.+)」に(.*)$/, 'Set channel of $1 videos to “$2”'],
     [/^(\d+)本のプレイリストを「(.+)」に(.*)$/, 'Set playlist of $1 videos to “$2”'],

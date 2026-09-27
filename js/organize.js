@@ -447,7 +447,7 @@ function _oneCharRe(core) {
 // 英語は「含む」で素直に照合する（v52.826 より前と同じ）。
 //   v52.826 で一律「単語の区切りで一致」にしたら、オーナーのタイトル
 //   「02-Quick1.」「30-Quick5.」のように語の直後に数字が来るものに当たらなくなり、
-//   quick の除外が 2,823本中1本も効かなくなっていた（v52.857 で元に戻した）。
+//   quick の除外が 2,823本中1本も効かなくなっていた（v52.860 で元に戻した）。
 function _hitField(text, f) {
   if (!text || !f) return false;
   const t = String(text);

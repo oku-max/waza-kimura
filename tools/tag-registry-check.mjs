@@ -140,7 +140,7 @@ const fnSrc = FB_SRC.slice(a, bEnd).replace(/export async function/g, 'async fun
 async function cloud({ settingsReady = true, docExists = false, docReg = null, getThrows = false, setThrows = false, templates = null, switchUserDuringGet = false } = {}) {
   const { win: w } = boot();
   w.getTagTemplatesRaw = () => templates;
-  const log = { gets: 0, sets: [], toasts: [] };
+  const log = { gets: 0, sets: [], toasts: [], snap: null };
   const env = {
     currentUser: { uid: 'U1' },
     _settingsReady: settingsReady,
@@ -154,6 +154,7 @@ async function cloud({ settingsReady = true, docExists = false, docReg = null, g
         return { exists: docExists, data: () => ({ reg: docReg }) };
       },
       set: async d => { if (setThrows) throw new Error('permission-denied'); log.sets.push(d); },
+      onSnapshot: (cb) => { log.snap = cb; return () => { log.snap = null; }; },
     }) }) }) }) },
     window: w,
   };
@@ -190,6 +191,25 @@ async function cloud({ settingsReady = true, docExists = false, docReg = null, g
   const sets1 = r.log.toasts.length;
   const again = await r.api.saveTagRegistry();
   ck('⑥ 書けなかったら1回だけ知らせ、以後は書かない', sets1 === 1 && again === false && r.log.toasts.length === 1 && r.api.st()._regWriteBlocked === true);
+  // ── 他の端末の変更を受け取る（段階3a）──
+  {
+    const base = boot().R.raw();
+    const rr = await cloud({ docExists: true, docReg: base });
+    const fire = (reg, extra) => rr.log.snap && rr.log.snap({ exists: true, metadata: { hasPendingWrites: !!(extra && extra.pending) }, data: () => Object.assign({ reg, updatedAt: '2999-01-01T00:00:00Z', savedBy: 'OTHER' }, extra || {}) });
+    ck('⑥ 読み込みの後、クラウドの変更を見張る', typeof rr.log.snap === 'function');
+    const other = JSON.parse(JSON.stringify(base)); other.slots[3] = null;
+    fire(other, { savedBy: 'S' });
+    ck('⑥ 自分が書いたものは受け取らない', rr.R.slots()[3] !== null);
+    fire(other, { pending: true });
+    ck('⑥ 送信中のものは受け取らない', rr.R.slots()[3] !== null);
+    await rr.api.saveTagRegistry();
+    fire(other, { updatedAt: '2000-01-01T00:00:00Z' });
+    ck('⑥ この端末が最後に書いたより古いもの（書く前の中身の遅い通知）は受け取らない', rr.R.slots()[3] !== null);
+    fire({ slots: [1] });
+    ck('⑥ 壊れた形は受け取らない', rr.R.slots()[3] !== null);
+    fire(other);
+    ck('⑥ 他の端末の新しい変更は受け取る', rr.R.slots()[3] === null);
+  }
   r = await cloud({ docExists: false, switchUserDuringGet: true });
   ck('⑥ 読んでいる間に別のユーザーに変わったら書かない', r.log.sets.length === 0);
 }
@@ -220,6 +240,34 @@ ck('⑥ settings doc には一覧を入れない（古いタブが丸ごと .set
   ck('⑧ 復元で一覧が戻る（形が合うときだけ・無い古いバックアップでは今のまま）', /if \(data\.tagRegistry && window\.tagRegistry\?\.applyRemote\(data\.tagRegistry\)\)/.test(imp));
   ck('⑧ 復元でテンプレートが戻る（applyRemoteSettings が data.tagTemplates を読む）', /data\.tagTemplates/.test(read('js/settings.js')) && /window\.applyRemoteSettings\?\.\(data\)/.test(imp));
   ck('⑧ 一覧の script が読み込まれている（テンプレートの後）', html.indexOf('js/tag-templates.js') > 0 && html.indexOf('js/tag-templates.js') < html.indexOf('js/tag-registry.js'));
+}
+
+// ── ⑨ 編集（段階3a）──
+{
+  const { win, R, store } = boot();
+  let saves = 0, events = 0;
+  win.saveTagRegistry = () => { saves++; };
+  win.CustomEvent = function (n) { this.type = n; };
+  win.dispatchEvent = e => { if (e.type === 'wk-tagreg') events++; };
+  R.reconcile({ seeded: true, list: [{ id: 'm', name: 'M', values: ['a'] }] });
+  const ids = () => R.slotInfo().map(x => x && x.id);
+  ck('⑨ 未使用のグループを空いていない枠へ → 元いたグループは未使用へ', R.setSlot('t_m', 1) && J(ids()) === J(['f_tb', 't_m', 'f_pos', 'f_tags']) && R.group('f_cat').slot === -1);
+  ck('⑨ 枠どうしは入れ替え', R.setSlot('f_tags', 0) && J(ids()) === J(['f_tags', 't_m', 'f_pos', 'f_tb']));
+  ck('⑨ 未使用にする → 枠は空く', R.setSlot('t_m', -1) && J(ids()) === J(['f_tags', null, 'f_pos', 'f_tb']));
+  ck('⑨ 変えるたびに保存と画面への知らせ', saves === 3 && events === 3, `${saves}/${events}`);
+  ck('⑨ 端末の控えにも書く', JSON.parse(store.wk_tagRegistry).slots[1] === null);
+  ck('⑨ 検索の対象を切り替える', R.setSearch('f_pos', false) && !R.searchIds().includes('f_pos') && R.setSearch('f_pos', true));
+  ck('⑨ 今の4つの名前・選択肢はここでは変えない（tagSettings が正）', !R.setName('f_tb', 'X') && !R.addOption('f_tb', 'X'));
+  ck('⑨ マーク・習得の選択肢は変えられない', !R.addOption('mark', 'X') && !R.removeOption('status', '理解'));
+  ck('⑨ マーク・習得の名前は変えられる（空にはしない）', R.setName('mark', '印') && R.group('mark').name === '印' && !R.setName('mark', '  '));
+  ck('⑨ 新しいグループの選択肢を足す・外す（重複・空は足さない）', R.addOption('t_m', 'b') && !R.addOption('t_m', 'b') && !R.addOption('t_m', ' ') && R.removeOption('t_m', 'a') && J(R.group('t_m').options) === J(['b']));
+  const nid = R.createGroup('練習', 1);
+  ck('⑨ 新しく作る → その枠に入る（空いていた枠）', !!nid && ids()[1] === nid && R.group(nid).name === '練習' && R.group(nid).store === 'map');
+  ck('⑨ 名前が空なら既定の名前', R.group(R.createGroup('  ')).name === '新しいタググループ');
+  const fut = R.raw(); fut.v = 99; R.applyRemote(fut);
+  ck('⑨ 自分より新しい形の一覧は編集しない', !R.setSlot('f_tb', 1) && !R.setSearch('f_tb', false) && R.createGroup('x') === null);
+  const code = REG_SRC.replace(/\/\/.*$/gm, '');
+  ck('⑨ 編集は動画に触らない（v. への代入・wkSetTagValue が無い）', !/\bv\s*\.\s*\w+\s*=[^=]/.test(code) && !/wkSetTagValue/.test(code));
 }
 
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タググループの一覧: 問題なし');

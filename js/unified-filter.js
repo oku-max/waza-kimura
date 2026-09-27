@@ -81,7 +81,8 @@
     const next  = isOrg ? window.orgNextOnly    : window.nextOnly;
     const drill = isOrg ? window.orgDrillOnly   : window.drillOnly;
     // タグの条件は1回だけ組み立てる。excludeKey がタグの列（tb/cat/pos/tags）ならそのグループだけ外す
-    const _tagOk = _TF().compile(f, _sch(), { except: ['tb','cat','pos','tags'].includes(excludeKey) ? _gidC(excludeKey) : null });
+    const _exGid = ['tb','cat','pos','tags'].includes(excludeKey) ? _gidC(excludeKey) : (excludeKey ? _TF().gidForKey(excludeKey, _sch()) : null);
+    const _tagOk = _TF().compile(f, _sch(), { except: _exGid });
     const _mq = _mainQMatcher();
     // タイトルタブの検索クエリ — 他タブのファセット計算にも適用して双方向連動させる
     const _vidTabQ = _queries['video'];
@@ -291,8 +292,9 @@
     const sortMode = (opts.sortable !== false) ? (_sort[listKey] || 'abc') : null;
 
     // r.warn … 選択中なのに「どの動画にも無い」「選択肢に無い」値の印（タグ列だけが付ける）
+    // 値は data 属性で渡す（' を含む名前で onclick の文字列が壊れていた）
     const _mkRow = r =>
-      `<div class="uni-row${r.sel ? ' on' : ''}" onclick="uniToggle('${opts.filterKey}','${_esc(r.name).replace(/'/g,'&#39;')}')">` +
+      `<div class="uni-row${r.sel ? ' on' : ''}" data-k="${_esc(opts.filterKey)}" data-n="${_esc(r.name)}" onclick="uniToggleEl(this)">` +
       `<span>${_esc(r.name)}</span>` +
       (r.warn ? `<span class="uni-warn" style="font-size:10px;color:#d97706;margin-left:6px;margin-right:auto;white-space:nowrap">⚠ ${_esc(r.warn)}</span>` : '') +
       `<span class="uni-cnt">${r.cnt}</span></div>`;
@@ -314,7 +316,7 @@
       `<option value="cnt"${sortMode==='cnt'?' selected':''}>件数順</option>` +
       `</select>`;
     return `<div class="uni-col${opts.narrow ? ' narrow' : ''}">
-      <div class="uni-col-hdr"><span>${title}</span>${sortSel}</div>
+      <div class="uni-col-hdr"><span${opts.userText ? ' data-user-text="1"' : ''}>${title}</span>${sortSel}</div>
       <div class="uni-col-body">${rows}</div>
     </div>`;
   }
@@ -755,49 +757,37 @@
     }
 
     else {
-      // tag — 書く呼び名は tag-filter.js が決める（lib: tbNew/cat/posNew/tags、org: tb/action/position/tags）
-      const tkTb = _tk('tb'), tkCat = _tk('cat'), tkPos = _tk('pos'), tkTags = _tk('tags');
-
-      // 候補はユーザーの選択肢（tagPresets）から作る。サイドバーと同じ（Notion 確認事項03・v52.818）。
-      // 「タグがいつでも正」。以前は検索辞書（TB_VALUES / CATEGORIES / POSITIONS）から作っていたので、
-      // テンプレートから入れた値が出ず、上下は選択肢を変えても固定の3つのままだった。
+      // tag — 列 = タグ1〜4の枠に入っているグループ（段階2d。枠を入れ替えると列も付いてくる）。
+      // 書く呼び名は tag-filter.js が決める（lib: tbNew/cat/posNew/tags、org: tb/action/position/tags、新しいグループはID）。
+      // 候補はユーザーの選択肢（Notion 確認事項03・v52.818）。タグ4は選択肢を持たないので動画に付いている値。
       // 今選択されている値は、選択肢から消えていても必ず出す（見えない条件を作らない）。
       // その値がどの動画にも無ければ「該当する動画なし」、選択肢に無ければ「選択肢に無い」と印を付ける。
       const _allVids = window.videos || [];
-      const _opts = (key, fallback) => (window.tagPresets ? window.tagPresets(key) : fallback()).slice();
-      const _mkItems = (field, fk, src, ctx) => {
-        const sel = _tsel(f, field);   // どの呼び名で入っていても選択として見せる（見えない条件を作らない）
+      const _FIELDS = ['tb', 'cat', 'pos', 'tags'];
+      const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
+      const _R = window.tagRegistry;
+      const _gs = (_R ? _R.slots() : []).filter(g => g && (_FIELDS.includes(g.store) || g.store === 'map'))
+        .filter(g => g.store === 'map' || _tsV(g.store));
+      const _mkItems = (g, src, ctx) => {
+        const sel = _TF().selected(f, g.id, _sch());   // どの呼び名で入っていても選択として見せる
         const names = src.slice();
         [...sel].forEach(n => { if (!names.includes(n)) names.push(n); });
         const inOpt = new Set(src);
         return names.map(n => {
-          const it = { name: n, cnt: ctx.filter(v => (v[field] || []).includes(n)).length, sel: sel.has(n) };
-          if (it.sel && _allVids.length && !_allVids.some(v => (v[field] || []).includes(n))) it.warn = '該当する動画なし';
+          const it = { name: n, cnt: ctx.filter(v => _TF().valuesOf(v, g.id).includes(n)).length, sel: sel.has(n) };
+          if (it.sel && _allVids.length && !_allVids.some(v => _TF().valuesOf(v, g.id).includes(n))) it.warn = '該当する動画なし';
           else if (it.sel && !inOpt.has(n)) it.warn = '選択肢に無い';
           return it;
         });
       };
-
-      const tbItems  = _mkItems('tb',  tkTb,  _opts('tb',  () => window.TB_VALUES || []), _ctxVideos('tb'));
-
-      const catLabel = window.tagLabel ? window.tagLabel('cat') : 'cat';
-      const catItems = _mkItems('cat', tkCat, _opts('cat', () => (window.CATEGORIES || []).map(c => c.name)), _ctxVideos('cat'));
-
-      const posLabel = window.tagLabel ? window.tagLabel('pos') : 'pos';
-      const posItems = _mkItems('pos', tkPos, _opts('pos', () => (window.POSITIONS || []).map(p => p.ja)), _ctxVideos('pos'));
-
-      // 4つ目（自由タグ）は選択肢を持たない。動画に付いている値がそのまま候補（サイドバーと同じ）。
-      const tagsLabel = window.tagLabel ? window.tagLabel('tags') : 'tags';
-      const tagsSrc   = [...new Set(_allVids.filter(v => !v.archived).flatMap(v => v.tags || []))].filter(Boolean).sort();
-      const tagItems  = _mkItems('tags', tkTags, tagsSrc, _ctxVideos('tags'));
-
-      const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
-      const tagCols = [
-        _tsV('tb')   && _colHtml('T/B',      'tb',   tbItems,  { filterKey: tkTb }),
-        _tsV('cat')  && _colHtml(catLabel,   'cat',  catItems, { filterKey: tkCat }),
-        _tsV('pos')  && _colHtml(posLabel,   'pos',  posItems, { filterKey: tkPos }),
-        _tsV('tags') && _colHtml(tagsLabel,  'tags', tagItems, { filterKey: tkTags }),
-      ].filter(Boolean).join('');
+      const tagCols = _gs.map(g => {
+        const listKey = _FIELDS.includes(g.store) ? g.store : g.id;   // 並べ替えの記憶（今の4つは今までどおり）
+        const src = g.store === 'tags'
+          ? [...new Set(_allVids.filter(v => !v.archived).flatMap(v => _TF().valuesOf(v, g.id)))].filter(Boolean).sort()
+          : g.options.slice();
+        const items = _mkItems(g, src, _ctxVideos(listKey));
+        return _colHtml(_esc(g.name), listKey, items, { filterKey: _TF().keyFor(g.id, _sch()), userText: true });
+      }).join('');
       content.innerHTML = `<div class="uni-cols">${tagCols}${_mkVideoCol()}</div>`;
       _restoreColScrolls();
       _scrollToVidCol();
@@ -831,7 +821,8 @@
     [...(f.platform||[])].forEach(v => pills.push(['platform', v]));
     [...(f.channel ||[])].forEach(v => pills.push(['channel',  v]));
     [...(f.playlist||[])].forEach(v => pills.push(['playlist', v]));
-    ['tb','cat','pos','tags'].forEach(col => [..._tsel(f, col)].forEach(v => pills.push([_tk(col), v])));
+    // タグ: すべてのグループの選択を出す（枠に無い・しまってあるグループの選択も、見えない条件にしない）
+    _TF().groups().forEach(g => [..._TF().selected(f, g.id, _sch())].forEach(v => pills.push([_TF().keyFor(g.id, _sch()), v])));
     [...(f.videoIds||[])].forEach(id => {
       const vid = (window.videos||[]).find(v => v.id === id);
       const lbl = vid?.title ? (vid.title.length > 25 ? vid.title.slice(0, 25) + '…' : vid.title) : id;
@@ -840,7 +831,7 @@
 
     const pillsEl = document.getElementById('uni-pills');
     pillsEl.innerHTML = pills.length
-      ? pills.map(([k, val, lbl]) => `<span class="uni-pill" onclick="uniToggle('${k}','${_esc(String(val)).replace(/'/g,'&#39;')}')">${_esc(String(lbl !== undefined ? lbl : val))}</span>`).join('')
+      ? pills.map(([k, val, lbl]) => `<span class="uni-pill" data-k="${_esc(k)}" data-n="${_esc(String(val))}" onclick="uniToggleEl(this)">${_esc(String(lbl !== undefined ? lbl : val))}</span>`).join('')
       : '<span style="color:var(--text3);font-size:11px">なし</span>';
 
     // Hit
@@ -1071,6 +1062,7 @@
     }
     _render();
   };
+  window.uniToggleEl = function (el) { window.uniToggle(el.dataset.k, el.dataset.n); };
   window.uniToggle = function (key, val) {
     const isOrg = _ctx === 'org';
     const f = isOrg ? (window.orgFilters || {}) : (window.filters || {});
