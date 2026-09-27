@@ -80,14 +80,42 @@ export function buildOrgTblSortOptions() {
 window.buildOrgTblSortOptions = buildOrgTblSortOptions;
 window.orgTblSortKey = function(val) { orgSortCol = val || null; orgSortAsc = true; _syncOrgTblSortUI(); renderOrg(); };
 window.orgTblTogDir  = function() { orgSortAsc = !orgSortAsc; _syncOrgTblSortUI(); renderOrg(); };
-// タグ列(4グループ)の見出しはユーザーが付けた名前。ここに直接書かない。
-// 列キー(tb/action/position/technique)とグループキー(tb/cat/pos/tags)は別物なので対応表を持つ。
-const _ORG_TAG_COL_KEY = { tb:'tb', action:'cat', position:'pos', technique:'tags' };
+// タグの列（段階3c）: 列キー tb/action/position/technique は「タグ1〜4の枠」を指す。
+// 中身は枠に入っているグループ（設定で入れ替えれば列の中身も付いてくる）。
+// 列キーは変えない。保存済みの列の並び・表示・幅（この端末・クラウド・カスタムリストごと）を
+// そのまま読めるようにするため。見出しはグループの名前（ユーザーが付けた名前。ここに直接書かない）。
+const _ORG_SLOT_COL = { tb:0, action:1, position:2, technique:3 };
+const _ORG_FIELDS = ['tb', 'cat', 'pos', 'tags'];
+const _orgEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const _isOrgTagCol = col => Object.prototype.hasOwnProperty.call(_ORG_SLOT_COL, col);
+// その列（枠）に入っているグループ。空いた枠と、マーク・習得（別の列がある。段階5で合わせる）は null
+function _orgSlotGroup(col) {
+  if (!_isOrgTagCol(col)) return null;
+  const k = _ORG_SLOT_COL[col];
+  const R = window.tagRegistry;
+  if (!R) {
+    const f = _ORG_FIELDS[k];
+    return { id: 'f_' + f, store: f, name: window.tagLabel ? window.tagLabel(f) : col, options: window.tagPresets ? window.tagPresets(f) : [] };
+  }
+  const g = R.slots()[k];
+  return g && (_ORG_FIELDS.includes(g.store) || g.store === 'map') ? g : null;
+}
+const _orgTagVals = (v, g) => (window.tagRegistry ? window.tagRegistry.valuesOf(v, g.id) : (v[g.store] || []));
+// 列を出すか（タグの列: 枠が埋まっていて、そのグループが非表示でない。ほかの列は常に true）
+function _orgTagColShown(col) {
+  if (!_isOrgTagCol(col)) return true;
+  const g = _orgSlotGroup(col);
+  if (!g) return false;
+  if (_ORG_FIELDS.includes(g.store)) {
+    const s = (window.tagSettings || []).find(t => t.key === g.store);
+    if (s && s.visible === false) return false;
+  }
+  return true;
+}
 export const ORG_COL_LABELS = {counter:'カウント', status:'習得', channel:'チャンネル', playlist:'プレイリスト', memo:'要約/メモ', addedAt:'追加日', fav:'お気に入り', next:'🎯 Next', drill:'ドリル', duration:'長さ'};
 // 列見出しの取り出しは必ずこの関数を通す
 export function orgColLabel(col) {
-  const k = _ORG_TAG_COL_KEY[col];
-  if (k) return window.tagLabel ? window.tagLabel(k) : col;
+  if (_isOrgTagCol(col)) { const g = _orgSlotGroup(col); return g ? g.name : 'タグ' + (_ORG_SLOT_COL[col] + 1); }
   return ORG_COL_LABELS[col] || col;
 }
 export const ORG_COL_WIDTHS = _orgPrefs.widths;
@@ -790,10 +818,7 @@ export function renderOrg() {
     else if (orgSortCol === 'addedAt')   { av = a.addedAt||''; bv = b.addedAt||''; }
     else if (orgSortCol === 'duration')  { av = a.duration||0; bv = b.duration||0; }
     else if (orgSortCol === 'fav')       { av = a.fav?0:1; bv = b.fav?0:1; }
-    else if (orgSortCol === 'tb')        { av=(a.tb||[]).join(); bv=(b.tb||[]).join(); }
-    else if (orgSortCol === 'action')    { av=(a.cat||[]).join(); bv=(b.cat||[]).join(); }
-    else if (orgSortCol === 'position')  { av=(a.pos||[]).join(); bv=(b.pos||[]).join(); }
-    else if (orgSortCol === 'technique') { av=(a.tags||[]).join(); bv=(b.tags||[]).join(); }
+    else if (_isOrgTagCol(orgSortCol))  { const g = _orgSlotGroup(orgSortCol); av = g ? _orgTagVals(a, g).join() : ''; bv = g ? _orgTagVals(b, g).join() : ''; }
     else if (orgSortCol === 'status')         { av=window.statusRank(a.status); bv=window.statusRank(b.status); }
     else if (orgSortCol === 'lastPlayed')    { av=a.lastPlayed||0; bv=b.lastPlayed||0; }
     else if (orgSortCol === 'playCount')     { av=a.playCount||0; bv=b.playCount||0; }
@@ -833,15 +858,11 @@ export function renderOrg() {
 
   // ── 行HTML生成関数 ──
   const _fcv = window.filterColVis || {};
-  const _tsVis = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvFilter = col => {
     if (_fcv.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv.status === false && col === 'status') return false;
     if (_fcv.rank   === false && col === 'counter') return false;
-    if (col === 'tb'        && !_tsVis('tb'))   return false;
-    if (col === 'action'    && !_tsVis('cat'))  return false;
-    if (col === 'position'  && !_tsVis('pos'))  return false;
-    if (col === 'technique' && !_tsVis('tags')) return false;
+    if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
   };
   const visCols = orgColOrder.filter(col => orgColVisibility[col] !== false && _fcvFilter(col));
@@ -861,15 +882,12 @@ export function renderOrg() {
     }
 
     const mkTagCell = (items, filterKey, colKey) => {
-      const chips = items.map(t => `<span class="org-tag-chip">${t}</span>`).join('');
+      const chips = items.map(t => `<span class="org-tag-chip">${_orgEsc(t)}</span>`).join('');
       return `<td class="org-td" data-col="${colKey}" style="overflow:hidden">
         <div class="org-tag-cell">${chips || '<span style="font-size:10px;color:var(--text3)">—</span>'}</div></td>`;
     };
     const scrollCells = visCols.map(col => {
-      if (col === 'tb')        return mkTagCell(v.tb||[], 'tb', 'tb');
-      if (col === 'action')    return mkTagCell(v.cat||[], 'action', 'action');
-      if (col === 'position')  return mkTagCell(v.pos||[], 'position', 'position');
-      if (col === 'technique') return mkTagCell(v.tags||[], 'tags', 'technique');
+      if (_isOrgTagCol(col)) { const g = _orgSlotGroup(col); return mkTagCell(g ? _orgTagVals(v, g) : [], null, col); }
       if (col === 'status') {
         const sN = window.normStatus(v.status);
         return `<td class="org-td" data-col="status" style="white-space:nowrap">${_statusSpan(sN)}</td>`;
@@ -957,7 +975,7 @@ export function renderOrg() {
   requestAnimationFrame(adjustOrgTableHeight);
   _bindOrgInlineEdit();
   // フィルターアイコンを全列同期
-  Object.keys(_colFilterConfig).forEach(c => _syncFiltIcon(c));
+  Object.keys(_colFilterConfig).concat(Object.keys(_ORG_SLOT_COL)).forEach(c => _syncFiltIcon(c));
   // GDriveサムネをproxy経由で差し込み（トークン取得後に備えて）
   window.loadGdriveCardThumbs?.();
   window._cvAfterRender?.();
@@ -970,15 +988,11 @@ export function syncOrgColHeaders() {
   if (!thead) return;
   [...thead.querySelectorAll('th[data-col]')].forEach(el => el.remove());
   const _fcv2 = window.filterColVis || {};
-  const _tsVis2 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   const _fcvFilter2 = col => {
     if (_fcv2.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv2.status === false && col === 'status') return false;
     if (_fcv2.rank   === false && col === 'counter') return false;
-    if (col === 'tb'        && !_tsVis2('tb'))   return false;
-    if (col === 'action'    && !_tsVis2('cat'))  return false;
-    if (col === 'position'  && !_tsVis2('pos'))  return false;
-    if (col === 'technique' && !_tsVis2('tags')) return false;
+    if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
   };
   orgColOrder.filter(col => orgColVisibility[col] !== false && _fcvFilter2(col)).forEach(col => {
@@ -1012,7 +1026,7 @@ export function syncOrgColHeaders() {
     th.appendChild(labelSpan);
     th.appendChild(sortIndicator);
     // フィルターアクティブインジケーター
-    const filtCfg = _colFilterConfig[col];
+    const filtCfg = _colFilterCfg(col);
     if (filtCfg) {
       const hasActive = orgFilters[filtCfg.filterKey] && orgFilters[filtCfg.filterKey].size > 0;
       const filtIcon = document.createElement('span');
@@ -1290,15 +1304,11 @@ export function orgTogSelAll(cb) {
 // 列メニューに並ぶ標準列（フィルタ設定で丸ごと隠れている列は出さない）
 function _orgMenuCols() {
   const _fcv3 = window.filterColVis || {};
-  const _tsVis3 = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
   return orgColOrder.filter(col => {
     if (_fcv3.mark   === false && (col === 'fav' || col === 'next')) return false;
     if (_fcv3.status === false && col === 'status') return false;
     if (_fcv3.rank   === false && col === 'counter') return false;
-    if (col === 'tb'        && !_tsVis3('tb'))   return false;
-    if (col === 'action'    && !_tsVis3('cat'))  return false;
-    if (col === 'position'  && !_tsVis3('pos'))  return false;
-    if (col === 'technique' && !_tsVis3('tags')) return false;
+    if (!_orgTagColShown(col)) return false;   // タグの列: 空いた枠・非表示のグループは出さない
     return true;
   });
 }
@@ -1317,7 +1327,7 @@ function _buildOrgColMenuHTML() {
         <button onclick="orgMoveCol('${col}',1)" style="background:none;border:1px solid var(--border);border-radius:4px;font-size:14px;cursor:pointer;padding:4px 7px;opacity:${i===_visibleOrgCols.length-1?'.2':'1'};min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center" ${i===_visibleOrgCols.length-1?'disabled':''}>▼</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;flex:1">
           <input type="checkbox" ${orgColVisibility[col]!==false?'checked':''} onchange="orgColVisibility['${col}']=this.checked;_saveOrgColPrefs();renderOrg()" style="accent-color:var(--accent);width:14px;height:14px">
-          ${orgColLabel(col)}
+          <span data-user-text="1">${_orgEsc(orgColLabel(col))}</span>
         </label>
       </div>`).join('');
   const cvSection = window._cvGetColMenuSection?.();
@@ -1527,13 +1537,36 @@ export function openTagFilterFor(colKey, filterKey, thEl, highlightTag) { return
 // その動画に付いているのに選択肢に無い値は、_openTagPicker が先頭に足すので外せる。
 const _orgPresets = key => (window.tagPresets ? window.tagPresets(key) : []).filter(Boolean).slice();
 const _INLINE_COLS = {
-  tb:        { field: 'tb',   type: 'tags', opts: () => _orgPresets('tb') },
-  action:    { field: 'cat',  type: 'tags', opts: () => _orgPresets('cat') },
-  position:  { field: 'pos',  type: 'tags', opts: () => [...new Set([..._orgPresets('pos'), ...(window.videos||[]).flatMap(v=>v.pos||[])])].sort() },
-  technique: { field: 'tags', type: 'tags', opts: () => [...new Set((window.videos||[]).flatMap(v=>v.tags||[]))].sort(), allowNew: true },
   memo:      { field: 'memo', type: 'text' },
   status:    { field: 'status', type: 'radio', opts: () => window.STATUS_CANON || [] },
 };
+
+// タグの列は枠のグループを編集する（段階3c）。候補は今までと同じ:
+//   上下・カテゴリ … 選択肢だけ／ポジション・新しいグループ … 選択肢＋ほかの動画に付いている値／
+//   テクニック … 選択肢＋ほかの動画に付いている値、新しい値を打ち込める
+// 書き込みは動画パネルと同じ wkSetTagValue（そのグループの配列だけを触る）。
+function _inlineCfg(col) {
+  if (!_isOrgTagCol(col)) return _INLINE_COLS[col] || null;
+  const g = _orgSlotGroup(col);
+  if (!g) return null;
+  const fromVideos = () => (window.videos || []).flatMap(x => _orgTagVals(x, g));
+  const opts = (g.store === 'tb' || g.store === 'cat')
+    ? () => (g.options || []).filter(Boolean).slice()
+    : () => [...new Set([...(g.options || []), ...fromVideos()])].filter(Boolean).sort();
+  return { group: g, type: 'tags', opts, allowNew: g.store === 'tags' };
+}
+function _inlineSet(v, g, val, on) {
+  if (window.wkSetTagValue) return window.wkSetTagValue(v, g.id, val, on);
+  // vpanel-v4.js が無いときの控え（今の4つだけ。新しいグループは書かない）
+  if (!_ORG_FIELDS.includes(g.store)) return false;
+  if (!Array.isArray(v[g.store])) v[g.store] = [];
+  const i = v[g.store].indexOf(val);
+  if (on && i < 0) v[g.store].push(val);
+  if (!on && i >= 0) v[g.store].splice(i, 1);
+  return true;
+}
+const _orgChipsHTML = tags => tags.map(t => `<span class="org-tag-chip">${_orgEsc(t)}</span>`).join('')
+  || '<span style="font-size:10px;color:var(--text3)">—</span>';
 
 let _orgInlineActive = null; // { videoId, col, td, origHTML, picker }
 
@@ -1589,7 +1622,7 @@ function _handleInlineTrigger(e) {
     _orgBumpPractice(videoId, td);
     return;
   }
-  if (!_INLINE_COLS[col]) return;
+  if (!_inlineCfg(col)) return;
   _openOrgInlineEditor(videoId, col, td);
 }
 
@@ -1598,7 +1631,8 @@ function _openOrgInlineEditor(videoId, col, td) {
   _closeOrgInlineEditor(true);
   const v = (window.videos || []).find(x => x.id === videoId);
   if (!v) return;
-  const cfg = _INLINE_COLS[col];
+  const cfg = _inlineCfg(col);
+  if (!cfg) return;
   const origHTML = td.innerHTML;
   td.classList.add('org-td-editing');
 
@@ -1678,8 +1712,9 @@ function _openRadioPicker(v, cfg, col, td) {
 }
 
 function _openTagPicker(v, cfg, col, td) {
-  const field = cfg.field;
-  const current = v[field] || [];
+  const g = cfg.group;
+  const cur = () => _orgTagVals(v, g);
+  const current = cur();
   const allOpts = cfg.opts();
   // 既存に無いユーザータグも表示
   const extra = current.filter(t => !allOpts.includes(t));
@@ -1724,7 +1759,7 @@ function _openTagPicker(v, cfg, col, td) {
   picker.appendChild(listEl);
 
   const refreshChips = () => {
-    const tags = v[field] || [];
+    const tags = cur();
     chipsEl.innerHTML = '';
     tags.forEach(t => {
       const chip = document.createElement('span');
@@ -1735,7 +1770,7 @@ function _openTagPicker(v, cfg, col, td) {
       x.style.cursor = 'pointer';
       x.addEventListener('click', (e) => {
         e.stopPropagation();
-        v[field] = (v[field] || []).filter(tag => tag !== t);
+        _inlineSet(v, g, t, false);
         refreshChips();
         renderOpts();
         _inlineSave(v, td, col);
@@ -1759,15 +1794,10 @@ function _openTagPicker(v, cfg, col, td) {
       lbl.className = 'org-inline-opt';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.checked = (v[field] || []).includes(opt);
+      cb.checked = cur().includes(opt);
       cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer';
       cb.addEventListener('change', () => {
-        if (cb.checked) {
-          if (!v[field]) v[field] = [];
-          if (!v[field].includes(opt)) v[field].push(opt);
-        } else {
-          v[field] = (v[field] || []).filter(t => t !== opt);
-        }
+        _inlineSet(v, g, opt, cb.checked);
         refreshChips();
         _inlineSave(v, td, col);
       });
@@ -1786,8 +1816,7 @@ function _openTagPicker(v, cfg, col, td) {
       addBtn.style.cssText = 'padding:5px 8px;font-size:11px;color:var(--accent);cursor:pointer;border-top:1px solid var(--border);margin-top:4px';
       addBtn.textContent = `＋「${q}」を追加`;
       addBtn.addEventListener('click', () => {
-        if (!v[field]) v[field] = [];
-        if (!v[field].includes(q)) v[field].push(q);
+        _inlineSet(v, g, q, true);
         if (!fullOpts.includes(q)) fullOpts.push(q);
         searchBox.value = '';
         refreshChips();
@@ -1805,8 +1834,7 @@ function _openTagPicker(v, cfg, col, td) {
     searchBox.addEventListener('keydown', e => {
       if (e.key === 'Enter' && searchBox.value.trim()) {
         const newTag = searchBox.value.trim();
-        if (!v[field]) v[field] = [];
-        if (!v[field].includes(newTag)) v[field].push(newTag);
+        _inlineSet(v, g, newTag, true);
         if (!fullOpts.includes(newTag)) fullOpts.push(newTag);
         searchBox.value = '';
         refreshChips();
@@ -1866,13 +1894,11 @@ function _inlineSave(v, td, col) {
 
 function _refreshCellDisplay(v, td, col) {
   // renderOrg を呼ばずにセルだけ再描画
-  const cfg = _INLINE_COLS[col];
+  const cfg = _inlineCfg(col);
   if (!cfg || cfg.type !== 'tags') return;
-  const tags = v[cfg.field] || [];
   const inner = td.querySelector('.org-tag-cell');
   if (!inner) return;
-  inner.innerHTML = tags.map(t => `<span class="org-tag-chip">${t}</span>`).join('')
-    || '<span style="font-size:10px;color:var(--text3)">—</span>';
+  inner.innerHTML = _orgChipsHTML(_orgTagVals(v, cfg.group));
 }
 
 function _closeOrgInlineEditor(save) {
@@ -1887,14 +1913,11 @@ function _closeOrgInlineEditor(save) {
   if (picker) picker.remove();
   td.classList.remove('org-td-editing');
 
-  const cfg = _INLINE_COLS[col];
+  const cfg = _inlineCfg(col);
   if (cfg?.type === 'tags') {
     // タグセルを最新値で再描画
     const v = (window.videos || []).find(x => x.id === videoId);
-    if (v) {
-      const tags = v[cfg.field] || [];
-      td.innerHTML = `<div class="org-tag-cell">${tags.map(t => `<span class="org-tag-chip">${t}</span>`).join('') || '<span style="font-size:10px;color:var(--text3)">—</span>'}</div>`;
-    }
+    if (v) td.innerHTML = `<div class="org-tag-cell">${_orgChipsHTML(_orgTagVals(v, cfg.group))}</div>`;
   } else if (cfg?.type === 'text') {
     const v = (window.videos || []).find(x => x.id === videoId);
     if (v) {
@@ -1938,11 +1961,15 @@ function _orgBumpPractice(videoId, td) {
 
 // ── 列フィルター設定 ──
 const _BLANK = '(空白)';
+// タグの列は枠のグループで絞る。呼び名は tag-filter.js が決める（今の4つは tb/action/position/tags のまま）
+function _colFilterCfg(col) {
+  if (!_isOrgTagCol(col)) return _colFilterConfig[col] || null;
+  const g = _orgSlotGroup(col);
+  if (!g) return null;
+  const key = window.tagFilter ? window.tagFilter.keyFor(g.id, 'org') : ({ tb:'tb', cat:'action', pos:'position', tags:'tags' }[g.store] || g.id);
+  return { filterKey: key, valueGetter: v => { const a = _orgTagVals(v, g); return a.length ? a : [_BLANK]; } };
+}
 const _colFilterConfig = {
-  tb:             { filterKey: 'tb',             valueGetter: v => { const a = v.tb||[]; return a.length ? a : [_BLANK]; } },
-  action:         { filterKey: 'action',         valueGetter: v => { const a = v.cat||[]; return a.length ? a : [_BLANK]; } },
-  position:       { filterKey: 'position',       valueGetter: v => { const a = v.pos||[]; return a.length ? a : [_BLANK]; } },
-  technique:      { filterKey: 'tags',           valueGetter: v => { const a = v.tags||[]; return a.length ? a : [_BLANK]; } },
   channel:        { filterKey: 'channel',        valueGetter: v => { const c = v.channel||v.ch; return c ? [c] : [_BLANK]; }, panel: true },
   next:            { filterKey: 'next',            valueGetter: v => [v.next ? '🎯 Next' : '○ 未設定'], noSearch: true },
   counter:         { filterKey: 'counter',         valueGetter: v => {
@@ -1982,7 +2009,7 @@ export function openOrgColFilter(col, thEl) {
   if (isSame) return;
   _openColFilterCol = col;
 
-  const cfg = _colFilterConfig[col];
+  const cfg = _colFilterCfg(col);
   const filterKey = cfg ? cfg.filterKey : null;
 
   // この列以外のフィルターを適用した動画リストから値を集計（コンテキストフィルタ）
@@ -2235,7 +2262,7 @@ function _syncFiltIcon(col) {
   if (!th) return;
   const icon = th.querySelector('.org-filt-icon');
   if (!icon) return;
-  const cfg = _colFilterConfig[col];
+  const cfg = _colFilterCfg(col);
   let active = cfg && orgFilters[cfg.filterKey] && orgFilters[cfg.filterKey].size > 0;
   if (col === 'memo' && orgMemoSearch) active = true;
   if (col === 'channel' && orgChannelSearch) active = true;

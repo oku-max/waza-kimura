@@ -181,5 +181,18 @@ console.log('── ⑧ 表示も枠から（段階2d）──');
   ck('一覧に slotInfo（名前・選択肢を組み立てない軽い読み出し）', typeof R.slotInfo === 'function' && J(R.slotInfo().map(x => x && x.store)) === J(['tb', 'cat', 'pos', 'tags']));
 }
 
+console.log('── ⑨ 整理の表・カスタムリストの表も枠から（段階3c）──');
+{
+  const org = code['js/organize.js'] || fs.readFileSync(path.join(ROOT, 'js/organize.js'), 'utf8');
+  // 列キー tb/action/position/technique は「タグ1〜4の枠」。保存済みの列の並び・表示・幅を読めるよう、列キーは変えない
+  ck('タグの列は枠のグループを読む（_orgSlotGroup）', /const g = R\.slots\(\)\[k\]/.test(org) && /_ORG_SLOT_COL = \{ tb:0, action:1, position:2, technique:3 \}/.test(org));
+  ck('タグの列の中身・並べ替え・その場の編集で v.tb / v.cat / v.pos / v.tags を直接読まない',
+    !/mkTagCell\(v\.(tb|cat|pos|tags)/.test(org) && !/orgSortCol === '(tb|action|position|technique)'/.test(org) && !/v\[field\]/.test(org.slice(org.indexOf('function _openTagPicker'), org.indexOf('function _openMemoEditor'))));
+  ck('その場の編集の書き込みは wkSetTagValue（動画パネルと同じ入口）', /window\.wkSetTagValue\(v, g\.id, val, on\)/.test(org) && !/tb:\s*\{ field: 'tb'/.test(org));
+  ck('列の絞り込みの呼び名は tag-filter.js が決める', /window\.tagFilter\.keyFor\(g\.id, 'org'\)/.test(org) && !/tb:\s*\{ filterKey: 'tb'/.test(org));
+  ck('表示の判定は1つの関数（3か所に同じ判定を書かない）', (org.match(/_orgTagColShown\(col\)/g) || []).length >= 3 && !/_tsVis[23]?\('tb'\)/.test(org));
+  ck('タグの値はエスケープして描く', !/org-tag-chip">\$\{t\}/.test(org));
+}
+
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');
 process.exit(fail ? 1 : 0);
