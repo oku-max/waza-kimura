@@ -283,6 +283,22 @@ SRTの `HH:MM:SS,mmm` ではない／構造化出力(responseSchema)で形を強
 - `bm-note-check` … ブックマークの説明が既定で閉じ、題名の横の ⌄ で開閉できること／見出しの1つのボタンで全部を開閉できること／説明の文字の指定がPCでも効いていること／開閉の状態を動画のデータに書かないこと
 - `sr-sort-check` … YouTube検索で並べ替えた後、押した動画が開き・＋で押した動画が追加されること（番号で引くのは表示順の `_srView` だけ）／日付の↓が新しい順であること
 
+## タグの仕組み（2026-09-27・段階0〜6）
+どこに何があるか。新しくタグを読む・書く・出す場所を足すときは、必ずここにある入口を使う。
+- **タググループの一覧** `js/tag-registry.js`（`window.tagRegistry`・localStorage `wk_tagRegistry`・Firestore `users/{uid}/data/tagRegistry`）。
+  グループは `{id, store, search, def, name?, opts?}`。`store` は `tb|cat|pos|tags`（今の4つ。名前と選択肢は tagSettings が持つ・一覧に複製しない）、
+  `map`（新しいグループ。値は `v.tg[ID]`）、`mark`（`v.fav/next/drill`）、`status`（`v.status`）。
+  `slots` がタグ1〜4の枠。画面は枠から作る（見出しはグループの名前）。
+- **動画から読む**: `tagRegistry.valuesOf(v, gid)`（1グループ）・`allTagValues(v)`（全部）・`searchTagText(v)`（検索の対象だけ）。
+  `v.tb` 等を画面側で直接読まない。動画の項目名は `v.tb/v.cat/v.pos/v.tags`（`tbNew/posNew` は絞り込みの呼び名で、動画には無い）。
+- **動画へ1値書く**: `wkSetTagValue(v, gid, val, on)`（`js/vpanel-v4.js`）。動画パネル・まとめて編集・整理の表・ウィザードが通る。
+  新しく打った値（どの動画にも無い）は選択肢にも足す。マーク・習得は今のボタンと同じ関数を呼ぶ。
+- **たくさんの動画をまとめて書く**: `js/tag-ops.js` の `wkTagOps.run` だけ（下の節）。
+- **絞り込みの呼び名**: `js/tag-filter.js`（`window.tagFilter`）。ライブラリ・整理の表・カスタムリストの条件・URL の読み替えはここだけ。
+- **設定の画面**: `js/tag-settings-ui.js`（`#tag-display-settings`）。選択肢の足し引き・名前・枠は動画に触らない。動画に触るボタンは tag-ops.js を呼ぶ。
+- **表示の境目**: 選択肢が `CHIP_MAX`（8）個までなら並べて押す、それより多ければプルダウン（tag-registry.js の1か所）。
+- 初期値の名前（タグ1〜4）は英語表示で Tag 1〜4 と出す（`tagLabel`。表示だけ・保存しない）。
+
 ### 動画のタグをまとめて変える操作は js/tag-ops.js だけを通す（段階4・v52.866）
 選択肢の削除（動画からも外す）・名前を変える／まとめる・選択肢に無い値を外す・ほかのグループから寄せる・タグリセットは、
 **たくさんの動画のタグを一度に変える**。1つずつ書くと、どれかだけ確かめ・控え・取り消しが抜ける

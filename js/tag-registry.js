@@ -5,7 +5,7 @@
 //   store:'tb'|'cat'|'pos'|'tags' … v.tb / v.cat / v.pos / v.tags。名前と選択肢は tagSettings から読む
 //   store:'mark'                  … v.fav / v.next / v.drill（★とNextの連動は今のボタンの処理が持つ）
 //   store:'status'                … v.status（1本に1つ。値は STATUS_CANON）
-//   store:'map'                   … v.tg[グループid]（新しいタググループ。段階4まで書く経路は無い）
+//   store:'map'                   … v.tg[グループid]（新しいタググループ。書くのは wkSetTagValue と js/tag-ops.js だけ）
 //
 // 同じものを2か所に持たない: 今の4つの名前と選択肢は、ここには保存しない（tagSettings が正）。
 // ここに保存するのは「どの枠に何が入っているか」「検索の対象か」と、

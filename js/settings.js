@@ -25,7 +25,13 @@ export function tagGroups() {
 export function tagLabel(key) {
   const t = tagSettings.find(x => x.key === key);
   const l = t && t.label != null ? String(t.label).trim() : '';
-  return l || _TAG_FALLBACK[key] || String(key);
+  const out = l || _TAG_FALLBACK[key] || String(key);
+  // まだ自分で名前を決めていない初期値（「タグ1」〜「タグ4」）だけは、英語表示で Tag 1〜4 と出す（段階6）。
+  // グループ名はユーザーのものなので画面の自動翻訳は掛からない（data-user-text）。初期値のときだけここで言い換える。
+  // 表示だけ。保存している名前は変えない
+  const m = /^タグ([1-4])$/.exec(out);
+  if (m && window.WK_LANG && window.WK_LANG() === 'en') return 'Tag ' + m[1];
+  return out;
 }
 
 // 狭い場所（サイドバーのタブ等）用。正式名は title 属性で出す前提で切り詰める。

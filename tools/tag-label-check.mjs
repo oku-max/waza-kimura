@@ -126,5 +126,14 @@ fs.existsSync(path.join(ROOT, 'alias-builder.html'))
   ? ok('i18n がユーザーの付けた名前を翻訳対象から外している')
   : fail('i18n の除外条件に [data-user-text] が無い（改名した名前が訳される）');
 
+// 段階6: まだ自分で決めていない初期値（タグ1〜タグ4）だけは英語表示で Tag 1〜4。ユーザーが付けた名前は触らない・保存はしない
+{
+  const st = fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8');
+  const fn = (st.match(/export function tagLabel\(key\) \{[\s\S]*?\n\}/) || [''])[0];
+  /\/\^タグ\(\[1-4\]\)\$\/\.exec\(out\)/.test(fn) && /return 'Tag ' \+ m\[1\]/.test(fn) && !/t\.label\s*=/.test(fn)
+    ? ok('初期値の名前（タグ1〜4）だけ英語表示で Tag 1〜4 と出す（完全一致だけ・保存しない）')
+    : fail('tagLabel の英語の初期名の扱いが変わっている（ユーザーの名前を言い換えていないか・保存していないか）');
+}
+
 console.log(ng === 0 ? '\n✅ タググループ名まわり: 問題なし' : `\n❌ 失敗 ${ng} 件`);
 process.exit(ng === 0 ? 0 : 1);
