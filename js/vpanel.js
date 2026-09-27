@@ -802,6 +802,47 @@ function _getBookmarks(id) {
   return v.bookmarks || [];
 }
 
+// ── ブックマークの説明（note）の開閉 ──
+// 説明は既定で閉じ、題名の横の ⌄ で開く。見出しの1つのボタンで全部を開く／閉じる。
+// 開いているかどうかは画面の中だけで持つ（保存しない。動画のデータには書かない）。
+// 行の番号は並べ替え・削除でずれるので、時刻と題名で見分ける。
+function _bmNoteKey(bm) { return `${bm.time}|${bm.label || ''}`; }
+function _bmNoteOpenSet(id) {
+  const all = (window._vpBmNoteOpen ||= {});
+  return (all[id] ||= new Set());
+}
+// 見出しのボタン: 閉じている説明が1つでもあれば「全部表示」、全部開いていれば「全部隠す」。
+// 説明のあるブックマークが無ければ出さない。
+function _bmNoteAllState(id) {
+  const withNote = _getBookmarks(id).filter(b => b.note);
+  const open = _bmNoteOpenSet(id);
+  return { any: withNote.length > 0, allOpen: withNote.length > 0 && withNote.every(b => open.has(_bmNoteKey(b))) };
+}
+function _bmNoteAllBtnHTML(id) {
+  const st = _bmNoteAllState(id);
+  return `<button data-bm-alltog="${id}" onclick="vpBmNoteAll('${id}')" ${st.any ? '' : 'hidden'}
+    style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">${st.allOpen ? '説明を全部隠す' : '説明を全部表示'}</button>`;
+}
+function _bmNoteAllSync(id) {
+  const st = _bmNoteAllState(id);
+  document.querySelectorAll(`[data-bm-alltog="${id}"]`).forEach(b => {
+    b.hidden = !st.any;
+    b.textContent = st.allOpen ? '説明を全部隠す' : '説明を全部表示';
+  });
+}
+window.vpBmNoteToggle = function(id, i) {
+  const bm = _getBookmarks(id)[i]; if (!bm) return;
+  const set = _bmNoteOpenSet(id), k = _bmNoteKey(bm);
+  set.has(k) ? set.delete(k) : set.add(k);
+  _refreshBmList(id);
+};
+window.vpBmNoteAll = function(id) {
+  const set = _bmNoteOpenSet(id);
+  if (_bmNoteAllState(id).allOpen) set.clear();
+  else _getBookmarks(id).forEach(b => { if (b.note) set.add(_bmNoteKey(b)); });
+  _refreshBmList(id);
+};
+
 function _bookmarkListHTML(id) {
   const bms = _getBookmarks(id);
   if (!bms.length) return '<div style="font-size:11px;color:var(--text3);padding:4px 0">まだブックマークがありません</div>';
@@ -812,6 +853,7 @@ function _bookmarkListHTML(id) {
       ? `${_formatTime(bm.time)} → ${_formatTime(bm.endTime)}`
       : _formatTime(bm.time);
     const isExpanded = window._vpBmExpanded?.[id] === i;
+    const noteOpen = _bmNoteOpenSet(id).has(_bmNoteKey(bm));
 
     // ±ボタン（field付き）
     const fineButtons = (field) => [-10,-5,-3,-1,1,3,5,10].map(d =>
@@ -906,10 +948,12 @@ function _bookmarkListHTML(id) {
     return `<div data-bm-idx="${i}" style="${rowStyle}">
       <div style="display:flex;align-items:center;gap:5px">
         <button onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})" style="flex-shrink:0;padding:2px 8px;border-radius:5px;border:1.5px solid ${hasEnd ? 'var(--accent)' : 'var(--accent)'};background:${hasEnd ? 'var(--surface)' : 'transparent'};color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap" title="${hasEnd ? 'AB再生開始' : 'ここから再生'}">${timeLabel}</button>
-        <span style="flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
+        <span style="flex:0 1 auto;min-width:0;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="vpBmTimeClick('${id}',${i},${bm.time}${hasEnd ? ',' + bm.endTime : ''})">${bm.label || '（ラベルなし）'}</span>
+        ${bm.note && !isExpanded ? `<button class="vp-bm-note-tog${noteOpen ? ' open' : ''}" onclick="event.stopPropagation();vpBmNoteToggle('${id}',${i})" title="${noteOpen ? '説明を隠す' : '説明を表示'}">⌄</button>` : ''}
+        <span style="flex:1"></span>
         <button onclick="${isExpanded ? `vpBmSave('${id}',${i})` : `vpBmToggleEdit('${id}',${i})`}" style="padding:2px 7px;border-radius:5px;border:1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'};background:${isExpanded ? 'var(--accent)' : 'transparent'};color:${isExpanded ? '#fff' : 'var(--text3)'};font-size:9px;font-weight:${isExpanded ? '600' : 'normal'};cursor:pointer;font-family:inherit">${isExpanded ? '✔ 保存' : '編集'}</button>
       </div>
-      ${bm.note && !isExpanded ? `<div class="vp-bm-note" title="押すと全文" onclick="event.stopPropagation();this.classList.toggle('open')">💬 ${_vpEsc(bm.note)}</div>` : ''}
+      ${bm.note && !isExpanded && noteOpen ? `<div class="vp-bm-note">${_vpEsc(bm.note)}</div>` : ''}
       ${editorHTML}
     </div>`;
   }).join('');
@@ -990,6 +1034,7 @@ function _bookmarkSectionHTML(id) {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;margin-bottom:4px;flex-wrap:wrap">
         <span class="vp-lbl" style="margin-bottom:0">🔖 ブックマーク</span>
         <span style="display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end">
+          ${_bmNoteAllBtnHTML(id)}
           ${chapBtn}
           <button onclick="${bmBtnOnclick}" id="vp-bm-add-btn-${id}" style="${bmBtnStyle}">${bmBtnLabel}</button>
         </span>
@@ -1215,6 +1260,7 @@ function _refreshBmList(id, flashIdx) {
     const _scrollWrap = document.getElementById('vpanel-edit-wrap');
     const _savedScroll = _scrollWrap ? _scrollWrap.scrollTop : 0;
     el.innerHTML = _bookmarkListHTML(id);
+    _bmNoteAllSync(id);
     if (_scrollWrap && flashIdx == null) _scrollWrap.scrollTop = _savedScroll;
     // スライダーのmax値（長さが分かったら反映。分からなければ描画時の余裕値のまま）
     const dur = _getDurationSec(id);
@@ -1768,11 +1814,6 @@ function _ensureBottomSheet() {
 #vp-bs-list .bs-item{display:flex;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-top:1px solid var(--border2);transition:background .12s}
 #vp-bs-list .bs-item:hover{background:var(--surface2)}
 #vp-bs-list .bs-item.now{background:var(--gold-soft);border-left:3px solid var(--accent)}
-/* ブックマークのコメント。1行で切り捨てていて全文を読む手段が無かった。
-   既定は2行までにして、押したら全文を出す（もう一度押すと畳む）。 */
-.vp-bm-note{font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;line-height:1.5;
-  cursor:pointer;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
-.vp-bm-note.open{-webkit-line-clamp:unset;display:block;}
 #vp-bs-list .bs-thumb{width:56px;height:32px;border-radius:4px;overflow:hidden;flex-shrink:0;background:var(--surface3)}
 #vp-bs-list .bs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 #vp-bs-list .bs-info{flex:1;min-width:0}
