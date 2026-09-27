@@ -294,7 +294,7 @@
     // r.warn … 選択中なのに「どの動画にも無い」「選択肢に無い」値の印（タグ列だけが付ける）
     // 値は data 属性で渡す（' を含む名前で onclick の文字列が壊れていた）
     const _mkRow = r =>
-      `<div class="uni-row${r.sel ? ' on' : ''}" data-k="${_esc(opts.filterKey)}" data-n="${_esc(r.name)}" onclick="uniToggleEl(this)">` +
+      `<div class="uni-row${r.sel ? ' on' : ''}" data-k="${_esc(opts.rowKeys && r.key ? r.key : opts.filterKey)}" data-n="${_esc(r.name)}" onclick="uniToggleEl(this)">` +
       `<span>${_esc(r.name)}</span>` +
       (r.warn ? `<span class="uni-warn" style="font-size:10px;color:#d97706;margin-left:6px;margin-right:auto;white-space:nowrap">⚠ ${_esc(r.warn)}</span>` : '') +
       `<span class="uni-cnt">${r.cnt}</span></div>`;
@@ -492,7 +492,7 @@
     // タグのタブは、枠に出すグループが1つでもあれば出す（新しいタググループだけでも出す）
     const _R0 = window.tagRegistry;
     const _tagTabVisible = _R0
-      ? _R0.slots().some(g => g && (g.store === 'map' || (['tb', 'cat', 'pos', 'tags'].includes(g.store) && _tsTabVis(g.store))))
+      ? _R0.slots().some(g => g && (['map', 'mark', 'status'].includes(g.store) || (['tb', 'cat', 'pos', 'tags'].includes(g.store) && _tsTabVis(g.store))))
       : (_tsTabVis('tb') || _tsTabVis('cat') || _tsTabVis('pos') || _tsTabVis('tags'));
     const _visibleMain = MAIN.filter(m => m.k !== 'tag' || _tagTabVisible);
     tabsEl.innerHTML = _visibleMain.map(m =>
@@ -770,8 +770,19 @@
       const _FIELDS = ['tb', 'cat', 'pos', 'tags'];
       const _tsV = key => { const ts = window.tagSettings || []; const s = ts.find(t => t.key === key); return s ? s.visible !== false : true; };
       const _R = window.tagRegistry;
-      const _gs = (_R ? _R.slots() : []).filter(g => g && (_FIELDS.includes(g.store) || g.store === 'map'))
-        .filter(g => g.store === 'map' || _tsV(g.store));
+      const _gs = (_R ? _R.slots() : []).filter(g => g && (_FIELDS.includes(g.store) || ['map', 'mark', 'status'].includes(g.store)))
+        .filter(g => !_FIELDS.includes(g.store) || _tsV(g.store));
+      // マーク・習得の列（段階5）: 絞り込みは今までと同じ仕組み（★/Next/ドリル＝@fav/@next/@drill、習得＝status）
+      const _markCol = g => {
+        const on = { fav: isOrg ? window.orgFavOnly : window.favOnly, next: isOrg ? window.orgNextOnly : window.nextOnly, drill: isOrg ? window.orgDrillOnly : window.drillOnly };
+        const items = ['fav', 'next', 'drill'].map(k => ({ name: _R.optionLabel(g, k), key: '@' + k, cnt: _ctxVideos(k).filter(v => v[k]).length, sel: !!on[k] }));
+        return _colHtml(_esc(g.name), 'mark', items, { rowKeys: true, sortable: false, userText: true });
+      };
+      const _statusCol = g => {
+        const sCtx = _ctxVideos('status'), fs = (isOrg ? window.orgFilters : window.filters) || {};
+        const items = (window.STATUS_CANON || []).map(s => ({ name: s, cnt: sCtx.filter(v => window.normStatus(v.status) === s).length, sel: !!fs.status?.has(s) }));
+        return _colHtml(_esc(g.name), 'status', items, { filterKey: 'status', sortable: false, userText: true });
+      };
       const _mkItems = (g, src, ctx) => {
         const sel = _TF().selected(f, g.id, _sch());   // どの呼び名で入っていても選択として見せる
         const names = src.slice();
@@ -785,6 +796,8 @@
         });
       };
       const tagCols = _gs.map(g => {
+        if (g.store === 'mark') return _markCol(g);
+        if (g.store === 'status') return _statusCol(g);
         const listKey = _FIELDS.includes(g.store) ? g.store : g.id;   // 並べ替えの記憶（今の4つは今までどおり）
         const src = g.store === 'tags'
           ? [...new Set(_allVids.filter(v => !v.archived).flatMap(v => _TF().valuesOf(v, g.id)))].filter(Boolean).sort()

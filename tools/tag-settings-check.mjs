@@ -12,7 +12,7 @@
 //     ・使う場所を変えると入れ替わる（2つのグループが同じ枠に入らない）
 //     ・名前・選択肢の追加・削除・「選択肢に無いタグ」を選択肢に入れる・検索の対象・
 //       ほかからコピー・初期値に戻す・空いた枠に入れる・新しく作る・非表示の再表示
-//     ・マーク／習得は使う場所を選べず、選択肢は固定
+//     ・マーク／習得は使う場所を選べる（段階5）が、選択肢は固定
 //     ・★ どの操作も**動画のデータを変えない**（選択肢から外しても、動画のタグは残る）
 //     ・旧画面（モーダル・テンプレート・一括削除）が戻っていない
 import http from 'http'; import fs from 'fs'; import path from 'path';
@@ -159,8 +159,8 @@ await expand('f_pos'); await click('[data-act="show"]'); await tick();
 ck('非表示のグループは「非表示中」と出て、「表示する」で戻る', /非表示中|hidden/i.test(badge) && await ev(() => window.tagSettings.find(t => t.key === 'pos').visible === true), badge);
 await expand('mark');
 const mk = await ev(q => ({ disabled: document.getElementById('ts-slot-mark')?.disabled, x: document.querySelectorAll(q + '[data-act="rmopt"][data-gid="mark"]').length,
-  add: !!document.getElementById('ts-add-mark') }), Q);
-ck('マーク: 使う場所は選べず、選択肢は固定（× も追加欄も無い）', mk.disabled === true && mk.x === 0 && !mk.add, mk);
+  add: !!document.getElementById('ts-add-mark'), edit: document.querySelectorAll(q + '[data-act="edit"][data-gid="mark"]').length }), Q);
+ck('マーク: 使う場所は選べる（段階5）・選択肢は固定（× も追加欄も名前の変更も無い）', mk.disabled === false && mk.x === 0 && !mk.add && !mk.edit, mk);
 
 console.log('\n── データ ──');
 ck('★★ ここまでの操作で動画のデータは1文字も変わっていない', await ev(() => JSON.stringify(window.videos) === window.__vsnap));

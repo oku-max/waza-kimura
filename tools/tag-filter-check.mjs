@@ -216,11 +216,21 @@ console.log('── ⑪ 残りの場所（段階3c-3）──');
   const edit = notes.slice(notes.indexOf('window._notesVlEdit'), notes.indexOf('window._notesVlSaveFilter'));
   ck('★ ノートの動画リストを編集で開くとき、新しいグループの条件も渡す（渡さないと保存で消える）', /snap\[g\.id\] = \[\.\.\._TF\.selected\(f, g\.id, 'lib'\)\]/.test(edit));
   ck('ノートの動画リストの条件の要約に、新しいグループの条件も出す', /_vlSummary[\s\S]{0,900}g\.store === 'map'/.test(notes));
-  ck('統合フィルターのタグのタブは、枠に新しいグループだけでも出る', /_R0\.slots\(\)\.some\(g => g && \(g\.store === 'map'/.test(uf));
+  ck('統合フィルターのタグのタブは、枠に新しいグループ（段階5 からマーク・習得も）だけでも出る', /_R0\.slots\(\)\.some\(g => g && \(\['map', 'mark', 'status'\]\.includes\(g\.store\)/.test(uf));
   ck('Journal の候補・動画パネルの検索メニューは allTagValues（新しいグループも入る）',
     /tagRegistry\.allTagValues\(v\)/.test(rd('js/murmurs.js')) && /tagRegistry\.allTagValues\(v\)/.test(rd('js/vpanel.js')) && typeof R.allTagValues === 'function');
   const A = { id: 'x', tb: ['T'], tags: ['K', 'T'], tg: { zz: ['M'] } };
   ck('allTagValues は重複を1つにし、マーク・習得を含めない', J(R.allTagValues(Object.assign({ fav: true, status: '理解' }, A))) === J(['T', 'K']));
+}
+
+console.log('── ⑫ マーク・習得も枠に入れられる（段階5）──');
+{
+  const rd = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const vp = rd('js/vpanel-v4.js'), uf = rd('js/unified-filter.js');
+  ck('★ 動画パネルのマークは、今の ★/Next/ドリル のボタンと同じ処理を呼ぶ（連動を保つ）', /\{ fav: 'qFav', next: 'qNext', drill: 'qDrill' \}\[val\]/.test(vp));
+  ck('習得は今の習得のボタンと同じ処理（1本に1つ・外す操作は無い）', /if \(on && v\.status !== val\) \{ if \(window\.vpSetStatus\) window\.vpSetStatus\(v\.id, val\)/.test(vp));
+  ck('絞り込みの列は今までと同じ仕組み（@fav/@next/@drill・status）で絞る', /key: '@' \+ k/.test(uf) && /filterKey: 'status'/.test(uf));
+  ck('マーク・習得は、名前の変更・削除・まとめる の対象にしない（tag-ops.js）', /const _editable = g => !!g && \(FIELDS\.includes\(g\.store\) \|\| g\.store === 'map'\)/.test(rd('js/tag-ops.js')));
 }
 
 console.log(fail ? `\n✗ 問題 ${fail}件` : '\n✓ タグの絞り込みの読み替え: 問題なし');

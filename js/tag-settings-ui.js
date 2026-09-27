@@ -86,9 +86,9 @@
     return h;
   }
 
-  // 空いている枠: 入れるグループを選ぶ（マーク・習得は段階3cから）
+  // 空いている枠: 入れるグループを選ぶ（段階5 からマーク・習得も入れられる）
   function _slotPicker(k, all) {
-    const cands = all.filter(g => g.slot < 0 && !_fixed(g));
+    const cands = all.filter(g => g.slot < 0);
     let h = `<div class="ts-p">${_t('タグ' + (k + 1) + 'に使うタググループを選んでください。')}</div><div class="ts-chips">`;
     cands.forEach(g => { h += `<button class="ts-chip" data-act="fillslot" data-gid="${_esc(g.id)}" data-k="${k}" data-user-text="1">${_esc(g.name)}</button>`; });
     h += `<button class="ts-chip ts-gold" data-act="newgroup" data-k="${k}">${_t('＋ 新しく作る')}</button></div>`;
@@ -102,10 +102,7 @@
     h += `<div class="ts-two"><div><label class="ts-lbl" for="ts-name-${_esc(g.id)}">${_t('タググループ名')}</label>`
       + `<input id="ts-name-${_esc(g.id)}" class="ts-inp" value="${_esc(g.name)}" data-user-text="1" data-chg="rename" data-gid="${_esc(g.id)}"${ro ? ' disabled' : ''}></div>`;
     h += `<div><label class="ts-lbl" for="ts-slot-${_esc(g.id)}">${_t('使う場所')}</label>`;
-    if (_fixed(g)) {
-      h += `<select id="ts-slot-${_esc(g.id)}" class="ts-sel" disabled><option>${_t('未使用')}</option></select>`
-        + `<div class="ts-hint">${_t('タグ1〜4に入れられるのは、次の更新からです。')}</div>`;
-    } else {
+    {
       h += `<select id="ts-slot-${_esc(g.id)}" class="ts-sel" data-chg="slot" data-gid="${_esc(g.id)}"${ro ? ' disabled' : ''}>`
         + `<option value="-1"${k < 0 ? ' selected' : ''}>${_t('未使用')}</option>`;
       // 入れ替え相手の名前はユーザーのもの。訳させないよう、この行は画面側で言語に合わせて組み立てる

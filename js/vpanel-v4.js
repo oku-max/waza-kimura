@@ -23,22 +23,33 @@
   const FIELDS = ['tb', 'cat', 'pos', 'tags'];
   const _R = () => window.tagRegistry;
   const _ON_CLS = { tb: 'on-tb', cat: 'on-cat', pos: 'on-pos', tags: 'on-tags' };
-  const _onCls = g => _ON_CLS[g.store] || 'on-tags';
+  const _ST_CLS = { '未着手': 'on-s0', '理解': 'on-s1', '練習中': 'on-s2', 'マスター': 'on-s3' };
+  const _onCls = (g, val) => g.store === 'status' ? (_ST_CLS[val] || 'on-s0') : (_ON_CLS[g.store] || 'on-tags');
   const _allowNew = g => g.store === 'tags';
   // 値の表示（組み込みの値だけ英語表示で訳す。データは日本語のまま）
-  const _lbl = (g, v) => g.store === 'tb' ? _lTb(v) : g.store === 'cat' ? _lCat(v) : g.store === 'pos' ? _lPos(v) : String(v);
+  const _lbl = (g, v) => g.store === 'tb' ? _lTb(v) : g.store === 'cat' ? _lCat(v) : g.store === 'pos' ? _lPos(v) : g.store === 'mark' ? _R().optionLabel(g, v) : String(v);
 
-  // 枠に入っているグループ（マーク・習得は今までどおり別のボタンで扱う。段階5で合わせる）
+  // 枠に入っているグループ（段階5: マーク・習得も。押したときは今の★・習得のボタンと同じ処理を呼ぶ）
   function _slotGroups() {
     const R = _R();
     if (!R) return [];
-    return R.slots().filter(g => g && (FIELDS.includes(g.store) || g.store === 'map'))
+    return R.slots().filter(g => g && (FIELDS.includes(g.store) || g.store === 'map' || g.store === 'mark' || g.store === 'status'))
       .filter(g => !FIELDS.includes(g.store) || _tagVis(g.store));
   }
   function _group(gid) { return _R()?.group(gid) || null; }
   function _vals(v, g) { return _R().valuesOf(v, g.id); }
   // 動画にそのグループの値を1つ付ける／外す（そのグループの配列だけを触る。ほかは触らない）
   function _setVal(v, g, val, on) {
+    // マーク: 今の ★ / Next / ドリル のボタンと同じ処理を呼ぶ（★を外すと Next も外れる・Next を付けると★も付く、を保つ）
+    if (g.store === 'mark') {
+      if (!!v[val] !== on) { const fn = { fav: 'qFav', next: 'qNext', drill: 'qDrill' }[val]; if (fn && window[fn]) window[fn](v.id); }
+      return;
+    }
+    // 習得: 1本に1つ。今の習得のボタンと同じ処理（外す操作は無い。別の段階を選ぶと入れ替わる）
+    if (g.store === 'status') {
+      if (on && v.status !== val) { if (window.vpSetStatus) window.vpSetStatus(v.id, val); else v.status = val; }
+      return;
+    }
     let arr;
     if (FIELDS.includes(g.store)) {
       // 書くのは v.tb / v.cat / v.pos / v.tags（ほかの画面・検索・ウィザードが読む名前）
@@ -95,7 +106,7 @@
       const shown = g.options.concat(vals.filter(x => !g.options.includes(x)));
       inner = shown.map(t => {
         const on = vals.includes(t);
-        return `<span class="vp-chip${on ? ' ' + cls : ''}" style="cursor:pointer" ${_dAttr(id, g, t)} onclick="vpV4Chip(this)">${_esc(_lbl(g, t))}</span>`;
+        return `<span class="vp-chip${on ? ' ' + _onCls(g, t) : ''}" style="cursor:pointer" ${_dAttr(id, g, t)} onclick="vpV4Chip(this)">${_esc(_lbl(g, t))}</span>`;
       }).join('');
       if (_allowNew(g)) inner += _ddHTML(id, g);
     } else {
