@@ -13,6 +13,7 @@
 //     ・名前・選択肢の追加・削除・「選択肢に無いタグ」を選択肢に入れる・検索の対象・
 //       ほかからコピー・初期値に戻す・空いた枠に入れる・新しく作る・非表示の再表示
 //     ・マーク／習得は使う場所を選べる（段階5）が、選択肢は固定
+//     ・行の左の ⠿ をドラッグしてタグ1〜4を並べ替えられる
 //     ・★ どの操作も**動画のデータを変えない**（選択肢から外しても、動画のタグは残る）
 //     ・旧画面（モーダル・テンプレート・一括削除）が戻っていない
 import http from 'http'; import fs from 'fs'; import path from 'path';
@@ -161,6 +162,25 @@ await expand('mark');
 const mk = await ev(q => ({ disabled: document.getElementById('ts-slot-mark')?.disabled, x: document.querySelectorAll(q + '[data-act="rmopt"][data-gid="mark"]').length,
   add: !!document.getElementById('ts-add-mark'), edit: document.querySelectorAll(q + '[data-act="edit"][data-gid="mark"]').length }), Q);
 ck('マーク: 使う場所は選べる（段階5）・選択肢は固定（× も追加欄も名前の変更も無い）', mk.disabled === false && mk.x === 0 && !mk.add && !mk.edit, mk);
+
+console.log('\n── ドラッグで並べ替え（タグ1〜4の行）──');
+{
+  await ev(() => { document.querySelectorAll('#tag-display-settings [data-act="exp"]').forEach(() => {}); window.renderTagShelf(); });
+  const before = await slots();
+  const gb = await pg.locator(Q + '[data-grip="0"]').boundingBox();
+  const rb = await pg.locator(Q + '.ts-slot[data-k="2"]').boundingBox();
+  ck('行の左につかむ所（⠿）がある（4行とも）', await ev(q => document.querySelectorAll(q + '.ts-slot [data-grip]').length, Q) === 4);
+  if (gb && rb) {
+    const x = gb.x + gb.width / 2, y0 = gb.y + gb.height / 2, y1 = rb.y + rb.height / 2;
+    await pg.mouse.move(x, y0); await pg.mouse.down();
+    for (let i = 1; i <= 10; i++) { await pg.mouse.move(x, y0 + (y1 - y0) * i / 10); await pg.waitForTimeout(15); }
+    await pg.mouse.up(); await tick(300);
+  }
+  const after = await slots();
+  const want = before.slice(); const [m] = want.splice(0, 1); want.splice(2, 0, m);
+  ck('★ タグ1の行をタグ3の位置へドラッグすると、その順番になる（間の行が1つずつ上がる）', JSON.stringify(after) === JSON.stringify(want), { before, after });
+  ck('並びは一覧に保存される（端末の控え）', await ev(w => JSON.stringify(JSON.parse(localStorage.getItem('wk_tagRegistry')).slots) === w, JSON.stringify(want)));
+}
 
 console.log('\n── データ ──');
 ck('★★ ここまでの操作で動画のデータは1文字も変わっていない', await ev(() => JSON.stringify(window.videos) === window.__vsnap));

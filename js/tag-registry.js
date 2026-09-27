@@ -203,6 +203,18 @@
     return _commit();
   }
 
+  // 枠の並びを変える（ドラッグで並べ替え）。from の枠の中身を to の位置へ動かし、間の枠を1つずつずらす。
+  // 空いた枠も一緒に動く。どのグループが使用中かは変わらない（未使用のものは未使用のまま）
+  function moveSlot(from, to) {
+    if (!_editable()) return false;
+    if (![from, to].every(k => Number.isInteger(k) && k >= 0 && k <= 3) || from === to) return false;
+    const b = _reg.slots.slice();
+    const [x] = b.splice(from, 1);
+    b.splice(to, 0, x);
+    _reg.slots = b;
+    return _commit();
+  }
+
   // 使う場所を変える。k = 0〜3（タグ1〜4）、-1 = 未使用。
   // 入れた枠に別のグループがいたら、入れ替える（元の枠へ。元が未使用なら、そちらが未使用になる）。
   function setSlot(id, k) {
@@ -364,7 +376,7 @@
     groups, group, slots, slotInfo, valuesOf, allTagValues, optionLabel, searchIds, searchText, searchTagText, raw,
     strayFieldOf, readField,
     CHIP_MAX, displayMode, DEFAULTS, defaultName: store => { const d = DEFAULT_NAMES[store] || DEFAULTS[store]; return d ? (_en() ? d.en : d.ja) : ''; },
-    setSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
+    setSlot, moveSlot, setSearch, setName, addOption, removeOption, createGroup, isReadOnly, reconcile, applyRemote, pref, setPref,
     _valid, _fresh, LS_KEY,
   };
 })();

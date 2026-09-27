@@ -50,14 +50,18 @@
     const last = window.wkTagOps && window.wkTagOps.lastUndo();
     if (last && !ro) h += `<div class="ts-warn">${_t('直前の操作:')} <span data-user-text="1">${_esc(last.title)}</span> <button class="ts-mini" data-act="undo">${_t('元に戻す')}</button></div>`;
     h += `<div class="ts-cap">${_t('使用中のタグ')}</div><div class="ts-card">`;
+    // 行の左のつかむ所（⠿）を押したまま上下に動かすと、タグ1〜4の順番を並べ替えられる（_bindDrag）
+    const grip = k => ro ? '' : `<span class="ts-grip" data-grip="${k}" title="${_t('ドラッグで並べ替え')}" aria-label="${_t('ドラッグで並べ替え')}">⠿</span>`;
     slots.forEach((g, k) => {
+      h += `<div class="ts-slot" data-k="${k}">`;
       if (!g) {
         const key = 'slot' + k, open = S.exp === key;
-        h += `<button class="ts-row" data-act="exp" data-key="${key}"><span class="ts-num off">${_t('タグ' + (k + 1))}</span><span class="ts-unset">${_t('未設定')}</span><span class="ts-car">${open ? '▲' : '▼'}</span></button>`;
+        h += `<div class="ts-slotrow">${grip(k)}<button class="ts-row" data-act="exp" data-key="${key}"><span class="ts-num off">${_t('タグ' + (k + 1))}</span><span class="ts-unset">${_t('未設定')}</span><span class="ts-car">${open ? '▲' : '▼'}</span></button></div>`;
         if (open) h += `<div class="ts-panel">${_slotPicker(k, all)}</div>`;
-        return;
+      } else {
+        h += _row(g, k, all, grip(k));
       }
-      h += _row(g, k, all);
+      h += `</div>`;
     });
     h += `</div>`;
     const un = all.filter(g => g.slot < 0);
@@ -76,17 +80,17 @@
     el.innerHTML = h;
   }
 
-  function _row(g, k, all) {
+  function _row(g, k, all, grip) {
     const open = S.exp === g.id;
     const iss = _issues(g, all);
     const hidden = !_vis(g);
     const n = _fixed(g) ? g.options.length : g.options.length;
-    let h = `<button class="ts-row" data-act="exp" data-key="${_esc(g.id)}">`
+    let h = (grip ? `<div class="ts-slotrow">${grip}` : '') + `<button class="ts-row" data-act="exp" data-key="${_esc(g.id)}">`
       + (k >= 0 ? `<span class="ts-num">${_t('タグ' + (k + 1))}</span>` : `<span class="ts-num off">${_t('未使用')}</span>`)
       + `<span class="ts-name" data-user-text="1">${_esc(g.name)}</span>`
       + `<span class="ts-sub">${_t(n + '個')}${g.search ? '' : `<span>${_t('・検索の対象外')}</span>`}${hidden ? `<span>${_t('・非表示中')}</span>` : ''}</span>`
       + (iss.n ? `<span class="ts-badge">${_t('要確認 ' + iss.n)}</span>` : '')
-      + `<span class="ts-car">${open ? '▲' : '▼'}</span></button>`;
+      + `<span class="ts-car">${open ? '▲' : '▼'}</span></button>` + (grip ? `</div>` : '');
     if (open) h += `<div class="ts-panel">${_panel(g, k, all, iss)}</div>`;
     return h;
   }
@@ -301,10 +305,63 @@
     _after();
   }
 
+  // ── ドラッグで並べ替え（タグ1〜4の行）──
+  // 指でもマウスでも動くように pointer イベントで作る。つかむ所（⠿）だけが動かす入口で、
+  // 行そのものを押したときは今までどおり開閉する（スクロールや開閉と取り違えない）。
+  // 動かしている間は見た目だけ動かし、離したときに1回だけ一覧（moveSlot）へ書く。
+  function _bindDrag(el) {
+    let D = null;
+    el.addEventListener('pointerdown', e => {
+      const g = e.target.closest('[data-grip]');
+      if (!g || !el.contains(g) || R().isReadOnly()) return;
+      const box = g.closest('.ts-slot');
+      const items = [...el.querySelectorAll('.ts-slot')];
+      if (!box || items.length < 2) return;
+      e.preventDefault();
+      D = { from: +box.dataset.k, box, items, y0: e.clientY, to: +box.dataset.k,
+            rects: items.map(x => x.getBoundingClientRect()), id: e.pointerId };
+      try { g.setPointerCapture(e.pointerId); } catch (_) {}
+      box.classList.add('ts-dragging');
+    });
+    el.addEventListener('pointermove', e => {
+      if (!D || e.pointerId !== D.id) return;
+      e.preventDefault();
+      const dy = e.clientY - D.y0;
+      D.box.style.transform = `translateY(${dy}px)`;
+      const r = D.rects[D.from], mid = r.top + r.height / 2 + dy;
+      // いまの位置 = 自分以外で、真ん中が自分の真ん中と同じか上にある行の数（相手の真ん中まで来たら入れ替わる）
+      let to = 0;
+      D.rects.forEach((q, i) => { if (i !== D.from && q.top + q.height / 2 <= mid) to++; });
+      D.to = to;
+      // 間の行をずらして、入る場所を見せる
+      D.items.forEach((x, i) => {
+        if (i === D.from) return;
+        let s = 0;
+        if (D.from < to && i > D.from && i <= to) s = -r.height;
+        if (D.from > to && i >= to && i < D.from) s = r.height;
+        x.style.transform = s ? `translateY(${s}px)` : '';
+      });
+    });
+    const end = e => {
+      if (!D || e.pointerId !== D.id) return;
+      const { from, to, items, box } = D;
+      D = null;
+      items.forEach(x => { x.style.transform = ''; });
+      box.classList.remove('ts-dragging');
+      if (from === to) return;
+      if (S.exp && /^slot\d$/.test(S.exp)) S.exp = null;   // 空いた枠の番号で開いていたものは閉じる（番号がずれるため）
+      R().moveSlot(from, to);
+      _after();
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+
   // ── 入力のつなぎ（1回だけ。器ごとに1つ）──
   function _bind(el) {
     if (el.__tsBound) return;
     el.__tsBound = true;
+    _bindDrag(el);
     el.addEventListener('click', e => {
       const b = e.target.closest('[data-act]');
       if (!b || !el.contains(b) || b.disabled) return;
@@ -339,6 +396,12 @@
 #tag-display-settings .ts-cap{font-size:12px;color:var(--text3);margin:4px 2px 6px}
 #tag-display-settings .ts-capbtn{background:none;border:none;display:flex;width:100%;justify-content:space-between;padding:10px 2px 6px;font-family:inherit;cursor:pointer}
 #tag-display-settings .ts-card{border-top:1px solid var(--border2)}
+#tag-display-settings .ts-slot{position:relative;background:var(--surface);transition:transform .15s}
+#tag-display-settings .ts-slot.ts-dragging{transition:none;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.25);border-radius:8px}
+#tag-display-settings .ts-slotrow{display:flex;align-items:center}
+#tag-display-settings .ts-slotrow .ts-row{flex:1;min-width:0}
+#tag-display-settings .ts-grip{flex-shrink:0;align-self:stretch;display:flex;align-items:center;padding:0 10px 0 2px;color:var(--text3);font-size:18px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-bottom:1px solid var(--border2)}
+#tag-display-settings .ts-dragging .ts-grip{cursor:grabbing}
 #tag-display-settings .ts-row{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;border-bottom:1px solid var(--border2);padding:13px 0;text-align:left;cursor:pointer;font-family:inherit;color:var(--text)}
 #tag-display-settings .ts-num{font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;background:var(--accent);color:var(--on-accent);flex-shrink:0}
 #tag-display-settings .ts-num.off{background:var(--surface3);color:var(--text3)}
